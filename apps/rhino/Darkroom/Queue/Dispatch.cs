@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Schema;
 using System.Text.Json.Serialization;
+using Darkroom.Chain;
 using Darkroom.Output;
 using NodaTime.Text;
 using Rasm.Rhino;
@@ -110,7 +111,7 @@ internal sealed record QueueJob(int RhinoVersion, string Copy, QueueJob.Entry[] 
     internal IO<RenderBatch> Batch(RhinoDoc doc) =>
         from settings in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => IO.lift(scope.Settings.Duplicate))
         from entries in IO.lift(toSeq(Entries).Map(static (entry, index) => (Entry: entry, Index: index))
-            .Traverse(held => Planned(held.Entry, settings).MapFail(error => Error.New(string.Create(CultureInfo.InvariantCulture, $"render queue job entry {held.Index} is invalid"), error)))
+            .Traverse(held => Planned(held.Entry, settings).MapFail(error => new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"render queue job entry {held.Index}"), DarkroomReason.Invalid, error)))
             .As()
             .Bind(static entries => Callbacks.Unique(entries, static entry => entry.Key, nameof(QueueJob))))
         from batch in RenderBatch.Placed(doc, entries, overwrite: true)
@@ -119,7 +120,7 @@ internal sealed record QueueJob(int RhinoVersion, string Copy, QueueJob.Entry[] 
     private static Fin<QueueEntry<Unit>> Planned(Entry entry, RenderSettings settings) =>
         FrameSpan.Of(entry.Queued.Sun) switch {
             var frames => toSeq(entry.Outputs).Traverse(output =>
-                    from inside in guard((int)output.Frame < frames.Numbers.Count, Error.New(string.Create(CultureInfo.InvariantCulture, $"job frame {output.Frame} lies past the entry's {frames.Numbers.Count} frames"))).ToFin()
+                    from inside in guard<Error>((int)output.Frame < frames.Numbers.Count, new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"job frame {output.Frame} of {frames.Numbers.Count}"), DarkroomReason.Beyond)).ToFin()
                     select new QueueOutput<Unit>(output.Target, new OutputName(
                         toSeq(output.Scope),
                         Optional(output.Version).Match<OutputVersioning>(Some: static held => new OutputVersioning.Pinned(held), None: static () => new OutputVersioning.Unversioned()),
@@ -236,11 +237,11 @@ public static class Dispatch {
                 return response.StatusCode is HttpStatusCode.OK
                     ? Refused.UnlessFound(await response.Content.ReadFromJsonAsync(FlamencoContext.Default.FlamencoReceipt, environment.Token).ConfigureAwait(false), nameof(HttpContentJsonExtensions.ReadFromJsonAsync))
                         .Map(receipt => new Uri(farm.Manager, $"/jobs/{receipt.Id:D}"))
-                    : Error.New($"Flamenco refused render job with {response.StatusCode}");
+                    : new DarkroomFault($"Flamenco answering {response.StatusCode}", DarkroomReason.Refused);
             })
             from received in IO.lift(submitted)
             select received)
-            .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Uri>(Error.New($"render job post to {farm.Manager} failed", error)));
+            .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Uri>(new DarkroomFault($"render job post to {farm.Manager}", DarkroomReason.Failed, error)));
 
     // --- [PACKAGE]
     private static IO<HashMap<PackageFile, OutputPath>> Packed(RhinoDoc doc, QueuePlan plan, Option<QueueProgress> resumed, OutputFolder folder, Stem stem, LocalDateTime stamp) =>

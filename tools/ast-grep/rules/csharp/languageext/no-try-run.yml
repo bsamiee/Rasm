@@ -4,8 +4,6 @@ language: csharp
 severity: error
 ignores: ['tools/roslyn/**']
 utils:
-    bare-call:
-        has: {field: arguments, not: {has: {kind: argument}}}
     tried-shape:
         any:
             - pattern: {context: 'class C { object F() => $_EFFECT.Try(); }', selector: invocation_expression, strictness: cst}
@@ -33,14 +31,14 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Run$'}}, {has: {field: expression, matches: tried-local}}]}
-                - matches: bare-call
+                - matches: csharp-bare-call
     direct:
         any:
             - matches: {languageext-tried-run: {effect: {pattern: $EFFECT}}}
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: direct}}]}
-                - matches: bare-call
+                - matches: csharp-bare-call
             - kind: parenthesized_expression
               has: {matches: direct}
     kept:
@@ -49,7 +47,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: kept}}]}
-                - matches: bare-call
+                - matches: csharp-bare-call
             - kind: parenthesized_expression
               has: {matches: kept}
 rule:
@@ -72,4 +70,4 @@ transform:
     KEPT_RECEIVER: {replace: {source: $KEPT_IO, replace: '(?s)^(.+)$', by: '${1}.'}}
 fix: $RECEIVER$SAFE$KEPT_RECEIVER$KEPT($$$ENV)
 message: '`$IO.$RUN` spells `RunSafe` through `Try` and `Run`'
-note: 'Call `RunSafe` or `RunSafeAsync` on the effect with the same environment argument'
+note: 'Call `RunSafe` or `RunSafeAsync` on the effect with same environment argument'

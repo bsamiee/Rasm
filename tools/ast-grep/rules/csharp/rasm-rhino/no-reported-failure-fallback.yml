@@ -87,7 +87,7 @@ utils:
                 field: body
                 kind: invocation_expression
                 all:
-                    - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
+                    - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}
                     - has:
                         field: arguments
                         all:
@@ -97,7 +97,7 @@ utils:
                                 has:
                                     kind: lambda_expression
                                     all:
-                                        - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                                        - matches: csharp-parameterless
                                         - has: {field: body, matches: reject-call}
                             - not: {has: {kind: argument, nthChild: 2}}
     identity:
@@ -151,7 +151,7 @@ utils:
     run-call:
         kind: invocation_expression
         all:
-            - has: {field: arguments, not: {has: {kind: argument}}}
+            - matches: csharp-bare-call
             - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Run|RunSafe)$'}}
     recovered:
         any:

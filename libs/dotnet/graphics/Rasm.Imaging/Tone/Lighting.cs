@@ -70,7 +70,7 @@ public static class Lighting {
         (long Left, long Top, long Right, long Bottom) window = (
             (long)analysis.Origin.X + subject.Left, (long)analysis.Origin.Y + subject.Top,
             (long)analysis.Origin.X + subject.Right, (long)analysis.Origin.Y + subject.Bottom);
-        return paletteSize <= 0 ? new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"palette size {paletteSize} must be positive"))
+        return paletteSize <= 0 ? new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"palette size {paletteSize}"), ImagingReason.Range)
             : from all in LuminanceSamples.Sorted(analysis, analysis.Window, rgb => Luma(rgb.X, rgb.Y, rgb.Z),
                 (key, pixel) => (Key: key, Y: (int)(pixel.Y - analysis.Origin.Y), X: (int)(pixel.X - analysis.Origin.X)))
               let samples = all.Where(sample => Inside(sample, subject)).ToArray()

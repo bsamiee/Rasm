@@ -164,7 +164,7 @@ public static class GrainNoise {
     public static Fin<Memory2D<Vector4>> Scores(PixelFrame scan, double footprint) {
         (double width, double height) = (double.Ceiling(footprint), double.Ceiling(scan.Size.Height * footprint / scan.Size.Width));
         return width * height > System.Array.MaxLength
-            ? new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Grain scan tile {width}x{height} exceeds {System.Array.MaxLength} texels"))
+            ? new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"grain scan tile {width}x{height}"), ImagingReason.Oversize)
             : Try.lift(() => {
                 Size dimensions = new((int)width, (int)height);
                 int pixels = dimensions.Width * dimensions.Height;
@@ -271,7 +271,7 @@ public static class Kuwahara {
     public static Fin<Unit> Sectors(PixelFrame frame, double radius, double uniformity, float sharpness, float eccentricity, IProgress<int> progress) {
         double reach = double.Ceiling((1d + eccentricity) * radius) + 1d;
         return
-            from bounded in guard<Error>(reach <= int.MaxValue, new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Kuwahara reach {reach} pixels exceeds {int.MaxValue}")))
+            from bounded in guard<Error>(reach <= int.MaxValue, new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Kuwahara reach of {reach} pixels"), ImagingReason.Oversize))
             from filtered in frame.Filter(source => {
                 const int count = 8;
                 const double corner = 0.182d;

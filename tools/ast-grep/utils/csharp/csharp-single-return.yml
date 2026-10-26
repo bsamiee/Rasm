@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-single-return
+language: csharp
+rule:
+    kind: block
+    has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
+    not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}

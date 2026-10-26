@@ -10,7 +10,7 @@ public sealed record Bounds(Vector3D<double> Min, Vector3D<double> Max) {
     public Bounds Inflated(double amount) => new Vector3D<double>(amount, amount, amount) switch { var margin => new(Min - margin, Max + margin) };
 
     public Bounds Transformed(Matrix<double> map) =>
-        (from x in Seq(Min.X, Max.X) from y in Seq(Min.Y, Max.Y) from z in Seq(Min.Z, Max.Z) select new Vector3D<double>(x, y, z)).Map(Transforms.Applied(map)).Map(static corner => new Bounds(corner, corner)).Reduce(static (held, corner) => held.Union(corner));
+        Transforms.Applied(map) switch { var applied => (from x in Seq(Min.X, Max.X) from y in Seq(Min.Y, Max.Y) from z in Seq(Min.Z, Max.Z) select applied(new Vector3D<double>(x, y, z))).Map(static corner => new Bounds(corner, corner)).Reduce(static (held, corner) => held.Union(corner)) };
     private static Vector3D<double> Each(Vector3D<double> a, Vector3D<double> b, Func<double, double, double> pick) => new(pick(a.X, b.X), pick(a.Y, b.Y), pick(a.Z, b.Z));
 }
 

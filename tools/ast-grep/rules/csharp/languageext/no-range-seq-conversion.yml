@@ -24,12 +24,12 @@ rule:
         inside: {kind: invocation_expression, field: function}
     any:
         - all:
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^toSeq$'}}}}
-            - has: {field: arguments, has: {kind: argument, nthChild: 1, not: {has: {field: name, pattern: $_}}, has: {matches: range, pattern: $RANGE}}}
+            - matches: {csharp-named-call: {name: {regex: '^toSeq$'}}}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, matches: csharp-positional-argument, has: {matches: range, pattern: $RANGE}}}
             - not: {has: {field: arguments, has: {kind: argument, nthChild: 2}}}
         - all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToSeq$'}}, {has: {field: expression, matches: range, pattern: $RANGE}}]}
             - not: {has: {field: arguments, has: {kind: argument}}}
 message: '`$RANGE` converts to `Seq` before a `Foldable` member `Range` supports'
-note: 'Delete the `Seq` conversion around the range'
+note: 'Delete `Seq` conversion around the range'
 fix: $RANGE

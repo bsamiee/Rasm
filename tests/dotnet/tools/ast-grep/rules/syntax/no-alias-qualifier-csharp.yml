@@ -1,0 +1,10 @@
+id: no-alias-qualifier-csharp
+valid:
+  - 'using Rhino.Geometry;'
+  - 'namespace Rasm.Rhino.Modeling;'
+  - 'public sealed record Rail(Rhino.Geometry.Curve Rail3d) : Sweep;'
+invalid:
+  - 'using NativeQueue = Rhino.Render.ChangeQueue;'
+  - 'public sealed record Curve(global::Rhino.Geometry.Curve Geometry) : Proximity;'
+  - 'public sealed record Row(Rasm.Rhino.UI.Rows.Cell Cell);'
+  - 'static readonly int Held = Rasm.Rhino.Conversions.Count;'

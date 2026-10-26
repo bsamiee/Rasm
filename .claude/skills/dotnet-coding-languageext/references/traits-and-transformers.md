@@ -73,11 +73,11 @@ Equivalent queries (`from a in first from b in second select a + b`) need no cur
 
 `Map` with an effect-returning function preserves the nesting (`Seq<Option<int>>`), and `Traverse` transforms every value and swaps the structures (`(A -> F<B>) -> T<A> -> F<T<B>>`). `T` is the traversed structure and `F` the effect per value, and the behavior that combines results comes from `F` alone, a traversal exposes no accumulator. `Traversable<T>` extends `Functor<T>` and `Foldable<T>` with one `Traverse<F, A, B>(Func<A, K<F, B>> f, K<T, A> ta) where F : Applicative<F>`, and one implementation composes with every applicative:
 
-| [INDEX] | [APPLICATIVE] | [BEHAVIOR]                                                   |
-| :-----: | :------------ | :----------------------------------------------------------- |
-|  [01]   | `Option`      | Any `None` makes the whole result `None`                     |
-|  [02]   | `Validation`  | Every failure is collected                                   |
-|  [03]   | `IO`          | Element effects overlap, and one failure fails the traversal |
+| [INDEX] | [APPLICATIVE]       | [BEHAVIOR]                                                   |
+| :-----: | :------------------ | :----------------------------------------------------------- |
+|  [01]   | `Option`            | Any `None` makes the whole result `None`                     |
+|  [02]   | `Fin`, `Validation` | Every failure is collected, `TraverseM` stops at the first   |
+|  [03]   | `IO`                | Element effects overlap, and one failure fails the traversal |
 
 `Sequence` is `Traverse` with the identity function for input that is already nested. `TraverseM` and `SequenceM` perform the same swap under `Monad<M>`, and a type overrides them where it guarantees a different order (`Seq<A>` overrides `TraverseM` for serial evaluation). C# cannot convert a concrete nested value (`Seq<Option<int>>`) to `K<Seq, K<Option, int>>`, `values.Traverse(x => x).As()` is the working form of `Sequence` on concrete input. Types with success and failure cases traverse only the case that holds a value and lift the other case unchanged with `F.Pure`:
 
@@ -94,17 +94,17 @@ Generic extensions return nested `K` interfaces. Traversable types declare membe
 
 Monads sequence computations in a context through `Bind : M<A> -> (A -> M<B>) -> M<B>`, and the function receives the value of one contextual computation and returns the next computation in the same context. `Bind` implementations are the programmable semicolon that decides what happens between the steps. Effects are values that pure code composes (`IO<A>` wraps the computation and reads the clock on every run, never at construction), and a later computation depends on an earlier result while the whole stays one expression that LINQ renders as a line-by-line sequence. No general operation has the shape `M<A> -> A`, a context can hold no `A`, and lowering is type-specific through `Match` or a default. `Bind` keeps the composition lifted, and the monad preserves its no-value case. Each monad gives the same `Bind` shape a different between-step behavior:
 
-| [INDEX] | [MONAD]                  | [BEHAVIOR]                                                                |
-| :-----: | :----------------------- | :------------------------------------------------------------------------ |
-|  [01]   | `Option<A>`              | Continues from `Some`, preserves `None` without invoking the continuation |
-|  [02]   | `Either<L, R>`, `Fin<A>` | Continues from `Right` or `Succ`, passes `Left` or `Fail` through         |
-|  [03]   | `Validation<F, A>`       | Terminates on `Fail`, and its `Apply` combines both failures with `+`     |
-|  [04]   | `Try<A>`                 | Builds another delayed thunk, `Run` moves the exception into `Fin`        |
-|  [05]   | `Iterable<A>`, `Seq<A>`  | Nested iteration, an empty collection terminates that branch              |
-|  [06]   | `Reader<Env, A>`         | Runs both stages with the same environment                                |
-|  [07]   | `Writer<W, A>`           | Threads the accumulated output to the next stage                          |
-|  [08]   | `State<S, A>`            | Runs the next stage with the state the previous one returned              |
-|  [09]   | `IO<A>`                  | Runs the deferred computation, then the one the continuation returns      |
+| [INDEX] | [MONAD]                      | [BEHAVIOR]                                                                |
+| :-----: | :--------------------------- | :------------------------------------------------------------------------ |
+|  [01]   | `Option<A>`                  | Continues from `Some`, preserves `None` without invoking the continuation |
+|  [02]   | `Either<L, R>`               | Continues from `Right`, passes `Left` through                             |
+|  [03]   | `Fin<A>`, `Validation<F, A>` | Terminates on `Fail`, and `Apply` combines both failures with `+`         |
+|  [04]   | `Try<A>`                     | Builds another delayed thunk, `Run` moves the exception into `Fin`        |
+|  [05]   | `Iterable<A>`, `Seq<A>`      | Nested iteration, an empty collection terminates that branch              |
+|  [06]   | `Reader<Env, A>`             | Runs both stages with the same environment                                |
+|  [07]   | `Writer<W, A>`               | Threads the accumulated output to the next stage                          |
+|  [08]   | `State<S, A>`                | Runs the next stage with the state the previous one returned              |
+|  [09]   | `IO<A>`                      | Runs the deferred computation, then the one the continuation returns      |
 
 Monads in a return type mark the expression with their behavior, `IO<A>` declares that it performs I/O and `Option<A>` that it can produce no value. Visible contexts separate effectful from non-effectful code and preserve composition. Custom monads are ordinary application types with cross-cutting behavior (a database monad that manages connections and I/O, a service monad that manages configuration and third-party access). Trait operations enable the generic library behavior including LINQ, and the type's supporting functions (`ask`, `tell`, `get`, `put`) form its practical API. Each is a single-feature monad, `Option` and `IO` do not combine in one expression, and transformers replace handwritten combined types that grow with every pairing.
 

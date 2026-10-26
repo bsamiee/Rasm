@@ -21,7 +21,6 @@ rule:
             inside:
                 kind: block
                 inside:
-                    kind: class_definition
-                    has: {field: superclasses, has: {kind: keyword_argument, regex: '^frozen\s*=\s*True$'}}
+                    matches: msgspec-frozen-class
 message: '`$FIELD` holds a mutable container in a frozen struct'
-note: 'Annotate `tuple[<item>, ...]`, `frozenset[<item>]`, or `Mapping[<key>, <value>]`, and hold changing state in a slotted class that owns its release'
+note: 'Annotate `tuple[<item>, ...]`, `frozenset[<item>]`, or `Mapping[<key>, <value>]`, and hold changing state in a slotted class owning its release'

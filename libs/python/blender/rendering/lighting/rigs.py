@@ -1,13 +1,11 @@
 """Light rigs placed about target by delivered irradiance."""
 
-from collections.abc import Mapping
 from enum import IntEnum
-import functools
 import math
 import sys
-from typing import Annotated
+from types import MappingProxyType
+from typing import Annotated, Final
 
-from colour.models.rgb.datasets.srgb import MATRIX_sRGB_TO_XYZ
 from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
@@ -17,17 +15,17 @@ import PyOpenColorIO
 
 from blender.imaging.analysis.lighting import LightingReading
 from blender.imaging.analysis.metering import Samples
-from blender.imaging.color.processors import processor, Stops
+from blender.imaging.color.processors import luma, processor, Stops
 from blender.imaging.files.buffers import applied
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 from blender.records.fields import Case, Finite, NonNegative, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Emitter = Point | Spot | Disk | Sun
-type Layout = Arranged | Matched
-type Distance = Annotated[float, msgspec.Meta(gt=1.0, le=sys.float_info.max)]
-type Diameter = Annotated[float, msgspec.Meta(ge=0.0, le=math.pi)]
+type _Emitter = Point | Spot | Disk | Sun
+type _Layout = Arranged | Matched
+type _Distance = Annotated[float, msgspec.Meta(gt=1.0, le=sys.float_info.max)]
+type _Diameter = Annotated[float, msgspec.Meta(ge=0.0, le=math.pi)]
 
 
 class Role(IntEnum):
@@ -50,8 +48,8 @@ class Point(Case, frozen=True):
 class Spot(Case, frozen=True, kw_only=True):
     """Sphere light with beam limited to cone."""
 
-    cone: Annotated[float, msgspec.Meta(ge=math.radians(1.0), le=math.pi, description="Beam angular diameter")] = math.pi / 4.0
-    blend: Annotated[Unit, msgspec.Meta(description="Share of beam softened at edge")] = 0.15
+    cone: Annotated[float, msgspec.Meta(ge=math.radians(1.0), le=math.pi)] = math.pi / 4.0
+    blend: Unit = 0.15
 
 
 class Disk(Case, frozen=True):
@@ -66,13 +64,13 @@ class Light(msgspec.Struct, frozen=True, kw_only=True):
     """Rig light with irradiance offset from key."""
 
     role: Role = Role.KEY
-    emitter: Emitter = Disk()
+    emitter: _Emitter = Disk()
     azimuth: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi)] = 0.0
     elevation: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0)] = 0.0
-    stops: Annotated[Finite, msgspec.Meta(description="Target irradiance in stops from key")] = 0.0
-    size: Annotated[Diameter, msgspec.Meta(description="Angular diameter at target center")] = 2.0 * math.asin(0.2)
+    stops: Finite = 0.0
+    size: _Diameter = 2.0 * math.asin(0.2)
     color: tuple[Finite, Finite, Finite] = (1.0, 1.0, 1.0)
-    temperature: Annotated[float, msgspec.Meta(ge=1800.0, le=20000.0, description="Blackbody color in place of the color while present")] | None = None
+    temperature: Annotated[float, msgspec.Meta(ge=1800.0, le=20000.0)] | None = None
 
     @property
     def direction(self) -> tuple[float, float, float]:
@@ -104,12 +102,12 @@ class Matched(Case, frozen=True, kw_only=True):
     """Lights derived from reference reading."""
 
     count: Annotated[int, msgspec.Meta(ge=1, le=8)] = 3
-    key: Emitter = Disk()
+    key: _Emitter = Disk()
     softness: NonNegative = 1.0
-    fill_size: Diameter = math.radians(44.0)
-    fill: Annotated[Stops | None, msgspec.Meta(description="Fill stops from key, the reading contrast while absent")] = None
-    rim: Annotated[Stops | None, msgspec.Meta(description="Rim stops over the reading backlight, no rim while absent")] = 0.0
-    ambient: Annotated[Stops | None, msgspec.Meta(description="World stops over the reading ambient, no world while absent")] = 0.0
+    fill_size: _Diameter = math.radians(44.0)
+    fill: Stops | None = None
+    rim: Stops | None = 0.0
+    ambient: Stops | None = 0.0
     tint: tuple[Finite, Finite, Finite] = (1.0, 1.0, 1.0)
 
     def arranged(self, reading: LightingReading) -> Outcome[Arranged]:
@@ -205,7 +203,7 @@ class Placements(msgspec.Struct, frozen=True, kw_only=True):
     """Lights placed about target sphere with world."""
 
     radius: Positive
-    distance: Distance
+    distance: _Distance
     lights: tuple[Placement, ...]
     background: Option[Background]
 
@@ -213,11 +211,11 @@ class Placements(msgspec.Struct, frozen=True, kw_only=True):
 class Rig(msgspec.Struct, frozen=True, kw_only=True):
     """Lights about target at key irradiance."""
 
-    irradiance: Annotated[NonNegative, msgspec.Meta(description="Key irradiance")] = math.pi
-    distance: Distance = 2.5
-    color_strength: Annotated[NonNegative, msgspec.Meta(description="Blend from white up to one, Rec.709 chroma boost above one")] = 0.85
-    color_saturation: Annotated[NonNegative, msgspec.Meta(description="Rec.709 saturation after color strength")] = 1.0
-    layout: Layout = Matched()
+    irradiance: NonNegative = math.pi
+    distance: _Distance = 2.5
+    color_strength: NonNegative = 0.85
+    color_saturation: NonNegative = 1.0
+    layout: _Layout = Matched()
 
     def arranged(self, reading: Option[LightingReading]) -> Outcome[Option[Arranged]]:
         """Returns stated layout, or matched layout when reading exists."""
@@ -230,21 +228,22 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
     def placements(self, config: PyOpenColorIO.Config, radius: Positive, reading: Option[LightingReading]) -> Outcome[Option[Placements]]:
         """Places rig with graded colors, Nothing for matched layout without reading."""
         blend = min(self.color_strength, 1.0)
-        luma = MATRIX_sRGB_TO_XYZ[1].tolist()
-        transform = PyOpenColorIO.GroupTransform([
-            PyOpenColorIO.MatrixTransform.Fit(newMin=[1.0 - blend] * 3 + [0.0]),
-            PyOpenColorIO.MatrixTransform.Sat(max(self.color_strength, 1.0), luma),
-            PyOpenColorIO.MatrixTransform.Sat(self.color_saturation, luma),
-            PyOpenColorIO.RangeTransform(minInValue=0.0, minOutValue=0.0),
-        ])
+
+        def transform(weights: list[float]) -> PyOpenColorIO.GroupTransform:
+            return PyOpenColorIO.GroupTransform([
+                PyOpenColorIO.MatrixTransform.Fit(newMin=[1.0 - blend] * 3 + [0.0]),
+                PyOpenColorIO.MatrixTransform.Sat(max(self.color_strength, 1.0), weights),
+                PyOpenColorIO.MatrixTransform.Sat(self.color_saturation, weights),
+                PyOpenColorIO.RangeTransform(minInValue=0.0, minOutValue=0.0),
+            ])
 
         def placed(arranged: Arranged, built: PyOpenColorIO.Processor, reach: float) -> Outcome[Option[Placements]]:
             operation = built.getDefaultCPUProcessor()
 
             def graded(color: tuple[Finite, Finite, Finite]) -> Outcome[tuple[Finite, Finite, Finite]]:
-                return catch(
-                    lambda: msgspec.convert(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=tuple[Finite, Finite, Finite]), exception=msgspec.ValidationError
-                )().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(color), cause=error),))
+                return catch(msgspec.convert, exception=msgspec.ValidationError)(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=tuple[Finite, Finite, Finite]).map_error(
+                    lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(color), cause=error),)
+                )
 
             def light_at(light: Light) -> Outcome[Placement]:
                 return paired(graded(light.color), _scaled((self.irradiance,), light.stops)).map(
@@ -259,78 +258,83 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         return self.arranged(reading).bind(
-            lambda arranged: arranged.map(lambda layout: paired(processor(config, transform), _scaled((self.distance, radius))).bind(lambda found: placed(layout, *found))).default_value(Ok(Nothing))
+            lambda arranged: arranged.map(
+                lambda layout: paired(luma(config).bind(lambda weights: processor(config, transform(weights.tolist()))), _scaled((self.distance, radius))).bind(lambda found: placed(layout, *found))
+            ).default_value(Ok(Nothing))
         )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@functools.cache
-def rig_catalog() -> Mapping[str, Rig]:
-    """Returns named rig recipes."""
-
-    def arranged(rows: tuple[tuple[Role, tuple[float, float, float], float, float, float], ...]) -> Rig:
-        levels = tuple(power / (math.pi * (math.hypot(*offset) ** 2 + (side / 2.0) ** 2)) for _, offset, power, side, _ in rows)
-        return Rig(
-            irradiance=levels[0],
-            layout=Arranged(
-                lights=tuple(
-                    Light(
-                        role=role,
-                        azimuth=math.atan2(offset[0], -offset[1]),
-                        elevation=math.atan2(offset[2], math.hypot(*offset[:2])),
-                        size=2.0 * math.asin(side / (2.0 * math.hypot(*offset))),
-                        stops=math.log2(level / levels[0]),
-                        temperature=temperature,
-                    )
-                    for (role, offset, _, side, temperature), level in zip(rows, levels)
+def _arranged(rows: tuple[tuple[Role, tuple[float, float, float], float, float, float], ...]) -> Rig:
+    """Returns arranged rig from key-first rows of role, offset, watts, side, and temperature."""
+    levels = tuple(power / (math.pi * (math.hypot(*offset) ** 2 + (side / 2.0) ** 2)) for _, offset, power, side, _ in rows)
+    return Rig(
+        irradiance=levels[0],
+        layout=Arranged(
+            lights=tuple(
+                Light(
+                    role=role,
+                    azimuth=math.atan2(offset[0], -offset[1]),
+                    elevation=math.atan2(offset[2], math.hypot(*offset[:2])),
+                    size=2.0 * math.asin(side / (2.0 * math.hypot(*offset))),
+                    stops=math.log2(level / levels[0]),
+                    temperature=temperature,
                 )
-            ),
-        )
-
-    return {
-        "Three-Point": arranged(((Role.KEY, (1.6, -1.6, 0.30), 250.0, 0.6, 5500.0), (Role.FILL, (-1.6, -1.2, -0.10), 90.0, 1.5, 6500.0), (Role.RIM, (0.5, 1.6, 0.80), 400.0, 0.4, 5000.0))),
-        "Hard Low Key": arranged(((Role.KEY, (2.0, -1.0, 0.40), 450.0, 0.4, 4500.0), (Role.FILL, (-1.5, -1.0, -0.20), 25.0, 1.0, 7000.0), (Role.RIM, (-0.4, 1.5, 0.80), 200.0, 0.3, 4200.0))),
-        "Side Key": arranged(((Role.KEY, (2.4, -0.6, 1.00), 550.0, 0.3, 4200.0),)),
-        "Soft High Key": arranged(((Role.KEY, (1.2, -2.0, 0.50), 300.0, 2.0, 5500.0), (Role.FILL, (-1.2, -2.0, 0.50), 250.0, 2.0, 5500.0), (Role.SKY, (0.0, 0.0, 2.20), 180.0, 1.5, 5500.0))),
-        "Rim Only": arranged(((Role.RIM, (0.0, 1.5, 1.20), 600.0, 0.5, 5000.0),)),
-        "Glamour": arranged(((Role.KEY, (0.0, -1.6, 1.40), 350.0, 0.7, 5500.0), (Role.FILL, (0.0, -1.0, -0.40), 80.0, 1.5, 6000.0))),
-        "Auto": Rig(),
-        "Portrait": Rig(distance=2.4, layout=Matched(softness=1.1, tint=(1.0, 0.97, 0.92))),
-        "Rembrandt": Rig(color_strength=0.9, distance=2.4, layout=Matched(key=Spot(), softness=0.9, rim=math.log2(0.8), fill=math.log2(0.12), tint=(1.0, 0.95, 0.85))),
-        "Butterfly": Rig(color_strength=0.8, distance=2.3, layout=Matched(softness=1.3, rim=math.log2(0.6), fill=math.log2(0.45), tint=(1.0, 0.97, 0.95))),
-        "Loop": Rig(distance=2.4, layout=Matched(softness=1.1, rim=math.log2(0.7), fill=math.log2(0.3), tint=(1.0, 0.96, 0.9))),
-        "Split": Rig(color_strength=0.9, distance=2.4, layout=Matched(softness=0.8, rim=math.log2(0.5), fill=math.log2(0.08), tint=(1.0, 0.98, 0.95))),
-        "Clamshell": Rig(color_strength=0.7, distance=2.2, layout=Matched(softness=2.2, rim=None, fill=math.log2(0.85), tint=(1.0, 0.97, 0.96))),
-        "Beauty": Rig(color_strength=0.75, distance=2.2, layout=Matched(softness=2.4, rim=math.log2(0.5), fill=math.log2(0.8), tint=(1.0, 0.96, 0.95))),
-        "Cinematic": Rig(color_strength=1.0, distance=2.6, layout=Matched(key=Spot(), softness=0.7, rim=math.log2(1.5), fill=math.log2(0.15), tint=(1.05, 0.95, 0.85))),
-        "Dramatic": Rig(color_strength=0.9, layout=Matched(key=Spot(), softness=0.45, rim=math.log2(0.8), fill=math.log2(0.05), tint=(1.0, 0.98, 0.92))),
-        "Film Noir": Rig(color_strength=0.95, layout=Matched(key=Spot(), softness=0.4, rim=math.log2(1.2), fill=math.log2(0.03), tint=(0.98, 0.99, 1.0))),
-        "Low Key": Rig(color_strength=0.9, layout=Matched(key=Spot(), softness=0.6, rim=math.log2(0.6), fill=math.log2(0.05), tint=(1.0, 0.97, 0.92))),
-        "High Key": Rig(color_strength=0.55, distance=2.8, layout=Matched(softness=2.6, rim=None, fill=math.log2(0.9))),
-        "Studio": Rig(color_strength=0.6, distance=2.8, layout=Matched(softness=2.2, rim=None, fill=math.log2(0.7))),
-        "Product": Rig(color_strength=0.6, distance=2.7, layout=Matched(softness=2.0, rim=None, fill=math.log2(0.6))),
-        "Soft Even": Rig(color_strength=0.5, distance=3.0, layout=Matched(softness=3.0, rim=None, fill=math.log2(0.95))),
-        "Rim / Hair": Rig(layout=Matched(rim=math.log2(2.0), fill=math.log2(0.3), tint=(1.0, 0.98, 0.95))),
-        "Backlight": Rig(color_strength=0.9, distance=2.7, layout=Matched(softness=1.2, rim=None, fill=math.log2(0.25), tint=(1.0, 0.97, 0.9))),
-        "Outdoor": Rig(distance=3.0, layout=Matched(key=Sun(), rim=None, fill=math.log2(0.4), tint=(1.0, 0.97, 0.9))),
-        "Sunset": Rig(color_strength=1.0, distance=3.0, layout=Matched(key=Sun(), rim=None, fill=math.log2(0.35), tint=(1.1, 0.82, 0.55))),
-        "Twilight": Rig(color_strength=0.9, distance=2.9, layout=Matched(softness=1.6, rim=None, fill=math.log2(0.6), tint=(0.7, 0.8, 1.05))),
-        "Neon": Rig(color_strength=1.0, layout=Matched(rim=math.log2(1.4), fill=math.log2(0.4))),
-        "Candlelight": Rig(color_strength=1.0, distance=2.4, layout=Matched(key=Point(), softness=1.4, rim=None, fill=math.log2(0.5), tint=(1.12, 0.72, 0.42))),
-        "Moonlight": Rig(color_strength=0.95, distance=3.0, layout=Matched(key=Sun(), softness=1.2, rim=None, fill=math.log2(0.3), tint=(0.6, 0.72, 1.05))),
-        "Underlight": Rig(color_strength=0.9, distance=2.4, layout=Matched(key=Spot(), softness=0.9, rim=None, fill=math.log2(0.15), tint=(1.0, 0.95, 0.9))),
-    }
+                for (role, offset, _, side, temperature), level in zip(rows, levels)
+            )
+        ),
+    )
 
 
 def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> Outcome[float]:
     """Returns product times 2**stops as float, overflow as numeric fault."""
-    return catch(np.errstate(over="raise")(lambda: float(np.prod(factors) * np.exp2(stops))), exception=FloatingPointError)().map_error(
-        lambda error: (Fault(reason=RecordReason.NUMERIC, subject=f"{factors} x 2^{stops}", cause=error),)
-    )
 
+    @catch(exception=FloatingPointError)
+    @np.errstate(over="raise")
+    def product() -> float:
+        return float(np.prod(factors) * np.exp2(stops))
+
+    return product().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=f"{factors} x 2^{stops}", cause=error),))
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+RIGS: Final = MappingProxyType({
+    "Three-Point": _arranged(((Role.KEY, (1.6, -1.6, 0.30), 250.0, 0.6, 5500.0), (Role.FILL, (-1.6, -1.2, -0.10), 90.0, 1.5, 6500.0), (Role.RIM, (0.5, 1.6, 0.80), 400.0, 0.4, 5000.0))),
+    "Hard Low Key": _arranged(((Role.KEY, (2.0, -1.0, 0.40), 450.0, 0.4, 4500.0), (Role.FILL, (-1.5, -1.0, -0.20), 25.0, 1.0, 7000.0), (Role.RIM, (-0.4, 1.5, 0.80), 200.0, 0.3, 4200.0))),
+    "Side Key": _arranged(((Role.KEY, (2.4, -0.6, 1.00), 550.0, 0.3, 4200.0),)),
+    "Soft High Key": _arranged(((Role.KEY, (1.2, -2.0, 0.50), 300.0, 2.0, 5500.0), (Role.FILL, (-1.2, -2.0, 0.50), 250.0, 2.0, 5500.0), (Role.SKY, (0.0, 0.0, 2.20), 180.0, 1.5, 5500.0))),
+    "Rim Only": _arranged(((Role.RIM, (0.0, 1.5, 1.20), 600.0, 0.5, 5000.0),)),
+    "Glamour": _arranged(((Role.KEY, (0.0, -1.6, 1.40), 350.0, 0.7, 5500.0), (Role.FILL, (0.0, -1.0, -0.40), 80.0, 1.5, 6000.0))),
+    "Auto": Rig(),
+    "Portrait": Rig(distance=2.4, layout=Matched(softness=1.1, tint=(1.0, 0.97, 0.92))),
+    "Rembrandt": Rig(color_strength=0.9, distance=2.4, layout=Matched(key=Spot(), softness=0.9, rim=math.log2(0.8), fill=math.log2(0.12), tint=(1.0, 0.95, 0.85))),
+    "Butterfly": Rig(color_strength=0.8, distance=2.3, layout=Matched(softness=1.3, rim=math.log2(0.6), fill=math.log2(0.45), tint=(1.0, 0.97, 0.95))),
+    "Loop": Rig(distance=2.4, layout=Matched(softness=1.1, rim=math.log2(0.7), fill=math.log2(0.3), tint=(1.0, 0.96, 0.9))),
+    "Split": Rig(color_strength=0.9, distance=2.4, layout=Matched(softness=0.8, rim=math.log2(0.5), fill=math.log2(0.08), tint=(1.0, 0.98, 0.95))),
+    "Clamshell": Rig(color_strength=0.7, distance=2.2, layout=Matched(softness=2.2, rim=None, fill=math.log2(0.85), tint=(1.0, 0.97, 0.96))),
+    "Beauty": Rig(color_strength=0.75, distance=2.2, layout=Matched(softness=2.4, rim=math.log2(0.5), fill=math.log2(0.8), tint=(1.0, 0.96, 0.95))),
+    "Cinematic": Rig(color_strength=1.0, distance=2.6, layout=Matched(key=Spot(), softness=0.7, rim=math.log2(1.5), fill=math.log2(0.15), tint=(1.05, 0.95, 0.85))),
+    "Dramatic": Rig(color_strength=0.9, layout=Matched(key=Spot(), softness=0.45, rim=math.log2(0.8), fill=math.log2(0.05), tint=(1.0, 0.98, 0.92))),
+    "Film Noir": Rig(color_strength=0.95, layout=Matched(key=Spot(), softness=0.4, rim=math.log2(1.2), fill=math.log2(0.03), tint=(0.98, 0.99, 1.0))),
+    "Low Key": Rig(color_strength=0.9, layout=Matched(key=Spot(), softness=0.6, rim=math.log2(0.6), fill=math.log2(0.05), tint=(1.0, 0.97, 0.92))),
+    "High Key": Rig(color_strength=0.55, distance=2.8, layout=Matched(softness=2.6, rim=None, fill=math.log2(0.9))),
+    "Studio": Rig(color_strength=0.6, distance=2.8, layout=Matched(softness=2.2, rim=None, fill=math.log2(0.7))),
+    "Product": Rig(color_strength=0.6, distance=2.7, layout=Matched(softness=2.0, rim=None, fill=math.log2(0.6))),
+    "Soft Even": Rig(color_strength=0.5, distance=3.0, layout=Matched(softness=3.0, rim=None, fill=math.log2(0.95))),
+    "Rim / Hair": Rig(layout=Matched(rim=math.log2(2.0), fill=math.log2(0.3), tint=(1.0, 0.98, 0.95))),
+    "Backlight": Rig(color_strength=0.9, distance=2.7, layout=Matched(softness=1.2, rim=None, fill=math.log2(0.25), tint=(1.0, 0.97, 0.9))),
+    "Outdoor": Rig(distance=3.0, layout=Matched(key=Sun(), rim=None, fill=math.log2(0.4), tint=(1.0, 0.97, 0.9))),
+    "Sunset": Rig(color_strength=1.0, distance=3.0, layout=Matched(key=Sun(), rim=None, fill=math.log2(0.35), tint=(1.1, 0.82, 0.55))),
+    "Twilight": Rig(color_strength=0.9, distance=2.9, layout=Matched(softness=1.6, rim=None, fill=math.log2(0.6), tint=(0.7, 0.8, 1.05))),
+    "Neon": Rig(color_strength=1.0, layout=Matched(rim=math.log2(1.4), fill=math.log2(0.4))),
+    "Candlelight": Rig(color_strength=1.0, distance=2.4, layout=Matched(key=Point(), softness=1.4, rim=None, fill=math.log2(0.5), tint=(1.12, 0.72, 0.42))),
+    "Moonlight": Rig(color_strength=0.95, distance=3.0, layout=Matched(key=Sun(), softness=1.2, rim=None, fill=math.log2(0.3), tint=(0.6, 0.72, 1.05))),
+    "Underlight": Rig(color_strength=0.9, distance=2.4, layout=Matched(key=Spot(), softness=0.9, rim=None, fill=math.log2(0.15), tint=(1.0, 0.95, 0.9))),
+})
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Ambient", "Arranged", "Background", "Disk", "Emitter", "Layout", "Light", "Matched", "Placement", "Placements", "Point", "Rig", "Role", "Spot", "Sun", "rig_catalog"]
+__all__ = ["RIGS", "Ambient", "Arranged", "Background", "Disk", "Light", "Matched", "Placement", "Placements", "Point", "Rig", "Role", "Spot", "Sun"]

@@ -40,7 +40,7 @@ rule:
         - kind: method_declaration
           all:
             - has: {field: name, pattern: $CALLEE}
-            - not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^UnsafeAccessorType(Attribute)?$'}}}}}}}
+            - not: {matches: {csharp-attributed: {name: {regex: '^UnsafeAccessorType(Attribute)?$'}}}}
             - not:
                 all:
                     - has: {field: returns, pattern: $COPIED}

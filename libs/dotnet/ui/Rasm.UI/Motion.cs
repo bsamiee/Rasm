@@ -42,7 +42,7 @@ public sealed partial class Easing {
 
     public static Fin<Easing> Validated(double x1, double y1, double x2, double y2) => TryCreate(x1, y1, x2, y2, out Easing? easing, out Invalid? fault) ? easing : fault;
 
-    private double Solved(double time) => Brent.FindRoot(s => Bezier(s, X1, X2) - time, 0d, 1d, 1e-12);
+    private double Solved(double time) => Brent.TryFindRoot(s => Bezier(s, X1, X2) - time, 0d, 1d, 1e-12, 100, out double root) ? root : double.Clamp(time, 0d, 1d);
 
     private static double Bezier(double s, double first, double second) => (3d * (1d - s) * (1d - s) * s * first) + (3d * (1d - s) * s * s * second) + (s * s * s);
 
@@ -173,7 +173,7 @@ internal sealed record Transition(Animated X, Animated Y, Animated Width, Animat
 internal sealed record Departure(Laid Last, Place Place, Animated Opacity) {
     internal SKPoint At => Last.Frame.Location + Place.Origin;
 
-    internal SKRect Reach => SKRect.Intersect(SKRect.Create(Last.Reach.Location + Place.Origin, Last.Reach.Size), Place.Clip);
+    internal SKRect Reach => SKRect.Intersect(Scene.Absolute(Last.Reach, Place.Origin), Place.Clip);
 }
 
 internal sealed record Countdown(Expiry Expiry, Duration Left, Option<Duration> Since) {
@@ -210,11 +210,14 @@ internal sealed record Animations(
 
     internal Seq<Hosted> Hosted(Scene scene, Duration now) =>
         scene.Hosted.Map(hosted => Shift(scene, hosted.Path, now) switch {
-            var shift => hosted with { Frame = Offset(hosted.Frame, shift) },
+            var shift => hosted with { Frame = Scene.Absolute(hosted.Frame, shift) },
         });
 
     private SKPoint Shift(Scene scene, Seq<Key> path, Duration now) =>
-        Scene.Above(path).Choose(above => Transitions.Find(above).Bind(transition => scene.Index.Find(above).Map(laid => transition.Shift(laid, now)))).Fold(SKPoint.Empty, static (sum, shift) => sum + shift);
+        Scene.Above(path).Choose(above =>
+            from transition in Transitions.Find(above)
+            from laid in scene.Index.Find(above)
+            select transition.Shift(laid, now)).Fold(SKPoint.Empty, static (sum, shift) => sum + shift);
 
     // --- [OPEN]
     internal Animations Opened(Scene prior, Scene next, Duration now) =>
@@ -293,7 +296,7 @@ internal sealed record Animations(
                     Timers.AddOrUpdateRange(elapsed.Map(static countdown => countdown.Spent).AsIterable())),
                 Fades.Keys.ToSeq().Choose(key => Washed(scene, key).Map(static held => held.Damage))
                     .Concat(Transitions.Keys.ToSeq().Choose(path => Reached(scene, path).Map(held =>
-                        SKRect.Intersect(SKRect.Union(Offset(held.Reach, Shift(scene, path, prior)), Offset(held.Reach, Shift(scene, path, now))), held.Clip))))
+                        SKRect.Intersect(SKRect.Union(Scene.Absolute(held.Reach, Shift(scene, path, prior)), Scene.Absolute(held.Reach, Shift(scene, path, now))), held.Clip))))
                     .Concat(Leaving.Values.ToSeq().Map(static left => left.Reach)),
                 elapsed.Values.ToSeq().Map(static countdown => countdown.Expiry.Elapsed)),
         };
@@ -301,7 +304,5 @@ internal sealed record Animations(
     private static Option<(SKRect Reach, SKRect Clip)> Reached(Scene scene, Seq<Key> path) =>
         from laid in scene.Index.Find(path)
         from place in scene.Places.Find(path)
-        select (SKRect.Create(laid.Reach.Location + place.Origin, laid.Reach.Size), place.Clip);
-
-    private static SKRect Offset(SKRect rect, SKPoint by) => SKRect.Create(rect.Location + by, rect.Size);
+        select (Scene.Absolute(laid.Reach, place.Origin), place.Clip);
 }

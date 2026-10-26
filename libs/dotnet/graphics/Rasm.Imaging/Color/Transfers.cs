@@ -61,7 +61,7 @@ public abstract partial record Transfer : IConvertible<string> {
     private static Option<Transfer> Named(string value) => Fixed.Find(value) | Parametric(value);
 
     private static ImagingFault Unnamed(string value) =>
-        new($"transfer '{value}' must name a curve or camera log, or state gamma:<exponent>, pq:<nits>, or hlg:<nits>");
+        new($"transfer '{value}' beside curve and camera log names, gamma:<exponent>, pq:<nits>, and hlg:<nits>", ImagingReason.Unnamed);
 
     private static Option<Transfer> Parametric(string value) =>
         from parts in value.Split(':', 2) is [var form, var number] ? Some((Form: form, Number: number)) : None
@@ -71,7 +71,7 @@ public abstract partial record Transfer : IConvertible<string> {
         select transfer;
 
     private static Fin<Luminance> Lit(Luminance white) =>
-        double.IsFinite(white.Nits.ToDouble()) && white.Nits.ToDouble() > 0d ? white : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"transfer white {white} must be positive"));
+        double.IsFinite(white.Nits.ToDouble()) && white.Nits.ToDouble() > 0d ? white : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"transfer white {white}"), ImagingReason.Range);
 
     private static void PerChannel(Span<Vector4> row, Func<double, double> curve) {
         for (int index = 0; index < row.Length; index++)
@@ -188,7 +188,7 @@ public abstract partial record Transfer : IConvertible<string> {
         public float Exponent { get; }
 
         public static Fin<Gamma> Of(float exponent) =>
-            float.IsFinite(exponent) && exponent > 0f ? new Gamma(exponent) : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"gamma exponent {exponent} must be positive"));
+            float.IsFinite(exponent) && exponent > 0f ? new Gamma(exponent) : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"gamma exponent {exponent}"), ImagingReason.Range);
 
         public override void Encode(Span<Vector4> row) {
             if (Curve.ToSpan() is [var curve]) Encoded(row, curve);

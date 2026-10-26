@@ -1,0 +1,12 @@
+id: no-numbered-struct-tag
+valid:
+    - |
+      class Exposure(Effect, tag=True, frozen=True, kw_only=True):
+          stops: float
+    - |
+      class Failed(Answer, tag="error"):
+          message: str
+invalid:
+    - |
+      class Exposure(Effect, tag=1, frozen=True, kw_only=True):
+          stops: float

@@ -32,7 +32,7 @@ public sealed record Sharpen(
 
     public static Option<PixelPass> Pass(Sharpen state, PassContext context) =>
         state.Sharpness is 0f ? None
-            : Some<PixelPass>(new PixelPass.Frame((frame, progress) => Sharpening.Laplacian(frame, state.Sharpness, context.Exposure, context.Working.Luminance, progress)));
+            : Some<PixelPass>(new PixelPass.Frame((frame, progress) => Sharpening.Laplacian(frame, state.Sharpness, context.Exposure, context.Working, progress)));
 }
 
 public sealed record LocalContrast(
@@ -44,7 +44,7 @@ public sealed record LocalContrast(
     public static Option<PixelPass> Pass(LocalContrast state, PassContext context) =>
         state == Default ? None
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) => ContrastGrid.Graded(
-                frame, state.Highlights, state.Shadows, state.Detail, 64d / ReferenceFrame.Height * context.Extent.ShortSide, 0.5d * ReferenceFrame.GreaterSide / 6d * context.Extent.ShortSide, context.Working.Luminance, progress)));
+                frame, state.Highlights, state.Shadows, state.Detail, 64d / ReferenceFrame.Height * context.Extent.ShortSide, 0.5d * ReferenceFrame.GreaterSide / 6d * context.Extent.ShortSide, context.Working, progress)));
 }
 
 public sealed record FilmGrain(
@@ -72,7 +72,7 @@ public sealed record FilmGrain(
                 from draw in state.Draw(context, state.Seed.Field(0u, state.Hold.Period(state.Timing.At(context))))
                 from applied in GrainNoise.Multiplied(frame, draw.Draw, draw.Sigma, state.Intensity, state.Chroma,
                     GrainNoise.Bands((state.Shadows, state.Midtones, state.Highlights), state.ShadowEdge, state.MidtoneSpan, state.HighlightSpan, context.Exposure),
-                    context.Working.Luminance, progress)
+                    context.Working, progress)
                 select applied));
 
     private Fin<(Action<Span<Vector4>, long, long> Draw, Option<double> Sigma)> Draw(PassContext context, uint field) =>
@@ -94,7 +94,7 @@ public sealed record SensorNoise(
 
     public static Option<PixelPass> Pass(SensorNoise state, PassContext context) =>
         state is { Shot: 0f, Read: 0f } ? None
-            : Some<PixelPass>(PhotonNoise.Pass(state.Shot, state.Read, state.Chroma, context.Exposure, context.Working.Luminance,
+            : Some<PixelPass>(PhotonNoise.Pass(state.Shot, state.Read, state.Chroma, context.Exposure, context.Working,
                 state.Seed.Field(1u, state.Hold.Period(state.Timing.At(context)))));
 }
 

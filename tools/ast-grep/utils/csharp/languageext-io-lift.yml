@@ -1,9 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: languageext-io-lift
 language: csharp
-utils:
-    lift-member:
-        matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(lift|liftAsync|liftVAsync)$'}}}
 rule:
     kind: invocation_expression
-    has: {field: function, matches: lift-member}
+    matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^(lift|liftAsync|liftVAsync)$'}}}

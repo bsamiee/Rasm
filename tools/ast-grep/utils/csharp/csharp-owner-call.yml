@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-owner-call
+language: csharp
+arguments: [type, member]
+utils:
+    callee:
+        matches: {csharp-owner-member: {type: {matches: type}, member: {matches: member}}}
+rule:
+    has: {field: function, matches: callee}

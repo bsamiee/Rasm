@@ -202,7 +202,7 @@ utils:
     explicit-lift:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(Some|Optional)$'}}}}
+            - matches: {csharp-named-call: {name: {regex: '^(Some|Optional)$'}}}
             - has:
                 field: arguments
                 all:

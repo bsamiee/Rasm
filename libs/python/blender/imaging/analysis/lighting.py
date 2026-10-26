@@ -73,7 +73,6 @@ class LightingReading(Frozen, frozen=True, kw_only=True, eq=False):
     palette: tuple[PaletteEntry, ...]
 
 
-
 class Lighting(msgspec.Struct, frozen=True, kw_only=True):
     """Lighting read settings: analysis grid, palette clusters and merge distance, split and rim thresholds, gel chroma, subject insets, and mood thresholds."""
 

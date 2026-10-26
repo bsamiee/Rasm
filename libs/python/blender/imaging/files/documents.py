@@ -68,10 +68,6 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
     def written(self, path: str, config: PyOpenColorIO.Config) -> Outcome[str]:
         """Writes layered TIFF with colorspace ICC profile.
 
-        Args:
-            path: File to write.
-            config: Config the colorspace resolves in.
-
         Returns:
             Path, `read` fault for profile IO, or `write` fault.
         """
@@ -173,12 +169,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
     optics: Option[Optics] = Nothing
 
     def written(self, path: str, frame: npt.NDArray[np.float32], config: PyOpenColorIO.Config) -> Outcome[str]:
-        """Writes scene-linear frame as Linear Raw DNG.
-
-        Args:
-            path: File to write.
-            frame: C-contiguous `(height, width, 3)` scene-linear frame.
-            config: Config defining scene-linear space.
+        """Writes C-contiguous `(height, width, 3)` scene-linear frame as Linear Raw DNG.
 
         Returns:
             Path, or `color`, `numeric`, or `write` fault.

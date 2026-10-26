@@ -13,14 +13,14 @@ from typing import Annotated
 from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
-from tenacity import retry_if_result, Retrying, stop_after_attempt
+from tenacity import Future, retry_if_result, RetryCallState, Retrying, stop_after_attempt
 
 from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
 from blender.records.fields import Case
 from blender.records.stores import RecordFile
 from blender.rendering.batch.processes import Host, ran, RunCommand, RunFile, spawned
 from blender.rendering.batch.progress import Ending, Heartbeat, observed, Progress
-from blender.rendering.batch.queue import RenderQueue
+from blender.rendering.batch.queue import Job, RenderQueue
 from blender.rendering.faults import RenderingReason
 
 if sys.platform != "win32":
@@ -32,9 +32,8 @@ if sys.platform != "win32":
 class LocalMachine(Case, frozen=True, kw_only=True):
     """Background Blender process per run of job frames."""
 
-    title = "This Machine"
-    retries: Annotated[int, msgspec.Meta(ge=0, description="Restarts of crashed render from remaining frames")] = 3
-    sampled: Annotated[bool, msgspec.Meta(description="Render first two frames of each ready job before others")] = True
+    retries: Annotated[int, msgspec.Meta(ge=0)] = 3
+    sampled: bool = True
 
     def schedule(self, queue: RenderQueue) -> tuple[tuple[int, int], ...]:
         """Orders frames by prerequisites, sampled frames, job, then frame."""
@@ -75,10 +74,13 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
     records = RecordFile(path=host.path(queue, RunFile.PROGRESS), form=Progress)
     run = Run(queue=str(host.path(queue, RunFile.QUEUE)), target=target)
     schedule = target.schedule(queue)
+
+    def exhausted(state: RetryCallState) -> object:
+        last: Future = state.outcome  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        return last.result()
+
     restarted = Retrying(
-        stop=stop_after_attempt(target.retries + 1),
-        retry=retry_if_result(lambda answer: answer.map(lambda code: code not in {0, 1}).default_value(False)),
-        retry_error_callback=lambda state: state.outcome.result(),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        stop=stop_after_attempt(target.retries + 1), retry=retry_if_result(lambda answer: answer.map(lambda code: code not in {0, 1}).default_value(False)), retry_error_callback=exhausted
     )
 
     def polled(child: subprocess.Popen[bytes]) -> Option[Outcome[int]]:
@@ -103,13 +105,18 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
         remaining = frozenset(progress.remaining(queue))
         if not (pending := (progress.pending or next((tuple(group) for _, group in groupby((step for step in schedule if step in remaining), lambda step: step[0])), ()))):
             return Ok(progress)
-        argv = host.argv(RunCommand.RENDER, run, Some(queue.jobs[pending[0][0]].file))
+        job = queue.jobs[pending[0][0]]
+        argv = host.argv(RunCommand.RENDER, run, Some(job.file))
         return (
-            Result[Path, Faults].bind(records.written(msgspec.structs.replace(progress, pending=pending)), lambda _: restarted(launched, argv)).bind(lambda code: confirmed(argv, code)).bind(rendered)
+            Result[Path, Faults].bind(records.written(msgspec.structs.replace(progress, pending=pending)), lambda _: restarted(launched, argv)).bind(lambda code: confirmed(job, code)).bind(rendered)
         )
 
-    def confirmed(argv: tuple[str, ...], code: int) -> Outcome[Progress]:
-        return records.revised(lambda held: msgspec.structs.replace(held, pending=())) if code == 0 else Error((Fault(reason=RenderingReason.EXITED, subject=" ".join(argv), member=str(code)),))
+    def confirmed(job: Job, code: int) -> Outcome[Progress]:
+        return (
+            Ok(code)
+            .filter_with(lambda held: held == 0, lambda held: (Fault(reason=RenderingReason.EXITED, subject=job.title, member=str(held)),))
+            .bind(lambda _: records.revised(lambda held: msgspec.structs.replace(held, pending=())))
+        )
 
     def ended(ending: Ending) -> Outcome[Progress]:
         return records.revised(lambda held: msgspec.structs.replace(held, ending=ending))
@@ -127,7 +134,7 @@ def stop(progress: Progress) -> Outcome[None]:
     """Stops supervisor and its renders."""
     if sys.platform == "win32":
         return ran(("taskkill", "/T", "/F", "/PID", str(progress.process)))
-    return catch(lambda: killpg(progress.process, signal.SIGTERM), exception=OSError)().map_error(
+    return catch(killpg, exception=OSError)(progress.process, signal.SIGTERM).map_error(
         lambda error: (Fault(reason=RenderingReason.SYSTEM, subject=f"{killpg.__name__}({progress.process})", cause=error),)
     )
 
@@ -137,7 +144,7 @@ def cleared(queue: RenderQueue, host: Host) -> Outcome[None]:
 
     def removed(file: RunFile) -> Outcome[None]:
         path = host.path(queue, file)
-        return catch(lambda: path.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))
+        return catch(path.unlink, exception=OSError)(missing_ok=True).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))
 
     return accumulated(map(removed, (RunFile.QUEUE, RunFile.PROGRESS, RunFile.LOG))).map(lambda _: None)
 

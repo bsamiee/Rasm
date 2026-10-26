@@ -19,7 +19,7 @@ public sealed partial class CurveLength {
     public static Fin<CurveLength> Validated(int value) => TryCreate(value, out CurveLength? length, out ImagingFault? fault) ? length : fault;
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int value) =>
-        validationError = value is >= 2 and <= 300_000 ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Curve length {value} lies outside [2, 300000]"));
+        validationError = value is >= 2 and <= 300_000 ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"curve length {value} in [2, 300000]"), ImagingReason.Range);
 }
 
 public sealed class Lut1D {
@@ -68,7 +68,7 @@ public sealed class InverseLut1D {
     public Lut1D Forward { get; }
 
     public static Fin<InverseLut1D> From(Lut1D forward) =>
-        toSeq(Range(0, 3)).Traverse(channel => Monotonic(forward.Channel(channel)).ToFin(new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"non-monotonic LUT channel {channel} has no exact inverse")))).As()
+        toSeq(Range(0, 3)).Traverse(channel => Monotonic(forward.Channel(channel)).ToFin(new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"non-monotonic LUT channel {channel}"), ImagingReason.Uninvertible))).As()
             .Map(ranges => new InverseLut1D(forward, ranges));
 
     public void Apply(Span<Vector4> row) {
@@ -235,7 +235,7 @@ public abstract partial record LutTable {
             Span<float> components = MemoryMarshal.Cast<Vector4, float>(row);
             Lattice.Apply(components, components, 4, Interpolation);
         }
-        public override Fin<LutTable> Inverse() => new ImagingFault("3D lattice step has no exact inverse");
+        public override Fin<LutTable> Inverse() => new ImagingFault("3D lattice step", ImagingReason.Uninvertible);
     }
 
     public sealed record ChannelCurve(Lut1D Table) : LutTable {
@@ -266,7 +266,7 @@ public abstract partial record LutTable {
         }
         public override Fin<LutTable> Inverse() =>
             Matrix.LU() switch {
-                var factorization when factorization.U.Diagonal().Contains(0d) => new ImagingFault("singular affine step has no exact inverse"),
+                var factorization when factorization.U.Diagonal().Contains(0d) => new ImagingFault("singular affine step", ImagingReason.Uninvertible),
                 var factorization => factorization.Inverse() switch {
                     var inverse => inverse.Multiply(new DenseVector([Offset.X, Offset.Y, Offset.Z])) switch {
                         var offset => new Affine(inverse, (-offset[0], -offset[1], -offset[2])),
@@ -279,7 +279,7 @@ public abstract partial record LutTable {
         public override void Apply(Span<Vector4> row) {
             foreach (ref Vector4 pixel in row) pixel = new Vector4(Bounds.Apply(pixel.AsVector3()), pixel.W);
         }
-        public override Fin<LutTable> Inverse() => Bounds.Inverse().Map(static bounds => (LutTable)new Remap(bounds)).ToFin(new ImagingFault("constant remap step has no exact inverse"));
+        public override Fin<LutTable> Inverse() => Bounds.Inverse().Map(static bounds => (LutTable)new Remap(bounds)).ToFin(new ImagingFault("constant remap step", ImagingReason.Uninvertible));
     }
 
     public sealed record Log(LogCurve Curve) : LutTable {
@@ -360,7 +360,7 @@ public static class LutTables {
     extension(Lut3D) {
         public static Fin<Lut3D> From(int size, ReadOnlyMemory<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
             Sampled(samples.Span, domainMinimum, domainMaximum).Bind(_ => Try.lift(() => new Lut3D(size, samples.Span, domainMinimum, domainMaximum)).Run()
-                .MapFail(cause => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT lattice of size {size} refused"), cause)));
+                .MapFail(cause => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT lattice of size {size}"), ImagingReason.Refused, cause)));
     }
 
     internal static ColorMatrix3x3 Baked(Matrix<double> matrix) =>
@@ -369,18 +369,18 @@ public static class LutTables {
     internal static Fin<Unit> Accepts(CurveLength length, ReadOnlySpan<float> rows, Vector3 domainMinimum, Vector3 domainMaximum) =>
         (rows.Length == 3 * length
                 ? Fin.Succ(unit)
-                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT curve of length {length} needs {3 * length} samples, not {rows.Length}")),
+                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT curve of length {length} with {rows.Length} samples"), ImagingReason.Miscounted),
          Sampled(rows, domainMinimum, domainMaximum),
          Vector3.AllWhereAllBitsSet(Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum))
                 ? Fin.Succ(unit)
-                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT domain [{domainMinimum}, {domainMaximum}] must be finite")))
+                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT domain [{domainMinimum}, {domainMaximum}]"), ImagingReason.Range))
             .Apply(static (_, _, _) => unit).As();
 
     private static Fin<Unit> Sampled(ReadOnlySpan<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
-        (TensorPrimitives.IsFiniteAll(samples) ? Fin.Succ(unit) : new ImagingFault("LUT holds non-finite sample"),
+        (TensorPrimitives.IsFiniteAll(samples) ? Fin.Succ(unit) : new ImagingFault("LUT sample", ImagingReason.Range),
          Vector3.AllWhereAllBitsSet(Vector3.LessThan(domainMinimum, domainMaximum))
                 ? Fin.Succ(unit)
-                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT domain [{domainMinimum}, {domainMaximum}] must ascend")))
+                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT domain order [{domainMinimum}, {domainMaximum}]"), ImagingReason.Degenerate))
             .Apply(static (_, _) => unit).As();
 
     public static Seq<LutTable> Between(Gamut source, Gamut target) =>

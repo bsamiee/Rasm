@@ -21,7 +21,7 @@ public static class ContentRows {
                 let shown =
                     from row in latest
                     from current in held.ValueIO
-                    from drew in view.Show(current.Map(static state => state.Content).IfNone(new Content<TValue>.Pending(None, None))
+                    from drew in view.Show(current.Map(static state => state.Content).IfNone(new Content<TValue>.Pending())
                         .Drawn(row.Row.Drawn, RowText.Localize("{0} unavailable", scope.Sink, arguments: [RowText.Localize(row.Label, scope.Sink).Local]).Local))
                     select drew
                 from landed in Subscriptions.Idle<TRequest, Content<TValue>>(arrived => Landed(held, kept, latest, arrived).Bind(_ => shown))(site, retain)
@@ -30,7 +30,7 @@ public static class ContentRows {
                     from prior in held.ValueIO
                     from changed in when(!prior.Exists(current => EqualityComparer<TRequest>.Default.Equals(current.Request, row.Row.Request)),
                         from drained in working.Drain
-                        from pending in held.SwapIO(current => Some((row.Row.Request, current.Map(static state => state.Content.Requested(None)).IfNone(new Content<TValue>.Pending(None, None)))))
+                        from pending in held.SwapIO(current => Some((row.Row.Request, current.Map(static state => state.Content.Requested(None)).IfNone(new Content<TValue>.Pending()))))
                         from forked in DisposalOps.Fork(
                             row.Row.Compute(row.Row.Request).Map(static value => (Content<TValue>)new Content<TValue>.Ready(value))
                                 .Catch(static error => !error.Is(Errors.Cancelled), static error => IO.pure<Content<TValue>>(new Content<TValue>.Failed(error)))

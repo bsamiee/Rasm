@@ -27,10 +27,10 @@ public sealed partial class ImageRegion {
                 _ => moved,
             },
             None: () => moved);
-        return Validated(held.Standardized).ToOption();
+        return Present(held.Standardized);
     }
 
-    public static Fin<ImageRegion> Validated(SKRect edges) => TryCreate(edges, out ImageRegion? region, out Invalid? fault) ? region : fault;
+    public static Option<ImageRegion> Present(SKRect edges) => TryCreate(edges, out ImageRegion? region) ? region : None;
 
     static partial void ValidateFactoryArguments(ref Invalid? validationError, ref SKRect edges) =>
         validationError = edges is { Left: >= 0f, Top: >= 0f, Right: <= 1f, Bottom: <= 1f } && edges.Left < edges.Right && edges.Top < edges.Bottom
@@ -53,9 +53,8 @@ public abstract partial record ImageTool {
                 Edited).Drawn(view, Ringed(extent).ToSeq());
 
         private Option<Node> Ringed(Vector2 extent) =>
-            (AxisRange.Validated(Value.Edges.Left * extent.X, Value.Edges.Right * extent.X), AxisRange.Validated(Value.Edges.Top * extent.Y, Value.Edges.Bottom * extent.Y))
-                .Apply(static (across, down) => (Node)new Node.Mark(new Figure.Region(Some(across), Some(down))) { Role = Role.Ring }).As()
-                .ToOption();
+            (AxisRange.Present(Value.Edges.Left * extent.X, Value.Edges.Right * extent.X), AxisRange.Present(Value.Edges.Top * extent.Y, Value.Edges.Bottom * extent.Y))
+                .Apply(static (across, down) => (Node)new Node.Mark(new Figure.Region { First = Some(across), Second = Some(down) }) { Role = Role.Ring }).As();
     }
 
     public sealed record Pick(Option<Vector2> At, Func<Edit<Option<Vector2>>, IO<Unit>> Edited) : ImageTool {
@@ -76,16 +75,15 @@ public sealed record ImagePlot(Content<SKImage> Image, SKSizeI Pixels, PlotPlane
     public Func<Option<Vector2>, Option<IO<Unit>>> Hovered { get; init; } = static _ => None;
 
     public Option<PlotPlane> Fit =>
-        (AxisRange.Validated(0f, Pixels.Width), AxisRange.Validated(Pixels.Height, 0f))
-            .Apply(static (across, down) => (PlotPlane)new PlotPlane.Cartesian(new Axis.Linear(across), new Axis.Linear(down))).As()
-            .ToOption();
+        (AxisRange.Present(0f, Pixels.Width), AxisRange.Present(Pixels.Height, 0f))
+            .Apply(static (across, down) => (PlotPlane)new PlotPlane.Cartesian(new Axis.Linear(across), new Axis.Linear(down))).As();
 
     public Node Drawn =>
         new Node.Overlay(
             new Node.Plot(View, Image.Held.Map(image => (Node)Covering(new Node.Image(image) { Rendering = ImageRendering.Pixelated })).ToSeq() + Overlays + Tool.Map(tool => tool.Drawn(View, Extent)).ToSeq()) {
                 Part = Fit.Map(rest => (Part)new Part.Viewport(rest, Navigated)),
                 Width = Sizing.Grow.Unit,
-                Aspect = Factor.Validated((float)Pixels.Width / Pixels.Height).ToOption(),
+                Aspect = Factor.Present((float)Pixels.Width / Pixels.Height),
                 Conditions = ImageTile.Conditioned(Image),
                 Hovered = Hovered,
                 Accessible = new Accessible { Role = AccessRole.Image, Label = Caption },
@@ -97,9 +95,8 @@ public sealed record ImagePlot(Content<SKImage> Image, SKSizeI Pixels, PlotPlane
     public Node.Pin Covering(Node content) => new(Vector2.Zero, content) { Span = Extent };
 
     public Option<PlotPlane> ActualSize(float across) =>
-        from axis in View.Dimension(PhysicalAxis.Horizontal)
-        from plane in View.Scaled(View.Dimensions.Fold(Vector2.Zero, static (center, held) => held.Along.With(center, (held.Axis.Domain.From + held.Axis.Domain.To) / 2f)), across / MathF.Abs(axis.Domain.Span))
-        select plane;
+        View.Dimension(PhysicalAxis.Horizontal)
+            .Bind(axis => View.Scaled(View.Dimensions.Fold(Vector2.Zero, static (center, held) => held.Along.With(center, (held.Axis.Domain.From + held.Axis.Domain.To) / 2f)), across / MathF.Abs(axis.Domain.Span)));
 
     public Option<string> Zoom(float across, CultureInfo culture) => View.Dimension(PhysicalAxis.Horizontal).Map(axis => (across / MathF.Abs(axis.Domain.Span)).ToString("P0", culture));
 
@@ -117,7 +114,7 @@ public sealed partial class ImageOperation {
     public partial Option<IO<Unit>> Applied(ImagePlot view, float across);
 
     public Command<TGate, TInvoke>.Run Commanded<TGate, TInvoke>(string caption, Func<ImageOperation, TGate> enabled, Func<ImageOperation, TInvoke> invoke) where TGate : notnull where TInvoke : notnull =>
-        new(new CommandFace(Key, caption, None, None), Some(enabled(this)), invoke(this));
+        new(new CommandFace(Key, caption), Some(enabled(this)), invoke(this));
 }
 
 public sealed record ImageTile(Content<SKImage> Image) {

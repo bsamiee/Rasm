@@ -32,7 +32,7 @@ public sealed partial class ViewWindow {
         TryCreate(centerX, centerY, width, height, out ViewWindow? window, out ImagingFault? fault) ? window : fault;
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref double centerX, ref double centerY, ref double width, ref double height) =>
-        validationError = width > 0d && height > 0d ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"View window of {width}x{height} must have positive size"));
+        validationError = width > 0d && height > 0d ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"view window {width}x{height}"), ImagingReason.Range);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -77,7 +77,7 @@ public sealed partial class LensFocus {
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Length focalLength, ref Length focusDistance) =>
         validationError = focalLength > Length.Zero && focusDistance > focalLength ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Focus distance {focusDistance} must exceed positive focal length {focalLength}"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"focus distance {focusDistance} at focal length {focalLength}"), ImagingReason.Range);
 }
 
 public sealed record Camera {

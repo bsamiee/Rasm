@@ -19,8 +19,8 @@ from blender.rendering.faults import RenderingReason
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Field = Slot | Number
-type Parts = Text | Field
-type Width = Annotated[int, msgspec.Meta(ge=1, le=9)]
+type _Parts = Text | Field
+type _Width = Annotated[int, msgspec.Meta(ge=1, le=9)]
 
 
 class Word(StrEnum):
@@ -72,16 +72,14 @@ class Text(Case, frozen=True, kw_only=True):
 class Slot(Case, frozen=True, kw_only=True):
     """Text field."""
 
-    title = "Text Field"
     key: Word
 
 
 class Number(Case, frozen=True, kw_only=True):
     """Number field zero-padded to width."""
 
-    title = "Number Field"
     key: Count
-    width: Width
+    width: _Width
 
 
 class Fields(msgspec.Struct, frozen=True, kw_only=True):
@@ -94,7 +92,7 @@ class Fields(msgspec.Struct, frozen=True, kw_only=True):
 class OutputName(msgspec.Struct, frozen=True, kw_only=True):
     """Literal text and fields in path order."""
 
-    parts: tuple[Parts, ...]
+    parts: tuple[_Parts, ...]
 
     @classmethod
     def of(cls, template: str) -> Outcome[Self]:
@@ -104,10 +102,10 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
             return (Fault(reason=RenderingReason.TEMPLATE, subject=template, cause=reason),)
 
         def width(spec: str) -> Option[int]:
-            return catch(lambda: msgspec.json.decode(spec, type=Width), exception=msgspec.DecodeError)().to_option() if spec.isdigit() else Nothing
+            return catch(msgspec.json.decode, exception=msgspec.DecodeError)(spec, type=_Width).to_option() if spec.isdigit() else Nothing
 
-        def parted(text: str, name: str | None, spec: str | None, conversion: str | None) -> Outcome[tuple[Parts, ...]]:
-            literal: tuple[Parts, ...] = (Text(text=text),) if text else ()
+        def parted(text: str, name: str | None, spec: str | None, conversion: str | None) -> Outcome[tuple[_Parts, ...]]:
+            literal: tuple[_Parts, ...] = (Text(text=text),) if text else ()
             match name, spec, conversion:
                 case _ if _UNLITERAL.search(text):
                     return Error(refused(f"Literal {text!r} holds a brace or NUL"))
@@ -131,7 +129,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 checked("A count field repeats at another width", holds=len(counts) == len({name for name, _ in counts})),
             ).map(lambda found: cls(parts=tuple(chain.from_iterable(found[0]))))
 
-        return catch(lambda: tuple(string.Formatter().parse(template)), exception=ValueError)().map_error(refused).bind(parsed)
+        return catch(tuple, exception=ValueError)(string.Formatter().parse(template)).map_error(refused).bind(parsed)
 
     @property
     def slots(self) -> frozenset[Field]:
@@ -159,7 +157,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
         """Composes name, accumulating field refusals."""
         patterns = self.patterns()
 
-        def spelled(part: Parts) -> Outcome[str]:
+        def spelled(part: _Parts) -> Outcome[str]:
             match part:
                 case Text(text=text):
                     return Ok(text)
@@ -168,7 +166,13 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 case Number(key=key, width=width):
                     value = Option.of_optional(fields.counts.get(key)).map(lambda count: f"{count:0{width}d}").default_value("")
             pattern = patterns[part]
-            return written(part).map(Ok).default_with(lambda: Ok(value) if pattern.fullmatch(value) else Error((Fault(reason=RenderingReason.UNMATCHED, subject=value, member=pattern.pattern),)))
+            return (
+                written(part)
+                .map(Ok)
+                .default_with(
+                    lambda: Ok(value).filter_with(lambda held: pattern.fullmatch(held) is not None, lambda held: (Fault(reason=RenderingReason.UNMATCHED, subject=held, member=pattern.pattern),))
+                )
+            )
 
         return accumulated(map(spelled, self.parts)).map("".join)
 
@@ -196,10 +200,11 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
 
     def path(self, root: Path, fields: Fields) -> Outcome[Path]:
         """Composes path, refusing one resolving outside root."""
-        return self.compose(fields).bind(
-            lambda text: (
-                Ok(root / text) if (path := (root / text).resolve()).is_relative_to(base := root.resolve()) else Error((Fault(reason=RenderingReason.ROOT, subject=str(path), member=str(base)),))
-            )
+        return (
+            self
+            .compose(fields)
+            .map(lambda text: root / text)
+            .filter_with(lambda path: path.resolve().is_relative_to(root.resolve()), lambda path: (Fault(reason=RenderingReason.ROOT, subject=str(path.resolve()), member=str(root.resolve())),))
         )
 
     def next_version(self, root: Path, fields: Fields) -> int:
@@ -234,4 +239,4 @@ def stepped(text: str, offset: int) -> Option[str]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["RESERVED", "Count", "Field", "Fields", "Number", "Output", "OutputName", "Parts", "Slot", "Text", "Width", "Word", "stepped"]
+__all__ = ["RESERVED", "Count", "Field", "Fields", "Number", "Output", "OutputName", "Slot", "Text", "Word", "stepped"]

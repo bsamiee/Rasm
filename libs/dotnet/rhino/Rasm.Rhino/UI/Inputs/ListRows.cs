@@ -267,8 +267,8 @@ public static class ListRows {
                 node.Expanded = !node.Expanded;
                 grid.ReloadItem(node, reloadChildren: true);
             })))
-            .As()
-            .Map(unit));
+            .As())
+            .Map(unit);
 
     // --- [GESTURES]
     private static IO<Unit> Gestures<TItem, TKey>(
@@ -381,7 +381,7 @@ public static class ListRows {
     private sealed record Browsing<TItem>(TileCache<TItem> Tiles) where TItem : notnull {
         public Func<TItem, bool> Keep { get; init; } = static _ => true;
         public Option<float> Resizing { get; init; }
-        public Selection Picked { get; init; } = new Selection.Many([], None, None);
+        public Selection Picked { get; init; } = new Selection.Many([]);
         public Option<Key> Hovered { get; init; }
         public LanguageExt.HashSet<Key> Viewed { get; init; }
         public Option<float> Scale { get; init; }
@@ -434,7 +434,7 @@ public static class ListRows {
                 Picked = state.Picked.Switch(
                     shown,
                     one: static (keys, one) => (Selection)new Selection.One(one.Picked.Filter(keys.Contains)),
-                    many: static (keys, many) => new Selection.Many(many.Picked.Intersect(keys), many.Anchor.Filter(keys.Contains), many.Focus.Filter(keys.Contains))),
+                    many: static (keys, many) => new Selection.Many(many.Picked.Intersect(keys)) { Anchor = many.Anchor.Filter(keys.Contains), Focus = many.Focus.Filter(keys.Contains) }),
                 Hovered = state.Hovered.Filter(shown.Contains),
                 Viewed = state.Viewed.Intersect(shown),
             },
@@ -480,7 +480,7 @@ public static class ListRows {
     private static IO<Unit> Selecting<TItem>(Realized<TItem> browser, Edit<Selection> change) where TItem : notnull =>
         from moved in change.Value.Traverse(picked => Advanced(browser, state => state with { Picked = picked })).As()
         from current in browser.Latest
-        from chosen in change.Applied.Bind(static picked => picked.Lead.Filter(picked.Holds)).Filter(lead => current.Row.Current != Some(lead))
+        from chosen in (from picked in change.Applied from lead in picked.Lead where picked.Holds(lead) select lead).Filter(lead => current.Row.Current != Some(lead))
             .Traverse(lead => current.Row.Chosen(change.Map(_ => lead).As())).As()
         select unit;
 
@@ -493,7 +493,7 @@ public static class ListRows {
         };
 
     private static IO<Unit> Menued<TItem>(Realized<TItem> browser, Seq<Key> targeted, SKRect frame) where TItem : notnull =>
-        from moved in Advanced(browser, state => state with { Picked = new Selection.Many(toHashSet(targeted), targeted.Head, targeted.Head) })
+        from moved in Advanced(browser, state => state with { Picked = new Selection.Many(toHashSet(targeted)) { Anchor = targeted.Head, Focus = targeted.Head } })
         from shown in browser.Host.Menu(browser.Menu, frame)
         select unit;
 

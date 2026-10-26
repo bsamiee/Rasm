@@ -239,7 +239,7 @@ public static class Aces {
         [CallerArgumentExpression(nameof(subject))] string named = "", [CallerMemberName] string search = "") =>
         margin(upper) >= 0d ? (float)upper
         : Bisection.TryFindRoot(margin, lower, upper, accuracy, RootIterations, out double root) ? (float)root
-        : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"ACES {search} search at {named} {subject} in {space.Gamut.Rgb.Name} brackets no root over [{lower}, {upper}]"));
+        : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"ACES {search} search at {named} {subject} in {space.Gamut.Rgb.Name} over [{lower}, {upper}]"), ImagingReason.Unrooted);
 
     private static Fin<AcesGamut> Limited((Gamut Limit, float Peak) key) =>
         from peak in Peaked(key.Peak)

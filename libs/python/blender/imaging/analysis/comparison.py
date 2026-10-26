@@ -68,10 +68,11 @@ class Bar(msgspec.Struct, frozen=True, kw_only=True):
 
     def graded(self, measures: Mapping[Axis, float]) -> Verdict:
         """Grades axis measure, unmeasured when absent."""
+        holds = _HOLDS[self.axis]
         return (
             Option
             .of_optional(measures.get(self.axis))
-            .map(lambda value: Verdict.REFUSE if not _HOLDS[self.axis](value, self.refuse) else Verdict.ADVISORY if not _HOLDS[self.axis](value, self.advisory) else Verdict.PASS)
+            .map(lambda value: Verdict.REFUSE if not holds(value, self.refuse) else Verdict.ADVISORY if not holds(value, self.advisory) else Verdict.PASS)
             .default_value(Verdict.UNMEASURED)
         )
 
@@ -91,8 +92,6 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
         if reference.shape != test.shape:
             return Error((Fault(reason=ImagingReason.MISMATCH, subject=cls.__name__, member=str(reference.shape), cause=str(test.shape)),))
         first, second = OpenImageIO.ImageBuf(reference[..., :3]), OpenImageIO.ImageBuf(test[..., :3])
-        result = OpenImageIO.ImageBufAlgo.compare(first, second, math.inf, math.inf)
-        compared: Outcome[OpenImageIO.CompareResults] = Error((Fault(reason=ImagingReason.COMPARISON, subject=str(reference.shape), cause=OpenImageIO.geterror()),)) if result.error else Ok(result)
 
         def measured(parts: tuple[OpenImageIO.CompareResults, npt.NDArray[np.float32], npt.NDArray[np.float32]]) -> Outcome[Self]:
             signal, difference, flip = parts
@@ -113,7 +112,9 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
             return Ok(cls(measures=MappingProxyType(measures), difference=difference, perceptual=flip, structural=structural.map(lambda answer: answer[1])))
 
         return paired(
-            compared,
+            Ok(OpenImageIO.ImageBufAlgo.compare(first, second, math.inf, math.inf)).filter_with(
+                lambda result: not result.error, lambda _: (Fault(reason=ImagingReason.COMPARISON, subject=str(reference.shape), cause=OpenImageIO.geterror()),)
+            ),
             checked(OpenImageIO.ImageBufAlgo.absdiff(first, second)).bind(pixels),
             checked(OpenImageIO.ImageBufAlgo.FLIP_diff(first, second, hdr=int(domain is Domain.SCENE_LINEAR))).bind(pixels),
         ).bind(measured)

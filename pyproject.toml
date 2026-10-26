@@ -306,7 +306,7 @@ dev       = [
     # --- [CHECKERS]
     "deptry",                                                                     # Import-to-requirement checker over runtime code rasm:lint runs
     "mypy",                                                                       # Type checker rasm:typecheck runs
-    "pydantic",                                                                   # Validated models at protocol boundaries and the pydantic.mypy plugin
+    "pydantic",                                                                   # Validated models at protocol boundaries
     "refurb",                                                                     # Modernization checker over a mypy build rasm:lint runs
     "ruff",                                                                       # Linter, formatter, and import graph source of Nx Python project edges
     "ty",                                                                         # Type checker rasm:typecheck runs
@@ -339,7 +339,7 @@ dev       = [
     "markdown-it-py",                                                             # CommonMark tokens with source line ranges and GFM tables
     "mcp",                                                                        # MCP client over Streamable HTTP
     "mdit-py-plugins",                                                            # Front-matter and extension rules for markdown-it-py
-    "msgspec[yaml]",                                                              # Struct types with JSON, MessagePack, TOML, and YAML codecs
+    "msgspec",                                                                    # Struct types with JSON, MessagePack, and TOML codecs
     "numpy",                                                                      # N-dimensional arrays and vectorized math
     "packaging",                                                                  # Python requirement, version, and wheel filename parsing
     "picosvg",                                                                    # SVG geometry normalization and path operations
@@ -386,9 +386,9 @@ environments             = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 prerelease               = "allow"
-no-build-package         = ["epdx", "numpy"]                                                                                                                                         # `epdx` sdist lacks `project.version`, numpy sdists fail on Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`)
-constraint-dependencies  = ["numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'"] # Versions Blender 5.4 bundles in the interpreter running host code
-extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                              # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
+no-build-package         = ["epdx", "numpy"]                                                                                                                                                                                          # `epdx` sdist lacks `project.version`, numpy sdists fail on Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`)
+constraint-dependencies  = ["numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'", "packaging==25.0; python_full_version < '3.15'"] # Versions Blender 5.4 bundles in the interpreter running host code
+extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                                                                               # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
 [tool.uv.workspace]
 members = ["libs/python/blender", "apps/blender/darkroom"]
@@ -476,17 +476,17 @@ ignore                    = [
     "too-many-locals",                                                                                                                                                                                               # Local counts push one-caller helper extraction
     "too-many-statements",                                                                                                                                                                                           # Statement counts push one-caller helper extraction
     "complex-structure",                                                                                                                                                                                             # Complexity scores push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
-    "raw-string-in-exception",                                                                                                                                                                                       # Moves the message into a local the raise alone reads
-    "f-string-in-exception",                                                                                                                                                                                         # Moves the message into a local the raise alone reads
+    "raw-string-in-exception",                                                                                                                                                                                       # Moves message into a local only the raise reads
+    "f-string-in-exception",                                                                                                                                                                                         # Moves message into a local only the raise reads
     "raise-vanilla-args",                                                                                                                                                                                            # Pushes an exception class per message, raises stay for defects
     "typing-only-first-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
     "typing-only-third-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
     "typing-only-standard-library-import",                                                                                                                                                                           # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
     "suspicious-subprocess-import",                                                                                                                                                                                  # Reports every `subprocess` import, process boundaries call it
-    "implicit-namespace-package",                                                                                                                                                                                    # The `blender` import root and its packages are namespace packages
+    "implicit-namespace-package",                                                                                                                                                                                    # Packages outside extension roots hold no `__init__.py`
     "missing-copyright-notice",                                                                                                                                                                                      # Files hold no license header
-    "commented-out-code",                                                                                                                                                                                            # Reads `# --- [<FAMILY>]` subsection dividers as code
-    "float-equality-comparison",                                                                                                                                                                                     # Code compares authored controls with exact identity values (`0.0`, `1.0`) and guards division by exact zero
+    "commented-out-code",                                                                                                                                                                                            # Reads `# --- [<LABEL>]` section and subsection dividers as code
+    "float-equality-comparison",                                                                                                                                                                                     # Authored controls compare against exact identity values (`0.0`, `1.0`)
     "zip-without-explicit-strict",                                                                                                                                                                                   # `strict=True` asserts lengths the code constructs
     "batched-without-explicit-strict",                                                                                                                                                                               # `strict=True` asserts lengths the code constructs
     "subprocess-without-shell-equals-true",                                                                                                                                                                          # Reports every argument-vector `subprocess` call
@@ -496,11 +496,11 @@ ignore                    = [
     "reimplemented-operator",                                                                                                                                                                                        # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
     "lambda-assignment",                                                                                                                                                                                             # Pushes a `def` statement for a callback each `match` arm binds
     "compare-with-tuple",                                                                                                                                                                                            # PLR1714 reports the form as a set membership PLR6201 accepts
-    "blocking-http-call-in-async-function",                                                                                                                                                                          # banned-api rejects every client it names
-    "blocking-http-call-httpx-in-async-function",                                                                                                                                                                    # banned-api rejects `httpx`
-    "blocking-sleep-in-async-function",                                                                                                                                                                              # banned-api rejects `time.sleep`
-    "request-without-timeout",                                                                                                                                                                                       # banned-api rejects every client it names
-    "no-explicit-stacklevel",                                                                                                                                                                                        # banned-api rejects `warnings.warn`
+    "blocking-http-call-in-async-function",                                                                                                                                                                          # `banned-api` rejects every client it names
+    "blocking-http-call-httpx-in-async-function",                                                                                                                                                                    # `banned-api` rejects `httpx`
+    "blocking-sleep-in-async-function",                                                                                                                                                                              # `banned-api` rejects `time.sleep`
+    "request-without-timeout",                                                                                                                                                                                       # `banned-api` rejects every client it names
+    "no-explicit-stacklevel",                                                                                                                                                                                        # `banned-api` rejects `warnings.warn`
     "multiple-starts-ends-with",                                                                                                                                                                                     # refurb FURB102 covers attribute receivers
     "repeated-append",                                                                                                                                                                                               # refurb FURB113 covers attribute receivers
     "len-test",                                                                                                                                                                                                      # refurb FURB115 reports every sized length test from its type
@@ -523,7 +523,7 @@ isort                     = { combine-as-imports = true, force-sort-within-secti
 pycodestyle               = { max-line-length = 300 }
 pydocstyle                = { convention = "google" }
 pydoclint                 = { ignore-one-line-docstrings = true }
-pylint                    = { allow-magic-value-types = ["str", "bytes", "int"], allow-dunder-method-names = ["__array__"], max-args = 8 }
+pylint                    = { allow-magic-value-types = ["str", "bytes", "int"], max-args = 8 }
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**"                              = ["assert"]
@@ -534,7 +534,7 @@ pylint                    = { allow-magic-value-types = ["str", "bytes", "int"],
 ]
 "apps/blender/**"                       = [
     "non-empty-init-module",                         # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
-    "relative-imports",                              # Blender imports an extension under `bl_ext.<repository>.<id>`, so its folders reach each other relatively alone
+    "relative-imports",                              # Blender imports extensions under `bl_ext.<repository>.<id>`, folders reach each other through relative imports alone
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]
@@ -653,7 +653,6 @@ rules   = { missing-direct-dependency = "ignore" } # Extensions import the `blen
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
-# --- [CHECKER]
 [tool.mypy]
 files                   = [".", ".claude"]
 mypy_path               = ["libs/python"]
@@ -665,16 +664,9 @@ explicit_package_bases  = true
 exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
-untyped_calls_exclude   = ["OpenImageIO", "picosvg", "skimage"]                                                                                                                                                                             # Callees mypy reports as untyped calls in packages that ship no typed signatures
-plugins                 = ["pydantic.mypy"]
+untyped_calls_exclude   = ["OpenImageIO", "picosvg", "skimage"]                                                                                                                                                                             # Packages without typed signatures, calls into them report as untyped
 enable_error_code       = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
 overrides               = [{ module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true }, { module = ["cycles.*"], ignore_missing_imports = true }, { module = ["blender.*", "apps.blender.*"], disallow_any_explicit = false }]
-
-# --- [PYDANTIC]
-[tool.pydantic-mypy]
-init_typed                    = true
-init_forbid_extra             = true
-warn_required_dynamic_aliases = true
 
 # --- [REFURB] ---------------------------------------------------------------------------
 
@@ -686,7 +678,7 @@ disable    = [
     "FURB103",                # Ruff runs FURB103
     "FURB104",                # Ruff PTH109 reports the form
     "FURB105",                # Ruff runs FURB105
-    "FURB106",                # `expandtabs` differs from the replacement unless tabs lead the string
+    "FURB106",                # `expandtabs` differs from its replacement unless tabs lead the string
     "FURB107",                # Rewrites to `contextlib.suppress` `banned-api` rejects, Ruff SIM105 and S110 report swallowed exceptions
     "FURB108",                # Ruff PLR1714 reports the form
     "FURB109",                # Rewrites to a tuple membership Ruff PLR6201 rejects
@@ -714,7 +706,7 @@ disable    = [
     "FURB141",                # Ruff PTH110 reports the form
     "FURB144",                # Ruff PTH107 and PTH108 report the form
     "FURB146",                # Ruff PTH112, PTH113, PTH114, and PTH117 report the form
-    "FURB147",                # Ruff PTH118 reports the form. FURB147 rejects `posixpath.join` on archive and URL paths
+    "FURB147",                # Ruff PTH118 reports the form, FURB147 rejects `posixpath.join` on archive and URL paths
     "FURB150",                # Ruff PTH102 and PTH103 report the form
     "FURB151",                # `Path.touch` keeps an existing file's content, the replaced `open` truncates it
     "FURB152",                # Ruff runs FURB152
@@ -734,7 +726,7 @@ disable    = [
     "FURB169",                # Ruff runs FURB169
     "FURB171",                # Ruff runs FURB171
     "FURB172",                # `Path.suffix` differs from `endswith` for multi-part extensions and dotfiles
-    "FURB173",                # Merged literal `{...} | d` infers its own value type, failing the target parameter's type under mypy
+    "FURB173",                # Merged literal `{...} | d` infers its own value type, mypy rejects it at target parameter type
     "FURB176",                # Ruff DTZ003 and DTZ004 report the form
     "FURB177",                # Ruff runs FURB177
     "FURB179",                # `chain.from_iterable` rewrite joins heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` and `no-chain-flattening` report hand flattening
@@ -757,8 +749,6 @@ python_functions         = ["test_*", "bench_*"]
 collect_imported_tests   = false
 empty_parameter_set_mark = "fail_at_collect"
 addopts                  = [
-    "-p",
-    "tests.python.support.runtime",
     "-p",
     "no:zarr",
     "-p",

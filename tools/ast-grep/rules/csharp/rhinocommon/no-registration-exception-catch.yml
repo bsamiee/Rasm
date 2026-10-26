@@ -53,6 +53,6 @@ rule:
           all:
             - has: {field: operator, regex: '^\|$'}
             - has: {field: left, matches: registering}
-            - has: {field: right, kind: invocation_expression, all: [{has: {field: function, matches: {csharp-type-name: {name: {regex: '^@catch$'}}}}}, {has: {field: arguments, matches: missing-id}}]}
+            - has: {field: right, kind: invocation_expression, all: [{matches: {csharp-named-call: {name: {regex: '^@catch$'}}}}, {has: {field: arguments, matches: missing-id}}]}
 message: 'Catch on `$REGISTER` handles the `InvalidDataException` for a class without its own `GuidAttribute`'
 note: 'Test `Attribute.IsDefined(<type>, typeof(GuidAttribute), inherit: false)` before registering, `RenderContent.RegisterContent` for content'

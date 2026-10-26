@@ -38,7 +38,7 @@ _STRUCT = fullname(msgspec.Struct)
 
 
 class ErrorRestatedDefaultError(RasmError):
-    """Keyword argument equal to the literal default its callee or `msgspec.Struct` field declares.
+    """Keyword argument restating a literal default its callee declares in place of an omitted argument.
 
     Bad:
 
@@ -118,7 +118,7 @@ def check(node: MypyFile, errors: list[Error]) -> None:
                 case _:
                     owner, defaults = "", {}
             errors.extend(
-                ErrorRestatedDefaultError.from_node(value, f"`{name}={stringify(value)}` restates the default `{owner}` declares, remove the argument")
+                ErrorRestatedDefaultError.from_node(value, f"`{name}={stringify(value)}` restates the default `{owner}` declares, omit `{name}`")
                 for name, value in zip(o.arg_names, o.args)
                 if name is not None and (default := defaults.get(name)) is not None and literal(default) and is_equivalent(value, default)
             )

@@ -13,7 +13,7 @@ public sealed class FrameComparison {
     public PixelFrame Difference { get; }
 
     public static Fin<FrameComparison> Of(PixelFrame reference, PixelFrame test) =>
-        reference.Size == test.Size ? Measured(reference, test) : new ImagingFault($"Reference size {reference.Size} differs from test size {test.Size}");
+        reference.Size == test.Size ? Measured(reference, test) : new ImagingFault($"reference size {reference.Size} against test size {test.Size}", ImagingReason.Mismatch);
 
     private static FrameComparison Measured(PixelFrame reference, PixelFrame test) {
         Measure[] rows = new Measure[test.Size.Height];

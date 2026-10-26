@@ -235,8 +235,8 @@ internal sealed record Provider(string Name, IO<Seq<Quote>> Quotes);
 
 internal static class Traversals {
     public static Option<Seq<double>> ParseAll(Seq<string> values) => values.Traverse(static s => parseDouble(s)).As();
-    public static Validation<Error, Seq<int>> ValidateAll(Seq<string> values, Func<string, Validation<Error, int>> validate) => values.Traverse(validate).As();
-    public static Validation<Error, Seq<int>> ValidateUntilFirstFailure(Seq<string> values, Func<string, Validation<Error, int>> validate) => values.TraverseM(validate).As();
+    public static Fin<Seq<int>> ValidateAll(Seq<string> values, Func<string, Fin<int>> validate) => values.Traverse(validate).As();
+    public static Fin<Seq<int>> ValidateUntilFirstFailure(Seq<string> values, Func<string, Fin<int>> validate) => values.TraverseM(validate).As();
     public static IO<Seq<Quote>> SearchParallel(Seq<Provider> providers) => providers.Traverse(static p => p.Quotes).As().Map(static groups => groups.Flatten());
     public static IO<Seq<Quote>> SearchSerial(Seq<Provider> providers) => providers.TraverseM(static p => p.Quotes).As().Map(static groups => groups.Flatten());
     public static IO<Seq<Quote>> SearchBestEffort(Seq<Provider> providers) =>
@@ -271,4 +271,4 @@ internal static class Stacks {
 }
 ```
 
-Reduce unnecessary effects before building the workflow, and adapt every operation to `IO` at its boundary: a `Validation` from the validation boundary enters through `ToFin` and `IO.lift`, a `Fin` from a pure transition enters through `IO.lift`, and an `IO<Option<A>>` read meets its one match through `ToFin` with an `Error` under `IO.lift`.
+Reduce unnecessary effects before building the workflow, and adapt every operation to `IO` at its boundary: a `Fin` from validation or a pure transition enters through `IO.lift`, and an `IO<Option<A>>` read meets its one match through `ToFin` with an `Error` under `IO.lift`.

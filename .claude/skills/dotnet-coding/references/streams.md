@@ -22,7 +22,7 @@ Stream programs have layers, the separation keeps the dataflow composable and sh
 
 ## [03]-[CREATION]
 
-Subscription behavior depends on the source, not every observable is lazy. Callback-based producers (a message subscription) enter through `Event.from`, event-based APIs through `FromEvent` or `FromEventPattern` of `System.Reactive`, and a `Subject<T>` belongs only at a callback boundary that no dedicated source expresses directly, which keeps observer calls out of the stream definition.
+Subscription behavior depends on the source, not every observable is lazy. Callback-based producers (a message subscription) enter through `Event.from`, event-based APIs through `FromEvent` or `FromEventPattern`, and a `Subject<T>` belongs only at a callback boundary that no dedicated source expresses directly, which keeps observer calls out of the stream definition.
 
 ## [04]-[OPERATORS]
 
@@ -106,7 +106,7 @@ internal static class Backpressure {
 }
 ```
 
-`Scan` is a running fold that emits each accumulated state while `Aggregate` waits for completion, and it detects a state crossing: `FoldReduce` groups the amounts of each key, `Scan` passes each balance forward with the seed emitted first, and SuperLinq `Window(2)` reads each balance beside its predecessor, the filter sees only a crossing from nonnegative to negative:
+`Scan` is a running fold that emits each accumulated state while `Aggregate` waits for completion, and it detects a state crossing: `FoldReduce` groups the amounts of each key, `Scan` passes each balance forward with the seed emitted first, and `Window(2)` reads each balance beside its predecessor, the filter sees only a crossing from nonnegative to negative:
 
 ```csharp
 internal sealed record Entry(Guid Key, decimal Amount);
@@ -119,7 +119,7 @@ internal static class Ledger {
             .Map(static ledger => toSeq(ledger.Filter(WentNegative).Keys));
     private static bool WentNegative(Seq<decimal> amounts) {
         Seq<decimal> balances = amounts.Scan(0m, static (balance, amount) => balance + amount);
-        return toSeq(SuperEnumerable.Window(balances.AsIterable(), 2, static step => step[0] >= 0m && step[1] < 0m)).Exists(identity);
+        return toSeq(balances.AsIterable().Window(2, static step => step[0] >= 0m && step[1] < 0m)).Exists(identity);
     }
 }
 ```

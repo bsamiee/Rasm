@@ -3,9 +3,6 @@ id: no-nameof-call-label
 language: csharp
 severity: error
 utils:
-    label:
-        kind: invocation_expression
-        has: {field: function, kind: identifier, regex: '^nameof$'}
     named:
         any:
             - kind: identifier
@@ -28,7 +25,7 @@ utils:
         all:
             - has: {field: name, matches: named}
             - not: {inside: {kind: invocation_expression, field: function}}
-            - not: {inside: {kind: argument, inside: {kind: argument_list, inside: {matches: label}}}}
+            - not: {inside: {kind: argument, inside: {kind: argument_list, inside: {matches: csharp-nameof-call}}}}
             - not: {inside: {kind: assignment_expression, field: left, has: {field: operator, regex: '^[+-]=$'}}}
     labelled:
         any:
@@ -38,16 +35,16 @@ utils:
             - has: {stopBy: {kind: lambda_expression}, matches: read, pattern: $CALL}
     sibling:
         kind: argument
-        not: {has: {matches: label}}
+        not: {has: {matches: csharp-nameof-call}}
     row:
         all:
-            - has: {kind: argument, nthChild: 1, has: {matches: label}}
+            - has: {kind: argument, nthChild: 1, has: {matches: csharp-nameof-call}}
             - has: {kind: argument, has: {kind: lambda_expression}, follows: {stopBy: end, kind: argument, has: {kind: lambda_expression}}}
 rule:
     kind: invocation_expression
     pattern: $LABEL
     all:
-        - matches: label
+        - matches: csharp-nameof-call
         - has:
             field: arguments
             all:
@@ -88,4 +85,4 @@ rule:
                             - has: {stopBy: end, matches: call, pattern: $CALL}
                             - has: {stopBy: {kind: lambda_expression}, matches: read, pattern: $CALL}
 message: '`$LABEL` restates the name of `$CALL` beside it'
-note: 'Take the label through a `[CallerArgumentExpression]` parameter of the callee and drop the `nameof` argument'
+note: 'Declare a `[CallerArgumentExpression]` parameter on the callee and pass no `nameof` argument'

@@ -68,7 +68,7 @@ internal sealed record ArchFamily(Guid Id, string Command, string Caption, strin
     ];
 
     public static RuiFile Rui { get; } = new(
-        [new ToolbarRow(new CommandFace("Arches", "Arches", None, Some<GlyphSource>(Icons.Embedded(typeof(ArchFamily).Assembly, "GothicArch_Equilateral.svg"))),
+        [new ToolbarRow(new CommandFace("Arches", "Arches") { Glyph = Some<GlyphSource>(Icons.Embedded(typeof(ArchFamily).Assembly, "GothicArch_Equilateral.svg")) },
             Clusters.Map(static cluster => cluster.Map(static family => family.Menu)))],
         []);
 
@@ -76,11 +76,11 @@ internal sealed record ArchFamily(Guid Id, string Command, string Caption, strin
     public Func<IPlugInSink, Command> Registered => sink => new ArchCommand(sink, Id, Command, Prompt, Choices);
 
     // --- [TOOLBAR]
-    private CommandFace Face => new(Command, Caption, Tooltip, Some<GlyphSource>(Glyph(Choices.Head)));
+    private CommandFace Face => new(Command, Caption) { Help = Tooltip, Glyph = Some<GlyphSource>(Glyph(Choices.Head)) };
 
     private Command<RowRule, Macro> Menu =>
         new Command<RowRule, Macro>.Menu(Face, None, [toSeq(Choices).Map(choice =>
-            (Command<RowRule, Macro>)Run(new CommandFace(choice.Option, choice.Label, choice.Tooltip, Some<GlyphSource>(Glyph(choice))), Some<ScriptStep>(new ScriptStep.Pick(choice.Option))))]) {
+            (Command<RowRule, Macro>)Run(new CommandFace(choice.Option, choice.Label) { Help = choice.Tooltip, Glyph = Some<GlyphSource>(Glyph(choice)) }, Some<ScriptStep>(new ScriptStep.Pick(choice.Option))))]) {
             Primary = Some(Run(Face, None)),
         };
 

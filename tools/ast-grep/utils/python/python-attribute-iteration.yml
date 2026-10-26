@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-attribute-iteration
+language: python
+arguments: [target, attribute]
+rule:
+    kind: for_in_clause, for_statement
+    all:
+        - has: {field: right, kind: attribute, has: {field: attribute, matches: attribute}}
+        - has: {field: left, matches: target}

@@ -14,12 +14,12 @@ public static class Sliders {
     // --- [ROWS]
     public static ControlRow Numeric(string label, Slider track) =>
         new ControlRow.Bound<Slider>(label, RowShape.Inline, track, static (latest, scope, retain) =>
-            Scened(latest, static row => (row.Row.Drawn, new ScalarText(row.Row.Track(row.Row.Soft.IfNone(row.Row.Domain)), row.Row.Step, row.Row.Decimals, row.Row.Unit, RowText.Culture),
+            Scened(latest, static row => (row.Row.Drawn, new ScalarText(row.Row.Track(row.Row.Soft.IfNone(row.Row.Domain)), RowText.Culture) { Step = row.Row.Step, Decimals = row.Row.Decimals, Suffix = row.Row.Unit },
                 (row.Row.Domain.Low, row.Row.Domain.High), row.Row.Value, row.Row.Edited), square: false, scope, retain));
 
     public static ControlRow Turned(string label, Dial dial) =>
         new ControlRow.Bound<Dial>(label, RowShape.Inline, dial, static (latest, scope, retain) =>
-            Scened(latest, static row => (row.Row.Drawn, new ScalarText(row.Row.Axis, row.Row.Axis.Step(0f), None, None, RowText.Culture),
+            Scened(latest, static row => (row.Row.Drawn, new ScalarText(row.Row.Axis, RowText.Culture) { Step = row.Row.Axis.Step(0f) },
                 (row.Row.Axis.Domain.Low, row.Row.Axis.Domain.High), row.Row.Value, row.Row.Edited), square: true, scope, retain));
 
     public static ControlRow Distance(string label, Length value, (Length Low, Length High) domain, bool modelUnits, Func<Edit<Length>, IO<Unit>> edited) =>
@@ -30,7 +30,10 @@ public static class Sliders {
                 from text in Measure(doc, row.Row.Domain, row.Row.ModelUnits)
                 from field in DisposalOps.Acquire(IO.lift(() => new NumberField<Length>(text, row.Row.Domain, edit => latest.Bind(current => current.Row.Edited(edit)), scope.Sink)), retain)
                 from retexted in EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber).Inline(_ =>
-                    latest.Bind(current => Measure(doc, current.Row.Domain, current.Row.ModelUnits).Bind(next => field.Retext(next, current.Row.Domain))), scope.Sink, retain)
+                    from current in latest
+                    from next in Measure(doc, current.Row.Domain, current.Row.ModelUnits)
+                    from retexted in field.Retext(next, current.Row.Domain)
+                    select retexted, scope.Sink, retain)
                 select new RowCells(field, latest.Bind(current => field.Receive(current.Row.Value))));
 
     // --- [REALIZE]

@@ -31,4 +31,4 @@ rule:
                     - has: {kind: assignment, has: {field: right, kind: call, has: {field: function, kind: identifier, pattern: $CLASS}}}
                     - follows: {stopBy: end, kind: class_definition, has: {field: name, pattern: $CLASS}}
 message: '`$STATEMENT` rebuilds on every `check` call'
-note: 'Move a table with two readers to module level under `[CONSTANTS]`, and inline a table read once'
+note: 'Hoist each call-invariant value to module level, or inline a value read once'

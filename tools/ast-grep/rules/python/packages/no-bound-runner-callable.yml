@@ -67,19 +67,12 @@ utils:
                     stopBy: {kind: 'function_definition, class_definition, lambda'}
                     has: {field: body, has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: receiver-binding}}
     runner-callee:
-        any:
-            - matches: runner-function
-            - matches: runner-method
-            - kind: parenthesized_expression
-              has: {matches: runner-callee}
+        matches: {python-unparenthesized: {value: {any: [{matches: runner-function}, {matches: runner-method}]}}}
     runner:
         kind: call
         has: {field: function, matches: runner-callee}
     partial-callee:
-        any:
-            - matches: functools-partial-callee
-            - kind: parenthesized_expression
-              has: {matches: partial-callee}
+        matches: {python-unparenthesized: {value: {matches: functools-partial-callee}}}
     partial:
         any:
             - kind: parenthesized_expression

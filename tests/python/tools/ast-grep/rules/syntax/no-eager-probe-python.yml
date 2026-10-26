@@ -13,6 +13,10 @@ valid:
           pass
     - |
       found = len([item for item in items if item])
+    - |
+      def len(items):
+          return 0
+      found = len([item for item in items if item]) == 0
 invalid:
     - |
       found = len([item for item in items if item]) > 0
@@ -30,3 +34,6 @@ invalid:
           pass
     - |
       found = needle in [item.key for item in items]
+    - |
+      from itertools import filterfalse
+      found = len(list(filterfalse(None, items))) == 0

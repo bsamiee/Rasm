@@ -68,4 +68,4 @@ rule:
                         - not: {has: {pattern: $_, not: {any: [{matches: enum-member}, {matches: marker-statement}]}}}
                     inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
 message: '`$NAME` is a sentinel that marks absence by identity'
-note: 'Use `Option[<T>]` with `Nothing`, `<T> | None` with `None` on a field msgspec decodes'
+note: 'Use `Option[<T>]` with `Nothing`, on fields msgspec decodes `<T> | None` or `UnsetType = UNSET`'

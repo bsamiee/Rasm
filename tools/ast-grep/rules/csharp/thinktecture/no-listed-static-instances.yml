@@ -26,7 +26,7 @@ utils:
         any:
             - kind: collection_expression
             - kind: argument_list
-              inside: {kind: invocation_expression, has: {field: function, matches: {csharp-type-name: {name: {regex: '^(Seq|toSeq|Arr|Lst|Set|HashSet|Array|List)$'}}}}}
+              inside: {kind: invocation_expression, matches: {csharp-named-call: {name: {regex: '^(Seq|toSeq|Arr|Lst|Set|HashSet|Array|List)$'}}}}
 rule:
     matches: instance-list
     all:
@@ -37,7 +37,7 @@ rule:
             inside:
                 kind: 'record_declaration, class_declaration'
                 has: {field: name, pattern: $TYPE}
-                not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^SmartEnum(Attribute)?$'}}}}}}}
+                not: {matches: {csharp-attributed: {name: {regex: '^SmartEnum(Attribute)?$'}}}}
         - not: {has: {matches: element, not: {matches: own-instance}}}
 message: '`$TYPE` lists its own static instances by hand'
 note: 'Declare `<type>` a `[SmartEnum]` and read its generated `Items`'

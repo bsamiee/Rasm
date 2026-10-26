@@ -4,7 +4,9 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record CommandFace(string Name, string Caption, Option<string> Help, Option<GlyphSource> Glyph) {
+public sealed record CommandFace(string Name, string Caption) {
+    public Option<string> Help { get; init; }
+    public Option<GlyphSource> Glyph { get; init; }
     public Option<string> Shortcut { get; init; }
 }
 
@@ -152,7 +154,7 @@ public static class Commands {
         };
 
     private static LanguageExt.HashSet<Condition> Conditioned(CommandState state) =>
-        toHashSet(Seq(Condition.Disabled).Filter(_ => !state.Enabled) + state.Mark.Bind(static mark => mark.Map(off: Option<Condition>.None, on: Condition.Selected, mixed: Condition.Mixed)).ToSeq());
+        toHashSet(Seq(Condition.Disabled).Filter(_ => !state.Enabled) + state.Mark.Bind(static mark => mark.Conditioned).ToSeq());
 
     private static Node.Box Divider(PhysicalAxis axis) =>
         new() {

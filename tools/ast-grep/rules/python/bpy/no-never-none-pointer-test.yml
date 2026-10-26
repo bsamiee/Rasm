@@ -68,11 +68,11 @@ utils:
         any:
             - kind: parenthesized_expression
               has: {matches: optional-wrap}
-            - matches: {python-member-use: {module: {regex: '^expression(\.core)?\.option$'}, name: {regex: '^of_(obj|optional)$'}}}
+            - matches: {expression-member: {name: {regex: '^of_(obj|optional)$'}}}
             - kind: attribute
               all:
                 - has: {field: attribute, regex: '^of_(obj|optional)$'}
-                - has: {field: object, matches: {python-member-use: {module: {regex: '^expression(\.core)?(\.option)?$'}, name: {regex: '^(Option|option)$'}}}}
+                - has: {field: object, matches: {expression-member: {name: {regex: '^(Option|option)$'}}}}
     test-call:
         regex: '(^|\.)(bool|of_obj|of_optional)\)?$'
         any: [{matches: optional-wrap}, {matches: {python-builtin-name: {name: {regex: '^bool$'}}}}]

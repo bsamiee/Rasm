@@ -12,14 +12,6 @@ using Rhino.Render.PostEffects;
 
 namespace Darkroom.Chain;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-public enum ChainFault {
-    Unlisted,
-    Absent,
-    Staged,
-    Unmixed,
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ChainEntry(
     Guid Kind, bool On,
@@ -66,7 +58,7 @@ public sealed record EffectKind(
                 row.Looks.Map(look => (look.Name, (Func<ValueSet, Fin<ValueSet>>)(values => values.Recalled(owner, row.Default).Map(state => ValueSet.Fields(owner, look.Look(state)))))),
                 (values, mix, context) =>
                     from state in IO.lift(values.Recalled(owner, row.Default))
-                    let staged = pass(state, context).Bind(found => Blend.Mixed(found, BlendingMode.Mix, mix, [], context.Working.Luminance))
+                    let staged = pass(state, context).Bind(found => Blend.Mixed(found, BlendingMode.Mix, mix, [], context.Working))
                     select (staged, staged.IsSome ? continued(state, mix, context) : context),
                 values => IO.lift(values.Recalled(owner, row.Default)).Map(channels),
                 doc => ValueBinding.Of(owner, row.Default, ValueStores.Defaulted(
@@ -95,7 +87,7 @@ public sealed record ChainState(ImmutableArray<ChainEntry> Entries, ValueSet Val
     public static string Owner => EntryKey.TypeOwner(typeof(DarkroomEffect).GUID);
 
     public static Fin<EffectKind> Kind(Guid id) =>
-        Declared.Value.Kinds.Find(id).Map(static held => held.Kind).ToFin(new ChainRefused(id, ChainFault.Unlisted));
+        Declared.Value.Kinds.Find(id).Map(static held => held.Kind).ToFin(new DarkroomFault($"effect kind {id}", DarkroomReason.Unlisted));
 
     // --- [CHAIN]
     public Seq<(EffectKind Kind, float Mix)> Running =>
@@ -131,13 +123,13 @@ public sealed record ChainState(ImmutableArray<ChainEntry> Entries, ValueSet Val
         Present(kind).Map(_ => this with { Entries = [.. toSeq(Entries).Map(entry => entry.Kind == kind ? entry with { On = on } : entry)] });
 
     public Fin<ChainState> Mixed(Guid kind, float mix) =>
-        (Present(kind), Kind(kind).Bind(held => held.Mix.ToFin(new ChainRefused(kind, ChainFault.Unmixed))))
+        (Present(kind), Kind(kind).Bind(held => held.Mix.ToFin(new DarkroomFault($"effect kind {kind}", DarkroomReason.Unmixed))))
             .Apply((entry, _) => this with { Entries = [.. toSeq(Entries).Map(other => other == entry ? entry with { Mix = mix } : other)] }).As();
 
     public Fin<ChainState> Moved(Guid kind, Option<Guid> before) =>
         from found in (Present(kind), Placed(kind)).Apply(static (entry, place) => (Entry: entry, Place: place)).As()
         from target in before.Traverse(other => Present(other).Bind(_ => Placed(other)).Bind(at =>
-            at.Stage == found.Place.Stage ? Fin.Succ(other) : new ChainRefused(other, ChainFault.Staged))).As()
+            at.Stage == found.Place.Stage ? Fin.Succ(other) : new DarkroomFault($"effect kind {other}", DarkroomReason.Staged))).As()
         select this with {
             Entries = Inserted(toSeq(Entries).Filter(held => held.Kind != kind), found.Entry, target.Match<Func<ChainEntry, bool>>(
                 static other => held => held.Kind == other,
@@ -159,10 +151,10 @@ public sealed record ChainState(ImmutableArray<ChainEntry> Entries, ValueSet Val
         select looked;
 
     private Fin<ChainEntry> Present(Guid kind) =>
-        toSeq(Entries).Find(entry => entry.Kind == kind).ToFin(new ChainRefused(kind, ChainFault.Absent));
+        toSeq(Entries).Find(entry => entry.Kind == kind).ToFin(new DarkroomFault($"effect kind {kind}", DarkroomReason.Unchained));
 
     private static Fin<(PostEffectType Stage, int Index)> Placed(Guid kind) =>
-        Declared.Value.Kinds.Find(kind).Map(static held => (held.Kind.Stage, held.Index)).ToFin(new ChainRefused(kind, ChainFault.Unlisted));
+        Declared.Value.Kinds.Find(kind).Map(static held => (held.Kind.Stage, held.Index)).ToFin(new DarkroomFault($"effect kind {kind}", DarkroomReason.Unlisted));
 
     private static ImmutableArray<ChainEntry> Inserted(Seq<ChainEntry> entries, ChainEntry entry, Func<ChainEntry, bool> after) =>
         [.. entries.TakeWhile(held => !after(held)), entry, .. entries.SkipWhile(held => !after(held))];
@@ -221,6 +213,3 @@ public abstract partial record ChainEdit {
 
     public sealed record Restore(ChainState State) : ChainEdit;
 }
-
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record ChainRefused(Guid Kind, ChainFault Fault) : Expected($"effect kind {Kind} is {Fault}", 0);

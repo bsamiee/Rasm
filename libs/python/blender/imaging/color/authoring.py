@@ -1,10 +1,11 @@
 """OCIO configuration sources, view transform rows, merged configs, archives, and installations."""
 
+from collections.abc import Callable
 import copy
 from enum import auto, Enum
 import pathlib
 import shutil
-from typing import Any
+from typing import Any, Final, Self
 
 from expression import Error, Ok, Option
 from expression.extra.result import catch
@@ -27,16 +28,23 @@ class DynamicRange(Enum):
     STANDARD = auto()
     HIGH = auto()
 
-    @staticmethod
-    def of(space: PyOpenColorIO.ColorSpace) -> "DynamicRange":
+    @classmethod
+    def of(cls, space: PyOpenColorIO.ColorSpace) -> Self:
         """Classifies display colorspace by its OCIO encoding, HIGH for hdr-video or edr-video."""
-        return DynamicRange.HIGH if space.getEncoding() in {"hdr-video", "edr-video"} else DynamicRange.STANDARD
+        return cls.HIGH if space.getEncoding() in {"hdr-video", "edr-video"} else cls.STANDARD
 
     @staticmethod
     def absolute(space: PyOpenColorIO.ColorSpace) -> bool:
         """Returns whether display colorspace interop ID names PQ luminance."""
         return interop(space).rpartition(":")[2].startswith("pq_")
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_MERGING: Final[type[Any]] = PyOpenColorIO.ConfigMergingParameters  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_MERGE: Final[Callable[..., PyOpenColorIO.Config]] = PyOpenColorIO.ConfigMergingHelpers.MergeConfigs  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_ACTIVE_DISPLAY: Final[Callable[[PyOpenColorIO.Config, str], None]] = PyOpenColorIO.Config.addActiveDisplay  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_ACTIVE_VIEW: Final[Callable[[PyOpenColorIO.Config, str], None]] = PyOpenColorIO.Config.addActiveView  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -77,10 +85,9 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def merging() -> object:
         """Returns merge defaults preferring base roles and colorspaces."""
-        form: type[Any] = PyOpenColorIO.ConfigMergingParameters  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        parameters = form.Create()
-        parameters.setRoles(form.STRATEGY_PREFER_BASE)
-        parameters.setColorspaces(form.STRATEGY_PREFER_BASE)
+        parameters = _MERGING.Create()
+        parameters.setRoles(_MERGING.STRATEGY_PREFER_BASE)
+        parameters.setColorspaces(_MERGING.STRATEGY_PREFER_BASE)
         return parameters
 
     view_transforms: tuple[PyOpenColorIO.ViewTransform, ...]
@@ -89,16 +96,12 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
     inactive: frozenset[str] = frozenset()
     file_rules: PyOpenColorIO.FileRules = msgspec.field(default_factory=PyOpenColorIO.FileRules)
     luts: tuple[pathlib.Path, ...] = ()
-    merge: Any = msgspec.field(default_factory=merging)
+    merge: object = msgspec.field(default_factory=merging)
 
     # --- [OUTPUTS]
 
     def staged(self, base: PyOpenColorIO.Config, stage: pathlib.Path) -> Outcome[PyOpenColorIO.Config]:
-        """Stages rows and inline tables into merged config.
-
-        Args:
-            base: Config supplying reference spaces, roles, rules, and existing views.
-            stage: Folder receiving base files, LUT folders, and generated CLFs.
+        """Merges rows into `base` with base files, LUT folders, and generated CLF tables staged in `stage`.
 
         Returns:
             Merged config, or `color` and `write` faults.
@@ -166,9 +169,9 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                 for name in names:
                     request.addDisplaySharedView(display_name, name)
             for name in built if request.getActiveDisplays() else ():
-                request.addActiveDisplay(name)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                _ACTIVE_DISPLAY(request, name)
             for name in names if request.getActiveViews() else ():
-                request.addActiveView(name)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                _ACTIVE_VIEW(request, name)
             separator = request.getFamilySeparator()
             request.setInactiveColorSpaces(
                 ", ".join(
@@ -188,7 +191,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             .map_error(unauthored)
             .bind(
                 lambda _: paired(
-                    catch(PyOpenColorIO.ConfigMergingHelpers.MergeConfigs, exception=PyOpenColorIO.Exception)(self.merge, base, rows).bind(viewed).map_error(unauthored),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    catch(_MERGE, exception=PyOpenColorIO.Exception)(self.merge, base, rows).bind(viewed).map_error(unauthored),
                     folder_made(stage).bind(
                         lambda _: paired(
                             files_copied(copies),
@@ -205,11 +208,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def archived(self, base: PyOpenColorIO.Config, path: pathlib.Path) -> Outcome[pathlib.Path]:
-        """Stages and atomically publishes OCIO archive.
-
-        Args:
-            base: Config the rows merge into.
-            path: Archive destination.
+        """Stages rows merged into `base` and atomically publishes them as an OCIO archive at `path`.
 
         Returns:
             Published path, or `color` and `write` faults.
@@ -224,11 +223,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def installed(self, base: PyOpenColorIO.Config, folder: pathlib.Path) -> Outcome[pathlib.Path]:
-        """Replaces config folder whole with staged config and its files.
-
-        Args:
-            base: Config the rows merge into.
-            folder: Folder hosts read on next start.
+        """Replaces `folder` whole with rows merged into `base` and their files.
 
         Returns:
             Installed config path, or `color` and `write` faults.

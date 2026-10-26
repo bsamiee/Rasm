@@ -36,7 +36,7 @@ public sealed partial class Fraction {
 
     public Fraction Midpoint(Fraction other) => new((_value + other._value) / 2f);
 
-    public static Fin<Fraction> Validated(float value) => TryCreate(value, out Fraction? fraction, out Invalid? fault) ? fraction : fault;
+    public static Option<Fraction> Present(float value) => TryCreate(value, out Fraction? fraction) ? fraction : None;
 
     static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float value) =>
         validationError = value is >= 0f and <= 1f ? null : new Invalid(string.Create(CultureInfo.InvariantCulture, $"fraction {value} lies outside [0, 1]"));
@@ -47,7 +47,7 @@ public sealed partial class Fraction {
 public sealed partial class Factor {
     public static Factor Unit { get; } = new(1f);
 
-    public static Fin<Factor> Validated(float value) => TryCreate(value, out Factor? factor, out Invalid? fault) ? factor : fault;
+    public static Option<Factor> Present(float value) => TryCreate(value, out Factor? factor) ? factor : None;
 
     static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float value) =>
         validationError = float.IsFinite(value) && value > 0f ? null : new Invalid(string.Create(CultureInfo.InvariantCulture, $"factor {value} is not finite and positive"));
@@ -122,15 +122,15 @@ public sealed partial class ImageFit {
     public partial SKRect Fitted(SKRect content, SKSize natural);
 }
 
-[SmartEnum<string>]
+[SmartEnum]
 public sealed partial class ImageRendering {
     private static readonly SKSamplingOptions Smooth = new(SKFilterMode.Linear, SKMipmapMode.Linear);
     private static readonly SKSamplingOptions Nearest = new(SKFilterMode.Nearest, SKMipmapMode.None);
 
-    public static readonly ImageRendering Auto = new("auto", Smooth, Smooth);
-    public static readonly ImageRendering HighQuality = new("high-quality", new SKSamplingOptions(SKCubicResampler.Mitchell), Smooth);
-    public static readonly ImageRendering CrispEdges = new("crisp-edges", Nearest, Nearest);
-    public static readonly ImageRendering Pixelated = new("pixelated", Nearest, Smooth);
+    public static readonly ImageRendering Auto = new(Smooth, Smooth);
+    public static readonly ImageRendering HighQuality = new(new SKSamplingOptions(SKCubicResampler.Mitchell), Smooth);
+    public static readonly ImageRendering CrispEdges = new(Nearest, Nearest);
+    public static readonly ImageRendering Pixelated = new(Nearest, Smooth);
 
     private readonly SKSamplingOptions magnified;
     private readonly SKSamplingOptions minified;
@@ -241,9 +241,9 @@ public abstract partial record Selection {
             (Ordered: ordered, Hit: hit, Modifiers: modifiers),
             one: static (held, _) => (Selection)new One(Some(held.Hit)),
             many: static (held, many) => (held.Modifiers.Common, held.Modifiers.Shift) switch {
-                (true, _) => new Many(many.Picked.SymmetricExcept([held.Hit]), Some(held.Hit), Some(held.Hit)),
+                (true, _) => new Many(many.Picked.SymmetricExcept([held.Hit])) { Anchor = Some(held.Hit), Focus = Some(held.Hit) },
                 (_, true) => Spanned(held.Ordered, many.Anchor, held.Hit),
-                _ when many.Picked.Contains(held.Hit) => new Many(many.Picked, Some(held.Hit), Some(held.Hit)),
+                _ when many.Picked.Contains(held.Hit) => many with { Anchor = Some(held.Hit), Focus = Some(held.Hit) },
                 _ => Only(held.Hit),
             });
 
@@ -253,7 +253,7 @@ public abstract partial record Selection {
             one: static (held, _) => (Selection)new One(Some(held.Lead)),
             many: static (held, many) => held.Extend ? Spanned(held.Ordered, many.Anchor | many.Focus, held.Lead) : Only(held.Lead));
 
-    public Selection All(Seq<Key> ordered) => Switch(ordered, one: static (_, one) => (Selection)one, many: static (keys, many) => new Many(toHashSet(keys), many.Anchor, many.Focus));
+    public Selection All(Seq<Key> ordered) => Switch(ordered, one: static (_, one) => (Selection)one, many: static (keys, many) => many with { Picked = toHashSet(keys) });
 
     public Selection Swept(Seq<Key> ordered, LanguageExt.HashSet<Key> covered, KeyModifiers modifiers) =>
         Switch(
@@ -265,7 +265,7 @@ public abstract partial record Selection {
                 _ => held.Covered,
             } switch {
                 var picked => held.Ordered.Filter(held.Covered.Contains) switch {
-                    var swept => new Many(picked, swept.Head | many.Anchor, swept.Last | many.Focus),
+                    var swept => new Many(picked) { Anchor = swept.Head | many.Anchor, Focus = swept.Last | many.Focus },
                 },
             });
 
@@ -273,25 +273,28 @@ public abstract partial record Selection {
         Switch(
             renames,
             one: static (held, one) => (Selection)new One(one.Picked.Map(key => Renamed(held, key))),
-            many: static (held, many) => new Many(many.Picked.Map(key => Renamed(held, key)), many.Anchor.Map(key => Renamed(held, key)), many.Focus.Map(key => Renamed(held, key))));
+            many: static (held, many) => new Many(many.Picked.Map(key => Renamed(held, key))) { Anchor = many.Anchor.Map(key => Renamed(held, key)), Focus = many.Focus.Map(key => Renamed(held, key)) });
 
     internal static Option<int> Position(Seq<Key> ordered, Key key) =>
         ordered.Map(static (held, index) => (Key: held, Index: index)).Find(entry => entry.Key == key).Map(static entry => entry.Index);
 
     private static Key Renamed(HashMap<Key, Key> renames, Key key) => renames.Find(key).IfNone(key);
 
-    private static Many Only(Key key) => new([key], Some(key), Some(key));
+    private static Many Only(Key key) => new([key]) { Anchor = Some(key), Focus = Some(key) };
 
     private static Many Spanned(Seq<Key> ordered, Option<Key> anchor, Key target) =>
         (from end in Position(ordered, target)
          let found = anchor.Bind(held => Position(ordered, held))
          let start = found.IfNone(end)
-         select new Many(toHashSet(ordered.Skip(int.Min(start, end)).Take(int.Abs(start - end) + 1)), found.IsSome ? anchor : Some(target), Some(target)))
+         select new Many(toHashSet(ordered.Skip(int.Min(start, end)).Take(int.Abs(start - end) + 1))) { Anchor = found.IsSome ? anchor : Some(target), Focus = Some(target) })
         .IfNone(() => Only(target));
 
     public sealed record One(Option<Key> Picked) : Selection;
 
-    public sealed record Many(LanguageExt.HashSet<Key> Picked, Option<Key> Anchor, Option<Key> Focus) : Selection;
+    public sealed record Many(LanguageExt.HashSet<Key> Picked) : Selection {
+        public Option<Key> Anchor { get; init; }
+        public Option<Key> Focus { get; init; }
+    }
 }
 
 public sealed record Expiry(Duration Lifetime, IO<Unit> Elapsed);

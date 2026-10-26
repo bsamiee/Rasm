@@ -185,11 +185,11 @@ public sealed record EdgeDetect(
 
     public static Option<PixelPass> Pass(EdgeDetect state, PassContext context) =>
         state.Rendering == EdgeRendering.Lines && state.Width == ShortSideLength.Zero ? None
-            : Some<PixelPass>(new PixelPass.Frame((frame, progress) => EdgeResponse.Detected(frame, state.Operator, state.Source, 3d * state.Softening.Pixels(context.Extent), context.Working.Luminance,
+            : Some<PixelPass>(new PixelPass.Frame((frame, progress) => EdgeResponse.Detected(frame, state.Operator, state.Source, 3d * state.Softening.Pixels(context.Extent), context.Working,
                 edges => state.Rendering.Render(state, context, frame, edges, progress))));
 
     public Fin<Unit> Stroked(PassContext context, PixelFrame frame, Mat edges, Unicolour ground, float floor, IProgress<int> progress) =>
-        EdgeResponse.Lines(frame, edges, Threshold * Operator.Gain, Width.Pixels(context.Extent), Presets.Shown(Line), Presets.Shown(ground), floor, Mode, context.Working.Luminance, progress);
+        EdgeResponse.Lines(frame, edges, Threshold * Operator.Gain, Width.Pixels(context.Extent), Presets.Shown(Line), Presets.Shown(ground), floor, Mode, context.Working, progress);
 }
 
 public sealed record ContourStroke(
@@ -236,7 +236,7 @@ public sealed record GeometryOutline(
                             select (marks, guide)).Somes(),
                         line.Placement(state), width, Presets.Shown(stroke.Color))),
             }).As()
-            from drawn in Contours.Outlined(frame, depth, lines, Optional(state.Paper).Map(static paper => new Vector4(Presets.Shown(paper), (float)paper.Alpha.A)), state.Mode, context.Working.Luminance, progress)
+            from drawn in Contours.Outlined(frame, depth, lines, Optional(state.Paper).Map(static paper => new Vector4(Presets.Shown(paper), (float)paper.Alpha.A)), state.Mode, context.Working, progress)
             select drawn);
 }
 
@@ -326,7 +326,7 @@ public sealed record Halftone(
         ScreenShape.Round, ShortSideExtent.Create(1f / (2f * 2f * 4f) * ReferenceFrame.GreaterSide), Separation.Mono, InkScreen.Cyan, InkScreen.Magenta, InkScreen.Yellow, InkScreen.Key,
         1f, new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d), new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), BlendingMode.Mix);
 
-    public static Option<PixelPass> Pass(Halftone state, PassContext context) => Blend.Mixed(new PixelPass.Pointwise(Print(state, context)), state.Mode, 1f, [], context.Working.Luminance);
+    public static Option<PixelPass> Pass(Halftone state, PassContext context) => Blend.Mixed(new PixelPass.Pointwise(Print(state, context)), state.Mode, 1f, [], context.Working);
 
     private static Action<Span<Vector4>, long, long> Print(Halftone state, PassContext context) {
         (double pitch, PixelExtent extent, (double R, double G, double B) weights) = (state.Size.Pixels(context.Extent), context.Extent, context.Working.Luminance);
@@ -392,7 +392,7 @@ public sealed record GlyphCells(
     public static Seq<(string Name, Func<GlyphCells, GlyphCells> Look)> Looks { get; } = [
         (nameof(Binary), static _ => Binary), (nameof(Numbers), static _ => Numbers), (nameof(Arithmetic), static _ => Arithmetic), (nameof(Latin), static _ => Latin), (nameof(Mixed), static _ => Mixed)];
 
-    public static Option<PixelPass> Pass(GlyphCells state, PassContext context) => Blend.Mixed(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)), state.Mode, 1f, [], context.Working.Luminance);
+    public static Option<PixelPass> Pass(GlyphCells state, PassContext context) => Blend.Mixed(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)), state.Mode, 1f, [], context.Working);
 
     private static Fin<Unit> Kernel(GlyphCells state, PassContext context, PixelFrame frame, IProgress<int> progress) => frame.Filter(header => {
         GlyphAtlas atlas = new(state.Characters, state.Font, state.Size.Pixels(context.Extent), context.Extent);
@@ -426,7 +426,7 @@ public sealed record PixelSort(
     [property: Display(Name = "Direction", Description = "Direction sorted values rise along")] SortDirection Direction) : IPixelStage<PixelSort> {
     public static PixelSort Default { get; } = new(SortMetric.Luma, 0f, 0.3f, SortDirection.Right);
 
-    public static Option<PixelPass> Pass(PixelSort state, PassContext context) => Some(state.Direction.Sorted(state.Key, state.Low, state.High, context.Working.Luminance));
+    public static Option<PixelPass> Pass(PixelSort state, PassContext context) => Some(state.Direction.Sorted(state.Key, state.Low, state.High, context.Working));
 }
 
 public sealed record CrtDisplay(
@@ -567,7 +567,7 @@ public sealed record AnalogVideo(
                 : unit)
             .Bind(_ => state.Speckled
                 ? new PixelPass.Pointwise(VideoKernels.Snow(extent, state.Lines, state.SnowLength.Pixels(extent), state.Snow, state.SnowDensity, state.Hum,
-                    ((double)state.HumRate * now) switch { var turns => turns - double.Floor(turns) }, state.Matrix.Signal.Luminance, CoordinateHash.Branch(field, 1u))).Run(frame, progress)
+                    ((double)state.HumRate * now) switch { var turns => turns - double.Floor(turns) }, state.Matrix.Signal, CoordinateHash.Branch(field, 1u))).Run(frame, progress)
                 : unit);
     }
 

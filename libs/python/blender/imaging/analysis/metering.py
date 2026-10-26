@@ -90,20 +90,14 @@ class Meter(msgspec.Struct, frozen=True, kw_only=True):
 
         def metered(samples: Samples) -> Option[float]:
             covered = samples.finite
-            levels = samples.luminance[covered]
-            weights = np.where(samples.central, 1.0, 1.0 - self.centre)[covered]
-
-            def trimmed(found: npt.NDArray[np.float64]) -> Option[float]:
-                start = min(math.floor(found.size * min(self.low, self.high) / 100.0), found.size - 1)
-                end = max(math.ceil(found.size * max(self.low, self.high) / 100.0), start + 1)
-                kept = np.argsort(found, stable=True)[start:end]
-                return (
-                    Some(weights[kept])
-                    .filter(lambda selected: bool(selected.sum(dtype=np.float64) > 0.0))
-                    .map(lambda selected: math.log2(GREY) - float(np.average(Samples.logarithm(found[kept]), weights=selected)))
-                )
-
-            return Some(levels).filter(lambda found: found.size > 0).bind(trimmed)
+            found, weights = samples.luminance[covered], np.where(samples.central, 1.0, 1.0 - self.centre)[covered]
+            start = min(math.floor(found.size * min(self.low, self.high) / 100.0), found.size - 1)
+            kept = np.argsort(found, stable=True)[start : max(math.ceil(found.size * max(self.low, self.high) / 100.0), start + 1)]
+            return (
+                Some(weights[kept])
+                .filter(lambda selected: bool(selected.sum(dtype=np.float64) > 0.0))
+                .map(lambda selected: math.log2(GREY) - float(np.average(Samples.logarithm(found[kept]), weights=selected)))
+            )
 
         return Samples.of(config, plane[self.region.window(*plane.shape[:2])]).map(metered)
 

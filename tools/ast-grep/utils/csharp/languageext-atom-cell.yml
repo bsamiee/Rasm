@@ -11,15 +11,11 @@ utils:
         regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<.*>\s*\[\s*\]$|[<,]\s*(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<'
     type-member:
         kind: 'method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, property_declaration, indexer_declaration, field_declaration, event_declaration, global_statement'
-    owner-type:
-        kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration'
-    callback-owner:
-        kind: 'lambda_expression, anonymous_method_expression, local_function_statement'
     declared-name:
         any:
             - kind: parameter
               has: {field: name, pattern: $CELL}
-              not: {inside: {kind: parameter_list, inside: {matches: callback-owner}}}
+              not: {inside: {kind: parameter_list, inside: {kind: &callback-owner 'lambda_expression, anonymous_method_expression, local_function_statement'}}}
             - kind: 'variable_declarator, from_clause'
               has: {field: name, pattern: $CELL}
             - kind: let_clause
@@ -28,7 +24,7 @@ utils:
         kind: identifier
         inside:
             stopBy: end
-            matches: callback-owner
+            kind: *callback-owner
             has: {field: parameters, any: [{kind: implicit_parameter, pattern: $CELL}, {has: {kind: parameter, has: {field: name, pattern: $CELL}}}]}
     atom-local:
         any:
@@ -64,7 +60,7 @@ utils:
                 - has: {field: name, pattern: $CELL}
             - kind: parameter
               matches: atom-local
-              inside: {kind: parameter_list, inside: {matches: owner-type}}
+              inside: {kind: parameter_list, inside: {kind: &owner-type 'class_declaration, struct_declaration, record_declaration, interface_declaration'}}
     plain-member:
         any:
             - kind: field_declaration
@@ -77,7 +73,7 @@ utils:
               all:
                 - not: {has: {field: type, matches: atom-type}}
                 - has: {field: name, pattern: $CELL}
-              inside: {kind: parameter_list, inside: {matches: owner-type}}
+              inside: {kind: parameter_list, inside: {kind: *owner-type}}
     atom-elements:
         any:
             - kind: 'parameter, property_declaration'
@@ -96,7 +92,7 @@ utils:
               has: {field: name, pattern: $ELEMENTS}
     elements:
         matches: elements-name
-        inside: {stopBy: {matches: owner-type}, matches: owner-type, has: {stopBy: {matches: owner-type}, matches: atom-elements}}
+        inside: {stopBy: {kind: *owner-type}, kind: *owner-type, has: {stopBy: {kind: *owner-type}, matches: atom-elements}}
     own-name:
         any:
             - kind: identifier
@@ -114,8 +110,8 @@ utils:
                     - not: {inside: {stopBy: {matches: type-member}, matches: type-member, has: {stopBy: end, matches: declared-name}}}
                     - not: {kind: identifier, matches: callback-parameter}
                     - inside:
-                        stopBy: {matches: owner-type}
-                        matches: owner-type
+                        stopBy: {kind: *owner-type}
+                        kind: *owner-type
                         any:
                             - has: {field: body, has: {matches: atom-member}}
                             - has: {kind: parameter_list, has: {matches: atom-member}}

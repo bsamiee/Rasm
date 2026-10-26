@@ -3,14 +3,12 @@ id: no-copied-continuation-csharp
 language: csharp
 severity: error
 utils:
-    owner:
-        kind: 'method_declaration, local_function_statement'
     parameter:
-        inside: {stopBy: end, matches: owner, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $REST}}}}
+        inside: {stopBy: end, kind: &owner 'method_declaration, local_function_statement', has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $REST}}}}
     base:
         kind: identifier
         pattern: $BASE
-        inside: {stopBy: end, matches: owner, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $BASE}}}}
+        inside: {stopBy: end, kind: *owner, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $BASE}}}}
     tail:
         any:
             - {kind: member_access_expression, all: [{has: {field: name, regex: '^Tail$'}}, {has: {field: expression, kind: identifier, pattern: $REST}}]}
@@ -32,10 +30,10 @@ utils:
               any:
                 - all:
                     - matches: parameter
-                    - inside: {stopBy: end, matches: owner, has: {field: body, has: {stopBy: end, matches: worked}}}
+                    - inside: {stopBy: end, kind: *owner, has: {field: body, has: {stopBy: end, matches: worked}}}
                 - inside:
                     stopBy: end
-                    matches: owner
+                    kind: *owner
                     has:
                         field: body
                         has:
@@ -99,14 +97,14 @@ rule:
     kind: invocation_expression
     all:
         - matches: recurses
-        - inside: {stopBy: end, matches: owner, has: {field: name, pattern: $NAME}}
+        - inside: {stopBy: end, kind: *owner, has: {field: name, pattern: $NAME}}
         - has: {field: arguments, has: {kind: argument, has: {stopBy: end, matches: joined}}}
         - any:
-            - inside: {stopBy: {matches: owner}, kind: 'lambda_expression, anonymous_method_expression'}
-            - inside: {stopBy: {matches: owner}, field: body, inside: {kind: 'foreach_statement, for_statement, while_statement, do_statement'}}
+            - inside: {stopBy: {kind: *owner}, kind: 'lambda_expression, anonymous_method_expression'}
+            - inside: {stopBy: {kind: *owner}, field: body, inside: {kind: 'foreach_statement, for_statement, while_statement, do_statement'}}
             - matches: beside-rest-call
-            - inside: {stopBy: {matches: owner}, matches: beside-rest-call}
-            - inside: {stopBy: {matches: owner}, matches: after-rest-call}
-            - inside: {stopBy: {matches: owner}, matches: before-rest-call}
-message: '`$NAME` appends `$REST` to every branch and recurses on each, walking `$REST` once per branch'
+            - inside: {stopBy: {kind: *owner}, matches: beside-rest-call}
+            - inside: {stopBy: {kind: *owner}, matches: after-rest-call}
+            - inside: {stopBy: {kind: *owner}, matches: before-rest-call}
+message: '`$NAME` appends `$REST` to each branch it recurses on and walks `$REST` once per branch'
 note: 'Recurse on each branch alone and walk `<rest>` once after the branches join'

@@ -6,7 +6,7 @@ ignores: ['tools/roslyn/**']
 utils:
     registration:
         kind: invocation_expression
-        has: {field: function, matches: {csharp-type-name: {name: {regex: '^use$'}}}}
+        matches: {csharp-named-call: {name: {regex: '^use$'}}}
     use-call:
         matches: registration
         has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
@@ -20,26 +20,24 @@ utils:
     tailed-root:
         kind: query_expression
         inside: {kind: parenthesized_expression, inside: {kind: member_access_expression, has: {field: name, regex: '^Bracket$'}}}
-    nested-function:
-        kind: lambda_expression, anonymous_method_expression, local_function_statement
     wrapped-clause:
         kind: from_clause, let_clause, where_clause, join_clause, order_by_clause, group_clause, select_clause
         follows: {stopBy: end, kind: from_clause, has: {matches: use-call}}
     deep-1:
         matches: wrapped-clause
-        has: {stopBy: end, matches: nested-function}
+        has: {stopBy: end, kind: &nested-function 'lambda_expression, anonymous_method_expression, local_function_statement'}
     deep-2:
         matches: wrapped-clause
-        has: {stopBy: end, matches: nested-function, has: {stopBy: end, matches: nested-function}}
+        has: {stopBy: end, kind: *nested-function, has: {stopBy: end, kind: *nested-function}}
     deep-3:
         matches: wrapped-clause
-        has: {stopBy: end, matches: nested-function, has: {stopBy: end, matches: nested-function, has: {stopBy: end, matches: nested-function}}}
+        has: {stopBy: end, kind: *nested-function, has: {stopBy: end, kind: *nested-function, has: {stopBy: end, kind: *nested-function}}}
     inside-1:
-        inside: {stopBy: end, matches: nested-function}
+        inside: {stopBy: end, kind: *nested-function}
     inside-2:
-        inside: {stopBy: end, matches: nested-function, inside: {stopBy: end, matches: nested-function}}
+        inside: {stopBy: end, kind: *nested-function, inside: {stopBy: end, kind: *nested-function}}
     inside-3:
-        inside: {stopBy: end, matches: nested-function, inside: {stopBy: end, matches: nested-function, inside: {stopBy: end, matches: nested-function}}}
+        inside: {stopBy: end, kind: *nested-function, inside: {stopBy: end, kind: *nested-function, inside: {stopBy: end, kind: *nested-function}}}
     overflows:
         kind: query_expression
         any:
@@ -47,9 +45,6 @@ utils:
             - all: [{matches: inside-2}, {has: {matches: deep-1}}]
             - all: [{matches: inside-1}, {has: {matches: deep-2}}]
             - has: {matches: deep-3}
-    positional:
-        kind: argument
-        not: {has: {field: name, kind: identifier}}
     released:
         kind: lambda_expression
         all:
@@ -73,10 +68,10 @@ utils:
             all:
                 - any:
                     - has: {kind: argument, regex: '^Use\s*:', has: {nthChild: {position: 1, reverse: true}, pattern: $BIND}}
-                    - has: {kind: argument, nthChild: 1, matches: positional, has: {pattern: $BIND}}
+                    - has: {kind: argument, nthChild: 1, matches: csharp-positional-argument, has: {pattern: $BIND}}
                 - any:
                     - has: {kind: argument, regex: '^Fin\s*:', has: {matches: released}}
-                    - has: {kind: argument, nthChild: 2, matches: positional, has: {matches: released}}
+                    - has: {kind: argument, nthChild: 2, matches: csharp-positional-argument, has: {matches: released}}
                 - not: {has: {kind: argument, nthChild: 3}}
 rule:
     kind: invocation_expression
@@ -93,7 +88,7 @@ rule:
                 - not: {has: {stopBy: end, kind: from_clause, nthChild: 1, has: {stopBy: end, matches: use-call}}}
             - all:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Bracket$'}}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
                 - has:
                     field: function
                     has:

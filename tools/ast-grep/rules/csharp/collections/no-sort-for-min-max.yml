@@ -14,7 +14,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(ToSeq|AsIterable)$'}}, {has: {field: expression, matches: sorted}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: identifier, regex: '^toSeq$'}
@@ -24,7 +24,7 @@ rule:
         - kind: invocation_expression
           all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Last|LastOrDefault)$', pattern: $END}}, {has: {field: expression, matches: sorted-seq}}]}
-            - has: {field: arguments, not: {has: {kind: argument}}}
+            - matches: csharp-bare-call
         - kind: member_access_expression
           all:
             - has: {field: name, regex: '^(Head|Last)$', pattern: $END}

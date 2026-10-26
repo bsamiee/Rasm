@@ -7,4 +7,4 @@ rule:
     pattern: $G
     matches: {python-evaluated-subscript: {value: {matches: {python-builtin-name: {name: {regex: '^slice$'}}}}}}
 message: '`$G` has no `__class_getitem__` below Python 3.15 and raises `TypeError` when subscripted'
-note: 'Use `slice` unsubscripted or a quoted annotation'
+note: 'Annotate `slice` unsubscripted or through `type <Alias> = slice[<args>]`'

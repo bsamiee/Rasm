@@ -12,7 +12,7 @@ utils:
             - matches: typed-none
             - kind: lambda_expression
               all:
-                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                - matches: csharp-parameterless
                 - has:
                     field: body
                     any:
@@ -102,9 +102,6 @@ utils:
     relift-argument:
         kind: argument
         has: {nthChild: {position: 1, reverse: true}, any: [{matches: none-arm}, {matches: fail-arm}]}
-    positional:
-        kind: argument
-        not: {has: {field: name, pattern: $_}}
     member-match:
         kind: invocation_expression
         all:
@@ -113,9 +110,9 @@ utils:
     prelude-match:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^match$'}}}}
+            - matches: {csharp-named-call: {name: {regex: '^match$'}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 3}}, {not: {has: {kind: argument, nthChild: 4}}}]}
-            - has: {field: arguments, has: {nthChild: 1, matches: positional, has: {pattern: $VALUE}}}
+            - has: {field: arguments, has: {nthChild: 1, matches: csharp-positional-argument, has: {pattern: $VALUE}}}
 rule:
     kind: invocation_expression
     any:
@@ -125,23 +122,23 @@ rule:
         - all:
             - matches: member-match
             - has: {field: arguments, has: {kind: argument, has: {field: name, regex: '^(Some|Succ|Right)$'}}}
-            - has: {field: arguments, has: {matches: positional, all: [{matches: relift-argument}]}}
+            - has: {field: arguments, has: {matches: csharp-positional-argument, all: [{matches: relift-argument}]}}
         - all:
             - matches: member-match
-            - not: {has: {field: arguments, has: {kind: argument, not: {matches: positional}}}}
+            - not: {has: {field: arguments, has: {kind: argument, not: {matches: csharp-positional-argument}}}}
             - any:
                 - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {any: [{matches: none-arm}, {matches: constructor-fail-arm}]}}}
                 - has:
                     field: arguments
                     all:
                         - has: {kind: argument, nthChild: 1, has: {matches: constructor-fail-arm, not: {has: {field: body, kind: cast_expression}}}}
-                        - not: {has: {kind: argument, nthChild: 2, has: {kind: lambda_expression, has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}}}}
+                        - not: {has: {kind: argument, nthChild: 2, has: {kind: lambda_expression, matches: csharp-parameterless}}}
         - all:
             - matches: prelude-match
             - has: {field: arguments, has: {matches: relift-argument, has: {field: name, regex: '^None$'}}}
         - all:
             - matches: prelude-match
-            - not: {has: {field: arguments, has: {kind: argument, not: {matches: positional}}}}
+            - not: {has: {field: arguments, has: {kind: argument, not: {matches: csharp-positional-argument}}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 3, has: {matches: none-arm}}}
         - pattern: {context: 'class C { object F() => $VALUE.Map($CONTINUE).IfNone($ABSENT); }', selector: invocation_expression, strictness: cst}
         - pattern: {context: 'class C { object F() => $VALUE.Map($CONTINUE).$UNWRAP($REFAIL); }', selector: invocation_expression, strictness: cst}

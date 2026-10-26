@@ -94,18 +94,18 @@ internal static class Replacement {
 
 ## [05]-[ADJACENCY]
 
-SuperLinq `SuperEnumerable.Window(source.AsIterable(), 2, selector)` reads each element beside its successor as one span, and a quantifier over the results decides the answer: `Exists` answers whether one window matches, `ForAll` answers whether no window disproves the condition, fewer than 2 elements produce no windows, `Exists` returns `false` and `ForAll` returns `true`:
+`Window(2, selector)` over `AsIterable()` reads each element beside its successor as one span, and a quantifier over the results decides the answer: `Exists` answers whether one window matches, `ForAll` answers whether no window disproves the condition, fewer than 2 elements produce no windows, `Exists` returns `false` and `ForAll` returns `true`:
 
 ```csharp
 internal static class Adjacency {
     public static bool AnyAdjacent<A>(Seq<A> source, Func<A, A, bool> matches) =>
-        toSeq(SuperEnumerable.Window(source.AsIterable(), 2, window => matches(window[0], window[1]))).Exists(identity);
+        toSeq(source.AsIterable().Window(2, window => matches(window[0], window[1]))).Exists(identity);
     public static bool AllAdjacent<A>(Seq<A> source, Func<A, A, bool> matches) =>
-        toSeq(SuperEnumerable.Window(source.AsIterable(), 2, window => matches(window[0], window[1]))).ForAll(identity);
+        toSeq(source.AsIterable().Window(2, window => matches(window[0], window[1]))).ForAll(identity);
 }
 ```
 
-Sorting first and then testing whether any adjacent pair differs by one answers a gap question without a loop.
+Sorting first and then testing whether any adjacent pair differs by one answers a gap question without a loop. Runs cut where an element and its predecessor disagree are `Segment((current, previous, index) => …)`, runs of one key are `GroupAdjacent`, n-wide neighbors are `Window(n, …)`, and a `Fold` over `Last` and `Init` or a `Zip` with `Tail` restates them.
 
 ## [06]-[PIPELINE]
 

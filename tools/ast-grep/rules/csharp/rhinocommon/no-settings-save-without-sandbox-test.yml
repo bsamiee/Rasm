@@ -41,7 +41,7 @@ utils:
             - inside: {kind: expression_statement}
             - inside: {kind: assignment_expression, field: right, all: [{has: {field: left, regex: '^_$'}}, {has: {field: operator, regex: '^=$'}}]}
     named:
-        inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}
+        inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, matches: csharp-nameof-call}}}
     relayed:
         inside:
             kind: variable_declarator

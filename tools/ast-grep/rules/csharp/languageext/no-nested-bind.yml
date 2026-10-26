@@ -25,4 +25,4 @@ rule:
         - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $BIND}}
         - matches: {languageext-bind-callback: {value: {pattern: $VALUE}, body: {any: [{matches: step}, {matches: step-return}]}}}
 message: '`$BIND` callback nests a step that reads the callback value `$VALUE`'
-note: 'Write a query expression with one `from` per step, the callback value bound in the first `from`'
+note: 'Write a query expression with one `from` per step, callback value bound in the first `from`'

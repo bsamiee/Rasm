@@ -14,7 +14,7 @@ utils:
         any:
             - matches: {csharp-file-method-call: {declaration: {has: {field: returns, matches: result-type}}}}
             - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Validated(\s*<.+>)?$'}}
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^guard$'}}}}
+            - matches: {csharp-named-call: {name: {regex: '^guard$'}}}
             - has:
                 field: function
                 kind: member_access_expression
@@ -35,17 +35,17 @@ utils:
                             - matches: result-call
                             - kind: lambda_expression
                               all:
-                                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                                - matches: csharp-parameterless
                                 - has: {field: body, matches: result-call}
     error-construction:
         kind: invocation_expression
-        has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}}
+        matches: {csharp-owner-call: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}
     lifted-body:
         inside: {kind: lambda_expression, field: body, inside: {kind: argument, inside: {kind: argument_list, inside: {matches: languageext-io-lift}}}}
     argument-effect:
         kind: 'invocation_expression, assignment_expression, await_expression'
         inside: {stopBy: {kind: from_clause}, kind: argument}
-        not: {any: [{matches: error-construction}, {matches: lifted-body}, {has: {field: function, regex: '^nameof$'}}]}
+        not: {any: [{matches: error-construction}, {matches: lifted-body}, {matches: csharp-nameof-call}]}
     step:
         kind: from_clause
         all:

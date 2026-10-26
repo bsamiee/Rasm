@@ -16,7 +16,7 @@ utils:
                 - kind: lambda_expression
                   has: {field: body, kind: member_access_expression, has: {field: name, regex: '^Invoke$'}}
                 - kind: invocation_expression
-                  has: {field: function, kind: identifier, regex: '^nameof$'}
+                  matches: csharp-nameof-call
     member-value:
         any:
             - inside: {kind: variable_declarator, has: {field: name, pattern: $NAME}, inside: {kind: variable_declaration, inside: {kind: field_declaration}}}
@@ -29,4 +29,4 @@ rule:
         - not: {has: {field: arguments, has: {kind: argument, not: {matches: restating-argument}}}}
         - matches: member-value
 message: '`$NAME` restates one host event through `Subscriptions.$FACTORY`'
-note: 'Delete the member and call `Subscriptions.<factory>` with the event at each subscriber'
+note: 'Delete the member, call `Subscriptions.<factory>` with its event at each subscriber'

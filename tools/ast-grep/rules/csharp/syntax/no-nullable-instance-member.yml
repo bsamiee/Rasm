@@ -32,7 +32,7 @@ utils:
     atomic-ref:
         kind: argument
         regex: '^ref\s'
-        inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(Interlocked|Volatile)$'}, member: {regex: '^'}}}}}}
+        inside: {kind: argument_list, inside: {kind: invocation_expression, matches: {csharp-owner-call: {type: {regex: '^(Interlocked|Volatile)$'}, member: {regex: '^'}}}}}
     atomic-field:
         all:
             - has: {kind: variable_declarator, has: {field: name, pattern: $FIELD}}
@@ -70,5 +70,5 @@ rule:
                 - inside: {kind: field_declaration, has: {matches: serializer-attributes}}
                 - inside: {kind: 'parameter_list, declaration_list', inside: {matches: languageext-error-record}}
                 - inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {matches: languageext-error-record}}}
-message: 'Parameter, property, or field typed `$TYPE` states absence with null'
-note: Hold `Option<T>` and convert a nullable value once at the boundary with `Optional`, a declared parameter or a record in a file holding a stored codec keeps the native shape System.Text.Json reads
+message: 'Member typed `$TYPE` states absence with null'
+note: 'Hold `Option<T>` converted once at the boundary through `Optional`, declared parameters and stored records keep nullable shape System.Text.Json reads'

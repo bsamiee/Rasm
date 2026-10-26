@@ -6,11 +6,11 @@ from http import HTTPMethod
 from itertools import batched, starmap
 from pathlib import Path, PurePath
 import platform
-import shutil
 import sys
 from typing import Annotated, ClassVar, Final, Literal, Self
 
 from expression import Nothing, Option, Some
+from expression.collections import Block
 from expression.extra.result import catch
 import httpx2
 import msgspec
@@ -18,9 +18,9 @@ from scipy.cluster.hierarchy import DisjointSet
 
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.fields import Case
+from blender.records.stores import files_copied
 from blender.rendering.batch.exchange import Endpoint, exchange, sent
 from blender.rendering.batch.queue import Job, RenderFrames, RenderQueue
-from blender.rendering.faults import RenderingReason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -153,7 +153,7 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
             exchange(client, HTTPMethod.GET, f"/api/v3/configuration/shared-storage/users/{PLATFORM}", _SharedStorageLocation),
             exchange(client, HTTPMethod.GET, "/api/v3/jobs/types", _AvailableJobTypes),
             exchange(client, HTTPMethod.GET, "/api/v3/worker-mgt/tags", _WorkerTagList),
-        ).map(lambda found: cls(storage=found[0], job_type=Option.of_optional(next((kind for kind in found[1].job_types if kind.name == Flamenco.kind), None)), tags=found[2].tags))
+        ).map(lambda found: cls(storage=found[0], job_type=Block(found[1].job_types).filter(lambda kind: kind.name == Flamenco.kind).try_head(), tags=found[2].tags))
 
     def placed(self, client: httpx2.Client, queue: RenderQueue) -> Outcome[_ManagerFiles]:
         """Uploads blend files to Shaman when enabled, else copies them to Manager storage."""
@@ -161,23 +161,8 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
         files = local.items()
         folder = queue.stem
 
-        def copied(name: str, job: Job) -> Outcome[tuple[str, str]]:
-            relative = PurePath(folder, name)
-            target = Path(self.storage.location, relative)
-
-            def copy() -> tuple[str, str]:
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(job.file, target)
-                return job.file, f"{{jobs}}/{relative.as_posix()}"
-
-            return catch(copy, exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(target), cause=error),))
-
         def read[T](source: str, reader: Callable[[Path], T]) -> Outcome[T]:
-            return catch(lambda: reader(Path(source)), exception=OSError)().map_error(
-                lambda error: (
-                    Fault(reason=RenderingReason.STATUS, subject=source, member="424") if isinstance(error, FileNotFoundError) else Fault(reason=RecordReason.UNREADABLE, subject=source, cause=error),
-                )
-            )
+            return catch(reader, exception=OSError)(Path(source)).map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=source, cause=error),))
 
         def specified(name: str, job: Job) -> Outcome[_ShamanFileSpec]:
             return read(job.file, lambda path: path.stat().st_size).map(lambda size: _ShamanFileSpec(sha=job.digest.hex(), size=size, path=name))
@@ -209,7 +194,9 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
         return (
             accumulated(starmap(specified, files)).bind(checked)
             if self.storage.shaman_enabled
-            else accumulated(starmap(copied, files)).map(lambda pairs: _ManagerFiles(files=dict(pairs), storage=Nothing))
+            else files_copied((Path(job.file), Path(self.storage.location, folder, name)) for name, job in files).map(
+                lambda _: _ManagerFiles(files={job.file: f"{{jobs}}/{folder}/{name}" for name, job in files}, storage=Nothing)
+            )
         )
 
 
@@ -218,11 +205,11 @@ class Flamenco(Case, frozen=True, kw_only=True):
 
     script: ClassVar[str] = "rasm_render.js"
     kind: ClassVar[str] = PurePath(script).stem.replace("_", "-")
-    server: Annotated[Endpoint, msgspec.Meta(description="Flamenco Manager address")] = Endpoint(url="http://localhost:8080")
-    priority: Annotated[int, msgspec.Meta(description="Order among queued jobs")] = 50
-    chunk: Annotated[int, msgspec.Meta(ge=1, le=sys.maxsize, description="Frames each task renders")] = 10
-    paused: Annotated[bool, msgspec.Meta(description="Jobs wait for start from Manager")] = False
-    tag: Annotated[str | None, msgspec.Meta(description="Workers taking jobs, every worker when absent")] = None
+    server: Endpoint = Endpoint(url="http://localhost:8080")
+    priority: int = 50
+    chunk: Annotated[int, msgspec.Meta(ge=1, le=sys.maxsize)] = 10
+    paused: bool = False
+    tag: str | None = None
 
     def submitted(self, client: httpx2.Client, queue: RenderQueue, render_command: str) -> Outcome[tuple[Outcome[str], ...]]:
         """Submits each prerequisite-joined job group as one Manager job."""

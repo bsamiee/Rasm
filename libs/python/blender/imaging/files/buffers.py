@@ -63,8 +63,7 @@ def fitted(values: npt.NDArray[np.float32], side: int) -> Outcome[npt.NDArray[np
 
 def _alpha(operation: Callable[[OpenImageIO.ImageBuf], OpenImageIO.ImageBuf], values: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
     """Returns contiguous float32 copy of color rows or planes through an alpha operation, color kept at zero alpha, unchanged without alpha."""
-    formed: npt.NDArray[np.float32] = operation(OpenImageIO.ImageBuf(np.ascontiguousarray(values).reshape(1, -1, values.shape[-1]))).get_pixels(OpenImageIO.FLOAT)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    return formed.reshape(values.shape)
+    return np.asarray(operation(OpenImageIO.ImageBuf(np.ascontiguousarray(values).reshape(1, -1, values.shape[-1]))).get_pixels(OpenImageIO.FLOAT), dtype=np.float32).reshape(values.shape)
 
 
 unassociated: Final = functools.partial(_alpha, OpenImageIO.ImageBufAlgo.unpremult)

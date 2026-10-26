@@ -18,8 +18,6 @@ utils:
                 - has: {field: returns, matches: named-type}
                 - has: {field: type, matches: named-type}
                 - has: {field: parameters, has: {kind: parameter, has: {field: type, matches: named-type}}}
-    attributed:
-        has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^StructLayout(Attribute)?$'}}}}}}
     parallel-action:
         has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^I(Ref|In)?Action(2D)?$'}}}}}
 rule:
@@ -29,9 +27,9 @@ rule:
           has: {regex: '^struct$'}
     all:
         - has: {field: name, pattern: $NAME}
-        - not: {has: {kind: modifier, regex: '^ref$'}}
-        - not: {matches: attributed}
+        - not: {has: {regex: '^ref$'}}
+        - not: {matches: {csharp-attributed: {name: {regex: '^StructLayout(Attribute)?$'}}}}
         - not: {matches: parallel-action}
         - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: native-signature}}}
 message: '`$NAME` is a struct'
-note: 'Declare `$NAME` as a record or class'
+note: 'Declare a record or class, interop structs, `ref struct`, and `ParallelHelper` actions stay'

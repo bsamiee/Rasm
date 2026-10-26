@@ -20,7 +20,7 @@ utils:
 rule:
     kind: call
     all:
-        - has: {field: function, kind: identifier, regex: '^Ok$', matches: {python-imported-name: {module: {regex: '^expression$'}, name: {regex: '^Ok$'}}}}
+        - has: {field: function, kind: identifier, regex: '^Ok$', matches: {expression-member: {name: {regex: '^Ok$'}}}}
         - has: {field: arguments, not: {has: {nthChild: 2}}, has: {nthChild: 1, matches: refusing}}
 message: '`Ok($CALL)` lets a host refusal raise'
 note: 'Call `expression.extra.result.catch(<callee>, exception=<error>)(<arguments>)`'

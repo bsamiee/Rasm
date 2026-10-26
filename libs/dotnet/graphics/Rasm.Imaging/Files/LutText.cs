@@ -63,7 +63,7 @@ internal static class LutText {
                 stated.Lattice.Filter(_ => stated.Curve.IsNone).Match(
                     Some: lattice => (Lut3D.TryParseCube(text, out Lut3D? parsed), parsed, Domain(stated.LatticeRange, stated.Low, stated.High)) switch {
                         (ExrResult.Success, Lut3D held, var domain) => Lut3D.From(lattice.Value, held.Data.ToArray(), domain.Minimum, domain.Maximum).Map(static cube => (LutTable)new LutTable.Cube(cube, LutInterpolation.Tetrahedral)),
-                        (var refused, _, _) => new ImagingFault($"{LutFormat.Cube} LUT file refused as {refused}"),
+                        (var refused, _, _) => new ImagingFault($"{LutFormat.Cube} LUT file read as {refused}", ImagingReason.Refused),
                     },
                     None: () => Tabled(LutFormat.Cube, text, header.End, braced: false, width: 3,
                         stated.Curve.Map(length => CurveTable(length.Value, Domain(stated.CurveRange, stated.Low, stated.High))).ToSeq()
@@ -408,14 +408,14 @@ internal static class LutText {
     }
 
     // --- [FAULTS]
-    internal static ImagingFault Misstated(LutFormat format, int line) => new(string.Create(CultureInfo.InvariantCulture, $"{format} LUT line {line} did not parse"));
+    internal static ImagingFault Misstated(LutFormat format, int line) => new(string.Create(CultureInfo.InvariantCulture, $"{format} LUT line {line}"), ImagingReason.Unparsed);
 
-    private static ImagingFault Sizeless(LutFormat format) => new($"{format} LUT file states no size");
+    private static ImagingFault Sizeless(LutFormat format) => new($"{format} LUT size", ImagingReason.Empty);
 
     private static ImagingFault Miscounted(LutFormat format, long stated, long read) =>
-        new(string.Create(CultureInfo.InvariantCulture, $"{format} LUT file states {stated} entries but holds {read}"));
+        new(string.Create(CultureInfo.InvariantCulture, $"{format} LUT file of {read} entries for {stated} stated"), ImagingReason.Miscounted);
 
-    internal static ImagingFault Unsupported(LutFormat format) => new($"{format} LUT format cannot hold table");
+    internal static ImagingFault Unsupported(LutFormat format) => new($"{format} LUT table", ImagingReason.Unsupported);
 
     // --- [HEADERS]
     private sealed record Header(LutFormat Format, HashMap<string, (string Value, int Line)> Lines, int End) {

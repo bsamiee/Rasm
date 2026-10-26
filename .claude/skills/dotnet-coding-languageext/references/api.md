@@ -8,7 +8,7 @@ Public types and members of the LanguageExt packages by scope, each scope with t
 
 | [INDEX] | [SYMBOL]           | [DECLARATION]     | [DESCRIPTION]                                       |
 | :-----: | :----------------- | :---------------- | :-------------------------------------------------- |
-|  [01]   | `Fin<A>`           | `abstract class`  | Short-circuiting `Succ`/`Fail` result               |
+|  [01]   | `Fin<A>`           | `abstract class`  | `Succ`/`Fail` result, `Apply` accumulates failures  |
 |  [02]   | `Validation<F, A>` | `abstract record` | Accumulating result, `F` monoid resolved at runtime |
 |  [03]   | `Option<A>`        | `readonly struct` | Optional value with null-tolerant lift              |
 |  [04]   | `Either<L, R>`     | `abstract record` | Disjoint union, converts to `Fin`                   |

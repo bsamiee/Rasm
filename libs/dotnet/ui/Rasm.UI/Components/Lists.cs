@@ -13,7 +13,7 @@ public sealed partial class Progress {
 
     public Fraction Fraction => Fraction.Create((float)((double)Done / Total));
 
-    public static Fin<Progress> Validated(long done, long total) => TryCreate(done, total, out Progress? progress, out Invalid? fault) ? progress : fault;
+    public static Option<Progress> Present(long done, long total) => TryCreate(done, total, out Progress? progress) ? progress : None;
 
     public static Node Meter(Option<Progress> work) =>
         new Node.Flex(PhysicalAxis.Horizontal, work.Map(static progress => (Node)new Node.Box { Role = Role.Span, Width = new Sizing.Percent(progress.Fraction), Height = Sizing.Grow.Unit }).ToSeq()) {
@@ -33,7 +33,7 @@ public sealed partial class Progress {
 public abstract partial record Content<T> where T : notnull {
     public Option<T> Held => Switch(pending: static pending => pending.Prior, ready: static ready => Some(ready.Value), empty: static _ => Option<T>.None, failed: static _ => Option<T>.None);
 
-    public Content<T> Requested(Option<Progress> work) => new Pending(Held, work);
+    public Content<T> Requested(Option<Progress> work) => new Pending { Prior = Held, Work = work };
 
     public static Content<T> Arrived(Fin<T> arrival) => arrival.Match<Content<T>>(Succ: static value => new Ready(value), Fail: static error => new Failed(error));
 
@@ -45,7 +45,10 @@ public abstract partial record Content<T> where T : notnull {
             empty: static (_, empty) => new Node.Text([empty.Reason]) { Role = Role.Label },
             failed: static (held, failed) => new Node.Text([failed.Error.IsExpected ? failed.Error.Message : held.Unexpected]) { Role = Role.Label, Conditions = [Condition.Faulted] });
 
-    public sealed record Pending(Option<T> Prior, Option<Progress> Work) : Content<T>;
+    public sealed record Pending : Content<T> {
+        public Option<T> Prior { get; init; }
+        public Option<Progress> Work { get; init; }
+    }
 
     public sealed record Ready(T Value) : Content<T>;
 
@@ -93,7 +96,7 @@ public sealed record TileCache<TItem>(HashMap<Key, Tile<TItem>> Held, int Revisi
 
     public TileCache<TItem> Reloaded => this with { Revision = Revision + 1 };
 
-    public Content<SKImage> Shown(Key key) => Held.Find(key).Map(static tile => tile.Content).IfNone(static () => new Content<SKImage>.Pending(None, None));
+    public Content<SKImage> Shown(Key key) => Held.Find(key).Map(static tile => tile.Content).IfNone(static () => new Content<SKImage>.Pending());
 
     public (TileCache<TItem> Cache, Seq<(Key Key, Tile<TItem> Tile)> Wanted) Requested(Seq<(Key Key, TItem Item)> shown, SKSizeI pixels) =>
         shown.Filter(entry => !Held.Find(entry.Key).Exists(tile => tile.Pixels == pixels && tile.Revision == Revision && EqualityComparer<TItem>.Default.Equals(tile.Item, entry.Item)))

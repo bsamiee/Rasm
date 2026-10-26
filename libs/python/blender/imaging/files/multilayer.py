@@ -86,10 +86,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def read(cls, path: str) -> Outcome[Self]:
-        """Indexes a file's parts.
-
-        Args:
-            path: File to index.
+        """Indexes the parts of the file at `path`.
 
         Returns:
             Indexed file, or `read` fault.
@@ -112,11 +109,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         return opened(path, indexed)
 
     def plane(self, layer: Layer, channels: tuple[Channel, ...]) -> Outcome[npt.NDArray[np.float32]]:
-        """Reads layer channels as float32 plane.
-
-        Args:
-            layer: Layer holding channels.
-            channels: Layer channels in plane order.
+        """Reads layer channels in plane order as a float32 plane.
 
         Returns:
             `(height, width, len(channels))` plane, or `read` fault.
@@ -137,16 +130,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
     def written(
         path: str, passes: tuple[Pass, ...], layout: PassLayout, storage: Storage, size: tuple[int, int], fields: Mapping[str, str], plane: Callable[[Pass], Outcome[npt.NDArray[np.float32]]]
     ) -> Outcome[str]:
-        """Writes passes to one file, reading each plane when its part writes.
-
-        Args:
-            path: File to write.
-            passes: Passes in file order.
-            layout: One part per pass, or every pass in one part.
-            storage: Color pass stored type and file compression.
-            size: Width and height of every pass.
-            fields: Text fields stored in every part header.
-            plane: Plane of a pass, read once per pass.
+        """Writes passes in file order to one file, `storage` setting color pass type and compression, each plane read once as its part writes.
 
         Returns:
             Path, or `write` fault.
@@ -177,13 +161,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def rewritten(path: str, display: Option[OpenImageIO.ROI], channels: Callable[[tuple[str, ...]], tuple[str, ...]], compression: Option[Compressions]) -> Outcome[str]:
-        """Rewrites windows and channel names after closing file, skipping unchanged files.
-
-        Args:
-            path: File to rewrite.
-            display: Frame rectangle in data window pixels, `Nothing` keeping file windows.
-            channels: Pure channel-name transform per part, keeping order and count.
-            compression: Codec for parts whose header names none, `Nothing` adding none.
+        """Rewrites windows to `display` in data window pixels, channel names through `channels`, and `compression` where a part names none, skipping unchanged files.
 
         Returns:
             Path, or `read` or `write` fault.

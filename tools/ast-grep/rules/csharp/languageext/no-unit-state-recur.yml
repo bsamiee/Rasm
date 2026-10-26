@@ -7,11 +7,11 @@ rule:
     kind: invocation_expression
     pattern: $RECUR
     all:
-        - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Monad$'}, member: {regex: '^recur$'}}}}
+        - matches: {csharp-owner-call: {type: {regex: '^Monad$'}, member: {regex: '^recur$'}}}
         - has:
             field: arguments
             all:
                 - has: {kind: argument, nthChild: 1, regex: '^unit$'}
                 - has: {kind: argument, nthChild: 2, has: {kind: lambda_expression, has: {field: parameters, kind: implicit_parameter, regex: '^_$'}}}
 message: '`Monad.recur` over `unit` repeats one step with no state'
-note: 'Answer `IO<bool>` from the step and loop through `RepeatUntil(done => done)`, `RepeatUntil(Schedule.spaced(<tick>), done => done)` where the loop waits between steps'
+note: 'Return `IO<bool>` from step, loop through `RepeatUntil(done => done)`, `RepeatUntil(Schedule.spaced(<tick>), done => done)` to wait between steps'

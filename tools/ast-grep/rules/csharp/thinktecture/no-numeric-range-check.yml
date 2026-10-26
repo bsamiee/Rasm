@@ -115,7 +115,7 @@ utils:
             - kind: invocation_expression
               any:
                 - has: {field: function, regex: '^((IO\s*\.\s*)?[Ff]ail|FinFail)(\s*<.+>)?$'}
-                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}}
+                - matches: {csharp-owner-call: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}
             - kind: object_creation_expression
               any:
                 - has: {field: type, matches: {csharp-type-name: {name: {regex: '^(Expected|Exceptional|ValidationError)$'}}}}
@@ -142,7 +142,7 @@ utils:
                     - kind: identifier, generic_name
                       regex: '^Unless(\s*<.+>)?$'
             - all:
-                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(when|unless)$'}}}}
+                - matches: {csharp-named-call: {name: {regex: '^(when|unless)$'}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: failing}}}
     rejecting-site:
         inside:
@@ -289,4 +289,4 @@ rule:
                 inside: {kind: declaration_list, inside: {matches: languageext-error-record}}
             - inside: {stopBy: end, matches: thinktecture-factory-validation}
 message: '`$CHECK` checks a numeric range'
-note: 'Read the value as a UnitsNet, NodaTime, or host type that bounds it, else as a value object with one comparison in `ValidateFactoryArguments`'
+note: 'Read as a bounding UnitsNet, NodaTime, or host type, else a value object with one `ValidateFactoryArguments` comparison'

@@ -1,0 +1,32 @@
+id: no-enum-declaration
+snapshots:
+  "internal enum Phase { A, B }\ninternal static partial class Native {\n    [LibraryImport(\"oidn\")]\n    private static partial int oidnGetDeviceError(nint device);\n}\n":
+    labels:
+    - source: internal enum Phase { A, B }
+      style: primary
+      start: 0
+      end: 28
+    - source: Phase
+      style: secondary
+      start: 14
+      end: 19
+  "public enum FileReason { Taken, Missing }":
+    labels:
+    - source: public enum FileReason { Taken, Missing }
+      style: primary
+      start: 0
+      end: 41
+    - source: FileReason
+      style: secondary
+      start: 12
+      end: 22
+  "public enum TabVisibility { Hidden, Visible, Selected }":
+    labels:
+    - source: public enum TabVisibility { Hidden, Visible, Selected }
+      style: primary
+      start: 0
+      end: 55
+    - source: TabVisibility
+      style: secondary
+      start: 12
+      end: 25

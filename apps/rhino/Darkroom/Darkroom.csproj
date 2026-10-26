@@ -20,6 +20,7 @@
 
     <ItemGroup Label="Quantities">
         <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 

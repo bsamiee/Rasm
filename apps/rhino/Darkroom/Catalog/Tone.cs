@@ -107,7 +107,7 @@ public sealed record SceneExposure(
     public static SceneExposure Default { get; } = new(0f, new Metering(0f, 1f, 0f, FramePosition.TopLeft, FramePosition.BottomRight));
 
     public Fin<SceneExposure> Metered(PixelFrame frame, Gamut working) =>
-        Meter.Metered(frame, working.Luminance).Map(metered => this with { Stops = metered });
+        Meter.Metered(frame, working).Map(metered => this with { Stops = metered });
 
     public static Option<PixelPass> Pass(SceneExposure state, PassContext context) =>
         state.Stops is 0f ? None : Some<PixelPass>(new PixelPass.Color(Exposure.Shifted(state.Stops)));
@@ -161,7 +161,7 @@ public abstract partial record ViewTransform {
         Optional(stops).Match(
             Some: chosen => (PixelPass)new PixelPass.Color(formed(float.Exp2(chosen))),
             None: () => new PixelPass.Frame((frame, progress) =>
-                LuminanceSamples.Gather(frame, context.Working.Luminance).Bind(samples => new PixelPass.Color(formed((float)samples.FrameWhite)).Run(frame, progress))));
+                LuminanceSamples.Gather(frame, context.Working).Bind(samples => new PixelPass.Color(formed((float)samples.FrameWhite)).Run(frame, progress))));
 
     [Display(Name = "AgX")]
     public sealed record AgXView([property: Display(Name = "Look", Description = "Grade in AgX Log before the AgX base")] AgXLook? Look) : ViewTransform {
@@ -224,22 +224,18 @@ public abstract partial record ViewTransform {
         public static FilmPrint Default { get; } = Of(FilmStock.Default);
 
         public FilmStock Stock => new(
-            PreExposure, Lanes(PreFilter), Lanes(Scale), Lanes(Rotation), Lanes(Multiplier), SigmoidMinimum, SigmoidSpan, ToeX, ToeY, ShoulderReachX, ShoulderReachY,
-            NegativeExposure, NegativeDensity, Lanes(Backlight), PrintExposure, PrintDensity, Lanes(PostFilter), MidtoneSaturation) { BlackPoint = Optional(BlackPoint) };
+            PreExposure, PreFilter, Scale, Rotation, Multiplier, SigmoidMinimum, SigmoidSpan, ToeX, ToeY, ShoulderReachX, ShoulderReachY,
+            NegativeExposure, NegativeDensity, Backlight, PrintExposure, PrintDensity, PostFilter, MidtoneSaturation) { BlackPoint = Optional(BlackPoint) };
 
         public static FilmPrint Of(FilmStock stock) =>
-            new(stock.PreExposure, Channeled(stock.PreFilter), Channeled(stock.Scale), Channeled(stock.Rotation), Channeled(stock.Multiplier),
+            new(stock.PreExposure, stock.PreFilter, stock.Scale, stock.Rotation, stock.Multiplier,
                 stock.SigmoidMinimum, stock.SigmoidSpan, stock.ToeX, stock.ToeY, stock.ShoulderReachX, stock.ShoulderReachY,
-                stock.NegativeExposure, stock.NegativeDensity, Channeled(stock.Backlight), stock.PrintExposure, stock.PrintDensity,
-                stock.BlackPoint.ToNullable(), Channeled(stock.PostFilter), stock.MidtoneSaturation);
+                stock.NegativeExposure, stock.NegativeDensity, stock.Backlight, stock.PrintExposure, stock.PrintDensity,
+                stock.BlackPoint.ToNullable(), stock.PostFilter, stock.MidtoneSaturation);
 
         public override PixelPass Formed(PassContext context, DisplayDevice device) =>
             new PixelPass.Frame((frame, progress) => context.Derivations.Derived(Stock, static stock => stock.Developed())
                 .Bind(developed => new PixelPass.Color(FilmStock.Formed(context.Working, device, developed)).Run(frame, progress)));
-
-        private static Vector3 Lanes(Channels<float> channels) => new(channels.Red, channels.Green, channels.Blue);
-
-        private static Channels<float> Channeled(Vector3 lanes) => new(lanes.X, lanes.Y, lanes.Z);
     }
 
     [Display(Name = "Tony McMapface")]
@@ -355,10 +351,10 @@ public sealed record ImageFormation(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FormationTables {
     public static Func<string, Lut3D> Lattice { get; } = memo(static (string resource) =>
-        Parsed(resource, LutFormat.Cube).Bind(Fin<Lut3D> (table) => table is LutTable.Cube { Lattice: var lattice } ? lattice : Error.New($"embedded table {resource} holds no 3D lattice")).ThrowIfFail());
+        Parsed(resource, LutFormat.Cube).Bind(Fin<Lut3D> (table) => table is LutTable.Cube { Lattice: var lattice } ? lattice : new DarkroomFault($"embedded table {resource}", DarkroomReason.Lattice)).ThrowIfFail());
 
     public static Func<string, Lut1D> Curve { get; } = memo(static (string resource) =>
-        Parsed(resource, LutFormat.Spi1d).Bind(Fin<Lut1D> (table) => table is LutTable.ChannelCurve { Table: var curve } ? curve : Error.New($"embedded table {resource} holds no channel curve")).ThrowIfFail());
+        Parsed(resource, LutFormat.Spi1d).Bind(Fin<Lut1D> (table) => table is LutTable.ChannelCurve { Table: var curve } ? curve : new DarkroomFault($"embedded table {resource}", DarkroomReason.Curve)).ThrowIfFail());
 
     private static readonly Lazy<LogSpace> AgXSpace = new(static () => LogSpace.AgX(Lattice("luminance_compensation_bt2020.cube")));
     private static readonly Lazy<Lut3D> TonyTable = new(static () => {

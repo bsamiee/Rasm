@@ -17,7 +17,7 @@ rule:
         - kind: object_creation_expression
           all:
             - has: {field: type, matches: option-type}
-            - has: {field: arguments, not: {has: {kind: argument}}}
+            - matches: csharp-bare-call
             - not: {has: {field: initializer, pattern: $_}}
         - kind: cast_expression
           all:

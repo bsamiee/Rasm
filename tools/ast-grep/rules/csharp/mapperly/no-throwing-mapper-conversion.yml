@@ -133,7 +133,7 @@ rule:
                         inside:
                             kind: invocation_expression
                             all:
-                                - has: {field: function, regex: '^nameof$'}
+                                - matches: csharp-nameof-call
                                 - inside: {kind: attribute_argument, has: {field: name, regex: '^Use$'}}
             - kind: invocation_expression
               all:
@@ -152,4 +152,4 @@ rule:
                                       matches: csharp-throwing-factory
                                       inside: {kind: argument}
 message: '`$CONVERSION` throws on rejected `$SOURCE` inside a mapping method'
-note: 'Validate `<source>` into the target type through its `Fin`-returning factory before the mapping runs'
+note: 'Validate `<source>` into target type through its `Fin`-returning factory before the mapping runs'

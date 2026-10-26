@@ -57,7 +57,7 @@ utils:
     pure-result:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}
             - has: {field: arguments, has: {kind: argument, has: {matches: result-local}}, not: {has: {kind: argument, nthChild: 2}}}
             - not: {matches: typed-position}
     tried-run:
@@ -73,7 +73,7 @@ utils:
                 - kind: invocation_expression
                   all:
                     - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: tried-run}}]}
-                    - has: {field: arguments, not: {has: {kind: argument}}}
+                    - matches: csharp-bare-call
             - not: {matches: continued}
             - not: {matches: typed-position}
 rule:

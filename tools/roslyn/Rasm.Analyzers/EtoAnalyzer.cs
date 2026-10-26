@@ -16,37 +16,37 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
     public static readonly DiagnosticDescriptor Cached = Rule(
         "RASM2201",
         Category,
-        "Cached system font disposed",
-        "`{1}` disposes font `SystemFonts.{0}` caches for every caller, read it without a release",
-        "`SystemFonts` font reaching `Dispose`, `using`, `use`, `release`, an acquire, a holder, or a retaining call, directly or through a local, range variable, or lambda parameter.");
+        "Cached system font disposed, read without release",
+        "`{1}` disposes font `SystemFonts.{0}` caches for every caller, read the font without a release",
+        "`SystemFonts` fonts reach no `Dispose`, `using`, `use`, `release`, acquire, holder, or retaining call, directly or through bindings");
 
     public static readonly DiagnosticDescriptor Framed = Rule(
         "RASM2202",
         Category,
-        "Eto container acquired by plain dispose",
-        "`{0}` disposes `{1}` with its children attached, acquire `{1}` with `use` and a release that detaches its children before `Dispose`",
-        "`Eto.Forms.Container` reaching a plain-dispose acquire, a holder with a release that only disposes, or a retaining call, while its acquiring member attaches a child held before it, or any child to a `StackLayout`.");
+        "Eto container acquired by plain dispose, detach children before `Dispose`",
+        "`{0}` disposes `{1}` with children attached, acquire `{1}` through `use` with a release detaching children before `Dispose`",
+        "Plain-dispose acquires, holders, and retaining calls of `Eto.Forms.Container` detach earlier-held or `StackLayout` children before `Dispose`");
 
     public static readonly DiagnosticDescriptor Twice = Rule(
         "RASM2203",
         Category,
-        "Retained control disposed on failure",
-        "`{0}` disposes `{1}` on failure after `{2}` handed it to its owner, delete the release",
-        "Failure release disposing an `Eto.Widget` that a plain-dispose acquire or a retaining call handed to its owner earlier on the same path.");
+        "Retained control disposed on failure, delete the release",
+        "`{0}` disposes `{1}` on failure after `{2}` handed `{1}` to an owner, delete the release",
+        "Failure releases skip `Eto.Widget` values a plain-dispose acquire or retaining call handed to an owner earlier on one path");
 
     public static readonly DiagnosticDescriptor Escaped = Rule(
         "RASM2204",
         Category,
-        "Native callback outside Callbacks boundary",
-        "Native callback `{0}` runs `{1}` outside the `Callbacks` boundary where an exception aborts Rhino, route it through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`",
-        "Body of a delegate handed to an Objective-C binding or `ObjCExtensions.AddMethod`, an `[UnmanagedFunctionPointer]` delegate, or an `[Export]`, `[UnmanagedCallersOnly]`, or `NSObject` override that is more than one `Callbacks` call, or a host member read before the boundary in a `Callbacks` call of such a body or an Eto override.");
+        "Native callback or Eto override reading host outside `Callbacks`, route through `Callbacks`",
+        "`{1}` in native callback `{0}` runs outside `Callbacks` and an exception aborts Rhino, route through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`",
+        "Native callbacks (Objective-C, `AddMethod`, `[UnmanagedFunctionPointer]`, `[Export]`, `[UnmanagedCallersOnly]`, `NSObject`) are one `Callbacks` call, Eto overrides read host members inside `Callbacks`");
 
     public static readonly DiagnosticDescriptor Handler = Rule(
         "RASM2205",
         Category,
-        "Delegate registered as platform handler",
+        "Delegate registered as platform handler, declare a handler interface",
         "`{0}` registers delegate `{1}` as a platform handler, declare one handler interface each platform implements",
-        "`Eto.Platform.Add<T>` or `Find<T>` call with a delegate type argument.");
+        "`Eto.Platform.Add<T>` and `Find<T>` take as `T` a handler interface each platform implements in place of a delegate");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Cached, Framed, Twice, Escaped, Handler];
 
@@ -123,8 +123,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
                 .Concat(holder is null ? [] : References(holder, site, reading).SelectMany(Attached))
                 .Concat(holder is ILocalSymbol local ? Bindings(local, reading).SelectMany(Created) : []);
         bool Disposing(IOperation release) =>
-            Stripped(release) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters.Length: 1 } function }
-            && Steps(function.Body) is { Length: 1 } steps && steps[0] is IInvocationOperation { Instance: { } instance } call
+            Lambda(release) is { Symbol.Parameters.Length: 1 } function && Sole(function.Body) is IInvocationOperation { Instance: { } instance } call
             && lifetimes.Disposes(call.TargetMethod) && Stripped(instance) is IParameterReferenceOperation reference
             && SymbolEqualityComparer.Default.Equals(reference.Parameter, function.Symbol.Parameters[0]);
         (string Owner, ITypeSymbol Held, ISymbol? Holder, IOperation? Origin)? Acquired(IOperation operation, Reading reading) =>
@@ -213,7 +212,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         bool Wrapper(INamedTypeSymbol type) =>
             Marked(type, register) is { } data
             && ((data.ConstructorArguments.Length > 1 && data.ConstructorArguments[1].Value is true) || data.NamedArguments.Any(static named => named.Value.Value is true && string.Equals(named.Key, "IsWrapper", StringComparison.Ordinal)));
-        bool Bound(INamedTypeSymbol? type) => type is not null && (Wrapper(type) || Bound(type.ContainingType));
+        bool Bound(INamedTypeSymbol? type) => Containers(type).OfType<INamedTypeSymbol>().Any(Wrapper);
         bool Wrapped(IMethodSymbol method) => method.IsOverride && Bound(Overridden(method).Last().ContainingType);
         bool Overriding(IMethodSymbol method, INamedTypeSymbol? root) =>
             root is not null && method.IsOverride && Overridden(method).Last() is var origin && !Sourced(origin) && Derives(origin.ContainingType, root);
@@ -229,7 +228,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
             step.ConstantValue.HasValue || step is IDefaultValueOperation
             || (step is IInvocationOperation call && (Among(call.TargetMethod, boundaries)
                 || (call.TargetMethod.MethodKind is MethodKind.DelegateInvoke && Produced(call.Instance, reading, 4))
-                || (depth > 0 && Sourced(call.TargetMethod) && Bodied(call.TargetMethod, reading) is IBlockOperation body && Steps(body) is { Length: 1 } inner && Routed(inner[0], reading, depth - 1))));
+                || (depth > 0 && Sourced(call.TargetMethod) && Bodied(call.TargetMethod, reading) is IBlockOperation body && Sole(body) is { } inner && Routed(inner, reading, depth - 1))));
         static bool Rooted(IOperation? instance) => instance is not null && Stripped(instance) is IInstanceReferenceOperation;
         static bool Inherited(ISymbol member) => !Sourced(member) && member.ContainingType is { SpecialType: not SpecialType.System_Object };
         static bool Read(IOperation operation) =>
@@ -312,14 +311,4 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
 
     // --- [STEPS]
     private static IOperation? Body(IMethodBodyOperation body) => (IOperation?)body.BlockBody ?? body.ExpressionBody;
-
-    private static IOperation Unwrapped(IOperation step) =>
-        step switch {
-            IReturnOperation { ReturnedValue: { } returned } => Stripped(returned),
-            IExpressionStatementOperation statement => Stripped(statement.Operation),
-            _ => step,
-        };
-
-    private static ImmutableArray<IOperation> Steps(IBlockOperation body) =>
-        [.. body.Operations.Where(static step => step is not IReturnOperation { ReturnedValue: null, IsImplicit: true }).Select(Unwrapped)];
 }

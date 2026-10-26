@@ -1,16 +1,26 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-entry-module
 language: python
+utils:
+    collected:
+        any:
+            - kind: function_definition
+              has: {field: name, regex: '^(pytest|test|bench)_'}
+            - kind: class_definition
+              all:
+                - has: {field: name, regex: '^Test'}
+                - has: {field: body, has: {any: [{matches: collected}, {kind: decorated_definition, has: {field: definition, matches: collected}}]}}
 rule:
     kind: module
     has:
         any:
             - kind: if_statement
               has: {field: condition, regex: '^__name__\s*==\s*["'']__main__["'']$'}
-            - kind: function_definition
-              has: {field: name, regex: '^pytest_'}
+            - matches: collected
             - kind: decorated_definition
-              has: {field: definition, kind: function_definition, has: {field: name, regex: '^pytest_'}}
+              any:
+                - has: {field: definition, matches: collected}
+                - has: {kind: decorator, regex: '^@pytest\.fixture\b'}
             - kind: function_definition
               all:
                 - has: {field: name, regex: '^check$'}

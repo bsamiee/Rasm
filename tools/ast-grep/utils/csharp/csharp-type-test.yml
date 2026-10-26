@@ -18,7 +18,7 @@ utils:
         kind: invocation_expression
         all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^GetType$'}}, {has: {field: expression, matches: subject}}]}
-            - has: {field: arguments, not: {has: {kind: argument}}}
+            - matches: csharp-bare-call
     type-of:
         kind: typeof_expression
         has: {field: type, matches: type-node}

@@ -44,7 +44,14 @@ Event types have different payload shapes, the storage options from most to leas
 State is an immutable snapshot derived for one purpose, and it is not the persisted source of truth. The command side needs only enough state to decide whether a command is allowed (status, code, balance, limit, not the full transaction list), the query side needs read models shaped for each view, and analytics use other projections, each answers an independent question. The snapshot exposes read-only values and transformation methods that return new instances, and business rules belong in command validation rather than in the snapshot methods:
 
 ```csharp
-internal enum Status { Requested, Active, Frozen }
+[SmartEnum]
+internal sealed partial class Status {
+    public static readonly Status Requested = new(acceptsDebit: false);
+    public static readonly Status Active = new(acceptsDebit: true);
+    public static readonly Status Frozen = new(acceptsDebit: false);
+
+    public bool AcceptsDebit { get; }
+}
 
 internal sealed record Snapshot(Status Status, string Code, decimal Balance, decimal Limit) {
     public Snapshot Credit(decimal amount) => this with { Balance = Balance + amount };
@@ -95,7 +102,7 @@ command -> validate -> derive event -> persist and publish
 events  -> fold, map, filter -> projection or view model -> query response
 ```
 
-Commands are imperative requests (`Debit`) that can be invalid, ignored, or interrupted before completion, and a command and its event can share fields while the conversion adds or derives values. Command handling validates the command's general form, loads the entity's snapshot and validates the requested transition against it, and converts a valid command into an event that it persists and publishes. General validation and state-dependent validation are dependent computations that bind, each rejection is an `Error` raised at its `guard`, the transition returns the event beside the derived snapshot, and the first `guard` calls `ToFin` to establish the query's result type:
+Commands are imperative requests (`Debit`) that can be invalid, ignored, or interrupted before completion, and a command and its event can share fields while the conversion adds or derives values. Command handling validates the command's general form, loads the entity's snapshot and validates the requested transition against it, and converts a valid command into an event that it persists and publishes. Checks over the loaded snapshot are independent and combine under the tuple `Apply`, which reports both rejections, and the transition returns the event beside the derived snapshot:
 
 ```csharp
 internal sealed record Debit(Guid EntryId, decimal Amount, string Target) {
@@ -104,10 +111,10 @@ internal sealed record Debit(Guid EntryId, decimal Amount, string Target) {
 
 internal static partial class Entry {
     public static Fin<(Event Event, Snapshot Snapshot)> Debit(Snapshot snapshot, Debit command) =>
-        from _ in guard(snapshot.Status is Status.Active, Error.New("entry is not active")).ToFin()
-        from __ in guard(snapshot.Balance - command.Amount >= snapshot.Limit, Error.New("balance falls below the limit"))
-        let evt = command.ToEvent()
-        select (Event: evt, Snapshot: Apply(snapshot, evt));
+        (Failure.Unless(snapshot.Status.AcceptsDebit, Reason.Invalid), Failure.Unless(snapshot.Balance - command.Amount >= snapshot.Limit, Reason.Invalid))
+            .Apply((_, _) => command.ToEvent())
+            .As()
+            .Map(evt => (Event: evt, Snapshot: Apply(snapshot, evt)));
 }
 ```
 

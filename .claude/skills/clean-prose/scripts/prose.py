@@ -2,6 +2,7 @@
 
 from functools import cache
 from pathlib import Path
+from typing import override
 lazy from bisect import bisect_right
 lazy from collections.abc import Callable, Iterable, Iterator
 lazy from functools import reduce
@@ -25,10 +26,6 @@ lazy from pygments.lexers import get_all_lexers, get_lexer_for_filename
 lazy from pygments.lexers.special import TextLexer
 lazy from pygments.token import Comment, is_token_subtype
 lazy from wcwidth import wcswidth
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type _Comment = _Divider | _Directive | _Remark
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -61,28 +58,12 @@ class _Text(msgspec.Struct, frozen=True):
 
 
 class _Note(msgspec.Struct, frozen=True):
-    """Full-line comment at a 0-based line, `head` its indent."""
+    """Full-line comment at a 0-based line, `head` its indent, a tool directive unless a case below."""
 
     line: int
     head: str
     marker: str
     body: str
-
-
-class _Divider(_Note, frozen=True):
-    """Divider comment, `tok` its label and `full` whether dashes fill it."""
-
-    tok: str
-    full: bool
-
-    def fixed(self) -> str:
-        """`<marker> --- [TOKEN]` filled to column 90 at file level, unfilled when indented."""
-        line = f"{self.head}{self.marker} --- {_token(self.tok)}"
-        return f"{line} ".ljust(90, "-") if self.full and not self.head else line
-
-
-class _Directive(_Note, frozen=True):
-    """Tool directive comment."""
 
     def fixed(self) -> str:
         """Directive as written."""
@@ -90,11 +71,21 @@ class _Directive(_Note, frozen=True):
 
 
 class _Remark(_Note, frozen=True):
-    """Prose comment."""
-
+    @override
     def fixed(self) -> str:
-        """Remark without emoji and closing punctuation."""
+        """Prose comment without emoji and closing punctuation."""
         return f"{self.head}{self.marker} {_unpunctuated(_emoji(self.body))}"
+
+
+class _Divider(_Note, frozen=True):
+    tok: str
+    full: bool
+
+    @override
+    def fixed(self) -> str:
+        """Divider as `<marker> --- [TOKEN]` of label `tok`, filled to column 90 when `full` at file level, else unfilled."""
+        line = f"{self.head}{self.marker} --- {_token(self.tok)}"
+        return f"{line} ".ljust(90, "-") if self.full and not self.head else line
 
 
 class _Doc[T](msgspec.Struct, frozen=True):
@@ -394,9 +385,7 @@ def _overflows(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
 
 def _wide(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
     """List items past column `_WIDTH` outside code spans, then tables with a line past column `_WIDTH`, each named by its kind."""
-    items = [
-        (start, "List item") for block, inline in _inlines(doc.parts) if _opens(block) and wcswidth(doc.lines[start := _span(inline)[0]]) - wcswidth(inline.content) + wcswidth(_prose(inline)) > _WIDTH
-    ]
+    items = [(n, "List item") for block, inline in _inlines(doc.parts) if _opens(block) and wcswidth(doc.lines[n := _span(inline)[0]]) - wcswidth(inline.content) + wcswidth(_prose(inline)) > _WIDTH]
     return [*items, *((_span(node)[0], "Table") for node in doc.parts.walk() if node.type == "table" and any(wcswidth(line) > _WIDTH for line in doc.lines[slice(*_span(node))]))]
 
 
@@ -404,9 +393,8 @@ def _wide(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
 def _steps(path: Path, info: str) -> range:
     """Indent steps below the `.editorconfig` space indent size of the `info` language at `path`, none for an unknown language."""
     match next((patterns[0] for name, aliases, patterns, _ in get_all_lexers() if info in aliases and patterns and name != TextLexer.name), None):
-        case str(pattern):
-            props = get_properties(str(path.with_name(pattern.replace("*", path.stem))))
-            return range(2, int(props["indent_size"])) if props.get("indent_style") == "space" else range(0)
+        case str(pattern) if (props := get_properties(str(path.with_name(pattern.replace("*", path.stem))))).get("indent_style") == "space":
+            return range(2, int(props["indent_size"]))
         case _:
             return range(0)
 
@@ -442,11 +430,11 @@ def _words(root: SyntaxTreeNode) -> list[str]:
 # --- [SOURCE]
 
 
-def _noted(path: Path, lines: tuple[str, ...]) -> tuple[_Comment, ...]:
+def _noted(path: Path, lines: tuple[str, ...]) -> tuple[_Note, ...]:
     """Full-line single-line comments the lexer of `path` finds, the comment tokens of one line joined, each as a divider, directive, or remark."""
     starts = [*accumulate((len(line) + 1 for line in lines), initial=0)]
 
-    def note(line: int, at: int, value: str) -> list[_Comment]:
+    def note(line: int, at: int, value: str) -> list[_Note]:
         head = lines[line][: at - starts[line]]
         match regex.fullmatch(r"(?P<marker>\p{P}+) (?P<body>\S.*?)\s*", value) if not head.strip() else None:
             case None:
@@ -454,19 +442,19 @@ def _noted(path: Path, lines: tuple[str, ...]) -> tuple[_Comment, ...]:
             case comment if divider := _DIVIDER.fullmatch(comment["body"]):
                 return [_Divider(line, head, comment["marker"], comment["body"], divider["tok"], full=divider["fill"] is not None)]
             case comment:
-                return [(_Directive if _DIRECTIVE.match(comment["body"]) else _Remark)(line, head, comment["marker"], comment["body"])]
+                return [(_Note if _DIRECTIVE.match(comment["body"]) else _Remark)(line, head, comment["marker"], comment["body"])]
 
     tokens = get_lexer_for_filename(path.name, stripnl=False, ensurenl=False).get_tokens_unprocessed("".join(f"{line}\n" for line in lines))
     runs = groupby(tokens, key=lambda token: (is_token_subtype(token[1], Comment.Single), bisect_right(starts, token[0]) - 1))
     return tuple(*note(line, min(offsets), "".join(values)) for (comment, line), run in runs if comment for offsets, _, values in [zip(*run)])
 
 
-def _comments(doc: _Doc[tuple[_Comment, ...]]) -> Iterator[_Edit]:
+def _comments(doc: _Doc[tuple[_Note, ...]]) -> Iterator[_Edit]:
     """Comment lines in the form each comment case fixes."""
     return (_Edit(note.line, note.line + 1, (note.fixed(),)) for note in doc.parts)
 
 
-def _unlabeled(doc: _Doc[tuple[_Comment, ...]]) -> Iterator[_Edit]:
+def _unlabeled(doc: _Doc[tuple[_Note, ...]]) -> Iterator[_Edit]:
     """Dividers lacking comment or code before the next divider at or above their level, with the blank lines after them, and trailing blank lines once any drops."""
     dividers = [note for note in doc.parts if isinstance(note, _Divider)]
     marks = {divider.line for divider in dividers}
@@ -475,26 +463,23 @@ def _unlabeled(doc: _Doc[tuple[_Comment, ...]]) -> Iterator[_Edit]:
         stop = next((d.line for d in dividers if d.line > divider.line and (d.full or not divider.full)), len(doc.lines))
         return not any(doc.lines[n].strip() and n not in marks for n in range(divider.line + 1, stop))
 
-    def run(n: int) -> range:
-        return range(n, next((k for k in range(n + 1, len(doc.lines)) if doc.lines[k].strip()), len(doc.lines)))
-
-    drops = {n for divider in dividers if empty(divider) for n in run(divider.line)}
+    drops = {n for divider in dividers if empty(divider) for n in range(divider.line, next((k for k in range(divider.line + 1, len(doc.lines)) if doc.lines[k].strip()), len(doc.lines)))}
     tail = {*takewhile(lambda n: n in drops or not doc.lines[n].strip(), reversed(range(len(doc.lines))))} if drops else set()
     return (_Edit(n, n + 1, ()) for n in drops | tail)
 
 
-def _source_texts(doc: _Doc[tuple[_Comment, ...]]) -> Iterator[_Text]:
+def _source_texts(doc: _Doc[tuple[_Note, ...]]) -> Iterator[_Text]:
     """Text units of prose comments."""
     return (_Text(note.line, note.body, _prose(SyntaxTreeNode(_MARKDOWN.parseInline(note.body))[0]), capital=True) for note in doc.parts if isinstance(note, _Remark))
 
 
-def _repeats(doc: _Doc[tuple[_Comment, ...]]) -> list[tuple[int, str]]:
+def _repeats(doc: _Doc[tuple[_Note, ...]]) -> list[tuple[int, str]]:
     """Full dividers with a token an earlier full divider used."""
     fulls = [note for note in doc.parts if isinstance(note, _Divider) and note.full]
     return [(divider.line, divider.tok) for i, divider in enumerate(fulls) if any(earlier.tok == divider.tok for earlier in fulls[:i])]
 
 
-def _orphans(doc: _Doc[tuple[_Comment, ...]]) -> list[tuple[int, str]]:
+def _orphans(doc: _Doc[tuple[_Note, ...]]) -> list[tuple[int, str]]:
     """Sub dividers before the first full divider."""
     return [(note.line, note.tok) for note in takewhile(lambda note: not note.full, (note for note in doc.parts if isinstance(note, _Divider)))]
 
@@ -530,11 +515,7 @@ _CODE = _Grammar(_noted, _source_texts, (_comments, _unlabeled), frozendict({"Di
 def _linted(paths: tuple[Path, ...]) -> list[_Doc[tuple[str, ...]]]:
     """Linted named files and unignored non-symlink files under named folders or the working directory, markdown first."""
     named, folders = [p for p in paths if p.is_file()], [p for p in paths if p.is_dir()]
-    listed = (
-        subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", *folders], capture_output=True, check=True, text=True).stdout
-        if folders or not named
-        else ""
-    )
+    listed = subprocess.check_output(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", *folders], text=True) if folders or not named else ""
     found = [f for f in sorted({*named, *(Path(f) for f in listed.split("\0") if f)}) if f.is_file() and not f.is_symlink()]
     return [
         *(_PAGES.lint(f) for f in found if f.suffix == ".md"),
@@ -545,10 +526,9 @@ def _linted(paths: tuple[Path, ...]) -> list[_Doc[tuple[str, ...]]]:
 def check(*paths: ExistingPath) -> int:
     """Prints fix command per fixable file, then each report as `path:line: message`, exiting 1 on any."""
     linted = _linted(paths)
-    fixable = "".join(f"{d.path}: {d.fixed} fixable, python {sys.argv[0]} fix {d.path}\n" for d in linted if d.fixed)
     found = [*d.parts for d in linted]
     total = sum(d.fixed for d in linted)
-    sys.stdout.write(fixable + "".join(found) + f"Found {len(found) + total} findings, {total} fixable\n")
+    sys.stdout.writelines((*(f"{d.path}: {d.fixed} fixable, python {sys.argv[0]} fix {d.path}\n" for d in linted if d.fixed), *found, f"Found {len(found) + total} findings, {total} fixable\n"))
     return int(bool(found or total))
 
 
@@ -558,7 +538,7 @@ def fix(*paths: ExistingPath) -> int:
     for d in (d for d in linted if d.fixed):
         d.path.write_text("".join(f"{line}\n" for line in d.lines), encoding="utf-8")
     left = [*d.parts for d in linted]
-    sys.stdout.write("".join(left) + f"Fixed {sum(d.fixed for d in linted)}, {len(left)} remaining\n")
+    sys.stdout.writelines((*left, f"Fixed {sum(d.fixed for d in linted)}, {len(left)} remaining\n"))
     return int(bool(left))
 
 

@@ -15,7 +15,7 @@ utils:
     unit-thunk:
         kind: lambda_expression
         all:
-            - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+            - matches: csharp-parameterless
             - has: {field: body, matches: unit-value}
 rule:
     kind: invocation_expression

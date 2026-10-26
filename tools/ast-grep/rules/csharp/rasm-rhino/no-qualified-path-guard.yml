@@ -6,12 +6,12 @@ files: ['**/rhino/**']
 utils:
     io-call:
         kind: invocation_expression
-        has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(lift|liftAsync|pure|fail)$'}}}}
+        matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^(lift|liftAsync|pure|fail)$'}}}
     effect:
         any:
             - matches: io-call
             - kind: invocation_expression
-              has: {field: function, matches: {csharp-type-name: {name: {regex: '^(when|unless)$'}}}}
+              matches: {csharp-named-call: {name: {regex: '^(when|unless)$'}}}
             - kind: conditional_expression
               any:
                 - has: {field: consequence, matches: io-call}
@@ -22,7 +22,7 @@ utils:
         kind: invocation_expression
         all:
             - pattern: $CHECK($PATH)
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Path$'}, member: {regex: '^(IsPathFullyQualified|IsPathRooted)$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Path$'}, member: {regex: '^(IsPathFullyQualified|IsPathRooted)$'}}}
     affirmed:
         any:
             - matches: check
@@ -74,7 +74,7 @@ utils:
                 - has: {field: arguments, has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: truthy}}}
             - kind: invocation_expression
               all:
-                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(when|guardnot)$'}}}}
+                - matches: {csharp-named-call: {name: {regex: '^(when|guardnot)$'}}}
                 - has: {field: arguments, has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: falsy}}}
             - kind: conditional_expression
               any:
@@ -88,4 +88,4 @@ rule:
             - matches: effect
             - inside: {stopBy: end, matches: effect}
 message: "`$CHECK($PATH)` requires a qualified path inside an effect"
-note: 'Bind `IO.lift(Exchange.QualifiedPath(<path>))` as a step'
+note: 'Bind `<path>` validation into a path value object as a step'

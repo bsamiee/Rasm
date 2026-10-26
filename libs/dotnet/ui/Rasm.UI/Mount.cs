@@ -494,5 +494,5 @@ public sealed record Mount {
     private LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> Active() =>
         toHashSet(Hover.Head.Filter(path => Scene.Index.Find(path).Exists(static laid => !laid.Style.Conditions.Contains(Condition.Disabled))).Map(static path => (path, Interaction.Hover)).ToSeq()
             .Concat(Routing.Pressing.Map(static path => (path, Interaction.Pressed)).ToSeq())
-            .Concat(Routing.Focus.Filter(focus => Host.Visibility.Keyed && focus.Visible).Map(static focus => (focus.Element, Interaction.Focused)).ToSeq()));
+            .Concat(Routing.Focus.Filter(focus => Host.Visibility.Keyed && focus.Traversed).Map(static focus => (focus.Element, Interaction.Focused)).ToSeq()));
 }

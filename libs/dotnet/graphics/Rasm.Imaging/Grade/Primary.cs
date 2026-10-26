@@ -27,7 +27,7 @@ public sealed record WheelOffset(float Hue, float Strength, float Luma) {
 
     public static Fin<WheelOffset> FromMultiplier(Vector3 multiplier, Gamut gamut, float hue) =>
         new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, multiplier.X, multiplier.Y, multiplier.Z).ConvertToConfiguration(Configuration.Default).Oklab switch {
-            { L: <= 0d } => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"wheel multiplier {multiplier} must have positive lightness")),
+            { L: <= 0d } => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"wheel multiplier lightness {multiplier}"), ImagingReason.Range),
             var lab => new Vector2((float)(lab.A / lab.L), (float)(lab.B / lab.L)) switch {
                 var chroma => new WheelOffset(
                     chroma.Length() < 1e-6f ? hue : (float.Atan2(chroma.Y, chroma.X) + float.Tau) % float.Tau, 2f * chroma.Length(), 3f * float.Log2((float)lab.L)),
@@ -72,12 +72,12 @@ public sealed partial class CdlFormat {
 
     public static Fin<IterableNE<(Option<string> Id, LutTable.Cdl Correction)>> Read(string text) =>
         Try.lift(() => XDocument.Parse(text)).Run()
-            .MapFail(static error => error.Exception.Case is XmlException xml ? new ImagingFault($"CDL text did not parse, {xml.Message}", error) : error)
+            .MapFail(static error => error.Exception.Case is XmlException xml ? new ImagingFault($"CDL text at {xml.Message}", ImagingReason.Unparsed, error) : error)
             .Bind(static document => toSeq(document.Descendants()).Filter(static element => element.Name.LocalName is CorrectionNode)
-                .Traverse(static correction => ProcessLists.CorrectionValues(correction, static name => new ImagingFault($"CDL correction holds no readable {name}"))
+                .Traverse(static correction => ProcessLists.CorrectionValues(correction, static name => new ImagingFault($"CDL correction {name}", ImagingReason.Unreadable))
                     .Map(values => (Optional(correction.Attribute(IdAttribute)?.Value), new LutTable.Cdl(CdlStyle.FwdNoClamp, values.Slope, values.Offset, values.Power, values.Saturation))))
                 .As())
-            .Bind(static corrections => corrections.AsIterableNE().ToFin(new ImagingFault($"CDL text holds no {CorrectionNode}")));
+            .Bind(static corrections => corrections.AsIterableNE().ToFin(new ImagingFault($"CDL text {CorrectionNode}", ImagingReason.Empty)));
 
     public string Write(LutTable.Cdl correction, Option<string> id) =>
         $"{Declaration}\n{Ancestors.FoldBack(
@@ -120,7 +120,7 @@ public static class Primary {
                 sum += pixel.W > 0f && Vector3.AllWhereAllBitsSet(Vector3.IsFinite(pixel.AsVector3())) ? Vector256.Create(pixel.X, pixel.Y, pixel.Z, 1d) : Vector256<double>.Zero;
         }
         return sum[3] is 0d
-            ? new ImagingFault($"white balance region {bounds} holds no covered finite pixel")
+            ? new ImagingFault($"white balance region {bounds}", ImagingReason.Empty)
             : Adaptation.Correlate(working, Vector256.Narrow(sum / sum[3], Vector256<double>.Zero).GetLower().AsVector3());
     }
 

@@ -14,23 +14,23 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
     public static readonly DiagnosticDescriptor Defined = Rule(
         "RASM1201",
         Category,
-        "Log message defined by hand",
+        "Log message defined by hand, declare a `[LoggerMessage]` method",
         "`LoggerMessage.{0}` defines a log message by hand, declare a `partial void` method under `[LoggerMessage]`",
-        "`LoggerMessage.Define` call outside generated code.");
+        "Declare `[LoggerMessage]` partial methods in place of `LoggerMessage.Define` calls outside generated code");
 
     public static readonly DiagnosticDescriptor Called = Rule(
         "RASM1202",
         Category,
-        "Logger called by hand",
+        "Logger called by hand, declare a generated log member",
         "`ILogger.{0}` called with hand-written state, declare {1}",
-        "`ILogger.Log` or `ILogger.BeginScope` call outside generated code and types implementing `ILogger`.");
+        "`ILogger.Log` and `ILogger.BeginScope` calls run only in generated code and types implementing `ILogger`");
 
     public static readonly DiagnosticDescriptor Twice = Rule(
         "RASM1203",
         Category,
-        "Failure reported twice",
+        "Failure reported twice, report once at host translation",
         "`{0}` reports a failure `{1}` already reported, report once at the host translation",
-        "`IfFail`, `Catch`, or `|` fallback with an `ILogger` call, `[LoggerMessage]` method, or `HostUtils.ExceptionReport` in both its receiver and its handler.");
+        "`IfFail`, `Catch`, and `|` fallbacks report through `ILogger`, `[LoggerMessage]`, or `HostUtils.ExceptionReport` on receiver or handler side alone");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Defined, Called, Twice];
 
@@ -49,8 +49,7 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
     // --- [CALLS]
     private static void Calls(CompilationStartAnalysisContext context, INamedTypeSymbol logger, ImmutableArray<IMethodSymbol> members) {
         bool Logs(IMethodSymbol method) => members.Any(member => Implements(method, member));
-        bool Forwards(ISymbol? symbol) =>
-            symbol is not null && ((symbol is INamedTypeSymbol type && type.AllInterfaces.Any(face => Same(face, logger))) || Forwards(symbol.ContainingSymbol));
+        bool Forwards(ISymbol symbol) => Containers(symbol).OfType<INamedTypeSymbol>().Any(type => Faces(type, logger).Any());
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, analysis) =>
             Logs(invocation.TargetMethod) && !Forwards(analysis.ContainingSymbol)
                 ? [Diagnostic.Create(
@@ -72,7 +71,6 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
             || (depth > 0 && Declarations(method.OriginalDefinition, reading).Any(body => Reporter(body, reading, depth - 1) is not null));
         IInvocationOperation? Reporter(IOperation tree, Reading reading, int depth) =>
             tree.DescendantsAndSelf().OfType<IInvocationOperation>().FirstOrDefault(call => Reports(call.TargetMethod, reading, depth));
-        bool Owned(ISymbol method) => method.ContainingNamespace is { } held && Within(compilation.GetCompilationNamespace(held), space);
         static (IOperation Receiver, ImmutableArray<IOperation> Handlers)? Fallback(IOperation operation) =>
             operation switch {
                 IInvocationOperation { TargetMethod.Name: "IfFail" or "Catch" } call when Receiver(call) is { } receiver =>
@@ -81,7 +79,7 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
                 _ => null,
             };
         Report<IOperation>(context, [OperationKind.Invocation, OperationKind.Binary], (operation, analysis) =>
-            operation switch { IInvocationOperation call => call.TargetMethod, IBinaryOperation either => either.OperatorMethod, _ => null } is { } method && Owned(method) && Fallback(operation) is ( { } receiver, var handlers) && operation.SemanticModel is { } model
+            operation switch { IInvocationOperation call => call.TargetMethod, IBinaryOperation either => either.OperatorMethod, _ => null } is { } method && Namespaced(compilation, method, space) && Fallback(operation) is ( { } receiver, var handlers) && operation.SemanticModel is { } model
             && new Reading(model, analysis.CancellationToken) is var reading && Reporter(receiver, reading, 1) is { } first
             && handlers.Select(handler => Reporter(handler, reading, 1)).FirstOrDefault(static again => again is not null) is { } second
                 ? [Diagnostic.Create(Twice, operation is IInvocationOperation fallback ? Named(fallback) : operation.Syntax.GetLocation(), Label(second), Label(first))]

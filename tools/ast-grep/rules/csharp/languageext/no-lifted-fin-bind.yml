@@ -21,12 +21,8 @@ utils:
             - matches: relift
             - matches: case-relift
             - kind: block
-              all:
-                - has:
-                    kind: return_statement
-                    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-                    has: {any: [{matches: relift}, {matches: case-relift}]}
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+              matches: csharp-single-return
+              has: {kind: return_statement, has: {any: [{matches: relift}, {matches: case-relift}]}}
     succ-arm:
         any:
             - matches: pure-group
@@ -48,8 +44,8 @@ utils:
             - has:
                 field: arguments
                 all:
-                    - has: {kind: argument, any: [{all: [{has: {field: name, regex: '^Succ$'}}, {has: {matches: succ-arm}}]}, {all: [{nthChild: 1}, {not: {has: {field: name, pattern: $_}}}, {has: {matches: succ-arm}}]}]}
-                    - has: {kind: argument, any: [{all: [{has: {field: name, regex: '^Fail$'}}, {has: {matches: fail-arm}}]}, {all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}, {has: {matches: fail-arm}}]}]}
+                    - has: {kind: argument, any: [{all: [{has: {field: name, regex: '^Succ$'}}, {has: {matches: succ-arm}}]}, {all: [{nthChild: 1}, {matches: csharp-positional-argument}, {has: {matches: succ-arm}}]}]}
+                    - has: {kind: argument, any: [{all: [{has: {field: name, regex: '^Fail$'}}, {has: {matches: fail-arm}}]}, {all: [{nthChild: 2}, {matches: csharp-positional-argument}, {has: {matches: fail-arm}}]}]}
                     - not: {has: {kind: argument, nthChild: 3}}
     relay:
         kind: identifier
@@ -103,7 +99,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: lifted-fin}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
             - matches: lifted-local
     held-bind:
         kind: argument

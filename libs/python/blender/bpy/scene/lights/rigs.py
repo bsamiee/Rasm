@@ -41,8 +41,8 @@ from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, 
 from blender.records.fields import Positive
 from blender.records.identity import content_hash
 from blender.records.trees import Retention
-from blender.rendering.lighting.references import ReferenceDistribution, ReferenceImage
-from blender.rendering.lighting.rigs import Arranged, Disk, Placement, Placements, Point, Rig, rig_catalog, Spot, Sun
+from blender.rendering.lighting.references import GELS, RECIPES, ReferenceDistribution, ReferenceImage, REFERENCES
+from blender.rendering.lighting.rigs import Arranged, Disk, Placement, Placements, Point, Rig, RIGS, Spot, Sun
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -92,14 +92,14 @@ class RigState(msgspec.Struct, frozen=True, kw_only=True):
 class RigPick(bpy.types.PropertyGroup):
     """Catalog rig name."""
 
-    name: bpy.props.EnumProperty(name="Rig", description="Catalog rig", items=tuple((name, name, "") for name in rig_catalog()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    name: bpy.props.EnumProperty(name="Rig", description="Catalog rig", items=tuple((name, name, "") for name in RIGS))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class ReferencePick(bpy.types.PropertyGroup):
     """Reference recipe name from catalog."""
 
     name: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name="Reference", items=tuple((name, name, bpy.path.display_name(family.name.lower())) for family, recipes in ReferenceImage.catalog().items() for name in recipes)
+        name="Reference", items=tuple((name, name, bpy.path.display_name(family.name.lower())) for family, recipes in REFERENCES.items() for name in recipes)
     )
 
 
@@ -115,7 +115,7 @@ class ReferenceDraw(bpy.types.PropertyGroup):
 class GelPick(bpy.types.PropertyGroup):
     """Gel name for reference tint."""
 
-    name: bpy.props.EnumProperty(name="Gel", items=tuple((name, name, "") for name in ReferenceImage.gels()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    name: bpy.props.EnumProperty(name="Gel", items=tuple((name, name, "") for name in GELS))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class RigFrame(msgspec.Struct, frozen=True, kw_only=True):
@@ -520,8 +520,8 @@ def rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scen
 
 def _rig(view_layer: bpy.types.ViewLayer, identity: Identity) -> Outcome[bpy.types.Object]:
     """Returns active object marked as rig empty."""
-    return focused(view_layer).bind(
-        lambda item: Ok(item) if LightRig.empty.marked(identity, item).is_some() else Error((Fault(reason=BlenderReason.ABSENT, subject=repr(item), member=LightRig.empty.key),))
+    return focused(view_layer).filter_with(
+        lambda item: LightRig.empty.marked(identity, item).is_some(), lambda item: (Fault(reason=BlenderReason.ABSENT, subject=repr(item), member=LightRig.empty.key),)
     )
 
 
@@ -560,7 +560,7 @@ def rig_pick(call: Call[RigPick]) -> Outcome[Done]:
         call
         .root(bpy.types.ViewLayer)
         .bind(focused)
-        .bind(lambda rig: states(call.identity, rig).bind(lambda pair: pair[0].write(rig, msgspec.structs.replace(pair[1], rig=rig_catalog()[call.properties.name]))))
+        .bind(lambda rig: states(call.identity, rig).bind(lambda pair: pair[0].write(rig, msgspec.structs.replace(pair[1], rig=RIGS[call.properties.name]))))
         .map(lambda _: Done())
     )
 
@@ -597,7 +597,7 @@ def rig_remove(call: Call[Empty]) -> Outcome[Done]:
 
 def rig_reference_pick(call: Call[ReferencePick]) -> Outcome[Done]:
     """Renders a catalog reference as the matched rig image."""
-    return LightRig.referenced(call, lambda _: next(recipes[call.properties.name] for recipes in ReferenceImage.catalog().values() if call.properties.name in recipes))
+    return LightRig.referenced(call, lambda _: RECIPES[call.properties.name])
 
 
 def rig_reference_draw(call: Call[ReferenceDraw]) -> Outcome[Done]:
@@ -607,7 +607,7 @@ def rig_reference_draw(call: Call[ReferenceDraw]) -> Outcome[Done]:
 
 def rig_reference_gel(call: Call[GelPick]) -> Outcome[Done]:
     """Tints the reference with a catalog gel."""
-    return LightRig.referenced(call, lambda state: msgspec.structs.replace(state.recipe, tint=ReferenceImage.gels()[call.properties.name]))
+    return LightRig.referenced(call, lambda state: msgspec.structs.replace(state.recipe, tint=GELS[call.properties.name]))
 
 
 def rig_reference_apply(call: Call[Empty]) -> Outcome[Done]:

@@ -43,9 +43,8 @@ utils:
         any:
             - matches: tested
             - kind: block
-              all:
-                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: tested}}
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+              matches: csharp-single-return
+              has: {kind: return_statement, has: {matches: tested}}
     predicate-lambda:
         kind: lambda_expression, anonymous_method_expression
         all:

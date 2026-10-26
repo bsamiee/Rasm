@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-named-call
+language: csharp
+arguments: [name]
+utils:
+    callee:
+        matches: {csharp-type-name: {name: {matches: name}}}
+rule:
+    has: {field: function, matches: callee}

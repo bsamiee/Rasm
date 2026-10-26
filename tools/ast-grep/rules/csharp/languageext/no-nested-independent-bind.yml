@@ -52,4 +52,4 @@ transform:
             by: ''
 fix: '$RECEIVER.$BIND_NAME($OUTER).$STEP($CONTINUATION)'
 message: '`$STEP` nests in the `$BIND` callback and its continuation reads nothing from `$VALUE`'
-note: 'Chain the step on the outer bind result, one step per chain level'
+note: 'Chain the step on outer bind result, one step per chain level'

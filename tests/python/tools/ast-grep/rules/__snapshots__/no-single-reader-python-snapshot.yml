@@ -1,0 +1,29 @@
+id: no-single-reader-python
+snapshots:
+  "_KINDS = {\"a\": 1, \"b\": 2}\n\n\ndef kind(name: str) -> int:\n    return _KINDS[name]\n":
+    labels:
+    - source: |-
+        def kind(name: str) -> int:
+            return _KINDS[name]
+      message: Only reader
+      style: secondary
+      start: 28
+      end: 79
+  "def _doubled(value: int) -> int:\n    return value * 2\n\n\ndef total(value: int) -> int:\n    return _doubled(value) + 1\n":
+    labels:
+    - source: |-
+        def total(value: int) -> int:
+            return _doubled(value) + 1
+      message: Only reader
+      style: secondary
+      start: 56
+      end: 116
+  "import host\n\n_STYLE = host.STYLE_LINEAR\n\n\ndef styled(value: float) -> host.Transform:\n    return host.Transform(_STYLE, value)\n":
+    labels:
+    - source: |-
+        def styled(value: float) -> host.Transform:
+            return host.Transform(_STYLE, value)
+      message: Only reader
+      style: secondary
+      start: 42
+      end: 126

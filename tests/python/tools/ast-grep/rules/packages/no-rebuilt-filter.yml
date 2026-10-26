@@ -1,0 +1,73 @@
+id: no-rebuilt-filter
+valid:
+    - |
+      from expression import Error, Ok
+
+      def checked(outcome, code):
+          return outcome.bind(lambda status: Ok(None) if status == code else Error(status))
+    - |
+      from expression import Error, Ok
+
+      def matched(value, pattern):
+          return Ok(value) if pattern.fullmatch(value) else Error(value)
+    - |
+      from expression import Error, Ok
+
+      def gated(outcome, open_):
+          return outcome.bind(lambda value: Ok(value) if open_ else Error(value))
+    - |
+      from expression import Nothing, Some
+
+      def positive(value):
+          return Some(value) if value > 0 else Nothing
+    - |
+      from expression import Nothing, Some
+
+      def either(value, first, second):
+          return Some(value) if isinstance(value, first | second) else Nothing
+    - |
+      from expression import Nothing, Some
+
+      def flagged(value, kind):
+          return Some((value, True)) if isinstance(value, kind) else Nothing
+    - |
+      from expression import Nothing, Some
+
+      def grouped(value, kinds: tuple[type, ...]):
+          return Some(value) if isinstance(value, kinds) else Nothing
+    - |
+      from options import Nothing, Some
+
+      def typed(value, kind):
+          return Some(value) if isinstance(value, kind) else Nothing
+invalid:
+    - |
+      from expression import Error, Ok
+
+      def sent(outcome):
+          return outcome.bind(lambda response: Ok(response) if response.is_success else Error(response.status_code))
+    - |
+      from expression import Error, Ok
+
+      def distinct(outcome, taken):
+          return outcome.bind(lambda target: Error(target) if target == taken else Ok(target))
+    - |
+      from expression import Nothing, Some
+
+      def ready(option):
+          return option.bind(lambda value: Some(value) if value.ready else Nothing)
+    - |
+      from expression import Nothing, Some
+
+      def typed[T](value, kind: type[T]):
+          return Some(value) if isinstance(value, kind) else Nothing
+    - |
+      from expression import Nothing, Some
+
+      def data(option, kind):
+          return option.bind(lambda item: Some(held) if isinstance(held := item.data, kind) else Nothing)
+    - |
+      from expression import Nothing, Some
+
+      def typed(value, kind):
+          return Nothing if not isinstance(value, kind) else Some(value)

@@ -1,0 +1,125 @@
+id: no-annotated-return-local
+snapshots:
+  "def empty() -> dict[str, int]:\n    table: dict[str, int] = {}\n    return table\n":
+    fixed: |
+      def empty() -> dict[str, int]:
+          return {}
+          return table
+    labels:
+    - source: "table: dict[str, int] = {}"
+      style: primary
+      start: 35
+      end: 61
+    - source: table
+      style: secondary
+      start: 35
+      end: 40
+    - source: dict[str, int]
+      style: secondary
+      start: 42
+      end: 56
+    - source: "{}"
+      style: secondary
+      start: 59
+      end: 61
+    - source: "table: dict[str, int] = {}"
+      style: secondary
+      start: 35
+      end: 61
+    - source: table
+      style: secondary
+      start: 73
+      end: 78
+    - source: return table
+      style: secondary
+      start: 66
+      end: 78
+    - source: |-
+        def empty() -> dict[str, int]:
+            table: dict[str, int] = {}
+            return table
+      style: secondary
+      start: 0
+      end: 78
+  "def label() -> str:\n    text: str = \"name\"\n    return text\n":
+    fixed: |
+      def label() -> str:
+          return "name"
+          return text
+    labels:
+    - source: "text: str = \"name\""
+      style: primary
+      start: 24
+      end: 42
+    - source: text
+      style: secondary
+      start: 24
+      end: 28
+    - source: str
+      style: secondary
+      start: 30
+      end: 33
+    - source: "\"name\""
+      style: secondary
+      start: 36
+      end: 42
+    - source: "text: str = \"name\""
+      style: secondary
+      start: 24
+      end: 42
+    - source: text
+      style: secondary
+      start: 54
+      end: 58
+    - source: return text
+      style: secondary
+      start: 47
+      end: 58
+    - source: |-
+        def label() -> str:
+            text: str = "name"
+            return text
+      style: secondary
+      start: 0
+      end: 58
+  "def named(names: tuple[str, ...]) -> list[str]:\n    found: list[str] = [name for name in names]\n    return found\n":
+    fixed: |
+      def named(names: tuple[str, ...]) -> list[str]:
+          return [name for name in names]
+          return found
+    labels:
+    - source: "found: list[str] = [name for name in names]"
+      style: primary
+      start: 52
+      end: 95
+    - source: found
+      style: secondary
+      start: 52
+      end: 57
+    - source: list[str]
+      style: secondary
+      start: 59
+      end: 68
+    - source: "[name for name in names]"
+      style: secondary
+      start: 71
+      end: 95
+    - source: "found: list[str] = [name for name in names]"
+      style: secondary
+      start: 52
+      end: 95
+    - source: found
+      style: secondary
+      start: 107
+      end: 112
+    - source: return found
+      style: secondary
+      start: 100
+      end: 112
+    - source: |-
+        def named(names: tuple[str, ...]) -> list[str]:
+            found: list[str] = [name for name in names]
+            return found
+      style: secondary
+      start: 0
+      end: 112

@@ -7,7 +7,7 @@ utils:
     some:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^Some$'}}}}
+            - matches: {csharp-named-call: {name: {regex: '^Some$'}}}
             - has: {field: arguments, not: {has: {kind: argument, any: [{nthChild: 2}, {has: {field: name, pattern: $_}}]}}}
     value:
         any:

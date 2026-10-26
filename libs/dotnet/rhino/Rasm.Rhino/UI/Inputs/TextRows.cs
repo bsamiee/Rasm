@@ -133,7 +133,7 @@ public static class TextRows {
         LocalizeStringPair title, (FileAction Action, Seq<FileTypeRow> Types) browse, TextControl box, Func<string, IO<Unit>> commit, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
         from picked in CommandRows.Button(
-            new Command<RowRule, Invoke>.Run(new CommandFace("text-browse", "Browse", None, Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.OpenSvg))), None,
+            new Command<RowRule, Invoke>.Run(new CommandFace("text-browse", "Browse") { Glyph = Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.OpenSvg)) }, None,
                 new Invoke.Effect(held =>
                     from current in IO.lift(() => box.Text)
                     from path in Asked(browse, title, current, held)

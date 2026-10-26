@@ -34,11 +34,11 @@ from blender.bpy.ui.layout.values import Hosted, Store
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.fields import Case, NonNegative
 from blender.records.trees import Retention
-from blender.rendering.lighting.solar import Daylight, DayStudy, LocalTime, moments, Polar, SeasonStudy, Site, SolarDay, SunPaths, SunPosition
+from blender.rendering.lighting.solar import Daylight, LocalTime, Polar, Site, SolarDay, Study, SunPaths, SunPosition
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Timing = Moment | DayStudy | SeasonStudy
+type Timing = Moment | Study
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -55,6 +55,10 @@ class Moment(Case, frozen=True, kw_only=True):
     """Single sun moment."""
 
     start: LocalTime = LocalTime()
+
+    def moments(self, zone: zoneinfo.ZoneInfo) -> Outcome[tuple[datetime.datetime, ...]]:
+        """Returns the one moment on the zone clock."""
+        return Ok((self.start.moment(zone),))
 
 
 class Paths(msgspec.Struct, frozen=True, kw_only=True):
@@ -219,9 +223,9 @@ def sited(setup: SunSetup) -> Outcome[tuple[Site, Timing]]:
     start = LocalTime(year=setup.year, month=setup.month, day=setup.day, hour=setup.hour, minute=setup.minute)
     match setup.timing:
         case "DAY":
-            timing: Timing = DayStudy(start=start, minutes=setup.minutes, frames=setup.frames)
+            timing: Timing = Study(start=start, step=datetime.timedelta(minutes=setup.minutes), frames=setup.frames)
         case "SEASON":
-            timing = SeasonStudy(start=start, days=setup.days, frames=setup.frames)
+            timing = Study(start=start, step=datetime.timedelta(days=setup.days), frames=setup.frames)
         case _:
             timing = Moment(start=start)
     site: Outcome[Site] = catch(Site, exception=ValueError)(latitude=setup.latitude, longitude=setup.longitude, north=setup.north, zone=setup.zone).map_error(
@@ -241,10 +245,11 @@ def positions(site: Site, timing: Timing, *, refraction: bool) -> Outcome[SunPos
     Returns:
         One position per frame, apparent with refraction on, or calendar fault.
     """
-    zone = site.clock
-    calendar = Ok((timing.start.moment(zone),)) if isinstance(timing, Moment) else moments(timing, zone)
-    return calendar.map(lambda sequence: SunPosition.at(site, np.array([moment.timestamp() for moment in sequence], dtype=np.float64))).map(
-        lambda position: position.apparent() if refraction else position
+    return (
+        timing
+        .moments(site.clock)
+        .map(lambda sequence: SunPosition.at(site, np.array([moment.timestamp() for moment in sequence], dtype=np.float64)))
+        .map(lambda position: position.apparent() if refraction else position)
     )
 
 
@@ -276,7 +281,7 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
         match timing:
             case Moment():
                 return Ok(None)
-            case DayStudy() | SeasonStudy():
+            case Study():
                 return written(scene, "frame_end", scene.frame_start + count - 1).map(lambda _: None)
 
     def keyed(setup: SunSetup, timing: Timing, position: SunPosition, sun: bpy.types.Object, following: tuple[tuple[bpy.types.NodeTree, Follower], ...]) -> Outcome[None]:

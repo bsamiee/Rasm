@@ -1,4 +1,5 @@
 using System.Globalization;
+using Darkroom.Chain;
 using Rasm.Rhino;
 using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Document.Files;
@@ -19,19 +20,19 @@ public abstract partial record PreflightFinding {
     public abstract Error Error { get; }
 
     public sealed record QueueEmpty : PreflightFinding {
-        public override Error Error => Error.New("render queue holds no entry");
+        public override Error Error => new DarkroomFault("render queue", DarkroomReason.Empty);
     }
 
     public sealed record SourceViewMissing(int Index, RenderSettings.RenderingSources Source) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"entry {Index} source {Source} names no view in the document"));
+        public override Error Error => new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"entry {Index} source {Source}"), DarkroomReason.Unviewed);
     }
 
     public sealed record OverscanSourceRefused(int Index, RenderSettings.RenderingSources Source) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"entry {Index} overscan needs the active viewport, its source is {Source}"));
+        public override Error Error => new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"entry {Index} source {Source}"), DarkroomReason.Overscan);
     }
 
     public sealed record EntryRefused(int Index, Error Cause) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"entry {Index} cannot render"), Cause);
+        public override Error Error => new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"entry {Index}"), DarkroomReason.Unrenderable, Cause);
     }
 
     public sealed record DestinationUnresolved(Error Cause) : PreflightFinding {
@@ -43,63 +44,63 @@ public abstract partial record PreflightFinding {
     }
 
     public sealed record SpaceLow(string Folder, long Free) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"{Folder} has only {Free} bytes free"));
+        public override Error Error => new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"render at {Folder} with {Free} bytes free"), DarkroomReason.Space);
     }
 
     public sealed record CopyTooLarge(string Folder, long Copy, long Free) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"a copy of {Copy} bytes exceeds the {Free} bytes free at {Folder}"));
+        public override Error Error => new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"copy of {Copy} bytes at {Folder} with {Free} bytes free"), DarkroomReason.Space);
     }
 
     public sealed record LinkBroken(string Definition, string File, Error Cause) : PreflightFinding {
-        public override Error Error => Error.New($"{Definition} links unreadable {File}", Cause);
+        public override Error Error => new DarkroomFault($"{Definition} link {File}", DarkroomReason.Unreadable, Cause);
     }
 
     public sealed record RendererMissing(Guid Renderer) : PreflightFinding {
-        public override Error Error => Error.New($"current renderer {Renderer} is not installed");
+        public override Error Error => new DarkroomFault($"current renderer {Renderer}", DarkroomReason.Missing);
     }
 
     public sealed record CommandPending(string Prompt) : PreflightFinding {
-        public override Error Error => Error.New($"a command waits at prompt {Prompt}");
+        public override Error Error => new DarkroomFault($"command at prompt {Prompt}", DarkroomReason.Prompting);
     }
 
     public sealed record RenderingsUnsaved : PreflightFinding {
-        public override Error Error => Error.New("automatic saving of finished renderings is off");
+        public override Error Error => new DarkroomFault("automatic saving of finished renderings", DarkroomReason.Off);
     }
 
     public sealed record QueueActive(int ProcessId) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"render queue runs in process {ProcessId}"));
+        public override Error Error => new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"render queue in process {ProcessId}"), DarkroomReason.Running);
     }
 
     public sealed record UntitledEdits(uint Document) : PreflightFinding {
-        public override Error Error => Error.New($"untitled document {Document} has unsaved edits");
+        public override Error Error => new DarkroomFault($"untitled document {Document}", DarkroomReason.Edited);
     }
 
     public sealed record LinkUpdatePrompts : PreflightFinding {
-        public override Error Error => Error.New("prompting linked block updates stop unattended renders");
+        public override Error Error => new DarkroomFault("prompting linked block updates", DarkroomReason.Unattended);
     }
 
     public sealed record LinkStale(string Definition, string File) : PreflightFinding {
-        public override Error Error => Error.New($"{Definition} is out of date with {File}");
+        public override Error Error => new DarkroomFault($"{Definition} link {File}", DarkroomReason.Stale);
     }
 
     public sealed record LinkCycle(Seq<string> Files) : PreflightFinding {
-        public override Error Error => Error.New($"linked files {string.Join(", ", Files)} link each other");
+        public override Error Error => new DarkroomFault($"linked files {string.Join(", ", Files)}", DarkroomReason.Cyclic);
     }
 
     public sealed record LinkUnitsDiffer(string Definition, string File, UnitSystem Units, UnitSystem FileUnits) : PreflightFinding {
-        public override Error Error => Error.New($"{Definition} in {Units} links {File} in {FileUnits}");
+        public override Error Error => new DarkroomFault($"{Definition} in {Units} linking {File} in {FileUnits}", DarkroomReason.Units);
     }
 
     public sealed record TextureMissing(string Path) : PreflightFinding {
-        public override Error Error => Error.New($"texture {Path} is missing");
+        public override Error Error => new DarkroomFault($"texture {Path}", DarkroomReason.Missing);
     }
 
     public sealed record RenderOnCpu : PreflightFinding {
-        public override Error Error => Error.New("Rhino Render runs on CPU in safe mode");
+        public override Error Error => new DarkroomFault("Rhino Render in safe mode", DarkroomReason.Cpu);
     }
 
     public sealed record FileOutsideCopy(string Path) : PreflightFinding {
-        public override Error Error => Error.New($"the document copy omits {Path}");
+        public override Error Error => new DarkroomFault(Path, DarkroomReason.Uncopied);
     }
 }
 

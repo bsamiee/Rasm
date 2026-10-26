@@ -154,7 +154,7 @@ utils:
                 stopBy: end
                 kind: invocation_expression
                 all:
-                    - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^DisposalOps$'}, member: {regex: '^Change$'}}}}
+                    - matches: {csharp-owner-call: {type: {regex: '^DisposalOps$'}, member: {regex: '^Change$'}}}
                     - has: {field: arguments, has: {kind: argument, nthChild: 3, has: {pattern: $SRC}}}
                     - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {kind: lambda_expression, has: {field: body, kind: assignment_expression, has: {field: left, matches: target-member}}}}}
     plain-statement:
@@ -295,4 +295,4 @@ rule:
 constraints:
     SRC: {not: {matches: bound-source}}
 message: '`$TARGET` copies the members of `$SRC`'
-note: 'Declare a `partial` Mapperly mapping for a record a caller stores or compares, a write into a host object is `Seq<Func<<host>, IO<Unit>>>` closures folded in order'
+note: 'Map stored or compared records through `partial` Mapperly methods, write host objects through `Seq<Func<<host>, IO<Unit>>>` closures folded in order'

@@ -23,4 +23,4 @@ rule:
                 - all: [{has: {matches: red}}, {has: {matches: green}}, {has: {matches: blue}}]
                 - all: [{has: {matches: top-left}}, {has: {matches: top-right}}, {has: {matches: bottom-right}}, {has: {matches: bottom-left}}]
 message: '`$NAME` declares one field per channel or corner'
-note: 'Declare one field in the shape the consuming API takes whole, `tuple[float, float, float]` for OCIO, an `ndarray` of shape `(3,)` for numpy'
+note: 'Declare one field shaped as its consumer takes it whole: `tuple[float, float, float]` for OCIO, `(3,)` `ndarray` for numpy'

@@ -36,7 +36,7 @@ utils:
               has: {field: function, kind: member_access_expression, all: [{has: {field: name, matches: mutator}}, {has: {field: expression, pattern: $CELL, matches: cell}}]}
             - kind: invocation_expression
               all:
-                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(swap|commute)$'}}}}
+                - matches: {csharp-named-call: {name: {regex: '^(swap|commute)$'}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $CELL, matches: languageext-atom-cell}}}
             - kind: assignment_expression
               has: {field: left, kind: element_access_expression, has: {field: expression, pattern: $CELL, matches: collection-local}}

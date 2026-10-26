@@ -43,7 +43,7 @@ utils:
             - kind: object_creation_expression
               all:
                 - has: {field: type, matches: struct-parameter}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
     default-argument:
         kind: argument
         has: {nthChild: {position: 1, reverse: true}, matches: default-value}

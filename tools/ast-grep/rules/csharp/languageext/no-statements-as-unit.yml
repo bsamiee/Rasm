@@ -8,7 +8,7 @@ utils:
         kind: invocation_expression
         any:
             - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|IfSucc)$'}}
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(iter|ignore)$'}}}}
+            - matches: {csharp-named-call: {name: {regex: '^(iter|ignore)$'}}}
             - matches: invoked-action
     unit-value:
         any:
@@ -36,8 +36,8 @@ utils:
     invoked-action:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: invocation_expression, has: {field: function, matches: {csharp-type-name: {name: {regex: '^fun$'}}}}}
-            - has: {field: arguments, not: {has: {kind: argument}}}
+            - has: {field: function, kind: invocation_expression, matches: {csharp-named-call: {name: {regex: '^fun$'}}}}
+            - matches: csharp-bare-call
     unit-sequence:
         all:
             - any:

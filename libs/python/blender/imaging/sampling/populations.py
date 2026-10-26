@@ -70,14 +70,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def integrated(self, raster: Raster, draws: _Draws, *, precision: Precision, stream: int = 0, paint: Callable[[float], float] = float) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
-        """Estimates mean disc coverage and covered tone over each pixel of `raster`.
-
-        Args:
-            raster: Global rectangle and its pixel grid.
-            draws: Stable uniforms per cell key.
-            precision: Sobol resolution and independent error replicates, each disc's net rotated by its own draws.
-            stream: Independent population under one draw source.
-            paint: Tone weight of covered ink.
+        """Estimates mean disc coverage and covered `paint` tone over each pixel of `raster`, each disc's Sobol net rotated by its own draws.
 
         Returns:
             `(rows, columns, 2)` coverage and covered paint, or numeric refusal.

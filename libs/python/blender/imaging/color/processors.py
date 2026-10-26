@@ -1,5 +1,6 @@
 """Display formation, colorspace transforms, encoding domains, and RGB geometry."""
 
+from collections.abc import Callable
 from enum import auto, Enum
 from typing import Annotated, Final, Self
 
@@ -35,6 +36,7 @@ type ColorSpace = Annotated[str, msgspec.Meta(min_length=1)]
 
 GREY: Final = 0.18
 REC709_SCENE: Final = "lin_rec709_scene"
+interop: Final[Callable[[PyOpenColorIO.ColorSpace], str]] = PyOpenColorIO.ColorSpace.getInteropID  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -175,11 +177,6 @@ def converted(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, 
 # --- [READINGS]
 
 
-def interop(space: PyOpenColorIO.ColorSpace) -> str:
-    """Returns the interop ID of `space`, empty when the config states none."""
-    return str(space.getInteropID())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-
-
 def basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.float64]]:
     """Returns linear RGB-to-XYZ D65 matrix of `space`, or base fault."""
 
@@ -203,8 +200,7 @@ def rendering_basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDA
             sums = values.sum(axis=0)
             normalized = values / sums
             signed = (values[1] > 0.0).all() and ((sums > 0.0).all() or (sums < 0.0).all()) and np.isfinite(sums.sum()) and np.isfinite(values.sum(axis=1)).all()
-        held = signed and np.isfinite(normalized).all() and abs(np.linalg.slogdet(normalized).sign) == 1.0
-        return Ok(values) if held else Error((Fault(reason=ImagingReason.BASIS, subject=space, member=str(matrix(values))),))
+        return Ok(values) if signed and np.isfinite(normalized).all() and abs(np.linalg.slogdet(normalized).sign) == 1.0 else Error((Fault(reason=ImagingReason.BASIS, subject=space, member=str(matrix(values))),))
 
     return basis(config, space).bind(held)
 

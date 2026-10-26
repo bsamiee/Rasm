@@ -18,11 +18,6 @@ utils:
             - {kind: 'default_parameter, typed_default_parameter', has: {field: name, pattern: $PARAMETER}}
     callee:
         any: [{kind: identifier, pattern: $FUNCTION}, {kind: attribute, has: {field: attribute, pattern: $FUNCTION}}]
-    method:
-        inside:
-            kind: block
-            stopBy: {not: {kind: decorated_definition}}
-            inside: {kind: class_definition, field: body}
     bound-parameter:
         kind: identifier
         pattern: $PARAMETER
@@ -39,7 +34,7 @@ utils:
                         - has: {field: parameters, has: {matches: parameter}}
                         - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: call, all: [{has: {field: function, matches: callee}}, {has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, pattern: $PARAMETER}}, {has: {field: value, matches: python-identifier-string}}]}}}]}}
                     - all:
-                        - not: {matches: method}
+                        - not: {matches: python-method}
                         - any:
                             - all:
                                 - has: {field: parameters, has: {nthChild: 1, matches: parameter}}
@@ -51,7 +46,7 @@ utils:
                                 - has: {field: parameters, has: {nthChild: 3, matches: parameter}}
                                 - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: call, all: [{has: {field: function, kind: identifier, pattern: $FUNCTION}}, {has: {field: arguments, has: {nthChild: 3, matches: python-identifier-string}}}]}}
                     - all:
-                        - matches: method
+                        - matches: python-method
                         - any:
                             - all:
                                 - has: {field: parameters, has: {nthChild: 2, matches: parameter}}

@@ -53,4 +53,4 @@ rule:
                     - matches: interface-member
                     - all: [{matches: csharp-visible-member}, {not: {matches: try-pattern}}]
 message: '`$NAME` returns presence as a `bool` beside an `out` parameter'
-note: 'Return `Option<T>`, or `Fin<T>` where a miss has a cause'
+note: 'Return `Option<T>`, or `Fin<T>` where a miss has a cause, parse, format, and dictionary interface members stay'

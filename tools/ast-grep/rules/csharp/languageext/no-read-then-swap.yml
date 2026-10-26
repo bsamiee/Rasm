@@ -6,7 +6,7 @@ ignores: ['tools/roslyn/**']
 utils:
     transaction:
         kind: invocation_expression
-        has: {field: function, matches: {csharp-type-name: {name: {regex: '^(atomic|atomicIO|snapshot|serial)$'}}}}
+        matches: {csharp-named-call: {name: {regex: '^(atomic|atomicIO|snapshot|serial)$'}}}
     callback:
         kind: 'lambda_expression, anonymous_method_expression'
     receiver:
@@ -104,4 +104,4 @@ rule:
 labels:
     WRITE: {style: secondary, message: 'Writes the atom an earlier read observed'}
 message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`'
-note: 'Read the atom inside one `Swap` transition and use the value it returns, `FindOrAdd`, `TryAdd`, or `SwapKey` for an `AtomHashMap`, and `atomicIO(() => (Before: cell.Value, After: cell.Value = next(cell.Value)))` over a `Ref` for a before-and-after pair'
+note: 'Read inside one `Swap` transition and use its result, `FindOrAdd`/`TryAdd`/`SwapKey` on `AtomHashMap`, a `Ref` under `atomicIO` for before-and-after pairs'

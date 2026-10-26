@@ -55,17 +55,15 @@ from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, 
 from blender.records.fields import Side
 from blender.records.identity import content_hash
 from blender.records.stores import RecordFile
-from blender.rendering.batch.estimate import Forecast
 from blender.rendering.batch.exchange import Endpoint
 from blender.rendering.batch.flamenco import Flamenco, Manager
-from blender.rendering.batch.notices import Cancelled, Completed, Estimated, Exhausted, Failed, Listener, Notice, published, Started, Test
+from blender.rendering.batch.notices import Cancelled, Completed, Estimated, Failed, Listener, Notice, published, Started, Test
 from blender.rendering.batch.power import cancelled, PowerHold, shut
 from blender.rendering.batch.processes import detached, Host, RunCommand, RunFile
 from blender.rendering.batch.progress import Ending, Heartbeat, Liveness, observed, Progress, StageMark
 from blender.rendering.batch.queue import Bound, Fixed, Job, Marker, RenderFrames, RenderQueue
 from blender.rendering.batch.supervision import cleared, LocalMachine, Run, stop, supervise
 from blender.rendering.batch.targets import JobFile, Renderon, send, Target
-from blender.rendering.faults import RenderingReason
 from blender.rendering.outputs.naming import Output
 
 if TYPE_CHECKING:
@@ -402,7 +400,8 @@ class Dispatcher(msgspec.Struct, frozen=True):
             camera = (scope.camera.camera,) if isinstance(scope.camera, Fixed) else ()
             name = " ".join(bpy.path.clean_name(held) for held in (scope.scene, *Option.of_optional(scope.layer).to_list(), *camera))
             file = path.base / "snapshots" / plan_file.name.removesuffix(PlanFile.PLAN) / f"{part}_{name}.blend"
-            layer = Option.of_optional(scope.layer).default_with(lambda: bpy.context.view_layer.name)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            active: bpy.types.ViewLayer = bpy.context.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            layer = Option.of_optional(scope.layer).default_value(active.name)
             outputs = accumulated(path.text(layer, output) for output in Output).map(lambda texts: dict(zip(Output, (posixpath.join(path.root, text) for text in texts))))
 
             def job(texts: dict[Output, str], digest: bytes, samples: int) -> Job:
@@ -495,13 +494,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 return (shut() if queueing.power.shutdown else Ok(None)).map(lambda _: progress)
 
             def failed(faults: Faults) -> Outcome[Progress]:
-                notice: Notice
-                match faults:
-                    case (Fault(reason=RenderingReason.EXITED, member=code), *_) if code != "1":
-                        notice = Exhausted(job=queue.stem, attempts=run.target.retries + 1)
-                    case _:
-                        notice = Failed(job=queue.stem, reason=" ".join(fault.message for fault in faults))
-                self.identity.reports.reported(self.posted)(queueing.listener, notice).to_optional()
+                self.identity.reports.reported(self.posted)(queueing.listener, Failed(job=queue.stem, reason=" ".join(fault.message for fault in faults))).to_optional()
                 return Error(faults)
 
             match observed(self.host.path(queue, RunFile.PROGRESS)):
@@ -524,7 +517,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
             def finished(progress: Progress, mark: StageMark) -> Outcome[StageMark]:
                 before = frozenset(held.part for held in progress.marks[:-1])
                 first = holding <= before | {mark.part} and not holding <= before
-                for forecast in Forecast.queued(progress, queue, datetime.datetime.now(datetime.UTC)).filter(lambda _: first).to_list():
+                for forecast in progress.forecast(queue, datetime.datetime.now(datetime.UTC)).filter(lambda _: first).to_list():
                     self.identity.reports.reported(self.posted)(queueing.listener, Estimated(forecast=forecast)).to_optional()
                 job = queue.jobs[mark.part]
                 scene = bpy.data.scenes[job.scene]
@@ -852,7 +845,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
 
         def local(sent: Sent, progress: Progress, beat: datetime.datetime, heartbeat: Heartbeat) -> rows.Work:
             remaining, phase = progress.remaining(sent.queue), progress.phase(beat, now, heartbeat)
-            finish = Forecast.queued(progress, sent.queue, now).bind(lambda forecast: forecast.finish).map(lambda moment: f"finishing {moment.astimezone():%H:%M}").to_list()
+            finish = progress.forecast(sent.queue, now).bind(lambda forecast: forecast.finish).map(lambda moment: f"finishing {moment.astimezone():%H:%M}").to_list()
             return rows.Work(text=" · ".join((*(sent.queue.jobs[part].title for part, _ in remaining[:1]), bpy.path.display_name(phase.name.lower()), *finish)), done=float(progress.done(sent.queue)))
 
         def work(held: Observed, heartbeat: Heartbeat) -> rows.Work:

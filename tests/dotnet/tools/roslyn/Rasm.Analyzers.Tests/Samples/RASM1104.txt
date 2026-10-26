@@ -25,7 +25,11 @@ internal sealed partial class Progress {
 }
 
 internal sealed class Meter(long total) {
+    internal static readonly Seq<Progress> Units = Seq(1, 2).Map(x => Progress.Create(x, 1));
+
     internal Progress Reported(int value) => {|#0:Progress.Create(value, total)|};
+
+    internal Seq<Progress> Totals(Seq<long> dones, Seq<long> totals) => dones.Zip(totals, {|#1:Progress.Create|});
 
     internal static Progress Whole => Progress.Create(1, 1);
 }

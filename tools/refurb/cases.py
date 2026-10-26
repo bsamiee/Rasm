@@ -15,7 +15,7 @@ from tools.refurb.findings import Declared, fullname, RasmError
 
 
 class ErrorPartialCaseReadError(RasmError):
-    """Attribute read of one `Result` or `Option` case outside a `match` on the value.
+    """`Result` or `Option` case read outside a `match` on the receiver in place of a `case` arm or `map`.
 
     Bad:
 
@@ -79,7 +79,7 @@ def check(node: MypyFile, errors: list[Error]) -> None:
                 binding = "" if field is not None and isinstance(get_proper_type(field.type), NoneType) else f", {case}=<name>"
                 errors.append(
                     ErrorPartialCaseReadError.from_node(
-                        o, f'`{subject}.{o.name}` raises unless `{subject}` is the `{case}` case, match it with `case {found.type.name}(tag="{case}"{binding})` or read it through {readers}'
+                        o, f'`{subject}.{o.name}` raises outside the `{case}` case, match `{subject}` with `case {found.type.name}(tag="{case}"{binding})` or call {readers}'
                     )
                 )
             super().visit_member_expr(o)

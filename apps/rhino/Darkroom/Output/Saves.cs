@@ -1,8 +1,8 @@
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
+using CommunityToolkit.HighPerformance.Buffers;
 using Darkroom.Chain;
 using Darkroom.Queue;
 using Rasm.Imaging.Color;
@@ -73,7 +73,7 @@ public sealed partial class SavedChannel {
 
     private static Seq<IdentityLayer> Identified(PixelFrame ids, Seq<IdentitySource> sources, Option<ColorEncoding> encoding) {
         System.Collections.Generic.HashSet<ushort> present = [];
-        foreach (Vector4 pixel in MemoryMarshal.Cast<float, Vector4>(ids.Block))
+        foreach (Vector4 pixel in ids.View.Span)
             _ = present.Add((ushort)pixel.X);
         Seq<Action<Span<Vector4>>> steps = encoding.Map(DisplayDevice.Srgb.Encoding.To).IfNone([]);
         return toSeq(sources
@@ -92,19 +92,31 @@ public sealed partial class SavedChannel {
     }
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SaveSource {
-    private static readonly IProgress<int> Unreported = new Progress<int>();
-
+public sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, OverscanFrame Frame, Option<RenderRegion> Region) {
     public static ColorEncoding SceneLinear { get; } = new(DisplayFormation.Working, new Transfer.Linear());
 
-    public abstract ChainScene Scene { get; }
+    public IO<PixelFrame> Linear => Read(RenderWindow.StandardChannels.RGBA);
 
-    public abstract IO<PixelFrame> Linear { get; }
+    public IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Formed(OutputDepth depth) =>
+        depth.Levels.IsSome
+            ? DisposalOps.Found(Rendering.GetBitmap, nameof(RenderWindow.GetBitmap), bitmap => DisposalOps.Within(
+                    IO.lift(() => bitmap.LockBits(new(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb)),
+                    data => IO.lift(() => {
+                        using MemoryOwner<float> pixels = Pixels(data);
+                        return Placed(data.Width, data.Height, pixels.Memory);
+                    }),
+                    data => IO.lift(() => bitmap.UnlockBits(data))))
+                .Map(static frame => (frame, Option<ColorEncoding>.None))
+            : Linear.Map(static frame => (frame, Some(SceneLinear)));
 
-    public abstract IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Formed(OutputTarget target, OutputDepth depth);
-
-    public abstract IO<HashMap<SavedChannel, PixelFrame>> Channels(OutputTarget target);
+    public IO<HashMap<SavedChannel, PixelFrame>> Channels(OutputTarget target) =>
+        from state in RenderWindows.ChannelState(Rendering)
+        let requested = toHashSet(state.Requested)
+        from frames in toSeq(SavedChannel.Items)
+            .Filter(channel => state.Available.Contains(channel.Key) && (requested.Contains(channel.Key) || (target.Position && channel == SavedChannel.Distance)))
+            .TraverseM(channel => Read(channel.Key).Map(frame => (channel, frame)))
+            .As()
+        select toHashMap(frames);
 
     // --- [WRITES]
     public IO<Seq<(OutputName Name, OutputPath Path)>> Saved(RhinoDoc doc, IPlugInViews views) =>
@@ -136,7 +148,7 @@ public abstract partial record SaveSource {
         select still;
 
     public IO<StillFormat> Layered(RhinoDoc doc, OutputTarget target) =>
-        from beauty in target.ColorDepth.Levels.IsSome ? Formed(target, target.ColorDepth) : Linear.Map(static frame => (Frame: frame, Encoding: Some(SceneLinear)))
+        from beauty in target.ColorDepth.Levels.IsSome ? Formed(target.ColorDepth) : Linear.Map(static frame => (Frame: frame, Encoding: Some(SceneLinear)))
         from channels in Channels(target)
         from document in IO.lift(LayeredDocument.From(target.ColorDepth, beauty.Encoding,
             new DocumentLayer.Raster(nameof(RenderWindow.StandardChannels.RGBA), beauty.Frame, BlendingMode.Mix, 1f, Visible: true)
@@ -146,73 +158,28 @@ public abstract partial record SaveSource {
     private static Seq<(SavedChannel Channel, PixelFrame Frame)> Held(HashMap<SavedChannel, PixelFrame> channels) =>
         toSeq(SavedChannel.Items).Choose(channel => channels.Find(channel).Map(frame => (channel, frame)));
 
-    // --- [CASES]
-    public sealed record Window(RenderWindow Rendering, ChainScene Framing, OverscanFrame Frame, Option<RenderRegion> Region) : SaveSource {
-        public override ChainScene Scene => Framing;
+    private IO<PixelFrame> Read(RenderWindow.StandardChannels channel) =>
+        RenderWindows.Read(Rendering, channel).Bind(read => IO.lift(Placed(read.Size.Width, read.Size.Height, read.Pixels)));
 
-        public override IO<PixelFrame> Linear => Read(RenderWindow.StandardChannels.RGBA);
-
-        public override IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Formed(OutputTarget target, OutputDepth depth) =>
-            depth.Levels.IsSome
-                ? DisposalOps.Found(Rendering.GetBitmap, nameof(RenderWindow.GetBitmap), bitmap => DisposalOps.Within(
-                        IO.lift(() => bitmap.LockBits(new(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb)),
-                        data => IO.lift(() => Pixels(data)).Bind(pixels => IO.lift(Placed(data.Width, data.Height, pixels))),
-                        data => IO.lift(() => bitmap.UnlockBits(data))))
-                    .Map(static frame => (frame, Option<ColorEncoding>.None))
-                : Linear.Map(static frame => (frame, Some(SceneLinear)));
-
-        public override IO<HashMap<SavedChannel, PixelFrame>> Channels(OutputTarget target) =>
-            from state in RenderWindows.ChannelState(Rendering)
-            let requested = toHashSet(state.Requested)
-            from frames in toSeq(SavedChannel.Items)
-                .Filter(channel => state.Available.Contains(channel.Key) && (requested.Contains(channel.Key) || (target.Position && channel == SavedChannel.Distance)))
-                .TraverseM(channel => Read(channel.Key).Map(frame => (channel, frame)))
-                .As()
-            select toHashMap(frames);
-
-        private IO<PixelFrame> Read(RenderWindow.StandardChannels channel) =>
-            RenderWindows.Read(Rendering, channel).Bind(read => IO.lift(Placed(read.Size.Width, read.Size.Height, read.Pixels)));
-
-        private static unsafe float[] Pixels(BitmapData data) {
-            float[] pixels = GC.AllocateUninitializedArray<float>(data.Width * data.Height * 4);
-            ReadOnlySpan2D<Bgra32> source = new((void*)data.Scan0, data.Height, data.Width, (data.Stride / sizeof(Bgra32)) - data.Width);
-            Span2D<Vector4> target = MemoryMarshal.Cast<float, Vector4>(pixels.AsSpan()).AsSpan2D(data.Height, data.Width);
-            for (int row = 0; row < data.Height; row++)
-                PixelOperations<Bgra32>.Instance.ToVector4(Configuration.Default, source.GetRowSpan(row), target.GetRowSpan(row));
-            return pixels;
-        }
-
-        private Fin<PixelFrame> Placed(int width, int height, float[] pixels) =>
-            Region.Map(region => region.Pixels(Frame.Frame)).IfNone(Frame.DataWindow) switch {
-                var window => Refused.Unless(width == Frame.Padded.Width && height == Frame.Padded.Height, nameof(RenderWindows.Read))
-                    .Bind(_ => PixelExtent.Validated(window.Width, window.Height))
-                    .Map(extent => new PixelFrame(window.Location, extent, Frame.Frame, block =>
-                        MemoryMarshal.Cast<float, Vector4>(pixels.AsSpan()).AsSpan2D(height, width)
-                            .Slice(window.Y + Frame.Pad.Height, window.X + Frame.Pad.Width, extent.Height, extent.Width)
-                            .CopyTo(MemoryMarshal.Cast<float, Vector4>(block.AsSpan()).AsSpan2D(extent.Height, extent.Width)))),
-            };
+    private static unsafe MemoryOwner<float> Pixels(BitmapData data) {
+        MemoryOwner<float> pixels = MemoryOwner<float>.Allocate(data.Width * data.Height * 4);
+        ReadOnlySpan2D<Bgra32> source = new((void*)data.Scan0, data.Height, data.Width, (data.Stride / sizeof(Bgra32)) - data.Width);
+        Span2D<Vector4> target = pixels.Span.Cast<float, Vector4>().AsSpan2D(data.Height, data.Width);
+        for (int row = 0; row < data.Height; row++)
+            PixelOperations<Bgra32>.Instance.ToVector4(Configuration.Default, source.GetRowSpan(row), target.GetRowSpan(row));
+        return pixels;
     }
 
-    public sealed record Run(RenderRun Captured, ChainState State) : SaveSource {
-        public override ChainScene Scene => Captured.Scene;
-
-        public override IO<PixelFrame> Linear => IO.pure(Captured.Input);
-
-        public override IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Formed(OutputTarget target, OutputDepth depth) =>
-            Captured.After.IsEmpty
-                ? DisposalOps.Within(static () => new Derivations(), derivations =>
-                    from formed in new ChainRequest(Captured.Input.Copy(), State).Formed(Captured.Context(derivations, depth.Levels.Map(_ => depth)) with { Display = target.DisplayDevice })
-                    from shown in DisplayFormation.Displayed(formed.Context).TraverseM(pass => IO.lift(() => pass.Run(formed.Frame, Unreported))).As()
-                    select (formed.Frame, Some(target.DisplayDevice.Encoding)))
-                : target.DisplayDevice == DisplayFormation.Display
-                    ? IO.pure((Captured.Formed, Some(DisplayFormation.Display.Encoding)))
-                    : IO.fail<(PixelFrame Frame, Option<ColorEncoding> Encoding)>(new SaveRefused(Captured.After.Map(static effect => effect.Name), target.DisplayDevice));
-
-        public override IO<HashMap<SavedChannel, PixelFrame>> Channels(OutputTarget target) =>
-            IO.pure(toHashMap(toSeq(Captured.Guides.AsIterable()).Choose(static guide => SavedChannel.TryGet(guide.Key.Key, out SavedChannel? channel) ? Some((channel, guide.Value)) : None)));
-    }
+    private Fin<PixelFrame> Placed(int width, int height, ReadOnlyMemory<float> pixels) =>
+        Region.Map(region => region.Pixels(Frame.Frame)).IfNone(Frame.DataWindow) switch {
+            var window => Refused.Unless(width == Frame.Padded.Width && height == Frame.Padded.Height, nameof(RenderWindows.Read))
+                .Bind(_ => PixelExtent.Validated(window.Width, window.Height))
+                .Map(extent => {
+                    PixelFrame placed = new(window.Location, extent, Frame.Frame);
+                    pixels.Span.Cast<float, Vector4>().AsSpan2D(height, width)
+                        .Slice(window.Y + Frame.Pad.Height, window.X + Frame.Pad.Width, extent.Height, extent.Width)
+                        .CopyTo(placed.View.Span);
+                    return placed;
+                }),
+        };
 }
-
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record SaveRefused(Seq<string> After, DisplayDevice Display)
-    : Expected($"post effects {string.Join(", ", After)} follow Darkroom, a capture is formed only for {DisplayFormation.Display} and not for {Display}", 0);

@@ -6,10 +6,7 @@ ignores:
     - '**/__main__.py'
 utils:
     mapping:
-        any:
-            - matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^environb?$'}}}
-            - kind: parenthesized_expression
-              has: {matches: mapping}
+        matches: {python-unparenthesized: {value: {matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^environb?$'}}}}}}
     written:
         any:
             - inside: {kind: parenthesized_expression, matches: written}
@@ -105,4 +102,4 @@ rule:
             - matches: environment-file
             - has: {nthChild: 2, matches: relayed}
 message: '`$READ` reads process environment outside the entry module or CLI command'
-note: 'Read the variable in the entry module or CLI command and pass its value as an argument'
+note: 'Decode `os.environ` once in entry module or CLI command and pass values as arguments'

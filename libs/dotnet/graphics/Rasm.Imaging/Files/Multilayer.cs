@@ -89,9 +89,9 @@ internal sealed record ExrLayer(PassKind Kind, PixelFrame Source, Action<ReadOnl
 
 [SmartEnum]
 public sealed partial class NormalSpace {
-    public static readonly NormalSpace World = new(static (convention, _) => Fin.Succ<Func<Vector3, Vector3>>(convention.Axes));
+    public static readonly NormalSpace World = new(static (convention, _) => Fin.Succ(convention.Axes));
     public static readonly NormalSpace View = new(static (convention, camera) =>
-        camera.ToFin(new ImagingFault("View-space normals need frame camera")).Map(held => {
+        camera.ToFin(new ImagingFault("view-space normals", ImagingReason.Uncamera)).Map(held => {
             Quaternion toView = Quaternion.Conjugate(held.Orientation);
             return (Func<Vector3, Vector3>)(normal => convention.Screen(Vector3.Transform(normal, toView)));
         }));
@@ -150,7 +150,7 @@ public abstract partial record ExrPass {
 
     public sealed record Position(PixelFrame Distance) : ExrPass {
         internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
-            camera.ToFin(new ImagingFault("Position pass needs frame camera")).Map(held => Seq(new ExrLayer(PassKind.Xyz, Distance, (source, first, part) => {
+            camera.ToFin(new ImagingFault("position pass", ImagingReason.Uncamera)).Map(held => Seq(new ExrLayer(PassKind.Xyz, Distance, (source, first, part) => {
                 for (int x = 0; x < source.Length; x++)
                     part[x] = new Vector4(convention.Axes(held.WorldPoint((first.X + x + 0.5d, first.Y + 0.5d), source[x].X)), 1f);
             }) { Name = convention.Position }));
@@ -197,7 +197,7 @@ public sealed record PassSet {
         from groups in passes.Traverse(pass => pass.Layers(convention, camera)).As()
         let layers = groups.Flatten().Strict()
         from names in toSeq(convention.Beauty.Cons(layers.Map(static layer => layer.Name).Somes()).CountBy(static name => name))
-            .Traverse(static count => count.Value is 1 ? Fin.Succ(unit) : new ImagingFault($"Pass name {count.Key} repeats in pass set"))
+            .Traverse(static count => count.Value is 1 ? Fin.Succ(unit) : new ImagingFault($"pass name {count.Key}", ImagingReason.Repeated))
             .As()
         select new PassSet(convention, layout, layers);
 
@@ -205,7 +205,7 @@ public sealed record PassSet {
         Layers.Map(static (layer, index) => (Layer: layer, Frame: layer.Source, Index: index + 1))
             .Traverse(entry => entry.Frame.Extent == beauty.Extent && Layout.Grouped([entry.Layer], beauty).ForAll(group => group.Window == entry.Frame.Window)
                 ? Fin.Succ(unit)
-                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Pass layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} differs from beauty canvas")))
+                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"pass layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} against beauty canvas"), ImagingReason.Mismatch))
             .As()
             .Map(static _ => unit);
 }
@@ -231,7 +231,7 @@ internal static class ExrParts {
 
         static Fin<Part> Part(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes, Option<string> name, (long Left, long Top, long Right, long Bottom) window, Seq<ExrLayer> layers) {
             if (window.Right - 1L > int.MaxValue || window.Bottom - 1L > int.MaxValue)
-                return new ImagingFault($"EXR window {window} exceeds EXR coordinate range");
+                return new ImagingFault($"EXR window {window}", ImagingReason.Oversize);
             Seq<ChannelBuffer> buffers = layers.Bind(layer => Buffers(exr.Layout, layer)).Strict();
             Header header = new(
                 PartType.Scanline,
@@ -263,7 +263,7 @@ internal static class ExrParts {
         return from image in IO.lift(() => Parts(exr, metadata.Exr(exr.Layout.Gamut)).Map(static parts => new Image(parts)))
                from token in cancelToken
                from result in IO.liftVAsync(() => ExrFile.SaveToStreamAsync(image, stream, options, token))
-               from _ in IO.lift(result.IsSuccess ? Fin.Succ(unit) : new ImagingFault($"EXR codec refused writing with {result.Status}", Optional(result.Error).Map(Error.New)))
+               from _ in IO.lift(result.IsSuccess ? Fin.Succ(unit) : new ImagingFault($"EXR write with {result.Status}", ImagingReason.Refused, Optional(result.Error).Map(Error.New)))
                select unit;
     }
 }

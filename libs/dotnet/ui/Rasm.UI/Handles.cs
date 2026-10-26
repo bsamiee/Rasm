@@ -77,7 +77,7 @@ public abstract record HandleLayer {
 
     private protected HandleLayer() { }
 
-    public Selection Picked { get; init; } = new Selection.Many([], None, None);
+    public Selection Picked { get; init; } = new Selection.Many([]);
     public Func<Edit<Selection>, Option<IO<Unit>>> Pick { get; init; } = static _ => None;
     public Option<CursorShape> GroundCursor { get; init; }
     public Func<Key, Vector2, Node> Handle { get; init; } = static (_, at) => new Node.Pin(at, new Node.Box()) { Role = Role.Handle, Align = UnitPoint.Center };
@@ -259,7 +259,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
         };
 
     private Option<Session<Held>> Wheeled(Aim aim, PlotFrame frame) =>
-        from key in Point(aim) | Lead
+        from key in Target(aim)
         from point in Points.Read(Value).Find(point => point.Key == key)
         let notch = Metrics(aim.Laid, Some(key))[Metric.Extent]
         select Session(Gripped(frame)) with { Step = (start, gesture) => gesture is Gesture.Scroll scroll ? Some(Notched(start, key, point.At, scroll, frame, notch)) : None };

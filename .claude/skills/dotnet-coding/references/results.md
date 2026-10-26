@@ -4,50 +4,30 @@ Covers the result-type flows, from validators to the laws and their property tes
 
 ## [01]-[VALIDATION]
 
-Validators accept the request, return it on success for the next validator, and return the error for the violated rule. Rules that read the clock receive the date as an argument:
+Validators accept the request, return it on success for the next validator, and return the error for the violated rule. Rules that read the clock receive the date as an argument, and `Failure.Unless` raises the package error record:
 
 ```csharp
 internal sealed record Command(string Code, LocalDate Date);
 
 internal static class Rules {
-    private static readonly Error InvalidCode = Error.New(ErrorCodes.ValidationFailed, "code is not 8 or 11 alphanumerics");
-    private static readonly Error DateIsPast = Error.New(ErrorCodes.ValidationFailed, "date is not in the future");
-
     public static Fin<Command> ValidCode(Command command) =>
-        command.Code.Length is 8 or 11 && command.Code.All(char.IsLetterOrDigit) ? command : InvalidCode;
+        Failure.Unless(command.Code.Length is 8 or 11 && command.Code.All(char.IsLetterOrDigit), Reason.Invalid).Map(_ => command);
     public static Fin<Command> ValidDate(Command command, LocalDate today) =>
-        command.Date > today ? command : DateIsPast;
+        Failure.Unless(command.Date > today, Reason.Invalid).Map(_ => command);
     public static Fin<Command> Valid(Command command, LocalDate today) =>
-        ValidCode(command).Bind(c => ValidDate(c, today));
+        (ValidCode(command), ValidDate(command, today)).Apply(static (_, valid) => valid).As();
 }
 ```
 
-`Bind` makes the rules dependent, and the date rule runs only after the code rule passes. Independent fields cross through the static extension member `Validated` and `ToValidation`, and the tuple `Apply` builds the aggregate from every result, every failed field reports:
+Both rules read only the command, the tuple `Apply` runs both and the failure holds each violated rule (`Error.Count` counts them), a value object field joins the same tuple through `X.Validated`, and `Apply` takes 2 to 10 operands with one uncurried function. A check reading an earlier result binds, and the first failure stops the checks after it.
 
-```csharp
-internal sealed record Contact(Kind Kind, Region Region, Number Number);
-
-internal static class Contacts {
-    public static Validation<Error, Contact> Create(string kind, string region, string number) =>
-        (
-            Kind.Validated(kind).ToValidation(),
-            Region.Validated(region).ToValidation(),
-            Number.Validated(number).ToValidation()
-        ).Apply(static (k, r, n) => new Contact(k, r, n)).As();
-    public static int Faults(Validation<Error, Contact> result) =>
-        result.Match(Fail: static errors => errors.Count, Succ: static _ => 0);
-}
-```
-
-Every invalid input reports its error, the tuple `Apply` takes 2 to 10 independent operands with one uncurried function, and the input boundary returns the `Validation<Error, Contact>`. When a later check consumes an earlier validated value or must not run after a failure, a query binds the steps and the first failure stops the rest, at the cost of the failures from checks that never ran.
-
-Collections of validators of shape `T -> Validation<Error, T>` fold into one validator, and the traversal selects the behavior:
+Collections of validators of shape `T -> Fin<T>` fold into one validator, and the traversal selects the behavior:
 
 ```csharp
 internal static class Validators {
-    public static Func<T, Validation<Error, T>> FailFast<T>(Seq<Func<T, Validation<Error, T>>> rules) =>
+    public static Func<T, Fin<T>> FailFast<T>(Seq<Func<T, Fin<T>>> rules) =>
         value => rules.TraverseM(rule => rule(value)).As().Map(_ => value);
-    public static Func<T, Validation<Error, T>> Harvest<T>(Seq<Func<T, Validation<Error, T>>> rules) =>
+    public static Func<T, Fin<T>> Harvest<T>(Seq<Func<T, Fin<T>>> rules) =>
         value => rules.Traverse(rule => rule(value)).As().Map(_ => value);
 }
 ```
@@ -113,16 +93,16 @@ internal static class Lifting {
 
 `As()` returns the concrete type from the `K<Option, int>` the trait method returns.
 
-C# translates query clauses into method calls by name and signature, and an effect needs no `IEnumerable<T>` to take part: one `from` with `select` calls `Select`, an alias of `Map`, and every further `from` calls the ternary `SelectMany` that passes earlier values into the final projection without nested lambdas, one query shape runs over `Option` and over `Validation<Error, A>`:
+C# translates query clauses into method calls by name and signature, and an effect needs no `IEnumerable<T>` to take part: one `from` with `select` calls `Select`, an alias of `Map`, and every further `from` calls the ternary `SelectMany` that passes earlier values into the final projection without nested lambdas, one query shape runs over `Option` and over `Fin<A>`:
 
 ```csharp
 internal static class Queries {
-    public static Validation<Error, int> ValidInt(string text) => parseInt(text).ToValidation(Errors.ParseError("not a number"));
+    public static Fin<int> ValidInt(string text) => parseInt(text).ToFin(Errors.ParseError("not a number"));
     public static Option<int> Total(string first, string second) =>
         from a in parseInt(first)
         from b in parseInt(second)
         select a + b;
-    public static Validation<Error, int> Sum(string first, string second) =>
+    public static Fin<int> Sum(string first, string second) =>
         from a in ValidInt(first)
         from b in ValidInt(second)
         select a + b;
@@ -133,16 +113,12 @@ internal static class Queries {
 
 ## [03]-[HOST_TRANSLATION]
 
-Validation and persistence express different effects, accumulation and a deferred side effect, one `Bind` cannot flatten them: validation exits through `ToFin`, `IO.lift(Fin<A>)` places that result on the `IO` error channel, one query binds both, and the effect runs only for a valid command. Exception-throwing dependencies convert at their integration boundary, and `IO.lift` captures the exception from only that call as an `Exceptional` error:
+Validation returns `Fin`, `IO.lift(Fin<A>)` places a rejection on the `IO` error channel, one query binds both, and the effect runs only for a valid command. Exception-throwing dependencies convert at their integration boundary, and `IO.lift` captures the exception from only that call as an `Exceptional` error:
 
 ```csharp
 internal static class Handler {
-    public static Validation<Error, Command> Validated(Command command, LocalDate today) =>
-        (Rules.ValidCode(command).ToValidation(), Rules.ValidDate(command, today).ToValidation())
-            .Apply(static (_, valid) => valid)
-            .As();
     public static IO<Unit> Handle(Command command, LocalDate today, Action<Command> insert) =>
-        from valid in IO.lift(Validated(command, today).ToFin())
+        from valid in IO.lift(Rules.Valid(command, today))
         from _ in IO.lift(() => insert(valid))
         select unit;
 }
@@ -259,7 +235,7 @@ Monad associativity:  m.Bind(f).Bind(g) == m.Bind(x => f(x).Bind(g))
 
 Identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion. Associativity lets a multi-argument function enter a monadic pipeline, the right-associated form lets the innermost function close over every earlier value and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run the checks.
 
-Property-based tests with CsCheck state invariants over generated inputs and check algebraic laws and invariants (removing items from a cart never increases its total), and random sampling raises confidence without proving a universal law:
+Property-based tests state invariants over generated inputs and check algebraic laws and invariants (removing items from a cart never increases its total), and random sampling raises confidence without proving a universal law:
 
 ```csharp
 internal static class Properties {

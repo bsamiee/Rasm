@@ -11,7 +11,15 @@ utils:
             - kind: as_pattern
               has: {nthChild: 1, matches: memory-error}
 rule:
-    kind: except_clause
-    has: {field: value, pattern: $CAUGHT, matches: memory-error}
-message: '`except $CAUGHT` catches `MemoryError`, an allocation defect'
-note: 'Remove `MemoryError` from the clause'
+    any:
+        - kind: except_clause
+          has: {field: value, pattern: $CAUGHT, matches: memory-error}
+        - kind: keyword_argument
+          all:
+            - has: {field: name, regex: '^exception$'}
+            - has: {field: value, pattern: $CAUGHT, matches: memory-error}
+            - inside:
+                kind: argument_list
+                inside: {kind: call, has: {field: function, matches: {expression-member: {name: {regex: '^catch$'}}}}}
+message: '`$CAUGHT` catches `MemoryError`, an allocation defect'
+note: 'Remove `MemoryError` from caught exceptions'

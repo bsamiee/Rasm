@@ -23,4 +23,4 @@ rule:
                 - has: {nthChild: 1, kind: string, regex: '^["''](/usr/bin/)?osascript["'']$'}
                 - has: {kind: string, regex: '\bactivate\b|\bset\s+frontmost\b|AXRaise'}
 message: '`$SITE` takes focus from the frontmost application'
-note: 'Pass `-g` to `open` ahead of `--args`, and send no AppleScript `activate`, `AXRaise`, or `frontmost` write'
+note: 'Pass `-g` to `open` ahead of `--args`, and drop AppleScript `activate`, `AXRaise`, and `frontmost` writes'

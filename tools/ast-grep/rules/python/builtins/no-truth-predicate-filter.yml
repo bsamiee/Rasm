@@ -4,11 +4,12 @@ language: python
 severity: error
 utils:
     truth-function:
-        any:
-            - matches: {python-builtin-name: {name: {regex: '^bool$'}}}
-            - matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^truth$'}}}
-            - kind: parenthesized_expression
-              has: {matches: truth-function}
+        matches:
+            python-unparenthesized:
+                value:
+                    any:
+                        - matches: {python-builtin-name: {name: {regex: '^bool$'}}}
+                        - matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^truth$'}}}
     truth-value:
         any:
             - {kind: identifier, pattern: $PARAMETER}
@@ -34,11 +35,12 @@ utils:
                     not: {has: {pattern: $_, not: {any: [{kind: identifier, pattern: $PARAMETER}, {kind: 'positional_separator, comment'}]}}}
                 - has: {field: body, matches: truth-value}
     filter-function:
-        any:
-            - matches: {python-builtin-name: {name: {regex: '^filter$'}}}
-            - matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^filterfalse$'}}}
-            - kind: parenthesized_expression
-              has: {matches: filter-function}
+        matches:
+            python-unparenthesized:
+                value:
+                    any:
+                        - matches: {python-builtin-name: {name: {regex: '^filter$'}}}
+                        - matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^filterfalse$'}}}
     predicate-position:
         any:
             - nthChild: {position: 1, ofRule: {not: {kind: comment}}}

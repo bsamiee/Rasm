@@ -98,7 +98,7 @@ public sealed partial class ChartSamples {
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref ColorChart chart, ref Gamut gamut, ref HashMap<ChartPatch, (double R, double G, double B)> patches) =>
         validationError = patches.Count == ChartPatch.Items.Count ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"chart samples must cover all {ChartPatch.Items.Count} patches, not {patches.Count}"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"chart samples of {patches.Count} for {ChartPatch.Items.Count} patches"), ImagingReason.Miscounted);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -189,7 +189,7 @@ public abstract partial record ChartPlacement {
         from bottomLeft in map(corners.BottomLeft)
         select (topLeft, topRight, bottomRight, bottomLeft);
 
-    private ImagingFault Unaligned => new($"chart alignment {Quad} fits no rectilinear view");
+    private ImagingFault Unaligned => new($"chart alignment {Quad} as a rectilinear view", ImagingReason.Degenerate);
 
     public sealed record Flat(ColorChart Chart, FrameQuad Quad, float Footprint) : ChartPlacement(Chart, Quad, Footprint) {
         public Fin<LatLong> ToLatLong(PixelExtent source) {

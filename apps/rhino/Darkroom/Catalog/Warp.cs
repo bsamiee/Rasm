@@ -122,7 +122,7 @@ public sealed record MapDisplacement(
             Succ: image => Optional(state.Reading).Match(
                 Some: reading => (state.Horizontal, state.Vertical) == (0f, 0f) ? None
                     : Some<PixelPass>(new DisplacementMap(reading, Optional(state.TileSize), state.Softness, (state.Horizontal, state.Vertical), state.Rotation)
-                        .Pass(image.Map(static file => file.Frame), context.Working.Luminance, context.Exposure, state.Resampling.Sampling, state.Resampling.Wrap)),
+                        .Pass(image.Map(static file => file.Frame), context.Working, context.Exposure, state.Resampling.Sampling, state.Resampling.Wrap)),
                 None: () => image.Map(file => (PixelPass)new PixelPass.Frame(new CoordinateMap.Sampled(file.Frame, state.Resampling.Sampling, state.Resampling.Edges).Apply))),
             Fail: static error => Some<PixelPass>(new PixelPass.Frame((_, _) => error)));
 }
@@ -197,7 +197,7 @@ public sealed record Refraction(
     public static Option<PixelPass> Pass(Refraction state, PassContext context) =>
         state.Texture.Rests(state) ? None
             : Some<PixelPass>(new RefractionField(state.Texture.Surface(state.Hold.Held(state.Timing.At(context))), state.Scale, state.Strength, state.Smoothness, state.Blur,
-                state.Seed.Field(10u, 0u)).Pass(state.Resampling.Sampling, state.Resampling.Wrap, context.Working.Luminance));
+                state.Seed.Field(10u, 0u)).Pass(state.Resampling.Sampling, state.Resampling.Wrap, context.Working));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

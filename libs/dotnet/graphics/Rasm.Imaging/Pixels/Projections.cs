@@ -40,7 +40,7 @@ public sealed partial class FrameQuad {
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref (double X, double Y) topLeft, ref (double X, double Y) topRight, ref (double X, double Y) bottomRight, ref (double X, double Y) bottomLeft) =>
         validationError = (Turn(bottomLeft, topLeft, topRight), Turn(topLeft, topRight, bottomRight), Turn(topRight, bottomRight, bottomLeft), Turn(bottomRight, bottomLeft, topLeft))
-                is ( > 0d, > 0d, > 0d, > 0d) or ( < 0d, < 0d, < 0d, < 0d) ? null : new ImagingFault("Frame quad corners must be convex");
+                is ( > 0d, > 0d, > 0d, > 0d) or ( < 0d, < 0d, < 0d, < 0d) ? null : new ImagingFault("frame quad", ImagingReason.Degenerate);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

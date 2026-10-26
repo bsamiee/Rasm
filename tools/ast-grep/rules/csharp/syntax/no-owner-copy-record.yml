@@ -3,14 +3,12 @@ id: no-owner-copy-record
 language: csharp
 severity: error
 utils:
-    owner-type:
-        kind: 'class_declaration, record_declaration, struct_declaration'
     owner-value:
         kind: identifier
         pattern: $VALUE
         inside:
-            stopBy: {matches: owner-type}
-            matches: owner-type
+            stopBy: {kind: &owner-type 'class_declaration, record_declaration, struct_declaration'}
+            kind: *owner-type
             any:
                 - has: {field: body, has: {kind: property_declaration, has: {field: name, pattern: $VALUE}}}
                 - has: {field: body, has: {kind: field_declaration, has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $VALUE}}}}}
@@ -33,10 +31,18 @@ rule:
     kind: 'property_declaration, method_declaration'
     all:
         - has: {field: name, pattern: $NAME}
+        - not: {has: {kind: modifier, regex: '^override$'}}
         - any:
             - has: {field: type, pattern: $TYPE}
             - has: {field: returns, pattern: $TYPE}
-        - not: {inside: {stopBy: {matches: owner-type}, matches: owner-type, has: {field: name, pattern: $TYPE}}}
+        - not: {inside: {stopBy: {kind: *owner-type}, kind: *owner-type, has: {field: name, pattern: $TYPE}}}
+        - not:
+            inside:
+                stopBy: {kind: *owner-type}
+                kind: *owner-type
+                any:
+                    - has: {kind: parameter_list, has: {kind: parameter, has: {kind: attribute_list}}}
+                    - has: {field: body, has: {kind: property_declaration, has: {kind: attribute_list}}}
         - not:
             inside:
                 stopBy: end
@@ -49,4 +55,4 @@ rule:
                         - not: {inside: {stopBy: end, kind: 'method_declaration, property_declaration', has: {field: name, pattern: $NAME}}}
         - has: {kind: arrow_expression_clause, has: {nthChild: 1, matches: copy}}
 message: '`$NAME` builds `$TYPE` from members of its owner alone'
-note: 'Declare each copy-type member on its owner and delete the copy type where no other producer builds it'
+note: 'Declare each member on one record and delete the copy, an attributed parameter record maps through Mapperly'

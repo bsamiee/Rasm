@@ -21,4 +21,4 @@ rule:
             - has: {field: name, pattern: $NAME}
             - has: {kind: accessor_list, has: {kind: accessor_declaration, has: {field: name, regex: '^set$'}}}
 message: '`$NAME` is mutable static state every caller in the process shares'
-note: 'Declare a `static readonly` immutable value, return next state from each operation, or hold shared state in an `Atom` its owner creates once'
+note: 'Declare `static readonly` immutable values, return next state from each operation, or share an `Atom` its owner creates once'

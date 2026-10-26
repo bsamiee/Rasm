@@ -22,7 +22,7 @@ utils:
     decoder:
         any:
             - kind: invocation_expression
-              has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(SKImage|SKBitmap)$'}, member: {regex: '^(FromEncodedData|Decode)$'}}}}
+              matches: {csharp-owner-call: {type: {regex: '^(SKImage|SKBitmap)$'}, member: {regex: '^(FromEncodedData|Decode)$'}}}
             - kind: object_creation_expression
               has: {field: type, matches: {csharp-type-name: {name: {regex: '^(Bitmap|Icon|Image)$'}}}}
     handed:
@@ -39,5 +39,5 @@ rule:
             - has: {kind: argument_list, has: {kind: argument, has: {kind: invocation_expression}}}
             - matches: handed
             - matches: {csharp-file-method-call: {declaration: {has: {field: body, has: {stopBy: end, matches: decoder}}}}}
-message: '`$DECODE` decodes pixels this code encoded'
+message: '`$DECODE` decodes pixels the same code encoded'
 note: 'Copy pixels between the rasters, `SKImage.FromPixelCopy(info, pointer, rowBytes)` and `ReadPixels` over `Bitmap.LockBits` or Eto `Bitmap.Lock()`'

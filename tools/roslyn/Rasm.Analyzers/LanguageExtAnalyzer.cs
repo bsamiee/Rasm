@@ -16,65 +16,65 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     public static readonly DiagnosticDescriptor Lift = Rule(
         "RASM1001",
         Category,
-        "Explicit result lift",
+        "Explicit result lift, write the value",
         "`{0}` restates implicit conversion of `{1}` to `{2}`, write `{1}`",
-        "`Fin` or `Validation` factory call, case construction, or arm cast an implicit conversion replaces with same overloads and arm types.");
+        "Implicit conversions replace `Fin` or `Validation` factory calls, case constructions, and arm casts when overloads and arm types hold");
 
     public static readonly DiagnosticDescriptor TypeTest = Rule(
         "RASM1003",
         Category,
-        "Type test on Error",
+        "Type test on `Error`, call `IsType` or `Filter`",
         "{0} misses errors inside `ManyErrors`, call `{1}.IsType<{2}>()` or bind fields through `{1}.Filter<{2}>().Head is {2} <name>`",
-        "Cast, type test, switch arm, or `GetType()` call on an `Error` value that can hold `ManyErrors`.");
+        "Classify `Error` values able to hold `ManyErrors` with `IsType` or `Filter` over casts, type tests, switch arms, or `GetType()`");
 
     public static readonly DiagnosticDescriptor RoundTrip = Rule(
         "RASM1004",
         Category,
-        "Fin round trip through Validation",
+        "`Fin` round trip through `Validation`, delete both conversions",
         "`{0}` round-trips `Fin` through `Validation`, delete each `{1}()` and the closing `{2}()`",
-        "Parameterless `Validation` to `Fin` call over `Fin` operands converted to `Validation`, directly or through `Apply` or `Traverse`.");
+        "Compose `Fin` operands as `Fin` over a parameterless `Validation` round trip, direct or through `Apply` or `Traverse`");
 
     public static readonly DiagnosticDescriptor Spread = Rule(
         "RASM1005",
         Category,
-        "Seq accumulator copied per step",
+        "`Seq` accumulator copied per step, call `Add`",
         "`{0}` copies `{1}` on every step, write `{1}.Add({2})`",
-        "Collection expression `[.. <seq>, <item>]` appending to a `Seq` fold accumulator or loop local.");
+        "`Seq` fold accumulators and loop locals append through `Add` in place of `[.. <seq>, <item>]`");
 
     public static readonly DiagnosticDescriptor LiftedApply = Rule(
         "RASM1006",
         Category,
-        "IO Apply over lifted Fin values",
+        "`IO` `Apply` over lifted `Fin` values, apply inside one `IO.lift`",
         "`{0}` over {1} `IO.lift` operands keeps one `Fin` failure, call `{0}` on `Fin` values inside one `IO.lift`",
-        "`Apply` over a tuple of `IO.lift` calls each lifting a `Fin` value or `Fin` thunk.");
+        "Call `Apply` on `Fin` values or thunks inside one `IO.lift` in place of a tuple of `IO.lift` calls");
 
     public static readonly DiagnosticDescriptor Narrowed = Rule(
         "RASM1007",
         Category,
-        "Redundant As",
+        "Redundant `As`, delete the call",
         "`{0}()` narrows `{1}` to itself, delete the call",
-        "Parameterless narrowing call on a `K<F, A>` conversion returning the converted value's own type.");
+        "Delete parameterless narrowing calls on a `K<F, A>` conversion returning the converted value's type");
 
     public static readonly DiagnosticDescriptor Passed = Rule(
         "RASM1008",
         Category,
-        "Match passing one case through",
+        "`Match` passing one case through, call the one-handler member",
         "`{0}` returns `{1}` value unchanged, write `{2}`",
-        "`Match` with one identity handler where a member taking the other handler alone returns `Match` result type.");
+        "Call a member taking the non-identity handler alone with `Match` result type over `Match` with an identity handler");
 
     public static readonly DiagnosticDescriptor Nullable = Rule(
         "RASM1009",
         Category,
-        "Option converted to nullable by hand",
+        "`Option` converted to nullable by hand, call `ValueUnsafe` or `ToNullable`",
         "`Option` value `{0}` converted to nullable by hand, write `{1}`",
-        "`Option` converted to nullable through `Match`, `Case` cast, or `IsSome` or `IsNone` conditional.");
+        "`Option` to nullable conversions call `ValueUnsafe` or `ToNullable` over `Match`, `Case` casts, or `IsSome` and `IsNone` conditionals");
 
     public static readonly DiagnosticDescriptor Focused = Rule(
         "RASM1010",
         Category,
-        "Record property lens written by hand",
+        "Record property lens written by hand, write `with` at the edit",
         "`{0}` restates {1} `{2}` of `{3}`, write `{4}` at the edit",
-        "`Lens<A, B>.New` whose getter reads a positional property path of a source record and whose setter rewrites the same path through `with`.");
+        "`Lens<A, B>.New` getters and `with` setters over one positional record property path become `with` at the edit");
 
     private static readonly SymbolDisplayFormat Shown = SymbolDisplayFormat.MinimallyQualifiedFormat.AddMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
@@ -225,8 +225,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 : Source(held, kind, validation) switch {
                     IInvocationOperation apply when Receiver(apply) is { } tupled && Stripped(tupled) is ITupleOperation tuple
                         && tuple.Elements.Select(Hops).ToImmutableArray() is var parts && parts.All(static part => !part.IsEmpty) => [.. parts.SelectMany(static part => part)],
-                    IInvocationOperation traverse when traverse.Arguments.LastOrDefault()?.Value is IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Body.Operations: { Length: 1 } body } } && body[0] is IReturnOperation { ReturnedValue: { } returned } =>
-                        Hops(returned),
+                    IInvocationOperation traverse when traverse.Arguments.LastOrDefault()?.Value is { } mapped && Lambda(mapped) is { } function && Sole(function.Body) is { } returned => Hops(returned),
                     _ => [],
                 };
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (exit, _) =>
@@ -243,23 +242,15 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
 
     // --- [SPREADS]
     private static void Spreads(CompilationStartAnalysisContext context, INamedTypeSymbol seq) {
-        static ISymbol? Held(IOperation operation) =>
-            Stripped(operation) switch {
-                IParameterReferenceOperation parameter => parameter.Parameter,
-                ILocalReferenceOperation local => local.Local,
-                _ => null,
-            };
         static bool Stepped(IOperation operation, ISymbol held) =>
-            operation.Parent switch {
-                null => false,
-                IAnonymousFunctionOperation { Symbol: { Parameters: { Length: > 1 } parameters } folder } =>
-                    Same(parameters[0], held) && SymbolEqualityComparer.Default.Equals(parameters[0].Type, folder.ReturnType),
+            Ancestor<IOperation>(operation, static step => step is IAnonymousFunctionOperation { Symbol.Parameters.Length: > 1 } or ILoopOperation) switch {
+                IAnonymousFunctionOperation { Symbol: { Parameters: var parameters } folder } => Same(parameters[0], held) && SymbolEqualityComparer.Default.Equals(parameters[0].Type, folder.ReturnType),
                 ILoopOperation => held is ILocalSymbol,
-                var parent => Stepped(parent, held),
+                _ => false,
             };
         Report<ICollectionExpressionOperation>(context, [OperationKind.CollectionExpression], (collection, _) =>
             Same(collection.Type, seq) && collection.Elements is { Length: 2 } elements && elements[0] is ISpreadOperation { Operand: var spread } && elements[1] is not ISpreadOperation
-            && SymbolEqualityComparer.Default.Equals(spread.Type, collection.Type) && Held(spread) is { } held && Stepped(collection, held)
+            && SymbolEqualityComparer.Default.Equals(spread.Type, collection.Type) && Variable(Stripped(spread)) is { } held && Stepped(collection, held)
             && (held is IParameterSymbol || (Consumer(collection) is ISimpleAssignmentOperation { Target: ILocalReferenceOperation target } && Same(target.Local, held)))
                 ? [Diagnostic.Create(Spread, collection.Syntax.GetLocation(), collection.Syntax, held.Name, elements[1].Syntax)]
                 : []);
@@ -289,8 +280,8 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         (ISymbol? identity, ISymbol? matched, ISymbol? some, ISymbol? none) = (symbols.Identity, symbols.Case, symbols.IsSome, symbols.IsNone);
         ITypeSymbol? Identity(IOperation value) =>
             Stripped(value) switch {
-                IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters: { Length: 1 } parameters, Body.Operations: { Length: 1 } body } }
-                    when body[0] is IReturnOperation { ReturnedValue: { } returned } && Stripped(returned) is IParameterReferenceOperation reference && Same(reference.Parameter, parameters[0]) => parameters[0].Type,
+                IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters: { Length: 1 } parameters } function }
+                    when Sole(function.Body) is IParameterReferenceOperation reference && Same(reference.Parameter, parameters[0]) => parameters[0].Type,
                 IDelegateCreationOperation { Target: IMethodReferenceOperation { Method: { Parameters: { Length: 1 } parameters } method } } when Same(method, identity) => parameters[0].Type,
                 _ => null,
             };
@@ -298,8 +289,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
             Stripped(value) switch {
                 IDefaultValueOperation => true,
                 { ConstantValue: { HasValue: true, Value: null } } => true,
-                IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters.IsEmpty: true, Body.Operations: { Length: 1 } body } } =>
-                    body[0] is IReturnOperation { ReturnedValue: { } returned } && Empty(returned),
+                IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters.IsEmpty: true } function } => Sole(function.Body) is { } returned && Empty(returned),
                 _ => false,
             };
         bool Nulled(ITypeSymbol element, ITypeSymbol? produced) =>
@@ -354,9 +344,6 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
 
     // --- [LENSES]
     private static void Lenses(CompilationStartAnalysisContext context, INamedTypeSymbol lens) {
-        static IAnonymousFunctionOperation? Function(IOperation value) => Stripped(value) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation function } ? function : null;
-        static IOperation? Returned(IAnonymousFunctionOperation function) =>
-            function.Body.Operations is { Length: 1 } steps && steps[0] is IReturnOperation { ReturnedValue: { } returned } ? Stripped(returned) : null;
         static IParameterSymbol? Parameter(IAnonymousFunctionOperation? function) => function?.Symbol.Parameters is { Length: 1 } parameters ? parameters[0] : null;
         static bool Equal(ImmutableArray<IPropertySymbol> left, ImmutableArray<IPropertySymbol> right) => left.Length == right.Length && left.Zip(right, Same).All(static same => same);
         static ImmutableArray<IPropertySymbol>? Read(IOperation value, IParameterSymbol root) =>
@@ -377,9 +364,9 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
             bool Positional(IPropertySymbol property) =>
                 property.ContainingType is { IsRecord: true } owner && Sourced(owner) && property.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax(analysis.CancellationToken) is ParameterSyntax);
             if (call.TargetMethod is not { Name: "New", IsStatic: true, ContainingType: { } owner } || !Same(owner, lens) || call.Arguments.Length is not 2
-                || Function(call.Arguments[0].Value) is not { } getter || Parameter(getter) is not { } root || Returned(getter) is not { } got || Read(got, root) is not { IsEmpty: false } path
-                || Function(call.Arguments[1].Value) is not { } setter || Parameter(setter) is not { } held || Returned(setter) is not { } inner || Function(inner) is not { } writer
-                || Parameter(writer) is not { } target || Returned(writer) is not { } written || Written(written, target, held, []) is not { } wrote || !Equal(wrote, path) || !path.All(Positional))
+                || Lambda(call.Arguments[0].Value) is not { } getter || Parameter(getter) is not { } root || Sole(getter.Body) is not { } got || Read(got, root) is not { IsEmpty: false } path
+                || Lambda(call.Arguments[1].Value) is not { } setter || Parameter(setter) is not { } held || Sole(setter.Body) is not { } inner || Lambda(inner) is not { } writer
+                || Parameter(writer) is not { } target || Sole(writer.Body) is not { } written || Written(written, target, held, []) is not { } wrote || !Equal(wrote, path) || !path.All(Positional))
                 return [];
             string joined = string.Join(".", path.Select(static property => property.Name));
             return [

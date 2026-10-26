@@ -2,14 +2,14 @@
 
 from collections.abc import Callable
 import ctypes
+from functools import partial
 import os
 from pathlib import Path
 import signal
 import subprocess
 import sys
-from typing import Annotated
 
-from expression import Error, Ok
+from expression import Ok
 from expression.extra.result import catch
 import msgspec
 
@@ -28,8 +28,8 @@ if sys.platform == "win32":
 class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
     """Sleep and shutdown settings."""
 
-    awake: Annotated[bool, msgspec.Meta(title="Keep Awake", description="Prevent sleep while queue renders")] = True
-    shutdown: Annotated[bool, msgspec.Meta(title="Shut Down", description="Shut down one minute after queue finishes")] = False
+    awake: bool = True
+    shutdown: bool = False
 
     def held[T](self, operation: Callable[[], Outcome[T]]) -> Outcome[T]:
         """Runs operation with sleep inhibited."""
@@ -44,8 +44,7 @@ class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
                 state.restype = wintypes.DWORD
 
                 def changed(flags: int) -> Outcome[int]:
-                    previous: int = state(flags)
-                    return Ok(previous) if previous else Error((Fault(reason=RenderingReason.SYSTEM, subject=f"{state.__name__}({flags})", cause=WinError(get_last_error())),))
+                    return Ok(state(flags)).filter_with(bool, lambda _: (Fault(reason=RenderingReason.SYSTEM, subject=f"{state.__name__}({flags})", cause=WinError(get_last_error())),))
 
                 return changed(continuous | system).bind(lambda previous: paired(operation(), changed(previous)).map(lambda pair: pair[0]))
 
@@ -62,10 +61,12 @@ class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
         )
 
         def released(holder: subprocess.Popen[bytes]) -> Outcome[None]:
-            terminated: Outcome[None] = catch(holder.terminate, exception=OSError)().map_error(refused(argv))
-            waited: Outcome[int] = catch(holder.wait, exception=OSError)().map_error(refused(argv))
-            return paired(terminated, waited).bind(
-                lambda pair: Ok(None) if pair[1] in {0, -signal.SIGTERM} else Error((Fault(reason=RenderingReason.EXITED, subject=" ".join(argv), member=str(pair[1])),))
+            terminated: Outcome[None] = catch(holder.terminate, exception=OSError)().map_error(partial(refused, argv))
+            waited: Outcome[int] = catch(holder.wait, exception=OSError)().map_error(partial(refused, argv))
+            return (
+                paired(terminated, waited)
+                .filter_with(lambda pair: pair[1] in {0, -signal.SIGTERM}, lambda pair: (Fault(reason=RenderingReason.EXITED, subject=" ".join(argv), member=str(pair[1])),))
+                .map(lambda _: None)
             )
 
         return spawned(argv, subprocess.DEVNULL).bind(lambda holder: paired(operation(), released(holder)).map(lambda pair: pair[0]))

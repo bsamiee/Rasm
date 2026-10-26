@@ -23,10 +23,10 @@ utils:
             - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
     begin:
         matches: lift
-        has: {field: arguments, has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {matches: action, pattern: $BEGIN}}}
+        has: {field: arguments, has: {kind: argument, matches: csharp-positional-argument, has: {matches: action, pattern: $BEGIN}}}
     end:
         matches: lift
-        has: {field: arguments, has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {matches: action, pattern: $END}}}
+        has: {field: arguments, has: {kind: argument, matches: csharp-positional-argument, has: {matches: action, pattern: $END}}}
     finally:
         kind: invocation_expression
         all:

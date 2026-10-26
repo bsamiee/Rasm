@@ -1,0 +1,318 @@
+id: no-unescaped-glob-interpolation
+snapshots:
+  "found = folder.rglob(stem + \"*.py\")\n":
+    fixed: |
+      found = folder.rglob(stem + "*.py")
+    labels:
+    - source: folder.rglob(stem + "*.py")
+      style: primary
+      start: 8
+      end: 35
+    - source: folder.rglob
+      style: secondary
+      start: 8
+      end: 20
+    - source: rglob
+      style: secondary
+      start: 15
+      end: 20
+    - source: folder.rglob
+      style: secondary
+      start: 8
+      end: 20
+    - source: rglob
+      style: secondary
+      start: 15
+      end: 20
+    - source: folder.rglob
+      style: secondary
+      start: 8
+      end: 20
+    - source: folder.rglob(stem + "*.py")
+      style: secondary
+      start: 8
+      end: 35
+    - source: (stem + "*.py")
+      style: secondary
+      start: 20
+      end: 35
+    - source: "\"*.py\""
+      style: secondary
+      start: 28
+      end: 34
+    - source: stem
+      style: secondary
+      start: 21
+      end: 25
+    - source: stem + "*.py"
+      style: secondary
+      start: 21
+      end: 34
+    - source: stem + "*.py"
+      style: secondary
+      start: 21
+      end: 34
+  "import fnmatch\n\nkept = fnmatch.filter(names, f\"{prefix}*\")\n":
+    fixed: |
+      import fnmatch
+      
+      kept = fnmatch.filter(names, f"{prefix}*")
+    labels:
+    - source: fnmatch.filter(names, f"{prefix}*")
+      style: primary
+      start: 23
+      end: 58
+    - source: fnmatch.filter
+      style: secondary
+      start: 23
+      end: 37
+    - source: fnmatch.filter
+      style: secondary
+      start: 23
+      end: 37
+    - source: fnmatch.filter
+      style: secondary
+      start: 23
+      end: 37
+    - source: fnmatch.filter(names, f"{prefix}*")
+      style: secondary
+      start: 23
+      end: 58
+    - source: (names, f"{prefix}*")
+      style: secondary
+      start: 37
+      end: 58
+    - source: prefix
+      style: secondary
+      start: 48
+      end: 54
+    - source: "{prefix}"
+      style: secondary
+      start: 47
+      end: 55
+    - source: f"{prefix}*"
+      style: secondary
+      start: 45
+      end: 57
+    - source: f"{prefix}*"
+      style: secondary
+      start: 45
+      end: 57
+  "import glob\n\nexpression = glob.translate(f\"{root}/**\")\n":
+    fixed: |
+      import glob
+      
+      expression = glob.translate(f"{glob.escape(root)}/**")
+    labels:
+    - source: glob.translate(f"{root}/**")
+      style: primary
+      start: 26
+      end: 54
+    - source: glob.translate
+      style: secondary
+      start: 26
+      end: 40
+    - source: glob.translate
+      style: secondary
+      start: 26
+      end: 40
+    - source: glob.translate
+      style: secondary
+      start: 26
+      end: 40
+    - source: glob.translate(f"{root}/**")
+      style: secondary
+      start: 26
+      end: 54
+    - source: (f"{root}/**")
+      style: secondary
+      start: 40
+      end: 54
+    - source: root
+      style: secondary
+      start: 44
+      end: 48
+    - source: "{root}"
+      style: secondary
+      start: 43
+      end: 49
+    - source: f"{root}/**"
+      style: secondary
+      start: 41
+      end: 53
+    - source: f"{root}/**"
+      style: secondary
+      start: 41
+      end: 53
+    - source: glob.translate
+      style: secondary
+      start: 26
+      end: 40
+    - source: glob.translate(f"{root}/**")
+      style: secondary
+      start: 26
+      end: 54
+    - source: (f"{root}/**")
+      style: secondary
+      start: 40
+      end: 54
+    - source: f"{root}/**"
+      style: secondary
+      start: 41
+      end: 53
+    - source: f"{root}/**"
+      style: secondary
+      start: 41
+      end: 53
+    - source: import glob
+      style: secondary
+      start: 0
+      end: 11
+    - source: |
+        import glob
+        
+        expression = glob.translate(f"{root}/**")
+      style: secondary
+      start: 0
+      end: 55
+  "import glob\n\nfound = folder.glob(f\"{stem}*.py\")\n":
+    fixed: |
+      import glob
+      
+      found = folder.glob(f"{glob.escape(stem)}*.py")
+    labels:
+    - source: folder.glob(f"{stem}*.py")
+      style: primary
+      start: 21
+      end: 47
+    - source: folder.glob
+      style: secondary
+      start: 21
+      end: 32
+    - source: glob
+      style: secondary
+      start: 28
+      end: 32
+    - source: folder.glob
+      style: secondary
+      start: 21
+      end: 32
+    - source: glob
+      style: secondary
+      start: 28
+      end: 32
+    - source: folder.glob
+      style: secondary
+      start: 21
+      end: 32
+    - source: folder.glob(f"{stem}*.py")
+      style: secondary
+      start: 21
+      end: 47
+    - source: (f"{stem}*.py")
+      style: secondary
+      start: 32
+      end: 47
+    - source: stem
+      style: secondary
+      start: 36
+      end: 40
+    - source: "{stem}"
+      style: secondary
+      start: 35
+      end: 41
+    - source: f"{stem}*.py"
+      style: secondary
+      start: 33
+      end: 46
+    - source: f"{stem}*.py"
+      style: secondary
+      start: 33
+      end: 46
+    - source: glob
+      style: secondary
+      start: 28
+      end: 32
+    - source: folder.glob
+      style: secondary
+      start: 21
+      end: 32
+    - source: folder.glob(f"{stem}*.py")
+      style: secondary
+      start: 21
+      end: 47
+    - source: (f"{stem}*.py")
+      style: secondary
+      start: 32
+      end: 47
+    - source: f"{stem}*.py"
+      style: secondary
+      start: 33
+      end: 46
+    - source: f"{stem}*.py"
+      style: secondary
+      start: 33
+      end: 46
+    - source: import glob
+      style: secondary
+      start: 0
+      end: 11
+    - source: |
+        import glob
+        
+        found = folder.glob(f"{stem}*.py")
+      style: secondary
+      start: 0
+      end: 48
+  "matched = path.full_match(f\"**/{name}\")\n":
+    fixed: |
+      matched = path.full_match(f"**/{name}")
+    labels:
+    - source: path.full_match(f"**/{name}")
+      style: primary
+      start: 10
+      end: 39
+    - source: path.full_match
+      style: secondary
+      start: 10
+      end: 25
+    - source: full_match
+      style: secondary
+      start: 15
+      end: 25
+    - source: path.full_match
+      style: secondary
+      start: 10
+      end: 25
+    - source: full_match
+      style: secondary
+      start: 15
+      end: 25
+    - source: path.full_match
+      style: secondary
+      start: 10
+      end: 25
+    - source: path.full_match(f"**/{name}")
+      style: secondary
+      start: 10
+      end: 39
+    - source: (f"**/{name}")
+      style: secondary
+      start: 25
+      end: 39
+    - source: name
+      style: secondary
+      start: 32
+      end: 36
+    - source: "{name}"
+      style: secondary
+      start: 31
+      end: 37
+    - source: f"**/{name}"
+      style: secondary
+      start: 26
+      end: 38
+    - source: f"**/{name}"
+      style: secondary
+      start: 26
+      end: 38

@@ -435,5 +435,5 @@ internal static class ProcessLists {
     private static ImagingFault Malformed(XElement node, LutFormat format) => LutText.Misstated(format, Line(node));
 
     private static ImagingFault Unheld(XElement node, LutFormat format) =>
-        new(string.Create(CultureInfo.InvariantCulture, $"{format} LUT line {Line(node)} holds unsupported node {node.Name.LocalName}"));
+        new(string.Create(CultureInfo.InvariantCulture, $"{format} LUT line {Line(node)} node {node.Name.LocalName}"), ImagingReason.Unsupported);
 }

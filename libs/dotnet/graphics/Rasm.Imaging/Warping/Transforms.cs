@@ -37,7 +37,7 @@ public sealed partial class MirrorFold {
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int mirrors, ref double rotation, ref FramePosition center, ref double zoom) =>
         validationError = mirrors >= 1 && double.IsFinite(rotation) && double.IsFinite(zoom) && zoom > 0d ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Mirror fold of {mirrors} mirrors must have at least 1, finite rotation {rotation} and positive zoom {zoom}"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"mirror fold of {mirrors} mirrors, rotation {rotation}, and zoom {zoom}"), ImagingReason.Range);
 }
 
 public sealed record Affine(Matrix<double> Linear, (double X, double Y) Shift) {

@@ -15,7 +15,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^GetBaseException$'}}, {has: {field: expression, matches: error-value}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
     message-text:
         any:
             - kind: member_access_expression
@@ -29,7 +29,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToString$'}}, {has: {field: expression, matches: error-value}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
             - kind: invocation_expression
               all:
                 - has:

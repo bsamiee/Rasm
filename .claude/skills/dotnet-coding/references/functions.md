@@ -199,9 +199,9 @@ internal sealed record AppRuntime(ConnectionIO Connection, TimeProvider Time) : 
 
 internal static class Workflow {
     public static Eff<RT, Entry> Book<RT>(
-        Func<Command, Validation<Error, Command>> validate, Func<Guid, Eff<RT, Option<Entry>>> lookup,
+        Func<Command, Fin<Command>> validate, Func<Guid, Eff<RT, Option<Entry>>> lookup,
         Func<Command, IO<Unit>> save, Command command) =>
-        from valid in Eff<RT, Command>.Lift(() => validate(command).ToFin())
+        from valid in Eff<RT, Command>.Lift(() => validate(command))
         from owner in lookup(valid.OwnerId)
         from found in Eff<RT, Entry>.Lift(() => owner.ToFin(Error.New($"no owner has id {valid.OwnerId}")))
         from _ in save(valid)

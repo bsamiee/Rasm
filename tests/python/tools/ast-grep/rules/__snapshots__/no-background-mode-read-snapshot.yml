@@ -1,0 +1,62 @@
+id: no-background-mode-read
+snapshots:
+  "from bpy.app import background\n\ndef drawn():\n    if background:\n        return None\n":
+    labels:
+    - source: background
+      style: primary
+      start: 20
+      end: 30
+    - source: bpy.app
+      style: secondary
+      start: 5
+      end: 12
+    - source: from bpy.app import background
+      style: secondary
+      start: 0
+      end: 30
+  "import bpy\n\ndef queued(write):\n    return getattr(bpy.app, \"background\")\n":
+    labels:
+    - source: getattr(bpy.app, "background")
+      style: primary
+      start: 42
+      end: 72
+    - source: "\"background\""
+      style: secondary
+      start: 59
+      end: 71
+    - source: (bpy.app, "background")
+      style: secondary
+      start: 49
+      end: 72
+  "import bpy\n\ndef registered(timer):\n    if not bpy.app.background:\n        bpy.app.timers.unregister(timer)\n":
+    labels:
+    - source: bpy.app.background
+      style: primary
+      start: 46
+      end: 64
+    - source: background
+      style: secondary
+      start: 54
+      end: 64
+    - source: bpy.app
+      style: secondary
+      start: 46
+      end: 53
+  "import sys\n\ndef queued():\n    return \"--background\" in sys.argv\n":
+    labels:
+    - source: "\"--background\" in sys.argv"
+      style: primary
+      start: 37
+      end: 63
+    - source: "\"--background\""
+      style: secondary
+      start: 37
+      end: 51
+    - source: in
+      style: secondary
+      start: 52
+      end: 54
+    - source: sys.argv
+      style: secondary
+      start: 55
+      end: 63

@@ -121,7 +121,7 @@ public sealed partial class Iris {
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int blades, ref double rotation, ref double roundness, ref double obstruction, ref double squeeze) =>
         validationError = blades >= 3 && double.IsFinite(rotation) && roundness is >= 0d and <= 1d && obstruction is >= 0d and <= 1d && double.IsFinite(squeeze) && squeeze > 0d ? null
             : new ImagingFault(string.Create(CultureInfo.InvariantCulture,
-                $"Iris of {blades} blades must have at least 3, roundness {roundness} and obstruction {obstruction} in [0, 1], finite rotation {rotation} and positive squeeze {squeeze}"));
+                $"iris of {blades} blades, roundness {roundness}, obstruction {obstruction}, rotation {rotation}, and squeeze {squeeze}"), ImagingReason.Range);
 }
 
 [ComplexValueObject]
@@ -140,7 +140,7 @@ public sealed partial class HighlightKey {
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref float threshold, ref float softness) =>
         validationError = float.IsFinite(threshold) && threshold >= 0f && float.IsFinite(softness) && softness >= 0f ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Highlight threshold {threshold} and softness {softness} must be finite and non-negative"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"highlight threshold {threshold} and softness {softness}"), ImagingReason.Range);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

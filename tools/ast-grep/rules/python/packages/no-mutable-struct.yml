@@ -5,8 +5,9 @@ severity: error
 rule:
     kind: class_definition
     all:
-        - has: {field: superclasses, regex: '\bStruct\b', not: {has: {kind: keyword_argument, regex: '^frozen\s*=\s*True$'}}}
+        - has: {field: superclasses, regex: '\bStruct\b'}
         - has: {field: name, pattern: $NAME}
         - has: {field: superclasses, has: {matches: {python-member-use: {module: {regex: '^msgspec$'}, name: {regex: '^Struct$'}}}}}
+        - not: {matches: msgspec-frozen-class}
 message: '`$NAME` is a mutable `msgspec.Struct`'
-note: 'Declare `frozen=True` on a record, and hold changing state in a slotted class that owns its release'
+note: 'Declare `frozen=True` on a record, and hold changing state in a slotted class owning its release'

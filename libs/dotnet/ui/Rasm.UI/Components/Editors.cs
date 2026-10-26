@@ -28,7 +28,7 @@ public sealed record SwatchList(Seq<SKColorF> Colors, Selection Picked, Func<Edi
 public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Unit>> Edited) {
     private static readonly PlotPlane.Track Track = PlotPlane.Track.Unit(PhysicalAxis.Horizontal);
 
-    public Selection Picked { get; init; } = new Selection.Many([], None, None);
+    public Selection Picked { get; init; } = new Selection.Many([]);
     public Func<Edit<Selection>, Option<IO<Unit>>> Pick { get; init; } = static _ => None;
 
     public Node Drawn =>
@@ -44,10 +44,10 @@ public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Un
         Points<ColorRamp>.Listed(
             static ramp => ramp.Stops,
             static stop => new Vector2((float)stop.At, 0.5f),
-            static (stop, to) => Fraction.Validated(to.X).ToOption().Map(at => stop with { At = at }).IfNone(stop),
+            static (stop, to) => Fraction.Present(to.X).Map(at => stop with { At = at }).IfNone(stop),
             static (ramp, stops) => stops.IsEmpty ? None : Some(ramp.WithStops(stops)),
             static (ramp, at) =>
-                from position in Fraction.Validated(at.X).ToOption()
+                from position in Fraction.Present(at.X)
                 from color in ramp.At(position)
                 select new Stop<SKColorF>(color, position));
 }
@@ -57,7 +57,7 @@ public sealed record CurveEditor(PlotPlane.Cartesian Plane, Seq<Vector2> Points,
     public Option<Seq<float>> Underlay { get; init; }
     public Seq<Node> Ground { get; init; }
     public Series Series { get; init; } = new(0);
-    public Selection Picked { get; init; } = new Selection.Many([], None, None);
+    public Selection Picked { get; init; } = new Selection.Many([]);
     public Func<Edit<Selection>, Option<IO<Unit>>> Pick { get; init; } = static _ => None;
 
     public Node Drawn =>
@@ -110,14 +110,14 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, float Value, F
                 > 1f => (soft.Domain.From, float.Min(soft.Value(2f * position), Domain.High)),
                 _ => (soft.Domain.From, soft.Domain.To),
             };
-            return position is >= 0f and <= 1f ? soft : AxisRange.Validated(from, to).ToOption().Map(Track).IfNone(soft);
+            return position is >= 0f and <= 1f ? soft : AxisRange.Present(from, to).Map(Track).IfNone(soft);
         }
     }
 
     private float Snapped(float shown) => float.Clamp(Step.Map(step => MathF.Round(shown / step, MidpointRounding.ToEven) * step).IfNone(shown), Domain.Low, Domain.High);
 
     private Seq<Node> Spanned(PlotPlane.Track plane) =>
-        AxisRange.Validated(Origin.IfNone(plane.Axis.Domain.From), Value).ToOption().Map(static span => (Node)new Node.Mark(new Figure.Region(Some(span), None)) { Role = Role.Span }).ToSeq();
+        AxisRange.Present(Origin.IfNone(plane.Axis.Domain.From), Value).Map(static span => (Node)new Node.Mark(new Figure.Region { First = Some(span) }) { Role = Role.Span }).ToSeq();
 }
 
 public sealed record Dial(Axis.Periodic Axis, float Value, Func<Edit<float>, IO<Unit>> Edited) {
@@ -128,7 +128,7 @@ public sealed record Dial(Axis.Periodic Axis, float Value, Func<Edit<float>, IO<
     public Node Drawn =>
         new Handles<float>(Value, Points<float>.Fixed([Lens<float, Vector2>.New(static held => new Vector2(held, 1f), at => _ => Axis.Held(at.X))]), Edited) { Rest = Rest }
             .Drawn(Plane, [
-                new Node.Mark(new Figure.Region(None, None)) { Role = Role.Track },
+                new Node.Mark(new Figure.Region()) { Role = Role.Track },
                 new Node.Mark(new Figure.Rule(new Vector2(Value, 0f), new Vector2(Value, 1f))) { Role = Role.Needle },
             ]) with {
             Width = Sizing.Grow.Unit,

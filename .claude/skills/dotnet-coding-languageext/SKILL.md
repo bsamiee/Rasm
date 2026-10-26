@@ -60,7 +60,7 @@ internal static class Conversions {
 
 - `ToOption` on a `Fin` drops the failure reason
 - `Validation` becomes `Fin` at the end of input validation
-- `Fin` from `X.Validated` becomes `Validation` before it combines with independent validations
+- Independent `Fin` values combine under tuple `Apply` or `Traverse` and accumulate every error, `Bind` and `TraverseM` stop at the first
 - `Try`, `IO`, and `Eff` return `Fin` when run
 
 ## [02]-[OPERATIONS]
@@ -100,7 +100,7 @@ Use `Skill(dotnet-coding)` for error type design.
 - `Error.New(Exception)` maps a cancellation to `Errors.Cancelled`, a timeout to `Errors.TimedOut`, and an `AggregateException` to `ManyErrors`
 - `Error.New(Exception)` returns an `ErrorException`'s own `Error` and an `Exceptional` for any other exception, `Try` and `IO` capture through it
 - `Error.New(string, Exception)` creates an `Exceptional` with that message
-- `ManyErrors` is the error `+` and `Validation` produce from accumulation
+- `ManyErrors` is the error `+` produces, `Validation` and `Fin` accumulate through it
 - `Is`, `HasCode`, value `Catch`, and `@catch` compare nonzero codes across packages, package code enums numbered from 1 collide
 - `Is` and value `Catch` compare the message of a code-0 error
 
@@ -160,18 +160,16 @@ In a LINQ query, `guard` raises an `Error` when its flag is false:
 
 ```csharp
 internal static class Guards {
-    public static Fin<int> Even(int value) =>
-        from v in Pure(value).ToFin()
-        from _ in guard(v % 2 == 0, Odd(v))
-        from __ in when(v == 0, Reject(Error.New("value is zero")))
-        select v;
+    public static Fin<int> Even(string text) =>
+        from value in parseInt(text).ToFin(Errors.ParseError(text))
+        from _ in guard(int.IsEvenInteger(value), Odd(value))
+        select value;
     public static IO<int> Metered(IO<int> read) =>
         from v in read
         from _ in unless(v % 2 == 0, IO.fail<Unit>(Odd(v)))
         select v;
 
     private static Error Odd(int value) => Error.New(string.Create(CultureInfo.InvariantCulture, $"{value} is odd"));
-    private static Fin<Unit> Reject(Error error) => error;
 }
 ```
 
@@ -223,9 +221,9 @@ internal static class Resources {
 - `timeout(duration, effect)` fails the effect after the duration, `Uninterruptible` masks cancellation
 - `PartitionFallible` takes a `Seq<K<IO, A>>` (`Map<K<IO, A>>` sets that element type) and runs every effect without a short-circuit
 - `PartitionFallible` returns `(Seq<Error> Fails, Seq<A> Succs)`, `Succs` and `Fails` return one side
-- `PartitionFallible` serves a caller that keeps `Succs` beside `Fails`, a traversal that fails whole is `Traverse` under `Validation` then `ToFin`
+- `PartitionFallible` serves a caller that keeps `Succs` beside `Fails`, `Traverse` under `IO` fails whole with one error
 - `Traverse` under `IO` starts every element effect before awaiting any
-- Effects built with `IO.liftAsync` overlap without a bound, effects built with `IO.lift` run in order on the calling thread
+- Effects built with `IO.liftAsync` overlap without a bound, effects built with `IO.lift` run in order on the calling thread until the first failure
 - Bounded parallelism chunks the collection and traverses the chunks with `TraverseM`
 - Exclusive writes to one resource go through a `Conduit` reduced under `Fork`
 - Host APIs that demand a thread take `AsyncSemaphore.EnterAsync()` under `use`
@@ -420,6 +418,7 @@ internal static class Folds {
 Forms the compiler rejects:
 - Comparing a `Zip` result with a `Seq` of unnamed tuples is ambiguous (CS9342), the expected value declares `First` and `Second`
 - `Contains`, `Sum`, and `Average` on a `Seq` are ambiguous with the LINQ extensions (CS0121), membership is `Exists` and a sum is `Fold`
+- `Scan` over an `IEnumerable<A>` or `Lst<A>` is ambiguous with `SuperEnumerable.Scan` under `using SuperLinq` (CS0121), a `Seq<A>` receiver resolves
 - `Seq<A>.Empty` in expression context fails (CS0119), the simple name `Seq` binds to the `Prelude` function, the empty value is `Seq<A>()`
 - `Seq<A>` has no `Sort` instance, sorting is LINQ `Order()` followed by `toSeq`
 - `SeqExtensions.Choose<A, B>` takes both type arguments and `Seq<A>` has no instance form, `Choose<int>(Parse)` is CS1061
@@ -458,6 +457,7 @@ internal static class Lenses {
 - `Find` reads, `FindOrAdd` adds a missing value or returns the existing one in one atomic step
 - Computed values enter `FindOrAdd` through its `Func<V>` overload to run on a miss alone
 - `Ref<A>` updates run inside `atomic(Func<R>)`, and `atomic` returns the function result from the transaction
+- `Ref<A>` and CommunityToolkit.HighPerformance `Ref<T>` are ambiguous in a file importing both namespaces (CS0104)
 - `swap` reads the transactional value
 - `commute` applies its function inside the transaction and again at the commit point against the last committed value
 - `Isolation.Serialisable` sets serializable isolation

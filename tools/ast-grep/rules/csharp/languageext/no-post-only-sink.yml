@@ -6,7 +6,7 @@ utils:
     unit-io:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}
             - has: {field: arguments, has: {kind: argument, regex: '^(unit|Unit\.Default|default)$'}}
     stub:
         kind: method_declaration
@@ -21,4 +21,4 @@ rule:
         - has: {field: body, has: {matches: stub, has: {field: name, regex: '^Complete$'}}}
         - has: {field: body, has: {matches: stub, has: {field: name, regex: '^Fail$'}}}
 message: '`$NAME` implements `$SINK` for `Post` alone'
-note: 'Pass the callback `Func<A, IO<Unit>>` in place of the sink'
+note: 'Write `Sink.lift(<channel>)` read through `Source.lift(<channel>)`, a callback consumer takes `Func<A, IO<Unit>>` itself'

@@ -44,7 +44,7 @@ public sealed partial class LookupLayout {
 
     public static Fin<LutTable> Decode(ReadOnlyMemory<byte> bytes) =>
         Try.lift(() => Image.Load<Rgb48>(Options, bytes.Span)).Run()
-            .MapFail(static Error (cause) => new ImagingFault("Lookup image did not decode", cause))
+            .MapFail(static Error (cause) => new ImagingFault("lookup image", ImagingReason.Refused, cause))
             .Bind(Lattice);
 
     public Fin<Func<Stream, IO<Unit>>> Encode(LutTable table, FileMetadata metadata) =>
@@ -52,7 +52,7 @@ public sealed partial class LookupLayout {
          where LutText.Coded(cube.Lattice)
          from extent in Extent(cube.Lattice.Size)
          select Frame(cube, extent))
-            .ToFin(new ImagingFault("Lookup image holds a single 3D lattice over the unit domain with samples inside [0, 1]"))
+            .ToFin(new ImagingFault("lookup image table beside a single 3D unit lattice with samples inside [0, 1]", ImagingReason.Unsupported))
             .Bind(static frame => StillFormat.PngRaster.From(frame, OutputDepth.UInt16, None, alpha: false))
             .Map<Func<Stream, IO<Unit>>>(still => stream => StillWriter.Encode(still, metadata, stream));
 
@@ -61,7 +61,7 @@ public sealed partial class LookupLayout {
     private static Fin<LutTable> Lattice(Image<Rgb48> image) {
         using Image<Rgb48> owned = image;
         return toSeq(Items).Choose(layout => layout.Edge(owned.Width, owned.Height).Map(edge => (Layout: layout, Edge: edge))).Head
-            .ToFin(new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Lookup image of {owned.Width}x{owned.Height} holds no lattice of a lookup layout")))
+            .ToFin(new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"lookup image of {owned.Width}x{owned.Height}"), ImagingReason.Unnamed))
             .Bind(found => {
                 (LookupLayout layout, int edge) = found;
                 using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * edge * edge * edge);
@@ -155,10 +155,10 @@ public sealed record LutFile {
          select new LutFile(path, table))
             .Catch(
                 static error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>(),
-                error => IO.fail<LutFile>(new ImagingFault($"LUT file {path} is unreadable", error)));
+                error => IO.fail<LutFile>(new ImagingFault($"LUT file {path}", ImagingReason.Unreadable, error)));
 
     private static Fin<LutFormat> Named(string path) =>
         Formats.TryGetValue(new FileInfo(path).Extension, out LutFormat? format)
             ? format
-            : new ImagingFault($"LUT path {path} names none of {string.Join(", ", Formats.Keys)}");
+            : new ImagingFault($"LUT path {path} beside {string.Join(", ", Formats.Keys)}", ImagingReason.Unnamed);
 }

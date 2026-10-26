@@ -23,7 +23,7 @@ utils:
         kind: invocation_expression
         any:
             - all:
-                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
+                - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}
                 - has:
                     field: arguments
                     all:
@@ -35,7 +35,7 @@ utils:
                                 any:
                                     - matches: fin-name
                                     - kind: 'invocation_expression, conditional_expression, switch_expression, object_creation_expression'
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^fail$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^fail$'}}}
     arm:
         any:
             - matches: failed-value
@@ -109,9 +109,9 @@ rule:
     kind: invocation_expression
     all:
         - has: {field: arguments, all: [{has: {matches: effect-handler}}, {not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}]}
-        - has: {field: arguments, has: {kind: argument, any: [{has: {field: name, regex: '^Predicate$'}}, {all: [{nthChild: {position: 1, ofRule: {kind: argument}}}, {not: {has: {field: name, pattern: $_}}}]}], has: {nthChild: {position: 1, reverse: true}, pattern: $PREDICATE}}}
+        - has: {field: arguments, has: {kind: argument, any: [{has: {field: name, regex: '^Predicate$'}}, {all: [{nthChild: {position: 1, ofRule: {kind: argument}}}, {matches: csharp-positional-argument}]}], has: {nthChild: {position: 1, reverse: true}, pattern: $PREDICATE}}}
         - not: {has: {field: arguments, has: {kind: argument, matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}}}}
-        - has: {field: arguments, has: {kind: argument, any: [{has: {field: name, regex: '^Fail$'}}, {all: [{nthChild: {position: 2, ofRule: {kind: argument}}}, {not: {has: {field: name, pattern: $_}}}]}], has: {nthChild: {position: 1, reverse: true}, pattern: $HANDLER}}}
+        - has: {field: arguments, has: {kind: argument, any: [{has: {field: name, regex: '^Fail$'}}, {all: [{nthChild: {position: 2, ofRule: {kind: argument}}}, {matches: csharp-positional-argument}]}], has: {nthChild: {position: 1, reverse: true}, pattern: $HANDLER}}}
         - has:
             field: function
             kind: member_access_expression

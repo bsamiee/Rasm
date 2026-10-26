@@ -7,4 +7,4 @@ rule:
     pattern: $TYPE
     regex: '^(Action\s*<\s*((global::)?System\.)?IDisposable\s*>|Func\s*<\s*((global::)?System\.)?IDisposable\s*,\s*(Unit|IO\s*<\s*Unit\s*>)\s*>)$'
 message: '`$TYPE` passes a release callback'
-note: 'Acquire through `use` and release at the `Bracket` of the operation that owns the resource, a lifetime-long one on the owner''s `EnvIO`'
+note: 'Acquire through `use` and release at the owning operation''s `Bracket`, lifetime-long acquisitions run on owner''s `EnvIO`'

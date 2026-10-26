@@ -36,7 +36,7 @@ rule:
         - has:
             field: arguments
             all:
-                - has: {kind: argument, nthChild: 1, not: {has: {field: name, pattern: $_}}, has: {matches: text, pattern: $TEXT}}
+                - has: {kind: argument, nthChild: 1, matches: csharp-positional-argument, has: {matches: text, pattern: $TEXT}}
                 - not: {has: {kind: argument, nthChild: 2}}
         - any:
             - has: {field: function, has: {field: expression, matches: utf8-encoding}}

@@ -68,7 +68,7 @@ internal static class Layouts {
         node.Aspect | node.SwitchPartially(
             @default: static _ => Option<Factor>.None,
             plot: static plot => plot.Plane.Aspect,
-            image: static image => Factor.Validated(image.Source.Width / (float)image.Source.Height).ToOption());
+            image: static image => Factor.Present(image.Source.Width / (float)image.Source.Height));
 
     private static Seq<Laid> Panes(Laid owner) => owner.Children.Filter(static child => !IsHandle(child));
 

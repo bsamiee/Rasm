@@ -177,4 +177,4 @@ transform:
     TAIL: {replace: {source: $GENERATED, replace: '(?s)^(.+)$', by: '$1)'}}
 fix: $HEAD$TAIL$KEPT
 message: '`for $TARGET` yields item by item in place of one `yield from`'
-note: 'Write `yield from (<value> for <target> in <iterable> if <test>)`, one clause per nested loop or filter, `<a> if <test> else <b>` per branch'
+note: 'Write `yield from (<value> for <target> in <iterable> if <test>)`, one clause per nested loop, filter, or branch'

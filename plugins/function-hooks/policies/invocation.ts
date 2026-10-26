@@ -19,6 +19,8 @@ interface Program {
     readonly wholeWords?: true;
     readonly runs?: readonly (readonly string[])[] | '--';
     readonly execs?: readonly string[];
+    readonly walks?: { readonly when?: readonly string[]; readonly paths?: readonly string[]; readonly base?: readonly string[]; readonly before?: readonly string[] };
+    readonly previews?: readonly [string, ...string[]];
 }
 interface Operands {
     readonly inputs: readonly string[];
@@ -69,8 +71,9 @@ const FD: Program = {
     leading: 1,
     informational: ['-h', '-V'],
     execs: ['-x', '-X', '--exec', '--exec-batch'],
+    walks: { paths: ['--search-path'], base: ['-C', '--base-directory'] },
 };
-const FIND: Program = { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'] };
+const FIND: Program = { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'], walks: { before: ['-', '(', '!'] } };
 const SQL: Program = {
     valued: ['-cmd', '-init', '-newline', '-nullvalue', '-separator', '-storage-version'],
     leading: 1,
@@ -207,7 +210,8 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         fdfind: FD,
         find: FIND,
         gfind: FIND,
-        tree: { valued: ['-L', '--level', '-I', '--ignore-glob', '-s', '--sort', '-t', '--time', '-w', '--width'] },
+        tree: { valued: ['-L', '--level', '-I', '--ignore-glob', '-s', '--sort', '-t', '--time', '-w', '--width'], walks: {} },
+        du: { valued: ['-B', '-d', '-I', '-t', '-X', '--block-size', '--max-depth', '--threshold', '--exclude', '--exclude-from', '--files0-from', '--time-style'], walks: {} },
         git: { valued: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
         grep: {
             valued: [
@@ -261,7 +265,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             leading: 1,
             leadingOptions: ['-e', '--regexp', '-f', '--file', '-N', '--neg-regexp'],
             stdin: 'default',
-            stdinless: ['-r', '-R', '--recursive', '--dereference-recursive'],
+            walks: { when: ['-r', '-R', '--recursive', '--dereference-recursive'] },
         },
         rg: {
             valued: [
@@ -318,6 +322,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             leading: 1,
             leadingOptions: ['-e', '--regexp', '-f', '--file', '--files', '--type-list', '--generate'],
             informational: ['-h', '-V'],
+            walks: {},
         },
         cat: { stdin: 'default' },
         wc: { stdin: 'default' },
@@ -342,6 +347,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             leading: 2,
             stdin: 'default',
             informational: ['-h', '-V'],
+            previews: ['-p', '--preview'],
         },
         node: { stdin: 'default', stdinless: ['--test', '--run'], code: ['-e', '-p', '--eval', '--print'], informational: ['-v'] },
         perl: { valued: ['-I'], stdin: 'default', code: ['-e', '-E'], informational: ['-v', '-V', '-h'] },
@@ -412,15 +418,23 @@ const separated = (row: Program, [head, ...rest]: readonly string[]): Operands =
     };
 };
 
-const operands = ([program, ...args]: Invocation) => {
+const operands = (invocation: Invocation) => {
+    const [program, ...args] = invocation;
     const row = declared(program);
     const { inputs: all, ...split } = separated(row, args);
     const count = split.options.some((name) => row.leadingOptions?.includes(name) === true) ? 0 : (row.leading ?? 0);
     const inputs = all.slice(count);
+    const { when, paths = [], base = [], before } = row.walks ?? { when: [] };
+    const tail = args.slice(firstOperand(invocation, 1) - 1);
+    const end = tail.findIndex((word) => before?.some((prefix) => word.startsWith(prefix)) === true);
+    const given = [...split.values.flatMap(([name, value]) => (paths.includes(name) ? [value] : [])), ...(before === undefined ? inputs : tail.slice(0, end < 0 ? tail.length : end))];
+    const roots = given.length === 0 ? ['.'] : given;
     return {
         ...split,
         leading: all.slice(0, count),
         inputs,
+        roots: when?.some((name) => split.options.includes(name)) === false ? [] : roots,
+        base: split.values.flatMap(([name, value]) => (base.includes(name) ? [value] : [])),
         bodies: [...(row.shell === 'joined' ? [args.join(' ')] : inputs.slice(0, Number(split.options.some((name) => row.shell?.includes(name) === true)))), ...(row.bodies === undefined ? [] : inputs), ...split.values.filter(([name]) => row.bodies?.includes(name) === true).map(([, value]) => value)],
     };
 };
@@ -432,8 +446,8 @@ const informational = (program: string, options: readonly string[]): boolean => 
 const waits = (invocation: Invocation): boolean => {
     const [program] = invocation;
     const { stdin, stdinless = [], code = [] } = declared(program);
-    const { inputs, options } = operands(invocation);
-    return stdin !== undefined && !informational(program, options) && !options.some((name) => [...stdinless, ...code].includes(name)) && (stdin === 'always' || inputs.length === 0 || inputs.includes('-'));
+    const { inputs, options, roots } = operands(invocation);
+    return stdin !== undefined && !informational(program, options) && !options.some((name) => [...stdinless, ...code].includes(name)) && (stdin === 'always' || inputs.includes('-') || (inputs.length === 0 && roots.length === 0));
 };
 
 // --- [INVOCATIONS]

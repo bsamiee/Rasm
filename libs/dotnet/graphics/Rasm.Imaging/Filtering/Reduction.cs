@@ -81,7 +81,7 @@ public static class Reduction {
                     row[x] = Leveled(row[x], levels - 1, strength * (((rank + 0.5d) / 64d) - 0.5d), retainHue);
                 }
             })
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Posterize needs at least 2 levels and a positive dither cell, has {levels} levels and cell {cell}"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"posterize of {levels} levels and dither cell {cell}"), ImagingReason.Range);
 
     private static int Ordered(long doubled, double cell) => (int)((long)double.Floor(doubled / 2d / cell) & 7);
 

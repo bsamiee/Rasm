@@ -1,9 +1,11 @@
-"""Stage marks and queue progress record."""
+"""Stage marks, queue progress record, and its duration forecast."""
 
+from collections import Counter
 import datetime
 from enum import IntEnum
 from fractions import Fraction
 from pathlib import Path
+from statistics import mean
 import threading
 from typing import Annotated, Self
 
@@ -19,7 +21,7 @@ from blender.rendering.batch.queue import RenderQueue
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Phase = Liveness | Ending
+type _Phase = Liveness | Ending
 
 
 class Liveness(IntEnum):
@@ -41,10 +43,10 @@ class Ending(IntEnum):
 
 
 class Heartbeat(msgspec.Struct, frozen=True, kw_only=True):
-    """Record touch interval and stop threshold."""
+    """Seconds between progress record touches and missed touches before a run reads as stopped."""
 
-    interval: Annotated[float, msgspec.Meta(gt=0.0, le=threading.TIMEOUT_MAX, description="Seconds between progress record touches")] = 3.0
-    misses: Annotated[int, msgspec.Meta(ge=2, description="Missed heartbeats before run reads as stopped")] = 10
+    interval: Annotated[float, msgspec.Meta(gt=0.0, le=threading.TIMEOUT_MAX)] = 3.0
+    misses: Annotated[int, msgspec.Meta(ge=2)] = 10
 
 
 class StageMark(msgspec.Struct, frozen=True, kw_only=True):
@@ -53,6 +55,13 @@ class StageMark(msgspec.Struct, frozen=True, kw_only=True):
     part: Annotated[int, msgspec.Meta(ge=0)]
     item: int
     seconds: NonNegative
+
+
+class Forecast(msgspec.Struct, frozen=True, kw_only=True):
+    """Render duration left with finish time."""
+
+    seconds: Fraction
+    finish: Option[datetime.datetime]
 
 
 class Progress(msgspec.Struct, frozen=True, kw_only=True):
@@ -86,10 +95,26 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
         total = len(queue.steps)
         return Fraction(total - len(self.remaining(queue)), total)
 
-    def phase(self, beat: datetime.datetime, now: datetime.datetime, heartbeat: Heartbeat) -> Phase:
+    def phase(self, beat: datetime.datetime, now: datetime.datetime, heartbeat: Heartbeat) -> _Phase:
         """Returns ending when set, else liveness from heartbeat age."""
-        ending: Option[Phase] = Option.of_optional(self.ending)
+        ending: Option[_Phase] = Option.of_optional(self.ending)
         return ending.default_with(lambda: Liveness.ACTIVE if (now - beat).total_seconds() < heartbeat.interval * heartbeat.misses else Liveness.STOPPED)
+
+    def forecast(self, queue: RenderQueue, now: datetime.datetime) -> Option[Forecast]:
+        """Forecasts renders left at each job's measured seconds per weight, the mean rate for unmeasured jobs, Nothing before any mark."""
+        counts = Counter(part for part, _ in self.remaining(queue))
+        jobs = dict(enumerate(queue.jobs))
+        timed = {part: times for part in jobs if (times := tuple(Fraction(mark.seconds) for mark in self.marks if mark.part == part))}
+        if not (rates := {part: mean(times[1:] or times) / jobs[part].weight for part, times in timed.items()}):
+            return Nothing
+        average = mean(rates.values())
+        seconds = sum((counts[part] * job.weight * rates.get(part, average) for part, job in jobs.items()), Fraction())
+
+        @catch(exception=OverflowError)
+        def finished() -> datetime.datetime:
+            return now + datetime.timedelta(microseconds=round(seconds * (datetime.timedelta(seconds=1) // datetime.timedelta.resolution)))
+
+        return Some(Forecast(seconds=seconds, finish=finished().to_option()))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -107,4 +132,4 @@ def observed(path: Path) -> Outcome[Option[tuple[Progress, datetime.datetime]]]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Ending", "Heartbeat", "Liveness", "Phase", "Progress", "StageMark", "observed"]
+__all__ = ["Ending", "Forecast", "Heartbeat", "Liveness", "Progress", "StageMark", "observed"]

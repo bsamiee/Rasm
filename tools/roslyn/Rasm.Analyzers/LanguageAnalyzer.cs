@@ -18,79 +18,79 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     public static readonly DiagnosticDescriptor Reader = Rule(
         "RASM3001",
         Category,
-        "Private member read once",
+        "Private member with one read, inline at the read",
         "`{0}` has one read, in `{1}`, inline `{0}` at the read",
-        "Private constant, `Contains` set, or one-line expression-bodied member with one read in its own type that inlines without losing a word of its name.");
+        "Inline private constants, `Contains` sets, and one-line expression-bodied members their type reads once when inlining keeps each name word");
 
     public static readonly DiagnosticDescriptor Covered = Rule(
         "RASM3002",
         Category,
-        "Catch-all arm over covered enum",
+        "Catch-all arm over covered enum, delete the arm",
         "Catch-all arm over `{0}` matches no declared member, delete the arm",
-        "Catch-all arm of a switch expression over a non-`[Flags]` enum with other arms naming every member.");
+        "Switch expressions over non-`[Flags]` enums with arms naming every member hold no catch-all arm");
 
     public static readonly DiagnosticDescriptor Discarded = Rule(
         "RASM3003",
         Category,
-        "Discarded awaitable",
-        "`_ =` discards awaitable `{0}`, await `{0}` or return it to an awaiting caller",
-        "Awaitable value assigned to a discard.");
+        "Discarded awaitable, await or return the value",
+        "`_ =` discards awaitable `{0}`, await `{0}` or return `{0}` to an awaiting caller",
+        "Await each awaitable value or return it to an awaiting caller in place of a `_ =` discard");
 
     public static readonly DiagnosticDescriptor Fallback = Rule(
         "RASM3004",
         Category,
-        "Catch-all arm over enum",
-        "Catch-all arm over `{0}` maps {1} to one result, replace it with arms naming {1}, joined by `or` per shared result",
-        "Catch-all arm of a switch expression over a non-`[Flags]` enum with other arms leaving members unnamed.");
+        "Catch-all arm over enum, name each member",
+        "Catch-all arm over `{0}` maps {1} to one result, name {1} in arms joined by `or` per shared result",
+        "Switch expressions over non-`[Flags]` enums name every member in arms joined by `or`, with no catch-all arm");
 
     public static readonly DiagnosticDescriptor Borrowed = Rule(
         "RASM3005",
         Category,
-        "Namespace owned by a referenced assembly",
-        "`{0}` is declared by `{1}`, declare the type under the project's namespace",
-        "Namespace declaration naming a namespace a referenced assembly declares.");
+        "Namespace owned by a referenced assembly, declare under project namespace",
+        "`{1}` declares `{0}`, declare types under the project namespace",
+        "Declare types under project namespaces, outside every namespace a referenced assembly declares");
 
     public static readonly DiagnosticDescriptor Clash = Rule(
         "RASM3006",
         Category,
-        "Type name clashes with an imported type",
+        "Type name clashes with an imported type, rename the declaration",
         "`{0}` clashes with `{1}`, rename the project declaration",
-        "Namespace-level type sharing name and arity with a public type of an imported metadata namespace or a referenced project assembly, or sharing name with a type of another arity in its namespace.");
+        "Name namespace-level types apart from public imported or referenced-project types of equal arity and same-namespace types of other arity");
 
     public static readonly DiagnosticDescriptor Tested = Rule(
         "RASM3007",
         Category,
-        "Type test on a type parameter",
-        "`{0}` tests `{1}` for concrete `{2}`, declare the behavior as a static virtual member on the constraint of `{1}`",
-        "Type pattern, `is`, or `as` on a type parameter value naming a concrete project type, or `Type` equality with `typeof` of one outside an override of an external member.");
+        "Type test on a type parameter, declare a static virtual member",
+        "`{0}` tests `{1}` for concrete `{2}`, declare behavior as a static virtual member of the `{1}` constraint",
+        "Static virtual constraint members replace type-parameter tests (pattern, `is`, `as`, `typeof` equality outside external overrides) for concrete project types");
 
     public static readonly DiagnosticDescriptor Folder = Rule(
         "RASM3008",
         Category,
-        "File named after its folder",
+        "File named after its folder, rename for its concept family",
         "`{0}` takes its folder's name, name the file for its concept family",
-        "Source file named as its parent directory.");
+        "Name source files for their concept family in place of their parent directory");
 
     public static readonly DiagnosticDescriptor Shadowed = Rule(
         "RASM3009",
         Category,
-        "Qualified name around a project declaration",
+        "Qualified name around a project declaration, rename the declaration",
         "`{0}` is qualified around project declaration `{1}`, rename `{1}` and import `{2}`",
-        "Package namespace or statically imported type qualifying a name that a project type, member, parameter, or local shadows at that position.");
+        "Rename each project type, member, parameter, or local shadowing a package or statically imported name, then import its owner");
 
     public static readonly DiagnosticDescriptor Qualified = Rule(
         "RASM3010",
         Category,
-        "Qualified name with no clash",
+        "Qualified name with no clash, import and write the simple name",
         "`{0}` clashes with nothing in scope, import `{1}` and write `{2}`",
-        "Package namespace qualifying a type whose simple name resolves to nothing else at that position, with no type of the namespace clashing with a project declaration in scope or a type the file names by its simple name.");
+        "Import package namespaces and write simple names when no namespace type clashes with project declarations or file simple names");
 
     public static readonly DiagnosticDescriptor Restated = Rule(
         "RASM3011",
         Category,
-        "Static instance restated at a construction site",
+        "Static instance restated at a construction site, read the instance",
         "`{0}` restates `{1}`, read `{1}`",
-        "Construction or factory call whose constant arguments equal the initializer of a static member of the constructed type, outside the item initializers of a smart enum.",
+        "Read same-type static members over constructions or factory calls restating their constant initializers, outside smart enum item initializers",
         WellKnownDiagnosticTags.CompilationEnd);
 
     private static readonly Regex Word = new("[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", RegexOptions.CultureInvariant);
@@ -158,7 +158,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
             };
         bool Listed(IFieldSymbol field, IOperation value) =>
             !field.IsConst && Elements(value) is { IsEmpty: false } elements && elements.All(static element => element.ConstantValue.HasValue)
-            && (field.Type is IArrayTypeSymbol || field.Type.AllInterfaces.Append(field.Type).Any(face => sets.Any(wanted => Same(face, wanted))));
+            && (field.Type is IArrayTypeSymbol || field.Type.AllInterfaces.Append(field.Type).Any(face => Among(face, sets)));
         static bool Literal(IFieldSymbol field, IOperation value) =>
             value is ILiteralOperation or IUnaryOperation { Operand: ILiteralOperation } or IFieldReferenceOperation { Field.IsConst: true } && SymbolEqualityComparer.Default.Equals(value.Type, field.Type);
         static ImmutableHashSet<string> Words(string name) => [.. Word.Matches(name).Cast<Match>().Select(static word => word.Value.ToUpperInvariant())];
@@ -190,7 +190,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 or IDelegateCreationOperation or IThrowOperation or IDynamicInvocationOperation);
         bool Plain(IOperation value) =>
             value is { Syntax: IdentifierNameSyntax, SemanticModel: { } model }
-            && value switch { ILocalReferenceOperation local => local.Local, IParameterReferenceOperation { Parameter.RefKind: RefKind.None } parameter => (ISymbol)parameter.Parameter, _ => null } is { } held
+            && Variable(value) is { } held and not IParameterSymbol { RefKind: not RefKind.None }
             && !References(held, value, new Reading(model, context.CancellationToken)).Any(Written);
         static bool Deferred(SyntaxNode node, SyntaxNode root) =>
             node != root && node.Parent is { } parent && (parent switch {
@@ -216,7 +216,6 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         static bool Grouped(IOperation reference) =>
             Ancestor<ISymbolInitializerOperation>(reference, static _ => true) is { } initializer
             && initializer.Descendants().OfType<IMethodReferenceOperation>().Select(static group => group.Method.OriginalDefinition).Distinct(SymbolEqualityComparer.Default).Skip(1).Any();
-        static ISymbol Enclosing(ISymbol symbol) => symbol is IMethodSymbol { MethodKind: MethodKind.AnonymousFunction or MethodKind.LocalFunction } nested ? Enclosing(nested.ContainingSymbol) : symbol;
         static string Named(ISymbol symbol) =>
             symbol is IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor } constructor ? constructor.ContainingType.Name : Member(symbol).Name;
         static bool Free(SyntaxNode moved, ImmutableHashSet<string> bound, ImmutableHashSet<string> local) =>
@@ -319,7 +318,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     // --- [AWAITABLES]
     private static void Awaitables(CompilationStartAnalysisContext context) {
         static bool Awaitable(ITypeSymbol? type) =>
-            type is not null && (type.GetMembers(WellKnownMemberNames.GetAwaiter).Any(static member => member is IMethodSymbol { IsStatic: false, Parameters.IsEmpty: true }) || Awaitable(type.BaseType));
+            Bases(type).Any(static held => held.GetMembers(WellKnownMemberNames.GetAwaiter).Any(static member => member is IMethodSymbol { IsStatic: false, Parameters.IsEmpty: true }));
         Report<ISimpleAssignmentOperation>(context, [OperationKind.SimpleAssignment], static (assignment, _) =>
             assignment is { Target: IDiscardOperation, Value: var value } && Stripped(value) is var awaited && Awaitable(awaited.Type)
                 ? [Diagnostic.Create(Discarded, assignment.Syntax.GetLocation(), awaited.Syntax)]
@@ -365,7 +364,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 IAssemblySymbol own = node.Compilation.Assembly;
                 bool Exposed(INamedTypeSymbol other) => other.DeclaredAccessibility is Accessibility.Public && !Same(other.ContainingAssembly, own);
                 bool Branded(INamedTypeSymbol generic, INamedTypeSymbol plain) =>
-                    plain.Arity is 0 && generic.AllInterfaces.Any(face => Same(face, brand) && face.TypeArguments.Length > 0 && Same(face.TypeArguments[0], plain));
+                    plain.Arity is 0 && Faces(generic, brand).Any(face => face.TypeArguments.Length > 0 && Same(face.TypeArguments[0], plain));
                 IEnumerable<INamedTypeSymbol> imported = node.SemanticModel.GetImportScopes(node.Node.SpanStart, node.CancellationToken)
                     .SelectMany(static scope => scope.Imports).Select(static import => import.NamespaceOrType).OfType<INamespaceSymbol>().Concat(spaces)
                     .SelectMany(held => held.GetTypeMembers(type.Name, type.Arity)).Where(Exposed);
@@ -417,7 +416,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 ISymbol? owner = model.GetSymbolInfo(left, token).Symbol;
                 if (owner is not (INamespaceSymbol or INamedTypeSymbol) || Sourced(owner) || model.GetSymbolInfo(right, token).Symbol is not { } target || target is INamespaceSymbol) return;
                 ImmutableArray<ISymbol> scopes = [.. model.GetImportScopes(node.Node.SpanStart, token).SelectMany(static scope => scope.Imports).Select(static import => import.NamespaceOrType)];
-                bool imported = scopes.Any(held => Same(held, owner));
+                bool imported = Among(owner, scopes);
                 if (owner is INamedTypeSymbol ? !imported : imported) return;
                 string name = right.Identifier.ValueText;
                 ImmutableArray<ISymbol> visible = [.. model.LookupSymbols(node.Node.SpanStart, name: name).Where(found => !Same(found, target))];
@@ -443,7 +442,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         ConcurrentBag<(IOperation Site, INamedTypeSymbol Type, ISymbol Owner)> sites = [];
         ThinktectureSymbols thinktecture = new(context.Compilation);
         bool Item(ISymbol owner, INamedTypeSymbol type) =>
-            Same(owner.ContainingType, type) && initializers.ContainsKey(owner) && (Marked(type, thinktecture.SmartEnumAttribute) ?? Marked(type, thinktecture.SmartEnumAttribute1)) is not null;
+            Same(owner.ContainingType, type) && initializers.ContainsKey(owner) && Marked(type, thinktecture.SmartEnums) is not null;
         static INamedTypeSymbol? Made(IOperation operation) =>
             operation switch {
                 IObjectCreationOperation { Constructor: { } made, Initializer: null } => made.ContainingType,

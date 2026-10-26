@@ -88,7 +88,7 @@ utils:
                 kind: argument_list
                 inside:
                     kind: invocation_expression
-                    not: {has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Array$'}, member: {regex: '^'}}}}}
+                    not: {matches: {csharp-owner-call: {type: {regex: '^Array$'}, member: {regex: '^'}}}}
     field-read:
         any:
             - matches: whole-argument

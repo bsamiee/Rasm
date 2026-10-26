@@ -3,8 +3,6 @@ id: no-forwarding-property-csharp
 language: csharp
 severity: error
 utils:
-    owner-type:
-        kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'
     cell-type:
         matches: {csharp-type-name: {name: {regex: '^(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap|Lazy|Channel|ThreadLocal|AsyncLocal|StrongBox)$'}}}
     member-declaration:
@@ -23,8 +21,8 @@ utils:
         kind: identifier
         pattern: $ROOT
         inside:
-            stopBy: {matches: owner-type}
-            matches: owner-type
+            stopBy: {kind: &owner-type 'class_declaration, record_declaration, struct_declaration, interface_declaration'}
+            kind: *owner-type
             any:
                 - has: {field: body, has: {matches: member-declaration}}
                 - has: {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $ROOT}}}
@@ -32,8 +30,8 @@ utils:
         kind: identifier
         pattern: $ROOT
         inside:
-            stopBy: {matches: owner-type}
-            matches: owner-type
+            stopBy: {kind: *owner-type}
+            kind: *owner-type
             any:
                 - has: {field: body, has: {matches: value-declaration}}
                 - has: {kind: parameter_list, has: {kind: parameter, all: [{not: {has: {field: type, matches: cell-type}}}, {has: {field: name, pattern: $ROOT}}]}}

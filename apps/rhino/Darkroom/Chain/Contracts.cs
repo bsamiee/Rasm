@@ -74,6 +74,45 @@ public sealed record RampStop([property: JsonConverter(typeof(UnicolourConverter
         };
 }
 
+// --- [ERRORS] --------------------------------------------------------------------------
+[SmartEnum]
+public sealed partial class DarkroomReason {
+    public static readonly DarkroomReason Unlisted = new("is not a listed effect kind");
+    public static readonly DarkroomReason Unchained = new("is absent from the chain");
+    public static readonly DarkroomReason Staged = new("runs in another stage");
+    public static readonly DarkroomReason Unmixed = new("takes no mix");
+    public static readonly DarkroomReason Octaves = new("needs octaves that advance in scale");
+    public static readonly DarkroomReason Lights = new("needs scene lights");
+    public static readonly DarkroomReason Lattice = new("holds no 3D lattice");
+    public static readonly DarkroomReason Curve = new("holds no channel curve");
+    public static readonly DarkroomReason Empty = new("holds no entry");
+    public static readonly DarkroomReason Unviewed = new("names no view in the document");
+    public static readonly DarkroomReason Overscan = new("needs the active viewport for overscan");
+    public static readonly DarkroomReason Unrenderable = new("cannot render");
+    public static readonly DarkroomReason Space = new("exceeds the free space");
+    public static readonly DarkroomReason Unreadable = new("is unreadable");
+    public static readonly DarkroomReason Missing = new("is missing");
+    public static readonly DarkroomReason Prompting = new("waits for input");
+    public static readonly DarkroomReason Off = new("is off");
+    public static readonly DarkroomReason Running = new("is running");
+    public static readonly DarkroomReason Edited = new("has unsaved edits");
+    public static readonly DarkroomReason Unattended = new("stop unattended renders");
+    public static readonly DarkroomReason Stale = new("is out of date");
+    public static readonly DarkroomReason Cyclic = new("link each other");
+    public static readonly DarkroomReason Units = new("mixes unit systems");
+    public static readonly DarkroomReason Cpu = new("runs on CPU");
+    public static readonly DarkroomReason Uncopied = new("lies outside the document copy");
+    public static readonly DarkroomReason Invalid = new("is invalid");
+    public static readonly DarkroomReason Beyond = new("lies past the entry's frames");
+    public static readonly DarkroomReason Refused = new("refused the render job");
+    public static readonly DarkroomReason Failed = new("failed");
+    public static readonly DarkroomReason Unsaved = new("ended without a saved rendering");
+
+    public string Message { get; }
+}
+
+public sealed record DarkroomFault(string Subject, DarkroomReason Reason, Option<Error> Cause = default) : Expected($"{Subject} {Reason.Message}", 0, Cause);
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed class UnicolourConverter : JsonConverter<Unicolour> {
     public override Unicolour Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>

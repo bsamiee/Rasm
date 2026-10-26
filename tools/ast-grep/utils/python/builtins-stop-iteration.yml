@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: builtins-stop-iteration
+language: python
+rule:
+    matches: {python-builtin-name: {name: {regex: '^Stop(Async)?Iteration$'}}}

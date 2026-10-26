@@ -67,7 +67,7 @@ public sealed record ContrastGrade(
 
     public static Option<PixelPass> Pass(ContrastGrade state, PassContext context) =>
         state with { Pivot = Default.Pivot } == Default ? None
-            : Some<PixelPass>(new PixelPass.Color(row => Primary.Contrast(row, state.Amount, Exposure.MiddleGray * float.Exp2(state.Pivot), state.Vibrance, state.Saturation, context.Working.Luminance)));
+            : Some<PixelPass>(new PixelPass.Color(row => Primary.Contrast(row, state.Amount, Exposure.MiddleGray * float.Exp2(state.Pivot), state.Vibrance, state.Saturation, context.Working)));
 }
 
 public sealed record Levels(
@@ -76,7 +76,7 @@ public sealed record Levels(
     public static Levels Default { get; } = new(0f, 0f);
 
     public static Fin<Levels> Auto(PixelFrame frame, Gamut working) =>
-        LuminanceSamples.Gather(frame, working.Luminance).Map(static samples => new Levels((float)samples.Minimum, (float)double.Log2(samples.FrameWhite - samples.Minimum)));
+        LuminanceSamples.Gather(frame, working).Map(static samples => new Levels((float)samples.Minimum, (float)double.Log2(samples.FrameWhite - samples.Minimum)));
 
     public static Option<PixelPass> Pass(Levels state, PassContext context) =>
         state == Default ? None : Some<PixelPass>(new PixelPass.Color(Primary.Levels(state.Black, state.White)));
@@ -144,7 +144,7 @@ public sealed record HueIsolation([property: Display(Name = "Range", Description
     public static HueIsolation Default { get; } = new(HueRange.Open);
 
     public static Option<PixelPass> Pass(HueIsolation state, PassContext context) =>
-        state == Default ? None : Some<PixelPass>(new PixelPass.Color(row => state.Range.Isolated(row, context.Working.Luminance)));
+        state == Default ? None : Some<PixelPass>(new PixelPass.Color(row => state.Range.Isolated(row, context.Working)));
 }
 
 public sealed record ToneZones([property: Display(Name = "Zones", Description = "Blacks, shadows, midtones, highlights and whites adjustments with S-curve contrast")] GradingTone Zones)
@@ -182,7 +182,7 @@ public sealed record GradientMapping([property: Display(Name = "Gradient", Descr
         toSeq(Range(0, Texels + 1)).Map(texel => RampStop.At(state.Ramp, texel / (float)Texels).ConvertToConfiguration(context.Working.Configuration) switch {
             var color => new Vector4((float)color.RgbLinear.R, (float)color.RgbLinear.G, (float)color.RgbLinear.B, (float)color.Alpha.A),
         }).ToArray() switch {
-            var lights => Some<PixelPass>(new PixelPass.Color(row => Primary.Mapped(row, lights, context.Working.Luminance))),
+            var lights => Some<PixelPass>(new PixelPass.Color(row => Primary.Mapped(row, lights, context.Working))),
         };
 }
 
@@ -194,10 +194,10 @@ public sealed record ReferenceGamutCompression(
     public static ReferenceGamutCompression Default { get; } = Of(GamutCompression.Reference);
 
     public static ReferenceGamutCompression Of(GamutCompression compression) =>
-        new(Target: null, new(compression.Threshold.X, compression.Threshold.Y, compression.Threshold.Z), new(compression.Limit.X, compression.Limit.Y, compression.Limit.Z), compression.Power);
+        new(Target: null, compression.Threshold, compression.Limit, compression.Power);
 
     public static Option<PixelPass> Pass(ReferenceGamutCompression state, PassContext context) =>
-        Some(GamutCompression.Validated(new(state.Threshold.Red, state.Threshold.Green, state.Threshold.Blue), new(state.Limit.Red, state.Limit.Green, state.Limit.Blue), state.Power).Match<PixelPass>(
+        Some(GamutCompression.Validated(state.Threshold, state.Limit, state.Power).Match<PixelPass>(
             Succ: compression => new PixelPass.Color(compression.Within(context.Working, Optional(state.Target).Map(static target => target.Gamut).IfNone(context.Working))),
             Fail: static fault => new PixelPass.Frame((_, _) => fault)));
 }

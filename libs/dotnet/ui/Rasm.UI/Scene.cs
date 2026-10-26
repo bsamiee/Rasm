@@ -402,10 +402,7 @@ public sealed class Scene {
 
     internal Seq<Adjuster> Scrollers(Seq<Seq<Key>> hits, Vector2 delta) => hits.Head.Map(Above).IfNone([]).Choose(Adjuster).Filter(adjuster => adjuster.Scrolls(delta));
 
-    internal static Option<Seq<Key>> Lead(Laid laid) =>
-        from part in laid.Node.Part
-        from lead in part.Revealed(laid)
-        select lead;
+    internal static Option<Seq<Key>> Lead(Laid laid) => laid.Node.Part.Bind(part => part.Revealed(laid));
 
     // --- [DAMAGE]
     private sealed record Diff(HashMap<Seq<Key>, float> Was, HashMap<Seq<Key>, float> Now);
@@ -465,5 +462,5 @@ public sealed class Scene {
          where !Layouts.IsHandle(child)
          select (SKPoint)adjuster.Axis.With(Vector2.Zero, -adjuster.Value)).IfNone(SKPoint.Empty);
 
-    private static SKRect Absolute(SKRect frame, SKPoint origin) => SKRect.Create(frame.Location + origin, frame.Size);
+    internal static SKRect Absolute(SKRect frame, SKPoint origin) => SKRect.Create(frame.Location + origin, frame.Size);
 }

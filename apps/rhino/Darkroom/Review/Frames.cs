@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
+using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
@@ -26,16 +27,16 @@ public static class FrameImages {
             select image;
 
         public Fin<SKImage> Masked(Coverage coverage) {
-            Half[] halves = GC.AllocateUninitializedArray<Half>(frame.Size.Width * frame.Size.Height);
-            Span2D<Half> plane = new(halves, frame.Size.Height, frame.Size.Width);
+            using SpanOwner<Half> halves = SpanOwner<Half>.Allocate(frame.Size.Width * frame.Size.Height);
+            using SpanOwner<float> weights = SpanOwner<float>.Allocate(frame.Size.Width);
+            Span2D<Half> plane = halves.Span.AsSpan2D(frame.Size.Height, frame.Size.Width);
             Span2D<Vector4> rows = frame.View.Span;
-            float[] weights = new float[frame.Size.Width];
             for (int row = 0; row < frame.Size.Height; row++) {
-                coverage.Weights(rows.GetRowSpan(row), frame.Origin.X, frame.Line(row), weights);
-                TensorPrimitives.ConvertToHalf(weights, plane.GetRowSpan(row));
+                coverage.Weights(rows.GetRowSpan(row), frame.Origin.X, frame.Line(row), weights.Span);
+                TensorPrimitives.ConvertToHalf(weights.Span, plane.GetRowSpan(row));
             }
             return Refused.UnlessFound(
-                SKImage.FromPixelCopy(new SKImageInfo(frame.Size.Width, frame.Size.Height, SKColorType.AlphaF16, SKAlphaType.Premul), MemoryMarshal.AsBytes(halves.AsSpan())),
+                SKImage.FromPixelCopy(new SKImageInfo(frame.Size.Width, frame.Size.Height, SKColorType.AlphaF16, SKAlphaType.Premul), MemoryMarshal.AsBytes(halves.Span)),
                 nameof(SKImage.FromPixelCopy));
         }
     }

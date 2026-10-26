@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-unparenthesized
+language: python
+arguments: [value]
+utils:
+    wrapped:
+        any:
+            - matches: value
+            - kind: parenthesized_expression
+              has: {matches: wrapped}
+rule:
+    matches: wrapped

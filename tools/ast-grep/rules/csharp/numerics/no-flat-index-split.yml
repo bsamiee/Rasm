@@ -31,4 +31,4 @@ rule:
             - has: {field: right, pattern: $WIDTH}
             - inside: {stopBy: end, matches: counter, has: {stopBy: end, matches: quotient}}
 message: '`$SPLIT` recovers a row and column from flat index `$INDEX`'
-note: 'Address the buffer as `Span2D<T>` rows through `GetRowSpan`, or run the pass through `ParallelHelper.For2D` or `PixelPass.Pointwise((row, column, line) => …)`'
+note: 'Address buffer as `Span2D<T>` rows through `GetRowSpan`, pitch `Mat.Step` over a `Mat`, or run the pass through `ParallelHelper.For2D`'

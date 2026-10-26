@@ -78,4 +78,4 @@ transform:
     READONLY: {replace: {source: $DECLARATION, replace: '(?s)^(.*?)\b(partial\s+)?record(\s+struct)\b', by: '${1}readonly ${2}record${3}'}}
 fix: $INIT$READONLY_FIELD$REQUIRED_PROPERTY$READONLY
 message: '`$TYPE` holds a member that changes after construction'
-note: 'Write `init`, `readonly`, `required` `{ get; init; }`, or `readonly record struct`, and implement a host interface setter explicitly'
+note: 'Write `init`, `readonly`, or `required` `{ get; init; }`, and implement a host interface setter explicitly'

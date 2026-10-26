@@ -31,7 +31,7 @@ utils:
     path-arguments:
         kind: argument_list
         any:
-            - has: {kind: argument, nthChild: 1, all: [{not: {has: {field: name, pattern: $_}}}, {has: {matches: single-path}}]}
+            - has: {kind: argument, nthChild: 1, all: [{matches: csharp-positional-argument}, {has: {matches: single-path}}]}
             - has: {kind: argument, all: [{has: {field: name, regex: '^Path$'}}, {has: {matches: single-path}}]}
     menu-type:
         matches: {csharp-type-name: {name: {regex: '^MenuExtension$'}}}
@@ -72,7 +72,7 @@ utils:
             - inside:
                 kind: argument
                 any:
-                    - all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}]
+                    - all: [{nthChild: 2}, {matches: csharp-positional-argument}]
                     - has: {field: name, regex: '^Menus$'}
                 inside: {kind: argument_list, inside: {matches: rui-creation}}
     rui-creation:

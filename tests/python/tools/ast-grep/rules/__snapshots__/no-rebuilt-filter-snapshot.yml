@@ -1,0 +1,342 @@
+id: no-rebuilt-filter
+snapshots:
+  "from expression import Error, Ok\n\ndef distinct(outcome, taken):\n    return outcome.bind(lambda target: Error(target) if target == taken else Ok(target))\n":
+    labels:
+    - source: Error(target) if target == taken else Ok(target)
+      style: primary
+      start: 103
+      end: 151
+    - source: target
+      style: secondary
+      start: 95
+      end: 101
+    - source: target
+      style: secondary
+      start: 95
+      end: 101
+    - source: bind
+      style: secondary
+      start: 83
+      end: 87
+    - source: outcome.bind
+      style: secondary
+      start: 75
+      end: 87
+    - source: "outcome.bind(lambda target: Error(target) if target == taken else Ok(target))"
+      style: secondary
+      start: 75
+      end: 152
+    - source: "(lambda target: Error(target) if target == taken else Ok(target))"
+      style: secondary
+      start: 87
+      end: 152
+    - source: "lambda target: Error(target) if target == taken else Ok(target)"
+      style: secondary
+      start: 88
+      end: 151
+    - source: Error
+      style: secondary
+      start: 103
+      end: 108
+    - source: Error(target)
+      style: secondary
+      start: 103
+      end: 116
+    - source: Ok
+      style: secondary
+      start: 141
+      end: 143
+    - source: target
+      style: secondary
+      start: 144
+      end: 150
+    - source: (target)
+      style: secondary
+      start: 143
+      end: 151
+    - source: Ok(target)
+      style: secondary
+      start: 141
+      end: 151
+    - source: target
+      style: secondary
+      start: 120
+      end: 126
+    - source: target == taken
+      style: secondary
+      start: 120
+      end: 135
+  "from expression import Error, Ok\n\ndef sent(outcome):\n    return outcome.bind(lambda response: Ok(response) if response.is_success else Error(response.status_code))\n":
+    labels:
+    - source: Ok(response) if response.is_success else Error(response.status_code)
+      style: primary
+      start: 94
+      end: 162
+    - source: response
+      style: secondary
+      start: 84
+      end: 92
+    - source: response
+      style: secondary
+      start: 84
+      end: 92
+    - source: bind
+      style: secondary
+      start: 72
+      end: 76
+    - source: outcome.bind
+      style: secondary
+      start: 64
+      end: 76
+    - source: "outcome.bind(lambda response: Ok(response) if response.is_success else Error(response.status_code))"
+      style: secondary
+      start: 64
+      end: 163
+    - source: "(lambda response: Ok(response) if response.is_success else Error(response.status_code))"
+      style: secondary
+      start: 76
+      end: 163
+    - source: "lambda response: Ok(response) if response.is_success else Error(response.status_code)"
+      style: secondary
+      start: 77
+      end: 162
+    - source: Ok
+      style: secondary
+      start: 94
+      end: 96
+    - source: response
+      style: secondary
+      start: 97
+      end: 105
+    - source: (response)
+      style: secondary
+      start: 96
+      end: 106
+    - source: Ok(response)
+      style: secondary
+      start: 94
+      end: 106
+    - source: Error
+      style: secondary
+      start: 135
+      end: 140
+    - source: Error(response.status_code)
+      style: secondary
+      start: 135
+      end: 162
+    - source: response
+      style: secondary
+      start: 110
+      end: 118
+    - source: response.is_success
+      style: secondary
+      start: 110
+      end: 129
+  "from expression import Nothing, Some\n\ndef data(option, kind):\n    return option.bind(lambda item: Some(held) if isinstance(held := item.data, kind) else Nothing)\n":
+    labels:
+    - source: Some(held) if isinstance(held := item.data, kind) else Nothing
+      style: primary
+      start: 98
+      end: 160
+    - source: Some
+      style: secondary
+      start: 98
+      end: 102
+    - source: held
+      style: secondary
+      start: 103
+      end: 107
+    - source: (held)
+      style: secondary
+      start: 102
+      end: 108
+    - source: Some(held)
+      style: secondary
+      start: 98
+      end: 108
+    - source: isinstance
+      style: secondary
+      start: 112
+      end: 122
+    - source: held
+      style: secondary
+      start: 123
+      end: 127
+    - source: held := item.data
+      style: secondary
+      start: 123
+      end: 140
+    - source: kind
+      style: secondary
+      start: 142
+      end: 146
+    - source: (held := item.data, kind)
+      style: secondary
+      start: 122
+      end: 147
+    - source: isinstance(held := item.data, kind)
+      style: secondary
+      start: 112
+      end: 147
+    - source: Nothing
+      style: secondary
+      start: 153
+      end: 160
+  "from expression import Nothing, Some\n\ndef ready(option):\n    return option.bind(lambda value: Some(value) if value.ready else Nothing)\n":
+    labels:
+    - source: Some(value) if value.ready else Nothing
+      style: primary
+      start: 94
+      end: 133
+    - source: value
+      style: secondary
+      start: 87
+      end: 92
+    - source: value
+      style: secondary
+      start: 87
+      end: 92
+    - source: bind
+      style: secondary
+      start: 75
+      end: 79
+    - source: option.bind
+      style: secondary
+      start: 68
+      end: 79
+    - source: "option.bind(lambda value: Some(value) if value.ready else Nothing)"
+      style: secondary
+      start: 68
+      end: 134
+    - source: "(lambda value: Some(value) if value.ready else Nothing)"
+      style: secondary
+      start: 79
+      end: 134
+    - source: "lambda value: Some(value) if value.ready else Nothing"
+      style: secondary
+      start: 80
+      end: 133
+    - source: Some
+      style: secondary
+      start: 94
+      end: 98
+    - source: value
+      style: secondary
+      start: 99
+      end: 104
+    - source: (value)
+      style: secondary
+      start: 98
+      end: 105
+    - source: Some(value)
+      style: secondary
+      start: 94
+      end: 105
+    - source: Nothing
+      style: secondary
+      start: 126
+      end: 133
+    - source: value
+      style: secondary
+      start: 109
+      end: 114
+    - source: value.ready
+      style: secondary
+      start: 109
+      end: 120
+  "from expression import Nothing, Some\n\ndef typed(value, kind):\n    return Nothing if not isinstance(value, kind) else Some(value)\n":
+    labels:
+    - source: Nothing if not isinstance(value, kind) else Some(value)
+      style: primary
+      start: 73
+      end: 128
+    - source: Nothing
+      style: secondary
+      start: 73
+      end: 80
+    - source: isinstance
+      style: secondary
+      start: 88
+      end: 98
+    - source: value
+      style: secondary
+      start: 99
+      end: 104
+    - source: kind
+      style: secondary
+      start: 106
+      end: 110
+    - source: (value, kind)
+      style: secondary
+      start: 98
+      end: 111
+    - source: isinstance(value, kind)
+      style: secondary
+      start: 88
+      end: 111
+    - source: not isinstance(value, kind)
+      style: secondary
+      start: 84
+      end: 111
+    - source: Some
+      style: secondary
+      start: 117
+      end: 121
+    - source: value
+      style: secondary
+      start: 122
+      end: 127
+    - source: (value)
+      style: secondary
+      start: 121
+      end: 128
+    - source: Some(value)
+      style: secondary
+      start: 117
+      end: 128
+  "from expression import Nothing, Some\n\ndef typed[T](value, kind: type[T]):\n    return Some(value) if isinstance(value, kind) else Nothing\n":
+    labels:
+    - source: Some(value) if isinstance(value, kind) else Nothing
+      style: primary
+      start: 85
+      end: 136
+    - source: Some
+      style: secondary
+      start: 85
+      end: 89
+    - source: value
+      style: secondary
+      start: 90
+      end: 95
+    - source: (value)
+      style: secondary
+      start: 89
+      end: 96
+    - source: Some(value)
+      style: secondary
+      start: 85
+      end: 96
+    - source: isinstance
+      style: secondary
+      start: 100
+      end: 110
+    - source: value
+      style: secondary
+      start: 111
+      end: 116
+    - source: kind
+      style: secondary
+      start: 118
+      end: 122
+    - source: (value, kind)
+      style: secondary
+      start: 110
+      end: 123
+    - source: isinstance(value, kind)
+      style: secondary
+      start: 100
+      end: 123
+    - source: Nothing
+      style: secondary
+      start: 129
+      end: 136

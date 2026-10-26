@@ -5,7 +5,6 @@ severity: error
 utils:
     declaration:
         kind: method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration
-    closure: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}
     binding:
         kind: switch_expression
         all:
@@ -20,7 +19,7 @@ utils:
               not: {inside: {kind: if_statement, field: alternative}}
             - kind: conditional_expression
               not: {inside: {kind: conditional_expression, field: alternative, stopBy: {not: {kind: parenthesized_expression}}}}
-    scope: {any: [{matches: control}, {matches: closure}, {matches: declaration}]}
+    scope: {any: [{matches: control}, {kind: &closure 'lambda_expression, anonymous_method_expression, local_function_statement'}, {matches: declaration}]}
     conditioned:
         any:
             - inside: {kind: 'if_statement, while_statement, do_statement, for_statement, conditional_expression', field: condition, stopBy: &scope {matches: scope}}
@@ -34,12 +33,12 @@ utils:
     nested-body:
         any:
             - has: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-            - has: {matches: control, stopBy: {matches: closure}}
+            - has: {matches: control, stopBy: {kind: *closure}}
     level:
         any:
             - matches: control
               not: {matches: conditioned}
-            - matches: closure
+            - kind: *closure
               all:
                 - inside: {matches: control, stopBy: {matches: declaration}}
                 - not: {matches: conditioned}

@@ -50,7 +50,7 @@ utils:
     fin-arm:
         any:
             - kind: invocation_expression
-              has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(fail|Fail)$'}}}}
+              matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^(fail|Fail)$'}}}
             - matches: direct-lift
               not: {matches: void-arm}
     mixed-arms:
@@ -64,7 +64,7 @@ utils:
         any:
             - matches: lift-thunk
             - kind: invocation_expression
-              has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(pure|Pure|fail|Fail)$'}}}}
+              matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^(pure|Pure|fail|Fail)$'}}}
             - matches: lifted-conditional
             - matches: lifted-switch-expression
             - matches: lifted-call
@@ -93,7 +93,7 @@ utils:
             - has: {field: name, regex: '^state$'}
             - all:
                 - nthChild: 1
-                - not: {has: {field: name, pattern: $_}}
+                - matches: csharp-positional-argument
                 - not: {has: {kind: 'lambda_expression, anonymous_method_expression'}}
     lifted-conditional:
         kind: conditional_expression

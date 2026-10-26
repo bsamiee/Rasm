@@ -13,12 +13,8 @@ utils:
         any:
             - matches: same-value
             - kind: block
-              all:
-                - has:
-                    kind: return_statement
-                    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-                    has: {matches: same-value}
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+              matches: csharp-single-return
+              has: {kind: return_statement, has: {matches: same-value}}
     identity-binding:
         any:
             - kind: parameter, variable_declarator, local_function_statement, declaration_pattern, declaration_expression, catch_declaration, from_clause
@@ -85,18 +81,12 @@ utils:
                     parameter: {pattern: $VALUE}
                     body: {matches: returned-value}
             - matches: relay
-    only-return:
-        kind: block
-        has:
-            kind: return_statement
-            nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     set-value:
         any:
             - pattern: $SET
             - kind: parenthesized_expression
               has: {matches: set-value}
-            - matches: only-return
+            - matches: csharp-single-return
               has: {kind: return_statement, has: {matches: set-value}}
     constant-name:
         matches: {csharp-type-name: {name: {regex: '^constantA?$'}}}
@@ -124,10 +114,10 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, matches: constant-name}
-                - has: {field: arguments, has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {matches: set-value}}, not: {has: {kind: argument, nthChild: 2}}}
+                - has: {field: arguments, has: {kind: argument, matches: csharp-positional-argument, has: {matches: set-value}}, not: {has: {kind: argument, nthChild: 2}}}
             - kind: parenthesized_expression
               has: {matches: constant-of-set}
-            - matches: only-return
+            - matches: csharp-single-return
               has: {kind: return_statement, has: {matches: constant-of-set}}
     replacing-setter:
         any:
@@ -137,8 +127,6 @@ utils:
                 csharp-unary-callback:
                     parameter: {pattern: $SET}
                     body: {matches: constant-of-set}
-    named:
-        has: {field: name, pattern: $_}
 rule:
     kind: invocation_expression
     all:
@@ -163,13 +151,13 @@ rule:
                     kind: argument
                     any:
                         - has: {field: name, regex: '^Get$'}
-                        - all: [{nthChild: 1}, {not: {matches: named}}]
+                        - all: [{nthChild: 1}, {matches: csharp-positional-argument}]
                     has: {nthChild: {position: 1, reverse: true}, matches: identity-function}
                 - has:
                     kind: argument
                     any:
                         - has: {field: name, regex: '^Set$'}
-                        - all: [{nthChild: 2}, {not: {matches: named}}]
+                        - all: [{nthChild: 2}, {matches: csharp-positional-argument}]
                     has: {nthChild: {position: 1, reverse: true}, matches: replacing-setter}
 message: '`Lens<$TYPE, $TYPE>.New` builds the identity lens'
 note: 'Call `Lens.identity<<type>>()`'

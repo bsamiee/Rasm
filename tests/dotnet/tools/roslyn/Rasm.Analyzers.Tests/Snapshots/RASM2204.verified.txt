@@ -1,6 +1,6 @@
-#0 Native callback `Frame` runs `Option.Iter` outside the `Callbacks` boundary where an exception aborts Rhino, route it through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`
-#1 Native callback `NSAnimationContext.RunAnimation` runs `changes.Duration = duration()` outside the `Callbacks` boundary where an exception aborts Rhino, route it through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`
-#2 Native callback `NSNotificationCenter.AddObserver` runs `changed` outside the `Callbacks` boundary where an exception aborts Rhino, route it through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`
-#3 Native callback `Exported` runs `DirectCallbacks.Ticked` outside the `Callbacks` boundary where an exception aborts Rhino, route it through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`
-#4 Native callback `Monitored` runs `Option.IfNone` outside the `Callbacks` boundary where an exception aborts Rhino, route it through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`
-#5 Native callback `OnMouseMove` runs `Size`, `ParentWindow` outside the `Callbacks` boundary where an exception aborts Rhino, route it through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`
+#0 `Option.Iter` in native callback `Frame` runs outside `Callbacks` and an exception aborts Rhino, route through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`
+#1 `changes.Duration = duration()` in native callback `NSAnimationContext.RunAnimation` runs outside `Callbacks` and an exception aborts Rhino, route through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`
+#2 `changed` in native callback `NSNotificationCenter.AddObserver` runs outside `Callbacks` and an exception aborts Rhino, route through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`
+#3 `DirectCallbacks.Ticked` in native callback `Exported` runs outside `Callbacks` and an exception aborts Rhino, route through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`
+#4 `Option.IfNone` in native callback `Monitored` runs outside `Callbacks` and an exception aborts Rhino, route through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`
+#5 `Size`, `ParentWindow` in native callback `OnMouseMove` runs outside `Callbacks` and an exception aborts Rhino, route through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`

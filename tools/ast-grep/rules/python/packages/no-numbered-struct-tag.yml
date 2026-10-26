@@ -10,4 +10,4 @@ rule:
         - has: {field: value, kind: integer}
         - inside: {kind: argument_list, inside: {kind: class_definition}}
 message: '`$TAG` numbers a union case by hand'
-note: 'Declare a `tag=<callable>` class keyword on the union base that derives each case tag from its class name'
+note: 'Declare `tag=True` on each case class'

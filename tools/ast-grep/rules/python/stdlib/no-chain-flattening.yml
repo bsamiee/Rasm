@@ -4,11 +4,6 @@ language: python
 severity: error
 metadata: {python-from: '3.15'}
 utils:
-    chain-callee:
-        any:
-            - matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^chain$'}}}
-            - kind: parenthesized_expression
-              has: {matches: chain-callee}
     plain-arguments:
         kind: argument_list
         not: {has: {kind: 'dictionary_splat, keyword_argument'}}
@@ -16,13 +11,13 @@ utils:
         kind: call
         any:
             - all:
-                - has: {field: function, matches: chain-callee}
+                - has: {field: function, matches: itertools-chain-callee}
                 - has: {field: arguments, matches: plain-arguments, has: {kind: list_splat, nthChild: 1, has: {pattern: $ITERABLES}}, not: {has: {nthChild: 2}}}
             - all:
-                - has: {field: function, kind: attribute, all: [{has: {field: object, matches: chain-callee}}, {has: {field: attribute, regex: '^from_iterable$'}}]}
+                - has: {field: function, kind: attribute, all: [{has: {field: object, matches: itertools-chain-callee}}, {has: {field: attribute, regex: '^from_iterable$'}}]}
                 - has: {field: arguments, matches: plain-arguments, has: {nthChild: 1, pattern: $ITERABLES, not: {kind: list_splat}}, not: {has: {nthChild: 2}}}
             - all:
-                - has: {field: function, matches: chain-callee}
+                - has: {field: function, matches: itertools-chain-callee}
                 - has: {field: arguments, matches: plain-arguments, pattern: $ARGUMENTS, all: [{has: {kind: list_splat}}, {has: {nthChild: 2}}]}
     wrapper:
         kind: call
@@ -75,4 +70,4 @@ transform:
     OVER: {replace: {source: $ROWS, replace: '(?s)^(.*)$', by: ' in $1'}}
 fix: $OPEN$LEFT$ITEM_OVER_ITERABLES$ITEM_OVER_ARGUMENTS$ITERABLES$ARGUMENTS$CLOSE$RIGHT$LOOP_OPEN$UNPACKED$SPREAD$OUTER$OVER$LOOP_CLOSE
 message: '`$SITE` flattens iterables in place of comprehension unpacking'
-note: 'Write `[*<iterable> for <item> in <items>]`, `{}` for a set, `()` for an iterator, and `{**<mapping> for <item> in <items>}` for a dict'
+note: 'Write `[*<row> for <row> in <rows>]`, set `{*…}`, iterator `(*…)`, `tuple(*…)`, or dict `{**<row> for <row> in <rows>}`'

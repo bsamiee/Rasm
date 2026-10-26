@@ -15,4 +15,4 @@ rule:
         - {regex: '^# --- \[COMPOSITION\] -', follows: {stopBy: end, kind: comment, regex: '^# --- \[EXPORTS\] -'}}
         - {regex: '^# --- \[', inside: {kind: module}, precedes: {stopBy: end, any: [{kind: 'import_statement, import_from_statement, future_import_statement'}, {kind: if_statement, has: {field: condition, regex: '^(typing\.)?TYPE_CHECKING$'}}]}}
 message: '`$DIVIDER` stands out of `CLAUDE.md` file order'
-note: 'Move the divider below the last preamble line and its section after every section the `CLAUDE.md` table ranks earlier'
+note: 'Place dividers after the preamble and sections in `CLAUDE.md` table order'

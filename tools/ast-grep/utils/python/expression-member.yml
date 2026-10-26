@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: expression-member
+language: python
+arguments: [name]
+rule:
+    matches: {python-member-use: {module: {regex: '^expression((\.core)?(\.(option|result))?|\.extra\.result)$'}, name: {matches: name}}}

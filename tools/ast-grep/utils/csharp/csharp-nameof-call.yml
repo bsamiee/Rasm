@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-nameof-call
+language: csharp
+rule:
+    kind: invocation_expression
+    has: {field: function, kind: identifier, regex: '^nameof$'}

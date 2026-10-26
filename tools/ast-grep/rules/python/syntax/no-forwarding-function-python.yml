@@ -3,15 +3,12 @@ id: no-forwarding-function-python
 language: python
 severity: error
 utils:
-    method:
-        kind: function_definition
-        inside: {kind: block, stopBy: {not: {kind: decorated_definition}}, inside: {kind: class_definition, field: body}}
     plain-decorator:
         kind: decorator
         has:
             any:
                 - matches: {python-builtin-name: {name: {regex: '^(staticmethod|classmethod)$'}}}
-                - matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^override$'}}}
+                - matches: typing-override
     named-callee:
         any:
             - kind: identifier
@@ -26,7 +23,7 @@ utils:
                   all:
                     - inside: {kind: attribute, field: object}
                     - inside:
-                        matches: method
+                        matches: python-method
                         stopBy: {kind: 'function_definition, lambda'}
                         has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $ROOT}}
             - kind: attribute
@@ -48,7 +45,7 @@ utils:
         inside:
             kind: parameters
             inside:
-                matches: method
+                matches: python-method
                 not: {has: {field: body, has: {stopBy: end, pattern: $CALL, has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $RECEIVER}}}}}
     slot:
         kind: identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern

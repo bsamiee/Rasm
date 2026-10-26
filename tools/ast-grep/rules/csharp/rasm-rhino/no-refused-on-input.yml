@@ -49,10 +49,10 @@ rule:
                     field: expression
                     kind: invocation_expression
                     all:
-                        - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Conversions$'}, member: {regex: '^Present$'}}}}
+                        - matches: {csharp-owner-call: {type: {regex: '^Conversions$'}, member: {regex: '^Present$'}}}
                         - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: input, pattern: $VALUE}}}
         - all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Conversions$'}, member: {regex: '^(NonEmpty|Required)$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Conversions$'}, member: {regex: '^(NonEmpty|Required)$'}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: input, pattern: $VALUE}}}
         - all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Unless\w*$'}}, {has: {field: expression, matches: {csharp-type-name: {name: {regex: '^Refused$'}}}}}]}

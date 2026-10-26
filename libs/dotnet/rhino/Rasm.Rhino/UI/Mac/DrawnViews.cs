@@ -109,6 +109,7 @@ public static class DrawnViews {
     private static readonly AtomHashMap<nint, (Fin<nint> Class, Seq<(nint Selector, Delegate Implementation)> Methods)> Classes =
         AtomHashMap<nint, (Fin<nint> Class, Seq<(nint Selector, Delegate Implementation)> Methods)>();
     private static readonly nint ElementParent = Class.GetHandle(typeof(NSAccessibilityElement));
+    private static readonly Func<NSObject, NSString, NSDictionary?, Unit> Posted = fun<NSObject, NSString, NSDictionary?>(NSAccessibility.PostNotification);
     private static readonly nint TipOwner = ObjCExtensions.GetProtocolHandle(typeof(INSViewToolTipOwner).GetCustomAttribute<ProtocolAttribute>()?.Name
                                                                            ?? throw new InvalidOperationException($"{nameof(INSViewToolTipOwner)} binds no protocol"));
 
@@ -155,7 +156,7 @@ public static class DrawnViews {
             (nameof(INSStandardKeyBindingResponding.CancelOperation), new Act.Cancel(), false),
             (nameof(INSStandardKeyBindingResponding.SelectAll), new Act.SelectAll(), false),
             (nameof(INSStandardKeyBindingResponding.ShowContextMenuForSelection), new Act.ShowMenu(), false))
-        .Map(static row => (Exported(typeof(INSStandardKeyBindingResponding), row.Member), (row.Act, KeyModifiers.None with { Shift = row.Extends }))));
+        .Map(static row => (Exported(typeof(INSStandardKeyBindingResponding), row.Member), (row.Act, KeyModifiers.Plain with { Shift = row.Extends }))));
 
     private static readonly HashMap<nint, Act> Performs = toHashMap(Seq<(string Member, Act Act)>(
             (nameof(NSAccessibilityElement.AccessibilityPerformPress), new Act.Press()),
@@ -337,7 +338,7 @@ public static class DrawnViews {
         bool first = native.Tree.IsNone;
         if (native.Tree != Some(mount.Tree)) _ = Projected(native, elementClass, mount.Tree);
         _ = output.Notices.Iter(notice => Noticed(native, notice));
-        if (first || output.Notices.Exists(static notice => notice.Map(announced: false, valueChanged: false, selectionChanged: false, focusChanged: false, layoutChanged: true, detent: false)))
+        if (first || output.Notices.Exists(static notice => notice.Map(announced: false, changed: false, focusChanged: false, layoutChanged: true, detent: false)))
             _ = Tooltips(native, mount.Tree);
         return unit;
     }
@@ -454,20 +455,17 @@ public static class DrawnViews {
             announced: static (held, announced) => Posted(held.View, NSView.AnnouncementRequestedNotification, NSDictionary.FromObjectsAndKeys(
                 [new NSString(announced.Text), NSNumber.FromInt64((long)announced.Live.Map(polite: NSAccessibilityPriorityLevel.Medium, assertive: NSAccessibilityPriorityLevel.High))],
                 [NSAccessibilityNotificationUserInfoKeys.AnnouncementKey, NSAccessibilityNotificationUserInfoKeys.PriorityKey])),
-            valueChanged: static (held, changed) => held.Shown.Find(changed.Element).Map(static shown => Posted(shown.Shown, NSView.ValueChangedNotification, details: null)).IfNone(unit),
-            selectionChanged: static (held, changed) => held.Shown.Find(changed.Container).Map(static shown => Posted(shown.Shown, NSView.SelectedChildrenChangedNotification, details: null)).IfNone(unit),
+            changed: static (held, changed) => held.Shown.Find(changed.Element).Map(shown => changed.Change.Switch(
+                shown.Shown,
+                value: static element => Posted(element, NSView.ValueChangedNotification, null),
+                selection: static element => Posted(element, NSView.SelectedChildrenChangedNotification, null))).IfNone(unit),
             focusChanged: static (held, changed) => held.Shown.Find(changed.Element).Map(static shown => {
                 shown.Shown.AccessibilityFocused = true;
                 return unit;
             }).IfNone(unit),
-            layoutChanged: static (held, _) => Posted(held.View, NSView.LayoutChangedNotification, details: null),
+            layoutChanged: static (held, _) => Posted(held.View, NSView.LayoutChangedNotification, null),
             detent: static (_, _) => {
                 NSHapticFeedbackManager.DefaultPerformer.PerformFeedback(NSHapticFeedbackPattern.Alignment, NSHapticFeedbackPerformanceTime.DrawCompleted);
                 return unit;
             });
-
-    private static Unit Posted(NSObject element, NSString notification, NSDictionary? details) {
-        NSAccessibility.PostNotification(element, notification, details);
-        return unit;
-    }
 }

@@ -33,4 +33,4 @@ rule:
                     - has: {field: name, pattern: $TYPE}
                     - not: {has: {field: body, has: {kind: field_declaration, has: {stopBy: end, matches: cased-key}}}}
 message: '`$ATTRIBUTE` on smart enum `$TYPE` sets a case-sensitive comparer over lowercase keys'
-note: 'Delete the `KeyMemberEqualityComparer` and `KeyMemberComparer` pair, the case-insensitive default compares lowercase keys'
+note: 'Delete `KeyMemberEqualityComparer` and `KeyMemberComparer`, the case-insensitive default compares lowercase keys'

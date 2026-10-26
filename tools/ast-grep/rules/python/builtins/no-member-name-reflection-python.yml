@@ -90,4 +90,4 @@ rule:
         - matches: indexed
         - matches: resolved
 message: '`$ACCESS` reaches a member by a name string'
-note: 'Access `<owner>.<member>` directly, in a lambda for a deferred read or call and a nested `def` for a deferred assignment or `del`'
+note: 'Access `<owner>.<member>` directly, deferring a read in a lambda and a write or `del` in a nested `def`'

@@ -24,7 +24,7 @@ public sealed partial class RevisionIndex {
 
     public static Fin<RevisionIndex> FromLetters(RevisionAlphabet alphabet, string text) =>
         text.ToUpperInvariant() switch {
-            var letters when letters.Length < 1 || letters.Length > alphabet.MaxLetters || letters.AsSpan().ContainsAnyExcept(alphabet.Symbols) => new DraftingFault(letters, DraftingReason.RevisionLetters),
+            var letters when letters.Length < 1 || letters.Length > alphabet.MaxLetters || letters.AsSpan().ContainsAnyExcept(alphabet.Symbols) => new DraftingFault($"revision letters {letters}", DraftingReason.RevisionLetters),
             var letters => new RevisionIndex(alphabet, toSeq(letters).Fold(0, (ordinal, letter) => (ordinal * alphabet.Symbols.Length) + alphabet.Symbols.IndexOf(letter, StringComparison.Ordinal) + 1)),
         };
 
@@ -43,13 +43,13 @@ public sealed partial class TitleRule {
     public static readonly TitleRule Optional = new(mandatory: false, static (_, text) => text);
     public static readonly TitleRule Revision = new(mandatory: false, static (alphabet, text) => RevisionIndex.FromLetters(alphabet, text).Map(static index => index.ToString()));
     public static readonly TitleRule IssueDate = new(mandatory: true, static (_, text) =>
-        LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? LocalDatePattern.Iso.Format(parsed.Value) : new DraftingFault(text, DraftingReason.IssueDate));
+        LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? LocalDatePattern.Iso.Format(parsed.Value) : new DraftingFault($"issue date {text}", DraftingReason.IssueDate));
 
     public bool Mandatory { get; }
 
     public Fin<Option<string>> Accept(TitleField field, RevisionAlphabet alphabet, Option<string> entry) =>
         entry.IsNone && Mandatory ? new DraftingFault(field.Key, DraftingReason.TitleMissing)
-            : entry.Traverse(text => Normalize(alphabet, text).MapFail(error => new DraftingFault(field.Key, DraftingReason.TitleInvalid, Inner: error))).As();
+            : entry.Traverse(text => Normalize(alphabet, text).MapFail(error => new DraftingFault(field.Key, DraftingReason.TitleInvalid, error))).As();
 
     [UseDelegateFromConstructor]
     private partial Fin<string> Normalize(RevisionAlphabet alphabet, string text);
@@ -78,17 +78,15 @@ public abstract partial record TitleField {
     public static readonly TitleField Client = new ProjectEntry("client", TitleRule.Optional);
     public static readonly TitleField Checker = new SheetEntry("checker", TitleRule.Optional);
 
-    private TitleField(Option<TitleRule> rule) => Rule = rule;
     public abstract string Key { get; init; }
-    public Option<TitleRule> Rule { get; }
 
-    public sealed record ProjectEntry(string Key, Option<TitleRule> Rule) : TitleField(Rule);
-    public sealed record SheetEntry(string Key, Option<TitleRule> Rule) : TitleField(Rule);
-    public sealed record SheetName(string Key) : TitleField(None);
-    public sealed record SheetFact(string Key, Func<Sheet, string> Read) : TitleField(None);
+    public sealed record ProjectEntry(string Key, TitleRule Rule) : TitleField;
+    public sealed record SheetEntry(string Key, Option<TitleRule> Rule) : TitleField;
+    public sealed record SheetName(string Key) : TitleField;
+    public sealed record SheetFact(string Key, Func<Sheet, string> Read) : TitleField;
 
     public static Fin<Seq<(TitleField Field, Option<string> Text)>> Accept(DraftingConvention convention, HashMap<TitleField, string> entries) =>
         toSeq(entries.AsIterable())
-            .Choose(static entry => entry.Key.Rule.Map(rule => (Field: entry.Key, Rule: rule, Text: entry.Value.Trim())))
+            .Choose(static entry => entry.Key.Switch(projectEntry: static field => Some(field.Rule), sheetEntry: static field => field.Rule, sheetName: static _ => Option<TitleRule>.None, sheetFact: static _ => Option<TitleRule>.None).Map(rule => (Field: entry.Key, Rule: rule, Text: entry.Value.Trim())))
             .Traverse(entry => entry.Rule.Accept(entry.Field, convention.Revisions, Some(entry.Text).Filter(static text => text.Length > 0)).Map(text => (entry.Field, text))).As();
 }

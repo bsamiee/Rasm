@@ -40,7 +40,7 @@ public sealed record Bloom(
                 None: () => Optional(state.Dirt)
                     .Map(path => context.Derivations.Derived(path, static held => ImageFile.Load(held).RunSafe()).Map(file => TentPyramid.Soiled(light, frame, file.Frame, state.DirtGain)))
                     .IfNone(unit));
-        }, BlendingMode.Mix, state.Strength, context.Working.Luminance, progress)));
+        }, BlendingMode.Mix, state.Strength, context.Working, progress)));
 }
 
 public sealed record VeilingGlare([property: Display(Name = "Size", Description = "Field of view the glare kernel spans, narrower at higher values")][property: Range(0d, 1d)] float Size)
@@ -52,7 +52,7 @@ public sealed record VeilingGlare([property: Display(Name = "Size", Description 
             light => context.Derivations.Held((state.Size, context.Extent, Window: frame.Size),
                 static key => Fin.Succ(PointSpread.Veiling(key.Window, double.Lerp(180d, 10d, double.Cbrt(key.Size)) / int.Max(key.Extent.Width, key.Extent.Height))),
                 spread => spread.Convolve(light)),
-            BlendingMode.Mix, 1f, context.Working.Luminance, progress)));
+            BlendingMode.Mix, 1f, context.Working, progress)));
 }
 
 public sealed record StarGlare(
@@ -67,7 +67,7 @@ public sealed record StarGlare(
                 light => context.Derivations.Held((State: state, context.Extent, Window: frame.Size, context.Working),
                     static key => Fin.Succ(PointSpread.Diffraction(key.State.Aperture, key.State.Radius.Pixels(key.Extent), key.Window, key.Extent, key.Working)),
                     spread => spread.Convolve(light)),
-                BlendingMode.Mix, 1f, context.Working.Luminance, progress)));
+                BlendingMode.Mix, 1f, context.Working, progress)));
 }
 
 public sealed record Ghosts(
@@ -78,7 +78,7 @@ public sealed record Ghosts(
 
     public static Option<PixelPass> Pass(Ghosts state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Frame((frame, progress) => frame.Spread(state.Highlight.Extract,
-            light => GhostReflections.Reflected(light, frame, 16f / ReferenceFrame.Height * frame.Extent.ShortSide, state.Iterations, state.Modulation), BlendingMode.Add, 1f, context.Working.Luminance, progress)));
+            light => GhostReflections.Reflected(light, frame, 16f / ReferenceFrame.Height * frame.Extent.ShortSide, state.Iterations, state.Modulation), BlendingMode.Add, 1f, context.Working, progress)));
 }
 
 public sealed record Halation(
@@ -90,7 +90,7 @@ public sealed record Halation(
     public static Option<PixelPass> Pass(Halation state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Frame((frame, progress) => state.Color.ConvertToConfiguration(context.Working.Configuration).RgbLinear switch {
             var linear => new Vector4((float)linear.R, (float)linear.G, (float)linear.B, 0f) switch {
-                var color => frame.Spread(pixel => state.Highlight.Extract(pixel) * color, light => light.Blur(light, state.Radius.Pixels(frame.Extent)), BlendingMode.Add, 1f, context.Working.Luminance, progress),
+                var color => frame.Spread(pixel => state.Highlight.Extract(pixel) * color, light => light.Blur(light, state.Radius.Pixels(frame.Extent)), BlendingMode.Add, 1f, context.Working, progress),
             },
         }));
 }

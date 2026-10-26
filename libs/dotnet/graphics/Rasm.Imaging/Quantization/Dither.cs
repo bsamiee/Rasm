@@ -70,7 +70,7 @@ public sealed partial class Dither {
         float[] draws = GC.AllocateUninitializedArray<float>(pixels.Length);
         image.CopyPixelDataTo(pixels.Span);
         MemoryMarshal.Cast<Rgba64, ushort>(pixels.Span).AsSpan2D(pixels.Length, 4).GetColumn(0).CopyTo(ranks.Span);
-        TensorPrimitives.ConvertChecked<ushort, float>(ranks.Span, draws);
+        TensorPrimitives.ConvertChecked(ranks.Span, draws);
         TensorPrimitives.Add(draws, 0.5f * codes / draws.Length, draws);
         TensorPrimitives.Divide(draws, codes, draws);
         return new(draws, image.Height, image.Width);

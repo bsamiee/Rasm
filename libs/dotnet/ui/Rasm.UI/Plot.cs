@@ -19,11 +19,11 @@ public sealed partial class AxisRange {
     public float High => float.Max(From, To);
 
     public Option<AxisRange> Scaled(float about, float factor) =>
-        float.IsFinite(factor) && factor > 0f ? Validated(about + ((From - about) * factor), about + ((To - about) * factor)).ToOption() : None;
+        float.IsFinite(factor) && factor > 0f ? Present(about + ((From - about) * factor), about + ((To - about) * factor)) : None;
 
-    public Option<AxisRange> Shifted(float delta) => Validated(From + delta, To + delta).ToOption();
+    public Option<AxisRange> Shifted(float delta) => Present(From + delta, To + delta);
 
-    public static Fin<AxisRange> Validated(float from, float to) => TryCreate(from, to, out AxisRange? range, out Invalid? fault) ? range : fault;
+    public static Option<AxisRange> Present(float from, float to) => TryCreate(from, to, out AxisRange? range) ? range : None;
 
     static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float from, ref float to) =>
         validationError = float.IsFinite(from) && float.IsFinite(to) && from.CompareTo(to) is not 0
@@ -451,7 +451,10 @@ public abstract partial record Figure {
         public override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) => path.AddPoly([.. Points.Map(frame.Point)], close: true);
     }
 
-    public sealed record Region(Option<AxisRange> First, Option<AxisRange> Second) : Figure {
+    public sealed record Region : Figure {
+        public Option<AxisRange> First { get; init; }
+        public Option<AxisRange> Second { get; init; }
+
         public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) => Interior(path, frame, pen);
 
         public override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) =>

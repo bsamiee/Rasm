@@ -19,7 +19,7 @@ utils:
                 has:
                     kind: argument
                     nthChild: 1
-                    not: {has: {field: name, pattern: $_}}
+                    matches: csharp-positional-argument
                     has: {pattern: $KEY, not: {kind: 'lambda_expression, anonymous_method_expression'}}
                 not: {has: {kind: argument, has: {field: name, not: {regex: '^(Some|None)$'}}}}
     index-read:

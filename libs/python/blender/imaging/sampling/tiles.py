@@ -29,8 +29,7 @@ def ranks(image: OpenImageIO.ImageBuf) -> Outcome[npt.NDArray[np.float32]]:
         Option
         .of_optional(image.get_pixels(OpenImageIO.UINT16))
         .to_result_with(lambda: (Fault(reason=ImagingReason.BUFFER, subject=image.name, cause=image.geterror()),))
-        .map(lambda codes: np.ascontiguousarray(codes[::-1, :, :1], dtype=np.float32))
-        .map(lambda table: (table + 0.5) / float(table.size))
+        .map(lambda codes: (codes[::-1, :, :1].astype(np.float32) + 0.5) / float(codes[..., :1].size))
     )
 
 
@@ -50,14 +49,7 @@ def ranked(plane: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float3
 
 
 def correlated(plane: npt.NDArray[np.float32]) -> npt.NDArray[np.float64]:
-    """Returns per-channel mean products of bilinear neighbor pairs on a wrapped tile.
-
-    Args:
-        plane: Tile rows by columns by channels.
-
-    Returns:
-        Rows for width, height, diagonal, and antidiagonal neighbors, one column per channel.
-    """
+    """Returns per-channel mean products of width, height, diagonal, and antidiagonal neighbor pairs on a wrapped tile, one row per pair."""
     values = np.asarray(plane, dtype=np.float64)
     right, down = np.roll(values, -1, axis=1), np.roll(values, -1, axis=0)
     return np.stack([np.mean(pair, axis=(0, 1)) for pair in (values * right, values * down, values * np.roll(right, -1, axis=0), right * down)])

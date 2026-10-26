@@ -82,7 +82,7 @@ utils:
               has:
                 kind: invocation_expression
                 all:
-                    - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^ArgumentNullException$'}, member: {regex: '^ThrowIfNull$'}}}}
+                    - matches: {csharp-owner-call: {type: {regex: '^ArgumentNullException$'}, member: {regex: '^ThrowIfNull$'}}}
                     - has:
                         field: arguments
                         has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: guarded}}

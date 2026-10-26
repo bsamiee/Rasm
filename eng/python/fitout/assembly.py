@@ -1,6 +1,7 @@
 """Builds Blender extension archives with geometry tool icons, and import folders, from uv lock."""
 
 lazy import ast
+lazy from collections.abc import Callable
 lazy from math import ceil, comb, prod, sqrt
 lazy from pathlib import Path, PurePosixPath
 lazy import shutil
@@ -62,28 +63,13 @@ def _ran(*command: str | Path, stdout: int | None = None, stderr: int | None = N
 def _interpreter(blender: Path) -> Result[_Interpreter, Fault]:
     """Returns Blender Python executable and host extension platform."""
     probe = "import json, sys; from bl_pkg.cli.blender_ext import platform_from_this_system; sys.stderr.write(json.dumps({'executable': sys.executable, 'platform': platform_from_this_system()}))"
-    return _ran(blender, "--background", "--factory-startup", "--python-exit-code", "1", "--python-expr", probe, stderr=subprocess.PIPE).map(
-        lambda host: msgspec.json.decode(host.stderr, type=_Interpreter)
-    )
+    return _ran(blender, "-b", "--factory-startup", "--python-exit-code", "1", "--python-expr", probe, stderr=subprocess.PIPE).map(lambda host: msgspec.json.decode(host.stderr, type=_Interpreter))
 
 
 def _exported(lock: Path, *options: str) -> Result[Path, Fault]:
     """Returns `lock` holding the locked runtime closure of the project `options` select, workspace members and distributions Blender bundles left out."""
-    bundled = msgspec.toml.decode(Path("pyproject.toml").read_bytes())["tool"]["uv"]["constraint-dependencies"]
-    return _ran(
-        "uv",
-        "export",
-        "--locked",
-        "--no-default-groups",
-        "--no-hashes",
-        "--format",
-        "requirements.txt",
-        *(*("--no-emit-package", Requirement(entry).name) for entry in bundled),
-        *options,
-        "--output-file",
-        lock,
-        stdout=subprocess.DEVNULL,
-    ).map(lambda _: lock)
+    bundled = (*("--no-emit-package", Requirement(entry).name) for entry in msgspec.toml.decode(Path("pyproject.toml").read_bytes())["tool"]["uv"]["constraint-dependencies"])
+    return _ran("uv", "export", "--locked", "--no-default-groups", "--no-hashes", *bundled, *options, "--output-file", lock, stdout=subprocess.DEVNULL).map(lambda _: lock)
 
 
 def encoded(master: Path) -> bytes:
@@ -213,17 +199,6 @@ def pack(
         lock = Path(folder, "requirements.txt")
         built = Path(folder, "archives")
         built.mkdir()
-
-        def placed(_: subprocess.CompletedProcess[bytes]) -> Result[int, Fault]:
-            return (
-                catch(shutil.rmtree, exception=OSError)(directory)
-                .or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error))
-                .bind(lambda _: catch(directory.parent.mkdir, exception=OSError)(parents=True, exist_ok=True))
-                .bind(lambda _: catch(built.move, exception=OSError)(directory))
-                .map(lambda _: 0)
-                .map_error(Fault.of)
-            )
-
         return (
             _accumulated(
                 _interpreter(blender),
@@ -242,8 +217,28 @@ def pack(
                 )
             )
             .bind(lambda _: _ran(blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-dir", built, "--split-platforms"))
-            .bind(placed)
+            .bind(lambda _: reset(directory, built.move))
+            .map(lambda _: 0)
         )
+
+
+def reset[T](folder: Path, made: Callable[[Path], T], /) -> Result[T, Fault]:
+    """Removes `folder` with its tree, a missing one counting as removed, then makes it through `made` under created parents.
+
+    Args:
+        folder: Folder replaced.
+        made: Call making `folder` from its path.
+
+    Returns:
+        What `made` returns, or fault of a failed removal, parent creation, or `made` call.
+    """
+    return (
+        catch(shutil.rmtree, exception=OSError)(folder)
+        .or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error))
+        .bind(lambda _: catch(folder.parent.mkdir, exception=OSError)(parents=True, exist_ok=True))
+        .bind(lambda _: catch(made, exception=OSError)(folder))
+        .map_error(Fault.of)
+    )
 
 
 def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]) -> Result[int, Fault]:
@@ -267,4 +262,4 @@ def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Pa
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["encoded", "pack", "site"]
+__all__ = ["encoded", "pack", "reset", "site"]

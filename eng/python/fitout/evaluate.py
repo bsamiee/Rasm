@@ -3,17 +3,16 @@
 lazy from itertools import takewhile
 lazy import os
 lazy from pathlib import Path
-lazy import shutil
 lazy import subprocess
 lazy import sys
 lazy from typing import Annotated
 
 lazy from cyclopts import Parameter
 lazy from cyclopts.types import ResolvedExistingFile
-lazy from expression import Error, Ok, Result
+lazy from expression import Result
 lazy from expression.extra.result import catch
 
-lazy from eng.python.fitout.assembly import site
+lazy from eng.python.fitout.assembly import reset, site
 lazy from eng.python.fitout.faults import Fault
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -34,7 +33,7 @@ def run(
         pycache: Bytecode cache folder.
 
     Returns:
-        Blender or `open` exit code with output printed, or fault of a failed folder reset or package sync.
+        Blender or `open` exit code with output printed, or fault of a failed folder reset, package sync, or launch.
     """
     folder = Path(".artifacts/blender/evaluate", name).resolve()
     scripts = Path(".cache/blender/scripts").resolve()
@@ -42,42 +41,18 @@ def run(
         BLENDER_USER_RESOURCES=str(folder), TMPDIR=str(folder), PYTHONPYCACHEPREFIX=str(pycache), BLENDER_SYSTEM_SCRIPTS=str(scripts), PYTHONPATH=str(Path("libs/python").resolve())
     )
 
-    def launched(_: int) -> int:
+    def launched(_: int) -> Result[int, Fault]:
         given = ("--python-use-system-env", *arguments)
         log = folder / "blender.log"
-        background = not {"-b", "--background"}.isdisjoint(takewhile(lambda argument: argument != "--", arguments))
-        command: tuple[str | Path, ...] = (
-            (blender, *given)
-            if background or sys.platform != "darwin"
-            else (
-                "/usr/bin/open",
-                "-n",
-                "-g",
-                "-W",
-                "-a",
-                blender.parents[2],
-                *(*("--env", f"{variable}={value}") for variable, value in environment.items()),
-                "--stdout",
-                log,
-                "--stderr",
-                log,
-                "--args",
-                *given,
-            )
-        )
+        direct = sys.platform != "darwin" or not {"-b", "--background"}.isdisjoint(takewhile(lambda argument: argument != "--", arguments))
+        variables = (*("--env", f"{name}={value}") for name, value in environment.items())
+        opened: tuple[str | Path, ...] = ("/usr/bin/open", "-n", "-g", "-W", "-a", blender.parents[2], *variables, "--stdout", log, "--stderr", log, "--args")
         with log.open("ab") as sink:
-            done = subprocess.run(command, env=os.environ | environment, stdout=sink, stderr=subprocess.STDOUT, check=False)
+            done = catch(subprocess.run, exception=OSError)((blender, *given) if direct else (*opened, *given), env=os.environ | environment, stdout=sink, stderr=subprocess.STDOUT, check=False)
         sys.stdout.buffer.write(log.read_bytes())
-        return done.returncode
+        return done.map(lambda finished: finished.returncode).map_error(Fault.of)
 
-    return (
-        catch(shutil.rmtree, exception=OSError)(folder)
-        .or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error))
-        .bind(lambda _: catch(folder.mkdir, exception=OSError)(parents=True))
-        .map_error(Fault.of)
-        .bind(lambda _: site(scripts / "modules", blender=blender))
-        .map(launched)
-    )
+    return reset(folder, Path.mkdir).bind(lambda _: site(scripts / "modules", blender=blender)).bind(launched)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

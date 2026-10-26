@@ -1,7 +1,7 @@
 """Render queue targets and sends."""
 
 from pathlib import Path, PurePath
-from typing import Annotated, Final
+from typing import Final
 
 from expression import Error, Ok, Option
 from expression.extra.result import catch
@@ -30,18 +30,18 @@ _LINES: Final = msgspec.json.Encoder()
 class Renderon(Case, frozen=True, kw_only=True):
     """Jobs written as B-Renderon queue."""
 
-    executable: Annotated[str | None, msgspec.Meta(description="B-Renderon program, queue file alone when absent")] = None
-    blender: Annotated[str, msgspec.Meta(description="B-Renderon name of rendering Blender")] = "Default"
+    executable: str | None = None
+    blender: str = "Default"
 
 
 class JobFile(Case, frozen=True, kw_only=True):
     """Queue job file passed to submission command."""
 
-    folder: Annotated[str | None, msgspec.Meta(description="Job file folder, extension folder when absent")] = None
-    command: Annotated[str | None, msgspec.Meta(description="Program taking job file path, job file alone when absent")] = None
+    folder: str | None = None
+    command: str | None = None
 
 
-class QueueItem(msgspec.Struct, frozen=True, kw_only=True):
+class _QueueItem(msgspec.Struct, frozen=True, kw_only=True):
     """Job as B-Renderon queue line."""
 
     folder: str = msgspec.field(name="ruta_blend")
@@ -72,7 +72,7 @@ def send(target: Target, queue: RenderQueue, host: Host) -> Outcome[tuple[Outcom
     def queued(path: Path) -> Outcome[Path]:
         return RecordFile(path=path, form=RenderQueue).written(queue)
 
-    def lined(path: Path, items: tuple[QueueItem, ...]) -> Outcome[Path]:
+    def lined(path: Path, items: tuple[_QueueItem, ...]) -> Outcome[Path]:
         lines = _LINES.encode_lines(items)
         return committed(path, lambda stage: catch(stage.write_bytes, exception=OSError)(lines).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),)))
 
@@ -87,7 +87,7 @@ def send(target: Target, queue: RenderQueue, host: Host) -> Outcome[tuple[Outcom
             if dependent := tuple(part for part, job in enumerate(queue.jobs) if job.prerequisites):
                 return Error((Fault(reason=RenderingReason.PREREQUISITE, subject=type(target).__name__, member=", ".join(map(str, dependent))),))
             items = tuple(
-                QueueItem(folder=str(file.parent), file=file.name, blender=blender, scene=job.scene, start=str(start), end=str(end))
+                _QueueItem(folder=str(file.parent), file=file.name, blender=blender, scene=job.scene, start=str(start), end=str(end))
                 for job in queue.jobs
                 for file in (PurePath(job.file),)
                 for start, end in (((job.frames.start, job.frames.end),) if job.frames.step == 1 else tuple((frame, frame) for frame in job.frames.numbers))
@@ -104,4 +104,4 @@ def send(target: Target, queue: RenderQueue, host: Host) -> Outcome[tuple[Outcom
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["JobFile", "QueueItem", "Renderon", "Target", "send"]
+__all__ = ["JobFile", "Renderon", "Target", "send"]

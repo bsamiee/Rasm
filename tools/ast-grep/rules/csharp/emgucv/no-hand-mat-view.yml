@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-hand-mat-view
+language: csharp
+severity: error
+utils:
+    data-pointer:
+        kind: member_access_expression
+        has: {field: name, regex: '^DataPointer$'}
+    step-pitch:
+        kind: argument
+        nthChild: 4
+        has: {stopBy: end, kind: member_access_expression, has: {field: name, regex: '^Step$'}}
+    continuous-span:
+        kind: invocation_expression
+        has: {field: function, kind: member_access_expression, has: {field: name, kind: generic_name, has: {kind: identifier, nthChild: 1, regex: '^GetSpan$'}}}
+rule:
+    pattern: $VIEW
+    any:
+        - kind: 'object_creation_expression, implicit_object_creation_expression'
+          has:
+            kind: argument_list
+            all:
+                - has:
+                    kind: argument
+                    nthChild: 1
+                    has:
+                        any:
+                            - kind: cast_expression
+                              has: {field: value, matches: data-pointer}
+                            - kind: invocation_expression
+                              has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToPointer$'}}, {has: {field: expression, matches: data-pointer}}]}
+                - not: {has: {matches: step-pitch}}
+        - kind: invocation_expression
+          has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^As(ReadOnly)?(Span|Memory)2D$'}
+                - has: {field: expression, matches: continuous-span}
+message: '`$VIEW` views a `Mat` by hand length or without `Step` as pitch'
+note: 'Read `GetSpan<T>()` sized by the `Mat`, `new Span2D<T>(pointer, Rows, Cols, pitch)` with `Step` for two dimensions'

@@ -66,7 +66,7 @@ public sealed record MagicNoise(int Depth, float Distortion) {
             Vector3 peak = Vector3.Create(Depth is 0 ? 1f : float.Abs(Distortion));
             (float first, float second) = (Vector3.Sum(Centered(peak)) / 3f, Vector3.Sum(Centered(-peak)) / 3f);
             return float.IsFinite(first) && float.IsFinite(second) ? (float.Min(first, second), float.Max(first, second))
-                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Magic noise at depth {Depth} and distortion {Distortion} has no finite range"));
+                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"magic noise range at depth {Depth} and distortion {Distortion}"), ImagingReason.Range);
         }
     }
 

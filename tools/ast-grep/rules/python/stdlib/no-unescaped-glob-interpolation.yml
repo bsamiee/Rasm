@@ -36,8 +36,9 @@ utils:
     glob-callee:
         any:
             - kind: attribute
-              has: {field: attribute, regex: '^(glob|iglob|rglob|full_match)$'}
-            - matches: {python-member-use: {module: {regex: '^(glob|fnmatch)$'}, name: {regex: '^(glob|iglob|translate)$'}}}
+              has: {field: attribute, regex: '^(glob|rglob|full_match)$'}
+              not: {matches: {python-member-use: {module: {regex: '^glob$'}, name: {regex: '^glob$'}}}}
+            - matches: {python-member-use: {module: {regex: '^(glob|fnmatch)$'}, name: {regex: '^translate$'}}}
     fnmatch-callee:
         matches: {python-member-use: {module: {regex: '^fnmatch$'}, name: {regex: '^(fnmatch|fnmatchcase|filter)$'}}}
     pattern-position:
@@ -46,7 +47,7 @@ utils:
               inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: glob-callee}}}
             - nthChild: 2
               inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: fnmatch-callee}}}
-            - inside: {kind: keyword_argument, field: value, has: {field: name, regex: '^(pathname|pattern|pat)$'}}
+            - inside: {kind: keyword_argument, field: value, has: {field: name, regex: '^(pattern|pat)$'}}
     plain-interpolation:
         kind: interpolation
         not: {has: {kind: 'type_conversion, format_specifier'}}
@@ -54,7 +55,7 @@ rule:
     kind: call
     pattern: $CALL
     all:
-        - has: {field: function, regex: '(^|\.)(glob|iglob|rglob|full_match|translate|fnmatch|fnmatchcase|filter)$|^\w+$'}
+        - has: {field: function, regex: '(^|\.)(glob|rglob|full_match|translate|fnmatch|fnmatchcase|filter)$|^\w+$'}
         - has: {field: function, any: [{matches: glob-callee}, {matches: fnmatch-callee}]}
         - has: {field: arguments, has: {stopBy: {not: {kind: keyword_argument}}, matches: interpolated, all: [{matches: pattern-position}]}}
         - any:

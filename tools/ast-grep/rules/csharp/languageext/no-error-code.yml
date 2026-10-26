@@ -28,13 +28,13 @@ utils:
         any:
             - all:
                 - nthChild: 2
-                - not: {has: {field: name, pattern: $_}}
+                - matches: csharp-positional-argument
             - has: {field: name, regex: '^code$'}
         not: {has: {any: [{kind: integer_literal, regex: '^0$'}, {matches: library-code}]}}
     numbered-code:
         kind: argument
         nthChild: 1
-        not: {has: {field: name, pattern: $_}}
+        matches: csharp-positional-argument
         has:
             any:
                 - kind: integer_literal
@@ -43,7 +43,7 @@ utils:
         inside:
             kind: argument_list
             has: {kind: argument, nthChild: 2}
-            inside: {kind: invocation_expression, has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}}}
+            inside: {kind: invocation_expression, matches: {csharp-owner-call: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}}
     code-cast:
         kind: cast_expression
         all:
@@ -62,4 +62,4 @@ rule:
             - has: {field: name, pattern: $CODE}
             - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: code-cast}}
 message: '`$CODE` supplies a custom error code'
-note: 'Pass code `0` and branch on the error record type, `Error.New(<message>)` where no consumer branches, `ErrorCodes` for a LanguageExt failure'
+note: 'Pass code `0` and branch on error record type, `Error.New(<message>)` where no consumer branches, `ErrorCodes` for LanguageExt failures'

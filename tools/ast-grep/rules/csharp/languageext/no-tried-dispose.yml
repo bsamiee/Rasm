@@ -11,4 +11,4 @@ rule:
         - pattern: Try.lift(() => $X.Dispose()).Run()
         - pattern: Try.lift(() => { $X.Dispose(); return unit; }).Run()
 message: '`$RELEASE` releases `$X` through `Try`'
-note: 'Acquire the resource through `use` and release it at the owning `Bracket`, `Finally(IO.lift(<release>))` pairs a release that holds no handle'
+note: 'Acquire through `use` and release at the owning `Bracket`, `Finally(IO.lift(<release>))` for a release holding no handle'

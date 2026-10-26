@@ -8,7 +8,7 @@ rule:
     pattern: $CALL
     all:
         - has: {field: name, regex: '^(BeginUndoRecord|EndUndoRecord)$'}
-        - not: {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}}
+        - not: {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, matches: csharp-nameof-call}}}}
         - not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^Commits$'}}}
 message: '`$CALL` opens or closes a document undo record'
-note: 'Pass the document edit as `body` of `Commits.Commit(<doc>, <name>, <redraw>, <body>)`'
+note: 'Run the document edit as `Commits.Commit` body with an undo name `[CallerArgumentExpression]` derives'

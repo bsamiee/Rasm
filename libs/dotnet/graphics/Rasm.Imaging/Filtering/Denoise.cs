@@ -121,7 +121,7 @@ public sealed partial class Denoiser : IDisposable {
         oidnGetDeviceError(device, out nint message) switch {
             OidnError.None => unit,
             OidnError.Cancelled => Errors.Cancelled,
-            (OidnError.UnsupportedHardware or OidnError.OutOfMemory) and var refused => new ImagingFault($"Open Image Denoise refused with {refused}. {Marshal.PtrToStringUTF8(message)}"),
+            (OidnError.UnsupportedHardware or OidnError.OutOfMemory) and var refused => new ImagingFault($"Open Image Denoise call answering {refused} {Marshal.PtrToStringUTF8(message)}", ImagingReason.Refused),
             (OidnError.Unknown or OidnError.InvalidArgument or OidnError.InvalidOperation) and var failed =>
                 throw new InvalidOperationException($"Open Image Denoise failed with {failed}. {Marshal.PtrToStringUTF8(message)}"),
         };
@@ -154,7 +154,7 @@ public sealed partial class Denoiser : IDisposable {
             .Traverse(input => (View: input.Frame.Window, Target: color.Window) switch {
                 var (view, target) when input.Frame.Extent == color.Extent && view.Left <= target.Left && view.Top <= target.Top && view.Right >= target.Right && view.Bottom >= target.Bottom =>
                     Fin.Succ(input),
-                var (view, target) => new ImagingFault($"Denoise {input.Role} guide window {view} does not cover color window {target} on its canvas"),
+                var (view, target) => new ImagingFault($"denoise {input.Role} guide window {view} against color window {target}", ImagingReason.Mismatch),
             }).As())
         from token in cancelToken
         from result in IO.lift(() => Denoised(color, selected, prefilter, quality, token, rows))
@@ -164,9 +164,9 @@ public sealed partial class Denoiser : IDisposable {
         using Lock.Scope serialized = gate.EnterScope();
         int version = oidnGetDeviceInt(device, "version");
         if (quality.Since > version)
-            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Denoise quality {quality} needs Open Image Denoise {quality.Since}, host has {version}"));
+            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"denoise quality {quality} from Open Image Denoise {quality.Since} on host {version}"), ImagingReason.Unsupported);
         if (color.Size.Width > MaxSide || color.Size.Height > MaxSide)
-            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Denoise frame {color.Size.Width}x{color.Size.Height} exceeds Open Image Denoise {MaxSide} pixel side limit"));
+            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"denoise frame {color.Size.Width}x{color.Size.Height} for side limit {MaxSide}"), ImagingReason.Oversize);
         nuint bytes = (nuint)color.Block.Length * sizeof(float);
         (nuint size, Seq<(string Role, PixelFrame Frame, nuint Offset)> inputs) = (Role: "color", Frame: color).Cons(selected).Fold(
             (Size: (nuint)0, Inputs: Seq<(string Role, PixelFrame Frame, nuint Offset)>()),

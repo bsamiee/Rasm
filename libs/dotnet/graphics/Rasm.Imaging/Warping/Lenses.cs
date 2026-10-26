@@ -70,7 +70,7 @@ public sealed partial class RadialDistortion {
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref double coefficient, ref double dispersion, ref LensFraming framing, ref LensDirection direction) =>
         validationError = coefficient >= Bounds.Low && coefficient <= Bounds.High && dispersion >= 0d ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Radial coefficient {coefficient} must lie in [{Bounds.Low}, {Bounds.High}] with non-negative dispersion {dispersion}"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"radial coefficient {coefficient} in [{Bounds.Low}, {Bounds.High}] with dispersion {dispersion}"), ImagingReason.Range);
 }
 
 public sealed record AxialDefocus(Iris Iris, ShortSideLength Radius) {

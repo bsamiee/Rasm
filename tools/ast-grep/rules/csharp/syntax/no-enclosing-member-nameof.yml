@@ -6,7 +6,7 @@ rule:
     kind: invocation_expression
     pattern: $LABEL
     all:
-        - has: {field: function, kind: identifier, regex: '^nameof$'}
+        - matches: csharp-nameof-call
         - has: {field: arguments, all: [{not: {has: {kind: argument, nthChild: 2}}}, {has: {kind: argument, has: {kind: identifier, pattern: $NAME}}}]}
         - inside:
             kind: argument
@@ -22,4 +22,4 @@ rule:
             kind: 'method_declaration, property_declaration, event_declaration'
             has: {field: name, pattern: $NAME}
 message: '`$LABEL` names the enclosing member'
-note: 'Take the member name through a `[CallerMemberName]` parameter of the callee and drop the `nameof` argument'
+note: 'Declare a `[CallerMemberName]` parameter on the callee and pass no `nameof` argument'

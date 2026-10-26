@@ -42,7 +42,7 @@ utils:
     lifted-thunk:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}
             - has:
                 field: arguments
                 all:
@@ -54,7 +54,7 @@ utils:
                             all:
                                 - not: {has: {field: type, pattern: $_}}
                                 - not: {has: {kind: modifier, regex: '^async$'}}
-                                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                                - matches: csharp-parameterless
                                 - has:
                                     field: body
                                     pattern: $VALUE
@@ -69,7 +69,7 @@ utils:
                 field: arguments
                 all:
                     - not: {has: {kind: argument, nthChild: 2}}
-                    - has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {pattern: $VALUE}}
+                    - has: {kind: argument, matches: csharp-positional-argument, has: {pattern: $VALUE}}
 rule:
     kind: from_clause
     all:

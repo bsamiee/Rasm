@@ -19,4 +19,4 @@ rule:
                 - has: {field: attribute, regex: '^recreate_defaults$'}
                 - has: {field: object, matches: {python-submodule: {parent: {regex: '^structlog$'}, child: {regex: '^stdlib$'}}}}
 message: '`$CALL` sets process-wide structlog configuration from library or extension code'
-note: 'Move structlog configuration to the process entry module and log through `structlog.get_logger(__name__)`'
+note: 'Configure structlog in each process entry module, and call `structlog.get_logger` elsewhere'

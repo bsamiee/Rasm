@@ -2,9 +2,8 @@
 
 from collections.abc import Callable
 from http import HTTPMethod
-from typing import Annotated
 
-from expression import Error, Nothing, Ok, Option
+from expression import Nothing, Option
 from expression.extra.result import catch
 import httpx2
 import msgspec
@@ -19,8 +18,8 @@ from blender.rendering.faults import RenderingReason
 class Endpoint(msgspec.Struct, frozen=True, kw_only=True):
     """Server address with socket timeout."""
 
-    url: Annotated[str, msgspec.Meta(description="Server address with scheme")]
-    timeout: Annotated[Positive, msgspec.Meta(description="Seconds per connect, read, and write")] = 10.0
+    url: str
+    timeout: Positive = 10.0
 
     def opened[T](self, operation: Callable[[httpx2.Client], Outcome[T]]) -> Outcome[T]:
         """Runs operation inside one client scope, the client closing on every path."""
@@ -55,14 +54,14 @@ def sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[msgs
     return (
         catch(client.send, exception=httpx2.RequestError)(request)
         .map_error(refused)
-        .bind(lambda response: Ok(response) if response.is_success else Error((Fault(reason=RenderingReason.STATUS, subject=url, member=str(response.status_code)),)))
+        .filter_with(lambda response: response.is_success, lambda response: (Fault(reason=RenderingReason.STATUS, subject=url, member=str(response.status_code)),))
     )
 
 
 def exchange[T](client: httpx2.Client, method: HTTPMethod, path: str, reply: type[T], body: Option[msgspec.Struct | bytes] = Nothing) -> Outcome[T]:
     """Sends request and decodes JSON reply."""
     return sent(client, method, path, body).bind(
-        lambda response: catch(lambda: msgspec.json.decode(response.content, type=reply), exception=msgspec.DecodeError)().map_error(
+        lambda response: catch(msgspec.json.decode, exception=msgspec.DecodeError)(response.content, type=reply).map_error(
             lambda error: (Fault(reason=RenderingReason.EXCHANGE, subject=str(response.request.url), cause=error),)
         )
     )

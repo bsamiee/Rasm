@@ -6,7 +6,10 @@ utils:
     query:
         kind: call
         pattern: $SEARCH
-        has: {field: function, regex: '(^|\.)(glob|rglob|iglob|iterdir|listdir|scandir)$'}
+        has:
+            field: function
+            regex: '(^|\.)(glob|rglob|iterdir|scandir)$'
+            not: {matches: {python-member-use: {module: {regex: '^glob$'}, name: {regex: '^glob$'}}}}
     searched:
         any:
             - matches: query

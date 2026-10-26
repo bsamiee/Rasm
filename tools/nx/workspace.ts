@@ -141,7 +141,7 @@ const readCrates = Effect.fnUntraced(function* (store: Store) {
 });
 const readPyproject = Effect.fnUntraced(function* (root: string) {
     const [path, { tool }] = yield* Effect.all([Path.Path, decode(Root, root, PYPROJECT)]);
-    const members = tool.uv.workspace.members;
+    const { members } = tool.uv.workspace;
     const manifests = yield* Effect.forEach(members, (member) => decode(Member, root, path.join(member, PYPROJECT)));
     const moduleRoots = Array.zip(members, manifests).flatMap(([member, { tool: held }]) => Option.match(held.hatch, { onNone: () => [], onSome: ({ build }) => build.devModeDirs.map((folder) => path.join(member, folder)) }));
     return { moduleRoots, ...tool.pytest };
@@ -161,11 +161,11 @@ const openWorkspace = Effect.fnUntraced(function* (root: string) {
 });
 
 // --- [PROJECTS]
+const mirrored = (path: Path.Path, testPaths: readonly string[], dir: string) => testPaths.map((testPath) => path.join(testPath, ...dir.split(path.sep).filter((segment) => segment !== 'python')));
 const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyproject }: Workspace) {
     const [path, { pythonFiles, testPaths }] = yield* Effect.all([Path.Path, pyproject]);
-    const mirrors = testPaths.map((testPath) => path.join(testPath, ...dir.split(path.sep).filter((segment) => segment !== 'python')));
     const suites = yield* Effect.filter(
-        mirrors,
+        mirrored(path, testPaths, dir),
         (mirror) =>
             Effect.map(
                 glob(
@@ -305,8 +305,13 @@ const infer = Effect.fnUntraced(
 );
 
 // --- [ROOT]
-const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts }: Workspace) {
-    const [path, folders] = yield* Effect.all([Path.Path, hosts]);
+const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproject }: Workspace) {
+    const [path, folders, { pythonFiles, testPaths, moduleRoots }] = yield* Effect.all([Path.Path, hosts, pyproject]);
+    const claimed = moduleRoots.flatMap((moduleRoot) => mirrored(path, testPaths, moduleRoot));
+    const unclaimed = (yield* glob(
+        root,
+        testPaths.flatMap((testPath) => pythonFiles.map((pattern) => `${testPath}/**/${pattern}`)),
+    )).filter((file) => !claimed.some((mirror) => !path.relative(mirror, file).startsWith('..')));
     const [[interpreter], scopes, gated] = yield* Effect.all(
         [
             cached(PythonRuntime, { root, cache }, { inputs: ['mise.toml'], argv: ['mise', 'ls', 'python', '--current', '--json'] }),
@@ -360,7 +365,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts }: Work
             '.': {
                 root: '.',
                 targets: {
-                    'lint:ast-grep': versioned(tree, hosted, true),
+                    'lint:ast-grep': versioned(tree, [...hosted, 'ast-grep test --custom-languages allow'], true),
                     rewrite: { command: rewrite },
                     'typecheck:ty': versioned(
                         `ty check ${scopes.map(({ scope }) => `--exclude "${scope}"`).join(' ')}`,
@@ -377,6 +382,7 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts }: Work
                         groups.map(({ version, scoped }) => `python -m tools.refurb --quiet --python-version ${version} ${scoped}`),
                         false,
                     ),
+                    ...(unclaimed.length > 0 ? { test: { command: 'pytest', options: { args: [...testPaths, ...claimed.map((mirror) => `--ignore=${mirror}`)] }, inputs: ['python', 'pythonFiles'] } } : {}),
                 },
             },
         },

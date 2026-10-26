@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-positional-argument
+language: csharp
+rule:
+    kind: argument
+    not: {has: {field: name, pattern: $_}}

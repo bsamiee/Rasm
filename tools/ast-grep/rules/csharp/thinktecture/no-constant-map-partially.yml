@@ -11,4 +11,4 @@ rule:
         - has: {field: arguments, has: {kind: argument, has: {field: name, regex: '^@?default$'}}}
         - not: {has: {field: arguments, has: {kind: argument, has: {kind: 'lambda_expression, anonymous_method_expression'}}}}
 message: '`$MAP` reads a per-case fact through `MapPartially` with a default'
-note: 'Declare the fact as an abstract or `static virtual` member on the union base, each case stating its own value'
+note: 'Declare the fact as an abstract or `static virtual` member on union base that each case overrides'

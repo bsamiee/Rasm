@@ -67,7 +67,7 @@ public sealed record GeneratedLayer(
     public static GeneratedLayer Default { get; } = new(BlendingMode.Mix, 0f);
     public static GeneratedLayer Added { get; } = Default with { Mode = BlendingMode.Add };
 
-    public PixelPass Pass(Action<Span<Vector4>, long, long> fill, (double R, double G, double B) luminance) =>
+    public PixelPass Pass(Action<Span<Vector4>, long, long> fill, Gamut gamut) =>
         (float.Exp2(Exposure), Mode) switch {
             var (gain, mode) => new PixelPass.Pointwise((row, column, line) => {
                 using SpanOwner<Vector4> layer = SpanOwner<Vector4>.Allocate(row.Length);
@@ -76,9 +76,9 @@ public sealed record GeneratedLayer(
                 for (int i = 0; i < row.Length; i++)
                     (weights.Span[i], layer.Span[i]) = (layer.Span[i].W, new Vector4(layer.Span[i].AsVector3() * gain, 1f));
                 if (mode == BlendingMode.Mix)
-                    mode.Composite(row, layer.Span, weights.Span, PixelAlphaRepresentation.Unassociated, luminance);
+                    mode.Composite(row, layer.Span, weights.Span, PixelAlphaRepresentation.Unassociated, gamut);
                 else {
-                    mode.Mixed(row, layer.Span, weights.Span, luminance);
+                    mode.Mixed(row, layer.Span, weights.Span, gamut);
                     layer.Span.CopyTo(row);
                 }
             }),
@@ -113,7 +113,7 @@ public abstract partial record NoiseBasis {
     public Fin<(Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sample, (float Lower, float Upper) Range)> BoundedSampler => Range.Map(range => (Sampler, range));
 
     public Fin<Func<Vector256<double>, uint, (float Value, Vector256<double> Site)>> SiteSampler =>
-        Degenerate ? new Unrenderable("Cell sites", "they need octaves that advance in scale") : Sampler;
+        Degenerate ? new DarkroomFault("cell site sampler", DarkroomReason.Octaves) : Sampler;
 
     private static Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Distorted(NoiseDimensions dimensions, float distortion, Func<Vector256<double>, uint, float> sum) =>
         (point, field) => (sum(dimensions.Distort(point, distortion, CoordinateHash.Branch(field, 0u)), CoordinateHash.Branch(field, 1u)), point);
@@ -236,7 +236,7 @@ public abstract partial record NoiseBasis {
         public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler => (point, hash) => (Dimensions.EdgeDistance(point, Octaves, Randomness, hash), point);
 
         public override Fin<(float Lower, float Upper)> Range =>
-            Octaves.Degenerate ? new Unrenderable(nameof(EdgeDistance), "edge distance needs octaves that advance in scale") : Dimensions.EdgeRange(Octaves, Randomness);
+            Octaves.Degenerate ? new DarkroomFault(nameof(EdgeDistance), DarkroomReason.Octaves) : Dimensions.EdgeRange(Octaves, Randomness);
     }
 
     public sealed record Gabor(
@@ -580,7 +580,7 @@ public sealed record NoiseTexture(
         Func<float, float> opacity = Optional(state.Extinction).Map<Func<float, float>>(static depth => cover => 1f - float.Exp(-depth * cover)).IfNone(static cover => cover);
         RampLight colors = RampLight.Of(state.Colors, context.Working);
         return Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point =>
-            colors.Sample(noise(warp(shape(point))) - rim(point)) switch { var color => new Vector4(light(color), opacity(color.W)) }), context.Working.Luminance));
+            colors.Sample(noise(warp(shape(point))) - rim(point)) switch { var color => new Vector4(light(color), opacity(color.W)) }), context.Working));
     }
 }
 
@@ -622,9 +622,9 @@ public sealed record Fog(
                 PixelFrame spread = new(frame.Origin, frame.Size, frame.Extent);
                 using Mat target = spread.Header();
                 return source.Blur(target, radius.Pixels(context.Extent)).Bind(_ =>
-                    state.Layer.Pass(Fill(state, RampLight.Of(state.Colors, context.Working), opacity, (column, line) => spread.Row(line)[(int)(column - spread.Origin.X)].AsVector3()), context.Working.Luminance).Run(frame, progress));
+                    state.Layer.Pass(Fill(state, RampLight.Of(state.Colors, context.Working), opacity, (column, line) => spread.Row(line)[(int)(column - spread.Origin.X)].AsVector3()), context.Working).Run(frame, progress));
             })),
-            None: () => state.Layer.Pass(Fill(state, RampLight.Of(state.Colors, context.Working), opacity, static (_, _) => Vector3.One), context.Working.Luminance)));
+            None: () => state.Layer.Pass(Fill(state, RampLight.Of(state.Colors, context.Working), opacity, static (_, _) => Vector3.One), context.Working)));
 
     private static Func<long, long, float> Opacity(Fog state, PassContext context, PixelFrame depth, Camera camera, float attenuation) {
         FieldFrame frame = Placement.Default.Frame(context.Extent);
@@ -690,7 +690,7 @@ public sealed record Starfield(
             (float value, Vector256<double> site) = stars(Vector256.Create(point.X / scale, point.Y / scale, 0d, 0d), sites);
             Vector4 draw = CoordinateHash.White(site, draws);
             return new Vector4((draw.Y * (float)double.Clamp(1d - (value * reach), 0d, 1d) * steady(site) * gain * starTable.Sample(draw.X).AsVector3()) + nebula(point), 1f);
-        }), context.Working.Luminance);
+        }), context.Working);
     }
 }
 
@@ -815,7 +815,7 @@ public sealed record ParticleField(
                 }
                 row[x] = new((float)integrated[0], (float)integrated[1], (float)integrated[2], (float)integrated[3]);
             }
-        }, context.Working.Luminance);
+        }, context.Working);
 
         IEnumerable<Mote> Layer(int layer) {
             double middleDepth = (layer + 0.5d) / state.Layers;
@@ -1060,7 +1060,7 @@ public sealed record Shapes(
         return Some(state.Layer.Pass((row, column, line) => {
             for (int i = 0; i < row.Length; i++)
                 row[i] = shade(field(column + i, line), frame.Upward(column + i, line));
-        }, context.Working.Luminance));
+        }, context.Working));
     }
 }
 
@@ -1097,7 +1097,7 @@ public sealed record Lightning(
         })];
         Func<(double Distance, double Width), (double X, double Y), Vector4> shade = state.Style.Shading(context, CoordinateHash.Branch(field, 0u));
         return Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point =>
-            shade(pieces.Aggregate(DistanceField.Outside, (nearest, piece) => piece.Sample(point) switch { var next => next.Distance < nearest.Distance ? next : nearest }), point)), context.Working.Luminance));
+            shade(pieces.Aggregate(DistanceField.Outside, (nearest, piece) => piece.Sample(point) switch { var next => next.Distance < nearest.Distance ? next : nearest }), point)), context.Working));
     }
 }
 
@@ -1113,7 +1113,7 @@ public sealed record Gradient(
     public static Option<PixelPass> Pass(Gradient state, PassContext context) =>
         (state.Kind.Parameter(((float)state.Width, (float)state.Height)), RampFootprint.Of(state.Colors, None)) switch {
             var (parameter, footprint) => Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point =>
-                parameter(point) switch { var (position, slope) => footprint.Mean(position, slope / context.Extent.ShortSide, state.Kind.Periodic) }), context.Working.Luminance)),
+                parameter(point) switch { var (position, slope) => footprint.Mean(position, slope / context.Extent.ShortSide, state.Kind.Periodic) }), context.Working)),
         };
 }
 
@@ -1136,7 +1136,7 @@ public sealed record CornerGradient(
                 float across = (float)ShapeEdge.Smoother(double.Clamp((column + i + 0.5d) / extent.Width, 0d, 1d));
                 row[i] = new Vector4(Vector3.Lerp(Vector3.Lerp(topLeft, topRight, across), Vector3.Lerp(bottomLeft, bottomRight, across), down), 1f);
             }
-        }, context.Working.Luminance));
+        }, context.Working));
     }
 }
 
@@ -1160,7 +1160,7 @@ public sealed record Grid(
     public static Option<PixelPass> Pass(Grid state, PassContext context) =>
         Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(state.Pattern.Shade(
             new GridLattice(state.Cell, (double)state.Cell * state.Aspect, state.Offset, state.LineWidth, ShapeEdge.Band(state.Feather, context.Extent) / context.Extent.ShortSide),
-            Presets.Shown(state.LineColor), Presets.Shown(state.CellColor), Presets.Shown(state.AlternateColor), state.Seed.Field(18u, 0u))), context.Working.Luminance));
+            Presets.Shown(state.LineColor), Presets.Shown(state.CellColor), Presets.Shown(state.AlternateColor), state.Seed.Field(18u, 0u))), context.Working));
 }
 
 public sealed record Stripes(
@@ -1179,7 +1179,7 @@ public sealed record Stripes(
         ((double sin, double cos), double start, double wavelength) = (double.SinCos(state.Bend), state.Phase + ((double)state.Speed * state.Timing.At(context)), state.Wavelength);
         (double width, RampFootprint footprint) = (1d / state.Wavelength.Pixels(context.Extent), RampFootprint.Of(state.Colors, Some(state.Profile)));
         return Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point =>
-            footprint.Mean((((point.Y * cos) + (double.Abs(point.X) * sin)) / wavelength) + start, width, periodic: true)), context.Working.Luminance));
+            footprint.Mean((((point.Y * cos) + (double.Abs(point.X) * sin)) / wavelength) + start, width, periodic: true)), context.Working));
     }
 }
 
@@ -1210,7 +1210,7 @@ public sealed record Letterbox(
         (double small, Func<(double Distance, double Width), (double X, double Y), Vector4> shade) = (double.Min(X, Y), state.Style.Shading(context, state.Seed.Field(Shapes.Stream, 0u)));
         double radius = double.Min(state.Radius, small);
         return Some(state.Layer.Pass(FieldFrame.Centered(context.Extent).Fill(point =>
-            shade(small <= 0d ? DistanceField.Outside : (DistanceField.Rounded(point, (X, Y), radius), 2d * small), point)), context.Working.Luminance));
+            shade(small <= 0d ? DistanceField.Outside : (DistanceField.Rounded(point, (X, Y), radius), 2d * small), point)), context.Working));
     }
 }
 
@@ -1219,9 +1219,9 @@ public sealed partial class FlareAnchor {
     [Display(Name = "Frame position")]
     public static readonly FlareAnchor Frame = new("frame", [], static (position, _, context) => Some((position.Point(context.Extent), Option<float>.None)));
     public static readonly FlareAnchor Sun = new("sun", [GuideChannel.Depth], static (_, _, context) =>
-        context.Lights.ToFin(new Unrenderable("Sun flare anchor", "it needs scene lights")).Map(lights => lights.Sun.Bind(direction => Distant(direction, context))));
+        context.Lights.ToFin(new DarkroomFault("Sun flare anchor", DarkroomReason.Lights)).Map(lights => lights.Sun.Bind(direction => Distant(direction, context))));
     public static readonly FlareAnchor Light = new("light", [GuideChannel.Depth], static (_, light, context) =>
-        Optional(light).Traverse(target => context.Lights.ToFin(new Unrenderable($"Light flare anchor {target}", "it needs scene lights")).Map(lights =>
+        Optional(light).Traverse(target => context.Lights.ToFin(new DarkroomFault($"Light flare anchor {target}", DarkroomReason.Lights)).Map(lights =>
             (from point in lights.Points.Find(target) from camera in context.Camera from located in camera.Pixel(point) select (located.Point, Depth: Some(located.Depth)))
             | lights.Directions.Find(target).Bind(direction => Distant(direction, context)))).As().Map(static located => located.Flatten()));
 
@@ -1312,7 +1312,7 @@ public sealed record LensFlare(
 
     public static Option<PixelPass> Pass(LensFlare state, PassContext context) =>
         state.Source.Pass(context, (point, occlusion) => (frame, progress) =>
-            Fill(state, context, point).Map(fill => state.Layer.Pass(fill(occlusion.Map(occluder => occluder.Visible(point, state.HotspotSize.Pixels(context.Extent))).IfNone(1f)), context.Working.Luminance).Run(frame, progress))
+            Fill(state, context, point).Map(fill => state.Layer.Pass(fill(occlusion.Map(occluder => occluder.Visible(point, state.HotspotSize.Pixels(context.Extent))).IfNone(1f)), context.Working).Run(frame, progress))
                 .IfNone(unit));
 
     private static Option<Func<float, Action<Span<Vector4>, long, long>>> Fill(LensFlare state, PassContext context, (double X, double Y) source) {
@@ -1400,15 +1400,14 @@ public sealed record LightRays(
     public static Option<PixelPass> Pass(LightRays state, PassContext context) =>
         state.Source.Pass(context, (point, occlusion) => (frame, progress) => {
             Func<(double X, double Y), bool> hidden = occlusion.Match(Some: static occluder => (Func<(double X, double Y), bool>)occluder.Hides, None: static () => static _ => false);
-            PixelFrame key = new(frame.Origin, frame.Size, frame.Extent, block => {
-                Span2D<Vector4> keys = block.AsSpan().Cast<float, Vector4>().AsSpan2D(frame.Size.Height, frame.Size.Width);
-                ReadOnlySpan2D<Vector4> light = frame.View.Span;
-                for (int y = 0; y < keys.Height; y++) {
-                    for (int x = 0; x < keys.Width; x++)
-                        keys[y, x] = hidden(((long)frame.Origin.X + x + 0.5d, (long)frame.Origin.Y + y + 0.5d)) ? Vector4.Zero : state.Highlight.Extract(light[y, x]);
-                }
-            });
-            return state.Layer.Pass(Fill(state, context, point, key), context.Working.Luminance).Run(frame, progress);
+            PixelFrame key = new(frame.Origin, frame.Size, frame.Extent);
+            Span2D<Vector4> keys = key.View.Span;
+            ReadOnlySpan2D<Vector4> light = frame.View.Span;
+            for (int y = 0; y < keys.Height; y++) {
+                for (int x = 0; x < keys.Width; x++)
+                    keys[y, x] = hidden(((long)frame.Origin.X + x + 0.5d, (long)frame.Origin.Y + y + 0.5d)) ? Vector4.Zero : state.Highlight.Extract(light[y, x]);
+            }
+            return state.Layer.Pass(Fill(state, context, point, key), context.Working).Run(frame, progress);
         });
 
     private static Action<Span<Vector4>, long, long> Fill(LightRays state, PassContext context, (double X, double Y) source, PixelFrame key) {
@@ -1457,9 +1456,6 @@ file sealed record Bolt((double X, double Y) Start, (double X, double Y) End, do
         return [.. Enumerable.Range(0, segments).Select(k => new Bolt(vertices[k], vertices[k + 1], radius(k / (double)segments), radius((k + 1d) / segments)))];
     }
 }
-
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record Unrenderable(string Subject, string Reason) : Expected($"{Subject} cannot render: {Reason}", 0);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Presets {

@@ -171,7 +171,7 @@ public sealed partial class StandardName : IComparable<StandardName> {
             bySeries[entry.Number.Series] switch { var sequences => sequences.Fold(old, Math.Min) + sequences.TakeWhile(sequence => sequence != old).Count })));
         HashMap<StandardName, int> counts = toHashMap(renumbered.Map(static entry => entry.Number).Concat(others).CountBy(static number => number).Select(static count => (count.Key, count.Value)));
         return renumbered.Map(static (entry, index) => (entry.Sheet, entry.Number, Index: index))
-            .Traverse(entry => DraftingFault.Unless(counts[entry.Number] is 1, DraftingReason.NumberTaken, entry.Index).Map(_ => (entry.Sheet, entry.Number))).As();
+            .Traverse(entry => counts[entry.Number] > 1 ? new DraftingFault(string.Create(CultureInfo.InvariantCulture, $"renumbered sheet {entry.Index} as {entry.Number}"), DraftingReason.NumberTaken) : Fin.Succ((entry.Sheet, entry.Number))).As();
     }
 
     public static Seq<(TSheet Sheet, int Ordinal, int Count)> Positions<TSheet>(Seq<(TSheet Sheet, StandardName Number)> sheets) =>

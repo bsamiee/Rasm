@@ -52,9 +52,9 @@ public static class Adaptation {
 
     public static Fin<Wacton.Unicolour.Temperature> Correlate(Gamut gamut, Vector3 color) =>
         new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, color.X, color.Y, color.Z) switch {
-            { Xyz.Y: <= 0d and var luminance } => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"picked white luminance {luminance} must be positive")),
+            { Xyz.Y: <= 0d and var luminance } => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"picked white luminance {luminance}"), ImagingReason.Range),
             { Temperature: { IsValid: true } correlated } => correlated,
-            var unresolved => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"picked white at ({unresolved.Chromaticity.X}, {unresolved.Chromaticity.Y}) has no temperature and tint")),
+            var unresolved => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"picked white temperature at ({unresolved.Chromaticity.X}, {unresolved.Chromaticity.Y})"), ImagingReason.Range),
         };
 }
 

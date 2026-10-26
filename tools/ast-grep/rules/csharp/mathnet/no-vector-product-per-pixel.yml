@@ -22,4 +22,4 @@ rule:
                     - has: {field: type, regex: '^DenseVector$'}
                     - has: {kind: variable_declarator, has: {field: name, pattern: $VECTOR}}
 message: '`$PRODUCT` multiplies a MathNet matrix once per pixel'
-note: 'Bake the matrix once and run `ImageProcessing.ApplyColorMatrix(samples, samples, 4, baked)` over the row, `Matrix4x4` with `Vector3.Transform` inside a non-linear chain'
+note: 'Bake matrix once, run `ImageProcessing.ApplyColorMatrix(samples, samples, 4, baked)` over each row, `Matrix4x4` with `Vector3.Transform` inside non-linear chains'

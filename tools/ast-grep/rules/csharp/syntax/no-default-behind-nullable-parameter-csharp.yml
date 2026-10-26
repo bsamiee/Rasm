@@ -73,7 +73,7 @@ utils:
                     kind: member_access_expression
                     all:
                         - has: {field: name, regex: '^(IfNone|IfNoneUnsafe)$'}
-                        - has: {field: expression, kind: invocation_expression, all: [{has: {field: function, matches: {csharp-type-name: {name: {regex: '^Optional$'}}}}}, {has: {field: arguments, has: {kind: argument, has: {matches: read}}}}]}
+                        - has: {field: expression, kind: invocation_expression, all: [{matches: {csharp-named-call: {name: {regex: '^Optional$'}}}}, {has: {field: arguments, has: {kind: argument, has: {matches: read}}}}]}
                 - has: {field: arguments, has: {kind: argument, has: {pattern: $DEFAULT}}}
             - kind: conditional_expression
               all:
@@ -141,4 +141,4 @@ rule:
                         - has: {kind: explicit_interface_specifier}
                 has: {field: body, has: {stopBy: end, any: [{matches: resolution}, {matches: relayed}], all: [{matches: unshadowed}]}}
 message: 'Parameter `$PARAMETER` defaults to null and the body resolves null to `$DEFAULT`'
-note: 'Set a constant default in the signature, else take `Option<T>` resolved with `IfNone` or declare one overload per case'
+note: 'Set a constant default, else declare one overload per case or an `init` member defaulting to `None`'

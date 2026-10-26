@@ -122,7 +122,7 @@ public sealed partial class PointCurve {
             && points.All(static point => CurveAxis.Stops.Contains(point.X) && CurveAxis.Stops.Contains(point.Y))
             && points.Zip(points.Skip(1)).All(static pair => pair.First.X < pair.Second.X && pair.First.Y <= pair.Second.Y)
                 ? null
-                : new ImagingFault("point curve needs 2 or more stop axis points, inputs ascending and outputs non-descending");
+                : new ImagingFault("point curve of 2 or more ascending stop axis points with non-descending outputs", ImagingReason.Degenerate);
 }
 
 public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Blue, PointCurve Master) {
@@ -173,7 +173,7 @@ public sealed partial class HueCurve {
             && points.All(point => input.Contains(point.X) && point.Y >= output.Low && point.Y <= output.High)
             && points.Zip(points.Skip(1)).All(static pair => pair.First.X < pair.Second.X)
                 ? null
-                : new ImagingFault("Hue curve needs 2 or more points inside its kind's axes, inputs ascending");
+                : new ImagingFault("hue curve of 2 or more ascending points inside its kind's axes", ImagingReason.Degenerate);
     }
 }
 

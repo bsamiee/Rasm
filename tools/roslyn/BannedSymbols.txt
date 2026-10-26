@@ -1,62 +1,64 @@
-P:System.DateTime.Now;Read `GetLocalNow()` from a `TimeProvider` argument
-P:System.DateTime.UtcNow;Read `GetUtcNow()` from a `TimeProvider` argument
-P:System.DateTime.Today;Read `GetLocalNow().Date` from a `TimeProvider` argument
-P:System.DateTimeOffset.Now;Read `GetLocalNow()` from a `TimeProvider` argument
-P:System.DateTimeOffset.UtcNow;Read `GetUtcNow()` from a `TimeProvider` argument
-P:System.Environment.TickCount;Read `GetTimestamp()` from a `TimeProvider` argument
-P:System.Environment.TickCount64;Read `GetTimestamp()` from a `TimeProvider` argument
-M:System.Diagnostics.Stopwatch.#ctor;Read `GetTimestamp()` and `GetElapsedTime(start)` from a `TimeProvider` argument
-M:System.Diagnostics.Stopwatch.StartNew;Read `GetTimestamp()` and `GetElapsedTime(start)` from a `TimeProvider` argument
-M:System.Diagnostics.Stopwatch.GetTimestamp;Read `GetTimestamp()` from a `TimeProvider` argument
-M:System.Diagnostics.Stopwatch.GetElapsedTime(System.Int64);Read `GetElapsedTime(start)` from a `TimeProvider` argument
-M:System.Diagnostics.Stopwatch.GetElapsedTime(System.Int64,System.Int64);Read `GetElapsedTime(start, end)` from a `TimeProvider` argument
-F:System.Diagnostics.Stopwatch.Frequency;Read `GetElapsedTime(start)` from a `TimeProvider` argument
-P:System.TimeProvider.TimestampFrequency;Read `GetElapsedTime(start)` from the `TimeProvider`, the timestamp ratio restates it
-P:NodaTime.SystemClock.Instance;Take the clock as a `TimeProvider` argument
+P:System.DateTime.Now;Ambient clock, read `GetLocalNow()` from a `TimeProvider` argument
+P:System.DateTime.UtcNow;Ambient clock, read `GetUtcNow()` from a `TimeProvider` argument
+P:System.DateTime.Today;Ambient clock, read `GetLocalNow().Date` from a `TimeProvider` argument
+P:System.DateTimeOffset.Now;Ambient clock, read `GetLocalNow()` from a `TimeProvider` argument
+P:System.DateTimeOffset.UtcNow;Ambient clock, read `GetUtcNow()` from a `TimeProvider` argument
+P:System.Environment.TickCount;Ambient clock, read `GetTimestamp()` from a `TimeProvider` argument
+P:System.Environment.TickCount64;Ambient clock, read `GetTimestamp()` from a `TimeProvider` argument
+M:System.Diagnostics.Stopwatch.#ctor;Ambient clock, read `GetTimestamp()` and `GetElapsedTime(start)` from a `TimeProvider` argument
+M:System.Diagnostics.Stopwatch.StartNew;Ambient clock, read `GetTimestamp()` and `GetElapsedTime(start)` from a `TimeProvider` argument
+M:System.Diagnostics.Stopwatch.GetTimestamp;Ambient clock, read `GetTimestamp()` from a `TimeProvider` argument
+M:System.Diagnostics.Stopwatch.GetElapsedTime(System.Int64);Ambient clock, read `GetElapsedTime(start)` from a `TimeProvider` argument
+M:System.Diagnostics.Stopwatch.GetElapsedTime(System.Int64,System.Int64);Ambient clock, read `GetElapsedTime(start, end)` from a `TimeProvider` argument
+F:System.Diagnostics.Stopwatch.Frequency;Ambient tick ratio restates elapsed time, read `GetElapsedTime(start)` from a `TimeProvider` argument
+P:System.TimeProvider.TimestampFrequency;Timestamp ratio restates elapsed time, call `GetElapsedTime(start)` on the `TimeProvider`
+P:NodaTime.SystemClock.Instance;Ambient clock, read time from a `TimeProvider` argument
 M:System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(System.Type);Creates an instance without running a constructor, call a declared factory or public constructor
 M:System.Runtime.Serialization.FormatterServices.GetUninitializedObject(System.Type);Creates an instance without running a constructor, call a declared factory or public constructor
 M:System.Runtime.Serialization.FormatterServices.GetSafeUninitializedObject(System.Type);Creates an instance without running a constructor, call a declared factory or public constructor
 P:System.Reflection.TypeInfo.DeclaredConstructors;Lists non-public constructors, call a declared factory or public constructor
-M:System.Activator.CreateInstance(System.Type,System.Object[]);Call a declared factory or public constructor
+M:System.Activator.CreateInstance(System.Type,System.Object[]);Binds a constructor at runtime from argument types, call a declared factory or public constructor
 M:System.Activator.CreateInstance(System.Type,System.Boolean);Reaches non-public constructors, call a declared factory or public constructor
 M:System.Activator.CreateInstance(System.Type,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo);Reaches non-public constructors, call a declared factory or public constructor
 M:System.Activator.CreateInstance(System.Type,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Reaches non-public constructors, call a declared factory or public constructor
-M:System.Linq.Expressions.Expression.Call(System.Linq.Expressions.Expression,System.String,System.Type[],System.Linq.Expressions.Expression[]);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
-M:System.Linq.Expressions.Expression.Call(System.Type,System.String,System.Type[],System.Linq.Expressions.Expression[]);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
-M:System.Linq.Expressions.Expression.Field(System.Linq.Expressions.Expression,System.String);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
-M:System.Linq.Expressions.Expression.Field(System.Linq.Expressions.Expression,System.Type,System.String);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
-M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.String);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
-M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.String,System.Linq.Expressions.Expression[]);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
-M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.Type,System.String);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
-M:System.Linq.Expressions.Expression.PropertyOrField(System.Linq.Expressions.Expression,System.String);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
-M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
-M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String,System.Boolean);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
-M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String,System.Boolean,System.Boolean);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
-M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
-M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String,System.Boolean);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
-M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String,System.Boolean,System.Boolean);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
-M:System.Type.GetInterfaceMap(System.Type);Read the static abstract member through a type parameter constrained to the interface
-M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[]);Call the member directly, or through an `UnsafeAccessor` extern for a non-public one
-M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[],System.Globalization.CultureInfo);Call the member directly, or through an `UnsafeAccessor` extern for a non-public one
-M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[],System.Reflection.ParameterModifier[],System.Globalization.CultureInfo,System.String[]);Call the member directly, or through an `UnsafeAccessor` extern for a non-public one
-M:System.Activator.CreateInstance(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.Activator.CreateInstance(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.Activator.CreateInstance(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.Activator.CreateInstanceFrom(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.Activator.CreateInstanceFrom(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.Activator.CreateInstanceFrom(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstance(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstance(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstance(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstanceFrom(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstanceFrom(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstanceFrom(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
-M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Linq.Expressions.Expression.Call(System.Linq.Expressions.Expression,System.String,System.Type[],System.Linq.Expressions.Expression[]);Binds a member by string, name it through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Call(System.Type,System.String,System.Type[],System.Linq.Expressions.Expression[]);Binds a member by string, name it through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Field(System.Linq.Expressions.Expression,System.String);Binds a member by string, name it through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Field(System.Linq.Expressions.Expression,System.Type,System.String);Binds a member by string, name it through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.String);Binds a member by string, name it through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.String,System.Linq.Expressions.Expression[]);Binds a member by string, name it through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.Type,System.String);Binds a member by string, name it through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.PropertyOrField(System.Linq.Expressions.Expression,System.String);Binds a member by string, name it through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String);Binds a method by string, convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String,System.Boolean);Binds a method by string, convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String,System.Boolean,System.Boolean);Binds a method by string, convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String);Binds a method by string, convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String,System.Boolean);Binds a method by string, convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String,System.Boolean,System.Boolean);Binds a method by string, convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Type.GetInterfaceMap(System.Type);Maps interface members by reflection, read static abstract members through a type parameter constrained to their interface
+M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[]);Binds a member by string, call it directly or through an `UnsafeAccessor` extern when non-public
+M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[],System.Globalization.CultureInfo);Binds a member by string, call it directly or through an `UnsafeAccessor` extern when non-public
+M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[],System.Reflection.ParameterModifier[],System.Globalization.CultureInfo,System.String[]);Binds a member by string, call it directly or through an `UnsafeAccessor` extern when non-public
+M:System.Activator.CreateInstance(System.String,System.String);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Activator.CreateInstance(System.String,System.String,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Activator.CreateInstance(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Activator.CreateInstanceFrom(System.String,System.String);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Activator.CreateInstanceFrom(System.String,System.String,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Activator.CreateInstanceFrom(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstance(System.String,System.String);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstance(System.String,System.String,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstance(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFrom(System.String,System.String);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFrom(System.String,System.String,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFrom(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Resolves a type from name strings, construct through `new` or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.IO.Path.GetInvalidFileNameChars;macOS set of NUL and `/` passes names Windows rejects, declare one `SearchValues<char>` over the portable reserved set
+M:System.IO.Path.GetInvalidPathChars;macOS set of NUL alone passes paths Windows rejects, declare one `SearchValues<char>` over the portable reserved set
 M:System.Numerics.Vector2.LessThanAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AllWhereAllBitsSet(Vector2.LessThan(left, right))`
 M:System.Numerics.Vector2.LessThanAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AnyWhereAllBitsSet(Vector2.LessThan(left, right))`
 M:System.Numerics.Vector2.LessThanOrEqualAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AllWhereAllBitsSet(Vector2.LessThanOrEqual(left, right))`
@@ -77,35 +79,41 @@ M:System.Numerics.Vector3.GreaterThanOrEqualAll(System.Numerics.Vector3,System.N
 M:System.Numerics.Vector3.GreaterThanOrEqualAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call `Vector3.AnyWhereAllBitsSet(Vector3.GreaterThanOrEqual(left, right))`
 M:System.Numerics.Vector3.EqualsAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, test `left == right`
 M:System.Numerics.Vector3.EqualsAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call `Vector3.AnyWhereAllBitsSet(Vector3.Equals(left, right))`
-M:Thinktecture.Empty.Action;Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``1(``0);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``2(``0,``1);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``3(``0,``1,``2);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``4(``0,``1,``2,``3);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``5(``0,``1,``2,``3,``4);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``6(``0,``1,``2,``3,``4,``5);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``7(``0,``1,``2,``3,``4,``5,``6);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``8(``0,``1,``2,``3,``4,``5,``6,``7);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``9(``0,``1,``2,``3,``4,``5,``6,``7,``8);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``10(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``11(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``12(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``13(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``14(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``15(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13,``14);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Action``16(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13,``14,``15);Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.Disposable;Declare the optional callback as an `init` member holding its default
-M:Thinktecture.Empty.AsyncDisposable;Declare the optional callback as an `init` member holding its default
-P:System.Reactive.Disposables.Disposable.Empty;Declare the optional callback as an `init` member holding its default
-M:Rhino.Runtime.CommonObject.FromBase64String(System.Int32,System.Int32,System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
-M:Rhino.Geometry.SerializableExtensions.ToEncodedString(System.Runtime.Serialization.ISerializable);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
-M:Rhino.Geometry.SerializableExtensions.FromEncodedString``1(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
-M:Rhino.Geometry.MeshingParameters.ToEncodedString;String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
-M:Rhino.Geometry.MeshingParameters.FromEncodedString(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
-M:Rhino.Geometry.SubDDisplayParameters.ToEncodedString;String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
-M:Rhino.Geometry.SubDDisplayParameters.FromEncodedString(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
-M:Rhino.FileIO.DracoCompression.ToBase64String;String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
-M:Rhino.FileIO.DracoCompression.DecompressBase64String(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:MathNet.Numerics.RootFinding.Bisection.FindRoot(System.Func{System.Double,System.Double},System.Double,System.Double,System.Double,System.Int32);Throws `NonConvergenceException`, call `Bisection.TryFindRoot` and return the failure as data
+M:MathNet.Numerics.RootFinding.Brent.FindRoot(System.Func{System.Double,System.Double},System.Double,System.Double,System.Double,System.Int32);Throws `NonConvergenceException`, call `Brent.TryFindRoot` and return the failure as data
+M:MathNet.Numerics.RootFinding.Broyden.FindRoot(System.Func{System.Double[],System.Double[]},System.Double[],System.Double,System.Int32,System.Double);Throws `NonConvergenceException`, call `Broyden.TryFindRoot` and return the failure as data
+M:MathNet.Numerics.RootFinding.NewtonRaphson.FindRoot(System.Func{System.Double,System.Double},System.Func{System.Double,System.Double},System.Double,System.Double,System.Double,System.Int32);Throws `NonConvergenceException`, call `NewtonRaphson.TryFindRoot` and return the failure as data
+M:MathNet.Numerics.RootFinding.RobustNewtonRaphson.FindRoot(System.Func{System.Double,System.Double},System.Func{System.Double,System.Double},System.Double,System.Double,System.Double,System.Int32,System.Int32);Throws `NonConvergenceException`, call `RobustNewtonRaphson.TryFindRoot` and return the failure as data
+M:MathNet.Numerics.RootFinding.Secant.FindRoot(System.Func{System.Double,System.Double},System.Double,System.Double,System.Double,System.Double,System.Double,System.Int32);Throws `NonConvergenceException`, call `Secant.TryFindRoot` and return the failure as data
+M:Thinktecture.Empty.Action;No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``1(``0);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``2(``0,``1);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``3(``0,``1,``2);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``4(``0,``1,``2,``3);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``5(``0,``1,``2,``3,``4);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``6(``0,``1,``2,``3,``4,``5);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``7(``0,``1,``2,``3,``4,``5,``6);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``8(``0,``1,``2,``3,``4,``5,``6,``7);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``9(``0,``1,``2,``3,``4,``5,``6,``7,``8);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``10(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``11(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``12(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``13(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``14(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``15(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13,``14);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Action``16(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13,``14,``15);No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.Disposable;No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Thinktecture.Empty.AsyncDisposable;No-op placeholder value, declare optional callbacks as `init` members holding their default
+P:System.Reactive.Disposables.Disposable.Empty;No-op placeholder value, declare optional callbacks as `init` members holding their default
+M:Rhino.Runtime.CommonObject.FromBase64String(System.Int32,System.Int32,System.String);String round trips rebuild host objects per decode, hold the object in one `use` scope across every host call
+M:Rhino.Geometry.SerializableExtensions.ToEncodedString(System.Runtime.Serialization.ISerializable);String round trips rebuild host objects per decode, hold the object in one `use` scope across every host call
+M:Rhino.Geometry.SerializableExtensions.FromEncodedString``1(System.String);String round trips rebuild host objects per decode, hold the object in one `use` scope across every host call
+M:Rhino.Geometry.MeshingParameters.ToEncodedString;String round trips rebuild host objects per decode, hold the object in one `use` scope across every host call
+M:Rhino.Geometry.MeshingParameters.FromEncodedString(System.String);String round trips rebuild host objects per decode, hold the object in one `use` scope across every host call
+M:Rhino.Geometry.SubDDisplayParameters.ToEncodedString;String round trips rebuild host objects per decode, hold the object in one `use` scope across every host call
+M:Rhino.Geometry.SubDDisplayParameters.FromEncodedString(System.String);String round trips rebuild host objects per decode, hold the object in one `use` scope across every host call
+M:Rhino.FileIO.DracoCompression.ToBase64String;String round trips rebuild host objects per decode, hold the object in one `use` scope across every host call
+M:Rhino.FileIO.DracoCompression.DecompressBase64String(System.String);String round trips rebuild host objects per decode, hold the object in one `use` scope across every host call
 P:Rhino.Collections.ArchivableDictionary.Item(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`, write through `Set(key, value)`
 M:Rhino.Collections.ArchivableDictionary.GetString(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
 M:Rhino.Collections.ArchivableDictionary.GetDictionary(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
@@ -143,7 +151,7 @@ M:Rhino.PersistentSettings.GetPoint3d(System.String);Throws on a missing key, re
 M:Rhino.PersistentSettings.GetSize(System.String);Throws on a missing key, read through `TryGetSize(key, out value)`
 M:Rhino.PersistentSettings.GetRectangle(System.String);Throws on a missing key, read through `TryGetRectangle(key, out value)`
 M:Rhino.PersistentSettings.GetEnumValue``1(System.String);Throws on a missing key, read through `TryGetEnumValue<T>(key, out value)`
-M:Rhino.Display.RhinoViewport.FromId(System.Guid);Returns null for a detail viewport and another document's viewport for a repeated id, match `doc.Objects.FindId(id) is DetailViewObject`, then `doc.Views.Find(id)`
+M:Rhino.Display.RhinoViewport.FromId(System.Guid);Returns null for detail viewports and another document's viewport for repeated ids, match `doc.Objects.FindId(id) is DetailViewObject`, then `doc.Views.Find(id)`
 P:Rhino.Display.DisplayPipeline.DpiScale;Reads 1 for a view not on screen, read `RhinoEtoApp.MainWindowForDocument(view.Document).LogicalPixelSize`
 M:Rhino.Display.DisplayBitmap.Update(System.Drawing.Bitmap);Flips images vertically while its constructor does not, create `new DisplayBitmap(bitmap)` per change and dispose the old one
 M:Rhino.Render.PostEffects.PostEffectCollection.PostEffectDataFromId(System.Guid);Answers a missing id with data that throws `Exception` on first use, find the id among enumerated `PostEffectData` rows
@@ -158,9 +166,9 @@ M:Foundation.NSObject.BeginInvokeOnMainThread(ObjCRuntime.Selector,Foundation.NS
 M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(System.EventHandler{Foundation.NSNotificationEventArgs});Registers on `NSNotificationCenter.DefaultCenter` while AppKit posts to the workspace center, call `NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)`
 M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(Foundation.NSObject,System.EventHandler{Foundation.NSNotificationEventArgs});Registers on `NSNotificationCenter.DefaultCenter` while AppKit posts to the workspace center, call `NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)`
 P:AppKit.NSWindow.Animator;Throws `RuntimeException` on an Eto `FloatingForm`, write Eto `Window.Bounds` from an `Animated` sampled on `FrameLinks.Linked` ticks
-T:System.Diagnostics.Debug;Log through an `ILogger` the composition root creates, replace an assertion with a type excluding asserted state
-T:System.Diagnostics.Trace;Log through an `ILogger` the composition root creates
-M:System.Diagnostics.Debugger.Log(System.Int32,System.String,System.String);Log through an `ILogger` the composition root creates
-T:System.Diagnostics.TraceSource;Log through an `ILogger` the composition root creates
-M:Microsoft.Extensions.Logging.ILoggerFactory.CreateLogger(System.String);Derive the category from a type, `CreateLogger(Type)` or `CreateLogger<T>()` name it
-M:Microsoft.Extensions.Logging.LoggerFactory.CreateLogger(System.String);Derive the category from a type, `CreateLogger(Type)` or `CreateLogger<T>()` name it
+T:System.Diagnostics.Debug;Static output sink, log through an `ILogger` the composition root creates, replace assertions with types excluding asserted state
+T:System.Diagnostics.Trace;Static output sink, log through an `ILogger` the composition root creates
+M:System.Diagnostics.Debugger.Log(System.Int32,System.String,System.String);Static output sink, log through an `ILogger` the composition root creates
+T:System.Diagnostics.TraceSource;Static output sink, log through an `ILogger` the composition root creates
+M:Microsoft.Extensions.Logging.ILoggerFactory.CreateLogger(System.String);String logger category, call `CreateLogger(Type)` or `CreateLogger<T>()` to derive it from a type
+M:Microsoft.Extensions.Logging.LoggerFactory.CreateLogger(System.String);String logger category, call `CreateLogger(Type)` or `CreateLogger<T>()` to derive it from a type

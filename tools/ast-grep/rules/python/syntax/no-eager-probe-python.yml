@@ -3,21 +3,25 @@ id: no-eager-probe-python
 language: python
 severity: error
 utils:
+    lazy-filter:
+        any:
+            - matches: {python-builtin-name: {name: {regex: '^(filter|map)$'}}}
+            - matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^filterfalse$'}}}
     materialized:
         any:
             - kind: 'list_comprehension, set_comprehension, dictionary_comprehension'
             - kind: call
               all:
-                - has: {field: function, regex: '^(list|tuple|set|frozenset|dict|sorted)$'}
-                - has: {field: arguments, all: [{has: {nthChild: 1, any: [{kind: generator_expression}, {kind: call, has: {field: function, regex: '^(filter|map|itertools\.filterfalse|filterfalse)$'}}]}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(list|tuple|set|frozenset|dict|sorted)$'}}}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, any: [{kind: generator_expression}, {kind: call, has: {field: function, matches: lazy-filter}}]}}, {not: {has: {nthChild: 2}}}]}
     count:
         kind: call
         any:
             - all:
-                - has: {field: function, regex: '^len$'}
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^len$'}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: materialized}}, {not: {has: {nthChild: 2}}}]}
             - all:
-                - has: {field: function, regex: '^sum$'}
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^sum$'}}}}
                 - has: {field: arguments, kind: generator_expression, has: {field: body, regex: '^(1|True)$'}}
     condition:
         any:
@@ -29,7 +33,7 @@ utils:
     refurb-length-test:
         kind: comparison_operator
         all:
-            - has: {nthChild: 1, kind: call, has: {field: function, regex: '^len$'}}
+            - has: {nthChild: 1, kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^len$'}}}}}
             - not: {has: {field: operators, regex: '^<$'}}
             - matches: condition
     zero:
@@ -54,7 +58,7 @@ rule:
           any:
             - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
             - inside: {kind: not_operator, field: argument}
-            - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^bool$'}}}
+            - inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^bool$'}}}}}}
         - kind: comparison_operator
           all:
             - has: {field: operators, regex: '^(not\s+)?in$'}

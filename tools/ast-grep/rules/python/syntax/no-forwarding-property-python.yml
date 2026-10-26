@@ -37,8 +37,6 @@ utils:
             - matches: {python-builtin-name: {name: {regex: '^property$'}}}
             - matches: {python-member-use: {module: {regex: '^(enum|types)$'}, name: {regex: '^(property|DynamicClassAttribute)$'}}}
             - matches: caching-callee
-    override-callee:
-        matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^override$'}}}
     property-decorator:
         kind: decorator
         has: {matches: property-callee}
@@ -89,7 +87,7 @@ rule:
                 - inside:
                     kind: decorated_definition
                     has: {matches: property-decorator}
-                    not: {has: {kind: decorator, not: {any: [{matches: property-decorator}, {has: {matches: override-callee}}]}}}
+                    not: {has: {kind: decorator, not: {any: [{matches: property-decorator}, {has: {matches: typing-override}}]}}}
                 - has: {field: name, pattern: $NAME}
                 - has: {field: parameters, matches: single-parameter}
                 - has:
@@ -97,7 +95,7 @@ rule:
                     matches: python-single-statement-block
                     has: {kind: return_statement, has: {matches: forwarded-value}}
                 - any:
-                    - not: {inside: {kind: decorated_definition, has: {kind: decorator, has: {matches: override-callee}}}}
+                    - not: {inside: {kind: decorated_definition, has: {kind: decorator, has: {matches: typing-override}}}}
                     - has: {field: body, has: {kind: return_statement, has: {pattern: super().$NAME}}}
             - kind: assignment
               all:

@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msgspec-frozen-class
+language: python
+rule:
+    kind: class_definition
+    has: {field: superclasses, has: {kind: keyword_argument, regex: '^frozen\s*=\s*True$'}}

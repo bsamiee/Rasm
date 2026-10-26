@@ -21,7 +21,7 @@ utils:
                 has: {field: type, matches: message-base}
             - inside:
                 kind: invocation_expression
-                has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}}
+                matches: {csharp-owner-call: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}
 rule:
     kind: string_literal, verbatim_string_literal, raw_string_literal
     pattern: $TEXT

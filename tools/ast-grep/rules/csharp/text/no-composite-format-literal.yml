@@ -22,7 +22,7 @@ utils:
                         - has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {matches: composite-text}}]}}
     format-argument:
         kind: argument
-        not: {has: {field: name, pattern: $_}}
+        matches: csharp-positional-argument
         has: {nthChild: {position: 1, reverse: true}, pattern: $FORMAT, any: [{matches: composite-text}, {matches: relayed-text}]}
     format-call:
         has:

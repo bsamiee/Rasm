@@ -6,19 +6,16 @@ files: ['**/rhino/**']
 utils:
     zero:
         regex: '^0*\.?0+[fFdDmM]?$'
-    positional:
-        kind: argument
-        not: {has: {field: name, kind: identifier}}
     fade-amount:
         kind: argument
         any:
             - has: {field: name, regex: '^fadeAmount$'}
-            - {matches: positional, nthChild: 2}
+            - {matches: csharp-positional-argument, nthChild: 2}
     lead-amount:
         kind: argument
         any:
             - has: {field: name, regex: '^(transparencyAmount|hatchStrength)$'}
-            - {matches: positional, nthChild: 1}
+            - {matches: csharp-positional-argument, nthChild: 1}
     effect:
         kind: invocation_expression
         any:
@@ -83,4 +80,4 @@ rule:
                             - has: {field: arguments, has: {matches: amount-argument, has: {nthChild: {position: 1, reverse: true}, matches: zero}}}
                         - has: {stopBy: end, kind: invocation_expression, all: *cleared}
 message: '`$ATTRS.$EFFECT` sets amount `$AMOUNT` that every later object in the frame inherits'
-note: 'Call `<attributes>.<effect>` with amount `0` after the draw, in the same callback'
+note: 'Reset `<attributes>.<effect>` to amount `0` after the draw in its callback'

@@ -81,13 +81,25 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
     protected static bool Among<T>(ISymbol? symbol, ImmutableArray<T> members) where T : class, ISymbol => members.Any(member => Same(symbol, member));
 
-    protected static bool Within(ISymbol? symbol, ISymbol? owner) =>
-        symbol is not null && owner is not null && (Same(symbol, owner) || Within(symbol.ContainingSymbol, owner));
+    protected static IEnumerable<ISymbol> Containers(ISymbol? symbol) => symbol is null ? [] : Containers(symbol.ContainingSymbol).Prepend(symbol);
 
-    protected static bool Derives(ITypeSymbol? type, INamedTypeSymbol root) =>
-        type is not null && (Same(type, root) || Derives(type.BaseType, root));
+    protected static IEnumerable<ITypeSymbol> Bases(ITypeSymbol? type) => type is null ? [] : Bases(type.BaseType).Prepend(type);
+
+    protected static bool Within(ISymbol? symbol, ISymbol? owner) => owner is not null && Containers(symbol).Any(held => Same(held, owner));
+
+    protected static bool Namespaced(Compilation compilation, ISymbol symbol, ISymbol? space) =>
+        symbol.ContainingNamespace is { } held && Within(compilation.GetCompilationNamespace(held), space);
+
+    protected static ISymbol Enclosing(ISymbol symbol) =>
+        Containers(symbol).First(static held => held is not IMethodSymbol { MethodKind: MethodKind.AnonymousFunction or MethodKind.LocalFunction });
+
+    protected static bool Derives(ITypeSymbol? type, INamedTypeSymbol root) => Bases(type).Any(held => Same(held, root));
+
+    protected static IEnumerable<INamedTypeSymbol> Faces(ITypeSymbol type, ISymbol? face) => type.AllInterfaces.Where(held => Same(held, face));
 
     protected static AttributeData? Marked(ISymbol symbol, INamedTypeSymbol? attribute) => symbol.GetAttributes().FirstOrDefault(data => attribute is not null && Same(data.AttributeClass, attribute));
+
+    protected static AttributeData? Marked(ISymbol symbol, ImmutableArray<INamedTypeSymbol> attributes) => symbol.GetAttributes().FirstOrDefault(data => Among(data.AttributeClass, attributes));
 
     protected static bool Sourced(ISymbol symbol) => symbol.Locations.Any(static location => location.IsInSource);
 
@@ -124,6 +136,27 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
     protected static IOperation Stripped(IOperation operation) =>
         operation is IConversionOperation { IsImplicit: true } conversion ? Stripped(conversion.Operand) : operation;
+
+    protected static IAnonymousFunctionOperation? Lambda(IOperation value) => Stripped(value) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation function } ? function : null;
+
+    protected static ISymbol? Variable(IOperation reference) =>
+        reference switch {
+            IParameterReferenceOperation parameter => parameter.Parameter,
+            ILocalReferenceOperation local => local.Local,
+            _ => null,
+        };
+
+    protected static ImmutableArray<IOperation> Steps(IBlockOperation body) =>
+        [.. body.Operations.Where(static step => step is not IReturnOperation { ReturnedValue: null, IsImplicit: true }).Select(Unwrapped)];
+
+    protected static IOperation? Sole(IBlockOperation body) => Steps(body) is { Length: 1 } steps ? steps[0] : null;
+
+    private static IOperation Unwrapped(IOperation step) =>
+        step switch {
+            IReturnOperation { ReturnedValue: { } returned } => Stripped(returned),
+            IExpressionStatementOperation statement => Stripped(statement.Operation),
+            _ => step,
+        };
 
     protected static IOperation? Receiver(IInvocationOperation call) =>
         call.Instance ?? (call.Arguments.IsEmpty ? null : call.Arguments[0].Value);
@@ -325,6 +358,8 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public INamedTypeSymbol? ComplexValueObjectAttribute { get; } = compilation.GetTypeByMetadataName("Thinktecture.ComplexValueObjectAttribute");
 
         public ImmutableArray<INamedTypeSymbol> Marks => [.. new[] { UnionAttributeBase, SmartEnumAttribute1, UnionAttribute, SmartEnumAttribute }.OfType<INamedTypeSymbol>()];
+
+        public ImmutableArray<INamedTypeSymbol> SmartEnums => [.. new[] { SmartEnumAttribute, SmartEnumAttribute1 }.OfType<INamedTypeSymbol>()];
 
         public ImmutableArray<INamedTypeSymbol> Validated => [.. new[] { ValueObjectAttribute1, ComplexValueObjectAttribute, SmartEnumAttribute1, SmartEnumAttribute }.OfType<INamedTypeSymbol>()];
 
@@ -539,7 +574,7 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
             Among(call.TargetMethod, Retains) || (call.TargetMethod.MethodKind is MethodKind.DelegateInvoke && Same(parameter.Type, Dispose.ContainingType));
 
         public static IEnumerable<IParameterSymbol> Handed(IInvocationOperation call, ITypeSymbol held) =>
-            call.Arguments.Select(static argument => Stripped(argument.Value)).OfType<IDelegateCreationOperation>().Select(static creation => creation.Target).OfType<IAnonymousFunctionOperation>()
+            call.Arguments.Select(static argument => Lambda(argument.Value)).OfType<IAnonymousFunctionOperation>()
                 .Select(static function => function.Symbol.Parameters.FirstOrDefault()).OfType<IParameterSymbol>().Where(parameter => Same(parameter.Type, held));
 
         public IEnumerable<string> Released(IOperation value, ITypeSymbol held, Reading reading) => Released(value, held, reading, []);

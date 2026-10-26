@@ -11,8 +11,6 @@ utils:
     app-import:
         kind: import_from_statement
         has: {field: module_name, regex: '^bpy\.app$'}
-    getattr-function:
-        matches: {python-builtin-name: {name: {regex: '^getattr$'}}}
     argv:
         any:
             - matches: {python-member-use: {module: {regex: '^sys$'}, name: {regex: '^(argv|orig_argv)$'}}}
@@ -44,13 +42,8 @@ rule:
             - matches: {python-imported-name: {module: {regex: '^bpy\.app$'}, name: {regex: '^background$'}}}
         - kind: call
           all:
-            - has: {field: function, regex: 'getattr$', matches: getattr-function}
-            - has:
-                field: arguments
-                kind: argument_list
-                all:
-                    - has: {nthChild: 2, kind: string, regex: '^["'']background["'']$'}
-                    - has: {nthChild: 1, matches: app-module}
+            - has: {field: arguments, kind: argument_list, has: {nthChild: 2, kind: string, regex: '^["'']background["'']$'}}
+            - matches: {builtins-getattr-call: {object: {matches: app-module}}}
         - kind: comparison_operator
           all:
             - has: {kind: string, regex: '^["''](-b|--background)["'']$'}

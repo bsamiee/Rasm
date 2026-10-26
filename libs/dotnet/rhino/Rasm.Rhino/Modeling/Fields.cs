@@ -35,7 +35,7 @@ public static class Fields {
     private static Func<Point3d, double> Boundary(Interior region) => region.Switch(
         solid: static solid => Unsigned(new Proximity.Brep(solid.Brep)),
         closed: static closed => Unsigned(new Proximity.Mesh(closed.Mesh)),
-        planar: static planar => compose<Point3d, Point3d, double>(planar.Plane.ClosestPoint, Unsigned(new Proximity.Curve(planar.Curve))));
+        planar: static planar => (Unsigned(new Proximity.Curve(planar.Curve)), planar.Plane) switch { var (inPlane, plane) => point => inPlane(plane.ClosestPoint(point)) });
 
     // --- [MESHING]
     public static IO<Mesh> Isosurface(ScalarField field, int resolution, int rootFindingSteps, Action<IDisposable> retain, Option<BoundingBox> box = default) =>

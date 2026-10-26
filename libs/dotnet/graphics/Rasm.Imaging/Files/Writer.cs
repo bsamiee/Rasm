@@ -41,7 +41,7 @@ internal sealed partial class DngExtent {
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int width, ref int height) =>
         validationError = width is >= 22 and <= 64000 && height is >= 22 and <= 64000 ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Frame {width}x{height} lies outside the 22 to 64000 pixel DNG extent LibRaw reads"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"DNG frame {width}x{height} in the 22 to 64000 pixels LibRaw reads"), ImagingReason.Range);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -145,7 +145,7 @@ public abstract partial record StillFormat {
             static Fin<float> Rational(TiffTag tag, float value, int minimum) =>
                 value >= minimum && value < (double)int.MaxValue
                     ? value
-                    : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"DNG field {tag} value {value} lies outside [{minimum}, {int.MaxValue})"));
+                    : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"DNG field {tag} value {value} in [{minimum}, {int.MaxValue})"), ImagingReason.Range);
             return (
                     DngExtent.Validated(frame.Size.Width, frame.Size.Height),
                     toSeq(gamut.FromXyz.ToRowMajorArray()).Traverse(static value => Rational(TiffTag.COLORMATRIX1, (float)value, int.MinValue)).As(),
@@ -215,9 +215,9 @@ public static class StillWriter {
         ];
 
     internal static IO<Unit> Scanlines(Stream stream, string mode, Seq<TiffFieldInfo> custom, Func<Tiff, Seq<(TiffTag Tag, object[] Values)>> fields, int height, Action<int, Span<byte>> row) =>
-        (from tiff in use(IO.lift(() => Optional(Tiff.ClientOpen(nameof(Tiff), mode, stream, new BorrowedTiffStream())).ToFin(new ImagingFault("TIFF writer refused to open its stream"))))
+        (from tiff in use(IO.lift(() => Optional(Tiff.ClientOpen(nameof(Tiff), mode, stream, new BorrowedTiffStream())).ToFin(new ImagingFault("TIFF stream open", ImagingReason.Refused))))
          from encoded in IO.lift(environment => Encode(tiff, custom, fields, height, row, environment.Token))
-         from flushed in IO.lift(() => tiff.Flush() ? Fin.Succ(unit) : new ImagingFault("TIFF writer refused to flush its stream"))
+         from flushed in IO.lift(() => tiff.Flush() ? Fin.Succ(unit) : new ImagingFault("TIFF stream flush", ImagingReason.Refused))
          select unit).Bracket();
 
     internal static IO<Unit> Encoded<TPixel>(PixelFrame frame, bool alpha, FileMetadata metadata, Option<ColorEncoding> encoding, IImageEncoder encoder, Stream stream)
@@ -245,14 +245,14 @@ public static class StillWriter {
         tiff.MergeFieldInfo([.. custom], custom.Count);
         foreach ((TiffTag tag, object[] values) in fields(tiff))
             if (!tiff.SetField(tag, values))
-                return new ImagingFault($"TIFF writer refused field {tag}");
+                return new ImagingFault($"TIFF field {tag}", ImagingReason.Refused);
         using MemoryOwner<byte> line = MemoryOwner<byte>.Allocate(tiff.ScanlineSize());
         ArraySegment<byte> segment = line.DangerousGetArray();
         for (int y = 0; y < height; y++) {
             token.ThrowIfCancellationRequested();
             row(y, line.Span);
             if (!tiff.WriteScanline(segment.Array, segment.Offset, y, 0))
-                return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"TIFF writer refused scanline {y}"));
+                return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"TIFF scanline {y}"), ImagingReason.Refused);
         }
         return unit;
     }

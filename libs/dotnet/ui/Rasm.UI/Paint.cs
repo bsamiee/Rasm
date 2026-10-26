@@ -134,9 +134,9 @@ public sealed class PaintCache : IDisposable {
     // --- [FILLS]
     internal Option<SKShader> Drawn(Material.Drawn drawn, HashMap<string, Option<SKColorF>> colors, SKRect frame, float scale, float clock) =>
         drawn.Timed
-            ? Some(Shader(drawn, colors, frame, clock))
+            ? Some(drawn.Shader(colors, frame, clock))
             : Rastered(SKRect.Create(frame.Size), SKMatrix.CreateScale(scale, scale), frame.Location, recording => {
-                using SKShader shader = Shader(drawn, colors, SKRect.Create(frame.Size), clock);
+                using SKShader shader = drawn.Shader(colors, SKRect.Create(frame.Size), clock);
                 using SKPaint paint = new() { Shader = shader };
                 recording.DrawRect(SKRect.Create(frame.Size), paint);
             });
@@ -155,15 +155,6 @@ public sealed class PaintCache : IDisposable {
             return image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, Sampling,
                 SKMatrix.CreateTranslation(at.X, at.Y).PreConcat(grid.Invert()).PreConcat(SKMatrix.CreateTranslation(pixels.Left, pixels.Top)));
         });
-    }
-
-    private static SKShader Shader(Material.Drawn drawn, HashMap<string, Option<SKColorF>> colors, SKRect frame, float clock) {
-        using SKRuntimeEffectUniforms uniforms = new(drawn.Effect);
-        using SKRuntimeEffectChildren children = new(drawn.Effect);
-        if (uniforms.Contains(Material.Drawn.Size)) uniforms[Material.Drawn.Size] = frame.Size;
-        if (uniforms.Contains(Material.Drawn.Clock)) uniforms[Material.Drawn.Clock] = clock;
-        _ = colors.Filter((name, _) => uniforms.Contains(name)).Iter((name, color) => color.Iter(held => uniforms[name] = held));
-        return drawn.Effect.ToShader(uniforms, children, SKMatrix.CreateTranslation(frame.Left, frame.Top));
     }
 
     // --- [GLYPH]
@@ -301,11 +292,11 @@ public static class Painter {
         _ = tween.Iter(held => {
             canvas.Translate(held.Shift.X, held.Shift.Y);
             if (held.Size != laid.Frame.Size) canvas.ClipRect(SKRect.Create(at, held.Size), antialias: true);
-            if (held.Alpha < 1f) _ = canvas.SaveLayer(SKRect.Create(laid.LocalReach.Location + at, laid.LocalReach.Size), pass.Cache.Tweened(laid, held.Alpha));
+            if (held.Alpha < 1f) _ = canvas.SaveLayer(Scene.Absolute(laid.LocalReach, at), pass.Cache.Tweened(laid, held.Alpha));
         });
         if (!pass.Live.Contains(laid.Path)) {
             canvas.DrawPicture(pass.Cache.Subtree(laid, own, alpha, recording => Self(recording, pass, laid, own, alpha)), at);
-        } else if (!canvas.QuickReject(SKRect.Create(laid.LocalReach.Location + at, laid.LocalReach.Size))) {
+        } else if (!canvas.QuickReject(Scene.Absolute(laid.LocalReach, at))) {
             canvas.Translate(at.X, at.Y);
             Self(canvas, pass, laid, own, alpha);
         }
@@ -365,7 +356,6 @@ public static class Painter {
         });
 
     // --- [BACKGROUND]
-    private static readonly SKColorSpace Srgb = SKColorSpace.CreateSrgb();
     private static readonly SKPaint Cleared = new() { IsAntialias = true, BlendMode = SKBlendMode.Clear };
 
     private static bool Background(SKCanvas canvas, Pass pass, Laid laid, Context context, SKRect frame) {
@@ -421,7 +411,7 @@ public static class Painter {
             filling,
             solid: static (held, solid) => held.Colored(solid, solid.Color),
             gradient: static (held, gradient) => gradient.Stops.Map(stop => held.Inked(stop.Color)) switch {
-                var colors => held.Brushed(gradient, colors, 0f, 0f, () => colors.Traverse(static color => color).As().Map(inks => held.Shaded(Gradient(held.Frame, gradient, inks)))),
+                var colors => held.Brushed(gradient, colors, 0f, 0f, () => colors.Traverse(static color => color).As().Map(inks => held.Shaded(gradient.Shader(held.Frame, inks)))),
             },
             drawn: static (held, drawn) => drawn.Uniforms.Map(held.Inked) switch {
                 var colors => held.Brushed(drawn, colors.Values.ToSeq(), drawn.Timed ? 0f : held.Context.Scale, drawn.Timed ? held.Pass.Clock : 0f,
@@ -429,19 +419,6 @@ public static class Painter {
             },
             backdrop: static (_, _) => Some(Cleared),
             blurred: static (held, blurred) => held.Colored(blurred, blurred.Tint));
-
-    private static SKShader Gradient(SKRect frame, Material.Gradient gradient, Seq<SKColorF> colors) {
-        (float sin, float cos) = MathF.SinCos(float.DegreesToRadians(gradient.Angle));
-        float reach = (MathF.Abs(cos * frame.Width) + MathF.Abs(sin * frame.Height)) / 2f;
-        SKPoint center = new(frame.MidX, frame.MidY);
-        return SKShader.CreateLinearGradient(
-            new SKPoint(center.X - (cos * reach), center.Y - (sin * reach)),
-            new SKPoint(center.X + (cos * reach), center.Y + (sin * reach)),
-            [.. colors],
-            Srgb,
-            [.. gradient.Stops.Map(static stop => (float)stop.At)],
-            SKShaderTileMode.Clamp);
-    }
 
     // --- [RING]
     private static void Ringed(SKCanvas canvas, Pass pass, (Laid Laid, SKRect Frame, SKRect Clip, RoleStyle Style) ring, float weight) {

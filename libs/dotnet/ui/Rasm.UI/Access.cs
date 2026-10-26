@@ -6,11 +6,14 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<string>]
+[SmartEnum]
 public sealed partial class Check {
-    public static readonly Check Off = new("false");
-    public static readonly Check On = new("true");
-    public static readonly Check Mixed = new("mixed");
+    public static readonly Check Off = new("not checked", None);
+    public static readonly Check On = new("checked", Some(Condition.Selected));
+    public static readonly Check Mixed = new("mixed", Some(Condition.Mixed));
+
+    public string Spoken { get; }
+    public Option<Condition> Conditioned { get; }
 }
 
 [SmartEnum]
@@ -21,41 +24,41 @@ public sealed partial class Live {
     public bool Interrupts { get; }
 }
 
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None)]
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class AccessRole {
-    public static readonly AccessRole Text = new("text", composite: false, namedByContents: true);
-    public static readonly AccessRole Image = new("img", composite: false, namedByContents: false);
-    public static readonly AccessRole Heading = new("heading", composite: false, namedByContents: true);
-    public static readonly AccessRole Button = new("button", composite: false, namedByContents: true);
-    public static readonly AccessRole MenuButton = new("menubutton", composite: false, namedByContents: true);
-    public static readonly AccessRole PopUpButton = new("popupbutton", composite: false, namedByContents: true);
-    public static readonly AccessRole Disclosure = new("disclosure", composite: false, namedByContents: true, None, Expanded);
-    public static readonly AccessRole CheckBox = new("checkbox", composite: false, namedByContents: true);
-    public static readonly AccessRole Switch = new("switch", composite: false, namedByContents: true);
-    public static readonly AccessRole Radio = new("radio", composite: false, namedByContents: true);
-    public static readonly AccessRole Tab = new("tab", composite: false, namedByContents: true, None, Selected);
-    public static readonly AccessRole ListItem = new("listitem", composite: false, namedByContents: true, None, Selected);
-    public static readonly AccessRole TreeItem = new("treeitem", composite: false, namedByContents: true, None, Selected);
-    public static readonly AccessRole GridCell = new("gridcell", composite: false, namedByContents: true, None, Selected);
-    public static readonly AccessRole MenuItem = new("menuitem", composite: false, namedByContents: true);
-    public static readonly AccessRole Slider = new("slider", composite: false, namedByContents: false);
-    public static readonly AccessRole Handle = new("handle", composite: false, namedByContents: false);
-    public static readonly AccessRole Separator = new("separator", composite: false, namedByContents: false);
-    public static readonly AccessRole TextBox = new("textbox", composite: false, namedByContents: false);
-    public static readonly AccessRole ProgressBar = new("progressbar", composite: false, namedByContents: false);
-    public static readonly AccessRole Group = new("group", composite: false, namedByContents: false);
-    public static readonly AccessRole ScrollArea = new("scrollarea", composite: false, namedByContents: false);
-    public static readonly AccessRole Status = new("status", composite: false, namedByContents: false);
-    public static readonly AccessRole Dialog = new("dialog", composite: false, namedByContents: false);
-    public static readonly AccessRole Toolbar = new("toolbar", composite: true, namedByContents: false);
-    public static readonly AccessRole RadioGroup = new("radiogroup", composite: true, namedByContents: false, Some(Radio), Checked);
-    public static readonly AccessRole TabList = new("tablist", composite: true, namedByContents: false, Some(Tab), Checked);
-    public static readonly AccessRole List = new("list", composite: true, namedByContents: false, Some(ListItem), Checked);
-    public static readonly AccessRole Tree = new("tree", composite: true, namedByContents: false, Some(TreeItem), Checked);
-    public static readonly AccessRole Grid = new("grid", composite: true, namedByContents: false, Some(GridCell), Checked);
-    public static readonly AccessRole Menu = new("menu", composite: true, namedByContents: false, Some(MenuItem), Checked);
+    public static readonly AccessRole Text = new(composite: false, namedByContents: true);
+    public static readonly AccessRole Image = new(composite: false, namedByContents: false);
+    public static readonly AccessRole Heading = new(composite: false, namedByContents: true);
+    public static readonly AccessRole Button = new(composite: false, namedByContents: true);
+    public static readonly AccessRole MenuButton = new(composite: false, namedByContents: true);
+    public static readonly AccessRole PopUpButton = new(composite: false, namedByContents: true);
+    public static readonly AccessRole Disclosure = new(composite: false, namedByContents: true, None, Expanded);
+    public static readonly AccessRole CheckBox = new(composite: false, namedByContents: true);
+    public static readonly AccessRole Switch = new(composite: false, namedByContents: true);
+    public static readonly AccessRole Radio = new(composite: false, namedByContents: true);
+    public static readonly AccessRole Tab = new(composite: false, namedByContents: true, None, Selected);
+    public static readonly AccessRole ListItem = new(composite: false, namedByContents: true, None, Selected);
+    public static readonly AccessRole TreeItem = new(composite: false, namedByContents: true, None, Selected);
+    public static readonly AccessRole GridCell = new(composite: false, namedByContents: true, None, Selected);
+    public static readonly AccessRole MenuItem = new(composite: false, namedByContents: true);
+    public static readonly AccessRole Slider = new(composite: false, namedByContents: false);
+    public static readonly AccessRole Handle = new(composite: false, namedByContents: false);
+    public static readonly AccessRole Separator = new(composite: false, namedByContents: false);
+    public static readonly AccessRole TextBox = new(composite: false, namedByContents: false);
+    public static readonly AccessRole ProgressBar = new(composite: false, namedByContents: false);
+    public static readonly AccessRole Group = new(composite: false, namedByContents: false);
+    public static readonly AccessRole ScrollArea = new(composite: false, namedByContents: false);
+    public static readonly AccessRole Status = new(composite: false, namedByContents: false);
+    public static readonly AccessRole Dialog = new(composite: false, namedByContents: false);
+    public static readonly AccessRole Toolbar = new(composite: true, namedByContents: false);
+    public static readonly AccessRole RadioGroup = new(composite: true, namedByContents: false, Some(Radio), Checked);
+    public static readonly AccessRole TabList = new(composite: true, namedByContents: false, Some(Tab), Checked);
+    public static readonly AccessRole List = new(composite: true, namedByContents: false, Some(ListItem), Checked);
+    public static readonly AccessRole Tree = new(composite: true, namedByContents: false, Some(TreeItem), Checked);
+    public static readonly AccessRole Grid = new(composite: true, namedByContents: false, Some(GridCell), Checked);
+    public static readonly AccessRole Menu = new(composite: true, namedByContents: false, Some(MenuItem), Checked);
 
-    private AccessRole(string key, bool composite, bool namedByContents) : this(key, composite, namedByContents, None, Checked) { }
+    private AccessRole(bool composite, bool namedByContents) : this(composite, namedByContents, None, Checked) { }
 
     public bool Composite { get; }
     public bool NamedByContents { get; }
@@ -115,13 +118,24 @@ public sealed record Accessible : Monoid<Accessible> {
 
 public sealed record Element(Seq<Key> Id, AccessRole Role, Accessible Accessible, Seq<Act> Actions, LanguageExt.HashSet<Condition> Conditions, SKRect Frame, Seq<Element> Children);
 
+[SmartEnum]
+public sealed partial class ElementChange {
+    public static readonly ElementChange Value = new(static (prior, next) =>
+        prior.Accessible.Value != next.Accessible.Value || prior.Accessible.Expanded != next.Accessible.Expanded || prior.Conditions != next.Conditions);
+    public static readonly ElementChange Selection = new(static (prior, next) => Selected(prior) != Selected(next));
+
+    [UseDelegateFromConstructor]
+    internal partial bool Differs(Element prior, Element next);
+
+    private static LanguageExt.HashSet<Seq<Key>> Selected(Element element) =>
+        toHashSet(element.Children.Filter(static child => child.Conditions.Contains(Condition.Selected)).Map(static child => child.Id));
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AccessibilityNotice {
     public sealed record Announced(string Text, Live Live) : AccessibilityNotice;
 
-    public sealed record ValueChanged(Seq<Key> Element) : AccessibilityNotice;
-
-    public sealed record SelectionChanged(Seq<Key> Container) : AccessibilityNotice;
+    public sealed record Changed(Seq<Key> Element, ElementChange Change) : AccessibilityNotice;
 
     public sealed record FocusChanged(Seq<Key> Element) : AccessibilityNotice;
 
@@ -186,7 +200,7 @@ public static class Access {
                 ranged: static (culture, ranged) => ranged with {
                     Description = ranged.Decimals.Match(
                         Some: digits => Math.Round(ranged.Value, digits, MidpointRounding.ToEven).ToString(culture) switch {
-                            var number => ranged.Unit.Match(Some: unit => $"{number} {unit}", None: () => number),
+                            var number => ranged.Unit.Match(Some: suffix => $"{number} {suffix}", None: () => number),
                         },
                         None: () => string.Create(culture, $"{(ranged.Value - ranged.Min) / double.Max(ranged.Max - ranged.Min, double.Epsilon):P0}")),
                 },
@@ -202,9 +216,10 @@ public static class Access {
     // --- [CHANGES]
     internal static Seq<AccessibilityNotice> Changes(HashMap<Seq<Key>, Element> was, HashMap<Seq<Key>, Element> now) {
         Seq<(Element Prior, Element Next)> kept = now.Values.ToSeq().Choose(element => was.Find(element.Id).Map(prior => (Prior: prior, Next: element)));
-        return kept.Filter(static held => held.Prior.Accessible.Value != held.Next.Accessible.Value || held.Prior.Accessible.Expanded != held.Next.Accessible.Expanded || held.Prior.Conditions != held.Next.Conditions)
-                .Map(static held => (AccessibilityNotice)new AccessibilityNotice.ValueChanged(held.Next.Id))
-            .Concat(kept.Filter(static held => Selected(held.Prior) != Selected(held.Next)).Map(static held => (AccessibilityNotice)new AccessibilityNotice.SelectionChanged(held.Next.Id)))
+        return (from held in kept
+                from change in toSeq(ElementChange.Items)
+                where change.Differs(held.Prior, held.Next)
+                select (AccessibilityNotice)new AccessibilityNotice.Changed(held.Next.Id, change))
             .Concat(toHashSet(was.Keys) != toHashSet(now.Keys) || kept.Exists(static held => held.Prior.Frame != held.Next.Frame) ? Seq<AccessibilityNotice>(new AccessibilityNotice.LayoutChanged()) : [])
             .Concat(now.Values.ToSeq().Choose(element =>
                 from live in element.Accessible.Live
@@ -212,13 +227,10 @@ public static class Access {
                 select (AccessibilityNotice)new AccessibilityNotice.Announced(Spoken(element.Accessible), live)));
     }
 
-    private static LanguageExt.HashSet<Seq<Key>> Selected(Element element) =>
-        toHashSet(element.Children.Filter(static child => child.Conditions.Contains(Condition.Selected)).Map(static child => child.Id));
-
     private static string Spoken(Accessible accessible) =>
         string.Join(' ', Seq(accessible.Label, accessible.Value.Bind(static value => value.Switch(
             text: static text => Some(text.Value),
-            @checked: static held => Some(held.Mark.Map(off: "not checked", on: "checked", mixed: "mixed")),
+            @checked: static held => Some(held.Mark.Spoken),
             ranged: static ranged => ranged.Description,
             point: static point => point.Description))).Somes());
 }

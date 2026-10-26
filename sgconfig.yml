@@ -3,6 +3,9 @@ ruleDirs:
     - tools/ast-grep/rules
 utilDirs:
     - tools/ast-grep/utils
+testConfigs:
+    - testDir: tests/dotnet/tools/ast-grep/rules
+    - testDir: tests/python/tools/ast-grep/rules
 languageGlobs:
     tsx: ["*.ts", "*.js", "*.mjs", "*.cjs", "*.jsx"]
     xml: ["NuGet.config"]

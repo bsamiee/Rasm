@@ -1,0 +1,42 @@
+id: no-alias-qualifier-csharp
+snapshots:
+  "public sealed record Curve(global::Rhino.Geometry.Curve Geometry) : Proximity;":
+    labels:
+    - source: global::Rhino
+      style: primary
+      start: 27
+      end: 40
+    - source: global
+      style: secondary
+      start: 27
+      end: 33
+  public sealed record Row(Rasm.Rhino.UI.Rows.Cell Cell);:
+    labels:
+    - source: Rasm.Rhino
+      style: primary
+      start: 25
+      end: 35
+    - source: Rasm
+      style: secondary
+      start: 25
+      end: 29
+  static readonly int Held = Rasm.Rhino.Conversions.Count;:
+    labels:
+    - source: Rasm.Rhino
+      style: primary
+      start: 27
+      end: 37
+    - source: Rasm
+      style: secondary
+      start: 27
+      end: 31
+  using NativeQueue = Rhino.Render.ChangeQueue;:
+    labels:
+    - source: using NativeQueue = Rhino.Render.ChangeQueue;
+      style: primary
+      start: 0
+      end: 45
+    - source: NativeQueue
+      style: secondary
+      start: 6
+      end: 17

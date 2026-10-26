@@ -27,4 +27,4 @@ rule:
                               has: {field: name, regex: '^ToFin$'}
             - not: {inside: {stopBy: end, matches: languageext-io-lift}}
 message: '`$CALL` throws for an absent result'
-note: 'Lift the absence into the result, `Optional(<call>).ToFin(<error>)` inside the `Fin` or `IO` chain'
+note: 'Lift absence into the result through `Optional(<call>).ToFin(<error>)` inside a `Fin` or `IO` chain'

@@ -8,7 +8,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $ROWS}}, {has: {field: name, regex: '^(AsIterable|AsEnumerable|ToSeq|ToArray|ToList|Strict)$'}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
             - pattern: $ROWS
     projection:
         any:
@@ -46,10 +46,10 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: projection}}, {has: {field: name, regex: '^(Strict|ToArray|ToSeq|ToList|ToArr|ToLst|ToImmutableArray)$'}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
             - kind: invocation_expression
               all:
-                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(toSeq|toArray|toList|Seq)$'}}}}
+                - matches: {csharp-named-call: {name: {regex: '^(toSeq|toArray|toList|Seq)$'}}}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: projection}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
             - kind: collection_expression
               all:

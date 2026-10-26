@@ -17,4 +17,4 @@ rule:
         - inside: {kind: declaration_list, inside: {matches: {thinktecture-union: {name: {kind: identifier}}}}}
         - follows: {stopBy: end, matches: shaped-case}
 message: '`$CASE` repeats parameters `$PARAMETERS` of an earlier case'
-note: 'Merge same-shape cases into one record whose added smart enum item or formula parameter states their difference'
+note: 'Merge same-shape cases into one record with a smart enum item or formula parameter stating their difference'

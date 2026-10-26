@@ -67,7 +67,7 @@ public sealed class LuminanceSamples {
         }
         System.Array.Resize(ref samples, count);
         samples.AsSpan().Sort();
-        return count is 0 ? new ImagingFault($"region {window} holds no covered finite pixel") : samples;
+        return count is 0 ? new ImagingFault($"region {window}", ImagingReason.Empty) : samples;
     }
 }
 
@@ -89,12 +89,12 @@ public sealed record Metering(float Low, float High, float Center, FramePosition
     }
 
     internal Fin<float> Metered((double Key, float Weight)[] samples, (long Left, long Top, long Right, long Bottom) window) =>
-        samples.Length is 0 ? new ImagingFault($"metered region {window} holds no covered finite pixel")
+        samples.Length is 0 ? new ImagingFault($"metered region {window}", ImagingReason.Empty)
         : LuminanceSamples.Slice(samples, Low, High)
             .Aggregate((Sum: 0d, Weight: 0d), static (total, sample) =>
                 (total.Sum + (sample.Weight * double.Log2(double.Max(sample.Key, LuminanceSamples.Floor))), total.Weight + sample.Weight)) switch {
                     (var sum, > 0d and var weight) => (float)(double.Log2(Exposure.MiddleGray) - (sum / weight)),
-                    _ => new ImagingFault($"central half of {window} holds no sample in meter range at full center weight"),
+                    _ => new ImagingFault($"central half of {window} at full center weight", ImagingReason.Empty),
                 };
 }
 

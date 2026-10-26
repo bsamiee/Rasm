@@ -1,4 +1,4 @@
-"""`Result` errors typed as `str` or as a bare exception class."""
+"""`Result` errors typed as `str`, `Exception`, or `BaseException`."""
 
 lazy from expression import Result
 lazy from mypy.nodes import Decorator, FuncDef, MypyFile, SymbolNode, TypeAlias, TypeInfo
@@ -11,7 +11,7 @@ from tools.refurb.findings import fullname, RasmError
 
 
 class ErrorResultFaultError(RasmError):
-    """`Result` error typed as `str` or as a bare exception class.
+    """`Result` error typed as `str`, `Exception`, or `BaseException` in place of the package fault.
 
     Bad:
 
@@ -34,7 +34,7 @@ class ErrorResultFaultError(RasmError):
 
 
 def check(node: MypyFile, errors: list[Error]) -> None:
-    """Reports each `Result` error typed as `str` or as a bare exception class on an alias, function, or method the module defines."""
+    """Reports each `Result` error typed as `str`, `Exception`, or `BaseException` on an alias, function, or method the module defines."""
 
     def element(error: Type) -> ProperType:
         match get_proper_type(error):
@@ -53,7 +53,7 @@ def check(node: MypyFile, errors: list[Error]) -> None:
                 return ()
 
     errors.extend(
-        ErrorResultFaultError.from_node(declaration, f"`{declaration.name}` types its `Result` error as `{untyped.type.name}`, type it as the package fault")
+        ErrorResultFaultError.from_node(declaration, f"`{declaration.name}` declares `{untyped.type.name}` as `Result` error type, declare the package fault type")
         for _, symbol, _ in node.local_definitions()
         for declaration, returned in declared(symbol.node)
         if isinstance(result := get_proper_type(returned), Instance)

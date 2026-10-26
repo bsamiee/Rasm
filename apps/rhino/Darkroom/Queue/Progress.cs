@@ -122,9 +122,6 @@ internal sealed record ProgressRecord(string? Job, int ProcessId, DateTimeOffset
 [JsonSourceGenerationOptions(System.Text.Json.JsonSerializerDefaults.Strict, WriteIndented = true)]
 internal sealed partial class ProgressContext : JsonSerializerContext;
 
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record FrameLost(int Frame) : Expected(string.Create(CultureInfo.InvariantCulture, $"frame {Frame} ended without a saved rendering"), 0);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class QueueRuns {
     private const string RenderCommand = "Render";
@@ -294,11 +291,11 @@ public static class QueueRuns {
             DisposalOps.Found(source.GetViewInfo, nameof(RenderSourceView.GetViewInfo), view => ChainScene.Read(scope.Doc, view, rendered.Padded, entry.Frames.Time(frame))))
         from launched in Documents.RunScript(scope.Doc, $"_-{RenderCommand}", echo: false, display: None)
         from heard in scope.Heard.ValueIO
-        from ended in IO.lift(heard.Ended.ToFin(new FrameLost((int)frame))
-            .Bind(result => Conversions.FromResult(result, RenderCommand).MapFail(error => Stopping(error) ? error : new FrameLost((int)frame) + error)))
-        from began in IO.lift(heard.Began.ToFin(new FrameLost((int)frame)))
-        from saved in IO.lift(heard.Saved.ToFin(new FrameLost((int)frame)))
-        from written in new RenderWindowSource.Rendering(saved.Event.SessionId).Open(window => new SaveSource.Window(window, framing, rendered, Optional(entry.Queued.Region)) switch {
+        let lost = new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"frame {(int)frame}"), DarkroomReason.Unsaved)
+        from ended in IO.lift(heard.Ended.ToFin(lost).Bind(result => Conversions.FromResult(result, RenderCommand).MapFail(error => Stopping(error) ? error : lost + error)))
+        from began in IO.lift(heard.Began.ToFin(lost))
+        from saved in IO.lift(heard.Saved.ToFin(lost))
+        from written in new RenderWindowSource.Rendering(saved.Event.SessionId).Open(window => new SaveSource(window, framing, rendered, Optional(entry.Queued.Region)) switch {
             var source => entry.Outputs.Filter(output => output.Name.Number.IfNone(FrameSpan.First) == frame)
                 .TraverseM(output => output.Target.FileFormat.Write(scope.Doc, source, output.Target, scope.Metadata, output.Path, entry.Overwrite)).As(),
         })

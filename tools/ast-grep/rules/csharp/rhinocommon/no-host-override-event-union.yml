@@ -37,11 +37,11 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^RunSafe$'}}, {has: {field: expression, matches: send}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
     answered-send:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^[A-Z]\w*$'}, member: {regex: '^(Answer|Succeeded|ToResult)$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^[A-Z]\w*$'}, member: {regex: '^(Answer|Succeeded|ToResult)$'}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: ran-send}}}
     interface-member:
         all:
@@ -71,4 +71,4 @@ rule:
         - matches: override-send
         - matches: callback-send
 message: 'Host callback sends a `$UNION` case to one delegate'
-note: 'Override the host member or handle its event in the application class with one `Callbacks.Answer` or `Callbacks.Succeeded` call'
+note: 'Override `<member>` or handle its event in the application class through one `Callbacks.Answer` or `Callbacks.Succeeded` call'

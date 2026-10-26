@@ -16,8 +16,6 @@ rule:
         field: body
         has:
             kind: for_in_clause
-            all:
-                - has: {field: left, kind: identifier, pattern: $I}
-                - has: {field: right, kind: attribute, has: {field: attribute, regex: '^enum_items(_static(_ui)?)?$'}}
+            matches: {python-attribute-iteration: {target: {kind: identifier, pattern: $I}, attribute: {regex: '^enum_items(_static(_ui)?)?$'}}}
 message: '`$ITEM` drops `$I.value`, and Blender numbers each item by position'
 note: 'Build `(<item>.identifier, <item>.name, <item>.description, <item>.icon, <item>.value)`'

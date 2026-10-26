@@ -1,0 +1,26 @@
+id: no-numbered-struct-tag
+snapshots:
+  "class Exposure(Effect, tag=1, frozen=True, kw_only=True):\n    stops: float\n":
+    labels:
+    - source: tag=1
+      style: primary
+      start: 23
+      end: 28
+    - source: tag
+      style: secondary
+      start: 23
+      end: 26
+    - source: "1"
+      style: secondary
+      start: 27
+      end: 28
+    - source: |-
+        class Exposure(Effect, tag=1, frozen=True, kw_only=True):
+            stops: float
+      style: secondary
+      start: 0
+      end: 74
+    - source: (Effect, tag=1, frozen=True, kw_only=True)
+      style: secondary
+      start: 14
+      end: 56

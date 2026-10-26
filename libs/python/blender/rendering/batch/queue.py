@@ -13,7 +13,7 @@ from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Frame = Annotated[int, msgspec.Meta(ge=0)]
+type _Frame = Annotated[int, msgspec.Meta(ge=0)]
 type JobCamera = Bound | Fixed
 
 
@@ -23,9 +23,9 @@ type JobCamera = Bound | Fixed
 class Frames(msgspec.Struct, frozen=True, kw_only=True):
     """Frame range with step."""
 
-    start: Annotated[Frame, msgspec.Meta(description="First frame rendered")]
-    end: Annotated[Frame, msgspec.Meta(description="Last frame of range")]
-    step: Annotated[Frame, msgspec.Meta(description="Frames between renders, 0 renders start frame alone")]
+    start: _Frame
+    end: _Frame
+    step: _Frame
 
     def __post_init__(self) -> None:
         """Validates start at or before end."""
@@ -68,7 +68,7 @@ class RenderFrames(msgspec.Struct, frozen=True, kw_only=True, tag=True):
     """Scene frames a farm worker renders."""
 
     scene: str
-    frames: Annotated[tuple[Frame, ...], msgspec.Meta(min_length=1)]
+    frames: Annotated[tuple[_Frame, ...], msgspec.Meta(min_length=1)]
 
 
 class Job(msgspec.Struct, frozen=True, kw_only=True):
@@ -86,7 +86,7 @@ class Job(msgspec.Struct, frozen=True, kw_only=True):
     output_root: str
     outputs: Mapping[Output, str]
     passes: tuple[str, ...]
-    prerequisites: tuple[Frame, ...] = ()
+    prerequisites: tuple[_Frame, ...] = ()
 
     @property
     def title(self) -> str:
@@ -131,4 +131,4 @@ class RenderQueue(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Bound", "Fixed", "Frame", "Frames", "Job", "JobCamera", "Marker", "RenderFrames", "RenderQueue"]
+__all__ = ["Bound", "Fixed", "Frames", "Job", "JobCamera", "Marker", "RenderFrames", "RenderQueue"]

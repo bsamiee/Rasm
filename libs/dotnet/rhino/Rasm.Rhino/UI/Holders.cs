@@ -118,7 +118,7 @@ internal sealed class HeaderButtons(Seq<CommandFace> faces, Func<int, IO<Unit>> 
     public bool ButtonDetails(int index, ref Bitmap iconOut, ref string sToolTipOut) {
         (bool Shown, Bitmap Icon, string ToolTip) held = (false, iconOut, sToolTipOut);
         (bool shown, iconOut, sToolTipOut) = Callbacks.Answer(
-            faces.At(index).Bind(static face => face.Glyph.Map(glyph => (Face: face, Glyph: glyph)))
+            (from face in faces.At(index) from glyph in face.Glyph select (Face: face, Glyph: glyph))
                 .Traverse(shown => Icons.Raster(shown.Glyph, IconSlot.SectionHeader).Map(icon => (Shown: true, Icon: icon, ToolTip: RowText.Localize(shown.Face.Caption, sink).Local)))
                 .As()
                 .Map(found => found.IfNone(held)),
@@ -271,14 +271,14 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
 public static class SectionCommands {
     // --- [ACTIONS]
     public static Command<RowRule, Invoke>.Run Presets(Func<RowScope, IO<Seq<Seq<Command<RowRule, Invoke>>>>> listing) =>
-        new(new CommandFace("section-presets", "Presets", None, Some<GlyphSource>(Icons.Embedded(typeof(SectionHolder).Assembly, "presets.svg"))), None, new Invoke.Listed(listing));
+        new(new CommandFace("section-presets", "Presets") { Glyph = Some<GlyphSource>(Icons.Embedded(typeof(SectionHolder).Assembly, "presets.svg")) }, None, new Invoke.Listed(listing));
 
     public static Command<RowRule, Invoke>.Run Values { get; } =
-        new(new CommandFace("section-values", "Values", None, Some<GlyphSource>(Icons.Embedded(typeof(SectionHolder).Assembly, "options.svg"))), None,
+        new(new CommandFace("section-values", "Values") { Glyph = Some<GlyphSource>(Icons.Embedded(typeof(SectionHolder).Assembly, "options.svg")) }, None,
             new Invoke.Listed(static scope => Historied(scope).Bind(history => Listing(history, scope))));
 
     public static Command<RowRule, Invoke>.Run Reset { get; } =
-        new(new CommandFace("section-reset", "Reset", None, Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.Svg_namedItemRestoreHotSvg))), None,
+        new(new CommandFace("section-reset", "Reset") { Glyph = Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.Svg_namedItemRestoreHotSvg)) }, None,
             new Invoke.Effect(static scope => Historied(scope).Bind(history => scope.Commit(history.Group, history.Group.Defaults)).Map(unit)));
 
     private static IO<HistoryBinding> Historied(RowScope scope) =>
@@ -296,13 +296,13 @@ public static class SectionCommands {
             Seq(Ran("section-copy", "Copy values", DataTransfer.Copy(history.Group, None, scope)))
                 + Seq(Ran("section-paste", "Paste values", DataTransfer.Paste(history.Group, None, scope))).Filter(_ => pastes),
             Seq(Ran("section-clear", "Clear history", history.Clear)).Filter(_ => !(held.Done.IsEmpty && held.Undone.IsEmpty))
-                + Seq<Command<RowRule, Invoke>>(new Command<RowRule, Invoke>.Menu(new CommandFace("section-restore", "Restore", None, None), None, [held.Done.Map(entry => Ran(
+                + Seq<Command<RowRule, Invoke>>(new Command<RowRule, Invoke>.Menu(new CommandFace("section-restore", "Restore"), None, [held.Done.Map(entry => Ran(
                     string.Create(CultureInfo.InvariantCulture, $"section-restore-{entry.Serial}"),
                     RowText.Localize("{0}, {1}", arguments: [Described(entry, scope.Sink), stamp.Format(entry.At.InZone(zone).LocalDateTime)]).Local,
                     Heard(history.Restore(entry.Serial), scope)))])).Filter(_ => !held.Done.IsEmpty));
 
     private static Command<RowRule, Invoke> Ran<T>(string name, string caption, IO<T> run) =>
-        new Command<RowRule, Invoke>.Run(new CommandFace(name, caption, None, None), None, new Invoke.Effect(_ => run.Map(unit)));
+        new Command<RowRule, Invoke>.Run(new CommandFace(name, caption), None, new Invoke.Effect(_ => run.Map(unit)));
 
     private static IO<ValueDiff> Heard(IO<ValueDiff> step, RowScope scope) =>
         from diff in step

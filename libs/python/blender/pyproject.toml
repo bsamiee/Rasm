@@ -12,7 +12,6 @@ dependencies = [
     "expression",        # Results, options, and collections of every library package
     "httpx2",            # HTTP for batch render targets and notices
     "imagecodecs",       # JPEG codec for compression emulation
-    "matplotlib",        # colour-science plotting import
     "msgspec",           # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
     "numpy",             # Arrays for image planes, previews, and analysis
     "opencolorio",       # Color processing, config authoring, and LUT baking
@@ -58,4 +57,4 @@ experimental_namespace_package = true # The `blender` import root is a namespace
 
 [tool.deptry.per_rule_ignores]
 DEP001 = ["_blendfile_header", "_bpy_internal", "_bpy_types", "bl_keymap_utils", "bl_operators", "bl_ui", "blf", "bmesh", "bpy", "bpy_extras", "cycles", "gpu", "gpu_extras", "idprop", "mathutils", "rna_keymap_ui"] # Modules Blender supplies to host code
-DEP002 = ["matplotlib", "tzdata"]                                                                                                                                                                                     # `import colour` loads matplotlib its metadata marks optional, zoneinfo reads tzdata data files
+DEP002 = ["tzdata"]                                                                                                                                                                                                   # zoneinfo reads tzdata data files

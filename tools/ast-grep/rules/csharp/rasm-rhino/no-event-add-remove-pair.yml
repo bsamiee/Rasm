@@ -31,7 +31,7 @@ rule:
                 inside:
                     kind: argument_list
                     all:
-                        - inside: {kind: invocation_expression, has: {field: function, matches: {csharp-owner-member: {type: {regex: '^DisposalOps$'}, member: {regex: '^Within$'}}}}}
+                        - inside: {kind: invocation_expression, matches: {csharp-owner-call: {type: {regex: '^DisposalOps$'}, member: {regex: '^Within$'}}}}
                         - has: {kind: argument, nthChild: 3, has: {stopBy: end, kind: assignment_expression, all: [{has: {field: operator, regex: '^-=$'}}, {has: {field: left, matches: event}}]}}
         - not:
             has:
@@ -61,4 +61,4 @@ rule:
                         - has: {field: left, matches: event}
                         - not: {matches: action}
 message: '`+=` attaches a handler to `$EVENT` and a separate `-=` detaches it'
-note: 'Reach the event through `Subscriptions.Host<TArgs>(typeof(<owner>), h => <source>.<event> += h, h => <source>.<event> -= h, nameof(<owner>.<event>)).Inline(<args> => <effect>)`'
+note: 'Reach the event through `Subscriptions.Host<TArgs>(typeof(<owner>), h => <source>.<event> += h, h => <source>.<event> -= h).Inline(<args> => <effect>)`'

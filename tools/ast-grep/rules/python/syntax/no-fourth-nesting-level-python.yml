@@ -25,7 +25,7 @@ utils:
             - inside: {nthChild: 2, inside: {kind: conditional_expression}, stopBy: *scope}
     nested-body:
         any:
-            - has: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - has: {kind: block, not: {matches: python-single-statement-block}}
             - has: {matches: control, stopBy: {matches: closure}}
     level:
         any:

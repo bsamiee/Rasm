@@ -55,13 +55,13 @@ public abstract partial class OutputDepth {
     public static Seq<OutputDepth> Where<T>(Func<OutputDepth, Option<T>> table) => toSeq(Items).Filter(depth => table(depth).IsSome);
 
     internal static Fin<T> Sampled<T>(string format, OutputDepth depth, Func<OutputDepth, Option<T>> table) =>
-        table(depth).ToFin(new ImagingFault($"{format} holds no {depth} samples, only {Where(table)}"));
+        table(depth).ToFin(new ImagingFault($"{format} {depth} samples beside {Where(table)}", ImagingReason.Unsupported));
 
     public long RowBytes(int width, bool alpha) => (((long)width * (alpha ? 4 : 3) * Bits) + 7) / 8;
 
     internal Fin<Unit> Buffered(string format, int width, bool alpha) =>
         RowBytes(width, alpha) switch {
-            var bytes when bytes > System.Array.MaxLength => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"{format} row of {bytes} bytes exceeds one buffer of {System.Array.MaxLength} bytes")),
+            var bytes when bytes > System.Array.MaxLength => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"{format} row of {bytes} bytes"), ImagingReason.Oversize),
             _ => unit,
         };
 

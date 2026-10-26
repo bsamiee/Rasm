@@ -1,2 +1,2 @@
-#0 `Error.New(error.Message)` converts a `ValidationError` message to an `Error` by hand, declare `[ValidationError<T>]` on the value object with the package error type as `T`
-#1 `new Expected(error.Message, 0)` converts a `ValidationError` message to an `Error` by hand, declare `[ValidationError<T>]` on the value object with the package error type as `T`
+#0 `Error.New(error.Message)` converts a `ValidationError` message to `Error` by hand, declare `[ValidationError<T>]` with package error `T` on the value object
+#1 `new Expected(error.Message, 0)` converts a `ValidationError` message to `Error` by hand, declare `[ValidationError<T>]` with package error `T` on the value object

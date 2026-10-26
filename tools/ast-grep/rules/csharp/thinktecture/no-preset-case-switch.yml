@@ -48,7 +48,7 @@ utils:
             - matches: value-slot
             - inside:
                 kind: argument
-                not: {has: {field: name, pattern: $_}}
+                matches: csharp-positional-argument
                 inside:
                     kind: argument_list
                     not: {has: {kind: argument, nthChild: 2}}

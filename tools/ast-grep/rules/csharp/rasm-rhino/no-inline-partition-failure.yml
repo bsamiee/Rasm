@@ -12,5 +12,5 @@ rule:
     all:
         - not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^Callbacks$'}}}
         - not: {inside: {stopBy: end, kind: 'from_clause, let_clause', follows: {stopBy: end, kind: 'from_clause, let_clause', has: {stopBy: end, kind: member_access_expression, has: {field: name, regex: '^Succs$'}}}}}
-message: 'Failures join through `Error.Many` beside `Callbacks.Each`'
-note: 'Run the effects through `Callbacks.Each(Seq<IO<T>>)`, the one owner of the partition and its joined failure'
+message: 'Hand `IsEmpty` test joins failures through `Error.Many`'
+note: 'Join every error through `Traverse` or a tuple `Apply` on `Fin`, `PartitionFallible` where a query reads `Succs` beside `Fails`'

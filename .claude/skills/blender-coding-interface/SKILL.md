@@ -376,7 +376,9 @@ Shaders and batches follow host rules:
 - Theme colors are display sRGB (`COLOR_GAMMA`) and pass through built-in shaders as they are
 - `POST_VIEW` bodies call `gpu.state.depth_test_set('LESS_EQUAL')` to hide geometry behind objects and restore the prior test after
 - `batch_for_shader` content keys match the shader's attributes, an extra key raising `ValueError`, a missing one `KeyError`, and unequal lengths `ValueError`
-- Batch content takes numpy arrays shaped `(N, k)`, `k` the attribute width, and `indices=` shares vertices between triangles
+- Batch content takes `float32` numpy arrays shaped `(N, k)`, `k` the attribute width, and `indices=` shares vertices between triangles
+- `float64` content builds and draws nothing with no raise, and a reversed view (`[::-1]`, `np.flipud`) crashes Blender in `batch_for_shader`
+- Shapes of one shader draw as one batch, per-vertex `color` on `FLAT_COLOR` and `POLYLINE_FLAT_COLOR` replacing a `color` uniform and draw per shape
 
 Text draws through `blf` over font `0`, the interface font:
 - `blf.size(<font>, <pixels>)` applies no interface scale, and text matching the interface takes `ui_styles[0].widget.points * preferences.system.ui_scale`
@@ -423,11 +425,11 @@ Custom shaders come from `gpu.shader.create_from_info` over a `gpu.types.GPUShad
 - `GPUUniformBuf` values passed to `shader.uniform_block` stay bound to a name through `batch.draw`, an inline buffer freeing before the draw and drawing nothing
 - Sources compile to Metal Shading Language on macOS, MSL keywords (`vertex`, `fragment`, `kernel`) being reserved names
 - Matrix constructors under Metal take one scalar, all scalars, whole columns, or a square matrix, a split column failing to compile
-- Compile errors raise a plain `Exception` that `host` keeps as cause and log the detail under `gpu.shader`
+- Compile errors raise a plain `Exception`, the class a `catch` over the compile names, and log the detail under `gpu.shader`
 
 ```python
-@contextmanager
-def tinted(_: Identity) -> Generator[BlenderResult[gpu.types.GPUShader]]:
+@cache
+def tinted() -> Result[gpu.types.GPUShader, Exception]:
     stage = gpu.types.GPUStageInterfaceInfo("tinted_interface")
     stage.smooth("VEC2", "uv")
     info = gpu.types.GPUShaderCreateInfo()
@@ -444,24 +446,22 @@ def tinted(_: Identity) -> Generator[BlenderResult[gpu.types.GPUShader]]:
         " fragColor = vec4(srgbTarget ? mix(color.rgb / 12.92, pow((color.rgb + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), color.rgb)) : color.rgb, color.a);"
         " }"
     )
-    yield host(gpu.shader.create_from_info, info)
-
-
-shader = Resource(made=tinted)
+    return catch(gpu.shader.create_from_info, exception=Exception)(info)
 ```
 
-Registration scope realizes `shader` once per session in the first GPU context a dependent asks from, a failed compile answering its `Error` to every dependent with no retry.
+`tinted` compiles at its first call and answers that `Result` to every later call with no retry, a first call outside a GPU context holding its `SystemError` for the session.
 
 Offscreen buffers draw away from the window:
 - `gpu.types.GPUOffScreen(<width>, <height>, format=<format>)` takes `RGBA8`, `RGBA16`, `RGBA16F`, or `RGBA32F`
 - Sizes past `gpu.capabilities.max_texture_size_get()` construct and abort Blender at the buffer's first bind
 - Offscreen buffers bind in any window's GPU context, outliving the window that made them, and access after `free()` raises `ReferenceError`
-- `read_color(<x>, <y>, <width>, <height>, <channels>, <slot>, <format>)` returns a `[height, width, channels]` buffer bottom row first
+- `read_color(<x>, <y>, <width>, <height>, <channels>, <slot>, "FLOAT")` returns a `[height, width, channels]` float buffer bottom row first
+- `"FLOAT"` reads normalize every format, `texture_color.read()` returning `RGBA8` texels as bytes
 - `draw_view3d(scene, view_layer, view3d, region, view_matrix, projection_matrix, do_color_management=<bool>)` draws the shading mode the 3D View shows with its overlays
 - Camera views take `camera.calc_matrix_camera(depsgraph, x=<width>, y=<height>)` as projection and `matrix_world.normalized().inverted()` as view
 
 ```python
-def captured(draw: Callable[[], None], size: int) -> BlenderResult[NDArray[np.float32]]:
+def captured(draw: Callable[[], None], size: int) -> Option[NDArray[np.float32]]:
     def read(offscreen: gpu.types.GPUOffScreen) -> NDArray[np.float32]:
         with ExitStack() as scope:
             scope.callback(offscreen.free)
@@ -475,8 +475,7 @@ def captured(draw: Callable[[], None], size: int) -> BlenderResult[NDArray[np.fl
             draw()
             return np.flipud(np.asarray(framebuffer.read_color(0, 0, size, size, 4, 0, "FLOAT"), np.float32))
 
-    limit = gpu.capabilities.max_texture_size_get()
-    return host(gpu.types.GPUOffScreen, size, size).map(read) if size <= limit else Error(Fault(reason=Reason.OVERSIZED, subject=repr(size), member="max_texture_size"))
+    return Some(read(gpu.types.GPUOffScreen(size, size))) if size <= gpu.capabilities.max_texture_size_get() else Nothing
 ```
 
 `captured(partial(stroke.drawn, label, preferences), size)` reads a handler's own drawing, the pixel projection placing `POST_PIXEL` coordinates as the region does. Both matrix stacks return to the caller's values, a draw handler included.
@@ -488,12 +487,13 @@ Blender translates interface text at draw time in the interface language:
 - Operators, panels, and menus set their context in `bl_translation_context`, lists and headers holding none
 - `bl_translation_context` defaults to `bpy.app.translations.contexts.operator_default` on operators and `contexts.default` on panels and menus
 - Properties take their context through `translation_context=`
-- Translation tables key entries through `contexts` members, operator labels as `(contexts.operator_default, <label>)`
 - `text_ctxt=<context>` on a layout call selects another context
 - Built text translates its template, then formats it, then draws with `translate=False` (`iface_("{} items").format(count)`)
 - `pgettext_iface`, `pgettext_tip`, `pgettext_rpt`, and `pgettext_data`, imported as `iface_`, `tip_`, `rpt_`, and `data_`, follow `use_translate_interface`, `use_translate_tooltips`, `use_translate_reports`, and `use_translate_new_dataname`
 - `data_` names new data-blocks and group sockets, and `pgettext` ignores every flag
 - `pgettext_n(<text>, <context>)`, imported as `n_`, marks table strings for extraction untranslated, and `iface_` translates them at draw
 - `bpy.app.handlers.translation_update_post` runs after each language or translation flag change, and caches of translated text rebuild there
+- `bpy.props` names default to the identifier as written (`ev_bias`), and labels derive from `bpy.path.display_name(<identifier>)`
+- Acronyms and `use_` booleans take a written label, `display_name` reading them as `Ev Bias` and `Use Region`
 - Labels take title case and end in `...` where the action asks for more input, and boolean labels take no `Use`, `Enable`, or `Is`
 - Tooltips open with an imperative verb, describe a toggle's on state, and end with no period

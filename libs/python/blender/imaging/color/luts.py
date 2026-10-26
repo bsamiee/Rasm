@@ -32,11 +32,7 @@ class LutLayout(IntEnum):
 
     @classmethod
     def read(cls, path: str, config: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.GroupTransform]:
-        """Reads Hald or KeyShot image as uniform cube.
-
-        Args:
-            path: Image with dimensions selecting layout.
-            config: Config resolving `data` role.
+        """Reads Hald or KeyShot image as uniform cube, image dimensions selecting layout.
 
         Returns:
             Table group, or `read`, LUT shape, and `color` faults.
@@ -64,11 +60,7 @@ class LutLayout(IntEnum):
         return read_file(path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA), options=Some(options)).bind(decoded)
 
     def written(self, table: PyOpenColorIO.Lut3DTransform, path: str) -> Outcome[str]:
-        """Writes stored cube nodes as 16-bit image in this layout.
-
-        Args:
-            table: Uniform cube to write.
-            path: Image path with suffix of a UINT16 writer.
+        """Writes stored cube nodes as 16-bit image to a UINT16 writer path.
 
         Returns:
             Path, LUT shape fault when Hald size is no perfect square, or `write` fault.
@@ -169,11 +161,8 @@ class Lattice(msgspec.Struct, frozen=True, kw_only=True):
 
     def samples(self) -> Outcome[npt.NDArray[np.float32]]:
         """Returns decoded RGB node inputs, or color fault."""
-        grid = (
-            np.linspace(self.spacing.low, self.spacing.high, self.size, dtype=np.float64).astype(np.float32)
-            if isinstance(self.spacing, Uniform)
-            else np.linspace(0.0, 1.0, self.size, dtype=np.float32)
-        )
+        span = self.spacing if isinstance(self.spacing, Uniform) else Uniform()
+        grid = np.linspace(span.low, span.high, self.size, dtype=np.float64).astype(np.float32)
         blue, green, red = np.meshgrid(grid, grid, grid, indexing="ij")
         plane = np.stack((red, green, blue), axis=-1).reshape(self.size, self.size * self.size, 3)
         return (
@@ -222,15 +211,10 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
 
         def encoded(item: tuple[str, PyOpenColorIO.GroupTransform]) -> Outcome[tuple[str, str]]:
             path, source = item
-
-            @catch(exception=PyOpenColorIO.Exception)
-            def exact() -> str:
-                return source.write(formatName=self.format.name, config=PyOpenColorIO.Config())
-
             return (
                 self.lattice
                 .map(lambda lattice: baked(source, lattice))
-                .default_with(lambda: exact().map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),)))
+                .default_with(lambda: catch(source.write, exception=PyOpenColorIO.Exception)(formatName=self.format.name, config=PyOpenColorIO.Config()).map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),)))
                 .map(lambda text: (path, text))
             )
 

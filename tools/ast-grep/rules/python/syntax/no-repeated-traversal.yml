@@ -57,8 +57,6 @@ utils:
                 - all: [{not: {pattern: $METHOD}}, {pattern: $EARLIER_TARGET.$METHOD($$$ARGUMENTS)}]
                 - all: [{not: {pattern: $KEY}}, {pattern: '$EARLIER_TARGET[$KEY]'}]
                 - all: [{not: {pattern: $FUNCTION}}, {pattern: $FUNCTION($EARLIER_TARGET)}]
-    single-statement:
-        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     later-pair:
         all:
             - matches: level
@@ -66,7 +64,7 @@ utils:
             - has: {field: right, pattern: $OUTER_SOURCE}
             - any:
                 - precedes: {kind: for_in_clause, matches: later-inner}
-                - has: {field: body, matches: single-statement, has: {kind: for_statement, matches: later-inner}}
+                - has: {field: body, matches: python-single-statement-block, has: {kind: for_statement, matches: later-inner}}
     earlier-pair:
         all:
             - matches: level
@@ -75,7 +73,7 @@ utils:
             - has: {field: right, pattern: $OUTER_SOURCE}
             - any:
                 - precedes: {kind: for_in_clause, matches: earlier-inner}
-                - has: {field: body, matches: single-statement, has: {kind: for_statement, matches: earlier-inner}}
+                - has: {field: body, matches: python-single-statement-block, has: {kind: for_statement, matches: earlier-inner}}
     after-earlier-pair:
         follows:
             stopBy: end

@@ -104,4 +104,4 @@ rule:
             - matches: mapping-body
             - matches: unwrap
 message: 'Mapping method builds or unwraps a result through `$WRAPPER`'
-note: 'Declare the mapping over success types and call it inside `Map`, `Bind`, or a traversal at the boundary'
+note: 'Declare mapping over success types and call it inside `Map`, `Bind`, or a traversal at the boundary'

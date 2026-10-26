@@ -6,12 +6,9 @@ files:
     - libs/python/blender/**
     - apps/blender/**
 utils:
-    members:
-        kind: attribute
-        has: {field: attribute, regex: '^(properties|parameters|functions)$'}
     scanned:
         kind: for_in_clause
-        all: [{has: {field: left, kind: identifier, pattern: $F}}, {has: {field: right, matches: members}}]
+        matches: {python-attribute-iteration: {target: {kind: identifier, pattern: $F}, attribute: {regex: '^(properties|parameters|functions)$'}}}
     named:
         kind: attribute
         all: [{has: {field: object, kind: identifier, pattern: $F}}, {has: {field: attribute, regex: '^(identifier|name)$'}}]

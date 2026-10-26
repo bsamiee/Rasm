@@ -33,7 +33,7 @@ public sealed partial class PixelExtent {
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int width, ref int height) =>
         validationError = width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Extent {width}x{height} must be positive with at most {System.Array.MaxLength / 4} pixels"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"extent {width}x{height}"), ImagingReason.Range);
 }
 
 [ValueObject<float>(ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -44,7 +44,7 @@ public sealed partial class ShortSideLength {
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref float value) =>
-        validationError = value >= 0f ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Short-side length {value} must be non-negative"));
+        validationError = value >= 0f ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"short-side length {value}"), ImagingReason.Range);
 }
 
 [ValueObject<float>(ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -53,7 +53,7 @@ public sealed partial class ShortSideExtent {
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref float value) =>
-        validationError = value > 0f ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Short-side extent {value} must be positive"));
+        validationError = value > 0f ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"short-side extent {value}"), ImagingReason.Range);
 }
 
 public sealed record FramePosition(float X, float Y) {
@@ -152,7 +152,7 @@ public static class PixelSampling {
     public static Fin<TCount> KernelTaps<TCount>(double radius) where TCount : IBinaryInteger<TCount>, IMinMaxValue<TCount> =>
         double.IsFinite(radius) && radius >= 0d && ((2d * double.Ceiling(radius)) + 1d) is var taps && taps <= double.CreateTruncating(TCount.MaxValue)
             ? TCount.CreateTruncating(taps)
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Kernel radius {radius} has no tap count up to {TCount.MaxValue}"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"kernel radius {radius} up to {TCount.MaxValue} taps"), ImagingReason.Range);
 
     extension(Mat plane) {
         internal unsafe Span2D<T> View<T>() where T : unmanaged =>

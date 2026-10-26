@@ -124,7 +124,7 @@ public sealed partial class CharacterSet {
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref string value) =>
         validationError = value.Length > 0 && !value.AsSpan().ContainsAnyExceptInRange(' ', '~') && toHashSet(value).Count == value.Length ? null
-            : new ImagingFault($"Character set '{value}' must be distinct printable ASCII characters");
+            : new ImagingFault($"character set '{value}'", ImagingReason.Range);
 }
 
 public sealed class GlyphAtlas {

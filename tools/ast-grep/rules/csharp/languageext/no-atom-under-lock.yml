@@ -11,7 +11,7 @@ utils:
         kind: invocation_expression
         any:
             - all:
-                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Monitor$'}, member: {regex: '^(Enter|TryEnter)$'}}}}
+                - matches: {csharp-owner-call: {type: {regex: '^Monitor$'}, member: {regex: '^(Enter|TryEnter)$'}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $LOCK}}}
             - has:
                 field: function
@@ -23,7 +23,7 @@ utils:
         kind: invocation_expression
         any:
             - all:
-                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Monitor$'}, member: {regex: '^Exit$'}}}}
+                - matches: {csharp-owner-call: {type: {regex: '^Monitor$'}, member: {regex: '^Exit$'}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $LOCK}}}
             - has:
                 field: function

@@ -3,8 +3,6 @@ id: no-forwarding-function-csharp
 language: csharp
 severity: error
 utils:
-    function:
-        kind: 'method_declaration, local_function_statement'
     plain-parameter:
         kind: parameter
         not:
@@ -23,8 +21,8 @@ utils:
         kind: identifier
         pattern: $PARAMETER
         inside:
-            stopBy: {matches: function}
-            matches: function
+            stopBy: {kind: &function 'method_declaration, local_function_statement'}
+            kind: *function
             has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $PARAMETER}}}
     static-root:
         any:
@@ -91,7 +89,7 @@ utils:
                     - has: {field: right, kind: identifier, not: {not: {matches: parameter-name}}}
     thunk:
         kind: lambda_expression
-        has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+        matches: csharp-parameterless
     lifted:
         matches: languageext-io-lift
         has:
@@ -111,7 +109,7 @@ utils:
             - matches: lifted
             - matches: acquired
             - matches: call
-              not: {inside: {stopBy: {matches: function}, matches: function, has: {field: parameters, not: {has: {kind: parameter}}}}}
+              not: {inside: {stopBy: {kind: *function}, kind: *function, has: {field: parameters, not: {has: {kind: parameter}}}}}
     unit-return:
         kind: return_statement
         has: {any: [{matches: {csharp-type-name: {name: {regex: '^unit$'}}}}, {matches: {csharp-owner-member: {type: {regex: '^Unit$'}, member: {regex: '^Default$'}}}}]}
@@ -128,9 +126,6 @@ utils:
               has: {kind: 'return_statement, expression_statement', has: {matches: forwarded}}
             - matches: unit-adapted
               has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: expression_statement, has: {matches: forwarded}}
-    mapper-attribute:
-        kind: attribute_list
-        has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^Mapper(Attribute)?$'}}}}}
     hidden-owner:
         kind: identifier
         pattern: $HIDDEN
@@ -139,7 +134,7 @@ utils:
         kind: identifier
         pattern: $MAPPER
         regex: '^\w+Mapper$'
-        not: {inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: class_declaration, all: [{has: {field: name, pattern: $MAPPER}}, {not: {has: {matches: mapper-attribute}}}]}}}
+        not: {inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: class_declaration, all: [{has: {field: name, pattern: $MAPPER}}, {not: {matches: {csharp-attributed: {name: {regex: '^Mapper(Attribute)?$'}}}}}]}}}
     boundary-callee:
         kind: member_access_expression
         has: {field: expression, any: [{matches: hidden-owner}, {matches: mapper-owner}]}
@@ -176,7 +171,7 @@ utils:
     switch-subject:
         kind: identifier
         pattern: $SUBJECT
-        inside: {stopBy: end, matches: function, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $SUBJECT}}}}
+        inside: {stopBy: end, kind: *function, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $SUBJECT}}}}
     switch-forward:
         any:
             - kind: invocation_expression
@@ -201,7 +196,7 @@ utils:
             - matches: languageext-io-lift
               has: {field: arguments, has: {kind: argument, has: {matches: thunk, has: {field: body, matches: switch-forward}}}}
 rule:
-    matches: function
+    kind: *function
     all:
         - has: {field: name, pattern: $NAME}
         - not:

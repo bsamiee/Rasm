@@ -36,4 +36,4 @@ rule:
 transform:
     HEAD: {replace: {source: $VALUE, replace: '(?s)^((?:new\s+|await\s+)?[@\w.]+).*$', by: '$1'}}
 message: '`$MAP.$METHOD` evaluates `$HEAD` on every call, a hit discards the value'
-note: 'Pass `() => <value>` to the `Func` overload of the same method'
+note: 'Pass `() => <value>` to the method''s `Func` overload'

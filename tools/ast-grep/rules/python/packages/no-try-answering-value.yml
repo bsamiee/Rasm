@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-try-answering-value
+language: python
+severity: error
+utils:
+    answer:
+        any:
+            - kind: return_statement
+            - kind: expression_statement
+              has:
+                any:
+                    - kind: assignment
+                      has: {field: left, kind: identifier}
+                    - kind: yield
+    answering-handler:
+        kind: except_clause
+        all:
+            - has: {field: value, pattern: $_}
+            - not: {has: {regex: '^\*$'}}
+            - has:
+                kind: block
+                all:
+                    - has: {matches: answer}
+                    - not: {has: {pattern: $_, not: {any: [{matches: answer}, {kind: comment}]}}}
+rule:
+    kind: try_statement
+    all:
+        - not: {has: {kind: finally_clause}}
+        - has: {kind: except_clause}
+        - not: {has: {kind: except_clause, not: {matches: answering-handler}}}
+        - not:
+            has:
+                kind: except_clause
+                has:
+                    field: value
+                    any:
+                        - matches: builtins-stop-iteration
+                        - has: {stopBy: end, matches: builtins-stop-iteration}
+message: '`try` answers a value from every handler'
+note: 'Call `expression.extra.result.catch(<callee>, exception=<error>)(<arguments>)` over each raising call, then map or default its error'

@@ -1,0 +1,27 @@
+id: no-use-site-stub-suppression
+valid:
+    - |
+      definition: bpy.types.Struct = root.bl_rna  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    - |
+      _MERGE: Final[Callable[..., PyOpenColorIO.Config]] = PyOpenColorIO.ConfigMergingHelpers.MergeConfigs  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    - |
+      from bpy_extras.io_utils import path_reference  # type: ignore[attr-defined]
+    - |
+      operator.replacing = True  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    - |
+      held: Outcome[bpy.types.Struct] = catch(self.operator.get_rna_type, exception=KeyError)().map_error(  # type: ignore[attr-defined]
+          unknown
+      )
+    - |
+      items: bpy.props.CollectionProperty(type=Row)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+invalid:
+    - |
+      name = owner.bl_rna.identifier  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    - |
+      if bpy.context.window_manager.is_interface_locked:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+          pass
+    - |
+      return str(space.getInteropID())  # type: ignore[attr-defined]
+    - |
+      for link in socket.links:  # type: ignore[union-attr, arg-type]
+          pass

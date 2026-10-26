@@ -28,17 +28,17 @@ public abstract partial record Phase<T> where T : notnull {
 public sealed record PointerSample(SKPoint At, float Pressure);
 
 public sealed record KeyModifiers(bool Common, bool Alternate, bool Shift) {
-    public static KeyModifiers None { get; } = new(Common: false, Alternate: false, Shift: false);
+    public static KeyModifiers Plain { get; } = new(Common: false, Alternate: false, Shift: false);
 }
 
 [SmartEnum]
 public sealed partial class Grain {
-    public static readonly Grain Unit = new(static (unit, _) => Some(unit));
+    public static readonly Grain Unit = new(static (step, _) => Some(step));
     public static readonly Grain Page = new(static (_, page) => Some(page));
     public static readonly Grain End = new(static (_, _) => Option<float>.None);
 
     [UseDelegateFromConstructor]
-    public partial Option<float> Stride(float unit, float page);
+    public partial Option<float> Stride(float step, float page);
 }
 
 [SmartEnum]
@@ -63,20 +63,18 @@ public sealed partial class NavigationDirection {
     public int Valued(PlotFrame frame) => Sign * MathF.Sign(Along.Of(new Vector2(frame.Matrix.ScaleX, frame.Matrix.ScaleY)));
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[SmartEnum]
 public sealed partial class CursorShape {
-    public static readonly CursorShape Default = new("default");
-    public static readonly CursorShape Pointer = new("pointer");
-    public static readonly CursorShape Text = new("text");
-    public static readonly CursorShape Crosshair = new("crosshair");
-    public static readonly CursorShape Move = new("move");
-    public static readonly CursorShape Grab = new("grab");
-    public static readonly CursorShape Grabbing = new("grabbing");
-    public static readonly CursorShape ColumnResize = new("col-resize");
-    public static readonly CursorShape RowResize = new("row-resize");
-    public static readonly CursorShape NotAllowed = new("not-allowed");
+    public static readonly CursorShape Default = new();
+    public static readonly CursorShape Pointer = new();
+    public static readonly CursorShape Text = new();
+    public static readonly CursorShape Crosshair = new();
+    public static readonly CursorShape Move = new();
+    public static readonly CursorShape Grab = new();
+    public static readonly CursorShape Grabbing = new();
+    public static readonly CursorShape ColumnResize = new();
+    public static readonly CursorShape RowResize = new();
+    public static readonly CursorShape NotAllowed = new();
 
     public static CursorShape Resizing(PhysicalAxis along) => along.Map(horizontal: ColumnResize, vertical: RowResize);
 }
@@ -121,7 +119,7 @@ public abstract partial record Act {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Input {
-    public KeyModifiers Modifiers { get; init; } = KeyModifiers.None;
+    public KeyModifiers Modifiers { get; init; } = KeyModifiers.Plain;
 
     public sealed record Pointer(Phase<PointerSample> Stroke, int Clicks) : Input;
 
@@ -159,7 +157,7 @@ public abstract partial record Input {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 internal abstract partial record Gesture {
-    public KeyModifiers Modifiers { get; init; } = KeyModifiers.None;
+    public KeyModifiers Modifiers { get; init; } = KeyModifiers.Plain;
 
     public sealed record Press(SKPoint From, Option<SKPoint> Dragged, int Clicks, float Pressure) : Gesture {
         public SKPoint At => Dragged.IfNone(From);
@@ -214,13 +212,17 @@ internal abstract partial record Latch {
     public sealed record Scroll(Seq<Key> Adjuster, Option<Gesture.Scroll> Live) : Latch;
 }
 
-internal sealed record Focus(Seq<Key> Element, bool Traversed) {
-    public bool Visible => Traversed;
-}
+internal sealed record Focus(Seq<Key> Element, bool Traversed);
 
-internal sealed record Routing(Option<SKPoint> Pointer, KeyModifiers Modifiers, Option<Capture> Capture, Option<Latch> Latch, Option<Focus> Focus) {
+internal sealed record Routing {
     // --- [STATE]
-    public static Routing Idle { get; } = new(None, KeyModifiers.None, None, None, None);
+    public static Routing Idle { get; } = new();
+
+    public Option<SKPoint> Pointer { get; init; }
+    public KeyModifiers Modifiers { get; init; } = KeyModifiers.Plain;
+    public Option<Capture> Capture { get; init; }
+    public Option<Latch> Latch { get; init; }
+    public Option<Focus> Focus { get; init; }
 
     // --- [DERIVED]
     public Option<Seq<Key>> Pressing => Capture.Map(static capture => capture.Switch(part: static part => part.Over, handle: static handle => handle.Adjuster));

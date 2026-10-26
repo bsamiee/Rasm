@@ -1,0 +1,25 @@
+id: no-owner-copy-record
+valid:
+  - |
+    public sealed record FilmPrint([property: Display(Name = "Black point")] float? BlackPoint, float Gamma) {
+        public FilmStock Stock => new(Gamma) { BlackPoint = Optional(BlackPoint) };
+    }
+  - |
+    public sealed record Frame(int Width, int Height) {
+        public Size Size => new(Width, Height, Dpi);
+    }
+  - |
+    public sealed class EffectJob(Work work, Site site) : PostEffectJob {
+        public override PostEffectJob Clone() => new EffectJob(work, site);
+    }
+invalid:
+  - |
+    public sealed record Frame(int Width, int Height) {
+        public Size Size => new(Width, Height);
+    }
+  - |
+    public sealed class Frame {
+        public int Width { get; }
+        public int Height { get; }
+        public Size Size => new Size(this.Width, Height);
+    }

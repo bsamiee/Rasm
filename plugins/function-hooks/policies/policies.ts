@@ -29,7 +29,6 @@ const OVERWRITES = 'overwrites working-tree files. Edit files';
 const BREAK = /(?<!\\)(?:\\\\)*\\n/u;
 const EXPANDS = /[$`]/u;
 const GLOB = /[*?[{]/u;
-const EXPRESSION = /^[-(!]/u;
 const NAMED = /[\p{L}\p{N}]/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -47,20 +46,10 @@ const deletes = ({ system: { root, home }, script: { commands }, project }: Call
     };
     const searched = (invocation: Invocation, cwd: Option<string>): { readonly roots: readonly string[]; readonly folder: Option<string>; readonly named: boolean } => {
         const [program, ...args] = invocation;
-        if (program === 'find' || program === 'gfind') {
-            const tests = ['-name', '-iname', '-path', '-ipath', '-wholename', '-iwholename', '-regex', '-iregex'];
-            const end = args.findIndex((word) => EXPRESSION.test(word));
-            const roots = args.slice(0, end < 0 ? args.length : end);
-            return { roots: roots.length === 0 ? ['.'] : roots, folder: cwd, named: args.flatMap((word, at) => (tests.includes(word) ? args.slice(at + 1, at + 2) : [])).some((pattern) => NAMED.test(pattern)) };
-        }
-        const { leading, inputs, values } = operands(invocation);
-        const base = values.findLast(([name]) => name === '-C' || name === '--base-directory');
-        const given = values.flatMap(([name, value]) => (name === '--search-path' ? [value] : []));
-        return {
-            roots: [given, inputs].find((paths) => paths.length > 0) ?? ['.'],
-            folder: base === undefined ? cwd : placed(base[1], cwd, home),
-            named: [...leading, ...values.flatMap(([name, value]) => (name === '-e' || name === '--extension' ? [value] : []))].some((pattern) => NAMED.test(pattern)),
-        };
+        const { roots, base, leading, values } = operands(invocation);
+        const tests = ['-name', '-iname', '-path', '-ipath', '-wholename', '-iwholename', '-regex', '-iregex'];
+        const patterns = program === 'find' || program === 'gfind' ? args.flatMap((word, at) => (tests.includes(word) ? args.slice(at + 1, at + 2) : [])) : [...leading, ...values.flatMap(([name, value]) => (name === '-e' || name === '--extension' ? [value] : []))];
+        return { roots, folder: base.reduce((folder, word) => placed(word, folder, home), cwd), named: patterns.some((pattern) => NAMED.test(pattern)) };
     };
     const anchored = (word: string, unbounded: boolean, cwd: Option<string>): Option<string> => {
         const cut = unbounded ? word.search(GLOB) : -1;
@@ -181,6 +170,46 @@ const git = async ({ system: { exists, root, home }, script: { commands } }: Cal
     });
 };
 
+// --- [WALK]
+
+const walks = ({ system: { root, home }, script: { commands } }: Call): readonly string[] =>
+    commands.flatMap(({ invocations: chain, cwd }) => {
+        const last = chain.at(-1);
+        if (last === undefined || chain.slice(0, -1).some(([name]) => declared(name).stdin === 'always')) {
+            return [];
+        }
+        const { roots, base } = operands(last);
+        const folder = base.reduce((place, word) => placed(word, place, home), cwd);
+        return roots.flatMap((word) => {
+            const place = placed(word, folder, home);
+            const wide = place.kind === 'some' && (place.value.lastIndexOf('/') === 0 || (home.kind === 'some' && within(home.value, place.value)) || (root.kind === 'some' && root.value !== place.value && within(root.value, place.value)));
+            return wide ? [`${last[0]} root ${place.value} is wider than the work. Narrow root to repository or owning package folder`] : [];
+        });
+    });
+
+// --- [PROBE]
+
+const probes = ({ script: { commands } }: Call): readonly string[] =>
+    commands.flatMap(({ invocations: chain }) =>
+        chain.flatMap((invocation) => {
+            const [program] = invocation;
+            const { previews } = declared(program);
+            const {
+                leading: [find, replacement],
+                inputs,
+                options,
+            } = operands(invocation);
+            if (previews === undefined || find === undefined) {
+                return [];
+            }
+            const preview = `Search with rg or preview with ${program} ${previews[0]}`;
+            if (find === '') {
+                return [`${program} empty find matches between every character. ${preview}`];
+            }
+            return find === replacement && inputs.length > 0 && !options.some((name) => previews.includes(name)) ? [`${program} rewrites ${inputs.join(' ')} with identical text. ${preview}`] : [];
+        }),
+    );
+
 // --- [BACKGROUND]
 
 const detached = ({ script: { commands, background } }: Call): readonly string[] => (background && !commands.some(({ invocations: chain }) => chain.some(([program]) => program === 'wait')) ? ['Job started with & outlives call. Add wait or set run_in_background'] : []);
@@ -222,7 +251,7 @@ const commandDecision = async (system: System, command: string, project: string)
         return { kind: 'deny', reason: `Command not parsed. ${parsed.faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, value.output].filter((part) => part !== '').join('. ') : `${value.program} failed. ${String(value.cause)}`)).join('. ')}` };
     }
     const call = { system, script: parsed.value, project };
-    const reasons = new Set((await Promise.all([deletes, git, stdin, inline, detached].map((policy) => policy(call)))).flat());
+    const reasons = new Set((await Promise.all([deletes, git, walks, probes, stdin, inline, detached].map((policy) => policy(call)))).flat());
     if (reasons.size > 0) {
         return { kind: 'deny', reason: [...reasons].join('. ') };
     }

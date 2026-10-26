@@ -11,11 +11,11 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(Enumerable|Array)$'}, member: {regex: '^Empty$'}}}, has: {stopBy: end, kind: type_argument_list}}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
             - kind: invocation_expression
               all:
                 - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(Seq|Empty)$'}}}, has: {stopBy: end, kind: type_argument_list}}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
             - kind: identifier
               regex: '^Empty$'
             - kind: member_access_expression
@@ -27,7 +27,7 @@ utils:
             - kind: default_expression
             - kind: object_creation_expression
               all:
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
                 - not: {has: {field: initializer, has: {pattern: $_}}}
             - kind: cast_expression
               has: {field: value, matches: empty-collection}
@@ -40,7 +40,7 @@ utils:
               regex: '^(Seq|Empty)\s*<'
             - kind: lambda_expression
               all:
-                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                - matches: csharp-parameterless
                 - has: {field: body, matches: empty-collection}
     out-argument:
         kind: argument
@@ -170,4 +170,4 @@ rule:
 constraints:
     OUT: {kind: identifier}
 message: 'Empty fallback on host out array `$OUT` hides whether the host filled it'
-note: 'Read the out array directly where the host always fills it, `Optional(<array>)` where a null array means absence'
+note: 'Read `<out>` directly where a host always fills it, `Optional(<out>)` where null means absence'

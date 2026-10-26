@@ -28,16 +28,15 @@ public abstract partial record Thumbnail {
                 + linework.Lines.CurveShapes.Filter(static points => points.Count > 1).Map(static points => (Figure)new Figure.Polyline(points))
                 + linework.Lines.TextSurfaceShapes.Filter(static points => points.Count > 1).Map(static points => (Figure)new Figure.Polygon(points))),
             hatching: static (role, hatching) => Plotted(hatching.Extent, role, hatching.Lines.IsEmpty
-                ? [new Figure.Region(None, None)]
+                ? [new Figure.Region()]
                 : hatching.Lines.Map(static line => (Figure)new Figure.Rule(line.From, line.To))));
 
     public static void Release(Thumbnail thumbnail) =>
         thumbnail.Switch(raster: static raster => raster.Pixels.Dispose(), linework: static _ => { }, hatching: static _ => { });
 
     private static Node Plotted(SKSize extent, Role ink, Seq<Figure> figures) =>
-        (AxisRange.Validated(0f, extent.Width), AxisRange.Validated(extent.Height, 0f))
+        (AxisRange.Present(0f, extent.Width), AxisRange.Present(extent.Height, 0f))
             .Apply((across, down) => (Node)new Node.Plot(new PlotPlane.Cartesian(new Axis.Linear(across), new Axis.Linear(down)), figures.Map(figure => (Node)new Node.Mark(figure) { Role = ink }))).As()
-            .ToOption()
             .IfNone(static () => new Node.Box());
 
     public sealed record Raster(SKImage Pixels) : Thumbnail;
@@ -53,10 +52,12 @@ public static class ViewRows {
     public static ControlRow Image(string label, ReadoutSource<Content<SKImage>> image, Option<ImageTool> tool) =>
         new ControlRow.Bound<(ReadoutSource<Content<SKImage>> Image, Option<ImageTool> Tool)>(label, RowShape.Filled, (image, tool), static (latest, scope, retain) =>
             from row in latest
-            from held in atomIO((Image: (Content<SKImage>)new Content<SKImage>.Pending(None, None), View: Option<PlotPlane>.None))
+            from held in atomIO((Image: (Content<SKImage>)new Content<SKImage>.Pending(), View: Option<PlotPlane>.None))
             from readout in DisposalOps.Acquire(IO.lift(static () => new Label { TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center }), retain)
             from view in TextRows.Live(row.Row.Image,
-                (first, keep) => DisposalOps.Acquire(IO.lift(() => new SceneView(scope, new Node.Box())), keep).Bind(made => held.SwapIO(state => state with { Image = first }).Map(_ => made)),
+                (first, keep) => from made in DisposalOps.Acquire(IO.lift(() => new SceneView(scope, new Node.Box())), keep)
+                                 from swapped in held.SwapIO(state => state with { Image = first })
+                                 select made,
                 (made, content) => held.SwapIO(state => state with { Image = content }).Bind(_ => Shown(made, readout, held, latest, scope)), scope, retain)
             let shown = Shown(view, readout, held, latest, scope)
             let groups = Seq(toSeq(ImageOperation.Items).Map(operation => Operated(view, held, latest, shown, operation)))
@@ -136,7 +137,7 @@ public static class ViewRows {
             Some: image => new Part.Choice([new Key.Named(nameof(Tile))], new Selection.One(None), static _ => IO.pure(unit)) {
                 Exported = _ => Some(file.Bind(path => path.Traverse(held => DataTransfer.Drag(view, Seq(held), None)).As()).Map(unit)),
             }.Drawn(_ => new ImageTile(content).Drawn, static items => new Node.Flex(PhysicalAxis.Vertical, items) { Width = Sizing.Grow.Unit }) with {
-                Aspect = Factor.Validated((float)image.Width / image.Height).ToOption(),
+                Aspect = Factor.Present((float)image.Width / image.Height),
             },
             None: () => content.Drawn(static _ => new Node.Box(), unexpected));
 
@@ -145,9 +146,10 @@ public static class ViewRows {
         new ControlRow.Bound<(Option<Guid> Mode, Option<CameraPose> Pose)>(label, RowShape.Filled, (mode, pose), static (latest, scope, retain) =>
             from row in latest
             from control in DisposalOps.Acquire(IO.lift(() => new ViewportControl(RowText.Localize(row.Label, scope.Sink).Local)), retain)
-            select new RowCells(control, latest.Bind(current =>
+            select new RowCells(control,
+                from current in latest
                 from moded in current.Row.Mode.Traverse(id => DisplayModes.With(id, display => IO.lift(() => { control.Viewport.DisplayMode = display; }))).As()
                 from posed in current.Row.Pose.Traverse(held => IO.lift(() => Cameras.Write(control.Viewport, held))).As()
                 from refreshed in IO.lift(control.Refresh)
-                select unit)));
+                select unit));
 }

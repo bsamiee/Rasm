@@ -250,7 +250,7 @@ public static class GuideEdges {
 public static class Contours {
     public static Fin<Func<float, double>> Width(double pixels, Option<double> world, Option<Camera> camera, PixelExtent extent, Option<(double Near, Func<float, float> Scale)> taper) =>
         world.Match(
-            meters => meters is 0d || pixels is 0d ? Fin.Succ<Func<float, double>>(static _ => 0d) : camera.ToFin(new ImagingFault("World line width needs the frame camera")).Map(view =>
+            meters => meters is 0d || pixels is 0d ? Fin.Succ<Func<float, double>>(static _ => 0d) : camera.ToFin(new ImagingFault("world line width", ImagingReason.Uncamera)).Map(view =>
                 view.Frustum.Switch(
                     (Frame: pixels, Span: meters * extent.Width / view.Frustum.Window.Width),
                     perspective: static (scale, _) => (Func<float, double>)(depth => double.Min(scale.Span / depth, scale.Frame)),

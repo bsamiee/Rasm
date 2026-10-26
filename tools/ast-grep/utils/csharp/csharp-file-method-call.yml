@@ -7,8 +7,6 @@ utils:
         matches: {csharp-simple-name: {name: {pattern: $METHOD}}}
     type-name:
         matches: {csharp-simple-name: {name: {pattern: $TYPE}}}
-    type-declaration:
-        kind: class_declaration, struct_declaration, record_declaration, interface_declaration
     member:
         kind: method_declaration
         all:
@@ -29,7 +27,7 @@ rule:
             - inside:
                 stopBy: end
                 any:
-                    - matches: type-declaration
+                    - kind: &type-declaration 'class_declaration, struct_declaration, record_declaration, interface_declaration'
                       has: {field: body, has: {matches: member}}
                     - kind: block
                       has:
@@ -54,7 +52,7 @@ rule:
                 kind: compilation_unit
                 has:
                     stopBy: {kind: 'block, arrow_expression_clause, accessor_list, parameter_list, attribute_list, base_list'}
-                    matches: type-declaration
+                    kind: *type-declaration
                     all:
                         - has: {field: name, pattern: $TYPE}
                         - has: {field: body, has: {matches: member}}

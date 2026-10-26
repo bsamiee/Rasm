@@ -387,9 +387,7 @@ public abstract partial record Part {
                     }).Began(scroll),
                     magnify: static (held, magnify) => (held.Viewport.Tracking(held.Frame) with {
                         Step = (start, gesture) => gesture is Gesture.Magnify pinched
-                            ? from about in held.Frame.At(pinched.About)
-                              from plane in held.Viewport.Scaled(start, about, 1f / (1f + pinched.Magnification), held.Frame)
-                              select plane
+                            ? held.Frame.At(pinched.About).Bind(about => held.Viewport.Scaled(start, about, 1f / (1f + pinched.Magnification), held.Frame))
                             : None,
                     }).Began(magnify)),
                 None: static () => new Reply.Pass());
@@ -402,9 +400,7 @@ public abstract partial record Part {
                     Some: frame => HandleLayer.Metrics(held.Aim.Laid, None) switch {
                         var metrics => (held.Viewport.Tracking(frame) with {
                             Step = (start, gesture) => gesture is Gesture.Scroll notched
-                                ? from about in frame.At(notched.At)
-                                  from plane in held.Viewport.Scaled(start, about, MathF.Pow(metrics[Metric.Notch], -notched.Travel.Y / metrics[Metric.Extent]), frame)
-                                  select plane
+                                ? frame.At(notched.At).Bind(about => held.Viewport.Scaled(start, about, MathF.Pow(metrics[Metric.Notch], -notched.Travel.Y / metrics[Metric.Extent]), frame))
                                 : None,
                         }).Stepped(scroll),
                     },

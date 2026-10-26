@@ -98,14 +98,12 @@ class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 def softened(plane: npt.NDArray[np.float64], raster: Raster, radius: float) -> npt.NDArray[np.float64]:
     """Returns `plane` over `raster` blurred by a Gaussian of `radius` global units, edges extended."""
-    step = raster.step
-    return gaussian_filter(plane, (radius / step[1], radius / step[0]), axes=(0, 1), mode="nearest")
+    return gaussian_filter(plane, radius / raster.step[::-1], axes=(0, 1), mode="nearest")
 
 
 def slope(plane: npt.NDArray[np.float64], raster: Raster) -> npt.NDArray[np.float64]:
     """Returns the Sobel gradient of a scalar `plane` over `raster` per global unit, rightward and upward, as `(rows, columns, 2)`."""
-    step = raster.step
-    return np.stack((sobel(plane, axis=1, mode="nearest") / (8.0 * step[0]), -sobel(plane, axis=0, mode="nearest") / (8.0 * step[1])), axis=-1)
+    return np.stack((sobel(plane, axis=1, mode="nearest") / (8.0 * raster.step[0]), -sobel(plane, axis=0, mode="nearest") / (8.0 * raster.step[1])), axis=-1)
 
 
 def tapped(plane: npt.NDArray[np.float64], raster: Raster, points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:

@@ -40,13 +40,13 @@ public static class ColorRows {
                     var drawn => drawn with { Accessible = drawn.Accessible.Combine(new Accessible { Label = RowText.Localize(row.Label, scope.Sink).Local }) },
                 })
                 select unit
-            let add = new Command<RowRule, Invoke>.Run(new CommandFace("color-add", "Add Color", None, None), None, new Invoke.Effect(_ =>
+            let add = new Command<RowRule, Invoke>.Run(new CommandFace("color-add", "Add Color"), None, new Invoke.Effect(_ =>
                 from held in picked.ValueIO
                 from revised in Revised(latest, picked, held, colors => (Index(held).Bind(index => colors.At(index)) | colors.Last).Map(colors.Add).IfNone(colors.Add(new Color4f(1f, 1f, 1f, 1f))),
                     static colors => Some(colors.Count - 1))
                 from redrawn in shown
                 select unit))
-            let remove = new Command<RowRule, Invoke>.Run(new CommandFace("color-remove", "Remove Color", None, None), Some(new RowRule(_ => selected.Map(static at => at.IsSome))),
+            let remove = new Command<RowRule, Invoke>.Run(new CommandFace("color-remove", "Remove Color"), Some(new RowRule(_ => selected.Map(static at => at.IsSome))),
                 new Invoke.Effect(_ =>
                     from held in picked.ValueIO
                     from at in selected
@@ -87,7 +87,7 @@ public static class ColorRows {
             let site = new CallbackSite(scope.Sink, typeof(ColorRows), nameof(Gradient))
             from editor in DisposalOps.Acquire(IO.lift(() => new SceneView(scope, new Node.Box())), retain)
             from stop in DisposalOps.Acquire(IO.lift(() => new SceneView(scope, new Node.Box())), retain)
-            from position in DisposalOps.Acquire(IO.lift(() => new NumberField<float>(new ScalarText(new Axis.Linear(AxisRange.Unit), Some(0.01f), None, None, RowText.Culture), (0f, 1f),
+            from position in DisposalOps.Acquire(IO.lift(() => new NumberField<float>(new ScalarText(new Axis.Linear(AxisRange.Unit), RowText.Culture) { Step = Some(0.01f) }, (0f, 1f),
                 edit => Positioned(latest, picked, edit), scope.Sink)), retain)
             let well = Stopping(latest, picked)
             let shown =
@@ -106,7 +106,7 @@ public static class ColorRows {
                 from received in chosen.Traverse(held => position.Receive((float)held.At)).As()
                 select unit
             from popup in ChoiceRows.Popup(
-                Seq(new ChoiceItem<bool>(Value: false, RowText.Localize("Smooth", scope.Sink).Local, None), new ChoiceItem<bool>(Value: true, RowText.Localize("Stepped", scope.Sink).Local, None)),
+                Seq(new ChoiceItem<bool>(Value: false, RowText.Localize("Smooth", scope.Sink).Local), new ChoiceItem<bool>(Value: true, RowText.Localize("Stepped", scope.Sink).Local)),
                 stepped => latest.Bind(row => row.Row.Edited(Edit.Commit(Cast(row.Row.Ramp, stepped)))), scope.Sink, retain)
             from line in RowGrid.Lined([new TableCell(stop, scaleWidth: true), new TableCell(position)], retain)
             select new RowCells(popup.Control, latest.Bind(row => popup.Show(row.Row.Ramp is ColorRamp.Stepped)).Bind(_ => shown)) {
@@ -135,7 +135,7 @@ public static class ColorRows {
         select unit;
 
     private static (ColorRamp Ramp, int At) Moved(ColorRamp ramp, int at, float value) =>
-        ramp.Stops.Map((stop, index) => (Stop: index == at ? Fraction.Validated(value).ToOption().Map(moved => stop with { At = moved }).IfNone(stop) : stop, Moved: index == at)).Strict() switch {
+        ramp.Stops.Map((stop, index) => (Stop: index == at ? Fraction.Present(value).Map(moved => stop with { At = moved }).IfNone(stop) : stop, Moved: index == at)).Strict() switch {
             var stops => toSeq(stops.OrderBy(static held => (float)held.Stop.At)) switch {
                 var ordered => (ramp.WithStops(ordered.Map(static held => held.Stop)), ordered.Map(static (held, index) => (held.Moved, index)).Find(static held => held.Moved).Map(static held => held.index).IfNone(at)),
             },
@@ -171,17 +171,17 @@ public static class ColorRows {
         .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit));
 
     private static Seq<Seq<Command<RowRule, Invoke>>> Menu(IO<Well> held, CallbackSite site) =>
-        new RowRule(_ => held.Bind(static well => well.Stored.Map(static current => current.IsSome))) switch {
+        new RowRule(_ => held.Bind(static well => well.Stored).Map(static current => current.IsSome)) switch {
             var stored => [Seq<Command<RowRule, Invoke>>(
-                new Command<RowRule, Invoke>.Run(new CommandFace("color-picker", "Color Picker…", None, None), Some(stored),
+                new Command<RowRule, Invoke>.Run(new CommandFace("color-picker", "Color Picker…"), Some(stored),
                     new Invoke.Effect(scope => held.Bind(well => Dialog(well, scope, site)))),
-                new Command<RowRule, Invoke>.Run(new CommandFace("color-named", "Named Colors", None, None), Some(stored),
-                    new Invoke.Listed(_ => held.Bind(static well => well.Stored.Map(current => Seq(Named(well, current)))))))],
+                new Command<RowRule, Invoke>.Run(new CommandFace("color-named", "Named Colors"), Some(stored),
+                    new Invoke.Listed(_ => from well in held from current in well.Stored select Seq(Named(well, current)))))],
         };
 
     private static Seq<Command<RowRule, Invoke>> Named(Well well, Option<Color4f> stored) =>
         toSeq(NamedColorList.Default).Map<Command<RowRule, Invoke>>(named => CommandRows.Picked(
-            new CommandFace(named.Name, named.Name, None, None),
+            new CommandFace(named.Name, named.Name),
             stored.Exists(held => Conversions.Same(held.AsSystemColor(), named.Color)),
             _ => well.Edited(Edit.Commit(new Color4f(named.Color)))));
 

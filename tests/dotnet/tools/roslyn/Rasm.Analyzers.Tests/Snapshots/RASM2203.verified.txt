@@ -1,4 +1,4 @@
-#0 `grid.Dispose` disposes `grid` on failure after `DisposalOps.Acquire` handed it to its owner, delete the release
-#1 `panel.Dispose()` disposes `panel` on failure after `DisposalOps.Acquire` handed it to its owner, delete the release
-#2 `DisposalOps.Release(panel)` disposes `panel` on failure after `retain` handed it to its owner, delete the release
-#3 `panel.Dispose` disposes `panel` on failure after `DisposalOps.Acquire` handed it to its owner, delete the release
+#0 `grid.Dispose` disposes `grid` on failure after `DisposalOps.Acquire` handed `grid` to an owner, delete the release
+#1 `panel.Dispose()` disposes `panel` on failure after `DisposalOps.Acquire` handed `panel` to an owner, delete the release
+#2 `DisposalOps.Release(panel)` disposes `panel` on failure after `retain` handed `panel` to an owner, delete the release
+#3 `panel.Dispose` disposes `panel` on failure after `DisposalOps.Acquire` handed `panel` to an owner, delete the release

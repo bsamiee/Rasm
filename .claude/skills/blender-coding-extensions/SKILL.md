@@ -21,10 +21,9 @@ Registration runs under host conditions a release stack answers:
 - Submodules a raising `register()` imported stay in `sys.modules`, the next enable running their failing code until they leave
 - Next enables append handlers and timers again and refuse a class a kept submodule still registers with `ValueError`
 - `bpy.utils.register_classes_factory` stops at a raise with earlier classes registered, and an extension registers each class on its own stack
-- Property definitions `register_class` refuses print a `TypeError` and leave the class registered without them
 - Pointers or collections naming an unregistered group raise `ValueError` after the print with the class registered, and releases test `is_registered`
 
-`rows` enters every acquisition into one `ExitStack` and yields once the last acquisition succeeds. `scope(__name__, rows)` in the extension `__init__` answers `register` and `unregister` over the rows and owns their release:
+`acquired` enters every acquisition into one `ExitStack` and yields once the last succeeds, `register()` entering it into the module release stack and `unregister()` closing that stack:
 
 ```python
 from collections.abc import Generator
@@ -34,13 +33,13 @@ from sys import platform
 from bl_keymap_utils.io import keymap_init_from_data
 from bl_keymap_utils.platform_helpers import keyconfig_data_oskey_from_ctrl_for_macos
 import bpy
-from expression import Ok, identity
+from expression import identity
 
 type Keymaps = list[tuple[str, dict[str, str], dict[str, list[tuple[str, dict[str, object], dict[str, list[tuple[str, object]]]]]]]]
 
 
 @contextmanager
-def rows(extension: Identity) -> Generator[BlenderResult[Acquisitions]]:
+def acquired() -> Generator[None]:
     def unregistered(cls: type[bpy.types.PropertyGroup | bpy.types.Operator | bpy.types.Panel]) -> None:
         if cls.is_registered:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             bpy.utils.unregister_class(cls)
@@ -63,10 +62,17 @@ def rows(extension: Identity) -> Generator[BlenderResult[Acquisitions]]:
             keymap_init_from_data(keymap, content["items"])
             for item in keymap.keymap_items[present:]:
                 stack.callback(keymap.keymap_items.remove, item)
-        yield Ok(())
+        yield
 
 
-register, unregister = scope(__name__, rows)
+releases = ExitStack()
+
+
+def register() -> None:
+    releases.enter_context(acquired())
+
+
+unregister = releases.close
 ```
 
 Snippet placeholders stand for extension declarations and values:
@@ -88,7 +94,7 @@ Registered classes take the forms Blender checks at `register_class` and at each
 - Callbacks declaring more or fewer positional parameters than the host passes raise `ValueError` at `register_class`, `*args` counting none (Panel `draw` takes 2)
 - `__init__` overrides take `*args, **kwargs` and pass them to `super().__init__` first, a narrower signature reaching callers as `RuntimeError`
 - Blender builds a new operator, panel, and menu instance per call, and instance attributes reach no later call
-- Classes registered under a held `bl_idname` replace the earlier class with an `Info` line
+- Panel and menu `bl_idname` values register cut to 63 bytes, and a class under a held idname replaces the earlier class with an `Info` line
 - Second `register_class` calls on one class raise `ValueError`
 - Unregistering an operator class while it runs modal leaves its `window.modal_operators` entry reading `None` until the next event removes it
 
@@ -115,13 +121,14 @@ Each callback kind pairs one acquisition with one release on the same object, me
 |  [08]   | Command      | `handle = utils.register_cli_command(<id>, fn)`                    | `utils.unregister_cli_command(handle)`               |
 |  [09]   | Manual links | `utils.register_manual_map(fn)`                                    | `utils.unregister_manual_map(fn)`                    |
 |  [10]   | Presets      | `utils.register_preset_path(<folder holding presets/>)`            | `utils.unregister_preset_path(<same path>)`          |
+|  [11]   | Tool         | `utils.register_tool(<tool>)`, its keymap built from `bl_keymap`   | `utils.unregister_tool(<tool>)`, keymap included     |
 
 Acquisitions follow host identity rules:
 - Handler lists, timers, UI extensions, manual maps, and message bus keys hold one entry per acquisition call
 - Timers match callables by identity, each read of a bound method building a new object
 - Timer calls take one stored callable
 - `bpy.app.timers.unregister` raises `ValueError` for a function no longer registered, a timer that stopped itself included
-- `@persistent` takes plain functions alone, raising `ValueError` on a `functools.partial` or callable instance
+- `persistent(fn)` marks and returns `fn` for plain functions and lambdas, raising `ValueError` on a bound method, `functools.partial`, or callable instance
 - File loads keep persistent functions and their bound methods in handler lists and drop every other callable
 - `<Menu>.remove` drops the first entry equal to its argument, a fresh bound method of the same object included, and ignores an absent one
 - Message bus subscriptions take one private `object()` owner per extension
@@ -148,7 +155,7 @@ Presets resolve through host paths:
 ## [05]-[TRANSLATIONS]
 
 Tables take the form `{<locale>: {(<context>, <msgid>): <text>}}`, one per package:
-- Contexts `None`, `""`, and `"*"` name the default context `pgettext` reads
+- Contexts `None`, `""`, and `"*"` name the default context `pgettext` reads, and operator labels key under `contexts.operator_default`
 - Locale keys take a `bpy.app.translations.locales` code or a shorter form
 - Lookups read one dict per table, trying the full locale, `language_country`, `language@variant`, then `language`
 - Tables key each language once, a full code beside a shorter form (`pt_BR` beside `pt`) answering from the shorter form after an earlier table misses
@@ -169,7 +176,7 @@ Online Manual lookups call manual map functions returning `(<url prefix>, ((<pat
 - Mappings answer with their first matching pattern, specific patterns preceding wildcards
 - URLs join prefix and suffix with no separator
 - Operator buttons and their property buttons resolve to `bpy.ops.<category>.<name>`
-- Registered group and `AddonPreferences` property buttons resolve to `bpy.types.<class name>.<property>`
+- Registered group and `AddonPreferences` property buttons resolve to `bpy.types.<class name>.<property>`, a pattern on the attachment missing them
 - Other property buttons resolve to `bpy.types.<declaring struct>.<property>`
 
 ## [07]-[KEYMAPS]
@@ -261,7 +268,8 @@ Properties keep identifier and type across versions, and a rename or type change
 
 ```python
 import bpy
-from expression import Nothing, Option, Some
+from expression import Nothing, Option, Result, Some
+from expression.extra.result import catch
 import msgspec
 
 
@@ -269,12 +277,12 @@ class Previous(msgspec.Struct, frozen=True, kw_only=True):
     count: int = 1
 
 
-def migrated(preferences: bpy.types.Preferences, package: str) -> Option[BlenderResult[Previous]]:
+def migrated(preferences: bpy.types.Preferences, package: str) -> Option[Result[Previous, msgspec.ValidationError]]:
     held: bpy.types.Addon | None = preferences.addons.get(package)
     match held:
         case bpy.types.Addon(preferences=ItemPreferences() as prefs) if (stored := prefs.bl_system_properties_get()) is not None and any(field.name in stored for field in msgspec.structs.fields(Previous)):  # type: ignore[operator]
-            previous: BlenderResult[Previous] = host(
-                msgspec.convert, {field.name: stored.pop(field.name) for field in msgspec.structs.fields(Previous) if field.name in stored}, type=Previous  # type: ignore[operator]
+            previous: Result[Previous, msgspec.ValidationError] = catch(msgspec.convert, exception=msgspec.ValidationError)(
+                {field.name: stored.pop(field.name) for field in msgspec.structs.fields(Previous) if field.name in stored}, type=Previous  # type: ignore[operator]
             )
             for record in previous.to_option().to_list():
                 prefs.amount = record.count
@@ -303,7 +311,7 @@ User files hold frozen records through typed codecs, a missing file reading as t
 from pathlib import Path
 
 import bpy
-from expression import Error, Ok
+from expression import Error, Ok, Result
 from expression.extra.result import catch
 import msgspec
 
@@ -316,15 +324,17 @@ def placed(package: str) -> Path:
     return Path(bpy.utils.extension_path_user(package, path="state"), "recent.json")
 
 
-def recalled(package: str) -> BlenderResult[Recent]:
-    return (
-        host(placed(package).read_bytes)
-        .bind(lambda data: host(msgspec.json.decode, data, type=Recent))
-        .or_else_with(lambda fault: Ok(Recent()) if isinstance(fault.cause, FileNotFoundError) else Error(fault))
-    )
+def recalled(package: str) -> Result[Recent, OSError | msgspec.DecodeError]:
+    match catch(placed(package).read_bytes, exception=OSError)():
+        case Result(tag="ok", ok=data):
+            return catch(msgspec.json.decode, exception=msgspec.DecodeError)(data, type=Recent)
+        case Result(error=FileNotFoundError()):
+            return Ok(Recent())
+        case Result(error=error):
+            return Error(error)
 
 
-def kept(package: str, recent: Recent) -> BlenderResult[Recent]:
+def kept(package: str, recent: Recent) -> Result[Recent, OSError]:
     @catch(exception=OSError)
     def written(path: Path) -> Recent:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -355,6 +365,7 @@ def kept(package: str, recent: Recent) -> BlenderResult[Recent]:
 
 Wheels of enabled extensions alone install into one shared `<extensions>/.local/lib/python3.13/site-packages`:
 - Shared folders present at startup sit ahead of Blender's `site-packages`, and a session's first wheel install appends the folder last until restart
+- Wheels ahead of Blender's `site-packages` replace bundled copies process-wide, and extensions omit one Blender bundles at a version they accept
 - Distributions, keyed by wheel file name before its first `-`, resolve to the highest version any enabled extension bundles
 - Versions rank by major, minor, and patch, then the tail as text, `1.10` reading as `1.0.10` below `1.9.0` and `1.0.0rc1` outranking `1.0.0`
 - First imports of a session hold until restart, a later install or disable rewriting files while `sys.modules` keeps the imported version

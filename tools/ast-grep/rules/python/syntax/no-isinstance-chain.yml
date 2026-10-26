@@ -40,8 +40,7 @@ utils:
             - has: {field: consequence, matches: terminal}
             - not: {has: {field: alternative, pattern: $_}}
     pass-block:
-        kind: block
-        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+        matches: python-single-statement-block
         has: {any: [{kind: pass_statement}, {kind: expression_statement, regex: '^\.\.\.$'}]}
     two-arm-pass:
         kind: if_statement

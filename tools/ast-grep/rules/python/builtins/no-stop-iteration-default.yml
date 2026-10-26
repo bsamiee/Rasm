@@ -7,23 +7,11 @@ utils:
         kind: block
         not: {has: {nthChild: 2}}
     next-function:
-        any:
-            - matches: {python-builtin-name: {name: {regex: '^next$'}}}
-              not: {has: {stopBy: end, kind: call}}
-            - kind: parenthesized_expression
-              has: {matches: next-function}
+        matches: {python-unparenthesized: {value: {matches: {python-builtin-name: {name: {regex: '^next$'}}}, not: {has: {stopBy: end, kind: call}}}}}
     anext-function:
-        any:
-            - matches: {python-builtin-name: {name: {regex: '^anext$'}}}
-              not: {has: {stopBy: end, kind: call}}
-            - kind: parenthesized_expression
-              has: {matches: anext-function}
+        matches: {python-unparenthesized: {value: {matches: {python-builtin-name: {name: {regex: '^anext$'}}}, not: {has: {stopBy: end, kind: call}}}}}
     exception-name:
-        any:
-            - matches: {python-builtin-name: {name: {regex: '^Stop(Async)?Iteration$'}}}
-              not: {has: {stopBy: end, kind: call}}
-            - kind: parenthesized_expression
-              has: {matches: exception-name}
+        matches: {python-unparenthesized: {value: {matches: builtins-stop-iteration, not: {has: {stopBy: end, kind: call}}}}}
     exception:
         any:
             - matches: exception-name
@@ -31,22 +19,20 @@ utils:
               has: {matches: exception-name}
               not: {has: {pattern: $_, not: {matches: exception-name}}}
     reference:
-        any:
-            - kind: identifier
-            - kind: parenthesized_expression
-              has: {matches: reference}
+        matches: {python-unparenthesized: {value: {kind: identifier}}}
     literal:
-        any:
-            - kind: none, true, false, integer, float, ellipsis
-            - matches: python-plain-string
-            - kind: unary_operator
-              all:
-                - has: {field: operator, regex: '^[+-]$'}
-                - has: {field: argument, kind: 'integer, float'}
-            - kind: parenthesized_expression
-              has: {matches: literal}
-            - kind: tuple
-              not: {has: {pattern: $_, not: {matches: literal}}}
+        matches:
+            python-unparenthesized:
+                value:
+                    any:
+                        - kind: none, true, false, integer, float, ellipsis
+                        - matches: python-plain-string
+                        - kind: unary_operator
+                          all:
+                            - has: {field: operator, regex: '^[+-]$'}
+                            - has: {field: argument, kind: 'integer, float'}
+                        - kind: tuple
+                          not: {has: {pattern: $_, not: {matches: literal}}}
     advance:
         any:
             - kind: call

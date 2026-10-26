@@ -11,7 +11,7 @@ utils:
             - kind: identifier
               matches: {csharp-declared-type: {type: {matches: sequence-type}}}
             - kind: invocation_expression
-              has: {field: function, matches: {csharp-type-name: {name: {regex: '^(toSeq|Seq)$'}}}}
+              matches: {csharp-named-call: {name: {regex: '^(toSeq|Seq)$'}}}
             - kind: identifier
               pattern: $SEQUENCE_MEMBER
               inside:
@@ -28,7 +28,7 @@ utils:
     dispose:
         kind: invocation_expression
         all:
-            - has: {field: arguments, not: {has: {kind: argument}}}
+            - matches: csharp-bare-call
             - has:
                 field: function
                 any:
@@ -68,7 +68,7 @@ utils:
     release-call:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^DisposalOps$'}, member: {regex: '^Release$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^DisposalOps$'}, member: {regex: '^Release$'}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, pattern: $ITEM}}
     release-callback:
         kind: argument
@@ -134,7 +134,7 @@ utils:
                     inside:
                         kind: argument_list
                         has: {kind: argument, nthChild: 1, has: {matches: option-acquire}}
-                        inside: {kind: invocation_expression, has: {field: function, matches: {csharp-type-name: {name: {regex: '^use$'}}}}}
+                        inside: {kind: invocation_expression, matches: {csharp-named-call: {name: {regex: '^use$'}}}}
             - kind: member_access_expression
               all:
                 - has: {field: expression, pattern: this}
@@ -148,7 +148,7 @@ utils:
               has: {field: body, matches: option-value}
             - kind: invocation_expression
               all:
-                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(lift|pure)$'}}}}
+                - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^(lift|pure)$'}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: option-acquire}}}
 rule:
     any:
@@ -167,7 +167,7 @@ rule:
                     - has: {matches: element-release}
         - kind: invocation_expression
           all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Array$'}, member: {regex: '^ForEach$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Array$'}, member: {regex: '^ForEach$'}}}
             - has:
                 field: arguments
                 all:
@@ -187,7 +187,7 @@ rule:
                 - has: {stopBy: end, kind: element_access_expression, pattern: $ITEM, has: {field: expression, pattern: $SEQ}}
         - kind: invocation_expression
           all:
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^use$'}}}}
+            - matches: {csharp-named-call: {name: {regex: '^use$'}}}
             - has:
                 field: arguments
                 all:
@@ -195,4 +195,4 @@ rule:
                     - has: {kind: argument, nthChild: 2, matches: release-callback}
                     - not: {has: {kind: argument, nthChild: 3}}
 message: '`$SEQ` releases each element'
-note: 'Acquire each element through `use` so the owning `Bracket()` releases it, `release(<element>)` for an early release'
+note: 'Acquire each element through `use` under the owning `Bracket()`, `release(<element>)` for an early release'

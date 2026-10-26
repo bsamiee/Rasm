@@ -30,23 +30,28 @@ public abstract class NumberText<TKey> where TKey : notnull {
     public float TextWidth(Font font) => Seq(Shown(Ends.Low), Shown(Ends.High)).Fold(0f, (widest, shown) => float.Max(widest, font.MeasureString(shown).Width));
 }
 
-public sealed class ScalarText(Axis track, Option<float> step, Option<int> decimals, Option<string> unit, CultureInfo culture) : NumberText<float> {
+public sealed class ScalarText(Axis track, CultureInfo culture) : NumberText<float> {
     private const float Hundredth = 0.01f;
-    private readonly int digits = (decimals | step.Map(static held => int.Max(0, (int)MathF.Ceiling(-MathF.Log10(held))))).IfNone(track.Decimals);
+
+    public Option<float> Step { get; init; }
+    public Option<int> Decimals { get; init; }
+    public Option<string> Suffix { get; init; }
+
+    private int Digits => (Decimals | Step.Map(static held => int.Max(0, (int)MathF.Ceiling(-MathF.Log10(held))))).IfNone(track.Decimals);
 
     public override (float Low, float High) Ends => (track.Domain.Low, track.Domain.High);
 
     public override string Shown(float key) =>
-        key.ToString(string.Create(CultureInfo.InvariantCulture, $"F{digits}"), culture) switch {
-            var number => unit.Match(Some: held => $"{number} {held}", None: () => number),
+        key.ToString(string.Create(CultureInfo.InvariantCulture, $"F{Digits}"), culture) switch {
+            var number => Suffix.Match(Some: held => $"{number} {held}", None: () => number),
         };
 
-    public override string Entry(float key) => MathF.Round(key, digits, MidpointRounding.ToEven).ToString("R", CultureInfo.InvariantCulture);
+    public override string Entry(float key) => MathF.Round(key, Digits, MidpointRounding.ToEven).ToString("R", CultureInfo.InvariantCulture);
 
     public override IO<float> Read(string entry) => UnitText.ParseNumber(entry, StringParserSettings.DefaultParseSettings).Map(static parsed => (float)parsed);
 
     public override float Moved(float key, double steps) =>
-        step.Match(Some: held => key + (float)(steps * held), None: () => track.Value(track.Fraction(key) + (float)(steps * Hundredth)));
+        Step.Match(Some: held => key + (float)(steps * held), None: () => track.Value(track.Fraction(key) + (float)(steps * Hundredth)));
 
     public override float Snapped(float key, int steps) => track.Snapped(key, steps, Hundredth);
 }
@@ -69,10 +74,23 @@ internal sealed class DistanceText(LengthUnit spaceUnit, DistanceDisplay display
 
 [Union(SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads, MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 internal abstract partial record FieldState<TKey> where TKey : notnull {
-    public sealed record Resting(Option<TKey> Shown) : FieldState<TKey>;
-    public sealed record Pressed(TKey Shown, PointF At) : FieldState<TKey>;
-    public sealed record Scrubbing(TKey Shown, float Travel, PointF Last, Option<TKey> Moved) : FieldState<TKey>;
-    public sealed record Editing(Option<TKey> Shown, Option<TKey> Typed, bool Faulted) : FieldState<TKey>;
+    public abstract Cursor Pointer { get; }
+
+    public sealed record Resting(Option<TKey> Shown) : FieldState<TKey> {
+        public override Cursor Pointer => Cursors.VerticalSplit;
+    }
+
+    public sealed record Pressed(TKey Shown, PointF At) : FieldState<TKey> {
+        public override Cursor Pointer => Cursors.VerticalSplit;
+    }
+
+    public sealed record Scrubbing(TKey Shown, float Travel, PointF Last, Option<TKey> Moved) : FieldState<TKey> {
+        public override Cursor Pointer => Cursors.VerticalSplit;
+    }
+
+    public sealed record Editing(Option<TKey> Shown, Option<TKey> Typed, bool Faulted) : FieldState<TKey> {
+        public override Cursor Pointer => Cursors.IBeam;
+    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -119,10 +137,9 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
             (Field: this, Value: value),
             resting: static (s, _) => s.Field.Become(new FieldState<TKey>.Resting(Some(s.Value)), Some(s.Field.text.Shown(s.Value))),
             pressed: static (s, pressed) => s.Field.Become(pressed with { Shown = s.Value }, Some(s.Field.text.Shown(s.Value))),
-            scrubbing: static (s, scrubbing) => Some(s.Value) == scrubbing.Moved
-                ? IO.pure(unit)
-                : s.Field.Become(scrubbing with { Shown = s.Value }, Some(s.Field.text.Shown(scrubbing.Moved.IfNone(s.Value)))),
-            editing: static (s, editing) => Some(s.Value) == editing.Typed ? IO.pure(unit) : s.Field.Entered(Some(s.Value))));
+            scrubbing: static (s, scrubbing) =>
+                unless(Some(s.Value) == scrubbing.Moved, s.Field.Become(scrubbing with { Shown = s.Value }, Some(s.Field.text.Shown(scrubbing.Moved.IfNone(s.Value))))).As(),
+            editing: static (s, editing) => unless(Some(s.Value) == editing.Typed, s.Field.Entered(Some(s.Value))).As()));
 
     public IO<Unit> Retext(NumberText<TKey> next, (TKey Low, TKey High) clamp) =>
         from written in IO.lift(() => { (text, bounds) = (next, clamp); })
@@ -143,7 +160,7 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
 
     private IO<Unit> Become(FieldState<TKey> next, Option<string> written) =>
         IO.lift(() => {
-            (state, Cursor) = (next, next.MapPartially(@default: Cursors.VerticalSplit, editing: Cursors.IBeam));
+            (state, Cursor) = (next, next.Pointer);
             _ = styled.Iter(held => TextColor = held.Shown(next));
             _ = written.Iter(shown => Text = shown);
         });

@@ -115,7 +115,7 @@ utils:
               has: {field: function, matches: base-default}
             - kind: lambda_expression
               all:
-                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                - matches: csharp-parameterless
                 - has: {field: body, matches: base-default}
     arm-read:
         any:
@@ -126,7 +126,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, matches: arm-read}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
     some-arm:
         kind: lambda_expression
         all:
@@ -142,7 +142,7 @@ utils:
         kind: invocation_expression
         all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ValueUnsafe$'}}, {has: {field: expression, matches: held-read}}]}
-            - has: {field: arguments, not: {has: {kind: argument}}}
+            - matches: csharp-bare-call
     hook-call:
         kind: lambda_expression
         all:
@@ -158,7 +158,7 @@ utils:
             - has: {field: arguments, all: [{has: {kind: argument, has: {matches: hook-call}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     absent:
         kind: lambda_expression
-        has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+        matches: csharp-parameterless
     gated:
         kind: invocation_expression
         all:
@@ -180,7 +180,7 @@ utils:
                     - has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: hook-read}}
                     - has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: base-default}}
             - all:
-                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^(Answer|Succeeded)$'}}}}
+                - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^(Answer|Succeeded)$'}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: held-read}}}
             - has:
                 field: arguments
@@ -232,4 +232,4 @@ rule:
                     - has: {kind: expression_statement, has: {matches: forward}}
                     - not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: expression_statement, has: {any: [{matches: forward}, {kind: invocation_expression, matches: base-default}]}}]}}}
 message: '`$NAME` overrides a host virtual by forwarding to a member its library class holds'
-note: 'Override `<name>` in the application subclass and delete the constructor argument, field, or hook member it forwards to'
+note: 'Forward `<name>` in one line to one composed body the same file declares, in place of a held hook'

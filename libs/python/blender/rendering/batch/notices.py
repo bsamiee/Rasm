@@ -1,5 +1,6 @@
 """Queue notices posted to ntfy."""
 
+from abc import abstractmethod
 from fractions import Fraction
 from http import HTTPMethod
 from typing import Annotated, ClassVar, override
@@ -8,112 +9,106 @@ from expression import Ok, Option, Some
 import msgspec
 
 from blender.records.faults import Outcome
-from blender.rendering.batch.estimate import Forecast
 from blender.rendering.batch.exchange import Endpoint, sent
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Notice = Started | Estimated | Completed | Cancelled | Failed | Exhausted | Test
-
+from blender.rendering.batch.progress import Forecast
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Listener(msgspec.Struct, frozen=True, kw_only=True):
-    """ntfy server and topic."""
+    """ntfy server and the topic devices subscribe to, no notices when the topic is absent."""
 
-    server: Annotated[Endpoint, msgspec.Meta(description="ntfy server")] = Endpoint(url="https://ntfy.sh")
-    topic: Annotated[str | None, msgspec.Meta(description="Topic devices subscribe to, no notices when absent")] = None
+    server: Endpoint = Endpoint(url="https://ntfy.sh")
+    topic: str | None = None
 
 
-class Posted(msgspec.Struct, frozen=True, kw_only=True):
-    """Notice with its ntfy title, priority, tags, and message template over its fields."""
+class Notice(msgspec.Struct, frozen=True, kw_only=True):
+    """Queue notice with its ntfy priority, tags, and message over its fields."""
 
-    title: ClassVar[str]
     priority: ClassVar[int] = 3
     tags: ClassVar[tuple[str, ...]] = ()
-    template: ClassVar[str]
 
     @property
+    @abstractmethod
     def message(self) -> str:
-        """Template formatted over the notice fields."""
-        return self.template.format_map(msgspec.structs.asdict(self))
+        """Notice text over the case fields."""
 
 
-class Started(Posted, frozen=True, kw_only=True):
+class Started(Notice, frozen=True, kw_only=True):
     """Fresh run started."""
 
-    title = "Render Started"
     tags = ("racehorse",)
-    template = "{frames} frames in {jobs} jobs"
     jobs: int
     frames: int
 
+    @property
+    @override
+    def message(self) -> str:
+        return f"{self.frames} frames in {self.jobs} jobs"
 
-class Estimated(Posted, frozen=True, kw_only=True):
+
+class Estimated(Notice, frozen=True, kw_only=True):
     """First forecast over every job."""
 
-    title = "Render Estimated"
     tags = ("hourglass",)
     forecast: Forecast
 
     @property
     @override
     def message(self) -> str:
-        """Seconds left with the clock time of the finish when it is representable."""
         return f"{self.forecast.seconds:,.0f} s left{self.forecast.finish.map(lambda moment: f', done at {moment:%H:%M}').default_value('')}"
 
 
-class Completed(Posted, frozen=True, kw_only=True):
+class Completed(Notice, frozen=True, kw_only=True):
     """Run finished."""
 
-    title = "Render Finished"
     tags = ("white_check_mark",)
-    template = "{frames} frames in {seconds:,.0f} s"
     frames: int
     seconds: Fraction
 
+    @property
+    @override
+    def message(self) -> str:
+        return f"{self.frames} frames in {self.seconds:,.0f} s"
 
-class Cancelled(Posted, frozen=True, kw_only=True):
+
+class Cancelled(Notice, frozen=True, kw_only=True):
     """Run stopped by user."""
 
-    title = "Render Canceled"
     priority = 4
     tags = ("warning",)
-    template = "Stopped after {frames} frames"
     frames: int
 
+    @property
+    @override
+    def message(self) -> str:
+        return f"Stopped after {self.frames} frames"
 
-class Failed(Posted, frozen=True, kw_only=True):
+
+class Failed(Notice, frozen=True, kw_only=True):
     """Run ended by fault."""
 
-    title = "Render Failed"
     priority = 5
     tags = ("x",)
-    template = "{job} · {reason}"
     job: str
     reason: str
 
-
-class Exhausted(Posted, frozen=True, kw_only=True):
-    """Run ended at crash restart limit."""
-
-    title = "Render Failed"
-    priority = 5
-    tags = ("x",)
-    template = "{job} crashed {attempts} times"
-    job: str
-    attempts: int
+    @property
+    @override
+    def message(self) -> str:
+        return f"{self.job} · {self.reason}"
 
 
-class Test(Posted, frozen=True, kw_only=True):
+class Test(Notice, frozen=True, kw_only=True):
     """Test post to listener."""
 
-    title = "Render Queue Test"
-    template = "Render queue notifications configured"
+    @property
+    @override
+    def message(self) -> str:
+        return "Render queue notifications configured"
 
 
-class Publication(msgspec.Struct, frozen=True, kw_only=True):
+class _Publication(msgspec.Struct, frozen=True, kw_only=True):
     """Notice in ntfy JSON publish form."""
 
     topic: str
@@ -127,11 +122,11 @@ class Publication(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def published(listener: Listener, notice: Notice) -> Outcome[None]:
-    """Posts notice when the listener holds a topic."""
+    """Posts notice titled by its case when the listener holds a topic."""
     return (
         Option
         .of_optional(listener.topic)
-        .map(lambda topic: Publication(topic=topic, title=notice.title, message=notice.message, priority=notice.priority, tags=notice.tags))
+        .map(lambda topic: _Publication(topic=topic, title=f"Render {type(notice).__name__}", message=notice.message, priority=notice.priority, tags=notice.tags))
         .map(lambda publication: listener.server.opened(lambda client: sent(client, HTTPMethod.POST, "/", Some(publication)).map(lambda _: None)))
         .default_value(Ok(None))
     )
@@ -139,4 +134,4 @@ def published(listener: Listener, notice: Notice) -> Outcome[None]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Cancelled", "Completed", "Estimated", "Exhausted", "Failed", "Listener", "Notice", "Posted", "Publication", "Started", "Test", "published"]
+__all__ = ["Cancelled", "Completed", "Estimated", "Failed", "Listener", "Notice", "Started", "Test", "published"]

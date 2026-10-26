@@ -10,10 +10,8 @@ utils:
             - kind: expression_statement
               has: {nthChild: 1, kind: call, has: {field: function, matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^assert_never$'}}}}}
     raising-body:
-        kind: block
-        all:
-            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-            - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: unhandled}
+        matches: python-single-statement-block
+        has: {nthChild: {position: 1, ofRule: {not: {matches: python-docstring-or-comment}}}, matches: unhandled}
     leaving-body:
         kind: block
         has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, kind: 'return_statement, raise_statement'}

@@ -10,7 +10,7 @@ utils:
         any:
             - kind: string_literal, verbatim_string_literal, raw_string_literal, interpolated_string_expression
             - kind: invocation_expression
-              has: {field: function, regex: '^nameof$'}
+              matches: csharp-nameof-call
     unsafe:
         any:
             - kind: member_access_expression, element_access_expression, conditional_access_expression, cast_expression
@@ -93,7 +93,7 @@ utils:
     unless-call:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Refused$'}, member: {regex: '^Unless$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Refused$'}, member: {regex: '^Unless$'}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, pattern: $CHECKED}}
             - any:
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2, pattern: $MEMBER}}, {not: {has: {kind: argument, nthChild: 3}}}]}

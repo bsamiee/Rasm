@@ -51,6 +51,10 @@ class Blocks(IntEnum):
     DWAB = 2
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_INTERCHANGE: Final[Callable[[PyOpenColorIO.ColorSpace, str], str]] = PyOpenColorIO.ColorSpace.getInterchangeAttribute  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _DEPTH_WRITERS: Final = MappingProxyType({
@@ -149,14 +153,7 @@ class Storage(msgspec.Struct, frozen=True, kw_only=True):
         return self.compression.map(lambda compression: compression.attributes).default_value(())
 
     def clipped[D: np.float32 | np.uint8 | np.uint16](self, plane: npt.NDArray[D]) -> npt.NDArray[D]:
-        """Clips plane to half-float range less compression margin.
-
-        Args:
-            plane: Plane the write stores.
-
-        Returns:
-            Plane clipped to 65504 less margin at 16-bit depth, else plane unchanged.
-        """
+        """Returns plane clipped to 65504 less compression margin at 16-bit depth, else unchanged."""
         bound = 65504.0 - self.compression.map(lambda compression: compression.margin).default_value(0)
         return np.clip(plane, -bound, bound) if self.depth == 16 else plane
 
@@ -169,21 +166,13 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def readable(cls) -> tuple[Self, ...]:
-        """Lists every format a reader exists for.
-
-        Returns:
-            Extension list entries in OpenImageIO order.
-        """
+        """Returns every format a reader exists for in OpenImageIO extension list order."""
         entries = OpenImageIO.get_string_attribute("extension_list").split(";")
         return tuple(cls(name=name, extensions=tuple(suffixes.split(","))) for name, _, suffixes in (entry.partition(":") for entry in entries))
 
     @classmethod
     def writable(cls) -> tuple[Self, ...]:
-        """Lists formats with a writer for some depth.
-
-        Returns:
-            Readable entries the output format list names, each with a depth.
-        """
+        """Returns readable formats the output format list names with a depth."""
         writers = frozenset(OpenImageIO.get_string_attribute("output_format_list").split(","))
         return tuple(row for row in cls.readable() if row.name in writers and row.depths)
 
@@ -214,13 +203,7 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
     header: tuple[OpenImageIO.ParamValue, ...] = ()
 
     def write(self, path: str, storage: Storage, fields: Mapping[str, str], config: PyOpenColorIO.Config) -> Outcome[str]:
-        """Writes pixels with header, fields, storage, and colorspace tags.
-
-        Args:
-            path: File to write, suffix naming writer.
-            storage: Stored channel type and compression.
-            fields: Text fields stored by name.
-            config: Config the colorspace resolves in.
+        """Writes pixels with header, text fields, storage, and colorspace tags to the writer `path` suffix names.
 
         Returns:
             Path, `read` fault for profile IO, or `write` fault.
@@ -267,13 +250,7 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
 
 
 def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str] = Nothing, options: Option[OpenImageIO.ImageSpec] = Nothing) -> Outcome[ImageFile[np.float32]]:
-    """Reads every channel of first subimage as float32 with its colorspace.
-
-    Args:
-        path: File to read.
-        config: Config the colorspace resolves in.
-        colorspace: Name, alias, or role bypassing tags and file rules, inferred from file when `Nothing`.
-        options: Reader configuration, OpenImageIO defaults when `Nothing`.
+    """Reads every channel of first subimage as float32 with its colorspace, a held `colorspace` bypassing tags and file rules.
 
     Returns:
         File, or `read` or `unresolved` fault.
@@ -308,11 +285,6 @@ def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str
 def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], Outcome[T]], *, options: Option[OpenImageIO.ImageSpec] = Nothing) -> Outcome[T]:
     """Opens a file for reading, uses it, and closes it on every path.
 
-    Args:
-        path: File to open.
-        use: Reader of open input.
-        options: Reader configuration, OpenImageIO defaults when `Nothing`.
-
     Returns:
         Reader value, or `read` fault for open, read, or close.
     """
@@ -326,11 +298,7 @@ def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], Outcome[T]], *,
 
 
 def written(path: str, write: Callable[[pathlib.Path], object]) -> Outcome[str]:
-    """Runs one whole-file encoder over the stage of `path` through one atomic commit, creating its folder.
-
-    Args:
-        path: File to replace.
-        write: Encoder opening, writing, and closing the stage path it receives.
+    """Runs one encoder opening, writing, and closing the stage path of `path` through one atomic commit, creating its folder.
 
     Returns:
         Path, or `write` fault for folder creation, encoding, or commit.
@@ -342,11 +310,7 @@ def written(path: str, write: Callable[[pathlib.Path], object]) -> Outcome[str]:
 
 
 def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> Outcome[str]:
-    """Encodes subimages through one output, closing it before replacing file.
-
-    Args:
-        path: File to write, suffix naming writer.
-        subimages: Subimages built for writer of path.
+    """Encodes subimages built for the writer `path` suffix names through one output, closing it before replacing the file.
 
     Returns:
         Path, or `write` fault.
@@ -391,10 +355,6 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
 def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[bytes]]:
     """Reads the ICC profile a colorspace names from config search path.
 
-    Args:
-        config: Config the colorspace resolves in.
-        colorspace: Colorspace name.
-
     Returns:
         Profile, `Nothing` when the colorspace names none, or `read` fault for a named profile the search path misses or fails to read.
     """
@@ -412,7 +372,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[byt
     return (
         Option
         .of_optional(config.getColorSpace(colorspace))
-        .map(lambda space: str(space.getInterchangeAttribute("icc_profile_name")))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        .map(lambda space: _INTERCHANGE(space, "icc_profile_name"))
         .filter(bool)
         .map(loaded)
         .default_value(Ok(Nothing))

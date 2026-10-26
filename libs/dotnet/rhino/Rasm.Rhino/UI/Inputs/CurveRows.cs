@@ -20,7 +20,7 @@ public sealed record CurveLane(Key Key, string Caption, Seq<Vector2> Points, Fun
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CurveRows {
     // --- [EDITORS]
-    private static readonly Selection Unpicked = new Selection.Many([], None, None);
+    private static readonly Selection Unpicked = new Selection.Many([]);
 
     public static ControlRow Editor(string label, IterableNE<CurveLane> lanes, Option<Func<Key, IO<Seq<float>>>> pick = default) =>
         new ControlRow.Bound<(IterableNE<CurveLane> Lanes, Option<Func<Key, IO<Seq<float>>>> Pick)>(label, RowShape.Block, (lanes, pick), static (latest, scope, retain) =>
@@ -52,12 +52,12 @@ public static class CurveRows {
                 select unit
             from strip in toSeq(row.Row.Lanes).Count is 1
                 ? IO.pure(Option<Control>.None)
-                : ChoiceRows.Strip(toSeq(row.Row.Lanes).Map(lane => new ChoiceItem<Key>(lane.Key, RowText.Localize(lane.Caption, scope.Sink).Local, None)),
+                : ChoiceRows.Strip(toSeq(row.Row.Lanes).Map(lane => new ChoiceItem<Key>(lane.Key, RowText.Localize(lane.Caption, scope.Sink).Local)),
                         key => Laned(keyed, held, key).Bind(_ => shown), scope.Sink, retain)
-                    .Bind(chosen => chosen.Show(row.Row.Lanes.Head.Key).Map(_ => Some(chosen.Control)))
+                    .Bind(chosen => from shown in chosen.Show(row.Row.Lanes.Head.Key) select Some(chosen.Control))
             from picked in row.Row.Pick.Traverse(read => CommandRows.Button(
                     new Command<RowRule, Invoke>.Run(
-                        new CommandFace("curve-pick", "Pick Point", None, Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.SVGEditorEyeDropperSvg))), None,
+                        new CommandFace("curve-pick", "Pick Point") { Glyph = Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.SVGEditorEyeDropperSvg)) }, None,
                         new Invoke.Effect(_ => held.ValueIO.Bind(state => read(state.Active)).Bind(xs => Inserted(keyed, held, xs)).Bind(_ => shown))),
                     IconSlot.Small, scope, retain)).As()
             from body in strip.Match(
@@ -80,9 +80,9 @@ public static class CurveRows {
         select unit;
 
     private static Seq<Command<RowRule, Invoke>> Commands(IO<HashMap<Key, CurveLane>> keyed, Atom<CurveShown> held, IO<Unit> shown) =>
-        held.ValueIO.Bind(state => keyed.Map(lanes => lanes[state.Active])) switch {
+        (from state in held.ValueIO from lanes in keyed select lanes[state.Active]) switch {
             var active => [
-                new Command<RowRule, Invoke>.Run(new CommandFace("curve-reset", "Reset Curve", None, None),
+                new Command<RowRule, Invoke>.Run(new CommandFace("curve-reset", "Reset Curve"),
                     Some(new RowRule(_ => active.Map(static lane => lane.Rest.Exists(rest => rest != lane.Points)))),
                     new Invoke.Effect(_ =>
                         from lane in active
@@ -90,7 +90,7 @@ public static class CurveRows {
                         from cleared in held.SwapIO(static prior => prior with { Picked = Unpicked })
                         from redrawn in shown
                         select unit)),
-                new Command<RowRule, Invoke>.Run(new CommandFace("curve-underlay", "Underlay", None, None),
+                new Command<RowRule, Invoke>.Run(new CommandFace("curve-underlay", "Underlay"),
                     Some(new RowRule(_ => active.Map(static lane => lane.Underlay.IsSome))),
                     new Invoke.Effect(_ =>
                         from lane in active
@@ -142,7 +142,7 @@ public static class CurveRows {
                 : point),
         };
 
-    private static Selection.Many Lead(int index) => (Key)new Key.Ordinal((uint)index) switch { var key => new Selection.Many([key], Some(key), Some(key)) };
+    private static Selection.Many Lead(int index) => (Key)new Key.Ordinal((uint)index) switch { var key => new Selection.Many([key]) { Anchor = Some(key), Focus = Some(key) } };
 
     private static Option<int> Index(Selection picked) => picked.Lead.Bind(static key => key is Key.Ordinal ordinal ? Some((int)ordinal.Index) : None);
 
@@ -150,7 +150,7 @@ public static class CurveRows {
     private static IO<(Control Panel, Func<Key, Option<float>, IO<Unit>> Show)> Coordinates(
         IterableNE<CurveLane> lanes, Func<PlotPlane.Cartesian, Axis> axis, Func<Edit<float>, IO<Unit>> edited, IPlugInSink sink, Action<IDisposable> retain) =>
         from fields in toSeq(lanes).TraverseM(lane => axis(lane.Plane) switch {
-            var held => DisposalOps.Acquire(IO.lift(() => new NumberField<float>(new ScalarText(held, None, None, None, RowText.Culture), (held.Domain.Low, held.Domain.High), edited, sink) { Enabled = false }), retain)
+            var held => DisposalOps.Acquire(IO.lift(() => new NumberField<float>(new ScalarText(held, RowText.Culture), (held.Domain.Low, held.Domain.High), edited, sink) { Enabled = false }), retain)
                 .Map(field => (lane.Key, Field: field)),
         }).As()
         let keyed = toHashMap(fields)

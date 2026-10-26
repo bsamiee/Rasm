@@ -1,9 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: languageext-atom-transition
 language: csharp
-utils:
-    transition:
-        matches: {csharp-type-name: {name: {regex: '^(swap|commute)$'}}}
 rule:
     kind: invocation_expression
     any:
@@ -11,5 +8,5 @@ rule:
             languageext-atom-call:
                 member: {regex: '^(Swap|SwapIO|SwapMaybe|SwapMaybeIO|SwapKey|AddOrUpdate|MapInPlace|FilterInPlace|BindInPlace|Commute)$'}
         - all:
-            - has: {field: function, matches: transition}
+            - matches: {csharp-named-call: {name: {regex: '^(swap|commute)$'}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: languageext-atom-cell}}}

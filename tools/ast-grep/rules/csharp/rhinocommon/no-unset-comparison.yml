@@ -23,4 +23,4 @@ rule:
             - has: {field: function, regex: '(^|\.)Equals$'}
             - has: {field: arguments, has: {kind: argument, has: {matches: unset}}}
 message: '`$UNSET` comparison tests validity by sentinel equality'
-note: 'Test `RhinoMath.IsValidDouble(<value>)`, `RhinoMath.IsValidSingle(<value>)`, `<value>.IsValid`, or `<index>.IsUnset()`, and lift through `Conversions.Present` for an `Option`'
+note: 'Test `RhinoMath.IsValidDouble`, `RhinoMath.IsValidSingle`, `<value>.IsValid`, or `<index>.IsUnset()`, `Some(<value>).Filter(<test>)` for an `Option`'

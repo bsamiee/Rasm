@@ -118,7 +118,7 @@ utils:
                 - inside: {stopBy: end, follows: {stopBy: end, matches: resolving-statement}}
     override:
         kind: decorator
-        has: {matches: {python-member-use: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^override$'}}}}
+        has: {matches: typing-override}
     rebinding:
         kind: assignment, augmented_assignment, for_statement, named_expression
         any:

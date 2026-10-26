@@ -15,121 +15,121 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     public static readonly DiagnosticDescriptor Count = Rule(
         "RASM2002",
         Category,
-        "Unchecked item count",
-        "Item count from `{0}` reaches no `==` or `!=`, compare it with `{1}` count and fail with an error naming `{0}` and both counts",
-        "Count returned by a RhinoCommon delete, remove, set, or attach method over a collection, unread by `==` or `!=`.");
+        "Unchecked item count, compare with input count",
+        "`{0}` count reaches no `==` or `!=`, compare with `{1}` count and fail naming `{0}` and both counts",
+        "RhinoCommon delete, remove, set, and attach counts over a collection reach `==` or `!=`");
 
     public static readonly DiagnosticDescriptor OffUiThread = Rule(
         "RASM2003",
         Category,
-        "RhinoDoc access off UI thread",
-        "`RhinoDoc` read `{0}` runs off UI thread in a `{1}` callback, read it in an `IO` run through `OnUiThread()` and pass callback values or duplicated geometry",
-        "`RhinoDoc` expression inside a lambda passed to `Task`, `TaskFactory`, `Parallel`, `ThreadPool`, or `Thread`.");
+        "`RhinoDoc` read off UI thread, read through `OnUiThread()`",
+        "`{0}` reads `RhinoDoc` off UI thread in `{1}`, read in an `OnUiThread()` `IO` and pass values or duplicated geometry",
+        "Lambdas passed to `Task`, `TaskFactory`, `Parallel`, `ThreadPool`, or `Thread` read no `RhinoDoc` expression");
 
     public static readonly DiagnosticDescriptor Active = Rule(
         "RASM2004",
         Category,
-        "ActiveDoc read with document in scope",
+        "`ActiveDoc` read with document in scope, read the held document",
         "`RhinoDoc.ActiveDoc` read where `{0}` holds a `RhinoDoc`, write `{0}`",
-        "`RhinoDoc.ActiveDoc` read outside an `==` or `!=` comparison where a `RhinoDoc` parameter, local, field, or property is in scope.");
+        "Read an in-scope `RhinoDoc` parameter, local, field, or property over `RhinoDoc.ActiveDoc` outside `==` or `!=` comparisons");
 
     public static readonly DiagnosticDescriptor Script = Rule(
         "RASM2005",
         Category,
-        "RunScript in command without ScriptRunner style",
+        "`RunScript` in command without `ScriptRunner` style, add `Style.ScriptRunner`",
         "Command `{0}` calls `RhinoApp.RunScript` without `Style.ScriptRunner`, add `Style.ScriptRunner` to `[CommandStyle]` on `{0}`",
-        "`RhinoApp.RunScript` call in a `Command` subclass with a `CommandStyle` lacking `Style.ScriptRunner`.");
+        "`Command` subclasses calling `RhinoApp.RunScript` declare `Style.ScriptRunner` in `[CommandStyle]`");
 
     public static readonly DiagnosticDescriptor Marshal = Rule(
         "RASM2006",
         Category,
-        "Single call marshaled to UI thread",
+        "Single call marshaled to UI thread, compose one `OnUiThread()` `IO`",
         "`{0}` marshals one call to UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`",
-        "Eto `Application`, main `DispatchQueue`, or `NSObject` main-thread call taking a delegate outside `Callbacks`.");
+        "Compose UI-thread calls into one `OnUiThread()` `IO` over delegate-taking Eto `Application`, main `DispatchQueue`, or `NSObject` main-thread calls outside `Callbacks`");
 
     public static readonly DiagnosticDescriptor Override = Rule(
         "RASM2007",
         Category,
-        "SetDisplayModeOverride result read",
+        "`SetDisplayModeOverride` result read, discard through `_ =`",
         "`{0}` returns false after storing the override, discard its result with `_ =`",
-        "`ObjectAttributes.SetDisplayModeOverride` result read outside a discard or an expression statement.");
+        "`ObjectAttributes.SetDisplayModeOverride` results go to a discard or an expression statement");
 
     public static readonly DiagnosticDescriptor Mac = Rule(
         "RASM2008",
         Category,
-        "macOS-breaking member outside macOS guard",
+        "macOS-breaking member outside macOS guard, guard or replace the call",
         "`{0}` runs outside the false branch of `OperatingSystem.IsMacOS()` and on macOS {1}, {2}",
-        "`NamedViewTable.RestoreWithAspectRatio` or `Environment.GetCommandLineArgs` outside the false branch of an `IsMacOS()` conditional, `!IsMacOS() &&`, or `IsMacOS() ||`.");
+        "`NamedViewTable.RestoreWithAspectRatio` and `Environment.GetCommandLineArgs` run in an `IsMacOS()` conditional's false branch, after `!IsMacOS() &&`, or after `IsMacOS() ||`");
 
     public static readonly DiagnosticDescriptor Grayscale = Rule(
         "RASM2009",
         Category,
-        "GrayscaleDib result read without null check",
+        "`GrayscaleDib` result read without null check, acquire through `Optional`",
         "`{0}` returns null on macOS, acquire `Optional({0}).ToFin(new Refused(...))` with `use` and `[CallerArgumentExpression]` call text",
-        "`ZBufferCapture.GrayscaleDib` result read outside the first argument of `Optional` or a null-checking acquire.");
+        "`ZBufferCapture.GrayscaleDib` results enter as first argument of `Optional` or a null-checking acquire");
 
     public static readonly DiagnosticDescriptor Page = Rule(
         "RASM2010",
         Category,
-        "Page view built in PageControl",
-        "`{0}.PageControl` reaches `{1}` and Rhino disposes its result on panel close for every page, return the held control and realize it in `OnActivate(true)`",
-        "`ObjectPropertiesPage.PageControl` getter creating an Eto control, calling an acquire, or calling a `Rasm.Rhino.UI` `Open` or `Realize`, directly or through a member of its type.");
+        "Page view built in `PageControl`, realize in `OnActivate(true)`",
+        "`{0}.PageControl` reaches `{1}` and Rhino disposes every page's result on panel close, return a held control realized in `OnActivate(true)`",
+        "`ObjectPropertiesPage.PageControl` getters create no Eto control, call no acquire or `Rasm.Rhino.UI` `Open` or `Realize`, directly or through type members");
 
     public static readonly DiagnosticDescriptor Docked = Rule(
         "RASM2011",
         Category,
-        "Floating view docked by assignment",
+        "Floating view docked by assignment, delete the assignment",
         "`{0}` destroys a floated view on macOS in place of docking it, delete the assignment",
-        "`false` constant assigned to `RhinoView.Floating`.");
+        "`RhinoView.Floating` takes no `false` assignment");
 
     public static readonly DiagnosticDescriptor Mode = Rule(
         "RASM2012",
         Category,
-        "Owned DisplayModeDescription left undisposed",
+        "Owned `DisplayModeDescription` left undisposed, acquire through `use`",
         "`{0}` returns an owned `DisplayModeDescription` copy no release reaches, acquire `Optional({0}).ToFin(new Refused(...))` with `use` and `[CallerArgumentExpression]` call text",
-        "`DisplayModeDescription.GetDisplayMode` or `FindByName` result or `RhinoViewport.DisplayMode` read reaching no `Dispose`, `using`, `use`, `release`, acquire, holder, or retaining call.");
+        "`DisplayModeDescription.GetDisplayMode`, `FindByName`, and `RhinoViewport.DisplayMode` copies reach `Dispose`, `using`, `use`, `release`, acquire, holder, or retaining call");
 
     public static readonly DiagnosticDescriptor Settings = Rule(
         "RASM2101",
         Category,
-        "PersistentSettings read through a default",
+        "`PersistentSettings` read through a default, call `TryGet<Kind>`",
         "`{0}` reads `PersistentSettings` through a default value, call `{1}`",
-        "`PersistentSettings` `Get<Kind>` overload taking a default value where a `TryGet<Kind>` member reads the same key.");
+        "Read `PersistentSettings` keys through `TryGet<Kind>` over `Get<Kind>` overloads taking a default value");
 
     public static readonly DiagnosticDescriptor Redraw = Rule(
         "RASM2102",
         Category,
-        "View redraw outside Commits",
+        "View redraw outside `Commits`, pass a `RedrawPolicy`",
         "`{0}` controls view redraw outside `Commits`, pass a `RedrawPolicy` to `Commits.Commit` or `Commits.WithinRedraw`",
-        "`ViewTable.Redraw`, `ViewTable.EnableRedraw`, or `RhinoView.Redraw` call or `ViewTable.RedrawEnabled` write outside `Commits`.");
+        "`ViewTable.Redraw`, `ViewTable.EnableRedraw`, and `RhinoView.Redraw` calls and `ViewTable.RedrawEnabled` writes run inside `Commits`");
 
     public static readonly DiagnosticDescriptor Narrowed = Rule(
         "RASM2103",
         Category,
-        "Cast or type test on GeometryBase duplicate",
-        "Cast or type test in `{0}` narrows `{1}` to `{2}`, acquire the typed copy with `use(() => <product>)` under the owner's `Bracket()`",
-        "Cast, type test, or switch narrowing a `GeometryBase.Duplicate` or `DuplicateShallow` result.");
+        "Cast or type test on `GeometryBase` duplicate, acquire typed copy with `use`",
+        "`{0}` narrows `{1}` to `{2}`, acquire a typed copy with `use(() => <product>)` under the owner's `Bracket()`",
+        "`GeometryBase.Duplicate` and `DuplicateShallow` results reach no narrowing cast, type test, or switch");
 
     public static readonly DiagnosticDescriptor Toggled = Rule(
         "RASM2104",
         Category,
-        "Conduit toggled outside Conduits",
-        "`{0}` toggles a conduit outside `Conduits`, toggle the conduit through the one library enable operation",
-        "`DisplayConduit.Enabled` write outside `Conduits`.");
+        "Conduit toggled outside `Conduits`, toggle through `Conduits`",
+        "`{0}` toggles a conduit outside `Conduits`, toggle through the one library enable operation",
+        "`DisplayConduit.Enabled` writes run inside `Conduits`");
 
     public static readonly DiagnosticDescriptor Rendering = Rule(
         "RASM2105",
         Category,
-        "RenderSettings written outside RenderSettingsSources",
+        "`RenderSettings` written outside `RenderSettingsSources`, write through `Edit`",
         "`{0}` writes `RhinoDoc.RenderSettings` with no undo record, write through `RenderSettingsSources.Edit`",
-        "`RhinoDoc.RenderSettings` assignment outside `RenderSettingsSources`.");
+        "`RhinoDoc.RenderSettings` assignments run inside `RenderSettingsSources`");
 
     public static readonly DiagnosticDescriptor Owner = Rule(
         "RASM2107",
         Category,
-        "Event owner differs from the event",
-        "`typeof({0})` names the owner of event `{1}` on `{2}`",
-        "`Subscriptions.Host` or `During` `typeof` argument naming a type other than the subscribed event's owner or the `[UnsafeAccessorType]` target of the accessor its add lambda calls, where that owner is accessible from the calling assembly.");
+        "`typeof` owner differs from subscribed event owner, name the event's owner",
+        "`typeof({2})` names no owner of event `{1}`, write `typeof({0})`",
+        "`Subscriptions.Host` and `During` `typeof` arguments name the event owner or add-lambda `[UnsafeAccessorType]` target, when accessible to callers");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         [Count, OffUiThread, Active, Script, Marshal, Override, Mac, Grayscale, Page, Docked, Mode, Settings, Redraw, Narrowed, Toggled, Rendering, Owner];
@@ -227,10 +227,9 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
 
     // --- [SCRIPTS]
     private static void Scripts(CompilationStartAnalysisContext context, ImmutableArray<ISymbol> scripts, INamedTypeSymbol command, INamedTypeSymbol attribute, int runner) {
-        bool Runs(INamedTypeSymbol? type) =>
-            type is not null && (Marked(type, attribute) is { } style
-                ? style.ConstructorArguments is { Length: 1 } arguments && arguments[0].Value is int styles && (styles & runner) is not 0
-                : Runs(type.BaseType));
+        bool Runs(INamedTypeSymbol type) =>
+            Bases(type).Select(held => Marked(held, attribute)).FirstOrDefault(static style => style is not null) is { ConstructorArguments: { Length: 1 } arguments }
+            && arguments[0].Value is int styles && (styles & runner) is not 0;
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, analysis) =>
             Among(invocation.TargetMethod, scripts) && analysis.ContainingSymbol.ContainingType is { } owner && Derives(owner, command) && !Runs(owner)
                 ? [Diagnostic.Create(Script, invocation.Syntax.GetLocation(), owner.Name)]
@@ -282,7 +281,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
             operation switch {
                 IObjectCreationOperation { Constructor: { } made } when Derives(made.ContainingType, control) => Label(made),
                 IInvocationOperation call when Among(call.TargetMethod, scopes)
-                    || (call.TargetMethod.Name is "Open" or "Realize" && Within(context.Compilation.GetCompilationNamespace(call.TargetMethod.ContainingNamespace), views)) => Label(call.TargetMethod),
+                    || (call.TargetMethod.Name is "Open" or "Realize" && Namespaced(context.Compilation, call.TargetMethod, views)) => Label(call.TargetMethod),
                 _ => null,
             };
         context.RegisterSymbolStartAction(
@@ -395,7 +394,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
             Among(call.TargetMethod, subscriptions)
             && call.Arguments.FirstOrDefault(argument => Same(argument.Parameter?.Type, type)) is { Value: var owned } && Stripped(owned) is ITypeOfOperation { TypeOperand: var written } typed
             && call.Arguments.FirstOrDefault(static argument => argument.Parameter?.Type.TypeKind is TypeKind.Delegate) is { Value: var added }
-            && Stripped(added) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation function }
+            && Lambda(added) is { } function
             && function.Body.Descendants().Select(step => Subscribed(step, written)).FirstOrDefault(static found => found is not null) is { Matches: false, Nameable: true } found
                 ? [Diagnostic.Create(Owner, typed.Syntax.GetLocation(), found.Owner, found.Event, written.Name)]
                 : []);

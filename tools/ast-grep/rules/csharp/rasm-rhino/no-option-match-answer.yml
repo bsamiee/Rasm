@@ -7,12 +7,12 @@ utils:
     answer-call:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}, {not: {has: {kind: argument, nthChild: {position: 4, ofRule: {kind: argument}}}}}]}
     succeeded-call:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}}, {not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}]}
     owner-answer:
         any:
@@ -66,11 +66,11 @@ utils:
     first-argument:
         kind: argument
         nthChild: {position: 1, ofRule: {kind: argument}}
-        not: {has: {field: name, pattern: $_}}
+        matches: csharp-positional-argument
     second-argument:
         kind: argument
         nthChild: {position: 2, ofRule: {kind: argument}}
-        not: {has: {field: name, pattern: $_}}
+        matches: csharp-positional-argument
     arms:
         kind: argument_list
         any:
@@ -89,7 +89,7 @@ utils:
     prelude-match:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^match$'}}}}
+            - matches: {csharp-named-call: {name: {regex: '^match$'}}}
             - has:
                 field: arguments
                 all:
@@ -137,4 +137,4 @@ rule:
             - matches: combinator-answer
         - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^(Answer|Succeeded)$'}}}}
 message: '`$OPTION` answers an optional callback through `$ANSWER`'
-note: 'Lift the option at the call as `<option>.Map(<run> => <effect>).IfNone(IO.pure(<absent>))` and pass it to `<owner>.Answer`'
+note: 'Pass `<option>.Map(<run> => <effect>).IfNone(IO.pure(<absent>))` to `<owner>.Answer` at the call'

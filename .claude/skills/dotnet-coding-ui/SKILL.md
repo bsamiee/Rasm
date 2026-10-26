@@ -127,7 +127,8 @@ Paints are style objects built once, every effect on one is a reference-counted 
 - `SKPaint.GetFastBounds` over the filter handle answers a filtered draw's reach, one probe per filter graph
 - `ClipRoundRect` costs less than `ClipPath` over one shape, `antialias: true` buys a coverage mask, a device-snapped rect clips without one
 - `IsDither` removes 8-bit banding in gradients
-- Runtime effects compile once into a static `SKRuntimeEffect`, a `SKRuntimeShaderBuilder` per use binds uniforms and `Build(localMatrix)` places it
+- Runtime effects compile once into a static `SKRuntimeEffect.BuildShader` builder, a failed compile throws its compiler text
+- Each use binds its own `SKRuntimeEffectUniforms` and `SKRuntimeEffectChildren` into `Effect.ToShader(uniforms, children, localMatrix)`
 - `WithLocalMatrix` on a built shader makes a second handle per use
 - Pictures record once per content change through `SKPictureRecorder.BeginRecording(cullRect, useRTree: true)` and replay per frame
 - `SKImage.FromPicture` rasterizes a picture when replay cost leads
@@ -173,13 +174,12 @@ internal sealed class Outline : IDisposable {
 
 internal static class Effects {
     private const string Source = "uniform float2 size; layout(color) uniform half4 tint; half4 main(float2 p) { float2 q = p / size - 0.5; half4 c = tint * half(dot(q, q)); return half4(c.rgb * c.a, c.a); }";
-    private static readonly SKRuntimeEffect Vignette = SKRuntimeEffect.CreateShader(Source, out string _);
+    private static readonly SKRuntimeShaderBuilder Vignette = SKRuntimeEffect.BuildShader(Source);
 
     public static SKShader Build(SKSize size, SKColorF tint, SKMatrix placement) {
-        using SKRuntimeShaderBuilder builder = new(Vignette);
-        builder.Uniforms["size"] = size;
-        builder.Uniforms["tint"] = tint;
-        return builder.Build(placement);
+        using SKRuntimeEffectUniforms uniforms = new(Vignette.Effect) { ["size"] = size, ["tint"] = tint };
+        using SKRuntimeEffectChildren children = new(Vignette.Effect);
+        return Vignette.Effect.ToShader(uniforms, children, placement);
     }
 }
 ```
@@ -210,9 +210,16 @@ Vector art loads once into an `SKPicture` and draws at any scale, tint and theme
 ```csharp
 internal sealed record ArtKey(Assembly Assembly, string Resource, SKColor Current);
 
-internal enum ArtFault { Missing, Unparsable, Empty }
+[SmartEnum]
+internal sealed partial class ArtFault {
+    public static readonly ArtFault Missing = new("no resource");
+    public static readonly ArtFault Unparsable = new("no SVG document");
+    public static readonly ArtFault Empty = new("no picture");
 
-internal sealed record ArtRefused(ArtKey Key, ArtFault Fault) : Expected($"{Key.Resource} {Fault}", 0);
+    public string Message { get; }
+}
+
+internal sealed record ArtRefused(ArtKey Key, ArtFault Fault) : Expected($"{Key.Resource} fails: {Fault.Message}", 0);
 
 internal sealed class Art {
     private readonly SkiaModel model;
@@ -261,11 +268,11 @@ Unicolour states every color fact at design scale (swatch, palette, theme color,
 - `Simulate(Cvd, severity)` previews deficiency
 - `Colourmaps.Viridis.Map(x)` and `Palette(count)` sample a perceptual map from `Wacton.Unicolour.Datasets`
 - `Css.FromName(name)` answers a named color or `null`, `Css.All` lists the names
-- Pixel passes derive their matrix from `RgbLinear` and `Xyz` of the primaries and white into `Vector4` lanes or an SkSL uniform
+- Pixel passes derive a matrix from `RgbLinear` and `Xyz` of primaries and white, luma from `YbrConfiguration`, into `Vector4` lanes or a uniform
 - Transfer tables derive from `ToLinear(value, dynamicRange)`
-- Colors in a style file are a typed union (fixed, host role, mix, contrast, relative) under JSON polymorphism, a string grammar restates structure
+- Look colors are a typed union (fixed, host role, data series, mix, contrast, relative) in the assembly that declares the role
 - Paint boundary: `SKColorF` from `Rgb` with the sRGB tag or from `RgbLinear` with the linear tag, `SKColor` from `Rgb.Byte255`
-- `Unicolour.Hex` and `Rgb.Byte255.Hex` write hex for a style file, `new Unicolour(hex)` reads it
+- `Unicolour.Hex` and `Rgb.Byte255.Hex` write `#RRGGBB` and answer `-` outside the RGB gamut, `MapToRgbGamut` precedes them
 - HSL math stays in `ColourSpace.Hsl`
 - RichTextKit `Style.TextColor` and `HaloColor` are 8-bit `SKColor`, a float color draws the block through a layer paint
 
@@ -394,7 +401,7 @@ internal sealed class SceneCanvas(Action<SKCanvas> draw) : Drawable {
 |  [12]   | Cache key missing scale or color space, or keyed on a reference     | Key on content, scale, color type, and color space               |
 |  [13]   | One cache cleared on every size or scale change                     | Device-free caches survive, device-dependent caches rebuild      |
 |  [14]   | `Mix` or `Contrast` per hover frame, memo keyed on animated colors  | `Palette` table at style time, color through a layer paint       |
-|  [15]   | `SKRuntimeEffect.CreateShader` per frame                            | Effect compiled once as a static, builder per use                |
+|  [15]   | `CreateShader` per frame, or a per-use builder disposing the effect | `BuildShader` once as a static, uniforms and children per use    |
 |  [16]   | Gradient colors as `SKColor` on a linear target                     | `SKColorF[]` tagged with their `SKColorSpace`                    |
 |  [17]   | `SrcIn` tint filter over art that holds its own colors              | `SvgParameters.CurrentColor` at load, tint for monochrome art    |
 |  [18]   | SVG parsed on the paint thread, or rasterized per draw              | Picture at realization, image per (asset, parameters, scale)     |
@@ -402,7 +409,7 @@ internal sealed class SceneCanvas(Action<SKCanvas> draw) : Drawable {
 |  [20]   | `new Unicolour` inside a pixel or sample loop                       | Matrix or curve derived once, baked into a span kernel or shader |
 |  [21]   | Hand alpha composite, white point adaptation, or CCT fit            | `Blend`, `ConvertToConfiguration`, `Unicolour.Temperature`       |
 |  [22]   | Hand RGB clipping of an out-of-gamut color                          | `MapToRgbGamut(GamutMap.OklchChromaReduction)`                   |
-|  [23]   | CSS color string grammar in a style file                            | Typed color union under JSON polymorphism                        |
+|  [23]   | Look file, decoder, or color string grammar                         | Typed look values in the role's assembly                         |
 |  [24]   | `TextBlock` laid out per paint, or one block per candidate width    | Laid block cached by text, sealed style, and width               |
 |  [25]   | `Copy` and `ApplyStyle` to recolor text per frame                   | Layer paint or color filter over the laid block                  |
 |  [26]   | Whitespace scan or `Split(' ')` for wrap and word points            | `WordBoundaryIndicies`, `LineIndicies`                           |

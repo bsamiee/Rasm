@@ -15,15 +15,16 @@ utils:
                 - kind: attribute
                   all: [{has: {field: attribute, regex: '^from_exception$'}}, {has: {field: object, matches: exception-class}}]
     exception:
-        any:
-            - matches: exception-source
-            - matches: {python-assigned-name: {value: {matches: exception-source}}}
-            - kind: attribute
-              all: [{has: {field: attribute, regex: '^__(cause|context)__$'}}, {has: {field: object, matches: exception}}]
-            - kind: subscript
-              has: {field: value, kind: attribute, all: [{has: {field: attribute, regex: '^exceptions$'}}, {has: {field: object, matches: exception}}]}
-            - kind: parenthesized_expression
-              has: {matches: exception}
+        matches:
+            python-unparenthesized:
+                value:
+                    any:
+                        - matches: exception-source
+                        - matches: {python-assigned-name: {value: {matches: exception-source}}}
+                        - kind: attribute
+                          all: [{has: {field: attribute, regex: '^__(cause|context)__$'}}, {has: {field: object, matches: exception}}]
+                        - kind: subscript
+                          has: {field: value, kind: attribute, all: [{has: {field: attribute, regex: '^exceptions$'}}, {has: {field: object, matches: exception}}]}
     stack-source:
         any:
             - kind: call
@@ -36,11 +37,7 @@ utils:
             - kind: attribute
               all: [{has: {field: attribute, regex: '^stack$'}}, {has: {field: object, matches: exception}}]
     stack:
-        any:
-            - matches: stack-source
-            - matches: {python-assigned-name: {value: {matches: stack-source}}}
-            - kind: parenthesized_expression
-              has: {matches: stack}
+        matches: {python-unparenthesized: {value: {any: [{matches: stack-source}, {matches: {python-assigned-name: {value: {matches: stack-source}}}}]}}}
     rendered:
         kind: call
         has:

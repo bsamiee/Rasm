@@ -48,8 +48,7 @@ class Rounded(Case, frozen=True, kw_only=True):
     @staticmethod
     def coded(plane: npt.NDArray[np.float32], depth: IntegerDepth) -> npt.NDArray[np.uint8 | np.uint16]:
         """Returns clamped integer codes of the same shape, NaN and negative infinity at zero."""
-        codes: npt.NDArray[np.uint8 | np.uint16] = OpenImageIO.ImageBuf(np.ascontiguousarray(plane).reshape(1, -1, 1)).get_pixels(OpenImageIO.UINT8 if depth == 8 else OpenImageIO.UINT16)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        return codes.reshape(plane.shape)
+        return np.asarray(OpenImageIO.ImageBuf(np.ascontiguousarray(plane).reshape(1, -1, 1)).get_pixels(OpenImageIO.UINT8 if depth == 8 else OpenImageIO.UINT16)).reshape(plane.shape)
 
 
 class Diffused(Case, frozen=True, kw_only=True):

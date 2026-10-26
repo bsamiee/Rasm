@@ -5,7 +5,7 @@ using UnitsNet;
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<QuantityValue>(ConstructorAccessModifier = AccessModifier.Internal, SkipIParsable = true, SkipToString = true, SkipIFormattable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
+[ValueObject<QuantityValue>(SkipIParsable = true, SkipToString = true, SkipIFormattable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<DraftingFault>]
 public sealed partial class DrawingScale {
@@ -25,17 +25,13 @@ public sealed partial class DrawingScale {
 [ValidationError<DraftingFault>]
 public sealed partial class ScaleSeries {
     public static readonly ScaleSeries Iso5455 = new("iso-5455",
-        from exponent in toSeq(Range(-4, 6))
-        from mantissa in Seq<BigInteger>(1, 2, 5)
-        select new DrawingScale(QuantityValue.FromPowerOfTen(mantissa, exponent)),
+        (from exponent in toSeq(Range(-4, 6)) from mantissa in Seq<BigInteger>(1, 2, 5) select QuantityValue.FromPowerOfTen(mantissa, exponent)).Map(DrawingScale.Create),
         static (_, scale) => Some(scale.ToString()));
     public static readonly ScaleSeries Architectural = new("architectural",
-        toSeq((from octave in toSeq(Range(0, 8))
-               from inches in Seq(1, 12)
-               select new DrawingScale(Length.FromInches(QuantityValue.FromTerms(inches, 1 << octave)) / Length.FromFeet(1))).Order()),
+        toSeq((from octave in toSeq(Range(0, 8)) from inches in Seq(1, 12) select Length.FromInches(QuantityValue.FromTerms(inches, 1 << octave)) / Length.FromFeet(1)).Order()).Map(DrawingScale.Create),
         static (members, scale) => ImperialNotation(members, scale, static member => (member.ToPaper(Length.FromFeet(1)), Length.FromFeet(1))));
     public static readonly ScaleSeries Engineering = new("engineering",
-        Seq(60, 50, 40, 30, 20, 10).Map(static feet => new DrawingScale(Length.FromInches(1) / Length.FromFeet(feet))),
+        Seq(60, 50, 40, 30, 20, 10).Map(static feet => Length.FromInches(1) / Length.FromFeet(feet)).Map(DrawingScale.Create),
         static (members, scale) => ImperialNotation(members, scale, static member => (Length.FromInches(1), member.ToModel(Length.FromInches(1)))));
 
     public Seq<DrawingScale> Members { get; }

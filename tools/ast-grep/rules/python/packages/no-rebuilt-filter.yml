@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-rebuilt-filter
+language: python
+severity: error
+utils:
+    ok-constructor:
+        matches: {expression-member: {name: {regex: '^Ok$'}}}
+    error-constructor:
+        matches: {expression-member: {name: {regex: '^Error$'}}}
+    some-constructor:
+        matches: {expression-member: {name: {regex: '^Some$'}}}
+    nothing-value:
+        kind: identifier
+        matches: {expression-member: {name: {regex: '^Nothing$'}}}
+    ok-value:
+        kind: call
+        all:
+            - has: {field: function, matches: ok-constructor}
+            - has: {field: arguments, kind: argument_list, all: [{has: {nthChild: 1, pattern: $VALUE}}, {not: {has: {nthChild: 2}}}]}
+    some-value:
+        kind: call
+        all:
+            - has: {field: function, matches: some-constructor}
+            - has: {field: arguments, kind: argument_list, all: [{has: {nthChild: 1, pattern: $VALUE}}, {not: {has: {nthChild: 2}}}]}
+    error-value:
+        kind: call
+        has: {field: function, matches: error-constructor}
+    type-test:
+        kind: call
+        all:
+            - has: {field: function, matches: {python-builtin-identifier: {name: {regex: '^isinstance$'}}}}
+            - has:
+                field: arguments
+                kind: argument_list
+                all:
+                    - has:
+                        nthChild: 1
+                        any:
+                            - pattern: $VALUE
+                            - kind: named_expression
+                              has: {field: name, pattern: $VALUE}
+                    - has:
+                        nthChild: 2
+                        kind: identifier, attribute
+                        not:
+                            any:
+                                - matches: {python-typed-parameter: {type: {kind: type, not: {regex: '^type\['}}}}
+                                - matches: {python-assigned-name: {value: {kind: 'tuple, binary_operator, parenthesized_expression, subscript'}}}
+                    - not: {has: {nthChild: 3}}
+    negated-type-test:
+        kind: not_operator
+        has: {field: argument, matches: type-test}
+    bound-value:
+        inside:
+            kind: lambda
+            field: body
+            all:
+                - has: {field: parameters, kind: lambda_parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $VALUE}}, {not: {has: {nthChild: 2}}}]}
+                - inside:
+                    kind: argument_list
+                    all:
+                        - not: {has: {nthChild: 2}}
+                        - inside: {kind: call, has: {field: function, kind: attribute, has: {field: attribute, regex: '^bind$'}}}
+    value-test:
+        all:
+            - pattern: $TEST
+            - has: {stopBy: end, kind: identifier, pattern: $VALUE}
+            - not: {matches: type-test}
+            - not: {matches: negated-type-test}
+rule:
+    kind: conditional_expression
+    any:
+        - all:
+            - has: {nthChild: 1, matches: some-value}
+            - has: {nthChild: 2, pattern: $TEST, matches: type-test}
+            - has: {nthChild: 3, matches: nothing-value}
+        - all:
+            - has: {nthChild: 1, matches: nothing-value}
+            - has: {nthChild: 2, kind: not_operator, pattern: $TEST, has: {field: argument, matches: type-test}}
+            - has: {nthChild: 3, matches: some-value}
+        - all:
+            - matches: bound-value
+            - any:
+                - all: [{has: {nthChild: 1, matches: ok-value}}, {has: {nthChild: 3, matches: error-value}}]
+                - all: [{has: {nthChild: 1, matches: error-value}}, {has: {nthChild: 3, matches: ok-value}}]
+                - all: [{has: {nthChild: 1, matches: some-value}}, {has: {nthChild: 3, matches: nothing-value}}]
+                - all: [{has: {nthChild: 1, matches: nothing-value}}, {has: {nthChild: 3, matches: some-value}}]
+            - has: {nthChild: 2, matches: value-test}
+message: 'Conditional on `$TEST` rebuilds `Ok`, `Error`, `Some`, or `Nothing` around one value'
+note: 'Replace with `.filter_with(<predicate>, <fault>)`, `.filter(<predicate>)`, or `Option.of_optional(try_downcast(<type>, <value>))`'

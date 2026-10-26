@@ -29,7 +29,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: unit-effect}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
             - kind: cast_expression
               has: {field: value, matches: unit-effect}
             - kind: parenthesized_expression
@@ -40,10 +40,7 @@ utils:
     lone-return:
         any:
             - kind: return_statement
-            - kind: block
-              all:
-                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - matches: csharp-single-return
     unit-return:
         matches: lone-return
         any:
@@ -70,13 +67,13 @@ utils:
                     kind: invocation_expression
                     all:
                         - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Filter|Where)$'}}
-                        - has: {field: function, has: {field: expression, kind: invocation_expression, has: {field: function, matches: {csharp-type-name: {name: {regex: '^Some$'}}}}}}
+                        - has: {field: function, has: {field: expression, kind: invocation_expression, matches: {csharp-named-call: {name: {regex: '^Some$'}}}}}
                         - has: {field: arguments, has: {kind: argument, pattern: $CONDITION}, not: {has: {kind: argument, nthChild: 2}}}
 rule:
     any:
         - kind: invocation_expression
           all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}
             - has:
                 field: arguments
                 not: {has: {kind: argument, nthChild: 2}}
@@ -85,7 +82,7 @@ rule:
                     has:
                         kind: lambda_expression
                         all:
-                            - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                            - matches: csharp-parameterless
                             - has: {field: body, matches: option-branch}
         - kind: conditional_expression
           all:

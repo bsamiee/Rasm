@@ -1,0 +1,35 @@
+id: no-unescaped-glob-interpolation
+valid:
+    - |
+      import glob
+
+      found = glob.glob(f"{root}/*.py")
+    - |
+      from glob import iglob
+
+      found = iglob(f"{root}/*.py")
+    - |
+      import glob
+
+      found = folder.glob(f"{glob.escape(stem)}*.py")
+    - |
+      found = folder.glob("*.py")
+    - |
+      found = folder.glob(f"part-{index:03d}.bin")
+invalid:
+    - |
+      import glob
+
+      found = folder.glob(f"{stem}*.py")
+    - |
+      found = folder.rglob(stem + "*.py")
+    - |
+      matched = path.full_match(f"**/{name}")
+    - |
+      import fnmatch
+
+      kept = fnmatch.filter(names, f"{prefix}*")
+    - |
+      import glob
+
+      expression = glob.translate(f"{root}/**")

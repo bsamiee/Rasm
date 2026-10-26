@@ -3,14 +3,12 @@ id: no-stored-collection-view
 language: csharp
 severity: error
 utils:
-    owner:
-        kind: 'class_declaration, record_declaration, struct_declaration'
     held:
         kind: identifier
         pattern: $HELD
         inside:
-            stopBy: {matches: owner}
-            matches: owner
+            stopBy: {kind: &owner 'class_declaration, record_declaration, struct_declaration'}
+            kind: *owner
             any:
                 - kind: record_declaration
                   has: {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $HELD}}}
@@ -42,8 +40,8 @@ utils:
         kind: identifier
         pattern: $NAME
         inside:
-            stopBy: {matches: owner}
-            matches: owner
+            stopBy: {kind: *owner}
+            kind: *owner
             has:
                 field: body
                 any:
@@ -71,7 +69,7 @@ rule:
             - has: {field: left, matches: stored}
             - has: {field: operator, regex: '^=$'}
             - has: {field: right, matches: copy}
-            - inside: {stopBy: {matches: owner}, kind: constructor_declaration}
+            - inside: {stopBy: {kind: *owner}, kind: constructor_declaration}
 labels:
     HELD: {style: secondary, message: 'Collection the type holds'}
 message: '`$NAME` stores a copy or view of held collection `$HELD`'

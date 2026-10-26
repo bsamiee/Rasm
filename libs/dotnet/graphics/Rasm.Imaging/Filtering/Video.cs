@@ -194,7 +194,7 @@ public static class VideoKernels {
         Unit(length).Bind(taps => {
             using (taps) {
                 if ((long)taps.Rows + frame.Size.Width - 1 > int.MaxValue)
-                    return Fin.Fail<Unit>(new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Line noise of {taps.Rows} taps across {frame.Size.Width} pixels exceeds native image limits")));
+                    return Fin.Fail<Unit>(new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"line noise of {taps.Rows} taps across {frame.Size.Width} pixels"), ImagingReason.Oversize));
                 (int width, int reach) = (taps.Rows + frame.Size.Width - 1, taps.Rows / 2);
                 using Mat draws = new(frame.Size.Height, width, DepthType.Cv64F, 4);
                 using Mat row = taps.Reshape(1, 1);
@@ -265,7 +265,7 @@ public static class VideoKernels {
     public static Fin<Unit> Recompressed(PixelFrame frame, JpegEncoder encoder, int generations, Option<int> coded, IProgress<int> progress) {
         int height = coded.IfNone(frame.Size.Height);
         double width = double.Max(1d, Math.Round((double)frame.Size.Width * height / frame.Size.Height, MidpointRounding.ToEven));
-        return from size in width > int.MaxValue ? new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Coded frame {width}x{height} exceeds native image limits")) : PixelExtent.Validated((int)width, height)
+        return from size in width > int.MaxValue ? new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"coded frame {width}x{height}"), ImagingReason.Oversize) : PixelExtent.Validated((int)width, height)
                let working = size == frame.Size ? frame : new PixelFrame(System.Drawing.Point.Empty, size, size, block =>
                    ImageProcessing.Resize(frame.Block, frame.Size.Width, frame.Size.Height, block, size.Width, size.Height, 4, ResizeFilter.Box, alphaChannel: 3))
                from _ in working.Mutate(source => {

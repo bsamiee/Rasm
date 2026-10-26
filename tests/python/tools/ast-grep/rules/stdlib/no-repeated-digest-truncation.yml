@@ -1,0 +1,37 @@
+id: no-repeated-digest-truncation
+valid:
+    - |
+      import hashlib
+
+      def fingerprint(content: bytes) -> str:
+          return hashlib.sha256(content).hexdigest()[:12]
+    - |
+      import hashlib
+
+      first = hashlib.sha256(left).hexdigest()
+      second = hashlib.sha256(right).hexdigest()
+    - |
+      first = sha256(left).hexdigest()[:12]
+      second = sha256(right).hexdigest()[:12]
+invalid:
+    - |
+      import hashlib
+
+      first = hashlib.sha256(left).hexdigest()[:12]
+      second = hashlib.sha256(right).hexdigest()[:12]
+    - |
+      from hashlib import blake2b
+
+      first = blake2b(left).digest()[:8]
+      second = blake2b(right).digest()[:8]
+    - |
+      import hashlib
+
+      first = hashlib.new("sha1", left).hexdigest()[:10]
+      hasher = hashlib.new("sha1")
+      second = hasher.hexdigest()[:10]
+    - |
+      import hashlib as h
+
+      first = h.md5(left).hexdigest()[:6]
+      second = h.md5(right).hexdigest()[:6]

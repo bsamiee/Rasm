@@ -63,7 +63,7 @@ utils:
     option:
         any:
             - kind: invocation_expression
-              has: {field: function, matches: {csharp-type-name: {name: {regex: '^(Optional|Some)$'}}}}
+              matches: {csharp-named-call: {name: {regex: '^(Optional|Some)$'}}}
             - kind: identifier
               pattern: $OPTION
               inside:
@@ -84,8 +84,8 @@ utils:
               not: {has: {kind: expression_element}}
             - kind: invocation_expression
               all:
-                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(Enumerable|Array)$'}, member: {regex: '^Empty$'}}}}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: {csharp-owner-call: {type: {regex: '^(Enumerable|Array)$'}, member: {regex: '^Empty$'}}}
+                - matches: csharp-bare-call
     items:
         any:
             - kind: invocation_expression
@@ -97,7 +97,7 @@ utils:
               all:
                 - has: {field: function, matches: to-seq}
                 - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
-                - has: {field: arguments, has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {pattern: $ITEMS}}}
+                - has: {field: arguments, has: {kind: argument, matches: csharp-positional-argument, has: {pattern: $ITEMS}}}
             - pattern: $ITEMS
               not: {matches: option}
     slot-lambda:
@@ -123,7 +123,7 @@ utils:
                     field: body
                     kind: invocation_expression
                     all:
-                        - has: {field: function, matches: {csharp-type-name: {name: {regex: '^Optional$'}}}}
+                        - matches: {csharp-named-call: {name: {regex: '^Optional$'}}}
                         - has: {field: arguments, has: {kind: argument, nthChild: 1, pattern: $SLOT}, not: {has: {kind: argument, nthChild: 2}}}
     null-test:
         any:
@@ -158,7 +158,7 @@ utils:
         any:
             - all:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Somes$'}}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
                 - has:
                     field: function
                     has:
@@ -186,11 +186,11 @@ rule:
     all:
         - any:
             - all:
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Strict$'}}, {has: {field: expression, matches: slot-read}}]}
             - all:
                 - matches: slot-read
-                - not: {inside: {kind: member_access_expression, field: expression, has: {field: name, regex: '^Strict$'}, inside: {kind: invocation_expression, field: function, has: {field: arguments, not: {has: {kind: argument}}}}}}
+                - not: {inside: {kind: member_access_expression, field: expression, has: {field: name, regex: '^Strict$'}, inside: {kind: invocation_expression, field: function, matches: csharp-bare-call}}}
         - not: {has: {stopBy: end, kind: comment}}
         - not: {inside: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, kind: ERROR}}

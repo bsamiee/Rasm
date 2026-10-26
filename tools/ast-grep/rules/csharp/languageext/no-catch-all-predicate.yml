@@ -9,7 +9,7 @@ utils:
             - any:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Catch|CatchIO)(\s*<.+>)?$'}}
                 - all:
-                    - has: {field: function, matches: {csharp-type-name: {name: {regex: '^@catch$'}}}}
+                    - matches: {csharp-named-call: {name: {regex: '^@catch$'}}}
                     - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^\|$'}}
             - has: {field: arguments, has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}, has: {matches: languageext-release-handler}}}
             - not: {matches: {csharp-owner-body: {type: {regex: '^DisposalOps$'}, member: {regex: '^OnFailure$'}}}}
@@ -28,7 +28,7 @@ utils:
                         - has: {field: name, regex: '^[Pp]redicate$'}
                         - all:
                             - nthChild: {position: 1, ofRule: {kind: argument}}
-                            - not: {has: {field: name, pattern: $_}}
+                            - matches: csharp-positional-argument
                     matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}
             - has:
                 field: arguments
@@ -38,7 +38,7 @@ utils:
                         - has: {field: name, regex: '^[Ff]ail$'}
                         - all:
                             - nthChild: {position: 2, ofRule: {kind: argument}}
-                            - not: {has: {field: name, pattern: $_}}
+                            - matches: csharp-positional-argument
                     has: {nthChild: {position: 1, reverse: true}, pattern: $HANDLER}
             - not: {matches: released-failure}
 rule:
@@ -46,7 +46,7 @@ rule:
     any:
         - all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: catch-all, has: {field: function, has: {field: name, regex: '^Catch(\s*<.+>)?$'}}}}]}
-            - has: {field: arguments, not: {has: {kind: argument}}}
+            - matches: csharp-bare-call
         - matches: catch-all
           not:
             all:

@@ -13,7 +13,7 @@ Every `SK*` object wraps a native handle, and its ownership family decides who d
 |  [03]   | `SKColorSpace`, `SKData`, `SKSurface`, `SKDocument`, `SKRuntimeEffect`        | Reference counted    | One static per fixed value       |
 |  [04]   | `SKPaint`, `SKPath`, `SKPathBuilder`, `SKRoundRect`, `SKRegion`, `SKFont`     | Single owner         | Built per style, reused per draw |
 |  [05]   | `SKPixmap`, `SKBitmap`, `SKCodec`, `SKPictureRecorder`, `SKTextBlobBuilder`   | Single owner         | One per buffer or recording      |
-|  [06]   | `SKAutoCanvasRestore`, `SKRuntimeShaderBuilder`, `SKRuntimeEffectUniforms`    | Single owner, scoped | One per scope or build           |
+|  [06]   | `SKAutoCanvasRestore`, `SKRuntimeEffectUniforms`, `SKRuntimeEffectChildren`   | Single owner, scoped | One per scope or build           |
 |  [07]   | `SKImageInfo`, `SKMatrix`, `SKColorSpaceXyz`, `SKColorF`, `SKSamplingOptions` | Struct               | Copied by value, no disposal     |
 
 - Storing a reference-counted handle in a paint, an `SKImageInfo`, or a recording adds Skia's own reference, the creating scope disposes its handle
@@ -154,16 +154,16 @@ internal static class Layers {
 ## [04]-[RUNTIME_EFFECTS]
 
 Each SkSL effect kind has its own entry signature, builder, and color handling:
-- `SKRuntimeEffect.CreateShader(sksl, out errors)` expects `half4 main(float2 p)` returning premultiplied color
-- `CreateColorFilter` expects `half4 main(half4 c)`, `CreateBlender` expects `half4 main(half4 src, half4 dst)`
-- `errors` holds the compiler message on a `null` result, a failed compile at a static initializer fails the process at launch
-- `SKRuntimeShaderBuilder(effect)`, `SKRuntimeColorFilterBuilder`, and `SKRuntimeBlenderBuilder` hold zero-initialized uniform storage
+- `SKRuntimeEffect.BuildShader(sksl)` compiles `half4 main(float2 p)` returning premultiplied color, `CreateShader` answers `null` with `out errors`
+- `BuildColorFilter` expects `half4 main(half4 c)`, `BuildBlender` expects `half4 main(half4 src, half4 dst)`
+- `Build*` throws `SKRuntimeEffectBuilderException` with the compiler text, a static builder that fails to compile throws at its type's first use
+- `SKRuntimeShaderBuilder`, `SKRuntimeColorFilterBuilder`, and `SKRuntimeBlenderBuilder` hold zero-initialized uniforms and dispose their `Effect`
 - `Uniforms[name]` copies bytes with no type conversion
 - `SKRuntimeEffectUniform` converts from `float` and `int` scalars, arrays, and spans
 - `SKRuntimeEffectUniform` converts from `SKPoint`, `SKPointI`, `SKPoint3`, `SKSize`, `SKSizeI`, `SKColor`, `SKColorF`, and `SKMatrix`
 - `Children[name]` takes an `SKShader`, `SKColorFilter`, or `SKBlender` through `SKRuntimeEffectChild`
 - `Uniforms`, `Children`, and `UniformSize` on an effect reflect its declared names and layout, a mismatched size skips the write
-- `Build()` and `Build(localMatrix)` return the shader, `SKRuntimeEffect.ToShader(uniforms, children, localMatrix)` builds without a builder
+- `Build()` and `Build(localMatrix)` read the builder's storage, `Effect.ToShader(uniforms, children, localMatrix)` binds per-use storage
 - Coordinates passed to `main` are shader-local after the local matrix, image children sample in pixel coordinates through `child.eval(coord)`
 - Destination space is the working space, child inputs convert into it and plain uniforms stay as written
 - `layout(color)` uniforms are read as unpremultiplied extended sRGB and convert into the working space
@@ -173,14 +173,13 @@ Each SkSL effect kind has its own entry signature, builder, and color handling:
 
 ```csharp
 internal static class Grades {
-    private const string Source = "uniform half strength; uniform shader source; half4 main(float2 p) { half4 c = source.eval(p); half l = dot(c.rgb, half3(0.2126, 0.7152, 0.0722)); return half4(mix(c.rgb, half3(l), strength), c.a); }";
-    private static readonly SKRuntimeEffect Desaturate = SKRuntimeEffect.CreateShader(Source, out string _);
+    private const string Source = "uniform half strength; uniform half3 luma; uniform shader source; half4 main(float2 p) { half4 c = source.eval(p); half l = dot(c.rgb, luma); return half4(mix(c.rgb, half3(l), strength), c.a); }";
+    private static readonly SKRuntimeShaderBuilder Desaturate = SKRuntimeEffect.BuildShader(Source);
 
-    public static SKShader Build(SKShader source, float strength) {
-        using SKRuntimeShaderBuilder builder = new(Desaturate);
-        builder.Uniforms["strength"] = strength;
-        builder.Children["source"] = source;
-        return builder.Build();
+    public static SKShader Build(SKShader source, float strength, SKPoint3 luma) {
+        using SKRuntimeEffectUniforms uniforms = new(Desaturate.Effect) { ["strength"] = strength, ["luma"] = luma };
+        using SKRuntimeEffectChildren children = new(Desaturate.Effect) { ["source"] = source };
+        return Desaturate.Effect.ToShader(uniforms, children);
     }
 }
 ```

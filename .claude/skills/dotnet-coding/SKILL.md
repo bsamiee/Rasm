@@ -37,7 +37,8 @@ Function signatures are contracts, input types describe every value the function
 - `fun` gives an inline lambda its delegate type
 - Signatures leave semantic detail unstated (`Where` and `TakeWhile` share one), names state it
 - Records hold inputs and outputs, functions hold behavior
-- Constrained types own only the validation that constructs them and the operations (comparison) that protect their representation
+- Members differing only in a number, sign, flag, or applied function are one member taking it as a parameter
+- Constrained types exist only for a rule the domain owns, comparison stands where a consumer orders values, a type with no rule goes
 
 ### [01.1]-[HONEST_SIGNATURES]
 
@@ -48,7 +49,7 @@ Functions honor their signature when each declared input produces a declared out
 - `void` stays on an imperative API that returns nothing
 - `fun` converts an `Action` into a `Func<Unit>`, and an `Action` overload delegates to the `Func<T>` implementation through it
 - `Unit` does not make an effectful function pure
-- Statements stay statements in a block body in place of `Unit` arithmetic or a discard ternary spelling them as a value
+- Statements and locals stay in a block body in place of `Unit` arithmetic, a discard ternary, or a one-arm `switch { var x => … }` spelling them as a value
 - Nullable reference types stay enabled, `?` appears only where an external representation requires it
 - `Optional` converts a nullable value to `Option<A>` at the parse boundary
 
@@ -83,7 +84,7 @@ internal static class Factories {
 }
 ```
 
-Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters for useful left-to-right application: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is a `TimeProvider`, a validator is `T -> Validation<Error, T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into functions of that shape, partially applies dependencies and policies, and injects only specialized functions into handlers. I/O calls make every delegating layer above them impure.
+Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters for useful left-to-right application: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is a `TimeProvider`, a validator is `T -> Fin<T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into functions of that shape, partially applies dependencies and policies, and injects only specialized functions into handlers. I/O calls make every delegating layer above them impure.
 
 Select the form by the call site:
 - Specialization when it simplifies call sites
@@ -162,9 +163,9 @@ Recursive functions need a base case that returns the final value, a recursive c
 |  [02]   | `Trampoline<A>`           | Pure transition, unbounded depth                             | Every step is a deferred call            |
 |  [03]   | `Monad.recur`             | Effectful transition, only the final value needed            | Intermediate states are lost             |
 |  [04]   | `LanguageExt.List.unfold` | Intermediate states are meaningful and compose as a `Seq<A>` | Each `unfold` call reruns the transition |
-|  [05]   | QuikGraph traversal       | Shared or cyclic successors (dependencies, references)       | Graph built before the walk              |
+|  [05]   | Graph traversal           | Shared or cyclic successors (dependencies, references)       | Graph built before the walk              |
 
-QuikGraph `DepthFirstSearchAlgorithm` and `BreadthFirstSearchAlgorithm` visit each vertex of an `AdjacencyGraph<V, E>` once. Recursive unions with children no other parent holds keep the union fold.
+Graphs build once into a read-only `ArrayBidirectionalGraph<V, SEquatableEdge<V>>` that a record holds, and a successor function walks as an implicit graph through `ToDelegateIncidenceGraph`. `TopologicalSort` throws `NonAcyclicGraphException` on a cycle, `SourceFirstBidirectionalTopologicalSort` over `CondensateStronglyConnected` orders a graph with cycles, each cycle one component. Recursive unions with children no other parent holds keep the union fold.
 
 ## [03]-[IMMUTABILITY]
 
@@ -172,9 +173,11 @@ Immutable values are fixed once created, a needed change derives a new value fro
 - `readonly` protects the fields and not the objects reached through them
 - `init` accessors permit object-initializer syntax and prevent reassignment after initialization
 - `required` marks a property that cannot be omitted
+- Optional parts are `init` members or defaulted parameters, a positional `None` at each call is a defect
 - `record` supports nondestructive mutation through `with`, which copies the unchanged properties and leaves the original unchanged
 - State machines pattern match the next interaction to select the transition
 - Getter-only auto-properties get a compiler-generated readonly backing field, assigned inline or in the constructor
+- Declared types are records, classes, and unions, a `struct` stands only where a native call or a package API requires one (a parallel action)
 
 ```csharp
 internal sealed record Document {
@@ -209,23 +212,23 @@ Seq<int> sorted = toSeq(values.Order());
 Seq<int> odd = values.Filter(static x => x % 2 == 1);
 ```
 
-Concurrent reorders of a shared list during a sum give the reader an inconsistent traversal, a separate ordered view removes the interference. Choose the collection by the operation performed most: `Seq<A>` for ordered reads, `Lst<A>` for indexed edits, `Map<K, V>` or `HashMap<K, V>` for keyed lookups, `Set<A>` or `HashSet<A>` for uniqueness, and `Iterable<A>` for a lazy source.
+Concurrent reorders of a shared list during a sum give the reader an inconsistent traversal, a separate ordered view removes the interference. Choose the collection by the operation performed most: `Seq<A>` for ordered reads, `Lst<A>` for indexed edits, `Map<K, V>` or `HashMap<K, V>` for keyed lookups that successors update, `FrozenDictionary<K, V>` for a static table built once and only read, `Set<A>` or `HashSet<A>` for uniqueness, and `Iterable<A>` for a lazy source.
 
 ## [04]-[RESULTS]
 
 Every function returns an explicit result type, and one type serves one concern:
 
-| [INDEX] | [TYPE]                 | [CONCERN]                                       |
-| :-----: | :--------------------- | :---------------------------------------------- |
-|  [01]   | `Option<A>`            | Absence without an `Error`                      |
-|  [02]   | `Fin<A>`               | Expected failure with an `Error`, short-circuit |
-|  [03]   | `Either<L, R>`         | Value of either type, neither an error          |
-|  [04]   | `Validation<Error, A>` | Independent failures, accumulate                |
-|  [05]   | `Try<A>`               | Synchronous exception capture, deferred         |
-|  [06]   | `IO<A>`                | Side effects with a failure channel             |
-|  [07]   | `Eff<RT, A>`           | Effects that read a capability                  |
+| [INDEX] | [TYPE]             | [CONCERN]                                     |
+| :-----: | :----------------- | :-------------------------------------------- |
+|  [01]   | `Option<A>`        | Absence without an `Error`                    |
+|  [02]   | `Fin<A>`           | Expected failure, `Bind` stops, `Apply` joins |
+|  [03]   | `Either<L, R>`     | Value of either type, neither an error        |
+|  [04]   | `Validation<F, A>` | Failures of a monoid `F` other than `Error`   |
+|  [05]   | `Try<A>`           | Synchronous exception capture, deferred       |
+|  [06]   | `IO<A>`            | Side effects with a failure channel           |
+|  [07]   | `Eff<RT, A>`       | Effects that read a capability                |
 
-Input boundary selects the result type, functions preserve it, and conversion between types happens at one named boundary through the method named for the target (`ToFin`, `ToValidation`, `ToOption`, `ToSeq`). `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations. Values of `A` and `Error` lift into `Fin<A>` and `Validation<Error, A>` by implicit conversion, `Pure(x)` and `Fail<Error>(e)` make the lift explicit where no target type fixes the result (a `var` local, an inferred type argument), and a `Unit` or `Error` in a position that fixes `Fin` or `Validation` converts alone. An empty `Seq<A>` is a result and not absence, `Option<Seq<A>>` exists only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
+Input boundary selects the result type, functions preserve it, and conversion between types happens at one named boundary through the method named for the target (`ToFin`, `ToOption`, `ToSeq`). `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations. Values of `A` and `Error` lift into `Fin<A>` by implicit conversion, `Pure(x)` and `Fail<Error>(e)` make the lift explicit where no target type fixes the result (a `var` local, an inferred type argument), and a `Unit` or `Error` in a position that fixes `Fin` converts alone. An empty `Seq<A>` is a result and not absence, `Option<Seq<A>>` exists only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
 
 ### [04.1]-[COMPOSITION]
 
@@ -236,7 +239,7 @@ Give each step a function and select the operator by the step's signature and by
 |  [01]   | `T -> R`                   | `Map`                                  | Transforms a present value and preserves the result type    |
 |  [02]   | `T -> bool`                | `Filter` on `Option`, `guard` on `Fin` | Keeps a value only when it passes, `guard` names the error  |
 |  [03]   | `T -> F<R>`                | `Bind`, one `from` per step in LINQ    | Continues with a dependent step, the first failure stops it |
-|  [04]   | `(F<A>, F<B>)` independent | Tuple `Apply`                          | Accumulates errors under `Validation`, overlaps under `IO`  |
+|  [04]   | `(F<A>, F<B>)` independent | Tuple `Apply`                          | Joins every error under `Fin`, overlaps under `IO`          |
 |  [05]   | `Seq<A>` with `A -> F<B>`  | `Traverse`, `TraverseM`                | `Traverse` accumulates or overlaps, `TraverseM` stops first |
 |  [06]   | `T -> void`                | `Iter`                                 | Performs the terminal effect only for a present value       |
 
@@ -250,11 +253,9 @@ Give each step a function and select the operator by the step's signature and by
 
 ```csharp
 internal static class Workflow {
-    private static readonly Error InvalidCommand = Error.New(ErrorCodes.ValidationFailed, "command is invalid");
-
     public static Fin<State> Handle(Command command, State state) =>
         from normalized in Pure(Normalize(command)).ToFin()
-        from _ in guard(IsValid(normalized), InvalidCommand)
+        from _ in Failure.Unless(IsValid(normalized), Reason.Invalid)
         from next in state.Transition(normalized.Amount)
         select next;
 }
@@ -264,29 +265,47 @@ Workflow runs in order (normalize, validate, transition), `Fin` handles the cont
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in return types, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls a boundary converts with `IO.lift` or `Try.lift` around the throwing call alone. Each raising package declares one error record holding the subject and a reason as fields, the reason a smart enum whose items carry their message text, a fact some failures lack is an `Option` field. Findings a check collects into a report without failing are a data union, one case per finding kind rendering its message. Records extend `Expected` with code 0 and an interpolated message. Records hold fields and one `Unless` factory returning `Fin` (`flag ? unit : new <Record>(…)`) alone, a limit or other operation sits in the raising class. `Unless` takes its subject from call text through `[CallerArgumentExpression]`:
+Expected failures are data in return types, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls a boundary converts with `IO.lift` or `Try.lift` around the throwing call alone. Each raising package declares one error record holding the subject and a reason as fields, the reason a smart enum whose items carry their message text, a fact some failures lack is an `Option` field. Findings a check collects into a report without failing are a data union, one case per finding kind rendering its message. Records extend `Expected` with code 0 and an interpolated message. Records hold fields, one `Unless` factory returning `Fin` (`flag ? unit : new <Record>(…)`), and the `Create(string)` that `IValidationError` requires alone, a limit or other operation sits in the raising class. `Unless` takes its subject from call text through `[CallerArgumentExpression]`:
 
 ```csharp
-public sealed record Failure(string Subject, Reason Reason, Option<int> Index) : Expected($"{Subject} failed: {Reason}", 0);
+[SmartEnum]
+public sealed partial class Reason {
+    public static readonly Reason Stated = new("rule its factory states");
+    public static readonly Reason Invalid = new("value outside its rule");
+
+    public string Message { get; }
+}
+
+public sealed record Failure(string Subject, Reason Reason, Option<int> Index = default)
+    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Subject} fails: {Reason.Message} at index {at}"), () => $"{Subject} fails: {Reason.Message}"), 0), IValidationError<Failure> {
+    public static Failure Create(string message) => new(message, Reason.Stated);
+
+    public static Fin<Unit> Unless(bool flag, Reason reason, Option<int> index = default, [CallerArgumentExpression(nameof(flag))] string subject = "") =>
+        flag ? unit : new Failure(subject, reason, index);
+}
 ```
 
-Consumers classify an error by type with `IsType<E>` and `Filter<E>`, a validation failure with `HasCode(ErrorCodes.ValidationFailed)`, and a captured exception with `HasException<E>`. LanguageExt's `Errors.Cancelled`, `Errors.TimedOut`, `Errors.Closed`, and `Errors.ParseError` stand for those failures. A thrown exception stays the `Exceptional` the lift captured, and a boundary wraps it only to add a subject it lacks (a path), through `Catch` on its `HasException<E>` into an error that keeps the exception as its cause. `Validation<Error, A>` holds violated business rules and accumulates, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. The host separates them in one `Match`, `IsExceptional` logs the detail and renders a generic failure, and every other error renders its business message.
+Consumers classify an error by type with `IsType<E>` and `Filter<E>`, and a captured exception with `HasException<E>`. LanguageExt's `Errors.Cancelled`, `Errors.TimedOut`, `Errors.Closed`, and `Errors.ParseError` stand for those failures. A thrown exception stays the `Exceptional` the lift captured, and a boundary wraps it only to add a subject it lacks (a path), through `Catch` on its `HasException<E>` into an error that keeps the exception as its cause. `Fin<A>` holds violated business rules and joins independent ones under `Apply`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. The host separates them in one `Match`, `IsExceptional` logs the detail and renders a generic failure, and every other error renders its business message.
 
 Use `Skill(dotnet-coding-thinktecture)` for value type validation.
 
 ### [04.3]-[UNIONS]
 
-Model each valid state a consumer inspects as a distinct case, and states differing only by a tag as one record of tag and value. Counting values a type has (a product multiplies its fields' counts, `Option<A>` adds one) exposes unneeded states:
+Model each valid state a consumer inspects as a distinct case, states differing only by a tag or holding special values of one formula are one record of the tag or the formula's parameters. Counting values a type has (a product multiplies its fields' counts, `Option<A>` adds one) exposes unneeded states:
 
 ```csharp
 [Union]
-internal abstract partial record Identity {
-    internal sealed record Registered(string Name, string Key, bool Enabled) : Identity;
-    internal sealed record Anonymous(string Key) : Identity;
+internal abstract partial record Shape {
+    private Shape(double area) => Area = area;
+
+    public double Area { get; }
+
+    internal sealed record Circle(double Radius) : Shape(double.Pi * Radius * Radius);
+    internal sealed record Rectangle(double Width, double Height) : Shape(Width * Height);
 }
 ```
 
-- Put shared data on the abstract base and case-specific data in its case
+- Cases pass shared data and each fact they derive (a function, bounds, a linear part) to the base constructor, consumers read one base member
 - Call `Switch` only where behavior depends on the case, and pass the union onward elsewhere
 - Treat a case as an alternative to its siblings, name each case's data in its own terms, and hold mixed cases in one `Seq` of the base type
 - Every `Switch` lacking an arm for a new union case fails to compile
@@ -309,6 +328,7 @@ internal abstract partial record Identity {
 |  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases               |
 |  [09]   | Flag with fields that are meaningful for one flag value                   | One union case per valid state                              |
 |  [10]   | Union case that extends a sibling case                                    | Sibling cases with their own data                           |
+|  [11]   | `from` chain or `ToValidation` round trip over independent checks         | Tuple `Apply` or `Traverse` over the `Fin` checks           |
 
 ## [05]-[EFFECTS]
 
@@ -336,14 +356,12 @@ Inject the narrowest dependency that represents what consumers need: a value for
 
 ```csharp
 internal static class Validators {
-    private static readonly Error DateIsPast = Error.New(ErrorCodes.ValidationFailed, "date is in the past");
-
-    public static Func<Command, Validation<Error, Command>> NotPast(LocalDate today) =>
-        command => command.Date < today ? DateIsPast : command;
+    public static Func<Command, Fin<Command>> NotPast(LocalDate today) =>
+        command => Failure.Unless(command.Date >= today, Reason.Invalid).Map(_ => command);
 }
 ```
 
-Hosts read the date once from a `TimeProvider` argument (`time.ToZonedClock().GetCurrentDate()`), request handling supplies each command later, and tests supply a date without a fake clock. `TimeProvider` supplies elapsed time through `GetTimestamp()` and `GetElapsedTime(start).ToDuration()`, each read inside its consuming `IO`, and the composition root alone names `TimeProvider.System`. `Duration` compares and scales as a value (`a - b < step * n`), a tick or second count appears at a host API taking a number alone. Hosts log through `ILogger` with `[LoggerMessage]` members from one `LoggerFactory` per session, a sink interface over `(Error, Type, string)` restates it. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, a commit is a step after the work, outside its release action.
+Hosts read the date once from a `TimeProvider` argument (`time.ToZonedClock().GetCurrentDate()`), request handling supplies each command later, and tests supply a date without a fake clock. `TimeProvider` supplies elapsed time through `GetTimestamp()` and `GetElapsedTime(start).ToDuration()`, each read inside its consuming `IO`, and the composition root alone names `TimeProvider.System`. `Duration` compares and scales as a value (`a - b < step * n`) and is the one time type a model field holds, a `TimeSpan`, tick, or second count appears at the API that takes one alone. Hosts log through `ILogger` with `[LoggerMessage]` members from one `LoggerFactory` per session, a sink interface over `(Error, Type, string)` restates it. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, a commit is a step after the work, outside its release action.
 
 ### [05.2]-[POLICIES]
 
@@ -356,7 +374,7 @@ Libraries return their result type with their own errors, the application compos
 
 | [INDEX] | [SCENARIO]                   | [TRAVERSAL]                             | [BEHAVIOR]                                            |
 | :-----: | :--------------------------- | :-------------------------------------- | :---------------------------------------------------- |
-|  [01]   | Independent checks           | `Traverse` under `Validation`           | Accumulates every error                               |
+|  [01]   | Independent checks           | `Traverse` or tuple `Apply` on `Fin`    | Joins every error                                     |
 |  [02]   | Independent effects          | `Traverse` under `IO`                   | Overlaps without a bound, fails if one effect fails   |
 |  [03]   | Dependent or ordered effects | `TraverseM`                             | Serial, stops at the first failure                    |
 |  [04]   | Bounded concurrency          | Chunk, then `TraverseM` over the chunks | One chunk at a time, the chunk width sets the bound   |
@@ -378,24 +396,29 @@ Delivery shape selects the construct:
 ## [06]-[NUMERICS]
 
 Numeric facts come from the package that states them, and a sample loop reads only spans and SIMD lanes:
-- Scalar roots, quadrature, splines, fits, quantiles, and factorizations are MathNet members
-- Hand loops that converge, bisect, or sum a series are a defect
+- Roots, quadrature, splines, fits, quantiles, factorizations, antiderivatives, and gradients are members of the referenced numerics packages
+- Hand loops that converge, bisect, or sum a series are a defect, a root search passes a signed margin to `TryFindRoot` and returns a missed root as a failure
 - Elementwise and reduction loops over a float span are one `TensorPrimitives` call, a loop stays where each element is a `Vector4` pixel or reads neighbors
-- Flat pixel buffers are read through `Span2D<T>` and `GetRowSpan` with the source pitch, a hand `[(y * width) + x]` is a defect
-- Row-parallel passes are `ParallelHelper.For<TAction>` over a `readonly struct : IAction`, a `Parallel.For` closure is a defect
-- Per-sample passes lift a matrix or curve once into `Vector256<double>` or `Vector4` lanes and allocate nothing, `Matrix<double>`, `Unicolour`, UnitsNet quantities, and `BigInteger` stay outside the loop
+- Flat pixel buffers are read through `Span2D<T>` rows and `GetColumn` channel planes, a hand `[(y * width) + x]` or a `DivRem` row recovery is a defect
+- `Span2D<T>` pitch is the element gap between one row's end and the next row's start, a host row stride in elements enters once as `stride - width`
+- Parallel passes are `ParallelHelper.For` or `For2D` over a `readonly struct` `IAction` or `IAction2D` holding `Memory<T>`, a `Parallel.For` closure is a defect
+- Per-sample passes lift a matrix or curve once into `Vector256<double>` or `Vector4` lanes and allocate nothing, `Matrix<double>`, quantities, and `BigInteger` stay outside the loop
+- Scratch buffers that never leave a pass are `SpanOwner<T>`, a `new T[]` per call is a defect
+- Conversions every pass needs (a host buffer's 2D view, a matrix to lanes) sit once at the type that owns them
 - Exact integer-plus-fraction arithmetic on a hot path is fixed-point on `long` or `Int128`, a shift for the cell and a mask for the local part
 - `Length` and `Angle` name parameters, bounds, and presentation units, a `float` holds samples and a host unit scale enters once at the boundary
-- Host decompositions and projections (`Transform.DecomposeAffine`, `Quaternion.Slerp`, `Plane.FitPlaneToPoints`) have no package member beside them
+- Pure geometry takes package value types, a host frame enters where a result lowers to a host type, and one extension family converts at the seam
 
-| [INDEX] | [FACT]        | [MEMBER]                             |
-| :-----: | :------------ | :----------------------------------- |
-|  [01]   | Scalar root   | `Brent.FindRoot`                     |
-|  [02]   | Quadrature    | `Integrate.GaussKronrod`             |
-|  [03]   | Spline        | `CubicSpline.InterpolatePchipSorted` |
-|  [04]   | Fit           | `Fit.Polynomial`                     |
-|  [05]   | Quantile      | `SortedArrayStatistics.Quantile`     |
-|  [06]   | Factorization | `Matrix<double>.Svd`                 |
+| [INDEX] | [FACT]         | [MEMBER]                             |
+| :-----: | :------------- | :----------------------------------- |
+|  [01]   | Scalar root    | `Bisection.TryFindRoot`              |
+|  [02]   | Quadrature     | `Integrate.GaussKronrod`             |
+|  [03]   | Spline         | `CubicSpline.InterpolatePchipSorted` |
+|  [04]   | Fit            | `Fit.Polynomial`                     |
+|  [05]   | Quantile       | `SortedArrayStatistics.Quantile`     |
+|  [06]   | Factorization  | `Matrix<double>.Svd`                 |
+|  [07]   | Antiderivative | `Polynomial.Integrate`               |
+|  [08]   | Gradient       | `DScalar3<T>.Variables`              |
 
 Use `Skill(dotnet-coding-ui)` for drawn surfaces, shaped text, vector art, color, and host controls.
 

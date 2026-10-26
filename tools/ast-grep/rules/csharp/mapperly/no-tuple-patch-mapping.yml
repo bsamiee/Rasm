@@ -5,10 +5,7 @@ severity: error
 utils:
     original-value:
         kind: parameter
-        has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^MappingTargetOriginalValue(Attribute)?$'}}}}}}
-    mapper-class:
-        kind: class_declaration
-        has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^Mapper(Attribute)?$'}}}}}}
+        matches: {csharp-attributed: {name: {regex: '^MappingTargetOriginalValue(Attribute)?$'}}}
 rule:
     kind: method_declaration
     all:
@@ -17,7 +14,7 @@ rule:
             - all:
                 - has: {kind: modifier, regex: '^partial$'}
                 - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: type, kind: tuple_type}}}
-                - inside: {kind: declaration_list, inside: {matches: mapper-class}}
+                - inside: {kind: declaration_list, inside: {matches: mapperly-mapper-class}}
             - has: {field: parameters, has: {matches: original-value}}
 message: '`$NAME` patches a host object through Mapperly from a tuple or an original value'
 note: 'Write the edit as `Seq<Func<<host>, IO<Unit>>>` closures folded in order, each `h => IO.lift(() => h.<member> = <value>)`'

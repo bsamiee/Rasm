@@ -9,7 +9,7 @@ utils:
         not: {has: {pattern: $_, not: {kind: comment}}}
     smart-enum:
         kind: class_declaration
-        has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^SmartEnum(Attribute)?$'}}}}}}
+        matches: {csharp-attributed: {name: {regex: '^SmartEnum(Attribute)?$'}}}
     case-arm:
         inside:
             kind: argument
@@ -38,9 +38,8 @@ utils:
             - kind: arrow_expression_clause
               has: {matches: completed-task}
             - kind: block
-              all:
-                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: completed-task}}
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+              matches: csharp-single-return
+              has: {kind: return_statement, has: {matches: completed-task}}
     unit-result:
         any:
             - matches: completed-task
@@ -62,9 +61,8 @@ utils:
             - has: {field: body, matches: unit-result}
             - has:
                 kind: block
-                all:
-                    - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: unit-result}}
-                    - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                matches: csharp-single-return
+                has: {kind: return_statement, has: {matches: unit-result}}
     member-value:
         any:
             - inside: {kind: assignment_expression, field: right, inside: {kind: initializer_expression}}
@@ -91,4 +89,4 @@ rule:
             - has: {field: name, regex: '^DisposeAsync$', pattern: $PLACEHOLDER}
             - has: {field: body, matches: completed-body}
 message: '`$PLACEHOLDER` stands in for an absent callback or resource'
-note: 'Declare an optional callback as an `init` member holding its default, a member hook as a `Seq` its consumer runs, and a resource in `use` or `Bracket`'
+note: 'Hold optional callbacks in `init` members with defaults, hooks in a `Seq` consumers run, resources under `use` or `Bracket`'

@@ -11,7 +11,7 @@ utils:
             - matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}
             - kind: invocation_expression
               all:
-                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^constant$'}}}}
+                - matches: {csharp-named-call: {name: {regex: '^constant$'}}}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, regex: '^true$'}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     never:
         any:
@@ -20,18 +20,18 @@ utils:
             - matches: {csharp-constant-lambda: {value: {regex: '^false$'}}}
             - kind: invocation_expression
               all:
-                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^constant$'}}}}
+                - matches: {csharp-named-call: {name: {regex: '^constant$'}}}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, regex: '^false$'}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     pure-true:
         kind: lambda_expression
         all:
             - has: {field: parameters, any: [{kind: implicit_parameter}, {kind: parameter_list, all: [{has: {kind: parameter}}, {not: {has: {kind: parameter, nthChild: 2}}}]}]}
-            - has: {field: body, kind: invocation_expression, all: [{has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}}, {has: {field: arguments, regex: '^\(\s*true\s*\)$'}}]}
+            - has: {field: body, kind: invocation_expression, all: [{matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}, {has: {field: arguments, regex: '^\(\s*true\s*\)$'}}]}
     pure-false:
         kind: lambda_expression
         all:
             - has: {field: parameters, any: [{kind: implicit_parameter}, {kind: parameter_list, all: [{has: {kind: parameter}}, {not: {has: {kind: parameter, nthChild: 2}}}]}]}
-            - has: {field: body, kind: invocation_expression, all: [{has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}}, {has: {field: arguments, regex: '^\(\s*false\s*\)$'}}]}
+            - has: {field: body, kind: invocation_expression, all: [{matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}, {has: {field: arguments, regex: '^\(\s*false\s*\)$'}}]}
     true-mapped:
         kind: invocation_expression
         all:
@@ -72,7 +72,7 @@ utils:
     lifted-true:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}
             - has:
                 field: arguments
                 all:
@@ -84,7 +84,7 @@ utils:
                             kind: lambda_expression
                             pattern: $LIFTED
                             all:
-                                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                                - matches: csharp-parameterless
                                 - has:
                                     field: body
                                     kind: block
@@ -124,7 +124,7 @@ utils:
     lazy-slot:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^Some$'}}}}
+            - matches: {csharp-named-call: {name: {regex: '^Some$'}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: effect-slot}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     failed-false:
         matches: {csharp-constant-lambda: {value: {any: [{regex: '^false$'}, {kind: default_expression}]}}}
@@ -157,7 +157,7 @@ utils:
     answer:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}
             - has:
                 field: arguments
                 all:
@@ -209,7 +209,7 @@ utils:
     succeeded:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}
             - matches: in-order
             - has:
                 field: arguments
@@ -234,7 +234,7 @@ utils:
                     - has: {field: arguments, has: {all: [{matches: absent-slot}, {matches: constant-absent}]}}
     ignore-call:
         kind: invocation_expression
-        has: {field: function, matches: {csharp-type-name: {name: {regex: '^ignore$'}}}}
+        matches: {csharp-named-call: {name: {regex: '^ignore$'}}}
     ignored:
         inside: {kind: argument, inside: {kind: argument_list, inside: {matches: ignore-call}}}
     discarded:

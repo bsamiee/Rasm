@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.Color;
+using Rasm.Imaging.Pixels;
 using TinyEXR;
 using Wacton.Unicolour;
 
@@ -12,17 +13,17 @@ namespace Rasm.Imaging.Tone;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FilmStock(
-    float PreExposure, Vector3 PreFilter, Vector3 Scale, Vector3 Rotation, Vector3 Multiplier,
+    float PreExposure, Channels<float> PreFilter, Channels<float> Scale, Channels<float> Rotation, Channels<float> Multiplier,
     float SigmoidMinimum, float SigmoidSpan, float ToeX, float ToeY, float ShoulderReachX, float ShoulderReachY,
-    float NegativeExposure, float NegativeDensity, Vector3 Backlight,
-    float PrintExposure, float PrintDensity, Vector3 PostFilter, float MidtoneSaturation) {
+    float NegativeExposure, float NegativeDensity, Channels<float> Backlight,
+    float PrintExposure, float PrintDensity, Channels<float> PostFilter, float MidtoneSaturation) {
     private static readonly LogCurve Window = LogCurve.Allocation(-10f, 10f, float.ScaleB(1f, -10));
     private static readonly Vector256<double> Weights = Vector256.Create(0.3d, 0.5d, 0.2d, 0d);
 
     public static FilmStock Default { get; } = new(
-        4.3f, Vector3.One, new Vector3(1.05f, 1.12f, 1.045f), new Vector3(float.DegreesToRadians(0.5f), float.DegreesToRadians(2f), float.DegreesToRadians(0.1f)), Vector3.One,
+        4.3f, new(1f), new(1.05f, 1.12f, 1.045f), new(float.DegreesToRadians(0.5f), float.DegreesToRadians(2f), float.DegreesToRadians(0.1f)), new(1f),
         -10f, 22f - -10f, 0.44f, 0.28f, (0.591f - 0.44f) / (1f - 0.44f), (0.779f - 0.28f) / (1f - 0.28f),
-        6f, 5f, Vector3.One, 6f, 27.5f, Vector3.One, 1.02f);
+        6f, 5f, new(1f), 6f, 27.5f, new(1f), 1.02f);
 
     public Option<float> BlackPoint { get; init; }
 
@@ -30,9 +31,9 @@ public sealed record FilmStock(
         device.Formed(working, Gamut.StandardRgb, [developed.Apply], new ColorEncoding(Gamut.StandardRgb, new Transfer.Linear()));
 
     public Fin<LutTable> Developed() {
-        Matrix<double> extension = Matrix<double>.Build.DiagonalOfDiagonalArray([Multiplier.X, Multiplier.Y, Multiplier.Z])
+        Matrix<double> extension = Matrix<double>.Build.DiagonalOfDiagonalArray([Multiplier.Red, Multiplier.Green, Multiplier.Blue])
             * Matrix<double>.Build.DenseOfRowArrays(
-                Seq((Scale: Scale.X, Rotation: Rotation.X), (Scale: Scale.Y, Rotation: Rotation.Y), (Scale: Scale.Z, Rotation: Rotation.Z))
+                Seq((Scale: Scale.Red, Rotation: Rotation.Red), (Scale: Scale.Green, Rotation: Rotation.Green), (Scale: Scale.Blue, Rotation: Rotation.Blue))
                     .Map(static (primary, index) => new Unicolour(Configuration.Default, ColourSpace.Hsb, (120d * index) + double.RadiansToDegrees(primary.Rotation), 1d / primary.Scale, 1d).Rgb.ToArray()))
                 .NormalizeRows(1d);
         (Func<Vector256<double>, Vector256<double>> gamut, Func<Vector256<double>, Vector256<double>> back) = (Transform(extension), Transform(extension.Inverse()));
@@ -41,8 +42,8 @@ public sealed record FilmStock(
         double slope = (shoulderY - toeY) / (shoulderX - toeX);
         (double low, double span, double offset) = (SigmoidMinimum, SigmoidSpan, double.Exp2(SigmoidMinimum));
         (double negative, Vector256<double> pre, Vector256<double> post) = (
-            double.Exp2(NegativeExposure), Vector256.Create(PreFilter.X, PreFilter.Y, PreFilter.Z, 0d) * double.Exp2(PreExposure), Vector256.Create(PostFilter.X, PostFilter.Y, PostFilter.Z, 0d));
-        Vector256<double> backlight = gamut(Vector256.Create(Backlight.X, Backlight.Y, Backlight.Z, 0d)) * double.Exp2(PrintExposure);
+            double.Exp2(NegativeExposure), PreFilter.Lanes(static value => value) * double.Exp2(PreExposure), PostFilter.Lanes(static value => value));
+        Vector256<double> backlight = gamut(Backlight.Lanes(static value => value)) * double.Exp2(PrintExposure);
         Vector256<double> cap = Transmitted(backlight * double.Exp2(-NegativeDensity), PrintDensity);
         double black = BlackPoint.Match(
             Some: static offset => offset / 1000d,
@@ -154,7 +155,7 @@ public static class Tony {
             BinaryPrimitives.ReadInt32LittleEndian(bytes[24..]), BinaryPrimitives.ReadUInt32LittleEndian(bytes[128..]));
         return from edge in width == height && width == depth && format == SharedExponent && bytes.Length == Header + (Texel * width * height * depth)
                 ? Fin.Succ(width)
-                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Tony texture must hold a cubic R9G9B9E5 volume, holds {bytes.Length} bytes of {width}x{height}x{depth} format {format}"))
+                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Tony R9G9B9E5 cube texture of {bytes.Length} bytes at {width}x{height}x{depth} format {format}"), ImagingReason.Unsupported)
                from table in Lut3D.From(edge, Decoded(texture[Header..].Span, edge), Vector3.Zero, Vector3.One)
                select table;
     }

@@ -26,4 +26,4 @@ rule:
         - has: {field: right, any: [{matches: empty-literal}, {matches: empty-builtin}, {matches: factory}]}
         - inside: {kind: expression_statement, inside: {kind: module}}
 message: '`$CELL` holds process state in a module cell'
-note: 'Scope-owned resources yield state and pass values to reading operations as arguments'
+note: 'Yield state from a scope-owned resource and pass values to reading operations as arguments'

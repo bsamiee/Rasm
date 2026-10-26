@@ -14,12 +14,9 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.records.faults import Fault, Outcome
-from blender.records.fields import Case
 from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-type SunStudy = DayStudy | SeasonStudy
 
 
 class Polar(Enum):
@@ -31,7 +28,8 @@ class Polar(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-DAY_SECONDS: Final = datetime.timedelta(days=1).total_seconds()
+_DAY: Final = datetime.timedelta(days=1)
+_DAY_SECONDS: Final = _DAY.total_seconds()
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -40,10 +38,10 @@ DAY_SECONDS: Final = datetime.timedelta(days=1).total_seconds()
 class Site(msgspec.Struct, frozen=True, kw_only=True):
     """Place on Earth with clock time zone."""
 
-    latitude: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0, description="Angle north of equator")] = 0.0
-    longitude: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="Angle east of Greenwich")] = 0.0
-    north: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="True north counterclockwise from +Y")] = 0.0
-    zone: Annotated[str, msgspec.Meta(description="IANA time zone of site clock")] = "UTC"
+    latitude: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0)] = 0.0
+    longitude: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi)] = 0.0
+    north: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi)] = 0.0
+    zone: str = "UTC"
 
     def __post_init__(self) -> None:
         """Validates zone as a key the time zone database holds."""
@@ -63,8 +61,8 @@ class LocalTime(msgspec.Struct, frozen=True, kw_only=True):
 
     year: Annotated[int, msgspec.Meta(ge=datetime.MINYEAR, le=datetime.MAXYEAR)] = 2000
     month: Annotated[int, msgspec.Meta(ge=1, le=12)] = 1
-    day: Annotated[int, msgspec.Meta(ge=1, le=31, description="Day of month, rolling into next month")] = 1
-    hour: Annotated[int, msgspec.Meta(ge=0, le=23, description="Hour on site clock")] = 12
+    day: Annotated[int, msgspec.Meta(ge=1, le=31)] = 1
+    hour: Annotated[int, msgspec.Meta(ge=0, le=23)] = 12
     minute: Annotated[int, msgspec.Meta(ge=0, le=59)] = 0
 
     @property
@@ -105,7 +103,7 @@ class SunPosition(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     @staticmethod
     def equatorial(longitude: float, seconds: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Returns NOAA declination and hour angle."""
-        days = seconds / DAY_SECONDS
+        days = seconds / _DAY_SECONDS
         t = (days - 10957.5) / 36525.0
         mean = np.radians(np.mod(280.46646 + t * (36000.76983 + t * 0.0003032), 360.0))
         anomaly = np.radians(357.52911 + t * (35999.05029 - t * 0.0001537))
@@ -188,7 +186,7 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
         def step(seconds: npt.NDArray[np.float64], _: int) -> npt.NDArray[np.float64]:
             hour, ratio = reach(seconds)
             offset = hour - side * np.arccos(np.clip(ratio, -1.0, 1.0))
-            return seconds - np.arctan2(np.sin(offset), np.cos(offset)) * DAY_SECONDS / math.tau
+            return seconds - np.arctan2(np.sin(offset), np.cos(offset)) * _DAY_SECONDS / math.tau
 
         solved = functools.reduce(step, range(3), np.full(side.shape, datetime.datetime.combine(date, datetime.time(12), tzinfo=zone).timestamp(), dtype=np.float64))
         epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.UTC)
@@ -202,11 +200,11 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
                 case _:
                     return Polar.DAY if ratio <= -1.0 else Polar.NIGHT
 
-        return (
-            catch(lambda: tuple((epoch + datetime.timedelta(seconds=float(moment))).astimezone(zone) for moment in solved[: 3 if -1.0 < ratio < 1.0 else 1]), exception=OverflowError)()
-            .map(lambda moments: cls(noon=moments[0], light=lit(moments)))
-            .map_error(lambda error: (Fault(reason=RenderingReason.CALENDAR, subject=str(date), cause=error),))
-        )
+        @catch(exception=OverflowError)
+        def crossed() -> tuple[datetime.datetime, ...]:
+            return tuple((epoch + datetime.timedelta(seconds=float(moment))).astimezone(zone) for moment in solved[: 3 if -1.0 < ratio < 1.0 else 1])
+
+        return crossed().map(lambda moments: cls(noon=moments[0], light=lit(moments))).map_error(lambda error: (Fault(reason=RenderingReason.CALENDAR, subject=str(date), cause=error),))
 
 
 class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -228,8 +226,8 @@ class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         seconds = (
             datetime.datetime(year, 1, 1, tzinfo=datetime.UTC).timestamp()
             + datetime.timedelta(hours=1).total_seconds() * np.arange(24, dtype=np.float64)[:, None]
-            + DAY_SECONDS * np.arange(365 + calendar.isleap(year), dtype=np.float64)
-            - site.longitude * DAY_SECONDS / math.tau
+            + _DAY_SECONDS * np.arange(365 + calendar.isleap(year), dtype=np.float64)
+            - site.longitude * _DAY_SECONDS / math.tau
         )
         declination, hour = SunPosition.equatorial(site.longitude, seconds)
         low = max(float(declination.min()), site.latitude - math.pi / 2.0)
@@ -239,41 +237,25 @@ class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return cls(analemmas=SunPosition.of(site, declination, hour).vectors, surface=SunPosition.of(site, rows, half_day * np.linspace(-1.0, 1.0, round(math.tau / cls.spacing) + 1)).vectors)
 
 
-class DayStudy(Case, frozen=True, kw_only=True):
-    """Moments stepped by elapsed minutes."""
+class Study(msgspec.Struct, frozen=True, kw_only=True):
+    """Moments stepped from start, a sub-day remainder counting elapsed time and whole days keeping clock time."""
 
-    title = "Day"
-    start: Annotated[LocalTime, msgspec.Meta(description="Date and time of first frame")] = LocalTime(hour=6)
-    minutes: Annotated[int, msgspec.Meta(ge=1, le=1440, description="Minutes between frames")] = 30
-    frames: Annotated[int, msgspec.Meta(ge=1, description="Frames the study keys")] = 25
+    start: LocalTime
+    step: datetime.timedelta
+    frames: Annotated[int, msgspec.Meta(ge=1)]
 
+    def moments(self, zone: zoneinfo.ZoneInfo) -> Outcome[tuple[datetime.datetime, ...]]:
+        """Returns study moments on the zone clock, time fault on overflow."""
+        first = self.start.moment(zone)
+        origin = first.astimezone(datetime.UTC) if self.step % _DAY else first
 
-class SeasonStudy(Case, frozen=True, kw_only=True):
-    """Moments stepped by days at one clock time."""
+        @catch(exception=OverflowError)
+        def stepped() -> tuple[datetime.datetime, ...]:
+            return tuple((origin + frame * self.step).astimezone(zone) for frame in range(self.frames))
 
-    title = "Season"
-    start: Annotated[LocalTime, msgspec.Meta(description="First date and clock time of every frame")] = LocalTime(hour=6)
-    days: Annotated[int, msgspec.Meta(ge=1, le=366, description="Days between frames")] = 30
-    frames: Annotated[int, msgspec.Meta(ge=1, description="Frames the study keys")] = 25
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def moments(study: SunStudy, zone: zoneinfo.ZoneInfo) -> Outcome[tuple[datetime.datetime, ...]]:
-    """Returns study moments, time fault on overflow."""
-    first = study.start.moment(zone)
-    match study:
-        case DayStudy(minutes=minutes):
-            step = datetime.timedelta(minutes=minutes)
-        case SeasonStudy(days=days):
-            step = datetime.timedelta(days=days)
-    origin = first.astimezone(datetime.UTC) if isinstance(study, DayStudy) else first
-    return catch(lambda: tuple((origin + frame * step).astimezone(zone) for frame in range(study.frames)), exception=OverflowError)().map_error(
-        lambda error: (Fault(reason=RenderingReason.CALENDAR, subject=f"{first} + {study.frames} x {step}", cause=error),)
-    )
+        return stepped().map_error(lambda error: (Fault(reason=RenderingReason.CALENDAR, subject=f"{first} + {self.frames} x {self.step}", cause=error),))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DayStudy", "Daylight", "LocalTime", "Polar", "SeasonStudy", "Site", "SolarDay", "SunPaths", "SunPosition", "SunStudy", "moments"]
+__all__ = ["Daylight", "LocalTime", "Polar", "Site", "SolarDay", "Study", "SunPaths", "SunPosition"]

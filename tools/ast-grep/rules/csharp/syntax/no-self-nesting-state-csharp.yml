@@ -3,8 +3,6 @@ id: no-self-nesting-state-csharp
 language: csharp
 severity: error
 utils:
-    function:
-        kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, accessor_declaration'
     equality:
         any:
             - kind: binary_expression
@@ -30,7 +28,7 @@ rule:
             - all:
                 - inside: {kind: variable_declarator, has: {field: name, pattern: $NEXT}}
                 - inside:
-                    stopBy: {matches: function}
+                    stopBy: {kind: &function 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, accessor_declaration'}
                     kind: 'while_statement, do_statement, for_statement'
                     has: {stopBy: end, kind: assignment_expression, all: [{has: {field: left, pattern: $STATE}}, {has: {field: right, pattern: $NEXT}}]}
         - has:
@@ -41,6 +39,6 @@ rule:
                     any:
                         - pattern: $STATE
                         - {kind: collection_expression, has: {kind: collection_element, has: {kind: expression_element, has: {pattern: $STATE}}}}
-        - inside: {stopBy: {matches: function}, matches: fixed-point-loop}
+        - inside: {stopBy: {kind: *function}, matches: fixed-point-loop}
 message: '`$STATE` wraps its previous value each pass and never equals it in the fixed-point test'
-note: 'Join each pass into a value from a finite set (set union, bounded shape, operand roots) in place of a constructor over the prior state'
+note: 'Join each pass into a value from a finite set (set union, bounded shape, operand roots)'

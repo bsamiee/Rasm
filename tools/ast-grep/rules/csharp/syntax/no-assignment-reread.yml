@@ -20,7 +20,7 @@ rule:
     any:
         - kind: invocation_expression
           all:
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^ignore$'}}}}
+            - matches: {csharp-named-call: {name: {regex: '^ignore$'}}}
             - has: {field: arguments, has: {kind: argument, has: {matches: assignment}}}
         - kind: binary_expression
           all:

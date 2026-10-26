@@ -52,7 +52,7 @@ public abstract partial class TargetFile {
     private sealed class RasterFile(string key, FileExtension extension, Func<PixelFrame, OutputDepth, Option<ColorEncoding>, bool, Fin<StillFormat>> build)
         : StillFile(key, extension) {
         protected override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) =>
-            source.Formed(target, target.ColorDepth).Bind(formed => IO.lift(build(formed.Frame, target.ColorDepth, formed.Encoding, target.Alpha)));
+            source.Formed(target.ColorDepth).Bind(formed => IO.lift(build(formed.Frame, target.ColorDepth, formed.Encoding, target.Alpha)));
     }
 
     private sealed class ExrFile(string key, FileExtension extension) : StillFile(key, extension) {
@@ -78,26 +78,23 @@ public abstract partial class TargetFile {
 
     private sealed class JpegFile(string key, FileExtension extension) : StillFile(key, extension) {
         protected override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) =>
-            source.Formed(target, OutputDepth.UInt8).Map(formed => StillFormat.JpegRaster.From(formed.Frame, formed.Encoding, target.Quality));
+            source.Formed(OutputDepth.UInt8).Map(formed => StillFormat.JpegRaster.From(formed.Frame, formed.Encoding, target.Quality));
     }
 
     private sealed class WindowFile(string key, FileExtension extension) : TargetFile(key, extension) {
         public override IO<Unit> Write(RhinoDoc doc, SaveSource source, OutputTarget target, FileMetadata metadata, OutputPath path, bool overwrite) =>
-            source.Switch(
-                (Extension, target.Alpha, Path: path, Overwrite: overwrite),
-                window: static (save, window) => IO.lift(() => Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{save.Extension}")).Bind(scratch =>
-                    (from saved in IO.lift(() => window.Rendering.SaveRenderImageAs(scratch, save.Alpha))
-                     from found in IO.lift(() => Refused.UnlessFound(File.Exists(scratch), nameof(RenderWindow.SaveRenderImageAs)))
-                     from written in FilePublication.Write(save.Path, save.Overwrite, stream =>
-                         from read in use(() => File.OpenRead(scratch))
-                         from copied in IO.liftAsync(async environment => {
-                             await read.CopyToAsync(stream, environment.Token).ConfigureAwait(false);
-                             return unit;
-                         })
-                         select unit)
+            IO.lift(() => Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{Extension}")).Bind(scratch =>
+                (from saved in IO.lift(() => source.Rendering.SaveRenderImageAs(scratch, target.Alpha))
+                 from found in IO.lift(() => Refused.UnlessFound(File.Exists(scratch), nameof(RenderWindow.SaveRenderImageAs)))
+                 from written in FilePublication.Write(path, overwrite, stream =>
+                     from read in use(() => File.OpenRead(scratch))
+                     from copied in IO.liftAsync(async environment => {
+                         await read.CopyToAsync(stream, environment.Token).ConfigureAwait(false);
+                         return unit;
+                     })
                      select unit)
-                    .Finally(IO.lift(() => File.Delete(scratch)))),
-                run: static (_, _) => IO.fail<Unit>(new Refused(nameof(RenderWindow.SaveRenderImageAs), Refused.Absent)));
+                 select unit)
+                .Finally(IO.lift(() => File.Delete(scratch))));
     }
 }
 

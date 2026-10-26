@@ -5,6 +5,9 @@ severity: error
 files:
     - libs/python/blender/**
     - apps/blender/**
+utils:
+    link-loop:
+        matches: {python-attribute-iteration: {target: {pattern: $LINK}, attribute: {regex: '^links$'}}}
 rule:
     kind: comparison_operator
     any:
@@ -14,9 +17,9 @@ rule:
         stopBy: end
         any:
             - kind: generator_expression, list_comprehension, set_comprehension, dictionary_comprehension
-              has: {kind: for_in_clause, all: [{has: {field: left, pattern: $LINK}}, {has: {field: right, kind: attribute, regex: '\.links$'}}]}
+              has: {kind: for_in_clause, matches: link-loop}
             - kind: for_statement
-              all: [{has: {field: left, pattern: $LINK}}, {has: {field: right, kind: attribute, regex: '\.links$'}}]
+              matches: link-loop
 constraints:
     END: {regex: '^(from_socket|to_socket)$'}
 message: '`$LINK.$END == $SOCKET` scans every tree link for links of `$SOCKET`'

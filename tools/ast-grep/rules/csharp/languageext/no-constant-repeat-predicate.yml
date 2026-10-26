@@ -9,7 +9,7 @@ utils:
             - has: {field: arguments, has: {kind: argument, has: {field: name, regex: '^predicate$'}, pattern: $PREDICATE}}
             - all:
                 - not: {has: {field: arguments, has: {kind: argument, has: {field: name, regex: '^predicate$'}}}}
-                - has: {field: arguments, has: {kind: argument, nthChild: {position: 1, reverse: true}, not: {has: {field: name, pattern: $_}}, pattern: $PREDICATE}}
+                - has: {field: arguments, has: {kind: argument, nthChild: {position: 1, reverse: true}, matches: csharp-positional-argument, pattern: $PREDICATE}}
     named-or-outer-reading:
         any:
             - has: {field: arguments, has: {kind: argument, pattern: $PREDICATE, has: {kind: identifier, not: {inside: {kind: argument, field: name}}}}}

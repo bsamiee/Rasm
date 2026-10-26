@@ -454,7 +454,7 @@
             "format:tombi": { "command": "tombi format", "metadata": { "extensions": [ ".toml" ] } },
             "format:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -conf .config/yamlfmt.yaml", "configurations": { "files": { "command": "yamlfmt -conf .config/yamlfmt.yaml" } }, "metadata": { "extensions": [ ".yaml", ".yml" ] } },
             "format:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -w --", "configurations": { "files": { "command": "shfmt -w --" } }, "metadata": { "extensions": [ ".sh" ] } },
-            "check": { "dependsOn": [ "lint", "typecheck" ] },
+            "check": { "dependsOn": [ "lint", "typecheck", "test" ] },
             "upgrade": { "command": "node eng/typescript/upgrade/main.ts", "dependsOn": [ "upgrade:*", { "projects": [ "tag:language:rust" ], "target": "upgrade:cargo" }, { "projects": [ "tag:build:swiftpm" ], "target": "upgrade:swiftpm" }, { "projects": [ "tag:build:xcode" ], "target": "upgrade:xcode" } ] },
             "upgrade:dotnet": { "command": "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props" },
             "upgrade:python": { "executor": "nx:run-commands", "options": { "commands": [ "pixi update", "pixi run --locked -e hdf5 pixi run --locked -e default uv sync --upgrade" ], "parallel": false } },

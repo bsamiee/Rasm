@@ -15,7 +15,7 @@ public sealed record NoticeReplies(Option<string> Confirm, Option<string> Altern
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class WorkProgress<T>(Atom<Content<T>> work, long total) : IProgress<int> where T : notnull {
-    public void Report(int value) => _ = work.Swap(held => held.Requested(Progress.Validated(value, total).ToOption()));
+    public void Report(int value) => _ = work.Swap(held => held.Requested(Progress.Present(value, total)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -32,7 +32,7 @@ public static class Status {
     // --- [PACING]
     public static IO<T> Paced<T>(RhinoDoc doc, string label, int total, Func<IProgress<int>, IO<T>> work, IPlugInSink sink) where T : notnull =>
         DisposalOps.Within<IDisposable, T>(retain =>
-            from reading in atomIO<Content<T>>(new Content<T>.Pending(None, None))
+            from reading in atomIO<Content<T>>(new Content<T>.Pending())
             from forked in DisposalOps.Fork(work(new WorkProgress<T>(reading, total)), retain)
             from metered in Metered(doc, label, total, reading, sink, retain).OnUiThread()
             from attached in EventKind.EscapeKeyPressed.Inline(_ => forked.Cancel, sink, retain).OnUiThread()

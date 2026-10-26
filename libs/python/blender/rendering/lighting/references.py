@@ -1,14 +1,13 @@
 """Scene-linear lighting reference images."""
 
-from collections.abc import Mapping
 from enum import IntEnum
-import functools
 import math
-from typing import Annotated, Self
+from types import MappingProxyType
+from typing import Annotated, Final, Self
 
 from expression import Option
 from expression.extra.result import catch
-import msgspec.inspect
+import msgspec
 import numpy as np
 import numpy.typing as npt
 
@@ -36,54 +35,23 @@ class ReferenceDistribution(IntEnum):
     VIVID = 2
     SOFT = 3
 
-    @property
-    def draw(self) -> "Draw":
-        """Colors, placement, and field ranges references of this distribution draw from."""
-        match self:
-            case ReferenceDistribution.BALANCED:
-                gels = tuple(ReferenceImage.gels().values())
-                return Draw(
-                    colors=gels,
-                    placement=Scattered(count=(1, 3), horizontal=(-0.8, 0.8), vertical=(-0.7, 0.85)),
-                    sharpness=(0.7, 2.4),
-                    intensity=(0.5, 1.1),
-                    level=(0.03, 0.5),
-                    gradient=(0.0, 0.6),
-                    tints=gels,
-                    rim=(0.4, 1.2),
-                    vignette=(0.5, 0.0, 0.5),
-                    cycles=(0.0, 0.0, 0.0, 5.0, 7.0),
-                    dapples=(0, 0, 0, 12),
-                )
-            case ReferenceDistribution.VIVID:
-                return Draw(
-                    colors=((1.4, 0.12, 0.85), (0.15, 0.75, 1.35), (1.35, 0.55, 0.05), (0.25, 1.05, 0.35), (0.75, 0.25, 1.35)),
-                    placement=Slotted(
-                        positions=((-0.62, 0.18), (0.62, 0.18), (0.0, 0.58), (-0.38, -0.42), (0.38, -0.42)),
-                        spreads=(((0, 1, 3), (0, 1, 4), (0, 2, 4), (1, 2, 4)), ((0, 1, 2, 3), (0, 1, 3, 4), (0, 2, 3, 4)), ((0, 1, 2, 3, 4),)),
-                        jitter=0.08,
-                    ),
-                    sharpness=(1.3, 2.1),
-                    intensity=(0.85, 1.45),
-                    level=(0.03, 0.1),
-                    gradient=(0.0, 0.15),
-                    tints=((0.42, 0.46, 0.52),),
-                    rim=(0.25, 0.5),
-                    vignette=(1.0, 0.15, 0.45),
-                )
-            case ReferenceDistribution.SOFT:
-                return Draw(
-                    colors=((1.0, 0.96, 0.92), (0.94, 0.96, 1.0), (0.98, 0.95, 0.9)),
-                    placement=Scattered(count=(1, 2), horizontal=(-0.45, 0.45), vertical=(-0.35, 0.55)),
-                    sharpness=(0.55, 1.0),
-                    intensity=(0.35, 0.65),
-                    level=(0.32, 0.55),
-                    gradient=(0.0, 0.25),
-                    tints=((0.97, 0.95, 0.92), (0.93, 0.95, 0.98)),
-                    rim=(0.0, 0.0),
-                    vignette=(0.3, 0.0, 0.2),
-                )
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+GELS: Final = MappingProxyType({
+    "Warm": (1.0, 0.78, 0.5),
+    "Deep Warm": (1.0, 0.58, 0.28),
+    "Neutral": (1.0, 1.0, 1.0),
+    "Cool": (0.6, 0.72, 1.0),
+    "Sky": (0.5, 0.68, 1.0),
+    "Magenta": (1.0, 0.3, 0.85),
+    "Cyan": (0.2, 0.85, 0.95),
+    "Pink": (1.0, 0.45, 0.7),
+    "Blue": (0.3, 0.5, 1.0),
+    "Green": (0.45, 0.95, 0.5),
+    "Fire": (1.0, 0.5, 0.2),
+    "Teal": (0.2, 0.72, 0.72),
+})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -105,7 +73,7 @@ class Slotted(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 
 
 class Draw(msgspec.Struct, frozen=True, kw_only=True):
-    """Ranges one reference distribution draws its fields from."""
+    """Ranges one reference distribution draws its fields from, rim and vignette leading with their chance."""
 
     colors: tuple[tuple[Finite, Finite, Finite], ...]
     placement: Scattered | Slotted
@@ -114,8 +82,8 @@ class Draw(msgspec.Struct, frozen=True, kw_only=True):
     level: tuple[float, float]
     gradient: tuple[float, float]
     tints: tuple[tuple[Finite, Finite, Finite], ...]
-    rim: Annotated[tuple[float, float], msgspec.Meta(description="Chance of a rim and its amount bound")]
-    vignette: Annotated[tuple[float, float, float], msgspec.Meta(description="Chance of a vignette and its amount range")]
+    rim: tuple[float, float]
+    vignette: tuple[float, float, float]
     cycles: tuple[float, ...] = (0.0,)
     dapples: tuple[int, ...] = (0,)
 
@@ -130,13 +98,13 @@ class Highlight(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Dapple(msgspec.Struct, frozen=True, kw_only=True):
-    """Seeded random spots."""
+    """Seeded random spots, each spread the variation above its base."""
 
     count: Annotated[int, msgspec.Meta(ge=0)] = 12
     sharpness: NonNegative = 8.0
     intensity: NonNegative = 0.3
-    sharpness_spread: Annotated[NonNegative, msgspec.Meta(description="Variation above sharpness")] = 14.0
-    intensity_spread: Annotated[NonNegative, msgspec.Meta(description="Variation above intensity")] = 0.5
+    sharpness_spread: NonNegative = 14.0
+    intensity_spread: NonNegative = 0.5
     seed: Seed = 0
 
 
@@ -174,7 +142,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
     def drawn(cls, distribution: ReferenceDistribution, seed: Seed) -> Self:
         """Draws editable reference from distribution and seed."""
         generator = rng(content_hash(ReferenceDistribution), seed, int(distribution))
-        draw = distribution.draw
+        draw = _DRAWS[distribution]
 
         def uniform(low: float, high: float) -> float:
             return float(generator.uniform(low, high))
@@ -210,96 +178,12 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
             dapple=Dapple(count=dapple_count, seed=int(generator.integers(10000))) if dapple_count > 0 else None,
         )
 
-    # --- [CATALOG]
-
-    @staticmethod
-    def gels() -> dict[str, tuple[Finite, Finite, Finite]]:
-        """Returns named gel colors in scene-linear RGB."""
-        return {
-            "Warm": (1.0, 0.78, 0.5),
-            "Deep Warm": (1.0, 0.58, 0.28),
-            "Neutral": (1.0, 1.0, 1.0),
-            "Cool": (0.6, 0.72, 1.0),
-            "Sky": (0.5, 0.68, 1.0),
-            "Magenta": (1.0, 0.3, 0.85),
-            "Cyan": (0.2, 0.85, 0.95),
-            "Pink": (1.0, 0.45, 0.7),
-            "Blue": (0.3, 0.5, 1.0),
-            "Green": (0.45, 0.95, 0.5),
-            "Fire": (1.0, 0.5, 0.2),
-            "Teal": (0.2, 0.72, 0.72),
-        }
-
-    @classmethod
-    @functools.cache
-    def catalog(cls) -> Mapping[Family, Mapping[str, Self]]:
-        """Returns named reference recipes per family."""
-        gels = cls.gels()
-        warm, deep, neutral, cool = gels["Warm"], gels["Deep Warm"], gels["Neutral"], gels["Cool"]
-        sky, magenta, cyan, pink = gels["Sky"], gels["Magenta"], gels["Cyan"], gels["Pink"]
-        blue, green, fire, teal = gels["Blue"], gels["Green"], gels["Fire"], gels["Teal"]
-        beauty = (1.0, 0.95, 0.9)
-        portrait = (1.0, 0.96, 0.9)
-        return {
-            Family.SKY: {
-                "Golden Hour": cls(level=0.2, gradient=(0.9, 0.1), tint=warm, highlights=(Highlight(position=(0.85, 0.65), intensity=0.7, color=warm),)),
-                "Sunrise": cls(level=0.16, gradient=(0.5, 0.2), tint=(1.0, 0.7, 0.45), highlights=(Highlight(position=(0.2, 0.4), sharpness=1.4, color=(1.0, 0.65, 0.4)),)),
-                "Blue Hour": cls(level=0.12, gradient=(0.0, 0.6), tint=cool),
-                "Midday": cls(level=0.4, gradient=(0.0, 0.5), highlights=(Highlight(position=(0.55, 0.9), sharpness=1.4, intensity=0.6, color=neutral),)),
-                "Harsh Noon": cls(level=0.25, highlights=(Highlight(position=(0.5, 0.925), sharpness=3.0, intensity=1.1, color=neutral),), vignette=0.45),
-                "Overcast": cls(level=0.55, gradient=(0.0, 0.25), tint=(0.95, 0.97, 1.0)),
-                "Foggy Morning": cls(level=0.5, gradient=(0.0, 0.3), tint=(0.9, 0.95, 1.0), vignette=0.2),
-                "Night Sky": cls(level=0.04, gradient=(0.0, 0.25), tint=cool, highlights=(Highlight(position=(0.7, 0.9), sharpness=6.0, intensity=0.5, color=(0.8, 0.9, 1.0)),)),
-                "Top Sky": cls(gradient=(0.0, 0.95), tint=(0.85, 0.92, 1.0)),
-            },
-            Family.STUDIO: {
-                "Softbox": cls(level=0.5, highlights=(Highlight(position=(0.5, 0.7), sharpness=0.6, intensity=0.5, color=neutral),)),
-                "Softbox Left": cls(level=0.18, highlights=(Highlight(position=(0.2, 0.675), sharpness=0.9, color=neutral),)),
-                "Softbox Right": cls(level=0.18, highlights=(Highlight(position=(0.8, 0.675), sharpness=0.9, color=neutral),)),
-                "Beauty Dish": cls(level=0.2, highlights=(Highlight(position=(0.5, 0.725), sharpness=1.6, intensity=0.9, color=neutral),), rim=Rim(amount=0.25)),
-                "Ring Light": cls(level=0.18, highlights=(Highlight(sharpness=0.8, intensity=0.7, color=neutral),), rim=Rim(amount=0.7)),
-                "Broad Light": cls(level=0.16, highlights=(Highlight(position=(0.275, 0.625), sharpness=1.0, intensity=0.85, color=portrait),)),
-                "Short Light": cls(level=0.12, highlights=(Highlight(position=(0.775, 0.65), sharpness=1.3, intensity=0.85, color=portrait),), vignette=0.2),
-            },
-            Family.PORTRAIT: {
-                "Rembrandt Right": cls(level=0.06, highlights=(Highlight(position=(0.75, 0.725), sharpness=1.6, intensity=1.1, color=warm),)),
-                "Under Light": cls(level=0.06, highlights=(Highlight(position=(0.5, 0.15), sharpness=1.6, intensity=1.0, color=beauty),)),
-                "Hair Light": cls(level=0.1, highlights=(Highlight(position=(0.5, 0.75), sharpness=1.0, intensity=0.5, color=neutral),), rim=Rim(amount=0.9)),
-            },
-            Family.CINEMATIC: {
-                "Teal & Orange": cls(highlights=(Highlight(position=(0.8, 0.625), intensity=0.9, color=deep), Highlight(position=(0.2, 0.45), sharpness=1.0, intensity=0.6, color=teal))),
-                "Neon M/C": cls(level=0.04, highlights=(Highlight(position=(0.225, 0.65), intensity=0.9, color=magenta), Highlight(position=(0.775, 0.45), intensity=0.9, color=cyan))),
-                "Neon B/P": cls(level=0.04, highlights=(Highlight(position=(0.25, 0.5), intensity=0.9, color=blue), Highlight(position=(0.775, 0.65), intensity=0.9, color=pink))),
-                "Firelight": cls(level=0.06, gradient=(0.0, -0.1), tint=fire, highlights=(Highlight(position=(0.5, 0.25), sharpness=1.0, intensity=0.9, color=fire),), vignette=0.35),
-                "Moonlit Window": cls(level=0.04, highlights=(Highlight(position=(0.75, 0.6), sharpness=1.0, color=sky),), blinds=Blinds(cycles=5.0), vignette=0.35),
-                "Horror Uplight": cls(level=0.04, highlights=(Highlight(position=(0.5, 0.15), sharpness=1.6, intensity=1.0, color=green),), vignette=0.45),
-            },
-            Family.ENVIRONMENT: {
-                "Window Light": cls(level=0.12, highlights=(Highlight(position=(0.775, 0.675), sharpness=0.8, intensity=0.85, color=(1.0, 0.98, 0.92)),)),
-                "Window Blinds": cls(level=0.1, highlights=(Highlight(position=(0.75, 0.65), sharpness=0.8, intensity=0.9, color=warm),), blinds=Blinds(cycles=7.0)),
-                "Forest Dapple": cls(level=0.1, gradient=(0.0, 0.3), tint=green, dapple=Dapple(count=14, seed=7)),
-                "Underwater": cls(level=0.12, gradient=(0.0, 0.4), tint=teal, dapple=Dapple(seed=3)),
-                "Snow Bounce": cls(level=0.6, gradient=(0.0, 0.2), tint=(0.95, 0.98, 1.0), highlights=(Highlight(position=(0.5, 0.25), sharpness=0.8, intensity=0.3, color=neutral),)),
-                "Desert": cls(level=0.35, gradient=(0.2, 0.4), tint=(1.0, 0.85, 0.6), highlights=(Highlight(position=(0.65, 0.85), sharpness=1.4, intensity=0.6, color=warm),)),
-                "Street Lamp": cls(level=0.03, highlights=(Highlight(position=(0.5, 0.7), sharpness=2.0, intensity=1.0, color=(1.0, 0.8, 0.5)),), vignette=0.6),
-                "Stage Spot": cls(level=0.02, highlights=(Highlight(position=(0.5, 0.8), sharpness=2.6, intensity=1.2, color=neutral),), vignette=0.6),
-                "Concert RGB": cls(
-                    level=0.04,
-                    highlights=(
-                        Highlight(position=(0.2, 0.7), sharpness=1.4, color=blue),
-                        Highlight(position=(0.5, 0.75), sharpness=1.4, color=magenta),
-                        Highlight(position=(0.8, 0.7), sharpness=1.4, color=cyan),
-                    ),
-                ),
-                "Sci-Fi Panel": cls(level=0.06, highlights=(Highlight(position=(0.75, 0.5), sharpness=1.0, intensity=0.7, color=cyan),), blinds=Blinds(cycles=4.0), vignette=0.3),
-            },
-        }
-
     # --- [DRAWING]
 
     def plane(self, size: Side) -> Outcome[npt.NDArray[np.float32]]:
         """Returns unclipped float32 RGB of square image."""
 
+        @catch(exception=FloatingPointError)
         @np.errstate(over="raise", divide="raise", invalid="raise")
         def formed() -> npt.NDArray[np.float32]:
             def glow(x: float, y: float, sharpness: float) -> npt.NDArray[np.float64]:
@@ -341,9 +225,114 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
             )
             return np.ascontiguousarray(rimmed * (1.0 - self.vignette * np.minimum(reach**2, 1.0))[..., None], dtype=np.float32)
 
-        return catch(formed, exception=FloatingPointError)().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(self), cause=error),))
+        return formed().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(self), cause=error),))
 
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+_DRAWS: Final = MappingProxyType({
+    ReferenceDistribution.BALANCED: Draw(
+        colors=tuple(GELS.values()),
+        placement=Scattered(count=(1, 3), horizontal=(-0.8, 0.8), vertical=(-0.7, 0.85)),
+        sharpness=(0.7, 2.4),
+        intensity=(0.5, 1.1),
+        level=(0.03, 0.5),
+        gradient=(0.0, 0.6),
+        tints=tuple(GELS.values()),
+        rim=(0.4, 1.2),
+        vignette=(0.5, 0.0, 0.5),
+        cycles=(0.0, 0.0, 0.0, 5.0, 7.0),
+        dapples=(0, 0, 0, 12),
+    ),
+    ReferenceDistribution.VIVID: Draw(
+        colors=((1.4, 0.12, 0.85), (0.15, 0.75, 1.35), (1.35, 0.55, 0.05), (0.25, 1.05, 0.35), (0.75, 0.25, 1.35)),
+        placement=Slotted(
+            positions=((-0.62, 0.18), (0.62, 0.18), (0.0, 0.58), (-0.38, -0.42), (0.38, -0.42)),
+            spreads=(((0, 1, 3), (0, 1, 4), (0, 2, 4), (1, 2, 4)), ((0, 1, 2, 3), (0, 1, 3, 4), (0, 2, 3, 4)), ((0, 1, 2, 3, 4),)),
+            jitter=0.08,
+        ),
+        sharpness=(1.3, 2.1),
+        intensity=(0.85, 1.45),
+        level=(0.03, 0.1),
+        gradient=(0.0, 0.15),
+        tints=((0.42, 0.46, 0.52),),
+        rim=(0.25, 0.5),
+        vignette=(1.0, 0.15, 0.45),
+    ),
+    ReferenceDistribution.SOFT: Draw(
+        colors=((1.0, 0.96, 0.92), (0.94, 0.96, 1.0), (0.98, 0.95, 0.9)),
+        placement=Scattered(count=(1, 2), horizontal=(-0.45, 0.45), vertical=(-0.35, 0.55)),
+        sharpness=(0.55, 1.0),
+        intensity=(0.35, 0.65),
+        level=(0.32, 0.55),
+        gradient=(0.0, 0.25),
+        tints=((0.97, 0.95, 0.92), (0.93, 0.95, 0.98)),
+        rim=(0.0, 0.0),
+        vignette=(0.3, 0.0, 0.2),
+    ),
+})
+REFERENCES: Final = MappingProxyType({
+    Family.SKY: MappingProxyType({
+        "Golden Hour": ReferenceImage(level=0.2, gradient=(0.9, 0.1), tint=GELS["Warm"], highlights=(Highlight(position=(0.85, 0.65), intensity=0.7, color=GELS["Warm"]),)),
+        "Sunrise": ReferenceImage(level=0.16, gradient=(0.5, 0.2), tint=(1.0, 0.7, 0.45), highlights=(Highlight(position=(0.2, 0.4), sharpness=1.4, color=(1.0, 0.65, 0.4)),)),
+        "Blue Hour": ReferenceImage(level=0.12, gradient=(0.0, 0.6), tint=GELS["Cool"]),
+        "Midday": ReferenceImage(level=0.4, gradient=(0.0, 0.5), highlights=(Highlight(position=(0.55, 0.9), sharpness=1.4, intensity=0.6, color=GELS["Neutral"]),)),
+        "Harsh Noon": ReferenceImage(level=0.25, highlights=(Highlight(position=(0.5, 0.925), sharpness=3.0, intensity=1.1, color=GELS["Neutral"]),), vignette=0.45),
+        "Overcast": ReferenceImage(level=0.55, gradient=(0.0, 0.25), tint=(0.95, 0.97, 1.0)),
+        "Foggy Morning": ReferenceImage(level=0.5, gradient=(0.0, 0.3), tint=(0.9, 0.95, 1.0), vignette=0.2),
+        "Night Sky": ReferenceImage(level=0.04, gradient=(0.0, 0.25), tint=GELS["Cool"], highlights=(Highlight(position=(0.7, 0.9), sharpness=6.0, intensity=0.5, color=(0.8, 0.9, 1.0)),)),
+        "Top Sky": ReferenceImage(gradient=(0.0, 0.95), tint=(0.85, 0.92, 1.0)),
+    }),
+    Family.STUDIO: MappingProxyType({
+        "Softbox": ReferenceImage(level=0.5, highlights=(Highlight(position=(0.5, 0.7), sharpness=0.6, intensity=0.5, color=GELS["Neutral"]),)),
+        "Softbox Left": ReferenceImage(level=0.18, highlights=(Highlight(position=(0.2, 0.675), sharpness=0.9, color=GELS["Neutral"]),)),
+        "Softbox Right": ReferenceImage(level=0.18, highlights=(Highlight(position=(0.8, 0.675), sharpness=0.9, color=GELS["Neutral"]),)),
+        "Beauty Dish": ReferenceImage(level=0.2, highlights=(Highlight(position=(0.5, 0.725), sharpness=1.6, intensity=0.9, color=GELS["Neutral"]),), rim=Rim(amount=0.25)),
+        "Ring Light": ReferenceImage(level=0.18, highlights=(Highlight(sharpness=0.8, intensity=0.7, color=GELS["Neutral"]),), rim=Rim(amount=0.7)),
+        "Broad Light": ReferenceImage(level=0.16, highlights=(Highlight(position=(0.275, 0.625), sharpness=1.0, intensity=0.85, color=(1.0, 0.96, 0.9)),)),
+        "Short Light": ReferenceImage(level=0.12, highlights=(Highlight(position=(0.775, 0.65), sharpness=1.3, intensity=0.85, color=(1.0, 0.96, 0.9)),), vignette=0.2),
+    }),
+    Family.PORTRAIT: MappingProxyType({
+        "Rembrandt Right": ReferenceImage(level=0.06, highlights=(Highlight(position=(0.75, 0.725), sharpness=1.6, intensity=1.1, color=GELS["Warm"]),)),
+        "Under Light": ReferenceImage(level=0.06, highlights=(Highlight(position=(0.5, 0.15), sharpness=1.6, intensity=1.0, color=(1.0, 0.95, 0.9)),)),
+        "Hair Light": ReferenceImage(level=0.1, highlights=(Highlight(position=(0.5, 0.75), sharpness=1.0, intensity=0.5, color=GELS["Neutral"]),), rim=Rim(amount=0.9)),
+    }),
+    Family.CINEMATIC: MappingProxyType({
+        "Teal & Orange": ReferenceImage(
+            highlights=(Highlight(position=(0.8, 0.625), intensity=0.9, color=GELS["Deep Warm"]), Highlight(position=(0.2, 0.45), sharpness=1.0, intensity=0.6, color=GELS["Teal"]))
+        ),
+        "Neon M/C": ReferenceImage(
+            level=0.04, highlights=(Highlight(position=(0.225, 0.65), intensity=0.9, color=GELS["Magenta"]), Highlight(position=(0.775, 0.45), intensity=0.9, color=GELS["Cyan"]))
+        ),
+        "Neon B/P": ReferenceImage(level=0.04, highlights=(Highlight(position=(0.25, 0.5), intensity=0.9, color=GELS["Blue"]), Highlight(position=(0.775, 0.65), intensity=0.9, color=GELS["Pink"]))),
+        "Firelight": ReferenceImage(
+            level=0.06, gradient=(0.0, -0.1), tint=GELS["Fire"], highlights=(Highlight(position=(0.5, 0.25), sharpness=1.0, intensity=0.9, color=GELS["Fire"]),), vignette=0.35
+        ),
+        "Moonlit Window": ReferenceImage(level=0.04, highlights=(Highlight(position=(0.75, 0.6), sharpness=1.0, color=GELS["Sky"]),), blinds=Blinds(cycles=5.0), vignette=0.35),
+        "Horror Uplight": ReferenceImage(level=0.04, highlights=(Highlight(position=(0.5, 0.15), sharpness=1.6, intensity=1.0, color=GELS["Green"]),), vignette=0.45),
+    }),
+    Family.ENVIRONMENT: MappingProxyType({
+        "Window Light": ReferenceImage(level=0.12, highlights=(Highlight(position=(0.775, 0.675), sharpness=0.8, intensity=0.85, color=(1.0, 0.98, 0.92)),)),
+        "Window Blinds": ReferenceImage(level=0.1, highlights=(Highlight(position=(0.75, 0.65), sharpness=0.8, intensity=0.9, color=GELS["Warm"]),), blinds=Blinds(cycles=7.0)),
+        "Forest Dapple": ReferenceImage(level=0.1, gradient=(0.0, 0.3), tint=GELS["Green"], dapple=Dapple(count=14, seed=7)),
+        "Underwater": ReferenceImage(level=0.12, gradient=(0.0, 0.4), tint=GELS["Teal"], dapple=Dapple(seed=3)),
+        "Snow Bounce": ReferenceImage(level=0.6, gradient=(0.0, 0.2), tint=(0.95, 0.98, 1.0), highlights=(Highlight(position=(0.5, 0.25), sharpness=0.8, intensity=0.3, color=GELS["Neutral"]),)),
+        "Desert": ReferenceImage(level=0.35, gradient=(0.2, 0.4), tint=(1.0, 0.85, 0.6), highlights=(Highlight(position=(0.65, 0.85), sharpness=1.4, intensity=0.6, color=GELS["Warm"]),)),
+        "Street Lamp": ReferenceImage(level=0.03, highlights=(Highlight(position=(0.5, 0.7), sharpness=2.0, intensity=1.0, color=(1.0, 0.8, 0.5)),), vignette=0.6),
+        "Stage Spot": ReferenceImage(level=0.02, highlights=(Highlight(position=(0.5, 0.8), sharpness=2.6, intensity=1.2, color=GELS["Neutral"]),), vignette=0.6),
+        "Concert RGB": ReferenceImage(
+            level=0.04,
+            highlights=(
+                Highlight(position=(0.2, 0.7), sharpness=1.4, color=GELS["Blue"]),
+                Highlight(position=(0.5, 0.75), sharpness=1.4, color=GELS["Magenta"]),
+                Highlight(position=(0.8, 0.7), sharpness=1.4, color=GELS["Cyan"]),
+            ),
+        ),
+        "Sci-Fi Panel": ReferenceImage(level=0.06, highlights=(Highlight(position=(0.75, 0.5), sharpness=1.0, intensity=0.7, color=GELS["Cyan"]),), blinds=Blinds(cycles=4.0), vignette=0.3),
+    }),
+})
+RECIPES: Final = MappingProxyType({name: recipe for recipes in REFERENCES.values() for name, recipe in recipes.items()})
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Blinds", "Dapple", "Family", "Highlight", "ReferenceDistribution", "ReferenceImage", "Rim"]
+__all__ = ["GELS", "RECIPES", "REFERENCES", "Blinds", "Dapple", "Family", "Highlight", "ReferenceDistribution", "ReferenceImage", "Rim"]

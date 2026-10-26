@@ -15,4 +15,4 @@ rule:
         - {regex: '^// --- \[COMPOSITION\] -', follows: {stopBy: end, kind: comment, regex: '^// --- \[EXPORTS\] -'}}
         - {regex: '^// --- \[', inside: {kind: compilation_unit}, precedes: {stopBy: end, any: [{kind: 'using_directive, extern_alias_directive, global_attribute, file_scoped_namespace_declaration'}, {kind: ERROR, regex: '^#:'}]}}
 message: '`$DIVIDER` stands out of `CLAUDE.md` file order'
-note: 'Move the divider below the last preamble line and its section after every section the `CLAUDE.md` table ranks earlier'
+note: 'Place dividers after preamble lines and order sections by the `CLAUDE.md` table'

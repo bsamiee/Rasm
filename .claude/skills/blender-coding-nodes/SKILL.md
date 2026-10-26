@@ -71,8 +71,7 @@ Socket values take per-class shapes:
 - `socket.bl_rna.properties["default_value"].array_length` reads the live length
 - Matrix, Geometry, Shader, Bundle, and Closure sockets hold no `default_value`
 - Group Input, Group Output, zone, and item nodes end socket lists with virtual sockets (`NodeSocketVirtual`, identifiers starting `__extend__`)
-- `NodeSocket.links` lists every link from or to the socket, muted ones included, scanning `tree.links` on each read
-- Reads over many sockets group one pass over `tree.links` by endpoint, and reads of one socket take `socket.links`
+- `NodeSocket.links` scans `tree.links` on each read and lists muted links, and reads over many sockets group one `tree.links` pass by endpoint
 - Keyframes and drivers on socket defaults sit in the tree's `animation_data` at `socket.path_from_id("default_value")`
 
 ## [03]-[FIELDS]
@@ -103,22 +102,24 @@ Geometry tree sockets take single values or fields, and a field computes per ele
 Multi-input order resolves every position from one read of `socket.links`, then swaps sort ids slot by slot:
 
 ```python
+from collections.abc import Iterator
+
 import bpy
 from expression import Error, Ok, Result
-from expression.collections import Block
 
 
-def stacked(socket: bpy.types.NodeSocket, sources: Block[bpy.types.NodeSocket]) -> Result[None, Block[Fault]]:
-    links = tuple(socket.links)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-    pending = {source: iter([link for link in links if link.from_socket == source]) for source in sources}
-    if faults := (found := sources.mapi(lambda position, source: required(next(pending[source], None), socket, f"links[{position}]"))).choose(
-        lambda result: result.swap().to_option()
-    ):
-        return Error(faults)
-    wanted = found.choose(Result.to_option)
-    for slot, link in zip(sorted((link.multi_input_sort_id for link in wanted), reverse=True), wanted):
-        next(held for held in wanted if held.multi_input_sort_id == slot).swap_multi_input_sort_id(link)
-    return Ok(None)
+def stacked(socket: bpy.types.NodeSocket, sources: tuple[bpy.types.NodeSocket, ...]) -> Result[None, tuple[int, ...]]:
+    links: tuple[bpy.types.NodeLink, ...] = socket.links  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    pending: dict[bpy.types.NodeSocket, Iterator[bpy.types.NodeLink]] = {source: iter([link for link in links if link.from_socket == source]) for source in sources}
+    found: tuple[bpy.types.NodeLink | None, ...] = tuple(next(pending[source], None) for source in sources)
+    match tuple(position for position, link in enumerate(found) if link is None):
+        case ():
+            wanted: tuple[bpy.types.NodeLink, ...] = tuple(link for link in found if link is not None)
+            for slot, link in zip(sorted((held.multi_input_sort_id for held in wanted), reverse=True), wanted, strict=True):
+                next(held for held in wanted if held.multi_input_sort_id == slot).swap_multi_input_sort_id(link)
+            return Ok(None)
+        case absent:
+            return Error(absent)
 ```
 
 - `sources` lists output sockets top first, a source linked twice appearing twice and taking its next link
@@ -203,7 +204,7 @@ Item collections (`capture_items`, `bake_items`, `bundle_items`, `index_switch_i
 
 ## [06]-[INTERFACES]
 
-`NodeTree.interface` declares a group's sockets and panels:
+`NodeTree.interface` declares a group's parameters as sockets and panels, each item holding its settings in its own RNA members:
 - `new_socket(name, description=, in_out=, socket_type=, parent=)` takes a base socket idname (`NodeSocketFloat`)
 - `subtype` and vector `dimensions` follow as separate writes refining the item class `items_tree` returns (`NodeTreeInterfaceSocketFloatDistance`)
 - Refined items keep the base idname in `socket_type`
@@ -218,6 +219,7 @@ Item collections (`capture_items`, `bake_items`, `bundle_items`, `index_switch_i
 - `remove(panel)` moves panel contents up one level, and `move_content_to_parent=False` deletes contents with the panel
 - `socket_type` writes reset `default_value`, `min_value`, `max_value`, and `subtype`, an equal value included, and code compares before writing
 - `socket_type` writes reset `default_input` to `VALUE` where the new type lacks it, and `structure_type` to `AUTO` on types without fields or grids
+- Float socket and interface `default_value` writes clamp to `float32` limits, and `min_value` and `max_value` writes past them store infinity
 - `default_value`, `min_value`, and `max_value` seed group nodes and modifier inputs created after the write, existing ones keeping stored values
 
 Panel toggles follow host rules:
@@ -267,6 +269,7 @@ Tree edits reach every user's next evaluation, nested groups included:
 - `node_warnings` items hold `message` and `type` (`ERROR`, `WARNING`, `INFO`), filled once an active depsgraph evaluates the modifier
 - `node_warnings` lists closure and bundle signature faults, and invalid links and broken zones evaluate with none
 - `mod.is_input_used(identifier)` and `mod.is_input_visible(identifier)` answer what menus and toggles leave in use
+- Stock shader nodes (textures, Map Range, Color Ramp) evaluate in geometry trees, a Store Named Attribute output reading back through `foreach_get`
 - Legacy Curve objects pass curves to the modifier, bevel and resolution applying after it
 
 ## [08]-[MODIFIER_INPUTS]
@@ -316,7 +319,7 @@ Modifier `bakes` hold one item per Simulation Output and Bake node once `node_gr
 ## [10]-[RECONCILIATION]
 
 Trees reach a desired state through edits in place and keep nodes a user added:
-- Desired nodes, links, and interface items are frozen `msgspec.Struct` records keyed by structure, compared against live state before each write
+- Desired nodes, links, and interface items are frozen records keyed by structure, compared against live state before each write
 - Owned nodes hold an ID property mark under a key derived from structure, renames and `.001` suffixes breaking `name` keys
 - Copies of owned nodes (editor duplicates, `tree.copy()`) hold the mark, and marks dedupe by tree order with the first holder kept
 - Fresh materials, worlds, and lights hold unmarked stock nodes, removed before their first reconciliation writes
@@ -333,56 +336,63 @@ Copies take every writable member, item collections growing through their own `n
 
 ```python
 import bpy
-from expression import Error, Ok
-from expression.collections import Block
+from expression import Error, Ok, Result
+from expression.extra.result import catch
+
+type Struct = bpy.types.bpy_struct[object]
+type Items = bpy.types.bpy_prop_collection[Struct]
 
 
-def mirrored(source: Struct, target: Struct, skipped: frozenset[str] = frozenset({"rna_type"})) -> Block[Fault]:
-    opaque = (bpy.types.ID, bpy.types.Node, bpy.types.NodeInternalLink)
+def mirrored(source: Struct, target: Struct, skipped: frozenset[str] = frozenset({"rna_type"})) -> tuple[RuntimeError | TypeError, ...]:
+    opaque: tuple[type[Struct], ...] = (bpy.types.ID, bpy.types.Node, bpy.types.NodeInternalLink)
     sockets: bpy.types.Struct = bpy.types.NodeSocket.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     definition: bpy.types.Struct = source.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
     def socketed(prop: bpy.types.Property) -> bool:
         return isinstance(prop, bpy.types.CollectionProperty) and prop.fixed_type == sockets
 
-    def grown(prop: bpy.types.CollectionProperty, held: bpy.types.bpy_prop_collection[Struct], live: bpy.types.bpy_prop_collection[Struct]) -> Block[Fault]:
+    def argument(item: Struct, parameter: bpy.types.Property) -> object:
+        return getattr(item, parameter.identifier) if parameter.identifier in item.bl_rna.properties else parameter.enum_items[0].identifier if parameter.type == "ENUM" else parameter.default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+
+    def grown(prop: bpy.types.CollectionProperty, held: Items, live: Items) -> tuple[RuntimeError, ...]:
         if prop.srna is None or not {"new", "remove"}.issubset(prop.srna.functions.keys()):
-            return Block.empty()
-        parameters = Block.of_seq(prop.srna.functions["new"].parameters).filter(lambda parameter: not parameter.is_output)
+            return ()
+        parameters: tuple[bpy.types.Property, ...] = tuple(parameter for parameter in prop.srna.functions["new"].parameters if not parameter.is_output)
         for item in tuple(live)[len(held) :]:
             live.remove(item)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        return Block.of_seq(tuple(held)[len(live) :]).choose(
-            lambda item: host(  # type: ignore[attr-defined, call-overload]  # ty: ignore[unresolved-attribute, invalid-argument-type]
-                live.new, *parameters.map(lambda parameter: getattr(item, parameter.identifier) if parameter.identifier in item.bl_rna.properties else parameter.enum_items[0].identifier if parameter.type == "ENUM" else parameter.default)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            ).swap().to_option()
+        return tuple(
+            error
+            for item in tuple(held)[len(live) :]
+            for error in catch(live.new, exception=RuntimeError)(*(argument(item, parameter) for parameter in parameters)).swap().to_option().to_list()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         )
 
-    def member(prop: bpy.types.Property) -> Block[Fault]:
+    def member(prop: bpy.types.Property) -> tuple[RuntimeError | TypeError, ...]:
         name, held, live = prop.identifier, getattr(source, prop.identifier), getattr(target, prop.identifier)
         match held, prop:
             case bpy.types.bpy_prop_collection(), _ if socketed(prop):
-                found = {socket.identifier: socket for socket in live}
-                return Block.of_seq(held).collect(lambda socket: mirrored(socket, found[socket.identifier]) if socket.identifier in found else Block.of(Fault(reason=Reason.ABSENT, subject=name, member=socket.identifier)))
+                found: dict[str, Struct] = {socket.identifier: socket for socket in live}
+                return tuple(error for socket in held for error in mirrored(socket, found[socket.identifier]))
             case bpy.types.bpy_prop_collection(), bpy.types.CollectionProperty() as collection if not isinstance(next(iter(held), None), opaque):
-                return grown(collection, held, live) + Block.of_seq(zip(held, live)).collect(lambda pair: mirrored(*pair))
+                return (*grown(collection, held, live), *(error for pair in zip(held, live) for error in mirrored(*pair)))
             case bpy.types.bpy_struct(), _ if prop.is_readonly and not isinstance(held, opaque):
                 return mirrored(held, live)
             case _ if not prop.is_readonly and held != live and (isinstance(held, bpy.types.ID) or not isinstance(held, bpy.types.bpy_struct | bpy.types.bpy_prop_collection)):
-                return Block.of_option(written(target, (name,), held).swap().to_option())
+                return tuple(catch(setattr, exception=TypeError)(target, name, held).swap().to_option().to_list())
             case _:
-                return Block.empty()
+                return ()
 
-    return Block.of_seq(definition.properties).filter(lambda prop: prop.identifier not in skipped and not prop.is_registered_optional).sort_with(lambda prop: (prop.is_readonly, socketed(prop))).collect(member)
+    ordered: list[bpy.types.Property] = sorted((prop for prop in definition.properties if prop.identifier not in skipped and not prop.is_registered_optional), key=lambda prop: (prop.is_readonly, socketed(prop)))
+    return tuple(error for prop in ordered for error in member(prop))
 
 
-def copied(source: bpy.types.Node, tree: bpy.types.NodeTree) -> BlenderResult[bpy.types.Node]:
-    def filled(node: bpy.types.Node) -> BlenderResult[bpy.types.Node]:
-        if faults := mirrored(source, node, frozenset({"rna_type", "name", "location", "select"})):
+def copied(source: bpy.types.Node, tree: bpy.types.NodeTree) -> Result[bpy.types.Node, tuple[RuntimeError | TypeError, ...]]:
+    node: bpy.types.Node = tree.nodes.new(source.bl_idname)
+    match mirrored(source, node, frozenset({"rna_type", "name", "location", "select"})):
+        case ():
+            return Ok(node)
+        case refused:
             tree.nodes.remove(node)
-            return Error(faults)
-        return Ok(node)
-
-    return host(tree.nodes.new, source.bl_idname).bind(filled)
+            return Error(refused)
 ```
 
 - Copies keep `label`, `mute`, `hide`, `width`, custom color, and `location_absolute`, and leave identity and frame membership to the target tree
@@ -398,53 +408,40 @@ Group builds declare interface items, then nodes, a zone pair, menu items, and l
 from contextlib import ExitStack
 
 import bpy
-from expression import Option, Result
-from expression.collections import Block
+from expression import Result
+from expression.extra.result import catch
 
 
-def subdivided(name: str, chosen: str) -> Result[bpy.types.GeometryNodeTree, Block[Fault]]:
+def subdivided(name: str, chosen: str) -> Result[bpy.types.GeometryNodeTree, TypeError]:
     with ExitStack() as rollback:
         tree: bpy.types.GeometryNodeTree = bpy.data.node_groups.new(name, "GeometryNodeTree")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         rollback.callback(bpy.data.node_groups.remove, tree)
         source, result, steps, shape = (
-            tree.interface.new_socket(label, in_out=side, socket_type=kind.bl_rna.identifier)  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
+            tree.interface.new_socket(label, in_out=side, socket_type=kind.bl_rna.identifier)  # type: ignore[union-attr, arg-type, attr-defined]  # ty: ignore[unresolved-attribute]
             for label, side, kind in (("Geometry", "INPUT", bpy.types.NodeSocketGeometry), ("Geometry", "OUTPUT", bpy.types.NodeSocketGeometry), ("Steps", "INPUT", bpy.types.NodeSocketInt), ("Shape", "INPUT", bpy.types.NodeSocketMenu))
         )
         steps.min_value, steps.default_value = 0, 2  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-
-        def wired(nodes: Block[bpy.types.Node]) -> Result[bpy.types.GeometryNodeTree, Block[Fault]]:
-            entry, outlet, start, stop, step, choice = nodes
-            start.pair_with_output(stop)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            for item, label in zip(choice.enum_items, ("Coarse", "Fine")):  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                item.name = label
-            sockets = {(node, socket.is_output, socket.identifier): socket for node in nodes for socket in (*node.inputs, *node.outputs)}
-
-            def linked(head: bpy.types.Node, output: str, tail: bpy.types.Node, entering: str) -> Result[bpy.types.NodeLink, Fault]:
-                return (
-                    Option.of_optional(sockets.get((head, True, output)))
-                    .map2(tree.links.new, Option.of_optional(sockets.get((tail, False, entering))))
-                    .bind(Option.of_optional)
-                    .filter(lambda link: link.is_valid)
-                    .to_result(Fault(reason=Reason.UNLINKED, subject=repr((head.name, output)), member=repr((tail.name, entering))))
-                )
-
-            rows = Block.of(
-                (entry, source.identifier, start, "Item_0"),
-                (entry, steps.identifier, start, "Iterations"),
-                (start, "Item_0", step, "Mesh"),
-                (step, "Mesh", stop, "Item_0"),
-                (entry, source.identifier, choice, "Item_0"),
-                (stop, "Item_0", choice, "Item_1"),
-                (entry, shape.identifier, choice, "Menu"),
-                (choice, "Output", outlet, result.identifier),
-            )
-            return accumulated(rows.starmap(linked)).bind(lambda _: written(shape, ("default_value",), chosen)).map(lambda _: tree)
-
-        outcome = accumulated(
-            Block.of(bpy.types.NodeGroupInput, bpy.types.NodeGroupOutput, bpy.types.GeometryNodeRepeatInput, bpy.types.GeometryNodeRepeatOutput, bpy.types.GeometryNodeSubdivideMesh, bpy.types.GeometryNodeMenuSwitch).map(
-                lambda kind: host(tree.nodes.new, kind.bl_rna.identifier)
-            )
-        ).bind(wired)
+        nodes: tuple[bpy.types.Node, ...] = tuple(
+            tree.nodes.new(kind.bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            for kind in (bpy.types.NodeGroupInput, bpy.types.NodeGroupOutput, bpy.types.GeometryNodeRepeatInput, bpy.types.GeometryNodeRepeatOutput, bpy.types.GeometryNodeSubdivideMesh, bpy.types.GeometryNodeMenuSwitch)
+        )
+        entry, outlet, start, stop, step, choice = nodes
+        start.pair_with_output(stop)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        for item, label in zip(choice.enum_items, ("Coarse", "Fine"), strict=True):  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            item.name = label
+        sockets: dict[tuple[bpy.types.Node, bool, str], bpy.types.NodeSocket] = {(node, socket.is_output, socket.identifier): socket for node in nodes for socket in (*node.inputs, *node.outputs)}
+        for head, output, tail, entering in (
+            (entry, source.identifier, start, "Item_0"),
+            (entry, steps.identifier, start, "Iterations"),
+            (start, "Item_0", step, "Mesh"),
+            (step, "Mesh", stop, "Item_0"),
+            (entry, source.identifier, choice, "Item_0"),
+            (stop, "Item_0", choice, "Item_1"),
+            (entry, shape.identifier, choice, "Menu"),
+            (choice, "Output", outlet, result.identifier),
+        ):
+            tree.links.new(sockets[head, True, output], sockets[tail, False, entering])
+        outcome: Result[bpy.types.GeometryNodeTree, TypeError] = catch(setattr, exception=TypeError)(shape, "default_value", chosen).map(lambda _: tree)
         if outcome.is_ok():
             rollback.pop_all()
         return outcome

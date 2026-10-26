@@ -98,16 +98,16 @@ public sealed record LayeredDocument {
         layers.Bind(static layer => layer.Switch(raster: static raster => Seq(raster), folder: static folder => Rasters(folder.Children)));
 
     private static Fin<PixelFrame> CanvasOf(Seq<DocumentLayer.Raster> rasters) =>
-        from canvas in rasters.Head.Map(static raster => raster.Frame).ToFin(new ImagingFault("Layered document holds no raster layer"))
+        from canvas in rasters.Head.Map(static raster => raster.Frame).ToFin(new ImagingFault("layered document raster", ImagingReason.Empty))
         from accepted in (
                 canvas.Window.Right <= int.MaxValue && canvas.Window.Bottom <= int.MaxValue
                     ? Fin.Succ(unit)
-                    : new ImagingFault($"Canvas window {canvas.Window} exceeds TIFF coordinate range"),
+                    : new ImagingFault($"TIFF canvas window {canvas.Window}", ImagingReason.Oversize),
                 rasters.Map(static (raster, index) => raster.Frame.Cons(raster.Mask.Map(static mask => mask.Frame).ToSeq()).Map(frame => (Frame: frame, Index: index)))
                     .Flatten()
                     .Traverse(entry => entry.Frame.Window == canvas.Window && entry.Frame.Extent == canvas.Extent
                         ? Fin.Succ(unit)
-                        : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Document layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} differs from canvas")))
+                        : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"document layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} against canvas"), ImagingReason.Mismatch))
                     .As())
             .Apply(static (_, _) => unit).As()
         select canvas;
@@ -136,7 +136,7 @@ public sealed record LayeredDocument {
     private Fin<byte[]> SourceData() {
         Seq<LayerRecord> records = Records(Layers).Strict();
         if (records.Count > -short.MinValue)
-            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"{records.Count} layer records exceed Photoshop maximum {-short.MinValue}"));
+            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"{records.Count} layer records for Photoshop maximum {-short.MinValue}"), ImagingReason.Oversize);
         using MemoryStream fields = new();
         using (BinaryWriter writer = new(fields, System.Text.Encoding.UTF8, leaveOpen: true))
             _ = records.Iter(record => record.Write(writer));
@@ -144,7 +144,7 @@ public sealed record LayeredDocument {
         long layered = info + (info & 1);
         long size = (DataBlock.Length + (6 * sizeof(uint)) + layered + 3) & ~3L;
         if (size > System.Array.MaxLength)
-            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Document data block of {size} bytes exceeds {System.Array.MaxLength} byte buffer"));
+            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"document data block of {size} bytes"), ImagingReason.Oversize);
         byte[] block = new byte[(int)size];
         using (BinaryWriter writer = new(new MemoryStream(block))) {
             writer.Write(DataBlock);

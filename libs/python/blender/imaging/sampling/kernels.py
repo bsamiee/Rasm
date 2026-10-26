@@ -30,16 +30,10 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
     core: NonNegative = 0.002
 
     def kernel(self, config: PyOpenColorIO.Config, size: tuple[int, int], frame: tuple[int, int], pixel_aspect: Positive) -> Outcome[Option[npt.NDArray[np.float32]]]:
-        """Returns spectral diffraction weights over every frame displacement, absent at zero core or a closed iris.
-
-        Args:
-            config: Config holding the scene-linear RGB spectral basis.
-            size: Stored frame extent as (height, width).
-            frame: Camera frame extent as (height, width) at the stored pixel scale.
-            pixel_aspect: Displayed pixel width over height.
+        """Returns spectral diffraction weights over every displacement of the stored `size` frame, `frame` the camera extent at stored pixel scale.
 
         Returns:
-            RGB weights of shape (2 * height - 1, 2 * width - 1, 3) with unit channel sums, or color and numeric refusals.
+            RGB weights of shape (2 * height - 1, 2 * width - 1, 3) with unit channel sums, absent at zero core or a closed iris, or color and numeric refusals.
         """
         if self.core == 0.0 or self.iris.obstruction == 1.0:
             return Ok(Nothing)

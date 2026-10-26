@@ -19,45 +19,45 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     public static readonly DiagnosticDescriptor CatchAll = Rule(
         "RASM1101",
         Category,
-        "Catch-all arm over smart enum or union",
+        "Catch-all arm over smart enum or union, call `Switch` or `Map`",
         "Catch-all arm over `{0}` hides unhandled cases, call generated `Switch` or `Map` with one argument per case",
-        "Catch-all arm in a `switch` over a Thinktecture union or smart enum with other arms naming a case.");
+        "Switches over Thinktecture unions or smart enums with an arm naming a case hold no catch-all arm");
 
     public static readonly DiagnosticDescriptor Validation = Rule(
         "RASM1102",
         Category,
-        "Validation through default ValidationError",
+        "Validation through default `ValidationError`, declare `[ValidationError<T>]`",
         "`{0}` returns default `ValidationError`, declare `[ValidationError<T>]` on `{1}` with the package error type as `T`",
-        "Thinktecture `Validate` or `TryCreate` call on a type raising default `ValidationError`, outside a validation hook or object factory.");
+        "Thinktecture `Validate` and `TryCreate` calls outside validation hooks and object factories reach no type raising default `ValidationError`");
 
     public static readonly DiagnosticDescriptor Conversion = Rule(
         "RASM1103",
         Category,
-        "ValidationError converted to Error by hand",
-        "`{0}` converts a `ValidationError` message to an `Error` by hand, declare `[ValidationError<T>]` on the value object with the package error type as `T`",
-        "`ValidationError.Message` passed to an `Error` factory or constructor.");
+        "`ValidationError` converted to `Error` by hand, declare `[ValidationError<T>]`",
+        "`{0}` converts a `ValidationError` message to `Error` by hand, declare `[ValidationError<T>]` with package error `T` on the value object",
+        "`ValidationError.Message` reaches no `Error` factory or constructor");
 
     public static readonly DiagnosticDescriptor Thrown = Rule(
         "RASM1104",
         Category,
-        "Throwing factory on caller data",
+        "Throwing factory on caller data, return `Fin` through `Validate`",
         "`{0}.Create` throws on `{1}` from the caller, return `Fin<{0}>` through `Validate`",
-        "Generated `Create` call on a validating value object or smart enum with an argument reading a parameter, outside `ValidateFactoryArguments`.");
+        "Generated `Create` on validating value objects and smart enums takes no caller data outside static initializers and `ValidateFactoryArguments`");
 
     public static readonly DiagnosticDescriptor Plain = Rule(
         "RASM1105",
         Category,
-        "Smart enum with no data",
-        "Smart enum `{0}` {1}, move switch behavior onto items, declare cases differing in shape as a union of records, or store a tag one host conversion reads on its record",
-        "`[SmartEnum]` type whose items carry no key or data, or `[SmartEnum<string>]` type whose keys are its member names with no read of a key, `Get`, `TryGet`, `Validate`, or `Parse` in the compilation.",
+        "Smart enum with no data, move behavior onto items or declare a union",
+        "`{0}` {1}, move switch behavior onto items, make shape-differing cases a record union, or store one host-read tag",
+        "`[SmartEnum]` items carry a key or data, and code reads `[SmartEnum<string>]` member-name keys (key, `Get`, `TryGet`, `Validate`, `Parse`)",
         WellKnownDiagnosticTags.CompilationEnd);
 
     public static readonly DiagnosticDescriptor Picked = Rule(
         "RASM2013",
         Category,
-        "Union case per host member",
-        "`{0}` cases each pick one host member, call the member at the caller inside one convention lift",
-        "`[Union]` type with every `Switch` or `Map` lambda one referenced-assembly call or construction over case properties and lambda parameters, through `IO.lift`, `use`, or thunk lambdas.",
+        "Union case per host member, call the member at its caller",
+        "`{0}` cases each pick one host member, call host members at their callers inside one convention lift",
+        "`[Union]` types with every `Switch` or `Map` lambda one lifted or direct host call or construction over case data",
         WellKnownDiagnosticTags.CompilationEnd);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [CatchAll, Validation, Conversion, Thrown, Plain, Picked];
@@ -69,7 +69,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         if (symbols is { ObjectFactory: { } factory, ValidationError: { } invalid, Validate: { } validate })
             Validations(context, factory, invalid, validate, symbols.SmartEnum);
         if (languageExt.Error is { } error && symbols.Message is { } message) Conversions(context, error, message);
-        if (symbols.Validate is { } validating) Creations(context, validating.Name, symbols.Validated, [.. new[] { symbols.SmartEnumAttribute, symbols.SmartEnumAttribute1 }.OfType<INamedTypeSymbol>()]);
+        if (symbols.Validate is { } validating) Creations(context, validating.Name, symbols.Validated, symbols.SmartEnums);
         if (symbols is { SmartEnumAttribute: { } plain, SmartEnumAttribute1: { } stringKeyed }) Enumerations(context, plain, stringKeyed);
         if (symbols.UnionAttribute is { } union) Pickers(context, union, languageExt);
     }
@@ -77,7 +77,6 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     // --- [CATCH_ALLS]
     private static void CatchAlls(CompilationStartAnalysisContext context, ImmutableArray<INamedTypeSymbol> marks, INamedTypeSymbol adHoc, INamedTypeSymbol keyed) {
         AttributeData? Mark(ITypeSymbol? type) => type?.GetAttributes().FirstOrDefault(data => marks.Any(mark => Derives(data.AttributeClass, mark)));
-        static string Key(AttributeData mark) => mark.NamedArguments.Where(static named => named.Key is "KeyMemberName").Select(static named => named.Value.Value).OfType<string>().FirstOrDefault() ?? "Key";
         INamedTypeSymbol? Marked(ITypeSymbol? type) =>
             type switch {
                 INamedTypeSymbol { IsTupleType: true } tuple => tuple.TupleElements.Select(element => Marked(element.Type)).FirstOrDefault(static found => found is not null),
@@ -112,12 +111,12 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     // --- [VALIDATIONS]
     private static void Validations(CompilationStartAnalysisContext context, INamedTypeSymbol factory, INamedTypeSymbol invalid, ISymbol validate, INamedTypeSymbol? items) {
         IEnumerable<INamedTypeSymbol> Factories(INamedTypeSymbol owner) =>
-            owner.AllInterfaces.Where(face => Same(face, factory) && Same(face.TypeArguments[0], owner) && Same(face.TypeArguments[2], invalid));
+            Faces(owner, factory).Where(face => Same(face.TypeArguments[0], owner) && Same(face.TypeArguments[2], invalid));
         bool Implements(IMethodSymbol method, INamedTypeSymbol owner, IEnumerable<INamedTypeSymbol> faces, Func<ISymbol, bool> wanted) =>
             faces.SelectMany(static face => face.GetMembers()).Any(member => wanted(member) && Same(owner.FindImplementationForInterfaceMember(member), method));
         bool Creates(IMethodSymbol method, INamedTypeSymbol owner) =>
             method is { ReturnType.SpecialType: SpecialType.System_Boolean, Parameters: { Length: 2 } parameters } && parameters[1] is { RefKind: RefKind.Out, Type: var made } && Same(made, owner)
-            && !Implements(method, owner, owner.AllInterfaces.Where(face => Same(face, items)), static member => member.IsStatic)
+            && !Implements(method, owner, Faces(owner, items), static member => member.IsStatic)
             && Factories(owner).Any(face => Same(face.TypeArguments[1], parameters[0].Type));
         bool Crosses(IMethodSymbol method) =>
             (Same(method, validate) && Same(method.ContainingType.TypeArguments[2], invalid))
@@ -143,30 +142,33 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
 
     // --- [CREATIONS]
     private static void Creations(CompilationStartAnalysisContext context, string validator, ImmutableArray<INamedTypeSymbol> validated, ImmutableArray<INamedTypeSymbol> enums) {
-        bool Carries(INamedTypeSymbol owner, ImmutableArray<INamedTypeSymbol> marks) => owner.GetAttributes().Any(data => marks.Any(mark => Same(data.AttributeClass, mark)));
         bool Validating(INamedTypeSymbol owner) =>
-            Carries(owner, validated)
-            && (Carries(owner, enums) || owner.GetMembers(Hook).OfType<IMethodSymbol>().Any(static hook => hook.PartialImplementationPart is not null || !hook.IsPartialDefinition));
+            Marked(owner, validated) is not null
+            && (Marked(owner, enums) is not null || owner.GetMembers(Hook).OfType<IMethodSymbol>().Any(static hook => hook.PartialImplementationPart is not null || !hook.IsPartialDefinition));
         bool Throwing(IMethodSymbol method) =>
             method is { IsStatic: true, Name: "Create", ContainingType: { } owner } && Same(method.ReturnType, owner)
             && owner.GetMembers(validator).OfType<IMethodSymbol>().Any(validate => validate is { IsStatic: true, Parameters: { IsEmpty: false } parameters } && parameters[parameters.Length - 1] is { RefKind: RefKind.Out } made && Same(made.Type, owner))
             && Validating(owner);
-        Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, analysis) =>
-            Throwing(invocation.TargetMethod) && analysis.ContainingSymbol.Name is not Hook
-            && invocation.Arguments.SelectMany(static argument => argument.Value.DescendantsAndSelf()).Select(static held => held switch {
-                IParameterReferenceOperation reference => reference.Parameter,
-                ILocalReferenceOperation { Local: { HasConstantValue: false } local } => (ISymbol)local,
-                _ => null,
-            }).OfType<ISymbol>().FirstOrDefault() is { } read
-                ? [Diagnostic.Create(Thrown, invocation.Syntax.GetLocation(), invocation.TargetMethod.ContainingType.Name, read.Name)]
-                : []);
+        static string Passed(IMethodReferenceOperation group) =>
+            (Consumer(group) is IDelegateCreationOperation creation && Consumer(creation) is IArgumentOperation { Parent: IInvocationOperation call } && Receiver(call) is { } receiver
+                ? receiver.Syntax
+                : group.Syntax).ToString();
+        Report<IOperation>(context, [OperationKind.Invocation, OperationKind.MethodReference], (operation, analysis) =>
+            analysis.ContainingSymbol.Name is Hook || Enclosing(analysis.ContainingSymbol) is IFieldSymbol { IsStatic: true } or IPropertySymbol { IsStatic: true } ? []
+            : operation switch {
+                IInvocationOperation invocation when Throwing(invocation.TargetMethod)
+                    && invocation.Arguments.SelectMany(static argument => argument.Value.DescendantsAndSelf()).Select(Variable).FirstOrDefault(static held => held is not (null or ILocalSymbol { HasConstantValue: true })) is { } read =>
+                    [Diagnostic.Create(Thrown, invocation.Syntax.GetLocation(), invocation.TargetMethod.ContainingType.Name, read.Name)],
+                IMethodReferenceOperation group when Throwing(group.Method) && !Inside<INameOfOperation>(group) =>
+                    [Diagnostic.Create(Thrown, group.Syntax.GetLocation(), group.Method.ContainingType.Name, Passed(group))],
+                _ => [],
+            });
     }
 
     // --- [ENUMERATIONS]
     private static void Enumerations(CompilationStartAnalysisContext context, INamedTypeSymbol plain, INamedTypeSymbol keyed) {
         ConcurrentDictionary<INamedTypeSymbol, bool> free = new(SymbolEqualityComparer.Default);
         ConcurrentDictionary<INamedTypeSymbol, byte> read = new(SymbolEqualityComparer.Default);
-        static string Key(AttributeData mark) => mark.NamedArguments.Where(static named => named.Key is "KeyMemberName").Select(static named => named.Value.Value).OfType<string>().FirstOrDefault() ?? "Key";
         (AttributeData Mark, bool Keyed)? Form(INamedTypeSymbol type) =>
             type.GetAttributes().Select(data => data.AttributeClass switch {
                 { } held when Same(held, plain) => (data, false),
@@ -230,21 +232,9 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         ImmutableArray<IMethodSymbol> lifts = [.. Members(languageExt.IO, "lift"), .. languageExt.Uses];
         bool Hosted(ISymbol target) =>
             !Same(target.ContainingAssembly, compilation.Assembly)
-            && (languageExt.Namespace is not { } space || !Within(compilation.GetCompilationNamespace(target.ContainingNamespace), space));
+            && !Namespaced(compilation, target, languageExt.Namespace);
         IAnonymousFunctionOperation? Thunk(IOperation value) =>
-            Stripped(value) switch {
-                IDelegateCreationOperation { Target: IAnonymousFunctionOperation inner } => inner,
-                IInvocationOperation { Arguments.Length: 1 } call when Among(call.TargetMethod, lifts) && Stripped(call.Arguments[0].Value) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation inner } => inner,
-                _ => null,
-            };
-        static IOperation? Single(IAnonymousFunctionOperation function) =>
-            function.Body.Operations.Where(static step => step is not IReturnOperation { ReturnedValue: null, IsImplicit: true }).ToImmutableArray() is { Length: 1 } steps
-                ? steps[0] switch {
-                    IReturnOperation { ReturnedValue: { } returned } => returned,
-                    IExpressionStatementOperation statement => statement.Operation,
-                    _ => null,
-                }
-                : null;
+            Lambda(value) ?? (Stripped(value) is IInvocationOperation { Arguments.Length: 1 } call && Among(call.TargetMethod, lifts) ? Lambda(call.Arguments[0].Value) : null);
         bool Picks(IAnonymousFunctionOperation function, INamedTypeSymbol owner, ImmutableArray<IParameterSymbol> bound) {
             ImmutableArray<IParameterSymbol> held = bound.AddRange(function.Symbol.Parameters);
             bool Read(IOperation value) =>
@@ -253,11 +243,11 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
                     IPropertyReferenceOperation { Instance: IParameterReferenceOperation reference } => held.Any(parameter => SymbolEqualityComparer.Default.Equals(parameter, reference.Parameter) && !Same(parameter.Type, owner) && Derives(parameter.Type, owner)),
                     _ => false,
                 };
-            return Single(function) is { } value && (Thunk(value) is { } inner ? Picks(inner, owner, held) : Stripped(value) switch {
-                IInvocationOperation call => Hosted(call.TargetMethod) && call.Arguments.Where(static argument => argument.ArgumentKind is ArgumentKind.Explicit).All(argument => Read(argument.Value)),
-                IObjectCreationOperation { Constructor: { } made } creation => Hosted(made) && creation.Arguments.Where(static argument => argument.ArgumentKind is ArgumentKind.Explicit).All(argument => Read(argument.Value)),
-                _ => false,
-            });
+            return Sole(function.Body) is { } value && (Thunk(value) is { } inner ? Picks(inner, owner, held) : value switch {
+                IInvocationOperation call => (Target: call.TargetMethod, call.Arguments),
+                IObjectCreationOperation { Constructor: { } made } creation => (Target: made, creation.Arguments),
+                _ => default,
+            } is ( { } target, var arguments) && Hosted(target) && arguments.Where(static argument => argument.ArgumentKind is ArgumentKind.Explicit).All(argument => Read(argument.Value)));
         }
         ConcurrentDictionary<INamedTypeSymbol, bool> picked = new(SymbolEqualityComparer.Default);
         context.RegisterOperationAction(
@@ -265,7 +255,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
                 if (analysis.Operation is not IInvocationOperation { TargetMethod: { Name: "Switch" or "Map", ContainingType: { } owner } } call || !Sourced(owner) || Marked(owner, union) is null) return;
                 ImmutableArray<IOperation> arms = [.. call.Arguments.Where(static argument => argument.Parameter?.Type.TypeKind is TypeKind.Delegate).Select(static argument => Stripped(argument.Value))];
                 if (arms.IsEmpty) return;
-                bool each = arms.All(arm => arm is IDelegateCreationOperation { Target: IAnonymousFunctionOperation function } && Picks(function, owner, []));
+                bool each = arms.All(arm => Lambda(arm) is { } function && Picks(function, owner, []));
                 _ = picked.AddOrUpdate(owner.OriginalDefinition, each, (_, prior) => prior && each);
             },
             OperationKind.Invocation);
@@ -274,4 +264,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
                 end.ReportDiagnostic(Diagnostic.Create(Picked, pair.Key.Locations[0], pair.Key.Name));
         });
     }
+
+    // --- [KEYS]
+    private static string Key(AttributeData mark) => mark.NamedArguments.Where(static named => named.Key is "KeyMemberName").Select(static named => named.Value.Value).OfType<string>().FirstOrDefault() ?? "Key";
 }

@@ -44,4 +44,4 @@ rule:
             - matches: exclusive
             - has: {stopBy: end, matches: exclusive}
 message: 'Midpoint `$MIDDLE` of `$LOW` and `$HIGH` halves a bracket by hand'
-note: 'Call `Bisection.TryFindRoot(f, lower, upper, accuracy, iterations, out root)` or `Brent.FindRoot(f, lower, upper, accuracy)` over the signed margin of the test'
+note: 'Call `Bisection.TryFindRoot(f, lower, upper, accuracy, iterations, out root)` or `Brent.TryFindRoot` over the test''s signed margin'

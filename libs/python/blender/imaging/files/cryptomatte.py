@@ -2,8 +2,6 @@
 
 from collections.abc import Mapping
 from copy import replace
-import functools
-import operator
 import re
 from typing import Annotated, Self
 
@@ -34,9 +32,6 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def found(cls, file: Multilayer) -> Outcome[tuple[Self, ...]]:
         """Decodes every Cryptomatte layer a file's header names.
-
-        Args:
-            file: Indexed multilayer file.
 
         Returns:
             Mattes in header order, or `read` fault per undecodable manifest.
@@ -71,10 +66,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def coverage(self, names: frozenset[str]) -> Outcome[npt.NDArray[np.float32]]:
-        """Sums coverage of named IDs.
-
-        Args:
-            names: Manifest names to sum, unknown names adding nothing.
+        """Sums coverage of named IDs, unknown names adding nothing.
 
         Returns:
             `(height, width)` coverage, or `read` fault.
@@ -84,7 +76,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         return accumulated(
             self.file.plane(rank, rank.channels).map(lambda ranked: np.where(np.isin(ranked.view(np.uint32)[..., 0::2], targets), ranked[..., 1::2], 0.0).sum(axis=-1, dtype=np.float32))
             for rank in self.ranks
-        ).map(lambda terms: functools.reduce(operator.add, terms, frame))
+        ).map(lambda terms: sum(terms, start=frame))
 
     def areas(self) -> Outcome[dict[str, float]]:
         """Measures frame share each manifest name covers.
@@ -106,11 +98,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         return accumulated(self.file.plane(rank, rank.channels).map(counted) for rank in self.ranks).map(joined)
 
     def filled(self, names: frozenset[str], color: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float32]]:
-        """Fills named ID coverage with color as associated RGBA.
-
-        Args:
-            names: Manifest names the fill covers.
-            color: Fill color of shape `(3,)`.
+        """Fills named ID coverage with a `(3,)` color as associated RGBA.
 
         Returns:
             `(height, width, 4)` plane with coverage alpha, or `read` fault.

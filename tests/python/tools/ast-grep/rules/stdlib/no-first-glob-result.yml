@@ -1,0 +1,37 @@
+id: no-first-glob-result
+valid:
+    - |
+      import glob
+
+      first = next(glob.iglob("*.txt"))
+    - |
+      from glob import glob
+
+      first = glob("*.txt")[0]
+    - |
+      import os
+
+      first = os.listdir(root)[0]
+    - |
+      match tuple(folder.glob("*.blend")):
+          case [found]:
+              opened = found
+    - |
+      for found in folder.iterdir():
+          log(found)
+    - |
+      first = sorted(folder.iterdir())[0]
+invalid:
+    - |
+      first = next(folder.glob("*.txt"))
+    - |
+      last = list(folder.rglob("*.py"))[-1]
+    - |
+      first = list(folder.iterdir())[0]
+    - |
+      import os
+
+      first = next(os.scandir(root))
+    - |
+      for found in folder.glob("*.blend"):
+          return found

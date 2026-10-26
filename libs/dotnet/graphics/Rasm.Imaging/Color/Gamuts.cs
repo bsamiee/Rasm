@@ -144,7 +144,7 @@ public sealed partial class GamutCompression {
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Channels<float> threshold, ref Channels<float> limit, ref float power) =>
         validationError = Seq((threshold.Red, limit.Red), (threshold.Green, limit.Green), (threshold.Blue, limit.Blue))
             .ForAll(static pair => pair.Item1 is >= 0f and < 1f && pair.Item2 > 1f && float.IsFinite(pair.Item2)) && float.IsFinite(power) && power >= 1f ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Gamut compression threshold {threshold} must lie in [0, 1), limit {limit} above 1, and power {power} at least 1"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"gamut compression threshold {threshold}, limit {limit}, and power {power}"), ImagingReason.Range);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

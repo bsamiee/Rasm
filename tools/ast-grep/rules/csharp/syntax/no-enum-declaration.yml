@@ -22,8 +22,8 @@ rule:
     kind: enum_declaration
     all:
         - has: {field: name, pattern: $NAME}
-        - not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^Flags(Attribute)?$'}}}}}}}
+        - not: {matches: {csharp-attributed: {name: {regex: '^Flags(Attribute)?$'}}}}
         - not: {has: {kind: base_list}}
         - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: native-signature}}}
 message: '`$NAME` is a plain enum'
-note: 'Declare `$NAME` as a `[SmartEnum]` with item data or a `[Union]` of records'
+note: 'Declare a `[SmartEnum]` with item data or a `[Union]` of records, `[Flags]` and interop enums stay'

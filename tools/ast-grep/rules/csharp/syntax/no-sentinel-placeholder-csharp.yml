@@ -131,7 +131,7 @@ utils:
                             - has: {field: left, kind: member_access_expression, all: [{has: {field: expression, matches: field-access}}, {has: {field: name, regex: '^Length$'}}]}
                     - kind: invocation_expression
                       all:
-                        - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(string|String)$'}, member: {regex: '^(IsNullOrEmpty|IsNullOrWhiteSpace)$'}}}}
+                        - matches: {csharp-owner-call: {type: {regex: '^(string|String)$'}, member: {regex: '^(IsNullOrEmpty|IsNullOrWhiteSpace)$'}}}
                         - has: {field: arguments, has: {kind: argument, has: {matches: field-access}}}
                     - kind: is_pattern_expression
                       all:
@@ -158,7 +158,7 @@ utils:
         has: {field: name, pattern: $TYPE}
     positional-field:
         kind: argument
-        not: {has: {field: name, pattern: $_}}
+        matches: csharp-positional-argument
         any:
             - {nthChild: 1, inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: record-type, has: {kind: parameter_list, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $FIELD}}}}}}
             - {nthChild: 2, inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: record-type, has: {kind: parameter_list, has: {kind: parameter, nthChild: 2, has: {field: name, pattern: $FIELD}}}}}}

@@ -272,7 +272,8 @@ One `Command` holds text, image, shortcut, and state for every menu and toolbar 
 - Implicit conversions to `MenuItem` and `ToolItem` call `CreateMenuItem()` and `CreateToolItem()` on one instance
 - `Enabled` written once updates each item and `EnabledChanged` fires
 - `Shortcut` is a `Keys` chord the menu dispatches, a `KeyDown` handler matching chords by hand duplicates it
-- `CheckCommand.Checked` with `CheckedChanged` and `RadioCommand.Controller` cover toggles and groups, `Command.DelegatedCommand` adapts an `ICommand`
+- `CheckCommand.Checked` with `CheckedChanged` and `RadioCommand.Controller` cover toggles and groups
+- `Command.DelegatedCommand` adapts an `ICommand`, `RelayCommand(execute, canExecute)` supplies one
 - `MapPlatformCommand(systemCommand, command)` binds a platform edit command, `SupportedPlatformCommands` lists them
 - Platform edit commands are `"cut"`, `"copy"`, `"paste"`, `"selectAll"`, `"delete"`, `"undo"`, and `"redo"`
 - `MenuBar.IncludeSystemItems` (`MenuBarSystemItems.None`, `Common`, `Quit`, `All`) places platform items where each platform expects them

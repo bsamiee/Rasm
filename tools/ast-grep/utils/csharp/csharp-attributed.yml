@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-attributed
+language: csharp
+arguments: [name]
+utils:
+    attribute-name:
+        matches: {csharp-type-name: {name: {matches: name}}}
+rule:
+    has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: attribute-name}}}

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-use-site-stub-suppression
+language: python
+severity: error
+utils:
+    annotated-statement:
+        kind: expression_statement
+        has: {kind: assignment, has: {field: type, pattern: $_}}
+    member-write:
+        kind: expression_statement
+        has: {kind: 'assignment, augmented_assignment', has: {field: left, kind: 'attribute, subscript'}}
+    boundary-statement:
+        kind: 'import_statement, import_from_statement, type_alias_statement'
+rule:
+    kind: comment
+    regex: 'type: ignore\[[^\]]*\b(attr-defined|union-attr)\b'
+    not:
+        any:
+            - follows: {matches: annotated-statement}
+            - follows: {matches: member-write}
+            - follows: {matches: boundary-statement}
+            - inside: {stopBy: end, kind: assignment, has: {field: type, pattern: $_}}
+            - inside: {stopBy: end, matches: boundary-statement}
+message: '`type: ignore` at a use site stands in for one typed boundary read'
+note: 'Declare `<name>: <type> = <owner>.<member>` once under the suppression and read `<name>`'

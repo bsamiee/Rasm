@@ -143,9 +143,8 @@ internal sealed partial class Level {
 - Spans matched against string constants create no `string` for a known value
 
 ```csharp
-[ValueObject<string>]
+[ValueObject<string>(SkipIComparable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [ObjectFactory<ReadOnlySpan<char>>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
 internal sealed partial class Region {
     public static ValidationError? Validate(ReadOnlySpan<char> value, IFormatProvider? provider, out Region? item) =>
@@ -160,7 +159,6 @@ internal sealed partial class Region {
 ```
 
 - Span `Validate` delegates to the generated `string` `Validate`, the unknown branch allocates one `string`, `ToValue` returns the key field
-- JSON `null` raises `JsonException` on a struct value object that disallows its default
 - `ReadOnlySpan<char>` with `SystemTextJson` is the one supported ref-struct combination
 - 078 reports a ref-struct factory with `UseWithEntityFramework` or `UseForModelBinding`, neither accepts a ref struct as a generic argument
 - 108 warns when a ref-struct factory is flagged for a framework that ignores it, the generator binds the key member in the attributes for them

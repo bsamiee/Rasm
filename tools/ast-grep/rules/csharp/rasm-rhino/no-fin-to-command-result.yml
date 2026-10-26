@@ -61,7 +61,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^RunSafe$'}}, {has: {field: expression, matches: success-map}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
     fin-match:
         kind: invocation_expression
         all:
@@ -129,12 +129,12 @@ utils:
         has:
             kind: lambda_expression
             all:
-                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                - matches: csharp-parameterless
                 - has: {field: body, matches: host-failure}
     effect-answer:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}
             - any:
                 - has:
                     field: arguments

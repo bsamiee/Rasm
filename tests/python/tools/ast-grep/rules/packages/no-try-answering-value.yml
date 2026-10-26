@@ -1,7 +1,6 @@
-id: no-try-answering-error
+id: no-try-answering-value
 valid:
     - |
-      from expression import Error
       def read(path):
           try:
               return Ok(path.read_bytes())
@@ -10,7 +9,6 @@ valid:
           finally:
               path.unlink()
     - |
-      from expression import Error
       def read(path):
           try:
               return Ok(path.read_bytes())
@@ -18,7 +16,6 @@ valid:
               log(error)
               return Error(error)
     - |
-      from expression import Error
       def read(path):
           try:
               return Ok(path.read_bytes())
@@ -28,26 +25,34 @@ valid:
       def read(path):
           try:
               return Ok(path.read_bytes())
-          except OSError as error:
-              return Error(error)
-    - |
-      from expression import Error
-      def read(path):
-          try:
-              return Ok(path.read_bytes())
           except:
               return Error(path)
+    - |
+      def zone(name):
+          try:
+              return ZoneInfo(name)
+          except ZoneInfoNotFoundError as error:
+              raise ValueError(*error.args) from error
+    - |
+      def write(owner, value):
+          try:
+              owner.size = value
+          except TypeError:
+              owner.size = 0
+    - |
+      def first(items):
+          try:
+              return next(items)
+          except StopIteration:
+              return None
 invalid:
     - |
-      from expression import Error
       def read(path):
           try:
               return Ok(path.read_bytes())
           except OSError as error:
               return Error(error)
     - |
-      import msgspec
-      from expression import Error
       def read(path):
           try:
               manifest = msgspec.toml.decode(path.read_bytes())
@@ -55,7 +60,6 @@ invalid:
               return Error(error)
           return Ok(manifest)
     - |
-      from expression import Result
       def register(cls):
           try:
               bpy.utils.register_class(cls)
@@ -65,11 +69,16 @@ invalid:
               answer = Result[None, Fault](ok=None)
           return answer
     - |
-      from expression.core import Result
       def drawn(space):
           try:
               handle = space.draw_handler_add()
           except TypeError as error:
               yield Result[None, Fault].Error(error)
-          else:
-              yield Result[None, Fault].Ok(None)
+              return
+          yield Ok(handle)
+    - |
+      def path(struct):
+          try:
+              return Some(struct.path_from_id())
+          except ValueError:
+              return Nothing

@@ -3,8 +3,6 @@ id: no-growth-in-endless-loop-csharp
 language: csharp
 severity: error
 utils:
-    scope:
-        kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, accessor_declaration'
     endless:
         any:
             - {kind: 'while_statement, do_statement', has: {field: condition, regex: '^true$'}}
@@ -12,7 +10,7 @@ utils:
             - {kind: while_statement, has: {field: condition, kind: prefix_unary_expression, regex: '^!\s*[\w.]+\.IsCancellationRequested$'}}
             - {kind: while_statement, has: {field: condition, kind: await_expression, has: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(WaitForNextTickAsync|WaitToReadAsync)$'}}}}}
             - {kind: foreach_statement, regex: '^await\s+foreach', has: {field: right, kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^ReadAllAsync$'}}}}
-        not: {has: {stopBy: {matches: scope}, kind: 'break_statement, return_statement, throw_statement, yield_statement'}}
+        not: {has: {stopBy: {kind: &scope 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, accessor_declaration'}, kind: 'break_statement, return_statement, throw_statement, yield_statement'}}
     grown:
         any:
             - kind: identifier
@@ -87,11 +85,11 @@ rule:
             - all:
                 - has: {field: function, kind: member_access_expression, has: {field: expression, matches: grown, pattern: $GROWN}}
                 - matches: grow-swap
-        - inside: {stopBy: {matches: scope}, matches: endless, not: {has: {stopBy: end, matches: reset}}}
+        - inside: {stopBy: {kind: *scope}, matches: endless, not: {has: {stopBy: end, matches: reset}}}
         - any:
-            - inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: declared}, not: {has: {stopBy: end, matches: drain}}}
+            - inside: {stopBy: end, kind: *scope, has: {stopBy: end, matches: declared}, not: {has: {stopBy: end, matches: drain}}}
             - all:
-                - not: {inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: declared}}}
+                - not: {inside: {stopBy: end, kind: *scope, has: {stopBy: end, matches: declared}}}
                 - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: drain}}}
 message: '`$GROWN` grows each pass of a loop with no exit and no removal'
 note: 'Bound the collection, drain it per pass, or build it inside each pass'

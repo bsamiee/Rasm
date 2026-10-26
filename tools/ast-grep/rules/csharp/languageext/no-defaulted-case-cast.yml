@@ -7,4 +7,4 @@ rule:
     kind: binary_expression
     pattern: $VALUE as $CASE ?? $CASE.Default
 message: '`$VALUE as $CASE ?? $CASE.Default` substitutes the default `$CASE` for every other case'
-note: 'Focus the case through `Prism<TState, TCase>.New(state => Optional(state as TCase), held => state => held)`, or read `Optional(state as TCase)`'
+note: 'Focus case through `Prism<TState, TCase>.New(state => Optional(state as TCase), held => state => held)`, or read `Optional(state as TCase)`'

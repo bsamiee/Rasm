@@ -31,4 +31,4 @@ rule:
             field: arguments
             all:
                 - not: {has: {kind: argument, nthChild: 2}}
-                - has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {matches: callback}}
+                - has: {kind: argument, matches: csharp-positional-argument, has: {matches: callback}}

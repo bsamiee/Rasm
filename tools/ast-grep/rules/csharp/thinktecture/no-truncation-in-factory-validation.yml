@@ -14,7 +14,7 @@ utils:
     length-argument:
         kind: argument
         any:
-            - all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}]
+            - all: [{nthChild: 2}, {matches: csharp-positional-argument}]
             - has: {field: name, regex: '^length$'}
     trim-cut:
         kind: invocation_expression
@@ -77,4 +77,4 @@ rule:
             - matches: cut
             - matches: relay
 message: '`$CUT` truncates the key inside `ValidateFactoryArguments` and collapses distinct inputs into one value'
-note: 'Assign `validationError` when the key exceeds the length'
+note: 'Assign `validationError` when the key exceeds its length limit'

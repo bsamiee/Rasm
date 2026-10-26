@@ -11,7 +11,7 @@ from tools.refurb.findings import RasmError
 
 
 class ErrorCollectionTypeTestError(RasmError):
-    """Type test against an RNA collection struct no `bpy_prop_collection` value matches.
+    """Type test against an RNA collection struct no `bpy_prop_collection` value matches in place of a read through the owner.
 
     Bad:
 
@@ -54,7 +54,7 @@ def check(node: CallExpr | ClassPattern, errors: list[Error]) -> None:
     match node:
         case CallExpr(callee=RefExpr(fullname="builtins.isinstance" | "builtins.issubclass"), args=[_, tested]) | ClassPattern(class_ref=tested):
             errors.extend(
-                ErrorCollectionTypeTestError.from_node(reference, f"`{stringify(reference)}` matches no `bpy_prop_collection` value, read the collection through its owner's member")
+                ErrorCollectionTypeTestError.from_node(reference, f"`{stringify(reference)}` matches no `bpy_prop_collection` value, read the collection as its owner's attribute")
                 for reference in _named(tested)
             )
         case _:

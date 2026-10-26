@@ -4,8 +4,6 @@ language: csharp
 severity: error
 files: ['libs/dotnet/rhino/Rasm.Rhino/**', 'libs/dotnet/rhino/Rasm.Grasshopper/**']
 utils:
-    function:
-        kind: 'method_declaration, local_function_statement'
     function-name:
         matches: {csharp-simple-name: {name: {pattern: $NAME}}}
     recursion:
@@ -27,7 +25,7 @@ utils:
     node:
         kind: identifier
         pattern: $NODE
-        inside: {stopBy: {matches: function}, matches: function, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $NODE}}}}
+        inside: {stopBy: {kind: &function 'method_declaration, local_function_statement'}, kind: *function, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $NODE}}}}
     relation:
         regex: '(?i)(parents|predecessors|successors|dependencies|dependents|deps|importers|imports|callers|callees|references|referrers|neighbors|neighbours|supertypes|superclasses|bases|edges|incoming|outgoing)$'
     relation-lookup:
@@ -65,27 +63,27 @@ utils:
               has: {field: name, regex: '^(Contains|ContainsKey|TryGetValue|GetValueOrDefault|GetOrAdd|Find|FindOrAdd|Add|TryAdd)$'}
               inside: {kind: argument}
 rule:
-    matches: function
+    kind: *function
     all:
         - has: {field: name, pattern: $NAME}
         - any:
             - has:
                 field: body
                 has:
-                    stopBy: {matches: function}
+                    stopBy: {kind: *function}
                     all:
                         - matches: recursion
                         - any:
                             - inside:
                                 kind: foreach_statement
                                 field: body
-                                stopBy: {matches: function}
+                                stopBy: {kind: *function}
                                 all:
                                     - has: {field: right, matches: successors}
                                     - has: {field: left, kind: identifier, pattern: $NEXT}
                             - inside:
                                 kind: 'lambda_expression, anonymous_method_expression'
-                                stopBy: {matches: function}
+                                stopBy: {kind: *function}
                                 all:
                                     - matches: successor-call
                                     - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $NEXT}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $NEXT}}}]}
@@ -93,7 +91,7 @@ rule:
             - has:
                 field: body
                 has:
-                    stopBy: {matches: function}
+                    stopBy: {kind: *function}
                     kind: argument
                     all:
                         - has: {matches: function-name}
@@ -101,11 +99,11 @@ rule:
             - has:
                 field: body
                 has:
-                    stopBy: {matches: function}
+                    stopBy: {kind: *function}
                     kind: query_expression
                     all:
                         - has: {kind: from_clause, has: {matches: successors}}
                         - has: {stopBy: end, matches: recursion}
-        - not: {has: {field: body, has: {stopBy: {matches: function}, matches: membership-test}}}
+        - not: {has: {field: body, has: {stopBy: {kind: *function}, matches: membership-test}}}
 message: '`$NAME` recurses into every successor of `$NODE` with no visited test'
 note: 'Load the nodes into a QuikGraph `AdjacencyGraph` and walk it with `DepthFirstSearchAlgorithm` or `BreadthFirstSearchAlgorithm`'

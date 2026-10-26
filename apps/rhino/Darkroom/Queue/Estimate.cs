@@ -34,7 +34,7 @@ public sealed record QueueEstimate(long Landed, long Total) {
 
     public Content<Unit> Work =>
         Total == 0 ? new Content<Unit>.Empty(nameof(Idle))
-        : Landed < Total ? new Content<Unit>.Pending(None, Progress.Validated(Landed, Total).ToOption())
+        : Landed < Total ? new Content<Unit>.Pending { Work = Progress.Present(Landed, Total) }
         : new Content<Unit>.Ready(unit);
 
     public static QueueEstimate Running(RenderBatch batch, QueueProgress record, Option<FrameMark> last, Instant now) => Of(batch, record, last, now, Mean);

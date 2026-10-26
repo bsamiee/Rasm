@@ -74,7 +74,7 @@ MSBuild property, `[assembly: MapperDefaults]`, `[Mapper]`, and the per-method a
 - Overrides replace the whole value, a deviating mapper names its full `EnabledConversions` allowlist
 - Mappers and methods state only an option that differs, `RequiredMappingStrategy.Source` where every source member must reach an existing host object
 - `Target` reports nothing for a source member the record lacks, a record holding every host member sets `Both`
-- `MapperlyAbstractionsScope` stays at default `compile`, `runtime` copies the abstractions assembly into every output and serves reference handling alone
+- `MapperlyAbstractionsScope` stays at default `compile`, `runtime` keeps attributes in metadata so another assembly's mapper reads `[UserMapping]`
 - Inbound mappers that feed constrained types keep `ParseMethod`, `Constructor`, `StaticConvertMethods`, and the casts out of their allowlist
 - Outbound mappers convert a value object to its key, or null for a nullable target, through a `[UserMapping]` (`int Key(Quantity value) => value`)
 - Inbound operator from the key is explicit and calls the throwing `Create`
@@ -156,9 +156,7 @@ LanguageExt owns absence, failure, validation, effects, traversal, and transform
 - Generic wrapper helpers need explicit `Use` selection and preserve every case
 
 LanguageExt collections keep their own construction policy:
-- Direct assignment shares an immutable collection only when sharing is intentional
 - Element-changing sequences use the collection's `Map`
-- Mutable sources are snapshotted before publication, an arbitrary enumerable materializes first
 - Key validation defines map ordering, uniqueness, and collision behavior before construction, incidental enumerable-tuple construction defines none
 
 ## [05]-[QUERY_PROJECTIONS]
@@ -179,8 +177,7 @@ Nullable analysis and the property-null options do not apply inside a projection
 - Nullable paths can become empty text, `default`, or a conditional fallback, the read model matches storage nullability
 - Object factories, existing-target mapping, dictionary mapping, deep cloning, and reference handling do not apply
 - Reference handling reports `RMG029`, unsupported enum configuration reports `RMG032` and emits a value cast
-- Project stored values, materialize the query, then validate and construct values
-- `Validated` crossings, LanguageExt composition, and effects run after materialization
+- Projections hold stored values, `Validated` crossings, LanguageExt composition, and effects run after materialization
 - Unmatched derived projections return `default(TTarget)`, valid only when the target contract states that result
 - `AsEnumerable` leaves the boundary where it is, a narrow query materializes before the in-memory pipeline begins
 
@@ -356,8 +353,7 @@ Attributes that configure one enum mapping:
 - `MapEnumAttribute` takes `NamingStrategy` (`EnumNamingStrategy`, default `MemberName`)
 - `FallbackValue` replaces the throw for an unmapped value under `ByName` and `ByValueCheckDefined` only
 - Neither `FallbackValue` nor `MapEnumValueAttribute` passes through the naming strategy
-- `MapEnumValueAttribute` applies to an enum-to-enum, enum-to-string, or string-to-enum mapping
-- `MapEnumValueAttribute` pairs an enum member with another enum member or a string literal
+- `MapEnumValueAttribute` pairs an enum member with an enum member or a string literal in an enum-to-enum, enum-to-string, or string-to-enum mapping
 - Ignore-value attributes cast their argument to `Enum` and take an enum member only
 - Under `ByName`, members that match by name need no configuration, and explicit pairs cover the rest
 
@@ -442,7 +438,6 @@ internal enum ExternalState { Active, Completed, Cancelled, Draft }
 - Reference handling uses the package's runtime assets, `runtime` stays out of `ExcludeAssets` on the package reference
 - `IReferenceHandler` stores and resolves target objects
 - `PreserveReferenceHandler` is the default handler and returns the same target instance for the same source instance
-- `ReferenceHandlerAttribute` marks the handler parameter
 
 ```csharp
 bool TryGetReference<TSource, TTarget>(TSource source, [NotNullWhen(true)] out TTarget? target)
@@ -452,8 +447,7 @@ void SetReference<TSource, TTarget>(TSource source, TTarget target)
     where TSource : notnull where TTarget : notnull;
 ```
 
-- Mapperly calls `TryGetReference` before it creates a target, a `true` result sets `target` and Mapperly uses it
-- `false` results make Mapperly create a new instance and record it through `SetReference`
+- Mapperly calls `TryGetReference` before it creates a target and uses a found one, else creates the target and records it through `SetReference`
 - To supply another handler, add a parameter of type `IReferenceHandler` marked `ReferenceHandlerAttribute`
 - Hand-written mapping methods take the same parameter to join the same handler, with a second `using` directive for the namespace
 
@@ -469,7 +463,7 @@ void SetReference<TSource, TTarget>(TSource source, TTarget target)
 |  [06]   | Validation or effects inside a query projection                     | Project, materialize, then validate and construct                 |
 |  [07]   | Existing-target mapping over a value the caller published           | New-instance mapping, or a target that never escapes              |
 |  [08]   | Private `[UserMapping]` repeated in every mapper that needs it      | One `internal static class` behind `[UseStaticMapper(typeof(T))]` |
-|  [09]   | Unsafe accessor over a private constructor or hidden member         | Declared factory of the constrained type                          |
+|  [09]   | Unsafe accessor over a private constructor or hidden member         | Constrained type's declared factory, host's typed member          |
 |  [10]   | Object factory that resolves services                               | Pure factory over its parameters                                  |
 |  [11]   | Mapping method forwarding its source unchanged to another method    | `Use = nameof(@<owner>.<member>)` or a `[UseStaticMapper]` owner  |
 |  [12]   | Assignments or an initializer copying source members one by one     | `partial` mapping, or existing-target `Update` for a host value   |

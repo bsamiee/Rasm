@@ -48,19 +48,16 @@ Entity identity persists while state changes, each allowed change is a function 
 Snapshots construct through factories that set initial values and copy a mutable input collection at the boundary out of reach of the caller's later changes:
 
 ```csharp
-internal enum Status { Requested, Active, Frozen }
-
 internal sealed record Entry(string Reference, decimal Amount);
 
-internal sealed record Snapshot(string Code, Status Status, decimal Limit, Seq<Entry> Entries) {
-    public static Snapshot Requested(string code) => new(code, Status.Requested, 0m, Seq<Entry>());
-    public static Snapshot Opened(string code, IList<Entry> entries) => new(code, Status.Active, 0m, toSeq(entries));
+internal sealed record Snapshot(string Code, decimal Limit, Seq<Entry> Entries) {
+    public static Snapshot Opened(string code, IList<Entry> entries) => new(code, 0m, toSeq(entries));
 
     public Snapshot Add(Entry entry) => this with { Entries = entry.Cons(Entries) };
 }
 
 internal static class Transitions {
-    public static Snapshot Frozen(Snapshot active) => active with { Status = Status.Frozen };
+    public static Snapshot Limited(Snapshot snapshot, decimal limit) => snapshot with { Limit = limit };
 }
 ```
 

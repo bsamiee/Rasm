@@ -74,7 +74,7 @@ rule:
             - not: {matches: ruff-literal-method}
         - kind: call
           all:
-            - has: {field: function, kind: identifier, regex: '^(ascii|bin|bool|bytes|chr|float|format|hex|int|oct|repr|str)$'}
+            - has: {field: function, kind: identifier, matches: {python-builtin-name: {name: {regex: '^(ascii|bin|bool|bytes|chr|float|format|hex|int|oct|repr|str)$'}}}}
             - has: {field: arguments, matches: literal-arguments, has: {pattern: $_}}
             - not: {matches: native-literal-call}
             - not: {all: [{has: {field: function, regex: '^bytes$'}}, {not: {has: {field: arguments, has: {nthChild: 1, kind: string, not: {matches: python-bytes-literal}}}}}]}

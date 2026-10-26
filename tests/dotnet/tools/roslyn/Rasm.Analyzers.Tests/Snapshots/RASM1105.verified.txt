@@ -1,2 +1,2 @@
-#0 Smart enum `Modifier` holds items with no key, data, or behavior, move switch behavior onto items, declare cases differing in shape as a union of records, or store a tag one host conversion reads on its record
-#1 Smart enum `Glass` keys items by member names and no code reads a key, move switch behavior onto items, declare cases differing in shape as a union of records, or store a tag one host conversion reads on its record
+#0 `Modifier` holds items with no key, data, or behavior, move switch behavior onto items, make shape-differing cases a record union, or store one host-read tag
+#1 `Glass` keys items by member names and no code reads a key, move switch behavior onto items, make shape-differing cases a record union, or store one host-read tag

@@ -95,7 +95,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As(\s*<.+>)?$'}}, {has: {field: expression, matches: release-then-refail}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - matches: csharp-bare-call
     body:
         any:
             - matches: narrowed

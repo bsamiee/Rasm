@@ -8,14 +8,16 @@ using Rasm.UI;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ChoiceItem<TModel>(TModel Value, string Caption, Option<GlyphSource> Glyph) where TModel : notnull;
+public sealed record ChoiceItem<TModel>(TModel Value, string Caption) where TModel : notnull {
+    public Option<GlyphSource> Glyph { get; init; }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ChoiceRows {
     // --- [ITEMS]
     public static Seq<ChoiceItem<Option<TModel>>> Optional<TModel>(string absent, Seq<ChoiceItem<TModel>> items, IPlugInSink plugIn) where TModel : notnull =>
-        new ChoiceItem<Option<TModel>>(None, RowText.Localize(absent, plugIn).Local, None)
-            .Cons(items.Map(static item => new ChoiceItem<Option<TModel>>(Some(item.Value), item.Caption, item.Glyph)));
+        new ChoiceItem<Option<TModel>>(None, RowText.Localize(absent, plugIn).Local)
+            .Cons(items.Map(static item => new ChoiceItem<Option<TModel>>(Some(item.Value), item.Caption) { Glyph = item.Glyph }));
 
     // --- [ROWS]
     public static ControlRow Choice<TModel>(string label, TModel value, Seq<ChoiceItem<TModel>> items, Func<Edit<TModel>, IO<Unit>> edited) where TModel : notnull =>
