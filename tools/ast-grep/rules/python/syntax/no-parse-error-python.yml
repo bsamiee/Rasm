@@ -33,8 +33,13 @@ utils:
     unpacked-clause:
         kind: ERROR
         follows: {stopBy: end, any: [{matches: unpacked-body}, {has: {stopBy: end, matches: unpacked-body}}]}
+    lazy-import:
+        kind: ERROR
+        regex: '^lazy$'
+        precedes: {kind: 'import_statement, import_from_statement'}
     unreported:
         any:
+            - matches: lazy-import
             - inside: {kind: ERROR, stopBy: end}
             - matches: type-parameter-default
             - matches: unpacked-body

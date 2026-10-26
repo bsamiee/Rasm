@@ -41,22 +41,28 @@ class ErrorPartialCaseReadError(Error):
     categories = ("expression",)
 
 
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _listed(*readers: _Named) -> str:
+    return f"{', '.join(f'`{reader.__name__}`' for reader in readers[:-1])}, or `{readers[-1].__name__}`"
+
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+_CASES = {
+    f"{union.__module__}.{union.__qualname__}": {attribute: (case, readers[case]) for attribute, case in (*((field, field) for field in union.__match_args__ if field != "tag"), *properties)}
+    for union, properties, readers in (
+        (Result, (), {"ok": _listed(Result.map, Result.bind, Result.default_value), "error": _listed(Result.map_error, Result.or_else_with, Result.default_with)}),
+        (Option, (("value", "some"),), {"some": _listed(Option.map, Option.bind, Option.default_value), "none": _listed(Option.default_value, Option.default_with, Option.or_else_with)}),
+    )
+}
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 def check(node: MypyFile, errors: list[Error]) -> None:
     """Reports each case read on a receiver no enclosing `match` takes as subject."""
-
-    def listed(*readers: _Named) -> str:
-        return f"{', '.join(f'`{reader.__name__}`' for reader in readers[:-1])}, or `{readers[-1].__name__}`"
-
-    cases = {
-        f"{union.__module__}.{union.__qualname__}": {attribute: (case, readers[case]) for attribute, case in (*((field, field) for field in union.__match_args__ if field != "tag"), *properties)}
-        for union, properties, readers in (
-            (Result, (), {"ok": listed(Result.map, Result.bind, Result.default_value), "error": listed(Result.map_error, Result.or_else_with, Result.default_with)}),
-            (Option, (("value", "some"),), {"some": listed(Option.map, Option.bind, Option.default_value), "none": listed(Option.default_value, Option.default_with, Option.or_else_with)}),
-        )
-    }
 
     class Reads(TraverserVisitor):
         def __init__(self, subjects: tuple[Expression, ...]) -> None:
@@ -74,7 +80,7 @@ def check(node: MypyFile, errors: list[Error]) -> None:
         def visit_member_expr(self, o: MemberExpr) -> None:
             receiver = get_mypy_type(o.expr)
             found = get_proper_type(receiver) if isinstance(receiver, Type) else None
-            if isinstance(found, Instance) and (read := cases.get(found.type.fullname, {}).get(o.name)) is not None and not any(is_equivalent(o.expr, subject) for subject in self.subjects):
+            if isinstance(found, Instance) and (read := _CASES.get(found.type.fullname, {}).get(o.name)) is not None and not any(is_equivalent(o.expr, subject) for subject in self.subjects):
                 case, readers = read
                 subject, field = stringify(o.expr), found.type.get(case)
                 binding = "" if field is not None and isinstance(get_proper_type(field.type), NoneType) else f", {case}=<name>"
@@ -86,8 +92,3 @@ def check(node: MypyFile, errors: list[Error]) -> None:
             super().visit_member_expr(o)
 
     Reads(()).accept(node)
-
-
-# --- [EXPORTS] --------------------------------------------------------------------------
-
-__all__ = ["ErrorPartialCaseReadError", "check"]

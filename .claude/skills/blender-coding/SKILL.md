@@ -24,7 +24,7 @@ Data, command, and callback needs:
 
 | [INDEX] | [NEED]                                        | [OWNER]                                                                               |
 | :-----: | :-------------------------------------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | Fallible host result, independent results     | `faults.BlenderResult[T]`, `blender.imaging.faults` `accumulated` and `paired`        |
+|  [01]   | Fallible host result, independent results     | Core fault package `Outcome[T]`, `accumulated`, `paired`                              |
 |  [02]   | Operator call                                 | `commands.calls.called`                                                               |
 |  [03]   | Operator class over a typed record            | `commands.operators.Operator`, its body `Call[T] -> BlenderResult[Done \| Unchanged]` |
 |  [04]   | Modal gesture, timer step, status             | `commands.modal.Modal`                                                                |
@@ -43,7 +43,7 @@ Data, command, and callback needs:
 |  [17]   | IDs written to another file with dependencies | `files.libraries.library_written`                                                     |
 |  [18]   | External paths with presence, portable copy   | `files.blends` `dependencies`, `packed`                                               |
 |  [19]   | Handler, timer, or msgbus callback            | `extension.events` handler rows, `appended`, `Timer`, `Subscription`                  |
-|  [20]   | Callback faults, deferred main-thread write   | `extension.reports.Reports` `reported`, `deferred`, `hold`                            |
+|  [20]   | Deferred main-thread write                    | `extension.reports.Reports` `deferred`, `hold`                                        |
 |  [21]   | Extension registration                        | `extension.registration.scope`                                                        |
 
 ### [01.2]-[NODES]
@@ -74,30 +74,28 @@ Interface needs, each owner a row `extension.registration.scope` acquires:
 | :-----: | :------------------------------------------ | :----------------------------------------------------------------------------------------- |
 |  [01]   | Panel in a tab, sidebar, region, or popover | `ui.surfaces.panels.Panel` at `Tab`, `Sidebar`, `Joined`, `Child`, `EditorRegion`          |
 |  [02]   | Panel as top bar popover or docked          | `ui.surfaces.panels.Panel` at `PopoverPanel`, `Docked`                                     |
-|  [03]   | Collapsible section inside a draw           | `ui.layout.sections` `Single`, `Each`, `ui.layout.values` `Store`, `Hosted`                |
+|  [03]   | Collapsible section inside a draw           | `ui.layout.sections`, `ui.layout.values` `Store`, `Hosted`                                 |
 |  [04]   | Menu, pie, keyed menu, preset menu          | `ui.surfaces.menus.Menu` with a `Dropdown`, `Keyed`, or `Pie` body, `PresetMenu`           |
-|  [05]   | Registered menu, panel, or shelf popup      | `commands.calls.opened` over `MenuPopup`, `PanelPopup`, `ShelfPopup`                       |
-|  [06]   | Popup or popover a callback draws           | `commands.calls.opened` over `DrawnMenu`, `DrawnPopover`                                   |
-|  [07]   | UI list with filter and sort                | `ui.layout.lists.ItemList`                                                                 |
-|  [08]   | Rows, fields, labels, progress              | `ui.layout.rows` `Property`, `Caption`, `Label`, `Text`, `Progress`, `Selector`, `Tree`    |
-|  [09]   | Operator, popover, and menu buttons         | `ui.layout.rows` `OperatorButton`, `Popover`, `Pulldown`, `invoking`                       |
-|  [10]   | Templates                                   | `ui.layout.templates` `Wheel`, `Pages`, `IconView`, `Preview`, `ImageFormat`, `Shortcut`   |
-|  [11]   | Report banner, cursor progress              | `ui.layout.status` `Status`, `progressed`                                                  |
-|  [12]   | Generated previews, package icons           | `ui.resources.previews.Previews`, `ui.resources.icons.Icons`                               |
-|  [13]   | Theme colors, interface metrics             | `ui.resources.theme` `Theme`, `Metrics.read`                                               |
-|  [14]   | GPU texture from pixels                     | `ui.resources.textures` `uploaded`, `TEXTURES`                                             |
-|  [15]   | Draw handler over cached state              | `ui.drawing.handlers` `Overlay`, `Drawing`, `Part`, `Watch`, `Signal`                      |
-|  [16]   | 2D drawing in a region                      | `ui.drawing.canvas.Canvas.of`                                                              |
-|  [17]   | Offscreen draw, view capture, buffer read   | `ui.drawing.offscreen` `Offscreen.drawn`, `Offscreen.viewed`, `captured`                   |
-|  [18]   | Gizmo group                                 | `ui.surfaces.gizmos` `Gizmos`, `Linked`                                                    |
-|  [19]   | Workspace tool                              | `ui.surfaces.tools.Tools`, `Tools.invocation`                                              |
-|  [20]   | Areas, regions, workspaces                  | `ui.screens` `areas.Located`, `areas.AreaQuery`, `areas.Arrangement`, `regions.RegionView` |
-|  [21]   | Workspace switch                            | `ui.screens.workspaces.Activation`                                                         |
-|  [22]   | Preference page                             | `ui.surfaces.preferences.PreferencesPage`                                                  |
-|  [23]   | Rows on a stock menu, panel, or header      | `ui.surfaces.appends.Append` with a type or `ContextMenu` target                           |
-|  [24]   | Asset shelf                                 | `files.shelves.Shelf`, `ui.layout.rows.ShelfPopover`                                       |
-|  [25]   | Redraw of every area                        | `extension.reports.redrawn`                                                                |
-|  [26]   | Translation table                           | `extension.registries.Translations`                                                        |
+|  [05]   | Menu, panel, or shelf popup                 | `commands.calls.opened`                                                                    |
+|  [06]   | UI list with filter and sort                | `ui.layout.lists.ItemList`                                                                 |
+|  [07]   | Rows, fields, labels                        | `ui.layout.rows` `Property`, `Caption`, `Label`, `Selector`, `Tree`                        |
+|  [08]   | Operator buttons                            | `ui.layout.rows` `OperatorButton`, `invoking`                                              |
+|  [09]   | Templates                                   | `ui.layout.templates` `Pages`, `Preview`, `ImageFormat`, `Shortcut`                        |
+|  [10]   | Report banner, cursor progress              | `ui.layout.status` `Status`, `progressed`                                                  |
+|  [11]   | Generated previews, package icons           | `ui.resources.previews.Previews`, `ui.resources.icons.Icons`                               |
+|  [12]   | Theme colors, interface metrics             | `ui.resources.theme` `Theme`, `Metrics.read`                                               |
+|  [13]   | Draw handler over cached state              | `ui.drawing.handlers` `Overlay`, `Drawing`, `Part`, `Watch`, `Signal`                      |
+|  [14]   | 2D drawing in a region                      | `ui.drawing.canvas.Canvas.of`                                                              |
+|  [15]   | Offscreen draw, view capture, buffer read   | `ui.drawing.offscreen` `Offscreen.drawn`, `Offscreen.viewed`, `captured`                   |
+|  [16]   | Gizmo group                                 | `ui.surfaces.gizmos` `Gizmos`, `Linked`                                                    |
+|  [17]   | Workspace tool                              | `ui.surfaces.tools.Tools`, `Tools.invocation`                                              |
+|  [18]   | Areas, regions, workspaces                  | `ui.screens` `areas.Located`, `areas.AreaQuery`, `areas.Arrangement`, `regions.RegionView` |
+|  [19]   | Workspace switch                            | `ui.screens.workspaces.Activation`                                                         |
+|  [20]   | Preference page                             | `ui.surfaces.preferences.PreferencesPage`                                                  |
+|  [21]   | Rows on a stock menu, panel, or header      | `ui.surfaces.appends.Append` with a type or `ContextMenu` target                           |
+|  [22]   | Asset shelf                                 | `files.shelves.Shelf`                                                                      |
+|  [23]   | Redraw of every area                        | `extension.reports.redrawn`                                                                |
+|  [24]   | Translation table                           | `extension.registries.Translations`                                                        |
 
 ## [02]-[DATA]
 
@@ -147,12 +145,13 @@ Creation, removal, and work sets follow host lifetimes:
 Identity and lookup follow host keys:
 - `bpy.data.<collection>[(name, None)]` reads local data alone, `(name, <library path>)` linked data
 - Name, index, `in`, and `get` lookups on `bpy.data` collections and `Handle.resolve` scan linearly, and operations resolving many build one `{session_uid: id}` map
-- `bpy.data.all_ids` iterates every ID
+- `bpy.data.all_ids` iterates every ID except embedded data (material, world, light, and scene node trees, each `Scene.collection`), and `holder` and `embedded` reach embedded data
 - `bpy.data.<collection>` iterates in name order, and loops that rename iterate `bpy.data.<collection>[:]`
 - Loops writing object visibility iterate `Collection.all_objects[:]`
 - Default names (`"Material Output"`) translate with the interface language, and code holds the returned reference or matches `type`
 - Embedded node trees sit outside `bpy.data.node_groups` with `id_data` naming each tree, and handles and marks key on the tree's holder from `holder`
-- Names inside data paths and msgbus paths escape through `bpy.utils.escape_identifier`, and generated expression text quotes through `repr`
+- Data paths and msgbus paths hold member, index, and `["<name>"]` key steps as a tuple until the call taking text
+- Path text escapes names through `bpy.utils.escape_identifier`, and generated expression text quotes through `repr`
 - Structs compare with `==`
 - Caches key by `Handle`, its `session_uid` holding across renames, undo, and an undone removal while `as_pointer()` addresses repeat
 - Struct wrappers rebuild per access and ID wrappers per class refinement
@@ -172,16 +171,17 @@ Operators read context and act on the whole selection, and a per-object loop com
 - View-layer update before the call and again after a `FINISHED` answer
 - Undo bookkeeping
 
-Work takes its data API form, and an operator only where none exists:
+Work takes its data API form where one member does it, and a stock operator, `bpy_extras`, `_bpy_internal`, or bundled add-on member where Blender includes the procedure:
 
-| [INDEX] | [WORK]                      | [FORM]                                                                                 |
-| :-----: | :-------------------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | New ID                      | `bpy.data.<collection>.new`, then an explicit link                                     |
-|  [02]   | Topology edit               | `bmesh` scope                                                                          |
-|  [03]   | Per-element values          | `foreach_set` over attributes                                                          |
-|  [04]   | Keys and drivers            | `Animation`                                                                            |
-|  [05]   | Active and selected objects | `view_layer.objects.active`, `select_set`, set independently                           |
-|  [06]   | Work no data API reaches    | `called` with an override of every member the operator reads, derived members included |
+| [INDEX] | [WORK]                      | [FORM]                                                       |
+| :-----: | :-------------------------- | :----------------------------------------------------------- |
+|  [01]   | New ID                      | `bpy.data.<collection>.new`, then an explicit link           |
+|  [02]   | Topology edit               | `bmesh` scope                                                |
+|  [03]   | Per-element values          | `foreach_set` over attributes                                |
+|  [04]   | Keys and drivers            | `Animation`                                                  |
+|  [05]   | Active and selected objects | `view_layer.objects.active`, `select_set`, set independently |
+|  [06]   | Operator override           | Every member the operator reads, derived members included    |
+|  [07]   | Procedure Blender includes  | Included member, operators through `called` with an override |
 
 Overrides reach the members an operator reads alone:
 - `selected_objects` overrides leave `selected_editable_objects` reading the window's own selection
@@ -208,11 +208,11 @@ Calls and their answers:
 - Script calls fill unset properties from scene settings (`object.bake` from `scene.render.bake`) and user preferences (align, Edit Mode entry)
 - Calls pass every value their result depends on
 - `'INVOKE_DEFAULT'` runs `invoke`, and `wm.call_menu` crashes a background run under either call form
-- Failing `poll` raises `RuntimeError("Operator bpy.ops.<op>.poll() ...")`, and `called` maps it to `BlenderOperatorFault`
+- Failing `poll` raises `RuntimeError("Operator bpy.ops.<op>.poll() ...")`, and `called` maps it to a fault
 - `ERROR`, `ERROR_INVALID_INPUT`, `ERROR_INVALID_CONTEXT`, and `ERROR_OUT_OF_MEMORY` reports raise `RuntimeError` under either return set
 - `INFO` and `WARNING` reports print
 - `FINISHED` reports that a stock operator ran (`mesh.fill_grid` on an odd loop adds no face), and work depending on its effect reads the data it wrote
-- `called` answers `FINISHED`, `RUNNING_MODAL`, and `INTERFACE` as `Ok` and `CANCELLED` or `PASS_THROUGH` as `BlenderOperatorFault`
+- `called` answers `FINISHED`, `RUNNING_MODAL`, and `INTERFACE` as `Ok` and `CANCELLED` or `PASS_THROUGH` as a fault
 - Work behind `RUNNING_MODAL` or `INTERFACE` finishes after the call in a GUI session and never in a background run, dependent reads running from a later timer step
 - Stock operators can answer `CANCELLED` on an empty work set, and code tests the work set before the call
 - Created IDs come from the `bpy.data.<collection>` difference before and after a call, each read by its own `name` in place of the requested one or `selected_objects`
@@ -258,8 +258,9 @@ Evaluation follows host rules:
 `RecordGroup` binds settings records to RNA properties for `Operator.form`, `Attachment`, and preference pages:
 - `str | None` fields bind as text holding `""` for absence, and `ID | None` fields as pointers
 - Other optional settings are `Gated[T]` fields from `blender.records.fields`, an enabled flag beside its value
-- Alternatives are `Case` subclasses with integer tags
+- Alternatives are `Case` subclasses, tag and title derived from the class name
 - Menu choices are `Choice` members with the persistent integers files store
+- Choices over a host enum persist each `enum_items` item's `value` in place of its position (`noise_type` lists `MULTIFRACTAL` 0, then `RIDGED_MULTIFRACTAL` 3)
 
 `bpy.props` definitions take the form the host registers:
 - `poll` and `update` take function objects with exact positional arity, defaulted parameters counted, and a factory returns the closure
@@ -270,7 +271,7 @@ Evaluation follows host rules:
 - Operator records hold an ID as `IdName`, an ID `PointerProperty` on an operator printing a `ValueError` at `register_class` and the operator registering without it
 - `PointerProperty` takes ID and `PropertyGroup` types, `CurveMapping`, `ColorRamp`, `Scopes`, and `Histogram` coming from an owning ID
 - `PointerProperty` `poll` filters UI assignment alone, and assigning an embedded ID (`Scene.collection`, `Material.node_tree`) raises `RuntimeError`
-- `FloatProperty` definitions declaring `unit` declare a matching `subtype`, a missing subtype logging an enum mismatch on each read of the definition's `subtype`
+- `FloatProperty` and `FloatVectorProperty` take their unit from `subtype` (`DISTANCE` and `XYZ_LENGTH` read `unit` `LENGTH`), and a `unit` the subtype lacks logs an enum mismatch on each read of `subtype`
 - `get` and `set` hold values stored outside Blender
 - `set` needs `get`, and `get` alone makes the property read-only
 - `get_transform(self, stored_value, is_set)` and `set_transform(self, new_value, stored_raw_value, is_set)` transform stored values
@@ -320,15 +321,15 @@ Undo steps act on held state:
 ## [07]-[CALLBACKS]
 
 Handler, timer, msgbus, and modal bodies return `BlenderResult` to the row holding them, in a context Blender chose:
-- `PathHandler`, `FrameHandler`, and `UpdateHandler` own handler arity, Blender passing one argument to a plain function of one positional parameter and padding every other callable with `None`
-- `PathHandler` lifts the startup file's `""` to `Nothing`
+- Blender passes one argument to a handler function of one positional parameter and pads every other callable with `None`
+- `load_*` and `save_*` handlers receive `""` as the startup file's path
 - Depsgraph `*_post` handlers read the scene and depsgraph they receive
 - `frame_set` fires `frame_change_pre` and `frame_change_post` alone
-- `frame_change_pre` writes data for the frame, and a `FrameHandler` on `frame_change_post` reads evaluated results
+- `frame_change_pre` writes data for the frame, and `frame_change_post` handlers read evaluated results
 - Timer bodies return `BlenderResult[Option[float]]`, and `Nothing` or a fault stops the timer
 - Raising native timers unregister permanently, and a raising handler prints its traceback while later handlers run
 - Handlers remove only themselves from their list during their call
-- State seeds from a one-shot persistent `Timer` beside a `load_post` `PathHandler`, native collections included
+- State seeds from a one-shot persistent `Timer` beside a `load_post` handler, native collections included
 - GPU calls outside a GPU context raise `SystemError`
 - Background runs draw (`GPUOffScreen`, `batch_for_shader`, `draw_view3d`) after `gpu.init()`, and `gpu.texture.from_image` before it crashes Blender
 - Background runs read `Region.data` `None`, and `RegionView3D.update()` crashes them
@@ -348,8 +349,8 @@ Each entry point translates the result once into the host's form:
 |  [01]   | `Operator` body `Ok(Done)`      | Notes at their levels and skipped faults as warnings with `{'FINISHED'}`      |
 |  [02]   | `Operator` body `Ok(Unchanged)` | Reason as `INFO` with `{'CANCELLED'}`                                         |
 |  [03]   | `Operator` body `Error`         | Report per rendered fault with `{'CANCELLED'}`, the file as the body found it |
-|  [04]   | `poll`                          | `False` with `poll_message_set` of the rendered `BlenderUnmetFault` faults    |
-|  [05]   | `draw`, draw handler            | Failed part drawn through `ui.layout.rows.alerted`, the rest drawn            |
+|  [04]   | `poll`                          | `False` with `poll_message_set` of the rendered unmet faults                  |
+|  [05]   | `draw`, draw handler            | Failed part drawn as an alert row, the rest drawn                             |
 |  [06]   | Update callback, handler, timer | Faults held by `Reports.reported` for the extension                           |
 |  [07]   | `register`                      | One `RuntimeError` of rendered faults after the stack unwinds                 |
 |  [08]   | `RenderEngine.render`           | `report({'ERROR'}, ...)` cancelling the render                                |
@@ -358,7 +359,7 @@ Each entry point translates the result once into the host's form:
 |  [11]   | `execute_blender_code` body     | Raise of the rendered faults, data in `result`                                |
 
 Faults and exceptions stay apart:
-- Host refusals (`RuntimeError`, `TypeError`) become faults through `BlenderEditFault.attempted(<request>, lambda: <call>)` in place of `Ok(<call>)`
+- Host refusals (`RuntimeError`, `TypeError`) become faults through `host(<callee>, <arguments>)` in place of `Ok(<call>)`, and `host` reads subject and member from the bound callee and keeps caught error as cause
 - Host calls answering `None` (`links.new` across trees) or an invalid result (`NodeLink.is_valid` false) become faults at the call
 - `CANCELLED` keeps the writes a body made before its fault outside undo, and dependent steps roll back through the body's `ExitStack` scope
 - Python raises inside `RenderEngine.render` complete the render as `FINISHED`, and `error_set` cancels nothing
@@ -378,9 +379,6 @@ Operator bodies combine independent absences with `paired` before the dependent 
 ```python
 def opened(call: Call[Empty]) -> BlenderResult[Done | Unchanged]:
     return paired(call.root(bpy.types.Window), call.root(bpy.types.Area)).bind(lambda held: shown(*held)).map(lambda _: Done())
-
-
-show = Operator[Empty](key="show_preferences", title="Preferences", description="Open the extension's preferences", undo=False, form=Empty, run=opened)
 ```
 
 `shown` stands for the dependent step, a `(Window, Area) -> BlenderResult[None]` function.

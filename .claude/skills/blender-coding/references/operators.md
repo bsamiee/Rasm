@@ -43,20 +43,20 @@ scale = Operator[Scaled](key="scale", title="Scale", description="Set the render
 
 ## [03]-[INVOKE_FORMS]
 
-`invoke` takes one form, each mapping to its window-manager call:
+`invoke` takes one `WindowManager.invoke_*` call, file browser, pick, or modal form, and window-manager calls take options their `bl_rna.functions[<name>].parameters` state:
 
-| [INDEX] | [FORM]               | [BEHAVIOR]                                                                  |
-| :-----: | :------------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `Confirm`            | Confirmation with an optional computed message, then the body               |
-|  [02]   | `Properties`         | Editable dialog running the body on confirm, `cancel_default` for data loss |
-|  [03]   | `Suppressible`       | Dialog with "Do not show again" clearing the `ask_<key>` preference         |
-|  [04]   | `Floating`           | Property popup that never runs the body                                     |
-|  [05]   | `InvokePopup.REDO`   | Redo popup over the last call                                               |
-|  [06]   | `InvokePopup.SEARCH` | Enum search over `primary`                                                  |
-|  [07]   | `Open`               | Import browser on `ImportHelper`, chosen files in `Call.paths`              |
-|  [08]   | `Save`               | Export browser on `ExportHelper`, `destinations` confirming replacements    |
-|  [09]   | `Pick`               | Pending cursor until the user picks a location                              |
-|  [10]   | `Modal`              | Interactive gesture with preview, rollback, timer, and status               |
+| [INDEX] | [FORM]                | [BEHAVIOR]                                                                  |
+| :-----: | :-------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `invoke_confirm`      | Confirmation with an optional computed message, then the body               |
+|  [02]   | `invoke_props_dialog` | Editable dialog running the body on confirm, `cancel_default` for data loss |
+|  [03]   | `Suppressible`        | Dialog with "Do not show again" clearing its stored confirmation preference |
+|  [04]   | `invoke_popup`        | Property popup that never runs the body                                     |
+|  [05]   | `invoke_props_popup`  | Redo popup over the last call                                               |
+|  [06]   | `invoke_search_popup` | Enum search over `primary`                                                  |
+|  [07]   | `Open`                | Import browser on `ImportHelper`, chosen files in `Call.paths`              |
+|  [08]   | `Save`                | Export browser on `ExportHelper`, `destinations` confirming replacements    |
+|  [09]   | `Pick`                | Pending cursor until the user picks a location                              |
+|  [10]   | `Modal`               | Interactive gesture with preview, rollback, timer, and status               |
 
 `Open` and `Save` derive file extensions from the record:
 - Record fields stand in for an exporter's keyword arguments
@@ -82,6 +82,6 @@ scale = Operator[Scaled](key="scale", title="Scale", description="Set the render
 
 Buttons, menus, keymaps, and macros place an operator as a value:
 - `Own(command=..., values=record)` places a library operator with a complete record
-- A `Command` (`Operator` or `Macro`) places itself and sets no properties, and `Stock(operator=bpy.ops..., values=...)` places a stock operator with RNA values
+- `Command` (`Operator` or `Macro`) places itself and sets no properties, and `Stock(operator=bpy.ops..., values=...)` places a stock operator with RNA values
 - `Macro(steps=...)` runs placed steps as one undo step and one redo entry
 - Layouts hand a struct to a placed operator through `layout.context_pointer_set("<member>", struct)`, and the operator reads that context member

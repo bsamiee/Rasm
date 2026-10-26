@@ -76,7 +76,8 @@ def bridges() -> tuple[Bridge, ...]:
             frozendict(environ),
         )
         for process in processes
-        if {headless, "GhidraCliBridge.java"} <= set(argv := process.info["cmdline"] or []) and set(Owner.__struct_encode_fields__) <= (environ := process.info["environ"] or {}).keys()
+        if {headless, "GhidraCliBridge.java"} <= set(argv := process.info["cmdline"] or [])
+        and {field.encode_name for field in msgspec.structs.fields(Owner)} <= (environ := process.info["environ"] or {}).keys()
     )
 
 
@@ -102,7 +103,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-# --- [EXPORTS] --------------------------------------------------------------------------
-
-__all__ = ["main"]

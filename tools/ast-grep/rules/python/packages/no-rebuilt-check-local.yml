@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-rebuilt-check-local
+language: python
+severity: error
+utils:
+    check-scope:
+        kind: block
+        inside:
+            kind: function_definition
+            field: body
+            all:
+                - has: {field: name, regex: '^check$'}
+                - inside: {kind: module}
+                - follows: {kind: class_definition, stopBy: end, has: {field: name, regex: '^Error'}}
+                - has: {field: parameters, has: {nthChild: 1, has: {kind: identifier, nthChild: 1, pattern: $NODE}}}
+                - has: {field: parameters, has: {nthChild: 2, has: {kind: identifier, nthChild: 1, pattern: $ERRORS}}}
+rule:
+    kind: expression_statement
+    pattern: $STATEMENT
+    all:
+        - has: {kind: assignment}
+        - inside: {matches: check-scope}
+        - not:
+            any:
+                - has:
+                    stopBy: end
+                    kind: identifier
+                    any: [{pattern: $NODE}, {pattern: $ERRORS}]
+                    not: {any: [{inside: {kind: attribute, field: attribute}}, {inside: {kind: keyword_argument, field: name}}, {nthChild: 1, inside: {kind: keyword_pattern}}]}
+                - all:
+                    - has: {kind: assignment, has: {field: right, kind: call, has: {field: function, kind: identifier, pattern: $CLASS}}}
+                    - follows: {stopBy: end, kind: class_definition, has: {field: name, pattern: $CLASS}}
+message: '`$STATEMENT` rebuilds on every `check` call'
+note: 'Move a table with two readers to module level under `[CONSTANTS]`, and inline a table read once'

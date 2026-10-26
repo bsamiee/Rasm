@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-entry-module
+language: python
+rule:
+    kind: module
+    has:
+        any:
+            - kind: if_statement
+              has: {field: condition, regex: '^__name__\s*==\s*["'']__main__["'']$'}
+            - kind: function_definition
+              has: {field: name, regex: '^pytest_'}
+            - kind: decorated_definition
+              has: {field: definition, kind: function_definition, has: {field: name, regex: '^pytest_'}}
+            - kind: function_definition
+              all:
+                - has: {field: name, regex: '^check$'}
+                - follows: {kind: class_definition, stopBy: end, has: {field: name, regex: '^Error'}}

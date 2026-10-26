@@ -29,6 +29,11 @@ from refurb.checks.common import get_mypy_type, is_equivalent, stringify
 from refurb.error import Error
 from refurb.visitor import TraverserVisitor
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_STRUCT = f"{msgspec.Struct.__module__}.{msgspec.Struct.__qualname__}"
+_FIELD = f"{msgspec.field.__module__}.{msgspec.field.__qualname__}"
+
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
@@ -68,8 +73,6 @@ class ErrorRestatedDefaultError(Error):
 
 def check(node: MypyFile, errors: list[Error]) -> None:
     """Reports each keyword argument equal to the literal default of a function the module defines or of a `msgspec.Struct` field."""
-    struct = f"{msgspec.Struct.__module__}.{msgspec.Struct.__qualname__}"
-    field = f"{msgspec.field.__module__}.{msgspec.field.__qualname__}"
 
     def literal(expression: Expression) -> bool:
         match expression:
@@ -92,7 +95,7 @@ def check(node: MypyFile, errors: list[Error]) -> None:
     def assigned(info: TypeInfo) -> Iterator[tuple[str, Expression]]:
         for statement in info.defn.defs.body:
             match statement:
-                case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=CallExpr(callee=RefExpr(fullname=callee)) as call) if callee == field:
+                case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=CallExpr(callee=RefExpr(fullname=callee)) as call) if callee == _FIELD:
                     yield name, next((value for argument, value in zip(call.arg_names, call.args) if argument == "default"), call)
                 case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=value, type=annotation) if annotation is not None:
                     yield name, value
@@ -100,7 +103,7 @@ def check(node: MypyFile, errors: list[Error]) -> None:
                     pass
 
     def fields(info: TypeInfo) -> dict[str, Expression]:
-        return {name: value for owner in reversed(info.mro) if owner.fullname != struct for name, value in assigned(owner)}
+        return {name: value for owner in reversed(info.mro) if owner.fullname != _STRUCT for name, value in assigned(owner)}
 
     class Defined(TraverserVisitor):
         def __init__(self) -> None:
@@ -118,7 +121,7 @@ def check(node: MypyFile, errors: list[Error]) -> None:
             match declared(o.callee):
                 case (FuncDef() as function) | Decorator(func=FuncDef() as function) if function in defined.functions:
                     owner, defaults = function.name, {argument.variable.name: argument.initializer for argument in function.arguments if argument.initializer is not None}
-                case TypeInfo() as info if info.has_base(struct):
+                case TypeInfo() as info if info.has_base(_STRUCT):
                     owner, defaults = info.name, fields(info)
                 case _:
                     owner, defaults = "", {}
@@ -132,8 +135,3 @@ def check(node: MypyFile, errors: list[Error]) -> None:
     defined = Defined()
     defined.accept(node)
     Calls().accept(node)
-
-
-# --- [EXPORTS] --------------------------------------------------------------------------
-
-__all__ = ["ErrorRestatedDefaultError", "check"]

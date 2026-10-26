@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mode-variant-socket-identifier
+language: python
+severity: error
+files:
+    - libs/python/blender/**
+    - apps/blender/**
+rule:
+    kind: string
+    pattern: $IDENTIFIER
+    has: {kind: string_content, regex: '^(?:(?:A|B|Factor|Result)_(?:Float|Int|Vector|Color|Rotation|Matrix)|(?:Value|Vector|Factor)_00[1-9])$'}
+message: '`$IDENTIFIER` names one mode variant socket of a Math, Vector Math, or Mix node'
+note: 'Read `tuple(<socket> for <socket> in <node>.inputs if <socket>.enabled)[<position>]` after the mode write'

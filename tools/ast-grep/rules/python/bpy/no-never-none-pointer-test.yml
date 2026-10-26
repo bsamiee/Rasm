@@ -16,7 +16,7 @@ utils:
         kind: attribute
         any:
             - all:
-                - has: {field: attribute, regex: '^preferences$'}
+                - has: {field: attribute, regex: '^(preferences|window_manager)$'}
                 - has: {field: object, matches: context}
             - has: {field: attribute, regex: '^(view_settings|display_settings|active_layer_collection|original|from_node|to_node|from_socket|to_socket)$'}
             - all:

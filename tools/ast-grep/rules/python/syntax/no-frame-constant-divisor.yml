@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-frame-constant-divisor
+language: python
+severity: error
+files: ['libs/python/**/imaging/**']
+utils:
+    frame-constant:
+        kind: 'float, integer'
+        regex: '^(1920|1080|2048|3840|2160|4096|24|25|30|48|50|60|23\.976|29\.97|59\.94)(\.0*)?$'
+rule:
+    kind: binary_operator
+    all:
+        - has: {field: operator, regex: '^/$'}
+        - has:
+            field: right
+            pattern: $DIVISOR
+            any:
+                - matches: frame-constant
+                - kind: 'parenthesized_expression, binary_operator'
+                  has: {stopBy: {kind: 'call, subscript'}, matches: frame-constant}
+message: '`$DIVISOR` divides by a frame size or frame rate'
+note: 'Declare defaults in field units (frame share, seconds), and the host converts with its frame size and rate'

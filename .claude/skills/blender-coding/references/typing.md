@@ -11,7 +11,7 @@ Blender's Python 3.13 evaluates module, class, and signature annotations when th
 - Methods naming their own class annotate with `typing.Self`
 - Declarations follow dependency order, every annotation naming an earlier declaration
 - `type` alias values and type parameter bounds and defaults evaluate on first read, naming later declarations unquoted
-- Quotes hold names eager evaluation cannot resolve: later declarations, a `bpy.types` subscript (`"bpy.types.bpy_struct[object]"`), and `TYPE_CHECKING` names
+- Quotes hold later declarations and `TYPE_CHECKING` names, and a `bpy.types` subscript sits behind one `type` alias (`type Struct = bpy.types.bpy_struct[object]`)
 - `register_class` evaluates every annotation on an ID-property class and each base, quoted `bpy.types` subscripts and `TYPE_CHECKING` names raising
 - `msgspec.structs.fields`, `msgspec.inspect`, `convert`, and decoders evaluate quoted record annotations, a `TYPE_CHECKING` name raising `NameError`
 - Ruff under the 3.13 declaration flags quotes on local variable annotations (UP037) and `type` alias values (TC008)
@@ -25,7 +25,7 @@ Stub declarations runtime contradicts take the form in `[FORM]`, each checker co
 | :-----: | :------------------------------------------ | :------------------------------------ | :------------------------------------------------ |
 |  [01]   | `bl_rna` as `BlenderRNA`                    | `bpy.types.Struct` with `identifier`  | `bpy.types.Struct` local, `assignment`            |
 |  [02]   | `bpy.ops.<module>.<name>` as a class        | Operator function with `idname_py()`  | `Operation` from `commands.calls`                 |
-|  [03]   | Handler lists as list unions                | Path callbacks for `load_*`, `save_*` | `Handlers[E]` field, `arg-type` at the list       |
+|  [03]   | Handler lists as list unions                | Path callbacks for `load_*`, `save_*` | `arg-type` at a `list[Callable[..., None]]` field |
 |  [04]   | `bpy_prop_array`, `Color` without iteration | Iterates, indexes, takes `len`        | `np.asarray(image.size)` and unpack               |
 |  [05]   | `bpy_struct` without `__contains__`         | `key in struct` tests ID properties   | `operator` on the test                            |
 |  [06]   | `PointerProperty.fixed_type` as `Struct`    | Instance of the described class       | `fixed_type=ID()` pattern, `unreachable`          |
@@ -39,25 +39,26 @@ Stub declarations runtime contradicts take the form in `[FORM]`, each checker co
 |  [14]   | `bl_ui` classes on `_bpy_types` bases       | Subclasses of the `bpy.types` class   | `type[bpy.types.Panel]`, `arg-type`               |
 |  [15]   | Python helpers stubbed `-> None` or absent  | Return values                         | Return from installed `__doc__` or source         |
 |  [16]   | Data and node `new` returning base classes  | Subclass the call names               | Class pattern or annotated local, `assignment`    |
-|  [17]   | `map_error` lambda returning a tuple        | Tuple ty infers as one item           | `Result[T, BlenderFaults].bind(result, step)`     |
-|  [18]   | Collections without `new` and `remove`      | Functions its `srna` declares         | `attr-defined`, `unresolved-attribute`            |
-|  [19]   | `Property` read as its subclass             | Subclass members after a `type` test  | `attr-defined`, `unresolved-attribute`            |
-|  [20]   | Collection `get` without default as `None`  | Item or `None`                        | Annotated `<item type> \| None` local             |
-|  [21]   | `gpu.state.blend_get` as `str`              | Mode `blend_set` takes                | `arg-type`, `invalid-argument-type` at the setter |
-|  [22]   | `PropertyGroup` without `is_registered`     | Flag on every registrable class       | `union-attr`, `unresolved-attribute`              |
-|  [23]   | `catch` over an exception tuple             | Catches each listed class             | `call-overload`, `invalid-argument-type`          |
-|  [24]   | `bpy_prop_collection` outside `Sequence`    | Indexes, iterates, takes `len`        | `arg-type` at a `Sequence` parameter              |
-|  [25]   | `gpu` stack contexts in `enter_context`     | Context managers                      | `arg-type`, `invalid-argument-type`               |
+|  [17]   | Collections without `new` and `remove`      | Functions its `srna` declares         | `attr-defined`, `unresolved-attribute`            |
+|  [18]   | `Property` read as its subclass             | Subclass members after a `type` test  | `attr-defined`, `unresolved-attribute`            |
+|  [19]   | Collection `get` without default as `None`  | Item or `None`                        | Annotated `<item type> \| None` local             |
+|  [20]   | `gpu.state.blend_get` as `str`              | Mode `blend_set` takes                | `arg-type`, `invalid-argument-type` at the setter |
+|  [21]   | `PropertyGroup` without `is_registered`     | Flag on every registrable class       | `union-attr`, `unresolved-attribute`              |
+|  [22]   | `catch` over an exception tuple             | Catches each listed class             | `call-overload`, `invalid-argument-type`          |
+|  [23]   | `bpy_prop_collection` outside `Sequence`    | Indexes, iterates, takes `len`        | `arg-type` at a `Sequence` parameter              |
+|  [24]   | `gpu` stack contexts in `enter_context`     | Context managers                      | `arg-type`, `invalid-argument-type`               |
 
 Never-null members the stubs type optional, `Property.is_never_none` reading False on them:
 - `Context.preferences` and `window_manager`, `Scene.view_settings` and `display_settings`, `ViewLayer.active_layer_collection`
 - `NodeTree.interface`, node `inputs` and `outputs`, `NodeLink` endpoints, `NodeSocket.links`
 - `id_data` on structs an ID owns, `ID.original`, `DepsgraphUpdate.id`
 - `KeyMapItem.active`, `keyconfigs.user` and `addon` in background runs included
+- `Panel`, `Menu`, `Header`, and `Operator` `layout` inside the `draw` Blender calls, and a popup's `layout` inside its draw function
 
 Class-level msgspec fields take their runtime form:
-- Fields reached on their class (`Record.field`) type as the field value while runtime holds a member descriptor
-- Field names and addresses derive from one walk of `Record.__struct_fields__` yielding typed handles
+- `Record.field` checks as the field type while runtime holds a member descriptor
+- Field handle parameters annotate `object` and narrow with `case MemberDescriptorType(__name__=<name>)`
+- Iteration over every field reads `msgspec.structs.fields(<Record>)`
 
 ## [03]-[TRUE_OPTIONALS]
 

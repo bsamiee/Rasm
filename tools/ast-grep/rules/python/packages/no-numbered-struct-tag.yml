@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-numbered-struct-tag
+language: python
+severity: error
+rule:
+    kind: keyword_argument
+    pattern: $TAG
+    all:
+        - has: {field: name, regex: '^tag$'}
+        - has: {field: value, kind: integer}
+        - inside: {kind: argument_list, inside: {kind: class_definition}}
+message: '`$TAG` numbers a union case by hand'
+note: 'Declare a `tag=<callable>` class keyword on the union base that derives each case tag from its class name'

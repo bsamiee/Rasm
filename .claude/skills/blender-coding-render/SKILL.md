@@ -90,6 +90,8 @@ Render settings follow host rules:
 - Extensions store render state on the `Scene`, ID property writes on nested settings (`RenderSettings`, `ImageFormatSettings`, `ColorManagedViewSettings`, `ColorManagedDisplaySettings`, `SceneEEVEE`) raising `TypeError`
 - `bpy.props` assigned to a nested settings class stays a class attribute, instance writes raising `AttributeError`
 - `render.compositor_device` (`GPU` by default) and `compositor_precision` set compositor evaluation
+- `GPU` compositing refuses a render resolution past 8192 pixels on a side with `Render size too large for GPU, use CPU compositor instead`
+- Compositor results clamp each side to 8192 pixels on `GPU` and 32768 on `CPU`, caps no RNA member or `gpu.capabilities` call reads
 - Files loaded under `--factory-startup` keep their render settings (border, crop, stamp, motion blur), and render code writes every member its output reads
 
 Color management reads Blender's OCIO config:
@@ -267,6 +269,7 @@ Output names follow host rules:
 - Animation names match `render.frame_path(frame=...)`, which expands templates `bpy.path.abspath` leaves in braces
 - Stills keep `#` runs in `render.filepath` literal
 - `use_file_extension` swaps a known extension of another format (`a.jpg` written as `a.png`), and off it writes no extension
+- `render.file_extension` reads the suffix the scene format writes (`.png`, `.exr`)
 
 Output writes follow host rules:
 - Renders create missing folders on the output path

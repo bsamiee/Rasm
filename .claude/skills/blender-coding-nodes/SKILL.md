@@ -43,12 +43,13 @@ Group flags and stock content follow host rules:
 - Stock groups in the `assets/nodes` blends hold `Input_<n>` and `Output_<n>` identifiers beside `Socket_<n>`
 - `material.inline_shader_nodes()`, alike on worlds and lights, returns an object with a `node_tree` inlining groups, zones, closures, and bundles
 - Inlined trees drop reroutes and mutes, and Blender removes inlined trees once code releases the returned object
-- `bpy_extras.node_shader_utils.PrincipledBSDFWrapper` reads and writes a material's Principled and output pair for importers and exporters
+- `bpy_extras.node_shader_utils.PrincipledBSDFWrapper` reads and writes a material's Principled and output pair with its `*_texture` and `normalmap_texture` slots
+- Texture slot writes to `image`, `projection`, and `texcoords` on `ShaderImageTextureWrapper` build Image Texture, Mapping, and Normal Map nodes
 
 ## [02]-[SOCKETS]
 
 Mode sockets take one shape per node:
-- Mix and Math hold every mode's variants (`A_Float`, `A_Vector`, `A_Rotation`, `Value_001`), and `data_type` or `operation` sets `enabled`
+- Mix and Math hold every mode's variants (`A_Float`, `A_Vector`, `A_Rotation`, `Value_001`), and enabled sockets in input order are a mode's operands after its `data_type` or `operation` write
 - Socket positions on Mix and Math count disabled variants
 - Switch, Compare, Sample Index, Index Switch, Store Named Attribute, Random Value, and Boolean Math hold one socket per role
 - Mode writes on one-socket nodes retype each socket under its identifier and keep its links
@@ -499,3 +500,5 @@ New nodes sit at the canvas origin:
 - `node.panel_states` items (`identifier`, `is_collapsed`) open and close node panels
 - Frames hold `text`, `shrink`, and `label_size`
 - Reroutes take their type through `socket_idname`
+- Node editors draw a node's preview while `node.show_preview` and `space.overlay.show_previews` are on, and `overlay.preview_shape` takes `FLAT` or `3D`
+- `bpy.ops.node.preview_toggle` toggles `show_preview` on selected nodes

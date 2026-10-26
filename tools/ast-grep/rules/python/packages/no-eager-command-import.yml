@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-eager-command-import
+language: python
+severity: error
+rule:
+    kind: call
+    pattern: $CALL
+    all:
+        - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^command$'}}, {has: {field: object, kind: identifier, pattern: $APP}}]}
+        - has: {field: arguments, kind: argument_list, has: {nthChild: 1, kind: identifier, pattern: $COMMAND}, not: {has: {nthChild: 2}}}
+        - inside:
+            kind: module
+            stopBy: end
+            all:
+                - has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $APP}}, {has: {field: right, kind: call, has: {field: function, matches: {python-member-use: {module: {regex: '^cyclopts$'}, name: {regex: '^App$'}}}}}}]}}
+                - has:
+                    kind: import_from_statement
+                    all:
+                        - has: {field: module_name, kind: dotted_name, pattern: $MODULE}
+                        - has: {kind: dotted_name, not: {any: [{nthChild: 1}, {has: {nthChild: 2}}]}, has: {kind: identifier, pattern: $COMMAND}}
+fix: '$APP.command("$MODULE:$COMMAND")'
+message: '`$CALL` imports `$COMMAND` before its command runs'
+note: 'Register `<app>.command("<module>:<function>")`'

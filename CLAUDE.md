@@ -54,7 +54,7 @@
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
 [TOTALITY]:
-- ALWAYS define error types in the package raising them, errors differing only in source, field, or message become one error holding those as data
+- ALWAYS define one error type in the package every raiser imports, errors differing only in reason, source, field, or message become its data
 - ALWAYS make invalid states unrepresentable at construction, every consumer receives a validated value without re-validating it
 - ALWAYS reserve exceptions for defects, expected failures use the result type, a catch covers one throwing call and keeps the caught error as cause
 
@@ -139,7 +139,7 @@ Source files group declarations into sections and an owner's members into operat
 [LANGUAGES]: Each language maps its constructs to the same labels
 - C#: a static class of extension or IO functions is `[OPERATIONS]`, a `PlugIn` or `Command` subclass `[COMPOSITION]`
 - C#: static fields keep declaration order when a later initializer reads an earlier field
-- Python: `TYPE_CHECKING` blocks and conditional imports join the preamble, `__all__` closes the file under `[EXPORTS]`
+- Python: `TYPE_CHECKING` blocks and conditional imports join the preamble, `__all__` under `[EXPORTS]` closes a module other modules import
 - TypeScript: runtime schemas and data classes are `[MODELS]`, Effect services `[SERVICES]`, `Layer` values `[COMPOSITION]`
 - Swift: `@main` types are `[COMPOSITION]`, an `extension` sits in the section of the type it extends
 - Rust: traits and unit enums are `[TYPES]`, payload enums `[MODELS]`, error enums `[ERRORS]`

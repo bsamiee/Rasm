@@ -4,7 +4,7 @@ language: python
 severity: error
 rule:
     kind: 'expression_statement, function_definition, class_definition, decorated_definition, if_statement, import_statement, import_from_statement, future_import_statement, for_statement, while_statement, try_statement, with_statement, match_statement, assert_statement, pass_statement, delete_statement, raise_statement, global_statement, nonlocal_statement, type_alias_statement'
-    inside: {kind: module}
+    inside: {kind: module, not: {matches: python-entry-module}}
     nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
     not:
         has:

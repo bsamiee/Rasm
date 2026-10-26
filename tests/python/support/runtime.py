@@ -56,8 +56,3 @@ def log_events(log_processors: tuple[Processor, ...]) -> Generator[list[EventDic
     """Capture structlog events as plain dictionaries."""
     with capture_logs(processors=log_processors) as events:
         yield events
-
-
-# --- [EXPORTS] --------------------------------------------------------------------------
-
-__all__: list[str] = []

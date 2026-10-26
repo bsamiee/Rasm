@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mutable-field-in-frozen-struct
+language: python
+severity: error
+rule:
+    kind: assignment
+    pattern: $FIELD
+    all:
+        - has:
+            field: type
+            regex: |-
+                (?x)^["']?(
+                    (collections\.(abc\.)?|typing\.)?(dict|list|set|bytearray|defaultdict|deque|OrderedDict|Counter|ChainMap|MutableMapping|MutableSequence|MutableSet|Dict|List|Set|DefaultDict|Deque)
+                )\b
+        - not:
+            all:
+                - has: {field: type, regex: '^["'']?list\[(collections\.abc\.|typing\.)?Callable\['}
+                - not: {has: {field: right, pattern: $_RIGHT}}
+        - inside:
+            kind: expression_statement
+            inside:
+                kind: block
+                inside:
+                    kind: class_definition
+                    has: {field: superclasses, has: {kind: keyword_argument, regex: '^frozen\s*=\s*True$'}}
+message: '`$FIELD` holds a mutable container in a frozen struct'
+note: 'Annotate `tuple[<item>, ...]`, `frozenset[<item>]`, or `Mapping[<key>, <value>]`, and hold changing state in a slotted class that owns its release'

@@ -32,12 +32,19 @@ utils:
     sole-argument:
         inside: {kind: argument_list, not: {has: {nthChild: 2}}}
     nested-loop:
-        kind: list_comprehension, set_comprehension, generator_expression
-        all:
-            - has: {field: body, kind: identifier, pattern: $INNER}
-            - has: {kind: for_in_clause, nthChild: 2, all: [{has: {field: left, kind: identifier, pattern: $OUTER}}, {has: {field: right, pattern: $ROWS}}]}
-            - has: {kind: for_in_clause, nthChild: 3, all: [{has: {field: left, kind: identifier, pattern: $INNER}}, {has: {field: right, kind: identifier, pattern: $OUTER}}]}
-            - not: {has: {nthChild: 4}}
+        any:
+            - kind: list_comprehension, set_comprehension, generator_expression
+              all:
+                - has: {field: body, kind: identifier}
+                - not: {has: {kind: for_in_clause, regex: '^async\b'}}
+                - any:
+                    - pattern: '[$INNER for $OUTER in $ROWS for $INNER in $ITEMS]'
+                    - pattern: '{$INNER for $OUTER in $ROWS for $INNER in $ITEMS}'
+                    - pattern: '($INNER for $OUTER in $ROWS for $INNER in $ITEMS)'
+            - kind: dictionary_comprehension
+              all:
+                - not: {has: {kind: for_in_clause, regex: '^async\b'}}
+                - pattern: '{$KEY: $VALUE for $OUTER in $ROWS for $KEY, $VALUE in $MAPPING.items()}'
 rule:
     pattern: $SITE
     any:
@@ -61,7 +68,11 @@ transform:
     RIGHT: {replace: {source: $PARENTHESIZED, replace: '(?s)^.*$', by: ')'}}
     ITEM_OVER_ITERABLES: {replace: {source: $ITERABLES, replace: '(?s)^.*$', by: '*item for item in '}}
     ITEM_OVER_ARGUMENTS: {replace: {source: $ARGUMENTS, replace: '(?s)^.*$', by: '*item for item in '}}
-    FLATTENED_LOOP: {replace: {source: $LOOP, replace: '(?s)^(.)\s*\w+\s+for\s+(\w+)\s+in\s+(.+?)\s+for\s+\w+\s+in\s+\w+\s*(.)$', by: '$1*$2 for $2 in $3$4'}}
-fix: $OPEN$LEFT$ITEM_OVER_ITERABLES$ITEM_OVER_ARGUMENTS$ITERABLES$ARGUMENTS$CLOSE$RIGHT$FLATTENED_LOOP
+    LOOP_OPEN: {substring: {source: $LOOP, endChar: 1}}
+    LOOP_CLOSE: {substring: {source: $LOOP, startChar: -1}}
+    UNPACKED: {replace: {source: $ITEMS, replace: '(?s)^(.*)$', by: '*$1 for '}}
+    SPREAD: {replace: {source: $MAPPING, replace: '(?s)^(.*)$', by: '**$1 for '}}
+    OVER: {replace: {source: $ROWS, replace: '(?s)^(.*)$', by: ' in $1'}}
+fix: $OPEN$LEFT$ITEM_OVER_ITERABLES$ITEM_OVER_ARGUMENTS$ITERABLES$ARGUMENTS$CLOSE$RIGHT$LOOP_OPEN$UNPACKED$SPREAD$OUTER$OVER$LOOP_CLOSE
 message: '`$SITE` flattens iterables in place of comprehension unpacking'
-note: 'Write `[*<item> for <item> in <iterables>]`, with `{}` for a set and `()` for an iterator'
+note: 'Write `[*<iterable> for <item> in <items>]`, `{}` for a set, `()` for an iterator, and `{**<mapping> for <item> in <items>}` for a dict'

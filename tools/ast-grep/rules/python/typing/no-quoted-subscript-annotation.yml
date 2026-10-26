@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-quoted-subscript-annotation
+language: python
+severity: error
+files:
+    - libs/python/blender/**
+    - apps/blender/**
+rule:
+    kind: string
+    pattern: $S
+    regex: '^[rRuU]?["'']{1,3}\s*(bpy|bmesh)\.types\.\w+\['
+    any:
+        - inside: {kind: type, stopBy: end}
+        - nthChild: 1
+          inside:
+            kind: argument_list
+            inside: {kind: call, has: {field: function, regex: '^(typing\.)?cast$'}}
+message: '`$S` quotes a stub-only subscript in place of a `type` alias'
+note: 'Declare `type <Alias> = <class>[<args>]` once and annotate with `<Alias>`'

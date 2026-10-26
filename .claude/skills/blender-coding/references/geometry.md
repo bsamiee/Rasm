@@ -116,6 +116,7 @@ Construction sizes the mesh from the buffers, writes them flat, then derives edg
 
 ```python
 def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32], starts: NDArray[np.int32]) -> BlenderResult[bpy.types.Mesh]:
+    @catch(exception=RuntimeError)
     def filled(mesh: bpy.types.Mesh) -> bpy.types.Mesh:
         mesh.vertices.add(len(positions))
         mesh.loops.add(len(corners))
@@ -130,7 +131,7 @@ def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32],
     with ExitStack() as rollback:
         mesh: bpy.types.Mesh = bpy.data.meshes.new(name)
         rollback.callback(bpy.data.batch_remove, ids=(mesh,))
-        return committed(catch(filled, exception=RuntimeError)(mesh).map_error(lambda error: (BlenderEditFault(request=name, error=error),)), rollback)
+        return committed(filled(mesh).map_error(lambda error: (BlenderEditFault(request=name, error=error),)), rollback)
 ```
 
 `positions` buffers not shaped `(n, 3)` raise `RuntimeError`, and `rollback` removes the mesh.
@@ -160,8 +161,8 @@ def keyed(light: bpy.types.Light, context: bpy.types.Context, points: tuple[tupl
 ```
 
 Channel work `Animation` lacks joins `Animation` and follows the layered action model:
-- F-curves sit in channelbags from `bpy_extras.anim_utils.action_ensure_channelbag_for_slot(action, slot)`
-- `action_get_channelbag_for_slot` returns `None` before a channelbag exists
+- `Action.fcurve_ensure_for_datablock(datablock, data_path, index=, group_name=)` on an action assigned to `datablock` creates the layer, strip, slot, and channelbag, and returns an existing F-curve
+- `driver_add(path, index)` returns the existing driver F-curve on a second call
 - Actions take one layer, and layered animation runs through NLA strips with `ADD` or `COMBINE` blending
 - Actions assigned to a second ID animate nothing until `animation_data.action_slot` names their slot
 - Keys write through one `keyframe_points.add(count)`, `foreach_set` on `co` and `interpolation`, then `fcurve.update()`

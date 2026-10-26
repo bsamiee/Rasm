@@ -34,30 +34,21 @@ Created and shared data follow host links:
 - `bpy.data.scenes.new()` takes factory settings (metric units, EEVEE, no world, no camera), and `bpy.ops.scene.new(type="EMPTY")` copies the window scene's units and engine
 - Linked libraries repeat local names, and created IDs map from their source key in place of a name lookup
 
-Creation outside `Ownership` runs the host call in `BlenderEditFault.attempted`, and `kept` removes the ID on any later refusal:
-
-```python
-def founded(parent: Option[bpy.types.Collection], name: str) -> BlenderResult[bpy.types.Collection]:
-    return kept(
-        BlenderEditFault.attempted(name, lambda: bpy.data.collections.new(name)),
-        lambda made: named(made, name).bind(lambda block: parent.map(lambda held: joined(held, block)).default_value(Ok(None)).map(lambda _: block)),
-    )
-```
-
-`joined` stands for the `(Collection, Collection) -> BlenderResult[None]` parent link step.
+Creation outside `Ownership` runs through `created(<kind>, <name>, <arguments>)`, and `kept` removes the ID on any later refusal
 
 ## [03]-[LIBRARY_LOADS]
 
 `libraries.load` takes names and returns IDs after its context exits:
 - `files.blends.sourced(data, path, take, **keywords)` runs `take` over the source listing and returns its value with the loaded IDs per store
 - `files.blends.inspected(path)` yields another file's data in a `bpy.data.temp_data()` store closing with the scope, session data untouched
-- `files.libraries.blocks_loaded(path, kind, names, link)` takes `Linked`, `LocalCopy`, or `Overrides` and accumulates every absent name
+- `files.libraries.blocks_loaded(path, kind, names, **load)` passes `bpy.data.libraries.load` keywords (`link`, `pack`, `reuse_local_id`) and accumulates every absent name
 - Loads and appends bring every ID a requested ID references, and the created set is the `bpy.data` difference before and after
 - Invalid flag sets and the current file raise `ValueError` before loading
 - Names the source lacks load as `None` with a `UserWarning`, and `data_from.libraries` lists nested libraries
 - `files.libraries.library_written(path, blocks, remap, fake_user, compress)` writes a subset of IDs with every ID they reference, a remap other than `NONE` keeping `//` paths valid in another folder
 - Undo skips library data and crashes where a library ID points at local data
-- Edits to linked data go through `files.libraries.overridden`
+- Edits to linked data take an override from `ID.override_create(remap_local_usages=)` or `ID.override_hierarchy_create(scene, view_layer, reference=, do_fully_editable=)`
+- `IDOverrideLibrary.reset`, `destroy`, and `resync` take their host keywords
 - Values read from a file (custom properties, texts) stay data, and untrusted files open with `use_scripts=False`
 
 ## [04]-[PATHS]

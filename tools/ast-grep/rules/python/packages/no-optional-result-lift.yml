@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-optional-result-lift
+language: python
+severity: error
+rule:
+    kind: call
+    pattern: $LIFT
+    all:
+        - has:
+            field: function
+            kind: attribute
+            all:
+                - has: {field: attribute, regex: '^to_result(_with)?$'}
+                - has: {field: object, kind: call, has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^of_optional$'}}, {has: {field: object, regex: '^Option$'}}]}}
+message: '`$LIFT` builds an absence fault at the lookup'
+note: 'Call `required(<value>, <owner>, "<member>")` from the fault package'

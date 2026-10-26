@@ -121,6 +121,8 @@ Icons and previews follow host rules:
 - Previews load from files through `<previews>.load(<name>, <path>, 'IMAGE')` or from pixels through `<previews>.new(<name>)`, `image_size`, and `image_pixels_float`
 - `load` and `new` raise `KeyError` for a name the collection holds
 - Preview pixels load on first draw or first read of `icon_size`, `image_size`, or a pixel array, image loads capping the image at 256 pixels and the icon at 32
+- `<id>.preview_ensure()` renders no pixels in background runs, and `image_size` reads `(0, 0)`
+- `Material.preview_render_type` sets the swatch shape (`FLAT`, `SPHERE`, `CUBE`, `HAIR`, `SHADERBALL`, `CLOTH`, `FLUID`)
 - Full-resolution icons set `icon_size = image_size` and copy the image pixels into the icon buffer
 - Preview collection items hold no ID, and draw through `icon_value=<previews>[<name>].icon_id` or as the fourth member of an enum item, outside ID templates
 - `icon_id` reads 0 in a background run
@@ -203,21 +205,23 @@ Lists without `filter_items` filter by name and sort by name under `use_filter_s
 import bpy
 import numpy as np
 
+type Struct = bpy.types.bpy_struct[object]
+
 
 def draw_item(
     _ui: bpy.types.UIList,
     _context: bpy.types.Context,
     layout: bpy.types.UILayout,
-    _data: "bpy.types.bpy_struct[object]",
-    item: "bpy.types.bpy_struct[object]",
+    _data: Struct,
+    item: Struct,
     _icon: int,
-    _active_data: "bpy.types.bpy_struct[object]",
+    _active_data: Struct,
     _active_property: str,
 ) -> None:
     layout.prop(item, "name", text="", emboss=False)
 
 
-def filter_items(ui: bpy.types.UIList, _context: bpy.types.Context, data: "bpy.types.bpy_struct[object]", propname: str) -> tuple[list[int], list[int]]:
+def filter_items(ui: bpy.types.UIList, _context: bpy.types.Context, data: Struct, propname: str) -> tuple[list[int], list[int]]:
     items: bpy.types.bpy_prop_collection[bpy.types.PropertyGroup] = getattr(data, propname)
     items.foreach_get("hidden", hidden := np.empty(len(items), np.bool_))
     named: list[int] = bpy.types.UI_UL_list.filter_items_by_name(ui.filter_name, ui.bitflag_filter_item, items, reverse=ui.use_filter_invert)  # type: ignore[arg-type]  # ty: ignore[invalid-assignment]
@@ -302,7 +306,7 @@ Custom gizmos declare `bl_target_properties = ({"id": <name>, "type": <type>, "a
 
 Tool members follow host rules:
 - Tuple `bl_keymap` rows of `(<operator>, <event keywords>, {"properties": [...]})` create keymap `<prefix> <Mode Title>, <label>` in `keyconfigs.addon`
-- Keymap prefixes are `3D View Tool:`, `Image Editor Tool:`, `Node Editor Tool:`, and `Sequence Editor Tool:`
+- Keymap prefixes come from `keymap_prefix` on the space's `ToolSelectPanelHelper` subclass (`VIEW3D_PT_tools_active.keymap_prefix`)
 - Registrations finding the tool keymap present keep its items, and `unregister_tool` removes the keymap
 - `bl_widget = <gizmo group idname>` shows that group while the tool is active, and `bl_widget_properties` takes a `list` of `(name, value)` pairs, another sequence failing `wm.tool_set_by_id` at activation
 - `tool.gizmo_group_properties(<group idname>)` returns the group's settings for `draw_settings`

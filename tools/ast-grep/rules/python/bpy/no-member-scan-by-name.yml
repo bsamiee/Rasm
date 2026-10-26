@@ -44,4 +44,4 @@ rule:
                     - has: {matches: scanned}
                     - inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^any$'}}}}}
 message: '`$TEST` scans members for the one a literal names'
-note: 'Index `<collection>["<name>"]` tested by `in`, declare `Descriptor.declared(<root>, "<name>", <kind>)`, or unpack `msgspec.structs.fields(<record>)`'
+note: 'Index `<collection>["<name>"]` tested by `in`, declare `Descriptor.declared(<root>, "<name>", <kind>)`, or reach the field through `<Record>.<field>`'

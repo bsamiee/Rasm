@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-literal-mapping-proxy
+language: python
+severity: error
+metadata: {python-from: '3.15'}
+rule:
+    kind: call
+    pattern: $CALL
+    all:
+        - has: {field: arguments, kind: argument_list, has: {nthChild: 1, kind: 'dictionary, dictionary_comprehension', pattern: $MAPPING}, not: {has: {nthChild: 2}}}
+        - has: {field: function, matches: {python-member-use: {module: {regex: '^types$'}, name: {regex: '^MappingProxyType$'}}}}
+fix: frozendict($MAPPING)
+message: '`$CALL` wraps a literal mapping in a read-only view'
+note: 'Write `frozendict(<mapping>)`'

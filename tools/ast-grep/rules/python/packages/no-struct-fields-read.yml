@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-struct-fields-read
+language: python
+severity: error
+utils:
+    field-tuple:
+        kind: call
+        has: {field: function, matches: {python-member-use: {module: {regex: '^msgspec\.structs$'}, name: {regex: '^(fields|astuple)$'}}}}
+    unpacked:
+        kind: assignment
+        all:
+            - has: {field: left, kind: 'pattern_list, tuple_pattern, list_pattern'}
+            - has: {field: right, matches: field-tuple}
+    indexed:
+        kind: subscript
+        all:
+            - has: {field: subscript, kind: integer}
+            - has: {field: value, matches: field-tuple}
+rule:
+    pattern: $READ
+    any:
+        - kind: attribute
+          has: {field: attribute, regex: '^__struct_(fields|encode_fields|defaults)__$'}
+        - matches: unpacked
+        - matches: indexed
+message: '`$READ` reads record fields by declaration position'
+note: 'Reach one field through `<Record>.<field>` and iterate fields through `msgspec.structs.fields(<Record>)`'

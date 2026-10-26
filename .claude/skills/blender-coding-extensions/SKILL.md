@@ -30,12 +30,12 @@ Registration runs under host conditions a release stack answers:
 from contextlib import ExitStack
 from sys import platform
 
+from bl_keymap_utils.io import keymap_init_from_data
 from bl_keymap_utils.platform_helpers import keyconfig_data_oskey_from_ctrl_for_macos
 import bpy
 from expression import identity
-import msgspec
 
-type Keymaps = list[tuple[str, dict[str, str], dict[str, list[tuple[str, dict[str, object], msgspec.Struct]]]]]
+type Keymaps = list[tuple[str, dict[str, str], dict[str, list[tuple[str, dict[str, object], dict[str, list[tuple[str, object]]]]]]]]
 
 held = ExitStack()
 unregister = held.close
@@ -48,7 +48,7 @@ def register() -> None:
 
     keyconfigs: bpy.types.KeyConfigurations = bpy.context.window_manager.keyconfigs  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     keymaps: Keymaps = (keyconfig_data_oskey_from_ctrl_for_macos if platform == "darwin" else identity)(  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        [("Object Mode", {}, {"items": [(ITEM_OT_run.bl_idname, {"type": "J", "value": "PRESS", "ctrl": 1}, Run(amount=2))]})]
+        [("Object Mode", {}, {"items": [(ITEM_OT_run.bl_idname, {"type": "J", "value": "PRESS", "ctrl": 1}, {"properties": [("amount", 2)]})]})]
     )
     with ExitStack() as stack:
         stack.callback(keyconfigs.update, keep_properties=True)
@@ -59,17 +59,16 @@ def register() -> None:
         stack.callback(delattr, bpy.types.Scene, "item_settings")
         bpy.app.handlers.load_post.append(loaded)
         stack.callback(bpy.app.handlers.load_post.remove, loaded)
-        for keymap, (operator, event, values) in ((keyconfigs.addon.keymaps.new(name, **params), entry) for name, params, content in keymaps for entry in content["items"]):  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
-            item: bpy.types.KeyMapItem = keymap.keymap_items.new(operator, **event)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            stack.callback(keymap.keymap_items.remove, item)
-            for field, value in msgspec.structs.asdict(values).items():
-                setattr(item.properties, field, value)
+        for keymap, content in ((keyconfigs.addon.keymaps.new(name, **params), content) for name, params, content in keymaps):  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
+            present = len(keymap.keymap_items)
+            keymap_init_from_data(keymap, content["items"])
+            for item in keymap.keymap_items[present:]:
+                stack.callback(keymap.keymap_items.remove, item)
         held.push(stack.pop_all())
 ```
 
 Snippet placeholders stand for extension declarations and values:
 - `Settings` for a `PropertyGroup`, `ITEM_OT_run` for an operator with an `amount` property, and `ITEM_PT_settings` for a panel
-- `Run` for the operator's record, with fields named after its properties
 - `item` for the manifest `id`, and `loaded` for a `@bpy.app.handlers.persistent` function
 
 Acquisitions follow host dependency order, and releases run in reverse, a group unregistered while an attachment names it crashing Blender at the attachment's next read:
@@ -180,7 +179,7 @@ Keymap items join `bpy.context.window_manager.keyconfigs.addon`, present in ever
 - `keyconfigs.addon` refuses modal keymaps with `RuntimeError`, stock modal maps included, and modal keys stay in the operator's `modal`
 - `keymap_items.new` leaves `repeat` off, held-key items passing `repeat=True`
 - Modifier keywords take `1`, `0`, or `-1` for either state, and `any=True` matches every modifier state
-- Keymap rows take the stock keyconfig data form, the operator's record in the property slot and events naming pressed modifiers alone
+- Keymap rows take the stock keyconfig data form `(<operator>, <event>, {"properties": [(<name>, <value>), ...]})`, events naming pressed modifiers alone
 - `ctrl=1` items ignore Cmd on macOS
 - `darwin` rows take the Cmd copies `keyconfig_data_oskey_from_ctrl_for_macos` derives for stock keymaps and for `ctrl: 0` events
 - Background runs hold the C-defined default items until `bpy.utils.keyconfig_init()` loads the stock preset
@@ -272,9 +271,9 @@ class Previous(msgspec.Struct, frozen=True, kw_only=True):
 def migrated(preferences: bpy.types.Preferences, package: str) -> Option[Result[Previous, msgspec.ValidationError]]:
     held: bpy.types.Addon | None = preferences.addons.get(package)
     match held:
-        case bpy.types.Addon(preferences=ItemPreferences() as prefs) if (stored := prefs.bl_system_properties_get()) is not None and any(name in stored for name in Previous.__struct_fields__):  # type: ignore[operator]
+        case bpy.types.Addon(preferences=ItemPreferences() as prefs) if (stored := prefs.bl_system_properties_get()) is not None and any(field.name in stored for field in msgspec.structs.fields(Previous)):  # type: ignore[operator]
             previous: Result[Previous, msgspec.ValidationError] = catch(msgspec.convert, exception=msgspec.ValidationError)(
-                {name: stored.pop(name) for name in Previous.__struct_fields__ if name in stored}, type=Previous  # type: ignore[operator]
+                {field.name: stored.pop(field.name) for field in msgspec.structs.fields(Previous) if field.name in stored}, type=Previous  # type: ignore[operator]
             )
             for record in previous.to_option().to_list():
                 prefs.amount = record.count

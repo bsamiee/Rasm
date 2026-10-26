@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-memory-error-catch
+language: python
+severity: error
+utils:
+    memory-error:
+        any:
+            - matches: {python-builtin-name: {name: {regex: '^MemoryError$'}}}
+            - kind: tuple, parenthesized_expression
+              has: {matches: memory-error}
+            - kind: as_pattern
+              has: {nthChild: 1, matches: memory-error}
+rule:
+    kind: except_clause
+    has: {field: value, pattern: $CAUGHT, matches: memory-error}
+message: '`except $CAUGHT` catches `MemoryError`, an allocation defect'
+note: 'Remove `MemoryError` from the clause'

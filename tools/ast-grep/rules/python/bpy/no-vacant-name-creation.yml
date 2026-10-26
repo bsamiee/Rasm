@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-vacant-name-creation
+language: python
+severity: error
+files:
+    - libs/python/blender/**
+    - apps/blender/**
+utils:
+    vacant-name:
+        kind: call
+        all:
+            - has: {field: arguments, has: {nthChild: 2, pattern: bpy.data.$STORE.keys()}}
+            - has: {field: function, matches: {python-imported-name: {module: {regex: '^blender\.bpy\.data\.ids\.store$'}, name: {regex: '^vacant$'}}}}
+rule:
+    kind: call
+    pattern: $CREATE
+    all:
+        - has: {field: arguments, has: {nthChild: 1, matches: vacant-name}}
+        - not: {inside: {kind: function_definition, stopBy: end, has: {field: name, regex: '^created$'}}}
+message: '`$CREATE` creates an ID under a `vacant` name at its call site'
+note: 'Call `created(<kind>, <name>, <arguments>)`'

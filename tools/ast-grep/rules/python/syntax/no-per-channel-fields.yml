@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-per-channel-fields
+language: python
+severity: error
+utils:
+    field:
+        kind: expression_statement
+        has: {kind: assignment, has: {field: type, kind: type}}
+    red: {matches: field, has: {kind: assignment, has: {field: left, regex: '^red$'}}}
+    green: {matches: field, has: {kind: assignment, has: {field: left, regex: '^green$'}}}
+    blue: {matches: field, has: {kind: assignment, has: {field: left, regex: '^blue$'}}}
+    top-left: {matches: field, has: {kind: assignment, has: {field: left, regex: '^top_left$'}}}
+    top-right: {matches: field, has: {kind: assignment, has: {field: left, regex: '^top_right$'}}}
+    bottom-right: {matches: field, has: {kind: assignment, has: {field: left, regex: '^bottom_right$'}}}
+    bottom-left: {matches: field, has: {kind: assignment, has: {field: left, regex: '^bottom_left$'}}}
+rule:
+    kind: class_definition
+    all:
+        - has: {field: name, pattern: $NAME}
+        - not: {has: {field: type_parameters, kind: type_parameter}}
+        - not: {has: {field: superclasses, has: {kind: subscript, has: {field: value, regex: '^(typing\.)?Generic$'}}}}
+        - has:
+            field: body
+            any:
+                - all: [{has: {matches: red}}, {has: {matches: green}}, {has: {matches: blue}}]
+                - all: [{has: {matches: top-left}}, {has: {matches: top-right}}, {has: {matches: bottom-right}}, {has: {matches: bottom-left}}]
+message: '`$NAME` declares one field per channel or corner'
+note: 'Declare channels as one `Rgb[<T>]` field and corners as one `Corners[<T>]` field'

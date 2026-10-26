@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-metaclass
+language: python
+severity: error
+utils:
+    metaclass-base:
+        kind: identifier, attribute
+        regex: '^((\w+\.)*(StructMeta|ABCMeta|EnumType|EnumMeta)|type)$'
+rule:
+    kind: class_definition
+    has: {field: name, pattern: $NAME}
+    any:
+        - has: {field: superclasses, has: {kind: keyword_argument, has: {field: name, regex: '^metaclass$'}}}
+        - has: {field: superclasses, has: {matches: metaclass-base}}
+message: '`$NAME` declares or applies a metaclass'
+note: 'Derive class facts in `__init_subclass__(cls, **options)`, assign per-class values to `ClassVar` members in each class body, and subclass `ABC` for abstract members'

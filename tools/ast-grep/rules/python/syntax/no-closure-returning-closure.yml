@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-closure-returning-closure
+language: python
+severity: error
+rule:
+    kind: function_definition
+    all:
+        - has: {field: name, pattern: $NAME}
+        - inside: {kind: function_definition, stopBy: end}
+        - any:
+            - all:
+                - has:
+                    field: body
+                    has:
+                        any:
+                            - kind: function_definition
+                              has: {field: name, pattern: $INNER}
+                            - kind: decorated_definition
+                              not: {has: {kind: decorator, regex: '\bwraps\b'}}
+                              has: {field: definition, has: {field: name, pattern: $INNER}}
+                - has:
+                    field: body
+                    has:
+                        kind: return_statement
+                        stopBy: {kind: 'function_definition, lambda, class_definition'}
+                        has: {kind: identifier, pattern: $INNER}
+            - has:
+                field: body
+                has:
+                    kind: return_statement
+                    stopBy: {kind: 'function_definition, lambda, class_definition'}
+                    has: {kind: lambda}
+message: '`$NAME` returns a closure from inside a closure'
+note: 'Lift the returned function to module level and bind its free values with `functools.partial`'

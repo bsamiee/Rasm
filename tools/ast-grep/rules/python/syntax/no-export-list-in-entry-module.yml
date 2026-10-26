@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-export-list-in-entry-module
+language: python
+severity: error
+rule:
+    kind: expression_statement
+    pattern: $EXPORTS
+    has: {kind: assignment, has: {field: left, kind: identifier, regex: '^__all__$'}}
+    inside: {kind: module, matches: python-entry-module}
+message: '`$EXPORTS` lists exports in a module no module imports by name'
+note: 'Delete `__all__` and its `[EXPORTS]` divider'

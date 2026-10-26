@@ -3,9 +3,6 @@ id: no-heterogeneous-enum-value
 language: python
 severity: error
 utils:
-    unpacking-init:
-        kind: function_definition
-        has: {field: name, regex: '^(__init__|__new__)$'}
     text:
         kind: string, concatenated_string
         not: {regex: '^[rRuU]?[bB]'}
@@ -35,6 +32,5 @@ rule:
             inside:
                 kind: block
                 inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
-                not: {has: {any: [{matches: unpacking-init}, {kind: decorated_definition, has: {matches: unpacking-init}}]}}
 message: '`$MEMBER` packs mixed-kind values into one enum tuple read by position'
-note: 'Unpack the tuple into one attribute per element through `__init__(self, <a>, <b>)`'
+note: 'Keep members plain and hold their values in one `Mapping[<enum>, <record>]` of frozen records'

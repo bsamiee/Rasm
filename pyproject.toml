@@ -521,7 +521,6 @@ ignore                    = [
     "missing-copyright-notice",                                                                                                                                                                                      # Files hold no license header
     "commented-out-code",                                                                                                                                                                                            # Reads `# --- [<FAMILY>]` subsection dividers as code
     "float-equality-comparison",                                                                                                                                                                                     # Code compares authored controls with exact identity values (`0.0`, `1.0`) and guards division by exact zero
-    "non-pep695-generic-class",                                                                                                                                                                                      # ty reads frozen `msgspec.Struct` fields as invariant, covariant records keep `TypeVar` variance
     "zip-without-explicit-strict",                                                                                                                                                                                   # `strict=True` asserts lengths the code constructs
     "batched-without-explicit-strict",                                                                                                                                                                               # `strict=True` asserts lengths the code constructs
     "subprocess-without-shell-equals-true",                                                                                                                                                                          # Reports every argument-vector `subprocess` call
@@ -561,14 +560,14 @@ pydoclint                 = { ignore-one-line-docstrings = true }
 pylint                    = { allow-magic-value-types = ["str", "bytes", "int"], allow-dunder-method-names = ["__array__"], max-args = 8 }
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**"                                    = ["assert"]
-"{libs/python/blender,apps/blender}/**"       = [
-    "boolean-positional-value-in-call",                                                   # bpy, gpu, RNA writes, and `Ok` take booleans as values (`gpu.state.scissor_test_set(True)`, `Ok(True)`)
-    "import-private-name",                                                                # Blender (`_bpy_internal`, `_bpy_types`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
-    "no-self-use",                                                                        # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
+"tests/**"                              = ["assert"]
+"{libs/python/blender,apps/blender}/**" = [
+    "boolean-positional-value-in-call",                             # bpy, gpu, RNA writes, and `Ok` take booleans as values (`gpu.state.scissor_test_set(True)`, `Ok(True)`)
+    "import-private-name",                                          # Blender (`_bpy_internal`, `_bpy_types`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
+    "no-self-use",                                                  # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
+    "non-pep695-generic-class",                                     # ty reads frozen `msgspec.Struct` fields as invariant, covariant records keep `TypeVar` variance
 ]
-"apps/blender/**"                             = ["non-empty-init-module"]                 # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
-"libs/python/blender/bpy/ui/layout/values.py" = ["boolean-type-hint-positional-argument"] # `Enum` unpacks each `Verb` member tuple into `__init__` positionally
+"apps/blender/**"                       = ["non-empty-init-module"] # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
 
 [tool.ruff.lint.flake8-tidy-imports]
 require-lazy = [
@@ -594,80 +593,81 @@ require-lazy = [
 ]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"asyncio".msg                      = "Use anyio"
-"collections.namedtuple".msg       = "Use frozen msgspec.Struct"
-"concurrent.futures".msg           = "Use anyio.to_thread.run_sync or anyio.to_process.run_sync"
-"concurrent.interpreters".msg      = "Use anyio.to_interpreter.run_sync"
-"contextlib.suppress".msg          = "Return expression.Result"
-"dataclasses.dataclass".msg        = "Use frozen msgspec.Struct"
-"dataclasses.make_dataclass".msg   = "Use frozen msgspec.Struct"
-"expression.effect".msg            = "Chain Result.bind and Result.map, builders return zero value on RuntimeError"
-"http.client".msg                  = "Use httpx2.Client or httpx2.AsyncClient"
-"httpx".msg                        = "Use httpx2.Client or httpx2.AsyncClient"
-"json.JSONDecoder".msg             = "Use msgspec.json.decode with type="
-"json.JSONEncoder".msg             = "Use msgspec.json.encode"
-"json.decoder.JSONDecoder".msg     = "Use msgspec.json.decode with type="
-"json.dump".msg                    = "Use msgspec.json.encode"
-"json.dumps".msg                   = "Use msgspec.json.encode"
-"json.encoder.JSONEncoder".msg     = "Use msgspec.json.encode"
-"json.load".msg                    = "Use msgspec.json.decode with type="
-"json.loads".msg                   = "Use msgspec.json.decode with type="
-"logging.Logger".msg               = "Use structlog.typing.FilteringBoundLogger"
-"logging.LoggerAdapter".msg        = "Use structlog.get_logger(__name__).bind"
-"logging.RootLogger".msg           = "Use structlog.typing.FilteringBoundLogger"
-"logging.addLevelName".msg         = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.basicConfig".msg          = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.captureWarnings".msg      = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.config".msg               = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.critical".msg             = "Use structlog.get_logger(__name__)"
-"logging.debug".msg                = "Use structlog.get_logger(__name__)"
-"logging.disable".msg              = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.error".msg                = "Use structlog.get_logger(__name__)"
-"logging.exception".msg            = "Use structlog.get_logger(__name__)"
-"logging.fatal".msg                = "Use structlog.get_logger(__name__)"
-"logging.getLogRecordFactory".msg  = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.getLogger".msg            = "Use structlog.get_logger(__name__)"
-"logging.getLoggerClass".msg       = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.info".msg                 = "Use structlog.get_logger(__name__)"
-"logging.lastResort".msg           = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.log".msg                  = "Use structlog.get_logger(__name__)"
-"logging.raiseExceptions".msg      = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.root".msg                 = "Use structlog.get_logger(__name__)"
-"logging.setLogRecordFactory".msg  = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.setLoggerClass".msg       = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.shutdown".msg             = "Delete call, atexit runs it"
-"logging.warn".msg                 = "Use structlog.get_logger(__name__)"
-"logging.warning".msg              = "Use structlog.get_logger(__name__)"
-"nt.environ".msg                   = "Validate os.environ once at boundary into frozen settings"
-"ntpath.expandvars".msg            = "Read validated settings field"
-"operator.attrgetter".msg          = "Use lambda, typeshed types result as Any"
-"operator.itemgetter".msg          = "Use lambda, typeshed types result as Any"
-"operator.methodcaller".msg        = "Use lambda, typeshed types result as Any"
-"os.getenv".msg                    = "Read validated settings field"
-"os.getenvb".msg                   = "Read validated settings field"
-"os.path.expandvars".msg           = "Read validated settings field"
-"posix.environ".msg                = "Validate os.environ once at boundary into frozen settings"
-"posixpath.expandvars".msg         = "Read validated settings field"
-"requests".msg                     = "Use httpx2.Client or httpx2.AsyncClient"
-"sys.__excepthook__".msg           = "Log exception with exc_info="
-"threading.__excepthook__".msg     = "Log exception with exc_info="
-"time.sleep".msg                   = "Use await anyio.sleep"
-"traceback.print_exc".msg          = "Call logger.exception() in handler"
-"traceback.print_exception".msg    = "Log exception with exc_info="
-"traceback.print_last".msg         = "Log exception with exc_info="
-"traceback.print_list".msg         = "Log captured exception with exc_info="
-"traceback.print_stack".msg        = "Log with stack_info=True"
-"traceback.print_tb".msg           = "Log exception with exc_info="
-"typing.NamedTuple".msg            = "Use frozen msgspec.Struct"
-"typing.cast".msg                  = "Type value at source or narrow with TypeIs"
-"typing_extensions.NamedTuple".msg = "Use frozen msgspec.Struct"
-"typing_extensions.cast".msg       = "Type value at source or narrow with TypeIs"
-"typing_extensions.deprecated".msg = "Delete replaced API"
-"urllib.request".msg               = "Use httpx2.Client or httpx2.AsyncClient"
-"urllib3".msg                      = "Use httpx2.Client or httpx2.AsyncClient"
-"warnings.deprecated".msg          = "Delete replaced API"
-"warnings.warn".msg                = "Return expression.Result"
-"warnings.warn_explicit".msg       = "Return expression.Result"
+"asyncio".msg                            = "Use anyio"
+"bpy.utils.register_classes_factory".msg = "Call bpy.utils.register_class per class on the release stack"
+"collections.namedtuple".msg             = "Use frozen msgspec.Struct"
+"concurrent.futures".msg                 = "Use anyio.to_thread.run_sync or anyio.to_process.run_sync"
+"concurrent.interpreters".msg            = "Use anyio.to_interpreter.run_sync"
+"contextlib.suppress".msg                = "Return expression.Result"
+"dataclasses.dataclass".msg              = "Use frozen msgspec.Struct"
+"dataclasses.make_dataclass".msg         = "Use frozen msgspec.Struct"
+"expression.effect".msg                  = "Chain Result.bind and Result.map, builders return zero value on RuntimeError"
+"http.client".msg                        = "Use httpx2.Client or httpx2.AsyncClient"
+"httpx".msg                              = "Use httpx2.Client or httpx2.AsyncClient"
+"json.JSONDecoder".msg                   = "Use msgspec.json.decode with type="
+"json.JSONEncoder".msg                   = "Use msgspec.json.encode"
+"json.decoder.JSONDecoder".msg           = "Use msgspec.json.decode with type="
+"json.dump".msg                          = "Use msgspec.json.encode"
+"json.dumps".msg                         = "Use msgspec.json.encode"
+"json.encoder.JSONEncoder".msg           = "Use msgspec.json.encode"
+"json.load".msg                          = "Use msgspec.json.decode with type="
+"json.loads".msg                         = "Use msgspec.json.decode with type="
+"logging.Logger".msg                     = "Use structlog.typing.FilteringBoundLogger"
+"logging.LoggerAdapter".msg              = "Use structlog.get_logger(__name__).bind"
+"logging.RootLogger".msg                 = "Use structlog.typing.FilteringBoundLogger"
+"logging.addLevelName".msg               = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.basicConfig".msg                = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.captureWarnings".msg            = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.config".msg                     = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.critical".msg                   = "Use structlog.get_logger(__name__)"
+"logging.debug".msg                      = "Use structlog.get_logger(__name__)"
+"logging.disable".msg                    = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.error".msg                      = "Use structlog.get_logger(__name__)"
+"logging.exception".msg                  = "Use structlog.get_logger(__name__)"
+"logging.fatal".msg                      = "Use structlog.get_logger(__name__)"
+"logging.getLogRecordFactory".msg        = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.getLogger".msg                  = "Use structlog.get_logger(__name__)"
+"logging.getLoggerClass".msg             = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.info".msg                       = "Use structlog.get_logger(__name__)"
+"logging.lastResort".msg                 = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.log".msg                        = "Use structlog.get_logger(__name__)"
+"logging.raiseExceptions".msg            = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.root".msg                       = "Use structlog.get_logger(__name__)"
+"logging.setLogRecordFactory".msg        = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.setLoggerClass".msg             = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.shutdown".msg                   = "Delete call, atexit runs it"
+"logging.warn".msg                       = "Use structlog.get_logger(__name__)"
+"logging.warning".msg                    = "Use structlog.get_logger(__name__)"
+"nt.environ".msg                         = "Validate os.environ once at boundary into frozen settings"
+"ntpath.expandvars".msg                  = "Read validated settings field"
+"operator.attrgetter".msg                = "Use lambda, typeshed types result as Any"
+"operator.itemgetter".msg                = "Use lambda, typeshed types result as Any"
+"operator.methodcaller".msg              = "Use lambda, typeshed types result as Any"
+"os.getenv".msg                          = "Read validated settings field"
+"os.getenvb".msg                         = "Read validated settings field"
+"os.path.expandvars".msg                 = "Read validated settings field"
+"posix.environ".msg                      = "Validate os.environ once at boundary into frozen settings"
+"posixpath.expandvars".msg               = "Read validated settings field"
+"requests".msg                           = "Use httpx2.Client or httpx2.AsyncClient"
+"sys.__excepthook__".msg                 = "Log exception with exc_info="
+"threading.__excepthook__".msg           = "Log exception with exc_info="
+"time.sleep".msg                         = "Use await anyio.sleep"
+"traceback.print_exc".msg                = "Call logger.exception() in handler"
+"traceback.print_exception".msg          = "Log exception with exc_info="
+"traceback.print_last".msg               = "Log exception with exc_info="
+"traceback.print_list".msg               = "Log captured exception with exc_info="
+"traceback.print_stack".msg              = "Log with stack_info=True"
+"traceback.print_tb".msg                 = "Log exception with exc_info="
+"typing.NamedTuple".msg                  = "Use frozen msgspec.Struct"
+"typing.cast".msg                        = "Type value at source or narrow with TypeIs"
+"typing_extensions.NamedTuple".msg       = "Use frozen msgspec.Struct"
+"typing_extensions.cast".msg             = "Type value at source or narrow with TypeIs"
+"typing_extensions.deprecated".msg       = "Delete replaced API"
+"urllib.request".msg                     = "Use httpx2.Client or httpx2.AsyncClient"
+"urllib3".msg                            = "Use httpx2.Client or httpx2.AsyncClient"
+"warnings.deprecated".msg                = "Delete replaced API"
+"warnings.warn".msg                      = "Return expression.Result"
+"warnings.warn_explicit".msg             = "Return expression.Result"
 
 # --- [TY] -------------------------------------------------------------------------------
 
@@ -694,6 +694,7 @@ explicit_package_bases  = true
 exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
+untyped_calls_exclude   = ["OpenImageIO", "picosvg", "skimage"]                                                                                                    # Callees mypy reports as untyped calls in packages that ship no typed signatures
 plugins                 = ["pydantic.mypy"]
 enable_error_code       = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
 overrides               = [{ module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true }, { module = ["cycles.*"], ignore_missing_imports = true }]

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-try-answering-error
+language: python
+severity: error
+utils:
+    error-return:
+        kind: block
+        all:
+            - has: {nthChild: 1, kind: return_statement, has: {kind: call, has: {field: function, kind: identifier, regex: '^Error$'}}}
+            - not: {has: {nthChild: 2}}
+    relayed-call:
+        kind: block
+        all:
+            - has: {nthChild: 1, pattern: 'return Ok($CALL(*$ARGS, **$KWARGS))'}
+            - not: {has: {nthChild: 2}}
+rule:
+    kind: try_statement
+    all:
+        - has: {kind: except_clause}
+        - not: {has: {kind: finally_clause}}
+        - not: {has: {field: body, matches: relayed-call}}
+        - not: {has: {kind: except_clause, not: {has: {matches: error-return}}}}
+message: '`try` answers `Error` from every handler'
+note: 'Decorate the raising step with `@catch(exception=<error>)` or a package refusal decorator, or call `host(<callee>, <arguments>)`, caught error kept as cause'

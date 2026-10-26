@@ -79,8 +79,8 @@ def encoded(master: Path) -> bytes:
         kept = corners[(first[:, 0] - second[:, 0]) * (second[:, 1] - third[:, 1]) + (first[:, 1] - second[:, 1]) * (third[:, 0] - second[:, 0]) > 0]
         return rgba * kept.shape[0] * 3, kept.astype(np.uint8)
 
-    styled: SVG = SVG.parse(master).apply_style_attributes()  # type: ignore[no-untyped-call]
-    if (viewbox := (svg := styled.topicosvg()).view_box()) is None:  # type: ignore[no-untyped-call]
+    styled: SVG = SVG.parse(master).apply_style_attributes()
+    if (viewbox := (svg := styled.topicosvg()).view_box()) is None:
         raise ValueError(f"SVG master {master} has no viewport dimensions")
     transform = Affine2D.flip_y() @ Affine2D.rect_to_rect(viewbox, Rect(-1, -1, 2, 2), svg.svg_root.get("preserveAspectRatio", "xMidYMid meet"))
     paints = tuple(
