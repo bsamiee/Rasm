@@ -54,21 +54,14 @@ internal readonly struct BlueNoise : IOffsetField {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public partial class Dither : IStateRecord<Dither, DitherParameter>, IPixelStage<Dither>, ICaptioned {
-    public static readonly Dither Off = new Pointwise<NoOffset>("off", "Off");
-    public static readonly Dither WhiteNoise = new Pointwise<WhiteNoise>("white-noise", "White noise");
-    public static readonly Dither BlueNoise = new Pointwise<BlueNoise>("blue-noise", "Blue noise");
-    public static readonly Dither FloydSteinberg = new("floyd-steinberg", "Floyd-Steinberg", static levels => new PixelPass.Frame((frame, progress) => Diffuse(levels, frame, progress)));
-
-    [IgnoreMember]
-    public static Dither Default => WhiteNoise;
-
-    public string Caption { get; }
+public partial class Dither {
+    public static readonly Dither Off = new Pointwise<NoOffset>("off");
+    public static readonly Dither WhiteNoise = new Pointwise<WhiteNoise>("white-noise");
+    public static readonly Dither BlueNoise = new Pointwise<BlueNoise>("blue-noise");
+    public static readonly Dither FloydSteinberg = new("floyd-steinberg", static levels => new PixelPass.Frame((frame, progress) => Diffuse(levels, frame, progress)));
 
     [UseDelegateFromConstructor]
     public partial PixelPass Pass(Quantizer levels);
-
-    public static Option<PixelPass> Pass(Dither state, PassContext context) => context.Depth.Levels.Map(state.Pass);
 
     private static Unit Diffuse(Quantizer levels, PixelFrame frame, IProgress<int> progress) {
         Span2D<Vector4> rows = frame.View.Span;
@@ -97,16 +90,5 @@ public partial class Dither : IStateRecord<Dither, DitherParameter>, IPixelStage
         return unit;
     }
 
-    private sealed class Pointwise<TField>(string key, string caption) : Dither(key, caption, static levels => new PixelPass.Pointwise(levels.Quantize<TField>)) where TField : IOffsetField;
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class DitherParameter : IStateParameter<Dither> {
-    public static readonly DitherParameter Method = new("method", new StateParameter<Dither>.Choice<Dither>(Lens.identity<Dither>()),
-        new("Method", "Noise or diffused error added before integer quantization"));
-
-    public StateParameter<Dither> Kind { get; }
-    public ParameterText Text { get; }
+    private sealed class Pointwise<TField>(string key) : Dither(key, static levels => new PixelPass.Pointwise(levels.Quantize<TField>)) where TField : IOffsetField;
 }

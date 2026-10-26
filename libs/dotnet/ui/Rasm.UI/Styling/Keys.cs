@@ -17,6 +17,7 @@ public sealed partial class Role {
     public static readonly Role Divider = Create("divider");
     public static readonly Role Scrollbar = Create("scrollbar");
     public static readonly Role Label = Create("label");
+    public static readonly Role ListRow = Create("list-row");
     public static readonly Role Veil = Create("veil");
     public static readonly Role Track = Create("track");
     public static readonly Role Span = Create("span");
@@ -24,6 +25,23 @@ public sealed partial class Role {
     public static readonly Role Grid = Create("grid");
     public static readonly Role Selection = Create("selection");
     public static readonly Role FocusRing = Create("focus-ring");
+    public static readonly Role Well = Create("well");
+    public static readonly Role Series = Create("series");
+    public static readonly Role Trace = Create("trace");
+    public static readonly Role Guide = Create("guide");
+    public static readonly Role Major = Create("major");
+    public static readonly Role GridFine = Create("grid-fine");
+    public static readonly Role Highlight = Create("highlight");
+    public static readonly Role Checker = Create("checker");
+    public static readonly Role OverlayCaption = Create("overlay-caption");
+    public static readonly Role Readout = Create("readout");
+    public static readonly Role Knob = Create("knob");
+    public static readonly Role Puck = Create("puck");
+    public static readonly Role Needle = Create("needle");
+    public static readonly Role Stop = Create("stop");
+    public static readonly Role Ring = Create("ring");
+    public static readonly Role ClipOver = Create("clip-over");
+    public static readonly Role ClipUnder = Create("clip-under");
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) => validationError = KebabCase.Checked(nameof(Role), value);
 }

@@ -4,7 +4,6 @@ using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
-using Rasm.Imaging.Pixels;
 using TinyEXR;
 using Wacton.Unicolour;
 
@@ -319,13 +318,8 @@ public abstract partial record LutTable {
     }
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LogSpace : ICaptioned {
-    public static readonly LogSpace AgXLog = new("agx-log", Gamut.EGamut, LogCurve.Allocation(-12.47393f, 12.5260688117f, 0f), "AgX Log");
-    public static readonly LogSpace FilmicLog = new("filmic-log", Gamut.StandardRgb, LogCurve.Allocation(-12.473931188f, 12.526068812f, 0f), "Filmic Log");
-
+public sealed record LogSpace(Gamut Gamut, LogCurve Allocation, Seq<LutTable> Into, Seq<LutTable> Back) {
+    private static readonly LogCurve AgXAllocation = LogCurve.Allocation(-12.47393f, 12.5260688117f, 0f);
     private static readonly LutTable Inset = new LutTable.Affine(Matrix<double>.Build.DenseOfRowMajor(3, 3, [
         0.856627153315983d, 0.0951212405381588d, 0.0482516061458583d,
         0.137318972929847d, 0.761241990602591d, 0.101439036467562d,
@@ -333,62 +327,30 @@ public sealed partial class LogSpace : ICaptioned {
     ]));
     private static readonly LutTable Outset = Inset.Inverse().ThrowIfFail();
 
-    public Gamut Gamut { get; }
-    public LogCurve Allocation { get; }
-    public string Caption { get; }
+    public static LogSpace Filmic { get; } = LogCurve.Allocation(-12.473931188f, 12.526068812f, 0f) switch {
+        var allocation => new(Gamut.StandardRgb, allocation, [new LutTable.Log(allocation)], [new LutTable.Antilog(allocation)]),
+    };
 
-    public Seq<LutTable> Into => Switch(
-        agXLog: static () => [
-            new LutTable.Log(AgXLog.Allocation), new LutTable.Cube(EmbeddedTables.Lattice("luminance_compensation_bt2020.cube"), LutInterpolation.Tetrahedral),
-            new LutTable.Antilog(AgXLog.Allocation), .. LutTables.Between(AgXLog.Gamut, Gamut.Rec2020), Inset, new LutTable.Log(AgXLog.Allocation)],
-        filmicLog: static () => Seq<LutTable>(new LutTable.Log(FilmicLog.Allocation)));
-
-    public Seq<LutTable> Back => Switch(
-        agXLog: static () => [new LutTable.Antilog(AgXLog.Allocation), Outset, .. LutTables.Between(Gamut.Rec2020, AgXLog.Gamut)],
-        filmicLog: static () => Seq<LutTable>(new LutTable.Antilog(FilmicLog.Allocation)));
+    public static LogSpace AgX(Lut3D compensation) =>
+        new(Gamut.EGamut, AgXAllocation,
+            [
+                new LutTable.Log(AgXAllocation), new LutTable.Cube(compensation, LutInterpolation.Tetrahedral), new LutTable.Antilog(AgXAllocation),
+                .. LutTables.Between(Gamut.EGamut, Gamut.Rec2020), Inset, new LutTable.Log(AgXAllocation),
+            ],
+            [new LutTable.Antilog(AgXAllocation), Outset, .. LutTables.Between(Gamut.Rec2020, Gamut.EGamut)]);
 }
 
 [Union]
 public abstract partial record LutSpace {
     public abstract (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket { get; }
 
-    public sealed record Encoded(Gamut Gamut, Transfer Transfer) : LutSpace, IStateRecord<Encoded, EncodedLutParameter> {
-        public static Encoded Default { get; } = new(Gamut.StandardRgb, Transfer.Standard.Default);
-        public static string Caption => "RGB encoding";
-
-        public override (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket => (new(Gamut, Transfer, Nits.ReferenceWhite), [], []);
+    public sealed record Encoded(ColorEncoding Signal) : LutSpace {
+        public override (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket => (Signal, [], []);
     }
 
-    public sealed record Log(LogSpace Space) : LutSpace, IStateRecord<Log, LogLutParameter> {
-        public static Log Default { get; } = new(LogSpace.AgXLog);
-        public static string Caption => "Grading log";
-
-        public override (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket => (new(Space.Gamut, TransferCurve.Linear, Nits.ReferenceWhite), Space.Into, Space.Back);
+    public sealed record Log(LogSpace Space) : LutSpace {
+        public override (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket => (new(Space.Gamut, new Transfer.Linear()), Space.Into, Space.Back);
     }
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class EncodedLutParameter : IStateParameter<LutSpace.Encoded> {
-    public static readonly EncodedLutParameter Gamut = new("gamut", new StateParameter<LutSpace.Encoded>.Choice<Gamut>(Lens<LutSpace.Encoded, Gamut>.New(static space => space.Gamut, static gamut => space => space with { Gamut = gamut })),
-        new("Gamut", "Table input and output primaries"));
-    public static readonly EncodedLutParameter Transfer = new("transfer", new StateParameter<LutSpace.Encoded>.Variant<Transfer>(Lens<LutSpace.Encoded, Transfer>.New(static space => space.Transfer, static transfer => space => space with { Transfer = transfer })),
-        new("Transfer", "Table input and output encoding"));
-
-    public StateParameter<LutSpace.Encoded> Kind { get; }
-    public ParameterText Text { get; }
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LogLutParameter : IStateParameter<LutSpace.Log> {
-    public static readonly LogLutParameter Space = new("space", new StateParameter<LutSpace.Log>.Choice<LogSpace>(Lens<LutSpace.Log, LogSpace>.New(static space => space.Space, static log => space => space with { Space = log })),
-        new("Grading log", "Log encoding and gamut the table runs in"));
-
-    public StateParameter<LutSpace.Log> Kind { get; }
-    public ParameterText Text { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -45,24 +45,56 @@ public sealed record Points<TValue>(
             },
         };
 
+    public static Points<TValue> Indexed(Lens<TValue, Seq<Vector2>> points, Func<Vector2, string> spoken) =>
+        new(value => points.Get(value).Map(static (at, index) => ((Key)Keyed(index), at)),
+            (value, targets, _) => Edited(points, value, held => held.Map((at, index) => targets.Find(target => Ordinal(target.Key) == Some(index)).Map(static target => target.To).IfNone(at)), targets),
+            spoken) {
+            Placed = Some<Func<TValue, Vector2, Option<Key>, Option<(TValue Value, Key Key)>>>((value, at, _) =>
+                Edited(points, value, held => held.Add(at), [(Keyed(points.Get(value).Count), at)]) switch {
+                    var (placed, keys) => keys.Head.Map(key => (placed, key)),
+                }),
+            Removed = Some<Func<TValue, Seq<Key>, Option<TValue>>>((value, keys) => Some(Without(points, value, keys))),
+            Torn = Some<Func<TValue, Key, Option<TValue>>>((value, key) => Some(Without(points, value, [key]))),
+        };
+
     public static Points<TValue> Scalar(PlotPlane.Track plane, Lens<TValue, float> value, Func<float, string> spoken) =>
         new(held => [(Only, plane.Along.With(new Vector2(0.5f), value.Get(held)))],
             (held, targets, _) => (targets.Fold(held, (state, target) => value.Set(plane.Along.Of(target.To), state)), targets.Map(static target => target.Key)),
             point => spoken(plane.Along.Of(point))) {
             Placed = Some<Func<TValue, Vector2, Option<Key>, Option<(TValue Value, Key Key)>>>((held, at, _) => Some((value.Set(plane.Along.Of(at), held), Only))),
         };
+
+    private static Key.Ordinal Keyed(int index) => new((uint)index);
+
+    private static Option<int> Ordinal(Key key) => key is Key.Ordinal ordinal ? Some((int)ordinal.Index) : None;
+
+    private static TValue Without(Lens<TValue, Seq<Vector2>> points, TValue value, Seq<Key> keys) =>
+        points.Set(points.Get(value).Map(static (at, index) => (At: at, Index: index)).Filter(held => !keys.Exists(key => Ordinal(key) == Some(held.Index))).Map(static held => held.At), value);
+
+    private static (TValue Value, Seq<Key> Keys) Edited(Lens<TValue, Seq<Vector2>> points, TValue value, Func<Seq<Vector2>, Seq<Vector2>> edit, Seq<(Key Key, Vector2 To)> targets) =>
+        points.Set(edit(points.Get(value)), value) switch {
+            var edited => (edited, Rekeyed(points.Get(edited), targets)),
+        };
+
+    private static Seq<Key> Rekeyed(Seq<Vector2> read, Seq<(Key Key, Vector2 To)> targets) =>
+        targets.Fold((Claimed: LanguageExt.HashSet<int>.Empty, Keys: Seq<Key>()), (held, target) =>
+            toSeq(read.Map(static (at, index) => (At: at, Index: index)).Filter(point => !held.Claimed.Contains(point.Index))
+                    .OrderBy(point => Vector2.DistanceSquared(point.At, target.To))
+                    .ThenBy(point => Math.Abs(point.Index - Ordinal(target.Key).IfNone(point.Index))))
+                .Head.Match(
+                    Some: point => (held.Claimed.Add(point.Index), held.Keys.Add(Keyed(point.Index))),
+                    None: () => (held.Claimed, held.Keys.Add(target.Key))))
+        .Keys;
 }
 
 public abstract record Handles {
     private protected static readonly Key Ground = new Key.Named("ground");
     private protected static readonly Key Layer = new Key.Named("handles");
-    private protected static readonly Sizing Grown = new Sizing.Grow(Factor.Create(1f));
 
     private protected Handles() { }
 
     public Selection Picked { get; init; } = new Selection.Many([], None, None);
     public Option<Func<Edit<Selection>, IO<Unit>>> Pick { get; init; }
-    public Option<Func<Option<Vector2>, IO<Unit>>> Hover { get; init; }
     public Option<Cursor> GroundCursor { get; init; }
 
     public abstract Node Drawn(PlotPlane plane, Seq<Node> ground, Option<Func<Key, Vector2, Node>> handle = default);
@@ -74,11 +106,6 @@ public abstract record Handles {
     internal Option<Seq<Key>> Revealed(Laid laid) => Picked.Lead.Map(lead => laid.Path.Add(Layer).Add(lead));
 
     internal static bool Offers(Laid laid, Seq<Key> path) => path == laid.Path || path.Init == laid.Path.Add(Layer);
-
-    internal Seq<IO<Unit>> Watched(Option<Sight> before, Sight after) =>
-        Hover.Map(hover => Hovered(after) switch {
-            var now => before.Bind(Hovered) == now ? Seq<IO<Unit>>() : [hover(now)],
-        }).IfNone([]);
 
     internal static HashMap<Metric, float> Metrics(Laid laid, Option<Key> key) =>
         (from held in key
@@ -103,14 +130,6 @@ public abstract record Handles {
         frame.Plane.Switch(cartesian: static _ => Cursor.Move, track: static track => Cursor.Resizing(track.Along), polar: static _ => Cursor.Move);
 
     private static Option<Laid> Child(Laid laid, Key key) => laid.Children.Find(child => child.Path.Last == Some(key));
-
-    private static Option<Vector2> Hovered(Sight sight) =>
-        from pointer in sight.Pointer
-        where sight.Hover.Exists(path => path.Take(sight.Laid.Path.Count) == sight.Laid.Path)
-        from bounds in sight.Scene.Frame(sight.Laid.Path)
-        from frame in Framed(sight.Laid, bounds)
-        from at in frame.At(pointer)
-        select at;
 }
 
 public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<Edit<TValue>, IO<Unit>> Edited) : Handles where TValue : notnull {
@@ -121,17 +140,17 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
 
     private Held Start => new(Value, Picked, None);
 
-    private Seq<Sink<Held>> Sinks => Seq(Sink<Held>.Of(static held => held.Value, Edited)) + Pick.Map(static pick => Sink<Held>.Of(static held => held.Picked, pick)).ToSeq();
+    private Seq<Receiver<Held>> Receivers => Seq(Receiver<Held>.Of(static held => held.Value, Edited)) + Pick.Map(static pick => Receiver<Held>.Of(static held => held.Picked, pick)).ToSeq();
 
     // --- [DRAW]
     public override Node Drawn(PlotPlane plane, Seq<Node> ground, Option<Func<Key, Vector2, Node>> handle = default) =>
         (Modified: Rest.Exists(rest => !rest.Equals(Value)), Track: plane.Dimensions is [var only] ? Some(only) : None) switch {
             var held => new Node.Overlay(
-                new Node.Plot(plane, ground.Map(node => Modified(node, held.Modified))) { Key = Ground, Width = Grown, Height = Grown },
+                new Node.Plot(plane, ground.Map(node => Modified(node, held.Modified))) { Key = Ground, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit },
                 [
                     new Node.Plot(plane, Points.Read(Value).Map(point => Stamped(
                         handle.Map(draw => draw(point.Key, point.At)).IfNone(() => new Node.Pin(point.At, new Node.Box()) { Role = Role.Handle, Align = UnitPoint.Center }),
-                        point, held.Modified, held.Track))) { Key = Layer, Width = Grown, Height = Grown },
+                        point, held.Modified, held.Track))) { Key = Layer, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit },
                 ]) {
                 Part = new Part.Pad(this),
             },
@@ -190,7 +209,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
                         None: static () => new Reply.Pass()))),
             None: static () => new Reply.Pass());
 
-    private Session<Held> Session(Cursor cursor) => new(Start, Sinks, cursor) { Detent = static held => held.Detent };
+    private Session<Held> Session(Cursor cursor) => new(Start, Receivers, cursor) { Detent = static held => held.Detent };
 
     private Reply Pressed(Gesture.Press press, Aim aim, PlotFrame frame) =>
         (Key: Point(aim), Restored: Rest.Filter(_ => press.Clicks >= 2)) switch {

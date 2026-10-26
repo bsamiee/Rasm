@@ -2,25 +2,54 @@ using System.Globalization;
 using Eto.Drawing;
 using Grasshopper2;
 using Grasshopper2.Data;
-using Grasshopper2.Data.Meta;
 using Grasshopper2.Eto.Drawing;
+using Grasshopper2.Parameters;
 using Grasshopper2.Parsing;
 using Grasshopper2.Types.Assistant;
 using Grasshopper2.Types.Conversion;
 using Grasshopper2.Types.ConversionMethods;
 using Grasshopper2.UI.Icon;
 using Rasm.Grasshopper.UI.Surfaces;
-using Rasm.Imaging.Color;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.Render.Effects;
+using SkiaSharp;
 using UUIDNext;
 using UnitsNet;
 
 namespace Rasm.Grasshopper.Parameters;
 
+// --- [MODELS] --------------------------------------------------------------------------
+public sealed record DataTexts<TData>(Func<TData, string> Capture, Func<string, Fin<TData>> Recall) where TData : notnull {
+    private const string Root = "value";
+
+    public static DataTexts<TData> Of<TRecord>(Rasm.UI.IStateParameter<TRecord> parameter, TRecord seed, Lens<TRecord, TData> lens) where TRecord : notnull {
+        FieldCodec<TRecord> codec = new ValueKey<TRecord>(Root, parameter.Kind, parameter.Text, seed).Codec;
+        string owner = typeof(TData).ToString();
+        return codec.Entries.Count is 1
+            ? new(
+                data => codec.Entries[0].Capture(lens.Set(data, seed)).IfNone(""),
+                text => codec.Entries[0].Recall(text).Bind(step => step.Map(set => lens.Get(set(seed))).RunSafe()))
+            : new(
+                data => ValueSet.Fields(owner, lens.Set(data, seed), codec.Parameters).Text(),
+                text => ValueSet.Read(text).Bind(set => codec.Recalled(owner, set.Texts(owner)).Map(lens.Get).RunSafe()));
+    }
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
+public sealed class DataParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId {
+    // --- [CONSTRUCTION]
+    public DataParameter() : base(Nomen.Empty) { }
+
+    public DataParameter(Nomen nomen, Access access = Access.Tree) : base(nomen, access) { }
+
+    public DataParameter(GrasshopperIO.IReader reader) : base(reader) { }
+
+    // --- [PERSISTENCE]
+    Guid GrasshopperIO.ICustomIoId.CustomIoId => ((GrasshopperIO.ICustomIoId)TypeAssistant).CustomIoId;
+
+    protected override IIcon IconInternal => TypeAssistant.Icon;
+}
+
 internal class DataAssistant<T>(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon, Func<T, T> copy, Func<T, string> describe)
     : TypeAssistant<T>(RowText.Localize(name, plugin).Local), GrasshopperIO.ICustomIoId {
     public Guid CustomIoId { get; } = parameterId;
@@ -35,45 +64,35 @@ internal class DataAssistant<T>(Guid parameterId, string name, IGrasshopperPlugi
 }
 
 internal sealed class ImageDataAssistant(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon)
-    : DataAssistant<PixelFrame>(parameterId, name, plugin, icon, static frame => frame.Copy(),
-        static frame => string.Create(CultureInfo.InvariantCulture, $"{frame.Size.Width} × {frame.Size.Height} at {frame.Origin} in {frame.Extent.Width} × {frame.Extent.Height}")) {
+    : DataAssistant<SKImage>(parameterId, name, plugin, icon, identity,
+        static image => string.Create(CultureInfo.InvariantCulture, $"{image.Width} × {image.Height} {image.ColorType} {((image.ColorSpace ?? SKColorSpace.CreateSrgb()).GammaIsLinear ? "linear" : "encoded")}")) {
     private readonly CallbackSite site = new(plugin, typeof(ImageValueDisplay), nameof(IValueDisplay.Draw));
 
-    public override IValueDisplay Show(Pear<PixelFrame> pear) => pear is null ? base.Show(pear) : new ImageValueDisplay(pear, base.Show(pear), site);
+    public override IValueDisplay Show(Pear<SKImage> pear) => pear is null ? base.Show(pear) : new ImageValueDisplay(pear.Item, site);
 }
 
-internal sealed class ImageValueDisplay(Pear<PixelFrame> image, IValueDisplay text, CallbackSite site) : IValueDisplay {
-    private static readonly Rasm.UI.Sizing Grown = new Rasm.UI.Sizing.Grow(Rasm.UI.Factor.Create(1f));
+internal sealed class ImageValueDisplay(SKImage image, CallbackSite site) : IValueDisplay {
+    private readonly Rasm.UI.Node view = new Rasm.UI.Node.Image(image) { Fit = Rasm.UI.ImageFit.Contain, Width = Rasm.UI.Sizing.Grow.Unit, Height = Rasm.UI.Sizing.Grow.Unit };
 
     public DisplayHeight Height => DisplayHeight.Wide;
 
     public void Draw(Context context, Font font, Color background, ValueDisplayFrame frame) =>
-        Callbacks.Run(IO.lift(() => DataTypes.Encoding(image)).Bind(encoding => encoding.Match(
-            Some: transfer =>
-                from tiles in PreviewTiles.Current.Of(site.Sink)
-                let size = image.Item.Size
-                let fit = MathF.Min(frame.Inner.Width / size.Width, frame.Inner.Height / size.Height)
-                let target = RectangleF.FromCenter(frame.Inner.Center, new SizeF(size.Width * fit, size.Height * fit))
-                from scale in IO.lift(() => Guest.Device(context))
-                let device = Size.Ceiling(target.Size * scale)
-                from extent in IO.lift(() => PixelExtent.Validated(device.Width, device.Height))
-                from shown in tiles.Image(image.Item, extent, transfer, 1f)
-                from drawn in shown.Match(
-                    Some: picture => DisposalOps.Within(() => new Guest(site.Sink, unitIO), guest =>
-                        guest.Paint(context.Graphics, scale, target, Rasm.UI.Visibility.Shown, new Rasm.UI.Node.Image(picture) { Width = Grown, Height = Grown, Density = scale })),
-                    None: () => IO.lift(context.Invalidate))
-                select unit,
-            None: () => IO.lift(() => text.Draw(context, font, background, frame)))), site);
+        Callbacks.Run(
+            DisposalOps.Within(() => new Guest(site.Sink, IO.lift(context.Invalidate)), guest =>
+                from device in IO.lift(() => Guest.Device(context))
+                from painted in guest.Paint(context.Graphics, device, frame.Inner, Rasm.UI.Visibility.Shown, view)
+                select unit),
+            site);
 }
 
-internal class StoredDataAssistant<T>(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon, Func<T, T> copy, Func<T, string> describe, Func<T, string> capture, Func<string, Fin<T>> recall)
-    : DataAssistant<T>(parameterId, name, plugin, icon, copy, describe) {
-    public override string Format(T instance) => capture(instance);
+internal class StoredDataAssistant<T>(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon, DataTexts<T> texts)
+    : DataAssistant<T>(parameterId, name, plugin, icon, identity, texts.Capture) where T : notnull {
+    public override string Format(T instance) => texts.Capture(instance);
 
     public override Result<T> Parse(string constructor, string text, Pear<T> existing) => Recall(text);
 
     public override bool Write(GrasshopperIO.IWriter writer, GrasshopperIO.Name location, T instance) {
-        writer.String(location, capture(instance));
+        writer.String(location, texts.Capture(instance));
         return true;
     }
 
@@ -84,13 +103,13 @@ internal class StoredDataAssistant<T>(Guid parameterId, string name, IGrasshoppe
     }
 
     private Result<T> Recall(string text) =>
-        recall(text).Match(
+        texts.Recall(text).Match(
             Succ: value => Result<T>.Succeed(value, text),
             Fail: error => Result<T>.Fail(error.Message, text));
 }
 
-internal sealed class NumericDataAssistant<TValue, TKey>(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon, Func<TValue, string> describe, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
-    : StoredDataAssistant<TValue>(parameterId, name, plugin, icon, identity, describe, value => StoredText.Capture(value, key), text => StoredText.Recall(text, create, key))
+internal sealed class NumericDataAssistant<TValue, TKey>(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon, DataTexts<TValue> texts, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
+    : StoredDataAssistant<TValue>(parameterId, name, plugin, icon, texts)
     where TValue : notnull
     where TKey : struct, System.Numerics.INumber<TKey> {
     public Func<TKey, Fin<TValue>> Create { get; } = create;
@@ -182,17 +201,6 @@ internal abstract class OperandArithmetic<TValue, TKey, TOperand> : ArithmeticRe
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class DataTypes {
-    // --- [IMAGE_VALUES]
-    private static readonly MetaName ImageEncoding = new(typeof(Transfer).ToString().Split('.'));
-
-    public static Pear<PixelFrame> Image(PixelFrame frame, Transfer encoding) =>
-        Pear<PixelFrame>.Create(frame, MetaData.Empty.Add(ImageEncoding, encoding.ToValue()));
-
-    public static Fin<Option<Transfer>> Encoding(Pear<PixelFrame> pear) =>
-        pear.Meta is { } meta && meta.Get(ImageEncoding, out string text)
-            ? Transfer.Validated(text).Map(Some)
-            : Option<Transfer>.None;
-
     // --- [ROWS]
     public static Func<IGrasshopperPlugin, IO<Unit>> Of<T>(Guid parameterId, string name, IIcon icon, Func<T, T> copy, Func<T, string> describe) =>
         plugin => Registered(new DataAssistant<T>(parameterId, name, plugin, icon, copy, describe));
@@ -201,21 +209,21 @@ public static class DataTypes {
         plugin => CanvasIcons.Vector(plugin, glyph).Bind(icon => Of(ParameterId<T>(plugin), caption, icon, copy, describe)(plugin));
 
     public static Func<IGrasshopperPlugin, IO<Unit>> Image(string caption, Rasm.UI.GlyphSource glyph) =>
-        plugin => CanvasIcons.Vector(plugin, glyph).Bind(icon => Registered(new ImageDataAssistant(ParameterId<PixelFrame>(plugin), caption, plugin, icon)));
+        plugin => CanvasIcons.Vector(plugin, glyph).Bind(icon => Registered(new ImageDataAssistant(ParameterId<SKImage>(plugin), caption, plugin, icon)));
 
     public static Func<IGrasshopperPlugin, IO<Unit>> Of<T, TAssistant>(Func<IGrasshopperPlugin, IO<TAssistant>> create)
         where TAssistant : TypeAssistant<T>, GrasshopperIO.ICustomIoId =>
         plugin => create(plugin).Bind(static assistant => Registered(assistant));
 
-    public static Func<IGrasshopperPlugin, IO<Unit>> Stored<T>(Guid parameterId, string name, IIcon icon, Func<T, T> copy, Func<T, string> describe, Func<T, string> capture, Func<string, Fin<T>> recall) =>
-        plugin => Registered(new StoredDataAssistant<T>(parameterId, name, plugin, icon, copy, describe, capture, recall));
+    public static Func<IGrasshopperPlugin, IO<Unit>> Stored<T>(Guid parameterId, string name, IIcon icon, DataTexts<T> texts) where T : notnull =>
+        plugin => Registered(new StoredDataAssistant<T>(parameterId, name, plugin, icon, texts));
 
     public static Func<IGrasshopperPlugin, IO<Unit>> Number<TValue, TKey>(
-        Guid parameterId, string name, IIcon icon, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, Option<Func<TValue, string>> describe = default)
+        Guid parameterId, string name, IIcon icon, DataTexts<TValue> texts, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
         where TValue : notnull
         where TKey : struct, System.Numerics.INumber<TKey> =>
         plugin => Registered(
-            new NumericDataAssistant<TValue, TKey>(parameterId, name, plugin, icon, describe.IfNone(value => StoredText.Capture(value, key)), create, key),
+            new NumericDataAssistant<TValue, TKey>(parameterId, name, plugin, icon, texts, create, key),
             [
                 Converted<double, TValue>(NumberConversions<TValue, TKey>.Inbound),
                 Converted<TValue, double>(NumberConversions<TValue, TKey>.Outbound),
@@ -227,16 +235,11 @@ public static class DataTypes {
                         .Map<(string, Func<bool>)>(static repository => (nameof(Arithmetic.AddRepository), () => Arithmetic.AddRepository(repository) > 0)),
             ]);
 
-    internal static Func<IGrasshopperPlugin, IO<Unit>> OptionalNumber<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
-        where TValue : notnull
-        where TKey : struct, System.Numerics.INumber<TKey> =>
-        Schema(FieldTexts.Gate(FieldTexts.Leaf(value => StoredText.Capture(value, key), text => StoredText.Recall(text, create, key))), parameterId, name, icon);
-
-    public static Func<IGrasshopperPlugin, IO<Unit>> Keyed<TValue, TRaw>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
+    public static Func<IGrasshopperPlugin, IO<Unit>> Keyed<TValue, TRaw>(Guid parameterId, string name, IIcon icon, DataTexts<TValue> texts)
         where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
         where TRaw : notnull, ISpanParsable<TRaw> =>
         plugin => Registered(
-            new StoredDataAssistant<TValue>(parameterId, name, plugin, icon, static value => value, describe, StoredText.Capture<TValue, TRaw>, StoredText.Recall<TValue, TRaw>),
+            new StoredDataAssistant<TValue>(parameterId, name, plugin, icon, texts),
             Seq(
                 Converted<TRaw, TValue>(KeyConversions<TValue, TRaw>.Inbound),
                 Converted<TValue, TRaw>(KeyConversions<TValue, TRaw>.Outbound)));
@@ -251,17 +254,6 @@ public static class DataTypes {
             select registered);
 
     private static Guid ParameterId<T>(IGrasshopperPlugin plugin) => Uuid.NewNameBased(plugin.Plugin.Id, typeof(DataParameter<T>).ToString());
-
-    internal static Func<IGrasshopperPlugin, IO<Unit>> Schema<TData>(FieldCodec<TData> codec, Guid parameterId, string name, IIcon icon)
-        where TData : notnull {
-        string owner = EntryKey.TypeOwner(parameterId);
-        FieldCodec<TData> rooted = codec.Under(typeof(TData).ToString());
-        Func<TData, string> capture = value => new ValueSet(toHashMap(rooted.Capture(value).AsIterable()
-            .Map(entry => (new EntryKey(owner, entry.Key), entry.Value)))).Text();
-        return Stored(parameterId, name, icon, identity, capture, capture,
-            text => ValueSet.Read(text).Bind(set => rooted.Recall(toHashMap(set.Entries.AsIterable().Filter(entry => string.Equals(entry.Key.Owner, owner, StringComparison.Ordinal))
-                .Map(static entry => (entry.Key.Path, entry.Value)))).RunSafe()));
-    }
 
     private static (string Member, Func<bool> Accepted) Converted<TSource, TTarget>(ConversionDelegate<TSource, TTarget> conversion) =>
         (nameof(ConversionServer.TryAddConversion), () => ConversionServer.TryAddConversion(conversion.Method));

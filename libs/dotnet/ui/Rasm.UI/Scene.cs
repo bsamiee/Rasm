@@ -235,7 +235,7 @@ public sealed class Scene {
 
     private Option<(Laid Laid, SKPoint Local)> Reached(Laid laid, SKPoint at) =>
         from place in Places.Find(laid.Path)
-        where place.Clip.Contains(at) && (laid.Node.Key.IsSome || laid.Node.Part.IsSome)
+        where place.Clip.Contains(at) && (laid.Node.Key.IsSome || laid.Node.Part.IsSome || laid.Node.Hovering.IsSome)
         let frame = Absolute(laid.Frame, place.Origin)
         let reach = laid.Style.Metrics[Metric.Reach]
         where laid.Node.Traced.Match(

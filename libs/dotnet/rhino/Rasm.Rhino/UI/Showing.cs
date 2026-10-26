@@ -168,7 +168,7 @@ public static class Showing {
         let fields = ViewCatalog.Tree(view)
             .Bind(static held => held.Children)
             .Bind(static child => child.Controls)
-            .Choose(static row => row.Keys is [var key] ? Some((row.Caption, Key: key)) : None)
+            .Choose(static row => row.Keys is [var key] ? Some((row.Text.Caption, Key: key)) : None)
         let pass =
             from shown in scope.Shown(bindings)
             from ended in Getters.Choice(doc, new GetterRequest<GetOption, bool>(view.Caption, site) {

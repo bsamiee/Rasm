@@ -26,48 +26,8 @@ public interface IThemeHandler {
     public Font Digits(Font font);
 }
 
-// --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class PaintSlot {
-    public static readonly PaintSlot Text = new(static () => ThemeSettings.Content.Text.Enabled);
-    public static readonly PaintSlot TextDisabled = new(static () => ThemeSettings.Content.Text.Disabled);
-    public static readonly PaintSlot TextSecondary = new(static () => ThemeSettings.Content.Text.Secondary);
-    public static readonly PaintSlot EntryBorder = new(static () => ThemeSettings.Content.Entry.Enabled.Border);
-    public static readonly PaintSlot EntryBackground = new(static () => ThemeSettings.Content.Entry.Enabled.Background);
-    public static readonly PaintSlot ListText = new(static () => ThemeSettings.Content.List.Enabled.Text);
-    public static readonly PaintSlot ListBackground = new(static () => ThemeSettings.Content.List.Enabled.Background);
-    public static readonly PaintSlot Background = new(static () => ThemeSettings.Content.Background);
-    public static readonly PaintSlot Highlight = new(static () => ThemeSettings.Content.Highlight);
-    public static readonly PaintSlot HighlightHover = new(static () => ThemeSettings.Content.HighlightHover);
-    public static readonly PaintSlot FrameBackground = new(static () => ThemeSettings.Frame.Background);
-    public static readonly PaintSlot FrameListBackground = new(static () => ThemeSettings.Frame.List.Enabled.Background);
-    public static readonly PaintSlot FrameEdge = new(static () => ThemeSettings.Frame.Edge);
-
-    [UseDelegateFromConstructor]
-    public partial Color Read();
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostTheme {
-    // --- [METRIC]
-    public static IO<float> Scale => IO.lift(static () => Screen.Screens.Max(static screen => screen.LogicalPixelSize));
-
-    public static IO<System.Drawing.Size> Device(Size logical) =>
-        Scale
-            .Map(scale => Size.Ceiling(logical * scale))
-            .Map(static device => new System.Drawing.Size(device.Width, device.Height));
-
-    // --- [COLORS]
-    public static Option<float> Veil(HashMap<PaintSlot, Color> slots) =>
-        Offsets(slots[PaintSlot.Text], slots[PaintSlot.ListBackground]).Zip(Offsets(slots[PaintSlot.TextDisabled], slots[PaintSlot.ListBackground]))
-            .Fold((Moved: 0f, Span: 0f), static (sum, pair) => (sum.Moved + (pair.First * (pair.First - pair.Second)), sum.Span + (pair.First * pair.First)))
-            is { Span: > 0f } total
-            ? Some(total.Moved / total.Span).Filter(static veil => veil is >= 0f and <= 1f)
-            : None;
-
-    private static Seq<float> Offsets(Color ink, Color ground) =>
-        Seq(ink.R - ground.R, ink.G - ground.G, ink.B - ground.B).Map(offset => ink.A * offset);
-
     // --- [FONTS]
     public static Font Digits(Font font) => Handler.Match(Some: handler => handler.Digits(font), None: () => font);
 
@@ -76,7 +36,6 @@ public static class HostTheme {
 
     // --- [PROJECTION]
     private static readonly Role Tab = Role.Create("tab");
-    internal static readonly Role ListRow = Role.Create("list-row");
 
     public static bool Compact(Control control) =>
         toSeq(control.Parents).Exists(static parent => Optional(parent.Style).Exists(static style => style.Split(' ').Contains(Panels.EtoPanelStyleName, StringComparer.Ordinal)));
@@ -101,7 +60,7 @@ public static class HostTheme {
             Element(Defaulted(Role.Button, ThemeSettings.Content.Button), Channels),
             Element(Checked(Tab, ThemeSettings.Content.Tab), Channels),
             Element(Plain(Role.Field, ThemeSettings.Content.Entry), Channels),
-            Element(Checked(ListRow, ThemeSettings.Content.List).Add((ThemeSettings.Content.List.Focus, Shaped(ListRow, None, Interaction.Focused))), Channels),
+            Element(Checked(Role.ListRow, ThemeSettings.Content.List).Add((ThemeSettings.Content.List.Focus, Shaped(Role.ListRow, None, Interaction.Focused))), Channels),
             Element(Plain(Role.Scrollbar, ThemeSettings.Content.Scrollbar), static state => [(Channel.Fill, state.Thumb), (Channel.Edge, state.Border)]),
             Seq<(Token Token, Color Ink)>(
                     (new Token(Role.Window, Channel.Fill), ThemeSettings.Content.Background),
@@ -125,13 +84,13 @@ public static class HostTheme {
                 .Concat(Handler.ToSeq().Bind(static handler => Seq<(Token Token, Color Ink)>(
                     (new Token(Role.Window, Channel.Text) { Condition = Condition.Faulted }, handler.Faulted),
                     (new Token(Role.Window, Channel.Text) { Condition = Condition.Warning }, handler.Warning))))
-                .Map(static row => (row.Token, Ink: Colored(row.Ink))))
+                .Map(static row => (row.Token, Ink: Conversions.ToSKColorF(row.Ink))))
         .Bind(static rows => rows);
 
     private static Seq<(Token Token, SKColorF Ink)> Element<TState>(Seq<(TState State, Func<Channel, Token> Token)> states, Func<TState, Seq<(Channel Channel, Color Ink)>> channels) =>
         from held in states
         from channel in channels(held.State)
-        select (held.Token(channel.Channel), Colored(channel.Ink));
+        select (held.Token(channel.Channel), Conversions.ToSKColorF(channel.Ink));
 
     private static Func<Channel, Token> Shaped(Role role, Option<Condition> condition, Option<Interaction> interaction) =>
         channel => new Token(role, channel) { Condition = condition, Interaction = interaction };
@@ -152,8 +111,6 @@ public static class HostTheme {
 
     private static HashMap<Role, HashMap<Metric, float>> Layered(HashMap<Role, HashMap<Metric, float>> under, HashMap<Role, HashMap<Metric, float>> over) =>
         under.Union(over, Merge: static (_, below, above) => below.Union(above, Merge: static (_, _, held) => held));
-
-    private static SKColorF Colored(Color color) => new(color.R, color.G, color.B, color.A);
 
     // --- [CHANGE]
     public static readonly HostEvent<Unit> Changed =

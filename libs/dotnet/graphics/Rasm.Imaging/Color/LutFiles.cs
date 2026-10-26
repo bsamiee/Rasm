@@ -114,19 +114,18 @@ public sealed partial class LookupLayout {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LutFormat : ICaptioned {
-    public static readonly LutFormat Cube = new("cube", ".cube", "Cube");
-    public static readonly LutFormat Spi1d = new("spi1d", ".spi1d", "SPI 1D");
-    public static readonly LutFormat Spi3d = new("spi3d", ".spi3d", "SPI 3D");
-    public static readonly LutFormat SpiMatrix = new("spimtx", ".spimtx", "SPI Matrix");
-    public static readonly LutFormat Autodesk = new("3dl", ".3dl", "Autodesk");
-    public static readonly LutFormat Clf = new("clf", ".clf", "CLF");
-    public static readonly LutFormat Ctf = new("ctf", ".ctf", "CTF");
-    public static readonly LutFormat Hald = new("hald", ".png", "Hald");
-    public static readonly LutFormat KeyShotLookup = new("keyshot-lookup", ".png", "KeyShot LookUp");
+public sealed partial class LutFormat {
+    public static readonly LutFormat Cube = new("cube", ".cube");
+    public static readonly LutFormat Spi1d = new("spi1d", ".spi1d");
+    public static readonly LutFormat Spi3d = new("spi3d", ".spi3d");
+    public static readonly LutFormat SpiMatrix = new("spimtx", ".spimtx");
+    public static readonly LutFormat Autodesk = new("3dl", ".3dl");
+    public static readonly LutFormat Clf = new("clf", ".clf");
+    public static readonly LutFormat Ctf = new("ctf", ".ctf");
+    public static readonly LutFormat Hald = new("hald", ".png");
+    public static readonly LutFormat KeyShotLookup = new("keyshot-lookup", ".png");
 
     public string Extension { get; }
-    public string Caption { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -414,9 +413,6 @@ public static class LutFiles {
                 CorrectionValues(node, _ => Malformed(node, format)))
             .Apply(static (style, values) => (Style: style, Values: values))
             .As()
-        from _ in guard<Error>(
-            Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(read.Values.Slope, Vector3.Zero) & Vector3.GreaterThan(read.Values.Power, Vector3.Zero)) && read.Values.Saturation >= 0f,
-            Malformed(node, format)).ToFin()
         select (LutTable)new LutTable.Cdl(read.Style, read.Values.Slope, read.Values.Offset, read.Values.Power, read.Values.Saturation);
 
     internal static Fin<(Vector3 Slope, Vector3 Offset, Vector3 Power, float Saturation)> CorrectionValues(XElement correction, Func<string, Error> malformed) {
@@ -425,8 +421,11 @@ public static class LutFiles {
                 Some: held => Child(held, name).Bind(element => parse(element.Value)).ToFin(malformed(name)),
                 None: () => absent);
         return (Field(SopNode, Slope, Triple, Vector3.One), Field(SopNode, Offset, Triple, Vector3.Zero), Field(SopNode, Power, Triple, Vector3.One), Field(SatNode, Saturation, static text => Invariant.Number<float>(text), 1f))
-            .Apply(static (slope, offset, power, saturation) => (slope, offset, power, saturation))
-            .As();
+            .Apply(static (slope, offset, power, saturation) => (Slope: slope, Offset: offset, Power: power, Saturation: saturation))
+            .As()
+            .Bind(values => Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(values.Slope, Vector3.Zero) & Vector3.GreaterThan(values.Power, Vector3.Zero)) && values.Saturation >= 0f
+                ? Fin.Succ(values)
+                : malformed(SopNode));
     }
 
     private static Fin<LutTable> Tabled(LutFormat format, string text, int start, bool braced, int width, Seq<(int Floats, Func<ReadOnlyMemory<float>, Fin<LutTable>> Build)> tables) {
@@ -906,24 +905,5 @@ public static class LutFiles {
         for (int at = 0; at < values.Length; at++)
             _ = builder.Append(CultureInfo.InvariantCulture, $"{values[at]}{(at % width == width - 1 ? '\n' : ' ')}");
         return builder;
-    }
-}
-
-internal static class EmbeddedTables {
-    public static readonly Func<string, Lut3D> Lattice = memoUnsafe(static (string file) =>
-        LutFiles.Parse(Text(file), LutFormat.Cube)
-            .Bind(Fin<Lut3D> (table) => table is LutTable.Cube { Lattice: var lattice } ? lattice : Error.New($"embedded table {file} holds no 3D lattice"))
-            .ThrowIfFail());
-
-    public static readonly Func<string, Lut1D> Curve = memoUnsafe(static (string file) =>
-        LutFiles.Parse(Text(file), LutFormat.Spi1d)
-            .Bind(Fin<Lut1D> (table) => table is LutTable.ChannelCurve { Table: var curve } ? curve : Error.New($"embedded table {file} holds no channel curve"))
-            .ThrowIfFail());
-
-    public static Stream Open(string file) => typeof(EmbeddedTables).Assembly.GetManifestResourceStream(typeof(EmbeddedTables), $"Tables.{file}")!;
-
-    private static string Text(string file) {
-        using StreamReader reader = new(Open(file));
-        return reader.ReadToEnd();
     }
 }

@@ -1,6 +1,5 @@
 using System.Globalization;
 using Eto.Forms;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
@@ -15,11 +14,11 @@ public sealed record ChoiceItem<TModel>(TModel Value, string Caption, Option<Gly
 public static class ChoiceRows {
     // --- [ITEMS]
     public static Seq<ChoiceItem<TValue>> Items<TValue>(Option<Func<TValue, GlyphSource>> glyph, IPlugInSink plugIn)
-        where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>
-        toSeq(TValue.Items).Map(item => new ChoiceItem<TValue>(item, RowText.Localize(item.Caption, plugIn).Local, glyph.Map(read => read(item)))).Strict();
+        where TValue : ISmartEnum<string, TValue, ValidationError> =>
+        toSeq(TValue.Items).Map(item => new ChoiceItem<TValue>(item, RowText.Localize(Captions.Of(item), plugIn).Local, glyph.Map(read => read(item)))).Strict();
 
-    public static Seq<ChoiceItem<TEnum>> Members<TEnum>(Func<TEnum, string> caption, IPlugInSink plugIn) where TEnum : struct, Enum =>
-        toSeq(Enum.GetValues<TEnum>()).Map(member => new ChoiceItem<TEnum>(member, RowText.Localize(caption(member), plugIn).Local, None)).Strict();
+    public static Seq<ChoiceItem<TEnum>> Members<TEnum>(IPlugInSink plugIn) where TEnum : struct, Enum =>
+        toSeq(Enum.GetValues<TEnum>()).Map(member => new ChoiceItem<TEnum>(member, RowText.Localize(Captions.Of(member.ToString()), plugIn).Local, None)).Strict();
 
     public static Seq<ChoiceItem<Option<TModel>>> Optional<TModel>(string absent, Seq<ChoiceItem<TModel>> items, IPlugInSink plugIn) where TModel : notnull =>
         new ChoiceItem<Option<TModel>>(None, RowText.Localize(absent, plugIn).Local, None)
@@ -27,14 +26,14 @@ public static class ChoiceRows {
 
     // --- [ROWS]
     public static ControlRow Choice<TRecord, TModel>(
-        RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, TModel> lens, Func<RowScope, IO<Seq<ChoiceItem<TModel>>>> items, RowRules rules)
+        RowSource<TRecord> source, IStateParameter<TRecord> parameter, Lens<TRecord, TModel> lens, Func<RowScope, IO<Seq<ChoiceItem<TModel>>>> items, RowRules rules)
         where TRecord : notnull
         where TModel : notnull =>
-        ControlRow.Of(source, field, RowShape.Inline, (scope, retain) =>
+        ControlRow.Of(source, parameter, RowShape.Inline, (scope, retain) =>
             from listed in items(scope)
             let site = new CallbackSite(scope.Sink, typeof(DropDown), nameof(DropDown.SelectedValueChanged))
             from popup in Popped(listed, site, retain)
-            from edit in RowEdit.Bind(source, IterableNE.create(field),
+            from edit in RowEdit.Bind(source, IterableNE.create(parameter),
                 h => popup.Control.SelectedValueChanged += h, h => popup.Control.SelectedValueChanged -= h,
                 bound => Callbacks.Handler<EventArgs>(_ =>
                     from picked in popup.Picked
@@ -51,21 +50,21 @@ public static class ChoiceRows {
                 edit.Shown, Some<RowEdit>(edit), Some(Labelled([], []))), rules);
 
     public static ControlRow Flags<TRecord>(
-        RowSource<TRecord> source, string caption, string help, IterableNE<(RowField<TRecord> Field, Lens<TRecord, bool> Lens, GlyphSource Glyph)> members, RowRules rules)
+        RowSource<TRecord> source, ParameterText text, IterableNE<(IStateParameter<TRecord> Parameter, Lens<TRecord, bool> Lens, GlyphSource Glyph)> members, RowRules rules)
         where TRecord : notnull =>
-        ControlRow.Of(source, members.Map(static member => member.Field), caption, help, RowShape.Inline, (scope, retain) =>
+        ControlRow.Of(source, members.Map(static member => member.Parameter), text, RowShape.Inline, (scope, retain) =>
             from site in IO.pure(new CallbackSite(scope.Sink, typeof(SegmentedButton), nameof(SegmentedButton.SelectedItemsChanged)))
             from strip in Segmented(
-                toSeq(members.Map(member => new ChoiceItem<RowField<TRecord>>(member.Field, RowText.Localize(member.Field.Caption, scope.Sink).Local, Some(member.Glyph)))),
+                toSeq(members.Map(member => new ChoiceItem<IStateParameter<TRecord>>(member.Parameter, RowText.Localize(member.Parameter.Text.Caption, scope.Sink).Local, Some(member.Glyph)))),
                 SegmentedSelectionMode.Multiple, site, retain)
-            from edit in RowEdit.Bind(source, members.Map(static member => member.Field),
+            from edit in RowEdit.Bind(source, members.Map(static member => member.Parameter),
                 h => strip.Control.SelectedItemsChanged += h, h => strip.Control.SelectedItemsChanged -= h,
                 bound => Callbacks.Handler<EventArgs>(_ =>
                     from picked in strip.Picked
                     from held in scope.Read(source)
-                    from committed in bound.Commit(members.Fold((record, member) => member.Lens.Set(picked.Exists(member.Field.Equals), record), held))
+                    from committed in bound.Commit(members.Fold((record, member) => member.Lens.Set(picked.Exists(member.Parameter.Equals), record), held))
                     select unit, site),
-                value => strip.Write(value.Map(record => members.Filter(member => member.Lens.Get(record)).Map(static member => member.Field).ToSeq())), scope, site, retain)
+                value => strip.Write(value.Map(record => members.Filter(member => member.Lens.Get(record)).Map(static member => member.Parameter).ToSeq())), scope, site, retain)
             select new RowCells(strip.Control, None, None, None, [], [], new RowHelp(None, None), edit.Shown, Some<RowEdit>(edit),
                 Some(Context(strip.Control, [], []))), rules);
 

@@ -1,5 +1,4 @@
 using QuikGraph;
-using Rasm.Imaging.Files;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
 using Rhino;
@@ -12,27 +11,24 @@ namespace Rasm.Rhino.Persistence;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ArchiveSource {
-    public sealed record Located(string Path, File3dm.TableTypeFilter Tables, File3dm.ObjectTypeFilter Objects) : ArchiveSource {
-        internal override IO<string> Existing() =>
-            IO.lift(() => Exchange.ExistingPath(Path));
+    public sealed record Located(InputPath Path, File3dm.TableTypeFilter Tables, File3dm.ObjectTypeFilter Objects) : ArchiveSource {
+        internal override IO<InputPath> Existing() => IO.pure(Path);
 
         internal override IO<ArchiveRead> Open() =>
-            from path in Existing()
-            from read in IO.lift(Fin<ArchiveRead> () => File3dm.ReadWithLog(path, Tables, Objects, out string log) is { } model
+            IO.lift(Fin<ArchiveRead> () => File3dm.ReadWithLog(Path, Tables, Objects, out string log) is { } model
                 ? new ArchiveRead(model, Conversions.Present(log))
-                : new FileRefused(path, $"failed {nameof(File3dm.ReadWithLog)}. {log}"))
-            select read;
+                : new FileRefused(Path, FileReason.Unreadable, Error.New(log)));
     }
 
     public sealed record Buffered(Arr<byte> Bytes) : ArchiveSource {
-        internal override IO<string> Existing() =>
-            IO.fail<string>(Error.New("buffered archive names no file"));
+        internal override IO<InputPath> Existing() =>
+            IO.fail<InputPath>(Error.New("buffered archive names no file"));
 
         internal override IO<ArchiveRead> Open() =>
             IO.lift(() => Refused.UnlessFound(File3dm.FromByteArray([.. Bytes]), nameof(File3dm.FromByteArray)).Map(static model => new ArchiveRead(model, None)));
     }
 
-    internal abstract IO<string> Existing();
+    internal abstract IO<InputPath> Existing();
 
     internal abstract IO<ArchiveRead> Open();
 }
@@ -150,20 +146,18 @@ public static partial class Archives {
             None: () => IO.lift(() => archive.Strings.Delete(key.Text)))
         select prior;
 
-    public static IO<Unit> Embed(File3dm archive, string path) =>
-        from existing in IO.lift(() => Exchange.ExistingPath(path))
-        from added in IO.lift(() => Refused.Unless(archive.EmbeddedFiles.Add(existing), nameof(File3dmEmbeddedFiles.Add)))
-        select added;
+    public static IO<Unit> Embed(File3dm archive, InputPath path) =>
+        IO.lift(() => Refused.Unless(archive.EmbeddedFiles.Add(path), nameof(File3dmEmbeddedFiles.Add)));
 
-    public static IO<Seq<string>> Extract(File3dm archive, string folder) =>
-        from target in IO.lift(() => Exchange.QualifiedPath(folder))
-        let candidates = from file in Conversions.Rows(archive.EmbeddedFiles)
-                         select (File: file, Path: Path.Combine(target, Path.GetFileName(file.Filename.Replace('\\', Path.AltDirectorySeparatorChar))))
-        from rows in IO.lift(() => Callbacks.Unique(candidates.Strict(), static row => row.Path, nameof(File3dmEmbeddedFile.SaveToFile), StringComparer.OrdinalIgnoreCase))
+    public static IO<Seq<OutputPath>> Extract(File3dm archive, string folder) =>
+        from candidates in IO.lift(() => Conversions.Rows(archive.EmbeddedFiles)
+            .Traverse(file => OutputPath.Of(Path.Join(folder, Path.GetFileName(file.Filename.Replace('\\', Path.AltDirectorySeparatorChar)))).Map(path => (File: file, Path: path)))
+            .As())
+        from rows in IO.lift(() => Callbacks.Unique(candidates, static row => (string)row.Path, nameof(File3dmEmbeddedFile.SaveToFile), StringComparer.OrdinalIgnoreCase))
         from saved in IO.lift(() => Callbacks.Each(rows, static row => row.File.SaveToFile(row.Path), nameof(File3dmEmbeddedFile.SaveToFile)))
         select rows.Map(static row => row.Path);
 
     public static IO<StepOutcome> Persist(File3dm archive, OutputPath path, File3dmWriteOptions options) =>
         StepOutcome.Land(path, target => IO.lift(() =>
-            archive.WriteWithLog(target, options, out string log) ? Fin.Succ(unit) : new FileRefused(target, $"failed {nameof(File3dm.WriteWithLog)}. {log}")));
+            archive.WriteWithLog(target, options, out string log) ? Fin.Succ(unit) : new FileRefused(target, FileReason.Unwritable, Error.New(log))));
 }

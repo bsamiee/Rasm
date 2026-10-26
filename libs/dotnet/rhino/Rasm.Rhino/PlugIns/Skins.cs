@@ -162,7 +162,7 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
 
     private static IO<Unit> Reopened(IterableNE<Captioned<string>> items) =>
         from path in HostDialogs.ShowListBox(RowText.Localize("Open Recent"), RowText.Localize("Choose a file to open"), items, None)
-        from existing in IO.lift(() => Exchange.ExistingPath(path))
+        from existing in IO.lift(() => InputPath.Of(path))
         from document in Documents.WithDocument(new DocumentSource.Opened(existing), static _ => IO.pure(unit))
         select document;
 

@@ -1,5 +1,4 @@
 using Rasm.Drafting;
-using Rasm.Imaging.Files;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Runtime;

@@ -97,7 +97,7 @@ public static class Motions {
     // --- [SOURCES]
     public static Func<Sink<Duration>, Action<IDisposable>, IO<Unit>> Timer(MotionSpan period, TimeProvider time) =>
         (ticks, retain) => Copies.Owned(
-            () => new UITimer((_, _) => ticks.Post(Duration.FromSeconds(time.GetTimestamp() / (double)time.TimestampFrequency)).Run()) { Interval = ((Duration)period).TotalSeconds },
+            () => new UITimer((_, _) => ticks.Post(time.GetElapsedTime(0L).ToDuration()).Run()) { Interval = ((Duration)period).TotalSeconds },
             static timer => IO.lift(timer.Start),
             static timer => Callbacks.Each(Seq(IO.lift(timer.Stop), IO.lift(timer.Dispose))).Map(unit), retain);
 

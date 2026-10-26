@@ -32,6 +32,8 @@ public readonly partial struct VisibleChange : System.Numerics.IMinMaxValue<Visi
 public sealed partial class Easing {
     private const int Bisections = 32;
 
+    public static Easing Linear { get; } = Create(0d, 0d, 1d, 1d);
+
     public double X1 { get; }
     public double Y1 { get; }
     public double X2 { get; }
@@ -63,7 +65,7 @@ public sealed partial class Easing {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TimingForm {
-    public static readonly TimingForm Linear = new("linear", Easing.Create(0d, 0d, 1d, 1d));
+    public static readonly TimingForm Linear = new("linear", Easing.Linear);
     public static readonly TimingForm Ease = new("ease", Easing.Create(0.25d, 0.1d, 0.25d, 1d));
     public static readonly TimingForm EaseIn = new("ease-in", Easing.Create(0.42d, 0d, 1d, 1d));
     public static readonly TimingForm EaseOut = new("ease-out", Easing.Create(0d, 0d, 0.58d, 1d));
@@ -159,7 +161,7 @@ public abstract partial record TimingCurve {
             };
 
     private static Fin<double> Number(string text) =>
-        double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed) ? parsed : Error.New(ErrorCodes.ValidationFailed, $"'{text}' is not a number");
+        Invariant.Number<double>(text).ToFin(Error.New(ErrorCodes.ValidationFailed, $"'{text}' is not a number"));
 
     // --- [CASES]
     public sealed record Instant : TimingCurve {

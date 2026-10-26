@@ -16,21 +16,21 @@ public sealed partial class Visibility {
 public sealed record Host(SKSize Size, Theme Theme, Visibility Visibility, bool Cycles, CultureInfo Culture);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Notice {
-    public sealed record Announced(string Text, Live Live) : Notice;
+public abstract partial record AccessibilityNotice {
+    public sealed record Announced(string Text, Live Live) : AccessibilityNotice;
 
-    public sealed record ValueChanged(Seq<Key> Element) : Notice;
+    public sealed record ValueChanged(Seq<Key> Element) : AccessibilityNotice;
 
-    public sealed record SelectionChanged(Seq<Key> Container) : Notice;
+    public sealed record SelectionChanged(Seq<Key> Container) : AccessibilityNotice;
 
-    public sealed record FocusChanged(Seq<Key> Element) : Notice;
+    public sealed record FocusChanged(Seq<Key> Element) : AccessibilityNotice;
 
-    public sealed record LayoutChanged : Notice;
+    public sealed record LayoutChanged : AccessibilityNotice;
 
-    public sealed record Detent : Notice;
+    public sealed record Detent : AccessibilityNotice;
 }
 
-public sealed record Output(Seq<SKRect> Damage, Seq<Notice> Notices, Option<IO<Unit>> Answer);
+public sealed record Output(Seq<SKRect> Damage, Seq<AccessibilityNotice> Notices, Option<IO<Unit>> Answer);
 
 public sealed record Mount {
     // --- [STATE]
@@ -124,9 +124,9 @@ public sealed record Mount {
             var settled => (settled.Mount, new Output(
                 settled.Damage.Concat(settled.Mount.Routing.Focus != Routing.Focus ? Seq(Focused, settled.Mount.Focused).Somes().Choose(settled.Mount.Scene.Bounds) : []),
                 (settled.Mount.Projected(this) ? Access.Changes(elements, settled.Mount.elements) : [])
-                    .Concat(settled.Mount.Focused != Focused ? settled.Mount.Focused.Map(static path => (Notice)new Notice.FocusChanged(path)).ToSeq() : [])
+                    .Concat(settled.Mount.Focused != Focused ? settled.Mount.Focused.Map(static path => (AccessibilityNotice)new AccessibilityNotice.FocusChanged(path)).ToSeq() : [])
                     .Concat(settled.Mount.Routing.Tracked.Bind(static track => track.Detent) switch {
-                        var detent => detent.IsSome && detent != Routing.Tracked.Bind(static track => track.Detent) ? Seq<Notice>(new Notice.Detent()) : [],
+                        var detent => detent.IsSome && detent != Routing.Tracked.Bind(static track => track.Detent) ? Seq<AccessibilityNotice>(new AccessibilityNotice.Detent()) : [],
                     }),
                 Sequenced(settled.Answer))),
         };
@@ -173,7 +173,7 @@ public sealed record Mount {
             Mount = this with {
                 Hover = Routing.Pointer.Map(Hits).Map(hits => Routing.Pressing.Match(
                     Some: pressing => hits.Filter(hit => hit == pressing),
-                    None: () => hits.Filter(hit => Handle(hit).IsSome || Scene.Above(hit).Exists(prefix => Parted(prefix).IsSome)))).IfNone([]),
+                    None: () => hits.Filter(hit => Handle(hit).IsSome || Scene.Above(hit).Exists(prefix => Parted(prefix).IsSome || Scene.Index.Find(prefix).Exists(static laid => laid.Node.Hovering.IsSome))))).IfNone([]),
             },
         };
 
@@ -208,13 +208,17 @@ public sealed record Mount {
         };
 
     private Seq<IO<Unit>> Watched(Option<Mount> prior) =>
-        Scene.Order.Bind(laid => laid.Node.Part.Map(part => part.Watched(
-                from held in prior
-                from was in held.Scene.Index.Find(laid.Path)
-                where was.Node.Part.IsSome
-                select new Sight(held.Scene, was, held.Hover, held.Routing.Pointer),
-                new Sight(Scene, laid, Hover, Routing.Pointer)))
-            .IfNone([]));
+        Scene.Order.Bind(laid => Watched(
+            from held in prior
+            from was in held.Scene.Index.Find(laid.Path)
+            select new Sight(held.Scene, was, held.Hover, held.Routing.Pointer),
+            new Sight(Scene, laid, Hover, Routing.Pointer)));
+
+    private static Seq<IO<Unit>> Watched(Option<Sight> before, Sight after) =>
+        after.Laid.Node.Part.Map(part => part.Watched(before.Filter(static held => held.Laid.Node.Part.IsSome), after)).IfNone([])
+        + after.Laid.Node.Hovering.Map(hover => after.Plotted switch {
+            var now => before.Bind(static held => held.Plotted) == now ? Seq<IO<Unit>>() : [hover(now)],
+        }).IfNone([]);
 
     private static (Scene Scene, Seq<SKRect> Damage) Revealed(Option<Scene> prior, Scene scene) =>
         scene.Order.Choose(laid => Lead(laid).Filter(lead => prior.Bind(held => held.Index.Find(laid.Path)).Bind(Lead) != Some(lead)))

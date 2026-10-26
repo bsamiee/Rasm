@@ -12,7 +12,6 @@
     </Folder>
     <Folder Name="/libs/dotnet/graphics/">
         <Project Path="libs/dotnet/graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
-        <Project Path="libs/dotnet/graphics/Rasm.Imaging.Filters/Rasm.Imaging.Filters.csproj" />
     </Folder>
     <Folder Name="/libs/dotnet/rhino/">
         <Project Path="libs/dotnet/rhino/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
@@ -20,7 +19,6 @@
     </Folder>
     <Folder Name="/libs/dotnet/ui/">
         <Project Path="libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
-        <Project Path="libs/dotnet/ui/Rasm.UI.Imaging/Rasm.UI.Imaging.csproj" />
     </Folder>
     <Folder Name="/tests/dotnet/">
         <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />

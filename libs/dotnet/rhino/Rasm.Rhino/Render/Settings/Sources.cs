@@ -1,10 +1,9 @@
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Render;
@@ -14,16 +13,13 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.Render.Settings;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-public interface IRenderSettingsRecord<TSelf> : IStateRecord<TSelf> where TSelf : IRenderSettingsRecord<TSelf> {
+public interface IRenderSettingsRecord<TSelf, TParameter> : IStateRecord<TSelf, TParameter>
+    where TSelf : IRenderSettingsRecord<TSelf, TParameter>
+    where TParameter : class, IStateParameter<TSelf>, ISmartEnum<string, TParameter, ValidationError> {
     public static abstract string Owner { get; }
     public static virtual Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
     public static abstract IO<TSelf> Read(RenderSettingsScope scope);
-    public static abstract IO<TSelf> Write(RenderSettingsScope scope, TSelf record);
-}
-
-public interface IRenderSettingsRecord<TSelf, TParameter> : IRenderSettingsRecord<TSelf>, IStateRecord<TSelf, TParameter>
-    where TSelf : IRenderSettingsRecord<TSelf, TParameter>
-    where TParameter : class, IStateParameter<TSelf>, ISmartEnum<string, TParameter, ValidationError> {
+    public static abstract IO<TSelf> Write(RenderSettingsScope scope, TSelf state);
     public static virtual RowRules Rules(RowSource<TSelf> source, TParameter parameter) => RowRules.Always;
 }
 
@@ -88,7 +84,9 @@ public static class RenderSettingsSources {
         select assigned;
 
     // --- [STORES]
-    public static ValueStore<TRecord> Store<TRecord>(RenderSettingsSource source) where TRecord : IRenderSettingsRecord<TRecord> =>
+    public static ValueStore<TRecord> Store<TRecord, TParameter>(RenderSettingsSource source)
+        where TRecord : IRenderSettingsRecord<TRecord, TParameter>
+        where TParameter : class, IStateParameter<TRecord>, ISmartEnum<string, TParameter, ValidationError> =>
         Read(source, static scope => TRecord.Read(scope)).Map(Held) switch {
             var read => new(read,
                 value =>
@@ -98,7 +96,7 @@ public static class RenderSettingsSources {
                 EqualityComparer<TRecord>.Default.Equals, Applied.Live, Signal(source, TRecord.Changed)),
         };
 
-    private static Option<TRecord> Held<TRecord>(TRecord record) where TRecord : IRenderSettingsRecord<TRecord> =>
+    private static Option<TRecord> Held<TRecord>(TRecord record) where TRecord : IStateRecord<TRecord> =>
         Some(record).Filter(static held => !EqualityComparer<TRecord>.Default.Equals(held, TRecord.Default));
 
     public static Option<HostEvent<Unit>> Signal(RenderSettingsSource source, Option<DocumentEvent<RenderPropertyChangedEvent>> changed) =>
@@ -140,23 +138,25 @@ public static class RenderSettingsSources {
 
     private static Seq<(ValueBinding Binding, IO<Unit> Reset)> Rows(RenderSettingsSource source) =>
         [
-            Row<ImageOutputState>(source), Row<RenderSourceState>(source), Row<FrameState>(source),
-            Row<LinearWorkflowState>(source), Row<DitheringState>(source), Row<RenderChannelsState>(source),
-            Row<BackgroundState>(source), Row<LightingState>(source), Row<SafeFrameState>(source),
-            Row<GroundPlaneState>(source), Row<SunState>(source),
+            Row<ImageOutputState, ImageOutputParameter>(source), Row<RenderSourceState, RenderSourceParameter>(source), Row<FrameState, FrameParameter>(source),
+            Row<LinearWorkflowState, LinearWorkflowParameter>(source), Row<DitheringState, DitheringParameter>(source), Row<RenderChannelsState, RenderChannelsParameter>(source),
+            Row<BackgroundState, BackgroundParameter>(source), Row<LightingState, LightingParameter>(source), Row<SafeFrameState, SafeFrameParameter>(source),
+            Row<GroundPlaneState, GroundPlaneParameter>(source), Row<SunState, SunParameter>(source),
             .. Dictionary(source) switch { var dictionary => toSeq(CyclesKey.Items).Map(item => item.Entry(dictionary)) },
         ];
 
-    private static (ValueBinding Binding, IO<Unit> Reset) Row<TRecord>(RenderSettingsSource source) where TRecord : IRenderSettingsRecord<TRecord> =>
-        Store<TRecord>(source) switch {
-            var store => (ValueBinding.Fields(TRecord.Owner, store, TRecord.Default, TRecord.Parameters), store.Write(None).Map(unit)),
+    private static (ValueBinding Binding, IO<Unit> Reset) Row<TRecord, TParameter>(RenderSettingsSource source)
+        where TRecord : IRenderSettingsRecord<TRecord, TParameter>
+        where TParameter : class, IStateParameter<TRecord>, ISmartEnum<string, TParameter, ValidationError> =>
+        Store<TRecord, TParameter>(source) switch {
+            var store => (ValueBinding.Of(TRecord.Owner, new FieldCodec<TRecord>(TRecord.Parameters, TRecord.Default), store), store.Write(None).Map(unit)),
         };
 
     // --- [ROWS]
     public static Seq<ControlRow> Fields<TRecord, TParameter>(Seq<TParameter> items)
         where TRecord : IRenderSettingsRecord<TRecord, TParameter>
         where TParameter : class, IStateParameter<TRecord>, ISmartEnum<string, TParameter, ValidationError> =>
-        RowSource.Fields(TRecord.Owner, [.. items], static scope => IO.pure(scope.Document.ToSeq().Map(static doc => Store<TRecord>(doc)))) switch {
-            var source => SectionRows.Of(source, items, None, item => TRecord.Rules(source, item)),
+        RowSource.Fields(TRecord.Owner, [.. items], static scope => IO.pure(scope.Document.ToSeq().Map(static doc => Store<TRecord, TParameter>(doc)))) switch {
+            var source => new ParameterRows<TRecord>(source, parameter => TRecord.Rules(source, TParameter.Get(parameter.Key))).Of(items),
         };
 }

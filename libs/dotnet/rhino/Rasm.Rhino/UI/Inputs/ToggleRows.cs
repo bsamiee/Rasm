@@ -1,20 +1,21 @@
 using Eto.Forms;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI;
 
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ToggleRows {
     // --- [CHECK_BOXES]
-    public static ControlRow Check<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, bool> lens, RowRules rules) where TRecord : notnull =>
-        ControlRow.Of(source, field, RowShape.Inline, (scope, retain) => Boxed(source, field, lens, scope, retain), rules);
+    public static ControlRow Check<TRecord>(RowSource<TRecord> source, IStateParameter<TRecord> parameter, Lens<TRecord, bool> lens, RowRules rules) where TRecord : notnull =>
+        ControlRow.Of(source, parameter, RowShape.Inline, (scope, retain) => Boxed(source, parameter, lens, scope, retain), rules);
 
     // --- [REALIZE]
-    private static IO<RowCells> Boxed<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, bool> lens, RowScope scope, Action<IDisposable> retain) where TRecord : notnull =>
+    internal static IO<RowCells> Boxed<TRecord>(RowSource<TRecord> source, IStateParameter<TRecord> parameter, Lens<TRecord, bool> lens, RowScope scope, Action<IDisposable> retain) where TRecord : notnull =>
         DisposalOps.Acquire(owned =>
         from box in DisposalOps.Acquire(IO.lift(static () => new CheckBox()), owned)
         let site = new CallbackSite(scope.Sink, typeof(CheckBox), nameof(CheckBox.CheckedChanged))
-        from bound in RowEdit.Bind(source, IterableNE.create(field),
+        from bound in RowEdit.Bind(source, IterableNE.create(parameter),
             h => box.CheckedChanged += h, h => box.CheckedChanged -= h,
             edit => Callbacks.Handler<EventArgs>(_ => Ticked(edit, box, source, lens, scope), site),
             value => IO.lift(() => { (box.ThreeState, box.Checked) = (value.IsNone, value.Map(lens.Get).ToNullable()); }),

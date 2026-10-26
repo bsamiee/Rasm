@@ -16,7 +16,7 @@ public static class GrasshopperEvents {
         Subscriptions.Host<EventHandler, EventArgs>(typeof(Settings), static h => Settings.SandBoxChanged += h, static h => Settings.SandBoxChanged -= h, static handler => handler.Invoke);
 
     public static HostEvent<EventArgs> SettingChanged<T>(Settings.Setting<T> setting) =>
-        Subscriptions.Host<EventArgs>(typeof(Settings), h => setting.Changed += h, h => setting.Changed -= h, setting.Name);
+        Subscriptions.Host<EventArgs>(typeof(Settings.Setting<T>), h => setting.Changed += h, h => setting.Changed -= h, setting.Name);
 
     // --- [SKIN]
     public static readonly HostEvent<EventArgs> SkinChanged =

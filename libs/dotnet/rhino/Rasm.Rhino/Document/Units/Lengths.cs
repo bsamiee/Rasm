@@ -1,5 +1,3 @@
-using PeterO.Numbers;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.Geometry.Intersect;
@@ -89,49 +87,11 @@ public sealed partial class DistanceDisplay {
         Localization.FormatNumber(Quantities.As(length, spaceUnit), spaceUnit, Mode, Precision, appendUnitSystemName);
 }
 
-public sealed record ScalarDisplay(Option<string> Symbol, double Step, int Decimals, bool Turn, Func<double, double> Shown, Func<double, double> Key);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Quantities {
-    // --- [LENGTHS]
     public static Length From(double value, LengthUnit spaceUnit) =>
         Length.FromMeters((QuantityValue)value * LengthUnit.Scale(spaceUnit, LengthUnit.Meters));
 
     public static double As(Length length, LengthUnit spaceUnit) =>
         (length.Meters * LengthUnit.Scale(LengthUnit.Meters, spaceUnit)).ToDouble();
-
-    // --- [SCALARS]
-    public static ScalarDisplay Scalar<TKey>(Presentation<TKey> presentation, (TKey Low, TKey High) bounds)
-        where TKey : struct, System.Numerics.INumber<TKey> {
-        Option<(UnitInfo From, UnitInfo To)> units = presentation.Unit.Map(static keyUnit => (keyUnit, Quantity.GetUnitInfo(keyUnit.Value switch {
-            UnitsNet.Units.AngleUnit => UnitsNet.Units.AngleUnit.Degree,
-            UnitsNet.Units.RatioUnit.DecimalFraction => UnitsNet.Units.RatioUnit.Percent,
-            var held => held,
-        })));
-        Func<double, double> shown = Across(units);
-        Func<double, double> key = Across(units.Map(static pair => (pair.To, pair.From)));
-        (TKey Low, TKey High) soft = presentation.Soft.IfNone(bounds);
-        bool integral = TKey.IsInteger(TKey.CreateSaturating(0.5));
-        double increment = presentation.Step.Map(static declared => double.CreateChecked(declared))
-            .IfNone(() => double.Max(double.Epsilon, key(double.Exp10(double.Floor(Span(soft).Log10(EContext.Binary64.WithUnlimitedExponents()).ToDouble()) - 2))));
-        double step = integral ? double.Max(1, increment) : increment;
-        int decimals = presentation.Decimals.IfNone(() => int.Max(0, (int)double.Ceiling(-double.Log10(
-            presentation.Scale != TrackScale.Linear && !integral && shown(double.CreateChecked(soft.Low)) is > 0d and var bottom ? bottom / 10d : shown(step)))));
-        return new(
-            units.Map(static pair => UnitAbbreviationsCache.Default.GetDefaultAbbreviation(pair.To, RowText.Culture)),
-            step,
-            decimals,
-            presentation.Unit.Exists(static keyUnit => keyUnit.Value is UnitsNet.Units.AngleUnit.Radian)
-                && double.Round(Span(bounds).ToDouble(), decimals, MidpointRounding.ToEven)
-                    == double.Round(UnitConverter.Default.ConvertValue(1, UnitsNet.Units.AngleUnit.Revolution, UnitsNet.Units.AngleUnit.Degree), decimals, MidpointRounding.ToEven),
-            shown,
-            key);
-
-        EFloat Span((TKey Low, TKey High) ends) => EFloat.FromDouble(shown(double.CreateChecked(ends.High))).Subtract(EFloat.FromDouble(shown(double.CreateChecked(ends.Low)))).Abs();
-
-        static Func<double, double> Across(Option<(UnitInfo From, UnitInfo To)> units) =>
-            units.Match(
-                Some: static pair => (Func<double, double>)(value => UnitConverter.Convert(value, pair.From.UnitKey, pair.To.UnitKey)),
-                None: static () => static value => value);
-    }
 }

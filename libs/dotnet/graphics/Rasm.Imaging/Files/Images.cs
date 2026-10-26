@@ -48,7 +48,7 @@ public sealed record ImageFile {
                  from size in IO.lift(PixelExtent.Validated(image.Width, image.Height))
                  select new PixelFrame(Point.Empty, size, size, block => {
                      image.CopyPixelDataTo(MemoryMarshal.Cast<float, RgbaVector>(block.AsSpan()));
-                     encoding.Decode(MemoryMarshal.Cast<float, Vector4>(block.AsSpan()));
+                     encoding.Transfer.Decode(MemoryMarshal.Cast<float, Vector4>(block.AsSpan()));
                  }))
              .Bracket()
          select frame)
@@ -62,11 +62,11 @@ public sealed record ImageFile {
         cicp.Match(
             Some: static chunk =>
                 (ColorTags.Primaries.Find(row => row.Code == chunk.ColorPrimaries).Map(static row => row.Gamut), ColorTags.Transfers.Find(row => row.Code == chunk.TransferCharacteristics))
-                    .Apply(static (gamut, row) => new ColorEncoding(gamut, row.Transfer, row.White))
+                    .Apply(static (gamut, row) => new ColorEncoding(gamut, row.Transfer))
                     .As()
                     .Filter(_ => chunk.MatrixCoefficients is CicpMatrixCoefficients.Identity && chunk.FullRange)
                     .ToFin(Error.New($"PNG cICP {chunk.ColorPrimaries}/{chunk.TransferCharacteristics}/{chunk.MatrixCoefficients} full range {chunk.FullRange} names no supported gamut and transfer")),
-            None: static () => new ColorEncoding(Gamut.StandardRgb, TransferCurve.Srgb, Nits.ReferenceWhite));
+            None: static () => new ColorEncoding(Gamut.StandardRgb, new Transfer.Srgb()));
 
     private static DecoderOptions Decoding(ColorProfileHandling handling) =>
         new() { MaxFrames = 1, SegmentIntegrityHandling = SegmentIntegrityHandling.Strict, ColorProfileHandling = handling };

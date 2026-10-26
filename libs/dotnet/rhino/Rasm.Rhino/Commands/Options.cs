@@ -104,10 +104,10 @@ public static class OptionSpec {
 
     public static IO<OptionSpec<T>> Seeded<T, TValue, TRaw>(Command command, PlugInSetting<TValue, TRaw> setting, OptionAdder<TValue> add, Func<TValue, IO<T>> chosen)
         where TValue : notnull
-        where TRaw : notnull =>
-        from store in IO.pure(PlugInSettings.Store(new SettingsNode(command), setting))
-        from held in store.Read
-        select Of(setting.Value.Caption, add, held.IfNone(setting.Value.Default), value => store.Write(Some(value)).Map(value).Bind(chosen));
+        where TRaw : notnull, ISpanParsable<TRaw> =>
+        PlugInSettings.Store(new SettingsNode(command), setting) switch {
+            var store => store.Read.Map(held => Of(setting.Key.Text.Caption, add, held.IfNone(setting.Key.Default), value => store.Write(Some(value)).Map(value).Bind(chosen))),
+        };
 }
 
 public static class CommandOptions {

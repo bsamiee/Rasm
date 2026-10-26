@@ -1,15 +1,14 @@
 using System.Drawing;
 using System.Globalization;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NodaTime.Text;
-using Rasm.Imaging.Color;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Objects;
 using Rasm.Rhino.Render.Content;
 using Rhino;
+using Rhino.Display;
 using Rhino.Render;
 
 namespace Rasm.Rhino.Render.Settings;
@@ -77,7 +76,7 @@ internal sealed partial class SceneFileContext : JsonSerializerContext;
 public sealed record LightScene(
     Instant Captured,
     MetersPerUnit Scale,
-    Transfer LightTransfer,
+    Gamma LightGamma,
     Seq<LightState> Emitters,
     SunState SunState,
     SunAngles SunAngles,
@@ -88,7 +87,7 @@ public sealed record LightScene(
     public static IO<LightScene> Capture(RhinoDoc doc, TimeProvider clock) =>
         from captured in IO.lift(clock.GetCurrentInstant)
         from scale in IO.lift(() => MetersPerUnit.Validated(Quantities.From(1d, doc.ModelUnits).Meters.ToDouble()))
-        from transfer in Lights.Gamma(doc)
+        from gamma in Lights.PreProcessGamma(doc)
         from read in Lights.States(doc)
         from _ in unless(read.Fails.IsEmpty, IO.fail<Unit>(Error.Many(read.Fails))).As()
         from sun in RenderSettingsSources.Read(doc, scope =>
@@ -101,25 +100,23 @@ public sealed record LightScene(
             from gain in Environments.Intensity(lit)
             from hash in Contents.Hash(lit, CrcRenderHashFlags.Normal, [], None)
             select new SkylightReference(lit.Id, hash, gain)).As())
-        select new LightScene(captured, scale, transfer, read.Succs, sun.State, sun.Angles, sun.Moment, sun.Color, skylight);
+        select new LightScene(captured, scale, gamma, read.Succs, sun.State, sun.Angles, sun.Moment, sun.Color, skylight);
 
     // --- [EMISSION]
-    private static float[] Emission(LightColor color, Transfer transfer) =>
+    private static float[] Emission(LightColor color, Gamma gamma) =>
         color.Switch(
-            transfer,
-            rgb: static (curve, rgb) => Decoded(rgb.Diffuse, curve),
-            blackbody: static (_, blackbody) => Adaptation.Blackbody(Gamut.StandardRgb, blackbody.Kelvin).RgbLinear switch {
-                var linear => [(float)linear.R, (float)linear.G, (float)linear.B],
-            },
-            linear: static (_, linear) => linear.Filter.Unicolour switch {
-                var filter => [(float)(filter.RgbLinear.R / filter.Xyz.Y), (float)(filter.RgbLinear.G / filter.Xyz.Y), (float)(filter.RgbLinear.B / filter.Xyz.Y)],
-            });
+            gamma,
+            rgb: static (held, rgb) => Decoded(rgb.Diffuse, held),
+            blackbody: static (_, blackbody) => Normalized(Conversions.Blackbody((double)blackbody.Kelvin.Kelvins)),
+            linear: static (_, linear) => Normalized(linear.Filter.Light));
 
-    private static float[] Decoded(Color color, Transfer transfer) {
-        Span<System.Numerics.Vector4> light = [new System.Numerics.Vector4(color.R, color.G, color.B, byte.MaxValue) / byte.MaxValue];
-        transfer.Decode(light, Nits.ReferenceWhite);
-        return MemoryMarshal.Cast<System.Numerics.Vector4, float>(light)[..3].ToArray();
-    }
+    private static float[] Normalized((Color4f Light, double Luminance) emission) =>
+        [(float)(emission.Light.R / emission.Luminance), (float)(emission.Light.G / emission.Luminance), (float)(emission.Light.B / emission.Luminance)];
+
+    private static float[] Decoded(Color color, Gamma gamma) =>
+        Color4f.ApplyGamma(new Color4f(color), gamma) switch {
+            var light => [light.R, light.G, light.B],
+        };
 
     // --- [DESCRIPTION]
     public ContentKey Key => Keyed(Body());
@@ -136,18 +133,18 @@ public sealed record LightScene(
 
     private SceneFile.Body Body() {
         return new(
-            [.. Emitters.Map(light => Entry(light, (double)Scale, LightTransfer))],
+            [.. Emitters.Map(light => Entry(light, (double)Scale, LightGamma))],
             new SceneFile.Sun(
-                SunState.Enabled, (double)SunState.Intensity, Decoded(SunColor, LightTransfer),
+                SunState.Enabled, (double)SunState.Intensity, Decoded(SunColor, LightGamma),
                 double.DegreesToRadians(SunAngles.Azimuth), double.DegreesToRadians(SunAngles.Altitude), double.DegreesToRadians((double)SunState.Site.North),
                 (double)SunState.Site.Place.Latitude, (double)SunState.Site.Place.Longitude,
                 OffsetPattern.GeneralInvariant.Format(SunState.Site.Standard.ToValue()), SunState.Site.Saving.Map(static saving => OffsetPattern.GeneralInvariant.Format(saving.ToValue())).ValueUnsafe(),
                 Moment.Map(static moment => moment.ToValue()).ValueUnsafe()),
             Skylight.Map(static reference => new SceneFile.Skylight(reference.Environment, reference.RenderHash, reference.Gain.Map(static gain => (double)gain).ToNullable())).ValueUnsafe());
 
-        static SceneFile.Light Entry(LightState light, double scale, Transfer transfer) =>
+        static SceneFile.Light Entry(LightState light, double scale, Gamma gamma) =>
             new(
-                light.Id, light.Spec.Name.ValueUnsafe(), light.Spec.Enabled, Shape(light.Spec.Shape, scale), Emission(light.Spec.Color, transfer),
+                light.Id, light.Spec.Name.ValueUnsafe(), light.Spec.Enabled, Shape(light.Spec.Shape, scale), Emission(light.Spec.Color, gamma),
                 (double)light.Spec.Watts > 0d ? new SceneFile.Power.Watts((double)light.Spec.Watts) : new SceneFile.Power.Scale((double)light.Spec.Intensity),
                 (double)light.Spec.ShadowIntensity,
                 [light.Spec.AttenuationVector.X, light.Spec.AttenuationVector.Y / scale, light.Spec.AttenuationVector.Z / scale / scale]);

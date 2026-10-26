@@ -1,11 +1,8 @@
 using System.Drawing;
-using PeterO.Numbers;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
-using Rhino.DocObjects;
+using Rasm.UI;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 using UnitsNet;
@@ -67,13 +64,13 @@ public sealed record SafeFrameState(
                        },
         };
 
-    public Option<Rectangle> Action(PixelExtent frame) =>
+    public Option<Rectangle> Action(Size frame) =>
         Guide(frame, ActionFrameOn, ActionFrameXScale, ActionFrameLinked ? ActionFrameXScale : ActionFrameYScale);
 
-    public Option<Rectangle> Title(PixelExtent frame) =>
+    public Option<Rectangle> Title(Size frame) =>
         Guide(frame, TitleFrameOn, TitleFrameXScale, TitleFrameLinked ? TitleFrameXScale : TitleFrameYScale);
 
-    private Option<Rectangle> Guide(PixelExtent frame, bool on, FrameFraction x, FrameFraction y) =>
+    private Option<Rectangle> Guide(Size frame, bool on, FrameFraction x, FrameFraction y) =>
         Enabled && on
             ? Some(Rectangle.FromLTRB(
                 Framing.Edge(frame.Width, (1d - x) / 2d), Framing.Edge(frame.Height, (1d - y) / 2d),
@@ -140,63 +137,6 @@ public abstract partial record RenderSize {
     }
 }
 
-[ComplexValueObject]
-public sealed partial class RenderRegion {
-    public FrameFraction Left { get; }
-    public FrameFraction Top { get; }
-    public FrameFraction Right { get; }
-    public FrameFraction Bottom { get; }
-
-    public Rectangle Pixels(PixelExtent frame) =>
-        Rectangle.FromLTRB(
-            Framing.Edge(frame.Width, Left), Framing.Edge(frame.Height, Top),
-            Framing.Edge(frame.Width, Right), Framing.Edge(frame.Height, Bottom));
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref FrameFraction left, ref FrameFraction top, ref FrameFraction right, ref FrameFraction bottom) =>
-        validationError = left < right && top < bottom ? null : new ValidationError("Region needs left before right and top above bottom");
-}
-
-public sealed class OverscanFrame {
-    private OverscanFrame(PixelExtent frame, PixelExtent padded) => (Frame, Padded) = (frame, padded);
-
-    public PixelExtent Frame { get; }
-    public PixelExtent Padded { get; }
-    public Size Pad => new((Padded.Width - Frame.Width) / 2, (Padded.Height - Frame.Height) / 2);
-
-    public Rectangle DisplayWindow => new(0, 0, Frame.Width, Frame.Height);
-
-    public Rectangle DataWindow => new(-Pad.Width, -Pad.Height, Padded.Width, Padded.Height);
-
-    public static Fin<OverscanFrame> Around(PixelExtent frame, Overscan overscan) {
-        EFloat fraction = EFloat.FromDouble(overscan);
-        return PixelExtent.Validated(Dimension(frame.Width), Dimension(frame.Height)).Map(padded => new OverscanFrame(frame, padded));
-
-        int Dimension(int side) =>
-            fraction.Multiply(side).RoundToIntegerNoRoundedFlag(EContext.UnlimitedHalfEven).ToEInteger().Multiply(2).Add(side) switch {
-                var held => held.CanFitInInt32() ? held.ToInt32Unchecked() : int.MaxValue,
-            };
-    }
-
-    public IO<Unit> Widen(ViewportInfo view) =>
-        IO.lift(() => {
-            view.FrustumAspect = (float)Frame.Width / Frame.Height;
-            return Refused.Unless(view.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out double far), nameof(ViewportInfo.GetFrustum))
-                .Bind(_ => {
-                    double x = (right - left) * (Pad.Width / (double)Frame.Width);
-                    double y = (top - bottom) * (Pad.Height / (double)Frame.Height);
-                    return Refused.Unless(view.SetFrustum(left - x, right + x, bottom - y, top + y, near, far), nameof(ViewportInfo.SetFrustum));
-                });
-        });
-}
-
-[ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Overscan : System.Numerics.IMinMaxValue<Overscan> {
-    public static Overscan MinValue { get; } = new(0d);
-    public static Overscan MaxValue { get; } = new(double.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 internal static partial class SafeFrameMapper {
@@ -209,10 +149,10 @@ internal static partial class SafeFrameMapper {
 
 public static class Framing {
     // --- [OUTPUT]
-    public static Fin<PixelExtent> Final(ImageOutputState output, Size viewport) =>
-        EffectPipeline.Extent(output.UseViewportSize ? viewport : new Size(output.ImageWidth, output.ImageHeight));
+    public static Size Final(ImageOutputState output, Size viewport) =>
+        output.UseViewportSize ? viewport : new Size(output.ImageWidth, output.ImageHeight);
 
-    public static (Length Width, Length Height) Print(ImageOutputState output, PixelExtent final) =>
+    public static (Length Width, Length Height) Print(ImageOutputState output, Size final) =>
         (Length.FromInches(final.Width / (double)output.ImageDpi), Length.FromInches(final.Height / (double)output.ImageDpi));
 
     public static Fin<ImageOutputState> Sized(ImageOutputState held, Size size) =>
@@ -221,9 +161,9 @@ public static class Framing {
             .As();
 
     // --- [EXTENT]
-    public static ReadModel<Eto.Drawing.Size> Extent { get; } = new(
+    public static ReadModel<Size> Extent { get; } = new(
         [ReadModel.Marks(EventKind.DocumentPropertiesChanged), ReadModel.Marks(EventKind.UndoRedo)],
-        static doc => IO.lift(() => RenderPipeline.RenderSize(doc, fromRenderSources: true)).Map(static size => new Eto.Drawing.Size(size.Width, size.Height)));
+        static doc => IO.lift(() => RenderPipeline.RenderSize(doc, fromRenderSources: true)));
 
     // --- [SIZES]
     public static Seq<RenderSize> Sizes(EditorState editor, Size screenPort) =>

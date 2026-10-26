@@ -1,11 +1,11 @@
 using System.Runtime.CompilerServices;
 using Eto.Forms;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Viewport;
+using Rasm.UI;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
@@ -38,10 +38,6 @@ public abstract partial record CommitMode {
     }
 }
 
-public sealed record RowField<TRecord>(IStateParameter<TRecord> Parameter, string Caption, string Help) where TRecord : notnull {
-    public RowField(IStateParameter<TRecord> parameter) : this(parameter, parameter.Text.Caption, parameter.Text.Help) { }
-}
-
 public abstract record RowSource {
     // --- [BINDING]
     private protected RowSource(string owner) => Owner = owner;
@@ -61,61 +57,21 @@ public abstract record RowSource {
 
     public static RowSource<TRecord> Fields<TRecord>(
         string owner, Seq<IStateParameter<TRecord>> fields, Func<RowScope, IO<Seq<ValueStore<TRecord>>>> stores, Option<TRecord> factory = default) where TRecord : IStateRecord<TRecord> =>
-        factory.IfNone(TRecord.Default) switch {
-            var initial => new(owner, stores, initial, fields),
-        };
+        new(owner, stores, factory.IfNone(TRecord.Default), fields);
 
     // --- [KEYS]
-    public static (RowSource<TValue> Source, RowField<TValue> Field) Keyed<TValue, TRaw>(
-        string owner, ValueKey<TValue, TRaw> key, Func<RowScope, ValueStore<TValue>> store)
-        where TValue : notnull
-        where TRaw : notnull =>
-        Named(owner, key.Name, key.Caption, key.Help, key.Default, key.Kind, store);
+    public static RowSource<TValue> Of<TValue>(string owner, ValueKey<TValue> key, Func<RowScope, ValueStore<TValue>> store) where TValue : notnull =>
+        new(owner, scope => IO.pure(Seq(store(scope))), key.Default, [key]);
 
-    // --- [NAMES]
-    public static (RowSource<Gated<TValue>> Source, RowField<Gated<TValue>> Field) OptionalBounded<TValue, TKey>(
-        string owner, string name, string caption, string help, TValue @default, Presentation<TKey> presentation, Func<RowScope, ValueStore<TValue>> store)
-        where TValue : IObjectFactory<TValue, TKey, ValidationError>, IConvertible<TKey>, System.Numerics.IMinMaxValue<TValue>
-        where TKey : struct, System.Numerics.INumber<TKey> =>
-        Named(owner, name, caption, help, new Gated<TValue>(Enabled: false, @default),
-            StateParameter.OptionalBounded(Lens.identity<Gated<TValue>>(), presentation),
-            scope => Lifted(store(scope), static value => new Gated<TValue>(Enabled: true, value), static gate => gate.Active));
-
-    public static (RowSource<Option<TValue>> Source, RowField<Option<TValue>> Field) Loaded<TValue, TKey, TRaw>(
-        string owner, string name, string caption, string help, Func<TKey, IO<TValue>> load, Func<TValue, TKey> key, Func<RowScope, ValueStore<TValue>> store)
-        where TValue : notnull
-        where TKey : IObjectFactory<TKey, TRaw, ValidationError>, IConvertible<TRaw>
-        where TRaw : notnull, ISpanParsable<TRaw> =>
-        Named(owner, name, caption, help, Option<TValue>.None,
-            new StateParameter<Option<TValue>>.Loaded<TValue, TKey, TRaw>(Lens.identity<Option<TValue>>(), load, key), scope => Absent(store(scope)));
-
-    public static (RowSource<TValue> Source, RowField<TValue> Field) Opaque<TValue>(
-        string owner, string name, TValue @default, Func<RowScope, ValueStore<TValue>> store) where TValue : notnull =>
-        Named(owner, name, name, "", @default, new StateParameter<TValue>.Opaque<TValue>(Lens.identity<TValue>()), store);
-
-    public static (RowSource<TValue> Source, RowField<TValue> Field) Opaque<TValue>(string owner, string name, TValue @default) where TValue : notnull =>
+    public static RowSource<TValue> Of<TValue>(string owner, ValueKey<TValue> key) where TValue : notnull =>
         new ConditionalWeakTable<RowScope, Ref<Option<TValue>>>() switch {
-            var cells => Opaque(owner, name, @default, scope => RowScope.Cell(cells.GetValue(scope, static _ => Ref(Option<TValue>.None)))),
+            var cells => Of(owner, key, scope => RowScope.Cell(cells.GetValue(scope, static _ => Ref(Option<TValue>.None)))),
         };
 
-    // --- [STORES]
-    public static ValueStore<Option<TValue>> Absent<TValue>(ValueStore<TValue> store) where TValue : notnull =>
-        Lifted(store, static value => Some(value), static held => held);
-
-    private static ValueStore<TRecord> Lifted<TValue, TRecord>(ValueStore<TValue> store, Func<TValue, TRecord> held, Func<TRecord, Option<TValue>> value)
+    public static RowSource<TValue> Of<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
         where TValue : notnull
-        where TRecord : notnull =>
-        new(store.Read.Map(found => found.Map(held)),
-            record => store.Put(record.Bind(value)).Map(change => ValueStore.Map(change, held, EqualityComparer<TRecord>.Default.Equals)),
-            (left, right) => value(left).Match(Some: kept => value(right).Exists(other => store.Same(kept, other)), None: () => value(right).IsNone),
-            store.Applied,
-            store.Changed);
-
-    private static (RowSource<TValue> Source, RowField<TValue> Field) Named<TValue>(
-        string owner, string name, string caption, string help, TValue @default, StateParameter<TValue> kind, Func<RowScope, ValueStore<TValue>> store) where TValue : notnull =>
-        new KeyParameter<TValue>(name, kind, new ParameterText(caption, help)) switch {
-            var parameter => (new(owner, scope => IO.pure(Seq(store(scope))), @default, [parameter]), new(parameter)),
-        };
+        where TRaw : notnull, ISpanParsable<TRaw> =>
+        Of(nameof(PlugInSettings), row.Key, scope => PlugInSettings.Store(((IPlugInViews)scope.Sink).Settings, row)) with { Setting = Some<PlugInSetting>(row) };
 }
 
 public sealed record RowSource<TRecord> : RowSource where TRecord : notnull {
@@ -128,12 +84,12 @@ public sealed record RowSource<TRecord> : RowSource where TRecord : notnull {
 
     public Seq<IStateParameter<TRecord>> Fields { get; }
 
-    public ValueBinding Binding(ValueStore<TRecord> store) => ValueBinding.Fields(Owner, store, Default, Fields).Under(Path);
+    public ValueBinding Binding(ValueStore<TRecord> store) => ValueBinding.Of(Owner, new FieldCodec<TRecord>(Fields, Default), store).Under(Path);
 
     public Seq<string> Path { get; private init; }
 
     public Seq<EntryKey> Keys(IStateParameter<TRecord> parameter) =>
-        FieldTexts.Of(parameter).Map(text => new EntryKey(Owner, Path + text.Path));
+        RecordEntries.Of(parameter).Map(entry => new EntryKey(Owner, Path + entry.Path));
 
     public RowSource<TNested> Within<TNested>(Seq<string> path, Lens<TRecord, TNested> lens, Seq<IStateParameter<TNested>> fields)
         where TNested : notnull =>
@@ -163,8 +119,14 @@ public sealed record RowSource<TRecord> : RowSource where TRecord : notnull {
             },
         };
 
-    public ValueSet Capture(TRecord record) => new(toHashMap(Fields.Bind(FieldTexts.Of)
+    public ValueSet Capture(TRecord record) => new(toHashMap(Fields.Bind(RecordEntries.Of)
         .Choose(field => field.Capture(record).Map(text => (new EntryKey(Owner, Path + field.Path), text)))));
+
+    public IO<ValueDiff> Commit(RowScope scope, Func<TRecord, TRecord> change, Seq<IStateParameter<TRecord>> writes) =>
+        from held in scope.Read(this)
+        let written = toHashSet(writes.Bind(Keys))
+        from diff in scope.Commit(new BindingGroup(Seq(Values(scope))), new ValueSet(Capture(change(held)).Entries.Filter((key, _) => written.Contains(key))))
+        select diff;
 
     public override IO<Seq<HostEvent<Unit>>> Signals(RowScope scope) =>
         Stores(scope).Map(static stores => stores.Choose(static store => store.Changed));
@@ -172,12 +134,10 @@ public sealed record RowSource<TRecord> : RowSource where TRecord : notnull {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ControlRow {
-    private ControlRow(string caption, Option<string> help, Seq<EntryKey> keys, RowRules rules, Option<(RowShape Shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> Realize)> cells, Option<RowSource> bound) =>
-        (Caption, Help, Keys, Rules, Cells, Bound) = (caption, help, keys, rules, cells, bound);
+    private ControlRow(ParameterText text, Seq<EntryKey> keys, RowRules rules, Option<(RowShape Shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> Realize)> cells, Option<RowSource> bound) =>
+        (Text, Keys, Rules, Cells, Bound) = (text, keys, rules, cells, bound);
 
-    public string Caption { get; }
-
-    public Option<string> Help { get; }
+    public ParameterText Text { get; }
 
     public Seq<EntryKey> Keys { get; }
 
@@ -189,26 +149,28 @@ public abstract partial record ControlRow {
 
     public bool Fill => Cells.Exists(static cells => cells.Shape.Fills);
 
-    public static ControlRow Of<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, RowRules rules)
+    public static ControlRow Of<TRecord>(RowSource<TRecord> source, IStateParameter<TRecord> parameter, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, RowRules rules)
         where TRecord : notnull =>
-        Of(source, IterableNE.create(field), field.Caption, field.Help, shape, realize, rules);
+        new Field(source, source.Keys(parameter), shape, realize, parameter.Text, rules);
 
     public static ControlRow Of<TRecord>(
-        RowSource<TRecord> source, IterableNE<RowField<TRecord>> fields, string caption, string help, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, RowRules rules)
+        RowSource<TRecord> source, IterableNE<IStateParameter<TRecord>> parameters, ParameterText text, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, RowRules rules)
         where TRecord : notnull =>
-        new Field(source, toSeq(fields).Bind(field => source.Keys(field.Parameter)), shape, realize, caption, help, rules);
+        new Field(source, toSeq(parameters).Bind(source.Keys), shape, realize, text, rules);
 
     public sealed record Field : ControlRow {
-        public Field(RowSource source, Seq<EntryKey> keys, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, string caption, string help, RowRules rules)
-            : base(caption, Some(help), keys, rules, Some((shape, realize)), Some(source)) { }
+        public Field(RowSource source, Seq<EntryKey> keys, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, ParameterText text, RowRules rules)
+            : base(text, keys, rules, Some((shape, realize)), Some(source)) { }
     }
 
     public sealed record Readout : ControlRow {
-        public Readout(RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, string caption, string help, RowRules rules)
-            : base(caption, Some(help), [], rules, Some((shape, realize)), None) { }
+        public Readout(RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, ParameterText text, RowRules rules)
+            : base(text, [], rules, Some((shape, realize)), None) { }
     }
 
-    public sealed record Group(string Caption, RowRules Rules) : ControlRow(Caption, None, [], Rules, None, None);
+    public sealed record Group : ControlRow {
+        public Group(ParameterText text, RowRules rules) : base(text, [], rules, None, None) { }
+    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -447,7 +409,7 @@ public sealed class RowScope {
         };
 
     private static IO<TRecord> Recalled<TRecord>(RowSource<TRecord> source, TRecord record, HashMap<Seq<string>, string> texts) where TRecord : notnull =>
-        FieldTexts.Recalled(source.Owner, source.Fields, path => IO.pure(texts.Find(source.Path + path)), record);
+        new FieldCodec<TRecord>(source.Fields, record).Recalled(source.Owner, path => IO.pure(texts.Find(source.Path + path)));
 
     private static HashMap<Seq<string>, string> Named(ValueSet values, ValueBinding binding) =>
         toHashMap(binding.Paths().Choose(path => values.Entries.Find(new EntryKey(binding.Owner, path)).Map(text => (path, text))));

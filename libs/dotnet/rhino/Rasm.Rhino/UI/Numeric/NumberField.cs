@@ -1,15 +1,14 @@
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Eto;
 using Eto.Drawing;
 using Eto.Forms;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rasm.Rhino.UI.Surfaces;
+using Rasm.UI;
 using Rasm.UI.Styling;
 using Rhino;
 using Rhino.Input;
@@ -32,49 +31,29 @@ public abstract class NumberText<TKey> where TKey : notnull {
 
     public abstract TKey Moved(TKey key, double steps);
 
-    public abstract TKey Snapped(TKey key, double steps);
+    public abstract TKey Snapped(TKey key, int steps);
 
     public float TextWidth(Font font) =>
         Seq(Shown(Some(Ends.Low)), Shown(Some(Ends.High)), Shown(None)).Fold(0f, (widest, shown) => float.Max(widest, font.MeasureString(shown).Width));
 }
 
-public sealed class ScalarText<TValue, TKey> : NumberText<TKey> where TValue : notnull where TKey : struct, INumber<TKey> {
-    private readonly (Func<TKey, string> Shown, Func<TKey, string> Entry) number;
-    private readonly double stride;
-    private readonly string varies;
+public sealed class ScalarText<TValue, TKey>(NumericDomain<TValue, TKey> domain, string varies) : NumberText<TKey>
+    where TValue : notnull
+    where TKey : struct, INumber<TKey> {
+    public NumericDomain<TValue, TKey> Domain { get; } = domain;
+    public NumberDisplay Display { get; } = domain.Presentation.Display(domain.Bounds, RowText.Culture);
+    public override (TKey Low, TKey High) Ends { get; } = domain.Presentation.Soft.IfNone(domain.Bounds);
 
-    public ScalarText(NumericDomain<TValue, TKey> domain, string varies) {
-        (Domain, Display, Ends, this.varies) = (domain, Quantities.Scalar(domain.Presentation, domain.Bounds), domain.Presentation.Soft.IfNone(domain.Bounds), varies);
-        number = FieldTexts.Number(domain.Presentation, domain.Bounds);
-        stride = Display.Step / (double.CreateChecked(Ends.High) - double.CreateChecked(Ends.Low));
-    }
+    public override string Shown(Option<TKey> key) => key.Match(Some: held => Display.Text(double.CreateChecked(held)), None: () => varies);
 
-    public NumericDomain<TValue, TKey> Domain { get; }
-    public ScalarDisplay Display { get; }
-    public override (TKey Low, TKey High) Ends { get; }
-
-    public override string Shown(Option<TKey> key) => key.Match(Some: number.Shown, None: () => varies);
-
-    public override string Entry(TKey key) => number.Entry(key);
+    public override string Entry(TKey key) => Display.Shown(double.CreateChecked(key)).ToString("R", CultureInfo.InvariantCulture);
 
     public override IO<TKey> Read(string entry) =>
-        UnitText.ParseNumber(entry, StringParserSettings.DefaultParseSettings).Map(shown => NumericRows.Narrowed<TKey>(Display.Key(shown)));
+        UnitText.ParseNumber(entry, StringParserSettings.DefaultParseSettings).Map(shown => Presentation<TKey>.Keyed(Display.Key(shown)));
 
-    public override TKey Moved(TKey key, double steps) =>
-        Domain.Presentation.Scale == TrackScale.Linear || TKey.IsInteger(TKey.CreateSaturating(0.5))
-            ? NumericRows.Narrowed<TKey>(double.CreateChecked(key) + (steps * Display.Step))
-            : Key(Domain.Presentation.Position(key, Ends) + (steps * stride), Ends);
+    public override TKey Moved(TKey key, double steps) => Presentation<TKey>.Keyed(double.CreateChecked(key) + (steps * Display.Step));
 
-    public override TKey Snapped(TKey key, double steps) => Snap(key, steps, Track(key));
-
-    public TKey Snap(TKey key, double steps, (TKey Low, TKey High) track) =>
-        Domain.Presentation.Scale == TrackScale.Linear
-            ? NumericRows.Narrowed<TKey>(double.Round((double.CreateChecked(key) + (steps * Display.Step)) / Display.Step, MidpointRounding.ToEven) * Display.Step)
-            : Key(double.Clamp((double.Round(Domain.Presentation.Position(key, track) * NumberText.TickIntervals, MidpointRounding.ToEven) + steps) / NumberText.TickIntervals, 0d, 1d), track);
-
-    public (TKey Low, TKey High) Track(TKey key) => Domain.Presentation.Track(key, Domain.Bounds);
-
-    public TKey Key(double position, (TKey Low, TKey High) track) => NumericRows.Narrowed<TKey>(Domain.Presentation.Key(position, track, Domain.Bounds));
+    public override TKey Snapped(TKey key, int steps) => Domain.Presentation.Snapped(key, steps, Domain.Bounds);
 }
 
 internal sealed class DistanceText(LengthUnit spaceUnit, DistanceDisplay display, (Length Low, Length High) ends, string varies) : NumberText<Length> {
@@ -90,16 +69,7 @@ internal sealed class DistanceText(LengthUnit spaceUnit, DistanceDisplay display
 
     public override Length Moved(Length key, double steps) => key + (step * steps);
 
-    public override Length Snapped(Length key, double steps) => step * QuantityValue.Round((key + (step * steps)) / step, MidpointRounding.ToEven);
-}
-
-public static class NumberText {
-    public const int TickIntervals = 10;
-
-    public static ScalarText<TValue, TKey> Scalar<TValue, TKey>(NumericDomain<TValue, TKey> domain, string varies)
-        where TValue : notnull
-        where TKey : struct, INumber<TKey> =>
-        new(domain, varies);
+    public override Length Snapped(Length key, int steps) => step * QuantityValue.Round((key + (step * steps)) / step, MidpointRounding.ToEven);
 }
 
 [Union(SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads, MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
@@ -155,7 +125,7 @@ public sealed class NumberField<TValue, TKey> : NumberField
         Run(ViewOps.WhileLoaded(this, Listened, new CallbackSite(sink, typeof(NumberField<TValue, TKey>), nameof(ViewOps.WhileLoaded)), lease => listening = Some(lease)));
     }
 
-    public event EventHandler<EditEventArgs<TValue>>? Edited;
+    public event EventHandler<Edit<TValue>>? Edited;
 
     public FieldFit Fit => new(this, text.TextWidth(Font) + (2f * Inset));
 
@@ -167,9 +137,9 @@ public sealed class NumberField<TValue, TKey> : NumberField
                 Some: shown => s.Field.Become(pressed with { Shown = shown }, Some(s.Field.Showing(s.Value))),
                 None: () => s.Field.Released(None)),
             scrubbing: static (s, scrubbing) => s.Value.Match(
-                Some: shown => s.Field.Become(scrubbing with { Shown = shown }, Some(s.Field.Showing(scrubbing.Moved | s.Value))),
+                Some: shown => s.Value == scrubbing.Moved ? IO.pure(unit) : s.Field.Become(scrubbing with { Shown = shown }, Some(s.Field.Showing(scrubbing.Moved | s.Value))),
                 None: () => s.Field.Unscrubbed(None, s.Field.Raised(new Edit<TValue>.Cancel()))),
-            editing: static (s, _) => s.Field.Entered(s.Value)));
+            editing: static (s, editing) => s.Value.IsSome && s.Value == editing.Typed ? IO.pure(unit) : s.Field.Entered(s.Value)));
 
     public IO<Unit> Retext(NumberText<TKey> next) =>
         from written in IO.lift(() => { (text, PlaceholderText) = (next, next.Shown(None)); })
@@ -241,9 +211,9 @@ public sealed class NumberField<TValue, TKey> : NumberField
     private Fin<TValue> Stepped(TValue shown, double steps, Keys keys) =>
         from held in styled.ToFin(new Refused(nameof(Restyled), Refused.Absent))
         let modifiers = HostInput.Modifiers(keys)
-        from value in create(Clamped(modifiers.Contains(Rasm.UI.Modifier.Shift)
-            ? text.Snapped(key(shown), steps)
-            : text.Moved(key(shown), modifiers.Contains(Rasm.UI.Modifier.Common) ? steps * held.Fine : steps)))
+        from value in create(Clamped(modifiers.Contains(Modifier.Shift)
+            ? text.Snapped(key(shown), (int)steps)
+            : text.Moved(key(shown), modifiers.Contains(Modifier.Common) ? steps * held.Fine : steps)))
         select value;
 
     private TKey Clamped(TKey key) =>
@@ -258,7 +228,7 @@ public sealed class NumberField<TValue, TKey> : NumberField
 
     private IO<Unit> Committed(Option<TValue> value) => Raised(value.Map<Edit<TValue>>(static held => new Edit<TValue>.Commit(held)));
 
-    private IO<Unit> Raised(Option<Edit<TValue>> edit) => IO.lift(() => edit.Iter(held => Edited?.Invoke(this, new EditEventArgs<TValue>(held))));
+    private IO<Unit> Raised(Option<Edit<TValue>> edit) => IO.lift(() => edit.Iter(held => Edited?.Invoke(this, held)));
 
     private static IO<Unit> Claimed(Action claim, IO<Unit> effect) => IO.lift(claim).Bind(_ => effect);
 

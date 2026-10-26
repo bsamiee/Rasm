@@ -151,8 +151,8 @@ public static class Commands {
     private static Node.Box Divider(Orientation axis) =>
         new() {
             Role = Role.Divider,
-            Width = axis.Map(horizontal: Option<Sizing>.None, vertical: new Sizing.Grow(Factor.Create(1f))),
-            Height = axis.Map(horizontal: new Sizing.Grow(Factor.Create(1f)), vertical: Option<Sizing>.None),
+            Width = axis.Map(horizontal: Option<Sizing>.None, vertical: Sizing.Grow.Unit),
+            Height = axis.Map(horizontal: Sizing.Grow.Unit, vertical: Option<Sizing>.None),
         };
 
     // --- [FACES]

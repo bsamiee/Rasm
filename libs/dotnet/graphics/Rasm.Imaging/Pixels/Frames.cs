@@ -4,7 +4,10 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
+using Emgu.CV;
+using Emgu.CV.CvEnum;
 using PeterO.Numbers;
+using SixLabors.ImageSharp.PixelFormats;
 using TinyEXR;
 
 namespace Rasm.Imaging.Pixels;
@@ -32,6 +35,57 @@ public readonly partial struct PixelExtent {
             : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Extent {width}x{height} must be positive with at most {System.Array.MaxLength / 4} pixels"));
 }
 
+[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct ShortSideOffset : IMinMaxValue<ShortSideOffset> {
+    public static ShortSideOffset MinValue { get; } = new(-float.MaxValue);
+    public static ShortSideOffset MaxValue { get; } = new(float.MaxValue);
+
+    public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct ShortSideLength : IMinMaxValue<ShortSideLength> {
+    public static ShortSideLength MinValue => Neutral;
+    public static ShortSideLength MaxValue { get; } = new(float.MaxValue);
+
+    public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct ShortSideExtent : IMinMaxValue<ShortSideExtent> {
+    public static ShortSideExtent MinValue { get; } = new(float.BitIncrement(0f));
+    public static ShortSideExtent MaxValue { get; } = new(float.MaxValue);
+
+    public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+}
+
+[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+public readonly partial struct FrameAxis : IMinMaxValue<FrameAxis> {
+    public static FrameAxis MinValue { get; } = new(-0.5f);
+    public static FrameAxis MaxValue { get; } = new(1.5f);
+    public static FrameAxis Start { get; } = new(0f);
+    public static FrameAxis Middle { get; } = new(0.5f);
+    public static FrameAxis End { get; } = new(1f);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+}
+
+public sealed record FramePosition(FrameAxis X, FrameAxis Y) {
+    public static FramePosition Center { get; } = new(FrameAxis.Middle, FrameAxis.Middle);
+    public static FramePosition TopLeft { get; } = new(FrameAxis.Start, FrameAxis.Start);
+    public static FramePosition TopRight { get; } = new(FrameAxis.End, FrameAxis.Start);
+    public static FramePosition BottomRight { get; } = new(FrameAxis.End, FrameAxis.End);
+    public static FramePosition BottomLeft { get; } = new(FrameAxis.Start, FrameAxis.End);
+
+    public (double X, double Y) Point(PixelExtent extent) => ((double)X * extent.Width, (double)Y * extent.Height);
+}
+
 public sealed class PixelFrame {
     private readonly float[] block;
 
@@ -56,6 +110,23 @@ public sealed class PixelFrame {
     public Span<Vector4> Row(long line) => MemoryMarshal.Cast<float, Vector4>(block.AsSpan()).AsSpan2D(Size.Height, Size.Width).GetRowSpan(RowIndex(line));
 
     public PixelFrame Copy() => new(Origin, Size, Extent, destination => Block.CopyTo(destination));
+
+    public Mat Header() => new(Size.Height, Size.Width, DepthType.Cv32F, 4, Address, step: 0);
+
+    public Fin<Unit> Filter(Func<Mat, Fin<Unit>> apply) => Try.lift(() => {
+        using Mat header = Header();
+        return apply(header);
+    }).Run();
+
+    public Fin<Unit> Mutate(Action<SixLabors.ImageSharp.Image<RgbaVector>> edit) => Try.lift(() => {
+        using SixLabors.ImageSharp.Image<RgbaVector> image = new(Size.Width, Size.Height);
+        Memory2D<Vector4> view = View;
+        EachRow(static (pixels, stored) => { for (int x = 0; x < pixels.Length; x++) pixels[x] = stored[x] with { W = 1f }; });
+        edit(image);
+        EachRow(static (pixels, stored) => { for (int x = 0; x < pixels.Length; x++) stored[x] = pixels[x] with { W = stored[x].W }; });
+        void EachRow(Action<Span<Vector4>, Span<Vector4>> copy) =>
+            image.ProcessPixelRows(rows => { for (int y = 0; y < rows.Height; y++) copy(MemoryMarshal.Cast<RgbaVector, Vector4>(rows.GetRowSpan(y)), view.Span.GetRowSpan(y)); });
+    }).Run();
 
     public T Sample<T>((double X, double Y) point, (WrapMode Across, WrapMode Down) wrap, T sum, Func<T, Vector4, double, T> add) =>
         ((ReadOnlySpan2D<Vector4>)View.Span).Sample(point, wrap, sum, add, Some((Origin, Extent)));

@@ -1,10 +1,9 @@
 using System.Numerics;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Numeric;
+using Rasm.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -75,10 +74,22 @@ public static class HostDialogs {
     public static IO<(TValue Min, TValue Max)> ShowRangeDialog<TValue, TKey>(RhinoDoc doc, LocalizeStringPair title, NumericDomain<TValue, TKey> domain, (TValue Min, TValue Max) range, (bool Min, bool Max) editable)
         where TValue : notnull
         where TKey : struct, INumber<TKey> =>
-        Quantities.Scalar(domain.Presentation, domain.Bounds) switch {
+        domain.Presentation.Display(domain.Bounds, RowText.Culture) switch {
             var display => Ranged(doc, title, range, editable, display.Decimals,
-                value => display.Shown(double.CreateSaturating(domain.Key(value))),
-                number => domain.Create(NumericRows.Narrowed<TKey>(display.Key(number)))),
+                value => display.Shown(double.CreateChecked(domain.Key(value))),
+                number => domain.Create(Presentation<TKey>.Keyed(display.Key(number)))),
+        };
+
+    public static IO<TValue> ShowNumberBox<TValue, TKey>(LocalizeStringPair title, LocalizeStringPair message, NumericDomain<TValue, TKey> domain, TValue initial)
+        where TValue : notnull
+        where TKey : struct, INumber<TKey> =>
+        domain.Presentation.Display(domain.Bounds, RowText.Culture) switch {
+            var display => IO.lift(() => {
+                double number = display.Shown(double.CreateChecked(domain.Key(initial)));
+                bool accepted = Dialogs.ShowNumberBox(title.Local, message.Local, ref number,
+                    display.Shown(double.CreateChecked(domain.Bounds.Low)), display.Shown(double.CreateChecked(domain.Bounds.High)));
+                return Accepted(accepted, number).Bind(entered => domain.Create(Presentation<TKey>.Keyed(display.Key(entered))));
+            }),
         };
 
     public static IO<T> ShowEditBox<T>(LocalizeStringPair title, LocalizeStringPair message, Option<T> initial)
@@ -185,7 +196,7 @@ public static class HostDialogs {
         views.Listed<View.Dialog>().Choose(static dialog => dialog.Suppression);
 
     public static IO<Suppressible<T>> Suppressing<T>(SettingsNode node, PlugInSetting<bool, bool> row, Func<Eto.Forms.CheckBox, IO<(T Value, bool Suppress)>> show) =>
-        from shows in IO.lift(() => node.Current(row))
+        from shows in node.Current(row)
         from asked in shows
             ? DisposalOps.Within(static () => new Eto.Forms.CheckBox { Text = RowText.Localize("Do not show again").Local }, box =>
                 from answer in show(box)

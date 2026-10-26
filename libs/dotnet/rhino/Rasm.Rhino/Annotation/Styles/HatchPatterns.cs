@@ -1,3 +1,4 @@
+using System.Numerics;
 using LanguageExt.ClassInstances;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
@@ -80,6 +81,12 @@ public static class HatchPatterns {
             from answer in body(patterns)
             select answer, DisposalOps.Release);
 
+    // --- [PREVIEW]
+    public static IO<Seq<(Vector2 From, Vector2 To)>> Preview(HatchPattern pattern, double angle, System.Drawing.Size pixels) =>
+        IO.lift(() => toSeq(pattern.CreatePreviewGeometry(pixels.Width, pixels.Height, angle))
+            .Map(static line => (From: new Vector2((float)line.FromX, (float)-line.FromY), To: new Vector2((float)line.ToX, (float)-line.ToY)))
+            .Strict());
+
     // --- [DEFAULTS]
     public static IO<int> FromDefaults(RhinoDoc doc, string name) =>
         TableOps.Find(doc.HatchPatterns, name, includeDeleted: false)
@@ -99,18 +106,14 @@ public static class HatchPatterns {
         select changed;
 
     // --- [TRANSFER]
-    public static IO<Seq<(string Name, HatchPatternDefinition Definition)>> Read(Option<string> path = default) =>
-        from existing in IO.lift(() => path.Traverse(Exchange.ExistingPath).As())
-        from definitions in DisposalOps.Within(() => existing.Match(
+    public static IO<Seq<(string Name, HatchPatternDefinition Definition)>> Read(Option<InputPath> path = default) =>
+        DisposalOps.Within(() => path.Match(
                 Some: static location => HatchPattern.ReadFromFile(location, quiet: true),
                 None: HatchPattern.GetDefaultHatchPatterns),
-                static patterns => IO.lift(() => Refused.UnlessFound(patterns, nameof(HatchPattern.ReadFromFile)))
-                    .Bind(static held => Conversions.Rows(held).TraverseM(static pattern => Definition(pattern).Map(definition => (pattern.Name, Definition: definition))).As()),
-                static patterns => DisposalOps.Release(Conversions.Rows(patterns)))
-        select definitions;
+            static patterns => IO.lift(() => Refused.UnlessFound(patterns, nameof(HatchPattern.ReadFromFile)))
+                .Bind(static held => Conversions.Rows(held).TraverseM(static pattern => Definition(pattern).Map(definition => (pattern.Name, Definition: definition))).As()),
+            static patterns => DisposalOps.Release(Conversions.Rows(patterns)));
 
-    public static IO<Unit> WriteFile(string path, Seq<(string Name, HatchPatternDefinition Definition)> rows) =>
-        from qualified in IO.lift(Exchange.QualifiedPath(path))
-        from written in Detached(rows, patterns => IO.lift(() => Refused.Unless(HatchPattern.WriteToFile(qualified, patterns), nameof(HatchPattern.WriteToFile))))
-        select written;
+    public static IO<Unit> WriteFile(OutputPath path, Seq<(string Name, HatchPatternDefinition Definition)> rows) =>
+        Detached(rows, patterns => IO.lift(() => Refused.Unless(HatchPattern.WriteToFile(path, patterns), nameof(HatchPattern.WriteToFile))));
 }

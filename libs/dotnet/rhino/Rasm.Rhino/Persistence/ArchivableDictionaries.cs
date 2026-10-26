@@ -148,19 +148,18 @@ public static class ArchivableDictionaries {
         doc.RuntimeData.GetValue(typeof(DictionaryOwner), static _ => AtomHashMap<string, IO<Unit>>());
 
     // --- [STORES]
-    public static ValueStore<TValue> Store<TValue, TRaw>(DictionaryOwner owner, ValueKey<TValue, TRaw> key, Option<HostEvent<Unit>> changed)
+    public static ValueStore<TValue> Store<TValue, TRaw>(DictionaryOwner owner, ValueKey<TValue> key, Option<HostEvent<Unit>> changed)
         where TValue : notnull
-        where TRaw : notnull =>
+        where TRaw : notnull, ISpanParsable<TRaw> =>
         ValueStore.Of(
-            from source in owner.Read
-            from raw in IO.lift(() => Find<TRaw>(source, key.Name))
-            from value in IO.lift(() => raw.Traverse(key.From).As())
-            select value,
-            (from value in Eff.runtime<Option<TValue>>()
-             from written in owner.Edit(value.Match(
-                 Some: held => fun((ArchivableDictionary target) => Set(target, key.Name, key.ToRaw(held))),
-                 None: fun((ArchivableDictionary target) => Fin.Succ(ignore(target.Remove(key.Name))))))
-             select written).RunIO,
+            key.Codec.Stored(key.Key, path =>
+                from source in owner.Read
+                from raw in IO.lift(() => Find<TRaw>(source, EntryKey.Name(path)))
+                select raw.Map(static held => StoredText.Format(held))),
+            value => owner.Edit(target => Callbacks.Each(key.Codec.Slots(value), (slot, _) => slot.Text.Match(
+                    Some: text => StoredText.Parse<TRaw>(text).Bind(raw => Set(target, EntryKey.Name(slot.Path), raw)),
+                    None: () => Fin.Succ(ignore(target.Remove(EntryKey.Name(slot.Path))))))
+                .Map(static _ => unit)),
             Applied.Live,
             changed);
 }

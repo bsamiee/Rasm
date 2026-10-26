@@ -10,12 +10,12 @@ namespace Rasm.Imaging.Files;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ColorTags {
-    internal static readonly Seq<(Transfer Transfer, CicpTransferCharacteristics Code, Nits White)> Transfers = [
-        (TransferCurve.Linear, CicpTransferCharacteristics.Linear, Nits.ReferenceWhite),
-        (TransferCurve.Srgb, CicpTransferCharacteristics.Iec61966_2_1, Nits.ReferenceWhite),
-        (Transfer.Gamma.Gamma22, CicpTransferCharacteristics.Gamma2_2, Nits.ReferenceWhite),
-        (TransferCurve.Pq, CicpTransferCharacteristics.SmpteSt2084, Nits.FileWhite),
-        (TransferCurve.Hlg, CicpTransferCharacteristics.AribStdB67, Nits.FileWhite),
+    internal static readonly Seq<(Transfer Transfer, CicpTransferCharacteristics Code)> Transfers = [
+        (new Transfer.Linear(), CicpTransferCharacteristics.Linear),
+        (new Transfer.Srgb(), CicpTransferCharacteristics.Iec61966_2_1),
+        (Transfer.Gamma.Gamma22, CicpTransferCharacteristics.Gamma2_2),
+        (Transfer.Pq.High, CicpTransferCharacteristics.SmpteSt2084),
+        (Transfer.Hlg.High, CicpTransferCharacteristics.AribStdB67),
     ];
 
     internal static readonly Seq<(Gamut Gamut, CicpColorPrimaries Code)> Primaries = [
@@ -36,20 +36,19 @@ public static class ColorTags {
 
         public Option<byte[]> Profile(DateTimeOffset created) =>
             encoding.Transfer.Switch(
-                standard: static transfer => transfer.Curve.Map(
-                    linear: Some((Function: 0, Parameters: Seq(1d))),
-                    srgb: Some((Function: 3, Parameters: (1d / 1.055) switch { var gain => Seq(2.4, gain, 1d - gain, 1d / 12.92, 0.04045) })),
-                    pq: None,
-                    hlg: None,
-                    acesCct: None,
-                    acesCc: None),
+                linear: static _ => Some((Function: 0, Parameters: Seq(1d))),
+                srgb: static _ => Some((Function: 3, Parameters: (1d / 1.055) switch { var gain => Seq(2.4, gain, 1d - gain, 1d / 12.92, 0.04045) })),
+                pq: static _ => Option<(int Function, Seq<double> Parameters)>.None,
+                hlg: static _ => Option<(int Function, Seq<double> Parameters)>.None,
+                acesCct: static _ => Option<(int Function, Seq<double> Parameters)>.None,
+                acesCc: static _ => Option<(int Function, Seq<double> Parameters)>.None,
                 gamma: static transfer => Some((Function: 0, Parameters: Seq<double>(transfer.Exponent))),
                 camera: static _ => Option<(int Function, Seq<double> Parameters)>.None)
             .Map(curve => Written(encoding, curve, created));
     }
 
     internal static ushort ExifColorSpace(ColorEncoding encoding) =>
-        encoding.Gamut == Gamut.StandardRgb && encoding.Transfer == TransferCurve.Srgb ? (ushort)1 : ushort.MaxValue;
+        encoding.Gamut == Gamut.StandardRgb && encoding.Transfer is Transfer.Srgb ? (ushort)1 : ushort.MaxValue;
 
     private static byte[] Written(ColorEncoding encoding, (int Function, Seq<double> Parameters) curve, DateTimeOffset created) {
         const int HeaderBytes = 128;
@@ -71,7 +70,7 @@ public static class ColorTags {
         double[] adaptation = ToPcs(new Configuration(xyzConfig: new XyzConfiguration(encoding.Gamut.Configuration.Rgb.WhitePoint)), ColourSpace.Xyz).ToRowMajorArray();
         Seq<uint> illuminant = [Fixed(Pcs.Xyz.WhitePoint.X), Fixed(Pcs.Xyz.WhitePoint.Y), Fixed(Pcs.Xyz.WhitePoint.Z)];
         Seq<(Seq<IccProfileTag> Tags, byte[] Data)> blocks = [
-            ([IccProfileTag.ProfileDescription], Text(string.Join(' ', encoding.Gamut.Key, encoding.Transfer.ToValue()))),
+            ([IccProfileTag.ProfileDescription], Text(string.Join(' ', encoding.Gamut.Rgb.Name, encoding.Transfer.ToValue()))),
             ([IccProfileTag.Copyright], Text("No copyright")),
             ([IccProfileTag.MediaWhitePoint], Block(IccTypeSignature.Xyz, illuminant)),
             ([IccProfileTag.ChromaticAdaptation], Block(IccTypeSignature.S15Fixed16Array, toSeq(adaptation).Map(static entry => Fixed(entry)))),

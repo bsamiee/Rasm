@@ -40,12 +40,6 @@ public static class CommandRows {
     public static Command<RowRule, Invoke>.Run Picked(CommandFace face, bool marked, Func<RowScope, IO<Unit>> run) =>
         new(face, None, new Invoke.Effect(run)) { Marked = new RowRule([], [], _ => IO.pure(marked)) };
 
-    public static Command<RowRule, Invoke>.Run Hosted(Command command, Option<GlyphSource> glyph) =>
-        new(new CommandFace(Conversions.Present(command.ID).IfNone(command.MenuText), command.MenuText, Conversions.Present(command.ToolTip), glyph),
-            new RowRule([], [], _ => IO.lift(() => command.Enabled)), new Invoke.Effect(_ => IO.lift(command.Execute)) { Shortcut = Some(command.Shortcut).Filter(static keys => keys is not Keys.None) }) {
-            Marked = command is CheckCommand check ? new RowRule([], [], _ => IO.lift(() => check.Checked)) : Option<RowRule>.None,
-        };
-
     // --- [HOST]
     public static IO<CommandHost<RowRule, Invoke>> Host(RowScope scope, Action<IDisposable> retain) =>
         from shown in DisposalOps.Acquire(IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)), retain)

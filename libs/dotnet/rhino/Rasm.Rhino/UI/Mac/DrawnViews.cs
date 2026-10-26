@@ -13,7 +13,6 @@ using Eto.Mac.Forms.Controls;
 using Foundation;
 using ObjCRuntime;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Surfaces;
 using Rasm.UI;
 using SkiaSharp;
@@ -72,71 +71,6 @@ public static class DrawnViews {
         _ = Optional(layer.Mask).Iter(mask => Scaled(mask, scale));
         return unit;
     }
-
-    // --- [ATTACH]
-    internal static void Attach(DrawableHandler handler) {
-        ComponentControl control = (ComponentControl)handler.Widget;
-        NSView view = handler.Control;
-        Callbacks.Run(
-            from layer in IO.lift(() => {
-                view.WantsLayer = true;
-                return Refused.UnlessFound(view.Layer, nameof(NSView.Layer));
-            })
-            from attached in IO.lift(() => {
-                layer.ContentsFormat = CAContentsFormat.Rgba16Float;
-                control.Paint += Callbacks.Handler<PaintEventArgs>(_ => Folded(control, view), new CallbackSite(control.Sink, typeof(Drawable), nameof(Drawable.Paint)));
-            })
-            select unit,
-            new CallbackSite(control.Sink, typeof(DrawableHandler), nameof(Attach)));
-    }
-
-    // --- [ELEMENTS]
-    private static readonly object Elements = new();
-
-    private sealed record Shown((RectangleF Frame, PartRole Role, string Label) Placement, NSAccessibilityElement Element);
-
-    private static IO<Unit> Folded(ComponentControl control, NSView view) =>
-        from held in IO.lift(() => control.Properties.Get<Seq<Shown>>(Elements))
-        let parts = control.Parts
-        let placements = parts.Map(static part => (Frame: part.Shape.Region(part.Reach), part.Facet.Role, part.Facet.Label))
-        let kept = placements == held.Map(static shown => shown.Placement)
-        let next = kept ? held : placements.Map(placement => new Shown(placement, Element(control, view, placement)))
-        from updated in parts.Zip(next).TraverseM(pair => Updated(control, view, pair.First.Facet, pair.Second)).As()
-        from laid in unless(kept, IO.lift(() => {
-            control.Properties.Set(Elements, next);
-            view.AccessibilityChildren = [.. next.Map(static shown => shown.Element)];
-            NSAccessibility.PostNotification(view, NSView.LayoutChangedNotification);
-        })).As()
-        select unit;
-
-    private static NSAccessibilityElement Element(ComponentControl control, NSView view, (RectangleF Frame, PartRole Role, string Label) placement) =>
-        new() {
-            AccessibilityRole = placement.Role.Map(
-                image: NSAccessibilityRoles.ImageRole,
-                button: NSAccessibilityRoles.ButtonRole,
-                cell: NSAccessibilityRoles.CellRole,
-                handle: NSAccessibilityRoles.HandleRole,
-                slider: NSAccessibilityRoles.SliderRole),
-            AccessibilityLabel = placement.Label,
-            AccessibilityParent = view,
-            AccessibilityCustomActions = NativeControls.Actions(Seq<(bool Taken, NSString Action, Func<bool> Perform)>(
-                    (placement.Role.Activates, NSAccessibilityActions.PressAction, () => control.Activate(placement.Frame.Center)),
-                    (placement.Role.Adjusts, NSAccessibilityActions.IncrementAction, () => control.Adjust(placement.Frame.Center, 1)),
-                    (placement.Role.Adjusts, NSAccessibilityActions.DecrementAction, () => control.Adjust(placement.Frame.Center, -1)))
-                .Filter(static row => row.Taken).Map(static row => (row.Action, row.Perform))),
-        };
-
-    private static IO<Unit> Updated(ComponentControl control, NSView view, PartFacet facet, Shown shown) =>
-        from before in IO.lift(() => Optional(shown.Element.AccessibilityValue).Map(static value => value.ToString()))
-        let frame = shown.Placement.Frame
-        from written in IO.lift(() => {
-            shown.Element.AccessibilityFrameInParentSpace = new CGRect(frame.X, (float)view.Bounds.Height - frame.Bottom, frame.Width, frame.Height);
-            shown.Element.AccessibilityHelp = facet.Help.ValueUnsafe();
-            shown.Element.AccessibilityEnabled = control.Enabled;
-            shown.Element.AccessibilityValue = facet.Value.Map(static value => (NSObject)new NSString(value)).ValueUnsafe();
-        })
-        from posted in unless(before == facet.Value, IO.lift(() => NSAccessibility.PostNotification(shown.Element, NSView.ValueChangedNotification))).As()
-        select unit;
 
     // --- [SCENE]
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -394,7 +328,7 @@ public static class DrawnViews {
 
     private static Unit Tooltips(Native native, Seq<Element> tree) {
         native.View.RemoveAllToolTips();
-        _ = SceneView.Elements(tree).Iter(element =>
+        _ = Access.Flattened(tree).Iter(element =>
             _ = native.View.AddToolTip(Placed(element.Frame, SKRect.Create((float)native.View.Bounds.Width, (float)native.View.Bounds.Height), native.View.IsFlipped), native.View, 0));
         return unit;
     }
@@ -537,7 +471,7 @@ public static class DrawnViews {
             grid: (NSAccessibilityRoles.TableRole, None),
             menu: (NSAccessibilityRoles.MenuRole, None));
 
-    private static Unit Noticed(Native native, Rasm.UI.Notice notice) =>
+    private static Unit Noticed(Native native, AccessibilityNotice notice) =>
         notice.Switch(
             native,
             announced: static (held, announced) => Posted(held.View, NSView.AnnouncementRequestedNotification, NSDictionary.FromObjectsAndKeys(

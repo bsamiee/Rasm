@@ -11,6 +11,7 @@
 
     <ItemGroup Label="Mathematics">
         <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
     <ItemGroup Label="Color">
@@ -28,6 +29,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Sources">
+        <Compile Include="../../Invariant.cs" />
         <Compile Include="../../LanguageJson.cs" />
         <Compile Include="../../ValidationResults.cs" />
     </ItemGroup>

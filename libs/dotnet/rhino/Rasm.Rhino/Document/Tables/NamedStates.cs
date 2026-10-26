@@ -1,4 +1,3 @@
-using Rasm.Imaging.Files;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Objects;

@@ -55,8 +55,9 @@ public abstract partial record GlyphSource {
 
         internal override Seq<(Assembly Assembly, string Resource)> Resources => [(Assembly, Light), (Assembly, Dark)];
 
-        internal override (SKPicture Art, bool Tinted) Shown(Ground ground, Func<Assembly, string, SKPicture> recorded) =>
-            (recorded(Assembly, ground.Under.ToUnicolour() switch { var under => under.Contrast(White) > under.Contrast(Black) ? Dark : Light }), false);
+        public string Resource(SKColorF under) => under.ToUnicolour() switch { var held => held.Contrast(White) > held.Contrast(Black) ? Dark : Light };
+
+        internal override (SKPicture Art, bool Tinted) Shown(Ground ground, Func<Assembly, string, SKPicture> recorded) => (recorded(Assembly, Resource(ground.Under)), false);
     }
 
     public sealed record Picture(SKPicture Art) : GlyphSource {
@@ -121,6 +122,8 @@ public abstract partial record Node {
 
     internal Option<PlotPlane> Plotted => SwitchPartially(@default: static _ => Option<PlotPlane>.None, plot: static plot => Some(plot.Plane));
 
+    internal Option<Func<Option<Vector2>, IO<Unit>>> Hovering => SwitchPartially(@default: static _ => Option<Func<Option<Vector2>, IO<Unit>>>.None, plot: static plot => plot.Hovered);
+
     internal Option<Lazy> Windowed => SwitchPartially(@default: static _ => Option<Lazy>.None, lazy: static lazy => Some(lazy));
 
     internal Option<Pin> Pinned => SwitchPartially(@default: static node => node.Inner.Bind(static inner => inner.Pinned), pin: static pin => Some(pin));
@@ -166,6 +169,7 @@ public abstract partial record Node {
 
     public sealed record Plot(PlotPlane Plane, Seq<Node> Children) : Node {
         public Seq<Pin> Labels { get; init; }
+        public Option<Func<Option<Vector2>, IO<Unit>>> Hovered { get; init; }
     }
 
     public sealed record Pin(Vector2 At, Node Content) : Node {
@@ -194,7 +198,7 @@ public abstract partial record Node {
     public sealed record Slot : Node;
 
     public sealed record Styled(Node Content) : Node {
-        public Skin Skin { get; init; } = Skin.Empty;
+        public StyleSheet Sheet { get; init; } = StyleSheet.Empty;
         public Fraction Opacity { get; init; } = Fraction.MaxValue;
     }
 }

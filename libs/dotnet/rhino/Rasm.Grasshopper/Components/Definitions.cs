@@ -9,7 +9,6 @@ using Grasshopper2.Undo;
 using Grasshopper2.Undo.Actions;
 using Rasm.Grasshopper.Doc;
 using Rasm.Grasshopper.Parameters;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Events;
@@ -46,9 +45,26 @@ public sealed record ComponentRow<TSelf>(
     public static ComponentRow<TSelf> Of<TRecord>(
         Nomen face, Option<Rasm.UI.GlyphSource> glyph, Seq<ParameterRow> inputs, Seq<ParameterField<TRecord>> fields, Seq<ParameterRow> outputs,
         Seq<Guid> supportedPins, TRecord fallback, Func<TSelf, IDataAccess, TRecord, IO<Unit>> solve)
-        where TRecord : notnull =>
+        where TRecord : Rasm.UI.IStateRecord<TRecord> =>
         new(face, glyph, [.. inputs, .. fields.Map(static field => field.Input)], outputs, supportedPins,
-            (owner, access) => ParameterField.Read(fields, inputs.Count, access).Bind(set => solve(owner, access, set(fallback))));
+            (owner, access) => ParameterField<TRecord>.Read(fields, inputs.Count, access).Bind(set => solve(owner, access, set(fallback))));
+}
+
+public abstract class ComponentDeclaration {
+    private ComponentDeclaration() { }
+
+    public abstract Type Component { get; }
+    public abstract Seq<ParameterRow> Parameters { get; }
+
+    public static Option<ComponentDeclaration> Of(Type type) =>
+        type.IsAssignableTo(typeof(ModularComponent)) && type.IsAssignableTo(typeof(IComponentDefinition<>).MakeGenericType(type))
+            ? Some((ComponentDeclaration)Activator.CreateInstance(typeof(Declared<>).MakeGenericType(type))!)
+            : None;
+
+    public sealed class Declared<TSelf> : ComponentDeclaration where TSelf : ModularComponent, IComponentDefinition<TSelf> {
+        public override Type Component => typeof(TSelf);
+        public override Seq<ParameterRow> Parameters => TSelf.Row.Inputs + TSelf.Row.Outputs;
+    }
 }
 
 public sealed record SolveUnits(Tolerances Tolerances, double UnitsPerMeter) {
@@ -182,11 +198,11 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
               from scope in RowScope.Open(site.Sink, Some(document), new CommitMode.Immediate())
               from held in IO.lift(static () => AtomSeq<IDisposable>())
               from installed in DisposalOps.OnFailure(
-                  from grid in RowGrid.Realize([], rows, scope, owned => _ = held.Add(owned))
+                  from grid in RowGrid.Realize(rows, scope, owned => _ = held.Add(owned))
                   from added in IO.lift(() => {
-                      grid.UnLoad += Callbacks.Handler<EventArgs>(_ => IO.lift(grid.Dispose), site);
+                      grid.View.UnLoad += Callbacks.Handler<EventArgs>(_ => IO.lift(held.ToSeq).Bind(DisposalOps.Release), site);
                       using IDisposable category = panel.BeginCategory(RowText.Localize("Settings"));
-                      panel.Add(grid);
+                      panel.Add(grid.View);
                   }).Uninterruptible()
                   select added,
                   IO.lift(held.ToSeq).Bind(DisposalOps.Release))
@@ -213,9 +229,9 @@ public static class ComponentOps {
         level(note.Message, Conversions.Unset(note.Inner.Map(static cause => ErrorOps.Localize(cause))), [.. actions]);
 
     // --- [STATE]
-    public static ValueStore<TRecord> State<TRecord>(IDocumentObject owner, string key, TRecord fallback) where TRecord : IStateRecord<TRecord> {
+    public static ValueStore<TRecord> State<TRecord>(IDocumentObject owner, string key, TRecord fallback) where TRecord : Rasm.UI.IStateRecord<TRecord> {
         KeyedText text = KeyedText.Of(owner.CustomValues, key);
-        return Recorded(owner, text.Pattern, GrasshopperStores.Of(text, fallback));
+        return Recorded(owner, text.Pattern, text.Store(new FieldCodec<TRecord>(TRecord.Parameters, fallback)));
     }
 
     public static ValueStore<T> Recorded<T>(IDocumentObject owner, string filter, ValueStore<T> store) where T : notnull =>

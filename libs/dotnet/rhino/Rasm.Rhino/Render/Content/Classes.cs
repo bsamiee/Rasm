@@ -1,12 +1,11 @@
 using System.Drawing;
 using System.Text;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -148,7 +147,7 @@ public abstract class DefinedEnvironment<TState> : RenderEnvironment where TStat
 public static class ContentRecords {
     // --- [DECLARATIONS]
     public static IO<Unit> Declare<TState>(RenderContent content) where TState : IStateRecord<TState> =>
-        Callbacks.Each(FieldTexts.Items<TState>().Map(field => (Name: EntryKey.Name(field.Path), Text: Conversions.Unset(field.Capture(TState.Default))) switch {
+        Callbacks.Each(RecordEntries.Items<TState>().Map(field => (Name: EntryKey.Name(field.Path), Text: Conversions.Unset(field.Capture(TState.Default))) switch {
             var held =>
                 from added in IO.lift(() => field.File.IsSome ? content.Fields.AddFilename(held.Name, held.Text, "", 0) : content.Fields.Add(held.Name, held.Text))
                 from bound in IO.lift(fun(() => content.BindParameterToField(held.Name, added, RenderContent.ChangeContexts.Program)))
@@ -157,11 +156,11 @@ public static class ContentRecords {
 
     // --- [READS]
     public static IO<TState> Read<TState>(RenderContent content) where TState : IStateRecord<TState> =>
-        FieldTexts.Recalled(EntryKey.TypeOwner(content.TypeId), TState.Parameters, path => Stored(content, EntryKey.Name(path)), TState.Default);
+        new FieldCodec<TState>(TState.Parameters, TState.Default).Recalled(EntryKey.TypeOwner(content.TypeId), path => Stored(content, EntryKey.Name(path)));
 
     public static uint Hash<TState>(RenderContent content, Seq<string> excluded, uint seed, CallbackSite site) where TState : IStateRecord<TState> =>
         Callbacks.Answer(
-            Callbacks.Each(FieldTexts.Items<TState>()
+            Callbacks.Each(RecordEntries.Items<TState>()
                 .Map(static field => EntryKey.Name(field.Path))
                 .Filter(name => !excluded.Exists(held => string.Equals(held, name, StringComparison.Ordinal)))
                 .Map(name => Stored(content, name)))
@@ -171,7 +170,7 @@ public static class ContentRecords {
 
     public static Seq<string> Files<TState>(RenderContent content, CallbackSite site) where TState : IStateRecord<TState> =>
         Callbacks.Answer(
-            Callbacks.Each(FieldTexts.Items<TState>().Choose(field => field.File.Map(file =>
+            Callbacks.Each(RecordEntries.Items<TState>().Choose(field => field.File.Map(file =>
                 Stored(content, EntryKey.Name(field.Path)).Map(text => text.Bind(file)))))
                 .Map(static paths => paths.Somes()),
             static () => [],
@@ -186,7 +185,7 @@ public static class ContentRecords {
 
     // --- [WRITES]
     public static IO<Unit> Write<TState>(RenderContent content, RenderContent.ChangeContexts context, TState next) where TState : IStateRecord<TState> =>
-        Contents.WithinContentChange(content, context, Callbacks.Each(FieldTexts.Items<TState>().Map(field => Written(content, EntryKey.Name(field.Path), Conversions.Unset(field.Capture(next))))).Map(unit));
+        Contents.WithinContentChange(content, context, Callbacks.Each(RecordEntries.Items<TState>().Map(field => Written(content, EntryKey.Name(field.Path), Conversions.Unset(field.Capture(next))))).Map(unit));
 
     public static ValueStore<TState> Store<TState>(RenderContent content) where TState : IStateRecord<TState> =>
         ValueStore.Of(
@@ -204,6 +203,6 @@ public static class ContentRecords {
         where TContent : RenderContent
         where TState : IStateRecord<TState> =>
         RowSource.Fields(EntryKey.TypeOwner(typeof(TContent).GUID), TState.Parameters, static scope => scope.Contents(Store<TState>)) switch {
-            var source => SectionRows.Of(source, source.Fields, None, static _ => RowRules.Always),
+            var source => new ParameterRows<TState>(source, static _ => RowRules.Always).Of(source.Fields),
         };
 }

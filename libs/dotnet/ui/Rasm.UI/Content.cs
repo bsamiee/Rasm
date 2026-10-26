@@ -12,9 +12,9 @@ public sealed partial class Progress {
     public Fraction Fraction => Fraction.Create((float)((double)Done / Total));
 
     public static Node Meter(Option<Progress> work) =>
-        new Node.Flex(Orientation.Horizontal, work.Map(static progress => (Node)new Node.Box { Role = Role.Span, Width = new Sizing.Percent(progress.Fraction), Height = new Sizing.Grow(Factor.Create(1f)) }).ToSeq()) {
+        new Node.Flex(Orientation.Horizontal, work.Map(static progress => (Node)new Node.Box { Role = Role.Span, Width = new Sizing.Percent(progress.Fraction), Height = Sizing.Grow.Unit }).ToSeq()) {
             Role = Role.Track,
-            Width = new Sizing.Grow(Factor.Create(1f)),
+            Width = Sizing.Grow.Unit,
             Conditions = [Condition.Busy],
             Accessible = new Accessible { Role = AccessRole.ProgressBar, Value = work.Map(static progress => (AccessValue)new AccessValue.Ranged(progress.Done, 0d, progress.Total)) },
         };
@@ -41,7 +41,7 @@ public abstract partial record Content<T> where T : notnull {
             empty: static (_, empty) => new Node.Text([empty.Reason]) { Role = Role.Label },
             failed: static (held, failed) => new Node.Text([failed.Error.IsExpected ? failed.Error.Message : held.Unexpected]) { Role = Role.Label, Conditions = [Condition.Faulted] });
 
-    private static Node.Box Veil { get; } = new() { Role = Role.Veil, Width = new Sizing.Grow(Factor.Create(1f)), Height = new Sizing.Grow(Factor.Create(1f)), Conditions = [Condition.Busy] };
+    private static Node.Box Veil { get; } = new() { Role = Role.Veil, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit, Conditions = [Condition.Busy] };
 
     private static Node.Overlay Kept(Node held, Seq<Node> above) => new(held, above) { Key = held.Key };
 

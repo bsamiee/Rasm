@@ -1,4 +1,5 @@
 using Eto.Drawing;
+using Grasshopper2.Doc;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.Skinning;
@@ -132,14 +133,12 @@ public static class CanvasChrome {
 
     // --- [TIPS]
     public static IO<Unit> Tip(
-        IPlugInSink sink, Option<Rasm.UI.GlyphSource> glyph, string caption, string help,
-        Either<Seq<(string Label, string Value)>, (Rasm.UI.Node Body, Size Size)> body, bool warnings = false, bool errors = false) =>
-        from icon in glyph.Traverse(shown => CanvasIcons.Vector(sink, shown)).As()
-        let local = fun((string text) => RowText.Localize(text, sink).Local)
-        from shown in IO.lift(() => body.Match(
-            Left: lines => Frame.Show(icon.ValueUnsafe(), local(caption), local(help), [.. lines.Map(line => new LazyStrings(local(line.Label), line.Value))], warnings, errors),
-            Right: drawn => Frame.Show(icon.ValueUnsafe(), local(caption), local(help), Guest.TooltipPainter(sink, drawn.Body, new CallbackSite(sink, typeof(Frame), nameof(Frame.Show))), drawn.Size, warnings, errors)))
-        select unit;
+        IPlugInSink sink, IDocumentObject owner, Either<Seq<(string Label, string Value)>, (Rasm.UI.Node Body, Size Size)> body, MessageLevel level = MessageLevel.None) =>
+        IO.lift(() => body.Match(
+            Left: lines => Frame.Show(owner.Icon, owner.Nomen.Name, owner.Nomen.Info,
+                [.. lines.Map(line => new LazyStrings(RowText.Localize(line.Label, sink).Local, line.Value))], level is MessageLevel.Warning, level is MessageLevel.Error),
+            Right: drawn => Frame.Show(owner.Icon, owner.Nomen.Name, owner.Nomen.Info,
+                Guest.TooltipPainter(sink, drawn.Body, new CallbackSite(sink, typeof(Frame), nameof(Frame.Show))), drawn.Size, level is MessageLevel.Warning, level is MessageLevel.Error)));
 
     // --- [FACES]
     private static IO<Option<IIcon>> Icon(Rasm.UI.CommandFace face, IPlugInSink sink) =>

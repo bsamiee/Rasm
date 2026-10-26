@@ -1,5 +1,5 @@
 using System.Drawing;
-using Rasm.Imaging.Pixels;
+using Rasm.Rhino.Render.Effects;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
@@ -13,9 +13,9 @@ public sealed record WireframeRegion(RhinoDoc Document, ViewportInfo Viewport, R
 public abstract partial record RenderWindowSource {
     public abstract IO<T> Open<T>(Func<RenderWindow, IO<T>> body);
 
-    public sealed record Detached(PixelExtent Extent, ViewInfo View) : RenderWindowSource {
+    public sealed record Detached(Size Size, ViewInfo View) : RenderWindowSource {
         public override IO<T> Open<T>(Func<RenderWindow, IO<T>> body) =>
-            DisposalOps.Found(() => RenderWindow.Create(new Size(Extent.Width, Extent.Height)), nameof(RenderWindow.Create),
+            DisposalOps.Found(() => RenderWindow.Create(Size), nameof(RenderWindow.Create),
                 window => IO.lift(() => window.SetView(View)).Bind(_ => body(window)));
     }
 
@@ -30,16 +30,6 @@ public sealed record WindowChannels(
     LanguageExt.HashSet<RenderWindow.StandardChannels> Available,
     Option<RenderWindow.StandardChannels> Shown);
 
-[SmartEnum<int>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-internal sealed partial class ChannelLayout {
-    public static readonly ChannelLayout Scalar = new(sizeof(float), ComponentOrders.Irrelevant);
-    public static readonly ChannelLayout Triple = new(3 * sizeof(float), ComponentOrders.RGB);
-    public static readonly ChannelLayout Rgba = new(4 * sizeof(float), ComponentOrders.RGBA);
-
-    public ComponentOrders Order { get; }
-    public int Components => Key / sizeof(float);
-}
-
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 public readonly partial struct ProgressFraction : System.Numerics.IMinMaxValue<ProgressFraction> {
     public static ProgressFraction MinValue { get; } = new(0f);
@@ -51,7 +41,7 @@ public readonly partial struct ProgressFraction : System.Numerics.IMinMaxValue<P
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RenderWindows {
     // --- [CHANNELS]
-    public static IO<WindowChannels> Channels(RenderWindow window) =>
+    public static IO<WindowChannels> ChannelState(RenderWindow window) =>
         from requested in IO.lift(() => Known(window.GetRequestedRenderChannelsAsStandardChannels()))
         let members = Known(Enum.GetValues<RenderWindow.StandardChannels>())
         from available in IO.lift(() => toHashSet(members.Filter(channel => window.IsChannelAvailable(RenderWindow.ChannelId(channel)))))
@@ -59,7 +49,7 @@ public static class RenderWindows {
         select new WindowChannels(requested, available, shown);
 
     public static IO<Seq<RenderWindow.StandardChannels>> AddRequested(RenderWindow window) =>
-        from channels in Channels(window)
+        from channels in ChannelState(window)
         let missing = channels.Requested.Filter(channel => !channels.Available.Contains(channel)).Strict()
         from added in IO.lift(() => Callbacks.Each(missing, window.AddChannel, nameof(RenderWindow.AddChannel)))
         select missing;
@@ -71,41 +61,16 @@ public static class RenderWindows {
         toSeq(channels).Filter(static channel => channel is not RenderWindow.StandardChannels.None).Strict();
 
     // --- [PIXELS]
-    public static IO<PixelFrame> Read(RenderWindow window, RenderWindow.StandardChannels channel) =>
-        Opened(window, channel, static opened =>
-            from extent in IO.lift(() => PixelExtent.Validated(opened.Width, opened.Height))
-            from frame in IO.lift(() => Frame(opened, new Rectangle(System.Drawing.Point.Empty, new Size(extent.Width, extent.Height)), extent))
-            select frame);
+    public static IO<(Size Size, float[] Pixels)> Read(RenderWindow window, RenderWindow.StandardChannels channel) =>
+        Opened(window, channel, static opened => IO.lift(() =>
+            new Rectangle(0, 0, opened.Width, opened.Height) switch {
+                var whole => Channels.Read(opened, whole).Map(pixels => (whole.Size, pixels)),
+            }));
 
-    public static Fin<PixelFrame> Frame(RenderWindow.Channel opened, Rectangle rect, PixelExtent extent) =>
-        from read in (ChannelLayout.Validated(opened.PixelSize()), PixelExtent.Validated(rect.Width, rect.Height))
-            .Apply(static (layout, size) => (Layout: layout, Size: size)).As()
-        let stride = (long)read.Size.Width * read.Layout.Key
-        let bounds = (Left: (long)rect.X, Top: (long)rect.Y, Right: (long)rect.X + read.Size.Width, Bottom: (long)rect.Y + read.Size.Height)
-        from native in Refused.Unless(stride <= int.MaxValue && bounds.Left >= 0L && bounds.Top >= 0L && bounds.Right <= opened.Width && bounds.Bottom <= opened.Height,
-            stride, nameof(RenderWindow.Channel.GetValues))
-        select new PixelFrame(rect.Location, read.Size, extent, block => {
-            opened.GetValues(rect, (int)native, read.Layout.Order, ref block);
-            Widen(block, read.Layout.Components, read.Layout.Components, rect.Width * rect.Height);
-        });
-
-    public static IO<Unit> Blit(RenderWindow window, PixelFrame frame) =>
-        Opened(window, RenderWindow.StandardChannels.RGBA, opened =>
-            from inside in IO.lift(() => Refused.Unless(
-                frame.Window is var bounds && bounds.Left >= 0L && bounds.Top >= 0L && bounds.Right <= opened.Width && bounds.Bottom <= opened.Height,
-                nameof(RenderWindow.Channel.SetValues)))
-            let rect = new Rectangle(frame.Origin, new Size(frame.Size.Width, frame.Size.Height))
-            from written in IO.lift(() => opened.SetValues(rect, rect.Size, new PixelBuffer(frame.Address)))
-            select rect)
-            .Bind(rect => IO.lift(() => window.InvalidateArea(rect)));
-
-    internal static void Widen(float[] block, int components, int stride, int pixels) {
-        for (int pixel = pixels - 1; components < 4 && pixel >= 0; pixel--) {
-            int source = pixel * stride;
-            (block[4 * pixel], block[(4 * pixel) + 1], block[(4 * pixel) + 2], block[(4 * pixel) + 3]) =
-                (block[source], block[source + int.Min(1, components - 1)], block[source + int.Min(2, components - 1)], 1f);
-        }
-    }
+    public static IO<Unit> Blit(RenderWindow window, Rectangle rect, ReadOnlyMemory<float> rgba) =>
+        from written in Opened(window, RenderWindow.StandardChannels.RGBA, opened => IO.lift(() => Channels.Put(opened, rect, rgba)))
+        from invalidated in IO.lift(() => window.InvalidateArea(rect))
+        select unit;
 
     private static IO<T> Opened<T>(RenderWindow window, RenderWindow.StandardChannels channel, Func<RenderWindow.Channel, IO<T>> body) =>
         DisposalOps.Found(() => window.OpenChannel(channel), nameof(RenderWindow.OpenChannel), body);

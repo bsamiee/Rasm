@@ -65,7 +65,7 @@ public static class Licensing {
         Asked(sink, license, (validate, leaseChanged) => askUserForLicense(build, false, license.TextMask.ValueUnsafe(), parent.ValueUnsafe(), validate, leaseChanged));
 
     private static IO<Unit> Asked(IPlugInSink sink, LicenseDefinition license, Func<ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> ask) =>
-        Icons.PlugInImage(sink).Bind(static glyph => glyph.Traverse(static art => Icons.DrawingIcon(art, Size.Empty)).As())
+        Icons.PlugInImage(sink).Bind(static glyph => glyph.Traverse(static art => IconSlot.Banner.Pixels.Bind(pixels => Icons.DrawingIcon(art, pixels))).As())
             .Bind(icon => IO.lift(() => guard(ask(Validator(license.Validate, sink), LeaseHandler(license.LeaseChanged, icon, sink)), Errors.Cancelled).ToFin()));
 
     // --- [RELEASE]

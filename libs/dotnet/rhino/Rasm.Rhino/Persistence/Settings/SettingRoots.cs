@@ -23,12 +23,10 @@ public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default)
 
     public SettingsNode Child(string key) => this with { Path = Path.Add(key) };
 
-    public Fin<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
+    public IO<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
         where TValue : notnull
-        where TRaw : notnull =>
-        SettingRoots.Resolved(this).Traverse(settings => row.Kind.Read(settings, row.Value.Name)).As()
-            .Bind(raw => raw.Flatten().Traverse(row.Value.From).As())
-            .Map(held => held.IfNone(row.Value.Default));
+        where TRaw : notnull, ISpanParsable<TRaw> =>
+        PlugInSettings.Store(this, row).Read.Map(held => held.IfNone(row.Key.Default));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

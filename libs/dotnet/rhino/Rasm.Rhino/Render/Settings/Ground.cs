@@ -1,8 +1,8 @@
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI;
 using Rhino;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
@@ -78,7 +78,7 @@ public sealed record GroundPlaneState(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GroundPlaneParameter : IStateParameter<GroundPlaneState> {
-    internal static readonly NumericDomain<Length, double> Height = NumericDomain.Meters((double.MinValue, double.MaxValue), new() { Form = NumberForm.Field, Origin = 0d });
+    internal static readonly NumericDomain<Length, double> Height = NumericDomain.Meters((double.MinValue, double.MaxValue), new() { Track = None, Origin = 0d });
     internal static readonly NumericDomain<Length, double> Offset = NumericDomain.Meters((double.MinValue, double.MaxValue), new() { Soft = (-1d, 1d), Step = 0.01d, Decimals = 2 });
     internal static readonly NumericDomain<Length, double> Size = NumericDomain.Meters((0d, double.MaxValue), new() { Soft = (0.01d, 10d), Step = 0.01d, Decimals = 2 });
 

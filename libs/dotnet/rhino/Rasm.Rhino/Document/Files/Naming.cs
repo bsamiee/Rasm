@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Globalization;
-using Rasm.Imaging.Pixels;
 
 namespace Rasm.Rhino.Document.Files;
 

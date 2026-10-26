@@ -18,13 +18,13 @@ public abstract partial record DocumentSource {
 
     public sealed record Keyed(uint Serial) : DocumentSource;
 
-    public sealed record Opened(string Path) : DocumentSource;
+    public sealed record Opened(InputPath Path) : DocumentSource;
 
-    public sealed record WorksessionFile(string Path) : DocumentSource;
+    public sealed record WorksessionFile(InputPath Path) : DocumentSource;
 
-    public sealed record Headless(Option<string> Template) : DocumentSource;
+    public sealed record Headless(Option<InputPath> Template) : DocumentSource;
 
-    public sealed record Archive(string Path, Option<ArchivableDictionary> Options) : DocumentSource;
+    public sealed record Archive(InputPath Path, Option<ArchivableDictionary> Options) : DocumentSource;
 }
 
 public sealed record DocumentState(
@@ -47,7 +47,7 @@ public sealed record WorksessionState(Option<string> FileName, Seq<WorksessionMo
 
 [Union]
 public abstract partial record WorksessionChange {
-    public sealed record Attach(Seq<string> Paths) : WorksessionChange;
+    public sealed record Attach(Seq<InputPath> Paths) : WorksessionChange;
 
     public sealed record Detach(Seq<uint> Models) : WorksessionChange;
 
@@ -55,7 +55,7 @@ public abstract partial record WorksessionChange {
 
     public sealed record SetActiveModel(uint Model) : WorksessionChange;
 
-    public sealed record Save(Option<string> Path) : WorksessionChange;
+    public sealed record Save(Option<OutputPath> Path) : WorksessionChange;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -89,33 +89,31 @@ public static class Documents {
             keyed: static (_, keyed) =>
                 IO.lift(() => Refused.UnlessFound(RhinoDoc.FromRuntimeSerialNumber(keyed.Serial), nameof(RhinoDoc.FromRuntimeSerialNumber))),
             opened: static (_, opened) =>
-                IO.lift(() => Exchange.QualifiedPath(opened.Path).Bind(static path => Refused.UnlessFound(RhinoDoc.Open(path, out bool _), nameof(RhinoDoc.Open)))),
+                IO.lift(() => Refused.UnlessFound(RhinoDoc.Open(opened.Path, out bool _), nameof(RhinoDoc.Open))),
             worksessionFile: static (_, file) =>
-                IO.lift(() => Exchange.QualifiedPath(file.Path).Bind(static path => Refused.UnlessFound(Worksession.Open(path), nameof(Worksession.Open)))),
+                IO.lift(() => Refused.UnlessFound(Worksession.Open(file.Path), nameof(Worksession.Open))),
             headless: static (own, headless) =>
-                IO.lift(() => headless.Template.Traverse(Exchange.ExistingPath).As()).Bind(template =>
-                    DisposalOps.Acquire(IO.lift(() => Try.lift(() => Refused.UnlessFound(RhinoDoc.CreateHeadless(Conversions.Unset(template)), nameof(RhinoDoc.CreateHeadless)))
+                headless.Template.Map(static template => (string)template) switch {
+                    var template => DisposalOps.Acquire(IO.lift(() => Try.lift(() => Refused.UnlessFound(RhinoDoc.CreateHeadless(Conversions.Unset(template)), nameof(RhinoDoc.CreateHeadless)))
                         .Run()
-                        .MapFail(error => error.HasException<ArgumentException>() ? new FileRefused(Conversions.Unset(template), "is no .3dm template", error) : error)), own)),
+                        .MapFail(error => error.HasException<ArgumentException>() ? new FileRefused(Conversions.Unset(template), FileReason.Unreadable, error) : error)), own),
+                },
             archive: static (own, archive) =>
-                IO.lift(() => Exchange.QualifiedPath(archive.Path)).Bind(path =>
-                    DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound(RhinoDoc.OpenHeadless(path, archive.Options.ValueUnsafe()), nameof(RhinoDoc.OpenHeadless))), own))).OnUiThread().Uninterruptible().Bind(body),
+                DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound(RhinoDoc.OpenHeadless(archive.Path, archive.Options.ValueUnsafe()), nameof(RhinoDoc.OpenHeadless))), own)).OnUiThread().Uninterruptible().Bind(body),
             static held => DisposalOps.Release(held).OnUiThread());
 
     // --- [WORKSESSION]
     public static IO<WorksessionState> ReadWorksession(RhinoDoc doc, bool checkForUpdates) =>
         IO.lift(() => new WorksessionState(Conversions.Present(doc.Worksession.FileName), Conversions.Rows(doc.Worksession.GetModels(checkForUpdates))));
 
-    public static IO<Option<string>> GetLockInformation(string modelPath) =>
-        IO.lift(() => Exchange.QualifiedPath(modelPath).Map(static path => Conversions.Present(Worksession.GetLockInformation(path))));
+    public static IO<Option<string>> GetLockInformation(InputPath model) =>
+        IO.lift(() => Conversions.Present(Worksession.GetLockInformation(model)));
 
     public static IO<RhinoDoc> ChangeWorksession(RhinoDoc doc, WorksessionChange change) =>
         change.Switch(
             doc,
             attach: static (target, attach) =>
-                IO.lift(() => Callbacks.Each(attach.Paths, static (path, _) => Exchange.ExistingPath(path))
-                    .Bind(paths => Callbacks.Each(paths, target.Worksession.Attach, nameof(Worksession.Attach)))
-                    .Map(_ => target)),
+                IO.lift(() => Callbacks.Each(attach.Paths, path => target.Worksession.Attach(path), nameof(Worksession.Attach)).Map(_ => target)),
             detach: static (target, detach) =>
                 IO.lift(() => Callbacks.Each(detach.Models, target.Worksession.Detach, nameof(Worksession.Detach)).Map(_ => target)),
             update: static (target, update) =>
@@ -124,7 +122,7 @@ public static class Documents {
                 IO.lift(() => Refused.UnlessFound(target.Worksession.SetActiveModel(active.Model), nameof(Worksession.SetActiveModel))),
             save: static (target, save) =>
                 IO.lift(() => save.Path.Match(
-                    Some: path => Exchange.QualifiedPath(path).Bind(qualified => Refused.Unless(target.Worksession.SaveAs(qualified), target, nameof(Worksession.SaveAs))),
+                    Some: path => Refused.Unless(target.Worksession.SaveAs(path), target, nameof(Worksession.SaveAs)),
                     None: () => Refused.Unless(target.Worksession.Save(), target, nameof(Worksession.Save)))));
 
     // --- [SCRIPTS]

@@ -23,17 +23,20 @@ public sealed partial class Orientation {
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Fraction : IMinMaxValue<Fraction> {
+public readonly partial struct Fraction : IPresented<Fraction, float> {
     public static Fraction MinValue { get; } = new(0f);
     public static Fraction MaxValue { get; } = new(1f);
+    public static Presentation<float> Presentation => ProperFraction.Presentation;
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Factor : IMinMaxValue<Factor> {
+public readonly partial struct Factor : IPresented<Factor, float> {
     public static Factor MinValue { get; } = new(float.BitIncrement(0f));
     public static Factor MaxValue { get; } = new(float.MaxValue);
+    public static Factor Unit { get; } = new(1f);
+    public static Presentation<float> Presentation { get; } = new() { Track = Some<Func<AxisRange, Axis>>(static range => new Axis.Log(range, 2f)), Soft = (0.25f, 4f), Origin = (float)Unit };
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
@@ -172,7 +175,9 @@ public abstract partial record Sizing {
         public static Fit Content { get; } = new();
     }
 
-    public sealed record Grow(Factor Weight) : Sizing;
+    public sealed record Grow(Factor Weight) : Sizing {
+        public static Grow Unit { get; } = new(Factor.Unit);
+    }
 
     public sealed record Percent(Fraction Fraction) : Sizing;
 }

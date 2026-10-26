@@ -2,6 +2,7 @@
     <PropertyGroup>
         <TargetExt>.rhp</TargetExt>
         <Description>Image formation, effects, review, and render queue for Rhino renders</Description>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup Label="Plug-In Identity">
@@ -11,27 +12,46 @@
     </ItemGroup>
 
     <ItemGroup Label="Core">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="NodaTime" />
+        <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 
     <ItemGroup Label="Quantities">
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="PeterO.Numbers" />
         <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Color">
+        <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
     <ItemGroup Label="Imaging">
         <PackageReference Include="Emgu.CV" />
         <PackageReference Include="SixLabors.ImageSharp" />
+        <PackageReference Include="SkiaSharp" />
+        <PackageReference Include="TinyEXR.NET" />
+    </ItemGroup>
+
+    <ItemGroup Label="Application Hosting">
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../../libs/dotnet/graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/graphics/Rasm.Imaging.Filters/Rasm.Imaging.Filters.csproj" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
         <ProjectReference Include="../../../libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
-        <ProjectReference Include="../../../libs/dotnet/ui/Rasm.UI.Imaging/Rasm.UI.Imaging.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Sources">
+        <Compile Include="../../../libs/dotnet/Invariant.cs" />
         <Compile Include="../../../libs/dotnet/ValidationResults.cs" />
+    </ItemGroup>
+
+    <ItemGroup Label="Embedded Resources">
+        <EmbeddedResource Include="EmbeddedResources/Tables/*" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <EmbeddedResource Include="EmbeddedResources/darkroom_render.js" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
     </ItemGroup>
 </Project>

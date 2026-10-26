@@ -1,6 +1,7 @@
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Stores;
 using Rhino;
@@ -77,9 +78,9 @@ public static class Links {
         model.Switch(
             opened: static opened => IO.lift(() => Refused.UnlessFound(RhinoDoc.FromRuntimeSerialNumber(opened.Document), nameof(RhinoDoc.FromRuntimeSerialNumber)))
                 .Map(doc => new LinkReading(doc.ModelUnitSystem, None, Linked(opened, doc.InstanceDefinitions.GetList(ignoreDeleted: true)))),
-            stored: static stored => Archives.Read(
-                new ArchiveSource.Located(stored.Path, File3dm.TableTypeFilter.InstanceDefinition | File3dm.TableTypeFilter.Settings, File3dm.ObjectTypeFilter.InstanceReference),
-                read => IO.lift(() => new LinkReading(read.Model.Settings.ModelUnitSystem, read.Log, Linked(stored, read.Model.AllInstanceDefinitions)))));
+            stored: static stored => IO.lift(() => InputPath.Of(stored.Path)).Bind(path => Archives.Read(
+                new ArchiveSource.Located(path, File3dm.TableTypeFilter.InstanceDefinition | File3dm.TableTypeFilter.Settings, File3dm.ObjectTypeFilter.InstanceReference),
+                read => IO.lift(() => new LinkReading(read.Model.Settings.ModelUnitSystem, read.Log, Linked(stored, read.Model.AllInstanceDefinitions))))));
 
     private static Seq<DefinitionLink> Linked(LinkedModel source, IEnumerable<InstanceDefinitionGeometry> definitions) =>
         Conversions.Rows(definitions).Filter(static definition => definition.IsLinkedType && !definition.IsReference)

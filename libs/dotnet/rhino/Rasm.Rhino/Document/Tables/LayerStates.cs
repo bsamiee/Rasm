@@ -1,4 +1,4 @@
-using Rasm.Imaging.Pixels;
+using Rasm.UI;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
@@ -65,14 +65,20 @@ public abstract partial class LayerStateRestoreParameter : IStateParameter<Layer
     internal abstract IO<Func<LayerStateRestore, LayerStateRestore>> Read(RhinoDoc doc, (KeyName Section, SettingsNode Node) owner);
     internal abstract IO<Option<IO<Unit>>> Edit(Option<RhinoDoc> doc, (KeyName Section, SettingsNode Node) owner, Option<LayerStateRestore> value);
 
-    private sealed class Field<TRaw>(KeyName key, Lens<LayerStateRestore, TRaw> lens, Func<Lens<LayerStateRestore, TRaw>, StateParameter<LayerStateRestore>> kind,
-        SettingType<TRaw> setting, ParameterText text) : LayerStateRestoreParameter((string)key, kind(lens), text) where TRaw : notnull, ISpanParsable<TRaw> {
-        private readonly PlugInSetting<TRaw, TRaw> row = new(
-            ValueKey.Raw((string)key, text.Caption, text.Help, lens.Get(LayerStateRestore.Default)), setting) { Applied = Applied.IdleSave };
+    private sealed class Field<TRaw> : LayerStateRestoreParameter where TRaw : notnull, ISpanParsable<TRaw> {
+        private readonly KeyName key;
+        private readonly Lens<LayerStateRestore, TRaw> lens;
+        private readonly PlugInSetting<TRaw, TRaw> row;
+
+        internal Field(KeyName key, Lens<LayerStateRestore, TRaw> lens, Func<Lens<LayerStateRestore, TRaw>, StateParameter<LayerStateRestore>> kind, SettingType<TRaw> setting, ParameterText text)
+            : base((string)key, kind(lens), text) {
+            (this.key, this.lens) = (key, lens);
+            row = new(ValueKey.Raw(Key, Text, lens.Get(LayerStateRestore.Default)), setting) { Applied = Applied.IdleSave };
+        }
 
         internal override IO<Func<LayerStateRestore, LayerStateRestore>> Read(RhinoDoc doc, (KeyName Section, SettingsNode Node) owner) =>
-            from held in Store(Some(doc), owner).Read.Catch(static error => error.HasCode(ErrorCodes.ParseError), _ => IO.pure(Some(row.Value.Default)))
-            from value in IO.lift(() => held.Match(Some: static raw => raw, None: () => owner.Node.Current(row)))
+            from held in Store(Some(doc), owner).Read.Catch(static error => error.HasCode(ErrorCodes.ParseError), _ => IO.pure(Some(row.Key.Default)))
+            from value in held.Match(Some: static raw => IO.pure(raw), None: () => owner.Node.Current(row))
             select lens.SetF(value);
 
         internal override IO<Option<IO<Unit>>> Edit(Option<RhinoDoc> doc, (KeyName Section, SettingsNode Node) owner, Option<LayerStateRestore> value) =>
@@ -80,7 +86,7 @@ public abstract partial class LayerStateRestoreParameter : IStateParameter<Layer
 
         private ValueStore<TRaw> Store(Option<RhinoDoc> doc, (KeyName Section, SettingsNode Node) owner) =>
             doc.Match(
-                Some: document => UserTexts.Store(document, new DocumentKey(owner.Section, Some(key)), row.Value),
+                Some: document => UserTexts.Store(document, new DocumentKey(owner.Section, Some(key)), row.Key),
                 None: () => PlugInSettings.Store(owner.Node, row));
     }
 }

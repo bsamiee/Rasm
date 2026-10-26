@@ -2,7 +2,6 @@ using System.Drawing;
 using System.Globalization;
 using NodaTime.Text;
 using NodaTime.TimeZones;
-using Rasm.Imaging.Pixels;
 using Rhino.DocObjects;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;

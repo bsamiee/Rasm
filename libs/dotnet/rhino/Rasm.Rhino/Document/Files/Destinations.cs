@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
-using Rasm.Imaging.Files;
-using Rasm.Imaging.Pixels;
+using Rasm.UI;
 using Rhino;
 
 namespace Rasm.Rhino.Document.Files;
@@ -86,7 +85,7 @@ public static class Destinations {
     // --- [PLANNING]
     public static Fin<string> FolderOf(OutputFolder folder, Option<string> saved) =>
         folder.Switch(saved,
-            absolute: static (_, absolute) => Exchange.QualifiedPath(absolute.Folder),
+            absolute: static (_, absolute) => Path.IsPathFullyQualified(absolute.Folder) ? absolute.Folder : new FileRefused(absolute.Folder, FileReason.Unqualified),
             besideDocument: static (file, beside) => file.ToFin(Error.New("document has no saved file")).Map(path => Path.Join([Path.GetDirectoryName(path), .. beside.Segments])));
 
     public static Fin<NamePart> StemOf(Stem stem, Option<string> saved) =>
@@ -123,27 +122,24 @@ public static class Destinations {
                 unversioned: static (_, _) => Option<OutputVersion>.None,
                 pinned: static (_, pinned) => Some(pinned.Version),
                 nextFree: static (state, _) => Some(state.Next[state.Scope]))))
-            .Traverse(held => OutputPath.Validated(Path.Join(folder, Naming.Compose(stem, held.Name, held.Version)))
+            .Traverse(held => OutputPath.Of(Path.Join(folder, Naming.Compose(stem, held.Name, held.Version)))
                 .Map(path => (Name: held.Name with { Version = held.Version.Map<OutputVersioning>(static version => version).IfNone(held.Name.Version) }, Path: path)))
             .As();
 
     private static Fin<Seq<(OutputName Name, OutputPath Path)>> Plan(Seq<(OutputName Name, OutputPath Path)> named, Func<OutputPath, bool> free, string member) =>
         (
             Callbacks.Unique(named, static row => (string)row.Path, member, StringComparer.OrdinalIgnoreCase),
-            named.Traverse(row => free(row.Path) ? Fin.Succ(unit) : new DestinationTaken(row.Path)).As()
+            named.Traverse(row => free(row.Path) ? Fin.Succ(unit) : new FileRefused(row.Path, FileReason.Taken)).As()
         )
             .Apply(static (held, _) => held)
             .As();
-
-    private static IO<TValue> OnFolder<TValue>(string folder, Func<TValue> read) =>
-        IO.lift(read).MapFail(error => FilePublication.Refusal(folder, error));
 
     private static IO<(string Folder, Seq<(OutputName Name, OutputPath Path)> Placed)> Planned(
         RhinoDoc document, Destination destination, Seq<OutputName> names, [CallerMemberName] string member = "") =>
         from saved in IO.lift(() => Conversions.Present(document.Path))
         from location in IO.lift(() => Location(destination, saved))
         let fresh = names.Filter(static name => name.Version.Map(unversioned: false, pinned: false, nextFree: true)).Map(static name => name.Scope).Distinct()
-        from entries in OnFolder(location.Folder, () => Entries(location.Folder, fresh))
+        from entries in FilePublication.Refusing(location.Folder, FileReason.Unreadable, IO.lift(() => Entries(location.Folder, fresh)))
         from next in IO.lift(() => Versions(location.Stem, fresh, entries))
         from placed in IO.lift(() => Named(location.Folder, location.Stem, next, names).Bind(named => Plan(named, path => destination.Overwrite || !Path.Exists(path), member)))
         select (location.Folder, placed);
@@ -154,6 +150,6 @@ public static class Destinations {
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> Resolve(RhinoDoc document, Destination destination, Seq<OutputName> names) =>
         from planned in Planned(document, destination, names)
-        from _ in unless(planned.Placed.IsEmpty, OnFolder(planned.Folder, () => ignore(Directory.CreateDirectory(planned.Folder))))
+        from _ in unless(planned.Placed.IsEmpty, FilePublication.Refusing(planned.Folder, FileReason.Unwritable, IO.lift(() => ignore(Directory.CreateDirectory(planned.Folder)))))
         select planned.Placed;
 }

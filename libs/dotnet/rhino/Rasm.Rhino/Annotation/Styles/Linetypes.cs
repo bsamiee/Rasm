@@ -1,3 +1,4 @@
+using System.Numerics;
 using LanguageExt.ClassInstances;
 using Rasm.Drafting;
 using Rasm.Rhino.Document.Files;
@@ -7,6 +8,7 @@ using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
+using Rhino.UI;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Annotation.Styles;
@@ -74,6 +76,8 @@ public sealed record LinetypeDefinition(LinetypeSettings Settings, Option<Linety
 }
 
 public sealed record LinetypeTableState(LinetypeRef Current, ObjectLinetypeSource CurrentLinetypeSource, double LinetypeScale);
+
+public sealed record LinetypePreview(Seq<Seq<Vector2>> Dashes, Seq<Seq<Vector2>> CurveShapes, Seq<Seq<Vector2>> TextSurfaceShapes);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
@@ -195,13 +199,38 @@ public static partial class Linetypes {
          from text in IO.lift(() => scratch.PatternString(millimeters))
          select text);
 
+    // --- [PREVIEW]
+    private const double Span = 50d;
+
+    public static IO<Seq<LinetypePreview>> Preview(Seq<Linetype> linetypes, System.Drawing.Size pixels) =>
+        DisposalOps.Within(static () => new LineCurve(Point3d.Origin, new Point3d(Span, 0d, 0d)), curve =>
+            from tallest in IO.lift(() => linetypes.Fold(0d, static (held, linetype) => Math.Max(held, linetype.ShapeBounds.Diagonal.Y)))
+            from previews in linetypes.TraverseM(linetype => Previewed(curve, linetype, pixels, tallest)).As()
+            select previews);
+
+    private static IO<LinetypePreview> Previewed(Curve curve, Linetype linetype, System.Drawing.Size pixels, double tallest) =>
+        DisposalOps.Within(() => new Linetype(linetype) { WidthUnits = UnitSystem.None }, copy =>
+            from factor in IO.lift(() => copy.SegmentCount > 1 && copy.PatternLength > 0d && (Span / copy.PatternLength is < 5d or > 50d) ? 10d / copy.PatternLength : 1d)
+            from rescaled in IO.lift(() => Callbacks.Each(
+                toSeq(Range(0, copy.SegmentCount)),
+                index => {
+                    copy.GetSegment(index, out double length, out bool solid);
+                    return copy.SetSegment(index, length * factor, solid);
+                },
+                nameof(Linetype.SetSegment)))
+            let scale = tallest > 0d ? 0.6d * Span * pixels.Height / pixels.Width / tallest : factor
+            select new LinetypePreview(Channel(curve, copy, pixels, scale, 0), Channel(curve, copy, pixels, scale, 1), Channel(curve, copy, pixels, scale, 2)));
+
+    private static Seq<Seq<Vector2>> Channel(Curve curve, Linetype linetype, System.Drawing.Size pixels, double scale, int kind) =>
+        toSeq(DrawingUtilities.CreateLinetypePreviewGeometryEx(curve, linetype, pixels.Width, pixels.Height, scale, kind))
+            .Map(static run => toSeq(run).Map(static point => new Vector2(point.X, point.Y)).Strict())
+            .Strict();
+
     // --- [FILES]
-    public static IO<Seq<(string Name, LinetypeDefinition Definition)>> ReadFile(string path) =>
-        from existing in IO.lift(() => Exchange.ExistingPath(path))
-        from rows in DisposalOps.Within(() => Linetype.ReadFromFile(existing),
+    public static IO<Seq<(string Name, LinetypeDefinition Definition)>> ReadFile(InputPath path) =>
+        DisposalOps.Within(() => Linetype.ReadFromFile(path),
             static held => Conversions.Rows(held).TraverseM(static row => (IO.pure(row.Name), Definition(row)).Apply(ValueTuple.Create).As()).As(),
-            static held => DisposalOps.Release(Conversions.Rows(held)))
-        select rows;
+            static held => DisposalOps.Release(Conversions.Rows(held)));
 
     // --- [MAPPING]
     private static partial void Write((LineCapStyle LineCapStyle, LineJoinStyle LineJoinStyle, bool AlwaysModelDistances, double Width, UnitSystem WidthUnits) source, Linetype target);

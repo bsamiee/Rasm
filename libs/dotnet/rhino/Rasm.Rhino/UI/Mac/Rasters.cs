@@ -39,11 +39,4 @@ internal static class DrawnRasters {
             held.Context.RestoreState();
             return unit;
         });
-
-    internal static IO<float> Headroom(Control view) =>
-        IO.lift(() =>
-            from host in Refused.UnlessFound(view.GetContainerView(), nameof(MacControlExtensions.GetContainerView))
-            from window in Refused.UnlessFound(host.Window, nameof(NSView.Window))
-            from screen in Refused.UnlessFound(window.Screen, nameof(NSWindow.Screen))
-            select (float)screen.MaximumExtendedDynamicRangeColorComponentValue);
 }

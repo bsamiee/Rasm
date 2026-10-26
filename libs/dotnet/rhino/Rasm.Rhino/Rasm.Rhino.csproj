@@ -13,6 +13,7 @@
         <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="LanguageExt.Streaming" />
         <PackageReference Include="Microsoft.VisualStudio.Threading" />
+        <PackageReference Include="Mono.Unix" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="compile;contentfiles;analyzers;build" />
         <PackageReference Include="System.IO.Hashing" />
@@ -54,17 +55,12 @@
 
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../bim/Rasm.Drafting/Rasm.Drafting.csproj" />
-        <ProjectReference Include="../../graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
         <ProjectReference Include="../../ui/Rasm.UI/Rasm.UI.csproj" />
-        <ProjectReference Include="../../ui/Rasm.UI.Imaging/Rasm.UI.Imaging.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Sources">
+        <Compile Include="../../Invariant.cs" />
         <Compile Include="../../LanguageJson.cs" />
         <Compile Include="../../ValidationResults.cs" />
-    </ItemGroup>
-
-    <ItemGroup Label="Embedded Resources">
-        <EmbeddedResource Include="Render/Queue/rasm_rhino_render.js" />
     </ItemGroup>
 </Project>

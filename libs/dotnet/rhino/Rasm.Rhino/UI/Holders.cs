@@ -298,8 +298,8 @@ public static class SectionCommands {
         select Seq(
             held.Done.Head.Map(entry => Ran("section-undo", RowText.Localize("Undo {0}", arguments: [Described(entry, controls, scope.Sink)]).Local, Heard(history.Undo, scope))).ToSeq()
                 + held.Undone.Head.Map(entry => Ran("section-redo", RowText.Localize("Redo {0}", arguments: [Described(entry, controls, scope.Sink)]).Local, Heard(history.Redo, scope))).ToSeq(),
-            Seq(Ran("section-copy", "Copy values", Transfer.Copy(history.Group, None, scope)))
-                + Seq(Ran("section-paste", "Paste values", Transfer.Paste(history.Group, None, scope))).Filter(_ => pastes),
+            Seq(Ran("section-copy", "Copy values", DataTransfer.Copy(history.Group, None, scope)))
+                + Seq(Ran("section-paste", "Paste values", DataTransfer.Paste(history.Group, None, scope))).Filter(_ => pastes),
             Seq(Ran("section-clear", "Clear history", history.Clear)).Filter(_ => !(held.Done.IsEmpty && held.Undone.IsEmpty))
                 + Seq<Command<RowRule, Invoke>>(new Command<RowRule, Invoke>.Menu(new CommandFace("section-restore", "Restore", None, None), None, [held.Done.Map(entry => Ran(
                     string.Create(CultureInfo.InvariantCulture, $"section-restore-{entry.Serial}"),
@@ -316,7 +316,7 @@ public static class SectionCommands {
 
     private static string Described(HistoryEntry entry, Seq<ControlRow> controls, IPlugInSink sink) =>
         controls.Filter(control => control.Keys.Exists(entry.Diff.Changes.ContainsKey)) switch {
-            [var only] => RowText.Localize(only.Caption, sink).Local,
+            [var only] => RowText.Localize(only.Text.Caption, sink).Local,
             _ => RowText.Localize("{0} values", arguments: [entry.Diff.Changes.Count]).Local,
         };
 }

@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Grasshopper2.Components;
 using Grasshopper2.Doc;
 using Grasshopper2.Framework;
 using Grasshopper2.UI.Icon;
@@ -10,7 +9,6 @@ using Rasm.Rhino;
 using Rasm.Rhino.Display;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.Render.Effects;
 
 namespace Rasm.Grasshopper;
 
@@ -58,30 +56,21 @@ public static class GrasshopperPlugins {
         Callbacks.Answer(CanvasIcons.PlugIn(plugin), static () => None, site);
 
     public static void Harvest(IGrasshopperPlugin plugin, GrasshopperPluginDefinition definition, CallbackSite site) =>
-        Callbacks.Run(from derived in IO.lift(() => {
-            static Seq<(Type Type, Func<IGrasshopperPlugin, IO<Unit>> Register)> Registrations<TSelf>(ComponentRow<TSelf> row) where TSelf : ModularComponent =>
-                row.Inputs.Concat(row.Outputs).Bind(static parameter => parameter.DataTypes);
-            Func<ComponentRow<ModularComponent>, Seq<(Type Type, Func<IGrasshopperPlugin, IO<Unit>> Register)>> registrations = Registrations;
-            MethodInfo derive = registrations.Method.GetGenericMethodDefinition();
-            return toSeq((
-                from type in plugin.Plugin.PluginDocumentObjectTypes.OrderBy(static type => type.FullName, StringComparer.Ordinal)
-                from contract in type.GetInterfaces()
-                where contract.IsConstructedGenericType && contract.GetGenericTypeDefinition() == typeof(IComponentDefinition<>)
-                from getter in type.GetInterfaceMap(contract).TargetMethods
-                from row in (Seq<(Type Type, Func<IGrasshopperPlugin, IO<Unit>> Register)>)derive.MakeGenericMethod(getter.ReturnType.GenericTypeArguments).Invoke(
-                    null, BindingFlags.DoNotWrapExceptions, binder: null, [getter.Invoke(null, BindingFlags.DoNotWrapExceptions, binder: null, parameters: null, culture: null)], culture: null)!
-                select row).DistinctBy(static row => row.Type)).Strict();
-        })
-                      from custom in Callbacks.Each(definition.DataTypes.Map(row => IO.pure(plugin).Bind(row)))
-                      from registered in Callbacks.Each(derived.Map(row => IO.pure(plugin).Bind(row.Register)))
-                      select unit, site);
+        Callbacks.Run(
+            from derived in IO.lift(() => toSeq(toSeq(plugin.Plugin.PluginDocumentObjectTypes)
+                .Choose(ComponentDeclaration.Of)
+                .OrderBy(static declared => declared.Component.FullName, StringComparer.Ordinal)
+                .SelectMany(static declared => declared.Parameters.Bind(static parameter => parameter.DataTypes))
+                .DistinctBy(static row => row.Type)).Strict())
+            from custom in Callbacks.Each(definition.DataTypes.Map(row => IO.pure(plugin).Bind(row)))
+            from registered in Callbacks.Each(derived.Map(row => IO.pure(plugin).Bind(row.Register)))
+            select unit, site);
 
     public static void Loaded(IGrasshopperPlugin plugin, GrasshopperPluginDefinition definition, CallbackSite site) =>
         _ = Callbacks.Settled(
                 (from initialized in IO.lift(static () => AssemblyLoading.Initialized)
                  from opened in plugin.Session.Open(plugin, [
                      static (owner, retain) => EventKind.RhinoAppClosing.Inline(_ => owner.Session.Close, owner, retain),
-                     (owner, retain) => PreviewTiles.Open(owner, definition.Clock, None, retain).Bind(tiles => PreviewTiles.Current.Publish(owner, tiles)),
                      (owner, _) => Guest.Opened(owner, definition.Clock),
                      .. definition.Acquisitions])
                  select unit)

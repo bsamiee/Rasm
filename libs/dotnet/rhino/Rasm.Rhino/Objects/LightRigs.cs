@@ -1,8 +1,5 @@
 using System.Globalization;
 using LanguageExt.ClassInstances;
-using Rasm.Imaging.Color;
-using Rasm.Imaging.Pixels;
-using Rasm.Imaging.Tone;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Document.Units;
@@ -11,9 +8,10 @@ using Rasm.Rhino.Modeling;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Viewport;
 using Rhino;
+using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
-using Wacton.Unicolour;
+using UnitsNet;
 
 namespace Rasm.Rhino.Objects;
 
@@ -106,7 +104,7 @@ public abstract partial record RigEmitter {
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record RigColor {
-    public sealed record Blackbody(ColorTemperature Kelvin) : RigColor;
+    public sealed record Blackbody(UnitsNet.Temperature Kelvin) : RigColor;
 
     public sealed record Linear(ColorFilter Filter) : RigColor;
 }
@@ -118,81 +116,50 @@ public sealed record RigLight(
         (Math.SinCos(Azimuth), Math.SinCos(Elevation)) switch {
             var ((sinA, cosA), (sinE, cosE)) => (new Vector3d(cosE * sinA, sinE, cosE * cosA), new Vector3d(cosA, 0d, -sinA), new Vector3d(-sinE * sinA, cosE, -sinE * cosA)),
         };
-
-    public DistantLight Distant {
-        get {
-            Vector3d toward = Axes.Toward;
-            Unicolour color = Color.Switch(
-            blackbody: static blackbody => Adaptation.Blackbody(Gamut.StandardRgb, blackbody.Kelvin),
-            linear: static linear => linear.Filter.Unicolour);
-            Unicolour normalized = Adaptation.Peaked(color).MapToRgbGamut();
-            (double red, double green, double blue) = normalized.RgbLinear;
-            double luminance = normalized.Xyz.Y;
-            return new DistantLight(
-                new System.Numerics.Vector3((float)toward.X, (float)toward.Y, (float)toward.Z),
-                new System.Numerics.Vector3((float)(red / luminance), (float)(green / luminance), (float)(blue / luminance)), Stops);
-        }
-    }
 }
 
-public sealed record MatchedLook(
-    int Count, RigEmitter Key, KeySoftness Softness, AngularDiameter FillSize, Option<LightStops> Fill,
-    Option<LightStops> Rim, ColorFilter Tint, ColorSaturation Saturation, RadiusMultiple Distance) {
-    public Fin<Seq<RigLight>> Derived(LightingReading reading) {
-        RgbLinear Color(System.Numerics.Vector3 color) =>
-            new Unicolour(reading.Gamut.Configuration, ColourSpace.RgbLinear, color.X, color.Y, color.Z)
-                .ConvertToConfiguration(Gamut.StandardRgb.Configuration) switch {
-                    { RgbLinear: { R: 0d, G: 0d, B: 0d } } => new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, 1d, 1d, 1d).RgbLinear,
-                    var converted => Adaptation.Peaked(converted).MapToRgbGamut().RgbLinear,
-                };
-        double Luminance(System.Numerics.Vector3 color) =>
-            Math.Max(LuminanceSamples.Luminance(color.X, color.Y, color.Z, reading.Gamut.Luminance), LuminanceSamples.Floor);
-        return
-        from azimuth in Count > 0 ? Fin.Succ(reading.Direction.X * Math.PI / 2d) : Error.New(ErrorCodes.ValidationFailed, "matched look needs lights")
-        let elevation = reading.Direction.Y * Math.PI / 2d
-        let size = reading.Hardness > 0f ? Math.Atan2(Softness * reading.Ratio, reading.Hardness) : (double)AngularDiameter.MaxValue
-        let behind = reading.Backlit ? Math.PI : Math.IEEERemainder(azimuth + Math.PI, Math.Tau)
-        let working = reading.Gels.Match(
-            Some: static gels => (Key: gels.Key.Color, Fill: gels.Accent.Color, Rim: gels.Accent.Color),
-            None: () => (Key: reading.KeyColor, Fill: reading.FillColor, Rim: reading.KeyColor))
-        let colors = (Key: Color(working.Key), Fill: Color(working.Fill), Rim: Color(working.Rim))
-        let keyed = reading.Gels.Map(static gels => gels.Key) | reading.Palette.Head
-        from lights in (Seq(Row(LightRole.Key, Key, azimuth, elevation, size, LightStops.AtKey, colors.Key),
-                    Row(LightRole.Fill, new RigEmitter.RectangularLight(), -azimuth, Elevation.Horizon, FillSize, Fill.Map(static stops => (double)stops).IfNone(-reading.Ratio), colors.Fill))
-                + Rim.Map(rim => Row(LightRole.Rim, Key, behind, elevation, size, rim, colors.Rim)).ToSeq()
-                + reading.Palette.Filter(entry => keyed != Some(entry)).Map(entry => Row(
-                    LightRole.Accent, Key, ((2d * entry.Position.X) - 1d) * Math.PI / 2d, (1d - (2d * entry.Position.Y)) * Math.PI / 2d, size,
-                    Math.Log2(Luminance(entry.Color)) - Math.Log2(Luminance(working.Key)), Color(entry.Color))))
-            .Take(Count)
-            .Traverse(static light => light)
-            .As()
-        select lights;
-    }
-
-    private Fin<RigLight> Row(LightRole role, RigEmitter emitter, double azimuth, double elevation, double size, double stops, RgbLinear color) =>
-        (Azimuth.Validated(azimuth),
-         Elevation.Validated(elevation),
-         AngularDiameter.Validated(size),
-         LightStops.Validated(stops),
-         ValidationResults.ToFin(ColorFilter.Validate(
-             Tint.Red * (1d + (Saturation * (color.R - 1d))),
-             Tint.Green * (1d + (Saturation * (color.G - 1d))),
-             Tint.Blue * (1d + (Saturation * (color.B - 1d))), out ColorFilter? filter), filter))
-            .Apply((a, e, s, st, filter) => new RigLight(role, emitter, a, e, Distance, s, st, filter, Light.Attenuation.InverseSquared))
-            .As();
-}
+public sealed record RigReference(System.Numerics.Vector3 KeyColor, System.Numerics.Vector3 FillColor, System.Numerics.Vector2 Direction, float Ratio, float Hardness);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record RigLayout {
     public sealed record Arranged(Seq<RigLight> Rows) : RigLayout;
 
-    public sealed record Matched(MatchedLook Look) : RigLayout;
+    public sealed record Matched(
+        RigReference Reference, RigEmitter Key, KeySoftness Softness, AngularDiameter FillSize, Option<LightStops> Fill,
+        Option<LightStops> Rim, ColorFilter Tint, ColorSaturation Saturation, RadiusMultiple Distance) : RigLayout {
+        internal Fin<Seq<RigLight>> Derived =>
+            (Azimuth: Reference.Direction.X * Math.PI / 2d,
+             Elevation: Reference.Direction.Y * Math.PI / 2d,
+             Size: Reference.Hardness > 0f ? Math.Atan2(Softness * Reference.Ratio, Reference.Hardness) : (double)AngularDiameter.MaxValue,
+             Key: Peaked(Reference.KeyColor)) switch {
+                var held => (Seq(
+                        Row(LightRole.Key, Key, held.Azimuth, held.Elevation, held.Size, LightStops.AtKey, held.Key),
+                        Row(LightRole.Fill, new RigEmitter.RectangularLight(), -held.Azimuth, Elevation.Horizon, FillSize, Fill.Map(static stops => (double)stops).IfNone(-Reference.Ratio), Peaked(Reference.FillColor)))
+                    + Rim.Map(rim => Row(LightRole.Rim, Key, Math.IEEERemainder(held.Azimuth + Math.PI, Math.Tau), held.Elevation, held.Size, rim, held.Key)).ToSeq())
+                    .Traverse(static light => light)
+                    .As(),
+            };
 
-    public Fin<Seq<RigLight>> Lights(Option<LightingReading> reading) =>
+        private static Color4f Peaked(System.Numerics.Vector3 color) =>
+            color == System.Numerics.Vector3.Zero ? Color4f.White : Conversions.Peaked(color.X, color.Y, color.Z).Light;
+
+        private Fin<RigLight> Row(LightRole role, RigEmitter emitter, double azimuth, double elevation, double size, double stops, Color4f color) =>
+            (Azimuth.Validated(azimuth),
+             Elevation.Validated(elevation),
+             AngularDiameter.Validated(size),
+             LightStops.Validated(stops),
+             ValidationResults.ToFin(ColorFilter.Validate(
+                 Tint.Red * (1d + (Saturation * (color.R - 1d))),
+                 Tint.Green * (1d + (Saturation * (color.G - 1d))),
+                 Tint.Blue * (1d + (Saturation * (color.B - 1d))), out ColorFilter? filter), filter))
+                .Apply((a, e, s, st, filter) => new RigLight(role, emitter, a, e, Distance, s, st, filter, Light.Attenuation.InverseSquared))
+                .As();
+    }
+
+    public Fin<Seq<RigLight>> Lights =>
         Switch(
-            reading,
-            arranged: static (_, arranged) => arranged.Rows,
-            matched: static (held, matched) => held.ToFin(new Refused(nameof(LightingReading), Refused.Absent)).Bind(matched.Look.Derived));
+            arranged: static arranged => Fin.Succ(arranged.Rows),
+            matched: static matched => matched.Derived);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -316,9 +283,9 @@ public static class LightRigs {
         select result;
 
     // --- [RECONCILE]
-    public static IO<Committed<Seq<RigChange>>> Reconcile(RhinoDoc doc, LightRig rig, Option<LightingReading> reading, RigCommit commit, IPlugInSink sink) =>
+    public static IO<Committed<Seq<RigChange>>> Reconcile(RhinoDoc doc, LightRig rig, RigCommit commit, IPlugInSink sink) =>
         Commits.Commit(doc, RowText.Localize(commit.Name, sink), commit.Redraw,
-            from lights in IO.lift(rig.Layout.Lights(reading))
+            from lights in IO.lift(rig.Layout.Lights)
             from target in Target(doc, rig.Target)
             from basis in Basis(doc, rig.Basis, target.Focus)
             from placed in IO.lift(() => Placed(rig, lights, target, basis, doc.ModelUnits))
@@ -388,9 +355,9 @@ public static class LightRigs {
         TableOps.Apply(doc, AttributeOps.Modify(doc, new ObjectTarget.Ids(Seq(light)), Seq(AttributeEdits.SetUserStrings(RigLabel.Strings(label))), quiet: true));
 
     // --- [FOLLOW]
-    public static IO<Unit> Follow(RhinoDoc doc, LightRig rig, Option<LightingReading> reading, RigCommit commit, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<Unit> Follow(RhinoDoc doc, LightRig rig, RigCommit commit, IPlugInSink sink, Action<IDisposable> retain) =>
         rig.Target.Switch(
-            (Document: doc, Rig: rig, Reading: reading, Commit: commit, Sink: sink, Retain: retain),
+            (Document: doc, Rig: rig, Commit: commit, Sink: sink, Retain: retain),
             subjects: static (state, subjects) => from initial in Target(state.Document, subjects)
                                                   from acquisition in IO.lift(() => Watching(state, subjects, initial))
                                                   from followed in acquisition
@@ -398,7 +365,7 @@ public static class LightRigs {
             @fixed: static (_, _) => IO.pure(unit));
 
     private static IO<Unit> Watching(
-        (RhinoDoc Document, LightRig Rig, Option<LightingReading> Reading, RigCommit Commit, IPlugInSink Sink, Action<IDisposable> Retain) state, RigTarget.Subjects subjects, RigTarget.Fixed initial) {
+        (RhinoDoc Document, LightRig Rig, RigCommit Commit, IPlugInSink Sink, Action<IDisposable> Retain) state, RigTarget.Subjects subjects, RigTarget.Fixed initial) {
         Atom<RigTarget.Fixed> previous = Atom(initial);
         LanguageExt.HashSet<Guid> ids = toHashSet(subjects.Ids);
         uint serial = state.Document.RuntimeSerialNumber;
@@ -411,7 +378,7 @@ public static class LightRigs {
         IO<Unit> Resync(HashMap<Unit, Unit> _) =>
             from target in Target(state.Document, state.Rig.Target)
             from moved in IO.lift(() => previous.Value != target)
-            from changed in when(moved, Reconcile(state.Document, state.Rig with { Target = target }, state.Reading, state.Commit, state.Sink)
+            from changed in when(moved, Reconcile(state.Document, state.Rig with { Target = target }, state.Commit, state.Sink)
                 .Bind(_ => previous.SwapIO(_ => target)).Map(unit)).As()
             select unit;
         return DisposalOps.Acquire(

@@ -62,17 +62,17 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
         modular = ModularAttributes.Create(owner);
         guest = new Guest(sink, IO.lift(Owner.OnDisplayChanged));
         Responder.MouseDownHook += Reply<ResponseMouseArgs>(args => (args.Buttons is MouseButtons.Primary ? Began(args.ContentLocation) : IO.pure(Response.Ignored))
-            .Bind(resized => Or(resized, Guided(args, static (local, clicks) => Some(HostInput.Pressed(local, clicks))))), nameof(Responses.MouseDown));
-        Responder.MouseDoubleClickHook += Reply<ResponseMouseArgs>(args => Guided(args, static (local, clicks) => Some(HostInput.Pressed(local, clicks))), nameof(Responses.MouseDoubleClick));
+            .Bind(resized => Or(resized, Guided(args, static (local, clicks) => HostInput.Pressed(local, clicks)))), nameof(Responses.MouseDown));
+        Responder.MouseDoubleClickHook += Reply<ResponseMouseArgs>(args => Guided(args, static (local, clicks) => HostInput.Pressed(local, clicks)), nameof(Responses.MouseDoubleClick));
         Responder.MouseDragHook += Reply<ResponseMouseArgs>(args => Sizing(current => IO.lift(() => {
             current.Frame.Continue(args.ContentLocation);
             ((IResizableAttributes)this).Size = current.Frame.Resized.Size - current.Margins.Size - new SizeF(Rim, Rim);
             Pivot = RectangleF.Inset(current.Frame.Resized, current.Margins).Center;
-        }).Map(Response.Handled)).Bind(resized => Or(resized, Guided(args, static (local, clicks) => Some(HostInput.Moved(local, clicks))))), nameof(Responses.MouseDrag));
+        }).Map(Response.Handled)).Bind(resized => Or(resized, Guided(args, static (local, clicks) => HostInput.Moved(local, clicks)))), nameof(Responses.MouseDrag));
         Responder.MouseUpHook += Reply<ResponseMouseArgs>(args => (args.Buttons is MouseButtons.Primary ? Finished : IO.pure(Response.Ignored))
             .Bind(resized => Or(resized, Guided(args, HostInput.Released))), nameof(Responses.MouseUp));
         Responder.MouseWheelHook += Reply<ResponseMouseArgs>(args => Guided(args, static (local, _) => Some(HostInput.Wheeled(local))), nameof(Responses.MouseWheel));
-        Responder.MouseOverHook += Observe<ResponseMouseArgs>(args => Guided(args, static (local, clicks) => Some(HostInput.Moved(local, clicks))).Map(unit), nameof(Responses.MouseOver));
+        Responder.MouseOverHook += Observe<ResponseMouseArgs>(args => Guided(args, static (local, clicks) => HostInput.Moved(local, clicks)).Map(unit), nameof(Responses.MouseOver));
         Responder.MouseLeaveHook += () => Callbacks.Started(guest.Receive(new Rasm.UI.Input.Hover(None)), Site(nameof(Responses.MouseLeave)));
         Responder.KeyDownHook += Reply<KeyEventArgs>(args => (args.Key, args.Modifiers) switch {
             (Keys.Escape, _) => track.ValueIO.Bind(held => held.Match(Some: _ => Released, None: () => guest.Keyed(args))),
@@ -293,7 +293,8 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
         static () => None, Site()).ValueUnsafe();
 
     public void Dispose() {
-        throw new NotImplementedException();
+        Callbacks.Run(Cancelled, Site());
+        guest.Dispose();
     }
 }
 

@@ -34,19 +34,18 @@ public sealed record ExrLayout {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ExrCompression : ICaptioned {
-    public static readonly ExrCompression Uncompressed = new("uncompressed", Compression.None, Compression.None, "None");
-    public static readonly ExrCompression Rle = new("rle", Compression.RLE, Compression.RLE, "RLE (lossless)");
-    public static readonly ExrCompression Zips = new("zips", Compression.ZIPS, Compression.ZIPS, "ZIPS (lossless)");
-    public static readonly ExrCompression Zip = new("zip", Compression.ZIP, Compression.ZIP, "ZIP (lossless)");
-    public static readonly ExrCompression Piz = new("piz", Compression.PIZ, Compression.PIZ, "PIZ (lossless)");
-    public static readonly ExrCompression Pxr24 = new("pxr24", Compression.PXR24, Compression.ZIP, "Pxr24 (lossy)");
-    public static readonly ExrCompression B44 = new("b44", Compression.B44, Compression.ZIP, "B44 (lossy)");
-    public static readonly ExrCompression B44A = new("b44a", Compression.B44A, Compression.ZIP, "B44A (lossy)");
+public sealed partial class ExrCompression {
+    public static readonly ExrCompression Uncompressed = new("uncompressed", Compression.None, Compression.None);
+    public static readonly ExrCompression Rle = new("rle", Compression.RLE, Compression.RLE);
+    public static readonly ExrCompression Zips = new("zips", Compression.ZIPS, Compression.ZIPS);
+    public static readonly ExrCompression Zip = new("zip", Compression.ZIP, Compression.ZIP);
+    public static readonly ExrCompression Piz = new("piz", Compression.PIZ, Compression.PIZ);
+    public static readonly ExrCompression Pxr24 = new("pxr24", Compression.PXR24, Compression.ZIP);
+    public static readonly ExrCompression B44 = new("b44", Compression.B44, Compression.ZIP);
+    public static readonly ExrCompression B44A = new("b44a", Compression.B44A, Compression.ZIP);
 
     public Compression Codec { get; }
     public Compression Data { get; }
-    public string Caption { get; }
 }
 
 [SmartEnum<string>]
@@ -233,7 +232,7 @@ public sealed record PassSet {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ExrParts {
-    internal static IO<Unit> Write(StillFormat.ExrRaster exr, FileMetadata metadata, FileStream stream) {
+    internal static IO<Unit> Write(StillFormat.ExrRaster exr, FileMetadata metadata, Stream stream) {
         static Seq<ChannelBuffer> Buffers(ExrLayout layout, ExrLayer layer) {
             ExrSample sample = layer.Kind.Sample(layout);
             byte[][] planes = StillWriter.Planar(sample.Depth, layer.Source.Size, layer.Kind.Channels.Count, (y, row) => {
@@ -281,7 +280,7 @@ internal static class ExrParts {
         return from image in IO.lift(() => Parts(exr, metadata.Exr(exr.Layout.Gamut)).Map(static parts => new Image(parts)))
                from token in cancelToken
                from result in IO.liftVAsync(() => ExrFile.SaveToStreamAsync(image, stream, options, token))
-               from _ in IO.lift(result.IsSuccess ? Fin.Succ(unit) : new Expected($"EXR codec refused writing {stream.Name} with {result.Status}", 0, Optional(result.Error).Map(Error.New)))
+               from _ in IO.lift(result.IsSuccess ? Fin.Succ(unit) : new Expected($"EXR codec refused writing with {result.Status}", 0, Optional(result.Error).Map(Error.New)))
                select unit;
     }
 }

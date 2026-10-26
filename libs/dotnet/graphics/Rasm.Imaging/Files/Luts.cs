@@ -3,14 +3,11 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Color;
-using Rasm.Imaging.Pixels;
-using Rasm.Imaging.Quantization;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Formats.Tiff;
 using SixLabors.ImageSharp.PixelFormats;
-using TinyEXR;
 
 namespace Rasm.Imaging.Files;
 
@@ -51,19 +48,9 @@ public sealed record LutFile {
                 static error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() || error.HasException<ImageFormatException>(),
                 error => IO.fail<LutFile>(Error.New($"LUT file {path} is unreadable", error)));
 
-    public static IO<Unit> Write(LutTable table, LutFormat format, OutputPath path) =>
-        from text in IO.lift(LutFiles.Render(table, format, System.IO.Path.GetFileNameWithoutExtension(path)))
-        from _ in FilePublication.Write(path, text)
-        select unit;
-
-    public static IO<Unit> WriteLookup(LutTable table, LookupLayout layout, FileMetadata metadata, OutputPath path) =>
-        from still in IO.lift(LutFiles.Lookup(table, layout).Bind(static frame => StillFormat.PngRaster.From(frame, OutputDepth.UInt16, None, alpha: false)))
-        from _ in StillWriter.Write(still, metadata, path)
-        select unit;
-
     private static IO<LutTable> ReadLookup(LutPath path) =>
         from token in cancelToken
-        from table in use(IO.liftAsync(() => SixLabors.ImageSharp.Image.LoadAsync<Rgb48>(LookupOptions, path, token))).Bind(static image => IO.lift(Lattice(image))).Bracket()
+        from table in use(IO.liftAsync(() => Image.LoadAsync<Rgb48>(LookupOptions, path, token))).Bind(static image => IO.lift(Lattice(image))).Bracket()
         select table;
 
     private static Fin<LutTable> Lattice(Image<Rgb48> image) =>
@@ -77,32 +64,7 @@ public sealed record LutFile {
                     for (int pixel = 0; pixel < rows.Width * rows.Height; pixel++)
                         nodes[found.Layout.Node(pixel % rows.Width, pixel / rows.Width, found.Extent, found.Edge)] = rows.GetRowSpan(pixel / rows.Width)[pixel % rows.Width].ToScaledVector4().AsVector3();
                 });
-                return Lut3D.From(found.Edge, samples.Memory, Vector3.Zero, Vector3.One).Map(static lattice => (LutTable)new LutTable.Cube(lattice, LutInterpolation.Tetrahedral));
+                return TinyEXR.Lut3D.From(found.Edge, samples.Memory, Vector3.Zero, Vector3.One).Map(static lattice => (LutTable)new LutTable.Cube(lattice, TinyEXR.LutInterpolation.Tetrahedral));
             });
 }
 
-public sealed record LutLook(Option<LutFile> Lut, LutSpace Space)
-    : IStateRecord<LutLook, LutLookParameter>, IPixelStage<LutLook> {
-    public static LutLook Default { get; } = new(None, LutSpace.Encoded.Default);
-
-    public static Option<PixelPass> Pass(LutLook state, PassContext context) =>
-        state.Lut.Map(file => (new ColorEncoding(context.Working, context.Signal, Nits.ReferenceWhite), state.Space.Bracket) switch {
-            var (input, (space, into, back)) when input.Transfer == TransferCurve.Linear && space.Transfer == TransferCurve.Linear =>
-                (PixelPass)new PixelPass.Color(LutTables.Bracketed(input.Gamut, space.Gamut, into, file.Table, back)),
-            var (input, (space, into, back)) =>
-                new PixelPass.Color((Action<Span<Vector4>>)Delegate.Combine([.. input.To(space), new LutTable.Sequence([.. into, file.Table, .. back]).Apply, .. space.To(input)])!),
-        });
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LutLookParameter : IStateParameter<LutLook> {
-    public static readonly LutLookParameter Lut = new("lut", new StateParameter<LutLook>.Loaded<LutFile, LutPath, string>(Lens<LutLook, Option<LutFile>>.New(static look => look.Lut, static lut => look => look with { Lut = lut }), LutFile.Read, static file => file.Path),
-        new("LUT", "Table file the look applies"));
-    public static readonly LutLookParameter Space = new("space", new StateParameter<LutLook>.Variant<LutSpace>(Lens<LutLook, LutSpace>.New(static look => look.Space, static space => look => look with { Space = space })),
-        new("Space", "Color space the table expects"));
-
-    public StateParameter<LutLook> Kind { get; }
-    public ParameterText Text { get; }
-}

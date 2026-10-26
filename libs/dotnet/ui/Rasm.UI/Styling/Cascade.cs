@@ -124,15 +124,15 @@ public sealed partial class Shipped {
     }
 }
 
-public sealed record Skin : Monoid<Skin> {
-    public static Skin Empty { get; } = new();
+public sealed record StyleSheet : Monoid<StyleSheet> {
+    public static StyleSheet Empty { get; } = new();
 
     public Option<Appearance> Appearance { get; init; }
     public Option<Density> Density { get; init; }
     public HashMap<Role, Look> Looks { get; init; }
     public HashMap<Role, HashMap<Metric, float>> Metrics { get; init; }
 
-    public Skin Combine(Skin rhs) =>
+    public StyleSheet Combine(StyleSheet rhs) =>
         new() {
             Appearance = rhs.Appearance | Appearance,
             Density = rhs.Density | Density,
@@ -180,7 +180,6 @@ public sealed record Style {
     public Ink Text => Look.Text.IfNone(NativeText);
     public Seq<Shadow> Shadows => Look.Shadows.IfNone([]);
     public Seq<Filter> Filters => Look.Filters.IfNone([]);
-    public TextFace Face => Look.Face;
     public SKBlendMode Blend => Look.Blend.IfNone(SKBlendMode.SrcOver);
     public TimingCurve Motion => Look.Motion.IfNone(static () => new TimingCurve.Instant());
     public Option<Ink> Solid => Fills.Choose(static fill => fill.SwitchPartially(@default: static _ => Option<Ink>.None, solid: static solid => Some(solid.Ink))).Head;
@@ -225,9 +224,9 @@ public static class Styles {
         Resolved(cascade.Theme, cascade.Shipped, cascade.Appearances, cascade.Metrics, Some(cascade.Enclosing), role, conditions);
 
     public static (Style Style, Cascade Inner) Enter(Cascade cascade, Node node) {
-        Cascade pushed = node.Restyled.Map(static styled => styled.Skin).Map(skin => cascade with {
-            Appearances = cascade.Appearances + skin.Appearance.Bind(name => cascade.Shipped.Appearances.Find(name)).ToSeq() + Seq(skin.Looks),
-            Metrics = cascade.Metrics + skin.Density.Bind(name => cascade.Shipped.Densities.Find(name)).ToSeq() + Seq(skin.Metrics),
+        Cascade pushed = node.Restyled.Map(static styled => styled.Sheet).Map(sheet => cascade with {
+            Appearances = cascade.Appearances + sheet.Appearance.Bind(name => cascade.Shipped.Appearances.Find(name)).ToSeq() + Seq(sheet.Looks),
+            Metrics = cascade.Metrics + sheet.Density.Bind(name => cascade.Shipped.Densities.Find(name)).ToSeq() + Seq(sheet.Metrics),
         }).IfNone(cascade);
         Style style = (node.Role | (node.Conditions.IsEmpty ? None : Some(cascade.Enclosing.Role)))
             .Map(role => Resolve(pushed, role, node.Role.IsNone || node.Inherits ? node.Conditions.Union(cascade.Enclosing.Conditions) : node.Conditions))

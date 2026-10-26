@@ -2,7 +2,6 @@ using System.Numerics;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using Rasm.Imaging.Color;
-using Rasm.Imaging.Pixels;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Tone;
@@ -18,7 +17,7 @@ internal sealed record AcesPeak(
 internal sealed record AcesGamut(AcesPeak Peak, JmhSpace Limit, ImmutableArray<float> Hues, ImmutableArray<Vector3> Cusps, int SearchLow, int SearchHigh);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-internal static class AcesTransform {
+public static class Aces {
     private const int Degrees = 360;
     private const double AdaptingLuminance = 100d;
     private const double Surround = 1.15d;
@@ -27,12 +26,14 @@ internal static class AcesTransform {
     private const float ConeOffset = 27.13f;
     private const float ConeExponent = 0.42f;
     private const float SmoothCusps = 0.12f;
+    private const float ReferenceLuminance = 100f;
+    private const float PqPeak = 10_000f;
 
     private static readonly double Adaptation = double.Pow(1d / ((5d * AdaptingLuminance) + 1d), 4d) switch {
         var k4 => (0.2d * k4 * 5d * AdaptingLuminance) + (0.1d * double.Pow(1d - k4, 2d) * double.Cbrt(5d * AdaptingLuminance)),
     };
-    private static readonly float LuminanceScale = (float)(Adaptation / (float)Nits.ReferenceWhite);
-    private static readonly float ModelGamma = (float)(0.59d * (1.48d + double.Sqrt(20d / (float)Nits.ReferenceWhite)));
+    private static readonly float LuminanceScale = (float)(Adaptation / ReferenceLuminance);
+    private static readonly float ModelGamma = (float)(0.59d * (1.48d + double.Sqrt(20d / ReferenceLuminance)));
     private static readonly float WhiteResponse = Compressed((float)Adaptation);
     private static readonly Matrix<double> ConeToAab = (1d / ((2d + 1d + (1d / 20d)) * WhiteResponse), 400d * 43d * 0.9d) switch {
         var (achromatic, chromatic) => Matrix<double>.Build.DenseOfRowMajor(3, 3, [
@@ -43,19 +44,19 @@ internal static class AcesTransform {
     };
     private static readonly Matrix<double> AabToCone = ConeToAab.Inverse();
     private static readonly JmhSpace Reach = Space(Gamut.Acescg);
-    private static readonly Func<(Gamut Limit, Nits Peak), AcesGamut> Gamuts = memoUnsafe<(Gamut Limit, Nits Peak), AcesGamut>(Limited);
+    private static readonly Func<(Gamut Limit, float Peak), AcesGamut> Gamuts = memoUnsafe<(Gamut Limit, float Peak), AcesGamut>(Limited);
 
-    internal static PixelPass Formed(ToneMapping _, PassContext context) =>
-        Gamuts((context.Display.Map(
+    public static Action<Span<Vector4>> Formed(Gamut working, DisplayDevice device) =>
+        Gamuts((device.Map(
             srgb: Gamut.StandardRgb, displayP3: Gamut.DisplayP3, rec1886: Gamut.StandardRgb, rec2020: Gamut.DisplayP3,
-            rec2100PqHdr: Gamut.Rec2020, rec2100PqSdr: Gamut.StandardRgb, rec2100HlgHdr: Gamut.Rec2020, rec2100HlgSdr: Gamut.StandardRgb), context.Display.Peak)) switch {
-                var gamut => Formation.Formed(
-                    context, Gamut.Acescg,
+            rec2100PqHdr: Gamut.Rec2020, rec2100PqSdr: Gamut.StandardRgb, rec2100HlgHdr: Gamut.Rec2020, rec2100HlgSdr: Gamut.StandardRgb), (float)device.Peak.Nits.ToDouble())) switch {
+                var gamut => device.Formed(
+                    working, Gamut.Acescg,
                     Seq<Action<Span<Vector4>>>(row => {
                         foreach (ref Vector4 pixel in row)
                             pixel = new Vector4(Rendered(pixel.AsVector3(), gamut), pixel.W);
                     }),
-                    new ColorEncoding(gamut.Limit.Gamut, TransferCurve.Linear, Nits.ReferenceWhite)),
+                    new ColorEncoding(gamut.Limit.Gamut, new Transfer.Linear())),
             };
 
     private static Vector3 Rendered(Vector3 scene, AcesGamut gamut) {
@@ -69,9 +70,9 @@ internal static class AcesTransform {
     }
 
     private static float Toned(float achromatic, AcesPeak peak) =>
-        (Uncompressed(WhiteResponse * float.Abs(achromatic)) / LuminanceScale / (float)Nits.ReferenceWhite) switch {
+        (Uncompressed(WhiteResponse * float.Abs(achromatic)) / LuminanceScale / ReferenceLuminance) switch {
             var scene => (peak.M2 * float.Pow(scene / (scene + peak.S2), (float)Surround)) switch {
-                var flared => float.CopySign(Lightness(float.Max(0f, flared * flared / (flared + (float)ToeFlare)) * (float)Nits.ReferenceWhite), achromatic),
+                var flared => float.CopySign(Lightness(float.Max(0f, flared * flared / (flared + (float)ToeFlare)) * ReferenceLuminance), achromatic),
             },
         };
 
@@ -198,20 +199,20 @@ internal static class AcesTransform {
         return new(gamut, toCone, toCone.Inverse());
     }
 
-    private static AcesPeak Peaked(Nits nits) {
-        double peak = (float)nits;
-        double ceiling = peak / (float)Nits.ReferenceWhite;
-        double hit = double.Lerp(128d, 896d, double.Log(ceiling) / double.Log((float)Nits.MaxValue / (float)Nits.ReferenceWhite));
+    private static AcesPeak Peaked(float nits) {
+        double peak = nits;
+        double ceiling = peak / ReferenceLuminance;
+        double hit = double.Lerp(128d, 896d, double.Log(ceiling) / double.Log(PqPeak / ReferenceLuminance));
         double m1 = 0.5d * (ceiling + double.Sqrt(ceiling * (ceiling + (4d * ToeFlare))));
         double scaled = hit / m1;
         double m = m1 / double.Pow(scaled / (scaled + 1d), Surround);
-        double gray = 10.013d / (float)Nits.ReferenceWhite * (1d + (double.Log2(ceiling) * 0.14d));
+        double gray = 10.013d / ReferenceLuminance * (1d + (double.Log2(ceiling) * 0.14d));
         double lifted = double.Pow(0.5d * (gray + double.Sqrt(gray * (gray + (4d * ToeFlare)))) / m, 1d / Surround);
         double grayWeight = Exposure.MiddleGray / (-(m1 * lifted) / (lifted - 1d));
         double logPeak = double.Log10(ceiling);
         float limitJ = Lightness((float)peak);
         return new(
-            (float)ceiling, (float)(8d * hit), (float)(grayWeight * m1), (float)(m1 / double.Pow(scaled / (scaled + grayWeight), Surround)), limitJ, Lightness((float)(gray * (float)Nits.ReferenceWhite)),
+            (float)ceiling, (float)(8d * hit), (float)(grayWeight * m1), (float)(m1 / double.Pow(scaled / (scaled + grayWeight), Surround)), limitJ, Lightness((float)(gray * ReferenceLuminance)),
             (float)double.Max(0.2d, 1.3d - (1.3d * 0.69d * logPeak)), (float)(0.5d / peak), (float)(2.4d + (2.4d * 3.3d * logPeak)), (float)(double.Pow(0.03379d * peak, 0.30596d) - 0.45135d),
             (float)(1.35d + (1.35d * 1.75d * logPeak)), (float)(1d / (1.14d + (0.07d * logPeak))),
             Wrapped(toSeq(Range(0, Degrees)).Map(hue => Reached(hue, limitJ)), static (value, _) => value));
@@ -225,7 +226,7 @@ internal static class AcesTransform {
         return Widened(0f, 50f) switch { var (low, high) => Narrowed(low, high) };
     }
 
-    private static AcesGamut Limited((Gamut Limit, Nits Peak) key) {
+    private static AcesGamut Limited((Gamut Limit, float Peak) key) {
         AcesPeak peak = Peaked(key.Peak);
         JmhSpace limit = Space(key.Limit);
         float limitA = float.Pow(peak.LimitJ / LightnessScale, 1f / ModelGamma);

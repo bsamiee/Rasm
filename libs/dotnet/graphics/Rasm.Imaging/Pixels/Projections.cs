@@ -1,53 +1,47 @@
 using System.Globalization;
 using System.Numerics;
 using PeterO.Numbers;
-using UnitsNet;
-using UnitsNet.Units;
 
 namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct FieldOfView : IPresented<FieldOfView, float> {
+public readonly partial struct FieldOfView : IMinMaxValue<FieldOfView> {
     public static FieldOfView MinValue { get; } = new(float.BitIncrement(0f));
     public static FieldOfView MaxValue { get; } = new(float.BitDecrement(float.Pi));
     public static FieldOfView SixthTurn { get; } = new(float.Pi / 3f);
-    public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian) };
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct SweepAngle : IPresented<SweepAngle, float> {
+public readonly partial struct SweepAngle : IMinMaxValue<SweepAngle> {
     public static SweepAngle MinValue { get; } = new(float.BitIncrement(0f));
     public static SweepAngle MaxValue { get; } = new(float.BitDecrement(float.Tau));
     public static SweepAngle HalfTurn { get; } = new(float.Pi);
-    public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian) };
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None,
     SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct SignedAngle : IPresented<SignedAngle, float> {
+public readonly partial struct SignedAngle : IMinMaxValue<SignedAngle> {
     public static SignedAngle MinValue { get; } = new(-float.Pi);
     public static SignedAngle MaxValue { get; } = new(float.Pi);
     public static SignedAngle Down { get; } = new(-float.Pi / 2f);
     public static SignedAngle Diagonal { get; } = new(float.Pi / 4f);
     public static SignedAngle Up { get; } = new(float.Pi / 2f);
-    public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian), Origin = (float)Neutral };
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None,
     SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Elevation : IPresented<Elevation, float> {
+public readonly partial struct Elevation : IMinMaxValue<Elevation> {
     public static Elevation MinValue { get; } = new(-float.Pi / 2f);
     public static Elevation MaxValue { get; } = new(float.Pi / 2f);
-    public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian), Origin = (float)Neutral };
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
@@ -267,24 +261,40 @@ public sealed record Camera {
 
     public Option<((double X, double Y) Point, float Depth)> Pixel(Vector3 world) =>
         Frustum.Locate(Vector3.Transform(world - Location, Quaternion.Conjugate(Orientation)), Extent);
+
+    public Option<((double X, double Y) Point, float Depth)> Distant(Vector3 direction) =>
+        Frustum.Switch((Camera: this, Direction: direction),
+            perspective: static (at, _) => at.Camera.Pixel(at.Camera.Location + at.Direction).Map(static located => (located.Point, Depth: float.PositiveInfinity)),
+            parallel: static (_, _) => Option<((double X, double Y) Point, float Depth)>.None);
+
+    public Option<float> Illumination((double X, double Y) point) =>
+        Frustum.Switch((Point: point, Extent),
+            perspective: static (at, frustum) => frustum.Window.WindowPoint(at.Point.X, at.Point.Y, at.Extent) switch {
+                var tangent => (1d + (tangent.X * tangent.X) + (tangent.Y * tangent.Y)) switch { var spread => Some((float)(1d / (spread * spread))) },
+            },
+            parallel: static (_, _) => Option<float>.None);
+}
+
+[ValueObject<Guid>(SkipIParsable = true)]
+public readonly partial struct LightTarget {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
+        validationError = value == Guid.Empty ? new ValidationError("Light target identifier is empty") : null;
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class WrapMode : ICaptioned {
-    public static readonly WrapMode Black = new("black", "Clip", static (point, size, offset) => (point + offset) switch {
+public sealed partial class WrapMode {
+    public static readonly WrapMode Black = new("black", static (point, size, offset) => (point + offset) switch {
         var center => (double.Clamp(center, 0.5d, size - 0.5d), double.Clamp(center + 0.5d, 0d, 1d) * double.Clamp(size + 0.5d - center, 0d, 1d)),
     });
-    public static readonly WrapMode Clamp = new("clamp", "Extend", static (point, size, offset) => (double.Clamp(point + offset, 0.5d, size - 0.5d), 1d));
-    public static readonly WrapMode Periodic = new("periodic", "Repeat", static (point, size, offset) => (((point % size) + (offset % size)) % size) switch {
+    public static readonly WrapMode Clamp = new("clamp", static (point, size, offset) => (double.Clamp(point + offset, 0.5d, size - 0.5d), 1d));
+    public static readonly WrapMode Periodic = new("periodic", static (point, size, offset) => (((point % size) + (offset % size)) % size) switch {
         var turn => (turn < 0d ? turn + size : turn, 1d),
     });
-    public static readonly WrapMode Mirror = new("mirror", "Mirror", static (point, size, offset) => (2d * size) switch {
+    public static readonly WrapMode Mirror = new("mirror", static (point, size, offset) => (2d * size) switch {
         var period => double.Abs(((point % period) + (offset % period)) % period) switch { var turn => (double.Min(turn, period - turn), 1d) },
     });
-
-    public string Caption { get; }
 
     public bool Tiles => Map(black: false, clamp: false, periodic: true, mirror: true);
 
@@ -309,6 +319,26 @@ public sealed partial class WrapMode : ICaptioned {
             (var point, > 0d) => Some((int)point),
             _ => None,
         };
+}
+
+public readonly record struct Occluder(PixelFrame Depth, float Source) {
+    public bool Hides((double X, double Y) point) =>
+        Depth.Sample((double.Floor(point.X) + 0.5d, double.Floor(point.Y) + 0.5d), (WrapMode.Black, WrapMode.Black),
+            float.PositiveInfinity, static (_, sample, _) => sample.X) < Source;
+
+    public float Visible((double X, double Y) source, double reach) {
+        (Occluder occluder, PixelExtent extent) = (this, Depth.Extent);
+        Seq<(double X, double Y)> disc = toSeq(
+            from y in Window(source.Y, extent.Height)
+            from x in Window(source.X, extent.Width)
+            let center = (X: x + 0.5d, Y: y + 0.5d)
+            where double.Hypot(center.X - source.X, center.Y - source.Y) <= reach
+            select center);
+        return reach is 0d || disc.IsEmpty ? 1f : disc.Filter(point => !occluder.Hides(point)).Count / (float)disc.Count;
+
+        IEnumerable<int> Window(double at, int size) =>
+            (int)double.Clamp(double.Floor(at - reach), 0d, size) switch { var low => Enumerable.Range(low, (int)double.Clamp(double.Ceiling(at + reach), 0d, size) - low) };
+    }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -427,7 +457,7 @@ public abstract partial record Projection {
             select Uncentered((azimuth.Cos * reach, azimuth.Sin * reach));
     }
 
-    public sealed record Panini(PixelExtent Extent, FieldOfView Field, Magnitude Distance, AxisFraction Compression) : Projection(Extent) {
+    public sealed record Panini(PixelExtent Extent, FieldOfView Field, float Distance, float Compression) : Projection(Extent) {
         public override bool Upright => true;
 
         private protected override Option<Vector3> Direction((double X, double Y) point) =>
@@ -459,9 +489,7 @@ public abstract partial record Projection {
     }
 }
 
-public readonly record struct PanoramaView(SignedAngle Heading, Elevation Elevation, SignedAngle Roll) : IStateRecord<PanoramaView, PanoramaViewParameter> {
-    public static PanoramaView Default { get; }
-
+public readonly record struct PanoramaView(SignedAngle Heading, Elevation Elevation, SignedAngle Roll) {
     public Quaternion Rotation => Quaternion.CreateFromYawPitchRoll(-(float)Heading, Elevation, Roll);
 
     public static Option<(float Heading, float Elevation, float Roll)> Facing(Vector3 left, Vector3 right) =>
@@ -479,19 +507,4 @@ public readonly record struct PanoramaView(SignedAngle Heading, Elevation Elevat
         let yaw = double.SinCos(heading)
         let pitch = double.SinCos(elevation)
         select ((float)heading, (float)elevation, (float)double.Atan2((-across.X * yaw.Sin * pitch.Sin) + (across.Y * pitch.Cos) + (across.Z * yaw.Cos * pitch.Sin), (across.X * yaw.Cos) + (across.Z * yaw.Sin)));
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class PanoramaViewParameter : IStateParameter<PanoramaView> {
-    public static readonly PanoramaViewParameter Heading = new("heading", StateParameter.Bounded(Lens<PanoramaView, SignedAngle>.New(static view => view.Heading, static heading => view => view with { Heading = heading })),
-        new("Heading", "Rightward turn of view"));
-    public static readonly PanoramaViewParameter Elevation = new("elevation", StateParameter.Bounded(Lens<PanoramaView, Elevation>.New(static view => view.Elevation, static elevation => view => view with { Elevation = elevation })),
-        new("Elevation", "View upward tilt"));
-    public static readonly PanoramaViewParameter Roll = new("roll", StateParameter.Bounded(Lens<PanoramaView, SignedAngle>.New(static view => view.Roll, static roll => view => view with { Roll = roll })),
-        new("Roll", "Counterclockwise turn about view axis"));
-
-    public StateParameter<PanoramaView> Kind { get; }
-    public ParameterText Text { get; }
 }

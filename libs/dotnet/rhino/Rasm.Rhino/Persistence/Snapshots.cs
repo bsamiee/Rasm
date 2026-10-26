@@ -39,7 +39,7 @@ public abstract partial record SnapshotChange {
 
     public sealed record Rename(SnapshotName Name, SnapshotName NewName) : SnapshotChange;
 
-    public sealed record Import(string Path) : SnapshotChange;
+    public sealed record Import(InputPath Path) : SnapshotChange;
 
     public sealed record UserText(SnapshotName Name, SnapshotText Key, Option<SnapshotText> Value) : SnapshotChange;
 
@@ -87,9 +87,9 @@ public abstract partial record SnapshotChange {
         restore: static (held, change) => Expecting(held, [(change.Name, true)], $"""_-Snapshots _Restore "{change.Name}" _Enter _Enter"""),
         delete: static (held, change) => Expecting(held, [(change.Name, true)], $"""_-Snapshots _Delete "{change.Name}" _Enter"""),
         rename: static (held, change) => Expecting(held, [(change.Name, true), (change.NewName, false)], $"""_-Snapshots _Rename "{change.Name}" "{change.NewName}" _Enter"""),
-        import: static (_, change) => Exchange.ExistingPath(change.Path).Bind(static path => SnapshotText.Quotable(path)
-            ? Fin.Succ($"""_-Snapshots _Import "{path}" _Enter""")
-            : new FileRefused(path, "holds a quote the snapshot command cannot read")),
+        import: static (_, change) => SnapshotText.Quotable(change.Path)
+            ? Fin.Succ($"""_-Snapshots _Import "{change.Path}" _Enter""")
+            : new FileRefused(change.Path, FileReason.Unreadable),
         userText: static (held, change) => Expecting(held, [(change.Name, true)], change.Value.Match(
             Some: value => $"""_-Snapshots _UserText "{change.Name}" _Set "{change.Key}" "{value}" _Enter _Enter""",
             None: () => $"""_-Snapshots _UserText "{change.Name}" _Set "{change.Key}" _Enter _Enter _Enter""")));

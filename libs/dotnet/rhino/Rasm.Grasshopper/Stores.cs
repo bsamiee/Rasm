@@ -1,7 +1,5 @@
 using Grasshopper2;
 using Grasshopper2.Doc;
-using Grasshopper2.Extensions;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
@@ -16,19 +14,27 @@ public sealed record KeyedText(
     Func<Seq<(string Key, Option<string> Text)>, IO<Unit>> Write,
     Option<HostEvent<KeyValueEventArgs>> Changed) : ISettingReader {
     // --- [KEYS]
-    public string Pattern => Key("*");
+    public string Pattern => Key(["*"]);
 
-    public string Key(string name) => EntryKey.Name(Seq(Owner, name));
+    public string Key(Seq<string> path) => EntryKey.Name(Owner.Cons(path));
 
-    public Fin<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
+    // --- [STORES]
+    public ValueStore<TValue> Store<TValue>(FieldCodec<TValue> codec) where TValue : notnull =>
+        codec.Capture(codec.Default) switch {
+            var factory => ValueStore.Defaulted(
+                codec.Recalled(Owner, path => IO.lift(() => Read(Key(path)))),
+                IO.pure(codec.Default),
+                value => Write(codec.Slots(Some(value)).Map(slot =>
+                    (Key(slot.Path), slot.Text.Filter(stored => !factory.Find(slot.Path).Exists(held => string.Equals(held, stored, StringComparison.Ordinal)))))),
+                EqualityComparer<TValue>.Default.Equals,
+                Applied.Live,
+                Changed.Map(row => ValueStore.Signal(row, args => codec.Entries.Exists(entry => string.Equals(Key(entry.Path), args.Key, StringComparison.OrdinalIgnoreCase))))),
+        };
+
+    public IO<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
         where TValue : notnull
-        where TRaw : notnull =>
-        Current(row.Value);
-
-    public Fin<TValue> Current<TValue, TRaw>(ValueKey<TValue, TRaw> key)
-        where TValue : notnull
-        where TRaw : notnull =>
-        Read(Key(key.Name)).Bind(stored => stored.Traverse(value => EntryKey.Named(Owner, key.Name).Read(value, key.Read)).As()).Map(held => held.IfNone(key.Default));
+        where TRaw : notnull, ISpanParsable<TRaw> =>
+        Store(row.Key.Codec).Read.Map(held => held.IfNone(row.Key.Default));
 
     // --- [HOSTS]
     public static KeyedText Of(KeyedValues values, string owner) =>
@@ -73,32 +79,4 @@ public static class GrasshopperStores {
 
     public static IO<Unit> Saved(SettingsFile file) =>
         IO.lift(() => Refused.Unless(Settings.SandBox || file.TrySaveSettingsToFile(), nameof(SettingsFile.TrySaveSettingsToFile)));
-
-    // --- [KEYS]
-    public static ValueStore<TValue> Of<TValue, TRaw>(KeyedText text, ValueKey<TValue, TRaw> key)
-        where TValue : notnull
-        where TRaw : notnull {
-        string host = text.Key(key.Name);
-        string factory = key.Text(key.Default);
-        return ValueStore.Defaulted(
-                IO.lift(() => text.Current(key)),
-                IO.pure(key.Default),
-                value => text.Write(Seq((host, Some(key.Text(value)).Filter(stored => !string.Equals(stored, factory, StringComparison.Ordinal))))),
-                EqualityComparer<TValue>.Default.Equals,
-                Applied.Live,
-                text.Changed.Map(row => ValueStore.Signal(row, args => args.Key.WildcardMatch(host, StringComparison.InvariantCultureIgnoreCase))));
-    }
-
-    // --- [RECORDS]
-    public static ValueStore<TRecord> Of<TRecord>(KeyedText text, TRecord fallback) where TRecord : IStateRecord<TRecord> =>
-        ValueStore.Defaulted(
-            FieldTexts.Recalled(text.Owner, TRecord.Parameters, path => IO.lift(() => text.Read(text.Key(EntryKey.Name(path)))), fallback),
-            IO.pure(fallback),
-            value => text.Write(
-                from item in FieldTexts.Items<TRecord>()
-                let stored = item.Capture(value)
-                select (text.Key(EntryKey.Name(item.Path)), stored == item.Capture(fallback) ? None : stored)),
-            EqualityComparer<TRecord>.Default.Equals,
-            Applied.Live,
-            text.Changed.Map(row => ValueStore.Signal(row, args => args.Key.WildcardMatch(text.Pattern, StringComparison.InvariantCultureIgnoreCase))));
 }

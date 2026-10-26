@@ -20,21 +20,21 @@ namespace Rasm.Imaging.Files;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DocumentLayer {
-    private DocumentLayer(PassName name, AxisFraction opacity, bool visible) => (Name, Opacity, Visible) = (name, opacity, visible);
+    private DocumentLayer(PassName name, float opacity, bool visible) => (Name, Opacity, Visible) = (name, opacity, visible);
 
     public PassName Name { get; }
-    public AxisFraction Opacity { get; }
+    public float Opacity { get; }
     public bool Visible { get; }
 
-    public sealed record Raster(PassName Name, PixelFrame Frame, BlendingMode Mode, AxisFraction Opacity, bool Visible, Option<Coverage.Matte> Mask) : DocumentLayer(Name, Opacity, Visible);
-    public sealed record Folder(PassName Name, Option<BlendingMode> Mode, AxisFraction Opacity, bool Visible, bool Open, Seq<DocumentLayer> Children) : DocumentLayer(Name, Opacity, Visible);
+    public sealed record Raster(PassName Name, PixelFrame Frame, BlendingMode Mode, float Opacity, bool Visible, Option<Coverage.Matte> Mask) : DocumentLayer(Name, Opacity, Visible);
+    public sealed record Folder(PassName Name, Option<BlendingMode> Mode, float Opacity, bool Visible, bool Open, Seq<DocumentLayer> Children) : DocumentLayer(Name, Opacity, Visible);
 
     public static DocumentLayer Identities(PassName name, PixelFrame ids, Seq<IdentityLayer> entries) =>
-        new Folder(name, None, AxisFraction.MaxValue, Visible: true, Open: false, entries.Map(entry => (DocumentLayer)new Raster(
+        new Folder(name, None, 1f, Visible: true, Open: false, entries.Map(entry => (DocumentLayer)new Raster(
             entry.Name,
             new PixelFrame(ids.Origin, ids.Size, ids.Extent, block =>
                 IdentityLayer.Fill(Seq(entry))(MemoryMarshal.Cast<float, Vector4>(ids.Block), MemoryMarshal.Cast<float, Vector4>(block.AsSpan()))),
-            BlendingMode.Mix, AxisFraction.MaxValue, Visible: true, None)));
+            BlendingMode.Mix, 1f, Visible: true, None)));
 }
 
 public sealed record LayeredDocument {
@@ -47,7 +47,7 @@ public sealed record LayeredDocument {
     ];
     private static readonly Seq<(short Id, int Plane)> ColorChannels = [(-1, 3), (0, 0), (1, 1), (2, 2)];
     private static readonly Seq<(short Id, ReadOnlyMemory<byte> Data)> GroupChannels = ColorChannels.Map(static channel => (channel.Id, new ReadOnlyMemory<byte>(new byte[sizeof(ushort)]))).Strict();
-    private static readonly LayerRecord Divider = new((0L, 0L, 0L, 0L), GroupChannels, PassThrough, AxisFraction.MaxValue, Visible: false, None, "</Layer group>", [3]);
+    private static readonly LayerRecord Divider = new((0L, 0L, 0L, 0L), GroupChannels, PassThrough, 1f, Visible: false, None, "</Layer group>", [3]);
 
     private LayeredDocument((TiffSample Tiff, uint Key) sample, Option<ColorEncoding> encoding, PixelFrame canvas, Seq<DocumentLayer> layers) => (Sample, Encoding, Canvas, Layers) = (sample, encoding, canvas, layers);
 
@@ -67,7 +67,7 @@ public sealed record LayeredDocument {
 
     public PixelFrame Composite() => Isolated(Layers);
 
-    internal IO<Unit> Write(FileMetadata metadata, FileStream stream) =>
+    internal IO<Unit> Write(FileMetadata metadata, Stream stream) =>
         from block in IO.lift(SourceData)
         from written in StillWriter.Scanlines(
             stream,
@@ -117,7 +117,7 @@ public sealed record LayeredDocument {
         });
 
     private PixelFrame Flatten(Seq<DocumentLayer> layers, PixelFrame backdrop) =>
-        layers.Filter(static layer => layer.Visible && layer.Opacity != AxisFraction.MinValue).Fold(backdrop, Over);
+        layers.Filter(static layer => layer.Visible && layer.Opacity is not 0f).Fold(backdrop, Over);
 
     private PixelFrame Over(PixelFrame under, DocumentLayer layer) =>
         layer.Switch(
@@ -126,7 +126,7 @@ public sealed record LayeredDocument {
             folder: static (state, folder) => folder.Mode.Match(
                 Some: mode => Blend.Composite(state.Under, state.Document.Isolated(folder.Children), mode, folder.Opacity, [], PixelAlphaRepresentation.Associated),
                 None: () => state.Document.Flatten(folder.Children, state.Under) switch {
-                    var passed => folder.Opacity == AxisFraction.MaxValue ? passed : new PixelFrame(passed.Origin, passed.Size, passed.Extent, block => TensorPrimitives.Lerp(state.Under.Block, passed.Block, (float)folder.Opacity, block)),
+                    var passed => folder.Opacity is 1f ? passed : new PixelFrame(passed.Origin, passed.Size, passed.Extent, block => TensorPrimitives.Lerp(state.Under.Block, passed.Block, folder.Opacity, block)),
                 }));
 
     private Fin<byte[]> SourceData() {
@@ -199,7 +199,7 @@ public sealed record LayeredDocument {
         };
     }
 
-    private readonly record struct LayerRecord((long Left, long Top, long Right, long Bottom) Bounds, Seq<(short Id, ReadOnlyMemory<byte> Data)> Channels, uint Mode, AxisFraction Opacity, bool Visible, Option<(long Left, long Top, long Right, long Bottom)> Mask, string Name, Seq<uint> Section) {
+    private readonly record struct LayerRecord((long Left, long Top, long Right, long Bottom) Bounds, Seq<(short Id, ReadOnlyMemory<byte> Data)> Channels, uint Mode, float Opacity, bool Visible, Option<(long Left, long Top, long Right, long Bottom)> Mask, string Name, Seq<uint> Section) {
         internal void Write(BinaryWriter writer) {
             static void Edges(BinaryWriter into, (long Left, long Top, long Right, long Bottom) rectangle) {
                 into.Write((int)rectangle.Top);
@@ -242,7 +242,7 @@ public sealed record LayeredDocument {
             });
             writer.Write(Signature);
             writer.Write(Mode);
-            writer.Write([(byte)MathF.Round((float)Opacity * byte.MaxValue, MidpointRounding.ToEven), 0, (byte)(Visible ? 8 : 10), 0]);
+            writer.Write([(byte)MathF.Round(Opacity * byte.MaxValue, MidpointRounding.ToEven), 0, (byte)(Visible ? 8 : 10), 0]);
             writer.Write((uint)extra.Length);
             writer.Write(extra.GetBuffer(), 0, (int)extra.Length);
         }

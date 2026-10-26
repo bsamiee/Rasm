@@ -5,10 +5,11 @@ using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rasm.Rhino.UI.Surfaces;
 using Rasm.UI;
+using Rasm.UI.Styling;
 using Rhino.Resources;
 using Rhino.UI;
 using Rhino.UI.Controls;
@@ -49,43 +50,40 @@ public abstract partial record ReadoutSource<TValue> where TValue : notnull {
 public static class TextRows {
     // --- [ENTRIES]
     public static ControlRow Field<TRecord>(
-        RowSource<TRecord> source, RowField<TRecord> field, EntryForm form, Option<(FileAction Action, Seq<FileTypeRow> Types)> browse, RowRules rules)
+        RowSource<TRecord> source, IStateParameter<TRecord> parameter, EntryForm form, Option<(FileAction Action, Seq<FileTypeRow> Types)> browse, RowRules rules)
         where TRecord : notnull =>
-        FieldTexts.Of(field.Parameter) switch {
-            [var codec] => ControlRow.Of(source, field, RowShape.Inline, (scope, retain) => Entered(source, field,
+        RecordEntries.Of(parameter) switch {
+            [var codec] => ControlRow.Of(source, parameter, RowShape.Inline, (scope, retain) => Entered(source, parameter,
                 record => Conversions.Unset(codec.Capture(record).Filter(text => !codec.Absent.Exists(absent => string.Equals(absent, text, StringComparison.Ordinal)))),
                 codec.File.IsNone,
                 (record, text) => IO.lift(codec.Recall(Conversions.Present(text).IfNone(() => codec.Absent.IfNone(text)))).Bind(static step => step).Map(set => set(record)),
                 form, browse, scope, retain), rules),
-            var codecs => throw new UnreachableException($"{field.Parameter.Key} holds {codecs.Count} stored texts, entry row holds one"),
+            var codecs => throw new UnreachableException($"{parameter.Key} holds {codecs.Count} stored texts, entry row holds one"),
         };
 
     // --- [PATHS]
-    public static ControlRow Path<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, string> lens, FileAction action, Seq<FileTypeRow> types, RowRules rules)
+    public static ControlRow Path<TRecord>(RowSource<TRecord> source, IStateParameter<TRecord> parameter, Lens<TRecord, string> lens, FileAction action, Seq<FileTypeRow> types, RowRules rules)
         where TRecord : notnull =>
-        Typed(source, field, lens.Get, (record, text) => lens.Set(text, record), new EntryForm.SingleLine(), Some((action, types)), rules);
+        Typed(source, parameter, lens.Get, (record, text) => lens.Set(text, record), new EntryForm.SingleLine(), Some((action, types)), rules);
 
     // --- [LIVE]
-    public static ControlRow Readout<TState>(string caption, string help, ReadoutSource<TState> source, Func<TState, string> format, RowRules rules)
+    public static ControlRow Readout<TState>(ParameterText text, ReadoutSource<TState> source, Func<TState, string> format, RowRules rules)
         where TState : notnull =>
         new ControlRow.Readout(RowShape.Inline, (scope, retain) =>
             from live in Live(source,
-                static (_, keep) =>
-                    from label in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.Label()), keep)
-                    from faced in IO.lift(() => { (label.Wrap, label.TextAlignment, label.Font) = (Eto.Forms.WrapMode.None, Eto.Forms.TextAlignment.Right, HostTheme.Digits(label.Font)); })
-                    select label,
-                (label, state) => Written(() => label.Text, text => label.Text = text, format(state)), scope, retain)
+                (state, keep) => DisposalOps.Acquire(IO.lift(() => new SceneView(scope, Displayed(format(state)))), keep),
+                (view, state) => view.Show(Displayed(format(state))), scope, retain)
             select new RowCells(live, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None),
-            caption, help, rules);
+            text, rules);
 
-    public static ControlRow Progress<T>(string caption, string help, ReadoutSource<Content<T>> source, RowRules rules) where T : notnull =>
+    public static ControlRow Progress<T>(ParameterText text, ReadoutSource<Content<T>> source, RowRules rules) where T : notnull =>
         new ControlRow.Readout(RowShape.Inline, (scope, retain) =>
             from live in Live(source, static (_, keep) =>
                 from bar in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.ProgressBar()), keep)
                 from minimum in IO.lift(() => bar.MinValue = 0)
                 select bar, Indicated, scope, retain)
             select new RowCells(live, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None),
-            caption, help, rules);
+            text, rules);
 
     internal static IO<TControl> Live<TState, TControl>(
         ReadoutSource<TState> source, Func<TState, Action<IDisposable>, IO<TControl>> build, Func<TControl, TState, IO<Unit>> show, RowScope scope, Action<IDisposable> retain)
@@ -97,33 +95,36 @@ public static class TextRows {
                 from built in build(first.Value, owned)
                 from shown in show(built, first.Value)
                 select built, DisposalOps.Release)
-            let site = new CallbackSite(scope.Sink, typeof(FrameClocks), nameof(FrameClocks.Sample))
             from active in DisposalOps.Acquire(IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)), owned)
             from loaded in Subscriptions.Attach(h => control.Load += h, h => control.Load -= h,
-                Callbacks.Handler<EventArgs>(_ => DisposalOps.Acquire(keep => Sampled(source, show, control, site, scope, keep), (_, lease) => active.Retain(lease)),
+                Callbacks.Handler<EventArgs>(_ => DisposalOps.Acquire(keep => Followed(source, show, control, scope, keep), (_, lease) => active.Retain(lease)),
                     new CallbackSite(scope.Sink, control.GetType(), nameof(Eto.Forms.Control.Load))), owned)
             from unloaded in Subscriptions.Attach(h => control.UnLoad += h, h => control.UnLoad -= h,
                 Callbacks.Handler<EventArgs>(_ => active.Drain, new CallbackSite(scope.Sink, control.GetType(), nameof(Eto.Forms.Control.UnLoad))), owned)
             select control, retain);
 
-    private static IO<Unit> Sampled<TState, TControl>(
-        ReadoutSource<TState> source, Func<TControl, TState, IO<Unit>> show, TControl control, CallbackSite site, RowScope scope, Action<IDisposable> keep)
+    private static IO<Unit> Followed<TState, TControl>(ReadoutSource<TState> source, Func<TControl, TState, IO<Unit>> show, TControl control, RowScope scope, Action<IDisposable> keep)
         where TState : notnull
         where TControl : Eto.Forms.Control =>
         from watched in Watched(source, scope, keep)
-        from sampled in FrameClocks.Sample(control, watched.Read.Bind(current => current.Match(Some: state => show(control, state), None: static () => IO.pure(unit))), site, keep)
+        from post in Subscriptions.Idle<Unit, TState>(changed => changed.Find(unit).Traverse(state => show(control, state)).As().Map(static _ => unit))(
+            new CallbackSite(scope.Sink, control.GetType(), nameof(Live)), keep)
+        from current in post((unit, watched.Value))
+        from followed in watched.Changes.Inline(state => post((unit, state)), scope.Sink, keep)
         select unit;
+
+    private static Node Displayed(string text) => new Node.Text([text]) { Role = Role.Readout, MaxLines = Some(1) };
 
     // --- [REALIZE]
     public static ControlRow Typed<TRecord>(
-        RowSource<TRecord> source, RowField<TRecord> field, Func<TRecord, string> text, Func<TRecord, string, Fin<TRecord>> cross,
+        RowSource<TRecord> source, IStateParameter<TRecord> parameter, Func<TRecord, string> text, Func<TRecord, string, Fin<TRecord>> cross,
         EntryForm form, Option<(FileAction Action, Seq<FileTypeRow> Types)> browse, RowRules rules)
         where TRecord : notnull =>
-        ControlRow.Of(source, field, RowShape.Inline,
-            (scope, retain) => Entered(source, field, text, previewed: true, (record, typed) => IO.lift(cross(record, typed)), form, browse, scope, retain), rules);
+        ControlRow.Of(source, parameter, RowShape.Inline,
+            (scope, retain) => Entered(source, parameter, text, previewed: true, (record, typed) => IO.lift(cross(record, typed)), form, browse, scope, retain), rules);
 
     private static IO<RowCells> Entered<TRecord>(
-        RowSource<TRecord> source, RowField<TRecord> field, Func<TRecord, string> text, bool previewed,
+        RowSource<TRecord> source, IStateParameter<TRecord> parameter, Func<TRecord, string> text, bool previewed,
         Func<TRecord, string, IO<TRecord>> commit, EntryForm form, Option<(FileAction Action, Seq<FileTypeRow> Types)> browse, RowScope scope, Action<IDisposable> retain)
         where TRecord : notnull =>
         DisposalOps.Acquire(owned =>
@@ -133,7 +134,7 @@ public static class TextRows {
             rich: static (keep, rich) => Rich(rich.Visible, keep),
             secret: static (keep, _) => Secret(keep))
         let site = new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.TextControl.TextChanged))
-        from bound in RowEdit.Bind(source, IterableNE.create(field),
+        from bound in RowEdit.Bind(source, IterableNE.create(parameter),
             h => entry.Field.TextChanged += h, h => entry.Field.TextChanged -= h,
             edit => Callbacks.Handler<EventArgs>(_ => when(previewed, Previewed(edit, commit, source, entry, scope)).As(), site),
             value =>
@@ -152,7 +153,7 @@ public static class TextRows {
             Callbacks.Synchronous<Eto.Forms.KeyEventArgs>(args => Pressed(args, answers), new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.Control.KeyDown))), owned)
         from lost in Subscriptions.Attach(h => entry.Field.LostFocus += h, h => entry.Field.LostFocus -= h,
             Callbacks.Handler<EventArgs>(_ => IO.lift(entry.Read).Bind(committed), new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.Control.LostFocus))), owned)
-        from picked in browse.Traverse(asked => Browsed(new LocalizeStringPair(field.Caption, RowText.Localize(field.Caption, scope.Sink).Local), asked, entry.Field, committed, scope, owned)).As()
+        from picked in browse.Traverse(asked => Browsed(new LocalizeStringPair(parameter.Text.Caption, RowText.Localize(parameter.Text.Caption, scope.Sink).Local), asked, entry.Field, committed, scope, owned)).As()
         select new RowCells(
             entry.Shown, None, picked, None, [], [], new RowHelp(None, Conversions.Present(text(source.Default))),
             bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(entry.Shown, [], []))), retain);
@@ -226,7 +227,7 @@ public static class TextRows {
                     from committed in path.Match(Some: commit, None: static () => IO.pure(unit))
                     select committed)),
             IconSlot.Small, scope, owned)
-        from dropped in Transfer.Drops(box, browse.Types, commit, scope.Sink, owned)
+        from dropped in DataTransfer.Drops(box, browse.Types, commit, scope.Sink, owned)
         select picked.Control, retain);
 
     private static IO<Option<string>> Asked((FileAction Action, Seq<FileTypeRow> Types) browse, LocalizeStringPair title, string current, RowScope scope) =>
@@ -246,15 +247,16 @@ public static class TextRows {
             }).Catch(ErrorOps.Cancellation, static _ => IO.pure(Option<string>.None)),
         };
 
-    private static IO<(IO<Option<TState>> Read, TState Value)> Watched<TState>(ReadoutSource<TState> source, RowScope scope, Action<IDisposable> retain)
+    private static IO<(TState Value, HostEvent<TState> Changes)> Watched<TState>(ReadoutSource<TState> source, RowScope scope, Action<IDisposable> retain)
         where TState : notnull =>
         source.Switch((Scope: scope, Retain: retain),
             model: static (held, model) =>
                 from document in held.Scope.DocumentIO
                 from watched in model.Read.Watch(document, held.Retain)
-                select (IO.lift(() => Some(watched.Value)), watched.Value),
-            cell: static (_, cell) => IO.lift(() => (IO.lift(() => Some(cell.Held.Value)), cell.Held.Value)),
-            scoped: static (held, reading) => reading.Read(held.Scope).Map(value => (reading.Read(held.Scope).Map(static next => Some(next)), value)));
+                select (watched.Value, watched.Changed.Choose(static change => Some(change.After))),
+            cell: static (_, cell) => IO.lift(() => (cell.Held.Value, Subscriptions.Changed(cell.Held))),
+            scoped: static (held, reading) => reading.Read(held.Scope).Map(value => (value, new HostEvent<TState>(typeof(RowScope), nameof(RowScope.Listen),
+                (deliver, _, keep) => held.Scope.Listen(keys => reading.Read(held.Scope).Bind(deliver), keep)))));
 
     private sealed record Entry(Eto.Forms.Control Shown, Eto.Forms.TextControl Field, Eto.Forms.Keys Commit, Func<string> Read, Action<string> Write, Option<Action<bool>> Varied, Option<string> Blank);
 }

@@ -5,6 +5,7 @@ using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI;
 using Rhino.Render;
 using Rhino.UI.Controls;
 
@@ -50,29 +51,29 @@ public sealed partial class ClockZone {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MomentRows {
     // --- [PICKERS]
-    public static ControlRow Picker<TValue>(RowSource<Option<TValue>> source, RowField<Option<TValue>> field, DateTimePickerMode part, RowRules rules)
+    public static ControlRow Picker<TValue>(RowSource<Option<TValue>> source, IStateParameter<Option<TValue>> parameter, DateTimePickerMode part, RowRules rules)
         where TValue : IObjectFactory<TValue, LocalDateTime, ValidationError>, IConvertible<LocalDateTime>, System.Numerics.IMinMaxValue<TValue> =>
-        ControlRow.Of(source, field, RowShape.Inline, (scope, retain) => Picked(source, field, part, scope, retain), rules);
+        ControlRow.Of(source, parameter, RowShape.Inline, (scope, retain) => Picked(source, parameter, part, scope, retain), rules);
 
     // --- [RANGES]
     public static ControlRow DateSpan<TRecord, TBound>(
-        RowSource<TRecord> source, RowField<TRecord> field, Func<TRecord, DateInterval> read, Func<TRecord, DateInterval, Fin<TRecord>> write, RowRules rules)
+        RowSource<TRecord> source, IStateParameter<TRecord> parameter, Func<TRecord, DateInterval> read, Func<TRecord, DateInterval, Fin<TRecord>> write, RowRules rules)
         where TRecord : notnull
         where TBound : System.Numerics.IMinMaxValue<TBound>, IConvertible<LocalDateTime> =>
-        ControlRow.Of(source, field, RowShape.Inline, (scope, retain) => Ranged(source, field, read, write, (Min: TBound.MinValue.ToValue().Date, Max: TBound.MaxValue.ToValue().Date), scope, retain), rules);
+        ControlRow.Of(source, parameter, RowShape.Inline, (scope, retain) => Ranged(source, parameter, read, write, (Min: TBound.MinValue.ToValue().Date, Max: TBound.MaxValue.ToValue().Date), scope, retain), rules);
 
     // --- [CLOCKS]
-    public static ControlRow Clock(string caption, string help, ClockZone zone, ReadoutSource<OffsetDateTime> moment, RowRules rules) =>
+    public static ControlRow Clock(ParameterText text, ClockZone zone, ReadoutSource<OffsetDateTime> moment, RowRules rules) =>
         new ControlRow.Readout(RowShape.Unlabeled, (scope, retain) =>
             DisposalOps.Acquire(owned =>
             from live in TextRows.Live(moment, static (_, keep) => DisposalOps.Acquire(IO.lift(static () => new Button()), keep), (held, at) => Shown(held, zone, at), scope, owned)
             from clicked in Subscriptions.Attach(h => live.Click += h, h => live.Click -= h,
                 Callbacks.Handler<EventArgs>(_ => Cycled(zone.Format), new CallbackSite(scope.Sink, typeof(Button), nameof(Button.Click))), owned)
             select new RowCells(live, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None), retain),
-            caption, help, rules);
+            text, rules);
 
     // --- [REALIZE]
-    private static IO<RowCells> Picked<TValue>(RowSource<Option<TValue>> source, RowField<Option<TValue>> field, DateTimePickerMode part, RowScope scope, Action<IDisposable> retain)
+    private static IO<RowCells> Picked<TValue>(RowSource<Option<TValue>> source, IStateParameter<Option<TValue>> parameter, DateTimePickerMode part, RowScope scope, Action<IDisposable> retain)
         where TValue : IObjectFactory<TValue, LocalDateTime, ValidationError>, IConvertible<LocalDateTime>, System.Numerics.IMinMaxValue<TValue> =>
         DisposalOps.Acquire(owned =>
         from picker in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), owned)
@@ -85,7 +86,7 @@ public static class MomentRows {
                 DateTimePickerMode.Time => value.ToValue().Date.At(wall.TimeOfDay),
                 DateTimePickerMode.DateTime => wall,
             }).IfNone(wall)).Map(static value => Some(value)))
-        from bound in RowEdit.Bind(source, IterableNE.create(field),
+        from bound in RowEdit.Bind(source, IterableNE.create(parameter),
             h => picker.ValueChanged += h, h => picker.ValueChanged -= h,
             edit => Callbacks.Handler<EventArgs>(_ => Answered(edit, source, picker, merged, scope), site),
             held => IO.lift(() => {
@@ -105,7 +106,7 @@ public static class MomentRows {
         select answered;
 
     private static IO<RowCells> Ranged<TRecord>(
-        RowSource<TRecord> source, RowField<TRecord> field, Func<TRecord, DateInterval> read, Func<TRecord, DateInterval, Fin<TRecord>> write,
+        RowSource<TRecord> source, IStateParameter<TRecord> parameter, Func<TRecord, DateInterval> read, Func<TRecord, DateInterval, Fin<TRecord>> write,
         (LocalDate Min, LocalDate Max) limits, RowScope scope, Action<IDisposable> retain)
         where TRecord : notnull =>
         DisposalOps.Acquire(owned =>
@@ -115,12 +116,12 @@ public static class MomentRows {
         from table in Containers.Frame(static () => new TableLayout(), owned)
         from placed in IO.lift(() => {
             table.Rows.Add(new TableRow(new TableCell(start, scaleWidth: true), new TableCell(end, scaleWidth: true)));
-            table.Spacing = new Size(RhinoLayout.StackedSpacing(Orientation.Horizontal, RhinoLayout.SpacingType.Table), 0);
+            table.Spacing = new Size(RhinoLayout.StackedSpacing(Eto.Forms.Orientation.Horizontal, RhinoLayout.SpacingType.Table), 0);
         })
         let walls = (Min: limits.Min.AtMidnight().ToDateTimeUnspecified(), Max: limits.Max.AtMidnight().ToDateTimeUnspecified())
         let site = new CallbackSite(scope.Sink, typeof(DateTimePicker), nameof(DateTimePicker.ValueChanged))
         let pattern = LocalDatePattern.Create("d", RowText.Culture)
-        from bound in RowEdit.Bind(source, IterableNE.create(field),
+        from bound in RowEdit.Bind(source, IterableNE.create(parameter),
             h => Callbacks.Each(Seq(IO.lift(() => start.ValueChanged += h), IO.lift(() => end.ValueChanged += h))).Run(),
             h => Callbacks.Each(Seq(IO.lift(() => start.ValueChanged -= h), IO.lift(() => end.ValueChanged -= h))).Run(),
             edit => Callbacks.Handler<EventArgs>(_ => Routed(edit, source, write, start, end, walls, scope), site),

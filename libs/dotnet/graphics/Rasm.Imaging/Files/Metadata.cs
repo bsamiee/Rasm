@@ -15,9 +15,9 @@ namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct PixelDensity : IMinMaxValue<PixelDensity> {
-    public static PixelDensity MinValue { get; } = new(1d / (double)Length.FromMeters(1).Inches);
-    public static PixelDensity MaxValue { get; } = new(uint.MaxValue / (double)Length.FromMeters(1).Inches);
+public readonly partial struct PixelsPerInch : IMinMaxValue<PixelsPerInch> {
+    public static PixelsPerInch MinValue { get; } = new(1d / (double)Length.FromMeters(1).Inches);
+    public static PixelsPerInch MaxValue { get; } = new(uint.MaxValue / (double)Length.FromMeters(1).Inches);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
@@ -33,7 +33,7 @@ public sealed partial class SoftwareName {
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class FieldName {
+public sealed partial class MetadataName {
     private const int KeywordLength = 79;
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
@@ -43,18 +43,18 @@ public sealed partial class FieldName {
             && !FileMetadata.HeaderNames.Contains(value)
             ? null
             : new ValidationError(string.Create(CultureInfo.InvariantCulture,
-                $"Field name '{value}' must be 1 to {KeywordLength} trimmed, single-spaced Latin-1 characters and no reserved header name"));
+                $"Metadata name '{value}' must be 1 to {KeywordLength} trimmed, single-spaced Latin-1 characters and no reserved header name"));
 }
 
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class FieldText {
+public sealed partial class MetadataText {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value.Contains('\0', StringComparison.Ordinal) ? new ValidationError("Field text must hold no NUL character") : null;
+        validationError = value.Contains('\0', StringComparison.Ordinal) ? new ValidationError("Metadata text must hold no NUL character") : null;
 }
 
-public sealed record FileMetadata(SoftwareName Software, DateTimeOffset Created, PixelDensity Density, Map<FieldName, FieldText> Fields) {
+public sealed record FileMetadata(SoftwareName Software, DateTimeOffset Created, PixelsPerInch Density, Map<MetadataName, MetadataText> Fields) {
     private const string CapDateAttribute = "capDate";
     private const string SoftwareAttribute = "Software";
     private const string UtcOffsetAttribute = "utcOffset";
@@ -68,7 +68,7 @@ public sealed record FileMetadata(SoftwareName Software, DateTimeOffset Created,
 
     private string Stamp => Created.ToString("yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture);
 
-    internal void Png(ImageMetadata metadata, Option<ColorEncoding> encoding) {
+    internal void Into(ImageMetadata metadata, Option<ColorEncoding> encoding) {
         ExifProfile exif = new();
         exif.SetValue(ExifTag.Software, (string)Software);
         exif.SetValue(ExifTag.DateTimeOriginal, Stamp);

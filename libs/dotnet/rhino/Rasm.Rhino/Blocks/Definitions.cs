@@ -3,6 +3,7 @@ using LanguageExt.ClassInstances;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Events;
 using Rasm.Rhino.Modeling;
 using Rhino;
 using Rhino.Display;
@@ -10,6 +11,7 @@ using Rhino.DocObjects;
 using Rhino.DocObjects.Custom;
 using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
+using SkiaSharp;
 
 namespace Rasm.Rhino.Blocks;
 
@@ -122,7 +124,7 @@ public abstract partial record DefinitionEdit {
 
     public sealed record ModifySourceArchive(SourceReference Source, InstanceDefinitionUpdateType UpdateType, InstanceDefinitionLayerStyle LayerStyle) : DefinitionEdit {
         internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
-            from path in IO.lift(() => Exchange.ExistingPath(Source.FullPath))
+            from path in IO.lift(() => InputPath.Of(Source.FullPath))
             from modified in DisposalOps.Found(
                 () => FileReference.CreateFromFullAndRelativePaths(path, Source.RelativePath.ValueUnsafe()), nameof(FileReference.CreateFromFullAndRelativePaths),
                 reference => IO.lift(() => Refused.Unless(
@@ -140,12 +142,10 @@ public abstract partial record DefinitionEdit {
             IO.lift(() => Refused.Unless(doc.InstanceDefinitions.RefreshLinkedBlock(definition), nameof(InstanceDefinitionTable.RefreshLinkedBlock)));
     }
 
-    public sealed record UpdateLinked(string Path, bool UpdateNestedLinks) : DefinitionEdit {
+    public sealed record UpdateLinked(InputPath Path, bool UpdateNestedLinks) : DefinitionEdit {
         internal override IO<Unit> Apply(RhinoDoc doc, InstanceDefinition definition) =>
-            from path in IO.lift(() => Exchange.ExistingPath(Path))
-            from modified in IO.lift(() => Refused.Unless(
-                doc.InstanceDefinitions.UpdateLinkedInstanceDefinition(definition.Index, path, UpdateNestedLinks, quiet: true), nameof(InstanceDefinitionTable.UpdateLinkedInstanceDefinition)))
-            select modified;
+            IO.lift(() => Refused.Unless(
+                doc.InstanceDefinitions.UpdateLinkedInstanceDefinition(definition.Index, Path, UpdateNestedLinks, quiet: true), nameof(InstanceDefinitionTable.UpdateLinkedInstanceDefinition)));
     }
 
     public sealed record Set(Action<InstanceDefinition> Write) : DefinitionEdit {
@@ -171,18 +171,16 @@ public abstract partial record DefinitionOp {
     }
 
     public sealed record CreateFromFile(
-        string Path,
+        InputPath Path,
         DefinitionMetadata Metadata,
         InstanceDefinitionUpdateType UpdateType,
         InstanceDefinitionLayerStyle LayerStyle,
         InstanceDefinitionNameConflictResolution Conflict,
         bool SkipNestedLinkedDefinitions) : DefinitionOp {
         internal override IO<int> Apply(RhinoDoc doc) =>
-            from path in IO.lift(() => Exchange.ExistingPath(Path))
-            from index in IO.lift(() => Conversions.Required(doc.InstanceDefinitions.CreateFromFile(
-                path, Metadata.Name, Conversions.Unset(Metadata.Description), Metadata.Url, Metadata.UrlTag,
-                UpdateType, LayerStyle, Conflict, SkipNestedLinkedDefinitions), nameof(InstanceDefinitionTable.CreateFromFile)))
-            select index;
+            IO.lift(() => Conversions.Required(doc.InstanceDefinitions.CreateFromFile(
+                Path, Metadata.Name, Conversions.Unset(Metadata.Description), Metadata.Url, Metadata.UrlTag,
+                UpdateType, LayerStyle, Conflict, SkipNestedLinkedDefinitions), nameof(InstanceDefinitionTable.CreateFromFile)));
     }
 
     public sealed record Edit(ComponentRef<InstanceDefinition> Address, DefinitionEdit Change) : DefinitionOp {
@@ -198,6 +196,78 @@ public abstract partial record DefinitionOp {
             from restored in IO.lift(() => Refused.Unless(doc.InstanceDefinitions.Undelete(definition.Index), nameof(InstanceDefinitionTable.Undelete)))
             select definition.Index;
     }
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+public sealed class DefinitionPreviews : IDisposable {
+    // --- [LIFETIME]
+    private sealed record Key(uint Document, int Definition, PreviewMethod Method, Size Pixels);
+
+    private readonly Ref<Option<HashMap<Key, SKImage>>> held;
+    private readonly IDisposable attached;
+
+    private DefinitionPreviews(Ref<Option<HashMap<Key, SKImage>>> held, IDisposable attached) => (this.held, this.attached) = (held, attached);
+
+    public static IO<Unit> Open(IPlugInSink sink, IO<Unit> released, Action<DefinitionPreviews> retain) =>
+        from held in IO.lift(static () => Ref(Some(HashMap<Key, SKImage>())))
+        let close = atomicIO(() => {
+            Option<HashMap<Key, SKImage>> prior = held.Value;
+            held.Value = None;
+            return prior.Match(Some: static cache => toSeq(cache.Values), None: static () => Seq<SKImage>());
+        }).Bind(DisposalOps.Release).Uninterruptible()
+        let release = fun((Func<Key, bool> dropped) => Release(held, released, dropped))
+        from attached in DisposalOps.Acquire(keep => Seq(
+                DisposalOps.Acquire(IO.pure(unit), _ => close, keep),
+                EventKind.InstanceDefinitionTableEvent.Inline(args => Changed(release, args), sink, keep),
+                Releasing(EventKind.CloseDocument, release, sink, keep),
+                Releasing(EventKind.WorksessionFileChanged, release, sink, keep))
+            .TraverseM(static attach => attach).As(), (_, lease) => retain(new DefinitionPreviews(held, lease)))
+        select unit;
+
+    public void Dispose() => attached.Dispose();
+
+    // --- [READS]
+    public IO<SKImage> Preview(RhinoDoc doc, ComponentRef<InstanceDefinition> address, PreviewMethod method, Size pixels) =>
+        from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
+        let key = new Key(doc.RuntimeSerialNumber, definition.Index, method, pixels)
+        from cache in IO.lift(() => held.Value.ToFin(Errors.Cancelled))
+        from image in cache.Find(key).Match(Some: static found => IO.pure(found), None: () => Rendered(doc, address, key))
+        select image;
+
+    private IO<SKImage> Rendered(RhinoDoc doc, ComponentRef<InstanceDefinition> address, Key key) =>
+        from image in Definitions.Preview(doc, address, key.Method, key.Pixels, Conversions.ToSKImage)
+        from stored in atomicIO(() => {
+            Option<HashMap<Key, SKImage>> prior = held.Value;
+            held.Value = prior.Map(cache => cache.AddOrUpdate(key, image));
+            return prior.IsSome;
+        })
+        from kept in stored ? IO.pure(image) : IO.lift(image.Dispose).Bind(static _ => IO.fail<SKImage>(Errors.Cancelled))
+        select kept;
+
+    // --- [RELEASE]
+    private static IO<Unit> Changed(Func<Func<Key, bool>, IO<Unit>> release, InstanceDefinitionTableEventArgs args) =>
+        IO.lift(() => args.EventType).Bind(kind => when(
+            kind is not InstanceDefinitionTableEventType.Sorted,
+            from touched in IO.lift(() => (
+                Document: EventKind.InstanceDefinitionTableEvent.DocumentSerial(args),
+                Definitions: toHashSet(args.InstanceDefinitionIndex.Cons(Conversions.Rows(args.NewState.GetContainers()).Map(static container => container.Index)))))
+            from dropped in release(key => touched.Document == Some(key.Document) && touched.Definitions.Contains(key.Definition))
+            select dropped).As());
+
+    private static IO<Unit> Releasing<TArgs>(DocumentEvent<TArgs> row, Func<Func<Key, bool>, IO<Unit>> release, IPlugInSink sink, Action<IDisposable> retain) =>
+        row.Inline(args => IO.lift(() => row.DocumentSerial(args)).Bind(document => release(key => document == Some(key.Document))), sink, retain);
+
+    private static IO<Unit> Release(Ref<Option<HashMap<Key, SKImage>>> held, IO<Unit> released, Func<Key, bool> dropped) =>
+        (from gone in atomicIO(() => held.Value.Match(
+            Some: cache => {
+                HashMap<Key, SKImage> removed = cache.Filter((key, _) => dropped(key));
+                held.Value = Some(cache.RemoveRange(removed.Keys));
+                return toSeq(removed.Values);
+            },
+            None: static () => Seq<SKImage>()))
+         from disposed in DisposalOps.Release(gone)
+         select gone).Uninterruptible()
+            .Bind(gone => when(!gone.IsEmpty, released).As());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -250,10 +320,9 @@ public static class Definitions {
         from purged in IO.lift(() => Refused.Unless(doc.InstanceDefinitions.Purge(definition.Index), nameof(InstanceDefinitionTable.Purge)))
         select purged;
 
-    public static IO<Unit> Export(RhinoDoc doc, ComponentRef<InstanceDefinition> address, string path) =>
-        from target in IO.lift(() => Exchange.QualifiedPath(path))
+    public static IO<Unit> Export(RhinoDoc doc, ComponentRef<InstanceDefinition> address, OutputPath path) =>
         from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
-        from written in IO.lift(() => Refused.Unless(doc.InstanceDefinitions.Export(definition.Index, target), nameof(InstanceDefinitionTable.Export)))
+        from written in IO.lift(() => Refused.Unless(doc.InstanceDefinitions.Export(definition.Index, path), nameof(InstanceDefinitionTable.Export)))
         select written;
 
     public static IO<Unit> UndoModify(RhinoDoc doc, ComponentRef<InstanceDefinition> address) =>
@@ -267,10 +336,8 @@ public static class Definitions {
             archive.AllInstanceDefinitions.Add(metadata.Name, Conversions.Unset(metadata.Description), metadata.Url, metadata.UrlTag, basePoint, geometry, attributes),
             nameof(File3dmInstanceDefinitionTable.Add))));
 
-    public static IO<int> AddLinked(File3dm archive, string path, string name, Option<string> description) =>
-        from target in IO.lift(() => Exchange.QualifiedPath(path))
-        from index in IO.lift(() => Conversions.Required(
-            archive.AllInstanceDefinitions.AddLinked(target, name, Conversions.Unset(description)),
-            nameof(File3dmInstanceDefinitionTable.AddLinked)))
-        select index;
+    public static IO<int> AddLinked(File3dm archive, InputPath path, string name, Option<string> description) =>
+        IO.lift(() => Conversions.Required(
+            archive.AllInstanceDefinitions.AddLinked(path, name, Conversions.Unset(description)),
+            nameof(File3dmInstanceDefinitionTable.AddLinked)));
 }

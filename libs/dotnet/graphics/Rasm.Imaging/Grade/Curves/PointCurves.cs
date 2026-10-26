@@ -2,29 +2,17 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using MathNet.Numerics.Interpolation;
-using Rasm.Imaging.Color;
-using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using UnitsNet;
-using UnitsNet.Units;
 
 namespace Rasm.Imaging.Grade.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct CurveCoordinate : IMinMaxValue<CurveCoordinate> {
-    public static CurveCoordinate MinValue { get; } = new(CurveAxis.Items.Min(static axis => axis.Extent.Low));
-    public static CurveCoordinate MaxValue { get; } = new(CurveAxis.Items.Max(static axis => axis.Extent.High));
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [SmartEnum]
 public sealed partial class CurveAxis {
-    public static readonly CurveAxis Stops = new(span: (-7d, 7d), periodic: false, unit: 1d, origin: 0d, measure: None);
-    public static readonly CurveAxis Hue = new(span: (0d, double.Tau), periodic: true, unit: double.Tau, origin: None, measure: Quantity.GetUnitInfo(AngleUnit.Radian));
-    public static readonly CurveAxis Saturation = new(span: (0d, Hsy.SaturationPeak), periodic: false, unit: 1d, origin: None, measure: None);
-    public static readonly CurveAxis Gain = new(span: (0d, 2d), periodic: false, unit: 1d, origin: 1d, measure: None);
+    public static readonly CurveAxis Stops = new(span: (-7d, 7d), periodic: false, unit: 1d);
+    public static readonly CurveAxis Hue = new(span: (0d, double.Tau), periodic: true, unit: double.Tau);
+    public static readonly CurveAxis Saturation = new(span: (0d, Hsy.SaturationPeak), periodic: false, unit: 1d);
+    public static readonly CurveAxis Gain = new(span: (0d, 2d), periodic: false, unit: 1d);
 
     private const double LinearBreak = 0.0041318374739483946;
     private const double StopBreak = -5.5;
@@ -35,16 +23,12 @@ public sealed partial class CurveAxis {
     public (double Low, double High) Span { get; }
     public bool Periodic { get; }
     public double Unit { get; }
-    public Option<double> Origin { get; }
-    public Option<UnitInfo> Measure { get; }
 
     public (double Low, double High) Extent =>
         Span switch {
             var (low, high) when Periodic => ((2d * low) - high, (2d * high) - low),
             var span => span,
         };
-
-    public Presentation<double> Presentation => new() { Unit = Measure, Soft = Span, Origin = Origin };
 
     public bool Contains(double coordinate) => coordinate >= Span.Low && (Periodic ? coordinate < Span.High : coordinate <= Span.High);
 
@@ -258,9 +242,9 @@ internal sealed partial class SplineShape {
 public sealed partial class PointCurve : IConvertible<string> {
     private static readonly Func<PointCurve, Func<double, double>> Fits = memo(static (PointCurve curve) => SplineShape.BSpline.Fit(curve.Points, CurveAxis.Stops.Unit, CurveAxis.Stops.Unit));
 
-    public Seq<CurvePoint> Points { get; }
-
     public static PointCurve Identity { get; } = new(Seq(new CurvePoint(CurveAxis.Stops.Span.Low, CurveAxis.Stops.Span.Low), new CurvePoint(0d, 0d), new CurvePoint(CurveAxis.Stops.Span.High, CurveAxis.Stops.Span.High)));
+
+    public Seq<CurvePoint> Points { get; }
 
     public Func<double, double> Fit() => Fits(this);
 
@@ -281,67 +265,27 @@ public sealed partial class PointCurve : IConvertible<string> {
                 : new ValidationError("point curve needs 2 or more stop axis points, inputs ascending and outputs non-descending");
 }
 
-[SmartEnum]
-public sealed partial class CurveChannel {
-    public static readonly CurveChannel Red = new(Lens<PointCurves, PointCurve>.New(static curves => curves.Red, static curve => curves => curves with { Red = curve }));
-    public static readonly CurveChannel Green = new(Lens<PointCurves, PointCurve>.New(static curves => curves.Green, static curve => curves => curves with { Green = curve }));
-    public static readonly CurveChannel Blue = new(Lens<PointCurves, PointCurve>.New(static curves => curves.Blue, static curve => curves => curves with { Blue = curve }));
-    public static readonly CurveChannel Master = new(Lens<PointCurves, PointCurve>.New(static curves => curves.Master, static curve => curves => curves with { Master = curve }));
+public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Blue, PointCurve Master) {
+    public static PointCurves Identity { get; } = new(PointCurve.Identity, PointCurve.Identity, PointCurve.Identity, PointCurve.Identity);
 
-    public Lens<PointCurves, PointCurve> Curve { get; }
+    public (double Red, double Green, double Blue, double Master) Inputs(Vector4 pixel, (double R, double G, double B) luminance) =>
+        (Red.Fit(), Green.Fit(), Blue.Fit()) switch {
+            var (red, green, blue) => (CurveAxis.ToStops(pixel.X), CurveAxis.ToStops(pixel.Y), CurveAxis.ToStops(pixel.Z), CurveAxis.ToStops(LuminanceSamples.Luminance(
+                CurveAxis.FromStops(Mapped(red, pixel.X)), CurveAxis.FromStops(Mapped(green, pixel.Y)), CurveAxis.FromStops(Mapped(blue, pixel.Z)), luminance))),
+        };
 
-    public PointCurveParameter Parameter =>
-        Map(red: PointCurveParameter.Red, green: PointCurveParameter.Green, blue: PointCurveParameter.Blue, master: PointCurveParameter.Master);
-}
-
-public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Blue, PointCurve Master, AxisFraction PreserveHue)
-    : IStateRecord<PointCurves, PointCurveParameter>, IPixelStage<PointCurves> {
-    public static PointCurves Default { get; } = new(PointCurve.Identity, PointCurve.Identity, PointCurve.Identity, PointCurve.Identity, AxisFraction.MinValue);
-
-    public double Read(CurveChannel channel, Vector4 pixel, Gamut gamut) =>
-        channel.Switch(
-            (Curves: this, Pixel: pixel, Gamut: gamut),
-            red: static state => CurveAxis.ToStops(state.Pixel.X),
-            green: static state => CurveAxis.ToStops(state.Pixel.Y),
-            blue: static state => CurveAxis.ToStops(state.Pixel.Z),
-            master: static state => CurveAxis.ToStops(LuminanceSamples.Luminance(
-                CurveAxis.FromStops(Mapped(state.Curves.Red.Fit(), state.Pixel.X)),
-                CurveAxis.FromStops(Mapped(state.Curves.Green.Fit(), state.Pixel.Y)),
-                CurveAxis.FromStops(Mapped(state.Curves.Blue.Fit(), state.Pixel.Z)),
-                state.Gamut.Luminance)));
-
-    public static Option<PixelPass> Pass(PointCurves state, PassContext context) =>
-        from changed in Some(state)
-        where changed with { PreserveHue = Default.PreserveHue } != Default
-        let fits = (Red: changed.Red.Fit(), Green: changed.Green.Fit(), Blue: changed.Blue.Fit(), Master: changed.Master.Fit())
-        select (PixelPass)new PixelPass.Color(row => {
+    public Action<Span<Vector4>> Graded(float preserveHue) {
+        (Func<double, double> red, Func<double, double> green, Func<double, double> blue, Func<double, double> master) = (Red.Fit(), Green.Fit(), Blue.Fit(), Master.Fit());
+        return row => {
             foreach (ref Vector4 pixel in row) {
-                (double r, double g, double b) = (Mapped(fits.Red, pixel.X), Mapped(fits.Green, pixel.Y), Mapped(fits.Blue, pixel.Z));
+                (double r, double g, double b) = (Mapped(red, pixel.X), Mapped(green, pixel.Y), Mapped(blue, pixel.Z));
                 pixel = new Vector4(ToneCurves.PreserveHue(
                     new Vector3((float)CurveAxis.FromStops(r), (float)CurveAxis.FromStops(g), (float)CurveAxis.FromStops(b)),
-                    new Vector3((float)CurveAxis.FromStops(fits.Master(r)), (float)CurveAxis.FromStops(fits.Master(g)), (float)CurveAxis.FromStops(fits.Master(b))),
-                    changed.PreserveHue), pixel.W);
+                    new Vector3((float)CurveAxis.FromStops(master(r)), (float)CurveAxis.FromStops(master(g)), (float)CurveAxis.FromStops(master(b))),
+                    preserveHue), pixel.W);
             }
-        });
+        };
+    }
 
     private static double Mapped(Func<double, double> channel, float value) => channel(CurveAxis.ToStops(value));
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class PointCurveParameter : IStateParameter<PointCurves> {
-    public static readonly PointCurveParameter Red = new("red", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Red.Curve),
-        new("Red", "Red curve over stops about middle gray"));
-    public static readonly PointCurveParameter Green = new("green", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Green.Curve),
-        new("Green", "Green curve over stops about middle gray"));
-    public static readonly PointCurveParameter Blue = new("blue", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Blue.Curve),
-        new("Blue", "Blue curve over stops about middle gray"));
-    public static readonly PointCurveParameter Master = new("master", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Master.Curve),
-        new("Master", "Curve every channel takes after its own"));
-    public static readonly PointCurveParameter PreserveHue = new("preserve-hue", StateParameter.Bounded(Lens<PointCurves, AxisFraction>.New(static curves => curves.PreserveHue, static preserve => curves => curves with { PreserveHue = preserve })),
-        new("Preserve hue", "Share of pixel hue kept through master curve"));
-
-    public StateParameter<PointCurves> Kind { get; }
-    public ParameterText Text { get; }
 }

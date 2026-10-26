@@ -3,6 +3,15 @@ using Rhino.Commands;
 
 namespace Rasm.Rhino;
 
+// --- [TYPES] ---------------------------------------------------------------------------
+public enum FileReason {
+    Taken,
+    Missing,
+    Unwritable,
+    Unreadable,
+    Unqualified,
+}
+
 // --- [ERRORS] --------------------------------------------------------------------------
 public sealed record Refused(string Member, string Reason) : Expected($"{Member} {Reason}", 0) {
     public const string Declined = "returned failure";
@@ -32,4 +41,4 @@ public sealed record Ended(string Member, Result Result) : Expected($"{Member} e
 
 public sealed record NotFound(string Kind, string Key) : Expected($"no {Kind} matches {Key}", 0);
 
-public sealed record FileRefused(string Path, string Reason, Option<Error> Cause = default) : Expected($"{Path} {Reason}", 0, Cause);
+public sealed record FileRefused(string Path, FileReason Reason, Option<Error> Cause = default) : Expected($"{Path} refused as {Reason}", 0, Cause);

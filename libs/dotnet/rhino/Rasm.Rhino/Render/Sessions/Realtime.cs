@@ -1,5 +1,4 @@
 using System.Drawing;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI;
 using Rhino;
@@ -27,7 +26,7 @@ public readonly partial struct PassCount : System.Numerics.IMinMaxValue<PassCoun
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
-public sealed record RealtimeTarget(PixelExtent Extent, bool ForCapture, RenderWindow Window);
+public sealed record RealtimeTarget(Size Size, bool ForCapture, RenderWindow Window);
 
 public sealed record RealtimeStart(RealtimeTarget Target, RhinoDoc Document, ViewInfo View, ViewportInfo Viewport, Func<Action<Disposal<SceneBatch>>, IO<SceneBatch>> Take);
 
@@ -155,7 +154,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
         Callbacks.Succeeded(
             from session in Session
             from resize in Resize
-            select IO.lift(PixelExtent.Validated(width, height)).Bind(extent => Resized(session.Target with { Extent = extent }, resize)),
+            select Resized(session.Target with { Size = new Size(width, height) }, resize),
             () => base.OnRenderSizeChanged(width, height),
             CallbackSite.Of(views, this));
 
@@ -163,7 +162,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
         Callbacks.Run(DisposalOps.Within(static () => unit, _ => Stop(), _ => Closed), CallbackSite.Of(views, this));
 
     public sealed override void GetRenderSize(out int width, out int height) =>
-        (width, height) = Session.Map(static session => (session.Target.Extent.Width, session.Target.Extent.Height)).IfNone((0, 0));
+        (width, height) = Session.Map(static session => (session.Target.Size.Width, session.Target.Size.Height)).IfNone((0, 0));
 
     private void Subscribe() {
         SetUseDrawOpenGl(IRealtimeProduct.DrawsOpenGl);
@@ -177,9 +176,8 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
         DisposalOps.OnFailure(
             from opened in DisposalOps.Acquire(owned =>
                 from framing in DisposalOps.Acquire(IO.pure(viewport), owned)
-                from extent in IO.lift(PixelExtent.Validated(width, height))
-                let target = new RealtimeTarget(extent, forCapture, window)
-                from sized in IO.lift(() => target.Window.SetSize(new Size(target.Extent.Width, target.Extent.Height)))
+                let target = new RealtimeTarget(new Size(width, height), forCapture, window)
+                from sized in IO.lift(() => target.Window.SetSize(target.Size))
                 from added in RenderWindows.AddRequested(target.Window)
                 from now in IO.lift(views.Clock.GetCurrentInstant)
                 from passes in IO.lift(() => MaxPasses)
@@ -206,7 +204,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
         }).Bind(static held => DisposalOps.Release(held.Map(static session => session.Scene).ToSeq())).Uninterruptible();
 
     private IO<Unit> Resized(RealtimeTarget target, Func<RealtimeTarget, IO<Unit>> resize) =>
-        from sized in IO.lift(() => target.Window.SetSize(new Size(target.Extent.Width, target.Extent.Height)))
+        from sized in IO.lift(() => target.Window.SetSize(target.Size))
         from restarted in Swapped((session, now) => (session with { Target = target }).Restarted(now))
         from resized in resize(target)
         select unit;

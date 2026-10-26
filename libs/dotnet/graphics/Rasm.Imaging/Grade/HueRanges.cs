@@ -1,10 +1,7 @@
 using System.Numerics;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade.Curves;
-using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using UnitsNet;
-using UnitsNet.Units;
 
 namespace Rasm.Imaging.Grade;
 
@@ -16,11 +13,11 @@ public readonly record struct Hsy(double Hue, double Saturation, double Luma) {
     private const double MinLuma = 0.001d;
     private const double MaxLuma = 0.01d;
 
-    private static readonly (double X, double Y, double Z) LumaWeights = Gamut.StandardRgb.Luminance;
+    private static readonly (double R, double G, double B) LumaWeights = Gamut.StandardRgb.Luminance;
 
     public static double SaturationPeak =>
         LumaWeights switch {
-            var weights => Scale * (1d + ((weights.X + weights.Y + weights.Z) / double.Min(double.Min(weights.X, weights.Y), weights.Z))) / 3d,
+            var weights => Scale * (1d + ((weights.R + weights.G + weights.B) / double.Min(double.Min(weights.R, weights.G), weights.B))) / 3d,
         };
 
     public static Hsy From(Vector4 color) {
@@ -51,7 +48,7 @@ public readonly record struct Hsy(double Hue, double Saturation, double Luma) {
     }
 
     private static double Luminance(double red, double green, double blue) =>
-        LuminanceSamples.Luminance(red, green, blue, LumaWeights) / (LumaWeights.X + LumaWeights.Y + LumaWeights.Z);
+        LuminanceSamples.Luminance(red, green, blue, LumaWeights) / (LumaWeights.R + LumaWeights.G + LumaWeights.B);
 
     private static double SaturationGain(double luma) =>
         luma switch {
@@ -75,7 +72,7 @@ public readonly record struct Hsy(double Hue, double Saturation, double Luma) {
         };
 }
 
-public sealed record RangeBand(AxisFraction Center, AxisFraction Width, AxisFraction Softness) {
+public readonly record struct RangeBand(float Center, float Width, float Softness) {
     public float Membership(float distance) =>
         (distance - (Width / 2f)) switch {
             <= 0f => 1f,
@@ -84,75 +81,41 @@ public sealed record RangeBand(AxisFraction Center, AxisFraction Width, AxisFrac
         };
 }
 
-[SmartEnum]
-public sealed partial class RangeHandle {
-    public static readonly RangeHandle Band = new(None,
-        static band => band.Center,
-        static (band, at) => (at, band.Width, band.Softness));
-    public static readonly RangeHandle LowerSoftness = new(None,
-        static band => band.Center - (band.Width / 2f) - band.Softness,
-        static (band, at) => (band.Center, band.Width, band.Center - (band.Width / 2f) - at));
-    public static readonly RangeHandle UpperSoftness = new(None,
-        static band => band.Center + (band.Width / 2f) + band.Softness,
-        static (band, at) => (band.Center, band.Width, at - band.Center - (band.Width / 2f)));
-    public static readonly RangeHandle LowerEdge = new(Some(LowerSoftness),
-        static band => band.Center - (band.Width / 2f),
-        static (band, at) => (band.Center + (band.Width / 2f)) switch { var upper => ((at + upper) / 2f, upper - at, band.Softness) });
-    public static readonly RangeHandle UpperEdge = new(Some(UpperSoftness),
-        static band => band.Center + (band.Width / 2f),
-        static (band, at) => (band.Center - (band.Width / 2f)) switch { var lower => ((lower + at) / 2f, at - lower, band.Softness) });
-
-    public Option<RangeHandle> Alternate { get; }
-
-    [UseDelegateFromConstructor]
-    public partial float Position(RangeBand band);
-
-    [UseDelegateFromConstructor]
-    internal partial (float Center, float Width, float Softness) Placed(RangeBand band, float position);
-}
-
-public sealed record HueRange(RangeBand Hue, RangeBand Saturation, RangeBand Luma) : IStateRecord<HueRange, HueRangeParameter> {
-    public static HueRange Default { get; } = new RangeBand(AxisFraction.Half, AxisFraction.MaxValue, AxisFraction.MinValue) switch { var open => new HueRange(open, open, open) };
+public sealed record HueRange(RangeBand Hue, RangeBand Saturation, RangeBand Luma) {
+    public static HueRange Open { get; } = new RangeBand(0.5f, 1f, 0f) switch { var open => new HueRange(open, open, open) };
 
     public float Membership(Hsy hsy) =>
         RangeAxis.Hue.Membership(Hue, hsy) * RangeAxis.Saturation.Membership(Saturation, hsy) * RangeAxis.Luma.Membership(Luma, hsy);
+
+    public void Graded(Span<Vector4> row, float shift, float saturation, float stops) {
+        float gain = float.Exp2(stops);
+        foreach (ref Vector4 pixel in row) {
+            Hsy hsy = Hsy.From(pixel);
+            Vector3 graded = shift is 0f && saturation is 1f
+                ? pixel.AsVector3() * gain
+                : (hsy with { Hue = hsy.Hue + shift, Saturation = hsy.Saturation * saturation }).ToRgb(pixel.W).AsVector3() * gain;
+            pixel = new Vector4(Vector3.Lerp(pixel.AsVector3(), graded, Membership(hsy)), pixel.W);
+        }
+    }
+
+    public void Isolated(Span<Vector4> row, (double R, double G, double B) luminance) {
+        foreach (ref Vector4 pixel in row) {
+            float membership = Membership(Hsy.From(pixel));
+            double gray = (1d - membership) * LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, luminance);
+            pixel = membership is 1f
+                ? pixel
+                : new Vector4((float)(gray + (membership * (double)pixel.X)), (float)(gray + (membership * (double)pixel.Y)), (float)(gray + (membership * (double)pixel.Z)), pixel.W);
+        }
+    }
 }
 
 [SmartEnum]
 public sealed partial class RangeAxis {
-    private static readonly Lens<RangeBand, AxisFraction> Centers =
-        Lens<RangeBand, AxisFraction>.New(static band => band.Center, static center => band => band with { Center = center });
-    private static readonly Lens<RangeBand, AxisFraction> Widths =
-        Lens<RangeBand, AxisFraction>.New(static band => band.Width, static width => band => band with { Width = width });
-    private static readonly Lens<RangeBand, AxisFraction> Softnesses =
-        Lens<RangeBand, AxisFraction>.New(static band => band.Softness, static softness => band => band with { Softness = softness });
-
-    public static readonly RangeAxis Hue = new(
-        InputAxis.Hue, Lens<HueRange, RangeBand>.New(static range => range.Hue, static band => range => range with { Hue = band }),
-        AxisFraction.Presentation with { Unit = Quantity.GetUnitInfo(AngleUnit.Revolution) },
-        static (hsy, value) => hsy with { Hue = value });
-    public static readonly RangeAxis Saturation = new(
-        InputAxis.Saturation, Lens<HueRange, RangeBand>.New(static range => range.Saturation, static band => range => range with { Saturation = band }),
-        AxisFraction.Presentation,
-        static (hsy, value) => hsy with { Saturation = value });
-    public static readonly RangeAxis Luma = new(
-        InputAxis.Stops, Lens<HueRange, RangeBand>.New(static range => range.Luma, static band => range => range with { Luma = band }),
-        AxisFraction.Presentation,
-        static (hsy, value) => hsy with { Luma = CurveAxis.FromStops(value) });
+    public static readonly RangeAxis Hue = new(InputAxis.Hue, static (hsy, value) => hsy with { Hue = value });
+    public static readonly RangeAxis Saturation = new(InputAxis.Saturation, static (hsy, value) => hsy with { Saturation = value });
+    public static readonly RangeAxis Luma = new(InputAxis.Stops, static (hsy, value) => hsy with { Luma = CurveAxis.FromStops(value) });
 
     public InputAxis Input { get; }
-    public Lens<HueRange, RangeBand> Band { get; }
-    public Presentation<float> Presentation { get; }
-
-    public (Lens<TRecord, AxisFraction> Center, Lens<TRecord, AxisFraction> Width, Lens<TRecord, AxisFraction> Softness) Members<TRecord>(Lens<TRecord, HueRange> range) =>
-        lens(range, Band) switch {
-            var band => (lens(band, Centers), lens(band, Widths), lens(band, Softnesses)),
-        };
-
-    public (StateParameter<HueRange> Center, StateParameter<HueRange> Width, StateParameter<HueRange> Softness) Kinds =>
-        (Members(Lens.identity<HueRange>()), fun((Lens<HueRange, AxisFraction> member) => StateParameter.Bounded(member, Presentation))) switch {
-            var ((center, width, softness), kind) => (kind(center), kind(width), kind(softness)),
-        };
 
     [UseDelegateFromConstructor]
     private partial Hsy Write(Hsy hsy, double value);
@@ -169,131 +132,4 @@ public sealed partial class RangeAxis {
         Input.Axis.Span switch { var (low, high) => Write(hsy, low + (coordinate * (high - low))) };
 
     public float Membership(RangeBand band, Hsy hsy) => band.Membership(Distance(Coordinate(hsy), band.Center));
-
-    public Fin<HueRange> Moved(HueRange range, RangeHandle handle, float position) =>
-        handle.Placed(Band.Get(range), position) switch {
-            var (center, width, softness) => (
-                    AxisFraction.Validated(Input.Axis.Periodic ? center - float.Floor(center) : center),
-                    AxisFraction.Validated(width),
-                    AxisFraction.Validated(softness))
-                .Apply((c, w, s) => Band.Set(new RangeBand(c, w, s), range)).As(),
-        };
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class HueRangeParameter : IStateParameter<HueRange> {
-    public static readonly HueRangeParameter HueCenter = new("hue-center", RangeAxis.Hue.Kinds.Center,
-        new("Center", "Middle of selected band"));
-    public static readonly HueRangeParameter HueWidth = new("hue-width", RangeAxis.Hue.Kinds.Width,
-        new("Width", "Full-strength span"));
-    public static readonly HueRangeParameter HueSoftness = new("hue-softness", RangeAxis.Hue.Kinds.Softness,
-        new("Softness", "Falloff past each band edge"));
-    public static readonly HueRangeParameter SaturationCenter = new("saturation-center", RangeAxis.Saturation.Kinds.Center,
-        new("Center", "Middle of selected band"));
-    public static readonly HueRangeParameter SaturationWidth = new("saturation-width", RangeAxis.Saturation.Kinds.Width,
-        new("Width", "Full-strength span"));
-    public static readonly HueRangeParameter SaturationSoftness = new("saturation-softness", RangeAxis.Saturation.Kinds.Softness,
-        new("Softness", "Falloff past each band edge"));
-    public static readonly HueRangeParameter LumaCenter = new("luma-center", RangeAxis.Luma.Kinds.Center,
-        new("Center", "Middle of selected band"));
-    public static readonly HueRangeParameter LumaWidth = new("luma-width", RangeAxis.Luma.Kinds.Width,
-        new("Width", "Full-strength span"));
-    public static readonly HueRangeParameter LumaSoftness = new("luma-softness", RangeAxis.Luma.Kinds.Softness,
-        new("Softness", "Falloff past each band edge"));
-
-    public StateParameter<HueRange> Kind { get; }
-    public ParameterText Text { get; }
-
-    public static (HueRangeParameter Center, HueRangeParameter Width, HueRangeParameter Softness) Band(RangeAxis axis) =>
-        axis.Map(
-            hue: (HueCenter, HueWidth, HueSoftness),
-            saturation: (SaturationCenter, SaturationWidth, SaturationSoftness),
-            luma: (LumaCenter, LumaWidth, LumaSoftness));
-}
-
-public sealed record SelectiveColor(HueRange Range, SignedAngle Shift, Magnitude Saturation, Exposure Exposure)
-    : IStateRecord<SelectiveColor, SelectiveColorParameter>, IPixelStage<SelectiveColor> {
-    public static SelectiveColor Default { get; } = new(HueRange.Default, SignedAngle.Neutral, Magnitude.Unit, Exposure.Neutral);
-
-    public static Lens<SelectiveColor, HueRange> RangeOf { get; } =
-        Lens<SelectiveColor, HueRange>.New(static state => state.Range, static range => state => state with { Range = range });
-
-    public Func<Vector4, Vector4> Graded() =>
-        (Range, (float)Shift, (float)Saturation, Exposure.Scale, Shift == SignedAngle.Neutral && Saturation == Magnitude.Unit) switch {
-            (var range, _, _, var gain, true) => color => new(Vector3.Lerp(color.AsVector3(), color.AsVector3() * gain, range.Membership(Hsy.From(color))), color.W),
-            var (range, shift, saturation, gain, _) => color => Hsy.From(color) switch {
-                var hsy => new(
-                    Vector3.Lerp(color.AsVector3(), (hsy with { Hue = hsy.Hue + shift, Saturation = hsy.Saturation * saturation }).ToRgb(color.W).AsVector3() * gain, range.Membership(hsy)),
-                    color.W),
-            },
-        };
-
-    public static Option<PixelPass> Pass(SelectiveColor state, PassContext context) =>
-        from changed in Some(state)
-        where changed.Shift != SignedAngle.Neutral || changed.Saturation != Magnitude.Unit || changed.Exposure != Exposure.Neutral
-        let graded = changed.Graded()
-        select (PixelPass)new PixelPass.Color(row => {
-            foreach (ref Vector4 pixel in row)
-                pixel = graded(pixel);
-        });
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class SelectiveColorParameter : IStateParameter<SelectiveColor> {
-    private static readonly Ramp Shifts = Ramp.Create(
-        toSeq(Enumerable.Range(0, 7)).Map(static sextant => (sextant / 6d) switch {
-            var at => RampStop.Create(RampPosition.Create(at), new Vector4(Hsy.Saturated(Hsy.From(Vector4.UnitX).Hue + float.Lerp(SignedAngle.MinValue, SignedAngle.MaxValue, (float)at)), 1f)),
-        }),
-        RampInterpolation.Linear);
-
-    public static readonly SelectiveColorParameter Range = new("range", new StateParameter<SelectiveColor>.Record<HueRange>(SelectiveColor.RangeOf),
-        new("Range", "Band of stage input graded"));
-    public static readonly SelectiveColorParameter HueShift = new("hue-shift", StateParameter.Bounded(Lens<SelectiveColor, SignedAngle>.New(static state => state.Shift, static shift => state => state with { Shift = shift }), SignedAngle.Presentation with { Stops = Shifts }),
-        new("Hue shift", "Hue turn on qualified pixels"));
-    public static readonly SelectiveColorParameter Saturation = new("saturation", StateParameter.Bounded(Lens<SelectiveColor, Magnitude>.New(static state => state.Saturation, static saturation => state => state with { Saturation = saturation }), ContrastGradeParameter.Chroma),
-        new("Saturation", "Saturation gain on qualified pixels"));
-    public static readonly SelectiveColorParameter Exposure = new("exposure", StateParameter.Bounded(Lens<SelectiveColor, Exposure>.New(static state => state.Exposure, static exposure => state => state with { Exposure = exposure })),
-        new("Exposure", "Stops added to qualified pixels"));
-
-    public StateParameter<SelectiveColor> Kind { get; }
-    public ParameterText Text { get; }
-}
-
-public sealed record HueIsolation(HueRange Range) : IStateRecord<HueIsolation, HueIsolationParameter>, IPixelStage<HueIsolation> {
-    public static HueIsolation Default { get; } = new(HueRange.Default);
-
-    public static Lens<HueIsolation, HueRange> RangeOf { get; } =
-        Lens<HueIsolation, HueRange>.New(static state => state.Range, static range => state => state with { Range = range });
-
-    public Func<Vector4, Vector4> Graded((double X, double Y, double Z) luminance) =>
-        color => Range.Membership(Hsy.From(color)) switch {
-            1f => color,
-            var membership => ((1d - membership) * LuminanceSamples.Luminance(color.X, color.Y, color.Z, luminance)) switch {
-                var gray => new((float)(gray + (membership * (double)color.X)), (float)(gray + (membership * (double)color.Y)), (float)(gray + (membership * (double)color.Z)), color.W),
-            },
-        };
-
-    public static Option<PixelPass> Pass(HueIsolation state, PassContext context) =>
-        from changed in Some(state)
-        where changed.Range != HueRange.Default
-        let graded = changed.Graded(context.Working.Luminance)
-        select (PixelPass)new PixelPass.Color(row => {
-            foreach (ref Vector4 pixel in row)
-                pixel = graded(pixel);
-        });
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class HueIsolationParameter : IStateParameter<HueIsolation> {
-    public static readonly HueIsolationParameter Range = new("range", new StateParameter<HueIsolation>.Record<HueRange>(HueIsolation.RangeOf),
-        new("Range", "Band of stage input kept in color"));
-
-    public StateParameter<HueIsolation> Kind { get; }
-    public ParameterText Text { get; }
 }

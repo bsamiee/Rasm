@@ -2,7 +2,8 @@ using Eto.Forms;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Drawing;
+using Rasm.Rhino.UI.Surfaces;
+using Rasm.UI;
 using Rhino;
 using Rhino.UI;
 
@@ -26,14 +27,14 @@ public abstract class RowEdit {
     private protected RowEdit() { }
 
     public static IO<RowEdit<TRecord>> Bind<TRecord, THandler>(
-        RowSource<TRecord> source, IterableNE<RowField<TRecord>> fields, Action<THandler> add, Action<THandler> remove,
+        RowSource<TRecord> source, IterableNE<IStateParameter<TRecord>> parameters, Action<THandler> add, Action<THandler> remove,
         Func<RowEdit<TRecord>, THandler> handler, Func<Option<TRecord>, IO<Unit>> show, RowScope scope, CallbackSite site, Action<IDisposable> retain)
         where TRecord : notnull
         where THandler : Delegate =>
         from signals in source.Signals(scope)
         from state in atomIO(Option<OpenEdit<TRecord>>.None)
         from timer in DisposalOps.Acquire(IO.lift(static () => new UITimer()), retain)
-        let edit = new RowEdit<TRecord>(source, fields, scope, state, timer, made => handler(made) switch {
+        let edit = new RowEdit<TRecord>(source, parameters, scope, state, timer, made => handler(made) switch {
             var attached => (keep => Subscriptions.Attach(add, remove, attached, keep), value => Subscriptions.Detached(add, remove, attached, show(value))),
         }, (opened, keep) => Subscriptions.Attach(
             static h => RhinoApp.Idle += h, static h => RhinoApp.Idle -= h,
@@ -50,7 +51,7 @@ public abstract class RowEdit {
 public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
     // --- [STATE]
     private readonly RowSource<TRecord> source;
-    private readonly Seq<RowField<TRecord>> fields;
+    private readonly Seq<IStateParameter<TRecord>> parameters;
     private readonly RowScope scope;
     private readonly Atom<Option<OpenEdit<TRecord>>> state;
     private readonly UITimer timer;
@@ -59,14 +60,14 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
     private readonly Ref<Option<IDisposable>> pacing = Ref(Option<IDisposable>.None);
 
     internal RowEdit(
-        RowSource<TRecord> source, IterableNE<RowField<TRecord>> fields, RowScope scope, Atom<Option<OpenEdit<TRecord>>> state, UITimer timer,
+        RowSource<TRecord> source, IterableNE<IStateParameter<TRecord>> parameters, RowScope scope, Atom<Option<OpenEdit<TRecord>>> state, UITimer timer,
         Func<RowEdit<TRecord>, (Func<Action<IDisposable>, IO<Unit>> Attach, Func<Option<TRecord>, IO<Unit>> Show)> controls,
         Func<RowEdit<TRecord>, Action<IDisposable>, IO<Unit>> pace) {
-        (this.source, this.fields, this.scope, this.state, this.timer, this.pace) = (source, toSeq(fields), scope, state, timer, pace);
+        (this.source, this.parameters, this.scope, this.state, this.timer, this.pace) = (source, toSeq(parameters), scope, state, timer, pace);
         (Attached, show) = controls(this);
     }
 
-    public Seq<EntryKey> Keys => fields.Bind(row => source.Keys(row.Parameter));
+    public Seq<EntryKey> Keys => parameters.Bind(source.Keys);
 
     // --- [BRACKET]
     public IO<Seq<TRecord>> Take<TValue>(Edit<TValue> edit, Func<TValue, TRecord, Fin<TRecord>> into) where TValue : notnull =>
@@ -107,6 +108,8 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
 
     // --- [MARKS]
     public override IO<bool> Editing => state.ValueIO.Map(static held => held.IsSome);
+
+    public IO<Option<TRecord>> Latest => state.ValueIO.Map(static held => held.Map(static open => open.Latest));
 
     public IO<Unit> Shown =>
         state.ValueIO.Bind(held => held.Match(Some: static _ => IO.pure(unit), None: () => Agreed.Bind(show)));
@@ -201,5 +204,56 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
                 })))
                 .Map(_ => (accepted.Value, accepted.Applied.Owed)));
 
-    private TRecord Taken(TRecord from, TRecord into) => fields.Fold(into, (held, field) => field.Parameter.Kind.Taken(from, held));
+    private TRecord Taken(TRecord from, TRecord into) => parameters.Fold(into, (held, parameter) => parameter.Kind.Taken(from, held));
+}
+
+public sealed class SceneRow<TRecord, TLocal> where TRecord : notnull where TLocal : notnull {
+    // --- [STATE]
+    private readonly Atom<TLocal> local;
+    private readonly Atom<Option<TRecord>> agreed = Atom(Option<TRecord>.None);
+    private readonly Func<SceneRow<TRecord, TLocal>, Option<TRecord>, TLocal, Node> drawn;
+    private readonly Func<SceneRow<TRecord, TLocal>, Option<TRecord>, TLocal, IO<Unit>> shown;
+    private Option<RowEdit<TRecord>> edit;
+
+    private SceneRow(
+        SceneView view, TLocal initial, Func<SceneRow<TRecord, TLocal>, Option<TRecord>, TLocal, Node> drawn, Func<SceneRow<TRecord, TLocal>, Option<TRecord>, TLocal, IO<Unit>> shown) =>
+        (View, local, this.drawn, this.shown) = (view, Atom(initial), drawn, shown);
+
+    public SceneView View { get; }
+
+    public TLocal Held => local.Value;
+
+    public IO<Option<TRecord>> Shown => agreed.ValueIO;
+
+    // --- [BINDING]
+    public static IO<(SceneRow<TRecord, TLocal> Row, RowEdit<TRecord> Edit)> Bind(
+        RowSource<TRecord> source, IterableNE<IStateParameter<TRecord>> parameters, TLocal initial,
+        Func<SceneRow<TRecord, TLocal>, Option<TRecord>, TLocal, Node> drawn, Func<SceneRow<TRecord, TLocal>, Option<TRecord>, TLocal, IO<Unit>> shown,
+        RowScope scope, CallbackSite site, Action<IDisposable> retain) =>
+        from view in DisposalOps.Acquire(IO.lift(() => new SceneView(scope, new Node.Box())), retain)
+        from row in IO.lift(() => new SceneRow<TRecord, TLocal>(view, initial, drawn, shown))
+        from bound in RowEdit.Bind<TRecord, Action>(source, parameters, static _ => { }, static _ => { }, static _ => static () => { }, row.Agreed, scope, site, retain)
+        from held in IO.lift(() => { row.edit = Some(bound); })
+        select (row, bound);
+
+    // --- [CHANGES]
+    public IO<Unit> Change(Func<TLocal, TLocal> step) => local.SwapIO(step).Bind(_ => Redrawn);
+
+    public Func<Edit<TValue>, IO<Unit>> Edited<TValue>(Func<TValue, TRecord, Fin<TRecord>> write) where TValue : notnull =>
+        change =>
+            from bound in IO.lift(() => edit.ToFin(new Refused(nameof(RowEdit), Refused.Absent)))
+            from taken in bound.Take(change, write)
+            from redrawn in Redrawn
+            select unit;
+
+    private IO<Unit> Agreed(Option<TRecord> record) => agreed.SwapIO(_ => record).Bind(_ => Redrawn);
+
+    private IO<Unit> Redrawn =>
+        from latest in edit.Traverse(static bound => bound.Latest).As().Map(static held => held.Bind(static inner => inner))
+        from settled in agreed.ValueIO
+        let record = latest | settled
+        from held in local.ValueIO
+        from drew in View.Show(drawn(this, record, held))
+        from after in shown(this, record, held)
+        select unit;
 }

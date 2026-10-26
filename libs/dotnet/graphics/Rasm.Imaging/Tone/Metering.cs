@@ -11,7 +11,7 @@ namespace Rasm.Imaging.Tone;
 public sealed class LuminanceSamples {
     public const float Floor = 1e-5f;
 
-    private static readonly AxisFraction WhitePercentile = AxisFraction.Create(0.99995f);
+    private const float WhitePercentile = 0.99995f;
 
     private readonly double[] sorted;
 
@@ -29,18 +29,18 @@ public sealed class LuminanceSamples {
         }
     }
 
-    public static Fin<LuminanceSamples> Gather(PixelFrame frame, (double X, double Y, double Z) luminance) =>
+    public static Fin<LuminanceSamples> Gather(PixelFrame frame, (double R, double G, double B) luminance) =>
         Sorted(frame, frame.Window, rgb => Luminance(rgb.X, rgb.Y, rgb.Z, luminance), static (key, _) => key).Map(static keys => new LuminanceSamples(keys));
 
     public static Fin<LuminanceSamples> Greatest(PixelFrame frame) =>
         Sorted(frame, frame.Window, static rgb => float.Max(rgb.X, float.Max(rgb.Y, rgb.Z)), static (key, _) => key).Map(static keys => new LuminanceSamples(keys));
 
-    public double At(AxisFraction percentile) => SortedArrayStatistics.QuantileCustom(sorted, (float)percentile, QuantileDefinition.EmpiricalInvCDF);
+    public double At(float percentile) => SortedArrayStatistics.QuantileCustom(sorted, percentile, QuantileDefinition.EmpiricalInvCDF);
 
-    public static double Luminance(double red, double green, double blue, (double X, double Y, double Z) weights) =>
-        (weights.X * red) + (weights.Y * green) + (weights.Z * blue);
+    public static double Luminance(double red, double green, double blue, (double R, double G, double B) weights) =>
+        (weights.R * red) + (weights.G * green) + (weights.B * blue);
 
-    internal static System.Range Slice(int count, AxisFraction low, AxisFraction high) =>
+    internal static System.Range Slice(int count, float low, float high) =>
         (int)double.Min(double.Floor(count * (double)float.Min(low, high)), count - 1) switch {
             var start => start..int.Max((int)double.Ceiling(count * (double)float.Max(low, high)), start + 1),
         };
@@ -65,10 +65,10 @@ public sealed class LuminanceSamples {
     }
 }
 
-public sealed record Metering(AxisFraction Low, AxisFraction High, AxisFraction Center, FramePosition Start, FramePosition End) {
-    public static Metering Default { get; } = new(AxisFraction.MinValue, AxisFraction.MaxValue, AxisFraction.MinValue, FramePosition.TopLeft, FramePosition.BottomRight);
+public sealed record Metering(float Low, float High, float Center, FramePosition Start, FramePosition End) {
+    public static Metering Default { get; } = new(0f, 1f, 0f, FramePosition.TopLeft, FramePosition.BottomRight);
 
-    public Fin<float> Metered(PixelFrame frame, (double X, double Y, double Z) luminance) {
+    public Fin<float> Metered(PixelFrame frame, (double R, double G, double B) luminance) {
         ((double X, double Y) start, (double X, double Y) end) = (Start.Point(frame.Extent), End.Point(frame.Extent));
         (long Left, long Top, long Right, long Bottom) window = (
             long.Max((long)double.Round(start.X, MidpointRounding.ToEven), frame.Window.Left),

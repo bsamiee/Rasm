@@ -6,15 +6,6 @@ using Rhino.Runtime;
 
 namespace Rasm.Rhino;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-[Flags]
-internal enum ExecutionState : uint {
-    None = 0,
-    SystemRequired = 1u << 0,
-    DisplayRequired = 1u << 1,
-    Continuous = 1u << 31,
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Sequential)]
 internal readonly record struct MethodDescription(nint Name, nint Types);
@@ -24,32 +15,11 @@ internal readonly record struct DisplayMaterialRef(Guid ViewportId, Guid Display
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class SafeNativeMethods {
-    // --- [POWER]
-    [LibraryImport("kernel32")]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    [SupportedOSPlatform("windows")]
-    internal static partial ExecutionState SetThreadExecutionState(ExecutionState flags);
-
     // --- [POINTER]
     [LibraryImport("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [SupportedOSPlatform("macos")]
     internal static partial int CGAssociateMouseAndMouseCursorPosition([MarshalAs(UnmanagedType.Bool)] bool connected);
-
-    // --- [ARGUMENTS]
-    [LibraryImport("/usr/lib/libSystem.B.dylib")]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
-    [SupportedOSPlatform("macos")]
-    private static partial nint _NSGetArgv();
-
-    [LibraryImport("/usr/lib/libSystem.B.dylib")]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
-    [SupportedOSPlatform("macos")]
-    private static partial nint _NSGetArgc();
-
-    [SupportedOSPlatform("macos")]
-    internal static string[] Arguments() =>
-        [.. Enumerable.Range(0, Marshal.ReadInt32(_NSGetArgc())).Select(static index => Marshal.PtrToStringUTF8(Marshal.ReadIntPtr(Marshal.ReadIntPtr(_NSGetArgv()), index * nint.Size))!)];
 
     // --- [OBJECTIVE_C]
     private const string ObjectiveCLibrary = "/usr/lib/libobjc.dylib";

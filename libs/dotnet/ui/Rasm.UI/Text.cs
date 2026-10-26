@@ -229,7 +229,7 @@ public static class Typesetting {
     private static readonly Func<(TextFace Face, float Size, SKColor Ink, SKColor Halo), TextStyle> Faces = memo<(TextFace Face, float Size, SKColor Ink, SKColor Halo), TextStyle>(Faced);
 
     public static TextStyle Resolve(Cascade within, Styling.Style style) =>
-        within.Theme.Face.Combine(style.Face) switch {
+        within.Theme.Face.Combine(style.Look.Face) switch {
             var face => Faces((face, within.Theme.FontSize * style.Metrics[Metric.FontSize],
                 within.Theme.Color(style.Text, style, None, None).Map(ink => (SKColor)Styles.Legible(style, within.Ground, ink, within.Theme.Contrast.Text)).IfNone(SKColors.Transparent),
                 face.Halo.Bind(halo => within.Theme.Color(halo.Ink, style, None, None)).Map(static halo => (SKColor)halo).IfNone(Plain.HaloColor))),

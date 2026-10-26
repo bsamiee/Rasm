@@ -7,7 +7,6 @@ using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.Color;
-using Rasm.Imaging.Grade.Curves;
 using Rasm.Imaging.Tone;
 
 namespace Rasm.Imaging.Pixels;
@@ -32,12 +31,11 @@ public sealed partial class ClipEnd {
 
 [SmartEnum]
 public sealed partial class TracePlane {
-    public static readonly TracePlane Luma = new(CurveChannel.Master, Option<Lens<Vector3, float>>.None, static traces => traces.Luma);
-    public static readonly TracePlane Red = new(CurveChannel.Red, Some(Lens<Vector3, float>.New(static rgb => rgb.X, static x => rgb => rgb with { X = x })), static traces => traces.Red);
-    public static readonly TracePlane Green = new(CurveChannel.Green, Some(Lens<Vector3, float>.New(static rgb => rgb.Y, static y => rgb => rgb with { Y = y })), static traces => traces.Green);
-    public static readonly TracePlane Blue = new(CurveChannel.Blue, Some(Lens<Vector3, float>.New(static rgb => rgb.Z, static z => rgb => rgb with { Z = z })), static traces => traces.Blue);
+    public static readonly TracePlane Luma = new(Option<Lens<Vector3, float>>.None, static traces => traces.Luma);
+    public static readonly TracePlane Red = new(Some(Lens<Vector3, float>.New(static rgb => rgb.X, static x => rgb => rgb with { X = x })), static traces => traces.Red);
+    public static readonly TracePlane Green = new(Some(Lens<Vector3, float>.New(static rgb => rgb.Y, static y => rgb => rgb with { Y = y })), static traces => traces.Green);
+    public static readonly TracePlane Blue = new(Some(Lens<Vector3, float>.New(static rgb => rgb.Z, static z => rgb => rgb with { Z = z })), static traces => traces.Blue);
 
-    public CurveChannel Curve { get; }
     public Option<Lens<Vector3, float>> Lane { get; }
     public Vector3 Color => Lane.Map(static lane => lane.Set(1f, Vector3.Zero)).IfNone(Vector3.One);
 
@@ -133,7 +131,7 @@ public abstract partial record ScopeRequest {
             };
     }
 
-    public sealed record Vectorscope(Gamut Gamut, PixelExtent Plot, PositiveMagnitude Magnification) : ScopeRequest(Gamut) {
+    public sealed record Vectorscope(Gamut Gamut, PixelExtent Plot, float Magnification) : ScopeRequest(Gamut) {
         public float Reach => 0.5f / Magnification;
 
         public override ScopeReading.Vectorscope Read(PixelFrame frame) =>
@@ -184,7 +182,7 @@ public static class HistogramAxis {
 }
 
 // --- [FOLDS] ---------------------------------------------------------------------------
-internal readonly struct HistogramFold((double X, double Y, double Z) luminance, Option<ClipLevels> clipping) : IRowFold {
+internal readonly struct HistogramFold((double R, double G, double B) luminance, Option<ClipLevels> clipping) : IRowFold {
     public int Bins => (4 * HistogramAxis.Bins) + (Clips.Ends * clipping.Count());
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
@@ -208,7 +206,7 @@ internal readonly struct HistogramFold((double X, double Y, double Z) luminance,
     }
 }
 
-internal readonly struct WaveformFold((double X, double Y, double Z) luminance, int columns, int rows, int width) : IRowFold {
+internal readonly struct WaveformFold((double R, double G, double B) luminance, int columns, int rows, int width) : IRowFold {
     public int Bins => 4 * columns * rows;
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
@@ -254,7 +252,7 @@ internal readonly struct ChromaticityFold(Matrix<double> toXyz, Transfer encodin
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
         using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(row.Length);
         row.CopyTo(scratch.Span);
-        encoding.Decode(scratch.Span, Nits.ReferenceWhite);
+        encoding.Decode(scratch.Span);
         Span2D<int> grid = bins.AsSpan2D(rows, columns);
         foreach (Vector4 rgb in scratch.Span) {
             Vector256<double> xyz = (_lanes.Red * rgb.X) + (_lanes.Green * rgb.Y) + (_lanes.Blue * rgb.Z);

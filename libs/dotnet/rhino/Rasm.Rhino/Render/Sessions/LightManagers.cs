@@ -1,6 +1,6 @@
-using Rasm.Imaging.Color;
 using Rasm.Rhino.Objects;
 using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Render;
@@ -51,17 +51,17 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
             CallbackSite.Of(owner, this));
 
     private IO<Unit> Appended(RhinoDoc doc, LightArray lights) =>
-        from transfer in Lights.Gamma(doc)
+        from gamma in Lights.PreProcessGamma(doc)
         from held in Read(doc)
         from appended in Callbacks.Each(held.Map(engine => DisposalOps.Within(static () => new Light(), staged =>
-            from written in Staged(staged, engine.Light, transfer)
+            from written in Staged(staged, engine.Light, gamma)
             from added in IO.lift(() => lights.Append(staged))
             select added)))
         select unit;
 
     private IO<bool> Filled(RhinoDoc doc, Guid id, Light target) =>
         Held(doc, id).Bind(held => held.Match(
-            Some: engine => Lights.Gamma(doc).Bind(transfer => Staged(target, engine.Light, transfer)).Map(value: true),
+            Some: engine => Lights.PreProcessGamma(doc).Bind(gamma => Staged(target, engine.Light, gamma)).Map(value: true),
             None: static () => IO.pure(value: false)));
 
     private IO<Option<EngineLight>> Held(RhinoDoc doc, Guid id) =>
@@ -70,8 +70,8 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
     private IO<Option<EngineLight>> Held(RhinoDoc doc, Light light) =>
         IO.lift(() => light.Id).Bind(id => Held(doc, id));
 
-    private static IO<Unit> Staged(Light target, LightState state, Transfer transfer) =>
-        from written in Lights.Written(target, state.Spec, transfer)
+    private static IO<Unit> Staged(Light target, LightState state, Gamma gamma) =>
+        from written in Lights.Written(target, state.Spec, gamma)
         from identified in IO.lift(() => target.Id = state.Id)
         select unit;
 
@@ -92,8 +92,8 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
         Callbacks.Run(Requested(light_array, Group.Map(group => par(group, doc, b: false))), CallbackSite.Of(owner, this));
 
     private IO<Unit> Modified(RhinoDoc doc, Light light) =>
-        from transfer in Lights.Gamma(doc)
-        from state in IO.lift(() => Lights.State(light, transfer))
+        from gamma in Lights.PreProcessGamma(doc)
+        from state in IO.lift(() => Lights.State(light, gamma))
         from modified in Modify(doc, state)
         from notified in Notified(doc, LightMangerSupportCustomEvent.light_modified)
         select unit;

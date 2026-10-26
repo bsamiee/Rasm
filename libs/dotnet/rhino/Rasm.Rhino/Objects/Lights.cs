@@ -1,16 +1,16 @@
 using System.Drawing;
 using System.Globalization;
 using LanguageExt.ClassInstances;
-using Rasm.Imaging.Color;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Render.Settings;
 using Rhino;
+using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
-using Wacton.Unicolour;
+using UnitsNet;
 
 namespace Rasm.Rhino.Objects;
 
@@ -78,7 +78,7 @@ public sealed partial class ColorFilter {
     public double Green { get; }
     public double Blue { get; }
 
-    public Unicolour Unicolour => Adaptation.Peaked(new Unicolour(Gamut.StandardRgb.Configuration, ColourSpace.RgbLinear, Red, Green, Blue));
+    public (Color4f Light, double Luminance) Light => Conversions.Peaked(Red, Green, Blue);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double red, ref double green, ref double blue) =>
         validationError = Math.Min(red, Math.Min(green, blue)) >= 0d && Math.Max(red, Math.Max(green, blue)) is > 0d and < double.PositiveInfinity
@@ -119,7 +119,7 @@ public abstract partial record LightShape {
 public abstract partial record LightColor {
     public sealed record Rgb(Color Diffuse) : LightColor;
 
-    public sealed record Blackbody(ColorTemperature Kelvin) : LightColor;
+    public sealed record Blackbody(UnitsNet.Temperature Kelvin) : LightColor;
 
     public sealed record Linear(ColorFilter Filter) : LightColor;
 }
@@ -199,26 +199,18 @@ internal static partial class LightMapper {
 
 public static class Lights {
     // --- [EMISSION]
-    public static IO<Transfer> Gamma(RhinoDoc doc) =>
+    public static IO<Gamma> PreProcessGamma(RhinoDoc doc) =>
         DisposalOps.Within(() => doc.RenderSettings, static settings => DisposalOps.Within(() => settings.LinearWorkflow, static flow =>
-            IO.lift(() => flow.PreProcessColors
-                ? PositiveMagnitude.Validated(flow.PreProcessGamma).Map(static exponent => (Transfer)exponent)
-                : (Transfer)TransferCurve.Linear)));
+            IO.lift(() => flow.PreProcessColors ? Gamma.Validated(flow.PreProcessGamma) : Gamma.Linear)));
 
-    private static (Color Diffuse, double Gain) Emitted(Unicolour color, Transfer transfer) {
-        Unicolour peaked = Adaptation.Peaked(color);
-        Span<System.Numerics.Vector4> light = [new((float)peaked.RgbLinear.R, (float)peaked.RgbLinear.G, (float)peaked.RgbLinear.B, 1f)];
-        transfer.Encode(light, Nits.ReferenceWhite);
-        return (Color.FromArgb(Channel(light[0].X), Channel(light[0].Y), Channel(light[0].Z)), 1d / peaked.Xyz.Y);
+    private static (Color Diffuse, double Gain) Emitted((Color4f Light, double Luminance) emission, Gamma gamma) =>
+        (Color4f.ApplyGamma(emission.Light, 1f / gamma).AsSystemColor(), 1d / emission.Luminance);
 
-        static int Channel(float encoded) => (int)MathF.Round(byte.MaxValue * encoded, MidpointRounding.ToEven);
-    }
-
-    private static Fin<(LightColor Color, LightIntensity Intensity)> Emission(Light light, Transfer transfer) =>
+    private static Fin<(LightColor Color, LightIntensity Intensity)> Emission(Light light, Gamma gamma) =>
         Conversions.Present(light.GetUserString(LightKey.Kelvin.Key))
             .Bind(static text => Invariant.Number<double>(text))
-            .Bind(static kelvin => ColorTemperature.Validated(kelvin).ToOption())
-            .Map(kelvin => (Kelvin: kelvin, Emitted: Emitted(Adaptation.Blackbody(Gamut.StandardRgb, kelvin), transfer)))
+            .Filter(static kelvins => kelvins > 0d)
+            .Map(kelvins => (Kelvin: UnitsNet.Temperature.FromKelvins(kelvins), Emitted: Emitted(Conversions.Blackbody(kelvins), gamma)))
             .Filter(held => Conversions.Same(held.Emitted.Diffuse, light.Diffuse))
             .Match(
                 Some: static held => ((LightColor)held.Kelvin, held.Emitted.Gain),
@@ -239,24 +231,24 @@ public static class Lights {
     // --- [READS]
     public static IO<LightState> Read(RhinoDoc doc, ComponentRef<LightObject> address) =>
         from row in Find(doc, address, includeDeleted: false)
-        from transfer in Gamma(doc)
-        from state in IO.lift(State(row.LightGeometry, transfer))
+        from gamma in PreProcessGamma(doc)
+        from state in IO.lift(State(row.LightGeometry, gamma))
         select state;
 
     public static IO<(Seq<Error> Fails, Seq<LightState> Succs)> States(RhinoDoc doc) =>
-        from transfer in Gamma(doc)
+        from gamma in PreProcessGamma(doc)
         from rows in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Strict())
-        select rows.Map(row => State(row.LightGeometry, transfer)).Partition();
+        select rows.Map(row => State(row.LightGeometry, gamma)).Partition();
 
     public static IO<(Seq<Error> Fails, Seq<ManagedLight> Succs)> Managed(RhinoDoc doc) =>
-        from transfer in Gamma(doc)
+        from gamma in PreProcessGamma(doc)
         from managed in DisposalOps.Within(() => new LightManagerSupportClient(doc.RuntimeSerialNumber), client =>
             from lights in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => row.LightGeometry).Strict())
-            select lights.Map(light => State(light, transfer).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition())
+            select lights.Map(light => State(light, gamma).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition())
         select managed;
 
-    public static Fin<LightState> State(Light light, Transfer transfer) =>
-        (Shape(light), Emission(light, transfer),
+    public static Fin<LightState> State(Light light, Gamma gamma) =>
+        (Shape(light), Emission(light, gamma),
          LightPower.Validated(light.PowerWatts),
          ShadowIntensity.Validated(light.ShadowIntensity))
             .Apply((shape, emission, watts, shadow) => new LightState(light.Id, new LightSpec(
@@ -288,16 +280,16 @@ public static class Lights {
     public static IO<Seq<Guid>> Apply(RhinoDoc doc, LightOp op) =>
         op.Switch(
             doc,
-            add: static (document, add) => from transfer in Gamma(document)
+            add: static (document, add) => from gamma in PreProcessGamma(document)
                                            from added in DisposalOps.Within(static () => new Light(), staged =>
-                                               from written in Written(staged, add.Spec, transfer)
+                                               from written in Written(staged, add.Spec, gamma)
                                                from index in IO.lift(() => Conversions.Required(document.Lights.Add(staged, add.Attributes.ValueUnsafe()), nameof(LightTable.Add)))
                                                select Seq(document.Lights[index].Id))
                                            select added,
             modify: static (document, modify) => from row in Find(document, modify.Address, includeDeleted: false)
-                                                 from transfer in Gamma(document)
+                                                 from gamma in PreProcessGamma(document)
                                                  from modified in DisposalOps.Within(row.DuplicateLightGeometry, staged =>
-                                                     from written in Written(staged, modify.Spec, transfer)
+                                                     from written in Written(staged, modify.Spec, gamma)
                                                      from accepted in IO.lift(() => Refused.Unless(document.Lights.Modify(row.Index, staged), nameof(LightTable.Modify)))
                                                      select Seq(row.Id))
                                                  select modified,
@@ -319,14 +311,14 @@ public static class Lights {
                                                              select joined))
                                                      select rows.Map(static row => row.Id).Strict());
 
-    public static IO<Unit> Written(Light staged, LightSpec spec, Transfer transfer) =>
-        from emitted in IO.lift(() => spec.Color.Switch<Transfer, (Color Diffuse, double Gain, Option<string> Kelvin)>(
-            transfer,
+    public static IO<Unit> Written(Light staged, LightSpec spec, Gamma gamma) =>
+        from emitted in IO.lift(() => spec.Color.Switch<Gamma, (Color Diffuse, double Gain, Option<string> Kelvin)>(
+            gamma,
             rgb: static (_, rgb) => (rgb.Diffuse, 1d, None),
-            blackbody: static (curve, blackbody) => Emitted(Adaptation.Blackbody(Gamut.StandardRgb, blackbody.Kelvin), curve) switch {
-                var (diffuse, gain) => (diffuse, gain, Some(((double)blackbody.Kelvin).ToString(CultureInfo.InvariantCulture))),
+            blackbody: static (held, blackbody) => Emitted(Conversions.Blackbody((double)blackbody.Kelvin.Kelvins), held) switch {
+                var (diffuse, gain) => (diffuse, gain, Some(((double)blackbody.Kelvin.Kelvins).ToString(CultureInfo.InvariantCulture))),
             },
-            linear: static (curve, linear) => Emitted(linear.Filter.Unicolour, curve) switch {
+            linear: static (held, linear) => Emitted(linear.Filter.Light, held) switch {
                 var (diffuse, gain) => (diffuse, gain, None),
             }))
         from intensity in IO.lift(LightIntensity.Validated(spec.Intensity * emitted.Gain))

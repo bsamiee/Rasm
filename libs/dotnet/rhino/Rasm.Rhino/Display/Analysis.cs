@@ -1,27 +1,25 @@
 using System.Drawing;
 using System.Runtime.CompilerServices;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI;
+using Rasm.UI;
+using Rasm.UI.Styling;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry.Collections;
 using Rhino.UI;
-using Wacton.Unicolour;
 
 namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record FalseColorScale(Interval Range, RampTable Ramp) {
+public sealed record FalseColorScale(Interval Range, ColorRamp Ramp) {
     public Func<double, Color> Tabulate() =>
         Enumerable.Range(0, byte.MaxValue + 1)
-            .Select(texel => Ramp.Sample(texel / (double)byte.MaxValue) switch {
-                var linear => Conversions.Displayed(new Unicolour(ColourSpace.RgbLinear, linear.X, linear.Y, linear.Z, linear.W)),
-            })
+            .Select(texel => Conversions.ToColor(Ramp.At(Fraction.Create(texel / (float)byte.MaxValue))))
             .ToArray() switch {
                 var table => value => table[(int)Math.Round(double.Clamp(Range.NormalizedParameterAt(value), 0d, 1d) * byte.MaxValue, MidpointRounding.ToEven)],
             };

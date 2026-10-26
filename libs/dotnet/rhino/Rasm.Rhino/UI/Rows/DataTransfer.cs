@@ -8,7 +8,7 @@ using Rasm.Rhino.Persistence.Stores;
 namespace Rasm.Rhino.UI.Rows;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Transfer {
+public static class DataTransfer {
     // --- [CLIPBOARD]
     public static IO<Unit> Copy(ValueSet values) =>
         IO.lift(() => Clipboard.Instance.Text = values.Text()).Map(unit);
@@ -26,11 +26,11 @@ public static class Transfer {
 
     // --- [DRAGS]
     public static IO<Unit> Drag(Control source, Seq<string> files, Option<Image> image) =>
-        from paths in Callbacks.Each(files.Map(static file => IO.lift(() => Exchange.ExistingPath(file))))
+        from paths in Callbacks.Each(files.Map(static file => IO.lift(() => InputPath.Of(file))))
         from dragged in DisposalOps.Within(static () => new DataObject(), data => Dragged(source, paths, image, data))
         select dragged;
 
-    private static IO<Unit> Dragged(Control source, Seq<string> paths, Option<Image> image, DataObject data) =>
+    private static IO<Unit> Dragged(Control source, Seq<InputPath> paths, Option<Image> image, DataObject data) =>
         IO.lift(() => { data.Uris = [.. paths.Map(static path => new Uri(path))]; }).Bind(_ => IO.lift(() => image.Match(
             Some: held => source.DoDragDrop(data, DragEffects.Copy, held, new PointF(held.Width / 2f, held.Height / 2f)),
             None: () => source.DoDragDrop(data, DragEffects.Copy))));

@@ -234,7 +234,7 @@ public static class ViewOps {
     public static IO<Control> Realize(IPlugInViews owner, Seq<Child> children, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
             from stack in Containers.Frame(static () => new RhinoNestedStackLayout(Orientation.Vertical, RhinoLayout.SpacingType.Panel), owned)
-            from parts in Runs(children).TraverseM(run => Part(owner, children, run, scope, owned)).As()
+            from parts in Runs(children).TraverseM(run => Part(owner, run, scope, owned)).As()
             from configured in IO.lift(() => {
                 stack.HorizontalContentAlignment = HorizontalAlignment.Stretch;
                 _ = parts.Iter(part => stack.Items.Add(new StackLayoutItem(part.Body, part.Fill)));
@@ -249,11 +249,10 @@ public static class ViewOps {
                     ? (Lead: child, Run: child.Cons(next.Run)).Cons(rest)
                     : (Lead: child, Run: Seq(child)).Cons(runs)));
 
-    private static IO<(Control Body, bool Fill)> Part(IPlugInViews owner, Seq<Child> children, (Child Lead, Seq<Child> Run) run, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<(Control Body, bool Fill)> Part(IPlugInViews owner, (Child Lead, Seq<Child> Run) run, RowScope scope, Action<IDisposable> retain) =>
         run.Lead.Switch(
-                (Owner: owner, Children: children, run.Run, Scope: scope, Retain: retain),
-                control: static (state, _) => RowGrid.Realize(state.Children.Bind(static child => child.Controls), state.Run.Map(static child => child.AsControl), state.Scope, state.Retain)
-                    .Map(static grid => (Control)grid),
+                (Owner: owner, run.Run, Scope: scope, Retain: retain),
+                control: static (state, _) => RowGrid.Realize(state.Run.Map(static child => child.AsControl), state.Scope, state.Retain).Map(static grid => (Control)grid.View),
                 holder: static (state, holder) => SectionHolder.Hold(state.Owner, holder, state.Scope, state.Retain).Map(static held => (Control)held),
                 container: static (state, container) => Containers.Realize(state.Owner, container, state.Scope, state.Retain))
             .Map(body => (Body: body, Fill: run.Run.Exists(static child => child.Fill)));

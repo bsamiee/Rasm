@@ -31,7 +31,7 @@ public readonly partial struct AllocationSpan : IMinMaxValue<AllocationSpan> {
 public abstract partial record LatticeInput {
     public abstract Gamut Gamut { get; }
     public abstract Option<(LutTable Head, LutTable Decode)> Shaper { get; }
-    public virtual ColorEncoding Encoding => new(Gamut, TransferCurve.Linear, Nits.ReferenceWhite);
+    public virtual ColorEncoding Encoding => new(Gamut, new Transfer.Linear());
 
     public sealed record Encoded(ColorEncoding Signal) : LatticeInput {
         public override Gamut Gamut => Signal.Gamut;
@@ -65,7 +65,7 @@ public sealed record LutBake(LatticeSize Size, LatticeInput Input, ColorEncoding
     public static LutBake Default { get; } = new(
         LatticeSize.Default,
         new LatticeInput.Allocated(Gamut.StandardRgb, AllocationStop.Default, AllocationSpan.Default),
-        new ColorEncoding(Gamut.StandardRgb, TransferCurve.Linear, Nits.ReferenceWhite));
+        new ColorEncoding(Gamut.StandardRgb, new Transfer.Linear()));
 }
 
 file readonly struct LatticeRows(int edge, Seq<Action<Span<Vector4>>> steps, Memory<float> samples) : IAction {
@@ -82,7 +82,7 @@ file readonly struct LatticeRows(int edge, Seq<Action<Span<Vector4>>> steps, Mem
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Bakes {
     public static Fin<LutTable> Bake(LutBake bake, Seq<PixelPass.Color> chain, Gamut working) =>
-        new ColorEncoding(working, TransferCurve.Linear, Nits.ReferenceWhite) switch {
+        new ColorEncoding(working, new Transfer.Linear()) switch {
             var linear => Lattice(bake.Size, [
                 .. bake.Input.Shaper.ToSeq().Map<Action<Span<Vector4>>>(static shaper => shaper.Decode.Apply),
                 .. bake.Input.Encoding.To(linear),
@@ -95,8 +95,8 @@ public static class Bakes {
 
     public static Option<LutTable> Exact(LutBake bake, Seq<PixelPass.Color> chain, Gamut working) =>
         from steps in chain.Traverse(static pass => pass.Table).As()
-        where bake.Input.Encoding.Transfer == TransferCurve.Linear && bake.Output.Transfer == TransferCurve.Linear
-        let linear = new ColorEncoding(working, TransferCurve.Linear, Nits.ReferenceWhite)
+        where bake.Input.Encoding.Transfer is Transfer.Linear && bake.Output.Transfer is Transfer.Linear
+        let linear = new ColorEncoding(working, new Transfer.Linear())
         select (LutTable)new LutTable.Sequence(bake.Input.Encoding.LinearTo(linear) + steps + linear.LinearTo(bake.Output));
 
     public static LutTable Export(ChartFit fit, FitDirection direction) =>

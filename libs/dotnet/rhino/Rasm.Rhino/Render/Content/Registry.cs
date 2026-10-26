@@ -54,8 +54,8 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
     // --- [CALLBACKS]
     public override RenderContent? Read(string pathToFile) =>
         Callbacks.Answer(
-            row.Read.Map(read => OnFile(pathToFile, path => DisposalOps.Within<IDisposable, RenderContent?>(retain =>
-                read(path).Bind(source => Contents.FreeFloating(None, source, retain)).Bind(static created => IO.lift(() =>
+            row.Read.Map(read => OnFile(pathToFile, FileReason.Unreadable, DisposalOps.Within<IDisposable, RenderContent?>(retain =>
+                read(pathToFile).Bind(source => Contents.FreeFloating(None, source, retain)).Bind(static created => IO.lift(() =>
                     RuntimeSerialNumber(created.Content) > 0
                         ? Fin.Succ<RenderContent?>(Adopted(created))
                         : Error.New($"render content {created.Content.Id} has no runtime serial number")).Uninterruptible()), DisposalOps.Release))),
@@ -65,7 +65,7 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
 
     public override bool Write(string pathToFile, RenderContent renderContent, CreatePreviewEventArgs? previewArgs) =>
         Callbacks.Succeeded(
-            row.Write.Map(write => OnFile(pathToFile, path => write(path, renderContent, Optional(previewArgs)))),
+            row.Write.Map(write => OnFile(pathToFile, FileReason.Unwritable, write(pathToFile, renderContent, Optional(previewArgs)))),
             static () => false,
             new CallbackSite(sink, typeof(DefinedContentSerializer), nameof(Write)));
 
@@ -74,7 +74,7 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
     public override bool LoadMultiple(RhinoDoc? doc, IEnumerable<string> fileNames, RenderContentKind contentKind, LoadMultipleFlags flags) =>
         Callbacks.Succeeded(
             from load in row.LoadMultiple
-            select Callbacks.Each(toSeq(fileNames).Map(path => OnFile(path, file => Loaded(load, Optional(doc), contentKind, flags, file)))).Map(unit),
+            select Callbacks.Each(toSeq(fileNames).Map(path => OnFile(path, FileReason.Unreadable, Loaded(load, Optional(doc), contentKind, flags, path)))).Map(unit),
             static () => false,
             new CallbackSite(sink, typeof(DefinedContentSerializer), nameof(LoadMultiple)));
 
@@ -101,6 +101,6 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
         return created.Content;
     }
 
-    private static IO<T> OnFile<T>(string path, Func<string, IO<T>> run) =>
-        IO.pure(path).Bind(run).MapFail(error => new FileRefused(path, "failed", error));
+    private static IO<T> OnFile<T>(string path, FileReason reason, IO<T> run) =>
+        run.MapFail(error => new FileRefused(path, reason, error));
 }

@@ -1,4 +1,4 @@
-using Rasm.Imaging.Pixels;
+using Rasm.UI;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
@@ -67,76 +67,70 @@ public sealed partial class CyclesPreset {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public abstract partial class CyclesKey {
-    internal static readonly NumericDomain<int, int> Counts = new(Fin.Succ, identity, (0, int.MaxValue), new() { Form = NumberForm.Field });
-    internal static readonly NumericDomain<double, double> Amounts = new(Fin.Succ, identity, (0d, double.MaxValue), new() { Form = NumberForm.Field });
+    internal static readonly NumericDomain<int, int> Counts = new(Fin.Succ, identity, (0, int.MaxValue), new() { Track = None });
+    internal static readonly NumericDomain<double, double> Amounts = new(Fin.Succ, identity, (0d, double.MaxValue), new() { Track = None });
 
     public static readonly CyclesKey RenderPreset = new Row<CyclesPreset, int>(
-        ValueKey.Of<CyclesPreset, int>("RenderPreset", "Presets", "Sampling preset, Architecture or Product", CyclesPreset.Architecture));
+        ValueKey.Keyed<CyclesPreset, int>("RenderPreset", new("Presets", "Sampling preset, Architecture or Product"), CyclesPreset.Architecture));
     public static readonly CyclesKey Seed = new Row<int, int>(
-        ValueKey.Numeric("Seed", "Seed", "Random number generator seed", 128, Counts));
+        ValueKey.Numeric("Seed", new("Seed", "Random number generator seed"), 128, Counts));
     public static readonly CyclesKey Samples = new Row<int, int>(
-        ValueKey.Numeric("Samples", "Samples", "Samples per pixel", 1000,
-            new NumericDomain<int, int>(Fin.Succ, identity, (1, int.MaxValue), new() { Form = NumberForm.Field })));
+        ValueKey.Numeric("Samples", new("Samples", "Samples per pixel"), 1000,
+            new NumericDomain<int, int>(Fin.Succ, identity, (1, int.MaxValue), new() { Track = None })));
     public static readonly CyclesKey UseDocumentSamples = new Row<bool, bool>(
-        ValueKey.Raw("UseDocumentSamples", "Override Production Render Quality", "Off applies Samples to viewport alone", @default: false));
+        ValueKey.Toggle("UseDocumentSamples", new("Override Production Render Quality", "Off applies Samples to viewport alone"), @default: false));
     public static readonly CyclesKey MaxBounce = new Row<int, int>(
-        ValueKey.Numeric("MaxBounce", "Maximum", "Bounce limit across every ray type", 32, Counts));
+        ValueKey.Numeric("MaxBounce", new("Maximum", "Bounce limit across every ray type"), 32, Counts));
     public static readonly CyclesKey MaxDiffuseBounce = new Row<int, int>(
-        ValueKey.Numeric("MaxDiffuseBounce", "Diffuse", "Bounce limit for diffuse rays", 4, Counts));
+        ValueKey.Numeric("MaxDiffuseBounce", new("Diffuse", "Bounce limit for diffuse rays"), 4, Counts));
     public static readonly CyclesKey MaxGlossyBounce = new Row<int, int>(
-        ValueKey.Numeric("MaxGlossyBounce", "Glossy", "Bounce limit for glossy rays", 16, Counts));
+        ValueKey.Numeric("MaxGlossyBounce", new("Glossy", "Bounce limit for glossy rays"), 16, Counts));
     public static readonly CyclesKey MaxTransmissionBounce = new Row<int, int>(
-        ValueKey.Numeric("MaxTransmissionBounce", "Transmission", "Bounce limit for transmission rays", 32, Counts));
+        ValueKey.Numeric("MaxTransmissionBounce", new("Transmission", "Bounce limit for transmission rays"), 32, Counts));
     public static readonly CyclesKey MaxVolumeBounce = new Row<int, int>(
-        ValueKey.Numeric("MaxVolumeBounce", "Volume", "Bounce limit for volume rays", 32, Counts));
+        ValueKey.Numeric("MaxVolumeBounce", new("Volume", "Bounce limit for volume rays"), 32, Counts));
     public static readonly CyclesKey TransparentMaxBounce = new Row<int, int>(
-        ValueKey.Numeric("TransparentMaxBounce", "Transparency", "Bounce limit through transparent surfaces", 32, Counts));
+        ValueKey.Numeric("TransparentMaxBounce", new("Transparency", "Bounce limit through transparent surfaces"), 32, Counts));
     public static readonly CyclesKey TextureBakeQuality = new Row<TextureBake, int>(
-        ValueKey.Of<TextureBake, int>("TextureBakeQuality", "Texture Bake Quality", "Texture bake resolution", TextureBake.Low));
+        ValueKey.Keyed<TextureBake, int>("TextureBakeQuality", new("Texture Bake Quality", "Texture bake resolution"), TextureBake.Low));
     public static readonly CyclesKey UseAdaptiveSampling = new Row<bool, bool>(
-        ValueKey.Raw("UseAdaptiveSampling", "Adaptive sampling", "Stops sampling pixels that reach noise threshold", @default: true));
+        ValueKey.Toggle("UseAdaptiveSampling", new("Adaptive sampling", "Stops sampling pixels that reach noise threshold"), @default: true));
     public static readonly CyclesKey AdaptiveThreshold = new Row<double, double>(
-        ValueKey.Numeric("AdaptiveThreshold", "Adaptive threshold", "Noise level a pixel stops sampling at", 0.01d,
-            new NumericDomain<double, double>(Fin.Succ, identity, (double.BitIncrement(0d), 1d), new() { Form = NumberForm.Field })));
+        ValueKey.Numeric("AdaptiveThreshold", new("Adaptive threshold", "Noise level a pixel stops sampling at"), 0.01d,
+            new NumericDomain<double, double>(Fin.Succ, identity, (double.BitIncrement(0d), 1d), new() { Track = None })));
     public static readonly CyclesKey AdaptiveMinSamples = new Row<int, int>(
-        ValueKey.Numeric("AdaptiveMinSamples", "Adaptive minimum samples", "Samples before adaptive stopping, 0 derives them from threshold",
+        ValueKey.Numeric("AdaptiveMinSamples", new("Adaptive minimum samples", "Samples before adaptive stopping, 0 derives them from threshold"),
             CyclesPreset.Architecture.AdaptiveMinSamples, Counts));
     public static readonly CyclesKey AoBounces = new Row<int, int>(
-        ValueKey.Numeric("AoBounces", "AO bounces", "Bounces before ambient occlusion replaces global illumination", 0, Counts));
+        ValueKey.Numeric("AoBounces", new("AO bounces", "Bounces before ambient occlusion replaces global illumination"), 0, Counts));
     public static readonly CyclesKey SampleClampDirect = new Row<double, double>(
-        ValueKey.Numeric("SampleClampDirect", "Direct sample clamp", "Limit on direct light per sample, 0 off", 3d, Amounts));
+        ValueKey.Numeric("SampleClampDirect", new("Direct sample clamp", "Limit on direct light per sample, 0 off"), 3d, Amounts));
     public static readonly CyclesKey SampleClampIndirect = new Row<double, double>(
-        ValueKey.Numeric("SampleClampIndirect", "Indirect sample clamp", "Limit on indirect light per sample, 0 off", CyclesPreset.Architecture.SampleClampIndirect, Amounts));
+        ValueKey.Numeric("SampleClampIndirect", new("Indirect sample clamp", "Limit on indirect light per sample, 0 off"), CyclesPreset.Architecture.SampleClampIndirect, Amounts));
     public static readonly CyclesKey FilterGlossy = new Row<double, double>(
-        ValueKey.Numeric("FilterGlossy", "Filter glossy", "Blur of glossy paths that suppresses caustic fireflies, 0 off", CyclesPreset.Architecture.FilterGlossy, Amounts));
+        ValueKey.Numeric("FilterGlossy", new("Filter glossy", "Blur of glossy paths that suppresses caustic fireflies, 0 off"), CyclesPreset.Architecture.FilterGlossy, Amounts));
     public static readonly CyclesKey CausticsReflective = new Row<bool, bool>(
-        ValueKey.Raw("CausticsReflective", "Reflective caustics", "Light paths reflected onto diffuse surfaces", @default: true));
+        ValueKey.Toggle("CausticsReflective", new("Reflective caustics", "Light paths reflected onto diffuse surfaces"), @default: true));
     public static readonly CyclesKey CausticsRefractive = new Row<bool, bool>(
-        ValueKey.Raw("CausticsRefractive", "Refractive caustics", "Light paths refracted onto diffuse surfaces", @default: true));
+        ValueKey.Toggle("CausticsRefractive", new("Refractive caustics", "Light paths refracted onto diffuse surfaces"), @default: true));
     public static readonly CyclesKey UseDirectLight = new Row<bool, bool>(
-        ValueKey.Raw("UseDirectLight", "Sample all lights", "Direct light from every light at each bounce", @default: true));
+        ValueKey.Toggle("UseDirectLight", new("Sample all lights", "Direct light from every light at each bounce"), @default: true));
     public static readonly CyclesKey UseIndirectLight = new Row<bool, bool>(
-        ValueKey.Raw("UseIndirectLight", "Sample all lights indirect", "Indirect light from every light at each bounce", @default: true));
+        ValueKey.Toggle("UseIndirectLight", new("Sample all lights indirect", "Indirect light from every light at each bounce"), @default: true));
     public static readonly CyclesKey MaxPasses = new Row<bool, bool>(
-        ValueKey.Raw("MaxPasses", "Show max passes", "Shows pass limit in Raytraced heads-up display", @default: true));
+        ValueKey.Toggle("MaxPasses", new("Show max passes", "Shows pass limit in Raytraced heads-up display"), @default: true));
 
     public static string Owner => "rhino-render";
 
-    public abstract TResult Accept<TResult>(IValueKeyVisitor<TResult> visitor);
+    internal abstract (ValueBinding Binding, IO<Unit> Reset) Entry(DictionaryOwner owner);
 
-    internal (ValueBinding Binding, IO<Unit> Reset) Entry(DictionaryOwner owner) => Accept(new Entries(owner));
+    private sealed class Row<TValue, TRaw>(ValueKey<TValue> key) : CyclesKey(key.Key) where TValue : notnull where TRaw : notnull, ISpanParsable<TRaw> {
+        private readonly ValueKey<TValue> key = key;
 
-    private sealed class Entries(DictionaryOwner owner) : IValueKeyVisitor<(ValueBinding Binding, IO<Unit> Reset)> {
-        public (ValueBinding Binding, IO<Unit> Reset) Visit<TValue, TRaw>(ValueKey<TValue, TRaw> key) where TValue : notnull where TRaw : notnull =>
-            ArchivableDictionaries.Store(owner, key, None) switch {
-                var store => (ValueBinding.Key(Owner, key, store), store.Write(None).Map(unit)),
+        internal override (ValueBinding Binding, IO<Unit> Reset) Entry(DictionaryOwner owner) =>
+            ArchivableDictionaries.Store<TValue, TRaw>(owner, key, None) switch {
+                var store => (ValueBinding.Of(Owner, key.Codec, store), store.Write(None).Map(unit)),
             };
-    }
-
-    private sealed class Row<TValue, TRaw>(ValueKey<TValue, TRaw> key) : CyclesKey(key.Name) where TValue : notnull where TRaw : notnull {
-        private readonly ValueKey<TValue, TRaw> key = key;
-
-        public override TResult Accept<TResult>(IValueKeyVisitor<TResult> visitor) => visitor.Visit(key);
     }
 }
 
@@ -151,27 +145,25 @@ public static class CyclesSetting {
             const string threads = "Threads";
             return from node in SettingRoots.TryGetChild(Node)
                    select new BindingGroup(Seq(
-                       Bind(ValueKey.Numeric("ThrottleMs", "Throttle (in ms)", "Pause between Raytraced viewport updates", 100, CyclesKey.Counts), SettingType.Integer, Applied.Live),
-                       Bind(ValueKey.Raw("SelectedDeviceStr", "Device", "Devices Rhino Render runs on, -1 picks first GPU", "-1"), SettingType.String, Applied.Live),
-                       Bind(ValueKey.Raw("IntermediateSelectedDeviceStr", "Device selection", "Device choice the device section writes with Device", "-1"), SettingType.String, Applied.Live),
-                       Bind(ValueKey.Numeric("PixelSize", "Pixel size", "Raytraced pixel size, Sharpness writes 11 minus it", 1,
-                           new NumericDomain<int, int>(Fin.Succ, identity, (1, 10), new() { Form = NumberForm.Field })), SettingType.Integer, Applied.Live),
-                       Bind(ValueKey.Raw("StartGpuKernelCompiler", "Compile GPU kernels", "Starts compiling when Rhino Render loads", @default: true), SettingType.Bool, Applied.IdleSave),
-                       Bind(ValueKey.Raw("UseLightTree", "Light tree", "Samples lights through light tree", @default: true), SettingType.Bool, Applied.Live),
-                       Bind(ValueKey.Numeric("SunLightFactor", "Sun light factor", "Multiplier on sun intensity", 3.2d, CyclesKey.Amounts), SettingType.Double, Applied.Live),
-                       Bind(ValueKey.Numeric("AreaLightFactor", "Area light factor", "Multiplier on rectangular light intensity", 17.2d, CyclesKey.Amounts), SettingType.Double, Applied.Live),
-                       Bind(ValueKey.Numeric("LinearLightFactor", "Linear light factor", "Multiplier on linear light intensity", 10d, CyclesKey.Amounts), SettingType.Double, Applied.Live),
-                       Bind(ValueKey.Numeric("PointLightFactor", "Point light factor", "Multiplier on point light intensity", 40d, CyclesKey.Amounts), SettingType.Double, Applied.Live),
-                       Bind(ValueKey.Numeric("SpotLightFactor", "Spot light factor", "Multiplier on spot light intensity", 40d, CyclesKey.Amounts), SettingType.Double, Applied.Live))
+                       Bind(ValueKey.Numeric("ThrottleMs", new("Throttle (in ms)", "Pause between Raytraced viewport updates"), 100, CyclesKey.Counts), SettingType.Integer, Applied.Live),
+                       Bind(ValueKey.Raw("SelectedDeviceStr", new("Device", "Devices Rhino Render runs on, -1 picks first GPU"), "-1"), SettingType.String, Applied.Live),
+                       Bind(ValueKey.Raw("IntermediateSelectedDeviceStr", new("Device selection", "Device choice the device section writes with Device"), "-1"), SettingType.String, Applied.Live),
+                       Bind(ValueKey.Numeric("PixelSize", new("Pixel size", "Raytraced pixel size, Sharpness writes 11 minus it"), 1,
+                           new NumericDomain<int, int>(Fin.Succ, identity, (1, 10), new() { Track = None })), SettingType.Integer, Applied.Live),
+                       Bind(ValueKey.Toggle("StartGpuKernelCompiler", new("Compile GPU kernels", "Starts compiling when Rhino Render loads"), @default: true), SettingType.Bool, Applied.IdleSave),
+                       Bind(ValueKey.Toggle("UseLightTree", new("Light tree", "Samples lights through light tree"), @default: true), SettingType.Bool, Applied.Live),
+                       Bind(ValueKey.Numeric("SunLightFactor", new("Sun light factor", "Multiplier on sun intensity"), 3.2d, CyclesKey.Amounts), SettingType.Double, Applied.Live),
+                       Bind(ValueKey.Numeric("AreaLightFactor", new("Area light factor", "Multiplier on rectangular light intensity"), 17.2d, CyclesKey.Amounts), SettingType.Double, Applied.Live),
+                       Bind(ValueKey.Numeric("LinearLightFactor", new("Linear light factor", "Multiplier on linear light intensity"), 10d, CyclesKey.Amounts), SettingType.Double, Applied.Live),
+                       Bind(ValueKey.Numeric("PointLightFactor", new("Point light factor", "Multiplier on point light intensity"), 40d, CyclesKey.Amounts), SettingType.Double, Applied.Live),
+                       Bind(ValueKey.Numeric("SpotLightFactor", new("Spot light factor", "Multiplier on spot light intensity"), 40d, CyclesKey.Amounts), SettingType.Double, Applied.Live))
                        + node.Bind(static settings => Callbacks.Found(settings.TryGetDefault(threads, out int factory), factory))
-                           .Map(static factory => Bind(ValueKey.Raw(threads, "CPU Threads", "Threads for CPU render sessions", factory), SettingType.Integer, Applied.Live)).ToSeq());
+                           .Map(static factory => Bind(ValueKey.Raw(threads, new("CPU Threads", "Threads for CPU render sessions"), factory), SettingType.Integer, Applied.Live)).ToSeq());
 
-            static ValueBinding Bind<TValue, TRaw>(ValueKey<TValue, TRaw> key, SettingType<TRaw> kind, Applied applied)
+            static ValueBinding Bind<TValue, TRaw>(ValueKey<TValue> key, SettingType<TRaw> kind, Applied applied)
                 where TValue : notnull
-                where TRaw : notnull {
-                PlugInSetting<TValue, TRaw> row = new(key, kind) { Applied = applied };
-                return ValueBinding.Key("rhino-render-options", row.Value, PlugInSettings.Store(Node, row));
-            }
+                where TRaw : notnull, ISpanParsable<TRaw> =>
+                ValueBinding.Of("rhino-render-options", key.Codec, PlugInSettings.Store(Node, new PlugInSetting<TValue, TRaw>(key, kind) { Applied = applied }));
         }
     }
 }

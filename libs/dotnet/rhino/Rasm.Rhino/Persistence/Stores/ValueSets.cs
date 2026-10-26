@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using Rasm.Imaging.Pixels;
+using Rasm.UI;
 using Rhino.Collections;
 
 namespace Rasm.Rhino.Persistence.Stores;
@@ -43,14 +43,14 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
     public static DictionaryCodec<ValueSet> Codec { get; } = DictionaryCodec.Json<ValueSet>(nameof(ValueSet), 2, new RecordUpgrade<ValueSet>(ArchiveV1));
 
     public static ValueSet Fields<TRecord>(string owner, TRecord record, Seq<IStateParameter<TRecord>> parameters) where TRecord : notnull =>
-        new(toHashMap(parameters.Bind(FieldTexts.Of).Choose(field => field.Capture(record).Map(text => (new EntryKey(owner, field.Path), text)))));
+        new(toHashMap(parameters.Bind(RecordEntries.Of).Choose(entry => entry.Capture(record).Map(text => (new EntryKey(owner, entry.Path), text)))));
 
     public static ValueSet Fields<TRecord>(string owner, TRecord record) where TRecord : IStateRecord<TRecord> => Fields(owner, record, TRecord.Parameters);
 
     public Func<Seq<string>, IO<Option<string>>> Texts(string owner) => path => IO.pure(Entries.Find(new EntryKey(owner, path)));
 
     public IO<TRecord> Recalled<TRecord>(string owner, TRecord factory) where TRecord : IStateRecord<TRecord> =>
-        FieldTexts.Recalled(owner, TRecord.Parameters, Texts(owner), factory);
+        new FieldCodec<TRecord>(TRecord.Parameters, factory).Recalled(owner, Texts(owner));
 
     public string Text() => JsonSerializer.Serialize(this, ValueSetContext.Default.ValueSet);
 
@@ -111,17 +111,15 @@ public sealed record ValueDiff(HashMap<EntryKey, Change<string>> Changes) {
         new(diffs.Fold(HashMap<EntryKey, Change<string>>(), static (earlier, later) => earlier.Union(later.Changes)));
 }
 
-public sealed record NameText(Seq<string> Path, string Caption, Func<string, string> Shown);
-
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record ValueBinding(
-    string Owner, Seq<NameText> Texts, Func<HashMap<Seq<string>, string>> Defaults, IO<HashMap<Seq<string>, string>> Capture, Func<HashMap<Seq<string>, string>, IO<IO<ValueDiff>>> Prepare) {
+    string Owner, Seq<EntryText> Texts, HashMap<Seq<string>, string> Defaults, IO<HashMap<Seq<string>, string>> Capture, Func<HashMap<Seq<string>, string>, IO<IO<ValueDiff>>> Prepare) {
     public Seq<Seq<string>> Paths() => Texts.Map(static text => text.Path);
 
     public ValueBinding Under(Seq<string> prefix) =>
         new(Owner,
             Texts.Map(text => text with { Path = prefix + text.Path }),
-            () => toHashMap(Defaults().AsIterable().Map(entry => (prefix + entry.Key, entry.Value))),
+            toHashMap(Defaults.AsIterable().Map(entry => (prefix + entry.Key, entry.Value))),
             Capture.Map(entries => toHashMap(entries.AsIterable().Map(entry => (prefix + entry.Key, entry.Value)))),
             entries => Prepare(toHashMap(entries.AsIterable()
                 .Filter(entry => entry.Key.Take(prefix.Count).Equals(prefix))
@@ -129,34 +127,13 @@ public sealed record ValueBinding(
                 .Map(write => write.Map(diff => new ValueDiff(toHashMap(diff.Changes.AsIterable().Map(entry =>
                     (new EntryKey(entry.Key.Owner, prefix + entry.Key.Path), entry.Value)))))));
 
-    public static ValueBinding Key<TValue, TRaw>(string owner, ValueKey<TValue, TRaw> key, ValueStore<TValue> store)
-        where TValue : notnull
-        where TRaw : notnull =>
-        Seq(key.Name) switch {
-            var path => new(owner, [new NameText(path, key.Caption, static text => text)],
-                () => HashMap((path, key.Text(key.Default))),
-                store.Read.Map(held => HashMap((path, key.Text(held.IfNone(key.Default))))),
-                entries => entries.Find(path).Match(
-                    Some: text => IO.lift(new EntryKey(owner, path).Read(text, key.Read))
-                        .Map(value => store.Write(Some(value)).Map(change => ValueDiff.Of(change, key.Default,
-                            held => new ValueSet(HashMap((new EntryKey(owner, path), key.Text(held))))))),
-                    None: static () => IO.pure(IO.pure(ValueDiff.Empty)))),
-        };
-
-    public static ValueBinding Fields<TValue>(string owner, ValueStore<TValue> store, TValue @default, Seq<IStateParameter<TValue>> fields)
-        where TValue : notnull =>
-        (from field in fields from text in FieldTexts.Of(field) select (Name: new NameText(text.Path, field.Text.Caption, text.Shown), Text: text)).Strict() switch {
-            var items => fun((TValue value) => toHashMap(items.Choose(item => item.Text.Capture(value).Map(text => (item.Text.Path, text))))) switch {
-                var capture => new(owner, items.Map(static item => item.Name),
-                    () => capture(@default),
-                    store.Read.Map(held => held.IfNone(@default)).Map(capture),
-                    entries =>
-                        from held in store.Read
-                        from next in FieldTexts.Recalled(owner, fields, path => IO.pure(entries.Find(path)), held.IfNone(@default))
-                        select store.Write(Some(next)).Map(change => ValueDiff.Of(change, @default,
-                            value => new ValueSet(toHashMap(capture(value).AsIterable().Map(entry => (new EntryKey(owner, entry.Key), entry.Value))))))),
-            },
-        };
+    public static ValueBinding Of<TValue>(string owner, FieldCodec<TValue> codec, ValueStore<TValue> store) where TValue : notnull =>
+        new(owner, codec.Texts, codec.Capture(codec.Default),
+            store.Read.Map(held => codec.Capture(held.IfNone(codec.Default))),
+            entries =>
+                from held in store.Read
+                from next in (codec with { Default = held.IfNone(codec.Default) }).Recalled(owner, path => IO.pure(entries.Find(path)))
+                select store.Write(Some(next)).Map(change => ValueDiff.Of(change, codec.Default, value => ValueSet.Fields(owner, value, codec.Parameters))));
 }
 
 public sealed record BindingGroup(Seq<ValueBinding> Bindings) {
@@ -167,14 +144,14 @@ public sealed record BindingGroup(Seq<ValueBinding> Bindings) {
 
     public ValueSet Defaults =>
         new(toHashMap(from binding in Bindings
-                      from entry in binding.Defaults().AsIterable()
+                      from entry in binding.Defaults.AsIterable()
                       select (new EntryKey(binding.Owner, entry.Key), entry.Value)));
 
     public IO<ValueSet> Capture =>
         Callbacks.Each(Bindings.Map(static binding => binding.Capture.Map(entries => toSeq(entries.AsIterable()).Map(entry => (new EntryKey(binding.Owner, entry.Key), entry.Value)))))
             .Map(static parts => new ValueSet(toHashMap(parts.Flatten())));
 
-    public Option<NameText> Text(EntryKey key) =>
+    public Option<EntryText> Text(EntryKey key) =>
         Bindings.Filter(binding => string.Equals(binding.Owner, key.Owner, StringComparison.Ordinal)).Bind(static binding => binding.Texts).Find(text => text.Path.Equals(key.Path));
 
     public IO<ValueDiff> Apply(ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>

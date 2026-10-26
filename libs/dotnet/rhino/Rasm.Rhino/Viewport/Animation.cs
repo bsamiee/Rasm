@@ -50,23 +50,12 @@ public abstract partial record AnimationKind {
     public sealed record Sun(GeoCoordinate Place, NorthAngle North, SunWindow Window) : AnimationKind;
 }
 
-public sealed record AnimationOutput {
-    private AnimationOutput(string folder, FileExtension extension, NamePart name) => (Folder, Extension, Name) = (folder, extension, name);
-
-    public string Folder { get; }
-
-    public FileExtension Extension { get; }
-
-    public NamePart Name { get; }
-
-    public static Fin<AnimationOutput> Create(string folder, FileExtension extension, NamePart name) =>
-        Exchange.QualifiedPath(folder).Map(qualified => new AnimationOutput(qualified, extension, name));
-
+public sealed record AnimationOutput(FolderPath Folder, FileExtension Extension, NamePart Name) {
     internal static Fin<AnimationOutput> From(string folder, string extension, string name) =>
-        (Exchange.QualifiedPath(folder),
+        (FolderPath.Of(folder),
          FileExtension.Validated($"{FileExtension.Mark}{extension}"),
          NamePart.Validated(name))
-            .Apply(static (qualified, dotted, part) => new AnimationOutput(qualified, dotted, part))
+            .Apply(static (existing, dotted, part) => new AnimationOutput(existing, dotted, part))
             .As();
 }
 
@@ -165,7 +154,7 @@ public static partial class Animations {
     private static partial void Update(AnimationQuality quality, AnimationProperties properties);
 
     [UserMapping(Default = false)]
-    private static string Folder(Option<AnimationOutput> output) => Conversions.Unset(output.Map(static held => held.Folder));
+    private static string Folder(Option<AnimationOutput> output) => Conversions.Unset(output.Map(static held => (string)held.Folder));
 
     [UserMapping(Default = false)]
     private static string Undotted(FileExtension extension) => ((string)extension).TrimStart(FileExtension.Mark);

@@ -1,7 +1,6 @@
 using System.Drawing;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rhino;
@@ -244,11 +243,12 @@ public static class Appearance {
         from saved in Applied.IdleSave.Drain.Traverse(static drain => drain).As()
         select unit;
 
-    public static ValueStore<Swatch> Widget(WidgetColor slot) =>
+    public static ValueStore<Color> Widget(WidgetColor slot) =>
         Live(
-            IO.lift(() => Conversions.Rgb(AppearanceSettings.GetWidgetColor(slot))),
-            IO.lift(() => Conversions.Rgb(AppearanceSettings.DefaultWidgetColor(slot))),
-            color => IO.lift(() => AppearanceSettings.SetWidgetColor(slot, Conversions.Opaque(color), forceUiUpdate: true)));
+            IO.lift(() => AppearanceSettings.GetWidgetColor(slot)),
+            IO.lift(() => AppearanceSettings.DefaultWidgetColor(slot)),
+            color => IO.lift(() => AppearanceSettings.SetWidgetColor(slot, color, forceUiUpdate: true)),
+            Some(Conversions.Same));
 
     // --- [THEME]
     public static IO<Seq<string>> ThemeKeys() =>

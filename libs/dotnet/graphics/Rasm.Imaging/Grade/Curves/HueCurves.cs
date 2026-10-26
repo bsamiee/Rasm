@@ -1,15 +1,10 @@
 using System.Numerics;
-using Rasm.Imaging.Pixels;
 
 namespace Rasm.Imaging.Grade.Curves;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IHueCurveKind {
     public static abstract HueCurveKind Kind { get; }
-}
-
-public interface IHueCurveVisitor<out TResult> {
-    public TResult Curve<TKind>(Lens<HueCurves, HueCurve<TKind>> lens) where TKind : IHueCurveKind;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -57,7 +52,7 @@ public sealed partial class HueCurve<TKind> : IConvertible<string> where TKind :
         item = null;
         return value is null ? null
             : CurvePoint.Parse(value).Case is Seq<CurvePoint> points ? Validate(points, out item)
-            : new ValidationError($"hue curve '{value}' did not parse as curve points");
+            : new ValidationError($"{typeof(TKind).Name} curve '{value}' did not parse as curve points");
     }
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<CurvePoint> points) =>
@@ -67,14 +62,13 @@ public sealed partial class HueCurve<TKind> : IConvertible<string> where TKind :
             })
             && points.Zip(points.Tail).ForAll(static pair => pair.First.X < pair.Second.X)
                 ? null
-                : new ValidationError($"{TKind.Kind} curve needs 2 or more points inside axes, inputs ascending");
+                : new ValidationError($"{typeof(TKind).Name} curve needs 2 or more points inside axes, inputs ascending");
 }
 
 public sealed record HueCurves(
     HueCurve<HueHueKind> HueHue, HueCurve<HueSatKind> HueSat, HueCurve<HueLumKind> HueLum, HueCurve<LumSatKind> LumSat,
-    HueCurve<SatSatKind> SatSat, HueCurve<LumLumKind> LumLum, HueCurve<SatLumKind> SatLum)
-    : IStateRecord<HueCurves, HueCurveKind>, IPixelStage<HueCurves> {
-    public static HueCurves Default { get; } = new(
+    HueCurve<SatSatKind> SatSat, HueCurve<LumLumKind> LumLum, HueCurve<SatLumKind> SatLum) {
+    public static HueCurves Identity { get; } = new(
         Neutral<HueHueKind>(), Neutral<HueSatKind>(), Neutral<HueLumKind>(), Neutral<LumSatKind>(),
         Neutral<SatSatKind>(), Neutral<LumLumKind>(), Neutral<SatLumKind>());
 
@@ -85,20 +79,19 @@ public sealed record HueCurves(
             ? Saturation(SatSat.Fit(), HueSat.Fit(), LumSat.Fit(), hsy.Saturation, InputAxis.Hue.Read(hsy), InputAxis.Stops.Read(hsy))
             : kind.Input.Read(hsy);
 
-    public static Option<PixelPass> Pass(HueCurves state, PassContext context) =>
-        from changed in Some(state)
-        where changed != Default
-        let fits = (HueHue: changed.HueHue.Fit(), HueSat: changed.HueSat.Fit(), HueLum: changed.HueLum.Fit(), LumSat: changed.LumSat.Fit(),
-            SatSat: changed.SatSat.Fit(), LumLum: changed.LumLum.Fit(), SatLum: changed.SatLum.Fit())
-        select (PixelPass)new PixelPass.Color(row => {
+    public Action<Span<Vector4>> Graded() {
+        (Func<double, double> hueHue, Func<double, double> hueSat, Func<double, double> hueLum, Func<double, double> lumSat, Func<double, double> satSat, Func<double, double> lumLum, Func<double, double> satLum) =
+            (HueHue.Fit(), HueSat.Fit(), HueLum.Fit(), LumSat.Fit(), SatSat.Fit(), LumLum.Fit(), SatLum.Fit());
+        return row => {
             foreach (ref Vector4 pixel in row) {
                 Hsy hsy = Hsy.From(pixel);
                 (double hue, double luma) = (InputAxis.Hue.Read(hsy), InputAxis.Stops.Read(hsy));
-                double saturation = Saturation(fits.SatSat, fits.HueSat, fits.LumSat, hsy.Saturation, hue, luma);
-                double gain = (1d - ((1d - Floored(fits.HueLum(hue))) * double.Min(saturation, 1d))) * Floored(fits.SatLum(saturation));
-                pixel = new Hsy(fits.HueHue(hue), saturation, CurveAxis.FromStops(fits.LumLum(luma)) * gain).ToRgb(pixel.W);
+                double saturation = Saturation(satSat, hueSat, lumSat, hsy.Saturation, hue, luma);
+                double gain = (1d - ((1d - Floored(hueLum(hue))) * double.Min(saturation, 1d))) * Floored(satLum(saturation));
+                pixel = new Hsy(hueHue(hue), saturation, CurveAxis.FromStops(lumLum(luma)) * gain).ToRgb(pixel.W);
             }
-        });
+        };
+    }
 
     private static double Saturation(Func<double, double> satSat, Func<double, double> hueSat, Func<double, double> lumSat, double saturation, double hue, double luma) =>
         Floored(satSat(saturation)) * Floored(hueSat(hue)) * Floored(lumSat(luma));
@@ -106,71 +99,24 @@ public sealed record HueCurves(
     private static double Floored(double gain) => double.Max(gain, 0d);
 }
 
-public abstract class HueCurveLens {
-    private HueCurveLens() { }
-
-    public abstract StateParameter<HueCurves> Kind { get; }
-
-    public abstract TResult Accept<TResult>(IHueCurveVisitor<TResult> visitor);
-
-    public sealed class Of<TKind>(Lens<HueCurves, HueCurve<TKind>> lens) : HueCurveLens where TKind : IHueCurveKind {
-        private readonly Lens<HueCurves, HueCurve<TKind>> curve = lens;
-
-        public override StateParameter<HueCurves> Kind { get; } = new StateParameter<HueCurves>.Keyed<HueCurve<TKind>, string>(lens);
-
-        public override TResult Accept<TResult>(IHueCurveVisitor<TResult> visitor) => visitor.Curve(curve);
-    }
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class HueCurveKind : IStateParameter<HueCurves> {
-    public static readonly HueCurveKind HueHue = new(
-        "hue-hue", InputAxis.Hue, CurveAxis.Hue, SplineShape.HueHue, Sixths(static hue => hue),
-        new HueCurveLens.Of<HueHueKind>(
-            Lens<HueCurves, HueCurve<HueHueKind>>.New(static curves => curves.HueHue, static curve => curves => curves with { HueHue = curve })),
-        new("Hue vs hue", "Hue each input hue maps to"));
-    public static readonly HueCurveKind HueSat = new(
-        "hue-sat", InputAxis.Hue, CurveAxis.Gain, SplineShape.Periodic, Sixths(static _ => 1d),
-        new HueCurveLens.Of<HueSatKind>(
-            Lens<HueCurves, HueCurve<HueSatKind>>.New(static curves => curves.HueSat, static curve => curves => curves with { HueSat = curve })),
-        new("Hue vs saturation", "Saturation gain by input hue"));
-    public static readonly HueCurveKind HueLum = new(
-        "hue-lum", InputAxis.Hue, CurveAxis.Gain, SplineShape.Periodic, Sixths(static _ => 1d),
-        new HueCurveLens.Of<HueLumKind>(
-            Lens<HueCurves, HueCurve<HueLumKind>>.New(static curves => curves.HueLum, static curve => curves => curves with { HueLum = curve })),
-        new("Hue vs luma", "Luma gain by input hue"));
+[SmartEnum]
+public sealed partial class HueCurveKind {
+    public static readonly HueCurveKind HueHue = new(InputAxis.Hue, CurveAxis.Hue, SplineShape.HueHue, Sixths(static hue => hue));
+    public static readonly HueCurveKind HueSat = new(InputAxis.Hue, CurveAxis.Gain, SplineShape.Periodic, Sixths(static _ => 1d));
+    public static readonly HueCurveKind HueLum = new(InputAxis.Hue, CurveAxis.Gain, SplineShape.Periodic, Sixths(static _ => 1d));
     public static readonly HueCurveKind LumSat = new(
-        "lum-sat", InputAxis.Stops, CurveAxis.Gain, SplineShape.Horizontal,
-        Seq(new CurvePoint(CurveAxis.Stops.Span.Low, 1d), new CurvePoint(0d, 1d), new CurvePoint(CurveAxis.Stops.Span.High, 1d)),
-        new HueCurveLens.Of<LumSatKind>(
-            Lens<HueCurves, HueCurve<LumSatKind>>.New(static curves => curves.LumSat, static curve => curves => curves with { LumSat = curve })),
-        new("Luma vs saturation", "Saturation gain by luma in stops"));
+        InputAxis.Stops, CurveAxis.Gain, SplineShape.Horizontal,
+        Seq(new CurvePoint(CurveAxis.Stops.Span.Low, 1d), new CurvePoint(0d, 1d), new CurvePoint(CurveAxis.Stops.Span.High, 1d)));
     public static readonly HueCurveKind SatSat = new(
-        "sat-sat", InputAxis.Saturation, CurveAxis.Saturation, SplineShape.Diagonal, Seq(new CurvePoint(0d, 0d), new CurvePoint(0.5d, 0.5d), new CurvePoint(1d, 1d)),
-        new HueCurveLens.Of<SatSatKind>(
-            Lens<HueCurves, HueCurve<SatSatKind>>.New(static curves => curves.SatSat, static curve => curves => curves with { SatSat = curve })),
-        new("Saturation vs saturation", "Saturation each input saturation maps to"));
-    public static readonly HueCurveKind LumLum = new(
-        "lum-lum", InputAxis.Stops, CurveAxis.Stops, SplineShape.Diagonal, PointCurve.Identity.Points,
-        new HueCurveLens.Of<LumLumKind>(
-            Lens<HueCurves, HueCurve<LumLumKind>>.New(static curves => curves.LumLum, static curve => curves => curves with { LumLum = curve })),
-        new("Luma vs luma", "Luma in stops each input luma maps to"));
+        InputAxis.Saturation, CurveAxis.Saturation, SplineShape.Diagonal, Seq(new CurvePoint(0d, 0d), new CurvePoint(0.5d, 0.5d), new CurvePoint(1d, 1d)));
+    public static readonly HueCurveKind LumLum = new(InputAxis.Stops, CurveAxis.Stops, SplineShape.Diagonal, PointCurve.Identity.Points);
     public static readonly HueCurveKind SatLum = new(
-        "sat-lum", InputAxis.Saturation, CurveAxis.Gain, SplineShape.Horizontal, Seq(new CurvePoint(0d, 1d), new CurvePoint(0.5d, 1d), new CurvePoint(1d, 1d)),
-        new HueCurveLens.Of<SatLumKind>(
-            Lens<HueCurves, HueCurve<SatLumKind>>.New(static curves => curves.SatLum, static curve => curves => curves with { SatLum = curve })),
-        new("Saturation vs luma", "Luma gain by saturation"));
+        InputAxis.Saturation, CurveAxis.Gain, SplineShape.Horizontal, Seq(new CurvePoint(0d, 1d), new CurvePoint(0.5d, 1d), new CurvePoint(1d, 1d)));
 
     public InputAxis Input { get; }
     public CurveAxis Output { get; }
     internal SplineShape Shape { get; }
-    internal Seq<CurvePoint> Neutral { get; }
-    public HueCurveLens Curve { get; }
-
-    public StateParameter<HueCurves> Kind => Curve.Kind;
-    public ParameterText Text { get; }
+    public Seq<CurvePoint> Neutral { get; }
 
     private static Seq<CurvePoint> Sixths(Func<double, double> output) =>
         toSeq(Range(0, 6)).Map(static k => k / 6d * CurveAxis.Hue.Unit).Map(hue => new CurvePoint(hue, output(hue))).Strict();

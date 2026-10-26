@@ -27,12 +27,14 @@ public sealed record CssChannel(string Keyword, double Scale, Option<double> Per
 
     internal Option<double> Read(string token) =>
         string.Equals(token, Missing, StringComparison.Ordinal) ? Some(0d)
-        : token.EndsWith('%') ? from reference in Percent from value in Ink.Number(token[..^1]) select value * reference / 100d
-        : Percent.IsSome ? Ink.Number(token)
-        : Degrees(token) | Ink.Number(token);
+        : token.EndsWith('%') ? from reference in Percent from value in Invariant.Number<double>(token.AsSpan()[..^1]) select value * reference / 100d
+        : Percent.IsSome ? Invariant.Number<double>(token)
+        : Degrees(token) | Invariant.Number<double>(token);
 
     internal static Option<double> Degrees(string token) =>
-        Angles.Find(angle => token.EndsWith(angle.Unit, StringComparison.Ordinal)).Bind(angle => Ink.Number(token[..^angle.Unit.Length]).Map(value => value * angle.Degrees));
+        from angle in Angles.Find(held => token.EndsWith(held.Unit, StringComparison.Ordinal))
+        from value in Invariant.Number<double>(token.AsSpan()[..^angle.Unit.Length])
+        select value * angle.Degrees;
 }
 
 [SmartEnum<string>]
@@ -149,9 +151,6 @@ public abstract partial record Ink {
                 $"{string.Join(' ', relative.Space.Channels.Zip(relative.Channels).Map(static held => held.Second.Written(held.First)))}{relative.Alpha.Map(static alpha => $" / {alpha.Written(CssChannel.Alpha)}").IfNone("")}"));
 
     // --- [WIRE]
-    internal static Option<double> Number(string text) =>
-        (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) ? Some(value) : None).Filter(double.IsFinite);
-
     internal static string Written(double value) => value.ToString("R", CultureInfo.InvariantCulture);
 
     internal static string Written(float value) => value.ToString("R", CultureInfo.InvariantCulture);
@@ -279,7 +278,7 @@ public abstract partial record Ink {
             [var ink] => Read(ink).Map(static held => (Ink: held, Percent: Option<double>.None)),
             [var ink, var percent] =>
                 from held in Read(ink)
-                from share in percent.EndsWith('%') ? Number(percent[..^1]) : None
+                from share in percent.EndsWith('%') ? Invariant.Number<double>(percent.AsSpan()[..^1]) : None
                 where share is >= 0d and <= 100d
                 select (Ink: held, Percent: Some(share)),
             _ => None,
@@ -307,7 +306,7 @@ public abstract partial record Ink {
     private static Option<(string Reference, Fraction Alpha)> Faded(string value) =>
         value.Split('/') switch {
             [var reference] => Some((Reference: reference, Alpha: Fraction.MaxValue)),
-            [var reference, var alpha] => from scale in Number(alpha) from held in Fraction.Validated((float)scale).ToOption() select (Reference: reference, Alpha: held),
+            [var reference, var alpha] => from scale in Invariant.Number<double>(alpha) from held in Fraction.Validated((float)scale).ToOption() select (Reference: reference, Alpha: held),
             _ => None,
         };
 
@@ -324,7 +323,10 @@ public abstract partial record Ink {
         }
         select host with { Condition = held.Condition };
 
-    public sealed record Fixed(SKColorF Color) : Ink;
+    public sealed record Fixed(SKColorF Color) : Ink {
+        public static Fin<SKColorF> Parsed(string text) =>
+            Read(text.Trim()).Bind(static ink => ink is Fixed held ? Some(held.Color) : None).ToFin(Errors.ParseError($"'{text}' is no theme-free colour literal"));
+    }
 
     public sealed record Host(Option<Role> Role, Channel Channel, Fraction Alpha) : Ink {
         public Option<Condition> Condition { get; init; }
@@ -437,11 +439,11 @@ public sealed partial class FilterFunction {
     [UseDelegateFromConstructor]
     internal partial SKImageFilter Built(float amount, SKImageFilter? input);
 
-    private static Option<double> Length(string token) => token.EndsWith("px", StringComparison.Ordinal) ? Ink.Number(token[..^2]) : Ink.Number(token).Filter(static held => held is 0d);
+    private static Option<double> Length(string token) => token.EndsWith("px", StringComparison.Ordinal) ? Invariant.Number<double>(token.AsSpan()[..^2]) : Invariant.Number<double>(token).Filter(static held => held is 0d);
 
-    private static Option<double> Proportion(string token) => token.EndsWith('%') ? Ink.Number(token[..^1]).Map(static held => held / 100d) : Ink.Number(token);
+    private static Option<double> Proportion(string token) => token.EndsWith('%') ? Invariant.Number<double>(token.AsSpan()[..^1]).Map(static held => held / 100d) : Invariant.Number<double>(token);
 
-    private static Option<double> Angle(string token) => CssChannel.Degrees(token) | Ink.Number(token).Filter(static held => held is 0d);
+    private static Option<double> Angle(string token) => CssChannel.Degrees(token) | Invariant.Number<double>(token).Filter(static held => held is 0d);
 
     private static bool NonNegative(float amount) => amount >= 0f && float.IsFinite(amount);
 
@@ -502,7 +504,7 @@ public sealed partial class Filter {
             None: () => Some(filter.Function.Built(filter.Amount, input: null))));
 }
 
-public sealed record Stop(Ink Ink, float At);
+public sealed record Stop<TColor>(TColor Color, Fraction At);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
@@ -514,7 +516,7 @@ public sealed record Stop(Ink Ink, float At);
 public abstract partial record Material {
     public sealed record Solid(Ink Ink) : Material;
 
-    public sealed record Gradient(Seq<Stop> Stops, float Angle) : Material;
+    public sealed record Gradient(Seq<Stop<Ink>> Stops, float Angle) : Material;
 
     public sealed record Drawn(SKRuntimeEffect Effect, HashMap<string, Ink> Inks) : Material {
         internal const string Size = "size";
@@ -551,16 +553,30 @@ public abstract partial record Shadow {
 
     internal abstract void Cast(SKCanvas canvas, Func<float, SKPath> outline, SKColorF color);
 
+    internal abstract SKImageFilter Filtered(SKColorF color, float scale);
+
     private protected T Masked<T>(SKColorF color, Func<SKPaint, T> use) {
         using SKMaskFilter? blur = Blur > 0f ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, Blur) : null;
         using SKPaint paint = new() { IsAntialias = true, ColorF = color, MaskFilter = blur };
         return use(paint);
     }
 
+    private protected static SKImageFilter? Morphed(float by) =>
+        by switch {
+            > 0f => SKImageFilter.CreateDilate(by, by),
+            < 0f => SKImageFilter.CreateErode(-by, -by),
+            _ => null,
+        };
+
     public sealed record Drop : Shadow {
         internal override SKClipOperation Clip => SKClipOperation.Difference;
 
         internal override float Overhang => Masked(SKColorF.Empty, paint => FastBounds.Beyond(paint, Spread, new SKPoint(X, Y)));
+
+        internal override SKImageFilter Filtered(SKColorF color, float scale) {
+            using SKImageFilter? grown = Morphed(Spread * scale);
+            return SKImageFilter.CreateDropShadowOnly(X * scale, Y * scale, Blur * scale, Blur * scale, (SKColor)color, grown);
+        }
 
         internal override void Cast(SKCanvas canvas, Func<float, SKPath> outline, SKColorF color) =>
             _ = Masked(color, paint => {
@@ -575,6 +591,20 @@ public abstract partial record Shadow {
         internal override SKClipOperation Clip => SKClipOperation.Intersect;
 
         internal override float Overhang => 0f;
+
+        internal override SKImageFilter Filtered(SKColorF color, float scale) {
+            using SKImageFilter? kept = Morphed(-Spread * scale);
+            using SKColorFilter hollow = SKColorFilter.CreateColorMatrix([
+                0f, 0f, 0f, 0f, color.Red,
+                0f, 0f, 0f, 0f, color.Green,
+                0f, 0f, 0f, 0f, color.Blue,
+                0f, 0f, 0f, -color.Alpha, color.Alpha,
+            ]);
+            using SKImageFilter outside = SKImageFilter.CreateColorFilter(hollow, kept);
+            using SKImageFilter moved = SKImageFilter.CreateOffset(X * scale, Y * scale, outside);
+            using SKImageFilter blurred = SKImageFilter.CreateBlur(Blur * scale, Blur * scale, moved);
+            return SKImageFilter.CreateBlendMode(SKBlendMode.SrcIn, background: null, foreground: blurred);
+        }
 
         internal override void Cast(SKCanvas canvas, Func<float, SKPath> outline, SKColorF color) =>
             _ = Masked(color, paint => {

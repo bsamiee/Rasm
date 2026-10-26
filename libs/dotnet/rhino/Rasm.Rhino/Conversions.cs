@@ -1,14 +1,16 @@
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Globalization;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
+using Rasm.UI;
+using Rasm.UI.Styling;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
-using Rhino.DocObjects;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
+using SkiaSharp;
 using Wacton.Unicolour;
 
 [assembly: UseStaticMapper(typeof(Rasm.Rhino.Conversions))]
@@ -202,43 +204,70 @@ public static class Conversions {
     // --- [VALUES]
     public static bool Same(Color held, Color wanted) => held.ToArgb() == wanted.ToArgb();
 
-    public static Swatch Rgb(Color color) => (Swatch)Color.FromArgb(byte.MinValue, color).ToArgb();
-
-    public static string Hex(Swatch swatch) => $"#{(int)swatch:X6}";
-
     [UserMapping]
-    public static Color Opaque(Swatch swatch) => Color.FromArgb(byte.MaxValue, Color.FromArgb(swatch));
+    public static double Degrees(NorthAngle north) => north;
 
-    public static Color Displayed(Unicolour colour) =>
-        colour.MapToRgbGamut() switch {
+    // --- [COLORS]
+    public static Lens<Color, SKColorF> Rgb { get; } = Lens<Color, SKColorF>.New(ToSKColorF, static color => _ => ToColor(color));
+
+    public static SKColorF ToSKColorF(Color color) =>
+        new(color.R / (float)byte.MaxValue, color.G / (float)byte.MaxValue, color.B / (float)byte.MaxValue, color.A / (float)byte.MaxValue);
+
+    public static SKColorF ToSKColorF(Color4f color) => new(color.R, color.G, color.B, color.A);
+
+    public static SKColorF ToSKColorF(Eto.Drawing.Color color) => new(color.R, color.G, color.B, color.A);
+
+    public static Color ToColor(SKColorF color) =>
+        new Unicolour(ColourSpace.Rgb, color.Red, color.Green, color.Blue, color.Alpha).MapToRgbGamut() switch {
             var mapped => mapped.Rgb.Byte255 switch {
                 var rgb => Color.FromArgb(mapped.Alpha.A255, rgb.R, rgb.G, rgb.B),
             },
         };
 
-    public static Unicolour Unicolour(Color color) => new(ColourSpace.Rgb255, color.R, color.G, color.B, color.A / (double)byte.MaxValue);
+    public static Color4f ToColor4f(SKColorF color) => new(color.Red, color.Green, color.Blue, color.Alpha);
 
-    [UserMapping]
-    public static double Degrees(NorthAngle north) => north;
+    public static (Color4f Light, double Luminance) Peaked(double red, double green, double blue) =>
+        Peaked(new Unicolour(Configuration.Default, ColourSpace.RgbLinear, red, green, blue));
 
-    // --- [MATERIALS]
-    private static readonly Seq<TextureType> Slotted = [TextureType.Bitmap, TextureType.Emap, TextureType.Transparency];
+    public static (Color4f Light, double Luminance) Blackbody(double kelvins) =>
+        Peaked(new Unicolour(Configuration.Default, kelvins, Locus.Blackbody));
 
-    public static Fin<Unit> CopyFrom(DisplayAttributeMaterial slot, Material material) =>
-        Rows(material.GetTextures()) switch {
-            var textures => Callbacks.Each(
-                textures.Filter(static texture => !Slotted.Exists(type => type == texture.TextureType)),
-                static (texture, _) => (Fin<Unit>)new Refused($"{nameof(TextureType)} {texture.TextureType}", Refused.Declined))
-                .Bind(_ => Copied(slot, material, textures)),
+    private static (Color4f Light, double Luminance) Peaked(Unicolour light) =>
+        Scaled(Scaled(light).MapToRgbGamut()) switch {
+            var peaked => (new Color4f((float)peaked.RgbLinear.R, (float)peaked.RgbLinear.G, (float)peaked.RgbLinear.B, 1f), peaked.Xyz.Y),
         };
 
-    private static Fin<Unit> Copied(DisplayAttributeMaterial slot, Material material, Seq<Texture> textures) {
-        MaterialMapper.Update(material, slot);
-        return Callbacks.Each(Slotted, (type, _) => textures.Find(texture => texture.TextureType == type).Match(
-            Some: texture => Refused.Unless(slot.SetTexture(texture, type), nameof(DisplayAttributeMaterial.SetTexture)),
-            None: () => Optional(slot.GetTexture(type)).Match(
-                Some: _ => Refused.Unless(slot.RemoveTexture(type), nameof(DisplayAttributeMaterial.RemoveTexture)),
-                None: static () => unit))).Map(static _ => unit);
+    private static Unicolour Scaled(Unicolour light) =>
+        light.RgbLinear switch {
+            var rgb => double.Max(double.Abs(rgb.R), double.Max(double.Abs(rgb.G), double.Abs(rgb.B))) switch {
+                var peak => new Unicolour(light.Configuration, ColourSpace.RgbLinear, rgb.R / peak, rgb.G / peak, rgb.B / peak),
+            },
+        };
+
+    // --- [IMAGES]
+    public static IO<SKImage> ToSKImage(Bitmap bitmap) =>
+        DisposalOps.Within(
+            () => bitmap.LockBits(new Rectangle(System.Drawing.Point.Empty, bitmap.Size), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb),
+            data => IO.lift(() => Refused.UnlessFound(
+                SKImage.FromPixelCopy(new SKImageInfo(data.Width, data.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul, SKColorSpace.CreateSrgb()), data.Scan0, data.Stride),
+                nameof(SKImage.FromPixelCopy))),
+            data => IO.lift(() => bitmap.UnlockBits(data)));
+
+    public static Fin<ColorRamp> ToColorRamp(ColorGradient gradient) =>
+        toSeq(gradient.GetColorStops())
+            .Traverse(static stop => Fraction.Validated((float)stop.Position).Map(at => new Stop<SKColorF>(ToSKColorF(stop.Color), at)))
+            .As()
+            .Bind(static stops => stops.IsEmpty
+                ? new Refused(nameof(ColorGradient.GetColorStops), Refused.Absent)
+                : Fin.Succ<ColorRamp>(new ColorRamp.Smooth(stops) { Space = CssSpace.Srgb }));
+
+    public static ColorGradient ToColorGradient(ColorGradient held, ColorRamp ramp) {
+        ColorGradient written = held.Duplicate();
+        written.SetColorStops(ramp.Material.Stops.Map(static stop => stop.Color switch {
+            Ink.Fixed color => new ColorStop(ToColor(color.Color), (float)stop.At),
+            _ => throw new UnreachableException(),
+        }));
+        return written;
     }
 }
 
@@ -263,18 +292,4 @@ internal static class Patches {
 
     [UserMapping(Default = true)]
     public static Plane Patched(Option<Plane> value, [MappingTargetOriginalValue] Plane original) => value.IfNone(original);
-}
-
-[Mapper]
-internal static partial class MaterialMapper {
-    // --- [UPDATES]
-    [MapProperty(nameof(Material.DiffuseColor), nameof(DisplayAttributeMaterial.Diffuse))]
-    [MapProperty(nameof(Material.EmissionColor), nameof(DisplayAttributeMaterial.Emission))]
-    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.FlatShaded), Justification = "Mode shading setting a material lacks")]
-    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.OverrideObjectColor), Justification = "Mode override a material lacks")]
-    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.OverrideObjectTransparency), Justification = "Mode override a material lacks")]
-    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.OverrideObjectReflectivity), Justification = "Mode override a material lacks")]
-    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.Luminosity), Justification = "Mode lighting setting a material lacks")]
-    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.ShineIntensity), Justification = "Mode lighting setting a material lacks")]
-    internal static partial void Update(Material material, DisplayAttributeMaterial slot);
 }

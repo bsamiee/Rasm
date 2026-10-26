@@ -33,34 +33,34 @@ public abstract record SplitAnchor {
 
     public abstract string Name { get; }
 
-    public static SplitAnchor Shared(ValueKey<SplitShare, double> key) => new SplitAnchor<SplitShare>(key, SplitterFixedPanel.None);
+    public static SplitAnchor Shared(ValueKey<SplitShare> key) => new SplitAnchor<SplitShare>(key, SplitterFixedPanel.None);
 
-    public static SplitAnchor Pinned(ValueKey<PaneExtent, double> key, SplitterFixedPanel side) => new SplitAnchor<PaneExtent>(key, side);
+    public static SplitAnchor Pinned(ValueKey<PaneExtent> key, SplitterFixedPanel side) => new SplitAnchor<PaneExtent>(key, side);
 
     public abstract IO<double> Open(SettingsNode plugIn, CallbackSite site);
 
     public abstract IO<Unit> Keep(SettingsNode plugIn, double position);
 }
 
-internal sealed record SplitAnchor<TValue> : SplitAnchor where TValue : notnull {
+internal sealed record SplitAnchor<TValue> : SplitAnchor where TValue : notnull, IObjectFactory<TValue, double, ValidationError>, IConvertible<double> {
     private const string Positions = "splitter-positions";
 
-    internal SplitAnchor(ValueKey<TValue, double> key, SplitterFixedPanel fixedPanel) : base(fixedPanel) =>
+    internal SplitAnchor(ValueKey<TValue> key, SplitterFixedPanel fixedPanel) : base(fixedPanel) =>
         Row = new(key, SettingType.Double);
 
     private PlugInSetting<TValue, double> Row { get; }
 
-    public override string Name => Row.Value.Name;
+    public override string Name => Row.Key.Key;
 
     public override IO<double> Open(SettingsNode plugIn, CallbackSite site) =>
         PlugInSettings.Store(plugIn.Child(Positions), Row).Read
             .Catch(
                 static error => error.HasCode(ErrorCodes.ParseError) || error.HasCode(ErrorCodes.ValidationFailed),
                 error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)).Map(Option<TValue>.None))
-            .Map(held => Row.Value.ToRaw(held.IfNone(Row.Value.Default)));
+            .Map(held => held.IfNone(Row.Key.Default).ToValue());
 
     public override IO<Unit> Keep(SettingsNode plugIn, double position) =>
-        from value in IO.lift(Row.Value.From(position))
+        from value in IO.lift(ValidationResults.Validated<TValue, double>(position))
         let positions = plugIn.Child(Positions)
         from child in SettingRoots.AddChild(positions)
         from hidden in IO.lift(() => child.HiddenFromUserInterface = true)

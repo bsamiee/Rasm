@@ -35,7 +35,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Packages">
-        <ProjectReference Include="../../graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
         <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
         <ProjectReference Include="../../ui/Rasm.UI/Rasm.UI.csproj" />
     </ItemGroup>

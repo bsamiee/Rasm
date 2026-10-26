@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using Eto.Drawing;
 using Eto.Forms;
@@ -14,8 +15,6 @@ using Grasshopper2.UI.Sparkles;
 using Rasm.Grasshopper.UI.Surfaces;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
-using Rhino;
-using Rhino.Geometry.Intersect;
 
 namespace Rasm.Grasshopper.UI;
 
@@ -30,18 +29,10 @@ public sealed partial class RouteSegment {
         straight: static (at, span) => span.ClosestPoint(at, finiteSegment: true),
         curved: static (at, span) => span.ClosestPoint(at));
 
-    public bool Crosses(RectangleF box) => Switch(new BoundingBox(box.TopLeft.To3d(), box.BottomRight.To3d()),
-        straight: static (bounds, span) => {
-            using LineCurve curve = new(span.Start.To3d(), span.End.To3d());
-            return Enters(curve, bounds);
-        },
-        curved: static (bounds, span) => {
-            if (span.IsEmpty) return bounds.Contains(span.PointAt(span.Start).To3d());
-            Plane plane = new(span.Centre.To3d(), Vector3d.XAxis, Vector3d.YAxis);
-            _ = plane.Rotate(RhinoMath.ToRadians((double)span.Start + Math.Min(span.Sweep, 0)), Vector3d.ZAxis);
-            using ArcCurve curve = new(new Arc(plane, span.Radius, RhinoMath.ToRadians(Math.Abs(span.Sweep))));
-            return Enters(curve, bounds);
-        });
+    public bool Crosses(RectangleF box) => Switch(box,
+        straight: static (bounds, span) => bounds.Contains(span.Start) || span.Intersect(bounds, out _, out _) > 0,
+        curved: static (bounds, span) => bounds.Contains(span.PointAt(span.Start))
+            || (!span.IsEmpty && Seq(RectangleEdge.Left, RectangleEdge.Top, RectangleEdge.Right, RectangleEdge.Bottom).Exists(side => Meets(span, bounds.Edge(side, clockwise: true)))));
 
     public (RouteSegment Head, RouteSegment Tail) Split(float fraction) => Switch<float, (RouteSegment Head, RouteSegment Tail)>(fraction,
         straight: static (at, span) => span.PointAt(at) switch {
@@ -53,11 +44,20 @@ public sealed partial class RouteSegment {
 
     public void Trace(GraphicsPath path) => Switch(path, straight: static (drawing, span) => drawing.AddLine(span), curved: static (drawing, span) => drawing.AddArc(span));
 
-    private static bool Enters(Curve curve, BoundingBox bounds) {
-        using NurbsCurve border = new Rectangle3d(Plane.WorldXY, bounds.Min, bounds.Max).ToNurbsCurve();
-        using CurveIntersections intersections = Intersection.CurveCurve(curve, border, RhinoMath.ZeroTolerance, RhinoMath.ZeroTolerance);
-        return bounds.Contains(curve.PointAtStart) || intersections.Count > 0;
-    }
+    private static bool Meets(ArcF arc, LineF edge) =>
+        (Delta: new Vector2(edge.X1 - edge.X0, edge.Y1 - edge.Y0), Offset: new Vector2(edge.X0 - arc.Centre.X, edge.Y0 - arc.Centre.Y)) switch {
+            var (delta, offset) => (A: Vector2.Dot(delta, delta), B: 2f * Vector2.Dot(offset, delta), C: Vector2.Dot(offset, offset) - (arc.Radius * arc.Radius)) switch {
+                { A: > 0f } quadratic when (quadratic.B * quadratic.B) - (4f * quadratic.A * quadratic.C) is var discriminant and >= 0f =>
+                    Seq(-1f, 1f).Map(sign => (-quadratic.B + (sign * MathF.Sqrt(discriminant))) / (2f * quadratic.A))
+                        .Exists(at => at is >= 0f and <= 1f && Swept(arc, edge.PointAt(at))),
+                _ => false,
+            },
+        };
+
+    private static bool Swept(ArcF arc, PointF point) =>
+        float.RadiansToDegrees(MathF.Atan2(point.Y - arc.Centre.Y, point.X - arc.Centre.X)) switch {
+            var angle => (((float.Sign(arc.Sweep) * (angle - arc.Start) % 360f) + 360f) % 360f) <= MathF.Abs(arc.Sweep),
+        };
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -135,9 +135,7 @@ internal sealed class CanvasSparkle(
         return false;
     }
 
-    public void Dispose() {
-        throw new NotImplementedException();
-    }
+    public void Dispose() => guest.Dispose();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

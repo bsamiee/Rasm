@@ -180,9 +180,9 @@ public static class AppSettings {
         names => IO.lift(() => write([.. names])));
 
     // --- [FILES]
-    public static readonly ProcessSetting<Option<string>> TemplateFile = Location(static () => FileSettings.TemplateFile, static path => FileSettings.TemplateFile = path, Exchange.ExistingPath);
-    public static readonly ProcessSetting<Option<string>> TemplateFolder = Location(static () => FileSettings.TemplateFolder, static path => FileSettings.TemplateFolder = path, Exchange.ExistingFolder);
-    public static readonly ProcessSetting<Option<string>> BackupFileFolder = Location(static () => FileSettings.BackupFileFolder, static path => FileSettings.BackupFileFolder = path, Exchange.ExistingFolder);
+    public static readonly ProcessSetting<Option<InputPath>> TemplateFile = Location(static () => FileSettings.TemplateFile, static path => FileSettings.TemplateFile = path, InputPath.Of);
+    public static readonly ProcessSetting<Option<FolderPath>> TemplateFolder = Location(static () => FileSettings.TemplateFolder, static path => FileSettings.TemplateFolder = path, FolderPath.Of);
+    public static readonly ProcessSetting<Option<FolderPath>> BackupFileFolder = Location(static () => FileSettings.BackupFileFolder, static path => FileSettings.BackupFileFolder = path, FolderPath.Of);
 
     public static readonly ProcessSetting<Seq<PackageSource>> PackageSources = new(
         IO.lift(static () => Callbacks.Each(
@@ -193,14 +193,14 @@ public static class AppSettings {
     public static ProcessSetting<bool> SearchPath(string folder) => new(
         IO.lift(() => toSeq(FileSettings.GetSearchPaths()).Exists(path => string.Equals(path, folder, StringComparison.OrdinalIgnoreCase))),
         listed => IO.lift(() => listed
-            ? Exchange.QualifiedPath(folder)
-                .Bind(static qualified => Conversions.Required(FileSettings.AddSearchPath(qualified, Conversions.Unset(Option<int>.None)), nameof(FileSettings.AddSearchPath)))
+            ? FolderPath.Of(folder)
+                .Bind(static existing => Conversions.Required(FileSettings.AddSearchPath(existing, Conversions.Unset(Option<int>.None)), nameof(FileSettings.AddSearchPath)))
                 .Map(static _ => unit)
             : Refused.Unless(FileSettings.DeleteSearchPath(folder), nameof(FileSettings.DeleteSearchPath))));
 
-    private static ProcessSetting<Option<string>> Location(Func<string?> read, Action<string> write, Func<string, Fin<string>> existing) => new(
-        IO.lift(() => Conversions.Present(read())),
-        path => IO.lift(() => path.Traverse(existing).As()).Bind(checkedPath => IO.lift(() => write(Conversions.Unset(checkedPath)))));
+    private static ProcessSetting<Option<TPath>> Location<TPath>(Func<string?> read, Action<string> write, Func<string, Fin<TPath>> located) where TPath : IConvertible<string> => new(
+        IO.lift(() => Conversions.Present(read()).Traverse(located).As()),
+        path => IO.lift(() => write(Conversions.Unset(path.Map(static held => held.ToValue())))));
 
     // --- [NUDGE]
     public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> NudgeFollowsActiveDocument(Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>

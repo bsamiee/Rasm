@@ -136,13 +136,13 @@ public sealed partial class ChartSamples {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChartPlacement {
-    private ChartPlacement(ColorChart chart, FrameQuad quad, PositiveFraction footprint) => (Chart, Quad, Footprint) = (chart, quad, footprint);
+    private ChartPlacement(ColorChart chart, FrameQuad quad, float footprint) => (Chart, Quad, Footprint) = (chart, quad, footprint);
 
-    public static PositiveFraction CentralFootprint { get; } = PositiveFraction.Create(0.8f);
+    public static float CentralFootprint => 0.8f;
 
     public ColorChart Chart { get; }
     public FrameQuad Quad { get; }
-    public PositiveFraction Footprint { get; }
+    public float Footprint { get; }
 
     public Seq<(ChartPatch Patch, (double X, double Y) TopLeft, (double X, double Y) TopRight, (double X, double Y) BottomRight, (double X, double Y) BottomLeft)> Footprints =>
         (Quad.Homography, (X: Footprint / 2d / ColorChart.Columns, Y: Footprint / 2d / ColorChart.Rows)) switch {
@@ -229,7 +229,7 @@ public abstract partial record ChartPlacement {
 
     private Error Unaligned => Error.New($"chart alignment {Quad} fits no rectilinear view");
 
-    public sealed record Flat(ColorChart Chart, FrameQuad Quad, PositiveFraction Footprint) : ChartPlacement(Chart, Quad, Footprint) {
+    public sealed record Flat(ColorChart Chart, FrameQuad Quad, float Footprint) : ChartPlacement(Chart, Quad, Footprint) {
         public Fin<LatLong> ToLatLong(PixelExtent source) {
             static Fin<PixelExtent> Sized(double width, double height) =>
                 PixelExtent.Validated(int.CreateSaturating(width), int.CreateSaturating(height));
@@ -264,7 +264,7 @@ public abstract partial record ChartPlacement {
             (Quad.Homography.Apply, (WrapMode.Black, WrapMode.Black));
     }
 
-    public sealed record LatLong(ColorChart Chart, FrameQuad Quad, PositiveFraction Footprint, PanoramaView View, Projection.Rectilinear Lens)
+    public sealed record LatLong(ColorChart Chart, FrameQuad Quad, float Footprint, PanoramaView View, Projection.Rectilinear Lens)
         : ChartPlacement(Chart, Quad, Footprint) {
         public double Field => 2d * double.Atan(Lens.Frustum.Window.Width / 2d);
 

@@ -125,12 +125,12 @@ internal sealed record Track(Func<Gesture, Reply> Moved, Func<Gesture, Seq<IO<Un
     public Seq<Key> Carried { get; init; }
 }
 
-internal sealed record Sink<TState>(Func<TState, TState, bool> Same, Func<Edit<TState>, IO<Unit>> Emit) where TState : notnull {
-    public static Sink<TState> Of<TOut>(Func<TState, TOut> project, Func<Edit<TOut>, IO<Unit>> edited) where TOut : notnull =>
+internal sealed record Receiver<TState>(Func<TState, TState, bool> Same, Func<Edit<TState>, IO<Unit>> Emit) where TState : notnull {
+    public static Receiver<TState> Of<TOut>(Func<TState, TOut> project, Func<Edit<TOut>, IO<Unit>> edited) where TOut : notnull =>
         new((before, after) => EqualityComparer<TOut>.Default.Equals(project(before), project(after)), edit => edited(edit.Map(project).As()));
 }
 
-internal sealed record Session<TState>(TState Start, Seq<Sink<TState>> Sinks, Cursor Cursor) where TState : notnull {
+internal sealed record Session<TState>(TState Start, Seq<Receiver<TState>> Receivers, Cursor Cursor) where TState : notnull {
     // --- [STATE]
     public Func<TState, Gesture.Press, Option<TState>> Press { get; init; } = static (_, _) => None;
     public Func<TState, Gesture.Scroll, Option<TState>> Scroll { get; init; } = static (_, _) => None;
@@ -152,12 +152,12 @@ internal sealed record Session<TState>(TState Start, Seq<Sink<TState>> Sinks, Cu
 
     internal Reply Stepped(Gesture gesture) =>
         Reduced(gesture).Match(
-            Some: state => (Reply)new Reply.Take(Sinks.Filter(sink => !sink.Same(Start, state)).Map(sink => sink.Emit(new Edit<TState>.Step(state))), None),
+            Some: state => (Reply)new Reply.Take(Receivers.Filter(receiver => !receiver.Same(Start, state)).Map(receiver => receiver.Emit(new Edit<TState>.Step(state))), None),
             None: static () => new Reply.Pass());
 
     private sealed record Run(TState Origin, TState Last, Gesture Latest, LanguageExt.HashSet<int> Opened);
 
-    private Seq<(Sink<TState> Sink, int Index)> Indexed => Sinks.Map(static (sink, index) => (Sink: sink, Index: index));
+    private Seq<(Receiver<TState> Receiver, int Index)> Indexed => Receivers.Map(static (receiver, index) => (Receiver: receiver, Index: index));
 
     private Option<TState> Reduced(Gesture gesture) =>
         gesture.Switch(
@@ -169,7 +169,7 @@ internal sealed record Session<TState>(TState Start, Seq<Sink<TState>> Sinks, Cu
             perform: static (session, perform) => session.Perform(session.Start, perform));
 
     private Seq<(int Index, IO<Unit> Effect)> Previewed(TState from, TState to) =>
-        Indexed.Filter(held => !held.Sink.Same(from, to)).Map(held => (held.Index, held.Sink.Emit(new Edit<TState>.Preview(to))));
+        Indexed.Filter(held => !held.Receiver.Same(from, to)).Map(held => (held.Index, held.Receiver.Emit(new Edit<TState>.Preview(to))));
 
     private Track Tracked(Run run) =>
         new(gesture => Followed(run, gesture), gesture => Settled(run, Reduced(gesture).IfNone(run.Last)), () => Cancelled(run)) {
@@ -199,12 +199,12 @@ internal sealed record Session<TState>(TState Start, Seq<Sink<TState>> Sinks, Cu
 
     private Seq<IO<Unit>> Settled(Run run, TState state) =>
         Indexed.Choose(held =>
-            !held.Sink.Same(run.Origin, state) ? Some(held.Sink.Emit(new Edit<TState>.Commit(state)))
-            : run.Opened.Contains(held.Index) ? Some(held.Sink.Emit(new Edit<TState>.Cancel()))
+            !held.Receiver.Same(run.Origin, state) ? Some(held.Receiver.Emit(new Edit<TState>.Commit(state)))
+            : run.Opened.Contains(held.Index) ? Some(held.Receiver.Emit(new Edit<TState>.Cancel()))
             : None);
 
     private Seq<IO<Unit>> Cancelled(Run run) =>
-        Indexed.Filter(held => run.Opened.Contains(held.Index)).Map(static held => held.Sink.Emit(new Edit<TState>.Cancel()));
+        Indexed.Filter(held => run.Opened.Contains(held.Index)).Map(static held => held.Receiver.Emit(new Edit<TState>.Cancel()));
 }
 
 internal sealed record Aim(Scene Scene, Laid Laid, SKRect Bounds, Seq<Key> Over) {
@@ -213,6 +213,14 @@ internal sealed record Aim(Scene Scene, Laid Laid, SKRect Bounds, Seq<Key> Over)
 
 internal sealed record Sight(Scene Scene, Laid Laid, Seq<Seq<Key>> Hover, Option<SKPoint> Pointer) {
     public bool InView(Seq<Key> path) => Scene.Bounds(path).Exists(static bounds => !bounds.IsEmpty);
+
+    public Option<Vector2> Plotted =>
+        from pointer in Pointer
+        where Hover.Exists(path => path.Take(Laid.Path.Count) == Laid.Path)
+        from bounds in Scene.Frame(Laid.Path)
+        from frame in Layouts.Plotted(Laid)
+        from at in frame.Translated(bounds.Location).At(pointer)
+        select at;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
@@ -268,7 +276,6 @@ public abstract partial record Part {
         SwitchPartially(
             (Before: before, After: after),
             @default: static (_, _) => Seq<IO<Unit>>(),
-            pad: static (held, pad) => pad.Handles.Watched(held.Before, held.After),
             choice: static (held, choice) => choice.Watch(held.Before, held.After));
 
     // --- [CASES]
@@ -318,7 +325,7 @@ public abstract partial record Part {
 
         private AccessRole Composite => Value.Map(one: AccessRole.RadioGroup, many: AccessRole.List);
 
-        private Seq<Sink<Held>> Sinks => Seq(Sink<Held>.Of(static held => held.Value, Edited)) + Reorder.Map(static reorder => Sink<Held>.Of(static held => held.Order, reorder)).ToSeq();
+        private Seq<Receiver<Held>> Receivers => Seq(Receiver<Held>.Of(static held => held.Value, Edited)) + Reorder.Map(static reorder => Receiver<Held>.Of(static held => held.Order, reorder)).ToSeq();
 
         // --- [DRAW]
         public Node Drawn(Func<Key, Node> item, Func<Seq<Node>, Node> container) => Drawn(item, container, Composite);
@@ -394,7 +401,7 @@ public abstract partial record Part {
             }).IfNone([]);
 
         private Session<Held> Picking(Key key, Aim aim) =>
-            new(new Held(Value, Items), Sinks, Reorder.IsNone ? Cursor.Default : Cursor.Grab) {
+            new(new Held(Value, Items), Receivers, Reorder.IsNone ? Cursor.Default : Cursor.Grab) {
                 Press = (start, press) => Some(Picked(start, key, press, aim)),
                 Dragging = Reorder.Map(static _ => Cursor.Grabbing),
                 Carried = state => Moving(state.Value, key),
@@ -410,9 +417,9 @@ public abstract partial record Part {
             };
 
         private Session<Held> Sweeping(Aim aim) =>
-            new(new Held(Value, Items), Sinks, Cursor.Default) { Press = (start, press) => Some(start with { Value = start.Value.Swept(Items, Covered(aim, press), press.Modifiers) }) };
+            new(new Held(Value, Items), Receivers, Cursor.Default) { Press = (start, press) => Some(start with { Value = start.Value.Swept(Items, Covered(aim, press), press.Modifiers) }) };
 
-        private Session<Held> Stepping(Func<Held, Held> next) => new(new Held(Value, Items), Sinks, Cursor.Default) { Perform = (start, _) => Some(next(start)) };
+        private Session<Held> Stepping(Func<Held, Held> next) => new(new Held(Value, Items), Receivers, Cursor.Default) { Perform = (start, _) => Some(next(start)) };
 
         private Reply Selected(Aim aim, Gesture.Perform perform) =>
             Item(aim.Over, aim.Laid).Match(
@@ -548,7 +555,7 @@ public abstract partial record Part {
                     None: static () => new Reply.Pass()));
 
         private Session<PlotPlane> Tracking(PlotFrame frame) =>
-            new(frame.Plane, [Sink<PlotPlane>.Of(static plane => plane, Edited)], Cursor.Grab) { Dragging = Cursor.Grabbing };
+            new(frame.Plane, [Receiver<PlotPlane>.Of(static plane => plane, Edited)], Cursor.Grab) { Dragging = Cursor.Grabbing };
 
         private Option<PlotPlane> Scaled(PlotPlane start, Vector2 about, float factor, PlotFrame frame) =>
             from free in start.Dimensions.Head

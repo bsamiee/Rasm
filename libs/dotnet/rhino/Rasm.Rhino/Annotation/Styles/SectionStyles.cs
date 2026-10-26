@@ -136,10 +136,9 @@ public static class SectionStyles {
                                              select unit);
 
     // --- [FILES]
-    public static IO<(Seq<(string Name, SectionStyleDefinition Definition)> Styles, Seq<(string Name, HatchPatternDefinition Definition)> Patterns)> ReadFile(string path) =>
-        from existing in IO.lift(() => Exchange.ExistingPath(path))
-        from file in DisposalOps.Within(() => {
-            bool read = SectionStyle.ReadFromFile(existing, out SectionStyle[] styles, out HatchPattern[] patterns);
+    public static IO<(Seq<(string Name, SectionStyleDefinition Definition)> Styles, Seq<(string Name, HatchPatternDefinition Definition)> Patterns)> ReadFile(InputPath path) =>
+        DisposalOps.Within(() => {
+            bool read = SectionStyle.ReadFromFile(path, out SectionStyle[] styles, out HatchPattern[] patterns);
             return (Read: read, Styles: styles, Patterns: patterns);
         },
             static native => IO.lift(() => Refused.Unless(native.Read,
@@ -150,10 +149,9 @@ public static class SectionStyles {
                     read.Patterns.TraverseM(static pattern => from definition in HatchPatterns.Definition(pattern)
                                                               select (pattern.Name, Definition: definition)).As())
                     .Apply(static (styles, patterns) => (Styles: styles, Patterns: patterns)).As()),
-            static read => DisposalOps.Release<IDisposable>([.. Conversions.Rows(read.Styles), .. Conversions.Rows(read.Patterns)]))
-        select file;
+            static read => DisposalOps.Release<IDisposable>([.. Conversions.Rows(read.Styles), .. Conversions.Rows(read.Patterns)]));
 
-    public static IO<Committed<Seq<(string Name, int Index)>>> Import(RhinoDoc doc, string path, string name, RedrawPolicy redraw) =>
+    public static IO<Committed<Seq<(string Name, int Index)>>> Import(RhinoDoc doc, InputPath path, string name, RedrawPolicy redraw) =>
         from file in ReadFile(path)
         from landed in Commits.Commit(doc, name, redraw,
             from patternRows in TableOps.Rows(doc.HatchPatterns)

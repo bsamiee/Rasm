@@ -1,36 +1,29 @@
 using System.Globalization;
-using System.Reflection;
-using Rasm.Imaging.Pixels;
+using System.Runtime.CompilerServices;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
+using Rasm.UI;
 using Rhino;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI.Controls;
+using Rhino.UI.Controls.DataSource;
+using NativeDataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
 namespace Rasm.Rhino.Render.Effects;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum]
-public sealed partial class BuiltinEffect {
-    public static readonly BuiltinEffect Despeckle = new(new Guid(0x57baba9e, 0xfc02, 0x40d2, 0x96, 0x82, 0x5f, 0x61, 0xb9, 0x04, 0x9e, 0xaa));
-    public static readonly BuiltinEffect Denoise = new(new Guid(0x1ec87a84, 0xf61f, 0x43dc, 0xb3, 0x31, 0x92, 0xd8, 0xb8, 0x1e, 0xd4, 0x68));
-    public static readonly BuiltinEffect Clamp = new(PostEffectUuids.ToneMapper_Clamp);
-    public static readonly BuiltinEffect Gamma = new(PostEffectUuids.Gamma);
-    public static readonly BuiltinEffect Dithering = new(PostEffectUuids.Dithering);
-
-    public Guid Id { get; }
-}
-
 [Union]
 public abstract partial record EffectSource {
     public HostEvent<Unit> Changed =>
         Switch(
             document: static held => ValueStore.Signal(EventKind.DocumentPropertiesChanged.In(held.Doc.RuntimeSerialNumber), static _ => true),
-            section: static held => SectionRows.Changed(held.Host));
+            section: static held => ValueStore.Signal(
+                Subscriptions.Host<NativeDataSourceEventArgs>(
+                    typeof(EtoCollapsibleSection), handler => held.Host.DataChanged += handler, handler => held.Host.DataChanged -= handler, nameof(EtoCollapsibleSection.DataChanged)),
+                static args => args.DataType == ProviderIds.RdkRenderingPostEffects));
 
     public sealed record Document(RhinoDoc Doc) : EffectSource;
 
@@ -74,17 +67,21 @@ public abstract partial record EffectRequest {
         public string Key { get; }
         public string Text { get; }
 
-        public static Seq<Tuning> Of<TEffect, TState>(TState state) where TEffect : PostEffect where TState : IStateRecord<TState> =>
-            EffectStates.Captured(state).Map(static entry => new Tuning(typeof(TEffect).GUID, entry.Key, entry.Text));
-
-        public static Tuning Amount<TEffect>(AxisFraction mix) where TEffect : PostEffect =>
-            new(typeof(TEffect).GUID, EffectStates.Amount.Name, EffectStates.Amount.Text(mix));
+        public static Seq<Tuning> Of<TState>(Guid effect, TState state) where TState : IStateRecord<TState> =>
+            RecordEntries.Items<TState>().Choose(entry => entry.Capture(state).Map(text => new Tuning(effect, EntryKey.Name(entry.Path), text)));
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class EffectRegistry {
-    // --- [SCOPE]
+public static class EffectCollection {
+    // --- [HOSTS]
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "RhinoDocumentId")]
+    internal static extern uint RhinoDocumentId([UnsafeAccessorType("Rhino.Render.Rendering, RhinoCommon")] object rendering);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetPostEffects")]
+    private static extern PostEffect[] GetPostEffects([UnsafeAccessorType("Rhino.Render.RenderingPostEffects, RhinoCommon")] object effects, PostEffectType type);
+
+    // --- [ENTRIES]
     public static IO<Seq<EffectEntry>> Read(RenderSettings settings) =>
         Within(settings, static (effects, held) => IO.lift(() => {
             Guid selected = Selected(effects);
@@ -99,6 +96,21 @@ public static class EffectRegistry {
     public static IO<Unit> Apply(RenderSettings settings, Seq<EffectRequest> requests) =>
         Within(settings, (effects, held) => IO.lift(() => Callbacks.Each(requests, (request, _) => Applied(effects, held, request))).Map(unit));
 
+    // --- [STATE]
+    public static IO<TState> State<TState>(RenderSettings settings, Guid effect) where TState : IStateRecord<TState> =>
+        Within(settings, (_, held) => IO.lift(() => Resolved(held, effect)).Bind(data => Recalled<TState>(effect, name => Stored(data, name))));
+
+    public static IO<TState> State<TState>(EffectSource source, Guid effect) where TState : IStateRecord<TState> =>
+        source.Switch(
+            effect,
+            document: static (id, held) => RenderSettingsSources.Read(held.Doc, scope => Within(scope.Settings, (_, entries) =>
+                entries.Find(data => data.Id == id).Match(
+                    Some: data => Recalled<TState>(id, name => Stored(data, name)),
+                    None: () => IO.pure(TState.Default)))),
+            section: static (id, held) => Hosted(held.Host)
+                .Bind(effects => IO.lift(effects.Find(effect => effect.Id == id).ToFin(new NotFound("post effect", $"{id}"))))
+                .Bind(effect => Recalled<TState>(id, name => Parameter(effect, name))));
+
     public static IO<Unit> Tune(EffectSource source, Seq<EffectRequest.Tuning> tunings) =>
         source.Switch(
             tunings,
@@ -108,33 +120,10 @@ public static class EffectRegistry {
                     .Bind(effect => Refused.Unless(effect.SetParam(request.Key, request.Text), nameof(PostEffect.SetParam)))),
             }).Map(unit)));
 
-    public static IO<TState> State<TEffect, TState>(RenderSettings settings, Option<TState> factory = default) where TEffect : PostEffect where TState : IStateRecord<TState> =>
-        Entry(settings, typeof(TEffect).GUID, data => Recalled<TEffect, TState>(name => Stored(data, name), factory.IfNone(TState.Default)));
+    private static IO<TState> Recalled<TState>(Guid effect, Func<string, IO<Option<string>>> stored) where TState : IStateRecord<TState> =>
+        new FieldCodec<TState>(TState.Parameters, TState.Default).Recalled(EntryKey.TypeOwner(effect), path => stored(EntryKey.Name(path)));
 
-    public static IO<TState> State<TEffect, TState>(EffectSource source, TState factory) where TEffect : PostEffect where TState : IStateRecord<TState> =>
-        Stored<TEffect, TState>(source, stored => Recalled<TEffect, TState>(stored, factory));
-
-    public static IO<Option<AxisFraction>> Amount<TEffect>(EffectSource source) where TEffect : PostEffect =>
-        Stored<TEffect, Option<AxisFraction>>(source, static stored => stored(EffectStates.Amount.Name)
-            .Bind(static text => IO.lift(() => text.Traverse(static held => EffectStates.AmountOf(EntryKey.TypeOwner(typeof(TEffect).GUID), held)).As())));
-
-    private static IO<TState> Recalled<TEffect, TState>(Func<string, IO<Option<string>>> stored, TState factory) where TEffect : PostEffect where TState : IStateRecord<TState> =>
-        FieldTexts.Recalled(EntryKey.TypeOwner(typeof(TEffect).GUID), TState.Parameters, path => stored(EntryKey.Name(path)), factory);
-
-    private static IO<A> Stored<TEffect, A>(EffectSource source, Func<Func<string, IO<Option<string>>>, IO<A>> read) where TEffect : PostEffect =>
-        source.Switch(
-            read,
-            document: static (body, held) => RenderSettingsSources.Read(held.Doc, scope => Within(scope.Settings, (_, entries) =>
-                entries.Find(static data => data.Id == typeof(TEffect).GUID).Match(
-                    Some: data => body(name => Stored(data, name)),
-                    None: () => body(static _ => IO.pure(Option<string>.None))))),
-            section: static (body, held) => Hosted(held.Host)
-                .Bind(static effects => IO.lift(effects.Find(static effect => effect.Id == typeof(TEffect).GUID).ToFin(new NotFound("post effect", $"{typeof(TEffect).GUID}"))))
-                .Bind(effect => body(name => Parameter(effect, name))));
-
-    private static IO<A> Entry<A>(RenderSettings settings, Guid id, Func<PostEffectData, IO<A>> read) =>
-        Within(settings, (_, held) => IO.lift(() => Resolved(held, id)).Bind(read));
-
+    // --- [SCOPE]
     private static IO<A> Within<A>(RenderSettings settings, Func<PostEffectCollection, Seq<PostEffectData>, IO<A>> body) =>
         DisposalOps.Within(() => settings.PostEffects, effects => DisposalOps.Within(
             () => Conversions.Rows(effects).Strict(),
@@ -145,7 +134,7 @@ public static class EffectRegistry {
         SectionModels.Read(host, Provider.RdkRenderingPostEffects, static effects => IO.lift(() => Listed(effects)));
 
     private static Seq<PostEffect> Listed(IDisposable effects) =>
-        toSeq(Enum.GetValues<PostEffectType>()).Bind(type => toSeq(SectionRows.GetPostEffects(effects, type))).Strict();
+        toSeq(Enum.GetValues<PostEffectType>()).Bind(type => toSeq(GetPostEffects(effects, type))).Strict();
 
     private static Fin<PostEffectData> Resolved(Seq<PostEffectData> held, Guid id) =>
         held.Find(data => data.Id == id).ToFin(new NotFound("post effect", $"{id}"));
@@ -185,61 +174,6 @@ public static class EffectRegistry {
             tuning: static (scope, tuning) => Resolved(scope.Held, tuning.Id)
                 .Bind(data => Refused.Unless(data.SetParameter(tuning.Key, tuning.Text), nameof(PostEffectData.SetParameter))));
 
-    // --- [ENTRIES]
     private static Guid Selected(PostEffectCollection effects) =>
-        Callbacks.Found(effects.GetSelectedPostEffect(ToneMappingNode, out Guid id), id).Bind(Conversions.Present).IfNone(static () => BuiltinEffect.Clamp.Id);
-
-    // --- [ARRANGEMENT]
-    private static readonly Type Pending = typeof(EffectRegistry);
-
-    public static PlugInSlot<Seq<EffectKind>> Kinds { get; } = new();
-
-    public static IO<BindingGroup> Bindings(EffectSource source, IPlugInSink sink) =>
-        Kinds.Of(sink).Map(kinds => new BindingGroup(kinds.Bind(kind => kind.Binding(source))));
-
-    public static IO<Unit> Register(IPlugInViews sink, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(
-            owned =>
-                from kinds in IO.lift(() => toSeq(sink.PlugIn.Assembly.GetExportedTypes())
-                    .Filter(static type => !type.IsAbstract && type.IsAssignableTo(typeof(IEffectDefinition)))
-                    .Map(static type => (EffectKind)type.GetInterfaceMap(typeof(IEffectDefinition)).TargetMethods[0]
-                        .Invoke(null, BindingFlags.DoNotWrapExceptions, binder: null, parameters: null, culture: null)!)
-                    .Strict())
-                from published in Kinds.Publish(sink, kinds)
-                from arrived in EventKind.DocumentArrived.Choose(static serial => Some((serial, unit))).Through(Subscriptions.Idle<uint, Unit>(serials =>
-                    Arrange(kinds, () => toSeq(serials.Keys).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))), static (doc, arranged) =>
-                        when(arranged.IsNone, IO.lift(() => { doc.RuntimeData[Pending] = unit; })).As())), sink, owned)
-                from saved in EventKind.ImageFileSaved.Choose(static _ => Some((unit, unit))).Through(Subscriptions.Idle<Unit, Unit>(_ =>
-                    Arrange(kinds, static () => toSeq(RhinoDoc.OpenDocuments()).Filter(static doc => doc.RuntimeData.ContainsKey(Pending)), static (doc, arranged) =>
-                        arranged.Traverse(requests =>
-                            from released in IO.lift(() => doc.RuntimeData.Remove(Pending))
-                            from written in RenderSettingsSources.Edit(doc, scope => Apply(scope.Settings, requests))
-                            select written).As().Map(unit))), sink, owned)
-                select unit,
-            retain);
-
-    private static IO<Unit> Arrange(Seq<EffectKind> kinds, Func<Seq<RhinoDoc>> documents, Func<RhinoDoc, Option<Seq<EffectRequest>>, IO<Unit>> step) =>
-        from held in IO.lift(() => documents().Strict())
-        from arranged in Callbacks.Each(held.Map(doc => RenderSettingsSources.Read(doc, static scope => Read(scope.Settings)).Bind(entries => step(doc, Arrangement(kinds, entries)))))
-        select unit;
-
-    private static Option<Seq<EffectRequest>> Arrangement(Seq<EffectKind> kinds, Seq<EffectEntry> entries) =>
-        toHashMap(entries.Map(static entry => (entry.Id, entry))) switch {
-            var listed =>
-                from placed in kinds.Traverse(kind => listed.Find(kind.Id).Map(entry => (Kind: kind, Entry: entry))).As()
-                from replaced in kinds.Bind(static kind => kind.Replaces.ToSeq()).Traverse(builtin => listed.Find(builtin.Id)).As()
-                let named = toHashSet(placed.Map(static held => held.Entry.Id).Add(BuiltinEffect.Despeckle.Id))
-                let staged = fun((PostEffectType stage) => placed.Filter(held => held.Kind.Stage == stage).Map(static held => held.Entry))
-                select placed.Choose(static held => held.Entry.Switch(
-                        held.Kind.Replaces.IsSome,
-                        listed: static (replacing, entry) => replacing ? Some<EffectRequest>(new EffectRequest.Placing(entry with { On = true, Shown = true })) : None,
-                        selectable: static (_, entry) => Some<EffectRequest>(new EffectRequest.Placing(entry with { Selected = true }))))
-                    + replaced.Choose(static entry => entry.Switch(
-                        listed: static held => Some<EffectRequest>(new EffectRequest.Placing(held with { On = false })),
-                        selectable: static _ => Option<EffectRequest>.None))
-                    + Seq<EffectRequest>(new EffectRequest.Ordering(
-                        (staged(PostEffectType.Early)
-                        + entries.Filter(entry => !named.Contains(entry.Id) && entry.Switch(listed: static _ => true, selectable: static _ => false))
-                        + staged(PostEffectType.Late)).Map(static entry => entry.Id))),
-        };
+        Callbacks.Found(effects.GetSelectedPostEffect(ToneMappingNode, out Guid id), id).Bind(Conversions.Present).IfNone(static () => PostEffectUuids.ToneMapper_Clamp);
 }

@@ -1,12 +1,9 @@
 using Rasm.Drafting;
-using Rasm.Imaging.Files;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Display;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Modeling;
-using Rasm.Rhino.Render.Effects;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -66,7 +63,7 @@ public readonly partial struct CopyCount : System.Numerics.IMinMaxValue<CopyCoun
 
 internal sealed record PlannedPage(Func<Action<IDisposable>, IO<ViewCaptureSettings>> Settings, Option<RhinoObject> Context);
 
-internal sealed record PlannedShot(Func<Action<IDisposable>, IO<(System.Drawing.Bitmap Bitmap, Option<double> Dpi)>> Capture);
+internal sealed record PlannedShot(Func<Action<IDisposable>, IO<(System.Drawing.Bitmap Bitmap, Option<PixelDensity> Density)>> Capture);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PageStreams {
@@ -131,12 +128,13 @@ public static class PageStreams {
                 (Document: doc, Retain: retain),
                 printed: static (state, printed) => Planned(state.Document, printed.Source, state.Retain).Map(static pages => pages.Map(static page => new PlannedShot(owned =>
                     from settings in page.Settings(owned)
+                    from density in IO.lift(() => PixelDensity.Validated(settings.Resolution))
                     from bitmap in Owned(() => ViewCapture.CaptureToBitmap(settings), nameof(ViewCapture.CaptureToBitmap), owned)
-                    select (bitmap, Some(settings.Resolution))))),
+                    select (bitmap, Some(density))))),
                 screen: static (state, screen) => Views(state.Document, screen.Set, state.Retain).Map(views => views.Map(view => new PlannedShot(owned =>
-                    Owned(() => screen.Capture.CaptureToBitmap(view), nameof(ViewCapture.CaptureToBitmap), owned).Map(static bitmap => (bitmap, Option<double>.None))))),
+                    Owned(() => screen.Capture.CaptureToBitmap(view), nameof(ViewCapture.CaptureToBitmap), owned).Map(static bitmap => (bitmap, Option<PixelDensity>.None))))),
                 mode: static (state, mode) => Views(state.Document, mode.Set, state.Retain).Map(views => views.Map(view => new PlannedShot(owned =>
-                    DisplayModes.CaptureToBitmap(view, mode.Id, mode.Pixels, mode.Edits, owned).Map(static bitmap => (bitmap, Option<double>.None))))))).As()
+                    DisplayModes.CaptureToBitmap(view, mode.Id, mode.Pixels, mode.Edits, owned).Map(static bitmap => (bitmap, Option<PixelDensity>.None))))))).As()
                 .Map(static planned => planned.Flatten()).Bind(body),
             DisposalOps.Release);
 
@@ -229,15 +227,10 @@ public static class PageStreams {
             DisposalOps.Release));
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToRasters(
-        RhinoDoc doc, IterableNE<RasterSource> sources, FileExtension extension, Func<PixelFrame, Fin<StillFormat>> encode, FileMetadata metadata, FileOutput output) =>
+        RhinoDoc doc, IterableNE<RasterSource> sources, FileExtension extension, Func<System.Drawing.Bitmap, Option<PixelDensity>, Stream, IO<Unit>> encode, FileOutput output) =>
         Shots(doc, toSeq(sources), shots => Written(doc, shots, extension, output, (shot, path) =>
             DisposalOps.Within((Action<IDisposable> retain) =>
-                from captured in shot.Capture(retain)
-                from frame in EffectPipeline.Frame(captured.Bitmap)
-                from still in IO.lift(() => encode(frame))
-                from density in IO.lift(() => captured.Dpi.Traverse(static dpi => PixelDensity.Validated(dpi)).As())
-                from written in StillWriter.Write(still, density.Match(Some: held => metadata with { Density = held }, None: () => metadata), path)
-                select written,
+                shot.Capture(retain).Bind(captured => FilePublication.Write(path, output.Destination.Overwrite, stream => encode(captured.Bitmap, captured.Density, stream))),
                 DisposalOps.Release)));
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToSvg(RhinoDoc doc, IterableNE<PageSource> sources, PageText text, FileOutput output) =>

@@ -134,9 +134,9 @@ public static class Access {
 
     internal static Seq<Element> Project(Scene scene, CultureInfo culture) => Projected(scene, culture, scene.Layout, [], None, Accessible.Empty);
 
-    internal static HashMap<Seq<Key>, Element> Indexed(Seq<Element> elements) => toHashMap(elements.Bind(Flattened).Map(static element => (element.Id, element)));
+    public static Seq<Element> Flattened(Seq<Element> tree) => tree.Bind(static element => element.Cons(Flattened(element.Children)));
 
-    internal static Seq<Element> Flattened(Element element) => element.Cons(element.Children.Bind(Flattened));
+    internal static HashMap<Seq<Key>, Element> Indexed(Seq<Element> elements) => toHashMap(Flattened(elements).Map(static element => (element.Id, element)));
 
     private static Seq<Element> Projected(Scene scene, CultureInfo culture, Laid laid, HashMap<Seq<Key>, Claim> claimed, Option<Owner> owner, Accessible lent) {
         Option<Owner> owning = (from part in laid.Node.Part from bounds in scene.Frame(laid.Path) select new Owner(laid, part, bounds)) | owner;
@@ -205,16 +205,16 @@ public static class Access {
         Standard.Filter(act => owner.Part.Performed(new Gesture.Perform(act), new Aim(scene, owner.Laid, owner.Bounds, path)).Switch(pass: static _ => false, take: static _ => true));
 
     // --- [CHANGES]
-    internal static Seq<Notice> Changes(HashMap<Seq<Key>, Element> was, HashMap<Seq<Key>, Element> now) {
+    internal static Seq<AccessibilityNotice> Changes(HashMap<Seq<Key>, Element> was, HashMap<Seq<Key>, Element> now) {
         Seq<(Element Prior, Element Next)> kept = now.Values.ToSeq().Choose(element => was.Find(element.Id).Map(prior => (Prior: prior, Next: element)));
         return kept.Filter(static held => held.Prior.Accessible.Value != held.Next.Accessible.Value || held.Prior.Accessible.Expanded != held.Next.Accessible.Expanded || held.Prior.Conditions != held.Next.Conditions)
-                .Map(static held => (Notice)new Notice.ValueChanged(held.Next.Id))
-            .Concat(kept.Filter(static held => Selected(held.Prior) != Selected(held.Next)).Map(static held => (Notice)new Notice.SelectionChanged(held.Next.Id)))
-            .Concat(toHashSet(was.Keys) != toHashSet(now.Keys) || kept.Exists(static held => held.Prior.Frame != held.Next.Frame) ? Seq<Notice>(new Notice.LayoutChanged()) : [])
+                .Map(static held => (AccessibilityNotice)new AccessibilityNotice.ValueChanged(held.Next.Id))
+            .Concat(kept.Filter(static held => Selected(held.Prior) != Selected(held.Next)).Map(static held => (AccessibilityNotice)new AccessibilityNotice.SelectionChanged(held.Next.Id)))
+            .Concat(toHashSet(was.Keys) != toHashSet(now.Keys) || kept.Exists(static held => held.Prior.Frame != held.Next.Frame) ? Seq<AccessibilityNotice>(new AccessibilityNotice.LayoutChanged()) : [])
             .Concat(now.Values.ToSeq().Choose(element =>
                 from live in element.Accessible.Live
                 where was.Find(element.Id).ForAll(prior => prior.Accessible.Label != element.Accessible.Label || prior.Accessible.Value != element.Accessible.Value)
-                select (Notice)new Notice.Announced(Spoken(element.Accessible), live)));
+                select (AccessibilityNotice)new AccessibilityNotice.Announced(Spoken(element.Accessible), live)));
     }
 
     private static LanguageExt.HashSet<Seq<Key>> Selected(Element element) =>

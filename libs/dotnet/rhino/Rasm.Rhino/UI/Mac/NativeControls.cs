@@ -9,7 +9,6 @@ using Foundation;
 using ObjCRuntime;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Numeric;
-using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 
 namespace Rasm.Rhino.UI.Mac;
@@ -126,14 +125,6 @@ public static class NativeControls {
 
     // --- [STYLES]
     internal static void Field(TextBoxHandler handler) => Scrubbed((NumberField)handler.Widget, handler);
-
-    internal static void Rows(RowGrid grid) =>
-        Callbacks.Run(
-            IO.lift(() => grid.Styles.Add<object>(style: null, target =>
-                Callbacks.Run(
-                    Optional(target as IMacViewHandler).Map(handler => Sized(handler, grid.Caption(handler.Widget))),
-                    new CallbackSite(grid.Sink, typeof(RowGrid), nameof(Sized))))),
-            new CallbackSite(grid.Sink, typeof(RowGrid), nameof(Rows)));
 
     // --- [SCRUB]
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]

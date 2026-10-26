@@ -8,6 +8,13 @@ namespace Rasm.Rhino.UI.Inputs;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ButtonRows {
+    // --- [ROWS]
+    public static ControlRow Pushed(Command<RowRule, Invoke>.Run run) =>
+        new ControlRow.Readout(RowShape.Unlabeled, (scope, retain) =>
+            from button in CommandRows.Button(run, IconSlot.PanelButton, scope, retain)
+            select new RowCells(button.Control, None, None, None, [], [], new RowHelp(None, None), button.Refresh, None, None),
+            new ParameterText(run.Face.Caption, run.Face.Help.IfNone(run.Face.Caption)), new RowRules(run.Enabled, None));
+
     // --- [GROUPS]
     public static IO<(AddRemoveButton Control, IO<Unit> Refresh)> AddRemove(
         Command<RowRule, Invoke>.Run add, Command<RowRule, Invoke>.Run remove, RowScope scope, Action<IDisposable> retain) =>

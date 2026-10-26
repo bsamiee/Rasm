@@ -116,7 +116,7 @@ internal sealed record Routing(Option<SKPoint> Pointer, LanguageExt.HashSet<Modi
 
     private static Seq<Seq<Element>> Stopped(Element element) =>
         element.Role.Category == RoleCategory.Composite
-            ? element.Children.Bind(Access.Flattened).Filter(Focusable) switch {
+            ? Access.Flattened(element.Children).Filter(Focusable) switch {
                 { IsEmpty: true } => Focusable(element) ? [[element]] : [],
                 var members => [members],
             }

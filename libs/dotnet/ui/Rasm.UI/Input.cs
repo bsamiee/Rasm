@@ -26,6 +26,12 @@ public sealed partial class Modifier {
 }
 
 [SmartEnum]
+public sealed partial class PointerButton {
+    public static readonly PointerButton Primary = new();
+    public static readonly PointerButton Alternate = new();
+}
+
+[SmartEnum]
 public sealed partial class Grain {
     public static readonly Grain Unit = new();
     public static readonly Grain Page = new();
@@ -141,4 +147,21 @@ public abstract partial record Input {
     public sealed record Focused : Input;
 
     public sealed record Blurred : Input;
+
+    public static Option<Input> Pointed(Phase<PointerSample> stroke, LanguageExt.HashSet<PointerButton> buttons, int clicks, LanguageExt.HashSet<Modifier> modifiers) =>
+        stroke.Switch(
+                (Stroke: stroke, Buttons: buttons, Clicks: clicks),
+                began: static (held, began) => Some(held.Buttons.Contains(PointerButton.Alternate)
+                    ? (Input)new Perform(new Act.ShowMenu(), new Target.At(began.Value.At))
+                    : new Pointer(held.Stroke, held.Clicks)),
+                changed: static (held, changed) => Some(held.Buttons.Contains(PointerButton.Primary) ? (Input)new Pointer(held.Stroke, held.Clicks) : new Hover(Some(changed.Value.At))),
+                ended: static (held, _) => held.Buttons.Contains(PointerButton.Primary) ? Some<Input>(new Pointer(held.Stroke, held.Clicks)) : None,
+                cancelled: static (held, _) => Some<Input>(new Pointer(held.Stroke, held.Clicks)))
+            .Map(input => input with { Modifiers = modifiers });
+
+    public static Option<Input> Keyed(Mount mount, string shortcut, LanguageExt.HashSet<Modifier> modifiers) =>
+        mount.Editing.IsNone || modifiers.Contains(Modifier.Common) || modifiers.Contains(Modifier.Alternate)
+            ? Access.Flattened(mount.Tree).Find(element => element.Accessible.Shortcut == Some(shortcut))
+                .Map(element => (Input)new Perform(new Act.Press(), new Target.Element(element.Id)) { Modifiers = modifiers })
+            : None;
 }

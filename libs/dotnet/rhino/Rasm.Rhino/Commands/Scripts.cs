@@ -22,13 +22,10 @@ public static class Scripts {
             Left: script => IO.lift(() => Refused.Unless(engine.ExecuteScript(script), nameof(PythonScript.ExecuteScript))),
             Right: code => IO.lift(() => code.Execute(engine))));
 
-    public static IO<Unit> RunFile(PythonScript engine, string path, bool inScope) =>
-        Raising(engine,
-            from existing in IO.lift(() => Exchange.ExistingPath(path))
-            from ran in IO.lift(() => Refused.Unless(
-                inScope ? engine.ExecuteFileInScope(existing) : engine.ExecuteFile(existing),
-                inScope ? nameof(PythonScript.ExecuteFileInScope) : nameof(PythonScript.ExecuteFile)))
-            select ran);
+    public static IO<Unit> RunFile(PythonScript engine, InputPath path, bool inScope) =>
+        Raising(engine, IO.lift(() => Refused.Unless(
+            inScope ? engine.ExecuteFileInScope(path) : engine.ExecuteFile(path),
+            inScope ? nameof(PythonScript.ExecuteFileInScope) : nameof(PythonScript.ExecuteFile))));
 
     public static IO<Option<object>> EvaluateExpression(PythonScript engine, string statements, string expression) =>
         Raising(engine,
@@ -46,12 +43,10 @@ public static class Scripts {
         call | @catch(static error => error.IsExceptional, error => IO.fail<T>(Error.New($"Python raised {engine.GetStackTraceFromException(error.ToException())}", error)));
 
     // --- [RHINOCODE]
-    public static IO<Unit> RunFile(RhinoDoc doc, string path) =>
-        from existing in IO.lift(() => Exchange.ExistingPath(path))
-        from ran in Documents.RunScript(doc, $"""
-            _-ScriptEditor _Run "{existing}"
-            """, echo: false, display: None)
-        select ran;
+    public static IO<Unit> RunFile(RhinoDoc doc, InputPath path) =>
+        Documents.RunScript(doc, $"""
+            _-ScriptEditor _Run "{path}"
+            """, echo: false, display: None);
 
     // --- [NODES]
     public static IO<Seq<ComponentFunctionInfo>> NodeInCodeFunctions() =>

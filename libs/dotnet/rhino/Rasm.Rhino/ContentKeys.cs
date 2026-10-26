@@ -8,11 +8,8 @@ namespace Rasm.Rhino;
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum KeyDomain {
     Definition = 0,
-    Rendering = 2,
     Scene = 3,
-    QueueEntry = 4,
     RenderMeshes = 5,
-    Tile = 6,
     FrameMark = 7,
 }
 

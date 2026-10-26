@@ -1,7 +1,8 @@
-using Rasm.Imaging.Pixels;
+using System.Drawing;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Render.Content;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.Render;
@@ -19,11 +20,11 @@ public readonly partial struct SkylightIntensity : System.Numerics.IMinMaxValue<
 }
 
 public sealed record BackgroundState(
-    BackgroundStyle BackgroundStyle, Swatch BackgroundColorTop, Swatch BackgroundColorBottom, Option<Guid> BackdropEnvironment,
+    BackgroundStyle BackgroundStyle, Color BackgroundColorTop, Color BackgroundColorBottom, Option<Guid> BackdropEnvironment,
     bool ScaleBackgroundToFit, bool ReflectionOverride, Option<Guid> ReflectionEnvironment)
     : IRenderSettingsRecord<BackgroundState, BackgroundParameter> {
     public static BackgroundState Default { get; } = new(
-        BackgroundStyle: BackgroundStyle.SolidColor, BackgroundColorTop: Swatch.White, BackgroundColorBottom: Swatch.Backdrop, BackdropEnvironment: None,
+        BackgroundStyle: BackgroundStyle.SolidColor, BackgroundColorTop: Color.White, BackgroundColorBottom: Color.FromArgb(160, 160, 160), BackdropEnvironment: None,
         ScaleBackgroundToFit: false, ReflectionOverride: true, ReflectionEnvironment: None);
 
     public static string Owner => "background";
@@ -31,7 +32,7 @@ public sealed record BackgroundState(
     public static IO<BackgroundState> Read(RenderSettingsScope scope) =>
         IO.lift(() => scope.Settings switch {
             var settings => new BackgroundState(
-                settings.BackgroundStyle, Conversions.Rgb(settings.BackgroundColorTop), Conversions.Rgb(settings.BackgroundColorBottom),
+                settings.BackgroundStyle, settings.BackgroundColorTop, settings.BackgroundColorBottom,
                 Conversions.Present(settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Background, RenderSettings.EnvironmentPurpose.Standard)), settings.ScaleBackgroundToFit,
                 settings.RenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Reflection), Conversions.Present(settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Reflection, RenderSettings.EnvironmentPurpose.Standard))),
         });
@@ -67,19 +68,13 @@ public sealed record BackgroundState(
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BackgroundParameter : IStateParameter<BackgroundState> {
     public static readonly BackgroundParameter Style = new("background-style", new StateParameter<BackgroundState>.Enumerated<BackgroundStyle>(
-        Lens<BackgroundState, BackgroundStyle>.New(static state => state.BackgroundStyle, static style => state => state with { BackgroundStyle = style }),
-        static style => style switch {
-            BackgroundStyle.SolidColor => "Solid color",
-            BackgroundStyle.WallpaperImage => "Wallpaper",
-            BackgroundStyle.Gradient => "Gradient",
-            BackgroundStyle.Environment => "360˚ environment",
-        }),
+        Lens<BackgroundState, BackgroundStyle>.New(static state => state.BackgroundStyle, static style => state => state with { BackgroundStyle = style })),
         new("Background", "Backdrop style behind scene"));
     public static readonly BackgroundParameter BackgroundColorTop = new("background-color-top", new StateParameter<BackgroundState>.Color(
-        Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorTop, static color => state => state with { BackgroundColorTop = color })),
+        lens(Lens<BackgroundState, Color>.New(static state => state.BackgroundColorTop, static color => state => state with { BackgroundColorTop = color }), Conversions.Rgb)),
         new("Solid color", "Background color, gradient top color"));
     public static readonly BackgroundParameter BackgroundColorBottom = new("background-color-bottom", new StateParameter<BackgroundState>.Color(
-        Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorBottom, static color => state => state with { BackgroundColorBottom = color })),
+        lens(Lens<BackgroundState, Color>.New(static state => state.BackgroundColorBottom, static color => state => state with { BackgroundColorBottom = color }), Conversions.Rgb)),
         new("Gradient", "Gradient bottom color"));
     public static readonly BackgroundParameter BackdropEnvironment = new("backdrop-environment", new StateParameter<BackgroundState>.OptionalRaw<Guid>(
         Lens<BackgroundState, Option<Guid>>.New(static state => state.BackdropEnvironment, static environment => state => state with { BackdropEnvironment = environment })),

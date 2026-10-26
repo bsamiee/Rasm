@@ -6,35 +6,6 @@ using CommunityToolkit.HighPerformance.Helpers;
 namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct BarLevel : IMinMaxValue<BarLevel> {
-    public static BarLevel MinValue { get; } = new(0d);
-    public static BarLevel MaxValue { get; } = new(double.MaxValue);
-    public static BarLevel PsnrAdvisory { get; } = new(35d);
-    public static BarLevel PsnrRefuse { get; } = new(30d);
-    public static BarLevel NrmseAdvisory { get; } = new(0.05d);
-    public static BarLevel NrmseRefuse { get; } = new(0.10d);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[SmartEnum<int>]
-public sealed partial class Verdict {
-    public static readonly Verdict Pass = new(0);
-    public static readonly Verdict Advisory = new(1);
-    public static readonly Verdict Unmeasured = new(2);
-    public static readonly Verdict Refuse = new(3);
-
-    public Verdict Max(Verdict other) => other > this ? other : this;
-}
-
-public sealed record Bar(BarLevel Advisory, BarLevel Refuse) {
-    public Verdict Graded(Func<double, bool> holds) =>
-        !holds(Refuse) ? Verdict.Refuse : !holds(Advisory) ? Verdict.Advisory : Verdict.Pass;
-}
-
-public sealed record ComparisonBars(Bar Psnr, Bar Nrmse);
-
 public sealed class FrameComparison {
     private FrameComparison(double psnr, Option<double> nrmse, PixelFrame difference) => (Psnr, Nrmse, Difference) = (psnr, nrmse, difference);
 
@@ -44,10 +15,6 @@ public sealed class FrameComparison {
 
     public static Fin<FrameComparison> Of(PixelFrame reference, PixelFrame test) =>
         reference.Size == test.Size ? Measured(reference, test) : Error.New($"Reference size {reference.Size} differs from test size {test.Size}");
-
-    public Verdict Graded(ComparisonBars bars) =>
-        bars.Psnr.Graded(level => Psnr >= level)
-            .Max(Nrmse.Match(Some: nrmse => bars.Nrmse.Graded(level => nrmse <= level), None: Verdict.Unmeasured));
 
     private static FrameComparison Measured(PixelFrame reference, PixelFrame test) {
         using MemoryOwner<Measure> rows = MemoryOwner<Measure>.Allocate(test.Size.Height);

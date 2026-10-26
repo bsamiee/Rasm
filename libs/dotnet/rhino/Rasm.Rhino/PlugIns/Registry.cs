@@ -47,12 +47,11 @@ public static class PlugInRegistry {
     private static Fin<PlugInInfo> Installed(Guid id) => Optional(PlugIn.GetPlugInInfo(id)).ToFin(new NotFound("installed plug-in", $"{id}"));
 
     // --- [LOADS]
-    public static IO<Guid> LoadPlugIn(string path) =>
-        IO.lift(() => Exchange.ExistingPath(path))
-            .Bind(static existing => IO.lift(Fin<Guid> () => PlugIn.LoadPlugIn(existing, out Guid loaded) switch {
-                LoadPlugInResult.Success or LoadPlugInResult.SuccessAlreadyLoaded => loaded,
-                var result => new FileRefused(existing, $"load failed with {result}"),
-            }));
+    public static IO<Guid> LoadPlugIn(InputPath path) =>
+        IO.lift(Fin<Guid> () => PlugIn.LoadPlugIn(path, out Guid loaded) switch {
+            LoadPlugInResult.Success or LoadPlugInResult.SuccessAlreadyLoaded => loaded,
+            var result => new FileRefused(path, FileReason.Unreadable, Error.New($"{nameof(PlugIn.LoadPlugIn)} returned {result}")),
+        });
 
     public static IO<Unit> LoadPlugIns(Seq<Guid> ids) =>
         IO.lift(() => Callbacks.Each(ids, static (id, _) => LoadInstalled(id)).Map(static _ => unit));

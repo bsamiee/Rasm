@@ -1,6 +1,5 @@
 using System.Drawing;
 using System.Runtime.CompilerServices;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
@@ -32,7 +31,7 @@ public sealed record RenderEngine(
     LocalizeStringPair Caption,
     RenderWindow.StandardChannels Channels,
     bool HostWireframe,
-    Func<RenderStart, Option<PixelExtent>, RenderWindow, SceneBatch, IO<RenderWork>> Open) {
+    Func<RenderStart, Option<Size>, RenderWindow, SceneBatch, IO<RenderWork>> Open) {
     internal Seq<Guid> SupportedChannels =>
         toSeq(Enum.GetValues<RenderWindow.StandardChannels>())
             .Filter(channel => int.IsPow2((int)channel)
@@ -132,15 +131,13 @@ internal sealed class BatchPipeline : RenderPipeline {
 
     private bool Begin(Option<Size> quiet, [CallerMemberName] string member = "") =>
         Callbacks.Answer(
-            from extent in IO.lift(quiet.Traverse(static size => PixelExtent.Validated(size.Width, size.Height)).As())
-            from started in new RenderWindowSource.Rendering(RenderSessionId).Open(window => context.Start(window, owned =>
+            new RenderWindowSource.Rendering(RenderSessionId).Open(window => context.Start(window, owned =>
                 from world in start.Switch(
                     (Pipeline: this, Window: window, Retain: owned),
                     full: static (state, _) => state.Pipeline.FullScene(state.Window, state.Retain),
                     region: static (state, region) => DisposalOps.Within(() => new ViewInfo(region.View.ActiveViewport), view => state.Pipeline.Scene(state.Window, view, state.Retain)))
-                from work in engine.Open(start, extent, window, world)
-                select work, engine.Caption))
-            select started,
+                from work in engine.Open(start, quiet, window, world)
+                select work, engine.Caption)),
             static () => false,
             new CallbackSite(context.Sink, typeof(BatchPipeline), member));
 
@@ -150,7 +147,6 @@ internal sealed class BatchPipeline : RenderPipeline {
 
     private IO<SceneBatch> Scene(RenderWindow window, ViewInfo view, Action<IDisposable> retain) =>
         from size in IO.lift(window.Size)
-        from extent in IO.lift(PixelExtent.Validated(size.Width, size.Height))
         from __ in when(engine.HostWireframe, RenderWindows.AddWireframe(
             window,
             new WireframeRegion(document, view.Viewport, start.Switch(size, full: static (whole, _) => new Rectangle(System.Drawing.Point.Empty, whole), region: static (_, region) => region.Rectangle)),

@@ -16,7 +16,7 @@ public sealed record PlugInDefinition {
     public Option<PlugInLoadTime> LoadTime { get; init; }
     public Option<LicenseDefinition> License { get; init; }
     public Seq<Guid> Dependencies { get; init; }
-    public Func<ISettingReader, IO<HistoryLimits>> History { get; init; } = static _ => IO.pure(HistoryLimits.Default);
+    public Func<SettingsNode, IO<HistoryLimits>> History { get; init; } = static _ => IO.pure(HistoryLimits.Default);
     public required TimeProvider Clock { get; init; }
     public Seq<Action<ILoggingBuilder>> Logging { get; init; }
     public Seq<Func<IPlugInSink, Command>> Commands { get; init; }

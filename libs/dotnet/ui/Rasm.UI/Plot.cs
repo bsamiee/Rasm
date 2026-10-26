@@ -8,6 +8,8 @@ namespace Rasm.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class AxisRange {
+    public static AxisRange Unit { get; } = Create(0f, 1f);
+
     public float From { get; }
     public float To { get; }
 
@@ -51,6 +53,10 @@ public abstract partial record Axis {
             var (from, to) => [(float.Min(from, to), float.Max(from, to))],
         };
 
+    public virtual Option<Axis> Over(AxisRange range) => Some(this with { Range = range });
+
+    public string Spoken(float value) => new Presentation<float>().Display((Range.Low, Range.High), CultureInfo.InvariantCulture).Text(value);
+
     public abstract Option<float> Step(float least);
     public abstract Seq<float> Ticks(float least);
     public abstract float Snapped(float value, int steps, float least);
@@ -61,6 +67,14 @@ public abstract partial record Axis {
         };
 
     private protected virtual float Wrapped(float fraction) => fraction;
+
+    private protected float Ticked(float value, int steps, float least) =>
+        Ticks(least).Map(static (tick, index) => (Tick: tick, Index: index)) switch {
+            { IsEmpty: true } => value,
+            var ticks => ticks.MinBy(held => MathF.Abs(Fraction(held.Tick) - Fraction(value))) switch {
+                var nearest => ticks[int.Clamp(nearest.Index + steps, 0, ticks.Count - 1)].Tick,
+            },
+        };
 
     private static Option<float> Nice(float span) =>
         float.IsFinite(span) && span > 0f
@@ -101,13 +115,41 @@ public abstract partial record Axis {
             Step(least).Map(factor => Range.From.Cons(toSeq(Prelude.Range(0, int.Max(0, (int)MathF.Floor(MathF.Log10(MathF.Abs(Range.Span)) / MathF.Log10(factor)) + 1)))
                 .Map(power => Range.From + (MathF.Sign(Range.Span) * MathF.Pow(factor, power))))).IfNone([]);
 
-        public override float Snapped(float value, int steps, float least) =>
-            Ticks(least).Map(static (tick, index) => (Tick: tick, Index: index)) switch {
-                { IsEmpty: true } => value,
-                var ticks => ticks.MinBy(held => MathF.Abs(Fraction(held.Tick) - Fraction(value))) switch {
-                    var nearest => ticks[int.Clamp(nearest.Index + steps, 0, ticks.Count - 1)].Tick,
-                },
-            };
+        public override float Snapped(float value, int steps, float least) => Ticked(value, steps, least);
+    }
+
+    public sealed record Log(AxisRange Range, float Base) : Axis(Range.Low > 0f ? Range : throw new ArgumentOutOfRangeException(nameof(Range), Range, "a log axis spans positive values alone")) {
+        private const float Slack = 1e-4f;
+
+        public float Base { get; } = Base > 1f ? Base : throw new ArgumentOutOfRangeException(nameof(Base), Base, "a log axis base exceeds one");
+
+        private float Depth => MathF.Log(Range.To / Range.From);
+
+        public override float Fraction(float value) => MathF.Log(value / Range.From) / Depth;
+
+        public override float Value(float fraction) => Range.From * MathF.Exp(fraction * Depth);
+
+        public override Option<Axis> Over(AxisRange range) => range.Low > 0f ? Some<Axis>(new Log(range, Base)) : None;
+
+        public override Option<float> Step(float least) => None;
+
+        public override Seq<float> Ticks(float least) {
+            int first = (int)MathF.Ceiling(MathF.Log(Range.Low, Base) - Slack);
+            int last = (int)MathF.Floor(MathF.Log(Range.High, Base) + Slack);
+            float span = MathF.Abs(Depth);
+            int stride = int.Max(1, (int)MathF.Ceiling(least * span / MathF.Log(Base)));
+            Seq<float> majors = toSeq(Prelude.Range(first, int.Max(0, last - first + 1))).Filter(power => power % stride is 0).Map(power => MathF.Pow(Base, power));
+            Seq<float> minors = stride is 1 && MathF.Log(Base / (Base - 1f)) >= least * span
+                ? from power in toSeq(Prelude.Range(first - 1, int.Max(0, last - first + 2)))
+                  from multiple in toSeq(Prelude.Range(2, int.Max(0, (int)MathF.Ceiling(Base) - 2))).Filter(multiple => multiple < Base)
+                  let tick = multiple * MathF.Pow(Base, power)
+                  where tick >= Range.Low && tick <= Range.High
+                  select tick
+                : [];
+            return toSeq((majors + minors).OrderBy(Fraction));
+        }
+
+        public override float Snapped(float value, int steps, float least) => Held(Ticked(value, steps, least));
     }
 
     public sealed record Scale(AxisRange Range, Func<float, AxisRange, float> Forward, Func<float, AxisRange, float> Inverse) : Axis(Range) {
@@ -199,9 +241,11 @@ public abstract partial record PlotPlane {
 
     public Seq<(Orientation Along, Axis Axis)> Dimensions => toSeq(Orientation.Items).Choose(along => Dimension(along).Map(axis => (Along: along, Axis: axis)));
 
-    public Option<PlotPlane> Shifted(Vector2 delta) => Mapped((along, axis) => axis.Range.Shifted(along.Of(delta)).Map(range => axis with { Range = range }));
+    public string Spoken(Vector2 value) => string.Join(", ", Dimensions.Map(held => held.Axis.Spoken(held.Along.Of(value))));
 
-    public Option<PlotPlane> Scaled(Vector2 about, float factor) => Mapped((along, axis) => axis.Range.Scaled(along.Of(about), factor).Map(range => axis with { Range = range }));
+    public Option<PlotPlane> Shifted(Vector2 delta) => Mapped((along, axis) => axis.Range.Shifted(along.Of(delta)).Bind(axis.Over));
+
+    public Option<PlotPlane> Scaled(Vector2 about, float factor) => Mapped((along, axis) => axis.Range.Scaled(along.Of(about), factor).Bind(axis.Over));
 
     public virtual Option<Vector2> Turned(Vector2 value, float radians) => None;
 
@@ -250,6 +294,8 @@ public abstract partial record PlotPlane {
     }
 
     public sealed record Track(Orientation Along, Axis Axis) : PlotPlane {
+        public static Track Unit(Orientation along) => new(along, new Axis.Linear(AxisRange.Unit));
+
         public override Option<Axis> Dimension(Orientation along) => along == Along ? Some(Axis) : None;
 
         private protected override Option<PlotPlane> Mapped(Func<Orientation, Axis, Option<Axis>> map) => map(Along, Axis).Map(axis => (PlotPlane)(this with { Axis = axis }));
@@ -258,7 +304,7 @@ public abstract partial record PlotPlane {
     public sealed record Polar(Axis Angle, Option<Axis> Radius) : PlotPlane {
         public override SKMatrix Frame(SKRect content) => base.Frame(content.AspectFit(new SKSize(1f, 1f)));
 
-        public override Option<Factor> Aspect => Some(Factor.Create(1f));
+        public override Option<Factor> Aspect => Some(Factor.Unit);
 
         public override Option<Axis> Dimension(Orientation along) => along.Map(horizontal: Some(Angle), vertical: Radius);
 
@@ -439,9 +485,22 @@ public abstract partial record Figure {
         }
     }
 
+    public sealed record Graph(AxisRange Domain, Func<float, float> Fit) : Figure {
+        public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) => new Curve(Domain, Tabulated(frame, pen)).Edges(path, frame, pen);
+
+        private Seq<float> Tabulated(PlotFrame frame, Pen pen) =>
+            MathF.Abs(frame.Plane.Fraction(Orientation.Horizontal, Domain.To) - frame.Plane.Fraction(Orientation.Horizontal, Domain.From)) switch {
+                var spanned => int.Max(2, (int)MathF.Ceiling(spanned * frame.Pixels(Orientation.Horizontal) * pen.Device.MapRadius(1f)) + 1) switch {
+                    var count => toSeq(Range(0, count)).Map(index => Fit(Domain.From + (index * Domain.Span / (count - 1)))),
+                },
+            };
+    }
+
     public sealed record Grid(Orientation Along) : Figure {
+        public Option<Axis> Ticks { get; init; }
+
         public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) =>
-            _ = frame.Plane.Dimension(Along).Iter(axis => axis.Ticks(pen.Spacing / frame.Pixels(Along)).Map(axis.Fraction).Iter(at => frame.Plane.Trace(path, frame.Matrix, pen, Along, at)));
+            _ = (Ticks | frame.Plane.Dimension(Along)).Iter(axis => axis.Ticks(pen.Spacing / frame.Pixels(Along)).Map(axis.Fraction).Iter(at => frame.Plane.Trace(path, frame.Matrix, pen, Along, at)));
 
         public override bool Hits(PlotFrame frame, SKPoint local, float reach) => false;
     }

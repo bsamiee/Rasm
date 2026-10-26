@@ -20,7 +20,7 @@ using SixLabors.ImageSharp.PixelFormats;
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal readonly record struct ImageSample(OutputDepth Depth, Func<PixelFrame, bool, FileMetadata, Option<ColorEncoding>, IImageEncoder, FileStream, IO<Unit>> Write) {
+internal readonly record struct ImageSample(OutputDepth Depth, Func<PixelFrame, bool, FileMetadata, Option<ColorEncoding>, IImageEncoder, Stream, IO<Unit>> Write) {
     internal static ImageSample Bytes { get; } = Of<Rgba32, Rgb24>(OutputDepth.UInt8);
 
     internal static ImageSample Of<TAlpha, TOpaque>(OutputDepth depth)
@@ -45,8 +45,6 @@ public readonly partial struct Quality : IMinMaxValue<Quality> {
 public readonly partial struct JpegQuality : IMinMaxValue<JpegQuality> {
     public static JpegQuality MinValue { get; } = new(1);
     public static JpegQuality MaxValue { get; } = new(100);
-    public static JpegQuality Standard { get; } = new(75);
-    public static JpegQuality Export { get; } = new(90);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
@@ -156,7 +154,7 @@ public abstract partial record StillFormat {
 
         public static IterableNE<string> Extensions => IterableNE.create(".dng");
 
-        public static Fin<StillFormat> From(PixelFrame frame, Gamut gamut, Option<double> exposure, Option<LensDistance> focalLength, Option<PositiveMagnitude> aperture) {
+        public static Fin<StillFormat> From(PixelFrame frame, Gamut gamut, Option<double> exposure, Option<LensDistance> focalLength, Option<float> aperture) {
             static Fin<float> Rational(TiffTag tag, float value, int minimum) =>
                 value >= minimum && value < (double)int.MaxValue
                     ? value
@@ -183,24 +181,24 @@ public static class StillWriter {
         public override void Close(object clientData) { }
     }
 
-    public static IO<Unit> Write(StillFormat still, FileMetadata metadata, OutputPath path) =>
-        FilePublication.Write(path, overwrite: true, stream => still.Switch(
+    public static IO<Unit> Encode(StillFormat still, FileMetadata metadata, Stream stream) =>
+        still.Switch(
             (Metadata: metadata, Stream: stream),
             pngRaster: static (save, png) => png.Sample.Write(png.Frame, png.Alpha, save.Metadata, png.Encoding, new PngEncoder {
                 BitDepth = (PngBitDepth)png.Sample.Depth.Bits, ColorType = png.Alpha ? PngColorType.RgbWithAlpha : PngColorType.Rgb,
             }, save.Stream),
             jpegRaster: static (save, jpeg) => ImageSample.Bytes.Write(jpeg.Frame, false, save.Metadata, jpeg.Encoding, jpeg.Encoder, save.Stream),
             webpRaster: static (save, webp) => ImageSample.Bytes.Write(webp.Frame, webp.Alpha, save.Metadata, Some(webp.Encoding), new WebpEncoder { FileFormat = webp.Format, Quality = webp.Quality }, save.Stream),
-            bmpRaster: static (save, bmp) => ImageSample.Bytes.Write(bmp.Frame, true, save.Metadata, None, new BmpEncoder {
+            bmpRaster: static (save, bmp) => ImageSample.Bytes.Write(bmp.Frame, bmp.Alpha, save.Metadata, None, new BmpEncoder {
                 BitsPerPixel = bmp.Alpha ? BmpBitsPerPixel.Bit32 : BmpBitsPerPixel.Bit24, SupportTransparency = bmp.Alpha,
             }, save.Stream),
-            tgaRaster: static (save, tga) => ImageSample.Bytes.Write(tga.Frame, true, save.Metadata, None, new TgaEncoder {
+            tgaRaster: static (save, tga) => ImageSample.Bytes.Write(tga.Frame, tga.Alpha, save.Metadata, None, new TgaEncoder {
                 BitsPerPixel = tga.Alpha ? TgaBitsPerPixel.Bit32 : TgaBitsPerPixel.Bit24,
             }, save.Stream),
             tiffRaster: static (save, tiff) => Scanlines(save.Stream, "w", [], Tagged(tiff.Frame.Size, tiff.Sample, tiff.Alpha, tiff.Encoding, save.Metadata, []), tiff.Frame.Size.Height, Rows(tiff.Frame, tiff.Sample.Depth, tiff.Alpha)),
             exrRaster: static (save, exr) => ExrParts.Write(exr, save.Metadata, save.Stream),
             dng: static (save, dng) => DngWriter.Write(dng, save.Metadata, save.Stream),
-            document: static (save, document) => document.Content.Write(save.Metadata, save.Stream)));
+            document: static (save, document) => document.Content.Write(save.Metadata, save.Stream));
 
     internal static void Associate(ReadOnlySpan<Vector4> row, Span<Vector4> into) {
         for (int x = 0; x < row.Length; x++)
@@ -257,7 +255,7 @@ public static class StillWriter {
             (TiffTag.ROWSPERSTRIP, [open.DefaultStripSize(0)]),
         ];
 
-    internal static IO<Unit> Scanlines(FileStream stream, string mode, Seq<TiffFieldInfo> custom, Func<Tiff, Seq<(TiffTag Tag, object[] Values)>> fields, int height, Action<int, Span<byte>> row) {
+    internal static IO<Unit> Scanlines(Stream stream, string mode, Seq<TiffFieldInfo> custom, Func<Tiff, Seq<(TiffTag Tag, object[] Values)>> fields, int height, Action<int, Span<byte>> row) {
         Fin<Unit> Encode(Tiff tiff, CancellationToken token) {
             tiff.MergeFieldInfo([.. custom], custom.Count);
             foreach ((TiffTag tag, object[] values) in fields(tiff))
@@ -273,15 +271,15 @@ public static class StillWriter {
             }
             return unit;
         }
-        return IO.lift(environment => Optional(Tiff.ClientOpen(stream.Name, mode, stream, new BorrowedTiffStream())).ToFin(Error.New($"TIFF writer refused to open {stream.Name}")).Bind(tiff => {
+        return IO.lift(environment => Optional(Tiff.ClientOpen(nameof(Tiff), mode, stream, new BorrowedTiffStream())).ToFin(Error.New("TIFF writer refused to open its stream")).Bind(tiff => {
             Fin<Unit> encoded = Try.lift(() => Encode(tiff, environment.Token)).Run();
-            Fin<Unit> flushed = Try.lift(Fin<Unit> () => tiff.Flush() ? unit : Error.New($"TIFF writer refused to flush {stream.Name}")).Run();
+            Fin<Unit> flushed = Try.lift(Fin<Unit> () => tiff.Flush() ? unit : Error.New("TIFF writer refused to flush its stream")).Run();
             Fin<Unit> closed = Try.lift(() => { tiff.Dispose(); return unit; }).Run();
             return (encoded, flushed, closed).Apply(static (_, _, _) => unit).As();
         }));
     }
 
-    internal static IO<Unit> Encoded<TPixel>(PixelFrame frame, OutputDepth depth, bool alpha, FileMetadata metadata, Option<ColorEncoding> encoding, IImageEncoder encoder, FileStream stream)
+    internal static IO<Unit> Encoded<TPixel>(PixelFrame frame, OutputDepth depth, bool alpha, FileMetadata metadata, Option<ColorEncoding> encoding, IImageEncoder encoder, Stream stream)
         where TPixel : unmanaged, IPixel<TPixel> =>
         IO.liftAsync(async environment => {
             void Fill(int y, Span<TPixel> destination) {
@@ -301,7 +299,7 @@ public static class StillWriter {
                 }
             }
             using Image<TPixel> image = new(frame.Size.Width, frame.Size.Height);
-            metadata.Png(image.Metadata, encoding);
+            metadata.Into(image.Metadata, encoding);
             image.ProcessPixelRows(rows => {
                 for (int y = 0; y < rows.Height; y++)
                     Fill(y, rows.GetRowSpan(y));

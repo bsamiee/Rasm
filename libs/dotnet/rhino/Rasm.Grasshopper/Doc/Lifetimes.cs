@@ -15,9 +15,10 @@ public static class Lifetimes {
                 receive(io.Document);
         }))
         .Bind(static document => IO.lift(() => document.ToFin(new Refused(nameof(DocumentIO.Open), Refused.Declined))))
-        .Catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(new FileRefused(path, "is missing", error)))
-        .Catch(static error => error.HasException<UnauthorizedAccessException>() || error.HasException<SecurityException>() || error.HasException<IOException>(), error => IO.fail<Document>(new FileRefused(path, "is unreadable", error)))
-        .Catch(static error => error.HasException<InvalidDataException>(), error => IO.fail<Document>(new FileRefused(path, "is damaged", error)));
+        .Catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(new FileRefused(path, FileReason.Missing, error)))
+        .Catch(
+            static error => error.HasException<UnauthorizedAccessException>() || error.HasException<SecurityException>() || error.HasException<IOException>() || error.HasException<InvalidDataException>(),
+            error => IO.fail<Document>(new FileRefused(path, FileReason.Unreadable, error)));
 
     public static IO<Document> Open(DocumentBag bag, string path) =>
         from roots in IO.lift(() => toSeq(bag.All.Select(static stack => stack.Root)))
