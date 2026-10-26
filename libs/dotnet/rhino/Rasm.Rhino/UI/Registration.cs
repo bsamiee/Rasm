@@ -3,6 +3,7 @@ using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
@@ -28,7 +29,7 @@ public abstract partial record ContentScope {
 
 public sealed record ContentMenuRow(
     string Caption,
-    Rasm.UI.GlyphSource Icon,
+    GlyphSource Icon,
     ContentScope Scope,
     LanguageExt.HashSet<RenderContentMenu.Context> Contexts,
     RenderContentMenu.SeparatorStyle Separator,
@@ -56,7 +57,7 @@ public static class ViewRegistration {
                 None: () => Hosted(row.Identity, () => Panels.RegisterPanel(plugIn.PlugIn, row.Identity, face.Caption, iconAssembly: null, iconResourceId: null, face.Kind))),
         });
 
-    private static IO<Unit> Drawn(IPlugInViews plugIn, View.Panel row, Rasm.UI.GlyphSource glyph, string caption, PanelType kind) =>
+    private static IO<Unit> Drawn(IPlugInViews plugIn, View.Panel row, GlyphSource glyph, string caption, PanelType kind) =>
         from pixels in IconSlot.PanelTab.Pixels
         from icon in Icons.DrawingIcon(glyph, pixels)
         from registered in Hosted(row.Identity, () => Panels.RegisterPanel(plugIn.PlugIn, row.Identity, caption, icon, kind))
@@ -64,24 +65,25 @@ public static class ViewRegistration {
 
     // --- [PAGES]
     public static IO<Unit> OptionsDialogPages(IPlugInViews plugIn, ICollection<OptionsDialogPage> pages) =>
-        Each<View.OptionsPage>(plugIn, row => Tree(plugIn, row, static held => held.SubPages, None).Bind(page => IO.lift(() => page.Iter(pages.Add))));
+        Each<View.OptionsPage>(plugIn, row => Tree(plugIn, row, static held => held.SubPages, static held => held.Create, None).Bind(page => IO.lift(() => page.Iter(pages.Add))));
 
     public static IO<Unit> DocumentPropertiesDialogPages(IPlugInViews plugIn, RhinoDoc document, ICollection<OptionsDialogPage> pages) =>
-        Each<View.DocumentPage>(plugIn, row => Tree(plugIn, row, static held => held.SubPages, Some(document)).Bind(page => IO.lift(() => page.Iter(pages.Add))));
+        Each<View.DocumentPage>(plugIn, row => Tree(plugIn, row, static held => held.SubPages, static held => held.Create, Some(document)).Bind(page => IO.lift(() => page.Iter(pages.Add))));
 
     public static IO<Option<OptionsDialogPage>> RenderOptionsDialogPage(IPlugInViews plugIn, View.DocumentPage row, RhinoDoc document) =>
-        Tree(plugIn, row, static held => held.SubPages, Some(document));
+        Tree(plugIn, row, static held => held.SubPages, static held => held.Create, Some(document));
 
     public static IO<Unit> ObjectPropertiesPages(IPlugInViews plugIn, ObjectPropertiesPageCollection collection) =>
-        Each<View.PropertiesPage>(plugIn, row => IO.lift(() => (DefinedPropertiesPage)Activator.CreateInstance(row.Identity, plugIn)!).Bind(page => IO.lift(() => collection.Add(page))));
+        Each<View.PropertiesPage>(plugIn, row => IO.lift(() => row.Create(plugIn)).Bind(page => IO.lift(() => collection.Add(page))));
 
-    private static IO<Option<OptionsDialogPage>> Tree<TCase>(IPlugInViews plugIn, TCase row, Func<TCase, Seq<TCase>> subPages, Option<RhinoDoc> document) where TCase : View =>
+    private static IO<Option<OptionsDialogPage>> Tree<TCase>(
+        IPlugInViews plugIn, TCase row, Func<TCase, Seq<TCase>> subPages, Func<TCase, Func<IPlugInViews, DefinedOptionsPage>> create, Option<RhinoDoc> document) where TCase : View =>
         from scope in RowScope.Open(plugIn, document, new CommitMode.Immediate())
-        from shown in RowRules.Holds(row.Visible, scope)
+        from shown in CommandRows.Holds(row.Visible, scope)
         from page in shown
-            ? from built in IO.lift(() => (DefinedOptionsPage)Activator.CreateInstance(row.Identity, plugIn)!)
+            ? from built in IO.lift(() => create(row)(plugIn))
               from _ in document.TraverseM(built.ForDocument).As()
-              from children in subPages(row).TraverseM(sub => Tree(plugIn, sub, subPages, document)).As()
+              from children in subPages(row).TraverseM(sub => Tree(plugIn, sub, subPages, create, document)).As()
               from __ in IO.lift(() => built.Children.AddRange(children.Somes()))
               select Some<OptionsDialogPage>(built)
             : IO.pure(Option<OptionsDialogPage>.None)
@@ -111,9 +113,9 @@ public static class ViewRegistration {
     // --- [CONTENT_SECTIONS]
     public static readonly Func<IPlugInViews, Action<IDisposable>, IO<Unit>> AddCustomUISections =
         static (plugIn, retain) => EventKind.OnAddCustomUISections.Inline(
-            args => Each<View.Section>(plugIn, row => when(
-                row.Identity.IsSubclassOf(typeof(DefinedContentSection)),
-                DisposalOps.Acquire(IO.lift(() => (DefinedContentSection)Activator.CreateInstance(row.Identity, plugIn)!), args.ExpandableContentUI.AddSection).Map(unit)).As()),
+            args => Each<View.Section>(plugIn, row => row.Create.Match(
+                Left: static _ => IO.pure(unit),
+                Right: content => DisposalOps.Acquire(IO.lift(() => content(row, plugIn)), args.ExpandableContentUI.AddSection).Map(unit))),
             plugIn, retain);
 
     public static EntryKey FieldKey(RenderContent content, string field) =>

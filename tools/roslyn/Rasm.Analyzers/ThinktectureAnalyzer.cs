@@ -27,14 +27,14 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         "RASM1102",
         Category,
         "Validation through default ValidationError",
-        "`{0}` returns default `ValidationError`, declare `[ValidationError<Invalid>]` on `{1}` so `Validate` returns the package error that converts to `Fin`",
+        "`{0}` returns default `ValidationError`, declare `[ValidationError<T>]` on `{1}` with the package error type as `T`",
         "Thinktecture `Validate` or `TryCreate` call on a type raising default `ValidationError`, outside a validation hook or object factory.");
 
     public static readonly DiagnosticDescriptor Conversion = Rule(
         "RASM1103",
         Category,
         "ValidationError converted to Error by hand",
-        "`{0}` converts a `ValidationError` message to an `Error` by hand, declare `[ValidationError<Invalid>]` on the value object so `Validate` returns the package error that converts to `Fin`",
+        "`{0}` converts a `ValidationError` message to an `Error` by hand, declare `[ValidationError<T>]` on the value object with the package error type as `T`",
         "`ValidationError.Message` passed to an `Error` factory or constructor.");
 
     public static readonly DiagnosticDescriptor Thrown = Rule(
@@ -48,7 +48,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         "RASM1105",
         Category,
         "Smart enum with no data",
-        "Smart enum `{0}` {1}",
+        "Smart enum `{0}` {1}, move switch behavior onto items, declare cases differing in shape as a union of records, or store a tag one host conversion reads on its record",
         "`[SmartEnum]` type whose items carry no key or data, or `[SmartEnum<string>]` type whose keys are its member names with no read of a key, `Get`, `TryGet`, `Validate`, or `Parse` in the compilation.",
         WellKnownDiagnosticTags.CompilationEnd);
 
@@ -67,8 +67,8 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         LanguageExtSymbols languageExt = new(context.Compilation);
         if (symbols is { UnionAttributeBase: { } adHoc, SmartEnumAttribute1: { } keyed }) CatchAlls(context, symbols.Marks, adHoc, keyed);
         if (symbols is { ObjectFactory: { } factory, ValidationError: { } invalid, Validate: { } validate })
-            Validations(context, factory, invalid, validate, symbols.SmartEnum, symbols.ValidationResults);
-        if (languageExt.Error is { } error && symbols.Message is { } message) Conversions(context, error, message, symbols.ValidationResults);
+            Validations(context, factory, invalid, validate, symbols.SmartEnum);
+        if (languageExt.Error is { } error && symbols.Message is { } message) Conversions(context, error, message);
         if (symbols.Validate is { } validating) Creations(context, validating.Name, symbols.Validated, [.. new[] { symbols.SmartEnumAttribute, symbols.SmartEnumAttribute1 }.OfType<INamedTypeSymbol>()]);
         if (symbols is { SmartEnumAttribute: { } plain, SmartEnumAttribute1: { } stringKeyed }) Enumerations(context, plain, stringKeyed);
         if (symbols.UnionAttribute is { } union) Pickers(context, union, languageExt);
@@ -110,7 +110,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     }
 
     // --- [VALIDATIONS]
-    private static void Validations(CompilationStartAnalysisContext context, INamedTypeSymbol factory, INamedTypeSymbol invalid, ISymbol validate, INamedTypeSymbol? items, INamedTypeSymbol? results) {
+    private static void Validations(CompilationStartAnalysisContext context, INamedTypeSymbol factory, INamedTypeSymbol invalid, ISymbol validate, INamedTypeSymbol? items) {
         IEnumerable<INamedTypeSymbol> Factories(INamedTypeSymbol owner) =>
             owner.AllInterfaces.Where(face => Same(face, factory) && Same(face.TypeArguments[0], owner) && Same(face.TypeArguments[2], invalid));
         bool Implements(IMethodSymbol method, INamedTypeSymbol owner, IEnumerable<INamedTypeSymbol> faces, Func<ISymbol, bool> wanted) =>
@@ -120,7 +120,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
             && !Implements(method, owner, owner.AllInterfaces.Where(face => Same(face, items)), static member => member.IsStatic)
             && Factories(owner).Any(face => Same(face.TypeArguments[1], parameters[0].Type));
         bool Crosses(IMethodSymbol method) =>
-            Same(method, validate)
+            (Same(method, validate) && Same(method.ContainingType.TypeArguments[2], invalid))
             || (method is { IsStatic: true, ContainingType: { } owner } && (Implements(method, owner, Factories(owner), member => Same(member, validate)) || Creates(method, owner)));
         bool Hooked(ISymbol owner) =>
             owner is IMethodSymbol method
@@ -128,15 +128,15 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
                 || method.Parameters.Any(parameter => parameter.RefKind is RefKind.Ref && Same(parameter.Type, invalid)));
         static ITypeSymbol Validated(IInvocationOperation call) => call.TargetMethod.ContainingType is { TypeKind: TypeKind.Interface } face ? face.TypeArguments[0] : call.TargetMethod.ContainingType;
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, analysis) =>
-            Crosses(invocation.TargetMethod) && !Hooked(analysis.ContainingSymbol) && !Within(analysis.ContainingSymbol, results)
+            Crosses(invocation.TargetMethod) && !Hooked(analysis.ContainingSymbol)
                 ? [Diagnostic.Create(Validation, invocation.Syntax.GetLocation(), invocation.Syntax, Validated(invocation).ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat))]
                 : []);
     }
 
     // --- [CONVERSIONS]
-    private static void Conversions(CompilationStartAnalysisContext context, INamedTypeSymbol error, ISymbol message, INamedTypeSymbol? results) =>
-        Report<IPropertyReferenceOperation>(context, [OperationKind.PropertyReference], (reference, analysis) =>
-            reference is { Instance: not null } && Same(reference.Property, message) && !Within(analysis.ContainingSymbol, results)
+    private static void Conversions(CompilationStartAnalysisContext context, INamedTypeSymbol error, ISymbol message) =>
+        Report<IPropertyReferenceOperation>(context, [OperationKind.PropertyReference], (reference, _) =>
+            reference is { Instance: not null } && Same(reference.Property, message)
             && Consumer(reference) is IArgumentOperation { Parent: IInvocationOperation or IObjectCreationOperation } argument && argument.Parent is { } site && Derives(site.Type, error)
                 ? [Diagnostic.Create(Conversion, site.Syntax.GetLocation(), site.Syntax)]
                 : []);
@@ -206,7 +206,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
                     _ => (null, null),
                 };
                 if (found is not ( { } member, { } owner) || Form(owner) is not ( { } mark, true)) return;
-                bool keyRead = member.Name is "Get" or "TryGet" or "Validate" or "Validated" or "Parse" or "TryParse" || string.Equals(member.Name, Key(mark), StringComparison.Ordinal);
+                bool keyRead = member.Name is "Get" or "TryGet" or "Validate" or "Parse" or "TryParse" || string.Equals(member.Name, Key(mark), StringComparison.Ordinal);
                 if (keyRead) read[owner] = 1;
             },
             OperationKind.Invocation,
@@ -219,8 +219,8 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
                         pair.Key.Locations[0],
                         pair.Key.Name,
                         keyedForm
-                            ? "keys its items by their member names and nothing reads a key, declare it as a plain `enum` under `JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower)`"
-                            : "holds items with no key, data, or behavior, declare it as a plain `enum`"));
+                            ? "keys items by member names and no code reads a key"
+                            : "holds items with no key, data, or behavior"));
         });
     }
 

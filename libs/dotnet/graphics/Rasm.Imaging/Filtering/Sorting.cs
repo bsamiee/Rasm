@@ -9,10 +9,10 @@ namespace Rasm.Imaging.Filtering;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
-public sealed partial class SortKey {
-    public static readonly SortKey Luma = new("luma", static (color, weights) => LuminanceSamples.Luminance(color.X, color.Y, color.Z, weights));
-    public static readonly SortKey Hue = new("hue", static (color, _) => RangeAxis.Hue.Coordinate(Hsy.From(color)));
-    public static readonly SortKey Saturation = new("saturation", static (color, _) => RangeAxis.Saturation.Coordinate(Hsy.From(color)));
+public sealed partial class SortMetric {
+    public static readonly SortMetric Luma = new("luma", static (color, weights) => LuminanceSamples.Luminance(color.X, color.Y, color.Z, weights));
+    public static readonly SortMetric Hue = new("hue", static (color, _) => RangeAxis.Hue.Coordinate(Hsy.From(color)));
+    public static readonly SortMetric Saturation = new("saturation", static (color, _) => RangeAxis.Saturation.Coordinate(Hsy.From(color)));
 
     [UseDelegateFromConstructor]
     public partial double Level(Vector4 color, (double R, double G, double B) weights);
@@ -28,13 +28,13 @@ public sealed partial class SortDirection {
     public int Order { get; }
     public bool Transposed { get; }
 
-    public PixelPass Sorted(SortKey key, double low, double high, (double R, double G, double B) luminance) {
+    public PixelPass Sorted(SortMetric metric, double low, double high, (double R, double G, double B) luminance) {
         int order = Order;
         PixelPass.Pointwise rows = new((row, _, _) => {
             using SpanOwner<double> owner = SpanOwner<double>.Allocate(row.Length);
             Span<double> keys = owner.Span;
             for (int x = 0; x < row.Length; x++)
-                keys[x] = key.Level(row[x], luminance);
+                keys[x] = metric.Level(row[x], luminance);
             for (int x = 0, start = 0; x <= row.Length; x++) {
                 if (x < row.Length && row[x].W > 0f && (low <= high ? keys[x] >= low && keys[x] <= high : keys[x] >= low || keys[x] <= high))
                     continue;

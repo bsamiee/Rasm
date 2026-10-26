@@ -1,1 +1,2 @@
-#0 `Count.Validate(value, null, out _)` returns default `ValidationError`, declare `[ValidationError<Invalid>]` on `Count` so `Validate` returns the package error that converts to `Fin`
+#0 `Count.Validate(value, null, out _)` returns default `ValidationError`, declare `[ValidationError<T>]` on `Count` with the package error type as `T`
+#1 `TCount.Validate(value, null, out _)` returns default `ValidationError`, declare `[ValidationError<T>]` on `TCount` with the package error type as `T`

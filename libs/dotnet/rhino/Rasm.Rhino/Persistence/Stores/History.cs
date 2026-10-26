@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Tables;
@@ -60,11 +61,11 @@ public sealed record ValueHistory {
     private const string AtKey = "At";
 
     private static Fin<ArchivableDictionary> Encoded(HashMap<Guid, ValueHistory> histories) =>
-        ArchivableDictionaries.Nested(toSeq(histories.AsIterable()).Map(static pair => (StoredText.Format(pair.Key),
+        ArchivableDictionaries.Nested(toSeq(histories.AsIterable()).Map(static pair => (pair.Key.ToString("D", CultureInfo.InvariantCulture),
             ArchivableDictionaries.Nested(Seq((DoneKey, Encoded(pair.Value.Done)), (UndoneKey, Encoded(pair.Value.Undone)))))));
 
     private static Fin<ArchivableDictionary> Encoded(Seq<HistoryEntry> entries) =>
-        ArchivableDictionaries.Nested(entries.Map(static entry => (StoredText.Format(entry.Serial), Encoded(entry))));
+        ArchivableDictionaries.Nested(entries.Map(static entry => (entry.Serial.ToString(CultureInfo.InvariantCulture), Encoded(entry))));
 
     private static Fin<ArchivableDictionary> Encoded(HistoryEntry entry) =>
         from target in ArchivableDictionaries.Nested(Seq((BeforeKey, ValueSet.Codec.ToDictionary(entry.Diff.Inverse().After())), (AfterKey, ValueSet.Codec.ToDictionary(entry.Diff.After()))))
@@ -74,7 +75,7 @@ public sealed record ValueHistory {
     private static Fin<HashMap<Guid, ValueHistory>> Histories(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
         from pairs in Callbacks.Each(rows, static (row, _) =>
-            (StoredText.Parse<Guid>(row.Key), History(row.Value))
+            (Guid.TryParseExact(row.Key, "D", out Guid id) ? Fin.Succ(id) : Errors.ParseError($"history owner {row.Key} is no GUID"), History(row.Value))
                 .Apply(static (id, history) => history.Map(held => (id, held))).As())
         select toHashMap(pairs.Somes());
 
@@ -89,7 +90,7 @@ public sealed record ValueHistory {
     private static Fin<Option<Seq<HistoryEntry>>> Entries(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
         from entries in Callbacks.Each(rows, static (row, _) =>
-            (StoredText.Parse<BigInteger>(row.Key).Bind(serial => serial >= BigInteger.Zero ? Fin.Succ(serial) : Errors.ParseError($"history serial {row.Key} is negative")),
+            (BigInteger.TryParse(row.Key, NumberStyles.None, CultureInfo.InvariantCulture, out BigInteger serial) ? Fin.Succ(serial) : Errors.ParseError($"history serial {row.Key} is no count"),
              ArchivableDictionaries.Required<long>(row.Value, AtKey),
              Nested(row.Value, BeforeKey),
              Nested(row.Value, AfterKey))

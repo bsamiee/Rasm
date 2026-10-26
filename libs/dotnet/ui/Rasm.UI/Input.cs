@@ -18,42 +18,36 @@ public abstract partial record Phase<T> where T : notnull {
 
 public sealed record PointerSample(SKPoint At, float Pressure);
 
-[SmartEnum]
-public sealed partial class Modifier {
-    public static readonly Modifier Common = new();
-    public static readonly Modifier Alternate = new();
-    public static readonly Modifier Shift = new();
-}
-
-[SmartEnum]
-public sealed partial class PointerButton {
-    public static readonly PointerButton Primary = new();
-    public static readonly PointerButton Alternate = new();
+public sealed record KeyModifiers(bool Common, bool Alternate, bool Shift) {
+    public static KeyModifiers None { get; } = new(Common: false, Alternate: false, Shift: false);
 }
 
 [SmartEnum]
 public sealed partial class Grain {
-    public static readonly Grain Unit = new();
-    public static readonly Grain Page = new();
-    public static readonly Grain Edge = new();
+    public static readonly Grain Unit = new(static (unit, _) => Some(unit));
+    public static readonly Grain Page = new(static (_, page) => Some(page));
+    public static readonly Grain End = new(static (_, _) => Option<float>.None);
+
+    [UseDelegateFromConstructor]
+    public partial Option<float> Stride(float unit, float page);
 }
 
 [SmartEnum<NavigationKind>(SkipIComparable = true)]
-public sealed partial class Navigation {
-    public static readonly Navigation CharacterLeft = new(NavigationKind.CharacterLeft, Orientation.Horizontal, -1, Grain.Unit);
-    public static readonly Navigation CharacterRight = new(NavigationKind.CharacterRight, Orientation.Horizontal, 1, Grain.Unit);
-    public static readonly Navigation WordLeft = new(NavigationKind.WordLeft, Orientation.Horizontal, -1, Grain.Unit);
-    public static readonly Navigation WordRight = new(NavigationKind.WordRight, Orientation.Horizontal, 1, Grain.Unit);
-    public static readonly Navigation LineHome = new(NavigationKind.LineHome, Orientation.Horizontal, -1, Grain.Edge);
-    public static readonly Navigation LineEnd = new(NavigationKind.LineEnd, Orientation.Horizontal, 1, Grain.Edge);
-    public static readonly Navigation LineUp = new(NavigationKind.LineUp, Orientation.Vertical, -1, Grain.Unit);
-    public static readonly Navigation LineDown = new(NavigationKind.LineDown, Orientation.Vertical, 1, Grain.Unit);
-    public static readonly Navigation PageUp = new(NavigationKind.PageUp, Orientation.Vertical, -1, Grain.Page);
-    public static readonly Navigation PageDown = new(NavigationKind.PageDown, Orientation.Vertical, 1, Grain.Page);
-    public static readonly Navigation DocumentHome = new(NavigationKind.DocumentHome, Orientation.Vertical, -1, Grain.Edge);
-    public static readonly Navigation DocumentEnd = new(NavigationKind.DocumentEnd, Orientation.Vertical, 1, Grain.Edge);
+public sealed partial class NavigationDirection {
+    public static readonly NavigationDirection CharacterLeft = new(NavigationKind.CharacterLeft, PhysicalAxis.Horizontal, -1, Grain.Unit);
+    public static readonly NavigationDirection CharacterRight = new(NavigationKind.CharacterRight, PhysicalAxis.Horizontal, 1, Grain.Unit);
+    public static readonly NavigationDirection WordLeft = new(NavigationKind.WordLeft, PhysicalAxis.Horizontal, -1, Grain.Unit);
+    public static readonly NavigationDirection WordRight = new(NavigationKind.WordRight, PhysicalAxis.Horizontal, 1, Grain.Unit);
+    public static readonly NavigationDirection LineHome = new(NavigationKind.LineHome, PhysicalAxis.Horizontal, -1, Grain.End);
+    public static readonly NavigationDirection LineEnd = new(NavigationKind.LineEnd, PhysicalAxis.Horizontal, 1, Grain.End);
+    public static readonly NavigationDirection LineUp = new(NavigationKind.LineUp, PhysicalAxis.Vertical, -1, Grain.Unit);
+    public static readonly NavigationDirection LineDown = new(NavigationKind.LineDown, PhysicalAxis.Vertical, 1, Grain.Unit);
+    public static readonly NavigationDirection PageUp = new(NavigationKind.PageUp, PhysicalAxis.Vertical, -1, Grain.Page);
+    public static readonly NavigationDirection PageDown = new(NavigationKind.PageDown, PhysicalAxis.Vertical, 1, Grain.Page);
+    public static readonly NavigationDirection DocumentHome = new(NavigationKind.DocumentHome, PhysicalAxis.Vertical, -1, Grain.End);
+    public static readonly NavigationDirection DocumentEnd = new(NavigationKind.DocumentEnd, PhysicalAxis.Vertical, 1, Grain.End);
 
-    public Orientation Along { get; }
+    public PhysicalAxis Along { get; }
     public int Sign { get; }
     public Grain Grain { get; }
 
@@ -65,19 +59,19 @@ public sealed partial class Navigation {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class Cursor {
-    public static readonly Cursor Default = new("default");
-    public static readonly Cursor Pointer = new("pointer");
-    public static readonly Cursor Text = new("text");
-    public static readonly Cursor Crosshair = new("crosshair");
-    public static readonly Cursor Move = new("move");
-    public static readonly Cursor Grab = new("grab");
-    public static readonly Cursor Grabbing = new("grabbing");
-    public static readonly Cursor ColumnResize = new("col-resize");
-    public static readonly Cursor RowResize = new("row-resize");
-    public static readonly Cursor NotAllowed = new("not-allowed");
+public sealed partial class CursorShape {
+    public static readonly CursorShape Default = new("default");
+    public static readonly CursorShape Pointer = new("pointer");
+    public static readonly CursorShape Text = new("text");
+    public static readonly CursorShape Crosshair = new("crosshair");
+    public static readonly CursorShape Move = new("move");
+    public static readonly CursorShape Grab = new("grab");
+    public static readonly CursorShape Grabbing = new("grabbing");
+    public static readonly CursorShape ColumnResize = new("col-resize");
+    public static readonly CursorShape RowResize = new("row-resize");
+    public static readonly CursorShape NotAllowed = new("not-allowed");
 
-    public static Cursor Resizing(Orientation along) => along.Map(horizontal: ColumnResize, vertical: RowResize);
+    public static CursorShape Resizing(PhysicalAxis along) => along.Map(horizontal: ColumnResize, vertical: RowResize);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -107,9 +101,9 @@ public abstract partial record Act {
 
     public sealed record Decrement : Act;
 
-    public sealed record Navigate(Navigation Toward) : Act;
+    public sealed record Navigate(NavigationDirection Toward) : Act;
 
-    public sealed record Delete(Option<Navigation> Toward) : Act;
+    public sealed record Delete(Option<NavigationDirection> Toward) : Act;
 
     public sealed record Next : Act;
 
@@ -128,7 +122,7 @@ public abstract partial record Act {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Input {
-    public LanguageExt.HashSet<Modifier> Modifiers { get; init; }
+    public KeyModifiers Modifiers { get; init; } = KeyModifiers.None;
 
     public sealed record Pointer(Phase<PointerSample> Stroke, int Clicks) : Input;
 
@@ -148,19 +142,19 @@ public abstract partial record Input {
 
     public sealed record Blurred : Input;
 
-    public static Option<Input> Pointed(Phase<PointerSample> stroke, LanguageExt.HashSet<PointerButton> buttons, int clicks, LanguageExt.HashSet<Modifier> modifiers) =>
+    public static Option<Input> Pointed(Phase<PointerSample> stroke, bool primary, bool alternate, int clicks, KeyModifiers modifiers) =>
         stroke.Switch(
-                (Stroke: stroke, Buttons: buttons, Clicks: clicks),
-                began: static (held, began) => Some(held.Buttons.Contains(PointerButton.Alternate)
+                (Stroke: stroke, Primary: primary, Alternate: alternate, Clicks: clicks),
+                began: static (held, began) => Some(held.Alternate
                     ? (Input)new Perform(new Act.ShowMenu(), new Target.At(began.Value.At))
                     : new Pointer(held.Stroke, held.Clicks)),
-                changed: static (held, changed) => Some(held.Buttons.Contains(PointerButton.Primary) ? (Input)new Pointer(held.Stroke, held.Clicks) : new Hover(Some(changed.Value.At))),
-                ended: static (held, _) => held.Buttons.Contains(PointerButton.Primary) ? Some<Input>(new Pointer(held.Stroke, held.Clicks)) : None,
+                changed: static (held, changed) => Some(held.Primary ? (Input)new Pointer(held.Stroke, held.Clicks) : new Hover(Some(changed.Value.At))),
+                ended: static (held, _) => held.Primary ? Some<Input>(new Pointer(held.Stroke, held.Clicks)) : None,
                 cancelled: static (held, _) => Some<Input>(new Pointer(held.Stroke, held.Clicks)))
             .Map(input => input with { Modifiers = modifiers });
 
-    public static Option<Input> Keyed(Mount mount, string shortcut, LanguageExt.HashSet<Modifier> modifiers) =>
-        mount.Editing.IsNone || modifiers.Contains(Modifier.Common) || modifiers.Contains(Modifier.Alternate)
+    public static Option<Input> Keyed(Mount mount, string shortcut, KeyModifiers modifiers) =>
+        mount.Editing.IsNone || modifiers.Common || modifiers.Alternate
             ? Access.Flattened(mount.Tree).Find(element => element.Accessible.Shortcut == Some(shortcut))
                 .Map(element => (Input)new Perform(new Act.Press(), new Target.Element(element.Id)) { Modifiers = modifiers })
             : None;

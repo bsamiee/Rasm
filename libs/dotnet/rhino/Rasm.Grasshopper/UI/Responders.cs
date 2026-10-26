@@ -2,20 +2,20 @@ using System.Runtime.CompilerServices;
 using Eto.Drawing;
 using Eto.Forms;
 using Grasshopper2;
-using Grasshopper2.Doc;
 using Grasshopper2.Extensions;
+using Grasshopper2.UI;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.Undo;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Rows;
 
 namespace Rasm.Grasshopper.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-public readonly partial struct FrameLimits {
+[ValidationError<RhinoFault>]
+public sealed partial class FrameLimits {
     public SizeF Minimum { get; }
     public SizeF Maximum { get; }
     public Padding Edges { get; }
@@ -27,10 +27,10 @@ public readonly partial struct FrameLimits {
         Bottom = minimum.Height == maximum.Height ? 0 : edges.Bottom,
     };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SizeF minimum, ref SizeF maximum, ref Padding edges) =>
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref SizeF minimum, ref SizeF maximum, ref Padding edges) =>
         (validationError, edges) = (0f <= minimum.Width && minimum.Width <= maximum.Width && float.IsFinite(maximum.Width)
             && 0f <= minimum.Height && minimum.Height <= maximum.Height && float.IsFinite(maximum.Height)
-            ? null : new ValidationError("resize limits need non-negative minimums no larger than finite maximums"), ResizeBands(minimum, maximum, edges));
+            ? null : new RhinoFault("resize limits need non-negative minimums no larger than finite maximums"), ResizeBands(minimum, maximum, edges));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -155,44 +155,6 @@ public sealed class FrameResponder : Responses, IResponsive {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Responders {
-    // --- [MENUS]
-    public static IO<Unit> Menu(FlexControl control, Seq<Seq<Rasm.UI.Command<RowRule, Invoke>>> groups, RowScope scope, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(keep =>
-            from menus in IO.lift(static () => Ref(Some(HashMap<ContextMenu, IDisposable>())))
-            from live in DisposalOps.Acquire(IO.pure(menus), static held => atomicIO(() => Taken(held)).Bind(DisposalOps.Release).Uninterruptible(), keep)
-            from attached in GrasshopperEvents.PopulateContextMenu(control).Inline(args => Populated(args, groups, scope, menus), scope.Sink, keep)
-            select unit, retain);
-
-    private static Seq<IDisposable> Taken(Ref<Option<HashMap<ContextMenu, IDisposable>>> held) {
-        Option<HashMap<ContextMenu, IDisposable>> taken = held.Value;
-        held.Value = None;
-        return taken.ToSeq().Bind(static map => toSeq(map.Values));
-    }
-
-    private static IO<Unit> Populated(PopulateContextMenuEventArgs args, Seq<Seq<Rasm.UI.Command<RowRule, Invoke>>> groups, RowScope scope, Ref<Option<HashMap<ContextMenu, IDisposable>>> menus) =>
-        IO.lift(() => args.Control is not Canvas canvas
-            || (args.IsMenu && canvas.ResolvePick(
-                canvas.Map(args.MouseEvent.Location, CoordinateSystem.Control, CoordinateSystem.Content),
-                includeGrips: false, includeForeground: true, includeBackground: true, includeWires: true, recursive: true).Kind is Pick.None))
-            .Bind(joins => when(joins, Filled(args.Menu, groups, scope, menus)).As());
-
-    private static IO<Unit> Filled(ContextMenu host, Seq<Seq<Rasm.UI.Command<RowRule, Invoke>>> groups, RowScope scope, Ref<Option<HashMap<ContextMenu, IDisposable>>> menus) =>
-        DisposalOps.Acquire(keep =>
-            from site in IO.pure(new CallbackSite(scope.Sink, typeof(ContextMenu), nameof(ContextMenu.Closed)))
-            from filled in CommandRows.Fill(host.Items, groups, scope, keep)
-            from closed in Subscriptions.Attach(
-                handler => host.Closed += handler, handler => host.Closed -= handler,
-                Callbacks.Handler<EventArgs>(_ => atomicIO(() => {
-                    Option<IDisposable> held = menus.Value.Bind(map => map.Find(host));
-                    menus.Value = menus.Value.Map(map => map.Remove(host));
-                    return held;
-                }).Bind(static held => IO.lift(() => held.Iter(static lease => lease.Dispose()))).Uninterruptible(), site), keep)
-            select unit, (_, lease) => atomicIO(Fin<Unit> () => {
-                Option<HashMap<ContextMenu, IDisposable>> held = menus.Value;
-                menus.Value = held.Map(map => map.Add(host, lease));
-                return held.IsSome ? unit : Errors.Cancelled;
-            }).Bind(IO.lift));
-
     // --- [NUDGE]
     public static IO<Unit> Nudge(Canvas canvas, IPlugInSink sink, Action<IDisposable> retain) =>
         Subscriptions.During<KeyEventArgs>(typeof(Control), handler => canvas.KeyDown += handler, handler => canvas.KeyDown -= handler, nameof(Control.KeyDown))

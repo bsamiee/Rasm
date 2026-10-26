@@ -5,6 +5,7 @@ namespace Rasm.Rhino.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
+[ValidationError<RhinoFault>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NamePart {
@@ -12,35 +13,38 @@ public sealed partial class NamePart {
 
     public static NamePart Ordinal(int position) => new(position.ToString(CultureInfo.InvariantCulture));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) {
         ReadOnlySpan<char> trimmed = value.AsSpan().Trim();
         value = string.Create(trimmed.Length, trimmed, static (target, source) => source.ReplaceAny(target, Reserved, '_'));
-        validationError = trimmed.Trim('.').IsEmpty ? new ValidationError("name part is blank or dots alone") : null;
+        validationError = trimmed.Trim('.').IsEmpty ? new RhinoFault("name part is blank or dots alone") : null;
     }
 }
 
 [ValueObject<string>]
+[ValidationError<RhinoFault>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FileExtension {
     internal const char Mark = '.';
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value is [Mark, _, ..] && !value.AsSpan(1).ContainsAny(NamePart.Reserved) && !value.AsSpan(1).Contains(Mark) ? null : new ValidationError($"extension {value} is no dot then dot-free name characters");
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
+        validationError = value is [Mark, _, ..] && !value.AsSpan(1).ContainsAny(NamePart.Reserved) && !value.AsSpan(1).Contains(Mark) ? null : new RhinoFault($"extension {value} is no dot then dot-free name characters");
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct OutputVersion {
+[ValidationError<RhinoFault>]
+public sealed partial class OutputVersion {
     public static OutputVersion MinValue { get; } = new(1);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value >= MinValue._value ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"output version {value} is below {MinValue._value}"));
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int value) =>
+        validationError = value >= 1 ? null : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"output version {value} is below 1"));
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct SequenceNumber {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value >= 0 ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"sequence number {value} is negative"));
+[ValidationError<RhinoFault>]
+public sealed partial class SequenceNumber {
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int value) =>
+        validationError = value >= 0 ? null : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"sequence number {value} is negative"));
 }
 
 [Union]
@@ -60,9 +64,9 @@ public static class Naming {
     private const char Separator = '_';
     private const string VersionMark = "v";
 
-    extension<TCounter>(TCounter counter) where TCounter : IObjectFactory<TCounter, int, ValidationError>, IConvertible<int> {
+    extension<TCounter>(TCounter counter) where TCounter : class, IObjectFactory<TCounter, int, RhinoFault>, IConvertible<int> {
         public Option<TCounter> Next() =>
-            counter.ToValue() is var held and < int.MaxValue ? ValidationResults.Validated<TCounter, int>(held + 1).ToOption() : None;
+            counter.ToValue() is var held and < int.MaxValue && TCounter.Validate(held + 1, provider: null, out TCounter? next) is null ? Optional(next) : None;
     }
 
     public static string Compose(NamePart stem, OutputName name, Option<OutputVersion> version) =>
@@ -75,7 +79,9 @@ public static class Naming {
     public static Option<OutputVersion> VersionOf(NamePart stem, Seq<NamePart> scope, string entry) {
         string lead = string.Join(Separator, [stem, .. scope, VersionMark]);
         ReadOnlySpan<char> rest = entry.StartsWith(lead, StringComparison.OrdinalIgnoreCase) ? entry.AsSpan(lead.Length) : [];
-        return Invariant.Number<int>(rest.IndexOfAny(Separator, FileExtension.Mark) is >= 0 and var stop ? rest[..stop] : rest, NumberStyles.None)
-            .Bind(static number => OutputVersion.Validated(number).ToOption());
+        return int.TryParse(rest.IndexOfAny(Separator, FileExtension.Mark) is >= 0 and var stop ? rest[..stop] : rest, NumberStyles.None, CultureInfo.InvariantCulture, out int number)
+            && OutputVersion.TryCreate(number, out OutputVersion? version)
+            ? Some(version)
+            : None;
     }
 }

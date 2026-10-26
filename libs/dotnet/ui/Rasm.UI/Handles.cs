@@ -7,21 +7,22 @@ namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<Invalid>]
 public sealed partial class Magnification {
     public static Magnification Free { get; } = Create(float.Epsilon, float.PositiveInfinity);
 
     public float Least { get; }
     public float Most { get; }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float least, ref float most) =>
+    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float least, ref float most) =>
         validationError = float.IsFinite(least) && least > 0f && most >= least
             ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"magnification ({least}, {most}) is not a positive ordered span"));
+            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"magnification ({least}, {most}) is not a positive ordered span"));
 }
 
 public sealed record Points<TValue>(
     Func<TValue, Seq<(Key Key, Vector2 At)>> Read,
-    Func<TValue, Seq<(Key Key, Vector2 To)>, LanguageExt.HashSet<Modifier>, (TValue Value, Seq<Key> Keys)> Moved,
+    Func<TValue, Seq<(Key Key, Vector2 To)>, KeyModifiers, (TValue Value, Seq<Key> Keys)> Moved,
     Func<Vector2, string> Spoken) where TValue : notnull {
     private static readonly Key Only = new Key.Ordinal(0);
 
@@ -87,15 +88,15 @@ public sealed record Points<TValue>(
         .Keys;
 }
 
-public abstract record Handles {
+public abstract record HandleLayer {
     private protected static readonly Key Ground = new Key.Named("ground");
     private protected static readonly Key Layer = new Key.Named("handles");
 
-    private protected Handles() { }
+    private protected HandleLayer() { }
 
     public Selection Picked { get; init; } = new Selection.Many([], None, None);
     public Option<Func<Edit<Selection>, IO<Unit>>> Pick { get; init; }
-    public Option<Cursor> GroundCursor { get; init; }
+    public Option<CursorShape> GroundCursor { get; init; }
 
     public abstract Node Drawn(PlotPlane plane, Seq<Node> ground, Option<Func<Key, Vector2, Node>> handle = default);
 
@@ -126,13 +127,13 @@ public abstract record Handles {
 
     private protected static float Spacing(Laid laid) => Styles.Resolve(laid.Cascade, Role.Grid, laid.Node.Conditions).Metrics[Metric.Spacing];
 
-    private protected static Cursor Gripped(PlotFrame frame) =>
-        frame.Plane.Switch(cartesian: static _ => Cursor.Move, track: static track => Cursor.Resizing(track.Along), polar: static _ => Cursor.Move);
+    private protected static CursorShape Gripped(PlotFrame frame) =>
+        frame.Plane.Switch(cartesian: static _ => CursorShape.Move, track: static track => CursorShape.Resizing(track.Along), polar: static _ => CursorShape.Move);
 
     private static Option<Laid> Child(Laid laid, Key key) => laid.Children.Find(child => child.Path.Last == Some(key));
 }
 
-public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<Edit<TValue>, IO<Unit>> Edited) : Handles where TValue : notnull {
+public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<Edit<TValue>, IO<Unit>> Edited) : HandleLayer where TValue : notnull {
     // --- [STATE]
     private static readonly SKRect Square = new(0f, 0f, 1f, 1f);
 
@@ -156,7 +157,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
             },
         };
 
-    private Node Stamped(Node node, (Key Key, Vector2 At) point, bool modified, Option<(Orientation Along, Axis Axis)> track) =>
+    private Node Stamped(Node node, (Key Key, Vector2 At) point, bool modified, Option<(PhysicalAxis Along, Axis Axis)> track) =>
         Modified(node, modified) switch {
             var held => held with {
                 Key = point.Key,
@@ -164,7 +165,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
                 Accessible = held.Accessible.Combine(new Accessible {
                     Role = track.IsSome ? AccessRole.Slider : AccessRole.Handle,
                     Value = track.Match(
-                        Some: axis => (AccessValue)new AccessValue.Ranged(axis.Along.Of(point.At), axis.Axis.Range.Low, axis.Axis.Range.High) { Description = Points.Spoken(point.At) },
+                        Some: axis => (AccessValue)new AccessValue.Ranged(axis.Along.Of(point.At), axis.Axis.Domain.Low, axis.Axis.Domain.High) { Description = Points.Spoken(point.At) },
                         None: () => new AccessValue.Text(Points.Spoken(point.At))),
                     Orientation = track.Map(static axis => axis.Along),
                 }),
@@ -199,17 +200,17 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
                     delete: static (state, delete) => (from removed in state.Handles.Points.Removed
                                                        where delete.Toward.IsNone
                                                        let keys = state.Handles.Doomed(state.Aim)
-                                                       select (state.Handles.Session(Cursor.Default) with { Perform = (start, _) => removed(start.Value, keys).Map(value => start with { Value = value }) })
+                                                       select (state.Handles.Session(CursorShape.Default) with { Perform = (start, _) => removed(start.Value, keys).Map(value => start with { Value = value }) })
                                                            .Stepped(state.Perform))
                         .IfNone(static () => new Reply.Pass()),
                     selectAll: static (state, _) => state.Handles.Pick.Match(
-                        Some: _ => (state.Handles.Session(Cursor.Default) with {
+                        Some: _ => (state.Handles.Session(CursorShape.Default) with {
                             Perform = (start, _) => Some(start with { Picked = start.Picked.All(state.Handles.Points.Read(start.Value).Map(static point => point.Key)) }),
                         }).Stepped(state.Perform),
                         None: static () => new Reply.Pass()))),
             None: static () => new Reply.Pass());
 
-    private Session<Held> Session(Cursor cursor) => new(Start, Receivers, cursor) { Detent = static held => held.Detent };
+    private Session<Held> Session(CursorShape cursor) => new(Start, Receivers, cursor) { Detent = static held => held.Detent };
 
     private Reply Pressed(Gesture.Press press, Aim aim, PlotFrame frame) =>
         (Key: Point(aim), Restored: Rest.Filter(_ => press.Clicks >= 2)) switch {
@@ -244,7 +245,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
             var picked when press.Dragged.IsNone => start with { Picked = picked },
             var picked => Tearing(start.Value, key, press, aim, frame).Match(
                 Some: torn => new Held(torn, picked, None),
-                None: () => Carried(start with { Picked = picked }, key, press, aim, frame)),
+                None: () => Translated(start with { Picked = picked }, key, press, aim, frame)),
         };
 
     private Option<TValue> Tearing(TValue value, Key key, Gesture.Press press, Aim aim, PlotFrame frame) =>
@@ -252,8 +253,8 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
             var reach => SKRect.Inflate(frame.Matrix.MapRect(Square), reach, reach).Contains(press.At) ? None : Points.Torn.Bind(torn => torn(value, key)),
         };
 
-    private Held Carried(Held start, Key key, Gesture.Press press, Aim aim, PlotFrame frame) {
-        bool fine = press.Modifiers.Contains(Modifier.Common);
+    private Held Translated(Held start, Key key, Gesture.Press press, Aim aim, PlotFrame frame) {
+        bool fine = press.Modifiers.Common;
         HashMap<Metric, float> metrics = Metrics(aim.Laid, Some(key));
         Seq<(Key Key, Vector2 At)> read = Points.Read(start.Value);
         LanguageExt.HashSet<Key> moving = toHashSet(read.Map(static point => point.Key).Filter(held => start.Picked.Holds(key) ? start.Picked.Holds(held) : held == key));
@@ -264,7 +265,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
         return Moved(start, detent.Match(Some: to => targets.Map(target => (target.Key, To: to)), None: () => targets), press.Modifiers, detent);
     }
 
-    private Held Moved(Held start, Seq<(Key Key, Vector2 To)> targets, LanguageExt.HashSet<Modifier> modifiers, Option<Vector2> detent) =>
+    private Held Moved(Held start, Seq<(Key Key, Vector2 To)> targets, KeyModifiers modifiers, Option<Vector2> detent) =>
         Points.Moved(start.Value, targets, modifiers) switch {
             var (value, keys) => new Held(value, start.Picked.Renamed(toHashMap(targets.Map(static target => target.Key).Zip(keys))), detent),
         };
@@ -303,21 +304,19 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     private Reply Nudged(Aim aim, Gesture.Perform perform, Func<Vector2, Key, Vector2> move) =>
         (from key in Target(aim)
          from point in Points.Read(Value).Find(point => point.Key == key)
-         select (Session(Cursor.Default) with { Perform = (start, _) => Some(Moved(start, [(key, move(point.At, key))], perform.Modifiers, None)) }).Stepped(perform))
+         select (Session(CursorShape.Default) with { Perform = (start, _) => Some(Moved(start, [(key, move(point.At, key))], perform.Modifiers, None)) }).Stepped(perform))
         .IfNone(static () => new Reply.Pass());
 
     private static Vector2 Bumped(Aim aim, PlotFrame frame, Vector2 point, Key key, int sign) =>
         frame.Plane.Dimensions.Head.Map(first => frame.Stepped(point, first.Along, sign, Metrics(aim.Laid, Some(key))[Metric.Extent])).IfNone(point);
 
-    private static Vector2 Navigated(Aim aim, PlotFrame frame, Navigation toward, Vector2 point, Key key) =>
-        toward.Grain.Switch(
-            (Frame: frame, Toward: toward, Point: point, Aim: aim, Key: key),
-            unit: static held => held.Frame.Stepped(held.Point, held.Toward.Along, held.Toward.Valued(held.Frame), Metrics(held.Aim.Laid, Some(held.Key))[Metric.Extent]),
-            page: static held => held.Frame.Stepped(held.Point, held.Toward.Along, held.Toward.Valued(held.Frame), Spacing(held.Aim.Laid)),
-            edge: static held => held.Frame.Ended(held.Point, held.Toward.Along, held.Toward.Sign));
+    private static Vector2 Navigated(Aim aim, PlotFrame frame, NavigationDirection toward, Vector2 point, Key key) =>
+        toward.Grain.Stride(Metrics(aim.Laid, Some(key))[Metric.Extent], Spacing(aim.Laid)).Match(
+            Some: stride => frame.Stepped(point, toward.Along, toward.Valued(frame), stride),
+            None: () => frame.Ended(point, toward.Along, toward.Sign));
 
-    private static Vector2 Snapped(PlotFrame frame, Vector2 value, LanguageExt.HashSet<Modifier> modifiers, Laid laid) =>
-        modifiers.Contains(Modifier.Shift) ? frame.Plane.Dimensions.Fold(value, (held, free) => frame.Stepped(held, free.Along, 0, Spacing(laid))) : value;
+    private static Vector2 Snapped(PlotFrame frame, Vector2 value, KeyModifiers modifiers, Laid laid) =>
+        modifiers.Shift ? frame.Plane.Dimensions.Fold(value, (held, free) => frame.Stepped(held, free.Along, 0, Spacing(laid))) : value;
 
     // --- [READ]
     private Option<Key> Lead => Picked.Lead | (Points.Read(Value) is [var only] ? Some(only.Key) : None);

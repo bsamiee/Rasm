@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using Grasshopper2.Doc;
 using Grasshopper2.Framework;
 using Grasshopper2.UI.Icon;
-using Rasm.Grasshopper.Components;
 using Rasm.Grasshopper.UI.Surfaces;
 using Rasm.Rhino;
 using Rasm.Rhino.Display;
@@ -57,13 +56,7 @@ public static class GrasshopperPlugins {
 
     public static void Harvest(IGrasshopperPlugin plugin, GrasshopperPluginDefinition definition, CallbackSite site) =>
         Callbacks.Run(
-            from derived in IO.lift(() => toSeq(toSeq(plugin.Plugin.PluginDocumentObjectTypes)
-                .Choose(ComponentDeclaration.Of)
-                .OrderBy(static declared => declared.Component.FullName, StringComparer.Ordinal)
-                .SelectMany(static declared => declared.Parameters.Bind(static parameter => parameter.DataTypes))
-                .DistinctBy(static row => row.Type)).Strict())
             from custom in Callbacks.Each(definition.DataTypes.Map(row => IO.pure(plugin).Bind(row)))
-            from registered in Callbacks.Each(derived.Map(row => IO.pure(plugin).Bind(row.Register)))
             select unit, site);
 
     public static void Loaded(IGrasshopperPlugin plugin, GrasshopperPluginDefinition definition, CallbackSite site) =>

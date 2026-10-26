@@ -10,8 +10,4 @@
     <ItemGroup Label="Quantities">
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
-
-    <ItemGroup Label="Workspace Sources">
-        <Compile Include="../../ValidationResults.cs" />
-    </ItemGroup>
 </Project>

@@ -9,19 +9,19 @@ using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
-using Rasm.UI;
 using Rhino;
+using Rhino.FileIO;
 using Rhino.Render;
-using UnitsNet;
-using UnitsNet.Units;
+using Rhino.Runtime;
 
 namespace Darkroom.Review;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record RenderingState(Guid Session, string Engine, Guid EngineId, Duration Elapsed, Option<ValueSet> Settings, Option<string> Note);
+public sealed record RenderingState(Guid Session, string Engine, Guid EngineId, Duration Elapsed, Option<RenderSettings> Settings, Option<string> Note);
 
 public sealed record Rendering(Rimage Image, PixelExtent Extent, Instant Saved, Option<RenderingState> State) {
     private static readonly IProgress<int> Unreported = new Progress<int>();
@@ -29,7 +29,7 @@ public sealed record Rendering(Rimage Image, PixelExtent Extent, Instant Saved, 
     public static ChainState Ungraded { get; } = new([], ValueSet.Empty);
 
     public IO<ChainState> Chain =>
-        Image.Running.Exists(static id => id == typeof(DarkroomEffect).GUID) ? Image.State.Recalled(ChainState.Owner, ChainState.Default) : IO.pure(Ungraded);
+        IO.lift(Image.Running.Exists(static id => id == typeof(DarkroomEffect).GUID) ? EffectList.State(Image, typeof(DarkroomEffect).GUID, ChainState.Default) : Ungraded);
 
     public IO<PixelFrame> Frame => Plane(RenderWindow.StandardChannels.RGBA);
 
@@ -43,52 +43,33 @@ public sealed record Rendering(Rimage Image, PixelExtent Extent, Instant Saved, 
         from displayed in DisplayFormation.Displayed(formed.Context).TraverseM(pass => IO.lift(() => pass.Run(formed.Frame, Unreported))).As()
         select formed.Frame;
 
-    public IO<ValueDiff> RestoreSettings(RhinoDoc doc) =>
+    public IO<Unit> RestoreSettings(RhinoDoc doc) =>
         from saved in IO.lift(State.Bind(static state => state.Settings).ToFin(new NotFound(nameof(RenderingState.Settings), Image.FileName)))
-        from restored in Committed(doc, RenderSettingsSources.Bindings(new RenderSettingsSource.Live(doc)).Apply(saved, []))
+        from restored in Committed(doc, RenderSettingsSources.Edit(doc, saved))
         select restored;
 
     public IO<ChainState> RestoreChain(RhinoDoc doc) => Chain.Bind(state => new ChainEdit.Restore(state).Committed(doc));
 
     private IO<T> Committed<T>(RhinoDoc doc, IO<T> body, [CallerMemberName] string operation = "") =>
-        Commits.Commit(doc, $"{Captions.Of(operation)} {Path.GetFileNameWithoutExtension(Image.FileName)}", new RedrawPolicy.AllViews(Deferred: true), body)
+        Commits.Commit(doc, $"{operation} {Path.GetFileNameWithoutExtension(Image.FileName)}", new RedrawPolicy.AllViews(Deferred: true), body)
             .Map(static committed => committed.Value);
 }
 
-internal sealed record RenderingSidecar(Guid Session, string Engine, Guid EngineId, double ElapsedSeconds, ValueSet? Settings, string? Note) {
-    [JsonIgnore]
-    public RenderingState State => new(Session, Engine, EngineId, Duration.FromSeconds(ElapsedSeconds), Optional(Settings), Optional(Note));
+internal sealed record RenderingSidecar(Guid Session, string Engine, Guid EngineId, TimeSpan Elapsed, string? Settings, string? Note) {
+    public Fin<RenderingState> State =>
+        Optional(Settings).Traverse(static text => Try.lift(() => CommonObject.FromJSON(text)).Run()
+                .Bind(static read => Refused.UnlessFound(read, nameof(CommonObject.FromJSON)))
+                .Bind(Conversions.Cast<RenderSettings>))
+            .As()
+            .Map(settings => new RenderingState(Session, Engine, EngineId, Elapsed.ToDuration(), settings, Optional(Note)));
 
     public static RenderingSidecar Of(RenderingState state) =>
-        new(state.Session, state.Engine, state.EngineId, state.Elapsed.TotalSeconds, state.Settings.ValueUnsafe(), state.Note.ValueUnsafe());
+        new(state.Session, state.Engine, state.EngineId, state.Elapsed.ToTimeSpan(), state.Settings.Map(static settings => settings.ToJSON(new SerializationOptions())).ValueUnsafe(), state.Note.ValueUnsafe());
 }
 
-[JsonSourceGenerationOptions(JsonSerializerDefaults.Strict, WriteIndented = true)]
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Strict, WriteIndented = true, IgnoreReadOnlyProperties = true)]
 [JsonSerializable(typeof(RenderingSidecar))]
 internal sealed partial class RenderingSidecarContext : JsonSerializerContext;
-
-public sealed record HistorySettings(HistoryLimits Limits) : IStateRecord<HistorySettings, HistorySettingsParameter> {
-    public static HistorySettings Default { get; } = new(HistoryLimits.Default);
-}
-
-[SmartEnum<string>]
-public sealed partial class HistorySettingsParameter : IStateParameter<HistorySettings> {
-    private static readonly Lens<HistorySettings, HistoryLimits> Held =
-        Lens<HistorySettings, HistoryLimits>.New(static settings => settings.Limits, static limits => _ => new(limits));
-
-    public static readonly HistorySettingsParameter Steps = new("steps", new StateParameter<HistorySettings>.Numeric<int, int>(
-        lens(Held, Lens<HistoryLimits, int>.New(static limits => limits.Capacity, static capacity => limits => limits with { Capacity = capacity })),
-        new NumericDomain<int, int>(Fin.Succ, identity, (0, int.MaxValue), new() { Soft = (1, 100) })),
-        new("Undo steps", "Edits per section for undo, redo, and restore, 0 disables history"));
-    public static readonly HistorySettingsParameter Window = new("window", new StateParameter<HistorySettings>.Numeric<Duration, int>(
-        lens(Held, Lens<HistoryLimits, Duration>.New(static limits => limits.Window, static window => limits => limits with { Window = window })),
-        new NumericDomain<Duration, int>(static seconds => Duration.FromSeconds(seconds), static window => (int)window.TotalSeconds, (0, int.MaxValue),
-            new() { Soft = (0, 600), Unit = Quantity.GetUnitInfo(DurationUnit.Second) })),
-        new("Merge edits within", "Joins consecutive section edits into one undo step"));
-
-    public StateParameter<HistorySettings> Kind { get; }
-    public ParameterText Text { get; }
-}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class RenderHistory {
@@ -132,7 +113,7 @@ public sealed class RenderHistory {
 
     // --- [WRITES]
     public IO<T> Launched<T>(RhinoDoc doc, IO<(ImageFileEventArgs Saved, T Value)> render) =>
-        from captured in RenderSettingsSources.Bindings(new RenderSettingsSource.Live(doc)).Capture
+        from captured in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => IO.lift(scope.Settings.Duplicate))
         from rendered in render
         from recorded in Recorded(rendered.Saved, Some(captured))
         select rendered.Value;
@@ -187,9 +168,9 @@ public sealed class RenderHistory {
         select new Rendering(image, extent, saved, state);
 
     private static IO<Option<RenderingState>> Stated(string sidecar) =>
-        JsonFiles.Read(sidecar, RenderingSidecarContext.Default.RenderingSidecar, static file => Fin.Succ(file.State));
+        JsonFiles.Read(sidecar, RenderingSidecarContext.Default.RenderingSidecar, static file => file.State);
 
-    private IO<Rendering> Recorded(ImageFileEventArgs args, Option<ValueSet> settings) =>
+    private IO<Rendering> Recorded(ImageFileEventArgs args, Option<RenderSettings> settings) =>
         from opened in Opened(args.FileName, None)
         from recorded in Recorded(opened, new RenderingState(args.SessionId, args.RenderEngine, args.RenderEngineId, Duration.FromSeconds(args.EllapsedTime), settings, None))
         select recorded;

@@ -10,6 +10,7 @@ namespace Rasm.Imaging.Warping;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<ImagingFault>]
 public sealed partial class MirrorFold {
     public int Mirrors { get; }
     public double Rotation { get; }
@@ -28,9 +29,9 @@ public sealed partial class MirrorFold {
         }, sampling, wrap);
     }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int mirrors, ref double rotation, ref FramePosition center, ref double zoom) =>
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int mirrors, ref double rotation, ref FramePosition center, ref double zoom) =>
         validationError = mirrors >= 1 && double.IsFinite(rotation) && double.IsFinite(zoom) && zoom > 0d ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Mirror fold of {mirrors} mirrors must have at least 1, finite rotation {rotation} and positive zoom {zoom}"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Mirror fold of {mirrors} mirrors must have at least 1, finite rotation {rotation} and positive zoom {zoom}"));
 }
 
 public readonly record struct Affine(Matrix<double> Linear, (ERational X, ERational Y) Shift) {

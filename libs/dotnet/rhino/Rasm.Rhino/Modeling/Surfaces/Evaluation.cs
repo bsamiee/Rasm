@@ -60,10 +60,10 @@ public static class SurfaceEvaluation {
         select jet;
 
     // --- [PROXIMITY]
-    public static IO<Option<Point2d>> ClosestPoint(SurfaceTarget target, Point3d test, Option<SearchDistance> within) =>
+    public static IO<Option<Point2d>> ClosestPoint(SurfaceTarget target, Point3d test, Option<double> within) =>
         IO.lift(() => target.Switch(
             (Test: test, Within: within),
-            brepFace: static (at, face) => face.ClosestPointOnFace(at.Test, out double u, out double v, at.Within.Match(static distance => (double)distance, 0d))
+            brepFace: static (at, face) => face.ClosestPointOnFace(at.Test, out double u, out double v, at.Within.IfNone(0d))
                 ? Some(new Point2d(u, v))
                 : at.Within.IsSome ? Option<Point2d>.None : Fin.Fail<Option<Point2d>>(new Refused(nameof(BrepFace.ClosestPointOnFace), Refused.Declined)),
             surface: static (at, surface) => surface.ClosestPoint(at.Test, out double u, out double v)

@@ -15,11 +15,11 @@ public sealed record DisplayModeRule(Func<RhinoObject, bool> Applies, Option<Vie
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DisplayModeRules {
     // --- [MARK]
-    private static readonly DictionaryCodec<HashMap<Guid, Guid>> Mark = DictionaryCodec.Json<HashMap<Guid, Guid>>(nameof(DisplayModeRules), 1);
+    private static readonly DictionaryCodec<ImmutableDictionary<Guid, Guid>> Mark = ArchivableDictionaries.Json<ImmutableDictionary<Guid, Guid>>(nameof(DisplayModeRules), 1);
 
     private static IO<HashMap<Guid, Guid>> Marked(ObjectAttributes attributes) =>
         IO.lift(() => attributes.HasUserData).Bind(held => held
-            ? DisposalOps.Within(attributes.Duplicate, static copy => ArchivableDictionaries.Read(DictionaryOwner.Of(IO.pure(copy)), Mark)).Map(static mark => mark.IfNone([]))
+            ? DisposalOps.Within(attributes.Duplicate, static copy => ArchivableDictionaries.Read(DictionaryOwner.Of(IO.pure(copy)), Mark)).Map(static mark => mark.Match(Some: static held => toHashMap(held.Select(static pair => (pair.Key, pair.Value))), None: static () => HashMap<Guid, Guid>()))
             : IO.pure(HashMap<Guid, Guid>()));
 
     // --- [RECONCILE]
@@ -54,7 +54,7 @@ public static class DisplayModeRules {
     private static IO<Unit> Written(ObjectAttributes staged, Seq<(Guid Slot, Option<Guid> Mode)> writes, HashMap<Guid, Guid> mark) =>
         from overridden in Callbacks.Each(writes.Map(write => AttributeEdits.DisplayModeOverride(staged, write.Slot, write.Mode)))
         let owner = DictionaryOwner.Of(IO.pure(staged))
-        from marked in mark.IsEmpty ? ArchivableDictionaries.Remove(owner, Mark) : ArchivableDictionaries.Write(owner, Mark, mark)
+        from marked in mark.IsEmpty ? ArchivableDictionaries.Remove(owner, Mark) : ArchivableDictionaries.Write(owner, Mark, mark.AsIterable().ToImmutableDictionary(static pair => pair.Key, static pair => pair.Value))
         select unit;
 
     // --- [ACQUISITION]
@@ -63,7 +63,7 @@ public static class DisplayModeRules {
             from assignable in Callbacks.Each(rules.Map(static rule => rule.Mode).Distinct().Map(static mode => DisplayModes.With(mode, static description => IO.lift(() => AttributeEdits.Assignable(description)))))
                 .Map(static _ => true)
                 .Catch(error => IO.lift(() => {
-                    sink.Report(error, typeof(DisplayModeRules), nameof(Declared));
+                    sink.Report(error, typeof(DisplayModeRules));
                     return false;
                 }))
                 .As()

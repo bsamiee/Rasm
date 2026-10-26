@@ -29,9 +29,9 @@ public abstract partial record Proximity {
 
     public sealed record Cloud(PointCloud Geometry) : Proximity;
 
-    public Seq<Option<Point3d>> Nearest(Seq<Point3d> points, Option<SearchDistance> limit) =>
+    public Seq<Option<Point3d>> Nearest(Seq<Point3d> points, Option<double> limit) =>
         Switch(
-            limit.Map(static distance => (double)distance) switch {
+            limit switch {
                 var held => (Points: points, Limit: held, Bound: held.IfNone(0d)),
             },
             curve: static (at, of) => at.Points.Map(point => at.Limit
@@ -57,8 +57,8 @@ public abstract partial record Proximity {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record Region {
-    public sealed record Solid : Region {
+public abstract partial record Interior {
+    public sealed record Solid : Interior {
         private Solid(Brep brep) => Brep = brep;
 
         public Brep Brep { get; }
@@ -70,7 +70,7 @@ public abstract partial record Region {
             Copies.Acquire(nameof(SubD.ToBrep), _ => Answer.One(subd.ToBrep(options)), retain).Bind(static brep => IO.lift(() => Validated(brep)));
     }
 
-    public sealed record Closed : Region {
+    public sealed record Closed : Interior {
         private Closed(Mesh mesh) => Mesh = mesh;
 
         public Mesh Mesh { get; }
@@ -79,7 +79,7 @@ public abstract partial record Region {
             mesh.IsClosed && mesh.IsManifold() ? new Closed(mesh) : Error.New(ErrorCodes.ValidationFailed, $"{nameof(Mesh)} is not closed and manifold");
     }
 
-    public sealed record Planar : Region {
+    public sealed record Planar : Interior {
         private Planar(Curve curve, Plane plane) => (Curve, Plane) = (curve, plane);
 
         public Curve Curve { get; }

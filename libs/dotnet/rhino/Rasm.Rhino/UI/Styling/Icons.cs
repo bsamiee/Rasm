@@ -1,9 +1,11 @@
 using System.Collections;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
+using Rasm.Rhino.UI.Surfaces;
 using Rasm.UI;
 using Rasm.UI.Styling;
 using Rhino.PlugIns;
@@ -24,10 +26,10 @@ public sealed partial class IconSlot {
     public static readonly IconSlot SectionHeader = new(static () => IO.pure(20));
     public static readonly IconSlot RenderTab = new(static () => IO.pure(HostUtils.RunningOnOSX ? 20 : 16));
 
-    public IO<Size> Pixels => Size().Bind(static size => Device(new Eto.Drawing.Size(size, size)));
+    public IO<Size> Pixels => Extent().Bind(static size => Device(new Eto.Drawing.Size(size, size)));
 
     [UseDelegateFromConstructor]
-    public partial IO<int> Size();
+    public partial IO<int> Extent();
 
     internal static IO<float> Scale => IO.lift(static () => Eto.Forms.Screen.Screens.Max(static screen => screen.LogicalPixelSize));
 
@@ -58,34 +60,45 @@ public static class Icons {
     private static extern string? GetOsKey([UnsafeAccessorType("Rhino.Resources.ResourceFile, Rhino.UI")] object file, bool darkMode);
 
     // --- [RASTER]
-    private static readonly Lazy<Fin<Shipped>> Sheet = new(static () => Styles.Embedded.RunSafe());
-
     public static Fin<SKImage> Rastered(GlyphSource glyph, SKSizeI pixels) =>
-        Sheet.Value.Bind(shipped => SceneHost.Rastered(
-            shipped, HostTheme.Projected(compact: false), new Node.Glyph(glyph) { Role = Role.Label, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }, pixels));
+        SceneRaster.Of(PanelRoles.Defaults, HostTheme.Projected(compact: false), new Node.Glyph(glyph) { Role = Role.Label, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }, pixels);
 
-    private static Fin<byte[]> Encoded(GlyphSource glyph, Size pixels) =>
-        Rastered(glyph, new SKSizeI(pixels.Width, pixels.Height)).Bind(static image => {
-            using (image) {
-                return Refused.UnlessFound(image.Encode(SKEncodedImageFormat.Png, 100), nameof(SKImage.Encode)).Map(static encoded => {
-                    using (encoded) {
-                        return encoded.ToArray();
-                    }
-                });
-            }
-        });
+    private static Fin<Bitmap> Drawn(SKImage image) {
+        using (image) {
+            using Bitmap drawn = new(image.Width, image.Height, PixelFormat.Format32bppPArgb);
+            BitmapData data = drawn.LockBits(new Rectangle(0, 0, image.Width, image.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
+            Fin<Unit> read;
+            using (SKPixmap pixmap = new(new SKImageInfo(image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Premul, HostPixels.Srgb), data.Scan0, data.Stride))
+                read = Refused.Unless(image.ReadPixels(pixmap), nameof(SKImage.ReadPixels));
+            drawn.UnlockBits(data);
+            return read.Map(_ => new Bitmap(drawn));
+        }
+    }
+
+    private static Fin<Eto.Drawing.Bitmap> Pixeled(SKImage image) {
+        using (image) {
+            return BitmapPixels.Allocated(new SKSizeI(image.Width, image.Height)).Bind(held => {
+                Fin<Unit> read;
+                using (held.Pixmap)
+                    read = Refused.Unless(image.ReadPixels(held.Pixmap), nameof(SKImage.ReadPixels));
+                held.Pixels.Data.Dispose();
+                if (read.IsFail) held.Pixels.Bitmap.Dispose();
+                return read.Map(_ => held.Pixels.Bitmap);
+            });
+        }
+    }
 
     // --- [ETO]
     public static Eto.Drawing.Icon Frame(GlyphSource glyph, Eto.Drawing.Size logical, float scale) =>
         Eto.Drawing.Size.Ceiling(logical * scale) switch {
-            var device => Encoded(glyph, new Size(device.Width, device.Height)).Map(png => new Eto.Drawing.Icon(scale, new Eto.Drawing.Bitmap(png))).ThrowIfFail(),
+            var device => Rastered(glyph, new SKSizeI(device.Width, device.Height)).Bind(Pixeled).Map(bitmap => new Eto.Drawing.Icon(scale, bitmap)).ThrowIfFail(),
         };
 
     public static IO<Eto.Drawing.Icon> Frames(GlyphSource glyph, Eto.Drawing.Size logical) =>
         IconSlot.Scale.Bind(scale => IO.lift(() => Frame(glyph, logical, scale)));
 
     public static IO<Eto.Drawing.Icon> Frames(GlyphSource glyph, IconSlot slot) =>
-        slot.Size().Bind(size => Frames(glyph, new Eto.Drawing.Size(size, size)));
+        slot.Extent().Bind(size => Frames(glyph, new Eto.Drawing.Size(size, size)));
 
     public static IO<Unit> Themed(IPlugInSink plugIn, GlyphSource glyph, IconSlot slot, HostEvent<Unit> changes, Action<Eto.Drawing.Icon> write, Action<IDisposable> retain) =>
         Frames(glyph, slot).Bind(icon => IO.lift(() => write(icon))) switch {
@@ -95,16 +108,15 @@ public static class Icons {
     // --- [DRAWING]
     public static IO<Bitmap> Raster(GlyphSource glyph, IconSlot slot) => slot.Pixels.Bind(pixels => Raster(glyph, pixels));
 
-    public static IO<Bitmap> Raster(GlyphSource glyph, Size pixels) =>
-        IO.lift(() => Encoded(glyph, pixels).Map(static png => {
-            using MemoryStream stream = new(png);
-            using Bitmap decoded = new(stream);
-            return new Bitmap(decoded);
-        }));
+    public static IO<Bitmap> Raster(GlyphSource glyph, Size pixels) => IO.lift(() => Rastered(glyph, new SKSizeI(pixels.Width, pixels.Height)).Bind(Drawn));
 
     public static IO<Icon> DrawingIcon(GlyphSource glyph, Size pixels) =>
-        IO.lift(() => Encoded(glyph, pixels).Map(png => {
-            using MemoryStream stream = new(png);
-            return new Icon(stream, pixels);
+        IO.lift(() => Rastered(glyph, new SKSizeI(pixels.Width, pixels.Height)).Bind(static image => {
+            using (image)
+                return Refused.UnlessFound(image.Encode(SKEncodedImageFormat.Png, 100), nameof(SKImage.Encode));
+        }).Map(encoded => {
+            using (encoded)
+            using (Stream stream = encoded.AsStream())
+                return new Icon(stream, pixels);
         }));
 }

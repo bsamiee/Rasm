@@ -6,7 +6,7 @@ public abstract partial record Override<T> where T : notnull {
     public Option<T> Applied(Option<T> held) =>
         Switch(held, keep: static (current, _) => current, set: static (_, value) => Some(value.Value), clear: static (_, _) => Option<T>.None);
 
-    public bool Changes => this is not Keep;
+    public bool Changes => Switch(keep: static _ => false, set: static _ => true, clear: static _ => true);
 
     public sealed record Keep : Override<T>;
     public sealed record Set(T Value) : Override<T>;

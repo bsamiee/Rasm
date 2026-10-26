@@ -1,2 +1,0 @@
-#0 `Panels.Register` in `Rasm.Rhino.UI` reaches `RenderPanels.RegisterPanel`, declare it beside the render seam
-#1 `Panels.Register` in `Rasm.Rhino.UI` reaches `RenderPanelType.RenderWindow`, declare it beside the render seam

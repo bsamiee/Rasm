@@ -50,6 +50,6 @@ public static class Modals {
     public static IO<bool> GetBool(RhinoDoc doc, CallbackSite site, string prompt, LabelPair labels, Option<bool> defaultValue) =>
         Getters.Choice(doc, new GetterRequest<GetOption, bool>(prompt, site) {
             Accept = new() { Nothing = defaultValue.Map(value => (Shown: Some(value ? labels.On : labels.Off), Then: IO.pure(value))) },
-            Options = Seq(a: true, b: false).Map(value => OptionSpec.Plain(value ? labels.On : labels.Off, None, hidden: false, _ => IO.pure(value))),
+            Options = Seq(a: true, b: false).Map(value => OptionSpecs.Plain(value ? labels.On : labels.Off, None, hidden: false, _ => IO.pure(value))),
         });
 }

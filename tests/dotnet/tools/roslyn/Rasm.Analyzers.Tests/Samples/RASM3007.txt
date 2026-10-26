@@ -30,6 +30,8 @@ internal static class StatedBehavior {
     internal static bool Staged(Stage stage) => stage is Dither;
 
     internal static bool Abstract<TState>(TState state) => state is Stage;
+
+    internal static int Held<TState>(Recorded<TState> value) where TState : Stage => value switch { var held => held.GetHashCode() };
 }
 
 internal sealed class StageConverter : JsonConverter<Stage> {

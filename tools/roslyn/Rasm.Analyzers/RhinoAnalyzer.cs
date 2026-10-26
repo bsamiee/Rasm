@@ -92,9 +92,9 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     public static readonly DiagnosticDescriptor Settings = Rule(
         "RASM2101",
         Category,
-        "PersistentSettings read outside SettingType",
-        "`{0}` reads `PersistentSettings` outside `SettingType`, call `{1}`",
-        "`PersistentSettings` `Get` or `TryGet` read outside `SettingType` and `SettingType<T>`.");
+        "PersistentSettings read through a default",
+        "`{0}` reads `PersistentSettings` through a default value, call `{1}`",
+        "`PersistentSettings` `Get<Kind>` overload taking a default value where a `TryGet<Kind>` member reads the same key.");
 
     public static readonly DiagnosticDescriptor Redraw = Rule(
         "RASM2102",
@@ -124,28 +124,20 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         "`{0}` writes `RhinoDoc.RenderSettings` with no undo record, write through `RenderSettingsSources.Edit`",
         "`RhinoDoc.RenderSettings` assignment outside `RenderSettingsSources`.");
 
-    public static readonly DiagnosticDescriptor Seam = Rule(
-        "RASM2106",
-        Category,
-        "Render member reached from the UI namespace",
-        "`{0}` in `{1}` reaches `{2}`, declare it beside the render seam",
-        "Reference or base type in a `Rasm.Rhino.UI` type naming a `Rhino.Render` or `Rasm.Rhino.Render` symbol.");
-
     public static readonly DiagnosticDescriptor Owner = Rule(
         "RASM2107",
         Category,
         "Event owner differs from the event",
         "`typeof({0})` names the owner of event `{1}` on `{2}`",
-        "`Subscriptions.Host` or `During` `typeof` argument naming a type other than the subscribed event's owner or the `[UnsafeAccessorType]` target of the accessor its add lambda calls.");
+        "`Subscriptions.Host` or `During` `typeof` argument naming a type other than the subscribed event's owner or the `[UnsafeAccessorType]` target of the accessor its add lambda calls, where that owner is accessible from the calling assembly.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        [Count, OffUiThread, Active, Script, Marshal, Override, Mac, Grayscale, Page, Docked, Mode, Settings, Redraw, Narrowed, Toggled, Rendering, Seam, Owner];
+        [Count, OffUiThread, Active, Script, Marshal, Override, Mac, Grayscale, Page, Docked, Mode, Settings, Redraw, Narrowed, Toggled, Rendering, Owner];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         Compilation compilation = context.Compilation;
         (SystemSymbols system, RhinoCommonSymbols rhino, RasmRhinoSymbols rasm, LanguageExtSymbols languageExt) = (new(compilation), new(compilation), new(compilation), new(compilation));
         if (rasm.Callbacks is { } callbacks) Marshals(context, new EtoSymbols(compilation), new MacSymbols(compilation), callbacks);
-        if (rasm.UI is { } views) Seams(context, views, [.. new[] { rhino.Render, rasm.Render }.OfType<ISymbol>()]);
         if (!rasm.Subscriptions.IsEmpty && system.Type is { } type) Owners(context, rasm.Subscriptions, type, system.UnsafeAccessor, system.UnsafeAccessorType);
         if (rhino.Document is not { } document) return;
         Counts(context, rhino.Counted);
@@ -158,7 +150,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         if (rhino is { ObjectPropertiesPage: { } page, PageControl: IPropertySymbol shown } && new EtoSymbols(compilation).Control is { } control) Pages(context, rasm, page, shown, control);
         Writes(context, rhino.Floating, Docked, static (assignment, _) => assignment is ISimpleAssignmentOperation { Value.ConstantValue: { HasValue: true, Value: false } });
         if (rhino.DisplayModeDescription is { } description && Lifetimes.Of(system, rasm, languageExt) is { } lifetimes) Modes(context, lifetimes, rhino.OwnedModes, description);
-        if (rhino.PersistentSettings is { } settings && rasm.SettingType is { } rows) Reads(context, settings, rows, rasm.SettingType1);
+        if (rhino.PersistentSettings is { } settings) Reads(context, settings);
         if (rasm.Commits is { } commits) Redraws(context, rhino.Redraws, commits);
         if (rasm.Copies is { } copies) Duplicates(context, rhino.Duplicates, copies);
         if (rasm.Conduits is { } conduits) Writes(context, rhino.ConduitEnabled, Toggled, (_, analysis) => !Within(analysis.ContainingSymbol, conduits));
@@ -322,29 +314,27 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
             && !lifetimes.Released(operation, description, new Reading(model, analysis.CancellationToken)).Any());
 
     // --- [READS]
-    private static void Reads(CompilationStartAnalysisContext context, INamedTypeSymbol settings, INamedTypeSymbol rows, INamedTypeSymbol? row) {
+    private static void Reads(CompilationStartAnalysisContext context, INamedTypeSymbol settings) {
         ImmutableArray<IMethodSymbol> methods = [
             .. settings.GetMembers().OfType<IMethodSymbol>().Where(static method => method is { IsStatic: false, Parameters: { IsEmpty: false } parameters } && parameters[0].Type.SpecialType is SpecialType.System_String),
         ];
+        ImmutableHashSet<string> tried = [.. methods.Where(static method => method.Name.StartsWith("TryGet", StringComparison.Ordinal)).Select(static method => method.Name.Substring(6))];
         ImmutableHashSet<string> kinds = [
             .. methods.Where(static method => method is { ReturnsVoid: true, Parameters.Length: 2 } && method.Name.StartsWith("Set", StringComparison.Ordinal))
                 .GroupBy(static method => method.Name.Substring(3), StringComparer.Ordinal)
-                .Where(static family => family.Select(static method => method.Parameters[1].Type).Distinct(SymbolEqualityComparer.Default).Count() is 1)
+                .Where(family => tried.Contains(family.Key) && family.Select(static method => method.Parameters[1].Type).Distinct(SymbolEqualityComparer.Default).Count() is 1)
                 .Select(static family => family.Key),
         ];
-        string? Kind(string name) =>
-            ((ImmutableArray<string>)["TryGet", "Get"]).Where(prefix => name.StartsWith(prefix, StringComparison.Ordinal)).Select(prefix => name.Substring(prefix.Length)).FirstOrDefault(kinds.Contains);
-        ImmutableArray<(IMethodSymbol Read, string Kind)> reads = [
-            .. methods.Where(static method => method.Parameters.Length > 1).Select(method => (Read: method, Kind: Kind(method.Name))).Where(static read => read.Kind is not null).Select(static read => (read.Read, read.Kind!)),
+        ImmutableArray<IMethodSymbol> defaulted = [
+            .. methods.Where(method => method.Parameters.Length > 1 && method.Name.StartsWith("Get", StringComparison.Ordinal) && kinds.Contains(method.Name.Substring(3))),
         ];
-        Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, analysis) =>
-            invocation is { Instance: { } source, TargetMethod: var method } && reads.FirstOrDefault(read => Same(method, read.Read)).Kind is { } kind
-            && !Within(analysis.ContainingSymbol, rows) && !Within(analysis.ContainingSymbol, row)
+        Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, _) =>
+            invocation is { Instance: { } source, TargetMethod: var method } && Among(method, defaulted)
                 ? [Diagnostic.Create(
                     Settings,
                     invocation.Syntax.GetLocation(),
                     method.Name,
-                    $"SettingType.{(method.IsGenericMethod ? $"Enumeration<{method.TypeArguments[0].ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}>()" : kind)}.Read({source.Syntax}, {invocation.Arguments[0].Value.Syntax})")]
+                    $"{source.Syntax}.Try{method.Name}{(method.IsGenericMethod ? $"<{method.TypeArguments[0].ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}>" : "")}({invocation.Arguments[0].Value.Syntax}, out {method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} value)")]
                 : []);
     }
 
@@ -384,51 +374,21 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         });
     }
 
-    // --- [SEAMS]
-    private static void Seams(CompilationStartAnalysisContext context, ISymbol views, ImmutableArray<ISymbol> renders) {
-        Compilation compilation = context.Compilation;
-        bool Under(ISymbol? symbol, ISymbol space) => symbol?.ContainingNamespace is { } held && Within(compilation.GetCompilationNamespace(held), space);
-        bool Rendered(ISymbol? symbol) => renders.Any(render => Under(symbol, render));
-        static string Shown(ISymbol symbol) =>
-            Member(symbol) switch {
-                IMethodSymbol method => Label(method),
-                INamedTypeSymbol type => type.Name,
-                var member => $"{member.ContainingType.Name}.{member.Name}",
-            };
-        static ISymbol? Reached(IOperation operation) =>
-            operation switch {
-                IObjectCreationOperation creation => creation.Constructor,
-                ITypeOfOperation typed => typed.TypeOperand,
-                _ => Target(operation),
-            };
-        Report<IOperation>(
-            context,
-            [OperationKind.Invocation, OperationKind.ObjectCreation, OperationKind.PropertyReference, OperationKind.FieldReference, OperationKind.EventReference, OperationKind.MethodReference, OperationKind.TypeOf],
-            (operation, analysis) =>
-                Reached(operation) is { } reached && Rendered(reached) && Under(analysis.ContainingSymbol, views) && !Inside<INameOfOperation>(operation)
-                    ? [Diagnostic.Create(Seam, operation.Syntax.GetLocation(), Shown(analysis.ContainingSymbol), analysis.ContainingSymbol.ContainingNamespace, Shown(reached))]
-                    : []);
-        context.RegisterSymbolAction(
-            analysis => {
-                if (analysis.Symbol is INamedTypeSymbol type && Under(type, views) && type.Interfaces.Prepend(type.BaseType).FirstOrDefault(Rendered) is { } inherited)
-                    analysis.ReportDiagnostic(Diagnostic.Create(Seam, type.Locations[0], type.Name, type.ContainingNamespace, inherited.Name));
-            },
-            SymbolKind.NamedType);
-    }
-
     // --- [OWNERS]
     private static void Owners(CompilationStartAnalysisContext context, ImmutableArray<IMethodSymbol> subscriptions, INamedTypeSymbol type, INamedTypeSymbol? accessor, INamedTypeSymbol? target) {
         static string Full(ITypeSymbol owner) =>
             owner.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted).WithGenericsOptions(SymbolDisplayGenericsOptions.None));
-        (string Event, string Owner, bool Matches)? Subscribed(IOperation step, ITypeSymbol written) =>
+        Compilation compilation = context.Compilation;
+        bool Accessible(ITypeSymbol owner) => compilation.IsSymbolAccessibleWithin(owner, compilation.Assembly);
+        (string Event, string Owner, bool Matches, bool Nameable)? Subscribed(IOperation step, ITypeSymbol written) =>
             step switch {
                 IEventAssignmentOperation { EventReference: IEventReferenceOperation reference } =>
-                    (reference.Event.Name, reference.Event.ContainingType.Name, Same(reference.Event.ContainingType, written)),
+                    (reference.Event.Name, reference.Event.ContainingType.Name, Same(reference.Event.ContainingType, written), Accessible(reference.Event.ContainingType)),
                 IInvocationOperation { TargetMethod: { Parameters: { IsEmpty: false } parameters } method } when Marked(method, accessor) is { } data && parameters[0] is var first =>
                     (data.NamedArguments.Select(static named => named.Value.Value).OfType<string>().FirstOrDefault() ?? method.Name) is var member
-                    && Marked(first, target)?.ConstructorArguments.FirstOrDefault().Value is string named
-                        ? (member, named.Split(',')[0].Trim(), string.Equals(named.Split(',')[0].Trim(), Full(written), StringComparison.Ordinal))
-                        : (member, first.Type.Name, Same(first.Type, written)),
+                    && Marked(first, target)?.ConstructorArguments.FirstOrDefault().Value is string named && named.Split(',')[0].Trim() is var owner
+                        ? (member, owner, string.Equals(owner, Full(written), StringComparison.Ordinal), compilation.GetTypesByMetadataName(owner).Any(Accessible))
+                        : (member, first.Type.Name, Same(first.Type, written), Accessible(first.Type)),
                 _ => null,
             };
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (call, _) =>
@@ -436,7 +396,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
             && call.Arguments.FirstOrDefault(argument => Same(argument.Parameter?.Type, type)) is { Value: var owned } && Stripped(owned) is ITypeOfOperation { TypeOperand: var written } typed
             && call.Arguments.FirstOrDefault(static argument => argument.Parameter?.Type.TypeKind is TypeKind.Delegate) is { Value: var added }
             && Stripped(added) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation function }
-            && function.Body.Descendants().Select(step => Subscribed(step, written)).FirstOrDefault(static found => found is not null) is { Matches: false } found
+            && function.Body.Descendants().Select(step => Subscribed(step, written)).FirstOrDefault(static found => found is not null) is { Matches: false, Nameable: true } found
                 ? [Diagnostic.Create(Owner, typed.Syntax.GetLocation(), found.Owner, found.Event, written.Name)]
                 : []);
     }

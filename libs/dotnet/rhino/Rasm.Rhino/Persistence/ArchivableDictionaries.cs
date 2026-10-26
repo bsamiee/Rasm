@@ -148,29 +148,22 @@ public static class ArchivableDictionaries {
         doc.RuntimeData.GetValue(typeof(DictionaryOwner), static _ => AtomHashMap<string, IO<Unit>>());
 
     // --- [STORES]
-    public static ValueStore<TValue> Store<TValue, TRaw>(DictionaryOwner owner, ValueKey<TValue> key, Option<HostEvent<Unit>> changed)
-        where TValue : notnull
-        where TRaw : notnull, ISpanParsable<TRaw> =>
-        ValueStore.Of(
-            key.Codec.Stored(key.Key, path =>
-                from source in owner.Read
-                from raw in IO.lift(() => Find<TRaw>(source, EntryKey.Name(path)))
-                select raw.Map(static held => StoredText.Format(held))),
-            value => owner.Edit(target => Callbacks.Each(key.Codec.Slots(value), (slot, _) => slot.Text.Match(
-                    Some: text => StoredText.Parse<TRaw>(text).Bind(raw => Set(target, EntryKey.Name(slot.Path), raw)),
-                    None: () => Fin.Succ(ignore(target.Remove(EntryKey.Name(slot.Path))))))
-                .Map(static _ => unit)),
+    public static ValueStore<T> Store<T>(DictionaryOwner owner, string key, Option<HostEvent<Unit>> changed) where T : notnull =>
+        ValueStores.Of(
+            from source in owner.Read
+            from held in IO.lift(() => Find<T>(source, key))
+            select held,
+            value => owner.Edit(target => value.Match(Some: held => Set(target, key, held), None: () => ignore(target.Remove(key)))),
             Applied.Live,
             changed);
-}
 
-public static class DictionaryCodec {
+    // --- [CODECS]
     private const string JsonKey = "Json";
 
     public static JsonSerializerOptions Options { get; } = new(JsonSerializerDefaults.Strict) {
         TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
         IgnoreReadOnlyProperties = true,
-        Converters = { new JsonStringEnumConverter(), new LanguageJsonConverterFactory() },
+        Converters = { new JsonStringEnumConverter() },
     };
 
     public static DictionaryCodec<T> Json<T>(string name, int version, Option<RecordUpgrade<T>> upgrade = default) =>
@@ -178,13 +171,16 @@ public static class DictionaryCodec {
             static value =>
                 from bytes in Try.lift(() => JsonSerializer.SerializeToUtf8Bytes(value, Options)).Run()
                 let target = new ArchivableDictionary()
-                from written in ArchivableDictionaries.Set<IEnumerable<byte>>(target, JsonKey, bytes)
+                from written in Set<IEnumerable<byte>>(target, JsonKey, bytes)
                 select target,
             stored =>
-                from bytes in ArchivableDictionaries.Required<byte[]>(stored, JsonKey)
-                from read in Try.lift(() => JsonSerializer.Deserialize<T>(bytes, Options)).Run()
-                    .MapFail(error => error.HasException<JsonException>() ? Error.New(ErrorCodes.ParseError, $"stored {name} is unreadable", error) : error)
-                from value in Optional(read).ToFin(Errors.ParseError($"stored {name} is null"))
+                from bytes in Required<byte[]>(stored, JsonKey)
+                from value in Decoded(name, () => JsonSerializer.Deserialize<T>(bytes, Options))
                 select value,
             upgrade);
+
+    public static Fin<T> Decoded<T>(string name, Func<T?> read) =>
+        Try.lift(read).Run()
+            .MapFail(error => error.HasException<JsonException>() ? Error.New(ErrorCodes.ParseError, $"stored {name} is unreadable", error) : error)
+            .Bind(value => Optional(value).ToFin(Errors.ParseError($"stored {name} is null")));
 }

@@ -22,17 +22,7 @@ namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ModeEdit {
-    private static readonly MethodInfo Answered = ((Func<bool, string, Fin<Unit>>)Refused.Unless).Method;
-
-    private readonly Lazy<Func<DisplayModeDescription, Fin<Unit>>> stored;
-    private readonly Option<Lazy<Func<DisplayPipelineAttributes, Fin<Unit>>>> attributes;
-
-    private ModeEdit(Seq<PropertyInfo> path, MethodInfo setter, Seq<object?> arguments) {
-        (Path, Setter, Arguments) = (path, setter, arguments);
-        stored = new(() => Compiled<DisplayModeDescription>(path, setter, arguments));
-        attributes = path.Head.Filter(static step => step.PropertyType == typeof(DisplayPipelineAttributes))
-            .Map(_ => new Lazy<Func<DisplayPipelineAttributes, Fin<Unit>>>(() => Compiled<DisplayPipelineAttributes>(path.Tail, setter, arguments)));
-    }
+    private ModeEdit(Seq<PropertyInfo> path, MethodInfo setter, Seq<object?> arguments) => (Path, Setter, Arguments) = (path, setter, arguments);
 
     public Seq<PropertyInfo> Path { get; }
     public MethodInfo Setter { get; }
@@ -52,10 +42,19 @@ public sealed record ModeEdit {
         };
 
     // --- [WRITES]
-    public Fin<Unit> Write(DisplayModeDescription staged) => stored.Value(staged);
+    public Fin<Unit> Write(DisplayModeDescription staged) => Applied(staged, Path);
 
     public Fin<Unit> Write(DisplayPipelineAttributes live) =>
-        attributes.Match(Some: compiled => compiled.Value(live), None: static () => new Refused(nameof(DisplayModeDescription), Refused.Declined));
+        Path.Head.Exists(static step => step.PropertyType == typeof(DisplayPipelineAttributes)) ? Applied(live, Path.Tail) : new Refused(nameof(DisplayModeDescription), Refused.Declined);
+
+    private Fin<Unit> Applied(object root, Seq<PropertyInfo> path) =>
+        path.Fold((object?)root, static (owner, step) => step.GetValue(owner)) switch {
+            var target => Setter.Invoke(Setter.IsStatic ? null : target, Setter.IsStatic ? [target, .. Arguments] : [.. Arguments]) switch {
+                Fin<Unit> answer => answer,
+                bool answered => Refused.Unless(answered, Setter.Name),
+                _ => unit,
+            },
+        };
 
     // --- [EQUALITY]
     public bool Equals([NotNullWhen(true)] ModeEdit? other) => other is { } edit && Path.Equals(edit.Path) && Setter.Equals(edit.Setter) && Arguments.Equals(edit.Arguments);
@@ -71,22 +70,11 @@ public sealed record ModeEdit {
         };
 
     private static object? Evaluated(Expression argument) =>
-        Expression.Lambda<Func<object?>>(Expression.Convert(argument, typeof(object))).Compile(preferInterpretation: true)();
-
-    // --- [COMPILE]
-    private static Func<TRoot, Fin<Unit>> Compiled<TRoot>(Seq<PropertyInfo> path, MethodInfo setter, Seq<object?> arguments) {
-        ParameterExpression root = Expression.Parameter(typeof(TRoot));
-        Expression target = path.Fold((Expression)root, static (owner, step) => Expression.Property(owner, step));
-        Seq<Expression> values = toSeq(setter.GetParameters()).Skip(setter.IsStatic ? 1 : 0).Zip(arguments)
-            .Map(static pair => (Expression)Expression.Constant(pair.Second, pair.First.ParameterType)).Strict();
-        MethodCallExpression call = setter.IsStatic ? Expression.Call(setter, [target, .. values]) : Expression.Call(target, setter, values);
-        Expression answer = setter.ReturnType switch {
-            Type returned when returned == typeof(Fin<Unit>) => call,
-            Type returned when returned == typeof(bool) => Expression.Call(Answered, call, Expression.Constant(setter.Name)),
-            _ => Expression.Block(call, Expression.Constant((Fin<Unit>)unit, typeof(Fin<Unit>))),
+        argument switch {
+            ConstantExpression constant => constant.Value,
+            MemberExpression { Member: FieldInfo field, Expression: var owner } => field.GetValue(owner is null ? null : Evaluated(owner)),
+            _ => throw new ArgumentException($"{argument} is no constant or captured value", nameof(argument)),
         };
-        return Expression.Lambda<Func<TRoot, Fin<Unit>>>(answer, root).Compile();
-    }
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -320,7 +308,7 @@ public static class DisplayModes {
     public static IO<Unit> Declared(Guid owner, Assembly package, DisplayModeSpec spec, IPlugInSink sink, Action<IDisposable> retain) =>
         from folder in IO.lift(() => FolderPath.Installed(package))
         let reconciled = Reconcile(owner, folder, spec).Map(unit)
-        from loaded in reconciled.Catch(error => IO.lift(() => sink.Report(error, typeof(DisplayModes), nameof(Declared)))).As()
+        from loaded in reconciled.Catch(error => IO.lift(() => sink.Report(error, typeof(DisplayModes)))).As()
         from opened in when(!spec.Successors.IsEmpty, EventKind.EndOpenDocument.Inline(
             args => IO.lift(() => Refused.UnlessFound(args.Document, nameof(DocumentOpenEventArgs.Document))).Bind(doc => Reassigned(doc, Successors(owner, spec))),
             sink, retain)).As()

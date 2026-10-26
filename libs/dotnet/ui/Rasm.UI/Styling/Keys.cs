@@ -1,6 +1,3 @@
-using System.Text.Json;
-using System.Text.RegularExpressions;
-
 namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -17,8 +14,6 @@ public sealed partial class Role {
     public static readonly Role Divider = Create("divider");
     public static readonly Role Scrollbar = Create("scrollbar");
     public static readonly Role Label = Create("label");
-    public static readonly Role ListRow = Create("list-row");
-    public static readonly Role Veil = Create("veil");
     public static readonly Role Track = Create("track");
     public static readonly Role Span = Create("span");
     public static readonly Role Handle = Create("handle");
@@ -28,22 +23,11 @@ public sealed partial class Role {
     public static readonly Role Well = Create("well");
     public static readonly Role Series = Create("series");
     public static readonly Role Trace = Create("trace");
-    public static readonly Role Guide = Create("guide");
-    public static readonly Role Major = Create("major");
     public static readonly Role GridFine = Create("grid-fine");
-    public static readonly Role Highlight = Create("highlight");
-    public static readonly Role Checker = Create("checker");
     public static readonly Role OverlayCaption = Create("overlay-caption");
-    public static readonly Role Readout = Create("readout");
-    public static readonly Role Knob = Create("knob");
-    public static readonly Role Puck = Create("puck");
     public static readonly Role Needle = Create("needle");
     public static readonly Role Stop = Create("stop");
     public static readonly Role Ring = Create("ring");
-    public static readonly Role ClipOver = Create("clip-over");
-    public static readonly Role ClipUnder = Create("clip-under");
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) => validationError = KebabCase.Checked(nameof(Role), value);
 }
 
 [ValueObject<string>]
@@ -53,19 +37,15 @@ public sealed partial class Appearance {
     public static readonly Appearance Native = Create("native");
     public static readonly Appearance Glass = Create("glass");
     public static readonly Appearance Drawn = Create("drawn");
-    public static readonly Appearance Capsule = Create("capsule");
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) => validationError = KebabCase.Checked(nameof(Appearance), value);
+    public static readonly Appearance Borderless = Create("borderless");
 }
 
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class Density {
-    public static readonly Density Regular = Create("regular");
-    public static readonly Density Compact = Create("compact");
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) => validationError = KebabCase.Checked(nameof(Density), value);
+public sealed partial class ControlSize {
+    public static readonly ControlSize Regular = Create("regular");
+    public static readonly ControlSize Compact = Create("compact");
 }
 
 [SmartEnum<string>]
@@ -101,9 +81,11 @@ public sealed partial class ContrastLevel {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Interaction {
-    public static readonly Interaction Hover = new("hover");
-    public static readonly Interaction Pressed = new("pressed");
-    public static readonly Interaction Focused = new("focused");
+    public static readonly Interaction Hover = new("hover", ring: false);
+    public static readonly Interaction Pressed = new("pressed", ring: false);
+    public static readonly Interaction Focused = new("focused", ring: true);
+
+    public bool Ring { get; }
 }
 
 [SmartEnum<string>]
@@ -111,7 +93,7 @@ public sealed partial class Interaction {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Channel {
     public static readonly Channel Fill = new("fill");
-    public static readonly Channel Edge = new("edge");
+    public static readonly Channel Stroke = new("stroke");
     public static readonly Channel Text = new("text");
 }
 
@@ -119,27 +101,20 @@ public sealed partial class Channel {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Metric {
-    public static readonly Metric Extent = new("extent");
-    public static readonly Metric Reach = new("reach");
-    public static readonly Metric Inset = new("inset");
-    public static readonly Metric Gap = new("gap");
-    public static readonly Metric Radius = new("radius");
-    public static readonly Metric Smoothing = new("smoothing");
-    public static readonly Metric Stroke = new("stroke");
-    public static readonly Metric Icon = new("icon");
-    public static readonly Metric FontSize = new("font-size");
-    public static readonly Metric Spacing = new("spacing");
-    public static readonly Metric Slop = new("slop");
-    public static readonly Metric Fine = new("fine");
-    public static readonly Metric Notch = new("notch");
-    public static readonly Metric EdgeFade = new("edge-fade");
-}
+    public static readonly Metric Extent = new("extent", 0f);
+    public static readonly Metric Reach = new("reach", 0f);
+    public static readonly Metric Inset = new("inset", 0f);
+    public static readonly Metric Gap = new("gap", 0f);
+    public static readonly Metric Radius = new("radius", 0f);
+    public static readonly Metric Smoothing = new("smoothing", 0f);
+    public static readonly Metric Stroke = new("stroke", 1f);
+    public static readonly Metric Icon = new("icon", 16f);
+    public static readonly Metric FontSize = new("font-size", 1f);
+    public static readonly Metric Spacing = new("spacing", 32f);
+    public static readonly Metric Slop = new("slop", 3f);
+    public static readonly Metric Fine = new("fine", 0.1f);
+    public static readonly Metric Notch = new("notch", 1.2f);
+    public static readonly Metric EdgeFade = new("edge-fade", 0f);
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-internal static partial class KebabCase {
-    internal static ValidationError? Checked(string kind, string value) =>
-        Pattern.IsMatch(value) ? null : new ValidationError($"{JsonNamingPolicy.KebabCaseLower.ConvertName(kind)} '{value}' is not lowercase kebab-case");
-
-    [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture)]
-    private static partial Regex Pattern { get; }
+    public float Default { get; }
 }

@@ -33,7 +33,7 @@ public sealed record ValueStore<T>(IO<Option<T>> Read, Func<Option<T>, IO<Change
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class ValueStore {
+public static class ValueStores {
     // --- [CONSTRUCTION]
     public static ValueStore<T> Of<T>(IO<Option<T>> read, Func<Option<T>, IO<Unit>> put, Applied applied, Option<HostEvent<Unit>> changed, Option<Func<T, T, bool>> same = default) where T : notnull =>
         same.IfNone(EqualityComparer<T>.Default.Equals) switch {

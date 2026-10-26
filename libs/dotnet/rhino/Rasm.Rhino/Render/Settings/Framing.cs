@@ -1,179 +1,56 @@
 using System.Drawing;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Rows;
-using Rasm.UI;
 using Rhino.Render;
-using Riok.Mapperly.Abstractions;
-using UnitsNet;
-using UnitsNet.Units;
+using Rhino.Render.DataSources;
 
 namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct FrameFraction : IPresented<FrameFraction, double> {
-    public static FrameFraction MinValue { get; } = new(0d);
-    public static FrameFraction MaxValue { get; } = new(1d);
-    public static FrameFraction ActionArea { get; } = new(0.9d);
-    public static FrameFraction TitleArea { get; } = new(0.8d);
-    public static Presentation<double> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-public sealed record SafeFrameState(
-    bool Enabled, bool PerspectiveOnly, bool FieldsOn, bool LiveFrameOn,
-    bool ActionFrameOn, bool ActionFrameLinked, FrameFraction ActionFrameXScale, FrameFraction ActionFrameYScale,
-    bool TitleFrameOn, bool TitleFrameLinked, FrameFraction TitleFrameXScale, FrameFraction TitleFrameYScale)
-    : IRenderSettingsRecord<SafeFrameState, SafeFrameParameter> {
-    public static SafeFrameState Default { get; } = new(
-        Enabled: false, PerspectiveOnly: true, FieldsOn: false, LiveFrameOn: true,
-        ActionFrameOn: true, ActionFrameLinked: true, ActionFrameXScale: FrameFraction.ActionArea, ActionFrameYScale: FrameFraction.ActionArea,
-        TitleFrameOn: true, TitleFrameLinked: true, TitleFrameXScale: FrameFraction.TitleArea, TitleFrameYScale: FrameFraction.TitleArea);
-
-    public static string Owner => "safe-frame";
-
-    public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.SafeFrameChanged;
-
-    public static IO<SafeFrameState> Read(RenderSettingsScope scope) =>
-        DisposalOps.Within(() => scope.Settings.SafeFrame, static frame => IO.lift(() =>
-            (FrameFraction.Validated(frame.ActionFrameXScale),
-             FrameFraction.Validated(frame.ActionFrameYScale),
-             FrameFraction.Validated(frame.TitleFrameXScale),
-             FrameFraction.Validated(frame.TitleFrameYScale))
-                .Apply((actionX, actionY, titleX, titleY) => new SafeFrameState(
-                    frame.Enabled, frame.PerspectiveOnly, frame.FieldsOn, frame.LiveFrameOn,
-                    frame.ActionFrameOn, frame.ActionFrameLinked, actionX, actionY,
-                    frame.TitleFrameOn, frame.TitleFrameLinked, titleX, titleY))
-                .As()));
-
-    public static IO<SafeFrameState> Write(RenderSettingsScope scope, SafeFrameState state) =>
-        DisposalOps.Within(() => scope.Settings.SafeFrame, frame => IO.lift(() => { SafeFrameMapper.Update(state, frame); return state; }));
-
-    public static RowRules Rules(RowSource<SafeFrameState> source, SafeFrameParameter parameter) =>
-        RowRule.When(source, static state => state.Enabled, SafeFrameParameter.Enabled) switch {
-            var on => (on & RowRule.When(source, static state => state.ActionFrameOn, SafeFrameParameter.ActionFrameOn),
-                       on & RowRule.When(source, static state => state.TitleFrameOn, SafeFrameParameter.TitleFrameOn)) switch {
-                           var (action, title) => new RowRules(parameter.Map<Option<RowRule>>(
-                               enabled: None, perspectiveOnly: on, fieldsOn: on, liveFrameOn: on,
-                               actionFrameOn: on, actionFrameLinked: action, actionFrameXScale: action,
-                               actionFrameYScale: action & RowRule.When(source, static state => !state.ActionFrameLinked, SafeFrameParameter.ActionFrameLinked),
-                               titleFrameOn: on, titleFrameLinked: title, titleFrameXScale: title,
-                               titleFrameYScale: title & RowRule.When(source, static state => !state.TitleFrameLinked, SafeFrameParameter.TitleFrameLinked)), None),
-                       },
-        };
-
-    public Option<Rectangle> Action(Size frame) =>
-        Guide(frame, ActionFrameOn, ActionFrameXScale, ActionFrameLinked ? ActionFrameXScale : ActionFrameYScale);
-
-    public Option<Rectangle> Title(Size frame) =>
-        Guide(frame, TitleFrameOn, TitleFrameXScale, TitleFrameLinked ? TitleFrameXScale : TitleFrameYScale);
-
-    private Option<Rectangle> Guide(Size frame, bool on, FrameFraction x, FrameFraction y) =>
-        Enabled && on
-            ? Some(Rectangle.FromLTRB(
-                Framing.Edge(frame.Width, (1d - x) / 2d), Framing.Edge(frame.Height, (1d - y) / 2d),
-                Framing.Edge(frame.Width, (1d + x) / 2d), Framing.Edge(frame.Height, (1d + y) / 2d)))
-            : None;
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class SafeFrameParameter : IStateParameter<SafeFrameState> {
-    public static readonly SafeFrameParameter Enabled = new("on", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.Enabled, static on => state => state with { Enabled = on })),
-        new("Show in active view", "Draws safe frame in active view"));
-    public static readonly SafeFrameParameter PerspectiveOnly = new("perspective-only", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.PerspectiveOnly, static on => state => state with { PerspectiveOnly = on })),
-        new("Perspective views only", "Draws safe frame in perspective views alone"));
-    public static readonly SafeFrameParameter FieldsOn = new("field-display-on", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.FieldsOn, static on => state => state with { FieldsOn = on })),
-        new("Show 4x3 field grid", "Draws 4 by 3 field grid"));
-    public static readonly SafeFrameParameter LiveFrameOn = new("live-frame-on", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.LiveFrameOn, static on => state => state with { LiveFrameOn = on })),
-        new("Live area", "Draws area rendering covers"));
-    public static readonly SafeFrameParameter ActionFrameOn = new("action-frame-on", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.ActionFrameOn, static on => state => state with { ActionFrameOn = on })),
-        new("Action area", "Draws action safe area"));
-    public static readonly SafeFrameParameter ActionFrameLinked = new("action-frame-link", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.ActionFrameLinked, static linked => state => state with { ActionFrameLinked = linked })),
-        new("Action area linked", "Scales action area alike on both axes"));
-    public static readonly SafeFrameParameter ActionFrameXScale = new("action-frame-x-scale", StateParameter.Bounded(Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameXScale, static scale => state => state with { ActionFrameXScale = scale })),
-        new("Action frame X", "Action area width as share of frame"));
-    public static readonly SafeFrameParameter ActionFrameYScale = new("action-frame-y-scale", StateParameter.Bounded(Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameYScale, static scale => state => state with { ActionFrameYScale = scale })),
-        new("Action frame Y", "Action area height as share of frame"));
-    public static readonly SafeFrameParameter TitleFrameOn = new("title-frame-on", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.TitleFrameOn, static on => state => state with { TitleFrameOn = on })),
-        new("Title area", "Draws title safe area"));
-    public static readonly SafeFrameParameter TitleFrameLinked = new("title-frame-link", new StateParameter<SafeFrameState>.Toggle(
-        Lens<SafeFrameState, bool>.New(static state => state.TitleFrameLinked, static linked => state => state with { TitleFrameLinked = linked })),
-        new("Title area linked", "Scales title area alike on both axes"));
-    public static readonly SafeFrameParameter TitleFrameXScale = new("title-frame-x-scale", StateParameter.Bounded(Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameXScale, static scale => state => state with { TitleFrameXScale = scale })),
-        new("Title frame X", "Title area width as share of frame"));
-    public static readonly SafeFrameParameter TitleFrameYScale = new("title-frame-y-scale", StateParameter.Bounded(Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameYScale, static scale => state => state with { TitleFrameYScale = scale })),
-        new("Title frame Y", "Title area height as share of frame"));
-
-    public StateParameter<SafeFrameState> Kind { get; }
-
-    public ParameterText Text { get; }
-}
-
 [Union]
 public abstract partial record RenderSize {
-    public abstract Fin<ImageOutputState> Applied(ImageOutputState held);
+    public abstract void Applied(RenderSettings settings);
 
     public sealed record ViewportSize(Size ScreenPort) : RenderSize {
-        public override Fin<ImageOutputState> Applied(ImageOutputState held) => Framing.Sized(held with { UseViewportSize = true }, ScreenPort);
+        public override void Applied(RenderSettings settings) => (settings.UseViewportSize, settings.ImageSize) = (true, ScreenPort);
     }
 
     public sealed record CustomSize : RenderSize {
-        public override Fin<ImageOutputState> Applied(ImageOutputState held) => held with { UseViewportSize = false };
+        public override void Applied(RenderSettings settings) => settings.UseViewportSize = false;
     }
 
     public sealed record Listed(Size Size) : RenderSize {
-        public override Fin<ImageOutputState> Applied(ImageOutputState held) => Framing.Sized(held with { UseViewportSize = false }, Size);
+        public override void Applied(RenderSettings settings) => (settings.UseViewportSize, settings.ImageSize) = (false, Size);
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-internal static partial class SafeFrameMapper {
-    [MapperRequiredMapping(RequiredMappingStrategy.Both)]
-    internal static partial void Update(SafeFrameState state, SafeFrame frame);
-
-    [UserMapping]
-    private static double Scalar(FrameFraction fraction) => fraction;
-}
-
 public static class Framing {
-    // --- [OUTPUT]
-    public static Size Final(ImageOutputState output, Size viewport) =>
-        output.UseViewportSize ? viewport : new Size(output.ImageWidth, output.ImageHeight);
-
-    public static (Length Width, Length Height) Print(ImageOutputState output, Size final) =>
-        (Length.FromInches(final.Width / (double)output.ImageDpi), Length.FromInches(final.Height / (double)output.ImageDpi));
-
-    public static Fin<ImageOutputState> Sized(ImageOutputState held, Size size) =>
-        (PixelDimension.Validated(size.Width), PixelDimension.Validated(size.Height))
-            .Apply((width, height) => held with { ImageWidth = width, ImageHeight = height })
-            .As();
-
     // --- [EXTENT]
     public static ReadModel<Size> Extent { get; } = new(
-        [ReadModel.Marks(EventKind.DocumentPropertiesChanged), ReadModel.Marks(EventKind.UndoRedo)],
+        [ReadModels.Marks(EventKind.DocumentPropertiesChanged), ReadModels.Marks(EventKind.UndoRedo)],
         static doc => IO.lift(() => RenderPipeline.RenderSize(doc, fromRenderSources: true)));
 
     // --- [SIZES]
-    public static Seq<RenderSize> Sizes(EditorState editor, Size screenPort) =>
-        [new RenderSize.ViewportSize(screenPort), new RenderSize.CustomSize(), .. editor.CustomRenderSizes.Map(static size => new RenderSize.Listed(size))];
+    public static Seq<RenderSize> Sizes(RhinoSettings settings, Size screenPort) =>
+        [new RenderSize.ViewportSize(screenPort), new RenderSize.CustomSize(), .. toSeq(settings.GetCustomRenderSizes()).Map(static size => new RenderSize.Listed(size))];
 
     public static IO<Unit> Choose(RenderSettingsSource.Section section, RenderSize size) =>
-        from sized in RenderSettingsSources.Edit(section, scope => ImageOutputState.Read(scope).Bind(held => IO.lift(size.Applied(held))).Bind(next => ImageOutputState.Write(scope, next)))
+        from sized in RenderSettingsSources.Edit(section, scope => IO.lift(() => size.Applied(scope.Settings)))
         from preset in SectionModels.Write(section.Host, Provider.RhinoSettings, data => IO.lift(() => data.CustomImageSizeIsPreset = size.Map(viewportSize: false, customSize: false, listed: true)))
         select unit;
 
-    // --- [ROUNDING]
-    internal static int Edge(int side, double fraction) => (int)((float)fraction * side);
+    // --- [GUIDES]
+    public static Option<Rectangle> Action(SafeFrame frame, Size size) =>
+        Guide(size, frame.Enabled && frame.ActionFrameOn, frame.ActionFrameXScale, frame.ActionFrameLinked ? frame.ActionFrameXScale : frame.ActionFrameYScale);
+
+    public static Option<Rectangle> Title(SafeFrame frame, Size size) =>
+        Guide(size, frame.Enabled && frame.TitleFrameOn, frame.TitleFrameXScale, frame.TitleFrameLinked ? frame.TitleFrameXScale : frame.TitleFrameYScale);
+
+    private static Option<Rectangle> Guide(Size size, bool on, double x, double y) =>
+        on
+            ? Some(Rectangle.FromLTRB(Edge(size.Width, (1d - x) / 2d), Edge(size.Height, (1d - y) / 2d), Edge(size.Width, (1d + x) / 2d), Edge(size.Height, (1d + y) / 2d)))
+            : None;
+
+    private static int Edge(int side, double fraction) => (int)((float)fraction * side);
 }

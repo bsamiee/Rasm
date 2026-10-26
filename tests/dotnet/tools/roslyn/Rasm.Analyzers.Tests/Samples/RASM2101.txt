@@ -1,11 +1,10 @@
+using System;
 using Rhino;
 
-namespace Rasm.Rhino.Persistence.Settings {
-    internal sealed class SettingType {
-        internal static bool Read(PersistentSettings settings) => settings.TryGetBool("held", out bool value) && value;
-    }
-}
+internal static class SettingsReads {
+    internal static bool Defaulted(PersistentSettings settings) => {|#0:settings.GetBool("held", false)|};
 
-internal static class DirectSettingsRead {
-    internal static bool Read(PersistentSettings settings) => {|#0:settings.TryGetBool("held", out bool value)|} && value;
+    internal static DayOfWeek Day(PersistentSettings settings) => {|#1:settings.GetEnumValue("day", DayOfWeek.Monday)|};
+
+    internal static bool Tried(PersistentSettings settings) => settings.TryGetBool("held", out bool value) && value;
 }

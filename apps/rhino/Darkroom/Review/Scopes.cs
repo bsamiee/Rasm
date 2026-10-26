@@ -7,13 +7,12 @@ using Rasm.Imaging.Color.Calibration;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using Rasm.Imaging.Tone;
-using Rasm.UI;
 
 namespace Darkroom.Review;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
-public sealed partial class TraceMix : ICaptioned {
+public sealed partial class TraceMix {
     public static readonly TraceMix RgbLuma = new("rgb-luma", [TracePlane.Red, TracePlane.Green, TracePlane.Blue, TracePlane.Luma]);
     public static readonly TraceMix Rgb = new("rgb", [TracePlane.Red, TracePlane.Green, TracePlane.Blue]);
     public static readonly TraceMix Luma = new("luma", [TracePlane.Luma]);
@@ -25,7 +24,7 @@ public sealed partial class TraceMix : ICaptioned {
 }
 
 [SmartEnum<string>]
-public sealed partial class ScopeKind : ICaptioned {
+public sealed partial class ScopeKind {
     public static readonly ScopeKind Histogram = new("histogram", static (state, frames) =>
         new ScopeRequest.Histogram(frames.Encoding.Gamut, frames.Levels.Map(static levels => levels.Clipping), frames.Input.Map(input => (input, frames.Working)))
             .Read(frames.Frame) switch {
@@ -61,29 +60,10 @@ public sealed record ScopeFrames(PixelFrame Frame, ColorEncoding Encoding, Optio
         new(run.Formed, DisplayFormation.Display.Encoding, depth.Bind(static held => held.Levels), DisplayFormation.Working, Some(run.Input));
 }
 
-public sealed record ScopeState(ScopeKind Kind, TraceMix Mix, Factor Magnification, SampleSquare Sample) : IStateRecord<ScopeState, ScopeParameter> {
-    public static ScopeState Default { get; } = new(ScopeKind.Histogram, TraceMix.RgbLuma, Factor.Unit, SampleSquare.One);
+public sealed record ScopeState(ScopeKind Kind, TraceMix Mix, float Magnification) {
+    public static ScopeState Default { get; } = new(ScopeKind.Histogram, TraceMix.RgbLuma, Magnification: 1f);
 
     public ScopeChart Read(ScopeFrames frames) => Kind.Read(this, frames);
-}
-
-[SmartEnum<string>]
-public sealed partial class ScopeParameter : IStateParameter<ScopeState> {
-    public static readonly ScopeParameter Scope = new("kind", new StateParameter<ScopeState>.Choice<ScopeKind>(
-        Lens<ScopeState, ScopeKind>.New(static state => state.Kind, static kind => state => state with { Kind = kind })),
-        new("Scope", "Chart the scope reads from the frame"));
-    public static readonly ScopeParameter Mix = new("mix", new StateParameter<ScopeState>.Choice<TraceMix>(
-        Lens<ScopeState, TraceMix>.New(static state => state.Mix, static mix => state => state with { Mix = mix })),
-        new("Channels", "Planes the histogram counts"));
-    public static readonly ScopeParameter Magnification = new("magnification", StateParameter.Bounded(
-        Lens<ScopeState, Factor>.New(static state => state.Magnification, static magnification => state => state with { Magnification = magnification })),
-        new("Magnification", "Chroma reach the vectorscope bins about neutral"));
-    public static readonly ScopeParameter Sample = new("sample", new StateParameter<ScopeState>.Keyed<SampleSquare, int>(
-        Lens<ScopeState, SampleSquare>.New(static state => state.Sample, static sample => state => state with { Sample = sample })),
-        new("Sample", "Pixels per side of the square each pointer reading averages"));
-
-    public StateParameter<ScopeState> Kind { get; }
-    public ParameterText Text { get; }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

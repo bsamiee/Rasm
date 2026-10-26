@@ -18,30 +18,21 @@ public interface IRealtimeProduct {
 public enum HudGesture { LeftClick, RightClick, DoubleClick }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct PassCount : System.Numerics.IMinMaxValue<PassCount> {
-    public static PassCount MinValue { get; } = new(0);
-    public static PassCount MaxValue { get; } = new(int.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 public sealed record RealtimeTarget(Size Size, bool ForCapture, RenderWindow Window);
 
 public sealed record RealtimeStart(RealtimeTarget Target, RhinoDoc Document, ViewInfo View, ViewportInfo Viewport, Func<Action<Disposal<SceneBatch>>, IO<SceneBatch>> Take);
 
 public sealed record RealtimeSession(
-    RealtimeTarget Target, IDisposable Scene, Instant Started, PassCount Pass, Option<PassCount> Limit,
+    RealtimeTarget Target, IDisposable Scene, Instant Started, int Pass, Option<int> Limit,
     Option<uint> Frame, Option<string> Status, Option<Instant> PausedAt, bool Locked) {
-    public static RealtimeSession Of(RealtimeTarget target, IDisposable scene, Instant now, Option<PassCount> limit) =>
-        new(target, scene, now, PassCount.Zero, limit, None, None, None, Locked: false);
+    public static RealtimeSession Of(RealtimeTarget target, IDisposable scene, Instant now, Option<int> limit) =>
+        new(target, scene, now, 0, limit, None, None, None, Locked: false);
 
     public bool Completed => !Locked && Frame.IsSome && Limit.Match(Some: limit => Pass >= limit, None: () => Target.ForCapture);
 
-    public Option<Fin<ProgressFraction>> Progress =>
-        Limit.Map(limit => Pass >= limit ? ProgressFraction.MaxValue : ProgressFraction.Validated((float)Pass / limit));
+    public Option<double> Progress => Limit.Map(limit => Pass >= limit ? 1d : (double)Pass / limit);
 
-    public RealtimeSession Restarted(Instant now) => this with { Started = now, Pass = PassCount.Zero, Frame = None };
+    public RealtimeSession Restarted(Instant now) => this with { Started = now, Pass = 0, Frame = None };
 
     public RealtimeSession Resumed(Instant now) =>
         PausedAt.Match(Some: at => this with { Started = Started + (now - at), PausedAt = None }, None: () => this);
@@ -110,7 +101,7 @@ public sealed partial class HudControl {
 [Union]
 public abstract partial record HudEvent {
     public sealed record Clicked(HudControl Control, HudGesture Gesture) : HudEvent;
-    public sealed record MaxPassesEdited(PassCount MaxPasses) : HudEvent;
+    public sealed record MaxPassesEdited(int MaxPasses) : HudEvent;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -181,7 +172,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
                 from added in RenderWindows.AddRequested(target.Window)
                 from now in IO.lift(views.Clock.GetCurrentInstant)
                 from passes in IO.lift(() => MaxPasses)
-                from limit in IO.lift(Callbacks.Found(target.ForCapture && passes > 0, passes).Traverse(PassCount.Validated).As())
+                let limit = Callbacks.Found(target.ForCapture && passes > 0, passes)
                 from queue in DefinedChangeFeed.Of(views, doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake, owned)
                 select (Queue: queue, Now: now, Target: target, Limit: limit), (created, lease) => {
                     Option<RealtimeSession> prior = atomic(() => {
@@ -218,14 +209,10 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     public sealed override bool IsCompleted() => Session.Exists(static session => session.Completed);
 
     public sealed override int LastRenderedPass() =>
-        Session.Map(static session => (int)session.Pass).IfNone(base.LastRenderedPass());
+        Session.Map(static session => session.Pass).IfNone(base.LastRenderedPass());
 
     public sealed override double CaptureProgress() =>
-        Callbacks.Answer(
-            Session.Bind(static session => session.Progress).Map(static progress => IO.lift(progress.Map(static fraction => (double)fraction))),
-            base.CaptureProgress,
-            base.CaptureProgress,
-            CallbackSite.Of(views, this));
+        Session.Bind(static session => session.Progress).IfNone(base.CaptureProgress);
 
     // --- [HUD]
     public sealed override string HudProductName() => RowText.Localize(TEngine.Product, views).Local;
@@ -235,12 +222,12 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     public sealed override bool HudShowCustomStatusText() => Session.Exists(static session => session.Status.IsSome);
 
     public sealed override int HudLastRenderedPass() =>
-        Session.Map(static session => (int)session.Pass).IfNone(base.HudLastRenderedPass());
+        Session.Map(static session => session.Pass).IfNone(base.HudLastRenderedPass());
 
     public sealed override bool HudShowPasses() => Session.IsSome;
 
     public sealed override int HudMaximumPasses() =>
-        Session.Bind(static session => session.Limit).Map(static limit => (int)limit).IfNone(base.HudMaximumPasses());
+        Session.Bind(static session => session.Limit).IfNone(base.HudMaximumPasses());
 
     public sealed override bool HudShowMaxPasses() => Session.Exists(static session => session.Limit.IsSome);
 
@@ -268,9 +255,8 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
             CallbackSite.Of(views, this, nameof(Hud))).Invoke;
 
     private IO<Unit> Edited(int maxPasses) =>
-        from limit in IO.lift(PassCount.Validated(maxPasses))
-        from limited in Swapped((session, _) => session with { Limit = Some(limit) })
-        from delivered in Delivered(new HudEvent.MaxPassesEdited(limit))
+        from limited in Swapped((session, _) => session with { Limit = Some(maxPasses) })
+        from delivered in Delivered(new HudEvent.MaxPassesEdited(maxPasses))
         select unit;
 
     private IO<Unit> Delivered(HudEvent hudEvent) =>
@@ -279,7 +265,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     // --- [REPORTS]
     protected Option<RealtimeSession> Session => sessions.Value;
 
-    protected IO<Unit> FrameRendered(PassCount pass, ViewInfo view) =>
+    protected IO<Unit> FrameRendered(int pass, ViewInfo view) =>
         IO.lift(() => ComputeViewportCrc(view))
             .Bind(frame => Swapped((session, _) => session.Locked ? session : session with { Pass = pass, Frame = Some(frame) }));
 
@@ -287,7 +273,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
 
     protected IO<Unit> StatusChanged(Option<string> status) => Swapped((session, _) => session with { Status = status });
 
-    protected IO<Unit> LimitChanged(Option<PassCount> limit) => Swapped((session, _) => session with { Limit = limit });
+    protected IO<Unit> LimitChanged(Option<int> limit) => Swapped((session, _) => session with { Limit = limit });
 
     private IO<Unit> Swapped(Func<RealtimeSession, Instant, RealtimeSession> change) =>
         from now in IO.lift(views.Clock.GetCurrentInstant)

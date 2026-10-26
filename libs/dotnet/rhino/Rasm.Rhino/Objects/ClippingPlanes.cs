@@ -9,25 +9,17 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct ClipDepth : System.Numerics.IMinMaxValue<ClipDepth> {
-    public static ClipDepth MinValue { get; } = new(0d);
-    public static ClipDepth MaxValue { get; } = new(double.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 public sealed record ClipParticipation(Seq<Guid> ObjectIds, Seq<int> LayerIndices, bool IsExclusionList);
 
-public sealed record ClipSettings(Override<ClipParticipation> Participation, Override<ClipDepth> Depth, Override<ComponentRef<DimensionStyle>> DimensionStyle) {
-    public static ClipSettings Unchanged { get; } = new(new Override<ClipParticipation>.Keep(), new Override<ClipDepth>.Keep(), new Override<ComponentRef<DimensionStyle>>.Keep());
+public sealed record ClipSettings(Override<ClipParticipation> Participation, Override<double> Depth, Override<ComponentRef<DimensionStyle>> DimensionStyle) {
+    public static ClipSettings Unchanged { get; } = new(new Override<ClipParticipation>.Keep(), new Override<double>.Keep(), new Override<ComponentRef<DimensionStyle>>.Keep());
 }
 
 public sealed record ClipEdit(Seq<ViewportSet> Attach, Seq<ViewportSet> Detach, ClipSettings Settings);
 
 public sealed record ClipSpec(PlaneSurface Surface, ViewportSet Viewports, ClipSettings Settings, Option<ObjectAttributes> Attributes);
 
-public sealed record ClipState(Seq<Guid> ViewportIds, Option<ClipParticipation> Participation, Option<ClipDepth> Depth, Option<Guid> DimensionStyleId);
+public sealed record ClipState(Seq<Guid> ViewportIds, Option<ClipParticipation> Participation, Option<double> Depth, Option<Guid> DimensionStyleId);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ClippingPlanes {
@@ -81,7 +73,7 @@ public static class ClippingPlanes {
         ClipMapper.Update((
             settings.Participation.Map<Option<bool>>(keep: None, set: true, clear: false),
             settings.Depth.Map<Option<bool>>(keep: None, set: true, clear: false),
-            settings.Depth.Applied(None).Map(static depth => (double)depth), style), surface);
+            settings.Depth.Applied(None), style), surface);
         _ = settings.Participation.Applied(None).Iter(value => surface.SetClipParticipation(value.ObjectIds, value.LayerIndices, value.IsExclusionList));
     }
 
@@ -91,10 +83,9 @@ public static class ClippingPlanes {
         from state in IO.lift(() => {
             ClippingPlaneSurface surface = plane.Geometry;
             surface.GetClipParticipation(out IEnumerable<Guid> objectIds, out IEnumerable<int> layerIndices, out bool isExclusionList);
-            return from depth in Callbacks.Found(surface.PlaneDepthEnabled, surface.PlaneDepth).Traverse(ClipDepth.Validated).As()
-                   select new ClipState(toSeq(surface.ViewportIds()),
-                       Callbacks.Found(surface.ParticipationListsEnabled, new ClipParticipation(toSeq(objectIds), toSeq(layerIndices), isExclusionList)),
-                       depth, Conversions.Present(surface.DimensionStyleId));
+            return new ClipState(toSeq(surface.ViewportIds()),
+                Callbacks.Found(surface.ParticipationListsEnabled, new ClipParticipation(toSeq(objectIds), toSeq(layerIndices), isExclusionList)),
+                Callbacks.Found(surface.PlaneDepthEnabled, surface.PlaneDepth), Conversions.Present(surface.DimensionStyleId));
         })
         select state;
 

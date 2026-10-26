@@ -9,30 +9,6 @@ namespace Rasm.Rhino.Modeling.Curves;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record NurbsCurveFit(NurbsCurve Curve, Option<Line> MaximumSeparation, Option<(double Source, double Fit)> SeparationParameters);
 
-[ComplexValueObject(SkipToString = true)]
-public sealed partial class DomainParameters {
-    public Curve Curve { get; }
-
-    public Seq<double> Values { get; }
-
-    internal static Fin<DomainParameters> Validated(Curve curve, Seq<double> values) =>
-        ValidationResults.ToFin(Validate(curve, values, out DomainParameters? parameters), parameters);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Curve curve, ref Seq<double> values) {
-        Interval domain = curve.Domain;
-        Seq<double> outside = values.Filter(t => !domain.IncludesParameter(t));
-        validationError = outside.IsEmpty ? null : new ValidationError($"parameters [{string.Join(", ", outside.Map(static value => value.ToString(CultureInfo.InvariantCulture)))}] are outside curve domain {domain}");
-    }
-}
-
-[ValueObject<PreserveEnd>(SkipIParsable = true, SkipIComparable = true)]
-public readonly partial struct PreservedEnd {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref PreserveEnd value) =>
-        validationError = value is PreserveEnd.Position or PreserveEnd.Tangency or PreserveEnd.Curvature
-            ? null
-            : new ValidationError($"{value} preserves nothing at a faired end");
-}
-
 [Union<Seq<double>, Brep, Surface, Plane>(T1Name = "Parameters", T2Name = "Brep", T3Name = "Surface", T4Name = "Plane", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class CurveCut;
 
@@ -68,13 +44,12 @@ public abstract partial record CurveExtension {
 public abstract partial record CurveTrim {
     public sealed record Domain(Interval Interval) : CurveTrim;
 
-    public sealed record Length(CurveEnd Side, PositiveLength Distance) : CurveTrim;
+    public sealed record Length(CurveEnd Side, double Distance) : CurveTrim;
 
     internal IO<EditStep<Curve, int>> Step(Curve curve, Action<IDisposable> retain) =>
         Switch(
             (Curve: curve, Retain: retain),
-            domain: static (at, of) => IO.lift(() => CurveEdits.Spanned(at.Curve, of.Interval, nameof(Curve.TrimInterval)))
-                >> Copies.Acquire(nameof(Curve.TrimInterval), _ => Edits.Accepted<Curve, int>(at.Curve, at.Curve.TrimInterval(of.Interval)), at.Retain),
+            domain: static (at, of) => Copies.Acquire(nameof(Curve.TrimInterval), _ => Edits.Accepted<Curve, int>(at.Curve, at.Curve.TrimInterval(of.Interval)), at.Retain),
             length: static (at, of) => Copies.Acquire(nameof(Curve.Trim), _ => Edits.Replaced<Curve, int>(at.Curve.Trim(of.Side, of.Distance)), at.Retain));
 }
 
@@ -109,7 +84,7 @@ public abstract partial record CurveEdit {
     public sealed record Trim(CurveTrim Extent) : CurveEdit;
     public sealed record Simplify(CurveSimplifyOptions Options) : CurveEdit;
     public sealed record SimplifyEnd(CurveEnd End, CurveSimplifyOptions Options) : CurveEdit;
-    public sealed record Fair(PreservedEnd Start, PreservedEnd End, int Iterations) : CurveEdit;
+    public sealed record Fair(PreserveEnd Start, PreserveEnd End, int Iterations) : CurveEdit;
     public sealed record Rebuild(int PointCount, int Degree, bool PreserveTangents) : CurveEdit;
     public sealed record Fit(int Degree) : CurveEdit;
     public sealed record SubDFriendly(Option<(int PointCount, bool Periodic)> Points) : CurveEdit;
@@ -120,7 +95,7 @@ public abstract partial record CurveEdit {
     public sealed record ToArcsAndLines(double Minimum, double Maximum) : CurveEdit;
     public sealed record ToNurbs(Option<Interval> Subdomain) : CurveEdit;
     public sealed record FilletCorners(double Radius) : CurveEdit;
-    public sealed record ChamferCorners(PositiveLength Distance0, PositiveLength Distance1) : CurveEdit;
+    public sealed record ChamferCorners(double Distance0, double Distance1) : CurveEdit;
 
     public IO<EditStep<Curve, int>> Step(Tolerances tolerances, Curve curve, Action<IDisposable> retain) =>
         Switch(
@@ -143,7 +118,7 @@ public abstract partial record CurveEdit {
             simplifyEnd: static (at, of) => Copies.Acquire(nameof(Curve.SimplifyEnd), _ =>
                 Edits.Replaced<Curve, int>(at.Curve.SimplifyEnd(of.End, of.Options, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
             fair: static (at, of) => Copies.Acquire(nameof(Curve.Fair), _ => Edits.Replaced<Curve, int>(
-                at.Curve.Fair(at.Tolerances.Absolute, at.Tolerances.Angle, (int)(PreserveEnd)of.Start - 1, (int)(PreserveEnd)of.End - 1, of.Iterations)), at.Retain),
+                at.Curve.Fair(at.Tolerances.Absolute, at.Tolerances.Angle, (int)of.Start - 1, (int)of.End - 1, of.Iterations)), at.Retain),
             rebuild: static (at, of) => Copies.Acquire(nameof(Curve.Rebuild), _ => Edits.Replaced<Curve, int>(at.Curve.Rebuild(of.PointCount, of.Degree, of.PreserveTangents)), at.Retain),
             fit: static (at, of) => Copies.Acquire(nameof(Curve.Fit), _ => Edits.Replaced<Curve, int>(at.Curve.Fit(of.Degree, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
             subDFriendly: static (at, of) => Copies.Acquire(nameof(NurbsCurve.CreateSubDFriendly), _ => Edits.Replaced<Curve, int>(of.Points.Match(
@@ -165,7 +140,7 @@ public abstract partial record CurveEdit {
                 Edits.Replaced<Curve, int>(Curve.CreateFilletCornersCurve(at.Curve, of.Radius, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
             chamferCorners: static (at, of) => Chamfered(at.Tolerances, at.Curve, of.Distance0, of.Distance1, at.Retain));
 
-    private static IO<EditStep<Curve, int>> Chamfered(Tolerances tolerances, Curve curve, PositiveLength before, PositiveLength after, Action<IDisposable> retain) =>
+    private static IO<EditStep<Curve, int>> Chamfered(Tolerances tolerances, Curve curve, double before, double after, Action<IDisposable> retain) =>
         from corners in IO.lift(() => CurveEvaluation.Points(tolerances, curve, new CurvePointSet.Discontinuities(Continuity.G1_continuous, Math.Cos(tolerances.Angle), RhinoMath.SqrtEpsilon)))
         from cuts in IO.lift(() => Cuts(curve, corners, before, after))
         from step in cuts.IsEmpty
@@ -182,16 +157,16 @@ public abstract partial record CurveEdit {
                 select (EditStep<Curve, int>)new EditStep<Curve, int>.Replaced(copy), DisposalOps.Release)
         select step;
 
-    private static Fin<Seq<(double Start, double End)>> Cuts(Curve curve, Seq<CurveSample> corners, PositiveLength before, PositiveLength after) =>
+    private static Fin<Seq<(double Start, double End)>> Cuts(Curve curve, Seq<CurveSample> corners, double before, double after) =>
         (Total: curve.GetLength(), Lengths: corners.Map(corner => curve.GetLength(new Interval(curve.Domain.T0, corner.Parameter)) switch {
-            var at => (Start: at - (double)before, End: at + (double)after),
+            var at => (Start: at - before, End: at + after),
         }).Strict()) switch {
             var measured => Callbacks.Each(measured.Lengths, (span, index) =>
                 span.Start > (index > 0 ? measured.Lengths[index - 1].End : 0d) && span.End < (index < measured.Lengths.Count - 1 ? measured.Lengths[index + 1].Start : measured.Total)
                     ? (Refused.Unless(curve.LengthParameter(span.Start, out double start), start, nameof(Curve.LengthParameter), index),
                         Refused.Unless(curve.LengthParameter(span.End, out double end), end, nameof(Curve.LengthParameter), index))
                         .Apply(static (start, end) => (Start: start, End: end)).As()
-                    : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"chamfer at corner {index} overlaps its neighbour or a curve end"))),
+                    : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"chamfer at corner {index} overlaps its neighbour or a curve end"))),
         };
 }
 
@@ -323,16 +298,10 @@ public static class CurveEdits {
     public static IO<Seq<Curve>> Split(Tolerances tolerances, Curve curve, CurveCut cut, Action<IDisposable> retain) =>
         cut.Switch(
             (Curve: curve, Tolerances: tolerances, Retain: retain),
-            parameters: static (at, values) => IO.lift(() => DomainParameters.Validated(at.Curve, values))
-                .Bind(set => Copies.Acquire(nameof(Curve.Split), _ => Answer.Many(set.Curve.Split(set.Values)), at.Retain)),
+            parameters: static (at, values) => Copies.Acquire(nameof(Curve.Split), _ => Answer.Many(at.Curve.Split(values)), at.Retain),
             brep: static (at, cutter) => Copies.Acquire(nameof(Curve.Split), _ => Answer.Many(at.Curve.Split(cutter, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
             surface: static (at, cutter) => Copies.Acquire(nameof(Curve.Split), _ => Answer.Many(at.Curve.Split(cutter, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
             plane: static (at, cutter) => Copies.Acquire(nameof(Curve.Split), _ => Answer.Many(at.Curve.Split(cutter, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain));
-
-    internal static Fin<Interval> Spanned(Curve curve, Interval span, string member) =>
-        from inside in DomainParameters.Validated(curve, Seq(span.T0, span.T1))
-        from increasing in guard(span.IsIncreasing, Error.New(ErrorCodes.ValidationFailed, $"{member} span {span} is not increasing")).ToFin()
-        select span;
 
     // --- [MATCHING]
     public static IO<Seq<NurbsCurve>> MakeCompatible(Tolerances tolerances, Seq<Curve> curves, Option<Point3d> startPt, Option<Point3d> endPt, CurveFit fit, Action<IDisposable> retain) =>

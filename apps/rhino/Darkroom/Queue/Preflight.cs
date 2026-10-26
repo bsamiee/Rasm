@@ -111,14 +111,14 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
     public static IO<Preflight> Check(QueueContext context, RhinoDoc doc, QueuePlan plan, QueueTarget target) =>
         target.Switch(
             local: static _ => new Reach(Local: true, Quits: false, Package: None),
-            packaged: static packaged => new Reach(Local: packaged.Use.Quits, Quits: packaged.Use.Quits, Package: Some(packaged.Package)),
-            flamenco: static farm => new Reach(Local: false, Quits: false, Package: Some(farm.Package))) switch {
+            packaged: static packaged => new Reach(Local: packaged.Use.Quits, Quits: packaged.Use.Quits, Package: Some((packaged.Folder, packaged.Stem))),
+            flamenco: static farm => new Reach(Local: false, Quits: false, Package: Some((farm.Folder, farm.Stem)))) switch {
                 var reach =>
                     from statistics in DocumentStatistics.Read(doc)
                     from links in Links.Closure(new LinkedModel.Opened(doc.RuntimeSerialNumber))
                     from style in Links.Style(doc).Read
                     from named in NamedEntry.Read(doc)
-                    from channels in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), RenderChannelsState.Read).Map(QueueEstimate.Channels)
+                    from channels in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => DisposalOps.Within(() => scope.Settings.RenderChannels, static held => IO.lift(() => QueueEstimate.Channels(held))))
                     from run in reach.Local ? QueueProgress.Observed(context).Map(static observed => Some(observed.State)) : IO.pure(Option<RunState>.None)
                     from host in IO.lift(Host.Read)
                     from disk in Measured(doc, plan, reach)
@@ -128,33 +128,27 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
 
     // --- [READS]
     private static Seq<PreflightFinding> Entered(RhinoDoc doc, Seq<NamedEntry> named, QueueEntry<Unit> entry, int index) =>
-        (Held(doc, named, entry.Source) ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.SourceViewMissing(index, entry.Source.RenderSource)))
-        + (entry.Overscan == Overscan.Off || entry.Source.RenderSource is RenderSettings.RenderingSources.ActiveViewport
+        (Held(doc, named, entry.Queued) ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.SourceViewMissing(index, entry.Queued.Source)))
+        + (entry.Queued.Overscan is 0d || entry.Queued.Source is RenderSettings.RenderingSources.ActiveViewport
             ? Seq<PreflightFinding>()
-            : Seq<PreflightFinding>(new PreflightFinding.OverscanSourceRefused(index, entry.Source.RenderSource)))
-        + Seq(entry.Rendered.Map(static _ => unit), entry.Frames.Numbers.TraverseM(entry.Moment).As().Map(static _ => unit))
-            .Partition()
-            .Fails
-            .Map<PreflightFinding>(error => new PreflightFinding.EntryRefused(index, error));
+            : Seq<PreflightFinding>(new PreflightFinding.OverscanSourceRefused(index, entry.Queued.Source)))
+        + entry.Rendered.Match(Succ: static _ => Seq<PreflightFinding>(), Fail: error => Seq<PreflightFinding>(new PreflightFinding.EntryRefused(index, error)));
 
-    private static bool Held(RhinoDoc doc, Seq<NamedEntry> named, RenderSourceState source) =>
-        source.RenderSource switch {
+    private static bool Held(RhinoDoc doc, Seq<NamedEntry> named, QueuedEntry entry) =>
+        entry.Source switch {
             RenderSettings.RenderingSources.ActiveViewport => doc.Views.ActiveView is not null,
-            RenderSettings.RenderingSources.SpecificViewport => source.SpecificViewport.Exists(name => doc.Views.Find(name, compareCase: false) is not null),
-            RenderSettings.RenderingSources.NamedView => source.NamedView.Exists(name => NamedTable.Views.Find(named, name).IsSome),
-            RenderSettings.RenderingSources.SnapShot => source.Snapshot.Exists(name => NamedTable.Snapshots.Find(named, name).IsSome),
+            RenderSettings.RenderingSources.SpecificViewport => Optional(entry.View).Exists(name => doc.Views.Find(name, compareCase: false) is not null),
+            RenderSettings.RenderingSources.NamedView => Optional(entry.View).Exists(name => NamedTable.Views.Find(named, name).IsSome),
+            RenderSettings.RenderingSources.SnapShot => Optional(entry.View).Exists(name => NamedTable.Snapshots.Find(named, name).IsSome),
         };
 
     private static IO<Disk> Measured(RhinoDoc doc, QueuePlan plan, Reach reach) =>
         from saved in IO.lift(() => Conversions.Present(doc.Path))
-        from output in Located(plan.Destination, saved)
-            .Traverse(folder => reach.Local ? Volume.Of(folder).Map(static volume => Some(volume)) : IO.pure(Option<Volume>.None))
+        from output in Destinations.Located(plan.Book.Folder, plan.Book.Stem, saved)
+            .Traverse(located => reach.Local ? Volume.Of(located.Folder).Map(static volume => Some(volume)) : IO.pure(Option<Volume>.None))
             .As()
-        from package in reach.Package.Traverse(package => Located(package, saved).Traverse(Volume.Of).As()).As()
+        from package in reach.Package.Traverse(package => Destinations.Located(package.Folder, package.Stem, saved).Traverse(static located => Volume.Of(located.Folder)).As()).As()
         select new Disk(output, package);
-
-    private static Fin<string> Located(Destination destination, Option<string> saved) =>
-        (Destinations.FolderOf(destination.Folder, saved), Destinations.StemOf(destination.Stem, saved)).Apply(static (folder, _) => folder).As();
 
     private static Textures Textured(RhinoDoc doc) =>
         Conversions.Rows(doc.Materials).Filter(static material => !material.IsDeleted).Strict() switch {
@@ -196,7 +190,7 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
 
     private static Option<string> Stored(LinkedModel model) => model.Switch(opened: static _ => Option<string>.None, stored: static stored => Some(stored.Path));
 
-    private readonly record struct Reach(bool Local, bool Quits, Option<Destination> Package);
+    private sealed record Reach(bool Local, bool Quits, Option<(OutputFolder Folder, Stem Stem)> Package);
 
     private sealed record Host(Guid Renderer, bool Installed, bool SafeMode, bool AutoSaved, Option<string> Pending, Seq<uint> Untitled) {
         public Seq<PreflightFinding> Refusals =>

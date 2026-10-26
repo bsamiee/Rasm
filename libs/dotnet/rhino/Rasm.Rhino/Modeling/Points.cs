@@ -8,14 +8,6 @@ using Rasm.Rhino.Modeling.Curves;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct SearchDistance : System.Numerics.IMinMaxValue<SearchDistance> {
-    public static SearchDistance MinValue { get; } = new(double.BitIncrement(0d));
-    public static SearchDistance MaxValue { get; } = new(double.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class CloudCurves {
     public static readonly CloudCurves Splines = new(createSpline: true, createPolyline: false);

@@ -10,16 +10,6 @@ using Rhino.Render.ParameterNames;
 
 namespace Rasm.Rhino.Render.Sessions;
 
-// --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Albedo : System.Numerics.IMinMaxValue<Albedo> {
-    public static Albedo MinValue { get; } = new(0f);
-    public static Albedo MaxValue { get; } = new(1f);
-    public static Albedo Clay { get; } = new(0.522522f);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 [Guid("1E61FAC0-CB0C-4245-A299-03464E5F6EDC")]
 public sealed class ClayMeshProvider : DefinedMeshProvider {
@@ -28,7 +18,7 @@ public sealed class ClayMeshProvider : DefinedMeshProvider {
 
     private ClayMeshProvider(IPlugInViews sink, uint serial, RenderMaterial clay) : base(sink, "Clay") => (this.serial, this.clay) = (serial, clay);
 
-    public static IO<Unit> Register(IPlugInViews sink, RhinoDoc document, Albedo albedo, Action<IDisposable> retain) =>
+    public static IO<Unit> Register(IPlugInViews sink, RhinoDoc document, float albedo, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
             from content in DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound(
                 RenderContentType.NewContentFromTypeId(ContentUuids.PhysicallyBasedMaterialType, document), nameof(RenderContentType.NewContentFromTypeId))), owned)

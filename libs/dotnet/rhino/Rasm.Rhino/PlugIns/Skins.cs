@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Rhino.Document.Files;
@@ -167,7 +168,7 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
         select document;
 
     // --- [SINK]
-    public void Report(Error error, Type owner, string member) => Session.Report(error, owner, member);
+    public void Report(Error error, Type owner, [CallerMemberName] string member = "") => Session.Report(error, owner, member);
 
     // --- [LAYOUT]
     private static void Refresh(SkinLoad state, Label status, ProgressBar bar) {

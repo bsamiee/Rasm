@@ -4,7 +4,6 @@ using Rhino;
 using Rhino.Runtime.Notifications;
 using Rhino.UI;
 using Riok.Mapperly.Abstractions;
-using NativeNotificationCenter = Rhino.Runtime.Notifications.NotificationCenter;
 
 namespace Rasm.Rhino.UI;
 
@@ -68,7 +67,7 @@ public static class Status {
     // --- [NOTICES]
     public static IO<Disposal<Notification>> Show(Notice notice, Option<NoticeReplies> replies, IPlugInSink sink, Action<Disposal<Notification>> retain) =>
         DisposalOps.Acquire(IO.lift(() => Notification.ExecuteAssemblyProtectedCode(() => Added(notice, replies, sink))), held => Notification.ExecuteAssemblyProtectedCode(() => {
-            _ = held.Held.Iter(static raised => NativeNotificationCenter.Notifications.Add(raised));
+            _ = held.Held.Iter(static raised => global::Rhino.Runtime.Notifications.NotificationCenter.Notifications.Add(raised));
             retain(held);
             return unit;
         }));
@@ -80,7 +79,7 @@ public static class Status {
         Notification raised = new([typeof(Status).Assembly]);
         NoticeMapper.Update(notice, raised);
         _ = replies.Iter(reply => Replied(raised, reply, sink));
-        return new Disposal<Notification>(raised, static held => Notification.ExecuteAssemblyProtectedCode(() => NativeNotificationCenter.Notifications.Remove(held)));
+        return new Disposal<Notification>(raised, static held => Notification.ExecuteAssemblyProtectedCode(() => global::Rhino.Runtime.Notifications.NotificationCenter.Notifications.Remove(held)));
     }
 
     private static void Replied(Notification raised, NoticeReplies reply, IPlugInSink sink) {

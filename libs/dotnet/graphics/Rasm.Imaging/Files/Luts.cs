@@ -12,43 +12,35 @@ using SixLabors.ImageSharp.PixelFormats;
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class LutPath {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = Path.IsPathFullyQualified(value) && LutFile.Readers.ContainsKey(Path.GetExtension(value)) ? null
-            : new ValidationError($"LUT path '{value}' must be fully qualified with one of {string.Join(", ", LutFile.Readers.Keys)}");
-}
-
 public sealed record LutFile {
     private static readonly DecoderOptions LookupOptions = new() {
         Configuration = new Configuration(new PngConfigurationModule(), new TiffConfigurationModule()),
         SkipMetadata = true,
     };
 
-    private LutFile(LutPath path, LutTable table) => (Path, Table) = (path, table);
+    private LutFile(string path, LutTable table) => (Path, Table) = (path, table);
 
-    internal static FrozenDictionary<string, Func<LutPath, IO<LutTable>>> Readers { get; } =
+    private static FrozenDictionary<string, Func<string, IO<LutTable>>> Readers { get; } =
         toSeq(LookupOptions.Configuration.ImageFormats).Bind(static format => toSeq(format.FileExtensions)).Map(static extension => $".{extension}") switch {
-            var lookups => lookups.Map(static extension => (Extension: extension, Read: (Func<LutPath, IO<LutTable>>)ReadLookup))
+            var lookups => lookups.Map(static extension => (Extension: extension, Read: (Func<string, IO<LutTable>>)ReadLookup))
                 .Concat(toSeq(LutFormat.Items)
                     .Filter(format => !lookups.Exists(extension => string.Equals(extension, format.Extension, StringComparison.OrdinalIgnoreCase)))
-                    .Map(static format => (format.Extension, Read: (Func<LutPath, IO<LutTable>>)(path => LutFiles.Read(path, format)))))
+                    .Map(static format => (format.Extension, Read: (Func<string, IO<LutTable>>)(path => LutFiles.Read(path, format)))))
                 .ToFrozenDictionary(static reader => reader.Extension, static reader => reader.Read, StringComparer.OrdinalIgnoreCase),
         };
 
-    public LutPath Path { get; }
+    public string Path { get; }
     public LutTable Table { get; }
 
-    public static IO<LutFile> Read(LutPath path) =>
-        Readers[System.IO.Path.GetExtension(path)](path)
+    public static IO<LutFile> Read(string path) =>
+        IO.lift(Optional(Readers.GetValueOrDefault(System.IO.Path.GetExtension(path))).ToFin(new ImagingFault($"LUT path {path} names none of {string.Join(", ", Readers.Keys)}")))
+            .Bind(read => read(path))
             .Map(table => new LutFile(path, table))
             .Catch(
                 static error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() || error.HasException<ImageFormatException>(),
                 error => IO.fail<LutFile>(Error.New($"LUT file {path} is unreadable", error)));
 
-    private static IO<LutTable> ReadLookup(LutPath path) =>
+    private static IO<LutTable> ReadLookup(string path) =>
         from token in cancelToken
         from table in use(IO.liftAsync(() => Image.LoadAsync<Rgb48>(LookupOptions, path, token))).Bind(static image => IO.lift(Lattice(image))).Bracket()
         select table;

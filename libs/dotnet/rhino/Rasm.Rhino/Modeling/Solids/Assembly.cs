@@ -5,6 +5,7 @@ namespace Rasm.Rhino.Modeling.Solids;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<RhinoFault>]
 public sealed partial class BrepTopology {
     public Seq<Surface> Surfaces { get; }
 
@@ -33,11 +34,11 @@ public sealed partial class BrepTopology {
     }
 
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError, ref Seq<Surface> surfaces, ref Seq<Curve> curves, ref Seq<(Point3d Point, Option<double> Tolerance)> vertices,
+        ref RhinoFault? validationError, ref Seq<Surface> surfaces, ref Seq<Curve> curves, ref Seq<(Point3d Point, Option<double> Tolerance)> vertices,
         ref Seq<(int Curve, int Start, int End, Option<Interval> Domain, Option<double> Tolerance)> edges, ref Seq<Face> faces) =>
         validationError = Violations(surfaces, curves.Count, vertices, edges, faces) switch {
             { IsEmpty: true } => null,
-            var rules => new ValidationError(string.Join("; ", rules)),
+            var rules => new RhinoFault(string.Join("; ", rules)),
         };
 
     private static Seq<string> Violations(
@@ -75,7 +76,7 @@ public sealed partial class BrepTopology {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Assembly {
+public static class SolidAssembly {
     public static IO<Brep> Build(BrepTopology topology, Action<IDisposable> retain) =>
         Copies.Owned(static () => new Brep(), brep =>
             from declared in IO.lift(() => Declared(brep, topology))

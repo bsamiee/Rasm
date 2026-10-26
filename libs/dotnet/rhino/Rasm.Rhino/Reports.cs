@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Rhino;
 using Rhino.Runtime;
 using Rhino.UI;
@@ -7,7 +8,7 @@ namespace Rasm.Rhino;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IPlugInSink {
-    public void Report(Error error, Type owner, string member);
+    public void Report(Error error, Type owner, [CallerMemberName] string member = "");
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -26,10 +27,9 @@ internal sealed class CommandWindowLogger(string category) : ILogger {
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) {
         if (!IsEnabled(logLevel)) return;
         Callbacks.Started(
-            (from written in IO.lift(() => RhinoApp.WriteLine($"{category}: {formatter(state, exception)}"))
-             from reported in IO.lift(() => Optional(exception).Iter(held => HostUtils.ExceptionReport(category, held)))
-             select unit)
-            .Catch(fault => IO.lift(() => HostUtils.ExceptionReport(category, fault.ToException()))).As()
+            IO.lift(() => RhinoApp.WriteLine($"{category}: {formatter(state, exception)}")).Map(_ => Optional(exception).Map(static held => Error.New(held)))
+                .Catch(fault => IO.pure(Some(Optional(exception).Map(held => Error.New(held) + fault).IfNone(fault)))).As()
+                .Bind(raised => IO.lift(() => raised.Iter(held => HostUtils.ExceptionReport(category, held.ToException()))))
             .OnUiThread());
     }
 }

@@ -188,7 +188,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
         Collect(_ => IO.lift(() => new SceneBatch { Materials = new(toSeq(mats).Map(static material => (material.MeshInstanceId, material.Id)), tryAdd: false) }));
 
     protected override void ApplyMeshChanges(Guid[] deleted, List<NativeQueue.Mesh> added) =>
-        Collect(owned => toSeq(added).TraverseM(mesh => Mesh(mesh, owned)).As()
+        Collect(owned => toSeq(added).TraverseM(mesh => Meshed(mesh, owned)).As()
             .Map(meshes => new SceneBatch {
                 Meshes = new(toSeq(deleted).Map(static id => (id, Option<SceneMesh>.None)).Concat(meshes.Map(static mesh => (mesh.Id, Some(mesh)))), tryAdd: false),
             }));
@@ -214,7 +214,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
         Collect(_ => IO.lift(() => new SceneBatch { Display = Some(SceneMapper.ToDisplay(displayPipelineAttributes)) }));
 
     // --- [COPIES]
-    private static IO<SceneMesh> Mesh(NativeQueue.Mesh source, Action<IDisposable> retain) =>
+    private static IO<SceneMesh> Meshed(NativeQueue.Mesh source, Action<IDisposable> retain) =>
         from mesh in DisposalOps.Within(() => source.SingleMesh, borrowed => Copies.Duplicate(borrowed, retain))
         from mappings in IO.lift(() => Conversions.Rows(source.Mappings)).Bind(channels => channels.TraverseM(channel =>
             DisposalOps.Acquire(IO.lift(() => Optional(channel.Mapping)), static mapping => DisposalOps.Release(mapping.ToSeq()), retain)

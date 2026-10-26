@@ -7,14 +7,6 @@ using Rhino.Geometry.Intersect;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct ReflectionCount : System.Numerics.IMinMaxValue<ReflectionCount> {
-    public static ReflectionCount MinValue { get; } = new(1);
-    public static ReflectionCount MaxValue { get; } = new(1000);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Crossing<T> {
     public sealed record Disjoint : Crossing<T>;
@@ -312,7 +304,7 @@ public static class Intersections {
     }
 
     // --- [RAYS_AND_PROJECTIONS]
-    public static IO<Seq<(Point3d Point, int Geometry, Option<int> Face)>> RayShoot(Seq<GeometryBase> geometry, Ray3d ray, ReflectionCount reflections, bool honorTrims) =>
+    public static IO<Seq<(Point3d Point, int Geometry, Option<int> Face)>> RayShoot(Seq<GeometryBase> geometry, Ray3d ray, int reflections, bool honorTrims) =>
         IO.lift(() => Conversions.Rows(Intersection.RayShoot(geometry, ray, reflections, honorTrims))
             .Map(static hit => (hit.Point, Geometry: hit.GeometryIndex, Face: Conversions.Present(hit.BrepFaceIndex)))
             .Strict());

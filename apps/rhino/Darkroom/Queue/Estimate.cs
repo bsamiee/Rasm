@@ -3,7 +3,6 @@ using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Objects;
-using Rasm.Rhino.Render.Settings;
 using Rasm.UI;
 using Rhino.Render;
 
@@ -15,7 +14,7 @@ public sealed record FrameMark(ContentKey Entry, SequenceNumber Frame, long Star
 }
 
 [SmartEnum<string>]
-public sealed partial class FrameStage : ICaptioned {
+public sealed partial class FrameStage {
     public static readonly FrameStage Setup = new("setup", static (mark, clock) => clock.GetElapsedTime(mark.Started, mark.Began).ToDuration());
     public static readonly FrameStage Render = new("render", static (mark, clock) => clock.GetElapsedTime(mark.Began, mark.Saved).ToDuration());
     public static readonly FrameStage Save = new("save", static (mark, clock) => clock.GetElapsedTime(mark.Saved, mark.Written).ToDuration());
@@ -33,7 +32,7 @@ public sealed record QueueEstimate(long Landed, long Total) {
     public static QueueEstimate Idle { get; } = new(0, 0);
 
     public Content<Unit> Work =>
-        Total == 0 ? new Content<Unit>.Empty(Captions.Of(nameof(Idle)))
+        Total == 0 ? new Content<Unit>.Empty(nameof(Idle))
         : Landed < Total ? new Content<Unit>.Pending(None, Some(Progress.Create(Landed, Total)))
         : new Content<Unit>.Ready(unit);
 
@@ -49,7 +48,7 @@ public sealed record QueueEstimate(long Landed, long Total) {
 
     private static QueueEstimate Of(RenderBatch batch, QueueProgress record, Option<FrameMark> last, Instant now, Func<Seq<Duration>, Option<Duration>> rate) =>
         batch.Entries.Map(entry => record.Entries.Find(entry.Key).IfNone(EntryProgress.Empty) switch {
-            var held => (held.Times, Remaining: held.Last.Match(Some: done => (long)(int)entry.Frames.Last - (int)done, None: () => entry.Frames.Count)),
+            var held => (held.Times, Remaining: held.Last.Match(Some: done => entry.Frames.Numbers.Count - 1L - (int)done, None: () => entry.Frames.Numbers.Count)),
         }) switch {
             var rows => rows.Filter(static row => row.Remaining > 0)
                 .Traverse(row => (rate(row.Times) | Mean(rows.Bind(static held => held.Times))).Map(each => each * row.Remaining))
@@ -63,7 +62,7 @@ public sealed record QueueEstimate(long Landed, long Total) {
         times.IsEmpty ? None : Some(times.Fold(Duration.Zero, static (sum, time) => sum + time) / times.Count);
 
     // --- [MEMORY]
-    public static RenderWindow.StandardChannels Channels(RenderChannelsState requested) =>
+    public static RenderWindow.StandardChannels Channels(RenderChannels requested) =>
         (requested.Mode is RenderChannels.Modes.Custom ? toSeq(requested.CustomList) : Seq<Guid>()).Fold(
             RenderWindow.StandardChannels.Red | RenderWindow.StandardChannels.Green | RenderWindow.StandardChannels.Blue | RenderWindow.StandardChannels.Alpha,
             static (held, id) => held | RenderWindow.StandardChannelForGuid(id));

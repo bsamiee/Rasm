@@ -13,17 +13,12 @@ namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(SkipIParsable = true)]
+[ValidationError<RhinoFault>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StateName {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value.Length > 0 ? null : new ValidationError("state name is empty");
-}
-
-[SmartEnum]
-public sealed partial class NamedRecording {
-    public static readonly NamedRecording Batch = new();
-    public static readonly NamedRecording Command = new();
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
+        validationError = value.Length > 0 ? null : new RhinoFault("state name is empty");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -52,7 +47,7 @@ public abstract partial record NamedWrite {
 
 public sealed record NamedEntry(NamedTable Table, string Name, Option<Guid> Id) {
     public static ReadModel<Seq<NamedEntry>> Catalog { get; } = new(
-        [.. toSeq(NamedTable.Items).Bind(static table => table.Marks), ReadModel.Marks(EventKind.UndoRedo), ReadModel.Marks(EventKind.EndOpenDocument)],
+        [.. toSeq(NamedTable.Items).Bind(static table => table.Marks), ReadModels.Marks(EventKind.UndoRedo), ReadModels.Marks(EventKind.EndOpenDocument)],
         Read);
 
     public static IO<Seq<NamedEntry>> Read(RhinoDoc doc) =>
@@ -64,8 +59,8 @@ public sealed record NamedEntry(NamedTable Table, string Name, Option<Guid> Id) 
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NamedTable {
     public static readonly NamedTable LayerStates = new(
-        nameof(LayerStates), StringComparer.Ordinal, NamedRecording.Batch,
-        marks: [ReadModel.Marks(EventKind.DocumentPropertiesChanged)],
+        nameof(LayerStates), StringComparer.Ordinal, batches: true,
+        marks: [ReadModels.Marks(EventKind.DocumentPropertiesChanged)],
         transform: None,
         import: Some(static (RhinoDoc doc, ArchiveSource source, Option<Seq<StateName>> names, CallbackSite _) => Tables.LayerStates.Import(doc, source, names)),
         archive: None, members: None, current: None,
@@ -76,8 +71,8 @@ public sealed partial class NamedTable {
         hold: Tables.LayerStates.Hold);
 
     public static readonly NamedTable Views = new(
-        nameof(Views), StringComparer.OrdinalIgnoreCase, NamedRecording.Batch,
-        marks: [ReadModel.Marks(EventKind.DocumentPropertiesChanged)],
+        nameof(Views), StringComparer.OrdinalIgnoreCase, batches: true,
+        marks: [ReadModels.Marks(EventKind.DocumentPropertiesChanged)],
         transform: Some(NamedViews.Transform), import: Some(NamedViews.Import), archive: Some(NamedViews.Archive),
         members: None, current: Some(NamedViews.Current),
         entries: NamedViews.Entries,
@@ -87,8 +82,8 @@ public sealed partial class NamedTable {
         hold: NamedViews.Hold);
 
     public static readonly NamedTable ConstructionPlanes = new(
-        nameof(ConstructionPlanes), StringComparer.OrdinalIgnoreCase, NamedRecording.Batch,
-        marks: [ReadModel.Marks(EventKind.DocumentPropertiesChanged)],
+        nameof(ConstructionPlanes), StringComparer.OrdinalIgnoreCase, batches: true,
+        marks: [ReadModels.Marks(EventKind.DocumentPropertiesChanged)],
         transform: Some(Viewport.ConstructionPlanes.Transform), import: Some(Viewport.ConstructionPlanes.Import), archive: Some(Viewport.ConstructionPlanes.Archive),
         members: None, current: Some(Viewport.ConstructionPlanes.Current),
         entries: Viewport.ConstructionPlanes.Entries,
@@ -98,8 +93,8 @@ public sealed partial class NamedTable {
         hold: Viewport.ConstructionPlanes.Hold);
 
     public static readonly NamedTable Positions = new(
-        nameof(Positions), StringComparer.Ordinal, NamedRecording.Batch,
-        marks: [ReadModel.Marks(EventKind.DocumentPropertiesChanged)],
+        nameof(Positions), StringComparer.Ordinal, batches: true,
+        marks: [ReadModels.Marks(EventKind.DocumentPropertiesChanged)],
         transform: None, import: None, archive: None, members: Some(NamedPositions.Members), current: None,
         entries: NamedPositions.Entries,
         accepts: static _ => unit,
@@ -108,19 +103,19 @@ public sealed partial class NamedTable {
         hold: static (doc, _) => NamedPositions.Hold(doc));
 
     public static readonly NamedTable Snapshots = new(
-        nameof(Snapshots), StringComparer.OrdinalIgnoreCase, NamedRecording.Command,
-        marks: [ReadModel.Marks(EventKind.EndCommand)],
+        nameof(Snapshots), StringComparer.OrdinalIgnoreCase, batches: false,
+        marks: [ReadModels.Marks(EventKind.EndCommand)],
         transform: None,
         import: Some(static (RhinoDoc doc, ArchiveSource source, Option<Seq<StateName>> names, CallbackSite _) => SnapshotChange.Imported(doc, source, names)),
         archive: None, members: None, current: None,
         entries: SnapshotChange.Entries,
-        accepts: static name => SnapshotName.Validated(name).Map(static _ => unit),
+        accepts: static name => SnapshotName.TryCreate(name, out _, out RhinoFault? fault) ? unit : fault,
         rename: static (doc, entry, name, _) => SnapshotChange.Renamed(doc, entry, name),
         delete: static (doc, entry, _) => SnapshotChange.Deleted(doc, entry),
         hold: static (doc, _) => SnapshotChange.Held(doc));
 
     public static readonly NamedTable Selections = new(
-        nameof(Selections), StringComparer.OrdinalIgnoreCase, NamedRecording.Batch,
+        nameof(Selections), StringComparer.OrdinalIgnoreCase, batches: true,
         marks: [NamedSelections.Refreshed],
         transform: None, import: None, archive: None, members: Some(NamedSelections.Members), current: None,
         entries: NamedSelections.Entries,
@@ -130,8 +125,8 @@ public sealed partial class NamedTable {
         hold: static (doc, _) => NamedSelections.Hold(doc));
 
     public static readonly NamedTable Markups = new(
-        nameof(Markups), TableOps.Names<Markup>(), NamedRecording.Batch,
-        marks: [ReadModel.Marks(EventKind.MarkupTableEvent)],
+        nameof(Markups), TableOps.Names<Markup>(), batches: true,
+        marks: [ReadModels.Marks(EventKind.MarkupTableEvent)],
         transform: None, import: None, archive: None, members: Some(Tables.Markups.Members), current: Some(Tables.Markups.Current),
         entries: Tables.Markups.Entries,
         accepts: static _ => unit,
@@ -140,7 +135,7 @@ public sealed partial class NamedTable {
         hold: static (doc, _) => Tables.Markups.Hold(doc));
 
     public IEqualityComparer<string> Comparer { get; }
-    public NamedRecording Recording { get; }
+    public bool Batches { get; }
     public Seq<HostEvent<Option<uint>>> Marks { get; }
     public Option<Func<RhinoDoc, NamedEntry, Transform, CallbackSite, IO<NamedWrite>>> Transform { get; }
     public Option<Func<RhinoDoc, ArchiveSource, Option<Seq<StateName>>, CallbackSite, IO<NamedWrite>>> Import { get; }
@@ -408,7 +403,7 @@ public abstract partial record NamedChange {
                 None: () => segments.Add([change])));
 
     private static bool Batched(Seq<NamedChange> segment) =>
-        segment.ForAll(static change => change.Table.Recording == NamedRecording.Batch);
+        segment.ForAll(static change => change.Table.Batches);
 
     private static IO<Committed<Seq<NamedEvent>>> Segment(RhinoDoc doc, Seq<NamedChange> segment, CallbackSite site, Atom<Seq<NamedWrite>> writes, Atom<Seq<Option<uint>>> records) =>
         from before in NamedEntry.Read(doc)
@@ -452,7 +447,7 @@ public abstract partial record NamedChange {
         Switch(
             entries,
             save: static (held, save) =>
-                from name in StateName.Validated(save.State.Key)
+                from name in StateName.TryCreate(save.State.Key, out StateName? named, out RhinoFault? fault) ? Fin.Succ(named) : fault
                 from accepted in save.State.Table.Accepts(name)
                 select save.State.Table.Find(held, name).IsSome ? held : held.Add(new NamedEntry(save.State.Table, name, None)),
             restore: static (held, restore) => Present(held, restore.Target.Table, restore.Target.Key).Map(_ => held),

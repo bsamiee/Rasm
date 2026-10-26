@@ -4,8 +4,9 @@ using Eto.Drawing;
 using Eto.Forms;
 using Microsoft.Win32;
 using Rasm.Rhino.Events;
+using Rasm.Rhino.UI.Surfaces;
 using Rasm.UI.Styling;
-using Rhino.ApplicationSettings;
+using Rhino.Display;
 using Rhino.Resources;
 using Rhino.UI;
 using Rhino.UI.Theme;
@@ -35,34 +36,25 @@ public static class HostTheme {
     public static LanguageExt.HashSet<Condition> Conditions => Handler.Match(Some: static handler => handler.Conditions, None: static () => []);
 
     // --- [PROJECTION]
-    private static readonly Role Tab = Role.Create("tab");
-
     public static bool Compact(Control control) =>
         toSeq(control.Parents).Exists(static parent => Optional(parent.Style).Exists(static style => style.Split(' ').Contains(Panels.EtoPanelStyleName, StringComparer.Ordinal)));
 
-    public static Rasm.UI.Styling.Theme Projected(bool compact) =>
-        Rasm.UI.Styling.Theme.Create(toHashMap(Chrome), Conditions, new TextFace { Family = EtoFonts.NormalFont.FamilyName }, (compact ? EtoFonts.SmallFont : EtoFonts.NormalFont).Size);
+    public static ColorScheme Projected(bool compact) =>
+        ColorScheme.Create(toHashMap(Chrome), Conditions, new TextFace { Family = EtoFonts.NormalFont.FamilyName }, (compact ? EtoFonts.SmallFont : EtoFonts.NormalFont).Size);
 
-    public static Fin<Shipped> Stated(Shipped shipped, bool compact) =>
-        (Regular: shipped.Densities[Density.Regular], Compact: shipped.Densities.Find(Density.Compact).IfNone([])) switch {
-            var held => ValidationResults.ToFin(Shipped.Validate(
-                shipped.Appearances,
-                shipped.Defaults.AddOrUpdate(Metric.Notch, (float)ViewSettings.ZoomScale),
-                shipped.Densities.AddOrUpdate(Density.Regular, Layered(compact ? Layered(held.Regular, held.Compact) : held.Regular, Scrollbar)),
-                out Shipped? stated), stated),
-        };
+    public static DefaultStyles Stated(bool compact) =>
+        PanelRoles.Defaults.Combine(new DefaultStyles([], HashMap((ControlSize.Regular,
+            (compact ? PanelRoles.Defaults.Sizes.Find(ControlSize.Compact).IfNone([]) : []).AddOrUpdate(Role.Scrollbar,
+                HashMap((Metric.Extent, (float)ThemeSettings.Content.Scrollbar.Size), (Metric.Radius, (float)ThemeSettings.Content.Scrollbar.Radius)))))));
 
-    private static HashMap<Role, HashMap<Metric, float>> Scrollbar =>
-        toHashMap(Seq((Role.Scrollbar, toHashMap(Seq((Metric.Extent, (float)ThemeSettings.Content.Scrollbar.Size), (Metric.Radius, (float)ThemeSettings.Content.Scrollbar.Radius))))));
-
-    private static Seq<(Token Token, SKColorF Ink)> Chrome =>
+    private static Seq<(Token Token, SKColorF Color)> Chrome =>
         Seq(
             Element(Defaulted(Role.Button, ThemeSettings.Content.Button), Channels),
-            Element(Checked(Tab, ThemeSettings.Content.Tab), Channels),
+            Element(Checked(PanelRoles.Tab, ThemeSettings.Content.Tab), Channels),
             Element(Plain(Role.Field, ThemeSettings.Content.Entry), Channels),
-            Element(Checked(Role.ListRow, ThemeSettings.Content.List).Add((ThemeSettings.Content.List.Focus, Shaped(Role.ListRow, None, Interaction.Focused))), Channels),
-            Element(Plain(Role.Scrollbar, ThemeSettings.Content.Scrollbar), static state => [(Channel.Fill, state.Thumb), (Channel.Edge, state.Border)]),
-            Seq<(Token Token, Color Ink)>(
+            Element(Checked(PanelRoles.ListRow, ThemeSettings.Content.List).Add((ThemeSettings.Content.List.Focus, Shaped(PanelRoles.ListRow, None, Interaction.Focused))), Channels),
+            Element(Plain(Role.Scrollbar, ThemeSettings.Content.Scrollbar), static state => [(Channel.Fill, state.Thumb), (Channel.Stroke, state.Border)]),
+            Seq<(Token Token, Color Color)>(
                     (new Token(Role.Window, Channel.Fill), ThemeSettings.Content.Background),
                     (new Token(Role.Window, Channel.Text), ThemeSettings.Content.Text.Enabled),
                     (new Token(Role.Window, Channel.Text) { Condition = Condition.Disabled }, ThemeSettings.Content.Text.Disabled),
@@ -73,24 +65,26 @@ public static class HostTheme {
                     (new Token(Role.Label, Channel.Text), ThemeSettings.Content.Text.Enabled),
                     (new Token(Role.Label, Channel.Text) { Condition = Condition.Disabled }, ThemeSettings.Content.Text.Disabled),
                     (new Token(Role.Divider, Channel.Fill), ThemeSettings.Content.Divider),
-                    (new Token(Role.Divider, Channel.Edge), ThemeSettings.Content.Divider),
+                    (new Token(Role.Divider, Channel.Stroke), ThemeSettings.Content.Divider),
                     (new Token(Role.Selection, Channel.Fill), SystemColors.Highlight),
                     (new Token(Role.Selection, Channel.Text), SystemColors.HighlightText),
-                    (new Token(Role.FocusRing, Channel.Edge), SystemColors.Highlight),
+                    (new Token(Role.FocusRing, Channel.Stroke), SystemColors.Highlight),
                     (new Token(Role.Toolbar, Channel.Fill), ThemeSettings.Frame.Background),
-                    (new Token(Role.Toolbar, Channel.Edge), ThemeSettings.Frame.Edge),
+                    (new Token(Role.Toolbar, Channel.Stroke), ThemeSettings.Frame.Edge),
                     (new Token(Role.Toolbar, Channel.Text), ThemeSettings.Frame.Text.Enabled),
                     (new Token(Role.Toolbar, Channel.Text) { Condition = Condition.Disabled }, ThemeSettings.Frame.Text.Disabled))
-                .Concat(Handler.ToSeq().Bind(static handler => Seq<(Token Token, Color Ink)>(
+                .Concat(Handler.ToSeq().Bind(static handler => Seq<(Token Token, Color Color)>(
                     (new Token(Role.Window, Channel.Text) { Condition = Condition.Faulted }, handler.Faulted),
                     (new Token(Role.Window, Channel.Text) { Condition = Condition.Warning }, handler.Warning))))
-                .Map(static row => (row.Token, Ink: Conversions.ToSKColorF(row.Ink))))
+                .Map(static row => (row.Token, Color: Scened(row.Color))))
         .Bind(static rows => rows);
 
-    private static Seq<(Token Token, SKColorF Ink)> Element<TState>(Seq<(TState State, Func<Channel, Token> Token)> states, Func<TState, Seq<(Channel Channel, Color Ink)>> channels) =>
+    private static Seq<(Token Token, SKColorF Color)> Element<TState>(Seq<(TState State, Func<Channel, Token> Token)> states, Func<TState, Seq<(Channel Channel, Color Color)>> channels) =>
         from held in states
         from channel in channels(held.State)
-        select (held.Token(channel.Channel), Conversions.ToSKColorF(channel.Ink));
+        select (held.Token(channel.Channel), Scened(channel.Color));
+
+    private static SKColorF Scened(Color color) => Color4f.FromArgb(color.A, color.R, color.G, color.B).ToSKColorF();
 
     private static Func<Channel, Token> Shaped(Role role, Option<Condition> condition, Option<Interaction> interaction) =>
         channel => new Token(role, channel) { Condition = condition, Interaction = interaction };
@@ -107,10 +101,7 @@ public static class HostTheme {
         Checked(role, element) + [(element.Default, Shaped(role, Condition.Default, None)), (element.DefaultHover, Shaped(role, Condition.Default, Interaction.Hover)),
                                   (element.DefaultPressed, Shaped(role, Condition.Default, Interaction.Pressed))];
 
-    private static Seq<(Channel Channel, Color Ink)> Channels(ThemeState state) => [(Channel.Edge, state.Border), (Channel.Fill, state.Background), (Channel.Text, state.Text)];
-
-    private static HashMap<Role, HashMap<Metric, float>> Layered(HashMap<Role, HashMap<Metric, float>> under, HashMap<Role, HashMap<Metric, float>> over) =>
-        under.Union(over, Merge: static (_, below, above) => below.Union(above, Merge: static (_, _, held) => held));
+    private static Seq<(Channel Channel, Color Color)> Channels(ThemeState state) => [(Channel.Stroke, state.Border), (Channel.Fill, state.Background), (Channel.Text, state.Text)];
 
     // --- [CHANGE]
     public static readonly HostEvent<Unit> Changed =

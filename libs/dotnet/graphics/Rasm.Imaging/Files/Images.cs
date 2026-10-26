@@ -12,29 +12,22 @@ using SixLabors.ImageSharp.PixelFormats;
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ImagePath {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = Path.IsPathFullyQualified(value) && ImageFile.Reads.ContainsKey(Path.GetExtension(value)) ? null
-            : new ValidationError($"Image path '{value}' must be fully qualified with one of {string.Join(", ", ImageFile.Reads.Keys)}");
-}
-
 public sealed record ImageFile {
-    private ImageFile(ImagePath path, PixelFrame frame) => (Path, Frame) = (path, frame);
+    private ImageFile(string path, PixelFrame frame) => (Path, Frame) = (path, frame);
 
-    internal static FrozenDictionary<string, Func<FileInfo, IO<PixelFrame>>> Reads { get; } =
+    private static FrozenDictionary<string, Func<FileInfo, IO<PixelFrame>>> Reads { get; } =
         new KeyValuePair<string, Func<FileInfo, IO<PixelFrame>>>[] {
             new(".exr", static file => PixelFrame.Read(file, "").Map(static read => read.Frame)),
             new(".png", Png),
         }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
-    public ImagePath Path { get; }
+    public string Path { get; }
     public PixelFrame Frame { get; }
 
-    public static IO<ImageFile> Load(ImagePath path) =>
-        Reads[System.IO.Path.GetExtension(path)](new FileInfo(path)).Map(frame => new ImageFile(path, frame));
+    public static IO<ImageFile> Load(string path) =>
+        from read in IO.lift(Optional(Reads.GetValueOrDefault(System.IO.Path.GetExtension(path))).ToFin(new ImagingFault($"Image path {path} names none of {string.Join(", ", Reads.Keys)}")))
+        from frame in read(new FileInfo(path))
+        select new ImageFile(path, frame);
 
     private static IO<PixelFrame> Png(FileInfo file) =>
         (from stream in use(() => new FileStream(file.FullName, new FileStreamOptions { Mode = FileMode.Open, Access = FileAccess.Read, Options = FileOptions.Asynchronous }))

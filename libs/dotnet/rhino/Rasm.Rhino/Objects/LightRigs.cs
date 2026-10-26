@@ -1,4 +1,3 @@
-using System.Globalization;
 using LanguageExt.ClassInstances;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Tables;
@@ -8,7 +7,6 @@ using Rasm.Rhino.Modeling;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Viewport;
 using Rhino;
-using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using UnitsNet;
@@ -16,71 +14,6 @@ using UnitsNet;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Front", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Azimuth : System.Numerics.IMinMaxValue<Azimuth> {
-    public static Azimuth MinValue { get; } = new(-Math.PI);
-    public static Azimuth MaxValue { get; } = new(Math.PI);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Horizon", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Elevation : System.Numerics.IMinMaxValue<Elevation> {
-    public static Elevation MinValue { get; } = new(-Math.PI / 2d);
-    public static Elevation MaxValue { get; } = new(Math.PI / 2d);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct RadiusMultiple : System.Numerics.IMinMaxValue<RadiusMultiple> {
-    public static RadiusMultiple MinValue { get; } = new(double.BitIncrement(0d));
-    public static RadiusMultiple MaxValue { get; } = new(double.MaxValue);
-    public static RadiusMultiple Default { get; } = new(2.5);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct AngularDiameter : System.Numerics.IMinMaxValue<AngularDiameter> {
-    public static AngularDiameter MinValue { get; } = new(0d);
-    public static AngularDiameter MaxValue { get; } = new(Math.PI / 2d);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "AtKey", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct LightStops : System.Numerics.IMinMaxValue<LightStops> {
-    public static LightStops MinValue { get; } = new(-double.MaxValue);
-    public static LightStops MaxValue { get; } = new(double.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct TargetRadius : System.Numerics.IMinMaxValue<TargetRadius> {
-    public static TargetRadius MinValue { get; } = new(double.BitIncrement(0d));
-    public static TargetRadius MaxValue { get; } = new(double.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct KeySoftness : System.Numerics.IMinMaxValue<KeySoftness> {
-    public static KeySoftness MinValue { get; } = new(0d);
-    public static KeySoftness MaxValue { get; } = new(double.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct ColorSaturation : System.Numerics.IMinMaxValue<ColorSaturation> {
-    public static ColorSaturation MinValue { get; } = new(0d);
-    public static ColorSaturation MaxValue { get; } = new(1d);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [ValueObject<string>(SkipIParsable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -88,14 +21,13 @@ public sealed partial class LightRole {
     public static readonly LightRole Key = Create("key");
     public static readonly LightRole Fill = Create("fill");
     public static readonly LightRole Rim = Create("rim");
-    public static readonly LightRole Accent = Create("accent");
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record RigEmitter {
     public sealed record PointLight() : RigEmitter;
 
-    public sealed record SpotLight(SpotAngle Angle, HotSpot HotSpot) : RigEmitter;
+    public sealed record SpotLight(Angle Angle, double HotSpot) : RigEmitter;
 
     public sealed record DirectionalLight() : RigEmitter;
 
@@ -110,63 +42,19 @@ public abstract partial record RigColor {
 }
 
 public sealed record RigLight(
-    LightRole Role, RigEmitter Emitter, Azimuth Azimuth, Elevation Elevation, RadiusMultiple Distance,
-    AngularDiameter Size, LightStops Stops, RigColor Color, Light.Attenuation Falloff) {
+    LightRole Role, RigEmitter Emitter, Angle Azimuth, Angle Elevation, double Distance,
+    Angle Size, double Stops, RigColor Color, Light.Attenuation Falloff, Option<Guid> Light = default) {
     public (Vector3d Toward, Vector3d Across, Vector3d Rise) Axes =>
-        (Math.SinCos(Azimuth), Math.SinCos(Elevation)) switch {
+        (Math.SinCos(Azimuth.Radians.ToDouble()), Math.SinCos(Elevation.Radians.ToDouble())) switch {
             var ((sinA, cosA), (sinE, cosE)) => (new Vector3d(cosE * sinA, sinE, cosE * cosA), new Vector3d(cosA, 0d, -sinA), new Vector3d(-sinE * sinA, cosE, -sinE * cosA)),
         };
-}
-
-public sealed record RigReference(System.Numerics.Vector3 KeyColor, System.Numerics.Vector3 FillColor, System.Numerics.Vector2 Direction, float Ratio, float Hardness);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record RigLayout {
-    public sealed record Arranged(Seq<RigLight> Rows) : RigLayout;
-
-    public sealed record Matched(
-        RigReference Reference, RigEmitter Key, KeySoftness Softness, AngularDiameter FillSize, Option<LightStops> Fill,
-        Option<LightStops> Rim, ColorFilter Tint, ColorSaturation Saturation, RadiusMultiple Distance) : RigLayout {
-        internal Fin<Seq<RigLight>> Derived =>
-            (Azimuth: Reference.Direction.X * Math.PI / 2d,
-             Elevation: Reference.Direction.Y * Math.PI / 2d,
-             Size: Reference.Hardness > 0f ? Math.Atan2(Softness * Reference.Ratio, Reference.Hardness) : (double)AngularDiameter.MaxValue,
-             Key: Peaked(Reference.KeyColor)) switch {
-                var held => (Seq(
-                        Row(LightRole.Key, Key, held.Azimuth, held.Elevation, held.Size, LightStops.AtKey, held.Key),
-                        Row(LightRole.Fill, new RigEmitter.RectangularLight(), -held.Azimuth, Elevation.Horizon, FillSize, Fill.Map(static stops => (double)stops).IfNone(-Reference.Ratio), Peaked(Reference.FillColor)))
-                    + Rim.Map(rim => Row(LightRole.Rim, Key, Math.IEEERemainder(held.Azimuth + Math.PI, Math.Tau), held.Elevation, held.Size, rim, held.Key)).ToSeq())
-                    .Traverse(static light => light)
-                    .As(),
-            };
-
-        private static Color4f Peaked(System.Numerics.Vector3 color) =>
-            color == System.Numerics.Vector3.Zero ? Color4f.White : Conversions.Peaked(color.X, color.Y, color.Z).Light;
-
-        private Fin<RigLight> Row(LightRole role, RigEmitter emitter, double azimuth, double elevation, double size, double stops, Color4f color) =>
-            (Azimuth.Validated(azimuth),
-             Elevation.Validated(elevation),
-             AngularDiameter.Validated(size),
-             LightStops.Validated(stops),
-             ValidationResults.ToFin(ColorFilter.Validate(
-                 Tint.Red * (1d + (Saturation * (color.R - 1d))),
-                 Tint.Green * (1d + (Saturation * (color.G - 1d))),
-                 Tint.Blue * (1d + (Saturation * (color.B - 1d))), out ColorFilter? filter), filter))
-                .Apply((a, e, s, st, filter) => new RigLight(role, emitter, a, e, Distance, s, st, filter, Light.Attenuation.InverseSquared))
-                .As();
-    }
-
-    public Fin<Seq<RigLight>> Lights =>
-        Switch(
-            arranged: static arranged => Fin.Succ(arranged.Rows),
-            matched: static matched => matched.Derived);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record RigTarget {
     public sealed record Subjects(IterableNE<Guid> Ids) : RigTarget;
 
-    public sealed record Fixed(Point3d Focus, TargetRadius Radius) : RigTarget;
+    public sealed record Fixed(Point3d Focus, double Radius) : RigTarget;
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -178,43 +66,29 @@ public abstract partial record RigBasis {
     public sealed record Frame(Guid Object) : RigBasis;
 }
 
-public sealed record LightRig(
-    Guid Id, RigTarget Target, RigBasis Basis, LightIntensity Level, Azimuth Rotation, Elevation Elevation, RigLayout Layout, Option<string> Preset);
+public sealed record LightRig(Guid Id, RigTarget Target, RigBasis Basis, double Level, Angle Rotation, Angle Elevation, Seq<RigLight> Lights);
 
 public sealed record RigCommit(Func<LightRole, string> Caption, string Name, RedrawPolicy Redraw);
 
-public sealed record PlacedLight(LightRole Role, LightShape Shape, LightColor Color, LightIntensity Intensity, Vector3d AttenuationVector) {
-    public LightSpec Spec(string name, bool enabled, LightPower watts, ShadowIntensity shadow) =>
+public sealed record PlacedLight(LightRole Role, LightShape Shape, LightColor Color, double Intensity, Vector3d AttenuationVector) {
+    public LightSpec Spec(string name, bool enabled, double watts, double shadow) =>
         new(Conversions.Present(name), enabled, Shape, Color, Intensity, watts, shadow, AttenuationVector);
-}
-
-public sealed record RigLabel(Guid Rig, int Slot, LightRole Role, Option<string> Preset) {
-    public static HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> Strings(Option<RigLabel> label) =>
-        HashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(
-            (LightKey.Rig.Key, label.Map(static row => row.Rig.ToString("D"))),
-            (LightKey.Slot.Key, label.Map(static row => row.Slot.ToString(CultureInfo.InvariantCulture))),
-            (LightKey.Role.Key, label.Map(static row => (string)row.Role)),
-            (LightKey.Preset.Key, label.Bind(static row => row.Preset)));
-}
-
-public sealed record HeldLight(Guid Id, uint Serial, HashMap<EqStringOrdinalIgnoreCase, string, string> Strings) {
-    public Option<int> Slot =>
-        Strings.Find(LightKey.Slot.Key).Bind(static text => Invariant.Number<int>(text, NumberStyles.None));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record RigChange {
-    public sealed record Create(RigLabel Label, PlacedLight Placed, Option<Guid> Source) : RigChange;
+    public sealed record Create(int Slot, PlacedLight Placed, Option<Guid> Source) : RigChange;
 
-    public sealed record Place(Guid Light, PlacedLight Placed, Option<RigLabel> Label) : RigChange;
-
-    public sealed record Release(Guid Light) : RigChange;
+    public sealed record Place(int Slot, Guid Light, PlacedLight Placed) : RigChange;
 
     public sealed record Remove(Guid Light) : RigChange;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LightRigs {
+    // --- [KEYS]
+    private const string RigKey = "rasm-rig";
+
     // --- [TARGET]
     public static IO<RigTarget.Fixed> Target(RhinoDoc doc, RigTarget target) =>
         target.Switch(
@@ -222,8 +96,7 @@ public static class LightRigs {
             subjects: static (document, subjects) => from found in new ObjectTarget.Ids(subjects.Ids.AsIterable().ToSeq()).Objects(document)
                                                      let bounds = Measurements.Bounds(found.Map(static held => held.Geometry.GetBoundingBox(accurate: true)))
                                                      from box in IO.lift(bounds.ToFin(new Refused(nameof(GeometryBase.GetBoundingBox), Refused.Absent)))
-                                                     from radius in IO.lift(TargetRadius.Validated(box.Diagonal.Length / 2d))
-                                                     select new RigTarget.Fixed(box.Center, radius),
+                                                     select new RigTarget.Fixed(box.Center, box.Diagonal.Length / 2d),
             @fixed: static (_, held) => IO.pure(held));
 
     public static IO<Plane> Basis(RhinoDoc doc, RigBasis basis, Point3d focus) =>
@@ -238,121 +111,93 @@ public static class LightRigs {
                 .Map(axes => new Plane(state.Focus, axes.XAxis, axes.ZAxis)));
 
     // --- [PLACEMENT]
-    public static Fin<Seq<PlacedLight>> Placed(LightRig rig, Seq<RigLight> lights, RigTarget.Fixed target, Plane basis, LengthUnit modelUnit) =>
-        from placing in Fin.Succ(Transform.Rotation(rig.Rotation, basis.YAxis, basis.Origin)
-            * Transform.Rotation(-(double)rig.Elevation, basis.XAxis, basis.Origin)
-            * Transform.PlaneToPlane(Plane.WorldXY, basis))
-        from placed in lights.Traverse(light => Positioned(rig, light, target, placing, modelUnit)).As()
-        select placed;
+    public static Seq<PlacedLight> Placed(LightRig rig, RigTarget.Fixed target, Plane basis, LengthUnit modelUnit) =>
+        (Transform.Rotation(rig.Rotation.Radians.ToDouble(), basis.YAxis, basis.Origin)
+            * Transform.Rotation(-rig.Elevation.Radians.ToDouble(), basis.XAxis, basis.Origin)
+            * Transform.PlaneToPlane(Plane.WorldXY, basis)) switch {
+                var placing => rig.Lights.Map(light => Positioned(rig, light, target, placing, modelUnit)).Strict(),
+            };
 
-    private static Fin<PlacedLight> Positioned(LightRig rig, RigLight light, RigTarget.Fixed target, Transform placing, LengthUnit modelUnit) =>
-        from reach in TargetRadius.Validated(light.Distance * target.Radius)
-        let axes = light.Axes
-        let radius = reach * Math.Tan(light.Size / 2d)
-        let side = 2d * radius
-        let at = placing * new Point3d(reach * axes.Toward)
-        let meters = Quantities.From(reach, modelUnit).Meters.ToDouble()
-        let falloff = light.Falloff switch {
-            Light.Attenuation.Constant => (Gain: 1d, Vector: Light.ConstantAttenuationVector),
-            Light.Attenuation.Linear => (Gain: meters, Vector: Light.LinearAttenuationVector),
-            Light.Attenuation.InverseSquared => (Gain: meters * meters, Vector: Light.InverseSquaredAttenuationVector),
-        }
-        let shaped = light.Emitter.Switch(
-            (At: at, Aim: target.Focus - at, Radius: radius, Side: side, Size: (double)light.Size, falloff.Gain, Across: side * (placing * axes.Across), Rise: side * (placing * axes.Rise)),
-            pointLight: static (state, _) => (
-                Shape: EmitterRadius.Validated(state.Radius)
-                    .Map(emitter => (LightShape)new LightShape.PointLight(state.At, emitter, CameraRelative: false)),
-                 state.Gain),
-            spotLight: static (state, spot) => (
-                Shape: EmitterRadius.Validated(state.Radius)
-                    .Map(emitter => (LightShape)new LightShape.SpotLight(state.At, state.Aim, spot.Angle, spot.HotSpot, emitter, CameraRelative: false)),
-                 state.Gain),
-            directionalLight: static (state, _) => (
-                Shape: SunAngle.Validated(state.Size)
-                    .Map(angle => (LightShape)new LightShape.DirectionalLight(state.At, state.Aim, angle, CameraRelative: false)),
-                Gain: 1d),
-            rectangularLight: static (state, _) => (
-                Shape: double.IsFinite(state.Side)
-                    ? new LightShape.RectangularLight(state.At - (state.Across / 2d) - (state.Rise / 2d), state.Across, state.Rise, state.Aim)
-                    : Error.New(ErrorCodes.ValidationFailed, "rectangular light side is not finite"),
-                 state.Gain))
-        from result in (shaped.Shape, LightIntensity.Validated(rig.Level == LightIntensity.MinValue ? 0d : rig.Level * double.Exp2(light.Stops) * shaped.Gain))
-            .Apply((shape, intensity) => new PlacedLight(
-                light.Role, shape, light.Color.Switch(blackbody: static blackbody => (LightColor)blackbody.Kelvin, linear: static linear => (LightColor)linear.Filter), intensity, falloff.Vector))
-            .As()
-        select result;
+    private static PlacedLight Positioned(LightRig rig, RigLight light, RigTarget.Fixed target, Transform placing, LengthUnit modelUnit) =>
+        (Reach: light.Distance * target.Radius, Meters: light.Distance * Quantities.From(target.Radius, modelUnit).Meters.ToDouble(), light.Axes) switch {
+            var (reach, meters, axes) => (
+                Side: 2d * reach * Math.Tan(light.Size.Radians.ToDouble() / 2d),
+                At: placing * new Point3d(reach * axes.Toward),
+                Falloff: light.Falloff switch {
+                    Light.Attenuation.Constant => (Gain: 1d, Vector: Light.ConstantAttenuationVector),
+                    Light.Attenuation.Linear => (Gain: meters, Vector: Light.LinearAttenuationVector),
+                    Light.Attenuation.InverseSquared => (Gain: meters * meters, Vector: Light.InverseSquaredAttenuationVector),
+                }) switch {
+                    var (side, at, falloff) => light.Emitter.Switch<(Point3d At, Vector3d Aim, double Side, Angle Size, double Gain, Vector3d Across, Vector3d Rise), (LightShape Shape, double Gain)>(
+                        (at, target.Focus - at, side, light.Size, falloff.Gain, side * (placing * axes.Across), side * (placing * axes.Rise)),
+                        pointLight: static (state, _) => (new LightShape.PointLight(state.At, state.Side / 2d, CameraRelative: false), state.Gain),
+                        spotLight: static (state, spot) => (new LightShape.SpotLight(state.At, state.Aim, spot.Angle, spot.HotSpot, state.Side / 2d, CameraRelative: false), state.Gain),
+                        directionalLight: static (state, _) => (new LightShape.DirectionalLight(state.At, state.Aim, state.Size, CameraRelative: false), 1d),
+                        rectangularLight: static (state, _) => (new LightShape.RectangularLight(state.At - (state.Across / 2d) - (state.Rise / 2d), state.Across, state.Rise, state.Aim), state.Gain)) switch {
+                            var (shape, gain) => new PlacedLight(
+                                light.Role, shape, light.Color.Switch(blackbody: static blackbody => (LightColor)blackbody.Kelvin, linear: static linear => (LightColor)linear.Filter),
+                                rig.Level * double.Exp2(light.Stops) * gain, falloff.Vector),
+                        },
+                },
+        };
 
     // --- [RECONCILE]
-    public static IO<Committed<Seq<RigChange>>> Reconcile(RhinoDoc doc, LightRig rig, RigCommit commit, IPlugInSink sink) =>
+    public static IO<Committed<LightRig>> Reconcile(RhinoDoc doc, LightRig rig, RigCommit commit, IPlugInSink sink) =>
         Commits.Commit(doc, RowText.Localize(commit.Name, sink), commit.Redraw,
-            from lights in IO.lift(rig.Layout.Lights)
             from target in Target(doc, rig.Target)
             from basis in Basis(doc, rig.Basis, target.Focus)
-            from placed in IO.lift(() => Placed(rig, lights, target, basis, doc.ModelUnits))
             from held in Held(doc, rig.Id)
-            let changes = Plan(rig, held, placed)
-            from applied in Apply(doc, changes, role => RowText.Localize(commit.Caption(role), sink))
-            select changes);
+            from placed in Apply(doc, rig.Id, Plan(rig, held, Placed(rig, target, basis, doc.ModelUnits)), role => RowText.Localize(commit.Caption(role), sink))
+            select rig with { Lights = rig.Lights.Map((light, slot) => light with { Light = placed.Find(slot) }).Strict() });
 
-    public static IO<Seq<HeldLight>> Held(RhinoDoc doc, Guid rig) =>
-        IO.lift(() => Conversions.Rows(doc.Lights).Filter(static light => !light.IsDeleted)
-            .Map(static row => new HeldLight(row.Id, row.RuntimeSerialNumber, UserStrings.Held(row.Attributes.GetUserStrings())))
-            .Filter(light => light.Strings.Find(LightKey.Rig.Key) == Some(rig.ToString("D"))).Strict());
+    public static IO<LanguageExt.HashSet<Guid>> Held(RhinoDoc doc, Guid rig) =>
+        IO.lift(() => toHashSet(Conversions.Rows(doc.Lights)
+            .Filter(light => !light.IsDeleted && UserStrings.Held(light.Attributes.GetUserStrings()).Find(RigKey) == Some(rig.ToString("D")))
+            .Map(static light => light.Id)));
 
-    public static Seq<RigChange> Plan(LightRig rig, Seq<HeldLight> held, Seq<PlacedLight> placed) =>
-        toSeq(held.OrderBy(static light => light.Serial)).Fold(
-            (Members: Map<int, HeldLight>(), Released: Seq<HeldLight>()),
-            static (state, light) => light.Slot.Filter(slot => !state.Members.ContainsKey(slot)).Match(
-                Some: slot => (state.Members.Add(slot, light), state.Released),
-                None: () => (state.Members, state.Released.Add(light)))) switch {
-                    var (members, released) =>
-                        (from row in placed.Map((placement, slot) => (Placement: placement, Label: new RigLabel(rig.Id, slot, placement.Role, rig.Preset)))
-                         let member = members.Find(row.Label.Slot)
-                         let labelled = member.Exists(light => RigLabel.Strings(Some(row.Label)).ForAll((key, value) => light.Strings.Find(key) == value))
-                         select member.Match(
-                             Some: light => (RigChange)new RigChange.Place(light.Id, row.Placement, Callbacks.Found(!labelled, row.Label)),
-                             None: () => new RigChange.Create(row.Label, row.Placement, members.Min.Map(static lowest => lowest.Value.Id))))
-                        + toSeq(members.Filter((slot, _) => slot >= placed.Count).Values).Map(static member => (RigChange)new RigChange.Remove(member.Id))
-                        + released.Map(static light => (RigChange)new RigChange.Release(light.Id)),
-                };
+    public static Seq<RigChange> Plan(LightRig rig, LanguageExt.HashSet<Guid> held, Seq<PlacedLight> placed) =>
+        rig.Lights.Choose(static light => light.Light).Filter(held.Contains) switch {
+            var recorded => rig.Lights.Zip(placed).Map((pair, slot) => pair.First.Light.Filter(held.Contains).Match(
+                    Some: light => (RigChange)new RigChange.Place(slot, light, pair.Second),
+                    None: () => new RigChange.Create(slot, pair.Second, recorded.Head)))
+                + toSeq(held - toHashSet(recorded)).Map(static light => (RigChange)new RigChange.Remove(light)),
+        };
 
-    private static IO<Unit> Apply(RhinoDoc doc, Seq<RigChange> changes, Func<LightRole, string> caption) =>
-        from created in changes.TraverseM(change => change.Switch(
-                (Document: doc, Caption: caption),
-                create: static (state, create) => Created(state.Document, create, state.Caption),
-                place: static (state, place) => Moved(state.Document, place, state.Caption),
-                release: static (state, release) => Labelled(state.Document, release.Light, None).Map(Seq<Guid>()),
+    private static IO<HashMap<int, Guid>> Apply(RhinoDoc doc, Guid rig, Seq<RigChange> changes, Func<LightRole, string> caption) =>
+        from placed in changes.TraverseM(change => change.Switch(
+                (Document: doc, Rig: rig, Caption: caption),
+                create: static (state, create) => Created(state.Document, state.Rig, create, state.Caption).Map(ids => ids.Head.Map(id => (create.Slot, Light: id, Fresh: create.Source.IsNone))),
+                place: static (state, place) => Moved(state.Document, place, state.Caption).Map(_ => Some((place.Slot, place.Light, Fresh: false))),
                 remove: static (state, remove) =>
-                    Lights.Apply(state.Document, new LightOp.Delete(new ComponentRef<LightObject>.ById(remove.Light), Quiet: true)).Map(Seq<Guid>()))).As()
-        let fresh = created.Flatten()
+                    Lights.Apply(state.Document, new LightOp.Delete(new ComponentRef<LightObject>.ById(remove.Light), Quiet: true))
+                        .Map(static _ => Option<(int Slot, Guid Light, bool Fresh)>.None))).As()
+        let rows = placed.Somes()
+        let fresh = rows.Filter(static row => row.Fresh).Map(static row => row.Light)
         from grouped in unless(fresh.IsEmpty, Lights.Apply(doc, new LightOp.Grouping(
-            fresh.Map<ComponentRef<LightObject>>(static id => new ComponentRef<LightObject>.ById(id)), On: true)).Map(unit)).As()
-        select unit;
+            fresh.Map<ComponentRef<LightObject>>(static id => new ComponentRef<LightObject>.ById(id)).Strict(), On: true)).Map(unit)).As()
+        select toHashMap(rows.Map(static row => (row.Slot, row.Light)));
 
-    private static IO<Seq<Guid>> Created(RhinoDoc doc, RigChange.Create create, Func<LightRole, string> caption) =>
+    private static IO<Seq<Guid>> Created(RhinoDoc doc, Guid rig, RigChange.Create create, Func<LightRole, string> caption) =>
         from source in create.Source.Traverse(member => IO.lift(() => Refused.UnlessFound(doc.Objects.FindId(member), nameof(ObjectTable.FindId)))).As()
         let joined = source.ToSeq().Bind(static found => Seq(
             AttributeEdits.LayerIndex(new LayerRef.Row(new ComponentRef<Layer>.ByIndex(found.Attributes.LayerIndex))),
             AttributeEdits.Groups(new RowsEdit<ComponentRef<Group>, ComponentRef<Group>>.Add(
                 Conversions.Rows(found.Attributes.GetGroupList()).Map<ComponentRef<Group>>(static index => new ComponentRef<Group>.ByIndex(index))))))
-        from added in TableOps.WithAttributes(doc.CreateDefaultAttributes, None, attributes => from edited in AttributeOps.Apply(doc, attributes, joined.Add(AttributeEdits.SetUserStrings(RigLabel.Strings(Some(create.Label)))))
+        let keyed = AttributeEdits.SetUserStrings(HashMap<EqStringOrdinalIgnoreCase, string, Option<string>>((RigKey, Some(rig.ToString("D")))))
+        from added in TableOps.WithAttributes(doc.CreateDefaultAttributes, None, attributes => from edited in AttributeOps.Apply(doc, attributes, joined.Add(keyed))
                                                                                                from light in Lights.Apply(doc, new LightOp.Add(
-                                                                                                   create.Placed.Spec(caption(create.Placed.Role), enabled: true, LightPower.Default, ShadowIntensity.Default), Some(attributes)))
+                                                                                                   create.Placed.Spec(caption(create.Placed.Role), enabled: true, watts: 0d, shadow: 1d), Some(attributes)))
                                                                                                select light)
-        select source.IsNone ? added : Seq<Guid>();
+        select added;
 
-    private static IO<Seq<Guid>> Moved(RhinoDoc doc, RigChange.Place place, Func<LightRole, string> caption) =>
+    private static IO<Unit> Moved(RhinoDoc doc, RigChange.Place place, Func<LightRole, string> caption) =>
         new ComponentRef<LightObject>.ById(place.Light) switch {
             var address =>
                 from held in Lights.Read(doc, address)
                 from moved in Lights.Apply(doc, new LightOp.Modify(
                     address, place.Placed.Spec(caption(place.Placed.Role), held.Spec.Enabled, held.Spec.Watts, held.Spec.ShadowIntensity)))
-                from labelled in place.Label.Traverse(label => Labelled(doc, place.Light, Some(label))).As()
-                select Seq<Guid>(),
+                select unit,
         };
-
-    private static IO<Seq<Guid>> Labelled(RhinoDoc doc, Guid light, Option<RigLabel> label) =>
-        TableOps.Apply(doc, AttributeOps.Modify(doc, new ObjectTarget.Ids(Seq(light)), Seq(AttributeEdits.SetUserStrings(RigLabel.Strings(label))), quiet: true));
 
     // --- [FOLLOW]
     public static IO<Unit> Follow(RhinoDoc doc, LightRig rig, RigCommit commit, IPlugInSink sink, Action<IDisposable> retain) =>
@@ -366,7 +211,7 @@ public static class LightRigs {
 
     private static IO<Unit> Watching(
         (RhinoDoc Document, LightRig Rig, RigCommit Commit, IPlugInSink Sink, Action<IDisposable> Retain) state, RigTarget.Subjects subjects, RigTarget.Fixed initial) {
-        Atom<RigTarget.Fixed> previous = Atom(initial);
+        Atom<(RigTarget.Fixed Target, LightRig Rig)> previous = Atom((initial, state.Rig));
         LanguageExt.HashSet<Guid> ids = toHashSet(subjects.Ids);
         uint serial = state.Document.RuntimeSerialNumber;
         CallbackSite site = new(state.Sink, typeof(LightRigs), nameof(Follow));
@@ -377,9 +222,9 @@ public static class LightRigs {
             EventKind.TransformObjects.In(serial).Choose(args => Callbacks.Found(args.ObjectIds.Exists(ids.Contains) || args.GripOwnerIds.Exists(ids.Contains), (unit, unit))));
         IO<Unit> Resync(HashMap<Unit, Unit> _) =>
             from target in Target(state.Document, state.Rig.Target)
-            from moved in IO.lift(() => previous.Value != target)
-            from changed in when(moved, Reconcile(state.Document, state.Rig with { Target = target }, state.Commit, state.Sink)
-                .Bind(_ => previous.SwapIO(_ => target)).Map(unit)).As()
+            from held in IO.lift(() => previous.Value)
+            from changed in when(held.Target != target, Reconcile(state.Document, held.Rig with { Target = target }, state.Commit, state.Sink)
+                .Bind(committed => previous.SwapIO(_ => (target, committed.Value with { Target = state.Rig.Target }))).Map(unit)).As()
             select unit;
         return DisposalOps.Acquire(
             owned => from mailbox in Subscriptions.Idle<Unit, Unit>(Resync)(site, owned)

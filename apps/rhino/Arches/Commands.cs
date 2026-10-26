@@ -40,7 +40,7 @@ internal abstract partial record ArchChoice {
             };
     }
     public sealed record Foiled(string Option, string Label, string Tooltip, Func<ArchSpan, bool, Action<IDisposable>, IO<Seq<Curve>>> Curves) : ArchChoice(Option, Label, Tooltip);
-    public sealed record Counted(string Option, string Label, string Tooltip, FoilCount InitialCount) : ArchChoice(Option, Label, Tooltip);
+    public sealed record Counted(string Option, string Label, string Tooltip, int InitialCount) : ArchChoice(Option, Label, Tooltip);
 }
 
 [Union]
@@ -51,7 +51,7 @@ internal abstract partial record ArchStage {
     public sealed record Rising(ArchChoice.Raised Choice, ArchSpan Span) : ArchStage {
         public Func<Action<IDisposable>, IO<Seq<Curve>>> Built(Point3d apex) => retain => Choice.Curves(Span, apex, retain);
     }
-    public sealed record Counting(ArchSpan Span, FoilCount Count, bool Pointed) : ArchStage {
+    public sealed record Counting(ArchSpan Span, int Count, bool Pointed) : ArchStage {
         public Func<Action<IDisposable>, IO<Seq<Curve>>> Built(Tolerances tolerances) => retain => ArchGeometry.Multifoil(Span, Pointed, Count, tolerances, retain);
     }
 }
@@ -66,7 +66,7 @@ internal static class ArchPrompts {
         stage.Switch((Doc: doc, Site: site, Prompt: prompt, Choices: choices, Tolerances: tolerances, Accept: accept),
             choosing: static (at, _) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Seq<Guid>>>(at.Prompt, at.Site) {
                 Accept = at.Accept,
-                Options = toSeq(at.Choices.Map(static choice => OptionSpec.Plain(choice.Option, None, hidden: false, _ => Advance(new ArchStage.Starting(choice, BothSides: false))))),
+                Options = toSeq(at.Choices.Map(static choice => OptionSpecs.Plain(choice.Option, None, hidden: false, _ => Advance(new ArchStage.Starting(choice, BothSides: false))))),
             }, pick => Anchor(pick.Pick, at.Choices.Head, bothSides: false)),
             starting: static (at, start) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Seq<Guid>>>(start.BothSides ? "Middle of span" : "First end point", at.Site) {
                 Accept = at.Accept,
@@ -103,7 +103,7 @@ internal static class ArchPrompts {
             }, pick => Raised(rise, pick.Pick.Point, at.Tolerances).Match(Succ: apex => Finish(at.Doc, rise.Built(apex), at.Tolerances), Fail: Retry)),
             counting: static (at, count) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Seq<Guid>>>("Foil count", at.Site) {
                 Accept = at.Accept with {
-                    Nothing = (Some(((int)count.Count).ToString(RowText.Culture)), Finish(at.Doc, count.Built(at.Tolerances), at.Tolerances)),
+                    Nothing = (Some(count.Count.ToString(RowText.Culture)), Finish(at.Doc, count.Built(at.Tolerances), at.Tolerances)),
                     Number = new NumberEntry<StageStep<ArchStage, Seq<Guid>>>.Plain(Zero: false, number => Count(number).Match(
                         Succ: value => Advance(count with { Count = value }),
                         Fail: Retry)),
@@ -132,10 +132,10 @@ internal static class ArchPrompts {
             foiled: static (at, choice) => Some<Func<Action<IDisposable>, IO<Seq<Curve>>>>(retain => choice.Curves(at.Span, at.Pointed, retain)),
             counted: static (at, choice) => Some<Func<Action<IDisposable>, IO<Seq<Curve>>>>(retain => ArchGeometry.Multifoil(at.Span, at.Pointed, choice.InitialCount, at.Tolerances, retain)));
 
-    private static Fin<FoilCount> Count(double value) =>
-        double.IsInteger(value) && value is >= int.MinValue and <= int.MaxValue
-            ? FoilCount.Validated((int)value)
-            : Error.New(ErrorCodes.ValidationFailed, "foil count is no whole number");
+    private static Fin<int> Count(double value) =>
+        double.IsOddInteger(value) && value is >= 7 and <= 17
+            ? (int)value
+            : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"Foil count {value} is no odd whole number from 7 to 17, a multifoil arch keys a lobe at the crown"));
 
     // --- [TRANSITIONS]
     private static IO<StageStep<ArchStage, Seq<Guid>>> Advance(ArchStage next) =>
@@ -148,7 +148,7 @@ internal static class ArchPrompts {
         next.Match(Succ: static stage => Advance(stage), Fail: Retry);
 
     private static OptionSpec<StageStep<ArchStage, Seq<Guid>>> Toggle(string caption, LabelPair labels, bool initial, Func<bool, ArchStage> next) =>
-        OptionSpec.Of(caption, OptionType.Toggle(labels), initial, value => Advance(next(value)));
+        OptionSpecs.Of(caption, OptionType.Toggle(labels), initial, value => Advance(next(value)));
 
     private static IO<StageStep<ArchStage, Seq<Guid>>> Finish(RhinoDoc doc, Func<Action<IDisposable>, IO<Seq<Curve>>> build, Tolerances tolerances) =>
         TableOps.Place(doc, retain =>

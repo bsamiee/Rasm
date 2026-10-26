@@ -24,17 +24,6 @@ internal sealed record ArchSpan {
     public Point3d Apex(double height) => Midpoint + (Frame.YAxis * height);
 }
 
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-internal readonly partial struct FoilCount : System.Numerics.IMinMaxValue<FoilCount> {
-    public static FoilCount MinValue { get; } = new(7);
-    public static FoilCount MaxValue { get; } = new(17);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = int.IsOddInteger(value)
-            ? ValidationResults.OutsideRange(value, MinValue, MaxValue)
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"{value} is an even count, a multifoil arch has a key lobe at the crown"));
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ArchGeometry {
     // --- [RISES]
@@ -200,8 +189,7 @@ internal static class ArchGeometry {
         return Symmetric(span, Seq(FoilSpringing(span.Frame, at(0), at(1)), FoilLobe(span.Frame, at(2), at(1), crownEnd), crown), retain);
     }
 
-    internal static IO<Seq<Curve>> Multifoil(ArchSpan span, bool pointed, FoilCount count, Tolerances tolerances, Action<IDisposable> retain) {
-        int lobes = (int)count;
+    internal static IO<Seq<Curve>> Multifoil(ArchSpan span, bool pointed, int lobes, Tolerances tolerances, Action<IDisposable> retain) {
         double divisions = lobes - 1;
         Func<double, Point3d> at = FoilDivisions(FoilGuide(span, pointed, divisions), divisions);
         return at(0).DistanceTo(at(1)) > tolerances.Absolute

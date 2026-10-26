@@ -180,12 +180,13 @@ public readonly record struct HalftoneScreen(Matrix3x2 Frame, ERational Pitch, S
 }
 
 [ValueObject<string>(SkipIParsable = true)]
+[ValidationError<ImagingFault>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CharacterSet {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref string value) =>
         validationError = value.Length > 0 && !value.AsSpan().ContainsAnyExceptInRange(' ', '~') && toHashSet(value).Count == value.Length ? null
-            : new ValidationError($"Character set '{value}' must be distinct printable ASCII characters");
+            : new ImagingFault($"Character set '{value}' must be distinct printable ASCII characters");
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

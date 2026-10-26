@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO.Hashing;
 using LanguageExt.ClassInstances;
 using Rasm.Drafting;
 using Rasm.Rhino.Document.Tables;
@@ -16,9 +17,10 @@ namespace Rasm.Rhino.Viewport.Pages;
 [ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[ValidationError<RhinoFault>]
 public sealed partial class LayoutName {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = string.IsNullOrWhiteSpace(value) ? new ValidationError("layout name is blank") : null;
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
+        validationError = string.IsNullOrWhiteSpace(value) ? new RhinoFault("layout name is blank") : null;
 }
 
 public sealed record FrameStyle(LineGroup Lines, ComponentRef<Layer> Layer, ComponentRef<DimensionStyle> Lettering);
@@ -57,12 +59,13 @@ public static class Layouts {
     // --- [TITLES]
     public static IO<Unit> Title(RhinoDoc doc, RhinoPageView page, DraftingConvention convention, HashMap<TitleField, string> entries) =>
         from accepted in IO.lift(TitleField.Accept(convention, entries))
-        from written in accepted.TraverseM(entry => entry.Field.Source.Switch(
-            (Doc: doc, Page: page, entry.Field.Key, entry.Text),
-            projectText: static state => UserStrings.Write(state.Doc, new DocumentKey(KeyName.Create(state.Key)), state.Text).Map(static _ => unit),
-            sheetText: static state => UserStrings.Write(state.Page.MainViewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((state.Key, state.Text)))),
-            identifier: static _ => IO.pure(unit),
-            designation: static _ => IO.pure(unit))).As()
+        from written in accepted.TraverseM(entry => entry.Field.Switch(
+            (Doc: doc, Page: page, entry.Text),
+            projectEntry: static (state, field) => IO.lift(() => KeyName.TryCreate(field.Key, out KeyName? name, out RhinoFault? fault) ? Fin.Succ(name) : fault)
+                .Bind(name => UserStrings.Write(state.Doc, new DocumentKey(name), state.Text)).Map(static _ => unit),
+            sheetEntry: static (state, field) => UserStrings.Write(state.Page.MainViewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((field.Key, state.Text)))),
+            sheetName: static (_, _) => IO.pure(unit),
+            sheetFact: static (_, _) => IO.pure(unit))).As()
         select unit;
 
     // --- [GROUPS]
@@ -169,7 +172,7 @@ public static class Layouts {
                 () => Refused.UnlessFound(TextEntity.Create(text, new Plane(center, Vector3d.XAxis, Vector3d.YAxis), lettering, wrapped: false, rectWidth: 0, rotationRadians: 0), nameof(TextEntity.Create))
                     .Map(entity => { (entity.Justification, entity.TextHeight) = (TextJustification.MiddleCenter, letterHeight); return (GeometryBase)entity; }));
 
-        string Keyed(Func<System.IO.Hashing.XxHash128, System.IO.Hashing.XxHash128> fields) =>
+        string Keyed(Func<XxHash128, XxHash128> fields) =>
             string.Create(CultureInfo.InvariantCulture, $"{ContentKey.Of(KeyDomain.FrameMark, stream => fields(stream.Integer(layer)))}");
 
         (string Key, Func<IO<Guid>> Add) Row(string key, Option<double> plotWeight, Func<Fin<GeometryBase>> shape) =>

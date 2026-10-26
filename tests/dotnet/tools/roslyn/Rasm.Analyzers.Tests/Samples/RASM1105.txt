@@ -47,7 +47,7 @@ internal sealed partial class Weight {
 }
 
 internal static class Channels {
-    internal static Channel Validated(this Channel channel) => channel;
+    internal static Channel Get(this Channel channel) => channel;
 
-    internal static Channel Checked(Channel channel) => channel.Validated();
+    internal static Channel Checked(Channel channel) => channel.Get();
 }

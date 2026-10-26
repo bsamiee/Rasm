@@ -7,29 +7,15 @@ using UnitsNet;
 namespace Rasm.Rhino.Document.Units;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject]
-public sealed partial class Tolerances {
+public sealed record Tolerances(double Absolute, double Relative, double Angle, double MeshCoefficient) {
     // --- [VALUES]
-    public double Absolute { get; }
-    public double Relative { get; }
-    public double Angle { get; }
-    public double MeshCoefficient { get; }
     public double MeshIntersection => Absolute * MeshCoefficient;
-
-    // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double absolute, ref double relative, ref double angle, ref double meshCoefficient) =>
-        validationError = absolute > 0 && relative is > 0 and < 1 && angle is > 0 and <= double.Pi
-            ? null
-            : new ValidationError("tolerances need absolute above 0, relative in (0, 1), angle in (0, pi]");
 
     // --- [DOCUMENT]
     public static IO<Tolerances> Read(RhinoDoc doc, bool modelUnits) =>
-        IO.lift(() => {
-            (double absolute, double relative, double angle) = modelUnits
-                ? (doc.ModelAbsoluteTolerance, doc.ModelRelativeTolerance, doc.ModelAngleToleranceRadians)
-                : (doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians);
-            return ValidationResults.ToFin(Validate(absolute, relative, angle, Intersection.MeshIntersectionsTolerancesCoefficient, out Tolerances? value), value);
-        });
+        IO.lift(() => modelUnits
+            ? new Tolerances(doc.ModelAbsoluteTolerance, doc.ModelRelativeTolerance, doc.ModelAngleToleranceRadians, Intersection.MeshIntersectionsTolerancesCoefficient)
+            : new Tolerances(doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians, Intersection.MeshIntersectionsTolerancesCoefficient));
 
     public IO<Unit> Write(RhinoDoc doc, bool modelUnits, CallbackSite site) =>
         TableOps.Undoable(doc, nameof(Tolerances), Read(doc, modelUnits), value => IO.lift(() => {
@@ -46,27 +32,12 @@ public sealed partial class Tolerances {
         && Vector3d.VectorAngle(left.YAxis, right.YAxis) <= Angle;
 }
 
-[ComplexValueObject]
-public sealed partial class DistanceDisplay {
-    // --- [VALUES]
-    public bool ModelUnits { get; }
-    public DistanceDisplayMode Mode { get; }
-    public int Precision { get; }
-
-    // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref bool modelUnits, ref DistanceDisplayMode mode, ref int precision) =>
-        validationError = Enum.IsDefined(mode) && precision >= 0 && precision <= (modelUnits ? 8 : 20)
-            ? null
-            : new ValidationError("distance display needs defined mode, precision in [0, 8] for model or [0, 20] for page units");
-
+public sealed record DistanceDisplay(bool ModelUnits, DistanceDisplayMode Mode, int Precision) {
     // --- [DOCUMENT]
     public static IO<DistanceDisplay> Read(RhinoDoc doc, bool modelUnits) =>
-        IO.lift(() => {
-            (DistanceDisplayMode mode, int precision) = modelUnits
-                ? (doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision)
-                : (doc.PageDistanceDisplayMode, doc.PageDistanceDisplayPrecision);
-            return ValidationResults.ToFin(Validate(modelUnits, mode, precision, out DistanceDisplay? value), value);
-        });
+        IO.lift(() => modelUnits
+            ? new DistanceDisplay(ModelUnits: true, doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision)
+            : new DistanceDisplay(ModelUnits: false, doc.PageDistanceDisplayMode, doc.PageDistanceDisplayPrecision));
 
     public IO<Unit> Write(RhinoDoc doc, CallbackSite site) =>
         TableOps.Undoable(doc, nameof(DistanceDisplay), Read(doc, ModelUnits), value => IO.lift(() => {

@@ -355,9 +355,9 @@ public static class SolidTopology {
     public static IO<BrepPoint> ClosestPoint(Brep brep, Point3d testPoint) =>
         ClosestPoint(brep, testPoint, None).Bind(static found => IO.lift(found.ToFin(new Refused(nameof(Brep.ClosestPoint), Refused.Declined))));
 
-    public static IO<Option<BrepPoint>> ClosestPoint(Brep brep, Point3d testPoint, Option<SearchDistance> within) =>
+    public static IO<Option<BrepPoint>> ClosestPoint(Brep brep, Point3d testPoint, Option<double> within) =>
         IO.lift(() => Callbacks.Found(
-                brep.ClosestPoint(testPoint, out Point3d closest, out ComponentIndex component, out double s, out double t, Conversions.Unset(within.Map(static distance => (double)distance)), out Vector3d normal),
+                brep.ClosestPoint(testPoint, out Point3d closest, out ComponentIndex component, out double s, out double t, Conversions.Unset(within), out Vector3d normal),
                 (Closest: closest, Component: component, S: s, T: t, Normal: normal))
             .Map(static at => at.Component.ComponentIndexType is ComponentIndexType.BrepEdge
                 ? (BrepPoint)new BrepPoint.OnEdge(at.Closest, at.Component.Index, at.S, at.Normal)

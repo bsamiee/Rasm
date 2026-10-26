@@ -6,35 +6,35 @@ using Rhino.UI.Controls.DataSource;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed class Provider<T> where T : class {
-    internal Provider(Guid id) => Id = id;
+public sealed class ProviderId<T> where T : class {
+    internal ProviderId(Guid id) => Id = id;
 
     public Guid Id { get; }
 }
 
 public static class Provider {
-    public static readonly Provider<RhinoSettings> RhinoSettings = new(ProviderIds.RhinoSettings);
-    public static readonly Provider<Sun> Sun = new(ProviderIds.Sun);
-    public static readonly Provider<Skylight> Skylight = new(ProviderIds.Skylight);
-    public static readonly Provider<GroundPlane> GroundPlane = new(ProviderIds.GroundPlane);
-    public static readonly Provider<LinearWorkflow> LinearWorkflow = new(ProviderIds.LinearWorkflow);
-    public static readonly Provider<Dithering> Dithering = new(ProviderIds.Dithering);
-    public static readonly Provider<RenderChannels> RenderChannels = new(ProviderIds.RenderChannels);
-    public static readonly Provider<ICurrentEnvironment> CurrentEnvironment = new(ProviderIds.CurrentEnvironment);
-    public static readonly Provider<RenderContentCollection> ContentDisplayCollection = new(ProviderIds.ContentDisplayCollection);
-    public static readonly Provider<RenderContentCollection> ContentDatabase = new(ProviderIds.ContentDatabase);
-    public static readonly Provider<RenderContentCollection> ContentSelectionForSetParams = new(ProviderIds.ContentSelectionForSetParams);
-    public static readonly Provider<RdkSelectionNavigator> SelectionNavigator = new(ProviderIds.SelectionNavigator);
-    public static readonly Provider<RdkEdit> RdkEdit = new(ProviderIds.RdkEdit);
-    public static readonly Provider<IDisposable> RdkRenderingPostEffects = new(ProviderIds.RdkRenderingPostEffects);
+    public static readonly ProviderId<RhinoSettings> RhinoSettings = new(ProviderIds.RhinoSettings);
+    public static readonly ProviderId<Sun> Sun = new(ProviderIds.Sun);
+    public static readonly ProviderId<Skylight> Skylight = new(ProviderIds.Skylight);
+    public static readonly ProviderId<GroundPlane> GroundPlane = new(ProviderIds.GroundPlane);
+    public static readonly ProviderId<LinearWorkflow> LinearWorkflow = new(ProviderIds.LinearWorkflow);
+    public static readonly ProviderId<Dithering> Dithering = new(ProviderIds.Dithering);
+    public static readonly ProviderId<RenderChannels> RenderChannels = new(ProviderIds.RenderChannels);
+    public static readonly ProviderId<ICurrentEnvironment> CurrentEnvironment = new(ProviderIds.CurrentEnvironment);
+    public static readonly ProviderId<RenderContentCollection> ContentDisplayCollection = new(ProviderIds.ContentDisplayCollection);
+    public static readonly ProviderId<RenderContentCollection> ContentDatabase = new(ProviderIds.ContentDatabase);
+    public static readonly ProviderId<RenderContentCollection> ContentSelectionForSetParams = new(ProviderIds.ContentSelectionForSetParams);
+    public static readonly ProviderId<RdkSelectionNavigator> SelectionNavigator = new(ProviderIds.SelectionNavigator);
+    public static readonly ProviderId<RdkEdit> RdkEdit = new(ProviderIds.RdkEdit);
+    public static readonly ProviderId<IDisposable> RdkRenderingPostEffects = new(ProviderIds.RdkRenderingPostEffects);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SectionModels {
-    public static IO<TResult> Read<T, TResult>(ICollapsibleSection section, Provider<T> provider, Func<T, IO<TResult>> read) where T : class =>
+    public static IO<TResult> Read<T, TResult>(ICollapsibleSection section, ProviderId<T> provider, Func<T, IO<TResult>> read) where T : class =>
         Model(section).Bind(model => GetData(model, provider, forWrite: false)).Bind(read);
 
-    public static IO<TResult> Write<T, TResult>(ICollapsibleSection section, Provider<T> provider, Func<T, IO<TResult>> edit) where T : class =>
+    public static IO<TResult> Write<T, TResult>(ICollapsibleSection section, ProviderId<T> provider, Func<T, IO<TResult>> edit) where T : class =>
         Model(section).Bind(model => DisposalOps.OnFailure(
             from data in GetData(model, provider, forWrite: true)
             from edited in edit(data)
@@ -48,6 +48,6 @@ public static class SectionModels {
     private static IO<IRdkViewModel> Model(ICollapsibleSection section) =>
         IO.lift(() => Refused.UnlessFound(section.ViewModel, nameof(ICollapsibleSection.ViewModel)));
 
-    private static IO<T> GetData<T>(IRdkViewModel model, Provider<T> provider, bool forWrite) where T : class =>
+    private static IO<T> GetData<T>(IRdkViewModel model, ProviderId<T> provider, bool forWrite) where T : class =>
         IO.lift(() => Refused.UnlessFound((T?)model.GetData(provider.Id, forWrite, bAutoChangeBracket: true), nameof(IRdkViewModel.GetData)));
 }

@@ -5,21 +5,6 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum]
-public sealed partial class RoleCategory {
-    public static readonly RoleCategory Widget = new();
-    public static readonly RoleCategory Composite = new();
-    public static readonly RoleCategory Structure = new();
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class NameFrom {
-    public static readonly NameFrom Contents = new("contents");
-    public static readonly NameFrom Author = new("author");
-}
-
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -29,52 +14,52 @@ public sealed partial class Check {
     public static readonly Check Mixed = new("mixed");
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[SmartEnum]
 public sealed partial class Live {
-    public static readonly Live Polite = new("polite");
-    public static readonly Live Assertive = new("assertive");
+    public static readonly Live Polite = new(interrupts: false);
+    public static readonly Live Assertive = new(interrupts: true);
+
+    public bool Interrupts { get; }
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AccessRole {
-    public static readonly AccessRole Text = new("text", RoleCategory.Structure, NameFrom.Contents, None, Checked);
-    public static readonly AccessRole Image = new("img", RoleCategory.Structure, NameFrom.Author, None, Checked);
-    public static readonly AccessRole Heading = new("heading", RoleCategory.Structure, NameFrom.Contents, None, Checked);
-    public static readonly AccessRole Button = new("button", RoleCategory.Widget, NameFrom.Contents, None, Checked);
-    public static readonly AccessRole MenuButton = new("menubutton", RoleCategory.Widget, NameFrom.Contents, None, Checked);
-    public static readonly AccessRole PopUpButton = new("popupbutton", RoleCategory.Widget, NameFrom.Contents, None, Checked);
-    public static readonly AccessRole Disclosure = new("disclosure", RoleCategory.Widget, NameFrom.Contents, None, Expanded);
-    public static readonly AccessRole CheckBox = new("checkbox", RoleCategory.Widget, NameFrom.Contents, None, Checked);
-    public static readonly AccessRole Switch = new("switch", RoleCategory.Widget, NameFrom.Contents, None, Checked);
-    public static readonly AccessRole Radio = new("radio", RoleCategory.Widget, NameFrom.Contents, None, Checked);
-    public static readonly AccessRole Tab = new("tab", RoleCategory.Widget, NameFrom.Contents, None, Selected);
-    public static readonly AccessRole ListItem = new("listitem", RoleCategory.Widget, NameFrom.Contents, None, Selected);
-    public static readonly AccessRole TreeItem = new("treeitem", RoleCategory.Widget, NameFrom.Contents, None, Selected);
-    public static readonly AccessRole GridCell = new("gridcell", RoleCategory.Widget, NameFrom.Contents, None, Selected);
-    public static readonly AccessRole MenuItem = new("menuitem", RoleCategory.Widget, NameFrom.Contents, None, Checked);
-    public static readonly AccessRole Slider = new("slider", RoleCategory.Widget, NameFrom.Author, None, Checked);
-    public static readonly AccessRole Handle = new("handle", RoleCategory.Widget, NameFrom.Author, None, Checked);
-    public static readonly AccessRole Separator = new("separator", RoleCategory.Widget, NameFrom.Author, None, Checked);
-    public static readonly AccessRole TextBox = new("textbox", RoleCategory.Widget, NameFrom.Author, None, Checked);
-    public static readonly AccessRole ProgressBar = new("progressbar", RoleCategory.Widget, NameFrom.Author, None, Checked);
-    public static readonly AccessRole Group = new("group", RoleCategory.Structure, NameFrom.Author, None, Checked);
-    public static readonly AccessRole ScrollArea = new("scrollarea", RoleCategory.Structure, NameFrom.Author, None, Checked);
-    public static readonly AccessRole Status = new("status", RoleCategory.Structure, NameFrom.Author, None, Checked);
-    public static readonly AccessRole Dialog = new("dialog", RoleCategory.Structure, NameFrom.Author, None, Checked);
-    public static readonly AccessRole Toolbar = new("toolbar", RoleCategory.Composite, NameFrom.Author, None, Checked);
-    public static readonly AccessRole RadioGroup = new("radiogroup", RoleCategory.Composite, NameFrom.Author, Some(Radio), Checked);
-    public static readonly AccessRole TabList = new("tablist", RoleCategory.Composite, NameFrom.Author, Some(Tab), Checked);
-    public static readonly AccessRole List = new("list", RoleCategory.Composite, NameFrom.Author, Some(ListItem), Checked);
-    public static readonly AccessRole Tree = new("tree", RoleCategory.Composite, NameFrom.Author, Some(TreeItem), Checked);
-    public static readonly AccessRole Grid = new("grid", RoleCategory.Composite, NameFrom.Author, Some(GridCell), Checked);
-    public static readonly AccessRole Menu = new("menu", RoleCategory.Composite, NameFrom.Author, Some(MenuItem), Checked);
+    public static readonly AccessRole Text = new("text", composite: false, namedByContents: true, None, Checked);
+    public static readonly AccessRole Image = new("img", composite: false, namedByContents: false, None, Checked);
+    public static readonly AccessRole Heading = new("heading", composite: false, namedByContents: true, None, Checked);
+    public static readonly AccessRole Button = new("button", composite: false, namedByContents: true, None, Checked);
+    public static readonly AccessRole MenuButton = new("menubutton", composite: false, namedByContents: true, None, Checked);
+    public static readonly AccessRole PopUpButton = new("popupbutton", composite: false, namedByContents: true, None, Checked);
+    public static readonly AccessRole Disclosure = new("disclosure", composite: false, namedByContents: true, None, Expanded);
+    public static readonly AccessRole CheckBox = new("checkbox", composite: false, namedByContents: true, None, Checked);
+    public static readonly AccessRole Switch = new("switch", composite: false, namedByContents: true, None, Checked);
+    public static readonly AccessRole Radio = new("radio", composite: false, namedByContents: true, None, Checked);
+    public static readonly AccessRole Tab = new("tab", composite: false, namedByContents: true, None, Selected);
+    public static readonly AccessRole ListItem = new("listitem", composite: false, namedByContents: true, None, Selected);
+    public static readonly AccessRole TreeItem = new("treeitem", composite: false, namedByContents: true, None, Selected);
+    public static readonly AccessRole GridCell = new("gridcell", composite: false, namedByContents: true, None, Selected);
+    public static readonly AccessRole MenuItem = new("menuitem", composite: false, namedByContents: true, None, Checked);
+    public static readonly AccessRole Slider = new("slider", composite: false, namedByContents: false, None, Checked);
+    public static readonly AccessRole Handle = new("handle", composite: false, namedByContents: false, None, Checked);
+    public static readonly AccessRole Separator = new("separator", composite: false, namedByContents: false, None, Checked);
+    public static readonly AccessRole TextBox = new("textbox", composite: false, namedByContents: false, None, Checked);
+    public static readonly AccessRole ProgressBar = new("progressbar", composite: false, namedByContents: false, None, Checked);
+    public static readonly AccessRole Group = new("group", composite: false, namedByContents: false, None, Checked);
+    public static readonly AccessRole ScrollArea = new("scrollarea", composite: false, namedByContents: false, None, Checked);
+    public static readonly AccessRole Status = new("status", composite: false, namedByContents: false, None, Checked);
+    public static readonly AccessRole Dialog = new("dialog", composite: false, namedByContents: false, None, Checked);
+    public static readonly AccessRole Toolbar = new("toolbar", composite: true, namedByContents: false, None, Checked);
+    public static readonly AccessRole RadioGroup = new("radiogroup", composite: true, namedByContents: false, Some(Radio), Checked);
+    public static readonly AccessRole TabList = new("tablist", composite: true, namedByContents: false, Some(Tab), Checked);
+    public static readonly AccessRole List = new("list", composite: true, namedByContents: false, Some(ListItem), Checked);
+    public static readonly AccessRole Tree = new("tree", composite: true, namedByContents: false, Some(TreeItem), Checked);
+    public static readonly AccessRole Grid = new("grid", composite: true, namedByContents: false, Some(GridCell), Checked);
+    public static readonly AccessRole Menu = new("menu", composite: true, namedByContents: false, Some(MenuItem), Checked);
 
-    public RoleCategory Category { get; }
-    public NameFrom NameFrom { get; }
+    public bool Composite { get; }
+    public bool NamedByContents { get; }
     public Option<AccessRole> Owns { get; }
 
     [UseDelegateFromConstructor]
@@ -107,7 +92,7 @@ public sealed record Accessible : Monoid<Accessible> {
     public Option<string> Shortcut { get; init; }
     public Option<AccessValue> Value { get; init; }
     public Option<bool> Expanded { get; init; }
-    public Option<Orientation> Orientation { get; init; }
+    public Option<PhysicalAxis> Orientation { get; init; }
     public Option<Live> Live { get; init; }
 
     public Accessible Combine(Accessible rhs) =>
@@ -176,7 +161,7 @@ public static class Access {
 
     private static Accessible Named(Accessible accessible, AccessRole role, Laid laid, Accessible lent) =>
         accessible with {
-            Label = accessible.Label | (role.NameFrom == NameFrom.Contents ? Contents(laid) : None) | lent.Label,
+            Label = accessible.Label | (role.NamedByContents ? Contents(laid) : None) | lent.Label,
             Help = accessible.Help | lent.Help,
             Shortcut = accessible.Shortcut | lent.Shortcut,
         };

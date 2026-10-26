@@ -4,15 +4,6 @@ using Rhino.Geometry.MeshRefinements;
 namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct RefinementLevel : System.Numerics.IMinMaxValue<RefinementLevel> {
-    public static RefinementLevel MinValue { get; } = new(0);
-    public static RefinementLevel MaxValue { get; } = new(int.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
-}
-
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Refinement {
     public sealed record CatmullClark : Refinement;
@@ -43,14 +34,15 @@ public abstract partial record PatchOuter {
 }
 
 [ComplexValueObject(SkipToString = true)]
+[ValidationError<RhinoFault>]
 public sealed partial class PatchBoundary {
     public PatchOuter Outer { get; }
     public Seq<Curve> Holes { get; }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref PatchOuter outer, ref Seq<Curve> holes) =>
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref PatchOuter outer, ref Seq<Curve> holes) =>
         validationError = outer.Switch(outline: static of => of.Boundary.IsClosed, perimeter: static _ => true) && holes.ForAll(static hole => hole.IsClosed)
             ? null
-            : new ValidationError("mesh patch needs a closed outer polyline and closed inner boundaries");
+            : new RhinoFault("mesh patch needs a closed outer polyline and closed inner boundaries");
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -103,7 +95,7 @@ public static class MeshConstruction {
         IO.lift(() => Copies.Within(mesh, ComponentIndexType.MeshFace, faces)).Bind(held => Copies.Acquire(nameof(Mesh.CreateFromFilteredFaceList), _ =>
             Answer.One(Mesh.CreateFromFilteredFaceList(mesh, toSeq(Range(0, mesh.Faces.Count)).Map(toHashSet(held).Contains))), retain));
 
-    public static IO<Mesh> Refine(Mesh mesh, Refinement refinement, RefinementLevel level, CreaseEdges nakedEdgeMode, Action<IDisposable> retain) =>
+    public static IO<Mesh> Refine(Mesh mesh, Refinement refinement, int level, CreaseEdges nakedEdgeMode, Action<IDisposable> retain) =>
         refinement.Switch(
             (Mesh: mesh, Level: level, NakedEdgeMode: nakedEdgeMode, Retain: retain),
             catmullClark: static (at, _) => Copies.Acquire(nameof(Mesh.CreateRefinedCatmullClarkMesh), token =>

@@ -1,17 +1,20 @@
 using Eto.Forms;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Modeling;
-using Rasm.Rhino.UI.Styling;
-using Rasm.UI;
-using Rasm.UI.Styling;
 using Rhino;
+using UnitsNet;
 
 namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record CameraMove(ViewportSet Viewports, CameraPose To, TimingCurve Curve, RedrawPolicy Redraw);
+public sealed record CameraMove(ViewportSet Viewports, CameraPose To, Duration Span, Func<double, double> Progress, RedrawPolicy Redraw) {
+    internal Reduced<double> Sample(Duration elapsed) =>
+        (Span > Duration.Zero ? double.Min(elapsed / Span, 1d) : 1d) switch {
+            var at => at < 1d ? Reduced.Continue(Progress(at)) : Reduced.Done(Progress(1d)),
+        };
+}
 
-internal sealed record Leg(ViewportRef Row, CameraPose From, CameraPose Shown, uint Written, TimingCurve Curve);
+internal sealed record Leg(ViewportRef Row, CameraPose From, CameraPose Shown, uint Written);
 
 [Union]
 internal abstract partial record Phase {
@@ -27,21 +30,13 @@ internal sealed record Course(Seq<Leg> Legs, CameraPose To, Duration Start, Dura
         this with { Clock = Last.Match(Some: last => Clock + (tick - last), None: () => Clock), Last = tick };
 
     public Course Retargeted(CameraPose goal) =>
-        this with {
-            To = goal,
-            Start = Clock,
-            Legs = Legs.Map(leg => (Was: Span(leg.From, To), Now: Span(leg.Shown, goal)) switch {
-                var span => leg with { From = leg.Shown, Curve = leg.Curve.From(span.Now > 0d ? leg.Curve.Velocity(Clock - Start) * span.Was / span.Now : 0d) },
-            }).Strict(),
-        };
-
-    private static double Span(CameraPose from, CameraPose to) => from.Frame.Origin.DistanceTo(to.Frame.Origin) + from.Target.DistanceTo(to.Target);
+        this with { To = goal, Start = Clock, Legs = Legs.Map(static leg => leg with { From = leg.Shown }).Strict() };
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed record Pacing(
     RhinoDoc Document,
-    RedrawPolicy Redraw,
+    CameraMove Move,
     Func<Sink<Duration>, Action<IDisposable>, IO<Unit>> Frames,
     Conduit<Duration, Duration> Ticks,
     Atom<Course> Course) {
@@ -95,9 +90,9 @@ public sealed class MotionHandle {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Motions {
     // --- [SOURCES]
-    public static Func<Sink<Duration>, Action<IDisposable>, IO<Unit>> Timer(MotionSpan period, TimeProvider time) =>
+    public static Func<Sink<Duration>, Action<IDisposable>, IO<Unit>> Timer(Duration period, TimeProvider time) =>
         (ticks, retain) => Copies.Owned(
-            () => new UITimer((_, _) => ticks.Post(time.GetElapsedTime(0L).ToDuration()).Run()) { Interval = ((Duration)period).TotalSeconds },
+            () => new UITimer((_, _) => ticks.Post(time.GetElapsedTime(0L).ToDuration()).Run()) { Interval = period.TotalSeconds },
             static timer => IO.lift(timer.Start),
             static timer => Callbacks.Each(Seq(IO.lift(timer.Stop), IO.lift(timer.Dispose))).Map(unit), retain);
 
@@ -108,49 +103,49 @@ public static class Motions {
                 turned,
                 nameof(Quaternion.GetRotation)),
             Local(from),
-            Local(to),
-            Lens(from.Lens, to.Lens, progress))
-        .Apply((rotated, near, far, lens) => new Plane(new Line(from.Target, to.Target).PointAt(progress), rotated.XAxis, rotated.YAxis) switch {
-            var aimed => new CameraPose(new Plane(new Line(near, far).PointAt(progress) switch { var at => aimed.PointAt(at.X, at.Y, at.Z) }, rotated.XAxis, rotated.YAxis), aimed.Origin, lens),
+            Local(to))
+        .Apply((rotated, near, far) => new Plane(new Line(from.Target, to.Target).PointAt(progress), rotated.XAxis, rotated.YAxis) switch {
+            var aimed => new CameraPose(
+                new Plane(new Line(near, far).PointAt(progress) switch { var at => aimed.PointAt(at.X, at.Y, at.Z) }, rotated.XAxis, rotated.YAxis),
+                aimed.Origin,
+                Lens(from.Lens, to.Lens, progress)),
         })
         .As();
 
     private static Fin<Point3d> Local(CameraPose pose) =>
         Refused.Unless(new Plane(pose.Target, pose.Frame.XAxis, pose.Frame.YAxis).RemapToPlaneSpace(pose.Frame.Origin, out Point3d local), local, nameof(Plane.RemapToPlaneSpace));
 
-    private static Fin<CameraLens> Lens(CameraLens from, CameraLens to, double progress) =>
+    private static CameraLens Lens(CameraLens from, CameraLens to, double progress) =>
+        from.Switch(
+            (To: to, Progress: progress),
+            parallel: static (at, held) => at.To.Switch(
+                (Held: held, at.Progress),
+                parallel: static (state, goal) => new CameraLens.Parallel(double.Lerp(state.Held.Extent, goal.Extent, state.Progress)),
+                perspective: static (_, goal) => goal,
+                twoPoint: static (_, goal) => (CameraLens)goal),
+            perspective: static (at, held) => Turned(at.To, held.Angle, at.Progress),
+            twoPoint: static (at, held) => Turned(at.To, held.Angle, at.Progress));
+
+    private static CameraLens Turned(CameraLens to, Angle held, double progress) =>
         to.Switch(
-            (Held: from.Switch(
-                    parallel: static held => Left<ParallelExtent, CameraAngle>(held.Extent),
-                    perspective: static held => Right<ParallelExtent, CameraAngle>(held.Angle),
-                    twoPoint: static held => Right<ParallelExtent, CameraAngle>(held.Angle)),
-                Goal: to,
-                Progress: progress),
-            parallel: static (state, goal) => state.Held.Match(
-                Left: held => ParallelExtent.Validated(double.Lerp(held, goal.Extent, state.Progress)).Map<CameraLens>(static extent => extent),
-                Right: _ => state.Goal),
-            perspective: static (state, goal) => state.Held.Match(
-                Left: _ => state.Goal,
-                Right: held => CameraAngle.Validated(double.Lerp(held, goal.Angle, state.Progress)).Map<CameraLens>(static angle => angle)),
-            twoPoint: static (state, goal) => state.Held.Match(
-                Left: _ => state.Goal,
-                Right: held => CameraAngle.Validated(double.Lerp(held, goal.Angle, state.Progress))
-                    .Map<CameraLens>(angle => new CameraLens.TwoPoint(angle, goal.Up))));
+            (Held: held, Progress: progress),
+            parallel: static (_, goal) => goal,
+            perspective: static (at, goal) => new CameraLens.Perspective(Angle.FromRadians(double.Lerp(at.Held.Radians.ToDouble(), goal.Angle.Radians.ToDouble(), at.Progress))),
+            twoPoint: static (at, goal) => (CameraLens)(goal with { Angle = Angle.FromRadians(double.Lerp(at.Held.Radians.ToDouble(), goal.Angle.Radians.ToDouble(), at.Progress)) }));
 
     // --- [DRIVE]
     public static IO<MotionHandle> Drive(RhinoDoc document, CameraMove move, Func<Sink<Duration>, Action<IDisposable>, IO<Unit>> frames, IPlugInSink sink,
         Action<MotionHandle, IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
         from rows in Viewports.Resolve(document, move.Viewports, owned)
-        from curve in IO.lift(() => HostTheme.Conditions.Contains(Condition.ReduceMotion) ? new TimingCurve.Instant() : move.Curve)
-        from legs in rows.TraverseM(row => Cameras.Read(row.Viewport).Map(pose => new Leg(row, pose, pose, row.Viewport.ChangeCounter, curve))).As()
+        from legs in rows.TraverseM(static row => Cameras.Read(row.Viewport).Map(pose => new Leg(row, pose, pose, row.Viewport.ChangeCounter))).As()
         from ticks in Copies.Owned(static () => Conduit.make(Buffer<Duration>.New), static open => Fin.Succ(open), static open => open.Complete(), owned)
         from pacing in Copies.Owned(() => new Pacing(
-            document, move.Redraw, frames, ticks, Atom(new Course(legs, move.To, Duration.Zero, Duration.Zero, None, new Phase.Paused()))),
+            document, move, frames, ticks, Atom(new Course(legs, move.To, Duration.Zero, Duration.Zero, None, new Phase.Paused()))),
             static state => Fin.Succ(state), static state => state.Halt(), owned)
         from consumer in DisposalOps.Fork(
             DisposalOps.Within(() => pacing, static state => state.Ticks.Reduce(unit, (_, tick) => Frame(state, tick)), static state => state.Halt().OnUiThread())
-                .IfFail(error => IO.lift(() => sink.Report(error, typeof(Motions), nameof(Drive)))
+                .IfFail(error => IO.lift(() => sink.Report(error, typeof(Motions)))
                     .MapFail(fault => error + fault).Bind(_ => IO.fail<Unit>(error))), owned)
         let handle = new MotionHandle(pacing, consumer)
         from resumed in handle.Resume()
@@ -160,22 +155,20 @@ public static class Motions {
         (from course in pacing.Course.SwapIO(held => held.Phase.Map(running: held.Ticked(tick), paused: held, stopped: held))
          from reduced in course.Phase.Switch(
              (Pacing: pacing, Course: course),
-             running: static (state, _) => Show(state.Pacing, state.Course, state.Course.Clock - state.Course.Start),
+             running: static (state, _) => Show(state.Pacing, state.Course, state.Pacing.Move.Sample(state.Course.Clock - state.Course.Start)),
              paused: static (_, _) => Reduced.ContinueIO(unit),
              stopped: static (_, _) => Reduced.DoneIO(unit))
          select reduced)
         .OnUiThread();
 
-    private static IO<Reduced<Unit>> Show(Pacing pacing, Course course, Duration at) =>
-        from shown in Commits.WithinRedraw(pacing.Document, pacing.Redraw, IO.lift(() => course.Legs
+    private static IO<Reduced<Unit>> Show(Pacing pacing, Course course, Reduced<double> sample) =>
+        from shown in Commits.WithinRedraw(pacing.Document, pacing.Move.Redraw, IO.lift(() => course.Legs
             .Filter(static leg => leg.Row.Viewport.ChangeCounter == leg.Written)
-            .Traverse(leg => leg.Curve.Sample(at) switch {
-                var sample =>
-                    from pose in Interpolated(leg.From, course.To, sample.Value)
-                    from written in Cameras.Write(leg.Row.Viewport, pose)
-                    from committed in leg.Row.Commit()
-                    select (Leg: leg with { Shown = pose, Written = leg.Row.Viewport.ChangeCounter }, Sample: sample),
-            }).As()))
-        from swapped in pacing.Course.SwapIO(held => held with { Legs = shown.Map(static moved => moved.Leg) })
-        select shown.ForAll(static moved => !moved.Sample.Continue) ? Reduced.Done(unit) : Reduced.Continue(unit);
+            .Traverse(leg =>
+                from pose in Interpolated(leg.From, course.To, sample.Value)
+                from written in Cameras.Write(leg.Row.Viewport, pose)
+                from committed in leg.Row.Commit()
+                select leg with { Shown = pose, Written = leg.Row.Viewport.ChangeCounter }).As()))
+        from swapped in pacing.Course.SwapIO(held => held with { Legs = shown })
+        select sample.Continue ? Reduced.Continue(unit) : Reduced.Done(unit);
 }

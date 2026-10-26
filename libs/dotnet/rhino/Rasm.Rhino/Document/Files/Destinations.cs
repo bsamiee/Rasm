@@ -1,29 +1,30 @@
 using System.Runtime.CompilerServices;
-using Rasm.UI;
 using Rhino;
 
 namespace Rasm.Rhino.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[ObjectFactory<string>]
+[ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
+[ValidationError<RhinoFault>]
 public abstract partial record OutputFolder : IConvertible<string> {
     private const string DocumentMark = "//";
 
     public sealed record Absolute(string Folder) : OutputFolder;
     public sealed record BesideDocument(Seq<NamePart> Segments) : OutputFolder;
 
-    public static ValidationError? Validate(string? value, IFormatProvider? provider, out OutputFolder? item) {
+    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out OutputFolder? item) {
         item = value switch {
             null => null,
             var text when text.StartsWith(DocumentMark, StringComparison.Ordinal) =>
                 toSeq(text[DocumentMark.Length..].Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries))
-                    .Traverse(NamePart.Validated)
+                    .Traverse(static segment => NamePart.TryCreate(segment, out NamePart? part) ? Some(part) : None)
                     .As()
-                    .Match<OutputFolder?>(Succ: static segments => new BesideDocument(segments), Fail: static _ => null),
+                    .Map(static segments => (OutputFolder)new BesideDocument(segments))
+                    .ValueUnsafe(),
             var text => new Absolute(text),
         };
-        return value is not null && item is null ? new ValidationError($"{value} names no output folder") : null;
+        return value is not null && item is null ? new RhinoFault($"{value} names no output folder") : null;
     }
 
     public string ToValue() => Switch(
@@ -32,52 +33,22 @@ public abstract partial record OutputFolder : IConvertible<string> {
 }
 
 [Union]
-[ObjectFactory<string>]
+[ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
+[ValidationError<RhinoFault>]
 public abstract partial record Stem : IConvertible<string> {
     public sealed record DocumentName : Stem;
     public sealed record Literal(NamePart Value) : Stem;
 
-    public static ValidationError? Validate(string? value, IFormatProvider? provider, out Stem? item) {
+    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out Stem? item) {
         item = value is null ? null : Conversions.Present(value).Match(
-            Some: static text => NamePart.Validated(text).Match<Stem?>(Succ: static part => new Literal(part), Fail: static _ => null),
+            Some: static text => NamePart.TryCreate(text, out NamePart? part) ? new Literal(part) : default(Stem?),
             None: static () => new DocumentName());
-        return value is not null && item is null ? new ValidationError($"{value} names no output stem") : null;
+        return value is not null && item is null ? new RhinoFault($"{value} names no output stem") : null;
     }
 
     public string ToValue() => Switch(
         documentName: static _ => "",
         literal: static literal => (string)literal.Value);
-}
-
-public sealed record Destination(OutputFolder Folder, Stem Stem, bool Overwrite) : IStateRecord<Destination, DestinationParameter> {
-    public static Destination Default { get; } = new(new OutputFolder.BesideDocument(Seq<NamePart>()), new Stem.DocumentName(), Overwrite: false);
-}
-
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class DestinationParameter : IStateParameter<Destination> {
-    public static readonly DestinationParameter Folder = new(
-        "folder",
-        new StateParameter<Destination>.Keyed<OutputFolder, string>(
-            Lens<Destination, OutputFolder>.New(static destination => destination.Folder, static folder => destination => destination with { Folder = folder })),
-        new("Folder", "Absolute path or //<subfolder> beside saved document"));
-
-    public static readonly DestinationParameter Stem = new(
-        "stem",
-        new StateParameter<Destination>.Keyed<Stem, string>(
-            Lens<Destination, Stem>.New(static destination => destination.Stem, static stem => destination => destination with { Stem = stem })),
-        new("Name", "File name stem, saved document name when empty"));
-
-    public static readonly DestinationParameter Overwrite = new(
-        "overwrite",
-        new StateParameter<Destination>.Toggle(
-            Lens<Destination, bool>.New(static destination => destination.Overwrite, static overwrite => destination => destination with { Overwrite = overwrite })),
-        new("Overwrite", "Replaces existing files, off refuses taken paths"));
-
-    public StateParameter<Destination> Kind { get; }
-
-    public ParameterText Text { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -91,14 +62,11 @@ public static class Destinations {
     public static Fin<NamePart> StemOf(Stem stem, Option<string> saved) =>
         stem.Switch(saved,
             documentName: static (file, _) =>
-                file.ToFin(Error.New("document has no saved file")).Bind(static path => NamePart.Validated(Path.GetFileNameWithoutExtension(path))),
+                file.ToFin(Error.New("document has no saved file")).Bind(static path => NamePart.TryCreate(Path.GetFileNameWithoutExtension(path), out NamePart? part, out RhinoFault? fault) ? Fin.Succ(part) : fault),
             literal: static (_, literal) => literal.Value);
 
-    public static Fin<Destination> Resolved(Destination destination, Option<string> saved) =>
-        Location(destination, saved).Map(location => new Destination(new OutputFolder.Absolute(location.Folder), new Stem.Literal(location.Stem), destination.Overwrite));
-
-    private static Fin<(string Folder, NamePart Stem)> Location(Destination destination, Option<string> saved) =>
-        (FolderOf(destination.Folder, saved), StemOf(destination.Stem, saved))
+    public static Fin<(string Folder, NamePart Stem)> Located(OutputFolder folder, Stem stem, Option<string> saved) =>
+        (FolderOf(folder, saved), StemOf(stem, saved))
             .Apply(static (folder, stem) => (Folder: folder, Stem: stem))
             .As();
 
@@ -135,21 +103,21 @@ public static class Destinations {
             .As();
 
     private static IO<(string Folder, Seq<(OutputName Name, OutputPath Path)> Placed)> Planned(
-        RhinoDoc document, Destination destination, Seq<OutputName> names, [CallerMemberName] string member = "") =>
+        RhinoDoc document, OutputFolder folder, Stem stem, bool overwrite, Seq<OutputName> names, [CallerMemberName] string member = "") =>
         from saved in IO.lift(() => Conversions.Present(document.Path))
-        from location in IO.lift(() => Location(destination, saved))
+        from location in IO.lift(() => Located(folder, stem, saved))
         let fresh = names.Filter(static name => name.Version.Map(unversioned: false, pinned: false, nextFree: true)).Map(static name => name.Scope).Distinct()
         from entries in FilePublication.Refusing(location.Folder, FileReason.Unreadable, IO.lift(() => Entries(location.Folder, fresh)))
         from next in IO.lift(() => Versions(location.Stem, fresh, entries))
-        from placed in IO.lift(() => Named(location.Folder, location.Stem, next, names).Bind(named => Plan(named, path => destination.Overwrite || !Path.Exists(path), member)))
+        from placed in IO.lift(() => Named(location.Folder, location.Stem, next, names).Bind(named => Plan(named, path => overwrite || !Path.Exists(path), member)))
         select (location.Folder, placed);
 
     // --- [RESOLUTION]
-    public static IO<Seq<(OutputName Name, OutputPath Path)>> Preview(RhinoDoc document, Destination destination, Seq<OutputName> names) =>
-        Planned(document, destination, names).Map(static planned => planned.Placed);
+    public static IO<Seq<(OutputName Name, OutputPath Path)>> Preview(RhinoDoc document, OutputFolder folder, Stem stem, bool overwrite, Seq<OutputName> names) =>
+        Planned(document, folder, stem, overwrite, names).Map(static planned => planned.Placed);
 
-    public static IO<Seq<(OutputName Name, OutputPath Path)>> Resolve(RhinoDoc document, Destination destination, Seq<OutputName> names) =>
-        from planned in Planned(document, destination, names)
+    public static IO<Seq<(OutputName Name, OutputPath Path)>> Resolve(RhinoDoc document, OutputFolder folder, Stem stem, bool overwrite, Seq<OutputName> names) =>
+        from planned in Planned(document, folder, stem, overwrite, names)
         from _ in unless(planned.Placed.IsEmpty, FilePublication.Refusing(planned.Folder, FileReason.Unwritable, IO.lift(() => ignore(Directory.CreateDirectory(planned.Folder)))))
         select planned.Placed;
 }

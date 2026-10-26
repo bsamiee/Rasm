@@ -16,7 +16,7 @@ namespace Darkroom.Chain;
 [CustomPostEffect(PostEffectType.Early, "Darkroom",
     PostEffectStyles.ExecuteForProductionRendering | PostEffectStyles.ExecuteForRealtimeRendering | PostEffectStyles.ExecuteForViewportDisplay
     | PostEffectStyles.DefaultShown | PostEffectStyles.DefaultOn)]
-public sealed class DarkroomEffect : DefinedEffect<ChainState> {
+public sealed class DarkroomEffect() : DefinedEffect<ChainState>(ChainState.Default) {
     private readonly Derivations derivations = new();
 
     // --- [PIPELINE]

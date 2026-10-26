@@ -45,7 +45,7 @@ public abstract partial record AppSettingsFamily<TSettings> where TSettings : cl
     public sealed record Writable : AppSettingsFamily<TSettings> {
         public Writable(Func<TSettings> current, Func<TSettings> factory, Action<TSettings> update) : base(factory) {
             Setting = new ProcessSetting<TSettings>(IO.lift(current), state => IO.lift(() => update(state)));
-            Store = ValueStore.Defaulted(Setting.Read, Default, Setting.Write, Same, Applied.Live, AppSettings.Changed);
+            Store = ValueStores.Defaulted(Setting.Read, Default, Setting.Write, Same, Applied.Live, AppSettings.Changed);
         }
 
         public ProcessSetting<TSettings> Setting { get; }
@@ -65,12 +65,13 @@ public sealed record ShortcutRow(KeyboardKey Key, ModifierKey Modifier, Option<s
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[ValidationError<RhinoFault>]
 public sealed partial class CommandName {
     private static readonly SearchValues<char> Separators = SearchValues.Create(" ,;\b\v\r\n\t");
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
-        validationError = trimmed is { } name && !name.AsSpan().ContainsAny(Separators) ? null : new ValidationError("command name is blank or holds space, comma, semicolon, or control character");
+        validationError = trimmed is { } name && !name.AsSpan().ContainsAny(Separators) ? null : new RhinoFault("command name is blank or holds space, comma, semicolon, or control character");
         value = trimmed ?? value;
     }
 }
@@ -78,12 +79,13 @@ public sealed partial class CommandName {
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[ValidationError<RhinoFault>]
 public sealed partial class PackageSource {
     public const char Separator = ';';
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
-        validationError = trimmed is { } source && !source.Contains(Separator, StringComparison.Ordinal) ? null : new ValidationError($"package source is blank or holds {Separator}");
+        validationError = trimmed is { } source && !source.Contains(Separator, StringComparison.Ordinal) ? null : new RhinoFault($"package source is blank or holds {Separator}");
         value = trimmed ?? value;
     }
 }
@@ -96,7 +98,7 @@ internal static partial class SettingsMapper {
 
 public static class AppSettings {
     // --- [CHANGES]
-    internal static readonly Option<HostEvent<Unit>> Changed = Some(ValueStore.Signal(EventKind.AppSettingsChanged, static _ => true));
+    internal static readonly Option<HostEvent<Unit>> Changed = Some(ValueStores.Signal(EventKind.AppSettingsChanged, static _ => true));
 
     // --- [FAMILIES]
     public static readonly AppSettingsFamily<AppearanceSettingsState>.Writable Appearance = new(AppearanceSettings.GetCurrentState, AppearanceSettings.GetDefaultState, AppearanceSettings.UpdateFromState);
@@ -176,7 +178,7 @@ public static class AppSettings {
     private static ProcessSetting<Seq<CommandName>> CommandList(Func<string[]?> read, Action<string[]> write) => new(
         IO.lift(() => Callbacks.Each(
             Conversions.Rows(read()).Choose(static name => Conversions.Present(name)),
-            static (name, _) => CommandName.Validated(name))),
+            static (name, _) => CommandName.TryCreate(name, out CommandName? held, out RhinoFault? fault) ? Fin.Succ(held) : fault)),
         names => IO.lift(() => write([.. names])));
 
     // --- [FILES]
@@ -187,7 +189,7 @@ public static class AppSettings {
     public static readonly ProcessSetting<Seq<PackageSource>> PackageSources = new(
         IO.lift(static () => Callbacks.Each(
             Conversions.Rows(PackageManagerSettings.Sources?.Split(PackageSource.Separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
-            static (source, _) => PackageSource.Validated(source))),
+            static (source, _) => PackageSource.TryCreate(source, out PackageSource? held, out RhinoFault? fault) ? Fin.Succ(held) : fault)),
         static sources => IO.lift(() => PackageManagerSettings.Sources = string.Join(PackageSource.Separator, sources.Map(static source => (string)source))).Map(unit));
 
     public static ProcessSetting<bool> SearchPath(string folder) => new(

@@ -1,3 +1,4 @@
+using System.Drawing.Imaging;
 using System.Runtime.CompilerServices;
 using Eto;
 using Eto.Drawing;
@@ -6,33 +7,45 @@ using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rasm.UI;
-using Rasm.UI.Styling;
+using Rhino.Display;
 using SkiaSharp;
 
 namespace Rasm.Rhino.UI.Surfaces;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-public delegate SKColorType BitmapOrder();
+public delegate IO<Unit> OpaqueTarget(SceneView view, Action<IDisposable> retain);
 
-internal delegate Fin<Unit> ExtendedPresent(Control view, Graphics graphics, SKImage frame, RectangleF destination);
+public interface IDrawnPlatform {
+    public Fin<Duration> EventTime { get; }
 
-internal delegate IO<Unit> SlotSeated(Control slot, Option<string> label);
+    public Fin<int> EventClicks { get; }
 
-internal delegate IO<Func<Mount, Output, IO<Unit>>> NativeScene(SceneView view, Action<IDisposable> retain);
+    public Fin<Cursor> ClosedHand { get; }
 
-internal delegate IO<Unit> OpaqueTarget(SceneView view, Action<IDisposable> retain);
+    public Fin<float> PointerTravel(PointF at, PointF last);
 
-internal delegate IO<OpaqueTarget> OpaqueTargets(IPlugInSink owner, Action<IDisposable> retain);
+    public IO<Func<bool, IO<Unit>>> FrameLink(Control view, Func<Duration, IO<Unit>> tick, IPlugInSink sink, Action<IDisposable> retain);
+
+    public IO<Unit> SlotSeated(Control slot, Option<string> label);
+
+    public IO<Func<Mount, Output, IO<Unit>>> NativeScene(SceneView view, Action<IDisposable> retain);
+
+    public IO<OpaqueTarget> OpaqueTargets(IPlugInSink owner, Action<IDisposable> retain);
+
+    public Fin<Unit> ExtendedPresent(Control view, Graphics graphics, SKImage frame, RectangleF destination);
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record BitmapPixels(Bitmap Bitmap, BitmapData Data) : IDisposable {
-    public static Fin<(BitmapPixels Pixels, SKPixmap Pixmap)> Allocated(SKSizeI pixels) =>
-        Refused.UnlessFound(Platform.Instance.Find<BitmapOrder>(), nameof(BitmapOrder)).Map(order => {
-            Bitmap bitmap = new(pixels.Width, pixels.Height, PixelFormat.Format32bppRgba);
-            BitmapData data = bitmap.Lock();
-            SKImageInfo info = new(pixels.Width, pixels.Height, order()(), data.PremultipliedAlpha ? SKAlphaType.Premul : SKAlphaType.Unpremul, SKColorSpace.CreateSrgb());
-            return (new BitmapPixels(bitmap, data), new SKPixmap(info, data.Data, data.ScanWidth));
-        });
+public sealed record BitmapPixels(Bitmap Bitmap) : IDisposable {
+    public Eto.Drawing.BitmapData Data { get; } = Bitmap.Lock();
+
+    public SKPixmap Pixmap =>
+        new(new SKImageInfo(Bitmap.Width, Bitmap.Height, (Data.TranslateArgbToData(unchecked((int)0xFFFF0000)) & 0xFF) is 0xFF ? SKColorType.Rgba8888 : SKColorType.Bgra8888,
+                Data.PremultipliedAlpha ? SKAlphaType.Premul : SKAlphaType.Unpremul, HostPixels.Srgb),
+            Data.Data, Data.ScanWidth);
+
+    public static readonly Func<SKSizeI, Fin<(BitmapPixels Pixels, SKPixmap Pixmap)>> Allocated =
+        static pixels => new BitmapPixels(new Bitmap(pixels.Width, pixels.Height, Eto.Drawing.PixelFormat.Format32bppRgba)) switch { var held => (held, held.Pixmap) };
 
     public void Dispose() {
         Data.Dispose();
@@ -49,9 +62,9 @@ public sealed class SceneView : Drawable {
     private readonly PixelLayout seats = new();
     private Node view;
     private Option<IDisposable> listening;
-    private Option<(SceneHost<BitmapPixels> Host, Shipped Shipped)> session;
-    private Seats<Seat> placing;
-    private Option<Rasm.UI.Cursor> pointer;
+    private Option<SceneHost<BitmapPixels>> session;
+    private PlacedControls<Seat> placing;
+    private Option<CursorShape> pointer;
     private (bool Shown, bool Key) native;
     private int marking;
 
@@ -68,13 +81,15 @@ public sealed class SceneView : Drawable {
 
     public bool Cycles { get; init; }
 
-    public Func<Seq<Key>, IO<Control>> Slots { get; init; } = static path => IO.fail<Control>(new Refused(nameof(Slots), $"no control for slot /{string.Join('/', path.Map(static key => key.ToValue()))}"));
+    public Func<Seq<Key>, IO<Control>> Slots { get; init; } = static path => IO.fail<Control>(new Refused(nameof(Slots), $"no control for slot /{string.Join('/', path.Map(static key => key.Identifier))}"));
 
-    internal Option<Mount> Current => session.Bind(static held => held.Host.Current);
+    internal Option<Mount> Current => session.Bind(static held => held.Current);
 
     internal IPlugInSink Sink => scope.Sink;
 
-    public static PlugInSlot<(Shipped Shipped, TimeProvider Clock)> Shipping { get; } = new();
+    public static PlugInSlot<TimeProvider> Clocks { get; } = new();
+
+    public static IDrawnPlatform Drawn => Platform.Instance.CreateShared<IDrawnPlatform>();
 
     internal static PlugInSlot<OpaqueTarget> Opaque { get; } = new();
 
@@ -82,7 +97,7 @@ public sealed class SceneView : Drawable {
 
     // --- [SHOW]
     public IO<Unit> Show(Node next) =>
-        IO.lift(() => view = next).Bind(_ => session.Traverse(held => held.Host.Show(next)).As()).Map(static _ => unit);
+        IO.lift(() => view = next).Bind(_ => session.Traverse(held => held.Show(next)).As()).Map(static _ => unit);
 
     // --- [SESSION]
     public static Seq<Func<IPlugInSink, Action<IDisposable>, IO<Unit>>> Opened(ViewCatalog catalog, TimeProvider clock) =>
@@ -91,42 +106,38 @@ public sealed class SceneView : Drawable {
             : [];
 
     private static IO<Unit> Published(IPlugInSink owner, TimeProvider clock, Action<IDisposable> retain) =>
-        from shipped in Styles.Embedded.Bind(shipped => Shipping.Publish(owner, (shipped, clock)))
-            .Catch(static error => error.IsExceptional, static error => IO.fail<Unit>(new UnheldView(typeof(SceneView), error)))
-        from opaque in (from targets in IO.lift(static () => Refused.UnlessFound(Platform.Instance.Find<OpaqueTargets>(), nameof(OpaqueTargets)))
-                        from target in targets()(owner, retain)
+        from clocked in Clocks.Publish(owner, clock)
+        from opaque in (from target in Drawn.OpaqueTargets(owner, retain)
                         from published in Opaque.Publish(owner, target)
                         select unit).MapFail(static error => new UnheldView(typeof(SceneView), error))
         select unit;
 
     // --- [LIFETIME]
     private IO<Unit> Listened(Action<IDisposable> retain) =>
-        from shipping in Shipping.Of(scope.Sink)
-        from projection in IO.lift(static () => Refused.UnlessFound(Platform.Instance.Find<NativeScene>(), nameof(NativeScene)))
-        from projected in projection()(this, retain)
-        from host in DisposalOps.Acquire(IO.lift(() => new SceneHost<BitmapPixels>(Surface(projected, retain), shipping.Clock)), Released, retain)
-        from held in IO.lift(() => session = Some((host, shipping.Shipped)))
+        from clock in Clocks.Of(scope.Sink)
+        from projected in Drawn.NativeScene(this, retain)
+        from host in DisposalOps.Acquire(IO.lift(() => new SceneHost<BitmapPixels>(Backend(projected, retain), clock)), Released, retain)
+        from held in IO.lift(() => session = Some(host))
         from shown in host.Show(view)
         from hosted in Rehosted
         from theme in HostTheme.In(this).Inline(_ => Rehosted, scope.Sink, retain)
         from visible in scope.OnVisibility(_ => Rehosted, retain)
         select unit;
 
-    private SceneSurface<BitmapPixels> Surface(Func<Mount, Output, IO<Unit>> projected, Action<IDisposable> retain) =>
-        new(BitmapPixels.Allocated, Invalidated, tick => FrameLinks.Linked(this, tick, scope.Sink, retain)) { Applied = (mount, output) => Applied(projected, mount, output) };
+    private SceneBackend<BitmapPixels> Backend(Func<Mount, Output, IO<Unit>> projected, Action<IDisposable> retain) =>
+        new(BitmapPixels.Allocated, damage => IO.lift(() => damage.Iter(rect => Invalidate(Rectangle.Ceiling(new RectangleF(rect.Left, rect.Top, rect.Width, rect.Height))))), tick => Drawn.FrameLink(this, tick, scope.Sink, retain)) { Applied = (mount, output) => Applied(projected, mount, output) };
 
     private IO<Unit> Rehosted =>
         session.Traverse(held =>
             from host in Hosting
-            from stated in IO.lift(() => HostTheme.Stated(held.Shipped, HostTheme.Compact(this)))
-            from moved in held.Host.Rehost(host, stated)
+            from moved in held.Rehost(host, HostTheme.Stated(HostTheme.Compact(this)))
             select unit).As().Map(static _ => unit);
 
     private IO<Host> Hosting =>
         scope.Visibility.Map(visible => new Host(
             new SKSize(Math.Max(0, Width), Math.Max(0, Height)),
             HostTheme.Projected(HostTheme.Compact(this)),
-            SceneHost.Visible(visible && native.Shown, native.Key),
+            Visibility.Of(visible && native.Shown, native.Key),
             Cycles,
             RowText.Culture));
 
@@ -155,11 +166,8 @@ public sealed class SceneView : Drawable {
         from fitted in IO.lift(Fitted)
         select unit;
 
-    private IO<Unit> Invalidated(Seq<SKRect> damage) =>
-        IO.lift(() => damage.Iter(rect => Invalidate(Rectangle.Ceiling(new RectangleF(rect.Left, rect.Top, rect.Width, rect.Height)))));
-
     private Unit Fitted() =>
-        session.Bind(held => held.Host.Preferred(new SKSize(Math.Max(0, Width), float.PositiveInfinity)))
+        session.Bind(held => held.Preferred(new SKSize(Math.Max(0, Width), float.PositiveInfinity)))
             .Map(static preferred => preferred.Height)
             .Filter(float.IsFinite)
             .Map(static preferred => (int)MathF.Ceiling(preferred))
@@ -167,7 +175,7 @@ public sealed class SceneView : Drawable {
             .Iter(preferred => Height = preferred);
 
     // --- [SLOTS]
-    private Seats<Seat> Seating =>
+    private PlacedControls<Seat> Seating =>
         new(
             (path, placed, element) =>
                 from control in Slots(path)
@@ -177,8 +185,7 @@ public sealed class SceneView : Drawable {
                     seats.Add(holder, placed.Clip.Left, placed.Clip.Top);
                     return Sized(new Seat(holder, control), placed);
                 })
-                from seated in IO.lift(static () => Refused.UnlessFound(Platform.Instance.Find<SlotSeated>(), nameof(SlotSeated)))
-                    .Bind(row => row()(control, element.Bind(static held => held.Accessible.Label)))
+                from seated in Drawn.SlotSeated(control, element.Bind(static held => held.Accessible.Label))
                 select seat,
             (seat, placed) => IO.lift(() => {
                 seats.Move(seat.Holder, placed.Clip.Left, placed.Clip.Top);
@@ -210,7 +217,7 @@ public sealed class SceneView : Drawable {
     private IO<Unit> Painted(Graphics graphics) =>
         session.Traverse(held =>
             from scale in IO.lift(() => Refused.UnlessFound(ParentWindow, nameof(ParentWindow)).Map(static window => window.LogicalPixelSize))
-            from target in held.Host.Paint(scale)
+            from target in held.Paint(scale)
             from shown in target.Traverse(painted => Blitted(graphics, painted)).As()
             select unit).As().Map(static _ => unit);
 
@@ -219,16 +226,14 @@ public sealed class SceneView : Drawable {
             (View: this, Graphics: graphics, Destination: new RectangleF(0f, 0f, Width, Height)),
             standard: static (held, standard) => IO.lift(() => held.Graphics.DrawImage(standard.Pixels.Bitmap, new RectangleF(0f, 0f, standard.Info.Width, standard.Info.Height), held.Destination)),
             extended: static (held, extended) =>
-                from present in IO.lift(static () => Refused.UnlessFound(Platform.Instance.Find<ExtendedPresent>(), nameof(ExtendedPresent)).Map(static row => row()))
-                from shown in IO.lift(() => present(held.View, held.Graphics, extended.Surface.Snapshot(), held.Destination))
-                select unit);
+                IO.lift(() => Drawn.ExtendedPresent(held.View, held.Graphics, extended.Surface.Snapshot(), held.Destination)));
 
     // --- [INPUT]
     internal bool Receive(Input input, Duration now) =>
-        Callbacks.Answer(session.Match(Some: held => held.Host.Receive(input, now), None: static () => IO.pure(value: false)), static () => false, Site());
+        Callbacks.Answer(session.Match(Some: held => held.Receive(input, now), None: static () => IO.pure(value: false)), static () => false, Site());
 
     internal bool Timed(Input input) =>
-        Callbacks.Answer(session.Match(Some: held => held.Host.Now.Bind(now => held.Host.Receive(input, now)), None: static () => IO.pure(value: false)), static () => false, Site());
+        Callbacks.Answer(session.Match(Some: held => held.Now.Bind(now => held.Receive(input, now)), None: static () => IO.pure(value: false)), static () => false, Site());
 
     private bool Received(Fin<Option<Input>> input) =>
         Callbacks.Answer(from held in IO.lift(() => input) from now in IO.lift(static () => HostInput.Now) select held.Exists(shown => Receive(shown, now)), static () => false, Site());
@@ -303,4 +308,22 @@ public sealed class SceneView : Drawable {
     }
 
     private CallbackSite Site([CallerMemberName] string member = "") => new(scope.Sink, typeof(SceneView), member);
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class HostPixels {
+    internal static readonly SKColorSpace Srgb = SKColorSpace.CreateSrgb();
+
+    extension(Color4f color) {
+        public SKColorF ToSKColorF() => new(color.R, color.G, color.B, color.A);
+    }
+
+    extension(System.Drawing.Bitmap bitmap) {
+        public IO<SKImage> ToSKImage() =>
+            DisposalOps.Within(
+                () => bitmap.LockBits(new System.Drawing.Rectangle(System.Drawing.Point.Empty, bitmap.Size), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb),
+                static data => IO.lift(() => Refused.UnlessFound(
+                    SKImage.FromPixelCopy(new SKImageInfo(data.Width, data.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul, Srgb), data.Scan0, data.Stride), nameof(SKImage.FromPixelCopy))),
+                data => IO.lift(() => bitmap.UnlockBits(data)));
+    }
 }

@@ -21,7 +21,7 @@ public abstract partial record RestorePacing {
 
     public sealed record ConstantSpeed(double UnitsPerFrame, Duration Delay) : RestorePacing;
 
-    public sealed record ConstantTime(FrameCount Frames, Duration Delay) : RestorePacing;
+    public sealed record ConstantTime(int Frames, Duration Delay) : RestorePacing;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

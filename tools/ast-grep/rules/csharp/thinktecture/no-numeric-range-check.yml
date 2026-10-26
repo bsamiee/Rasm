@@ -289,4 +289,4 @@ rule:
                 inside: {kind: declaration_list, inside: {matches: languageext-error-record}}
             - inside: {stopBy: end, matches: thinktecture-factory-validation}
 message: '`$CHECK` checks a numeric range'
-note: 'Validate through an `IMinMaxValue<TSelf>` value object assigning `ValidationResults.OutsideRange`, a measured value crosses through `Validated`'
+note: 'Read the value as a UnitsNet, NodaTime, or host type that bounds it, else as a value object with one comparison in `ValidateFactoryArguments`'

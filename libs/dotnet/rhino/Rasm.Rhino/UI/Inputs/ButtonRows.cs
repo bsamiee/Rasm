@@ -10,10 +10,10 @@ namespace Rasm.Rhino.UI.Inputs;
 public static class ButtonRows {
     // --- [ROWS]
     public static ControlRow Pushed(Command<RowRule, Invoke>.Run run) =>
-        new ControlRow.Readout(RowShape.Unlabeled, (scope, retain) =>
-            from button in CommandRows.Button(run, IconSlot.PanelButton, scope, retain)
-            select new RowCells(button.Control, None, None, None, [], [], new RowHelp(None, None), button.Refresh, None, None),
-            new ParameterText(run.Face.Caption, run.Face.Help.IfNone(run.Face.Caption)), new RowRules(run.Enabled, None));
+        new ControlRow.Bound<Command<RowRule, Invoke>.Run>(run.Face.Caption, RowShape.Unlabeled, run, static (latest, scope, retain) =>
+            from row in latest
+            from button in CommandRows.Button(row.Row, IconSlot.PanelButton, scope, retain)
+            select new RowCells(button.Control, button.Refresh)) { Help = run.Face.Help };
 
     // --- [GROUPS]
     public static IO<(AddRemoveButton Control, IO<Unit> Refresh)> AddRemove(
@@ -25,7 +25,7 @@ public static class ButtonRows {
             from faced in IO.lift(() => { (pair.AddToolTip, pair.RemoveToolTip) = (adding.Command.ToolTip, removing.Command.ToolTip); })
             from added in DisposalOps.Change(() => pair.AddCommand, value => pair.AddCommand = value, adding.Command, owned)
             from removed in DisposalOps.Change(() => pair.RemoveCommand, value => pair.RemoveCommand = value, removing.Command, owned)
-            from refresh in CommandRows.Listened(Seq(adding.Watched, removing.Watched), scope, owned)
+            from refresh in CommandRows.Listened(Seq(adding.Refresh, removing.Refresh), scope, owned)
             select (pair, refresh), retain);
 
     public static IO<(StackLayout Control, IO<Unit> Refresh)> Strip(Seq<Seq<Command<RowRule, Invoke>>> groups, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
@@ -34,16 +34,16 @@ public static class ButtonRows {
                 from pressed in cluster.TraverseM(command => CommandRows.Pressed(command, slot, scope, owned)).As()
                 from row in Containers.Frame(static () => new RhinoButtonRow { VerticalContentAlignment = VerticalAlignment.Center }, owned)
                 from filled in IO.lift(() => pressed.Iter(made => row.Items.Add(made.Control)))
-                select (Row: row, Watched: pressed.Bind(static made => made.Watched))).As()
+                select (Row: row, Refreshes: pressed.Bind(static made => made.Refreshes))).As()
             from strip in Containers.Frame(() => new StackLayout([.. clusters.Map(static cluster => (StackLayoutItem)cluster.Row)]) {
-                Orientation = Eto.Forms.Orientation.Horizontal,
+                Orientation = Orientation.Horizontal,
                 Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Panel).Width,
                 VerticalContentAlignment = VerticalAlignment.Center,
             }, owned)
-            from refresh in CommandRows.Listened(clusters.Bind(static cluster => cluster.Watched), scope, owned)
+            from refresh in CommandRows.Listened(clusters.Bind(static cluster => cluster.Refreshes), scope, owned)
             select (strip, refresh), retain);
 
-    private static IO<(Command Command, Watched Watched)> Bound(Command<RowRule, Invoke>.Run run, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<(Command Command, IO<Unit> Refresh)> Bound(Command<RowRule, Invoke>.Run run, RowScope scope, Action<IDisposable> retain) =>
         IO.lift(static () => new Command()).Bind(command =>
             CommandRows.Bound(run, CommandRows.Localized(run.Face, Some(run.Invoke), scope.Sink), run.Enabled, command, IO.pure(unit), scope, retain));
 

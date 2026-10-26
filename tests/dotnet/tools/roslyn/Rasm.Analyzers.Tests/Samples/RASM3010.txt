@@ -10,4 +10,8 @@ internal static class Palette {
     internal static System.Drawing.Point Origin => default;
 
     internal static Point Placed => new(Point3d.Origin);
+
+    internal static Plane Base => Plane.WorldXY;
+
+    internal static System.Numerics.Vector2 Offset => default;
 }

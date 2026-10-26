@@ -9,15 +9,6 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct BoundaryWidthScale : System.Numerics.IMinMaxValue<BoundaryWidthScale> {
-    public static BoundaryWidthScale MinValue { get; } = new(double.BitIncrement(0.0));
-    public static BoundaryWidthScale MaxValue { get; } = new(double.MaxValue);
-    public static BoundaryWidthScale Unit { get; } = new(1.0);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SectionFill {
     public sealed record NoFill() : SectionFill;
@@ -41,7 +32,7 @@ public abstract partial record BoundaryLinetype {
                                    select RhinoMath.UnsetIntIndex));
 }
 
-public sealed record SectionBoundary(Option<Color> Color, Option<Color> PrintColor, BoundaryWidthScale WidthScale, Option<PlotWeight> PrintWidth, Option<BoundaryLinetype> Linetype) {
+public sealed record SectionBoundary(Option<Color> Color, Option<Color> PrintColor, double WidthScale, Option<PlotWeight> PrintWidth, Option<BoundaryLinetype> Linetype) {
     internal IO<Unit> Written(RhinoDoc doc, SectionStyle staged) =>
         from cleared in IO.lift(staged.RemoveBoundaryLinetype)
         from linetype in Linetype.Traverse(held => held.Written(doc, staged)).As()
@@ -49,7 +40,7 @@ public sealed record SectionBoundary(Option<Color> Color, Option<Color> PrintCol
         select settings;
 }
 
-public sealed record SectionHatch(ComponentRef<HatchPattern> Pattern, HatchScale Scale, double Rotation, Option<Color> Color, Option<Color> PrintColor, Option<PlotWeight> PrintWidth);
+public sealed record SectionHatch(ComponentRef<HatchPattern> Pattern, double Scale, double Rotation, Option<Color> Color, Option<Color> PrintColor, Option<PlotWeight> PrintWidth);
 
 public sealed record SectionStyleDefinition(ObjectSectionFillRule SectionFillRule, SectionFill Fill, Option<SectionBoundary> Boundary, Option<SectionHatch> Hatch);
 
@@ -62,17 +53,10 @@ internal static partial class SectionStyleMapper {
     internal static partial void Update((Option<Color> BackgroundFillColor, Option<Color> BackgroundFillPrintColor) fill, SectionStyle staged);
 
     [MapProperty(nameof(SectionStyle.BoundaryPlotWeightMillimeters), nameof(SectionStyle.BoundaryPlotWeightMillimeters), Use = nameof(@PlotWeight.ToInheritable))]
-    internal static partial void Update((Option<Color> BoundaryColor, Option<Color> BoundaryPrintColor, BoundaryWidthScale BoundaryWidthScale, Option<PlotWeight> BoundaryPlotWeightMillimeters, int BoundaryLinetypeIndex) boundary, SectionStyle staged);
+    internal static partial void Update((Option<Color> BoundaryColor, Option<Color> BoundaryPrintColor, double BoundaryWidthScale, Option<PlotWeight> BoundaryPlotWeightMillimeters, int BoundaryLinetypeIndex) boundary, SectionStyle staged);
 
     [MapProperty(nameof(SectionStyle.HatchPatternPlotWeightMillimeters), nameof(SectionStyle.HatchPatternPlotWeightMillimeters), Use = nameof(@PlotWeight.ToInheritable))]
-    internal static partial void Update((HatchScale HatchScale, double HatchRotationRadians, Option<Color> HatchPatternColor, Option<Color> HatchPatternPrintColor, Option<PlotWeight> HatchPatternPlotWeightMillimeters) hatch, SectionStyle staged);
-
-    // --- [VALUES]
-    [UserMapping]
-    private static double Width(BoundaryWidthScale width) => width;
-
-    [UserMapping]
-    private static double Scale(HatchScale scale) => scale;
+    internal static partial void Update((double HatchScale, double HatchRotationRadians, Option<Color> HatchPatternColor, Option<Color> HatchPatternPrintColor, Option<PlotWeight> HatchPatternPlotWeightMillimeters) hatch, SectionStyle staged);
 }
 
 public static class SectionStyles {
@@ -93,20 +77,17 @@ public static class SectionStyles {
             None: () => requested.Map<ComponentRef<HatchPattern>>(static index => index))
         let linetype = embedded.Definition.Map<BoundaryLinetype>(static definition => new BoundaryLinetype.Embedded(definition))
             || (visible && patterns.IsNone ? LinetypeRef.FromHost(style.BoundaryLinetypeIndex).Map<BoundaryLinetype>(static reference => new BoundaryLinetype.Table(reference)) : None)
-        let boundary = visible
-            ? BoundaryWidthScale.Validated(style.BoundaryWidthScale).Map(width => Some(new SectionBoundary(
-                Conversions.Present(style.BoundaryColor), Conversions.Present(style.BoundaryPrintColor), width, PlotWeight.FromInheritable(style.BoundaryPlotWeightMillimeters), linetype)))
-            : Option<SectionBoundary>.None
-        let hatch = address.Traverse(reference => HatchScale.Validated(style.HatchScale).Map(scale => new SectionHatch(
-            reference, scale, style.HatchRotationRadians, Conversions.Present(style.HatchPatternColor), Conversions.Present(style.HatchPatternPrintColor), PlotWeight.FromInheritable(style.HatchPatternPlotWeightMillimeters)))).As()
-        from definition in IO.lift((boundary, hatch).Apply((edge, hatched) => new SectionStyleDefinition(
+        let boundary = Callbacks.Found(visible, new SectionBoundary(
+            Conversions.Present(style.BoundaryColor), Conversions.Present(style.BoundaryPrintColor), style.BoundaryWidthScale, PlotWeight.FromInheritable(style.BoundaryPlotWeightMillimeters), linetype))
+        let hatch = address.Map(reference => new SectionHatch(
+            reference, style.HatchScale, style.HatchRotationRadians, Conversions.Present(style.HatchPatternColor), Conversions.Present(style.HatchPatternPrintColor), PlotWeight.FromInheritable(style.HatchPatternPlotWeightMillimeters)))
+        select (Definition: new SectionStyleDefinition(
             style.SectionFillRule,
             style.BackgroundFillMode switch {
                 SectionBackgroundFillMode.None => new SectionFill.NoFill(),
                 SectionBackgroundFillMode.Viewport => new SectionFill.ViewportFill(),
                 SectionBackgroundFillMode.SolidColor => new SectionFill.SolidFill(Conversions.Present(style.BackgroundFillColor), Conversions.Present(style.BackgroundFillPrintColor)),
-            }, edge, hatched)).As())
-        select (Definition: definition, BoundaryHasShapes: embedded.HasShapes);
+            }, boundary, hatch), BoundaryHasShapes: embedded.HasShapes);
 
     public static IO<bool> Unchanged(SectionStyle live, SectionStyle staged) =>
         (Definition(live), Definition(staged)).Apply(static (held, wanted) => !held.BoundaryHasShapes && !wanted.BoundaryHasShapes && held.Definition == wanted.Definition).As();

@@ -31,6 +31,7 @@ public sealed partial class LensDirection {
 }
 
 [ComplexValueObject]
+[ValidationError<ImagingFault>]
 public sealed partial class RadialDistortion {
     public static (double Low, double High) Bounds { get; } = (-0.999d, 1d);
 
@@ -64,9 +65,9 @@ public sealed partial class RadialDistortion {
         return ((x + (factor * (point.X - x)), y + (factor * (point.Y - y))), Direction.Radial(red, scale, radius).Weight * Direction.Radial(blue, scale, radius).Weight);
     }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double coefficient, ref double dispersion, ref LensFraming framing, ref LensDirection direction) =>
-        validationError = coefficient >= Bounds.Low && coefficient <= Bounds.High && double.IsFinite(dispersion) && dispersion >= 0d ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Radial coefficient {coefficient} must lie in [{Bounds.Low}, {Bounds.High}] with finite non-negative dispersion {dispersion}"));
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref double coefficient, ref double dispersion, ref LensFraming framing, ref LensDirection direction) =>
+        validationError = coefficient >= Bounds.Low && coefficient <= Bounds.High && dispersion >= 0d ? null
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Radial coefficient {coefficient} must lie in [{Bounds.Low}, {Bounds.High}] with non-negative dispersion {dispersion}"));
 }
 
 public sealed record AxialDefocus(Iris Iris, ShortSideLength Radius) {

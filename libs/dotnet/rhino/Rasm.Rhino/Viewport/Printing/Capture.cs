@@ -1,27 +1,17 @@
 using System.Drawing;
 using Rasm.Drafting;
 using Rasm.Rhino.Modeling;
-using Rasm.UI;
 using Rhino;
 using Rhino.Display;
 
 namespace Rasm.Rhino.Viewport.Printing;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct PixelDensity : IPresented<PixelDensity, double> {
-    public static PixelDensity MinValue { get; } = new(1d / Length.FromMeters(1).Inches.ToDouble());
-    public static PixelDensity MaxValue { get; } = new(uint.MaxValue / Length.FromMeters(1).Inches.ToDouble());
-    public static Presentation<double> Presentation { get; } = new() { Track = None, Step = 1d, Decimals = 0 };
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [Union]
 public abstract partial record CaptureSubject {
-    public sealed record View(Size Media, PixelDensity Density) : CaptureSubject;
+    public sealed record View(Size Media, double Density) : CaptureSubject;
 
-    public sealed record Page(PixelDensity Density) : CaptureSubject;
+    public sealed record Page(double Density) : CaptureSubject;
 }
 
 [Union]

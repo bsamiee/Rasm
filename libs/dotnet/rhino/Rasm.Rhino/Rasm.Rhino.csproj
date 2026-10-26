@@ -57,10 +57,4 @@
         <ProjectReference Include="../../bim/Rasm.Drafting/Rasm.Drafting.csproj" />
         <ProjectReference Include="../../ui/Rasm.UI/Rasm.UI.csproj" />
     </ItemGroup>
-
-    <ItemGroup Label="Workspace Sources">
-        <Compile Include="../../Invariant.cs" />
-        <Compile Include="../../LanguageJson.cs" />
-        <Compile Include="../../ValidationResults.cs" />
-    </ItemGroup>
 </Project>

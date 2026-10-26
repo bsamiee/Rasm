@@ -10,9 +10,22 @@ namespace Rasm.Imaging.Tone;
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class LightingMood {
-    public static readonly LightingMood HighKey = new();
-    public static readonly LightingMood Neutral = new();
-    public static readonly LightingMood LowKey = new();
+    public static readonly LightingMood HighKey = new(static reading => reading.MeanLuminance > HighKeyMean && reading.Ratio < float.Log2(4f));
+    public static readonly LightingMood LowKey = new(static reading =>
+        !HighKey.Holds(reading) && (reading.MeanLuminance < LowKeyMean || reading.Ratio > float.Log2(8f) || reading.Split > 0.42f));
+    public static readonly LightingMood Neutral = new(static reading => !HighKey.Holds(reading) && !LowKey.Holds(reading));
+
+    private static readonly float HighKeyMean = Linear(0.45f);
+    private static readonly float LowKeyMean = Linear(0.22f);
+
+    [UseDelegateFromConstructor]
+    public partial bool Holds(LightingReading reading);
+
+    private static float Linear(float encodedMean) {
+        Vector4 mean = new(new Vector3(encodedMean), 1f);
+        new Transfer.Srgb().Decode(new Span<Vector4>(ref mean));
+        return mean.X;
+    }
 }
 
 public sealed record PaletteEntry(Vector3 Color, FramePosition Position, float Share) {
@@ -28,13 +41,7 @@ public sealed record LightingReading(
     float Ratio, float Range, float MeteredExposure, double MeanLuminance,
     Vector2 Direction, float Hardness, float Split, bool Backlit,
     Option<Wacton.Unicolour.Temperature> KeyWhite, Seq<PaletteEntry> Palette) {
-    private static readonly (float HighKeyMean, float HighKeyRatio, float LowKeyMean, float LowKeyRatio, float LowKeySplit) Thresholds =
-        (Linear(0.45f), float.Log2(4f), Linear(0.22f), float.Log2(8f), 0.42f);
-
-    public LightingMood Mood =>
-        MeanLuminance > Thresholds.HighKeyMean && Ratio < Thresholds.HighKeyRatio ? LightingMood.HighKey
-        : MeanLuminance < Thresholds.LowKeyMean || Ratio > Thresholds.LowKeyRatio || Split > Thresholds.LowKeySplit ? LightingMood.LowKey
-        : LightingMood.Neutral;
+    public LightingMood Mood => LightingMood.Items.First(mood => mood.Holds(this));
 
     public Option<(PaletteEntry Key, PaletteEntry Accent)> Gels =>
         Palette.Take(2).Filter(static entry => entry.Chroma >= 0.18f) switch {
@@ -42,11 +49,6 @@ public sealed record LightingReading(
             _ => None,
         };
 
-    private static float Linear(float encodedMean) {
-        Vector4 mean = new(new Vector3(encodedMean), 1f);
-        new Transfer.Srgb().Decode(new Span<Vector4>(ref mean));
-        return mean.X;
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

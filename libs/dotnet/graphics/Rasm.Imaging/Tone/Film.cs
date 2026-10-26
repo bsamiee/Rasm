@@ -45,7 +45,7 @@ public sealed record FilmStock(
         double black = BlackPoint.Match(
             Some: static offset => offset / 1000d,
             None: () => double.Min(Vector256.Dot(Transmitted(backlight, PrintDensity) / cap, Weights), 0.999d));
-        return Bakes.Lattice(LatticeSize.Create(80), [row => {
+        return Bakes.Lattice(80, [row => {
             foreach (ref Vector4 node in row)
                 node = new Vector4(Displayed(Window.Inverse(node.AsVector3())), node.W);
         }]).Map(static lattice => (LutTable)new LutTable.Sequence([new LutTable.Log(Window), new LutTable.Cube(lattice, LutInterpolation.Tetrahedral)]));
@@ -103,7 +103,7 @@ public static class Tony {
             BinaryPrimitives.ReadInt32LittleEndian(bytes[12..]), BinaryPrimitives.ReadInt32LittleEndian(bytes[16..]),
             BinaryPrimitives.ReadInt32LittleEndian(bytes[24..]), BinaryPrimitives.ReadUInt32LittleEndian(bytes[128..]));
         return from edge in width == height && width == depth && format == SharedExponent && bytes.Length == Header + (Texel * width * height * depth)
-                ? LatticeSize.Validated(width)
+                ? Fin.Succ(width)
                 : Error.New(string.Create(CultureInfo.InvariantCulture, $"Tony texture must hold a cubic R9G9B9E5 volume, holds {bytes.Length} bytes of {width}x{height}x{depth} format {format}"))
                from table in Lut3D.From(edge, Decoded(texture[Header..].Span, edge), Vector3.Zero, Vector3.One)
                select table;

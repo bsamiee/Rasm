@@ -289,7 +289,7 @@ def cards(blocks: list[Block]) -> list[Block]:
         counts = accumulate(int(m["path"] is not None) for m in matches)
         return [b.retext(f"{m['bullet']}[{n:02}]-{token(Path(m['path']).stem)}({m['path']}): {m['t']}") if m["path"] is not None else b for b, m, n in zip(items, matches, counts)]
 
-    return [b for listed, run in groupby(blocks, key=lambda b: b.kind is Kind.LIST_ITEM) for b in (renumber(list(run)) if listed else run)]
+    return [*(renumber(list(run)) if listed else run) for listed, run in groupby(blocks, key=lambda b: b.kind is Kind.LIST_ITEM)]
 
 
 def labels(blocks: list[Block]) -> list[Block]:
@@ -389,7 +389,7 @@ def spacing(blocks: list[Block]) -> list[Block]:
         need = gap(a, b, len(have))
         return (have + [Block(Kind.BLANK, (Line(a.lines[-1].n, ""),))] * need)[:need]
 
-    return [x for a, b in pairwise(solid) for x in (a, *run(a, b))] + solid[-1:]
+    return [*(a, *run(a, b)) for a, b in pairwise(solid)] + solid[-1:]
 
 
 # --- [DIVIDERS]
@@ -501,7 +501,7 @@ def shallow(d: Doc) -> list[Line]:
         solid = [(line, (n := len(line.text) - len(body)), n + 2 if body.startswith("- ") else n) for line in b.lines[1:-1] if (body := line.text.lstrip(" ")).strip()]
         return [Line(line.n, line.text.strip()) for i, (line, n, _) in enumerate(solid) if n - next((depth for _, _, depth in reversed(solid[:i]) if depth <= n), 0) in steps]
 
-    return [line for b in d.blocks for line in opened(b)]
+    return [*opened(b) for b in d.blocks]
 
 
 # --- [REGISTRY] -------------------------------------------------------------------------
@@ -566,7 +566,7 @@ def lint(path: Path, marker: Marker) -> Doc:
 
 def findings(doc: Doc) -> list[str]:
     """`path:line: message` line of each finding every report makes, in line order."""
-    return [f"{doc.path}:{line.n}: {line.text}\n" for line in sorted((line for r in REPORTS for line in r.apply(doc)), key=lambda line: line.n)]
+    return [f"{doc.path}:{line.n}: {line.text}\n" for line in sorted((*r.apply(doc) for r in REPORTS), key=lambda line: line.n)]
 
 
 def files(paths: tuple[Path, ...]) -> dict[Path, Marker]:
@@ -585,7 +585,7 @@ def check(*paths: ExistingPath) -> int:
     """Prints fix command per fixable file, then each report as `path:line: message`, exiting 1 on any."""
     docs = list(starmap(lint, files(paths).items()))
     fixable = "".join(f"{d.path}: {d.fixed} fixable, python {sys.argv[0]} fix {d.path}\n" for d in docs if d.fixed)
-    found = [f for d in docs for f in findings(d)]
+    found = [*findings(d) for d in docs]
     total = sum(d.fixed for d in docs)
     sys.stdout.write(fixable + "".join(found) + f"Found {len(found) + total} findings, {total} fixable\n")
     return int(bool(found or total))
@@ -596,7 +596,7 @@ def fix(*paths: ExistingPath) -> int:
     docs = list(starmap(lint, files(paths).items()))
     for d in (d for d in docs if d.fixed):
         d.path.write_text("".join(f"{b.text}\n" for b in d.blocks), encoding="utf-8")
-    left = [f for d in docs for f in findings(d.renumbered())]
+    left = [*findings(d.renumbered()) for d in docs]
     sys.stdout.write("".join(left) + f"Fixed {sum(d.fixed for d in docs)}, {len(left)} remaining\n")
     return int(bool(left))
 

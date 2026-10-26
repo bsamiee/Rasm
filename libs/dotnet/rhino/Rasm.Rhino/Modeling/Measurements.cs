@@ -14,13 +14,14 @@ public abstract partial record MassSource {
 }
 
 [ComplexValueObject]
+[ValidationError<RhinoFault>]
 public sealed partial class MassSubject {
     public MassSource Source { get; }
     public double Density { get; }
     public Seq<Transform> Placements { get; }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref MassSource source, ref double density, ref Seq<Transform> placements) =>
-        validationError = double.IsFinite(density) && density >= 0 ? null : new ValidationError("mass subject needs a finite density at or above 0");
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref MassSource source, ref double density, ref Seq<Transform> placements) =>
+        validationError = double.IsFinite(density) && density >= 0 ? null : new RhinoFault("mass subject needs a finite density at or above 0");
 }
 
 public sealed record PrincipalMoments(double X, Vector3d XAxis, double Y, Vector3d YAxis, double Z, Vector3d ZAxis) {

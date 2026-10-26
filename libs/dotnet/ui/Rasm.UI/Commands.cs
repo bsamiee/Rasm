@@ -92,7 +92,7 @@ public static class Commands {
         select new CommandState(enabled.IfNone(noneValue: true), mark);
 
     // --- [BAR]
-    public static Node Bar<TGate, TInvoke>(Seq<Seq<Stated<TGate, TInvoke>>> groups, CommandHost<TGate, TInvoke> host, CommandFace overflow, Orientation axis, Func<CommandFace, Seq<Node>> face)
+    public static Node Bar<TGate, TInvoke>(Seq<Seq<Stated<TGate, TInvoke>>> groups, CommandHost<TGate, TInvoke> host, CommandFace overflow, PhysicalAxis axis, Func<CommandFace, Seq<Node>> face)
         where TGate : notnull where TInvoke : notnull =>
         groups.Map(group => group.Map(stated => Drawn(stated, host, face, axis, None))) switch {
             var drawn => groups.Count > 1
@@ -102,7 +102,7 @@ public static class Commands {
         };
 
     private static Node.Flex Row<TGate, TInvoke>(
-        Seq<Seq<Node>> shown, Seq<Seq<Stated<TGate, TInvoke>>> rest, CommandFace overflow, CommandHost<TGate, TInvoke> host, Func<CommandFace, Seq<Node>> face, Orientation axis)
+        Seq<Seq<Node>> shown, Seq<Seq<Stated<TGate, TInvoke>>> rest, CommandFace overflow, CommandHost<TGate, TInvoke> host, Func<CommandFace, Seq<Node>> face, PhysicalAxis axis)
         where TGate : notnull where TInvoke : notnull =>
         new(axis,
             shown.Intersperse(Seq<Node>(Divider(axis))).Flatten()
@@ -111,7 +111,7 @@ public static class Commands {
             Accessible = new Accessible { Role = AccessRole.Toolbar },
         };
 
-    private static Node Drawn<TGate, TInvoke>(Stated<TGate, TInvoke> stated, CommandHost<TGate, TInvoke> host, Func<CommandFace, Seq<Node>> face, Orientation axis, Option<AccessRole> within)
+    private static Node Drawn<TGate, TInvoke>(Stated<TGate, TInvoke> stated, CommandHost<TGate, TInvoke> host, Func<CommandFace, Seq<Node>> face, PhysicalAxis axis, Option<AccessRole> within)
         where TGate : notnull where TInvoke : notnull =>
         stated.Switch(
             (Host: host, Face: face, Axis: axis, Within: within),
@@ -137,7 +137,7 @@ public static class Commands {
 
     private static Node Button(CommandFace shown, CommandState state, Option<AccessRole> within, Part.Press press, Func<CommandFace, Seq<Node>> face) =>
         within.IfNone(state.Mark.IsSome ? AccessRole.CheckBox : AccessRole.Button) switch {
-            var role => press.Drawn(new Node.Flex(Orientation.Horizontal, face(shown)) {
+            var role => press.Drawn(new Node.Flex(PhysicalAxis.Horizontal, face(shown)) {
                 Key = new Key.Named(shown.Name),
                 Role = Role.Button,
                 Conditions = Conditioned(state),
@@ -148,7 +148,7 @@ public static class Commands {
     private static LanguageExt.HashSet<Condition> Conditioned(CommandState state) =>
         toHashSet(Seq(Condition.Disabled).Filter(_ => !state.Enabled) + state.Mark.Bind(static mark => mark.Map(off: Option<Condition>.None, on: Condition.Selected, mixed: Condition.Mixed)).ToSeq());
 
-    private static Node.Box Divider(Orientation axis) =>
+    private static Node.Box Divider(PhysicalAxis axis) =>
         new() {
             Role = Role.Divider,
             Width = axis.Map(horizontal: Option<Sizing>.None, vertical: Sizing.Grow.Unit),
@@ -163,7 +163,7 @@ public static class Commands {
     public static Seq<Node> Labelled(CommandFace face) => face.Glyph.Map(Glyph).ToSeq().Add(Caption(face));
 
     public static Func<CommandFace, Seq<Node>> Fitting(params Seq<Func<CommandFace, Seq<Node>>> preferred) =>
-        face => Seq<Node>(new Node.Choice(Orientation.Horizontal, preferred.Map(faced => (Node)new Node.Flex(Orientation.Horizontal, faced(face)))));
+        face => Seq<Node>(new Node.Choice(PhysicalAxis.Horizontal, preferred.Map(faced => (Node)new Node.Flex(PhysicalAxis.Horizontal, faced(face)))));
 
     private static Node Glyph(GlyphSource art) => new Node.Glyph(art) { Align = UnitPoint.Center };
 

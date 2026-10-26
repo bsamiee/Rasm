@@ -1,52 +1,19 @@
-using System.Globalization;
 using Rasm.Rhino.Document.Units;
 using Rhino.Geometry.Collections;
 
 namespace Rasm.Rhino.Modeling.Surfaces;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct PointWeight : System.Numerics.IMinMaxValue<PointWeight> {
-    public static PointWeight MinValue { get; } = new(double.BitIncrement(0d));
-    public static PointWeight MaxValue { get; } = new(double.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct RebuildPointCount : System.Numerics.IMinMaxValue<RebuildPointCount> {
-    public static RebuildPointCount MinValue { get; } = new(2);
-    public static RebuildPointCount MaxValue { get; } = new(1000);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SurfaceEdit {
-    public sealed record Rebuild : SurfaceEdit {
-        private Rebuild(SurfaceDegree u, SurfaceDegree v, RebuildPointCount uCount, RebuildPointCount vCount) => (U, V, UCount, VCount) = (u, v, uCount, vCount);
-
-        public SurfaceDegree U { get; }
-
-        public SurfaceDegree V { get; }
-
-        public RebuildPointCount UCount { get; }
-
-        public RebuildPointCount VCount { get; }
-
-        public static Fin<Rebuild> Validated(SurfaceDegree u, SurfaceDegree v, RebuildPointCount uCount, RebuildPointCount vCount) =>
-            (int)uCount > u && (int)vCount > v
-                ? new Rebuild(u, v, uCount, vCount)
-                : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"rebuild counts {uCount} by {vCount} need to exceed degrees {u} by {v}"));
-    }
-
+    public sealed record Rebuild(int U, int V, int UCount, int VCount) : SurfaceEdit;
     public sealed record RebuildOneDirection(SurfaceDirection Direction, int Count, LoftType Loft) : SurfaceEdit;
-    public sealed record Fit(SurfaceDegree U, SurfaceDegree V, double Tolerance) : SurfaceEdit;
+    public sealed record Fit(int U, int V, double Tolerance) : SurfaceEdit;
     public sealed record SubDFriendly : SurfaceEdit;
     public sealed record Offset(double Distance) : SurfaceEdit;
     public sealed record VariableOffset((double UMinVMin, double UMinVMax, double UMaxVMin, double UMaxVMax) Corners, Seq<(Point2d Parameter, double Distance)> Interior) : SurfaceEdit;
     public sealed record Smooth(SmoothOptions Options) : SurfaceEdit;
-    public sealed record ExtendEdge(SurfaceEdge Edge, double Length, bool SmoothExtension) : SurfaceEdit;
+    public sealed record ExtendEdge(IsoStatus Edge, double Length, bool SmoothExtension) : SurfaceEdit;
     public sealed record ExtendDomain(SurfaceDirection Direction, Interval Interval) : SurfaceEdit;
     public sealed record Trim(Interval U, Interval V) : SurfaceEdit;
     public sealed record Transpose : SurfaceEdit;
@@ -85,18 +52,18 @@ public abstract partial record SurfaceEdit {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record NurbsSurfaceEdit {
-    public sealed record IncreaseDegree(SurfaceDirection Direction, SurfaceDegree Degree) : NurbsSurfaceEdit;
+    public sealed record IncreaseDegree(SurfaceDirection Direction, int Degree) : NurbsSurfaceEdit;
     public sealed record MakeRational : NurbsSurfaceEdit;
     public sealed record MakeNonRational : NurbsSurfaceEdit;
     public sealed record MakeUniform(Option<SurfaceDirection> Direction) : NurbsSurfaceEdit;
     public sealed record InsertKnot(SurfaceDirection Direction, double Value, int Multiplicity) : NurbsSurfaceEdit;
     public sealed record RemoveKnots(SurfaceDirection Direction, int Start, int End) : NurbsSurfaceEdit;
     public sealed record RemoveKnotsAt(SurfaceDirection Direction, Point2d At) : NurbsSurfaceEdit;
-    public sealed record SetPoint(int U, int V, Point3d Point, PointWeight Weight) : NurbsSurfaceEdit;
+    public sealed record SetPoint(int U, int V, Point3d Point, double Weight) : NurbsSurfaceEdit;
     public sealed record UniformKnots(SurfaceDirection Direction, double Spacing) : NurbsSurfaceEdit;
     public sealed record PeriodicKnots(SurfaceDirection Direction, double Spacing) : NurbsSurfaceEdit;
     public sealed record RemoveMultipleKnots(SurfaceDirection Direction, int Minimum, int Maximum) : NurbsSurfaceEdit;
-    public sealed record MatchToCurve(SurfaceEdge Side, Curve Target, double MaxEndDistance, double MaxInteriorDistance, int MaxLevel) : NurbsSurfaceEdit;
+    public sealed record MatchToCurve(IsoStatus Side, Curve Target, double MaxEndDistance, double MaxInteriorDistance, int MaxLevel) : NurbsSurfaceEdit;
 
     public IO<EditStep<NurbsSurface, int>> Step(Tolerances tolerances, NurbsSurface nurbs, Action<IDisposable> retain) =>
         Switch(

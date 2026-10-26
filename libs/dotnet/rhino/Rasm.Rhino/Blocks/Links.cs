@@ -112,7 +112,7 @@ public static class Links {
         Style(IO.lift(() => (LinkedInstanceDefinitionUpdateStyle)archive.Settings.InstanceDefinitionLinkUpdate), style => archive.Settings.InstanceDefinitionLinkUpdate = (int)style);
 
     private static ValueStore<LinkedInstanceDefinitionUpdateStyle> Style(IO<LinkedInstanceDefinitionUpdateStyle> read, Action<LinkedInstanceDefinitionUpdateStyle> write) =>
-        ValueStore.Of(read.Map(static style => Some(style).Filter(static held => held != Factory)),
+        ValueStores.Of(read.Map(static style => Some(style).Filter(static held => held != Factory)),
             style => IO.lift(() => write(style.IfNone(Factory))), Applied.Live, None);
 
     // --- [RELOAD]

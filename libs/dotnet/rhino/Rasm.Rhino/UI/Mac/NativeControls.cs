@@ -124,7 +124,7 @@ public static class NativeControls {
                 }));
 
     // --- [STYLES]
-    internal static void Field(TextBoxHandler handler) => Scrubbed((NumberField)handler.Widget, handler);
+    internal static void Field(TextBoxHandler handler) => Scrubbed((NumberBox)handler.Widget, handler);
 
     // --- [SCRUB]
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -141,10 +141,10 @@ public static class NativeControls {
                 Selector.GetHandle("addLocalMonitorForEventsMatchingMask:handler:"), (ulong)NSEventMask.KeyDown, &block));
     }
 
-    private static void Scrubbed(NumberField field, TextBoxHandler handler) =>
+    private static void Scrubbed(NumberBox field, TextBoxHandler handler) =>
         Callbacks.Run(
             from held in IO.lift(static () => Ref(Option<IDisposable>.None))
-            let site = new CallbackSite(field.Sink, typeof(NumberField), nameof(Scrubbed))
+            let site = new CallbackSite(field.Sink, typeof(NumberBox), nameof(Scrubbed))
             from attached in IO.lift(() => {
                 field.ScrubStarted += Callbacks.Handler<EventArgs>(_ => Held(handler, held, site), site);
                 field.ScrubEnded += Callbacks.Handler<EventArgs>(_ => Freed(held), site);

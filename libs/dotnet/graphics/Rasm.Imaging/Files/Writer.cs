@@ -33,22 +33,6 @@ internal readonly record struct ImageSample(OutputDepth Depth, Func<PixelFrame, 
 
 internal readonly record struct TiffSample(OutputDepth Depth, SampleFormat Format, Option<Predictor> Predictor);
 
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Quality : IMinMaxValue<Quality> {
-    public static Quality MinValue { get; } = new(0);
-    public static Quality MaxValue { get; } = new(100);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct JpegQuality : IMinMaxValue<JpegQuality> {
-    public static JpegQuality MinValue { get; } = new(1);
-    public static JpegQuality MaxValue { get; } = new(100);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StillFormat {
     public sealed record PngRaster : StillFormat {
@@ -85,11 +69,11 @@ public abstract partial record StillFormat {
 
         public static IterableNE<string> Extensions => IterableNE.create(".jpg", ".jpeg");
 
-        public static StillFormat From(PixelFrame frame, Option<ColorEncoding> encoding, JpegQuality quality) =>
+        public static StillFormat From(PixelFrame frame, Option<ColorEncoding> encoding, int quality) =>
             new JpegRaster(frame, encoding, new JpegEncoder { Quality = quality });
     }
 
-    public sealed record WebpRaster(PixelFrame Frame, ColorEncoding Encoding, bool Alpha, WebpFileFormatType Format, Quality Quality) : StillFormat {
+    public sealed record WebpRaster(PixelFrame Frame, ColorEncoding Encoding, bool Alpha, WebpFileFormatType Format, int Quality) : StillFormat {
         public static IterableNE<string> Extensions => IterableNE.create(".webp");
     }
 
@@ -154,7 +138,7 @@ public abstract partial record StillFormat {
 
         public static IterableNE<string> Extensions => IterableNE.create(".dng");
 
-        public static Fin<StillFormat> From(PixelFrame frame, Gamut gamut, Option<double> exposure, Option<LensDistance> focalLength, Option<float> aperture) {
+        public static Fin<StillFormat> From(PixelFrame frame, Gamut gamut, Option<double> exposure, Option<Length> focalLength, Option<float> aperture) {
             static Fin<float> Rational(TiffTag tag, float value, int minimum) =>
                 value >= minimum && value < (double)int.MaxValue
                     ? value
@@ -163,7 +147,7 @@ public abstract partial record StillFormat {
                     DngWriter.Bounded(frame.Size),
                     toSeq(gamut.FromXyz.ToRowMajorArray()).Traverse(static value => Rational(TiffTag.COLORMATRIX1, (float)value, int.MinValue)).As(),
                     exposure.Traverse(static gain => Rational(TiffTag.BASELINEEXPOSURE, (float)gain, int.MinValue)).As(),
-                    focalLength.Traverse(static focal => Rational(TiffTag.EXIF_FOCALLENGTH, (float)Length.FromMeters((float)focal).Millimeters, 0)).As(),
+                    focalLength.Traverse(static focal => Rational(TiffTag.EXIF_FOCALLENGTH, (float)focal.Millimeters, 0)).As(),
                     aperture.Traverse(static stop => Rational(TiffTag.EXIF_FNUMBER, stop, 0)).As())
                 .Apply((_, matrix, gain, focal, stop) => (StillFormat)new Dng(frame, matrix, gain, focal, stop))
                 .As();

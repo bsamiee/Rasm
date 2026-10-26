@@ -2,7 +2,6 @@ using Rasm.Drafting;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Runtime;
-using UnitsNet;
 
 namespace Rasm.Rhino.Viewport.Printing;
 
@@ -22,11 +21,8 @@ public static class Printers {
                     (orientation, new PrinterMargins(Length.FromMillimeters(left), Length.FromMillimeters(top), Length.FromMillimeters(right), Length.FromMillimeters(bottom)))))))))
             .Strict());
 
-    public static IO<(PixelDensity Horizontal, PixelDensity Vertical)> Resolution(string printer) =>
-        IO.lift(() => (Density(printer, horizontal: true), Density(printer, horizontal: false)).Apply(static (across, down) => (across, down)).As());
-
-    private static Fin<PixelDensity> Density(string printer, bool horizontal) =>
-        PixelDensity.Validated(HostUtils.GetPrinterDPI(printer, horizontal)).MapFail(static _ => new Refused(nameof(HostUtils.GetPrinterDPI), Refused.Declined));
+    public static IO<(double Horizontal, double Vertical)> Resolution(string printer) =>
+        IO.lift(() => (HostUtils.GetPrinterDPI(printer, horizontal: true), HostUtils.GetPrinterDPI(printer, horizontal: false)));
 
     // --- [CUSTOM_PAGES]
     public static IO<T> WithCustomPages<T>(Seq<PrintedPageDefinition> pages, IO<T> write) =>

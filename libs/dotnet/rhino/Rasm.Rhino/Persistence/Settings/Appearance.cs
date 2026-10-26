@@ -178,7 +178,7 @@ internal static class Accessors {
     internal static extern int ResizerWidth([UnsafeAccessorType("Rhino.UI.Internal.TabPanels.Controls.DockSiteResizer, Rhino.UI")] object? owner);
 }
 
-public static class Appearance {
+public static class AppearanceOptions {
     // --- [CHANGES]
     private static readonly HostEvent<EventArgs> PromptStyleChanged = Subscriptions.Host<EventHandler, EventArgs>(
         typeof(Accessors),
@@ -224,7 +224,7 @@ public static class Appearance {
             Some(same));
 
     private static ValueStore<T> Live<T>(IO<T> read, IO<T> factory, Func<T, IO<Unit>> write, Option<Func<T, T, bool>> same = default) where T : notnull =>
-        ValueStore.Defaulted(read, factory, write, same.IfNone(EqualityComparer<T>.Default.Equals), Applied.Live, AppSettings.Changed);
+        ValueStores.Defaulted(read, factory, write, same.IfNone(EqualityComparer<T>.Default.Equals), Applied.Live, AppSettings.Changed);
 
     private static ValueStore<bool> Native(Func<object?, bool, bool> get, Action<object?, bool> set,
         [CallerArgumentExpression(nameof(get))] string getter = "", [CallerArgumentExpression(nameof(set))] string setter = "") =>
@@ -262,14 +262,14 @@ public static class Appearance {
         from keys in ThemeKeys()
         from known in IO.lift(keys.Exists(entry => string.Equals(entry, key, StringComparison.Ordinal)) ? Fin.Succ(unit) : new NotFound("theme key", key))
         from node in Accessors.Scoped(nameof(Accessors.Settings), IO.lift(static () => Accessors.Settings(owner: null)))
-        select ValueStore.Of(
-            IO.lift(() => SettingType.Color.Read(node, key)),
+        select ValueStores.Of(
+            IO.lift(() => Callbacks.Found(node.TryGetColor(key, out Color held), held)),
             color =>
                 from writable in IO.lift(() => PlugInSettings.Writable(node, key))
-                from written in IO.lift(() => SettingType.Color.Write(node, key, color))
-                select written,
+                from written in IO.lift(() => color.Match(Some: held => node.SetColor(key, held), None: () => node.DeleteItem(key)))
+                select unit,
             Applied.IdleSave,
-            Some(ValueStore.Signal(EventKind.ThemeChanged, static _ => true)), Some(Conversions.Same));
+            Some(ValueStores.Signal(EventKind.ThemeChanged, static _ => true)), Some(Conversions.Same));
 
     // --- [PROMPT]
     private const string GetPresentationStyle = "Rhino.UI.Internal.DockBars.CommandLine.GetPresentationStyle";
@@ -303,20 +303,21 @@ public static class Appearance {
         select shown;
 
     public static ValueStore<Enum> PromptStyle { get; } =
-        ValueStore.Of(
+        ValueStores.Of(
             from found in SettingRoots.TryGetChild(SettingsNode.Options)
-            from raw in IO.lift(() => found.Traverse(static node => SettingType.Enumeration(PromptStyleType).Read(node, StyleName)).As())
-            from style in IO.lift(() => raw.Flatten().Traverse(static K<Fin, Enum> (held) => Defined(PromptStyleType, held)).As())
+            from text in IO.lift(() => found.Bind(static node => node.TryGetString(StyleName, out string? held) ? Optional(held) : None))
+            from style in IO.lift(() => text.Traverse(static K<Fin, Enum> (held) =>
+                Enum.TryParse(PromptStyleType, held, ignoreCase: false, out object? parsed) ? Defined(PromptStyleType, (Enum)parsed) : Errors.ParseError($"{held} is no {PromptStyleType.Name}")).As())
             select style,
             static style =>
                 from validated in IO.lift(() => style.Traverse(static K<Fin, Enum> (held) => Defined(PromptStyleType, held)).As())
                 from node in SettingRoots.AddChild(SettingsNode.Options)
                 from writable in IO.lift(() => PlugInSettings.Writable(node, StyleName))
-                from written in IO.lift(() => SettingType.Enumeration(PromptStyleType).Write(node, StyleName, validated))
+                from written in IO.lift(() => validated.Match(Some: held => node.SetString(StyleName, held.ToString()), None: () => node.DeleteItem(StyleName)))
                 from raised in Accessors.Scoped(nameof(Accessors.PromptStyleChanged), IO.lift(static () => Accessors.PromptStyleChanged(owner: null)?.Invoke(sender: null, EventArgs.Empty)))
                 select raised,
             Applied.Live,
-            Some(ValueStore.Signal(PromptStyleChanged, static _ => true)));
+            Some(ValueStores.Signal(PromptStyleChanged, static _ => true)));
 
     private static Fin<Enum> Defined(Type type, Enum held) =>
         held.GetType() == type && Enum.IsDefined(type, held) ? held : Error.New(ErrorCodes.ValidationFailed, $"{held} is no defined {type.Name}");
@@ -362,7 +363,7 @@ public static class Appearance {
         Strip("SelectionFilterIconSize", Accessors.Scoped(nameof(Accessors.SelectionFilterIconSize), IO.lift(static () => Accessors.SelectionFilterIconSize(owner: null))));
 
     private static ValueStore<int> Sized<TArgs>(string member, IO<int> current, IO<int> factory, IO<(int Minimum, int Maximum)> limits, Func<int, IO<Unit>> set, Applied applied, HostEvent<TArgs> changed) =>
-        ValueStore.Defaulted(
+        ValueStores.Defaulted(
             current,
             factory,
             size =>
@@ -374,7 +375,7 @@ public static class Appearance {
                 select written,
             EqualityComparer<int>.Default.Equals,
             applied,
-            Some(ValueStore.Signal(changed, static _ => true)));
+            Some(ValueStores.Signal(changed, static _ => true)));
 
     private static ValueStore<int> ToolbarSize(IO<object> setting) =>
         Sized(
@@ -390,7 +391,7 @@ public static class Appearance {
             SettingChanged);
 
     private static ValueStore<int> Strip(string name, IO<int> current) =>
-        ValueStore.Defaulted(
+        ValueStores.Defaulted(
             current,
             from registered in current
             from node in SettingRoots.AddChild(SettingsNode.Application)
@@ -399,7 +400,7 @@ public static class Appearance {
             size =>
                 from node in SettingRoots.AddChild(SettingsNode.Application)
                 from writable in IO.lift(() => PlugInSettings.Writable(node, name))
-                from written in IO.lift(() => SettingType.Integer.Set(node, name, size))
+                from written in IO.lift(() => node.SetInteger(name, size))
                 from clamped in current
                 select unit,
             EqualityComparer<int>.Default.Equals,
@@ -422,7 +423,7 @@ public static class Appearance {
         from even in IO.lift((row - glyph) % 2 is 0 ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"row {row} minus glyph {glyph} is odd")))
         from inset in Accessors.Scoped(nameof(Accessors.ItemPadding), IO.lift(static () => Accessors.ItemPadding(owner: null).Height))
         let tab = stripHeight - (2 * inset)
-        from committed in ValueStore.Commit(Seq(
+        from committed in ValueStores.Commit(Seq(
             ButtonPadding.Edit(Some((row - glyph) / 2)),
             ToolBarImageSize.Edit(Some(glyph)),
             TabIconSize.Edit(Some(tab)),

@@ -19,14 +19,14 @@ internal sealed partial class ChannelLayout {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Channels {
     // --- [IDENTITY]
-    public static Rectangle Extent(PostEffectPipeline pipeline) => new(Point.Empty, pipeline.Dimensions());
+    public static Rectangle Extent(PostEffectPipeline pipeline) => new(default, pipeline.Dimensions());
 
     public static Guid[] Required(Seq<RenderWindow.StandardChannels> channels) =>
         [.. RenderWindow.StandardChannels.RGBA.Cons(channels).Distinct().Map(RenderWindow.ChannelId)];
 
     // --- [PIXELS]
     public static Fin<float[]> Read(RenderWindow.Channel cpu, Rectangle rect) =>
-        from layout in ChannelLayout.Validated(cpu.PixelSize())
+        from layout in Fin.Succ(ChannelLayout.Get(cpu.PixelSize()))
         from stride in Refused.Unless(
             rect is { X: >= 0, Y: >= 0, Width: > 0, Height: > 0 } && rect.Right <= cpu.Width && rect.Bottom <= cpu.Height && (long)rect.Width * layout.Key <= int.MaxValue,
             rect.Width * layout.Key, nameof(RenderWindow.Channel.GetValues))

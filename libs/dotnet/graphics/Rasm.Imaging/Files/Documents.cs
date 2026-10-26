@@ -20,16 +20,16 @@ namespace Rasm.Imaging.Files;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DocumentLayer {
-    private DocumentLayer(PassName name, float opacity, bool visible) => (Name, Opacity, Visible) = (name, opacity, visible);
+    private DocumentLayer(string name, float opacity, bool visible) => (Name, Opacity, Visible) = (name, opacity, visible);
 
-    public PassName Name { get; }
+    public string Name { get; }
     public float Opacity { get; }
     public bool Visible { get; }
 
-    public sealed record Raster(PassName Name, PixelFrame Frame, BlendingMode Mode, float Opacity, bool Visible, Option<Coverage.Matte> Mask) : DocumentLayer(Name, Opacity, Visible);
-    public sealed record Folder(PassName Name, Option<BlendingMode> Mode, float Opacity, bool Visible, bool Open, Seq<DocumentLayer> Children) : DocumentLayer(Name, Opacity, Visible);
+    public sealed record Raster(string Name, PixelFrame Frame, BlendingMode Mode, float Opacity, bool Visible, Option<Coverage.Matte> Mask) : DocumentLayer(Name, Opacity, Visible);
+    public sealed record Folder(string Name, Option<BlendingMode> Mode, float Opacity, bool Visible, bool Open, Seq<DocumentLayer> Children) : DocumentLayer(Name, Opacity, Visible);
 
-    public static DocumentLayer Identities(PassName name, PixelFrame ids, Seq<IdentityLayer> entries) =>
+    public static DocumentLayer Identities(string name, PixelFrame ids, Seq<IdentityLayer> entries) =>
         new Folder(name, None, 1f, Visible: true, Open: false, entries.Map(entry => (DocumentLayer)new Raster(
             entry.Name,
             new PixelFrame(ids.Origin, ids.Size, ids.Extent, block =>

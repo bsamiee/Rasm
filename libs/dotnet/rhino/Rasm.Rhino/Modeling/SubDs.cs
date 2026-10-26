@@ -7,43 +7,17 @@ using Rhino.Geometry.Collections;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct SubdivisionCount : System.Numerics.IMinMaxValue<SubdivisionCount> {
-    public static SubdivisionCount MinValue { get; } = new(1);
-    public static SubdivisionCount MaxValue { get; } = new(int.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<SubDVertexTag>(SkipIParsable = true, SkipIComparable = true)]
-public readonly partial struct VertexTag {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SubDVertexTag value) =>
-        validationError = value is SubDVertexTag.Smooth or SubDVertexTag.Corner ? null : new ValidationError($"{value} is no tag a vertex keeps");
-}
-
-[ValueObject<SubDEdgeTag>(SkipIParsable = true, SkipIComparable = true)]
-public readonly partial struct EdgeTag {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SubDEdgeTag value) =>
-        validationError = value is SubDEdgeTag.Smooth or SubDEdgeTag.Crease ? null : new ValidationError($"{value} is no tag an edge keeps");
-}
-
-[ValueObject<SubDEdgeSharpness>(SkipIParsable = true)]
-public readonly partial struct EdgeSharpness {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SubDEdgeSharpness value) =>
-        validationError = value.IsValidOrCrease ? null : new ValidationError($"{value} is neither a valid sharpness nor a crease");
-}
-
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SubDEdit {
-    public sealed record Subdivide(SubdivisionCount Count) : SubDEdit;
+    public sealed record Subdivide(int Count) : SubDEdit;
     public sealed record SubdivideFaces(Seq<uint> Faces) : SubDEdit;
     public sealed record SetControlNetPoints(HashMap<uint, Point3d> Moved) : SubDEdit;
     public sealed record InterpolateSurfacePoints(HashMap<uint, Point3d> Moved) : SubDEdit;
     public sealed record SetVertexSurfacePoint(uint Vertex, Point3d SurfacePoint) : SubDEdit;
     public sealed record TransformComponents(Seq<ComponentIndex> Components, Transform Xform, SubDComponentLocation ComponentLocation) : SubDEdit;
-    public sealed record SetVertexTags(Seq<uint> Vertices, VertexTag Tag) : SubDEdit;
-    public sealed record SetEdgeTags(Seq<uint> Edges, EdgeTag Tag) : SubDEdit;
-    public sealed record SetEdgeSharpness(Seq<(uint Edge, EdgeSharpness Sharpness)> Edges, bool PreserveSymmetry) : SubDEdit;
+    public sealed record SetVertexTags(Seq<uint> Vertices, SubDVertexTag Tag) : SubDEdit;
+    public sealed record SetEdgeTags(Seq<uint> Edges, SubDEdgeTag Tag) : SubDEdit;
+    public sealed record SetEdgeSharpness(Seq<(uint Edge, SubDEdgeSharpness Sharpness)> Edges, bool PreserveSymmetry) : SubDEdit;
     public sealed record ClearEdgeSharpness : SubDEdit;
     public sealed record MergeAllCoplanarFaces : SubDEdit;
     public sealed record PackFaces : SubDEdit;
@@ -57,7 +31,7 @@ public abstract partial record SubDEdit {
     public IO<EditStep<SubD, uint>> Step(Tolerances tolerances, SubD subd, Action<IDisposable> retain) =>
         Switch(
             (SubD: subd, Tolerances: tolerances, Retain: retain),
-            subdivide: static (at, of) => Copies.Acquire(nameof(SubD.Subdivide), _ => Tagged(at.SubD, at.SubD.Subdivide((int)of.Count), Edits.Accepted<SubD, uint>), at.Retain),
+            subdivide: static (at, of) => Copies.Acquire(nameof(SubD.Subdivide), _ => Tagged(at.SubD, at.SubD.Subdivide(of.Count), Edits.Accepted<SubD, uint>), at.Retain),
             subdivideFaces: static (at, of) =>
                 IO.lift(() => Within(at.SubD, ComponentIndexType.SubdFace, of.Faces))
                 >> Copies.Acquire(nameof(SubD.Subdivide), _ => Tagged(at.SubD, at.SubD.Subdivide(of.Faces.Map(static id => (int)id)), Edits.Accepted<SubD, uint>), at.Retain),
@@ -88,20 +62,20 @@ public abstract partial record SubDEdit {
             setVertexTags: static (at, of) =>
                 IO.lift(() => Within(at.SubD, ComponentIndexType.SubdVertex, of.Vertices))
                 >> Copies.Acquire(nameof(SubDVertexList.SetVertexTags), _ => {
-                    at.SubD.Vertices.SetVertexTags(of.Vertices.Map(static id => (int)id), (SubDVertexTag)of.Tag);
+                    at.SubD.Vertices.SetVertexTags(of.Vertices.Map(static id => (int)id), of.Tag);
                     return Tagged(at.SubD, unit, static (edited, _) => Edits.Completed<SubD, uint>(edited));
                 }, at.Retain),
             setEdgeTags: static (at, of) =>
                 IO.lift(() => Within(at.SubD, ComponentIndexType.SubdEdge, of.Edges))
                 >> Copies.Acquire(nameof(SubDEdgeList.SetEdgeTags), _ => {
-                    at.SubD.Edges.SetEdgeTags(of.Edges.Map(static id => (int)id), (SubDEdgeTag)of.Tag);
+                    at.SubD.Edges.SetEdgeTags(of.Edges.Map(static id => (int)id), of.Tag);
                     return Tagged(at.SubD, unit, static (edited, _) => Edits.Completed<SubD, uint>(edited));
                 }, at.Retain),
             setEdgeSharpness: static (at, of) =>
                 IO.lift(() => Within(at.SubD, ComponentIndexType.SubdEdge, of.Edges.Map(static row => row.Edge)))
                 >> Copies.Acquire(nameof(SubD.SetEdgeSharpness), _ => Tagged(
                     at.SubD,
-                    at.SubD.SetEdgeSharpness(of.Edges.Map(row => at.SubD.Edges.Find(row.Edge)), of.Edges.Map(static row => (SubDEdgeSharpness)row.Sharpness), of.PreserveSymmetry),
+                    at.SubD.SetEdgeSharpness(of.Edges.Map(row => at.SubD.Edges.Find(row.Edge)), of.Edges.Map(static row => row.Sharpness), of.PreserveSymmetry),
                     Edits.Count), at.Retain),
             clearEdgeSharpness: static (at, _) => Copies.Acquire(nameof(SubD.ClearEdgeSharpness), _ => Tagged(at.SubD, at.SubD.ClearEdgeSharpness(), Edits.Count), at.Retain),
             mergeAllCoplanarFaces: static (at, _) => Copies.Acquire(nameof(SubD.MergeAllCoplanarFaces), _ =>
@@ -166,7 +140,7 @@ public abstract partial record SubDEdit {
 
     private static Fin<(Seq<SubDEdge> Edges, bool Closed)> Boundary(Seq<(Seq<SubDEdge> Edges, bool Closed)> boundaries, uint edge) =>
         boundaries.Filter(boundary => boundary.Edges.Exists(link => link.Id == edge)).Head
-            .ToFin(Error.New(ErrorCodes.ValidationFailed, $"SubdEdge {edge} is no boundary edge"));
+            .ToFin(new RhinoFault($"SubdEdge {edge} is no boundary edge"));
 
     private static Seq<SubDEdge> Anchored((Seq<SubDEdge> Edges, bool Closed) boundary, uint edge) =>
         (boundary.Closed ? boundary.Edges.TakeWhile(link => link.Id != edge).Count : 0) switch {

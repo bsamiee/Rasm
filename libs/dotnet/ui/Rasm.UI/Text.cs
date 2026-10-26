@@ -10,7 +10,7 @@ using Topten.RichTextKit.Editor;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record TextStyle(Topten.RichTextKit.Style Style, SKTypeface Typeface, Seq<Feature> Features);
+public sealed record TextStyle(Style Style, SKTypeface Typeface, Seq<Feature> Features);
 
 public sealed record Glyphs(IStyle Style, SKTypeface Typeface, Arr<ushort> Ids, Arr<SKPoint> Points, SKPoint Origin, float Advance);
 
@@ -83,7 +83,7 @@ public sealed class Editor : ITextDocumentView {
 
     internal static Option<Func<Editor, IO<Seq<Edit<string>>>>> Operation(Laid.Text next, Gesture.Perform perform) =>
         perform.Act.SwitchPartially(
-            (Laid: next, Extend: perform.Modifiers.Contains(Modifier.Shift), Single: Single(next.Source)),
+            (Laid: next, Extend: perform.Modifiers.Shift, Single: Single(next.Source)),
             @default: static (_, _) => Option<Func<Editor, IO<Seq<Edit<string>>>>>.None,
             confirm: static (held, _) => Some(fun((Editor editor) => held.Single ? editor.Committed() : editor.Changed(held.Laid, () => editor.Inserted("\n")))),
             cancel: static (_, _) => Some(fun(static (Editor editor) => editor.Cancelled())),
@@ -101,7 +101,7 @@ public sealed class Editor : ITextDocumentView {
     private void Pointed(Gesture.Press press, SKPoint local) =>
         selection = press switch {
             { Dragged.IsNone: true, Clicks: >= 2 } => Clamped(document.GetSelectionRange(selection.CaretPosition, press.Clicks is 2 ? SelectionKind.Word : SelectionKind.Paragraph)),
-            { Dragged.IsNone: true } when !press.Modifiers.Contains(Modifier.Shift) => Clamped(new TextRange(At(local))),
+            { Dragged.IsNone: true } when !press.Modifiers.Shift => Clamped(new TextRange(At(local))),
             _ => At(local) switch { var at => Clamped(new TextRange(selection.Start, at.CodePointIndex, at.AltPosition)) },
         };
 
@@ -119,14 +119,14 @@ public sealed class Editor : ITextDocumentView {
             return string.Equals(Text, before, StringComparison.Ordinal) ? Seq<Edit<string>>() : [new Edit<string>.Preview(Text)];
         });
 
-    private void Moved(Navigation toward, bool extend) {
+    private void Moved(NavigationDirection toward, bool extend) {
         float? remembered = ghost.ToNullable();
         CaretPosition moved = document.Navigate(selection.CaretPosition, toward.Key, laid.ContentBox.Height, ref remembered);
         ghost = Optional(remembered);
         selection = Clamped(extend ? new TextRange(selection.Start, moved.CodePointIndex, moved.AltPosition) : new TextRange(moved));
     }
 
-    private void Erased(Option<Navigation> toward) {
+    private void Erased(Option<NavigationDirection> toward) {
         float? held = null;
         CaretPosition caret = selection.CaretPosition;
         Option<int> target = selection.IsRange ? None : toward.Map(navigation => document.Navigate(caret, navigation.Key, 0f, ref held).CodePointIndex);
@@ -189,7 +189,7 @@ public sealed class Editor : ITextDocumentView {
     }
 
     // --- [PAINT]
-    internal void Paint(SKCanvas canvas, Laid.Text next, SKRect content, TextPaintOptions raster, SKColor highlight, SKColor ink, float caret) {
+    internal void Paint(SKCanvas canvas, Laid.Text next, SKRect content, TextPaintOptions raster, SKColor highlight, SKColor caretColor, float caret) {
         Synced(next);
         TextPaintOptions options = raster.Clone();
         options.Selection = selection.IsRange ? selection : null;
@@ -199,7 +199,7 @@ public sealed class Editor : ITextDocumentView {
         canvas.Translate(next.Origin.X - scroll, next.Origin.Y);
         document.Paint(canvas, 0f, content.Height, options);
         if (selection.IsRange || caret <= 0f) return;
-        using SKPaint paint = new() { Color = ink, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = caret };
+        using SKPaint paint = new() { Color = caretColor, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = caret };
         SKRect at = document.GetCaretInfo(selection.CaretPosition).CaretRectangle;
         canvas.DrawLine(at.Right + (caret / 2f), at.Top, at.Left + (caret / 2f), at.Bottom, paint);
     }
@@ -224,19 +224,19 @@ public sealed class Editor : ITextDocumentView {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Typesetting {
     // --- [RESOLVE]
-    private static readonly Topten.RichTextKit.Style Plain = new();
+    private static readonly Style Plain = new();
 
-    private static readonly Func<(TextFace Face, float Size, SKColor Ink, SKColor Halo), TextStyle> Faces = memo<(TextFace Face, float Size, SKColor Ink, SKColor Halo), TextStyle>(Faced);
+    private static readonly Func<(TextFace Face, float Size, SKColor Color, SKColor Halo), TextStyle> Faces = memo<(TextFace Face, float Size, SKColor Color, SKColor Halo), TextStyle>(Faced);
 
-    public static TextStyle Resolve(Cascade within, Styling.Style style) =>
+    public static TextStyle Resolve(Cascade within, RoleStyle style) =>
         within.Theme.Face.Combine(style.Look.Face) switch {
             var face => Faces((face, within.Theme.FontSize * style.Metrics[Metric.FontSize],
-                within.Theme.Color(style.Text, style, None, None).Map(ink => (SKColor)Styles.Legible(style, within.Ground, ink, within.Theme.Contrast.Text)).IfNone(SKColors.Transparent),
-                face.Halo.Bind(halo => within.Theme.Color(halo.Ink, style, None, None)).Map(static halo => (SKColor)halo).IfNone(Plain.HaloColor))),
+                within.Theme.Color(style.Text, style, None, None).Map(color => (SKColor)Styles.Legible(style, within.Ground, color, within.Theme.Contrast.Text)).IfNone(SKColors.Transparent),
+                face.Halo.Bind(halo => within.Theme.Color(halo.Color, style, None, None)).Map(static halo => (SKColor)halo).IfNone(Plain.HaloColor))),
         };
 
-    private static TextStyle Faced((TextFace Face, float Size, SKColor Ink, SKColor Halo) held) {
-        Topten.RichTextKit.Style resolved = new() {
+    private static TextStyle Faced((TextFace Face, float Size, SKColor Color, SKColor Halo) held) {
+        Style resolved = new() {
             FontFamily = held.Face.Family.IfNone(Plain.FontFamily),
             FontSize = held.Size,
             FontWeight = held.Face.Weight.Map(static weight => (int)weight).IfNone(Plain.FontWeight),
@@ -247,7 +247,7 @@ public static class Typesetting {
             Underline = held.Face.Underline.IfNone(Plain.Underline),
             StrikeThrough = held.Face.StrikeThrough.IfNone(Plain.StrikeThrough),
             FontVariant = held.Face.Variant.IfNone(Plain.FontVariant),
-            TextColor = held.Ink,
+            TextColor = held.Color,
             HaloColor = held.Halo,
             HaloWidth = held.Face.Halo.Map(static halo => halo.Width).IfNone(Plain.HaloWidth),
             HaloBlur = held.Face.Halo.Map(static halo => halo.Blur).IfNone(Plain.HaloBlur),
@@ -364,15 +364,15 @@ public static class Typesetting {
     private static SKRect Union(SKRect held, SKRect next) => held.IsEmpty ? next : next.IsEmpty ? held : SKRect.Union(held, next);
 
     // --- [PAINT]
-    internal static void Paint(SKCanvas canvas, PaintCache cache, Laid.Text laid, SKColor ink) =>
+    internal static void Paint(SKCanvas canvas, PaintCache cache, Laid.Text laid, SKColor color) =>
         laid.Typeset.Switch(
-            (Canvas: canvas, Cache: cache, Laid: laid, Ink: ink, Resting: laid.TextStyle.Style.TextColor),
-            block: static (held, block) => (held.Ink == held.Resting ? block.Lines : Reinked(block.Lines, held.Resting, held.Ink)).Paint(held.Canvas, held.Laid.Origin, held.Cache.Raster),
+            (Canvas: canvas, Cache: cache, Laid: laid, Color: color, Resting: laid.TextStyle.Style.TextColor),
+            block: static (held, block) => (held.Color == held.Resting ? block.Lines : Recolored(block.Lines, held.Resting, held.Color)).Paint(held.Canvas, held.Laid.Origin, held.Cache.Raster),
             featured: static (held, featured) => held.Cache.Blobs(held.Laid, featured).Iter(run => Lettered(
                 held.Canvas, run.Style, run.Blob, featured.Runs.Filter(glyphs => ReferenceEquals(glyphs.Style, run.Style)), held.Laid.Origin,
-                run.Style.TextColor == held.Resting ? held.Ink : run.Style.TextColor)));
+                run.Style.TextColor == held.Resting ? held.Color : run.Style.TextColor)));
 
-    private static void Lettered(SKCanvas canvas, IStyle style, SKTextBlob blob, Seq<Glyphs> runs, SKPoint origin, SKColor ink) {
+    private static void Lettered(SKCanvas canvas, IStyle style, SKTextBlob blob, Seq<Glyphs> runs, SKPoint origin, SKColor color) {
         Seq<(SKPoint From, SKPoint To, float Width)> rules = runs.Bind(run => Ruled(style, run, blob)).Strict();
         using SKAutoCanvasRestore restore = new(canvas);
         canvas.Translate(origin.X, origin.Y);
@@ -388,7 +388,7 @@ public static class Typesetting {
             halo.StrokeWidth = style.HaloWidth;
             canvas.DrawText(blob, 0f, 0f, halo);
         }
-        using SKPaint fill = new() { Color = ink, IsAntialias = true };
+        using SKPaint fill = new() { Color = color, IsAntialias = true };
         canvas.DrawText(blob, 0f, 0f, fill);
         _ = rules.Iter(rule => {
             fill.StrokeWidth = rule.Width;
@@ -417,10 +417,10 @@ public static class Typesetting {
             : underlined.Add((new SKPoint(start, struck), new SKPoint(end, struck), float.Max(metrics.StrikeoutThickness ?? 1f, 1f)));
     }
 
-    private static TextBlock Reinked(TextBlock block, SKColor rest, SKColor ink) {
+    private static TextBlock Recolored(TextBlock block, SKColor rest, SKColor color) {
         TextBlock inked = block.Copy(0, block.Length);
         _ = toSeq(block.StyleRuns)
-            .Choose(run => Optional(run.Style as Topten.RichTextKit.Style).Filter(style => style.TextColor == rest).Map(style => (run.Start, run.Length, Style: style.Modify(textColor: ink))))
+            .Choose(run => Optional(run.Style as Style).Filter(style => style.TextColor == rest).Map(style => (run.Start, run.Length, Style: style.Modify(textColor: color))))
             .Iter(run => inked.ApplyStyle(run.Start, run.Length, run.Style));
         return inked;
     }

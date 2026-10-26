@@ -8,6 +8,7 @@ namespace Rasm.Drafting;
 [ValueObject<QuantityValue>(ConstructorAccessModifier = AccessModifier.Internal, SkipIParsable = true, SkipToString = true, SkipIFormattable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
     MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+[ValidationError<DraftingFault>]
 public readonly partial struct DrawingScale {
     public Length ToModel(Length paper) => paper / _value;
     public Length ToPaper(Length model) => model * _value;
@@ -15,8 +16,8 @@ public readonly partial struct DrawingScale {
     public override string ToString() =>
         QuantityValue.Reduce(_value) switch { (var paper, var model) => string.Create(CultureInfo.InvariantCulture, $"{paper}:{model}") };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref QuantityValue value) =>
-        validationError = QuantityValue.IsFinite(value) && value > QuantityValue.Zero ? null : new ValidationError("drawing scale must be finite and positive");
+    static partial void ValidateFactoryArguments(ref DraftingFault? validationError, ref QuantityValue value) =>
+        validationError = QuantityValue.IsFinite(value) && value > QuantityValue.Zero ? null : new DraftingFault("drawing scale must be finite and positive");
 }
 
 [SmartEnum<string>]

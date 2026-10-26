@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Globalization;
 using Eto.Forms;
 using Rasm.Rhino.Events;
@@ -12,7 +13,6 @@ using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
-using NativeDataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
 namespace Rasm.Rhino.UI;
 
@@ -201,7 +201,7 @@ public abstract class DefinedContentSection : EtoContentUISection3 {
         Subscriptions.Attach(
             handler => DataChanged += handler,
             handler => DataChanged -= handler,
-            Callbacks.Handler<NativeDataSourceEventArgs>(args => when(args.DataType == ProviderIds.ContentSelection, held.Reread).As(), CallbackSite.Of(owner, this, nameof(DataChanged))), retain);
+            Callbacks.Handler<global::Rhino.UI.Controls.DataSource.EventArgs>(args => when(args.DataType == ProviderIds.ContentSelection, held.Reread).As(), CallbackSite.Of(owner, this, nameof(DataChanged))), retain);
 
     // --- [RELEASE]
     protected override void Dispose(bool disposing) {
@@ -234,12 +234,12 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
     // --- [IDENTITY]
     public override string LocalPageTitle => RowText.Localize(row.Caption, owner).Local;
 
-    public override System.Drawing.Image? PageImage =>
+    public override Image? PageImage =>
         Callbacks.Answer(
-            new System.Drawing.Size(128, 128) switch {
+            new Size(128, 128) switch {
                 var size => row.Icon.Match(
-                    Some: glyph => Icons.Raster(glyph, size).Map(static System.Drawing.Image? (bitmap) => bitmap),
-                    None: () => IO.lift(System.Drawing.Image? () => owner.PlugIn.Icon(size))),
+                    Some: glyph => Icons.Raster(glyph, size).Map(static Image? (bitmap) => bitmap),
+                    None: () => IO.lift(Image? () => owner.PlugIn.Icon(size))),
             },
             static () => null, CallbackSite.Of(owner, this));
 
@@ -327,9 +327,9 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row, IPlugInView
             paired: static (own, art) => art.Assembly == own ? Some(art.Light) : None,
             picture: static (_, _) => Option<string>.None)).ValueUnsafe();
 
-    public override System.Drawing.Icon? PageIcon(System.Drawing.Size sizeInPixels) =>
+    public override Icon? PageIcon(Size sizeInPixels) =>
         Callbacks.Answer(row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph, sizeInPixels)).As(),
-            static () => Option<System.Drawing.Icon>.None, CallbackSite.Of(owner, this)).ValueUnsafe();
+            static () => Option<Icon>.None, CallbackSite.Of(owner, this)).ValueUnsafe();
 
     public override object? PageControl => page.Value.Map(static object (held) => held.Host).ValueUnsafe();
 
@@ -344,7 +344,7 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row, IPlugInView
                 objects: static (state, _) => state.Objects(state.Args),
                 viewport: static (state, held) => Optional(state.Args.Viewport).Exists(port => held.ViewportTypes.Contains(port.ViewportType))))
             from shown in included
-                ? RowScope.Open(owner, Optional(e.Document), new CommitMode.Targets(this)).Bind(scope => RowRules.Holds(row.Visible, scope))
+                ? RowScope.Open(owner, Optional(e.Document), new CommitMode.Targets(this)).Bind(scope => CommandRows.Holds(row.Visible, scope))
                 : IO.pure(value: false)
             select shown,
             static () => false,

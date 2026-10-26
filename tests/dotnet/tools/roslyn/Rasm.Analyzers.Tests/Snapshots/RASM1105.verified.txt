@@ -1,2 +1,2 @@
-#0 Smart enum `Modifier` holds items with no key, data, or behavior, declare it as a plain `enum`
-#1 Smart enum `Glass` keys its items by their member names and nothing reads a key, declare it as a plain `enum` under `JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower)`
+#0 Smart enum `Modifier` holds items with no key, data, or behavior, move switch behavior onto items, declare cases differing in shape as a union of records, or store a tag one host conversion reads on its record
+#1 Smart enum `Glass` keys items by member names and no code reads a key, move switch behavior onto items, declare cases differing in shape as a union of records, or store a tag one host conversion reads on its record

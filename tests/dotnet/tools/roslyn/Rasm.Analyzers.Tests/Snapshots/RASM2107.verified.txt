@@ -1,2 +1,2 @@
 #0 `typeof(RhinoDoc)` names the owner of event `EndOpenDocument` on `Accessors`
-#1 `typeof(Rhino.Internal.Settings)` names the owner of event `add_Hidden` on `Accessors`
+#1 `typeof(Rhino.RhinoApp)` names the owner of event `add_Idle` on `Accessors`

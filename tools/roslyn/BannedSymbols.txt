@@ -97,9 +97,6 @@ M:Thinktecture.Empty.Action``16(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``1
 M:Thinktecture.Empty.Disposable;Declare the optional callback as an `init` member holding its default
 M:Thinktecture.Empty.AsyncDisposable;Declare the optional callback as an `init` member holding its default
 P:System.Reactive.Disposables.Disposable.Empty;Declare the optional callback as an `init` member holding its default
-M:Rhino.Runtime.CommonObject.ToJSON(Rhino.FileIO.SerializationOptions);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
-M:Rhino.Runtime.CommonObject.FromJSON(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
-M:Rhino.Runtime.CommonObject.FromJSON(System.Collections.Generic.Dictionary{System.String,System.String});String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
 M:Rhino.Runtime.CommonObject.FromBase64String(System.Int32,System.Int32,System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
 M:Rhino.Geometry.SerializableExtensions.ToEncodedString(System.Runtime.Serialization.ISerializable);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
 M:Rhino.Geometry.SerializableExtensions.FromEncodedString``1(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
@@ -129,23 +126,23 @@ M:Rhino.PersistentSettings.GetSettingType(System.String);Throws on a missing key
 M:Rhino.PersistentSettings.GetSettingIsReadOnly(System.String);Throws on a missing key, read through `TryGetSettingIsReadOnly(key, out readOnly)`
 M:Rhino.PersistentSettings.GetSettingIsHiddenFromUserInterface(System.String);Throws on a missing key, read through `TryGetSettingIsHiddenFromUserInterface(key, out hidden)`
 M:Rhino.PersistentSettings.GetSettingIsHiddenFromUserInterface(System.String,System.Collections.Generic.IEnumerable{System.String});Throws on a missing key, read through `TryGetSettingIsHiddenFromUserInterface(key, out hidden)`
-M:Rhino.PersistentSettings.GetBool(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetByte(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetInteger(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetUnsignedInteger(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetDouble(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetChar(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetString(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetStringDictionary(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetStringList(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetDate(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetColor(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetGuid(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetPoint(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetPoint3d(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetSize(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetRectangle(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
-M:Rhino.PersistentSettings.GetEnumValue``1(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetBool(System.String);Throws on a missing key, read through `TryGetBool(key, out value)`
+M:Rhino.PersistentSettings.GetByte(System.String);Throws on a missing key, read through `TryGetByte(key, out value)`
+M:Rhino.PersistentSettings.GetInteger(System.String);Throws on a missing key, read through `TryGetInteger(key, out value)`
+M:Rhino.PersistentSettings.GetUnsignedInteger(System.String);Throws on a missing key, read through `TryGetUnsignedInteger(key, out value)`
+M:Rhino.PersistentSettings.GetDouble(System.String);Throws on a missing key, read through `TryGetDouble(key, out value)`
+M:Rhino.PersistentSettings.GetChar(System.String);Throws on a missing key, read through `TryGetChar(key, out value)`
+M:Rhino.PersistentSettings.GetString(System.String);Throws on a missing key, read through `TryGetString(key, out value)`
+M:Rhino.PersistentSettings.GetStringDictionary(System.String);Throws on a missing key, test `ContainsKey(key)` before the read
+M:Rhino.PersistentSettings.GetStringList(System.String);Throws on a missing key, read through `TryGetStringList(key, out value)`
+M:Rhino.PersistentSettings.GetDate(System.String);Throws on a missing key, read through `TryGetDate(key, out value)`
+M:Rhino.PersistentSettings.GetColor(System.String);Throws on a missing key, read through `TryGetColor(key, out value)`
+M:Rhino.PersistentSettings.GetGuid(System.String);Throws on a missing key, read through `TryGetGuid(key, out value)`
+M:Rhino.PersistentSettings.GetPoint(System.String);Throws on a missing key, read through `TryGetPoint(key, out value)`
+M:Rhino.PersistentSettings.GetPoint3d(System.String);Throws on a missing key, read through `TryGetPoint3d(key, out value)`
+M:Rhino.PersistentSettings.GetSize(System.String);Throws on a missing key, read through `TryGetSize(key, out value)`
+M:Rhino.PersistentSettings.GetRectangle(System.String);Throws on a missing key, read through `TryGetRectangle(key, out value)`
+M:Rhino.PersistentSettings.GetEnumValue``1(System.String);Throws on a missing key, read through `TryGetEnumValue<T>(key, out value)`
 M:Rhino.Display.RhinoViewport.FromId(System.Guid);Returns null for a detail viewport and another document's viewport for a repeated id, match `doc.Objects.FindId(id) is DetailViewObject`, then `doc.Views.Find(id)`
 P:Rhino.Display.DisplayPipeline.DpiScale;Reads 1 for a view not on screen, read `RhinoEtoApp.MainWindowForDocument(view.Document).LogicalPixelSize`
 M:Rhino.Display.DisplayBitmap.Update(System.Drawing.Bitmap);Flips images vertically while its constructor does not, create `new DisplayBitmap(bitmap)` per change and dispose the old one

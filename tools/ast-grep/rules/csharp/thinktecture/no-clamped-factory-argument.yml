@@ -37,4 +37,4 @@ rule:
                 - has: {kind: argument, nthChild: 1, has: {matches: saturation, pattern: $CLAMP}}
                 - not: {has: {kind: argument, nthChild: 2}}
 message: '`$CLAMP` saturates the argument of `$FACTORY` before its validation'
-note: 'Pass the measured value to `Validated`, saturation is a member of the `IMinMaxValue` type itself'
+note: 'Pass the measured value to `TryCreate` or `Validate`, saturation is a member of the `IMinMaxValue` type'

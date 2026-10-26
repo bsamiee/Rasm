@@ -57,7 +57,7 @@ internal sealed record ArchFamily(Guid Id, string Command, string Caption, strin
                 "Multifoil arch: lobed arcs from springing to crown", IterableNE.create<ArchChoice>(
                     new ArchChoice.Foiled("Cinquefoil", "Cinquefoil", "Cinquefoil arch: five lobes", ArchGeometry.Cinquefoil),
                     new ArchChoice.Foiled("Trefoil", "Trefoil", "Trefoil arch: three lobes", ArchGeometry.Trefoil),
-                    new ArchChoice.Counted("Multifoil", "Multifoil", "Multifoil arch: a chosen number of lobes", FoilCount.MinValue))),
+                    new ArchChoice.Counted("Multifoil", "Multifoil", "Multifoil arch: a chosen number of lobes", 7))),
         ],
         [
             new(new Guid(0x7d37f77d, 0x297e, 0x4aa1, 0xa7, 0xad, 0xef, 0x90, 0xc5, 0x85, 0xb8, 0x10), "ConicArch", "Conic Arch", "Select conic arch type",

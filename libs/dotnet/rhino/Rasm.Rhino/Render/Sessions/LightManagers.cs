@@ -1,6 +1,5 @@
 using Rasm.Rhino.Objects;
 using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Render;
@@ -70,7 +69,7 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
     private IO<Option<EngineLight>> Held(RhinoDoc doc, Light light) =>
         IO.lift(() => light.Id).Bind(id => Held(doc, id));
 
-    private static IO<Unit> Staged(Light target, LightState state, Gamma gamma) =>
+    private static IO<Unit> Staged(Light target, LightState state, float gamma) =>
         from written in Lights.Written(target, state.Spec, gamma)
         from identified in IO.lift(() => target.Id = state.Id)
         select unit;
@@ -92,8 +91,7 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
         Callbacks.Run(Requested(light_array, Group.Map(group => par(group, doc, b: false))), CallbackSite.Of(owner, this));
 
     private IO<Unit> Modified(RhinoDoc doc, Light light) =>
-        from gamma in Lights.PreProcessGamma(doc)
-        from state in IO.lift(() => Lights.State(light, gamma))
+        from state in IO.lift(() => Lights.State(light))
         from modified in Modify(doc, state)
         from notified in Notified(doc, LightMangerSupportCustomEvent.light_modified)
         select unit;

@@ -8,12 +8,17 @@ namespace Rasm.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class Visibility {
-    public static readonly Visibility Hidden = new();
-    public static readonly Visibility Shown = new();
-    public static readonly Visibility Active = new();
+    public static readonly Visibility Hidden = new(drawn: false, keyed: false);
+    public static readonly Visibility Shown = new(drawn: true, keyed: false);
+    public static readonly Visibility Active = new(drawn: true, keyed: true);
+
+    public bool Drawn { get; }
+    public bool Keyed { get; }
+
+    public static Visibility Of(bool shown, bool key) => !shown ? Hidden : key ? Active : Shown;
 }
 
-public sealed record Host(SKSize Size, Theme Theme, Visibility Visibility, bool Cycles, CultureInfo Culture);
+public sealed record Host(SKSize Size, ColorScheme Theme, Visibility Visibility, bool Cycles, CultureInfo Culture);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AccessibilityNotice {
@@ -67,12 +72,12 @@ public sealed record Mount {
         let caret = editor.Caret
         select SKRect.Create(frame.Location + caret.Location, caret.Size);
 
-    public Cursor Cursor =>
+    public CursorShape Cursor =>
         Routing.Capture.Match(
-            Some: capture => capture.Switch(Scene, part: static (_, part) => part.Track.Cursor, handle: static (scene, handle) => scene.Adjuster(handle.Adjuster).Map(static adjuster => adjuster.Cursor).IfNone(Cursor.Default)),
-            None: () => (from path in Hover.Head from pointer in Routing.Pointer select Prospective(path, pointer)).IfNone(Cursor.Default));
+            Some: capture => capture.Switch(Scene, part: static (_, part) => part.Track.Cursor, handle: static (scene, handle) => scene.Adjuster(handle.Adjuster).Map(static adjuster => adjuster.Cursor).IfNone(CursorShape.Default)),
+            None: () => (from path in Hover.Head from pointer in Routing.Pointer select Prospective(path, pointer)).IfNone(CursorShape.Default));
 
-    public bool Animating => Host.Visibility != Visibility.Hidden && (!Fades.IsEmpty || (!Host.Theme.Conditions.Contains(Condition.ReduceMotion) && !Scene.Timed.IsEmpty));
+    public bool Animating => Host.Visibility.Drawn && (!Fades.IsEmpty || (!Host.Theme.Conditions.Contains(Condition.ReduceMotion) && !Scene.Timed.IsEmpty));
 
     public Option<string> Help =>
         Hover.Head.Bind(path => Scene.Above(path).Choose(elements.Find) switch {
@@ -95,18 +100,18 @@ public sealed record Mount {
         };
 
     // --- [TRANSITIONS]
-    public static Fin<(Mount Mount, Output Output)> Create(Host host, Shipped shipped, Node view, HashMap<Seq<Key>, float> adjusted) =>
-        Scene.Of(host.Theme, shipped, view, host.Size, adjusted).Map(static scene => Revealed(None, scene).Scene).Map(scene => new Mount(host, scene) switch {
+    public static Fin<(Mount Mount, Output Output)> Create(Host host, DefaultStyles defaults, Node view, HashMap<Seq<Key>, float> adjusted) =>
+        Scene.Of(host.Theme, defaults, view, host.Size, adjusted).Map(static scene => Revealed(None, scene).Scene).Map(scene => new Mount(host, scene) switch {
             var mount => (mount, new Output(Seq(SKRect.Create(host.Size)), [], Sequenced(mount.Effected(mount.Watched(None)).Answer))),
         });
 
     public Fin<(Mount Mount, Output Output)> Show(Node view, Duration now) =>
-        Scene.Reconcile(view).Map(moved => Settled(new Routed(this with { Scene = moved.Scene }, moved.Damage, None), now));
+        Scene.Reconcile(view).Map(moved => Completed(new Routed(this with { Scene = moved.Scene }, moved.Damage, None), now));
 
     public (Mount Mount, Output Output) Rehost(Host host, Duration now) =>
-        Settled(Restyled(host).Then(mount => Host.Visibility == Visibility.Active && host.Visibility != Visibility.Active ? mount.Cancel() : mount.Unanswered), now);
+        Completed(Restyled(host).Then(mount => Host.Visibility.Keyed && !host.Visibility.Keyed ? mount.Cancel() : mount.Unanswered), now);
 
-    public (Mount Mount, Output Output) Receive(Input input, Duration now) => Settled(Dispatched(input, now), now);
+    public (Mount Mount, Output Output) Receive(Input input, Duration now) => Completed(Dispatched(input, now), now);
 
     public (Mount Mount, Output Output) Tick(Duration now) =>
         (this with { Fades = Fades.Filter(fade => fade.At(now).Continue) }, new Output(Fades.Keys.ToSeq().Choose(key => Washed(key).Map(static held => held.Damage)).Concat(Scene.Timed.Choose(laid => Scene.Bounds(laid.Path))), [], None));
@@ -119,16 +124,16 @@ public sealed record Mount {
         };
 
     // --- [SETTLE]
-    private (Mount Mount, Output Output) Settled(Routed routed, Duration now) =>
+    private (Mount Mount, Output Output) Completed(Routed routed, Duration now) =>
         routed.Then(next => next.Revealing(this)).Then(next => next.Pruning(this)).Then(static next => next.Hovering()).Then(next => next.Watching(this)).Then(next => next.Fading(this, now)) switch {
-            var settled => (settled.Mount, new Output(
-                settled.Damage.Concat(settled.Mount.Routing.Focus != Routing.Focus ? Seq(Focused, settled.Mount.Focused).Somes().Choose(settled.Mount.Scene.Bounds) : []),
-                (settled.Mount.Projected(this) ? Access.Changes(elements, settled.Mount.elements) : [])
-                    .Concat(settled.Mount.Focused != Focused ? settled.Mount.Focused.Map(static path => (AccessibilityNotice)new AccessibilityNotice.FocusChanged(path)).ToSeq() : [])
-                    .Concat(settled.Mount.Routing.Tracked.Bind(static track => track.Detent) switch {
+            var done => (done.Mount, new Output(
+                done.Damage.Concat(done.Mount.Routing.Focus != Routing.Focus ? Seq(Focused, done.Mount.Focused).Somes().Choose(done.Mount.Scene.Bounds) : []),
+                (done.Mount.Projected(this) ? Access.Changes(elements, done.Mount.elements) : [])
+                    .Concat(done.Mount.Focused != Focused ? done.Mount.Focused.Map(static path => (AccessibilityNotice)new AccessibilityNotice.FocusChanged(path)).ToSeq() : [])
+                    .Concat(done.Mount.Routing.Tracked.Bind(static track => track.Detent) switch {
                         var detent => detent.IsSome && detent != Routing.Tracked.Bind(static track => track.Detent) ? Seq<AccessibilityNotice>(new AccessibilityNotice.Detent()) : [],
                     }),
-                Sequenced(settled.Answer))),
+                Sequenced(done.Answer))),
         };
 
     private bool Projected(Mount prior) => !ReferenceEquals(prior.Scene, Scene) || !prior.Host.Culture.Equals(Host.Culture);
@@ -185,12 +190,12 @@ public sealed record Mount {
             var active => active.Was.SymmetricExcept(active.Now) switch {
                 var changed => new Routed(
                     this with { Fades = changed.ToSeq().Fold(Fades.Filter((key, _) => Scene.Index.ContainsKey(key.Path)), (fades, key) => Faded(fades, key, active.Now, now)) },
-                    Swept(prior, active.Was.Union(active.Now).Union(toHashSet(Fades.Filter(fade => fade.At(now).Continue).Keys)), changed),
+                    Repainted(prior, active.Was.Union(active.Now).Union(toHashSet(Fades.Filter(fade => fade.At(now).Continue).Keys)), changed),
                     None),
             },
         };
 
-    private Seq<SKRect> Swept(Mount prior, LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> washed, LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> changed) =>
+    private Seq<SKRect> Repainted(Mount prior, LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> washed, LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> changed) =>
         from key in toSeq(washed)
         let now = Washed(key)
         let was = prior.Washed(key).Bind(static held => held.Beyond)
@@ -274,7 +279,7 @@ public sealed record Mount {
             focused: static (held, _) => held.Mount.Restored(),
             blurred: static (held, _) => held.Mount.Cancel().Then(static mount => mount.Closed()));
 
-    private Routed Pointed(Option<SKPoint> at, LanguageExt.HashSet<Modifier> modifiers) =>
+    private Routed Pointed(Option<SKPoint> at, KeyModifiers modifiers) =>
         Unanswered.Routes(routing => routing with {
             Pointer = at,
             Modifiers = modifiers,
@@ -294,16 +299,16 @@ public sealed record Mount {
         };
 
     private Routed Asked(Owned owner, Seq<Key> over, Gesture.Press press, Duration now) =>
-        Landing(Element(owner.Path, over), static element => new Focus.Pressed(element)) switch {
-            var landing => owner.Part.Began(press, Aimed(owner, over, landing)).Switch(
-                (Mount: this, Owner: owner, Over: over, Press: press, Now: now, Landing: landing),
+        Focusing(Element(owner.Path, over), static element => new Focus.Pressed(element)) switch {
+            var focusing => owner.Part.Began(press, Aimed(owner, over, focusing)).Switch(
+                (Mount: this, Owner: owner, Over: over, Press: press, Now: now, Focusing: focusing),
                 pass: static (held, _) => held.Mount.Unanswered,
-                take: static (held, take) => held.Mount.Refocused(held.Landing).Then(mount =>
+                take: static (held, take) => held.Mount.Refocused(held.Focusing).Then(mount =>
                     (mount with { Routing = mount.Routing with { Capture = take.Track.Map(track => (Capture)new Capture.Part(held.Owner.Path, held.Over, held.Press, track, held.Now)) } })
                     .Answered(held.Owner.Path, take.Effects))),
         };
 
-    private Routed Moved(PointerSample sample, LanguageExt.HashSet<Modifier> modifiers, Duration now) =>
+    private Routed Moved(PointerSample sample, KeyModifiers modifiers, Duration now) =>
         Routing.Capture.Match(
             Some: capture => capture.Switch(
                 (Mount: this, Sample: sample, Modifiers: modifiers, Now: now),
@@ -311,7 +316,7 @@ public sealed record Mount {
                 handle: static (held, handle) => held.Mount.Slid(handle, held.Sample.At)),
             None: () => Unanswered);
 
-    private Routed Dragged(Capture.Part part, PointerSample sample, LanguageExt.HashSet<Modifier> modifiers, Duration now) =>
+    private Routed Dragged(Capture.Part part, PointerSample sample, KeyModifiers modifiers, Duration now) =>
         (part.Press.Followed(sample, Slop(part.Owner)) with { Modifiers = modifiers }) switch {
             var press when press == part.Press => Answered(part.Owner, []),
             var press => (float)(now - part.Time).TotalSeconds switch {
@@ -321,16 +326,16 @@ public sealed record Mount {
             },
         };
 
-    private Routed Released(PointerSample sample, LanguageExt.HashSet<Modifier> modifiers) =>
+    private Routed Released(PointerSample sample, KeyModifiers modifiers) =>
         Routing.Capture.Match(
             Some: capture => capture.Switch(
                 (Mount: this with { Routing = Routing with { Capture = None } }, Sample: sample, Modifiers: modifiers),
                 part: static (held, part) => (part.Press.Followed(held.Sample, held.Mount.Slop(part.Owner)) with { Modifiers = held.Modifiers }) switch {
                     var press => held.Mount.Answered(part.Owner, part.Track.Released(press)
-                        + (part.Track.Carried.IsEmpty
+                        + (part.Track.Dragged.IsEmpty
                             ? []
                             : held.Mount.Chain(held.Mount.Hits(held.Sample.At)).Filter(owner => owner.Owner.Path != part.Owner)
-                                .Choose(owner => owner.Owner.Part.Landed(part.Track.Carried, held.Mount.Aimed(owner.Owner, owner.Over, held.Mount.Routing.Focus))).Take(1))),
+                                .Choose(owner => owner.Owner.Part.Drop(part.Track.Dragged, held.Mount.Aimed(owner.Owner, owner.Over, held.Mount.Routing.Focus))).Take(1))),
                 },
                 handle: static (held, handle) => held.Mount.Slid(handle, held.Sample.At)),
             None: () => Unanswered);
@@ -358,7 +363,7 @@ public sealed record Mount {
             scrollers.Map(adjuster => mount.Changed(mount.Scene.Adjust(adjuster.Owner, value => value - adjuster.Axis.Of(scroll.Travel)))).Find(static moved => moved.Answer.IsSome)
                 .IfNone(mount.Unanswered.Taken())));
 
-    private Routed Streamed<TGesture, TIncrement>(SKPoint at, Phase<TIncrement> phase, LanguageExt.HashSet<Modifier> modifiers)
+    private Routed Streamed<TGesture, TIncrement>(SKPoint at, Phase<TIncrement> phase, KeyModifiers modifiers)
         where TGesture : Gesture, IStreamed<TGesture, TIncrement> where TIncrement : notnull =>
         phase.Switch(
             (Mount: this, At: at, Modifiers: modifiers),
@@ -406,7 +411,7 @@ public sealed record Mount {
 
     private Routed Preceded(Seq<Seq<Key>> hits, Gesture gesture, Func<Mount, Owned, Seq<Key>, Routed> part, Func<Mount, Gesture.Scroll, Seq<Adjuster>, Routed> core) =>
         (Chain: Chain(hits), Core: Gesture.Scroll.From(gesture).Map(scroll => (Scroll: scroll, Scrollers: Scrollers(hits, scroll.Travel))), Holding: Focused.Bind(Owner).Map(static owner => owner.Path)) switch {
-            var held when gesture.Modifiers.Contains(Modifier.Common) || held.Chain.Head.Exists(owner => held.Holding == Some(owner.Owner.Path)) =>
+            var held when gesture.Modifiers.Common || held.Chain.Head.Exists(owner => held.Holding == Some(owner.Owner.Path)) =>
                 Asking(held.Chain, part).Otherwise(mount => mount.Scrolling(held.Core, core)),
             var held => Scrolling(held.Core, core).Otherwise(mount => mount.Asking(held.Chain, part)),
         };
@@ -422,7 +427,7 @@ public sealed record Mount {
             (Mount: this, Owner: owner, Increment: increment),
             pass: static (held, _) => held.Mount.Unanswered,
             take: static (held, take) => (held.Mount with {
-                Routing = held.Mount.Routing with { Latch = new Latch.Part(held.Owner.Path, take.Track.Map(track => new Stream(held.Increment, track))) },
+                Routing = held.Mount.Routing with { Latch = new Latch.Part(held.Owner.Path, take.Track.Map(track => new LiveGesture(held.Increment, track))) },
             }).Answered(held.Owner.Path, take.Effects));
 
     private Routed Cored(Adjuster adjuster, Gesture.Scroll scroll) =>
@@ -431,7 +436,7 @@ public sealed record Mount {
             var moved => moved.Routes(routing => routing with { Latch = new Latch.Scroll(adjuster.Owner, Some(scroll)) }),
         };
 
-    private Routed Coupled<TGesture, TIncrement>(SKPoint at, TIncrement value, LanguageExt.HashSet<Modifier> modifiers, Gesture increment, Func<Stream, Gesture, Reply> step,
+    private Routed Coupled<TGesture, TIncrement>(SKPoint at, TIncrement value, KeyModifiers modifiers, Gesture increment, Func<LiveGesture, Gesture, Reply> step,
                                                   Func<Gesture.Scroll, Option<Gesture.Scroll>> kept)
         where TGesture : Gesture, IStreamed<TGesture, TIncrement> where TIncrement : notnull =>
         Routing.Latch.Match(
@@ -450,12 +455,12 @@ public sealed record Mount {
                     .IfNone(held.Mount.Unanswered)),
             None: () => Unanswered);
 
-    private Routed Streaming(Seq<Key> owner, Stream live, Gesture next, Reply reply) =>
+    private Routed Streaming(Seq<Key> owner, LiveGesture live, Gesture next, Reply reply) =>
         reply.Switch(
             (Mount: this, Owner: owner, Live: live, Next: next),
             pass: static (held, _) => held.Mount.Unanswered.Routes(routing => routing with { Latch = new Latch.Part(held.Owner, Some(held.Live with { Gesture = held.Next })) }),
             take: static (held, take) => (held.Mount with {
-                Routing = held.Mount.Routing with { Latch = new Latch.Part(held.Owner, take.Track.Map(track => new Stream(held.Next, track))) },
+                Routing = held.Mount.Routing with { Latch = new Latch.Part(held.Owner, take.Track.Map(track => new LiveGesture(held.Next, track))) },
             }).Answered(held.Owner, take.Effects));
 
     private Routed Halted() =>
@@ -516,7 +521,7 @@ public sealed record Mount {
 
     private Routed Entered(int sign) => Traversed(Routing.Traversed(Routing.Stops(Tree), None, sign, cycles: true));
 
-    private Routed Roved(Navigation toward) =>
+    private Routed Roved(NavigationDirection toward) =>
         Traversed(
             from focus in Focused
             from origin in elements.Find(focus)
@@ -524,7 +529,7 @@ public sealed record Mount {
             from target in Routing.Toward(origin.Frame, stop.Filter(element => element.Id != focus).Map(static element => (Item: element.Id, element.Frame)), toward)
             select target);
 
-    private Routed Traversed(Option<Seq<Key>> stop) => stop.Match(Some: element => Refocused(Landing(Some(element), static landed => new Focus.Traversed(landed))).Taken(), None: () => Unanswered);
+    private Routed Traversed(Option<Seq<Key>> stop) => stop.Match(Some: element => Refocused(Focusing(Some(element), static reached => new Focus.Traversed(reached))).Taken(), None: () => Unanswered);
 
     private Routed Performed(Owned owner, Seq<Key> over, Gesture gesture) =>
         owner.Part.Performed(gesture, Aimed(owner, over, Routing.Focus)).Switch(
@@ -533,7 +538,7 @@ public sealed record Mount {
             take: static (held, take) => held.Mount.Answered(held.Owner.Path, take.Effects));
 
     // --- [FOCUS]
-    private Option<Focus> Landing(Option<Seq<Key>> element, Func<Seq<Key>, Focus> kind) =>
+    private Option<Focus> Focusing(Option<Seq<Key>> element, Func<Seq<Key>, Focus> kind) =>
         element.Map(target => Routing.Focus.Filter(focus => focus.Element == target).IfNone(() => kind(target) with { Editor = Owner(target).Bind(static owner => owner.Part.Opened(owner.Laid)) }));
 
     private Routed Refocused(Option<Focus> next) =>
@@ -589,14 +594,14 @@ public sealed record Mount {
 
     private Seq<Adjuster> Scrollers(Seq<Seq<Key>> hits, Vector2 delta) => hits.Head.Map(Scene.Above).IfNone([]).Choose(Scene.Adjuster).Filter(adjuster => adjuster.Scrolls(delta));
 
-    private Cursor Prospective(Seq<Key> path, SKPoint pointer) =>
+    private CursorShape Prospective(Seq<Key> path, SKPoint pointer) =>
         Handle(path).Match(
             Some: static adjuster => adjuster.Cursor,
             None: () => Scene.Above(path).Choose(Parted).Head.Exists(static owner => !owner.Enabled)
-                ? Cursor.NotAllowed
+                ? CursorShape.NotAllowed
                 : Owners(path).Choose(owner => owner.Part.Began(new Gesture.Press(pointer, None, 1, 1f) { Modifiers = Routing.Modifiers }, Aimed(owner, path, Routing.Focus))
-                        .Switch(pass: static _ => Option<Cursor>.None, take: static take => Some(take.Track.Map(static track => track.Cursor).IfNone(Cursor.Default))))
-                    .Head.IfNone(Cursor.Default));
+                        .Switch(pass: static _ => Option<CursorShape>.None, take: static take => Some(take.Track.Map(static track => track.Cursor).IfNone(CursorShape.Default))))
+                    .Head.IfNone(CursorShape.Default));
 
     private Routed Changed((Scene Scene, Seq<SKRect> Damage) next) =>
         ReferenceEquals(next.Scene, Scene) ? Unanswered : new Routed(this with { Scene = next.Scene }, next.Damage, Some(Seq<IO<Unit>>()));
@@ -604,16 +609,14 @@ public sealed record Mount {
     private LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> Active() =>
         toHashSet(Hover.Head.Filter(path => Scene.Index.Find(path).Exists(static laid => !laid.Style.Conditions.Contains(Condition.Disabled))).Map(static path => (path, Interaction.Hover)).ToSeq()
             .Concat(Routing.Pressing.Map(static path => (path, Interaction.Pressed)).ToSeq())
-            .Concat(Routing.Focus.Filter(focus => Host.Visibility == Visibility.Active && focus.Visible(elements)).Map(static focus => (focus.Element, Interaction.Focused)).ToSeq()));
+            .Concat(Routing.Focus.Filter(focus => Host.Visibility.Keyed && focus.Visible(elements)).Map(static focus => (focus.Element, Interaction.Focused)).ToSeq()));
 
     private Option<(SKRect Damage, Option<SKRect> Beyond, TimingCurve Motion)> Washed((Seq<Key> Path, Interaction Interaction) key) =>
-        key.Interaction.Switch(
-            (Scene, key.Path),
-            hover: Painted,
-            pressed: Painted,
-            focused: static held => held.Scene.Ring(held.Path).Map(static ring => SKRect.Intersect(SKRect.Inflate(ring.Frame, ring.Style.Overhang, ring.Style.Overhang), ring.Clip) switch {
+        key.Interaction.Ring
+            ? Scene.Ring(key.Path).Map(static ring => SKRect.Intersect(SKRect.Inflate(ring.Frame, ring.Style.Overhang, ring.Style.Overhang), ring.Clip) switch {
                 var reach => (reach, Some(reach), ring.Style.Motion),
-            }));
+            })
+            : Painted((Scene, key.Path));
 
     private static Option<(SKRect Damage, Option<SKRect> Beyond, TimingCurve Motion)> Painted((Scene Scene, Seq<Key> Path) held) =>
         from laid in held.Scene.Index.Find(held.Path)

@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Numerics;
 using LanguageExt.ClassInstances;
 using Rasm.Rhino.Document.Files;
@@ -82,7 +83,7 @@ public static class HatchPatterns {
             select answer, DisposalOps.Release);
 
     // --- [PREVIEW]
-    public static IO<Seq<(Vector2 From, Vector2 To)>> Preview(HatchPattern pattern, double angle, System.Drawing.Size pixels) =>
+    public static IO<Seq<(Vector2 From, Vector2 To)>> Preview(HatchPattern pattern, double angle, Size pixels) =>
         IO.lift(() => toSeq(pattern.CreatePreviewGeometry(pixels.Width, pixels.Height, angle))
             .Map(static line => (From: new Vector2((float)line.FromX, (float)-line.FromY), To: new Vector2((float)line.ToX, (float)-line.ToY)))
             .Strict());

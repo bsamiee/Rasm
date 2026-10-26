@@ -1,39 +1,40 @@
 using System.Globalization;
 using System.Numerics;
 using Rasm.Imaging.Pixels;
+using UnitsNet;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Color.Calibration;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[SmartEnum]
 public sealed partial class ChartPatch {
-    public static readonly ChartPatch DarkSkin = new("dark-skin");
-    public static readonly ChartPatch LightSkin = new("light-skin");
-    public static readonly ChartPatch BlueSky = new("blue-sky");
-    public static readonly ChartPatch Foliage = new("foliage");
-    public static readonly ChartPatch BlueFlower = new("blue-flower");
-    public static readonly ChartPatch BluishGreen = new("bluish-green");
-    public static readonly ChartPatch Orange = new("orange");
-    public static readonly ChartPatch PurplishBlue = new("purplish-blue");
-    public static readonly ChartPatch ModerateRed = new("moderate-red");
-    public static readonly ChartPatch Purple = new("purple");
-    public static readonly ChartPatch YellowGreen = new("yellow-green");
-    public static readonly ChartPatch OrangeYellow = new("orange-yellow");
-    public static readonly ChartPatch Blue = new("blue");
-    public static readonly ChartPatch Green = new("green");
-    public static readonly ChartPatch Red = new("red");
-    public static readonly ChartPatch Yellow = new("yellow");
-    public static readonly ChartPatch Magenta = new("magenta");
-    public static readonly ChartPatch Cyan = new("cyan");
-    public static readonly ChartPatch White95 = new("white-9-5");
-    public static readonly ChartPatch Neutral8 = new("neutral-8");
-    public static readonly ChartPatch Neutral65 = new("neutral-6-5");
-    public static readonly ChartPatch Neutral5 = new("neutral-5");
-    public static readonly ChartPatch Neutral35 = new("neutral-3-5");
-    public static readonly ChartPatch Black2 = new("black-2");
+    public static readonly ChartPatch DarkSkin = new((0.1136398927, 0.09832436105, 0.047793811));
+    public static readonly ChartPatch LightSkin = new((0.3811104477, 0.336202304, 0.1852590702));
+    public static readonly ChartPatch BlueSky = new((0.1652470004, 0.1785519348, 0.2546024121));
+    public static readonly ChartPatch Foliage = new((0.1114392339, 0.1346792679, 0.05239320311));
+    public static readonly ChartPatch BlueFlower = new((0.2419823988, 0.2287175998, 0.3282104382));
+    public static readonly ChartPatch BluishGreen = new((0.30451114, 0.4143554688, 0.344352688));
+    public static readonly ChartPatch Orange = new((0.4073691399, 0.3126416159, 0.05130591012));
+    public static readonly ChartPatch PurplishBlue = new((0.1200518326, 0.1091090233, 0.2874447494));
+    public static readonly ChartPatch ModerateRed = new((0.2915036416, 0.188999956, 0.09736350318));
+    public static readonly ChartPatch Purple = new((0.08353888545, 0.06276662955, 0.1042075686));
+    public static readonly ChartPatch YellowGreen = new((0.3427379502, 0.4331759409, 0.08330791241));
+    public static readonly ChartPatch OrangeYellow = new((0.4769723742, 0.4293377578, 0.06005041429));
+    public static readonly ChartPatch Blue = new((0.06809095613, 0.05596214063, 0.2077405936));
+    public static readonly ChartPatch Green = new((0.1413517689, 0.2233437582, 0.07287461742));
+    public static readonly ChartPatch Red = new((0.2143728424, 0.127800835, 0.03868150726));
+    public static readonly ChartPatch Yellow = new((0.5888922356, 0.5992976803, 0.07077420003));
+    public static readonly ChartPatch Magenta = new((0.299122798, 0.1895114577, 0.2213469194));
+    public static readonly ChartPatch Cyan = new((0.1247966941, 0.180609913, 0.2913392383));
+    public static readonly ChartPatch White95 = new((0.8436985288, 0.8806903203, 0.6936778752));
+    public static readonly ChartPatch Neutral8 = new((0.5665335579, 0.5899709702, 0.4828473821));
+    public static readonly ChartPatch Neutral65 = new((0.3495921991, 0.3648652066, 0.3013565492));
+    public static readonly ChartPatch Neutral5 = new((0.1835495863, 0.1906228754, 0.1566717383));
+    public static readonly ChartPatch Neutral35 = new((0.08448968042, 0.08817234828, 0.07391630753));
+    public static readonly ChartPatch Black2 = new((0.03042544265, 0.03151319431, 0.02656724434));
+
+    public (double X, double Y, double Z) ClassicD50 { get; }
 }
 
 [SmartEnum<string>]
@@ -44,31 +45,7 @@ public sealed partial class ColorChart {
 
     private static readonly Configuration D50 = new(xyzConfig: XyzConfiguration.D50);
 
-    public static readonly ColorChart ColorCheckerClassic = new("color-checker-classic", Seq(
-        (ChartPatch.DarkSkin, (0.1136398927, 0.09832436105, 0.047793811)),
-        (ChartPatch.LightSkin, (0.3811104477, 0.336202304, 0.1852590702)),
-        (ChartPatch.BlueSky, (0.1652470004, 0.1785519348, 0.2546024121)),
-        (ChartPatch.Foliage, (0.1114392339, 0.1346792679, 0.05239320311)),
-        (ChartPatch.BlueFlower, (0.2419823988, 0.2287175998, 0.3282104382)),
-        (ChartPatch.BluishGreen, (0.30451114, 0.4143554688, 0.344352688)),
-        (ChartPatch.Orange, (0.4073691399, 0.3126416159, 0.05130591012)),
-        (ChartPatch.PurplishBlue, (0.1200518326, 0.1091090233, 0.2874447494)),
-        (ChartPatch.ModerateRed, (0.2915036416, 0.188999956, 0.09736350318)),
-        (ChartPatch.Purple, (0.08353888545, 0.06276662955, 0.1042075686)),
-        (ChartPatch.YellowGreen, (0.3427379502, 0.4331759409, 0.08330791241)),
-        (ChartPatch.OrangeYellow, (0.4769723742, 0.4293377578, 0.06005041429)),
-        (ChartPatch.Blue, (0.06809095613, 0.05596214063, 0.2077405936)),
-        (ChartPatch.Green, (0.1413517689, 0.2233437582, 0.07287461742)),
-        (ChartPatch.Red, (0.2143728424, 0.127800835, 0.03868150726)),
-        (ChartPatch.Yellow, (0.5888922356, 0.5992976803, 0.07077420003)),
-        (ChartPatch.Magenta, (0.299122798, 0.1895114577, 0.2213469194)),
-        (ChartPatch.Cyan, (0.1247966941, 0.180609913, 0.2913392383)),
-        (ChartPatch.White95, (0.8436985288, 0.8806903203, 0.6936778752)),
-        (ChartPatch.Neutral8, (0.5665335579, 0.5899709702, 0.4828473821)),
-        (ChartPatch.Neutral65, (0.3495921991, 0.3648652066, 0.3013565492)),
-        (ChartPatch.Neutral5, (0.1835495863, 0.1906228754, 0.1566717383)),
-        (ChartPatch.Neutral35, (0.08448968042, 0.08817234828, 0.07391630753)),
-        (ChartPatch.Black2, (0.03042544265, 0.03151319431, 0.02656724434))));
+    public static readonly ColorChart ColorCheckerClassic = new("color-checker-classic", toSeq(ChartPatch.Items).Map(static patch => (patch, patch.ClassicD50)));
     public static readonly ColorChart SpyderCheckr24 = new("spyder-checkr-24", Seq(
         (ChartPatch.BluishGreen, (0.3076822512, 0.4234772396, 0.3374520529)),
         (ChartPatch.BlueFlower, (0.2452835592, 0.2348654227, 0.3416765010)),
@@ -115,13 +92,10 @@ public readonly partial struct PatchSample {
     public double R { get; }
     public double G { get; }
     public double B { get; }
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double r, ref double g, ref double b) =>
-        validationError = double.IsFinite(r) && double.IsFinite(g) && double.IsFinite(b) ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"patch sample ({r}, {g}, {b}) must be finite"));
 }
 
 [ComplexValueObject]
+[ValidationError<ImagingFault>]
 public sealed partial class ChartSamples {
     public ColorChart Chart { get; }
     public Gamut Gamut { get; }
@@ -129,9 +103,12 @@ public sealed partial class ChartSamples {
 
     internal HashMap<ChartPatch, (double R, double G, double B)> Colors => Patches.Map(static sample => (sample.R, sample.G, sample.B));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ColorChart chart, ref Gamut gamut, ref HashMap<ChartPatch, PatchSample> patches) =>
+    public static Fin<ChartSamples> Validated(ColorChart chart, Gamut gamut, HashMap<ChartPatch, PatchSample> patches) =>
+        TryCreate(chart, gamut, patches, out ChartSamples? samples, out ImagingFault? fault) ? samples : fault;
+
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref ColorChart chart, ref Gamut gamut, ref HashMap<ChartPatch, PatchSample> patches) =>
         validationError = patches.Count == ChartPatch.Items.Count ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"chart samples must cover all {ChartPatch.Items.Count} patches, not {patches.Count}"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"chart samples must cover all {ChartPatch.Items.Count} patches, not {patches.Count}"));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -188,8 +165,7 @@ public abstract partial record ChartPlacement {
         int Count(double length, int cells) => int.Max(1, (int)double.Round(Footprint * length / cells, MidpointRounding.ToEven));
         static double Offset(int index, int count, double length) => (index + 0.5d - (count / 2d)) / length;
         static double Ratio(double part, double weight) => weight is 0d ? 0d : part / weight;
-        Fin<(ChartPatch Patch, PatchSample Sample)> Mean(ChartPatch patch, (double R, double G, double B, double Weight) sum) =>
-            ValidationResults.ToFin(PatchSample.Validate(Ratio(sum.R, sum.Weight), Ratio(sum.G, sum.Weight), Ratio(sum.B, sum.Weight), out PatchSample sample), sample).Map(held => (patch, held));
+        static PatchSample Mean((double R, double G, double B, double Weight) sum) => PatchSample.Create(Ratio(sum.R, sum.Weight), Ratio(sum.G, sum.Weight), Ratio(sum.B, sum.Weight));
         (Func<(double X, double Y), Option<(double X, double Y)>> image, (WrapMode Across, WrapMode Down) wrap) = ToImage(frame.Extent);
         Func<(double R, double G, double B, double Weight), (double X, double Y), (double R, double G, double B, double Weight)> add = (sum, point) =>
             frame.Sample(point, wrap, sum, static (total, texel, weight) => (total.R + (texel.X * weight), total.G + (texel.Y * weight), total.B + (texel.Z * weight), total.Weight + weight));
@@ -197,10 +173,7 @@ public abstract partial record ChartPlacement {
             MeanLength(Quad.TopLeft, Quad.TopRight, Quad.BottomLeft, Quad.BottomRight),
             MeanLength(Quad.TopLeft, Quad.BottomLeft, Quad.TopRight, Quad.BottomRight));
         (int across, int down) = (Count(width, ColorChart.Columns), Count(height, ColorChart.Rows));
-        return Chart.Cells.Map((cell, index) => (cell.Patch, Sum: Sum(index)))
-            .Traverse(cell => Mean(cell.Patch, cell.Sum))
-            .As()
-            .Bind(patches => ValidationResults.ToFin(ChartSamples.Validate(Chart, gamut, toHashMap(patches), out ChartSamples? samples), samples));
+        return ChartSamples.Validated(Chart, gamut, toHashMap(Chart.Cells.Map((cell, index) => (cell.Patch, Mean(Sum(index))))));
 
         (double R, double G, double B, double Weight) Sum(int cell) {
             (double x, double y) = Center(cell);
@@ -224,9 +197,6 @@ public abstract partial record ChartPlacement {
         from bottomLeft in map(corners.BottomLeft)
         select (topLeft, topRight, bottomRight, bottomLeft);
 
-    private static Fin<FrameQuad> Placed(((double X, double Y) TopLeft, (double X, double Y) TopRight, (double X, double Y) BottomRight, (double X, double Y) BottomLeft) corners) =>
-        ValidationResults.ToFin(FrameQuad.Validate(corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft, out FrameQuad? quad), quad);
-
     private Error Unaligned => Error.New($"chart alignment {Quad} fits no rectilinear view");
 
     public sealed record Flat(ColorChart Chart, FrameQuad Quad, float Footprint) : ChartPlacement(Chart, Quad, Footprint) {
@@ -243,8 +213,7 @@ public abstract partial record ChartPlacement {
                               from right in map.Apply((1d, 0.5d)).Bind(panorama.Ray)
                               from facing in PanoramaView.Facing(left, right)
                               select facing).ToFin(Unaligned)
-                from view in (SignedAngle.Validated(keys.Heading), Elevation.Validated(keys.Elevation), SignedAngle.Validated(keys.Roll))
-                    .Apply(static (heading, elevation, roll) => new PanoramaView(heading, elevation, roll)).As()
+                let view = new PanoramaView(Angle.FromRadians(keys.Heading), Angle.FromRadians(keys.Elevation), Angle.FromRadians(keys.Roll))
                 let level = Quaternion.Conjugate(view.Rotation)
                 from rays in Each((Quad.TopLeft, Quad.TopRight, Quad.BottomRight, Quad.BottomLeft), corner =>
                     panorama.Ray(corner).Map(ray => Vector3.Transform(ray, level)).Filter(static ray => -ray.Z > 0f)).ToFin(Unaligned)
@@ -253,10 +222,10 @@ public abstract partial record ChartPlacement {
                     Spread(slopes.TopLeft.X, slopes.TopRight.X, slopes.BottomRight.X, slopes.BottomLeft.X),
                     (double)ColorChart.Columns / ColorChart.Rows * Spread(slopes.TopLeft.Y, slopes.TopRight.Y, slopes.BottomRight.Y, slopes.BottomLeft.Y))
                 let width = double.Max(1d, double.Round(source.Width * reach / double.Pi, MidpointRounding.ToEven))
-                from lens in (FieldOfView.Validated((float)(2d * double.Atan(reach))), Sized(width, double.Max(1d, double.Round(width * ColorChart.Rows / ColorChart.Columns, MidpointRounding.ToEven))))
-                    .Apply(static (field, extent) => new Projection.Rectilinear(extent, new Frustum.Perspective(ViewWindow.Centered(field, extent)))).As()
+                from extent in Sized(width, double.Max(1d, double.Round(width * ColorChart.Rows / ColorChart.Columns, MidpointRounding.ToEven)))
+                let lens = new Projection.Rectilinear(extent, new Frustum.Perspective(ViewWindow.Centered(2d * reach, extent)))
                 from corners in Each(rays, lens.Pixel).ToFin(Unaligned)
-                from quad in Placed(corners)
+                from quad in FrameQuad.Validated(corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft)
                 select new LatLong(Chart, quad, Footprint, view, lens);
         }
 
@@ -275,7 +244,7 @@ public abstract partial record ChartPlacement {
                 from corners in Each((Quad.TopLeft, Quad.TopRight, Quad.BottomRight, Quad.BottomLeft), corner =>
                     Lens.Reprojected(panorama, turn, corner)
                         .Map(point => (point.X + (source.Width * double.Round((column - point.X) / source.Width, MidpointRounding.ToEven)), point.Y))).ToFin(Unaligned)
-                from quad in Placed(corners)
+                from quad in FrameQuad.Validated(corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft)
                 select new Flat(Chart, quad, Footprint);
         }
 

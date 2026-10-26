@@ -65,7 +65,7 @@ public static class Showing {
                 select window, (window, _) => window.Show(doc))));
 
     private static IO<Unit> Opened<TWindow>(TWindow window, RhinoDoc doc) where TWindow : DefinedWindow =>
-        from main in Appearance.InitialMainWindowPosition()
+        from main in AppearanceOptions.InitialMainWindowPosition()
         let owner = window.Views
         from frame in DisposalOps.Acquire(IO.lift(static () => new ViewHost()), window.Owned.Retain)
         from body in DisposalOps.Acquire(ViewBody.Open(owner, window.Row, Some(doc), new CommitMode.Immediate(), None), frame.Owned.Retain)
@@ -75,7 +75,7 @@ public static class Showing {
             window.Title = RowText.Localize(window.Row.Caption, owner).Local;
             window.Content = frame;
             window.UseRhinoStyle();
-            window.ClientSize = window.Row.Size.IfNone(() => Size.Ceiling(frame.GetPreferredSize()));
+            window.ClientSize = window.Row.ClientSize.IfNone(() => Size.Ceiling(frame.GetPreferredSize()));
             _ = main.Iter(bounds => window.Location = Eto.Drawing.Point.Round(bounds.ToEtoScreen().Center - ((SizeF)window.Size / 2f)));
             window.LocalizeAndRestore(window.Row.Identity);
         })
@@ -145,8 +145,7 @@ public static class Showing {
 
     // --- [PAGES]
     public static IO<Option<Window>> WindowForPage(OptionsDialogPage page) =>
-        IO.lift(() => PageDialog.Validated(page.OptionsPageType)
-            .Map(dialog => Optional(dialog.WindowForPage(page))));
+        IO.lift(() => (PageDialog.TryGet(page.OptionsPageType, out PageDialog? dialog) ? Optional(dialog) : None).Bind(held => Optional(held.WindowForPage(page))));
 
     public static IO<Unit> SetActivePageTo(StackedDialogPage page, PageTarget target) =>
         IO.lift(() => Refused.Unless(
@@ -165,10 +164,7 @@ public static class Showing {
             ? IO.pure(new BindingGroup(groups.Succs.Bind(static bound => bound.Bindings)))
             : IO.fail<BindingGroup>(Error.Many(groups.Fails))
         let site = new CallbackSite(owner, view.Identity, nameof(RunScript))
-        let fields = ViewCatalog.Tree(view)
-            .Bind(static held => held.Children)
-            .Bind(static child => child.Controls)
-            .Choose(static row => row.Keys is [var key] ? Some((row.Text.Caption, Key: key)) : None)
+        let fields = bindings.Keys().Map(static key => (Caption: EntryKey.Name(key.Path), Key: key))
         let pass =
             from shown in scope.Shown(bindings)
             from ended in Getters.Choice(doc, new GetterRequest<GetOption, bool>(view.Caption, site) {
@@ -176,7 +172,7 @@ public static class Showing {
                 Options =
                     from field in fields
                     let text = shown.Entries.Find(field.Key)
-                    select OptionSpec.Plain(
+                    select OptionSpecs.Plain(
                         field.Caption,
                         text.Bind(static held => Conversions.Present(held)),
                         hidden: false,
@@ -234,7 +230,7 @@ public sealed class PanelCommand(IPlugInSink sink, Guid id, View.Panel panel) : 
     protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
         (mode is RunMode.Scripted
             ? Getters.Choice(doc, new GetterRequest<GetOption, PanelAction>(panel.Caption, site) {
-                Options = toSeq(PanelAction.Items).Map(static action => OptionSpec.Plain(action.Key, None, hidden: false, _ => IO.pure(action))),
+                Options = toSeq(PanelAction.Items).Map(static action => OptionSpecs.Plain(action.Key, None, hidden: false, _ => IO.pure(action))),
             })
             : IO.pure(PanelAction.Toggle))
         .Bind(action => action.Apply(panel, doc));

@@ -14,9 +14,10 @@ namespace Rasm.Rhino.Persistence;
 [ValueObject<string>(SkipIParsable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[ValidationError<RhinoFault>]
 public sealed partial class SnapshotText {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = Quotable(value) ? null : new ValidationError("snapshot text is empty or holds quote or line break");
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
+        validationError = Quotable(value) ? null : new RhinoFault("snapshot text is empty or holds quote or line break");
 
     internal static bool Quotable(string value) => value.Length > 0 && !value.AsSpan().ContainsAny('"', '\r', '\n');
 }
@@ -24,9 +25,10 @@ public sealed partial class SnapshotText {
 [ValueObject<string>(SkipIParsable = true, EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[ValidationError<RhinoFault>]
 public sealed partial class SnapshotName {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = SnapshotText.Quotable(value) ? null : new ValidationError("snapshot name is empty or holds quote or line break");
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
+        validationError = SnapshotText.Quotable(value) ? null : new RhinoFault("snapshot name is empty or holds quote or line break");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -61,14 +63,15 @@ public abstract partial record SnapshotChange {
         new Restore(name).Landed(doc);
 
     internal static IO<NamedWrite> Renamed(RhinoDoc doc, NamedEntry entry, StateName name) =>
-        IO.lift(() => (SnapshotName.Validated(entry.Name), SnapshotName.Validated(name)).Apply(static (held, next) => new Rename(held, next)).As())
+        IO.lift(() => (SnapshotName.TryCreate(entry.Name, out SnapshotName? held, out RhinoFault? heldFault) ? Fin.Succ(held) : heldFault,
+                  SnapshotName.TryCreate(name, out SnapshotName? next, out RhinoFault? nextFault) ? Fin.Succ(next) : nextFault).Apply(static (current, renamed) => new Rename(current, renamed)).As())
             .Bind(rename => rename.Landed(doc));
 
     internal static IO<NamedWrite> Deleted(RhinoDoc doc, NamedEntry entry) =>
-        IO.lift(() => SnapshotName.Validated(entry.Name)).Bind(name => new Delete(name).Landed(doc));
+        IO.lift(() => SnapshotName.TryCreate(entry.Name, out SnapshotName? name, out RhinoFault? fault) ? Fin.Succ(name) : fault).Bind(name => new Delete(name).Landed(doc));
 
     internal static IO<NamedWrite> Held(RhinoDoc doc) =>
-        from name in IO.lift(static () => SnapshotName.Validated(Guid.NewGuid().ToString()))
+        from name in IO.lift(static () => SnapshotName.TryCreate(Guid.NewGuid().ToString(), out SnapshotName? held, out RhinoFault? fault) ? Fin.Succ(held) : fault)
         from saved in new Save(name).Run(doc)
         select (NamedWrite)new NamedWrite.Compensated(new Restore(name).Run(doc), new Delete(name).Run(doc));
 
@@ -88,7 +91,7 @@ public abstract partial record SnapshotChange {
         delete: static (held, change) => Expecting(held, [(change.Name, true)], $"""_-Snapshots _Delete "{change.Name}" _Enter"""),
         rename: static (held, change) => Expecting(held, [(change.Name, true), (change.NewName, false)], $"""_-Snapshots _Rename "{change.Name}" "{change.NewName}" _Enter"""),
         import: static (_, change) => SnapshotText.Quotable(change.Path)
-            ? Fin.Succ($"""_-Snapshots _Import "{change.Path}" _Enter""")
+            ? $"""_-Snapshots _Import "{change.Path}" _Enter"""
             : new FileRefused(change.Path, FileReason.Unreadable),
         userText: static (held, change) => Expecting(held, [(change.Name, true)], change.Value.Match(
             Some: value => $"""_-Snapshots _UserText "{change.Name}" _Set "{change.Key}" "{value}" _Enter _Enter""",
@@ -119,49 +122,49 @@ public abstract record SnapshotState<TSubject> {
     internal abstract IO<bool> Held(BinaryArchiveReader current, Seq<BinaryArchiveReader> stored);
 
     internal abstract IO<Option<SnapshotFrames<TSubject>>> Prepare(TSubject subject, BinaryArchiveReader start, BinaryArchiveReader stop);
-}
 
-public sealed record SnapshotState<TSubject, TState>(
-    uint TypeCode,
-    DictionaryCodec<TState> Codec,
-    Func<TSubject, IO<TState>> Read,
-    Func<TSubject, TState, IO<Unit>> Write) : SnapshotState<TSubject> where TState : notnull {
-    public Option<SnapshotTween<TSubject, TState>> Tween { get; init; }
+    public sealed record Of<TState>(
+        uint TypeCode,
+        DictionaryCodec<TState> Codec,
+        Func<TSubject, IO<TState>> Read,
+        Func<TSubject, TState, IO<Unit>> Write) : SnapshotState<TSubject> where TState : notnull {
+        public Option<SnapshotTween<TSubject, TState>> Tween { get; init; }
 
-    internal override bool Animates => Tween.IsSome;
+        internal override bool Animates => Tween.IsSome;
 
-    internal override IO<Unit> Save(TSubject subject, BinaryArchiveWriter archive) =>
-        from state in IO.lift(() => Read(subject)).Flatten()
-        from written in AttachedData.Write(archive, TypeCode, Codec, state)
-        select written;
+        internal override IO<Unit> Save(TSubject subject, BinaryArchiveWriter archive) =>
+            from state in IO.lift(() => Read(subject)).Flatten()
+            from written in AttachedData.Write(archive, TypeCode, Codec, state)
+            select written;
 
-    internal override IO<Unit> Restore(TSubject subject, BinaryArchiveReader archive) =>
-        from state in Decoded(archive)
-        from written in Write(subject, state)
-        select written;
+        internal override IO<Unit> Restore(TSubject subject, BinaryArchiveReader archive) =>
+            from state in Decoded(archive)
+            from written in Write(subject, state)
+            select written;
 
-    internal override IO<bool> Held(BinaryArchiveReader current, Seq<BinaryArchiveReader> stored) =>
-        from now in Decoded(current)
-        from held in stored.TraverseM(Stored).As()
-        select held.Exists(state => state.Exists(value => EqualityComparer<TState>.Default.Equals(value, now)));
+        internal override IO<bool> Held(BinaryArchiveReader current, Seq<BinaryArchiveReader> stored) =>
+            from now in Decoded(current)
+            from held in stored.TraverseM(Stored).As()
+            select held.Exists(state => state.Exists(value => EqualityComparer<TState>.Default.Equals(value, now)));
 
-    internal override IO<Option<SnapshotFrames<TSubject>>> Prepare(TSubject subject, BinaryArchiveReader start, BinaryArchiveReader stop) =>
-        Tween.Match(
-            Some: tween =>
-                from first in Decoded(start)
-                from last in Decoded(stop)
-                select Some(new SnapshotFrames<TSubject>(
-                    (frameSubject, position) => IO.lift(() => Write(frameSubject, tween.Between(first, last, position))).Flatten(),
-                    tween.Bounds.Map(bounds => bounds(subject, first, last)))),
-            None: static () => IO.pure(Option<SnapshotFrames<TSubject>>.None));
+        internal override IO<Option<SnapshotFrames<TSubject>>> Prepare(TSubject subject, BinaryArchiveReader start, BinaryArchiveReader stop) =>
+            Tween.Match(
+                Some: tween =>
+                    from first in Decoded(start)
+                    from last in Decoded(stop)
+                    select Some(new SnapshotFrames<TSubject>(
+                        (frameSubject, position) => IO.lift(() => Write(frameSubject, tween.Between(first, last, position))).Flatten(),
+                        tween.Bounds.Map(bounds => bounds(subject, first, last)))),
+                None: static () => IO.pure(Option<SnapshotFrames<TSubject>>.None));
 
-    private IO<TState> Decoded(BinaryArchiveReader archive) =>
-        Stored(archive).Bind(found => IO.lift(found.ToFin(Error.New($"snapshot holds no readable {Codec.Name} record"))));
+        private IO<TState> Decoded(BinaryArchiveReader archive) =>
+            Stored(archive).Bind(found => IO.lift(found.ToFin(Error.New($"snapshot holds no readable {Codec.Name} record"))));
 
-    private IO<Option<TState>> Stored(BinaryArchiveReader archive) =>
-        from positioned in IO.lift(() => Refused.Unless(archive.SeekFromStart(0UL), nameof(BinaryArchiveReader.SeekFromStart)))
-        from stored in AttachedData.Read(archive, TypeCode, Codec)
-        select stored.Present;
+        private IO<Option<TState>> Stored(BinaryArchiveReader archive) =>
+            from positioned in IO.lift(() => Refused.Unless(archive.SeekFromStart(0UL), nameof(BinaryArchiveReader.SeekFromStart)))
+            from stored in AttachedData.Read(archive, TypeCode, Codec)
+            select stored.Present;
+    }
 }
 
 public sealed record SnapshotDefinition(

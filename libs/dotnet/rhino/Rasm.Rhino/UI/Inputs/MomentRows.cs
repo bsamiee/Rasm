@@ -2,7 +2,6 @@ using Eto.Drawing;
 using Eto.Forms;
 using NodaTime.Text;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Rows;
 using Rasm.UI;
@@ -18,9 +17,6 @@ public sealed partial class ClockFormat {
     public static readonly ClockFormat HourMinuteSecond12 = new(1, "h:mm:ss tt");
     public static readonly ClockFormat HourMinute24 = new(2, "HH:mm");
     public static readonly ClockFormat HourMinuteSecond24 = new(3, "HH:mm:ss");
-
-    [IgnoreMember]
-    public static readonly ClockFormat Default = HourMinute24;
 
     public string Pattern { get; }
 
@@ -38,9 +34,9 @@ public sealed partial class ClockZone {
     private readonly Action<int> _write;
 
     public ValueStore<ClockFormat> Format =>
-        ValueStore.Of(
-            IO.lift(() => ClockFormat.Validated(_read()).Map(static held => Some(held).Filter(static format => format != ClockFormat.Default))),
-            held => IO.lift(() => _write(held.IfNone(ClockFormat.Default).Key)),
+        ValueStores.Of(
+            IO.lift(() => ClockFormat.TryGet(_read(), out ClockFormat? held) ? Some(held).Filter(static format => format != ClockFormat.HourMinute24) : None),
+            held => IO.lift(() => _write(held.IfNone(ClockFormat.HourMinute24).Key)),
             Applied.Live,
             None);
 
@@ -51,117 +47,79 @@ public sealed partial class ClockZone {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MomentRows {
     // --- [PICKERS]
-    public static ControlRow Picker<TValue>(RowSource<Option<TValue>> source, IStateParameter<Option<TValue>> parameter, DateTimePickerMode part, RowRules rules)
-        where TValue : IObjectFactory<TValue, LocalDateTime, ValidationError>, IConvertible<LocalDateTime>, System.Numerics.IMinMaxValue<TValue> =>
-        ControlRow.Of(source, parameter, RowShape.Inline, (scope, retain) => Picked(source, parameter, part, scope, retain), rules);
+    public static ControlRow Picker(string label, LocalDateTime value, DateTimePickerMode part, (LocalDateTime Min, LocalDateTime Max) limits, Func<Edit<LocalDateTime>, IO<Unit>> edited) =>
+        new ControlRow.Bound<(LocalDateTime Value, DateTimePickerMode Part, (LocalDateTime Min, LocalDateTime Max) Limits, Func<Edit<LocalDateTime>, IO<Unit>> Edited)>(
+            label, RowShape.Inline, (value, part, limits, edited), static (latest, scope, retain) =>
+                from picker in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), retain)
+                let handler = Callbacks.Handler<EventArgs>(_ =>
+                    from current in latest
+                    from answered in Optional(picker.Value).Map(static picked => LocalDateTime.FromDateTime(picked)).Traverse(wall => current.Row.Edited(new Edit<LocalDateTime>.Commit(current.Row.Part switch {
+                        DateTimePickerMode.Date => wall.Date.At(current.Row.Value.TimeOfDay),
+                        DateTimePickerMode.Time => current.Row.Value.Date.At(wall.TimeOfDay),
+                        _ => wall,
+                    }))).As()
+                    select unit, new CallbackSite(scope.Sink, typeof(DateTimePicker), nameof(DateTimePicker.ValueChanged)))
+                from attached in Subscriptions.Attach(h => picker.ValueChanged += h, h => picker.ValueChanged -= h, handler, retain)
+                select new RowCells(picker, latest.Bind(current => Subscriptions.Detached(h => picker.ValueChanged += h, h => picker.ValueChanged -= h, handler, IO.lift(() => {
+                    (picker.Mode, picker.MinDate, picker.MaxDate) = (current.Row.Part, current.Row.Limits.Min.ToDateTimeUnspecified(), current.Row.Limits.Max.ToDateTimeUnspecified());
+                    picker.Value = current.Row.Value.ToDateTimeUnspecified();
+                })))));
 
     // --- [RANGES]
-    public static ControlRow DateSpan<TRecord, TBound>(
-        RowSource<TRecord> source, IStateParameter<TRecord> parameter, Func<TRecord, DateInterval> read, Func<TRecord, DateInterval, Fin<TRecord>> write, RowRules rules)
-        where TRecord : notnull
-        where TBound : System.Numerics.IMinMaxValue<TBound>, IConvertible<LocalDateTime> =>
-        ControlRow.Of(source, parameter, RowShape.Inline, (scope, retain) => Ranged(source, parameter, read, write, (Min: TBound.MinValue.ToValue().Date, Max: TBound.MaxValue.ToValue().Date), scope, retain), rules);
+    public static ControlRow DateSpan(string label, DateInterval value, (LocalDate Min, LocalDate Max) limits, Func<Edit<DateInterval>, IO<Unit>> edited) =>
+        new ControlRow.Bound<(DateInterval Value, (LocalDate Min, LocalDate Max) Limits, Func<Edit<DateInterval>, IO<Unit>> Edited)>(
+            label, RowShape.Inline, (value, limits, edited), static (latest, scope, retain) =>
+                from start in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker { Mode = DateTimePickerMode.Date }), retain)
+                from end in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker { Mode = DateTimePickerMode.Date }), retain)
+                from table in Containers.Frame(static () => new TableLayout(), retain)
+                from placed in IO.lift(() => {
+                    table.Rows.Add(new TableRow(new TableCell(start, scaleWidth: true), new TableCell(end, scaleWidth: true)));
+                    table.Spacing = new Size(RhinoLayout.StackedSpacing(Orientation.Horizontal, RhinoLayout.SpacingType.Table), 0);
+                })
+                let walls = latest.Map(static current => (Min: current.Row.Limits.Min.AtMidnight().ToDateTimeUnspecified(), Max: current.Row.Limits.Max.AtMidnight().ToDateTimeUnspecified()))
+                let handler = Callbacks.Handler<EventArgs>(_ =>
+                    from bounds in walls
+                    from narrowed in IO.lift(() => Narrowed(start, end, bounds))
+                    from current in latest
+                    from routed in (Optional(start.Value), Optional(end.Value))
+                        .Apply(static (first, last) => new DateInterval(LocalDate.FromDateTime(first), LocalDate.FromDateTime(last))).As()
+                        .Traverse(picked => current.Row.Edited(new Edit<DateInterval>.Commit(picked))).As()
+                    select unit, new CallbackSite(scope.Sink, typeof(DateTimePicker), nameof(DateTimePicker.ValueChanged)))
+                from started in Subscriptions.Attach(h => start.ValueChanged += h, h => start.ValueChanged -= h, handler, retain)
+                from ended in Subscriptions.Attach(h => end.ValueChanged += h, h => end.ValueChanged -= h, handler, retain)
+                select new RowCells(table, from current in latest
+                                           from bounds in walls
+                                           from shown in Subscriptions.Detached(h => start.ValueChanged += h, h => start.ValueChanged -= h, handler,
+                                               Subscriptions.Detached(h => end.ValueChanged += h, h => end.ValueChanged -= h, handler, IO.lift(() => Spanned(start, end, bounds, current.Row.Value))))
+                                           select shown));
 
     // --- [CLOCKS]
-    public static ControlRow Clock(ParameterText text, ClockZone zone, ReadoutSource<OffsetDateTime> moment, RowRules rules) =>
-        new ControlRow.Readout(RowShape.Unlabeled, (scope, retain) =>
-            DisposalOps.Acquire(owned =>
-            from live in TextRows.Live(moment, static (_, keep) => DisposalOps.Acquire(IO.lift(static () => new Button()), keep), (held, at) => Shown(held, zone, at), scope, owned)
+    public static ControlRow Clock(string label, ClockZone zone, ReadoutSource<OffsetDateTime> moment) =>
+        new ControlRow.Bound<(ClockZone Zone, ReadoutSource<OffsetDateTime> Moment)>(label, RowShape.Unlabeled, (zone, moment), static (latest, scope, retain) =>
+            from row in latest
+            from live in TextRows.Live(row.Row.Moment, static (_, keep) => DisposalOps.Acquire(IO.lift(static () => new Button()), keep), (held, at) => Shown(held, row.Row.Zone, at), scope, retain)
             from clicked in Subscriptions.Attach(h => live.Click += h, h => live.Click -= h,
-                Callbacks.Handler<EventArgs>(_ => Cycled(zone.Format), new CallbackSite(scope.Sink, typeof(Button), nameof(Button.Click))), owned)
-            select new RowCells(live, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None), retain),
-            text, rules);
+                Callbacks.Handler<EventArgs>(_ => Cycled(row.Row.Zone.Format), new CallbackSite(scope.Sink, typeof(Button), nameof(Button.Click))), retain)
+            select new RowCells(live, IO.pure(unit)));
 
     // --- [REALIZE]
-    private static IO<RowCells> Picked<TValue>(RowSource<Option<TValue>> source, IStateParameter<Option<TValue>> parameter, DateTimePickerMode part, RowScope scope, Action<IDisposable> retain)
-        where TValue : IObjectFactory<TValue, LocalDateTime, ValidationError>, IConvertible<LocalDateTime>, System.Numerics.IMinMaxValue<TValue> =>
-        DisposalOps.Acquire(owned =>
-        from picker in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), owned)
-        from ranged in IO.lift(() => { (picker.Mode, picker.MinDate, picker.MaxDate) = (part, TValue.MinValue.ToValue().ToDateTimeUnspecified(), TValue.MaxValue.ToValue().ToDateTimeUnspecified()); })
-        let site = new CallbackSite(scope.Sink, typeof(DateTimePicker), nameof(DateTimePicker.ValueChanged))
-        let pattern = LocalDateTimePattern.Create("G", RowText.Culture)
-        let merged = fun((Option<TValue> held, LocalDateTime wall) =>
-            ValidationResults.Validated<TValue, LocalDateTime>(held.Map(value => part switch {
-                DateTimePickerMode.Date => wall.Date.At(value.ToValue().TimeOfDay),
-                DateTimePickerMode.Time => value.ToValue().Date.At(wall.TimeOfDay),
-                DateTimePickerMode.DateTime => wall,
-            }).IfNone(wall)).Map(static value => Some(value)))
-        from bound in RowEdit.Bind(source, IterableNE.create(parameter),
-            h => picker.ValueChanged += h, h => picker.ValueChanged -= h,
-            edit => Callbacks.Handler<EventArgs>(_ => Answered(edit, source, picker, merged, scope), site),
-            held => IO.lift(() => {
-                picker.Value = held.Flatten().Map(static value => value.ToValue().ToDateTimeUnspecified()).ToNullable();
-            }),
-            scope, site, owned)
-        select new RowCells(
-            picker, None, None, None, [], [], new RowHelp(Some((pattern.Format(TValue.MinValue.ToValue()), pattern.Format(TValue.MaxValue.ToValue()))), None),
-            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(picker, [], []))), retain);
-
-    private static IO<Unit> Answered<TValue>(
-        RowEdit<Option<TValue>> edit, RowSource<Option<TValue>> source, DateTimePicker picker, Func<Option<TValue>, LocalDateTime, Fin<Option<TValue>>> merged, RowScope scope) =>
-        from held in scope.Read(source)
-        from answered in Optional(picker.Value).Match(
-            Some: picked => edit.Preview(merged(held, LocalDateTime.FromDateTime(picked)), Some(Accessors.StepEventsDelay)),
-            None: () => edit.Commit(Option<TValue>.None).Map(unit))
-        select answered;
-
-    private static IO<RowCells> Ranged<TRecord>(
-        RowSource<TRecord> source, IStateParameter<TRecord> parameter, Func<TRecord, DateInterval> read, Func<TRecord, DateInterval, Fin<TRecord>> write,
-        (LocalDate Min, LocalDate Max) limits, RowScope scope, Action<IDisposable> retain)
-        where TRecord : notnull =>
-        DisposalOps.Acquire(owned =>
-        from start in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), owned)
-        from end in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), owned)
-        from moded in IO.lift(() => { (start.Mode, end.Mode) = (DateTimePickerMode.Date, DateTimePickerMode.Date); })
-        from table in Containers.Frame(static () => new TableLayout(), owned)
-        from placed in IO.lift(() => {
-            table.Rows.Add(new TableRow(new TableCell(start, scaleWidth: true), new TableCell(end, scaleWidth: true)));
-            table.Spacing = new Size(RhinoLayout.StackedSpacing(Eto.Forms.Orientation.Horizontal, RhinoLayout.SpacingType.Table), 0);
-        })
-        let walls = (Min: limits.Min.AtMidnight().ToDateTimeUnspecified(), Max: limits.Max.AtMidnight().ToDateTimeUnspecified())
-        let site = new CallbackSite(scope.Sink, typeof(DateTimePicker), nameof(DateTimePicker.ValueChanged))
-        let pattern = LocalDatePattern.Create("d", RowText.Culture)
-        from bound in RowEdit.Bind(source, IterableNE.create(parameter),
-            h => Callbacks.Each(Seq(IO.lift(() => start.ValueChanged += h), IO.lift(() => end.ValueChanged += h))).Run(),
-            h => Callbacks.Each(Seq(IO.lift(() => start.ValueChanged -= h), IO.lift(() => end.ValueChanged -= h))).Run(),
-            edit => Callbacks.Handler<EventArgs>(_ => Routed(edit, source, write, start, end, walls, scope), site),
-            held => IO.lift(() => Spanned(start, end, walls, held.Map(read))),
-            scope, site, owned)
-        select new RowCells(
-            table, None, None, None, [], [],
-            new RowHelp(
-                Some((pattern.Format(limits.Min), pattern.Format(limits.Max))),
-                Some(read(source.Default)).Map(dates => RowText.Localize("{0} – {1}", arguments: [pattern.Format(dates.Start), pattern.Format(dates.End)]).Local)),
-            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Labelled([], []))), retain);
-
-    private static IO<Unit> Routed<TRecord>(
-        RowEdit<TRecord> edit, RowSource<TRecord> source, Func<TRecord, DateInterval, Fin<TRecord>> write, DateTimePicker start, DateTimePicker end,
-        (DateTime Min, DateTime Max) walls, RowScope scope)
-        where TRecord : notnull =>
-        from narrowed in IO.lift(() => Narrowed(start, end, walls))
-        from held in scope.Read(source)
-        from routed in (Optional(start.Value), Optional(end.Value))
-            .Apply(static (first, last) => new DateInterval(LocalDate.FromDateTime(first), LocalDate.FromDateTime(last))).As()
-            .Match(Some: picked => edit.Preview(write(held, picked), Some(Accessors.StepEventsDelay)), None: () => edit.Cancel)
-        select routed;
-
-    private static void Narrowed(DateTimePicker start, DateTimePicker end, (DateTime Min, DateTime Max) walls) =>
+    private static Unit Narrowed(DateTimePicker start, DateTimePicker end, (DateTime Min, DateTime Max) walls) {
         (start.MaxDate, end.MinDate) = (end.Value ?? walls.Max, start.Value ?? walls.Min);
+        return unit;
+    }
 
-    private static void Spanned(DateTimePicker start, DateTimePicker end, (DateTime Min, DateTime Max) walls, Option<DateInterval> held) {
+    private static Unit Spanned(DateTimePicker start, DateTimePicker end, (DateTime Min, DateTime Max) walls, DateInterval held) {
         (start.MinDate, start.MaxDate, end.MinDate, end.MaxDate) = (walls.Min, walls.Max, walls.Min, walls.Max);
-        (start.Value, end.Value) = (
-            held.Map(static dates => dates.Start.AtMidnight().ToDateTimeUnspecified()).ToNullable(),
-            held.Map(static dates => dates.End.AtMidnight().ToDateTimeUnspecified()).ToNullable());
-        Narrowed(start, end, walls);
+        (start.Value, end.Value) = (held.Start.AtMidnight().ToDateTimeUnspecified(), held.End.AtMidnight().ToDateTimeUnspecified());
+        return Narrowed(start, end, walls);
     }
 
     private static IO<Unit> Shown(Button button, ClockZone zone, OffsetDateTime at) =>
         from format in zone.Format.Read
-        let text = RowText.Localize(zone.Template, arguments: [LocalTimePattern.Create(format.IfNone(ClockFormat.Default).Pattern, RowText.Culture).Format(zone.TimeOf(at))]).Local
+        let text = RowText.Localize(zone.Template, arguments: [LocalTimePattern.Create(format.IfNone(ClockFormat.HourMinute24).Pattern, RowText.Culture).Format(zone.TimeOf(at))]).Local
         from written in when(!string.Equals(button.Text, text, StringComparison.Ordinal), IO.lift(() => { button.Text = text; })).As()
         select written;
 
     private static IO<Unit> Cycled(ValueStore<ClockFormat> format) =>
-        format.Read.Bind(held => format.Write(Some(held.IfNone(ClockFormat.Default).Next()))).Map(unit);
+        format.Read.Bind(held => format.Write(Some(held.IfNone(ClockFormat.HourMinute24).Next()))).Map(unit);
 }

@@ -28,17 +28,6 @@ public sealed partial class MeshModifier {
     public partial bool IsAttached(File3dmMeshModifiers modifiers);
 }
 
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct WireDensity : System.Numerics.IMinMaxValue<WireDensity> {
-    // --- [LIMITS]
-    public static WireDensity MinValue { get; } = new(-1);
-    public static WireDensity MaxValue { get; } = new(int.MaxValue);
-
-    // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
-}
-
 public sealed record DecalState(
     int Crc, bool IsVisible, Guid TextureInstanceId, DecalMapping Mapping, DecalProjection Projection, bool MapToInside, double Transparency,
     Point3d Origin, Vector3d VectorUp, Vector3d VectorAcross, double Height, double Radius,
@@ -71,7 +60,7 @@ public sealed record AttributePatch(
     Option<ObjectLinetypeSource> LinetypeSource = default, Option<double> LinetypePatternScale = default,
     Option<ObjectMaterialSource> MaterialSource = default, Option<ObjectSectionAttributesSource> SectionAttributesSource = default,
     Option<SectionLabelStyle> ClippingPlaneLabelStyle = default, Option<bool> CastsShadows = default, Option<bool> ReceivesShadows = default,
-    Option<WireDensity> WireDensity = default, Option<int> DisplayOrder = default, Option<ObjectDecoration> ObjectDecoration = default,
+    Option<int> WireDensity = default, Option<int> DisplayOrder = default, Option<ObjectDecoration> ObjectDecoration = default,
     Option<ActiveSpace> Space = default, Option<Option<Guid>> ViewportId = default, Option<bool> DetailBackgroundVisible = default,
     Option<Color> HatchBackgroundFillColor = default, Option<Color> HatchBackgroundFillPrintColor = default,
     Option<bool> HatchBoundaryVisible = default, Option<Color> HatchBoundaryColor = default, Option<Color> HatchBoundaryPlotColor = default,
@@ -196,9 +185,6 @@ public static partial class AttributeEdits {
 
     [UserMapping]
     private static Guid Viewport(Option<Option<Guid>> value, [MappingTargetOriginalValue] Guid original) => value.Map(Conversions.Unset).IfNone(original);
-
-    [UserMapping]
-    private static int Density(Option<WireDensity> value, [MappingTargetOriginalValue] int original) => value.Map(static density => (int)density).IfNone(original);
 
     [UserMapping]
     private static double Weight(Option<PlotWeight> value, [MappingTargetOriginalValue] double original) => value.Map(static weight => weight.ToHost()).IfNone(original);

@@ -1,8 +1,9 @@
+using System.Text.Json;
 using Grasshopper2;
 using Grasshopper2.Doc;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Settings;
+using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Stores;
 
 namespace Rasm.Grasshopper;
@@ -12,29 +13,16 @@ public sealed record KeyedText(
     string Owner,
     Func<string, Fin<Option<string>>> Read,
     Func<Seq<(string Key, Option<string> Text)>, IO<Unit>> Write,
-    Option<HostEvent<KeyValueEventArgs>> Changed) : ISettingReader {
-    // --- [KEYS]
-    public string Pattern => Key(["*"]);
-
-    public string Key(Seq<string> path) => EntryKey.Name(Owner.Cons(path));
-
+    Option<HostEvent<KeyValueEventArgs>> Changed) {
     // --- [STORES]
-    public ValueStore<TValue> Store<TValue>(FieldCodec<TValue> codec) where TValue : notnull =>
-        codec.Capture(codec.Default) switch {
-            var factory => ValueStore.Defaulted(
-                codec.Recalled(Owner, path => IO.lift(() => Read(Key(path)))),
-                IO.pure(codec.Default),
-                value => Write(codec.Slots(Some(value)).Map(slot =>
-                    (Key(slot.Path), slot.Text.Filter(stored => !factory.Find(slot.Path).Exists(held => string.Equals(held, stored, StringComparison.Ordinal)))))),
-                EqualityComparer<TValue>.Default.Equals,
-                Applied.Live,
-                Changed.Map(row => ValueStore.Signal(row, args => codec.Entries.Exists(entry => string.Equals(Key(entry.Path), args.Key, StringComparison.OrdinalIgnoreCase))))),
-        };
-
-    public IO<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
-        where TValue : notnull
-        where TRaw : notnull, ISpanParsable<TRaw> =>
-        Store(row.Key.Codec).Read.Map(held => held.IfNone(row.Key.Default));
+    public ValueStore<TValue> Store<TValue>(TValue @default) where TValue : notnull =>
+        ValueStores.Of(
+            from text in IO.lift(() => Read(Owner))
+            from value in IO.lift(() => text.Traverse(held => ArchivableDictionaries.Decoded(Owner, () => JsonSerializer.Deserialize<TValue>(held, ArchivableDictionaries.Options))).As())
+            select value.Filter(held => !EqualityComparer<TValue>.Default.Equals(held, @default)),
+            value => Write([(Owner, value.Map(static held => JsonSerializer.Serialize(held, ArchivableDictionaries.Options)))]),
+            Applied.Live,
+            Changed.Map(row => ValueStores.Signal(row, args => string.Equals(args.Key, Owner, StringComparison.OrdinalIgnoreCase))));
 
     // --- [HOSTS]
     public static KeyedText Of(KeyedValues values, string owner) =>
@@ -71,10 +59,10 @@ public static class GrasshopperStores {
                     setting.Value = value.IfNone(setting.Default);
                     return stored(setting.Value);
                 })
-                select ValueStore.Between(before, after, same),
+                select ValueStores.Between(before, after, same),
             same,
             Applied.Live,
-            Some(ValueStore.Signal(GrasshopperEvents.SettingChanged(setting), static _ => true)));
+            Some(ValueStores.Signal(GrasshopperEvents.SettingChanged(setting), static _ => true)));
     }
 
     public static IO<Unit> Saved(SettingsFile file) =>

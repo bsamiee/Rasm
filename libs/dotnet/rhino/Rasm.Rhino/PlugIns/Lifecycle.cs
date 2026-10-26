@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Rasm.Rhino.Persistence.Settings;
@@ -74,14 +75,14 @@ public sealed class PlugInSession(Seq<Action<ILoggingBuilder>> logging) {
     internal Option<object> Find(object slot) => state.Value.Bind(held => held.Slots.Find(slot));
 
     // --- [REPORT]
-    public void Report(Error error, Type owner, string member) =>
+    public void Report(Error error, Type owner, [CallerMemberName] string member = "") =>
         Try.lift(fun(() => ErrorOps.Log(Try.lift(() => loggers.CreateLogger(owner)).Run().IfFail(_ => Window.CreateLogger(owner)), error, member)))
             .Run()
             .IfFail(fault => HostUtils.ExceptionReport($"{owner.FullName}.{member}", (error + fault).ToException()));
 
     // --- [CLOSE]
     public IO<Unit> Close =>
-        (from settled in Callbacks.Each(Seq(Callbacks.Drained, Released)).Map(unit).Catch(error => IO.lift(() => Report(error, typeof(PlugInSession), nameof(Close)))).As()
+        (from settled in Callbacks.Each(Seq(Callbacks.Drained, Released)).Map(unit).Catch(error => IO.lift(() => Report(error, typeof(PlugInSession)))).As()
          from disposed in IO.lift(loggers.Dispose)
          select unit).Uninterruptible();
 
@@ -169,9 +170,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
         let collection = new ViewCatalog(definition.Views.Concat(kindViews))
         from published in views.SwapIO(_ => collection)
         from dependencies in PlugInRegistry.LoadPlugIns(definition.Dependencies)
-        from registered in PlugInSettings.RegisterAll(((IPlugInViews)plugIn).Settings, [
-            .. collection.Rows.Bind(ViewCatalog.Tree).Bind(ViewOps.Sources).Choose(static source => source.Setting).Distinct(),
-            .. HostDialogs.Suppressions(collection)])
+        from registered in PlugInSettings.RegisterAll(((IPlugInViews)plugIn).Settings, HostDialogs.Suppressions(collection))
         from opened in Session.Open(plugIn, [
             (owner, retain) => HostedTypes.Claim(owner, HostedTypes.Declared(plugIn, collection), retain),
             Notifications.NotificationActivated,

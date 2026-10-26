@@ -7,19 +7,11 @@ using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using Rasm.Rhino;
 using Rasm.Rhino.Objects;
-using Rasm.UI;
+using Rhino.Display;
+using UnitsNet;
 using Wacton.Unicolour;
 
 namespace Darkroom.Review;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-public enum ReferenceFamily {
-    Sky,
-    Studio,
-    Portrait,
-    Cinematic,
-    Environment,
-}
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
@@ -75,121 +67,120 @@ public sealed record ReferenceScene {
 }
 
 [SmartEnum<string>]
-public sealed partial class ReferencePreset : ICaptioned {
-    public static readonly ReferencePreset GoldenHour = new("golden-hour", ReferenceFamily.Sky, new() {
+public sealed partial class ReferencePreset {
+    public static readonly ReferencePreset GoldenHour = new("golden-hour", new() {
         Base = 0.2f, Gradient = new(0.9f, 0.1f), Tint = Gel.Warm.Color, Blobs = [new(new(0.7f, 0.3f), 1.2f, 0.7f, Gel.Warm.Color)],
     });
-    public static readonly ReferencePreset Sunrise = new("sunrise", ReferenceFamily.Sky, new() {
+    public static readonly ReferencePreset Sunrise = new("sunrise", new() {
         Base = 0.16f, Gradient = new(0.5f, 0.2f), Tint = new(1f, 0.7f, 0.45f), Blobs = [new(new(-0.6f, -0.2f), 1.4f, 0.8f, new(1f, 0.65f, 0.4f))],
     });
-    public static readonly ReferencePreset Sunset = new("sunset", ReferenceFamily.Sky, new() {
+    public static readonly ReferencePreset Sunset = new("sunset", new() {
         Base = 0.18f, Gradient = new(0.6f, 0f), Tint = Gel.DeepWarm.Color, Blobs = [new(new(0.6f, -0.25f), 1.3f, 0.9f, Gel.DeepWarm.Color)], Vignette = 0.3f,
     });
-    public static readonly ReferencePreset BlueHour = new("blue-hour", ReferenceFamily.Sky, new() { Base = 0.12f, Gradient = new(0f, 0.6f), Tint = Gel.Cool.Color });
-    public static readonly ReferencePreset Twilight = new("twilight", ReferenceFamily.Sky, new() {
+    public static readonly ReferencePreset BlueHour = new("blue-hour", new() { Base = 0.12f, Gradient = new(0f, 0.6f), Tint = Gel.Cool.Color });
+    public static readonly ReferencePreset Twilight = new("twilight", new() {
         Base = 0.1f, Gradient = new(0f, 0.5f), Tint = new(0.7f, 0.6f, 1f), Blobs = [new(new(0f, 0.8f), 1f, 0.4f, Gel.Magenta.Color)],
     });
-    public static readonly ReferencePreset Midday = new("midday", ReferenceFamily.Sky, new() {
+    public static readonly ReferencePreset Midday = new("midday", new() {
         Base = 0.4f, Gradient = new(0f, 0.5f), Tint = Gel.Neutral.Color, Blobs = [new(new(0.1f, 0.8f), 1.4f, 0.6f, Gel.Neutral.Color)],
     });
-    public static readonly ReferencePreset HarshNoon = new("harsh-noon", ReferenceFamily.Sky, new() {
+    public static readonly ReferencePreset HarshNoon = new("harsh-noon", new() {
         Base = 0.25f, Blobs = [new(new(0f, 0.85f), 3f, 1.1f, Gel.Neutral.Color)], Vignette = 0.45f,
     });
-    public static readonly ReferencePreset Overcast = new("overcast", ReferenceFamily.Sky, new() { Base = 0.55f, Gradient = new(0f, 0.25f), Tint = new(0.95f, 0.97f, 1f) });
-    public static readonly ReferencePreset FoggyMorn = new("foggy-morn", ReferenceFamily.Sky, new() { Base = 0.5f, Gradient = new(0f, 0.3f), Tint = new(0.9f, 0.95f, 1f), Vignette = 0.2f });
-    public static readonly ReferencePreset NightSky = new("night-sky", ReferenceFamily.Sky, new() {
+    public static readonly ReferencePreset Overcast = new("overcast", new() { Base = 0.55f, Gradient = new(0f, 0.25f), Tint = new(0.95f, 0.97f, 1f) });
+    public static readonly ReferencePreset FoggyMorn = new("foggy-morn", new() { Base = 0.5f, Gradient = new(0f, 0.3f), Tint = new(0.9f, 0.95f, 1f), Vignette = 0.2f });
+    public static readonly ReferencePreset NightSky = new("night-sky", new() {
         Base = 0.04f, Gradient = new(0f, 0.25f), Tint = Gel.Cool.Color, Blobs = [new(new(0.4f, 0.8f), 6f, 0.5f, new(0.8f, 0.9f, 1f))],
     });
-    public static readonly ReferencePreset TopSky = new("top-sky", ReferenceFamily.Sky, new() { Base = 0.08f, Gradient = new(0f, 0.95f), Tint = new(0.85f, 0.92f, 1f) });
-    public static readonly ReferencePreset Softbox = new("softbox", ReferenceFamily.Studio, new() { Base = 0.5f, Blobs = [new(new(0f, 0.4f), 0.6f, 0.5f, Gel.Neutral.Color)] });
-    public static readonly ReferencePreset SoftboxL = new("softbox-l", ReferenceFamily.Studio, new() { Base = 0.18f, Blobs = [new(new(-0.6f, 0.35f), 0.9f, 0.8f, Gel.Neutral.Color)] });
-    public static readonly ReferencePreset SoftboxR = new("softbox-r", ReferenceFamily.Studio, new() { Base = 0.18f, Blobs = [new(new(0.6f, 0.35f), 0.9f, 0.8f, Gel.Neutral.Color)] });
-    public static readonly ReferencePreset BeautyDish = new("beauty-dish", ReferenceFamily.Studio, new() {
+    public static readonly ReferencePreset TopSky = new("top-sky", new() { Base = 0.08f, Gradient = new(0f, 0.95f), Tint = new(0.85f, 0.92f, 1f) });
+    public static readonly ReferencePreset Softbox = new("softbox", new() { Base = 0.5f, Blobs = [new(new(0f, 0.4f), 0.6f, 0.5f, Gel.Neutral.Color)] });
+    public static readonly ReferencePreset SoftboxL = new("softbox-l", new() { Base = 0.18f, Blobs = [new(new(-0.6f, 0.35f), 0.9f, 0.8f, Gel.Neutral.Color)] });
+    public static readonly ReferencePreset SoftboxR = new("softbox-r", new() { Base = 0.18f, Blobs = [new(new(0.6f, 0.35f), 0.9f, 0.8f, Gel.Neutral.Color)] });
+    public static readonly ReferencePreset BeautyDish = new("beauty-dish", new() {
         Base = 0.2f, Blobs = [new(new(0f, 0.45f), 1.6f, 0.9f, Gel.Neutral.Color)], Rim = 0.25f,
     });
-    public static readonly ReferencePreset RingLight = new("ring-light", ReferenceFamily.Studio, new() {
+    public static readonly ReferencePreset RingLight = new("ring-light", new() {
         Base = 0.18f, Blobs = [new(new(0f, 0f), 0.8f, 0.7f, Gel.Neutral.Color)], Rim = 0.7f,
     });
-    public static readonly ReferencePreset Clamshell = new("clamshell", ReferenceFamily.Studio, new() {
+    public static readonly ReferencePreset Clamshell = new("clamshell", new() {
         Base = 0.25f, Blobs = [new(new(0f, 0.6f), 1.2f, 0.7f, Gel.Neutral.Color), new(new(0f, -0.6f), 1.2f, 0.45f, Gel.Neutral.Color)],
     });
-    public static readonly ReferencePreset Butterfly = new("butterfly", ReferenceFamily.Studio, new() { Base = 0.2f, Blobs = [new(new(0f, 0.55f), 1.4f, 0.85f, new(1f, 0.95f, 0.9f))] });
-    public static readonly ReferencePreset BroadLight = new("broad-light", ReferenceFamily.Studio, new() { Base = 0.16f, Blobs = [new(new(-0.45f, 0.25f), 1f, 0.85f, new(1f, 0.96f, 0.9f))] });
-    public static readonly ReferencePreset ShortLight = new("short-light", ReferenceFamily.Studio, new() {
+    public static readonly ReferencePreset Butterfly = new("butterfly", new() { Base = 0.2f, Blobs = [new(new(0f, 0.55f), 1.4f, 0.85f, new(1f, 0.95f, 0.9f))] });
+    public static readonly ReferencePreset BroadLight = new("broad-light", new() { Base = 0.16f, Blobs = [new(new(-0.45f, 0.25f), 1f, 0.85f, new(1f, 0.96f, 0.9f))] });
+    public static readonly ReferencePreset ShortLight = new("short-light", new() {
         Base = 0.12f, Blobs = [new(new(0.55f, 0.3f), 1.3f, 0.85f, new(1f, 0.96f, 0.9f))], Vignette = 0.2f,
     });
-    public static readonly ReferencePreset HighKey = new("high-key", ReferenceFamily.Studio, new() { Base = 0.7f, Blobs = [new(new(0f, 0.5f), 0.7f, 0.4f, Gel.Neutral.Color)] });
-    public static readonly ReferencePreset LowKey = new("low-key", ReferenceFamily.Studio, new() {
+    public static readonly ReferencePreset HighKey = new("high-key", new() { Base = 0.7f, Blobs = [new(new(0f, 0.5f), 0.7f, 0.4f, Gel.Neutral.Color)] });
+    public static readonly ReferencePreset LowKey = new("low-key", new() {
         Base = 0.03f, Blobs = [new(new(0.45f, 0.2f), 2.2f, 1f, new(1f, 0.97f, 0.92f))], Vignette = 0.5f,
     });
-    public static readonly ReferencePreset Rembrandt = new("rembrandt", ReferenceFamily.Portrait, new() { Base = 0.06f, Blobs = [new(new(-0.5f, 0.45f), 1.6f, 1.1f, Gel.Warm.Color)] });
-    public static readonly ReferencePreset RembrandtR = new("rembrandt-r", ReferenceFamily.Portrait, new() { Base = 0.06f, Blobs = [new(new(0.5f, 0.45f), 1.6f, 1.1f, Gel.Warm.Color)] });
-    public static readonly ReferencePreset Loop = new("loop", ReferenceFamily.Portrait, new() { Base = 0.12f, Blobs = [new(new(0.35f, 0.3f), 1.4f, 0.95f, new(1f, 0.95f, 0.88f))] });
-    public static readonly ReferencePreset Split = new("split", ReferenceFamily.Portrait, new() {
+    public static readonly ReferencePreset Rembrandt = new("rembrandt", new() { Base = 0.06f, Blobs = [new(new(-0.5f, 0.45f), 1.6f, 1.1f, Gel.Warm.Color)] });
+    public static readonly ReferencePreset RembrandtR = new("rembrandt-r", new() { Base = 0.06f, Blobs = [new(new(0.5f, 0.45f), 1.6f, 1.1f, Gel.Warm.Color)] });
+    public static readonly ReferencePreset Loop = new("loop", new() { Base = 0.12f, Blobs = [new(new(0.35f, 0.3f), 1.4f, 0.95f, new(1f, 0.95f, 0.88f))] });
+    public static readonly ReferencePreset Split = new("split", new() {
         Base = 0.05f, Blobs = [new(new(0.85f, 0.1f), 2f, 1.1f, new(1f, 0.97f, 0.92f))], Vignette = 0.35f,
     });
-    public static readonly ReferencePreset UnderLight = new("under-light", ReferenceFamily.Portrait, new() { Base = 0.06f, Blobs = [new(new(0f, -0.7f), 1.6f, 1f, new(1f, 0.95f, 0.9f))] });
-    public static readonly ReferencePreset HairLight = new("hair-light", ReferenceFamily.Portrait, new() {
+    public static readonly ReferencePreset UnderLight = new("under-light", new() { Base = 0.06f, Blobs = [new(new(0f, -0.7f), 1.6f, 1f, new(1f, 0.95f, 0.9f))] });
+    public static readonly ReferencePreset HairLight = new("hair-light", new() {
         Base = 0.1f, Blobs = [new(new(0f, 0.5f), 1f, 0.5f, Gel.Neutral.Color)], Rim = 0.9f,
     });
-    public static readonly ReferencePreset Noir = new("noir", ReferenceFamily.Cinematic, new() {
+    public static readonly ReferencePreset Noir = new("noir", new() {
         Base = 0.02f, Blobs = [new(new(-0.8f, 0.35f), 2.4f, 1.2f, Gel.Neutral.Color)], Stripes = 6f, Vignette = 0.55f,
     });
-    public static readonly ReferencePreset TealOrange = new("teal-orange", ReferenceFamily.Cinematic, new() {
+    public static readonly ReferencePreset TealOrange = new("teal-orange", new() {
         Base = 0.08f, Blobs = [new(new(0.6f, 0.25f), 1.2f, 0.9f, Gel.DeepWarm.Color), new(new(-0.6f, -0.1f), 1f, 0.6f, Gel.Teal.Color)],
     });
-    public static readonly ReferencePreset NeonMagentaCyan = new("neon-magenta-cyan", ReferenceFamily.Cinematic, new() {
+    public static readonly ReferencePreset NeonMagentaCyan = new("neon-magenta-cyan", new() {
         Base = 0.04f, Blobs = [new(new(-0.55f, 0.3f), 1.2f, 0.9f, Gel.Magenta.Color), new(new(0.55f, -0.1f), 1.2f, 0.9f, Gel.Cyan.Color)],
     });
-    public static readonly ReferencePreset NeonBluePink = new("neon-blue-pink", ReferenceFamily.Cinematic, new() {
+    public static readonly ReferencePreset NeonBluePink = new("neon-blue-pink", new() {
         Base = 0.04f, Blobs = [new(new(-0.5f, 0f), 1.2f, 0.9f, Gel.Blue.Color), new(new(0.55f, 0.3f), 1.2f, 0.9f, Gel.Pink.Color)],
     });
-    public static readonly ReferencePreset Candlelight = new("candlelight", ReferenceFamily.Cinematic, new() {
+    public static readonly ReferencePreset Candlelight = new("candlelight", new() {
         Base = 0.05f, Blobs = [new(new(0f, -0.1f), 1.8f, 1f, Gel.Fire.Color)], Vignette = 0.5f,
     });
-    public static readonly ReferencePreset Firelight = new("firelight", ReferenceFamily.Cinematic, new() {
+    public static readonly ReferencePreset Firelight = new("firelight", new() {
         Base = 0.06f, Gradient = new(0f, -0.1f), Tint = Gel.Fire.Color, Blobs = [new(new(0f, -0.5f), 1f, 0.9f, Gel.Fire.Color)], Vignette = 0.35f,
     });
-    public static readonly ReferencePreset Moonlight = new("moonlight", ReferenceFamily.Cinematic, new() {
+    public static readonly ReferencePreset Moonlight = new("moonlight", new() {
         Base = 0.05f, Blobs = [new(new(-0.4f, 0.5f), 1.4f, 0.7f, Gel.Sky.Color)], Vignette = 0.3f,
     });
-    public static readonly ReferencePreset MoonlitWindow = new("moonlit-window", ReferenceFamily.Cinematic, new() {
+    public static readonly ReferencePreset MoonlitWindow = new("moonlit-window", new() {
         Base = 0.04f, Blobs = [new(new(0.5f, 0.2f), 1f, 0.8f, Gel.Sky.Color)], Stripes = 5f, Vignette = 0.35f,
     });
-    public static readonly ReferencePreset HorrorUp = new("horror-up", ReferenceFamily.Cinematic, new() {
+    public static readonly ReferencePreset HorrorUp = new("horror-up", new() {
         Base = 0.04f, Blobs = [new(new(0f, -0.7f), 1.6f, 1f, Gel.Green.Color)], Vignette = 0.45f,
     });
-    public static readonly ReferencePreset Window = new("window", ReferenceFamily.Environment, new() { Base = 0.12f, Blobs = [new(new(0.55f, 0.35f), 0.8f, 0.85f, new(1f, 0.98f, 0.92f))] });
-    public static readonly ReferencePreset WindowBlind = new("window-blind", ReferenceFamily.Environment, new() {
+    public static readonly ReferencePreset Window = new("window", new() { Base = 0.12f, Blobs = [new(new(0.55f, 0.35f), 0.8f, 0.85f, new(1f, 0.98f, 0.92f))] });
+    public static readonly ReferencePreset WindowBlind = new("window-blind", new() {
         Base = 0.1f, Blobs = [new(new(0.5f, 0.3f), 0.8f, 0.9f, Gel.Warm.Color)], Stripes = 7f,
     });
-    public static readonly ReferencePreset Forest = new("forest", ReferenceFamily.Environment, new() { Base = 0.1f, Gradient = new(0f, 0.3f), Tint = Gel.Green.Color, Dapples = 14 });
-    public static readonly ReferencePreset Underwater = new("underwater", ReferenceFamily.Environment, new() { Base = 0.12f, Gradient = new(0f, 0.4f), Tint = Gel.Teal.Color, Dapples = 12 });
-    public static readonly ReferencePreset SnowBounce = new("snow-bounce", ReferenceFamily.Environment, new() {
+    public static readonly ReferencePreset Forest = new("forest", new() { Base = 0.1f, Gradient = new(0f, 0.3f), Tint = Gel.Green.Color, Dapples = 14 });
+    public static readonly ReferencePreset Underwater = new("underwater", new() { Base = 0.12f, Gradient = new(0f, 0.4f), Tint = Gel.Teal.Color, Dapples = 12 });
+    public static readonly ReferencePreset SnowBounce = new("snow-bounce", new() {
         Base = 0.6f, Gradient = new(0f, 0.2f), Tint = new(0.95f, 0.98f, 1f), Blobs = [new(new(0f, -0.5f), 0.8f, 0.3f, Gel.Neutral.Color)],
     });
-    public static readonly ReferencePreset Desert = new("desert", ReferenceFamily.Environment, new() {
+    public static readonly ReferencePreset Desert = new("desert", new() {
         Base = 0.35f, Gradient = new(0.2f, 0.4f), Tint = new(1f, 0.85f, 0.6f), Blobs = [new(new(0.3f, 0.7f), 1.4f, 0.6f, Gel.Warm.Color)],
     });
-    public static readonly ReferencePreset StreetLamp = new("street-lamp", ReferenceFamily.Environment, new() {
+    public static readonly ReferencePreset StreetLamp = new("street-lamp", new() {
         Base = 0.03f, Blobs = [new(new(0f, 0.4f), 2f, 1f, new(1f, 0.8f, 0.5f))], Vignette = 0.6f,
     });
-    public static readonly ReferencePreset StageSpot = new("stage-spot", ReferenceFamily.Environment, new() {
+    public static readonly ReferencePreset StageSpot = new("stage-spot", new() {
         Base = 0.02f, Blobs = [new(new(0f, 0.6f), 2.6f, 1.2f, Gel.Neutral.Color)], Vignette = 0.6f,
     });
-    public static readonly ReferencePreset ConcertRgb = new("concert-rgb", ReferenceFamily.Environment, new() {
+    public static readonly ReferencePreset ConcertRgb = new("concert-rgb", new() {
         Base = 0.04f, Blobs = [new(new(-0.6f, 0.4f), 1.4f, 0.8f, Gel.Blue.Color), new(new(0f, 0.5f), 1.4f, 0.8f, Gel.Magenta.Color), new(new(0.6f, 0.4f), 1.4f, 0.8f, Gel.Cyan.Color)],
     });
-    public static readonly ReferencePreset SciFi = new("sci-fi", ReferenceFamily.Environment, new() {
+    public static readonly ReferencePreset SciFi = new("sci-fi", new() {
         Base = 0.06f, Blobs = [new(new(0.5f, 0f), 1f, 0.7f, Gel.Cyan.Color)], Stripes = 4f, Vignette = 0.3f,
     });
 
-    public ReferenceFamily Family { get; }
     public ReferenceScene Scene { get; }
 }
 
 [SmartEnum<string>]
-public sealed partial class ReferenceDistribution : ICaptioned {
+public sealed partial class ReferenceDistribution {
     private static readonly Seq<(Vector3 Color, Vector2 Slot)> VividGels = [
         (new(1.4f, 0.12f, 0.85f), new(-0.62f, 0.18f)), (new(0.15f, 0.75f, 1.35f), new(0.62f, 0.18f)), (new(1.35f, 0.55f, 0.05f), new(0f, 0.58f)),
         (new(0.25f, 1.05f, 0.35f), new(-0.38f, -0.42f)), (new(0.75f, 0.25f, 1.35f), new(0.38f, -0.42f))];
@@ -261,14 +252,11 @@ public sealed record DistantLight(Vector3 Direction, Vector3 Color, double Stops
     }
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class MatchedLook {
-    extension(LightingReading reading) {
-        public RigReference Matched =>
-            reading.Gels.Match(Some: static gels => (Key: gels.Key.Color, Fill: gels.Accent.Color), None: () => (Key: reading.KeyColor, Fill: reading.FillColor)) switch {
-                var (key, fill) => new RigReference(Linear(reading.Gamut, key), Linear(reading.Gamut, fill), reading.Direction, reading.Ratio, reading.Hardness),
-            };
-    }
+public sealed record RigReference(Vector3 KeyColor, Vector3 FillColor, Vector2 Direction, float Ratio, float Hardness) {
+    public static RigReference Of(LightingReading reading) =>
+        reading.Gels.Match(Some: static gels => (Key: gels.Key.Color, Fill: gels.Accent.Color), None: () => (Key: reading.KeyColor, Fill: reading.FillColor)) switch {
+            var (key, fill) => new RigReference(Linear(reading.Gamut, key), Linear(reading.Gamut, fill), reading.Direction, reading.Ratio, reading.Hardness),
+        };
 
     private static Vector3 Linear(Gamut gamut, Vector3 color) =>
         new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, color.X, color.Y, color.Z).ConvertToConfiguration(Gamut.StandardRgb.Configuration).RgbLinear switch {
@@ -276,6 +264,33 @@ public static class MatchedLook {
         };
 }
 
+public sealed record RigLayout(
+    RigReference Reference, RigEmitter Key, double KeySoftness, Angle FillSize, Option<double> Fill, Option<double> Rim, ColorFilter Tint, double ColorSaturation, double Distance) {
+    public Fin<Seq<RigLight>> Lights =>
+        (Azimuth: Angle.FromRadians(Reference.Direction.X * Math.PI / 2d),
+         Elevation: Angle.FromRadians(Reference.Direction.Y * Math.PI / 2d),
+         Size: Angle.FromRadians(Reference.Hardness > 0f ? Math.Atan2(KeySoftness * Reference.Ratio, Reference.Hardness) : Math.PI / 2d),
+         Key: Peaked(Reference.KeyColor)) switch {
+             var held => (Seq(
+                     Row(LightRole.Key, Key, held.Azimuth, held.Elevation, held.Size, 0d, held.Key),
+                     Row(LightRole.Fill, new RigEmitter.RectangularLight(), -held.Azimuth, Angle.Zero, FillSize, Fill.IfNone(-Reference.Ratio), Peaked(Reference.FillColor)))
+                 + Rim.Map(rim => Row(LightRole.Rim, Key, Angle.FromRadians(Math.IEEERemainder(held.Azimuth.Radians.ToDouble() + Math.PI, Math.Tau)), held.Elevation, held.Size, rim, held.Key)).ToSeq())
+                 .Traverse(static light => light)
+                 .As(),
+         };
+
+    private static Color4f Peaked(Vector3 color) => color == Vector3.Zero ? Color4f.White : Conversions.Peaked(color.X, color.Y, color.Z).Light;
+
+    private Fin<RigLight> Row(LightRole role, RigEmitter emitter, Angle azimuth, Angle elevation, Angle size, double stops, Color4f color) =>
+        ColorFilter.TryCreate(
+            Tint.Red * (1d + (ColorSaturation * (color.R - 1d))),
+            Tint.Green * (1d + (ColorSaturation * (color.G - 1d))),
+            Tint.Blue * (1d + (ColorSaturation * (color.B - 1d))), out ColorFilter? filter, out RhinoFault? fault)
+            ? new RigLight(role, emitter, azimuth, elevation, Distance, size, stops, new RigColor.Linear(filter), Light.Attenuation.InverseSquared)
+            : fault;
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class RandomDraws {
     extension(Random random) {
         public float Uniform(double low, double high) => (float)ContinuousUniform.Sample(random, low, high);

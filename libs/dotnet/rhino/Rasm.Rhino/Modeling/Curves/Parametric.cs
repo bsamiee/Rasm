@@ -15,10 +15,10 @@ public abstract partial record Roll {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record Pen {
-    public sealed record Rim : Pen;
+public abstract partial record TracingPoint {
+    public sealed record Rim : TracingPoint;
 
-    public sealed record At(double Distance) : Pen;
+    public sealed record At(double Distance) : TracingPoint;
 }
 
 public readonly record struct HarmonicTerm(int Frequency, Vector3d Cosine, Vector3d Sine);
@@ -42,7 +42,7 @@ public abstract partial record ParametricCurve {
             select joined, DisposalOps.Release);
 
     public sealed record Trochoid : ParametricCurve {
-        private Trochoid(Plane frame, Roll roll, double rollingRadius, Pen pen, (Func<double, Point3d> Point, Interval Domain, Seq<double> Breaks) traced)
+        private Trochoid(Plane frame, Roll roll, double rollingRadius, TracingPoint pen, (Func<double, Point3d> Point, Interval Domain, Seq<double> Breaks) traced)
             : base(traced.Point, traced.Domain, traced.Breaks) => (Frame, Roll, RollingRadius, Pen) = (frame, roll, rollingRadius, pen);
 
         public Plane Frame { get; }
@@ -51,9 +51,9 @@ public abstract partial record ParametricCurve {
 
         public double RollingRadius { get; }
 
-        public Pen Pen { get; }
+        public TracingPoint Pen { get; }
 
-        public static Fin<Trochoid> Validated(Plane frame, Roll roll, double rollingRadius, Pen pen) =>
+        public static Fin<Trochoid> Validated(Plane frame, Roll roll, double rollingRadius, TracingPoint pen) =>
             roll.Switch(
                 (Frame: frame, Radius: rollingRadius, Pen: pen.Switch(rollingRadius, rim: static (radius, _) => (Distance: radius, Cusps: true), at: static (_, at) => (at.Distance, Cusps: false))),
                 line: static (state, line) =>

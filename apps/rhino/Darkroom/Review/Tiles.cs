@@ -7,43 +7,23 @@ using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI;
-using Rasm.UI;
 using SkiaSharp;
 using UnitsNet;
-using UnitsNet.Units;
 
 namespace Darkroom.Review;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-public enum TileRank {
-    Current,
-    Visible,
-    Rest,
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record TileLimits(int Batch, Duration Budget, int Capacity) : IStateRecord<TileLimits, TileLimitsParameter> {
-    public static TileLimits Default { get; } = new(2, Duration.FromMilliseconds(250), 256);
+[SmartEnum]
+public sealed partial class TileRank {
+    public static readonly TileRank Current = new(shown: true);
+    public static readonly TileRank Visible = new(shown: true);
+    public static readonly TileRank Rest = new(shown: false);
+
+    public bool Shown { get; }
 }
 
-[SmartEnum<string>]
-public sealed partial class TileLimitsParameter : IStateParameter<TileLimits> {
-    public static readonly TileLimitsParameter Batch = new("batch", new StateParameter<TileLimits>.Numeric<int, int>(
-        Lens<TileLimits, int>.New(static limits => limits.Batch, static batch => limits => limits with { Batch = batch }),
-        new NumericDomain<int, int>(Fin.Succ, identity, (1, 8), new())),
-        new("Tiles per tick", "Preview tiles formed in one scheduling tick"));
-    public static readonly TileLimitsParameter Budget = new("budget", new StateParameter<TileLimits>.Numeric<Duration, int>(
-        Lens<TileLimits, Duration>.New(static limits => limits.Budget, static budget => limits => limits with { Budget = budget }),
-        new NumericDomain<Duration, int>(static milliseconds => Duration.FromMilliseconds(milliseconds), static budget => (int)budget.TotalMilliseconds, (20, 2000),
-            new() { Unit = Quantity.GetUnitInfo(DurationUnit.Millisecond) })),
-        new("Time budget", "Time limit for preview tiles per scheduling tick"));
-    public static readonly TileLimitsParameter Capacity = new("capacity", new StateParameter<TileLimits>.Numeric<int, int>(
-        Lens<TileLimits, int>.New(static limits => limits.Capacity, static capacity => limits => limits with { Capacity = capacity }),
-        new NumericDomain<int, int>(Fin.Succ, identity, (16, 4096), new())),
-        new("Cached tiles", "Preview tiles kept while offscreen"));
-
-    public StateParameter<TileLimits> Kind { get; }
-    public ParameterText Text { get; }
+public sealed record TileLimits(int Batch, TimeSpan Budget, int Capacity) {
+    public static TileLimits Default { get; } = new(2, TimeSpan.FromMilliseconds(250), 256);
 }
 
 public sealed record TileRequest(Rendering Rendering, ChainState State) {
@@ -59,7 +39,7 @@ public sealed record TileRequest(Rendering Rendering, ChainState State) {
         };
 }
 
-internal readonly record struct TileKey(string FileName, Instant Saved, ChainState State, PixelExtent Tile);
+internal sealed record TileKey(string FileName, Instant Saved, ChainState State, PixelExtent Tile);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PreviewTiles : IDisposable {
@@ -74,9 +54,9 @@ public sealed class PreviewTiles : IDisposable {
         (this.views, Landed) = (views, Subscriptions.Changed(held).DistinctUntilChanged(static ledger => (unit, ledger.Landings)).Choose(static _ => Some(unit)));
 
     private sealed record Pending(TileKey Key, TileRequest Request, PixelExtent Extent, HashMap<TileRank, long> Asks) {
-        public bool Holds(TileRank rank, Func<long, bool> recent) => Asks.Find(rank).Exists(at => rank is TileRank.Rest || recent(at));
+        public bool Holds(TileRank rank, Func<long, bool> recent) => Asks.Find(rank).Exists(at => !rank.Shown || recent(at));
 
-        public bool Ranked(Func<long, bool> recent) => Asks.Exists((rank, at) => rank is TileRank.Rest || recent(at));
+        public bool Ranked(Func<long, bool> recent) => Asks.Exists((rank, at) => !rank.Shown || recent(at));
     }
 
     private sealed record Kept(TileRequest Request, PixelExtent Extent, Fin<PixelFrame> Result, long Drawn);
@@ -90,16 +70,16 @@ public sealed class PreviewTiles : IDisposable {
 
         public Ledger Asked(TileKey key, TileRequest request, PixelExtent tile, TileRank rank, long now) =>
             this with {
-                Tiles = rank is TileRank.Rest ? Tiles : Tiles.TrySetItem(key, kept => kept with { Drawn = now }),
+                Tiles = rank.Shown ? Tiles.TrySetItem(key, kept => kept with { Drawn = now }) : Tiles,
                 Queue = Queue.Exists(pending => pending.Key == key)
                     ? Queue.Map(pending => pending.Key == key ? pending with { Asks = pending.Asks.AddOrUpdate(rank, now) } : pending)
-                    : Running.Exists(running => running.Key == key) || (rank is not TileRank.Rest && Tiles.ContainsKey(key))
+                    : Running.Exists(running => running.Key == key) || (rank.Shown && Tiles.ContainsKey(key))
                         ? Queue
                         : Queue.Add(new Pending(key, request, tile, HashMap((rank, now)))),
             };
 
         public Ledger Popped(Func<long, bool> recent) =>
-            toSeq(Enum.GetValues<TileRank>()).Choose(rank => Queue.Find(pending => pending.Holds(rank, recent))).Head.Match(
+            toSeq(TileRank.Items).Choose(rank => Queue.Find(pending => pending.Holds(rank, recent))).Head.Match(
                 Some: next => this with { Queue = Queue.Filter(pending => pending.Key != next.Key && pending.Ranked(recent)), Running = Some(next) },
                 None: () => this with { Queue = Seq<Pending>(), Running = None });
 
@@ -131,7 +111,7 @@ public sealed class PreviewTiles : IDisposable {
     public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Register { get; } = static (views, retain) =>
         DisposalOps.Acquire(owned =>
             from tiles in DisposalOps.Acquire(IO.lift(() => new PreviewTiles(views)), owned)
-            let store = PlugInSettings.Record<TileLimits>(views.Settings, Applied.Live)
+            let store = PlugInSettings.Record(views.Settings, TileLimits.Default, Applied.Live)
             from initial in tiles.Limited(store)
             from watched in store.Changed.Traverse(changed => changed.Inline(_ => tiles.Limited(store), views, owned)).As()
             from worker in DisposalOps.Fork(tiles.Ticked.Repeat(Schedule.spaced(Tick.ToTimeSpan())), owned)
@@ -176,7 +156,7 @@ public sealed class PreviewTiles : IDisposable {
         from started in IO.lift(views.Clock.GetTimestamp)
         from ran in Monad.recur<IO, int, Unit>(0, count =>
             from now in IO.lift(views.Clock.GetTimestamp)
-            from next in count >= bounds.Batch || (count > 0 && views.Clock.GetElapsedTime(started, now).ToDuration() >= bounds.Budget)
+            from next in count >= bounds.Batch || (count > 0 && views.Clock.GetElapsedTime(started, now) >= bounds.Budget)
                 ? IO.pure(Next.Done<int, Unit>(unit))
                 : (from ledger in held.SwapIO(state => state.Popped(Recent(now)))
                    from stepped in ledger.Running.Match(

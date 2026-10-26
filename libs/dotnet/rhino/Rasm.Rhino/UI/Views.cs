@@ -1,9 +1,11 @@
+using System.Drawing;
 using Eto.Forms;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -66,7 +68,7 @@ public sealed partial class EngineScope {
     public partial Guid TabEngineId(PlugIn plugIn);
 }
 
-public sealed record NavigationText(bool Bold, Option<System.Drawing.Color> Color);
+public sealed record NavigationText(bool Bold, Option<Color> Color);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PageSubject {
@@ -84,7 +86,7 @@ public abstract partial record PageSubject {
 public abstract partial record View {
     public required Type Identity { get; init; }
     public required string Caption { get; init; }
-    public Option<Rasm.UI.GlyphSource> Icon { get; init; }
+    public Option<GlyphSource> Icon { get; init; }
     public Option<HelpTopic> Help { get; init; }
     public Option<RowRule> Enabled { get; init; }
     public Option<RowRule> Visible { get; init; }
@@ -93,13 +95,13 @@ public abstract partial record View {
 
     public sealed record Window : View {
         public required WindowKind Kind { get; init; }
-        public Option<Eto.Drawing.Size> Size { get; init; }
+        public Option<Eto.Drawing.Size> ClientSize { get; init; }
     }
 
     public sealed record Dialog : View {
         public required bool Cancelable { get; init; }
         public Option<DialogDisplayMode> DisplayMode { get; init; }
-        public Option<PlugInSetting<bool, bool>> Suppression { get; init; }
+        public Option<PlugInSetting<bool>> Suppression { get; init; }
     }
 
     public sealed record Panel : View {
@@ -107,22 +109,26 @@ public abstract partial record View {
     }
 
     public sealed record Section : View {
-        public Seq<Rasm.UI.Command<RowRule, Invoke>> Actions { get; init; }
+        public required Either<Func<Section, IPlugInViews, DefinedSection>, Func<Section, IPlugInViews, DefinedContentSection>> Create { get; init; }
+        public Seq<Command<RowRule, Invoke>> Actions { get; init; }
     }
 
     public sealed record OptionsPage : View {
+        public required Func<IPlugInViews, DefinedOptionsPage> Create { get; init; }
         public required CommitMode Commit { get; init; }
         public Option<NavigationText> Navigation { get; init; }
         public Seq<OptionsPage> SubPages { get; init; }
     }
 
     public sealed record DocumentPage : View {
+        public required Func<IPlugInViews, DefinedOptionsPage> Create { get; init; }
         public required CommitMode Commit { get; init; }
         public Option<NavigationText> Navigation { get; init; }
         public Seq<DocumentPage> SubPages { get; init; }
     }
 
     public sealed record PropertiesPage : View {
+        public required Func<IPlugInViews, DefinedPropertiesPage> Create { get; init; }
         public required PageSubject Subject { get; init; }
         public Option<int> Index { get; init; }
     }
@@ -148,15 +154,15 @@ public abstract partial record ViewStore {
     public sealed record DocumentStores(RedrawPolicy Redraw) : ViewStore;
 }
 
-[Union<ControlRow, HolderRow, ContainerRow>(T1Name = "Control", T2Name = "Holder", T3Name = "Container")]
+[Union<ControlRows, HolderRow, ContainerRow>(T1Name = "Control", T2Name = "Holder", T3Name = "Container")]
 public sealed partial class Child {
     public bool Fill =>
         Switch(control: static row => row.Fill, holder: static _ => true, container: static row => row.Fill);
 
-    public Seq<ControlRow> Controls =>
+    public Seq<ControlRows> Controls =>
         Switch(
-            control: static row => Seq(row),
-            holder: static _ => Seq<ControlRow>(),
+            control: static rows => Seq(rows),
+            holder: static _ => Seq<ControlRows>(),
             container: static row => row.Children.Bind(static child => child.Controls));
 
     public Seq<HolderRow> Holders =>
@@ -209,7 +215,7 @@ public static class ViewOps {
     public static IO<BindingGroup> Bindings(IPlugInViews owner, View view, RowScope scope) =>
         view.Store.Bind(static store => store.Bindings).Match(
             Some: stored => IO.lift(scope.Document.ToFin(new UnheldView(view.Identity))).Bind(doc => stored(owner, doc)),
-            None: () => IO.pure(new BindingGroup(Sources(view).Map(source => source.Values(scope)))));
+            None: () => IO.pure(new BindingGroup(view.Children.Bind(static child => child.Controls).Choose(static rows => rows.Bound).Map(bound => bound(scope)))));
 
     public static Option<ValueStore<LanguageExt.HashSet<EntryKey>>> Locks(View view, Option<RhinoDoc> document) =>
         from doc in document
@@ -226,9 +232,6 @@ public static class ViewOps {
                     .Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw, new CallbackSite(state.Owner, state.View.Identity, nameof(History))))
                     .ToFin(new UnheldView(state.View.Identity)))
             .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, owner).Local, bound, scope, owner.Limits, owner.Clock));
-
-    internal static Seq<RowSource> Sources(View view) =>
-        view.Children.Bind(static child => child.Controls).Choose(static row => row.Bound).Distinct();
 
     // --- [REALIZATION]
     public static IO<Control> Realize(IPlugInViews owner, Seq<Child> children, RowScope scope, Action<IDisposable> retain) =>
@@ -252,10 +255,15 @@ public static class ViewOps {
     private static IO<(Control Body, bool Fill)> Part(IPlugInViews owner, (Child Lead, Seq<Child> Run) run, RowScope scope, Action<IDisposable> retain) =>
         run.Lead.Switch(
                 (Owner: owner, run.Run, Scope: scope, Retain: retain),
-                control: static (state, _) => RowGrid.Realize(state.Run.Map(static child => child.AsControl), state.Scope, state.Retain).Map(static grid => (Control)grid.View),
+                control: static (state, _) => RowGrid.Realize(Joined(state.Run.Map(static child => child.AsControl)), state.Scope, state.Retain).Map(static grid => (Control)grid.View),
                 holder: static (state, holder) => SectionHolder.Hold(state.Owner, holder, state.Scope, state.Retain).Map(static held => (Control)held),
                 container: static (state, container) => Containers.Realize(state.Owner, container, state.Scope, state.Retain))
             .Map(body => (Body: body, Fill: run.Run.Exists(static child => child.Fill)));
+
+    private static ControlRows Joined(Seq<ControlRows> runs) =>
+        new(scope => runs.TraverseM(rows => rows.Read(scope)).As().Map(static rows => rows.Flatten()), scope => runs.TraverseM(rows => rows.Signals(scope)).As().Map(static signals => signals.Flatten())) {
+            Fill = runs.Exists(static rows => rows.Fill),
+        };
 
     // --- [LISTENERS]
     public static IO<Unit> WhileLoaded(Control control, Func<Action<IDisposable>, IO<Unit>> listen, CallbackSite site, Action<IDisposable> retain) =>

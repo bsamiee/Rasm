@@ -1,3 +1,5 @@
+using Grasshopper2.UI;
+using Grasshopper2.UI.Canvas;
 using Rasm.Rhino;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Events;
@@ -62,6 +64,8 @@ public static class Editors {
 
     private static IO<Editor> Launched(RhinoDoc document) =>
         CommandOps.ExecuteCommand(document, "_GH2").Bind(static _ => IO.lift(static () => Refused.UnlessFound(Editor.Instance, nameof(Editor.Instance))));
+
+    public static IO<Canvas> Canvas => IO.lift(static () => Refused.UnlessFound(Editor.Instance, nameof(Editor.Instance)).Map(static editor => editor.Canvas));
 
     // --- [GETTERS]
     public static IO<T> RhinoGetter<T>(RhinoDoc document, IO<T> get) =>

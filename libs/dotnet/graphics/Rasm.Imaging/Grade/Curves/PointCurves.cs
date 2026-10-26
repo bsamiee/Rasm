@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Globalization;
 using System.Numerics;
 using MathNet.Numerics.Interpolation;
 using Rasm.Imaging.Tone;
@@ -51,15 +50,10 @@ public sealed partial class InputAxis {
     public partial double Read(Hsy hsy);
 }
 
-public readonly record struct CurvePoint(double X, double Y) {
-    public static Option<Seq<CurvePoint>> Parse(string text) =>
-        toSeq(text.Split(';')).Traverse(static pair =>
-            pair.Split(',') is [var x, var y]
-                ? from px in Invariant.Number<double>(x) from py in Invariant.Number<double>(y) select new CurvePoint(px, py)
-                : None).As();
+public readonly record struct CurvePoint(double X, double Y);
 
-    public static string Format(Seq<CurvePoint> points) =>
-        string.Join(';', points.Map(static point => string.Create(CultureInfo.InvariantCulture, $"{point.X},{point.Y}")));
+public sealed class SequenceEquality<T> : IEqualityComparerAccessor<ImmutableArray<T>> {
+    public static IEqualityComparer<ImmutableArray<T>> EqualityComparer { get; } = EqualityComparer<ImmutableArray<T>>.Create(static (left, right) => left.SequenceEqual(right), static items => toSeq(items).GetHashCode());
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -70,8 +64,8 @@ internal sealed partial class SplineShape {
     public static readonly SplineShape Horizontal = new(static domain => Hue(domain, wraps: false, monotone: false, harmonic: true));
     public static readonly SplineShape Diagonal = new(static domain => Hue(domain, wraps: false, monotone: true, harmonic: false));
 
-    public Func<double, double> Fit(Seq<CurvePoint> points, double input, double output) =>
-        (Prepare(points.Map(point => new CurvePoint(point.X / input, point.Y / output)).Strict()).Spline(), this == HueHue, this == Periodic) switch {
+    public Func<double, double> Fit(ImmutableArray<CurvePoint> points, double input, double output) =>
+        (Prepare(toSeq(points).Map(point => new CurvePoint(point.X / input, point.Y / output)).Strict()).Spline(), this == HueHue, this == Periodic) switch {
             (var spline, true, _) => coordinate => (coordinate % input / input) switch { var wrapped => wrapped - double.Floor(wrapped) } switch {
                 var phase => (coordinate * (output / input)) + (output * (spline.Interpolate(phase) - phase)),
             },
@@ -84,10 +78,7 @@ internal sealed partial class SplineShape {
 
     private static FitInput Rgb(Seq<CurvePoint> domain) {
         return Slopes(domain, harmonic: false) switch {
-            var estimated => new FitInput(
-                domain,
-                Rescaled(estimated, Interval.Of(domain, estimated, static (span, entry, exit) => (Span: span, Knot: Split(span, entry, exit).IfNone(span.End.X))), Adjusted),
-                Split),
+            var estimated => new FitInput(domain, Rescaled(estimated, Interval.Of(domain, estimated, static (span, entry, exit) => (Span: span, Knot: Split(span, entry, exit).IfNone(span.End.X))), Adjusted), Split),
         };
 
         static Option<double> Split(Interval span, double entry, double exit) =>
@@ -237,32 +228,24 @@ internal sealed partial class SplineShape {
     }
 }
 
-[ComplexValueObject]
-[ObjectFactory<string>]
-public sealed partial class PointCurve : IConvertible<string> {
+[ComplexValueObject(SkipToString = true)]
+[ValidationError<ImagingFault>]
+public sealed partial class PointCurve {
     private static readonly Func<PointCurve, Func<double, double>> Fits = memo(static (PointCurve curve) => SplineShape.BSpline.Fit(curve.Points, CurveAxis.Stops.Unit, CurveAxis.Stops.Unit));
 
-    public static PointCurve Identity { get; } = new(Seq(new CurvePoint(CurveAxis.Stops.Span.Low, CurveAxis.Stops.Span.Low), new CurvePoint(0d, 0d), new CurvePoint(CurveAxis.Stops.Span.High, CurveAxis.Stops.Span.High)));
+    public static PointCurve Identity { get; } = new([new CurvePoint(CurveAxis.Stops.Span.Low, CurveAxis.Stops.Span.Low), new CurvePoint(0d, 0d), new CurvePoint(CurveAxis.Stops.Span.High, CurveAxis.Stops.Span.High)]);
 
-    public Seq<CurvePoint> Points { get; }
+    [MemberEqualityComparer<SequenceEquality<CurvePoint>, ImmutableArray<CurvePoint>>]
+    public ImmutableArray<CurvePoint> Points { get; }
 
     public Func<double, double> Fit() => Fits(this);
 
-    public string ToValue() => CurvePoint.Format(Points);
-
-    public static ValidationError? Validate(string? value, IFormatProvider? provider, out PointCurve? item) {
-        item = null;
-        return value is null ? null
-            : CurvePoint.Parse(value).Case is Seq<CurvePoint> points ? Validate(points, out item)
-            : new ValidationError($"point curve '{value}' did not parse as curve points");
-    }
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<CurvePoint> points) =>
-        validationError = points.Count >= 2
-            && points.ForAll(static point => CurveAxis.Stops.Contains(point.X) && CurveAxis.Stops.Contains(point.Y))
-            && points.Zip(points.Tail).ForAll(static pair => pair.First.X < pair.Second.X && pair.First.Y <= pair.Second.Y)
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref ImmutableArray<CurvePoint> points) =>
+        validationError = points.Length >= 2
+            && points.All(static point => CurveAxis.Stops.Contains(point.X) && CurveAxis.Stops.Contains(point.Y))
+            && points.Zip(points.Skip(1)).All(static pair => pair.First.X < pair.Second.X && pair.First.Y <= pair.Second.Y)
                 ? null
-                : new ValidationError("point curve needs 2 or more stop axis points, inputs ascending and outputs non-descending");
+                : new ImagingFault("point curve needs 2 or more stop axis points, inputs ascending and outputs non-descending");
 }
 
 public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Blue, PointCurve Master) {

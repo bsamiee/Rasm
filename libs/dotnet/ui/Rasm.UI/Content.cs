@@ -5,6 +5,7 @@ namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<Invalid>]
 public sealed partial class Progress {
     public long Done { get; }
     public long Total { get; }
@@ -12,17 +13,17 @@ public sealed partial class Progress {
     public Fraction Fraction => Fraction.Create((float)((double)Done / Total));
 
     public static Node Meter(Option<Progress> work) =>
-        new Node.Flex(Orientation.Horizontal, work.Map(static progress => (Node)new Node.Box { Role = Role.Span, Width = new Sizing.Percent(progress.Fraction), Height = Sizing.Grow.Unit }).ToSeq()) {
+        new Node.Flex(PhysicalAxis.Horizontal, work.Map(static progress => (Node)new Node.Box { Role = Role.Span, Width = new Sizing.Percent(progress.Fraction), Height = Sizing.Grow.Unit }).ToSeq()) {
             Role = Role.Track,
             Width = Sizing.Grow.Unit,
             Conditions = [Condition.Busy],
             Accessible = new Accessible { Role = AccessRole.ProgressBar, Value = work.Map(static progress => (AccessValue)new AccessValue.Ranged(progress.Done, 0d, progress.Total)) },
         };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref long done, ref long total) =>
+    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref long done, ref long total) =>
         validationError = total > 0L
-            ? ValidationResults.OutsideRange(done, 0L, total)
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"progress total {total} is not positive"));
+            ? done is >= 0L && done <= total ? null : new Invalid(string.Create(CultureInfo.InvariantCulture, $"progress {done} lies outside [0, {total}]"))
+            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"progress total {total} is not positive"));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -36,14 +37,10 @@ public abstract partial record Content<T> where T : notnull {
     public Node Drawn(Func<T, Node> ready, string unexpected) =>
         Switch(
             (Ready: ready, Unexpected: unexpected),
-            pending: static (held, pending) => pending.Prior.Map(value => (Node)Kept(held.Ready(value), [Veil])).IfNone(() => Progress.Meter(pending.Work)),
-            ready: static (held, ready) => Kept(held.Ready(ready.Value), []),
+            pending: static (held, pending) => pending.Prior.Map(value => held.Ready(value).Conditioned(Condition.Busy)).IfNone(() => Progress.Meter(pending.Work)),
+            ready: static (held, ready) => held.Ready(ready.Value),
             empty: static (_, empty) => new Node.Text([empty.Reason]) { Role = Role.Label },
             failed: static (held, failed) => new Node.Text([failed.Error.IsExpected ? failed.Error.Message : held.Unexpected]) { Role = Role.Label, Conditions = [Condition.Faulted] });
-
-    private static Node.Box Veil { get; } = new() { Role = Role.Veil, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit, Conditions = [Condition.Busy] };
-
-    private static Node.Overlay Kept(Node held, Seq<Node> above) => new(held, above) { Key = held.Key };
 
     public sealed record Pending(Option<T> Prior, Option<Progress> Work) : Content<T>;
 

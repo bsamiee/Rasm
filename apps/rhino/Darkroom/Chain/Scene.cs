@@ -6,7 +6,6 @@ using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using Rasm.Rhino;
 using Rasm.Rhino.Render.Effects;
-using Rasm.UI;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
@@ -15,11 +14,17 @@ using Rhino.Render.PostEffects;
 namespace Darkroom.Chain;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ChainScene(
-    Option<Camera> Camera, Option<SceneLights> Lights, Option<float> Meters, Option<TimeSpan> Time, Option<LensDistance> FocalLength, Option<Magnitude> Aperture) {
-    private const float SharpAperture = 0.00001f;
+public sealed record ChainScene {
+    private const double SharpAperture = 0.00001d;
 
-    public static ChainScene Unframed { get; } = new(None, None, None, None, None, None);
+    public static ChainScene Unframed { get; } = new();
+
+    public Option<Camera> Camera { get; init; }
+    public Option<SceneLights> Lights { get; init; }
+    public Option<float> Meters { get; init; }
+    public Option<TimeSpan> Time { get; init; }
+    public Option<Length> FocalLength { get; init; }
+    public Option<float> Aperture { get; init; }
 
     // --- [CONTEXT]
     public PassContext Context(PixelExtent extent, HashMap<GuideChannel, PixelFrame> guides, Derivations derivations, bool rendering, Option<OutputDepth> depth) =>
@@ -40,27 +45,17 @@ public sealed record ChainScene(
         from optics in IO.lift(() => Optics(view))
         from camera in IO.lift(() => Viewed(view, meters, extent, Focus(view, meters, optics.FocalLength, optics.Aperture)))
         from lights in IO.lift(() => Lit(doc, meters))
-        select new ChainScene(Some(camera), Some(lights), Some((float)meters), time, optics.FocalLength, optics.Aperture);
+        select new ChainScene { Camera = Some(camera), Lights = Some(lights), Meters = Some((float)meters), Time = time, FocalLength = optics.FocalLength, Aperture = optics.Aperture };
 
-    private static Fin<(Option<LensDistance> FocalLength, Option<Magnitude> Aperture)> Optics(ViewInfo view) =>
-        view.Viewport.IsParallelProjection
-            ? (Option<LensDistance>.None, Option<Magnitude>.None)
-            : (ValidationResults.Validated<LensDistance, float>((float)(view.Viewport.Camera35mmLensLength * LengthUnit.Scale(LengthUnit.Millimeters, LengthUnit.Meters)))
-                    .Map(static focal => Some(focal)),
-                view.FocalBlurMode is ViewInfoFocalBlurModes.Manual && view.FocalBlurAperture >= SharpAperture
-                    ? ValidationResults.Validated<Magnitude, float>((float)view.FocalBlurAperture).Map(static aperture => Some(aperture))
-                    : Option<Magnitude>.None)
-                .Apply(static (focal, aperture) => (focal, aperture))
-                .As();
+    private static (Option<Length> FocalLength, Option<float> Aperture) Optics(ViewInfo view) =>
+        view.Viewport.IsParallelProjection ? (None, None)
+            : (Length.FromMillimeters(view.Viewport.Camera35mmLensLength),
+                view.FocalBlurMode is ViewInfoFocalBlurModes.Manual && view.FocalBlurAperture >= SharpAperture ? Some((float)view.FocalBlurAperture) : None);
 
-    private static Option<LensFocus> Focus(ViewInfo view, double meters, Option<LensDistance> focal, Option<Magnitude> aperture) =>
+    private static Option<LensFocus> Focus(ViewInfo view, double meters, Option<Length> focal, Option<float> aperture) =>
         from length in aperture.IsSome ? focal : None
-        from distance in ValidationResults.Validated<LensDistance, float>((float)(view.FocalBlurDistance * meters)).ToOption()
-        from lens in Focused(length, distance).ToOption()
+        from lens in LensFocus.Validate(length, Length.FromMeters(view.FocalBlurDistance * meters), out LensFocus focus) switch { null => Some(focus), _ => None }
         select lens;
-
-    private static Fin<LensFocus> Focused(LensDistance length, LensDistance distance) =>
-        ValidationResults.ToFin(LensFocus.Validate(length, distance, out LensFocus held), held);
 
     private static Fin<Camera> Viewed(ViewInfo view, double meters, PixelExtent extent, Option<LensFocus> lens) =>
         (view.Viewport.IsParallelProjection, view.Viewport.GetXform(CoordinateSystem.Camera, CoordinateSystem.World)) switch {
@@ -76,8 +71,10 @@ public sealed record ChainScene(
         if (!viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _))
             return new Refused(nameof(ViewportInfo.GetFrustum), Refused.Declined);
         double scale = parallel ? meters : 1d / near;
-        return ValidationResults.ToFin(
-            ViewWindow.Validate(scale * ((left + right) / 2d), scale * ((bottom + top) / 2d), scale * (right - left), scale * (top - bottom), out ViewWindow held), held);
+        return ViewWindow.Validate(scale * ((left + right) / 2d), scale * ((bottom + top) / 2d), scale * (right - left), scale * (top - bottom), out ViewWindow held) switch {
+            null => held,
+            var fault => fault,
+        };
     }
 
     private static Fin<Matrix4x4> Pose(Transform xform) =>
@@ -89,8 +86,8 @@ public sealed record ChainScene(
         Conversions.Rows(doc.Lights).Filter(static light => !light.IsDeleted && light.LightGeometry.IsEnabled) switch {
             var lights => (
                     (doc.Lights.Sun is { Enabled: true } sun ? Some(-sun.Vector) : None).Traverse(Numeric).As(),
-                    (lights.Filter(static light => !light.LightGeometry.IsDirectionalLight).Map(static light => (light.Id, Location: light.LightGeometry.Location))
-                        + Conversions.Rows(doc.Objects.GetObjectsByType<PointObject>()).Map(static point => (point.Id, Location: point.PointGeometry.Location))
+                    (lights.Filter(static light => !light.LightGeometry.IsDirectionalLight).Map(static light => (light.Id, light.LightGeometry.Location))
+                        + Conversions.Rows(doc.Objects.GetObjectsByType<PointObject>()).Map(static point => (point.Id, point.PointGeometry.Location))
                         + Conversions.Rows(doc.Objects.GetObjectsByType<InstanceObject>()).Map(static block => (block.Id, Location: block.InsertionPoint)))
                     .Traverse(row => Numeric((Vector3d)(row.Location * meters)).Map(position => (row.Id, position))).As(),
                     lights.Filter(static light => light.LightGeometry.IsDirectionalLight)

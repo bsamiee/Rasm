@@ -85,7 +85,7 @@ internal sealed class AsyncContext(IPlugInViews sink) : AsyncRenderContext {
             static () => RenderWindow.RenderSuccessCode.Failed,
             site);
         Callbacks.Run(Callbacks.Each(Seq(
-            IO.lift(() => window.SetProgress(caption, ProgressFraction.MaxValue)),
+            IO.lift(() => window.SetProgress(caption, 1f)),
             IO.lift(() => window.EndAsyncRender(answer)))), site);
         _ = control.Iter(GC.KeepAlive);
     }

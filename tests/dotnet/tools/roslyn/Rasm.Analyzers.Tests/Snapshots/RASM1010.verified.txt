@@ -1,3 +1,3 @@
-#0 `Lens<Scene, double>.New` restates property `Altitude` of `Scene`, annotate the parameter with `[Field]` under `[StateRecord]` and read its generated lens
-#1 `Lens<Scene, double>.New` restates path `Site.North` of `Scene`, compose the generated leaf lenses through `lens(…)`
-#2 `Lens<Scene, double>.New` restates path `Site.Place.Latitude` of `Scene`, compose the generated leaf lenses through `lens(…)`
+#0 `Lens<Scene, double>.New` restates property `Altitude` of `Scene`, write `scene with { Altitude = altitude }` at the edit
+#1 `Lens<Scene, double>.New` restates path `Site.North` of `Scene`, write `scene with { Site = scene.Site with { North = north } }` at the edit
+#2 `Lens<Scene, double>.New` restates path `Site.Place.Latitude` of `Scene`, write `scene with { Site = scene.Site with { Place = scene.Site.Place with { Latitude = latitude } } }` at the edit

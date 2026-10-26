@@ -1,3 +1,4 @@
+using Eto.Drawing;
 using Rasm.Rhino.Display;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Tables;
@@ -138,7 +139,7 @@ public static class Viewports {
     // --- [STORES]
     public static ValueStore<T> Member<T>(
         RhinoDoc doc, ViewportTarget target, Func<RhinoViewport, IO<T>> read, Func<RhinoViewport, T, IO<Unit>> write, Option<Func<T, T, bool>> same = default) where T : notnull =>
-        ValueStore.Of(
+        ValueStores.Of(
             With(doc, target, row => read(row.Viewport).Map(static value => Some(value))),
             value => value.Traverse(held => Edit(doc, new ViewportSet.One(target), port => write(port, held), new RedrawPolicy.AllViews(Deferred: true))).As().Map(unit),
             Applied.Live,
@@ -146,10 +147,10 @@ public static class Viewports {
             same);
 
     // --- [SCREEN]
-    public static IO<Eto.Drawing.RectangleF> Frame(RhinoView view) =>
+    public static IO<RectangleF> Frame(RhinoView view) =>
         from window in IO.lift(() => Refused.UnlessFound(RhinoEtoApp.MainWindowForDocument(view.Document), nameof(RhinoEtoApp.MainWindowForDocument)))
         from frame in IO.lift(() => view.ScreenRectangle)
-        select new Eto.Drawing.RectangleF(frame.X, frame.Y, frame.Width, frame.Height) / window.LogicalPixelSize;
+        select new RectangleF(frame.X, frame.Y, frame.Width, frame.Height) / window.LogicalPixelSize;
 
     // --- [SPACE]
     public static LengthUnit Units(RhinoDoc doc, Option<RhinoViewport> viewport) =>

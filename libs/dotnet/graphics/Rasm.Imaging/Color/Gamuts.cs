@@ -99,6 +99,7 @@ public sealed record Gamut {
 }
 
 [ComplexValueObject]
+[ValidationError<ImagingFault>]
 public readonly partial struct GamutCompression {
     public static GamutCompression Reference { get; } = Create(new Vector3(0.815f, 0.803f, 0.880f), new Vector3(1.147f, 1.264f, 1.312f), 1.2f);
 
@@ -138,8 +139,8 @@ public readonly partial struct GamutCompression {
             },
         };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Vector3 threshold, ref Vector3 limit, ref float power) =>
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Vector3 threshold, ref Vector3 limit, ref float power) =>
         validationError = Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(threshold, Vector3.Zero) & Vector3.LessThan(threshold, Vector3.One) & Vector3.GreaterThan(limit, Vector3.One)
             & Vector3.IsFinite(limit)) && float.IsFinite(power) && power >= 1f ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Gamut compression threshold {threshold} must lie in [0, 1), limit {limit} above 1, and power {power} at least 1"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Gamut compression threshold {threshold} must lie in [0, 1), limit {limit} above 1, and power {power} at least 1"));
 }

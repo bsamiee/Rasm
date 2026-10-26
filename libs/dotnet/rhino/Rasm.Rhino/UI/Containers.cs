@@ -1,70 +1,30 @@
 using Eto.Forms;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI;
 using Rhino.UI.Controls;
 
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct SplitShare : System.Numerics.IMinMaxValue<SplitShare> {
-    public static SplitShare MinValue { get; } = new(0d);
-    public static SplitShare MaxValue { get; } = new(1d);
-    public static SplitShare Even { get; } = new(0.5d);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct PaneExtent : System.Numerics.IMinMaxValue<PaneExtent> {
-    public static PaneExtent MinValue { get; } = new(0d);
-    public static PaneExtent MaxValue { get; } = new(double.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-public abstract record SplitAnchor {
-    private protected SplitAnchor(SplitterFixedPanel fixedPanel) => Fixed = fixedPanel;
-
-    public SplitterFixedPanel Fixed { get; }
-
-    public abstract string Name { get; }
-
-    public static SplitAnchor Shared(ValueKey<SplitShare> key) => new SplitAnchor<SplitShare>(key, SplitterFixedPanel.None);
-
-    public static SplitAnchor Pinned(ValueKey<PaneExtent> key, SplitterFixedPanel side) => new SplitAnchor<PaneExtent>(key, side);
-
-    public abstract IO<double> Open(SettingsNode plugIn, CallbackSite site);
-
-    public abstract IO<Unit> Keep(SettingsNode plugIn, double position);
-}
-
-internal sealed record SplitAnchor<TValue> : SplitAnchor where TValue : notnull, IObjectFactory<TValue, double, ValidationError>, IConvertible<double> {
+public sealed record SplitAnchor(string Name, double Default, SplitterFixedPanel Fixed) {
     private const string Positions = "splitter-positions";
 
-    internal SplitAnchor(ValueKey<TValue> key, SplitterFixedPanel fixedPanel) : base(fixedPanel) =>
-        Row = new(key, SettingType.Double);
+    public static SplitAnchor Shared(string name) => new(name, 0.5d, SplitterFixedPanel.None);
 
-    private PlugInSetting<TValue, double> Row { get; }
+    public static SplitAnchor Pinned(string name, double extent, SplitterFixedPanel side) => new(name, extent, side);
 
-    public override string Name => Row.Key.Key;
+    private PlugInSetting<double> Row =>
+        new(Name, Default, static (settings, key, out value, legacy) => settings.TryGetDouble(key, out value, legacy), static (settings, key, value) => settings.SetDouble(key, value));
 
-    public override IO<double> Open(SettingsNode plugIn, CallbackSite site) =>
-        PlugInSettings.Store(plugIn.Child(Positions), Row).Read
-            .Catch(
-                static error => error.HasCode(ErrorCodes.ParseError) || error.HasCode(ErrorCodes.ValidationFailed),
-                error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)).Map(Option<TValue>.None))
-            .Map(held => held.IfNone(Row.Key.Default).ToValue());
+    public IO<double> Open(SettingsNode plugIn) => PlugInSettings.Store(plugIn.Child(Positions), Row).Read.Map(held => held.IfNone(Default));
 
-    public override IO<Unit> Keep(SettingsNode plugIn, double position) =>
-        from value in IO.lift(ValidationResults.Validated<TValue, double>(position))
-        let positions = plugIn.Child(Positions)
-        from child in SettingRoots.AddChild(positions)
+    public IO<Unit> Keep(SettingsNode plugIn, double position) =>
+        from child in SettingRoots.AddChild(plugIn.Child(Positions))
         from hidden in IO.lift(() => child.HiddenFromUserInterface = true)
-        from written in PlugInSettings.Store(positions, Row).Put(Some(value))
+        from written in PlugInSettings.Store(plugIn.Child(Positions), Row).Put(Some(position))
         select unit;
 }
 
@@ -85,7 +45,7 @@ public abstract partial record ContainerRow {
 
     public sealed record Disclosure(string Caption, bool Expanded, IterableNE<Child> Body) : ContainerRow;
 
-    public sealed record Tiles(IterableNE<Rasm.UI.Command<RowRule, Invoke>> Cells) : ContainerRow;
+    public sealed record Tiles(IterableNE<Command<RowRule, Invoke>> Cells) : ContainerRow;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -108,7 +68,7 @@ public static class Containers {
 
     // --- [SPLITS]
     private static IO<Control> Split(IPlugInViews owner, ContainerRow.Split split, RowScope scope, Action<IDisposable> retain) =>
-        from position in split.Anchor.Open(owner.Settings, new CallbackSite(scope.Sink, typeof(SplitAnchor), nameof(SplitAnchor.Open)))
+        from position in split.Anchor.Open(owner.Settings)
         from splitter in DisposalOps.Acquire(IO.lift(static () => new Splitter()), retain)
         from first in ViewOps.Realize(owner, toSeq(split.First), scope, retain)
         from second in ViewOps.Realize(owner, toSeq(split.Second), scope, retain)

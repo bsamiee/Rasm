@@ -1,4 +1,4 @@
-using System.Drawing;
+using System.Drawing.Imaging;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -17,14 +17,16 @@ using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
 using Rhino;
+using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Render;
-using SkiaSharp;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Darkroom.Output;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record IdentitySource(ushort Id, Option<string> Name, Color Color);
+public sealed record IdentitySource(ushort Id, Option<string> Name, Color4f Color);
 
 [SmartEnum<RenderWindow.StandardChannels>(SkipIComparable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class SavedChannel {
@@ -36,12 +38,12 @@ public sealed partial class SavedChannel {
     public static readonly SavedChannel MaterialIds = new(RenderWindow.StandardChannels.MaterialIds, "IndexMA",
         Some<Func<RhinoDoc, Seq<IdentitySource>>>(static document => toSeq(document.RenderMaterials).Map(static material => {
             using Material simulated = material.ToMaterial(RenderTexture.TextureGeneration.Skip);
-            return new IdentitySource((ushort)(material.RenderHash & IdMask), Conversions.Present(material.Name), simulated.DiffuseColor);
+            return new IdentitySource((ushort)(material.RenderHash & IdMask), Conversions.Present(material.Name), new Color4f(simulated.DiffuseColor));
         }).Strict()),
         static (name, frame) => new ExrPass.Named(name, PassKind.V, frame));
     public static readonly SavedChannel ObjectIds = new(RenderWindow.StandardChannels.ObjectIds, "IndexOB",
         Some<Func<RhinoDoc, Seq<IdentitySource>>>(static document => toSeq(document.Objects.GetObjectList(ObjectType.AnyObject)).Map(found =>
-            new IdentitySource((ushort)(RhinoMath.CRC32(0u, found.Id.ToByteArray()) & IdMask), Conversions.Present(found.Attributes.Name), found.Attributes.DrawColor(document))).Strict()),
+            new IdentitySource((ushort)(RhinoMath.CRC32(0u, found.Id.ToByteArray()) & IdMask), Conversions.Present(found.Attributes.Name), new Color4f(found.Attributes.DrawColor(document)))).Strict()),
         static (name, frame) => new ExrPass.Named(name, PassKind.V, frame));
     public static readonly SavedChannel WireframePoints = new(RenderWindow.StandardChannels.WireframePointsRGBA, nameof(RenderWindow.StandardChannels.WireframePointsRGBA), None,
         static (name, frame) => new ExrPass.Named(name, PassKind.V, frame));
@@ -57,40 +59,33 @@ public sealed partial class SavedChannel {
     public Option<Func<RhinoDoc, Seq<IdentitySource>>> Sources { get; }
 
     [UseDelegateFromConstructor]
-    internal partial ExrPass Part(PassName name, PixelFrame frame);
+    internal partial ExrPass Part(string name, PixelFrame frame);
 
     // --- [PARTS]
-    public IO<Seq<ExrPass>> Passes(RhinoDoc doc, PixelFrame frame) =>
-        from name in IO.lift(PassName.Validated(PartName))
-        from identities in IO.lift(Sources.Traverse(sources => Identified(frame, sources(doc), Some(SaveSource.SceneLinear))).As())
-        from key in IO.lift(PassName.Validated(Key.ToString()))
-        from inverse in IO.lift(PassName.Validated(nameof(ExrPass.InverseDepth)))
-        select Part(name, frame).Cons(identities.Map<ExrPass>(entries => new ExrPass.Identities(key, frame, entries)).ToSeq())
-            + (this == Distance ? Seq<ExrPass>(new ExrPass.InverseDepth(inverse, frame)) : []);
+    public Seq<ExrPass> Passes(RhinoDoc doc, PixelFrame frame) =>
+        Part(PartName, frame).Cons(Sources.Map<ExrPass>(sources => new ExrPass.Identities(Key.ToString(), frame, Identified(frame, sources(doc), Some(SaveSource.SceneLinear)))).ToSeq())
+            + (this == Distance ? Seq<ExrPass>(new ExrPass.InverseDepth(nameof(ExrPass.InverseDepth), frame)) : []);
 
-    public IO<DocumentLayer> Layer(RhinoDoc doc, PixelFrame frame, Option<ColorEncoding> encoding) =>
-        from name in IO.lift(PassName.Validated(PartName))
-        from layer in IO.lift(Sources.Match(
-            Some: sources => Identified(frame, sources(doc), encoding).Map(entries => DocumentLayer.Identities(name, frame, entries)),
-            None: () => Fin.Succ<DocumentLayer>(new DocumentLayer.Raster(name, frame, BlendingMode.Mix, 1f, Visible: false, Mask: None))))
-        select layer;
+    public DocumentLayer Layer(RhinoDoc doc, PixelFrame frame, Option<ColorEncoding> encoding) =>
+        Sources.Match(
+            Some: sources => DocumentLayer.Identities(PartName, frame, Identified(frame, sources(doc), encoding)),
+            None: () => new DocumentLayer.Raster(PartName, frame, BlendingMode.Mix, 1f, Visible: false, Mask: None));
 
-    private static Fin<Seq<IdentityLayer>> Identified(PixelFrame ids, Seq<IdentitySource> sources, Option<ColorEncoding> encoding) {
+    private static Seq<IdentityLayer> Identified(PixelFrame ids, Seq<IdentitySource> sources, Option<ColorEncoding> encoding) {
         System.Collections.Generic.HashSet<ushort> present = [];
         foreach (Vector4 pixel in MemoryMarshal.Cast<float, Vector4>(ids.Block))
             _ = present.Add((ushort)pixel.X);
         Seq<Action<Span<Vector4>>> steps = encoding.Map(DisplayDevice.Srgb.Encoding.To).IfNone([]);
-        return Callbacks.Each(
-            toSeq(sources
+        return toSeq(sources
                 .Filter(source => present.Contains(source.Id))
-                .Fold(Map<ushort, (Color Color, Seq<string> Names)>(), static (held, source) =>
+                .Fold(Map<ushort, (Color4f Color, Seq<string> Names)>(), static (held, source) =>
                     held.AddOrUpdate(source.Id, same => (same.Color, same.Names + source.Name.ToSeq()), (source.Color, source.Name.ToSeq())))
-                .AsIterable()),
-            (entry, _) => PassName.Validated(entry.Value.Names.IsEmpty ? entry.Key.ToString(CultureInfo.InvariantCulture) : string.Join(", ", entry.Value.Names))
-                .Map(layer => new IdentityLayer(entry.Key, layer, Encoded(entry.Value.Color))));
+                .AsIterable())
+            .Map(entry => new IdentityLayer(entry.Key, entry.Value.Names.IsEmpty ? entry.Key.ToString(CultureInfo.InvariantCulture) : string.Join(", ", entry.Value.Names), Encoded(entry.Value.Color)))
+            .Strict();
 
-        Vector3 Encoded(Color color) {
-            Vector4[] pixel = [new Vector4(color.R, color.G, color.B, byte.MaxValue) / byte.MaxValue];
+        Vector3 Encoded(Color4f color) {
+            Vector4[] pixel = [new(color.R, color.G, color.B, 1f)];
             _ = steps.Iter(step => step(pixel));
             return pixel[0].AsVector3();
         }
@@ -117,26 +112,17 @@ public abstract partial record SaveSource {
 
     public IO<Seq<(OutputName Name, OutputPath Path)>> Saved(RhinoDoc doc, IPlugInViews views) =>
         from book in OutputBook.Read(doc)
-        from named in IO.lift(book.Names([]))
-        from placed in Destinations.Resolve(doc, book.Destination, named.Map(static held => held.Name))
+        let named = book.Names([])
+        from placed in Destinations.Resolve(doc, book.Folder, book.Stem, book.Overwrite, named.Map(static held => held.Name))
         from metadata in Metadata(doc, views)
-        from written in named.Zip(placed).TraverseM(pair => Write(doc, metadata, pair.First.Target, pair.Second.Path, book.Destination.Overwrite)).As()
+        from written in named.Zip(placed).TraverseM(pair => Write(doc, metadata, pair.First.Target, pair.Second.Path, book.Overwrite)).As()
         select placed;
 
     public static IO<FileMetadata> Metadata(RhinoDoc doc, IPlugInViews views) =>
-        from output in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), ImageOutputState.Read)
+        from density in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => IO.lift(() => scope.Settings.ImageDpi))
         from created in IO.lift(() => views.Clock.ToZonedClock().GetCurrentZonedDateTime().ToDateTimeOffset())
-        from metadata in IO.lift(() => (
-                SoftwareName.Validated(views.PlugIn.Name),
-                PixelsPerInch.Validated((double)output.ImageDpi),
-                Field(nameof(views.PlugIn.Version), views.PlugIn.Version),
-                Field(nameof(views.PlugIn.Id), views.PlugIn.Id.ToString("D", CultureInfo.InvariantCulture)))
-            .Apply((software, density, version, id) => new FileMetadata(software, created, density, toMap(Seq(version, id))))
-            .As())
-        select metadata;
-
-    private static Fin<(MetadataName Name, MetadataText Text)> Field(string name, string text) =>
-        (MetadataName.Validated(name), MetadataText.Validated(text)).Apply(static (field, value) => (field, value)).As();
+        select new FileMetadata(views.PlugIn.Name, created, density,
+            toMap(Seq((nameof(views.PlugIn.Version), views.PlugIn.Version), (nameof(views.PlugIn.Id), views.PlugIn.Id.ToString("D", CultureInfo.InvariantCulture)))));
 
     // --- [STILLS]
     public IO<StillFormat> Passes(RhinoDoc doc, OutputTarget target, LayerReader reader) =>
@@ -147,20 +133,17 @@ public abstract partial record SaveSource {
             ? (channels.Find(SavedChannel.Distance).ToFin(new Refused(nameof(SavedChannel.Distance), Refused.Absent)), Scene.Meters.ToFin(new Refused(nameof(ChainScene.Meters), Refused.Absent)))
                 .Apply(static (distance, meters) => Some<ExrPass>(new ExrPass.Position(GuideChannel.Depth.Measured(distance, meters))))
                 .As()
-            : Fin.Succ(Option<ExrPass>.None))
-        from parts in Held(channels).TraverseM(held => held.Channel.Passes(doc, held.Frame)).As()
-        from set in IO.lift(PassSet.From(reader.Convention, Scene.Camera, PassLayout.Parts, parts.Flatten() + position.ToSeq()))
+            : Option<ExrPass>.None)
+        from set in IO.lift(PassSet.From(reader.Convention, Scene.Camera, PassLayout.Parts, Held(channels).Bind(held => held.Channel.Passes(doc, held.Frame)) + position.ToSeq()))
         from still in IO.lift(StillFormat.ExrRaster.From(beauty, layout, target.Alpha, Some(set)))
         select still;
 
     public IO<StillFormat> Layered(RhinoDoc doc, OutputTarget target) =>
         from beauty in target.ColorDepth.Levels.IsSome ? Formed(target, target.ColorDepth) : Linear.Map(static frame => (Frame: frame, Encoding: Some(SceneLinear)))
         from channels in Channels(target)
-        from layers in Held(channels).Filter(held => target.ColorDepth.Levels.IsNone || held.Channel.Sources.IsSome)
-            .TraverseM(held => held.Channel.Layer(doc, held.Frame, beauty.Encoding)).As()
-        from name in IO.lift(PassName.Validated(nameof(RenderWindow.StandardChannels.RGBA)))
         from document in IO.lift(LayeredDocument.From(target.ColorDepth, beauty.Encoding,
-            new DocumentLayer.Raster(name, beauty.Frame, BlendingMode.Mix, 1f, Visible: true, Mask: None).Cons(layers)))
+            new DocumentLayer.Raster(nameof(RenderWindow.StandardChannels.RGBA), beauty.Frame, BlendingMode.Mix, 1f, Visible: true, Mask: None)
+                .Cons(Held(channels).Filter(held => target.ColorDepth.Levels.IsNone || held.Channel.Sources.IsSome).Map(held => held.Channel.Layer(doc, held.Frame, beauty.Encoding)))))
         select (StillFormat)new StillFormat.Document(document);
 
     private static Seq<(SavedChannel Channel, PixelFrame Frame)> Held(HashMap<SavedChannel, PixelFrame> channels) =>
@@ -174,8 +157,10 @@ public abstract partial record SaveSource {
 
         public override IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Formed(OutputTarget target, OutputDepth depth) =>
             depth.Levels.IsSome
-                ? DisposalOps.Found(Rendering.GetBitmap, nameof(RenderWindow.GetBitmap), static bitmap => DisposalOps.Within(Conversions.ToSKImage(bitmap), static image => IO.lift(() => Pixels(image)), static image => IO.lift(image.Dispose)))
-                    .Bind(read => IO.lift(Placed(read.Size, read.Pixels)))
+                ? DisposalOps.Found(Rendering.GetBitmap, nameof(RenderWindow.GetBitmap), bitmap => DisposalOps.Within(
+                        IO.lift(() => bitmap.LockBits(new(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb)),
+                        data => IO.lift(() => Pixels(data)).Bind(pixels => IO.lift(Placed(data.Width, data.Height, pixels))),
+                        data => IO.lift(() => bitmap.UnlockBits(data))))
                     .Map(static frame => (frame, Option<ColorEncoding>.None))
                 : Linear.Map(static frame => (frame, Some(SceneLinear)));
 
@@ -189,20 +174,23 @@ public abstract partial record SaveSource {
             select toHashMap(frames);
 
         private IO<PixelFrame> Read(RenderWindow.StandardChannels channel) =>
-            RenderWindows.Read(Rendering, channel).Bind(read => IO.lift(Placed(read.Size, read.Pixels)));
+            RenderWindows.Read(Rendering, channel).Bind(read => IO.lift(Placed(read.Size.Width, read.Size.Height, read.Pixels)));
 
-        private static (Size Size, float[] Pixels) Pixels(SKImage image) {
-            using SKBitmap bitmap = new(new SKImageInfo(image.Width, image.Height, SKColorType.RgbaF32, SKAlphaType.Unpremul, SKColorSpace.CreateSrgb()));
-            _ = image.ReadPixels(bitmap.PeekPixels());
-            return (new Size(image.Width, image.Height), MemoryMarshal.Cast<byte, float>(bitmap.GetPixelSpan()).ToArray());
+        private static unsafe float[] Pixels(BitmapData data) {
+            float[] pixels = GC.AllocateUninitializedArray<float>(data.Width * data.Height * 4);
+            ReadOnlySpan2D<Bgra32> source = new((void*)data.Scan0, data.Height, data.Width, (data.Stride / sizeof(Bgra32)) - data.Width);
+            Span2D<Vector4> target = MemoryMarshal.Cast<float, Vector4>(pixels.AsSpan()).AsSpan2D(data.Height, data.Width);
+            for (int row = 0; row < data.Height; row++)
+                PixelOperations<Bgra32>.Instance.ToVector4(Configuration.Default, source.GetRowSpan(row), target.GetRowSpan(row));
+            return pixels;
         }
 
-        private Fin<PixelFrame> Placed(Size size, float[] pixels) =>
+        private Fin<PixelFrame> Placed(int width, int height, float[] pixels) =>
             Region.Map(region => region.Pixels(Frame.Frame)).IfNone(Frame.DataWindow) switch {
-                var window => Refused.Unless(size == new Size(Frame.Padded.Width, Frame.Padded.Height), nameof(RenderWindows.Read))
+                var window => Refused.Unless(width == Frame.Padded.Width && height == Frame.Padded.Height, nameof(RenderWindows.Read))
                     .Bind(_ => PixelExtent.Validated(window.Width, window.Height))
                     .Map(extent => new PixelFrame(window.Location, extent, Frame.Frame, block =>
-                        MemoryMarshal.Cast<float, Vector4>(pixels.AsSpan()).AsSpan2D(size.Height, size.Width)
+                        MemoryMarshal.Cast<float, Vector4>(pixels.AsSpan()).AsSpan2D(height, width)
                             .Slice(window.Y + Frame.Pad.Height, window.X + Frame.Pad.Width, extent.Height, extent.Width)
                             .CopyTo(MemoryMarshal.Cast<float, Vector4>(block.AsSpan()).AsSpan2D(extent.Height, extent.Width)))),
             };

@@ -3,6 +3,7 @@ using Grasshopper2.Components;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Standard;
+using Grasshopper2.UI;
 using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.InputPanel;
 using Grasshopper2.Undo;
@@ -14,6 +15,7 @@ using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI;
 using Rhino;
 using Rhino.Geometry.Intersect;
 using UnitSystem = Rhino.UnitSystem;
@@ -28,7 +30,7 @@ public interface IComponentDefinition<TSelf> where TSelf : ModularComponent {
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ComponentRow<TSelf>(
     Nomen Face,
-    Option<Rasm.UI.GlyphSource> Glyph,
+    Option<GlyphSource> Glyph,
     Seq<ParameterRow> Inputs,
     Seq<ParameterRow> Outputs,
     Seq<Guid> SupportedPins,
@@ -40,47 +42,21 @@ public sealed record ComponentRow<TSelf>(
 
     // --- [ATTACHMENT]
     public Seq<Func<TSelf, Action<IDisposable>, IO<Unit>>> Attached { get; init; }
-
-    // --- [DECLARE]
-    public static ComponentRow<TSelf> Of<TRecord>(
-        Nomen face, Option<Rasm.UI.GlyphSource> glyph, Seq<ParameterRow> inputs, Seq<ParameterField<TRecord>> fields, Seq<ParameterRow> outputs,
-        Seq<Guid> supportedPins, TRecord fallback, Func<TSelf, IDataAccess, TRecord, IO<Unit>> solve)
-        where TRecord : Rasm.UI.IStateRecord<TRecord> =>
-        new(face, glyph, [.. inputs, .. fields.Map(static field => field.Input)], outputs, supportedPins,
-            (owner, access) => ParameterField<TRecord>.Read(fields, inputs.Count, access).Bind(set => solve(owner, access, set(fallback))));
-}
-
-public abstract class ComponentDeclaration {
-    private ComponentDeclaration() { }
-
-    public abstract Type Component { get; }
-    public abstract Seq<ParameterRow> Parameters { get; }
-
-    public static Option<ComponentDeclaration> Of(Type type) =>
-        type.IsAssignableTo(typeof(ModularComponent)) && type.IsAssignableTo(typeof(IComponentDefinition<>).MakeGenericType(type))
-            ? Some((ComponentDeclaration)Activator.CreateInstance(typeof(Declared<>).MakeGenericType(type))!)
-            : None;
-
-    public sealed class Declared<TSelf> : ComponentDeclaration where TSelf : ModularComponent, IComponentDefinition<TSelf> {
-        public override Type Component => typeof(TSelf);
-        public override Seq<ParameterRow> Parameters => TSelf.Row.Inputs + TSelf.Row.Outputs;
-    }
 }
 
 public sealed record SolveUnits(Tolerances Tolerances, double UnitsPerMeter) {
     // --- [READ]
     public static IO<SolveUnits> Read(IDataAccess access) =>
-        from native in IO.lift(Fin<(double Absolute, double Relative, double Angle, double UnitsPerMeter)> () => {
+        IO.lift(Fin<SolveUnits> () => {
             _ = access.GetTolerance(out double absolute);
             _ = access.GetTolerance(out Angle angle);
             _ = access.GetUnitScaling(UnitSystem.Meters, out double unitsPerMeter);
             return (access.GetItem(RelativeTolerancePin.Id, out double pinned) && pinned >= 0d
                     ? pinned
                     : Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)).Map(static document => document.ModelRelativeTolerance))
-                .Map(relative => (Absolute: absolute, Relative: Math.Clamp(relative, 1e-12, 1e6), Angle: angle.Radians, UnitsPerMeter: unitsPerMeter));
-        })
-        from tolerances in IO.lift(() => ValidationResults.ToFin(Tolerances.Validate(native.Absolute, native.Relative, native.Angle, Intersection.MeshIntersectionsTolerancesCoefficient, out Tolerances? value), value))
-        select new SolveUnits(tolerances, native.UnitsPerMeter);
+                .Map(relative => new SolveUnits(
+                    new Tolerances(absolute, Math.Clamp(relative, 1e-12, 1e6), angle.Radians, Intersection.MeshIntersectionsTolerancesCoefficient), unitsPerMeter));
+        });
 
     // --- [LENGTHS]
     public Length From(double value) => Length.FromMeters(value / UnitsPerMeter);
@@ -115,7 +91,7 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
 
     protected override IIcon IconInternal =>
         GrasshopperPlugins.Site(this) switch {
-            var site => Callbacks.Answer(TSelf.Row.Glyph.Map(glyph => CanvasIcons.Vector(site.Sink, glyph)), () => base.IconInternal, () => base.IconInternal, site),
+            var site => Callbacks.Answer(TSelf.Row.Glyph.Map(CanvasIcons.Vector), () => base.IconInternal, () => base.IconInternal, site),
         };
 
     protected sealed override void AddInputs(ModularInputAdder inputs) =>
@@ -158,7 +134,7 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
             Succ: static _ => Seq<Error>(),
             Fail: static error => toSeq(error.AsIterable()).Filter(static leaf => !leaf.Is(Errors.Cancelled)).Strict());
         _ = failed.Iter(leaf => access.AddMessage(ComponentOps.Rendered(Message.Error, leaf, [])));
-        _ = failed.Filter(static leaf => leaf.IsExceptional).Iter(leaf => GrasshopperPlugins.Site(this).Sink.Report(leaf, GetType(), nameof(Process)));
+        _ = failed.Filter(static leaf => leaf.IsExceptional).Iter(leaf => GrasshopperPlugins.Site(this).Sink.Report(leaf, GetType()));
     }
 
     public IO<Seq<A>> Matched<A>(SolutionMode mode, Func<IDataAccess, IO<A>> read) =>
@@ -198,7 +174,7 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
               from scope in RowScope.Open(site.Sink, Some(document), new CommitMode.Immediate())
               from held in IO.lift(static () => AtomSeq<IDisposable>())
               from installed in DisposalOps.OnFailure(
-                  from grid in RowGrid.Realize(rows, scope, owned => _ = held.Add(owned))
+                  from grid in RowGrid.Realize(ControlRows.Fixed(rows), scope, owned => _ = held.Add(owned))
                   from added in IO.lift(() => {
                       grid.View.UnLoad += Callbacks.Handler<EventArgs>(_ => IO.lift(held.ToSeq).Bind(DisposalOps.Release), site);
                       using IDisposable category = panel.BeginCategory(RowText.Localize("Settings"));
@@ -229,10 +205,10 @@ public static class ComponentOps {
         level(note.Message, Conversions.Unset(note.Inner.Map(static cause => ErrorOps.Localize(cause))), [.. actions]);
 
     // --- [STATE]
-    public static ValueStore<TRecord> State<TRecord>(IDocumentObject owner, string key, TRecord fallback) where TRecord : Rasm.UI.IStateRecord<TRecord> {
-        KeyedText text = KeyedText.Of(owner.CustomValues, key);
-        return Recorded(owner, text.Pattern, text.Store(new FieldCodec<TRecord>(TRecord.Parameters, fallback)));
-    }
+    public static ValueStore<TRecord> State<TRecord>(IDocumentObject owner, string key, TRecord fallback) where TRecord : notnull =>
+        KeyedText.Of(owner.CustomValues, key) switch {
+            var text => Recorded(owner, text.Owner, text.Store(fallback)),
+        };
 
     public static ValueStore<T> Recorded<T>(IDocumentObject owner, string filter, ValueStore<T> store) where T : notnull =>
         store with {

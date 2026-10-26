@@ -6,17 +6,17 @@ namespace Rasm.UI;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 internal interface IStreamed<TSelf, TIncrement> where TSelf : Gesture, IStreamed<TSelf, TIncrement> where TIncrement : notnull {
-    public static abstract TSelf Of(SKPoint at, TIncrement increment, LanguageExt.HashSet<Modifier> modifiers);
+    public static abstract TSelf Of(SKPoint at, TIncrement increment, KeyModifiers modifiers);
 
     public static abstract Option<TSelf> From(Gesture gesture);
 
-    public TSelf Folded(SKPoint at, TIncrement increment, LanguageExt.HashSet<Modifier> modifiers);
+    public TSelf Folded(SKPoint at, TIncrement increment, KeyModifiers modifiers);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 internal abstract partial record Gesture {
-    public LanguageExt.HashSet<Modifier> Modifiers { get; init; }
+    public KeyModifiers Modifiers { get; init; } = KeyModifiers.None;
 
     public sealed record Press(SKPoint From, Option<SKPoint> Dragged, int Clicks, float Pressure) : Gesture {
         public SKPoint At => Dragged.IfNone(From);
@@ -28,28 +28,28 @@ internal abstract partial record Gesture {
     }
 
     public sealed record Scroll(SKPoint At, Vector2 Travel) : Gesture, IStreamed<Scroll, Vector2> {
-        public static Scroll Of(SKPoint at, Vector2 increment, LanguageExt.HashSet<Modifier> modifiers) => new(at, increment) { Modifiers = modifiers };
+        public static Scroll Of(SKPoint at, Vector2 increment, KeyModifiers modifiers) => new(at, increment) { Modifiers = modifiers };
 
         public static Option<Scroll> From(Gesture gesture) => gesture.SwitchPartially(@default: static _ => Option<Scroll>.None, scroll: static scroll => Some(scroll));
 
-        public Scroll Folded(SKPoint at, Vector2 increment, LanguageExt.HashSet<Modifier> modifiers) => this with { At = at, Travel = Travel + increment, Modifiers = modifiers };
+        public Scroll Folded(SKPoint at, Vector2 increment, KeyModifiers modifiers) => this with { At = at, Travel = Travel + increment, Modifiers = modifiers };
     }
 
     public sealed record Magnify(SKPoint About, float Magnification) : Gesture, IStreamed<Magnify, float> {
-        public static Magnify Of(SKPoint at, float increment, LanguageExt.HashSet<Modifier> modifiers) => new(at, increment) { Modifiers = modifiers };
+        public static Magnify Of(SKPoint at, float increment, KeyModifiers modifiers) => new(at, increment) { Modifiers = modifiers };
 
         public static Option<Magnify> From(Gesture gesture) => gesture.SwitchPartially(@default: static _ => Option<Magnify>.None, magnify: static magnify => Some(magnify));
 
-        public Magnify Folded(SKPoint at, float increment, LanguageExt.HashSet<Modifier> modifiers) =>
+        public Magnify Folded(SKPoint at, float increment, KeyModifiers modifiers) =>
             this with { About = at, Magnification = ((1f + Magnification) * (1f + increment)) - 1f, Modifiers = modifiers };
     }
 
     public sealed record Rotate(SKPoint About, float Rotation) : Gesture, IStreamed<Rotate, float> {
-        public static Rotate Of(SKPoint at, float increment, LanguageExt.HashSet<Modifier> modifiers) => new(at, increment) { Modifiers = modifiers };
+        public static Rotate Of(SKPoint at, float increment, KeyModifiers modifiers) => new(at, increment) { Modifiers = modifiers };
 
         public static Option<Rotate> From(Gesture gesture) => gesture.SwitchPartially(@default: static _ => Option<Rotate>.None, rotate: static rotate => Some(rotate));
 
-        public Rotate Folded(SKPoint at, float increment, LanguageExt.HashSet<Modifier> modifiers) => this with { About = at, Rotation = Rotation + increment, Modifiers = modifiers };
+        public Rotate Folded(SKPoint at, float increment, KeyModifiers modifiers) => this with { About = at, Rotation = Rotation + increment, Modifiers = modifiers };
     }
 
     public sealed record Perform(Act Act) : Gesture;
@@ -62,11 +62,11 @@ internal abstract partial record Capture {
     public sealed record Handle(Seq<Key> Adjuster, SKPoint From, float Start) : Capture;
 }
 
-internal sealed record Stream(Gesture Gesture, Track Track);
+internal sealed record LiveGesture(Gesture Gesture, Track Track);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record Latch {
-    public sealed record Part(Seq<Key> Owner, Option<Stream> Live) : Latch;
+    public sealed record Part(Seq<Key> Owner, Option<LiveGesture> Live) : Latch;
 
     public sealed record Scroll(Seq<Key> Adjuster, Option<Gesture.Scroll> Live) : Latch;
 }
@@ -86,9 +86,9 @@ internal abstract partial record Focus {
     public sealed record Traversed(Seq<Key> Element) : Focus(Element);
 }
 
-internal sealed record Routing(Option<SKPoint> Pointer, LanguageExt.HashSet<Modifier> Modifiers, Option<Capture> Capture, Option<Latch> Latch, Option<Focus> Focus) {
+internal sealed record Routing(Option<SKPoint> Pointer, KeyModifiers Modifiers, Option<Capture> Capture, Option<Latch> Latch, Option<Focus> Focus) {
     // --- [STATE]
-    public static Routing Idle { get; } = new(None, [], None, None, None);
+    public static Routing Idle { get; } = new(None, KeyModifiers.None, None, None, None);
 
     // --- [DERIVED]
     public Option<Seq<Key>> Pressing => Capture.Map(static capture => capture.Switch(part: static part => part.Over, handle: static handle => handle.Adjuster));
@@ -108,14 +108,14 @@ internal sealed record Routing(Option<SKPoint> Pointer, LanguageExt.HashSet<Modi
         from entry in stop.Find(static element => element.Conditions.Contains(Condition.Selected)) | (sign > 0 ? stop.Head : stop.Last)
         select entry.Id;
 
-    internal static Option<T> Toward<T>(SKRect origin, Seq<(T Item, SKRect Frame)> candidates, Navigation toward) =>
+    internal static Option<T> Toward<T>(SKRect origin, Seq<(T Item, SKRect Frame)> candidates, NavigationDirection toward) =>
         candidates.Choose(candidate => Distance(origin, candidate.Frame, toward).Map(distance => (candidate.Item, Distance: distance))) switch {
             { IsEmpty: true } => None,
             var ahead => Some(ahead.MinBy(static held => held.Distance).Item),
         };
 
     private static Seq<Seq<Element>> Stopped(Element element) =>
-        element.Role.Category == RoleCategory.Composite
+        element.Role.Composite
             ? Access.Flattened(element.Children).Filter(Focusable) switch {
                 { IsEmpty: true } => Focusable(element) ? [[element]] : [],
                 var members => [members],
@@ -125,7 +125,7 @@ internal sealed record Routing(Option<SKPoint> Pointer, LanguageExt.HashSet<Modi
     private static bool Focusable(Element element) =>
         !element.Conditions.Contains(Condition.Disabled) && !element.Actions.IsEmpty;
 
-    private static Option<float> Distance(SKRect origin, SKRect candidate, Navigation toward) {
+    private static Option<float> Distance(SKRect origin, SKRect candidate, NavigationDirection toward) {
         (float exitLow, float exitHigh) = Spanned(origin, toward.Along, toward.Sign);
         (float entryLow, float entryHigh) = Spanned(candidate, toward.Along, toward.Sign);
         (float originLow, float originHigh) = Spanned(origin, toward.Along.Cross, 1);
@@ -142,7 +142,7 @@ internal sealed record Routing(Option<SKPoint> Pointer, LanguageExt.HashSet<Modi
             : None;
     }
 
-    private static (float Low, float High) Spanned(SKRect frame, Orientation along, int sign) =>
+    private static (float Low, float High) Spanned(SKRect frame, PhysicalAxis along, int sign) =>
         (Low: along.Of(frame.Location), High: along.Of(new SKPoint(frame.Right, frame.Bottom))) switch {
             var span => sign > 0 ? span : (-span.High, -span.Low),
         };

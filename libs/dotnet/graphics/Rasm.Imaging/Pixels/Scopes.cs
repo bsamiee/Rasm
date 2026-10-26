@@ -31,27 +31,27 @@ public sealed partial class ClipEnd {
 
 [SmartEnum]
 public sealed partial class TracePlane {
-    public static readonly TracePlane Luma = new(Option<Lens<Vector3, float>>.None, static traces => traces.Luma);
-    public static readonly TracePlane Red = new(Some(Lens<Vector3, float>.New(static rgb => rgb.X, static x => rgb => rgb with { X = x })), static traces => traces.Red);
-    public static readonly TracePlane Green = new(Some(Lens<Vector3, float>.New(static rgb => rgb.Y, static y => rgb => rgb with { Y = y })), static traces => traces.Green);
-    public static readonly TracePlane Blue = new(Some(Lens<Vector3, float>.New(static rgb => rgb.Z, static z => rgb => rgb with { Z = z })), static traces => traces.Blue);
+    public static readonly TracePlane Luma = new(Vector3.One, static traces => traces.Luma);
+    public static readonly TracePlane Red = new(Vector3.UnitX, static traces => traces.Red);
+    public static readonly TracePlane Green = new(Vector3.UnitY, static traces => traces.Green);
+    public static readonly TracePlane Blue = new(Vector3.UnitZ, static traces => traces.Blue);
 
-    public Option<Lens<Vector3, float>> Lane { get; }
-    public Vector3 Color => Lane.Map(static lane => lane.Set(1f, Vector3.Zero)).IfNone(Vector3.One);
+    public Vector3 Color { get; }
 
     [UseDelegateFromConstructor]
     public partial BinGrid Bins(Traces traces);
 }
 
 [ComplexValueObject]
+[ValidationError<ImagingFault>]
 public readonly partial struct BinRange {
     public int First { get; }
     public int Last { get; }
 
     public bool Holds(double level) => !double.IsNaN(level) && HistogramAxis.Bin(level) is var bin && bin >= First && bin <= Last;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int first, ref int last) =>
-        validationError = 0 <= first && first <= last && last < HistogramAxis.Bins ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Bin range [{first}, {last}] must ascend within [0, {HistogramAxis.Bins - 1}]"));
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int first, ref int last) =>
+        validationError = 0 <= first && first <= last && last < HistogramAxis.Bins ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Bin range [{first}, {last}] must ascend within [0, {HistogramAxis.Bins - 1}]"));
 }
 
 [SmartEnum<int>]

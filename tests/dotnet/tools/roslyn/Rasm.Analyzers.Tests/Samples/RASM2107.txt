@@ -12,11 +12,17 @@ namespace Rasm.Rhino.Events {
 }
 
 internal static class Accessors {
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "add_Idle")]
+    internal static extern void AddIdle([UnsafeAccessorType("Rhino.RhinoApp, RhinoCommon")] object? owner, EventHandler<EventArgs> handler);
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "remove_Idle")]
+    internal static extern void RemoveIdle([UnsafeAccessorType("Rhino.RhinoApp, RhinoCommon")] object? owner, EventHandler<EventArgs> handler);
+
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "add_Hidden")]
-    internal static extern void AddHidden([UnsafeAccessorType("Rhino.Internal.Settings, RhinoCommon")] object? owner, EventHandler<EventArgs> handler);
+    internal static extern void AddHidden([UnsafeAccessorType("Rhino.UnsafeNativeMethods, RhinoCommon")] object? owner, EventHandler<EventArgs> handler);
 
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "remove_Hidden")]
-    internal static extern void RemoveHidden([UnsafeAccessorType("Rhino.Internal.Settings, RhinoCommon")] object? owner, EventHandler<EventArgs> handler);
+    internal static extern void RemoveHidden([UnsafeAccessorType("Rhino.UnsafeNativeMethods, RhinoCommon")] object? owner, EventHandler<EventArgs> handler);
 
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "add_Closing")]
     internal static extern void AddClosing([UnsafeAccessorType("Rhino.RhinoDoc, RhinoCommon")] object? owner, EventHandler<EventArgs> handler);
@@ -28,11 +34,15 @@ internal static class Accessors {
 internal static class WrongOwners {
     internal static Type Opened => Subscriptions.Host<DocumentOpenEventArgs>({|#0:typeof(Accessors)|}, static h => RhinoDoc.EndOpenDocument += h, static h => RhinoDoc.EndOpenDocument -= h);
 
-    internal static Type Hidden => Subscriptions.During<EventArgs>({|#1:typeof(Accessors)|}, static h => Accessors.AddHidden(owner: null, h), static h => Accessors.RemoveHidden(owner: null, h));
+    internal static Type Idle => Subscriptions.During<EventArgs>({|#1:typeof(Accessors)|}, static h => Accessors.AddIdle(owner: null, h), static h => Accessors.RemoveIdle(owner: null, h));
 }
 
 internal static class StatedOwners {
     internal static Type Opened => Subscriptions.Host<DocumentOpenEventArgs>(typeof(RhinoDoc), static h => RhinoDoc.EndOpenDocument += h, static h => RhinoDoc.EndOpenDocument -= h);
 
     internal static Type Closing => Subscriptions.During<EventArgs>(typeof(RhinoDoc), static h => Accessors.AddClosing(owner: null, h), static h => Accessors.RemoveClosing(owner: null, h));
+}
+
+internal static class UnnamedOwners {
+    internal static Type Hidden => Subscriptions.During<EventArgs>(typeof(Accessors), static h => Accessors.AddHidden(owner: null, h), static h => Accessors.RemoveHidden(owner: null, h));
 }

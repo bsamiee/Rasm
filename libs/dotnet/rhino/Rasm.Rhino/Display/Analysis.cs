@@ -4,25 +4,40 @@ using Rasm.Rhino.Document;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI;
-using Rasm.UI;
-using Rasm.UI.Styling;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry.Collections;
 using Rhino.UI;
+using Wacton.Unicolour;
 
 namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record FalseColorScale(Interval Range, ColorRamp Ramp) {
-    public Func<double, Color> Tabulate() =>
-        Enumerable.Range(0, byte.MaxValue + 1)
-            .Select(texel => Conversions.ToColor(Ramp.At(Fraction.Create(texel / (float)byte.MaxValue))))
-            .ToArray() switch {
-                var table => value => table[(int)Math.Round(double.Clamp(Range.NormalizedParameterAt(value), 0d, 1d) * byte.MaxValue, MidpointRounding.ToEven)],
-            };
+public sealed record FalseColorScale(Interval Range, Seq<ColorStop> Stops) {
+    public Option<Func<double, Color>> Tabulate() =>
+        toSeq(Stops.OrderBy(static stop => stop.Position)) switch {
+            var ordered => ordered.Head.Map(first => Enumerable.Range(0, byte.MaxValue + 1)
+                .Select(texel => Sampled(ordered, first, texel / (double)byte.MaxValue))
+                .ToArray() switch {
+                    var table => (Func<double, Color>)(value => table[(int)Math.Round(double.Clamp(Range.NormalizedParameterAt(value), 0d, 1d) * byte.MaxValue, MidpointRounding.ToEven)]),
+                }),
+        };
+
+    private static Color Sampled(Seq<ColorStop> ordered, ColorStop first, double at) =>
+        (Low: ordered.Filter(stop => stop.Position <= at).Last.IfNone(first), High: (ordered.Find(stop => stop.Position >= at) | ordered.Last).IfNone(first)) switch {
+            var (low, high) => Painted(Colour(low.Color).Mix(Colour(high.Color), ColourSpace.Oklab, high.Position > low.Position ? (at - low.Position) / (high.Position - low.Position) : 0d)),
+        };
+
+    private static Unicolour Colour(Color color) => new(ColourSpace.Rgb255, color.R, color.G, color.B, color.A / (double)byte.MaxValue);
+
+    private static Color Painted(Unicolour mixed) =>
+        mixed.MapToRgbGamut() switch {
+            var mapped => mapped.Rgb.Byte255 switch {
+                var rgb => Color.FromArgb(mapped.Alpha.A255, rgb.R, rgb.G, rgb.B),
+            },
+        };
 }
 
 [Union]
@@ -39,13 +54,12 @@ public abstract partial record AnalysisDefinition {
     public sealed record FalseColor(LocalizeStringPair Name, Func<RhinoObject, int, Mesh, int, double> Measure, IO<FalseColorScale> Scale) : AnalysisDefinition(Name) {
         internal IO<Unit> Paint(RhinoObject obj, Mesh[] meshes) =>
             from scale in Scale
-            let color = scale.Tabulate()
-            let colors = toSeq(
-                from entry in meshes.Select(static (mesh, face) => (Mesh: mesh, Face: face))
-                from mesh in Optional(entry.Mesh).ToSeq()
-                select (Mesh: mesh, entry.Face, Colors: Enumerable.Range(0, mesh.Vertices.Count).Select(vertex => color(Measure(obj, entry.Face, mesh, vertex))).ToArray()))
-            from painted in IO.lift(() => Callbacks.Each(colors, static (entry, _) =>
-                Refused.Unless(entry.Mesh.VertexColors.SetColors(entry.Colors), nameof(MeshVertexColorList.SetColors), entry.Face)))
+            from painted in scale.Tabulate().Traverse(color => IO.lift(() => Callbacks.Each(
+                toSeq(
+                    from entry in meshes.Select(static (mesh, face) => (Mesh: mesh, Face: face))
+                    from mesh in Optional(entry.Mesh).ToSeq()
+                    select (Mesh: mesh, entry.Face, Colors: Enumerable.Range(0, mesh.Vertices.Count).Select(vertex => color(Measure(obj, entry.Face, mesh, vertex))).ToArray())),
+                static (entry, _) => Refused.Unless(entry.Mesh.VertexColors.SetColors(entry.Colors), nameof(MeshVertexColorList.SetColors), entry.Face)))).As()
             select unit;
     }
 

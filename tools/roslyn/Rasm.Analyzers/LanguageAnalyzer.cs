@@ -83,14 +83,14 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         Category,
         "Qualified name with no clash",
         "`{0}` clashes with nothing in scope, import `{1}` and write `{2}`",
-        "Package namespace qualifying a type whose simple name resolves to nothing else at that position, with no type of the namespace clashing with a project declaration in scope.");
+        "Package namespace qualifying a type whose simple name resolves to nothing else at that position, with no type of the namespace clashing with a project declaration in scope or a type the file names by its simple name.");
 
     public static readonly DiagnosticDescriptor Restated = Rule(
         "RASM3011",
         Category,
         "Static instance restated at a construction site",
         "`{0}` restates `{1}`, read `{1}`",
-        "Construction or factory call whose constant arguments equal the initializer of a static member of the constructed type.",
+        "Construction or factory call whose constant arguments equal the initializer of a static member of the constructed type, outside the item initializers of a smart enum.",
         WellKnownDiagnosticTags.CompilationEnd);
 
     private static readonly Regex Word = new("[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", RegexOptions.CultureInvariant);
@@ -389,9 +389,18 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
             SyntaxKind.DelegateDeclaration);
 
     // --- [QUALIFICATIONS]
-    private static void Qualifications(CompilationStartAnalysisContext context) =>
+    private static void Qualifications(CompilationStartAnalysisContext context) {
+        ConcurrentDictionary<SyntaxTree, ILookup<string, SimpleNameSyntax>> bare = new();
+        static bool Looked(SimpleNameSyntax name) =>
+            name.Parent switch {
+                QualifiedNameSyntax qualified => qualified.Right != name,
+                MemberAccessExpressionSyntax access => access.Name != name,
+                AliasQualifiedNameSyntax aliased => aliased.Name != name,
+                MemberBindingExpressionSyntax => false,
+                _ => true,
+            };
         context.RegisterSyntaxNodeAction(
-            static node => {
+            node => {
                 (ExpressionSyntax Left, SimpleNameSyntax Right)? parts = node.Node switch {
                     QualifiedNameSyntax qualified => (qualified.Left, qualified.Right),
                     MemberAccessExpressionSyntax access => (access.Expression, access.Name),
@@ -412,18 +421,29 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 if (owner is INamedTypeSymbol ? !imported : imported) return;
                 string name = right.Identifier.ValueText;
                 ImmutableArray<ISymbol> visible = [.. model.LookupSymbols(node.Node.SpanStart, name: name).Where(found => !Same(found, target))];
+                ILookup<string, SimpleNameSyntax> used = bare.GetOrAdd(
+                    node.Node.SyntaxTree,
+                    tree => tree.GetRoot(token).DescendantNodes().OfType<SimpleNameSyntax>().Where(Looked).ToLookup(static held => held.Identifier.ValueText, StringComparer.Ordinal));
+                bool Ambiguous(INamedTypeSymbol member) =>
+                    used[member.Name].Any(held => held.Arity == member.Arity && model.GetAliasInfo(held, token) is null
+                        && model.GetSymbolInfo(held, token).Symbol is INamedTypeSymbol { ContainingType: null } bound && !Same(bound, member));
                 if (visible.FirstOrDefault(Sourced) is { } shadowing)
                     node.ReportDiagnostic(Diagnostic.Create(Shadowed, node.Node.GetLocation(), node.Node, shadowing.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), owner.ToDisplayString()));
-                else if (visible.IsEmpty && owner is INamespaceSymbol space && !space.GetTypeMembers().Any(member => model.LookupSymbols(node.Node.SpanStart, name: member.Name).Any(Sourced)))
+                else if (visible.IsEmpty && owner is INamespaceSymbol space
+                    && !space.GetTypeMembers().Any(member => model.LookupSymbols(node.Node.SpanStart, name: member.Name).Any(Sourced) || Ambiguous(member)))
                     node.ReportDiagnostic(Diagnostic.Create(Qualified, node.Node.GetLocation(), node.Node, owner.ToDisplayString(), right));
             },
             SyntaxKind.QualifiedName,
             SyntaxKind.SimpleMemberAccessExpression);
+    }
 
     // --- [RESTATEMENTS]
     private static void Restatements(CompilationStartAnalysisContext context) {
         ConcurrentDictionary<ISymbol, IOperation> initializers = new(SymbolEqualityComparer.Default);
         ConcurrentBag<(IOperation Site, INamedTypeSymbol Type, ISymbol Owner)> sites = [];
+        ThinktectureSymbols thinktecture = new(context.Compilation);
+        bool Item(ISymbol owner, INamedTypeSymbol type) =>
+            Same(owner.ContainingType, type) && initializers.ContainsKey(owner) && (Marked(type, thinktecture.SmartEnumAttribute) ?? Marked(type, thinktecture.SmartEnumAttribute1)) is not null;
         static INamedTypeSymbol? Made(IOperation operation) =>
             operation switch {
                 IObjectCreationOperation { Constructor: { } made, Initializer: null } => made.ContainingType,
@@ -466,7 +486,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 .Select(pair => (pair.Key.ContainingType, Member: pair.Key, Shape: Shape(pair.Value, 1)))
                 .ToLookup(static held => held.ContainingType, static held => (held.Member, held.Shape), comparer);
             foreach ((IOperation site, INamedTypeSymbol type, ISymbol owner) in sites)
-                if (Shape(site, 0) is { } shape && statics[type].FirstOrDefault(held => !Same(held.Member, owner) && string.Equals(held.Shape, shape, StringComparison.Ordinal)) is { Member: { } restated })
+                if (!Item(owner, type) && Shape(site, 0) is { } shape && statics[type].FirstOrDefault(held => !Same(held.Member, owner) && string.Equals(held.Shape, shape, StringComparison.Ordinal)) is { Member: { } restated })
                     end.ReportDiagnostic(Diagnostic.Create(Restated, site.Syntax.GetLocation(), site.Syntax, $"{type.Name}.{restated.Name}"));
         });
     }
@@ -481,6 +501,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         static bool External(ISymbol owner) => Overridden(owner).Skip(1).LastOrDefault() is { } origin && !Sourced(origin);
         static (IOperation Site, ITypeSymbol? Input, ITypeSymbol? Tested)? Test(IOperation operation) =>
             operation switch {
+                IDeclarationPatternOperation { MatchesNull: true } => null,
                 IPatternOperation pattern => (pattern.Parent is IIsPatternOperation test ? test : pattern, pattern.InputType, pattern.NarrowedType),
                 IIsTypeOperation test => (test, test.ValueOperand.Type, test.TypeOperand),
                 IConversionOperation { IsTryCast: true } cast => (cast, cast.Operand.Type, cast.Type),

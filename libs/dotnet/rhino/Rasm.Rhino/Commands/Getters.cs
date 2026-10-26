@@ -28,19 +28,11 @@ public sealed record Entered<TValue>(TValue Value, bool GotDefault);
 
 public sealed record TransformObjectState(Seq<Guid> Objects, Seq<Guid> Grips, Seq<Guid> GripOwners, Option<BoundingBox> Extent);
 
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct PickCount : System.Numerics.IMinMaxValue<PickCount> {
-    public static PickCount MinValue { get; } = new(1);
-    public static PickCount MaxValue { get; } = new(int.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [Union]
 public abstract partial record SelectionEnd {
     public sealed record OnEnter : SelectionEnd;
     public sealed record AtMinimum : SelectionEnd;
-    public sealed record AtCount(PickCount Maximum) : SelectionEnd;
+    public sealed record AtCount(int Maximum) : SelectionEnd;
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -99,8 +91,8 @@ public sealed record EntryRequest<TGetter, TValue, T>(string Prompt, CallbackSit
 }
 
 public sealed record ObjectRequest<T>(string Prompt, CallbackSite Site) : GetterRequest<GetObject, T>(Prompt, Site) {
-    public Option<PickCount> Minimum { get; init; } = PickCount.MinValue;
-    public SelectionEnd End { get; init; } = PickCount.MinValue;
+    public Option<int> Minimum { get; init; } = 1;
+    public SelectionEnd End { get; init; } = new SelectionEnd.AtCount(1);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -287,36 +279,28 @@ public static class Getters {
         IO.lift(() => {
             getter.AcceptEnterWhenDone(request.End.Map(onEnter: true, atMinimum: false, atCount: false));
             return getter.GetMultiple(
-                request.Minimum.Map(static minimum => (int)minimum).IfNone(0),
-                request.End.Switch(onEnter: static _ => 0, atMinimum: static _ => -1, atCount: static count => (int)count.Maximum));
+                request.Minimum.IfNone(0),
+                request.End.Switch(onEnter: static _ => 0, atMinimum: static _ => -1, atCount: static count => count.Maximum));
         });
 
     // --- [ENTRY]
-    public static IO<T> Number<TValue, TRaw, T>(RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
-        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
-        where TRaw : struct, System.Numerics.IFloatingPointIeee754<TRaw> =>
-        Bounded(doc, request, static value => double.CreateChecked(value.ToValue()), static number => ValidationResults.Validated<TValue, TRaw>(TRaw.CreateChecked(number)), entered);
+    public static IO<T> Number<T>(RhinoDoc doc, EntryRequest<GetNumber, double, T> request, Func<Entered<double>, IO<T>> entered) =>
+        Number<double, T>(doc, request, identity, identity, entered);
 
-    public static IO<T> Integer<TValue, TRaw, T>(RhinoDoc doc, EntryRequest<GetInteger, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
-        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
-        where TRaw : struct, System.Numerics.IBinaryInteger<TRaw> =>
+    public static IO<T> Integer<T>(RhinoDoc doc, EntryRequest<GetInteger, int, T> request, Func<Entered<int>, IO<T>> entered) =>
         Run(
             static () => new GetInteger(),
             request,
             doc,
             getter => IO.lift(() => {
-                getter.SetLowerLimit(int.CreateChecked(TValue.MinValue.ToValue()), strictlyGreaterThan: false);
-                getter.SetUpperLimit(int.CreateChecked(TValue.MaxValue.ToValue()), strictlyLessThan: false);
-                _ = request.Default.Iter(value => getter.SetDefaultInteger(int.CreateChecked(value.ToValue())));
+                _ = request.Default.Iter(getter.SetDefaultInteger);
                 return getter.Get();
             }),
-            getter => Seq((GetResult.Number,
-                IO.lift(() => ValidationResults.Validated<TValue, TRaw>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
+            getter => Seq((GetResult.Number, IO.lift(() => new Entered<int>(getter.Number(), getter.GotDefault())).Bind(entered))));
 
-    public static IO<T> Distance<TValue, T>(RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
-        where TValue : IObjectFactory<TValue, Length, ValidationError>, IConvertible<Length>, System.Numerics.IMinMaxValue<TValue> =>
+    public static IO<T> Distance<T>(RhinoDoc doc, EntryRequest<GetNumber, Length, T> request, Func<Entered<Length>, IO<T>> entered) =>
         IO.lift(() => Viewports.Units(doc, Optional(doc.Views.ActiveView).Map(static view => view.ActiveViewport))).Bind(space =>
-            Bounded(doc, request, value => Quantities.As(value.ToValue(), space), number => ValidationResults.Validated<TValue, Length>(Quantities.From(number, space)), entered));
+            Number(doc, request, value => Quantities.As(value, space), number => Quantities.From(number, space), entered));
 
     public static IO<T> Text<T>(RhinoDoc doc, EntryRequest<GetString, string, T> request, bool literal, Func<Entered<string>, IO<T>> entered) =>
         Run(
@@ -332,20 +316,17 @@ public static class Getters {
     public static IO<T> Choice<T>(RhinoDoc doc, GetterRequest<GetOption, T> request) =>
         Run(static () => new GetOption(), request, doc, static getter => IO.lift(getter.Get), static _ => Seq<(GetResult Result, IO<T> Then)>());
 
-    private static IO<T> Bounded<TValue, T>(
-        RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<TValue, double> shown, Func<double, Fin<TValue>> read, Func<Entered<TValue>, IO<T>> entered)
-        where TValue : System.Numerics.IMinMaxValue<TValue> =>
+    private static IO<T> Number<TValue, T>(
+        RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<TValue, double> shown, Func<double, TValue> read, Func<Entered<TValue>, IO<T>> entered) =>
         Run(
             static () => new GetNumber(),
             request,
             doc,
             getter => IO.lift(() => {
-                getter.SetLowerLimit(shown(TValue.MinValue), strictlyGreaterThan: false);
-                getter.SetUpperLimit(shown(TValue.MaxValue), strictlyLessThan: false);
                 _ = request.Default.Iter(value => getter.SetDefaultNumber(shown(value)));
                 return getter.Get();
             }),
-            getter => Seq((GetResult.Number, IO.lift(() => read(getter.Number()).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
+            getter => Seq((GetResult.Number, IO.lift(() => new Entered<TValue>(read(getter.Number()), getter.GotDefault())).Bind(entered))));
 
     // --- [DRAG]
     public static IO<T> DragList<T>(Seq<ObjRef> references, bool feedback, Func<TransformObjectList, IO<T>> body) =>

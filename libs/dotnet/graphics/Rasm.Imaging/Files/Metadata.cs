@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using System.Globalization;
-using System.Numerics;
 using System.Text;
 using BitMiracle.LibTiff.Classic;
 using Rasm.Imaging.Color;
@@ -14,63 +13,18 @@ using TinyEXR;
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct PixelsPerInch : IMinMaxValue<PixelsPerInch> {
-    public static PixelsPerInch MinValue { get; } = new(1d / (double)Length.FromMeters(1).Inches);
-    public static PixelsPerInch MaxValue { get; } = new(uint.MaxValue / (double)Length.FromMeters(1).Inches);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class SoftwareName {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value.Length > 0 && !value.AsSpan().ContainsAnyExceptInRange(' ', '~') ? null : new ValidationError($"Software name '{value}' must be non-empty printable ASCII");
-}
-
-[ValueObject<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class MetadataName {
-    private const int KeywordLength = 79;
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value.Length is > 0 and <= KeywordLength
-            && value[0] != ' ' && value[^1] != ' ' && !value.Contains("  ", StringComparison.Ordinal)
-            && !value.AsSpan().ContainsAnyExceptInRange(' ', 'ÿ') && !value.AsSpan().ContainsAnyInRange('\u007F', ' ')
-            && !FileMetadata.HeaderNames.Contains(value)
-            ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture,
-                $"Metadata name '{value}' must be 1 to {KeywordLength} trimmed, single-spaced Latin-1 characters and no reserved header name"));
-}
-
-[ValueObject<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class MetadataText {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value.Contains('\0', StringComparison.Ordinal) ? new ValidationError("Metadata text must hold no NUL character") : null;
-}
-
-public sealed record FileMetadata(SoftwareName Software, DateTimeOffset Created, PixelsPerInch Density, Map<MetadataName, MetadataText> Fields) {
+public sealed record FileMetadata(string Software, DateTimeOffset Created, double Density, Map<string, string> Fields) {
     private const string CapDateAttribute = "capDate";
     private const string SoftwareAttribute = "Software";
     private const string UtcOffsetAttribute = "utcOffset";
     private const string XDensityAttribute = "xDensity";
     private const string InteropIdAttribute = "colorInteropID";
 
-    internal static FrozenSet<string> HeaderNames { get; } = FrozenSet.Create(
-        StringComparer.Ordinal,
-        "channels", "compression", "dataWindow", "displayWindow", "lineOrder", "pixelAspectRatio", "screenWindowCenter", "screenWindowWidth", "tiles", "name", "type", "chunkCount", "version",
-        "maxSamplesPerPixel", "chromaticities", CapDateAttribute, SoftwareAttribute, UtcOffsetAttribute, XDensityAttribute, InteropIdAttribute);
-
     private string Stamp => Created.ToString("yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture);
 
     internal void Into(ImageMetadata metadata, Option<ColorEncoding> encoding) {
         ExifProfile exif = new();
-        exif.SetValue(ExifTag.Software, (string)Software);
+        exif.SetValue(ExifTag.Software, Software);
         exif.SetValue(ExifTag.DateTimeOriginal, Stamp);
         exif.SetValue(ExifTag.OffsetTimeOriginal, Created.ToString("zzz", CultureInfo.InvariantCulture));
         _ = encoding.Iter(encoded => exif.SetValue(ExifTag.ColorSpace, ColorTags.ExifColorSpace(encoded)));
@@ -80,14 +34,14 @@ public sealed record FileMetadata(SoftwareName Software, DateTimeOffset Created,
         metadata.ExifProfile = exif;
         _ = encoding.Bind(encoded => encoded.Profile(Created)).Iter(bytes => metadata.IccProfile = new IccProfile(bytes));
         _ = encoding.Bind(static encoded => encoded.Cicp).Iter(cicp => metadata.CicpProfile = cicp);
-        metadata.GetPngMetadata().TextData = [.. Fields.ToSeq().Map(static field => new PngTextData((string)field.Key, (string)field.Value, "", ""))];
+        metadata.GetPngMetadata().TextData = [.. Fields.ToSeq().Map(static field => new PngTextData(field.Key, field.Value, "", ""))];
     }
 
     internal Seq<(TiffTag Tag, object[] Values)> Tiff() => [
-        (TiffTag.SOFTWARE, [(string)Software]),
+        (TiffTag.SOFTWARE, [Software]),
         (TiffTag.DATETIME, [Stamp]),
-        (TiffTag.XRESOLUTION, [(float)(double)Density]),
-        (TiffTag.YRESOLUTION, [(float)(double)Density]),
+        (TiffTag.XRESOLUTION, [(float)Density]),
+        (TiffTag.YRESOLUTION, [(float)Density]),
         (TiffTag.RESOLUTIONUNIT, [ResUnit.INCH]),
     ];
 
@@ -100,11 +54,11 @@ public sealed record FileMetadata(SoftwareName Software, DateTimeOffset Created,
         }
         return [
             Text(CapDateAttribute, Stamp),
-            Text(SoftwareAttribute, (string)Software),
+            Text(SoftwareAttribute, Software),
             Single(UtcOffsetAttribute, (float)-Created.Offset.TotalSeconds),
-            Single(XDensityAttribute, (float)(double)Density),
+            Single(XDensityAttribute, (float)Density),
             .. gamut.Bind(static held => held.InteropId).Map(static id => Text(InteropIdAttribute, id)).ToSeq(),
-            .. Fields.ToSeq().Map(static field => Text((string)field.Key, (string)field.Value)),
+            .. Fields.ToSeq().Map(static field => Text(field.Key, field.Value)),
         ];
     }
 }

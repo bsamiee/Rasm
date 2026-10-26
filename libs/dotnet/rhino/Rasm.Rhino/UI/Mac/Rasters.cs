@@ -4,16 +4,17 @@ using CoreGraphics;
 using Eto.Drawing;
 using Eto.Forms;
 using Eto.Mac.Forms;
+using SkiaSharp;
 
 namespace Rasm.Rhino.UI.Mac;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class DrawnRasters {
-    internal static Fin<Unit> Present(Control view, Graphics graphics, SkiaSharp.SKImage frame, RectangleF destination) =>
+    internal static Fin<Unit> Present(Control view, Graphics graphics, SKImage frame, RectangleF destination) =>
         (from host in Refused.UnlessFound(view.GetContainerView(), nameof(MacControlExtensions.GetContainerView))
          from layer in Refused.UnlessFound(host.Layer, nameof(NSView.Layer))
          from context in Conversions.Cast<CGContext>(graphics.ControlObject)
-         from pixels in Refused.UnlessFound(frame.PeekPixels(), nameof(SkiaSharp.SKImage.PeekPixels))
+         from pixels in Refused.UnlessFound(frame.PeekPixels(), nameof(SKImage.PeekPixels))
          from space in Refused.UnlessFound(CGColorSpace.CreateWithName(CGColorSpaceNames.ExtendedLinearSrgb), nameof(CGColorSpace.CreateWithName))
          select (Layer: layer, Context: context, Pixels: pixels, Space: space))
         .MapFail(error => {
@@ -21,7 +22,7 @@ internal static class DrawnRasters {
             return error;
         })
         .Map(held => {
-            using SkiaSharp.SKPixmap pixmap = held.Pixels;
+            using SKPixmap pixmap = held.Pixels;
             using CGColorSpace space = held.Space;
             using CGDataProvider provider = new(pixmap.GetPixels(), pixmap.BytesSize, _ => frame.Dispose());
             using CGImage image = new(pixmap.Width, pixmap.Height, 16, 64, pixmap.RowBytes, space,

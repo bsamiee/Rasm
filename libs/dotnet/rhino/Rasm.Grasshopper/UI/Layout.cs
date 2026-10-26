@@ -18,25 +18,18 @@ using Rasm.Rhino;
 namespace Rasm.Grasshopper.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Default", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct CanvasLength : System.Numerics.IMinMaxValue<CanvasLength> {
-    public static CanvasLength MinValue { get; } = new(0f);
-    public static CanvasLength MaxValue { get; } = new(float.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [ComplexValueObject]
-public readonly partial struct Extent {
-    public CanvasLength Minimum { get; }
-    public CanvasLength Ideal { get; }
-    public CanvasLength Maximum { get; }
+[ValidationError<RhinoFault>]
+public sealed partial class Extent {
+    public float Minimum { get; }
+    public float Ideal { get; }
+    public float Maximum { get; }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref CanvasLength minimum, ref CanvasLength ideal, ref CanvasLength maximum) =>
-        validationError = minimum <= ideal && ideal <= maximum ? null : new ValidationError("extent needs minimum <= ideal <= maximum");
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref float minimum, ref float ideal, ref float maximum) =>
+        validationError = 0f <= minimum && minimum <= ideal && ideal <= maximum ? null : new RhinoFault("extent needs 0 <= minimum <= ideal <= maximum");
 }
 
-public readonly record struct Distribution(Orientation Axis, Seq<Guid> Objects);
+public sealed record Distribution(Orientation Axis, Seq<Guid> Objects);
 
 public sealed record Arrangement(LanguageExt.HashSet<Guid> Objects, SnappingSettings Settings, Seq<Distribution> Distributions, Option<RectangleF> Frame);
 
@@ -78,7 +71,7 @@ public static class CanvasLayout {
     // --- [READS]
     private sealed record Footprint(IDocumentObject Object, int Order);
 
-    private readonly record struct WireLevel(Guid Source, Guid Target, float Offset);
+    private sealed record WireLevel(Guid Source, Guid Target, float Offset);
 
     private static Seq<Footprint> Footprints(Document document, LanguageExt.HashSet<Guid> objects) =>
         toSeq(document.Objects.Forwards)

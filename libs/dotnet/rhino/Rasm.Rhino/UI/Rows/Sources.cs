@@ -1,11 +1,9 @@
-using System.Runtime.CompilerServices;
 using Eto.Forms;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Viewport;
-using Rasm.UI;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
@@ -38,139 +36,24 @@ public abstract partial record CommitMode {
     }
 }
 
-public abstract record RowSource {
-    // --- [BINDING]
-    private protected RowSource(string owner) => Owner = owner;
+public sealed record ControlRows(Func<RowScope, IO<Seq<ControlRow>>> Read, Func<RowScope, IO<Seq<HostEvent<Unit>>>> Signals) {
+    public bool Fill { get; init; }
+    public Option<Func<RowScope, ValueBinding>> Bound { get; init; }
 
-    public string Owner { get; }
+    public static ControlRows Fixed(Seq<ControlRow> rows) =>
+        new(_ => IO.pure(rows), static _ => IO.pure(Seq<HostEvent<Unit>>())) { Fill = rows.Exists(static row => row.Shape.Fills) };
 
-    public Option<PlugInSetting> Setting { get; init; }
-
-    public abstract ValueBinding Values(RowScope scope);
-
-    public abstract IO<Seq<HostEvent<Unit>>> Signals(RowScope scope);
-
-    // --- [RECORDS]
-    public static RowSource<TRecord> Fields<TRecord>(
-        string owner, Seq<IStateParameter<TRecord>> fields, Func<RowScope, ValueStore<TRecord>> store) where TRecord : IStateRecord<TRecord> =>
-        Fields(owner, fields, scope => IO.pure(Seq(store(scope))));
-
-    public static RowSource<TRecord> Fields<TRecord>(
-        string owner, Seq<IStateParameter<TRecord>> fields, Func<RowScope, IO<Seq<ValueStore<TRecord>>>> stores, Option<TRecord> factory = default) where TRecord : IStateRecord<TRecord> =>
-        new(owner, stores, factory.IfNone(TRecord.Default), fields);
-
-    // --- [KEYS]
-    public static RowSource<TValue> Of<TValue>(string owner, ValueKey<TValue> key, Func<RowScope, ValueStore<TValue>> store) where TValue : notnull =>
-        new(owner, scope => IO.pure(Seq(store(scope))), key.Default, [key]);
-
-    public static RowSource<TValue> Of<TValue>(string owner, ValueKey<TValue> key) where TValue : notnull =>
-        new ConditionalWeakTable<RowScope, Ref<Option<TValue>>>() switch {
-            var cells => Of(owner, key, scope => RowScope.Cell(cells.GetValue(scope, static _ => Ref(Option<TValue>.None)))),
+    public static ControlRows Stored<TState>(string owner, Func<RowScope, ValueStore<TState>> store, TState @default, Func<TState, Func<TState, IO<Unit>>, Seq<ControlRow>> rows)
+        where TState : notnull =>
+        new(scope => Recalled(owner, new BindingGroup(Seq(ValueBinding.Of(owner, @default, store(scope)))), @default, rows, scope), scope => IO.pure(store(scope).Changed.ToSeq())) {
+            Bound = Some<Func<RowScope, ValueBinding>>(scope => ValueBinding.Of(owner, @default, store(scope))),
         };
 
-    public static RowSource<TValue> Of<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
-        where TValue : notnull
-        where TRaw : notnull, ISpanParsable<TRaw> =>
-        Of(nameof(PlugInSettings), row.Key, scope => PlugInSettings.Store(((IPlugInViews)scope.Sink).Settings, row)) with { Setting = Some<PlugInSetting>(row) };
-}
-
-public sealed record RowSource<TRecord> : RowSource where TRecord : notnull {
-    internal RowSource(string owner, Func<RowScope, IO<Seq<ValueStore<TRecord>>>> stores, TRecord @default, Seq<IStateParameter<TRecord>> fields) : base(owner) =>
-        (Stores, Default, Fields) = (stores, @default, fields);
-
-    public Func<RowScope, IO<Seq<ValueStore<TRecord>>>> Stores { get; }
-
-    public TRecord Default { get; }
-
-    public Seq<IStateParameter<TRecord>> Fields { get; }
-
-    public ValueBinding Binding(ValueStore<TRecord> store) => ValueBinding.Of(Owner, new FieldCodec<TRecord>(Fields, Default), store).Under(Path);
-
-    public Seq<string> Path { get; private init; }
-
-    public Seq<EntryKey> Keys(IStateParameter<TRecord> parameter) =>
-        RecordEntries.Of(parameter).Map(entry => new EntryKey(Owner, Path + entry.Path));
-
-    public RowSource<TNested> Within<TNested>(Seq<string> path, Lens<TRecord, TNested> lens, Seq<IStateParameter<TNested>> fields)
-        where TNested : notnull =>
-        (Prefix: Path + path, Default: lens.Get(Default)) switch {
-            var nested => new RowSource<TNested>(
-                Owner,
-                scope =>
-                    from stores in Stores(scope)
-                    select stores.Map(store => new ValueStore<TNested>(
-                        store.Read.Map(held => held.Map(lens.Get)),
-                        next => store.Read.Bind(held => store.Put(Some(lens.Set(next.IfNone(nested.Default), held.IfNone(Default)))))
-                            .Map(change => ValueStore.Map(change, lens.Get, EqualityComparer<TNested>.Default.Equals)),
-                        EqualityComparer<TNested>.Default.Equals,
-                        store.Applied,
-                        store.Changed)),
-                nested.Default,
-                fields) { Path = nested.Prefix },
-        };
-
-    public override ValueBinding Values(RowScope scope) =>
-        Binding(scope.Store(this)) switch {
-            var bound => bound with {
-                Prepare = entries =>
-                    from stores in Stores(scope)
-                    from prepared in Callbacks.Each(stores.Map(store => Binding(store).Prepare(entries)))
-                    select Callbacks.Each(prepared).Map(ValueDiff.Together),
-            },
-        };
-
-    public ValueSet Capture(TRecord record) => new(toHashMap(Fields.Bind(RecordEntries.Of)
-        .Choose(field => field.Capture(record).Map(text => (new EntryKey(Owner, Path + field.Path), text)))));
-
-    public IO<ValueDiff> Commit(RowScope scope, Func<TRecord, TRecord> change, Seq<IStateParameter<TRecord>> writes) =>
-        from held in scope.Read(this)
-        let written = toHashSet(writes.Bind(Keys))
-        from diff in scope.Commit(new BindingGroup(Seq(Values(scope))), new ValueSet(Capture(change(held)).Entries.Filter((key, _) => written.Contains(key))))
-        select diff;
-
-    public override IO<Seq<HostEvent<Unit>>> Signals(RowScope scope) =>
-        Stores(scope).Map(static stores => stores.Choose(static store => store.Changed));
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ControlRow {
-    private ControlRow(ParameterText text, Seq<EntryKey> keys, RowRules rules, Option<(RowShape Shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> Realize)> cells, Option<RowSource> bound) =>
-        (Text, Keys, Rules, Cells, Bound) = (text, keys, rules, cells, bound);
-
-    public ParameterText Text { get; }
-
-    public Seq<EntryKey> Keys { get; }
-
-    public RowRules Rules { get; }
-
-    public Option<(RowShape Shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> Realize)> Cells { get; }
-
-    public Option<RowSource> Bound { get; }
-
-    public bool Fill => Cells.Exists(static cells => cells.Shape.Fills);
-
-    public static ControlRow Of<TRecord>(RowSource<TRecord> source, IStateParameter<TRecord> parameter, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, RowRules rules)
-        where TRecord : notnull =>
-        new Field(source, source.Keys(parameter), shape, realize, parameter.Text, rules);
-
-    public static ControlRow Of<TRecord>(
-        RowSource<TRecord> source, IterableNE<IStateParameter<TRecord>> parameters, ParameterText text, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, RowRules rules)
-        where TRecord : notnull =>
-        new Field(source, toSeq(parameters).Bind(source.Keys), shape, realize, text, rules);
-
-    public sealed record Field : ControlRow {
-        public Field(RowSource source, Seq<EntryKey> keys, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, ParameterText text, RowRules rules)
-            : base(text, keys, rules, Some((shape, realize)), Some(source)) { }
-    }
-
-    public sealed record Readout : ControlRow {
-        public Readout(RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, ParameterText text, RowRules rules)
-            : base(text, [], rules, Some((shape, realize)), None) { }
-    }
-
-    public sealed record Group : ControlRow {
-        public Group(ParameterText text, RowRules rules) : base(text, [], rules, None, None) { }
-    }
+    private static IO<Seq<ControlRow>> Recalled<TState>(string owner, BindingGroup bound, TState @default, Func<TState, Func<TState, IO<Unit>>, Seq<ControlRow>> rows, RowScope scope)
+        where TState : notnull =>
+        from shown in scope.Shown(bound)
+        from value in IO.lift(shown.Recalled(owner, @default))
+        select rows(value, next => scope.Commit(bound, ValueSet.Fields(owner, next)).Map(static _ => unit));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -248,35 +131,6 @@ public sealed class RowScope {
         Selected(
             static _ => IO.pure(Seq<ValueStore<T>>()),
             contents => IO.lift(() => toSeq(contents.Section.GetSelection()).Map(store).Strict()));
-
-    public ValueStore<TRecord> Store<TRecord>(RowSource<TRecord> source) where TRecord : notnull =>
-        new(source.Stores(this).Bind(static stores => stores.Head.Match(Some: static store => store.Read, None: static () => IO.pure(Option<TRecord>.None))),
-            value => source.Stores(this).Bind(stores =>
-                ValueStore.Commit(stores.Map(store => store.Apply(value)))).Map(static changes => changes.Find(static change => change.HasChanged).IfNone(Change<TRecord>.None)),
-            EqualityComparer<TRecord>.Default.Equals,
-            Applied.Live,
-            None);
-
-    public IO<Seq<ValueStore<TRecord>>> Edited<TRecord>(RowSource<TRecord> source) where TRecord : notnull =>
-        mode.ValueIO.Bind(held => held.Drafts
-            ? source.Stores(this).Map(stores => stores.Map(store => Drafted(source, store)))
-            : source.Stores(this));
-
-    public IO<TRecord> Read<TRecord>(RowSource<TRecord> source) where TRecord : notnull =>
-        Edited(source)
-            .Bind(static stores => stores.Head.Match(Some: static store => store.Read, None: static () => IO.pure(Option<TRecord>.None)))
-            .Map(held => held.IfNone(source.Default));
-
-    internal static ValueStore<T> Cell<T>(Ref<Option<T>> cell) where T : notnull =>
-        new(cell.ValueIO, next => atomicIO(() => {
-            Option<T> before = cell.Value;
-            cell.Value = next;
-            return ValueStore.Between(before, next);
-        }), EqualityComparer<T>.Default.Equals, Applied.Live, Some(Subscriptions.Changed(cell).Choose(static _ => Some(unit))));
-
-    internal IO<bool> Paced => mode.ValueIO.Map(static held => held.MapPartially(@default: true, targets: false, contents: false));
-
-    internal IO<bool> Records => mode.ValueIO.Map(static held => held.MapPartially(@default: false, immediate: true, revertible: true));
 
     private IO<Seq<ValueStore<T>>> Selected<T>(Func<CommitMode.Targets, IO<Seq<ValueStore<T>>>> targets, Func<CommitMode.Contents, IO<Seq<ValueStore<T>>>> contents) where T : notnull =>
         mode.ValueIO.Bind(held => held.SwitchPartially(
@@ -384,32 +238,6 @@ public sealed class RowScope {
             edits.Entries.Filter((key, _) => !keys.Exists(held => held == key))
                 .Union(target.Entries.Filter((key, text) => !before.Entries.Find(key).Exists(held => string.Equals(held, text, StringComparison.Ordinal)))))))
         select shown.Diff(target);
-
-    private ValueStore<TRecord> Drafted<TRecord>(RowSource<TRecord> source, ValueStore<TRecord> store) where TRecord : notnull =>
-        store with {
-            Read =
-                from held in store.Read
-                from edits in Edits
-                let owned = toHashMap(edits.Entries.AsIterable().Filter(entry => string.Equals(entry.Key.Owner, source.Owner, StringComparison.Ordinal)).Map(static entry => (entry.Key.Path, entry.Value)))
-                from shown in owned.IsEmpty ? IO.pure(held) : Recalled(source, held.IfNone(source.Default), owned).Map(static record => Some(record))
-                select shown,
-            Put = value =>
-                from before in Drafted(source, store).Read
-                let texts = toHashMap(source.Capture(value.IfNone(source.Default)).Entries.AsIterable().Map(static entry => (entry.Key.Path, entry.Value)))
-                from stored in source.Binding(store).Capture
-                from edits in Edits
-                let owned = toHashSet(source.Binding(store).Paths().Map(path => new EntryKey(source.Owner, path)))
-                from swapped in Swapped(new CommitMode.Deferred(new ValueSet(
-                    edits.Entries.Filter((key, _) => !owned.Contains(key))
-                        .Union(toHashMap(texts.AsIterable()
-                            .Filter(entry => !stored.Find(entry.Key).Exists(held => string.Equals(held, entry.Value, StringComparison.Ordinal)))
-                            .Map(entry => (new EntryKey(source.Owner, entry.Key), entry.Value)))))))
-                select ValueStore.Between(before, value, store.Same),
-            Applied = Applied.Live,
-        };
-
-    private static IO<TRecord> Recalled<TRecord>(RowSource<TRecord> source, TRecord record, HashMap<Seq<string>, string> texts) where TRecord : notnull =>
-        new FieldCodec<TRecord>(source.Fields, record).Recalled(source.Owner, path => IO.pure(texts.Find(source.Path + path)));
 
     private static HashMap<Seq<string>, string> Named(ValueSet values, ValueBinding binding) =>
         toHashMap(binding.Paths().Choose(path => values.Entries.Find(new EntryKey(binding.Owner, path)).Map(text => (path, text))));

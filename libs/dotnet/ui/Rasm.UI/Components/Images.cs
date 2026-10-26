@@ -7,6 +7,7 @@ namespace Rasm.UI.Components;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<Invalid>]
 public sealed partial class ImageRegion {
     public static ImageRegion Whole { get; } = Create(Fraction.MinValue, Fraction.MinValue, Fraction.MaxValue, Fraction.MaxValue);
 
@@ -30,44 +31,16 @@ public sealed partial class ImageRegion {
                 _ => moved,
             },
             None: () => moved);
-        return from left in ValidationResults.Validated<Fraction, float>(held.Left).ToOption()
-               from top in ValidationResults.Validated<Fraction, float>(held.Top).ToOption()
-               from right in ValidationResults.Validated<Fraction, float>(held.Right).ToOption()
-               from bottom in ValidationResults.Validated<Fraction, float>(held.Bottom).ToOption()
-               from region in ValidationResults.ToFin(Validate(left, top, right, bottom, out ImageRegion? region), region).ToOption()
-               select region;
+        return Fraction.TryCreate(held.Left, out Fraction? left) && Fraction.TryCreate(held.Top, out Fraction? top) && Fraction.TryCreate(held.Right, out Fraction? right)
+            && Fraction.TryCreate(held.Bottom, out Fraction? bottom) && TryCreate(left, top, right, bottom, out ImageRegion? region)
+            ? Some(region)
+            : None;
     }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Fraction left, ref Fraction top, ref Fraction right, ref Fraction bottom) =>
+    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref Fraction left, ref Fraction top, ref Fraction right, ref Fraction bottom) =>
         validationError = left < right && top < bottom
             ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"image region ({(float)left}, {(float)top}, {(float)right}, {(float)bottom}) is empty"));
-}
-
-[ComplexValueObject]
-public sealed partial class ImageQuad {
-    public Vector2 TopLeft { get; }
-    public Vector2 TopRight { get; }
-    public Vector2 BottomRight { get; }
-    public Vector2 BottomLeft { get; }
-
-    public Seq<Vector2> Corners => [TopLeft, TopRight, BottomRight, BottomLeft];
-
-    public ImageQuad Flipped(Orientation along) => along.Map(horizontal: new ImageQuad(TopRight, TopLeft, BottomLeft, BottomRight), vertical: new ImageQuad(BottomLeft, BottomRight, TopRight, TopLeft));
-
-    public static Option<ImageQuad> Of(Seq<Vector2> corners) =>
-        corners is [var topLeft, var topRight, var bottomRight, var bottomLeft]
-            ? ValidationResults.ToFin(Validate(topLeft, topRight, bottomRight, bottomLeft, out ImageQuad? quad), quad).ToOption()
-            : None;
-
-    private static int Turn(Vector2 previous, Vector2 corner, Vector2 next) =>
-        Math.Sign((((double)corner.X - previous.X) * ((double)next.Y - corner.Y)) - (((double)corner.Y - previous.Y) * ((double)next.X - corner.X)));
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Vector2 topLeft, ref Vector2 topRight, ref Vector2 bottomRight, ref Vector2 bottomLeft) =>
-        validationError = Seq(topLeft, topRight, bottomRight, bottomLeft).ForAll(static corner => float.IsFinite(corner.X) && float.IsFinite(corner.Y))
-            && (Turn(bottomLeft, topLeft, topRight), Turn(topLeft, topRight, bottomRight), Turn(topRight, bottomRight, bottomLeft), Turn(bottomRight, bottomLeft, topLeft)) is ( > 0, > 0, > 0, > 0) or ( < 0, < 0, < 0, < 0)
-            ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"image quad ({topLeft}, {topRight}, {bottomRight}, {bottomLeft}) is not a finite convex quad"));
+            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"image region ({(float)left}, {(float)top}, {(float)right}, {(float)bottom}) is empty"));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -76,8 +49,6 @@ public abstract partial record ImageTool {
     private static readonly Key Picked = new Key.Named("pick");
 
     internal abstract Node Drawn(PlotPlane view, Vector2 extent);
-
-    internal virtual Option<IO<Unit>> Flipped(Orientation along) => None;
 
     private static Option<int> Index(Key key) => key is Key.Ordinal ordinal ? Some((int)ordinal.Index) : None;
 
@@ -92,23 +63,13 @@ public abstract partial record ImageTool {
                                                                                  from moved in area.Moved(anchor, target.To / extent, Aspect.Map(wide => wide * extent.Y / extent.X))
                                                                                  select moved).IfNone(area)), targets.Map(static target => target.Key)),
                     Spoken),
-                Edited).Drawn(view, [
-                new Node.Mark(new Figure.Region(Some(AxisRange.Create((float)Value.Left * extent.X, (float)Value.Right * extent.X)), Some(AxisRange.Create((float)Value.Top * extent.Y, (float)Value.Bottom * extent.Y)))) {
-                    Role = Role.Ring,
-                },
-            ]);
-    }
+                Edited).Drawn(view, Ringed(extent).ToSeq());
 
-    public sealed record Cage(ImageQuad Value, Func<Edit<ImageQuad>, IO<Unit>> Edited) : ImageTool {
-        internal override Node Drawn(PlotPlane view, Vector2 extent) =>
-            new Handles<ImageQuad>(Value, new Points<ImageQuad>(
-                    static quad => quad.Corners.Map(static (corner, index) => ((Key)new Key.Ordinal((uint)index), corner)),
-                    static (quad, targets, _) => (ImageQuad.Of(quad.Corners.Map((corner, index) => targets.Find(target => Index(target.Key) == Some(index)).Map(static target => target.To).IfNone(corner))).IfNone(quad),
-                        targets.Map(static target => target.Key)),
-                    Spoken),
-                Edited).Drawn(view, [new Node.Mark(new Figure.Polygon(Value.Corners)) { Role = Role.Ring }]);
-
-        internal override Option<IO<Unit>> Flipped(Orientation along) => Some(Edited(new Edit<ImageQuad>.Commit(Value.Flipped(along))));
+        private Option<Node> Ringed(Vector2 extent) =>
+            AxisRange.TryCreate((float)Value.Left * extent.X, (float)Value.Right * extent.X, out AxisRange? across)
+            && AxisRange.TryCreate((float)Value.Top * extent.Y, (float)Value.Bottom * extent.Y, out AxisRange? down)
+                ? Some<Node>(new Node.Mark(new Figure.Region(Some(across), Some(down))) { Role = Role.Ring })
+                : None;
     }
 
     public sealed record Pick(Option<Vector2> At, Func<Edit<Option<Vector2>>, IO<Unit>> Edited) : ImageTool {
@@ -119,12 +80,12 @@ public abstract partial record ImageTool {
                     Spoken) {
                 Placed = Some<Func<Option<Vector2>, Vector2, Option<Key>, Option<(Option<Vector2> Value, Key Key)>>>(static (_, at, _) => Some((Some(at), Picked))),
             },
-                Edited) { GroundCursor = Cursor.Crosshair }.Drawn(view, []);
+                Edited) { GroundCursor = CursorShape.Crosshair }.Drawn(view, []);
     }
 }
 
-public sealed record ImageView(Content<SKImage> Image, SKSizeI Pixels, PlotPlane View, Func<Edit<PlotPlane>, IO<Unit>> Navigated) {
-    public SKSizeI Pixels { get; } = Pixels is { Width: > 0, Height: > 0 } ? Pixels : throw new ArgumentOutOfRangeException(nameof(Pixels), Pixels, "an image view spans a positive pixel size");
+public sealed record ImagePlot(Content<SKImage> Image, SKSizeI Pixels, PlotPlane View, Func<Edit<PlotPlane>, IO<Unit>> Navigated) {
+    public SKSizeI Pixels { get; } = Pixels is { Width: > 0, Height: > 0 } ? Pixels : throw new ArgumentOutOfRangeException(nameof(Pixels), Pixels, "an image plot spans a positive pixel size");
 
     public Option<string> Caption { get; init; }
     public Seq<Node> Overlays { get; init; }
@@ -150,12 +111,11 @@ public sealed record ImageView(Content<SKImage> Image, SKSizeI Pixels, PlotPlane
     public Node.Pin Covering(Node content) => new(Vector2.Zero, content) { Span = Extent };
 
     public Option<PlotPlane> ActualSize(float across) =>
-        from axis in View.Dimension(Orientation.Horizontal)
-        from plane in View.Scaled(View.Dimensions.Fold(Vector2.Zero, static (center, held) => held.Along.With(center, (held.Axis.Range.From + held.Axis.Range.To) / 2f)), across / MathF.Abs(axis.Range.Span))
+        from axis in View.Dimension(PhysicalAxis.Horizontal)
+        from plane in View.Scaled(View.Dimensions.Fold(Vector2.Zero, static (center, held) => held.Along.With(center, (held.Axis.Domain.From + held.Axis.Domain.To) / 2f)), across / MathF.Abs(axis.Domain.Span))
         select plane;
 
-    public Option<string> Zoom(float across, CultureInfo culture) =>
-        View.Dimension(Orientation.Horizontal).Map(axis => (ProperFraction.Presentation with { Decimals = 0 }).Display((0f, float.MaxValue), culture).Text(across / MathF.Abs(axis.Range.Span)));
+    public Option<string> Zoom(float across, CultureInfo culture) => View.Dimension(PhysicalAxis.Horizontal).Map(axis => (across / MathF.Abs(axis.Domain.Span)).ToString("P0", culture));
 
     internal Option<IO<Unit>> Navigation(PlotPlane plane) => plane == View ? None : Some(Navigated(new Edit<PlotPlane>.Commit(plane)));
 
@@ -165,25 +125,22 @@ public sealed record ImageView(Content<SKImage> Image, SKSizeI Pixels, PlotPlane
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ImageOperation : ICaptioned {
+public sealed partial class ImageOperation {
     public static readonly ImageOperation Fit = new("fit", static (view, _) => view.Navigation(view.Fit));
     public static readonly ImageOperation ActualSize = new("actual-size", static (view, across) => view.ActualSize(across).Bind(view.Navigation));
-    public static readonly ImageOperation FlipHorizontal = new("flip-horizontal", static (view, _) => view.Tool.Bind(static tool => tool.Flipped(Orientation.Horizontal)));
-    public static readonly ImageOperation FlipVertical = new("flip-vertical", static (view, _) => view.Tool.Bind(static tool => tool.Flipped(Orientation.Vertical)));
 
     [UseDelegateFromConstructor]
-    public partial Option<IO<Unit>> Applied(ImageView view, float across);
+    public partial Option<IO<Unit>> Applied(ImagePlot view, float across);
 
-    public Command<TGate, TInvoke>.Run Commanded<TGate, TInvoke>(Func<ImageOperation, TGate> enabled, Func<ImageOperation, TInvoke> invoke) where TGate : notnull where TInvoke : notnull =>
-        new(new CommandFace(Key, ((ICaptioned)this).Caption, None, None), Some(enabled(this)), invoke(this));
+    public Command<TGate, TInvoke>.Run Commanded<TGate, TInvoke>(string caption, Func<ImageOperation, TGate> enabled, Func<ImageOperation, TInvoke> invoke) where TGate : notnull where TInvoke : notnull =>
+        new(new CommandFace(Key, caption, None, None), Some(enabled(this)), invoke(this));
 }
 
 public sealed record ImageTile(Content<SKImage> Image) {
     public Node Drawn =>
         new Node.Overlay(
-            new Node.Box { Role = Role.Checker, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit },
-            Image.Held.Map(static image => (Node)new Node.Image(image) { Fit = ImageFit.Contain, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }).ToSeq()
-            + (Image is Content<SKImage>.Pending ? Seq<Node>(new Node.Box { Role = Role.Veil, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit, Conditions = [Condition.Busy] }) : [])) {
+            new Node.Box { Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit },
+            Image.Held.Map(static image => (Node)new Node.Image(image) { Fit = ImageFit.Contain, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }).ToSeq()) {
             Width = Sizing.Grow.Unit,
             Height = Sizing.Grow.Unit,
             Conditions = Conditioned(Image),

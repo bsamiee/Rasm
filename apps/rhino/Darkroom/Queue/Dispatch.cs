@@ -11,17 +11,12 @@ using System.Text.Json.Schema;
 using System.Text.Json.Serialization;
 using Darkroom.Output;
 using NodaTime.Text;
-using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Commands;
-using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
-using Rasm.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
@@ -39,7 +34,7 @@ public sealed partial class PackageUse {
 }
 
 [SmartEnum<string>]
-public sealed partial class WorkerPlatform : ICaptioned {
+public sealed partial class WorkerPlatform {
     public static readonly WorkerPlatform MacOs = new("darwin", OSPlatform.OSX, static script => ["-runscript", script]);
     public static readonly WorkerPlatform Windows = new("windows", OSPlatform.Windows, static script => [
         $"""
@@ -49,64 +44,30 @@ public sealed partial class WorkerPlatform : ICaptioned {
 
     public OSPlatform Platform { get; }
 
-    public static WorkerPlatform Current => OperatingSystem.IsWindows() ? Windows : MacOs;
+    public static WorkerPlatform Current() => OperatingSystem.IsWindows() ? Windows : MacOs;
 
     [UseDelegateFromConstructor]
     public partial string[] Arguments(string script);
 }
 
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct JobPriority : IPresented<JobPriority, int> {
-    public static JobPriority MinValue { get; } = new(1);
-    public static JobPriority MaxValue { get; } = new(100);
-    public static Presentation<int> Presentation { get; } = new();
+public sealed record FlamencoSettings(Uri Manager, WorkerPlatform Platform, int Priority) {
+    public static FlamencoSettings Default { get; } = new(new Uri("http://localhost:8080"), WorkerPlatform.Current(), Priority: 50);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-public sealed record FlamencoSettings(HttpServer Manager, WorkerPlatform Platform, JobPriority Priority) : IStateRecord<FlamencoSettings, FlamencoParameter> {
-    public static FlamencoSettings Default { get; } = new(HttpServer.Create("http://localhost:8080"), WorkerPlatform.Current, JobPriority.Create(50));
-
-    public Option<string> Scripts { get; init; }
-    public Option<Guid> WorkerTag { get; init; }
-}
-
-[SmartEnum<string>]
-public sealed partial class FlamencoParameter : IStateParameter<FlamencoSettings> {
-    public static readonly FlamencoParameter Manager = new("manager", new StateParameter<FlamencoSettings>.Keyed<HttpServer, string>(
-            Lens<FlamencoSettings, HttpServer>.New(static farm => farm.Manager, static manager => farm => farm with { Manager = manager })),
-        new("Manager", "Flamenco Manager address"));
-    public static readonly FlamencoParameter Scripts = new("scripts", new StateParameter<FlamencoSettings>.OptionalRaw<string>(
-            Lens<FlamencoSettings, Option<string>>.New(static farm => farm.Scripts, static scripts => farm => farm with { Scripts = scripts })),
-        new("Scripts folder", "Manager scripts folder the job compiler installs into"));
-    public static readonly FlamencoParameter Platform = new("platform", new StateParameter<FlamencoSettings>.Choice<WorkerPlatform>(
-            Lens<FlamencoSettings, WorkerPlatform>.New(static farm => farm.Platform, static platform => farm => farm with { Platform = platform })),
-        new("Worker platform", "Rhino worker operating system, mixed farms need a matching worker tag"));
-    public static readonly FlamencoParameter Priority = new("priority", StateParameter.Bounded(
-            Lens<FlamencoSettings, JobPriority>.New(static farm => farm.Priority, static priority => farm => farm with { Priority = priority })),
-        new("Priority", "Priority of submitted Flamenco jobs"));
-    public static readonly FlamencoParameter WorkerTag = new("worker-tag", new StateParameter<FlamencoSettings>.OptionalRaw<Guid>(
-            Lens<FlamencoSettings, Option<Guid>>.New(static farm => farm.WorkerTag, static tag => farm => farm with { WorkerTag = tag })),
-        new("Worker tag", "Tag selecting workers of the chosen platform, empty for any Rhino worker"));
-
-    public StateParameter<FlamencoSettings> Kind { get; }
-
-    public ParameterText Text { get; }
+    public string? Scripts { get; init; }
+    public Guid? WorkerTag { get; init; }
 }
 
 [Union]
 public abstract partial record QueueTarget {
-    public static Fin<Destination> Jobs(Destination destination) =>
-        NamePart.Validated(nameof(Jobs).ToLowerInvariant()).Map(jobs => destination with {
-            Folder = destination.Folder.Switch<NamePart, OutputFolder>(
-                jobs,
-                absolute: static (part, absolute) => new OutputFolder.Absolute(Path.Join(absolute.Folder, part)),
-                besideDocument: static (part, beside) => new OutputFolder.BesideDocument(beside.Segments.Add(part))),
-        });
+    public static OutputFolder Jobs(OutputFolder folder) =>
+        folder.Switch<NamePart, OutputFolder>(
+            NamePart.Create("jobs"),
+            absolute: static (part, absolute) => new OutputFolder.Absolute(Path.Join(absolute.Folder, part)),
+            besideDocument: static (part, beside) => new OutputFolder.BesideDocument(beside.Segments.Add(part)));
 
     public sealed record Local : QueueTarget;
-    public sealed record Packaged(Destination Package, PackageUse Use) : QueueTarget;
-    public sealed record Flamenco(Destination Package, FlamencoSettings Farm) : QueueTarget;
+    public sealed record Packaged(OutputFolder Folder, Stem Stem, PackageUse Use) : QueueTarget;
+    public sealed record Flamenco(OutputFolder Folder, Stem Stem, FlamencoSettings Farm) : QueueTarget;
 }
 
 public sealed record QueueContext(OutputPath Record, IO<QueueSettings> Settings, IPlugInViews Views, Atom<QueueEstimate> Estimate, Func<QueueEvent, IO<Unit>> Notify, string JobCommand, string FarmScript, Action<IDisposable> Retain) {
@@ -130,73 +91,42 @@ internal sealed record FlamencoTypes(FlamencoTypes.JobType[] JobTypes) {
 internal sealed partial class FlamencoContext : JsonSerializerContext;
 
 internal sealed record QueueJob(int RhinoVersion, string Copy, QueueJob.Entry[] Entries) {
-    private const string TargetOwner = nameof(QueueOutput<>.Target);
-    private const string DestinationOwner = nameof(QueueEntry<>.Destination);
+    internal sealed record Entry(QueuedEntry Queued, string Folder, NamePart Stem, bool Overwrite, Output[] Outputs);
 
-    internal sealed record Entry(
-        ValueSet Values, float? Clay, RenderSettings.RenderingSources Source, string? SpecificViewport, string? NamedView, string? Snapshot,
-        int First, int Last, int Width, int Height, double Overscan, Region? Region, SunWindow? Sun, ValueSet Destination, Output[] Outputs);
-
-    internal sealed record Region(double Left, double Top, double Right, double Bottom);
-
-    internal sealed record Output(int Frame, ValueSet Target, string[] Scope, int? Version, string[] Parts);
+    internal sealed record Output(SequenceNumber Frame, OutputTarget Target, NamePart[] Scope, OutputVersion? Version, NamePart[] Parts);
 
     // --- [OUTBOUND]
     internal static QueueJob Of(RenderBatch batch, string copy) =>
-        new(RhinoApp.ExeVersion, copy, [.. batch.Entries.Map(static entry => Entried(entry, entry.Outputs.Map(output => new Output(
-            output.Name.Number.IfNone(entry.Frames.First), ValueSet.Fields(TargetOwner, output.Target), [.. output.Name.Scope.Map(static part => (string)part)],
-            output.Name.Version.Taken.Map(static version => (int)version).ToNullable(), [.. output.Name.Parts.Map(static part => (string)part)]))))]);
+        new(RhinoApp.ExeVersion, copy, [.. batch.Entries.Map(static entry => Entried(entry, entry.Outputs.Map(static output => new Output(
+            output.Name.Number.IfNone(FrameSpan.First), output.Target, [.. output.Name.Scope], output.Name.Version.Taken.ValueUnsafe(), [.. output.Name.Parts]))))]);
 
     internal static Entry Identity<TPath>(QueueEntry<TPath> entry) =>
-        Entried(entry, entry.Outputs.Map(static output => (output.Target, output.Name.Scope, output.Name.Parts)).Distinct().Map(output => new Output(
-            entry.Frames.First, ValueSet.Fields(TargetOwner, output.Target), [.. output.Scope.Map(static part => (string)part)], null, [.. output.Parts.Map(static part => (string)part)])));
+        Entried(entry, entry.Outputs.Map(static output => (output.Target, output.Name.Scope, output.Name.Parts)).Distinct().Map(static output => new Output(
+            FrameSpan.First, output.Target, [.. output.Scope], Version: null, [.. output.Parts])));
 
-    private static Entry Entried<TPath>(QueueEntry<TPath> entry, Seq<Output> outputs) =>
-        new(entry.Override.Values, entry.Override.Clay.Map(static clay => (float)clay).ToNullable(),
-            entry.Source.RenderSource, entry.Source.SpecificViewport.ValueUnsafe(), entry.Source.NamedView.ValueUnsafe(), entry.Source.Snapshot.ValueUnsafe(),
-            entry.Frames.First, entry.Frames.Last, entry.Extent.Width, entry.Extent.Height, entry.Overscan,
-            entry.Region.Map(static region => new Region(region.Left, region.Top, region.Right, region.Bottom)).ValueUnsafe(),
-            entry.Sun.ValueUnsafe(), ValueSet.Fields(DestinationOwner, entry.Destination), [.. outputs]);
+    private static Entry Entried<TPath>(QueueEntry<TPath> entry, Seq<Output> outputs) => new(entry.Queued, entry.Folder, entry.Stem, entry.Overwrite, [.. outputs]);
 
     // --- [INBOUND]
     internal IO<RenderBatch> Batch(RhinoDoc doc) =>
-        Callbacks.Each(toSeq(Entries).Map((entry, index) => Planned(doc, entry).MapFail(error =>
-                Error.New(string.Create(CultureInfo.InvariantCulture, $"render queue job entry {index} is invalid"), error))))
-            .Bind(static entries => IO.lift(Callbacks.Unique(entries, static entry => entry.Key, nameof(QueueJob))))
-            .Bind(entries => RenderBatch.Placed(doc, entries, overwrite: true));
+        from settings in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => IO.lift(scope.Settings.Duplicate))
+        from entries in IO.lift(toSeq(Entries).Map(static (entry, index) => (Entry: entry, Index: index))
+            .Traverse(held => Planned(held.Entry, settings).MapFail(error => Error.New(string.Create(CultureInfo.InvariantCulture, $"render queue job entry {held.Index} is invalid"), error)))
+            .As()
+            .Bind(static entries => Callbacks.Unique(entries, static entry => entry.Key, nameof(QueueJob))))
+        from batch in RenderBatch.Placed(doc, entries, overwrite: true)
+        select batch;
 
-    private static IO<QueueEntry<Unit>> Planned(RhinoDoc doc, Entry entry) =>
-        from stored in entry.Destination.Recalled(DestinationOwner, Destination.Default)
-        from columns in IO.lift((
-                Destinations.Resolved(stored, Conversions.Present(doc.Path)),
-                Optional(entry.Clay).Traverse(static clay => Albedo.Validated(clay)).As(),
-                FrameSpan.Of(entry.First, entry.Last),
-                PixelExtent.Validated(entry.Width, entry.Height),
-                Overscan.Validated(entry.Overscan),
-                Optional(entry.Region).Traverse(static region => RenderRegion.Of(region.Left, region.Top, region.Right, region.Bottom)).As())
-            .Apply(static (destination, clay, frames, extent, overscan, region) => (Destination: destination, Clay: clay, Frames: frames, Extent: extent, Overscan: overscan, Region: region))
-            .As())
-        from outputs in Callbacks.Each(toSeq(entry.Outputs).Map(output => Planned(columns.Frames, output)))
-        select new QueueEntry<Unit>(
-            new RenderOverride(entry.Values, columns.Clay),
-            new RenderSourceState(entry.Source, Optional(entry.SpecificViewport), Optional(entry.NamedView), Optional(entry.Snapshot)),
-            columns.Frames, columns.Extent, columns.Overscan, columns.Region, Optional(entry.Sun), columns.Destination, outputs);
-
-    private static IO<QueueOutput<Unit>> Planned(FrameSpan frames, Output output) =>
-        from target in output.Target.Recalled(TargetOwner, OutputTarget.Default)
-        from placed in IO.lift((
-                SequenceNumber.Validated(output.Frame).Bind(frame => frames.Holds(frame)
-                    ? Fin.Succ(frame)
-                    : Error.New(string.Create(CultureInfo.InvariantCulture, $"job frame {frame} lies outside entry range {frames.First} to {frames.Last}"))),
-                toSeq(output.Scope).Traverse(NamePart.Validated).As(),
-                toSeq(output.Parts).Traverse(NamePart.Validated).As(),
-                Optional(output.Version).Traverse(static version => OutputVersion.Validated(version)).As(),
-                FileExtension.Validated(target.FileFormat.Extension))
-            .Apply((frame, scope, parts, version, extension) => new QueueOutput<Unit>(target, new OutputName(
-                scope, version.Match<OutputVersioning>(Some: static held => new OutputVersioning.Pinned(held), None: static () => new OutputVersioning.Unversioned()),
-                parts, frames.Named(frame), extension), unit))
-            .As())
-        select placed;
+    private static Fin<QueueEntry<Unit>> Planned(Entry entry, RenderSettings settings) =>
+        FrameSpan.Of(entry.Queued.Sun) switch {
+            var frames => toSeq(entry.Outputs).Traverse(output =>
+                    from inside in guard((int)output.Frame < frames.Numbers.Count, Error.New(string.Create(CultureInfo.InvariantCulture, $"job frame {output.Frame} lies past the entry's {frames.Numbers.Count} frames"))).ToFin()
+                    select new QueueOutput<Unit>(output.Target, new OutputName(
+                        toSeq(output.Scope),
+                        Optional(output.Version).Match<OutputVersioning>(Some: static held => new OutputVersioning.Pinned(held), None: static () => new OutputVersioning.Unversioned()),
+                        toSeq(output.Parts), frames.Named(output.Frame), output.Target.FileFormat.Extension), unit))
+                .As()
+                .Map(outputs => new QueueEntry<Unit>(entry.Queued, new RenderOverride(settings, Optional(entry.Queued.Clay)), entry.Folder, entry.Stem, entry.Overwrite, outputs)),
+        };
 
     internal static IO<QueueJob> Read(string path) =>
         from found in JsonFiles.Read(path, JobContext.Default.QueueJob, static job => Fin.Succ(job))
@@ -212,24 +142,21 @@ internal sealed partial class JobContext : JsonSerializerContext;
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 internal sealed partial class PackageFile {
-    public static readonly PackageFile Copy = new(".3dm", None, static (doc, _, path, _) =>
+    public static readonly PackageFile Copy = new(FileExtension.Create(".3dm"), None, static (doc, _, path, _) =>
         Exchange.WriteFile(doc, path, static options => (options.IncludeBitmapTable, options.IncludeRenderMeshes) = (true, true)));
-    public static readonly PackageFile Job = new(".json", None, static (_, batch, path, copy) =>
+    public static readonly PackageFile Job = new(FileExtension.Create(".json"), None, static (_, batch, path, copy) =>
         JsonFiles.Write(path, QueueJob.Of(batch, copy), JobContext.Default.QueueJob));
-    public static readonly PackageFile Schema = new(".json", Some(nameof(Schema)), static (_, _, path, _) =>
+    public static readonly PackageFile Schema = new(FileExtension.Create(".json"), Some(NamePart.Create(nameof(Schema))), static (_, _, path, _) =>
         JsonFiles.Write(path, JobContext.Default.QueueJob.GetJsonSchemaAsNode(), JobContext.Default.JsonNode));
 
-    public string Extension { get; }
+    public FileExtension Extension { get; }
 
-    private readonly Option<string> part;
+    private readonly Option<NamePart> part;
 
     [UseDelegateFromConstructor]
     public partial IO<Unit> Write(RhinoDoc doc, RenderBatch batch, OutputPath path, OutputPath copy);
 
-    public Fin<OutputName> Name(NamePart stamp) =>
-        (part.Traverse(static held => NamePart.Validated(held.ToLowerInvariant())).As(), FileExtension.Validated(Extension))
-            .Apply((suffix, extension) => new OutputName(Seq(stamp), new OutputVersioning.Unversioned(), suffix.ToSeq(), None, extension))
-            .As();
+    public OutputName Name(NamePart stamp) => new(Seq(stamp), new OutputVersioning.Unversioned(), part.ToSeq(), None, Extension);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -268,11 +195,11 @@ public static class Dispatch {
             local: static (state, _) => DisposalOps.Fork(Reported(state.Context, state.Plan.Resolved(state.Doc, state.Resumed).OnUiThread()
                 .Bind(batch => QueueRuns.Run(state.Context, state.Doc, batch, None, state.Resumed))), state.Context.Retain).Map(static _ => unit),
             packaged: static (state, packaged) => packaged.Use.Switch(
-                (state.Context, state.Doc, state.Plan, state.Stamp, state.Resumed, packaged.Package),
-                jobFile: static held => Packed(held.Doc, held.Plan, held.Resumed, held.Package, held.Stamp).OnUiThread().Map(static _ => unit),
-                handoff: static held => Handed(held.Context, held.Doc, held.Plan, held.Stamp, held.Resumed, held.Package)),
+                (state.Context, state.Doc, state.Plan, state.Stamp, state.Resumed, packaged.Folder, packaged.Stem),
+                jobFile: static held => Packed(held.Doc, held.Plan, held.Resumed, held.Folder, held.Stem, held.Stamp).OnUiThread().Map(static _ => unit),
+                handoff: static held => Handed(held.Context, held.Doc, held.Plan, held.Stamp, held.Resumed, held.Folder, held.Stem)),
             flamenco: static (state, farm) =>
-                from paths in Packed(state.Doc, state.Plan, state.Resumed, farm.Package, state.Stamp).OnUiThread()
+                from paths in Packed(state.Doc, state.Plan, state.Resumed, farm.Folder, farm.Stem, state.Stamp).OnUiThread()
                 from submitted in Submitted(farm.Farm, paths[PackageFile.Copy], farm.Farm.Platform.Arguments(state.Context.FarmScript))
                 from noticed in state.Context.Notify(new QueueEvent.Submitted(submitted))
                 select unit)
@@ -283,9 +210,9 @@ public static class Dispatch {
 
     // --- [FLAMENCO]
     public static IO<Unit> InstallCompiler(FlamencoSettings farm) =>
-        from folder in IO.lift(farm.Scripts.ToFin(new Refused(nameof(FlamencoSettings.Scripts), Refused.Absent)))
+        from folder in IO.lift(Optional(farm.Scripts).ToFin(new Refused(nameof(FlamencoSettings.Scripts), Refused.Absent)))
         from path in IO.lift(OutputPath.Of(Path.Join(folder, CompilerFile)))
-        from written in DisposalOps.Found(() => typeof(Dispatch).Assembly.GetManifestResourceStream(CompilerFile), nameof(System.Reflection.Assembly.GetManifestResourceStream),
+        from written in DisposalOps.Found(static () => typeof(Dispatch).Assembly.GetManifestResourceStream(CompilerFile), nameof(System.Reflection.Assembly.GetManifestResourceStream),
             source => FilePublication.Write(path, overwrite: true, target => IO.liftAsync(async environment => {
                 await source.CopyToAsync(target, environment.Token).ConfigureAwait(false);
                 return unit;
@@ -293,22 +220,22 @@ public static class Dispatch {
         select written;
 
     public static IO<bool> FarmStartup(string farmScript) =>
-        IO.lift(() => (OperatingSystem.IsMacOS() ? SafeNativeMethods.Arguments() : Environment.GetCommandLineArgs()).AsSpan().EndsWith(WorkerPlatform.Current.Arguments(farmScript)));
+        IO.lift(() => (OperatingSystem.IsMacOS() ? SafeNativeMethods.Arguments() : Environment.GetCommandLineArgs()).AsSpan().EndsWith(WorkerPlatform.Current().Arguments(farmScript)));
 
     private static IO<Uri> Submitted(FlamencoSettings farm, string copy, string[] arguments) =>
         DisposalOps.Within(static () => new HttpClient(), client =>
-            from advertised in IO.liftAsync(environment => client.GetFromJsonAsync(new Uri(farm.Manager.Address, "/api/v3/jobs/types"), FlamencoContext.Default.FlamencoTypes, environment.Token))
+            from advertised in IO.liftAsync(environment => client.GetFromJsonAsync(new Uri(farm.Manager, "/api/v3/jobs/types"), FlamencoContext.Default.FlamencoTypes, environment.Token))
             from types in IO.lift(Refused.UnlessFound(advertised, nameof(HttpClientJsonExtensions.GetFromJsonAsync)))
             let type = Path.GetFileNameWithoutExtension(CompilerFile).Replace('_', '-')
             from compiled in IO.lift(toSeq(types.JobTypes).Find(job => string.Equals(job.Name, type, StringComparison.Ordinal)).ToFin(new NotFound("Flamenco job type", type)))
             from submitted in IO.liftAsync(async environment => {
                 using JsonContent content = JsonContent.Create(new FlamencoJob(
-                    Path.GetFileNameWithoutExtension(copy), type, compiled.Etag, farm.Priority, WorkerPlatform.Current.Key,
-                    new FlamencoJob.Parameters(copy, arguments), farm.WorkerTag.ToNullable()), FlamencoContext.Default.FlamencoJob);
-                using HttpResponseMessage response = await client.PostAsync(new Uri(farm.Manager.Address, "/api/v3/jobs"), content, environment.Token).ConfigureAwait(false);
+                    Path.GetFileNameWithoutExtension(copy), type, compiled.Etag, farm.Priority, WorkerPlatform.Current().Key,
+                    new FlamencoJob.Parameters(copy, arguments), farm.WorkerTag), FlamencoContext.Default.FlamencoJob);
+                using HttpResponseMessage response = await client.PostAsync(new Uri(farm.Manager, "/api/v3/jobs"), content, environment.Token).ConfigureAwait(false);
                 return response.StatusCode is HttpStatusCode.OK
                     ? Refused.UnlessFound(await response.Content.ReadFromJsonAsync(FlamencoContext.Default.FlamencoReceipt, environment.Token).ConfigureAwait(false), nameof(HttpContentJsonExtensions.ReadFromJsonAsync))
-                        .Map(receipt => new Uri(farm.Manager.Address, $"/jobs/{receipt.Id:D}"))
+                        .Map(receipt => new Uri(farm.Manager, $"/jobs/{receipt.Id:D}"))
                     : Error.New($"Flamenco refused render job with {response.StatusCode}");
             })
             from received in IO.lift(submitted)
@@ -316,21 +243,20 @@ public static class Dispatch {
             .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Uri>(Error.New($"render job post to {farm.Manager} failed", error)));
 
     // --- [PACKAGE]
-    private static IO<HashMap<PackageFile, OutputPath>> Packed(RhinoDoc doc, QueuePlan plan, Option<QueueProgress> resumed, Destination package, LocalDateTime stamp) =>
+    private static IO<HashMap<PackageFile, OutputPath>> Packed(RhinoDoc doc, QueuePlan plan, Option<QueueProgress> resumed, OutputFolder folder, Stem stem, LocalDateTime stamp) =>
         from batch in plan.Resolved(doc, resumed)
-        from date in IO.lift(NamePart.Validated(LocalDateTimePattern.ExtendedIso.Format(stamp.With(TimeAdjusters.TruncateToSecond))))
-        from names in IO.lift(toSeq(PackageFile.Items).Traverse(file => file.Name(date)).As())
-        from placed in Destinations.Resolve(doc, package, names)
+        from date in IO.lift(NamePart.TryCreate(LocalDateTimePattern.ExtendedIso.Format(stamp.With(TimeAdjusters.TruncateToSecond)), out NamePart? part, out RhinoFault? fault) ? Fin.Succ(part) : fault)
+        from placed in Destinations.Resolve(doc, folder, stem, overwrite: false, toSeq(PackageFile.Items).Map(file => file.Name(date)))
         let paths = toHashMap(toSeq(PackageFile.Items).Zip(placed, static (file, row) => (file, row.Path)))
         from written in toSeq(PackageFile.Items).TraverseM(file => file.Write(doc, batch, paths[file], paths[PackageFile.Copy])).As()
         select paths;
 
     // --- [HANDOFF]
-    private static IO<Unit> Handed(QueueContext context, RhinoDoc doc, QueuePlan plan, LocalDateTime stamp, Option<QueueProgress> resumed, Destination package) =>
+    private static IO<Unit> Handed(QueueContext context, RhinoDoc doc, QueuePlan plan, LocalDateTime stamp, Option<QueueProgress> resumed, OutputFolder folder, Stem stem) =>
         DisposalOps.Within<IDisposable, Unit>(acquired =>
             from lease in QueueProgress.Acquire(context.Record, acquired)
             from saved in IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments())).Bind(static open => open.TraverseM(Exchange.Save).As()).OnUiThread()
-            from paths in Packed(doc, plan, resumed, package, stamp).OnUiThread()
+            from paths in Packed(doc, plan, resumed, folder, stem, stamp).OnUiThread()
             from moved in resumed.Traverse(record => QueueProgress.Write(
                 context.Record, record with { Job = Some((string)paths[PackageFile.Job]), Ended = record.Ended | Some(RunEnd.Stopped) })).As()
             from relayed in IO.lift(() => Launch(paths[PackageFile.Job], context.JobCommand, JobVariable(context)))
@@ -372,12 +298,12 @@ public static class Dispatch {
         };
 
     public static IO<Unit> FarmJob(QueueContext context, RhinoDoc doc, IO<Unit> close) =>
-        (from code in Farmed(context, doc).Map(static _ => 0).Catch(error => IO.lift(() => context.Views.Report(error, typeof(Dispatch), nameof(FarmJob))).Map(_ => QueueRuns.Stopping(error) ? 2 : 1)).As()
+        (from code in Farmed(context, doc).Map(static _ => 0).Catch(error => IO.lift(() => context.Views.Report(error, typeof(Dispatch))).Map(_ => QueueRuns.Stopping(error) ? 2 : 1)).As()
          from exited in close.OnUiThread().Finally(IO.lift(() => Environment.Exit(code)).OnUiThread())
          select exited).Uninterruptible().Fork().Map(unit);
 
     private static IO<Unit> Farmed(QueueContext context, RhinoDoc doc) =>
-        from path in IO.lift(() => Conversions.Present(doc.Path).ToFin(new Refused(nameof(RhinoDoc.Path), Refused.Absent)).Bind(saved => InputPath.Of(Path.ChangeExtension(saved, PackageFile.Job.Extension)))).OnUiThread()
+        from path in IO.lift(() => Conversions.Present(doc.Path).ToFin(new Refused(nameof(RhinoDoc.Path), Refused.Absent)).Bind(static saved => InputPath.Of(Path.ChangeExtension(saved, PackageFile.Job.Extension)))).OnUiThread()
         from job in QueueJob.Read(path)
         from record in IO.lift(OutputPath.Of(Path.ChangeExtension(path, ".progress.json")))
         from ran in Ran(context with { Record = record, Settings = context.Settings.Map(static settings => settings with { ShutDownAfterSuccess = false }) }, doc, path, job)
@@ -386,7 +312,7 @@ public static class Dispatch {
     public static IO<Unit> Relaunched(QueueContext context) =>
         DisposalOps.Fork(Reported(context, QueueRuns.Resumable(context))
             .Bind(found => found.Traverse(relaunch =>
-                Launched(context, IO.yieldFor(relaunch.Delay.Span.ToTimeSpan()).Bind(_ => Run(context, relaunch.Job)))).As())
+                Launched(context, IO.yieldFor(relaunch.Delay).Bind(_ => Run(context, relaunch.Job)))).As())
             .Map(unit), context.Retain).Map(static _ => unit);
 
     private static IO<Unit> Launched(QueueContext context, IO<Unit> run, [CallerMemberName] string member = "") =>
@@ -408,7 +334,7 @@ public static class Dispatch {
     // --- [REGISTRATION]
     public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Register { get; } = static (views, retain) =>
         DisposalOps.Acquire(acquired =>
-            from record in IO.lift(() => OutputPath.Of(Path.Join(Directory.CreateDirectory(views.PlugIn.SettingsDirectory).FullName, $"{nameof(RenderQueue)}.json")))
+            from record in IO.lift(() => OutputPath.Of(Path.Join(Directory.CreateDirectory(views.PlugIn.SettingsDirectory).FullName, $"{nameof(QueueProgress)}.json")))
             from commands in IO.lift(() => toSeq(views.PlugIn.GetCommands()))
             from named in IO.lift((Named<QueueJobCommand>(commands), Named<QueueFarmJobCommand>(commands)).Apply(static (job, farm) => (Job: job, Farm: $"_-{farm}")).As())
             let settings = QueueSettings.Read(views)

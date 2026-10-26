@@ -1,3 +1,4 @@
+using System.Drawing;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Persistence.Settings;
 using Rhino;
@@ -26,7 +27,7 @@ public sealed record OptionSpec<T>(string Caption, Func<GetBaseClass, LocalizeSt
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class OptionType {
     // --- [ROWS]
-    public static readonly OptionAdder<System.Drawing.Color> Color =
+    public static readonly OptionAdder<Color> Swatch =
         static (getter, name, _, initial, retain) => Held(() => new OptionColor(initial), holder => getter.AddOptionColor(name, ref holder), nameof(GetBaseClass.AddOptionColor), static holder => Fin.Succ(holder.CurrentValue), retain);
 
     public static OptionAdder<bool> Toggle(LabelPair labels) =>
@@ -36,17 +37,15 @@ public static class OptionType {
             from added in Held(() => new OptionToggle(initial, offName, onName), holder => getter.AddOptionToggle(name, ref holder), nameof(GetBaseClass.AddOptionToggle), static holder => Fin.Succ(holder.CurrentValue), retain)
             select added;
 
-    public static IO<AddedOption<TValue>> Number<TValue, TRaw>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink plugIn, TValue initial, Action<IDisposable> retain)
-        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
-        where TRaw : struct, System.Numerics.IFloatingPointIeee754<TRaw> =>
-        Doubled(static value => double.CreateChecked(value.ToValue()), static number => ValidationResults.Validated<TValue, TRaw>(TRaw.CreateChecked(number)))(getter, name, plugIn, initial, retain);
-
-    public static IO<AddedOption<TValue>> Integer<TValue, TRaw>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial, Action<IDisposable> retain)
-        where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
-        where TRaw : struct, System.Numerics.IBinaryInteger<TRaw> =>
-        Held(() => new OptionInteger(int.CreateChecked(initial.ToValue()), int.CreateSaturating(TValue.MinValue.ToValue()), int.CreateSaturating(TValue.MaxValue.ToValue())),
-            holder => getter.AddOptionInteger(name, ref holder), nameof(GetBaseClass.AddOptionInteger),
-            static holder => ValidationResults.Validated<TValue, TRaw>(TRaw.CreateChecked(holder.CurrentValue)), retain);
+    public static OptionAdder<double> Number(Option<double> lower, Option<double> upper) =>
+        (getter, name, _, initial, retain) => Held(() => (lower.Case, upper.Case) switch {
+            (double minimum, double maximum) => new OptionDouble(initial, minimum, maximum),
+            (double minimum, _) => new OptionDouble(initial, setLowerLimit: true, minimum),
+            (_, double maximum) => new OptionDouble(initial, setLowerLimit: false, maximum),
+            _ => new OptionDouble(initial),
+        },
+            holder => getter.AddOptionDouble(name, ref holder), nameof(GetBaseClass.AddOptionDouble),
+            static holder => Fin.Succ(holder.CurrentValue), retain);
 
     public static OptionAdder<int> Integer(Option<int> lower, Option<int> upper) =>
         (getter, name, _, initial, retain) => Held(() => (lower.Case, upper.Case) switch {
@@ -58,15 +57,15 @@ public static class OptionType {
             holder => getter.AddOptionInteger(name, ref holder), nameof(GetBaseClass.AddOptionInteger),
             static holder => Fin.Succ(holder.CurrentValue), retain);
 
-    public static OptionAdder<TValue> Distance<TValue>(LengthUnit spaceUnit)
-        where TValue : IObjectFactory<TValue, Length, ValidationError>, IConvertible<Length>, System.Numerics.IMinMaxValue<TValue> =>
-        Doubled(value => Quantities.As(value.ToValue(), spaceUnit), number => ValidationResults.Validated<TValue, Length>(Quantities.From(number, spaceUnit)));
+    public static OptionAdder<Length> Distance(LengthUnit spaceUnit) =>
+        (getter, name, _, initial, retain) => Held(() => new OptionDouble(Quantities.As(initial, spaceUnit)),
+            holder => getter.AddOptionDouble(name, ref holder), nameof(GetBaseClass.AddOptionDouble),
+            holder => Fin.Succ(Quantities.From(holder.CurrentValue, spaceUnit)), retain);
 
-    public static OptionAdder<TValue> Text<TValue>(bool allowEmptyString)
-        where TValue : IObjectFactory<TValue, string, ValidationError>, IConvertible<string> =>
-        (getter, name, _, initial, retain) => Held(() => new OptionString(initial.ToValue(), allowEmptyString),
+    public static OptionAdder<string> Text(bool allowEmptyString) =>
+        (getter, name, _, initial, retain) => Held(() => new OptionString(initial, allowEmptyString),
             holder => getter.AddOptionString(name, ref holder), nameof(GetBaseClass.AddOptionString),
-            static holder => ValidationResults.Validated<TValue, string>(holder.CurrentValue), retain);
+            static holder => Fin.Succ(holder.CurrentValue), retain);
 
     public static OptionAdder<TItem> List<TItem>(Seq<TItem> items, Func<TItem, string> caption) where TItem : notnull =>
         (getter, name, plugIn, initial, _) =>
@@ -84,17 +83,13 @@ public static class OptionType {
         from accepted in IO.lift(Refused.Unless(index > 0, index, member))
         select accepted;
 
-    private static OptionAdder<TValue> Doubled<TValue>(Func<TValue, double> shown, Func<double, Fin<TValue>> read) where TValue : System.Numerics.IMinMaxValue<TValue> =>
-        (getter, name, _, initial, retain) => Held(() => new OptionDouble(shown(initial), shown(TValue.MinValue), shown(TValue.MaxValue)),
-            holder => getter.AddOptionDouble(name, ref holder), nameof(GetBaseClass.AddOptionDouble), holder => read(holder.CurrentValue), retain);
-
     private static IO<AddedOption<TValue>> Held<THolder, TValue>(Func<THolder> create, Func<THolder, int> add, string member, Func<THolder, Fin<TValue>> current, Action<IDisposable> retain) where THolder : class, IDisposable =>
         from holder in DisposalOps.Acquire(IO.lift(create), retain)
         from index in Indexed(() => add(holder), member)
         select new AddedOption<TValue>(index, _ => IO.lift(() => current(holder)));
 }
 
-public static class OptionSpec {
+public static class OptionSpecs {
     public static OptionSpec<T> Plain<T>(string caption, Option<string> value, bool hidden, Func<CommandLineOption, IO<T>> chosen) =>
         new(caption, (getter, name, _, _) => OptionType.Indexed(() => getter.AddOption(name, value.Map(static text => new LocalizeStringPair(text, text)).ValueUnsafe(), hidden), nameof(GetBaseClass.AddOption))
             .Map(index => new AddedOption<T>(index, chosen)));
@@ -102,11 +97,9 @@ public static class OptionSpec {
     public static OptionSpec<T> Of<T, TValue>(string caption, OptionAdder<TValue> add, TValue initial, Func<TValue, IO<T>> chosen) =>
         new(caption, (getter, name, plugIn, retain) => add(getter, name, plugIn, initial, retain).Map(added => new AddedOption<T>(added.Index, option => added.Read(option).Bind(chosen))));
 
-    public static IO<OptionSpec<T>> Seeded<T, TValue, TRaw>(Command command, PlugInSetting<TValue, TRaw> setting, OptionAdder<TValue> add, Func<TValue, IO<T>> chosen)
-        where TValue : notnull
-        where TRaw : notnull, ISpanParsable<TRaw> =>
+    public static IO<OptionSpec<T>> Seeded<T, TValue>(Command command, PlugInSetting<TValue> setting, OptionAdder<TValue> add, Func<TValue, IO<T>> chosen) where TValue : notnull =>
         PlugInSettings.Store(new SettingsNode(command), setting) switch {
-            var store => store.Read.Map(held => Of(setting.Key.Text.Caption, add, held.IfNone(setting.Key.Default), value => store.Write(Some(value)).Map(value).Bind(chosen))),
+            var store => store.Read.Map(held => Of(setting.Key, add, held.IfNone(setting.Default), value => store.Write(Some(value)).Map(value).Bind(chosen))),
         };
 }
 

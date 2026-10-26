@@ -14,6 +14,7 @@ using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using TinyEXR;
 
 namespace Rasm.Imaging.Filtering;
 
@@ -265,29 +266,40 @@ public static unsafe class VideoKernels {
     public static Fin<Unit> Recompressed(PixelFrame frame, JpegEncoder encoder, int generations, Option<int> coded, IProgress<int> progress) {
         int height = coded.IfNone(frame.Size.Height);
         double width = double.Max(1d, Math.Round((double)frame.Size.Width * height / frame.Size.Height, MidpointRounding.ToEven));
-        return width > int.MaxValue
-            ? Error.New(string.Create(CultureInfo.InvariantCulture, $"Coded frame {width}x{height} exceeds native image limits"))
-            : frame.Mutate(source => {
-                _ = coded.Iter(_ => source.Mutate(x => x.Resize((int)width, height, KnownResamplers.Box)));
-                foreach (Rectangle tile in
-                         from top in Enumerable.Range(0, ((source.Height - 1) / JpegTile) + 1)
-                         from left in Enumerable.Range(0, ((source.Width - 1) / JpegTile) + 1)
-                         select new Rectangle(left * JpegTile, top * JpegTile, int.Min(JpegTile, source.Width - (left * JpegTile)), int.Min(JpegTile, source.Height - (top * JpegTile)))) {
-                    using Image<RgbaVector> piece = source.Clone(x => x.Crop(tile));
-                    using Image<Rgb24> recoded = toSeq(Enumerable.Range(2, generations - 1)).Fold(Generation(piece, encoder), (image, _) => {
-                        using (image)
-                            return Generation(image, encoder);
-                    });
-                    source.Mutate(x => x.DrawImage(recoded, tile.Location, 1f));
-                }
-                _ = coded.Iter(_ => source.Mutate(x => x.Resize(frame.Size.Width, frame.Size.Height, KnownResamplers.Triangle)));
-            }).Map(_ => {
-                progress.Report(frame.Size.Height);
-                return unit;
+        return (width > int.MaxValue ? Error.New(string.Create(CultureInfo.InvariantCulture, $"Coded frame {width}x{height} exceeds native image limits")) : PixelExtent.Validated((int)width, height))
+            .Bind(size => {
+                PixelFrame working = size == frame.Size ? frame : new(System.Drawing.Point.Empty, size, size, block =>
+                    ImageProcessing.Resize(frame.Block, frame.Size.Width, frame.Size.Height, block, size.Width, size.Height, 4, ResizeFilter.Box, alphaChannel: 3));
+                return working.Mutate(source => {
+                    foreach (Rectangle tile in
+                             from top in Enumerable.Range(0, ((source.Height - 1) / JpegTile) + 1)
+                             from left in Enumerable.Range(0, ((source.Width - 1) / JpegTile) + 1)
+                             select new Rectangle(left * JpegTile, top * JpegTile, int.Min(JpegTile, source.Width - (left * JpegTile)), int.Min(JpegTile, source.Height - (top * JpegTile)))) {
+                        using Image<RgbaVector> piece = source.Clone(x => x.Crop(tile));
+                        using Image<Rgb24> recoded = toSeq(Enumerable.Range(2, generations - 1)).Fold(Generation(piece, encoder), (image, _) => {
+                            using (image)
+                                return Generation(image, encoder);
+                        });
+                        source.Mutate(x => x.DrawImage(recoded, tile.Location, 1f));
+                    }
+                }).Map(_ => {
+                    if (working != frame) {
+                        PixelFrame restored = new(frame.Origin, frame.Size, frame.Extent, block =>
+                            ImageProcessing.Resize(working.Block, size.Width, size.Height, block, frame.Size.Width, frame.Size.Height, 4, ResizeFilter.Triangle, alphaChannel: 3));
+                        for (int y = 0; y < frame.Size.Height; y++) {
+                            Span<Vector4> target = frame.View.Span.GetRowSpan(y);
+                            Span<Vector4> scaled = restored.View.Span.GetRowSpan(y);
+                            for (int x = 0; x < target.Length; x++)
+                                target[x] = scaled[x] with { W = target[x].W };
+                        }
+                    }
+                    progress.Report(frame.Size.Height);
+                    return unit;
+                });
             });
     }
 
-    private static Image<Rgb24> Generation(Image image, JpegEncoder encoder) {
+    private static Image<Rgb24> Generation<TPixel>(Image<TPixel> image, JpegEncoder encoder) where TPixel : unmanaged, IPixel<TPixel> {
         using MemoryStream stream = new();
         image.Save(stream, encoder);
         stream.Position = 0;

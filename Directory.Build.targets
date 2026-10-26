@@ -19,7 +19,7 @@
         <Using Include="Microsoft.Extensions.Logging" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Microsoft.Extensions.Logging'))' != '' or '@(PackageReference->WithMetadataValue('Identity', 'Microsoft.Extensions.Logging.Abstractions'))' != ''" />
         <Using Include="Xunit" Condition="'@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.mtp-v2'))' != '' or '@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.assert'))' != ''" />
         <Using Include="CsCheck" Condition="'@(PackageReference->WithMetadataValue('Identity', 'CsCheck'))' != ''" />
-        <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Grasshopper2'))' != ''" />
+        <Using Include="Grasshopper2.Types.Numeric" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Grasshopper2'))' != ''" />
     </ItemGroup>
 
     <ItemGroup Label="Banned Symbols">

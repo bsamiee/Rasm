@@ -85,7 +85,7 @@ public sealed partial class LookupLayout {
     public static readonly LookupLayout Hald = new(
         LutFormat.Hald,
         static (width, height) => (int)float.Round(float.Cbrt(width), MidpointRounding.ToEven) switch {
-            var level when width == height && level * level * level == width => LatticeSize.Validated(level * level).ToOption(),
+            var level when width == height && level * level * level == width => Some(level * level),
             _ => None,
         },
         static edge => (int)float.Round(float.Sqrt(edge), MidpointRounding.ToEven) switch {
@@ -95,14 +95,14 @@ public sealed partial class LookupLayout {
         static (x, y, image, _) => (y * image.Width) + x);
     public static readonly LookupLayout KeyShot = new(
         LutFormat.KeyShotLookup,
-        static (width, height) => width == height * height ? LatticeSize.Validated(height).ToOption() : None,
+        static (width, height) => width == height * height ? Some(height) : None,
         static edge => PixelExtent.Validated(edge * edge, edge).ToOption(),
         static (x, y, _, edge) => (x % edge) + (edge * (edge - 1 - y)) + (edge * edge * (x / edge)));
 
     public LutFormat Format { get; }
 
     [UseDelegateFromConstructor]
-    public partial Option<LatticeSize> Edge(int width, int height);
+    public partial Option<int> Edge(int width, int height);
 
     [UseDelegateFromConstructor]
     public partial Option<PixelExtent> Image(int edge);
@@ -201,8 +201,8 @@ public static class LutFiles {
     private static Fin<LutTable> ParseCube(string text) =>
         from header in Header.Read(text, LutFormat.Cube, [Title, Lut1DSize, Lut3DSize, DomainMin, DomainMax, Lut1DInputRange, Lut3DInputRange], static line => char.IsAsciiLetter(line[0]))
         from stated in (
-                header.Stated(Lut1DSize, static value => Invariant.Number<int>(value).Bind(static size => CurveLength.Validated(size).ToOption())),
-                header.Stated(Lut3DSize, static value => Invariant.Number<int>(value).Bind(static size => LatticeSize.Validated(size).ToOption())),
+                header.Stated(Lut1DSize, static value => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int size) ? CurveLength.Validated(size).ToOption() : None),
+                header.Stated(Lut3DSize, static value => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int size) ? Some(size) : None),
                 header.Stated(DomainMin, Triple),
                 header.Stated(DomainMax, Triple),
                 header.Stated(Lut1DInputRange, Pair),
@@ -216,10 +216,14 @@ public static class LutFiles {
                     | stated.CurveRange.Filter(_ => stated.Curve.IsNone).Map(static range => range.Line)
                     | stated.LatticeRange.Filter(_ => stated.Lattice.IsNone).Map(static range => range.Line))
                 .Traverse(static line => Fin.Fail<Unit>(Misstated(LutFormat.Cube, line))).As(),
-                Tabled(
-                    LutFormat.Cube, text, header.End, braced: false, width: 3,
-                    stated.Curve.Map(length => CurveTable(length.Value, Domain(stated.CurveRange, stated.Low, stated.High))).ToSeq()
-                    + stated.Lattice.Map(size => LatticeTable(size.Value, Domain(stated.LatticeRange, stated.Low, stated.High), LutInterpolation.Tetrahedral)).ToSeq()))
+                stated.Lattice.Filter(_ => stated.Curve.IsNone).Match(
+                    Some: lattice => (Lut3D.TryParseCube(text, out Lut3D? parsed), parsed, Domain(stated.LatticeRange, stated.Low, stated.High)) switch {
+                        (ExrResult.Success, Lut3D held, var domain) => Lut3D.From(lattice.Value, held.Data.ToArray(), domain.Minimum, domain.Maximum).Map(static cube => (LutTable)new LutTable.Cube(cube, LutInterpolation.Tetrahedral)),
+                        (var refused, _, _) => Error.New($"{LutFormat.Cube} LUT file refused as {refused}"),
+                    },
+                    None: () => Tabled(LutFormat.Cube, text, header.End, braced: false, width: 3,
+                        stated.Curve.Map(length => CurveTable(length.Value, Domain(stated.CurveRange, stated.Low, stated.High))).ToSeq()
+                        + stated.Lattice.Map(size => LatticeTable(size.Value, Domain(stated.LatticeRange, stated.Low, stated.High), LutInterpolation.Tetrahedral)).ToSeq())))
             .Apply(static (_, _, table) => table)
             .As()
         select table;
@@ -227,10 +231,10 @@ public static class LutFiles {
     private static Fin<LutTable> ParseSpi1d(string text) =>
         from header in Header.Read(text, LutFormat.Spi1d, [Version, From, Length, Components], static line => line[0] != '{')
         from stated in (
-                header.Stated(Version, static value => Invariant.Number<int>(value).Filter(static version => version is 1)),
+                header.Stated(Version, static value => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int version) && version is 1 ? Some(version) : None),
                 header.Stated(From, Pair),
-                header.Stated(Length, static value => Invariant.Number<int>(value).Bind(static size => CurveLength.Validated(size).ToOption())),
-                header.Stated(Components, static value => Invariant.Number<int>(value).Filter(static count => count is 1 or 3)))
+                header.Stated(Length, static value => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int size) ? CurveLength.Validated(size).ToOption() : None),
+                header.Stated(Components, static value => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int count) && count is 1 or 3 ? Some(count) : None))
             .Apply(static (version, domain, length, components) => (Version: version, Domain: domain, Length: length, Components: components))
             .As()
         from shape in (
@@ -249,25 +253,28 @@ public static class LutFiles {
             return Misstated(LutFormat.Spi3d, 1);
         if (!lines.MoveNext() || !lines.MoveNext())
             return Sizeless(LutFormat.Spi3d);
-        if (lines.Current.SplitAny(tokens, Blanks, StringSplitOptions.RemoveEmptyEntries) is not 3 || Parsed(lines.Current, tokens, codes) is not 3
-            || codes.ContainsAnyExcept(codes[0]) || LatticeSize.Validated(codes[0]).ToOption().Case is not LatticeSize size)
+        if (lines.Current.SplitAny(tokens, Blanks, StringSplitOptions.RemoveEmptyEntries) is not 3 || Parsed(lines.Current, tokens, codes) is not 3 || codes.ContainsAnyExcept(codes[0]))
             return Misstated(LutFormat.Spi3d, 3);
-        int nodes = size * size * size;
-        using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * nodes);
-        using SpanOwner<bool> filled = SpanOwner<bool>.Allocate(nodes, AllocationMode.Clear);
-        (int number, int read) = (3, 0);
+        (int size, int number, List<(long Node, Vector3 Value, int Line)> rows) = (codes[0], 3, []);
+        Span<float> value = stackalloc float[3];
         while (lines.MoveNext()) {
             number++;
             if (lines.Current.SplitAny(tokens, Blanks, StringSplitOptions.RemoveEmptyEntries) is not 6 || Parsed(lines.Current, tokens, codes) is not 3)
                 continue;
-            int node = (((codes[2] * size) + codes[1]) * size) + codes[0];
-            if (codes.ContainsAnyExceptInRange(0, size - 1) || filled.Span[node] || Parsed(lines.Current, tokens[3..6], samples.Span.Slice(3 * node, 3)) is not 3)
+            if (codes.ContainsAnyExceptInRange(0, size - 1) || Parsed(lines.Current, tokens[3..6], value) is not 3)
                 return Misstated(LutFormat.Spi3d, number);
-            (filled.Span[node], read) = (true, read + 1);
+            rows.Add((((((long)codes[2] * size) + codes[1]) * size) + codes[0], new Vector3(value), number));
         }
-        return read != nodes
-            ? Miscounted(LutFormat.Spi3d, nodes, read)
-            : LatticeTable(size, (Vector3.Zero, Vector3.One), LutInterpolation.Tetrahedral).Build(samples.Memory);
+        if (rows.Count != (long)size * size * size)
+            return Miscounted(LutFormat.Spi3d, (long)size * size * size, rows.Count);
+        using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * rows.Count);
+        using SpanOwner<bool> filled = SpanOwner<bool>.Allocate(rows.Count, AllocationMode.Clear);
+        foreach ((long node, Vector3 entry, int line) in rows) {
+            if (filled.Span[(int)node])
+                return Misstated(LutFormat.Spi3d, line);
+            (filled.Span[(int)node], MemoryMarshal.Cast<float, Vector3>(samples.Span)[(int)node]) = (true, entry);
+        }
+        return LatticeTable(size, (Vector3.Zero, Vector3.One), LutInterpolation.Tetrahedral).Build(samples.Memory);
     }
 
     private static Fin<LutTable> ParseSpiMatrix(string text) {
@@ -285,40 +292,37 @@ public static class LutFiles {
     }
 
     private static Fin<LutTable> Parse3dl(string text) {
-        Span<System.Range> tokens = stackalloc System.Range[LatticeSize.MaxValue + 1];
-        Span<int> codes = stackalloc int[LatticeSize.MaxValue + 1];
+        Span<System.Range> tokens = stackalloc System.Range[4];
+        Span<int> codes = stackalloc int[4];
         SpanLineEnumerator lines = text.AsSpan().EnumerateLines();
-        (int number, int count, int read) = (0, 0, 0);
-        while (read is 0 && lines.MoveNext()) {
+        (int number, Option<int[]> stated) = (0, None);
+        while (stated.IsNone && lines.MoveNext()) {
             number++;
-            count = lines.Current.SplitAny(tokens, Blanks, StringSplitOptions.RemoveEmptyEntries);
-            read = Parsed(lines.Current, tokens[..count], codes[..count]);
+            stated = Numbers<int>(lines.Current).Filter(static mesh => mesh.Length > 0);
+            if (stated.IsNone && lines.Current.SplitAny(tokens[..2], Blanks, StringSplitOptions.RemoveEmptyEntries) > 0 && Parsed(lines.Current, tokens[..1], codes[..1]) is 1)
+                return Misstated(LutFormat.Autodesk, number);
         }
-        if (read is 0)
+        if (stated.Case is not int[] { Length: var size } mesh)
             return Sizeless(LutFormat.Autodesk);
-        if (read != count || count <= 3 || codes[..count] is not [.., var last] || last < 128 || !Ramped(codes[..count], last) || LatticeSize.Validated(count).ToOption().Case is not LatticeSize size)
+        if (size <= 3 || mesh[^1] < 128 || !Ramped(mesh, mesh[^1]))
             return Misstated(LutFormat.Autodesk, number);
-        int nodes = size * size * size;
-        using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * nodes);
-        Span<Vector3> lattice = MemoryMarshal.Cast<float, Vector3>(samples.Span);
-        (int rows, int largest) = (0, 0);
+        (List<Vector3> rows, int largest) = ([], 0);
         while (lines.MoveNext()) {
             number++;
-            count = lines.Current.SplitAny(tokens[..4], Blanks, StringSplitOptions.RemoveEmptyEntries);
-            read = Parsed(lines.Current, tokens[..count], codes[..count]);
+            int count = lines.Current.SplitAny(tokens, Blanks, StringSplitOptions.RemoveEmptyEntries);
+            int read = Parsed(lines.Current, tokens[..count], codes[..count]);
             if (read is 0)
                 continue;
             if (count is not 3 || read != count || codes[..3].ContainsAnyInRange(int.MinValue, -1))
                 return Misstated(LutFormat.Autodesk, number);
-            if (rows < nodes)
-                lattice[Transposed(rows, size)] = new Vector3(codes[0], codes[1], codes[2]);
-            (rows, largest) = (rows + 1, int.Max(largest, TensorPrimitives.Max(codes[..3])));
+            rows.Add(new Vector3(codes[0], codes[1], codes[2]));
+            largest = int.Max(largest, TensorPrimitives.Max(codes[..3]));
         }
-        if (rows != nodes)
-            return Miscounted(LutFormat.Autodesk, nodes, rows);
-        TensorPrimitives.Divide(samples.Span, uint.Clamp(BitOperations.RoundUpToPowerOf2((uint)largest), 128u, 65_536u) - 1f, samples.Span);
-        TensorPrimitives.Min(samples.Span, 1f, samples.Span);
-        return LatticeTable(size, (Vector3.Zero, Vector3.One), LutInterpolation.Tetrahedral).Build(samples.Memory);
+        if (rows.Count != (long)size * size * size)
+            return Miscounted(LutFormat.Autodesk, (long)size * size * size, rows.Count);
+        float[] samples = Transposed(MemoryMarshal.Cast<Vector3, float>(CollectionsMarshal.AsSpan(rows)), size, 1f / (uint.Clamp(BitOperations.RoundUpToPowerOf2((uint)largest), 128u, 65_536u) - 1f));
+        TensorPrimitives.Min(samples, 1f, samples);
+        return LatticeTable(size, (Vector3.Zero, Vector3.One), LutInterpolation.Tetrahedral).Build(samples);
 
         static bool Ramped(ReadOnlySpan<int> mesh, int last) {
             for (int at = 0; at < mesh.Length; at++)
@@ -367,12 +371,11 @@ public static class LutFiles {
         from read in (
                 Scales(node, format),
                 Values<float>(node, format),
-                ClfInterpolation.Validated(Attribute(node, Interpolation).IfNone(ClfInterpolation.Trilinear.Key)).BiMap(static interpolation => interpolation.Interpolation, _ => Malformed(node, format)))
+                ClfInterpolation.TryGet(Attribute(node, Interpolation).IfNone(ClfInterpolation.Trilinear.Key), out ClfInterpolation? interpolation) ? Fin.Succ(interpolation.Interpolation) : Malformed(node, format))
             .Apply(static (scales, array, interpolation) => (Scales: scales, Array: array, Interpolation: interpolation))
             .As()
         from size in (read.Array.Dimensions is [var red, var green, var blue, 3] && red == green && green == blue && read.Array.Values.Length == 3 * red * red * red
-                ? LatticeSize.Validated(red).ToOption()
-                : None).ToFin(Malformed(node, format))
+                ? Some(red) : None).ToFin(Malformed(node, format))
         from cube in LatticeTable(size, (Vector3.Zero, Vector3.One), read.Interpolation).Build(Transposed(read.Array.Values, size, 1f / read.Scales.Out))
         from table in Indexed(node, format, read.Scales.In, size, cube)
         select table;
@@ -395,7 +398,7 @@ public static class LutFiles {
         select (LutTable)new LutTable.Remap(bounds);
 
     internal static Fin<LutTable> ReadLog(XElement node, LutFormat format) =>
-        from style in Attribute(node, Style).Bind(static token => ClfLogStyle.Validated(token).ToOption()).ToFin(Malformed(node, format))
+        from style in Attribute(node, Style).Bind(static token => ClfLogStyle.TryGet(token, out ClfLogStyle? style) ? Some(style) : None).ToFin(Malformed(node, format))
         from curve in style.Base.Match(
             Some: static logBase => new LogCurve(logBase, Vector3.One, Vector3.Zero, Vector3.One, Vector3.Zero, None),
             None: () => Logarithm(node, format, style.Camera))
@@ -408,7 +411,7 @@ public static class LutFiles {
     internal static Fin<LutTable> ReadCdl(XElement node, LutFormat format) =>
         from read in (
                 Attribute(node, Style).Match(
-                    Some: static token => CdlStyle.Validated(token).ToOption() | toSeq(CdlStyle.Items).Find(item => string.Equals(item.Legacy, token, StringComparison.OrdinalIgnoreCase)),
+                    Some: static token => (CdlStyle.TryGet(token, out CdlStyle? style) ? Some(style) : None) | toSeq(CdlStyle.Items).Find(item => string.Equals(item.Legacy, token, StringComparison.OrdinalIgnoreCase)),
                     None: static () => Some(CdlStyle.Fwd)).ToFin(Malformed(node, format)),
                 CorrectionValues(node, _ => Malformed(node, format)))
             .Apply(static (style, values) => (Style: style, Values: values))
@@ -420,7 +423,7 @@ public static class LutFiles {
             Child(correction, parent).Match(
                 Some: held => Child(held, name).Bind(element => parse(element.Value)).ToFin(malformed(name)),
                 None: () => absent);
-        return (Field(SopNode, Slope, Triple, Vector3.One), Field(SopNode, Offset, Triple, Vector3.Zero), Field(SopNode, Power, Triple, Vector3.One), Field(SatNode, Saturation, static text => Invariant.Number<float>(text), 1f))
+        return (Field(SopNode, Slope, Triple, Vector3.One), Field(SopNode, Offset, Triple, Vector3.Zero), Field(SopNode, Power, Triple, Vector3.One), Field(SatNode, Saturation, static text => float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float saturation) ? Some(saturation) : None, 1f))
             .Apply(static (slope, offset, power, saturation) => (Slope: slope, Offset: offset, Power: power, Saturation: saturation))
             .As()
             .Bind(values => Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(values.Slope, Vector3.Zero) & Vector3.GreaterThan(values.Power, Vector3.Zero)) && values.Saturation >= 0f
@@ -459,7 +462,7 @@ public static class LutFiles {
     private static (int Floats, Func<ReadOnlyMemory<float>, Fin<LutTable>> Build) CurveTable(CurveLength length, (Vector3 Minimum, Vector3 Maximum) domain) =>
         (3 * length, rows => Lut1D.From(length, rows, domain.Minimum, domain.Maximum).Map(static table => (LutTable)new LutTable.ChannelCurve(table)));
 
-    private static (int Floats, Func<ReadOnlyMemory<float>, Fin<LutTable>> Build) LatticeTable(LatticeSize size, (Vector3 Minimum, Vector3 Maximum) domain, LutInterpolation interpolation) =>
+    private static (int Floats, Func<ReadOnlyMemory<float>, Fin<LutTable>> Build) LatticeTable(int size, (Vector3 Minimum, Vector3 Maximum) domain, LutInterpolation interpolation) =>
         (3 * size * size * size, rows => Lut3D.From(size, rows, domain.Minimum, domain.Maximum).Map(lattice => (LutTable)new LutTable.Cube(lattice, interpolation)));
 
     private static LutTable Chained(Seq<LutTable> steps) => steps is [var step] ? step : new LutTable.Sequence(steps);
@@ -496,12 +499,13 @@ public static class LutFiles {
             None: () => table);
 
     private static Option<(float Input, float Index)> IndexEntry(string entry) =>
-        entry.Split('@') is [var input, var index] ? from value in Invariant.Number<float>(input) from at in Invariant.Number<float>(index) select (value, at) : None;
+        entry.Split('@') is [var input, var index] && float.TryParse(input, NumberStyles.Float, CultureInfo.InvariantCulture, out float value)
+        && float.TryParse(index, NumberStyles.Float, CultureInfo.InvariantCulture, out float at) ? Some((value, at)) : None;
 
     private static Fin<Option<RemapBound>> Bound(XElement node, LutFormat format, string input, string output, (float In, float Out) scales) =>
         (Child(node, input).Map(static element => element.Value), Child(node, output).Map(static element => element.Value)) switch {
             var (inside, outside) when inside.IsNone && outside.IsNone => Option<RemapBound>.None,
-            var (inside, outside) => (from value in inside.Bind(static text => Invariant.Number<float>(text)) from mapped in outside.Bind(static text => Invariant.Number<float>(text)) select Some(new RemapBound(value / scales.In, mapped / scales.Out)))
+            var (inside, outside) => (from value in inside.Bind(static text => float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float read) ? Some(read) : None) from mapped in outside.Bind(static text => float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float read) ? Some(read) : None) select Some(new RemapBound(value / scales.In, mapped / scales.Out)))
                 .ToFin(Malformed(node, format)),
         };
 
@@ -539,7 +543,7 @@ public static class LutFiles {
             channels.Traverse(static channel => channel.Camera).As().Map(static joints => new CameraSegment(Across(joints, static joint => joint.Knee), Across(joints, static joint => joint.Slope))));
 
     private static Fin<LutTable> Exponential(XElement node, LutFormat format, string parameters, string exponent) =>
-        from style in Attribute(node, Style).Bind(static token => ExponentStyle.Validated(token).ToOption()).ToFin(Malformed(node, format))
+        from style in Attribute(node, Style).Bind(static token => ExponentStyle.TryGet(token, out ExponentStyle? style) ? Some(style) : None).ToFin(Malformed(node, format))
         from channels in PerChannel(
             node, format, parameters,
             element =>
@@ -577,10 +581,10 @@ public static class LutFiles {
         (Scale(node, format, InBitDepth), Scale(node, format, OutBitDepth)).Apply(static (input, output) => (In: input, Out: output)).As();
 
     private static Fin<float> Scale(XElement node, LutFormat format, string name) =>
-        ClfBitDepth.Validated(Attribute(node, name).IfNone(ClfBitDepth.Float32.Key)).BiMap(static depth => depth.Scale, _ => Malformed(node, format));
+        ClfBitDepth.TryGet(Attribute(node, name).IfNone(ClfBitDepth.Float32.Key), out ClfBitDepth? depth) ? depth.Scale : Malformed(node, format);
 
     private static Fin<Option<float>> Decimal(XElement element, LutFormat format, string name) =>
-        Attribute(element, name).Traverse(text => Invariant.Number<float>(text).ToFin(Malformed(element, format))).As();
+        Attribute(element, name).Traverse(text => float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float value) ? Fin.Succ(value) : Malformed(element, format)).As();
 
     private static Fin<(int[] Dimensions, T[] Values)> Values<T>(XElement node, LutFormat format) where T : struct, INumberBase<T> =>
         (from array in Child(node, ArrayElement)

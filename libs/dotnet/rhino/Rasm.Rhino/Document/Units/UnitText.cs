@@ -32,7 +32,7 @@ public static class UnitText {
                     : (Read(paper, spaceUnit, Errors.ParseError($"{nameof(ScaleValue)}.{nameof(ScaleValue.LeftLengthValue)} parsed no whole value from {text}")),
                        Read(model, spaceUnit, Errors.ParseError($"{nameof(ScaleValue)}.{nameof(ScaleValue.RightLengthValue)} parsed no whole value from {text}")))
                         .Apply((paperLength, modelLength) => Quantities.From(paperLength, spaceUnit) / Quantities.From(modelLength, spaceUnit)).As()
-                        .Bind(static ratio => DrawingScale.Validated(ratio))))));
+                        .Bind(static ratio => DrawingScale.TryCreate(ratio, out DrawingScale scale, out DraftingFault? fault) ? Fin.Succ(scale) : fault)))));
 
     // --- [ANGLES]
     public static IO<double> ParseAngle(string text, StringParserSettings settings) =>

@@ -8,8 +8,18 @@ internal sealed class Count : IObjectFactory<Count, int, ValidationError> {
     }
 }
 
+internal sealed class Fault : IValidationError<Fault> {
+    public static Fault Create(string message) => new();
+}
+
 internal static class ValidateOutsideFactory {
     internal static bool Valid(int value) => {|#0:Count.Validate(value, null, out _)|} is null;
+
+    internal static bool Defaulted<TCount>(int value) where TCount : IObjectFactory<TCount, int, ValidationError> => {|#1:TCount.Validate(value, null, out _)|} is null;
+}
+
+internal static class ConstrainedError {
+    internal static bool Valid<TCount>(int value) where TCount : IObjectFactory<TCount, int, Fault> => TCount.Validate(value, null, out _) is null;
 }
 
 internal static class ValidationHook {

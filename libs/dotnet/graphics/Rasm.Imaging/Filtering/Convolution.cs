@@ -22,6 +22,7 @@ namespace Rasm.Imaging.Filtering;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<ImagingFault>]
 public sealed partial class Iris {
     public int Blades { get; }
     public double Rotation { get; }
@@ -117,13 +118,14 @@ public sealed partial class Iris {
     private static Vector256<double> Radii(double radius, double fringe) =>
         Vector256.Create(radius * (1d - double.Max(fringe, 0d)), radius * (1d - (double.Abs(fringe) / 2d)), radius * (1d + double.Min(fringe, 0d)), 0d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int blades, ref double rotation, ref double roundness, ref double obstruction, ref double squeeze) =>
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int blades, ref double rotation, ref double roundness, ref double obstruction, ref double squeeze) =>
         validationError = blades >= 3 && double.IsFinite(rotation) && roundness is >= 0d and <= 1d && obstruction is >= 0d and <= 1d && double.IsFinite(squeeze) && squeeze > 0d ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture,
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture,
                 $"Iris of {blades} blades must have at least 3, roundness {roundness} and obstruction {obstruction} in [0, 1], finite rotation {rotation} and positive squeeze {squeeze}"));
 }
 
 [ComplexValueObject]
+[ValidationError<ImagingFault>]
 public readonly partial struct HighlightKey {
     public float Threshold { get; }
     public float Softness { get; }
@@ -136,9 +138,9 @@ public readonly partial struct HighlightKey {
         return v > 0f ? new Vector4(light * ((float.Max(v, Threshold) - Threshold + (k > 0f ? h * h / (4f * k) : 0f)) / v), 0f) : Vector4.Zero;
     }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float threshold, ref float softness) =>
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref float threshold, ref float softness) =>
         validationError = float.IsFinite(threshold) && threshold >= 0f && float.IsFinite(softness) && softness >= 0f ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Highlight threshold {threshold} and softness {softness} must be finite and non-negative"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Highlight threshold {threshold} and softness {softness} must be finite and non-negative"));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -434,8 +436,9 @@ public static unsafe class Bokeh {
     public static Option<Func<Mat, Mat, PixelFrame, Fin<Unit>>> Depth(PixelFrame depth, Camera camera, double fStop, double cap, PixelExtent extent) =>
         from lens in camera.Lens
         from window in camera.Frustum.Switch(perspective: static frustum => Some(frustum.Window), parallel: static _ => Option<ViewWindow>.None)
-        let focus = (double)lens.FocusDistance
-        let k = lens.FocalLength * (double)extent.ShortSide / (2d * fStop * (focus - lens.FocalLength))
+        let focus = lens.FocusDistance.Meters.ToDouble()
+        let focal = lens.FocalLength.Meters.ToDouble()
+        let k = focal * extent.ShortSide / (2d * fStop * (focus - focal))
         let span = double.Min(window.Width, window.Height)
         select new Func<Mat, Mat, PixelFrame, Fin<Unit>>((_, radii, frame) => {
             Span<float> radius = new((void*)radii.DataPointer, frame.Block.Length / 4);

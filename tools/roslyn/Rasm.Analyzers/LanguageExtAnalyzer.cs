@@ -73,7 +73,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         "RASM1010",
         Category,
         "Record property lens written by hand",
-        "`{0}` restates {1} `{2}` of `{3}`, {4}",
+        "`{0}` restates {1} `{2}` of `{3}`, write `{4}` at the edit",
         "`Lens<A, B>.New` whose getter reads a positional property path of a source record and whose setter rewrites the same path through `with`.");
 
     private static readonly SymbolDisplayFormat Shown = SymbolDisplayFormat.MinimallyQualifiedFormat.AddMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
@@ -390,7 +390,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                     path.Length is 1 ? "property" : "path",
                     joined,
                     root.Type.ToDisplayString(Shown),
-                    path.Length is 1 ? "annotate the parameter with `[Field]` under `[StateRecord]` and read its generated lens" : "compose the generated leaf lenses through `lens(…)`"),
+                    written.Syntax),
             ];
         });
     }

@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using AppKit;
 using CoreAnimation;
 using CoreGraphics;
-using Eto.Drawing;
 using Eto.Forms;
 using Eto.Mac;
 using Eto.Mac.Forms;
@@ -15,8 +14,8 @@ using ObjCRuntime;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Surfaces;
 using Rasm.UI;
+using Rasm.UI.Styling;
 using SkiaSharp;
-using Navigation = Rasm.UI.Navigation;
 
 namespace Rasm.Rhino.UI.Mac;
 
@@ -116,62 +115,62 @@ public static class DrawnViews {
     private static readonly nint TipOwner = ObjCExtensions.GetProtocolHandle(typeof(INSViewToolTipOwner).GetCustomAttribute<ProtocolAttribute>()?.Name
                                                                            ?? throw new InvalidOperationException($"{nameof(INSViewToolTipOwner)} binds no protocol"));
 
-    private static readonly HashMap<nint, (Act Act, LanguageExt.HashSet<Modifier> Modifiers)> Commands = toHashMap(Seq<(string Member, Act Act, bool Extends)>(
-            (nameof(INSStandardKeyBindingResponding.MoveLeft), new Act.Navigate(Navigation.CharacterLeft), false),
-            (nameof(INSStandardKeyBindingResponding.MoveBackward), new Act.Navigate(Navigation.CharacterLeft), false),
-            (nameof(INSStandardKeyBindingResponding.MoveRight), new Act.Navigate(Navigation.CharacterRight), false),
-            (nameof(INSStandardKeyBindingResponding.MoveForward), new Act.Navigate(Navigation.CharacterRight), false),
-            (nameof(INSStandardKeyBindingResponding.MoveUp), new Act.Navigate(Navigation.LineUp), false),
-            (nameof(INSStandardKeyBindingResponding.MoveDown), new Act.Navigate(Navigation.LineDown), false),
-            (nameof(INSStandardKeyBindingResponding.MoveWordLeft), new Act.Navigate(Navigation.WordLeft), false),
-            (nameof(INSStandardKeyBindingResponding.MoveWordBackward), new Act.Navigate(Navigation.WordLeft), false),
-            (nameof(INSStandardKeyBindingResponding.MoveWordRight), new Act.Navigate(Navigation.WordRight), false),
-            (nameof(INSStandardKeyBindingResponding.MoveWordForward), new Act.Navigate(Navigation.WordRight), false),
-            (nameof(INSStandardKeyBindingResponding.MoveToBeginningOfLine), new Act.Navigate(Navigation.LineHome), false),
-            (nameof(INSStandardKeyBindingResponding.MoveToLeftEndOfLine), new Act.Navigate(Navigation.LineHome), false),
-            (nameof(INSStandardKeyBindingResponding.MoveToEndOfLine), new Act.Navigate(Navigation.LineEnd), false),
-            (nameof(INSStandardKeyBindingResponding.MoveToRightEndOfLine), new Act.Navigate(Navigation.LineEnd), false),
-            (nameof(INSStandardKeyBindingResponding.MoveToBeginningOfDocument), new Act.Navigate(Navigation.DocumentHome), false),
-            (nameof(INSStandardKeyBindingResponding.MoveToEndOfDocument), new Act.Navigate(Navigation.DocumentEnd), false),
-            (nameof(INSStandardKeyBindingResponding.PageUp), new Act.Navigate(Navigation.PageUp), false),
-            (nameof(INSStandardKeyBindingResponding.PageDown), new Act.Navigate(Navigation.PageDown), false),
-            (nameof(INSStandardKeyBindingResponding.ScrollPageUp), new Act.Navigate(Navigation.PageUp), false),
-            (nameof(INSStandardKeyBindingResponding.ScrollPageDown), new Act.Navigate(Navigation.PageDown), false),
-            (nameof(INSStandardKeyBindingResponding.ScrollLineUp), new Act.Navigate(Navigation.LineUp), false),
-            (nameof(INSStandardKeyBindingResponding.ScrollLineDown), new Act.Navigate(Navigation.LineDown), false),
-            (nameof(INSStandardKeyBindingResponding.ScrollToBeginningOfDocument), new Act.Navigate(Navigation.DocumentHome), false),
-            (nameof(INSStandardKeyBindingResponding.ScrollToEndOfDocument), new Act.Navigate(Navigation.DocumentEnd), false),
-            (nameof(INSStandardKeyBindingResponding.MoveLeftAndModifySelection), new Act.Navigate(Navigation.CharacterLeft), true),
-            (nameof(INSStandardKeyBindingResponding.MoveBackwardAndModifySelection), new Act.Navigate(Navigation.CharacterLeft), true),
-            (nameof(INSStandardKeyBindingResponding.MoveRightAndModifySelection), new Act.Navigate(Navigation.CharacterRight), true),
-            (nameof(INSStandardKeyBindingResponding.MoveForwardAndModifySelection), new Act.Navigate(Navigation.CharacterRight), true),
-            (nameof(INSStandardKeyBindingResponding.MoveUpAndModifySelection), new Act.Navigate(Navigation.LineUp), true),
-            (nameof(INSStandardKeyBindingResponding.MoveDownAndModifySelection), new Act.Navigate(Navigation.LineDown), true),
-            (nameof(INSStandardKeyBindingResponding.MoveWordLeftAndModifySelection), new Act.Navigate(Navigation.WordLeft), true),
-            (nameof(INSStandardKeyBindingResponding.MoveWordBackwardAndModifySelection), new Act.Navigate(Navigation.WordLeft), true),
-            (nameof(INSStandardKeyBindingResponding.MoveWordRightAndModifySelection), new Act.Navigate(Navigation.WordRight), true),
-            (nameof(INSStandardKeyBindingResponding.MoveWordForwardAndModifySelection), new Act.Navigate(Navigation.WordRight), true),
-            (nameof(INSStandardKeyBindingResponding.MoveToBeginningOfLineAndModifySelection), new Act.Navigate(Navigation.LineHome), true),
-            (nameof(INSStandardKeyBindingResponding.MoveToLeftEndOfLineAndModifySelection), new Act.Navigate(Navigation.LineHome), true),
-            (nameof(INSStandardKeyBindingResponding.MoveToEndOfLineAndModifySelection), new Act.Navigate(Navigation.LineEnd), true),
-            (nameof(INSStandardKeyBindingResponding.MoveToRightEndOfLineAndModifySelection), new Act.Navigate(Navigation.LineEnd), true),
-            (nameof(INSStandardKeyBindingResponding.MoveToBeginningOfDocumentAndModifySelection), new Act.Navigate(Navigation.DocumentHome), true),
-            (nameof(INSStandardKeyBindingResponding.MoveToEndOfDocumentAndModifySelection), new Act.Navigate(Navigation.DocumentEnd), true),
-            (nameof(INSStandardKeyBindingResponding.PageUpAndModifySelection), new Act.Navigate(Navigation.PageUp), true),
-            (nameof(INSStandardKeyBindingResponding.PageDownAndModifySelection), new Act.Navigate(Navigation.PageDown), true),
-            (nameof(INSStandardKeyBindingResponding.DeleteBackward), new Act.Delete(Navigation.CharacterLeft), false),
-            (nameof(INSStandardKeyBindingResponding.DeleteForward), new Act.Delete(Navigation.CharacterRight), false),
-            (nameof(INSStandardKeyBindingResponding.DeleteWordBackward), new Act.Delete(Navigation.WordLeft), false),
-            (nameof(INSStandardKeyBindingResponding.DeleteWordForward), new Act.Delete(Navigation.WordRight), false),
-            (nameof(INSStandardKeyBindingResponding.DeleteToBeginningOfLine), new Act.Delete(Navigation.LineHome), false),
-            (nameof(INSStandardKeyBindingResponding.DeleteToEndOfLine), new Act.Delete(Navigation.LineEnd), false),
+    private static readonly HashMap<nint, (Act Act, KeyModifiers Modifiers)> Commands = toHashMap(Seq<(string Member, Act Act, bool Extends)>(
+            (nameof(INSStandardKeyBindingResponding.MoveLeft), new Act.Navigate(NavigationDirection.CharacterLeft), false),
+            (nameof(INSStandardKeyBindingResponding.MoveBackward), new Act.Navigate(NavigationDirection.CharacterLeft), false),
+            (nameof(INSStandardKeyBindingResponding.MoveRight), new Act.Navigate(NavigationDirection.CharacterRight), false),
+            (nameof(INSStandardKeyBindingResponding.MoveForward), new Act.Navigate(NavigationDirection.CharacterRight), false),
+            (nameof(INSStandardKeyBindingResponding.MoveUp), new Act.Navigate(NavigationDirection.LineUp), false),
+            (nameof(INSStandardKeyBindingResponding.MoveDown), new Act.Navigate(NavigationDirection.LineDown), false),
+            (nameof(INSStandardKeyBindingResponding.MoveWordLeft), new Act.Navigate(NavigationDirection.WordLeft), false),
+            (nameof(INSStandardKeyBindingResponding.MoveWordBackward), new Act.Navigate(NavigationDirection.WordLeft), false),
+            (nameof(INSStandardKeyBindingResponding.MoveWordRight), new Act.Navigate(NavigationDirection.WordRight), false),
+            (nameof(INSStandardKeyBindingResponding.MoveWordForward), new Act.Navigate(NavigationDirection.WordRight), false),
+            (nameof(INSStandardKeyBindingResponding.MoveToBeginningOfLine), new Act.Navigate(NavigationDirection.LineHome), false),
+            (nameof(INSStandardKeyBindingResponding.MoveToLeftEndOfLine), new Act.Navigate(NavigationDirection.LineHome), false),
+            (nameof(INSStandardKeyBindingResponding.MoveToEndOfLine), new Act.Navigate(NavigationDirection.LineEnd), false),
+            (nameof(INSStandardKeyBindingResponding.MoveToRightEndOfLine), new Act.Navigate(NavigationDirection.LineEnd), false),
+            (nameof(INSStandardKeyBindingResponding.MoveToBeginningOfDocument), new Act.Navigate(NavigationDirection.DocumentHome), false),
+            (nameof(INSStandardKeyBindingResponding.MoveToEndOfDocument), new Act.Navigate(NavigationDirection.DocumentEnd), false),
+            (nameof(INSStandardKeyBindingResponding.PageUp), new Act.Navigate(NavigationDirection.PageUp), false),
+            (nameof(INSStandardKeyBindingResponding.PageDown), new Act.Navigate(NavigationDirection.PageDown), false),
+            (nameof(INSStandardKeyBindingResponding.ScrollPageUp), new Act.Navigate(NavigationDirection.PageUp), false),
+            (nameof(INSStandardKeyBindingResponding.ScrollPageDown), new Act.Navigate(NavigationDirection.PageDown), false),
+            (nameof(INSStandardKeyBindingResponding.ScrollLineUp), new Act.Navigate(NavigationDirection.LineUp), false),
+            (nameof(INSStandardKeyBindingResponding.ScrollLineDown), new Act.Navigate(NavigationDirection.LineDown), false),
+            (nameof(INSStandardKeyBindingResponding.ScrollToBeginningOfDocument), new Act.Navigate(NavigationDirection.DocumentHome), false),
+            (nameof(INSStandardKeyBindingResponding.ScrollToEndOfDocument), new Act.Navigate(NavigationDirection.DocumentEnd), false),
+            (nameof(INSStandardKeyBindingResponding.MoveLeftAndModifySelection), new Act.Navigate(NavigationDirection.CharacterLeft), true),
+            (nameof(INSStandardKeyBindingResponding.MoveBackwardAndModifySelection), new Act.Navigate(NavigationDirection.CharacterLeft), true),
+            (nameof(INSStandardKeyBindingResponding.MoveRightAndModifySelection), new Act.Navigate(NavigationDirection.CharacterRight), true),
+            (nameof(INSStandardKeyBindingResponding.MoveForwardAndModifySelection), new Act.Navigate(NavigationDirection.CharacterRight), true),
+            (nameof(INSStandardKeyBindingResponding.MoveUpAndModifySelection), new Act.Navigate(NavigationDirection.LineUp), true),
+            (nameof(INSStandardKeyBindingResponding.MoveDownAndModifySelection), new Act.Navigate(NavigationDirection.LineDown), true),
+            (nameof(INSStandardKeyBindingResponding.MoveWordLeftAndModifySelection), new Act.Navigate(NavigationDirection.WordLeft), true),
+            (nameof(INSStandardKeyBindingResponding.MoveWordBackwardAndModifySelection), new Act.Navigate(NavigationDirection.WordLeft), true),
+            (nameof(INSStandardKeyBindingResponding.MoveWordRightAndModifySelection), new Act.Navigate(NavigationDirection.WordRight), true),
+            (nameof(INSStandardKeyBindingResponding.MoveWordForwardAndModifySelection), new Act.Navigate(NavigationDirection.WordRight), true),
+            (nameof(INSStandardKeyBindingResponding.MoveToBeginningOfLineAndModifySelection), new Act.Navigate(NavigationDirection.LineHome), true),
+            (nameof(INSStandardKeyBindingResponding.MoveToLeftEndOfLineAndModifySelection), new Act.Navigate(NavigationDirection.LineHome), true),
+            (nameof(INSStandardKeyBindingResponding.MoveToEndOfLineAndModifySelection), new Act.Navigate(NavigationDirection.LineEnd), true),
+            (nameof(INSStandardKeyBindingResponding.MoveToRightEndOfLineAndModifySelection), new Act.Navigate(NavigationDirection.LineEnd), true),
+            (nameof(INSStandardKeyBindingResponding.MoveToBeginningOfDocumentAndModifySelection), new Act.Navigate(NavigationDirection.DocumentHome), true),
+            (nameof(INSStandardKeyBindingResponding.MoveToEndOfDocumentAndModifySelection), new Act.Navigate(NavigationDirection.DocumentEnd), true),
+            (nameof(INSStandardKeyBindingResponding.PageUpAndModifySelection), new Act.Navigate(NavigationDirection.PageUp), true),
+            (nameof(INSStandardKeyBindingResponding.PageDownAndModifySelection), new Act.Navigate(NavigationDirection.PageDown), true),
+            (nameof(INSStandardKeyBindingResponding.DeleteBackward), new Act.Delete(NavigationDirection.CharacterLeft), false),
+            (nameof(INSStandardKeyBindingResponding.DeleteForward), new Act.Delete(NavigationDirection.CharacterRight), false),
+            (nameof(INSStandardKeyBindingResponding.DeleteWordBackward), new Act.Delete(NavigationDirection.WordLeft), false),
+            (nameof(INSStandardKeyBindingResponding.DeleteWordForward), new Act.Delete(NavigationDirection.WordRight), false),
+            (nameof(INSStandardKeyBindingResponding.DeleteToBeginningOfLine), new Act.Delete(NavigationDirection.LineHome), false),
+            (nameof(INSStandardKeyBindingResponding.DeleteToEndOfLine), new Act.Delete(NavigationDirection.LineEnd), false),
             (nameof(INSStandardKeyBindingResponding.InsertTab), new Act.Next(), false),
             (nameof(INSStandardKeyBindingResponding.InsertBacktab), new Act.Previous(), false),
             (nameof(INSStandardKeyBindingResponding.InsertNewline), new Act.Confirm(), false),
             (nameof(INSStandardKeyBindingResponding.CancelOperation), new Act.Cancel(), false),
             (nameof(INSStandardKeyBindingResponding.SelectAll), new Act.SelectAll(), false),
             (nameof(INSStandardKeyBindingResponding.ShowContextMenuForSelection), new Act.ShowMenu(), false))
-        .Map(static row => (Exported(typeof(INSStandardKeyBindingResponding), row.Member), (row.Act, row.Extends ? toHashSet(Seq(Modifier.Shift)) : []))));
+        .Map(static row => (Exported(typeof(INSStandardKeyBindingResponding), row.Member), (row.Act, KeyModifiers.None with { Shift = row.Extends }))));
 
     private static readonly HashMap<nint, Act> Performs = toHashMap(Seq<(string Member, Act Act)>(
             (nameof(NSAccessibilityElement.AccessibilityPerformPress), new Act.Press()),
@@ -413,11 +412,11 @@ public static class DrawnViews {
         shown.AccessibilityRole = role;
         shown.AccessibilitySubrole = subrole.ValueUnsafe();
         shown.AccessibilityParent = parent;
-        shown.AccessibilityIdentifier = string.Join('/', element.Id.Map(static key => key.ToValue()));
+        shown.AccessibilityIdentifier = string.Join('/', element.Id.Map(static key => key.Identifier));
         shown.AccessibilityLabel = element.Accessible.Label.ValueUnsafe();
         shown.AccessibilityHelp = element.Accessible.Help.ValueUnsafe();
-        shown.AccessibilityEnabled = !element.Conditions.Contains(Rasm.UI.Styling.Condition.Disabled);
-        shown.AccessibilitySelected = element.Conditions.Contains(Rasm.UI.Styling.Condition.Selected);
+        shown.AccessibilityEnabled = !element.Conditions.Contains(Condition.Disabled);
+        shown.AccessibilitySelected = element.Conditions.Contains(Condition.Selected);
         _ = element.Accessible.Expanded.Iter(open => shown.AccessibilityExpanded = open);
         _ = element.Accessible.Orientation.Iter(axis => shown.AccessibilityOrientation = axis.Map(horizontal: NSAccessibilityOrientation.Horizontal, vertical: NSAccessibilityOrientation.Vertical));
         _ = element.Accessible.Value.Iter(value => value.Switch(

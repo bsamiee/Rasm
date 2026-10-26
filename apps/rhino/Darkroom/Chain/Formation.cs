@@ -9,9 +9,9 @@ namespace Darkroom.Chain;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DisplayFormation {
     // --- [OUTPUT]
-    public static Gamut Working => Gamut.StandardRgb;
+    public static Gamut Working { get; } = Gamut.StandardRgb;
 
-    public static DisplayDevice Display => DisplayDevice.Srgb;
+    public static DisplayDevice Display { get; } = DisplayDevice.Srgb;
 
     public static Seq<PixelPass> Displayed(PassContext context) =>
         new ColorEncoding(context.Working, context.Signal).To(context.Display.Encoding).Map<PixelPass>(static step => new PixelPass.Color(step));

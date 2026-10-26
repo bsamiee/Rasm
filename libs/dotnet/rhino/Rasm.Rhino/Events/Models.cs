@@ -69,7 +69,7 @@ public sealed class ReadModel<TState>(Seq<HostEvent<Option<uint>>> marks, Func<R
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class ReadModel {
+public static class ReadModels {
     public static HostEvent<Option<uint>> Marks<TArgs>(DocumentEvent<TArgs> row) =>
         row.Choose(args => Some(row.DocumentSerial(args)));
 

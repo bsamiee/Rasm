@@ -1,20 +1,14 @@
-using System.Globalization;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
+using UnitsNet;
 
 namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct FrameCount {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value > 0 ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"frame count {value} is not positive"));
-}
-
 [SmartEnum]
 public sealed partial class AnimationQuality {
     public static readonly AnimationQuality Draft = new("preview", renderFull: false, renderPreview: false);
@@ -38,8 +32,8 @@ public abstract partial record AnimationPath {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AnimationKind {
     public sealed record Turntable(Seq<Point3d> Camera, Seq<Point3d> Target) : AnimationKind {
-        public static Turntable Orbit(RhinoViewport viewport, FrameCount frames) =>
-            new(toSeq(Enumerable.Range(0, frames)).Map(frame => Transform.Rotation(frame * Math.Tau / (int)frames, Vector3d.ZAxis, viewport.CameraTarget) * viewport.CameraLocation).Strict(),
+        public static Turntable Orbit(RhinoViewport viewport, int frames) =>
+            new(toSeq(Enumerable.Range(0, frames)).Map(frame => Transform.Rotation(frame * Math.Tau / frames, Vector3d.ZAxis, viewport.CameraTarget) * viewport.CameraLocation).Strict(),
                 toSeq(Enumerable.Repeat(viewport.CameraTarget, frames)));
     }
 
@@ -47,19 +41,19 @@ public abstract partial record AnimationKind {
 
     public sealed record Flythrough(AnimationPath Path) : AnimationKind;
 
-    public sealed record Sun(GeoCoordinate Place, NorthAngle North, SunWindow Window) : AnimationKind;
+    public sealed record Sun(GeoCoordinate Place, Angle North, SunWindow Window) : AnimationKind;
 }
 
 public sealed record AnimationOutput(FolderPath Folder, FileExtension Extension, NamePart Name) {
     internal static Fin<AnimationOutput> From(string folder, string extension, string name) =>
         (FolderPath.Of(folder),
-         FileExtension.Validated($"{FileExtension.Mark}{extension}"),
-         NamePart.Validated(name))
-            .Apply(static (existing, dotted, part) => new AnimationOutput(existing, dotted, part))
+         FileExtension.TryCreate($"{FileExtension.Mark}{extension}", out FileExtension? dotted, out RhinoFault? undotted) ? Fin.Succ(dotted) : undotted,
+         NamePart.TryCreate(name, out NamePart? part, out RhinoFault? unnamed) ? Fin.Succ(part) : unnamed)
+            .Apply(static (existing, extension, stem) => new AnimationOutput(existing, extension, stem))
             .As();
 }
 
-public sealed record AnimationSequence(AnimationKind Kind, FrameCount Frames, string ViewportName, Option<Guid> DisplayMode, Option<AnimationOutput> Output, AnimationQuality Quality);
+public sealed record AnimationSequence(AnimationKind Kind, int Frames, string ViewportName, Option<Guid> DisplayMode, Option<AnimationOutput> Output, AnimationQuality Quality);
 
 public sealed record AnimationRecord(AnimationSequence Sequence, int CurrentFrame, Seq<string> Images, Seq<string> Dates);
 
@@ -90,17 +84,14 @@ public static partial class Animations {
             AnimationProperties.CaptureTypes.Turntable => Some<AnimationKind>(new AnimationKind.Turntable(toSeq(copy.CameraPoints), toSeq(copy.TargetPoints))),
             AnimationProperties.CaptureTypes.Path => Some<AnimationKind>(new AnimationKind.CameraAndTarget(Traced(copy.CameraPathId, copy.CameraPoints), Traced(copy.TargetPathId, copy.TargetPoints))),
             AnimationProperties.CaptureTypes.Flythrough => Some<AnimationKind>(new AnimationKind.Flythrough(Traced(copy.CameraPathId, copy.CameraPoints))),
-            _ => SunWindow.Read(copy).Bind(window => window.Traverse(held =>
-                (GeoCoordinate.From(copy.Latitude, copy.Longitude), NorthAngle.Validated(copy.NorthAngle))
-                    .Apply((place, north) => (AnimationKind)new AnimationKind.Sun(place, north, held))
-                    .As()).As()),
+            _ => SunWindow.Read(copy).Map(window => window.Map(held =>
+                (AnimationKind)new AnimationKind.Sun(GeoCoordinate.From(copy.Latitude, copy.Longitude), Angle.FromDegrees(copy.NorthAngle), held))),
         };
 
     private static Fin<AnimationSequence> Sequence(AnimationProperties copy, AnimationKind kind) =>
-        (FrameCount.Validated(copy.FrameCount),
-         Conversions.Present(copy.FolderName).Traverse(folder => AnimationOutput.From(folder, copy.FileExtension, copy.AnimationName)).As(),
+        (Conversions.Present(copy.FolderName).Traverse(folder => AnimationOutput.From(folder, copy.FileExtension, copy.AnimationName)).As(),
          Quality((copy.RenderFull, copy.RenderPreview)))
-            .Apply((frames, output, quality) => new AnimationSequence(kind, frames, copy.ViewportName, Conversions.Present(copy.DisplayMode), output, quality))
+            .Apply((output, quality) => new AnimationSequence(kind, copy.FrameCount, copy.ViewportName, Conversions.Present(copy.DisplayMode), output, quality))
             .As();
 
     private static Fin<AnimationQuality> Quality((bool Full, bool Preview) held) =>
@@ -131,7 +122,7 @@ public static partial class Animations {
                 (target.CameraPathId, target.CameraPoints) = Stored(flight.Path);
             },
             sun: static (target, sun) => {
-                (target.Latitude, target.Longitude, target.NorthAngle) = (sun.Place.Latitude, sun.Place.Longitude, sun.North);
+                (target.Latitude, target.Longitude, target.NorthAngle) = (sun.Place.Latitude.Degrees.ToDouble(), sun.Place.Longitude.Degrees.ToDouble(), sun.North.Degrees.ToDouble());
                 SunMapper.Update(sun.Window, target);
             });
 
@@ -161,7 +152,4 @@ public static partial class Animations {
 
     [UserMapping]
     private static string Text(NamePart name) => name;
-
-    [UserMapping]
-    private static int Count(FrameCount frames) => frames;
 }

@@ -1,4 +1,4 @@
-using Rasm.UI;
+using System.Globalization;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
@@ -10,14 +10,17 @@ using Rhino.PlugIns;
 namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record LayerStateRestore(RestoreLayerProperties Properties, bool ModelProperties, bool ViewportProperties)
-    : IStateRecord<LayerStateRestore, LayerStateRestoreParameter> {
+public sealed record LayerStateRestore(RestoreLayerProperties Properties, bool ModelProperties, bool ViewportProperties) {
     private const RestoreLayerProperties ViewportGroup =
         RestoreLayerProperties.ViewportVisible | RestoreLayerProperties.ViewportColor | RestoreLayerProperties.ViewportPrintColor | RestoreLayerProperties.ViewportPrintWidth;
 
+    private static readonly KeyName PropertiesKey = KeyName.Create(nameof(RestoreLayerProperties));
+    private static readonly KeyName ModelKey = KeyName.Create("ModelPropertiesChecked");
+    private static readonly KeyName ViewportKey = KeyName.Create("ViewportPropertiesChecked");
+
     private static readonly IO<(KeyName Section, SettingsNode Node)> Owner =
         from commands in IO.lift(static () => Conversions.Required(PlugIn.IdFromName("Commands"), nameof(PlugIn.IdFromName)))
-        from section in IO.lift(KeyName.Validated(commands.ToString()))
+        from section in IO.lift(() => KeyName.TryCreate(commands.ToString(), out KeyName? held, out RhinoFault? fault) ? Fin.Succ(held) : fault)
         select (Section: section, Node: new SettingsNode(commands).Child("LayerStates"));
 
     public static LayerStateRestore Default { get; } = new(RestoreLayerProperties.All, ModelProperties: true, ViewportProperties: true);
@@ -28,67 +31,46 @@ public sealed record LayerStateRestore(RestoreLayerProperties Properties, bool M
     // --- [STORE]
     public static IO<LayerStateRestore> Read(RhinoDoc doc) =>
         from owner in Owner
-        from fields in Callbacks.Each(toSeq(LayerStateRestoreParameter.Items).Map(field => field.Read(doc, owner)))
-        select fields.Fold(Default, static (mask, set) => set(mask));
+        from properties in Held(doc, owner, PropertiesKey,
+            static text => uint.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out uint raw) ? Some(raw) : None,
+            static (settings, key) => Callbacks.Found(settings.TryGetUnsignedInteger(key, out uint raw), raw), (uint)Default.Properties)
+        from model in Held(doc, owner, ModelKey,
+            static text => bool.TryParse(text, out bool flag) ? Some(flag) : None,
+            static (settings, key) => Callbacks.Found(settings.TryGetBool(key, out bool flag), flag), Default.ModelProperties)
+        from viewport in Held(doc, owner, ViewportKey,
+            static text => bool.TryParse(text, out bool flag) ? Some(flag) : None,
+            static (settings, key) => Callbacks.Found(settings.TryGetBool(key, out bool flag), flag), Default.ViewportProperties)
+        select new LayerStateRestore((RestoreLayerProperties)properties, model, viewport);
 
     public static IO<Unit> Write(Option<RhinoDoc> doc, Override<LayerStateRestore> mask) =>
         when(mask.Changes,
             from owner in Owner
             let value = mask.Applied(None)
-            from written in ValueStore.Commit(toSeq(LayerStateRestoreParameter.Items).Map(field => field.Edit(doc, owner, value)))
+            from written in doc.Match(
+                Some: document => Callbacks.Each(Seq(
+                        (Key: PropertiesKey, Text: value.Map(static held => ((uint)held.Properties).ToString(CultureInfo.InvariantCulture))),
+                        (Key: ModelKey, Text: value.Map(static held => held.ModelProperties.ToString(CultureInfo.InvariantCulture))),
+                        (Key: ViewportKey, Text: value.Map(static held => held.ViewportProperties.ToString(CultureInfo.InvariantCulture))))
+                    .Map(row => UserStrings.Write(document, new DocumentKey(owner.Section, Some(row.Key)), row.Text))).Map(static _ => unit),
+                None: () => Settled(owner.Node, value.IfNone(Default)))
             select written).As();
-}
 
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public abstract partial class LayerStateRestoreParameter : IStateParameter<LayerStateRestore> {
-    // --- [FIELDS]
-    public static readonly LayerStateRestoreParameter RestoreLayerProperties = new Field<uint>(
-        KeyName.Create(nameof(RestoreLayerProperties)),
-        Lens<LayerStateRestore, uint>.New(static mask => (uint)mask.Properties, static properties => mask => mask with { Properties = (RestoreLayerProperties)properties }),
-        static lens => new StateParameter<LayerStateRestore>.Raw<uint>(lens), SettingType.UnsignedInteger,
-        new("Layer settings to restore", "Layer properties a restore applies"));
-    public static readonly LayerStateRestoreParameter ModelProperties = new Field<bool>(
-        KeyName.Create("ModelPropertiesChecked"), Lens<LayerStateRestore, bool>.New(static mask => mask.ModelProperties, static enabled => mask => mask with { ModelProperties = enabled }),
-        static lens => new StateParameter<LayerStateRestore>.Toggle(lens), SettingType.Bool,
-        new("Model layer settings", "Restores checked settings in model"));
-    public static readonly LayerStateRestoreParameter ViewportProperties = new Field<bool>(
-        KeyName.Create("ViewportPropertiesChecked"), Lens<LayerStateRestore, bool>.New(static mask => mask.ViewportProperties, static enabled => mask => mask with { ViewportProperties = enabled }),
-        static lens => new StateParameter<LayerStateRestore>.Toggle(lens), SettingType.Bool,
-        new("Layout or detail layer settings to restore", "Restores checked settings in layouts and details"));
+    private static IO<T> Held<T>(
+        RhinoDoc doc, (KeyName Section, SettingsNode Node) owner, KeyName key, Func<string, Option<T>> parse, Func<PersistentSettings, string, Option<T>> stored, T @default) =>
+        from text in UserStrings.Value(doc, new DocumentKey(owner.Section, Some(key)))
+        from settings in SettingRoots.TryGetChild(owner.Node)
+        select text.Match(Some: held => parse(held).IfNone(@default), None: () => settings.Bind(found => stored(found, key)).IfNone(@default));
 
-    public StateParameter<LayerStateRestore> Kind { get; }
-    public ParameterText Text { get; }
-
-    // --- [PERSISTENCE]
-    internal abstract IO<Func<LayerStateRestore, LayerStateRestore>> Read(RhinoDoc doc, (KeyName Section, SettingsNode Node) owner);
-    internal abstract IO<Option<IO<Unit>>> Edit(Option<RhinoDoc> doc, (KeyName Section, SettingsNode Node) owner, Option<LayerStateRestore> value);
-
-    private sealed class Field<TRaw> : LayerStateRestoreParameter where TRaw : notnull, ISpanParsable<TRaw> {
-        private readonly KeyName key;
-        private readonly Lens<LayerStateRestore, TRaw> lens;
-        private readonly PlugInSetting<TRaw, TRaw> row;
-
-        internal Field(KeyName key, Lens<LayerStateRestore, TRaw> lens, Func<Lens<LayerStateRestore, TRaw>, StateParameter<LayerStateRestore>> kind, SettingType<TRaw> setting, ParameterText text)
-            : base((string)key, kind(lens), text) {
-            (this.key, this.lens) = (key, lens);
-            row = new(ValueKey.Raw(Key, Text, lens.Get(LayerStateRestore.Default)), setting) { Applied = Applied.IdleSave };
-        }
-
-        internal override IO<Func<LayerStateRestore, LayerStateRestore>> Read(RhinoDoc doc, (KeyName Section, SettingsNode Node) owner) =>
-            from held in Store(Some(doc), owner).Read.Catch(static error => error.HasCode(ErrorCodes.ParseError), _ => IO.pure(Some(row.Key.Default)))
-            from value in held.Match(Some: static raw => IO.pure(raw), None: () => owner.Node.Current(row))
-            select lens.SetF(value);
-
-        internal override IO<Option<IO<Unit>>> Edit(Option<RhinoDoc> doc, (KeyName Section, SettingsNode Node) owner, Option<LayerStateRestore> value) =>
-            Store(doc, owner).Edit(value.Map(lens.Get));
-
-        private ValueStore<TRaw> Store(Option<RhinoDoc> doc, (KeyName Section, SettingsNode Node) owner) =>
-            doc.Match(
-                Some: document => UserTexts.Store(document, new DocumentKey(owner.Section, Some(key)), row.Key),
-                None: () => PlugInSettings.Store(owner.Node, row));
-    }
+    private static IO<Unit> Settled(SettingsNode node, LayerStateRestore value) =>
+        from settings in SettingRoots.AddChild(node)
+        from writable in IO.lift(() => Seq(PropertiesKey, ModelKey, ViewportKey).Traverse(key => PlugInSettings.Writable(settings, key)).As())
+        from written in IO.lift(() => {
+            settings.SetUnsignedInteger(PropertiesKey, (uint)value.Properties);
+            settings.SetBool(ModelKey, value.ModelProperties);
+            settings.SetBool(ViewportKey, value.ViewportProperties);
+        })
+        from drained in Applied.IdleSave.Drain.Traverse(static drain => drain).As()
+        select unit;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

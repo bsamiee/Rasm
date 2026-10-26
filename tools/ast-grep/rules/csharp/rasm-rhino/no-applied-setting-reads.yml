@@ -19,4 +19,4 @@ rule:
         - has: {kind: argument, nthChild: 1, has: {matches: read}}
         - not: {has: {kind: argument, not: {has: {matches: read}}}}
 message: 'Tuple of `$READER.Current` reads builds a settings record by hand'
-note: 'Declare the record as `IStateRecord<T>` and read it through `PlugInSettings.Record<T>(<node>, <applied>)`'
+note: 'Read the record as one JSON string through `PersistentSettings.TryGetString(<key>, out string json)` and `JsonSerializer.Deserialize<T>(json)`'

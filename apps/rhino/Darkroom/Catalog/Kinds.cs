@@ -1,99 +1,102 @@
 using Darkroom.Chain;
-using Rasm.UI;
 using Rhino.Render.PostEffects;
 
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
-public sealed partial class Family : ICaptioned {
-    public static readonly Family Generators = new("generators");
-    public static readonly Family Camera = new("camera");
-    public static readonly Family Optics = new("optics");
-    public static readonly Family Warp = new("warp");
-    public static readonly Family Grade = new("grade");
-    public static readonly Family Detail = new("detail");
-    public static readonly Family Stylize = new("stylize");
-    public static readonly Family Formation = new("formation");
-    public static readonly Family Overlays = new("overlays");
-    public static readonly Family Quantization = new("quantization");
+public sealed partial class Family {
+    public static readonly Family Generators = new("generators", "Generators");
+    public static readonly Family Camera = new("camera", "Camera");
+    public static readonly Family Optics = new("optics", "Optics");
+    public static readonly Family Warp = new("warp", "Warp");
+    public static readonly Family Grade = new("grade", "Grade");
+    public static readonly Family Detail = new("detail", "Detail");
+    public static readonly Family Stylize = new("stylize", "Stylize");
+    public static readonly Family Formation = new("formation", "Formation");
+    public static readonly Family Overlays = new("overlays", "Overlays");
+    public static readonly Family Quantization = new("quantization", "Quantization");
+
+    public string Caption { get; }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public static class Kinds {
+    internal static readonly EffectKind Lens = EffectKind.Of(new Guid(0x944522ca, 0xdde2, 0x4e3e, 0x81, 0xb0, 0x82, 0x56, 0x57, 0x28, 0x95, 0x1b), PostEffectType.Early, Family.Optics, new EffectRow<LensDistortion>());
+
     public static Seq<EffectKind> Ordered { get; } = [
-        EffectKind.Job<Denoise, DenoiseJob>(new("7465f313-020e-49ce-acd3-58ade34c750a"), PostEffectType.Early, Family.Detail, new() { Mix = None }),
-        EffectKind.Of(new("5bfb53d0-6c96-4fc2-bf47-fd7662e4182b"), PostEffectType.Early, Family.Generators, new EffectRow<Starfield>()),
-        EffectKind.Of(new("a65107ea-d4f1-4b61-ac09-b74d67ba8935"), PostEffectType.Early, Family.Generators, new EffectRow<Fog> { Looks = Fog.Looks }),
-        EffectKind.Of(new("77743df8-86ad-48bc-b60a-a08a5dc51818"), PostEffectType.Early, Family.Generators, new EffectRow<NoiseTexture> { Looks = NoiseTexture.Looks }),
-        EffectKind.Of(new("36ac0f92-c557-4d37-a728-cb2249510efe"), PostEffectType.Early, Family.Generators, new EffectRow<NoiseTexture> { Default = NoiseTexture.Fire }),
-        EffectKind.Of(new("31555b4a-ff97-4387-946f-e7e9b0a131e8"), PostEffectType.Early, Family.Generators, new EffectRow<ParticleField> { Looks = ParticleField.Looks }),
-        EffectKind.Of(new("60ad6377-8592-43dd-acd2-cc3ef03f7b5f"), PostEffectType.Early, Family.Generators, new EffectRow<Lightning>()),
-        EffectKind.Of(new("ff29c5af-33af-4817-90a1-910fdbb21909"), PostEffectType.Early, Family.Generators, new EffectRow<LightRays>()),
-        EffectKind.Of(new("05985670-b6cb-40da-9e8e-0f6ac2d30a70"), PostEffectType.Early, Family.Generators, new EffectRow<LensFlare> { Looks = LensFlare.Looks }),
-        EffectKind.Of(new("3213d575-58cc-4a78-b13a-d130c437f053"), PostEffectType.Early, Family.Camera, new EffectRow<SceneExposure>()),
-        EffectKind.Of(new("c32e1536-d129-432d-b5ae-6da715024b02"), PostEffectType.Early, Family.Camera, new EffectRow<WhiteBalance> { Looks = WhiteBalance.Looks }),
-        EffectKind.Of(new("7400690e-f17b-4539-a88a-38b5bfa154fd"), PostEffectType.Early, Family.Optics, new EffectRow<Defocus>()),
-        EffectKind.Of(new("944522ca-dde2-4e3e-81b0-82565728951b"), PostEffectType.Early, Family.Optics, new EffectRow<LensDistortion>()),
-        EffectKind.Of(new("106bf35b-4759-4e08-a0a3-38f02c7be061"), PostEffectType.Early, Family.Optics, new EffectRow<AxialAberration>()),
-        EffectKind.Of(new("b8bf3b1d-0d30-4019-b5d5-417dba7936db"), PostEffectType.Early, Family.Optics, new EffectRow<Bloom>()),
-        EffectKind.Of(new("134e641a-47aa-4f42-9084-8040f3568e94"), PostEffectType.Early, Family.Optics, new EffectRow<VeilingGlare>()),
-        EffectKind.Of(new("166dcfdb-9388-4cde-ac2b-2c5fe76e4604"), PostEffectType.Early, Family.Optics, new EffectRow<StarGlare>()),
-        EffectKind.Of(new("d3df8c60-5cc3-4c70-bbf7-2996bd2d7fd0"), PostEffectType.Early, Family.Optics, new EffectRow<Ghosts>()),
-        EffectKind.Of(new("f4afa240-2e97-469d-8f23-ce02aab2f499"), PostEffectType.Early, Family.Optics, new EffectRow<Vignette>()),
-        EffectKind.Of(new("6a47cbbf-f6a2-4b53-9b6d-6ccd6c5ede48"), PostEffectType.Early, Family.Optics, new EffectRow<Halation>()),
-        EffectKind.Of(new("f7d32275-fcbc-4c8a-ad36-8826d09678a5"), PostEffectType.Early, Family.Warp, new EffectRow<Panorama>()),
-        EffectKind.Of(new("30219496-aff4-482e-91cc-8059f0a1532e"), PostEffectType.Early, Family.Warp, new EffectRow<Twirl>()),
-        EffectKind.Of(new("44c0cd28-8f52-44c7-b508-946cf6cd29cc"), PostEffectType.Early, Family.Warp, new EffectRow<Bulge>()),
-        EffectKind.Of(new("651cc9ac-db9d-48b7-935b-142916a94f16"), PostEffectType.Early, Family.Warp, new EffectRow<WaveWarp>()),
-        EffectKind.Of(new("3017b4d2-68e3-46f7-984e-daafecefe685"), PostEffectType.Early, Family.Warp, new EffectRow<Turbulence>()),
-        EffectKind.Of(new("3833180c-a491-44a2-961d-a875bc57874b"), PostEffectType.Early, Family.Warp, new EffectRow<MapDisplacement>()),
-        EffectKind.Of(new("52c0caf8-262f-49d1-90d0-0bac92cedbc8"), PostEffectType.Early, Family.Warp, new EffectRow<Refraction>()),
-        EffectKind.Of(new("d21a93e6-91f0-497e-b9f9-21f030037564"), PostEffectType.Early, Family.Warp, new EffectRow<Kaleidoscope>()),
-        EffectKind.Of(new("1f0dfd6b-db2d-41e6-8b94-0bc199d18cab"), PostEffectType.Early, Family.Warp, new EffectRow<PolarCoordinates>()),
-        EffectKind.Of(new("2840e7bd-5137-4e50-99c2-82efcea276b7"), PostEffectType.Early, Family.Warp, new EffectRow<AffineTransform>()),
-        EffectKind.Of(new("106fb69d-480f-430a-95f0-cc9ee4bea176"), PostEffectType.Early, Family.Warp, new EffectRow<CornerPin>()),
-        EffectKind.Of(new("4c2a5565-2369-462c-91cf-2b52ce565040"), PostEffectType.Early, Family.Warp, new EffectRow<CameraShake>()),
-        EffectKind.Of(new("570b0a76-a94d-4749-b0a7-b9ec2e1fc36f"), PostEffectType.Early, Family.Grade, new EffectRow<ChannelMixer>()),
-        EffectKind.Of(new("556b0475-308d-4a3d-b366-f541d6666a00"), PostEffectType.Early, Family.Grade, new EffectRow<ColorWheels>()),
-        EffectKind.Of(new("8e3a41fa-43cb-4d27-a488-922a226a0e8a"), PostEffectType.Early, Family.Grade, new EffectRow<ColorDecisionList>()),
-        EffectKind.Of(new("c75e00ae-77a6-4a7f-9556-a2aa0d59a883"), PostEffectType.Early, Family.Grade, new EffectRow<ContrastGrade>()),
-        EffectKind.Of(new("485d8eb9-7e34-4c31-99c7-8c4aee2714dd"), PostEffectType.Early, Family.Grade, new EffectRow<Levels>()),
-        EffectKind.Of(new("b10c1e89-0353-49ca-9e6e-5b9dc0c0c82c"), PostEffectType.Early, Family.Grade, new EffectRow<PointCurveGrade>()),
-        EffectKind.Of(new("c619d89b-47ee-4f89-bf6d-9a43711af308"), PostEffectType.Early, Family.Grade, new EffectRow<HueCurveGrade>()),
-        EffectKind.Of(new("e330c3e8-bff0-452a-87d7-fb23a5ec7fbe"), PostEffectType.Early, Family.Grade, new EffectRow<SelectiveColor>()),
-        EffectKind.Of(new("7d1e5a92-c64b-4f38-9e07-b3a28c51d6f4"), PostEffectType.Early, Family.Grade, new EffectRow<HueIsolation>()),
-        EffectKind.Of(new("b278e80b-5018-4dbc-9910-e477e852ff02"), PostEffectType.Early, Family.Grade, new EffectRow<GradientMapping>()),
-        EffectKind.Of(new("2f6b8d41-93c7-4e0a-b5d2-7a1c64e9f308"), PostEffectType.Early, Family.Grade, new EffectRow<ReferenceGamutCompression>()),
-        EffectKind.Of(new("91b7f223-a7ab-4cec-aa60-99755bdd23d6"), PostEffectType.Early, Family.Grade, new EffectRow<LutLook>()),
-        EffectKind.Of(new("ce14bc1b-2e14-41c0-91d5-54e4886e3d1d"), PostEffectType.Early, Family.Detail, new EffectRow<Sharpen>()),
-        EffectKind.Of(new("b03f5ab9-d399-4e1e-95ac-ece13e441ced"), PostEffectType.Early, Family.Detail, new EffectRow<FilmGrain>()),
-        EffectKind.Of(new("a9cab48c-9612-4712-85f5-eafd71be51b6"), PostEffectType.Early, Family.Detail, new EffectRow<SensorNoise>()),
-        EffectKind.Of(new("49dd6485-0396-4b83-8744-516aecbffe53"), PostEffectType.Early, Family.Detail, new EffectRow<LocalContrast>()),
-        EffectKind.Of(new("72443a3b-a5f1-4018-8368-7ad55d5f6127"), PostEffectType.Early, Family.Stylize, new EffectRow<FilmFlicker>()),
-        EffectKind.Of(new("72433230-65e7-4c28-b1a9-0afa4e6f32e2"), PostEffectType.ToneMapping, Family.Formation, new EffectRow<ImageFormation> { Mix = None, Looks = ImageFormation.Looks, Listed = true }),
-        EffectKind.Of(new("d8948345-e067-46c3-9e56-52229c540f9c"), PostEffectType.Late, Family.Quantization, new EffectRow<LutLook>()),
-        EffectKind.Of(new("3f5e6947-cf6e-4623-a607-5ddda6e05486"), PostEffectType.Late, Family.Stylize, new EffectRow<Mosaic>()),
-        EffectKind.Of(new("6666a316-3ff8-49ce-a566-34d9531372ea"), PostEffectType.Late, Family.Stylize, new EffectRow<Posterize>()),
-        EffectKind.Of(new("b0fd305b-80fb-4726-ab16-ca4223c7d61c"), PostEffectType.Late, Family.Stylize, new EffectRow<PaletteReduction>()),
-        EffectKind.Of(new("fc33be5b-eb04-4bb7-b890-89e5778451c9"), PostEffectType.Late, Family.Stylize, new EffectRow<PaletteMapping>()),
-        EffectKind.Of(new("d0635c79-6508-4cc8-85fc-4fbc0af55405"), PostEffectType.Late, Family.Stylize, new EffectRow<Halftone>()),
-        EffectKind.Of(new("1aa387a7-1493-4d9f-aeb2-0c9a1b5773b8"), PostEffectType.Late, Family.Stylize, new EffectRow<GlyphCells> { Looks = GlyphCells.Looks }),
-        EffectKind.Of(new("d9419256-acc5-4728-b874-d9b529d5cab4"), PostEffectType.Late, Family.Stylize, new EffectRow<PixelSort>()),
-        EffectKind.Of(new("dbf0553d-7010-4f70-b0c8-1df82c2b722b"), PostEffectType.Late, Family.Stylize, new EffectRow<Painterly>()),
-        EffectKind.Of(new("965adbbd-2586-4504-8fc7-efff82b7983c"), PostEffectType.Late, Family.Stylize, new EffectRow<EdgeDetect>()),
-        EffectKind.Of(new("8a1307d8-a9b1-4d95-b44c-64e8ab72b3d4"), PostEffectType.Late, Family.Stylize, new EffectRow<GeometryOutline>()),
-        EffectKind.Of(new("2c3dfe8b-89b8-42d4-9bab-7c1f920b02e5"), PostEffectType.Late, Family.Stylize, new EffectRow<FilmDamage>()),
-        EffectKind.Of(new("de4f9efc-1a2c-4668-814f-0f280ded7917"), PostEffectType.Late, Family.Stylize, new EffectRow<CodecDamage> { Looks = CodecDamage.Looks }),
-        EffectKind.Of(new("50657d74-77ee-4dc0-99c9-01b94b4ff0d0"), PostEffectType.Late, Family.Stylize, new EffectRow<Glitch> { Looks = Glitch.Looks }),
-        EffectKind.Of(new("c33c6983-8c08-4ace-b768-dd7988d96500"), PostEffectType.Late, Family.Stylize, new EffectRow<AnalogVideo> { Looks = AnalogVideo.Looks }),
-        EffectKind.Of(new("0bfccb12-f88d-4843-8836-e91acfd439a2"), PostEffectType.Late, Family.Stylize, new EffectRow<CrtDisplay> { Looks = CrtDisplay.Looks }),
-        EffectKind.Of(new("99007c9c-22fe-4569-a242-ae2392a3a08d"), PostEffectType.Late, Family.Overlays, new EffectRow<Gradient>()),
-        EffectKind.Of(new("cd4ad9d9-44cd-49d1-ad8f-a332aadd6d8d"), PostEffectType.Late, Family.Overlays, new EffectRow<CornerGradient>()),
-        EffectKind.Of(new("45ae93a8-0400-486a-af24-b70e9f05598d"), PostEffectType.Late, Family.Overlays, new EffectRow<Stripes>()),
-        EffectKind.Of(new("fc4fd80c-73d9-4184-bad1-a759b4182f60"), PostEffectType.Late, Family.Overlays, new EffectRow<Grid>()),
-        EffectKind.Of(new("e7c2ca0d-f654-4980-b540-2314d6c58de2"), PostEffectType.Late, Family.Overlays, new EffectRow<Shapes>()),
-        EffectKind.Of(new("1f4355d5-07b5-417c-8ff7-4373e3efc668"), PostEffectType.Late, Family.Overlays, new EffectRow<Letterbox> { Looks = Letterbox.Looks }),
-        EffectKind.Of(new("f2d92349-c684-4276-86dd-587c71634aff"), PostEffectType.Late, Family.Quantization, new EffectRow<OutputDither> { Listed = true }),
+        EffectKind.Job<Denoise, DenoiseJob>(new Guid(0x7465f313, 0x020e, 0x49ce, 0xac, 0xd3, 0x58, 0xad, 0xe3, 0x4c, 0x75, 0x0a), PostEffectType.Early, Family.Detail, new() { Mix = None }),
+        EffectKind.Of(new Guid(0x5bfb53d0, 0x6c96, 0x4fc2, 0xbf, 0x47, 0xfd, 0x76, 0x62, 0xe4, 0x18, 0x2b), PostEffectType.Early, Family.Generators, new EffectRow<Starfield>()),
+        EffectKind.Of(new Guid(0xa65107ea, 0xd4f1, 0x4b61, 0xac, 0x09, 0xb7, 0x4d, 0x67, 0xba, 0x89, 0x35), PostEffectType.Early, Family.Generators, new EffectRow<Fog> { Looks = Fog.Looks }),
+        EffectKind.Of(new Guid(0x77743df8, 0x86ad, 0x48bc, 0xb6, 0x0a, 0xa0, 0x8a, 0x5d, 0xc5, 0x18, 0x18), PostEffectType.Early, Family.Generators, new EffectRow<NoiseTexture> { Looks = NoiseTexture.Looks }),
+        EffectKind.Of(new Guid(0x36ac0f92, 0xc557, 0x4d37, 0xa7, 0x28, 0xcb, 0x22, 0x49, 0x51, 0x0e, 0xfe), PostEffectType.Early, Family.Generators, new EffectRow<NoiseTexture> { Default = NoiseTexture.Fire }),
+        EffectKind.Of(new Guid(0x31555b4a, 0xff97, 0x4387, 0x94, 0x6f, 0xe7, 0xe9, 0xb0, 0xa1, 0x31, 0xe8), PostEffectType.Early, Family.Generators, new EffectRow<ParticleField> { Looks = ParticleField.Looks }),
+        EffectKind.Of(new Guid(0x60ad6377, 0x8592, 0x43dd, 0xac, 0xd2, 0xcc, 0x3e, 0xf0, 0x3f, 0x7b, 0x5f), PostEffectType.Early, Family.Generators, new EffectRow<Lightning>()),
+        EffectKind.Of(new Guid(0xff29c5af, 0x33af, 0x4817, 0x90, 0xa1, 0x91, 0x0f, 0xdb, 0xb2, 0x19, 0x09), PostEffectType.Early, Family.Generators, new EffectRow<LightRays>()),
+        EffectKind.Of(new Guid(0x05985670, 0xb6cb, 0x40da, 0x9e, 0x8e, 0x0f, 0x6a, 0xc2, 0xd3, 0x0a, 0x70), PostEffectType.Early, Family.Generators, new EffectRow<LensFlare> { Looks = LensFlare.Looks }),
+        EffectKind.Of(new Guid(0x3213d575, 0x58cc, 0x4a78, 0xb1, 0x3a, 0xd1, 0x30, 0xc4, 0x37, 0xf0, 0x53), PostEffectType.Early, Family.Camera, new EffectRow<SceneExposure>()),
+        EffectKind.Of(new Guid(0xc32e1536, 0xd129, 0x432d, 0xb5, 0xae, 0x6d, 0xa7, 0x15, 0x02, 0x4b, 0x02), PostEffectType.Early, Family.Camera, new EffectRow<WhiteBalance> { Looks = WhiteBalance.Looks }),
+        EffectKind.Of(new Guid(0x7400690e, 0xf17b, 0x4539, 0xa8, 0x8a, 0x38, 0xb5, 0xbf, 0xa1, 0x54, 0xfd), PostEffectType.Early, Family.Optics, new EffectRow<Defocus>()),
+        Lens,
+        EffectKind.Of(new Guid(0x106bf35b, 0x4759, 0x4e08, 0xa0, 0xa3, 0x38, 0xf0, 0x2c, 0x7b, 0xe0, 0x61), PostEffectType.Early, Family.Optics, new EffectRow<AxialAberration>()),
+        EffectKind.Of(new Guid(0xb8bf3b1d, 0x0d30, 0x4019, 0xb5, 0xd5, 0x41, 0x7d, 0xba, 0x79, 0x36, 0xdb), PostEffectType.Early, Family.Optics, new EffectRow<Bloom>()),
+        EffectKind.Of(new Guid(0x134e641a, 0x47aa, 0x4f42, 0x90, 0x84, 0x80, 0x40, 0xf3, 0x56, 0x8e, 0x94), PostEffectType.Early, Family.Optics, new EffectRow<VeilingGlare>()),
+        EffectKind.Of(new Guid(0x166dcfdb, 0x9388, 0x4cde, 0xac, 0x2b, 0x2c, 0x5f, 0xe7, 0x6e, 0x46, 0x04), PostEffectType.Early, Family.Optics, new EffectRow<StarGlare>()),
+        EffectKind.Of(new Guid(0xd3df8c60, 0x5cc3, 0x4c70, 0xbb, 0xf7, 0x29, 0x96, 0xbd, 0x2d, 0x7f, 0xd0), PostEffectType.Early, Family.Optics, new EffectRow<Ghosts>()),
+        EffectKind.Of(new Guid(0xf4afa240, 0x2e97, 0x469d, 0x8f, 0x23, 0xce, 0x02, 0xaa, 0xb2, 0xf4, 0x99), PostEffectType.Early, Family.Optics, new EffectRow<Vignette>()),
+        EffectKind.Of(new Guid(0x6a47cbbf, 0xf6a2, 0x4b53, 0x9b, 0x6d, 0x6c, 0xcd, 0x6c, 0x5e, 0xde, 0x48), PostEffectType.Early, Family.Optics, new EffectRow<Halation>()),
+        EffectKind.Of(new Guid(0xf7d32275, 0xfcbc, 0x4c8a, 0xad, 0x36, 0x88, 0x26, 0xd0, 0x96, 0x78, 0xa5), PostEffectType.Early, Family.Warp, new EffectRow<Panorama>()),
+        EffectKind.Of(new Guid(0x30219496, 0xaff4, 0x482e, 0x91, 0xcc, 0x80, 0x59, 0xf0, 0xa1, 0x53, 0x2e), PostEffectType.Early, Family.Warp, new EffectRow<Twirl>()),
+        EffectKind.Of(new Guid(0x44c0cd28, 0x8f52, 0x44c7, 0xb5, 0x08, 0x94, 0x6c, 0xf6, 0xcd, 0x29, 0xcc), PostEffectType.Early, Family.Warp, new EffectRow<Bulge>()),
+        EffectKind.Of(new Guid(0x651cc9ac, 0xdb9d, 0x48b7, 0x93, 0x5b, 0x14, 0x29, 0x16, 0xa9, 0x4f, 0x16), PostEffectType.Early, Family.Warp, new EffectRow<WaveWarp>()),
+        EffectKind.Of(new Guid(0x3017b4d2, 0x68e3, 0x46f7, 0x98, 0x4e, 0xda, 0xaf, 0xec, 0xef, 0xe6, 0x85), PostEffectType.Early, Family.Warp, new EffectRow<Turbulence>()),
+        EffectKind.Of(new Guid(0x3833180c, 0xa491, 0x44a2, 0x96, 0x1d, 0xa8, 0x75, 0xbc, 0x57, 0x87, 0x4b), PostEffectType.Early, Family.Warp, new EffectRow<MapDisplacement>()),
+        EffectKind.Of(new Guid(0x52c0caf8, 0x262f, 0x49d1, 0x90, 0xd0, 0x0b, 0xac, 0x92, 0xce, 0xdb, 0xc8), PostEffectType.Early, Family.Warp, new EffectRow<Refraction>()),
+        EffectKind.Of(new Guid(0xd21a93e6, 0x91f0, 0x497e, 0xb9, 0xf9, 0x21, 0xf0, 0x30, 0x03, 0x75, 0x64), PostEffectType.Early, Family.Warp, new EffectRow<Kaleidoscope>()),
+        EffectKind.Of(new Guid(0x1f0dfd6b, 0xdb2d, 0x41e6, 0x8b, 0x94, 0x0b, 0xc1, 0x99, 0xd1, 0x8c, 0xab), PostEffectType.Early, Family.Warp, new EffectRow<PolarCoordinates>()),
+        EffectKind.Of(new Guid(0x2840e7bd, 0x5137, 0x4e50, 0x99, 0xc2, 0x82, 0xef, 0xce, 0xa2, 0x76, 0xb7), PostEffectType.Early, Family.Warp, new EffectRow<AffineTransform>()),
+        EffectKind.Of(new Guid(0x106fb69d, 0x480f, 0x430a, 0x95, 0xf0, 0xcc, 0x9e, 0xe4, 0xbe, 0xa1, 0x76), PostEffectType.Early, Family.Warp, new EffectRow<CornerPin>()),
+        EffectKind.Of(new Guid(0x4c2a5565, 0x2369, 0x462c, 0x91, 0xcf, 0x2b, 0x52, 0xce, 0x56, 0x50, 0x40), PostEffectType.Early, Family.Warp, new EffectRow<CameraShake>()),
+        EffectKind.Of(new Guid(0x570b0a76, 0xa94d, 0x4749, 0xb0, 0xa7, 0xb9, 0xec, 0x2e, 0x1f, 0xc3, 0x6f), PostEffectType.Early, Family.Grade, new EffectRow<ChannelMixer>()),
+        EffectKind.Of(new Guid(0x556b0475, 0x308d, 0x4a3d, 0xb3, 0x66, 0xf5, 0x41, 0xd6, 0x66, 0x6a, 0x00), PostEffectType.Early, Family.Grade, new EffectRow<ColorWheels>()),
+        EffectKind.Of(new Guid(0x8e3a41fa, 0x43cb, 0x4d27, 0xa4, 0x88, 0x92, 0x2a, 0x22, 0x6a, 0x0e, 0x8a), PostEffectType.Early, Family.Grade, new EffectRow<ColorDecisionList>()),
+        EffectKind.Of(new Guid(0xc75e00ae, 0x77a6, 0x4a7f, 0x95, 0x56, 0xa2, 0xaa, 0x0d, 0x59, 0xa8, 0x83), PostEffectType.Early, Family.Grade, new EffectRow<ContrastGrade>()),
+        EffectKind.Of(new Guid(0x485d8eb9, 0x7e34, 0x4c31, 0x99, 0xc7, 0x8c, 0x4a, 0xee, 0x27, 0x14, 0xdd), PostEffectType.Early, Family.Grade, new EffectRow<Levels>()),
+        EffectKind.Of(new Guid(0xb10c1e89, 0x0353, 0x49ca, 0x9e, 0x6e, 0x5b, 0x9d, 0xc0, 0xc0, 0xc8, 0x2c), PostEffectType.Early, Family.Grade, new EffectRow<PointCurveGrade>()),
+        EffectKind.Of(new Guid(0xc619d89b, 0x47ee, 0x4f89, 0xbf, 0x6d, 0x9a, 0x43, 0x71, 0x1a, 0xf3, 0x08), PostEffectType.Early, Family.Grade, new EffectRow<HueCurveGrade>()),
+        EffectKind.Of(new Guid(0xe330c3e8, 0xbff0, 0x452a, 0x87, 0xd7, 0xfb, 0x23, 0xa5, 0xec, 0x7f, 0xbe), PostEffectType.Early, Family.Grade, new EffectRow<SelectiveColor>()),
+        EffectKind.Of(new Guid(0x7d1e5a92, 0xc64b, 0x4f38, 0x9e, 0x07, 0xb3, 0xa2, 0x8c, 0x51, 0xd6, 0xf4), PostEffectType.Early, Family.Grade, new EffectRow<HueIsolation>()),
+        EffectKind.Of(new Guid(0xb278e80b, 0x5018, 0x4dbc, 0x99, 0x10, 0xe4, 0x77, 0xe8, 0x52, 0xff, 0x02), PostEffectType.Early, Family.Grade, new EffectRow<GradientMapping>()),
+        EffectKind.Of(new Guid(0x2f6b8d41, 0x93c7, 0x4e0a, 0xb5, 0xd2, 0x7a, 0x1c, 0x64, 0xe9, 0xf3, 0x08), PostEffectType.Early, Family.Grade, new EffectRow<ReferenceGamutCompression>()),
+        EffectKind.Of(new Guid(0x91b7f223, 0xa7ab, 0x4cec, 0xaa, 0x60, 0x99, 0x75, 0x5b, 0xdd, 0x23, 0xd6), PostEffectType.Early, Family.Grade, new EffectRow<LutLook>()),
+        EffectKind.Of(new Guid(0xce14bc1b, 0x2e14, 0x41c0, 0x91, 0xd5, 0x54, 0xe4, 0x88, 0x6e, 0x3d, 0x1d), PostEffectType.Early, Family.Detail, new EffectRow<Sharpen>()),
+        EffectKind.Of(new Guid(0xb03f5ab9, 0xd399, 0x4e1e, 0x95, 0xac, 0xec, 0xe1, 0x3e, 0x44, 0x1c, 0xed), PostEffectType.Early, Family.Detail, new EffectRow<FilmGrain>()),
+        EffectKind.Of(new Guid(0xa9cab48c, 0x9612, 0x4712, 0x85, 0xf5, 0xea, 0xfd, 0x71, 0xbe, 0x51, 0xb6), PostEffectType.Early, Family.Detail, new EffectRow<SensorNoise>()),
+        EffectKind.Of(new Guid(0x49dd6485, 0x0396, 0x4b83, 0x87, 0x44, 0x51, 0x6a, 0xec, 0xbf, 0xfe, 0x53), PostEffectType.Early, Family.Detail, new EffectRow<LocalContrast>()),
+        EffectKind.Of(new Guid(0x72443a3b, 0xa5f1, 0x4018, 0x83, 0x68, 0x7a, 0xd5, 0x5d, 0x5f, 0x61, 0x27), PostEffectType.Early, Family.Stylize, new EffectRow<FilmFlicker>()),
+        EffectKind.Of(new Guid(0x72433230, 0x65e7, 0x4c28, 0xb1, 0xa9, 0x0a, 0xfa, 0x4e, 0x6f, 0x32, 0xe2), PostEffectType.ToneMapping, Family.Formation, new EffectRow<ImageFormation> { Mix = None, Looks = ImageFormation.Looks, Listed = true }),
+        EffectKind.Of(new Guid(0xd8948345, 0xe067, 0x46c3, 0x9e, 0x56, 0x52, 0x22, 0x9c, 0x54, 0x0f, 0x9c), PostEffectType.Late, Family.Quantization, new EffectRow<LutLook>()),
+        EffectKind.Of(new Guid(0x3f5e6947, 0xcf6e, 0x4623, 0xa6, 0x07, 0x5d, 0xdd, 0xa6, 0xe0, 0x54, 0x86), PostEffectType.Late, Family.Stylize, new EffectRow<Mosaic>()),
+        EffectKind.Of(new Guid(0x6666a316, 0x3ff8, 0x49ce, 0xa5, 0x66, 0x34, 0xd9, 0x53, 0x13, 0x72, 0xea), PostEffectType.Late, Family.Stylize, new EffectRow<Posterize>()),
+        EffectKind.Of(new Guid(0xb0fd305b, 0x80fb, 0x4726, 0xab, 0x16, 0xca, 0x42, 0x23, 0xc7, 0xd6, 0x1c), PostEffectType.Late, Family.Stylize, new EffectRow<PaletteReduction>()),
+        EffectKind.Of(new Guid(0xfc33be5b, 0xeb04, 0x4bb7, 0xb8, 0x90, 0x89, 0xe5, 0x77, 0x84, 0x51, 0xc9), PostEffectType.Late, Family.Stylize, new EffectRow<PaletteMapping>()),
+        EffectKind.Of(new Guid(0xd0635c79, 0x6508, 0x4cc8, 0x85, 0xfc, 0x4f, 0xbc, 0x0a, 0xf5, 0x54, 0x05), PostEffectType.Late, Family.Stylize, new EffectRow<Halftone>()),
+        EffectKind.Of(new Guid(0x1aa387a7, 0x1493, 0x4d9f, 0xae, 0xb2, 0x0c, 0x9a, 0x1b, 0x57, 0x73, 0xb8), PostEffectType.Late, Family.Stylize, new EffectRow<GlyphCells> { Looks = GlyphCells.Looks }),
+        EffectKind.Of(new Guid(0xd9419256, 0xacc5, 0x4728, 0xb8, 0x74, 0xd9, 0xb5, 0x29, 0xd5, 0xca, 0xb4), PostEffectType.Late, Family.Stylize, new EffectRow<PixelSort>()),
+        EffectKind.Of(new Guid(0xdbf0553d, 0x7010, 0x4f70, 0xb0, 0xc8, 0x1d, 0xf8, 0x2c, 0x2b, 0x72, 0x2b), PostEffectType.Late, Family.Stylize, new EffectRow<Painterly>()),
+        EffectKind.Of(new Guid(0x965adbbd, 0x2586, 0x4504, 0x8f, 0xc7, 0xef, 0xff, 0x82, 0xb7, 0x98, 0x3c), PostEffectType.Late, Family.Stylize, new EffectRow<EdgeDetect>()),
+        EffectKind.Of(new Guid(0x8a1307d8, 0xa9b1, 0x4d95, 0xb4, 0x4c, 0x64, 0xe8, 0xab, 0x72, 0xb3, 0xd4), PostEffectType.Late, Family.Stylize, new EffectRow<GeometryOutline>()),
+        EffectKind.Of(new Guid(0x2c3dfe8b, 0x89b8, 0x42d4, 0x9b, 0xab, 0x7c, 0x1f, 0x92, 0x0b, 0x02, 0xe5), PostEffectType.Late, Family.Stylize, new EffectRow<FilmDamage>()),
+        EffectKind.Of(new Guid(0xde4f9efc, 0x1a2c, 0x4668, 0x81, 0x4f, 0x0f, 0x28, 0x0d, 0xed, 0x79, 0x17), PostEffectType.Late, Family.Stylize, new EffectRow<CodecDamage> { Looks = CodecDamage.Looks }),
+        EffectKind.Of(new Guid(0x50657d74, 0x77ee, 0x4dc0, 0x99, 0xc9, 0x01, 0xb9, 0x4b, 0x4f, 0xf0, 0xd0), PostEffectType.Late, Family.Stylize, new EffectRow<Glitch> { Looks = Glitch.Looks }),
+        EffectKind.Of(new Guid(0xc33c6983, 0x8c08, 0x4ace, 0xb7, 0x68, 0xdd, 0x79, 0x88, 0xd9, 0x65, 0x00), PostEffectType.Late, Family.Stylize, new EffectRow<AnalogVideo> { Looks = AnalogVideo.Looks }),
+        EffectKind.Of(new Guid(0x0bfccb12, 0xf88d, 0x4843, 0x88, 0x36, 0xe9, 0x1a, 0xcf, 0xd4, 0x39, 0xa2), PostEffectType.Late, Family.Stylize, new EffectRow<CrtDisplay> { Looks = CrtDisplay.Looks }),
+        EffectKind.Of(new Guid(0x99007c9c, 0x22fe, 0x4569, 0xa2, 0x42, 0xae, 0x23, 0x92, 0xa3, 0xa0, 0x8d), PostEffectType.Late, Family.Overlays, new EffectRow<Gradient>()),
+        EffectKind.Of(new Guid(0xcd4ad9d9, 0x44cd, 0x49d1, 0xad, 0x8f, 0xa3, 0x32, 0xaa, 0xdd, 0x6d, 0x8d), PostEffectType.Late, Family.Overlays, new EffectRow<CornerGradient>()),
+        EffectKind.Of(new Guid(0x45ae93a8, 0x0400, 0x486a, 0xaf, 0x24, 0xb7, 0x0e, 0x9f, 0x05, 0x59, 0x8d), PostEffectType.Late, Family.Overlays, new EffectRow<Stripes>()),
+        EffectKind.Of(new Guid(0xfc4fd80c, 0x73d9, 0x4184, 0xba, 0xd1, 0xa7, 0x59, 0xb4, 0x18, 0x2f, 0x60), PostEffectType.Late, Family.Overlays, new EffectRow<Grid>()),
+        EffectKind.Of(new Guid(0xe7c2ca0d, 0xf654, 0x4980, 0xb5, 0x40, 0x23, 0x14, 0xd6, 0xc5, 0x8d, 0xe2), PostEffectType.Late, Family.Overlays, new EffectRow<Shapes>()),
+        EffectKind.Of(new Guid(0x1f4355d5, 0x07b5, 0x417c, 0x8f, 0xf7, 0x43, 0x73, 0xe3, 0xef, 0xc6, 0x68), PostEffectType.Late, Family.Overlays, new EffectRow<Letterbox> { Looks = Letterbox.Looks }),
+        EffectKind.Of(new Guid(0xf2d92349, 0xc684, 0x4276, 0x86, 0xdd, 0x58, 0x7c, 0x71, 0x63, 0x4a, 0xff), PostEffectType.Late, Family.Quantization, new EffectRow<OutputDither> { Listed = true }),
     ];
 }

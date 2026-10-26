@@ -1,34 +1,12 @@
 using Rhino;
 using Rhino.DocObjects;
+using UnitsNet;
 
 namespace Rasm.Rhino.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Latitude : System.Numerics.IMinMaxValue<Latitude> {
-    public static Latitude MinValue { get; } = new(-90d);
-    public static Latitude MaxValue { get; } = new(90d);
-    public static Latitude Default { get; } = new(0d);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Longitude : System.Numerics.IMinMaxValue<Longitude> {
-    public static Longitude MinValue { get; } = new(-180d);
-    public static Longitude MaxValue { get; } = new(180d);
-    public static Longitude Default { get; } = new(0d);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
-        (validationError, value) = double.IsFinite(value) ? (null, Math.IEEERemainder(value, 360d)) : (new ValidationError("longitude is not finite"), value);
-}
-
-public sealed record GeoCoordinate(Latitude Latitude, Longitude Longitude) {
-    public static Fin<GeoCoordinate> From(double latitude, double longitude) =>
-        (Latitude.Validated(latitude),
-         Longitude.Validated(longitude))
-            .Apply(static (north, east) => new GeoCoordinate(north, east))
-            .As();
+public sealed record GeoCoordinate(Angle Latitude, Angle Longitude) {
+    public static GeoCoordinate From(double latitude, double longitude) => new(Angle.FromDegrees(latitude), Angle.FromDegrees(longitude));
 }
 
 public sealed record EarthLocation(GeoCoordinate Place, Length Elevation);
@@ -40,25 +18,22 @@ public sealed record EarthAnchor(Option<EarthLocation> Earth, Option<EarthCoordi
             .Apply(static (earth, compass) => (Earth: earth, Compass: compass))
             .As();
 
-    public static Fin<EarthAnchor> Of(EarthAnchorPoint point) =>
-        Callbacks.Found(point.EarthLocationIsSet(), point)
-            .Traverse(static held => GeoCoordinate.From(held.EarthBasepointLatitude, held.EarthBasepointLongitude)
-                .Map(place => new EarthLocation(place, Length.FromMeters(held.EarthBasepointElevation))))
-            .As()
-            .Map(earth => new EarthAnchor(
-                earth,
-                Some(point.EarthBasepointElevationCoordinateSystem).Filter(static system => system is not EarthCoordinateSystem.Unset),
-                Callbacks.Found(point.ModelLocationIsSet(), point).Map(static held => held.GetModelCompass()),
-                Conversions.Present(point.Name),
-                Conversions.Present(point.Description)));
+    public static EarthAnchor Of(EarthAnchorPoint point) =>
+        new(
+            Callbacks.Found(point.EarthLocationIsSet(), point)
+                .Map(static held => new EarthLocation(GeoCoordinate.From(held.EarthBasepointLatitude, held.EarthBasepointLongitude), Length.FromMeters(held.EarthBasepointElevation))),
+            Some(point.EarthBasepointElevationCoordinateSystem).Filter(static system => system is not EarthCoordinateSystem.Unset),
+            Callbacks.Found(point.ModelLocationIsSet(), point).Map(static held => held.GetModelCompass()),
+            Conversions.Present(point.Name),
+            Conversions.Present(point.Description));
 
     public static IO<EarthAnchor> Read(Func<EarthAnchorPoint> point) =>
         DisposalOps.Within(point, static held => IO.lift(() => Of(held)));
 
     public IO<Unit> Apply(EarthAnchorPoint point) =>
         IO.lift(() => {
-            point.EarthBasepointLatitude = Conversions.Unset(Earth.Map(static earth => (double)earth.Place.Latitude));
-            point.EarthBasepointLongitude = Conversions.Unset(Earth.Map(static earth => (double)earth.Place.Longitude));
+            point.EarthBasepointLatitude = Conversions.Unset(Earth.Map(static earth => earth.Place.Latitude.Degrees.ToDouble()));
+            point.EarthBasepointLongitude = Conversions.Unset(Earth.Map(static earth => earth.Place.Longitude.Degrees.ToDouble()));
             point.EarthBasepointElevation = Conversions.Unset(Earth.Map(static earth => earth.Elevation.Meters.ToDouble()));
             point.EarthBasepointElevationCoordinateSystem = Datum.IfNone(EarthCoordinateSystem.Unset);
             _ = Compass.Iter(compass => (point.ModelBasePoint, point.ModelEast, point.ModelNorth) = (compass.Origin, compass.XAxis, compass.YAxis));
@@ -89,11 +64,11 @@ public sealed record Georeference {
             select new Georeference(modelToEarth, earthToModel))
         select georeference;
 
-    public Fin<EarthLocation> ToEarth(Point3d point) =>
+    public EarthLocation ToEarth(Point3d point) =>
         (ModelToEarth * point) switch {
-            var earth => GeoCoordinate.From(earth.Y, earth.X).Map(place => new EarthLocation(place, Length.FromMeters(earth.Z))),
+            var earth => new EarthLocation(GeoCoordinate.From(earth.Y, earth.X), Length.FromMeters(earth.Z)),
         };
 
     public Point3d ToModel(EarthLocation location) =>
-        EarthToModel * new Point3d(location.Place.Longitude, location.Place.Latitude, location.Elevation.Meters.ToDouble());
+        EarthToModel * new Point3d(location.Place.Longitude.Degrees.ToDouble(), location.Place.Latitude.Degrees.ToDouble(), location.Elevation.Meters.ToDouble());
 }

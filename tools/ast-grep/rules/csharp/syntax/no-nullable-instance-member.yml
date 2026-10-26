@@ -14,6 +14,21 @@ utils:
                     (?x)^(global::)?((System\.(Text\.Json\.Serialization|Runtime\.Serialization|Xml\.Serialization)|MessagePack|Newtonsoft\.Json)\.)?
                     (Json\w*|DataMember|Key|Xml\w*)(Attribute)?$
                 not: {regex: 'Ignore'}
+    declared-parameter:
+        kind: attribute_list
+        has: {kind: attribute, has: {field: name, regex: '^((global::)?System\.ComponentModel\.DataAnnotations\.)?(Display|Range)(Attribute)?$'}}
+    stored-record:
+        kind: record_declaration
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                any:
+                    - kind: attribute
+                      has: {field: name, regex: '^JsonSerializable(Attribute)?$'}
+                    - kind: invocation_expression
+                      has: {field: function, regex: '^ArchivableDictionaries\.Json\b'}
     atomic-ref:
         kind: argument
         regex: '^ref\s'
@@ -48,10 +63,12 @@ rule:
         - not:
             any:
                 - has: {matches: serializer-attributes}
+                - has: {matches: declared-parameter}
+                - inside: {stopBy: end, matches: stored-record}
                 - matches: atomic-field
                 - inside: {stopBy: end, matches: csharp-json-serializable-record}
                 - inside: {kind: field_declaration, has: {matches: serializer-attributes}}
                 - inside: {kind: 'parameter_list, declaration_list', inside: {matches: languageext-error-record}}
                 - inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {matches: languageext-error-record}}}
 message: 'Parameter, property, or field typed `$TYPE` states absence with null'
-note: Hold `Option<T>` and convert a nullable value once at the boundary with `Optional`
+note: Hold `Option<T>` and convert a nullable value once at the boundary with `Optional`, a declared parameter or a record in a file holding a stored codec keeps the native shape System.Text.Json reads

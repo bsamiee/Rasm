@@ -30,14 +30,6 @@ public sealed record WindowChannels(
     LanguageExt.HashSet<RenderWindow.StandardChannels> Available,
     Option<RenderWindow.StandardChannels> Shown);
 
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct ProgressFraction : System.Numerics.IMinMaxValue<ProgressFraction> {
-    public static ProgressFraction MinValue { get; } = new(0f);
-    public static ProgressFraction MaxValue { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RenderWindows {
     // --- [CHANNELS]

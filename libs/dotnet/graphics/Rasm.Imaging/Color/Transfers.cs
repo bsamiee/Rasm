@@ -11,7 +11,8 @@ namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[ObjectFactory<string>]
+[ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
+[ValidationError<ImagingFault>]
 public abstract partial record Transfer : IConvertible<string> {
     private static readonly Luminance ReferenceWhite = Luminance.FromNits(DynamicRange.Standard.WhiteLuminance);
     private static readonly HashMap<string, Transfer> Fixed =
@@ -39,14 +40,14 @@ public abstract partial record Transfer : IConvertible<string> {
         gamma: static gamma => string.Create(CultureInfo.InvariantCulture, $"gamma:{gamma.Exponent}"),
         camera: static camera => camera.Log.Key);
 
-    public static ValidationError? Validate(string? value, IFormatProvider? provider, out Transfer? item) {
+    public static ImagingFault? Validate(string? value, IFormatProvider? provider, out Transfer? item) {
         item = value is null ? null : (Fixed.Find(value) | Parametric(value)).ValueUnsafe();
-        return value is not null && item is null ? new ValidationError($"transfer '{value}' must name a curve or camera log, or state gamma:<exponent>, pq:<nits>, or hlg:<nits>") : null;
+        return value is not null && item is null ? new ImagingFault($"transfer '{value}' must name a curve or camera log, or state gamma:<exponent>, pq:<nits>, or hlg:<nits>") : null;
     }
 
     private static Option<Transfer> Parametric(string value) =>
         from parts in value.Split(':', 2) is [var form, var number] ? Some((Form: form, Number: number)) : None
-        from level in Invariant.Number<double>(parts.Number)
+        from level in double.TryParse(parts.Number, NumberStyles.Float, CultureInfo.InvariantCulture, out double read) ? Some(read) : None
         from transfer in parts.Form switch {
             "gamma" => Gamma.Of((float)level).ToOption().Map(static gamma => (Transfer)gamma),
             "pq" => Pq.Of(Luminance.FromNits(level)).ToOption().Map(static pq => (Transfer)pq),

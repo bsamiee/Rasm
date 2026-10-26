@@ -1,9 +1,9 @@
 using Eto.Drawing;
 using Eto.Forms;
+using Grasshopper2.Eto.Drawing;
 using Grasshopper2.Extensions;
 using Grasshopper2.UI.Flex;
 using Rasm.Rhino;
-using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Styling;
 using Rasm.Rhino.UI.Surfaces;
 using Rasm.UI;
@@ -15,7 +15,7 @@ namespace Rasm.Grasshopper.UI.Surfaces;
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class Guest(IPlugInSink sink, IO<Unit> redraw) : IDisposable {
     // --- [STATE]
-    private sealed record Session(SceneHost<BitmapPixels> Host, Shipped Shipped, Shipped Stated, Rasm.UI.Styling.Theme Theme);
+    private sealed record Session(SceneHost<BitmapPixels> Host, DefaultStyles Stated, ColorScheme Theme);
 
     private readonly Retained<IDisposable> owned = new(DisposalOps.Release);
     private Option<Session> session;
@@ -29,21 +29,18 @@ public sealed class Guest(IPlugInSink sink, IO<Unit> redraw) : IDisposable {
     public Option<SKSize> Preferred(SKSize offered) => session.Bind(held => held.Host.Preferred(offered));
 
     // --- [SESSION]
-    public static IO<Unit> Opened(IPlugInSink owner, TimeProvider clock) =>
-        Styles.Embedded.Bind(shipped => SceneView.Shipping.Publish(owner, (shipped, clock)))
-            .Catch(static error => error.IsExceptional, static error => IO.fail<Unit>(new UnheldView(typeof(Guest), error)));
+    public static IO<Unit> Opened(IPlugInSink owner, TimeProvider clock) => SceneView.Clocks.Publish(owner, clock);
 
     private IO<Session> Held =>
         session.Match(
             Some: static held => IO.pure(held),
             None: () =>
-                from shipping in SceneView.Shipping.Of(sink)
+                from clock in SceneView.Clocks.Of(sink)
                 from theme in CanvasTheme.Current
-                from stated in IO.lift(() => HostTheme.Stated(shipping.Shipped, compact: false))
                 from host in IO.lift(() => new SceneHost<BitmapPixels>(
-                    new SceneSurface<BitmapPixels>(BitmapPixels.Allocated, _ => redraw, tick => FrameLinks.Linked(Grasshopper2.UI.Editor.Instance.Canvas, tick, sink, owned.Retain)),
-                    shipping.Clock))
-                let made = new Session(host, shipping.Shipped, stated, theme)
+                    new SceneBackend<BitmapPixels>(BitmapPixels.Allocated, _ => redraw, tick => Editors.Canvas.Bind(canvas => SceneView.Drawn.FrameLink(canvas, tick, sink, owned.Retain))),
+                    clock))
+                let made = new Session(host, HostTheme.Stated(compact: false), theme)
                 from stored in IO.lift(() => session = Some(made))
                 from rethemed in CanvasTheme.Changed.Inline(_ => Rethemed, sink, owned.Retain)
                 select made);
@@ -51,7 +48,7 @@ public sealed class Guest(IPlugInSink sink, IO<Unit> redraw) : IDisposable {
     private IO<Unit> Rethemed =>
         session.Traverse(held =>
             from theme in CanvasTheme.Current
-            from stated in IO.lift(() => HostTheme.Stated(held.Shipped, compact: false))
+            let stated = HostTheme.Stated(compact: false)
             from stored in IO.lift(() => session = Some(held with { Stated = stated, Theme = theme }))
             from moved in held.Host.Current.Traverse(mount => held.Host.Rehost(mount.Host with { Theme = theme }, stated)).As()
             select unit).As().Map(static _ => unit);
@@ -87,10 +84,10 @@ public sealed class Guest(IPlugInSink sink, IO<Unit> redraw) : IDisposable {
             None: static () => 1f)
         .Map(density => graphics.ScaleFactor() * density);
 
-    public static Fin<float> Device(Grasshopper2.Eto.Drawing.Context context) =>
+    public static Fin<float> Device(Context context) =>
         Device(context.Graphics, context.Bitmap is not null ? None : Optional(context.Control as Control));
 
-    public static Action<Grasshopper2.Eto.Drawing.Context, Rectangle> TooltipPainter(IPlugInSink sink, Node view, CallbackSite site) =>
+    public static Action<Context, Rectangle> TooltipPainter(IPlugInSink sink, Node view, CallbackSite site) =>
         (context, details) => Callbacks.Run(
             DisposalOps.Within(() => new Guest(sink, IO.pure(unit)), guest =>
                 from device in IO.lift(() => Device(context))

@@ -10,13 +10,14 @@ namespace Rasm.Rhino.Persistence;
 [ValueObject<string>(SkipIParsable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[ValidationError<RhinoFault>]
 public sealed partial class PresetName {
     private static readonly SearchValues<char> Reserved = SearchValues.Create(Path.GetInvalidFileNameChars());
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
         (value, validationError) = value.TrimOrNullify() is { } trimmed && !trimmed.AsSpan().ContainsAny(Reserved)
-            ? (trimmed, default(ValidationError?))
-            : (value, new ValidationError("preset name is blank or holds invalid file name character"));
+            ? (trimmed, default(RhinoFault?))
+            : (value, new RhinoFault("preset name is blank or holds invalid file name character"));
 }
 
 public sealed record Preset(PresetName Name, Fin<ValueSet> Values) {
@@ -95,7 +96,7 @@ public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<V
         select deleted;
 
     public IO<Preset> Import(FileInfo source) =>
-        IO.lift(PresetName.Validated(Path.GetFileNameWithoutExtension(source.Name))).Bind(name => Added(name, IO.lift(() => Read(source)), nameof(Import)));
+        IO.lift(PresetName.TryCreate(Path.GetFileNameWithoutExtension(source.Name), out PresetName? held, out RhinoFault? fault) ? Fin.Succ(held) : fault).Bind(name => Added(name, IO.lift(() => Read(source)), nameof(Import)));
 
     public static IO<Unit> Export(Preset preset, FileInfo target) =>
         IO.lift(() => preset.File.Match(Some: Read, None: () => preset.Values)).Bind(values => Written(target, values, overwrite: true));
@@ -115,7 +116,7 @@ public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<V
         IO.lift(() => toSeq(folder.EnumerateFiles($"*{Extension}")).Strict())
             .Catch(static error => error.HasException<DirectoryNotFoundException>(), static _ => IO.pure(Seq<FileInfo>()))
             .Map(static files => files
-                .Map(static file => PresetName.Validated(Path.GetFileNameWithoutExtension(file.Name)).ToOption()
+                .Map(static file => (PresetName.TryCreate(Path.GetFileNameWithoutExtension(file.Name), out PresetName? held) ? Some(held) : None)
                     .Map(name => (Name: name, Preset: new Preset(name, Read(file)) { File = Some(file) })))
                 .Somes().Strict())
             .Bind(static rows => IO.lift(Callbacks.Unique(rows, static row => row.Name, nameof(Listed))))

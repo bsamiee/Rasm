@@ -11,21 +11,14 @@ namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct LatticeSize : IMinMaxValue<LatticeSize> {
-    public static LatticeSize MinValue { get; } = new(2);
-    public static LatticeSize MaxValue { get; } = new(256);
-    public static LatticeSize Default { get; } = new(33);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct CurveLength : IMinMaxValue<CurveLength> {
-    public static CurveLength MinValue { get; } = new(2);
-    public static CurveLength MaxValue { get; } = new(300_000);
+[ValidationError<ImagingFault>]
+public readonly partial struct CurveLength {
     public static CurveLength ResolveShaper { get; } = new(65_536);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+    public static Fin<CurveLength> Validated(int value) => TryCreate(value, out CurveLength length, out ImagingFault? fault) ? length : fault;
+
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int value) =>
+        validationError = value is >= 2 and <= 300_000 ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Curve length {value} lies outside [2, 300000]"));
 }
 
 public sealed class Lut1D {
@@ -356,8 +349,8 @@ public abstract partial record LutSpace {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LutTables {
     extension(Lut3D) {
-        public static Fin<Lut3D> From(LatticeSize size, ReadOnlyMemory<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
-            Accepts(size, 3 * size * size * size, samples.Span, domainMinimum, domainMaximum).Map(_ => new Lut3D(size, samples.Span, domainMinimum, domainMaximum));
+        public static Fin<Lut3D> From(int size, ReadOnlyMemory<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
+            Accepts(size, 3 * size * size * size, samples.Span, domainMinimum, domainMaximum).Bind(_ => Try.lift(() => new Lut3D(size, samples.Span, domainMinimum, domainMaximum)).Run());
     }
 
     internal static Fin<Unit> Accepts(int size, int count, ReadOnlySpan<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>

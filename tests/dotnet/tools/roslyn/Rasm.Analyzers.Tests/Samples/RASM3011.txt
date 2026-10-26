@@ -1,3 +1,5 @@
+using Thinktecture;
+
 internal sealed record Factor(float Value) {
     public static Factor Unit { get; } = new(1f);
 
@@ -16,4 +18,14 @@ internal static class Sizes {
     internal static Factor Half => Factor.Create(0.5f);
 
     internal static Grow Held => Grow.Fill;
+}
+
+[SmartEnum]
+internal sealed partial class Rank {
+    public static readonly Rank Current = new(shown: true);
+    public static readonly Rank Visible = new(shown: true);
+
+    private Rank(bool shown) => Shown = shown;
+
+    public bool Shown { get; }
 }

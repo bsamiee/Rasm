@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using System.Reflection;
 using Rasm.Drafting;
 using Rhino;
@@ -21,18 +20,18 @@ public abstract partial record FieldRun {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TextFieldOps {
     // --- [RUNS]
-    public static FieldRun Field<T>(Expression<Func<T>> call) where T : IConvertible =>
-        call.Body is MethodCallExpression body && body.Method.DeclaringType == typeof(TextFields)
-            ? new FieldRun.Evaluator(body.Method, toSeq(body.Arguments).Map(static argument => Optional(Expression.Lambda<Func<string?>>(argument).Compile(preferInterpretation: true)())).Strict())
-            : throw new ArgumentException($"{call.Body} is no {nameof(TextFields)} evaluator call", nameof(call));
+    public static FieldRun Field<T>(Func<string, T> evaluator, Option<string> argument) where T : IConvertible =>
+        evaluator.Method.DeclaringType == typeof(TextFields)
+            ? new FieldRun.Evaluator(evaluator.Method, [argument])
+            : throw new ArgumentException($"{evaluator.Method} is no {nameof(TextFields)} evaluator", nameof(evaluator));
 
     public static Option<FieldRun> Title(TitleField field, Option<Sheet> sheet) =>
-        field.Source.Switch(
-            (field.Key, Sheet: sheet),
-            projectText: static state => Some(Field(() => TextFields.DocumentText(state.Key))),
-            sheetText: static state => Some(Field(() => TextFields.LayoutUserText(state.Key))),
-            identifier: static _ => Some(Field(static () => TextFields.PageName())),
-            designation: static state => state.Sheet.Map<FieldRun>(static held => held.Size.Name));
+        field.Switch(
+            sheet,
+            projectEntry: static (_, entry) => Some(Field(TextFields.DocumentText, entry.Key)),
+            sheetEntry: static (_, entry) => Some(Field(TextFields.LayoutUserText, entry.Key)),
+            sheetName: static (_, _) => Some(Field(TextFields.PageName, None)),
+            sheetFact: static (held, fact) => held.Map<FieldRun>(page => fact.Read(page)));
 
     // --- [RENDERING]
     public static string Text(Seq<FieldRun> runs) =>

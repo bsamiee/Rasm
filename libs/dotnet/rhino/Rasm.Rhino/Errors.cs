@@ -37,6 +37,10 @@ public sealed record Refused(string Member, string Reason) : Expected($"{Member}
     public static Fin<T> UnlessValid<T>(bool valid, T value, string member) => valid ? value : new Refused(member, Invalid);
 }
 
+public sealed record RhinoFault(string Message) : Expected(Message, 0), IValidationError<RhinoFault> {
+    public static RhinoFault Create(string message) => new(message);
+}
+
 public sealed record Ended(string Member, Result Result) : Expected($"{Member} ended with {Result}", 0);
 
 public sealed record NotFound(string Kind, string Key) : Expected($"no {Kind} matches {Key}", 0);

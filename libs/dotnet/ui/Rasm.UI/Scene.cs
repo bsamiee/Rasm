@@ -10,10 +10,10 @@ internal abstract partial record Laid {
     public required Seq<Key> Path { get; init; }
     public required Node Node { get; init; }
     public required Cascade Cascade { get; init; }
-    public required Style Style { get; init; }
+    public required RoleStyle Style { get; init; }
     public SKSize Intrinsic { get; init; }
     public SKRect Frame { get; init; }
-    public Corners Corners { get; init; }
+    public Corners Corners { get; init; } = Corners.Square;
     public Seq<Laid> Children { get; init; }
     internal Seq<Laid> Members { get; init; }
 
@@ -41,7 +41,7 @@ internal abstract partial record Laid {
 
     internal float Smoothing => Node.Role.IsSome ? Style.Metrics[Metric.Smoothing] : 0f;
 
-    internal bool Surface => Node.Role.IsSome && Node.Surfaced && (!Style.Fills.IsEmpty || !Style.Strokes.IsEmpty);
+    internal bool HasBackground => Node.Role.IsSome && Node.AcceptsBackground && (!Style.Fills.IsEmpty || !Style.Strokes.IsEmpty);
 
     internal SKPath Outline(SKRect frame, float offset) => Figure.Traced(path => Corners.Grown(offset).Outline(path, SKRect.Inflate(frame, offset, offset), Smoothing));
 
@@ -72,24 +72,22 @@ internal abstract partial record Laid {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Adjuster {
     public required Seq<Key> Owner { get; init; }
-    public required Orientation Axis { get; init; }
+    public required PhysicalAxis Axis { get; init; }
     public required float Value { get; init; }
     public required float Min { get; init; }
     public required float Max { get; init; }
     public required float Gearing { get; init; }
     public required float Step { get; init; }
 
-    public Cursor Cursor => Switch(scroll: static _ => Cursor.Default, split: static split => Cursor.Resizing(split.Axis));
+    public CursorShape Cursor => Switch(scroll: static _ => CursorShape.Default, split: static split => CursorShape.Resizing(split.Axis));
 
     public float Clamped(float value) => float.Clamp(value, Min, Max);
 
-    public Option<float> Navigated(Navigation toward) =>
+    public Option<float> Navigated(NavigationDirection toward) =>
         toward.Along == Axis
-            ? Some(toward.Grain.Switch(
-                (Adjuster: this, toward.Sign),
-                unit: static held => held.Adjuster.Value + (held.Sign * held.Adjuster.Step),
-                page: static held => held.Adjuster.Value + (held.Sign * held.Adjuster.Switch(scroll: static scroll => scroll.Page, split: static split => split.Step)),
-                edge: static held => held.Sign < 0 ? held.Adjuster.Min : held.Adjuster.Max))
+            ? Some(toward.Grain.Stride(Step, Switch(scroll: static scroll => scroll.Page, split: static split => split.Step)).Match(
+                Some: stride => Value + (toward.Sign * stride),
+                None: () => toward.Sign < 0 ? Min : Max))
             : None;
 
     internal bool Scrolls(Vector2 delta) =>
@@ -108,7 +106,7 @@ public abstract partial record Hosted {
 
     public sealed record Slot : Hosted;
 
-    public sealed record Backdrop(Corners Corners, Glass Glass, Option<SKColorF> Tint) : Hosted;
+    public sealed record Backdrop(Corners Corners, bool Clear, Option<SKColorF> Tint) : Hosted;
 }
 
 internal sealed record Place(SKPoint Origin, SKRect Clip, Option<PlotFrame> Plot);
@@ -127,7 +125,7 @@ public sealed class Scene {
                  from hosted in Hosts(laid, place)
                  select hosted;
         Extended = Order.Exists(static laid => laid.Node.SwitchPartially(@default: static _ => false, image: static image => image.Source.ColorType is SKColorType.RgbaF16 or SKColorType.RgbaF32));
-        Opaque = Hosted.IsEmpty && layout.Node.Role.IsSome && layout.Node.Surfaced && Styles.Grounded(layout.Cascade, layout.Style, layout.Node) is Ground.Opaque
+        Opaque = Hosted.IsEmpty && layout.Node.Role.IsSome && layout.Node.AcceptsBackground && Styles.Grounded(layout.Cascade, layout.Style, layout.Node) is Ground.Opaque
                  && layout.Corners == Corners.Square && layout.Alpha >= 1f && layout.Style.Filters.IsEmpty;
     }
 
@@ -142,15 +140,15 @@ public sealed class Scene {
     internal Seq<Laid> Timed { get; }
 
     // --- [TRANSITIONS]
-    internal static Fin<Scene> Of(Theme theme, Shipped shipped, Node root, SKSize size, HashMap<Seq<Key>, float> adjusted) =>
-        Layouts.Unique(Layouts.Arrange(Styles.Root(theme, shipped), root, size, adjusted, []), []).Map(unique => new Scene(unique, toHashMap(Indexed(unique)), toHashMap(Placing(unique, Root(unique), adjusted)), adjusted));
+    internal static Fin<Scene> Of(ColorScheme theme, DefaultStyles defaults, Node root, SKSize size, HashMap<Seq<Key>, float> adjusted) =>
+        Layouts.Unique(Layouts.Arrange(Styles.Root(theme, defaults), root, size, adjusted, []), []).Map(unique => new Scene(unique, toHashMap(Indexed(unique)), toHashMap(Placing(unique, Root(unique), adjusted)), adjusted));
 
     internal Fin<(Scene Scene, Seq<SKRect> Damage)> Reconcile(Node root) =>
-        Layouts.Unique(Layouts.Arrange(Layout.Cascade, root, Layout.Frame.Size, Adjusted, Index), Index).Map(unique => Settled(unique, Adjusted));
+        Layouts.Unique(Layouts.Arrange(Layout.Cascade, root, Layout.Frame.Size, Adjusted, Index), Index).Map(unique => Diffed(unique, Adjusted));
 
     internal (Scene Scene, Seq<SKRect> Damage) Resize(SKSize size) => Arranged(Layout.Cascade, size, Adjusted, Index);
 
-    internal (Scene Scene, Seq<SKRect> Damage) Restyle(Theme theme) => Arranged(Styles.Root(theme, Layout.Cascade.Shipped), Layout.Frame.Size, Adjusted, []);
+    internal (Scene Scene, Seq<SKRect> Damage) Restyle(ColorScheme theme) => Arranged(Styles.Root(theme, Layout.Cascade.Defaults), Layout.Frame.Size, Adjusted, []);
 
     internal (Scene Scene, Seq<SKRect> Damage) Adjust(Seq<Key> path, Func<float, float> move) =>
         (from adjuster in Adjuster(path)
@@ -169,12 +167,12 @@ public sealed class Scene {
             .Match(Some: revealed => Readjusted(revealed.Adjusted, revealed.Moved), None: () => (this, Seq<SKRect>()));
 
     private (Scene Scene, Seq<SKRect> Damage) Arranged(Cascade root, SKSize size, HashMap<Seq<Key>, float> adjusted, HashMap<Seq<Key>, Laid> prior) =>
-        Settled(Layouts.Arrange(root, Layout.Node, size, adjusted, prior), adjusted);
+        Diffed(Layouts.Arrange(root, Layout.Node, size, adjusted, prior), adjusted);
 
     private (Scene Scene, Seq<SKRect> Damage) Readjusted(HashMap<Seq<Key>, float> adjusted, Seq<Seq<Key>> changed) =>
         Arranged(Layout.Cascade, Layout.Frame.Size, adjusted, Index.RemoveRange(changed.Bind(Above)));
 
-    private (Scene Scene, Seq<SKRect> Damage) Settled(Laid next, HashMap<Seq<Key>, float> adjusted) {
+    private (Scene Scene, Seq<SKRect> Damage) Diffed(Laid next, HashMap<Seq<Key>, float> adjusted) {
         Diff diff = new(Adjusted, adjusted);
         Walked prior = new(Index, Places, []);
         Walked walked = Layout.Cascade.Theme.Equals(next.Cascade.Theme)
@@ -205,11 +203,11 @@ public sealed class Scene {
     public Option<SKRect> Visible(Seq<Key> path) => Placed(path).Map(static held => SKRect.Intersect(Absolute(held.Laid.Frame, held.Place.Origin), held.Place.Clip)).Filter(static shown => !shown.IsEmpty);
 
     public bool Covers(SKPoint at) =>
-        Order.Exists(laid => Places.Find(laid.Path).Exists(place => place.Clip.Contains(at) && (laid.Surface || laid.Node.Paints) && laid.Holds(Absolute(laid.Frame, place.Origin), 0f, at)));
+        Order.Exists(laid => Places.Find(laid.Path).Exists(place => place.Clip.Contains(at) && (laid.HasBackground || laid.Node.Paints) && laid.Holds(Absolute(laid.Frame, place.Origin), 0f, at)));
 
     public SKSize Preferred(SKSize offered) => Layouts.Preferred(Layout, offered, Adjusted);
 
-    internal Option<(Laid Laid, SKRect Frame, SKRect Clip, Style Style)> Ring(Seq<Key> path) =>
+    internal Option<(Laid Laid, SKRect Frame, SKRect Clip, RoleStyle Style)> Ring(Seq<Key> path) =>
         Placed(path).Map(static held => (held.Laid, Absolute(held.Laid.Frame, held.Place.Origin), held.Place.Clip, Styles.Resolve(held.Laid.Cascade, Role.FocusRing, held.Laid.Style.Conditions)));
 
     internal Option<Adjuster> Adjuster(Seq<Key> path) =>
@@ -266,15 +264,15 @@ public sealed class Scene {
         toHashMap(toSeq(adjusted.AsIterable()).Choose(entry => index.Find(entry.Key).Bind(laid => Adjusting(laid, None, Some(entry.Value))).Map(adjuster => (entry.Key, adjuster.Value))));
 
     private static Seq<Hosted> Hosts(Laid laid, Place place) =>
-        laid.Node.SwitchPartially((Laid: laid, Frame: Absolute(laid.Frame, place.Origin), place.Clip), @default: Backed, slot: Hosting);
+        laid.Node.SwitchPartially((Laid: laid, Frame: Absolute(laid.Frame, place.Origin), place.Clip), @default: Backdrops, slot: Hosting);
 
     private static Seq<Hosted> Hosting((Laid Laid, SKRect Frame, SKRect Clip) held, Node.Slot _) => [new Hosted.Slot { Path = held.Laid.Path, Frame = held.Frame, Clip = held.Clip }];
 
-    private static Seq<Hosted> Backed((Laid Laid, SKRect Frame, SKRect Clip) held, Node node) =>
+    private static Seq<Hosted> Backdrops((Laid Laid, SKRect Frame, SKRect Clip) held, Node node) =>
         node.Role.IsNone
             ? []
             : held.Laid.Style.Fills.Choose(static fill => fill.SwitchPartially(@default: static _ => Option<Material.Backdrop>.None, backdrop: static backdrop => Some(backdrop)))
-                .Map(backdrop => (Hosted)new Hosted.Backdrop(held.Laid.Corners, backdrop.Glass, backdrop.Tint.Bind(tint => held.Laid.Cascade.Theme.Color(tint, held.Laid.Style, None, None))) {
+                .Map(backdrop => (Hosted)new Hosted.Backdrop(held.Laid.Corners, backdrop.Clear, backdrop.Tint.Bind(tint => held.Laid.Cascade.Theme.Color(tint, held.Laid.Style, None, None))) {
                     Path = held.Laid.Path, Frame = held.Frame, Clip = held.Clip,
                 });
 

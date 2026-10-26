@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Numerics;
 using System.Reflection;
 using Rasm.UI.Styling;
@@ -68,27 +67,14 @@ public abstract partial record GlyphSource {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-[ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
 public abstract partial record Key {
     private const char Mark = '#';
-    private const string HandleValue = "#handle";
 
-    public static ValidationError? Validate(string? value, IFormatProvider? provider, out Key? item) {
-        item = value switch {
-            null => null,
-            HandleValue => new Handle(),
-            _ when value.StartsWith($"{Mark}{Mark}", StringComparison.Ordinal) => new Named(value[1..]),
-            _ when value.StartsWith(Mark) && uint.TryParse(value.AsSpan(1), NumberStyles.None, CultureInfo.InvariantCulture, out uint ordinal) => new Ordinal(ordinal),
-            _ => new Named(value),
-        };
-        return null;
-    }
-
-    public string ToValue() =>
+    public string Identifier =>
         Switch(
             named: static named => named.Name.StartsWith(Mark) ? $"{Mark}{named.Name}" : named.Name,
             ordinal: static ordinal => $"{Mark}{ordinal.Index}",
-            handle: static _ => HandleValue);
+            handle: static _ => $"{Mark}handle");
 
     public sealed record Named(string Name) : Key;
 
@@ -114,7 +100,7 @@ public abstract partial record Node {
     public Option<Sizing> Width { get; init; }
     public Option<Sizing> Height { get; init; }
     public Option<Factor> Aspect { get; init; }
-    public UnitPoint Align { get; init; }
+    public UnitPoint Align { get; init; } = UnitPoint.Start;
     public Option<Part> Part { get; init; }
     public Accessible Accessible { get; init; } = Accessible.Empty;
 
@@ -138,7 +124,7 @@ public abstract partial record Node {
 
     internal bool Paints => MapPartially(@default: false, mark: true, text: true, glyph: true, image: true, slot: true);
 
-    internal bool Surfaced => MapPartially(@default: true, mark: false, image: false);
+    internal bool AcceptsBackground => MapPartially(@default: true, mark: false, image: false);
 
     internal bool Inherits => MapPartially(@default: false, text: true, glyph: true);
 
@@ -149,23 +135,23 @@ public abstract partial record Node {
 
     public sealed record Box : Node;
 
-    public sealed record Flex(Orientation Axis, Seq<Node> Children) : Node {
+    public sealed record Flex(PhysicalAxis Axis, Seq<Node> Children) : Node {
         public bool Baseline { get; init; }
     }
 
     public sealed record Grid(Tracks Columns, Seq<Seq<Node>> Rows) : Node;
 
-    public sealed record Lazy(Orientation Axis, Tracks Across, float Extent, Seq<Key> Items) : Node {
+    public sealed record Lazy(PhysicalAxis Axis, Tracks Across, float Extent, Seq<Key> Items) : Node {
         public HashMap<Key, Node> Realized { get; init; }
     }
 
     public sealed record Overlay(Node Base, Seq<Node> Above) : Node;
 
-    public sealed record Choice(Orientation Axis, Seq<Node> Alternatives) : Node;
+    public sealed record Choice(PhysicalAxis Axis, Seq<Node> Alternatives) : Node;
 
-    public sealed record Scroll(Orientation Axis, Node Content) : Node;
+    public sealed record Scroll(PhysicalAxis Axis, Node Content) : Node;
 
-    public sealed record Split(Orientation Axis, Node First, Node Second) : Node;
+    public sealed record Split(PhysicalAxis Axis, Node First, Node Second) : Node;
 
     public sealed record Plot(PlotPlane Plane, Seq<Node> Children) : Node {
         public Seq<Pin> Labels { get; init; }

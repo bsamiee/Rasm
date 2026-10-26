@@ -306,8 +306,6 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
     }
 
     private protected sealed class ThinktectureSymbols(Compilation compilation) {
-        public INamedTypeSymbol? ValidationResults { get; } = compilation.GetTypeByMetadataName("Thinktecture.ValidationResults");
-
         public INamedTypeSymbol? ValidationError { get; } = compilation.GetTypeByMetadataName("Thinktecture.ValidationError");
 
         public INamedTypeSymbol? ObjectFactory { get; } = compilation.GetTypeByMetadataName("Thinktecture.IObjectFactory`3");
@@ -420,8 +418,6 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public ISymbol? ConduitEnabled { get; } = Declared(compilation, "P:Rhino.Display.DisplayConduit.Enabled").FirstOrDefault();
 
         public ImmutableArray<IMethodSymbol> ExceptionReport { get; } = Members(compilation.GetTypeByMetadataName("Rhino.Runtime.HostUtils"), "ExceptionReport");
-
-        public ISymbol? Render { get; } = Declared(compilation, "N:Rhino.Render").FirstOrDefault();
     }
 
     private protected sealed class EtoSymbols(Compilation compilation) {
@@ -491,13 +487,7 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
         public INamedTypeSymbol? Commits { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Document.Commits");
 
-        public INamedTypeSymbol? SettingType { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Persistence.Settings.SettingType");
-
-        public INamedTypeSymbol? SettingType1 { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Persistence.Settings.SettingType`1");
-
         public ISymbol? UI { get; } = Declared(compilation, "N:Rasm.Rhino.UI").FirstOrDefault();
-
-        public ISymbol? Render { get; } = Declared(compilation, "N:Rasm.Rhino.Render").FirstOrDefault();
 
         public ImmutableArray<IMethodSymbol> Subscriptions { get; } = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Events.Subscriptions"), "Host", "During");
     }

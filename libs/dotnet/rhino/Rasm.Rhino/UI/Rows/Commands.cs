@@ -23,8 +23,6 @@ public abstract partial record Invoke {
     public sealed record Listed(Func<RowScope, IO<Seq<Seq<Command<RowRule, Invoke>>>>> Groups) : Invoke;
 }
 
-public sealed record Watched(Seq<RowRule> Rules, IO<Unit> Refresh);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CommandRows {
     // --- [DECLARE]
@@ -38,7 +36,7 @@ public static class CommandRows {
             new Command<RowRule, Invoke>.Run(member(item), None, new Invoke.Effect(scope => write(scope, item))) { Marked = chosen(item) }));
 
     public static Command<RowRule, Invoke>.Run Picked(CommandFace face, bool marked, Func<RowScope, IO<Unit>> run) =>
-        new(face, None, new Invoke.Effect(run)) { Marked = new RowRule([], [], _ => IO.pure(marked)) };
+        new(face, None, new Invoke.Effect(run)) { Marked = new RowRule(_ => IO.pure(marked)) };
 
     // --- [HOST]
     public static IO<CommandHost<RowRule, Invoke>> Host(RowScope scope, Action<IDisposable> retain) =>
@@ -77,7 +75,7 @@ public static class CommandRows {
     public static IO<Func<Keys, IO<bool>>> Keyed(Seq<Seq<Command<RowRule, Invoke>>> groups, RowScope scope, Action<IDisposable> retain) =>
         Runs(Localized(groups, scope.Sink))
             .Choose(static held => held.Run.Invoke.Shortcut.Map(keys => (Keys: keys, held.Run, held.Gate)))
-            .TraverseM(held => Delivered(held.Run, scope, retain).Map(deliver => (held.Keys, Press: RowRules.Holds(held.Gate, scope).Bind(holds =>
+            .TraverseM(held => Delivered(held.Run, scope, retain).Map(deliver => (held.Keys, Press: Holds(held.Gate, scope).Bind(holds =>
                 when(holds, IO.lift(() => Callbacks.Started(deliver, new CallbackSite(scope.Sink, typeof(Command), held.Run.Face.Name)))).As().Map(_ => holds)))))
             .As()
             .Map(static pressed => toHashMap(pressed) switch {
@@ -85,7 +83,7 @@ public static class CommandRows {
             });
 
     private static IO<Unit> Gated(Option<RowRule> gate, IO<Unit> press, RowScope scope) =>
-        RowRules.Holds(gate, scope).Bind(holds => when(holds, press).As());
+        Holds(gate, scope).Bind(holds => when(holds, press).As());
 
     private static IO<Unit> Scripted(Invoke.Script script, RowScope scope, Option<string> display) =>
         from document in scope.DocumentIO
@@ -102,11 +100,13 @@ public static class CommandRows {
     public static Option<RowRule> Gate(Option<RowRule> parent, Option<RowRule> own) =>
         parent.Map(outer => own.Map(inner => outer & inner).IfNone(outer)) | own;
 
+    public static IO<bool> Holds(Option<RowRule> gate, RowScope scope) => gate.Match(Some: held => held.Holds(scope), None: static () => IO.pure(value: true));
+
     // --- [MENUS]
     public static IO<(ContextMenu Menu, IO<Unit> Refresh)> Menu(Seq<Seq<Command<RowRule, Invoke>>> groups, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep =>
             from opened in Opened(Localized(groups, scope.Sink), scope, keep)
-            from refresh in Listened(opened.Watched, scope, keep)
+            from refresh in Listened(opened.Refreshes, scope, keep)
             select (opened.Menu, refresh), retain);
 
     public static IO<IO<Unit>> Fill(MenuItemCollection items, Seq<Seq<Command<RowRule, Invoke>>> groups, RowScope scope, Action<IDisposable> retain) =>
@@ -118,26 +118,26 @@ public static class CommandRows {
             from relisted in Relisted(menu.Items, listed, h => menu.Opening += h, h => menu.Opening -= h, typeof(ContextMenu), scope, keep)
             select menu, retain);
 
-    private static IO<(ContextMenu Menu, Seq<Watched> Watched)> Opened(Seq<Seq<Command<RowRule, Invoke>>> groups, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<(ContextMenu Menu, Seq<IO<Unit>> Refreshes)> Opened(Seq<Seq<Command<RowRule, Invoke>>> groups, RowScope scope, Action<IDisposable> retain) =>
         from menu in DisposalOps.Acquire(IO.lift(static () => new ContextMenu()), retain)
         from watched in Filled(menu.Items, groups, scope, retain)
         from opening in Subscriptions.Attach(h => menu.Opening += h, h => menu.Opening -= h,
             Callbacks.Handler<EventArgs>(_ => Refreshed(watched), new CallbackSite(scope.Sink, typeof(ContextMenu), nameof(ContextMenu.Opening))), retain)
         select (menu, watched);
 
-    private static IO<Seq<Watched>> Filled(MenuItemCollection items, Seq<Seq<Command<RowRule, Invoke>>> groups, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<Seq<IO<Unit>>> Filled(MenuItemCollection items, Seq<Seq<Command<RowRule, Invoke>>> groups, RowScope scope, Action<IDisposable> retain) =>
         from made in groups.TraverseM(cluster => cluster.TraverseM(command => Items(command, scope, retain)).As()).As()
         from placed in made.TraverseM(cluster =>
             from separator in DisposalOps.Acquire(IO.lift(static () => (MenuItem)new SeparatorMenuItem()), static held => IO.lift(held.Dispose), retain)
             from added in separator.Cons(cluster.Bind(static item => item.Items)).TraverseM(item => Added(items, item, retain)).As()
             select unit).As()
         from trimmed in IO.lift(items.Trim)
-        select made.Flatten().Bind(static item => item.Watched);
+        select made.Flatten().Bind(static item => item.Refreshes);
 
     private static IO<Unit> Added(MenuItemCollection items, MenuItem item, Action<IDisposable> retain) =>
         DisposalOps.Acquire(IO.lift(() => items.Add(item)), _ => IO.lift(() => items.Remove(item)).Map(unit), retain);
 
-    private static IO<(Seq<MenuItem> Items, Seq<Watched> Watched)> Items(Command<RowRule, Invoke> command, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<(Seq<MenuItem> Items, Seq<IO<Unit>> Refreshes)> Items(Command<RowRule, Invoke> command, RowScope scope, Action<IDisposable> retain) =>
         command.Switch(
             (Scope: scope, Retain: retain),
             run: static (at, run) => run.Invoke.SwitchPartially(
@@ -145,19 +145,19 @@ public static class CommandRows {
                 @default: static (held, _) =>
                     from made in Commanded(held.Run, held.Run.Enabled, held.Scope, held.Retain)
                     from item in Created(made.Command, held.Retain)
-                    select (Seq(item), Seq(made.Watched)),
+                    select (Seq(item), Seq(made.Refresh)),
                 listed: static (held, listed) =>
                     from sub in Submenu(held.Run.Face, trimmed: false, held.Scope, held.Retain)
                     from relisted in Relisted(sub.Items, listed, h => sub.Opening += h, h => sub.Opening -= h, typeof(SubMenuItem), held.Scope, held.Retain)
-                    select (Seq<MenuItem>(sub), Seq(new Watched(held.Run.Enabled.ToSeq(), Enabling(sub, held.Run.Enabled, held.Scope))))),
+                    select (Seq<MenuItem>(sub), Seq(Enabling(sub, held.Run.Enabled, held.Scope)))),
             choice: static (at, choice) =>
                 from radios in Radios(choice, at.Scope, at.Retain)
                 from items in radios.TraverseM(radio => Created(radio.Command, at.Retain)).As()
-                select (items, radios.Map(static radio => radio.Watched)),
+                select (items, radios.Map(static radio => radio.Refresh)),
             menu: static (at, menu) =>
                 from sub in Submenu(menu.Face, trimmed: true, at.Scope, at.Retain)
                 from watched in Filled(sub.Items, menu.Groups, at.Scope, at.Retain)
-                select (Seq<MenuItem>(sub), watched.Add(new Watched(menu.Enabled.ToSeq(), Enabling(sub, menu.Enabled, at.Scope)))));
+                select (Seq<MenuItem>(sub), watched.Add(Enabling(sub, menu.Enabled, at.Scope))));
 
     private static IO<SubMenuItem> Submenu(CommandFace face, bool trimmed, RowScope scope, Action<IDisposable> retain) =>
         from sub in DisposalOps.Acquire(IO.lift(() => new SubMenuItem { Text = face.Caption, ToolTip = face.Help.ValueUnsafe(), Trim = trimmed }), retain)
@@ -179,16 +179,16 @@ public static class CommandRows {
         select unit;
 
     private static IO<Unit> Enabling(MenuItem item, Option<RowRule> gate, RowScope scope) =>
-        RowRules.Holds(gate, scope).Bind(holds => IO.lift(() => { item.Enabled = holds; }));
+        Holds(gate, scope).Bind(holds => IO.lift(() => { item.Enabled = holds; }));
 
     // --- [BUTTONS]
     public static IO<(Control Control, IO<Unit> Refresh)> Button(Command<RowRule, Invoke> command, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep =>
             from made in Pressed(Localized(command, scope.Sink), slot, scope, keep)
-            from refresh in Listened(made.Watched, scope, keep)
+            from refresh in Listened(made.Refreshes, scope, keep)
             select (made.Control, refresh), retain);
 
-    internal static IO<(Control Control, Seq<Watched> Watched)> Pressed(Command<RowRule, Invoke> command, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
+    internal static IO<(Control Control, Seq<IO<Unit>> Refreshes)> Pressed(Command<RowRule, Invoke> command, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
         command.Switch(
             (Slot: slot, Scope: scope, Retain: retain),
             run: static (at, run) => run.Invoke.SwitchPartially(
@@ -202,9 +202,9 @@ public static class CommandRows {
             menu: static (at, menu) => menu.Primary.Match(
                 Some: primary => Split(menu, primary, at.Slot, at.Scope, at.Retain),
                 None: () => Opened(menu.Groups, at.Scope, at.Retain).Bind(opened =>
-                    Dropped(menu.Face, menu.Enabled, opened.Menu, at.Slot, at.Scope, at.Retain).Map(dropped => (dropped.Control, opened.Watched + dropped.Watched)))));
+                    Dropped(menu.Face, menu.Enabled, opened.Menu, at.Slot, at.Scope, at.Retain).Map(dropped => (dropped.Control, opened.Refreshes + dropped.Refreshes)))));
 
-    internal static IO<(TCommand Command, Watched Watched)> Bound<TCommand>(
+    internal static IO<(TCommand Command, IO<Unit> Refresh)> Bound<TCommand>(
         Command<RowRule, Invoke>.Run run, CommandFace face, Option<RowRule> enabled, TCommand command, IO<Unit> marking, RowScope scope, Action<IDisposable> retain)
         where TCommand : Command =>
         from faced in IO.lift(() => {
@@ -212,19 +212,19 @@ public static class CommandRows {
                 (face.Name, face.Caption, face.Caption, face.Help.IfNone(face.Caption), run.Invoke.Shortcut.IfNone(Keys.None));
         })
         from themed in face.Glyph.Traverse(glyph => Icons.Themed(scope.Sink, glyph, IconSlot.Small, HostTheme.Changed, image => command.Image = image, retain)).As()
-        let refresh = Callbacks.Each(Seq(RowRules.Holds(enabled, scope).Bind(holds => IO.lift(() => { command.Enabled = holds; })), marking)).Map(unit)
+        let refresh = Callbacks.Each(Seq(Holds(enabled, scope).Bind(holds => IO.lift(() => { command.Enabled = holds; })), marking)).Map(unit)
         from deliver in Delivered(run, scope, retain)
         from delegated in Delegated(command, deliver.Bind(_ => refresh), new CallbackSite(scope.Sink, typeof(Command), face.Name), retain)
-        select (command, new Watched(enabled.ToSeq() + run.Marked.ToSeq(), refresh));
+        select (command, refresh);
 
-    private static IO<(Command Command, Watched Watched)> Commanded(Command<RowRule, Invoke>.Run run, Option<RowRule> enabled, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<(Command Command, IO<Unit> Refresh)> Commanded(Command<RowRule, Invoke>.Run run, Option<RowRule> enabled, RowScope scope, Action<IDisposable> retain) =>
         run.Marked.Match(
             Some: mark => IO.lift(static () => new CheckCommand()).Bind(command => Bound(run, run.Face, enabled, command, Marking(command, mark, scope), scope, retain))
-                .Map(static made => ((Command)made.Command, made.Watched)),
+                .Map(static made => ((Command)made.Command, made.Refresh)),
             None: () => IO.lift(static () => new Command()).Bind(command => Bound(run, run.Face, enabled, command, IO.pure(unit), scope, retain)));
 
-    private static IO<Seq<(RadioCommand Command, Watched Watched)>> Radios(Command<RowRule, Invoke>.Choice choice, RowScope scope, Action<IDisposable> retain) =>
-        choice.Members.FoldM(Seq<(RadioCommand Command, Watched Watched)>(), (made, member) =>
+    private static IO<Seq<(RadioCommand Command, IO<Unit> Refresh)>> Radios(Command<RowRule, Invoke>.Choice choice, RowScope scope, Action<IDisposable> retain) =>
+        choice.Members.FoldM(Seq<(RadioCommand Command, IO<Unit> Refresh)>(), (made, member) =>
             from radio in IO.lift(() => made.Head.Match(Some: static first => new RadioCommand { Controller = first.Command }, None: static () => new RadioCommand()))
             from bound in Bound(member, member.Face, Gate(choice.Enabled, member.Enabled), radio, member.Marked.Traverse(mark => Marking(radio, mark, scope)).As().Map(unit), scope, retain)
             select made.Add(bound)).As();
@@ -246,7 +246,7 @@ public static class CommandRows {
             _ => IO.lift(() => { command.DelegatedCommand = null; }), retain)
         select unit;
 
-    private static IO<(Control Control, Seq<Watched> Watched)> Pushed(Command<RowRule, Invoke>.Run run, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<(Control Control, Seq<IO<Unit>> Refreshes)> Pushed(Command<RowRule, Invoke>.Run run, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
         from made in IO.lift(static () => new Command()).Bind(command => Bound(run, run.Face, run.Enabled, command, IO.pure(unit), scope, retain))
         from control in run.Face.Glyph.Match(
             Some: glyph =>
@@ -258,17 +258,17 @@ public static class CommandRows {
                 from button in DisposalOps.Acquire(IO.lift(() => new Button { Text = made.Command.ToolBarText, ToolTip = made.Command.ToolTip }), retain)
                 from bound in DisposalOps.Change(() => button.Command, value => button.Command = value, made.Command, retain)
                 select (Control)button)
-        select (control, Seq(made.Watched));
+        select (control, Seq(made.Refresh));
 
-    private static IO<(Control Control, Seq<Watched> Watched)> Toggled(Command<RowRule, Invoke>.Run run, RowRule mark, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<(Control Control, Seq<IO<Unit>> Refreshes)> Toggled(Command<RowRule, Invoke>.Run run, RowRule mark, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
         from button in DisposalOps.Acquire(IO.lift(() => new ToggleButton { Text = run.Face.Glyph.Map(static _ => "").IfNone(run.Face.Caption), ToolTip = run.Face.Help.ValueUnsafe() }), retain)
         from command in IO.lift(static () => new CheckCommand())
         from made in Bound(run, run.Face, run.Enabled, command, Marking(command, mark, scope).Bind(_ => IO.lift(() => { button.Checked = command.Checked; })), scope, retain)
         from bound in DisposalOps.Change(() => button.Command, value => button.Command = value, command, retain)
         from themed in run.Face.Glyph.Traverse(glyph => Icons.Themed(scope.Sink, glyph, slot, HostTheme.In(button), icon => button.Image = icon, retain)).As()
-        select ((Control)button, Seq(made.Watched));
+        select ((Control)button, Seq(made.Refresh));
 
-    private static IO<(Control Control, Seq<Watched> Watched)> Segmented(Command<RowRule, Invoke>.Choice choice, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<(Control Control, Seq<IO<Unit>> Refreshes)> Segmented(Command<RowRule, Invoke>.Choice choice, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
         from strip in DisposalOps.Acquire(IO.lift(static () => new SegmentedButton { SelectionMode = SegmentedSelectionMode.Single }), retain)
         from radios in Radios(choice, scope, retain)
         from segments in toSeq(choice.Members.Zip(radios, static (member, radio) => (First: member, Second: radio))).TraverseM(pair =>
@@ -281,9 +281,9 @@ public static class CommandRows {
                     new CallbackSite(scope.Sink, typeof(RadioCommand), nameof(RadioCommand.CheckedChanged))), retain)
             select (SegmentedItem)segment).As()
         from added in IO.lift(() => strip.Items.AddRange(segments))
-        select ((Control)strip, radios.Map(static radio => radio.Watched));
+        select ((Control)strip, radios.Map(static radio => radio.Refresh));
 
-    private static IO<(Control Control, Seq<Watched> Watched)> Dropped(
+    private static IO<(Control Control, Seq<IO<Unit>> Refreshes)> Dropped(
         CommandFace face, Option<RowRule> enabled, ContextMenu menu, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
         from strip in DisposalOps.Acquire(IO.lift(static () => new SegmentedButton { SelectionMode = SegmentedSelectionMode.None }), retain)
         from segment in ButtonRows.Segment<MenuSegmentedItem>(retain)
@@ -292,9 +292,9 @@ public static class CommandRows {
             strip.Items.Add(segment);
         })
         from themed in face.Glyph.Traverse(glyph => Icons.Themed(scope.Sink, glyph, slot, HostTheme.In(strip), icon => segment.Image = icon, retain)).As()
-        select ((Control)strip, Seq(new Watched(enabled.ToSeq(), RowRules.Holds(enabled, scope).Bind(holds => IO.lift(() => { segment.Enabled = holds; })))));
+        select ((Control)strip, Seq(Holds(enabled, scope).Bind(holds => IO.lift(() => { segment.Enabled = holds; }))));
 
-    private static IO<(Control Control, Seq<Watched> Watched)> Split(
+    private static IO<(Control Control, Seq<IO<Unit>> Refreshes)> Split(
         Command<RowRule, Invoke>.Menu menu, Command<RowRule, Invoke>.Run primary, IconSlot slot, RowScope scope, Action<IDisposable> retain) =>
         from opened in Opened(menu.Groups, scope, retain)
         from strip in DisposalOps.Acquire(IO.lift(() => new SegmentedButton { SelectionMode = primary.Marked.Map(static _ => SegmentedSelectionMode.Multiple).IfNone(SegmentedSelectionMode.None) }), retain)
@@ -318,23 +318,15 @@ public static class CommandRows {
             strip.Items.AddRange([pressed, dropdown]);
         })
         from themed in HostTheme.In(strip).Inline(_ => shown, scope.Sink, retain)
-        select ((Control)strip, opened.Watched.Add(made.Watched with { Rules = made.Watched.Rules + chosen.Bind(static member => member.Marked.ToSeq()) }));
+        select ((Control)strip, opened.Refreshes.Add(made.Refresh));
 
     // --- [REFRESH]
-    public static IO<IO<Unit>> Listened(Seq<Watched> watched, RowScope scope, Action<IDisposable> retain) =>
-        RuleIndex.Of(watched.Map(static held => (held.Rules.Bind(static rule => rule.Reads), held.Refresh))) switch {
-            var index =>
-                from heard in scope.Listen(changed => Callbacks.Each(RuleIndex.Affected(index, changed)).Map(unit), retain)
-                from signals in watched.Bind(static held => held.Rules.Bind(static rule => rule.Sources)).Distinct().TraverseM(source =>
-                    from events in source.Signals(scope)
-                    from attached in events.TraverseM(signal =>
-                        signal.Inline(_ => Refreshed(watched.Filter(held => held.Rules.Exists(rule => rule.Sources.Exists(read => read == source)))), scope.Sink, retain)).As()
-                    select unit).As()
-                from shown in Refreshed(watched)
-                select Refreshed(watched),
-        };
+    public static IO<IO<Unit>> Listened(Seq<IO<Unit>> refreshes, RowScope scope, Action<IDisposable> retain) =>
+        from heard in scope.Listen(_ => Refreshed(refreshes), retain)
+        from shown in Refreshed(refreshes)
+        select Refreshed(refreshes);
 
-    private static IO<Unit> Refreshed(Seq<Watched> watched) => Callbacks.Each(watched.Map(static held => held.Refresh)).Map(unit);
+    private static IO<Unit> Refreshed(Seq<IO<Unit>> refreshes) => Callbacks.Each(refreshes).Map(unit);
 
     // --- [FACES]
     public static Seq<Seq<Command<RowRule, Invoke>>> Localized(Seq<Seq<Command<RowRule, Invoke>>> groups, IPlugInSink sink) =>

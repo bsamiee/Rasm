@@ -10,11 +10,10 @@ public readonly partial struct CatenaryForm;
 public sealed record CatenaryCurve(Curve Curve, Point3d Apex, double Parameter, double Length, double MaxDeviation);
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct ConicRho : System.Numerics.IMinMaxValue<ConicRho> {
-    public static ConicRho MinValue { get; } = new(double.BitIncrement(0d));
-    public static ConicRho MaxValue { get; } = new(double.BitDecrement(1d));
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+[ValidationError<RhinoFault>]
+public sealed partial class ConicRho {
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref double value) =>
+        validationError = value is > 0d and < 1d ? null : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"conic rho {value} lies outside (0, 1)"));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -32,7 +31,7 @@ public abstract partial record Conic {
                 var unit => (Answer.Accepted(unit?.Transform(Transform.Scale(arc.Ellipse.Plane, arc.Ellipse.Radius1, arc.Ellipse.Radius2, 1d)) is true), Answer.One(unit))
                     .Apply(static (_, scaled) => scaled).As(),
             }, held),
-            rho: static (held, rho) => Rational(rho.Start, rho.Apex, rho.End, rho.Ratio / (1d - rho.Ratio), held),
+            rho: static (held, rho) => Rational(rho.Start, rho.Apex, rho.End, (double)rho.Ratio / (1d - (double)rho.Ratio), held),
             hyperbola: static (held, hyperbola) => ((hyperbola.U.T0 + hyperbola.U.T1) / 2d, (hyperbola.U.T1 - hyperbola.U.T0) / 2d) switch {
                 var (middle, half) => Rational(
                     hyperbola.Plane.PointAt(hyperbola.A * Math.Cosh(hyperbola.U.T0), hyperbola.B * Math.Sinh(hyperbola.U.T0)),
@@ -103,8 +102,8 @@ public abstract partial record HermiteSpline {
                 .Strict();
     }
 
-    private static Error Spanless(int count) =>
-        Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"a Hermite spline needs at least 2 stations, received {count}"));
+    private static RhinoFault Spanless(int count) =>
+        new(string.Create(CultureInfo.InvariantCulture, $"a Hermite spline needs at least 2 stations, received {count}"));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

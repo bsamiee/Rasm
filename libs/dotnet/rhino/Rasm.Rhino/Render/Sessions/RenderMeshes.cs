@@ -16,22 +16,14 @@ public sealed record MeshRequest(MeshType Type, ViewportInfo Viewport, RenderMes
 
 public sealed record MeshBuild(Seq<Instance> Instances, ContentKey Inputs, RenderMeshProvider.Flags Flags);
 
-[SmartEnum<int>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class MeshInterface {
-    public static readonly MeshInterface NoInterface = new(-1);
-    public static readonly MeshInterface SimpleDialog = new(0);
-    public static readonly MeshInterface DetailedDialog = new(1);
-    public static readonly MeshInterface Scripted = new(2);
-}
-
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record MeshRun {
     public sealed record Unattended(bool WorkerThread) : MeshRun;
 
-    public sealed record Styled(MeshInterface Interface, Transform Xform) : MeshRun;
+    public sealed record Styled(int Interface, Transform Xform) : MeshRun;
 }
 
-public sealed record MeshBatch(Seq<(Mesh Mesh, ObjectAttributes Attributes)> Rows, MeshInterface Interface);
+public sealed record MeshBatch(Seq<(Mesh Mesh, ObjectAttributes Attributes)> Rows, Option<int> Interface);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 [Mapper(UseDeepCloning = true)]
@@ -139,14 +131,13 @@ public static class Meshing {
         from made in Copies.Acquire(nameof(RhinoObject.MeshObjects), _ => run.Switch(
             (Objects: rhinoObjects, Parameters: parameters),
             unattended: static (state, unattended) => Batched(
-                RhinoObject.MeshObjects(state.Objects, state.Parameters, out Mesh[] meshes, out ObjectAttributes[] attributes, unattended.WorkerThread), meshes, attributes, MeshInterface.NoInterface.Key),
+                RhinoObject.MeshObjects(state.Objects, state.Parameters, out Mesh[] meshes, out ObjectAttributes[] attributes, unattended.WorkerThread), meshes, attributes, None),
             styled: static (state, styled) => {
-                int style = styled.Interface.Key;
-                return Batched(RhinoObject.MeshObjects(state.Objects, ref state.Parameters, ref style, styled.Xform, out Mesh[] meshes, out ObjectAttributes[] attributes), meshes, attributes, style);
+                int style = styled.Interface;
+                return Batched(RhinoObject.MeshObjects(state.Objects, ref state.Parameters, ref style, styled.Xform, out Mesh[] meshes, out ObjectAttributes[] attributes), meshes, attributes, Some(style));
             }), retain)
-        from closed in IO.lift(MeshInterface.Validated(made.Style))
-        select new MeshBatch(made.Rows, closed);
+        select new MeshBatch(made.Rows, made.Style);
 
-    private static Answer<(Seq<(Mesh Mesh, ObjectAttributes Attributes)> Rows, int Style)> Batched(Result result, Mesh[]? meshes, ObjectAttributes[]? attributes, int style) =>
+    private static Answer<(Seq<(Mesh Mesh, ObjectAttributes Attributes)> Rows, Option<int> Style)> Batched(Result result, Mesh[]? meshes, ObjectAttributes[]? attributes, Option<int> style) =>
         (Answer.Ended(result), Answer.Many(meshes), Answer.Many(attributes)).Apply((_, kept, rows) => (Rows: kept.Zip(rows), Style: style)).As();
 }

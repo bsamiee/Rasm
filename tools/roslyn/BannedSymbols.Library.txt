@@ -8,3 +8,6 @@ T:System.Threading.SemaphoreSlim;Exclusion runs as one `Conduit` under `Fork`, o
 T:System.Threading.Tasks.ConcurrentExclusiveSchedulerPair;Exclusion runs as one `Conduit` under `Fork`
 M:SkiaSharp.SKCanvas.Flush;No-op on a raster canvas, a GPU surface presents through `SKSurface.Flush(submit: true)`
 T:SixLabors.ImageSharp.Processing.ResizeExtensions;Resampling runs through TinyEXR `ImageProcessing.Resize(source, width, height, filter, alphaChannel: 3)` over float spans
+M:Rhino.Runtime.CommonObject.ToJSON(Rhino.FileIO.SerializationOptions);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.Runtime.CommonObject.FromJSON(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.Runtime.CommonObject.FromJSON(System.Collections.Generic.Dictionary{System.String,System.String});String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call

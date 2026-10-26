@@ -1,1 +1,2 @@
-#0 `TryGetBool` reads `PersistentSettings` outside `SettingType`, call `SettingType.Bool.Read(settings, "held")`
+#0 `GetBool` reads `PersistentSettings` through a default value, call `settings.TryGetBool("held", out bool value)`
+#1 `GetEnumValue` reads `PersistentSettings` through a default value, call `settings.TryGetEnumValue<DayOfWeek>("day", out DayOfWeek value)`

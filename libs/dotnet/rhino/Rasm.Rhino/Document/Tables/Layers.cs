@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Globalization;
 using QuikGraph;
@@ -22,7 +23,7 @@ public sealed record LayerPath(Seq<string> Ancestors, string Leaf) {
 
     public LayerPath Child(string name) => new(Segments, name);
 
-    public bool Equals([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] LayerPath? other) => other is not null && Segments.SequenceEqual(other.Segments, Names);
+    public bool Equals([NotNullWhen(true)] LayerPath? other) => other is not null && Segments.SequenceEqual(other.Segments, Names);
 
     public override int GetHashCode() => Segments.Fold(0, static (hash, name) => HashCode.Combine(hash, Names.GetHashCode(name)));
 

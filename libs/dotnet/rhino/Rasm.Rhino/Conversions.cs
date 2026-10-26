@@ -1,16 +1,11 @@
 using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.Globalization;
-using Rasm.Rhino.Document;
-using Rasm.UI;
-using Rasm.UI.Styling;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
-using SkiaSharp;
 using Wacton.Unicolour;
 
 [assembly: UseStaticMapper(typeof(Rasm.Rhino.Conversions))]
@@ -204,28 +199,7 @@ public static class Conversions {
     // --- [VALUES]
     public static bool Same(Color held, Color wanted) => held.ToArgb() == wanted.ToArgb();
 
-    [UserMapping]
-    public static double Degrees(NorthAngle north) => north;
-
     // --- [COLORS]
-    public static Lens<Color, SKColorF> Rgb { get; } = Lens<Color, SKColorF>.New(ToSKColorF, static color => _ => ToColor(color));
-
-    public static SKColorF ToSKColorF(Color color) =>
-        new(color.R / (float)byte.MaxValue, color.G / (float)byte.MaxValue, color.B / (float)byte.MaxValue, color.A / (float)byte.MaxValue);
-
-    public static SKColorF ToSKColorF(Color4f color) => new(color.R, color.G, color.B, color.A);
-
-    public static SKColorF ToSKColorF(Eto.Drawing.Color color) => new(color.R, color.G, color.B, color.A);
-
-    public static Color ToColor(SKColorF color) =>
-        new Unicolour(ColourSpace.Rgb, color.Red, color.Green, color.Blue, color.Alpha).MapToRgbGamut() switch {
-            var mapped => mapped.Rgb.Byte255 switch {
-                var rgb => Color.FromArgb(mapped.Alpha.A255, rgb.R, rgb.G, rgb.B),
-            },
-        };
-
-    public static Color4f ToColor4f(SKColorF color) => new(color.Red, color.Green, color.Blue, color.Alpha);
-
     public static (Color4f Light, double Luminance) Peaked(double red, double green, double blue) =>
         Peaked(new Unicolour(Configuration.Default, ColourSpace.RgbLinear, red, green, blue));
 
@@ -243,32 +217,6 @@ public static class Conversions {
                 var peak => new Unicolour(light.Configuration, ColourSpace.RgbLinear, rgb.R / peak, rgb.G / peak, rgb.B / peak),
             },
         };
-
-    // --- [IMAGES]
-    public static IO<SKImage> ToSKImage(Bitmap bitmap) =>
-        DisposalOps.Within(
-            () => bitmap.LockBits(new Rectangle(System.Drawing.Point.Empty, bitmap.Size), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb),
-            data => IO.lift(() => Refused.UnlessFound(
-                SKImage.FromPixelCopy(new SKImageInfo(data.Width, data.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul, SKColorSpace.CreateSrgb()), data.Scan0, data.Stride),
-                nameof(SKImage.FromPixelCopy))),
-            data => IO.lift(() => bitmap.UnlockBits(data)));
-
-    public static Fin<ColorRamp> ToColorRamp(ColorGradient gradient) =>
-        toSeq(gradient.GetColorStops())
-            .Traverse(static stop => Fraction.Validated((float)stop.Position).Map(at => new Stop<SKColorF>(ToSKColorF(stop.Color), at)))
-            .As()
-            .Bind(static stops => stops.IsEmpty
-                ? new Refused(nameof(ColorGradient.GetColorStops), Refused.Absent)
-                : Fin.Succ<ColorRamp>(new ColorRamp.Smooth(stops) { Space = CssSpace.Srgb }));
-
-    public static ColorGradient ToColorGradient(ColorGradient held, ColorRamp ramp) {
-        ColorGradient written = held.Duplicate();
-        written.SetColorStops(ramp.Material.Stops.Map(static stop => stop.Color switch {
-            Ink.Fixed color => new ColorStop(ToColor(color.Color), (float)stop.At),
-            _ => throw new UnreachableException(),
-        }));
-        return written;
-    }
 }
 
 internal static class Patches {

@@ -8,23 +8,8 @@ namespace Rasm.Rhino.Modeling.Surfaces;
 public enum SurfaceDirection { U = 0, V = 1 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct SurfaceDegree : System.Numerics.IMinMaxValue<SurfaceDegree> {
-    public static SurfaceDegree MinValue { get; } = new(1);
-    public static SurfaceDegree MaxValue { get; } = new(11);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<IsoStatus>(SkipIParsable = true, SkipIComparable = true)]
-public readonly partial struct SurfaceEdge {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref IsoStatus value) =>
-        validationError = value is IsoStatus.West or IsoStatus.South or IsoStatus.East or IsoStatus.North
-            ? null
-            : new ValidationError($"{value} names no surface edge, which is {nameof(IsoStatus.West)}, {nameof(IsoStatus.South)}, {nameof(IsoStatus.East)} or {nameof(IsoStatus.North)}");
-}
-
 [ComplexValueObject]
+[ValidationError<RhinoFault>]
 public sealed partial class PointGrid {
     public Seq<Point3d> Points { get; }
 
@@ -32,10 +17,10 @@ public sealed partial class PointGrid {
 
     public int VCount => Points.Count / UCount;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<Point3d> points, ref int uCount) =>
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Seq<Point3d> points, ref int uCount) =>
         validationError = uCount >= 2 && points.Count / uCount >= 2 && points.Count % uCount is 0
             ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"{points.Count} points form no grid of at least 2 by 2 with {uCount} in U"));
+            : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{points.Count} points form no grid of at least 2 by 2 with {uCount} in U"));
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -46,6 +31,7 @@ public abstract partial record PointSurface {
 }
 
 [ComplexValueObject(SkipToString = true)]
+[ValidationError<RhinoFault>]
 public sealed partial class HermiteGrid {
     public AscendingParameters U { get; }
 
@@ -54,10 +40,10 @@ public sealed partial class HermiteGrid {
     public Seq<(Point3d Point, Vector3d UTangent, Vector3d VTangent, Vector3d Twist)> Stations { get; }
 
     static partial void ValidateFactoryArguments(
-        ref ValidationError? validationError, ref AscendingParameters u, ref AscendingParameters v, ref Seq<(Point3d Point, Vector3d UTangent, Vector3d VTangent, Vector3d Twist)> stations) =>
+        ref RhinoFault? validationError, ref AscendingParameters u, ref AscendingParameters v, ref Seq<(Point3d Point, Vector3d UTangent, Vector3d VTangent, Vector3d Twist)> stations) =>
         validationError = stations.Count == u.Values.Count * v.Values.Count
             ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"{stations.Count} Hermite stations fill no {u.Values.Count} by {v.Values.Count} grid"));
+            : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{stations.Count} Hermite stations fill no {u.Values.Count} by {v.Values.Count} grid"));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -76,10 +62,7 @@ public abstract partial record SurfaceForm {
         public Interval V { get; }
 
         public static Fin<Polynomial> Validated(Seq<Seq<Point4d>> coefficients, Interval u, Interval v) =>
-            from uDegree in SurfaceDegree.Validated(coefficients.Count - 1)
-            from vDegree in Callbacks.Each(coefficients, static (row, index) => SurfaceDegree.Validated(row.Count - 1).MapFail(error => Error.New(ErrorCodes.ValidationFailed,
-                string.Create(CultureInfo.InvariantCulture, $"polynomial coefficient row {index}: {error.Message}"))))
-            from rectangular in guard(vDegree.Distinct().Count is 1, Error.New(ErrorCodes.ValidationFailed, "polynomial coefficient rows differ in length")).ToFin()
+            from rectangular in guard(coefficients.Map(static row => row.Count).Distinct().Count is 1, Error.New(ErrorCodes.ValidationFailed, "polynomial coefficient rows differ in length")).ToFin()
             from spanned in guard(u.IsIncreasing && v.IsIncreasing, Error.New(ErrorCodes.ValidationFailed, $"polynomial domains {u} and {v} are not increasing")).ToFin()
             select new Polynomial(coefficients, u, v);
 
@@ -138,18 +121,13 @@ public abstract partial record SurfaceForm {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SurfaceConstruction {
     // --- [FROM_POINTS]
-    public static IO<NurbsSurface> FromPoints(PointGrid grid, SurfaceDegree uDegree, SurfaceDegree vDegree, PointSurface method, Action<IDisposable> retain) =>
+    public static IO<NurbsSurface> FromPoints(PointGrid grid, int uDegree, int vDegree, PointSurface method, Action<IDisposable> retain) =>
         method.Switch(
             (Grid: grid, U: uDegree, V: vDegree, Retain: retain),
-            through: static (at, through) => Fitted(at.Grid, at.U, at.V, nameof(NurbsSurface.CreateThroughPoints))
-                >> Copies.Acquire(nameof(NurbsSurface.CreateThroughPoints), _ => Answer.One(
-                    NurbsSurface.CreateThroughPoints(at.Grid.Points, at.Grid.UCount, at.Grid.VCount, at.U, at.V, through.UClosed, through.VClosed)), at.Retain),
-            controlPoints: static (at, _) => Fitted(at.Grid, at.U, at.V, nameof(NurbsSurface.CreateFromPoints))
-                >> Copies.Acquire(nameof(NurbsSurface.CreateFromPoints), _ => Answer.One(
-                    NurbsSurface.CreateFromPoints(at.Grid.Points, at.Grid.UCount, at.Grid.VCount, at.U, at.V)), at.Retain));
-
-    private static IO<Unit> Fitted(PointGrid grid, SurfaceDegree uDegree, SurfaceDegree vDegree, string member) =>
-        IO.lift(() => (Conversions.Within(uDegree, grid.UCount, member), Conversions.Within(vDegree, grid.VCount, member)).Apply(static (_, _) => unit).As());
+            through: static (at, through) => Copies.Acquire(nameof(NurbsSurface.CreateThroughPoints), _ => Answer.One(
+                NurbsSurface.CreateThroughPoints(at.Grid.Points, at.Grid.UCount, at.Grid.VCount, at.U, at.V, through.UClosed, through.VClosed)), at.Retain),
+            controlPoints: static (at, _) => Copies.Acquire(nameof(NurbsSurface.CreateFromPoints), _ => Answer.One(
+                NurbsSurface.CreateFromPoints(at.Grid.Points, at.Grid.UCount, at.Grid.VCount, at.U, at.V)), at.Retain));
 
     // --- [HERMITE]
     public static IO<NurbsSurface> Hermite(HermiteGrid grid, Action<IDisposable> retain) =>

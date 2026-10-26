@@ -58,7 +58,7 @@ public static class Details {
 
     private static Fin<DetailSnapshot> Snapshot(DetailViewObject detail, DetailView geometry) =>
         Callbacks.Found(geometry.PageToModelRatio > 0d, geometry.PageToModelRatio)
-            .Traverse(static ratio => DrawingScale.Validated(ratio)).As()
+            .Traverse(static ratio => DrawingScale.TryCreate(ratio, out DrawingScale scale, out DraftingFault? fault) ? Fin.Succ(scale) : fault).As()
             .Map(scale => new DetailSnapshot(detail.Id, Conversions.Present(detail.DescriptiveTitle), geometry.GetBoundingBox(accurate: true),
                 (Conversions.Present(detail.WorldToPageTransform), Conversions.Present(detail.PageToWorldTransform)).Apply(ValueTuple.Create).As(),
                 new DetailState(Conversions.Present(detail.Attributes.Name), scale, geometry.IsProjectionLocked, detail.IsActive)));

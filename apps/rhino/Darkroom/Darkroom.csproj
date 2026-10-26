@@ -15,6 +15,7 @@
         <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
     <ItemGroup Label="Quantities">
@@ -43,11 +44,6 @@
         <ProjectReference Include="../../../libs/dotnet/graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
         <ProjectReference Include="../../../libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
-    </ItemGroup>
-
-    <ItemGroup Label="Workspace Sources">
-        <Compile Include="../../../libs/dotnet/Invariant.cs" />
-        <Compile Include="../../../libs/dotnet/ValidationResults.cs" />
     </ItemGroup>
 
     <ItemGroup Label="Embedded Resources">

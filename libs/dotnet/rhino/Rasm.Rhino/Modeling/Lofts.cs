@@ -19,34 +19,27 @@ public abstract partial record NetworkMethod {
     public sealed record Ordered(NetworkCurves U, NetworkCurves V) : NetworkMethod;
 }
 
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct PointCount : System.Numerics.IMinMaxValue<PointCount> {
-    public static PointCount MinValue { get; } = new(2);
-    public static PointCount MaxValue { get; } = new(int.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [ComplexValueObject(SkipToString = true, SerializationFrameworks = SerializationFrameworks.None)]
+[ValidationError<RhinoFault>]
 public sealed partial class FixedRulings {
     [MemberEqualityComparer<ComparerAccessors.Default<Seq<Point2d>>, Seq<Point2d>>]
     public Seq<Point2d> Parameters { get; }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<Point2d> parameters) =>
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Seq<Point2d> parameters) =>
         validationError = parameters.Count >= 3
             ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"{parameters.Count} fixed rulings hold fewer than 3"));
+            : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{parameters.Count} fixed rulings hold fewer than 3"));
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record CurveFit {
     public (SweepRebuild RebuildType, int RebuildPointCount, double RefitTolerance) Parameters => Switch(
         asIs: static _ => (SweepRebuild.None, 0, 0d),
-        rebuild: static rebuild => (SweepRebuild.Rebuild, (int)rebuild.Count, 0d),
+        rebuild: static rebuild => (SweepRebuild.Rebuild, rebuild.Count, 0d),
         refit: static refit => (SweepRebuild.Refit, 0, refit.Tolerance));
 
     public sealed record AsIs() : CurveFit;
-    public sealed record Rebuild(PointCount Count) : CurveFit;
+    public sealed record Rebuild(int Count) : CurveFit;
     public sealed record Refit(double Tolerance) : CurveFit;
 }
 
@@ -82,7 +75,7 @@ public sealed partial class LoftEnd {
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record DevelopableLoft {
-    public sealed record Density(bool Reverse0, bool Reverse1, Option<PointCount> Count) : DevelopableLoft;
+    public sealed record Density(bool Reverse0, bool Reverse1, Option<int> Count) : DevelopableLoft;
     public sealed record Rulings(FixedRulings Fixed) : DevelopableLoft;
 }
 
@@ -165,7 +158,7 @@ public static class Lofts {
     public static IO<Seq<Brep>> DevelopableLoft(NurbsCurve rail0, NurbsCurve rail1, DevelopableLoft loft, Action<IDisposable> retain) =>
         Copies.Acquire(nameof(Brep.CreateDevelopableLoft), _ => Answer.NonEmpty(loft.Switch(
             (Rail0: rail0, Rail1: rail1),
-            density: static (rails, density) => Brep.CreateDevelopableLoft(rails.Rail0, rails.Rail1, density.Reverse0, density.Reverse1, density.Count.Map(static count => (int)count).IfNone(0)),
+            density: static (rails, density) => Brep.CreateDevelopableLoft(rails.Rail0, rails.Rail1, density.Reverse0, density.Reverse1, density.Count.IfNone(0)),
             rulings: static (rails, fixedRulings) => Brep.CreateDevelopableLoft(rails.Rail0, rails.Rail1, fixedRulings.Fixed.Parameters))), retain);
 
     // --- [SURFACES]

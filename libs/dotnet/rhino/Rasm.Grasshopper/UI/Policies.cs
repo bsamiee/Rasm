@@ -28,8 +28,8 @@ public static class Policies {
 
     // --- [EDITING]
     public static IO<Unit> ShowInlineEditor<T, TKey>(
-        Canvas canvas, RectangleF frame, T current, ITypeAssistant<TKey> assistant, Func<T, IO<Unit>> assign, IPlugInSink sink)
-        where T : IObjectFactory<T, TKey, ValidationError>, IConvertible<TKey>
+        Canvas canvas, RectangleF frame, T current, ITypeAssistant<TKey> assistant, Func<TKey, Fin<T>> create, Func<T, IO<Unit>> assign, IPlugInSink sink)
+        where T : IConvertible<TKey>
         where TKey : notnull {
         CallbackSite site = new(sink, typeof(Canvas), nameof(Canvas.ShowInlineEditor));
         return IO.lift(() => {
@@ -43,7 +43,7 @@ public static class Policies {
             IO<IResult> Entered(string text) =>
                 from parsed in IO.lift(() => assistant.Parse(constructor: null, text, existing))
                 from answer in parsed.Success
-                    ? ValidationResults.Validated<T, TKey>(parsed.Value).Match(
+                    ? create(parsed.Value).Match(
                         Succ: value => assign(value).Map((IResult)parsed),
                         Fail: error => IO.pure<IResult>(Result<TKey>.Fail(ErrorOps.Localize(error), text)))
                     : IO.pure<IResult>(parsed)

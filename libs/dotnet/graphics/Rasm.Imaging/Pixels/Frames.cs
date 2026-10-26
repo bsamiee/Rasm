@@ -14,6 +14,7 @@ namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<ImagingFault>]
 public readonly partial struct PixelExtent {
     public static PixelExtent Analysis { get; } = new(256, 256);
 
@@ -28,52 +29,41 @@ public readonly partial struct PixelExtent {
             : bound.Height < Height ? new((int)((((long)Width * bound.Height) + Height - 1) / Height), bound.Height) : this;
 
     public static Fin<PixelExtent> Validated(int width, int height) =>
-        ValidationResults.ToFin(Validate(width, height, out PixelExtent extent), extent);
+        TryCreate(width, height, out PixelExtent extent, out ImagingFault? fault) ? extent : fault;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int width, ref int height) =>
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int width, ref int height) =>
         validationError = width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Extent {width}x{height} must be positive with at most {System.Array.MaxLength / 4} pixels"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Extent {width}x{height} must be positive with at most {System.Array.MaxLength / 4} pixels"));
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct ShortSideOffset : IMinMaxValue<ShortSideOffset> {
-    public static ShortSideOffset MinValue { get; } = new(-float.MaxValue);
-    public static ShortSideOffset MaxValue { get; } = new(float.MaxValue);
-
+public readonly partial struct ShortSideOffset {
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct ShortSideLength : IMinMaxValue<ShortSideLength> {
-    public static ShortSideLength MinValue => Neutral;
-    public static ShortSideLength MaxValue { get; } = new(float.MaxValue);
-
+[ValidationError<ImagingFault>]
+public readonly partial struct ShortSideLength {
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref float value) =>
+        validationError = value >= 0f ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Short-side length {value} must be non-negative"));
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct ShortSideExtent : IMinMaxValue<ShortSideExtent> {
-    public static ShortSideExtent MinValue { get; } = new(float.BitIncrement(0f));
-    public static ShortSideExtent MaxValue { get; } = new(float.MaxValue);
-
+[ValidationError<ImagingFault>]
+public readonly partial struct ShortSideExtent {
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref float value) =>
+        validationError = value > 0f ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Short-side extent {value} must be positive"));
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct FrameAxis : IMinMaxValue<FrameAxis> {
-    public static FrameAxis MinValue { get; } = new(-0.5f);
-    public static FrameAxis MaxValue { get; } = new(1.5f);
+public readonly partial struct FrameAxis {
     public static FrameAxis Start { get; } = new(0f);
     public static FrameAxis Middle { get; } = new(0.5f);
     public static FrameAxis End { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record FramePosition(FrameAxis X, FrameAxis Y) {

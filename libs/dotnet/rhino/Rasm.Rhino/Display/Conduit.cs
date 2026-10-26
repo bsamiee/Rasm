@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Runtime.InteropServices;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Events;
@@ -31,6 +32,7 @@ public abstract partial record ConduitChannel {
 }
 
 [ComplexValueObject]
+[ValidationError<RhinoFault>]
 public sealed partial class ConduitFilter {
     // --- [VALUES]
     public static ConduitFilter Unfiltered { get; } = new(Option<bool>.None, Seq<Guid>(), ObjectType.AnyObject, ActiveSpace.None);
@@ -44,8 +46,8 @@ public sealed partial class ConduitFilter {
     public ActiveSpace SpaceFilter { get; }
 
     // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Option<bool> selectionFilter, ref Seq<Guid> objectIds, ref ObjectType geometryFilter, ref ActiveSpace spaceFilter) =>
-        validationError = spaceFilter is ActiveSpace.None or ActiveSpace.ModelSpace or ActiveSpace.PageSpace ? null : new ValidationError($"space filter {spaceFilter} is not None, ModelSpace, or PageSpace");
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Option<bool> selectionFilter, ref Seq<Guid> objectIds, ref ObjectType geometryFilter, ref ActiveSpace spaceFilter) =>
+        validationError = spaceFilter is ActiveSpace.None or ActiveSpace.ModelSpace or ActiveSpace.PageSpace ? null : new RhinoFault($"space filter {spaceFilter} is not None, ModelSpace, or PageSpace");
 }
 
 [Union]
@@ -61,7 +63,7 @@ public sealed record ConduitDefinition(IterableNE<ConduitChannel> Channels, Cond
 public sealed class FrameReadback {
     private byte[] buffer = [];
 
-    public IO<Option<T>> Read<T>(PostProcessFrameBufferEventArgs e, Func<System.Drawing.Size, ReadOnlyMemory<byte>, T> read) =>
+    public IO<Option<T>> Read<T>(PostProcessFrameBufferEventArgs e, Func<Size, ReadOnlyMemory<byte>, T> read) =>
         IO.lift(() => e.FrameBufferSize switch {
             { IsEmpty: true } => Option<T>.None,
             var size => (Stride: size.Width * 4, Length: size.Width * 4 * size.Height) switch {

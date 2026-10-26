@@ -56,11 +56,11 @@ public sealed record MenuExtension(Seq<string> Path, Seq<Seq<Command<RowRule, Ma
 public sealed record RuiFile(Seq<ToolbarRow> Toolbars, Seq<MenuExtension> Menus);
 
 [AttributeUsage(AttributeTargets.Assembly)]
-public abstract class RuiFileAttribute : Attribute {
+public abstract class RuiAttribute : Attribute {
     public abstract RuiFile Rui { get; }
 }
 
-public sealed class RuiFileAttribute<TSource> : RuiFileAttribute where TSource : IRuiSource {
+public sealed class RuiFileAttribute<TSource> : RuiAttribute where TSource : IRuiSource {
     public override RuiFile Rui => TSource.Rui;
 }
 
@@ -99,7 +99,7 @@ public static class Toolbars {
     private const int English = 1033;
 
     public static Fin<Option<XDocument>> Document(Assembly plugIn) =>
-        Optional(plugIn.GetCustomAttribute<RuiFileAttribute>()).Traverse(declared =>
+        Optional(plugIn.GetCustomAttribute<RuiAttribute>()).Traverse(declared =>
             from file in Identity(plugIn)
             let toolbars = Reached(declared.Rui.Toolbars)
             let macros = toSeq(Macros(declared.Rui.Toolbars.Bind(static toolbar => toolbar.Groups) + declared.Rui.Menus.Bind(static menu => menu.Groups))
@@ -264,7 +264,7 @@ public static class Toolbars {
 
     // --- [RUNTIME]
     public static readonly Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Registered =
-        static (plugIn, retain) => Optional(plugIn.GetType().Assembly.GetCustomAttribute<RuiFileAttribute>()).Match(
+        static (plugIn, retain) => Optional(plugIn.GetType().Assembly.GetCustomAttribute<RuiAttribute>()).Match(
             Some: declared => DisposalOps.Acquire(acquired =>
                 from file in IO.lift(() => Identity(plugIn.GetType().Assembly))
                 from live in DisposalOps.Acquire(IO.lift(static () => new CancellationTokenSource()),

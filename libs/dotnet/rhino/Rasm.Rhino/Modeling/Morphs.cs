@@ -7,6 +7,7 @@ namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
+[ValidationError<RhinoFault>]
 public sealed partial class LatticeDegrees {
     public int U { get; }
 
@@ -16,10 +17,10 @@ public sealed partial class LatticeDegrees {
 
     public long Count => (U + 1L) * (V + 1L) * (W + 1L);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int u, ref int v, ref int w) =>
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int u, ref int v, ref int w) =>
         validationError = u >= 1 && v >= 1 && w >= 1
             ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"lattice degrees ({u}, {v}, {w}) hold one below 1"));
+            : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"lattice degrees ({u}, {v}, {w}) hold one below 1"));
 }
 
 internal readonly struct BoxEquality : IEqualityComparerAccessor<Box> {
@@ -29,6 +30,7 @@ internal readonly struct BoxEquality : IEqualityComparerAccessor<Box> {
 }
 
 [ComplexValueObject(SkipToString = true, SerializationFrameworks = SerializationFrameworks.None)]
+[ValidationError<RhinoFault>]
 public sealed partial class LatticeVolume {
     [MemberEqualityComparer<BoxEquality, Box>]
     public Box Reference { get; }
@@ -39,10 +41,10 @@ public sealed partial class LatticeVolume {
     [MemberEqualityComparer<ComparerAccessors.Default<Seq<Point3d>>, Seq<Point3d>>]
     public Seq<Point3d> Controls { get; }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Box reference, ref LatticeDegrees degrees, ref Seq<Point3d> controls) =>
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Box reference, ref LatticeDegrees degrees, ref Seq<Point3d> controls) =>
         validationError = (Box: reference.IsValid, Net: controls.Count == degrees.Count) switch {
-            (Box: false, _) => new ValidationError(string.Create(CultureInfo.InvariantCulture, $"reference box {reference.Plane.Origin} is invalid")),
-            (_, Net: false) => new ValidationError(string.Create(CultureInfo.InvariantCulture, $"{controls.Count} controls form no lattice of {degrees.Count} for degrees ({degrees.U}, {degrees.V}, {degrees.W})")),
+            (Box: false, _) => new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"reference box {reference.Plane.Origin} is invalid")),
+            (_, Net: false) => new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{controls.Count} controls form no lattice of {degrees.Count} for degrees ({degrees.U}, {degrees.V}, {degrees.W})")),
             _ => null,
         };
 }

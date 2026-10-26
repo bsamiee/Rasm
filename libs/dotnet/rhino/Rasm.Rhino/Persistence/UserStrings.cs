@@ -9,9 +9,10 @@ namespace Rasm.Rhino.Persistence;
 [ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[ValidationError<RhinoFault>]
 public sealed partial class KeyName {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value.Length > 0 && !value.Contains(DocumentKey.Separator, StringComparison.Ordinal) ? null : new ValidationError($"key name is empty or holds {DocumentKey.Separator}");
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
+        validationError = value.Length > 0 && !value.Contains(DocumentKey.Separator, StringComparison.Ordinal) ? null : new RhinoFault($"key name is empty or holds {DocumentKey.Separator}");
 }
 
 public sealed record DocumentKey(KeyName Name, Option<KeyName> Entry = default) {

@@ -1,16 +1,11 @@
 using System.Drawing;
-using System.Text;
-using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Styling;
-using Rasm.UI;
-using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.PlugIns;
 using Rhino.Render;
+using Rhino.UI;
 
 namespace Rasm.Rhino.Render.Content;
 
@@ -21,26 +16,20 @@ public sealed record ContentPreviewRow(
     Func<CreateTexture2dPreviewEventArgs, IO<Option<Bitmap>>> Texture);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IStateRecord<TState> {
+public abstract class DefinedMaterial<TState> : RenderMaterial where TState : notnull {
     // --- [FIELDS]
     private readonly IPlugInViews owner;
 
-    protected DefinedMaterial() {
-        owner = HostedTypes.Owner(GetType());
-        Callbacks.Run(ContentRecords.Declare<TState>(this), CallbackSite.Of(owner, this));
-    }
-
-    public sealed override IEnumerable<string> FilesToEmbed => ContentRecords.Files<TState>(this, CallbackSite.Of(owner, this));
-
-    protected sealed override uint CalculateRenderHash2(CrcRenderHashFlags flags, string[] excludeParameterNames) =>
-        ContentRecords.Hash<TState>(this, toSeq(excludeParameterNames), base.CalculateRenderHash2(flags, excludeParameterNames), CallbackSite.Of(owner, this));
+    protected DefinedMaterial() => owner = HostedTypes.Owner(GetType());
 
     // --- [VALUES]
     protected abstract string Caption { get; }
 
     protected abstract string Help { get; }
 
-    protected abstract Rasm.UI.GlyphSource Glyph { get; }
+    protected abstract string Svg { get; }
+
+    protected abstract TState State { get; }
 
     protected abstract Material Simulation(TState state);
 
@@ -49,38 +38,33 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IS
 
     public sealed override string TypeDescription => RowText.Localize(Help, owner).Local;
 
-    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = ContentRecords.Icon(Glyph, size, CallbackSite.Of(owner, this))) is not null;
+    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = DrawingUtilities.BitmapFromSvg(Svg, size.Width, size.Height, adjustForDarkMode: true)) is not null;
+
+    protected sealed override void OnAddUserInterfaceSections() =>
+        Callbacks.Run(IO.lift(() => Refused.Unless(AddAutomaticUserInterfaceSection(TypeName, 0), nameof(AddAutomaticUserInterfaceSection))), CallbackSite.Of(owner, this));
 
     // --- [SIMULATION]
     public sealed override void SimulateMaterial(ref Material simulation, RenderTexture.TextureGeneration tg) {
         Material target = simulation;
-        if (!Callbacks.Succeeded(
-                ContentRecords.Read<TState>(this).Bind(state => DisposalOps.Within(() => Simulation(state), built => IO.lift(() => target.CopyFrom(built)))),
-                CallbackSite.Of(owner, this)))
+        if (!Callbacks.Succeeded(DisposalOps.Within(() => Simulation(State), built => IO.lift(() => target.CopyFrom(built))), CallbackSite.Of(owner, this)))
             base.SimulateMaterial(ref simulation, tg);
     }
 }
 
-public abstract class DefinedTexture<TState> : RenderTexture where TState : IStateRecord<TState> {
+public abstract class DefinedTexture<TState> : RenderTexture where TState : notnull {
     // --- [FIELDS]
     private readonly IPlugInViews owner;
 
-    protected DefinedTexture() {
-        owner = HostedTypes.Owner(GetType());
-        Callbacks.Run(ContentRecords.Declare<TState>(this), CallbackSite.Of(owner, this));
-    }
-
-    public sealed override IEnumerable<string> FilesToEmbed => ContentRecords.Files<TState>(this, CallbackSite.Of(owner, this));
-
-    protected sealed override uint CalculateRenderHash2(CrcRenderHashFlags flags, string[] excludeParameterNames) =>
-        ContentRecords.Hash<TState>(this, toSeq(excludeParameterNames), base.CalculateRenderHash2(flags, excludeParameterNames), CallbackSite.Of(owner, this));
+    protected DefinedTexture() => owner = HostedTypes.Owner(GetType());
 
     // --- [VALUES]
     protected abstract string Caption { get; }
 
     protected abstract string Help { get; }
 
-    protected abstract Rasm.UI.GlyphSource Glyph { get; }
+    protected abstract string Svg { get; }
+
+    protected abstract TState State { get; }
 
     protected abstract Color4f Sample(TState state, Point3d uvw, Vector3d duvwdx, Vector3d duvwdy);
 
@@ -89,15 +73,14 @@ public abstract class DefinedTexture<TState> : RenderTexture where TState : ISta
 
     public sealed override string TypeDescription => RowText.Localize(Help, owner).Local;
 
-    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = ContentRecords.Icon(Glyph, size, CallbackSite.Of(owner, this))) is not null;
+    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = DrawingUtilities.BitmapFromSvg(Svg, size.Width, size.Height, adjustForDarkMode: true)) is not null;
+
+    protected sealed override void OnAddUserInterfaceSections() =>
+        Callbacks.Run(IO.lift(() => Refused.Unless(AddAutomaticUserInterfaceSection(TypeName, 0), nameof(AddAutomaticUserInterfaceSection))), CallbackSite.Of(owner, this));
 
     // --- [SIMULATION]
-    public sealed override TextureEvaluator? CreateEvaluator(TextureEvaluatorFlags evaluatorFlags) =>
-        Callbacks.Answer(
-            ContentRecords.Read<TState>(this).Map(state => (TextureEvaluator?)new Evaluator(
-                evaluatorFlags, state, evaluatorFlags.HasFlag(TextureEvaluatorFlags.DisableLocalMapping) ? Transform.Identity : LocalMappingTransform, Sample)),
-            static () => null,
-            CallbackSite.Of(owner, this));
+    public sealed override TextureEvaluator CreateEvaluator(TextureEvaluatorFlags evaluatorFlags) =>
+        new Evaluator(evaluatorFlags, State, evaluatorFlags.HasFlag(TextureEvaluatorFlags.DisableLocalMapping) ? Transform.Identity : LocalMappingTransform, Sample);
 
     private sealed class Evaluator(TextureEvaluatorFlags flags, TState state, Transform mapping, Func<TState, Point3d, Vector3d, Vector3d, Color4f> sample)
         : TextureEvaluator(flags) {
@@ -105,26 +88,20 @@ public abstract class DefinedTexture<TState> : RenderTexture where TState : ISta
     }
 }
 
-public abstract class DefinedEnvironment<TState> : RenderEnvironment where TState : IStateRecord<TState> {
+public abstract class DefinedEnvironment<TState> : RenderEnvironment where TState : notnull {
     // --- [FIELDS]
     private readonly IPlugInViews owner;
 
-    protected DefinedEnvironment() {
-        owner = HostedTypes.Owner(GetType());
-        Callbacks.Run(ContentRecords.Declare<TState>(this), CallbackSite.Of(owner, this));
-    }
-
-    public sealed override IEnumerable<string> FilesToEmbed => ContentRecords.Files<TState>(this, CallbackSite.Of(owner, this));
-
-    protected sealed override uint CalculateRenderHash2(CrcRenderHashFlags flags, string[] excludeParameterNames) =>
-        ContentRecords.Hash<TState>(this, toSeq(excludeParameterNames), base.CalculateRenderHash2(flags, excludeParameterNames), CallbackSite.Of(owner, this));
+    protected DefinedEnvironment() => owner = HostedTypes.Owner(GetType());
 
     // --- [VALUES]
     protected abstract string Caption { get; }
 
     protected abstract string Help { get; }
 
-    protected abstract Rasm.UI.GlyphSource Glyph { get; }
+    protected abstract string Svg { get; }
+
+    protected abstract TState State { get; }
 
     protected abstract IO<Unit> Simulation(TState state, SimulatedEnvironment simulation, bool isForDataOnly);
 
@@ -133,76 +110,15 @@ public abstract class DefinedEnvironment<TState> : RenderEnvironment where TStat
 
     public sealed override string TypeDescription => RowText.Localize(Help, owner).Local;
 
-    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = ContentRecords.Icon(Glyph, size, CallbackSite.Of(owner, this))) is not null;
+    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = DrawingUtilities.BitmapFromSvg(Svg, size.Width, size.Height, adjustForDarkMode: true)) is not null;
+
+    protected sealed override void OnAddUserInterfaceSections() =>
+        Callbacks.Run(IO.lift(() => Refused.Unless(AddAutomaticUserInterfaceSection(TypeName, 0), nameof(AddAutomaticUserInterfaceSection))), CallbackSite.Of(owner, this));
 
     // --- [SIMULATION]
     public sealed override void SimulateEnvironment(ref SimulatedEnvironment simulation, bool isForDataOnly) {
         SimulatedEnvironment target = simulation;
-        if (!Callbacks.Succeeded(ContentRecords.Read<TState>(this).Bind(state => Simulation(state, target, isForDataOnly)), CallbackSite.Of(owner, this)))
+        if (!Callbacks.Succeeded(Simulation(State, target, isForDataOnly), CallbackSite.Of(owner, this)))
             base.SimulateEnvironment(ref simulation, isForDataOnly);
     }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class ContentRecords {
-    // --- [DECLARATIONS]
-    public static IO<Unit> Declare<TState>(RenderContent content) where TState : IStateRecord<TState> =>
-        Callbacks.Each(RecordEntries.Items<TState>().Map(field => (Name: EntryKey.Name(field.Path), Text: Conversions.Unset(field.Capture(TState.Default))) switch {
-            var held =>
-                from added in IO.lift(() => field.File.IsSome ? content.Fields.AddFilename(held.Name, held.Text, "", 0) : content.Fields.Add(held.Name, held.Text))
-                from bound in IO.lift(fun(() => content.BindParameterToField(held.Name, added, RenderContent.ChangeContexts.Program)))
-                select bound,
-        })).Map(unit);
-
-    // --- [READS]
-    public static IO<TState> Read<TState>(RenderContent content) where TState : IStateRecord<TState> =>
-        new FieldCodec<TState>(TState.Parameters, TState.Default).Recalled(EntryKey.TypeOwner(content.TypeId), path => Stored(content, EntryKey.Name(path)));
-
-    public static uint Hash<TState>(RenderContent content, Seq<string> excluded, uint seed, CallbackSite site) where TState : IStateRecord<TState> =>
-        Callbacks.Answer(
-            Callbacks.Each(RecordEntries.Items<TState>()
-                .Map(static field => EntryKey.Name(field.Path))
-                .Filter(name => !excluded.Exists(held => string.Equals(held, name, StringComparison.Ordinal)))
-                .Map(name => Stored(content, name)))
-                .Map(texts => texts.Somes().Fold(seed, static (sum, text) => RhinoMath.CRC32(sum, Encoding.UTF8.GetBytes(text)))),
-            () => seed,
-            site);
-
-    public static Seq<string> Files<TState>(RenderContent content, CallbackSite site) where TState : IStateRecord<TState> =>
-        Callbacks.Answer(
-            Callbacks.Each(RecordEntries.Items<TState>().Choose(field => field.File.Map(file =>
-                Stored(content, EntryKey.Name(field.Path)).Map(text => text.Bind(file)))))
-                .Map(static paths => paths.Somes()),
-            static () => [],
-            site);
-
-    public static Bitmap? Icon(Rasm.UI.GlyphSource glyph, Size size, CallbackSite site) =>
-        Callbacks.Answer(Icons.Raster(glyph, size).Map(static Bitmap? (image) => image), static () => null, site);
-
-    private static IO<Option<string>> Stored(RenderContent content, string name) =>
-        ContentFields.Read(content.Fields, name, field => Conversions.Typed<string>(field.ValueAsObject(), name))
-            .Map(static held => held.Bind(Conversions.Present));
-
-    // --- [WRITES]
-    public static IO<Unit> Write<TState>(RenderContent content, RenderContent.ChangeContexts context, TState next) where TState : IStateRecord<TState> =>
-        Contents.WithinContentChange(content, context, Callbacks.Each(RecordEntries.Items<TState>().Map(field => Written(content, EntryKey.Name(field.Path), Conversions.Unset(field.Capture(next))))).Map(unit));
-
-    public static ValueStore<TState> Store<TState>(RenderContent content) where TState : IStateRecord<TState> =>
-        ValueStore.Of(
-            Read<TState>(content).Map(static state => Some(state).Filter(static held => !EqualityComparer<TState>.Default.Equals(held, TState.Default))),
-            value => Write(content, RenderContent.ChangeContexts.UI, value.IfNone(TState.Default)),
-            Applied.Live,
-            None);
-
-    private static IO<Unit> Written(RenderContent content, string name, string text) =>
-        Stored(content, name).Bind(held => when(held != Conversions.Present(text),
-            IO.lift(fun(() => content.Fields.Set(name, text)))).As());
-
-    // --- [ROWS]
-    public static Seq<ControlRow> Rows<TContent, TState>()
-        where TContent : RenderContent
-        where TState : IStateRecord<TState> =>
-        RowSource.Fields(EntryKey.TypeOwner(typeof(TContent).GUID), TState.Parameters, static scope => scope.Contents(Store<TState>)) switch {
-            var source => new ParameterRows<TState>(source, static _ => RowRules.Always).Of(source.Fields),
-        };
 }

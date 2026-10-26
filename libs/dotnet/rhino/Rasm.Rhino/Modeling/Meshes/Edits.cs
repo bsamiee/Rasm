@@ -99,7 +99,7 @@ public abstract partial record MeshEdit {
     public sealed record Unwelded : MeshEdit;
     public sealed record WithShutLining(bool Faceted, Seq<ShutLiningCurveInfo> Curves) : MeshEdit;
     public sealed record WithDisplacement(MeshDisplacementInfo Displacement) : MeshEdit;
-    public sealed record WithEdgeSoftening(BlendRadius Radius, bool Chamfer, bool Faceted, bool Force, double AngleThresholdDegrees) : MeshEdit;
+    public sealed record WithEdgeSoftening(double Radius, bool Chamfer, bool Faceted, bool Force, double AngleThresholdDegrees) : MeshEdit;
 
     public IO<EditStep<Mesh, int>> Step(Tolerances tolerances, Mesh mesh, Action<IDisposable> retain) =>
         Switch(

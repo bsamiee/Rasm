@@ -9,24 +9,6 @@ using TinyEXR;
 namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct AllocationStop : IMinMaxValue<AllocationStop> {
-    public static AllocationStop MinValue { get; } = new(-24f);
-    public static AllocationStop MaxValue { get; } = new(16f);
-    public static AllocationStop Default { get; } = new(-10f);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct AllocationSpan : IMinMaxValue<AllocationSpan> {
-    public static AllocationSpan MinValue { get; } = new(float.BitIncrement(0f));
-    public static AllocationSpan MaxValue { get; } = new(40f);
-    public static AllocationSpan Default { get; } = new(20f);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LatticeInput {
     public abstract Gamut Gamut { get; }
@@ -39,8 +21,8 @@ public abstract partial record LatticeInput {
         public override ColorEncoding Encoding => Signal;
     }
 
-    public sealed record Allocated(Gamut Space, AllocationStop Low, AllocationSpan Span) : LatticeInput {
-        public LogCurve Curve => LogCurve.Allocation(Low, (float)Low + (float)Span, float.Exp2(Low));
+    public sealed record Allocated(Gamut Space, float Low, float Span) : LatticeInput {
+        public LogCurve Curve => LogCurve.Allocation(Low, Low + Span, float.Exp2(Low));
         public override Gamut Gamut => Space;
         public override Option<(LutTable Head, LutTable Decode)> Shaper => (new LutTable.Log(Curve), new LutTable.Antilog(Curve));
     }
@@ -61,10 +43,10 @@ public abstract partial record LatticeInput {
     }
 }
 
-public sealed record LutBake(LatticeSize Size, LatticeInput Input, ColorEncoding Output) {
+public sealed record LutBake(int Size, LatticeInput Input, ColorEncoding Output) {
     public static LutBake Default { get; } = new(
-        LatticeSize.Default,
-        new LatticeInput.Allocated(Gamut.StandardRgb, AllocationStop.Default, AllocationSpan.Default),
+        Size: 33,
+        new LatticeInput.Allocated(Gamut.StandardRgb, Low: -10f, Span: 20f),
         new ColorEncoding(Gamut.StandardRgb, new Transfer.Linear()));
 }
 
@@ -102,7 +84,7 @@ public static class Bakes {
     public static LutTable Export(ChartFit fit, FitDirection direction) =>
         new LutTable.Affine(fit.Transform(direction).Matrix);
 
-    internal static Fin<Lut3D> Lattice(LatticeSize size, Seq<Action<Span<Vector4>>> steps) {
+    internal static Fin<Lut3D> Lattice(int size, Seq<Action<Span<Vector4>>> steps) {
         using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * size * size * size);
         ParallelHelper.For(0, size * size, new LatticeRows(size, steps, samples.Memory));
         return Lut3D.From(size, samples.Memory, Vector3.Zero, Vector3.One);

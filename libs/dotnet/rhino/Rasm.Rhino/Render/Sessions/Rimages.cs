@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
-using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Effects;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
@@ -36,7 +35,7 @@ internal sealed partial class RimagePart {
     public static readonly RimagePart State = new("state");
 }
 
-public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects, ValueSet State) {
+public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects, HashMap<Guid, HashMap<string, string>> State) {
     public Seq<Guid> Running => Effects.Filter(static effect => effect.Runs).Map(static effect => effect.Id);
 
     public static IO<Rimage> Open(string fileName) =>
@@ -49,7 +48,7 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
                 where entry.Attribute(RimagePart.Name.Key) is not null
                 select (Stage: stage, Entry: entry),
                 (row, _) => Entry(fileName, effects, row.Stage, row.Entry))
-            select new Rimage(fileName, size, entries.Map(static entry => entry.Effect), new ValueSet(toHashMap(entries.Bind(static entry => entry.Fields)))));
+            select new Rimage(fileName, size, entries.Map(static entry => entry.Effect), toHashMap(entries.Map(static entry => (entry.Effect.Id, entry.Fields)))));
 
     public IO<Seq<RenderWindow.StandardChannels>> Available =>
         Read(FileName, (_, index) => Offsets(index.Xml, FileName).Map(static offsets =>
@@ -95,7 +94,7 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
                 ? Fin.Succ(size)
                 : new FileRefused(fileName, FileReason.Unreadable));
 
-    private static Fin<(EffectEntry Effect, Seq<(EntryKey Key, string Text)> Fields)> Entry(string fileName, XElement effects, XElement stage, XElement entry) =>
+    private static Fin<(EffectEntry Effect, HashMap<string, string> Fields)> Entry(string fileName, XElement effects, XElement stage, XElement entry) =>
         from id in Optional(entry.Attribute(RimagePart.Id.Key)).Bind(static attribute => parseGuid(attribute.Value))
             .ToFin(new FileRefused(fileName, FileReason.Unreadable))
         from effect in string.Equals(stage.Name.LocalName, RimagePart.ToneMapping.Key, StringComparison.Ordinal)
@@ -106,8 +105,8 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
             : (Flag(entry, RimagePart.On, fileName), Flag(entry, RimagePart.Shown, fileName))
                 .Apply((enabled, shown) => (EffectEntry)new EffectEntry.Listed(id, enabled, shown))
                 .As()
-        let fields = Optional(entry.Element(RimagePart.State.Key)).ToSeq().Bind(static state => toSeq(state.Elements()))
-            .Map(field => (Key: EntryKey.Named(EntryKey.TypeOwner(id), field.Name.LocalName), Text: field.Value))
+        let fields = toHashMap(Optional(entry.Element(RimagePart.State.Key)).ToSeq().Bind(static state => toSeq(state.Elements()))
+            .Map(static field => (field.Name.LocalName, field.Value)))
         select (Effect: effect, Fields: fields);
 
     private static Fin<bool> Flag(XElement entry, RimagePart part, string fileName) =>

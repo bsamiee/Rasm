@@ -5,37 +5,33 @@ using Grasshopper2.Components;
 using Grasshopper2.Doc;
 using Grasshopper2.Doc.Attributes;
 using Grasshopper2.Eto.Drawing;
+using Grasshopper2.UI;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Primitives;
 using Grasshopper2.UI.Skinning;
-using Grasshopper2.Undo;
 using Grasshopper2.Undo.Actions;
 using Rasm.Grasshopper.UI;
 using Rasm.Grasshopper.UI.Surfaces;
 using Rasm.Rhino;
 using Rasm.Rhino.UI.Surfaces;
+using Rasm.UI;
 using SkiaSharp;
 
 namespace Rasm.Grasshopper.Components;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record PlotBody<TReading>(Extent Width, Extent Height, Func<TReading, Rasm.UI.Node> View) {
+public sealed record PlotBody<TReading>(Extent Width, Extent Height, Func<TReading, Node> View) {
     public Padding ResizeEdges { get; init; } = new(ResizableAttributes<Component>.EdgeSize);
     public Option<Action<PlotAttributes<TReading>>> Configure { get; init; }
 
     public static Fin<PlotBody<TReading>> Of(
-        (float Minimum, float Ideal, float Maximum) width, (float Minimum, float Ideal, float Maximum) height, Func<TReading, Rasm.UI.Node> view) =>
+        (float Minimum, float Ideal, float Maximum) width, (float Minimum, float Ideal, float Maximum) height, Func<TReading, Node> view) =>
         (Axis(width), Axis(height))
             .Apply((wide, high) => new PlotBody<TReading>(wide, high, view)).As();
 
     private static Fin<Extent> Axis((float Minimum, float Ideal, float Maximum) axis) =>
-        (CanvasLength.Validated(axis.Minimum),
-         CanvasLength.Validated(axis.Ideal),
-         CanvasLength.Validated(axis.Maximum))
-            .Apply(static (minimum, ideal, maximum) => (Minimum: minimum, Ideal: ideal, Maximum: maximum))
-            .As()
-            .Bind(static lengths => ValidationResults.ToFin(Extent.Validate(lengths.Minimum, lengths.Ideal, lengths.Maximum, out Extent item), item));
+        Extent.TryCreate(axis.Minimum, axis.Ideal, axis.Maximum, out Extent? extent, out RhinoFault? fault) ? extent : fault;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -51,7 +47,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     private readonly Guest guest;
     private readonly Ref<Option<Either<Resizing, IDisposable>>> track = Ref(Option<Either<Resizing, IDisposable>>.None);
     private Option<TReading> read;
-    private Option<Rasm.UI.Node> view;
+    private Option<Node> view;
     private SlabF silhouette;
 
     public Option<Func<PointF, ObjectSolutionState, IO<object>>> Tooltip { get; init; }
@@ -64,7 +60,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
         Responder.MouseDownHook += Reply<ResponseMouseArgs>(args => (args.Buttons is MouseButtons.Primary ? Began(args.ContentLocation) : IO.pure(Response.Ignored))
             .Bind(resized => Or(resized, Guided(args, static (local, clicks) => HostInput.Pressed(local, clicks)))), nameof(Responses.MouseDown));
         Responder.MouseDoubleClickHook += Reply<ResponseMouseArgs>(args => Guided(args, static (local, clicks) => HostInput.Pressed(local, clicks)), nameof(Responses.MouseDoubleClick));
-        Responder.MouseDragHook += Reply<ResponseMouseArgs>(args => Sizing(current => IO.lift(() => {
+        Responder.MouseDragHook += Reply<ResponseMouseArgs>(args => During(current => IO.lift(() => {
             current.Frame.Continue(args.ContentLocation);
             ((IResizableAttributes)this).Size = current.Frame.Resized.Size - current.Margins.Size - new SizeF(Rim, Rim);
             Pivot = RectangleF.Inset(current.Frame.Resized, current.Margins).Center;
@@ -73,18 +69,18 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             .Bind(resized => Or(resized, Guided(args, HostInput.Released))), nameof(Responses.MouseUp));
         Responder.MouseWheelHook += Reply<ResponseMouseArgs>(args => Guided(args, static (local, _) => Some(HostInput.Wheeled(local))), nameof(Responses.MouseWheel));
         Responder.MouseOverHook += Observe<ResponseMouseArgs>(args => Guided(args, static (local, clicks) => HostInput.Moved(local, clicks)).Map(unit), nameof(Responses.MouseOver));
-        Responder.MouseLeaveHook += () => Callbacks.Started(guest.Receive(new Rasm.UI.Input.Hover(None)), Site(nameof(Responses.MouseLeave)));
+        Responder.MouseLeaveHook += () => Callbacks.Started(guest.Receive(new Input.Hover(None)), Site(nameof(Responses.MouseLeave)));
         Responder.KeyDownHook += Reply<KeyEventArgs>(args => (args.Key, args.Modifiers) switch {
             (Keys.Escape, _) => track.ValueIO.Bind(held => held.Match(Some: _ => Released, None: () => guest.Keyed(args))),
-            (Keys.S, Keys.None) => Sizing(_ => IO.lift(() => {
+            (Keys.S, Keys.None) => During(_ => IO.lift(() => {
                 Grasshopper2.Settings.CanvasSnapToObjects.Value = !Grasshopper2.Settings.CanvasSnapToObjects.Value;
                 args.Handled = true;
-            }).Bind(static _ => SnapSession.End(Editor.Instance.Canvas)).Map(Response.Handled)).Bind(resized => Or(resized, guest.Keyed(args))),
+            }).Bind(static _ => Editors.Canvas.Bind(SnapSession.End)).Map(Response.Handled)).Bind(resized => Or(resized, guest.Keyed(args))),
             _ => guest.Keyed(args),
         }, nameof(Responses.KeyDown));
-        Responder.TextInputHook += Reply<TextInputEventArgs>(args => guest.Receive(new Rasm.UI.Input.Perform(new Rasm.UI.Act.Insert(args.Text), new Rasm.UI.Target.Focused())), nameof(Responses.TextInput));
-        Responder.GotFocus += Callbacks.Handler<EventArgs>(_ => guest.Rehost(Rasm.UI.Visibility.Active), Site(nameof(Responses.GotFocus))).Invoke;
-        Responder.LostFocus += Callbacks.Handler<EventArgs>(_ => Cancelled.Bind(__ => guest.Rehost(Rasm.UI.Visibility.Shown)), Site(nameof(Responses.LostFocus))).Invoke;
+        Responder.TextInputHook += Reply<TextInputEventArgs>(args => guest.Receive(new Input.Perform(new Act.Insert(args.Text), new Target.Focused())), nameof(Responses.TextInput));
+        Responder.GotFocus += Callbacks.Handler<EventArgs>(_ => guest.Rehost(Visibility.Active), Site(nameof(Responses.GotFocus))).Invoke;
+        Responder.LostFocus += Callbacks.Handler<EventArgs>(_ => Cancelled.Bind(__ => guest.Rehost(Visibility.Shown)), Site(nameof(Responses.LostFocus))).Invoke;
         _ = body.Configure.Iter(configure => configure(this));
     }
 
@@ -138,7 +134,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
 
     private (bool Wide, bool High) Stretched => view.Map(static node => (Stretches(node.Width), Stretches(node.Height))).IfNone((true, true));
 
-    private static bool Stretches(Option<Rasm.UI.Sizing> sizing) => sizing.Exists(static held => held is Rasm.UI.Sizing.Grow or Rasm.UI.Sizing.Percent);
+    private static bool Stretches(Option<Sizing> sizing) => sizing.Exists(static held => held is Sizing.Grow or Sizing.Percent);
 
     private SizeF Minimum => SizeF.Max(new SizeF(body.Width.Minimum, body.Height.Minimum),
         new SizeF(0f, (StandardLayout.ParameterMinHeight * int.Max(component.ModularInputs.VisibleCount, component.ModularOutputs.VisibleCount)) - Rim));
@@ -173,12 +169,12 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             from viewed in IO.lift(() => Viewed(current))
             from painted in viewed.Traverse(shown =>
                 from device in IO.lift(() => Guest.Device(context))
-                from drawn in guest.Paint(context.Graphics, device, ContentBox, Responder.HasFocus ? Rasm.UI.Visibility.Active : Rasm.UI.Visibility.Shown, shown)
+                from drawn in guest.Paint(context.Graphics, device, ContentBox, Responder.HasFocus ? Visibility.Active : Visibility.Shown, shown)
                 select unit).As()
             from refit in IO.lift(() => Refit(before))
             select unit, Site());
 
-    private Option<Rasm.UI.Node> Viewed(Option<TReading> current) {
+    private Option<Node> Viewed(Option<TReading> current) {
         if (current.Equals(read)) return view;
         read = current;
         view = current.Map(body.View);
@@ -219,7 +215,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
 
     public IO<Response> Released => Cancelled.Map(Response.Release);
 
-    private IO<Response> Guided(ResponseMouseArgs args, Func<MouseEventArgs, int, Option<Rasm.UI.Input>> convert) =>
+    private IO<Response> Guided(ResponseMouseArgs args, Func<MouseEventArgs, int, Option<Input>> convert) =>
         IO.lift(() => HostInput.Clicks.Map(clicks => convert(Guest.Local(args, ContentBox.TopLeft), clicks)))
             .Bind(input => input.Match(Some: guest.Receive, None: static () => IO.pure(Response.Ignored)));
 
@@ -227,7 +223,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
 
     private CallbackSite Site([CallerMemberName] string member = "") => new(sink, typeof(PlotAttributes<TReading>), member);
 
-    private IO<Response> Sizing(Func<Resizing, IO<Response>> respond) =>
+    private IO<Response> During(Func<Resizing, IO<Response>> respond) =>
         track.ValueIO.Bind(held => held.Match(
             Some: current => current.Match(Left: respond, Right: static _ => IO.pure(Response.Ignored)),
             None: static () => IO.pure(Response.Ignored)));
@@ -242,7 +238,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
 
     private IO<Unit> Cleaned(Option<Either<Resizing, IDisposable>> held) => held.Match(
         Some: current => current.Match(
-            Left: resize => Callbacks.Each(Seq(SnapSession.End(Editor.Instance.Canvas),
+            Left: resize => Callbacks.Each(Seq(Editors.Canvas.Bind(SnapSession.End),
                 IO.lift(() => { ((IResizableAttributes)this).Size = resize.Undo.Size; }), IO.lift(() => { Pivot = resize.Undo.Pivot; }))).Map(unit),
             Right: static release => IO.lift(release.Dispose)),
         None: static () => IO.pure(unit));
@@ -265,8 +261,8 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             Right: static _ => Option<Resizing>.None)))
         .Bind(held => held.Match(
             Some: done => DisposalOps.OnFailure(
-                SnapSession.End(Editor.Instance.Canvas).Bind(_ => IO.lift(() => Optional(Owner.Document).Iter(document =>
-                    document.Undo.Do(new VerbNoun(RowText.Localize("Resize", sink), Owner.InstanceId.ToString()), done.Undo))))
+                Editors.Canvas.Bind(SnapSession.End).Bind(_ => IO.lift(() => Optional(Owner.Document).Iter(document =>
+                    document.Undo.Do(new(RowText.Localize("Resize", sink), Owner.InstanceId.ToString()), done.Undo))))
                     .Map(Response.Release),
                 Cleaned(Some<Either<Resizing, IDisposable>>(done))),
             None: static () => IO.pure(Response.Ignored))).Uninterruptible();

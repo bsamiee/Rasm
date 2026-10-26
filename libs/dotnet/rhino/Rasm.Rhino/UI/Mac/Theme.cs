@@ -4,20 +4,21 @@ using Eto.Mac.Drawing;
 using Foundation;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI.Styling;
 
 namespace Rasm.Rhino.UI.Mac;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class WorkspaceTheme : IThemeHandler {
     // --- [CONDITIONS]
-    private static readonly Seq<(Func<NSWorkspace, bool> Should, Rasm.UI.Styling.Condition Condition)> Displays = [
-        (static workspace => workspace.AccessibilityDisplayShouldReduceMotion, Rasm.UI.Styling.Condition.ReduceMotion),
-        (static workspace => workspace.AccessibilityDisplayShouldIncreaseContrast, Rasm.UI.Styling.Condition.IncreaseContrast),
-        (static workspace => workspace.AccessibilityDisplayShouldDifferentiateWithoutColor, Rasm.UI.Styling.Condition.DifferentiateWithoutColor),
-        (static workspace => workspace.AccessibilityDisplayShouldReduceTransparency, Rasm.UI.Styling.Condition.ReduceTransparency),
+    private static readonly Seq<(Func<NSWorkspace, bool> Should, Condition Condition)> Displays = [
+        (static workspace => workspace.AccessibilityDisplayShouldReduceMotion, Condition.ReduceMotion),
+        (static workspace => workspace.AccessibilityDisplayShouldIncreaseContrast, Condition.IncreaseContrast),
+        (static workspace => workspace.AccessibilityDisplayShouldDifferentiateWithoutColor, Condition.DifferentiateWithoutColor),
+        (static workspace => workspace.AccessibilityDisplayShouldReduceTransparency, Condition.ReduceTransparency),
     ];
 
-    public LanguageExt.HashSet<Rasm.UI.Styling.Condition> Conditions =>
+    public LanguageExt.HashSet<Condition> Conditions =>
         toHashSet(Displays.Filter(static row => row.Should(NSWorkspace.SharedWorkspace)).Map(static row => row.Condition));
 
     // --- [INKS]
