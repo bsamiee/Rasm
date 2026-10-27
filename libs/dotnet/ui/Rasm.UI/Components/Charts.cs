@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using MathNet.Numerics;
 using MathNet.Numerics.Statistics;
 using Rasm.UI.Plotting;
+using Rasm.UI.Rendering;
 using Rasm.UI.Styling;
 using SkiaSharp;
 using SuperLinq;
@@ -100,21 +101,10 @@ public sealed partial class Stacking {
     }
 
     private static Fin<Layer> Layered(Figure figure) =>
-        figure.Switch(
-            figure,
-            rule: Refused,
-            path: Refused,
-            region: Refused,
-            curve: static (_, curve) => new Layer(curve.Domain, curve.Samples.Values, (lower, upper) => curve with { Samples = upper, Fill = curve.Fill.Map(_ => (Floor)new Floor.Lower(lower)) }),
-            graph: Refused,
-            grid: Refused,
-            points: Refused,
-            bars: static (_, bars) => new Layer(bars.Domain, bars.Values.Values, (lower, upper) => bars with { Values = upper, Bases = lower }),
-            box: Refused,
-            field: Refused,
-            label: Refused);
-
-    private static Fin<Layer> Refused<TCase>(Figure figure, TCase _) => new UIFault(figure.ToString(), UIReason.Range);
+        figure.SwitchPartially<Fin<Layer>>(
+            @default: static held => new UIFault(held.ToString(), UIReason.Range),
+            curve: static curve => new Layer(curve.Domain, curve.Samples.Values, (lower, upper) => curve with { Samples = upper, Fill = curve.Fill.Map(_ => (Floor)new Floor.Lower(lower)) }),
+            bars: static bars => new Layer(bars.Domain, bars.Values.Values, (lower, upper) => bars with { Values = upper, Bases = lower }));
 
     private static float[] Added(float[] sum, ReadOnlyMemory<float> values) {
         float[] next = new float[sum.Length];
@@ -186,7 +176,7 @@ public sealed record Brush(PlotPlane Value, Func<Edit<PlotPlane>, IO<Unit>> Edit
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Legend {
-    private const int Resolution = byte.MaxValue + 1;
+    private const int Resolution = Marks.Steps;
     private static readonly PlotPlane Square = new PlotPlane.Cartesian(new Axis.Linear(AxisRange.Unit), new Axis.Linear(AxisRange.Unit));
     private static readonly Figure Line = new Figure.Rule(new Vector2(0f, 0.5f), new Vector2(1f, 0.5f));
     private static readonly Figure Area = new Figure.Region();
@@ -227,17 +217,10 @@ public abstract partial record Legend {
         }
 
         private static Figure Keyed(Figure figure) =>
-            figure.Switch(
-                rule: static _ => Line,
-                path: static _ => Line,
-                region: static _ => Area,
-                curve: static _ => Line,
-                graph: static _ => Line,
+            figure.SwitchPartially(
+                @default: static held => held.Continuous ? Line : Area,
                 grid: static _ => Line,
                 points: static points => new Figure.Points([new Vector2(0.5f)]) { Marker = points.Marker },
-                bars: static _ => Area,
-                box: static _ => Area,
-                field: static _ => Area,
                 label: static _ => Line);
     }
 
@@ -340,6 +323,6 @@ public sealed record Chart(PlotPlane Plane, Seq<Plotted> Series) {
         return new ChartDescription(
             title,
             Plane.Dimensions.Map(held => new AxisDescription(titles.Find(held.Along).IfNone(""), held.Axis)),
-            arranged.Map(static plotted => new SeriesDescription(plotted.Label, plotted.Figure.Continuous, plotted.Figure.Data.Map(static datum => datum.Value))));
+            arranged.Map(static plotted => new SeriesDescription(plotted.Label, plotted.Figure)));
     }
 }

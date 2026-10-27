@@ -81,9 +81,10 @@ public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appe
     private static readonly SKBlender Additive = SKBlender.CreateBlendMode(SKBlendMode.Plus);
 
     // --- [MOTION]
+    private static readonly Factor Rest = Factor.Validated(0.001f).ThrowIfFail();
     private static readonly TimingCurve Eased = new TimingCurve.Eased(Duration.FromMilliseconds(120), Easing.EaseOut);
-    private static readonly TimingCurve Critical = new TimingCurve.Spring(Duration.FromMilliseconds(500), DampingRatio.Validated(1d).ThrowIfFail(), VisibleChange.Validated(0.001).ThrowIfFail());
-    private static readonly TimingCurve Underdamped = new TimingCurve.Spring(Duration.FromMilliseconds(500), DampingRatio.Validated(0.85).ThrowIfFail(), VisibleChange.Validated(0.001).ThrowIfFail());
+    private static readonly TimingCurve Critical = new TimingCurve.Spring(Duration.FromMilliseconds(500), Factor.Unit, Rest);
+    private static readonly TimingCurve Underdamped = new TimingCurve.Spring(Duration.FromMilliseconds(500), Factor.Validated(0.85f).ThrowIfFail(), Rest);
 
     // --- [FACES]
     private static readonly TextFace SemiBold = new() { Weight = SKFontStyleWeight.SemiBold };

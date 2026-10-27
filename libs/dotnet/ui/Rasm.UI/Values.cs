@@ -110,17 +110,6 @@ public sealed partial class Corners {
     private static float Grown(float radius, float by) => radius > 0f ? float.Max(0f, radius + by) : 0f;
 }
 
-[ComplexValueObject(SkipFactoryMethods = true)]
-public sealed partial class Magnification {
-    public static Magnification Free { get; } = new(float.Epsilon, float.PositiveInfinity);
-
-    public float Min { get; }
-    public float Max { get; }
-
-    public static Fin<Magnification> Validated(float min, float max) =>
-        UIFault.Unless(float.IsFinite(min) && min > 0f && max >= min, UIReason.Order, (min, max)).Map(_ => new Magnification(min, max));
-}
-
 // --- [ERRORS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class UIReason {

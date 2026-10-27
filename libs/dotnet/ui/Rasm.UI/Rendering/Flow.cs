@@ -114,35 +114,32 @@ internal static class Layouts {
     private static Option<LayoutNode> Held(HashMap<Seq<Key>, LayoutNode> prior, Option<LayoutNode> parent, Seq<Key> path) =>
         prior.Find(path) | parent.Bind(held => (held.Members + held.Layers).Find(member => member.Path == path));
 
-    private sealed record Building(Pass Pass, Seq<Key> Path, Node Node, Cascade Cascade, RoleStyle Style, Cascade Inner, Seq<LayoutNode> Members);
-
     private sealed record Member(Key Segment, Node Node);
 
     private static LayoutNode Created(Pass pass, Cascade cascade, Seq<Key> path, Node node, Option<LayoutNode> prior) {
-        (RoleStyle style, Cascade inner) = Styles.Enter(cascade, node);
+        Cascade inner = Styles.Enter(cascade, node);
         Seq<LayoutNode> members = Members(node).Map(member => {
             Seq<Key> at = path.Add(member.Segment);
             return Built(pass, inner, at, member.Node, Held(pass.Prior, prior, at));
         }).Strict();
-        LayoutNode built = node.SwitchPartially(new Building(pass, path, node, cascade, style, inner, members.Filter(static member => member.Node is not Node.Layer)),
-            @default: BoxNode,
-            choice: static (held, choice) => BoxNode(held, choice) with { Children = held.Members.Take(1) },
-            mark: static (held, mark) => mark.Figure is Figure.Label label ? TextNode(held, new Node.Text(label.Spans)) : BoxNode(held, mark),
-            text: TextNode) with {
+        LayoutNode.Box box = new() { Path = path, Node = node, Cascade = cascade, Inner = inner, Style = inner.Enclosing, Members = members.Filter(static member => member.Node is not Node.Layer) };
+        LayoutNode built = node.SwitchPartially(
+            (Pass: pass, Box: box with { Children = box.Members }),
+            @default: static (held, _) => held.Box,
+            choice: static (held, _) => held.Box with { Children = held.Box.Members.Take(1) },
+            mark: static (held, mark) => mark.Figure is Figure.Label label ? TextNode(held.Pass, held.Box, new Node.Text(label.Spans)) : held.Box,
+            text: static (held, text) => (LayoutNode)TextNode(held.Pass, held.Box, text)) with {
             Layers = members.Filter(static member => member.Node is Node.Layer),
         };
         float width = IntrinsicWidth(built);
         return built with { Intrinsic = new SKSize(width, IntrinsicHeight(built, width)) };
     }
 
-    private static LayoutNode BoxNode(Building held, Node _) =>
-        new LayoutNode.Box { Path = held.Path, Node = held.Node, Cascade = held.Cascade, Inner = held.Inner, Style = held.Style, Members = held.Members, Children = held.Members };
-
-    private static LayoutNode TextNode(Building held, Node.Text text) {
-        TextStyle face = Typesetting.Resolve(held.Pass.Shaping, held.Pass.ColorCache, held.Inner, held.Style);
-        Typeset set = Typesetting.Set(held.Pass.Shaping, held.Pass.ColorCache, text, held.Inner, face, float.PositiveInfinity, held.Pass.Culture);
+    private static LayoutNode.Text TextNode(Pass pass, LayoutNode box, Node.Text text) {
+        TextStyle face = Typesetting.Resolve(pass.Shaping, pass.ColorCache, box.Inner, box.Style);
+        Typeset set = Typesetting.Set(pass.Shaping, pass.ColorCache, text, box.Inner, face, float.PositiveInfinity, pass.Culture);
         return new LayoutNode.Text(text, set, face) {
-            Path = held.Path, Node = held.Node, Cascade = held.Cascade, Inner = held.Inner, Style = held.Style, MinContent = Typesetting.MinContent(held.Pass.Shaping, set),
+            Path = box.Path, Node = box.Node, Cascade = box.Cascade, Inner = box.Inner, Style = box.Style, MinContent = Typesetting.MinContent(pass.Shaping, set),
         };
     }
 

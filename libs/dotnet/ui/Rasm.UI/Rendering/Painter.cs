@@ -12,7 +12,7 @@ namespace Rasm.UI.Rendering;
 internal static class Painter {
     // --- [SCENE]
     internal sealed record Pass(PaintCache Cache, Scene Scene, HashMap<InteractionState, float> StateLayers, Animations Animations, HashSet<Seq<Key>> Live,
-                               HashSet<Seq<Key>> Native, HashSet<Seq<Key>> Hovered, Option<SKPoint> Pointer, Duration Now) {
+                               HashSet<Seq<Key>> Native, HashSet<Seq<Key>> Hovered, Option<SKPoint> Pointer, Duration Now, float Scale) {
         internal bool Retained { get; init; } = true;
 
         internal float Clock => (float)Now.TotalSeconds;
@@ -25,12 +25,13 @@ internal static class Painter {
 
     internal static Fin<Unit> Paint(SKCanvas canvas, PaintCache cache, Mount mount, SKRegion damage, Duration now) {
         Scene scene = mount.Scene;
-        return cache.Retain(mount, canvas.TotalMatrix.MapRadius(1f)).Map(_ => {
+        float scale = canvas.TotalMatrix.MapRadius(1f);
+        return cache.Retain(mount, scale).Map(_ => {
             HashMap<InteractionState, float> stateLayers = mount.StateLayers(now);
             Animations animations = mount.Animations;
             Pass pass = new(cache, scene, stateLayers, animations,
                 cache.Moving.Union(stateLayers.Keys.Map(static key => key.Path)).Union(animations.Transitions.Keys).Union(animations.Transforms.Keys).Union(animations.Planes.Keys).Union(animations.Figures.Keys),
-                toHashSet(scene.Hosted.Choose(static hosted => hosted is Hosted.Backdrop ? Some(hosted.Path) : None)), toHashSet(mount.Hover), mount.Routing.Pointer, now);
+                toHashSet(scene.Hosted.Choose(static hosted => hosted is Hosted.Backdrop ? Some(hosted.Path) : None)), toHashSet(mount.Hover), mount.Routing.Pointer, now, scale);
             cache.Framed(pass);
             using SKAutoCanvasRestore restore = new(canvas);
             canvas.ClipRegion(damage);
@@ -71,14 +72,14 @@ internal static class Painter {
             return;
         }
         if (pass.Live.Contains(layout.Path) || (layout.Node.Role.IsNone && !context.StateLayers.IsEmpty)) {
-            Leaf leaf = pass.Cache.Leaves.GetOrAdd(layout.Path, layout, unit, () => new Leaf(layout, pass));
+            Leaf leaf = pass.Cache.Leaves.GetOrAdd(layout, () => new Leaf(layout, pass));
             leaf.Placed(context, at);
             canvas.DrawDrawable(leaf, at.X, at.Y);
             return;
         }
         Context own = context.Translated(at) with { StateLayers = StateLayers(pass, layout, context) };
         float alpha = layout.Alpha(pass.Cache.Space);
-        SKDrawable recorded = pass.Cache.Recordings.GetOrAdd(layout.Path, layout, new Recording(own.CacheKey, alpha, Beneath(pass.Live, layout.Path)), () => {
+        SKDrawable recorded = pass.Cache.Recordings.GetOrAdd(new Recording(layout, own.CacheKey, alpha, Beneath(pass.Live, layout.Path)), () => {
             using SKPictureRecorder recorder = new();
             DrawSelf(recorder.BeginRecording(layout.LocalSubtreeBounds, useRTree: true), pass, layout, own, None, alpha);
             return recorder.EndRecordingAsDrawable();
@@ -90,13 +91,14 @@ internal static class Painter {
     }
 
     private static void DrawLive(SKCanvas canvas, Pass pass, LayoutNode layout, Context parent, SKPoint at, Option<ExitTransition> departing) {
-        Option<Tween> tween = departing.Map(left => new Tween(SKPoint.Empty, left.Last.Frame.Size, left.Opacity.Value(pass.Now))) | pass.Tweened(layout);
+        Option<Tween> tween = departing.Map(left => new Tween(left.Last.Frame, left.Opacity.Value(pass.Now))) | pass.Tweened(layout);
         float alpha = departing.IsSome || pass.Animations.Transitions.ContainsKey(layout.Path) ? tween.Map(static held => held.Alpha).IfNone(1f) : layout.Alpha(pass.Cache.Space);
         Option<Matrix4x4> turn = tween.Bind(static held => held.Transform).Map(matrix => Pivoted(layout, matrix)) | layout.Transform;
         using SKAutoCanvasRestore restore = new(canvas, doSave: tween.IsSome || turn.IsSome);
         _ = tween.Iter(held => {
-            canvas.Translate(held.Shift.X, held.Shift.Y);
-            if (held.Size != layout.Frame.Size) canvas.ClipRect(SKRect.Create(held.Size), antialias: true);
+            SKPoint shift = held.Shift(layout);
+            canvas.Translate(shift.X, shift.Y);
+            if (held.Frame.Size != layout.Frame.Size) canvas.ClipRect(SKRect.Create(held.Frame.Size), antialias: true);
         });
         if (turn.Case is Matrix4x4 matrix) canvas.Concat((SKMatrix44)matrix);
         if (!canvas.QuickReject(layout.LocalSubtreeBounds))
@@ -109,7 +111,7 @@ internal static class Painter {
         bool role = layout.Node.Role.IsSome;
         using SKAutoCanvasRestore restore = new(canvas, doSave: false);
         Option<SKImageFilter> filter = role && !style.Filters.IsEmpty
-            ? pass.Cache.Filters.GetOrAdd(layout.Path, layout, local, () => Filter.Chained(style.Filters, new FillContext(pass, layout, context, local, 0).Target))
+            ? pass.Cache.Filters.GetOrAdd((layout, local), () => Filter.Chained(style.Filters, new FillContext(pass, layout, context, local, 0).Target))
             : None;
         if (alpha < 1f || filter.IsSome)
             _ = canvas.SaveLayer(new SKCanvasSaveLayerRec {
@@ -123,10 +125,10 @@ internal static class Painter {
         SKColorF under = Styles.Background(layout.Cascade, style, layout.Node);
         Context inner = context with { Plot = tween.Bind(static held => held.Plane).Map(plane => plane.In(layout.Data)) | Layouts.Plotted(layout) | context.Plot };
         Seq<ResolvedShadow> casts = role && !filled ? Shadows(pass.Scene.Layout.Cascade.Theme, style) : [];
-        if (!casts.IsEmpty) _ = canvas.SaveLayer(new SKCanvasSaveLayerRec { Bounds = layout.LocalSubtreeBounds, Paint = pass.Cache.Cast(layout, style.Role, casts), Flags = pass.Cache.Precision });
+        if (!casts.IsEmpty) _ = canvas.SaveLayer(new SKCanvasSaveLayerRec { Bounds = layout.LocalSubtreeBounds, Paint = pass.Cache.Cast(casts), Flags = pass.Cache.Precision });
         Content(canvas, pass, layout, context, under, tween);
         if (layout.Children.IsEmpty) return;
-        Option<SKPaint> fade = EdgeFade(pass.Scene, layout, local).Map(held => pass.Cache.FadeMask(layout, held));
+        Option<SKPaint> fade = EdgeFade(pass.Scene, layout, local).Map(pass.Cache.FadeMask);
         if (fade.IsSome) _ = canvas.SaveLayer(local, paint: null);
         _ = toSeq(layout.Children.GroupAdjacent(child => layout.Node.Clips(child.Node))).Iter(run => {
             using SKAutoCanvasRestore clipped = new(canvas, doSave: run.Key);
@@ -169,7 +171,7 @@ internal static class Painter {
         protected override SKRect OnGetBounds() {
             SKRect reach = Layout.LocalSubtreeBounds;
             Option<Tween> tween = pass.Tweened(Layout);
-            SKRect shifted = tween.Map(held => SKRect.Create(reach.Location + held.Shift, reach.Size)).IfNone(reach);
+            SKRect shifted = tween.Map(held => SKRect.Create(reach.Location + held.Shift(Layout), reach.Size)).IfNone(reach);
             SKRect turned = (tween.Bind(static held => held.Transform).Map(matrix => Pivoted(Layout, matrix)) | Layout.Transform).Map(matrix => ((SKMatrix44)matrix).Matrix.MapRect(reach)).IfNone(reach);
             return SKRect.Union(SKRect.Union(reach, shifted), turned);
         }
@@ -181,7 +183,7 @@ internal static class Painter {
     private static Seq<ResolvedShadow> Shadows(ColorScheme theme, RoleStyle style) =>
         style.Shadows.Choose(shadow => theme.Color(shadow.Color, style).Map(color => new ResolvedShadow(shadow, color))).Strict();
 
-    private static void Elevated(SKCanvas canvas, PaintCache cache, LayoutNode layout, RoleStyle style, SKRect frame, Seq<ResolvedShadow> stack, Seq<Action<SKCanvas>> fills) {
+    private static void Elevated(SKCanvas canvas, PaintCache cache, LayoutNode layout, SKRect frame, Seq<ResolvedShadow> stack, Seq<Action<SKCanvas>> fills) {
         Seq<ResolvedShadow> outer = stack.Filter(static held => !held.Shadow.Inside);
         Seq<ResolvedShadow> inner = stack.Filter(static held => held.Shadow.Inside);
         if (!outer.IsEmpty) {
@@ -190,7 +192,7 @@ internal static class Painter {
             _ = outer.Iter(held => {
                 using SKAutoCanvasRestore moved = new(canvas);
                 canvas.Translate(held.Shadow.X, held.Shadow.Y);
-                _ = cache.Outlined(layout, frame, held.Shadow.Spread).Iter(spread => spread.Draw(canvas, cache.Shadowed(layout, style.Role, held)));
+                _ = cache.Outlined(layout, frame, held.Shadow.Spread).Iter(spread => spread.Draw(canvas, cache.Shadowed(held)));
             });
         }
         using (new SKAutoCanvasRestore(canvas)) _ = fills.Iter(fill => fill(canvas));
@@ -201,7 +203,7 @@ internal static class Painter {
             float reach = (3f * held.Shadow.Blur) + MathF.Abs(held.Shadow.X) + MathF.Abs(held.Shadow.Y) + MathF.Abs(held.Shadow.Spread);
             using SKAutoCanvasRestore moved = new(canvas);
             canvas.Translate(held.Shadow.X, held.Shadow.Y);
-            _ = cache.Outlined(layout, frame, -held.Shadow.Spread).Iter(spread => spread.Inset(canvas, SKRect.Inflate(frame, reach, reach), cache.Shadowed(layout, style.Role, held)));
+            _ = cache.Outlined(layout, frame, -held.Shadow.Spread).Iter(spread => spread.Inset(canvas, SKRect.Inflate(frame, reach, reach), cache.Shadowed(held)));
         });
     }
 
@@ -217,15 +219,14 @@ internal static class Painter {
             return true;
         }
         Seq<Action<SKCanvas>> fills = style.Fills.Map((fill, index) => Fills.Fill(new FillContext(pass, layout, context, frame, index), fill, shape)).Somes().Strict();
-        Elevated(canvas, pass.Cache, layout, style, frame, fills.IsEmpty ? [] : Shadows(theme, style), fills);
+        Elevated(canvas, pass.Cache, layout, frame, fills.IsEmpty ? [] : Shadows(theme, style), fills);
         if (style.Strokes.IsEmpty) return !fills.IsEmpty;
         SKColorF under = layout.Cascade.Background;
         bool bounding = layout.Node.Part.IsSome && style.Solid.Bind(value => theme.Color(value, style)).ForAll(solid => Styles.Ratio(solid, under) < theme.Contrast.Graphic);
-        _ = pass.Cache.Outlined(layout, frame, -style.HalfStroke).Iter(rim => style.Strokes.Map(static (stroke, index) => (Stroke: stroke, Index: index)).Iter(held =>
-            theme.WithStateLayers(pass.Scene.ColorCache, held.Stroke.Color, style, context.StateLayers)
+        _ = pass.Cache.Outlined(layout, frame, -style.HalfStroke).Iter(rim => style.Strokes.Iter(stroke =>
+            theme.WithStateLayers(pass.Scene.ColorCache, stroke.Color, style, context.StateLayers)
                 .Map(color => bounding ? Styles.Legible(pass.Scene.ColorCache, style, under, color, theme.Contrast.Graphic) : color)
-                .Iter(color => rim.Draw(canvas, PaintCache.StrokePaint(pass.Cache.Edges, new PaintSlot(layout.Path, held.Index), layout,
-                    new StrokeKey(color, style.Metrics[Metric.Stroke], held.Stroke.Patterned(0u), held.Stroke.Timed ? pass.Clock : 0f, None))))));
+                .Iter(color => rim.Draw(canvas, pass.Cache.Stroke(new StrokeKey(color, style.Metrics[Metric.Stroke], stroke.Patterned(0u), stroke.Timed ? pass.Clock : 0f, None))))));
         return !fills.IsEmpty;
     }
 
@@ -239,7 +240,7 @@ internal static class Painter {
                 Bounds = SKRect.Inflate(ring.Frame, ring.Style.Overhang, ring.Style.Overhang), Paint = pass.Cache.Veil(ring.Layout, ring.Style.Role, weight, None), Flags = pass.Cache.Precision,
             });
         canvas.Translate(ring.Frame.Left, ring.Frame.Top);
-        Elevated(canvas, pass.Cache, ring.Layout, ring.Style, SKRect.Create(ring.Frame.Size), Shadows(pass.Scene.Layout.Cascade.Theme, ring.Style), []);
+        Elevated(canvas, pass.Cache, ring.Layout, SKRect.Create(ring.Frame.Size), Shadows(pass.Scene.Layout.Cascade.Theme, ring.Style), []);
     }
 
     // --- [FADE]
@@ -271,12 +272,12 @@ internal static class Painter {
 
     private static void Glyph(SKCanvas canvas, Pass pass, LayoutNode layout, GlyphSource source, SKColorF under, Pen pen, SKColorF tint) {
         ArtKey key = Media.Keyed(layout, source, under, pass.Scene.ColorCache);
-        _ = pass.Cache.Art(key).Iter(media => {
+        _ = pass.Cache.Arts.Find(key).Iter(media => {
             SKRect cull = media.Bounds;
             SKRect fitted = ImageFit.Contain.Fitted(layout.ContentBox, cull.Size);
             SKPoint origin = pen.Snapped(fitted.Location);
             (float x, float y) = (fitted.Width / cull.Width, fitted.Height / cull.Height);
-            media.Draw(canvas, SKMatrix.CreateScaleTranslation(x, y, origin.X - (cull.Left * x), origin.Y - (cull.Top * y)), key.Art.Tinted ? Some(pass.Cache.Tint(layout, tint)) : None);
+            media.Draw(canvas, SKMatrix.CreateScaleTranslation(x, y, origin.X - (cull.Left * x), origin.Y - (cull.Top * y)), key.Art.Tinted ? Some(pass.Cache.Tint(tint)) : None);
         });
     }
 
@@ -286,13 +287,13 @@ internal static class Painter {
             .Iter(legible => {
                 if (layout.Node is Node.Mark { Figure: Figure.Label label }) Marks.Label(canvas, pass, layout, context, label, legible);
                 else if (layout.Typeset.Setting.Style.Stroked.Case is float width)
-                    canvas.DrawPath(pass.Cache.TextOutlines.GetOrAdd(layout.Path, layout, new TextOutlineKey(layout.Typeset, layout.Origin), () => Typesetting.Outline(layout.Typeset, layout.Origin)),
-                        PaintCache.StrokePaint(pass.Cache.TextStrokes, layout.Path, layout, new StrokeKey(legible, width, [], 0f, None)));
+                    canvas.DrawPath(pass.Cache.TextOutlines.GetOrAdd(new TextOutlineKey(layout.Typeset, layout.Origin), () => Typesetting.Outline(layout.Typeset, layout.Origin)),
+                        pass.Cache.Stroke(new StrokeKey(legible, width, [], 0f, None)));
                 else Block(pass, layout, (SKColor)legible).Paint(canvas, layout.Origin, Typesetting.Options(layout.Typeset, pass.Cache.Raster));
             });
 
     private static TextBlock Block(Pass pass, LayoutNode.Text layout, SKColor tint) =>
         tint == layout.TextStyle.TextColor
             ? layout.Typeset.Lines
-            : pass.Cache.Texts.GetOrAdd(new TextKey(layout.Path, tint), layout, layout.Typeset, () => Typesetting.Tinted(pass.Scene.Shaping, layout.Typeset, tint));
+            : pass.Cache.Texts.GetOrAdd(new TextKey(layout.Typeset, tint), () => Typesetting.Tinted(pass.Scene.Shaping, layout.Typeset, tint));
 }

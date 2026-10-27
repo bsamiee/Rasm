@@ -1,4 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Rasm.UI.Plotting;
 using Rasm.UI.Styling;
 using Rasm.UI.Typography;
@@ -10,6 +12,10 @@ namespace Rasm.UI.Rendering;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record LayoutNode {
+    public virtual bool Equals([NotNullWhen(true)] LayoutNode? other) => ReferenceEquals(this, other);
+
+    public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
+
     internal required Seq<Key> Path { get; init; }
     internal required Node Node { get; init; }
     internal required Cascade Cascade { get; init; }
@@ -135,11 +141,9 @@ internal sealed record SceneChange(Scene Scene, Seq<SKRect> Damage);
 
 public sealed class Scene {
     // --- [STATE]
-    private sealed record HitShape(Shape Shape, Corners Corners, float Smoothing, SKSize Size, float Reach);
-
     private sealed record Sampling(SKRect Reach, SKRect Bounds);
 
-    private readonly Func<HitShape, Fin<Outline>> outlines = memo<HitShape, Fin<Outline>>(static shape => Outline.Of(shape.Shape, shape.Corners, shape.Smoothing, SKRect.Create(shape.Size), shape.Reach));
+    private readonly Func<OutlineKey, Fin<Outline>> outlines = memo<OutlineKey, Fin<Outline>>(static key => Outline.Of(key.Shape, key.Corners, key.Smoothing, key.Frame, key.Offset));
     private readonly HashSet<Seq<Key>> opened;
     private readonly HashMap<Seq<Key>, Seq<Seq<Key>>> readers;
     private readonly Seq<Sampling> sampling;
@@ -346,7 +350,7 @@ public sealed class Scene {
         SKRect frame = Absolute(layout.Frame, place.Origin);
         return layout.Node.Role.IsNone || layout.Style.Shape is Shape.Rounded
             ? layout.Corners.Holds(frame, reach, local)
-            : outlines(new HitShape(layout.Style.Shape, layout.Corners, layout.Smoothing, frame.Size, reach)).Exists(outline => outline.Contains(local - frame.Location));
+            : outlines(new OutlineKey(layout.Style.Shape, layout.Corners, layout.Smoothing, SKRect.Create(frame.Size), reach)).Exists(outline => outline.Contains(local - frame.Location));
     }
 
     private static Option<Adjustment> Adjusting(LayoutNode owner, Option<LayoutNode> handle, HashMap<Seq<Key>, float> adjusted) =>

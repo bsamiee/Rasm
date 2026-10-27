@@ -136,7 +136,7 @@ public sealed record Toasts(Seq<Toast> Shown, Role Role, Func<Key, IO<Unit>> Dis
     private static readonly PlotPlane Square = new PlotPlane.Cartesian(new Axis.Linear(AxisRange.Unit), new Axis.Linear(AxisRange.Unit));
     private static readonly Points<bool> Swiped = new(static _ => [], static (shown, _, _) => new Dragged<bool>(shown, [])) {
         Placed = static (shown, _, _) => Some(new Added<bool>(shown, Surface)),
-        Dragging = new Dragging<bool>(static (_, _) => Some(value: false), static (_, _, _) => None),
+        DraggedOut = Some<Func<bool, Key, Option<bool>>>(static (_, _) => Some(value: false)),
     };
 
     public UnitPoint Corner { get; init; } = new(Fraction.MaxValue, Fraction.MaxValue);

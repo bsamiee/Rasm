@@ -16,6 +16,8 @@ public abstract partial record Material {
 
     internal virtual Material Opaque => this;
 
+    internal virtual Seq<GlyphSource> Arts => [];
+
     // --- [CASES]
     public sealed record Solid(ColorValue Color) : Material {
         internal override Option<ColorValue> BaseColor => Some(Color);
@@ -67,16 +69,18 @@ public abstract partial record Material {
                 },
             };
 
-        internal SKShader Shader(SKRect frame, Func<ColorValue, Option<SKColorF>> resolve, Func<Metric, float> metric, Func<Child, SKShader> child, Corners corners, float clock, Option<SKPoint> pointer) {
-            using SKRuntimeEffectUniforms uniforms = Uniforms(effect, colors.Map(resolve), floats.Map(metric), frame.Size, clock,
-                [corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft], pointer.Map(at => at - frame.Location).IfNone(Away));
-            using SKRuntimeEffectChildren bound = new(effect);
-            Seq<(string Name, SKShader Shader)> made = children.AsIterable().Map(pair => (Name: pair.Key, Shader: child(pair.Value))).ToSeq().Strict();
-            _ = made.Iter(held => bound[held.Name] = held.Shader);
-            SKShader shader = effect.ToShader(uniforms, bound, SKMatrix.CreateTranslation(frame.Left, frame.Top));
-            _ = made.Iter(static held => held.Shader.Dispose());
-            return shader;
-        }
+        internal override Seq<GlyphSource> Arts => children.Values.ToSeq().Bind(static child => child.Arts);
+
+        internal Option<SKShader> Shader(SKRect frame, Func<ColorValue, Option<SKColorF>> resolve, Func<Metric, float> metric, Func<Child, Option<SKShader>> child, Corners corners, float clock, Option<SKPoint> pointer) =>
+            children.AsIterable().ToSeq().Traverse(pair => child(pair.Value).Map(shader => (Name: pair.Key, Shader: shader))).As().Map(made => {
+                using SKRuntimeEffectUniforms uniforms = Uniforms(effect, colors.Map(resolve), floats.Map(metric), frame.Size, clock,
+                    [corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft], pointer.Map(at => at - frame.Location).IfNone(Away));
+                using SKRuntimeEffectChildren bound = new(effect);
+                _ = made.Iter(held => bound[held.Name] = held.Shader);
+                SKShader shader = effect.ToShader(uniforms, bound, SKMatrix.CreateTranslation(frame.Left, frame.Top));
+                _ = made.Iter(static held => held.Shader.Dispose());
+                return shader;
+            });
 
         private static Fin<Drawn> Released(SKRuntimeEffect compiled, Error refused) {
             compiled.Dispose();
@@ -116,13 +120,18 @@ public abstract partial record Material {
         public Option<float> Refraction { get; init; }
 
         internal override Material Opaque => Window;
+
+        internal override Seq<GlyphSource> Arts => Backdrop.Bind(static filter => filter.Arts);
     }
 
-    public sealed record Pattern(PatternSource Source, SKShaderTileMode Tile) : Material {
-        public Option<Matrix3x2> Transform { get; init; }
+    public sealed record Pattern(Child Source) : Material {
+        internal override Seq<GlyphSource> Arts => Source.Arts;
 
-        internal Option<SKShader> Shader(SKRect frame, Func<GlyphSource, Option<SKPicture>> art) =>
-            Source.Shader(frame, Tile, Transform.Map(static transform => ((SKMatrix44)new Matrix4x4(transform)).Matrix).IfNone(SKMatrix.Identity), art);
+        internal Option<SKShader> Shader(SKRect frame, Func<Material, Option<SKShader>> fill, Func<GlyphSource, Option<SKPicture>> art) =>
+            Source.Shader(frame, fill, art).Map(shader => {
+                using SKShader owned = shader;
+                return owned.WithLocalMatrix(SKMatrix.CreateTranslation(frame.Left, frame.Top));
+            });
     }
 
     public sealed record Hatch(ColorValue Color, float Angle, float Spacing, float Width) : Material {
@@ -178,50 +187,46 @@ public abstract partial record GradientShape {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Child {
     // --- [SHADER]
-    internal abstract SKShader Shader(SKRect frame, Func<Material, SKShader> fill);
+    internal virtual Seq<GlyphSource> Arts => [];
+
+    internal abstract Option<SKShader> Shader(SKRect frame, Func<Material, Option<SKShader>> fill, Func<GlyphSource, Option<SKPicture>> art);
+
+    private static SKMatrix Placed(SKRect frame, SKSize natural, Option<Matrix3x2> transform) =>
+        transform.Match(
+            Some: static held => ((SKMatrix44)new Matrix4x4(held)).Matrix,
+            None: () => SKMatrix.CreateScale(frame.Width / natural.Width, frame.Height / natural.Height));
 
     // --- [CASES]
     public sealed record Noise(float Frequency, int Octaves) : Child {
-        internal override SKShader Shader(SKRect frame, Func<Material, SKShader> fill) => Generated();
-
-        internal SKShader Generated() => SKShader.CreatePerlinNoiseFractalNoise(Frequency, Frequency, Octaves, 0f);
+        internal override Option<SKShader> Shader(SKRect frame, Func<Material, Option<SKShader>> fill, Func<GlyphSource, Option<SKPicture>> art) =>
+            SKShader.CreatePerlinNoiseFractalNoise(Frequency, Frequency, Octaves, 0f);
     }
 
     public sealed record Image(SKImage Source) : Child {
-        internal override SKShader Shader(SKRect frame, Func<Material, SKShader> fill) =>
-            Source.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear), SKMatrix.CreateScale(frame.Width / Source.Width, frame.Height / Source.Height));
+        public SKShaderTileMode Tile { get; init; } = SKShaderTileMode.Clamp;
+        public Option<Matrix3x2> Transform { get; init; }
+
+        internal override Option<SKShader> Shader(SKRect frame, Func<Material, Option<SKShader>> fill, Func<GlyphSource, Option<SKPicture>> art) =>
+            Source.ToShader(Tile, Tile, new SKSamplingOptions(SKFilterMode.Linear), Placed(frame, new SKSize(Source.Width, Source.Height), Transform));
+    }
+
+    public sealed record Art(GlyphSource Glyph) : Child {
+        public SKShaderTileMode Tile { get; init; } = SKShaderTileMode.Clamp;
+        public Option<Matrix3x2> Transform { get; init; }
+
+        internal override Seq<GlyphSource> Arts => [Glyph];
+
+        internal override Option<SKShader> Shader(SKRect frame, Func<Material, Option<SKShader>> fill, Func<GlyphSource, Option<SKPicture>> art) =>
+            art(Glyph).Map(picture => picture.ToShader(Tile, Tile, SKFilterMode.Linear, Placed(frame, picture.CullRect.Size, Transform), picture.CullRect));
     }
 
     public sealed record Fill(Material Material) : Child {
-        internal override SKShader Shader(SKRect frame, Func<Material, SKShader> fill) {
-            using SKShader filled = fill(Material);
-            return filled.WithLocalMatrix(SKMatrix.CreateTranslation(-frame.Left, -frame.Top));
-        }
-    }
-}
+        internal override Seq<GlyphSource> Arts => Material.Arts;
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record PatternSource {
-    // --- [SHADER]
-    internal abstract Option<SKShader> Shader(SKRect frame, SKShaderTileMode tile, SKMatrix local, Func<GlyphSource, Option<SKPicture>> art);
-
-    private static SKMatrix Placed(SKRect frame, SKMatrix local) => SKMatrix.CreateTranslation(frame.Left, frame.Top).PreConcat(local);
-
-    // --- [CASES]
-    public sealed record Image(SKImage Source) : PatternSource {
-        internal override Option<SKShader> Shader(SKRect frame, SKShaderTileMode tile, SKMatrix local, Func<GlyphSource, Option<SKPicture>> art) =>
-            Source.ToShader(tile, tile, SKSamplingOptions.Default, Placed(frame, local));
-    }
-
-    public sealed record Art(GlyphSource Glyph) : PatternSource {
-        internal override Option<SKShader> Shader(SKRect frame, SKShaderTileMode tile, SKMatrix local, Func<GlyphSource, Option<SKPicture>> art) =>
-            art(Glyph).Map(picture => picture.ToShader(tile, tile, SKFilterMode.Linear, Placed(frame, local), picture.CullRect));
-    }
-
-    public sealed record Noise(Child.Noise Source) : PatternSource {
-        internal override Option<SKShader> Shader(SKRect frame, SKShaderTileMode tile, SKMatrix local, Func<GlyphSource, Option<SKPicture>> art) {
-            using SKShader noise = Source.Generated();
-            return noise.WithLocalMatrix(Placed(frame, local));
-        }
+        internal override Option<SKShader> Shader(SKRect frame, Func<Material, Option<SKShader>> fill, Func<GlyphSource, Option<SKPicture>> art) =>
+            fill(Material).Map(filled => {
+                using SKShader owned = filled;
+                return owned.WithLocalMatrix(SKMatrix.CreateTranslation(-frame.Left, -frame.Top));
+            });
     }
 }

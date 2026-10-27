@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Retained Skia scenes with pure layout, cascading appearances, and input routing for drawn host UI</Description>
+        <Description>Interfaces as pure state transitions, drawn and driven by any host</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Core">
@@ -27,19 +27,19 @@
         <PackageReference Include="Wacton.Unicolour.Datasets" />
     </ItemGroup>
 
-    <ItemGroup Label="Text">
+    <ItemGroup Label="Typography">
+        <PackageReference Include="HarfBuzzSharp" />
         <PackageReference Include="ICU4N" />
+        <PackageReference Include="SkiaSharp.HarfBuzz" />
+        <PackageReference Include="Topten.RichTextKit" />
     </ItemGroup>
 
-    <ItemGroup Label="Desktop UI">
+    <ItemGroup Label="User Interface">
         <PackageReference Include="SkiaSharp" />
-        <PackageReference Include="SkiaSharp.HarfBuzz" />
         <PackageReference Include="SkiaSharp.SceneGraph" />
         <PackageReference Include="SkiaSharp.Skottie" />
-        <PackageReference Include="HarfBuzzSharp" />
-        <PackageReference Include="Topten.RichTextKit" />
         <PackageReference Include="Svg.Custom" />
-        <PackageReference Include="Svg.Skia" />
         <PackageReference Include="Svg.Model" />
+        <PackageReference Include="Svg.Skia" />
     </ItemGroup>
 </Project>

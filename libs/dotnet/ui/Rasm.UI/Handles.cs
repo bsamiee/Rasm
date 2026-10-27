@@ -13,14 +13,13 @@ public sealed record Dragged<TValue>(TValue Value, Seq<Key> Keys) where TValue :
 
 public sealed record Added<TValue>(TValue Value, Key Key) where TValue : notnull;
 
-public sealed record Dragging<TValue>(Func<TValue, Key, Option<TValue>> DraggedOut, Func<TValue, Key, float, Option<TValue>> Spread) where TValue : notnull;
-
 public sealed record Points<TValue>(Func<TValue, Seq<HandlePoint>> Read, Func<TValue, Seq<HandlePoint>, KeyModifiers, Dragged<TValue>> Moved) where TValue : notnull {
     private static readonly Key Only = new Key.Ordinal(0);
 
     public Func<TValue, Vector2, Option<Key>, Option<Added<TValue>>> Placed { get; init; } = static (_, _, _) => None;
     public Func<TValue, Seq<Key>, Option<TValue>> Removed { get; init; } = static (_, _) => None;
-    public Option<Dragging<TValue>> Dragging { get; init; }
+    public Option<Func<TValue, Key, Option<TValue>>> DraggedOut { get; init; }
+    public Func<TValue, Key, float, Option<TValue>> Spread { get; init; } = static (_, _, _) => None;
 
     public static Points<TValue> Fixed(Seq<Lens<TValue, Vector2>> lenses) {
         HashMap<Key, Lens<TValue, Vector2>> keyed = toHashMap(lenses.Map(static (lens, index) => ((Key)Keyed(index), lens)));
@@ -49,7 +48,7 @@ public sealed record Points<TValue>(Func<TValue, Seq<HandlePoint>> Read, Func<TV
                 from key in Rekeyed(items(placed).Map(at), [new HandlePoint(Keyed(items(value).Count), at(item))]).Head
                 select new Added<TValue>(placed, key),
             Removed = (value, keys) => rebuilt(value, Kept(items(value), keys)),
-            Dragging = new Dragging<TValue>((value, key) => rebuilt(value, Kept(items(value), [key])), static (_, _, _) => None),
+            DraggedOut = Some<Func<TValue, Key, Option<TValue>>>((value, key) => rebuilt(value, Kept(items(value), [key]))),
         };
 
     public static Points<TValue> Indexed(Lens<TValue, Seq<Vector2>> points) =>
@@ -282,9 +281,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
         Session(DragCursor(frame)) with { Step = (start, gesture) => gesture is Gesture.Press press ? Some(Dragged(Spread(start, key, press, aim), key, press, aim, frame)) : None };
 
     private State Spread(State start, Key key, Gesture.Press press, HitTarget aim) =>
-        (from dragging in Points.Dragging
-         where press.Scrolled.Y.CompareTo(0f) is not 0
-         from value in dragging.Spread(start.Value, key, press.Scrolled.Y / Metrics(aim.Layout, Some(key))[Metric.Extent])
+        (from value in Some(press.Scrolled.Y).Filter(static spread => spread.CompareTo(0f) is not 0).Bind(spread => Points.Spread(start.Value, key, spread / Metrics(aim.Layout, Some(key))[Metric.Extent]))
          select start with { Value = value }).IfNone(start);
 
     private State Dragged(State start, Key key, Gesture.Press press, HitTarget aim, PlotFrame frame) =>
@@ -297,7 +294,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
 
     private Option<TValue> DraggedOut(TValue value, Key key, Gesture.Press press, HitTarget aim, PlotFrame frame) {
         float reach = Metrics(aim.Layout, Some(key))[Metric.Reach];
-        return SKRect.Inflate(frame.Matrix.MapRect(Square), reach, reach).Contains(press.At) ? None : Points.Dragging.Bind(dragging => dragging.DraggedOut(value, key));
+        return SKRect.Inflate(frame.Matrix.MapRect(Square), reach, reach).Contains(press.At) ? None : Points.DraggedOut.Bind(dragged => dragged(value, key));
     }
 
     private State Translated(State start, Key key, Gesture.Press press, HitTarget aim, PlotFrame frame) {

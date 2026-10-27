@@ -11,7 +11,7 @@ namespace Rasm.UI.Rendering;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Marks {
     // --- [KEYS]
-    internal sealed record SpriteKey(Option<Marker> Marker, float Diameter, float Scale);
+    internal sealed record SpriteKey(LayoutNode Layout, Option<Marker> Marker, float Diameter, float Scale);
 
     internal sealed record AtlasKey(MarkKey Mark, SKColorF Color);
 
@@ -23,7 +23,7 @@ internal static class Marks {
 
     private sealed record Sprite(SKPoint At, float Degrees, float Diameter, Option<float> Value, float Opacity);
 
-    private const int Steps = 256;
+    internal const int Steps = byte.MaxValue + 1;
     private const int CellsPerMesh = ushort.MaxValue / 4;
 
     private static readonly int[] Quad = [0, 1, 2, 0, 2, 3];
@@ -45,20 +45,6 @@ internal static class Marks {
         """);
 
     // --- [MARKS]
-    internal static Seq<Marker> Markers(Figure figure) =>
-        figure.Switch(
-            rule: static _ => Seq<Marker>(),
-            path: static path => path.Start.ToSeq() + path.End.ToSeq(),
-            region: static _ => [],
-            curve: static _ => [],
-            graph: static _ => [],
-            grid: static _ => [],
-            points: static points => points.Marker.ToSeq(),
-            bars: static _ => [],
-            box: static _ => [],
-            field: static _ => [],
-            label: static label => Markers(label.Along));
-
     internal static void Mark(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, Context context, Figure figure, Option<DataSeries> series, PlotFrame frame) {
         RoleStyle style = layout.Style;
         PaintCache cache = pass.Cache;
@@ -66,12 +52,12 @@ internal static class Marks {
         MarkKey key = new(figure, frame, pen);
         Option<SKColorF> lead = (style.Strokes.Head.Map(static stroke => stroke.Color) | style.Solid).Bind(value => pass.Scene.Layout.Cascade.Theme.WithStateLayers(pass.Scene.ColorCache, value, style, context.StateLayers, series: series));
         if (figure is Figure.Field field) {
-            Field(canvas, pass, layout, key, field, style.Look.Scale, lead);
+            Field(canvas, pass, key, field, style.Look.Scale, lead);
             return;
         }
         if (figure is Figure.Points { Marker.IsNone: true, Sizes.IsNone: true, Values.IsNone: true, Opacity.IsNone: true } dots) {
             Seq<SKPaint> paints = Edged(pass, layout, context, series, figure, frame, pen);
-            canvas.DrawPicture(cache.Dots.GetOrAdd(layout.Path, layout, new DotsKey(key, paints), () => {
+            canvas.DrawPicture(cache.Dots.GetOrAdd(new DotsKey(key, paints), () => {
                 Seq<SKPoint> points = dots.At.Map(frame.Point).Strict();
                 using SKPictureRecorder recorder = new();
                 SKCanvas recording = recorder.BeginRecording(Reach(points, pen.Stroke));
@@ -85,12 +71,12 @@ internal static class Marks {
             return;
         }
         if (!style.Fills.IsEmpty) {
-            Outline interior = cache.Interiors.GetOrAdd(layout.Path, layout, key, () => Outline.Of(path => figure.Interior(path, frame, pen)));
+            Outline interior = cache.Interiors.GetOrAdd(key, () => Outline.Of(path => figure.Interior(path, frame, pen)));
             Seq<Action<SKCanvas>> fills = style.Fills.Map((fill, index) => Fills.Fill(new FillContext(pass, layout, context, interior.Path.Bounds, index) { Blend = Some(style.Blend), Series = series }, fill, interior)).Somes().Strict();
             using SKAutoCanvasRestore covered = new(canvas);
             _ = fills.Iter(fill => fill(canvas));
         }
-        Outline edge = cache.Contours.GetOrAdd(layout.Path, layout, key, () => Outline.Of(path => figure.Edges(path, frame, pen)));
+        Outline edge = cache.Contours.GetOrAdd(key, () => Outline.Of(path => figure.Edges(path, frame, pen)));
         _ = Edged(pass, layout, context, series, figure, frame, pen).Iter(paint => canvas.DrawPath(edge.Path, paint));
         Seq<MarkerPlacement> placements = figure.Markers(frame, pen, edge.Path);
         if (!placements.IsEmpty)
@@ -101,9 +87,8 @@ internal static class Marks {
         RoleStyle style = layout.Style;
         float weight = figure.Weight(frame, pen);
         uint ordinal = series.Map(static held => held.Ordinal).IfNone(0u);
-        return style.Strokes.Map((stroke, index) => pass.Scene.Layout.Cascade.Theme.WithStateLayers(pass.Scene.ColorCache, stroke.Color, style, context.StateLayers, series: series).Map(color =>
-            PaintCache.StrokePaint(pass.Cache.Edges, new PaintSlot(layout.Path, index), layout,
-                new StrokeKey(color.WithAlpha(color.Alpha * weight), pen.Stroke, stroke.Patterned(ordinal), stroke.Timed ? pass.Clock : 0f, Some(style.Blend))))).Somes().Strict();
+        return style.Strokes.Map(stroke => pass.Scene.Layout.Cascade.Theme.WithStateLayers(pass.Scene.ColorCache, stroke.Color, style, context.StateLayers, series: series).Map(color =>
+            pass.Cache.Stroke(new StrokeKey(color.WithAlpha(color.Alpha * weight), pen.Stroke, stroke.Patterned(ordinal), stroke.Timed ? pass.Clock : 0f, Some(style.Blend))))).Somes().Strict();
     }
 
     // --- [ATLAS]
@@ -118,10 +103,10 @@ internal static class Marks {
 
     private static void Atlased(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, MarkKey key, SKColorF color, Seq<Sprite> placed) {
         float scale = key.Pen.Density;
-        Option<Marker> marker = Markers(key.Figure).Head;
+        Option<Marker> marker = key.Figure.Art.Head;
         float diameter = placed.Map(static sprite => sprite.Diameter).Fold(0f, float.Max);
-        Option<SKImage> sheet = pass.Cache.Sprites.GetOrAdd(layout.Path, layout, new SpriteKey(marker, diameter, scale), () => Sheet(pass, layout, marker, diameter, scale));
-        _ = sheet.Iter(image => canvas.DrawPicture(pass.Cache.Atlases.GetOrAdd(layout.Path, layout, new AtlasKey(key, color), () => {
+        Option<SKImage> sheet = pass.Cache.Sprites.GetOrAdd(new SpriteKey(layout, marker, diameter, scale), () => Sheet(pass, layout, marker, diameter, scale));
+        _ = sheet.Iter(image => canvas.DrawPicture(pass.Cache.Atlases.GetOrAdd(new AtlasKey(key, color), () => {
             using SKPictureRecorder recorder = new();
             recorder.BeginRecording(Reach(placed.Map(static sprite => sprite.At), diameter)).DrawAtlas(image,
                 [.. placed.Map(_ => SKRect.Create(image.Width, image.Height))],
@@ -154,11 +139,11 @@ internal static class Marks {
             _ = marker.Match(
                 Some: shown => {
                     ArtKey art = Media.Keyed(layout, shown.Art, Styles.Background(layout.Cascade, layout.Style, layout.Node), pass.Scene.ColorCache);
-                    _ = pass.Cache.Art(art).Iter(media => {
+                    _ = pass.Cache.Arts.Find(art).Iter(media => {
                         SKRect cull = media.Bounds;
                         SKRect fitted = ImageFit.Contain.Fitted(cell, cull.Size);
                         (float x, float y) = (fitted.Width / cull.Width, fitted.Height / cull.Height);
-                        media.Draw(held.Canvas, SKMatrix.CreateScaleTranslation(x, y, fitted.Left - (cull.Left * x), fitted.Top - (cull.Top * y)), art.Art.Tinted ? Some(pass.Cache.Tint(layout, SKColors.White)) : None);
+                        media.Draw(held.Canvas, SKMatrix.CreateScaleTranslation(x, y, fitted.Left - (cull.Left * x), fitted.Top - (cull.Top * y)), art.Art.Tinted ? Some(pass.Cache.Tint(SKColors.White)) : None);
                     });
                 },
                 None: () => {
@@ -170,10 +155,10 @@ internal static class Marks {
     }
 
     // --- [FIELDS]
-    private static void Field(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, MarkKey key, Figure.Field field, Option<ColorRamp> scale, Option<SKColorF> lead) =>
-        _ = pass.Cache.Fields.GetOrAdd(layout.Path, layout, new FieldKey(key, lead), () => Ramp(scale, lead).Map(ramp => Paved(ramp, field, key.Frame))).Iter(paint => {
-            if (key.Frame.Plane.Separable) canvas.DrawPath(pass.Cache.Interiors.GetOrAdd(layout.Path, layout, key, () => Outline.Of(path => field.Interior(path, key.Frame, key.Pen))).Path, paint);
-            else _ = pass.Cache.Meshes.GetOrAdd(layout.Path, layout, key, () => Meshes(field, key.Frame)).Iter(vertices => canvas.DrawVertices(vertices, SKBlendMode.Modulate, paint));
+    private static void Field(SKCanvas canvas, Painter.Pass pass, MarkKey key, Figure.Field field, Option<ColorRamp> scale, Option<SKColorF> lead) =>
+        _ = pass.Cache.Fields.GetOrAdd(new FieldKey(key, lead), () => Ramp(scale, lead).Map(ramp => Paved(ramp, field, key.Frame))).Iter(paint => {
+            if (key.Frame.Plane.Separable) canvas.DrawPath(pass.Cache.Interiors.GetOrAdd(key, () => Outline.Of(path => field.Interior(path, key.Frame, key.Pen))).Path, paint);
+            else _ = pass.Cache.Meshes.GetOrAdd(key, () => Meshes(field, key.Frame)).Iter(vertices => canvas.DrawVertices(vertices, SKBlendMode.Modulate, paint));
         });
 
     private static SKPaint Paved(SKImage ramp, Figure.Field field, PlotFrame frame) {
@@ -232,32 +217,32 @@ internal static class Marks {
         _ = context.Plot.Iter(frame => {
             Pen pen = context.Pen(layout.Style);
             MarkKey key = new(label.Along, frame, pen);
-            Outline along = pass.Cache.Contours.GetOrAdd(layout.Path, layout, key, () => Outline.Of(path => label.Along.Edges(path, frame, pen)));
-            _ = pass.Cache.Labels.GetOrAdd(layout.Path, layout, new LabelKey(layout.Typeset, key), () => Typesetting.Along(layout.Typeset, along.Path, label.Offset))
-                .Iter(blob => canvas.DrawText(blob, 0f, 0f, pass.Cache.Solid(layout, color)));
+            Outline along = pass.Cache.Contours.GetOrAdd(key, () => Outline.Of(path => label.Along.Edges(path, frame, pen)));
+            _ = pass.Cache.Labels.GetOrAdd(new LabelKey(layout.Typeset, key), () => Typesetting.Along(layout.Typeset, along.Path, label.Offset))
+                .Iter(blob => canvas.DrawText(blob, 0f, 0f, pass.Cache.Solid(color)));
         });
 
     // --- [IMAGES]
     internal static void Image(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, Context context, Node.Image image) {
         RoleStyle style = layout.Style;
         SKRect content = layout.ContentBox;
-        _ = pass.Cache.Frame(layout, image.Source, pass.Now).Iter(source => {
+        _ = pass.Cache.Frame(layout, image, pass.Now, pass.Scale).Iter(source => {
             SKRect target = image.Fit.Fitted(content, new SKSize(image.Source.Info.Width, image.Source.Info.Height));
             SKRect device = context.Device.MapRect(target);
             bool alphaOnly = source.ColorType is SKColorType.Alpha8 or SKColorType.Alpha16 or SKColorType.AlphaF16;
             Option<SKColorF> color = alphaOnly && image.Scale.IsNone
                 ? (style.Strokes.Head.Map(static stroke => stroke.Color) | style.Solid).Bind(value => pass.Scene.Layout.Cascade.Theme.WithStateLayers(pass.Scene.ColorCache, value, style, context.StateLayers, series: image.Series))
                 : None;
-            SKPaint paint = pass.Cache.Images.GetOrAdd(layout.Path, layout, new ImagePaintKey(color, image.Scale), () => Imaged(pass.Cache, style, color, image.Scale, alphaOnly));
+            SKPaint paint = pass.Cache.Images.GetOrAdd(new ImagePaintKey(style.Blend, color, image.Scale, alphaOnly), () => Imaged(pass.Cache, style.Blend, color, image.Scale, alphaOnly));
             using SKAutoCanvasRestore restore = new(canvas);
             canvas.ClipRect(content, antialias: true);
             canvas.DrawImage(source, target, image.Rendering.Sampling(MathF.Min(device.Width / source.Width, device.Height / source.Height)), paint);
         });
     }
 
-    private static SKPaint Imaged(PaintCache cache, RoleStyle style, Option<SKColorF> color, Option<ColorRamp> scale, bool alphaOnly) {
+    private static SKPaint Imaged(PaintCache cache, SKBlender blend, Option<SKColorF> color, Option<ColorRamp> scale, bool alphaOnly) {
         using SKColorFilter? table = scale.Bind(ramp => Tabled(cache, ramp, alphaOnly)).ValueUnsafe();
-        return new SKPaint { IsAntialias = true, Blender = style.Blend, ColorF = color.IfNone(SKColors.Black), ColorFilter = table };
+        return new SKPaint { IsAntialias = true, Blender = blend, ColorF = color.IfNone(SKColors.Black), ColorFilter = table };
     }
 
     private static Option<SKColorFilter> Tabled(PaintCache cache, ColorRamp ramp, bool alphaOnly) {

@@ -39,7 +39,7 @@ public sealed partial class ColorScheme {
         (new Token(Role.Window, Channel.Text) { Condition = Condition.Faulted }, new Unicolour(ColourSpace.Oklch, 0.63, 0.24, 29)));
 
     public HashMap<Token, SKColorF> Chrome { get; }
-    public HashSet<Condition> Conditions { get; }
+    internal HashSet<Condition> Conditions { get; }
     public TextFace Face { get; }
     public float FontSize { get; }
     public Configuration Configuration { get; }
@@ -73,7 +73,7 @@ public sealed partial class ColorScheme {
         };
 
     // --- [COLORS]
-    public Option<SKColorF> Color(ColorValue value, RoleStyle style, Option<DataSeries> series = default) =>
+    internal Option<SKColorF> Color(ColorValue value, RoleStyle style, Option<DataSeries> series = default) =>
         value.Switch(
             (Theme: this, Style: style, Series: series),
             @fixed: static (_, @fixed) => Some(@fixed.Color.ToSKColorF()),
@@ -165,7 +165,7 @@ public sealed record StyleSheet : Monoid<StyleSheet> {
         };
 }
 
-public sealed record RoleStyle {
+internal sealed record RoleStyle {
     // --- [DEFAULTS]
     private static readonly Seq<Material> NativeFills = [new Material.Solid(new ColorValue.Host(Channel.Fill))];
     private static readonly Seq<Stroke> NativeStrokes = [new Stroke(new ColorValue.Host(Channel.Stroke))];
@@ -182,7 +182,7 @@ public sealed record RoleStyle {
     private static readonly Func<Seq<Filter>, float> FilterOutset = memo<Seq<Filter>, float>(static filters => Filter.Chained(filters, Probed).Map(Outset).IfNone(0f));
 
     // --- [CONSTRUCTION]
-    public RoleStyle(Role role, HashSet<Condition> conditions, Look look, HashMap<Metric, float> metrics, bool dimmed, Option<RoleStyle> enclosing) {
+    internal RoleStyle(Role role, HashSet<Condition> conditions, Look look, HashMap<Metric, float> metrics, bool dimmed, Option<RoleStyle> enclosing) {
         Role = role;
         Enclosing = enclosing;
         Conditions = conditions;
@@ -195,28 +195,28 @@ public sealed record RoleStyle {
     }
 
     // --- [RESOLVED]
-    public Role Role { get; }
-    public Option<RoleStyle> Enclosing { get; }
-    public HashSet<Condition> Conditions { get; }
-    public Look Look { get; }
-    public HashMap<Metric, float> Metrics { get; }
-    public Option<float> Rounded { get; init; }
-    public bool Dimmed { get; }
-    public HashSet<Condition> Shown { get; }
-    public bool UnderGlass { get; }
-    public float Overhang { get; }
+    internal Role Role { get; }
+    internal Option<RoleStyle> Enclosing { get; }
+    internal HashSet<Condition> Conditions { get; }
+    internal Look Look { get; }
+    internal HashMap<Metric, float> Metrics { get; }
+    internal Option<float> Rounded { get; init; }
+    internal bool Dimmed { get; }
+    internal HashSet<Condition> Shown { get; }
+    internal bool UnderGlass { get; }
+    internal float Overhang { get; }
     internal Configuration Gamut { get; init; } = Configuration.Default;
 
     // --- [CHANNELS]
-    public Seq<Material> Fills => UnderGlass ? Painted.Filter(static fill => fill is not Material.Glass) : Painted;
-    public Seq<Stroke> Strokes => Look.Strokes.IfNone(NativeStrokes);
-    public ColorValue Text => Look.Text.IfNone(NativeText);
-    public Seq<Shadow> Shadows => Look.Shadows.IfNone([]);
-    public Seq<Filter> Filters => Look.Filters.IfNone([]);
-    public SKBlender Blend => Look.Blend.IfNone(SourceOver);
-    public Shape Shape => Look.Shape.IfNone(RoundedShape);
-    public TimingCurve Motion => Look.Motion.IfNone(Instant);
-    public Option<ColorValue> Solid => Fills.Choose(static fill => fill.BaseColor).Head;
+    internal Seq<Material> Fills => UnderGlass ? Painted.Filter(static fill => fill is not Material.Glass) : Painted;
+    internal Seq<Stroke> Strokes => Look.Strokes.IfNone(NativeStrokes);
+    internal ColorValue Text => Look.Text.IfNone(NativeText);
+    internal Seq<Shadow> Shadows => Look.Shadows.IfNone([]);
+    internal Seq<Filter> Filters => Look.Filters.IfNone([]);
+    internal SKBlender Blend => Look.Blend.IfNone(SourceOver);
+    internal Shape Shape => Look.Shape.IfNone(RoundedShape);
+    internal TimingCurve Motion => Look.Motion.IfNone(Instant);
+    internal Option<ColorValue> Solid => Fills.Choose(static fill => fill.BaseColor).Head;
 
     internal Option<Material.Glass> Glass => Fills.Choose(static fill => fill is Material.Glass glass ? Some(glass) : None).Head;
 
@@ -238,15 +238,13 @@ public sealed record RoleStyle {
     }
 }
 
-public sealed record Cascade(
+internal sealed record Cascade(
     ColorScheme Theme,
     DefaultStyles Defaults,
     Seq<HashMap<Role, Look>> Appearances,
     Seq<HashMap<Role, HashMap<Metric, float>>> Metrics,
     RoleStyle Enclosing,
     SKColorF Background);
-
-public sealed record Entered(RoleStyle Style, Cascade Inner);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class ColorCache {
@@ -259,16 +257,16 @@ public static class Styles {
     // --- [RESOLVE]
     private static readonly HashMap<Metric, float> Defaulted = toHashMap(Metric.Items.Select(static metric => (metric, metric.Default)));
 
-    public static Cascade Root(ColorScheme theme, DefaultStyles defaults, Role root) {
+    internal static Cascade Root(ColorScheme theme, DefaultStyles defaults, Role root) {
         Seq<HashMap<Role, Look>> appearances = defaults.Appearances.Find(Appearance.Native).ToSeq();
         Seq<HashMap<Role, HashMap<Metric, float>>> metrics = defaults.Sizes.Find(ControlSize.Regular).ToSeq();
         return new(theme, defaults, appearances, metrics, Resolved(theme, appearances, metrics, root, []), theme.Background);
     }
 
-    public static RoleStyle Resolve(Cascade cascade, Role role, HashSet<Condition> conditions) =>
+    internal static RoleStyle Resolve(Cascade cascade, Role role, HashSet<Condition> conditions) =>
         Resolved(cascade.Theme, cascade.Appearances, cascade.Metrics, role, conditions, cascade.Enclosing);
 
-    public static Entered Enter(Cascade cascade, Node node) {
+    internal static Cascade Enter(Cascade cascade, Node node) {
         Cascade pushed = node.StyledNode.Map(static styled => styled.Sheet).Map(sheet => cascade with {
             Appearances = cascade.Appearances + sheet.Appearance.Bind(name => cascade.Defaults.Appearances.Find(name)).ToSeq() + Seq(sheet.Looks),
             Metrics = cascade.Metrics + sheet.Size.Bind(name => cascade.Defaults.Sizes.Find(name)).ToSeq() + Seq(sheet.Metrics),
@@ -276,11 +274,11 @@ public static class Styles {
         RoleStyle style = (node.Role | (node.Conditions.IsEmpty ? None : Some(cascade.Enclosing.Role)))
             .Map(role => Resolve(pushed, role, node.Role.IsNone || node.Painting.Inherits ? node.Conditions.Union(cascade.Enclosing.Conditions) : node.Conditions))
             .IfNone(cascade.Enclosing);
-        return new Entered(style, pushed with {
+        return pushed with {
             Appearances = node.Role.IsSome && !style.Look.Within.IsEmpty ? pushed.Appearances.Add(style.Look.Within) : pushed.Appearances,
             Enclosing = style,
             Background = Background(cascade, style, node),
-        });
+        };
     }
 
     internal static SKColorF Background(Cascade cascade, RoleStyle style, Node node) =>
@@ -318,7 +316,7 @@ public static class Styles {
         (double lightness, double chroma, double hue) = held.Color.ToUnicolour().Oklch.Tuple;
         double floor = held.Ground.WithAlpha(1f).ToUnicolour().Oklch.L;
         Seq<(double From, double To)> spans = lightness >= floor ? [(lightness, 1d), (floor, 0d)] : [(lightness, 0d), (floor, 1d)];
-        return spans.Find(span => Margin(span.From) < 0d && Margin(span.To) >= 0d).Bind(span => Bisection.TryFindRoot(Margin, span.From, span.To, Accuracy, 100, out double shade) ? Some(At(shade)) : None)
+        return spans.Find(span => Margin(span.From) < 0d && Margin(span.To) >= 0d).Bind(span => Brent.TryFindRoot(Margin, span.From, span.To, Accuracy, 100, out double shade) ? Some(At(shade)) : None)
             .IfNone(() => spans.Map(static span => span.To).Map(At).MaxBy(color => Ratio(color, held.Ground)));
 
         SKColorF At(double shade) => new Unicolour(ColourSpace.Oklch, shade, chroma, double.IsNaN(hue) ? 0d : hue, held.Color.Alpha).Mapped(held.Gamut);

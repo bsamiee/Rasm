@@ -29,13 +29,13 @@ public sealed record Pen(float Stroke, float Spacing) {
         return Local(new SKPoint(Grid(device.X, 0f), Grid(device.Y, 0f)), local);
     }
 
-    internal Line Snapped(SKPoint from, SKPoint to) =>
+    internal (SKPoint From, SKPoint To) Snapped(SKPoint from, SKPoint to) =>
         (Start: Device.MapPoint(from), End: Device.MapPoint(to), Half: MathF.Round(Device.MapRadius(Stroke), MidpointRounding.ToEven) / 2f) switch {
             var held when held.Start.X.CompareTo(held.End.X) is 0 =>
-                new(Local(held.Start with { X = Grid(held.Start.X, held.Half) }, from), Local(held.End with { X = Grid(held.End.X, held.Half) }, to)),
+                (Local(held.Start with { X = Grid(held.Start.X, held.Half) }, from), Local(held.End with { X = Grid(held.End.X, held.Half) }, to)),
             var held when held.Start.Y.CompareTo(held.End.Y) is 0 =>
-                new(Local(held.Start with { Y = Grid(held.Start.Y, held.Half) }, from), Local(held.End with { Y = Grid(held.End.Y, held.Half) }, to)),
-            _ => new(from, to),
+                (Local(held.Start with { Y = Grid(held.Start.Y, held.Half) }, from), Local(held.End with { Y = Grid(held.End.Y, held.Half) }, to)),
+            _ => (from, to),
         };
 
     private static float Grid(float device, float offset) => MathF.Round(device - offset, MidpointRounding.ToEven) + offset;
@@ -43,13 +43,11 @@ public sealed record Pen(float Stroke, float Spacing) {
     private SKPoint Local(SKPoint device, SKPoint local) => inverse.Map(held => held.MapPoint(device)).IfNone(local);
 }
 
-internal sealed record Line(SKPoint From, SKPoint To);
-
 [SmartEnum]
 public sealed partial class Interpolation {
     public static readonly Interpolation Linear = new();
-    public static readonly Interpolation Monotone = new() { Spline = Some<Func<double[], double[], CubicSpline>>(CubicSpline.InterpolatePchipSorted) };
-    public static readonly Interpolation Natural = new() { Spline = Some<Func<double[], double[], CubicSpline>>(CubicSpline.InterpolateNaturalSorted) };
+    public static readonly Interpolation Monotone = new() { Spline = Some(CubicSpline.InterpolatePchipSorted) };
+    public static readonly Interpolation Natural = new() { Spline = Some(CubicSpline.InterpolateNaturalSorted) };
     public static readonly Interpolation BumpX = new() { Bump = Some(PhysicalAxis.Horizontal) };
     public static readonly Interpolation BumpY = new() { Bump = Some(PhysicalAxis.Vertical) };
 
@@ -113,21 +111,21 @@ public abstract partial record Floor {
 
 internal sealed record MarkerPlacement(Marker Marker, SKPoint At, float Degrees);
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record Figure {
     private Figure(bool continuous) => Continuous = continuous;
 
-    internal bool Continuous { get; }
+    public bool Continuous { get; }
 
     public abstract void Edges(SKPathBuilder path, PlotFrame frame, Pen pen);
 
     public virtual void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) { }
 
-    public abstract bool Hits(PlotFrame frame, SKPoint local, float reach);
+    internal abstract bool Hits(PlotFrame frame, SKPoint local, float reach);
 
-    public virtual Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) => None;
+    internal virtual Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) => None;
 
-    public Option<Figure> Toward(Figure to, float progress) =>
+    internal Option<Figure> Toward(Figure to, float progress) =>
         Switch<(Figure To, float Progress), Option<Figure>>(
             (to, progress),
             rule: static (held, source) => held.To is Rule other ? Some<Figure>(new Rule(Vector2.Lerp(source.From, other.From, held.Progress), Vector2.Lerp(source.To, other.To, held.Progress))) : None,
@@ -171,11 +169,13 @@ public abstract partial record Figure {
                 : None,
             label: static (held, source) => held.To is Label other ? source.Along.Toward(other.Along, held.Progress).Map(along => (Figure)(other with { Along = along })) : None);
 
-    internal virtual Seq<Datum> Data => [];
+    public virtual Seq<Datum> Data => [];
 
     internal virtual Option<Datum> DatumAt(int index) => Data.Find(datum => datum.Index == index);
 
     internal virtual float Weight(PlotFrame frame, Pen pen) => 1f;
+
+    internal virtual Seq<Marker> Art => [];
 
     internal virtual Seq<MarkerPlacement> Markers(PlotFrame frame, Pen pen, SKPath edge) => [];
 
@@ -214,12 +214,12 @@ public abstract partial record Figure {
     private static float Turned(SKPoint from, SKPoint to) => float.RadiansToDegrees(MathF.Atan2(to.Y - from.Y, to.X - from.X));
 
     public sealed record Rule(Vector2 From, Vector2 To) : Figure(continuous: true) {
-        internal override Seq<Datum> Data => [new(0, From), new(1, To)];
+        public override Seq<Datum> Data => [new(0, From), new(1, To)];
 
         public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) =>
             path.AddPoly([.. frame.Plane.Separable ? pen.Snapped(frame.Point(From), frame.Point(To)) switch { var (from, to) => Seq(from, to) } : frame.Traced([From, To], closed: false, pen)], close: false);
 
-        public override bool Hits(PlotFrame frame, SKPoint local, float reach) => Reach(frame.Traced([From, To], closed: false, Pen.Hit), local) <= reach;
+        internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => Reach(frame.Traced([From, To], closed: false, Pen.Hit), local) <= reach;
     }
 
     public sealed record Path(Seq<Vector2> Vertices) : Figure(continuous: true) {
@@ -230,9 +230,11 @@ public abstract partial record Figure {
         public Option<Samples> Widths { get; init; }
         public Seq<Seq<Vector2>> Holes { get; init; }
 
-        internal override Seq<Datum> Data => Vertices.Map(static (at, index) => new Datum(index, at));
+        public override Seq<Datum> Data => Vertices.Map(static (at, index) => new Datum(index, at));
 
         internal override Option<Datum> DatumAt(int index) => Vertices.At(index).Map(at => new Datum(index, at));
+
+        internal override Seq<Marker> Art => Start.ToSeq() + End.ToSeq();
 
         public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) => Outlined(path, frame, pen, Closed);
 
@@ -241,10 +243,10 @@ public abstract partial record Figure {
                 if (Closed) Outlined(path, frame, pen, closed: true);
             });
 
-        public override bool Hits(PlotFrame frame, SKPoint local, float reach) =>
+        internal override bool Hits(PlotFrame frame, SKPoint local, float reach) =>
             Inside(Ribbon(frame).IfNone(() => Closed ? Loops(frame, Pen.Hit, closing: false) : []), local) || Loops(frame, Pen.Hit, closing: true).Exists(line => Reach(line, local) <= reach);
 
-        public override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) =>
+        internal override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) =>
             Vertices.Map((at, index) => (Datum: new Datum(index, at), Distance: Distance(frame.Point(at), local, along))) switch {
                 { IsEmpty: true } => None,
                 var near => Some(near.MinBy(static held => held.Distance).Datum),
@@ -298,7 +300,7 @@ public abstract partial record Figure {
         public override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) =>
             frame.Plane.Enclose(path, frame.Matrix, pen, frame.Plane.Spans(PhysicalAxis.Horizontal, First), frame.Plane.Spans(PhysicalAxis.Vertical, Second));
 
-        public override bool Hits(PlotFrame frame, SKPoint local, float reach) => frame.Contains(local, First, Second);
+        internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => frame.Contains(local, First, Second);
     }
 
     public sealed record Curve(AxisRange Domain, Samples Samples) : Figure(continuous: true) {
@@ -306,7 +308,7 @@ public abstract partial record Figure {
         public Option<Floor> Fill { get; init; }
         public Interpolation Interpolation { get; init; } = Interpolation.Linear;
 
-        internal override Seq<Datum> Data => Samples.Data(Domain);
+        public override Seq<Datum> Data => Samples.Data(Domain);
 
         internal override Option<Datum> DatumAt(int index) => Samples.DatumAt(Domain, index);
 
@@ -315,10 +317,10 @@ public abstract partial record Figure {
 
         public override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) => Filled(path, Outlines(frame, pen));
 
-        public override bool Hits(PlotFrame frame, SKPoint local, float reach) =>
+        internal override bool Hits(PlotFrame frame, SKPoint local, float reach) =>
             Inside(Outlines(frame, Pen.Hit), local) || Runs(frame, Pen.Hit, Samples, Shared(frame, None)).Exists(run => Reach(Traced(frame, Pen.Hit, run), local) <= reach);
 
-        public override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) => frame.At(local).Bind(at => Samples.Nearest(Domain, at.X));
+        internal override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) => frame.At(local).Bind(at => Samples.Nearest(Domain, at.X));
 
         private Seq<Seq<SKPoint>> Outlines(PlotFrame frame, Pen pen) =>
             Fill.Map(floor => floor.Switch(
@@ -353,9 +355,9 @@ public abstract partial record Figure {
     public sealed record Graph(AxisRange Domain, Func<float, float> Function) : Figure(continuous: true) {
         public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) => Tabulated(frame, pen).Edges(path, frame, pen);
 
-        public override bool Hits(PlotFrame frame, SKPoint local, float reach) => Tabulated(frame, Pen.Hit).Hits(frame, local, reach);
+        internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => Tabulated(frame, Pen.Hit).Hits(frame, local, reach);
 
-        public override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) =>
+        internal override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) =>
             frame.At(local).Map(at => new Datum(0, new Vector2(at.X, Function(at.X)))).Filter(static datum => float.IsFinite(datum.Value.Y));
 
         private Curve Tabulated(PlotFrame frame, Pen pen) {
@@ -372,7 +374,7 @@ public abstract partial record Figure {
         public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) =>
             _ = frame.Plane.Dimension(Along).Iter(axis => axis.Ticks(Least(frame, pen)).Filter(tick => tick.Major == Major).Iter(tick => frame.Plane.GridLine(path, frame.Matrix, pen, Along, axis.Fraction(tick.Value))));
 
-        public override bool Hits(PlotFrame frame, SKPoint local, float reach) => false;
+        internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => false;
 
         internal override float Weight(PlotFrame frame, Pen pen) =>
             Major ? 1f : frame.Plane.Dimension(Along).Map(axis => axis.Ticks(Least(frame, pen)).Map(tick => axis.Fraction(tick.Value)).Window(2)
@@ -390,9 +392,11 @@ public abstract partial record Figure {
         public Option<Samples> Opacity { get; init; }
         public Option<Marker> Marker { get; init; }
 
-        internal override Seq<Datum> Data => At.Map(static (at, index) => new Datum(index, at));
+        public override Seq<Datum> Data => At.Map(static (at, index) => new Datum(index, at));
 
         internal override Option<Datum> DatumAt(int index) => At.At(index).Map(at => new Datum(index, at));
+
+        internal override Seq<Marker> Art => Marker.ToSeq();
 
         public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) =>
             _ = Dots(frame).Iter(held => held.Size.Match(
@@ -404,9 +408,9 @@ public abstract partial record Figure {
 
         public override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) => _ = Dots(frame).Iter(held => held.Size.Iter(size => path.AddCircle(held.At.X, held.At.Y, size * pen.Icon / 2f)));
 
-        public override bool Hits(PlotFrame frame, SKPoint local, float reach) => Nearest(frame, local, None).Exists(datum => SKPoint.Distance(frame.Point(datum.Value), local) <= reach);
+        internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => Nearest(frame, local, None).Exists(datum => SKPoint.Distance(frame.Point(datum.Value), local) <= reach);
 
-        public override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) =>
+        internal override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) =>
             Indexed.Nearest(Trees.GetValue(this, static points => Indexed.Tree(points.At)), frame, local, along, index => Distance(frame.Point(At[index]), local, along)).Map(index => new Datum(index, At[index]));
 
         internal override Seq<MarkerPlacement> Markers(PlotFrame frame, Pen pen, SKPath edge) => Marker.Map(marker => At.Map(at => new MarkerPlacement(marker, frame.Point(at), 0f))).IfNone([]);
@@ -421,7 +425,7 @@ public abstract partial record Figure {
         public Option<Samples> Bases { get; init; }
         public Fraction Width { get; init; } = Fraction.MaxValue;
 
-        internal override Seq<Datum> Data => Values.Data(Domain);
+        public override Seq<Datum> Data => Values.Data(Domain);
 
         internal override Option<Datum> DatumAt(int index) => Values.DatumAt(Domain, index);
 
@@ -430,10 +434,10 @@ public abstract partial record Figure {
         public override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) =>
             _ = Values.Visible(frame, Domain) switch { var window => toSeq(Range(window.Start, window.Count)).Choose(index => Bar(frame, index)).Iter(bar => bar.Interior(path, frame, pen)) };
 
-        public override bool Hits(PlotFrame frame, SKPoint local, float reach) =>
+        internal override bool Hits(PlotFrame frame, SKPoint local, float reach) =>
             frame.Valued(local).Bind(at => Values.Nearest(Domain, at.X)).Bind(datum => Bar(frame, datum.Index)).Exists(bar => bar.Hits(frame, local, reach));
 
-        public override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) => frame.At(local).Bind(at => Values.Nearest(Domain, at.X));
+        internal override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) => frame.At(local).Bind(at => Values.Nearest(Domain, at.X));
 
         private Option<Region> Bar(PlotFrame frame, int index) {
             float slot = Values.Slot(Domain);
@@ -447,7 +451,7 @@ public abstract partial record Figure {
     public sealed record Box(float At, Summary Summary) : Figure(continuous: false) {
         public Fraction Width { get; init; } = Fraction.MaxValue;
 
-        internal override Seq<Datum> Data => [new(0, new Vector2(At, Summary.Median))];
+        public override Seq<Datum> Data => [new(0, new Vector2(At, Summary.Median))];
 
         public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) {
             float half = Half(frame);
@@ -458,9 +462,9 @@ public abstract partial record Figure {
 
         public override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) => _ = Body(frame).Iter(body => body.Interior(path, frame, pen));
 
-        public override bool Hits(PlotFrame frame, SKPoint local, float reach) => Body(frame).Exists(body => body.Hits(frame, local, reach));
+        internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => Body(frame).Exists(body => body.Hits(frame, local, reach));
 
-        public override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) => Data.Head;
+        internal override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) => Data.Head;
 
         private Option<Region> Body(PlotFrame frame) =>
             (AxisRange.Validated(At - Half(frame), At + Half(frame)), AxisRange.Validated(Summary.Lower, Summary.Upper)).Apply(static (across, up) => new Region { First = Some(across), Second = Some(up) }).As().ToOption();
@@ -483,9 +487,9 @@ public abstract partial record Figure {
         public override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) =>
             frame.Plane.Enclose(path, frame.Matrix, pen, frame.Plane.Spans(PhysicalAxis.Horizontal, None), frame.Plane.Spans(PhysicalAxis.Vertical, None));
 
-        public override bool Hits(PlotFrame frame, SKPoint local, float reach) => frame.Contains(local, None, None);
+        internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => frame.Contains(local, None, None);
 
-        public override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) =>
+        internal override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) =>
             from at in frame.At(local)
             let column = int.Clamp((int)MathF.Floor(frame.Plane.Fraction(PhysicalAxis.Horizontal, at.X) * Columns), 0, Columns - 1)
             let row = int.Clamp((int)MathF.Floor(frame.Plane.Fraction(PhysicalAxis.Vertical, at.Y) * Rows), 0, Rows - 1)
@@ -495,8 +499,10 @@ public abstract partial record Figure {
     public sealed record Label(Figure Along, Seq<Span> Spans) : Figure(continuous: false) {
         public float Offset { get; init; }
 
+        internal override Seq<Marker> Art => Along.Art;
+
         public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) { }
 
-        public override bool Hits(PlotFrame frame, SKPoint local, float reach) => false;
+        internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => false;
     }
 }

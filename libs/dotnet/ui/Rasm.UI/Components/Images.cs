@@ -172,34 +172,26 @@ public sealed record TileCache<TItem>(HashMap<Key, Tile<TItem>> Tiles, int Revis
 
     public Content<SKImage> Shown(Key key) => Tiles.Find(key).Map(static tile => tile.Content).IfNone(static () => new Content<SKImage>.Pending());
 
-    public TileRequests<TItem> Requested(Seq<KeyedItem<TItem>> shown, SKSizeI pixels) {
-        Seq<TileRequest<TItem>> wanted = shown.Filter(entry => !Tiles.Find(entry.Key).Exists(tile => tile.Pixels == pixels && tile.Revision == Revision && EqDefault<TItem>.Equals(tile.Item, entry.Item)))
-            .Map(entry => new TileRequest<TItem>(entry.Key, new Tile<TItem>(Shown(entry.Key).Requested(None), entry.Item, Revision, pixels))).Strict();
-        return new(this with { Tiles = wanted.Fold(Tiles, static (held, ask) => held.AddOrUpdate(ask.Key, ask.Tile)) }, wanted);
+    public (TileCache<TItem> Cache, Seq<(Key Key, Tile<TItem> Tile)> Wanted) Requested(Seq<(Key Key, TItem Item)> shown, SKSizeI pixels) {
+        Seq<(Key Key, Tile<TItem> Tile)> wanted = shown.Filter(entry => !Tiles.Find(entry.Key).Exists(tile => tile.Pixels == pixels && tile.Revision == Revision && EqDefault<TItem>.Equals(tile.Item, entry.Item)))
+            .Map(entry => (entry.Key, new Tile<TItem>(Shown(entry.Key).Requested(None), entry.Item, Revision, pixels))).Strict();
+        return (this with { Tiles = wanted.Fold(Tiles, static (held, ask) => held.AddOrUpdate(ask.Key, ask.Tile)) }, wanted);
     }
 
-    public RetainedTiles<TItem> Arrived(Key key, Tile<TItem> asked, Fin<SKImage> arrival) =>
+    public (TileCache<TItem> Cache, Seq<SKImage> Released) Arrived(Key key, Tile<TItem> asked, Fin<SKImage> arrival) =>
         Tiles.Find(key) == Some(asked)
             ? Released(this with { Tiles = Tiles.AddOrUpdate(key, asked with { Content = Content<SKImage>.Arrived(arrival) }) })
-            : new RetainedTiles<TItem>(this, arrival.ToOption().ToSeq());
+            : (this, arrival.ToOption().ToSeq());
 
-    public RetainedTiles<TItem> Retained(HashSet<Key> keys) => Released(this with { Tiles = Tiles.Filter((key, _) => keys.Contains(key)) });
+    public (TileCache<TItem> Cache, Seq<SKImage> Released) Retained(HashSet<Key> keys) => Released(this with { Tiles = Tiles.Filter((key, _) => keys.Contains(key)) });
 
     private Seq<SKImage> Images => toSeq(Tiles.Values).Bind(static tile => tile.Content.Current.ToSeq());
 
-    private RetainedTiles<TItem> Released(TileCache<TItem> next) {
+    private (TileCache<TItem> Cache, Seq<SKImage> Released) Released(TileCache<TItem> next) {
         HashSet<SKImage> kept = toHashSet(next.Images);
-        return new(next, Images.Filter(image => !kept.Contains(image)));
+        return (next, Images.Filter(image => !kept.Contains(image)));
     }
 }
-
-public sealed record KeyedItem<TItem>(Key Key, TItem Item) where TItem : notnull;
-
-public sealed record TileRequest<TItem>(Key Key, Tile<TItem> Tile) where TItem : notnull;
-
-public sealed record TileRequests<TItem>(TileCache<TItem> Cache, Seq<TileRequest<TItem>> Wanted) where TItem : notnull;
-
-public sealed record RetainedTiles<TItem>(TileCache<TItem> Cache, Seq<SKImage> Released) where TItem : notnull;
 
 public sealed record TileResize(string Label, Func<Edit<float>, IO<Unit>> Edited);
 
@@ -220,7 +212,7 @@ public sealed record Gallery<TItem>(Seq<TItem> Items, Func<TItem, Key> Keyed, Fu
 
     private float TileSide => float.Clamp(TileSize.IfNone(() => (TileSizes.Low + TileSizes.High) / 2f), TileSizes.Low, TileSizes.High);
 
-    private Seq<KeyedItem<TItem>> Shown => Items.Map(item => new KeyedItem<TItem>(Keyed(item), item)).Filter(entry => Realized.Contains(entry.Key));
+    private Seq<(Key Key, TItem Item)> Shown => Items.Map(item => (Key: Keyed(item), Item: item)).Filter(entry => Realized.Contains(entry.Key));
 
     public Node Drawn {
         get {
@@ -246,9 +238,9 @@ public sealed record Gallery<TItem>(Seq<TItem> Items, Func<TItem, Key> Keyed, Fu
 
     public SKSizeI Pixels(float scale) => new((int)MathF.Ceiling(TileSide * scale), (int)MathF.Ceiling(TileSide / (float)Aspect * scale));
 
-    public TileRequests<TItem> Requested(float scale) => Tiles.Requested(Shown, Pixels(scale));
+    public (TileCache<TItem> Cache, Seq<(Key Key, Tile<TItem> Tile)> Wanted) Requested(float scale) => Tiles.Requested(Shown, Pixels(scale));
 
-    public RetainedTiles<TItem> Retained => Tiles.Retained(toHashSet(Shown.Map(static entry => entry.Key)));
+    public (TileCache<TItem> Cache, Seq<SKImage> Released) Retained => Tiles.Retained(toHashSet(Shown.Map(static entry => entry.Key)));
 
     private Node.Overlay TileNode(TItem item, Key key, int number) =>
         new(new ImageTile(Tiles.Shown(key)).Drawn, [

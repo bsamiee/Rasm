@@ -7,17 +7,12 @@ using SkiaSharp;
 
 namespace Rasm.UI;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-internal interface IStreamed<TSelf, TIncrement> where TSelf : Gesture, IStreamed<TSelf, TIncrement> where TIncrement : notnull {
-    public static abstract TSelf Of(SKPoint at, TIncrement increment, KeyModifiers modifiers);
-
-    public TSelf Accumulated(SKPoint at, TIncrement increment, KeyModifiers modifiers);
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 internal abstract partial record Gesture {
     internal KeyModifiers Modifiers { get; init; } = KeyModifiers.Empty;
+
+    internal virtual Option<Gesture> Accumulated(Gesture increment) => None;
 
     internal sealed record Press(SKPoint From, Option<SKPoint> Dragged, int Clicks) : Gesture {
         internal SKPoint At => Dragged.IfNone(From);
@@ -37,23 +32,18 @@ internal abstract partial record Gesture {
             plane.Dimension(along).Bind(_ => AxisRange.Validated(along.Of(start), along.Of(end)).ToOption());
     }
 
-    internal sealed record Scroll(SKPoint At, Vector2 Delta) : Gesture, IStreamed<Scroll, Vector2> {
-        static Scroll IStreamed<Scroll, Vector2>.Of(SKPoint at, Vector2 increment, KeyModifiers modifiers) => new(at, increment) { Modifiers = modifiers };
+    internal sealed record Scroll(SKPoint At, Vector2 Delta) : Gesture {
+        internal Scroll Accumulated(Scroll next) => next with { Delta = Delta + next.Delta };
 
-        Scroll IStreamed<Scroll, Vector2>.Accumulated(SKPoint at, Vector2 increment, KeyModifiers modifiers) => this with { At = at, Delta = Delta + increment, Modifiers = modifiers };
+        internal override Option<Gesture> Accumulated(Gesture increment) => Optional(increment as Scroll).Map(next => (Gesture)Accumulated(next));
     }
 
-    internal sealed record Magnify(SKPoint About, float Magnification) : Gesture, IStreamed<Magnify, float> {
-        static Magnify IStreamed<Magnify, float>.Of(SKPoint at, float increment, KeyModifiers modifiers) => new(at, increment) { Modifiers = modifiers };
-
-        Magnify IStreamed<Magnify, float>.Accumulated(SKPoint at, float increment, KeyModifiers modifiers) =>
-            this with { About = at, Magnification = ((1f + Magnification) * (1f + increment)) - 1f, Modifiers = modifiers };
+    internal sealed record Magnify(SKPoint About, float Magnification) : Gesture {
+        internal override Option<Gesture> Accumulated(Gesture increment) => Optional(increment as Magnify).Map(next => (Gesture)(next with { Magnification = ((1f + Magnification) * (1f + next.Magnification)) - 1f }));
     }
 
-    internal sealed record Rotate(SKPoint About, float Rotation) : Gesture, IStreamed<Rotate, float> {
-        static Rotate IStreamed<Rotate, float>.Of(SKPoint at, float increment, KeyModifiers modifiers) => new(at, increment) { Modifiers = modifiers };
-
-        Rotate IStreamed<Rotate, float>.Accumulated(SKPoint at, float increment, KeyModifiers modifiers) => this with { About = at, Rotation = Rotation + increment, Modifiers = modifiers };
+    internal sealed record Rotate(SKPoint About, float Rotation) : Gesture {
+        internal override Option<Gesture> Accumulated(Gesture increment) => Optional(increment as Rotate).Map(next => (Gesture)(next with { Rotation = Rotation + next.Rotation }));
     }
 
     internal sealed record Perform(Act Act) : Gesture;

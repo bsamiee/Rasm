@@ -95,17 +95,17 @@ internal sealed record Setting(Node.Text Text, TextStyle Style, float Width, Cul
 internal sealed class Typeset(Shaping shaping, Setting setting, TextBlock lines, bool clipped) {
     private readonly Lazy<Option<float>> capHeight = new(() => toSeq(lines.FontRuns).Head.Bind(run => Typesetting.CapHeight(shaping, run)));
 
-    public Setting Setting { get; } = setting;
-    public TextBlock Lines { get; } = lines;
-    public SKSize Size { get; } = new(Typesetting.Widest(lines), lines.MeasuredHeight);
-    public bool Truncated { get; } = lines.Truncated || clipped;
-    public Option<float> CapHeight => capHeight.Value;
+    internal Setting Setting { get; } = setting;
+    internal TextBlock Lines { get; } = lines;
+    internal SKSize Size { get; } = new(Typesetting.Widest(lines), lines.MeasuredHeight);
+    internal bool Truncated { get; } = lines.Truncated || clipped;
+    internal Option<float> CapHeight => capHeight.Value;
 
-    public SKRect Overhang => Lines.MeasuredOverhang switch {
+    internal SKRect Overhang => Lines.MeasuredOverhang switch {
         var over => over with { Right = float.Max(0f, over.Right + (Lines.MaxWidth ?? Lines.MeasuredWidth) - Size.Width) },
     };
 
-    public Option<float> At(Baseline baseline) =>
+    internal Option<float> At(Baseline baseline) =>
         from line in toSeq(Lines.Lines).At(baseline.Line.GetOffset(Lines.Lines.Count))
         from rise in (float)baseline.Rise switch {
             0f => Some(0f),
@@ -113,7 +113,7 @@ internal sealed class Typeset(Shaping shaping, Setting setting, TextBlock lines,
         }
         select line.YCoord + line.BaseLine - rise;
 
-    public Option<Part> PartAt(SKPoint local) =>
+    internal Option<Part> PartAt(SKPoint local) =>
         Lines.HitTest(local.X, local.Y).OverCodePointIndex switch {
             < 0 => None,
             var index => ((TextStyle)Lines.GetStyleAtOffset(index + 1)).Part,

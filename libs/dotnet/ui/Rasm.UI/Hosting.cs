@@ -41,59 +41,20 @@ public sealed record Host(SKSize Size, ColorScheme Theme, Visibility Visibility,
     public Factor Headroom { get; init; } = Factor.Unit;
 }
 
-public sealed record SceneTarget<TPixels>(SKSurface Surface, SKImageInfo Info, Option<TPixels> Pixels) : IDisposable where TPixels : IDisposable {
+public sealed record SceneTarget(SKSurface Surface, SKImageInfo Info) : IDisposable {
     public void Dispose() => Surface.Dispose();
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Allocation<TPixels> where TPixels : IDisposable {
-    internal abstract Fin<SceneTarget<TPixels>> Target(SKSizeI pixels, bool extended, SKSurfaceProperties properties);
-
-    internal abstract Func<SKImageInfo, Option<SKSurface>> Offscreen(SKSurfaceProperties properties);
-
-    private static Fin<SceneTarget<TPixels>> Created(Func<SKImageInfo, Option<SKSurface>> created, SKImageInfo info, Option<TPixels> pixels) =>
-        created(info).Map(surface => new SceneTarget<TPixels>(surface, info, pixels)).ToFin(new UIFault($"{info.ColorType} {info.Size}", UIReason.Refused));
-
-    public sealed record Raster(TPixels Pixels, SKPixmap Pixmap) : Allocation<TPixels> {
-        internal override Fin<SceneTarget<TPixels>> Target(SKSizeI pixels, bool extended, SKSurfaceProperties properties) {
-            using (Pixmap) {
-                if (extended) {
-                    Pixels.Dispose();
-                    return Created(Offscreen(properties), Capture.HalfFloat(pixels), None);
-                }
-                return Created(info => Optional(SKSurface.Create(info, Pixmap.GetPixels(), Pixmap.RowBytes, static (_, held) => ((IDisposable)held).Dispose(), Pixels, properties)), Pixmap.Info, Some(Pixels))
-                    .MapFail(error => {
-                        Pixels.Dispose();
-                        return error;
-                    });
-            }
-        }
-
-        internal override Func<SKImageInfo, Option<SKSurface>> Offscreen(SKSurfaceProperties properties) => info => Optional(SKSurface.Create(info, properties));
-    }
-
-    public sealed record Gpu(GRRecordingContext Context, SKImageInfo Info) : Allocation<TPixels> {
-        internal override Fin<SceneTarget<TPixels>> Target(SKSizeI pixels, bool extended, SKSurfaceProperties properties) => Created(Offscreen(properties), extended ? Capture.HalfFloat(pixels) : Info, None);
-
-        internal override Func<SKImageInfo, Option<SKSurface>> Offscreen(SKSurfaceProperties properties) => info => Optional(SKSurface.Create(Context, budgeted: true, info, properties));
-    }
-
-    public sealed record Graphite(SKGraphiteRecorder Recorder, SKImageInfo Info) : Allocation<TPixels> {
-        internal override Fin<SceneTarget<TPixels>> Target(SKSizeI pixels, bool extended, SKSurfaceProperties properties) => Created(Offscreen(properties), extended ? Capture.HalfFloat(pixels) : Info, None);
-
-        internal override Func<SKImageInfo, Option<SKSurface>> Offscreen(SKSurfaceProperties properties) => info => Optional(SKSurface.Create(Recorder, info, properties));
-    }
 }
 
 public sealed record SlotFrame(SKRectI Clip, SKRectI Frame);
 
-public sealed record PlacedControl<TControl>(Hosted.Slot Slot, TControl Control) where TControl : notnull;
-
-public sealed record SceneBackend<TPixels>(
-    Func<SKSizeI, Fin<Allocation<TPixels>>> Allocated,
+public sealed record SceneBackend(
+    Func<SKImageInfo, Fin<SceneTarget>> Allocated,
     Func<Seq<SKRectI>, IO<Unit>> Invalidated,
-    Func<Func<Duration, IO<Unit>>, IO<Func<bool, IO<Unit>>>> DisplayLinked) where TPixels : IDisposable {
-    public SKSurfaceProperties Properties { get; init; } = Capture.Aligned;
+    Func<Func<Duration, IO<Unit>>, IO<Func<bool, IO<Unit>>>> DisplayLinked) {
+    public Func<SceneTarget, SKImageInfo, Option<SKSurface>> Offscreen { get; init; } = static (target, info) =>
+        Optional(target.Surface.Context).Match(
+            Some: context => Optional(SKSurface.Create(context, budgeted: true, info, target.Surface.SurfaceProperties)),
+            None: () => Optional(SKSurface.Create(info, target.Surface.SurfaceProperties)));
     public Func<Mount, Output, IO<Unit>> Applied { get; init; } = static (_, _) => IO.pure(unit);
     public Option<Func<Transfer, SKPoint, IO<Unit>>> Lifted { get; init; }
 }
@@ -102,7 +63,7 @@ public sealed record PlacedControls<TControl>(
     Func<Hosted.Slot, SlotFrame, Option<Element>, IO<TControl>> Added,
     Func<TControl, Hosted.Slot, SlotFrame, IO<TControl>> Moved,
     Func<TControl, IO<Unit>> Removed) where TControl : notnull {
-    public HashMap<Seq<Key>, PlacedControl<TControl>> Controls { get; private init; }
+    public HashMap<Seq<Key>, (Hosted.Slot Slot, TControl Control)> Controls { get; private init; }
 
     public IO<Unit> Released => Controls.Values.ToSeq().TraverseM(held => Removed(held.Control)).As().Map(static _ => unit);
 
@@ -118,8 +79,8 @@ public sealed record PlacedControls<TControl>(
     private IO<PlacedControls<TControl>> Changed(Seq<Key> path, Change<Hosted.Slot> change, Mount mount) =>
         (change, Controls.Find(path).Map(static held => held.Control).Case) switch {
             (EntryAdded<Hosted.Slot> added, _) => Added(added.Value, Placed(added.Value), mount.Elements.Find(path))
-                .Map(control => this with { Controls = Controls.AddOrUpdate(path, new PlacedControl<TControl>(added.Value, control)) }),
-            (EntryMappedTo<Hosted.Slot> mapped, TControl control) => Moved(control, mapped.To, Placed(mapped.To)).Map(moved => this with { Controls = Controls.AddOrUpdate(path, new PlacedControl<TControl>(mapped.To, moved)) }),
+                .Map(control => this with { Controls = Controls.AddOrUpdate(path, (added.Value, control)) }),
+            (EntryMappedTo<Hosted.Slot> mapped, TControl control) => Moved(control, mapped.To, Placed(mapped.To)).Map(moved => this with { Controls = Controls.AddOrUpdate(path, (mapped.To, moved)) }),
             (EntryRemoved<Hosted.Slot>, TControl control) => Removed(control).Map(_ => this with { Controls = Controls.Remove(path) }),
             _ => IO.pure(this),
         };
@@ -129,9 +90,9 @@ public sealed record PlacedControls<TControl>(
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class SceneHost<TPixels> : IDisposable where TPixels : IDisposable {
+public sealed class SceneHost : IDisposable {
     // --- [STATE]
-    private sealed record Raster(SceneTarget<TPixels> Target, PaintCache Cache, float Scale, bool Extended);
+    private sealed record Raster(SceneTarget Target, PaintCache Cache, float Scale, bool Extended);
 
     private sealed record Hosting(Host Host, DefaultStyles Defaults);
 
@@ -148,7 +109,7 @@ public sealed class SceneHost<TPixels> : IDisposable where TPixels : IDisposable
         internal Session Stepped(Option<Fin<Mounted>> moved) => this with { Moved = moved, Current = moved.Bind(static held => held.ToOption()).Map(static held => held.Mount) | Current };
     }
 
-    private readonly SceneBackend<TPixels> backend;
+    private readonly SceneBackend backend;
     private readonly TimeProvider clock;
     private readonly ITimer timer;
     private readonly SKRegion damage = new();
@@ -156,10 +117,10 @@ public sealed class SceneHost<TPixels> : IDisposable where TPixels : IDisposable
     private readonly Atom<Session> session = Atom(Session.Empty);
     private Option<Raster> raster;
 
-    public SceneHost(SceneBackend<TPixels> backend, TimeProvider clock, Seq<SKTypeface> embedded = default) {
+    public SceneHost(SceneBackend backend, TimeProvider clock, Seq<SKTypeface> embedded = default) {
         (this.backend, this.clock) = (backend, clock);
         shaping = new Shaping(embedded);
-        timer = clock.CreateTimer(static held => ((SceneHost<TPixels>)held!).TimerElapsed(), this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        timer = clock.CreateTimer(static held => ((SceneHost)held!).TimerElapsed(), this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     public Option<Mount> Current => session.Value.Current;
@@ -262,7 +223,7 @@ public sealed class SceneHost<TPixels> : IDisposable where TPixels : IDisposable
     }
 
     // --- [PAINT]
-    public IO<Option<SceneTarget<TPixels>>> Paint(float scale) =>
+    public IO<Option<SceneTarget>> Paint(float scale) =>
         session.ValueIO.Bind(held => held.Current
             .Map(current => (Mount: current, Pixels: SKRectI.Ceiling(SKRect.Create(current.Host.Size.Width * scale, current.Host.Size.Height * scale)).Size))
             .Filter(static current => current.Pixels is { Width: > 0, Height: > 0 })
@@ -272,7 +233,7 @@ public sealed class SceneHost<TPixels> : IDisposable where TPixels : IDisposable
                     from now in Now
                     from drawn in IO.lift(() => Drawn(target, current.Mount, now))
                     select Some(target.Target),
-                None: static () => IO.pure(Option<SceneTarget<TPixels>>.None)));
+                None: static () => IO.pure(Option<SceneTarget>.None)));
 
     private Fin<Raster> Rastered(SKSizeI pixels, float scale, bool extended) =>
         raster.Filter(held => held.Target.Info.Size == pixels && held.Scale.Equals(scale) && held.Extended == extended)
@@ -280,10 +241,8 @@ public sealed class SceneHost<TPixels> : IDisposable where TPixels : IDisposable
 
     private Fin<Raster> Reallocated(SKSizeI pixels, float scale, bool extended) {
         _ = Cleared(raster);
-        Fin<Raster> made =
-            from allocation in backend.Allocated(pixels)
-            from target in allocation.Target(pixels, extended, backend.Properties)
-            select new Raster(target, new PaintCache(target.Info, backend.Properties, shaping, allocation.Offscreen(backend.Properties)), scale, extended);
+        Fin<Raster> made = backend.Allocated(Capture.Info(pixels, extended))
+            .Map(target => new Raster(target, new PaintCache(target.Info, target.Surface.SurfaceProperties, shaping, info => backend.Offscreen(target, info)), scale, extended));
         raster = made.ToOption();
         _ = damage.SetRect(SKRectI.Create(pixels));
         return made;

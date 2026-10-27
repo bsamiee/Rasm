@@ -12,21 +12,16 @@ using SuperLinq;
 namespace Rasm.UI.Plotting;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Hierarchy {
+public sealed record Hierarchy {
     private Hierarchy(Key key, float weight, Seq<Hierarchy> members) => (Key, Weight, Members) = (key, weight, members);
 
     public Key Key { get; }
     public float Weight { get; }
     public Seq<Hierarchy> Members { get; }
 
-    public sealed record Leaf : Hierarchy {
-        private Leaf(Key key, float weight) : base(key, weight, []) { }
+    public static Fin<Hierarchy> Leaf(Key key, float weight) => UIFault.Unless(float.IsFinite(weight) && weight >= 0f, UIReason.Range, weight).Map(_ => new Hierarchy(key, weight, []));
 
-        public static Fin<Leaf> Validated(Key key, float weight) => UIFault.Unless(float.IsFinite(weight) && weight >= 0f, UIReason.Range, weight).Map(_ => new Leaf(key, weight));
-    }
-
-    public sealed record Group(Key Key, Seq<Hierarchy> Members) : Hierarchy(Key, Members.Sum(static member => member.Weight), Members);
+    public static Hierarchy Group(Key key, Seq<Hierarchy> members) => new(key, members.Sum(static member => member.Weight), members);
 }
 
 public sealed record Flow {
@@ -43,9 +38,9 @@ public sealed record Flow {
 
 public sealed record Arranged(Key Key, Vector2 At, float Weight, Figure Figure);
 
-public sealed record Network(Seq<Arranged> Nodes, Seq<Arranged> Links);
-
-public sealed record Triangulation(Seq<Arranged> Triangles, Seq<Arranged> Edges, Option<Figure.Path> Hull);
+public sealed record Network(Seq<Arranged> Nodes, Seq<Arranged> Links) {
+    public Option<Figure.Path> Hull { get; init; }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Arrangements {
@@ -309,17 +304,18 @@ public static class Arrangements {
     }
 
     // --- [MESHES]
-    public static Triangulation Triangulated(PlotFrame frame, Seq<Vector2> sites) {
+    public static Network Triangulated(PlotFrame frame, Seq<Vector2> sites) {
         Coordinate[] framed = Framed(frame, sites);
         DelaunayTriangulationBuilder builder = new();
         builder.SetSites(framed);
         Geometry hull = GeometryFactory.Default.CreateMultiPointFromCoords(framed).ConvexHull();
-        return new Triangulation(
+        return new Network(
             Cells(frame, builder.GetTriangles(GeometryFactory.Default), static (_, index) => (uint)index),
             toSeq(builder.GetEdges(GeometryFactory.Default).Geometries).Map(static (edge, index) => (Edge: edge, Index: index)).Choose(held => Unframed(frame, toSeq(held.Edge.Coordinates).Map(Figure.Point))
-                .Map(line => new Arranged(new Key.Ordinal((uint)held.Index), Vector2.Lerp(line[0], line[1], 0.5f), (float)held.Edge.Length, new Figure.Path(line)))),
-            Unframed(frame, toSeq(hull is Polygon polygon ? polygon.ExteriorRing.Coordinates[..^1] : hull.Coordinates).Map(Figure.Point)).Filter(static corners => !corners.IsEmpty)
-                .Map(corners => new Figure.Path(corners) { Closed = hull is Polygon }));
+                .Map(line => new Arranged(new Key.Ordinal((uint)held.Index), Vector2.Lerp(line[0], line[1], 0.5f), (float)held.Edge.Length, new Figure.Path(line))))) {
+            Hull = Unframed(frame, toSeq(hull is Polygon polygon ? polygon.ExteriorRing.Coordinates[..^1] : hull.Coordinates).Map(Figure.Point)).Filter(static corners => !corners.IsEmpty)
+                .Map(corners => new Figure.Path(corners) { Closed = hull is Polygon }),
+        };
     }
 
     public static Seq<Arranged> Voronoi(PlotFrame frame, Seq<Vector2> sites) {

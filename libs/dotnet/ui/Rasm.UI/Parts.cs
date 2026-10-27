@@ -8,49 +8,19 @@ using Topten.RichTextKit;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Part {
     // --- [GESTURES]
-    internal Reply Began(Gesture gesture, HitTarget aim) =>
-        Switch(
-            (Gesture: gesture, Aim: aim),
-            press: static (held, press) => press.Begin(held.Gesture, held.Aim),
-            pad: static (held, pad) => pad.Handles.Began(held.Gesture, held.Aim),
-            choice: static (held, choice) => choice.Begin(held.Gesture, held.Aim),
-            viewport: static (held, viewport) => viewport.Begin(held.Gesture, held.Aim),
-            trace: static (held, trace) => trace.Begin(held.Gesture, held.Aim),
-            selecting: static (held, selecting) => selecting.Begin(held.Gesture, held.Aim));
+    internal abstract Reply Began(Gesture gesture, HitTarget aim);
 
-    internal Reply Performed(Gesture gesture, HitTarget aim) =>
-        Switch(
-            (Gesture: gesture, Aim: aim),
-            press: static (held, press) => press.Perform(held.Gesture, held.Aim),
-            pad: static (held, pad) => pad.Handles.Performed(held.Gesture, held.Aim),
-            choice: static (held, choice) => choice.Perform(held.Gesture, held.Aim),
-            viewport: static (held, viewport) => viewport.Perform(held.Gesture, held.Aim),
-            trace: Reply.Ignore,
-            selecting: static (held, selecting) => selecting.Perform(held.Gesture, held.Aim));
+    internal virtual Reply Performed(Gesture gesture, HitTarget aim) => new Reply.Ignored();
 
-    internal bool Offers(LayoutNode owner, Seq<Key> path) =>
-        SwitchPartially(
-            (Owner: owner, Path: path),
-            @default: static (held, _) => held.Path == held.Owner.Path,
-            pad: static (held, _) => HandleLayer.Offers(held.Owner, held.Path),
-            choice: static (held, choice) => held.Path == held.Owner.Path || choice.Tiles(held.Owner).Exists(tile => tile.Layout.Path == held.Path));
+    internal virtual bool Offers(LayoutNode owner, Seq<Key> path) => path == owner.Path;
 
     // --- [WATCH]
-    internal Option<Seq<Key>> Revealed(LayoutNode layout) =>
-        SwitchPartially(
-            layout,
-            @default: static (_, _) => Option<Seq<Key>>.None,
-            pad: static (held, pad) => pad.Handles.Revealed(held),
-            choice: static (held, choice) => choice.Value.Lead.Bind(lead => choice.Paths(held, [lead]).Head));
+    internal virtual Option<Seq<Key>> Revealed(LayoutNode layout) => None;
 
-    internal Seq<IO<Unit>> Watched(Option<HoverState> before, HoverState after) =>
-        SwitchPartially(
-            (Before: before, After: after),
-            @default: static (_, _) => Seq<IO<Unit>>(),
-            choice: static (held, choice) => choice.Watch(held.Before, held.After));
+    internal virtual Seq<IO<Unit>> Watched(Option<HoverState> before, HoverState after) => [];
 
     // --- [CASES]
     public sealed record Press(Func<SKRect, IO<Unit>> Run) : Part {
@@ -58,10 +28,10 @@ public abstract partial record Part {
 
         public Node Drawn(Node face) => face with { Part = this, Accessible = face.Accessible.Combine(new Accessible { Role = AccessRole.Button }) };
 
-        internal Reply Begin(Gesture gesture, HitTarget aim) =>
+        internal override Reply Began(Gesture gesture, HitTarget aim) =>
             gesture.SwitchPartially((Press: this, Aim: aim), @default: Reply.Ignore, press: static (held, _) => new Reply.Accepted([], Some(held.Press.Holding(held.Aim))));
 
-        internal Reply Perform(Gesture gesture, HitTarget aim) =>
+        internal override Reply Performed(Gesture gesture, HitTarget aim) =>
             gesture.SwitchPartially(
                 (Press: this, aim.Bounds),
                 @default: Reply.Ignore,
@@ -81,7 +51,15 @@ public abstract partial record Part {
                 static () => []);
     }
 
-    public sealed record Pad(HandleLayer Handles) : Part;
+    public sealed record Pad(HandleLayer Handles) : Part {
+        internal override Reply Began(Gesture gesture, HitTarget aim) => Handles.Began(gesture, aim);
+
+        internal override Reply Performed(Gesture gesture, HitTarget aim) => Handles.Performed(gesture, aim);
+
+        internal override bool Offers(LayoutNode owner, Seq<Key> path) => HandleLayer.Offers(owner, path);
+
+        internal override Option<Seq<Key>> Revealed(LayoutNode layout) => Handles.Revealed(layout);
+    }
 
     public sealed record Choice(Seq<Key> Items, Selection Value, Func<Edit<Selection>, IO<Unit>> Edited) : Part {
         // --- [STATE]
@@ -117,7 +95,11 @@ public abstract partial record Part {
             };
 
         // --- [GESTURES]
-        internal Reply Begin(Gesture gesture, HitTarget aim) =>
+        internal override bool Offers(LayoutNode owner, Seq<Key> path) => path == owner.Path || Tiles(owner).Exists(tile => tile.Layout.Path == path);
+
+        internal override Option<Seq<Key>> Revealed(LayoutNode layout) => Value.Lead.Bind(lead => Paths(layout, [lead]).Head);
+
+        internal override Reply Began(Gesture gesture, HitTarget aim) =>
             gesture.SwitchPartially(
                 (Choice: this, Aim: aim),
                 @default: Reply.Ignore,
@@ -128,7 +110,7 @@ public abstract partial record Part {
                         one: Reply.Ignore,
                         many: static (state, _) => state.Choice.Marquee(state.Aim).Began(state.Press))));
 
-        internal Reply Perform(Gesture gesture, HitTarget aim) =>
+        internal override Reply Performed(Gesture gesture, HitTarget aim) =>
             gesture.SwitchPartially(
                 (Choice: this, Aim: aim),
                 @default: Reply.Ignore,
@@ -150,7 +132,7 @@ public abstract partial record Part {
                             None: static () => new Reply.Ignored()),
                     selectAll: static (state, _) => state.Choice.Stepping(start => start with { Value = start.Value.All(state.Choice.Items) }).Stepped(state.Perform)));
 
-        internal Seq<IO<Unit>> Watch(Option<HoverState> before, HoverState after) {
+        internal override Seq<IO<Unit>> Watched(Option<HoverState> before, HoverState after) {
             Option<Key> hovered = Hovered(after);
             HashSet<Key> seen = Seen(after);
             return (before.Bind(Hovered) == hovered ? [] : Hover(hovered).ToSeq()) + (before.Map(Seen) == Some(seen) ? [] : Viewed(seen).ToSeq());
@@ -248,10 +230,10 @@ public abstract partial record Part {
         public HashSet<PhysicalAxis> Free { get; init; } = toHashSet(PhysicalAxis.Items);
         public Option<PlotPlane> Bounds { get; init; }
         public bool Boxed { get; init; }
-        public Magnification Magnification { get; init; } = Magnification.Free;
+        public Limits Magnification { get; init; } = Limits.Open;
 
         // --- [GESTURES]
-        internal Reply Begin(Gesture gesture, HitTarget aim) =>
+        internal override Reply Began(Gesture gesture, HitTarget aim) =>
             aim.Frame.Match(
                 Some: frame => gesture.SwitchPartially(
                     (Viewport: this, Frame: frame),
@@ -267,7 +249,7 @@ public abstract partial record Part {
                         : None).Began(magnify)),
                 None: static () => new Reply.Ignored());
 
-        internal Reply Perform(Gesture gesture, HitTarget aim) =>
+        internal override Reply Performed(Gesture gesture, HitTarget aim) =>
             aim.Frame.Match(
                 Some: frame => gesture.SwitchPartially(
                     (Viewport: this, Frame: frame, Center: new SKPoint(aim.Bounds.MidX, aim.Bounds.MidY), Metrics: HandleLayer.Metrics(aim.Layout, None)),
@@ -361,7 +343,7 @@ public abstract partial record Part {
     public sealed record Trace(Func<Edit<Seq<TracePoint>>, IO<Unit>> Edited) : Part {
         public bool Closed { get; init; }
 
-        internal Reply Begin(Gesture gesture, HitTarget aim) =>
+        internal override Reply Began(Gesture gesture, HitTarget aim) =>
             aim.Frame.Match(
                 Some: frame => gesture.SwitchPartially((Trace: this, Frame: frame), @default: Reply.Ignore, press: static (held, press) => held.Trace.Tracing(held.Frame).Began(press)),
                 None: static () => new Reply.Ignored());
@@ -374,7 +356,7 @@ public abstract partial record Part {
     }
 
     public sealed record Selecting(Func<Edit<TextRange>, IO<Unit>> Edited) : Part {
-        internal Reply Begin(Gesture gesture, HitTarget aim) =>
+        internal override Reply Began(Gesture gesture, HitTarget aim) =>
             aim.Layout.TextNode.Match(
                 Some: text => gesture.SwitchPartially(
                     (Selecting: this, Text: text, Origin: aim.Bounds.Location),
@@ -382,7 +364,7 @@ public abstract partial record Part {
                     press: static (held, press) => held.Selecting.Spanning(held.Text, (_, gesture) => gesture is Gesture.Press moved ? Some(Spanned(held.Text, held.Origin, moved)) : None).Began(press)),
                 None: static () => new Reply.Ignored());
 
-        internal Reply Perform(Gesture gesture, HitTarget aim) =>
+        internal override Reply Performed(Gesture gesture, HitTarget aim) =>
             aim.Layout.TextNode.Match(
                 Some: text => gesture.SwitchPartially(
                     (Selecting: this, Text: text),

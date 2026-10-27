@@ -185,7 +185,7 @@ public sealed record Split(PhysicalAxis Along, Seq<Pane> Panes, Func<Edit<Seq<Fa
                 (_, edges) => toSeq((Seq(0f) + edges).Add(total).AsIterable().Window(2).Select(static pair => Factor.Validated(pair[1] - pair[0]))).Traverse(static weight => weight).As().ToOption(),
                 static (_, _) => None) with {
             Removed = static (_, _) => None,
-            Dragging = None,
+            DraggedOut = None,
         },
             Edited) {
             BackgroundCursor = CursorShape.Default,

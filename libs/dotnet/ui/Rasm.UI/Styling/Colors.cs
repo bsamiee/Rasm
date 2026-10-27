@@ -109,7 +109,7 @@ public abstract partial record ColorRamp {
             Segments.Find(segment => at <= segment.High.At).Bind(segment => at <= segment.Low.At ? Some(segment.Low.Color) : Mixed(segment, at)) | Last;
 
         private Option<SKColorF> Mixed(RampSegment segment, Fraction at) =>
-            Fraction.Validated(segment.Progress(at)).ToOption().Map(Easing.Progress)
+            Fraction.Validated(segment.Progress(at)).ToOption().Bind(Easing.Progress)
                 .Map(progress => segment.Low.Color.ToUnicolour().Mix(segment.High.Color.ToUnicolour(), Space, progress).Mapped(Configuration.Default));
     }
 

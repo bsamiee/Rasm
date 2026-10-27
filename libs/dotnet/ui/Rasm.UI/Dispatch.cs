@@ -1,4 +1,3 @@
-using System.Numerics;
 using Rasm.UI.Plotting;
 using Rasm.UI.Rendering;
 using SkiaSharp;
@@ -27,12 +26,6 @@ internal sealed record Routed(Mount Mount, Seq<SKRect> Damage, Option<Seq<IO<Uni
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Dispatch {
-    private sealed record Scrolls(Gesture.Scroll Scroll, Seq<Adjustment> Scrollers);
-
-    private sealed record Placed(Option<Key> Key, Placement Placement);
-
-    private sealed record Readout(Key Series, Datum Datum, Option<string> Label);
-
     extension(Mount mount) {
         // --- [DISPATCH]
         internal Routed Dispatched(Input input) =>
@@ -41,9 +34,9 @@ internal static class Dispatch {
                 pointer: static (held, pointer) => held.Stroked(pointer),
                 hover: static (held, hover) => held.Pointed(hover.At, hover.Modifiers),
                 wheel: static (held, wheel) => held.Pointed(Some(wheel.At), wheel.Modifiers).Then(next => next.Notched(new Gesture.Scroll(wheel.At, wheel.Delta) { Modifiers = wheel.Modifiers })),
-                scroll: static (held, scroll) => held.Pointed(Some(scroll.At), scroll.Modifiers).Then(next => next.Streamed<Gesture.Scroll, Vector2>(scroll.At, scroll.Delta, scroll.Modifiers)),
-                magnify: static (held, magnify) => held.Pointed(Some(magnify.At), magnify.Modifiers).Then(next => next.Streamed<Gesture.Magnify, float>(magnify.At, magnify.Amount, magnify.Modifiers)),
-                rotate: static (held, rotate) => held.Pointed(Some(rotate.At), rotate.Modifiers).Then(next => next.Streamed<Gesture.Rotate, float>(rotate.At, rotate.Radians, rotate.Modifiers)),
+                scroll: static (held, scroll) => held.Pointed(Some(scroll.At), scroll.Modifiers).Then(next => next.Streamed(scroll.At, scroll.Delta.Map(delta => (Gesture)new Gesture.Scroll(scroll.At, delta) { Modifiers = scroll.Modifiers }).As())),
+                magnify: static (held, magnify) => held.Pointed(Some(magnify.At), magnify.Modifiers).Then(next => next.Streamed(magnify.At, magnify.Amount.Map(amount => (Gesture)new Gesture.Magnify(magnify.At, amount) { Modifiers = magnify.Modifiers }).As())),
+                rotate: static (held, rotate) => held.Pointed(Some(rotate.At), rotate.Modifiers).Then(next => next.Streamed(rotate.At, rotate.Radians.Map(radians => (Gesture)new Gesture.Rotate(rotate.At, radians) { Modifiers = rotate.Modifiers }).As())),
                 drop: static (held, drop) => held.Pointed(Some(drop.At), drop.Modifiers).Then(next => next.Dropped(drop)),
                 perform: static (held, perform) => perform.Act.SwitchPartially(
                     (Mount: held, Perform: perform),
@@ -169,19 +162,19 @@ internal static class Dispatch {
                 .Choose(path =>
                     from layout in mount.Scene.Index.Find(path)
                     from drop in layout.Node.Drop
-                    from placed in mount.Placing(path, hit, at, layout.Node, drop.Nests)
-                    from effect in drop.Accepted(transfer, placed.Key, placed.Placement)
+                    from effect in mount.Placing(path, hit, at, layout.Node, drop, transfer)
                     select effect)
                 .Head;
         }
 
-        private Option<Placed> Placing(Seq<Key> target, Option<Seq<Key>> hit, SKPoint at, Node node, bool nests) {
+        private Option<IO<Unit>> Placing(Seq<Key> target, Option<Seq<Key>> hit, SKPoint at, Node node, Drop drop, Transfer transfer) {
             Option<LayoutNode> child = hit.Filter(over => over.Count > target.Count).Bind(over => mount.Scene.Index.Find(over.Take(target.Count + 1)));
             return from frame in child.Bind(held => mount.Scene.Frame(held.Path)) | mount.Scene.Frame(target)
                    from placement in node.MainAxis.Match(
-                       Some: axis => Fraction.Validated((axis.Of(at) - axis.Of(frame.Location)) / axis.Of(frame.Size)).ToOption().Map(along => Placement.At(along, nests)),
+                       Some: axis => Fraction.Validated((axis.Of(at) - axis.Of(frame.Location)) / axis.Of(frame.Size)).ToOption().Map(along => Placement.At(along, drop.Nests)),
                        None: static () => Some(Placement.Inside))
-                   select new Placed(child.Bind(static held => held.Node.Key), placement);
+                   from effect in drop.Accepted(transfer, child.Bind(static held => held.Node.Key), placement)
+                   select effect;
         }
 
         // --- [STREAM]
@@ -190,13 +183,12 @@ internal static class Dispatch {
                 scrollers.Map(adjuster => next.Changed(next.Scene.Adjust(adjuster.Owner, value => value - adjuster.Axis.Of(scroll.Delta)))).Find(static moved => moved.Effects.IsSome)
                     .IfNone(next.Unhandled.Handled())));
 
-        private Routed Streamed<TGesture, TIncrement>(SKPoint at, Edit<TIncrement> edit, KeyModifiers modifiers)
-            where TGesture : Gesture, IStreamed<TGesture, TIncrement> where TIncrement : notnull =>
+        private Routed Streamed(SKPoint at, Edit<Gesture> edit) =>
             edit.Value.Match(
-                Some: value => mount.Sampled(TGesture.Of(at, value, modifiers), increment => edit.Phase switch {
+                Some: value => mount.Sampled(value, increment => edit.Phase switch {
                     { Begins: true } => mount.Unlatched().Then(next => next.Latching(next.Hits(at), increment)),
-                    { Applies: true } => mount.Continued<TGesture, TIncrement>(at, value, modifiers, increment, static (live, next) => new Reply.Accepted(live.Track.Released(next), None), static _ => None),
-                    _ => mount.Continued<TGesture, TIncrement>(at, value, modifiers, increment, static (live, next) => live.Track.Moved(next), static scroll => Some(scroll)),
+                    { Applies: true } => mount.Continued(increment, static (live, next) => new Reply.Accepted(live.Track.Released(next), None), static _ => None),
+                    _ => mount.Continued(increment, static (live, next) => live.Track.Moved(next), static scroll => Some(scroll)),
                 }),
                 None: () => mount.Routing.Capture.IsSome ? mount.Unhandled : mount.Unlatched());
 
@@ -236,14 +228,15 @@ internal static class Dispatch {
                 };
 
         private Routed Prioritized(Seq<Seq<Key>> hits, Gesture gesture, Func<Mount, PartOwner, Seq<Key>, Routed> part, Func<Mount, Gesture.Scroll, Seq<Adjustment>, Routed> core) =>
-            (Chain: mount.Scene.Chain(hits), Core: Optional(gesture as Gesture.Scroll).Map(scroll => new Scrolls(scroll, mount.Scene.Scrollers(hits, scroll.Delta))), Holding: mount.Focused.Bind(mount.Scene.Owner).Map(static owner => owner.Path)) switch {
+            (Chain: mount.Scene.Chain(hits), Holding: mount.Focused.Bind(mount.Scene.Owner).Map(static owner => owner.Path)) switch {
                 var held when gesture.Modifiers.Primary || held.Chain.Head.Exists(owner => held.Holding == Some(owner.Owner.Path)) =>
-                    mount.FirstHandled(held.Chain, part).Otherwise(next => next.Scrolling(held.Core, core)),
-                var held => mount.Scrolling(held.Core, core).Otherwise(next => next.FirstHandled(held.Chain, part)),
+                    mount.FirstHandled(held.Chain, part).Otherwise(next => next.Scrolling(hits, gesture, core)),
+                var held => mount.Scrolling(hits, gesture, core).Otherwise(next => next.FirstHandled(held.Chain, part)),
             };
 
-        private Routed Scrolling(Option<Scrolls> held, Func<Mount, Gesture.Scroll, Seq<Adjustment>, Routed> core) =>
-            held.Filter(static scrolling => !scrolling.Scrollers.IsEmpty).Match(Some: scrolling => core(mount, scrolling.Scroll, scrolling.Scrollers), None: () => mount.Unhandled);
+        private Routed Scrolling(Seq<Seq<Key>> hits, Gesture gesture, Func<Mount, Gesture.Scroll, Seq<Adjustment>, Routed> core) =>
+            Optional(gesture as Gesture.Scroll).Map(scroll => (Scroll: scroll, Scrollers: mount.Scene.Scrollers(hits, scroll.Delta))).Filter(static held => !held.Scrollers.IsEmpty)
+                .Match(Some: held => core(mount, held.Scroll, held.Scrollers), None: () => mount.Unhandled);
 
         private Routed FirstHandled(Seq<PartHit> chain, Func<Mount, PartOwner, Seq<Key>, Routed> ask) =>
             chain.Fold(mount.Unhandled, (routed, held) => routed.Otherwise(next => ask(next, held.Owner, held.Hit)));
@@ -262,22 +255,19 @@ internal static class Dispatch {
                 var moved => moved.WithRouting(routing => routing with { Latch = new Latch.Scroll(adjuster.Owner, Some(scroll)) }),
             };
 
-        private Routed Continued<TGesture, TIncrement>(SKPoint at, TIncrement value, KeyModifiers modifiers, Gesture increment, Func<ActiveGesture, Gesture, Reply> step,
-                                                      Func<Gesture.Scroll, Option<Gesture.Scroll>> kept)
-            where TGesture : Gesture, IStreamed<TGesture, TIncrement> where TIncrement : notnull =>
+        private Routed Continued(Gesture increment, Func<ActiveGesture, Gesture, Reply> step, Func<Gesture.Scroll, Option<Gesture.Scroll>> kept) =>
             mount.Routing.Latch.Match(
                 Some: latch => latch.Switch(
-                    (Mount: mount, At: at, Value: value, Modifiers: modifiers, Increment: increment, Step: step, Kept: kept),
+                    (Mount: mount, Increment: increment, Step: step, Kept: kept),
                     part: static (held, part) => (from live in part.Active
-                                                  from prior in Optional(live.Gesture as TGesture)
-                                                  let next = prior.Accumulated(held.At, held.Value, held.Modifiers)
+                                                  from next in live.Gesture.Accumulated(held.Increment)
                                                   select held.Mount.Streaming(part.Owner, live, next, held.Step(live, next)))
                         .IfNone(held.Mount.Unhandled),
                     scroll: static (held, scroll) => (from live in scroll.Active
                                                       from slid in Optional(held.Increment as Gesture.Scroll)
                                                       from adjuster in held.Mount.Scene.Adjustment(scroll.Adjuster)
                                                       select held.Mount.Changed(held.Mount.Scene.Adjust(adjuster.Owner, current => current - adjuster.Axis.Of(slid.Delta)))
-                                                          .WithRouting(routing => routing with { Latch = scroll with { Active = held.Kept(((IStreamed<Gesture.Scroll, Vector2>)live).Accumulated(slid.At, slid.Delta, slid.Modifiers)) } }))
+                                                          .WithRouting(routing => routing with { Latch = scroll with { Active = held.Kept(live.Accumulated(slid)) } }))
                         .IfNone(held.Mount.Unhandled)),
                 None: () => mount.Unhandled);
 
@@ -375,10 +365,10 @@ internal static class Dispatch {
                 from series in held.Node.Key
                 from figure in held.Node.Traced
                 from datum in Stepped(figure, was.Find(series), toward)
-                select new Readout(series, datum, held.Node.Accessible.Label))
+                select (Series: series, Datum: datum, Spoken: held.Node.Accessible.Label.Map(static label => $"{label} ").IfNone("") + plot.Plane.Spoken(datum.Value, mount.Host.Culture)))
             where !read.IsEmpty
             select (mount with { Nearest = Some(new Nearest(focus, toHashMap(read.Map(static held => (held.Series, held.Datum))))) }).Handled([]) with {
-                Notices = [new AccessibilityNotice.Announced(string.Join($"{mount.Host.Culture.TextInfo.ListSeparator} ", read.Map(held => Spoken(held, plot.Plane, mount))), Live.Polite)],
+                Notices = [new AccessibilityNotice.Announced(string.Join($"{mount.Host.Culture.TextInfo.ListSeparator} ", read.Map(static held => held.Spoken)), Live.Polite)],
             };
 
         private bool Within(PlacedLayer held, SKPoint at) =>
@@ -392,7 +382,4 @@ internal static class Dispatch {
             None: () => toward.Sign > 0 ? last : 0);
         return last < 0 ? None : figure.DatumAt(int.Clamp(index, 0, last));
     }
-
-    private static string Spoken(Readout held, PlotPlane plane, Mount mount) =>
-        held.Label.Match(Some: label => $"{label} {plane.Spoken(held.Datum.Value, mount.Host.Culture)}", None: () => plane.Spoken(held.Datum.Value, mount.Host.Culture));
 }

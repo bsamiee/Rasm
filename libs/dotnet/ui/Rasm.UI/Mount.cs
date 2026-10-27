@@ -95,7 +95,7 @@ public sealed record Mount {
         Option<Vector2> detent = done.Mount.Routing.ActiveTrack.Bind(static track => track.Detent);
         return new(done.Mount, new Output(
             done.Mount.Scene.Sampled(done.Damage.Concat(done.Mount.Routing.Focus != Routing.Focus ? Seq(Focused, done.Mount.Focused).Somes().Choose(done.Mount.Scene.Bounds) : [])),
-            (done.Mount.Projected(this) ? Access.Changes(Elements, done.Mount.Elements) : [])
+            (done.Mount.Projected(this) ? Access.Changes(Elements, done.Mount.Elements, done.Mount.Host.Culture) : [])
                 .Concat(done.Mount.Focused != Focused ? done.Mount.Focused.Map(static path => (AccessibilityNotice)new AccessibilityNotice.FocusChanged(path)).ToSeq() : [])
                 .Concat(detent.IsSome && detent != Routing.ActiveTrack.Bind(static track => track.Detent) ? Seq<AccessibilityNotice>(new AccessibilityNotice.Detent()) : [])
                 .Concat(done.Notices),

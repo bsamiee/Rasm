@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Globalization;
 using System.Numerics;
 using MathNet.Numerics.RootFinding;
 using Rasm.UI.Plotting;
@@ -10,16 +8,6 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipFactoryMethods = true)]
-public sealed partial class DampingRatio {
-    public static Fin<DampingRatio> Validated(double value) => UIFault.Unless(double.IsFinite(value) && value > 0d, UIReason.Range, value).Map(_ => new DampingRatio(value));
-}
-
-[ValueObject<double>(SkipFactoryMethods = true)]
-public sealed partial class VisibleChange {
-    public static Fin<VisibleChange> Validated(double value) => UIFault.Unless(value is > 0d and <= 1d, UIReason.Range, value).Map(_ => new VisibleChange(value));
-}
-
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class Easing {
     public static Easing Linear { get; } = new(0d, 0d, 1d, 1d);
@@ -33,33 +21,26 @@ public sealed partial class Easing {
     public double X2 { get; }
     public double Y2 { get; }
 
-    public double Progress(Fraction time) => Bezier(Solved(time), Y1, Y2);
+    public Option<double> Progress(Fraction time) => Solved(time).Map(solved => Bezier(solved, Y1, Y2));
 
-    public double Slope(Fraction time) => Solved(time) switch { var solved => Tangent(solved, Y1, Y2) / Tangent(solved, X1, X2) };
+    public Option<double> Slope(Fraction time) => Solved(time).Map(solved => Tangent(solved, Y1, Y2) / Tangent(solved, X1, X2));
 
     public static Fin<Easing> Validated(double x1, double y1, double x2, double y2) =>
         UIFault.Unless(x1 is >= 0d and <= 1d && x2 is >= 0d and <= 1d && double.IsFinite(y1) && double.IsFinite(y2), UIReason.Range, (x1, y1, x2, y2)).Map(_ => new Easing(x1, y1, x2, y2));
 
-    private double Solved(Fraction time) =>
-        Bisection.TryFindRoot(s => Bezier(s, X1, X2) - (float)time, 0d, 1d, 1e-12, 64, out double root) ? root : throw new UnreachableException(string.Create(CultureInfo.InvariantCulture, $"{this} brackets no root at {time}"));
+    private Option<double> Solved(Fraction time) => Brent.TryFindRoot(s => Bezier(s, X1, X2) - (float)time, 0d, 1d, 1e-12, 64, out double root) ? Some(root) : None;
 
     private static double Bezier(double s, double first, double second) => (3d * (1d - s) * (1d - s) * s * first) + (3d * (1d - s) * s * s * second) + (s * s * s);
 
     private static double Tangent(double s, double first, double second) => (3d * (1d - s) * (1d - s) * first) + (6d * (1d - s) * s * (second - first)) + (3d * s * s * (1d - second));
 }
 
-public sealed record Sample(double Value, bool Settled);
-
-internal sealed record SpringState(double Progress, double Rate);
-
-internal sealed record Mode(double Even, double Odd);
+internal sealed record Oscillation(double Progress, double Rate);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TimingCurve {
     // --- [SAMPLE]
-    private static readonly Sample End = new(1d, Settled: true);
-
-    public abstract Sample Sample(Duration elapsed);
+    public abstract Option<double> Moving(Duration elapsed);
 
     public abstract double Velocity(Duration elapsed);
 
@@ -67,111 +48,105 @@ public abstract partial record TimingCurve {
 
     internal bool Animates => Map(instant: false, eased: true, spring: true, decay: true);
 
-    private static Sample Sampled(Option<SpringState> moved) => moved.Match(Some: static held => new Sample(held.Progress, Settled: false), None: static () => End);
-
-    private static Option<SpringState> Oscillated(double damping, double phase, double start, VisibleChange rest) {
-        Mode mode = Modes(damping, phase);
-        double remaining = mode.Even + ((damping - start) * mode.Odd);
-        double rate = (start * mode.Even) + ((1d - (damping * start)) * mode.Odd);
-        return double.Abs(remaining) < rest && double.Abs(rate) < rest ? None : Some(new SpringState(1d - remaining, rate));
-    }
-
-    private static Mode Modes(double damping, double phase) {
+    private static Option<Oscillation> Oscillated(double damping, double phase, double start, Factor rest) {
         double root = double.Sqrt(double.Abs((1d - damping) * (1d + damping)));
         double decay = double.Exp(-damping * phase);
         double slow = double.Exp(-phase / (damping + root));
         double gap = double.ExpM1(-2d * root * phase);
-        return (damping - 1d) switch {
-            < 0d => new Mode(decay * double.Cos(root * phase), decay * double.Sin(root * phase) / root),
-            > 0d => new Mode(0.5d * slow * (2d + gap), -0.5d * slow * gap / root),
-            _ => new Mode(decay, phase * decay),
+        (double even, double odd) = (damping - 1d) switch {
+            < 0d => (decay * double.Cos(root * phase), decay * double.Sin(root * phase) / root),
+            > 0d => (0.5d * slow * (2d + gap), -0.5d * slow * gap / root),
+            _ => (decay, phase * decay),
         };
+        double remaining = even + ((damping - start) * odd);
+        double rate = (start * even) + ((1d - (damping * start)) * odd);
+        return double.Abs(remaining) < (float)rest && double.Abs(rate) < (float)rest ? None : Some(new Oscillation(1d - remaining, rate));
     }
 
     // --- [CASES]
     public sealed record Instant : TimingCurve {
-        public override Sample Sample(Duration elapsed) => End;
+        public override Option<double> Moving(Duration elapsed) => None;
 
         public override double Velocity(Duration elapsed) => 0d;
     }
 
     public sealed record Eased(Duration Length, Easing Easing) : TimingCurve {
-        public override Sample Sample(Duration elapsed) => elapsed >= Length ? End : new Sample(Easing.Progress(Elapsed(elapsed)), Settled: false);
+        public override Option<double> Moving(Duration elapsed) => Elapsed(elapsed).Bind(Easing.Progress);
 
-        public override double Velocity(Duration elapsed) => elapsed >= Length ? 0d : Easing.Slope(Elapsed(elapsed)) / Length.TotalSeconds;
+        public override double Velocity(Duration elapsed) => Elapsed(elapsed).Bind(Easing.Slope).Map(slope => slope / Length.TotalSeconds).IfNone(0d);
 
-        private Fraction Elapsed(Duration elapsed) => Fraction.Validated((float)(elapsed / Length)).IfFail(Fraction.MinValue);
+        private Option<Fraction> Elapsed(Duration elapsed) => Fraction.Validated((float)(elapsed / Length)).ToOption().Filter(_ => elapsed < Length);
     }
 
-    public sealed record Spring(Duration Response, DampingRatio Damping, VisibleChange Rest) : TimingCurve {
+    public sealed record Spring(Duration Response, Factor Damping, Factor Rest) : TimingCurve {
         public double Initial { get; init; }
 
         private double Frequency => double.Tau / Response.TotalSeconds;
 
-        public override Sample Sample(Duration elapsed) => Sampled(Moved(elapsed));
+        public override Option<double> Moving(Duration elapsed) => Moved(elapsed).Map(static moved => moved.Progress);
 
         public override double Velocity(Duration elapsed) => Moved(elapsed).Map(moved => Frequency * moved.Rate).IfNone(0d);
 
         public override TimingCurve WithVelocity(double velocity) => this with { Initial = velocity };
 
-        private Option<SpringState> Moved(Duration elapsed) => Oscillated((double)Damping, double.Tau * (elapsed / Response), Initial / Frequency, Rest);
+        private Option<Oscillation> Moved(Duration elapsed) => Oscillated((float)Damping, double.Tau * (elapsed / Response), Initial / Frequency, Rest);
     }
 
-    public sealed record Decay(Duration TimeConstant, VisibleChange Rest) : TimingCurve {
+    public sealed record Decay(Duration TimeConstant, Factor Rest) : TimingCurve {
         public double Initial { get; init; } = 1d / TimeConstant.TotalSeconds;
 
-        public override Sample Sample(Duration elapsed) => Sampled(Moved(elapsed));
+        public override Option<double> Moving(Duration elapsed) => Moved(elapsed).Map(static moved => moved.Progress);
 
         public override double Velocity(Duration elapsed) => Moved(elapsed).Map(moved => moved.Rate / TimeConstant.TotalSeconds).IfNone(0d);
 
         public override TimingCurve WithVelocity(double velocity) => this with { Initial = velocity };
 
-        private Option<SpringState> Moved(Duration elapsed) => Oscillated(1d, elapsed / TimeConstant, Initial * TimeConstant.TotalSeconds, Rest);
+        private Option<Oscillation> Moved(Duration elapsed) => Oscillated(1d, elapsed / TimeConstant, Initial * TimeConstant.TotalSeconds, Rest);
     }
 }
 
 public sealed record Animated(float From, float To, Duration Start, TimingCurve Curve) {
-    public float Value(Duration now) => float.Lerp(From, To, (float)Curve.Sample(now - Start).Value);
+    public float Value(Duration now) => float.Lerp(From, To, (float)Curve.Moving(now - Start).IfNone(1d));
 
-    public bool Settled(Duration now) => Curve.Sample(now - Start).Settled;
+    public bool Settled(Duration now) => Curve.Moving(now - Start).IsNone;
+
+    public double Rate(Duration now) => Curve.Velocity(now - Start) * (To - From);
 
     public Animated Retargeted(float target, Duration now, TimingCurve curve) {
         if (To.CompareTo(target) is 0) return this;
         float at = Value(now);
-        return new(at, target, now, curve.WithVelocity(at.CompareTo(target) is 0 ? 0d : Curve.Velocity(now - Start) * (To - From) / (target - at)));
+        return new(at, target, now, curve.WithVelocity(at.CompareTo(target) is 0 ? 0d : Rate(now) / (target - at)));
     }
 
     internal static Animated AtRest(float value, Duration now) => new(value, value, now, new TimingCurve.Instant());
 }
 
-internal sealed record Transition(Animated X, Animated Y, Animated Width, Animated Height, Animated Opacity) {
-    internal static Transition AtRest(LayoutNode layout, float opacity, Duration now) =>
-        new(Animated.AtRest(layout.Frame.Left, now), Animated.AtRest(layout.Frame.Top, now), Animated.AtRest(layout.Frame.Width, now), Animated.AtRest(layout.Frame.Height, now), Animated.AtRest(opacity, now));
-
-    internal Transition Retargeted(LayoutNode layout, Duration now, TimingCurve curve, bool settled) {
-        Animated Framed(Animated held, float target) => settled ? Animated.AtRest(target, now) : held.Retargeted(target, now, curve);
-        return new(Framed(X, layout.Frame.Left), Framed(Y, layout.Frame.Top), Framed(Width, layout.Frame.Width), Framed(Height, layout.Frame.Height), Opacity.Retargeted(layout.Node.Alpha, now, curve));
-    }
-
-    internal bool Targets(LayoutNode layout) =>
-        X.To.CompareTo(layout.Frame.Left) is 0 && Y.To.CompareTo(layout.Frame.Top) is 0 && Width.To.CompareTo(layout.Frame.Width) is 0 && Height.To.CompareTo(layout.Frame.Height) is 0
-        && Opacity.To.CompareTo(layout.Node.Alpha) is 0;
-
-    internal bool Animating(Duration now) => Seq(X, Y, Width, Height, Opacity).Exists(animated => !animated.Settled(now));
-
-    internal SKPoint Shift(LayoutNode layout, Duration now) => new(X.Value(now) - layout.Frame.Left, Y.Value(now) - layout.Frame.Top);
-
-    internal Tween Tweened(LayoutNode layout, Duration now) => new(Shift(layout, now), new SKSize(Width.Value(now), Height.Value(now)), Opacity.Value(now));
-}
-
-internal sealed record Tween(SKPoint Shift, SKSize Size, float Alpha) {
+internal sealed record Tween(SKRect Frame, float Alpha) {
     internal Option<Matrix4x4> Transform { get; init; }
     internal Option<PlotPlane> Plane { get; init; }
     internal Option<Figure> Figure { get; init; }
+
+    internal static Tween Of(LayoutNode layout) => new(layout.Frame, layout.Node.Alpha);
+
+    internal static Option<Tween> Toward(Tween from, Tween to, float progress) =>
+        Some(new Tween(new SKRect(float.Lerp(from.Frame.Left, to.Frame.Left, progress), float.Lerp(from.Frame.Top, to.Frame.Top, progress), float.Lerp(from.Frame.Right, to.Frame.Right, progress), float.Lerp(from.Frame.Bottom, to.Frame.Bottom, progress)),
+            float.Lerp(from.Alpha, to.Alpha, progress)));
+
+    internal static float Distance(Tween from, Tween to) =>
+        float.Hypot(float.Hypot(to.Frame.Left - from.Frame.Left, to.Frame.Top - from.Frame.Top), float.Hypot(float.Hypot(to.Frame.Right - from.Frame.Right, to.Frame.Bottom - from.Frame.Bottom), to.Alpha - from.Alpha));
+
+    internal SKPoint Shift(LayoutNode layout) => Frame.Location - layout.Frame.Location;
 }
 
 internal sealed record Morph<T>(T From, T To, Animated Progress) where T : notnull {
     internal T At(Duration now, Func<T, T, float, Option<T>> toward) => toward(From, To, Progress.Value(now)).IfNone(To);
+
+    internal Morph<T> Retargeted(T to, Duration now, TimingCurve curve, Func<T, T, float, Option<T>> toward, Func<T, T, float> distance) {
+        if (To.Equals(to)) return this;
+        T at = At(now, toward);
+        float remaining = distance(at, to);
+        return new(at, to, new Animated(0f, 1f, now, curve.WithVelocity(remaining > 0f ? Progress.Rate(now) * distance(From, To) / remaining : 0d)));
+    }
 
     internal static Option<Morph<T>> Retargeted(Option<Morph<T>> open, T was, T to, Duration now, TimingCurve curve, Func<T, T, float, Option<T>> toward) =>
         open.Filter(held => held.To.Equals(to))
@@ -204,7 +179,7 @@ internal sealed record Animations {
     internal static Animations Idle { get; } = new();
 
     internal HashMap<InteractionState, Animated> Fades { get; init; }
-    internal HashMap<Seq<Key>, Transition> Transitions { get; init; }
+    internal HashMap<Seq<Key>, Morph<Tween>> Transitions { get; init; }
     internal HashMap<Seq<Key>, Morph<Matrix4x4>> Transforms { get; init; }
     internal HashMap<Seq<Key>, Morph<PlotPlane>> Planes { get; init; }
     internal HashMap<Seq<Key>, Morph<Figure>> Figures { get; init; }
@@ -229,12 +204,12 @@ internal sealed record Animations {
         scene.Hosted.Map(hosted => hosted with { Frame = Scene.Absolute(hosted.Frame, Shift(scene, hosted.Path, now)) });
 
     internal Option<Tween> Tweened(LayoutNode layout, Duration now) {
-        Option<Tween> framed = Transitions.Find(layout.Path).Map(transition => transition.Tweened(layout, now));
+        Option<Tween> framed = Transitions.Find(layout.Path).Map(transition => transition.At(now, Tween.Toward));
         Option<Matrix4x4> transform = Transforms.Find(layout.Path).Map(tween => tween.At(now, Blended));
         Option<PlotPlane> plane = Planes.Find(layout.Path).Map(tween => tween.At(now, static (from, to, progress) => from.Toward(to, progress)));
         Option<Figure> figure = Figures.Find(layout.Path).Map(tween => tween.At(now, static (from, to, progress) => from.Toward(to, progress)));
         return framed.IsSome || transform.IsSome || plane.IsSome || figure.IsSome
-            ? Some(framed.IfNone(() => new Tween(SKPoint.Empty, layout.Frame.Size, layout.Node.Alpha)) with { Transform = transform, Plane = plane, Figure = figure })
+            ? Some(framed.IfNone(() => Tween.Of(layout)) with { Transform = transform, Plane = plane, Figure = figure })
             : None;
     }
 
@@ -242,7 +217,7 @@ internal sealed record Animations {
         Scene.AncestorsAndSelf(path).Choose(above =>
             from transition in Transitions.Find(above)
             from layout in scene.Index.Find(above)
-            select transition.Shift(layout, now)).Fold(SKPoint.Empty, static (sum, shift) => sum + shift);
+            select transition.At(now, Tween.Toward).Shift(layout)).Fold(SKPoint.Empty, static (sum, shift) => sum + shift);
 
     // --- [OPEN]
     internal Animations Started(Scene prior, Scene next, Duration now) {
@@ -255,7 +230,7 @@ internal sealed record Animations {
             Exiting = Exiting.Filter((path, _) => !next.Index.ContainsKey(path)).AddOrUpdateRange(prior.Order
                 .Filter(layout => layout.Node.Key.IsSome && layout.Style.Motion.Animates && !next.Index.ContainsKey(layout.Path) && next.Index.ContainsKey(layout.Path.Init))
                 .Choose(layout => prior.Places.Find(layout.Path).Map(place => (layout.Path, new ExitTransition(layout, place,
-                    new Animated(Transitions.Find(layout.Path).Map(transition => transition.Opacity.Value(now)).IfNone(layout.Node.Alpha), 0f, now, layout.Style.Motion)))))),
+                    new Animated(Transitions.Find(layout.Path).Map(transition => transition.At(now, Tween.Toward).Alpha).IfNone(layout.Node.Alpha), 0f, now, layout.Style.Motion)))))),
             Departing = Departed(prior, next, now),
         };
     }
@@ -264,23 +239,28 @@ internal sealed record Animations {
 
     internal Animations Pruned(Scene scene) =>
         this with {
-            Transitions = Transitions.Filter((path, transition) => scene.Index.Find(path).Exists(transition.Targets)),
+            Transitions = Transitions.Filter((path, transition) => scene.Index.Find(path).Exists(layout => transition.To == Tween.Of(layout))),
             Transforms = Transforms.Filter((path, tween) => scene.Index.Find(path).Exists(layout => layout.Node.Transform.IfNone(Matrix4x4.Identity).Equals(tween.To))),
             Planes = Planes.Filter((path, tween) => scene.Index.Find(path).Exists(layout => layout.Node.Plotted == Some(tween.To))),
             Figures = Figures.Filter((path, tween) => scene.Index.Find(path).Exists(layout => layout.Node.Traced == Some(tween.To))),
             Departing = Departing.Filter((path, _) => scene.Index.ContainsKey(path)),
         };
 
-    private Option<Transition> Transited(Scene prior, LayoutNode layout, Duration now, bool settled) =>
-        from curve in Some(layout.Style.Motion).Filter(static motion => motion.Animates)
-        from transition in Transitions.Find(layout.Path).Match(
-            Some: open => Some(open.Retargeted(layout, now, curve, settled)),
-            None: () => prior.Index.Find(layout.Path).Match(
-                Some: was => was.Frame != layout.Frame || was.Node.Alpha.CompareTo(layout.Node.Alpha) is not 0 ? Some(Transition.AtRest(was, was.Node.Alpha, now).Retargeted(layout, now, curve, settled)) : None,
-                None: () => layout.Path.Count > 1 && prior.Index.ContainsKey(layout.Path.Init)
-                    ? Some(Transition.AtRest(layout, Exiting.Find(layout.Path).Map(left => left.Opacity.Value(now)).IfNone(0f), now).Retargeted(layout, now, curve, settled))
-                    : None))
-        select transition;
+    private Option<Morph<Tween>> Transited(Scene prior, LayoutNode layout, Duration now, bool settled) {
+        Tween target = Tween.Of(layout);
+        Morph<Tween> Moved(Morph<Tween> open, TimingCurve curve) =>
+            open.Retargeted(target, now, curve, Tween.Toward, Tween.Distance) switch { var moved => settled ? moved with { From = moved.From with { Frame = target.Frame } } : moved };
+        Morph<Tween> Rested(Tween from) => new(from, from, Animated.AtRest(1f, now));
+        return from curve in Some(layout.Style.Motion).Filter(static motion => motion.Animates)
+               from transition in Transitions.Find(layout.Path).Match(
+                   Some: open => Some(Moved(open, curve)),
+                   None: () => prior.Index.Find(layout.Path).Match(
+                       Some: was => Tween.Of(was) != target ? Some(Moved(Rested(Tween.Of(was)), curve)) : None,
+                       None: () => layout.Path.Count > 1 && prior.Index.ContainsKey(layout.Path.Init)
+                           ? Some(Moved(Rested(target with { Alpha = Exiting.Find(layout.Path).Map(left => left.Opacity.Value(now)).IfNone(0f) }), curve))
+                           : None))
+               select transition;
+    }
 
     private HashMap<Seq<Key>, ExitTransition> Departed(Scene prior, Scene next, Duration now) {
         bool Restyled(Seq<Key> path) =>
@@ -367,7 +347,7 @@ internal sealed record Animations {
         return new(
             this with {
                 Fades = Fades.Filter(fade => !fade.Settled(now)),
-                Transitions = Transitions.Filter(transition => transition.Animating(now)),
+                Transitions = Transitions.Filter(transition => !transition.Progress.Settled(now)),
                 Transforms = Transforms.Filter(tween => !tween.Progress.Settled(now)),
                 Planes = Planes.Filter(tween => !tween.Progress.Settled(now)),
                 Figures = Figures.Filter(tween => !tween.Progress.Settled(now)),

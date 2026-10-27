@@ -82,18 +82,30 @@ public sealed partial class AccessRole {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AccessValue {
-    public sealed record Text(string Value) : AccessValue;
+    public abstract string Spoken(CultureInfo culture);
 
-    public sealed record Checked(Check Mark) : AccessValue;
+    public sealed record Text(string Value) : AccessValue {
+        public override string Spoken(CultureInfo culture) => Value;
+    }
+
+    public sealed record Checked(Check Mark) : AccessValue {
+        public override string Spoken(CultureInfo culture) => Mark.Spoken;
+    }
 
     public sealed record Ranged(double Value, double Min, double Max) : AccessValue {
         public Option<int> Decimals { get; init; }
         public Option<string> Unit { get; init; }
-        public Option<string> Description { get; internal init; }
+
+        public override string Spoken(CultureInfo culture) =>
+            Decimals.Match(
+                Some: digits => Math.Round(Value, digits, MidpointRounding.ToEven).ToString(culture) switch {
+                    var number => Unit.Match(Some: suffix => $"{number} {suffix}", None: () => number),
+                },
+                None: () => string.Create(culture, $"{(Value - Min) / double.Max(Max - Min, double.Epsilon):P0}"));
     }
 
     public sealed record Point(PlotPlane Plane, Vector2 At) : AccessValue {
-        public Option<string> Description { get; internal init; }
+        public override string Spoken(CultureInfo culture) => Plane.Spoken(At, culture);
     }
 }
 
@@ -102,7 +114,7 @@ public sealed record AxisDescription(string Label, Axis Axis) {
     public Seq<string> Categories => Axis is Axis.Band band ? band.Labels : [];
 }
 
-public sealed record SeriesDescription(string Label, bool Continuous, Seq<Vector2> Values);
+public sealed record SeriesDescription(string Label, Figure Figure);
 
 public sealed record ChartDescription(string Title, Seq<AxisDescription> Axes, Seq<SeriesDescription> Series) {
     public Option<string> Summary { get; init; }
@@ -189,7 +201,7 @@ public static class Access {
         Seq<Element> children = layout.Children.Bind(child => Projected(scene, culture, child, owning, lends));
         return (from role in accessible.Role
                 from frame in scene.Frame(layout.Path)
-                select new Element(layout.Path, role, Described(Named(accessible, role, layout, lent), culture), owning.Filter(held => held.Part.Offers(held.Layout, layout.Path)).Map(held => Offered(scene, held, layout.Path)).IfNone([]),
+                select new Element(layout.Path, role, Named(accessible, role, layout, lent), owning.Filter(held => held.Part.Offers(held.Layout, layout.Path)).Map(held => Offered(scene, held, layout.Path)).IfNone([]),
                     layout.Style.Conditions, frame, children))
             .Match(Some: static element => [element], None: () => children);
     }
@@ -219,23 +231,6 @@ public static class Access {
 
     private static Seq<string> Texts(LayoutNode layout) => layout.TextNode.Map(static text => text.Source.Content).ToSeq() + layout.Children.Bind(Texts);
 
-    private static Accessible Described(Accessible accessible, CultureInfo culture) =>
-        accessible with {
-            Value = accessible.Value.Map(value => value.Switch(
-                culture,
-                text: static (_, text) => (AccessValue)text,
-                @checked: static (_, mark) => mark,
-                ranged: static (culture, ranged) => ranged with {
-                    Description = ranged.Decimals.Match(
-                        Some: digits => {
-                            string number = Math.Round(ranged.Value, digits, MidpointRounding.ToEven).ToString(culture);
-                            return ranged.Unit.Match(Some: suffix => $"{number} {suffix}", None: () => number);
-                        },
-                        None: () => string.Create(culture, $"{(ranged.Value - ranged.Min) / double.Max(ranged.Max - ranged.Min, double.Epsilon):P0}")),
-                },
-                point: static (culture, point) => point with { Description = point.Plane.Spoken(point.At, culture) })),
-        };
-
     // --- [ACTIONS]
     private static readonly Seq<Act> Standard = Seq<Act>(new Act.Press(), new Act.Confirm(), new Act.Cancel(), new Act.ShowMenu(), new Act.Delete(), new Act.Increment(), new Act.Decrement(), new Act.Reset());
 
@@ -257,7 +252,7 @@ public static class Access {
         });
 
     // --- [CHANGES]
-    internal static Seq<AccessibilityNotice> Changes(HashMap<Seq<Key>, Element> was, HashMap<Seq<Key>, Element> now) {
+    internal static Seq<AccessibilityNotice> Changes(HashMap<Seq<Key>, Element> was, HashMap<Seq<Key>, Element> now, CultureInfo culture) {
         Seq<Change<Element>> changes = toSeq(toTrackingHashMap(was.AsIterable()).Snapshot().RemoveRange(was.Keys).AddOrUpdateRange(now.AsIterable()).Changes.Values);
         Seq<EntryMapped<Element, Element>> kept = changes.Choose(static change => change is EntryMapped<Element, Element> mapped ? Some(mapped) : None);
         return (from held in kept
@@ -270,13 +265,7 @@ public static class Access {
                 EntryMapped<Element, Element> mapped when mapped.From.Accessible.Label != mapped.To.Accessible.Label || mapped.From.Accessible.Value != mapped.To.Accessible.Value => Some(mapped.To),
                 _ => Option<Element>.None,
             })
-                .Choose(static element => element.Accessible.Live.Map(live => (AccessibilityNotice)new AccessibilityNotice.Announced(Spoken(element.Accessible), live))));
+                .Choose(element => element.Accessible.Live.Map(live => (AccessibilityNotice)new AccessibilityNotice.Announced(
+                    string.Join(' ', Seq(element.Accessible.Label, element.Accessible.Value.Map(value => value.Spoken(culture))).Somes()), live))));
     }
-
-    private static string Spoken(Accessible accessible) =>
-        string.Join(' ', Seq(accessible.Label, accessible.Value.Bind(static value => value.Switch(
-            text: static text => Some(text.Value),
-            @checked: static held => Some(held.Mark.Spoken),
-            ranged: static ranged => ranged.Description,
-            point: static point => point.Description))).Somes());
 }
