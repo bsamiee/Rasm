@@ -1,7 +1,7 @@
 {
     "name": "@rasm/function-hooks",
     "private": true,
-    "description": "Shared command policies for Claude Code and Codex",
+    "description": "Policies that rewrite or refuse agent tool calls before they run",
     "type": "module",
     "exports": {
         ".": "./index.ts"

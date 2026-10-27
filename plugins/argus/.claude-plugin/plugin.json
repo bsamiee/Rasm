@@ -1,6 +1,6 @@
 {
     "name": "argus",
-    "description": "Repository language servers for code navigation",
+    "description": "Language servers as agent code navigation and diagnostics",
     "author": {
         "name": "Bardia Samiee"
     }

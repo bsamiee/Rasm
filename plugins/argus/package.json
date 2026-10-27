@@ -1,7 +1,7 @@
 {
     "name": "@rasm/argus",
     "private": true,
-    "description": "Language servers of .lsp.json, native in Claude Code and loopback MCP tools in Codex",
+    "description": "Language servers as agent code navigation and diagnostics",
     "type": "module",
     "imports": {
         "#/*": "./*.ts",

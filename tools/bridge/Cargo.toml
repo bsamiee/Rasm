@@ -4,12 +4,12 @@
 [package]
 name                 = "rasm-mcp-bridge"
 version.workspace    = true
-categories           = ["command-line-utilities", "network-programming"]
 edition.workspace    = true
-keywords             = ["mcp", "modelcontextprotocol", "stdio", "streamable-http", "proxy"]
-license.workspace    = true
+description          = "Stdio MCP servers exposed over Streamable HTTP"
 repository.workspace = true
-description          = "Serves a stdio MCP server over Streamable HTTP"
+license.workspace    = true
+keywords             = ["mcp", "modelcontextprotocol", "stdio", "streamable-http", "proxy"]
+categories           = ["command-line-utilities", "network-programming"]
 
 # --- [NX]
 [package.metadata.nx.targets."test:integration"]
@@ -29,19 +29,14 @@ bench = false
 name = "transport"
 path = "../../tests/rust/tools/bridge/transport.rs"
 
-# --- [LINTS] ----------------------------------------------------------------------------
-
-[lints]
-workspace = true
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
 [dependencies]
 futures                            = { workspace = true }
 tokio                              = { workspace = true }
-tokio-util                         = { workspace = true }
 tokio-stream                       = { workspace = true }
+tokio-util                         = { workspace = true }
 thiserror                          = { workspace = true }
 rmcp                               = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
@@ -56,10 +51,15 @@ nonempty-collections = { workspace = true }
 validated            = { workspace = true }
 derive_more          = { workspace = true }
 serde                = { workspace = true }
-serde_path_to_error  = { workspace = true }
 serde_json           = { workspace = true }
+serde_path_to_error  = { workspace = true }
 reqwest              = { workspace = true }
 opentelemetry        = { workspace = true }
 opentelemetry-otlp   = { workspace = true }
 opentelemetry-proto  = { workspace = true }
 testcontainers       = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

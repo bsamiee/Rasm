@@ -10,7 +10,7 @@ runs:
           with:
             path: ~/.rustup/toolchains
             key: rustup-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}
-        - uses: jdx/mise-action@v5.2.0
+        - uses: jdx/mise-action@v5.2.3
           with:
             auto_update: true
             minimum_release_age: 0s
@@ -32,7 +32,7 @@ runs:
           with:
             path: ${{ steps.pnpm.outputs.store }}
             key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
-        - uses: Swatinem/rust-cache@v2.9.2
+        - uses: Swatinem/rust-cache@v2.9.3
           if: runner.os == 'Linux'
           with:
             workspaces: . -> .cache/rust/build

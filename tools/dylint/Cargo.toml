@@ -4,6 +4,7 @@
 [package]
 name              = "lints"
 edition.workspace = true
+description       = "Lints over types and resolved paths Clippy cannot see"
 publish           = false
 
 # --- [RUST_ANALYZER]
@@ -15,10 +16,10 @@ rustc_private = true
 # --- [LIB]
 [lib]
 path       = "lib.rs"
-crate-type = ["cdylib"]
 test       = false
 doctest    = false
 bench      = false
+crate-type = ["cdylib"]
 
 # --- [EXAMPLE]
 [[example]]
@@ -62,44 +63,44 @@ crate-type = ["lib"]
 name = "ui"
 path = "../../tests/rust/tools/dylint/main.rs"
 
-# --- [LINTS] ----------------------------------------------------------------------------
-
-[lints]
-workspace = true
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
 [dependencies]
-clippy_utils   = { workspace = true }
 derive-where   = { workspace = true }
 derive_more    = { workspace = true }
-dylint_linting = { workspace = true }
-itertools      = { workspace = true }
 strum          = { workspace = true }
+itertools      = { workspace = true }
+clippy_utils   = { workspace = true }
+dylint_linting = { workspace = true }
 
 # --- [TESTING]
 [dev-dependencies]
-anyhow                             = { workspace = true }
-cargo_metadata                     = { workspace = true }
-clap                               = { workspace = true }
-fs-err                             = { workspace = true }
 futures                            = { workspace = true }
-indexmap                           = { workspace = true }
-insta                              = { workspace = true }
-nonempty-collections               = { workspace = true }
-opentelemetry-otlp                 = { workspace = true }
-opentelemetry-semantic-conventions = { workspace = true }
-opentelemetry_sdk                  = { workspace = true }
-rasm-mcp                           = { workspace = true }
-rmcp                               = { workspace = true }
-serde                              = { workspace = true }
-serde_json                         = { workspace = true }
-serde_path_to_error                = { workspace = true }
-thiserror                          = { workspace = true }
 tokio                              = { workspace = true }
 tokio-stream                       = { workspace = true }
 tokio-util                         = { workspace = true }
-tracing                            = { workspace = true }
-uuid                               = { workspace = true }
+anyhow                             = { workspace = true }
+nonempty-collections               = { workspace = true }
+thiserror                          = { workspace = true }
 validated                          = { workspace = true }
+indexmap                           = { workspace = true }
+serde                              = { workspace = true }
+serde_json                         = { workspace = true }
+serde_path_to_error                = { workspace = true }
+uuid                               = { workspace = true }
+fs-err                             = { workspace = true }
+rmcp                               = { workspace = true }
+opentelemetry-otlp                 = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry_sdk                  = { workspace = true }
+tracing                            = { workspace = true }
+clap                               = { workspace = true }
+cargo_metadata                     = { workspace = true }
+insta                              = { workspace = true }
+rasm-mcp                           = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

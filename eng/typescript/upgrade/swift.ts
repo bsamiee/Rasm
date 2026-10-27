@@ -52,7 +52,8 @@ Effect.gen(function* () {
     );
     const urls = Array.dedupe([...requirements.map(({ metaVariables }) => metaVariables.single.URL.text), ...documents.flatMap(([, document]) => document.packages.filter(Schema.is(Remote)).map(({ repository }) => repository))]);
     const tags = Object.fromEntries(yield* Effect.validate(urls, (url) => Effect.map(newest(url, flow(normalizeFull, Option.fromNullOr)), (tag) => [url, tag] as const), { concurrency: 'unbounded' }));
-    const edits = requirements.map(({ file, metaVariables: { single } }) => ({ file, span: single.FROM.range.byteOffset, tag: Option.getOrThrow(Record.get(tags, single.URL.text)) }));
+    const release = (url: string) => Option.getOrThrow(Record.get(tags, url));
+    const edits = requirements.filter(({ metaVariables: { single } }) => release(single.URL.text) !== single.FROM.text).map(({ file, metaVariables: { single } }) => ({ file, span: single.FROM.range.byteOffset, tag: release(single.URL.text) }));
     yield* Effect.forEach(
         Object.entries(Array.groupBy(edits, ({ file }) => file)),
         ([file, found]) =>
@@ -62,5 +63,9 @@ Effect.gen(function* () {
             ),
         { discard: true },
     );
-    yield* Effect.forEach(documents, ([file, document]) => project(file, document, tags), { discard: true });
+    yield* Effect.forEach(
+        documents.filter(([, document]) => document.packages.filter(Schema.is(Remote)).some(({ repository, version }) => release(repository) !== version['up-to-next-major-version'])),
+        ([file, document]) => project(file, document, tags),
+        { concurrency: 'unbounded', discard: true },
+    );
 }).pipe(Effect.provide(layer), runMain);

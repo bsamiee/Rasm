@@ -3,7 +3,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { compare as comparePep440, valid } from '@renovatebot/pep440';
 import { Array, Cause, Effect, Exit, FileSystem, flow, Option, Order, Path, Record, Schema, String, Tuple } from 'effect';
 import { parse as parseToml } from 'smol-toml';
-import { compare, isValid } from 'verkit';
+import { compare, compareMain, getPrerelease, isValid } from 'verkit';
 import { parse as parseYaml } from 'yaml';
 import { stdout } from '#/eng/typescript/process';
 
@@ -14,10 +14,11 @@ const toml = flow(
     Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ package: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.optionalKey(Schema.String) })) }))),
     Effect.map(({ package: listed }) => listed.flatMap(({ name, version }) => Option.toArray(Option.fromUndefinedOr(version)).map((found) => [name, found] as const))),
 );
-const semver = { valid: isValid, order: compare };
+const registry = (name: string) => stdout('pnpm', ['view', name, 'time', '--json']).pipe(Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Record(Schema.String, Schema.String)))));
+const semver = { valid: isValid, order: compare, published: Option.none<typeof registry>() };
 const LOCKS = {
     'Cargo.lock': { rows: toml, ...semver },
-    'uv.lock': { rows: toml, valid: (version: string) => valid(version) !== null, order: (self: string, that: string) => Order.Number(comparePep440(self, that), 0) },
+    'uv.lock': { rows: toml, valid: (version: string) => valid(version) !== null, order: (self: string, that: string) => Order.Number(comparePep440(self, that), 0), published: Option.none<typeof registry>() },
     'pnpm-lock.yaml': {
         rows: flow(
             (text: string) => Effect.try(() => parseYaml(text)),
@@ -25,6 +26,7 @@ const LOCKS = {
             Effect.map(({ packages }) => Object.keys(packages).map((key) => Tuple.make(key.slice(0, key.lastIndexOf('@')), key.slice(key.lastIndexOf('@') + 1)))),
         ),
         ...semver,
+        published: Option.some(registry),
     },
     'Package.resolved': {
         rows: flow(
@@ -58,7 +60,25 @@ const downgrades = Effect.fn('downgrades')(function* (file: string, lock: (typeo
         const after = current[name] ?? before;
         return Option.toArray(Option.filter(Option.all({ from: top(Array.difference(before, after)), to: top(Array.difference(after, before)) }), ({ from, to }) => Order.isLessThan(lock.order)(to, from))).map((move) => ({ name, ...move }));
     });
-    return yield* Array.match(moves, { onEmpty: () => Effect.void, onNonEmpty: (found) => Effect.fail(Downgrade.make({ file, moves: found })) });
+    const labelled = ({ from, to }: { readonly from: string; readonly to: string }) =>
+        compareMain(from, to) === 0 &&
+        Option.exists(
+            Array.findFirst(Array.zip(getPrerelease(from) ?? [], getPrerelease(to) ?? []), ([left, right]) => left !== right),
+            ([left, right]) => typeof left === 'string' || typeof right === 'string',
+        );
+    const confirmed = yield* Effect.filter(
+        moves,
+        (move) =>
+            Option.match(
+                Option.filter(lock.published, () => labelled(move)),
+                {
+                    onNone: () => Effect.succeed(true),
+                    onSome: (published) => Effect.map(published(move.name), (times) => Option.match(Option.all([Record.get(times, move.to), Record.get(times, move.from)]), { onNone: () => true, onSome: ([to, from]) => to < from })),
+                },
+            ),
+        { concurrency: 'unbounded' },
+    );
+    return yield* Array.match(confirmed, { onEmpty: () => Effect.void, onNonEmpty: (found) => Effect.fail(Downgrade.make({ file, moves: found })) });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

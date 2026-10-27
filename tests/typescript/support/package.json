@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-support",
     "private": true,
-    "description": "Storybook addons failing stories on axe violations, Playwright settings with one app instance per worker",
+    "description": "Shared settings for isolated, accessible browser tests",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
