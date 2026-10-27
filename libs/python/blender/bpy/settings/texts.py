@@ -8,8 +8,7 @@ import msgspec
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler, SAVE_PRE
-from blender.bpy.extension.events.timers import Timer
+from blender.bpy.extension.events import Handler, Timer
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
@@ -77,8 +76,8 @@ class TextRecord[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
         return Ok((
             attachment,
             ownership,
-            PathHandler(handlers=LOAD_POST, body=lambda _: session().bind(lambda pair: self.loaded(identity, pair))),
-            PathHandler(handlers=SAVE_PRE, body=lambda _: session().bind(saved)),
+            Handler(handlers=bpy.app.handlers.load_post, body=lambda: session().bind(lambda pair: self.loaded(identity, pair))),
+            Handler(handlers=bpy.app.handlers.save_pre, body=lambda: session().bind(saved)),
             Timer(body=loaded),
         ))
 

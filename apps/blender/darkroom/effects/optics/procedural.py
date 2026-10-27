@@ -436,9 +436,9 @@ def emitted[R: Effect](shell: Shell[R], key: Key, light: Emission, tones: tuple[
             )
             gradient = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", tone),), content=Some(ramp), socket="Color", shape="RGBA")
             return {
-                "Tint": mixed(tone, shell.input(spectral, Tint, "start"), shell.input(spectral, Tint, "end")),
-                "Incandescence": vector("DIVIDE", body, working.placed({COLOR_INPUT.key: body}, masks.LUMINANCE.key)),
-                "Gradient": gradient.named(item_key(spectral, Gradient, "ramp") if index == 0 else item_key(key, index, "ramp")),
+                bpy.path.display_name(item_key(Tint)): mixed(tone, shell.input(spectral, Tint, "start"), shell.input(spectral, Tint, "end")),
+                bpy.path.display_name(item_key(Incandescence)): vector("DIVIDE", body, working.placed({COLOR_INPUT.key: body}, masks.LUMINANCE.key)),
+                bpy.path.display_name(item_key(Gradient)): gradient.named(item_key(spectral, Gradient, "ramp") if index == 0 else item_key(key, index, "ramp")),
             }
 
         colors = _selected(shell.input(spectral, "kind"), _items(spectra), {item_key(index): tinted(index, tone) for index, tone in enumerate(tones)}, "RGBA")

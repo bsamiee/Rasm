@@ -126,7 +126,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
 
 def camera_type(*accepted: str) -> Setting:
     """Returns condition on scene camera type."""
-    return Setting(descriptor=Descriptor(root=bpy.types.Scene, owner="camera.data", prop=bpy.types.Camera.bl_rna.properties["type"]), accepted=accepted)
+    return Setting(descriptor=Descriptor(root=bpy.types.Scene, owner=("camera", "data"), prop=bpy.types.Camera.bl_rna.properties["type"]), accepted=accepted)
 
 
 def required(values: Snapshot, scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
@@ -160,7 +160,7 @@ def _camera_row(path: str, switch: Option[str] = Nothing) -> Property:
                 )
             ),
         ),
-        condition=switch.map(lambda name: Setting(descriptor=Descriptor(root=bpy.types.Scene, owner="camera.data", prop=bpy.types.Camera.bl_rna.properties[name]))),
+        condition=switch.map(lambda name: Setting(descriptor=Descriptor(root=bpy.types.Scene, owner=("camera", "data"), prop=bpy.types.Camera.bl_rna.properties[name]))),
     )
 
 

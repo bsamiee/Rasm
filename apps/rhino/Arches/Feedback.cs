@@ -1,5 +1,5 @@
-using Rasm.Rhino;
-using Rasm.Rhino.Display;
+using Rasm.RhinoCommon.Commands;
+using Rasm.RhinoCommon.Display;
 using Rhino.Display;
 
 namespace Arches;
@@ -8,12 +8,10 @@ namespace Arches;
 internal static class ArchFeedback {
     public static IO<Unit> DrawEnds(DisplayPipeline display, Line baseline) => Marks.Draw(display, Ends(FeedbackAppearance.Of(display), baseline));
 
-    public static IO<Unit> Draw(DisplayPipeline display, ArchSpan span, Option<Func<Action<IDisposable>, IO<Seq<Curve>>>> build) =>
-        DisposalOps.Within((Action<IDisposable> retain) =>
-            build.Match(
-                    Some: held => held(retain).Map(static curves => Some(curves)).Catch(ArchPrompts.Rejected, static _ => IO.pure(Option<Seq<Curve>>.None)),
-                    None: static () => IO.pure(Option<Seq<Curve>>.None))
-                .Bind(curves => Marks.Draw(display, Figure(FeedbackAppearance.Of(display), span, curves))), DisposalOps.Release);
+    public static IO<Unit> Draw(DisplayPipeline display, ArchSpan span, Option<IO<Seq<Curve>>> build) =>
+        (from curves in build.Traverse(static held => held).As().Catch(Getters.Retried, static _ => IO.pure(Option<Seq<Curve>>.None))
+         from drawn in Marks.Draw(display, Figure(FeedbackAppearance.Of(display), span, curves))
+         select drawn).Bracket();
 
     private static Seq<RetainedMark> Figure(FeedbackAppearance look, ArchSpan span, Option<Seq<Curve>> curves) =>
         curves.Match(

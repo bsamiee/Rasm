@@ -1,10 +1,11 @@
+using System.Collections.Generic;
 using System.Reflection;
 using Rasm.Drafting;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Runtime;
 
-namespace Rasm.Rhino.Document.Units;
+namespace Rasm.RhinoCommon.Document.Units;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -46,9 +47,9 @@ public static class TextFieldOps {
 
     // --- [EVALUATION]
     public static IO<string> Format(RhinoDoc doc, string text, Option<RhinoObject> obj = default, Option<RhinoObject> topParent = default, Option<InstanceObject> immediateParent = default) =>
-        IO.lift(() => Refused.Unless(TextFields.TryFormat(text, doc, obj.ValueUnsafe(), topParent.ValueUnsafe(), immediateParent.ValueUnsafe(), out string result), result, nameof(TextFields.TryFormat)));
+        IO.lift(() => RhinoFault.Unless(TextFields.TryFormat(text, doc, obj.ValueUnsafe(), topParent.ValueUnsafe(), immediateParent.ValueUnsafe(), out string result)).Map(_ => result));
 
     public static IO<Seq<Option<string>>> Parse(RhinoDoc doc, Seq<FieldRun> runs) =>
         IO.lift(() => Callbacks.Each(runs.Filter(static run => run.Map(literal: false, evaluator: true)), (run, index) =>
-            Refused.Unless(TextFields.TryParse(Text([run]), doc, out List<string> values), Optional(values[0]).Filter(static text => text is not "####"), nameof(TextFields.TryParse), index)));
+            RhinoFault.Unless(TextFields.TryParse(Text([run]), doc, out List<string> values), index).Map(_ => Optional(values[0]).Filter(static text => text is not "####"))));
 }

@@ -2,8 +2,8 @@ using Darkroom.Chain;
 using Darkroom.Output;
 using Darkroom.Queue;
 using Darkroom.Review;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.PlugIns;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.PlugIns;
 using Rhino.PlugIns;
 
 namespace Darkroom;
@@ -14,10 +14,10 @@ public sealed class DarkroomPlugIn() : DefinedPlugIn(new PlugInDefinition {
     Clock = TimeProvider.System,
     Logging = [Dispatch.Logging],
     Commands = [
-        static sink => new QueueJobCommand(sink),
-        static sink => new QueueFarmJobCommand(sink),
-        static sink => new StMapExportCommand(sink),
-        static sink => new LutExportCommand(sink),
+        static () => new QueueJobCommand(),
+        static () => new QueueFarmJobCommand(),
+        static () => new StMapExportCommand(),
+        static () => new LutExportCommand(),
     ],
     Acquisitions = [
         RenderRuns.Register,

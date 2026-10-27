@@ -1,7 +1,7 @@
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Modeling.Surfaces;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Modeling.Surfaces;
 
-namespace Rasm.Rhino.Modeling.Curves;
+namespace Rasm.RhinoCommon.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -30,14 +30,14 @@ public abstract partial record Ribbon {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CurveOffsets {
     // --- [OFFSETS]
-    public static IO<Seq<Curve>> Offset(Tolerances tolerances, Curve curve, OffsetFrame frame, double distance, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Curve.Offset), _ => Answer.Many(frame.Switch(
+    public static IO<Seq<Curve>> Offset(Tolerances tolerances, Curve curve, OffsetFrame frame, double distance) =>
+        Products.Made(frame.Switch(
             (Curve: curve, Distance: distance, Tolerances: tolerances),
             inPlane: static (state, plane) => state.Curve.Offset(plane.Plane, state.Distance, state.Tolerances.Absolute, plane.Corner),
-            byNormal: static (state, normal) => state.Curve.Offset(normal.DirectionPoint, normal.Normal, state.Distance, state.Tolerances.Absolute, state.Tolerances.Angle, normal.Loose, normal.Corner, normal.End))), retain);
+            byNormal: static (state, normal) => state.Curve.Offset(normal.DirectionPoint, normal.Normal, state.Distance, state.Tolerances.Absolute, state.Tolerances.Angle, normal.Loose, normal.Corner, normal.End)));
 
-    public static IO<Seq<Curve>> OffsetOnSurface(Tolerances tolerances, Curve curve, SurfaceTarget target, SurfaceOffset offset, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Curve.OffsetOnSurface), _ => Answer.Many(target.Switch(
+    public static IO<Seq<Curve>> OffsetOnSurface(Tolerances tolerances, Curve curve, SurfaceTarget target, SurfaceOffset offset) =>
+        Products.Made(target.Switch(
             (Curve: curve, Offset: offset, Fitting: tolerances.Absolute),
             brepFace: static (state, face) => state.Offset.Switch(
                 (state.Curve, Face: face, state.Fitting),
@@ -50,20 +50,25 @@ public static class CurveOffsets {
                 constant: static (at, constant) => at.Curve.OffsetOnSurface(at.Surface, constant.Distance, at.Fitting),
                 through: static (at, through) => at.Curve.OffsetOnSurface(at.Surface, through.Point, at.Fitting),
                 varying: static (at, varying) => at.Curve.OffsetOnSurface(at.Surface,
-                    [.. varying.Stations.Map(static station => station.Parameter)], [.. varying.Stations.Map(static station => station.Distance)], at.Fitting)))), retain);
+                    [.. varying.Stations.Map(static station => station.Parameter)], [.. varying.Stations.Map(static station => station.Distance)], at.Fitting))));
 
-    public static IO<Curve> OffsetNormalToSurface(Curve curve, Surface surface, double height, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Curve.OffsetNormalToSurface), _ => Answer.One(curve.OffsetNormalToSurface(surface, height)), retain);
+    public static IO<Curve> OffsetNormalToSurface(Curve curve, Surface surface, double height) =>
+        Products.Made(curve.OffsetNormalToSurface(surface, height));
 
-    public static IO<Curve> OffsetTangentToSurface(Curve curve, Surface surface, double height, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Curve.OffsetTangentToSurface), _ => Answer.One(curve.OffsetTangentToSurface(surface, height)), retain);
+    public static IO<Curve> OffsetTangentToSurface(Curve curve, Surface surface, double height) =>
+        Products.Made(curve.OffsetTangentToSurface(surface, height));
 
     // --- [RIBBONS]
-    public static IO<Ribbon> RibbonOffset(Curve curve, RibbonOffsetParameters parameters, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Curve.RibbonOffset), _ => parameters.RibbonSurfaceGenerationMethod is RibbonOffsetSurfaceMethod.None
-            ? (Answer.One(curve.RibbonOffset(parameters.OffsetDistance, parameters.BlendRadius, parameters.OffsetLocation, parameters.OffsetPlaneVector3d, parameters.OffsetTolerance, out Curve[] sections, out Surface[] surfaces)),
-                    Answer.Many(sections), Answer.Many(surfaces))
-                .Apply(static (offset, crossSections, ruledSurfaces) => (Ribbon)new Ribbon.Ruled(offset, crossSections, ruledSurfaces)).As()
-            : (Answer.One(curve.RibbonOffset(parameters, out Curve[] rails, out Curve[] crossSections, out Brep[] breps)), Answer.Many(rails), Answer.Many(crossSections), Answer.Many(breps))
-                .Apply(static (offset, railCurves, sectionCurves, brepSurfaces) => (Ribbon)new Ribbon.Swept(offset, railCurves, sectionCurves, brepSurfaces)).As(), retain);
+    public static IO<Ribbon> RibbonOffset(Curve curve, RibbonOffsetParameters parameters) =>
+        parameters.RibbonSurfaceGenerationMethod is RibbonOffsetSurfaceMethod.None
+            ? from offset in Products.Made(curve.RibbonOffset(
+                  parameters.OffsetDistance, parameters.BlendRadius, parameters.OffsetLocation, parameters.OffsetPlaneVector3d, parameters.OffsetTolerance, out Curve[] sections, out Surface[] surfaces))
+              from ruledSections in Products.Made(sections)
+              from ruledSurfaces in Products.Made(surfaces)
+              select (Ribbon)new Ribbon.Ruled(offset, ruledSections, ruledSurfaces)
+            : from offset in Products.Made(curve.RibbonOffset(parameters, out Curve[] rails, out Curve[] crossSections, out Brep[] breps))
+              from railCurves in Products.Made(rails)
+              from sectionCurves in Products.Made(crossSections)
+              from brepSurfaces in Products.Made(breps)
+              select (Ribbon)new Ribbon.Swept(offset, railCurves, sectionCurves, brepSurfaces);
 }

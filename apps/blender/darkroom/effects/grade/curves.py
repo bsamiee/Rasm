@@ -224,7 +224,7 @@ def knotted[R: (Curves, HueCurves)](effect: CompositorEffect[R], call: Call[Name
 
     def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
         config = PyOpenColorIO.GetCurrentConfig()
-        unread: Faults = (Fault(reason=BlenderReason.UNMET, subject=f"Region of frame entering {entry.name} holds no value its effect reads"),)
+        unread: Faults = (Fault(reason=BlenderReason.ABSENT, subject=f"Region of frame entering {entry.name}", member="value its effect reads"),)
         straight = unassociated(file.pixels)
         covered = straight[..., :3][straight[..., 3] > 0.0] if straight.shape[-1] == 4 else straight[..., :3].reshape(-1, 3)
 

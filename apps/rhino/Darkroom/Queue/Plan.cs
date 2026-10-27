@@ -1,17 +1,18 @@
 using System.Drawing;
 using System.IO.Hashing;
 using System.Text.Json;
+using Darkroom.Chain;
 using Darkroom.Output;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.Render.Settings;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Persistence;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.Render.Settings;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.Render;
 
@@ -54,9 +55,9 @@ public sealed record Placement(RenderSettings.RenderingSources Source) {
     public static IO<Seq<Placement>> Snapshots(RhinoDoc doc) => NamedTable.Snapshots.Entries(doc).Map(static entries => entries.Map(static entry => Snapshot(entry.Name)));
 
     public static IO<Seq<Placement>> Study(RhinoDoc doc) =>
-        DisposalOps.Within(() => doc.AnimationProperties, static copy => IO.lift(() => SunWindow.Read(copy)
-            .Bind(static found => found.ToFin(new Refused(nameof(RhinoDoc.AnimationProperties), Refused.Absent)))
-            .Map(static window => Seq(Active with { Sun = window }))));
+        (from copy in use(() => doc.AnimationProperties)
+         from window in IO.lift(() => SunWindow.Read(copy).Bind(static found => found.ToFin(new DarkroomFault("document sun study", DarkroomReason.Missing))))
+         select Seq(Active with { Sun = window })).Bracket();
 
     public static IO<Seq<QueuedEntry>> Entries(RhinoDoc doc, Seq<Placement> placements, Option<float> clay) =>
         from extent in IO.lift(() => RenderPipeline.RenderSize(doc, fromRenderSources: true))
@@ -100,7 +101,7 @@ public abstract partial record QueueEdit {
 
     public sealed record Add(Seq<QueuedEntry> Entries) : QueueEdit;
 
-    public sealed record Remove(LanguageExt.HashSet<int> Indices) : QueueEdit;
+    public sealed record Remove(HashSet<int> Indices) : QueueEdit;
 
     public sealed record Toggle(int Index, bool Renders) : QueueEdit;
 }
@@ -147,7 +148,7 @@ public sealed record QueuePlan(OutputBook Book, Seq<QueueEntry<Unit>> Entries) {
                 select new QueueEntry<Unit>(entry, new RenderOverride(settings, Optional(entry.Clay)), located.Folder, located.Stem, book.Overwrite,
                     book.Names(scope.ToSeq()).Map(static held => new QueueOutput<Unit>(held.Target, held.Name, unit))))
             .As()
-        from unique in Callbacks.Unique(planned, static entry => entry.Key, nameof(QueuePlan))
+        from unique in Conversions.Unique(planned, static entry => entry.Key)
         select new QueuePlan(book, unique);
 
     public IO<RenderBatch> Resolved(RhinoDoc doc, Option<QueueProgress> resumed) =>

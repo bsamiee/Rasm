@@ -10,7 +10,6 @@ from blender.bpy.settings.history import Retaining
 from blender.bpy.ui.layout.sections import Single
 from blender.bpy.ui.layout.status import Status
 from blender.bpy.ui.surfaces.preferences import PreferencesPage
-from blender.records.trees import Retention
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -27,7 +26,7 @@ class Preferences(bpy.types.PropertyGroup):
 
 page: Final = PreferencesPage(form=Preferences, sections=(Single(key="status", title="Status", rows=(Status(),)),))
 queueing: Final = page.value(lambda preferences: preferences.queue)
-reviewing: Final = page.value(lambda preferences: Retention(capacity=preferences.review.capacity, interval=0.0))
+reviewing: Final = page.value(lambda preferences: preferences.review.retention)
 previewing: Final = page.value(lambda preferences: preferences.previews)
 
 # --- [EXPORTS] --------------------------------------------------------------------------

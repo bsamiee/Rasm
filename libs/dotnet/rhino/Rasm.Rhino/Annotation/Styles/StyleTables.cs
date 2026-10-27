@@ -1,13 +1,13 @@
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.TopologicalSort;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Tables;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 
-namespace Rasm.Rhino.Annotation.Styles;
+namespace Rasm.RhinoCommon.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record StyleSpec(
@@ -31,7 +31,7 @@ public sealed record StyleRows(
     Seq<(string Name, int Index)> SectionStyles,
     Seq<(string Name, int Index)> DimensionStyles);
 
-public sealed record ReconciledStyles(StyleRows Written, LanguageExt.HashSet<ComponentIdentity> Removed);
+public sealed record ReconciledStyles(StyleRows Written, HashSet<ComponentIdentity> Removed);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StyleTables {
@@ -55,8 +55,9 @@ public static class StyleTables {
 
     // --- [GRAPH]
     public static IO<ArrayBidirectionalGraph<ComponentIdentity, SEquatableEdge<ComponentIdentity>>> Graph(RhinoDoc doc) =>
-        from rows in IO.lift(() => Seq<IEnumerable<ModelComponent>>(doc.HatchPatterns, doc.Linetypes, doc.SectionStyles, doc.DimStyles)
-            .Bind(static table => Conversions.Rows(table)).Filter(static row => !row.IsDeleted).Strict())
+        from rows in IO.lift(() => (Conversions.Rows<ModelComponent>(doc.HatchPatterns) + Conversions.Rows<ModelComponent>(doc.Linetypes)
+                + Conversions.Rows<ModelComponent>(doc.SectionStyles) + Conversions.Rows<ModelComponent>(doc.DimStyles))
+            .Filter(static row => !row.IsDeleted).Strict())
         let edges = (from style in rows.OfType<SectionStyle>()
                      from reference in Seq((Type: ModelComponentType.HatchPattern, Index: style.HatchIndex), (Type: ModelComponentType.LinePattern, Index: style.BoundaryLinetypeIndex))
                      join dependency in rows on reference equals (dependency.ComponentType, dependency.Index)
@@ -72,7 +73,7 @@ public static class StyleTables {
         new(new ComponentIdentity(dependency.Id, dependency.ComponentType), new ComponentIdentity(dependent.Id, dependent.ComponentType));
 
     // --- [PRUNE]
-    private static IO<LanguageExt.HashSet<Guid>> DimensionStylesInUse(RhinoDoc doc) =>
+    private static IO<HashSet<Guid>> DimensionStylesInUse(RhinoDoc doc) =>
         from users in IO.lift(() => Conversions.Rows(doc.Objects.GetObjectList(new ObjectEnumeratorSettings {
             ObjectTypeFilter = ObjectType.Annotation | ObjectType.ClipPlane, HiddenObjects = true, ReferenceObjects = true, IdefObjects = true,
         })))
@@ -82,12 +83,12 @@ public static class StyleTables {
     private static Seq<(ComponentIdentity Row, IO<bool> Delete)> Candidates<T>(RhinoDocCommonTable<T> table, Seq<T> rows, Func<T, bool> held) where T : ModelComponent =>
         rows.Map(row => (
             new ComponentIdentity(row.Id, row.ComponentType),
-            IO.lift(() => held(row) ? false : Refused.Unless(table.Delete(row), value: true, nameof(RhinoDocCommonTable<>.Delete), row.Index))));
+            IO.lift(() => held(row) ? false : RhinoFault.Unless(table.Delete(row), row.Index).Map(static _ => true))));
 
-    private static IO<LanguageExt.HashSet<ComponentIdentity>> Pruned(ArrayBidirectionalGraph<ComponentIdentity, SEquatableEdge<ComponentIdentity>> graph, Seq<(ComponentIdentity Row, IO<bool> Delete)> candidates) =>
+    private static IO<HashSet<ComponentIdentity>> Pruned(ArrayBidirectionalGraph<ComponentIdentity, SEquatableEdge<ComponentIdentity>> graph, Seq<(ComponentIdentity Row, IO<bool> Delete)> candidates) =>
         toSeq(graph.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward))
             .Choose(toHashMap(candidates.Map(static candidate => (candidate.Row, candidate))).Find)
-            .FoldM(LanguageExt.HashSet<ComponentIdentity>.Empty, (removed, candidate) =>
+            .FoldM(HashSet<ComponentIdentity>(), (removed, candidate) =>
                 graph.OutEdges(candidate.Row).All(edge => removed.Contains(edge.Target))
                     ? candidate.Delete.Map(deleted => deleted ? removed.Add(candidate.Row) : removed)
                     : IO.pure(removed))
@@ -107,9 +108,9 @@ public static class StyleTables {
             .As())
         select plan;
 
-    public static IO<Committed<ReconciledStyles>> Reconcile(RhinoDoc doc, StyleSpec spec, Func<StyleRows, IO<Unit>> reassign, string name, RedrawPolicy redraw, IPlugInSink sink) =>
+    public static IO<Committed<ReconciledStyles>> Reconcile(RhinoDoc doc, StyleSpec spec, Func<StyleRows, IO<Unit>> reassign, string name, RedrawPolicy redraw, object owner) =>
         from plan in Plan(doc, spec)
-        from committed in Commits.Commit(doc, RowText.Localize(name, sink).Local, redraw,
+        from committed in Commits.Commit(doc, RowText.Localize(name, owner).Local, redraw,
             from hatchPatterns in TableOps.Upsert(doc, TableKinds.HatchPatterns, plan.HatchPatterns.Upserts, HatchPatterns.Written, HatchPatterns.Unchanged)
             from linetypes in TableOps.Upsert(doc, TableKinds.Linetypes, plan.Linetypes.Upserts, Linetypes.Written, Linetypes.Unchanged)
             from sectionStyles in TableOps.Upsert(doc, TableKinds.SectionStyles, plan.SectionStyles.Upserts, (staged, definition) => SectionStyles.Written(doc, staged, definition), SectionStyles.Unchanged)

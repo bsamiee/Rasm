@@ -1,12 +1,12 @@
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.Viewport;
+using System.Collections.Generic;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.Viewport;
 using Rhino;
 using Rhino.DocObjects;
-using Rhino.DocObjects.Tables;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Objects;
+namespace Rasm.RhinoCommon.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ClipParticipation(Seq<Guid> ObjectIds, Seq<int> LayerIndices, bool IsExclusionList);
@@ -27,9 +27,10 @@ public static class ClippingPlanes {
     public static IO<Guid> Add(RhinoDoc doc, ClipSpec spec) =>
         from style in Styled(doc, spec.Settings.DimensionStyle)
         from id in Acquired(doc, Seq(spec.Viewports), rows =>
-            DisposalOps.Within(() => new ClippingPlaneSurface(spec.Surface), surface => from staged in IO.lift(() => Staged(surface, rows, Seq<ViewportRef>(), spec.Settings, style))
-                                                                                        from added in TableOps.Add(doc, new GeometryPair(surface, spec.Attributes), None, reference: false)
-                                                                                        select added))
+            (from surface in use(() => new ClippingPlaneSurface(spec.Surface))
+             from staged in IO.lift(() => Staged(surface, rows, Seq<ViewportRef>(), spec.Settings, style))
+             from added in TableOps.Add(doc, new GeometryPair(surface, spec.Attributes), None, reference: false)
+             select added).Bracket())
         select id;
 
     // --- [EDITS]
@@ -51,21 +52,17 @@ public static class ClippingPlanes {
         found.Map(static (target, index) => (Target: target, Index: index)).TraverseM(row => Editable(doc, row.Target, row.Index,
             from plane in ObjectTarget.Resolve<ClippingPlaneObject, ClippingPlaneSurface>(doc, row.Target.Id)
             from staged in IO.lift(() => Staged(plane.Geometry, attach, detach, settings, style))
-            from committed in IO.lift(() => Refused.Unless(plane.Object.CommitChanges(), row.Target.Id, nameof(RhinoObject.CommitChanges), row.Index))
-            select committed)).As();
+            from committed in IO.lift(() => RhinoFault.Unless(plane.Object.CommitChanges(), row.Index))
+            select row.Target.Id)).As();
 
-    private static IO<T> Editable<T>(RhinoDoc doc, RhinoObject target, int index, IO<T> body) {
-        IO<T> Opened(Func<Guid, bool, bool> open, string opening, Func<Guid, bool, bool> close, string closing) =>
-            DisposalOps.Within(
-                () => Refused.Unless(open(target.Id, true), opening, index),
-                opened => IO.lift(opened).Bind(_ => body),
-                opened => IO.lift(() => opened.Match(Succ: _ => Refused.Unless(close(target.Id, true), closing, index), Fail: static _ => unit)));
-        return target.Attributes.Mode switch {
-            ObjectMode.Hidden => Opened(doc.Objects.Show, nameof(ObjectTable.Show), doc.Objects.Hide, nameof(ObjectTable.Hide)),
-            ObjectMode.Locked => Opened(doc.Objects.Unlock, nameof(ObjectTable.Unlock), doc.Objects.Lock, nameof(ObjectTable.Lock)),
+    private static IO<T> Editable<T>(RhinoDoc doc, RhinoObject target, int index, IO<T> body) =>
+        target.Attributes.Mode switch {
+            ObjectMode.Hidden => IO.lift(() => RhinoFault.Unless(doc.Objects.Show(target.Id, ignoreLayerMode: true), index))
+                >> body.Finally(IO.lift(() => RhinoFault.Unless(doc.Objects.Hide(target.Id, ignoreLayerMode: true), index))),
+            ObjectMode.Locked => IO.lift(() => RhinoFault.Unless(doc.Objects.Unlock(target.Id, ignoreLayerMode: true), index))
+                >> body.Finally(IO.lift(() => RhinoFault.Unless(doc.Objects.Lock(target.Id, ignoreLayerMode: true), index))),
             ObjectMode.Normal or ObjectMode.InstanceDefinitionObject => body,
         };
-    }
 
     private static void Staged(ClippingPlaneSurface surface, Seq<ViewportRef> attach, Seq<ViewportRef> detach, ClipSettings settings, Option<Guid> style) {
         _ = attach.Iter(row => surface.AddClipViewportId(row.Viewport.Id));
@@ -84,8 +81,8 @@ public static class ClippingPlanes {
             ClippingPlaneSurface surface = plane.Geometry;
             surface.GetClipParticipation(out IEnumerable<Guid> objectIds, out IEnumerable<int> layerIndices, out bool isExclusionList);
             return new ClipState(toSeq(surface.ViewportIds()),
-                Callbacks.Found(surface.ParticipationListsEnabled, new ClipParticipation(toSeq(objectIds), toSeq(layerIndices), isExclusionList)),
-                Callbacks.Found(surface.PlaneDepthEnabled, surface.PlaneDepth), Conversions.Present(surface.DimensionStyleId));
+                Conversions.Found(surface.ParticipationListsEnabled, new ClipParticipation(toSeq(objectIds), toSeq(layerIndices), isExclusionList)),
+                Conversions.Found(surface.PlaneDepthEnabled, surface.PlaneDepth), Conversions.Present(surface.DimensionStyleId));
         })
         select state;
 
@@ -93,10 +90,7 @@ public static class ClippingPlanes {
         Viewports.With(doc, target, row => IO.lift(() => toSeq(doc.Objects.FindClippingPlanesForViewport(row.Viewport, includeHidden: true))));
 
     private static IO<T> Acquired<T>(RhinoDoc doc, Seq<ViewportSet> sets, Func<Seq<ViewportRef>, IO<T>> body) =>
-        DisposalOps.Within(
-            (Action<IDisposable> held) => sets.TraverseM(set => Viewports.Resolve(doc, set, held)).As()
-                .Map(static rows => rows.Flatten()).Bind(body),
-            DisposalOps.Release);
+        sets.TraverseM(set => Viewports.Resolve(doc, set)).As().Map(static rows => rows.Flatten()).Bind(body).Bracket();
 
     private static IO<Option<Guid>> Styled(RhinoDoc doc, Override<ComponentRef<DimensionStyle>> style) =>
         style.Switch(doc,

@@ -49,7 +49,7 @@ def space_item(config: PyOpenColorIO.Config, name: str) -> Outcome[str]:
     return (
         Ok(name)
         if name == PyOpenColorIO.ROLE_SCENE_LINEAR
-        else Option.of_optional(config.getColorSpace(name)).map(PyOpenColorIO.ColorSpace.getName).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=config.getName(), member=name),))
+        else Option.of_optional(config.getColorSpace(name)).map(PyOpenColorIO.ColorSpace.getName).to_result_with(functools.partial(Fault.of, BlenderReason.ABSENT, config.getName(), member=name))
     )
 
 
@@ -286,11 +286,7 @@ def whitened(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> Ou
     return (
         Samples
         .of(config, plane)
-        .bind(
-            lambda samples: samples.extent().to_result_with(
-                lambda: (Fault(reason=RecordReason.OUTSIDE, subject="White metering", member="covered pixels holding finite luminance", cause=str(plane.shape)),)
-            )
-        )
+        .bind(lambda samples: samples.extent().to_result_with(functools.partial(Fault.of, RecordReason.OUTSIDE, "White metering", str(plane.shape), member="covered pixels holding finite luminance")))
         .map(lambda extent: extent.white)
     )
 

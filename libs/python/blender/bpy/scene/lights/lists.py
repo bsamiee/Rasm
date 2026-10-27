@@ -5,7 +5,7 @@ from typing import ClassVar
 
 from bl_ui.space_view3d import VIEW3D_MT_select_object
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Ok, Option, Some, try_downcast
 import msgspec
 
 from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Unchanged
@@ -13,7 +13,7 @@ from blender.bpy.data.rna.descriptors import assigned, root_in
 from blender.bpy.data.rna.snapshots import Applied, Scope, scoped, SCOPES, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.scene.lights.emitters import emitters, emitting, picked, strengths, TEMPERATURE
+from blender.bpy.scene.lights.emitters import emitters, emitting, feeding, picked, strengths, TEMPERATURE
 from blender.bpy.scene.objects import focused, ObjectState, reconciled
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.layout.lists import ItemList
@@ -23,13 +23,6 @@ from blender.bpy.ui.surfaces.appends import Append
 from blender.records.faults import accumulated, Outcome, paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Visibility(msgspec.Struct, frozen=True, kw_only=True):
-    """Emitter visibility before solo."""
-
-    render: bool = True
-    viewport: bool = True
 
 
 class Solo(bpy.types.PropertyGroup):
@@ -80,7 +73,7 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
         """Returns emitter list, active light rows, and operator buttons."""
 
         def light[K: bpy.types.Light](kind: type[K], context: bpy.types.Context) -> Option[K]:
-            return root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)).bind(lambda item: Some(data) if isinstance(data := item.data, kind) else Nothing)
+            return root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)).bind(lambda item: Option.of_optional(try_downcast(kind, item.data)))
 
         return Single(
             key="light_list",
@@ -129,17 +122,17 @@ def soloed(chosen: bpy.types.Object, scene: bpy.types.Scene, solo: Attached[Solo
     def hid(item: bpy.types.Object) -> Outcome[None]:
         return (
             assigned(solo.struct(item), {"hidden": True, "render": not item.hide_render, "viewport": not item.hide_viewport})
-            .bind(lambda _: reconciled(ObjectState(values=Some(_shown(Visibility(render=False, viewport=False)))), item, ()))
+            .bind(lambda _: reconciled(ObjectState(values=Some(_shown(render=False, viewport=False))), item, ()))
             .map(lambda _: None)
         )
 
     reached = frozenset(emitters(scene))
     rows = tuple((item, solo.struct(item)) for item in scene.objects if item in reached or solo.stored(item))
-    restoring = tuple((item, Visibility(render=held.render, viewport=held.viewport)) for item, held in rows if held.hidden and (item == chosen or item not in reached))
+    restoring = tuple(item for item, held in rows if held.hidden and (item == chosen or item not in reached))
     hiding = tuple(item for item, held in rows if item in reached and item != chosen and not held.hidden)
     if not (restoring or hiding):
         return Ok(Unchanged(reason="Solo hides every other emitter"))
-    return accumulated((*(_restored(item, prior, solo) for item, prior in restoring), *(hid(item) for item in hiding))).map(lambda _: Done())
+    return accumulated((*(_restored(item, solo) for item in restoring), *(hid(item) for item in hiding))).map(lambda _: Done())
 
 
 def unsoloed(scene: bpy.types.Scene, solo: Attached[Solo]) -> Outcome[Answer]:
@@ -152,9 +145,9 @@ def unsoloed(scene: bpy.types.Scene, solo: Attached[Solo]) -> Outcome[Answer]:
     Returns:
         `Done`, `Unchanged` when solo hides no emitter, or `edit` faults.
     """
-    if not (hidden := tuple((item, Visibility(render=held.render, viewport=held.viewport)) for item in scene.objects if solo.stored(item) for held in (solo.struct(item),) if held.hidden)):
+    if not (hidden := tuple(item for item in scene.objects if solo.stored(item) and solo.struct(item).hidden)):
         return Ok(Unchanged(reason="Solo hides no emitter"))
-    return accumulated(_restored(item, prior, solo) for item, prior in hidden).map(lambda _: Done())
+    return accumulated(_restored(item, solo) for item in hidden).map(lambda _: Done())
 
 
 def multiplied(factor: float, temperature: Option[float], scope: Scope, context: bpy.types.Context) -> Outcome[Answer]:
@@ -170,16 +163,15 @@ def multiplied(factor: float, temperature: Option[float], scope: Scope, context:
         `Done` with skipped faults when a write changed, `Unchanged` when no value changes, or `absent`, `edit`, and `choice` faults when none changed.
     """
 
-    def powered(data: bpy.types.Light) -> Applied:
-        energy: float = data.energy  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        values = {"energy": energy * factor, **temperature.map(lambda kelvin: {"use_temperature": True, "temperature": kelvin}).default_value({})}
+    def powered(data: bpy.types.PointLight | bpy.types.SpotLight | bpy.types.AreaLight | bpy.types.SunLight) -> Applied:
+        values = {"energy": data.energy * factor, **temperature.map(lambda kelvin: {"use_temperature": True, "temperature": kelvin}).default_value({})}
         return Snapshot.of(type(data), values).apply(data)
 
     def edited(reached: tuple[bpy.types.Scene | bpy.types.ViewLayer | bpy.types.Object, ...]) -> Outcome[Answer]:
         items = tuple(dict.fromkeys(item for owner in reached for item in emitters(owner)))
-        lights = dict.fromkeys(data for item in items if isinstance(data := item.data, bpy.types.Light))
+        lights = dict.fromkeys(data for item in items if isinstance(data := item.data, bpy.types.PointLight | bpy.types.SpotLight | bpy.types.AreaLight | bpy.types.SunLight))
         materials = dict.fromkeys(material for item in items for slot in item.material_slots if (material := slot.material) is not None)
-        sockets = dict.fromkeys(socket for material in materials for socket in strengths(material) if not any(link.is_valid and not link.is_muted for link in socket.links))  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+        sockets = dict.fromkeys(socket for material in materials for socket in strengths(material) if not feeding(socket))
         return answered(
             Applied.join((*(powered(data) for data in lights), *(Snapshot.of(type(socket), {"default_value": socket.default_value * factor}).apply(socket) for socket in sockets))),
             "No light or unlinked emission strength in scope takes a new value",
@@ -193,14 +185,15 @@ def emissives_selected(scope: Scope, context: bpy.types.Context, layer: bpy.type
     return scope.owners(context).bind(lambda reached: picked(frozenset(item for owner in reached for item in emitters(owner) if not isinstance(item.data, bpy.types.Light)), layer))
 
 
-def _shown(visibility: Visibility) -> Snapshot:
+def _shown(*, render: bool, viewport: bool) -> Snapshot:
     """Returns `Object` snapshot writing render and viewport visibility."""
-    return Snapshot.of(bpy.types.Object, {"hide_render": not visibility.render, "hide_viewport": not visibility.viewport})
+    return Snapshot.of(bpy.types.Object, {"hide_render": not render, "hide_viewport": not viewport})
 
 
-def _restored(item: bpy.types.Object, prior: Visibility, solo: Attached[Solo]) -> Outcome[None]:
-    """Restores emitter prior visibility, clearing its solo mark."""
-    return reconciled(ObjectState(values=Some(_shown(prior))), item, ()).bind(lambda _: assigned(solo.struct(item), {"hidden": False}))
+def _restored(item: bpy.types.Object, solo: Attached[Solo]) -> Outcome[None]:
+    """Restores emitter visibility solo held, clearing its solo mark."""
+    held = solo.struct(item)
+    return reconciled(ObjectState(values=Some(_shown(render=held.render, viewport=held.viewport))), item, ()).bind(lambda _: assigned(held, {"hidden": False}))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -240,7 +233,6 @@ __all__ = [
     "Emissives",
     "LightList",
     "Solo",
-    "Visibility",
     "emissives_select_command",
     "emissives_selected",
     "light_bulk_command",

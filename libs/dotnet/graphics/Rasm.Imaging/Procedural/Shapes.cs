@@ -38,10 +38,8 @@ public sealed record DistanceField(Func<(double X, double Y), double> Distance, 
         (double sine, double cosine) = double.SinCos(wedge);
         (double depth, double reach) = (cosine * (1d - inset), half.X - radius);
         ((double X, double Y) outer, (double X, double Y) inner) = ((0d, reach), (reach * depth * sine, reach * depth * cosine));
-        return new(point => double.SinCos(double.Abs(double.Ieee754Remainder(double.Atan2(point.X, point.Y), 2d * wedge))) switch {
-            var (sin, cos) => Length(point) switch { var length => (X: length * sin, Y: length * cos) } switch {
-                var folded => double.CopySign(Length(Offset(folded, outer, inner).Offset), Side(folded, outer, inner)) - radius,
-            },
+        return new(point => (double.SinCos(double.Abs(double.Ieee754Remainder(double.Atan2(point.X, point.Y), 2d * wedge))), Length(point)) switch {
+            var ((sin, cos), length) => (X: length * sin, Y: length * cos) switch { var folded => double.CopySign(Length(Offset(folded, outer, inner).Offset), Side(folded, outer, inner)) - radius },
         }, half.X * (1d + depth));
     }
 
@@ -55,17 +53,14 @@ public sealed record DistanceField(Func<(double X, double Y), double> Distance, 
             var arm => (roundness * arm) switch { var radius => new(point => double.Min(Rounded(point, (half.X, arm), radius), Rounded(point, (arm, half.Y), radius)), 2d * arm) },
         };
 
-    public static DistanceField Heart((double X, double Y) half) =>
-        (Center: (X: 0.25d, Y: 0.75d), Radius: double.Sqrt(2d) * 0.25d) switch {
-            var lobe => (Lobe: lobe, Scale: half.X / (lobe.Center.X + lobe.Radius), Middle: (lobe.Center.Y + lobe.Radius) * 0.5d),
-        } switch {
-            var (lobe, scale, middle) => new(point => (X: double.Abs(point.X) / scale, Y: (point.Y / scale) + middle) switch {
-                var q => (Q: q, Diagonal: 0.5d * double.Max(q.X + q.Y, 0d)),
-            } switch {
-                var (q, _) when q.X + q.Y > 1d => scale * (Length((q.X - lobe.Center.X, q.Y - lobe.Center.Y)) - lobe.Radius),
-                var (q, diagonal) => scale * double.Min(Length((q.X, q.Y - 1d)), Length((q.X - diagonal, q.Y - diagonal))) * double.Sign(q.X - q.Y),
-            }, 2d * lobe.Radius * scale),
-        };
+    public static DistanceField Heart((double X, double Y) half) {
+        ((double X, double Y) center, double radius) = ((0.25d, 0.75d), double.Sqrt(2d) * 0.25d);
+        (double scale, double middle) = (half.X / (center.X + radius), (center.Y + radius) * 0.5d);
+        return new(point => (X: double.Abs(point.X) / scale, Y: (point.Y / scale) + middle) switch {
+            var q when q.X + q.Y > 1d => scale * (Length((q.X - center.X, q.Y - center.Y)) - radius),
+            var q => (0.5d * double.Max(q.X + q.Y, 0d)) switch { var diagonal => scale * double.Min(Length((q.X, q.Y - 1d)), Length((q.X - diagonal, q.Y - diagonal))) * double.Sign(q.X - q.Y) },
+        }, 2d * radius * scale);
+    }
 
     public static DistanceField Triangle((double X, double Y) half, float apex, float roundness) {
         ((double X, double Y) a, (double X, double Y) b, (double X, double Y) c) = ((-half.X, -half.Y), (half.X, -half.Y), (apex * half.X, half.Y));
@@ -117,13 +112,12 @@ public sealed record DistanceField(Func<(double X, double Y), double> Distance, 
     // --- [GEOMETRY]
     public static double Length((double X, double Y) point) => double.Hypot(point.X, point.Y);
 
-    public static ((double X, double Y) Offset, double Along) Offset((double X, double Y) point, (double X, double Y) start, (double X, double Y) end) =>
-        (Edge: (X: end.X - start.X, Y: end.Y - start.Y), Reach: (X: point.X - start.X, Y: point.Y - start.Y)) switch {
-            var (edge, reach) => ((edge.X * edge.X) + (edge.Y * edge.Y)) switch {
-                0d => 0d,
-                var squared => double.Clamp(((reach.X * edge.X) + (reach.Y * edge.Y)) / squared, 0d, 1d),
-            } switch { var along => ((reach.X - (edge.X * along), reach.Y - (edge.Y * along)), along), },
-        };
+    public static ((double X, double Y) Offset, double Along) Offset((double X, double Y) point, (double X, double Y) start, (double X, double Y) end) {
+        ((double X, double Y) edge, (double X, double Y) reach) = ((end.X - start.X, end.Y - start.Y), (point.X - start.X, point.Y - start.Y));
+        double squared = (edge.X * edge.X) + (edge.Y * edge.Y);
+        double along = squared is 0d ? 0d : double.Clamp(((reach.X * edge.X) + (reach.Y * edge.Y)) / squared, 0d, 1d);
+        return ((reach.X - (edge.X * along), reach.Y - (edge.Y * along)), along);
+    }
 
     public static double Side((double X, double Y) point, (double X, double Y) start, (double X, double Y) end) =>
         ((end.X - start.X) * (point.Y - start.Y)) - ((end.Y - start.Y) * (point.X - start.X));

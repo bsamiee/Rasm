@@ -1,12 +1,12 @@
 using Eto.Forms;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Styling;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.UI.Rows;
+using Rasm.RhinoCommon.UI.Styling;
 using Rasm.UI;
 using Rhino.UI.Controls;
 
-namespace Rasm.Rhino.UI;
+namespace Rasm.RhinoCommon.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SplitAnchor(string Name, double Default, SplitterFixedPanel Fixed) {
@@ -51,63 +51,58 @@ public abstract partial record ContainerRow {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Containers {
     // --- [FRAMES]
-    public static IO<T> Frame<T>(Func<T> create, Action<IDisposable> retain) where T : Container =>
-        DisposalOps.Acquire(IO.lift(create), Emptied, retain);
+    public static IO<T> Frame<T>(Func<T> create) where T : Container => use(IO.lift(create), Emptied);
 
     private static IO<Unit> Emptied(Container frame) =>
         Callbacks.Each(Seq(IO.lift(frame is StackLayout stack ? stack.Items.Clear : frame.RemoveAll), IO.lift(frame.Dispose))).Map(unit);
 
     // --- [REALIZATION]
-    public static IO<Control> Realize(IPlugInViews owner, ContainerRow row, RowScope scope, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned => row.Switch(
-            (Owner: owner, Scope: scope, Retain: owned),
-            split: static (state, split) => Split(state.Owner, split, state.Scope, state.Retain),
-            tabs: static (state, tabs) => Tabs(state.Owner, tabs, state.Scope, state.Retain),
-            disclosure: static (state, disclosure) => Disclosure(state.Owner, disclosure, state.Scope, state.Retain),
-            tiles: static (state, tiles) => Tiles(tiles, state.Scope, state.Retain)), retain);
+    public static IO<Control> Realize(IPlugInViews owner, ContainerRow row, RowScope scope) =>
+        row.Switch(
+            (Owner: owner, Scope: scope),
+            split: static (state, split) => Split(state.Owner, split, state.Scope),
+            tabs: static (state, tabs) => Tabs(state.Owner, tabs, state.Scope),
+            disclosure: static (state, disclosure) => SectionHolder.Disclose(state.Owner, disclosure, state.Scope).Map(static holder => (Control)holder),
+            tiles: static (state, tiles) => Tiles(tiles, state.Scope));
 
     // --- [SPLITS]
-    private static IO<Control> Split(IPlugInViews owner, ContainerRow.Split split, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<Control> Split(IPlugInViews owner, ContainerRow.Split split, RowScope scope) =>
         from position in split.Anchor.Open(owner.Settings)
-        from splitter in DisposalOps.Acquire(IO.lift(static () => new Splitter()), retain)
-        from first in ViewOps.Realize(owner, toSeq(split.First), scope, retain)
-        from second in ViewOps.Realize(owner, toSeq(split.Second), scope, retain)
+        from splitter in use(static () => new Splitter())
+        from first in ViewOps.Realize(owner, toSeq(split.First), scope)
+        from second in ViewOps.Realize(owner, toSeq(split.Second), scope)
         from configured in IO.lift(() => {
             (splitter.ID, splitter.Orientation, splitter.FixedPanel, splitter.SplitterWidth) =
                 (split.Anchor.Name, split.Orientation, split.Anchor.Fixed, RhinoLayout.SplitterWidth);
             (splitter.Panel1, splitter.Panel2, splitter.RelativePosition) = (first, second, position);
         })
-        from attached in Subscriptions.Attach(
-            handler => splitter.PositionChangeCompleted += handler, handler => splitter.PositionChangeCompleted -= handler,
-            Callbacks.Handler<EventArgs>(_ => IO.lift(() => splitter.RelativePosition).Bind(moved => split.Anchor.Keep(owner.Settings, moved)),
-                new CallbackSite(scope.Sink, typeof(Splitter), nameof(Splitter.PositionChangeCompleted))), retain)
+        from attached in Subscriptions.Host<EventArgs>(h => splitter.PositionChangeCompleted += h, h => splitter.PositionChangeCompleted -= h)
+            .Inline(_ => IO.lift(() => splitter.RelativePosition).Bind(moved => split.Anchor.Keep(owner.Settings, moved)), owner)
         select (Control)splitter;
 
     // --- [TABS]
-    private static IO<Control> Tabs(IPlugInViews owner, ContainerRow.Tabs tabs, RowScope scope, Action<IDisposable> retain) =>
-        from control in DisposalOps.Acquire(IO.lift(static () => new TabControl()), retain)
+    private static IO<Control> Tabs(IPlugInViews owner, ContainerRow.Tabs tabs, RowScope scope) =>
+        from control in use(static () => new TabControl())
         from pages in toSeq(tabs.Pages).TraverseM(page =>
-            from tab in DisposalOps.Acquire(IO.lift(static () => new TabPage()), retain)
+            from tab in use(static () => new TabPage())
             let paged = scope.Separated(visible: false)
-            from body in ViewOps.Realize(owner, toSeq(page.Body), paged, retain)
-            from seated in IO.lift(() => { tab.Text = RowText.Localize(page.Caption, scope.Sink).Local; tab.Content = body; control.Pages.Add(tab); })
-            from sections in paged.OnVisibility(visible => SectionHolder.Shown(body, visible), retain)
+            from body in ViewOps.Realize(owner, toSeq(page.Body), paged)
+            from seated in IO.lift(() => {
+                tab.Text = RowText.Localize(page.Caption, owner).Local;
+                tab.Content = body;
+                control.Pages.Add(tab);
+            })
+            from sections in paged.OnVisibility(visible => SectionHolder.Shown(body, visible))
             select (Tab: tab, Scope: paged)).As()
         let shown = scope.Visibility.Bind(visible => Callbacks.Each(pages.Map(page => page.Scope.Shown(visible && ReferenceEquals(page.Tab, control.SelectedPage))))).Map(static _ => unit)
-        from enclosing in scope.OnVisibility(_ => shown, retain)
-        from selected in Subscriptions.Attach(
-            handler => control.SelectedIndexChanged += handler, handler => control.SelectedIndexChanged -= handler,
-            Callbacks.Handler<EventArgs>(_ => shown, new CallbackSite(scope.Sink, typeof(TabControl), nameof(TabControl.SelectedIndexChanged))), retain)
+        from enclosing in scope.OnVisibility(_ => shown)
+        from selected in Subscriptions.Host<EventArgs>(h => control.SelectedIndexChanged += h, h => control.SelectedIndexChanged -= h).Inline(_ => shown, owner)
         select (Control)control;
 
-    // --- [DISCLOSURES]
-    private static IO<Control> Disclosure(IPlugInViews owner, ContainerRow.Disclosure disclosure, RowScope scope, Action<IDisposable> retain) =>
-        SectionHolder.Disclose(owner, disclosure, scope, retain).Map(static holder => (Control)holder);
-
     // --- [TILES]
-    private static IO<Control> Tiles(ContainerRow.Tiles tiles, RowScope scope, Action<IDisposable> retain) =>
-        from row in DisposalOps.Acquire(IO.lift(static () => new TopRowButtonLayout()), retain)
-        from cells in toSeq(tiles.Cells).TraverseM(command => CommandRows.Button(command, IconSlot.PanelButton, scope, retain)).As()
+    private static IO<Control> Tiles(ContainerRow.Tiles tiles, RowScope scope) =>
+        from row in use(static () => new TopRowButtonLayout())
+        from cells in toSeq(tiles.Cells).TraverseM(command => CommandRows.Button(command, IconSlot.PanelButton, scope)).As()
         from configured in IO.lift(() => {
             row.ItemPadding = RhinoLayout.Padding(RhinoLayout.PaddingType.ButtonRow);
             _ = cells.Iter(cell => row.Items.Add(cell.Control));

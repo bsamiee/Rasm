@@ -3,7 +3,7 @@
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack, nullcontext
 from enum import auto, Enum
-from functools import reduce
+from functools import partial, reduce
 from operator import or_
 from types import MappingProxyType
 from typing import Final
@@ -21,14 +21,11 @@ from blender.bpy.commands.operators import Answer, Call, Done, Empty, Open, Oper
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import check, Condition, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, written
+from blender.bpy.data.rna.descriptors import Descriptor, rna, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.handlers import FrameHandler, LOAD_POST, PathHandler, SceneHandler, UpdateHandler
-from blender.bpy.extension.events.subscriptions import Subscription
-from blender.bpy.extension.events.timers import Startup
-from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.extension.scoped import Scoped
+from blender.bpy.extension.events import Handler, startup, Subscription, updated
+from blender.bpy.extension.identity import Identity, Key, Resource
+from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.faults import BlenderReason
 from blender.bpy.files.interchange import Importing, Interchange
 from blender.bpy.nodes.changes import made
@@ -36,7 +33,7 @@ from blender.bpy.nodes.graphs import Expr, group_input, NodeGroup
 from blender.bpy.nodes.interface import Interface, item_key, Socket
 from blender.bpy.render.compositor.blending import Entry
 from blender.bpy.render.compositor.effects import CompositorEffect, Context, Derives, EffectName, Enabled, framing, Holds, Marks, Named, Opens, ownerships, Shell
-from blender.bpy.render.compositor.inputs import captured, defaulted, HELD, interface_input, restored
+from blender.bpy.render.compositor.inputs import captured, defaulted, HELD, interface_input, regrouped, restored
 from blender.bpy.render.outputs.framing import FrameSize
 from blender.bpy.render.outputs.results import produced, PRODUCTIONS
 from blender.bpy.scene import cameras
@@ -46,7 +43,6 @@ from blender.bpy.ui.surfaces.menus import Dropdown, Menu, Submenus
 from blender.imaging.color.processors import processor
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
 from blender.records.fields import Case
-from blender.records.trees import Owner, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -137,7 +133,7 @@ class EffectRows[R: Case]:
         return reduce(or_, (row.record for row in self.rows))
 
     @property
-    def prerequisites(self) -> tuple[Registrable, ...]:
+    def prerequisites(self) -> tuple[Declaration, ...]:
         """Frame size attachment camera frame derivation binds, and the cell of scenes under execution."""
         return (FrameSize.attachment, EXECUTING)
 
@@ -554,7 +550,7 @@ class EffectRows[R: Case]:
                     ).map(lambda _: None)
                 )
 
-            def loaded(_path: object) -> Outcome[None]:
+            def loaded() -> Outcome[None]:
                 return accumulated(
                     self.refreshed(identity, scene).bind(lambda _: rendered(scene)).bind(lambda _: accumulated(hold(identity, scene, row) for row in self.held(identity, scene)))
                     for scene in bpy.data.scenes
@@ -564,7 +560,7 @@ class EffectRows[R: Case]:
                 users = bpy.data.user_map(subset=images, value_types={"NODETREE"}) if images else {}
                 defer(Handle.of(scene), tuple(dict.fromkeys(tree.session_uid for tree in (*trees, *(tree for held in users.values() for tree in held)))))
 
-            def updated(scene: bpy.types.Scene, updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> Outcome[None]:
+            def edited(scene: bpy.types.Scene, updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> Outcome[None]:
                 imaged(
                     scene,
                     frozenset(image for update in updates if isinstance(update.id, bpy.types.Image) for image in (update.id.original,) if isinstance(image, bpy.types.Image)),
@@ -595,7 +591,7 @@ class EffectRows[R: Case]:
                     target = bpy.data.colorspace.working_space
                     return stamp.read(scene).map(lambda held: None if held.or_else(previous).default_value(target) == target else later())
 
-                return Startup(body=seeded), UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.ID,), body=checked)
+                return (*startup(seeded), Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.ID,), checked)))
 
             def built(frame: Derives[Case], stamp: Stored[str]) -> Acquisitions:
                 operators = self.operators
@@ -611,10 +607,10 @@ class EffectRows[R: Case]:
                         for row, operator in zip(self.rows, operators.adding)
                         for opens in row.first(Opens).to_list()
                     ),
-                    PathHandler(handlers=LOAD_POST, body=loaded),
-                    SceneHandler(handlers=bpy.app.handlers.render_init, body=invalidated),
-                    UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene, bpy.types.Action, bpy.types.CompositorNodeTree, bpy.types.Image), body=updated),
-                    FrameHandler(handlers=bpy.app.handlers.frame_change_post, body=lambda scene, graph: rendered(scene, Some(graph.scene_eval))),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    Handler(handlers=bpy.app.handlers.load_post, body=loaded),
+                    Handler(handlers=bpy.app.handlers.render_init, body=invalidated),
+                    Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Scene, bpy.types.Action, bpy.types.CompositorNodeTree, bpy.types.Image), edited)),
+                    Handler(handlers=bpy.app.handlers.frame_change_post, body=lambda scene, graph: rendered(scene, Some(graph.scene_eval))),
                     *(
                         Subscription(owner=owner, setting=setting, body=lambda: accumulated(rendered(scene) for scene in bpy.data.scenes).map(lambda _: None))
                         for owner, setting in dict.fromkeys((*frame.reads, *(read for row in self.rows for read in row.reads)))
@@ -661,10 +657,10 @@ def projected[R: Case](
     """Merges sparse recipe entries and order into current ones, keeping locked entries whole and, on the others, the input values and enables at their locked keys."""
 
     def kept(prior: Configured[R], value: Configured[R], keys: frozenset[Key]) -> Configured[R]:
-        owners = {key: owner for key, owner in value.values.tree.owners.items() if key and key not in keys} | {key: owner for key, owner in prior.values.tree.owners.items() if key in keys}
+        owners = {key: owner for key, owner in value.values.tree.rows if key and rna(key) not in keys} | {key: owner for key, owner in prior.values.tree.rows if key and rna(key) in keys}
         return msgspec.structs.replace(
             value,
-            values=msgspec.structs.replace(value.values, tree=Tree(roots=("",), owners={"": Owner(values={}, children=tuple(owners)), **owners})),
+            values=regrouped(value.values, owners),
             render=prior.render if Enabled.RENDER.value.identifier in keys else value.render,
             preview=prior.preview if Enabled.PREVIEW.value.identifier in keys else value.preview,
         )
@@ -714,7 +710,7 @@ def capturing(
 
 NAME: Final = Descriptor.declared(bpy.types.SceneCompositorEffect, "name", bpy.types.StringProperty)
 composites: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, "render.use_compositing", bpy.types.BoolProperty))
-EXECUTING: Final = Scoped[set[int]](made=lambda _identity: nullcontext(set()))
+EXECUTING: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

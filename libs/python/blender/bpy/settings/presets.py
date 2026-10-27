@@ -3,6 +3,7 @@
 from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
 import shutil
+from types import MappingProxyType
 from typing import Annotated
 
 from bl_operators.presets import AddPresetBase
@@ -12,6 +13,7 @@ from expression.extra.result import catch
 import msgspec
 from typing_extensions import TypeForm
 
+from blender.bpy.data.rna.descriptors import Struct
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
@@ -22,7 +24,6 @@ from blender.records.trees import merge, transfer
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type PresetName = Annotated[str, msgspec.Meta(pattern=r"[^\W_]", max_length=64, description="Preset and file name")]
-type Stock[T] = Mapping[str, T | Path]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -32,7 +33,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     key: Key
     form: TypeForm[T]
-    stock: Mapping[str, T] = msgspec.field(default_factory=dict)
+    stock: Mapping[str, T] = MappingProxyType({})
     directory: Option[Path] = Nothing
     admitted: Option[Callable[[T], Outcome[T]]] = Nothing
 
@@ -42,7 +43,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """Returns user preset folder."""
         return self.directory.default_with(lambda: identity.folder / "presets" / self.key)
 
-    def listed(self, identity: Identity) -> Stock[T]:
+    def listed(self, identity: Identity) -> Mapping[str, T | Path]:
         """Returns stock presets in declared order, then user paths by case-folded stem, a user file taking its stock stem's place."""
         users = {path.stem: path for path in self.folder(identity).glob("*.json")}
         added = sorted(users.keys() - self.stock.keys(), key=lambda stem: (stem.casefold(), stem))
@@ -108,7 +109,7 @@ def copied(manager: bpy.types.WindowManager, snapshot: Snapshot) -> None:
     manager.clipboard = msgspec.json.encode(snapshot, order="deterministic").decode()
 
 
-def pasted(manager: bpy.types.WindowManager, owners: "tuple[bpy.types.bpy_struct[object], ...]") -> Outcome[tuple[Applied, ...]]:
+def pasted(manager: bpy.types.WindowManager, owners: tuple[Struct, ...]) -> Outcome[tuple[Applied, ...]]:
     """Applies clipboard snapshot to each owner."""
     return Result[Snapshot, Faults].bind(
         catch(msgspec.json.Decoder(Snapshot).decode, exception=msgspec.DecodeError)(manager.clipboard).map_error(
@@ -126,4 +127,4 @@ def pasted(manager: bpy.types.WindowManager, owners: "tuple[bpy.types.bpy_struct
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Preset", "PresetName", "Stock", "copied", "pasted", "removed"]
+__all__ = ["Preset", "PresetName", "copied", "pasted", "removed"]

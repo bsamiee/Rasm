@@ -25,7 +25,7 @@ public sealed record Quantizer {
         float signed = (2f * draw) - 1f;
         float rectangular = draw - 0.5f;
         return Vector4.Create(rectangular)
-            + (Vector4.Clamp(2f * Vector4.Min(code, Vector4.Create(MaxCode) - code), Vector4.Zero, Vector4.One) * (MathF.CopySign(1f - MathF.Sqrt(1f - MathF.Abs(signed)), signed) - rectangular));
+            + (Vector4.Clamp(2f * Vector4.Min(code, Vector4.Create(MaxCode) - code), Vector4.Zero, Vector4.One) * (float.CopySign(1f - float.Sqrt(1f - float.Abs(signed)), signed) - rectangular));
     }
 
     internal void Coded(ReadOnlySpan<float> values, Span<float> codes) {
@@ -35,11 +35,11 @@ public sealed record Quantizer {
         TensorPrimitives.Truncate(codes, codes);
     }
 
-    internal void Quantize(Span<Vector4> row, long column, long line, Func<long, long, float> draw) {
+    internal void Quantize<T>(Span<Vector4> row, long column, long line) where T : struct, IDraw {
         for (int x = 0; x < row.Length; x++) {
             Vector4 pixel = row[x];
             Vector4 code = MaxCode * pixel;
-            row[x] = Vector4.Create((Round(code + Offset(draw(column + x, line), code)) / MaxCode).AsVector3(), pixel.W);
+            row[x] = Vector4.Create((Round(code + Offset(T.At(column + x, line), code)) / MaxCode).AsVector3(), pixel.W);
         }
     }
 }

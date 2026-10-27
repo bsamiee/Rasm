@@ -5,6 +5,7 @@ import ctypes
 from functools import partial
 import os
 from pathlib import Path
+import shlex
 import signal
 import subprocess
 import sys
@@ -13,8 +14,8 @@ from expression import Ok
 from expression.extra.result import catch
 import msgspec
 
-from blender.records.faults import Fault, Faults, Outcome, paired
-from blender.rendering.batch.processes import ran, refused, spawned
+from blender.records.faults import Fault, Outcome, paired
+from blender.rendering.batch.processes import ran, spawned
 from blender.rendering.batch.progress import Progress
 from blender.rendering.batch.supervision import stop
 from blender.rendering.faults import RenderingReason
@@ -44,14 +45,11 @@ class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
                 state.restype = wintypes.DWORD
 
                 def changed(flags: int) -> Outcome[int]:
-                    return Ok(state(flags)).filter_with(bool, lambda _: (Fault(reason=RenderingReason.SYSTEM, subject=f"{state.__name__}({flags})", cause=WinError(get_last_error())),))
+                    return Ok(state(flags)).filter_with(bool, lambda _: Fault.of(RenderingReason.SYSTEM, f"{state.__name__}({flags})", WinError(get_last_error())))
 
                 return changed(continuous | system).bind(lambda previous: paired(operation(), changed(previous)).map(lambda pair: pair[0]))
 
-            def unloaded(error: OSError) -> Faults:
-                return (Fault(reason=RenderingReason.SYSTEM, subject=f"{WinDLL.__name__}(kernel32)", cause=error),)
-
-            return catch(WinDLL, exception=OSError)("kernel32", use_last_error=True).map_error(unloaded).bind(inhibited)
+            return catch(WinDLL, exception=OSError)("kernel32", use_last_error=True).map_error(partial(Fault.of, RenderingReason.SYSTEM, f"{WinDLL.__name__}(kernel32)")).bind(inhibited)
 
         pid = str(os.getpid())
         argv = (
@@ -61,11 +59,10 @@ class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
         )
 
         def released(holder: subprocess.Popen[bytes]) -> Outcome[None]:
-            terminated: Outcome[None] = catch(holder.terminate, exception=OSError)().map_error(partial(refused, argv))
-            waited: Outcome[int] = catch(holder.wait, exception=OSError)().map_error(partial(refused, argv))
+            unstarted = partial(Fault.of, RenderingReason.UNSTARTED, shlex.join(argv))
             return (
-                paired(terminated, waited)
-                .filter_with(lambda pair: pair[1] in {0, -signal.SIGTERM}, lambda pair: (Fault(reason=RenderingReason.EXITED, subject=" ".join(argv), member=str(pair[1])),))
+                paired(catch(holder.terminate, exception=OSError)().map_error(unstarted), catch(holder.wait, exception=OSError)().map_error(unstarted))
+                .filter_with(lambda pair: pair[1] in {0, -signal.SIGTERM}, lambda pair: Fault.of(RenderingReason.EXITED, shlex.join(argv), member=str(pair[1])))
                 .map(lambda _: None)
             )
 

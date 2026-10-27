@@ -135,7 +135,7 @@ def writer(name: str) -> Option[Format]:
 def sample(selected: Format, depth: Depth) -> Outcome[Depth]:
     """Accepts a depth the writer stores."""
     accepted = selected.depths
-    return Ok(depth) if depth in accepted else Error((Fault(reason=RecordReason.OUTSIDE, subject=selected.name, member=", ".join(member.name for member in accepted), cause=str(depth.name)),))
+    return Ok(depth).filter_with(accepted.__contains__, lambda _: (Fault(reason=RecordReason.OUTSIDE, subject=selected.name, member=", ".join(member.name for member in accepted), cause=depth.name),))
 
 
 def display_space(config: PyOpenColorIO.Config, display: str) -> Outcome[str]:

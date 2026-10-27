@@ -1,10 +1,11 @@
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Rasm.Rhino.Document.Files;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.UI;
 using Rhino;
-using Rasm.Rhino.UI;
 using Rhino.Render;
 
-namespace Rasm.Rhino.Render.Content;
+namespace Rasm.RhinoCommon.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ContentLoad(
@@ -23,22 +24,18 @@ public sealed record SerializerRow(
 public sealed class DefinedContentSerializer : RenderContentSerializer {
     // --- [REGISTRATION]
     private readonly SerializerRow row;
-    private readonly IPlugInSink sink;
+    private readonly IPlugInViews owner;
 
-    private DefinedContentSerializer(SerializerRow row, IPlugInSink sink)
+    private DefinedContentSerializer(SerializerRow row, IPlugInViews owner)
         : base(((string)row.FileExtension)[1..], row.ContentKind, row.Read.IsSome, row.Write.IsSome) =>
-        (this.row, this.sink) = (row, sink);
+        (this.row, this.owner) = (row, owner);
 
-    public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Register(SerializerRow row) =>
-        (sink, _) =>
-            DisposalOps.Within(
-                () => {
-                    DefinedContentSerializer serializer = new(row, sink);
-                    return (Serializer: serializer, Ownership: new Disposal<DefinedContentSerializer>(serializer, static held => Destroy(held)));
-                },
-                held => IO.lift(() => (held.Serializer.RegisterSerializer(sink.PlugIn.Id) ? Fin.Succ(unit) : Error.New($"{nameof(RegisterSerializer)} already holds {held.Serializer.FileExtension}"))
-                    .Map(_ => { held.Ownership.Relinquish(); return unit; })).Uninterruptible(),
-                static held => IO.lift(held.Ownership.Dispose));
+    public static Func<IPlugInViews, IO<Unit>> Register(SerializerRow row) =>
+        owner =>
+            from serializer in IO.lift(() => new DefinedContentSerializer(row, owner))
+            from registered in IO.lift(() => RhinoFault.Unless(serializer.RegisterSerializer(owner.PlugIn.Id)))
+                .Catch(error => IO.lift(() => Destroy(serializer)) >> IO.fail<Unit>(error))
+            select registered;
 
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "Destroy")]
     private static extern void Destroy(RenderContentSerializer serializer);
@@ -49,58 +46,53 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
     // --- [DESCRIPTIONS]
     public override string EnglishDescription => row.EnglishDescription;
 
-    public override string LocalDescription => RowText.Localize(row.EnglishDescription, sink).Local;
+    public override string LocalDescription => RowText.Localize(row.EnglishDescription, owner).Local;
 
     // --- [CALLBACKS]
     public override RenderContent? Read(string pathToFile) =>
-        Callbacks.Answer(
-            row.Read.Map(read => OnFile(pathToFile, FileReason.Unreadable, DisposalOps.Within<IDisposable, RenderContent?>(retain =>
-                read(pathToFile).Bind(source => Contents.FreeFloating(None, source, retain)).Bind(static created => IO.lift(() =>
-                    RuntimeSerialNumber(created.Content) > 0
-                        ? Fin.Succ<RenderContent?>(Adopted(created))
-                        : Error.New($"render content {created.Content.Id} has no runtime serial number")).Uninterruptible()), DisposalOps.Release))),
-            static () => null,
-            static () => null,
-            new CallbackSite(sink, typeof(DefinedContentSerializer), nameof(Read)));
+        owner.Answer(
+            row.Read.Map(read => OnFile(pathToFile, RhinoReason.Unreadable, read(pathToFile).Bind(static source => Contents.Handed(None, source, static created =>
+                IO.lift(() => RhinoFault.Unless(RuntimeSerialNumber(created) > 0).Map(_ => (RenderContent?)Adopted(created)))))))
+                .IfNone(IO.pure<RenderContent?>(value: null)),
+            failed: null);
 
     public override bool Write(string pathToFile, RenderContent renderContent, CreatePreviewEventArgs? previewArgs) =>
-        Callbacks.Succeeded(
-            row.Write.Map(write => OnFile(pathToFile, FileReason.Unwritable, write(pathToFile, renderContent, Optional(previewArgs)))),
-            static () => false,
-            new CallbackSite(sink, typeof(DefinedContentSerializer), nameof(Write)));
+        owner.Answer(
+            row.Write.Map(write => OnFile(pathToFile, RhinoReason.Unwritable, write(pathToFile, renderContent, Optional(previewArgs))).Map(value: true)).IfNone(IO.pure(value: false)),
+            failed: false);
 
     public override bool CanLoadMultiple() => row.LoadMultiple.IsSome;
 
     public override bool LoadMultiple(RhinoDoc? doc, IEnumerable<string> fileNames, RenderContentKind contentKind, LoadMultipleFlags flags) =>
-        Callbacks.Succeeded(
-            from load in row.LoadMultiple
-            select Callbacks.Each(toSeq(fileNames).Map(path => OnFile(path, FileReason.Unreadable, Loaded(load, Optional(doc), contentKind, flags, path)))).Map(unit),
-            static () => false,
-            new CallbackSite(sink, typeof(DefinedContentSerializer), nameof(LoadMultiple)));
+        owner.Answer(
+            row.LoadMultiple.Map(load => Callbacks.Each(toSeq(fileNames).Map(path => OnFile(path, RhinoReason.Unreadable, Loaded(load, Optional(doc), contentKind, flags, path)))).Map(value: true))
+                .IfNone(IO.pure(value: false)),
+            failed: false);
 
     // --- [STEPS]
     private IO<Unit> Loaded(ContentLoad load, Option<RhinoDoc> document, RenderContentKind kind, LoadMultipleFlags flags, string path) =>
         flags switch {
             LoadMultipleFlags.Normal =>
                 from sources in load.Normal(document, kind, path)
-                from _ in Callbacks.Each(sources.Map(source => Reported(document, source, content => ReportContentAndFile(content, path, 0))))
+                from reported in Callbacks.Each(sources.Map(source => Reported(document, source, content => ReportContentAndFile(content, path, 0))))
                 select unit,
             LoadMultipleFlags.Preload =>
                 from source in load.Preload(path)
-                from _ in Reported(document, source, content => ReportDeferredContentAndFile(content, path, 0))
+                from reported in Reported(document, source, content => ReportDeferredContentAndFile(content, path, 0))
                 select unit,
         };
 
     private static IO<Unit> Reported(Option<RhinoDoc> document, ContentSource source, Action<RenderContent> report) =>
-        DisposalOps.Within<IDisposable, Unit>(retain => Contents.FreeFloating(document, source, retain).Bind(created =>
-            IO.lift(() => { report(created.Content); _ = Adopted(created); }).Uninterruptible()), DisposalOps.Release);
+        Contents.Handed(document, source, created => IO.lift(() => {
+            report(created);
+            _ = Adopted(created);
+        }));
 
-    private static RenderContent Adopted((RenderContent Content, Disposal<RenderContent> Ownership) created) {
-        Contents.AutoDelete(created.Content, autoDelete: false);
-        created.Ownership.Relinquish();
-        return created.Content;
+    private static RenderContent Adopted(RenderContent content) {
+        Contents.AutoDelete(content, autoDelete: false);
+        return content;
     }
 
-    private static IO<T> OnFile<T>(string path, FileReason reason, IO<T> run) =>
-        run.MapFail(error => new FileRefused(path, reason, error));
+    private static IO<T> OnFile<T>(string path, RhinoReason reason, IO<T> run) =>
+        run.MapFail(error => new RhinoFault(path, reason, Inner: error));
 }

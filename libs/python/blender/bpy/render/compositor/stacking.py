@@ -26,10 +26,9 @@ from blender.bpy.data.ids.ownership import committed, Mark, Ownership, Saved
 from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, root_in, rooted, Struct, subclass, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
-from blender.bpy.extension.events.subscriptions import Subscription
+from blender.bpy.extension.events import Handler, Subscription
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Registrable
+from blender.bpy.extension.registration import Acquisitions, Declaration, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import Changes, owned, reconciled
 from blender.bpy.nodes.graphs import Graph, lowered, NodeGroup
@@ -539,7 +538,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
     def add_media(self, call: Call[Empty]) -> Outcome[Answer]:
         """Add image or movie files."""
         images = accumulated(loaded(str(path), Tag()) for path in call.paths)
-        return images.bind(lambda found: accumulated(self.added_node(call.context, bpy.types.CompositorNodeImage, functools.partial(written, identifier="image", value=image)) for image in found)).map(
+        return images.bind(lambda found: accumulated(self.added_node(call.context, bpy.types.CompositorNodeImage, functools.partial(written, path=("image",), value=image)) for image in found)).map(
             lambda _: Done()
         )
 
@@ -1199,8 +1198,8 @@ class LayerStacks[M: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
                     definition.keywords["items"] = stack_rows
                 Copied.__annotations__["layer"].keywords["items"] = layer_rows
                 subscriptions = (*stacking.framing.reads, *((owner, owner.bl_rna.properties[name]) for owner, name in watched))
-                handlers: tuple[Registrable, ...] = (
-                    PathHandler(handlers=LOAD_POST, body=lambda _: updated_scenes()),
+                handlers: tuple[Declaration, ...] = (
+                    Handler(handlers=bpy.app.handlers.load_post, body=updated_scenes),
                     *(Subscription(owner=owner, setting=prop, body=updated_scenes) for owner, prop in subscriptions),
                 )
                 return (OWNERSHIP, self.adding, self.effecting, self.specials, *self.commands, *stacking.listings, stacking.listing, *handlers)

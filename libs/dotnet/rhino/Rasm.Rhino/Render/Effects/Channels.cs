@@ -3,7 +3,7 @@ using System.Drawing;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 
-namespace Rasm.Rhino.Render.Effects;
+namespace Rasm.RhinoCommon.Render.Effects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<int>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -27,16 +27,13 @@ public static class Channels {
     // --- [PIXELS]
     public static Fin<float[]> Read(RenderWindow.Channel cpu, Rectangle rect) =>
         from layout in Fin.Succ(ChannelLayout.Get(cpu.PixelSize()))
-        from stride in Refused.Unless(
-            rect is { X: >= 0, Y: >= 0, Width: > 0, Height: > 0 } && rect.Right <= cpu.Width && rect.Bottom <= cpu.Height && (long)rect.Width * layout.Key <= int.MaxValue,
-            rect.Width * layout.Key, nameof(RenderWindow.Channel.GetValues))
-        select Widened(cpu, rect, layout, stride);
+        from bounded in RhinoFault.Unless(
+            rect is { X: >= 0, Y: >= 0, Width: > 0, Height: > 0 } && rect.Right <= cpu.Width && rect.Bottom <= cpu.Height && (long)rect.Width * layout.Key <= int.MaxValue)
+        select Widened(cpu, rect, layout, rect.Width * layout.Key);
 
     public static Fin<Unit> Put(RenderWindow.Channel cpu, Rectangle rect, ReadOnlyMemory<float> rgba) =>
-        Refused.UnlessValid(
-                rgba.Length == 4L * rect.Width * rect.Height && rect is { X: >= 0, Y: >= 0 } && rect.Right <= cpu.Width && rect.Bottom <= cpu.Height,
-                rgba, nameof(RenderWindow.Channel.SetValues))
-            .Map(held => Pinned(cpu, rect, held));
+        RhinoFault.Unless(rgba.Length == 4L * rect.Width * rect.Height && rect is { X: >= 0, Y: >= 0 } && rect.Right <= cpu.Width && rect.Bottom <= cpu.Height)
+            .Map(_ => Pinned(cpu, rect, rgba));
 
     internal static void Widen(float[] block, int components, int stride, int pixels) {
         for (int pixel = pixels - 1; components < 4 && pixel >= 0; pixel--) {
@@ -70,10 +67,11 @@ public static class Channels {
             select committed);
 
     public static IO<Option<T>> Probed<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
-        DisposalOps.Within(() => Optional(open(channel)),
-            found => found.Traverse(opened => IO.lift(() => Refused.UnlessFound(opened.CPU(), nameof(PostEffectChannel.CPU))).Bind(cpu => body(opened, cpu))).As(),
-            static found => DisposalOps.Release(found.ToSeq()));
+        unitIO.Bind(_ => Products.Held(open(channel))).Bind(found => found.Traverse(opened => Mapped(opened, body)).As()).Bracket();
 
     public static IO<T> Opened<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
-        Probed(open, channel, body).Bind(found => IO.lift(found.ToFin(new Refused(open.Method.Name, Refused.Absent))));
+        unitIO.Bind(_ => Products.Made(open(channel))).Bind(opened => Mapped(opened, body)).Bracket();
+
+    private static IO<T> Mapped<T>(PostEffectChannel opened, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
+        IO.lift(() => Conversions.Found(opened.CPU())).Bind(cpu => body(opened, cpu));
 }

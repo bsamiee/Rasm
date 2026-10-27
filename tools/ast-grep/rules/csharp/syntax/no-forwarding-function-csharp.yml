@@ -15,6 +15,9 @@ utils:
                         - has: {field: name, pattern: $TRAIT_OWNER}
                         - not: {has: {kind: type_parameter_list}}
                         - has: {kind: base_list, has: {kind: generic_name, has: {kind: type_argument_list, has: {kind: identifier, pattern: $TRAIT_OWNER}}}}
+            - any:
+                - has: {field: returns, has: {stopBy: end, kind: identifier, pattern: $TRAIT_OWNER}}
+                - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $TRAIT_OWNER}}
     plain-parameter:
         kind: parameter
         not:
@@ -255,5 +258,5 @@ rule:
                                         - matches: thunk
                                           has: {field: body, kind: invocation_expression, has: {field: function, matches: boundary-callee}}
                                         - matches: boundary-callee
-message: '`$NAME` forwards its parameters unchanged to `$CALLEE`'
-note: 'Delete the member and call `<callee>` at each use, through `IO.lift(<receiver>.<member>)` in an effect, `fun(<action>)` for an `Action` value'
+message: '`$NAME` forwards its parameters unchanged to `$CALLEE`, delete it and call `$CALLEE` at each use'
+note: 'Call it through `IO.lift(<receiver>.<member>)` in an effect, `fun(<action>)` for an `Action` value; overrides, interface and trait members stay'

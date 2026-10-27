@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -45,7 +46,7 @@ public sealed class PlugInSession(Seq<Action<ILoggingBuilder>> logging) {
     // --- [STATE]
     private static readonly Action<ILoggingBuilder> Window = static builder => builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, CommandWindowLoggerProvider>());
 
-    private readonly EnvIO environment = EnvIO.New();
+    private readonly EnvIO environment = EnvIO.New(token: CancellationToken.None);
     private readonly ILoggerFactory loggers = LoggerFactory.Create(builder => (Window + logging).Iter(row => row(builder)));
     private readonly AtomHashMap<object, object> slots = AtomHashMap<object, object>();
 
@@ -53,7 +54,7 @@ public sealed class PlugInSession(Seq<Action<ILoggingBuilder>> logging) {
     public IO<T> Held<T>(IO<T> effect) => effect.Under(environment);
 
     public IO<Unit> Open<TOwner>(TOwner owner, Seq<Func<TOwner, IO<Unit>>> rows) =>
-        Held(rows.TraverseM(row => row(owner)).As().Map(unit)).Catch(error => IO.lift(environment.DisposeResources) >> IO.fail<Unit>(error));
+        Held(rows.TraverseM(row => row(owner)).As().Map(unit)).Catch(error => IO.lift(environment.DisposeResources) >> IO.fail<Unit>(error)).As();
 
     public IO<Unit> Close => Callbacks.Drained >> IO.lift(environment.Dispose) >> IO.lift(loggers.Dispose);
 
@@ -93,7 +94,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
                 _ => inherited,
             });
 
-    public IO<bool> DisplayHelp => definition.Help.Map(static topic => topic.Show.Map(value: true)).IfNone(IO.pure(false));
+    public IO<bool> DisplayHelp => definition.Help.Map(static topic => topic.Show.Map(value: true)).IfNone(IO.pure(value: false));
 
     // --- [LOAD]
     public LoadReturnCode Load<TPlugIn>(
@@ -105,7 +106,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
                 .Catch(ErrorOps.Cancellation, static _ => IO.pure((LoadReturnCode.ErrorNoDialog, "")))
                 .Catch(error => IO.lift(() => PlugInLog.Of(plugIn).Failed(error, plugIn.GetType(), member)).Map(_ => (LoadReturnCode.ErrorShowDialog, ErrorOps.Messages(error))))
                 .As(),
-            (LoadReturnCode.ErrorShowDialog, ""),
+            failed: (LoadReturnCode.ErrorShowDialog, ""),
             member);
         return code;
     }
@@ -136,7 +137,8 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class PlugInOwners {
-    internal static Fin<IPlugInViews> Owner(Type type) => Conversions.Cast<IPlugInViews>(PlugIn.Find(type.Assembly));
+    internal static IPlugInViews Owner(Type type) =>
+        PlugIn.Find(type.Assembly) as IPlugInViews ?? throw new UnreachableException($"{type.FullName} belongs to no defined plug-in");
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

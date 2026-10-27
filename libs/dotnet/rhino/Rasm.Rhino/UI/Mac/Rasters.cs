@@ -1,4 +1,3 @@
-using AppKit;
 using CoreAnimation;
 using CoreGraphics;
 using Eto.Drawing;
@@ -6,16 +5,16 @@ using Eto.Forms;
 using Eto.Mac.Forms;
 using SkiaSharp;
 
-namespace Rasm.Rhino.UI.Mac;
+namespace Rasm.RhinoCommon.UI.Mac;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class DrawnRasters {
     internal static Fin<Unit> Present(Control view, Graphics graphics, SKImage frame, RectangleF destination) =>
-        (from host in Refused.UnlessFound(view.GetContainerView(), nameof(MacControlExtensions.GetContainerView))
-         from layer in Refused.UnlessFound(host.Layer, nameof(NSView.Layer))
+        (from host in Conversions.Found(view.GetContainerView())
+         from layer in Conversions.Found(host.Layer)
          from context in Conversions.Cast<CGContext>(graphics.ControlObject)
-         from pixels in Refused.UnlessFound(frame.PeekPixels(), nameof(SKImage.PeekPixels))
-         from space in Refused.UnlessFound(CGColorSpace.CreateWithName(CGColorSpaceNames.ExtendedLinearSrgb), nameof(CGColorSpace.CreateWithName))
+         from pixels in Conversions.Found(frame.PeekPixels())
+         from space in Conversions.Found(CGColorSpace.CreateWithName(CGColorSpaceNames.ExtendedLinearSrgb))
          select (Layer: layer, Context: context, Pixels: pixels, Space: space))
         .MapFail(error => {
             frame.Dispose();

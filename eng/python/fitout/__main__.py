@@ -1,23 +1,29 @@
 """Packs and installs Blender extensions, syncs their wheels into Blender import folder, and runs Blender in fresh user bases."""
 
+lazy import subprocess
 lazy import sys
 
 from cyclopts import App
 lazy from expression import Result
 
-lazy from eng.python.fitout.faults import Faults
+lazy from eng.python.fitout.faults import Fault, Faults
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _reported(result: Result[int, Faults]) -> int:
-    """Returns exit status, a lone fault's status or 1 for several, writing each fault to stderr."""
-    match result.tag:
-        case "ok":
-            return result.ok
-        case "error":
-            sys.stderr.writelines(f"{fault.message}\n" for fault in result.error)
-            return result.error[0].status if len(result.error) == 1 else 1
+def _reported(result: Result[int, Faults] | None) -> int:
+    """Returns zero, a command's exit status, a lone failed child process's status, or 1 for other faults, writing each fault to stderr."""
+    match result:
+        case None:
+            return 0
+        case Result(tag="ok", ok=status):
+            return status
+        case Result(error=(Fault(cause=subprocess.CalledProcessError(returncode=status)) as fault,)):
+            sys.stderr.write(f"{fault.message}\n")
+            return status
+        case Result(error=faults):
+            sys.stderr.writelines(f"{fault.message}\n" for fault in faults)
+            return 1
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

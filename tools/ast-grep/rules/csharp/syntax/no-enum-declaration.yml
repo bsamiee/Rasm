@@ -24,5 +24,5 @@ rule:
         - has: {field: name, pattern: $NAME}
         - not: {matches: {csharp-attributed: {name: {regex: '^Flags(Attribute)?$'}}}}
         - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: native-signature}}}
-message: '`$NAME` is a plain enum'
-note: 'Declare a `[SmartEnum]` with item data or a `[Union]` of records, `[Flags]` and interop enums stay'
+message: '`$NAME` is a plain enum, declare a record union for shape-differing cases or a data-holding smart enum'
+note: 'Cases that differ in shape are a `[Union]` of records, same-shape items holding data a consumer reads a `[SmartEnum]`, `[Flags]` and interop enums stay'

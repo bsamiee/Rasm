@@ -4,19 +4,20 @@ using Eto.Drawing;
 using Eto.Forms;
 using Eto.Mac.Forms;
 using Eto.Mac.Forms.Controls;
-using Rasm.Rhino.UI.Numeric;
-using Rasm.Rhino.UI.Styling;
-using Rasm.Rhino.UI.Surfaces;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI.Numeric;
+using Rasm.RhinoCommon.UI.Styling;
+using Rasm.RhinoCommon.UI.Surfaces;
 using Rasm.UI;
 using SkiaSharp;
 
-[assembly: ExportInitializer(typeof(Rasm.Rhino.UI.Mac.AppKitInitializer), PlatformID = "macOS")]
+[assembly: ExportInitializer(typeof(Rasm.RhinoCommon.UI.Mac.AppKitInitializer), PlatformID = "macOS")]
 
-namespace Rasm.Rhino.UI.Mac;
+namespace Rasm.RhinoCommon.UI.Mac;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class AppKitPlatform : IDrawnPlatform {
-    private static Fin<NSEvent> Current => Refused.UnlessFound(NSApplication.SharedApplication.CurrentEvent, nameof(NSApplication.CurrentEvent));
+    private static Fin<NSEvent> Current => Conversions.Found(NSApplication.SharedApplication.CurrentEvent);
 
     public Fin<Duration> EventTime => Current.Map(static current => Duration.FromSeconds(current.Timestamp));
 
@@ -26,13 +27,13 @@ internal sealed class AppKitPlatform : IDrawnPlatform {
 
     public Fin<float> PointerTravel(PointF at, PointF last) => Current.Map(static current => (float)current.DeltaX);
 
-    public IO<Func<bool, IO<Unit>>> FrameLink(Control view, Func<Duration, IO<Unit>> tick, IPlugInSink sink, Action<IDisposable> retain) => DisplayLinks.Of(view, tick, sink, retain);
+    public IO<Func<bool, IO<Unit>>> FrameLink(Control view, Func<Duration, IO<Unit>> tick, IPlugInLifetime owner) => DisplayLinks.Of(view, tick, owner);
 
     public IO<Unit> SlotSeated(Control slot, Option<string> label) => NativeControls.Seated(slot, label);
 
-    public IO<Func<Mount, Output, IO<Unit>>> NativeScene(SceneView view, Action<IDisposable> retain) => DrawnViews.Projection(view, retain);
+    public IO<Func<Mount, Output, IO<Unit>>> NativeScene(SceneView view) => DrawnViews.Projection(view);
 
-    public IO<OpaqueTarget> OpaqueTargets(IPlugInSink owner, Action<IDisposable> retain) => Metal.Targets(owner, retain);
+    public IO<OpaqueTarget> OpaqueTargets(IPlugInLifetime owner) => Metal.Targets(owner);
 
     public Fin<Unit> ExtendedPresent(Control view, Graphics graphics, SKImage frame, RectangleF destination) => DrawnRasters.Present(view, graphics, frame, destination);
 }

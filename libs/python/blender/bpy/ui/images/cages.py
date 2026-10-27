@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from enum import auto, Enum
+from functools import partial
 import math
 from typing import Final
 
@@ -29,10 +30,10 @@ from blender.records.faults import Fault, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Outline = Aligned | Free
+type _Outline = Aligned | Free
 
 
-class Transform(Enum):
+class _Transform(Enum):
     """Whole-quad handles beside the corner handles."""
 
     TRANSLATE = auto()
@@ -70,7 +71,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
 
     key: Key
     access: Callable[[bpy.types.Context], Outcome[Option[Access]]]
-    shape: Outline = Aligned()
+    shape: _Outline = Aligned()
     kinds: tuple[str, ...] = ("RENDER_RESULT",)
     refreshes: tuple[Refresh, ...] = ()
 
@@ -93,44 +94,26 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
 
     def cage(self, identity: Identity, aligned: Aligned) -> Cage:
         """Returns a cage over the region rectangle in frame pixels."""
+        held = identity.reports.reported(self.held)
 
         def matrix(access: Access, frame: Rect) -> MatrixValues:
             held = Region.bounding(access.quad.samples)
             across, up = (held.right - held.left) * frame.width, (held.top - held.bottom) * frame.height
             return (across, 0.0, 0.0, 0.0, 0.0, up, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, (held.left + held.right) / 2.0 * frame.width, (held.bottom + held.top) / 2.0 * frame.height, 0.0, 1.0)
 
-        def place(context: bpy.types.Context) -> Outcome[Option[Matrix]]:
-            return self.held(context).map(lambda found: found.map(lambda pair: Matrix.Translation((pair[1].x, pair[1].y, 0.0))))
-
-        def get(context: bpy.types.Context) -> MatrixValues:
-            return (
-                identity.reports
-                .reported(self.held)(context)
-                .bind(lambda found: found)
-                .map(lambda pair: matrix(*pair))
-                .default_with(lambda: msgspec.convert(np.eye(4).ravel().tolist(), type=MatrixValues))
-            )
-
-        def wrote(context: bpy.types.Context, values: MatrixValues) -> Outcome[None]:
-            def written(access: Access, frame: Rect) -> Outcome[None]:
-                size = np.array((frame.width, frame.height))
-                center, half = np.array((values[12], values[13])) / size, np.abs((values[0], values[5])) / 2.0 / size
-                held = access.quad.samples[:, :2]
-                moved = np.allclose(half * 2.0 * size, (held.max(axis=0) - held.min(axis=0)) * size, atol=0.5)
-
-                def bounded(region: Region) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-                    floor, ceiling = np.array((region.left, region.bottom)), np.array((region.right, region.top))
-                    kept = np.minimum(half, (ceiling - floor) / 2.0)
-                    shifted = np.clip(center, floor + kept, ceiling - kept)
-                    return (shifted - kept, shifted + kept) if moved else (np.clip(center - half, floor, ceiling), np.clip(center + half, floor, ceiling))
-
-                return access.write(Quad.of_region(Region.bounding(np.stack(aligned.bounds.map(bounded).default_value((center - half, center + half))))))
-
-            return self.pressed(context).bind(lambda pair: written(*pair))
+        def written(values: MatrixValues, access: Access, frame: Rect) -> Outcome[None]:
+            size = np.array((frame.width, frame.height))
+            center, half = np.array((values[12], values[13])) / size, np.abs((values[0], values[5])) / 2.0 / size
+            held = access.quad.samples[:, :2]
+            moved = np.allclose(half * 2.0 * size, (held.max(axis=0) - held.min(axis=0)) * size, atol=0.5)
+            return access.write(Quad.of_region(Region.bounding(np.stack(aligned.bounds.map(partial(_bounded, center, half, moved=moved)).default_value((center - half, center + half))))))
 
         return Cage(
-            place=place,
-            bind=Handler(get=get, set=wrote),
+            place=lambda context: self.held(context).map(lambda found: found.map(lambda pair: Matrix.Translation((pair[1].x, pair[1].y, 0.0)))),
+            bind=Handler[MatrixValues](
+                get=lambda context: held(context).bind(lambda found: found.map(lambda pair: matrix(*pair))).default_with(lambda: msgspec.convert(np.eye(4).ravel().tolist(), type=MatrixValues)),
+                set=lambda context, values: self.pressed(context).bind(lambda pair: written(values, *pair)),
+            ),
             dimensions=(1.0, 1.0),
             transform=frozenset({"TRANSLATE", "SCALE_UNIFORM"} if aligned.locked else {"TRANSLATE", "SCALE"}),
             draw_style="BOX",
@@ -139,61 +122,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
 
     def moves(self, shown: Setting) -> tuple[Registrable, ...]:
         """Returns each free handle's drag operator, the handle group, then the quad outline."""
-        corners = len(Quad().corners)
-
-        def reach() -> float:
-            metrics = Metrics.read()
-            return 2.0 * HANDLE * metrics.scale * metrics.preferences.view.gizmo_size
-
-        def handle(part: int | Transform, order: int) -> tuple[Operator[Empty, tuple[Access, Rect]], Move]:
-            def point(quad: Quad, frame: Rect) -> npt.NDArray[np.float64]:
-                samples = quad.samples[:, :2] * (frame.width, frame.height) + (frame.x, frame.y)
-                match part:
-                    case int(index):
-                        return samples[index, :]
-                    case Transform.TRANSLATE:
-                        return samples.mean(axis=0)
-                    case Transform.ROTATE:
-                        return np.add(samples.mean(axis=0), (0.0, reach()))
-                    case Transform.SCALE:
-                        return np.add(samples.mean(axis=0), (reach(), 0.0))
-
-            def place(context: bpy.types.Context) -> Outcome[Option[Matrix]]:
-                return self.held(context).map(lambda found: found.map(lambda pair: Matrix.Translation((*point(pair[0].quad, pair[1]), 0.0))))
-
-            def preview(_context: bpy.types.Context, state: tuple[Access, Rect], travel: Travel) -> Outcome[Option[str]]:
-                held, frame = state
-                pixels = held.quad.samples[:, :2] * (frame.width, frame.height)
-                delta = np.array((travel.dx, travel.dy), dtype=np.float64) * (0.1 if travel.precise else 1.0)
-                center, arm = pixels.mean(axis=0), reach()
-                match part:
-                    case Transform.TRANSLATE:
-                        changed = pixels + delta
-                    case Transform.ROTATE:
-                        angle = math.atan2(-delta[0], arm + delta[1])
-                        cosine, sine = math.cos(angle), math.sin(angle)
-                        changed = (pixels - center) @ np.array(((cosine, sine), (-sine, cosine))) + center
-                    case Transform.SCALE:
-                        changed = (pixels - center) * math.hypot(arm + delta[0], delta[1]) / arm + center
-                    case int(index):
-                        changed = pixels + np.where((np.arange(corners) == index)[:, None], delta, 0.0)
-                return held.write(Quad.of(changed / (frame.width, frame.height))).map(lambda _: Nothing)
-
-            def dragged(_call: Call[Empty]) -> Outcome[Answer]:
-                """Drags a region handle, Shift for tenth speed, Escape restoring it."""
-                return Ok(Done())
-
-            dragged.__name__ = dragged.__qualname__ = f"{self.key}_{order}"
-            command = Operator[Empty, tuple[Access, Rect]](
-                form=Empty,
-                run=dragged,
-                invoke=Some(Modal(gesture=Gesture.DRAG, begin=lambda context, _travel: self.pressed(context), preview=preview, restore=lambda _context, state: state[0].write(state[0].quad))),
-                condition=Some(shown),
-                internal=True,
-            )
-            return command, Move(place=place, bind=command, scale_basis=HANDLE, draw_style="CROSS_2D" if isinstance(part, int) else "RING_2D")
-
-        pairs = tuple(handle(part, order) for order, part in enumerate((*range(corners), *Transform)))
+        pairs = tuple(self.handle(shown, part, order) for order, part in enumerate((*range(len(Quad().corners)), *_Transform)))
         moves = tuple(move for _, move in pairs)
         return (
             *(command for command, _ in pairs),
@@ -201,7 +130,71 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
             overlaid(Edges(quad=lambda context: self.access(context).map(lambda found: found.map(lambda access: access.quad)), role=moves[0].role), shown, self.refreshes),
         )
 
+    def handle(self, shown: Setting, part: int | _Transform, order: int) -> tuple[Operator[Empty, tuple[Access, Rect]], Move]:
+        """Returns one handle's drag operator and the move part it binds."""
+
+        def point(access: Access, frame: Rect) -> Matrix:
+            samples = access.quad.samples[:, :2] * (frame.width, frame.height) + (frame.x, frame.y)
+            reach = _reach()
+            offsets = {_Transform.TRANSLATE: (0.0, 0.0), _Transform.ROTATE: (0.0, reach), _Transform.SCALE: (reach, 0.0)}
+            return Matrix.Translation((*(samples[part, :] if isinstance(part, int) else samples.mean(axis=0) + offsets[part]), 0.0))
+
+        def dragged(_call: Call[Empty]) -> Outcome[Answer]:
+            """Drags a region handle, Shift for tenth speed, Escape restoring it."""
+            return Ok(Done())
+
+        dragged.__name__ = dragged.__qualname__ = f"{self.key}_{order}"
+        command = Operator[Empty, tuple[Access, Rect]](
+            form=Empty,
+            run=dragged,
+            invoke=Some(
+                Modal(gesture=Gesture.DRAG, begin=lambda context, _travel: self.pressed(context), preview=partial(_previewed, part), restore=lambda _context, state: state[0].write(state[0].quad))
+            ),
+            condition=Some(shown),
+            internal=True,
+        )
+        return command, Move(
+            place=lambda context: self.held(context).map(lambda found: found.map(lambda pair: point(*pair))),
+            bind=command,
+            scale_basis=HANDLE,
+            draw_style="CROSS_2D" if isinstance(part, int) else "RING_2D",
+        )
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _reach() -> float:
+    metrics = Metrics.read()
+    return 2.0 * HANDLE * metrics.scale * metrics.preferences.view.gizmo_size
+
+
+def _bounded(center: npt.NDArray[np.float64], half: npt.NDArray[np.float64], region: Region, *, moved: bool) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    floor, ceiling = np.array((region.left, region.bottom)), np.array((region.right, region.top))
+    kept = np.minimum(half, (ceiling - floor) / 2.0)
+    shifted = np.clip(center, floor + kept, ceiling - kept)
+    return (shifted - kept, shifted + kept) if moved else (np.clip(center - half, floor, ceiling), np.clip(center + half, floor, ceiling))
+
+
+def _previewed(part: int | _Transform, _context: bpy.types.Context, state: tuple[Access, Rect], travel: Travel) -> Outcome[Option[str]]:
+    held, frame = state
+    pixels = held.quad.samples[:, :2] * (frame.width, frame.height)
+    delta = np.array((travel.dx, travel.dy), dtype=np.float64) * (0.1 if travel.precise else 1.0)
+    center, arm = pixels.mean(axis=0), _reach()
+    match part:
+        case _Transform.TRANSLATE:
+            changed = pixels + delta
+        case _Transform.ROTATE:
+            angle = math.atan2(-delta[0], arm + delta[1])
+            cosine, sine = math.cos(angle), math.sin(angle)
+            changed = (pixels - center) @ np.array(((cosine, sine), (-sine, cosine))) + center
+        case _Transform.SCALE:
+            changed = (pixels - center) * math.hypot(arm + delta[0], delta[1]) / arm + center
+        case int(index):
+            changed = pixels + np.where((np.arange(len(pixels)) == index)[:, None], delta, 0.0)
+    return held.write(Quad.of(changed / (frame.width, frame.height))).map(lambda _: Nothing)
+
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["HANDLE", "Access", "Aligned", "FrameRegion", "Free", "Outline", "Transform"]
+__all__ = ["HANDLE", "Access", "Aligned", "FrameRegion", "Free"]

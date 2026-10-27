@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Rhino.Commands;
@@ -46,24 +45,4 @@ public sealed record RhinoFault(string Subject, RhinoReason Reason, Option<int> 
 
     public static Fin<Unit> Unless(bool accepted, Option<int> index = default, [CallerArgumentExpression(nameof(accepted))] string call = "") =>
         accepted ? unit : new RhinoFault(call, RhinoReason.Declined, index);
-
-    public static Fin<T> Found<T>(T? value, Option<int> index = default, [CallerArgumentExpression(nameof(value))] string call = "") where T : class =>
-        value is { } held ? held : new RhinoFault(call, RhinoReason.Absent, index);
-
-    public static Fin<T> Found<T>(T? value, Option<int> index = default, [CallerArgumentExpression(nameof(value))] string call = "") where T : struct =>
-        value is { } held ? held : new RhinoFault(call, RhinoReason.Absent, index);
-
-    public static Fin<T> Found<T>(Option<T> value, Option<int> index = default, [CallerArgumentExpression(nameof(value))] string call = "") =>
-        value.ToFin(new RhinoFault(call, RhinoReason.Absent, index));
-
-    public static Fin<Unit> Unreported(string? report, [CallerArgumentExpression(nameof(report))] string call = "") =>
-        string.IsNullOrEmpty(report) ? unit : new RhinoFault(call, RhinoReason.Declined, Inner: Error.New(report));
-
-    public static Fin<Seq<TRow>> Unique<TRow, TKey>(Seq<TRow> rows, Func<TRow, TKey> key, IEqualityComparer<TKey>? comparer = null, [CallerArgumentExpression(nameof(rows))] string call = "")
-        where TKey : notnull =>
-        toSeq(rows.CountBy(key, comparer))
-            .Filter(static counted => counted.Value > 1)
-            .Traverse(counted => Fin.Fail<Unit>(new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{counted.Key} in {call}"), RhinoReason.Repeated)))
-            .As()
-            .Map(_ => rows);
 }

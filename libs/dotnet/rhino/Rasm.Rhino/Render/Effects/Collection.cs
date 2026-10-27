@@ -1,19 +1,19 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.Render.Sessions;
-using Rasm.Rhino.Render.Settings;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.Render.Sessions;
+using Rasm.RhinoCommon.Render.Settings;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
 
-namespace Rasm.Rhino.Render.Effects;
+namespace Rasm.RhinoCommon.Render.Effects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -22,8 +22,7 @@ public abstract partial record EffectSource {
         Switch(
             document: static held => ValueStores.Signal(EventKind.DocumentPropertiesChanged.In(held.Doc.RuntimeSerialNumber), static _ => true),
             section: static held => ValueStores.Signal(
-                Subscriptions.Host<global::Rhino.UI.Controls.DataSource.EventArgs>(
-                    typeof(EtoCollapsibleSection), handler => held.Host.DataChanged += handler, handler => held.Host.DataChanged -= handler, nameof(EtoCollapsibleSection.DataChanged)),
+                Subscriptions.Host<Rhino.UI.Controls.DataSource.EventArgs>(handler => held.Host.DataChanged += handler, handler => held.Host.DataChanged -= handler),
                 static args => args.DataType == ProviderIds.RdkRenderingPostEffects));
 
     public sealed record Document(RhinoDoc Doc) : EffectSource;
@@ -104,19 +103,19 @@ public static class EffectList {
                     Some: data => Recalled(Stored(data), wanted.Default),
                     None: () => IO.pure(wanted.Default)))),
             section: static (wanted, held) => Hosted(held.Host)
-                .Bind(effects => IO.lift(effects.Find(effect => effect.Id == wanted.Id).ToFin(new NotFound("post effect", $"{wanted.Id}"))))
+                .Bind(effects => IO.lift(effects.Find(effect => effect.Id == wanted.Id).ToFin(Missing(wanted.Id))))
                 .Bind(effect => Recalled(Parameter(effect), wanted.Default)));
 
     public static Fin<TState> State<TState>(Rimage image, Guid effect, TState @default) where TState : notnull =>
         image.State.Find(effect).Bind(static fields => fields.Find(StateKey)).Match(Some: Decoded<TState>, None: () => @default);
 
-    public static IO<Unit> Tune(EffectSource source, Seq<EffectRequest.Tuning> tunings) =>
+    public static IO<Unit> Tune(EffectSource source, Seq<EffectRequest.Tuning> tunings, object owner) =>
         source.Switch(
-            tunings,
-            document: static (requests, held) => RenderSettingsSources.Edit(held.Doc, scope => Apply(scope.Settings, requests.Map(static request => (EffectRequest)request))),
-            section: static (requests, held) => SectionModels.Write(held.Host, Provider.RdkRenderingPostEffects, data => IO.lift(() => Listed(data) switch {
-                var effects => Callbacks.Each(requests, (request, _) => effects.Find(effect => effect.Id == request.Id).ToFin(new NotFound("post effect", $"{request.Id}"))
-                    .Bind(effect => Refused.Unless(effect.SetParam(request.Key, request.Value), nameof(PostEffect.SetParam)))),
+            (Requests: tunings, Owner: owner),
+            document: static (state, held) => RenderSettingsSources.Edit(held.Doc, scope => Apply(scope.Settings, state.Requests.Map(static request => (EffectRequest)request)), state.Owner),
+            section: static (state, held) => SectionModels.Write(held.Host, Provider.RdkRenderingPostEffects, data => IO.lift(() => Listed(data) switch {
+                var effects => Callbacks.Each(state.Requests, (request, _) => effects.Find(effect => effect.Id == request.Id).ToFin(Missing(request.Id))
+                    .Bind(effect => RhinoFault.Unless(effect.SetParam(request.Key, request.Value)))),
             }).Map(unit)));
 
     internal static string Encoded<TState>(TState state) where TState : notnull => JsonSerializer.Serialize(state, ArchivableDictionaries.Options);
@@ -129,10 +128,10 @@ public static class EffectList {
 
     // --- [SCOPE]
     private static IO<A> Within<A>(RenderSettings settings, Func<PostEffectCollection, Seq<PostEffectData>, IO<A>> body) =>
-        DisposalOps.Within(() => settings.PostEffects, effects => DisposalOps.Within(
-            () => Conversions.Rows(effects).Strict(),
-            held => body(effects, held),
-            DisposalOps.Release));
+        (from effects in unitIO.Bind(_ => Products.Made(settings.PostEffects))
+         from held in Products.Made<PostEffectData>(effects)
+         from value in body(effects, held)
+         select value).Bracket();
 
     private static IO<Seq<PostEffect>> Hosted(EtoPostEffectCollapsibleSection host) =>
         SectionModels.Read(host, Provider.RdkRenderingPostEffects, static effects => IO.lift(() => Listed(effects)));
@@ -141,14 +140,15 @@ public static class EffectList {
         toSeq(Enum.GetValues<PostEffectType>()).Bind(type => toSeq(GetPostEffects(effects, type))).Strict();
 
     private static Fin<PostEffectData> Resolved(Seq<PostEffectData> held, Guid id) =>
-        held.Find(data => data.Id == id).ToFin(new NotFound("post effect", $"{id}"));
+        held.Find(data => data.Id == id).ToFin(Missing(id));
+
+    private static RhinoFault Missing(Guid id) => new($"post effect {id}", RhinoReason.Missing);
 
     // --- [PARAMETERS]
     private static IO<Option<string>> Stored(PostEffectData data) =>
-        DisposalOps.Within(
-            () => Optional(data.GetParameter(StateKey)),
-            static found => IO.lift(() => found.Map(static variant => variant.ToString(CultureInfo.InvariantCulture))),
-            static found => DisposalOps.Release(found.ToSeq().Map(static variant => (IDisposable)variant)));
+        IO.lift(() => Optional(data.GetParameter(StateKey))).Bind(static found =>
+            IO.lift(() => found.Map(static variant => variant.ToString(CultureInfo.InvariantCulture)))
+                .Finally(IO.lift(() => found.Iter(static variant => ((IDisposable)variant).Dispose()))));
 
     private static IO<Option<string>> Parameter(PostEffect effect) =>
         IO.lift(() => {
@@ -173,11 +173,9 @@ public static class EffectList {
                     if (selectable.Selected) target.Effects.SetSelectedPostEffect(ToneMappingNode, selectable.Id);
                     return unit;
                 })),
-            ordering: static (scope, ordering) => Callbacks.Each(
-                ordering.Ids, id => scope.Effects.MovePostEffectBefore(id, Guid.Empty), nameof(PostEffectCollection.MovePostEffectBefore)),
-            tuning: static (scope, tuning) => Resolved(scope.Held, tuning.Id)
-                .Bind(data => Refused.Unless(data.SetParameter(tuning.Key, tuning.Value), nameof(PostEffectData.SetParameter))));
+            ordering: static (scope, ordering) => Callbacks.Each(ordering.Ids, (id, index) => RhinoFault.Unless(scope.Effects.MovePostEffectBefore(id, Guid.Empty), index)).Map(static _ => unit),
+            tuning: static (scope, tuning) => Resolved(scope.Held, tuning.Id).Bind(data => RhinoFault.Unless(data.SetParameter(tuning.Key, tuning.Value))));
 
     private static Guid Selected(PostEffectCollection effects) =>
-        Callbacks.Found(effects.GetSelectedPostEffect(ToneMappingNode, out Guid id), id).Bind(Conversions.Present).IfNone(static () => PostEffectUuids.ToneMapper_Clamp);
+        Conversions.Found(effects.GetSelectedPostEffect(ToneMappingNode, out Guid id), id).Bind(Conversions.Present).IfNone(static () => PostEffectUuids.ToneMapper_Clamp);
 }

@@ -1,5 +1,6 @@
 """Negative and print-stock development into a display-linear film formation."""
 
+from functools import partial
 import math
 import sys
 from typing import Annotated, ClassVar
@@ -120,7 +121,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         white = density(log_backlight - self.negative.density, self.positive)
         interval = black - white
         if (floor := Option.of_optional(self.black_point)).is_none() and not np.any(interval):
-            return Error((Fault(reason=RecordReason.OUTSIDE, subject=type(self).__name__, member="black and white print densities that differ", cause=str((black, white))),))
+            return Error(Fault.of(RecordReason.OUTSIDE, type(self).__name__, str((black, white)), member="black and white print densities that differ"))
         light = np.maximum(values.astype(np.float64), 0.0)
         log_light = logged(light)
         log_pre = logged(pre)
@@ -151,11 +152,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
             blend = np.maximum(1.0 - np.abs((formed @ weights)[..., None] - 0.5) / 0.45, 0.0)
             return np.asarray(formed + (saturated - formed) * blend, dtype=np.float32)
 
-        return (
-            catch(np.linalg.solve, exception=np.linalg.LinAlgError)(matrix, right.reshape(-1, 3).T)
-            .map(finished)
-            .map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=str(matrix), cause=error),))
-        )
+        return catch(np.linalg.solve, exception=np.linalg.LinAlgError)(matrix, right.reshape(-1, 3).T).map(finished).map_error(partial(Fault.of, RecordReason.NUMERIC, str(matrix)))
 
     # --- [TABLE]
 

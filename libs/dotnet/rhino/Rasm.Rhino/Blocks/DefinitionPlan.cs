@@ -1,10 +1,9 @@
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Modeling;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 
-namespace Rasm.Rhino.Blocks;
+namespace Rasm.RhinoCommon.Blocks;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PlannedDefinition(Option<string> Description, Option<Hyperlink> Link, Point3d BasePoint, Seq<GeometryPair> Members);
@@ -46,9 +45,6 @@ public static class DefinitionPlans {
         select same;
 
     private static IO<bool> Same(GeometryBase planned, Point3d basePoint, GeometryBase stored) =>
-        DisposalOps.Within<IDisposable, bool>(
-            retain => Copies.DuplicateShallow(planned, retain).Bind(placed => IO.lift(() =>
-                Refused.Unless(placed.Translate(Point3d.Origin - basePoint), nameof(GeometryBase.Translate))
-                    .Map(_ => GeometryBase.GeometryEquals(placed, stored)))),
-            DisposalOps.Release);
+        use(() => planned.DuplicateShallow()).Bind(placed => IO.lift(() =>
+            RhinoFault.Unless(placed.Translate(Point3d.Origin - basePoint)).Map(_ => GeometryBase.GeometryEquals(placed, stored)))).Bracket();
 }

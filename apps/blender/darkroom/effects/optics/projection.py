@@ -19,7 +19,7 @@ from ...chain.stages import Effect, Stage
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type PanoramaModes = Equirectangular | CentralCylindrical | MirrorBall | FisheyeEquidistant | FisheyeEquisolid | Stereographic | Panini
+type Panoramas = Equirectangular | CentralCylindrical | MirrorBall | FisheyeEquidistant | FisheyeEquisolid | Stereographic | Panini
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -43,7 +43,7 @@ class Projection(Effect, frozen=True, kw_only=True):
     mirrors: Annotated[int, msgspec.Meta(ge=1, description="Kaleidoscope mirror lines through center")] = 3
     angle: Annotated[float, msgspec.Meta(ge=-pi, le=pi, description="First kaleidoscope mirror line turn from horizontal")] = pi / 2.0
     zoom: Annotated[float, msgspec.Meta(ge=2.0**-15, le=2.0**15, description="Kaleidoscope magnification about fold center")] = 1.0
-    panorama: Annotated[PanoramaModes, msgspec.Meta(description="Panorama receiving perspective frame")] = Equirectangular()
+    panorama: Annotated[Panoramas, msgspec.Meta(description="Panorama receiving perspective frame")] = Equirectangular()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -176,4 +176,4 @@ projection = CompositorEffect(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PanoramaModes", "Projection", "projection"]
+__all__ = ["Panoramas", "Projection", "projection"]

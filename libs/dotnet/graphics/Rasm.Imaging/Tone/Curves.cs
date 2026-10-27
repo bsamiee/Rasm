@@ -92,43 +92,43 @@ public static class ToneCurves {
     public static Func<float, float> Sigmoid(float contrast, float skew, float black, Luminance peak) {
         const double gray = Exposure.MiddleGray;
         double ceiling = peak.Nits.ToDouble() / DynamicRange.Standard.WhiteLuminance;
-        double bend = Math.Pow(5d, -skew);
-        double power = contrast * (1d - gray) / (bend * (1d - Math.Pow(gray / ceiling, 1d / bend)));
-        double towardGray = Math.Pow(ceiling / gray, 1d / bend) - 1d;
-        double floor = Math.Pow(black, 1d / bend);
-        double lifted = Math.Pow(towardGray * floor, 1d / power);
-        double fog = gray * lifted / (Math.Pow(1d - floor, 1d / power) - lifted);
+        double bend = double.Pow(5d, -skew);
+        double power = contrast * (1d - gray) / (bend * (1d - double.Pow(gray / ceiling, 1d / bend)));
+        double towardGray = double.Pow(ceiling / gray, 1d / bend) - 1d;
+        double floor = double.Pow(black, 1d / bend);
+        double lifted = double.Pow(towardGray * floor, 1d / power);
+        double fog = gray * lifted / (double.Pow(1d - floor, 1d / power) - lifted);
         (float whiteTarget, float paperExposure, float filmFog, float contrastPower, float skewPower) =
-            ((float)ceiling, (float)(Math.Pow(fog + gray, power) * towardGray), (float)fog, (float)power, (float)bend);
-        return value => whiteTarget * MathF.Pow(1f + (paperExposure * MathF.Pow(filmFog + float.MaxNumber(value, 0f), -contrastPower)), -skewPower);
+            ((float)ceiling, (float)(double.Pow(fog + gray, power) * towardGray), (float)fog, (float)power, (float)bend);
+        return value => whiteTarget * float.Pow(1f + (paperExposure * float.Pow(filmFog + float.MaxNumber(value, 0f), -contrastPower)), -skewPower);
     }
 
     public static Func<float, float> Piecewise(float toeStrength, float toeLength, float shoulderAngle, float gamma, float shoulderStrength, float shoulderLength) {
-        double toeX = 0.5d * Math.Pow(toeLength, 2.2d);
+        double toeX = 0.5d * double.Pow(toeLength, 2.2d);
         double toeY = (1d - toeStrength) * toeX;
         double shoulderX = toeX + ((1d - shoulderLength) * (1d - toeY));
         double white = toeX + (1d - toeY) + double.Exp2(shoulderStrength) - 1d;
         double end = white * (1d + (2d * shoulderAngle * shoulderStrength));
-        double ceiling = Math.Pow(1d + (0.5d * shoulderAngle * shoulderStrength), gamma);
-        (double toe, double shoulder) = (Math.Max(1e-5d, Math.Pow(toeY, gamma)), Math.Max(1e-5d, Math.Pow(toeY + shoulderX - toeX, gamma)));
-        double shoulderPower = gamma * Math.Pow(shoulder, 1d - (1d / gamma)) * (end - shoulderX) / (ceiling - shoulder);
-        (float toeEnd, float toeValue, float toePower, float intercept) = ((float)toeX, (float)toe, (float)(gamma * toeX * Math.Pow(toe, -1d / gamma)), (float)(toeY - toeX));
+        double ceiling = double.Pow(1d + (0.5d * shoulderAngle * shoulderStrength), gamma);
+        (double toe, double shoulder) = (double.Max(1e-5d, double.Pow(toeY, gamma)), double.Max(1e-5d, double.Pow(toeY + shoulderX - toeX, gamma)));
+        double shoulderPower = gamma * double.Pow(shoulder, 1d - (1d / gamma)) * (end - shoulderX) / (ceiling - shoulder);
+        (float toeEnd, float toeValue, float toePower, float intercept) = ((float)toeX, (float)toe, (float)(gamma * toeX * double.Pow(toe, -1d / gamma)), (float)(toeY - toeX));
         (float shoulderStart, float shoulderValue, float shoulderSlope, float shoulderEnd, float top) = ((float)shoulderX, (float)shoulder, (float)shoulderPower, (float)end, (float)ceiling);
-        float scale = (float)(1d / (ceiling - ((ceiling - shoulder) * Math.Pow((end - white) / (end - shoulderX), shoulderPower))));
+        float scale = (float)(1d / (ceiling - ((ceiling - shoulder) * double.Pow((end - white) / (end - shoulderX), shoulderPower))));
         return value =>
             scale * (float.MaxNumber(value, 0f) switch {
-                var x when x < toeEnd => toeValue * MathF.Pow(x / toeEnd, toePower),
-                var x when x < shoulderStart => MathF.Pow(x + intercept, gamma),
-                var x when x < shoulderEnd => top - ((top - shoulderValue) * MathF.Pow((shoulderEnd - x) / (shoulderEnd - shoulderStart), shoulderSlope)),
+                var x when x < toeEnd => toeValue * float.Pow(x / toeEnd, toePower),
+                var x when x < shoulderStart => float.Pow(x + intercept, gamma),
+                var x when x < shoulderEnd => top - ((top - shoulderValue) * float.Pow((shoulderEnd - x) / (shoulderEnd - shoulderStart), shoulderSlope)),
                 _ => top,
             });
     }
 
     public static Func<float, float> Logarithmic(float bias, float white, Luminance peak) {
         (float whiteTarget, float normalizer, float inverseWhite, float power) =
-            ((float)(peak.Nits.ToDouble() / DynamicRange.Standard.WhiteLuminance), float.Log10P1(white), 1f / white, (float)(Math.Log(bias) / Math.Log(0.5d)));
+            ((float)(peak.Nits.ToDouble() / DynamicRange.Standard.WhiteLuminance), float.Log10P1(white), 1f / white, (float)(double.Log(bias) / double.Log(0.5d)));
         return value => float.MaxNumber(value, 0f) switch {
-            var x => whiteTarget * float.LogP1(x) / (normalizer * MathF.Log(2f + (8f * MathF.Pow(x * inverseWhite, power)))),
+            var x => whiteTarget * float.LogP1(x) / (normalizer * float.Log(2f + (8f * float.Pow(x * inverseWhite, power)))),
         };
     }
 
@@ -201,15 +201,15 @@ public static class ToneCurves {
 
     private static Chromaticity Moved(RgbConfiguration rgb, Chromaticity primary, double scale, double rotation) {
         Chromaticity white = rgb.WhitePoint.Chromaticity;
-        (double sin, double cos) = Math.SinCos(Angle(rgb, primary) + rotation);
+        (double sin, double cos) = double.SinCos(Angle(rgb, primary) + rotation);
         double edge = Seq((From: rgb.ChromaticityR, To: rgb.ChromaticityG), (From: rgb.ChromaticityG, To: rgb.ChromaticityB), (From: rgb.ChromaticityB, To: rgb.ChromaticityR))
             .Map(side => (((white.X - side.From.X) * (side.From.Y - side.To.Y)) - ((side.From.X - side.To.X) * (white.Y - side.From.Y)))
                 / ((sin * (side.From.X - side.To.X)) - (cos * (side.From.Y - side.To.Y))))
             .Filter(static reach => reach >= 0d)
-            .Fold(double.PositiveInfinity, Math.Min);
+            .Fold(double.PositiveInfinity, double.Min);
         return new(white.X + (scale * edge * cos), white.Y + (scale * edge * sin));
     }
 
     private static double Angle(RgbConfiguration rgb, Chromaticity primary) =>
-        Math.Atan2(primary.Y - rgb.WhitePoint.Chromaticity.Y, primary.X - rgb.WhitePoint.Chromaticity.X);
+        double.Atan2(primary.Y - rgb.WhitePoint.Chromaticity.Y, primary.X - rgb.WhitePoint.Chromaticity.X);
 }

@@ -1,10 +1,9 @@
 using Eto.Forms;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Modeling;
+using Rasm.RhinoCommon.Document;
 using Rhino;
 using UnitsNet;
 
-namespace Rasm.Rhino.Viewport;
+namespace Rasm.RhinoCommon.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CameraMove(ViewportSet Viewports, CameraPose To, Duration Span, Func<double, double> Progress, RedrawPolicy Redraw) {
@@ -18,7 +17,7 @@ internal sealed record Leg(ViewportRef Row, CameraPose From, CameraPose Shown, u
 
 [Union]
 internal abstract partial record Phase {
-    internal sealed record Running(IDisposable Source) : Phase;
+    internal sealed record Running(EnvIO Source) : Phase;
 
     internal sealed record Paused : Phase;
 
@@ -37,7 +36,7 @@ internal sealed record Course(Seq<Leg> Legs, CameraPose To, Duration Start, Dura
 internal sealed record Pacing(
     RhinoDoc Document,
     CameraMove Move,
-    Func<Sink<Duration>, Action<IDisposable>, IO<Unit>> Frames,
+    Func<Sink<Duration>, IO<Unit>> Frames,
     Conduit<Duration, Duration> Ticks,
     Atom<Course> Course) {
     public IO<Unit> Halt() =>
@@ -73,9 +72,11 @@ public sealed class MotionHandle {
         pacing.Course.ValueIO.Bind(held => held.Phase.Switch(
             pacing,
             running: static (_, _) => IO.pure(unit),
-            paused: static (state, _) => DisposalOps.Acquire(
-                owned => state.Frames(state.Ticks.Sink, owned),
-                (_, source) => state.Course.SwapIO(course => course with { Phase = new Phase.Running(source), Last = None }).Map(unit)),
+            paused: static (state, _) =>
+                from scope in IO.lift(static () => EnvIO.New(token: CancellationToken.None))
+                from framed in state.Frames(state.Ticks.Sink).Under(scope).Catch(error => IO.lift(scope.Dispose) >> IO.fail<Unit>(error)).As()
+                from swapped in state.Course.SwapIO(course => course with { Phase = new Phase.Running(scope), Last = None })
+                select unit,
             stopped: static (_, _) => IO.fail<Unit>(Errors.Cancelled)));
 
     public IO<Unit> Retarget(CameraPose goal) =>
@@ -90,18 +91,17 @@ public sealed class MotionHandle {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Motions {
     // --- [SOURCES]
-    public static Func<Sink<Duration>, Action<IDisposable>, IO<Unit>> Timer(Duration period, TimeProvider time) =>
-        (ticks, retain) => Copies.Owned(
-            () => new UITimer((_, _) => ticks.Post(time.GetElapsedTime(0L).ToDuration()).Run()) { Interval = period.TotalSeconds },
-            static timer => IO.lift(timer.Start),
-            static timer => Callbacks.Each(Seq(IO.lift(timer.Stop), IO.lift(timer.Dispose))).Map(unit), retain);
+    public static Func<Sink<Duration>, IO<Unit>> Timer(Duration period, TimeProvider time) =>
+        ticks => use(() => new UITimer((_, _) => ticks.Post(time.GetElapsedTime(0L).ToDuration()).Run()) { Interval = period.TotalSeconds }, static timer => {
+            timer.Stop();
+            timer.Dispose();
+        })
+            .Bind(static timer => IO.lift(timer.Start));
 
     // --- [POSES]
     public static Fin<CameraPose> Interpolated(CameraPose from, CameraPose to, double progress) =>
-        (Refused.Unless(
-                Quaternion.Slerp(Quaternion.Rotation(Plane.WorldXY, from.Frame), Quaternion.Rotation(Plane.WorldXY, to.Frame), progress).GetRotation(out Plane turned),
-                turned,
-                nameof(Quaternion.GetRotation)),
+        (RhinoFault.Unless(Quaternion.Slerp(Quaternion.Rotation(Plane.WorldXY, from.Frame), Quaternion.Rotation(Plane.WorldXY, to.Frame), progress).GetRotation(out Plane turned))
+                .Map(_ => turned),
             Local(from),
             Local(to))
         .Apply((rotated, near, far) => new Plane(new Line(from.Target, to.Target).PointAt(progress), rotated.XAxis, rotated.YAxis) switch {
@@ -113,7 +113,7 @@ public static class Motions {
         .As();
 
     private static Fin<Point3d> Local(CameraPose pose) =>
-        Refused.Unless(new Plane(pose.Target, pose.Frame.XAxis, pose.Frame.YAxis).RemapToPlaneSpace(pose.Frame.Origin, out Point3d local), local, nameof(Plane.RemapToPlaneSpace));
+        RhinoFault.Unless(new Plane(pose.Target, pose.Frame.XAxis, pose.Frame.YAxis).RemapToPlaneSpace(pose.Frame.Origin, out Point3d local)).Map(_ => local);
 
     private static CameraLens Lens(CameraLens from, CameraLens to, double progress) =>
         from.Switch(
@@ -134,22 +134,20 @@ public static class Motions {
             twoPoint: static (at, goal) => (CameraLens)(goal with { Angle = Angle.FromRadians(double.Lerp(at.Held.Radians.ToDouble(), goal.Angle.Radians.ToDouble(), at.Progress)) }));
 
     // --- [DRIVE]
-    public static IO<MotionHandle> Drive(RhinoDoc document, CameraMove move, Func<Sink<Duration>, Action<IDisposable>, IO<Unit>> frames, IPlugInSink sink,
-        Action<MotionHandle, IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-        from rows in Viewports.Resolve(document, move.Viewports, owned)
+    public static IO<MotionHandle> Drive(RhinoDoc document, CameraMove move, Func<Sink<Duration>, IO<Unit>> frames, object owner) =>
+        from rows in Viewports.Resolve(document, move.Viewports)
         from legs in rows.TraverseM(static row => Cameras.Read(row.Viewport).Map(pose => new Leg(row, pose, pose, row.Viewport.ChangeCounter))).As()
-        from ticks in Copies.Owned(static () => Conduit.make(Buffer<Duration>.New), static open => Fin.Succ(open), static open => open.Complete(), owned)
-        from pacing in Copies.Owned(() => new Pacing(
-            document, move, frames, ticks, Atom(new Course(legs, move.To, Duration.Zero, Duration.Zero, None, new Phase.Paused()))),
-            static state => Fin.Succ(state), static state => state.Halt(), owned)
-        from consumer in DisposalOps.Fork(
-            DisposalOps.Within(() => pacing, static state => state.Ticks.Reduce(unit, (_, tick) => Frame(state, tick)), static state => state.Halt().OnUiThread())
-                .IfFail(error => IO.lift(() => sink.Report(error, typeof(Motions)))
-                    .MapFail(fault => error + fault).Bind(_ => IO.fail<Unit>(error))), owned)
+        from ticks in use(IO.lift(static () => Conduit.make(Buffer<Duration>.New)), static open => open.Complete())
+        from pacing in use(IO.lift(() => new Pacing(
+            document, move, frames, ticks, Atom(new Course(legs, move.To, Duration.Zero, Duration.Zero, None, new Phase.Paused())))), static state => state.Halt())
+        from consumer in use(
+            pacing.Ticks.Reduce(unit, (_, tick) => Frame(pacing, tick)).Finally(pacing.Halt().OnUiThread())
+                .Catch(error => IO.lift(() => owner.Run(IO.fail<Unit>(error))) >> IO.fail<Unit>(error)).As()
+                .Fork(),
+            static fork => fork.Cancel)
         let handle = new MotionHandle(pacing, consumer)
         from resumed in handle.Resume()
-        select handle, retain);
+        select handle;
 
     private static IO<Reduced<Unit>> Frame(Pacing pacing, Duration tick) =>
         (from course in pacing.Course.SwapIO(held => held.Phase.Map(running: held.Ticked(tick), paused: held, stopped: held))

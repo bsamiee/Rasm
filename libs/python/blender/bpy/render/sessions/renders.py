@@ -6,7 +6,6 @@ import datetime
 from enum import auto, Enum
 from functools import cached_property
 from itertools import starmap
-from pathlib import Path
 from typing import ClassVar, Final, TYPE_CHECKING
 
 import bpy
@@ -20,10 +19,9 @@ from blender.bpy.commands.calls import called, Stock
 from blender.bpy.commands.operators import Call, Done, Operator, Properties
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import Descriptor, written
+from blender.bpy.data.rna.descriptors import Descriptor, RnaPath, written
 from blender.bpy.data.rna.snapshots import Endpoints, Scenes, Snapshot
-from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
-from blender.bpy.extension.events.timers import Timer
+from blender.bpy.extension.events import Handler, Timer
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
@@ -293,16 +291,16 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         finishing(scene)
                 return Ok(Some(0.25))
 
-            def loaded(_: Option[Path]) -> Outcome[None]:
+            def loaded() -> Outcome[None]:
                 return accumulated(self.restored(bound, scene) for scene in bpy.data.scenes).map(lambda _: None)
 
             scope.callback(lambda: identity.reports.reported(lambda: accumulated(self.restored(bound, scene) for scene in held()).map(lambda _: None))().to_optional())
             return Ok((
-                PresetMenu(source=Captured(preset=value_sets, scope=Scenes(), selection=("render", "cycles", "eevee"))),
-                PresetMenu(source=Captured(preset=self.bakes, scope=Scenes(), selection=("render.bake",))),
+                PresetMenu(source=Captured(preset=value_sets, scope=Scenes(), selection=(("render",), ("cycles",), ("eevee",)))),
+                PresetMenu(source=Captured(preset=self.bakes, scope=Scenes(), selection=(("render", "bake"),))),
                 self.rendering,
                 self.viewporting,
-                PathHandler(handlers=LOAD_POST, body=loaded),
+                Handler(handlers=bpy.app.handlers.load_post, body=loaded),
                 Timer(body=ticked),
             ))
 
@@ -358,7 +356,8 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 def native(identity: Identity, scene: bpy.types.Scene, call: RenderCall) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
     """Runs `render.render`, recording Render Result and Viewer images as scene linear under the scene view, the form Blender displays them in."""
     composited = scene.render.use_compositing and any(entry.enable_for_render for entry in scene.compositor_effects)
-    layer = COMPOSITE if composited else call.layer.default_with(lambda: bpy.context.view_layer.name)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    active: bpy.types.ViewLayer = bpy.context.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    layer = COMPOSITE if composited else call.layer.default_value(active.name)
 
     origin = Production(scene=Handle.of(scene), space=PyOpenColorIO.GetCurrentConfig().getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName(), view=Some(viewed(scene)))
     productions = {"RENDER_RESULT": msgspec.structs.replace(origin, layer=Some(layer)), "COMPOSITING": origin}
@@ -422,7 +421,7 @@ def bounds(scene: bpy.types.Scene) -> tuple[int, int, int, int, int, int]:
 def isolation(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, isolated: Isolated) -> tuple[tuple[bpy.types.Object, Snapshot], ...]:
     """Builds per-object holdout, camera visibility, or shadow catcher snapshots."""
 
-    def values(item: bpy.types.Object) -> dict[str, bool]:
+    def values(item: bpy.types.Object) -> dict[RnaPath, bool]:
         return (
             ({SHADOW_CATCHER.path: True} if isolated.catcher else {})
             if item.select_get(view_layer=layer)
@@ -436,7 +435,7 @@ def isolation(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, isolated: Isol
 
 def noted(member: str, version: int, key: ContentHash) -> Snapshot:
     """Builds stamp note of member, version, and pre-override settings digest."""
-    return Snapshot.of(bpy.types.Scene, {"render.use_stamp_note": True, "render.stamp_note_text": f"{member} v{version} {key.hex()}"})
+    return Snapshot.of(bpy.types.Scene, {("render", "use_stamp_note"): True, ("render", "stamp_note_text"): f"{member} v{version} {key.hex()}"})
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 """Render queue targets and sends."""
 
+from functools import partial
 from pathlib import Path, PurePath
 from typing import Final
 
@@ -55,7 +56,7 @@ class Renderon(Case, frozen=True, kw_only=True):
     def sent(self, queue: RenderQueue, host: Host) -> Outcome[Path]:
         """Writes one queue line per frame range, then starts B-Renderon on the lines when executable is set."""
         if dependent := tuple(part for part, job in enumerate(queue.jobs) if job.prerequisites):
-            return Error((Fault(reason=RenderingReason.PREREQUISITE, subject=type(self).__name__, member=", ".join(map(str, dependent))),))
+            return Error(Fault.of(RenderingReason.PREREQUISITE, type(self).__name__, member=", ".join(map(str, dependent))))
         path = host.path(queue, RunFile.RENDERON)
         lines = _LINES.encode_lines(
             _QueueItem(folder=str(file.parent), file=file.name, blender=self.blender, scene=job.scene, start=str(start), end=str(end))
@@ -63,7 +64,7 @@ class Renderon(Case, frozen=True, kw_only=True):
             for file in (PurePath(job.file),)
             for start, end in (((job.frames.start, job.frames.end),) if job.frames.step == 1 else tuple((frame, frame) for frame in job.frames.numbers))
         )
-        return committed(path, lambda stage: catch(stage.write_bytes, exception=OSError)(lines).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))).bind(
+        return committed(path, lambda stage: catch(stage.write_bytes, exception=OSError)(lines).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path)))).bind(
             lambda written: Option.of_optional(self.executable).map(lambda program: detached((program, "-sq", str(written)), host.path(queue, RunFile.RENDERON_LOG))).default_value(Ok(written))
         )
 

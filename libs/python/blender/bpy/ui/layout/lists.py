@@ -8,14 +8,14 @@ import typing
 from typing import override
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 from msgspec import UNSET, UnsetType
 
 from blender.bpy.commands.operators import Answer, Done, Empty, Gesture, Modal, Operator, Travel
 from blender.bpy.data.rna.conditions import Condition, holds
-from blender.bpy.data.rna.descriptors import Native, Struct, struct_at
+from blender.bpy.data.rna.descriptors import Native, rna, Struct, struct_at
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisition, Acquisitions, Band, entered
 from blender.bpy.faults import BlenderReason
@@ -98,7 +98,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                     .bind(lambda members: chosen.map(lambda pick: (pick if isinstance(pick, int) else next((index for index, item in enumerate(members) if item == pick), -1), len(members))))
                     .filter(lambda pair: 0 <= pair[0] < pair[1])
                     .map(lambda pair: (*pair, active))
-                    .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=collection.descriptor.path, member=active.descriptor.path),))
+                    .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, rna(collection.descriptor.path), member=rna(active.descriptor.path)))
                 )
 
             return paired(self.collection.resolved(bpy.types.CollectionProperty), self.active.resolved()).bind(lambda pair: indexed(*pair))
@@ -150,7 +150,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                 Option
                 .of_optional(item.bl_rna.name_property)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 .map(lambda named: (bound, item, named.identifier))
-                .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=bound.descriptor.path, member="name_property"),))
+                .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, rna(bound.descriptor.path), member="name_property"))
             )
 
         def over(parts: tuple[str, tuple[tuple[ResolvedMember[bpy.types.CollectionProperty], O, str], ResolvedMember]]) -> Outcome[_Listed]:
@@ -247,8 +247,8 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                 row.active = active
                 glyph = (
                     listed.icon
-                    .bind(lambda bound: catch(lambda: item.path_resolve(bound.descriptor.path), exception=ValueError)().to_option())
-                    .bind(lambda held: Some(held) if isinstance(held, int) else Nothing)
+                    .bind(lambda bound: struct_at(item, bound.descriptor.owner).map(bound.descriptor.read))
+                    .bind(lambda held: Option.of_optional(try_downcast(int, held)))
                     .default_value(icon)
                 )
                 row.prop(item, listed.label, text="", emboss=False, icon_value=glyph)

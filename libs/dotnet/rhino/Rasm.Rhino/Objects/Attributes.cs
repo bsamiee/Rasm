@@ -1,9 +1,9 @@
 using System.Drawing;
 using LanguageExt.ClassInstances;
-using Rasm.Rhino.Display;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Viewport;
+using Rasm.RhinoCommon.Display;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Persistence;
+using Rasm.RhinoCommon.Viewport;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -11,7 +11,7 @@ using Rhino.FileIO;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Objects;
+namespace Rasm.RhinoCommon.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
@@ -79,6 +79,29 @@ public abstract partial record RowsEdit<TRow, TKey> {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+internal static class Patches {
+    [UserMapping(Default = true)]
+    public static int Patched(Option<int> value, [MappingTargetOriginalValue] int original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static double Patched(Option<double> value, [MappingTargetOriginalValue] double original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static bool Patched(Option<bool> value, [MappingTargetOriginalValue] bool original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static Guid Patched(Option<Guid> value, [MappingTargetOriginalValue] Guid original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static Color Patched(Option<Color> value, [MappingTargetOriginalValue] Color original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static Point3d Patched(Option<Point3d> value, [MappingTargetOriginalValue] Point3d original) => value.IfNone(original);
+
+    [UserMapping(Default = true)]
+    public static Plane Patched(Option<Plane> value, [MappingTargetOriginalValue] Plane original) => value.IfNone(original);
+}
+
 [Mapper]
 internal static partial class AttributeMapper {
     // --- [SNAPSHOTS]
@@ -110,17 +133,26 @@ internal static partial class AttributeMapper {
     [MapProperty(nameof(MaterialRefState.BackFaceMaterialId), nameof(MaterialRefCreateParams.FrontFaceMaterialId))]
     [MapProperty(nameof(MaterialRefState.FrontFaceMaterialIndex), nameof(MaterialRefCreateParams.BackFaceMaterialIndex))]
     [MapProperty(nameof(MaterialRefState.BackFaceMaterialIndex), nameof(MaterialRefCreateParams.FrontFaceMaterialIndex))]
-    internal static partial MaterialRefCreateParams ToParams(MaterialRefState row);
+    internal static partial MaterialRefCreateParams CrossedFaces(MaterialRefState row);
 
     // --- [ATTRIBUTES]
     [UserMapping(Default = false)]
-    private static bool HasCustomLinetype(ObjectAttributes attributes) => DisposalOps.Present(attributes.GetCustomLinetype());
+    private static bool HasCustomLinetype(ObjectAttributes attributes) {
+        using Linetype? held = attributes.GetCustomLinetype();
+        return held is not null;
+    }
 
     [UserMapping(Default = false)]
-    private static bool HasCustomSectionStyle(ObjectAttributes attributes) => DisposalOps.Present(attributes.GetCustomSectionStyle());
+    private static bool HasCustomSectionStyle(ObjectAttributes attributes) {
+        using SectionStyle? held = attributes.GetCustomSectionStyle();
+        return held is not null;
+    }
 
     [UserMapping(Default = false)]
-    private static bool HasCustomMeshing(ObjectAttributes attributes) => DisposalOps.Present(attributes.CustomMeshingParameters);
+    private static bool HasCustomMeshing(ObjectAttributes attributes) {
+        using MeshingParameters? held = attributes.CustomMeshingParameters;
+        return held is not null;
+    }
 
     [UserMapping(Default = false)]
     private static Seq<int> Groups(ObjectAttributes attributes) => Conversions.Rows(attributes.GetGroupList());
@@ -130,7 +162,7 @@ internal static partial class AttributeMapper {
 
     [UserMapping(Default = false)]
     private static Option<(Seq<Guid> Viewports, bool Active)> ActiveInViewports(ObjectAttributes attributes) =>
-        Callbacks.Found(attributes.GetActiveInViewportOverrides(out Guid[] ids, out bool active), (Viewports: Conversions.Rows(ids), Active: active));
+        Conversions.Found(attributes.GetActiveInViewportOverrides(out Guid[] ids, out bool active), (Viewports: Conversions.Rows(ids), Active: active));
 
     [UserMapping(Default = false)]
     private static Option<Plane> ObjectFrame(ObjectAttributes attributes) => Conversions.Present(attributes.ObjectFrame());
@@ -246,29 +278,23 @@ public static partial class AttributeEdits {
                 from written in IO.lift(() => { _ = staged.SetDisplayModeOverride(description, slot); })
                 select written),
             None: () => slot == Guid.Empty
-                ? IO.lift(() => AllViewportsRemoved(staged, Guid.NewGuid()))
+                ? IO.lift(() => DisplayMaterialRefs.AllViewportsRemoved(staged, Guid.NewGuid()))
                 : IO.lift(() => staged.RemoveDisplayModeOverride(slot)));
-
-    private static void AllViewportsRemoved(ObjectAttributes staged, Guid key) {
-        _ = SafeNativeMethods.AddDisplayMaterialRef(staged, new DisplayMaterialRef(Guid.Empty, key));
-        _ = SafeNativeMethods.RemoveDisplayMaterialRef(staged, Guid.Empty, key);
-    }
 
     internal static IO<Guid> Slot(RhinoDoc doc, Option<ViewportTarget> viewport) =>
         viewport.Match(Some: target => Viewports.With(doc, target, static row => IO.pure(row.Viewport.Id)), None: static () => IO.pure(Guid.Empty));
 
-    internal static Fin<Unit> Assignable(DisplayModeDescription mode) =>
-        Refused.Unless(mode.AllowObjectAssignment, nameof(DisplayModeDescription.AllowObjectAssignment));
+    internal static Fin<Unit> Assignable(DisplayModeDescription mode) => RhinoFault.Unless(mode.AllowObjectAssignment);
 
     public static IO<Unit> ActiveInViewport(ObjectAttributes staged, RowsEdit<Guid, Guid> edit, bool active) =>
         IO.lift(() => edit.Switch(
             (Staged: staged, Active: active),
-            replace: static (state, replace) => Refused.Unless(state.Staged.SetActiveInViewportOverrides([.. replace.Rows], state.Active), nameof(ObjectAttributes.SetActiveInViewportOverrides)),
+            replace: static (state, replace) => RhinoFault.Unless(state.Staged.SetActiveInViewportOverrides([.. replace.Rows], state.Active)),
             add: static (state, add) => Callbacks.Each(add.Rows, Fin<Unit> (id, index) => state.Staged.HasActiveInViewportOverride(id, out _)
                 ? unit
-                : Refused.Unless(state.Staged.AddActiveInViewportOverride(id, state.Active), nameof(ObjectAttributes.AddActiveInViewportOverride), index)).Map(static _ => unit),
+                : RhinoFault.Unless(state.Staged.AddActiveInViewportOverride(id, state.Active), index)).Map(static _ => unit),
             remove: static (state, remove) => Callbacks.Each(remove.Keys, Fin<Unit> (id, index) => state.Staged.HasActiveInViewportOverride(id, out bool stored)
-                ? Refused.Unless(state.Staged.RemoveActiveInViewportOverride(id, stored), nameof(ObjectAttributes.RemoveActiveInViewportOverride), index)
+                ? RhinoFault.Unless(state.Staged.RemoveActiveInViewportOverride(id, stored), index)
                 : unit).Map(static _ => unit)));
 
     public static IO<Unit> HideInDetail(ObjectAttributes staged, RowsEdit<Guid, Guid> edit) =>
@@ -279,19 +305,19 @@ public static partial class AttributeEdits {
                 remove: static (held, remove) => (Hide: Seq<Guid>(), Show: toSeq(held.Intersect(remove.Keys))))
             switch {
                 var (hide, show) =>
-                    (Callbacks.Each(show, staged.RemoveHideInDetailOverride, nameof(ObjectAttributes.RemoveHideInDetailOverride)),
-                     Callbacks.Each(hide, staged.AddHideInDetailOverride, nameof(ObjectAttributes.AddHideInDetailOverride)))
+                    (Callbacks.Each(show, (id, index) => RhinoFault.Unless(staged.RemoveHideInDetailOverride(id), index)),
+                     Callbacks.Each(hide, (id, index) => RhinoFault.Unless(staged.AddHideInDetailOverride(id), index)))
                         .Apply(static (_, _) => unit).As(),
             });
 
     // --- [FRAME]
     public static IO<Unit> ObjectFrame(ObjectAttributes staged, Plane frame) =>
-        from valid in IO.lift(Fin<Plane> () => frame.IsValid ? frame : Error.New(ErrorCodes.ValidationFailed, $"{nameof(ObjectAttributes.SetObjectFrame)} plane is invalid"))
-        from written in IO.lift(() => staged.SetObjectFrame(valid))
+        from valid in IO.lift(() => RhinoFault.Unless(frame.IsValid))
+        from written in IO.lift(() => staged.SetObjectFrame(frame))
         select written;
 
     public static IO<Unit> Transform(ObjectAttributes staged, Transform xform) =>
-        IO.lift(() => Refused.Unless(staged.Transform(xform), nameof(ObjectAttributes.Transform)));
+        IO.lift(() => RhinoFault.Unless(staged.Transform(xform)));
 
     // --- [RENDERING]
     [MapPropertyFromSource(nameof(ObjectAttributes.CustomMeshingParameters), Use = nameof(Meshing))]
@@ -305,19 +331,21 @@ public static partial class AttributeEdits {
 
     public static IO<Seq<uint>> Decals(ObjectAttributes staged, RowsEdit<DecalCreateParams, int> edit) =>
         Edited(edit, IO.lift(staged.Decals.RemoveAllDecals),
-            row => DisposalOps.Found(() => Decal.Create(row), nameof(Decal.Create),
-                decal => IO.lift(() => Conversions.Required(staged.Decals.Add(decal), nameof(staged.Decals.Add)))),
+            row => (from decal in Products.Made(Decal.Create(row))
+                    from crc in IO.lift(() => Conversions.Found(Conversions.Present(staged.Decals.Add(decal))))
+                    select crc).Bracket(),
             keys => toHashSet(keys) switch {
-                var crcs => DisposalOps.Within(
-                    (Action<IDisposable> held) => IO.lift(() => Callbacks.Each(
-                        toSeq(staged.Decals.Select(decal => { held(decal); return decal; })).Filter(decal => crcs.Contains(decal.CRC)).Strict(),
-                        staged.Decals.Remove, nameof(staged.Decals.Remove))),
-                    DisposalOps.Release),
+                var crcs => (from decals in Products.Made(staged.Decals)
+                             from removed in IO.lift(() => Callbacks.Each(decals.Filter(decal => crcs.Contains(decal.CRC)).Strict(),
+                                 (decal, index) => RhinoFault.Unless(staged.Decals.Remove(decal), index)))
+                             select unit).Bracket(),
             });
 
     public static IO<Unit> MaterialRefs(ObjectAttributes staged, RowsEdit<MaterialRefState, Guid> edit) =>
         Edited(edit, IO.lift(staged.MaterialRefs.Clear),
-            row => DisposalOps.Within(() => staged.MaterialRefs.Create(AttributeMapper.ToParams(row)), created => IO.lift(() => staged.MaterialRefs.Add(row.PlugInId, created))),
+            row => (from created in use(() => staged.MaterialRefs.Create(AttributeMapper.CrossedFaces(row)))
+                    from added in IO.lift(() => staged.MaterialRefs.Add(row.PlugInId, created))
+                    select added).Bracket(),
             keys => IO.lift(() => keys.Iter(key => staged.MaterialRefs.Remove(key))))
             .Map(unit);
 
@@ -335,10 +363,8 @@ public static partial class AttributeEdits {
 public static class AttributeOps {
     // --- [READS]
     public static IO<AttributeState> Read(ObjectAttributes attributes) =>
-        DisposalOps.Within(
-            (Action<IDisposable> held) => IO.lift(() => AttributeMapper.ToState(attributes, UserStrings.Held(attributes.GetUserStrings()),
-                toSeq(attributes.Decals.Select(decal => { held(decal); return AttributeMapper.ToState(decal); })).Strict())),
-            DisposalOps.Release);
+        (from decals in Products.Made(attributes.Decals)
+         select AttributeMapper.ToState(attributes, UserStrings.Held(attributes.GetUserStrings()), decals.Map(static decal => AttributeMapper.ToState(decal)).Strict())).Bracket();
 
     public static IO<EffectiveDisplay> ReadEffective(ObjectAttributes attributes, RhinoDoc doc, Guid viewport) =>
         IO.lift(() => new EffectiveDisplay(
@@ -346,15 +372,10 @@ public static class AttributeOps {
             attributes.ComputedPlotColor(doc, viewport),
             PlotWeight.FromHost(attributes.ComputedPlotWeight(doc, viewport)),
             Conversions.Present(attributes.GetDisplayModeOverride(viewport)),
-            Callbacks.Found(attributes.HasActiveInViewportOverride(viewport, out bool active), active)));
-
-    internal static Option<Guid> DisplayMaterialRef(ObjectAttributes attributes, Guid viewport) =>
-        SafeNativeMethods.FindDisplayMaterialRef(attributes, new DisplayMaterialRef(viewport, Guid.Empty))
-            .Filter(found => found.ViewportId == viewport)
-            .Map(static found => found.DisplayMaterialId);
+            Conversions.Found(attributes.HasActiveInViewportOverride(viewport, out bool active), active)));
 
     public static IO<T> WithComputedSectionStyle<T>(ObjectAttributes attributes, RhinoDoc doc, ObjectAttributes sectioner, bool computeColors, Guid viewport, Func<SectionStyle, IO<T>> body) =>
-        DisposalOps.Found(() => attributes.ComputedSectionStyle(doc, sectioner, computeColors, viewport), nameof(ObjectAttributes.ComputedSectionStyle), body);
+        Products.Made(attributes.ComputedSectionStyle(doc, sectioner, computeColors, viewport)).Bind(body).Bracket();
 
     // --- [FOLD]
     public static IO<Unit> Apply(RhinoDoc doc, ObjectAttributes staged, Seq<Func<RhinoDoc, ObjectAttributes, IO<Unit>>> edits) =>

@@ -84,16 +84,16 @@ public sealed record ZoneGrid(Seq<Length> Columns, Seq<Length> Rows, DraftingCon
 
 public sealed record Sheet(SheetSize Size, SheetOrientation Orientation) {
     public (Length Width, Length Height) Extent => Orientation.Extent(Size);
-    public PaperRectangle Field => new(Size.Convention.Binding, Size.Convention.Border, Extent.Width - Size.Convention.Border, Extent.Height - Size.Convention.Border);
+    public PaperRectangle Field => Extent switch { var (width, height) => new(Size.Convention.Binding, Size.Convention.Border, width - Size.Convention.Border, height - Size.Convention.Border) };
     public ZoneGrid Zones =>
-        new(Size.Convention.Divisions(Extent.Width, Field.Left, Field.Right), Size.Convention.Divisions(Extent.Height, Field.Bottom, Field.Top), Size.Convention,
-            !Size.Convention.SmallestTopRight || toSeq(SheetSize.Items).Exists(other => other.Convention == Size.Convention && other.Sides.Short < Size.Sides.Short));
+        (Extent, Field) switch {
+            var ((width, height), drawing) => new(Size.Convention.Divisions(width, drawing.Left, drawing.Right), Size.Convention.Divisions(height, drawing.Bottom, drawing.Top), Size.Convention,
+                !Size.Convention.SmallestTopRight || toSeq(SheetSize.Items).Exists(other => other.Convention == Size.Convention && other.Sides.Short < Size.Sides.Short)),
+        };
 
     public Option<string> Locate(Length x, Length y) =>
-        (Field, Zones) switch {
-            var (drawing, zones) when x >= drawing.Left && x <= drawing.Right && y >= drawing.Bottom && y <= drawing.Top => Some(zones.Row(zones.Rows.Filter(division => division <= y).Count) + zones.Column(zones.Columns.Filter(division => division <= x).Count)),
-            _ => None,
-        };
+        Some(Field).Filter(drawing => x >= drawing.Left && x <= drawing.Right && y >= drawing.Bottom && y <= drawing.Top)
+            .Map(_ => Zones switch { var zones => zones.Row(zones.Rows.Filter(division => division <= y).Count) + zones.Column(zones.Columns.Filter(division => division <= x).Count) });
 
     public static Option<Sheet> Match(Length width, Length height, Length tolerance) =>
         (from size in toSeq(SheetSize.Items) from orientation in toSeq(SheetOrientation.Items) select new Sheet(size, orientation))

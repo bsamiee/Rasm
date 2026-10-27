@@ -257,7 +257,7 @@ workspace = [
 
     # --- [IMAGING_MEDIA]
     "av",                                                                         # PyAV video and audio mux and encode
-    "openexr",                                                                    # Named-channel, multipart, and tiled EXR imagecodecs lacks
+    "openexr",                                                                    # Named-channel, multipart, and tiled EXR read and write
     "pillow",                                                                     # Image IO and WebP decoding
     "psd-tools",                                                                  # PSD read and pixel authoring
     "pysubs2",                                                                    # Subtitle parse, convert, retime, and restyle
@@ -347,7 +347,6 @@ dev       = [
     "pygments",                                                                   # Lexer aliases and filename patterns
     "regex",                                                                      # DEFINE groups and Unicode property classes `re` lacks
     "shapely",                                                                    # Planar operations
-    "skia-pathops",                                                               # Vector booleans, offsets, and stroke outlines
     "structlog",                                                                  # Structured logging through typed bound loggers and log capture
     "tomlkit",                                                                    # Round-trip TOML with comments and layout kept
     "wcwidth",                                                                    # Display width of text with wide, combining, and emoji characters
@@ -789,6 +788,9 @@ indent-width                    = 4
 key-value-equals-sign-alignment = true
 trailing-comment-alignment      = true
 trailing-comment-space-width    = 1
+
+[tool.tombi.lint.rules]
+key-empty = "off" # Hatch states a root path prefix as the empty `sources` key alone
 
 [tool.tombi.extensions."tombi-toml/cargo".lsp.inlay-hint.default-features]
 enabled = false

@@ -1,11 +1,11 @@
-using System.Globalization;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Modeling.Surfaces;
-using Rasm.Rhino.Render.Content;
-using Rhino.Geometry.Collections;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Modeling.Surfaces;
+using Rasm.RhinoCommon.Render.Content;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Modeling.Meshes;
+namespace Rasm.RhinoCommon.Modeling.Meshes;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum QuadSplit { Default = 0, ShortDiagonal = 1, LongDiagonal = 2, MinimumArea = 3, MaximumArea = 4, MinimumNormalAngle = 5, MaximumNormalAngle = 6 }
@@ -41,7 +41,7 @@ public abstract partial record FacePatch {
     private static Fin<Seq<ComponentIndex>> Held(Mesh mesh, Seq<ComponentIndex> vertices, Seq<int> edges) =>
         from corners in Callbacks.Each(vertices, static (vertex, at) => vertex.ComponentIndexType is ComponentIndexType.MeshVertex or ComponentIndexType.MeshTopologyVertex
             ? Fin.Succ(vertex)
-            : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{vertex.ComponentIndexType} at element {at} is no {ComponentIndexType.MeshVertex} or {ComponentIndexType.MeshTopologyVertex}")))
+            : new RhinoFault(vertex.ComponentIndexType.ToString(), RhinoReason.Mismatched, at))
         from held in Copies.Within(mesh, corners + edges.Map(static edge => new ComponentIndex(ComponentIndexType.MeshTopologyEdge, edge)))
         select held;
 }
@@ -101,140 +101,102 @@ public abstract partial record MeshEdit {
     public sealed record WithDisplacement(MeshDisplacementInfo Displacement) : MeshEdit;
     public sealed record WithEdgeSoftening(double Radius, bool Chamfer, bool Faceted, bool Force, double AngleThresholdDegrees) : MeshEdit;
 
-    public IO<EditStep<Mesh, int>> Step(Tolerances tolerances, Mesh mesh, Action<IDisposable> retain) =>
+    public IO<EditStep<Mesh, int>> Step(Tolerances tolerances, Mesh mesh) =>
         Switch(
-            (Mesh: mesh, Tolerances: tolerances, Retain: retain),
-            reduce: static (at, of) => Copies.Acquire(nameof(Mesh.Reduce), token =>
-                Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Reduce(MeshMapper.Reduction((of.Parameters, token)), of.Threaded)), at.Retain),
-            weld: static (at, of) => Copies.Acquire(nameof(Mesh.Weld), _ => {
-                at.Mesh.Weld(of.AngleToleranceRadians, of.PreserveSurfaceParameters);
-                return Edits.Completed<Mesh, int>(at.Mesh);
-            }, at.Retain),
-            unweld: static (at, of) => Copies.Acquire(nameof(Mesh.Unweld), _ => {
-                at.Mesh.Unweld(of.AngleToleranceRadians, of.ModifyNormals);
-                return Edits.Completed<Mesh, int>(at.Mesh);
-            }, at.Retain),
-            unweldEdge: static (at, of) =>
-                IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshTopologyEdge, of.EdgeIndices))
-                    .Bind(edges => Copies.Acquire(nameof(Mesh.UnweldEdge), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.UnweldEdge(edges, of.ModifyNormals)), at.Retain)),
-            unweldVertices: static (at, of) =>
-                IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshTopologyVertex, of.TopologyVertices))
-                    .Bind(vertices => Copies.Acquire(nameof(Mesh.UnweldVertices), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.UnweldVertices(vertices, of.ModifyNormals)), at.Retain)),
-            combineIdentical: static (at, of) => Copies.Acquire(nameof(MeshVertexList.CombineIdentical), _ =>
-                Edits.Changed<Mesh, int>(at.Mesh, at.Mesh.Vertices.CombineIdentical(of.IgnoreNormals, of.IgnoreAdditional)), at.Retain),
+            (Mesh: mesh, Tolerances: tolerances),
+            reduce: static (at, of) =>
+                from token in cancelToken
+                from step in Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Reduce(MeshMapper.Reduction((of.Parameters, token)), of.Threaded))
+                select step,
+            weld: static (at, of) => IO.lift(() => at.Mesh.Weld(of.AngleToleranceRadians, of.PreserveSurfaceParameters)) >> Edits.Completed<Mesh, int>(at.Mesh),
+            unweld: static (at, of) => IO.lift(() => at.Mesh.Unweld(of.AngleToleranceRadians, of.ModifyNormals)) >> Edits.Completed<Mesh, int>(at.Mesh),
+            unweldEdge: static (at, of) => IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshTopologyEdge, of.EdgeIndices))
+                .Bind(edges => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.UnweldEdge(edges, of.ModifyNormals))),
+            unweldVertices: static (at, of) => IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshTopologyVertex, of.TopologyVertices))
+                .Bind(vertices => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.UnweldVertices(vertices, of.ModifyNormals))),
+            combineIdentical: static (at, of) => Edits.Changed<Mesh, int>(at.Mesh, at.Mesh.Vertices.CombineIdentical(of.IgnoreNormals, of.IgnoreAdditional)),
             align: static (at, of) => of.Mask.Switch(
-                (at.Mesh, at.Retain, of.Distance, of.Average),
-                all: static (held, _) => Copies.Acquire(nameof(MeshVertexList.Align), _ =>
-                    Counted(held.Mesh, held.Mesh.Vertices.Align(held.Distance, held.Average, whichVertices: null)), held.Retain),
-                naked: static (held, _) => Copies.Acquire(nameof(MeshVertexList.Align), _ =>
-                    Counted(held.Mesh, held.Mesh.Vertices.Align(held.Distance, onlyNaked: true, held.Average)), held.Retain),
+                (at.Mesh, of.Distance, of.Average),
+                all: static (held, _) => Counted(held.Mesh, held.Mesh.Vertices.Align(held.Distance, held.Average, whichVertices: null)),
+                naked: static (held, _) => Counted(held.Mesh, held.Mesh.Vertices.Align(held.Distance, onlyNaked: true, held.Average)),
                 chosen: static (held, chosen) => IO.lift(() => Copies.Within(held.Mesh, ComponentIndexType.MeshVertex, chosen.Vertices))
-                    .Bind(vertices => Copies.Acquire(nameof(MeshVertexList.Align), _ =>
-                        Counted(held.Mesh, held.Mesh.Vertices.Align(held.Distance, held.Average, toSeq(Range(0, held.Mesh.Vertices.Count)).Map(toHashSet(vertices).Contains))), held.Retain))),
-            cullUnused: static (at, _) => Copies.Acquire(nameof(MeshVertexList.CullUnused), _ => Edits.Count(at.Mesh, at.Mesh.Vertices.CullUnused()), at.Retain),
-            collapseEdge: static (at, of) => TopologyEdge(at.Mesh, of.Edge, at.Retain, nameof(MeshTopologyEdgeList.CollapseEdge), static (mesh, edge) => mesh.TopologyEdges.CollapseEdge(edge)),
-            splitEdge: static (at, of) => TopologyEdge(at.Mesh, of.Edge, at.Retain, nameof(MeshTopologyEdgeList.SplitEdge), (mesh, edge) => of.At.Switch(
-                (Mesh: mesh, Edge: edge),
-                parameter: static (held, t) => held.Mesh.TopologyEdges.SplitEdge(held.Edge, t),
-                point: static (held, point) => held.Mesh.TopologyEdges.SplitEdge(held.Edge, point))),
-            swapEdge: static (at, of) => TopologyEdge(at.Mesh, of.Edge, at.Retain, nameof(MeshTopologyEdgeList.SwapEdge), static (mesh, edge) => mesh.TopologyEdges.SwapEdge(edge)),
-            mergeAdjacentFaces: static (at, of) => TopologyEdge(at.Mesh, of.Edge, at.Retain, nameof(MeshFaceList.MergeAdjacentFaces), static (mesh, edge) => mesh.Faces.MergeAdjacentFaces(edge)),
+                    .Bind(vertices => Counted(held.Mesh, held.Mesh.Vertices.Align(held.Distance, held.Average, toSeq(Range(0, held.Mesh.Vertices.Count)).Map(toHashSet(vertices).Contains))))),
+            cullUnused: static (at, _) => Edits.Count(at.Mesh, at.Mesh.Vertices.CullUnused()),
+            collapseEdge: static (at, of) => IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshTopologyEdge, [of.Edge]))
+                .Bind(_ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.TopologyEdges.CollapseEdge(of.Edge))),
+            splitEdge: static (at, of) => IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshTopologyEdge, [of.Edge]))
+                .Bind(_ => Edits.Accepted<Mesh, int>(at.Mesh, of.At.Switch(
+                    (at.Mesh, of.Edge),
+                    parameter: static (held, t) => held.Mesh.TopologyEdges.SplitEdge(held.Edge, t),
+                    point: static (held, point) => held.Mesh.TopologyEdges.SplitEdge(held.Edge, point)))),
+            swapEdge: static (at, of) => IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshTopologyEdge, [of.Edge]))
+                .Bind(_ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.TopologyEdges.SwapEdge(of.Edge))),
+            mergeAdjacentFaces: static (at, of) => IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshTopologyEdge, [of.Edge]))
+                .Bind(_ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Faces.MergeAdjacentFaces(of.Edge))),
             patchSingleFace: static (at, of) => IO.lift(() => of.Patch.Components(at.Mesh))
-                .Bind(components => Copies.Acquire(nameof(Mesh.PatchSingleFace), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.PatchSingleFace(components)), at.Retain)),
+                .Bind(components => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.PatchSingleFace(components))),
             deleteFaces: static (at, of) => IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshFace, of.Faces))
-                .Bind(faces => Copies.Acquire(nameof(MeshFaceList.DeleteFaces), _ =>
-                    (Answer.Accepted(at.Mesh.Faces.DeleteFaces(faces, of.CompactVertices) == faces.Count, $"deleted fewer than the {faces.Count} faces named"), Edits.Count(at.Mesh, faces.Count))
-                        .Apply(static (_, step) => step).As(), at.Retain)),
-            convertQuadsToTriangles: static (at, _) => Copies.Acquire(nameof(MeshFaceList.ConvertQuadsToTriangles), _ =>
-                Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Faces.ConvertQuadsToTriangles()), at.Retain),
-            convertTrianglesToQuads: static (at, of) => Copies.Acquire(nameof(MeshFaceList.ConvertTrianglesToQuads), _ =>
-                Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Faces.ConvertTrianglesToQuads(of.AngleToleranceRadians, of.MinimumDiagonalLengthRatio)), at.Retain),
-            convertNonPlanarQuadsToTriangles: static (at, of) => Copies.Acquire(nameof(MeshFaceList.ConvertNonPlanarQuadsToTriangles), _ =>
-                Edits.Count(at.Mesh, at.Mesh.Faces.ConvertNonPlanarQuadsToTriangles(Conversions.Unset(of.PlanarTolerance), at.Tolerances.Angle, (int)of.SplitMethod)), at.Retain),
-            addPlanarNgons: static (at, of) => Copies.Acquire(nameof(MeshNgonList.AddPlanarNgons), _ =>
-                Edits.Count(at.Mesh, at.Mesh.Ngons.AddPlanarNgons(of.PlanarTolerance, of.MinimumNgonVertexCount, of.MinimumNgonFaceCount, of.AllowHoles)), at.Retain),
-            removeAllNgons: static (at, _) => Copies.Acquire(nameof(MeshNgonList.RemoveAllNgons), _ => Edits.Count(at.Mesh, at.Mesh.Ngons.RemoveAllNgons()), at.Retain),
-            healNakedEdges: static (at, of) => Copies.Acquire(nameof(Mesh.HealNakedEdges), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.HealNakedEdges(of.Distance)), at.Retain),
-            fillHoles: static (at, _) => Copies.Acquire(nameof(Mesh.FillHoles), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.FillHoles()), at.Retain),
-            fillHole: static (at, of) => TopologyEdge(at.Mesh, of.TopologyEdgeIndex, at.Retain, nameof(Mesh.FillHole), static (mesh, edge) => mesh.FillHole(edge)),
-            matchEdges: static (at, of) => Copies.Acquire(nameof(Mesh.MatchEdges), _ => Edits.Changed<Mesh, int>(at.Mesh, at.Mesh.MatchEdges(of.Distance, of.Rachet)), at.Retain),
-            mergeAllCoplanarFaces: static (at, _) => Copies.Acquire(nameof(Mesh.MergeAllCoplanarFaces), _ =>
-                Edits.Changed<Mesh, int>(at.Mesh, at.Mesh.MergeAllCoplanarFaces(at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
-            cullDegenerateFaces: static (at, _) => Copies.Acquire(nameof(MeshFaceList.CullDegenerateFaces), _ => Edits.Count(at.Mesh, at.Mesh.Faces.CullDegenerateFaces()), at.Retain),
-            removeZeroAreaFaces: static (at, _) => Copies.Acquire(nameof(MeshFaceList.RemoveZeroAreaFaces), _ => {
+                .Bind(faces => IO.lift(() => RhinoFault.Unless(at.Mesh.Faces.DeleteFaces(faces, of.CompactVertices) == faces.Count)) >> Edits.Count(at.Mesh, faces.Count)),
+            convertQuadsToTriangles: static (at, _) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Faces.ConvertQuadsToTriangles()),
+            convertTrianglesToQuads: static (at, of) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Faces.ConvertTrianglesToQuads(of.AngleToleranceRadians, of.MinimumDiagonalLengthRatio)),
+            convertNonPlanarQuadsToTriangles: static (at, of) =>
+                Edits.Count(at.Mesh, at.Mesh.Faces.ConvertNonPlanarQuadsToTriangles(Conversions.Unset(of.PlanarTolerance), at.Tolerances.Angle, (int)of.SplitMethod)),
+            addPlanarNgons: static (at, of) => Edits.Count(at.Mesh, at.Mesh.Ngons.AddPlanarNgons(of.PlanarTolerance, of.MinimumNgonVertexCount, of.MinimumNgonFaceCount, of.AllowHoles)),
+            removeAllNgons: static (at, _) => Edits.Count(at.Mesh, at.Mesh.Ngons.RemoveAllNgons()),
+            healNakedEdges: static (at, of) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.HealNakedEdges(of.Distance)),
+            fillHoles: static (at, _) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.FillHoles()),
+            fillHole: static (at, of) => IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshTopologyEdge, [of.TopologyEdgeIndex]))
+                .Bind(_ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.FillHole(of.TopologyEdgeIndex))),
+            matchEdges: static (at, of) => Edits.Changed<Mesh, int>(at.Mesh, at.Mesh.MatchEdges(of.Distance, of.Rachet)),
+            mergeAllCoplanarFaces: static (at, _) => Edits.Changed<Mesh, int>(at.Mesh, at.Mesh.MergeAllCoplanarFaces(at.Tolerances.Absolute, at.Tolerances.Angle)),
+            cullDegenerateFaces: static (at, _) => Edits.Count(at.Mesh, at.Mesh.Faces.CullDegenerateFaces()),
+            removeZeroAreaFaces: static (at, _) => IO.lift(() => {
                 int fixedFaceCount = 0;
                 int removed = at.Mesh.Faces.RemoveZeroAreaFaces(ref fixedFaceCount);
-                return Edits.Count(at.Mesh, removed + fixedFaceCount);
-            }, at.Retain),
+                return removed + fixedFaceCount;
+            }).Bind(count => Edits.Count(at.Mesh, count)),
             smooth: static (at, of) => of.VertexIndices.Match(
                 Some: indices => IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshVertex, indices))
-                    .Bind(vertices => Copies.Acquire(nameof(Mesh.Smooth), _ => Edits.Accepted<Mesh, int>(at.Mesh,
-                        at.Mesh.Smooth(vertices, of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane)), at.Retain)),
-                None: () => Copies.Acquire(nameof(Mesh.Smooth), _ => Edits.Accepted<Mesh, int>(at.Mesh,
-                    at.Mesh.Smooth(of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane)), at.Retain)),
-            collapseFacesByEdgeLength: static (at, of) => Copies.Acquire(nameof(Mesh.CollapseFacesByEdgeLength), _ =>
-                Counted(at.Mesh, at.Mesh.CollapseFacesByEdgeLength(of.GreaterThan, of.EdgeLength)), at.Retain),
-            collapseFacesByArea: static (at, of) => Copies.Acquire(nameof(Mesh.CollapseFacesByArea), _ => Edits.Count(at.Mesh, at.Mesh.CollapseFacesByArea(of.LessThanArea, of.GreaterThanArea)), at.Retain),
-            collapseFacesByByAspectRatio: static (at, of) => Copies.Acquire(nameof(Mesh.CollapseFacesByByAspectRatio), _ => Edits.Count(at.Mesh, at.Mesh.CollapseFacesByByAspectRatio(of.AspectRatio)), at.Retain),
+                    .Bind(vertices => Edits.Accepted<Mesh, int>(at.Mesh,
+                        at.Mesh.Smooth(vertices, of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane))),
+                None: () => Edits.Accepted<Mesh, int>(at.Mesh,
+                    at.Mesh.Smooth(of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane))),
+            collapseFacesByEdgeLength: static (at, of) => Counted(at.Mesh, at.Mesh.CollapseFacesByEdgeLength(of.GreaterThan, of.EdgeLength)),
+            collapseFacesByArea: static (at, of) => Edits.Count(at.Mesh, at.Mesh.CollapseFacesByArea(of.LessThanArea, of.GreaterThanArea)),
+            collapseFacesByByAspectRatio: static (at, of) => Edits.Count(at.Mesh, at.Mesh.CollapseFacesByByAspectRatio(of.AspectRatio)),
             subdivide: static (at, of) => of.FaceIndices.Match(
                 Some: indices => IO.lift(() => Copies.Within(at.Mesh, ComponentIndexType.MeshFace, indices))
-                    .Bind(faces => Copies.Acquire(nameof(Mesh.Subdivide), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Subdivide(faces)), at.Retain)),
-                None: () => Copies.Acquire(nameof(Mesh.Subdivide), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Subdivide()), at.Retain)),
-            computeNormals: static (at, _) => Copies.Acquire(nameof(MeshVertexNormalList.ComputeNormals), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Normals.ComputeNormals()), at.Retain),
-            computeFaceNormals: static (at, _) => Copies.Acquire(nameof(MeshFaceNormalList.ComputeFaceNormals), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.FaceNormals.ComputeFaceNormals()), at.Retain),
-            unitizeNormals: static (at, _) => Copies.Acquire(nameof(MeshVertexNormalList.UnitizeNormals), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Normals.UnitizeNormals()), at.Retain),
-            unitizeFaceNormals: static (at, _) => Copies.Acquire(nameof(MeshFaceNormalList.UnitizeFaceNormals), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.FaceNormals.UnitizeFaceNormals()), at.Retain),
-            rebuildNormals: static (at, _) => Copies.Acquire(nameof(Mesh.RebuildNormals), _ => {
-                at.Mesh.RebuildNormals();
-                return Edits.Completed<Mesh, int>(at.Mesh);
-            }, at.Retain),
-            unifyNormals: static (at, _) => Copies.Acquire(nameof(Mesh.UnifyNormals), _ => Edits.Count(at.Mesh, at.Mesh.UnifyNormals(countOnly: false)), at.Retain),
-            flip: static (at, of) => Copies.Acquire(nameof(Mesh.Flip), _ => {
-                at.Mesh.Flip(of.VertexNormals, of.FaceNormals, of.FaceOrientation, of.NgonsBoundaryDirection);
-                return Edits.Completed<Mesh, int>(at.Mesh);
-            }, at.Retain),
-            map: static (at, of) => Mappings.WithMapping(of.Mapping, mapping => Copies.Acquire(nameof(Mesh.SetTextureCoordinates), _ => {
-                at.Mesh.SetTextureCoordinates(mapping, of.Xform, lazy: false, of.SeamCheck);
-                return Edits.Completed<Mesh, int>(at.Mesh);
-            }, at.Retain)),
-            normalizeTextureCoordinates: static (at, _) => Copies.Acquire(nameof(MeshTextureCoordinateList.NormalizeTextureCoordinates), _ =>
-                Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.TextureCoordinates.NormalizeTextureCoordinates()), at.Retain),
-            transposeTextureCoordinates: static (at, _) => Copies.Acquire(nameof(MeshTextureCoordinateList.TransposeTextureCoordinates), _ =>
-                Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.TextureCoordinates.TransposeTextureCoordinates()), at.Retain),
-            reverseTextureCoordinates: static (at, of) => Copies.Acquire(nameof(MeshTextureCoordinateList.ReverseTextureCoordinates), _ =>
-                Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.TextureCoordinates.ReverseTextureCoordinates((int)of.Direction)), at.Retain),
-            clearTextureData: static (at, _) => Copies.Acquire(nameof(Mesh.ClearTextureData), _ => {
-                at.Mesh.ClearTextureData();
-                return Edits.Completed<Mesh, int>(at.Mesh);
-            }, at.Retain),
-            clearSurfaceData: static (at, _) => Copies.Acquire(nameof(Mesh.ClearSurfaceData), _ => {
-                at.Mesh.ClearSurfaceData();
-                return Edits.Completed<Mesh, int>(at.Mesh);
-            }, at.Retain),
-            surfaceParametersFromTexture: static (at, _) => Copies.Acquire(nameof(Mesh.SetSurfaceParametersFromTextureCoordinates), _ =>
-                Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.SetSurfaceParametersFromTextureCoordinates()), at.Retain),
-            evaluateOn: static (at, of) => Copies.Acquire(nameof(Mesh.EvaluateMeshGeometry), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.EvaluateMeshGeometry(of.Surface)), at.Retain),
-            compact: static (at, _) => Copies.Acquire(nameof(Mesh.Compact), _ => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Compact()), at.Retain),
-            rebuild: static (at, of) => Copies.Acquire(nameof(Mesh.RebuildMesh), _ =>
-                Edits.Replaced<Mesh, int>(Mesh.RebuildMesh(at.Mesh, of.PreserveTextureCoordinates, of.PreserveVertexColors)), at.Retain),
-            unwelded: static (at, _) => Copies.Acquire(nameof(Mesh.CreateUnweldedMesh), _ => Edits.Replaced<Mesh, int>(Mesh.CreateUnweldedMesh(at.Mesh)), at.Retain),
-            withShutLining: static (at, of) => Thrown(nameof(Mesh.WithShutLining), Copies.Acquire(nameof(Mesh.WithShutLining), _ =>
-                Edits.Replaced<Mesh, int>(at.Mesh.WithShutLining(of.Faceted, at.Tolerances.Absolute, of.Curves)), at.Retain)),
-            withDisplacement: static (at, of) => Thrown(nameof(Mesh.WithDisplacement), Copies.Acquire(nameof(Mesh.WithDisplacement), _ =>
-                Edits.Replaced<Mesh, int>(at.Mesh.WithDisplacement(of.Displacement)), at.Retain)),
-            withEdgeSoftening: static (at, of) => Thrown(nameof(Mesh.WithEdgeSoftening), Copies.Acquire(nameof(Mesh.WithEdgeSoftening), _ =>
-                Edits.Replaced<Mesh, int>(at.Mesh.WithEdgeSoftening(of.Radius, of.Chamfer, of.Faceted, of.Force, of.AngleThresholdDegrees)), at.Retain)));
+                    .Bind(faces => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Subdivide(faces))),
+                None: () => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Subdivide())),
+            computeNormals: static (at, _) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Normals.ComputeNormals()),
+            computeFaceNormals: static (at, _) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.FaceNormals.ComputeFaceNormals()),
+            unitizeNormals: static (at, _) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Normals.UnitizeNormals()),
+            unitizeFaceNormals: static (at, _) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.FaceNormals.UnitizeFaceNormals()),
+            rebuildNormals: static (at, _) => IO.lift(at.Mesh.RebuildNormals) >> Edits.Completed<Mesh, int>(at.Mesh),
+            unifyNormals: static (at, _) => Edits.Count(at.Mesh, at.Mesh.UnifyNormals(countOnly: false)),
+            flip: static (at, of) => IO.lift(() => at.Mesh.Flip(of.VertexNormals, of.FaceNormals, of.FaceOrientation, of.NgonsBoundaryDirection)) >> Edits.Completed<Mesh, int>(at.Mesh),
+            map: static (at, of) => Mappings.WithMapping(of.Mapping, mapping =>
+                IO.lift(() => at.Mesh.SetTextureCoordinates(mapping, of.Xform, lazy: false, of.SeamCheck)) >> Edits.Completed<Mesh, int>(at.Mesh)),
+            normalizeTextureCoordinates: static (at, _) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.TextureCoordinates.NormalizeTextureCoordinates()),
+            transposeTextureCoordinates: static (at, _) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.TextureCoordinates.TransposeTextureCoordinates()),
+            reverseTextureCoordinates: static (at, of) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.TextureCoordinates.ReverseTextureCoordinates((int)of.Direction)),
+            clearTextureData: static (at, _) => IO.lift(at.Mesh.ClearTextureData) >> Edits.Completed<Mesh, int>(at.Mesh),
+            clearSurfaceData: static (at, _) => IO.lift(at.Mesh.ClearSurfaceData) >> Edits.Completed<Mesh, int>(at.Mesh),
+            surfaceParametersFromTexture: static (at, _) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.SetSurfaceParametersFromTextureCoordinates()),
+            evaluateOn: static (at, of) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.EvaluateMeshGeometry(of.Surface)),
+            compact: static (at, _) => Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Compact()),
+            rebuild: static (at, of) => Edits.Replaced<Mesh, int>(Mesh.RebuildMesh(at.Mesh, of.PreserveTextureCoordinates, of.PreserveVertexColors)),
+            unwelded: static (at, _) => Edits.Replaced<Mesh, int>(Mesh.CreateUnweldedMesh(at.Mesh)),
+            withShutLining: static (at, of) => Thrown(() => Edits.Replaced<Mesh, int>(at.Mesh.WithShutLining(of.Faceted, at.Tolerances.Absolute, of.Curves))),
+            withDisplacement: static (at, of) => Thrown(() => Edits.Replaced<Mesh, int>(at.Mesh.WithDisplacement(of.Displacement))),
+            withEdgeSoftening: static (at, of) => Thrown(() => Edits.Replaced<Mesh, int>(at.Mesh.WithEdgeSoftening(of.Radius, of.Chamfer, of.Faceted, of.Force, of.AngleThresholdDegrees))));
 
     // --- [STEPS]
-    private static IO<EditStep<Mesh, int>> TopologyEdge(Mesh mesh, int edge, Action<IDisposable> retain, string member, Func<Mesh, int, bool> step) =>
-        IO.lift(() => Copies.Within(mesh, ComponentIndexType.MeshTopologyEdge, Seq(edge)))
-        >> Copies.Acquire(member, _ => Edits.Accepted<Mesh, int>(mesh, step(mesh, edge)), retain);
+    private static IO<EditStep<Mesh, int>> Counted(Mesh mesh, int count, [CallerArgumentExpression(nameof(count))] string call = "") =>
+        IO.lift(() => RhinoFault.Unless(count >= 0, call: call)) >> Edits.Count(mesh, count, call);
 
-    private static Answer<EditStep<Mesh, int>> Counted(Mesh mesh, int count) =>
-        (Answer.Accepted(count >= 0), Edits.Count(mesh, count)).Apply(static (_, step) => step).As();
-
-    private static IO<EditStep<Mesh, int>> Thrown(string member, IO<EditStep<Mesh, int>> step) =>
-        step.Catch(static error => error.HasException<InvalidOperationException>(), error => IO.fail<EditStep<Mesh, int>>(new Refused(member, error.Message) + error));
+    private static IO<EditStep<Mesh, int>> Thrown(Func<IO<EditStep<Mesh, int>>> step, [CallerArgumentExpression(nameof(step))] string call = "") =>
+        unitIO.Bind(_ => step()).Catch(static error => error.HasException<InvalidOperationException>(), error => IO.fail<EditStep<Mesh, int>>(new RhinoFault(call, RhinoReason.Declined, Inner: error)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -247,18 +209,18 @@ internal static partial class MeshMapper {
 
 public static class MeshEdits {
     // --- [EDITS]
-    public static IO<(Mesh Result, Seq<(MeshEdit Edit, EditResult<int> Result)> Results)> Edit(Tolerances tolerances, Mesh source, Seq<MeshEdit> edits, Action<IDisposable> retain) =>
-        Edits.Apply(source, edits, (mesh, edit, held) => edit.Step(tolerances, mesh, held), static _ => IO.pure(unit), retain);
+    public static IO<(Mesh Result, Seq<(MeshEdit Edit, EditResult<int> Result)> Results)> Edit(Tolerances tolerances, Mesh source, Seq<MeshEdit> edits) =>
+        Edits.Apply(source, edits, (mesh, edit) => edit.Step(tolerances, mesh), static _ => IO.pure(unit));
 
     // --- [DERIVATIONS]
-    public static IO<(Mesh Mesh, Seq<int> WallFaces)> Offset(Mesh source, double distance, bool solidify, Option<Vector3d> direction, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Mesh.Offset), _ =>
-            Answer.One(source.Offset(distance, solidify, Conversions.Unset(direction), out List<int> walls)).Map(mesh => (Mesh: mesh, WallFaces: toSeq(walls))), retain);
+    public static IO<(Mesh Mesh, Seq<int> WallFaces)> Offset(Mesh source, double distance, bool solidify, Option<Vector3d> direction) =>
+        Products.Made(source.Offset(distance, solidify, Conversions.Unset(direction), out List<int> walls)).Map(mesh => (Mesh: mesh, WallFaces: toSeq(walls)));
 
-    public static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extrude(Mesh source, Seq<ComponentIndex> components, Action<MeshExtruder> configure, Action<IDisposable> retain) =>
-        IO.lift(() => Copies.Within(source, components))
-            .Bind(held => DisposalOps.Within(() => new MeshExtruder(source, held), extruder =>
-                IO.lift(() => configure(extruder)) >> Copies.Acquire(nameof(MeshExtruder.ExtrudedMesh), _ =>
-                    (Answer.Accepted(extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map)), Answer.One(mesh))
-                        .Apply((_, extruded) => (Mesh: extruded, Components: toSeq(map), WallFaces: toSeq(extruder.GetWallFaces()))).As(), retain)));
+    public static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extrude(Mesh source, Seq<ComponentIndex> components, Action<MeshExtruder> configure) =>
+        IO.lift(() => Copies.Within(source, components)).Bind(held =>
+            from extruder in use(() => new MeshExtruder(source, held))
+            from configured in IO.lift(() => configure(extruder))
+            from extruded in IO.lift(() => RhinoFault.Unless(extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map)).Map(_ => (Mesh: mesh, Map: map)))
+            from made in Products.Made(extruded.Mesh)
+            select (Mesh: made, Components: toSeq(extruded.Map), WallFaces: toSeq(extruder.GetWallFaces())));
 }

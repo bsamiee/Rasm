@@ -12,7 +12,7 @@ import msgspec
 
 from blender.bpy.commands import operators
 from blender.bpy.data.rna.conditions import Condition, holds
-from blender.bpy.data.rna.descriptors import root_in, Struct
+from blender.bpy.data.rna.descriptors import rna, root_in, Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
@@ -277,7 +277,7 @@ class Each[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, frozen=
         def items(bound: ResolvedMember[bpy.types.CollectionProperty]) -> Outcome[tuple[ResolvedMember[bpy.types.CollectionProperty], bpy.types.StringProperty, ResolvedMember, Option[Slots[T]]]]:
             match bound.descriptor.prop.fixed_type:
                 case None:
-                    return Error((Fault(reason=BlenderReason.ABSENT, subject=bound.descriptor.path, member="fixed_type"),))
+                    return Error(Fault.of(BlenderReason.ABSENT, rna(bound.descriptor.path), member="fixed_type"))
                 case item:
                     opened = Member(root=type(item), path=self.open).resolved(bpy.types.BoolProperty)
                     stored = self.store.map(
@@ -286,7 +286,7 @@ class Each[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, frozen=
                         ).map(Some)
                     ).default_value(Ok(Nothing))
                     return paired(
-                        Option.of_optional(item.bl_rna.name_property).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=bound.descriptor.path, member="name_property"),)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        Option.of_optional(item.bl_rna.name_property).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, rna(bound.descriptor.path), member="name_property")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                         paired(opened, stored),
                     ).map(lambda pair: (bound, pair[0], *pair[1]))
 

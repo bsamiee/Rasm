@@ -38,14 +38,14 @@ public sealed record FilmStock(
                 Seq((Scale: Scale.Red, Rotation: Rotation.Red), (Scale: Scale.Green, Rotation: Rotation.Green), (Scale: Scale.Blue, Rotation: Rotation.Blue))
                     .Map(static (primary, index) => new Unicolour(Configuration.Default, ColourSpace.Hsb, (120d * index) + double.RadiansToDegrees(primary.Rotation), 1d / primary.Scale, 1d).Rgb.ToArray()))
                 .NormalizeRows(1d);
-        (Func<Vector256<double>, Vector256<double>> gamut, Func<Vector256<double>, Vector256<double>> back) = (Transform(extension), Transform(extension.Inverse()));
+        ((Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) gamut, (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) back) = (Lanes.Of(extension.Transpose()), Lanes.Of(extension.Inverse().Transpose()));
         (double toeX, double toeY) = (ToeX, ToeY);
         (double shoulderX, double shoulderY) = (toeX + (ShoulderReachX * (1d - toeX)), toeY + (ShoulderReachY * (1d - toeY)));
         double slope = (shoulderY - toeY) / (shoulderX - toeX);
         (double low, double span, double offset) = (SigmoidMinimum, SigmoidSpan, double.Exp2(SigmoidMinimum));
         (double negative, Vector256<double> pre, Vector256<double> post) = (
-            double.Exp2(NegativeExposure), PreFilter.Lanes(static value => value) * double.Exp2(PreExposure), PostFilter.Lanes(static value => value));
-        Vector256<double> backlight = gamut(Backlight.Lanes(static value => value)) * double.Exp2(PrintExposure);
+            double.Exp2(NegativeExposure), PreFilter.Lanes * double.Exp2(PreExposure), PostFilter.Lanes);
+        Vector256<double> backlight = Transformed(gamut, Backlight.Lanes) * double.Exp2(PrintExposure);
         Vector256<double> cap = Transmitted(backlight * double.Exp2(-NegativeDensity), PrintDensity);
         double black = BlackPoint.Match(
             Some: static offset => offset / 1000d,
@@ -66,9 +66,9 @@ public sealed record FilmStock(
             Vector256.Create(Transmittance(stimulus[0], density), Transmittance(stimulus[1], density), Transmittance(stimulus[2], density), 1d);
 
         Vector3 Displayed(Vector3 node) {
-            Vector256<double> printed = Transmitted(backlight * Transmitted(gamut(Vector256.Create(node.X, node.Y, node.Z, 0d) * pre) * negative, NegativeDensity), PrintDensity) / cap;
+            Vector256<double> printed = Transmitted(backlight * Transmitted(Transformed(gamut, Vector256.Create(node.X, node.Y, node.Z, 0d) * pre) * negative, NegativeDensity), PrintDensity) / cap;
             double mono = Vector256.Dot(printed, Weights);
-            Vector256<double> clipped = Vector256.Clamp(back(printed * (double.Clamp((mono - black) / (1d - black), 0d, 1d) / mono)) * post, Vector256<double>.Zero, Vector256<double>.One);
+            Vector256<double> clipped = Vector256.Clamp(Transformed(back, printed * (double.Clamp((mono - black) / (1d - black), 0d, 1d) / mono)) * post, Vector256<double>.Zero, Vector256<double>.One);
             (double most, double least) = (double.Max(clipped[0], double.Max(clipped[1], clipped[2])), double.Min(clipped[0], double.Min(clipped[1], clipped[2])));
             Vector256<double> midtone = Vector256.Lerp(
                 clipped,
@@ -76,19 +76,15 @@ public sealed record FilmStock(
                 Vector256.Create(double.Max(1d - (double.Abs(Vector256.Dot(clipped, Weights) - 0.5d) / 0.45d), 0d)));
             return new Vector3((float)midtone[0], (float)midtone[1], (float)midtone[2]);
         }
-    }
 
-    private static Func<Vector256<double>, Vector256<double>> Transform(Matrix<double> matrix) {
-        (Vector256<double> red, Vector256<double> green, Vector256<double> blue) = Lanes.Of(matrix.Transpose());
-        return value => Vector256.Create(Vector256.Dot(red, value), Vector256.Dot(green, value), Vector256.Dot(blue, value), 0d);
+        static Vector256<double> Transformed((Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) lanes, Vector256<double> value) =>
+            Vector256.Create(Vector256.Dot(lanes.Red, value), Vector256.Dot(lanes.Green, value), Vector256.Dot(lanes.Blue, value), 0d);
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AgX {
-    public static LutTable Grey { get; } = (X: 0.2589235355689848d, Y: 0.6104985346066525d, Z: 0.13057792982436284d) switch {
-        var weights => new LutTable.Affine(Matrix<double>.Build.Dense(3, 3, (_, column) => column switch { 0 => weights.X, 1 => weights.Y, _ => weights.Z })),
-    };
+    public static LutTable Grey { get; } = new LutTable.Affine(Matrix<double>.Build.DenseOfRowArrays(Enumerable.Repeat<double[]>([0.2589235355689848d, 0.6104985346066525d, 0.13057792982436284d], 3)));
 
     public static Action<Span<Vector4>> Formed(Gamut working, DisplayDevice device, LogSpace space, Seq<Action<Span<Vector4>>> graded, LutTable table, ColorEncoding signal) =>
         device.Formed(working, space.Gamut, [.. graded, new LutTable.Log(space.Allocation).Apply, table.Apply], signal);

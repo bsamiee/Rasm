@@ -31,33 +31,33 @@ class Bounded(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Distance in X and width in Y of one vector, for one Menu Switch or group output to carry."""
         return xyz(self.distance, self.width)
 
-    def nearer(self, other: "Bounded") -> "Bounded":
+    def nearer(self, other: Self) -> Self:
         """Keeps per pixel whichever field lies nearer, with its width."""
         closer = other.distance < self.distance
-        return Bounded(distance=where(closer, other.distance, self.distance), width=where(closer, other.width, self.width))
+        return type(self)(distance=where(closer, other.distance, self.distance), width=where(closer, other.width, self.width))
 
-    def union(self, other: "Bounded", seam: Expr) -> "Bounded":
+    def union(self, other: Self, seam: Expr) -> Self:
         """Joins both regions, blending their boundaries over `seam`."""
-        return Bounded(distance=self._joined(other, seam, 1.0, 1.0), width=math("MAXIMUM", self.width, other.width))
+        return type(self)(distance=self._joined(other, seam, 1.0, 1.0), width=math("MAXIMUM", self.width, other.width))
 
-    def difference(self, other: "Bounded", seam: Expr) -> "Bounded":
+    def difference(self, other: Self, seam: Expr) -> Self:
         """Cuts the other region out of this one, blending the cut over `seam`."""
-        return Bounded(distance=self._joined(other, seam, -1.0, 1.0), width=self.width)
+        return type(self)(distance=self._joined(other, seam, -1.0, 1.0), width=self.width)
 
-    def intersection(self, other: "Bounded", seam: Expr) -> "Bounded":
+    def intersection(self, other: Self, seam: Expr) -> Self:
         """Keeps the overlap of both regions, blending its boundary over `seam`."""
-        return Bounded(distance=self._joined(other, seam, -1.0, -1.0), width=math("MINIMUM", self.width, other.width))
+        return type(self)(distance=self._joined(other, seam, -1.0, -1.0), width=math("MINIMUM", self.width, other.width))
 
-    def morphed(self, other: "Bounded", share: Scalar) -> "Bounded":
+    def morphed(self, other: Self, share: Scalar) -> Self:
         """Blends this field toward the other by `share`."""
-        return Bounded(distance=mixed(share, self.distance, other.distance), width=mixed(share, self.width, other.width))
+        return type(self)(distance=mixed(share, self.distance, other.distance), width=mixed(share, self.width, other.width))
 
-    def ring(self, thickness: Expr) -> "Bounded":
+    def ring(self, thickness: Expr) -> Self:
         """Band inside the boundary `thickness` times a quarter of the narrowest width deep."""
         half = self.width * thickness * 0.25
-        return Bounded(distance=abs(self.distance + half) - half, width=half * 2.0)
+        return type(self)(distance=abs(self.distance + half) - half, width=half * 2.0)
 
-    def _joined(self, other: "Bounded", seam: Expr, outer: float, inner: float) -> Expr:
+    def _joined(self, other: Self, seam: Expr, outer: float, inner: float) -> Expr:
         """Quadratic smooth minimum of the signed fields, both signs flipped to give difference and intersection."""
         left, right = self.distance * outer, other.distance * inner
         overlap = math("MAXIMUM", seam - abs(left - right), 0.0)

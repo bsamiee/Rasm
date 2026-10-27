@@ -1,4 +1,4 @@
-namespace Rasm.Rhino.Modeling;
+namespace Rasm.RhinoCommon.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -19,15 +19,12 @@ internal static class Booleans {
             .As()
             .Map(static groups => groups.Bind(static group => group));
 
-    internal static IO<Seq<Grouped<T, int>>> Meet<T>(Seq<T> first, Seq<T> second, Func<Action<IDisposable>, IO<Seq<T>>> union, Func<T, T, IO<Seq<T>>> binary) =>
-        DisposalOps.Within(
-            (Action<IDisposable> temporary) =>
-                from pieces in second.Count switch {
-                    0 => IO.pure(Seq<T>()),
-                    1 => IO.pure(second),
-                    _ => union(temporary),
-                }
-                from met in PerFirst(first, operand => pieces.TraverseM(piece => binary(operand, piece)).As().Map(static met => met.Bind(static held => held)))
-                select met,
-            DisposalOps.Release);
+    internal static IO<Seq<Grouped<T, int>>> Meet<T>(Seq<T> first, Seq<T> second, Func<IO<Seq<T>>> union, Func<T, T, IO<Seq<T>>> binary) =>
+        from pieces in second.Count switch {
+            0 => IO.pure(Seq<T>()),
+            1 => IO.pure(second),
+            _ => union(),
+        }
+        from met in PerFirst(first, operand => pieces.TraverseM(piece => binary(operand, piece)).As().Map(static met => met.Bind(static held => held)))
+        select met;
 }

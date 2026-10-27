@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-constant-partial-default
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+utils:
+    constant-value:
+        any:
+            - kind: 'boolean_literal, integer_literal, real_literal, string_literal, null_literal, default_expression'
+            - {kind: identifier, regex: '^None$'}
+            - {kind: member_access_expression, has: {field: name, regex: '^None$'}}
+            - {kind: prefix_unary_expression, has: {kind: 'integer_literal, real_literal'}}
+    constant-default:
+        kind: argument
+        all:
+            - has: {field: name, regex: '^@?default$'}
+            - any:
+                - has: {matches: constant-value}
+                - has: {kind: lambda_expression, all: [{has: {field: parameters, regex: '^\(?_\)?$'}}, {has: {field: body, matches: constant-value}}]}
+rule:
+    kind: invocation_expression
+    pattern: $MAP
+    all:
+        - has: {field: function, any: [{kind: identifier, regex: '^(Map|Switch)Partially$'}, {kind: member_access_expression, has: {field: name, regex: '^(Map|Switch)Partially$'}}]}
+        - has: {field: arguments, has: {matches: constant-default}}
+message: '`$MAP` reads a per-case fact through a partial map with a constant default'
+note: 'Declare the fact as an abstract or `static virtual` member on the union base that each case overrides'

@@ -1,4 +1,4 @@
-namespace Rasm.Rhino.UI.Rows;
+namespace Rasm.RhinoCommon.UI.Rows;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record RowRule(Func<RowScope, IO<bool>> Holds) {

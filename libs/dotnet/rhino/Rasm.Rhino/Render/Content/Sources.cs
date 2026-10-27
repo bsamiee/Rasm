@@ -1,13 +1,13 @@
+using System.Collections.Generic;
 using System.Drawing;
-using System.Globalization;
 using System.Runtime.CompilerServices;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Tables;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
 
-namespace Rasm.Rhino.Render.Content;
+namespace Rasm.RhinoCommon.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -46,6 +46,10 @@ public abstract partial record ContentEdit {
     public sealed record DeleteChild(string ChildSlotName) : ContentEdit;
 }
 
+public sealed record ContentSlot(RenderContent Parent, string ChildSlotName);
+
+public sealed record ContentChoice(Utilities.ContentNewExistingResults Choice, Seq<Guid> Contents);
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Contents {
     // --- [ROWS]
@@ -59,83 +63,83 @@ public static class Contents {
     public static IO<RenderContent> Resolve(RhinoDoc doc, RenderContentKind kinds, ComponentRef<RenderContent> row, Seq<string> slots) =>
         from top in row.Switch(
                 (Doc: doc, Kinds: kinds),
-                byId: static (state, byId) => IO.lift(() => Optional(RenderContent.FromId(state.Doc, byId.Id)).Filter(found => state.Kinds.HasFlag(Conversions.KindOf(found)))),
+                byId: static (state, byId) => IO.lift(() => Optional(RenderContent.FromId(state.Doc, byId.Id)).Filter(found => state.Kinds.HasFlag(ContentKinds.KindOf(found)))),
                 byIndex: static (state, byIndex) => Rows(state.Doc, state.Kinds).Map(rows => rows.At(byIndex.Index)),
                 byName: static (state, byName) => Rows(state.Doc, state.Kinds)
                     .Map(rows => rows.Filter(content => string.Equals(content.Name, byName.Name, StringComparison.Ordinal)))
                     .Bind(named => named.Count > 1
-                        ? IO.fail<Option<RenderContent>>(Error.New(string.Create(CultureInfo.InvariantCulture, $"{named.Count} render contents share name {byName.Name}")))
+                        ? IO.fail<Option<RenderContent>>(new RhinoFault($"render content name {byName.Name}", RhinoReason.Repeated))
                         : IO.pure(named.Head)))
-            .Bind(found => IO.lift(found.ToFin(new NotFound(nameof(RenderContent), $"{row}"))))
-        from child in IO.lift(() => slots.Fold(Fin.Succ(top), static (parent, slot) => parent.Bind(content => Optional(content.FindChild(slot)).ToFin(new NotFound("child content", $"slot {slot} of {content.Id}")))))
+            .Bind(found => IO.lift(found.ToFin(new RhinoFault($"render content {row}", RhinoReason.Missing))))
+        from child in IO.lift(() => slots.Fold(Fin.Succ(top), static (parent, slot) => parent.Bind(content =>
+            Optional(content.FindChild(slot)).ToFin(new RhinoFault($"slot {slot} of {content.Id}", RhinoReason.Missing)))))
         select child;
 
     // --- [LIFETIME]
-    public static IO<(RenderContent Content, Disposal<RenderContent> Ownership)> FreeFloating(Option<RhinoDoc> doc, ContentSource source, Action<IDisposable> retain) {
-        return source.Switch(
-            (Doc: doc.ValueUnsafe(), Retain: retain),
-            fromXml: static (state, xml) => Created(() => Refused.UnlessFound(RenderContent.FromXml(xml.Xml, state.Doc), nameof(RenderContent.FromXml))
-                .Map(static content => { AutoDelete(content, autoDelete: true); return content; }), state.Retain),
-            loadFromFile: static (state, file) => Created(() => Refused.UnlessFound(RenderContent.LoadFromFile(file.FileName), nameof(RenderContent.LoadFromFile)), state.Retain),
-            newContentFromTypeId: static (state, type) =>
-                Created(() => Refused.UnlessFound(RenderContentType.NewContentFromTypeId(type.TypeId, state.Doc), nameof(RenderContentType.NewContentFromTypeId)), state.Retain),
-            makeGroupInstance: static (state, group) => Created(() => Refused.UnlessFound(group.Content.MakeGroupInstance(), nameof(RenderContent.MakeGroupInstance)), state.Retain),
-            makeCopy: static (state, copy) => Created(() => Refused.UnlessFound(copy.Content.MakeCopy(), nameof(RenderContent.MakeCopy)), state.Retain),
-            edit: static (state, edit) => Created(() => Optional(edit.Content.Edit()).ToFin(Errors.Cancelled), state.Retain),
-            fromMaterial: static (state, material) =>
-                Created(() => Refused.UnlessFound<RenderContent>(RenderMaterial.FromMaterial(material.Material, state.Doc), nameof(RenderMaterial.FromMaterial)), state.Retain),
-            createBasicMaterial: static (state, basic) =>
-                Created(() => Refused.UnlessFound<RenderContent>(RenderMaterial.CreateBasicMaterial(basic.Material, state.Doc), nameof(RenderMaterial.CreateBasicMaterial)), state.Retain),
-            newBitmapTexture: static (state, bitmap) =>
-                Created(() => Refused.UnlessFound<RenderContent>(RenderTexture.NewBitmapTexture(bitmap.Image, state.Doc), nameof(RenderTexture.NewBitmapTexture)), state.Retain),
-            fromSimulation: static (state, simulated) =>
-                DisposalOps.Within(() => new SimulatedTexture(state.Doc), simulation =>
-                    simulated.Configure(simulation).Bind(_ =>
-                        Created(() => Refused.UnlessFound<RenderContent>(RenderTexture.NewBitmapTexture(simulation, state.Doc), nameof(RenderTexture.NewBitmapTexture)), state.Retain))),
-            newBasicEnvironment: static (state, environment) =>
-                DisposalOps.Within(static () => new SimulatedEnvironment(), simulation =>
-                    environment.Configure(simulation).Bind(_ =>
-                        Created(() => Refused.UnlessFound<RenderContent>(RenderEnvironment.NewBasicEnvironment(simulation, state.Doc), nameof(RenderEnvironment.NewBasicEnvironment)), state.Retain))),
-            nativeFactory: static (state, factory) => Created(factory.Create, state.Retain));
+    public static IO<T> Handed<T>(Option<RhinoDoc> doc, ContentSource source, Func<RenderContent, IO<T>> hand) =>
+        (from content in Created(doc.ValueUnsafe(), source)
+         from handed in hand(content).Catch(error => IO.lift(content.Dispose) >> IO.fail<T>(error))
+         select handed).Bracket();
 
-        static IO<(RenderContent Content, Disposal<RenderContent> Ownership)> Created(Func<Fin<RenderContent>> acquire, Action<IDisposable> retain) =>
-            DisposalOps.Acquire(IO.lift(() => acquire().Map(static content => (Content: content, Ownership: new Disposal<RenderContent>(content, static held => held.Dispose())))),
-                static held => held.Ownership, retain);
-    }
+    private static IO<RenderContent> Created(RhinoDoc? doc, ContentSource source) =>
+        source.Switch(
+            doc,
+            fromXml: static (state, xml) => IO.lift(() => Conversions.Found(RenderContent.FromXml(xml.Xml, state)).Map(static content => {
+                AutoDelete(content, autoDelete: true);
+                return content;
+            })),
+            loadFromFile: static (_, file) => IO.lift(() => Conversions.Found(RenderContent.LoadFromFile(file.FileName))),
+            newContentFromTypeId: static (state, type) => IO.lift(() => Conversions.Found(RenderContentType.NewContentFromTypeId(type.TypeId, state))),
+            makeGroupInstance: static (_, group) => IO.lift(() => Conversions.Found(group.Content.MakeGroupInstance())),
+            makeCopy: static (_, copy) => IO.lift(() => Conversions.Found(copy.Content.MakeCopy())),
+            edit: static (_, edit) => IO.lift(() => Optional(edit.Content.Edit()).ToFin(Errors.Cancelled)),
+            fromMaterial: static (state, material) => IO.lift(() => RhinoFault.Found<RenderContent>(RenderMaterial.FromMaterial(material.Material, state))),
+            createBasicMaterial: static (state, basic) => IO.lift(() => RhinoFault.Found<RenderContent>(RenderMaterial.CreateBasicMaterial(basic.Material, state))),
+            newBitmapTexture: static (state, bitmap) => IO.lift(() => RhinoFault.Found<RenderContent>(RenderTexture.NewBitmapTexture(bitmap.Image, state))),
+            fromSimulation: static (state, simulated) =>
+                from simulation in use(() => new SimulatedTexture(state))
+                from configured in simulated.Configure(simulation)
+                from content in IO.lift(() => RhinoFault.Found<RenderContent>(RenderTexture.NewBitmapTexture(simulation, state)))
+                select content,
+            newBasicEnvironment: static (state, environment) =>
+                from simulation in use(static () => new SimulatedEnvironment())
+                from configured in environment.Configure(simulation)
+                from content in IO.lift(() => RhinoFault.Found<RenderContent>(RenderEnvironment.NewBasicEnvironment(simulation, state)))
+                select content,
+            nativeFactory: static (_, factory) => IO.lift(factory.Create));
 
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "set_AutoDelete")]
     internal static extern void AutoDelete(RenderContent content, bool autoDelete);
 
     public static IO<RenderMaterial> Import(RhinoDoc doc, Material material, bool reference) =>
-        IO.lift(() => Refused.UnlessFound(RenderMaterial.CreateImportedMaterial(material, doc, reference), nameof(RenderMaterial.CreateImportedMaterial)));
+        IO.lift(() => Conversions.Found(RenderMaterial.CreateImportedMaterial(material, doc, reference)));
 
-    public static IO<RenderContent> Create(RhinoDoc doc, Guid typeId, Option<(RenderContent Parent, string ChildSlotName)> slot) =>
-        IO.lift(() => Refused.UnlessFound(
-            slot.Match(Some: into => RenderContent.Create(doc, typeId, into.Parent, into.ChildSlotName), None: () => RenderContent.Create(doc, typeId)),
-            nameof(RenderContent.Create)));
+    public static IO<RenderContent> Create(RhinoDoc doc, Guid typeId, Option<ContentSlot> slot) =>
+        IO.lift(() => slot.Match(
+            Some: into => Conversions.Found(RenderContent.Create(doc, typeId, into.Parent, into.ChildSlotName)),
+            None: () => Conversions.Found(RenderContent.Create(doc, typeId))));
 
-    public static IO<Unit> Attach(RhinoDoc doc, (RenderContent Content, Disposal<RenderContent> Ownership) content) =>
-        IO.lift(() => Refused.Unless(Conversions.ByKind(content.Content, doc.RenderMaterials.Add, doc.RenderEnvironments.Add, doc.RenderTextures.Add), nameof(RenderMaterialTable.Add))
-            .Map(_ => { content.Ownership.Relinquish(); return unit; })).Uninterruptible();
+    public static IO<Unit> Attach(RhinoDoc doc, RenderContent content) =>
+        IO.lift(() => RhinoFault.Unless(ContentKinds.ByKind(content, doc.RenderMaterials.Add, doc.RenderEnvironments.Add, doc.RenderTextures.Add)));
 
-    public static IO<RenderContent> Detach(RhinoDoc doc, RenderContent content, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => Refused.Unless(Conversions.ByKind(content, doc.RenderMaterials.Remove, doc.RenderEnvironments.Remove, doc.RenderTextures.Remove), content, nameof(RenderMaterialTable.Remove))), retain);
+    public static IO<RenderContent> Detach(RhinoDoc doc, RenderContent content) =>
+        IO.lift(() => RhinoFault.Unless(ContentKinds.ByKind(content, doc.RenderMaterials.Remove, doc.RenderEnvironments.Remove, doc.RenderTextures.Remove)))
+            .Bind(_ => use(() => content));
 
     public static IO<Unit> Replace(RenderContent target, RenderContent replacement) =>
-        IO.lift(() => (target.DocumentOwner is not null ? Fin.Succ(unit) : Error.New($"render content {target.Id} belongs to no document"))
-            .Bind(_ => Refused.Unless(target.Replace(replacement), nameof(RenderContent.Replace))));
+        IO.lift(() => Conversions.Found(target.DocumentOwner).Bind(_ => RhinoFault.Unless(target.Replace(replacement))));
 
     public static IO<Seq<Guid>> Purge(RhinoDoc doc, RenderContentKind kinds) =>
         Rows(doc, kinds).Bind(rows => Callbacks.Each(rows
             .Filter(static content => content.UseCount() is 0 && !content.IsDefaultInstance && !content.IsHiddenByAutoDelete)
-            .Map(content => DisposalOps.Within<IDisposable, Guid>(retain => Detach(doc, content, retain).Map(static detached => detached.Id), DisposalOps.Release))));
+            .Map(content => Detach(doc, content).Map(static detached => detached.Id).Bracket())));
 
     // --- [CHANGES]
     public static IO<T> WithinContentChange<T>(RenderContent content, RenderContent.ChangeContexts cc, IO<T> body) =>
-        DisposalOps.Within(fun(() => content.BeginChange(cc)), _ => body, _ => IO.lift(content.EndChange));
+        IO.lift(() => content.BeginChange(cc)) >> body.Finally(IO.lift(content.EndChange));
 
     public static IO<T> WithinTableChange<T>(RhinoDoc doc, RenderContent.ChangeContexts cc, IO<T> body) =>
-        DisposalOps.Within(fun(() => doc.RenderMaterials.BeginChange(cc)), _ => body, _ => IO.lift(doc.RenderMaterials.EndChange));
+        IO.lift(() => doc.RenderMaterials.BeginChange(cc)) >> body.Finally(IO.lift(doc.RenderMaterials.EndChange));
 
     public static IO<Unit> Apply(RhinoDoc doc, RenderContent target, RenderContent.ChangeContexts cc, Seq<ContentEdit> edits) =>
         WithinContentChange(target, cc, edits.TraverseM(edit => Edited(doc, target, cc, edit)).As().Map(unit));
@@ -144,13 +148,8 @@ public static class Contents {
         edit.Switch(
             (Doc: doc, Target: target, Context: cc),
             set: static (state, set) => IO.lift(() => set.Write(state.Target, state.Context)),
-            setChild: static (state, set) =>
-                DisposalOps.Within<IDisposable, Unit>(retain =>
-                    FreeFloating(state.Doc, set.Source, retain).Bind(child =>
-                        IO.lift(() => Refused.Unless(state.Target.SetChild(child.Content, set.ChildSlotName), nameof(RenderContent.SetChild))
-                            .Map(_ => { child.Ownership.Relinquish(); return unit; })).Uninterruptible()), DisposalOps.Release),
-            deleteChild: static (state, delete) =>
-                IO.lift(() => Refused.Unless(state.Target.DeleteChild(delete.ChildSlotName, state.Context), nameof(RenderContent.DeleteChild))));
+            setChild: static (state, set) => Handed(state.Doc, set.Source, child => IO.lift(() => RhinoFault.Unless(state.Target.SetChild(child, set.ChildSlotName)))),
+            deleteChild: static (state, delete) => IO.lift(() => RhinoFault.Unless(state.Target.DeleteChild(delete.ChildSlotName, state.Context))));
 
     // --- [CHOOSERS]
     public static IO<Guid> ShowContentInstanceBrowser(RhinoDoc doc, Option<Guid> selected, RenderContentKind kinds, RenderContent.ContentInstanceBrowserButtons buttons) =>
@@ -159,12 +158,12 @@ public static class Contents {
             return RenderContent.ShowContentInstanceBrowser(doc, ref chosen, kinds, buttons) ? Fin.Succ(chosen) : Errors.Cancelled;
         });
 
-    public static IO<(Utilities.ContentNewExistingResults Choice, Seq<Guid> Contents)> ShowContentNewExistingBrowser(
+    public static IO<ContentChoice> ShowContentNewExistingBrowser(
         RhinoDoc doc, Option<Guid> defaultType, Option<Guid> defaultInstance, RenderContentKind kinds, Utilities.ContentNewExistingFlags flags,
         Option<string> presetCategory, Seq<string> categories, Seq<Guid> types) =>
         IO.lift(() => Utilities.ShowContentNewExistingBrowser(
                 doc, Conversions.Unset(defaultType), Conversions.Unset(defaultInstance), kinds, flags, Conversions.Unset(presetCategory), categories, types, out Guid[] contents)
-            is not Utilities.ContentNewExistingResults.None and var choice ? Fin.Succ((choice, toSeq(contents))) : Errors.Cancelled);
+            is not Utilities.ContentNewExistingResults.None and var choice ? Fin.Succ(new ContentChoice(choice, toSeq(contents))) : Errors.Cancelled);
 
     // --- [READS]
     public static IO<uint> Hash(RenderContent content, CrcRenderHashFlags flags, Seq<string> excluded, Option<LinearWorkflow> workflow) =>
@@ -174,16 +173,17 @@ public static class Contents {
             (_, var names) => content.RenderHashExclude(flags, names),
         });
 
-    public static IO<Bitmap> Icon(RenderContent content, Size size, Option<DynamicIconUsage> usage, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => usage.Match(
-            Some: dynamic => content.DynamicIcon(size, out Bitmap bitmap, dynamic) ? Fin.Succ(bitmap) : new Refused(nameof(RenderContent.DynamicIcon), Refused.Absent),
-            None: () => content.Icon(size, out Bitmap bitmap) ? bitmap : new Refused(nameof(RenderContent.Icon), Refused.Absent))), bitmap => retain(bitmap));
+    public static IO<Bitmap> Icon(RenderContent content, Size size, Option<DynamicIconUsage> usage) =>
+        IO.lift(() => usage.Match(
+                Some: dynamic => RhinoFault.Unless(content.DynamicIcon(size, out Bitmap bitmap, dynamic)).Map(_ => bitmap),
+                None: () => RhinoFault.Unless(content.Icon(size, out Bitmap bitmap)).Map(_ => bitmap)))
+            .Bind(static bitmap => use(() => bitmap));
 
     // --- [FILES]
     public static IO<Unit> SaveToFile(RenderContent content, string fileName, RenderContent.EmbedFilesChoice embed) =>
-        IO.lift(() => OutputPath.Of(Path.ChangeExtension(fileName, Conversions.ByKind(content, static _ => ".rmtl", static _ => ".renv", static _ => ".rtex")))
-            .Bind(path => Refused.Unless(content.SaveToFile(path, embed), nameof(RenderContent.SaveToFile))));
+        IO.lift(() => OutputPath.Of(Path.ChangeExtension(fileName, ContentKinds.ByKind(content, static _ => ".rmtl", static _ => ".renv", static _ => ".rtex")))
+            .Bind(path => RhinoFault.Unless(content.SaveToFile(path, embed))));
 
     public static IO<Unit> SaveAsImage(RenderTexture texture, OutputPath path, int width, int height, int depth) =>
-        IO.lift(() => Refused.Unless(texture.SaveAsImage(path, width, height, depth), nameof(RenderTexture.SaveAsImage)));
+        IO.lift(() => RhinoFault.Unless(texture.SaveAsImage(path, width, height, depth)));
 }

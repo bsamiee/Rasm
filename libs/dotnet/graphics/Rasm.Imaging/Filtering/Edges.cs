@@ -15,7 +15,7 @@ using SixLabors.ImageSharp.PixelFormats;
 namespace Rasm.Imaging.Filtering;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-public delegate Fin<Unit> ContourMarks(Mat guide, Rectangle first, Rectangle second, Mat edges);
+public delegate void ContourMarks(Mat guide, Rectangle first, Rectangle second, Mat edges);
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
@@ -35,6 +35,8 @@ public sealed record ContourLine(Seq<(ContourMarks Marks, PixelFrame Guide)> Sou
 
 [SmartEnum<string>]
 public abstract partial class EdgeOperator {
+    private static readonly Seq<(int Row, int Column)> Cells = toSeq(from row in Enumerable.Range(0, 3) from column in Enumerable.Range(0, 3) select (row, column));
+
     public static readonly EdgeOperator Laplace = new Gradient("laplace", Seq(-1f / 8f, -1f / 8f, -1f / 8f, -1f / 8f, 1f, -1f / 8f, -1f / 8f, -1f / 8f, -1f / 8f));
     public static readonly EdgeOperator Sobel = new Gradient("sobel", Seq(1f, 0f, -1f, 2f, 0f, -2f, 1f, 0f, -1f));
     public static readonly EdgeOperator Prewitt = new Gradient("prewitt", Seq(1f, 0f, -1f, 1f, 0f, -1f, 1f, 0f, -1f));
@@ -43,18 +45,16 @@ public abstract partial class EdgeOperator {
 
     public Seq<float> Kernel { get; }
 
-    public abstract float Gain { get; }
+    public float Gain { get; }
 
-    private protected Seq<(float X, float Y)> Steps =>
+    public abstract void Respond(Mat plane, Mat response);
+
+    private static Seq<(float X, float Y)> Steps(Seq<float> kernel) =>
         from axis in Seq<Func<(int Row, int Column), int>>(static cell => cell.Row, static cell => cell.Column)
         from split in Seq(1, 2)
         from side in Seq<Func<int, int, bool>>(static (at, edge) => at < edge, static (at, edge) => at >= edge)
         let lit = Cells.Filter(cell => side(axis(cell), split))
-        select (lit.Fold(0f, (sum, cell) => sum + Kernel[(3 * cell.Row) + cell.Column]), lit.Fold(0f, (sum, cell) => sum + Kernel[(3 * cell.Column) + cell.Row]));
-
-    private static Seq<(int Row, int Column)> Cells { get; } = toSeq(from row in Enumerable.Range(0, 3) from column in Enumerable.Range(0, 3) select (row, column));
-
-    public abstract Unit Respond(Mat plane, Mat response);
+        select (lit.Fold(0f, (sum, cell) => sum + kernel[(3 * cell.Row) + cell.Column]), lit.Fold(0f, (sum, cell) => sum + kernel[(3 * cell.Column) + cell.Row]));
 
     private protected Mat Across() => Taps(static (row, column) => (3 * (2 - row)) + column);
 
@@ -66,10 +66,8 @@ public abstract partial class EdgeOperator {
         return taps;
     }
 
-    private sealed class Gradient(string key, Seq<float> kernel) : EdgeOperator(key, kernel) {
-        public override float Gain => Steps.Fold(0f, static (gain, step) => float.Max(gain, float.Hypot(step.X, step.Y)));
-
-        public override Unit Respond(Mat plane, Mat response) {
+    private sealed class Gradient(string key, Seq<float> kernel) : EdgeOperator(key, kernel, Steps(kernel).Fold(0f, static (gain, step) => float.Max(gain, float.Hypot(step.X, step.Y)))) {
+        public override void Respond(Mat plane, Mat response) {
             using Mat across = Across();
             using Mat down = Down();
             using Mat vertical = new(plane.Size, plane.Depth, plane.NumberOfChannels);
@@ -79,19 +77,15 @@ public abstract partial class EdgeOperator {
             CvInvoke.Multiply(vertical, vertical, vertical);
             CvInvoke.Add(response, vertical, response);
             CvInvoke.Sqrt(response, response);
-            return unit;
         }
     }
 
-    private sealed class Relief(string key, Seq<float> kernel) : EdgeOperator(key, kernel) {
-        public override float Gain => Steps.Fold(0f, static (gain, step) => float.Max(gain, step.X));
-
-        public override Unit Respond(Mat plane, Mat response) {
+    private sealed class Relief(string key, Seq<float> kernel) : EdgeOperator(key, kernel, Steps(kernel).Fold(0f, static (gain, step) => float.Max(gain, step.X))) {
+        public override void Respond(Mat plane, Mat response) {
             using Mat across = Across();
             using ScalarArray floor = new(0d);
             CvInvoke.Filter2D(plane, response, across, new Point(-1, -1), 0d, BorderType.Replicate);
             CvInvoke.Max(response, floor, response);
-            return unit;
         }
     }
 }
@@ -101,8 +95,8 @@ public sealed partial class EdgeSource {
     public static readonly EdgeSource Color = new("color", 3, separate: true, static (pixel, levels, _) => (levels[0], levels[1], levels[2]) = (pixel.X, pixel.Y, pixel.Z));
     public static readonly EdgeSource Luma = new("luma", 1, separate: false, static (pixel, levels, weights) => levels[0] = Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, weights));
     public static readonly EdgeSource Hue = new("hue", 2, separate: false, static (pixel, levels, _) =>
-        (levels[0], levels[1]) = double.SinCos(Hsy.From(pixel).Hue) switch { var (sine, cosine) => (cosine / double.Tau, sine / double.Tau) });
-    public static readonly EdgeSource Saturation = new("saturation", 1, separate: false, static (pixel, levels, _) => levels[0] = RangeAxis.Saturation.Coordinate(Hsy.From(pixel)));
+        (levels[0], levels[1]) = double.SinCos(Hsy.HueOf(pixel)) switch { var (sine, cosine) => (cosine / double.Tau, sine / double.Tau) });
+    public static readonly EdgeSource Saturation = new("saturation", 1, separate: false, static (pixel, levels, _) => levels[0] = RangeAxis.Saturation.Coordinate(Hsy.SaturationOf(pixel, Hsy.LumaOf(pixel))));
     public static readonly EdgeSource Value = new("value", 1, separate: false, static (pixel, levels, _) => levels[0] = float.Max(float.Max(pixel.X, pixel.Y), pixel.Z));
     public static readonly EdgeSource Alpha = new("alpha", 1, separate: false, static (pixel, levels, _) => levels[0] = pixel.W);
 
@@ -126,8 +120,8 @@ public static class EdgeResponse {
                 source.Read(row[x], levels.GetRowSpan(x), luminance);
         }).Run(frame, new Progress<int>())
             .Bind(_ => plane.Blur(plane, softening))
-            .Map(_ => kernel.Respond(plane, response))
             .Bind(_ => {
+                kernel.Respond(plane, response);
                 if (!source.Separate) {
                     using Mat sums = Mat.Ones(1, planes, DepthType.Cv32F, 1);
                     CvInvoke.Multiply(response, response, response);
@@ -206,7 +200,6 @@ public static class GuideEdges {
             using Mat leading = new(marks, first);
             using Mat trailing = new(marks, second);
             CvInvoke.BitwiseAnd(leading, trailing, edges);
-            return unit;
         };
 
     public static ContourMarks Crease(double angle) =>
@@ -215,12 +208,13 @@ public static class GuideEdges {
             using Mat second = new(guide, secondBox);
             using Mat near = new();
             using Mat far = new();
-            using Mat rgb = ChannelMask.Rgb();
+            using Mat rgb = new(1, 4, DepthType.Cv32F, 1);
             using Mat product = new();
             using Mat dot = new();
             using Mat lengths = new();
             using Mat partner = new();
             using ScalarArray bend = new(double.Cos(angle));
+            rgb.SetTo([1f, 1f, 1f, 0f]);
             first.ConvertTo(near, DepthType.Cv64F);
             second.ConvertTo(far, DepthType.Cv64F);
             foreach ((Mat left, Mat right, Mat sum) in Seq((near, far, dot), (near, near, lengths), (far, far, partner))) {
@@ -231,10 +225,9 @@ public static class GuideEdges {
             CvInvoke.Sqrt(lengths, lengths);
             CvInvoke.Multiply(lengths, bend, lengths);
             CvInvoke.Compare(dot, lengths, edges, CmpType.LessThan);
-            return unit;
         };
 
-    public static Fin<Unit> Identity(Mat guide, Rectangle firstBox, Rectangle secondBox, Mat edges) {
+    public static void Identity(Mat guide, Rectangle firstBox, Rectangle secondBox, Mat edges) {
         using Mat first = new(guide, firstBox);
         using Mat second = new(guide, secondBox);
         using Mat leading = new();
@@ -242,7 +235,6 @@ public static class GuideEdges {
         CvInvoke.ExtractChannel(first, leading, 0);
         CvInvoke.ExtractChannel(second, trailing, 0);
         CvInvoke.Compare(leading, trailing, edges, CmpType.NotEqual);
-        return unit;
     }
 }
 
@@ -298,58 +290,55 @@ public static class Contours {
         using Mat farReach = new();
         using Mat nearLabels = new();
         using Mat farLabels = new();
+        using Mat claimed = new();
         contour.SetTo(new MCvScalar(float.PositiveInfinity));
-        return line.Sources.TraverseM(source => Marked(source.Marks, source.Guide, z, near, far, contour)).As().Bind(_ => {
-            CvInvoke.BitwiseAnd(near, unclaimed, near);
-            CvInvoke.BitwiseAnd(far, unclaimed, far);
-            using Mat claimed = new();
-            CvInvoke.BitwiseOr(near, far, claimed);
-            CvInvoke.BitwiseNot(claimed, unclaimed);
-            using Mat nearWidths = Reached(near, contour, line.Width, nearReach, nearLabels);
-            using Mat farWidths = Reached(far, contour, line.Width, farReach, farLabels);
-            return new PixelPass.Pointwise((_, _, at) => {
-                int row = frame.RowIndex(at);
-                ReadOnlySpan<float> nearDistances = nearReach.View<float>().GetRowSpan(row);
-                ReadOnlySpan<float> farDistances = farReach.View<float>().GetRowSpan(row);
-                ReadOnlySpan<int> nearLines = nearLabels.View<int>().GetRowSpan(row);
-                ReadOnlySpan<int> farLines = farLabels.View<int>().GetRowSpan(row);
-                ReadOnlySpan<double> nearStrokes = nearWidths.GetSpan<double>();
-                ReadOnlySpan<double> farStrokes = farWidths.GetSpan<double>();
-                Span2D<float> covers = cover.View<float>().GetRowSpan(row).AsSpan2D(width, classes);
-                for (int x = 0; x < width; x++)
-                    covers[x, channel] = line.Placement.Cover(nearDistances[x], nearStrokes[nearLines[x]], farDistances[x], farStrokes[farLines[x]]);
-            }).Run(frame, progress);
-        });
+        foreach ((ContourMarks marks, PixelFrame guide) in line.Sources)
+            Marked(marks, guide, z, near, far, contour);
+        CvInvoke.BitwiseAnd(near, unclaimed, near);
+        CvInvoke.BitwiseAnd(far, unclaimed, far);
+        CvInvoke.BitwiseOr(near, far, claimed);
+        CvInvoke.BitwiseNot(claimed, unclaimed);
+        using Mat nearWidths = Reached(near, contour, line.Width, nearReach, nearLabels);
+        using Mat farWidths = Reached(far, contour, line.Width, farReach, farLabels);
+        return new PixelPass.Pointwise((_, _, at) => {
+            int row = frame.RowIndex(at);
+            ReadOnlySpan<float> nearDistances = nearReach.View<float>().GetRowSpan(row);
+            ReadOnlySpan<float> farDistances = farReach.View<float>().GetRowSpan(row);
+            ReadOnlySpan<int> nearLines = nearLabels.View<int>().GetRowSpan(row);
+            ReadOnlySpan<int> farLines = farLabels.View<int>().GetRowSpan(row);
+            ReadOnlySpan<double> nearStrokes = nearWidths.GetSpan<double>();
+            ReadOnlySpan<double> farStrokes = farWidths.GetSpan<double>();
+            Span2D<float> covers = cover.View<float>().GetRowSpan(row).AsSpan2D(width, classes);
+            for (int x = 0; x < width; x++)
+                covers[x, channel] = line.Placement.Cover(nearDistances[x], nearStrokes[nearLines[x]], farDistances[x], farStrokes[farLines[x]]);
+        }).Run(frame, progress);
     }
 
-    private static Fin<Unit> Marked(ContourMarks mark, PixelFrame guide, Mat z, Mat near, Mat far, Mat contour) {
+    private static void Marked(ContourMarks mark, PixelFrame guide, Mat z, Mat near, Mat far, Mat contour) {
         using Mat header = guide.Header();
         using Mat edges = new();
         using Mat side = new();
         using Mat nearer = new();
         using Mat lowered = new();
-        return Seq(
-                (new Rectangle(0, 0, z.Cols - 1, z.Rows), new Rectangle(1, 0, z.Cols - 1, z.Rows)),
-                (new Rectangle(0, 0, z.Cols, z.Rows - 1), new Rectangle(0, 1, z.Cols, z.Rows - 1))).Filter(static pair => pair.Item1.Width > 0 && pair.Item1.Height > 0).TraverseM(pair => {
-                    (Rectangle first, Rectangle second) = pair;
-                    using Mat firstDepth = new(z, first);
-                    using Mat secondDepth = new(z, second);
-                    return mark(header, first, second, edges).Map(_ => {
-                        CvInvoke.Min(firstDepth, secondDepth, nearer);
-                        foreach ((Rectangle box, Mat own, Mat partner) in Seq((first, firstDepth, secondDepth), (second, secondDepth, firstDepth))) {
-                            foreach ((CmpType test, Mat mask) in Seq((CmpType.LessThan, near), (CmpType.GreaterEqual, far))) {
-                                using Mat marks = new(mask, box);
-                                CvInvoke.Compare(own, partner, side, test);
-                                CvInvoke.BitwiseAnd(edges, side, side);
-                                CvInvoke.BitwiseOr(marks, side, marks);
-                            }
-                            using Mat depth = new(contour, box);
-                            CvInvoke.Min(depth, nearer, lowered);
-                            lowered.CopyTo(depth, edges);
-                        }
-                        return unit;
-                    });
-                }).As().Map(static _ => unit);
+        foreach ((Rectangle first, Rectangle second) in Seq(
+                     (new Rectangle(0, 0, z.Cols - 1, z.Rows), new Rectangle(1, 0, z.Cols - 1, z.Rows)),
+                     (new Rectangle(0, 0, z.Cols, z.Rows - 1), new Rectangle(0, 1, z.Cols, z.Rows - 1))).Filter(static pair => pair.Item1.Width > 0 && pair.Item1.Height > 0)) {
+            using Mat firstDepth = new(z, first);
+            using Mat secondDepth = new(z, second);
+            mark(header, first, second, edges);
+            CvInvoke.Min(firstDepth, secondDepth, nearer);
+            foreach ((Rectangle box, Mat own, Mat partner) in Seq((first, firstDepth, secondDepth), (second, secondDepth, firstDepth))) {
+                foreach ((CmpType test, Mat mask) in Seq((CmpType.LessThan, near), (CmpType.GreaterEqual, far))) {
+                    using Mat marks = new(mask, box);
+                    CvInvoke.Compare(own, partner, side, test);
+                    CvInvoke.BitwiseAnd(edges, side, side);
+                    CvInvoke.BitwiseOr(marks, side, marks);
+                }
+                using Mat depth = new(contour, box);
+                CvInvoke.Min(depth, nearer, lowered);
+                lowered.CopyTo(depth, edges);
+            }
+        }
     }
 
     private static Mat Reached(Mat mask, Mat contour, Func<float, double> stroke, Mat reach, Mat labels) {
@@ -364,13 +353,5 @@ public static class Contours {
                 table[label++] = stroke(depths[pixel]);
         }
         return widths;
-    }
-}
-
-internal static class ChannelMask {
-    public static Mat Rgb() {
-        Mat sums = new(1, 4, DepthType.Cv32F, 1);
-        sums.SetTo([1f, 1f, 1f, 0f]);
-        return sums;
     }
 }

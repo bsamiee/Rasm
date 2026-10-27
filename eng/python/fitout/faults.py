@@ -1,7 +1,6 @@
-"""Failure every fitout command returns, with message and exit status."""
+"""Failure every fitout command returns, with reason, subject, and cause."""
 
 from enum import StrEnum
-lazy import subprocess
 
 import msgspec
 
@@ -24,7 +23,7 @@ class Reason(StrEnum):
 
 
 class Fault(msgspec.Struct, frozen=True, kw_only=True):
-    """Failure of a fitout step, rendered as its message and exit status."""
+    """Failure of a fitout step, its message formatted from its reason."""
 
     reason: Reason
     subject: str
@@ -35,23 +34,10 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
         """Report text of the fault."""
         return self.reason.format(subject=self.subject, cause=self.cause)
 
-    @property
-    def status(self) -> int:
-        """Exit status of a failed child process, else 1."""
-        match self.cause:
-            case subprocess.CalledProcessError(returncode=status):
-                return status
-            case _:
-                return 1
-
     @classmethod
-    def caught(cls, reason: Reason, subject: object, error: BaseException) -> Faults:
-        """Faults of a caught error, one per leaf of a group."""
-        match error:
-            case BaseExceptionGroup(exceptions=leaves):
-                return tuple(*cls.caught(reason, subject, leaf) for leaf in leaves)
-            case _:
-                return (cls(reason=reason, subject=str(subject), cause=error),)
+    def of(cls, reason: Reason, subject: object, cause: BaseException | str) -> Faults:
+        """Faults of a cause, one per leaf of an exception group."""
+        return tuple(*cls.of(reason, subject, leaf) for leaf in cause.exceptions) if isinstance(cause, BaseExceptionGroup) else (cls(reason=reason, subject=str(subject), cause=cause),)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

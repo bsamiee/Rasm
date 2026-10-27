@@ -33,12 +33,17 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
     reason: StrEnum
     subject: str
     member: str = ""
-    cause: BaseException | str = ""
+    cause: object = ""
 
     @property
     def message(self) -> str:
         """Report text of the fault."""
         return self.reason.format(subject=self.subject, member=self.member, cause=self.cause)
+
+    @classmethod
+    def of(cls, reason: StrEnum, subject: str, cause: object = "", /, *, member: str = "") -> Faults:
+        """Faults of one fault over subject, the refused value or caught error as cause."""
+        return (cls(reason=reason, subject=subject, member=member, cause=cause),)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

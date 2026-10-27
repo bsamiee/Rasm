@@ -1,6 +1,7 @@
 """HTTP exchanges inside one client scope."""
 
 from collections.abc import Callable
+from functools import partial
 from http import HTTPMethod
 
 from expression import Nothing, Option
@@ -8,7 +9,7 @@ from expression.extra.result import catch
 import httpx2
 import msgspec
 
-from blender.records.faults import Fault, Faults, Outcome
+from blender.records.faults import Fault, Outcome
 from blender.records.fields import Positive
 from blender.rendering.faults import RenderingReason
 
@@ -24,14 +25,11 @@ class Endpoint(msgspec.Struct, frozen=True, kw_only=True):
     def opened[T](self, operation: Callable[[httpx2.Client], Outcome[T]]) -> Outcome[T]:
         """Runs operation inside one client scope, the client closing on every path."""
 
-        def refused(error: httpx2.InvalidURL) -> Faults:
-            return (Fault(reason=RenderingReason.EXCHANGE, subject=self.url, cause=error),)
-
         def held(url: httpx2.URL) -> Outcome[T]:
             with httpx2.Client(base_url=url, timeout=httpx2.Timeout(self.timeout)) as client:
                 return operation(client)
 
-        return catch(httpx2.URL, exception=httpx2.InvalidURL)(self.url).map_error(refused).bind(held)
+        return catch(httpx2.URL, exception=httpx2.InvalidURL)(self.url).map_error(partial(Fault.of, RenderingReason.EXCHANGE, self.url)).bind(held)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -49,17 +47,15 @@ def sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[msgs
     url = str(request.url)
     return (
         catch(client.send, exception=httpx2.RequestError)(request)
-        .map_error(lambda error: (Fault(reason=RenderingReason.EXCHANGE, subject=url, cause=error),))
-        .filter_with(lambda response: response.is_success, lambda response: (Fault(reason=RenderingReason.STATUS, subject=url, member=str(response.status_code)),))
+        .map_error(partial(Fault.of, RenderingReason.EXCHANGE, url))
+        .filter_with(lambda response: response.is_success, lambda response: Fault.of(RenderingReason.STATUS, url, member=str(response.status_code)))
     )
 
 
 def exchange[T](client: httpx2.Client, method: HTTPMethod, path: str, reply: type[T], body: Option[msgspec.Struct | bytes] = Nothing) -> Outcome[T]:
     """Sends request and decodes JSON reply."""
     return sent(client, method, path, body).bind(
-        lambda response: catch(msgspec.json.decode, exception=msgspec.DecodeError)(response.content, type=reply).map_error(
-            lambda error: (Fault(reason=RenderingReason.EXCHANGE, subject=str(response.request.url), cause=error),)
-        )
+        lambda response: catch(msgspec.json.decode, exception=msgspec.DecodeError)(response.content, type=reply).map_error(partial(Fault.of, RenderingReason.EXCHANGE, str(response.request.url)))
     )
 
 

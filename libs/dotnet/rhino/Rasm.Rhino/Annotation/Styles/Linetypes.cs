@@ -2,17 +2,17 @@ using System.Drawing;
 using System.Numerics;
 using LanguageExt.ClassInstances;
 using Rasm.Drafting;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Persistence;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Persistence;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.UI;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Annotation.Styles;
+namespace Rasm.RhinoCommon.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record LinetypeTaper<TWidth>(TWidth Start, Option<(double Position, TWidth Width)> Waist, TWidth End) where TWidth : struct {
@@ -65,7 +65,7 @@ public static partial class Linetypes {
             None));
 
     public static IO<Option<LinetypeShapeLayout>> Layout(Linetype linetype) =>
-        IO.lift(() => Callbacks.Found(
+        IO.lift(() => Conversions.Found(
             linetype.HasShapes,
             new LinetypeShapeLayout(
                 Length.FromMillimeters(linetype.ShapeSpacing),
@@ -98,8 +98,7 @@ public static partial class Linetypes {
     // --- [WRITES]
     public static IO<Unit> Written(Linetype staged, LinetypeDefinition definition) =>
         from held in IO.lift(() => Segments(staged))
-        from patterned in unless(held == definition.Settings.Pattern, IO.lift(() =>
-            Refused.Unless(staged.SetSegments(definition.Settings.Pattern.Map(Millimeters)), nameof(Linetype.SetSegments)))).As()
+        from patterned in unless(held == definition.Settings.Pattern, IO.lift(() => RhinoFault.Unless(staged.SetSegments(definition.Settings.Pattern.Map(Millimeters))))).As()
         let stroke = definition.Settings.Width.Switch(
             screen: static screen => (screen.Width, WidthUnits: UnitSystem.None, Taper: screen.Taper.Map(static taper => taper.Lowered(identity))),
             distance: static distance => (Width: Millimeters(distance.Width), WidthUnits: UnitSystem.Millimeters, Taper: distance.Taper.Map(static taper => taper.Lowered(Millimeters))))
@@ -110,13 +109,11 @@ public static partial class Linetypes {
                 None: () => staged.SetTaper(taper.Start, taper.End)),
             None: staged.RemoveTaper))
         from cleared in IO.lift(staged.RemoveAllShapes)
-        let additions = from shapes in definition.Shapes.ToSeq()
-                        from shape in toSeq(shapes.Items)
-                        select IO.lift(() => shape.Switch(staged,
-                            fromCurve: static (row, curve) => row.AddShape(curve.Curve, Millimeters(curve.Offset)),
-                            fromText: static (row, text) => row.AddShape(text.Text, Millimeters(text.Offset))))
-        from added in Callbacks.Each(additions.Map(static (effect, index) => effect
-            .Map(answer => Refused.Unless(answer, nameof(Linetype.AddShape), index)).Bind(IO.lift)))
+        let shapes = definition.Shapes.ToSeq().Bind(static held => toSeq(held.Items))
+        from added in Callbacks.Each(shapes.Map((shape, index) => IO.lift(() => shape.Switch(
+            (Row: staged, Index: index),
+            fromCurve: static (at, curve) => RhinoFault.Unless(at.Row.AddShape(curve.Curve, Millimeters(curve.Offset)), at.Index),
+            fromText: static (at, text) => RhinoFault.Unless(at.Row.AddShape(text.Text, Millimeters(text.Offset)), at.Index)))))
         from laid in IO.lift(() => definition.Shapes.Iter(shapes => Write((shapes.Layout.ShapeSpacing, shapes.Layout.ShapeGap,
             new Vector2d(Millimeters(shapes.Layout.ShapeLocalOffset.X), Millimeters(shapes.Layout.ShapeLocalOffset.Y))), staged)))
         from strings in IO.lift(() => UserStrings.Held(staged.GetUserStrings()))
@@ -124,71 +121,66 @@ public static partial class Linetypes {
         select unit;
 
     public static IO<int> AddReference(RhinoDoc doc, string name, LinetypeDefinition definition) =>
-        DisposalOps.Within(static () => new Linetype(), staged =>
+        (from staged in use(static () => new Linetype())
          from named in TableOps.Named(staged, Some(name))
          from written in Written(staged, definition)
-         from index in IO.lift(() => Conversions.Required(doc.Linetypes.AddReferenceLinetype(staged), nameof(LinetypeTable.AddReferenceLinetype)))
-         select index);
+         from index in IO.lift(() => Conversions.Found(Conversions.Present(doc.Linetypes.AddReferenceLinetype(staged))))
+         select index).Bracket();
 
     // --- [TABLE]
     public static IO<LinetypeTableState> ReadTable(RhinoDoc doc) =>
-        IO.lift(() => LinetypeRef.FromHost(doc.Linetypes.CurrentLinetypeIndex)
-            .ToFin(new Refused(nameof(LinetypeTable.CurrentLinetypeIndex), Refused.Invalid))
+        IO.lift(() => Conversions.Found(LinetypeRef.FromHost(doc.Linetypes.CurrentLinetypeIndex))
             .Map(current => new LinetypeTableState(current, doc.Linetypes.CurrentLinetypeSource, doc.Linetypes.LinetypeScale)));
 
     public static IO<Unit> WriteTable(RhinoDoc doc, LinetypeTableState state) =>
         from index in state.Current.Resolve(doc)
-        from current in IO.lift(() => Refused.Unless(
-            doc.Linetypes.CurrentLinetypeIndex == index || doc.Linetypes.SetCurrentLinetypeIndex(index, quiet: true), nameof(LinetypeTable.SetCurrentLinetypeIndex)))
+        from current in IO.lift(() => RhinoFault.Unless(doc.Linetypes.CurrentLinetypeIndex == index || doc.Linetypes.SetCurrentLinetypeIndex(index, quiet: true)))
         from source in IO.lift(() => Write((state.CurrentLinetypeSource, state.LinetypeScale), doc.Linetypes))
         select source;
 
     public static IO<LinetypeRef> Effective(RhinoDoc doc, RhinoObject target) =>
-        IO.lift(() => LinetypeRef.FromHost(doc.Linetypes.LinetypeIndexForObject(target)).ToFin(new Refused(nameof(LinetypeTable.LinetypeIndexForObject), Refused.Invalid)));
+        IO.lift(() => Conversions.Found(LinetypeRef.FromHost(doc.Linetypes.LinetypeIndexForObject(target))));
 
     public static IO<Unit> UndoModify(RhinoDoc doc, ComponentRef<Linetype> address) =>
         from row in TableOps.Find(doc.Linetypes, address, includeDeleted: false)
-        from restored in IO.lift(() => Refused.Unless(doc.Linetypes.UndoModify(row.Index), nameof(LinetypeTable.UndoModify)))
+        from restored in IO.lift(() => RhinoFault.Unless(doc.Linetypes.UndoModify(row.Index)))
         select restored;
 
     public static IO<Unit> Undelete(RhinoDoc doc, ComponentRef<Linetype> address) =>
         from row in TableOps.Find(doc.Linetypes, address, includeDeleted: true)
-        from restored in IO.lift(() => Refused.Unless(doc.Linetypes.Undelete(row.Index), nameof(LinetypeTable.Undelete)))
+        from restored in IO.lift(() => RhinoFault.Unless(doc.Linetypes.Undelete(row.Index)))
         select restored;
 
     // --- [TEXT]
     public static IO<Seq<Length>> Parse(string text, bool millimeters) =>
-        DisposalOps.Within(() => Linetype.CreateFromPatternString(text, millimeters), native =>
-         from parsed in IO.lift(() => Optional(native).ToFin(Errors.ParseError($"{nameof(Linetype)}.{nameof(Linetype.CreateFromPatternString)} parsed no whole value from {text}")))
-         select Segments(parsed), static native => DisposalOps.Release(native));
+        (from created in IO.lift(() => Optional(Linetype.CreateFromPatternString(text, millimeters)).ToFin(new RhinoFault(text, RhinoReason.Unreadable)))
+         from native in use(() => created)
+         select Segments(native)).Bracket();
 
     public static IO<string> Text(Seq<Length> pattern, bool millimeters) =>
-        DisposalOps.Within(static () => new Linetype(), scratch =>
-         from written in IO.lift(() => Refused.Unless(scratch.SetSegments(pattern.Map(Millimeters)), nameof(Linetype.SetSegments)))
+        (from scratch in use(static () => new Linetype())
+         from written in IO.lift(() => RhinoFault.Unless(scratch.SetSegments(pattern.Map(Millimeters))))
          from text in IO.lift(() => scratch.PatternString(millimeters))
-         select text);
+         select text).Bracket();
 
     // --- [PREVIEW]
     private const double Span = 50d;
 
     public static IO<Seq<LinetypePreview>> Preview(Seq<Linetype> linetypes, Size pixels) =>
-        DisposalOps.Within(static () => new LineCurve(Point3d.Origin, new Point3d(Span, 0d, 0d)), curve =>
-            from tallest in IO.lift(() => linetypes.Fold(0d, static (held, linetype) => Math.Max(held, linetype.ShapeBounds.Diagonal.Y)))
-            from previews in linetypes.TraverseM(linetype => Previewed(curve, linetype, pixels, tallest)).As()
-            select previews);
+        (from curve in use(static () => new LineCurve(Point3d.Origin, new Point3d(Span, 0d, 0d)))
+         from tallest in IO.lift(() => linetypes.Fold(0d, static (held, linetype) => Math.Max(held, linetype.ShapeBounds.Diagonal.Y)))
+         from previews in linetypes.TraverseM(linetype => Previewed(curve, linetype, pixels, tallest)).As()
+         select previews).Bracket();
 
     private static IO<LinetypePreview> Previewed(Curve curve, Linetype linetype, Size pixels, double tallest) =>
-        DisposalOps.Within(() => new Linetype(linetype) { WidthUnits = UnitSystem.None }, copy =>
-            from factor in IO.lift(() => copy.SegmentCount > 1 && copy.PatternLength > 0d && (Span / copy.PatternLength is < 5d or > 50d) ? 10d / copy.PatternLength : 1d)
-            from rescaled in IO.lift(() => Callbacks.Each(
-                toSeq(Range(0, copy.SegmentCount)),
-                index => {
-                    copy.GetSegment(index, out double length, out bool solid);
-                    return copy.SetSegment(index, length * factor, solid);
-                },
-                nameof(Linetype.SetSegment)))
-            let scale = tallest > 0d ? 0.6d * Span * pixels.Height / pixels.Width / tallest : factor
-            select new LinetypePreview(Channel(curve, copy, pixels, scale, 0), Channel(curve, copy, pixels, scale, 1), Channel(curve, copy, pixels, scale, 2)));
+        (from copy in use(() => new Linetype(linetype) { WidthUnits = UnitSystem.None })
+         from factor in IO.lift(() => copy.SegmentCount > 1 && copy.PatternLength > 0d && (Span / copy.PatternLength is < 5d or > 50d) ? 10d / copy.PatternLength : 1d)
+         from rescaled in IO.lift(() => Callbacks.Each(toSeq(Range(0, copy.SegmentCount)), (segment, index) => {
+             copy.GetSegment(segment, out double length, out bool solid);
+             return RhinoFault.Unless(copy.SetSegment(segment, length * factor, solid), index);
+         }))
+         let scale = tallest > 0d ? 0.6d * Span * pixels.Height / pixels.Width / tallest : factor
+         select new LinetypePreview(Channel(curve, copy, pixels, scale, 0), Channel(curve, copy, pixels, scale, 1), Channel(curve, copy, pixels, scale, 2))).Bracket();
 
     private static Seq<Seq<Vector2>> Channel(Curve curve, Linetype linetype, Size pixels, double scale, int kind) =>
         toSeq(DrawingUtilities.CreateLinetypePreviewGeometryEx(curve, linetype, pixels.Width, pixels.Height, scale, kind))
@@ -197,9 +189,10 @@ public static partial class Linetypes {
 
     // --- [FILES]
     public static IO<Seq<(string Name, LinetypeDefinition Definition)>> ReadFile(InputPath path) =>
-        DisposalOps.Within(() => Linetype.ReadFromFile(path),
-            static held => Conversions.Rows(held).TraverseM(static row => (IO.pure(row.Name), Definition(row)).Apply(ValueTuple.Create).As()).As(),
-            static held => DisposalOps.Release(Conversions.Rows(held)));
+        (from read in IO.lift(() => Linetype.ReadFromFile(path))
+         from rows in Products.Made(read)
+         from definitions in rows.TraverseM(static row => (IO.pure(row.Name), Definition(row)).Apply(ValueTuple.Create).As()).As()
+         select definitions).Bracket();
 
     // --- [MAPPING]
     private static partial void Write((LineCapStyle LineCapStyle, LineJoinStyle LineJoinStyle, bool AlwaysModelDistances, double Width, UnitSystem WidthUnits) source, Linetype target);

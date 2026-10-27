@@ -3,6 +3,7 @@
 from collections.abc import Callable
 import math
 from pathlib import Path
+import sys
 from typing import Annotated
 
 import bpy
@@ -59,7 +60,7 @@ class Tag(msgspec.Struct, frozen=True, kw_only=True):
             image,
             dict((
                 *((("source", "SEQUENCE"),) if self.sequence else ()),
-                *(("colorspace_settings.name", space) for space in self.space.to_list()),
+                *((("colorspace_settings", "name"), space) for space in self.space.to_list()),
                 *(("alpha_mode", alpha) for alpha in self.alpha.to_list()),
                 *(("use_view_as_render", shown) for shown in self.view_as_render.to_list()),
             )),
@@ -69,7 +70,7 @@ class Tag(msgspec.Struct, frozen=True, kw_only=True):
 class Scaled(Case, frozen=True, kw_only=True):
     """Proxy at fraction of each source side."""
 
-    factor: Annotated[float, msgspec.Meta(gt=0.0, lt=1.0, description="Proxy side over source side")] = 0.5
+    factor: Annotated[float, msgspec.Meta(ge=sys.float_info.min, lt=1.0, description="Proxy side over source side")] = 0.5
 
     def fitted(self, width: int, height: int) -> Option[tuple[int, int]]:
         """Returns each scaled side rounded up to whole pixel."""

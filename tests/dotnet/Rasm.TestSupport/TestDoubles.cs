@@ -11,10 +11,10 @@ public abstract partial record StubBehavior<TValue> {
     public sealed record Sequence(Seq<TValue> Values) : StubBehavior<TValue>;
 }
 
-public readonly record struct SpyCall<TArgs>(string Member, TArgs Arguments);
+public sealed record SpyCall<TArgs>(string Member, TArgs Arguments);
 
-public readonly record struct RestoreHandle(Action Restore) : IDisposable {
-    public void Dispose() => Restore();
+public sealed class RestoreHandle(Action restore) : IDisposable {
+    public void Dispose() => restore();
 }
 
 public sealed record TimerEvent(string Label, TimeSpan Due, TimeSpan Observed);

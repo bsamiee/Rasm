@@ -94,10 +94,7 @@ public sealed record Traces(BinGrid Red, BinGrid Green, BinGrid Blue, BinGrid Lu
 public sealed record Clips(Channels<int> Low, Channels<int> High) {
     internal const int Ends = 6;
 
-    internal static Clips Of(ReadOnlySpan<int> counts) =>
-        counts[..Ends] switch {
-            var ends => new(new(ends[0], ends[1], ends[2]), new(ends[3], ends[4], ends[5])),
-        };
+    internal static Clips Of(ReadOnlySpan<int> counts) => counts[..Ends] switch { var ends => new(new(ends[0], ends[1], ends[2]), new(ends[3], ends[4], ends[5])) };
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -254,7 +251,7 @@ internal sealed class ChromaticityFold(Matrix<double> toXyz, Transfer encoding, 
 }
 
 internal static class BandFold {
-    public static int[] Run<TFold>(PixelFrame frame, TFold fold) where TFold : IRowFold {
+    internal static int[] Run<TFold>(PixelFrame frame, TFold fold) where TFold : IRowFold {
         int bands = int.Min(frame.Size.Height, Environment.ProcessorCount);
         int[][] counts = new int[bands][];
         ParallelHelper.For(0, bands, new BandAction<TFold>(frame.View, counts, fold));

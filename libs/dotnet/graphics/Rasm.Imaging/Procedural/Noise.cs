@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.Intrinsics;
@@ -11,7 +12,7 @@ public sealed partial class CellMetric {
     public static readonly CellMetric Euclidean = new("euclidean", static (delta, _) => delta.Length());
     public static readonly CellMetric Manhattan = new("manhattan", static (delta, _) => Vector4.Sum(Vector4.Abs(delta)));
     public static readonly CellMetric Chebyshev = new("chebyshev", static (delta, _) => Vector4.Abs(delta) switch { var a => float.Max(float.Max(a.X, a.Y), float.Max(a.Z, a.W)) });
-    public static readonly CellMetric Minkowski = new("minkowski", static (delta, exponent) => MathF.Pow(Vector4.Sum(Vector4.Exp(exponent * Vector4.Log(Vector4.Abs(delta)))), 1f / exponent));
+    public static readonly CellMetric Minkowski = new("minkowski", static (delta, exponent) => float.Pow(Vector4.Sum(Vector4.Exp(exponent * Vector4.Log(Vector4.Abs(delta)))), 1f / exponent));
 
     [UseDelegateFromConstructor]
     public partial float Length(Vector4 delta, float exponent);
@@ -20,9 +21,9 @@ public sealed partial class CellMetric {
 [SmartEnum<string>]
 public sealed partial class WaveProfile {
     public static readonly WaveProfile Sine = new("sine", static periods => 0.5f - (0.5f * float.CosPi(2f * periods)));
-    public static readonly WaveProfile Saw = new("saw", static periods => periods - MathF.Floor(periods));
-    public static readonly WaveProfile Triangle = new("triangle", static periods => 2f * MathF.Abs(periods - MathF.Floor(periods + 0.5f)));
-    public static readonly WaveProfile Square = new("square", static periods => MathF.Floor(2f * (periods - MathF.Floor(periods))));
+    public static readonly WaveProfile Saw = new("saw", static periods => periods - float.Floor(periods));
+    public static readonly WaveProfile Triangle = new("triangle", static periods => 2f * float.Abs(periods - float.Floor(periods + 0.5f)));
+    public static readonly WaveProfile Square = new("square", static periods => float.Floor(2f * (periods - float.Floor(periods))));
 
     [UseDelegateFromConstructor]
     public partial float Level(float periods);
@@ -49,16 +50,16 @@ public sealed partial class WaveForm {
 
 public sealed record MagicNoise(int Depth, float Distortion) {
     private static readonly Arr<Func<Vector3, float, Vector3>> Turbulence = [
-        static (v, d) => v with { Y = -MathF.Cos(v.X - v.Y + v.Z) * d },
-        static (v, d) => v with { X = MathF.Cos(v.X - v.Y - v.Z) * d },
-        static (v, d) => v with { Z = MathF.Sin(-v.X - v.Y - v.Z) * d },
-        static (v, d) => v with { X = -MathF.Cos(-v.X + v.Y - v.Z) * d },
-        static (v, d) => v with { Y = -MathF.Sin(-v.X + v.Y + v.Z) * d },
-        static (v, d) => v with { Y = -MathF.Cos(-v.X + v.Y + v.Z) * d },
-        static (v, d) => v with { X = MathF.Cos(v.X + v.Y + v.Z) * d },
-        static (v, d) => v with { Z = MathF.Sin(v.X + v.Y - v.Z) * d },
-        static (v, d) => v with { X = -MathF.Cos(-v.X - v.Y + v.Z) * d },
-        static (v, d) => v with { Y = -MathF.Sin(v.X - v.Y + v.Z) * d },
+        static (v, d) => v with { Y = -float.Cos(v.X - v.Y + v.Z) * d },
+        static (v, d) => v with { X = float.Cos(v.X - v.Y - v.Z) * d },
+        static (v, d) => v with { Z = float.Sin(-v.X - v.Y - v.Z) * d },
+        static (v, d) => v with { X = -float.Cos(-v.X + v.Y - v.Z) * d },
+        static (v, d) => v with { Y = -float.Sin(-v.X + v.Y + v.Z) * d },
+        static (v, d) => v with { Y = -float.Cos(-v.X + v.Y + v.Z) * d },
+        static (v, d) => v with { X = float.Cos(v.X + v.Y + v.Z) * d },
+        static (v, d) => v with { Z = float.Sin(v.X + v.Y - v.Z) * d },
+        static (v, d) => v with { X = -float.Cos(-v.X - v.Y + v.Z) * d },
+        static (v, d) => v with { Y = -float.Sin(v.X - v.Y + v.Z) * d },
     ];
 
     public Fin<(float Lower, float Upper)> Range {
@@ -73,7 +74,7 @@ public sealed record MagicNoise(int Depth, float Distortion) {
     public Vector3 Sample(Vector256<double> point) {
         const double period = float.Tau;
         Vector3 p = Vector256.Narrow(point - (period * Vector256.Floor(point / period)), Vector256<double>.Zero).GetLower().AsVector3();
-        Vector3 turned = new Vector3(MathF.Sin((p.X + p.Y + p.Z) * 5f), MathF.Cos((-p.X + p.Y - p.Z) * 5f), -MathF.Cos((-p.X - p.Y + p.Z) * 5f)) * (Depth is 0 ? 1f : Distortion);
+        Vector3 turned = new Vector3(float.Sin((p.X + p.Y + p.Z) * 5f), float.Cos((-p.X + p.Y - p.Z) * 5f), -float.Cos((-p.X - p.Y + p.Z) * 5f)) * (Depth is 0 ? 1f : Distortion);
         foreach (Func<Vector3, float, Vector3> step in Turbulence.AsSpan()[..Depth])
             turned = step(turned, Distortion);
         return Centered(turned);
@@ -103,16 +104,16 @@ internal sealed record Neighborhood(
 
 internal sealed record GaborKernel(Neighborhood Cells, Func<float, float, Vector4, Vector4> Orient) {
     internal const uint Impulses = 8u;
-    internal float Normalization => 6f * MathF.Sqrt(Impulses * 0.5f * float.Exp2(-1f - (Cells.Rank / 2f)));
+    internal float Normalization => 6f * float.Sqrt(Impulses * 0.5f * float.Exp2(-1f - (Cells.Rank / 2f)));
 }
 
 [SmartEnum<string>]
 public sealed partial class NoiseDimensions {
     private const double GradientRepeat = 100000d;
     private static readonly GaborKernel Planar = new(Neighborhood.Of(2), static (angle, isotropy, draw) =>
-        MathF.SinCos(angle + ((draw.X - 0.5f) * float.Pi * isotropy)) switch { var (sin, cos) => new Vector4(cos, sin, 0f, 0f) });
+        float.SinCos(angle + ((draw.X - 0.5f) * float.Pi * isotropy)) switch { var (sin, cos) => new Vector4(cos, sin, 0f, 0f) });
     private static readonly GaborKernel Spherical = new(Neighborhood.Of(3), static (angle, isotropy, draw) =>
-        (MathF.SinCos((float.Pi / 2f) + (draw.X * float.Pi * isotropy)), MathF.SinCos(angle + (draw.Y * float.Pi * isotropy))) switch {
+        (float.SinCos((float.Pi / 2f) + (draw.X * float.Pi * isotropy)), float.SinCos(angle + (draw.Y * float.Pi * isotropy))) switch {
             var ((sinInclination, cosInclination), (sinAzimuth, cosAzimuth)) => new Vector4(sinInclination * cosAzimuth, sinInclination * sinAzimuth, cosInclination, 0f),
         });
 
@@ -133,7 +134,7 @@ public sealed partial class NoiseDimensions {
     internal Neighborhood Cells { get; }
     internal float Scale { get; }
     internal GaborKernel Kernel { get; }
-    private static readonly Func<NoiseDimensions, float> SlopePeaks = memo(static (NoiseDimensions lattice) => Enumerable.Range(0, 32).Max(top => lattice.Cells.Corners.Max(corner => MathF.Abs(lattice.Slope((uint)top << 27, ((2f * corner.Offset) - Vector4.One) * lattice.Cells.Live)))));
+    private static readonly Func<NoiseDimensions, float> SlopePeaks = memo(static (NoiseDimensions lattice) => Enumerable.Range(0, 32).Max(top => lattice.Cells.Corners.Max(corner => float.Abs(lattice.Slope((uint)top << 27, ((2f * corner.Offset) - Vector4.One) * lattice.Cells.Live)))));
 
     [UseDelegateFromConstructor]
     internal partial float Slope(uint word, Vector4 offset);
@@ -245,7 +246,7 @@ public sealed partial class NoiseDimensions {
     private float RidgedMultifractal(Vector256<double> point, Octaves octaves, float offset, float gain, uint field, Func<NoiseDimensions, Vector256<double>, uint, float> sample) {
         (float signal, float value, float amplitude) = (0f, 0f, 1f);
         for (int octave = 0; octaves.Weight(octave) >= 1f; octave++) {
-            float ridge = offset - MathF.Abs(sample(this, point, field));
+            float ridge = offset - float.Abs(sample(this, point, field));
             signal = ridge * ridge * (octave is 0 ? 1f : float.Clamp(signal * gain, 0f, 1f));
             (value, amplitude, point) = (value + (signal * amplitude), amplitude * octaves.Roughness, point * octaves.Lacunarity);
         }
@@ -383,9 +384,9 @@ public sealed partial class NoiseDimensions {
                 Vector4 reach = local - neighbor - (center * kernel.Cells.Live);
                 float spread = reach.LengthSquared();
                 (float sin, float cos) = spread < 1f
-                    ? MathF.SinCos(float.Tau * frequency * Vector4.Dot(reach, kernel.Orient(orientation, 1f - anisotropy, CoordinateHash.Uniforms(CoordinateHash.Hash(cell + step, turns)))))
+                    ? float.SinCos(float.Tau * frequency * Vector4.Dot(reach, kernel.Orient(orientation, 1f - anisotropy, CoordinateHash.Uniforms(CoordinateHash.Hash(cell + step, turns)))))
                     : (0f, 0f);
-                phasor += float.CopySign(MathF.Exp(-float.Pi * spread) * (0.5f + (0.5f * MathF.Cos(float.Pi * spread))), center.W - 0.5f) * new Vector2(cos, sin);
+                phasor += float.CopySign(float.Exp(-float.Pi * spread) * (0.5f + (0.5f * float.Cos(float.Pi * spread))), center.W - 0.5f) * new Vector2(cos, sin);
             }
         }
         return phasor / kernel.Normalization;

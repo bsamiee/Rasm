@@ -1,12 +1,12 @@
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Modeling;
+using System.Runtime.CompilerServices;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Document.Units;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 using Rhino.UI.Gumball;
 
-namespace Rasm.Rhino.Objects;
+namespace Rasm.RhinoCommon.Objects;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum ObjectSelection { Unselected = 0, Selected = 1, Persistent = 2 }
@@ -46,8 +46,8 @@ public sealed record ObjectState(
 public sealed record SubObjectState(ComponentIndex ComponentIndex, bool IsSelected, bool IsSelectable, bool IsSelectableIgnoringSelection, bool IsHighlighted);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed record Cut(GeometryBase Geometry, ObjectAttributes Attributes) : IDisposable {
-    public void Dispose() => DisposalOps.Release<IDisposable>(Geometry, Attributes).Run();
+public sealed record Cut(GeometryBase Geometry, ObjectAttributes Attributes, object Owner) : IDisposable {
+    public void Dispose() => _ = Owner.Run(IO.lift(Geometry.Dispose) >> IO.lift(Attributes.Dispose));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -79,9 +79,9 @@ public static class RhinoObjects {
             Conversions.Rows(o.GetHighlightedSubObjects()),
             o.ObjectFrame(),
             o.ObjectFrame(RhinoObject.ObjectFrameFlags.IncludeScaleTransforms),
-            Callbacks.Found(o.TryGetGumballFrame(out GumballFrame repositioned), repositioned),
-            Callbacks.Found(o.TryGetGumballFrameForCurrentAlignment(out GumballFrame aligned), aligned),
-            Callbacks.Found(o.GetDynamicTransform(out Transform dragged), dragged),
+            Conversions.Found(o.TryGetGumballFrame(out GumballFrame repositioned), repositioned),
+            Conversions.Found(o.TryGetGumballFrameForCurrentAlignment(out GumballFrame aligned), aligned),
+            Conversions.Found(o.GetDynamicTransform(out Transform dragged), dragged),
             o.MemoryEstimate(),
             o.ShortDescriptionWithClosedStatus(prepend: false, plural: false, out int status),
             Some(status).Filter(static closed => closed is not 0).Map(static closed => closed is 2));
@@ -95,38 +95,45 @@ public static class RhinoObjects {
             o.IsSubObjectHighlighted(componentIndex)));
 
     public static IO<string> Description(RhinoObject o) =>
-        DisposalOps.Within(static () => new TextLog(), log => IO.lift(() => { o.Description(log); return log.ToString(); }));
+        (from log in use(static () => new TextLog())
+         from described in IO.lift(() => {
+             o.Description(log);
+             return log.ToString();
+         })
+         select described).Bracket();
 
     // --- [SELECTION]
     public static IO<Seq<ObjectSelection>> SelectSubObjects(RhinoObject o, Seq<ComponentIndex> components, ObjectSelection selection, bool syncHighlight) =>
         IO.lift(() => Callbacks.Each(components, (component, index) =>
             (ObjectSelection)o.SelectSubObject(component, selection is not ObjectSelection.Unselected, syncHighlight, selection is ObjectSelection.Persistent) switch {
-                var state => Refused.Unless(state == selection, state, nameof(RhinoObject.SelectSubObject), index),
+                var state => RhinoFault.Unless(state == selection, index).Map(_ => state),
             }));
 
     public static IO<Unit> HighlightSubObjects(RhinoObject o, Seq<ComponentIndex> components, bool highlight) =>
-        IO.lift(() => Callbacks.Each(components, component => o.HighlightSubObject(component, highlight) == highlight, nameof(RhinoObject.HighlightSubObject)));
+        IO.lift(() => Callbacks.Each(components, (component, index) => RhinoFault.Unless(o.HighlightSubObject(component, highlight) == highlight, index))).Map(unit);
 
     // --- [CUTS]
-    public static IO<Seq<Cut>> CreateCuts(Tolerances tolerances, RhinoObject o, Plane plane, string name, Option<double> thickness, IPlugInSink sink, Action<IDisposable> retain) =>
-        from localized in IO.lift(() => RowText.Localize(name, sink).Local)
-        from cuts in thickness.Match(
-            Some: value => Copies.Acquire(nameof(RhinoObject.CreateSlices), _ => Cuts(o.CreateSlices(plane, localized, value, tolerances.Absolute, out ObjectAttributes[] rows), rows), retain),
-            None: () => Copies.Acquire(nameof(RhinoObject.CreateSections), _ => Cuts(o.CreateSections(plane, localized, tolerances.Absolute, out ObjectAttributes[] rows), rows), retain))
-        select cuts;
+    public static IO<Seq<Cut>> CreateCuts(Tolerances tolerances, RhinoObject o, Plane plane, string name, Option<double> thickness, object owner) =>
+        from localized in IO.lift(() => RowText.Localize(name, owner).Local)
+        from cuts in IO.lift(() => thickness.Match(
+            Some: value => Cuts(o.CreateSlices(plane, localized, value, tolerances.Absolute, out ObjectAttributes[] rows), rows, owner),
+            None: () => Cuts(o.CreateSections(plane, localized, tolerances.Absolute, out ObjectAttributes[] rows), rows, owner)))
+        from owned in cuts.TraverseM(static cut => use(() => cut)).As()
+        select owned;
 
-    private static Answer<Seq<Cut>> Cuts(GeometryBase[]? results, ObjectAttributes[]? rows) =>
-        (Answer.Many(results), Answer.Many(rows)).Apply(static (kept, attributes) => kept.Zip(attributes, static (geometry, row) => new Cut(geometry, row))).As();
+    private static Fin<Seq<Cut>> Cuts(GeometryBase[]? results, ObjectAttributes[]? rows, object owner, [CallerArgumentExpression(nameof(results))] string call = "") =>
+        (Conversions.Found(results, call: call), Conversions.Found(rows, call: call))
+            .Apply((kept, attributes) => toSeq(kept).Zip(toSeq(attributes), (geometry, row) => new Cut(geometry, row, owner)).Strict())
+            .As();
 
     // --- [REPLACEMENT]
-    public static IO<TResult> ReplaceGeometry<T, TResult>(RhinoDoc doc, Guid id, Func<T, Action<IDisposable>, IO<(T Geometry, TResult Result)>> edit) where T : GeometryBase =>
+    public static IO<TResult> ReplaceGeometry<T, TResult>(RhinoDoc doc, Guid id, Func<T, IO<(T Geometry, TResult Result)>> edit) where T : GeometryBase =>
         from resolved in ObjectTarget.Resolve<RhinoObject, T>(doc, id)
-        from result in DisposalOps.Within(() => new ObjRef(resolved.Object), reference => DisposalOps.Within(
-            (Action<IDisposable> held) => from target in Copies.Acquire(nameof(ObjRef.Geometry), _ => Answer.One(reference.Geometry() as T), held)
-                                          from privated in IO.lift(target.EnsurePrivateCopy)
-                                          from edited in edit(target, held)
-                                          from landed in TableOps.Apply(doc, new TableOp.Replace(id, edited.Geometry, IgnoreModes: false))
-                                          select edited.Result,
-            DisposalOps.Release))
+        from result in (from reference in use(() => new ObjRef(resolved.Object))
+                        from target in Products.Made(reference.Geometry() as T)
+                        from privated in IO.lift(target.EnsurePrivateCopy)
+                        from edited in edit(target)
+                        from landed in TableOps.Apply(doc, new TableOp.Replace(id, edited.Geometry, IgnoreModes: false))
+                        select edited.Result).Bracket()
         select result;
 }

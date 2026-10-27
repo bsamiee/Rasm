@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;
@@ -68,13 +69,14 @@ public sealed class InverseLut1D {
             .Map(ranges => new InverseLut1D(forward, ranges));
 
     public void Apply(Span<Vector4> row) {
-        foreach (ref Vector4 pixel in row)
-            pixel = new Vector4(Invert(0, pixel.X), Invert(1, pixel.Y), Invert(2, pixel.Z), pixel.W);
+        for (int channel = 0; channel < 3; channel++) {
+            ReadOnlySpan<float> table = Forward.Channel(channel)[ranges[channel].Start..(ranges[channel].End + 1)];
+            foreach (ref Vector4 pixel in row) pixel[channel] = Invert(channel, table, pixel[channel]);
+        }
     }
 
-    private float Invert(int channel, float value) {
+    private float Invert(int channel, ReadOnlySpan<float> table, float value) {
         MonotonicRange range = ranges[channel];
-        ReadOnlySpan<float> table = Forward.Channel(channel)[range.Start..(range.End + 1)];
         float bounded = float.IsNaN(value) ? table[0] : float.Clamp(value, float.Min(table[0], table[^1]), float.Max(table[0], table[^1]));
         int above = ~table.BinarySearch(bounded, range.Order);
         float position = range.Start + (above is 0 ? 0f : above - 1 + ((bounded - table[above - 1]) / (table[above] - table[above - 1])));
@@ -264,9 +266,7 @@ public abstract partial record LutTable {
             Matrix.LU() switch {
                 var factorization when factorization.U.Diagonal().Contains(0d) => new ImagingFault("singular affine step", ImagingReason.NoInverse),
                 var factorization => factorization.Inverse() switch {
-                    var inverse => inverse.Multiply(new DenseVector([Offset.X, Offset.Y, Offset.Z])) switch {
-                        var offset => new Affine(inverse, (-offset[0], -offset[1], -offset[2])),
-                    },
+                    var inverse => inverse.Multiply(new DenseVector([Offset.X, Offset.Y, Offset.Z])).Negate() switch { var offset => new Affine(inverse, (offset[0], offset[1], offset[2])) },
                 },
             };
     }

@@ -26,7 +26,7 @@ from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Men
 from blender.bpy.render.compositor import colors
 from blender.bpy.render.compositor.colors import AXES, composed, constant, directed, extreme, inverted, nonnegative, preserved, spanned
 from blender.bpy.render.compositor.effects import Alpha, CameraFrame, CompositorEffect, entered, Named, Registers, Shell, Spaces
-from blender.bpy.render.compositor.inputs import captured
+from blender.bpy.render.compositor.inputs import captured, valued
 from blender.bpy.render.compositor.tables import tabled, TILES
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.color.luts import Rational, split
@@ -308,7 +308,7 @@ def metered(prefix: tuple[Key, ...], title: str, identity: Identity, _scene: bpy
     """Writes the manual scene white read from the entering frame under `prefix`, the undo step named by the measuring command."""
     return (
         captured(identity, entry)
-        .bind(lambda snapshot: whitened(prefix, {key: owner.values["value"] for key, owner in snapshot.tree.owners.items() if "value" in owner.values}, PyOpenColorIO.GetCurrentConfig(), file.pixels))
+        .bind(lambda snapshot: whitened(prefix, valued(snapshot), PyOpenColorIO.GetCurrentConfig(), file.pixels))
         .bind(lambda found: entered(identity, entry, found))
         .map(lambda wrote: Some(title) if wrote else Nothing)
     )
@@ -347,7 +347,7 @@ def meter_white(call: Call[Named]) -> Outcome[Answer]:
     return call.root(bpy.types.Scene).bind(
         lambda scene: tone_curve.named(call.identity, scene, call.properties.name).bind(
             lambda entry: captured(call.identity, entry).bind(
-                lambda snapshot: armed(scene, entry, {key: owner.values["value"] for key, owner in snapshot.tree.owners.items() if "value" in owner.values})
+                lambda snapshot: armed(scene, entry, valued(snapshot))
             )
         )
     )

@@ -3,6 +3,7 @@
 from collections import OrderedDict
 from collections.abc import Hashable
 from contextlib import nullcontext
+from functools import partial
 from typing import Final
 
 from expression import Option
@@ -11,7 +12,7 @@ import gpu
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.extension.scoped import Scoped
+from blender.bpy.extension.identity import Resource
 from blender.bpy.faults import BlenderReason
 from blender.imaging.files.buffers import unassociated
 from blender.records.faults import Fault, Outcome
@@ -71,10 +72,10 @@ def uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
     pixels = np.ascontiguousarray(plane[::-1])
     return (
         catch(gpu.init, exception=RuntimeError)()
-        .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject="gpu.init", cause=error),))
+        .map_error(partial(Fault.of, BlenderReason.REFUSED, "gpu.init"))
         .bind(
             lambda _: catch(gpu.types.GPUTexture, exception=RuntimeError)((pixels.shape[1], pixels.shape[0]), format="RGBA16F", data=gpu.types.Buffer("FLOAT", pixels.shape, pixels)).map_error(  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                lambda error: (Fault(reason=BlenderReason.REFUSED, subject="gpu.types.GPUTexture", cause=error),)
+                partial(Fault.of, BlenderReason.REFUSED, "gpu.types.GPUTexture")
             )
         )
     )
@@ -82,7 +83,7 @@ def uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-TEXTURES: Final = Scoped[Textures](made=lambda _identity: nullcontext(Textures()))
+TEXTURES: Final = Resource[Textures](made=lambda _identity: nullcontext(Textures()))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

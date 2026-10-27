@@ -520,7 +520,7 @@ displacement = CompositorEffect[Displacement](
                         name="Front",
                         kind=bpy.types.NodeSocketMenu,
                         description="Wave front shape and displacement direction",
-                        members={"default_value": "Linear"},
+                        members={"default_value": bpy.path.display_name(Wave().front.name.lower())},
                         items=Some(MenuItems(items=tuple(MenuItem(name=bpy.path.display_name(front.name.lower())) for front in Front))),
                     ),
                     *(
@@ -645,7 +645,7 @@ displacement = CompositorEffect[Displacement](
                         name="Reading",
                         kind=bpy.types.NodeSocketMenu,
                         description="Image channel meaning",
-                        members={"default_value": "Offsets"},
+                        members={"default_value": bpy.path.display_name(Map().reading.name.lower())},
                         items=Some(MenuItems(items=tuple(MenuItem(name=bpy.path.display_name(reading.name.lower())) for reading in MapReading))),
                     ),
                     *(
@@ -686,7 +686,7 @@ displacement = CompositorEffect[Displacement](
                         name="Surface",
                         kind=bpy.types.NodeSocketMenu,
                         description="Glass height function",
-                        members={"default_value": "Frosted"},
+                        members={"default_value": bpy.path.display_name(Refraction().surface.name.lower())},
                         items=Some(MenuItems(items=tuple(MenuItem(name=bpy.path.display_name(surface.name.lower())) for surface in Surface))),
                     ),
                     *(

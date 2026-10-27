@@ -50,7 +50,7 @@ _MODES: Final = (
     ("GRADIENT", "Gradient", "Vertical camera frame gradient, the background slot alone"),
     ("IMAGE", "Image", "Image filling camera frame, the background slot alone"),
 )
-_TURNS: Final = (("FIXED", "Fixed", "Fixed angles"), ("SUN", "Sun Light", "Follow scene sun light"))
+_TURNS: Final = (("FIXED", "Fixed", "Fixed angles", "NONE", 0), ("SUN", "Sun Light", "Follow scene sun light", "NONE", 1))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -298,7 +298,13 @@ def world_graph(environment: Environment) -> Outcome[Graph]:
 
 
 def swapped(row: Ownership[bpy.types.World], values: Mapping[str, Value], scene: bpy.types.Scene, identity: Identity, scope: Option[ExitStack] = Nothing) -> Outcome[bpy.types.World]:
-    """Shows the shown owned world, else the earliest owned world replacing it, else a new one, after writing environment members by dotted path, marking the replaced world, restored on scope unwind."""
+    """Writes environment members by dotted path to an owned world and shows it on scene.
+
+    The shown owned world serves first, then the earliest owned world, then a new one, each marking the world it replaces, which scope unwind shows again.
+
+    Returns:
+        Shown world, or the faults of binding, writing, and reconciling it.
+    """
     predecessor = Option.of_optional(scene.world)
     for outer in scope.to_list():
         outer.callback(written, scene, "world", predecessor.to_optional())

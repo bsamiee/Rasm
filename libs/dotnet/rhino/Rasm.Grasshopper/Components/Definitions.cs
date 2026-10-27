@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using Grasshopper2.Components;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
@@ -10,15 +11,14 @@ using Grasshopper2.Undo;
 using Grasshopper2.Undo.Actions;
 using Rasm.Grasshopper.Doc;
 using Rasm.Grasshopper.Parameters;
-using Rasm.Rhino;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Rows;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.UI.Rows;
 using Rasm.UI;
 using Rhino;
 using Rhino.Geometry.Intersect;
-using UnitSystem = Rhino.UnitSystem;
 
 namespace Rasm.Grasshopper.Components;
 
@@ -41,7 +41,7 @@ public sealed record ComponentRow<TSelf>(
     public Option<Func<TSelf, Fin<IAttributes>>> Attributes { get; init; }
 
     // --- [ATTACHMENT]
-    public Seq<Func<TSelf, Action<IDisposable>, IO<Unit>>> Attached { get; init; }
+    public Seq<Func<TSelf, IO<Unit>>> Attached { get; init; }
 }
 
 public sealed record SolveUnits(Tolerances Tolerances, double UnitsPerMeter) {
@@ -50,10 +50,10 @@ public sealed record SolveUnits(Tolerances Tolerances, double UnitsPerMeter) {
         IO.lift(Fin<SolveUnits> () => {
             _ = access.GetTolerance(out double absolute);
             _ = access.GetTolerance(out Angle angle);
-            _ = access.GetUnitScaling(UnitSystem.Meters, out double unitsPerMeter);
+            _ = access.GetUnitScaling(Rhino.UnitSystem.Meters, out double unitsPerMeter);
             return (access.GetItem(RelativeTolerancePin.Id, out double pinned) && pinned >= 0d
                     ? pinned
-                    : Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)).Map(static document => document.ModelRelativeTolerance))
+                    : Conversions.Found(RhinoDoc.ActiveDoc).Map(static document => document.ModelRelativeTolerance))
                 .Map(relative => new SolveUnits(
                     new Tolerances(absolute, Math.Clamp(relative, 1e-12, 1e6), angle.Radians, Intersection.MeshIntersectionsTolerancesCoefficient), unitsPerMeter));
         });
@@ -72,59 +72,50 @@ public sealed class SolveProgress(IDataAccess access, long totalRows, long compl
 public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion where TSelf : DefinedComponent<TSelf>, IComponentDefinition<TSelf> {
     // --- [STATE]
     private readonly AtomSeq<Action<IDataAccess, Fin<Unit>>> matches = AtomSeq<Action<IDataAccess, Fin<Unit>>>();
-    private readonly Ref<Option<(Action<IDisposable> Retain, IDisposable Lease)>> attachment =
-        Ref(Option<(Action<IDisposable> Retain, IDisposable Lease)>.None);
+    private readonly EnvIO scope = EnvIO.New(token: CancellationToken.None);
+    private readonly Ref<Option<Lease<Unit>>> attachment = Ref(Option<Lease<Unit>>.None);
 
     // --- [CONSTRUCTION]
-    protected DefinedComponent() : base(ComponentOps.Localized(TSelf.Row.Face, GrasshopperPlugins.Owner(typeof(TSelf)))) => DocumentChanged += AttachmentChanged;
+    protected DefinedComponent() : this(GrasshopperPlugins.Owner(typeof(TSelf)).ThrowIfFail()) { }
+
+    private DefinedComponent(IGrasshopperPlugin plugin) : base(ComponentOps.Localized(TSelf.Row.Face, plugin)) {
+        Plugin = plugin;
+        _ = Plugin.Run(GrasshopperEvents.DocumentChanged(this).Inline(_ => Reattached, Plugin).Under(scope));
+    }
 
     protected DefinedComponent(GrasshopperIO.IReader reader) : base(reader) {
-        DocumentChanged += AttachmentChanged;
-        CallbackSite site = GrasshopperPlugins.Site(this);
-        Callbacks.Run(Callbacks.Each(
+        Plugin = GrasshopperPlugins.Owner(GetType()).ThrowIfFail();
+        _ = Plugin.Run(GrasshopperEvents.DocumentChanged(this).Inline(_ => Reattached, Plugin).Under(scope));
+        _ = Plugin.Run(Callbacks.Each(
             from placed in TSelf.Row.Inputs.Map((row, index) => (Row: row, Parameter: Parameters.Input(index))).Concat(TSelf.Row.Outputs.Map((row, index) => (Row: row, Parameter: Parameters.Output(index))))
             from attach in placed.Row.Attach
-            select attach(placed.Parameter, site.Sink)), site);
+            select attach(placed.Parameter, Plugin)));
     }
+
+    public IGrasshopperPlugin Plugin { get; }
 
     public IEnumerable<Guid> SupportedPins => TSelf.Row.SupportedPins;
 
     protected override IIcon IconInternal =>
-        GrasshopperPlugins.Site(this) switch {
-            var site => Callbacks.Answer(TSelf.Row.Glyph.Map(CanvasIcons.Vector), () => base.IconInternal, () => base.IconInternal, site),
-        };
+        TSelf.Row.Glyph.Bind(glyph => Plugin.Answer(CanvasIcons.Vector(glyph).Map(static icon => Some(icon)), Option<IIcon>.None)).IfNone(() => base.IconInternal);
 
     protected sealed override void AddInputs(ModularInputAdder inputs) =>
-        Added(TSelf.Row.Inputs, (row, sink) => row.Input(inputs, sink), GrasshopperPlugins.Site(this));
+        Plugin.Run(TSelf.Row.Inputs.TraverseM(row => row.Input(inputs, Plugin)).As());
 
     protected sealed override void AddOutputs(ModularOutputAdder outputs) =>
-        Added(TSelf.Row.Outputs, (row, sink) => row.Output(outputs, sink), GrasshopperPlugins.Site(this));
+        Plugin.Run(TSelf.Row.Outputs.TraverseM(row => row.Output(outputs, Plugin)).As());
 
     protected override IAttributes CreateAttributes() =>
-        Callbacks.Answer(
-            TSelf.Row.Attributes.Map(create => IO.lift(() => create((TSelf)this))),
-            () => base.CreateAttributes(), () => base.CreateAttributes(), GrasshopperPlugins.Site(this));
-
-    private static void Added(Seq<ParameterRow> rows, Func<ParameterRow, IPlugInSink, IO<IParameter>> add, CallbackSite site) =>
-        Callbacks.Run(rows.TraverseM(row => add(row, site.Sink)).As(), site);
+        TSelf.Row.Attributes.Bind(create => Plugin.Answer(IO.lift(() => create((TSelf)this)).Map(static attributes => Some(attributes)), Option<IAttributes>.None)).IfNone(base.CreateAttributes);
 
     // --- [ATTACHMENT]
-    private void AttachmentChanged(object? sender, ObjectDocumentEventArgs e) =>
-        Callbacks.Started(Callbacks.Each(Seq(
-            Detached,
-            when(Document is not null, DisposalOps.Acquire(
-                retain => TSelf.Row.Attached.TraverseM(attached => attached((TSelf)this, retain)).As().Map(retain),
-                (retain, lease) => atomic(() => attachment.Value = Some((retain, lease)))).Map(static _ => unit)).As())), GrasshopperPlugins.Site(this));
+    private IO<Unit> Reattached =>
+        (Document is null
+            ? Products.Cleared(attachment)
+            : Products.Swapped(attachment, TSelf.Row.Attached.TraverseM(attached => attached((TSelf)this)).As().Map(unit))).Under(scope);
 
-    private IO<Unit> Detached => atomicIO(() => {
-        Option<(Action<IDisposable> Retain, IDisposable Lease)> held = attachment.Value;
-        attachment.Value = None;
-        return held;
-    }).Bind(static held => held.Traverse(static scope => IO.lift(scope.Lease.Dispose)).As()).Map(unit);
-
-    public IO<A> Retained<A>(Func<Action<IDisposable>, IO<A>> acquire) =>
-        atomicIO(() => attachment.Value.Map(static scope => scope.Retain).ToFin(Errors.Cancelled))
-            .Bind(static held => IO.lift(held)).Bind(acquire);
+    public IO<A> Attached<A>(IO<A> acquire) =>
+        attachment.ValueIO.Bind(held => held.Match(Some: lease => acquire.Under(lease.Scope), None: static () => IO.fail<A>(Errors.Cancelled)));
 
     // --- [SOLVE]
     protected sealed override void Process(IDataAccess access) {
@@ -134,55 +125,55 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
             Succ: static _ => Seq<Error>(),
             Fail: static error => toSeq(error.AsIterable()).Filter(static leaf => !leaf.Is(Errors.Cancelled)).Strict());
         _ = failed.Iter(leaf => access.AddMessage(ComponentOps.Rendered(Message.Error, leaf, [])));
-        _ = failed.Filter(static leaf => leaf.IsExceptional).Iter(leaf => GrasshopperPlugins.Site(this).Sink.Report(leaf, GetType()));
+        Seq<Error> exceptional = failed.Filter(static leaf => leaf.IsExceptional);
+        if (!exceptional.IsEmpty) _ = Plugin.Run(IO.fail<Unit>(Error.Many(exceptional)));
     }
 
     public IO<Seq<A>> Matched<A>(SolutionMode mode, Func<IDataAccess, IO<A>> read) =>
-        from document in IO.lift(() => Refused.UnlessFound(Document, nameof(Document)))
-        from captured in IO.lift(static () => new ConcurrentDictionary<(Solution Solution, int Index), Fin<A>>())
-        from token in cancelToken
-        from values in DisposalOps.Within<IDisposable, Seq<A>>(retain =>
-            from source in DisposalOps.Acquire(IO.lift(() => CancellationTokenSource.CreateLinkedTokenSource(token)), retain)
-            let requested = source.Token
-            from collected in Subscriptions.Attach<Action<IDataAccess, Fin<Unit>>>(
-                handler => _ = matches.Add(handler), handler => _ = matches.Swap(held => held.Filter(deliver => deliver != handler).Strict()), (access, solved) => {
-                    if (access.Solution.Token != requested) return;
-                    Fin<A> value = Callbacks.Settled(read(access), requested);
-                    captured[(access.Solution, access.Index)] = solved.Match(
-                        Succ: _ => value,
-                        Fail: error => value.Match(Succ: _ => error, Fail: fault => error + fault));
-                }, retain)
-            from expiring in Subscriptions.Attach<EventHandler<SolutionIdEventArgs>>(
-                handler => document.Solution.SolutionAboutToStart += handler,
-                handler => document.Solution.SolutionAboutToStart -= handler, (_, _) => Expire(), retain)
-            from solution in Solutions.Start(document.Solution, source, mode)
-            from matched in IO.lift(() => Callbacks.Each(toSeq(captured.Where(row => ReferenceEquals(row.Key.Solution, solution)).OrderBy(static row => row.Key.Index)),
-                static (row, _) => row.Value))
-            select matched, DisposalOps.Release)
-        select values;
+        (from document in IO.lift(() => Conversions.Found(Document))
+         from captured in IO.lift(static () => new ConcurrentDictionary<(Solution Solution, int Index), Fin<A>>())
+         from token in cancelToken
+         from source in use(() => CancellationTokenSource.CreateLinkedTokenSource(token))
+         from collected in use(() => Collector(read, captured, source.Token), handler => _ = matches.Swap(held => held.Filter(deliver => deliver != handler).Strict()))
+         from expiring in Subscriptions.During<SolutionIdEventArgs>(h => document.Solution.SolutionAboutToStart += h, h => document.Solution.SolutionAboutToStart -= h)
+             .Inline(_ => IO.lift(Expire), Plugin)
+         from solution in Solutions.Start(document.Solution, source, mode, Plugin)
+         from matched in IO.lift(() => Callbacks.Each(toSeq(captured.Where(row => ReferenceEquals(row.Key.Solution, solution)).OrderBy(static row => row.Key.Index)),
+             static (row, _) => row.Value))
+         select matched).Bracket();
+
+    private Action<IDataAccess, Fin<Unit>> Collector<A>(Func<IDataAccess, IO<A>> read, ConcurrentDictionary<(Solution Solution, int Index), Fin<A>> captured, CancellationToken requested) {
+        Action<IDataAccess, Fin<Unit>> deliver = (access, solved) => {
+            if (access.Solution.Token != requested) return;
+            Fin<A> value = Callbacks.Settled(read(access), requested);
+            captured[(access.Solution, access.Index)] = solved.Match(
+                Succ: _ => value,
+                Fail: error => value.Match(Succ: _ => error, Fail: fault => error + fault));
+        };
+        _ = matches.Add(deliver);
+        return deliver;
+    }
 
     // --- [PANEL]
     public override void AppendToInputPanel(InputPanel panel) {
         base.AppendToInputPanel(panel);
-        CallbackSite site = GrasshopperPlugins.Site(this);
-        Callbacks.Run(Appended(panel, site), site);
+        _ = Plugin.Run(Appended(panel));
     }
 
-    private IO<Unit> Appended(InputPanel panel, CallbackSite site) =>
+    private IO<Unit> Appended(InputPanel panel) =>
         IO.lift(() => TSelf.Row.Panel((TSelf)this)).Bind(rows => unless(rows.IsEmpty,
-              from document in IO.lift(static () => Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)))
-              from scope in RowScope.Open(site.Sink, Some(document), new CommitMode.Immediate())
-              from held in IO.lift(static () => AtomSeq<IDisposable>())
-              from installed in DisposalOps.OnFailure(
-                  from grid in RowGrid.Realize(ControlRows.Fixed(rows), scope, owned => _ = held.Add(owned))
-                  from added in IO.lift(() => {
-                      grid.View.UnLoad += Callbacks.Handler<EventArgs>(_ => IO.lift(held.ToSeq).Bind(DisposalOps.Release), site);
-                      using IDisposable category = panel.BeginCategory(RowText.Localize("Settings"));
-                      panel.Add(grid.View);
-                  }).Uninterruptible()
-                  select added,
-                  IO.lift(held.ToSeq).Bind(DisposalOps.Release))
-              select installed).As());
+            from document in IO.lift(static () => Conversions.Found(RhinoDoc.ActiveDoc))
+            from lifetime in IO.lift(static () => EnvIO.New(token: CancellationToken.None))
+            from grid in (from opened in RowScope.Open(Plugin, Some(document), new CommitMode.Immediate())
+                          from realized in RowGrid.Realize(ControlRows.Fixed(rows), opened)
+                          from unloaded in Subscriptions.Host<EventArgs>(h => realized.View.UnLoad += h, h => realized.View.UnLoad -= h)
+                              .Inline(_ => IO.lift(lifetime.Dispose), Plugin)
+                          select realized).Under(lifetime).Catch(error => IO.lift(lifetime.Dispose) >> IO.fail<RowGrid>(error)).As()
+            from added in IO.lift(() => {
+                using IDisposable category = panel.BeginCategory(RowText.Localize("Settings"));
+                panel.Add(grid.View);
+            }).Uninterruptible()
+            select added).As());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -202,7 +193,7 @@ public static class ComponentOps {
 
     // --- [MESSAGES]
     public static Message Rendered(Func<string, string, MessageAction[], Message> level, Error note, Seq<MessageAction> actions) =>
-        level(note.Message, Conversions.Unset(note.Inner.Map(static cause => ErrorOps.Localize(cause))), [.. actions]);
+        level(note.Message, Conversions.Unset(note.Inner.Map(static cause => ErrorOps.Messages(cause))), [.. actions]);
 
     // --- [STATE]
     public static ValueStore<TRecord> State<TRecord>(IDocumentObject owner, string key, TRecord fallback) where TRecord : notnull =>

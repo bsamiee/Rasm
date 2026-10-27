@@ -1,9 +1,10 @@
+using System.Collections.Generic;
 using System.Text.Json;
-using Rasm.Rhino.Persistence.Stores;
+using Rasm.RhinoCommon.Persistence.Stores;
 using Rhino;
 using Rhino.PlugIns;
 
-namespace Rasm.Rhino.Persistence.Settings;
+namespace Rasm.RhinoCommon.Persistence.Settings;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public delegate bool SettingRead<T>(PersistentSettings settings, string key, out T value, IEnumerable<string> legacyKeyList);
@@ -19,7 +20,7 @@ public sealed record PlugInSetting<T>(string Key, T Default, SettingRead<T> TryG
     public bool Hidden { get; init; }
 
     public Option<T> Read(PersistentSettings settings) =>
-        Callbacks.Found(TryGet(settings, Key, out T value, LegacyNames), value);
+        Conversions.Found(TryGet(settings, Key, out T value, LegacyNames), value);
 
     internal IO<Unit> Register(PersistentSettings settings) =>
         when(Hidden, IO.lift(() => settings.HideSettingFromUserInterface(Key))).As();

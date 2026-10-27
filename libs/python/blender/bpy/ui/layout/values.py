@@ -80,47 +80,47 @@ class Template(msgspec.Struct, frozen=True, kw_only=True):
     undo: bool | str
 
 
-class Picked(bpy.types.PropertyGroup):
+class _Picked(bpy.types.PropertyGroup):
     """History entry a restore or remove row names."""
 
     offset: bpy.props.IntProperty(name="Entry", description="Signed one-based history offset")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Locked(bpy.types.PropertyGroup):
+class _Locked(bpy.types.PropertyGroup):
     """Member a lock row toggles."""
 
     field: bpy.props.StringProperty(description="Member to lock or unlock")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Named(bpy.types.PropertyGroup):
+class _Named(bpy.types.PropertyGroup):
     """Preset an apply, remove, export, or replace row names."""
 
     stem: bpy.props.StringProperty(name="Preset", description="Preset file stem")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Renamed(bpy.types.PropertyGroup):
+class _Renamed(bpy.types.PropertyGroup):
     """Saved preset and its new file name."""
 
     stem: bpy.props.StringProperty(name="Preset", description="Preset file stem", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     name: bpy.props.StringProperty(name="Name", description="Preset and file name", maxlen=64)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Saved(bpy.types.PropertyGroup):
+class _Saved(bpy.types.PropertyGroup):
     """Name entered in save-preset dialog."""
 
     name: bpy.props.StringProperty(name="Name", description="Preset and file name", maxlen=64)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Actions(msgspec.Struct, frozen=True, kw_only=True):
+class _Actions(msgspec.Struct, frozen=True, kw_only=True):
     """Verb operator rows over one preset listing."""
 
-    apply: operators.Operator[Named]
-    save: operators.Operator[Saved]
-    delete: operators.Operator[Named]
+    apply: operators.Operator[_Named]
+    save: operators.Operator[_Saved]
+    delete: operators.Operator[_Named]
     load: operators.Operator[operators.Empty]
-    export: operators.Operator[Named]
-    replace: operators.Operator[Named]
-    rename: operators.Operator[Renamed]
+    export: operators.Operator[_Named]
+    replace: operators.Operator[_Named]
+    rename: operators.Operator[_Renamed]
     previous: operators.Operator[operators.Empty]
     following: operators.Operator[operators.Empty]
 
@@ -143,7 +143,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
         """Returns listing menu key of a preset before any listing exists."""
         return f"{preset.key}_presets"
 
-    def commands(self, identity: Identity) -> Actions:
+    def commands(self, identity: Identity) -> _Actions:
         """Builds verb rows over listing."""
         stem, shown, json = self.preset.key, bpy.path.display_name, lambda _: (".json",)
 
@@ -179,7 +179,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 )
             )
 
-        def replace(call: operators.Call[Named]) -> Outcome[operators.Answer]:
+        def replace(call: operators.Call[_Named]) -> Outcome[operators.Answer]:
             """Replaces the preset with section values."""
             return (
                 paired(self.preset.found(identity, call.properties.stem).bind(lambda stored: user(stored, call.properties.stem)), self.current(call.context))
@@ -187,15 +187,15 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 .map(lambda _: operators.Done())
             )
 
-        def apply(call: operators.Call[Named]) -> Outcome[operators.Answer]:
+        def apply(call: operators.Call[_Named]) -> Outcome[operators.Answer]:
             """Applies the preset."""
             return self.preset.found(identity, call.properties.stem).bind(self.preset.read).bind(lambda value: self.applied(call.context, value))
 
-        def save(call: operators.Call[Saved]) -> Outcome[operators.Answer]:
+        def save(call: operators.Call[_Saved]) -> Outcome[operators.Answer]:
             """Saves section values as a preset."""
             return named(call.properties.name).bind(lambda name: saved(call, name))
 
-        def delete(call: operators.Call[Named]) -> Outcome[operators.Answer]:
+        def delete(call: operators.Call[_Named]) -> Outcome[operators.Answer]:
             """Deletes the preset file."""
             return self.preset.found(identity, call.properties.stem).bind(lambda stored: user(stored, call.properties.stem)).bind(removed).map(lambda _: operators.Done())
 
@@ -203,14 +203,14 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
             """Copies files into saved presets."""
             return accumulated(self.preset.imported(identity, path) for path in call.paths).map(lambda paths: operators.Done(notes=tuple(("INFO", f"Added {shown(path.stem)}") for path in paths)))
 
-        def export(call: operators.Call[Named]) -> Outcome[operators.Answer]:
+        def export(call: operators.Call[_Named]) -> Outcome[operators.Answer]:
             """Writes the preset to files."""
             return accumulated(
                 self.preset.found(identity, call.properties.stem).bind(lambda stored: self.preset.exported(stored, path) if isinstance(stored, Path) else self.preset.written(path, stored))
                 for path in call.paths
             ).map(operators.Done.wrote)
 
-        def rename(call: operators.Call[Renamed]) -> Outcome[operators.Answer]:
+        def rename(call: operators.Call[_Renamed]) -> Outcome[operators.Answer]:
             """Renames the preset file."""
             return (
                 paired(self.preset.found(identity, call.properties.stem).bind(lambda stored: user(stored, call.properties.stem)), named(call.properties.name).bind(available))
@@ -226,7 +226,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
             """Applies the next preset."""
             return neighbor(call, 1)
 
-        def saved(call: operators.Call[Saved], name: PresetName) -> Outcome[operators.Done]:
+        def saved(call: operators.Call[_Saved], name: PresetName) -> Outcome[operators.Done]:
             match claimed(name).to_optional():
                 case (_, Path() as path):
                     return self.current(call.context).bind(lambda value: self.preset.written(path, value)).map(lambda _: operators.Done(notes=(("INFO", f"Replaced {shown(path.stem)}"),)))
@@ -235,25 +235,25 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 case None:
                     return self.current(call.context).bind(lambda value: self.preset.saved(identity, name, value)).map(lambda path: operators.Done(notes=(("INFO", f"Added {shown(path.stem)}"),)))
 
-        return Actions(
-            apply=Verb.APPLY.row(stem, Named, apply),
-            save=Verb.SAVE.row(stem, Saved, save, invoke=Some(operators.Properties())),
+        return _Actions(
+            apply=Verb.APPLY.row(stem, _Named, apply),
+            save=Verb.SAVE.row(stem, _Saved, save, invoke=Some(operators.Properties())),
             delete=Verb.DELETE.row(
                 stem,
-                Named,
+                _Named,
                 delete,
-                invoke=Some(operators.Confirm[Named](message=Some(lambda _context, properties: Ok(f"Remove {shown(properties.stem)}")), confirm_text=Some("Remove"), icon="WARNING")),
+                invoke=Some(operators.Confirm[_Named](message=Some(lambda _context, properties: Ok(f"Remove {shown(properties.stem)}")), confirm_text=Some("Remove"), icon="WARNING")),
             ),
             load=Verb.IMPORT.row(stem, operators.Empty, load, invoke=Some(operators.Open[operators.Empty](extensions=json))),
-            export=Verb.EXPORT.row(stem, Named, export, invoke=Some(operators.Save[Named](extensions=json))),
+            export=Verb.EXPORT.row(stem, _Named, export, invoke=Some(operators.Save[_Named](extensions=json))),
             replace=Verb.REPLACE.row(
                 stem,
-                Named,
+                _Named,
                 replace,
-                invoke=Some(operators.Confirm[Named](message=Some(lambda _context, properties: Ok(f"Replace preset {shown(properties.stem)} with section values?")), confirm_text=Some("Replace"))),
+                invoke=Some(operators.Confirm[_Named](message=Some(lambda _context, properties: Ok(f"Replace preset {shown(properties.stem)} with section values?")), confirm_text=Some("Replace"))),
             ),
             rename=msgspec.structs.replace(
-                Verb.RENAME.row(stem, Renamed, rename, invoke=Some(operators.Properties())), draw=Some(lambda layout, _context, properties, _identity: layout.prop(properties, "name"))
+                Verb.RENAME.row(stem, _Renamed, rename, invoke=Some(operators.Properties())), draw=Some(lambda layout, _context, properties, _identity: layout.prop(properties, "name"))
             ),
             previous=Verb.PREVIOUS.row(stem, operators.Empty, previous),
             following=Verb.NEXT.row(stem, operators.Empty, following),
@@ -305,8 +305,8 @@ class Slots[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=Tru
     attached: Attached[T]
     history: ValueHistory[Snapshot, Host, None]
     plain: Mapping[Verb, operators.Operator[operators.Empty]]
-    picked: Mapping[Verb, operators.Operator[Picked]]
-    lock: operators.Operator[Locked]
+    picked: Mapping[Verb, operators.Operator[_Picked]]
+    lock: operators.Operator[_Locked]
     listing: Option[Listing[Snapshot]]
     tail: tuple[RowDraw, ...]
     fields: Mapping[str, Replacement]
@@ -443,15 +443,15 @@ class Store[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=Tru
             """Restores the newer value set."""
             return stepped(call.context, -1)
 
-        def restore(call: operators.Call[Picked]) -> Outcome[operators.Answer]:
+        def restore(call: operators.Call[_Picked]) -> Outcome[operators.Answer]:
             """Restores a value set from history."""
             return stepped(call.context, call.properties.offset)
 
-        def forget(call: operators.Call[Picked]) -> Outcome[operators.Answer]:
+        def forget(call: operators.Call[_Picked]) -> Outcome[operators.Answer]:
             """Removes a value set from history."""
             return hosted(attached.name, call.context).bind(lambda host: history.removed(host, call.properties.offset)).map(concluded)
 
-        def lock(call: operators.Call[Locked]) -> Outcome[operators.Answer]:
+        def lock(call: operators.Call[_Locked]) -> Outcome[operators.Answer]:
             """Keeps the value when presets apply."""
             return hosted(attached.name, call.context).map(lambda host: attached.toggled(host, call.properties.field)).map(lambda _: operators.Done())
 
@@ -462,8 +462,8 @@ class Store[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=Tru
             Verb.OLDER: Verb.OLDER.row(stem, operators.Empty, older),
             Verb.NEWER: Verb.NEWER.row(stem, operators.Empty, newer),
         }
-        picked = {Verb.RESTORE: Verb.RESTORE.row(stem, Picked, restore), Verb.FORGET: Verb.FORGET.row(stem, Picked, forget)}
-        locking = Verb.LOCK.row(stem, Locked, lock)
+        picked = {Verb.RESTORE: Verb.RESTORE.row(stem, _Picked, restore), Verb.FORGET: Verb.FORGET.row(stem, _Picked, forget)}
+        locking = Verb.LOCK.row(stem, _Locked, lock)
         listing = self.presets.map(
             lambda preset: Listing(
                 preset=preset,
@@ -550,4 +550,4 @@ def hosted(name: str, context: bpy.types.Context) -> Outcome[Host]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Actions", "Hosted", "Listing", "Locked", "Named", "Picked", "Renamed", "Replacement", "Saved", "Slots", "Store", "Values", "Verb", "hosted"]
+__all__ = ["Hosted", "Listing", "Replacement", "Slots", "Store", "Values", "Verb", "hosted"]

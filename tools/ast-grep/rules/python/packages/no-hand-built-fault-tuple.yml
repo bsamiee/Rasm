@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-hand-built-fault-tuple
+language: python
+severity: error
+utils:
+    fault-class:
+        matches: {python-member-use: {module: {regex: '(^|\.)faults$'}, name: {regex: '^Fault$'}}}
+    fault-call:
+        kind: call
+        has: {field: function, matches: fault-class}
+    fault-builder:
+        kind: call
+        has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^of$'}}, {has: {field: object, matches: fault-class}}]}
+    cause-use:
+        any:
+            - pattern: $CAUSE
+            - has: {stopBy: end, pattern: $CAUSE}
+rule:
+    any:
+        - kind: tuple
+          all:
+            - has: {nthChild: 1, matches: fault-call}
+            - not: {has: {nthChild: 2}}
+        - kind: lambda
+          all:
+            - has: {field: parameters, kind: lambda_parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $CAUSE}}, {not: {has: {nthChild: 2}}}]}
+            - has:
+                field: body
+                matches: fault-builder
+                has:
+                    field: arguments
+                    kind: argument_list
+                    all:
+                        - has: {nthChild: 3, kind: identifier, pattern: $CAUSE}
+                        - not: {has: {not: {nthChild: 3}, matches: cause-use}}
+message: 'Fault builder written by hand where `Fault.of` or `partial(Fault.of, ...)` states it'
+note: 'Build faults with `Fault.of(<reason>, <subject>, <cause>, member=<member>)`, and bind a builder receiving the refused value or caught error as `partial(Fault.of, <reason>, <subject>)`'

@@ -11,6 +11,9 @@ using UnitsNet;
 
 namespace Rasm.Imaging.Tone;
 
+// --- [TYPES] ---------------------------------------------------------------------------
+internal interface ISampleKernel<out T> { internal double Key(Vector3 rgb); internal T Sample(double key, long x, long y); }
+
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed class LuminanceSamples {
     public const float Floor = 1e-5f;
@@ -33,13 +36,11 @@ public sealed class LuminanceSamples {
         }
     }
 
-    public static Fin<LuminanceSamples> Gather(PixelFrame frame, Gamut gamut) {
-        (double R, double G, double B) luminance = gamut.Luminance;
-        return Sorted(frame, frame.Window, rgb => Gamut.RelativeLuminance(rgb.X, rgb.Y, rgb.Z, luminance), static (key, _) => key).Map(static keys => new LuminanceSamples(keys));
-    }
+    public static Fin<LuminanceSamples> Gather(PixelFrame frame, Gamut gamut) =>
+        Sorted<double, Luminous>(frame, frame.Window, new(gamut.Luminance)).Map(static keys => new LuminanceSamples(keys));
 
     public static Fin<LuminanceSamples> Greatest(PixelFrame frame) =>
-        Sorted(frame, frame.Window, static rgb => float.Max(rgb.X, float.Max(rgb.Y, rgb.Z)), static (key, _) => key).Map(static keys => new LuminanceSamples(keys));
+        Sorted<double, Brightest>(frame, frame.Window, default).Map(static keys => new LuminanceSamples(keys));
 
     public double At(float percentile) => SortedArrayStatistics.QuantileCustom(sorted, percentile, QuantileDefinition.EmpiricalInvCDF);
 
@@ -50,23 +51,20 @@ public sealed class LuminanceSamples {
             var start => new ArraySegment<T>(samples)[start..int.Max((int)double.Ceiling(samples.Length * (double)float.Max(low, high)), start + 1)],
         };
 
-    internal static Fin<T[]> Sorted<T>(PixelFrame frame, (long Left, long Top, long Right, long Bottom) window, Func<Vector3, double> key, Func<double, (long X, long Y), T> sample) {
+    internal static Fin<T[]> Sorted<T, TKernel>(PixelFrame frame, FrameWindow window, TKernel kernel) where TKernel : struct, ISampleKernel<T> {
         Span2D<Vector4> view = frame.View.Span;
-        int width = (int)long.Max(window.Right - window.Left, 0L);
-        int height = (int)long.Max(window.Bottom - window.Top, 0L);
+        (int width, int height, int count) = ((int)long.Max(window.Right - window.Left, 0L), (int)long.Max(window.Bottom - window.Top, 0L), 0);
         T[] samples = GC.AllocateUninitializedArray<T>(width * height);
-        int count = 0;
         for (long y = window.Top; width > 0 && y < window.Bottom; y++) {
-            for (long x = window.Left; x < window.Right; x++) {
-                Vector4 pixel = view[(int)(y - frame.Origin.Y), (int)(x - frame.Origin.X)];
-                double level = key(pixel.AsVector3());
-                samples[count] = sample(level, (x, y));
-                count += pixel.W > 0f && double.IsFinite(level) ? 1 : 0;
+            ReadOnlySpan<Vector4> row = view.GetRowSpan((int)(y - frame.Origin.Y)).Slice((int)(window.Left - frame.Origin.X), width);
+            for (int x = 0; x < width; x++) {
+                double level = kernel.Key(row[x].AsVector3());
+                samples[count] = kernel.Sample(level, window.Left + x, y);
+                count += row[x].W > 0f && double.IsFinite(level) ? 1 : 0;
             }
         }
-        System.Array.Resize(ref samples, count);
-        samples.AsSpan().Sort();
-        return count is 0 ? new ImagingFault($"region {window}", ImagingReason.Empty) : samples;
+        samples.AsSpan(0, count).Sort();
+        return count is 0 ? new ImagingFault($"region {window}", ImagingReason.Empty) : samples[..count];
     }
 }
 
@@ -75,19 +73,15 @@ public sealed record Metering(float Low, float High, float Center, FramePosition
 
     public Fin<float> Metered(PixelFrame frame, Gamut gamut) {
         ((double X, double Y) start, (double X, double Y) end) = (Start.Point(frame.Extent), End.Point(frame.Extent));
-        (long Left, long Top, long Right, long Bottom) window = (
+        FrameWindow window = new(
             long.Max((long)double.Round(start.X, MidpointRounding.ToEven), frame.Window.Left),
             long.Max((long)double.Round(start.Y, MidpointRounding.ToEven), frame.Window.Top),
             long.Min((long)double.Round(end.X, MidpointRounding.ToEven), frame.Window.Right),
             long.Min((long)double.Round(end.Y, MidpointRounding.ToEven), frame.Window.Bottom));
-        (double width, double height, float border, (double R, double G, double B) luminance) = (window.Right - window.Left, window.Bottom - window.Top, 1f - Center, gamut.Luminance);
-        (double middleX, double middleY) = (window.Left + (width / 2d), window.Top + (height / 2d));
-        return LuminanceSamples.Sorted(frame, window, rgb => Gamut.RelativeLuminance(rgb.X, rgb.Y, rgb.Z, luminance),
-                (key, pixel) => (Key: key, Weight: double.Abs(pixel.X + 0.5d - middleX) < width / 4d && double.Abs(pixel.Y + 0.5d - middleY) < height / 4d ? 1f : border))
-            .Bind(samples => Metered(samples, window));
+        return LuminanceSamples.Sorted<(double Key, float Weight), Centered>(frame, window, new(gamut.Luminance, window, 1f - Center)).Bind(samples => Metered(samples, window));
     }
 
-    internal Fin<float> Metered((double Key, float Weight)[] samples, (long Left, long Top, long Right, long Bottom) window) =>
+    internal Fin<float> Metered((double Key, float Weight)[] samples, FrameWindow window) =>
         samples.Length is 0 ? new ImagingFault($"metered region {window}", ImagingReason.Empty)
         : LuminanceSamples.Slice(samples, Low, High)
             .Aggregate((Sum: 0d, Weight: 0d), static (total, sample) =>
@@ -136,3 +130,13 @@ public static class Peak {
             };
     }
 }
+
+file readonly struct Luminous((double R, double G, double B) luminance) : ISampleKernel<double> { double ISampleKernel<double>.Key(Vector3 rgb) => Gamut.RelativeLuminance(rgb.X, rgb.Y, rgb.Z, luminance); double ISampleKernel<double>.Sample(double key, long x, long y) => key; }
+file readonly struct Brightest : ISampleKernel<double> { double ISampleKernel<double>.Key(Vector3 rgb) => float.Max(rgb.X, float.Max(rgb.Y, rgb.Z)); double ISampleKernel<double>.Sample(double key, long x, long y) => key; }
+file readonly struct Centered((double R, double G, double B) luminance, FrameWindow window, float border) : ISampleKernel<(double Key, float Weight)> {
+    private readonly (double X, double Y, double Across, double Down) center = ((double)(window.Right - window.Left), (double)(window.Bottom - window.Top)) switch { var (width, height) => (window.Left + (width / 2d), window.Top + (height / 2d), width / 4d, height / 4d) };
+    double ISampleKernel<(double Key, float Weight)>.Key(Vector3 rgb) => Gamut.RelativeLuminance(rgb.X, rgb.Y, rgb.Z, luminance);
+    (double Key, float Weight) ISampleKernel<(double Key, float Weight)>.Sample(double key, long x, long y) =>
+        (key, double.Abs(x + 0.5d - center.X) < center.Across && double.Abs(y + 0.5d - center.Y) < center.Down ? 1f : border);
+}
+internal readonly struct Placed((double R, double G, double B) luminance, PixelFrame frame) : ISampleKernel<(double Key, int Y, int X)> { double ISampleKernel<(double Key, int Y, int X)>.Key(Vector3 rgb) => double.Max(Gamut.RelativeLuminance(rgb.X, rgb.Y, rgb.Z, luminance), LuminanceSamples.Floor); (double Key, int Y, int X) ISampleKernel<(double Key, int Y, int X)>.Sample(double key, long x, long y) => (key, (int)(y - frame.Origin.Y), (int)(x - frame.Origin.X)); }

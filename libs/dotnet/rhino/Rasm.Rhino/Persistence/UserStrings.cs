@@ -1,9 +1,10 @@
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using LanguageExt.ClassInstances;
 using Rhino;
 using Rhino.Display;
 
-namespace Rasm.Rhino.Persistence;
+namespace Rasm.RhinoCommon.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
@@ -12,7 +13,7 @@ namespace Rasm.Rhino.Persistence;
 [ValidationError<RhinoFault>]
 public sealed partial class KeyName {
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = value.Length > 0 && !value.Contains(DocumentKey.Separator, StringComparison.Ordinal) ? null : new RhinoFault($"key name is empty or holds {DocumentKey.Separator}");
+        validationError = value.Length > 0 && !value.Contains(DocumentKey.Separator, StringComparison.Ordinal) ? null : new RhinoFault(value, RhinoReason.Unqualified);
 }
 
 public sealed record DocumentKey(KeyName Name, Option<KeyName> Entry = default) {
@@ -33,7 +34,7 @@ public static class UserStrings {
 
     public static IO<Unit> Write(
         HashMap<EqStringOrdinalIgnoreCase, string, string> held, Func<string, string, bool> set, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
-        IO.lift(() => Callbacks.Each(Changed(held, edits), edit => set(edit.Key, Conversions.Unset(edit.Value)), nameof(GeometryBase.SetUserString)));
+        IO.lift(() => Callbacks.Each(Changed(held, edits), (edit, index) => RhinoFault.Unless(set(edit.Key, Conversions.Unset(edit.Value)), index))).Map(unit);
 
     private static Seq<(string Key, Option<string> Value)> Changed(
         HashMap<EqStringOrdinalIgnoreCase, string, string> held, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
@@ -43,7 +44,7 @@ public static class UserStrings {
     public static IO<Unit> Write(RhinoViewport viewport, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
         IO.lift(() => Changed(Held(viewport.GetUserStrings()), edits) switch {
             { IsEmpty: true } => unit,
-            var changed => Refused.Unless(viewport.SetUserStrings(changed.Map(static edit => KeyValuePair.Create(edit.Key, Conversions.Unset(edit.Value))), replace: false), nameof(RhinoViewport.SetUserStrings)),
+            var changed => RhinoFault.Unless(viewport.SetUserStrings(changed.Map(static edit => KeyValuePair.Create(edit.Key, Conversions.Unset(edit.Value))), replace: false)),
         });
 
     // --- [DOCUMENT]

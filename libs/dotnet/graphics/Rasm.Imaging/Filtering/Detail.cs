@@ -2,12 +2,12 @@ using System.Drawing;
 using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;
+using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
-using Emgu.CV.Util;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using Rasm.Imaging.Color;
@@ -80,12 +80,7 @@ public static class ContrastGrid {
             CvInvoke.Compare(alpha, zero, mask, CmpType.GreaterThan);
             CvInvoke.MinMaxIdx(luma, out double low, out double high, minIdx: null, maxIdx: null, mask);
             (int first, int slices) = Place(low, 1d, 0).Slice switch { var lowest => (lowest, Place(high, 1d, 0).Slice - lowest + 2) };
-            using VectorOfMat lattice = new(slices);
-            Mat[] planes = [.. Enumerable.Range(0, slices).Select(index => lattice[index])];
-            foreach (Mat plane in planes) {
-                plane.Create(down, across, DepthType.Cv64F, 4);
-                plane.SetTo(default(MCvScalar));
-            }
+            Vector256<double>[] lattice = GC.AllocateArray<Vector256<double>>(slices * down * across, pinned: true);
             using Mat cells = Mat.Zeros(down, across, DepthType.Cv64F, 4);
             ReadOnlySpan2D<double> lumas = luma.View<double>();
             ReadOnlySpan2D<double> coverage = alpha.View<double>();
@@ -94,29 +89,34 @@ public static class ContrastGrid {
                 for (int x = 0; x < lumas.Width; x++) {
                     if (coverage[y, x] <= 0f) continue;
                     ((Vector256<double> sample, int slice, double upper), int cellY, int cellX) = (Place(lumas[y, x], coverage[y, x], first), y / pitch, x / pitch);
-                    planes[slice].View<Vector256<double>>()[cellY, cellX] += (1d - upper) * sample;
-                    planes[slice + 1].View<Vector256<double>>()[cellY, cellX] += upper * sample;
+                    Plane(slice)[cellY, cellX] += (1d - upper) * sample;
+                    Plane(slice + 1)[cellY, cellX] += upper * sample;
                     marginals[cellY, cellX] += sample;
                 }
             }
-            foreach (Mat plane in planes)
+            for (int slice = 0; slice < slices; slice++) {
+                using Mat plane = new(down, across, DepthType.Cv64F, 4, Marshal.UnsafeAddrOfPinnedArrayElement(lattice, slice * down * across), step: 0);
                 CvInvoke.GaussianBlur(plane, plane, new Size(fine.Taps, fine.Taps), fine.Sigma, fine.Sigma, BorderType.Constant);
+            }
             CvInvoke.GaussianBlur(cells, cells, new Size(broad.Taps, broad.Taps), broad.Sigma, broad.Sigma, BorderType.Constant);
             return new PixelPass.Pointwise((row, _, line) => {
                 int y = frame.RowIndex(line);
                 ReadOnlySpan<double> rowLumas = luma.View<double>().GetRowSpan(y);
+                ReadOnlySpan2D<Vector256<double>> marginal = cells.View<Vector256<double>>();
                 for (int x = 0; x < row.Length; x++) {
                     if (row[x].W <= 0f) continue;
                     ((Vector256<double> own, int slice, double upper), (double X, double Y) at) = (Place(rowLumas[x], 1d, first), ((x + 0.5d) / pitch, (y + 0.5d) / pitch));
-                    Vector256<double> graded = ((1d - upper) * Smooth(planes[slice], at)) + (upper * Smooth(planes[slice + 1], at));
-                    double around = Smooth(cells, at) switch { var smooth => smooth.GetElement(0) / smooth.GetElement(1) };
+                    Vector256<double> graded = ((1d - upper) * Smooth(Plane(slice), at)) + (upper * Smooth(Plane(slice + 1), at));
+                    double around = Smooth(marginal, at) switch { var smooth => smooth.GetElement(0) / smooth.GetElement(1) };
                     double centered = double.Lerp(graded.GetElement(1) > 0d ? graded.GetElement(0) / graded.GetElement(1) : around, around, 0.6d) - gray;
                     double gain = double.Exp2(gray + (centered * (centered > 0d ? highlights : shadows)) + ((own.GetElement(0) - gray - centered) * detail) - own.GetElement(0));
                     row[x] = new((float)(row[x].X * gain), (float)(row[x].Y * gain), (float)(row[x].Z * gain), row[x].W);
                 }
             }).Run(frame, progress);
 
-            Vector256<double> Smooth(Mat plane, (double X, double Y) at) => ((ReadOnlySpan2D<Vector256<double>>)plane.View<Vector256<double>>()).Sample(at, edge, Vector256<double>.Zero, static (sum, pixel, weight) => sum + (pixel * weight));
+            Span2D<Vector256<double>> Plane(int slice) => new(lattice, slice * down * across, down, across, 0);
+
+            Vector256<double> Smooth(ReadOnlySpan2D<Vector256<double>> plane, (double X, double Y) at) => plane.Sample(at, edge, Vector256<double>.Zero, static (sum, pixel, weight) => sum + (pixel * weight));
         });
 
     private static (Vector256<double> Sample, int Slice, double Upper) Place(double luma, double weight, int first) =>
@@ -126,7 +126,7 @@ public static class ContrastGrid {
 }
 
 public static class GrainNoise {
-    public static Vector4 Mix(float chroma) => new(new Vector3(MathF.Sqrt(chroma)), MathF.Sqrt(1f - chroma));
+    public static Vector4 Mix(float chroma) => new(new Vector3(float.Sqrt(chroma)), float.Sqrt(1f - chroma));
 
     public static Action<Span<Vector4>, long, long> White(uint field) =>
         (row, column, line) => {
@@ -178,16 +178,22 @@ public static class GrainNoise {
                 resized.ConvertTo(source, DepthType.Cv64F);
                 mean.SetTo([1d, 0d, 0d, 0d, 0d, 1d, 0d, 0d, 0d, 0d, 1d, 0d, third, third, third, 0d]);
                 CvInvoke.Transform(source, mixed, mean);
-                float[][] lanes = [.. Enumerable.Range(0, 4).Select(lane => {
+                Vector4[] scores = GC.AllocateUninitializedArray<Vector4>(pixels);
+                Span2D<float> lanes = scores.AsSpan().Cast<Vector4, float>().AsSpan2D(pixels, 4);
+                for (int lane = 0; lane < 4; lane++) {
                     using Mat channel = new();
                     CvInvoke.ExtractChannel(mixed, channel, lane);
                     double[] values = new double[pixels];
                     channel.CopyTo(values);
-                    return values.Ranks(RankDefinition.Min).Zip(ArrayStatistics.RanksInplace(values, RankDefinition.Max), (lower, upper) => (float)Normal.InvCDF(0d, 1d, (lower + upper - 1d) / (2d * pixels))).ToArray();
-                })];
-                Vector4[] scores = [.. Enumerable.Range(0, pixels).Select(texel => new Vector4(lanes[0][texel], lanes[1][texel], lanes[2][texel], lanes[3][texel]))];
+                    Scored(lanes, lane, values.Ranks(RankDefinition.Min), ArrayStatistics.RanksInplace(values, RankDefinition.Max));
+                }
                 return scores.AsMemory().AsMemory2D(dimensions.Height, dimensions.Width);
             }).Run();
+    }
+
+    private static void Scored(Span2D<float> lanes, int lane, double[] lower, double[] upper) {
+        for (int texel = 0; texel < lanes.Height; texel++)
+            lanes[texel, lane] = (float)Normal.InvCDF(0d, 1d, (lower[texel] + upper[texel] - 1d) / (2d * lanes.Height));
     }
 
     public static Func<double, double> Bands((float Shadows, float Midtones, float Highlights) weights, double edge, double span, double width, double exposure) {
@@ -282,7 +288,7 @@ public static class Kuwahara {
                 using Mat copy = new();
                 using Mat across = new(3, 3, DepthType.Cv64F, 1);
                 using Mat down = new();
-                using Mat rgb = ChannelMask.Rgb();
+                using Mat rgb = new(1, 4, DepthType.Cv32F, 1);
                 using Mat horizontal = new(source.Size, DepthType.Cv64F, source.NumberOfChannels);
                 using Mat vertical = new(source.Size, DepthType.Cv64F, source.NumberOfChannels);
                 using Mat product = new();
@@ -291,6 +297,7 @@ public static class Kuwahara {
                 using Mat yy = new();
                 source.ConvertTo(copy, DepthType.Cv64F);
                 across.SetTo([-corner, 0d, corner, (2d * corner) - 1d, 0d, 1d - (2d * corner), -corner, 0d, corner]);
+                rgb.SetTo([1f, 1f, 1f, 0f]);
                 CvInvoke.Transpose(across, down);
                 CvInvoke.Filter2D(copy, horizontal, across, new Point(-1, -1), 0d, BorderType.Replicate);
                 CvInvoke.Filter2D(copy, vertical, down, new Point(-1, -1), 0d, BorderType.Replicate);

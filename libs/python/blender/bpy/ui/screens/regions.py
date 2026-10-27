@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-AXES: Final[tuple[tuple[Edge, Edge], ...]] = (("LEFT", "RIGHT"), ("TOP", "BOTTOM"))
+_AXES: Final[tuple[tuple[Edge, Edge], ...]] = (("LEFT", "RIGHT"), ("TOP", "BOTTOM"))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -94,7 +94,7 @@ class RegionView(msgspec.Struct, frozen=True, kw_only=True):
     def flipped(self, side: Edge) -> Outcome[None]:
         """Moves region to `side` across its axis."""
         aligned = self.region.alignment
-        match next((axis for axis in AXES if aligned in axis), ()):
+        match next((axis for axis in _AXES if aligned in axis), ()):
             case _ if aligned == side:
                 return Ok(None)
             case axis if side in axis:
@@ -124,4 +124,4 @@ class RegionView(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["AXES", "RegionView", "Visibility"]
+__all__ = ["RegionView", "Visibility"]

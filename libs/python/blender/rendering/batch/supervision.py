@@ -1,5 +1,6 @@
 """Local queue supervision in background Blender processes."""
 
+from functools import partial
 from graphlib import TopologicalSorter
 from heapq import heappop, heappush
 from itertools import count, groupby
@@ -99,9 +100,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
             catch(child.wait, exception=subprocess.TimeoutExpired)(timeout=heartbeat.interval)
             .to_option()
             .map(Ok)
-            .or_else_with(
-                lambda: catch(records.path.touch, exception=OSError)().swap().to_option().map(lambda error: Error((Fault(reason=RecordReason.UNWRITABLE, subject=str(records.path), cause=error),)))
-            )
+            .or_else_with(lambda: catch(records.path.touch, exception=OSError)().swap().to_option().map(lambda error: Error(Fault.of(RecordReason.UNWRITABLE, str(records.path), error))))
         )
 
     def waited(child: subprocess.Popen[bytes]) -> Outcome[int]:
@@ -119,7 +118,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
     def confirmed(job: Job, code: int) -> Outcome[Progress]:
         return (
             Ok(code)
-            .filter_with(lambda held: held == 0, lambda held: (Fault(reason=RenderingReason.EXITED, subject=job.title, member=str(held)),))
+            .filter_with(lambda held: held == 0, lambda held: Fault.of(RenderingReason.EXITED, job.title, member=str(held)))
             .bind(lambda _: records.revised(lambda held: msgspec.structs.replace(held, pending=())))
         )
 
@@ -139,9 +138,7 @@ def stop(progress: Progress) -> Outcome[None]:
     """Stops supervisor and its renders."""
     if sys.platform == "win32":
         return ran(("taskkill", "/T", "/F", "/PID", str(progress.process)))
-    return catch(killpg, exception=OSError)(progress.process, signal.SIGTERM).map_error(
-        lambda error: (Fault(reason=RenderingReason.SYSTEM, subject=f"{killpg.__name__}({progress.process})", cause=error),)
-    )
+    return catch(killpg, exception=OSError)(progress.process, signal.SIGTERM).map_error(partial(Fault.of, RenderingReason.SYSTEM, f"{killpg.__name__}({progress.process})"))
 
 
 def cleared(queue: RenderQueue, host: Host) -> Outcome[None]:
@@ -149,7 +146,7 @@ def cleared(queue: RenderQueue, host: Host) -> Outcome[None]:
 
     def removed(file: RunFile) -> Outcome[None]:
         path = host.path(queue, file)
-        return catch(path.unlink, exception=OSError)(missing_ok=True).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))
+        return catch(path.unlink, exception=OSError)(missing_ok=True).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path)))
 
     return accumulated(map(removed, (RunFile.QUEUE, RunFile.PROGRESS, RunFile.LOG))).map(lambda _: None)
 

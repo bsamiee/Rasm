@@ -1,10 +1,10 @@
 using System.Drawing;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.UI;
 using Rhino.Render;
 using Rhino.Render.DataSources;
 
-namespace Rasm.Rhino.Render.Settings;
+namespace Rasm.RhinoCommon.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -35,8 +35,8 @@ public static class Framing {
     public static Seq<RenderSize> Sizes(RhinoSettings settings, Size screenPort) =>
         [new RenderSize.ViewportSize(screenPort), new RenderSize.CustomSize(), .. toSeq(settings.GetCustomRenderSizes()).Map(static size => new RenderSize.Listed(size))];
 
-    public static IO<Unit> Choose(RenderSettingsSource.Section section, RenderSize size) =>
-        from sized in RenderSettingsSources.Edit(section, scope => IO.lift(() => size.Applied(scope.Settings)))
+    public static IO<Unit> Choose(RenderSettingsSource.Section section, RenderSize size, object owner) =>
+        from sized in RenderSettingsSources.Edit(section, scope => IO.lift(() => size.Applied(scope.Settings)), owner)
         from preset in SectionModels.Write(section.Host, Provider.RhinoSettings, data => IO.lift(() => data.CustomImageSizeIsPreset = size.Map(viewportSize: false, customSize: false, listed: true)))
         select unit;
 

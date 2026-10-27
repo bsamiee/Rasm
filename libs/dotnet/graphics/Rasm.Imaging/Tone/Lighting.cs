@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
 using CommunityToolkit.HighPerformance;
@@ -67,12 +68,11 @@ public static class Lighting {
         bool Inside((double Key, int Y, int X) sample, (int Left, int Top, int Right, int Bottom) box) =>
             sample.X >= box.Left && sample.X < box.Right && sample.Y >= box.Top && sample.Y < box.Bottom;
         (int Left, int Top, int Right, int Bottom) subject = Inset(0.12);
-        (long Left, long Top, long Right, long Bottom) window = (
+        FrameWindow window = new(
             (long)analysis.Origin.X + subject.Left, (long)analysis.Origin.Y + subject.Top,
             (long)analysis.Origin.X + subject.Right, (long)analysis.Origin.Y + subject.Bottom);
         return paletteSize <= 0 ? new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"palette size {paletteSize}"), ImagingReason.Range)
-            : from all in LuminanceSamples.Sorted(analysis, analysis.Window, rgb => Luma(rgb.X, rgb.Y, rgb.Z),
-                (key, pixel) => (Key: key, Y: (int)(pixel.Y - analysis.Origin.Y), X: (int)(pixel.X - analysis.Origin.X)))
+            : from all in LuminanceSamples.Sorted<(double Key, int Y, int X), Placed>(analysis, analysis.Window, new(luminance, analysis))
               let samples = all.Where(sample => Inside(sample, subject)).ToArray()
               from stops in Metering.Default.Metered([.. samples.Select(static sample => (sample.Key, Weight: 1f))], window)
               select Measured(samples, all, stops);

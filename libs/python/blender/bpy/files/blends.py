@@ -6,6 +6,7 @@ from enum import auto, Enum
 from itertools import starmap
 import os
 from pathlib import Path
+from types import MappingProxyType
 from typing import Literal, Self
 
 import bpy
@@ -129,8 +130,8 @@ class Project(msgspec.Struct, frozen=True, kw_only=True):
 
     name: str
     root: Path
-    variables: Mapping[str, TemplateVariable] = msgspec.field(default_factory=dict)
-    libraries: Mapping[str, str] = msgspec.field(default_factory=dict)
+    variables: Mapping[str, TemplateVariable] = MappingProxyType({})
+    libraries: Mapping[str, str] = MappingProxyType({})
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -245,11 +246,9 @@ def packed(root: Path, *, compress: Option[bool] = Nothing) -> Outcome[Pack]:
     """Packs file and dependencies under root, absent fault for unsaved file."""
 
     def written(source: Path) -> Outcome[Path]:
-        changes = relinked(Mirrored(root=root, source=source))
-        try:
+        with ExitStack() as restoring:
+            restoring.callback(relinked, relinked(Mirrored(root=root, source=source)))
             return saved(mirrored(root, source), SaveMode.COPY, compress=compress, remap=Some(False))
-        finally:
-            relinked(changes)
 
     found = dependencies()
     match BlendFile.read().path:

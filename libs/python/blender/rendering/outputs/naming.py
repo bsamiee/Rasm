@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Mapping
 from enum import auto, StrEnum
+import functools
 from itertools import chain, starmap
 from pathlib import Path
 import re
@@ -12,7 +13,7 @@ from expression import Error, Nothing, Ok, Option
 from expression.extra.result import catch
 import msgspec
 
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
+from blender.records.faults import accumulated, Fault, Outcome, paired
 from blender.records.fields import Case
 from blender.rendering.faults import RenderingReason
 
@@ -98,9 +99,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, template: str) -> Outcome[Self]:
         """Parses `{word}` and `{count:width}` fields, refusing braces in text, unknown fields, unseparated fields, and one count at two widths."""
-
-        def refused(reason: str | ValueError) -> Faults:
-            return (Fault(reason=RenderingReason.TEMPLATE, subject=template, cause=reason),)
+        refused = functools.partial(Fault.of, RenderingReason.TEMPLATE, template)
 
         def width(spec: str) -> Option[int]:
             return catch(msgspec.json.decode, exception=msgspec.DecodeError)(spec, type=_Width).to_option() if spec.isdigit() else Nothing
@@ -167,29 +166,23 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 case Number(key=key, width=width):
                     value = Option.of_optional(fields.counts.get(key)).map(lambda count: f"{count:0{width}d}")
             pattern = patterns[part]
-            unmatched = Fault(reason=RenderingReason.UNMATCHED, subject=value.default_value(f"{{{key}}}"), member=pattern.pattern)
-            return written(part).or_else(value.filter(lambda held: pattern.fullmatch(held) is not None)).to_result((unmatched,))
+            unmatched = Fault.of(RenderingReason.UNMATCHED, value.default_value(f"{{{key}}}"), member=pattern.pattern)
+            return written(part).or_else(value.filter(lambda held: pattern.fullmatch(held) is not None)).to_result(unmatched)
 
         return accumulated(map(spelled, self.parts)).map("".join)
 
     def parse(self, text: str) -> Outcome[Fields]:
         """Parses relative extensionless name, requiring repeated fields to agree."""
-        patterns = self.patterns()
-        grammar = re.compile(
-            "".join(
-                re.escape(part.text) if isinstance(part, Text) else f"(?P<{part.key}>{patterns[part].pattern})" if self.parts.index(part) == index else f"(?P={part.key})"
-                for index, part in enumerate(self.parts)
-            )
-        )
+        grammar = _grammar(self)
         return (
             Option
             .of_optional(grammar.fullmatch(text))
             .map(
                 lambda found: Fields(
-                    words={part.key: found[part.key] for part in patterns if isinstance(part, Slot)}, counts={part.key: int(found[part.key]) for part in patterns if isinstance(part, Number)}
+                    words={part.key: found[part.key] for part in self.slots if isinstance(part, Slot)}, counts={part.key: int(found[part.key]) for part in self.slots if isinstance(part, Number)}
                 )
             )
-            .to_result_with(lambda: (Fault(reason=RenderingReason.UNMATCHED, subject=text, member=grammar.pattern),))
+            .to_result_with(functools.partial(Fault.of, RenderingReason.UNMATCHED, text, member=grammar.pattern))
         )
 
     def path(self, root: Path, fields: Fields) -> Outcome[Path]:
@@ -198,7 +191,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
             self
             .compose(fields)
             .map(root.joinpath)
-            .filter_with(lambda path: path.resolve().is_relative_to(root.resolve()), lambda path: (Fault(reason=RenderingReason.ROOT, subject=str(path.resolve()), member=str(root.resolve())),))
+            .filter_with(lambda path: path.resolve().is_relative_to(root.resolve()), lambda path: Fault.of(RenderingReason.ROOT, str(path.resolve()), member=str(root.resolve())))
         )
 
     def next_version(self, root: Path, fields: Fields) -> int:
@@ -217,6 +210,18 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+@functools.cache
+def _grammar(name: OutputName) -> re.Pattern[str]:
+    """Returns the pattern a name's files match, each repeated field matching its first value."""
+    patterns = name.patterns()
+    return re.compile(
+        "".join(
+            re.escape(part.text) if isinstance(part, Text) else f"(?P<{part.key}>{patterns[part].pattern})" if name.parts.index(part) == index else f"(?P={part.key})"
+            for index, part in enumerate(name.parts)
+        )
+    )
 
 
 def stepped(text: str, offset: int) -> Option[str]:

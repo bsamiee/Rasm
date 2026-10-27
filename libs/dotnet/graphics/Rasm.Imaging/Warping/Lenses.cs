@@ -45,24 +45,26 @@ public sealed partial class RadialDistortion {
 
     public CoordinateMap.Analytic Map(WrapMode wrap) =>
         new((points, coverage, extent) => {
+            double scale = Framing.Scale(extent, Channels.Red);
             for (int i = 0; i < points.Length; i++)
-                (points[i], coverage[i]) = Mapped(Coefficient, points[i], extent, coverage[i]);
+                (points[i], coverage[i]) = Mapped(Coefficient, points[i], extent, scale, coverage[i]);
         }, Sampling.Linear, (wrap, wrap));
 
     public PixelPass.Frame Pass(WrapMode wrap) =>
         Dispersion is 0d ? new(Map(wrap).Apply)
             : Channels switch {
                 var (red, green, blue) => new(CoordinateMap.IntegratedLinear(static integral => ContourIntegrate.GaussKronrod(integral, 0d, 1d), wrap,
-                    new MapPath(static t => new Vector4((float)(1d - t), (float)t, 0f, 1f), (point, t, extent) => Mapped(double.Lerp(red, green, t), point, extent, 1f)),
-                    new MapPath(static t => new Vector4(0f, (float)(1d - t), (float)t, 1f), (point, t, extent) => Mapped(double.Lerp(green, blue, t), point, extent, 1f)))),
+                    new MapPath(static t => new Vector4((float)(1d - t), (float)t, 0f, 1f), (point, t, extent) => Mapped(double.Lerp(red, green, t), point, extent, Framing.Scale(extent, red), 1f)),
+                    new MapPath(static t => new Vector4(0f, (float)(1d - t), (float)t, 1f), (point, t, extent) => Mapped(double.Lerp(green, blue, t), point, extent, Framing.Scale(extent, red), 1f)))),
             };
 
-    private ((double X, double Y) Point, float Coverage) Mapped(double coefficient, (double X, double Y) point, PixelExtent extent, float coverage) {
-        ((double x, double y), (double red, _, double blue)) = ((extent.Width / 2d, extent.Height / 2d), Channels);
+    private ((double X, double Y) Point, float Coverage) Mapped(double coefficient, (double X, double Y) point, PixelExtent extent, double scale, float coverage) {
+        (double x, double y) = (extent.Width / 2d, extent.Height / 2d);
         double half = double.Max(x, y);
-        (double scale, double radius) = (Framing.Scale(extent, red), double.Pow((point.X - x) / half, 2d) + double.Pow((point.Y - y) / half, 2d));
-        double factor = Direction.Radial(coefficient, scale, radius).Factor;
-        return ((x + (factor * (point.X - x)), y + (factor * (point.Y - y))), Direction.Radial(red, scale, radius).Weight * Direction.Radial(blue, scale, radius).Weight * coverage);
+        double radius = double.Pow((point.X - x) / half, 2d) + double.Pow((point.Y - y) / half, 2d);
+        (double factor, float weight) = Direction.Radial(coefficient, scale, radius);
+        return ((x + (factor * (point.X - x)), y + (factor * (point.Y - y))),
+            (Dispersion is 0d ? weight * weight : Channels switch { var (red, _, blue) => Direction.Radial(red, scale, radius).Weight * Direction.Radial(blue, scale, radius).Weight }) * coverage);
     }
 
     public static Fin<RadialDistortion> Validated(double coefficient, double dispersion, LensFraming framing, LensDirection direction) =>

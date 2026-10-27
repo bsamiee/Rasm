@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Drawing;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -85,7 +86,7 @@ public sealed record ImageFile {
                     source.GetColumn(channel).CopyTo(samples.GetColumn(component));
                 if (header.Layout.Associated)
                     foreach (ref Vector4 pixel in pixels)
-                        pixel = pixel.W > 0f ? new(pixel.AsVector3() / pixel.W, pixel.W) : new(Vector3.Zero, pixel.W);
+                        pixel = pixel.Unassociated;
             }), Optional(part.Header.Chromaticities).Map(Gamut.Of));
 
     private static Fin<((int Component, int Channel)[] Rows, bool Associated)> Components(IReadOnlyList<string> names, string layer) =>

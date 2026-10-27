@@ -28,18 +28,11 @@ class Translations(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Ok of one registry acquisition.
         """
-        return Ok(((Band.REGISTRIES, self.registered(identity)),))
+        return Ok(((Band.REGISTRIES, self._registered(identity)),))
 
     @contextmanager
-    def registered(self, identity: Identity) -> Generator[None]:
-        """Registers translations under default and operator contexts.
-
-        Args:
-            identity: Extension with package keying translation table.
-
-        Yields:
-            None while Blender holds table.
-        """
+    def _registered(self, identity: Identity) -> Generator[None]:
+        """Holds the table under default and operator contexts while the scope stands."""
         contexts = bpy.app.translations.contexts
         pair: tuple[str, str] = (contexts.default, contexts.operator_default)  # type: ignore[attr-defined]
         with ExitStack() as stack:

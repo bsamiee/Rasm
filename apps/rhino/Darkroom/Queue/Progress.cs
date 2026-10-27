@@ -1,19 +1,21 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using Thinktecture.Text.Json.Serialization;
 using Darkroom.Chain;
 using Darkroom.Output;
 using Rasm.Imaging.Files;
-using Rasm.Rhino;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Render.Sessions;
-using Rasm.Rhino.Render.Settings;
-using Rasm.Rhino.UI;
-using Rasm.Rhino.Viewport;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Commands;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Render.Sessions;
+using Rasm.RhinoCommon.Render.Settings;
+using Rasm.RhinoCommon.UI;
+using Rasm.RhinoCommon.Viewport;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Render;
@@ -59,8 +61,7 @@ public sealed record QueueProgress(
     public Option<Relaunch> Relaunch => Job.Map(job => new Relaunch(job, Delay));
 
     // --- [FILE]
-    public static IO<FileStream> Acquire(OutputPath path, Action<FileStream> retain) =>
-        DisposalOps.Acquire(IO.lift(() => File.Open($"{(string)path}.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)), retain);
+    public static IO<FileStream> Acquire(OutputPath path) => use(() => File.Open($"{(string)path}.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None));
 
     public static IO<Option<QueueProgress>> Read(OutputPath path) => JsonFiles.Read(path, ProgressContext.Default.ProgressRecord, static record => Fin.Succ(record.Progress));
 
@@ -69,16 +70,17 @@ public sealed record QueueProgress(
     public static IO<Unit> Touch(OutputPath path, TimeProvider clock) => IO.lift(() => File.SetLastWriteTimeUtc(path, clock.GetUtcNow().UtcDateTime));
 
     public static IO<QueueProgress> Started(Option<string> job, RenderBatch batch, Option<QueueProgress> resumed, QueueSettings settings) =>
-        DisposalOps.Within(Process.GetCurrentProcess, self => IO.lift(() => new QueueProgress(
-            job,
-            self.Id,
-            self.StartTime.ToUniversalTime().ToInstant(),
-            resumed.Map(static record => record.Retries).IfNone(settings.Retries),
-            settings.Delay,
-            None,
-            toHashMap(batch.Entries.Map(entry => (entry.Key, resumed.Bind(record => record.Entries.Find(entry.Key)).IfNone(EntryProgress.Empty) with {
-                Versions = toHashMap(entry.Outputs.Choose(static output => output.Name.Version.Taken.Map(version => (output.Name.Scope, version)))),
-            }))))));
+        (from self in use(Process.GetCurrentProcess)
+         select new QueueProgress(
+             job,
+             self.Id,
+             self.StartTime.ToUniversalTime().ToInstant(),
+             resumed.Map(static record => record.Retries).IfNone(settings.Retries),
+             settings.Delay,
+             None,
+             toHashMap(batch.Entries.Map(entry => (entry.Key, resumed.Bind(record => record.Entries.Find(entry.Key)).IfNone(EntryProgress.Empty) with {
+                 Versions = toHashMap(entry.Outputs.Choose(static output => output.Name.Version.Taken.Map(version => (output.Name.Scope, version)))),
+             }))))).Bracket();
 
     public static IO<(QueueSettings Settings, Option<QueueProgress> Prior, RunState State)> Observed(QueueContext context) =>
         from settings in context.Settings
@@ -95,7 +97,7 @@ public sealed record QueueProgress(
         select (settings, prior, state);
 
     private static IO<bool> Live(QueueProgress record) =>
-        DisposalOps.Within(() => Process.GetProcessById(record.ProcessId), process => IO.lift(() => process.StartTime.ToUniversalTime().ToInstant() == record.ProcessStart))
+        (from process in use(() => Process.GetProcessById(record.ProcessId)) select process.StartTime.ToUniversalTime().ToInstant() == record.ProcessStart).Bracket()
             .Catch(static error => error.HasException<ArgumentException>() || error.HasException<InvalidOperationException>(), static _ => IO.pure(value: false));
 }
 
@@ -142,45 +144,43 @@ public static class QueueRuns {
 
     // --- [RUN]
     public static IO<Unit> Run(QueueContext context, RhinoDoc doc, RenderBatch batch, Option<string> job, Option<QueueProgress> resumed) =>
-        DisposalOps.Within<IDisposable, Unit>(retain =>
-            from lease in QueueProgress.Acquire(context.Record, retain)
-            from observed in QueueProgress.Observed(context)
-            let settings = observed.Settings
-            from free in IO.lift(observed.State.Switch<Fin<Unit>>(
-                absent: static _ => unit,
-                active: static active => new PreflightFinding.QueueActive(active.ProcessId).Error,
-                ended: static _ => unit,
-                crashed: static _ => unit))
-            from started in QueueProgress.Started(job, batch, resumed, settings)
-            from held in atomIO(started)
-            from began in IO.lift(context.Views.Clock.GetTimestamp)
-            from ran in DisposalOps.OnFailure(
-                    from written in QueueProgress.Write(context.Record, started)
-                    from now in IO.lift(context.Views.Clock.GetCurrentInstant)
-                    from shown in context.Estimate.SwapIO(_ => QueueEstimate.Running(batch, started, None, now))
-                    from noticed in unless(resumed.IsSome, context.Notify(new QueueEvent.Started(batch.Entries.Count, batch.Frames))).As()
-                    from rendered in DisposalOps.Within<IDisposable, Unit>(acquired =>
-                        from beat in Heartbeat(context, settings.Heartbeat, acquired)
-                        from frames in Frames(context, doc, batch, held, resumed.IsNone && settings.SampleEstimate && batch.Entries.Count > 1)
-                        select frames, DisposalOps.Release) switch {
-                            var run => settings.KeepAwake ? MachinePower.HeldAwake(run) : run,
-                        }
-                    from closed in Closed(context, held, began, RunEnd.Succeeded, static (record, elapsed) => new QueueEvent.Complete(record.Landed, elapsed))
-                    select rendered,
-                    error => Stopping(error)
-                        ? Closed(context, held, began, RunEnd.Stopped, static (record, _) => new QueueEvent.Stopped(record.Landed))
-                        : Closed(context, held, began, RunEnd.Failed, (_, _) => new QueueEvent.Failed(error)))
-                .Bind(_ => when(settings.ShutDownAfterSuccess, MachinePower.ShutDown).As())
-            select unit, DisposalOps.Release);
+        (from lease in QueueProgress.Acquire(context.Record)
+         from observed in QueueProgress.Observed(context)
+         let settings = observed.Settings
+         from free in IO.lift(observed.State.Switch<Fin<Unit>>(
+             absent: static _ => unit,
+             active: static active => new PreflightFinding.QueueActive(active.ProcessId).Error,
+             ended: static _ => unit,
+             crashed: static _ => unit))
+         from started in QueueProgress.Started(job, batch, resumed, settings)
+         from held in atomIO(started)
+         from began in IO.lift(context.Views.Clock.GetTimestamp)
+         from ran in (from written in QueueProgress.Write(context.Record, started)
+                      from now in IO.lift(context.Views.Clock.GetCurrentInstant)
+                      from shown in context.Estimate.SwapIO(_ => QueueEstimate.Running(batch, started, None, now))
+                      from noticed in unless(resumed.IsSome, context.Notify(new QueueEvent.Started(batch.Entries.Count, batch.Frames))).As()
+                      from rendered in (from beat in Heartbeat(context, settings.Heartbeat)
+                                        from frames in Frames(context, doc, batch, held, resumed.IsNone && settings.SampleEstimate && batch.Entries.Count > 1)
+                                        select frames).Bracket() switch {
+                                            var run => settings.KeepAwake ? MachinePower.HeldAwake(run) : run,
+                                        }
+                      from closed in Closed(context, held, began, RunEnd.Succeeded, static (record, elapsed) => new QueueEvent.Complete(record.Landed, elapsed))
+                      select rendered)
+                 .Catch(error => (Stopping(error)
+                     ? Closed(context, held, began, RunEnd.Stopped, static (record, _) => new QueueEvent.Stopped(record.Landed))
+                     : Closed(context, held, began, RunEnd.Failed, (_, _) => new QueueEvent.Failed(error))) >> IO.fail<Unit>(error))
+                 .Bind(_ => when(settings.ShutDownAfterSuccess, MachinePower.ShutDown).As())
+         select unit).Bracket();
 
     public static bool Stopping(Error error) =>
-        error.Is(Errors.Cancelled) || error.FoldM(static cause => cause is Ended ended ? Seq(ended.Result) : Seq<Result>()).As().Exists(static result => result is Result.ExitRhino);
+        error.Is(Errors.Cancelled) || toSeq(error.AsIterable()).Exists(static cause => cause is RhinoFault fault && fault.Reason == RhinoReason.Exited);
 
-    private static IO<ForkIO<Unit>> Heartbeat(QueueContext context, QueueHeartbeat heartbeat, Action<IDisposable> retain) =>
-        DisposalOps.Fork(QueueProgress.Touch(context.Record, context.Views.Clock)
-            .Catch(error => IO.lift(() => context.Views.Report(error, typeof(QueueRuns))))
+    private static IO<ForkIO<Unit>> Heartbeat(QueueContext context, QueueHeartbeat heartbeat) =>
+        use(QueueProgress.Touch(context.Record, context.Views.Clock)
+            .Catch(error => Reported(context, error))
             .As()
-            .Repeat(Schedule.spaced(heartbeat.Interval)), retain);
+            .Repeat(Schedule.spaced(heartbeat.Interval))
+            .Fork(), static fork => fork.Cancel);
 
     private static IO<Unit> Closed(QueueContext context, Atom<QueueProgress> held, long began, RunEnd end, Func<QueueProgress, Duration, QueueEvent> notice) =>
         (from record in held.SwapIO(was => was with { Ended = Some(end) })
@@ -188,41 +188,39 @@ public static class QueueRuns {
          from published in Callbacks.Each(Seq(QueueProgress.Write(context.Record, record), context.Notify(notice(record, elapsed))))
          select unit).Uninterruptible();
 
+    private static IO<Unit> Reported(QueueContext context, Error error, [CallerMemberName] string member = "") =>
+        IO.lift(() => PlugInLog.Of(context.Views).Failed(error, typeof(QueueRuns), member));
+
     // --- [FRAMES]
     private static IO<Unit> Frames(QueueContext context, RhinoDoc doc, RenderBatch batch, Atom<QueueProgress> held, bool sampled) =>
-        DisposalOps.Within<IDisposable, Unit>(retain =>
-            from render in IO.lift(static () => Conversions.Required(Command.LookupCommandId(RenderCommand, searchForEnglishName: true), nameof(Command.LookupCommandId))).OnUiThread()
-            from heard in atomIO(Heard.Empty)
-            from dock in Notifications.Acquire(retain).OnUiThread()
-            from listened in Listened(context, render, heard).TraverseM(acquire => acquire(retain)).As().OnUiThread()
-            from metadata in SaveSource.Metadata(doc, context.Views)
-            from ran in Mailed(new RunScope(context, doc, batch, held, heard, metadata, estimate =>
-                    from progress in Notifications.SetProgress(dock, estimate.Work)
-                    from badge in Notifications.BadgeLabel(dock, Some(estimate.Total - estimate.Landed).Filter(static left => left > 0).Map(static left => left.ToString(RowText.Culture)))
-                    select unit), sampled)
-            select ran, static owned => DisposalOps.Release(owned).OnUiThread());
+        (from render in IO.lift(static () => Conversions.Found(Conversions.Present(Command.LookupCommandId(RenderCommand, searchForEnglishName: true)))).OnUiThread()
+         from heard in atomIO(Heard.Empty)
+         from dock in Notifications.Acquire().OnUiThread()
+         from listened in Listened(context, render, heard).OnUiThread()
+         from metadata in SaveSource.Metadata(doc, context.Views)
+         from ran in Mailed(new RunScope(context, doc, batch, held, heard, metadata, estimate =>
+                 from progress in Notifications.SetProgress(dock, estimate.Work)
+                 from badge in Notifications.BadgeLabel(dock, Some(estimate.Total - estimate.Landed).Filter(static left => left > 0).Map(static left => left.ToString(RowText.Culture)))
+                 select unit), sampled)
+         select ran).Bracket();
 
-    private static Seq<Func<Action<IDisposable>, IO<Unit>>> Listened(QueueContext context, Guid render, Atom<Heard> heard) =>
-        [
-            retain => EventKind.BeginCommand.Inline(args => when(args.CommandId == render,
-                IO.lift(context.Views.Clock.GetTimestamp).Bind(at => heard.SwapIO(_ => Heard.Empty with { Began = Some(at) })).Map(unit)).As(), context.Views, retain),
-            retain => EventKind.ImageFileSaved.Inline(args =>
-                IO.lift(context.Views.Clock.GetTimestamp).Bind(at => heard.SwapIO(was => was with { Saved = Some((args, at)) })).Map(unit), context.Views, retain),
-            retain => EventKind.EndCommand.Inline(args => when(args.CommandId == render,
-                heard.SwapIO(was => was with { Ended = Some(args.CommandResult) }).Map(unit)).As(), context.Views, retain),
-        ];
+    private static IO<Unit> Listened(QueueContext context, Guid render, Atom<Heard> heard) =>
+        from began in EventKind.BeginCommand.Inline(args => when(args.CommandId == render,
+            IO.lift(context.Views.Clock.GetTimestamp).Bind(at => heard.SwapIO(_ => Heard.Empty with { Began = Some(at) })).Map(unit)).As(), context.Views)
+        from saved in EventKind.ImageFileSaved.Inline(args =>
+            IO.lift(context.Views.Clock.GetTimestamp).Bind(at => heard.SwapIO(was => was with { Saved = Some((args, at)) })).Map(unit), context.Views)
+        from ended in EventKind.EndCommand.Inline(args => when(args.CommandId == render,
+            heard.SwapIO(was => was with { Ended = Some(args.CommandResult) }).Map(unit)).As(), context.Views)
+        select unit;
 
     private static IO<Unit> Mailed(RunScope scope, bool sampled) =>
-        DisposalOps.Within<IDisposable, Unit>(retain =>
-                from post in Subscriptions.Idle<Unit, Request>(pending => toSeq(pending.Values).TraverseM(request => Turn(scope, request)).As().Map(unit))(
-                    new CallbackSite(scope.Context.Views, typeof(QueueRuns), nameof(Frames)), retain).OnUiThread()
-                from order in IO.lift(() => Order(scope.Batch, scope.Held.Value, sampled))
-                from heads in order.Sampled.TraverseM(run => Requested(post, run)).As()
-                from estimate in unless(order.Sampled.IsEmpty, IO.lift(scope.Context.Views.Clock.GetCurrentInstant)
-                    .Bind(now => scope.Context.Notify(new QueueEvent.Estimate(QueueEstimate.Sampled(scope.Batch, scope.Held.Value, now))))).As()
-                from remaining in order.Remaining.TraverseM(run => Requested(post, run)).As()
-                select unit,
-            static owned => DisposalOps.Release(owned).OnUiThread());
+        (from post in Mailboxes.Idle<Unit, Request>(pending => toSeq(pending.Values).TraverseM(request => Turn(scope, request)).As().Map(unit))(scope.Context.Views).OnUiThread()
+         from order in IO.lift(() => Order(scope.Batch, scope.Held.Value, sampled))
+         from heads in order.Sampled.TraverseM(run => Requested(post, run)).As()
+         from estimate in unless(order.Sampled.IsEmpty, IO.lift(scope.Context.Views.Clock.GetCurrentInstant)
+             .Bind(now => scope.Context.Notify(new QueueEvent.Estimate(QueueEstimate.Sampled(scope.Batch, scope.Held.Value, now))))).As()
+         from remaining in order.Remaining.TraverseM(run => Requested(post, run)).As()
+         select unit).Bracket();
 
     private static (Seq<Pending> Sampled, Seq<Pending> Remaining) Order(RenderBatch batch, QueueProgress record, bool sampled) =>
         (from entry in batch.Entries
@@ -236,12 +234,12 @@ public static class QueueRuns {
                  : (Seq<Pending>(), pending),
          };
 
-    private static IO<Unit> Requested(Func<(Unit Key, Request Value), IO<Unit>> post, Pending run) =>
-        DisposalOps.Within(static () => Conduit.make<Fin<Unit>>(), reply =>
-            from posted in post((unit, new Request(run, reply)))
-            from answer in reply.Source.Take(1).Last()
-            from ran in IO.lift(answer)
-            select ran, static reply => reply.Complete());
+    private static IO<Unit> Requested(Func<Unit, Request, IO<Unit>> post, Pending run) =>
+        IO.lift(static () => Conduit.make<Fin<Unit>>()).Bind(reply =>
+            (from posted in post(unit, new Request(run, reply))
+             from answer in reply.Source.Take(1).Last()
+             from ran in IO.lift(answer)
+             select ran).Finally(reply.Complete()));
 
     private static IO<Unit> Turn(RunScope scope, Request request) =>
         Ran(scope, request.Run).Bind(_ => request.Reply.Post(unit)).Catch(error => request.Reply.Post(error)).As();
@@ -272,14 +270,13 @@ public static class QueueRuns {
 
     private static IO<Unit> Lit(RunScope scope, Pending run, OverscanFrame rendered) =>
         Optional(run.Entry.Queued.Sun).Match(
-            Some: _ => DisposalOps.Within(
-                RenderSettingsSources.Read(new RenderSettingsSource.Live(scope.Doc), static held => DisposalOps.Within(() => held.Settings.Sun, static sun => IO.lift(() => SunSite.Moment(sun)))),
-                _ => Looped(scope, run, rendered),
-                prior => Moved(scope, prior)),
+            Some: _ => RenderSettingsSources.Read(new RenderSettingsSource.Live(scope.Doc), static held => (from sun in use(() => held.Settings.Sun) select SunSite.Moment(sun)).Bracket())
+                .Bind(prior => Looped(scope, run, rendered).Finally(Moved(scope, prior))),
             None: () => Looped(scope, run, rendered));
 
     private static IO<Unit> Moved(RunScope scope, LocalDateTime moment) =>
-        RenderSettingsSources.Edit(new RenderSettingsSource.Live(scope.Doc), held => DisposalOps.Within(() => held.Settings.Sun, sun => IO.lift(SunSite.SetDateTime(sun, moment, scope.Context.Views.Clock))));
+        RenderSettingsSources.Edit(new RenderSettingsSource.Live(scope.Doc), held =>
+            (from sun in use(() => held.Settings.Sun) from set in IO.lift(SunSite.SetDateTime(sun, moment, scope.Context.Views.Clock)) select set).Bracket());
 
     private static IO<Unit> Looped(RunScope scope, Pending run, OverscanFrame rendered) =>
         run.Frames.TraverseM(frame => Frame(scope, run.Entry, rendered, frame)).As().Map(unit);
@@ -287,12 +284,14 @@ public static class QueueRuns {
     private static IO<Unit> Frame(RunScope scope, QueueEntry<OutputPath> entry, OverscanFrame rendered, SequenceNumber frame) =>
         from started in IO.lift(scope.Context.Views.Clock.GetTimestamp)
         from lit in entry.Moment(frame).Traverse(moment => Moved(scope, moment)).As()
-        from framing in DisposalOps.Within(() => new RenderSourceView(scope.Doc), source =>
-            DisposalOps.Found(source.GetViewInfo, nameof(RenderSourceView.GetViewInfo), view => ChainScene.Read(scope.Doc, view, rendered.Padded, entry.Frames.Time(frame))))
+        from framing in (from source in use(() => new RenderSourceView(scope.Doc))
+                         from view in Products.Made(source.GetViewInfo())
+                         from read in ChainScene.Read(scope.Doc, view, rendered.Padded, entry.Frames.Time(frame))
+                         select read).Bracket()
         from launched in Documents.RunScript(scope.Doc, $"_-{RenderCommand}", echo: false, display: None)
         from heard in scope.Heard.ValueIO
         let lost = new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"frame {(int)frame}"), DarkroomReason.Unsaved)
-        from ended in IO.lift(heard.Ended.ToFin(lost).Bind(result => Conversions.FromResult(result, RenderCommand).MapFail(error => Stopping(error) ? error : lost + error)))
+        from ended in IO.lift(heard.Ended.ToFin(lost).Bind(result => Results.Ended(result, RenderCommand).MapFail(error => Stopping(error) ? error : lost + error)))
         from began in IO.lift(heard.Began.ToFin(lost))
         from saved in IO.lift(heard.Saved.ToFin(lost))
         from written in new RenderWindowSource.Rendering(saved.Event.SessionId).Open(window => new SaveSource(window, framing, rendered, Optional(entry.Queued.Region)) switch {
@@ -300,7 +299,7 @@ public static class QueueRuns {
                 .TraverseM(output => output.Target.FileFormat.Write(scope.Doc, source, output.Target, scope.Metadata, output.Path, entry.Overwrite)).As(),
         })
         from closed in Documents.RunScript(scope.Doc, "_CloseRenderWindow", echo: false, display: None)
-        from peak in DisposalOps.Within(Process.GetCurrentProcess, static self => IO.lift(() => self.PeakWorkingSet64))
+        from peak in (from self in use(Process.GetCurrentProcess) select self.PeakWorkingSet64).Bracket()
         from at in IO.lift(scope.Context.Views.Clock.GetTimestamp)
         from landed in Landed(scope, new FrameMark(entry.Key, frame, started, began, saved.At, at, peak))
         select unit;
@@ -322,16 +321,15 @@ public static class QueueRuns {
 
     // --- [RESUME]
     public static IO<Option<Relaunch>> Resumable(QueueContext context) =>
-        DisposalOps.Within<IDisposable, Option<Relaunch>>(retain =>
-            from lease in QueueProgress.Acquire(context.Record, retain)
-            from observed in QueueProgress.Observed(context)
-            let crashed = observed.State is RunState.Crashed ? observed.Prior.Filter(static record => record.Relaunch.IsSome) : None
-            from relaunch in crashed.Match(
-                Some: record => record.Retries > 0
-                    ? QueueProgress.Write(context.Record, record with { Retries = record.Retries - 1 }).Map(_ => record.Relaunch)
-                    : (from noticed in context.Notify(new QueueEvent.RetriesExhausted(observed.Settings.Retries))
-                       from written in QueueProgress.Write(context.Record, record with { Ended = Some(RunEnd.Failed) })
-                       select Option<Relaunch>.None),
-                None: static () => IO.pure(Option<Relaunch>.None))
-            select relaunch, DisposalOps.Release);
+        (from lease in QueueProgress.Acquire(context.Record)
+         from observed in QueueProgress.Observed(context)
+         let crashed = observed.State is RunState.Crashed ? observed.Prior.Filter(static record => record.Relaunch.IsSome) : None
+         from relaunch in crashed.Match(
+             Some: record => record.Retries > 0
+                 ? QueueProgress.Write(context.Record, record with { Retries = record.Retries - 1 }).Map(_ => record.Relaunch)
+                 : (from noticed in context.Notify(new QueueEvent.RetriesExhausted(observed.Settings.Retries))
+                    from written in QueueProgress.Write(context.Record, record with { Ended = Some(RunEnd.Failed) })
+                    select Option<Relaunch>.None),
+             None: static () => IO.pure(Option<Relaunch>.None))
+         select relaunch).Bracket();
 }

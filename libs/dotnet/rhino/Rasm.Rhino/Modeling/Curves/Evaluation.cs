@@ -1,7 +1,7 @@
 using System.Globalization;
-using Rasm.Rhino.Document.Units;
+using Rasm.RhinoCommon.Document.Units;
 
-namespace Rasm.Rhino.Modeling.Curves;
+namespace Rasm.RhinoCommon.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
@@ -12,7 +12,7 @@ public sealed partial class AscendingParameters {
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Seq<double> values) =>
         validationError = values.Count >= 2 && values.Zip(values.Tail).ForAll(static pair => pair.First < pair.Second)
             ? null
-            : new RhinoFault($"parameters [{string.Join(", ", values.Map(static value => value.ToString(CultureInfo.InvariantCulture)))}] are no strictly increasing set of at least 2");
+            : new RhinoFault($"parameters [{string.Join(", ", values.Map(static value => value.ToString(CultureInfo.InvariantCulture)))}]", RhinoReason.Outside);
 }
 
 public readonly record struct SegmentParameter(int Segment, double T);
@@ -33,13 +33,11 @@ public readonly record struct CurveStation(CurveSample At, Vector3d Tangent, Vec
 
 [SmartEnum]
 public sealed partial class CurveFrame {
-    public static readonly CurveFrame Frenet = new(nameof(Curve.FrameAt), static (curve, t) => Callbacks.Found(curve.FrameAt(t, out Plane plane), plane));
-    public static readonly CurveFrame Perpendicular = new(nameof(Curve.PerpendicularFrameAt), static (curve, t) => Callbacks.Found(curve.PerpendicularFrameAt(t, out Plane plane), plane));
-
-    internal string Member { get; }
+    public static readonly CurveFrame Frenet = new(static (curve, t) => RhinoFault.Unless(curve.FrameAt(t, out Plane plane)).Map(_ => plane));
+    public static readonly CurveFrame Perpendicular = new(static (curve, t) => RhinoFault.Unless(curve.PerpendicularFrameAt(t, out Plane plane)).Map(_ => plane));
 
     [UseDelegateFromConstructor]
-    internal partial Option<Plane> Read(Curve curve, double parameter);
+    internal partial Fin<Plane> Read(Curve curve, double parameter);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -79,63 +77,56 @@ public readonly record struct CurveDeviation(double Distance, CurveSample OnA, C
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CurveEvaluation {
     // --- [ADDRESSES]
-    public static Fin<double> Resolve(Curve curve, CurveAddress at, string member) =>
+    public static Fin<double> Resolve(Curve curve, CurveAddress at) =>
         at.Switch(
-            (Curve: curve, Member: member),
-            curveParameter: static (state, address) => Conversions.Within(state.Curve.Domain, address, state.Member),
-            lengthParameter: static (state, address) => Refused.Unless(state.Curve.LengthParameter(address, out double t), t, nameof(Curve.LengthParameter)),
-            normalizedLengthParameter: static (state, address) => Refused.Unless(state.Curve.NormalizedLengthParameter(address, out double t), t, nameof(Curve.NormalizedLengthParameter)),
-            nurbsFormParameter: static (state, address) =>
-                Refused.Unless(state.Curve.GetCurveParameterFromNurbsFormParameter(address, out double t), t, nameof(Curve.GetCurveParameterFromNurbsFormParameter)),
-            segmentParameter: static (state, address) =>
-                from segment in Copies.Within(state.Curve, ComponentIndexType.PolycurveSegment, Seq(address.Segment))
-                let polycurve = (PolyCurve)state.Curve
-                from local in Conversions.Within(polycurve.SegmentDomain(address.Segment), address.T, nameof(PolyCurve.PolyCurveParameter))
-                from t in Conversions.Present(polycurve.PolyCurveParameter(address.Segment, local)).ToFin(new Refused(nameof(PolyCurve.PolyCurveParameter), Refused.Declined))
+            curve,
+            curveParameter: static (held, parameter) => Conversions.Within(held.Domain, parameter),
+            lengthParameter: static (held, length) => RhinoFault.Unless(held.LengthParameter(length, out double t)).Map(_ => t),
+            normalizedLengthParameter: static (held, length) => RhinoFault.Unless(held.NormalizedLengthParameter(length, out double t)).Map(_ => t),
+            nurbsFormParameter: static (held, parameter) => RhinoFault.Unless(held.GetCurveParameterFromNurbsFormParameter(parameter, out double t)).Map(_ => t),
+            segmentParameter: static (held, address) =>
+                from segment in Copies.Within(held, ComponentIndexType.PolycurveSegment, Seq(address.Segment))
+                let polycurve = (PolyCurve)held
+                from local in Conversions.Within(polycurve.SegmentDomain(address.Segment), address.T)
+                from t in Conversions.Found(Conversions.Present(polycurve.PolyCurveParameter(address.Segment, local)))
                 select t);
 
     // --- [STATIONS]
     public static Fin<CurveStation> Station(Curve curve, CurveAddress at) =>
-        from t in Resolve(curve, at, nameof(Curve.PointAt))
-        let read = curve.TangentAt(t)
-        from tangent in Refused.UnlessValid(read.IsValid && !read.IsTiny(), read, nameof(Curve.TangentAt))
+        from t in Resolve(curve, at)
+        from tangent in Conversions.Found(Conversions.Present(curve.TangentAt(t)).Filter(static tangent => !tangent.IsTiny()))
         select new CurveStation(CurveSample.Of(curve, t), tangent, curve.CurvatureAt(t), curve.TorsionAt(t));
 
     public static Fin<Seq<Vector3d>> Derivatives(Curve curve, CurveAddress at, int count, CurveEvaluationSide side) =>
-        from t in Resolve(curve, at, nameof(Curve.DerivativeAt))
-        from jet in Refused.UnlessFound(curve.DerivativeAt(t, count, side), nameof(Curve.DerivativeAt))
+        from t in Resolve(curve, at)
+        from jet in Conversions.Found(curve.DerivativeAt(t, count, side))
         select toSeq(jet);
 
     public static Fin<double> LengthAt(Curve curve, CurveAddress at) =>
-        from t in Resolve(curve, at, nameof(Curve.GetLength))
+        from t in Resolve(curve, at)
         let length = curve.GetLength(new Interval(curve.Domain.T0, t))
-        from measured in Refused.Unless(length > 0d || t == curve.Domain.T0, length, nameof(Curve.GetLength))
+        from measured in RhinoFault.Unless(length > 0d || t == curve.Domain.T0).Map(_ => length)
         select measured;
 
     // --- [FRAMES]
     public static Fin<Plane> FrameAt(Curve curve, CurveAddress at, CurveFrame frame) =>
-        from t in Resolve(curve, at, frame.Member)
-        from plane in frame.Read(curve, t).ToFin(new Refused(frame.Member, Refused.Declined))
+        from t in Resolve(curve, at)
+        from plane in frame.Read(curve, t)
         select plane;
 
     public static Fin<Seq<Plane>> Frames(Curve curve, CurveFrames frames) =>
         frames.Switch(
             curve,
-            perpendicular: static (rail, set) =>
-                Refused.UnlessFound(rail.GetPerpendicularFrames(set.Parameters.Values), nameof(Curve.GetPerpendicularFrames)).Map(static planes => toSeq(planes)),
-            frenet: static (rail, set) =>
-                Callbacks.Each(set.Parameters, (t, index) => Refused.Unless(rail.FrameAt(t, out Plane plane), plane, nameof(Curve.FrameAt), index)),
-            rail: static (rail, set) =>
-                Railed(rail, nurbs => nurbs.CreateRailFrames(set.Parameters), nameof(NurbsCurve.CreateRailFrames)),
-            planarRail: static (rail, set) => set.Normal.IsTiny()
-                ? new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{nameof(NurbsCurve.CreatePlanarRailFrames)} needs a nonzero normal, received {set.Normal}"))
-                : Railed(rail, nurbs => nurbs.CreatePlanarRailFrames(set.Parameters, set.Normal / set.Normal.Length), nameof(NurbsCurve.CreatePlanarRailFrames)));
+            perpendicular: static (rail, set) => Conversions.Found(rail.GetPerpendicularFrames(set.Parameters.Values)).Map(static planes => toSeq(planes)),
+            frenet: static (rail, set) => Callbacks.Each(set.Parameters, (t, index) => RhinoFault.Unless(rail.FrameAt(t, out Plane plane), index).Map(_ => plane)),
+            rail: static (rail, set) => Railed(rail, nurbs => nurbs.CreateRailFrames(set.Parameters)),
+            planarRail: static (rail, set) => RhinoFault.Unless(!set.Normal.IsTiny()).Bind(_ => Railed(rail, nurbs => nurbs.CreatePlanarRailFrames(set.Parameters, set.Normal / set.Normal.Length))));
 
-    private static Fin<Seq<Plane>> Railed(Curve curve, Func<NurbsCurve, Plane[]> read, string member) {
+    private static Fin<Seq<Plane>> Railed(Curve curve, Func<NurbsCurve, Plane[]> read) {
         using NurbsCurve? converted = curve is NurbsCurve ? null : curve.ToNurbsCurve();
-        return from nurbs in Refused.UnlessFound(curve as NurbsCurve ?? converted, nameof(Curve.ToNurbsCurve))
+        return from nurbs in Conversions.Found(curve as NurbsCurve ?? converted)
                let planes = read(nurbs)
-               from framed in Refused.Unless(planes.Length > 0, toSeq(planes), member)
+               from framed in RhinoFault.Unless(planes.Length > 0).Map(_ => toSeq(planes))
                select framed;
     }
 
@@ -144,15 +135,13 @@ public static class CurveEvaluation {
         set.Switch(
             (Curve: curve, Tolerances: tolerances),
             divideByCount: static (at, rule) =>
-                Refused.UnlessFound(at.Curve.DivideByCount(rule.SegmentCount, rule.IncludeEnds, out Point3d[] points), nameof(Curve.DivideByCount)).Map(parameters => CurveSample.Of(parameters, points)),
+                Conversions.Found(at.Curve.DivideByCount(rule.SegmentCount, rule.IncludeEnds, out Point3d[] points)).Map(parameters => CurveSample.Of(parameters, points)),
             divideByLength: static (at, rule) =>
-                Refused.UnlessFound(at.Curve.DivideByLength(rule.SegmentLength, rule.IncludeEnds, rule.Reverse, out Point3d[] points), nameof(Curve.DivideByLength)).Map(parameters => CurveSample.Of(parameters, points)),
+                Conversions.Found(at.Curve.DivideByLength(rule.SegmentLength, rule.IncludeEnds, rule.Reverse, out Point3d[] points)).Map(parameters => CurveSample.Of(parameters, points)),
             divideEquidistant: static (at, rule) =>
-                Refused.UnlessFound(at.Curve.DivideEquidistant(rule.Distance, out double[] parameters), nameof(Curve.DivideEquidistant)).Map(points => CurveSample.Of(parameters, points)),
+                Conversions.Found(at.Curve.DivideEquidistant(rule.Distance, out double[] parameters)).Map(points => CurveSample.Of(parameters, points)),
             normalizedLengths: static (at, rule) =>
-                Refused.UnlessFound(
-                        at.Curve.NormalizedLengthParameters([.. rule.Lengths], at.Tolerances.Absolute, at.Tolerances.Relative),
-                        nameof(Curve.NormalizedLengthParameters))
+                Conversions.Found(at.Curve.NormalizedLengthParameters([.. rule.Lengths], at.Tolerances.Absolute, at.Tolerances.Relative))
                     .Map(parameters => toSeq(parameters).Map(t => CurveSample.Of(at.Curve, t)).Strict()),
             inflectionPoints: static (at, _) =>
                 at.Curve.InflectionPoints(out double[] parameters) is { } points ? CurveSample.Of(parameters, points) : Seq<CurveSample>(),
@@ -160,29 +149,26 @@ public static class CurveEvaluation {
                 at.Curve.MaxCurvaturePoints(out double[] parameters) is { } points ? CurveSample.Of(parameters, points) : Seq<CurveSample>(),
             extremeParameters: static (at, rule) =>
                 toSeq(at.Curve.ExtremeParameters(rule.Direction)) switch {
-                    var parameters => Refused.Unless(!parameters.IsEmpty || at.Curve.IsPeriodic, parameters.Map(t => CurveSample.Of(at.Curve, t)).Strict(), nameof(Curve.ExtremeParameters)),
+                    var parameters => RhinoFault.Unless(!parameters.IsEmpty || at.Curve.IsPeriodic).Map(_ => parameters.Map(t => CurveSample.Of(at.Curve, t)).Strict()),
                 },
             discontinuities: static (at, rule) =>
                 toSeq(LanguageExt.List.unfold(at.Curve.Domain.T0, t0 =>
-                        t0 < at.Curve.Domain.T1 ? Callbacks.Found(at.Curve.GetNextDiscontinuity(rule.ContinuityType, t0, at.Curve.Domain.T1, rule.CosAngleTolerance, rule.CurvatureTolerance, out double t), (t, t)) : None))
+                        t0 < at.Curve.Domain.T1 ? Conversions.Found(at.Curve.GetNextDiscontinuity(rule.ContinuityType, t0, at.Curve.Domain.T1, rule.CosAngleTolerance, rule.CurvatureTolerance, out double t), (t, t)) : None))
                     .Map(t => CurveSample.Of(at.Curve, t))
                     .Strict());
 
     // --- [PROXIMITY]
     public static Fin<Option<CurveSample>> ClosestPoint(Curve curve, Point3d test, Option<double> within) =>
-        curve.ClosestPoint(test, out double t, Conversions.Unset(within))
-            ? Some(CurveSample.Of(curve, t))
-            : within.IsSome ? Option<CurveSample>.None : new Refused(nameof(Curve.ClosestPoint), Refused.Declined);
+        RhinoFault.Unless(curve.ClosestPoint(test, out double t, Conversions.Unset(within))).Map(_ => Some(CurveSample.Of(curve, t)))
+            .BindFail(error => within.IsSome ? Option<CurveSample>.None : error);
 
     public static Fin<Option<CurveProximity<T>>> ClosestPoints<T>(Curve curve, Seq<T> candidates, Option<double> within) where T : GeometryBase =>
-        curve.ClosestPoints(candidates, out Point3d onCurve, out Point3d onObject, out int index, Conversions.Unset(within))
-            ? Some(new CurveProximity<T>(onCurve, onObject, candidates[index]))
-            : within.IsSome ? Option<CurveProximity<T>>.None : new Refused(nameof(Curve.ClosestPoints), Refused.Declined);
+        RhinoFault.Unless(curve.ClosestPoints(candidates, out Point3d onCurve, out Point3d onObject, out int index, Conversions.Unset(within)))
+            .Map(_ => Some(new CurveProximity<T>(onCurve, onObject, candidates[index])))
+            .BindFail(error => within.IsSome ? Option<CurveProximity<T>>.None : error);
 
     public static Fin<(CurveDeviation Maximum, CurveDeviation Minimum)> Deviation(Tolerances tolerances, Curve curveA, Curve curveB) =>
-        Refused.Unless(
-                Curve.GetDistancesBetweenCurves(curveA, curveB, tolerances.Absolute, out double maximum, out double maximumA, out double maximumB, out double minimum, out double minimumA, out double minimumB),
-                nameof(Curve.GetDistancesBetweenCurves))
+        RhinoFault.Unless(Curve.GetDistancesBetweenCurves(curveA, curveB, tolerances.Absolute, out double maximum, out double maximumA, out double maximumB, out double minimum, out double minimumA, out double minimumB))
             .Map(_ => (
                 Maximum: new CurveDeviation(maximum, CurveSample.Of(curveA, maximumA), CurveSample.Of(curveB, maximumB)),
                 Minimum: new CurveDeviation(minimum, CurveSample.Of(curveA, minimumA), CurveSample.Of(curveB, minimumB))));

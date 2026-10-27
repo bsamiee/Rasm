@@ -1,10 +1,9 @@
 using System.Globalization;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Modeling.Surfaces;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Modeling.Surfaces;
 using Rhino;
-using Rhino.Geometry.Collections;
 
-namespace Rasm.Rhino.Modeling.Curves;
+namespace Rasm.RhinoCommon.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record NurbsCurveFit(NurbsCurve Curve, Option<Line> MaximumSeparation, Option<(double Source, double Fit)> SeparationParameters);
@@ -27,17 +26,17 @@ public abstract partial record CurveExtension {
 
     public sealed record OnSurface(CurveEnd Side, SurfaceTarget Target) : CurveExtension;
 
-    internal IO<EditStep<Curve, int>> Step(Curve curve, Action<IDisposable> retain) =>
+    internal IO<EditStep<Curve, int>> Step(Curve curve) =>
         Switch(
-            (Curve: curve, Retain: retain),
-            domain: static (at, of) => Copies.Acquire(nameof(Curve.Extend), _ => Edits.Replaced<Curve, int>(at.Curve.Extend(of.Interval)), at.Retain),
-            length: static (at, of) => Copies.Acquire(nameof(Curve.Extend), _ => Edits.Replaced<Curve, int>(at.Curve.Extend(of.Side, of.Distance, of.Style)), at.Retain),
-            toGeometry: static (at, of) => Copies.Acquire(nameof(Curve.Extend), _ => Edits.Replaced<Curve, int>(at.Curve.Extend(of.Side, of.Style, of.Geometry)), at.Retain),
-            toPoint: static (at, of) => Copies.Acquire(nameof(Curve.Extend), _ => Edits.Replaced<Curve, int>(at.Curve.Extend(of.Side, of.Style, of.Point)), at.Retain),
+            curve,
+            domain: static (at, of) => Edits.Replaced<Curve, int>(at.Extend(of.Interval)),
+            length: static (at, of) => Edits.Replaced<Curve, int>(at.Extend(of.Side, of.Distance, of.Style)),
+            toGeometry: static (at, of) => Edits.Replaced<Curve, int>(at.Extend(of.Side, of.Style, of.Geometry)),
+            toPoint: static (at, of) => Edits.Replaced<Curve, int>(at.Extend(of.Side, of.Style, of.Point)),
             onSurface: static (at, of) => of.Target.Switch(
-                (at.Curve, at.Retain, of.Side),
-                brepFace: static (held, face) => Copies.Acquire(nameof(Curve.ExtendOnSurface), _ => Edits.Replaced<Curve, int>(held.Curve.ExtendOnSurface(held.Side, face)), held.Retain),
-                surface: static (held, surface) => Copies.Acquire(nameof(Curve.ExtendOnSurface), _ => Edits.Replaced<Curve, int>(held.Curve.ExtendOnSurface(held.Side, surface)), held.Retain)));
+                (Curve: at, of.Side),
+                brepFace: static (held, face) => Edits.Replaced<Curve, int>(held.Curve.ExtendOnSurface(held.Side, face)),
+                surface: static (held, surface) => Edits.Replaced<Curve, int>(held.Curve.ExtendOnSurface(held.Side, surface))));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -46,11 +45,11 @@ public abstract partial record CurveTrim {
 
     public sealed record Length(CurveEnd Side, double Distance) : CurveTrim;
 
-    internal IO<EditStep<Curve, int>> Step(Curve curve, Action<IDisposable> retain) =>
+    internal IO<EditStep<Curve, int>> Step(Curve curve) =>
         Switch(
-            (Curve: curve, Retain: retain),
-            domain: static (at, of) => Copies.Acquire(nameof(Curve.TrimInterval), _ => Edits.Accepted<Curve, int>(at.Curve, at.Curve.TrimInterval(of.Interval)), at.Retain),
-            length: static (at, of) => Copies.Acquire(nameof(Curve.Trim), _ => Edits.Replaced<Curve, int>(at.Curve.Trim(of.Side, of.Distance)), at.Retain));
+            curve,
+            domain: static (at, of) => Edits.Accepted<Curve, int>(at, at.TrimInterval(of.Interval)),
+            length: static (at, of) => Edits.Replaced<Curve, int>(at.Trim(of.Side, of.Distance)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -97,64 +96,52 @@ public abstract partial record CurveEdit {
     public sealed record FilletCorners(double Radius) : CurveEdit;
     public sealed record ChamferCorners(double Distance0, double Distance1) : CurveEdit;
 
-    public IO<EditStep<Curve, int>> Step(Tolerances tolerances, Curve curve, Action<IDisposable> retain) =>
+    public IO<EditStep<Curve, int>> Step(Tolerances tolerances, Curve curve) =>
         Switch(
-            (Curve: curve, Tolerances: tolerances, Retain: retain),
-            repair: static (at, _) => Copies.Acquire(nameof(Curve.Repair), _ => Edits.Accepted<Curve, int>(at.Curve, at.Curve.Repair(at.Tolerances.Absolute)), at.Retain),
-            changeClosedCurveSeam: static (at, of) => Copies.Acquire(nameof(Curve.ChangeClosedCurveSeam), _ => Edits.Accepted<Curve, int>(at.Curve, at.Curve.ChangeClosedCurveSeam(of.T)), at.Retain),
-            makeClosed: static (at, _) => Copies.Acquire(nameof(Curve.MakeClosed), _ => Edits.Accepted<Curve, int>(at.Curve, at.Curve.MakeClosed(at.Tolerances.Absolute)), at.Retain),
-            combineShortSegments: static (at, _) => Copies.Acquire(nameof(Curve.CombineShortSegments), _ =>
-                Edits.Changed<Curve, int>(at.Curve, at.Curve.CombineShortSegments(at.Tolerances.Absolute)), at.Retain),
-            reverse: static (at, _) => Copies.Acquire(nameof(Curve.Reverse), _ => Edits.Accepted<Curve, int>(at.Curve, at.Curve.Reverse()), at.Retain),
-            setStartPoint: static (at, of) => Copies.Acquire(nameof(Curve.SetStartPoint), _ => Edits.Accepted<Curve, int>(at.Curve, at.Curve.SetStartPoint(of.Point)), at.Retain),
-            setEndPoint: static (at, of) => Copies.Acquire(nameof(Curve.SetEndPoint), _ => Edits.Accepted<Curve, int>(at.Curve, at.Curve.SetEndPoint(of.Point)), at.Retain),
-            removeShortSegments: static (at, _) => Copies.Acquire(nameof(Curve.RemoveShortSegments), _ =>
-                Edits.Changed<Curve, int>(at.Curve, at.Curve.RemoveShortSegments(at.Tolerances.Absolute)), at.Retain),
-            changeDimension: static (at, of) => Copies.Acquire(nameof(Curve.ChangeDimension), _ => Edits.Accepted<Curve, int>(at.Curve, at.Curve.ChangeDimension(of.Dimension)), at.Retain),
-            extend: static (at, of) => of.Extension.Step(at.Curve, at.Retain),
-            trim: static (at, of) => of.Extent.Step(at.Curve, at.Retain),
-            simplify: static (at, of) => Copies.Acquire(nameof(Curve.Simplify), _ =>
-                Edits.Replaced<Curve, int>(at.Curve.Simplify(of.Options, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
-            simplifyEnd: static (at, of) => Copies.Acquire(nameof(Curve.SimplifyEnd), _ =>
-                Edits.Replaced<Curve, int>(at.Curve.SimplifyEnd(of.End, of.Options, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
-            fair: static (at, of) => Copies.Acquire(nameof(Curve.Fair), _ => Edits.Replaced<Curve, int>(
-                at.Curve.Fair(at.Tolerances.Absolute, at.Tolerances.Angle, (int)of.Start - 1, (int)of.End - 1, of.Iterations)), at.Retain),
-            rebuild: static (at, of) => Copies.Acquire(nameof(Curve.Rebuild), _ => Edits.Replaced<Curve, int>(at.Curve.Rebuild(of.PointCount, of.Degree, of.PreserveTangents)), at.Retain),
-            fit: static (at, of) => Copies.Acquire(nameof(Curve.Fit), _ => Edits.Replaced<Curve, int>(at.Curve.Fit(of.Degree, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
-            subDFriendly: static (at, of) => Copies.Acquire(nameof(NurbsCurve.CreateSubDFriendly), _ => Edits.Replaced<Curve, int>(of.Points.Match(
+            (Curve: curve, Tolerances: tolerances),
+            repair: static (at, _) => Edits.Accepted<Curve, int>(at.Curve, at.Curve.Repair(at.Tolerances.Absolute)),
+            changeClosedCurveSeam: static (at, of) => Edits.Accepted<Curve, int>(at.Curve, at.Curve.ChangeClosedCurveSeam(of.T)),
+            makeClosed: static (at, _) => Edits.Accepted<Curve, int>(at.Curve, at.Curve.MakeClosed(at.Tolerances.Absolute)),
+            combineShortSegments: static (at, _) => Edits.Changed<Curve, int>(at.Curve, at.Curve.CombineShortSegments(at.Tolerances.Absolute)),
+            reverse: static (at, _) => Edits.Accepted<Curve, int>(at.Curve, at.Curve.Reverse()),
+            setStartPoint: static (at, of) => Edits.Accepted<Curve, int>(at.Curve, at.Curve.SetStartPoint(of.Point)),
+            setEndPoint: static (at, of) => Edits.Accepted<Curve, int>(at.Curve, at.Curve.SetEndPoint(of.Point)),
+            removeShortSegments: static (at, _) => Edits.Changed<Curve, int>(at.Curve, at.Curve.RemoveShortSegments(at.Tolerances.Absolute)),
+            changeDimension: static (at, of) => Edits.Accepted<Curve, int>(at.Curve, at.Curve.ChangeDimension(of.Dimension)),
+            extend: static (at, of) => of.Extension.Step(at.Curve),
+            trim: static (at, of) => of.Extent.Step(at.Curve),
+            simplify: static (at, of) => Edits.Replaced<Curve, int>(at.Curve.Simplify(of.Options, at.Tolerances.Absolute, at.Tolerances.Angle)),
+            simplifyEnd: static (at, of) => Edits.Replaced<Curve, int>(at.Curve.SimplifyEnd(of.End, of.Options, at.Tolerances.Absolute, at.Tolerances.Angle)),
+            fair: static (at, of) => Edits.Replaced<Curve, int>(at.Curve.Fair(at.Tolerances.Absolute, at.Tolerances.Angle, (int)of.Start - 1, (int)of.End - 1, of.Iterations)),
+            rebuild: static (at, of) => Edits.Replaced<Curve, int>(at.Curve.Rebuild(of.PointCount, of.Degree, of.PreserveTangents)),
+            fit: static (at, of) => Edits.Replaced<Curve, int>(at.Curve.Fit(of.Degree, at.Tolerances.Absolute, at.Tolerances.Angle)),
+            subDFriendly: static (at, of) => Edits.Replaced<Curve, int>(of.Points.Match(
                 Some: points => NurbsCurve.CreateSubDFriendly(at.Curve, points.PointCount, points.Periodic),
-                None: () => NurbsCurve.CreateSubDFriendly(at.Curve))), at.Retain),
+                None: () => NurbsCurve.CreateSubDFriendly(at.Curve))),
             smooth: static (at, of) => of.Options.Coordinates switch {
-                var (system, plane) => Copies.Acquire(nameof(Curve.Smooth), _ => Edits.Replaced<Curve, int>(
-                    at.Curve.Smooth(of.Options.Factor, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, system, plane)), at.Retain),
+                var (system, plane) => Edits.Replaced<Curve, int>(at.Curve.Smooth(of.Options.Factor, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, system, plane)),
             },
-            reparameterize: static (at, _) => Copies.Acquire(nameof(Curve.Reparameterize), _ => Edits.Replaced<Curve, int>(at.Curve.Reparameterize()), at.Retain),
-            makePeriodic: static (at, of) => Copies.Acquire(nameof(Curve.CreatePeriodicCurve), _ => Edits.Replaced<Curve, int>(Curve.CreatePeriodicCurve(at.Curve, of.SmoothSeam)), at.Retain),
-            toPolyline: static (at, of) => Copies.Acquire(nameof(Curve.ToPolyline), _ => Edits.Replaced<Curve, int>(of.Limits.ToPolyline(at.Tolerances, at.Curve)), at.Retain),
-            toArcsAndLines: static (at, of) => Copies.Acquire(nameof(Curve.ToArcsAndLines), _ =>
-                Edits.Replaced<Curve, int>(at.Curve.ToArcsAndLines(at.Tolerances.Absolute, at.Tolerances.Angle, of.Minimum, of.Maximum)), at.Retain),
-            toNurbs: static (at, of) => Copies.Acquire(nameof(Curve.ToNurbsCurve), _ => Edits.Replaced<Curve, int>(of.Subdomain.Match(
+            reparameterize: static (at, _) => Edits.Replaced<Curve, int>(at.Curve.Reparameterize()),
+            makePeriodic: static (at, of) => Edits.Replaced<Curve, int>(Curve.CreatePeriodicCurve(at.Curve, of.SmoothSeam)),
+            toPolyline: static (at, of) => Edits.Replaced<Curve, int>(of.Limits.ToPolyline(at.Tolerances, at.Curve)),
+            toArcsAndLines: static (at, of) => Edits.Replaced<Curve, int>(at.Curve.ToArcsAndLines(at.Tolerances.Absolute, at.Tolerances.Angle, of.Minimum, of.Maximum)),
+            toNurbs: static (at, of) => Edits.Replaced<Curve, int>(of.Subdomain.Match(
                 Some: subdomain => at.Curve.ToNurbsCurve(subdomain),
-                None: () => at.Curve.ToNurbsCurve())), at.Retain),
-            filletCorners: static (at, of) => Copies.Acquire(nameof(Curve.CreateFilletCornersCurve), _ =>
-                Edits.Replaced<Curve, int>(Curve.CreateFilletCornersCurve(at.Curve, of.Radius, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
-            chamferCorners: static (at, of) => Chamfered(at.Tolerances, at.Curve, of.Distance0, of.Distance1, at.Retain));
+                None: () => at.Curve.ToNurbsCurve())),
+            filletCorners: static (at, of) => Edits.Replaced<Curve, int>(Curve.CreateFilletCornersCurve(at.Curve, of.Radius, at.Tolerances.Absolute, at.Tolerances.Angle)),
+            chamferCorners: static (at, of) => Chamfered(at.Tolerances, at.Curve, of.Distance0, of.Distance1));
 
-    private static IO<EditStep<Curve, int>> Chamfered(Tolerances tolerances, Curve curve, double before, double after, Action<IDisposable> retain) =>
+    private static IO<EditStep<Curve, int>> Chamfered(Tolerances tolerances, Curve curve, double before, double after) =>
         from corners in IO.lift(() => CurveEvaluation.Points(tolerances, curve, new CurvePointSet.Discontinuities(Continuity.G1_continuous, Math.Cos(tolerances.Angle), RhinoMath.SqrtEpsilon)))
         from cuts in IO.lift(() => Cuts(curve, corners, before, after))
         from step in cuts.IsEmpty
-            ? Copies.Acquire(nameof(Curve.GetNextDiscontinuity), _ => Edits.Changed<Curve, int>(curve, changed: false), retain)
-            : DisposalOps.Within<IDisposable, EditStep<Curve, int>>(temporary =>
-                from pieces in Copies.Acquire(nameof(Curve.Split), _ => Answer.Many(curve.Split(cuts.Bind(static cut => Seq(cut.Start, cut.End)))), temporary)
-                from lines in Copies.Acquire(nameof(LineCurve), _ => Answer.Many(cuts.Map(cut => new LineCurve(curve.PointAt(cut.Start), curve.PointAt(cut.End)))), temporary)
-                let kept = pieces.Filter(piece => !cuts.Exists(cut => cut.Start < piece.Domain.Mid && piece.Domain.Mid < cut.End))
-                from joined in Copies.Acquire(nameof(Curve.JoinCurves), _ => Answer.NonEmpty(Curve.JoinCurves(kept + lines.Map(static line => (Curve)line), tolerances.Absolute, preserveDirection: true)), temporary)
-                from single in IO.lift(() => joined.Count is 1
-                    ? Fin.Succ(joined[0])
-                    : new Refused(nameof(Curve.JoinCurves), string.Create(CultureInfo.InvariantCulture, $"answered {joined.Count} curves for one chamfered curve")))
-                from copy in Copies.Duplicate(single, retain)
-                select (EditStep<Curve, int>)new EditStep<Curve, int>.Replaced(copy), DisposalOps.Release)
+            ? Edits.Changed<Curve, int>(curve, changed: false)
+            : from pieces in Products.Made(curve.Split(cuts.Bind(static cut => Seq(cut.Start, cut.End))))
+              from lines in Products.Made(cuts.Map(cut => new LineCurve(curve.PointAt(cut.Start), curve.PointAt(cut.End))))
+              let kept = pieces.Filter(piece => !cuts.Exists(cut => cut.Start < piece.Domain.Mid && piece.Domain.Mid < cut.End))
+              from joined in Products.Made(Curve.JoinCurves(kept + lines.Map(static line => (Curve)line), tolerances.Absolute, preserveDirection: true))
+              from single in IO.lift(() => RhinoFault.Unless(joined.Count is 1).Map(_ => joined[0]))
+              select (EditStep<Curve, int>)new EditStep<Curve, int>.Replaced(single)
         select step;
 
     private static Fin<Seq<(double Start, double End)>> Cuts(Curve curve, Seq<CurveSample> corners, double before, double after) =>
@@ -163,10 +150,10 @@ public abstract partial record CurveEdit {
         }).Strict()) switch {
             var measured => Callbacks.Each(measured.Lengths, (span, index) =>
                 span.Start > (index > 0 ? measured.Lengths[index - 1].End : 0d) && span.End < (index < measured.Lengths.Count - 1 ? measured.Lengths[index + 1].Start : measured.Total)
-                    ? (Refused.Unless(curve.LengthParameter(span.Start, out double start), start, nameof(Curve.LengthParameter), index),
-                        Refused.Unless(curve.LengthParameter(span.End, out double end), end, nameof(Curve.LengthParameter), index))
+                    ? (RhinoFault.Unless(curve.LengthParameter(span.Start, out double start), index).Map(_ => start),
+                        RhinoFault.Unless(curve.LengthParameter(span.End, out double end), index).Map(_ => end))
                         .Apply(static (start, end) => (Start: start, End: end)).As()
-                    : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"chamfer at corner {index} overlaps its neighbour or a curve end"))),
+                    : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"chamfer ({span.Start}, {span.End})"), RhinoReason.Outside, index)),
         };
 }
 
@@ -208,45 +195,35 @@ public abstract partial record NurbsCurveEdit {
     public sealed record Append(NurbsCurve Next) : NurbsCurveEdit;
     public sealed record MatchToCurve(Curve Target, double MaxEndDistance, double MaxInteriorDistance, int MaxLevel) : NurbsCurveEdit;
 
-    public IO<EditStep<NurbsCurve, int>> Step(Tolerances tolerances, NurbsCurve nurbs, Action<IDisposable> retain) =>
+    public IO<EditStep<NurbsCurve, int>> Step(Tolerances tolerances, NurbsCurve nurbs) =>
         Switch(
-            (Nurbs: nurbs, Tolerances: tolerances, Retain: retain),
-            increaseDegree: static (at, of) => Copies.Acquire(nameof(NurbsCurve.IncreaseDegree), _ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.IncreaseDegree(of.Degree)), at.Retain),
-            makePiecewiseBezier: static (at, of) => Copies.Acquire(nameof(NurbsCurve.MakePiecewiseBezier), _ =>
-                Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.MakePiecewiseBezier(of.SetEndWeightsToOne)), at.Retain),
-            makeUniform: static (at, _) => Copies.Acquire(nameof(NurbsCurve.MakeUniform), _ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.MakeUniform()), at.Retain),
-            uniformKnots: static (at, of) => Copies.Acquire(nameof(NurbsCurveKnotList.CreateUniformKnots), _ =>
-                Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.CreateUniformKnots(of.Spacing)), at.Retain),
-            periodicKnots: static (at, of) => Copies.Acquire(nameof(NurbsCurveKnotList.CreatePeriodicKnots), _ =>
-                Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.CreatePeriodicKnots(of.Spacing)), at.Retain),
-            insertKnot: static (at, of) => Copies.Acquire(nameof(NurbsCurveKnotList.InsertKnot), _ =>
-                Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.InsertKnot(of.At, of.Multiplicity)), at.Retain),
+            (Nurbs: nurbs, Tolerances: tolerances),
+            increaseDegree: static (at, of) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.IncreaseDegree(of.Degree)),
+            makePiecewiseBezier: static (at, of) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.MakePiecewiseBezier(of.SetEndWeightsToOne)),
+            makeUniform: static (at, _) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.MakeUniform()),
+            uniformKnots: static (at, of) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.CreateUniformKnots(of.Spacing)),
+            periodicKnots: static (at, of) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.CreatePeriodicKnots(of.Spacing)),
+            insertKnot: static (at, of) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.InsertKnot(of.At, of.Multiplicity)),
             removeKnots: static (at, of) =>
-                IO.lift(() => (Conversions.Within(of.From, at.Nurbs.Knots.Count, nameof(NurbsCurveKnotList.RemoveKnots)), Conversions.Within(of.To - 1, at.Nurbs.Knots.Count, nameof(NurbsCurveKnotList.RemoveKnots)))
-                    .Apply(static (_, _) => unit).As())
-                >> Copies.Acquire(nameof(NurbsCurveKnotList.RemoveKnots), _ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.RemoveKnots(of.From, of.To)), at.Retain),
-            removeKnotAt: static (at, of) => Copies.Acquire(nameof(NurbsCurveKnotList.RemoveKnotAt), _ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.RemoveKnotAt(of.At)), at.Retain),
-            removeMultipleKnots: static (at, of) => Copies.Acquire(nameof(NurbsCurveKnotList.RemoveMultipleKnots), _ =>
-                Edits.Count(at.Nurbs, at.Nurbs.Knots.RemoveMultipleKnots(of.Minimum, of.Maximum, at.Tolerances.Absolute)), at.Retain),
-            clampEnd: static (at, of) => Copies.Acquire(nameof(NurbsCurveKnotList.ClampEnd), _ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.ClampEnd(of.End)), at.Retain),
-            setWeight: static (at, of) => IO.lift(() => Conversions.Within(of.Point, at.Nurbs.Points.Count, nameof(NurbsCurvePointList.SetWeight)))
-                >> Copies.Acquire(nameof(NurbsCurvePointList.SetWeight), _ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Points.SetWeight(of.Point, of.Weight)), at.Retain),
-            changeEndWeights: static (at, of) => Copies.Acquire(nameof(NurbsCurvePointList.ChangeEndWeights), _ =>
-                Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Points.ChangeEndWeights(of.Start, of.End)), at.Retain),
-            makeRational: static (at, _) => Copies.Acquire(nameof(NurbsCurvePointList.MakeRational), _ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Points.MakeRational()), at.Retain),
-            makeNonRational: static (at, _) => Copies.Acquire(nameof(NurbsCurvePointList.MakeNonRational), _ =>
-                Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Points.MakeNonRational()), at.Retain),
-            rationalReparameterize: static (at, of) => Copies.Acquire(nameof(NurbsCurve.Reparameterize), _ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Reparameterize(of.C)), at.Retain),
-            setPoint: static (at, of) => IO.lift(() => Conversions.Within(of.Point, at.Nurbs.Points.Count, nameof(NurbsCurvePointList.SetPoint)))
-                >> Copies.Acquire(nameof(NurbsCurvePointList.SetPoint), _ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Points.SetPoint(of.Point, of.Location)), at.Retain),
-            setGrevillePoints: static (at, of) => Copies.Acquire(nameof(NurbsCurve.SetGrevillePoints), _ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.SetGrevillePoints(of.Points)), at.Retain),
+                IO.lift(() => (Conversions.Within(of.From, at.Nurbs.Knots.Count), Conversions.Within(of.To - 1, at.Nurbs.Knots.Count)).Apply(static (_, _) => unit).As())
+                .Bind(_ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.RemoveKnots(of.From, of.To))),
+            removeKnotAt: static (at, of) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.RemoveKnotAt(of.At)),
+            removeMultipleKnots: static (at, of) => Edits.Count(at.Nurbs, at.Nurbs.Knots.RemoveMultipleKnots(of.Minimum, of.Maximum, at.Tolerances.Absolute)),
+            clampEnd: static (at, of) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Knots.ClampEnd(of.End)),
+            setWeight: static (at, of) => IO.lift(() => Conversions.Within(of.Point, at.Nurbs.Points.Count))
+                .Bind(_ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Points.SetWeight(of.Point, of.Weight))),
+            changeEndWeights: static (at, of) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Points.ChangeEndWeights(of.Start, of.End)),
+            makeRational: static (at, _) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Points.MakeRational()),
+            makeNonRational: static (at, _) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Points.MakeNonRational()),
+            rationalReparameterize: static (at, of) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Reparameterize(of.C)),
+            setPoint: static (at, of) => IO.lift(() => Conversions.Within(of.Point, at.Nurbs.Points.Count))
+                .Bind(_ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Points.SetPoint(of.Point, of.Location))),
+            setGrevillePoints: static (at, of) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.SetGrevillePoints(of.Points)),
             setEndCondition: static (at, of) => of.Condition.Parameters switch {
-                var (type, point, tangent, curvature) => Copies.Acquire(nameof(NurbsCurve.SetEndCondition), _ =>
-                    Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.SetEndCondition(of.SetEnd, type, point, tangent, curvature)), at.Retain),
+                var (type, point, tangent, curvature) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.SetEndCondition(of.SetEnd, type, point, tangent, curvature)),
             },
-            append: static (at, of) => Copies.Acquire(nameof(NurbsCurve.Append), _ => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Append(of.Next)), at.Retain),
-            matchToCurve: static (at, of) => Copies.Acquire(nameof(NurbsCurve.MatchToCurve), _ =>
-                Edits.Replaced<NurbsCurve, int>(at.Nurbs.MatchToCurve(of.Target, of.MaxEndDistance, of.MaxInteriorDistance, at.Tolerances.Absolute, of.MaxLevel)), at.Retain));
+            append: static (at, of) => Edits.Accepted<NurbsCurve, int>(at.Nurbs, at.Nurbs.Append(of.Next)),
+            matchToCurve: static (at, of) => Edits.Replaced<NurbsCurve, int>(at.Nurbs.MatchToCurve(of.Target, of.MaxEndDistance, of.MaxInteriorDistance, at.Tolerances.Absolute, of.MaxLevel)));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -255,67 +232,63 @@ public abstract partial record PolyCurveEdit {
     public sealed record Append(PolyCurveSegment Segment) : PolyCurveEdit;
     public sealed record AppendSegment(Curve Segment) : PolyCurveEdit;
 
-    public IO<EditStep<PolyCurve, int>> Step(PolyCurve polycurve, Action<IDisposable> retain) =>
+    public IO<EditStep<PolyCurve, int>> Step(PolyCurve polycurve) =>
         Switch(
-            (PolyCurve: polycurve, Retain: retain),
-            removeNesting: static (at, _) => Copies.Acquire(nameof(PolyCurve.RemoveNesting), _ => Edits.Changed<PolyCurve, int>(at.PolyCurve, at.PolyCurve.RemoveNesting()), at.Retain),
-            append: static (at, of) => Copies.Acquire(nameof(PolyCurve.Append), _ => Edits.Accepted<PolyCurve, int>(at.PolyCurve, of.Segment.Switch(
-                at.PolyCurve,
+            polycurve,
+            removeNesting: static (at, _) => Edits.Changed<PolyCurve, int>(at, at.RemoveNesting()),
+            append: static (at, of) => Edits.Accepted<PolyCurve, int>(at, of.Segment.Switch(
+                at,
                 line: static (target, line) => target.Append(line),
                 arc: static (target, arc) => target.Append(arc),
-                curve: static (target, curve) => target.Append(curve))), at.Retain),
-            appendSegment: static (at, of) => Copies.Acquire(nameof(PolyCurve.AppendSegment), _ => Edits.Accepted<PolyCurve, int>(at.PolyCurve, at.PolyCurve.AppendSegment(of.Segment)), at.Retain));
+                curve: static (target, curve) => target.Append(curve))),
+            appendSegment: static (at, of) => Edits.Accepted<PolyCurve, int>(at, at.AppendSegment(of.Segment)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CurveEdits {
     // --- [EDITS]
-    public static IO<(Curve Result, Seq<(CurveEdit Edit, EditResult<int> Result)> Results)> Edit(Tolerances tolerances, Curve source, Seq<CurveEdit> edits, Action<IDisposable> retain) =>
-        Edits.Apply(source, edits, (curve, edit, held) => edit.Step(tolerances, curve, held), static _ => IO.pure(unit), retain);
+    public static IO<(Curve Result, Seq<(CurveEdit Edit, EditResult<int> Result)> Results)> Edit(Tolerances tolerances, Curve source, Seq<CurveEdit> edits) =>
+        Edits.Apply(source, edits, (curve, edit) => edit.Step(tolerances, curve), static _ => IO.pure(unit));
 
-    public static IO<(NurbsCurve Result, Seq<(NurbsCurveEdit Edit, EditResult<int> Result)> Results)> Edit(
-        Tolerances tolerances, NurbsCurve source, Seq<NurbsCurveEdit> edits, Action<IDisposable> retain) =>
-        Edits.Apply(source, edits, (nurbs, edit, held) => edit.Step(tolerances, nurbs, held), static _ => IO.pure(unit), retain);
+    public static IO<(NurbsCurve Result, Seq<(NurbsCurveEdit Edit, EditResult<int> Result)> Results)> Edit(Tolerances tolerances, NurbsCurve source, Seq<NurbsCurveEdit> edits) =>
+        Edits.Apply(source, edits, (nurbs, edit) => edit.Step(tolerances, nurbs), static _ => IO.pure(unit));
 
-    public static IO<(PolyCurve Result, Seq<(PolyCurveEdit Edit, EditResult<int> Result)> Results)> Edit(PolyCurve source, Seq<PolyCurveEdit> edits, Action<IDisposable> retain) =>
-        Edits.Apply(source, edits, static (polycurve, edit, held) => edit.Step(polycurve, held), static _ => IO.pure(unit), retain);
+    public static IO<(PolyCurve Result, Seq<(PolyCurveEdit Edit, EditResult<int> Result)> Results)> Edit(PolyCurve source, Seq<PolyCurveEdit> edits) =>
+        Edits.Apply(source, edits, static (polycurve, edit) => edit.Step(polycurve), static _ => IO.pure(unit));
 
     // --- [FITS]
-    public static IO<NurbsCurveFit> CreateNurbsCurveFit(Curve curve, Interval domain, NurbsCurveFitParameters rebuildOptions, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Curve.CreateNurbsCurveFit), _ =>
-            Answer.One(Curve.CreateNurbsCurveFit(curve, domain, rebuildOptions, out Line maximumSeparation, out double source, out double fit))
-                .Map(fitted => new NurbsCurveFit(fitted, Conversions.Present(maximumSeparation),
-                    from sourceAt in Conversions.Present(source)
-                    from fitAt in Conversions.Present(fit)
-                    select (Source: sourceAt, Fit: fitAt))), retain);
+    public static IO<NurbsCurveFit> CreateNurbsCurveFit(Curve curve, Interval domain, NurbsCurveFitParameters rebuildOptions) =>
+        unitIO.Bind(_ => Products.Made(Curve.CreateNurbsCurveFit(curve, domain, rebuildOptions, out Line maximumSeparation, out double source, out double fit))
+            .Map(fitted => new NurbsCurveFit(fitted, Conversions.Present(maximumSeparation),
+                from sourceAt in Conversions.Present(source)
+                from fitAt in Conversions.Present(fit)
+                select (Source: sourceAt, Fit: fitAt))));
 
-    public static IO<(NurbsCurve Curve, Option<Line> MaximumDeviation)> RebuildToMatchTemplateCurve(Curve source, Curve templateCurve, bool flipSourceDirection, bool preserveEndTangents, bool makeSubDFriendly, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Curve.RebuildToMatchTemplateCurve), _ =>
-            Answer.One(source.RebuildToMatchTemplateCurve(templateCurve, flipSourceDirection, preserveEndTangents, makeSubDFriendly, out Line maximumDeviation))
-                .Map(rebuilt => (Curve: rebuilt, MaximumDeviation: Conversions.Present(maximumDeviation))), retain);
+    public static IO<(NurbsCurve Curve, Option<Line> MaximumDeviation)> RebuildToMatchTemplateCurve(Curve source, Curve templateCurve, bool flipSourceDirection, bool preserveEndTangents, bool makeSubDFriendly) =>
+        Products.Made(source.RebuildToMatchTemplateCurve(templateCurve, flipSourceDirection, preserveEndTangents, makeSubDFriendly, out Line maximumDeviation))
+            .Map(rebuilt => (Curve: rebuilt, MaximumDeviation: Conversions.Present(maximumDeviation)));
 
     // --- [SPLIT]
-    public static IO<Seq<Curve>> Split(Tolerances tolerances, Curve curve, CurveCut cut, Action<IDisposable> retain) =>
+    public static IO<Seq<Curve>> Split(Tolerances tolerances, Curve curve, CurveCut cut) =>
         cut.Switch(
-            (Curve: curve, Tolerances: tolerances, Retain: retain),
-            parameters: static (at, values) => Copies.Acquire(nameof(Curve.Split), _ => Answer.Many(at.Curve.Split(values)), at.Retain),
-            brep: static (at, cutter) => Copies.Acquire(nameof(Curve.Split), _ => Answer.Many(at.Curve.Split(cutter, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
-            surface: static (at, cutter) => Copies.Acquire(nameof(Curve.Split), _ => Answer.Many(at.Curve.Split(cutter, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain),
-            plane: static (at, cutter) => Copies.Acquire(nameof(Curve.Split), _ => Answer.Many(at.Curve.Split(cutter, at.Tolerances.Absolute, at.Tolerances.Angle)), at.Retain));
+            (Curve: curve, Tolerances: tolerances),
+            parameters: static (at, values) => Products.Made(at.Curve.Split(values)),
+            brep: static (at, cutter) => Products.Made(at.Curve.Split(cutter, at.Tolerances.Absolute, at.Tolerances.Angle)),
+            surface: static (at, cutter) => Products.Made(at.Curve.Split(cutter, at.Tolerances.Absolute, at.Tolerances.Angle)),
+            plane: static (at, cutter) => Products.Made(at.Curve.Split(cutter, at.Tolerances.Absolute, at.Tolerances.Angle)));
 
     // --- [MATCHING]
-    public static IO<Seq<NurbsCurve>> MakeCompatible(Tolerances tolerances, Seq<Curve> curves, Option<Point3d> startPt, Option<Point3d> endPt, CurveFit fit, Action<IDisposable> retain) =>
+    public static IO<Seq<NurbsCurve>> MakeCompatible(Tolerances tolerances, Seq<Curve> curves, Option<Point3d> startPt, Option<Point3d> endPt, CurveFit fit) =>
         fit.Parameters switch {
-            var fitting => Copies.Acquire(nameof(NurbsCurve.MakeCompatible), _ => Answer.NonEmpty(
-                NurbsCurve.MakeCompatible(curves, Conversions.Unset(startPt), Conversions.Unset(endPt), (int)fitting.RebuildType, fitting.RebuildPointCount, fitting.RefitTolerance, tolerances.Angle)), retain),
+            var fitting => Products.Made(NurbsCurve.MakeCompatible(
+                    curves, Conversions.Unset(startPt), Conversions.Unset(endPt), (int)fitting.RebuildType, fitting.RebuildPointCount, fitting.RefitTolerance, tolerances.Angle))
+                .Bind(static compatible => IO.lift(() => RhinoFault.Unless(!compatible.IsEmpty).Map(_ => compatible))),
         };
 
-    public static IO<(Curve A, Curve B)> MakeEndsMeet(Curve curveA, bool adjustStartCurveA, Curve curveB, bool adjustStartCurveB, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-            from copyA in Copies.Duplicate(curveA, owned)
-            from copyB in Copies.Duplicate(curveB, owned)
-            from met in Copies.Acquire(nameof(Curve.MakeEndsMeet), _ =>
-                (Answer.Accepted(Curve.MakeEndsMeet(copyA, adjustStartCurveA, copyB, adjustStartCurveB)), Answer.One(copyA) with { Leaves = [] }, Answer.One(copyB) with { Leaves = [] })
-                    .Apply(static (_, a, b) => (A: a, B: b)).As(), owned)
-            select met, retain);
+    public static IO<(Curve A, Curve B)> MakeEndsMeet(Curve curveA, bool adjustStartCurveA, Curve curveB, bool adjustStartCurveB) =>
+        from copyA in Copies.Duplicate(curveA)
+        from copyB in Copies.Duplicate(curveB)
+        from met in IO.lift(() => RhinoFault.Unless(Curve.MakeEndsMeet(copyA, adjustStartCurveA, copyB, adjustStartCurveB)))
+        from held in Products.Made(Seq(copyA, copyB))
+        select (A: held[0], B: held[1]);
 }

@@ -11,7 +11,7 @@ import numpy as np
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.graphs import Expr, grouped, math, mixed, Scalar, vector, where, xyz
 from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
-from blender.bpy.nodes.textures import stream
+from blender.bpy.nodes.textures import stream, White
 from blender.bpy.render.compositor.coordinates import clocked, gridded, origin, pixels, sampled, shorter
 from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, precise, Requests, Shell
 from blender.bpy.render.compositor.filters import block_mean
@@ -19,16 +19,12 @@ from blender.imaging.color.processors import Domain
 from blender.records.faults import Outcome
 
 from ...chain.stages import Effect, Stage
-from ..optics.procedural import CLOCK
+from ..optics.procedural import clock
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_DRAWS: Final = (
-    msgspec.structs.replace(
-        CLOCK, inputs=tuple(msgspec.structs.replace(socket, members={**socket.members, "default_value": 0.0}) if socket.key == "clock_speed" else socket for socket in CLOCK.inputs)
-    ),
-    Socket(key="seed", name="Seed", kind=bpy.types.NodeSocketInt, description="Number selecting every random site, tone, and streak", members={"min_value": 0, "max_value": 2**24}),
-)
+_CLOCK: Final = clock("clock", speed=0.0)
+_SEED: Final = Socket(key="seed", name="Seed", kind=bpy.types.NodeSocketInt, description="Number selecting every random site, tone, and streak", members={"min_value": 0, "max_value": 2**24})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -103,12 +99,12 @@ def halftone_screen(
 # --- [STRUCTURES]
 
 
-def drawn(shell: Shell[Pixelation] | Shell[Pattern], key: Key, instance: int = 0) -> Expr:
+def drawn[R: (Pixelation, Pattern)](shell: Shell[R], key: Key, instance: int = 0) -> Expr:
     """Decorrelation origin of one structure's draws, redrawn per whole clock frame."""
     return origin(shell.input("seed"), stream(type(shell.record), key), math("FLOOR", clocked(shell.input("clock_speed"), shell.input("clock_hold"))), instance)
 
 
-def filled(shell: Shell[Pixelation] | Shell[Pattern], uv: Expr) -> Expr:
+def filled[R: (Pixelation, Pattern)](shell: Shell[R], uv: Expr) -> Expr:
     """Bilinear entry color at Map UV positions."""
     return Expr(
         kind=bpy.types.CompositorNodeMapUV,
@@ -118,7 +114,7 @@ def filled(shell: Shell[Pixelation] | Shell[Pattern], uv: Expr) -> Expr:
     )
 
 
-def structured(shell: Shell[Pixelation] | Shell[Pattern], choices: Mapping[str, Expr], *, covered: bool) -> Outcome[Expr]:
+def structured[R: (Pixelation, Pattern)](shell: Shell[R], choices: Mapping[str, Expr], *, covered: bool) -> Outcome[Expr]:
     """Selects the structure color keeping its replacement weight, the structure's alpha when covered, else the whole frame."""
     return shell.menu("structure", cases=choices, kind="RGBA").map(
         lambda result: result.keeping(
@@ -182,7 +178,7 @@ def patterned(shell: Shell[Pattern]) -> Outcome[Expr]:
     cell = xyz(height * (sides["X"] / sides["Y"] * levels), height, 1.0)
     indices, within = vector("FLOOR", frame.point / cell), vector("FRACTION", frame.point / cell)
     center = filled(shell, sampled(frame, vector("ADD", indices, (0.5, 0.5, 0.0)) * cell / frame.extent))
-    draw = Expr(kind=bpy.types.ShaderNodeTexWhiteNoise, inputs=(("Vector", indices + drawn(shell, "glyphs")),), members=(("noise_dimensions", "3D"),))
+    draw = White().node(indices + drawn(shell, "glyphs"))
     tone = math("MULTIPLY_ADD", draw - 0.5, shell.input("glyphs", "jitter"), toned(center), clamp=True)
     rank = (levels - 1) - math("MINIMUM", math("FLOOR", tone * levels), levels - 1)
     mask = Expr(
@@ -215,7 +211,7 @@ def patterned(shell: Shell[Pattern]) -> Outcome[Expr]:
         low, high = shell.input("pixel_sort", "low"), shell.input("pixel_sort", "high")
         above, below = 1.0 - (soft < low), 1.0 - (soft > high)
         band = mixed(low > high, above * below, math("MAXIMUM", above, below))
-        grain = Expr(kind=bpy.types.ShaderNodeTexWhiteNoise, inputs=(("Vector", frame.point + drawn(shell, "pixel_sort", 0)),), members=(("noise_dimensions", "2D"),))
+        grain = White(noise_dimensions="2D").node(frame.point + drawn(shell, "pixel_sort", 0))
         streak = Expr(
             kind=bpy.types.ShaderNodeTexNoise,
             inputs=(
@@ -276,7 +272,7 @@ pixelation: Final = CompositorEffect(
                     )
                 ),
             ),
-            _DRAWS[1],
+            _SEED,
         ),
         panels=(
             *(
@@ -299,7 +295,7 @@ pixelation: Final = CompositorEffect(
                     ),
                 )
             ),
-            _DRAWS[0],
+            _CLOCK,
         ),
     ),
     domain=Domain.DISPLAY,
@@ -327,7 +323,7 @@ pattern: Final = CompositorEffect(
                     )
                 ),
             ),
-            _DRAWS[1],
+            _SEED,
         ),
         panels=(
             InterfacePanel(
@@ -476,7 +472,7 @@ pattern: Final = CompositorEffect(
                     ),
                 ),
             ),
-            _DRAWS[0],
+            _CLOCK,
         ),
     ),
     domain=Domain.DISPLAY,

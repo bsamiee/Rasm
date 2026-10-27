@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Rhino;
 using Riok.Mapperly.Abstractions;
@@ -72,7 +73,7 @@ public static class Conversions {
     public static Option<int> Present(int index) => Some(index).Filter(static value => value >= 0);
 
     [UserMapping]
-    public static Option<uint> Present(uint serial) => Some(serial).Filter(static value => value != 0u);
+    public static Option<uint> Present(uint serial) => Some(serial).Filter(static value => value is not 0u);
 
     [UserMapping]
     public static Option<string> Present(string? text) => Optional(text).Filter(static value => !string.IsNullOrEmpty(value));
@@ -127,6 +128,14 @@ public static class Conversions {
     public static Seq<T> Rows<T>(IEnumerable<T?>? rows) =>
         Optional(rows).ToSeq().Bind(static held => held.AsIterable().Choose(static row => Optional(row)).ToSeq()).Strict();
 
+    public static Fin<Seq<TRow>> Unique<TRow, TKey>(Seq<TRow> rows, Func<TRow, TKey> key, IEqualityComparer<TKey>? comparer = null, [CallerArgumentExpression(nameof(rows))] string call = "")
+        where TKey : notnull =>
+        toSeq(rows.CountBy(key, comparer))
+            .Filter(static counted => counted.Value > 1)
+            .Traverse(counted => Fin.Fail<Unit>(new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{counted.Key} in {call}"), RhinoReason.Repeated)))
+            .As()
+            .Map(_ => rows);
+
     // --- [TIME]
     [UserMapping]
     public static Option<LocalDateTime> Present(DateTime value) => Some(value).Filter(static held => held != DateTime.MinValue).Map(LocalDateTime.FromDateTime);
@@ -155,6 +164,18 @@ public static class Conversions {
 
     // --- [VALUES]
     public static Option<T> Found<T>(bool found, T value) => found ? Some(value) : None;
+
+    public static Fin<T> Found<T>(T? value, Option<int> index = default, [CallerArgumentExpression(nameof(value))] string call = "") where T : class =>
+        value is { } held ? held : new RhinoFault(call, RhinoReason.Absent, index);
+
+    public static Fin<T> Found<T>(T? value, Option<int> index = default, [CallerArgumentExpression(nameof(value))] string call = "") where T : struct =>
+        value is { } held ? held : new RhinoFault(call, RhinoReason.Absent, index);
+
+    public static Fin<T> Found<T>(Option<T> value, Option<int> index = default, [CallerArgumentExpression(nameof(value))] string call = "") =>
+        value.ToFin(new RhinoFault(call, RhinoReason.Absent, index));
+
+    public static Fin<Unit> Unreported(string? report, [CallerArgumentExpression(nameof(report))] string call = "") =>
+        string.IsNullOrEmpty(report) ? unit : new RhinoFault(call, RhinoReason.Declined, Inner: Error.New(report));
 
     public static bool Same(Color held, Color wanted) => held.ToArgb() == wanted.ToArgb();
 }

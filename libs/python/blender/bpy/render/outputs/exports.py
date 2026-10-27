@@ -49,14 +49,16 @@ class Documents(Protocol):
 
 COMBINED: Final = bpy.types.ViewLayer.bl_rna.properties["use_pass_combined"].name
 COMPOSITE: Final = "Composite"
-STILLS: Final = ("RENDER_RESULT", "COMPOSITING")
-IDLE: Final = Job(kind="RENDER")
-SAVABLE: Final = AllOf(conditions=(RESULT, IDLE))
-COMPRESSIONS: Final = MappingProxyType({form.__name__: form for form in typing.get_args(Compressions.__value__)})
-DEPTHS: Final = tuple((depth.name, depth.name, "") for depth in Depth)
-SOURCES: Final = tuple((item.identifier, item.name, item.description) for item in Descriptor.declared(bpy.types.Image, "type", bpy.types.EnumProperty).prop.enum_items if item.identifier in STILLS)
+_STILLS: Final = ("RENDER_RESULT", "COMPOSITING")
+_IDLE: Final = Job(kind="RENDER")
+_SAVABLE: Final = AllOf(conditions=(RESULT, _IDLE))
+_COMPRESSIONS: Final = MappingProxyType({form.__name__: form for form in typing.get_args(Compressions.__value__)})
+_DEPTHS: Final = tuple((depth.name, depth.name, "", "NONE", depth.value) for depth in Depth)
+SOURCES: Final = tuple(
+    (item.identifier, item.name, item.description, item.icon, item.value) for item in Descriptor.declared(bpy.types.Image, "type", bpy.types.EnumProperty).prop.enum_items if item.identifier in _STILLS
+)
 WRITERS: Final = tuple((row.name, f"{row.name} (.{row.extensions[0]})", "") for row in Format.writable())
-CODECS: Final = (("DEFAULT", "Default", ""), *((name, name, "") for name in COMPRESSIONS))
+CODECS: Final = (("DEFAULT", "Default", ""), *((name, name, "") for name in _COMPRESSIONS))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -66,7 +68,7 @@ class Still(bpy.types.PropertyGroup):
 
     source: bpy.props.EnumProperty(name="Source", description="Image the still writes", items=SOURCES)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     format: bpy.props.EnumProperty(name="Format", description="File format the still writes", items=WRITERS, default="png")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    depth: bpy.props.EnumProperty(name="Depth", description="Storage of each channel", items=DEPTHS)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    depth: bpy.props.EnumProperty(name="Depth", description="Storage of each channel", items=_DEPTHS)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     display: bpy.props.StringProperty(name="Display", description="Display encoding at selected depth", search=lambda _owner, _context, _edit: PyOpenColorIO.GetCurrentConfig().getDisplays())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     save_as_render: bpy.props.BoolProperty(name="Save as Render", description="Apply view, exposure, and gamma to unformed source", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     compression: bpy.props.EnumProperty(name="Compression", description="Writer compression at its defaults, writer default when unset", items=CODECS)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -75,7 +77,7 @@ class Still(bpy.types.PropertyGroup):
 class Sheet(bpy.types.PropertyGroup):
     """Channel storage selected for a layered TIFF export."""
 
-    depth: bpy.props.EnumProperty(name="Depth", description="Storage of each layer channel", items=DEPTHS, default=Depth.UINT16.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    depth: bpy.props.EnumProperty(name="Depth", description="Storage of each layer channel", items=_DEPTHS, default=Depth.UINT16.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Layering(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -105,7 +107,7 @@ class Layering(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             )
 
         exported.__name__ = exported.__qualname__ = f"export_{type(self.source).__name__.lower()}"
-        return Operator(form=Sheet, run=exported, condition=Some(SAVABLE), invoke=Some(Save[Sheet](extensions=lambda _: (".tif",))), undo=False)
+        return Operator(form=Sheet, run=exported, condition=Some(_SAVABLE), invoke=Some(Save[Sheet](extensions=lambda _: (".tif",))), undo=False)
 
 
 class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -119,12 +121,38 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def linear(self) -> Operator[Empty]:
         """Command writing the scene-linear render as DNG."""
-        return Operator(form=Empty, run=self.export_dng, condition=Some(SAVABLE), invoke=Some(Save[Empty](extensions=lambda _: (".dng",))), undo=False)
+        return Operator(form=Empty, run=self.export_dng, condition=Some(_SAVABLE), invoke=Some(Save[Empty](extensions=lambda _: (".dng",))), undo=False)
 
     @cached_property
     def still(self) -> Operator[Still]:
-        """Command writing the render or Viewer image with chosen encoding."""
-        return Operator(form=Still, run=export_still, condition=Some(IDLE), invoke=Some(Save[Still](extensions=suffixes)), seed=Some(seeded), draw=Some(drawn), undo=False)
+        """Command writing the render or Viewer image with chosen encoding, its browser seeded with writer-supported values and its suffixes the writer's."""
+
+        def drawn(layout: bpy.types.UILayout, _context: bpy.types.Context, properties: bpy.types.OperatorProperties, _identity: Identity) -> None:
+            for name in Still.__annotations__:
+                layout.prop(properties, name)
+            verdicts = _chosen(properties.format).map(lambda chosen: readouts(chosen, Depth[properties.depth], properties.display, PyOpenColorIO.GetCurrentConfig()))
+            for readings in verdicts.to_option().to_list():
+                for row in readings:
+                    layout.label(text=row.text)
+            alerted(layout, verdicts)
+
+        def seeded(properties: Still, _event: bpy.types.Event, _identity: Identity) -> Mapping[str, Value]:
+            supported = writer(properties.format).map(lambda row: (row.depths, row.compressions)).default_value(((), ()))
+            depth = Depth[properties.depth]
+            return {
+                "display": PyOpenColorIO.GetCurrentConfig().getDefaultDisplay(),
+                "depth": (depth if depth in supported[0] or not supported[0] else supported[0][0]).name,
+                "compression": properties.compression if _COMPRESSIONS.get(properties.compression) in supported[1] else "DEFAULT",
+            }
+
+        def dotted(row: Format) -> tuple[str, *tuple[str, ...]]:
+            first, *rest = row.extensions
+            return (f".{first}", *(f".{suffix}" for suffix in rest))
+
+        def suffixes(properties: Still) -> tuple[str, *tuple[str, ...]]:
+            return writer(properties.format).map(dotted).default_value((f".{properties.format}",))
+
+        return Operator(form=Still, run=export_still, condition=Some(_IDLE), invoke=Some(Save[Still](extensions=suffixes)), seed=Some(seeded), draw=Some(drawn), undo=False)
 
     @property
     def layered(self) -> tuple[Operator[Sheet], ...]:
@@ -166,7 +194,7 @@ def export_still(call: Call[Still]) -> Outcome[Done]:
     """Write render or Viewer image with chosen encoding."""
     properties, target, config = call.properties, str(call.paths[0]), PyOpenColorIO.GetCurrentConfig()
     depth: Depth = Depth[properties.depth]
-    compressed: Option[Compressions] = Option.of_optional(COMPRESSIONS.get(properties.compression)).map(lambda form: form())
+    compressed: Option[Compressions] = Option.of_optional(_COMPRESSIONS.get(properties.compression)).map(lambda form: form())
 
     def stored(file: ImageFile[np.float32]) -> Outcome[str]:
         match depth:
@@ -188,16 +216,16 @@ def export_still(call: Call[Still]) -> Outcome[Done]:
         pixels = origin.layer.map(lambda layer: origin.scene.resolve().bind(saved).bind(lambda path: combined(path, Some(layer))).map(lambda found: found[1])).default_with(
             lambda: read(native, config).map(lambda file: file.pixels)
         )
-        match origin.view:
-            case Option(tag="some", some=view) if properties.save_as_render:
-                return pixels.bind(lambda values: formed(view, values, origin.space, config))
-            case _:
-                return pixels.map(lambda values: ImageFile(pixels=values, colorspace=origin.space))
+        return (
+            origin.view
+            .filter(lambda _: properties.save_as_render)
+            .map(lambda view: pixels.bind(lambda values: formed(view, values, origin.space, config)))
+            .default_with(lambda: pixels.map(lambda values: ImageFile(pixels=values, colorspace=origin.space)))
+        )
 
-    selected: Outcome[Format] = writer(properties.format).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="OpenImageIO.extension_list", member=properties.format),))
     return (
-        Result[Format, Faults]
-        .bind(selected, lambda chosen: sample(chosen, depth))
+        _chosen(properties.format)
+        .bind(lambda chosen: sample(chosen, depth))
         .bind(lambda _: built(properties.source))
         .bind(lambda native: production(call.identity, native).bind(lambda origin: image(native, origin)))
         .bind(encoded)
@@ -206,40 +234,9 @@ def export_still(call: Call[Still]) -> Outcome[Done]:
     )
 
 
-def drawn(layout: bpy.types.UILayout, _context: bpy.types.Context, properties: bpy.types.OperatorProperties, _identity: Identity) -> None:
-    """Draws still encoding fields with writer readouts."""
-    for name in Still.__annotations__:
-        layout.prop(properties, name)
-    verdicts = (
-        writer(properties.format)
-        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="OpenImageIO.extension_list", member=properties.format),))
-        .map(lambda chosen: readouts(chosen, Depth[properties.depth], properties.display, PyOpenColorIO.GetCurrentConfig()))
-    )
-    for readings in verdicts.to_option().to_list():
-        for row in readings:
-            layout.label(text=row.text)
-    alerted(layout, verdicts)
-
-
-def seeded(properties: Still, _event: bpy.types.Event, _identity: Identity) -> Mapping[str, Value]:
-    """Seeds the default display and a writer-supported depth and compression on browser open."""
-    supported = writer(properties.format).map(lambda row: (row.depths, row.compressions)).default_value(((), ()))
-    depth = Depth[properties.depth]
-    return {
-        "display": PyOpenColorIO.GetCurrentConfig().getDefaultDisplay(),
-        "depth": (depth if depth in supported[0] or not supported[0] else supported[0][0]).name,
-        "compression": properties.compression if COMPRESSIONS.get(properties.compression) in supported[1] else "DEFAULT",
-    }
-
-
-def suffixes(properties: Still) -> tuple[str, *tuple[str, ...]]:
-    """Returns chosen writer's suffixes, or unknown writer name as suffix."""
-
-    def dotted(row: Format) -> tuple[str, *tuple[str, ...]]:
-        first, *rest = row.extensions
-        return (f".{first}", *(f".{suffix}" for suffix in rest))
-
-    return writer(properties.format).map(dotted).default_value((f".{properties.format}",))
+def _chosen(name: str) -> Outcome[Format]:
+    """Returns the named writer, absent fault for a format OpenImageIO does not write."""
+    return writer(name).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="OpenImageIO.extension_list", member=name),))
 
 
 def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> Outcome[npt.NDArray[np.float32]]:
@@ -252,11 +249,9 @@ def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> Outco
         chosen: Outcome[Layer] = Option.of_optional(next((found for name in names for found in file.layers if found.name == name), None)).to_result_with(
             lambda: (Fault(reason=BlenderReason.ABSENT, subject=path, member=names[-1]),)
         )
-        return Result[Layer, Faults].bind(
-            chosen, lambda found: Result[tuple[Channel, ...], Faults].bind(accumulated(channel(found.channels, found.name, name) for name in channels), lambda chosen: file.plane(found, chosen))
-        )
+        return Result[Layer, Faults].bind(chosen, lambda found: accumulated(channel(found.channels, found.name, name) for name in channels).bind(lambda held: file.plane(found, held)))
 
-    return Result[Multilayer, Faults].bind(Multilayer.read(path), picked)
+    return Multilayer.read(path).bind(picked)
 
 
 def combined(path: str, layer: Option[str] = Nothing) -> Outcome[tuple[str, npt.NDArray[np.float32]]]:
@@ -279,8 +274,7 @@ def combined(path: str, layer: Option[str] = Nothing) -> Outcome[tuple[str, npt.
             case _:
                 return Error((Fault(reason=BlenderReason.ABSENT, subject=path, member=layer.map(lambda name: f"{name}.{COMBINED}").default_value(COMBINED)),))
 
-    file: Outcome[Multilayer] = Multilayer.read(path)
-    return Result[Multilayer, Faults].bind(file, selected)
+    return Multilayer.read(path).bind(selected)
 
 
 def formed(view: DisplayView, plane: npt.NDArray[np.float32], source: str, config: PyOpenColorIO.Config) -> Outcome[ImageFile[np.float32]]:
@@ -293,24 +287,4 @@ def formed(view: DisplayView, plane: npt.NDArray[np.float32], source: str, confi
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = [
-    "COMBINED",
-    "COMPOSITE",
-    "COMPRESSIONS",
-    "DEPTHS",
-    "IDLE",
-    "SAVABLE",
-    "STILLS",
-    "Documents",
-    "Export",
-    "Layering",
-    "Sheet",
-    "Still",
-    "combined",
-    "drawn",
-    "export_still",
-    "formed",
-    "plane",
-    "seeded",
-    "suffixes",
-]
+__all__ = ["COMBINED", "COMPOSITE", "Documents", "Export", "Layering", "Sheet", "Still", "combined", "export_still", "formed", "plane"]

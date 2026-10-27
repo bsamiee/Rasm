@@ -83,7 +83,7 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
 
     // --- [SPLASH]
     protected sealed override void ShowSplash() =>
-        _ = this.Run(unless(HasBootSplash, Session.Held(Products.Swapped(splash, Splashed)) >> IO.lift(static () => Application.Instance.RunIteration())).As());
+        _ = this.Run(unless(HasBootSplash, Session.Held(Products.Swapped(splash, Splashed)).Bind(static _ => IO.lift(static () => Application.Instance.RunIteration()))).As());
 
     protected sealed override void HideSplash() => _ = this.Run(Session.Held(Products.Cleared(splash)));
 
@@ -101,6 +101,7 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
             Content = content,
         }, static form => {
             form.Close();
+            form.Content = null;
             form.Dispose();
         })
         from shown in IO.lift(() => {
@@ -117,7 +118,10 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
             from mark in Mark
             from detail in use(static () => new Label { Text = RowText.Localize("Rhino {0}", arguments: [RhinoApp.Version]).Local, Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center })
             from content in Layout(mark, detail)
-            from dialog in use(() => new Dialog { Title = ApplicationName, Resizable = false, Content = content })
+            from dialog in use(() => new Dialog { Title = ApplicationName, Resizable = false, Content = content }, static dialog => {
+                dialog.Content = null;
+                dialog.Dispose();
+            })
             from shown in IO.lift(() => {
                 dialog.UseRhinoStyle();
                 dialog.ShowModal(RhinoEtoApp.MainWindow);
@@ -133,7 +137,7 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
                     Filter = HostDialogs.Filter(Seq((RowText.Localize("Rhino Templates").Local, Seq(".3dm")))),
                     InitialDirectory = FileSettings.TemplateFolder,
                 })).Bind(static dialog => dialog)
-                from opened in paths.TraverseM(static path => IO.lift(() => RhinoFault.Found(OpenNewDocument(path)))).As()
+                from opened in paths.TraverseM(static path => IO.lift(() => Conversions.Found(OpenNewDocument(path)))).As()
                 select unit));
 
     protected sealed override void ShowChooseRecent() =>
@@ -169,7 +173,7 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
 
     private IO<StackLayout> Layout(Option<Icon> mark, Control detail) =>
         from heading in use(() => new Label { Text = ApplicationName, Font = EtoFonts.HeadingFont })
-        from image in mark.TraverseM(icon => use(() => new ImageView { Image = icon })).As()
+        from image in mark.TraverseM(static icon => use(() => new ImageView { Image = icon })).As()
         from layout in use(() => new StackLayout([.. image.ToSeq().Map<StackLayoutItem>(static view => view), heading, new StackLayoutItem(detail, HorizontalAlignment.Stretch)]) {
             Padding = RhinoLayout.Padding(RhinoLayout.PaddingType.Dialog),
             Spacing = RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Dialog),

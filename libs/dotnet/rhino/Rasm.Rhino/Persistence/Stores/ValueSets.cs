@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-namespace Rasm.Rhino.Persistence.Stores;
+namespace Rasm.RhinoCommon.Persistence.Stores;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record EntryKey(string Owner, Seq<string> Path) : IComparable<EntryKey> {
@@ -20,13 +20,15 @@ public sealed record EntryKey(string Owner, Seq<string> Path) : IComparable<Entr
         : string.CompareOrdinal(Owner, other.Owner) is var owner and not 0 ? owner
         : Path.Zip(other.Path, string.CompareOrdinal).Find(static order => order is not 0).IfNone(Path.Count.CompareTo(other.Path.Count));
 
-    public static bool operator <(EntryKey? left, EntryKey? right) => Comparer<EntryKey>.Default.Compare(left, right) < 0;
+    public static bool operator <(EntryKey? left, EntryKey? right) => Order(left, right) < 0;
 
-    public static bool operator <=(EntryKey? left, EntryKey? right) => Comparer<EntryKey>.Default.Compare(left, right) <= 0;
+    public static bool operator <=(EntryKey? left, EntryKey? right) => Order(left, right) <= 0;
 
-    public static bool operator >(EntryKey? left, EntryKey? right) => Comparer<EntryKey>.Default.Compare(left, right) > 0;
+    public static bool operator >(EntryKey? left, EntryKey? right) => Order(left, right) > 0;
 
-    public static bool operator >=(EntryKey? left, EntryKey? right) => Comparer<EntryKey>.Default.Compare(left, right) >= 0;
+    public static bool operator >=(EntryKey? left, EntryKey? right) => Order(left, right) >= 0;
+
+    private static int Order(EntryKey? left, EntryKey? right) => left?.CompareTo(right) ?? (right is null ? 0 : -1);
 }
 
 [JsonConverter(typeof(ValueSetConverter))]
@@ -45,7 +47,7 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
         ArchivableDictionaries.Decoded<T>(owner, () => Merged(
                 JsonSerializer.SerializeToNode(current, ArchivableDictionaries.Options),
                 Grown(toSeq(Entries.AsIterable().Filter(entry => string.Equals(entry.Key.Owner, owner, StringComparison.Ordinal)).OrderBy(static entry => entry.Key)).Map(static entry => (entry.Key.Path, entry.Value)),
-                    static text => JsonNode.Parse(text), static children => new JsonObject(children.Map(static child => KeyValuePair.Create(child.Name, child.Node)))))
+                    static text => JsonNode.Parse(text), Branch))
             .Deserialize<T>(ArchivableDictionaries.Options));
 
     public string Text() => JsonSerializer.Serialize(this, ValueSetContext.Default.ValueSet);
@@ -56,7 +58,7 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
     public ValueSet Scoped(Option<IterableNE<EntryKey>> keys) =>
         keys.Match(Some: held => new ValueSet(Entries.Intersect(held)), None: () => this);
 
-    public ValueSet Over(ValueSet current, LanguageExt.HashSet<EntryKey> locks) =>
+    public ValueSet Over(ValueSet current, HashSet<EntryKey> locks) =>
         new(current.Entries.AddOrUpdateRange(Entries.Except(locks).AsIterable()));
 
     public ValueDiff Diff(ValueSet after) =>
@@ -75,10 +77,16 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
             ? toSeq(branch).Bind(child => Leaves(child.Value, path.Add(child.Key)))
             : Seq((path, node?.ToJsonString() ?? "null"));
 
+    internal static JsonObject Branch(Seq<(string Name, JsonNode? Node)> children) =>
+        children.Fold(new JsonObject(), static (branch, child) => {
+            branch[child.Name] = child.Node;
+            return branch;
+        });
+
     private static JsonNode? Merged(JsonNode? held, JsonNode? stored) =>
         (held, stored) is (JsonObject kept, JsonObject read) && read.Where(static entry => entry.Key.StartsWith('$')).All(entry => JsonNode.DeepEquals(kept[entry.Key], entry.Value))
-            ? new JsonObject(kept.Select(static entry => entry.Key).Union(read.Select(static entry => entry.Key), StringComparer.Ordinal)
-                .Select(key => KeyValuePair.Create(key, read.ContainsKey(key) ? Merged(kept[key]?.DeepClone(), read[key]?.DeepClone()) : kept[key]?.DeepClone())))
+            ? Branch(toSeq(kept.Select(static entry => entry.Key).Union(read.Select(static entry => entry.Key), StringComparer.Ordinal))
+                .Map(key => (key, read.ContainsKey(key) ? Merged(kept[key]?.DeepClone(), read[key]?.DeepClone()) : kept[key]?.DeepClone())))
             : stored;
 
     private static TNode Grown<TNode>(Seq<(Seq<string> Path, string Text)> rows, Func<string, TNode> leaf, Func<Seq<(string Name, TNode Node)>, TNode> branch) =>
@@ -145,7 +153,7 @@ public sealed record BindingGroup(Seq<ValueBinding> Bindings) {
         Callbacks.Each(Bindings.Map(static binding => binding.Capture.Map(entries => toSeq(entries.AsIterable()).Map(entry => (new EntryKey(binding.Owner, entry.Key), entry.Value)))))
             .Map(static parts => new ValueSet(toHashMap(parts.Flatten())));
 
-    public IO<ValueDiff> Apply(ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>
+    public IO<ValueDiff> Apply(ValueSet incoming, HashSet<EntryKey> locks) =>
         from entries in IO.pure(incoming.Entries.Except(locks))
         from prepared in Callbacks.Each(Bindings
             .Map(binding => (Binding: binding, Entries: toHashMap(binding.Paths()
@@ -165,10 +173,7 @@ public sealed class ValueSetConverter : JsonConverter<ValueSet> {
             select (new EntryKey(owner.Key, leaf.Path), leaf.Text)));
 
     public override void Write(Utf8JsonWriter writer, ValueSet value, JsonSerializerOptions options) =>
-        JsonSerializer.Serialize(writer, Branch(value.Tree(static text => JsonNode.Parse(text), Branch)), ValueSetContext.Default.JsonObject);
-
-    private static JsonObject Branch(Seq<(string Name, JsonNode? Node)> children) =>
-        new(children.Map(static child => KeyValuePair.Create(child.Name, child.Node)));
+        JsonSerializer.Serialize(writer, ValueSet.Branch(value.Tree(static text => JsonNode.Parse(text), ValueSet.Branch)), ValueSetContext.Default.JsonObject);
 }
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Strict, WriteIndented = true)]

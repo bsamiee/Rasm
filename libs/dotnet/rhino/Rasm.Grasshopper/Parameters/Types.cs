@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Numerics;
 using Grasshopper2;
 using Grasshopper2.Data;
@@ -9,7 +10,7 @@ using Grasshopper2.Types.ConversionMethods;
 using Grasshopper2.UI;
 using Grasshopper2.UI.Icon;
 using GrasshopperIO;
-using Rasm.Rhino;
+using Rasm.RhinoCommon;
 using UUIDNext;
 using UnitsNet;
 
@@ -191,7 +192,7 @@ public static class DataTypes {
                 .. typeof(IQuantity).IsAssignableFrom(typeof(TValue))
                     ? []
                     : Seq(typeof(ValueArithmetic<TValue, TKey>), typeof(OperandArithmetic<TValue, TKey, double>), typeof(OperandArithmetic<TValue, TKey, int>))
-                        .Map<(string, Func<bool>)>(static repository => (nameof(Arithmetic.AddRepository), () => Arithmetic.AddRepository(repository) > 0)),
+                        .Map<Func<Fin<Unit>>>(static repository => () => GrasshopperFault.Unless(Arithmetic.AddRepository(repository) > 0)),
             ]);
 
     public static Func<IGrasshopperPlugin, IO<Unit>> Keyed<TValue, TKey>(
@@ -207,15 +208,13 @@ public static class DataTypes {
     // --- [REGISTRATION]
     private static Guid ParameterId<T>(IGrasshopperPlugin plugin) => Uuid.NewNameBased(plugin.Plugin.Id, typeof(DataParameter<T>).ToString());
 
-    private static (string Member, Func<bool> Accepted) Converted<TSource, TTarget>(ConversionDelegate<TSource, TTarget> conversion) =>
-        (nameof(ConversionServer.TryAddConversion), () => ConversionServer.TryAddConversion(conversion.Method));
+    private static Func<Fin<Unit>> Converted<TSource, TTarget>(ConversionDelegate<TSource, TTarget> conversion) =>
+        () => GrasshopperFault.Unless(ConversionServer.TryAddConversion(conversion.Method));
 
-    private static IO<Unit> Registered<T>(TypeAssistant<T> assistant, Seq<(string Member, Func<bool> Accepted)> steps = default) {
-        static Fin<Unit> Step((string Member, Func<bool> Accepted) step) => step.Accepted() ? unit : new Refused(step.Member, $"refused data type {typeof(T)}");
-        return LanguageExt.IO.lift(() => Callbacks.Each(
-                steps.Add((nameof(TypeAssistantServer.Register), () => TypeAssistantServer.Register(assistant)))
-                    .Add((nameof(GrasshopperIO.IO.RegisterRestorableType), static () => GrasshopperIO.IO.RegisterRestorableType(typeof(DataParameter<T>)))),
-                static (step, _) => Step(step)))
+    private static IO<Unit> Registered<T>(TypeAssistant<T> assistant, Seq<Func<Fin<Unit>>> steps = default) =>
+        LanguageExt.IO.lift(() => Callbacks.Each(
+                steps.Add(() => GrasshopperFault.Unless(TypeAssistantServer.Register(assistant)))
+                    .Add(static () => GrasshopperFault.Unless(GrasshopperIO.IO.RegisterRestorableType(typeof(DataParameter<T>)))),
+                static (step, _) => step()))
             .Map(static _ => unit);
-    }
 }

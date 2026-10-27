@@ -1,11 +1,11 @@
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI;
 using Rhino.Collections;
 using Rhino.DocObjects.Custom;
 using Rhino.FileIO;
 using Rhino.Runtime;
 
-namespace Rasm.Rhino.Persistence;
+namespace Rasm.RhinoCommon.Persistence;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class DefinedUserData<TState> : UserData where TState : notnull {
@@ -16,7 +16,7 @@ public abstract class DefinedUserData<TState> : UserData where TState : notnull 
     private readonly IPlugInViews owner;
 
     protected DefinedUserData(uint typeCode, DictionaryCodec<TState> codec, Option<Func<TState, Transform, TState>> transformed) =>
-        (this.typeCode, this.codec, this.transformed, owner) = (typeCode, codec, transformed, HostedTypes.Owner(GetType()));
+        (this.typeCode, this.codec, this.transformed, owner) = (typeCode, codec, transformed, PlugInOwners.Owner(GetType()));
 
     public Option<TState> State { get; private set; }
 
@@ -30,12 +30,14 @@ public abstract class DefinedUserData<TState> : UserData where TState : notnull 
         Newer.Match(Some: raw => IO.fail<Unit>(codec.Refusal(raw)), None: () => IO.lift(() => { State = Some(state); }));
 
     protected sealed override bool Write(BinaryArchiveWriter archive) =>
-        Callbacks.Succeeded(
-            Newer.Map(raw => AttachedData.Write(archive, typeCode, raw)) | State.Map(held => AttachedData.Write(archive, typeCode, codec, held)),
-            static () => false, CallbackSite.Of(owner, this));
+        owner.Answer(
+            (Newer.Map(raw => AttachedData.Write(archive, typeCode, raw)) | State.Map(held => AttachedData.Write(archive, typeCode, codec, held)))
+                .Map(static written => written.Map(static _ => true))
+                .IfNone(IO.pure(value: false)),
+            failed: false);
 
     protected sealed override bool Read(BinaryArchiveReader archive) =>
-        Callbacks.Answer(
+        owner.Answer(
             from read in AttachedData.Read(archive, typeCode, codec)
             from stored in IO.lift(() => {
                 (State, Newer) = read.Switch(
@@ -44,7 +46,7 @@ public abstract class DefinedUserData<TState> : UserData where TState : notnull 
                     newer: static newer => (Option<TState>.None, Some(newer.Raw)));
             })
             select true,
-            static () => false, CallbackSite.Of(owner, this));
+            failed: false);
 
     protected sealed override void OnTransform(Transform transform) {
         base.OnTransform(transform);
@@ -64,39 +66,24 @@ public static class AttachedData {
         IO.lift(() => codec.ToDictionary(payload)).Bind(dictionary => Write(writer, typeCode, dictionary));
 
     public static IO<Unit> Write(BinaryArchiveWriter writer, uint typeCode, ArchivableDictionary dictionary) =>
-        DisposalOps.Within(
-            () => writer.BeginWrite3dmChunk(typeCode, majorVersion: 1, minorVersion: 0),
-            begun => IO.lift(() => Refused.Unless(begun, nameof(BinaryArchiveWriter.BeginWrite3dmChunk)))
-                .Bind(_ => IO.lift(() => writer.WriteDictionary(dictionary))),
-            begun => when(begun, IO.lift(() => Refused.Unless(writer.EndWrite3dmChunk(), nameof(BinaryArchiveWriter.EndWrite3dmChunk)))).As());
+        from begun in IO.lift(() => RhinoFault.Unless(writer.BeginWrite3dmChunk(typeCode, majorVersion: 1, minorVersion: 0)))
+        from written in IO.lift(() => writer.WriteDictionary(dictionary)).Finally(IO.lift(() => RhinoFault.Unless(writer.EndWrite3dmChunk())))
+        select written;
 
     public static IO<StoredRecord<T>> Read<T>(BinaryArchiveReader reader, uint typeCode, DictionaryCodec<T> codec) =>
-        from dictionary in DisposalOps.Within(
-            () => reader.BeginRead3dmChunk(typeCode, out _, out _),
-            begun => IO.lift(() => Refused.Unless(begun, nameof(BinaryArchiveReader.BeginRead3dmChunk)))
-                .Bind(_ => IO.lift(reader.ReadDictionary)),
-            begun => when(begun, IO.lift(() => Refused.Unless(reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: true), nameof(BinaryArchiveReader.EndRead3dmChunk)))).As())
+        from begun in IO.lift(() => RhinoFault.Unless(reader.BeginRead3dmChunk(typeCode, out _, out _)))
+        from dictionary in IO.lift(reader.ReadDictionary).Finally(IO.lift(() => RhinoFault.Unless(reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: true))))
         from payload in IO.lift(() => codec.FromDictionary(dictionary))
         select payload;
 
     public static IO<Option<T>> Read<T>(File3dm archive, Guid plugIn, Func<BinaryArchiveReader, IO<T>> read) =>
         from found in IO.lift(() => Conversions.Rows(archive.PlugInData).Find(data => data.PlugInId == plugIn))
-        from payload in found.Traverse((
-            from data in Eff.runtime<File3dmPlugInData>()
-            from captured in Callbacks.Captured<T>(Answered(archive, data, read).RunIO, nameof(File3dmPlugInDataTable.TryRead))
-            select captured).RunIO).As()
+        from payload in found.Traverse(data => Callbacks.Captured<T>(answer => IO.lift(() => ignore(archive.PlugInData.TryRead(data, (_, reader) => {
+            Fin<T> outcome = Callbacks.Settled(read(reader), CancellationToken.None);
+            answer(outcome);
+            return outcome.IsSucc;
+        }))))).As()
         select payload;
-
-    private static Eff<Action<Fin<T>>, Unit> Answered<T>(File3dm archive, File3dmPlugInData data, Func<BinaryArchiveReader, IO<T>> read) =>
-        from answer in Eff.runtime<Action<Fin<T>>>()
-        from called in IO.lift(() => {
-            _ = archive.PlugInData.TryRead(data, (_, reader) => {
-                Fin<T> outcome = Callbacks.Settled(read(reader), CancellationToken.None);
-                answer(outcome);
-                return outcome.IsSucc;
-            });
-        })
-        select called;
 
     // --- [USER_DATA]
     public static IO<Option<TData>> Find<TData>(CommonObject target) where TData : UserData =>
@@ -113,19 +100,21 @@ public static class AttachedData {
 
     public static IO<Unit> Remove<TData>(CommonObject target) where TData : UserData =>
         from found in Find<TData>(target)
-        from removed in found.Traverse(held => DisposalOps.Within(() => held, data => IO.lift(() => Refused.Unless(target.UserData.Remove(data), nameof(UserDataList.Remove))))).As()
+        from removed in found.Traverse(held =>
+            (from data in use(() => held)
+             from detached in IO.lift(() => RhinoFault.Unless(target.UserData.Remove(data)))
+             select detached).Bracket()).As()
         select unit;
 
     public static IO<Unit> Move(CommonObject source, CommonObject destination, bool append) =>
-        IO.lift(() => UserData.MoveUserDataFrom(source)).Bind(id => DisposalOps.OnFailure(
-            IO.lift(() => UserData.MoveUserDataTo(destination, id, append)),
-            IO.lift(() => UserData.MoveUserDataTo(source, id, append: true)))).Uninterruptible();
+        IO.lift(() => UserData.MoveUserDataFrom(source)).Bind(id =>
+            IO.lift(() => UserData.MoveUserDataTo(destination, id, append))
+                .Catch(error => IO.lift(() => UserData.MoveUserDataTo(source, id, append: true)) >> IO.fail<Unit>(error))).Uninterruptible();
 
     private static IO<Unit> Attached<TData, TState>(CommonObject target, TState state)
         where TData : DefinedUserData<TState>, new()
         where TState : notnull =>
-        IO.lift(static () => new TData()).Bind(data => DisposalOps.OnFailure(
-            data.Assign(state)
-                .Bind(_ => IO.lift(() => Refused.Unless(target.UserData.Add(data), nameof(UserDataList.Add)))),
-            IO.lift(data.Dispose))).Uninterruptible();
+        IO.lift(static () => new TData()).Bind(data =>
+            (data.Assign(state) >> IO.lift(() => RhinoFault.Unless(target.UserData.Add(data))))
+                .Catch(error => IO.lift(data.Dispose) >> IO.fail<Unit>(error))).Uninterruptible();
 }

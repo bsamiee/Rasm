@@ -20,7 +20,7 @@ from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Job, Setting
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, root_in
-from blender.bpy.extension.events.timers import Timer
+from blender.bpy.extension.events import Timer
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason

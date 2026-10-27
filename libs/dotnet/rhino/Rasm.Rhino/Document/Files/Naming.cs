@@ -1,7 +1,7 @@
 using System.Buffers;
 using System.Globalization;
 
-namespace Rasm.Rhino.Document.Files;
+namespace Rasm.RhinoCommon.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
@@ -16,7 +16,7 @@ public sealed partial class NamePart {
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) {
         ReadOnlySpan<char> trimmed = value.AsSpan().Trim();
         value = string.Create(trimmed.Length, trimmed, static (target, source) => source.ReplaceAny(target, Reserved, '_'));
-        validationError = trimmed.Trim('.').IsEmpty ? new RhinoFault("name part is blank or dots alone") : null;
+        validationError = trimmed.Trim('.').IsEmpty ? new RhinoFault($"value = '{value}'", RhinoReason.Unqualified) : null;
     }
 }
 
@@ -28,7 +28,7 @@ public sealed partial class FileExtension {
     internal const char Mark = '.';
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = value is [Mark, _, ..] && !value.AsSpan(1).ContainsAny(NamePart.Reserved) && !value.AsSpan(1).Contains(Mark) ? null : new RhinoFault($"extension {value} is no dot then dot-free name characters");
+        validationError = value is [Mark, _, ..] && !value.AsSpan(1).ContainsAny(NamePart.Reserved) && !value.AsSpan(1).Contains(Mark) ? null : new RhinoFault($"value = '{value}'", RhinoReason.Unqualified);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -37,14 +37,14 @@ public sealed partial class OutputVersion {
     public static OutputVersion MinValue { get; } = new(1);
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int value) =>
-        validationError = value >= 1 ? null : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"output version {value} is below 1"));
+        validationError = value >= 1 ? null : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"value = {value}"), RhinoReason.Outside);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<RhinoFault>]
 public sealed partial class SequenceNumber {
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int value) =>
-        validationError = value >= 0 ? null : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"sequence number {value} is negative"));
+        validationError = value >= 0 ? null : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"value = {value}"), RhinoReason.Outside);
 }
 
 [Union]

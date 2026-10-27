@@ -17,7 +17,7 @@ lazy from asttokens.util import replace
 lazy from coloraide import Color
 lazy from cyclopts import Parameter
 lazy from cyclopts.types import ResolvedExistingDirectory, ResolvedExistingFile, ResolvedPath
-lazy from expression import Error, Ok, Result
+lazy from expression import Error, Result
 lazy from expression.extra.result import catch
 lazy from fontTools.pens.basePen import BasePen
 lazy import numpy as np
@@ -56,9 +56,14 @@ def _accumulated[T](head: Result[T, Faults], *others: Result[object, Faults]) ->
 
 
 def _ran(*command: str | Path, stdout: int | None = None, stderr: int | None = None) -> Result[subprocess.CompletedProcess[bytes], Faults]:
-    """Runs child process, nonzero exit as fault."""
-    done = subprocess.run(command, stdout=stdout, stderr=stderr, check=False)
-    return catch(done.check_returncode, exception=subprocess.CalledProcessError)().map(lambda _: done).map_error(partial(Fault.caught, Reason.PROCESS, command[0]))
+    """Runs child process, failed launch or nonzero exit as fault."""
+    refused = partial(Fault.of, Reason.PROCESS, command[0])
+
+    @catch(exception=OSError)
+    def launched() -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(command, stdout=stdout, stderr=stderr, check=False)
+
+    return launched().map_error(refused).bind(lambda done: catch(done.check_returncode, exception=subprocess.CalledProcessError)().map(lambda _: done).map_error(refused))
 
 
 def _interpreter(blender: Path) -> Result[_Interpreter, Faults]:
@@ -194,11 +199,9 @@ def pack(
         manifest.write_text(tomlkit.dumps(document))
 
     with tempfile.TemporaryDirectory() as folder:
-        stage = Path(folder, "stage")
+        stage, lock, built = Path(folder, "stage"), Path(folder, "requirements.txt"), Path(folder, "archives")
         previews = stage / icons.name
         shutil.copytree(source, stage, ignore=shutil.ignore_patterns("pyproject.toml", "*.svg"))
-        lock = Path(folder, "requirements.txt")
-        built = Path(folder, "archives")
         built.mkdir()
         return (
             _accumulated(
@@ -206,7 +209,7 @@ def pack(
                 _exported(lock, "--no-editable", "--project", str(source)),
                 *(
                     *(
-                        catch(encoded, exception=ValueError)(master).map((previews / f"{master.stem}.dat").write_bytes).map_error(partial(Fault.caught, Reason.INVALID, master)),
+                        catch(encoded, exception=ValueError)(master).map((previews / f"{master.stem}.dat").write_bytes).map_error(partial(Fault.of, Reason.INVALID, master)),
                         _ran("resvg", "--width", "256", "--height", "256", master, previews / f"{master.stem}.png"),
                     )
                     for master in icons.glob("*.svg")
@@ -224,22 +227,17 @@ def pack(
 
 
 def reset[T](folder: Path, made: Callable[[Path], T], /) -> Result[T, Faults]:
-    """Removes `folder` with its tree, a missing one counting as removed, then makes it through `made` under created parents.
+    """Removes `folder` with its tree, removal errors ignored, then makes it through `made` under created parents.
 
     Args:
         folder: Folder replaced.
         made: Call making `folder` from its path.
 
     Returns:
-        What `made` returns, or fault of a failed removal, parent creation, or `made` call.
+        What `made` returns, or fault of a failed parent creation or `made` call.
     """
-    return (
-        catch(shutil.rmtree, exception=OSError)(folder)
-        .or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error))
-        .bind(lambda _: catch(folder.parent.mkdir, exception=OSError)(parents=True, exist_ok=True))
-        .bind(lambda _: catch(made, exception=OSError)(folder))
-        .map_error(partial(Fault.caught, Reason.UNWRITABLE, folder))
-    )
+    shutil.rmtree(folder, ignore_errors=True)
+    return catch(folder.parent.mkdir, exception=OSError)(parents=True, exist_ok=True).bind(lambda _: catch(made, exception=OSError)(folder)).map_error(partial(Fault.of, Reason.UNWRITABLE, folder))
 
 
 def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]) -> Result[int, Faults]:

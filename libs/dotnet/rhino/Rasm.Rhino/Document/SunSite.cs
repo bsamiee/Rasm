@@ -7,7 +7,7 @@ using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 using UnitsNet;
 
-namespace Rasm.Rhino.Document;
+namespace Rasm.RhinoCommon.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SunSite(GeoCoordinate Place, Angle North, Offset Standard, Option<Duration> Saving) {
@@ -21,7 +21,7 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, Offset Standard, 
         new(GeoCoordinate.From(sun.Latitude, sun.Longitude),
             Angle.FromDegrees(sun.North),
             Offset.FromSeconds((int)Math.Round(sun.TimeZone * NodaConstants.SecondsPerHour, MidpointRounding.ToEven)),
-            Callbacks.Found(sun.DaylightSavingOn, sun.DaylightSavingMinutes).Map(static minutes => Duration.FromMinutes(minutes)));
+            Conversions.Found(sun.DaylightSavingOn, sun.DaylightSavingMinutes).Map(static minutes => Duration.FromMinutes(minutes)));
 
     public static Fin<SunSite> Placed(GeoCoordinate place, Angle north, LocalDateTime moment) =>
         from interval in Zone(place).Map(zone => zone.MapLocal(moment).EarlyInterval)
@@ -34,14 +34,14 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, Offset Standard, 
         select site;
 
     public static IO<SunSite> Here(Angle north, LocalDateTime moment) =>
-        IO.lift(() => Refused.Unless(Sun.Here(out double latitude, out double longitude), nameof(Sun.Here))
+        IO.lift(() => RhinoFault.Unless(Sun.Here(out double latitude, out double longitude))
             .Bind(_ => Placed(GeoCoordinate.From(latitude, longitude), north, moment)));
 
     public static LocalDateTime Moment(Sun sun) => LocalDateTime.FromDateTime(sun.GetDateTime(DateTimeKind.Local)).With(TimeAdjusters.TruncateToSecond);
 
     public static Fin<Unit> SetDateTime(Sun sun, LocalDateTime moment, TimeProvider clock) =>
         clock.LocalTimeZone.IsInvalidTime(moment.ToDateTimeUnspecified())
-            ? Error.New(string.Create(CultureInfo.InvariantCulture, $"{moment} does not exist in local time zone"))
+            ? new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"moment = {moment}"), RhinoReason.Invalid)
             : fun<DateTime, DateTimeKind>(sun.SetDateTime)(moment.ToDateTimeUnspecified(), DateTimeKind.Local);
 
     public IO<LocalDateTime> Now(TimeProvider clock) =>
@@ -77,7 +77,7 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, Offset Standard, 
         };
 
     public IO<SunPaths> Paths(LocalDateTime moment, Sphere dome, TimeProvider clock) =>
-        from placed in IO.lift(Refused.Unless(dome.IsValid, dome, nameof(dome)))
+        from placed in IO.lift(RhinoFault.Unless(dome.IsValid).Map(_ => dome))
         let year = moment.Year
         let days = toSeq(new DateInterval(new LocalDate(year, 1, 1), new LocalDate(year, 12, 31)))
         let hours = toSeq(Range(0, NodaConstants.HoursPerDay)).Map(static hour => LocalTime.Midnight.PlusHours(hour))
@@ -90,7 +90,7 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, Offset Standard, 
             Meshed(Band(sky, hours.Count, solstices.MaxBy(static day => day.Declination).Row, solstices.MinBy(static day => day.Declination).Row), placed));
 
     private static IO<TResult> Observed<TResult>(TimeProvider clock, Func<Sun, DateTimeZone, TResult> read) =>
-        DisposalOps.Within(static () => new Sun { Accuracy = Sun.Accuracies.Maximum }, sun => IO.lift(() => read(sun, BclDateTimeZone.FromTimeZoneInfo(clock.LocalTimeZone))));
+        use(static () => new Sun { Accuracy = Sun.Accuracies.Maximum }).Bind(sun => IO.lift(() => read(sun, BclDateTimeZone.FromTimeZoneInfo(clock.LocalTimeZone)))).Bracket();
 
     private Vector3d Direction(Sun sun, DateTimeZone computer, Instant at) {
         SunMapper.Update(this with { Standard = at.InZone(computer).Offset, Saving = None }, sun);
@@ -99,15 +99,15 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, Offset Standard, 
     }
 
     private static Fin<DateTimeZone> Zone(GeoCoordinate place) =>
-        Optional(TzdbDateTimeZoneSource.Default.ZoneLocations)
-            .Bind(locations => toSeq(locations
+        from locations in Conversions.Found(TzdbDateTimeZoneSource.Default.ZoneLocations)
+        let nearest = toSeq(locations
                 .OrderBy(location =>
                     Math.Pow(Math.Sin(double.DegreesToRadians(location.Latitude - place.Latitude.Degrees.ToDouble()) / 2d), 2d)
                     + (Math.Cos(place.Latitude.Radians.ToDouble()) * Math.Cos(double.DegreesToRadians(location.Latitude))
                        * Math.Pow(Math.Sin(double.DegreesToRadians(location.Longitude - place.Longitude.Degrees.ToDouble()) / 2d), 2d)))
-                .ThenBy(static location => location.ZoneId, StringComparer.Ordinal)).Head)
-            .Map(static location => DateTimeZoneProviders.Tzdb[location.ZoneId])
-            .ToFin(new Refused(nameof(TzdbDateTimeZoneSource.ZoneLocations), Refused.Absent));
+                .ThenBy(static location => location.ZoneId, StringComparer.Ordinal)).Head
+        from location in Conversions.Found(nearest)
+        select DateTimeZoneProviders.Tzdb[location.ZoneId];
 
     private double Horizon(double declination, double zenith) =>
         Math.SinCos(Place.Latitude.Radians.ToDouble()) switch {
@@ -251,7 +251,7 @@ public abstract partial record SunWindow : IConvertible<string> {
     public static RhinoFault? Validate(string? value, IFormatProvider? provider, out SunWindow? item) {
         item = Optional(value).Bind(static text => Parsed(text.Split('/'))).ValueUnsafe();
         return item is null && value is not null
-            ? new RhinoFault($"{value} is no day/<date>/<from>/<until>/<minutes> or season/<from>/<until>/<at>/<days> sun window")
+            ? new RhinoFault($"value = '{value}'", RhinoReason.Invalid)
             : null;
     }
 
@@ -287,14 +287,14 @@ public abstract partial record SunWindow : IConvertible<string> {
             _ => None,
         };
 
-    private static Option<T> Succeeded<T>(ParseResult<T> result) where T : struct => Callbacks.Found(result.TryGetValue(default, out T value), value);
+    private static Option<T> Succeeded<T>(ParseResult<T> result) where T : struct => Conversions.Found(result.TryGetValue(default, out T value), value);
 
-    private static Option<int> Counted(string text) => Callbacks.Found(int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int count), count);
+    private static Option<int> Counted(string text) => Conversions.Found(int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int count), count);
 
     private static Fin<TWindow> Bounded<TWindow>(LocalDateTime start, LocalDateTime end, Period step, Duration grain, Func<LocalDateTime, LocalDateTime, int, TWindow> window) =>
-        (start <= end ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study start {start} is after end {end}")),
+        (RhinoFault.Unless(start <= end),
          Some(step).Filter(held => held.Years is 0 && held.Months is 0 && held.ToDuration() >= grain)
-             .ToFin(Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study step {step} is no positive count of {grain}")))
+             .ToFin(new RhinoFault($"step = {step}", RhinoReason.Outside))
              .Bind(held => Conversions.Whole(held.ToDuration(), grain)))
             .Apply((_, count) => window(start, end, count))
             .As();

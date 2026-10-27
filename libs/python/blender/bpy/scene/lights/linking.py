@@ -13,10 +13,9 @@ from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import Descriptor, root_in
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.scene.collections import entry, founded, joined, Member as Linkable, parted
+from blender.bpy.scene.collections import entry, founded, joined, Member, parted
 from blender.bpy.scene.objects import focused
 from blender.bpy.ui.layout import rows
-from blender.bpy.ui.layout.rows import Member, OperatorButton
 from blender.bpy.ui.layout.templates import LightLinking
 from blender.records.faults import accumulated, Outcome, paired
 
@@ -58,8 +57,8 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
         reach = Some(lambda context: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)).map(lambda item: item.light_linking))
         return accumulated(
             paired(
-                LightLinking(target=Member(root=bpy.types.ObjectLightLinking, path=descriptor.prop.identifier, reach=reach)).drawn(identity),
-                rows.placed((OperatorButton(target=link), OperatorButton(target=unlink)), identity),
+                LightLinking(target=rows.Member(root=bpy.types.ObjectLightLinking, path=descriptor.prop.identifier, reach=reach)).drawn(identity),
+                rows.placed((rows.OperatorButton(target=link), rows.OperatorButton(target=unlink)), identity),
             ).map(lambda pair: rows.joined((pair[0], *pair[1])))
             for descriptor in self.sets
             for link, unlink in (commands[descriptor],)
@@ -113,7 +112,7 @@ def link_set(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProper
 
 
 def linked(
-    emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProperty], members: tuple[Linkable, ...], state: str, owner: bpy.types.Object, identity: Identity
+    emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProperty], members: tuple[Member, ...], state: str, owner: bpy.types.Object, identity: Identity
 ) -> Outcome[bpy.types.Collection]:
     """Links members into emitter set at state.
 

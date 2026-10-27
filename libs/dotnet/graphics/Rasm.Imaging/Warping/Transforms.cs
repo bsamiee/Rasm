@@ -120,7 +120,7 @@ public static class QuadWarp {
                 Matrix<double> map = Matrix<double>.Build.DenseOfRowMajor(3, 3, [frame.Extent.Width, 0d, -left, 0d, frame.Extent.Height, -top, 0d, 0d, 1d])
                     * quad.Homography.Inverse()
                     * Matrix<double>.Build.DenseOfRowMajor(3, 3, [1d, 0d, left, 0d, 1d, top, 0d, 0d, 1d]);
-                using Mat source = CoordinateMap.Premultiplied(frame);
+                using Mat source = frame.Premultiplied();
                 using Mat perspective = new(3, 3, DepthType.Cv64F, 1);
                 perspective.SetTo(map.ToRowMajorArray());
                 CvInvoke.WarpPerspective(source, target, perspective, source.Size, sampling.Interpolation, Warp.InverseMap, wrap.Border, default);
@@ -128,7 +128,7 @@ public static class QuadWarp {
                 (double across, double down, double constant) = (map[2, 0], map[2, 1], map[2, 2]);
                 for (int row = 0; row < pixels.Height; row++)
                     for (int column = 0; column < pixels.Width; column++)
-                        pixels[row, column] = (across * column) + (down * row) + constant > 0d ? CoordinateMap.Unassociated(pixels[row, column]) : Vector4.Zero;
+                        pixels[row, column] = (across * column) + (down * row) + constant > 0d ? pixels[row, column].Unassociated : Vector4.Zero;
                 progress.Report(frame.Size.Height);
                 return unit;
             }));

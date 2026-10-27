@@ -1,7 +1,7 @@
+using System.Drawing;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.Intrinsics;
-using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using Emgu.CV;
 using Rasm.Imaging.Color;
@@ -16,8 +16,8 @@ namespace Rasm.Imaging.Filtering;
 [SmartEnum<string>]
 public sealed partial class SortMetric {
     public static readonly SortMetric Luma = new("luma", static (color, weights) => Gamut.RelativeLuminance(color.X, color.Y, color.Z, weights));
-    public static readonly SortMetric Hue = new("hue", static (color, _) => RangeAxis.Hue.Coordinate(Hsy.From(color)));
-    public static readonly SortMetric Saturation = new("saturation", static (color, _) => RangeAxis.Saturation.Coordinate(Hsy.From(color)));
+    public static readonly SortMetric Hue = new("hue", static (color, _) => RangeAxis.Hue.Coordinate(Hsy.HueOf(color)));
+    public static readonly SortMetric Saturation = new("saturation", static (color, _) => RangeAxis.Saturation.Coordinate(Hsy.SaturationOf(color, Hsy.LumaOf(color))));
 
     [UseDelegateFromConstructor]
     public partial double Level(Vector4 color, (double R, double G, double B) weights);
@@ -50,14 +50,14 @@ public sealed partial class SortDirection {
         return Transposed ? new PixelPass.Frame(Columns) : rows;
 
         Fin<Unit> Columns(PixelFrame frame, IProgress<int> progress) => frame.Filter(header => {
-            using Mat lines = new();
+            PixelFrame transposed = new(Point.Empty, frame.Size.Transposed, frame.Size.Transposed);
+            using Mat lines = transposed.Header();
             CvInvoke.Transpose(header, lines);
-            Span2D<Vector4> pixels = lines.View<Vector4>();
-            for (int y = 0; y < pixels.Height; y++)
-                rows.Row(pixels.GetRowSpan(y), 0, y);
-            CvInvoke.Transpose(lines, header);
-            progress.Report(frame.Size.Height);
-            return unit;
+            return rows.Run(transposed, new Progress<int>()).Map(_ => {
+                CvInvoke.Transpose(lines, header);
+                progress.Report(frame.Size.Height);
+                return unit;
+            });
         });
     }
 }
@@ -87,8 +87,8 @@ public static class Reduction {
     private static Vector4 Leveled(Vector4 pixel, double steps, double offset, float retainHue) =>
         (Vector256.Floor((Vector256.Clamp(Vector256.Create(pixel.X, pixel.Y, pixel.Z, 0d), Vector256<double>.Zero, Vector256.Create(1d)) * steps) + Vector256.Create(0.5d + offset)) / steps) switch {
             var codes => new Vector4((float)codes.GetElement(0), (float)codes.GetElement(1), (float)codes.GetElement(2), pixel.W) switch {
-                var level when retainHue > 0f => Hsy.From(level) switch {
-                    var leveled => new Vector4(Vector3.Lerp(level.AsVector3(), Hsy.ToRgb((Hsy.From(pixel).Hue, leveled.Saturation, leveled.Luma), pixel.W).AsVector3(), retainHue), pixel.W),
+                var level when retainHue > 0f => Hsy.LumaOf(level) switch {
+                    var luma => new Vector4(Vector3.Lerp(level.AsVector3(), Hsy.ToRgb(Hsy.HueOf(pixel), Hsy.SaturationOf(level, luma), luma, pixel.W).AsVector3(), retainHue), pixel.W),
                 },
                 var level => level,
             },

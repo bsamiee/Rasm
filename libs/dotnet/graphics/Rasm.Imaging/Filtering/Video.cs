@@ -60,8 +60,7 @@ public static class SystemM {
 
     public static long Frame(double seconds) => (long)double.Floor(seconds * 30000d / 1001d);
 
-    public static long Line(long row, int lines, int height) =>
-        Int128.DivRem((Int128)row * lines, height) switch { var (quotient, remainder) => (long)(remainder < 0 ? quotient - 1 : quotient) };
+    public static long Line(long row, int lines, int height) => (long)CellGrid.Floored((Int128)row * lines, height).Quotient;
 }
 
 public static class VideoKernels {
@@ -74,12 +73,12 @@ public static class VideoKernels {
     });
 
     public static Fin<Mat> Echo(double sigma, double delay, float share) => PixelSampling.KernelTaps<int>(double.Abs(delay) + (3d * sigma)).Map(count => {
-        long integral = long.CreateChecked(Math.Round(delay, MidpointRounding.ToEven));
+        long integral = long.CreateChecked(double.Round(delay, MidpointRounding.ToEven));
         double fraction = delay - integral;
-        double nearest = Math.Abs(fraction);
+        double nearest = double.Abs(fraction);
         double[] shape = [.. Enumerable.Range(0, count)
-            .Select(tap => Math.Abs(tap - (count / 2) + integral + fraction))
-            .Select(distance => sigma > 0d ? Math.Exp((distance - nearest) * (distance + nearest) * -0.5d / sigma / sigma) : Math.Max(1d - distance, 0d))];
+            .Select(tap => double.Abs(tap - (count / 2) + integral + fraction))
+            .Select(distance => sigma > 0d ? double.Exp((distance - nearest) * (distance + nearest) * -0.5d / sigma / sigma) : double.Max(1d - distance, 0d))];
         TensorPrimitives.Multiply(shape, share / TensorPrimitives.Sum(shape), shape);
         shape[count / 2] += 1d - share;
         Mat taps = new(count, 1, DepthType.Cv64F, 1);
@@ -264,7 +263,7 @@ public static class VideoKernels {
 
     public static Fin<Unit> Recompressed(PixelFrame frame, JpegEncoder encoder, int generations, Option<int> coded, IProgress<int> progress) {
         int height = coded.IfNone(frame.Size.Height);
-        double width = double.Max(1d, Math.Round((double)frame.Size.Width * height / frame.Size.Height, MidpointRounding.ToEven));
+        double width = double.Max(1d, double.Round((double)frame.Size.Width * height / frame.Size.Height, MidpointRounding.ToEven));
         return from size in width > int.MaxValue ? new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"coded frame {width}x{height}"), ImagingReason.Oversize) : PixelExtent.Validated((int)width, height)
                from counted in ImagingFault.Unless(generations >= 1, ImagingReason.Range, generations)
                let working = size == frame.Size ? frame : new PixelFrame(System.Drawing.Point.Empty, size, size, block =>

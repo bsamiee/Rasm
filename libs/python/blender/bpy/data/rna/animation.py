@@ -5,13 +5,13 @@ from typing import Annotated, TYPE_CHECKING
 
 import bpy
 from bpy_extras import anim_utils
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 import numpy as np
 from numpy.typing import NDArray
 
-from blender.bpy.data.rna.descriptors import Descriptor, member_path, struct_at, Value, written
+from blender.bpy.data.rna.descriptors import Descriptor, struct_at, Value, written
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.fields import Case
@@ -79,7 +79,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def path(self) -> str:
         """RNA data path of channel without array index."""
-        return member_path(self.struct, self.member)
+        return ".".join(filter(None, (self.struct, self.member)))
 
     def channel(self, owner: bpy.types.ID) -> Outcome[bpy.types.Property]:
         """Returns animatable property at member and index."""
@@ -323,11 +323,11 @@ def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int 
                 case bpy.types.BoolProperty():
                     return Ok(tuple((values > (np.float32(1) - np.spacing(np.float32(1)))).astype(float).tolist()))
                 case bpy.types.IntProperty():
-                    return Ok(tuple(float(min(max(int(value), prop.hard_min), prop.hard_max)) for value in values))
+                    return Ok(tuple(values.astype(np.int64).clip(prop.hard_min, prop.hard_max).astype(float).tolist()))
                 case bpy.types.FloatProperty():
                     return Ok(tuple(values.clip(prop.hard_min, prop.hard_max).astype(float).tolist()))
                 case bpy.types.EnumProperty():
-                    return Ok(tuple(float(int(value)) for value in values))
+                    return Ok(tuple(values.astype(np.int64).astype(float).tolist()))
                 case _:
                     return Error((
                         Fault(
@@ -361,7 +361,7 @@ def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int 
 
 def _animation_data(owner: bpy.types.ID) -> Option[bpy.types.AnimData]:
     """Returns owner's animation data, Nothing for an ID kind that holds none."""
-    return struct_at(owner, "animation_data").bind(lambda data: Some(data) if isinstance(data, bpy.types.AnimData) else Nothing)
+    return struct_at(owner, ("animation_data",)).bind(lambda data: Option.of_optional(try_downcast(bpy.types.AnimData, data)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

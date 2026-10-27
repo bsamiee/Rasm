@@ -5,10 +5,10 @@ using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using Rasm.Imaging.Tone;
-using Rasm.Rhino;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Render.Settings;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Persistence;
+using Rasm.RhinoCommon.Render.Settings;
 using Rhino;
 using Rhino.Render;
 using Thinktecture.Text.Json.Serialization;
@@ -85,7 +85,7 @@ public abstract partial class TargetFile {
         public override IO<Unit> Write(RhinoDoc doc, SaveSource source, OutputTarget target, FileMetadata metadata, OutputPath path, bool overwrite) =>
             IO.lift(() => Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{Extension}")).Bind(scratch =>
                 (from saved in IO.lift(() => source.Rendering.SaveRenderImageAs(scratch, target.Alpha))
-                 from found in IO.lift(() => Refused.UnlessFound(File.Exists(scratch), nameof(RenderWindow.SaveRenderImageAs)))
+                 from found in IO.lift(() => RhinoFault.Unless(File.Exists(scratch)))
                  from written in FilePublication.Write(path, overwrite, stream =>
                      from read in use(() => File.OpenRead(scratch))
                      from copied in IO.liftAsync(async environment => {

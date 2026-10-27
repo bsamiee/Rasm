@@ -18,7 +18,7 @@ from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Soc
 from blender.bpy.render.compositor.colors import composed, inverted
 from blender.bpy.render.compositor.coordinates import Border, BORDERS, clocked, covered, entering, extended, lensed, origin, pinned, placement, Projective, reaimed, sampled, ShutterPoses, trailed
 from blender.bpy.render.compositor.effects import Alpha, Animates, Checks, CompositorEffect, Context, Derives, precise, Requests, Shell, shutter
-from blender.bpy.render.compositor.inputs import captured
+from blender.bpy.render.compositor.inputs import captured, valued
 from blender.bpy.render.compositor.layers import AFFINE
 from blender.bpy.scene.cameras import camera_type
 from blender.imaging.geometry.frames import Homography, Quad
@@ -153,7 +153,7 @@ def rows(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneComp
     """Derives the corner pin homography rows, the identity while the pin is off or its corners admit no strictly convex map."""
     return (
         captured(identity, entry)
-        .map(lambda snapshot: pin_quad({key: owner.values.get("value") for key, owner in snapshot.tree.owners.items() if key}))
+        .map(lambda snapshot: pin_quad(valued(snapshot)))
         .bind(lambda quad: quad.map(Homography.of).default_value(Ok(Nothing)))
         .map(lambda found: msgspec.structs.asdict(found.map(Projective.of).default_value(Projective())))
     )
@@ -169,7 +169,7 @@ def checked(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.
             check(camera_type("PERSP"), bpy.context, Some(scene)) if values.get("perspective_heading", 0.0) != 0.0 or values.get("perspective_elevation", 0.0) != 0.0 else Ok(None),
         )).map(lambda _: None)
 
-    return entry.map(lambda held: captured(identity, held).map(lambda snapshot: {key: owner.values.get("value") for key, owner in snapshot.tree.owners.items() if key}).bind(refused)).default_value(
+    return entry.map(lambda held: captured(identity, held).map(valued).bind(refused)).default_value(
         Ok(None)
     )
 

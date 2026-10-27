@@ -1,13 +1,13 @@
 using System.Drawing;
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.PlugIns;
 using Rhino.Render;
 using Rhino.UI;
 
-namespace Rasm.Rhino.Render.Content;
+namespace Rasm.RhinoCommon.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ContentPreviewRow(
@@ -20,7 +20,7 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : no
     // --- [FIELDS]
     private readonly IPlugInViews owner;
 
-    protected DefinedMaterial() => owner = HostedTypes.Owner(GetType());
+    protected DefinedMaterial() => owner = PlugInOwners.Owner(GetType());
 
     // --- [VALUES]
     protected abstract string Caption { get; }
@@ -41,12 +41,12 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : no
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = DrawingUtilities.BitmapFromSvg(Svg, size.Width, size.Height, adjustForDarkMode: true)) is not null;
 
     protected sealed override void OnAddUserInterfaceSections() =>
-        Callbacks.Run(IO.lift(() => Refused.Unless(AddAutomaticUserInterfaceSection(TypeName, 0), nameof(AddAutomaticUserInterfaceSection))), CallbackSite.Of(owner, this));
+        _ = owner.Run(IO.lift(() => RhinoFault.Unless(AddAutomaticUserInterfaceSection(TypeName, 0))));
 
     // --- [SIMULATION]
     public sealed override void SimulateMaterial(ref Material simulation, RenderTexture.TextureGeneration tg) {
         Material target = simulation;
-        if (!Callbacks.Succeeded(DisposalOps.Within(() => Simulation(State), built => IO.lift(() => target.CopyFrom(built))), CallbackSite.Of(owner, this)))
+        if (!owner.Answer(Products.Made(Simulation(State)).Bind(built => IO.lift(() => target.CopyFrom(built))).Map(value: true), failed: false))
             base.SimulateMaterial(ref simulation, tg);
     }
 }
@@ -55,7 +55,7 @@ public abstract class DefinedTexture<TState> : RenderTexture where TState : notn
     // --- [FIELDS]
     private readonly IPlugInViews owner;
 
-    protected DefinedTexture() => owner = HostedTypes.Owner(GetType());
+    protected DefinedTexture() => owner = PlugInOwners.Owner(GetType());
 
     // --- [VALUES]
     protected abstract string Caption { get; }
@@ -76,7 +76,7 @@ public abstract class DefinedTexture<TState> : RenderTexture where TState : notn
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = DrawingUtilities.BitmapFromSvg(Svg, size.Width, size.Height, adjustForDarkMode: true)) is not null;
 
     protected sealed override void OnAddUserInterfaceSections() =>
-        Callbacks.Run(IO.lift(() => Refused.Unless(AddAutomaticUserInterfaceSection(TypeName, 0), nameof(AddAutomaticUserInterfaceSection))), CallbackSite.Of(owner, this));
+        _ = owner.Run(IO.lift(() => RhinoFault.Unless(AddAutomaticUserInterfaceSection(TypeName, 0))));
 
     // --- [SIMULATION]
     public sealed override TextureEvaluator CreateEvaluator(TextureEvaluatorFlags evaluatorFlags) =>
@@ -92,7 +92,7 @@ public abstract class DefinedEnvironment<TState> : RenderEnvironment where TStat
     // --- [FIELDS]
     private readonly IPlugInViews owner;
 
-    protected DefinedEnvironment() => owner = HostedTypes.Owner(GetType());
+    protected DefinedEnvironment() => owner = PlugInOwners.Owner(GetType());
 
     // --- [VALUES]
     protected abstract string Caption { get; }
@@ -113,12 +113,12 @@ public abstract class DefinedEnvironment<TState> : RenderEnvironment where TStat
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = DrawingUtilities.BitmapFromSvg(Svg, size.Width, size.Height, adjustForDarkMode: true)) is not null;
 
     protected sealed override void OnAddUserInterfaceSections() =>
-        Callbacks.Run(IO.lift(() => Refused.Unless(AddAutomaticUserInterfaceSection(TypeName, 0), nameof(AddAutomaticUserInterfaceSection))), CallbackSite.Of(owner, this));
+        _ = owner.Run(IO.lift(() => RhinoFault.Unless(AddAutomaticUserInterfaceSection(TypeName, 0))));
 
     // --- [SIMULATION]
     public sealed override void SimulateEnvironment(ref SimulatedEnvironment simulation, bool isForDataOnly) {
         SimulatedEnvironment target = simulation;
-        if (!Callbacks.Succeeded(Simulation(State, target, isForDataOnly), CallbackSite.Of(owner, this)))
+        if (!owner.Answer(Simulation(State, target, isForDataOnly).Map(value: true), failed: false))
             base.SimulateEnvironment(ref simulation, isForDataOnly);
     }
 }

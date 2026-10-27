@@ -1,15 +1,16 @@
+using System.Collections.Generic;
 using QuikGraph;
 using QuikGraph.Algorithms;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Persistence.Stores;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Persistence;
+using Rasm.RhinoCommon.Persistence.Stores;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 
-namespace Rasm.Rhino.Blocks;
+namespace Rasm.RhinoCommon.Blocks;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -71,12 +72,12 @@ public static class Links {
 
     private static IO<Frontier> Visit(Frontier frontier, LinkedModel model) =>
         frontier.Readings.ContainsKey(model) ? IO.pure(frontier) : Read(model).Map(reading => frontier.Add(model, reading))
-            .Catch(static error => error.IsType<FileRefused>(),
+            .Catch(static error => error.IsExpected && !ErrorOps.Cancellation(error),
                 error => IO.pure(frontier.Add(model, error)));
 
     private static IO<LinkReading> Read(LinkedModel model) =>
         model.Switch(
-            opened: static opened => IO.lift(() => Refused.UnlessFound(RhinoDoc.FromRuntimeSerialNumber(opened.Document), nameof(RhinoDoc.FromRuntimeSerialNumber)))
+            opened: static opened => IO.lift(() => Conversions.Found(RhinoDoc.FromRuntimeSerialNumber(opened.Document)))
                 .Map(doc => new LinkReading(doc.ModelUnitSystem, None, Linked(opened, doc.InstanceDefinitions.GetList(ignoreDeleted: true)))),
             stored: static stored => IO.lift(() => InputPath.Of(stored.Path)).Bind(path => Archives.Read(
                 new ArchiveSource.Located(path, File3dm.TableTypeFilter.InstanceDefinition | File3dm.TableTypeFilter.Settings, File3dm.ObjectTypeFilter.InstanceReference),

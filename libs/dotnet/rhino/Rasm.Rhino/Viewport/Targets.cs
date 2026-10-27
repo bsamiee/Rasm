@@ -1,17 +1,16 @@
+using System.Collections.Generic;
 using Eto.Drawing;
-using Rasm.Rhino.Display;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Modeling;
-using Rasm.Rhino.Persistence.Stores;
+using Rasm.RhinoCommon.Display;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Stores;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
-using Rhino.DocObjects.Tables;
 using Rhino.UI;
 
-namespace Rasm.Rhino.Viewport;
+namespace Rasm.RhinoCommon.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -49,7 +48,7 @@ public sealed class ViewportRef : IDisposable {
     public RhinoViewport Viewport { get; }
 
     internal Fin<Unit> Commit() =>
-        pending.Case is DetailViewObject detail ? Refused.Unless(detail.CommitViewportChanges(), nameof(DetailViewObject.CommitViewportChanges)) : unit;
+        pending.Case is DetailViewObject detail ? RhinoFault.Unless(detail.CommitViewportChanges()) : unit;
 
     public void Dispose() => Viewport.Dispose();
 }
@@ -57,45 +56,40 @@ public sealed class ViewportRef : IDisposable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Viewports {
     // --- [RESOLUTION]
-    public static IO<ViewportRef> Resolve(RhinoDoc doc, ViewportTarget target, Action<IDisposable> retain) =>
-        Copies.Owned(
-            () => target.Switch(
+    public static IO<ViewportRef> Resolve(RhinoDoc doc, ViewportTarget target) =>
+        IO.lift(() => target.Switch(
                 doc,
-                active: static (document, _) => Refused.UnlessFound(document.Views.ActiveView, nameof(ViewTable.ActiveView))
+                active: static (document, _) => Conversions.Found(document.Views.ActiveView)
                     .Map(static view => new ViewportRef(view, view.ActiveViewport, None)),
-                named: static (document, named) => Refused.UnlessFound(document.Views.Find(named.Name, compareCase: false), nameof(ViewTable.Find))
+                named: static (document, named) => Conversions.Found(document.Views.Find(named.Name, compareCase: false))
                     .Map(static view => new ViewportRef(view, view.MainViewport, None)),
                 id: static (document, id) => document.Objects.FindId(id.ViewportId) is DetailViewObject detail
-                    ? Refused.UnlessFound(detail.ParentPageView, nameof(DetailViewObject.ParentPageView)).Map(page => Detailed(page, detail))
-                    : Refused.UnlessFound(document.Views.Find(id.ViewportId), nameof(ViewTable.Find)).Map(static view => new ViewportRef(view, view.MainViewport, None)),
-                serial: static (document, serial) => Optional(RhinoView.FromRuntimeSerialNumber(serial.ViewSerial))
-                    .Filter(view => view.Document?.RuntimeSerialNumber == document.RuntimeSerialNumber)
-                    .Map(static view => new ViewportRef(view, view.MainViewport, None))
-                    .ToFin(new Refused(nameof(RhinoView.FromRuntimeSerialNumber), Refused.Absent))),
-            static answer => answer,
-            static answer => IO.lift(() => { _ = answer.IfSucc(static row => row.Dispose()); }),
-            retain);
+                    ? Conversions.Found(detail.ParentPageView).Map(page => Detailed(page, detail))
+                    : Conversions.Found(document.Views.Find(id.ViewportId)).Map(static view => new ViewportRef(view, view.MainViewport, None)),
+                serial: static (document, serial) => Conversions.Found(Optional(RhinoView.FromRuntimeSerialNumber(serial.ViewSerial))
+                        .Filter(view => view.Document?.RuntimeSerialNumber == document.RuntimeSerialNumber))
+                    .Map(static view => new ViewportRef(view, view.MainViewport, None))))
+            .Bind(static row => use(() => row));
 
-    public static IO<Seq<ViewportRef>> Resolve(RhinoDoc doc, ViewportSet set, Action<IDisposable> retain) =>
+    public static IO<Seq<ViewportRef>> Resolve(RhinoDoc doc, ViewportSet set) =>
         set.Switch(
-            (Document: doc, Retain: retain),
-            one: static (state, one) => Resolve(state.Document, one.Target, state.Retain).Map(static row => Seq(row)),
-            every: static (state, every) => Copies.Owned(
-                () => toSeq(state.Document.Views.GetViewList(every.Filter)) switch {
-                    var views => views.Filter(static view => view is not RhinoPageView).Map(static view => new ViewportRef(view, view.MainViewport, None))
-                        + Rows(Pages(views.Choose(static view => Optional(view as RhinoPageView))), every.Details),
-                },
-                static rows => IO.pure(rows),
-                DisposalOps.Release,
-                state.Retain),
-            group: static (state, grouped) => TableOps.Find(state.Document.PageViewGroups, grouped.Address, includeDeleted: false)
-                .Bind(found => Copies.Owned(() => Rows(Pages(found.GetMembers()), grouped.Details), static rows => IO.pure(rows), DisposalOps.Release, state.Retain)));
+            doc,
+            one: static (document, one) => Resolve(document, one.Target).Map(static row => Seq(row)),
+            every: static (document, every) => IO.lift(() => toSeq(document.Views.GetViewList(every.Filter)) switch {
+                var views => views.Filter(static view => view is not RhinoPageView).Map(static view => new ViewportRef(view, view.MainViewport, None))
+                    + Rows(Pages(views.Choose(static view => Optional(view as RhinoPageView))), every.Details),
+            }).Bind(Owned),
+            group: static (document, grouped) => TableOps.Find(document.PageViewGroups, grouped.Address, includeDeleted: false)
+                .Bind(found => IO.lift(() => Rows(Pages(found.GetMembers()), grouped.Details)).Bind(Owned)));
 
     public static IO<T> With<T>(RhinoDoc doc, ViewportTarget target, Func<ViewportRef, IO<T>> body) =>
-        DisposalOps.Within<IDisposable, T>(retain => Resolve(doc, target, retain).Bind(body), DisposalOps.Release);
+        Resolve(doc, target).Bind(body).Bracket();
 
     internal static Seq<RhinoPageView> Pages(IEnumerable<RhinoPageView> pages) =>
         toSeq(pages.OrderBy(static page => page.PageNumber)).Strict();
+
+    private static IO<Seq<ViewportRef>> Owned(Seq<ViewportRef> rows) =>
+        rows.TraverseM(static row => use(() => row)).As();
 
     private static Seq<ViewportRef> Rows(Seq<RhinoPageView> pages, bool details) =>
         pages.Bind(page => new ViewportRef(page, page.MainViewport, None)
@@ -106,35 +100,34 @@ public static class Viewports {
 
     // --- [EDITS]
     public static IO<Seq<bool>> Edit(RhinoDoc doc, ViewportSet set, Func<RhinoViewport, IO<Unit>> edit, RedrawPolicy redraw) =>
-        Commits.WithinRedraw(doc, redraw, DisposalOps.Within((Action<IDisposable> retain) =>
-            Resolve(doc, set, retain).Bind(rows => Callbacks.Each(rows.Map(row =>
-                from before in IO.lift(() => row.Viewport.ChangeCounter)
-                from edited in edit(row.Viewport)
-                from moved in IO.lift(() => row.Viewport.ChangeCounter != before)
-                from committed in IO.lift(row.Commit)
-                select moved))),
-            DisposalOps.Release));
+        Commits.WithinRedraw(doc, redraw, Resolve(doc, set).Bind(rows => Callbacks.Each(rows.Map(row =>
+            from before in IO.lift(() => row.Viewport.ChangeCounter)
+            from edited in edit(row.Viewport)
+            from moved in IO.lift(() => row.Viewport.ChangeCounter != before)
+            from committed in IO.lift(row.Commit)
+            select moved))).Bracket());
 
     // --- [SIGNALS]
     public static HostEvent<Guid> Changed(RhinoDoc doc) =>
-        Subscriptions.Host(typeof(Viewports), () => doc.RuntimeSerialNumber switch {
-            var serial => Seq(EventKind.RhinoViewRename, EventKind.RhinoViewSetActive, EventKind.RhinoViewModified)
+        doc.RuntimeSerialNumber switch {
+            var serial => Subscriptions.Merged(
+                Seq(EventKind.RhinoViewRename, EventKind.RhinoViewSetActive, EventKind.RhinoViewModified)
                     .Map(row => row.In(serial).Choose(static args => Some(args.View.ActiveViewportID)))
                 + Seq(
                     EventKind.ViewportProjectionChanged.In(serial).Choose(static args => Some(args.Viewport.Id)),
                     EventKind.DisplayModeChanged.In(serial).Choose(DisplayModes.Switched),
                     EventKind.PageViewSpaceChange.In(serial).Choose(static args => Conversions.Present(args.NewActiveDetailId) || Optional(args.PageView).Map(static page => page.MainViewport.Id)),
-                    EventKind.PageViewPropertiesChange.In(serial).Choose(static args => Optional(args.PageView).Map(static page => page.MainViewport.Id))),
-        });
+                    EventKind.PageViewPropertiesChange.In(serial).Choose(static args => Optional(args.PageView).Map(static page => page.MainViewport.Id)))),
+        };
 
     internal static HostEvent<Unit> Changed(RhinoDoc doc, ViewportTarget target) =>
-        Changed(doc).Choose(id => Callbacks.Found(
+        Changed(doc).Choose(id => Conversions.Found(
             target.Switch(id, active: static (_, _) => true, named: static (_, _) => true, id: static (changed, held) => held.ViewportId == changed, serial: static (_, _) => true), unit));
 
     public static HostEvent<RhinoView> Framed(RhinoDoc doc) =>
         EventKind.DrawForeground.In(doc.RuntimeSerialNumber)
             .Choose(static args => Optional(args.Viewport.ParentView))
-            .DistinctUntilChanged(static view => (view.RuntimeSerialNumber, view.ScreenRectangle));
+            .DistinctUntilChanged(static view => view.RuntimeSerialNumber, static view => view.ScreenRectangle);
 
     // --- [STORES]
     public static ValueStore<T> Member<T>(
@@ -148,7 +141,7 @@ public static class Viewports {
 
     // --- [SCREEN]
     public static IO<RectangleF> Frame(RhinoView view) =>
-        from window in IO.lift(() => Refused.UnlessFound(RhinoEtoApp.MainWindowForDocument(view.Document), nameof(RhinoEtoApp.MainWindowForDocument)))
+        from window in IO.lift(() => Conversions.Found(RhinoEtoApp.MainWindowForDocument(view.Document)))
         from frame in IO.lift(() => view.ScreenRectangle)
         select new RectangleF(frame.X, frame.Y, frame.Width, frame.Height) / window.LogicalPixelSize;
 

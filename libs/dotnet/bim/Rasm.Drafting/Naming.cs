@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace Rasm.Drafting;
@@ -199,7 +200,7 @@ public sealed partial class StandardName : IComparable<StandardName> {
 
     private StandardName Resequenced(Seq<int> sequences) =>
         Sequence.Map(sequence => new StandardName(Standard, Fields.SetItem(sequence.Field,
-            (sequences.Fold(sequence.Value, Math.Min) + sequences.TakeWhile(other => other != sequence.Value).Count).ToString(CultureInfo.InvariantCulture).PadLeft(sequence.Text.Length, '0')))).IfNone(this);
+            (sequences.Fold(sequence.Value, int.Min) + sequences.TakeWhile(other => other != sequence.Value).Count).ToString(CultureInfo.InvariantCulture).PadLeft(sequence.Text.Length, '0')))).IfNone(this);
 
     private static bool Accepts(NamingStandard standard, HashMap<NameField, string> fields) =>
         standard.Fields.ForAll(field => fields.Find(field).Match(Some: field.Allows, None: () => !field.Required))

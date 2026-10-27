@@ -48,14 +48,12 @@ public sealed record Gamut {
     public Option<string> InteropId { get; }
 
     public Chromaticities Chromaticities => new(
-        (float)Rgb.ChromaticityR.X, (float)Rgb.ChromaticityR.Y,
-        (float)Rgb.ChromaticityG.X, (float)Rgb.ChromaticityG.Y,
-        (float)Rgb.ChromaticityB.X, (float)Rgb.ChromaticityB.Y,
-        (float)Rgb.WhitePoint.Chromaticity.X, (float)Rgb.WhitePoint.Chromaticity.Y);
+        (float)Rgb.ChromaticityR.X, (float)Rgb.ChromaticityR.Y, (float)Rgb.ChromaticityG.X, (float)Rgb.ChromaticityG.Y,
+        (float)Rgb.ChromaticityB.X, (float)Rgb.ChromaticityB.Y, (float)Rgb.WhitePoint.Chromaticity.X, (float)Rgb.WhitePoint.Chromaticity.Y);
 
-    public Matrix<double> ToXyz => Columns(basis => new Unicolour(Configuration, ColourSpace.RgbLinear, basis).Xyz.Tuple);
+    public Matrix<double> ToXyz => Columns(Configuration, ColourSpace.RgbLinear, static color => color.Xyz);
 
-    public Matrix<double> FromXyz => Columns(basis => new Unicolour(Configuration, ColourSpace.Xyz, basis).RgbLinear.Tuple);
+    public Matrix<double> FromXyz => Columns(Configuration, ColourSpace.Xyz, static color => color.RgbLinear);
 
     public (double R, double G, double B) Luminance => Luminances(this);
 
@@ -74,29 +72,23 @@ public sealed record Gamut {
 
     public Matrix<double> Adapting(WhitePoint source, WhitePoint destination) =>
         (new Configuration(xyzConfig: new XyzConfiguration(source)), new Configuration(xyzConfig: new XyzConfiguration(destination))) switch {
-            var (from, to) => Columns(basis => new Unicolour(
-                Configuration, ColourSpace.Xyz,
-                new Unicolour(from, ColourSpace.Xyz, new Unicolour(Configuration, ColourSpace.RgbLinear, basis).Xyz.Tuple).ConvertToConfiguration(to).Xyz.Tuple).RgbLinear.Tuple),
+            var (from, to) => Columns(Configuration, ColourSpace.RgbLinear, color => new Unicolour(Configuration, ColourSpace.Xyz, new Unicolour(from, ColourSpace.Xyz, color.Xyz.Tuple).ConvertToConfiguration(to).Xyz.Tuple).RgbLinear),
         };
 
-    public static Matrix<double> Between(Configuration from, Configuration to) =>
-        Columns(basis => new Unicolour(from, ColourSpace.RgbLinear, basis).ConvertToConfiguration(to).RgbLinear.Tuple);
+    public static Matrix<double> Between(Configuration from, Configuration to) => Columns(from, ColourSpace.RgbLinear, color => color.ConvertToConfiguration(to).RgbLinear);
 
-    public static Matrix<double> ToYpbpr(YbrConfiguration ybr) =>
-        new Configuration(ybrConfig: ybr) switch {
-            var configuration => Columns(basis => new Unicolour(configuration, ColourSpace.Rgb, basis).Ypbpr.Tuple),
-        };
+    public static Matrix<double> ToYpbpr(YbrConfiguration ybr) => Columns(new Configuration(ybrConfig: ybr), ColourSpace.Rgb, static color => color.Ypbpr);
 
-    public static Matrix<double> FromYpbpr(YbrConfiguration ybr) =>
-        new Configuration(ybrConfig: ybr) switch {
-            var configuration => Columns(basis => new Unicolour(configuration, ColourSpace.Ypbpr, basis).Rgb.Tuple),
-        };
+    public static Matrix<double> FromYpbpr(YbrConfiguration ybr) => Columns(new Configuration(ybrConfig: ybr), ColourSpace.Ypbpr, static color => color.Rgb);
 
     public static Matrix<double> Columns(Func<(double, double, double), (double, double, double)> column) =>
         (column((1d, 0d, 0d)), column((0d, 1d, 0d)), column((0d, 0d, 1d))) switch {
             var ((r1, g1, b1), (r2, g2, b2), (r3, g3, b3)) =>
                 Matrix<double>.Build.DenseOfColumnMajor(3, 3, [r1, g1, b1, r2, g2, b2, r3, g3, b3]),
         };
+
+    private static Matrix<double> Columns(Configuration configuration, ColourSpace space, Func<Unicolour, ColourRepresentation> read) =>
+        Columns(basis => read(new Unicolour(configuration, space, basis)).Tuple);
 
     private static double Relative(Gamut gamut, (double, double, double) basis) => new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, basis).RelativeLuminance;
 

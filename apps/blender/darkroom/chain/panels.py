@@ -99,13 +99,17 @@ class EffectBody(Line, frozen=True, kw_only=True):
         def bound(held: Struct) -> Member:
             return Member(root=type(held), path="value", reach=Some(lambda _context: Some(held)))
 
-        def listed(layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree, context: bpy.types.Context) -> Outcome[None]:
+        def listed(layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, interface: bpy.types.NodeTreeInterface, context: bpy.types.Context) -> Outcome[None]:
+            def named(socket: bpy.types.NodeTreeInterfaceSocket) -> str:
+                parent: bpy.types.NodeTreeInterfacePanel = socket.parent  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                return f"{parent.name} > {socket.name}" if parent.name else socket.name
+
             def lockable(addresses: Mapping[Key, str]) -> tuple[tuple[str, Key], ...]:
-                live = {item.identifier: item for item in group.interface.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"}  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                live = {item.identifier: item for item in interface.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"}
                 return (
                     *((enabled.value.name, enabled.value.identifier) for enabled in Enabled),
                     *(
-                        (f"{socket.parent.name} > {socket.name}" if socket.parent.name else socket.name, key)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                        (named(socket), key)
                         for key, identifier in addresses.items()
                         if key != Shell.image
                         for socket in Option.of_optional(live.get(identifier)).to_list()
@@ -113,16 +117,15 @@ class EffectBody(Line, frozen=True, kw_only=True):
                     ),
                 )
 
+            def lined(inner: bpy.types.UILayout, locks: Locks, name: str, key: Key) -> Outcome[None]:
+                line = inner.row(align=True)
+                line.label(text=name)
+                return realized(locks(Some(key)), identity).map(lambda draw: draw(line, entry, context))
+
             def drawn(names: tuple[tuple[str, Key], ...]) -> Outcome[None]:
                 header, body = layout.panel(f"{entry.name}_locks", default_closed=True)
                 header.label(text="Setup Locks")
-                answers: list[Outcome[None]] = []
-                for inner in Option.of_optional(body).to_list():
-                    for name, key in names:
-                        line = inner.row(align=True)
-                        line.label(text=name)
-                        answers.extend(realized(locks(Some(key)), identity).map(lambda draw: draw(line, entry, context)) for locks in self.locks.to_list())
-                return accumulated(answers).map(lambda _: None)
+                return accumulated(lined(inner, locks, *pair) for inner in Option.of_optional(body).to_list() for locks in self.locks.to_list() for pair in names).map(lambda _: None)
 
             return keyed(identity, entry).map(lambda pair: lockable(pair[1])).bind(drawn) if self.locks.is_some() else Ok(None)
 
@@ -150,7 +153,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
 
                 return accumulated(
                     wheel(panel, color.identifier, luma.identifier)
-                    for panel in group.interface.items_tree  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                    for panel in interface.items_tree
                     if isinstance(panel, bpy.types.NodeTreeInterfacePanel)
                     for color, luma in (tuple(panel.interface_items),)
                     if isinstance(color, bpy.types.NodeTreeInterfaceSocketColor) and isinstance(luma, bpy.types.NodeTreeInterfaceSocketFloat)
@@ -189,7 +192,8 @@ class EffectBody(Line, frozen=True, kw_only=True):
                     lambda _: None
                 )
 
-            return wheeled().bind(lambda _: edited()).bind(lambda _: attached()).bind(lambda _: listed(layout, entry, group, context))
+            interface: bpy.types.NodeTreeInterface = group.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return wheeled().bind(lambda _: edited()).bind(lambda _: attached()).bind(lambda _: listed(layout, entry, interface, context))
 
         def notices(layout: bpy.types.UILayout, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, row: CompositorEffect[Effect], context: bpy.types.Context) -> Outcome[None]:
             order = tuple(scene.compositor_effects)

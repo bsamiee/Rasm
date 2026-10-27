@@ -1,9 +1,9 @@
 using System.Drawing;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino;
-using Rasm.Rhino.Render.Sessions;
-using Rasm.Rhino.Render.Settings;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Render.Sessions;
+using Rasm.RhinoCommon.Render.Settings;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
@@ -30,9 +30,9 @@ public sealed class OverscanFrame {
     public IO<Unit> Widen(ViewportInfo view) =>
         IO.lift(() => {
             view.FrustumAspect = (double)Frame.Width / Frame.Height;
-            return Refused.Unless(view.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out double far), nameof(ViewportInfo.GetFrustum))
+            return RhinoFault.Unless(view.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out double far))
                 .Bind(_ => ((right - left) * Pad.Width / Frame.Width, (top - bottom) * Pad.Height / Frame.Height) switch {
-                    var (x, y) => Refused.Unless(view.SetFrustum(left - x, right + x, bottom - y, top + y, near, far), nameof(ViewportInfo.SetFrustum)),
+                    var (x, y) => RhinoFault.Unless(view.SetFrustum(left - x, right + x, bottom - y, top + y, near, far)),
                 });
         });
 
@@ -42,13 +42,9 @@ public sealed class OverscanFrame {
 public sealed record RenderOverride(RenderSettings Settings, Option<float> Clay) {
     // --- [SCOPE]
     public IO<T> Around<T>(RhinoDoc doc, IPlugInViews views, IO<T> launch) =>
-        DisposalOps.Within(
-            RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => IO.lift(scope.Settings.Duplicate)),
-            _ => DisposalOps.Within<IDisposable, T>(retain =>
-                    from applied in RenderSettingsSources.Edit(doc, Settings)
-                    from clay in Clay.Traverse(albedo => ClayMeshProvider.Register(views, doc, albedo, retain)).As()
-                    from launched in launch
-                    select launched,
-                DisposalOps.Release),
-            prior => RenderSettingsSources.Edit(doc, prior));
+        RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => IO.lift(scope.Settings.Duplicate)).Bind(prior =>
+            (from applied in RenderSettingsSources.Edit(doc, Settings)
+             from clay in Clay.Traverse(albedo => ClayMeshProvider.Register(views, doc, albedo)).As()
+             from launched in launch
+             select launched).Bracket().Finally(RenderSettingsSources.Edit(doc, prior)));
 }

@@ -13,14 +13,14 @@ using Nanoray.Kiwi;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Grasshopper.Doc;
-using Rasm.Rhino;
+using Rasm.RhinoCommon;
 
 namespace Rasm.Grasshopper.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Distribution(Orientation Axis, Seq<Guid> Objects);
 
-public sealed record Arrangement(LanguageExt.HashSet<Guid> Objects, SnappingSettings Settings, Seq<Distribution> Distributions, Option<RectangleF> Frame);
+public sealed record Arrangement(HashSet<Guid> Objects, SnappingSettings Settings, Seq<Distribution> Distributions, Option<RectangleF> Frame);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record SnapSession(SnappingConstraints Constraints, RectangleF Start, Option<IDocumentObject> Primary) {
@@ -62,7 +62,7 @@ public static class CanvasLayout {
 
     private sealed record WireLevel(Guid Source, Guid Target, float Offset);
 
-    private static Seq<Footprint> Footprints(Document document, LanguageExt.HashSet<Guid> objects) =>
+    private static Seq<Footprint> Footprints(Document document, HashSet<Guid> objects) =>
         toSeq(document.Objects.Forwards)
             .Map(static (item, order) => new Footprint(item, order))
             .Filter(entry => objects.Contains(entry.Object.InstanceId) && (entry.Object switch {
@@ -94,7 +94,7 @@ public static class CanvasLayout {
             };
         }).Bind(moves => Moved(document, name, moves));
 
-    public static IO<bool> Snapped(Document document, LanguageExt.HashSet<Guid> objects, SnapSpace space, VerbNoun name) =>
+    public static IO<bool> Snapped(Document document, HashSet<Guid> objects, SnapSpace space, VerbNoun name) =>
         IO.lift(() => {
             return Changed(Footprints(document, objects).Map(row => (row, Pivot(row.Object.Attributes.Pivot))));
 
@@ -153,8 +153,8 @@ public static class CanvasLayout {
                 .OrderBy(rule => Math.Abs(rule.Edge(pair.A.Object.Attributes.AggregateBounds) - rule.Edge(pair.B.Object.Attributes.AggregateBounds))).Take(1))
             select (pair.A, pair.B, rule.Edge);
         Option<int> gap = axis is Orientation.Horizontal
-            ? Callbacks.Found(request.Settings.SpaceHorizontalGaps, request.Settings.HorizontalGapSize)
-            : Callbacks.Found(request.Settings.SpaceVerticalGaps, request.Settings.VerticalGapSize);
+            ? Conversions.Found(request.Settings.SpaceHorizontalGaps, request.Settings.HorizontalGapSize)
+            : Conversions.Found(request.Settings.SpaceVerticalGaps, request.Settings.VerticalGapSize);
         Seq<(Footprint A, Footprint B, Footprint C)> spread = request.Distributions.Filter(run => run.Axis == axis)
             .Map(run => run.Objects.Choose(id => rows.Find(row => row.Object.InstanceId == id)))
             .Bind(static run => run.Zip(run.Tail).Zip(run.Tail.Tail))

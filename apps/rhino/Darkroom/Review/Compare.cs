@@ -2,10 +2,10 @@ using Darkroom.Chain;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI;
 
 namespace Darkroom.Review;
 
@@ -50,8 +50,8 @@ public sealed class RenderingComparison : IDisposable {
     // --- [ACQUISITION]
     public static PlugInSlot<RenderingComparison> Slot { get; } = new();
 
-    public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Register { get; } = static (views, retain) =>
-        from comparison in DisposalOps.Acquire(IO.lift(static () => new RenderingComparison()), retain)
+    public static Func<IPlugInViews, IO<Unit>> Register { get; } = static views =>
+        from comparison in use(static () => new RenderingComparison())
         from published in Slot.Publish(views, comparison)
         select unit;
 
@@ -76,7 +76,7 @@ public sealed class RenderingComparison : IDisposable {
         select unit;
 
     private IO<Unit> Landed(TileRequest request) =>
-        from formed in DisposalOps.OnFailure(request.Formed(derivations), Withdrawn(request))
+        from formed in request.Formed(derivations).Catch(error => Withdrawn(request) >> IO.fail<PixelFrame>(error)).As()
         from landed in atomicIO(() => held.Swap(prior => prior.Request == Some(request) ? prior with { Reference = Some(formed) } : prior))
         select unit;
 

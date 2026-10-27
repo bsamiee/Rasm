@@ -38,11 +38,11 @@ public static class Results {
     public static Fin<Result> Of(Fin<Unit> settled) =>
         settled.Map(static _ => Result.Success).BindFail(static error =>
             Seq(Result.ExitRhino, Result.Cancel, Result.Nothing, Result.UnknownCommand)
-                .Find(toSeq(error.AsIterable()).Choose(static leaf => leaf is RhinoFault fault ? fault.Reason.Ending : Conversions.Found(leaf.Is(Errors.Cancelled), Result.Cancel)).Contains)
+                .Find(toHashSet(toSeq(error.AsIterable()).Choose(static leaf => leaf is RhinoFault fault ? fault.Reason.Ending : Conversions.Found(leaf.Is(Errors.Cancelled), Result.Cancel))).Contains)
                 .ToFin(error));
 
     public static IO<Result> Of(IO<Unit> effect) =>
-        effect.Map(static _ => Result.Success).Catch(static error => IO.lift(Of(Fin.Fail<Unit>(error))));
+        effect.Map(static _ => Result.Success).Catch(static error => IO.lift(Of(Fin.Fail<Unit>(error)))).As();
 }
 
 public static class CommandOps {
@@ -72,7 +72,7 @@ public static class CommandOps {
     // --- [IDENTITY]
     extension(Command command) {
         internal string HelpUrl([CallerMemberName] string member = "") =>
-            command.PlugIn.Answer(PlugInRegistry.ReadPlugIn(command.PlugIn.Id).Map(static state => Conversions.Unset(state.Bind(static held => held.WebSite))), "", member);
+            Conversions.Unset(command.PlugIn.Answer(PlugInRegistry.ReadPlugIn(command.PlugIn.Id).Map(static state => state.Bind(static held => held.WebSite)), Option<string>.None, member));
 
         internal Unit ShowHelp(Option<HelpTopic> topic, [CallerMemberName] string member = "") =>
             command.PlugIn.Run(

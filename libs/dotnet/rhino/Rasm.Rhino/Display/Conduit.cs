@@ -1,13 +1,14 @@
 using System.Drawing;
 using System.Runtime.InteropServices;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Viewport;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.UI;
+using Rasm.RhinoCommon.Viewport;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 
-namespace Rasm.Rhino.Display;
+namespace Rasm.RhinoCommon.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -47,7 +48,7 @@ public sealed partial class ConduitFilter {
 
     // --- [FACTORY]
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Option<bool> selectionFilter, ref Seq<Guid> objectIds, ref ObjectType geometryFilter, ref ActiveSpace spaceFilter) =>
-        validationError = spaceFilter is ActiveSpace.None or ActiveSpace.ModelSpace or ActiveSpace.PageSpace ? null : new RhinoFault($"space filter {spaceFilter} is not None, ModelSpace, or PageSpace");
+        validationError = spaceFilter is ActiveSpace.None or ActiveSpace.ModelSpace or ActiveSpace.PageSpace ? null : new RhinoFault($"spaceFilter = {spaceFilter}", RhinoReason.Outside);
 }
 
 [Union]
@@ -67,7 +68,7 @@ public sealed class FrameReadback {
         IO.lift(() => e.FrameBufferSize switch {
             { IsEmpty: true } => Option<T>.None,
             var size => (Stride: size.Width * 4, Length: size.Width * 4 * size.Height) switch {
-                var frame => Refused.Unless(e.TryCopyFrameBuffer(Marshal.UnsafeAddrOfPinnedArrayElement(Sized(frame.Length), 0), frame.Stride, frame.Length), nameof(e.TryCopyFrameBuffer))
+                var frame => RhinoFault.Unless(e.TryCopyFrameBuffer(Marshal.UnsafeAddrOfPinnedArrayElement(Sized(frame.Length), 0), frame.Stride, frame.Length))
                     .Map(_ => Some(read(size, buffer.AsMemory(0, frame.Length)))),
             },
         });
@@ -76,78 +77,71 @@ public sealed class FrameReadback {
         buffer.Length >= length ? buffer : buffer = GC.AllocateUninitializedArray<byte>(length, pinned: true);
 }
 
-internal abstract class SinkConduit : DisplayConduit {
-    protected SinkConduit(IPlugInSink sink, string member) => Site = new CallbackSite(sink, GetType(), member);
-
-    protected CallbackSite Site { get; }
+internal sealed class CalculateBoundingBoxConduit(Func<CalculateBoundingBoxEventArgs, IO<Option<BoundingBox>>> box, IPlugInViews owner) : DisplayConduit {
+    protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) => _ = owner.Run(IO.pure(e).Bind(box).Bind(found => IO.lift(() => found.Iter(e.IncludeBoundingBox))));
 }
 
-internal sealed class CalculateBoundingBoxConduit(Func<CalculateBoundingBoxEventArgs, IO<Option<BoundingBox>>> box, IPlugInSink sink) : SinkConduit(sink, nameof(CalculateBoundingBox)) {
-    protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) => Callbacks.Run(IO.pure(e).Bind(box).Bind(found => IO.lift(() => found.Iter(e.IncludeBoundingBox))), Site);
+internal sealed class CalculateBoundingBoxZoomExtentsConduit(Func<CalculateBoundingBoxEventArgs, IO<Option<BoundingBox>>> box, IPlugInViews owner) : DisplayConduit {
+    protected override void CalculateBoundingBoxZoomExtents(CalculateBoundingBoxEventArgs e) => _ = owner.Run(IO.pure(e).Bind(box).Bind(found => IO.lift(() => found.Iter(e.IncludeBoundingBox))));
 }
 
-internal sealed class CalculateBoundingBoxZoomExtentsConduit(Func<CalculateBoundingBoxEventArgs, IO<Option<BoundingBox>>> box, IPlugInSink sink) : SinkConduit(sink, nameof(CalculateBoundingBoxZoomExtents)) {
-    protected override void CalculateBoundingBoxZoomExtents(CalculateBoundingBoxEventArgs e) => Callbacks.Run(IO.pure(e).Bind(box).Bind(found => IO.lift(() => found.Iter(e.IncludeBoundingBox))), Site);
-}
-
-internal sealed class ObjectCullingConduit(Func<CullObjectEventArgs, IO<bool>> cullObject, IPlugInSink sink) : SinkConduit(sink, nameof(ObjectCulling)) {
+internal sealed class ObjectCullingConduit(Func<CullObjectEventArgs, IO<bool>> cullObject, IPlugInViews owner) : DisplayConduit {
     protected override void ObjectCulling(CullObjectEventArgs e) {
-        if (Callbacks.Answer(e, cullObject, static () => false, Site))
+        if (owner.Answer(IO.pure(e).Bind(cullObject), failed: false))
             e.CullObject = true;
     }
 }
 
-internal sealed class PreDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : SinkConduit(sink, nameof(PreDrawObjects)) {
-    protected override void PreDrawObjects(DrawEventArgs e) => Callbacks.Run(IO.pure(e).Bind(draw), Site);
+internal sealed class PreDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInViews owner) : DisplayConduit {
+    protected override void PreDrawObjects(DrawEventArgs e) => _ = owner.Run(IO.pure(e).Bind(draw));
 }
 
-internal sealed class PreDrawObjectConduit(Func<DrawObjectEventArgs, IO<bool>> drawObject, IPlugInSink sink) : SinkConduit(sink, nameof(PreDrawObject)) {
+internal sealed class PreDrawObjectConduit(Func<DrawObjectEventArgs, IO<bool>> drawObject, IPlugInViews owner) : DisplayConduit {
     protected override void PreDrawObject(DrawObjectEventArgs e) {
-        if (!Callbacks.Answer(e, drawObject, static () => true, Site))
+        if (!owner.Answer(IO.pure(e).Bind(drawObject), failed: true))
             e.DrawObject = false;
     }
 }
 
-internal sealed class PostDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : SinkConduit(sink, nameof(PostDrawObjects)) {
-    protected override void PostDrawObjects(DrawEventArgs e) => Callbacks.Run(IO.pure(e).Bind(draw), Site);
+internal sealed class PostDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInViews owner) : DisplayConduit {
+    protected override void PostDrawObjects(DrawEventArgs e) => _ = owner.Run(IO.pure(e).Bind(draw));
 }
 
-internal sealed class DrawForegroundConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : SinkConduit(sink, nameof(DrawForeground)) {
-    protected override void DrawForeground(DrawEventArgs e) => Callbacks.Run(IO.pure(e).Bind(draw), Site);
+internal sealed class DrawForegroundConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInViews owner) : DisplayConduit {
+    protected override void DrawForeground(DrawEventArgs e) => _ = owner.Run(IO.pure(e).Bind(draw));
 }
 
-internal sealed class DrawOverlayConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : SinkConduit(sink, nameof(DrawOverlay)) {
-    protected override void DrawOverlay(DrawEventArgs e) => Callbacks.Run(IO.pure(e).Bind(draw), Site);
+internal sealed class DrawOverlayConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInViews owner) : DisplayConduit {
+    protected override void DrawOverlay(DrawEventArgs e) => _ = owner.Run(IO.pure(e).Bind(draw));
 }
 
-internal sealed class PostProcessFrameBufferConduit(Func<PostProcessFrameBufferEventArgs, IO<Unit>> read, IPlugInSink sink) : SinkConduit(sink, nameof(PostProcessFrameBuffer)) {
-    protected override void PostProcessFrameBuffer(PostProcessFrameBufferEventArgs e) => Callbacks.Run(IO.pure(e).Bind(read), Site);
+internal sealed class PostProcessFrameBufferConduit(Func<PostProcessFrameBufferEventArgs, IO<Unit>> read, IPlugInViews owner) : DisplayConduit {
+    protected override void PostProcessFrameBuffer(PostProcessFrameBufferEventArgs e) => _ = owner.Run(IO.pure(e).Bind(read));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Conduits {
     // --- [LIFETIME]
-    public static IO<Unit> Enable(ConduitDefinition definition, RedrawPolicy redraw, IPlugInSink sink, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(own =>
-            from conduits in DisposalOps.Acquire(
-                IO.lift(() => toSeq(definition.Channels).Map(channel => Made(channel, definition.Filter, sink)).Strict()),
-                held => Redrawn(definition.Binding, redraw, IO.lift(() => held.Iter(static conduit => conduit.Enabled = false))), own)
-            from enabled in Redrawn(definition.Binding, redraw, definition.Binding.Switch(
-                (Conduits: conduits, Sink: sink, Retain: own),
-                everywhere: static (state, _) => IO.lift(() => state.Conduits.Iter(static conduit => conduit.Enabled = true)),
-                bound: static (state, bound) =>
-                    from rows in DisposalOps.Acquire(IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)), state.Retain)
-                    from first in Rebound(state.Conduits, bound, rows)
-                    from watched in Subscriptions.Host(typeof(Conduits), () => Seq(EventKind.RhinoViewCreate, EventKind.RhinoViewDestroy, EventKind.RhinoViewSetActive, EventKind.RhinoViewRename)
-                            .Map(row => row.In(bound.Document.RuntimeSerialNumber)))
-                        .Inline(_ => Rebound(state.Conduits, bound, rows), state.Sink, state.Retain)
-                    select unit))
-            select unit,
-            retain);
+    public static IO<Unit> Enable(ConduitDefinition definition, RedrawPolicy redraw, IPlugInViews owner) =>
+        from scope in IO.env
+        from conduits in use(
+            IO.lift(() => toSeq(definition.Channels).Map(channel => Made(channel, definition.Filter, owner)).Strict()),
+            held => Redrawn(definition.Binding, redraw, IO.lift(() => held.Iter(static conduit => conduit.Enabled = false))))
+        from enabled in Redrawn(definition.Binding, redraw, definition.Binding.Switch(
+            (Conduits: conduits, Owner: owner, Scope: scope),
+            everywhere: static (state, _) => IO.lift(() => state.Conduits.Iter(static conduit => conduit.Enabled = true)),
+            bound: static (state, bound) =>
+                from rows in IO.lift(static () => Ref(Option<Lease<Unit>>.None))
+                from first in Rebound(state.Conduits, bound, rows)
+                from watched in Subscriptions.Merged(Seq(EventKind.RhinoViewCreate, EventKind.RhinoViewDestroy, EventKind.RhinoViewSetActive, EventKind.RhinoViewRename)
+                        .Map(row => row.In(bound.Document.RuntimeSerialNumber)))
+                    .Inline(_ => Rebound(state.Conduits, bound, rows).Under(state.Scope), state.Owner)
+                select unit))
+        select unit;
 
-    private static DisplayConduit Made(ConduitChannel channel, ConduitFilter filter, IPlugInSink sink) =>
-        Filtered(channel.Switch<IPlugInSink, DisplayConduit>(
-            sink,
+    private static DisplayConduit Made(ConduitChannel channel, ConduitFilter filter, IPlugInViews owner) =>
+        Filtered(channel.Switch<IPlugInViews, DisplayConduit>(
+            owner,
             calculateBoundingBox: static (held, bounds) => new CalculateBoundingBoxConduit(bounds.Box, held),
             calculateBoundingBoxZoomExtents: static (held, bounds) => new CalculateBoundingBoxZoomExtentsConduit(bounds.Box, held),
             objectCulling: static (held, culling) => new ObjectCullingConduit(culling.CullObject, held),
@@ -166,17 +160,15 @@ public static class Conduits {
         return conduit;
     }
 
-    private static IO<Unit> Rebound(Seq<DisplayConduit> conduits, ConduitBinding.Bound bound, Retained<IDisposable> rows) =>
-        DisposalOps.Acquire(
-            held =>
-                from resolved in toSeq(bound.Sets).TraverseM(set => Viewports.Resolve(bound.Document, set, held)).As().Map(static sets => sets.Flatten())
-                from rebound in IO.lift(() => conduits.Iter(conduit => {
-                    conduit.UnbindAll();
-                    _ = resolved.Iter(row => (bound.Exclusive ? (Action<RhinoViewport>)conduit.ExclusiveBind : conduit.Bind)(row.Viewport));
-                    conduit.Enabled = !resolved.IsEmpty;
-                }))
-                select rebound,
-            (_, lease) => rows.Replace(lease));
+    private static IO<Unit> Rebound(Seq<DisplayConduit> conduits, ConduitBinding.Bound bound, Ref<Option<Lease<Unit>>> rows) =>
+        Products.Swapped(rows,
+            from resolved in toSeq(bound.Sets).TraverseM(set => Viewports.Resolve(bound.Document, set)).As().Map(static sets => sets.Flatten())
+            from rebound in IO.lift(() => conduits.Iter(conduit => {
+                conduit.UnbindAll();
+                _ = resolved.Iter(row => (bound.Exclusive ? (Action<RhinoViewport>)conduit.ExclusiveBind : conduit.Bind)(row.Viewport));
+                conduit.Enabled = !resolved.IsEmpty;
+            }))
+            select rebound);
 
     private static IO<Unit> Redrawn(ConduitBinding binding, RedrawPolicy redraw, IO<Unit> change) =>
         IO.lift(() => binding.Switch(everywhere: static _ => toSeq(RhinoDoc.OpenDocuments()), bound: static bound => Seq(bound.Document)))

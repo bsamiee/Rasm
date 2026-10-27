@@ -1,12 +1,14 @@
 using System.Drawing;
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.UI;
+using System.Runtime.CompilerServices;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Render;
 
-namespace Rasm.Rhino.Render.Sessions;
+namespace Rasm.RhinoCommon.Render.Sessions;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IRealtimeProduct {
@@ -20,13 +22,13 @@ public enum HudGesture { LeftClick, RightClick, DoubleClick }
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record RealtimeTarget(Size Size, bool ForCapture, RenderWindow Window);
 
-public sealed record RealtimeStart(RealtimeTarget Target, RhinoDoc Document, ViewInfo View, ViewportInfo Viewport, Func<Action<Disposal<SceneBatch>>, IO<SceneBatch>> Take);
+public sealed record RealtimeStart(RealtimeTarget Target, RhinoDoc Document, ViewInfo View, ViewportInfo Viewport, DefinedChangeFeed Feed);
 
 public sealed record RealtimeSession(
-    RealtimeTarget Target, IDisposable Scene, Instant Started, int Pass, Option<int> Limit,
+    RealtimeTarget Target, Instant Started, int Pass, Option<int> Limit,
     Option<uint> Frame, Option<string> Status, Option<Instant> PausedAt, bool Locked) {
-    public static RealtimeSession Of(RealtimeTarget target, IDisposable scene, Instant now, Option<int> limit) =>
-        new(target, scene, now, 0, limit, None, None, None, Locked: false);
+    public static RealtimeSession Of(RealtimeTarget target, Instant now, Option<int> limit) =>
+        new(target, now, 0, limit, None, None, None, Locked: false);
 
     public bool Completed => !Locked && Frame.IsSome && Limit.Match(Some: limit => Pass >= limit, None: () => Target.ForCapture);
 
@@ -41,61 +43,61 @@ public sealed record RealtimeSession(
 [SmartEnum]
 public sealed partial class HudControl {
     public static readonly HudControl Play = new(
-        Some<Func<RealtimeSession, Instant, RealtimeSession>>(static (session, now) => session.Resumed(now)),
-        static (mode, handler) => mode.HudPlayButtonLeftClicked += handler,
-        static (mode, handler) => mode.HudPlayButtonRightClicked += handler,
-        static (mode, handler) => mode.HudPlayButtonDoubleClicked += handler);
+        static mode => Hud(handler => mode.HudPlayButtonLeftClicked += handler, handler => mode.HudPlayButtonLeftClicked -= handler),
+        static mode => Hud(handler => mode.HudPlayButtonRightClicked += handler, handler => mode.HudPlayButtonRightClicked -= handler),
+        static mode => Hud(handler => mode.HudPlayButtonDoubleClicked += handler, handler => mode.HudPlayButtonDoubleClicked -= handler)) {
+        Act = static (session, now) => session.Resumed(now),
+    };
     public static readonly HudControl Pause = new(
-        Some<Func<RealtimeSession, Instant, RealtimeSession>>(static (session, now) => session with { PausedAt = session.PausedAt | Some(now) }),
-        static (mode, handler) => mode.HudPauseButtonLeftClicked += handler,
-        static (mode, handler) => mode.HudPauseButtonRightClicked += handler,
-        static (mode, handler) => mode.HudPauseButtonDoubleClicked += handler);
+        static mode => Hud(handler => mode.HudPauseButtonLeftClicked += handler, handler => mode.HudPauseButtonLeftClicked -= handler),
+        static mode => Hud(handler => mode.HudPauseButtonRightClicked += handler, handler => mode.HudPauseButtonRightClicked -= handler),
+        static mode => Hud(handler => mode.HudPauseButtonDoubleClicked += handler, handler => mode.HudPauseButtonDoubleClicked -= handler)) {
+        Act = static (session, now) => session with { PausedAt = session.PausedAt | Some(now) },
+    };
     public static readonly HudControl Lock = new(
-        Some<Func<RealtimeSession, Instant, RealtimeSession>>(static (session, _) => session with { Locked = true }),
-        static (mode, handler) => mode.HudLockButtonLeftClicked += handler,
-        static (mode, handler) => mode.HudLockButtonRightClicked += handler,
-        static (mode, handler) => mode.HudLockButtonDoubleClicked += handler);
+        static mode => Hud(handler => mode.HudLockButtonLeftClicked += handler, handler => mode.HudLockButtonLeftClicked -= handler),
+        static mode => Hud(handler => mode.HudLockButtonRightClicked += handler, handler => mode.HudLockButtonRightClicked -= handler),
+        static mode => Hud(handler => mode.HudLockButtonDoubleClicked += handler, handler => mode.HudLockButtonDoubleClicked -= handler)) {
+        Act = static (session, _) => session with { Locked = true },
+    };
     public static readonly HudControl Unlock = new(
-        Some<Func<RealtimeSession, Instant, RealtimeSession>>(static (session, _) => session with { Locked = false }),
-        static (mode, handler) => mode.HudUnlockButtonLeftClicked += handler,
-        static (mode, handler) => mode.HudUnlockButtonRightClicked += handler,
-        static (mode, handler) => mode.HudUnlockButtonDoubleClicked += handler);
+        static mode => Hud(handler => mode.HudUnlockButtonLeftClicked += handler, handler => mode.HudUnlockButtonLeftClicked -= handler),
+        static mode => Hud(handler => mode.HudUnlockButtonRightClicked += handler, handler => mode.HudUnlockButtonRightClicked -= handler),
+        static mode => Hud(handler => mode.HudUnlockButtonDoubleClicked += handler, handler => mode.HudUnlockButtonDoubleClicked -= handler)) {
+        Act = static (session, _) => session with { Locked = false },
+    };
     public static readonly HudControl ProductName = new(
-        None,
-        static (mode, handler) => mode.HudProductNameLeftClicked += handler,
-        static (mode, handler) => mode.HudProductNameRightClicked += handler,
-        static (mode, handler) => mode.HudProductNameDoubleClicked += handler);
+        static mode => Hud(handler => mode.HudProductNameLeftClicked += handler, handler => mode.HudProductNameLeftClicked -= handler),
+        static mode => Hud(handler => mode.HudProductNameRightClicked += handler, handler => mode.HudProductNameRightClicked -= handler),
+        static mode => Hud(handler => mode.HudProductNameDoubleClicked += handler, handler => mode.HudProductNameDoubleClicked -= handler));
     public static readonly HudControl StatusText = new(
-        None,
-        static (mode, handler) => mode.HudStatusTextLeftClicked += handler,
-        static (mode, handler) => mode.HudStatusTextRightClicked += handler,
-        static (mode, handler) => mode.HudStatusTextDoubleClicked += handler);
+        static mode => Hud(handler => mode.HudStatusTextLeftClicked += handler, handler => mode.HudStatusTextLeftClicked -= handler),
+        static mode => Hud(handler => mode.HudStatusTextRightClicked += handler, handler => mode.HudStatusTextRightClicked -= handler),
+        static mode => Hud(handler => mode.HudStatusTextDoubleClicked += handler, handler => mode.HudStatusTextDoubleClicked -= handler));
     public static readonly HudControl Time = new(
-        None,
-        static (mode, handler) => mode.HudTimeLeftClicked += handler,
-        static (mode, handler) => mode.HudTimeRightClicked += handler,
-        static (mode, handler) => mode.HudTimeDoubleClicked += handler);
+        static mode => Hud(handler => mode.HudTimeLeftClicked += handler, handler => mode.HudTimeLeftClicked -= handler),
+        static mode => Hud(handler => mode.HudTimeRightClicked += handler, handler => mode.HudTimeRightClicked -= handler),
+        static mode => Hud(handler => mode.HudTimeDoubleClicked += handler, handler => mode.HudTimeDoubleClicked -= handler));
     public static readonly HudControl PostEffectsOn = new(
-        None,
-        static (mode, handler) => mode.HudPostEffectsOnButtonLeftClicked += handler,
-        static (mode, handler) => mode.HudPostEffectsOnButtonRightClicked += handler,
-        static (mode, handler) => mode.HudPostEffectsOnButtonDoubleClicked += handler);
+        static mode => Hud(handler => mode.HudPostEffectsOnButtonLeftClicked += handler, handler => mode.HudPostEffectsOnButtonLeftClicked -= handler),
+        static mode => Hud(handler => mode.HudPostEffectsOnButtonRightClicked += handler, handler => mode.HudPostEffectsOnButtonRightClicked -= handler),
+        static mode => Hud(handler => mode.HudPostEffectsOnButtonDoubleClicked += handler, handler => mode.HudPostEffectsOnButtonDoubleClicked -= handler));
     public static readonly HudControl PostEffectsOff = new(
-        None,
-        static (mode, handler) => mode.HudPostEffectsOffButtonLeftClicked += handler,
-        static (mode, handler) => mode.HudPostEffectsOffButtonRightClicked += handler,
-        static (mode, handler) => mode.HudPostEffectsOffButtonDoubleClicked += handler);
+        static mode => Hud(handler => mode.HudPostEffectsOffButtonLeftClicked += handler, handler => mode.HudPostEffectsOffButtonLeftClicked -= handler),
+        static mode => Hud(handler => mode.HudPostEffectsOffButtonRightClicked += handler, handler => mode.HudPostEffectsOffButtonRightClicked -= handler),
+        static mode => Hud(handler => mode.HudPostEffectsOffButtonDoubleClicked += handler, handler => mode.HudPostEffectsOffButtonDoubleClicked -= handler));
 
-    public Option<Func<RealtimeSession, Instant, RealtimeSession>> Act { get; }
+    public Func<RealtimeDisplayMode, HostEvent<EventArgs>> LeftClicked { get; }
 
-    [UseDelegateFromConstructor]
-    public partial void LeftClicked(RealtimeDisplayMode mode, EventHandler handler);
+    public Func<RealtimeDisplayMode, HostEvent<EventArgs>> RightClicked { get; }
 
-    [UseDelegateFromConstructor]
-    public partial void RightClicked(RealtimeDisplayMode mode, EventHandler handler);
+    public Func<RealtimeDisplayMode, HostEvent<EventArgs>> DoubleClicked { get; }
 
-    [UseDelegateFromConstructor]
-    public partial void DoubleClicked(RealtimeDisplayMode mode, EventHandler handler);
+    [IgnoreMember]
+    public Func<RealtimeSession, Instant, RealtimeSession> Act { get; private init; } = static (session, _) => session;
+
+    private static HostEvent<EventArgs> Hud(Action<EventHandler> add, Action<EventHandler> remove, [CallerArgumentExpression(nameof(add))] string label = "") =>
+        Subscriptions.Host<EventHandler, EventArgs>(add, remove, static handler => (sender, args) => handler(sender, args), label);
 }
 
 [Union]
@@ -108,11 +110,13 @@ public abstract partial record HudEvent {
 public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     where TEngine : DefinedRealtimeEngine<TEngine>, IRealtimeProduct, new() {
     // --- [STATE]
-    private readonly Ref<Option<RealtimeSession>> sessions = Ref(Option<RealtimeSession>.None);
+    private readonly Ref<Option<Lease<RealtimeRun>>> sessions = Ref(Option<Lease<RealtimeRun>>.None);
     private readonly Atom<Option<DisplayPipelineAttributes>> attributes = Atom(Option<DisplayPipelineAttributes>.None);
     private readonly IPlugInViews views;
 
-    protected DefinedRealtimeEngine() => views = HostedTypes.Owner(typeof(TEngine));
+    protected DefinedRealtimeEngine() => views = PlugInOwners.Owner(typeof(TEngine));
+
+    private sealed record RealtimeRun(RealtimeSession Session, DefinedChangeFeed Feed);
 
     // --- [ROWS]
     protected abstract IO<Unit> Start(RealtimeStart start);
@@ -130,73 +134,60 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     protected virtual Option<Func<DisplayPipeline, IO<Unit>>> Middleground => None;
 
     // --- [LIFECYCLE]
-    public sealed override void PostConstruct() =>
-        Callbacks.Run(IO.lift(Subscribe), CallbackSite.Of(views, this));
+    public sealed override void PostConstruct() => SetUseDrawOpenGl(IRealtimeProduct.DrawsOpenGl);
 
     public sealed override void CreateWorld(RhinoDoc doc, ViewInfo viewInfo, DisplayPipelineAttributes displayPipelineAttributes) =>
         _ = attributes.Swap(_ => Some(displayPipelineAttributes));
 
     public sealed override bool StartRenderer(int w, int h, RhinoDoc doc, ViewInfo view, ViewportInfo viewportInfo, bool forCapture, RenderWindow renderWindow) =>
-        Callbacks.Succeeded(
-            Started(w, h, doc, view, viewportInfo, forCapture, renderWindow),
-            CallbackSite.Of(views, this));
+        views.Answer(Started(w, h, doc, view, viewportInfo, forCapture, renderWindow).Map(value: true), failed: false);
 
     public sealed override bool OnRenderSizeChanged(int width, int height) =>
-        Callbacks.Succeeded(
-            from session in Session
-            from resize in Resize
-            select Resized(session.Target with { Size = new Size(width, height) }, resize),
-            () => base.OnRenderSizeChanged(width, height),
-            CallbackSite.Of(views, this));
+        (from session in Session
+         from resize in Resize
+         select Resized(session.Target with { Size = new Size(width, height) }, resize))
+            .Match(Some: resized => views.Answer(resized.Map(value: true), failed: false), None: () => base.OnRenderSizeChanged(width, height));
 
-    public sealed override void ShutdownRenderer() =>
-        Callbacks.Run(DisposalOps.Within(static () => unit, _ => Stop(), _ => Closed), CallbackSite.Of(views, this));
+    public sealed override void ShutdownRenderer() => _ = views.Run(Stop().Finally(Closed));
 
     public sealed override void GetRenderSize(out int width, out int height) =>
         (width, height) = Session.Map(static session => (session.Target.Size.Width, session.Target.Size.Height)).IfNone((0, 0));
 
-    private void Subscribe() {
-        SetUseDrawOpenGl(IRealtimeProduct.DrawsOpenGl);
-        _ = toSeq(HudControl.Items).Iter(Attach);
-        MaxPassesChanged += Callbacks.Handler<HudMaxPassesChangedEventArgs>(args => Edited(args.MaxPasses), CallbackSite.Of(views, this, nameof(MaxPassesChanged)));
-        _ = Framebuffer.Iter(draw => OnInitFramebuffer += Callbacks.Handler<InitFramebufferEventArgs>(args => draw(args.Pipeline), CallbackSite.Of(views, this, nameof(OnInitFramebuffer))));
-        _ = Middleground.Iter(draw => OnDrawMiddleground += Callbacks.Handler<DrawMiddlegroundEventArgs>(args => draw(args.Pipeline), CallbackSite.Of(views, this, nameof(OnDrawMiddleground))));
-    }
-
     private IO<Unit> Started(int width, int height, RhinoDoc doc, ViewInfo view, ViewportInfo viewport, bool forCapture, RenderWindow window) =>
-        DisposalOps.OnFailure(
-            from opened in DisposalOps.Acquire(owned =>
-                from framing in DisposalOps.Acquire(IO.pure(viewport), owned)
-                let target = new RealtimeTarget(new Size(width, height), forCapture, window)
-                from sized in IO.lift(() => target.Window.SetSize(target.Size))
-                from added in RenderWindows.AddRequested(target.Window)
-                from now in IO.lift(views.Clock.GetCurrentInstant)
-                from passes in IO.lift(() => MaxPasses)
-                let limit = Callbacks.Found(target.ForCapture && passes > 0, passes)
-                from queue in DefinedChangeFeed.Of(views, doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake, owned)
-                select (Queue: queue, Now: now, Target: target, Limit: limit), (created, lease) => {
-                    Option<RealtimeSession> prior = atomic(() => {
-                        Option<RealtimeSession> held = sessions.Value;
-                        sessions.Value = Some(RealtimeSession.Of(created.Target, lease, created.Now, created.Limit));
-                        return held;
-                    });
-                    return DisposalOps.Release(prior.Map(static session => session.Scene).ToSeq());
-                })
-            from world in opened.Queue.World
-            from started in Start(new RealtimeStart(opened.Target, doc, view, viewport, opened.Queue.Take))
-            select unit,
-            Callbacks.Each(Seq(IO.pure(unit).Bind(_ => Stop()), Closed)).Map(unit));
+        (from opened in views.Session.Held(Products.Swapped(sessions,
+             from framing in use(() => viewport)
+             let target = new RealtimeTarget(new Size(width, height), forCapture, window)
+             from sized in IO.lift(() => target.Window.SetSize(target.Size))
+             from added in RenderWindows.AddRequested(target.Window)
+             from now in IO.lift(views.Clock.GetCurrentInstant)
+             from passes in IO.lift(() => MaxPasses)
+             from attached in Attached
+             from feed in DefinedChangeFeed.Of(views, doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake)
+             select new RealtimeRun(RealtimeSession.Of(target, now, Conversions.Found(target.ForCapture && passes > 0, passes)), feed)))
+         from world in opened.Feed.World
+         from started in Start(new RealtimeStart(opened.Session.Target, doc, view, viewport, opened.Feed))
+         select unit)
+        .Catch(error => Callbacks.Each(Seq(unitIO.Bind(_ => Stop()), Closed)).Map(unit) >> IO.fail<Unit>(error)).As();
 
-    private IO<Unit> Closed =>
-        atomicIO(() => {
-            Option<RealtimeSession> prior = sessions.Value;
-            sessions.Value = None;
-            return prior;
-        }).Bind(static held => DisposalOps.Release(held.Map(static session => session.Scene).ToSeq())).Uninterruptible();
+    private IO<Unit> Attached =>
+        from hud in toSeq(HudControl.Items).TraverseM(control =>
+            from left in control.LeftClicked(this).Inline(_ => Changed(control.Act) >> Delivered(new HudEvent.Clicked(control, HudGesture.LeftClick)), views)
+            from right in control.RightClicked(this).Inline(_ => Delivered(new HudEvent.Clicked(control, HudGesture.RightClick)), views)
+            from twice in control.DoubleClicked(this).Inline(_ => Delivered(new HudEvent.Clicked(control, HudGesture.DoubleClick)), views)
+            select unit).As()
+        from passes in Subscriptions.Host<HudMaxPassesChangedEventArgs>(handler => MaxPassesChanged += handler, handler => MaxPassesChanged -= handler)
+            .Inline(args => Edited(args.MaxPasses), views)
+        from framebuffer in Framebuffer.TraverseM(draw => Subscriptions.During<InitFramebufferEventArgs>(handler => OnInitFramebuffer += handler, handler => OnInitFramebuffer -= handler)
+            .Inline(args => draw(args.Pipeline), views)).As()
+        from middleground in Middleground.TraverseM(draw => Subscriptions.During<DrawMiddlegroundEventArgs>(handler => OnDrawMiddleground += handler, handler => OnDrawMiddleground -= handler)
+            .Inline(args => draw(args.Pipeline), views)).As()
+        select unit;
+
+    private IO<Unit> Closed => views.Session.Held(Products.Cleared(sessions));
 
     private IO<Unit> Resized(RealtimeTarget target, Func<RealtimeTarget, IO<Unit>> resize) =>
         from sized in IO.lift(() => target.Window.SetSize(target.Size))
-        from restarted in Swapped((session, now) => (session with { Target = target }).Restarted(now))
+        from restarted in Changed((session, now) => (session with { Target = target }).Restarted(now))
         from resized in resize(target)
         select unit;
 
@@ -240,22 +231,8 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     public sealed override DateTime HudStartTime() =>
         Session.Map(static session => session.Started.ToDateTimeUtc()).IfNone(base.HudStartTime());
 
-    private void Attach(HudControl control) {
-        control.LeftClicked(this, Clicked(control, HudGesture.LeftClick, control.Act));
-        control.RightClicked(this, Clicked(control, HudGesture.RightClick, None));
-        control.DoubleClicked(this, Clicked(control, HudGesture.DoubleClick, None));
-    }
-
-    private EventHandler Clicked(HudControl control, HudGesture gesture, Option<Func<RealtimeSession, Instant, RealtimeSession>> act) =>
-        Callbacks.Handler<EventArgs>(
-            _ =>
-                from acted in act.TraverseM(Swapped).As()
-                from delivered in Delivered(new HudEvent.Clicked(control, gesture))
-                select unit,
-            CallbackSite.Of(views, this, nameof(Hud))).Invoke;
-
     private IO<Unit> Edited(int maxPasses) =>
-        from limited in Swapped((session, _) => session with { Limit = Some(maxPasses) })
+        from limited in Changed((session, _) => session with { Limit = Some(maxPasses) })
         from delivered in Delivered(new HudEvent.MaxPassesEdited(maxPasses))
         select unit;
 
@@ -263,28 +240,28 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
         Hud.TraverseM(deliver => deliver(hudEvent)).As().Map(unit);
 
     // --- [REPORTS]
-    protected Option<RealtimeSession> Session => sessions.Value;
+    protected Option<RealtimeSession> Session => sessions.Value.Map(static lease => lease.Value.Session);
 
     protected IO<Unit> FrameRendered(int pass, ViewInfo view) =>
         IO.lift(() => ComputeViewportCrc(view))
-            .Bind(frame => Swapped((session, _) => session.Locked ? session : session with { Pass = pass, Frame = Some(frame) }));
+            .Bind(frame => Changed((session, _) => session.Locked ? session : session with { Pass = pass, Frame = Some(frame) }));
 
-    protected IO<Unit> FrameReset() => Swapped(static (session, now) => session.Locked ? session : session.Restarted(now));
+    protected IO<Unit> FrameReset() => Changed(static (session, now) => session.Locked ? session : session.Restarted(now));
 
-    protected IO<Unit> StatusChanged(Option<string> status) => Swapped((session, _) => session with { Status = status });
+    protected IO<Unit> StatusChanged(Option<string> status) => Changed((session, _) => session with { Status = status });
 
-    protected IO<Unit> LimitChanged(Option<int> limit) => Swapped((session, _) => session with { Limit = limit });
+    protected IO<Unit> LimitChanged(Option<int> limit) => Changed((session, _) => session with { Limit = limit });
 
-    private IO<Unit> Swapped(Func<RealtimeSession, Instant, RealtimeSession> change) =>
+    private IO<Unit> Changed(Func<RealtimeSession, Instant, RealtimeSession> change) =>
         from now in IO.lift(views.Clock.GetCurrentInstant)
-        from swapped in atomicIO(() => sessions.Swap(state => state.Map(current => change(current, now))))
+        from swapped in atomicIO(() => sessions.Swap(state => state.Map(lease => lease with { Value = lease.Value with { Session = change(lease.Value.Session, now) } })))
         from redrawn in IO.lift(SignalRedraw)
         select unit;
 }
 
 public abstract class DefinedRealtimeEngineInfo<TEngine> : RealtimeDisplayModeClassInfo
     where TEngine : DefinedRealtimeEngine<TEngine>, IRealtimeProduct, new() {
-    public sealed override string Name => RowText.Localize(TEngine.Product, HostedTypes.Owner(typeof(TEngine))).Local;
+    public sealed override string Name => RowText.Localize(TEngine.Product, PlugInOwners.Owner(typeof(TEngine))).Local;
     public sealed override Guid GUID => RealtimeDisplayModeType.GUID;
     public sealed override bool DrawOpenGl => IRealtimeProduct.DrawsOpenGl;
     public sealed override Type RealtimeDisplayModeType => typeof(TEngine);

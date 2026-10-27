@@ -1,7 +1,7 @@
 """One preview collection per extension holding staged glyphs and generated tiles over the theme transparency checker."""
 
 from collections.abc import Callable, Generator, Hashable
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from typing import Final, Self
 
 import bpy
@@ -11,9 +11,8 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.reports import redrawn
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.ui.resources.theme import Checker, Metrics
 from blender.records.faults import Outcome
 
@@ -60,11 +59,10 @@ class Previews:
         Yields:
             Previews over the open collection.
         """
-        collection = bpy.utils.previews.new()
-        try:
+        with ExitStack() as stack:
+            collection = bpy.utils.previews.new()
+            stack.callback(bpy.utils.previews.remove, collection)
             yield cls(collection)
-        finally:
-            bpy.utils.previews.remove(collection)
 
     # --- [READING]
 
@@ -133,7 +131,7 @@ def filled(preview: bpy.types.ImagePreview, plane: npt.NDArray[np.float32]) -> b
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-PREVIEWS: Final = Scoped[Previews](made=Previews.opened)
+PREVIEWS: Final = Resource[Previews](made=Previews.opened)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

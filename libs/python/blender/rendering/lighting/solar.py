@@ -14,6 +14,7 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.records.faults import Fault, Outcome
+from blender.records.fields import Side
 from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -204,7 +205,7 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
         def crossed() -> tuple[datetime.datetime, ...]:
             return tuple((epoch + datetime.timedelta(seconds=float(moment))).astimezone(zone) for moment in solved[: 3 if -1.0 < ratio < 1.0 else 1])
 
-        return crossed().map(lambda moments: cls(noon=moments[0], light=lit(moments))).map_error(lambda error: (Fault(reason=RenderingReason.CALENDAR, subject=str(date), cause=error),))
+        return crossed().map(lambda moments: cls(noon=moments[0], light=lit(moments))).map_error(functools.partial(Fault.of, RenderingReason.CALENDAR, str(date)))
 
 
 class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -242,7 +243,7 @@ class Study(msgspec.Struct, frozen=True, kw_only=True):
 
     start: LocalTime
     step: datetime.timedelta
-    frames: Annotated[int, msgspec.Meta(ge=1)]
+    frames: Side
 
     def moments(self, zone: zoneinfo.ZoneInfo) -> Outcome[tuple[datetime.datetime, ...]]:
         """Returns study moments on the zone clock, time fault on overflow."""
@@ -253,7 +254,7 @@ class Study(msgspec.Struct, frozen=True, kw_only=True):
         def stepped() -> tuple[datetime.datetime, ...]:
             return tuple((origin + frame * self.step).astimezone(zone) for frame in range(self.frames))
 
-        return stepped().map_error(lambda error: (Fault(reason=RenderingReason.CALENDAR, subject=f"{first} + {self.frames} x {self.step}", cause=error),))
+        return stepped().map_error(functools.partial(Fault.of, RenderingReason.CALENDAR, f"{first} + {self.frames} x {self.step}"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

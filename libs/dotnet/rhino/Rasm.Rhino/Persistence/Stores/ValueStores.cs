@@ -1,7 +1,8 @@
-using Rasm.Rhino.Events;
+using System.Collections.Generic;
+using Rasm.RhinoCommon.Events;
 using Rhino.PlugIns;
 
-namespace Rasm.Rhino.Persistence.Stores;
+namespace Rasm.RhinoCommon.Persistence.Stores;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
@@ -93,5 +94,5 @@ public static class ValueStores {
 
     // --- [SIGNAL]
     public static HostEvent<Unit> Signal<TArgs>(HostEvent<TArgs> row, Func<TArgs, bool> concerns) =>
-        row.Choose(args => Callbacks.Found(concerns(args), unit));
+        row.Choose(args => Conversions.Found(concerns(args), unit));
 }

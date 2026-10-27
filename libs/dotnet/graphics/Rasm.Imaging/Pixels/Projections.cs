@@ -23,9 +23,7 @@ public sealed partial class FrameQuad {
     public Matrix<double> Homography {
         get {
             using Mat map = CvInvoke.GetPerspectiveTransform([new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)], [Corner(TopLeft), Corner(TopRight), Corner(BottomRight), Corner(BottomLeft)]);
-            double[] cells = new double[9];
-            map.CopyTo(cells);
-            return Matrix<double>.Build.DenseOfRowMajor(3, 3, cells);
+            return Matrix<double>.Build.DenseOfArray((double[,])map.GetData());
         }
     }
 

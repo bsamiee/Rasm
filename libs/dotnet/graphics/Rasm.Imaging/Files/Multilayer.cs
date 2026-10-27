@@ -76,7 +76,7 @@ public sealed record IdentityLayer(ushort Id, string Name, Vector3 Color) {
         FrozenDictionary<float, Vector4> colors = entries.DistinctBy(static entry => entry.Id).ToFrozenDictionary(static entry => (float)entry.Id, static entry => new Vector4(entry.Color, 1f));
         return (ids, matte) => {
             for (int x = 0; x < ids.Length; x++)
-                matte[x] = colors.GetValueOrDefault(ids[x].X, Vector4.Zero);
+                matte[x] = colors.TryGetValue(ids[x].X, out Vector4 color) ? color : Vector4.Zero;
         };
     }
 }
@@ -183,7 +183,7 @@ public sealed partial class PassLayout {
     public static readonly PassLayout Interleaved = new(static (layers, beauty) => Seq((Option<string>.None, beauty.Window, layers)));
 
     [UseDelegateFromConstructor]
-    internal partial Seq<(Option<string> Name, (long Left, long Top, long Right, long Bottom) Window, Seq<ExrLayer> Layers)> Grouped(Seq<ExrLayer> layers, PixelFrame beauty);
+    internal partial Seq<(Option<string> Name, FrameWindow Window, Seq<ExrLayer> Layers)> Grouped(Seq<ExrLayer> layers, PixelFrame beauty);
 }
 
 public sealed record PassSet {
@@ -228,34 +228,33 @@ internal static class ExrParts {
 
     private static Seq<ChannelBuffer> Buffers(ExrLayout layout, ExrLayer layer) {
         (int width, int height, int channels) = (layer.Source.Size.Width, layer.Source.Size.Height, layer.Kind.Channels.Count);
-        float[] source = new float[width * height * channels];
-        Span2D<float> lines = new(source, height, width * channels);
+        using SpanOwner<float> source = SpanOwner<float>.Allocate(width * height * channels);
+        Span2D<float> lines = source.Span.AsSpan2D(height, width * channels);
         using SpanOwner<Vector4> row = SpanOwner<Vector4>.Allocate(width);
         for (int y = 0; y < height; y++) {
             layer.Row(layer.Source.View.Span.GetRowSpan(y), (layer.Source.Origin.X, (long)layer.Source.Origin.Y + y), row.Span);
             layer.Kind.Associate(row.Span);
             MemoryMarshal.Cast<Vector4, float>(row.Span).AsSpan2D(width, 4).Slice(0, 0, width, channels).CopyTo(lines.GetRowSpan(y));
         }
-        return toSeq(PartConversion.FromInterleavedFloat(source, width, height, channels, layer.Kind.Sample(layout), Compression.None).Levels[0].Channels)
+        return toSeq(PartConversion.FromInterleavedFloat(source.Span, width, height, channels, layer.Kind.Sample(layout), Compression.None).Levels[0].Channels)
             .Zip(layer.Kind.Channels)
             .Map(pair => new ChannelBuffer(layer.Name.Match(Some: name => $"{name}.{pair.Second}", None: () => pair.Second), pair.First.PixelType, pair.First.Data))
             .Strict();
     }
 
-    private static Fin<Part> Part(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes, Option<string> name, (long Left, long Top, long Right, long Bottom) window, Seq<ExrLayer> layers) =>
-        ImagingFault.Unless(window.Right - 1L <= int.MaxValue && window.Bottom - 1L <= int.MaxValue, ImagingReason.Oversize, window).Map(_ => {
-            Seq<ChannelBuffer> buffers = layers.Bind(layer => Buffers(exr.Layout, layer)).Strict();
-            Header header = new(
-                PartType.Scanline,
-                new Box2i((int)window.Left, (int)window.Top, (int)(window.Right - 1L), (int)(window.Bottom - 1L)),
-                buffers.Map(static buffer => new Channel(buffer.Name, buffer.PixelType)),
-                compression: layers.Fold(exr.Layout.Compression.Codec, (codec, layer) => layer.Kind.Codec(exr.Layout.Compression, codec)),
-                displayWindow: new Box2i(0, 0, exr.Beauty.Extent.Width - 1, exr.Beauty.Extent.Height - 1),
-                name: name.ValueUnsafe(),
-                chromaticities: exr.Layout.Gamut.Map(static gamut => gamut.Chromaticities).ToNullable(),
-                attributes: attributes);
-            return new Part(header, [new FlatLevel(0, 0, header.DataWindow, buffers)], isComplete: true);
-        });
+    private static Fin<Part> Part(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes, Option<string> name, FrameWindow window, Seq<ExrLayer> layers) =>
+        from bounded in ImagingFault.Unless(long.Max(window.Right, window.Bottom) - 1L <= int.MaxValue, ImagingReason.Oversize, window)
+        let buffers = layers.Bind(layer => Buffers(exr.Layout, layer)).Strict()
+        let header = new Header(
+            PartType.Scanline,
+            new Box2i((int)window.Left, (int)window.Top, (int)(window.Right - 1L), (int)(window.Bottom - 1L)),
+            buffers.Map(static buffer => new Channel(buffer.Name, buffer.PixelType)),
+            compression: layers.Fold(exr.Layout.Compression.Codec, (codec, layer) => layer.Kind.Codec(exr.Layout.Compression, codec)),
+            displayWindow: new Box2i(0, 0, exr.Beauty.Extent.Width - 1, exr.Beauty.Extent.Height - 1),
+            name: name.ValueUnsafe(),
+            chromaticities: exr.Layout.Gamut.Map(static gamut => gamut.Chromaticities).ToNullable(),
+            attributes: attributes)
+        select new Part(header, [new FlatLevel(0, 0, header.DataWindow, buffers)], isComplete: true);
 
     private static Fin<Seq<Part>> Parts(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes) {
         PassKind beauty = exr.Alpha ? PassKind.Rgba : PassKind.Rgb;

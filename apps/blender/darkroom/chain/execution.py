@@ -30,7 +30,7 @@ from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.blending import Entry
 from blender.bpy.render.compositor.effects import CameraFrame, CompositorEffect, entered, Shell
 from blender.bpy.render.compositor.entries import capturing, EXECUTING, Owned
-from blender.bpy.render.compositor.inputs import captured, inputs_of
+from blender.bpy.render.compositor.inputs import captured, inputs_of, valued
 from blender.bpy.render.outputs.exports import COMPOSITE
 from blender.bpy.render.outputs.formats import Kind, OutputFormat
 from blender.bpy.render.outputs.paths import Pathed
@@ -244,7 +244,7 @@ class Execution:
             return accumulated(view(layer) for layer in file.layers).bind(lambda found: self.published(held.entry, held.row, record, found))
 
         return paired(Multilayer.read(str(path)), held.row.read(self.identity, held.entry), captured(self.identity, reading), CameraFrame.read(self.identity, reading)).bind(
-            lambda parts: views(parts[0], parts[1], {key: owner.values["value"] for key, owner in parts[2].tree.owners.items() if key}, parts[3])
+            lambda parts: views(parts[0], parts[1], valued(parts[2]), parts[3])
         )
 
     def published(self, entry: bpy.types.SceneCompositorEffect, row: CompositorEffect[Effect], record: Entry[Effect], views: tuple[tuple[str, Prepared], ...]) -> Outcome[Authored]:

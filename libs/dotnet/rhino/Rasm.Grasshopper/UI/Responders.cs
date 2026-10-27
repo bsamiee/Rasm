@@ -7,14 +7,15 @@ using Grasshopper2.UI;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.Undo;
-using Rasm.Rhino;
-using Rasm.Rhino.Events;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.PlugIns;
 
 namespace Rasm.Grasshopper.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
-[ValidationError<RhinoFault>]
+[ValidationError<GrasshopperFault>]
 public sealed partial class FrameLimits {
     public SizeF Minimum { get; }
     public SizeF Maximum { get; }
@@ -27,10 +28,12 @@ public sealed partial class FrameLimits {
         Bottom = minimum.Height == maximum.Height ? 0 : edges.Bottom,
     };
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref SizeF minimum, ref SizeF maximum, ref Padding edges) =>
+    static partial void ValidateFactoryArguments(ref GrasshopperFault? validationError, ref SizeF minimum, ref SizeF maximum, ref Padding edges) =>
         (validationError, edges) = (0f <= minimum.Width && minimum.Width <= maximum.Width && float.IsFinite(maximum.Width)
             && 0f <= minimum.Height && minimum.Height <= maximum.Height && float.IsFinite(maximum.Height)
-            ? null : new RhinoFault("resize limits need non-negative minimums no larger than finite maximums"), ResizeBands(minimum, maximum, edges));
+            ? null
+            : new GrasshopperFault($"(minimum, maximum) = ({minimum}, {maximum})", GrasshopperReason.Outside),
+            ResizeBands(minimum, maximum, edges));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -39,26 +42,28 @@ public sealed class FrameResponder : Responses, IResponsive {
     private readonly FlexControl control;
     private readonly FrameLimits limits;
     private readonly Func<RectangleF, IO<Unit>> placed;
-    private readonly IPlugInSink sink;
-    private readonly Ref<Option<Track>> track = Ref(Option<Track>.None);
+    private readonly IPlugInLifetime owner;
+    private readonly EnvIO scope = EnvIO.New(token: CancellationToken.None);
+    private readonly Ref<Option<Lease<Track>>> track = Ref(Option<Lease<Track>>.None);
 
-    private FrameResponder(FlexControl control, RectangleF bounds, FrameLimits limits, Func<RectangleF, IO<Unit>> placed, IPlugInSink sink) {
-        (this.control, this.limits, this.placed, this.sink, RegionBoundary) = (control, limits, placed, sink, bounds);
-        LostFocus += Callbacks.Handler<EventArgs>(_ => Cancelled, Site(nameof(LostFocus))).Invoke;
+    private FrameResponder(FlexControl control, RectangleF bounds, FrameLimits limits, Func<RectangleF, IO<Unit>> placed, IPlugInLifetime owner) {
+        (this.control, this.limits, this.placed, this.owner, RegionBoundary) = (control, limits, placed, owner, bounds);
+        _ = owner.Run(Subscriptions.Host<EventHandler, EventArgs>(h => LostFocus += h, h => LostFocus -= h, static handler => handler.Invoke)
+            .Inline(_ => Cancelled, owner).Under(scope));
     }
 
     public Responses Responder => this;
 
     // --- [REGISTER]
-    public static IO<FrameResponder> Register(
-        FlexControl control, RectangleF bounds, FrameLimits limits, Func<RectangleF, IO<Unit>> placed, IPlugInSink sink, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => {
-            FrameResponder frame = new(control, bounds, limits, placed, sink);
+    public static IO<FrameResponder> Register(FlexControl control, RectangleF bounds, FrameLimits limits, Func<RectangleF, IO<Unit>> placed, IPlugInLifetime owner) =>
+        use(IO.lift(() => {
+            FrameResponder frame = new(control, bounds, limits, placed, owner);
             control.RegisterIResponsive(frame);
             return frame;
         }), static held => Callbacks.Each(Seq(held.Cancelled, IO.lift(() => held.control.PopFocus(held)),
             IO.lift(() => held.control.UnregisterIResponsive(held)).Map(unit),
-            IO.lift(() => { held.control.Cursor = Cursors.Default; }))).Map(unit), retain);
+            IO.lift(() => { held.control.Cursor = Cursors.Default; }),
+            IO.lift(held.scope.Dispose))).Map(unit));
 
     // --- [RESPONSES]
     public override Response MouseDown(ResponseMouseArgs e) =>
@@ -77,25 +82,23 @@ public sealed class FrameResponder : Responses, IResponsive {
         Answered(() => base.KeyDown(e), During(current => (e.Key, e.Modifiers) switch {
             (Keys.Escape, _) => Cancelled.Map(Response.Release),
             (Keys.S, Keys.None) => IO.lift(static () => { Settings.CanvasSnapToObjects.Value = !Settings.CanvasSnapToObjects.Value; })
-                .Bind(_ => current.Cleared).Map(Response.Handled),
+                .Bind(_ => current.Snapped.Traverse(SnapSession.End).As()).Map(Response.Handled),
             _ => IO.pure(Response.Handled),
         }));
 
     public override void MouseOver(ResponseMouseArgs e) =>
-        Callbacks.Run(Callbacks.Each(Seq(
+        owner.Run(Callbacks.Each(Seq(
             IO.lift(() => {
                 control.Cursor = Optional(new ResizingFrame(RegionBoundary, limits.Minimum, limits.Maximum).CursorAt(e.ContentLocation, limits.Edges)).IfNone(Cursors.Default);
             }),
-            IO.lift(() => base.MouseOver(e)))).Map(unit), Site());
+            IO.lift(() => base.MouseOver(e)))));
 
     public override void MouseLeave() =>
-        Callbacks.Run(Callbacks.Each(Seq(
-            IO.lift(() => { control.Cursor = Cursors.Default; }), IO.lift(base.MouseLeave))).Map(unit), Site());
+        owner.Run(Callbacks.Each(Seq(
+            IO.lift(() => { control.Cursor = Cursors.Default; }), IO.lift(base.MouseLeave))));
 
     private Response Answered(Func<Response> host, IO<Response> own, [CallerMemberName] string member = "") =>
-        Callbacks.Answer(DisposalOps.OnFailure(IO.lift(host).Bind(reply => reply is Response.Ignored ? own : IO.pure(reply)), Cancelled), static () => Response.Release, Site(member));
-
-    private CallbackSite Site([CallerMemberName] string member = "") => new(sink, typeof(FrameResponder), member);
+        owner.Answer(IO.lift(host).Bind(reply => reply is Response.Ignored ? own : IO.pure(reply)).Catch(error => Cancelled >> IO.fail<Response>(error)).As(), Response.Release, member);
 
     // --- [TRACKS]
     private IO<Response> Began(PointF point) =>
@@ -110,18 +113,20 @@ public sealed class FrameResponder : Responses, IResponsive {
              start, limits.Minimum, limits.Maximum, snapped.Map(static canvas => SnappingConstraints.CreateFromDocument(canvas.Document)).ValueUnsafe(), SnappingSettings.Current))
          from sizing in IO.lift(() => frame.Begin(point, limits.Edges))
          from next in sizing
-             ? IO.pure(new Track(frame.Original, location => IO.lift(() => frame.Continue(location)).Map(_ => frame.Resized),
-                 snapped.Match(Some: SnapSession.End, None: static () => unitIO)))
+             ? IO.pure(new Track(frame.Original, location => IO.lift(() => frame.Continue(location)).Map(_ => frame.Resized), snapped))
              : control is Canvas { Document: { } document } canvas
                  ? SnapSession.Begin(document, start, Seq<Guid>(), None).Map(session => new Track(session.Start,
                      location => session.Step(canvas, new SizeF(location.X - point.X, location.Y - point.Y), FlexControl.ShiftKeyDown)
-                         .Map(offset => session.Start.Move(offset.Width, offset.Height)), SnapSession.End(canvas)))
-                 : IO.pure(new Track(start, location => IO.pure(start.Move(location.X - point.X, location.Y - point.Y)), unitIO))
-         from held in atomicIO(() => track.Value = Some(next))
+                         .Map(offset => session.Start.Move(offset.Width, offset.Height)), Some(canvas)))
+                 : IO.pure(new Track(start, location => IO.pure(start.Move(location.X - point.X, location.Y - point.Y)), None))
+         from held in Products.Swapped(track, Snapping(next)).Under(scope)
          select Response.Capture).Uninterruptible();
 
+    private static IO<Track> Snapping(Track next) =>
+        next.Snapped.Traverse(static canvas => use(IO.pure(canvas), SnapSession.End)).As().Map(_ => next);
+
     private IO<Response> During(Func<Track, IO<Response>> act) =>
-        track.ValueIO.Bind(held => held.Match(Some: act, None: static () => IO.pure(Response.Ignored)));
+        track.ValueIO.Bind(held => held.Match(Some: lease => act(lease.Value), None: static () => IO.pure(Response.Ignored)));
 
     private IO<Unit> Shown(RectangleF bounds) =>
         IO.lift(() => {
@@ -130,37 +135,29 @@ public sealed class FrameResponder : Responses, IResponsive {
         });
 
     private IO<Option<Track>> Taken =>
-        atomicIO(() => {
-            Option<Track> held = track.Value;
-            track.Value = None;
-            return held;
-        });
+        from held in track.ValueIO
+        from cleared in Products.Cleared(track).Under(scope)
+        select held.Map(static lease => lease.Value);
 
     private IO<Unit> Cancelled =>
-        Taken.Bind(held => held.Match(
-            Some: current => Callbacks.Each(Seq(current.Cleared, Shown(current.Origin))).Map(unit),
-            None: static () => IO.pure(unit))).Uninterruptible();
+        Taken.Bind(held => held.Traverse(current => Shown(current.Origin)).As()).Map(unit).Uninterruptible();
 
     private IO<Response> Finished =>
-        DisposalOps.Transacted(
-            Taken,
-            held => held.Match(
-                Some: current => current.Cleared.Bind(_ => IO.lift(() => RegionBoundary)).Bind(placed).Map(Response.Release),
-                None: static () => IO.pure(Response.Ignored)),
-            held => held.Match(Some: current => Shown(current.Origin), None: static () => unitIO),
-            static (_, response) => IO.pure(response));
+        Taken.Bind(held => held.Match(
+            Some: current => IO.lift(() => RegionBoundary).Bind(placed).Map(Response.Release).Catch(error => Shown(current.Origin) >> IO.fail<Response>(error)).As(),
+            None: static () => IO.pure(Response.Ignored)));
 
-    private sealed record Track(RectangleF Origin, Func<PointF, IO<RectangleF>> Step, IO<Unit> Cleared);
+    private sealed record Track(RectangleF Origin, Func<PointF, IO<RectangleF>> Step, Option<Canvas> Snapped);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Responders {
     // --- [NUDGE]
-    public static IO<Unit> Nudge(Canvas canvas, IPlugInSink sink, Action<IDisposable> retain) =>
-        Subscriptions.During<KeyEventArgs>(typeof(Control), handler => canvas.KeyDown += handler, handler => canvas.KeyDown -= handler, nameof(Control.KeyDown))
-            .Inline(args => Nudged(canvas, args, sink), sink, retain);
+    public static IO<Unit> Nudge(Canvas canvas, IPlugInLifetime owner) =>
+        Subscriptions.During<KeyEventArgs>(h => canvas.KeyDown += h, h => canvas.KeyDown -= h)
+            .Inline(args => Nudged(canvas, args, owner), owner);
 
-    private static IO<Unit> Nudged(Canvas canvas, KeyEventArgs args, IPlugInSink sink) =>
+    private static IO<Unit> Nudged(Canvas canvas, KeyEventArgs args, IPlugInLifetime owner) =>
         from move in IO.lift(() =>
             from document in Optional(canvas.Document)
             where !args.Handled
@@ -178,7 +175,7 @@ public static class Responders {
             }
             select (Document: document, Offset: direction * step))
         from moved in move.Traverse(held => CanvasLayout.Nudged(held.Document, held.Offset,
-            new VerbNoun(RowText.Localize("Nudge", sink), RowText.Localize("Selection", sink)))).As()
+            new VerbNoun(RowText.Localize("Nudge", owner), RowText.Localize("Selection", owner)))).As()
         from shown in when(moved.Exists(static any => any), IO.lift(() => {
             args.Handled = true;
             canvas.Invalidate();

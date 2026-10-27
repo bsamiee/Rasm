@@ -4,18 +4,16 @@ using Rhino;
 namespace Rasm.RhinoCommon.Events;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public record HostEvent<TArgs>(string Label, Func<Func<TArgs, IO<Unit>>, object, IO<Unit>> Attach) {
-    public IO<Unit> Inline(Func<TArgs, IO<Unit>> deliver, object owner) => Attach(deliver, owner);
-
-    public IO<Unit> Through(Func<object, IO<Func<TArgs, IO<Unit>>>> mailbox, object owner) => mailbox(owner).Bind(post => Attach(post, owner));
+public record HostEvent<TArgs>(string Label, Func<Func<TArgs, IO<Unit>>, object, IO<Unit>> Inline) {
+    public IO<Unit> Through(Func<object, IO<Func<TArgs, IO<Unit>>>> mailbox, object owner) => mailbox(owner).Bind(post => Inline(post, owner));
 
     public HostEvent<TValue> Choose<TValue>(Func<TArgs, Option<TValue>> choose) =>
-        new(Label, (deliver, owner) => Attach(args => IO.lift(() => choose(args)).Bind(chosen => chosen.Match(deliver, static () => IO.pure(unit))), owner));
+        new(Label, (deliver, owner) => Inline(args => IO.lift(() => choose(args)).Bind(chosen => chosen.Match(deliver, static () => IO.pure(unit))), owner));
 
     public HostEvent<TArgs> DistinctUntilChanged<TKey, TMark>(Func<TArgs, TKey> key, Func<TArgs, TMark> mark) where TKey : notnull =>
         new(Label, (deliver, owner) =>
             from marks in IO.lift(static () => Ref(HashMap<TKey, TMark>()))
-            from attached in Attach(
+            from attached in Inline(
                 args =>
                     from repeat in atomicIO(() => {
                         HashMap<TKey, TMark> seen = marks.Value;
@@ -30,8 +28,8 @@ public record HostEvent<TArgs>(string Label, Func<Func<TArgs, IO<Unit>>, object,
             select attached);
 }
 
-public sealed record DocumentEvent<TArgs>(string Label, Func<Func<TArgs, IO<Unit>>, object, IO<Unit>> Attach, Func<TArgs, Option<uint>> Serial)
-    : HostEvent<TArgs>(Label, Attach) {
+public sealed record DocumentEvent<TArgs>(string Label, Func<Func<TArgs, IO<Unit>>, object, IO<Unit>> Inline, Func<TArgs, Option<uint>> Serial)
+    : HostEvent<TArgs>(Label, Inline) {
     public HostEvent<TArgs> In(uint serial) => Choose(args => Conversions.Found(Serial(args) == Some(serial), args));
 }
 
@@ -80,12 +78,12 @@ public static class Subscriptions {
 
     // --- [DOCUMENTS]
     extension<TArgs>(HostEvent<TArgs> row) where TArgs : DocumentEventArgs {
-        public DocumentEvent<TArgs> Documents() => new(row.Label, row.Attach, static args => Conversions.Present(args.DocumentSerialNumber));
+        public DocumentEvent<TArgs> Documents() => new(row.Label, row.Inline, static args => Conversions.Present(args.DocumentSerialNumber));
     }
 
     extension<TArgs>(HostEvent<TArgs> row) {
-        public DocumentEvent<TArgs> Documents(Func<TArgs, uint> serial) => new(row.Label, row.Attach, args => Conversions.Present(serial(args)));
+        public DocumentEvent<TArgs> Documents(Func<TArgs, uint> serial) => new(row.Label, row.Inline, args => Conversions.Present(serial(args)));
 
-        public DocumentEvent<TArgs> Documents(Func<TArgs, RhinoDoc?> document) => new(row.Label, row.Attach, args => Conversions.Serial(document(args)));
+        public DocumentEvent<TArgs> Documents(Func<TArgs, RhinoDoc?> document) => new(row.Label, row.Inline, args => Conversions.Serial(document(args)));
     }
 }

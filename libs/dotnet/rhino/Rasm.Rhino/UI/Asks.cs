@@ -1,15 +1,17 @@
+using System.Collections.Generic;
 using Eto.Forms;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.Persistence.Stores;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.PlugIns;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
-namespace Rasm.Rhino.UI;
+namespace Rasm.RhinoCommon.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Captioned<T>(T Value, LocalizeStringPair Caption) where T : notnull {
@@ -86,7 +88,7 @@ public static class HostDialogs {
             .Map(PlotWeight.FromHost)
             .ToFin(Errors.Cancelled));
 
-    public static IO<Color4f> ShowColorDialog(RhinoDoc doc, Color4f initial, bool allowAlpha, Option<NamedColorList> palette, Option<(Func<Color4f, IO<Unit>> Deliver, CallbackSite Site)> preview) =>
+    public static IO<Color4f> ShowColorDialog(RhinoDoc doc, Color4f initial, bool allowAlpha, Option<NamedColorList> palette, Option<(Func<Color4f, IO<Unit>> Deliver, IPlugInLifetime Owner)> preview) =>
         from attended in Attended
         from chosen in IO.lift(() => {
             Color4f color = initial;
@@ -99,13 +101,14 @@ public static class HostDialogs {
     public static IO<Unit> ShowSunDialog(RhinoDoc doc) =>
         Attended.Bind(_ => IO.lift(() => Accepted(Dialogs.ShowSunDialog(doc.Lights.Sun), unit)));
 
-    private static Dialogs.OnColorChangedEvent Previewed((Func<Color4f, IO<Unit>> Deliver, CallbackSite Site) preview) =>
-        shown => Callbacks.Started(preview.Deliver(shown), preview.Site);
+    private static Dialogs.OnColorChangedEvent Previewed((Func<Color4f, IO<Unit>> Deliver, IPlugInLifetime Owner) preview) =>
+        shown => preview.Owner.Start(preview.Deliver(shown));
 
     private static IO<(double Min, double Max)> Ranged(RhinoDoc doc, LocalizeStringPair title, (double Min, double Max) range, (bool Min, bool Max) editable, int decimals) =>
         from attended in Attended
-        from ends in DisposalOps.Within(() => new RangeDialog(range.Min, range.Max, decimals, decimals, editable.Min, editable.Max) { Title = title.Local },
-            dialog => IO.lift(() => Accepted(dialog.ShowSemiModal(doc, RhinoEtoApp.MainWindowForDocument(doc)), (dialog.Min, dialog.Max))))
+        from ends in (from dialog in use(() => new RangeDialog(range.Min, range.Max, decimals, decimals, editable.Min, editable.Max) { Title = title.Local })
+                      from chosen in IO.lift(() => Accepted(dialog.ShowSemiModal(doc, RhinoEtoApp.MainWindowForDocument(doc)), (dialog.Min, dialog.Max)))
+                      select chosen).Bracket()
         select ends;
 
     // --- [TABLES]
@@ -148,7 +151,7 @@ public static class HostDialogs {
         from chosen in IO.lift(() => {
             int selected = index;
             return Accepted(Dialogs.ShowSelectLinetypeDialog(ref selected, displayByLayer), selected)
-                .Bind(static answer => LinetypeRef.FromHost(answer).ToFin(new Refused(nameof(Dialogs.ShowSelectLinetypeDialog), Refused.Invalid)));
+                .Bind(static answer => Conversions.Found(LinetypeRef.FromHost(answer)));
         })
         select chosen;
 
@@ -156,10 +159,10 @@ public static class HostDialogs {
         Callbacks.Each(layers.Map(layer => TableOps.Find(doc.Layers, layer, includeDeleted: false).Map(static found => found.Index)));
 
     // --- [FILES]
-    public static IO<Seq<string>> ShowOpenDialog(global::Rhino.UI.OpenFileDialog dialog) =>
+    public static IO<Seq<string>> ShowOpenDialog(Rhino.UI.OpenFileDialog dialog) =>
         Attended.Bind(_ => IO.lift(() => Accepted(dialog.ShowOpenDialog(), toSeq(dialog.FileNames))));
 
-    public static IO<string> ShowSaveDialog(global::Rhino.UI.SaveFileDialog dialog) =>
+    public static IO<string> ShowSaveDialog(Rhino.UI.SaveFileDialog dialog) =>
         Attended.Bind(_ => IO.lift(() => Accepted(dialog.ShowSaveDialog(), dialog.FileName)));
 
     public static string Filter(Seq<(string Description, Seq<string> Extensions)> rows) =>
@@ -167,10 +170,10 @@ public static class HostDialogs {
 
     public static IO<string> ShowSelectFolderDialog(RhinoDoc doc, LocalizeStringPair title, Option<string> directory) =>
         from attended in Attended
-        from folder in DisposalOps.Within(() => new SelectFolderDialog { Title = title.Local }, dialog =>
-            from seeded in IO.lift(() => directory.Iter(path => dialog.Directory = path))
-            from chosen in IO.lift(() => Accepted(dialog.ShowDialog(RhinoEtoApp.MainWindowForDocument(doc)) is DialogResult.Ok, dialog.Directory))
-            select chosen)
+        from folder in (from dialog in use(() => new SelectFolderDialog { Title = title.Local })
+                        from seeded in IO.lift(() => directory.Iter(path => dialog.Directory = path))
+                        from chosen in IO.lift(() => Accepted(dialog.ShowDialog(RhinoEtoApp.MainWindowForDocument(doc)) is DialogResult.Ok, dialog.Directory))
+                        select chosen).Bracket()
         select folder;
 
     // --- [SUPPRESSION]
@@ -180,10 +183,10 @@ public static class HostDialogs {
     public static IO<Suppressible<T>> Suppressing<T>(SettingsNode node, PlugInSetting<bool> row, Func<CheckBox, IO<(T Value, bool Suppress)>> show) =>
         from shows in node.Current(row)
         from asked in shows
-            ? DisposalOps.Within(static () => new CheckBox { Text = RowText.Localize("Do not show again").Local }, box =>
-                from answer in show(box)
-                from kept in when(answer.Suppress, PlugInSettings.Store(node, row).Write(Some(value: false)).Map(unit)).As()
-                select (Suppressible<T>)new Suppressible<T>.Shown(answer.Value))
+            ? (from box in use(static () => new CheckBox { Text = RowText.Localize("Do not show again").Local })
+               from answer in show(box)
+               from kept in when(answer.Suppress, PlugInSettings.Store(node, row).Write(Some(value: false)).Map(unit)).As()
+               select (Suppressible<T>)new Suppressible<T>.Shown(answer.Value)).Bracket()
             : IO.pure<Suppressible<T>>(new Suppressible<T>.Suppressed())
         select asked;
 

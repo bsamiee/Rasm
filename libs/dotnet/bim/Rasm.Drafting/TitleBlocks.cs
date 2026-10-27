@@ -1,3 +1,4 @@
+using System.Numerics;
 using NodaTime.Text;
 
 namespace Rasm.Drafting;
@@ -10,7 +11,7 @@ public sealed partial class RevisionAlphabet {
 
     public string Symbols { get; }
     public int MaxLetters { get; }
-    public int Count => Range(1, MaxLetters).Fold(0, (sum, _) => (sum + 1) * Symbols.Length);
+    public int Count => Symbols.Length * (int.CreateChecked(BigInteger.Pow(Symbols.Length, MaxLetters)) - 1) / (Symbols.Length - 1);
 }
 
 [ComplexValueObject(SkipFactoryMethods = true, SkipToString = true)]
@@ -38,8 +39,7 @@ public sealed partial class TitleRule {
     public static readonly TitleRule Required = new(mandatory: true, static (_, text) => text);
     public static readonly TitleRule Optional = new(mandatory: false, static (_, text) => text);
     public static readonly TitleRule Revision = new(mandatory: false, static (alphabet, text) => RevisionIndex.FromLetters(alphabet, text).Map(static index => index.ToString()));
-    public static readonly TitleRule IssueDate = new(mandatory: true, static (_, text) =>
-        LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? LocalDatePattern.Iso.Format(parsed.Value) : new DraftingFault(text, DraftingReason.IssueDate));
+    public static readonly TitleRule IssueDate = new(mandatory: true, static (_, text) => LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? LocalDatePattern.Iso.Format(parsed.Value) : new DraftingFault(text, DraftingReason.IssueDate));
 
     public bool Mandatory { get; }
 
@@ -57,8 +57,8 @@ public abstract partial record TitleField {
     public static readonly TitleField IdentificationNumber = new SheetName("identification-number");
     public static readonly TitleField RevisionIndex = new SheetEntry("revision-index", TitleRule.Revision);
     public static readonly TitleField DateOfIssue = new SheetEntry("date-of-issue", TitleRule.IssueDate);
-    public static readonly TitleField SegmentNumber = new SheetEntry("segment-number", None);
-    public static readonly TitleField SegmentCount = new SheetEntry("segment-count", None);
+    public static readonly TitleField SegmentNumber = new SheetEntry("segment-number");
+    public static readonly TitleField SegmentCount = new SheetEntry("segment-count");
     public static readonly TitleField LanguageCode = new ProjectEntry("language-code", TitleRule.Optional);
     public static readonly TitleField Title = new SheetEntry("title", TitleRule.Required);
     public static readonly TitleField SupplementaryTitle = new SheetEntry("supplementary-title", TitleRule.Optional);
@@ -75,14 +75,15 @@ public abstract partial record TitleField {
     public static readonly TitleField Checker = new SheetEntry("checker", TitleRule.Optional);
 
     public abstract string Key { get; init; }
+    private protected virtual Option<TitleRule> Entry => None;
 
-    public sealed record ProjectEntry(string Key, TitleRule Rule) : TitleField;
-    public sealed record SheetEntry(string Key, Option<TitleRule> Rule) : TitleField;
+    public sealed record ProjectEntry(string Key, TitleRule Rule) : TitleField { private protected override Option<TitleRule> Entry => Rule; }
+    public sealed record SheetEntry(string Key, Option<TitleRule> Rule = default) : TitleField { private protected override Option<TitleRule> Entry => Rule; }
     public sealed record SheetName(string Key) : TitleField;
     public sealed record SheetFact(string Key, Func<Sheet, string> Read) : TitleField;
 
     public static Fin<Seq<(TitleField Field, Option<string> Text)>> Accept(DraftingConvention convention, HashMap<TitleField, string> entries) =>
         toSeq(entries.AsIterable())
-            .Choose(static entry => entry.Key.Switch(projectEntry: static field => Some(field.Rule), sheetEntry: static field => field.Rule, sheetName: static _ => Option<TitleRule>.None, sheetFact: static _ => Option<TitleRule>.None).Map(rule => (Field: entry.Key, Rule: rule, Text: entry.Value.Trim())))
+            .Choose(static entry => entry.Key.Entry.Map(rule => (Field: entry.Key, Rule: rule, Text: entry.Value.Trim())))
             .Traverse(entry => entry.Rule.Accept(entry.Field, convention.Revisions, Some(entry.Text).Filter(static text => text.Length > 0)).Map(text => (entry.Field, text))).As();
 }

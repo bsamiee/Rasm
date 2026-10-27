@@ -56,6 +56,10 @@ utils:
                 - any:
                     - all: [{has: {field: function, has: {field: expression, matches: on-probe}}}, {has: {field: arguments, has: {kind: argument, matches: on-item}}}]
                     - all: [{has: {field: function, has: {field: expression, matches: on-item}}}, {has: {field: arguments, has: {kind: argument, matches: on-probe}}}]
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Equals$'}}, {has: {field: expression, regex: '^(string|String)$'}}]}
+                - has: {field: arguments, all: [{has: {kind: argument, matches: on-probe}}, {has: {kind: argument, matches: on-item}}]}
     probe:
         kind: lambda_expression
         all:

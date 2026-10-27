@@ -2,28 +2,27 @@
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, nullcontext
+from functools import partial
 import importlib.resources
 from importlib.resources.abc import Traversable
-import math
 from pathlib import Path
 from typing import Final, Self, TYPE_CHECKING
 
 import bpy
 import bpy.utils.previews
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.extension.events.subscriptions import Subscription
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.events import Subscription
+from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.extension.reports import redrawn
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.resources.previews import PREVIEWS
 from blender.bpy.ui.resources.theme import Color, color
-from blender.records.faults import Fault, Faults, Outcome
+from blender.records.faults import Fault, Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -31,6 +30,10 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Glyph = rna_enums.IconItems | Path
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_ICON: Final[bpy.types.EnumProperty] = bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"]  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -53,7 +56,7 @@ class IconSet:
         def source(entry: Traversable) -> tuple[Path, tuple[npt.NDArray[np.float32], Option[Color]]]:
             glyph = Path(entry.name).with_suffix(".svg")
             preview = collection.load(glyph.as_posix(), str(entry), "IMAGE")
-            pixels = np.empty(math.prod(preview.image_size) * 4, dtype=np.float32)  # type: ignore[call-overload]
+            pixels = np.empty(np.asarray(preview.image_size).prod() * 4, dtype=np.float32)
             preview.image_pixels_float.foreach_get(pixels)
             preview.icon_size = preview.image_size
             preview.icon_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
@@ -78,7 +81,7 @@ class IconSet:
             Option
             .of_optional(self.collection.get(glyph.as_posix()))
             .map(lambda preview: preview.icon_id)
-            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(Icons.folder(identity)), member=glyph.as_posix()),))
+            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, str(Icons.folder(identity)), member=glyph.as_posix()))
         )
 
 
@@ -90,37 +93,34 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [ACQUISITION]
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
-        """Builds the glyph set, its tints and brand held in the resources band, and theme color subscriptions rewriting tints."""
-        later: Callable[[], None]
+    @contextmanager
+    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
+        """Builds the glyph set, its tints and brand held in the resources band, and theme color subscriptions scheduling one deferred tint write."""
 
         def reinked() -> Outcome[Option[str]]:
             """Writes changed tints, redrawing when one changed."""
             return redrawn() if identity.held[ICONS].reinked(self.tint) else Ok(Nothing)
 
-        def scheduled() -> Outcome[None]:
-            """Schedules tint write on theme color change."""
-            later()
-            return Ok(None)
-
         @contextmanager
         def inked() -> Generator[Outcome[None]]:
-            """Inks glyphs and records the brand icon, holding the deferred tint writer for the scope."""
-            nonlocal later
+            """Inks glyphs and records the brand icon."""
             icons = identity.held[ICONS]
-            with identity.reports.deferred(reinked) as later:
-                icons.reinked(self.tint)
-                branded: Outcome[Option[int]] = self.brand.map(lambda glyph: icons.icon(identity, glyph).map(Some)).default_value(Ok(Nothing))
-                for brand in branded.to_option().to_list():
-                    icons.brand = brand
-                yield branded.map(lambda _: None)
+            icons.reinked(self.tint)
+            branded: Outcome[Option[int]] = self.brand.map(lambda glyph: icons.icon(identity, glyph).map(Some)).default_value(Ok(Nothing))
+            for brand in branded.to_option().to_list():
+                icons.brand = brand
+            yield branded.map(lambda _: None)
 
-        return Ok((
-            PREVIEWS,
-            ICONS,
-            (Band.RESOURCES, inked()),
-            *(Subscription(owner=owner, setting=owner.bl_rna.properties[member], body=scheduled) for owner, member in ((bpy.types.ThemeWidgetColors, "text"), (bpy.types.Theme, "filepath"))),
-        ))
+        with identity.reports.deferred(reinked) as later:
+            yield Ok((
+                PREVIEWS,
+                ICONS,
+                (Band.RESOURCES, inked()),
+                *(
+                    Subscription(owner=owner, setting=owner.bl_rna.properties[member], body=lambda: Ok(later()))
+                    for owner, member in ((bpy.types.ThemeWidgetColors, "text"), (bpy.types.Theme, "filepath"))
+                ),
+            ))
 
     # --- [READING]
 
@@ -134,22 +134,19 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
         """Returns built-in icon value or staged glyph icon ID, absent fault for a glyph the host or the staged set lacks."""
         match glyph:
             case Path():
-                return Result[IconSet, Faults].bind(
-                    Option.of_optional(ICONS.held.get(identity.package)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(Icons.folder(identity)), member=glyph.as_posix()),)),
-                    lambda icons: icons.icon(identity, glyph),
+                return (
+                    identity.held
+                    .get(ICONS)
+                    .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, str(Icons.folder(identity)), member=glyph.as_posix()))
+                    .bind(lambda icons: icons.icon(identity, glyph))
                 )
             case _:
-                return (
-                    Option
-                    .of_optional(bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.get(glyph))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    .map(lambda item: item.value)
-                    .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=bpy.types.UILayout.__name__, member=glyph),))
-                )
+                return Option.of_optional(_ICON.enum_items.get(glyph)).map(lambda item: item.value).to_result_with(partial(Fault.of, BlenderReason.ABSENT, bpy.types.UILayout.__name__, member=glyph))
 
     @staticmethod
     def mark(identity: Identity) -> Option[int]:
         """Returns brand glyph icon ID, Nothing for an extension without staged glyphs or brand."""
-        return Option.of_optional(ICONS.held.get(identity.package)).bind(lambda icons: icons.brand)
+        return identity.held.get(ICONS).bind(lambda icons: icons.brand)
 
     @staticmethod
     def path(identity: Identity, source: Path) -> str:
@@ -162,12 +159,13 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 
 def ink() -> Color:
     """Returns regular widget text color in display RGBA."""
-    return color(bpy.context.preferences.themes[0].user_interface.wcol_regular.text)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return color(preferences.themes[0].user_interface.wcol_regular.text)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-ICONS: Final = Scoped[IconSet](made=lambda identity: nullcontext(IconSet.loaded(identity)))
+ICONS: Final = Resource[IconSet](made=lambda identity: nullcontext(IconSet.loaded(identity)))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

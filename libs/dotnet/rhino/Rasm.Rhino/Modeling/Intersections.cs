@@ -1,10 +1,12 @@
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Modeling.Curves;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Modeling.Curves;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 using Rhino.Geometry.Intersect;
 
-namespace Rasm.Rhino.Modeling;
+namespace Rasm.RhinoCommon.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -69,11 +71,9 @@ public abstract partial record ProjectionTargets {
 
     public sealed record OnPlane(Plane Plane, Option<Vector3d> Along) : ProjectionTargets {
         public Fin<Transform> Projection =>
-            Along.Match(
-                Some: along => (Member: nameof(Transform.ProjectAlong), Xform: Transform.ProjectAlong(Plane, along)),
-                None: () => (Member: nameof(Transform.PlanarProjection), Xform: Transform.PlanarProjection(Plane))) switch {
-                    var (member, xform) => Refused.Unless(!xform.IsIdentity, xform, member),
-                };
+            Along.Match(Some: along => Transform.ProjectAlong(Plane, along), None: () => Transform.PlanarProjection(Plane)) switch {
+                var xform => RhinoFault.Unless(!xform.IsIdentity).Map(_ => xform),
+            };
     }
 }
 
@@ -86,25 +86,25 @@ public sealed record MeshCrossings(Seq<Polyline> Polylines, Seq<Polyline> Overla
 public static class Intersections {
     // --- [ANALYTIC]
     public static Option<(double A, double B)> LineLine(Line lineA, Line lineB) =>
-        Callbacks.Found(Intersection.LineLine(lineA, lineB, out double a, out double b), (A: a, B: b));
+        Conversions.Found(Intersection.LineLine(lineA, lineB, out double a, out double b), (A: a, B: b));
 
     public static Option<(double A, double B)> LineLine(Tolerances tolerances, Line lineA, Line lineB, bool finiteSegments) =>
-        Callbacks.Found(Intersection.LineLine(lineA, lineB, out double a, out double b, tolerances.Absolute, finiteSegments), (A: a, B: b));
+        Conversions.Found(Intersection.LineLine(lineA, lineB, out double a, out double b, tolerances.Absolute, finiteSegments), (A: a, B: b));
 
     public static Option<double> LinePlane(Line line, Plane plane) =>
-        Callbacks.Found(Intersection.LinePlane(line, plane, out double t), t);
+        Conversions.Found(Intersection.LinePlane(line, plane, out double t), t);
 
     public static Option<Line> PlanePlane(Plane planeA, Plane planeB) =>
-        Callbacks.Found(Intersection.PlanePlane(planeA, planeB, out Line line), line);
+        Conversions.Found(Intersection.PlanePlane(planeA, planeB, out Line line), line);
 
     public static Option<Point3d> PlanePlanePlane(Plane planeA, Plane planeB, Plane planeC) =>
-        Callbacks.Found(Intersection.PlanePlanePlane(planeA, planeB, planeC, out Point3d point), point);
+        Conversions.Found(Intersection.PlanePlanePlane(planeA, planeB, planeC, out Point3d point), point);
 
     public static Option<Interval> LineBox(Tolerances tolerances, Line line, Box box) =>
-        Callbacks.Found(Intersection.LineBox(line, box, tolerances.Absolute, out Interval span), span);
+        Conversions.Found(Intersection.LineBox(line, box, tolerances.Absolute, out Interval span), span);
 
     public static Option<Polyline> PlaneBoundingBox(Plane plane, BoundingBox box) =>
-        Callbacks.Found(Intersection.PlaneBoundingBox(plane, box, out Polyline polyline), polyline);
+        Conversions.Found(Intersection.PlaneBoundingBox(plane, box, out Polyline polyline), polyline);
 
     public static Crossing<(double T, Point3d Point)> LineCircle(Line line, Circle circle) =>
         Intersection.LineCircle(line, circle, out double t1, out Point3d point1, out double t2, out Point3d point2) switch {
@@ -199,55 +199,54 @@ public static class Intersections {
 
     private static IO<(Seq<CurveCrossing<TAt, TSpan>> Crossings, Seq<int> Invalid, string Log)> Validated<TAt, TSpan>(
         Func<(CurveIntersections? Events, int[] Invalid, TextLog Log)> host, Func<IntersectionEvent, TAt> at, Func<IntersectionEvent, TSpan> span) =>
-        DisposalOps.Within(
-            host,
-            answer => from crossings in Crossings(() => answer.Events, at, span)
-                      select (Crossings: crossings, Invalid: toSeq(answer.Invalid), Log: answer.Log.ToString()),
-            static answer => IO.lift(answer.Log.Dispose));
+        (from answer in IO.lift(host)
+         from log in use(() => answer.Log)
+         from crossings in Crossings(() => answer.Events, at, span)
+         select (Crossings: crossings, Invalid: toSeq(answer.Invalid), Log: log.ToString())).Bracket();
 
     private static IO<Seq<CurveCrossing<TAt, TSpan>>> Crossings<TAt, TSpan>(Func<CurveIntersections?> host, Func<IntersectionEvent, TAt> at, Func<IntersectionEvent, TSpan> span) =>
-        DisposalOps.Within(
-            host,
-            events => IO.lift(() => Conversions.Rows(events)
-                .Map<CurveCrossing<TAt, TSpan>>(crossing => crossing.IsPoint
-                    ? new CurveCrossing<TAt, TSpan>.Hit(crossing.ParameterA, at(crossing), crossing.PointA, crossing.PointB)
-                    : new CurveCrossing<TAt, TSpan>.Overlap(crossing.OverlapA, span(crossing)))
-                .Strict()),
-            static events => DisposalOps.Release(events));
+        (from events in IO.lift(host)
+         from held in Products.Held(events)
+         select Conversions.Rows(events)
+             .Map<CurveCrossing<TAt, TSpan>>(crossing => crossing.IsPoint
+                 ? new CurveCrossing<TAt, TSpan>.Hit(crossing.ParameterA, at(crossing), crossing.PointA, crossing.PointB)
+                 : new CurveCrossing<TAt, TSpan>.Overlap(crossing.OverlapA, span(crossing)))
+             .Strict()).Bracket();
 
     // --- [SURFACES]
-    public static IO<(Seq<Curve> Curves, Seq<Point3d> Points)> CurvesAndPoints(Tolerances tolerances, CurvesAndPoints operands, Action<IDisposable> retain) =>
+    public static IO<(Seq<Curve> Curves, Seq<Point3d> Points)> CurvesAndPoints(Tolerances tolerances, CurvesAndPoints operands) =>
         operands.Switch(
-            (tolerances.Absolute, Retain: retain),
-            brepBrep: static (at, pair) => Copies.Acquire(nameof(Intersection.BrepBrep), _ =>
-                Traced(Intersection.BrepBrep(pair.A, pair.B, at.Absolute, pair.JoinCurves, out Curve[] curves, out Point3d[] points), curves, points), at.Retain),
-            brepSurface: static (at, pair) => Copies.Acquire(nameof(Intersection.BrepSurface), _ =>
-                Traced(Intersection.BrepSurface(pair.Brep, pair.Surface, at.Absolute, pair.JoinCurves, out Curve[] curves, out Point3d[] points), curves, points), at.Retain),
-            surfaceSurface: static (at, pair) => Copies.Acquire(nameof(Intersection.SurfaceSurface), _ =>
-                Traced(Intersection.SurfaceSurface(pair.A, pair.B, at.Absolute, out Curve[] curves, out Point3d[] points), curves, points), at.Retain),
-            curveBrepFace: static (at, pair) => Copies.Acquire(nameof(Intersection.CurveBrepFace), _ =>
-                Traced(Intersection.CurveBrepFace(pair.Curve, pair.Face, at.Absolute, out Curve[] curves, out Point3d[] points), curves, points), at.Retain));
+            tolerances.Absolute,
+            brepBrep: static (absolute, pair) => Traced(Intersection.BrepBrep(pair.A, pair.B, absolute, pair.JoinCurves, out Curve[] curves, out Point3d[] points), curves, points),
+            brepSurface: static (absolute, pair) => Traced(Intersection.BrepSurface(pair.Brep, pair.Surface, absolute, pair.JoinCurves, out Curve[] curves, out Point3d[] points), curves, points),
+            surfaceSurface: static (absolute, pair) => Traced(Intersection.SurfaceSurface(pair.A, pair.B, absolute, out Curve[] curves, out Point3d[] points), curves, points),
+            curveBrepFace: static (absolute, pair) => Traced(Intersection.CurveBrepFace(pair.Curve, pair.Face, absolute, out Curve[] curves, out Point3d[] points), curves, points));
 
-    public static IO<(Seq<Curve> Overlaps, Seq<CurveSample> Hits)> CurveBrep(Tolerances tolerances, Curve curve, Brep brep, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Intersection.CurveBrep), _ =>
-            Intersection.CurveBrep(curve, brep, tolerances.Absolute, out Curve[] overlaps, out Point3d[] points, out double[] parameters) switch {
-                var accepted => (Answer.Accepted(accepted), Answer.Many(overlaps))
-                    .Apply((_, held) => (Overlaps: held, Hits: CurveSample.Of(parameters, points))).As(),
-            }, retain);
+    public static IO<(Seq<Curve> Overlaps, Seq<CurveSample> Hits)> CurveBrep(Tolerances tolerances, Curve curve, Brep brep) =>
+        Intersection.CurveBrep(curve, brep, tolerances.Absolute, out Curve[] overlaps, out Point3d[] points, out double[] parameters) switch {
+            var accepted =>
+                from held in Products.Made(overlaps)
+                from traced in IO.lift(() => RhinoFault.Unless(accepted))
+                select (Overlaps: held, Hits: CurveSample.Of(parameters, points)),
+        };
 
-    private static Answer<(Seq<Curve> Curves, Seq<Point3d> Points)> Traced(bool accepted, Curve[] curves, Point3d[] points) =>
-        (Answer.Accepted(accepted), Answer.Many(curves)).Apply((_, held) => (Curves: held, Points: toSeq(points))).As();
+    private static IO<(Seq<Curve> Curves, Seq<Point3d> Points)> Traced(bool accepted, Curve[] curves, Point3d[] points, [CallerArgumentExpression(nameof(accepted))] string call = "") =>
+        from held in Products.Made(curves, call)
+        from traced in IO.lift(() => RhinoFault.Unless(accepted, call: call))
+        select (Curves: held, Points: toSeq(points));
 
     // --- [MESHES]
-    public static IO<MeshCrossings> MeshMesh(Tolerances tolerances, Sets<Mesh> meshes, bool overlaps, bool overlapMesh, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
-        meshes.Switch(
-            (Tolerance: tolerances.MeshIntersection, Overlaps: overlaps, OverlapMesh: overlapMesh, Progress: progress.ValueUnsafe(), Retain: retain),
-            within: static (at, within) => Copies.Acquire(nameof(Intersection.MeshMesh), token => Crossed(log => (
-                Intersection.MeshMesh(within.Items, at.Tolerance, out Polyline[] polylines, at.Overlaps, out Polyline[] overlapped, at.OverlapMesh, out Mesh merged, log, token, at.Progress),
-                polylines, overlapped, merged)), at.Retain),
-            between: static (at, between) => Copies.Acquire(nameof(Intersection.MeshMeshTwoSets), token => Crossed(log => (
-                Intersection.MeshMeshTwoSets(between.A, between.B, at.Tolerance, out Polyline[] polylines, at.Overlaps, out Polyline[] overlapped, at.OverlapMesh, out Mesh merged, log, token, at.Progress),
-                polylines, overlapped, merged)), at.Retain));
+    public static IO<MeshCrossings> MeshMesh(Tolerances tolerances, Sets<Mesh> meshes, bool overlaps, bool overlapMesh, Option<IProgress<double>> progress) =>
+        from token in cancelToken
+        from crossed in meshes.Switch(
+            (Tolerance: tolerances.MeshIntersection, Overlaps: overlaps, OverlapMesh: overlapMesh, Progress: progress.ValueUnsafe(), Token: token),
+            within: static (at, within) => Crossed(log => (
+                Intersection.MeshMesh(within.Items, at.Tolerance, out Polyline[] polylines, at.Overlaps, out Polyline[] overlapped, at.OverlapMesh, out Mesh merged, log, at.Token, at.Progress),
+                polylines, overlapped, merged)),
+            between: static (at, between) => Crossed(log => (
+                Intersection.MeshMeshTwoSets(between.A, between.B, at.Tolerance, out Polyline[] polylines, at.Overlaps, out Polyline[] overlapped, at.OverlapMesh, out Mesh merged, log, at.Token, at.Progress),
+                polylines, overlapped, merged)))
+        select crossed;
 
     public static IO<Seq<IntersectingMeshPair>> Predicate(Tolerances tolerances, Sets<Mesh> meshes, bool fast) =>
         from token in cancelToken
@@ -281,13 +280,13 @@ public static class Intersections {
                 var (points, faces) => toSeq(points).Zip(toSeq(faces), static (point, face) => (Point: point, Face: face)).Strict(),
             });
 
-    private static Answer<MeshCrossings> Crossed(Func<TextLog, (bool Accepted, Polyline[] Polylines, Polyline[] Overlaps, Mesh? OverlapMesh)> host) {
-        using TextLog log = new();
-        (bool accepted, Polyline[] polylines, Polyline[] overlaps, Mesh? overlapMesh) = host(log);
-        string text = log.ToString();
-        return (Answer.Accepted(accepted, text), Answer.Optional(overlapMesh))
-            .Apply((_, mesh) => new MeshCrossings(Conversions.Rows(polylines), Conversions.Rows(overlaps), mesh, Conversions.Present(text))).As();
-    }
+    private static IO<MeshCrossings> Crossed(Func<TextLog, (bool Accepted, Polyline[] Polylines, Polyline[] Overlaps, Mesh? OverlapMesh)> host, [CallerArgumentExpression(nameof(host))] string call = "") =>
+        from log in use(static () => new TextLog())
+        from crossed in IO.lift(() => host(log))
+        from mesh in Products.Held(crossed.OverlapMesh, call)
+        let text = log.ToString()
+        from accepted in IO.lift(() => crossed.Accepted ? Fin.Succ(unit) : new RhinoFault(call, RhinoReason.Declined, Inner: Conversions.Present(text).Map(static report => Error.New(report))))
+        select new MeshCrossings(Conversions.Rows(crossed.Polylines), Conversions.Rows(crossed.Overlaps), mesh, Conversions.Present(text));
 
     private static (IEnumerable<Mesh> A, IEnumerable<Mesh>? B) Operands(Sets<Mesh> meshes) =>
         meshes.Switch<(IEnumerable<Mesh> A, IEnumerable<Mesh>? B)>(
@@ -297,10 +296,9 @@ public static class Intersections {
     private static Fin<T> Predicated<T>(Func<TextLog, (bool Any, T Value)> host, CancellationToken token) {
         using TextLog log = new();
         (bool any, T value) = host(log);
-        string text = log.ToString();
         return token.IsCancellationRequested ? Errors.Cancelled
-            : any || !text.StartsWith("Error:", StringComparison.Ordinal) ? value
-            : new Refused(nameof(Intersection.MeshMeshPredicate), text);
+            : any ? value
+            : Conversions.Unreported(log.ToString()).Map(_ => value);
     }
 
     // --- [RAYS_AND_PROJECTIONS]
@@ -312,39 +310,37 @@ public static class Intersections {
     public static IO<Seq<(int Source, Point3d Point)>> Project(Tolerances tolerances, ProjectionTargets targets, Seq<Point3d> points) =>
         IO.lift(() => targets.Switch(
             (Points: points, tolerances.Absolute),
-            onMeshes: static (at, target) => Refused.UnlessFound(Intersection.ProjectPointsToMeshesEx(target.Meshes, at.Points, target.Direction, at.Absolute, out int[] sources), nameof(Intersection.ProjectPointsToMeshesEx))
+            onMeshes: static (at, target) => Conversions.Found(Intersection.ProjectPointsToMeshesEx(target.Meshes, at.Points, target.Direction, at.Absolute, out int[] sources))
                 .Map(projected => toSeq(sources).Zip(toSeq(projected), static (source, point) => (Source: source, Point: point)).Strict()),
-            onBreps: static (at, target) => Refused.UnlessFound(Intersection.ProjectPointsToBrepsEx(target.Breps, at.Points, target.Direction, at.Absolute, out int[] sources), nameof(Intersection.ProjectPointsToBrepsEx))
+            onBreps: static (at, target) => Conversions.Found(Intersection.ProjectPointsToBrepsEx(target.Breps, at.Points, target.Direction, at.Absolute, out int[] sources))
                 .Map(projected => toSeq(sources).Zip(toSeq(projected), static (source, point) => (Source: source, Point: point)).Strict()),
             onPlane: static (at, target) => target.Projection.Map(xform => at.Points.Map((point, index) => (Source: index, Point: xform * point)).Strict())));
 
-    public static IO<Seq<(Curve Curve, Option<int> Source, Option<int> Target)>> Project(Tolerances tolerances, ProjectionTargets targets, Seq<Curve> curves, bool loose, Action<IDisposable> retain) =>
+    public static IO<Seq<(Curve Curve, Option<int> Source, Option<int> Target)>> Project(Tolerances tolerances, ProjectionTargets targets, Seq<Curve> curves, bool loose) =>
         targets.Switch(
-            (Curves: curves, tolerances.Absolute, Loose: loose, Retain: retain),
-            onMeshes: static (at, target) => Copies.Acquire(nameof(Curve.ProjectToMesh), _ =>
-                Answer.Many(Curve.ProjectToMesh(at.Curves, target.Meshes, target.Direction, at.Absolute, at.Loose))
-                    .Map(static projected => projected.Map(static curve => (Curve: curve, Source: Option<int>.None, Target: Option<int>.None)).Strict()), at.Retain),
-            onBreps: static (at, target) => Copies.Acquire(nameof(Curve.ProjectToBrep), _ =>
-                Answer.Many(Curve.ProjectToBrep(at.Curves, target.Breps, target.Direction, at.Absolute, at.Loose, out int[]? sources, out int[]? targets))
-                    .Map(projected => projected.Zip(Conversions.Rows(sources).Zip(Conversions.Rows(targets)),
-                        static (curve, row) => (Curve: curve, Source: Some(row.First), Target: Some(row.Second))).Strict()), at.Retain),
-            onPlane: static (at, target) => DisposalOps.Acquire(owned =>
+            (Curves: curves, tolerances.Absolute, Loose: loose),
+            onMeshes: static (at, target) => Products.Made(Curve.ProjectToMesh(at.Curves, target.Meshes, target.Direction, at.Absolute, at.Loose))
+                .Map(static projected => projected.Map(static curve => (Curve: curve, Source: Option<int>.None, Target: Option<int>.None)).Strict()),
+            onBreps: static (at, target) => Products.Made(Curve.ProjectToBrep(at.Curves, target.Breps, target.Direction, at.Absolute, at.Loose, out int[]? sources, out int[]? targets))
+                .Map(projected => projected.Zip(Conversions.Rows(sources).Zip(Conversions.Rows(targets)),
+                    static (curve, row) => (Curve: curve, Source: Some(row.First), Target: Some(row.Second))).Strict()),
+            onPlane: static (at, target) =>
                 from xform in IO.lift(() => target.Projection)
-                from projected in at.Curves.Map((curve, index) =>
-                    from copy in Copies.Duplicate(curve, owned)
-                    from moved in Transformations.Transformed(copy, xform, owned)
-                    select (Curve: moved, Source: Some(index), Target: Option<int>.None)).TraverseM(static step => step).As()
-                select projected, at.Retain));
+                from projected in at.Curves.Map(static (curve, index) => (Curve: curve, Index: index)).TraverseM(row =>
+                    from copy in Copies.Duplicate(row.Curve)
+                    from moved in Transformations.Transformed(copy, xform)
+                    select (Curve: moved, Source: Some(row.Index), Target: Option<int>.None)).As()
+                select projected);
 
     // --- [PULLS]
-    public static IO<Curve> PullToMesh(Tolerances tolerances, Curve curve, Mesh mesh, bool loose, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Curve.PullToMesh), _ => Answer.One(curve.PullToMesh(mesh, tolerances.Absolute, loose)), retain);
+    public static IO<Curve> PullToMesh(Tolerances tolerances, Curve curve, Mesh mesh, bool loose) =>
+        Products.Made(curve.PullToMesh(mesh, tolerances.Absolute, loose));
 
-    public static IO<Seq<Curve>> PullToBrepFace(Tolerances tolerances, Curve curve, BrepFace face, bool loose, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Curve.PullToBrepFace), _ => Answer.Many(Curve.PullToBrepFace(curve, face, tolerances.Absolute, loose)), retain);
+    public static IO<Seq<Curve>> PullToBrepFace(Tolerances tolerances, Curve curve, BrepFace face, bool loose) =>
+        Products.Made(Curve.PullToBrepFace(curve, face, tolerances.Absolute, loose));
 
-    public static IO<PolylineCurve> PullCurve(Tolerances tolerances, Mesh mesh, Curve curve, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Mesh.PullCurve), _ => Answer.One(mesh.PullCurve(curve, tolerances.Absolute)), retain);
+    public static IO<PolylineCurve> PullCurve(Tolerances tolerances, Mesh mesh, Curve curve) =>
+        Products.Made(mesh.PullCurve(curve, tolerances.Absolute));
 
     // --- [OVERLAPS]
     public static IO<Seq<(int A, int B)>> SearchOverlaps(Sets<BoundingBox> boxes, double tolerance) =>
@@ -352,11 +348,11 @@ public static class Intersections {
             tolerance,
             within: static (distance, within) => Planted(within.Items, tree => IO.lift(() =>
                 Collected(found => tree.SearchOverlaps(distance, found, tag: null), static found => (A: found.Id, B: found.IdB)) switch {
-                    var (searched, pairs) => Refused.Unless(searched, pairs, nameof(RTree.SearchOverlaps)),
+                    var (searched, pairs) => RhinoFault.Unless(searched).Map(_ => pairs),
                 })),
             between: static (distance, between) => Planted(between.A, treeA => Planted(between.B, treeB => IO.lift(() =>
                 Collected(found => RTree.SearchOverlaps(treeA, treeB, distance, found), static found => (A: found.Id, B: found.IdB)) switch {
-                    var (searched, pairs) => Refused.Unless(searched, pairs, nameof(RTree.SearchOverlaps)),
+                    var (searched, pairs) => RhinoFault.Unless(searched).Map(_ => pairs),
                 }))));
 
     public static IO<Seq<Seq<int>>> Search(Seq<BoundingBox> items, Seq<SearchRegion> queries) =>
@@ -364,24 +360,21 @@ public static class Intersections {
             tree,
             boundingBox: static (held, box) => Collected(found => held.Search(box, found), static found => found.Id),
             sphere: static (held, sphere) => Collected(found => held.Search(sphere, found), static found => found.Id)) switch {
-                var (searched, hits) => Refused.Unless(searched, hits, nameof(RTree.Search), index),
+                var (searched, hits) => RhinoFault.Unless(searched, index).Map(_ => hits),
             })));
 
     public static IO<Seq<(int Object, bool Entire, Seq<ComponentIndex> Removed, Option<Curve> Replacement)>> GetOverlaps(
-        Tolerances tolerances, Seq<GeometryBase> objects, Plane plane, bool wholeCurves, Seq<GeometryBase> locked, bool lockedExclusive, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(GeometryBase.GetOverlaps), _ =>
-            GeometryBase.GetOverlaps(objects, plane, tolerances.Absolute, wholeCurves, locked, lockedExclusive, out bool[] entire, out ComponentIndex[][] removed, out Curve[] replacements) switch {
-                var indices => Answer.Rows(
-                    toSeq(indices).Map((index, at) => (Object: index, Entire: entire[at], Removed: toSeq(removed[at]), Replacement: Optional(replacements[at]))),
-                    static row => row.Replacement.Map(static IDisposable (curve) => curve)),
-            }, retain);
+        Tolerances tolerances, Seq<GeometryBase> objects, Plane plane, bool wholeCurves, Seq<GeometryBase> locked, bool lockedExclusive) =>
+        GeometryBase.GetOverlaps(objects, plane, tolerances.Absolute, wholeCurves, locked, lockedExclusive, out bool[] entire, out ComponentIndex[][] removed, out Curve[] replacements) switch {
+            var indices => IO.lift(() => Conversions.Found(indices)).Bind(found => Callbacks.Each(toSeq(found).Map((index, at) => Products.Held(replacements[at])
+                .Map(replacement => (Object: index, Entire: entire[at], Removed: toSeq(removed[at]), Replacement: replacement))).Strict())),
+        };
 
     private static IO<T> Planted<T>(Seq<BoundingBox> boxes, Func<RTree, IO<T>> body) =>
-        DisposalOps.Within(
-            static () => new RTree(),
-            tree => from planted in IO.lift(() => Callbacks.Each(boxes.Map(static (box, index) => (Box: box, Index: index)), entry => tree.Insert(entry.Box, entry.Index), nameof(RTree.Insert)))
-                    from found in body(tree)
-                    select found);
+        (from tree in use(static () => new RTree())
+         from planted in IO.lift(() => Callbacks.Each(boxes, (box, index) => RhinoFault.Unless(tree.Insert(box, index), index)))
+         from found in body(tree)
+         select found).Bracket();
 
     private static (bool Searched, Seq<T> Rows) Collected<T>(Func<EventHandler<RTreeEventArgs>, bool> search, Func<RTreeEventArgs, T> row) {
         List<T> rows = [];
@@ -396,6 +389,6 @@ public static class Intersections {
     public static IO<Seq<Option<MeshInterference>>> Interferences(Seq<RhinoObject> setA, Seq<RhinoObject> setB, double distance, MeshType meshType, MeshingParameters parameters) =>
         IO.lift(() => toSeq(MeshClash.Search(setA, setB, distance, meshType, parameters)).Map(static found => Conversions.Present(found.IndexA).Map(_ => found)).Strict());
 
-    public static IO<Seq<Mesh>> FindDetail(RhinoObject objectA, RhinoObject objectB, double distance, MeshType meshType, MeshingParameters parameters, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(MeshClash.FindDetail), _ => Answer.Many(MeshClash.FindDetail(objectA, objectB, distance, meshType, parameters)), retain);
+    public static IO<Seq<Mesh>> FindDetail(RhinoObject objectA, RhinoObject objectB, double distance, MeshType meshType, MeshingParameters parameters) =>
+        Products.Made(MeshClash.FindDetail(objectA, objectB, distance, meshType, parameters));
 }

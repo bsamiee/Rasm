@@ -20,9 +20,7 @@ public sealed record WheelOffset(float Hue, float Strength, float Luma) {
     public Vector3 Multiplier(Gamut gamut) => Tint(gamut, 0.5f * Strength * new Vector2(float.Cos(Hue), float.Sin(Hue))) * float.Exp2(Luma);
 
     public static Vector3 Tint(Gamut gamut, Vector2 chroma) =>
-        new Unicolour(Configuration.Default, ColourSpace.Oklab, 1d, chroma.X, chroma.Y).ConvertToConfiguration(gamut.Configuration).RgbLinear switch {
-            var rgb => new Vector3((float)rgb.R, (float)rgb.G, (float)rgb.B),
-        };
+        new Unicolour(Configuration.Default, ColourSpace.Oklab, 1d, chroma.X, chroma.Y).ConvertToConfiguration(gamut.Configuration).RgbLinear switch { var rgb => new Vector3((float)rgb.R, (float)rgb.G, (float)rgb.B) };
 
     public static Fin<WheelOffset> FromMultiplier(Vector3 multiplier, Gamut gamut, float hue) =>
         new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, multiplier.X, multiplier.Y, multiplier.Z).ConvertToConfiguration(Configuration.Default).Oklab switch {
@@ -100,17 +98,14 @@ public static class Primary {
         double Curved(float value) => double.CopySign(pivot * double.Pow(double.Abs(value) / pivot, contrast), value);
     }
 
-    public static LutTable.Affine Levels(float black, float stops) =>
-        double.Exp2(-stops) switch {
-            var gain => new(Matrix<double>.Build.DenseDiagonal(3, gain), (-black * gain, -black * gain, -black * gain)),
-        };
+    public static LutTable.Affine Levels(float black, float stops) => double.Exp2(-stops) switch { var gain => new(Matrix<double>.Build.DenseDiagonal(3, gain), (-black * gain, -black * gain, -black * gain)) };
 
     public static LutTable.Affine WhiteBalance(Gamut working, Wacton.Unicolour.Temperature white) =>
         new(working.Adapting(Adaptation.White(white), working.Configuration.Xyz.WhitePoint));
 
     public static Fin<Wacton.Unicolour.Temperature> PickedWhite(PixelFrame frame, Option<Rectangle> region, Gamut working) {
-        (long Left, long Top, long Right, long Bottom) bounds = region.Match(
-            Some: area => (long.Max(area.Left, frame.Window.Left), long.Max(area.Top, frame.Window.Top), long.Min((long)area.X + area.Width, frame.Window.Right), long.Min((long)area.Y + area.Height, frame.Window.Bottom)),
+        FrameWindow bounds = region.Match(
+            Some: area => new FrameWindow(long.Max(area.Left, frame.Window.Left), long.Max(area.Top, frame.Window.Top), long.Min((long)area.X + area.Width, frame.Window.Right), long.Min((long)area.Y + area.Height, frame.Window.Bottom)),
             None: () => frame.Window);
         int width = (int)long.Max(bounds.Right - bounds.Left, 0L);
         Vector256<double> sum = Vector256<double>.Zero;

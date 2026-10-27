@@ -3,7 +3,7 @@ using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.Undo;
-using Rasm.Rhino;
+using Rasm.RhinoCommon;
 
 namespace Rasm.Grasshopper.Doc;
 
@@ -13,16 +13,19 @@ public static class Wiring {
     private static bool Connected(IParameter source, IParameter target) =>
         target.Inputs.Forwards.Contains(source.InstanceId) && source.Outputs.Forwards.Contains(target.InstanceId);
 
+    private static string Wire(IParameter source, IParameter target) =>
+        $"wire {source.InstanceId} -> {target.InstanceId}";
+
     private static Fin<Unit> Valid(IParameter source, IParameter target) =>
         source != target
         && source is { Kind: not Kind.Input, Document: { } document, Attributes: not IParameterAttributes { HasOutlet: false } }
         && target is { Kind: not Kind.Output, Attributes: not IParameterAttributes { HasInlet: false } }
         && target.Document == document
             ? unit
-            : Error.New($"parameter {source.InstanceId} cannot wire to {target.InstanceId}");
+            : new GrasshopperFault(Wire(source, target), GrasshopperReason.Unwired);
 
     private static Fin<Unit> Created(IParameter source, IParameter target) =>
-        Valid(source, target).Bind(_ => Connected(source, target) ? Error.New($"wire from {source.InstanceId} to {target.InstanceId} exists") : Fin.Succ(unit));
+        Valid(source, target).Bind(_ => Connected(source, target) ? new GrasshopperFault(Wire(source, target), GrasshopperReason.Repeated) : Fin.Succ(unit));
 
     // --- [CONNECTIONS]
     public static IO<Unit> Connect(IParameter source, IParameter target, Option<(int AtSource, int AtTarget)> order, ActionList undo) =>
@@ -33,25 +36,24 @@ public static class Wiring {
                 None: () => Connections.Connect(source, target, undo)))));
 
     public static IO<Unit> ReplaceSource(IParameter oldSource, IParameter newSource, IParameter target, ActionList undo) =>
-        Rewired(Seq((newSource, target)), () => Connections.ReplaceSource(oldSource, newSource, target, undo), nameof(Connections.ReplaceSource));
+        IO.lift(() => Created(newSource, target).Bind(_ => GrasshopperFault.Unless(Connections.ReplaceSource(oldSource, newSource, target, undo))));
 
     public static IO<Unit> ReplaceTarget(IParameter source, IParameter oldTarget, IParameter newTarget, ActionList undo) =>
-        Rewired(Seq((source, newTarget)), () => Connections.ReplaceTarget(source, oldTarget, newTarget, undo), nameof(Connections.ReplaceTarget));
+        IO.lift(() => Created(source, newTarget).Bind(_ => GrasshopperFault.Unless(Connections.ReplaceTarget(source, oldTarget, newTarget, undo))));
 
     public static IO<Unit> SwapSources(IParameter sourceA, IParameter sourceB, IParameter targetA, IParameter targetB, ActionList undo) =>
-        Rewired(Seq((sourceA, targetB), (sourceB, targetA)), () => Connections.SwapSources(sourceA, sourceB, targetA, targetB, undo), nameof(Connections.SwapSources));
+        IO.lift(() => (Created(sourceA, targetB), Created(sourceB, targetA)).Apply(static (_, _) => unit).As()
+            .Bind(_ => GrasshopperFault.Unless(Connections.SwapSources(sourceA, sourceB, targetA, targetB, undo))));
 
     public static IO<Unit> CutOutMiddleMan(IParameter left, IParameter middle, IParameter right, ActionList undo) =>
-        Rewired(Seq((left, right)), () => Connections.CutOutMiddleMan(left, middle, right, undo), nameof(Connections.CutOutMiddleMan));
-
-    private static IO<Unit> Rewired(Seq<(IParameter Source, IParameter Target)> created, Func<bool> rewire, string member) =>
-        IO.lift(() => created.Traverse(static wire => Created(wire.Source, wire.Target)).As().Bind(_ => Refused.Unless(rewire(), member)));
+        IO.lift(() => Created(left, right).Bind(_ => GrasshopperFault.Unless(Connections.CutOutMiddleMan(left, middle, right, undo))));
 
     // --- [OBJECTS]
     public static IO<(Shout Shout, Listen Listen)> SplitWire(IParameter source, IParameter target, Option<string> name, PointF location, ActionList actions) =>
-        from checkedWire in IO.lift(Fin<Unit> () => Connected(source, target) ? unit : Error.New($"no wire from {source.InstanceId} to {target.InstanceId}"))
-        from split in IO.lift(() => Refused.Unless(
-            source.Document.Methods.SplitWire(source, target, Conversions.Unset(name), location, out Shout shout, out Listen listen, actions), (Shout: shout, Listen: listen), nameof(DocumentMethods.SplitWire)))
+        from wired in IO.lift(Fin<Unit> () => Connected(source, target) ? unit : new GrasshopperFault(Wire(source, target), GrasshopperReason.Missing))
+        from split in IO.lift(() => GrasshopperFault.Unless(
+                source.Document.Methods.SplitWire(source, target, Conversions.Unset(name), location, out Shout shout, out Listen listen, actions))
+            .Map(_ => (Shout: shout, Listen: listen)))
         select split;
 
     public static IO<HashMap<Guid, Guid>> Absorb(ObjectList objects, ObjectList other, bool reinstateInputs, bool reinstateOutputs, ActionList actions) =>

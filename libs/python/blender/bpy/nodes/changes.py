@@ -4,20 +4,21 @@ from collections import deque
 from collections.abc import Callable, Mapping
 import functools
 import itertools
+from types import MappingProxyType
 from typing import Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.ids.images import generated, loaded
 from blender.bpy.data.ids.ownership import Mark
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, differing, Native, struct_at, Value, written
+from blender.bpy.data.rna.descriptors import assigned, definition, Descriptor, differing, Native, RnaPath, struct_at, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
-from blender.bpy.nodes.graphs import Content, CurvePoints, End, FileItems, Generated, Graph, Link, Loaded, Nested, Node, NodeGroup
+from blender.bpy.nodes.graphs import Content, CurvePoints, End, FileItems, Generated, Graph, Link, Loaded, Nested, Node, NodeGroup, Points
 from blender.bpy.nodes.interface import Addressed, addresses, Declared, Interface, interfaced, MenuItems, Restated, revised, slot, Withdrawn
 from blender.bpy.nodes.ramps import Ramp
 from blender.bpy.nodes.trees import created, grouped, joined, ordered, socket_at
@@ -56,7 +57,7 @@ class Altered(msgspec.Struct, frozen=True, kw_only=True):
     """Node parts live node lacks."""
 
     key: Key
-    members: Mapping[Descriptor, Value] = msgspec.field(default_factory=dict)
+    members: Mapping[Descriptor, Value] = MappingProxyType({})
     content: Option[Content] = Nothing
     parent: Option[Option[Key]] = Nothing
 
@@ -65,8 +66,8 @@ class Valued(msgspec.Struct, frozen=True, kw_only=True):
     """Socket values live node lacks, by address."""
 
     key: Key
-    inputs: Mapping[str | int, Value] = msgspec.field(default_factory=dict)
-    outputs: Mapping[str | int, Value] = msgspec.field(default_factory=dict)
+    inputs: Mapping[str | int, Value] = MappingProxyType({})
+    outputs: Mapping[str | int, Value] = MappingProxyType({})
 
 
 class Disconnected(msgspec.Struct, frozen=True, kw_only=True):
@@ -181,7 +182,7 @@ def reconciled(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: I
             rows.values,
             tuple(msgspec.structs.replace(row, kind=Nothing, place=Nothing) for row in rows.restatements),
         )
-        return functools.reduce(lambda done, phase: done.bind(lambda _: wrote(phase)), phases, Result[None, Faults].Ok(None)).map(lambda _: rows)
+        return functools.reduce(lambda done, phase: done.bind(lambda _: wrote(phase)), phases, Result[None, Faults](ok=None)).map(lambda _: rows)
 
     return slot(identity).bind(lambda name: changes(desired, tree, identity).bind(lambda rows: phased(name, rows)))
 
@@ -205,9 +206,6 @@ def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> Outcome[None]
     tree = keyed.tree
 
     def altered(change: Altered) -> Outcome[None]:
-        def parented(live: bpy.types.Node, found: Option[bpy.types.Node]) -> None:
-            live.parent = found.to_optional()
-
         return keyed.node(change.key).bind(
             lambda live: (
                 change.content
@@ -215,9 +213,9 @@ def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> Outcome[None]
                 .default_value(Ok(None))
                 .bind(lambda _: assigned(live, change.members))
                 .bind(
-                    lambda _: change.parent.map(lambda frame: frame.map(lambda key: keyed.node(key).map(Some)).default_value(Ok(Nothing)).map(lambda found: parented(live, found))).default_value(
-                        Ok(None)
-                    )
+                    lambda _: change.parent.map(
+                        lambda frame: frame.map(lambda key: keyed.node(key).map(Some)).default_value(Ok(Nothing)).bind(lambda found: written(live, "parent", found.to_optional())).map(lambda _: None)
+                    ).default_value(Ok(None))
                 )
             )
         )
@@ -229,7 +227,7 @@ def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> Outcome[None]
                 lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(target), member=repr(source)),)
             )
             for index, source in enumerate(sources)
-        ).map(lambda desired: ordered(target, desired))
+        ).bind(lambda desired: ordered(target, desired))
 
     match row:
         case Configured(members=members):
@@ -237,14 +235,18 @@ def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> Outcome[None]
         case Withdrawn() | Declared() | Restated():
             return revised(row, tree, keyed.slot)
         case Removed(name=name):
-            return Option.of_optional(tree.nodes.get(name)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(tree.nodes), member=name),)).map(tree.nodes.remove)
+            return (
+                Option
+                .of_optional(tree.nodes.get(name))
+                .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(tree.nodes), member=name),))
+                .bind(lambda node: catch(tree.nodes.remove, exception=RuntimeError)(node).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(tree.nodes), cause=error),)))
+            )
         case Added(key=key, kind=kind):
             return created(tree, kind).bind(lambda made: Mark(key=key).write(identity, made))
         case Altered():
             return altered(row)
         case Disconnected(link=link):
-            tree.links.remove(link)
-            return Ok(None)
+            return catch(tree.links.remove, exception=RuntimeError)(link).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(tree.links), cause=error),))
         case Connected(link=link):
             return paired(keyed.socket(link.source, output=True), keyed.socket(link.target, output=False)).bind(lambda pair: joined(tree, *pair, verify_limits=False)).map(lambda _: None)
         case Reordered(target=target, sources=sources):
@@ -288,7 +290,7 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Outcom
         `Ok` once written. `Error` of snapshot, image, group, and RNA faults.
     """
 
-    def ordered(
+    def arranged(
         items: bpy.types.NodeMenuSwitchItems | bpy.types.NodeCompositorFileOutputItems, names: tuple[str, ...], added: Callable[[str], object], removed: Callable[[str], object]
     ) -> tuple[bpy.types.NodeEnumItem | bpy.types.NodeCompositorFileOutputItem, ...]:
         for name in tuple(item.name for item in items if item.name not in names):
@@ -296,7 +298,7 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Outcom
         for name in [name for name in names if items.get(name) is None]:
             added(name)
         for index, name in enumerate(names):
-            items.move(tuple(items).index(items[name]), index)
+            items.move(items.find(name), index)
         return tuple(items)
 
     def refreshed(mapping: Option[Native]) -> None:
@@ -309,7 +311,7 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Outcom
         case Ramp() as ramp:
             return _ramp(live).bind(ramp.write)
         case CurvePoints():
-            return Snapshot(struct=live.bl_rna.identifier, tree=_tree(content)).apply(live).outcome.map(lambda _: refreshed(struct_at(live, "mapping")))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            return Snapshot(struct=definition(live).identifier, tree=_tree(content)).apply(live).outcome.map(lambda _: refreshed(struct_at(live, ("mapping",))))
         case Generated(ownership=ownership, content=hashed, name=name, plane=plane, tag=tag):
             return generated(ownership, identity, name, hashed, plane, tag).bind(
                 lambda image: written(live, "image", image.to_optional()).bind(
@@ -328,7 +330,7 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Outcom
         case MenuItems() as menu:
             return (
                 _narrowed(live, bpy.types.GeometryNodeMenuSwitch, "enum_items")
-                .map(lambda switch: ordered(switch.enum_items, tuple(each.name for each in menu.items), switch.enum_items.new, lambda name: switch.enum_items.remove(switch.enum_items[name])))
+                .map(lambda switch: arranged(switch.enum_items, tuple(each.name for each in menu.items), switch.enum_items.new, lambda name: switch.enum_items.remove(switch.enum_items[name])))
                 .bind(lambda held: accumulated(written(each, "description", item.description) for each, item in zip(held, menu.items)).map(lambda _: None))
             )
         case FileItems() as files:
@@ -336,7 +338,7 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Outcom
             return (
                 _narrowed(live, bpy.types.CompositorNodeOutputFile, "file_output_items")
                 .map(
-                    lambda output: ordered(
+                    lambda output: arranged(
                         output.file_output_items,
                         tuple(kinds),
                         lambda name: output.file_output_items.new(kinds[name], name),
@@ -358,7 +360,7 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
     tree, name, first = keyed.tree, keyed.slot, keyed.nodes
 
     def referenced[T: bpy.types.ID](live: bpy.types.Node, identifier: str, kind: type[T]) -> Option[T]:
-        return struct_at(live, identifier).bind(lambda found: Some(found) if isinstance(found, kind) else Nothing)
+        return struct_at(live, identifier).bind(lambda found: Option.of_optional(try_downcast(kind, found)))
 
     graph, interface = (desired.graph, desired.interface) if isinstance(desired, NodeGroup) else (desired, Interface())
     placed = graph.placed
@@ -453,13 +455,13 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
 
     sockets = {key: keyed.sockets[key] for key in held}
 
-    def linked(rows: tuple[Option[Altered], ...]) -> tuple[tuple[Disconnected, ...], tuple[Connected | Reordered, ...], dict[Key, dict[str, tuple[str, type[bpy.types.NodeSocket]]]]]:
-        altered = tuple(row for option in rows for row in option.to_list())
-        remoded = frozenset(row.key for row in altered if row.members)
+    def linked(
+        alterations: tuple[Altered, ...], rewritten: frozenset[Key]
+    ) -> tuple[tuple[Disconnected, ...], tuple[Connected | Reordered, ...], dict[Key, dict[str, tuple[str, type[bpy.types.NodeSocket]]]]]:
 
         def addressed(endpoint: End, *, output: bool) -> End:
             match endpoint.socket:
-                case int(position) if endpoint.node in held and endpoint.node not in remoded:
+                case int(position) if endpoint.node in held and endpoint.node not in rewritten:
                     live = held[endpoint.node]
                     return socket_at(live.outputs if output else live.inputs, position).map(lambda socket: msgspec.structs.replace(endpoint, socket=socket.identifier)).default_value(endpoint)
                 case str(address) if endpoint.node in sockets:
@@ -474,19 +476,19 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
 
         nested = {
             key: group.ownership.found(identity).map(lambda found: surviving(found, group.interface)).default_value({}) if group.single else {}
-            for change in altered
+            for change in alterations
             if change.key in held
             for content in change.content.to_list()
             if isinstance(content, Nested)
             for key, group in ((change.key, content.group),)
         }
         interfaces = {**{key: surviving(tree, interface) for key, live in held.items() if isinstance(live, (bpy.types.NodeGroupInput, bpy.types.NodeGroupOutput))}, **nested}
+        keys = {node: {identifier: key for key, identifier in sockets[node].items()} for node in interfaces}
 
         def retained(end: End) -> bool:
             match end.socket:
                 case str(socket) if end.node in interfaces:
-                    address = {identifier: key for key, identifier in sockets[end.node].items()}.get(socket, socket)
-                    return any(identifier == socket and address in {key, identifier} for key, (identifier, _) in interfaces[end.node].items())
+                    return any(identifier == socket and keys[end.node].get(socket, socket) in {key, identifier} for key, (identifier, _) in interfaces[end.node].items())
                 case _:
                     return end.node not in interfaces
 
@@ -526,16 +528,16 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
         )
 
     def assembled(rows: tuple[Option[Altered], ...]) -> Changes:
-        (withdrawn, declared, restated), (disconnected, connected, interfaces) = interfaced(tree, interface, name), linked(rows)
-        altered = tuple(row for option in rows for row in option.to_list())
-        remoded = frozenset(row.key for row in altered if row.members)
+        alterations = tuple(row for option in rows for row in option.to_list())
+        rewritten = frozenset(row.key for row in alterations if row.members)
+        (withdrawn, declared, restated), (disconnected, connected, interfaces) = interfaced(tree, interface, name), linked(alterations, rewritten)
         values = tuple(
             Valued(
                 key=key,
                 inputs=stale(held[key].inputs, node.inputs, sockets[key], future := Option.of_optional(interfaces.get(key))),
                 outputs=stale(held[key].outputs, node.outputs, sockets[key], future),
             )
-            if key in held and key not in remoded
+            if key in held and key not in rewritten
             else Valued(key=key, inputs=node.inputs, outputs=node.outputs)
             for key, (node, _) in placed.items()
         )
@@ -547,7 +549,7 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
                 *(Removed(name=node.name) for node in first.values() if node not in owners),
                 *(Added(key=key, kind=node.kind) for key, (node, _) in placed.items() if key not in held),
             ),
-            alterations=(*altered, *disconnected),
+            alterations=(*alterations, *disconnected),
             links=connected,
             values=tuple(row for row in values if row.inputs or row.outputs),
             restatements=restated,
@@ -556,29 +558,29 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
     return accumulated(altered(key, node, parent) for key, (node, parent) in placed.items()).map(assembled)
 
 
-def _tree(content: CurvePoints) -> Tree[Value]:
+def _tree(content: CurvePoints) -> Tree[Value, RnaPath]:
     """Curve point settings by node RNA path, collections owning items as `Snapshot.capture` reads them."""
-    curves = {f"mapping.curves[{index}]": points for index, points in enumerate(content.maps)}
-    keys = {curve: tuple(f"{curve}.points[{index}]" for index in range(len(points))) for curve, points in curves.items()}
+    curves: Mapping[RnaPath, Points] = {("mapping", "curves", index): points for index, points in enumerate(content.maps)}
+    keys: Mapping[RnaPath, tuple[RnaPath, ...]] = {curve: tuple((*curve, "points", index) for index in range(len(points))) for curve, points in curves.items()}
     bounds = content.clip.map(lambda span: dict(zip(("clip_min_x", "clip_min_y", "clip_max_x", "clip_max_y"), span))).default_value({})
     return Tree(
-        roots=("mapping",),
-        owners={
-            "mapping": Owner(values={"use_clip": content.clipped, "extend": "EXTRAPOLATED", **bounds}, children=("mapping.curves",)),
-            "mapping.curves": Owner(values={}, children=tuple(curves)),
-            **{curve: Owner(values={}, children=(f"{curve}.points",)) for curve in curves},
-            **{f"{curve}.points": Owner(values={}, children=keys[curve]) for curve in curves},
-            **{key: Owner(values={"location": point, "handle_type": content.handle}) for curve, points in curves.items() for key, point in zip(keys[curve], points)},
-        },
+        roots=(("mapping",),),
+        rows=(
+            (("mapping",), Owner(values={"use_clip": content.clipped, "extend": "EXTRAPOLATED", **bounds}, children=(("mapping", "curves"),))),
+            (("mapping", "curves"), Owner(values={}, children=tuple(curves))),
+            *((curve, Owner(values={}, children=((*curve, "points"),))) for curve in curves),
+            *(((*curve, "points"), Owner(values={}, children=keys[curve])) for curve in curves),
+            *((key, Owner(values={"location": point, "handle_type": content.handle})) for curve, points in curves.items() for key, point in zip(keys[curve], points)),
+        ),
     )
 
 
 def _ramp(live: bpy.types.Node) -> Outcome[bpy.types.ColorRamp]:
     """Node's `color_ramp`, else `absent` fault naming it."""
     return (
-        struct_at(live, "color_ramp")
-        .bind(lambda held: Some(held) if isinstance(held, bpy.types.ColorRamp) else Nothing)
-        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(live), member="color_ramp"),))
+        struct_at(live, ("color_ramp",))
+        .bind(lambda held: Option.of_optional(try_downcast(bpy.types.ColorRamp, held)))
+        .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(live), member="color_ramp"))
     )
 
 
@@ -595,7 +597,7 @@ def _framed(live: bpy.types.Node) -> Outcome[bpy.types.ImageUser | bpy.types.Com
 
 def _narrowed[N: bpy.types.Node](live: bpy.types.Node, kind: type[N], member: str) -> Outcome[N]:
     """Node as class declaring member, else `absent` fault naming member."""
-    return Ok(live) if isinstance(live, kind) else Error((Fault(reason=BlenderReason.ABSENT, subject=repr(live), member=member),))
+    return Option.of_optional(try_downcast(kind, live)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(live), member=member),))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

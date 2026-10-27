@@ -4,6 +4,8 @@ from collections import Counter
 import datetime
 from enum import auto, Enum, IntEnum
 from fractions import Fraction
+from functools import partial
+from itertools import groupby
 from pathlib import Path
 from statistics import mean
 import sys
@@ -15,7 +17,7 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.records.faults import Fault, Outcome, RecordReason
-from blender.records.fields import NonNegative
+from blender.records.fields import NonNegative, Side
 from blender.records.identity import ContentHash
 from blender.records.stores import RecordFile
 from blender.rendering.batch.queue import RenderQueue
@@ -69,7 +71,7 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
     """Progress record of one queue run."""
 
     queue: ContentHash
-    process: Annotated[int, msgspec.Meta(ge=1)]
+    process: Side
     marks: tuple[StageMark, ...] = ()
     ending: Ending | None = None
     pending: tuple[tuple[int, int], ...] = ()
@@ -105,7 +107,7 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
         """Forecasts renders left at each job's measured seconds per weight, the mean rate for unmeasured jobs, Nothing before any mark."""
         counts = Counter(part for part, _ in self.remaining(queue))
         jobs = dict(enumerate(queue.jobs))
-        timed = {part: times for part in jobs if (times := tuple(Fraction(mark.seconds) for mark in self.marks if mark.part == part))}
+        timed = {part: tuple(Fraction(mark.seconds) for mark in marks) for part, marks in groupby(sorted(self.marks, key=lambda mark: mark.part), key=lambda mark: mark.part)}
         if not (rates := {part: mean(times[1:] or times) / jobs[part].weight for part, times in timed.items()}):
             return Nothing
         average = mean(rates.values())
@@ -127,11 +129,7 @@ def observed(path: Path) -> Outcome[Option[tuple[Progress, datetime.datetime]]]:
         catch(path.stat, exception=OSError)()
         .map(lambda stat: datetime.datetime.fromtimestamp(stat.st_mtime, datetime.UTC))
         .map(lambda beat: RecordFile(path=path, form=Progress).read().map(lambda progress: Some((progress, beat))))
-        .default_with(
-            lambda error: (
-                Ok(error).filter_with(lambda held: isinstance(held, FileNotFoundError), lambda held: (Fault(reason=RecordReason.UNREADABLE, subject=str(path), cause=held),)).map(lambda _: Nothing)
-            )
-        )
+        .default_with(lambda error: Ok(error).filter_with(lambda held: isinstance(held, FileNotFoundError), partial(Fault.of, RecordReason.UNREADABLE, str(path))).map(lambda _: Nothing))
     )
 
 

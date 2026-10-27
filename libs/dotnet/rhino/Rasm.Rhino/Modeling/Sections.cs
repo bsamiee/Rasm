@@ -1,9 +1,8 @@
-using Rasm.Rhino.Document.Units;
+using Rasm.RhinoCommon.Document.Units;
 using Rhino;
-using Rhino.Geometry.Collections;
 using Rhino.Geometry.Intersect;
 
-namespace Rasm.Rhino.Modeling;
+namespace Rasm.RhinoCommon.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -17,7 +16,7 @@ public abstract partial record SectionSubject {
 
         public static Fin<SectionSubject> Of(GeometryBase geometry) =>
             geometry is InstanceReferenceGeometry or PointCloud
-                ? Error.New(ErrorCodes.ValidationFailed, $"{geometry.ObjectType} cuts through its own {nameof(SectionSubject)} case, not {nameof(Shape)}")
+                ? new RhinoFault(geometry.ObjectType.ToString(), RhinoReason.Mismatched)
                 : new Shape(geometry);
     }
 
@@ -41,59 +40,51 @@ public sealed partial class MeshField {
     public Seq<double> Values { get; }
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Mesh mesh, ref Seq<double> values) =>
-        validationError = values.Count == mesh.Vertices.Count && mesh.TextureCoordinates.Count == mesh.Vertices.Count && values.ForAll(double.IsFinite)
-            ? null
-            : new RhinoFault($"mesh field needs one finite value and one texture coordinate per vertex, received {values.Count} values and {mesh.TextureCoordinates.Count} texture coordinates for {mesh.Vertices.Count} vertices");
+        validationError = RhinoFault.Unless(values.Count == mesh.Vertices.Count && mesh.TextureCoordinates.Count == mesh.Vertices.Count && values.ForAll(double.IsFinite))
+            .Match(Succ: static _ => default, Fail: static error => error.Filter<RhinoFault>().Head is RhinoFault fault ? fault : null);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Sections {
     // --- [CUTS]
-    public static IO<Seq<Section>> Cut(Tolerances tolerances, SectionSubject source, Frames frames, bool joinCurves, Action<IDisposable> retain) =>
+    public static IO<Seq<Section>> Cut(Tolerances tolerances, SectionSubject source, Frames frames, bool joinCurves) =>
         from planes in IO.lift(() => frames.Planes)
-        from sections in DisposalOps.Within(static () => new PlaneIntersectionCache(), cache =>
-            Copies.Acquire(nameof(Intersection.GeometryPlane), token =>
-                planes.Map((plane, index) => Sectioned(tolerances, source, plane, index, joinCurves, cache, token)).Traverse(static section => section).As(), retain))
+        from cache in use(static () => new PlaneIntersectionCache())
+        from token in cancelToken
+        from sections in Callbacks.Each(planes.Map((plane, index) => Sectioned(tolerances, source, plane, index, joinCurves, cache, token)))
         select sections;
 
-    private static Answer<Section> Sectioned(Tolerances tolerances, SectionSubject source, Plane plane, int index, bool joinCurves, PlaneIntersectionCache cache, CancellationToken token) =>
+    private static IO<Section> Sectioned(Tolerances tolerances, SectionSubject source, Plane plane, int index, bool joinCurves, PlaneIntersectionCache cache, CancellationToken token) =>
         source.Arguments switch {
-            var (geometry, pointCloudAsPoints, includeHiddenObjects, document) =>
-                Intersection.GeometryPlane(geometry, plane, tolerances.Absolute, joinCurves, pointCloudAsPoints, includeHiddenObjects, document, source.Xform, cache, token, out Curve[] curves, out Point3d[] points) switch {
-                    var computed => (Answer.Many(curves), new Answer<Unit>([], computed ? unit : Seq((Reason: Refused.Declined, Index: Some(index)))))
-                        .Apply((kept, _) => new Section(plane, kept, toSeq(points)))
-                        .As(),
-                },
+            var (geometry, pointCloudAsPoints, includeHiddenObjects, document) => IO.lift(() => RhinoFault.Unless(
+                        Intersection.GeometryPlane(geometry, plane, tolerances.Absolute, joinCurves, pointCloudAsPoints, includeHiddenObjects, document, source.Xform, cache, token, out Curve[] curves, out Point3d[] points),
+                        index)
+                    .Map(_ => (Curves: curves, Points: points)))
+                .Bind(cut => Products.Made(cut.Curves).Map(kept => new Section(plane, kept, toSeq(cut.Points)))),
         };
 
     // --- [LEVELS]
-    public static IO<Seq<(double Level, Seq<Curve> Curves)>> Levels(Tolerances tolerances, MeshField field, Seq<double> levels, Action<IDisposable> retain) =>
-        DisposalOps.Within<IDisposable, Seq<(double Level, Seq<Curve> Curves)>>(temporary =>
-            from lifted in Copies.Duplicate(field.Mesh, temporary)
-            from written in IO.lift(() => Callbacks.Each(field.Values, (value, vertex) => Refused.Unless(
-                lifted.Vertices.SetVertex(vertex, field.Mesh.TextureCoordinates[vertex].X, field.Mesh.TextureCoordinates[vertex].Y, value),
-                nameof(MeshVertexList.SetVertex),
-                vertex)))
-            from normals in IO.lift(lifted.RebuildNormals)
-            from sections in DisposalOps.Within(static () => new MeshIntersectionCache(), cache =>
-                levels.Map((level, index) => Level(tolerances, field.Mesh, lifted, cache, level, index, temporary, retain)).TraverseM(static level => level).As())
-            select sections,
-            static held => DisposalOps.Release(held));
+    public static IO<Seq<(double Level, Seq<Curve> Curves)>> Levels(Tolerances tolerances, MeshField field, Seq<double> levels) =>
+        from lifted in Copies.Duplicate(field.Mesh)
+        from written in IO.lift(() => Callbacks.Each(field.Values, (value, vertex) => RhinoFault.Unless(
+            lifted.Vertices.SetVertex(vertex, field.Mesh.TextureCoordinates[vertex].X, field.Mesh.TextureCoordinates[vertex].Y, value), vertex)))
+        from normals in IO.lift(lifted.RebuildNormals)
+        from cache in use(static () => new MeshIntersectionCache())
+        from sections in levels.Map(static (level, index) => (Level: level, Index: index)).TraverseM(row => Level(tolerances, field.Mesh, lifted, cache, row.Level, row.Index)).As()
+        select sections;
 
-    private static IO<(double Level, Seq<Curve> Curves)> Level(
-        Tolerances tolerances, Mesh source, Mesh lifted, MeshIntersectionCache cache, double level, int index, Action<IDisposable> temporary, Action<IDisposable> retain) =>
+    private static IO<(double Level, Seq<Curve> Curves)> Level(Tolerances tolerances, Mesh source, Mesh lifted, MeshIntersectionCache cache, double level, int index) =>
         from loops in IO.lift(() => Callbacks.Each(
             Conversions.Rows(Intersection.MeshPlane(lifted, cache, [new Plane(new Point3d(0d, 0d, level), Vector3d.ZAxis)], tolerances.MeshIntersection)),
             (loop, _) => Mapped(tolerances, source, lifted, loop, index)))
-        from pieces in Copies.Acquire(nameof(Polyline.ToPolylineCurve), _ => Answer.Many(loops.Map(static loop => loop.ToPolylineCurve())), temporary)
-        from curves in Copies.Acquire(nameof(Curve.JoinCurves), _ => Answer.Many(Curve.JoinCurves(pieces, tolerances.Absolute)), retain)
+        from pieces in Products.Made(loops.Map(static loop => loop.ToPolylineCurve()))
+        from curves in Products.Made(Curve.JoinCurves(pieces, tolerances.Absolute))
         select (level, curves);
 
     private static Fin<Polyline> Mapped(Tolerances tolerances, Mesh source, Mesh lifted, Polyline loop, int index) =>
         Callbacks.Each(toSeq(loop), (point, _) =>
-                from found in Optional(lifted.ClosestMeshPoint(point, tolerances.MeshIntersection)).ToFin(new Refused(nameof(Mesh.ClosestMeshPoint), Refused.Absent, index))
-                let mapped = source.PointAt(found.FaceIndex, found.T[0], found.T[1], found.T[2], found.T[3])
-                from valid in Refused.Unless(mapped.IsValid, mapped, nameof(Mesh.PointAt), index)
-                select valid)
+                from found in Conversions.Found(lifted.ClosestMeshPoint(point, tolerances.MeshIntersection), index)
+                from mapped in Conversions.Found(Conversions.Present(source.PointAt(found.FaceIndex, found.T[0], found.T[1], found.T[2], found.T[3])), index)
+                select mapped)
             .Map(static points => new Polyline(points));
 }

@@ -2,10 +2,11 @@
 
 from enum import IntEnum
 import functools
-from typing import Literal
+import tempfile
+from typing import IO, Literal
 
+from expression import Ok
 from expression.extra.result import catch
-import imagecodecs
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
@@ -80,14 +81,29 @@ class Diffused(Case, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def generations(rgb: npt.NDArray[np.uint8], *, quality: int, subsampling: tuple[int, int], count: int) -> Outcome[npt.NDArray[np.uint8]]:
-    """Returns contiguous eight-bit RGB after `count` JPEG encode and decode cycles at IJG `quality` and chroma block `subsampling`."""
+def generations(rgb: npt.NDArray[np.uint8], *, quality: int, subsampling: str, count: int) -> Outcome[npt.NDArray[np.uint8]]:
+    """Returns contiguous eight-bit RGB after `count` JPEG encode and decode cycles through one temporary file removed on return, at IJG `quality` and OpenImageIO `jpeg:subsampling` chroma."""
 
-    def cycled(held: npt.NDArray[np.uint8], _: int) -> npt.NDArray[np.uint8]:
-        coded = imagecodecs.jpeg8_encode(held, level=quality, colorspace=imagecodecs.JPEG8.CS.RGB, outcolorspace=imagecodecs.JPEG8.CS.YCbCr, subsampling=subsampling)
-        return np.asarray(imagecodecs.jpeg8_decode(coded, outcolorspace=imagecodecs.JPEG8.CS.RGB), dtype=np.uint8)
+    @catch(exception=OSError)
+    def scoped() -> IO[bytes]:
+        return tempfile.NamedTemporaryFile(suffix=".jpg", delete_on_close=False)
 
-    return catch(functools.reduce, exception=imagecodecs.Jpeg8Error)(cycled, range(count), rgb).map_error(lambda error: (Fault(reason=ImagingReason.CODEC, subject=str(rgb.shape), cause=error),))
+    def cycles(file: IO[bytes]) -> Outcome[npt.NDArray[np.uint8]]:
+        with file:
+            return functools.reduce(lambda held, _: held.bind(functools.partial(cycled, file.name)), range(count), Ok(rgb))
+
+    def cycled(path: str, held: npt.NDArray[np.uint8]) -> Outcome[npt.NDArray[np.uint8]]:
+        encoded = OpenImageIO.ImageBuf(held)
+        encoded.specmod().attribute("Compression", f"jpeg:{quality}")
+        encoded.specmod().attribute("jpeg:subsampling", subsampling)
+        decoded = OpenImageIO.ImageBuf(path) if encoded.write(path) else encoded
+        return (
+            Ok(decoded)
+            .filter_with(lambda read: not read.has_error, lambda read: Fault.of(ImagingReason.CODEC, str(rgb.shape), read.geterror()))
+            .map(lambda read: np.asarray(read.get_pixels(OpenImageIO.UINT8), dtype=np.uint8))
+        )
+
+    return scoped().map_error(functools.partial(Fault.of, ImagingReason.CODEC, str(rgb.shape))).bind(cycles)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

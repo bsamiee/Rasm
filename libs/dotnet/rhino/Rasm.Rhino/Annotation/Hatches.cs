@@ -1,13 +1,12 @@
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Modeling;
-using Rasm.Rhino.Objects;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Objects;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Annotation;
+namespace Rasm.RhinoCommon.Annotation;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record HatchFill(ComponentRef<HatchPattern> Pattern, double Rotation, double Scale);
@@ -57,22 +56,23 @@ internal static partial class HatchMapper {
 
 public static class Hatches {
     // --- [CREATION]
-    public static IO<Seq<Hatch>> Create(RhinoDoc doc, HatchFill fill, HatchForm form, Action<Seq<Hatch>, IDisposable> retain) =>
-        DisposalOps.Acquire(held =>
-            from row in TableOps.Find(doc.HatchPatterns, fill.Pattern, includeDeleted: false)
-            from hatches in form.Switch(
-                (row.Index, Fill: fill, Retain: held),
-                loops: static (state, loops) =>
-                    Copies.Acquire(nameof(Hatch.Create), _ => Answer.One(Hatch.Create(loops.Plane, loops.Outer, loops.Inner, state.Index, state.Fill.Rotation, state.Fill.Scale)).Map(static hatch => Seq(hatch)), state.Retain),
-                boundaries: static (state, boundaries) =>
-                    Copies.Acquire(nameof(Hatch.Create), _ => Answer.NonEmpty(Hatch.Create(boundaries.Curves, state.Index, state.Fill.Rotation, state.Fill.Scale, boundaries.Tolerances.Absolute)), state.Retain),
-                onFace: static (state, face) =>
-                    Copies.Acquire(nameof(Hatch.CreateFromBrep), _ => Answer.One(Hatch.CreateFromBrep(face.Face.Brep, face.Face.FaceIndex, state.Index, state.Fill.Rotation, state.Fill.Scale, face.BasePoint)).Map(static hatch => Seq(hatch)), state.Retain))
-            select hatches, retain);
+    public static IO<Seq<Hatch>> Create(RhinoDoc doc, HatchFill fill, HatchForm form) =>
+        from row in TableOps.Find(doc.HatchPatterns, fill.Pattern, includeDeleted: false)
+        from hatches in form.Switch(
+            (row.Index, Fill: fill),
+            loops: static (state, loops) =>
+                Products.Made(Hatch.Create(loops.Plane, loops.Outer, loops.Inner, state.Index, state.Fill.Rotation, state.Fill.Scale)).Map(static hatch => Seq(hatch)),
+            boundaries: static (state, boundaries) =>
+                from made in Products.Made(Hatch.Create(boundaries.Curves, state.Index, state.Fill.Rotation, state.Fill.Scale, boundaries.Tolerances.Absolute))
+                from present in IO.lift(() => RhinoFault.Unless(!made.IsEmpty))
+                select made,
+            onFace: static (state, face) =>
+                Products.Made(Hatch.CreateFromBrep(face.Face.Brep, face.Face.FaceIndex, state.Index, state.Fill.Rotation, state.Fill.Scale, face.BasePoint)).Map(static hatch => Seq(hatch)))
+        select hatches;
 
     // --- [EDITS]
     public static IO<Unit> Revise(RhinoDoc doc, Guid id, Seq<HatchEdit> edits) =>
-        RhinoObjects.ReplaceGeometry(doc, id, (Hatch target, Action<IDisposable> _) => edits.TraverseM(edit => edit.Apply(doc, target)).As().Map(_ => (target, unit)));
+        RhinoObjects.ReplaceGeometry(doc, id, (Hatch target) => edits.TraverseM(edit => edit.Apply(doc, target)).As().Map(_ => (target, unit)));
 
     // --- [READS]
     public static IO<HatchState> State(Hatch hatch) =>
@@ -80,8 +80,12 @@ public static class Hatches {
 
     // --- [DISPLAY]
     public static IO<T> Display<T>(Hatch hatch, HatchPattern pattern, double patternScale, Func<HatchDisplay, IO<T>> body) =>
-        DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(nameof(Hatch.CreateDisplayGeometry), _ => {
+        (from display in IO.lift(() => {
             hatch.CreateDisplayGeometry(pattern, patternScale, out Curve[] bounds, out Line[] lines, out Brep solid);
-            return (Answer.Many(bounds), Answer.Optional(solid)).Apply((kept, fill) => new HatchDisplay(kept, Conversions.Rows(lines), fill)).As();
-        }, held).Bind(body), DisposalOps.Release);
+            return (Bounds: bounds, Lines: lines, Solid: solid);
+        })
+         from bounds in Products.Made(display.Bounds)
+         from solid in Products.Held(display.Solid)
+         from value in body(new HatchDisplay(bounds, Conversions.Rows(display.Lines), solid))
+         select value).Bracket();
 }

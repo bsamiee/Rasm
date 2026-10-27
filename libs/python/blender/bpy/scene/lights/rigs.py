@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack
+from functools import partial
 import itertools
 from types import MappingProxyType
 from typing import ClassVar, Final, TYPE_CHECKING
@@ -22,7 +23,7 @@ from blender.bpy.data.ids.ownership import committed, Mark, Ownership, released,
 from blender.bpy.data.ids.store import Handle, IdName
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, rooted, typed, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.handlers import UpdateHandler
+from blender.bpy.extension.events import Handler, updated
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
@@ -237,7 +238,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                 LightRig.collection,
                 LightRig.world,
                 LightRig.reference,
-                UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Image,), body=referenced),
+                Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Image,), referenced)),
                 self.section(),
             ))
 

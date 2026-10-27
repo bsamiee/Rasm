@@ -2,16 +2,17 @@ using System.Drawing;
 using System.Globalization;
 using Eto.Forms;
 using NodaTime.Text;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Styling;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI.Rows;
+using Rasm.RhinoCommon.UI.Styling;
 using Rasm.UI;
 using Rhino;
 using Rhino.Resources;
 using Rhino.UI.Controls;
 
-namespace Rasm.Rhino.UI;
+namespace Rasm.RhinoCommon.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -27,22 +28,20 @@ public abstract partial record HolderRow {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class ViewBody : IDisposable {
+public sealed class ViewBody {
     // --- [STATE]
     private readonly View row;
     private readonly RowScope enclosing;
-    private readonly Retained<IDisposable> owned;
+    private readonly EnvIO scope;
     private readonly Seq<IO<Unit>> clicks;
+    private readonly Option<Func<ViewBody, IO<Unit>>> listening;
+    private readonly Ref<Option<Lease<Unit>>> listeners = Ref(Option<Lease<Unit>>.None);
     private readonly Atom<bool> hidden = Atom(value: false);
-    private readonly ShownSubscription listeners;
     private bool showing;
 
     private ViewBody(
-        View row, Control content, RowScope scope, RowScope enclosing, BindingGroup group, Seq<IO<Unit>> clicks,
-        Option<Func<ViewBody, Action<IDisposable>, IO<Unit>>> listening, Retained<IDisposable> owned) {
-        (this.row, Content, Scope, this.enclosing, Group, this.clicks, this.owned) = (row, content, scope, enclosing, group, clicks, owned);
-        listeners = new ShownSubscription(retain => Listening(listening, retain));
-    }
+        View row, Control content, RowScope nested, RowScope enclosing, BindingGroup group, Seq<IO<Unit>> clicks, Option<Func<ViewBody, IO<Unit>>> listening, EnvIO scope) =>
+        (this.row, Content, Scope, this.enclosing, Group, this.clicks, this.listening, this.scope) = (row, content, nested, enclosing, group, clicks, listening, scope);
 
     public Control Content { get; }
     public RowScope Scope { get; }
@@ -51,41 +50,34 @@ public sealed class ViewBody : IDisposable {
     public int Height => hidden.Value ? 0 : (int)Math.Ceiling(Content.GetPreferredSize().Height);
 
     // --- [REALIZATION]
-    public static IO<ViewBody> Realize(IPlugInViews owner, View.Section row, RowScope enclosing, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(Built(owner, row, enclosing, None), retain);
+    public static IO<ViewBody> Realize(IPlugInViews owner, View.Section row, RowScope enclosing) => Built(owner, row, enclosing, None);
 
-    public static IO<ViewBody> Open(IPlugInViews owner, View row, Option<RhinoDoc> document, CommitMode mode, Option<Func<ViewBody, Action<IDisposable>, IO<Unit>>> listening) =>
+    public static IO<ViewBody> Open(IPlugInViews owner, View row, Option<RhinoDoc> document, CommitMode mode, Option<Func<ViewBody, IO<Unit>>> listening) =>
         from enclosing in RowScope.Open(owner, document, mode)
         from body in Built(owner, row, enclosing, listening)
-        from opened in DisposalOps.OnFailure(body.Scope.Opened(body.Group), IO.lift(body.Dispose))
+        from opened in body.Scope.Opened(body.Group)
         select body;
 
-    private static IO<ViewBody> Built(IPlugInViews owner, View row, RowScope enclosing, Option<Func<ViewBody, Action<IDisposable>, IO<Unit>>> listening) =>
-        from owned in IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release))
-        from body in DisposalOps.OnFailure(
-            from bindings in ViewOps.Bindings(owner, row, enclosing)
-            from history in row.Store.Traverse(store => IO.lift(ViewOps.History(owner, row, store, bindings, enclosing.Document))).As()
-            let scope = enclosing.Nested(ViewOps.Settings(owner, row), history, ViewOps.Locks(row, enclosing.Document))
-            from hidden in scope.Shown(visible: false)
-            from content in ViewOps.Realize(owner, row.Children, scope, owned.Retain)
-            from clicks in Optional(row as View.Section).ToSeq().Bind(static section => section.Actions).TraverseM(action => CommandRows.Press(action, scope, owned.Retain)).As()
-            from built in IO.lift(() => new ViewBody(row, content, scope, enclosing, bindings, clicks, listening, owned))
-            from visibility in enclosing.OnVisibility(_ => built.Evaluated, owned.Retain)
-            select built,
-            IO.lift(owned.Dispose))
-        select body;
+    private static IO<ViewBody> Built(IPlugInViews owner, View row, RowScope enclosing, Option<Func<ViewBody, IO<Unit>>> listening) =>
+        from scope in IO.env
+        from bindings in ViewOps.Bindings(owner, row, enclosing)
+        from history in IO.lift(() => ViewOps.History(owner, row, bindings, enclosing.Document))
+        let nested = enclosing.Nested(ViewOps.Settings(owner, row), history, ViewOps.Locks(row, enclosing.Document))
+        from hidden in nested.Shown(visible: false)
+        from content in ViewOps.Realize(owner, row.Children, nested)
+        from clicks in Optional(row as View.Section).ToSeq().Bind(static section => section.Actions).TraverseM(action => CommandRows.Press(action, nested)).As()
+        from built in use(IO.lift(() => new ViewBody(row, content, nested, enclosing, bindings, clicks, listening, scope)), static body => body.Scope.Shown(visible: false))
+        from visibility in enclosing.OnVisibility(_ => built.Evaluated)
+        select built;
 
     // --- [EDGES]
-    public IO<Unit> Shown(bool visible) => IO.lift(() => showing = visible)
-        .Bind(_ => Callbacks.Each(Seq(listeners.Shown(visible), Evaluated))).Map(unit);
+    public IO<Unit> Shown(bool visible) =>
+        IO.lift(() => showing = visible)
+            .Bind(_ => Callbacks.Each(Seq(ViewOps.Toggled(listeners, visible, Listening).Under(scope), Evaluated))).Map(unit);
+
+    public IO<Unit> Showing => use(Shown(visible: true).Map(_ => this), static body => body.Shown(visible: false)).Map(unit);
 
     public IO<Unit> Reread => Scope.Changed(Group.Keys());
-
-    public void Dispose() {
-        using (owned)
-        using (listeners)
-            _ = Scope.Shown(visible: false).Uninterruptible().Run();
-    }
 
     // --- [RULES]
     private IO<Unit> Evaluated =>
@@ -99,39 +91,38 @@ public sealed class ViewBody : IDisposable {
         from sections in SectionHolder.Shown(Content, showing && visible && shows && enables)
         select unit;
 
-    private IO<Unit> Listening(Option<Func<ViewBody, Action<IDisposable>, IO<Unit>>> listening, Action<IDisposable> retain) =>
-        from heard in Scope.Listen(_ => Evaluated, retain)
-        from extra in listening.Traverse(listen => listen(this, retain)).As()
+    private IO<Unit> Listening =>
+        from heard in Scope.Listen(_ => Evaluated)
+        from extra in listening.Traverse(listen => listen(this)).As()
         from reread in Reread
         select unit;
 
     // --- [HEADER]
-    public static Option<IHeaderButtonHandler> Header(View.Section row, IO<Option<ViewBody>> current, IPlugInSink sink) =>
+    public static Option<IHeaderButtonHandler> Header(View.Section row, IO<Option<ViewBody>> current, IPlugInLifetime owner) =>
         row.Actions switch {
             { IsEmpty: true } => None,
             var actions => Some<IHeaderButtonHandler>(new HeaderButtons(actions.Map(static action => action.Face), index =>
-                current.Bind(held => IO.lift(held.Bind(body => body.clicks.At(index)).ToFin(new Refused(nameof(clicks), Refused.Absent)))).Bind(static click => click), sink, row.Identity)),
+                current.Bind(held => IO.lift(() => Conversions.Found(held.Bind(body => body.clicks.At(index))))).Bind(static click => click), owner)),
         };
 }
 
-internal sealed class HeaderButtons(Seq<CommandFace> faces, Func<int, IO<Unit>> click, IPlugInSink sink, Type owner) : IHeaderButtonHandler {
+internal sealed class HeaderButtons(Seq<CommandFace> faces, Func<int, IO<Unit>> click, IPlugInLifetime owner) : IHeaderButtonHandler {
     public bool ButtonDetails(int index, ref Bitmap iconOut, ref string sToolTipOut) {
         (bool Shown, Bitmap Icon, string ToolTip) held = (false, iconOut, sToolTipOut);
-        (bool shown, iconOut, sToolTipOut) = Callbacks.Answer(
+        (bool shown, iconOut, sToolTipOut) = owner.Answer(
             (from face in faces.At(index) from glyph in face.Glyph select (Face: face, Glyph: glyph))
-                .Traverse(shown => Icons.Raster(shown.Glyph, IconSlot.SectionHeader).Map(icon => (Shown: true, Icon: icon, ToolTip: RowText.Localize(shown.Face.Caption, sink).Local)))
+                .Traverse(shown => Icons.Raster(shown.Glyph, IconSlot.SectionHeader).Map(icon => (Shown: true, Icon: icon, ToolTip: RowText.Localize(shown.Face.Caption, owner).Local)))
                 .As()
                 .Map(found => found.IfNone(held)),
-            () => held,
-            new CallbackSite(sink, owner, nameof(ButtonDetails)));
+            held);
         return shown;
     }
 
     public bool OnButtonClicked(int index) =>
-        Callbacks.Succeeded(faces.At(index).Map(_ => click(index)), static () => false, new CallbackSite(sink, owner, nameof(OnButtonClicked)));
+        owner.Answer(faces.At(index).Map(_ => click(index).Map(static _ => true)).IfNone(IO.pure(value: false)), failed: false);
 
     public Rectangle ButtonRect(int index, Rectangle rectHeader) =>
-        Callbacks.Answer(IconSlot.SectionHeader.Extent().Map(static size => new Rectangle(0, 0, size, size)), static () => Rectangle.Empty, new CallbackSite(sink, owner, nameof(ButtonRect)));
+        owner.Answer(IconSlot.SectionHeader.Extent().Map(static size => new Rectangle(0, 0, size, size)), Rectangle.Empty);
 
     public void DeleteThis() { }
 }
@@ -139,22 +130,18 @@ internal sealed class HeaderButtons(Seq<CommandFace> faces, Func<int, IO<Unit>> 
 public sealed class SectionLifetime : IDisposable {
     // --- [STATE]
     private readonly EtoCollapsibleSection section;
-    private readonly IPlugInSink sink;
+    private readonly IPlugInLifetime owner;
     private readonly Option<Guid> data;
     private readonly Func<bool> excluded;
-    private readonly ShownSubscription realized;
-    private Option<IDisposable> edges;
+    private readonly IO<ViewBody> realize;
+    private readonly EnvIO scope = EnvIO.New(token: CancellationToken.None);
+    private readonly Ref<Option<Lease<Unit>>> realized = Ref(Option<Lease<Unit>>.None);
     private Option<ViewBody> body;
     private bool visible;
 
-    public SectionLifetime(EtoCollapsibleSection section, IPlugInSink sink, Option<Guid> data, Func<bool> excluded, bool visible, Func<Action<IDisposable>, IO<ViewBody>> realize) {
-        (this.section, this.sink, this.data, this.excluded, this.visible) = (section, sink, data, excluded, visible);
-        realized = new ShownSubscription(retain =>
-            from held in realize(retain)
-            from placed in DisposalOps.Change(() => (body, section.Content), next => (body, section.Content) = next, (Some(held), held.Content), retain)
-            from shown in IO.lift(() => this.visible).Bind(held.Shown)
-            select unit);
-        _ = ViewOps.WhileLoaded(section, Listening, new CallbackSite(sink, section.GetType(), nameof(Control.LoadComplete)), lease => edges = Some(lease)).Run();
+    public SectionLifetime(EtoCollapsibleSection section, IPlugInLifetime owner, Option<Guid> data, Func<bool> excluded, bool visible, IO<ViewBody> realize) {
+        (this.section, this.owner, this.data, this.excluded, this.visible, this.realize) = (section, owner, data, excluded, visible, realize);
+        _ = owner.Run(ViewOps.WhileLoaded(section, Listening, owner).Under(scope));
     }
 
     public int Height => body.Match(Some: static held => held.Height, None: static () => 0);
@@ -163,7 +150,7 @@ public sealed class SectionLifetime : IDisposable {
 
     // --- [EDGES]
     public Option<IHeaderButtonHandler> Header(View.Section row) =>
-        ViewBody.Header(row, realized.Shown(shown: true).Bind(_ => IO.lift(() => body)), sink);
+        ViewBody.Header(row, Realizing(shown: true).Bind(_ => IO.lift(() => body)), owner);
 
     public IO<Unit> Reread => IO.lift(() => body).Bind(static held => held.Traverse(static current => current.Reread).As()).Map(unit);
 
@@ -173,71 +160,63 @@ public sealed class SectionLifetime : IDisposable {
             return body;
         }).Bind(held => held.Traverse(current => current.Shown(shown)).As()).Map(unit);
 
-    private IO<Unit> Listening(Action<IDisposable> retain) =>
-        Optional(section.Parent as Expander) switch {
-            var expander => IO.lift(() => expander.ForAll(static held => held.Expanded) && !excluded()).Bind(realized.Shown) switch {
+    private IO<Unit> Realizing(bool shown) =>
+        ViewOps.Toggled(realized, shown,
+            from held in realize
+            from placed in Products.Changed(() => (body, section.Content), next => (body, section.Content) = next, (Some(held), held.Content))
+            from current in IO.lift(() => visible).Bind(held.Shown)
+            select unit).Under(scope);
+
+    private IO<Unit> Listening =>
+        IO.lift(() => Optional(section.Parent as Expander)).Bind(expander =>
+            IO.lift(() => expander.ForAll(static held => held.Expanded) && !excluded()).Bind(Realizing) switch {
                 var evaluated =>
-                    from expansions in expander.Traverse(held => Subscriptions.Attach(
-                        handler => held.ExpandedChanged += handler, handler => held.ExpandedChanged -= handler,
-                        Callbacks.Handler<EventArgs>(_ => evaluated, new CallbackSite(sink, typeof(Expander), nameof(Expander.ExpandedChanged))), retain)).As()
-                    from changes in data.Traverse(type => Subscriptions.Attach(
-                        handler => section.DataChanged += handler, handler => section.DataChanged -= handler,
-                        Callbacks.Handler<global::Rhino.UI.Controls.DataSource.EventArgs>(args => when(args.DataType == type, evaluated).As(),
-                            new CallbackSite(sink, typeof(EtoCollapsibleSection), nameof(EtoCollapsibleSection.DataChanged))), retain)).As()
-                    from shows in Subscriptions.Attach(
-                        handler => section.Shown += handler, handler => section.Shown -= handler,
-                        Callbacks.Handler<EventArgs>(_ => evaluated, new CallbackSite(sink, typeof(Control), nameof(Control.Shown))), retain)
+                    from expansions in expander.Traverse(held => Subscriptions.Host<EventArgs>(h => held.ExpandedChanged += h, h => held.ExpandedChanged -= h).Inline(_ => evaluated, owner)).As()
+                    from changes in data.Traverse(type => Subscriptions.Host<Rhino.UI.Controls.DataSource.EventArgs>(h => section.DataChanged += h, h => section.DataChanged -= h)
+                        .Inline(args => when(args.DataType == type, evaluated).As(), owner)).As()
+                    from shows in Subscriptions.Host<EventArgs>(h => section.Shown += h, h => section.Shown -= h).Inline(_ => evaluated, owner)
                     from current in evaluated
                     select unit,
-            },
-        };
+            });
 
     // --- [RELEASE]
     public void Dispose() {
-        try {
-            _ = edges.Iter(static lease => lease.Dispose());
-        } finally {
-            realized.Dispose();
-        }
+        _ = owner.Run(IO.lift(scope.DisposeResources));
+        scope.Dispose();
     }
 }
 
 public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
     // --- [STATE]
-    private readonly IPlugInViews owner;
+    private readonly IPlugInLifetime owner;
     private readonly Option<int> above;
 
-    private SectionHolder(IPlugInViews owner, Option<int> above) => (this.owner, this.above) = (owner, above);
+    private SectionHolder(IPlugInLifetime owner, Option<int> above) => (this.owner, this.above) = (owner, above);
 
     // --- [HOLD]
-    public static IO<SectionHolder> Hold(IPlugInViews owner, HolderRow holder, RowScope scope, Action<IDisposable> retain) =>
-        from stack in DisposalOps.Acquire(IO.lift(() => new SectionHolder(owner, holder.Switch(stacked: static _ => Option<int>.None, filled: static filled => Some(filled.Above.Count)))), retain)
-        from sections in holder.Sections.TraverseM(row => Section(owner, row, scope, stack.Add)).As()
+    public static IO<SectionHolder> Hold(IPlugInViews owner, HolderRow holder, RowScope scope) =>
+        from stack in use(() => new SectionHolder(owner, holder.Switch(stacked: static _ => Option<int>.None, filled: static filled => Some(filled.Above.Count))))
+        from sections in holder.Sections.TraverseM(row => Section(owner, row, scope).Bind(section => IO.lift(() => stack.Add(section)))).As()
         from fitted in IO.lift(stack.Fit)
         select stack;
 
-    public static IO<DefinedSection> Section(IPlugInViews owner, View.Section row, RowScope scope, Action<DefinedSection> retain) =>
+    public static IO<DefinedSection> Section(IPlugInViews owner, View.Section row, RowScope scope) =>
         row.Create.Match(
-            Left: create => Section(owner, row, () => create(row, owner), scope, retain),
-            Right: _ => IO.fail<DefinedSection>(new UnheldView(row.Identity)));
+            Left: create => IO.lift(() => create(row, owner)).Bind(section => section.Attach(ViewBody.Realize(owner, row, scope)).Map(_ => section)),
+            Right: _ => IO.fail<DefinedSection>(new RhinoFault(row.Identity.Name, RhinoReason.Unheld)));
 
-    public static IO<SectionHolder> Disclose(IPlugInViews owner, ContainerRow.Disclosure disclosure, RowScope scope, Action<IDisposable> retain) =>
+    public static IO<SectionHolder> Disclose(IPlugInViews owner, ContainerRow.Disclosure disclosure, RowScope scope) =>
         new View.Section {
             Identity = typeof(DisclosureSection), Caption = disclosure.Caption, Children = toSeq(disclosure.Body),
             Create = Left<Func<View.Section, IPlugInViews, DefinedSection>, Func<View.Section, IPlugInViews, DefinedContentSection>>(
                 (row, views) => new DisclosureSection(row, views, UUIDNext.Uuid.NewNameBased(views.PlugIn.Id, disclosure.Caption), disclosure.Expanded)),
         } switch {
             var row =>
-                from stack in DisposalOps.Acquire(IO.lift(() => new SectionHolder(owner, None)), retain)
-                from section in Section(owner, row, scope, stack.Add)
+                from stack in use(() => new SectionHolder(owner, None))
+                from section in Section(owner, row, scope)
+                from added in IO.lift(() => stack.Add(section))
                 select stack,
         };
-
-    private static IO<DefinedSection> Section(IPlugInViews owner, View.Section row, Func<DefinedSection> create, RowScope scope, Action<DefinedSection> retain) =>
-        DisposalOps.Acquire(owned =>
-            from section in DisposalOps.Acquire(IO.lift(create), owned)
-            from attached in section.Attach(acquired => ViewBody.Realize(owner, row, scope, acquired))
-            select section, (section, _) => retain(section));
 
     // --- [EDGES]
     public static new IO<Unit> Shown(Control content, bool visible) =>
@@ -263,7 +242,7 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
     protected override void OnPreLoad(EventArgs e) {
         base.OnPreLoad(e);
         if (UseScrollbars && toSeq(Parents).Exists(static parent => parent is Scrollable))
-            Callbacks.Run(IO.lift(() => { UseScrollbars = false; }), CallbackSite.Of(owner, this));
+            _ = owner.Run(IO.lift(() => { UseScrollbars = false; }));
     }
 }
 
@@ -281,8 +260,7 @@ public static class SectionCommands {
         new(new CommandFace("section-reset", "Reset") { Glyph = Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.Svg_namedItemRestoreHotSvg)) }, None,
             new Invoke.Effect(static scope => Historied(scope).Bind(history => scope.Commit(history.Group, history.Group.Defaults)).Map(unit)));
 
-    private static IO<HistoryBinding> Historied(RowScope scope) =>
-        IO.lift(scope.History.ToFin(new Refused(nameof(RowScope.History), Refused.Absent)));
+    private static IO<HistoryBinding> Historied(RowScope scope) => IO.lift(() => Conversions.Found(scope.History));
 
     // --- [VALUES]
     private static IO<Seq<Seq<Command<RowRule, Invoke>>>> Listing(HistoryBinding history, RowScope scope) =>
@@ -291,14 +269,14 @@ public static class SectionCommands {
         from zone in IO.lift(() => history.Clock.ToZonedClock().Zone)
         let stamp = LocalDateTimePattern.Create("g", RowText.Culture)
         select Seq(
-            held.Done.Head.Map(entry => Ran("section-undo", RowText.Localize("Undo {0}", arguments: [Described(entry, scope.Sink)]).Local, Heard(history.Undo, scope))).ToSeq()
-                + held.Undone.Head.Map(entry => Ran("section-redo", RowText.Localize("Redo {0}", arguments: [Described(entry, scope.Sink)]).Local, Heard(history.Redo, scope))).ToSeq(),
+            held.Done.Head.Map(entry => Ran("section-undo", RowText.Localize("Undo {0}", arguments: [Described(entry, scope.Owner)]).Local, Heard(history.Undo, scope))).ToSeq()
+                + held.Undone.Head.Map(entry => Ran("section-redo", RowText.Localize("Redo {0}", arguments: [Described(entry, scope.Owner)]).Local, Heard(history.Redo, scope))).ToSeq(),
             Seq(Ran("section-copy", "Copy values", DataTransfer.Copy(history.Group, None, scope)))
                 + Seq(Ran("section-paste", "Paste values", DataTransfer.Paste(history.Group, None, scope))).Filter(_ => pastes),
             Seq(Ran("section-clear", "Clear history", history.Clear)).Filter(_ => !(held.Done.IsEmpty && held.Undone.IsEmpty))
                 + Seq<Command<RowRule, Invoke>>(new Command<RowRule, Invoke>.Menu(new CommandFace("section-restore", "Restore"), None, [held.Done.Map(entry => Ran(
                     string.Create(CultureInfo.InvariantCulture, $"section-restore-{entry.Serial}"),
-                    RowText.Localize("{0}, {1}", arguments: [Described(entry, scope.Sink), stamp.Format(entry.At.InZone(zone).LocalDateTime)]).Local,
+                    RowText.Localize("{0}, {1}", arguments: [Described(entry, scope.Owner), stamp.Format(entry.At.InZone(zone).LocalDateTime)]).Local,
                     Heard(history.Restore(entry.Serial), scope)))])).Filter(_ => !held.Done.IsEmpty));
 
     private static Command<RowRule, Invoke> Ran<T>(string name, string caption, IO<T> run) =>
@@ -309,9 +287,9 @@ public static class SectionCommands {
         from changed in scope.Changed(toSeq(diff.Changes.Keys))
         select diff;
 
-    private static string Described(HistoryEntry entry, IPlugInSink sink) =>
+    private static string Described(HistoryEntry entry, IPlugInLifetime owner) =>
         toSeq(entry.Diff.Changes.Keys) switch {
-            [var only] => RowText.Localize(EntryKey.Name(only.Path), sink).Local,
-            var many => RowText.Localize("{0} values", sink, arguments: [many.Count]).Local,
+            [var only] => RowText.Localize(EntryKey.Name(only.Path), owner).Local,
+            var many => RowText.Localize("{0} values", owner, arguments: [many.Count]).Local,
         };
 }

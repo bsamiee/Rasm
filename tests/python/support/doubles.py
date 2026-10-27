@@ -1,4 +1,4 @@
-"""Mock installs logging every call in order, and fixture file writer."""
+"""Mock installs logging every call in order, fixture file writer, and the refurb findings fixture type."""
 
 from typing import Protocol
 lazy from collections.abc import Callable, Mapping
@@ -7,8 +7,11 @@ lazy from unittest.mock import Mock
 
 import msgspec.json
 lazy import pytest
+lazy from refurb.error import Error
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+type Findings = Callable[[type[Error], str], list[tuple[int, str]]]
 
 
 class _Member(Protocol):
@@ -42,4 +45,4 @@ def write_fixtures(directory: Path, files: Mapping[str, object], encode: Callabl
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["install", "write_fixtures"]
+__all__ = ["Findings", "install", "write_fixtures"]

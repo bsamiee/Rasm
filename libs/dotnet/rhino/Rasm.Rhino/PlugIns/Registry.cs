@@ -40,9 +40,8 @@ public static class PlugInRegistry {
     // --- [READS]
     public static IO<Option<PlugInState>> ReadPlugIn(Guid id) => IO.lift(() => Optional(PlugIn.GetPlugInInfo(id)).Map(RegistryMapper.ToState));
 
-    public static IO<(Seq<Error> Fails, Seq<PlugInState> Succs)> InstalledPlugIns =>
-        IO.lift(static () => toSeq(PlugIn.GetInstalledPlugIns().Keys))
-            .Bind(static ids => ids.Map<K<IO, PlugInState>>(static id => IO.lift(() => Installed(id).Map(RegistryMapper.ToState))).PartitionFallible().As());
+    public static IO<Seq<PlugInState>> InstalledPlugIns =>
+        IO.lift(static () => toSeq(PlugIn.GetInstalledPlugIns().Keys).Traverse(static id => Installed(id).Map(RegistryMapper.ToState)).As());
 
     private static Fin<PlugInInfo> Installed(Guid id) => Optional(PlugIn.GetPlugInInfo(id)).ToFin(new RhinoFault(id.ToString(), RhinoReason.Missing));
 

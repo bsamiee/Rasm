@@ -14,10 +14,9 @@ from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchang
 from blender.bpy.data.ids.images import read
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import written
-from blender.bpy.extension.events.handlers import SceneHandler
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.events import Handler
+from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import Added, applied, Connected, Disconnected, Keyed, owned, Removed
 from blender.bpy.nodes.graphs import End, INPUTS, Link, OUTPUTS
@@ -63,7 +62,7 @@ class Arm(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Entering-frame reads delivered after compositor completion, one pending read per scene, forgotten at file load."""
 
-    pending: Scoped[dict[Handle[bpy.types.Scene], Arm]] = msgspec.field(default_factory=lambda: Scoped(made=lambda _identity: nullcontext({}), renewed=Some(lambda _held: {})))
+    pending: Resource[dict[Handle[bpy.types.Scene], Arm]] = msgspec.field(default_factory=lambda: Resource(made=lambda _identity: nullcontext({}), renewed=Some(lambda _held: {})))
 
     def entering(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, consume: Consume, region: Option[Region] = Nothing) -> Outcome[None]:
         """Views entry input, replacing the scene's pending read."""
@@ -106,7 +105,7 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                     .default_value(Ok(None))
                 )
 
-            yield Ok((self.pending, INTERMEDIATES, SceneHandler(handlers=bpy.app.handlers.composite_post, body=completed)))
+            yield Ok((self.pending, INTERMEDIATES, Handler(handlers=bpy.app.handlers.composite_post, body=completed)))
 
 
 class Viewers[R: Case]:

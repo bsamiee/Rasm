@@ -114,7 +114,6 @@ class Gesture(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-MODAL_KEYMAP = "Standard Modal Map"
 _WHEELS: Final = MappingProxyType({
     ("WHEELINMOUSE", False): "WHEELUPMOUSE",
     ("WHEELINMOUSE", True): "WHEELDOWNMOUSE",
@@ -521,7 +520,8 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
 
         match context:
             case bpy.types.Context(window_manager=bpy.types.WindowManager() as manager, window=bpy.types.Window(workspace=workspace) as window):
-                inputs, system = context.preferences.inputs, context.preferences.system  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                inputs, system = preferences.inputs, preferences.system
                 threshold = (
                     (inputs.drag_threshold_tablet if event.is_tablet else inputs.drag_threshold_mouse)
                     if event.type in {"LEFTMOUSE", "MIDDLEMOUSE", "RIGHTMOUSE", "BUTTON4MOUSE", "BUTTON5MOUSE", "BUTTON6MOUSE", "BUTTON7MOUSE"}
@@ -612,7 +612,8 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
         run.workspace.status_text_set(self._hinted(runs, operator))
         for handle in self.event.to_list():
             return handle(context, run.state, event).map(following)
-        action = next((item for item in run.manager.keyconfigs.user.keymaps[MODAL_KEYMAP].keymap_items if matched(item, event, held, inverted=context.preferences.inputs.invert_zoom_wheel)), None)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        action = next((item for item in _modal(run.manager).keymap_items if matched(item, event, held, inverted=preferences.inputs.invert_zoom_wheel)), None)
         match action, event.type:
             case bpy.types.KeyMapItem(propvalue="CANCEL"), _:
                 return Ok("CANCELLED")  # type: ignore[unreachable]
@@ -639,7 +640,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
             run = runs.held[operator]
             items = (
                 item
-                for keymap in (run.manager.keyconfigs.user.keymaps[MODAL_KEYMAP],)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                for keymap in (_modal(run.manager),)
                 for action in keymap.modal_event_values
                 if (action.identifier == "CANCEL" if self.gesture is Gesture.TIMED else action.identifier != "SNAP_OFF")
                 for item in Option.of_optional(next((item for item in keymap.keymap_items if item.active and item.propvalue == action.identifier), None)).to_list()  # ty: ignore[truthiness-test-of-none-union]
@@ -1032,6 +1033,12 @@ def matched(item: bpy.types.KeyMapItem, event: bpy.types.Event, held: frozenset[
             )
         )
     )
+
+
+def _modal(manager: bpy.types.WindowManager) -> bpy.types.KeyMap:
+    """Returns the user keyconfig's standard modal keymap, which Python operators cannot replace, a keyconfig the stubs type as optional."""
+    user: bpy.types.KeyConfig = manager.keyconfigs.user  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return user.keymaps["Standard Modal Map"]
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

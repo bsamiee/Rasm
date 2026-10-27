@@ -16,7 +16,7 @@ from blender.bpy.nodes.graphs import Expr, group_input
 from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, Derives, entered, Named, Registers, Shell
 from blender.bpy.render.compositor.grades import MATRIX, matrixed, MatrixRows
-from blender.bpy.render.compositor.inputs import captured
+from blender.bpy.render.compositor.inputs import captured, valued
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import matrix, xyz
@@ -56,7 +56,7 @@ def rows(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneComp
     config = PyOpenColorIO.GetCurrentConfig()
     return (
         captured(identity, entry)
-        .bind(lambda values: transform(record, {key: owner.values.get("value") for key, owner in values.tree.owners.items() if key}, config))
+        .bind(lambda values: transform(record, valued(values), config))
         .bind(lambda operation: operation.map(lambda held: MatrixRows.of(config, held)).default_value(Ok(MatrixRows())))
         .map(lambda found: found.values)
     )

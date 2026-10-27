@@ -1,43 +1,43 @@
 using System.ComponentModel;
 using System.Drawing;
 using Eto.Forms;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Numeric;
-using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Surfaces;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI.Numeric;
+using Rasm.RhinoCommon.UI.Rows;
+using Rasm.RhinoCommon.UI.Surfaces;
 using Rasm.UI;
 using Rasm.UI.Components;
+using Rasm.UI.Plotting;
 using Rasm.UI.Styling;
 using Rhino.Display;
 using Rhino.UI;
 using Rhino.UI.Controls;
 using SkiaSharp;
 
-namespace Rasm.Rhino.UI.Inputs;
+namespace Rasm.RhinoCommon.UI.Inputs;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ColorRows {
     // --- [SWATCHES]
     public static ControlRow Swatch(string label, Color4f color, Func<Edit<Color4f>, IO<Unit>> edited) =>
-        new ControlRow.Bound<(Color4f Color, Func<Edit<Color4f>, IO<Unit>> Edited)>(label, RowShape.Inline, (color, edited), static (latest, scope, retain) =>
-            from view in DisposalOps.Acquire(IO.lift(() => new SceneView(scope, new Node.Box())), retain)
-            let site = new CallbackSite(scope.Sink, typeof(ColorRows), nameof(Swatch))
+        new ControlRow.Bound<(Color4f Color, Func<Edit<Color4f>, IO<Unit>> Edited)>(label, RowShape.Inline, (color, edited), static (latest, scope) =>
+            from view in use(() => new SceneView(scope, new Node.Box()))
             let well = new Well(latest.Map(static row => Some(row.Row.Color)), edit => latest.Bind(row => row.Row.Edited(edit)))
-            select new RowCells(view, latest.Bind(row => view.Show(Faced(row.Row.Color, RowText.Localize(row.Label, scope.Sink).Local, _ => Dialog(well, scope, site))))) {
-                Menu = Menu(IO.pure(well), site),
+            select new RowCells(view, latest.Bind(row => view.Show(Faced(row.Row.Color, RowText.Localize(row.Label, scope.Owner).Local, _ => Dialog(well, scope))))) {
+                Menu = Menu(IO.pure(well)),
             });
 
     public static ControlRow Swatches(string label, Seq<Color4f> colors, Func<Edit<Seq<Color4f>>, IO<Unit>> edited) =>
-        new ControlRow.Bound<(Seq<Color4f> Colors, Func<Edit<Seq<Color4f>>, IO<Unit>> Edited)>(label, RowShape.Block, (colors, edited), static (latest, scope, retain) =>
+        new ControlRow.Bound<(Seq<Color4f> Colors, Func<Edit<Seq<Color4f>>, IO<Unit>> Edited)>(label, RowShape.Block, (colors, edited), static (latest, scope) =>
             from picked in atomIO<Selection>(new Selection.One(None))
-            from view in DisposalOps.Acquire(IO.lift(() => new SceneView(scope, new Node.Box())), retain)
-            let site = new CallbackSite(scope.Sink, typeof(ColorRows), nameof(Swatches))
+            from view in use(() => new SceneView(scope, new Node.Box()))
             let selected = from row in latest from held in picked.ValueIO select Index(held).Filter(at => at < row.Row.Colors.Count)
             let shown =
                 from row in latest
                 from held in picked.ValueIO
-                from drew in view.Show(new SwatchList(row.Row.Colors.Map(static color => color.ToSKColorF()), held, edit => Chosen(latest, picked, edit, scope, site)).Drawn switch {
-                    var drawn => drawn with { Accessible = drawn.Accessible.Combine(new Accessible { Label = RowText.Localize(row.Label, scope.Sink).Local }) },
+                from drew in view.Show(new SwatchList(row.Row.Colors.Map(static color => color.ToSKColorF()), held, edit => Chosen(latest, picked, edit, scope)).Drawn switch {
+                    var drawn => drawn with { Accessible = drawn.Accessible.Combine(new Accessible { Label = RowText.Localize(row.Label, scope.Owner).Local }) },
                 })
                 select unit
             let add = new Command<RowRule, Invoke>.Run(new CommandFace("color-add", "Add Color"), None, new Invoke.Effect(_ =>
@@ -54,17 +54,17 @@ public static class ColorRows {
                         colors => Some(int.Min(index, colors.Count - 1)).Filter(static kept => kept >= 0))).As()
                     from redrawn in shown
                     select unit))
-            from pair in ButtonRows.AddRemove(add, remove, scope, retain)
+            from pair in ButtonRows.AddRemove(add, remove, scope)
             from body in Containers.Frame(() => new StackLayout(new StackLayoutItem(pair.Control, HorizontalAlignment.Left), new StackLayoutItem(view, HorizontalAlignment.Stretch)) {
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            }, retain)
+            })
             select new RowCells(body, shown.Bind(_ => pair.Refresh)) {
-                Menu = Menu(selected.Map(at => at.Map(index => Indexed(latest, index)).IfNone(Unpicked)), site),
+                Menu = Menu(selected.Map(at => at.Map(index => Indexed(latest, index)).IfNone(Unpicked))),
             });
 
-    private static IO<Unit> Chosen(IO<ControlRow.Bound<(Seq<Color4f> Colors, Func<Edit<Seq<Color4f>>, IO<Unit>> Edited)>> latest, Atom<Selection> picked, Edit<Selection> edit, RowScope scope, CallbackSite site) =>
+    private static IO<Unit> Chosen(IO<ControlRow.Bound<(Seq<Color4f> Colors, Func<Edit<Seq<Color4f>>, IO<Unit>> Edited)>> latest, Atom<Selection> picked, Edit<Selection> edit, RowScope scope) =>
         from moved in edit.Value.Traverse(next => picked.SwapIO(_ => next)).As()
-        from opened in (from next in edit.Applied from index in Index(next) select Dialog(Indexed(latest, index), scope, site)).Traverse(static open => open).As()
+        from opened in (from next in edit.Applied from index in Index(next) select Dialog(Indexed(latest, index), scope)).Traverse(static open => open).As()
         select unit;
 
     private static IO<Unit> Revised(
@@ -82,18 +82,17 @@ public static class ColorRows {
 
     // --- [GRADIENTS]
     public static ControlRow Gradient(string label, ColorRamp ramp, Func<Edit<ColorRamp>, IO<Unit>> edited) =>
-        new ControlRow.Bound<(ColorRamp Ramp, Func<Edit<ColorRamp>, IO<Unit>> Edited)>(label, RowShape.Block, (ramp, edited), static (latest, scope, retain) =>
+        new ControlRow.Bound<(ColorRamp Ramp, Func<Edit<ColorRamp>, IO<Unit>> Edited)>(label, RowShape.Block, (ramp, edited), static (latest, scope) =>
             from picked in atomIO<Selection>(new Selection.One(None))
-            let site = new CallbackSite(scope.Sink, typeof(ColorRows), nameof(Gradient))
-            from editor in DisposalOps.Acquire(IO.lift(() => new SceneView(scope, new Node.Box())), retain)
-            from stop in DisposalOps.Acquire(IO.lift(() => new SceneView(scope, new Node.Box())), retain)
-            from position in DisposalOps.Acquire(IO.lift(() => new NumberField<float>(new ScalarText(new Axis.Linear(AxisRange.Unit), RowText.Culture) { Step = Some(0.01f) }, (0f, 1f),
-                edit => Positioned(latest, picked, edit), scope.Sink)), retain)
+            from editor in use(() => new SceneView(scope, new Node.Box()))
+            from stop in use(() => new SceneView(scope, new Node.Box()))
+            from position in use(() => new NumberField<float>(new ScalarText(new Axis.Linear(AxisRange.Unit), RowText.Culture) { Step = Some(0.01f) }, (0f, 1f),
+                edit => Positioned(latest, picked, edit), scope.Owner))
             let well = Stopping(latest, picked)
             let shown =
                 from row in latest
                 from held in picked.ValueIO
-                let caption = RowText.Localize(row.Label, scope.Sink).Local
+                let caption = RowText.Localize(row.Label, scope.Owner).Local
                 let chosen = Index(held).Bind(at => row.Row.Ramp.Stops.At(at))
                 from drew in editor.Show(new GradientEditor(row.Row.Ramp, row.Row.Edited) {
                     Picked = held,
@@ -101,17 +100,17 @@ public static class ColorRows {
                 }.Drawn switch {
                     var drawn => drawn with { Accessible = drawn.Accessible.Combine(new Accessible { Label = caption }) },
                 })
-                from swatch in stop.Show(Faced(chosen.Map(static held => Hosted(held.Color)).IfNone(new Color4f(0f, 0f, 0f, 0f)), caption, _ => Dialog(well, scope, site)))
+                from swatch in stop.Show(Faced(chosen.Map(static held => Hosted(held.Color)).IfNone(new Color4f(0f, 0f, 0f, 0f)), caption, _ => Dialog(well, scope)))
                 from enabled in IO.lift(() => { position.Enabled = chosen.IsSome; })
                 from received in chosen.Traverse(held => position.Receive((float)held.At)).As()
                 select unit
             from popup in ChoiceRows.Popup(
-                Seq(new ChoiceItem<bool>(Value: false, RowText.Localize("Smooth", scope.Sink).Local), new ChoiceItem<bool>(Value: true, RowText.Localize("Stepped", scope.Sink).Local)),
-                stepped => latest.Bind(row => row.Row.Edited(Edit.Commit(Cast(row.Row.Ramp, stepped)))), scope.Sink, retain)
-            from line in RowGrid.Lined([new TableCell(stop, scaleWidth: true), new TableCell(position)], retain)
+                Seq(new ChoiceItem<bool>(Value: false, RowText.Localize("Smooth", scope.Owner).Local), new ChoiceItem<bool>(Value: true, RowText.Localize("Stepped", scope.Owner).Local)),
+                stepped => latest.Bind(row => row.Row.Edited(Edit.Commit(Cast(row.Row.Ramp, stepped)))), scope.Owner)
+            from line in RowGrid.Lined([new TableCell(stop, scaleWidth: true), new TableCell(position)])
             select new RowCells(popup.Control, latest.Bind(row => popup.Show(row.Row.Ramp is ColorRamp.Stepped)).Bind(_ => shown)) {
                 Lines = Seq(new RowLine(None, editor), new RowLine(Some("Stop"), line)),
-                Menu = Menu(IO.pure(well), site),
+                Menu = Menu(IO.pure(well)),
             });
 
     private static ColorRamp Cast(ColorRamp ramp, bool stepped) =>
@@ -135,7 +134,7 @@ public static class ColorRows {
         select unit;
 
     private static (ColorRamp Ramp, int At) Moved(ColorRamp ramp, int at, float value) =>
-        ramp.Stops.Map((stop, index) => (Stop: index == at ? Fraction.Present(value).Map(moved => stop with { At = moved }).IfNone(stop) : stop, Moved: index == at)).Strict() switch {
+        ramp.Stops.Map((stop, index) => (Stop: index == at ? Fraction.Validated(value).ToOption().Map(moved => stop with { At = moved }).IfNone(stop) : stop, Moved: index == at)).Strict() switch {
             var stops => toSeq(stops.OrderBy(static held => (float)held.Stop.At)) switch {
                 var ordered => (ramp.WithStops(ordered.Map(static held => held.Stop)), ordered.Map(static (held, index) => (held.Moved, index)).Find(static held => held.Moved).Map(static held => held.index).IfNone(at)),
             },
@@ -157,24 +156,24 @@ public static class ColorRows {
             var face => face with { Accessible = face.Accessible.Combine(new Accessible { Label = caption }) },
         };
 
-    private static IO<Unit> Dialog(Well well, RowScope scope, CallbackSite site) =>
+    private static IO<Unit> Dialog(Well well, RowScope scope) =>
         (from stored in well.Stored
          from opened in stored.Traverse(current =>
              from document in scope.DocumentIO
-             from taken in DisposalOps.OnFailure(
-                 HostDialogs.ShowColorDialog(document, current, allowAlpha: true, None,
-                         Some<(Func<Color4f, IO<Unit>> Deliver, CallbackSite Site)>((color => well.Edited(Edit.Preview(color)), site)))
-                     .Bind(chosen => well.Edited(Edit.Commit(chosen))),
-                 well.Edited(Edit.Cancel<Color4f>()))
+             from taken in HostDialogs.ShowColorDialog(document, current, allowAlpha: true, None,
+                     Some<(Func<Color4f, IO<Unit>> Deliver, IPlugInLifetime Owner)>((color => well.Edited(Edit.Preview(color)), scope.Owner)))
+                 .Bind(chosen => well.Edited(Edit.Commit(chosen)))
+                 .Catch(error => well.Edited(Edit.Cancel<Color4f>()).Bind(_ => IO.fail<Unit>(error)))
+                 .As()
              select unit).As()
          select unit)
         .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit));
 
-    private static Seq<Seq<Command<RowRule, Invoke>>> Menu(IO<Well> held, CallbackSite site) =>
+    private static Seq<Seq<Command<RowRule, Invoke>>> Menu(IO<Well> held) =>
         new RowRule(_ => held.Bind(static well => well.Stored).Map(static current => current.IsSome)) switch {
             var stored => [Seq<Command<RowRule, Invoke>>(
                 new Command<RowRule, Invoke>.Run(new CommandFace("color-picker", "Color Picker…"), Some(stored),
-                    new Invoke.Effect(scope => held.Bind(well => Dialog(well, scope, site)))),
+                    new Invoke.Effect(scope => held.Bind(well => Dialog(well, scope)))),
                 new Command<RowRule, Invoke>.Run(new CommandFace("color-named", "Named Colors"), Some(stored),
                     new Invoke.Listed(_ => from well in held from current in well.Stored select Seq(Named(well, current)))))],
         };
@@ -188,14 +187,14 @@ public static class ColorRows {
     // --- [PAIRS]
     public static ControlRow DisplayPrint(
         string label, ((DisplayAndPrintColorSourceMode Source, Color Color) Display, (DisplayAndPrintColorSourceMode Source, Color Color) Print) value,
-        LanguageExt.HashSet<DisplayAndPrintColorSourceMode> offered, Option<(Color Display, Color Print)> resolved,
+        HashSet<DisplayAndPrintColorSourceMode> offered, Option<(Color Display, Color Print)> resolved,
         Func<Edit<((DisplayAndPrintColorSourceMode Source, Color Color) Display, (DisplayAndPrintColorSourceMode Source, Color Color) Print)>, IO<Unit>> edited) =>
         new ControlRow.Bound<(
             ((DisplayAndPrintColorSourceMode Source, Color Color) Display, (DisplayAndPrintColorSourceMode Source, Color Color) Print) Value,
-            LanguageExt.HashSet<DisplayAndPrintColorSourceMode> Offered, Option<(Color Display, Color Print)> Resolved,
+            HashSet<DisplayAndPrintColorSourceMode> Offered, Option<(Color Display, Color Print)> Resolved,
             Func<Edit<((DisplayAndPrintColorSourceMode Source, Color Color) Display, (DisplayAndPrintColorSourceMode Source, Color Color) Print)>, IO<Unit>> Edited)>(
-            label, RowShape.Inline, (value, offered, resolved, edited), static (latest, scope, retain) =>
-                from picker in DisposalOps.Acquire(IO.lift(static () => new DisplayAndPrintColorPicker()), retain)
+            label, RowShape.Inline, (value, offered, resolved, edited), static (latest, scope) =>
+                from picker in use(static () => new DisplayAndPrintColorPicker())
                 from row in latest
                 from configured in IO.lift(() => {
                     (picker.PickerMode, picker.ShowByLayer, picker.ShowByObject, picker.ShowByParent, picker.ShowViewport, picker.ShowNone) = (
@@ -204,20 +203,21 @@ public static class ColorRows {
                         row.Row.Offered.Contains(DisplayAndPrintColorSourceMode.ByParent), row.Row.Offered.Contains(DisplayAndPrintColorSourceMode.Viewport),
                         row.Row.Offered.Contains(DisplayAndPrintColorSourceMode.None));
                 })
-                let handler = new PropertyChangedEventHandler(Callbacks.Handler<PropertyChangedEventArgs>(_ =>
-                    from current in latest
-                    from read in IO.lift(() => (Display: (picker.DisplaySourceMode, picker.DisplayColor.ToSystemDrawing()), Print: (picker.PrintSourceMode, picker.PrintColor.ToSystemDrawing())))
-                    from committed in when(!Same(current.Row.Value.Display, read.Display) || !Same(current.Row.Value.Print, read.Print),
-                        current.Row.Edited(Edit.Commit(read))).As()
-                    select unit, new CallbackSite(scope.Sink, typeof(DisplayAndPrintColorPicker), nameof(DisplayAndPrintColorPicker.PropertyChanged))).Invoke)
-                from attached in Subscriptions.Attach<PropertyChangedEventHandler>(h => picker.PropertyChanged += h, h => picker.PropertyChanged -= h, handler, retain)
-                select new RowCells(picker, latest.Bind(current => Subscriptions.Detached<PropertyChangedEventHandler, Unit>(
-                    h => picker.PropertyChanged += h, h => picker.PropertyChanged -= h, handler, IO.lift(() => {
-                        (picker.DisplaySourceMode, picker.DisplayColor, picker.PrintSourceMode, picker.PrintColor) =
-                            (current.Row.Value.Display.Source, current.Row.Value.Display.Color.ToEto(), current.Row.Value.Print.Source, current.Row.Value.Print.Color.ToEto());
-                        picker.LinkPrintToDisplay = Same(current.Row.Value.Display, current.Row.Value.Print);
-                        _ = current.Row.Resolved.Iter(held => (picker.DisplayResolvedColor, picker.PrintResolvedColor) = (held.Display.ToEto(), held.Print.ToEto()));
-                    })))));
+                from change in ControlChange<PropertyChangedEventArgs>.Attached(
+                    Subscriptions.Host<PropertyChangedEventHandler, PropertyChangedEventArgs>(h => picker.PropertyChanged += h, h => picker.PropertyChanged -= h, static handler => handler.Invoke),
+                    _ =>
+                        from current in latest
+                        from read in IO.lift(() => (Display: (picker.DisplaySourceMode, picker.DisplayColor.ToSystemDrawing()), Print: (picker.PrintSourceMode, picker.PrintColor.ToSystemDrawing())))
+                        from committed in when(!Same(current.Row.Value.Display, read.Display) || !Same(current.Row.Value.Print, read.Print),
+                            current.Row.Edited(Edit.Commit(read))).As()
+                        select unit,
+                    scope.Owner)
+                select new RowCells(picker, latest.Bind(current => change.Detached(IO.lift(() => {
+                    (picker.DisplaySourceMode, picker.DisplayColor, picker.PrintSourceMode, picker.PrintColor) =
+                        (current.Row.Value.Display.Source, current.Row.Value.Display.Color.ToEto(), current.Row.Value.Print.Source, current.Row.Value.Print.Color.ToEto());
+                    picker.LinkPrintToDisplay = Same(current.Row.Value.Display, current.Row.Value.Print);
+                    _ = current.Row.Resolved.Iter(held => (picker.DisplayResolvedColor, picker.PrintResolvedColor) = (held.Display.ToEto(), held.Print.ToEto()));
+                })))));
 
     private static bool Same((DisplayAndPrintColorSourceMode Source, Color Color) left, (DisplayAndPrintColorSourceMode Source, Color Color) right) =>
         left.Source == right.Source && Conversions.Same(left.Color, right.Color);

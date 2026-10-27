@@ -38,7 +38,7 @@ public abstract partial record Decomposition {
         let relative = start.Rotation.TransposeThisAndMultiply(end.Rotation)
         let axis = (relative - Matrix<double>.Build.DenseIdentity(3)).Svd(computeVectors: true).VT.Row(2)
         let skew = Vector<double>.Build.Dense([relative[2, 1] - relative[1, 2], relative[0, 2] - relative[2, 0], relative[1, 0] - relative[0, 1]])
-        let turn = Transforms.Rotation(new(axis[0], axis[1], axis[2]), at * Math.Atan2(axis.DotProduct(skew) / 2d, (relative.Trace() - 1d) / 2d))
+        let turn = Transforms.Rotation(new(axis[0], axis[1], axis[2]), at * double.Atan2(axis.DotProduct(skew) / 2d, (relative.Trace() - 1d) / 2d))
         select Transforms.Affine(start.Rotation * turn * (start.Stretch + ((end.Stretch - start.Stretch) * at)), Translation + ((other.Translation - Translation) * at));
 
     private static (Matrix<double> Rotation, Matrix<double> Stretch) Polar(Svd<double> svd) => (svd.U * svd.VT, svd.VT.TransposeThisAndMultiply(svd.W * svd.VT));
@@ -51,7 +51,7 @@ public static class Transforms {
         linear.Append(Matrix<double>.Build.Dense(3, 1, [translation.X, translation.Y, translation.Z])).Stack(Matrix<double>.Build.Dense(1, 4, [0d, 0d, 0d, 1d]));
 
     public static Matrix<double> Rotation(Vector3D<double> axis, double angle) =>
-        (Direction: Column(axis.Normalize()), Turn: Math.SinCos(angle)) switch {
+        (Direction: Column(axis.Normalize()), Turn: double.SinCos(angle)) switch {
             var (k, (sin, cos)) => (Matrix<double>.Build.DenseIdentity(3) * cos) + (Matrix<double>.Build.DenseOfRowArrays([0d, -k[2], k[1]], [k[2], 0d, -k[0]], [-k[1], k[0], 0d]) * sin) + (Vector<double>.OuterProduct(k, k) * (1d - cos)),
         };
 

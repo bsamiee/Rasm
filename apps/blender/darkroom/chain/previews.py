@@ -16,10 +16,9 @@ import PyOpenColorIO
 from blender.bpy.data.ids.images import Bounded
 from blender.bpy.data.rna.descriptors import root_in, rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.handlers import SceneHandler, UpdateHandler
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.events import Handler, updated
+from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.nodes.interface import item_key
 from blender.bpy.nodes.trees import fingerprinted
 from blender.bpy.render.color.spaces import viewed
@@ -120,7 +119,7 @@ class TileState:
         return self.demands.get(slot) is demand and self.wanted.get(slot) is demand.wanted
 
 
-TILES: Final = Scoped[TileState](made=lambda _identity: nullcontext(TileState()), renewed=Some(lambda _held: TileState()))
+TILES: Final = Resource[TileState](made=lambda _identity: nullcontext(TileState()), renewed=Some(lambda _held: TileState()))
 
 
 class Tiles(msgspec.Struct, frozen=True, kw_only=True):
@@ -263,7 +262,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
                 lambda pair: bound.map(lambda side: fitted(pair[0], side)).default_value(Ok(pair[0])).map(lambda proxy: stored(*pair, proxy))
             )
 
-        def invalidated(scene: bpy.types.Scene, _updates: tuple[bpy.types.DepsgraphUpdate, ...] = ()) -> Outcome[None]:
+        def invalidated(scene: bpy.types.Scene, *_: object) -> Outcome[None]:
             if scene.session_uid not in identity.held[INTERMEDIATES]:
                 identity.held[TILES].demands.clear()
             return Ok(None)
@@ -276,8 +275,8 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
             PreviewScene(),
             FrameSize.attachment,
             ResultRead(consume=consumed),
-            UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.ID,), body=invalidated),
-            SceneHandler(handlers=bpy.app.handlers.frame_change_post, body=invalidated),
+            Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.ID,), invalidated)),
+            Handler(handlers=bpy.app.handlers.frame_change_post, body=invalidated),
         ))
 
 

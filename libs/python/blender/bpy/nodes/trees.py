@@ -14,7 +14,7 @@ import msgspec
 
 from blender.bpy.data.ids import images
 from blender.bpy.data.ids.store import embedded, IdName
-from blender.bpy.data.rna.descriptors import Descriptor, member_path, Struct, written
+from blender.bpy.data.rna.descriptors import Descriptor, rna, Struct, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
@@ -91,10 +91,7 @@ def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Outco
                 tree.nodes.remove(made)
                 return Error((Fault(reason=RecordReason.OUTSIDE, subject=repr(tree.nodes), member=identifier, cause=replaced),))
 
-    made: Outcome[bpy.types.Node] = catch(lambda: tree.nodes.new(identifier), exception=RuntimeError)().map_error(
-        lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(tree.nodes), cause=error),)
-    )
-    return Result[bpy.types.Node, Faults].bind(made, narrowed)
+    return catch(tree.nodes.new, exception=RuntimeError)(identifier).map_error(functools.partial(_refused, tree.nodes)).bind(narrowed)
 
 
 def grouped(node: bpy.types.Node, group: bpy.types.NodeTree) -> Outcome[None]:
@@ -131,14 +128,14 @@ def joined(tree: bpy.types.NodeTree, source: bpy.types.NodeSocket, target: bpy.t
             case None:
                 return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(tree.links), member=repr((source, target))),))
 
-    linked: Outcome[bpy.types.NodeLink | None] = catch(
-        lambda: tree.links.new(source, target, verify_limits=verify_limits, handle_dynamic_sockets=handle_dynamic_sockets), exception=RuntimeError
-    )().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(tree.links), cause=error),))
-    return Result[bpy.types.NodeLink | None, Faults].bind(linked, answered)
+    linked: Outcome[bpy.types.NodeLink | None] = catch(tree.links.new, exception=RuntimeError)(source, target, verify_limits=verify_limits, handle_dynamic_sockets=handle_dynamic_sockets).map_error(
+        functools.partial(_refused, tree.links)
+    )
+    return linked.bind(answered)
 
 
-def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...]) -> None:
-    """Orders multi-input links top to bottom within their slots by sort ID swaps."""
+def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...]) -> Outcome[None]:
+    """Orders multi-input links top to bottom within their slots by sort ID swaps, `edit` fault for the first swap the host refuses."""
     type Plan = tuple[tuple[bpy.types.NodeLink, ...], tuple[tuple[bpy.types.NodeLink, bpy.types.NodeLink], ...]]
 
     def planned(state: Plan, step: tuple[int, bpy.types.NodeLink]) -> Plan:
@@ -148,8 +145,15 @@ def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...
 
     start: Plan = (tuple(link for link in socket.links if link in desired), ())  # type: ignore[union-attr]  # ty: ignore[not-iterable]
     _, swaps = functools.reduce(planned, enumerate(desired), start)
-    for held, wanted in swaps:
-        held.swap_multi_input_sort_id(wanted)
+    return functools.reduce(
+        lambda done, pair: done.bind(lambda _: catch(pair[0].swap_multi_input_sort_id, exception=RuntimeError)(pair[1]).map_error(functools.partial(_refused, pair[0]))),
+        swaps,
+        Result[None, Faults](ok=None),
+    )
+
+
+def _refused(subject: object, error: RuntimeError) -> Faults:
+    return (Fault(reason=BlenderReason.REFUSED, subject=repr(subject), cause=error),)
 
 
 # --- [WALKS]
@@ -209,7 +213,7 @@ def fingerprinted(owner: bpy.types.NodeTree | bpy.types.Node) -> Outcome[Option[
                 for at, held in snapshot.tree.owners.items()
                 for name, value in held.values.items()
                 if isinstance(value, IdName)
-                for block in (struct.path_resolve(member_path(at, name)),)
+                for block in (struct.path_resolve(rna((*at, name))),)
                 if isinstance(block, bpy.types.NodeTree | bpy.types.Image)
             )
             return accumulated(fingerprinted(block) if isinstance(block, bpy.types.NodeTree) else images.fingerprinted(block) for block in blocks).map(lambda hashes: (snapshot, hashes))

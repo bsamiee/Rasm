@@ -61,30 +61,27 @@ utils:
                     all:
                         - not: {has: {nthChild: 2}}
                         - inside: {kind: call, has: {field: function, kind: attribute, has: {field: attribute, regex: '^bind$'}}}
+    instance-test:
+        any:
+            - {kind: call, has: {field: function, matches: {python-builtin-identifier: {name: {regex: '^isinstance$'}}}}}
+            - {kind: not_operator, has: {field: argument, kind: call, has: {field: function, matches: {python-builtin-identifier: {name: {regex: '^isinstance$'}}}}}}
     value-test:
         all:
             - pattern: $TEST
             - has: {stopBy: end, kind: identifier, pattern: $VALUE}
-            - not: {matches: type-test}
-            - not: {matches: negated-type-test}
+            - not: {matches: instance-test}
 rule:
     kind: conditional_expression
     any:
-        - all:
-            - has: {nthChild: 1, matches: some-value}
-            - has: {nthChild: 2, pattern: $TEST, matches: type-test}
-            - has: {nthChild: 3, matches: nothing-value}
-        - all:
-            - has: {nthChild: 1, matches: nothing-value}
-            - has: {nthChild: 2, kind: not_operator, pattern: $TEST, has: {field: argument, matches: type-test}}
-            - has: {nthChild: 3, matches: some-value}
+        - all: [{has: {nthChild: 1, matches: some-value}}, {has: {nthChild: 2, pattern: $TEST, matches: type-test}}, {has: {nthChild: 3, matches: nothing-value}}]
+        - all: [{has: {nthChild: 1, matches: nothing-value}}, {has: {nthChild: 2, pattern: $TEST, matches: negated-type-test}}, {has: {nthChild: 3, matches: some-value}}]
+        - all: [{has: {nthChild: 1, matches: ok-value}}, {has: {nthChild: 2, pattern: $TEST, any: [{matches: type-test}, {matches: value-test}]}}, {has: {nthChild: 3, matches: error-value}}]
+        - all: [{has: {nthChild: 1, matches: error-value}}, {has: {nthChild: 2, pattern: $TEST, any: [{matches: negated-type-test}, {matches: value-test}]}}, {has: {nthChild: 3, matches: ok-value}}]
         - all:
             - matches: bound-value
             - any:
-                - all: [{has: {nthChild: 1, matches: ok-value}}, {has: {nthChild: 3, matches: error-value}}]
-                - all: [{has: {nthChild: 1, matches: error-value}}, {has: {nthChild: 3, matches: ok-value}}]
                 - all: [{has: {nthChild: 1, matches: some-value}}, {has: {nthChild: 3, matches: nothing-value}}]
                 - all: [{has: {nthChild: 1, matches: nothing-value}}, {has: {nthChild: 3, matches: some-value}}]
             - has: {nthChild: 2, matches: value-test}
 message: 'Conditional on `$TEST` rebuilds `Ok`, `Error`, `Some`, or `Nothing` around one value'
-note: 'Replace with `.filter_with(<predicate>, <fault>)`, `.filter(<predicate>)`, or `Option.of_optional(try_downcast(<type>, <value>))`'
+note: 'Replace with `.filter_with(<predicate>, <fault>)`, `.filter(<predicate>)`, or `Option.of_optional(try_downcast(<type>, <value>))` with `.to_result_with(<fault>)`'

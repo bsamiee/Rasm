@@ -1,12 +1,11 @@
-using Rasm.Rhino.Annotation.Styles;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Modeling;
+using Rasm.RhinoCommon.Annotation.Styles;
+using Rasm.RhinoCommon.Document.Tables;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Annotation;
+namespace Rasm.RhinoCommon.Annotation;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -74,7 +73,7 @@ internal static partial class TextMapper {
 
     internal static partial TextMask Mask(AnnotationBase annotation);
 
-    private static Option<double> LeaderLanding(Leader leader) => Callbacks.Found(leader.LeaderHasLanding, leader.LeaderLandingLength);
+    private static Option<double> LeaderLanding(Leader leader) => Conversions.Found(leader.LeaderHasLanding, leader.LeaderLandingLength);
 
     // --- [UPDATES]
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
@@ -87,19 +86,15 @@ internal static partial class TextMapper {
 
 public static class Texts {
     // --- [CREATION]
-    public static IO<AnnotationBase> Create(
-        RhinoDoc doc, TextForm form, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides, Action<AnnotationBase, IDisposable> retain) =>
+    public static IO<AnnotationBase> Create(RhinoDoc doc, TextForm form, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides) =>
         form.Switch(
-            (Doc: doc, Style: style, Overrides: overrides, Retain: retain),
+            (Doc: doc, Style: style, Overrides: overrides),
             note: static (state, note) => Dimensions.Create(
                 state.Doc, state.Style, state.Overrides,
-                (parent, held) => Copies.Acquire(nameof(TextEntity.CreateWithRichText), _ =>
-                    Answer.One<AnnotationBase>(TextEntity.CreateWithRichText(note.RichText, note.Plane, parent, note.WrapWidth.IsSome, note.WrapWidth.IfNone(0d), note.RotationRadians)), held),
-                state.Retain),
+                parent => Products.Made<AnnotationBase>(TextEntity.CreateWithRichText(note.RichText, note.Plane, parent, note.WrapWidth.IsSome, note.WrapWidth.IfNone(0d), note.RotationRadians))),
             callout: static (state, callout) => Dimensions.Create(
                 state.Doc, state.Style, state.Overrides,
-                (parent, held) => Copies.Acquire(nameof(Leader.CreateWithRichText), _ => Answer.One<AnnotationBase>(Leader.CreateWithRichText(callout.RichText, callout.Plane, parent, [.. callout.Points])), held),
-                state.Retain));
+                parent => Products.Made<AnnotationBase>(Leader.CreateWithRichText(callout.RichText, callout.Plane, parent, [.. callout.Points]))));
 
     // --- [EDITS]
     public static IO<Unit> Modify(RhinoDoc doc, Guid id, Seq<Func<AnnotationBase, IO<Unit>>> edits, Option<double> wrapWidth) =>
@@ -133,7 +128,7 @@ public static class Texts {
             annotation.IsAllUnderlined(),
             annotation.TextHeight,
             annotation.TextRotationRadians,
-            Callbacks.Found(annotation.TextIsWrapped, annotation.FormatWidth),
+            Conversions.Found(annotation.TextIsWrapped, annotation.FormatWidth),
             annotation.MaskEnabled || annotation.MaskFrame is not DimensionStyle.MaskFrame.NoFrame ? Some(TextMapper.Mask(annotation)) : None,
             annotation.DimensionStyleId,
             DimensionStyles.Overrides(annotation.IsPropertyOverridden),
@@ -158,21 +153,29 @@ public static class Texts {
     // --- [FRAMES]
     public static IO<Transform> GetTextTransform(TextEntity text, DimensionStyle style, double scale, Option<RhinoViewport> viewport) =>
         viewport.Match(
-            Some: view => DisposalOps.Within(() => new ViewportInfo(view), info => IO.lift(() => text.GetTextTransform(info, scale, style))),
+            Some: view => use(() => new ViewportInfo(view)).Bind(info => IO.lift(() => text.GetTextTransform(info, scale, style))).Bracket(),
             None: () => IO.lift(() => text.GetTextTransform(scale, style)));
 
     public static IO<Seq<Point3d>> GetTextCorners(TextObject text, RhinoViewport viewport) =>
-        IO.lift(() => Conversions.NonEmpty(toSeq(text.GetTextCorners(viewport)), nameof(TextObject.GetTextCorners)));
+        from corners in IO.lift(() => toSeq(text.GetTextCorners(viewport)))
+        from present in IO.lift(() => RhinoFault.Unless(!corners.IsEmpty))
+        select corners;
 
     // --- [PIECES]
     public static IO<T> TextPieces<T>(TextEntity text, Func<Seq<Curve>, IO<T>> body) =>
-        DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(nameof(TextEntity.Explode), _ => Answer.Many(text.Explode()), held).Bind(body), DisposalOps.Release);
+        (from exploded in IO.lift(() => text.Explode())
+         from pieces in Products.Made(exploded)
+         from value in body(pieces)
+         select value).Bracket();
 
     public static IO<T> LeaderPieces<T>(Leader leader, Func<Seq<GeometryBase>, IO<T>> body) =>
-        DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(nameof(Leader.Explode), _ => Answer.Many(leader.Explode()), held).Bind(body), DisposalOps.Release);
+        (from exploded in IO.lift(() => leader.Explode())
+         from pieces in Products.Made(exploded)
+         from value in body(pieces)
+         select value).Bracket();
 
     public static IO<T> LeaderCurve<T>(Leader leader, Func<NurbsCurve, IO<T>> body) =>
-        from curve in IO.lift(() => Refused.UnlessFound(leader.Curve, nameof(Leader.Curve)))
-        from value in DisposalOps.Within((Action<IDisposable> held) => Copies.DuplicateShallow(curve, held).Bind(body), DisposalOps.Release)
+        from curve in IO.lift(() => Conversions.Found(leader.Curve))
+        from value in use(() => (NurbsCurve)curve.DuplicateShallow()).Bind(body).Bracket()
         select value;
 }

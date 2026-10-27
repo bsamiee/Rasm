@@ -1,4 +1,5 @@
 using System.Numerics;
+using CommunityToolkit.HighPerformance;
 using UnitsNet;
 
 namespace Rasm.Imaging.Pixels;
@@ -87,9 +88,7 @@ public sealed record Camera {
         Location + Vector3.Transform(Frustum.At(Frustum.Window.WindowPoint(point.X, point.Y, Extent), depth), Orientation);
 
     public (Vector3 Origin, Vector3 Direction) Ray((double X, double Y) point) =>
-        Frustum.Ray(point, Extent) switch {
-            var (origin, direction) => (Location + Vector3.Transform(origin, Orientation), Vector3.Transform(direction, Orientation)),
-        };
+        Frustum.Ray(point, Extent) switch { var (origin, direction) => (Location + Vector3.Transform(origin, Orientation), Vector3.Transform(direction, Orientation)) };
 
     public Option<((double X, double Y) Point, float Depth)> Pixel(Vector3 world) =>
         Frustum.Locate(Vector3.Transform(world - Location, Quaternion.Conjugate(Orientation)), Extent);
@@ -109,20 +108,18 @@ public sealed record Camera {
 
 public sealed record Occluder(PixelFrame Depth, float Source) {
     public bool Hides((double X, double Y) point) =>
-        Depth.Sample((double.Floor(point.X) + 0.5d, double.Floor(point.Y) + 0.5d), (WrapMode.Black, WrapMode.Black),
-            float.PositiveInfinity, static (_, sample, _) => sample.X) < Source;
+        Depth.Sample((double.Floor(point.X) + 0.5d, double.Floor(point.Y) + 0.5d), (WrapMode.Black, WrapMode.Black), float.PositiveInfinity, static (_, sample, _) => sample.X) < Source;
 
     public float Visible((double X, double Y) source, double reach) {
-        (Occluder occluder, PixelExtent extent) = (this, Depth.Extent);
-        Seq<(double X, double Y)> disc = toSeq(
-            from y in Window(source.Y, extent.Height)
-            from x in Window(source.X, extent.Width)
-            let center = (X: x + 0.5d, Y: y + 0.5d)
-            where double.Hypot(center.X - source.X, center.Y - source.Y) <= reach
-            select center);
-        return reach is 0d || disc.IsEmpty ? 1f : disc.Filter(point => !occluder.Hides(point)).Count / (float)disc.Count;
+        ReadOnlySpan2D<Vector4> depth = Depth.View.Span;
+        ((int Low, int High) across, (int Low, int High) down, Vector2 seen) = (Window(source.X, Depth.Extent.Width), Window(source.Y, Depth.Extent.Height), Vector2.Zero);
+        for (int y = down.Low; y < down.High; y++)
+            for (int x = across.Low; x < across.High; x++)
+                seen += double.Hypot(x + 0.5d - source.X, y + 0.5d - source.Y) <= reach ? new Vector2(1f, Exposed(depth, x - Depth.Origin.X, y - Depth.Origin.Y)) : Vector2.Zero;
+        return reach is 0d || seen.X is 0f ? 1f : seen.Y / seen.X;
 
-        IEnumerable<int> Window(double at, int size) =>
-            (int)double.Clamp(double.Floor(at - reach), 0d, size) switch { var low => Enumerable.Range(low, (int)double.Clamp(double.Ceiling(at + reach), 0d, size) - low) };
+        (int Low, int High) Window(double at, int size) => ((int)double.Clamp(double.Floor(at - reach), 0d, size), (int)double.Clamp(double.Ceiling(at + reach), 0d, size));
     }
+
+    private float Exposed(ReadOnlySpan2D<Vector4> depth, int column, int row) => row >= 0 && row < depth.Height && column >= 0 && column < depth.Width && depth[row, column].X < Source ? 0f : 1f;
 }

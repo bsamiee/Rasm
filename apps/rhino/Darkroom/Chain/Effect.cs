@@ -4,8 +4,8 @@ using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino;
-using Rasm.Rhino.Render.Effects;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Render.Effects;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 
@@ -21,14 +21,13 @@ public sealed class DarkroomEffect() : DefinedEffect<ChainState>(ChainState.Defa
 
     // --- [PIPELINE]
     public override Guid[] RequiredChannels =>
-        Callbacks.Answer(State.Needs.Map(static needs => Channels.Required(needs.Map(static channel => channel.Key))), static () => Channels.Required([]), CallbackSite.Of(Owner, this));
+        this.Answer(State.Needs.Map(static needs => Channels.Required(needs.Map(static channel => channel.Key))), Channels.Required([]));
 
     public override bool CanExecute(PostEffectPipeline pipeline) =>
-        base.CanExecute(pipeline) && Callbacks.Answer(
-            RenderRuns.Slot.Find(Owner).Map(runs => !State.Running.IsEmpty || (runs.IsSome && Watched(pipeline))), static () => false, CallbackSite.Of(Owner, this));
+        base.CanExecute(pipeline) && this.Answer(RenderRuns.Slot.Find(Owner).Map(runs => !State.Running.IsEmpty || (runs.IsSome && Watched(pipeline))), failed: false);
 
     public override bool Execute(PostEffectPipeline pipeline, Rectangle rect) =>
-        Callbacks.Succeeded(Formed(pipeline, rect), CallbackSite.Of(Owner, this));
+        this.Answer(Formed(pipeline, rect).Map(value: true), failed: false);
 
     private IO<Unit> Formed(PostEffectPipeline pipeline, Rectangle rect) =>
         from size in IO.lift(() => Channels.Extent(pipeline) switch { var whole => PixelExtent.Validated(whole.Width, whole.Height).Map(extent => (Whole: whole, Extent: extent)) })
@@ -53,8 +52,10 @@ public sealed class DarkroomEffect() : DefinedEffect<ChainState>(ChainState.Defa
             select unit).As()
         select unit;
 
-    private static bool Watched(PostEffectPipeline pipeline) =>
-        !pipeline.IsRendering && DisposalOps.Present(RenderWindow.FromSessionId(pipeline.RenderingId));
+    private static bool Watched(PostEffectPipeline pipeline) {
+        using RenderWindow? window = pipeline.IsRendering ? null : RenderWindow.FromSessionId(pipeline.RenderingId);
+        return window is not null;
+    }
 
     private static IO<Unit> Ran(Seq<PixelPass> passes, PixelFrame frame, IProgress<int> progress) =>
         passes.TraverseM(pass => IO.lift(() => pass.Run(frame, progress))).As().Map(unit);
@@ -65,7 +66,7 @@ public sealed class DarkroomEffect() : DefinedEffect<ChainState>(ChainState.Defa
         };
 
     private static IO<Unit> Written(PostEffectPipeline pipeline, PixelFrame frame) =>
-        from memory in IO.lift(() => Refused.Unless(frame.View.TryGetMemory(out Memory<Vector4> held), held, nameof(Memory2D<>.TryGetMemory)))
+        from memory in IO.lift(() => RhinoFault.Unless(frame.View.TryGetMemory(out Memory<Vector4> held)).Map(_ => held))
         from written in Channels.Write(pipeline, new Rectangle(frame.Origin, new Size(frame.Size.Width, frame.Size.Height)), memory.Cast<Vector4, float>())
         select written;
 

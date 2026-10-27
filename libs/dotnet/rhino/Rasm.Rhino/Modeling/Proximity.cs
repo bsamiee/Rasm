@@ -1,31 +1,31 @@
 using System.Globalization;
-using Rasm.Rhino.Document.Units;
+using Rasm.RhinoCommon.Document.Units;
 
-namespace Rasm.Rhino.Modeling;
+namespace Rasm.RhinoCommon.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Proximity {
-    public sealed record Curve(global::Rhino.Geometry.Curve Geometry) : Proximity;
+    public sealed record Curve(Rhino.Geometry.Curve Geometry) : Proximity;
 
     public sealed record Surface : Proximity {
-        private Surface(global::Rhino.Geometry.Surface geometry) => Geometry = geometry;
+        private Surface(Rhino.Geometry.Surface geometry) => Geometry = geometry;
 
-        public global::Rhino.Geometry.Surface Geometry { get; }
+        public Rhino.Geometry.Surface Geometry { get; }
 
-        public static Fin<Surface> Validated(global::Rhino.Geometry.Surface geometry) =>
+        public static Fin<Surface> Validated(Rhino.Geometry.Surface geometry) =>
             geometry is Extrusion { CapCount: > 0 and var caps }
-                ? Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{nameof(Extrusion)} with {caps} caps answers its wall alone, its {nameof(Extrusion.ToBrep)} reaches the caps"))
+                ? new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{geometry.ObjectType} with {caps} caps"), RhinoReason.Mismatched)
                 : new Surface(geometry);
     }
 
     public sealed record Face(BrepFace Geometry) : Proximity;
 
-    public sealed record Brep(global::Rhino.Geometry.Brep Geometry) : Proximity;
+    public sealed record Brep(Rhino.Geometry.Brep Geometry) : Proximity;
 
-    public sealed record Mesh(global::Rhino.Geometry.Mesh Geometry) : Proximity;
+    public sealed record Mesh(Rhino.Geometry.Mesh Geometry) : Proximity;
 
-    public sealed record SubD(global::Rhino.Geometry.SubD Geometry) : Proximity;
+    public sealed record SubD(Rhino.Geometry.SubD Geometry) : Proximity;
 
     public sealed record Cloud(PointCloud Geometry) : Proximity;
 
@@ -36,15 +36,15 @@ public abstract partial record Proximity {
             },
             curve: static (at, of) => at.Points.Map(point => at.Limit
                 .Match(
-                    Some: distance => Callbacks.Found(of.Geometry.ClosestPoint(point, out double t, distance), t),
-                    None: () => Callbacks.Found(of.Geometry.ClosestPoint(point, out double t), t))
+                    Some: distance => Conversions.Found(of.Geometry.ClosestPoint(point, out double t, distance), t),
+                    None: () => Conversions.Found(of.Geometry.ClosestPoint(point, out double t), t))
                 .Map(of.Geometry.PointAt)).Strict(),
-            surface: static (at, of) => at.Points.Map(point => Callbacks.Found(of.Geometry.ClosestPoint(point, out double u, out double v), (U: u, V: v))
+            surface: static (at, of) => at.Points.Map(point => Conversions.Found(of.Geometry.ClosestPoint(point, out double u, out double v), (U: u, V: v))
                 .Map(uv => of.Geometry.PointAt(uv.U, uv.V))
                 .Filter(found => at.Limit.ForAll(distance => point.DistanceTo(found) <= distance))).Strict(),
-            face: static (at, of) => at.Points.Map(point => Callbacks.Found(of.Geometry.ClosestPointOnFace(point, out double u, out double v, at.Bound), (U: u, V: v))
+            face: static (at, of) => at.Points.Map(point => Conversions.Found(of.Geometry.ClosestPointOnFace(point, out double u, out double v, at.Bound), (U: u, V: v))
                 .Map(uv => of.Geometry.PointAt(uv.U, uv.V))).Strict(),
-            brep: static (at, of) => at.Points.Map(point => Callbacks.Found(
+            brep: static (at, of) => at.Points.Map(point => Conversions.Found(
                 of.Geometry.ClosestPoint(point, out Point3d closest, out ComponentIndex _, out double _, out double _, at.Bound, out Vector3d _), closest)).Strict(),
             mesh: static (at, of) => at.Points.Map(point => Optional(of.Geometry.ClosestMeshPoint(point, at.Bound)).Map(static found => found.Point)).Strict(),
             subD: static (at, of) => {
@@ -63,11 +63,10 @@ public abstract partial record Interior {
 
         public Brep Brep { get; }
 
-        public static Fin<Solid> Validated(Brep brep) =>
-            brep.IsSolid ? new Solid(brep) : Error.New(ErrorCodes.ValidationFailed, $"{nameof(Brep)} is no closed oriented manifold");
+        public static Fin<Solid> Validated(Brep brep) => RhinoFault.Unless(brep.IsSolid).Map(_ => new Solid(brep));
 
-        public static IO<Solid> Validated(SubD subd, SubDToBrepOptions options, Action<IDisposable> retain) =>
-            Copies.Acquire(nameof(SubD.ToBrep), _ => Answer.One(subd.ToBrep(options)), retain).Bind(static brep => IO.lift(() => Validated(brep)));
+        public static IO<Solid> Validated(SubD subd, SubDToBrepOptions options) =>
+            Products.Made(subd.ToBrep(options)).Bind(static brep => IO.lift(() => Validated(brep)));
     }
 
     public sealed record Closed : Interior {
@@ -75,8 +74,7 @@ public abstract partial record Interior {
 
         public Mesh Mesh { get; }
 
-        public static Fin<Closed> Validated(Mesh mesh) =>
-            mesh.IsClosed && mesh.IsManifold() ? new Closed(mesh) : Error.New(ErrorCodes.ValidationFailed, $"{nameof(Mesh)} is not closed and manifold");
+        public static Fin<Closed> Validated(Mesh mesh) => RhinoFault.Unless(mesh.IsClosed && mesh.IsManifold()).Map(_ => new Closed(mesh));
     }
 
     public sealed record Planar : Interior {
@@ -87,11 +85,7 @@ public abstract partial record Interior {
         public Plane Plane { get; }
 
         public static Fin<Planar> Validated(Curve curve, Plane plane) =>
-            (curve.IsClosed, plane.IsValid) switch {
-                (true, true) => new Planar(curve, plane),
-                (false, _) => Error.New(ErrorCodes.ValidationFailed, $"{nameof(Curve)} is open"),
-                (_, false) => Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{plane} is no valid plane")),
-            };
+            (RhinoFault.Unless(curve.IsClosed), RhinoFault.Unless(plane.IsValid)).Apply((_, _) => new Planar(curve, plane)).As();
     }
 
     public PointContainment Contains(Tolerances tolerances, Point3d point) =>

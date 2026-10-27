@@ -1,15 +1,17 @@
 using System.Numerics;
 using Eto.Forms;
-using Rasm.Rhino.UI.Numeric;
-using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Styling;
-using Rasm.Rhino.UI.Surfaces;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI.Numeric;
+using Rasm.RhinoCommon.UI.Rows;
+using Rasm.RhinoCommon.UI.Styling;
+using Rasm.RhinoCommon.UI.Surfaces;
 using Rasm.UI;
 using Rasm.UI.Components;
+using Rasm.UI.Plotting;
 using Rhino.Resources;
 using Rhino.UI.Controls;
 
-namespace Rasm.Rhino.UI.Inputs;
+namespace Rasm.RhinoCommon.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CurveLane(Key Key, string Caption, Seq<Vector2> Points, Func<float, float> Fit, PlotPlane.Cartesian Plane, Func<Edit<Seq<Vector2>>, IO<Unit>> Edited) {
@@ -21,16 +23,17 @@ public sealed record CurveLane(Key Key, string Caption, Seq<Vector2> Points, Fun
 public static class CurveRows {
     // --- [EDITORS]
     private static readonly Selection Unpicked = new Selection.Many([]);
+    private static readonly Lens<Vector2, float> Across = Lens<Vector2, float>.New(static point => point.X, static x => point => point with { X = x });
+    private static readonly Lens<Vector2, float> Upward = Lens<Vector2, float>.New(static point => point.Y, static y => point => point with { Y = y });
 
     public static ControlRow Editor(string label, IterableNE<CurveLane> lanes, Option<Func<Key, IO<Seq<float>>>> pick = default) =>
-        new ControlRow.Bound<(IterableNE<CurveLane> Lanes, Option<Func<Key, IO<Seq<float>>>> Pick)>(label, RowShape.Block, (lanes, pick), static (latest, scope, retain) =>
+        new ControlRow.Bound<(IterableNE<CurveLane> Lanes, Option<Func<Key, IO<Seq<float>>>> Pick)>(label, RowShape.Block, (lanes, pick), static (latest, scope) =>
             from row in latest
             from held in atomIO(new CurveShown(row.Row.Lanes.Head.Key, Unpicked, None))
-            let site = new CallbackSite(scope.Sink, typeof(CurveRows), nameof(Editor))
             let keyed = latest.Map(static current => toHashMap(current.Row.Lanes.Map(static lane => (lane.Key, lane))))
-            from view in DisposalOps.Acquire(IO.lift(() => new SceneView(scope, new Node.Box())), retain)
-            from input in Coordinates(row.Row.Lanes, static plane => plane.X, edit => Entered(keyed, held, Lens<Vector2, float>.New(static point => point.X, static x => point => point with { X = x }), edit), scope.Sink, retain)
-            from output in Coordinates(row.Row.Lanes, static plane => plane.Y, edit => Entered(keyed, held, Lens<Vector2, float>.New(static point => point.Y, static y => point => point with { Y = y }), edit), scope.Sink, retain)
+            from view in use(() => new SceneView(scope, new Node.Box()))
+            from input in Coordinates(row.Row.Lanes, static plane => plane.X, edit => Entered(keyed, held, Across, edit), scope.Owner)
+            from output in Coordinates(row.Row.Lanes, static plane => plane.Y, edit => Entered(keyed, held, Upward, edit), scope.Owner)
             let shown =
                 from current in latest
                 from lanes in keyed
@@ -43,7 +46,7 @@ public static class CurveRows {
                     Pick = edit => Some(held.SwapIO(prior => prior with { Picked = edit.Value.IfNone(prior.Picked) }).Map(unit)),
                 }.Drawn switch {
                     var drawn => drawn with {
-                        Accessible = drawn.Accessible.Combine(new Accessible { Label = $"{RowText.Localize(current.Label, scope.Sink).Local}: {RowText.Localize(lane.Caption, scope.Sink).Local}" }),
+                        Accessible = drawn.Accessible.Combine(new Accessible { Label = $"{RowText.Localize(current.Label, scope.Owner).Local}: {RowText.Localize(lane.Caption, scope.Owner).Local}" }),
                     },
                 })
                 let anchor = Index(state.Picked).Bind(index => lane.Points.At(index))
@@ -52,19 +55,19 @@ public static class CurveRows {
                 select unit
             from strip in toSeq(row.Row.Lanes).Count is 1
                 ? IO.pure(Option<Control>.None)
-                : ChoiceRows.Strip(toSeq(row.Row.Lanes).Map(lane => new ChoiceItem<Key>(lane.Key, RowText.Localize(lane.Caption, scope.Sink).Local)),
-                        key => Laned(keyed, held, key).Bind(_ => shown), scope.Sink, retain)
+                : ChoiceRows.Strip(toSeq(row.Row.Lanes).Map(lane => new ChoiceItem<Key>(lane.Key, RowText.Localize(lane.Caption, scope.Owner).Local)),
+                        key => Laned(keyed, held, key).Bind(_ => shown), scope.Owner)
                     .Bind(chosen => from shown in chosen.Show(row.Row.Lanes.Head.Key) select Some(chosen.Control))
             from picked in row.Row.Pick.Traverse(read => CommandRows.Button(
                     new Command<RowRule, Invoke>.Run(
                         new CommandFace("curve-pick", "Pick Point") { Glyph = Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.SVGEditorEyeDropperSvg)) }, None,
                         new Invoke.Effect(_ => held.ValueIO.Bind(state => read(state.Active)).Bind(xs => Inserted(keyed, held, xs)).Bind(_ => shown))),
-                    IconSlot.Small, scope, retain)).As()
+                    IconSlot.Small, scope)).As()
             from body in strip.Match(
                 Some: chooser => Containers.Frame(() => new StackLayout(new StackLayoutItem(chooser, HorizontalAlignment.Left), new StackLayoutItem(view, HorizontalAlignment.Stretch)) {
                     Spacing = RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Table),
                     HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                }, retain).Map(static stack => (Control)stack),
+                }).Map(static stack => (Control)stack),
                 None: () => IO.pure<Control>(view))
             select new RowCells(body, shown.Bind(_ => picked.Traverse(static button => button.Refresh).As()).Map(unit)) {
                 Pick = picked.Map(static button => button.Control),
@@ -148,13 +151,13 @@ public static class CurveRows {
 
     // --- [COORDINATES]
     private static IO<(Control Panel, Func<Key, Option<float>, IO<Unit>> Show)> Coordinates(
-        IterableNE<CurveLane> lanes, Func<PlotPlane.Cartesian, Axis> axis, Func<Edit<float>, IO<Unit>> edited, IPlugInSink sink, Action<IDisposable> retain) =>
+        IterableNE<CurveLane> lanes, Func<PlotPlane.Cartesian, Axis> axis, Func<Edit<float>, IO<Unit>> edited, IPlugInLifetime owner) =>
         from fields in toSeq(lanes).TraverseM(lane => axis(lane.Plane) switch {
-            var held => DisposalOps.Acquire(IO.lift(() => new NumberField<float>(new ScalarText(held, RowText.Culture), (held.Domain.Low, held.Domain.High), edited, sink) { Enabled = false }), retain)
+            var held => use(() => new NumberField<float>(new ScalarText(held, RowText.Culture), (held.Domain.Low, held.Domain.High), edited, owner) { Enabled = false })
                 .Map(field => (lane.Key, Field: field)),
         }).As()
         let keyed = toHashMap(fields)
-        from panel in Containers.Frame(static () => new Panel(), retain)
+        from panel in Containers.Frame(static () => new Panel())
         from placed in IO.lift(() => panel.Content = keyed[lanes.Head.Key])
         select (
             (Control)panel,

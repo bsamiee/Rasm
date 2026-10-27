@@ -5,17 +5,17 @@ from types import MappingProxyType
 from typing import Final, Self
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, Option, Some
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Faults, Outcome
+from blender.records.faults import accumulated, Fault, Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 STORES: Final[Mapping[type, str]] = MappingProxyType({type(prop.fixed_type): prop.identifier for prop in bpy.types.BlendData.bl_rna.properties if isinstance(prop, bpy.types.CollectionProperty)})
-TREE_STORES: Final = MappingProxyType({
+_TREES: Final = MappingProxyType({
     prop.identifier: tree.identifier
     for prop in bpy.types.BlendData.bl_rna.properties
     if isinstance(prop, bpy.types.CollectionProperty)
@@ -59,7 +59,8 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, block: T) -> Self:
         """Returns handle of block's original."""
-        return cls(kind=type(block), uid=block.original.session_uid)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        original: bpy.types.ID = block.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        return cls(kind=type(block), uid=original.session_uid)
 
     def resolve(self) -> Outcome[T]:
         """Returns live original, absent fault once expired."""
@@ -94,14 +95,12 @@ def resolved[T: bpy.types.ID](handles: Iterable[Handle[T]]) -> Outcome[tuple[T, 
 
 def embedded(block: bpy.types.ID) -> Option[bpy.types.NodeTree]:
     """Returns block's embedded node tree."""
-    return Option.of_optional(TREE_STORES.get(member(type(block)))).bind(lambda tree: Option.of_optional(getattr(block, tree)))
+    return Option.of_optional(_TREES.get(member(type(block)))).bind(lambda tree: Option.of_optional(getattr(block, tree)))
 
 
 def holder(block: bpy.types.ID) -> Option[bpy.types.ID]:
     """Returns block itself, or `bpy.data` block embedding it as node tree."""
-    return (
-        Option.of_optional(next((owner for store, tree in TREE_STORES.items() for owner in getattr(bpy.data, store) if getattr(owner, tree) == block), None)) if block.is_embedded_data else Some(block)
-    )
+    return Option.of_optional(next((owner for store, tree in _TREES.items() for owner in getattr(bpy.data, store) if getattr(owner, tree) == block), None)) if block.is_embedded_data else Some(block)
 
 
 def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
@@ -110,7 +109,7 @@ def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
         IdName(name=name, library=IdName.of(block).library)
         .resolve(type(block))
         .filter(lambda holding: holding != block)
-        .map(lambda holding: Result[T, Faults].Error((Fault(reason=BlenderReason.TAKEN, subject=name, member=repr(holding)),)))
+        .map(lambda holding: Error((Fault(reason=BlenderReason.TAKEN, subject=name, member=repr(holding)),)))
         .default_with(
             lambda: (
                 catch(block.rename, exception=RuntimeError)(name, mode="NEVER").map(lambda _: block).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(block), cause=error),))
@@ -121,4 +120,4 @@ def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["STORES", "TREE_STORES", "Handle", "IdName", "blocks", "embedded", "holder", "member", "named", "resolved"]
+__all__ = ["STORES", "Handle", "IdName", "blocks", "embedded", "holder", "member", "named", "resolved"]

@@ -1,2 +1,2 @@
-#0 `Modifier` holds items with no key, data, or behavior, move switch behavior onto items, make shape-differing cases a record union, or store one host-read tag
-#1 `Glass` keys items by member names and no code reads a key, move switch behavior onto items, make shape-differing cases a record union, or store one host-read tag
+#0 `Modifier` holds data-free items, move consumer data onto items or declare a shape-differing record union
+#1 `Glass` keys items by unread member names, move consumer data onto items or declare a shape-differing record union

@@ -1,12 +1,12 @@
 using System.Drawing;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Tables;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Annotation.Styles;
+namespace Rasm.RhinoCommon.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -26,10 +26,10 @@ public abstract partial record BoundaryLinetype {
     internal IO<int> Written(RhinoDoc doc, SectionStyle staged) =>
         Switch(
             table: table => table.Reference.Resolve(doc),
-            embedded: embedded => DisposalOps.Within(static () => new Linetype(), native =>
+            embedded: embedded => (from native in use(static () => new Linetype())
                                    from written in Linetypes.Written(native, embedded.Definition)
                                    from copied in IO.lift(() => staged.SetBoundaryLinetype(native))
-                                   select RhinoMath.UnsetIntIndex));
+                                   select RhinoMath.UnsetIntIndex).Bracket());
 }
 
 public sealed record SectionBoundary(Option<Color> Color, Option<Color> PrintColor, double WidthScale, Option<PlotWeight> PrintWidth, Option<BoundaryLinetype> Linetype) {
@@ -64,20 +64,19 @@ public static class SectionStyles {
     public static IO<(SectionStyleDefinition Definition, bool BoundaryHasShapes)> Definition(SectionStyle style, Option<Seq<HatchPattern>> patterns = default) =>
         from visible in IO.lift(() => style.BoundaryVisible)
         from embedded in visible
-            ? DisposalOps.Within(style.GetBoundaryLinetype,
-                static held => from definition in Optional(held).Traverse(Linetypes.Definition).As()
-                               select (Definition: definition, HasShapes: Optional(held).Exists(static linetype => linetype.HasShapes)),
-                static held => DisposalOps.Release(held))
+            ? (from held in Products.Held(style.GetBoundaryLinetype())
+               from definition in held.Traverse(Linetypes.Definition).As()
+               select (Definition: definition, HasShapes: held.Exists(static linetype => linetype.HasShapes))).Bracket()
             : IO.pure((Definition: Option<LinetypeDefinition>.None, HasShapes: false))
         let requested = Conversions.Present(style.HatchIndex)
         from pattern in IO.lift(patterns.Traverse(rows => requested.Traverse(index =>
-            rows.At(index).ToFin(new Refused(nameof(SectionStyle.ReadFromFile), Refused.Invalid))).As()).As())
+            Conversions.Within(index, rows.Count).Map(_ => rows[index])).As()).As())
         let address = pattern.Match(
             Some: static held => held.Map<ComponentRef<HatchPattern>>(static row => row.Name),
             None: () => requested.Map<ComponentRef<HatchPattern>>(static index => index))
         let linetype = embedded.Definition.Map<BoundaryLinetype>(static definition => new BoundaryLinetype.Embedded(definition))
             || (visible && patterns.IsNone ? LinetypeRef.FromHost(style.BoundaryLinetypeIndex).Map<BoundaryLinetype>(static reference => new BoundaryLinetype.Table(reference)) : None)
-        let boundary = Callbacks.Found(visible, new SectionBoundary(
+        let boundary = Conversions.Found(visible, new SectionBoundary(
             Conversions.Present(style.BoundaryColor), Conversions.Present(style.BoundaryPrintColor), style.BoundaryWidthScale, PlotWeight.FromInheritable(style.BoundaryPlotWeightMillimeters), linetype))
         let hatch = address.Map(reference => new SectionHatch(
             reference, style.HatchScale, style.HatchRotationRadians, Conversions.Present(style.HatchPatternColor), Conversions.Present(style.HatchPatternPrintColor), PlotWeight.FromInheritable(style.HatchPatternPlotWeightMillimeters)))
@@ -118,19 +117,20 @@ public static class SectionStyles {
 
     // --- [FILES]
     public static IO<(Seq<(string Name, SectionStyleDefinition Definition)> Styles, Seq<(string Name, HatchPatternDefinition Definition)> Patterns)> ReadFile(InputPath path) =>
-        DisposalOps.Within(() => {
+        (from native in IO.lift(() => {
             bool read = SectionStyle.ReadFromFile(path, out SectionStyle[] styles, out HatchPattern[] patterns);
             return (Read: read, Styles: styles, Patterns: patterns);
-        },
-            static native => IO.lift(() => Refused.Unless(native.Read,
-                (Styles: Conversions.Rows(native.Styles), Patterns: Conversions.Rows(native.Patterns)), nameof(SectionStyle.ReadFromFile)))
-                .Bind(static read => (
-                    read.Styles.TraverseM(style => from definition in Definition(style, Some(read.Patterns))
-                                                   select (style.Name, definition.Definition)).As(),
-                    read.Patterns.TraverseM(static pattern => from definition in HatchPatterns.Definition(pattern)
-                                                              select (pattern.Name, Definition: definition)).As())
-                    .Apply(static (styles, patterns) => (Styles: styles, Patterns: patterns)).As()),
-            static read => DisposalOps.Release<IDisposable>([.. Conversions.Rows(read.Styles), .. Conversions.Rows(read.Patterns)]));
+        })
+         from read in IO.lift(() => RhinoFault.Unless(native.Read))
+         from styles in Products.Made(native.Styles)
+         from patterns in Products.Made(native.Patterns)
+         from file in (
+                 styles.TraverseM(style => from definition in Definition(style, Some(patterns))
+                                           select (style.Name, definition.Definition)).As(),
+                 patterns.TraverseM(static pattern => from definition in HatchPatterns.Definition(pattern)
+                                                      select (pattern.Name, Definition: definition)).As())
+             .Apply(static (styles, patterns) => (Styles: styles, Patterns: patterns)).As()
+         select file).Bracket();
 
     public static IO<Committed<Seq<(string Name, int Index)>>> Import(RhinoDoc doc, InputPath path, string name, RedrawPolicy redraw) =>
         from file in ReadFile(path)

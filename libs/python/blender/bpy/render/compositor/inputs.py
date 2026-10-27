@@ -8,7 +8,7 @@ from expression import Error, Ok, Option, Result
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.data.rna.descriptors import Descriptor, Native, Struct, struct_at, written
+from blender.bpy.data.rna.descriptors import Descriptor, Native, rna, RnaPath, Struct, struct_at, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
@@ -74,26 +74,34 @@ def entry_input(identity: Identity, entry: bpy.types.SceneCompositorEffect, key:
 
 def inputs_of(entry: bpy.types.SceneCompositorEffect) -> Outcome[Native]:
     """Resolves the entry's generated `properties.inputs`, absent without a group."""
-    return struct_at(entry, "properties.inputs").to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(entry), member="properties.inputs"),))
+    return struct_at(entry, ("properties", "inputs")).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(entry), member=rna(("properties", "inputs"))))
 
 
 def interface_input(entry: bpy.types.SceneCompositorEffect, identifier: str) -> Outcome[Struct]:
     """Resolves live entry input by interface socket identifier."""
-    match struct_at(entry, f"properties.inputs.{identifier}").to_optional():
+    match struct_at(entry, ("properties", "inputs", identifier)).to_optional():
         case bpy.types.bpy_struct() as value:
             return Ok(value)
         case _:
-            return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(entry), member=identifier),))
+            return Error(Fault.of(BlenderReason.ABSENT, repr(entry), member=identifier))
+
+
+def regrouped(snapshot: Snapshot, owners: Mapping[RnaPath, Owner[Value, RnaPath]]) -> Snapshot:
+    """Returns snapshot holding owners in order as the children of its root owner."""
+    return msgspec.structs.replace(snapshot, tree=Tree(roots=((),), rows=(((), Owner[Value, RnaPath](values={}, children=tuple(owners))), *owners.items())))
+
+
+def valued(snapshot: Snapshot) -> Mapping[Key, Value]:
+    """Returns the input values of a capture by item key."""
+    return {rna(key): owner.values["value"] for key, owner in snapshot.tree.rows if key and "value" in owner.values}
 
 
 def captured(identity: Identity, entry: bpy.types.SceneCompositorEffect, prefix: Key = "") -> Outcome[Snapshot]:
     """Captures the entry's input values at the item keys under a prefix, every key while it is empty, each input owner named by its item key."""
 
     def renamed(snapshot: Snapshot, keys: Mapping[Key, str]) -> Snapshot:
-        named = {identifier: key for key, identifier in keys.items() if not prefix or key == prefix or key.startswith(f"{prefix}_")}
-        owners = snapshot.tree.owners
-        held = {named[identifier]: owner for identifier, owner in owners.items() if identifier in named}
-        return msgspec.structs.replace(snapshot, tree=Tree(roots=("",), owners={"": Owner(values={}, children=tuple(held)), **held}))
+        named: Mapping[RnaPath, RnaPath] = {(identifier,): (key,) for key, identifier in keys.items() if not prefix or key == prefix or key.startswith(f"{prefix}_")}
+        return regrouped(snapshot, {named[at]: owner for at, owner in snapshot.tree.rows if at in named})
 
     return paired(inputs_of(entry).bind(Snapshot.capture), keyed(identity, entry)).map(lambda pair: renamed(pair[0], pair[1][1]))
 
@@ -104,16 +112,14 @@ def rebased(values: Snapshot, source: Key, target: Key) -> Snapshot:
     def moved(key: Key) -> Key:
         return item_key(*(part for part in (target, key.removeprefix(source).removeprefix("_")) if part)) if not source or key == source or key.startswith(f"{source}_") else key
 
-    held = {moved(key): owner for key, owner in values.tree.owners.items() if key}
-    return msgspec.structs.replace(values, tree=Tree(roots=("",), owners={"": Owner(values={}, children=tuple(held)), **held}))
+    return regrouped(values, {(moved(rna(key)),): owner for key, owner in values.tree.rows if key})
 
 
 def restored(identity: Identity, entry: bpy.types.SceneCompositorEffect, values: Snapshot) -> Outcome[bool]:
     """Writes captured input values at the entry's item keys they name, answering whether any changed."""
 
     def placed(inputs: Native, keys: Mapping[Key, str]) -> Outcome[bool]:
-        moved = {keys[key]: owner for key, owner in values.tree.owners.items() if key in keys}
-        applied = msgspec.structs.replace(values, tree=Tree(roots=("",), owners={"": Owner(values={}, children=tuple(moved)), **moved})).apply(inputs)
+        applied = regrouped(values, {(keys[rna(key)],): owner for key, owner in values.tree.rows if key and rna(key) in keys}).apply(inputs)
         return applied.outcome.map(lambda _: bool(applied.written))
 
     return paired(inputs_of(entry), keyed(identity, entry)).bind(lambda pair: placed(pair[0], pair[1][1]))
@@ -142,4 +148,4 @@ def path(identity: Identity, entry: bpy.types.SceneCompositorEffect, key: Key) -
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["HELD", "JsonSlot", "captured", "defaulted", "entry_input", "inputs_of", "interface_input", "keyed", "path", "rebased", "restored"]
+__all__ = ["HELD", "JsonSlot", "captured", "defaulted", "entry_input", "inputs_of", "interface_input", "keyed", "path", "rebased", "regrouped", "restored", "valued"]

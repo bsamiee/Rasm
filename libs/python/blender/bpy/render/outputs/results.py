@@ -13,10 +13,9 @@ import msgspec
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, Value
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.handlers import SceneHandler
-from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, Band, entered
-from blender.bpy.extension.scoped import Scoped
+from blender.bpy.extension.events import Handler
+from blender.bpy.extension.identity import Identity, Resource
+from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
 from blender.imaging.color.processors import DisplayView
 from blender.records.faults import Fault, Outcome, paired
@@ -39,30 +38,24 @@ class ResultRead(msgspec.Struct, frozen=True, kw_only=True):
 
     consume: Callable[[bpy.types.Scene, str], Outcome[Option[str]]]
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
-        """Returns intermediate cell and render completion handler deferring consumption."""
+    @contextmanager
+    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
+        """Yields the intermediate cell and the render completion handler deferring consumption."""
 
         def consumed(handle: Handle[bpy.types.Scene]) -> Outcome[Option[str]]:
             return handle.resolve().bind(lambda scene: saved(scene).bind(lambda path: self.consume(scene, path)))
 
-        @contextmanager
-        def acquired() -> Generator[Outcome[None]]:
-            """Removes completion handler, then retires deferred writes."""
-            with ExitStack() as stack:
-                deferred = stack.enter_context(identity.reports.deferred(consumed))
-                yield (
-                    SceneHandler(handlers=bpy.app.handlers.render_complete, body=lambda scene: Ok(None if scene.session_uid in identity.held[INTERMEDIATES] else deferred(Handle.of(scene))))
-                    .acquisitions(identity)
-                    .bind(lambda pairs: entered(stack, tuple(acquisition for _, acquisition in pairs)))
-                )
-
-        return Ok((INTERMEDIATES, (Band.APP_HANDLERS, acquired())))
+        with identity.reports.deferred(consumed) as deferred:
+            yield Ok((
+                INTERMEDIATES,
+                Handler(handlers=bpy.app.handlers.render_complete, body=lambda scene: Ok(None if scene.session_uid in identity.held[INTERMEDIATES] else deferred(Handle.of(scene)))),
+            ))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-INTERMEDIATES: Final = Scoped[set[int]](made=lambda _identity: nullcontext(set()))
-PRODUCTIONS: Final = Scoped[dict[tuple[int, int | None], Option[Production]]](made=lambda _identity: nullcontext({}), renewed=Some(lambda _held: {}))
+INTERMEDIATES: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
+PRODUCTIONS: Final = Resource[dict[tuple[int, int | None], Option[Production]]](made=lambda _identity: nullcontext({}), renewed=Some(lambda _held: {}))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -71,11 +64,10 @@ PRODUCTIONS: Final = Scoped[dict[tuple[int, int | None], Option[Production]]](ma
 def intermediate(identity: Identity, scene: bpy.types.Scene) -> Generator[None]:
     """Hides scene renders from the extension's completed-image consumers during scope."""
     held = identity.held[INTERMEDIATES]
-    held.add(scene.session_uid)
-    try:
+    with ExitStack() as stack:
+        held.add(scene.session_uid)
+        stack.callback(held.remove, scene.session_uid)
         yield
-    finally:
-        held.remove(scene.session_uid)
 
 
 def produced(identity: Identity, image: bpy.types.Image, production: Option[Production]) -> None:
@@ -86,7 +78,8 @@ def produced(identity: Identity, image: bpy.types.Image, production: Option[Prod
 def production(identity: Identity, image: bpy.types.Image) -> Outcome[Production]:
     """Returns recorded production facts of displayed slot."""
     return (
-        identity.held[PRODUCTIONS]
+        identity
+        .held[PRODUCTIONS]
         .get((image.session_uid, image.render_slots.active_index), Nothing)
         .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(image), member="production facts"),))
     )

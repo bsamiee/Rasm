@@ -1,17 +1,17 @@
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.UI;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 
-namespace Rasm.Rhino.Render.Effects;
+namespace Rasm.RhinoCommon.Render.Effects;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class DefinedEffect<TState> : PostEffect where TState : notnull {
     // --- [STATE]
     private readonly Atom<TState> held;
 
-    protected DefinedEffect(TState @default) => (Default, held, Owner) = (@default, Atom(@default), HostedTypes.Owner(GetType()));
+    protected DefinedEffect(TState @default) => (Default, held, Owner) = (@default, Atom(@default), PlugInOwners.Owner(GetType()));
 
     protected IPlugInViews Owner { get; }
 
@@ -27,29 +27,26 @@ public abstract class DefinedEffect<TState> : PostEffect where TState : notnull 
     }
 
     public sealed override bool SetParam(string param, object v) =>
-        Callbacks.Succeeded(
+        Owner.Answer(
             Optional(v as string).Filter(_ => string.Equals(param, EffectList.StateKey, StringComparison.Ordinal))
-                .Map(text => Changing(IO.lift(EffectList.Decoded<TState>(text)).Bind(state => writeIO(held, state)).Map(unit))),
-            static () => false,
-            CallbackSite.Of(Owner, this));
+                .Map(text => Changing(IO.lift(EffectList.Decoded<TState>(text)).Bind(state => writeIO(held, state)).Map(unit)).Map(value: true))
+                .IfNone(IO.pure(value: false)),
+            failed: false);
 
     // --- [PERSISTENCE]
     public sealed override bool ReadState(PostEffectState state) =>
-        Callbacks.Succeeded(
-            Callbacks.Found(state.TryGetValue(EffectList.StateKey, out string text), text)
-                .Traverse(stored => IO.lift(EffectList.Decoded<TState>(stored)).Bind(read => writeIO(held, read))).As().Map(unit),
-            CallbackSite.Of(Owner, this));
+        Owner.Answer(
+            Conversions.Found(state.TryGetValue(EffectList.StateKey, out string text), text)
+                .Traverse(stored => IO.lift(EffectList.Decoded<TState>(stored)).Bind(read => writeIO(held, read))).As().Map(value: true),
+            failed: false);
 
     public sealed override bool WriteState(ref PostEffectState state) =>
-        Callbacks.Succeeded(IO.lift(Refused.Unless(state.SetValue(EffectList.StateKey, EffectList.Encoded(held.Value)), nameof(PostEffectState.SetValue))), CallbackSite.Of(Owner, this));
+        Owner.Answer(IO.lift(RhinoFault.Unless(state.SetValue(EffectList.StateKey, EffectList.Encoded(held.Value)))).Map(value: true), failed: false);
 
-    public sealed override void ResetToFactoryDefaults() =>
-        Callbacks.Run(Changing(writeIO(held, Default).Map(unit)), CallbackSite.Of(Owner, this));
+    public sealed override void ResetToFactoryDefaults() => _ = Owner.Run(Changing(writeIO(held, Default).Map(unit)));
 
     private IO<Unit> Changing(IO<Unit> next) =>
-        DisposalOps.Within(() => { BeginChange(RenderContent.ChangeContexts.Program); return unit; },
-            _ => next.Bind(_ => IO.lift(Changed)),
-            _ => IO.lift(EndChange).Map(unit));
+        IO.lift(() => BeginChange(RenderContent.ChangeContexts.Program)) >> next.Bind(_ => IO.lift(Changed)).Finally(IO.lift(EndChange));
 
     // --- [UI]
     protected virtual Seq<Func<ValueStore<TState>, View.Section>> Sections => [];
@@ -57,10 +54,8 @@ public abstract class DefinedEffect<TState> : PostEffect where TState : notnull 
     protected virtual Option<HelpTopic> Help => None;
 
     public sealed override void AddUISections(PostEffectUI ui) =>
-        Callbacks.Run(
-            Callbacks.Each(Sections.Map(build => DisposalOps.Acquire(IO.lift(() => new DefinedEffectSection<TState>(Owner, this, Default, build)), ui.AddSection))).Map(unit),
-            CallbackSite.Of(Owner, this));
+        _ = Owner.Run(Callbacks.Each(Sections.Map(build => IO.lift(() => ui.AddSection(new DefinedEffectSection<TState>(Owner, this, Default, build))))));
 
     public sealed override bool DisplayHelp() =>
-        Callbacks.Succeeded(Help.Map(static topic => topic.Show), static () => false, CallbackSite.Of(Owner, this));
+        Owner.Answer(Help.Map(static topic => topic.Show.Map(value: true)).IfNone(IO.pure(value: false)), failed: false);
 }

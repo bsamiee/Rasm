@@ -70,8 +70,8 @@ public sealed record ChartFit {
 
 [SmartEnum<string>]
 public sealed partial class FitDirection {
-    public static readonly FitDirection Forward = new("forward", static (fit, gain) => new(fit.Forward.Divide(gain), Math.Log2(gain)));
-    public static readonly FitDirection Inverse = new("inverse", static (fit, gain) => new(fit.Inverse.Multiply(gain), -Math.Log2(gain)));
+    public static readonly FitDirection Forward = new("forward", static (fit, gain) => new(fit.Forward.Divide(gain), double.Log2(gain)));
+    public static readonly FitDirection Inverse = new("inverse", static (fit, gain) => new(fit.Inverse.Multiply(gain), -double.Log2(gain)));
 
     [UseDelegateFromConstructor]
     internal partial ChartTransform Of(ChartFit fit, double gain);

@@ -1,8 +1,10 @@
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
+using LanguageExt.ClassInstances;
 using NuGet.Client;
 using NuGet.Common;
 using NuGet.Configuration;
@@ -49,7 +51,7 @@ internal static partial class Packages {
              from required in IO.lift(Optional(resource).ToFin(Error.New($"Package source {source.PackageSource.Name} serves no {typeof(T).Name} resource, update NuGet.config")))
              select required).Try();
 
-        System.Collections.Generic.HashSet<string> configured = mapping.GetConfiguredPackageSources(packageId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        HashSet<EqStringOrdinalIgnoreCase, string> configured = toHashSet<EqStringOrdinalIgnoreCase, string>(mapping.GetConfiguredPackageSources(packageId));
         return Collect(sources
             .Filter(source => !mapping.IsEnabled || configured.Contains(source.PackageSource.Name))
             .Map(static source =>

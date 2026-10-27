@@ -12,7 +12,7 @@ import msgspec
 from blender.bpy.commands.calls import MenuPopup, Stock
 from blender.bpy.commands.operators import Answer, answered, Unchanged
 from blender.bpy.data.rna.conditions import Condition, polled
-from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct
+from blender.bpy.data.rna.descriptors import Descriptor, rna, RnaPath, rooted, Struct
 from blender.bpy.data.rna.snapshots import Applied, Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band, entered
@@ -141,7 +141,7 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
 
     preset: Preset[Snapshot]
     scope: Scoped
-    selection: tuple[str, ...]
+    selection: tuple[str | RnaPath, ...]
 
     @property
     def key(self) -> Key:
@@ -159,7 +159,7 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
                 owner = self.scope.owner_type.__name__
                 if not outcomes:
                     return Ok(Unchanged(reason=f"No {owner} in scope"))
-                absent = (Applied(outcome=Error((Fault(reason=BlenderReason.ABSENT, subject=owner, member=path),))) for path in dict.fromkeys(path for outcome in outcomes for path in outcome.skipped))
+                absent = (Applied(outcome=Error(Fault.of(BlenderReason.ABSENT, owner, member=rna(path)))) for path in dict.fromkeys(path for outcome in outcomes for path in outcome.skipped))
                 return answered(Applied.join((*outcomes, *absent)), "Settings already hold preset")
 
             return Listing(

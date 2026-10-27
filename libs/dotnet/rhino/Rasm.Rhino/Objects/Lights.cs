@@ -1,5 +1,6 @@
 using System.Drawing;
-using Rasm.Rhino.Document.Tables;
+using System.Globalization;
+using Rasm.RhinoCommon.Document.Tables;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -7,10 +8,13 @@ using Rhino.DocObjects.Tables;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 using UnitsNet;
+using Wacton.Unicolour;
 
-namespace Rasm.Rhino.Objects;
+namespace Rasm.RhinoCommon.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
+public sealed record Emission(Color4f Light, double Luminance);
+
 [ComplexValueObject]
 [ValidationError<RhinoFault>]
 public sealed partial class ColorFilter {
@@ -18,12 +22,12 @@ public sealed partial class ColorFilter {
     public double Green { get; }
     public double Blue { get; }
 
-    public (Color4f Light, double Luminance) Light => Conversions.Peaked(Red, Green, Blue);
+    public Emission Light => Lights.Peaked(Red, Green, Blue);
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref double red, ref double green, ref double blue) =>
         validationError = Math.Min(red, Math.Min(green, blue)) >= 0d && Math.Max(red, Math.Max(green, blue)) is > 0d and < double.PositiveInfinity
             ? null
-            : new RhinoFault("light color needs non-negative finite channels with one above zero");
+            : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"(red, green, blue) = ({red}, {green}, {blue})"), RhinoReason.Outside);
 }
 
 [Union]
@@ -48,7 +52,7 @@ public abstract partial record LightShape {
 public abstract partial record LightColor {
     public sealed record Rgb(Color Diffuse) : LightColor;
 
-    public sealed record Blackbody(UnitsNet.Temperature Kelvin) : LightColor;
+    public sealed record Blackbody(Temperature Kelvin) : LightColor;
 
     public sealed record Linear(ColorFilter Filter) : LightColor;
 }
@@ -118,11 +122,30 @@ internal static partial class LightMapper {
 
 public static class Lights {
     // --- [EMISSION]
-    public static IO<float> PreProcessGamma(RhinoDoc doc) =>
-        DisposalOps.Within(() => doc.RenderSettings, static settings => DisposalOps.Within(() => settings.LinearWorkflow, static flow =>
-            IO.lift(() => flow.PreProcessColors ? flow.PreProcessGamma : 1f)));
+    public static Emission Peaked(double red, double green, double blue) =>
+        Peaked(new Unicolour(Configuration.Default, ColourSpace.RgbLinear, red, green, blue));
 
-    private static (Color Diffuse, double Gain) Emitted((Color4f Light, double Luminance) emission, float gamma) =>
+    public static Emission Blackbody(double kelvins) =>
+        Peaked(new Unicolour(Configuration.Default, kelvins, Locus.Blackbody));
+
+    private static Emission Peaked(Unicolour light) =>
+        Scaled(Scaled(light).MapToRgbGamut()) switch {
+            var peaked => new Emission(new Color4f((float)peaked.RgbLinear.R, (float)peaked.RgbLinear.G, (float)peaked.RgbLinear.B, 1f), peaked.Xyz.Y),
+        };
+
+    private static Unicolour Scaled(Unicolour light) =>
+        light.RgbLinear switch {
+            var rgb => double.Max(double.Abs(rgb.R), double.Max(double.Abs(rgb.G), double.Abs(rgb.B))) switch {
+                var peak => new Unicolour(light.Configuration, ColourSpace.RgbLinear, rgb.R / peak, rgb.G / peak, rgb.B / peak),
+            },
+        };
+
+    public static IO<float> PreProcessGamma(RhinoDoc doc) =>
+        (from settings in use(() => doc.RenderSettings)
+         from flow in use(() => settings.LinearWorkflow)
+         select flow.PreProcessColors ? flow.PreProcessGamma : 1f).Bracket();
+
+    private static (Color Diffuse, double Gain) Emitted(Emission emission, float gamma) =>
         (Color4f.ApplyGamma(emission.Light, 1f / gamma).AsSystemColor(), 1d / emission.Luminance);
 
     // --- [ADDRESSES]
@@ -131,8 +154,8 @@ public static class Lights {
                 (doc.Lights, Deleted: includeDeleted),
                 byId: static (state, byId) => Conversions.Present(state.Lights.Find(byId.Id, ignoreDeleted: !state.Deleted)).Map(index => state.Lights[index]),
                 byIndex: static (state, byIndex) => Conversions.Rows(state.Lights).Find(row => row.Index == byIndex.Index && (state.Deleted || !row.IsDeleted)),
-                byName: static (state, _) => Error.New($"{state.Lights.ComponentType} names do not identify one row")))
-        from row in IO.lift(found.ToFin(new NotFound(nameof(LightObject), $"{address}")))
+                byName: static (state, byName) => new RhinoFault($"{state.Lights.ComponentType} name {byName.Name}", RhinoReason.Unqualified)))
+        from row in IO.lift(found.ToFin(new RhinoFault($"{doc.Lights.ComponentType} {address}", RhinoReason.Missing)))
         select row;
 
     // --- [READS]
@@ -141,19 +164,20 @@ public static class Lights {
         from state in IO.lift(State(row.LightGeometry))
         select state;
 
-    public static IO<(Seq<Error> Fails, Seq<LightState> Succs)> States(RhinoDoc doc) =>
-        IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => State(row.LightGeometry)).Strict().Partition());
+    public static IO<Seq<LightState>> States(RhinoDoc doc) =>
+        IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => row.LightGeometry).Strict()
+            .Traverse(static light => State(light)).As());
 
     public static IO<(Seq<Error> Fails, Seq<ManagedLight> Succs)> Managed(RhinoDoc doc) =>
-        DisposalOps.Within(() => new LightManagerSupportClient(doc.RuntimeSerialNumber), client =>
-            from lights in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => row.LightGeometry).Strict())
-            select lights.Map(light => State(light).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition());
+        (from client in use(() => new LightManagerSupportClient(doc.RuntimeSerialNumber))
+         from lights in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => row.LightGeometry).Strict())
+         select lights.Map(light => State(light).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition()).Bracket();
 
     public static Fin<LightState> State(Light light) =>
-        Shape(light).Map(shape => new LightState(light.Id, new LightSpec(
+        Conversions.Found(Shape(light)).Map(shape => new LightState(light.Id, new LightSpec(
             Conversions.Present(light.Name), light.IsEnabled, shape, light.Diffuse, light.Intensity, light.PowerWatts, light.ShadowIntensity, light.AttenuationVector)));
 
-    private static Fin<LightShape> Shape(Light light) =>
+    private static Option<LightShape> Shape(Light light) =>
         light.LightStyle switch {
             LightStyle.CameraPoint or LightStyle.WorldPoint => new LightShape.PointLight(light.Location, light.Radius, light.LightStyle is LightStyle.CameraPoint),
             LightStyle.CameraSpot or LightStyle.WorldSpot => new LightShape.SpotLight(
@@ -163,7 +187,7 @@ public static class Lights {
             LightStyle.WorldLinear => new LightShape.LinearLight(light.Location, light.Length, light.Width),
             LightStyle.WorldRectangular => new LightShape.RectangularLight(light.Location, light.Length, light.Width, light.Direction),
             LightStyle.Ambient => new LightShape.AmbientLight(),
-            LightStyle.None => new Refused(nameof(Light.LightStyle), Refused.Invalid),
+            LightStyle.None => None,
         };
 
     // --- [WRITES]
@@ -171,41 +195,42 @@ public static class Lights {
         op.Switch(
             doc,
             add: static (document, add) => from gamma in PreProcessGamma(document)
-                                           from added in DisposalOps.Within(static () => new Light(), staged =>
-                                               from written in Written(staged, add.Spec, gamma)
-                                               from index in IO.lift(() => Conversions.Required(document.Lights.Add(staged, add.Attributes.ValueUnsafe()), nameof(LightTable.Add)))
-                                               select Seq(document.Lights[index].Id))
+                                           from added in (from staged in use(static () => new Light())
+                                                          from written in Written(staged, add.Spec, gamma)
+                                                          from index in IO.lift(() => Conversions.Found(Conversions.Present(document.Lights.Add(staged, add.Attributes.ValueUnsafe()))))
+                                                          select Seq(document.Lights[index].Id)).Bracket()
                                            select added,
             modify: static (document, modify) => from row in Find(document, modify.Address, includeDeleted: false)
                                                  from gamma in PreProcessGamma(document)
-                                                 from modified in DisposalOps.Within(row.DuplicateLightGeometry, staged =>
-                                                     from written in Written(staged, modify.Spec, gamma)
-                                                     from accepted in IO.lift(() => Refused.Unless(document.Lights.Modify(row.Index, staged), nameof(LightTable.Modify)))
-                                                     select Seq(row.Id))
+                                                 from modified in (from staged in use(row.DuplicateLightGeometry)
+                                                                   from written in Written(staged, modify.Spec, gamma)
+                                                                   from accepted in IO.lift(() => RhinoFault.Unless(document.Lights.Modify(row.Index, staged)))
+                                                                   select Seq(row.Id)).Bracket()
                                                  select modified,
             delete: static (document, delete) => from row in Find(document, delete.Address, includeDeleted: false)
-                                                 from deleted in IO.lift(() => Refused.Unless(document.Lights.Delete(row.Index, delete.Quiet), Seq(row.Id), nameof(LightTable.Delete)))
-                                                 select deleted,
+                                                 from deleted in IO.lift(() => RhinoFault.Unless(document.Lights.Delete(row.Index, delete.Quiet)))
+                                                 select Seq(row.Id),
             undelete: static (document, undelete) => from row in Find(document, undelete.Address, includeDeleted: true)
-                                                     from restored in IO.lift(() => Refused.Unless(document.Lights.Undelete(row.Index), Seq(row.Id), nameof(LightTable.Undelete)))
-                                                     select restored,
+                                                     from restored in IO.lift(() => RhinoFault.Unless(document.Lights.Undelete(row.Index)))
+                                                     select Seq(row.Id),
             solo: static (document, solo) => from rows in solo.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
-                                             from each in DisposalOps.Within(() => new LightManagerSupportClient(document.RuntimeSerialNumber), client =>
-                                                 IO.lift(() => Callbacks.Each(rows, row => client.SetLightSolo(row.LightGeometry, solo.On), nameof(LightManagerSupportClient.SetLightSolo))))
+                                             from each in (from client in use(() => new LightManagerSupportClient(document.RuntimeSerialNumber))
+                                                           from set in IO.lift(() => Callbacks.Each(rows, (row, index) => RhinoFault.Unless(client.SetLightSolo(row.LightGeometry, solo.On), index)))
+                                                           select set).Bracket()
                                              select rows.Map(static row => row.Id).Strict(),
             grouping: static (document, grouping) => from rows in grouping.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
-                                                     from joined in DisposalOps.Within(() => new LightManagerSupportClient(document.RuntimeSerialNumber), client =>
-                                                         DisposalOps.Within(static () => new LightArray(), lights =>
-                                                             from appended in IO.lift(() => rows.Iter(row => lights.Append(row.LightGeometry)))
-                                                             from joined in IO.lift(() => (grouping.On ? (Action<LightArray>)client.GroupLights : client.UnGroup)(lights))
-                                                             select joined))
+                                                     from joined in (from client in use(() => new LightManagerSupportClient(document.RuntimeSerialNumber))
+                                                                     from lights in use(static () => new LightArray())
+                                                                     from appended in IO.lift(() => rows.Iter(row => lights.Append(row.LightGeometry)))
+                                                                     from grouped in IO.lift(() => (grouping.On ? (Action<LightArray>)client.GroupLights : client.UnGroup)(lights))
+                                                                     select grouped).Bracket()
                                                      select rows.Map(static row => row.Id).Strict());
 
     public static IO<Unit> Written(Light staged, LightSpec spec, float gamma) =>
         from emitted in IO.lift(() => spec.Color.Switch<float, (Color Diffuse, double Gain)>(
             gamma,
             rgb: static (_, rgb) => (rgb.Diffuse, 1d),
-            blackbody: static (held, blackbody) => Emitted(Conversions.Blackbody((double)blackbody.Kelvin.Kelvins), held),
+            blackbody: static (held, blackbody) => Emitted(Blackbody((double)blackbody.Kelvin.Kelvins), held),
             linear: static (held, linear) => Emitted(linear.Filter.Light, held)))
         from members in IO.lift(() => LightMapper.Update(spec with { Intensity = spec.Intensity * emitted.Gain }, staged, emitted.Diffuse))
         from shaped in IO.lift(() => spec.Shape.Switch(

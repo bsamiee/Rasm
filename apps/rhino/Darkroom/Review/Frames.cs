@@ -7,7 +7,7 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using Rasm.Rhino;
+using Rasm.RhinoCommon;
 using SkiaSharp;
 using UnitsNet;
 
@@ -35,9 +35,7 @@ public static class FrameImages {
                 coverage.Weights(rows.GetRowSpan(row), frame.Origin.X, frame.Line(row), weights.Span);
                 TensorPrimitives.ConvertToHalf(weights.Span, plane.GetRowSpan(row));
             }
-            return Refused.UnlessFound(
-                SKImage.FromPixelCopy(new SKImageInfo(frame.Size.Width, frame.Size.Height, SKColorType.AlphaF16, SKAlphaType.Premul), MemoryMarshal.AsBytes(halves.Span)),
-                nameof(SKImage.FromPixelCopy));
+            return Conversions.Found(SKImage.FromPixelCopy(new SKImageInfo(frame.Size.Width, frame.Size.Height, SKColorType.AlphaF16, SKAlphaType.Premul), MemoryMarshal.AsBytes(halves.Span)));
         }
     }
 
@@ -67,9 +65,9 @@ public static class FrameImages {
         using SKPixmap pixels = new(source, frame.Address, source.RowBytes);
         using SKBitmap target = new(source.WithColorType(SKColorType.RgbaF16).WithAlphaType(SKAlphaType.Premul));
         using SKPixmap half = target.PeekPixels();
-        if (!pixels.ReadPixels(half))
-            return new Refused(nameof(SKPixmap.ReadPixels), Refused.Declined);
-        target.SetImmutable();
-        return Refused.UnlessFound(SKImage.FromBitmap(target), nameof(SKImage.FromBitmap));
+        return RhinoFault.Unless(pixels.ReadPixels(half)).Bind(_ => {
+            target.SetImmutable();
+            return Conversions.Found(SKImage.FromBitmap(target));
+        });
     }
 }

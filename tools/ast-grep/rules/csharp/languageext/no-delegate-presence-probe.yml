@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-delegate-presence-probe
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+utils:
+    sentinel:
+        kind: argument
+        has:
+            any:
+                - {kind: identifier, regex: '^None$'}
+                - {kind: collection_expression, regex: '^\[\s*\]$'}
+                - pattern: Edit.Cancel<$VALUE>()
+rule:
+    kind: member_access_expression
+    pattern: $PROBE
+    all:
+        - has: {field: name, regex: '^IsSome$'}
+        - has:
+            field: expression
+            kind: invocation_expression
+            all:
+                - has: {field: function, any: [{kind: identifier}, {kind: member_access_expression}]}
+                - has: {field: arguments, kind: argument_list, all: [{has: {matches: sentinel}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+message: '`$PROBE` probes a delegate with a sentinel input to learn its presence'
+note: 'Declare the callback whose presence is read as an `Option<Func<…>>` init member and read `IsSome` on the member'

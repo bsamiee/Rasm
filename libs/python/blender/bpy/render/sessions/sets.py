@@ -16,9 +16,9 @@ from typing_extensions import TypeForm
 
 from blender.bpy.commands.operators import Answer, answered, Call, Confirm, Done, Empty, Operator, Own, Suppressible, tallied, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, Native, rooted, Struct, struct_at, Value
+from blender.bpy.data.rna.descriptors import assigned, Descriptor, Native, parsed, rna, RnaPath, rooted, Struct, struct_at, Value
 from blender.bpy.data.rna.snapshots import Applied, Endpoints, Snapshot
-from blender.bpy.extension.events.handlers import UpdateHandler
+from blender.bpy.extension.events import Handler, updated
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
@@ -72,9 +72,9 @@ class Capture[C: msgspec.Struct](Protocol):
 OWNER: Final = "render_setup_owner"
 SAMPLES: Final = Descriptor.declared(bpy.types.ViewLayer, "samples", bpy.types.IntProperty)
 ENGINE_SAMPLES: Final = MappingProxyType({
-    "BLENDER_EEVEE": ("eevee.taa_render_samples", "eevee.taa_samples"),
-    "BLENDER_WORKBENCH": ("display.render_aa", "display.viewport_aa"),
-    "CYCLES": ("cycles.samples", "cycles.preview_samples"),
+    "BLENDER_EEVEE": (("eevee", "taa_render_samples"), ("eevee", "taa_samples")),
+    "BLENDER_WORKBENCH": (("display", "render_aa"), ("display", "viewport_aa")),
+    "CYCLES": (("cycles", "samples"), ("cycles", "preview_samples")),
 })
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -115,7 +115,7 @@ class Category(msgspec.Struct, frozen=True, kw_only=True):
     """Settings of one category on a scene or its view layers, each an RNA handle or a path the host states."""
 
     key: Key
-    settings: tuple[Descriptor | str, ...]
+    settings: tuple[Descriptor | str | RnaPath, ...]
     root: type[bpy.types.Scene] | type[bpy.types.ViewLayer] = bpy.types.Scene
 
     @property
@@ -124,9 +124,9 @@ class Category(msgspec.Struct, frozen=True, kw_only=True):
         return bpy.path.display_name(self.key)
 
     @property
-    def paths(self) -> tuple[str, ...]:
+    def paths(self) -> tuple[str | RnaPath, ...]:
         """Setting paths from the category root."""
-        return tuple(setting if isinstance(setting, str) else setting.path for setting in self.settings)
+        return tuple(setting.path if isinstance(setting, Descriptor) else setting for setting in self.settings)
 
 
 class Converting(bpy.types.PropertyGroup):
@@ -285,7 +285,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
                 case _, int(count):
                     return Ok(count)
                 case _, other:
-                    return Error((Fault(reason=RecordReason.OUTSIDE, subject=descriptor.path, member="sample count", cause=repr(other)),))
+                    return Error(Fault.of(RecordReason.OUTSIDE, rna(descriptor.path), repr(other), member="sample count"))
 
         selected: Outcome[Descriptor[bpy.types.Property]] = self.samples.try_find(scene.render.engine).to_result_with(
             lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene.render), member=f"{scene.render.engine} samples"),)
@@ -295,7 +295,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
             lambda descriptor: (
                 struct_at(scene, descriptor.owner)
                 .map(lambda owner: counted(descriptor, owner))
-                .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(scene), member=descriptor.owner),)))
+                .default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(scene), member=rna(descriptor.owner))))
             ),
         )
 
@@ -344,11 +344,14 @@ class Categories(msgspec.Struct, frozen=True, kw_only=True):
     def projected(cls, members: Members, scene: bpy.types.Scene, recipe: CategorySettings, current: CategorySettings, /) -> Outcome[tuple[CategorySettings, CategorySettings]]:
         """Projects recipe settings over current ones on the scene and its unlocked view layers, locked settings kept."""
 
+        def locked(owner: bpy.types.Scene | bpy.types.ViewLayer, texts: frozenset[str]) -> frozenset[RnaPath]:
+            return frozenset(steps for text in texts for steps in parsed(owner, text).to_option().to_list())
+
         def held(locks: SettingLocks, layers: tuple[bpy.types.ViewLayer, ...]) -> Outcome[tuple[CategorySettings, CategorySettings]]:
             return paired(
-                recipe.scene.projected(scene, current.scene, locks.scene),
+                recipe.scene.projected(scene, current.scene, locked(scene, locks.scene)),
                 accumulated(
-                    recipe.layers[layer.name].projected(layer, current.layers[layer.name], locks.layers.get(layer.name, frozenset())).map(lambda pair: (layer.name, pair))
+                    recipe.layers[layer.name].projected(layer, current.layers[layer.name], locked(layer, locks.layers.get(layer.name, frozenset()))).map(lambda pair: (layer.name, pair))
                     for layer in layers
                     if layer.name in recipe.layers
                 ),
@@ -599,7 +602,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                                 scope=MemberScope(members=members, owner_type=category.root, unlocked=False),
                                 settings=category.paths,
                                 compound=((bpy.types.CurveMapping, lambda layout, owner, key: layout.template_curve_mapping(owner, key)),),
-                                action=Some((LOCK, lambda identity, setting: drawn(setting.path, identity))),
+                                action=Some((LOCK, lambda identity, setting: drawn(rna(setting.path), identity))),
                             ),
                         ),
                     )
@@ -645,7 +648,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                     commands.lock,
                     self.composed(members, commands),
                     PresetMenu(source=listing),
-                    UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,), body=edited),
+                    Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Scene,), edited)),
                     Menu(
                         key=self.menu,
                         title=self.title,
@@ -736,7 +739,7 @@ def removed(owner: bpy.types.Scene | tuple[bpy.types.Scene, bpy.types.ViewLayer]
 
 def transfers(
     members: Members, category: Category, context: bpy.types.Context, targets: tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]
-) -> Outcome[tuple[tuple[bpy.types.Scene | bpy.types.ViewLayer, Snapshot, tuple[Reparametrized[Value], ...]], ...]]:
+) -> Outcome[tuple[tuple[bpy.types.Scene | bpy.types.ViewLayer, Snapshot, tuple[Reparametrized[Value, RnaPath], ...]], ...]]:
     """Returns value edits per target from source category."""
     selected = next(selected for held, selected in members.categories if held == category)
     return members.captured(category, context).bind(
@@ -744,7 +747,7 @@ def transfers(
     )
 
 
-def previewed(members: Members, category: Category, context: bpy.types.Context) -> Outcome[tuple[tuple[str, tuple[Reparametrized[Value], ...]], ...]]:
+def previewed(members: Members, category: Category, context: bpy.types.Context) -> Outcome[tuple[tuple[str, tuple[Reparametrized[Value, RnaPath], ...]], ...]]:
     """Returns value edits per unlocked owner for sync confirmation."""
     return (
         MemberScope(members=members, owner_type=category.root, unlocked=True)

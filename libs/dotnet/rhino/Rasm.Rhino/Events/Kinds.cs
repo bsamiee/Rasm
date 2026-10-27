@@ -58,7 +58,7 @@ public static class EventKind {
             .Choose(static args => Conversions.Found(!args.Merge && !args.Reference, args.DocumentSerialNumber));
     public static readonly HostEvent<uint> DocumentArrived = Subscriptions.Merged(LiveNewDocument, LiveEndOpenDocument) switch {
         var arrivals => arrivals with {
-            Attach = (deliver, owner) =>
+            Inline = (deliver, owner) =>
                 from attached in arrivals.Inline(deliver, owner)
                 from opened in IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments()))
                 from delivered in Callbacks.Each(opened.Map(doc => IO.pure(doc.RuntimeSerialNumber).Bind(deliver)))

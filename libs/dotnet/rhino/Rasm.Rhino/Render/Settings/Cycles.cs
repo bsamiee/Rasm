@@ -1,13 +1,13 @@
-using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.Persistence.Stores;
+using Rasm.RhinoCommon.Persistence;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.Persistence.Stores;
 
-namespace Rasm.Rhino.Render.Settings;
+namespace Rasm.RhinoCommon.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CyclesKey<T>(string Key) where T : notnull {
-    public ValueStore<T> Store(RenderSettingsSource source) =>
-        ArchivableDictionaries.Store<T>(RenderSettingsSources.Dictionary(source), Key, None);
+    public ValueStore<T> Store(RenderSettingsSource source, object owner) =>
+        ArchivableDictionaries.Store<T>(RenderSettingsSources.Dictionary(source, owner), Key, None);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -70,7 +70,7 @@ public static class CyclesSetting {
     public static IO<Option<PlugInSetting<int>>> Threads =>
         from node in SettingRoots.TryGetChild(Node)
         select node
-            .Bind(static settings => Callbacks.Found(settings.TryGetDefault(nameof(Threads), out int factory), factory))
+            .Bind(static settings => Conversions.Found(settings.TryGetDefault(nameof(Threads), out int factory), factory))
             .Map(static factory => new PlugInSetting<int>(nameof(Threads), factory,
                 static (settings, key, out value, legacy) => settings.TryGetInteger(key, out value, legacy), static (settings, key, value) => settings.SetInteger(key, value)));
 }

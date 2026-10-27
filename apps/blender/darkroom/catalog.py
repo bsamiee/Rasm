@@ -136,7 +136,7 @@ stacks: Final = layers.stacks(
             structure=LayerStack(layers=(Layer(key="look", name=name, source=Adjustment(), effects=(Entry(record=Exposure()), Entry(record=Contrast()))),)),
             values=Snapshot(
                 struct="SceneCompositorEffectInterfaceInputs",
-                tree=Tree(roots=("",), owners={"": Owner(values={}, children=tuple(values)), **{key: Owner(values={"value": value}) for key, value in values.items()}}),
+                tree=Tree(roots=("",), rows=(("", Owner(values={}, children=tuple(values))), *((key, Owner(values={"value": value})) for key, value in values.items()))),
             ),
         )
         for name, values in (

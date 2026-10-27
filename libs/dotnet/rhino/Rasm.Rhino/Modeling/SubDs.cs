@@ -1,10 +1,8 @@
-using System.Globalization;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Objects;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Objects;
 using Rhino;
-using Rhino.Geometry.Collections;
 
-namespace Rasm.Rhino.Modeling;
+namespace Rasm.RhinoCommon.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -28,93 +26,62 @@ public abstract partial record SubDEdit {
     public sealed record Bridge(uint EdgeA, uint EdgeB) : SubDEdit;
     public sealed record Offset(double Distance, bool Solidify) : SubDEdit;
 
-    public IO<EditStep<SubD, uint>> Step(Tolerances tolerances, SubD subd, Action<IDisposable> retain) =>
+    public IO<EditStep<SubD, uint>> Step(Tolerances tolerances, SubD subd) =>
         Switch(
-            (SubD: subd, Tolerances: tolerances, Retain: retain),
-            subdivide: static (at, of) => Copies.Acquire(nameof(SubD.Subdivide), _ => Tagged(at.SubD, at.SubD.Subdivide(of.Count), Edits.Accepted<SubD, uint>), at.Retain),
-            subdivideFaces: static (at, of) =>
-                IO.lift(() => Within(at.SubD, ComponentIndexType.SubdFace, of.Faces))
-                >> Copies.Acquire(nameof(SubD.Subdivide), _ => Tagged(at.SubD, at.SubD.Subdivide(of.Faces.Map(static id => (int)id)), Edits.Accepted<SubD, uint>), at.Retain),
-            setControlNetPoints: static (at, of) =>
-                IO.lift(() => Within(at.SubD, ComponentIndexType.SubdVertex, toSeq(of.Moved.Keys)))
-                >> Copies.Acquire(nameof(SubDVertex.SetControlNetPoint), _ => Tagged(
-                    at.SubD,
-                    toSeq(of.Moved.AsIterable()).Map(row => at.SubD.Vertices.Find(row.Key).SetControlNetPoint(row.Value, bClearNeighborhoodCache: false)).Strict(),
-                    static (edited, moved) => {
-                        edited.ClearEvaluationCache();
-                        return Edits.Accepted<SubD, uint>(edited, moved.ForAll(static held => held));
-                    }), at.Retain),
-            interpolateSurfacePoints: static (at, of) =>
-                IO.lift(() => Within(at.SubD, ComponentIndexType.SubdVertex, toSeq(of.Moved.Keys)))
-                >> Copies.Acquire(nameof(SubD.InterpolateSurfacePoints), _ => Tagged(
-                    at.SubD,
-                    at.SubD.InterpolateSurfacePoints([.. toSeq(at.SubD.Vertices).Map(vertex => of.Moved.Find(vertex.Id).IfNone(vertex.SurfacePoint))]),
-                    Edits.Accepted<SubD, uint>), at.Retain),
-            setVertexSurfacePoint: static (at, of) =>
-                IO.lift(() => Within(at.SubD, ComponentIndexType.SubdVertex, [of.Vertex]))
-                >> Copies.Acquire(nameof(SubD.SetVertexSurfacePoint), _ => Tagged(at.SubD, at.SubD.SetVertexSurfacePoint(of.Vertex, of.SurfacePoint), Edits.Accepted<SubD, uint>), at.Retain),
-            transformComponents: static (at, of) =>
-                IO.lift(() => Copies.Within(at.SubD, of.Components))
-                >> Copies.Acquire(nameof(SubD.TransformComponents), _ => Tagged(at.SubD, at.SubD.TransformComponents(of.Components, of.Xform, of.ComponentLocation), static (edited, count) => {
-                    edited.ClearEvaluationCache();
-                    return Edits.Count(edited, count);
-                }), at.Retain),
-            setVertexTags: static (at, of) =>
-                IO.lift(() => Within(at.SubD, ComponentIndexType.SubdVertex, of.Vertices))
-                >> Copies.Acquire(nameof(SubDVertexList.SetVertexTags), _ => {
-                    at.SubD.Vertices.SetVertexTags(of.Vertices.Map(static id => (int)id), of.Tag);
-                    return Tagged(at.SubD, unit, static (edited, _) => Edits.Completed<SubD, uint>(edited));
-                }, at.Retain),
-            setEdgeTags: static (at, of) =>
-                IO.lift(() => Within(at.SubD, ComponentIndexType.SubdEdge, of.Edges))
-                >> Copies.Acquire(nameof(SubDEdgeList.SetEdgeTags), _ => {
-                    at.SubD.Edges.SetEdgeTags(of.Edges.Map(static id => (int)id), of.Tag);
-                    return Tagged(at.SubD, unit, static (edited, _) => Edits.Completed<SubD, uint>(edited));
-                }, at.Retain),
-            setEdgeSharpness: static (at, of) =>
-                IO.lift(() => Within(at.SubD, ComponentIndexType.SubdEdge, of.Edges.Map(static row => row.Edge)))
-                >> Copies.Acquire(nameof(SubD.SetEdgeSharpness), _ => Tagged(
-                    at.SubD,
-                    at.SubD.SetEdgeSharpness(of.Edges.Map(row => at.SubD.Edges.Find(row.Edge)), of.Edges.Map(static row => row.Sharpness), of.PreserveSymmetry),
-                    Edits.Count), at.Retain),
-            clearEdgeSharpness: static (at, _) => Copies.Acquire(nameof(SubD.ClearEdgeSharpness), _ => Tagged(at.SubD, at.SubD.ClearEdgeSharpness(), Edits.Count), at.Retain),
-            mergeAllCoplanarFaces: static (at, _) => Copies.Acquire(nameof(SubD.MergeAllCoplanarFaces), _ =>
-                Tagged(at.SubD, at.SubD.MergeAllCoplanarFaces(at.Tolerances.Absolute, at.Tolerances.Angle), Edits.Changed<SubD, uint>), at.Retain),
-            packFaces: static (at, _) => Copies.Acquire(nameof(SubD.PackFaces), _ => Tagged(at.SubD, at.SubD.PackFaces(), Edits.Count), at.Retain),
-            flip: static (at, _) => Copies.Acquire(nameof(SubD.Flip), _ => Tagged(at.SubD, at.SubD.Flip(), Edits.Accepted<SubD, uint>), at.Retain),
-            deleteComponents: static (at, of) =>
-                IO.lift(() => Copies.Within(at.SubD, of.Components))
-                >> Copies.Acquire(nameof(SubD.DeleteComponents), _ => Tagged(at.SubD, at.SubD.DeleteComponents(of.Components, markDeletedFaceEdges: false), Edits.Accepted<SubD, uint>), at.Retain),
-            dissolveOrDeleteComponents: static (at, of) =>
-                IO.lift(() => Copies.Within(at.SubD, of.Components))
-                >> Copies.Acquire(nameof(SubD.DissolveOrDeleteComponents), _ => Tagged(at.SubD, at.SubD.DissolveOrDeleteComponents(of.Components), Edits.Count), at.Retain),
+            (SubD: subd, Tolerances: tolerances),
+            subdivide: static (at, of) => Tagged(at.SubD, Edits.Accepted<SubD, uint>(at.SubD, at.SubD.Subdivide(of.Count))),
+            subdivideFaces: static (at, of) => IO.lift(() => Within(at.SubD, ComponentIndexType.SubdFace, of.Faces))
+                .Bind(_ => Tagged(at.SubD, Edits.Accepted<SubD, uint>(at.SubD, at.SubD.Subdivide(of.Faces.Map(static id => (int)id))))),
+            setControlNetPoints: static (at, of) => IO.lift(() => Within(at.SubD, ComponentIndexType.SubdVertex, toSeq(of.Moved.Keys)))
+                .Bind(_ => toSeq(of.Moved.AsIterable()).Map(row => at.SubD.Vertices.Find(row.Key).SetControlNetPoint(row.Value, bClearNeighborhoodCache: false)).Strict() switch {
+                    var moved => Tagged(at.SubD, IO.lift(at.SubD.ClearEvaluationCache) >> Edits.Accepted<SubD, uint>(at.SubD, moved.ForAll(static held => held))),
+                }),
+            interpolateSurfacePoints: static (at, of) => IO.lift(() => Within(at.SubD, ComponentIndexType.SubdVertex, toSeq(of.Moved.Keys)))
+                .Bind(_ => Tagged(at.SubD, Edits.Accepted<SubD, uint>(
+                    at.SubD, at.SubD.InterpolateSurfacePoints([.. toSeq(at.SubD.Vertices).Map(vertex => of.Moved.Find(vertex.Id).IfNone(vertex.SurfacePoint))])))),
+            setVertexSurfacePoint: static (at, of) => IO.lift(() => Within(at.SubD, ComponentIndexType.SubdVertex, [of.Vertex]))
+                .Bind(_ => Tagged(at.SubD, Edits.Accepted<SubD, uint>(at.SubD, at.SubD.SetVertexSurfacePoint(of.Vertex, of.SurfacePoint)))),
+            transformComponents: static (at, of) => IO.lift(() => Copies.Within(at.SubD, of.Components))
+                .Bind(_ => Tagged(at.SubD, IO.lift(at.SubD.ClearEvaluationCache) >> Edits.Count(at.SubD, at.SubD.TransformComponents(of.Components, of.Xform, of.ComponentLocation)))),
+            setVertexTags: static (at, of) => IO.lift(() => Within(at.SubD, ComponentIndexType.SubdVertex, of.Vertices))
+                .Bind(_ => IO.lift(() => at.SubD.Vertices.SetVertexTags(of.Vertices.Map(static id => (int)id), of.Tag)))
+                .Bind(_ => Tagged(at.SubD, Edits.Completed<SubD, uint>(at.SubD))),
+            setEdgeTags: static (at, of) => IO.lift(() => Within(at.SubD, ComponentIndexType.SubdEdge, of.Edges))
+                .Bind(_ => IO.lift(() => at.SubD.Edges.SetEdgeTags(of.Edges.Map(static id => (int)id), of.Tag)))
+                .Bind(_ => Tagged(at.SubD, Edits.Completed<SubD, uint>(at.SubD))),
+            setEdgeSharpness: static (at, of) => IO.lift(() => Within(at.SubD, ComponentIndexType.SubdEdge, of.Edges.Map(static row => row.Edge)))
+                .Bind(_ => Tagged(at.SubD, Edits.Count(
+                    at.SubD, at.SubD.SetEdgeSharpness(of.Edges.Map(row => at.SubD.Edges.Find(row.Edge)), of.Edges.Map(static row => row.Sharpness), of.PreserveSymmetry)))),
+            clearEdgeSharpness: static (at, _) => Tagged(at.SubD, Edits.Count(at.SubD, at.SubD.ClearEdgeSharpness())),
+            mergeAllCoplanarFaces: static (at, _) => Tagged(at.SubD, Edits.Changed<SubD, uint>(at.SubD, at.SubD.MergeAllCoplanarFaces(at.Tolerances.Absolute, at.Tolerances.Angle))),
+            packFaces: static (at, _) => Tagged(at.SubD, Edits.Count(at.SubD, at.SubD.PackFaces())),
+            flip: static (at, _) => Tagged(at.SubD, Edits.Accepted<SubD, uint>(at.SubD, at.SubD.Flip())),
+            deleteComponents: static (at, of) => IO.lift(() => Copies.Within(at.SubD, of.Components))
+                .Bind(_ => Tagged(at.SubD, Edits.Accepted<SubD, uint>(at.SubD, at.SubD.DeleteComponents(of.Components, markDeletedFaceEdges: false)))),
+            dissolveOrDeleteComponents: static (at, of) => IO.lift(() => Copies.Within(at.SubD, of.Components))
+                .Bind(_ => Tagged(at.SubD, Edits.Count(at.SubD, at.SubD.DissolveOrDeleteComponents(of.Components)))),
             fillHole: static (at, of) =>
                 from hole in IO.lift(() => Hole(at.SubD, of.BoundaryEdge))
-                from step in Copies.Acquire(nameof(SubDFaceList.Add), _ => Tagged(at.SubD, at.SubD.Faces.Add(hole), static (edited, face) => Edits.Accepted<SubD, uint>(edited, face is not null)), at.Retain)
+                from step in Tagged(at.SubD, Edits.Accepted<SubD, uint>(at.SubD, at.SubD.Faces.Add(hole) is not null))
                 select step,
             bridge: static (at, of) =>
                 from rails in IO.lift(() => Rails(at.SubD, of.EdgeA, of.EdgeB))
-                from step in Copies.Acquire(nameof(SubDFaceList.Add), _ => Tagged(
-                    at.SubD,
-                    rails.Map(rail => Quad(at.SubD, rail.A, rail.B)).Strict(),
-                    static (edited, faces) => faces.ForAll(static face => face.IsSome)
-                        ? Edits.Count(edited, (uint)faces.Count)
-                        : Edits.Accepted<SubD, uint>(edited, accepted: false)), at.Retain)
+                from step in rails.Map(rail => Quad(at.SubD, rail.A, rail.B)).Strict() switch {
+                    var faces => Tagged(at.SubD, IO.lift(() => RhinoFault.Unless(faces.ForAll(static face => face.IsSome))) >> Edits.Count(at.SubD, (uint)faces.Count)),
+                }
                 select step,
-            offset: static (at, of) => Copies.Acquire(nameof(SubD.Offset), _ => Edits.Replaced<SubD, uint>(at.SubD.Offset(of.Distance, of.Solidify)), at.Retain));
+            offset: static (at, of) => Edits.Replaced<SubD, uint>(at.SubD.Offset(of.Distance, of.Solidify)));
 
     internal static Fin<Seq<uint>> Within(SubD subd, ComponentIndexType type, Seq<uint> ids) =>
         Copies.Within(subd, type, ids.Map(static id => (int)id)).Map(_ => ids);
 
-    internal static Answer<EditStep<SubD, uint>> Tagged<THost>(SubD subd, THost host, Func<SubD, THost, Answer<EditStep<SubD, uint>>> answer) {
-        _ = subd.UpdateAllTagsAndSectorCoefficients();
-        return answer(subd, host);
-    }
+    internal static IO<EditStep<SubD, uint>> Tagged(SubD subd, IO<EditStep<SubD, uint>> step) =>
+        IO.lift(() => ignore(subd.UpdateAllTagsAndSectorCoefficients())) >> step;
 
     private static Fin<Seq<SubDEdge>> Hole(SubD subd, uint edge) =>
         from held in Within(subd, ComponentIndexType.SubdEdge, [edge])
         from boundary in Boundary(Boundaries(subd), edge)
-        from closed in guard(boundary.Closed, Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"SubdEdge {edge} lies on an open boundary chain of {boundary.Edges.Count} edges")))
+        from closed in RhinoFault.Unless(boundary.Closed)
         select boundary.Edges;
 
     private static Fin<Seq<(SubDEdge A, SubDEdge B)>> Rails(SubD subd, uint edgeA, uint edgeB) =>
@@ -122,8 +89,8 @@ public abstract partial record SubDEdit {
         let boundaries = Boundaries(subd)
         from first in Boundary(boundaries, edgeA)
         from second in Boundary(boundaries, edgeB)
-        from apart in guard(!first.Edges.Exists(link => link.Id == edgeB), Error.New(ErrorCodes.ValidationFailed, $"SubdEdge {edgeA} and {edgeB} lie on one boundary chain"))
-        from even in guard(first.Edges.Count == second.Edges.Count, Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"boundary chains of SubdEdge {edgeA} and {edgeB} hold {first.Edges.Count} and {second.Edges.Count} edges")))
+        from apart in RhinoFault.Unless(!first.Edges.Exists(link => link.Id == edgeB))
+        from even in RhinoFault.Unless(first.Edges.Count == second.Edges.Count)
         select Anchored(first, edgeA).Zip(Anchored(second with { Edges = second.Edges.Rev() }, edgeB), static (a, b) => (A: a, B: b)).Strict();
 
     private static Seq<(Seq<SubDEdge> Edges, bool Closed)> Boundaries(SubD subd) =>
@@ -140,7 +107,7 @@ public abstract partial record SubDEdit {
 
     private static Fin<(Seq<SubDEdge> Edges, bool Closed)> Boundary(Seq<(Seq<SubDEdge> Edges, bool Closed)> boundaries, uint edge) =>
         boundaries.Filter(boundary => boundary.Edges.Exists(link => link.Id == edge)).Head
-            .ToFin(new RhinoFault($"SubdEdge {edge} is no boundary edge"));
+            .ToFin(new RhinoFault($"{nameof(ComponentIndexType.SubdEdge)} {edge}", RhinoReason.Missing));
 
     private static Seq<SubDEdge> Anchored((Seq<SubDEdge> Edges, bool Closed) boundary, uint edge) =>
         (boundary.Closed ? boundary.Edges.TakeWhile(link => link.Id != edge).Count : 0) switch {
@@ -171,36 +138,36 @@ public sealed record SubDChain(Seq<(uint Edge, bool Reversed)> Edges, bool Close
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SubDs {
     // --- [EDITS]
-    public static IO<(SubD Result, Seq<(SubDEdit Edit, EditResult<uint> Result)> Results)> Edit(Tolerances tolerances, SubD source, Seq<SubDEdit> edits, Action<IDisposable> retain) =>
-        Edits.Apply(source, edits, (subd, edit, held) => edit.Step(tolerances, subd, held), Settled, retain);
+    public static IO<(SubD Result, Seq<(SubDEdit Edit, EditResult<uint> Result)> Results)> Edit(Tolerances tolerances, SubD source, Seq<SubDEdit> edits) =>
+        Edits.Apply(source, edits, (subd, edit) => edit.Step(tolerances, subd), Settled);
 
     public static IO<Seq<(SubDEdit Edit, EditResult<uint> Result)>> Revise(Tolerances tolerances, RhinoDoc doc, Guid id, Seq<SubDEdit> edits) =>
-        RhinoObjects.ReplaceGeometry(doc, id, (SubD target, Action<IDisposable> held) => Edit(tolerances, target, edits, held));
+        RhinoObjects.ReplaceGeometry(doc, id, (SubD target) => Edit(tolerances, target, edits));
 
     public static IO<Unit> InterpolateVertices(RhinoDoc doc, Guid id, HashMap<uint, Point3d> moved) =>
-        RhinoObjects.ReplaceGeometry(doc, id, (SubD target, Action<IDisposable> held) =>
+        RhinoObjects.ReplaceGeometry(doc, id, (SubD target) =>
             IO.lift(() => SubDEdit.Within(target, ComponentIndexType.SubdVertex, toSeq(moved.Keys)))
-            >> Copies.Acquire(nameof(SubD.InterpolateSurfacePoints), _ => toSeq(moved.AsIterable()) switch {
-                var rows => SubDEdit.Tagged(target, target.InterpolateSurfacePoints([.. rows.Map(static row => row.Key)], [.. rows.Map(static row => row.Value)]), Edits.Accepted<SubD, uint>),
-            }, held)
+                .Bind(_ => toSeq(moved.AsIterable()) switch {
+                    var rows => SubDEdit.Tagged(target, Edits.Accepted<SubD, uint>(target, target.InterpolateSurfacePoints([.. rows.Map(static row => row.Key)], [.. rows.Map(static row => row.Value)]))),
+                })
             >> Settled(target)
             >> IO.pure((target, unit)));
 
     private static IO<Unit> Settled(SubD subd) => IO.lift(() => ignore(subd.UpdateSurfaceMeshCache(lazyUpdate: true)));
 
     // --- [CHAINS]
-    public static IO<Seq<SubDChain>> Chains(SubD subd, ChainSeed seed, Action<IDisposable> retain) =>
+    public static IO<Seq<SubDChain>> Chains(SubD subd, ChainSeed seed) =>
         seed.Switch(
-            (SubD: subd, Retain: retain),
-            sorted: static (at, of) =>
-                IO.lift(() => SubDEdit.Within(at.SubD, ComponentIndexType.SubdEdge, of.Edges))
-                >> Copies.Acquire(nameof(SubDEdgeChain.SortEdgesIntoEdgeChains), _ =>
-                    toSeq(SubDEdgeChain.SortEdgesIntoEdgeChains(at.SubD, of.Edges.Map(edge => at.SubD.Edges.Find(edge))))
-                        .Map(links => Answer.Successor(Linked(at.SubD, links), Read))
-                        .Traverse(static chain => chain).As(), at.Retain),
-            grown: static (at, of) =>
-                IO.lift(() => SubDEdit.Within(at.SubD, ComponentIndexType.SubdEdge, [of.Edge]))
-                >> Copies.Acquire(nameof(SubDEdgeChain.AddAllNeighbors), _ => Answer.Successor(new SubDEdgeChain(at.SubD, at.SubD.Edges.Find(of.Edge)), chain => Grown(chain, of.Direction, of.Type)), at.Retain));
+            subd,
+            sorted: static (at, of) => IO.lift(() => SubDEdit.Within(at, ComponentIndexType.SubdEdge, of.Edges))
+                .Bind(_ => toSeq(SubDEdgeChain.SortEdgesIntoEdgeChains(at, of.Edges.Map(edge => at.Edges.Find(edge))))
+                    .TraverseM(links => Products.Made(Linked(at, links)).Bind(static chain => Read(chain))).As()),
+            grown: static (at, of) => IO.lift(() => SubDEdit.Within(at, ComponentIndexType.SubdEdge, [of.Edge]))
+                .Bind(_ =>
+                    from chain in Products.Made(new SubDEdgeChain(at, at.Edges.Find(of.Edge)))
+                    from grown in IO.lift(() => chain.AddAllNeighbors(of.Direction, of.Type))
+                    from read in Read(chain)
+                    select Seq(read)));
 
     private static SubDEdgeChain Linked(SubD subd, SubDEdge[] links) {
         SubDEdgeChain chain = new(subd, links[0]);
@@ -208,17 +175,10 @@ public static class SubDs {
         return chain;
     }
 
-    private static Answer<Seq<SubDChain>> Grown(SubDEdgeChain chain, ChainDirection direction, SubDChainType type) {
-        _ = chain.AddAllNeighbors(direction, type);
-        return Read(chain).Map(static read => Seq(read));
-    }
-
-    private static Answer<SubDChain> Read(SubDEdgeChain chain) =>
-        (Answer.Optional(chain.ToNurbsCurve()), Answer.Optional(chain.ToLoftCurve())).Apply((curve, loft) => new SubDChain(
-            toSeq(chain.Edges).Map(static edge => (Edge: edge.Id, Reversed: edge.ComponentDirection)).Strict(),
-            chain.IsClosedLoop,
-            curve,
-            loft)).As();
+    private static IO<SubDChain> Read(SubDEdgeChain chain) =>
+        from curve in Products.Held(chain.ToNurbsCurve())
+        from loft in Products.Held(chain.ToLoftCurve())
+        select new SubDChain(toSeq(chain.Edges).Map(static edge => (Edge: edge.Id, Reversed: edge.ComponentDirection)).Strict(), chain.IsClosedLoop, curve, loft);
 
     // --- [READS]
     public static IO<Seq<Option<(Point3d Point, SubDComponentParameter Parameter)>>> ClosestPoints(SubD subd, Seq<Point3d> testPoints, Option<double> maximumDistance) =>
@@ -228,9 +188,8 @@ public static class SubDs {
         });
 
     public static IO<(Point3d Point, Vector3d Ds, Vector3d Dt, Vector3d Normal)> Evaluate(SubD subd, SubDComponentParameter parameter) =>
-        IO.lift(() => Refused.Unless(
-            subd.Evaluate(parameter, out Point3d point, out Vector3d ds, out Vector3d dt, out Vector3d normal),
-            (Point: point, Ds: ds, Dt: dt, Normal: normal), nameof(SubD.Evaluate)));
+        IO.lift(() => RhinoFault.Unless(subd.Evaluate(parameter, out Point3d point, out Vector3d ds, out Vector3d dt, out Vector3d normal))
+            .Map(_ => (Point: point, Ds: ds, Dt: dt, Normal: normal)));
 
     public static IO<(uint Count, SubDEdgeSharpness Range)> SharpEdgeCount(SubD subd) =>
         IO.lift(() => (Count: subd.SharpEdgeCount(out SubDEdgeSharpness range), Range: range));

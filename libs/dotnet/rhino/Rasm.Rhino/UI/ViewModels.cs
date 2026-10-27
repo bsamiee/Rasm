@@ -3,7 +3,7 @@ using Rhino.Render.DataSources;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
 
-namespace Rasm.Rhino.UI;
+namespace Rasm.RhinoCommon.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed class ProviderId<T> where T : class {
@@ -35,19 +35,22 @@ public static class SectionModels {
         Model(section).Bind(model => GetData(model, provider, forWrite: false)).Bind(read);
 
     public static IO<TResult> Write<T, TResult>(ICollapsibleSection section, ProviderId<T> provider, Func<T, IO<TResult>> edit) where T : class =>
-        Model(section).Bind(model => DisposalOps.OnFailure(
-            from data in GetData(model, provider, forWrite: true)
-            from edited in edit(data)
-            from _ in IO.lift(() => model.Commit(provider.Id))
-            select edited,
-            IO.lift(() => model.Discard(provider.Id))));
+        Model(section).Bind(model =>
+            (from data in GetData(model, provider, forWrite: true)
+             from edited in edit(data)
+             from _ in IO.lift(() => model.Commit(provider.Id))
+             select edited)
+            .Catch(error => IO.lift(() => model.Discard(provider.Id)) >> IO.fail<TResult>(error)));
 
     public static IO<T> UndoRecord<T>(ICollapsibleSection section, string description, IO<T> body) =>
-        Model(section).Bind(model => DisposalOps.Within(() => new UndoRecord(description, model), _ => body));
+        Model(section).Bind(model =>
+            (from record in use(() => new UndoRecord(description, model))
+             from value in body
+             select value).Bracket());
 
     private static IO<IRdkViewModel> Model(ICollapsibleSection section) =>
-        IO.lift(() => Refused.UnlessFound(section.ViewModel, nameof(ICollapsibleSection.ViewModel)));
+        IO.lift(() => Conversions.Found(section.ViewModel));
 
     private static IO<T> GetData<T>(IRdkViewModel model, ProviderId<T> provider, bool forWrite) where T : class =>
-        IO.lift(() => Refused.UnlessFound((T?)model.GetData(provider.Id, forWrite, bAutoChangeBracket: true), nameof(IRdkViewModel.GetData)));
+        IO.lift(() => Conversions.Found((T?)model.GetData(provider.Id, forWrite, bAutoChangeBracket: true)));
 }

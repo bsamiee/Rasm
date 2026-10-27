@@ -1,12 +1,12 @@
 using System.Runtime.CompilerServices;
 using Darkroom.Chain;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI;
 using SkiaSharp;
 using UnitsNet;
 
@@ -51,7 +51,7 @@ public sealed class PreviewTiles : IDisposable {
     private readonly IPlugInViews views;
 
     private PreviewTiles(IPlugInViews views) =>
-        (this.views, Landed) = (views, Subscriptions.Changed(held).DistinctUntilChanged(static ledger => (unit, ledger.Landings)).Choose(static _ => Some(unit)));
+        (this.views, Landed) = (views, Subscriptions.Changed(held).DistinctUntilChanged(static _ => unit, static ledger => ledger.Landings).Choose(static _ => Some(unit)));
 
     private sealed record Pending(TileKey Key, TileRequest Request, PixelExtent Extent, HashMap<TileRank, long> Asks) {
         public bool Holds(TileRank rank, Func<long, bool> recent) => Asks.Find(rank).Exists(at => !rank.Shown || recent(at));
@@ -108,15 +108,14 @@ public sealed class PreviewTiles : IDisposable {
     // --- [ACQUISITION]
     public static PlugInSlot<PreviewTiles> Slot { get; } = new();
 
-    public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Register { get; } = static (views, retain) =>
-        DisposalOps.Acquire(owned =>
-            from tiles in DisposalOps.Acquire(IO.lift(() => new PreviewTiles(views)), owned)
-            let store = PlugInSettings.Record(views.Settings, TileLimits.Default, Applied.Live)
-            from initial in tiles.Limited(store)
-            from watched in store.Changed.Traverse(changed => changed.Inline(_ => tiles.Limited(store), views, owned)).As()
-            from worker in DisposalOps.Fork(tiles.Ticked.Repeat(Schedule.spaced(Tick.ToTimeSpan())), owned)
-            from published in Slot.Publish(views, tiles)
-            select unit, retain);
+    public static Func<IPlugInViews, IO<Unit>> Register { get; } = static views =>
+        from tiles in use(() => new PreviewTiles(views))
+        let store = PlugInSettings.Record(views.Settings, TileLimits.Default, Applied.Live)
+        from initial in tiles.Limited(store)
+        from watched in store.Changed.Traverse(changed => changed.Inline(_ => tiles.Limited(store), views)).As()
+        from worker in use(tiles.Ticked.Repeat(Schedule.spaced(Tick.ToTimeSpan())).Fork(), static fork => fork.Cancel)
+        from published in Slot.Publish(views, tiles)
+        select unit;
 
     public void Dispose() => derivations.Dispose();
 
@@ -137,7 +136,7 @@ public sealed class PreviewTiles : IDisposable {
     public IO<PixelFrame> Formed(TileRequest request, PixelExtent extent, TileRank rank) =>
         Asked(request, extent, rank)
             .RepeatUntil(Schedule.spaced(Tick.ToTimeSpan()), static found => found.IsSome)
-            .Bind(static found => IO.lift(found.ToFin(new Refused(nameof(Asked), Refused.Absent)).Bind(static result => result)));
+            .Bind(static found => IO.lift(Conversions.Found(found).Bind(static result => result)));
 
     public IO<SKImage> Thumbnail(TileRequest request, PixelExtent extent, Luminance peak) =>
         from tile in Formed(request, extent, TileRank.Visible)
@@ -191,7 +190,7 @@ public sealed class PreviewTiles : IDisposable {
         from landed in held.SwapIO(state => state.Landed(running, result, now))
         select unit;
 
-    private IO<Unit> Reported(Error error, [CallerMemberName] string member = "") => IO.lift(() => views.Report(error, typeof(PreviewTiles), member));
+    private IO<Unit> Reported(Error error, [CallerMemberName] string member = "") => IO.lift(() => PlugInLog.Of(views).Failed(error, typeof(PreviewTiles), member));
 
     private Func<long, bool> Recent(long now) => at => views.Clock.GetElapsedTime(at, now).ToDuration() < Tick * 2;
 }

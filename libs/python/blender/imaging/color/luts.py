@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable, Mapping
 from enum import IntEnum
+from functools import partial
 import math
 import pathlib
 import sys
@@ -41,7 +42,7 @@ class LutLayout(IntEnum):
 
         def decoded(image: ImageFile[np.float32]) -> Outcome[PyOpenColorIO.GroupTransform]:
             if (pixels := image.pixels).ndim != 3:
-                return Error((Fault(reason=ImagingReason.SHAPE, subject=path, member=str(pixels.shape)),))
+                return Error(Fault.of(ImagingReason.SHAPE, path, member=str(pixels.shape)))
             height, width, channels = pixels.shape
             rgb = pixels[..., :3] if channels >= 3 else np.broadcast_to(pixels[..., :1], (height, width, 3))
             level = round(np.cbrt(width))
@@ -53,8 +54,8 @@ class LutLayout(IntEnum):
                     size = height
                     plane = rgb[::-1].reshape(size, size, size, 3).transpose(1, 0, 2, 3).reshape(size, size * size, 3)
                 case _:
-                    return Error((Fault(reason=ImagingReason.SHAPE, subject=path, member=str(pixels.shape)),))
-            return catch(Lattice(size=size).transform, exception=PyOpenColorIO.Exception)(plane).map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),))
+                    return Error(Fault.of(ImagingReason.SHAPE, path, member=str(pixels.shape)))
+            return catch(Lattice(size=size).transform, exception=PyOpenColorIO.Exception)(plane).map_error(partial(Fault.of, ImagingReason.COLOR, path))
 
         options = OpenImageIO.ImageSpec()
         options.attribute("oiio:UnassociatedAlpha", 1)
@@ -71,7 +72,7 @@ class LutLayout(IntEnum):
         match self:
             case LutLayout.HALD:
                 if (level := math.isqrt(size)) * level != size:
-                    return Error((Fault(reason=ImagingReason.SHAPE, subject=path, member=str(cube.shape)),))
+                    return Error(Fault.of(ImagingReason.SHAPE, path, member=str(cube.shape)))
                 side = level**3
                 pixels = cube.reshape(side, side, 3)
             case LutLayout.KEYSHOT:
@@ -208,7 +209,7 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
                     shaperSpace=shapers[0].getName() if shapers else "",
                 ).bake()
 
-            return text().map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=self.format.name, cause=error),))
+            return text().map_error(partial(Fault.of, ImagingReason.COLOR, self.format.name))
 
         def encoded(item: tuple[str, PyOpenColorIO.GroupTransform]) -> Outcome[tuple[str, str]]:
             path, source = item
@@ -217,20 +218,12 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
             def exact() -> str:
                 return source.write(formatName=self.format.name, config=PyOpenColorIO.Config())
 
-            return (
-                self.lattice
-                .map(lambda lattice: baked(source, lattice))
-                .default_with(lambda: exact().map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),)))
-                .map(lambda text: (path, text))
-            )
+            return self.lattice.map(lambda lattice: baked(source, lattice)).default_with(lambda: exact().map_error(partial(Fault.of, ImagingReason.COLOR, path))).map(lambda text: (path, text))
 
         def installed(item: tuple[str, str]) -> Outcome[str]:
             path, text = item
             return committed(
-                pathlib.Path(path),
-                lambda stage: catch(stage.write_text, exception=OSError)(text, encoding="utf-8", newline="").map_error(
-                    lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=path, cause=error),)
-                ),
+                pathlib.Path(path), lambda stage: catch(stage.write_text, exception=OSError)(text, encoding="utf-8", newline="").map_error(partial(Fault.of, RecordReason.UNWRITABLE, path))
             ).map(str)
 
         return accumulated(map(encoded, sources.items())).bind(lambda texts: accumulated(map(installed, texts)))
@@ -265,7 +258,7 @@ def corrections(path: str) -> Outcome[tuple[tuple[Option[str], PyOpenColorIO.CDL
     """Reads every ASC correction of a CC, CCC, or CDL file in file order, each with its ID when named."""
     return (
         catch(PyOpenColorIO.CDLTransform.CreateGroupFromFile, exception=PyOpenColorIO.Exception)(path)
-        .map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),))
+        .map_error(partial(Fault.of, ImagingReason.COLOR, path))
         .map(lambda group: tuple((Some(correction.getFormatMetadata().getID()).filter(bool), correction) for correction in group if isinstance(correction, PyOpenColorIO.CDLTransform)))
     )
 

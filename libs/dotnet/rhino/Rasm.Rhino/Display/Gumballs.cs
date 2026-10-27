@@ -3,7 +3,7 @@ using Rhino.Input.Custom;
 using Rhino.UI.Gumball;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Display;
+namespace Rasm.RhinoCommon.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union<Ray, Plane>(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -19,23 +19,25 @@ public sealed record GumballTransforms(Transform GumballTransform, Transform Pre
 [Mapper]
 public static partial class Gumballs {
     // --- [SCOPE]
-    public static IO<T> Placed<T>(Func<GumballObject, bool> initialize, string member, ActiveSpace space, Option<GumballAppearanceSettings> appearance, Func<GumballDisplayConduit, IO<T>> body) =>
-        DisposalOps.Within(() => new GumballDisplayConduit(space), conduit =>
-            from placed in DisposalOps.Within(static () => new GumballObject(), gumball =>
-                from accepted in IO.lift(() => Refused.Unless(initialize(gumball), member))
-                from enabled in IO.lift(() => {
-                    conduit.SetBaseGumball(gumball, appearance.ValueUnsafe());
-                    conduit.Enabled = true;
-                })
-                select enabled)
-            from answer in body(conduit)
-            select answer,
-            static conduit => Callbacks.Each(Seq(IO.lift(() => { conduit.Enabled = false; }), IO.lift(conduit.Dispose))).Map(unit));
+    public static IO<T> Placed<T>(Func<GumballObject, Fin<Unit>> initialize, ActiveSpace space, Option<GumballAppearanceSettings> appearance, Func<GumballDisplayConduit, IO<T>> body) =>
+        (from conduit in use(() => new GumballDisplayConduit(space), static conduit => {
+            conduit.Enabled = false;
+            conduit.Dispose();
+        })
+         from placed in (from gumball in use(static () => new GumballObject())
+                         from accepted in IO.lift(() => initialize(gumball))
+                         from enabled in IO.lift(() => {
+                             conduit.SetBaseGumball(gumball, appearance.ValueUnsafe());
+                             conduit.Enabled = true;
+                         })
+                         select enabled).Bracket()
+         from answer in body(conduit)
+         select answer).Bracket();
 
     // --- [DRAG]
     public static IO<Option<GumballMode>> Pick(GumballDisplayConduit conduit, PickContext context, Option<GetPoint> point) =>
         from reset in IO.lift(conduit.PickResult.SetToDefault)
-        from picked in IO.lift(() => Callbacks.Found(conduit.PickGumball(context, point.ValueUnsafe()), conduit.PickResult.Mode))
+        from picked in IO.lift(() => Conversions.Found(conduit.PickGumball(context, point.ValueUnsafe()), conduit.PickResult.Mode))
         select picked;
 
     public static IO<Option<GumballTransforms>> Update(GumballDisplayConduit conduit, GumballUpdate update) =>

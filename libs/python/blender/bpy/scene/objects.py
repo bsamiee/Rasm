@@ -194,10 +194,10 @@ def restacked(stack: Stack, move: Option[Mover], entries: Entries) -> Outcome[tu
     live = tuple((entry.name, {key: getattr(entry, key) for key in choices}) for entry in stack)
     wanted = tuple((name, {"type": entry.kind} if isinstance(entry, StackEntry) else {}) for name, entry in entries.items())
     prefix = next((index for index, (was, now) in enumerate(zip(live, wanted)) if was != now), min(len(live), len(wanted)))
-    trees = tuple(Tree(roots=tuple(key for key, _ in pairs), owners={key: Owner(values=values) for key, values in pairs}) for pairs in (live, live if move.is_some() else live[:prefix], wanted))
+    trees = tuple(Tree(roots=tuple(key for key, _ in pairs), rows=tuple((key, Owner(values=values)) for key, values in pairs)) for pairs in (live, live if move.is_some() else live[:prefix], wanted))
     edits = (*diff(trees[0], trees[1]), *diff(trees[1], trees[2]))
     return accumulated(
-        Ok(value) if value in choices[key] else Error((Fault(reason=RecordReason.OUTSIDE, subject=repr(stack), member=", ".join(choices[key]), cause=value),))
+        Ok(value).filter_with(choices[key].__contains__, lambda held: (Fault(reason=RecordReason.OUTSIDE, subject=repr(stack), member=", ".join(choices[key]), cause=held),))
         for _, parameters in wanted
         for key, value in parameters.items()
     ).map(lambda _: (Restacked(stack=stack, move=move, edits=edits, wanted=wanted),) if edits else ())

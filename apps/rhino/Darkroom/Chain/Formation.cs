@@ -1,7 +1,7 @@
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using Rasm.Rhino;
+using Rasm.RhinoCommon;
 using Rhino.Render.PostEffects;
 
 namespace Darkroom.Chain;
@@ -22,8 +22,7 @@ public static class DisplayFormation {
             .Filter(gamma => gamma.CanExecute(pipeline))
             .Traverse(static gamma => {
                 object? value = null;
-                return Refused.Unless(gamma.GetParam("gamma", ref value), nameof(PostEffect.GetParam))
-                    .Bind(_ => value is float exponent ? Transfer.Gamma.Of(exponent) : new Refused(nameof(PostEffect.GetParam), Refused.Invalid));
+                return RhinoFault.Unless(gamma.GetParam("gamma", ref value)).Bind(_ => Conversions.Cast<float>(value)).Bind(static exponent => Transfer.Gamma.Of(exponent));
             })
             .As());
 

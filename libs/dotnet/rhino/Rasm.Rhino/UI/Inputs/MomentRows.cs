@@ -1,14 +1,14 @@
 using Eto.Drawing;
 using Eto.Forms;
 using NodaTime.Text;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Rows;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.UI.Rows;
 using Rasm.UI;
 using Rhino.Render;
 using Rhino.UI.Controls;
 
-namespace Rasm.Rhino.UI.Inputs;
+namespace Rasm.RhinoCommon.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<int>]
@@ -49,18 +49,20 @@ public static class MomentRows {
     // --- [PICKERS]
     public static ControlRow Picker(string label, LocalDateTime value, DateTimePickerMode part, (LocalDateTime Min, LocalDateTime Max) limits, Func<Edit<LocalDateTime>, IO<Unit>> edited) =>
         new ControlRow.Bound<(LocalDateTime Value, DateTimePickerMode Part, (LocalDateTime Min, LocalDateTime Max) Limits, Func<Edit<LocalDateTime>, IO<Unit>> Edited)>(
-            label, RowShape.Inline, (value, part, limits, edited), static (latest, scope, retain) =>
-                from picker in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), retain)
-                let handler = Callbacks.Handler<EventArgs>(_ =>
-                    from current in latest
-                    from answered in Optional(picker.Value).Map(static picked => LocalDateTime.FromDateTime(picked)).Traverse(wall => current.Row.Edited(Edit.Commit(current.Row.Part switch {
-                        DateTimePickerMode.Date => wall.Date.At(current.Row.Value.TimeOfDay),
-                        DateTimePickerMode.Time => current.Row.Value.Date.At(wall.TimeOfDay),
-                        _ => wall,
-                    }))).As()
-                    select unit, new CallbackSite(scope.Sink, typeof(DateTimePicker), nameof(DateTimePicker.ValueChanged)))
-                from attached in Subscriptions.Attach(h => picker.ValueChanged += h, h => picker.ValueChanged -= h, handler, retain)
-                select new RowCells(picker, latest.Bind(current => Subscriptions.Detached(h => picker.ValueChanged += h, h => picker.ValueChanged -= h, handler, IO.lift(() => {
+            label, RowShape.Inline, (value, part, limits, edited), static (latest, scope) =>
+                from picker in use(static () => new DateTimePicker())
+                from change in ControlChange<EventArgs>.Attached(
+                    Subscriptions.Host<EventArgs>(h => picker.ValueChanged += h, h => picker.ValueChanged -= h),
+                    _ =>
+                        from current in latest
+                        from answered in Optional(picker.Value).Map(static picked => LocalDateTime.FromDateTime(picked)).Traverse(wall => current.Row.Edited(Edit.Commit(current.Row.Part switch {
+                            DateTimePickerMode.Date => wall.Date.At(current.Row.Value.TimeOfDay),
+                            DateTimePickerMode.Time => current.Row.Value.Date.At(wall.TimeOfDay),
+                            _ => wall,
+                        }))).As()
+                        select unit,
+                    scope.Owner)
+                select new RowCells(picker, latest.Bind(current => change.Detached(IO.lift(() => {
                     (picker.Mode, picker.MinDate, picker.MaxDate) = (current.Row.Part, current.Row.Limits.Min.ToDateTimeUnspecified(), current.Row.Limits.Max.ToDateTimeUnspecified());
                     picker.Value = current.Row.Value.ToDateTimeUnspecified();
                 })))));
@@ -68,38 +70,39 @@ public static class MomentRows {
     // --- [RANGES]
     public static ControlRow DateSpan(string label, DateInterval value, (LocalDate Min, LocalDate Max) limits, Func<Edit<DateInterval>, IO<Unit>> edited) =>
         new ControlRow.Bound<(DateInterval Value, (LocalDate Min, LocalDate Max) Limits, Func<Edit<DateInterval>, IO<Unit>> Edited)>(
-            label, RowShape.Inline, (value, limits, edited), static (latest, scope, retain) =>
-                from start in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker { Mode = DateTimePickerMode.Date }), retain)
-                from end in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker { Mode = DateTimePickerMode.Date }), retain)
-                from table in Containers.Frame(static () => new TableLayout(), retain)
+            label, RowShape.Inline, (value, limits, edited), static (latest, scope) =>
+                from start in use(static () => new DateTimePicker { Mode = DateTimePickerMode.Date })
+                from end in use(static () => new DateTimePicker { Mode = DateTimePickerMode.Date })
+                from table in Containers.Frame(static () => new TableLayout())
                 from placed in IO.lift(() => {
                     table.Rows.Add(new TableRow(new TableCell(start, scaleWidth: true), new TableCell(end, scaleWidth: true)));
                     table.Spacing = new Size(RhinoLayout.StackedSpacing(Orientation.Horizontal, RhinoLayout.SpacingType.Table), 0);
                 })
                 let walls = latest.Map(static current => (Min: current.Row.Limits.Min.AtMidnight().ToDateTimeUnspecified(), Max: current.Row.Limits.Max.AtMidnight().ToDateTimeUnspecified()))
-                let handler = Callbacks.Handler<EventArgs>(_ =>
-                    from bounds in walls
-                    from narrowed in IO.lift(() => Narrowed(start, end, bounds))
-                    from current in latest
-                    from routed in (Optional(start.Value), Optional(end.Value))
-                        .Apply(static (first, last) => new DateInterval(LocalDate.FromDateTime(first), LocalDate.FromDateTime(last))).As()
-                        .Traverse(picked => current.Row.Edited(Edit.Commit(picked))).As()
-                    select unit, new CallbackSite(scope.Sink, typeof(DateTimePicker), nameof(DateTimePicker.ValueChanged)))
-                from started in Subscriptions.Attach(h => start.ValueChanged += h, h => start.ValueChanged -= h, handler, retain)
-                from ended in Subscriptions.Attach(h => end.ValueChanged += h, h => end.ValueChanged -= h, handler, retain)
+                from change in ControlChange<EventArgs>.Attached(
+                    Subscriptions.Merged(
+                        Subscriptions.Host<EventArgs>(h => start.ValueChanged += h, h => start.ValueChanged -= h),
+                        Subscriptions.Host<EventArgs>(h => end.ValueChanged += h, h => end.ValueChanged -= h)),
+                    _ =>
+                        from bounds in walls
+                        from narrowed in IO.lift(() => Narrowed(start, end, bounds))
+                        from current in latest
+                        from routed in (Optional(start.Value), Optional(end.Value))
+                            .Apply(static (first, last) => new DateInterval(LocalDate.FromDateTime(first), LocalDate.FromDateTime(last))).As()
+                            .Traverse(picked => current.Row.Edited(Edit.Commit(picked))).As()
+                        select unit,
+                    scope.Owner)
                 select new RowCells(table, from current in latest
                                            from bounds in walls
-                                           from shown in Subscriptions.Detached(h => start.ValueChanged += h, h => start.ValueChanged -= h, handler,
-                                               Subscriptions.Detached(h => end.ValueChanged += h, h => end.ValueChanged -= h, handler, IO.lift(() => Spanned(start, end, bounds, current.Row.Value))))
+                                           from shown in change.Detached(IO.lift(() => Spanned(start, end, bounds, current.Row.Value)))
                                            select shown));
 
     // --- [CLOCKS]
     public static ControlRow Clock(string label, ClockZone zone, ReadoutSource<OffsetDateTime> moment) =>
-        new ControlRow.Bound<(ClockZone Zone, ReadoutSource<OffsetDateTime> Moment)>(label, RowShape.Unlabeled, (zone, moment), static (latest, scope, retain) =>
+        new ControlRow.Bound<(ClockZone Zone, ReadoutSource<OffsetDateTime> Moment)>(label, RowShape.Unlabeled, (zone, moment), static (latest, scope) =>
             from row in latest
-            from live in TextRows.Live(row.Row.Moment, static (_, keep) => DisposalOps.Acquire(IO.lift(static () => new Button()), keep), (held, at) => Shown(held, row.Row.Zone, at), scope, retain)
-            from clicked in Subscriptions.Attach(h => live.Click += h, h => live.Click -= h,
-                Callbacks.Handler<EventArgs>(_ => Cycled(row.Row.Zone.Format), new CallbackSite(scope.Sink, typeof(Button), nameof(Button.Click))), retain)
+            from live in TextRows.Live(row.Row.Moment, static _ => use(static () => new Button()), (held, at) => Shown(held, row.Row.Zone, at), scope)
+            from clicked in Subscriptions.Host<EventArgs>(h => live.Click += h, h => live.Click -= h).Inline(_ => Cycled(row.Row.Zone.Format), scope.Owner)
             select new RowCells(live, IO.pure(unit)));
 
     // --- [REALIZE]

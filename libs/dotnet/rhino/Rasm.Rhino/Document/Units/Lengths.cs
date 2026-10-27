@@ -1,10 +1,10 @@
-using Rasm.Rhino.Document.Tables;
+using Rasm.RhinoCommon.Document.Tables;
 using Rhino;
 using Rhino.Geometry.Intersect;
 using Rhino.UI;
 using UnitsNet;
 
-namespace Rasm.Rhino.Document.Units;
+namespace Rasm.RhinoCommon.Document.Units;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Tolerances(double Absolute, double Relative, double Angle, double MeshCoefficient) {
@@ -17,13 +17,13 @@ public sealed record Tolerances(double Absolute, double Relative, double Angle, 
             ? new Tolerances(doc.ModelAbsoluteTolerance, doc.ModelRelativeTolerance, doc.ModelAngleToleranceRadians, Intersection.MeshIntersectionsTolerancesCoefficient)
             : new Tolerances(doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians, Intersection.MeshIntersectionsTolerancesCoefficient));
 
-    public IO<Unit> Write(RhinoDoc doc, bool modelUnits, CallbackSite site) =>
+    public IO<Unit> Write(RhinoDoc doc, bool modelUnits, object owner) =>
         TableOps.Undoable(doc, nameof(Tolerances), Read(doc, modelUnits), value => IO.lift(() => {
             if (modelUnits)
                 (doc.ModelAbsoluteTolerance, doc.ModelRelativeTolerance, doc.ModelAngleToleranceRadians) = (value.Absolute, value.Relative, value.Angle);
             else
                 (doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians) = (value.Absolute, value.Relative, value.Angle);
-        }), this, site);
+        }), this, owner);
 
     // --- [COMPARISON]
     public bool Matches(Plane left, Plane right) =>
@@ -39,13 +39,13 @@ public sealed record DistanceDisplay(bool ModelUnits, DistanceDisplayMode Mode, 
             ? new DistanceDisplay(ModelUnits: true, doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision)
             : new DistanceDisplay(ModelUnits: false, doc.PageDistanceDisplayMode, doc.PageDistanceDisplayPrecision));
 
-    public IO<Unit> Write(RhinoDoc doc, CallbackSite site) =>
+    public IO<Unit> Write(RhinoDoc doc, object owner) =>
         TableOps.Undoable(doc, nameof(DistanceDisplay), Read(doc, ModelUnits), value => IO.lift(() => {
             if (value.ModelUnits)
                 (doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision) = (value.Mode, value.Precision);
             else
                 (doc.PageDistanceDisplayMode, doc.PageDistanceDisplayPrecision) = (value.Mode, value.Precision);
-        }), this, site);
+        }), this, owner);
 
     // --- [NOTATION]
     public Length Resolution(LengthUnit spaceUnit) =>

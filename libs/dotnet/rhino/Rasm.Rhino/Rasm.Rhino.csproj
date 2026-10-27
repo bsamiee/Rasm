@@ -7,7 +7,6 @@
     </PropertyGroup>
 
     <ItemGroup Label="Usings">
-        <Using Remove="System.Collections.Generic" />
         <Using Include="UnitsNet.Temperature" Alias="Temperature" />
     </ItemGroup>
 
@@ -32,6 +31,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Mathematics">
+        <PackageReference Include="HyperJet" PrivateAssets="contentfiles;analyzers;build;buildtransitive" />
         <PackageReference Include="MathNet.Numerics" />
     </ItemGroup>
 

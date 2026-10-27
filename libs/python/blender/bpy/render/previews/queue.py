@@ -1,7 +1,7 @@
 """Preview jobs, failed requests, and ranked renders under one timer budget."""
 
 from collections.abc import Callable, Generator, Hashable, Iterable
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager, ExitStack, nullcontext
 from enum import auto, Enum, IntEnum
 from functools import partial
 import time
@@ -12,11 +12,9 @@ from expression import Nothing, Ok, Option, Result, Some
 from expression.collections import Block
 import msgspec
 
-from blender.bpy.extension.events.handlers import SceneHandler
-from blender.bpy.extension.events.timers import Timer
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.events import Handler, Timer
+from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.render.outputs.results import built
 from blender.records.faults import accumulated, Outcome
 
@@ -112,7 +110,7 @@ class Backlog:
         """Replaces each read feed's requests by its jobs, keeping a pending or equally failed request's place and failure."""
         arrivals = {(Some(feed), job.place): job for feed, jobs in reads for job in jobs}
         replaced = frozenset(Some(feed) for feed, _jobs in reads)
-        self.requests = {place: request for place, request in self.requests.items() if place[0] not in replaced or place in arrivals}
+        self.requests = {(owner, spot): request for (owner, spot), request in self.requests.items() if owner not in replaced or (owner, spot) in arrivals}
         for place, job in arrivals.items():
             match self.requests.get(place):
                 case Request(state=Phase.PENDING) as request:
@@ -128,7 +126,7 @@ class Backlog:
         return type(self)(feeds=self.feeds)
 
 
-BACKLOG: Final = Scoped[Backlog](made=lambda _identity: nullcontext(Backlog()), renewed=Some(Backlog.reset))
+BACKLOG: Final = Resource[Backlog](made=lambda _identity: nullcontext(Backlog()), renewed=Some(Backlog.reset))
 
 
 class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
@@ -152,10 +150,12 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
             Render result, `Ok(None)` for a failed key.
         """
         backlog, place = identity.held[BACKLOG], (feed, job.place)
-        if (place, job.key) in backlog.failed.items():
-            return Ok(None)
-        backlog.requests[place] = request = Request(job=job)
-        return request.executed()
+        match backlog.requests.get(place):
+            case Request(job=Job(key=key), state=Result(tag="error")) if key == job.key:
+                return Ok(None)
+            case _:
+                backlog.requests[place] = request = Request(job=job)
+                return request.executed()
 
     @staticmethod
     def forced(identity: Identity, places: Iterable[Hashable]) -> None:
@@ -166,7 +166,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
             places: Places a producer refresh names.
         """
         backlog, dropped = identity.held[BACKLOG], frozenset(places)
-        backlog.requests = {place: request for place, request in backlog.requests.items() if place[1] not in dropped or request.state is Phase.PENDING}
+        backlog.requests = {(owner, spot): request for (owner, spot), request in backlog.requests.items() if spot not in dropped or request.state is Phase.PENDING}
 
     def ticked(self, identity: Identity) -> Outcome[Option[float]]:
         """Merges feed requests and runs pending ones within budget, holding faults in reports.
@@ -218,13 +218,17 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         Yields:
             None while queue reads feed.
         """
-        identity.held[BACKLOG].feeds.append(feed)
-        try:
-            yield
-        finally:
+
+        def unfed() -> None:
+            """Drops feed and its requests from the backlog held at release, which a file load may have renewed."""
             backlog = identity.held[BACKLOG]
             backlog.feeds.remove(feed)
-            backlog.requests = {place: request for place, request in backlog.requests.items() if place[0] != Some(feed)}
+            backlog.requests = {(owner, spot): request for (owner, spot), request in backlog.requests.items() if owner != Some(feed)}
+
+        with ExitStack() as stack:
+            identity.held[BACKLOG].feeds.append(feed)
+            stack.callback(unfed)
+            yield
 
     # --- [LIFECYCLE]
 
@@ -244,7 +248,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
             return Nothing
 
         with identity.reports.deferred(lambda: built("RENDER_RESULT").map(remembered)) as remember:
-            yield Ok((BACKLOG, Timer(body=partial(self.ticked, identity)), SceneHandler(handlers=bpy.app.handlers.render_complete, body=lambda _: Ok(remember()))))
+            yield Ok((BACKLOG, Timer(body=partial(self.ticked, identity)), Handler(handlers=bpy.app.handlers.render_complete, body=lambda: Ok(remember()))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -45,14 +45,14 @@ class Stock(msgspec.Struct, frozen=True, kw_only=True):
 
     def invocation(self, _identity: Identity, /) -> Outcome[tuple[str, Writer]]:
         """Resolves stock operator name and property writer."""
-        identifier = self.operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        identifier = dotted(self.operator)
 
         def member(kind: bpy.types.Struct, key: str) -> Outcome[Descriptor]:
             return (
                 Option
                 .of_optional(kind.properties.get(key))
-                .map(lambda prop: Descriptor(root=bpy.types.OperatorProperties, owner="", prop=prop))
-                .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=identifier, member=key),))
+                .map(lambda prop: Descriptor(root=bpy.types.OperatorProperties, prop=prop))
+                .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, identifier, member=key))
             )
 
         kind: Outcome[bpy.types.Struct] = catch(self.operator.get_rna_type, exception=KeyError)().map_error(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
@@ -151,6 +151,12 @@ def idname(identity: Identity, form: type[Struct], target: type[bpy.types.Panel 
             return Ok(rna.identifier)
 
 
+def dotted(operator: Operation) -> str:
+    """Returns the `bpy.ops` path of an operator, which the stubs type as a plain function."""
+    identifier: str = operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    return identifier
+
+
 def called(
     operator: Operation,
     properties: Mapping[str, object],
@@ -162,7 +168,7 @@ def called(
 ) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
     """Calls operator, leaving Nothing-valued properties unset."""
     keywords = given(properties)
-    identifier = operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    identifier = dotted(operator)
     request = f"bpy.ops.{identifier}({', '.join(f'{key}={value!r}' for key, value in keywords.items())})"
 
     def run() -> frozenset["rna_enums.OperatorReturnItems"]:
@@ -207,4 +213,4 @@ def opened(popup: Popup, context: bpy.types.Context, event: bpy.types.Event, ide
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CalledPopup", "DrawnMenu", "DrawnPopover", "MenuPopup", "Operation", "PanelPopup", "Placed", "Popup", "ShelfPopup", "Stock", "Writer", "called", "given", "idname", "opened"]
+__all__ = ["CalledPopup", "DrawnMenu", "DrawnPopover", "MenuPopup", "Operation", "PanelPopup", "Placed", "Popup", "ShelfPopup", "Stock", "Writer", "called", "dotted", "given", "idname", "opened"]

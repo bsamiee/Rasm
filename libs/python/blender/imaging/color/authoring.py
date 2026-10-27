@@ -3,11 +3,12 @@
 from collections.abc import Callable
 import copy
 from enum import auto, Enum
+from functools import partial
 import pathlib
 import shutil
 from typing import Any, Final
 
-from expression import Error, Ok, Option
+from expression import Option
 from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
@@ -15,7 +16,7 @@ import PyOpenColorIO
 from blender.imaging.color.luts import LutFormat
 from blender.imaging.color.processors import called, interop
 from blender.imaging.faults import ImagingReason
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 from blender.records.fields import Case
 from blender.records.stores import committed, files_copied, folder_made
 
@@ -179,8 +180,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             request.setWorkingDir(str(stage))
             return request
 
-        def unauthored(error: PyOpenColorIO.Exception) -> Faults:
-            return (Fault(reason=ImagingReason.COLOR, subject=str(stage), cause=error),)
+        unauthored = partial(Fault.of, ImagingReason.COLOR, str(stage))
 
         return (
             authored()
@@ -192,9 +192,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                         lambda _: paired(
                             files_copied(copies),
                             accumulated(
-                                catch((stage / name).write_text, exception=OSError)(text, encoding="utf-8", newline="").map_error(
-                                    lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(stage), cause=error),)
-                                )
+                                catch((stage / name).write_text, exception=OSError)(text, encoding="utf-8", newline="").map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(stage)))
                                 for name, text in tables.items()
                             ),
                         )
@@ -221,8 +219,8 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         def replaced(stage: pathlib.Path, config: PyOpenColorIO.Config) -> Outcome[None]:
             return (
                 catch((stage / "config.ocio").write_text, exception=OSError)(config.serialize(), encoding="utf-8", newline="")
-                .bind(lambda _: catch(shutil.rmtree, exception=OSError)(folder).or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error)))
-                .map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(folder), cause=error),))
+                .map(lambda _: shutil.rmtree(folder, ignore_errors=True))
+                .map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(folder)))
             )
 
         return committed(folder, lambda stage: self.staged(base, stage).bind(lambda config: replaced(stage, config))).map(lambda installed: installed / "config.ocio")

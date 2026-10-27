@@ -2,7 +2,7 @@
 
 from collections.abc import Generator
 from contextlib import contextmanager, ExitStack, nullcontext
-from pathlib import Path
+from functools import partial
 from typing import ClassVar, Final
 
 import bpy
@@ -13,10 +13,9 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler, UpdateHandler
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.events import Handler, updated
+from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.trees import fingerprinted
 from blender.bpy.render.color.spaces import viewed
@@ -88,7 +87,7 @@ class _Feed:
         return changed
 
 
-_FEED: Final = Scoped[_Feed](made=lambda _identity: nullcontext(_Feed()))
+_FEED: Final = Resource[_Feed](made=lambda _identity: nullcontext(_Feed()))
 
 
 class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -254,7 +253,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
             later = scopes.enter_context(identity.reports.deferred(invalidated))
 
-            def loaded(_path: Option[Path]) -> Outcome[None]:
+            def loaded() -> Outcome[None]:
                 identity.reports.cancelled(later)
                 return self.cleared(identity).map(lambda _: None)
 
@@ -263,11 +262,14 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 (Band.RESOURCES, PreviewQueue.fed(identity, self.fed)),
                 self.sampling,
                 overlaid(Plotted(read=lambda metrics: self.chart(identity, metrics)), image_type(("COMPOSITING",)), (self.signal,)),
-                PathHandler(handlers=LOAD_POST, body=loaded),
-                UpdateHandler(
+                Handler(handlers=bpy.app.handlers.load_post, body=loaded),
+                Handler(
                     handlers=bpy.app.handlers.depsgraph_update_post,
-                    ids=(bpy.types.Scene, bpy.types.NodeTree, bpy.types.Image),
-                    body=lambda scene, _updates: Ok(later()) if identity.held[_FEED].wanted.filter(lambda request: request.scene == scene).is_some() else Ok(None),
+                    body=partial(
+                        updated,
+                        (bpy.types.Scene, bpy.types.NodeTree, bpy.types.Image),
+                        lambda scene, _updates: Ok(later()) if identity.held[_FEED].wanted.filter(lambda request: request.scene == scene).is_some() else Ok(None),
+                    ),
                 ),
             ))
 

@@ -104,7 +104,7 @@ internal static class ProcessLists {
     private const string Offset = "Offset";
     private const string Power = "Power";
     private const string Saturation = "Saturation";
-    private static readonly Seq<string> Descriptive = ["Description", "InputDescriptor", "OutputDescriptor", "Info"];
+    private static readonly FrozenSet<string> Descriptive = FrozenSet.Create(StringComparer.Ordinal, ["Description", "InputDescriptor", "OutputDescriptor", "Info"]);
 
     // --- [READS]
     internal static Fin<LutTable> ParseClf(string text) => Parse(LutFormat.Clf, text);
@@ -116,8 +116,8 @@ internal static class ProcessLists {
             .MapFail(error => error.Exception.Case is XmlException xml ? LutText.Misstated(format, xml.LineNumber) : error)
             .Bind(document => document.Root is { Name.LocalName: ProcessList } root
                 ? toSeq(root.Elements())
-                    .Filter(static node => !Marked(node, "bypass", "true") && !Descriptive.Exists(name => string.Equals(name, node.Name.LocalName, StringComparison.Ordinal)))
-                    .TraverseM(node => ProcessNode.TryGet(node.Name.LocalName, out ProcessNode? kind) && kind.Formats.Exists(held => held == format)
+                    .Filter(static node => !Marked(node, "bypass", "true") && !Descriptive.Contains(node.Name.LocalName))
+                    .Traverse(node => ProcessNode.TryGet(node.Name.LocalName, out ProcessNode? kind) && kind.Formats.Exists(held => held == format)
                         ? kind.Read(node, format)
                         : Unheld(node, format))
                     .As()
@@ -225,7 +225,7 @@ internal static class ProcessLists {
     private static Fin<LutTable> Indexed(XElement node, LutFormat format, float scale, int length, LutTable table) =>
         Child(node, "IndexMap").Match(
             Some: map =>
-                from entries in map.Value.Split(LutText.Blanks.ToCharArray(), StringSplitOptions.RemoveEmptyEntries) is [var first, var second]
+                from entries in map.Value.Split(LutText.Blanks, StringSplitOptions.RemoveEmptyEntries) is [var first, var second]
                     ? (from low in IndexEntry(first) from high in IndexEntry(second) select (Low: low, High: high)).ToFin(Malformed(map, format))
                     : Unheld(map, format)
                 select (LutTable)new LutTable.Sequence([
@@ -247,7 +247,7 @@ internal static class ProcessLists {
         };
 
     private static Fin<LogCurve> Logarithm(XElement node, LutFormat format, bool camera) =>
-        from bases in Children(node, LogParams).TraverseM(element => Decimal(element, format, LogBase)).As()
+        from bases in Children(node, LogParams).Traverse(element => Decimal(element, format, LogBase)).As()
         from logBase in bases.Somes().Distinct() switch {
             [] => Fin.Succ(2f),
             [> 0f and not 1f and var stated] => stated,
@@ -302,7 +302,7 @@ internal static class ProcessLists {
 
     private static Fin<Seq<T>> PerChannel<T>(XElement node, LutFormat format, string name, Func<XElement, Fin<T>> read, Option<T> unstated) =>
         Children(node, name)
-            .TraverseM(element =>
+            .Traverse(element =>
                 from channels in Attribute(element, Channel).Match(
                     Some: static letter => letter.Length is 1 && ChannelLetters.IndexOf(letter, StringComparison.OrdinalIgnoreCase) is var channel and >= 0 ? Some(Seq(channel)) : None,
                     None: static () => Some(Seq(0, 1, 2))).ToFin(Malformed(element, format))

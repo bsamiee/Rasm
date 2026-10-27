@@ -86,8 +86,7 @@ public static class Licensing {
                 IO.pure(productKey).Bind(validate)
                     .Map(static data => (ValidateResult.Success, data))
                     .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure((ValidateResult.ErrorHideMessage, new LicenseData())))
-                    .Catch(static error => error.IsExpected, static error => IO.pure((ValidateResult.ErrorShowMessage, new LicenseData { ErrorMessage = ErrorOps.Messages(error) })))
-                    .As(),
+                    .Catch(static error => error.IsExpected, static error => IO.pure((ValidateResult.ErrorShowMessage, new LicenseData { ErrorMessage = ErrorOps.Messages(error) }))),
                 (ValidateResult.ErrorShowMessage, new LicenseData()));
             return result;
         };

@@ -14,9 +14,9 @@ import msgspec
 from msgspec import UNSET, UnsetType
 
 from blender.bpy.commands import operators
-from blender.bpy.commands.calls import idname, Operation, Placed, ShelfPopup, Writer
+from blender.bpy.commands.calls import dotted, idname, Operation, Placed, ShelfPopup, Writer
 from blender.bpy.data.rna.conditions import Condition, holds
-from blender.bpy.data.rna.descriptors import Descriptor, Native, P_co, root_in, Struct, Value
+from blender.bpy.data.rna.descriptors import Descriptor, Native, P_co, rna, RnaPath, root_in, Struct, Value
 from blender.bpy.data.rna.snapshots import Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
@@ -24,7 +24,7 @@ from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.resources.icons import Glyph, Icons
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
-from blender.records.fields import Unit
+from blender.records.fields import Positive, Unit
 
 if typing.TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -111,7 +111,7 @@ class Member(msgspec.Struct, frozen=True, kw_only=True):
     """Property path rooted at its owner type."""
 
     root: type[Struct]
-    path: str
+    path: str | RnaPath
     reach: Option[Reach] = Nothing
 
     @overload
@@ -135,7 +135,7 @@ class Across(msgspec.Struct, frozen=True, kw_only=True):
     """Host member read across every owner of an edit scope."""
 
     scope: Scoped
-    path: str
+    path: str | RnaPath
 
     def resolved(self) -> Outcome[ResolvedMember]:
         """Resolves metadata on the scope's owner type."""
@@ -382,7 +382,7 @@ class Selector(Line, frozen=True, kw_only=True):
                 case Option(tag="some", some=operators.Command(key=key)):
                     return identity.name(bpy.types.Operator, key).map(lambda found: Some((name, found)))
                 case Option(tag="some", some=operation):
-                    return Ok(Some((name, operation.idname_py())))
+                    return Ok(Some((name, dotted(operation))))
                 case str():
                     return Ok(Some((name, value)))
                 case _:
@@ -658,8 +658,8 @@ class Spacer(Call, frozen=True, kw_only=True):
 class Sizing(msgspec.Struct, frozen=True, kw_only=True):
     """Layout scale and fixed width or height in interface units, zero units leaving the size to content."""
 
-    scale_x: Annotated[float, msgspec.Meta(gt=0.0)] = 1.0
-    scale_y: Annotated[float, msgspec.Meta(gt=0.0)] = 1.0
+    scale_x: Positive = 1.0
+    scale_y: Positive = 1.0
     ui_units_x: Annotated[float, msgspec.Meta(ge=0.0)] = 0.0
     ui_units_y: Annotated[float, msgspec.Meta(ge=0.0)] = 0.0
 
@@ -784,9 +784,9 @@ class Progress(Call, frozen=True, kw_only=True):
 # --- [BINDING]
 
 
-def refused(path: str, found: str, accepted: tuple[str, ...]) -> Faults:
-    """Returns choice fault for an unsupported binding."""
-    return (Fault(reason=RecordReason.OUTSIDE, subject=path, member=", ".join(accepted), cause=found),)
+def refused(path: str | RnaPath, found: str, accepted: tuple[str, ...]) -> Faults:
+    """Returns choice fault for an unsupported binding at host path text or a path."""
+    return Fault.of(RecordReason.OUTSIDE, path if isinstance(path, str) else rna(path), found, member=", ".join(accepted))
 
 
 def bound(bindings: tuple[tuple[Binding, Accept], ...], place: Callable[[tuple[ResolvedMember, ...]], RowDraw]) -> Outcome[RowDraw]:

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
 
@@ -94,7 +95,7 @@ public static class ReferenceCalculations {
 
     // --- [MATRIX_CALCULATIONS]
     public static IEnumerable<(int Row, int Col)> MatrixIndices(int rows, int cols) =>
-        Enumerable.Range(0, rows * cols).Select(idx => (Row: idx / cols, Col: idx % cols));
+        from row in Enumerable.Range(0, rows) from col in Enumerable.Range(0, cols) select (Row: row, Col: col);
     public static double MatrixProductEntry(int width, Func<int, int, double> left, Func<int, int, double> right, int row, int column) =>
         Dot(width, index => left(row, index), index => right(index, column));
     public static double Determinant(int n, Func<int, int, double> at) =>

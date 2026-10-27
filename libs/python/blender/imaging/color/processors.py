@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from enum import auto, Enum
+from functools import partial
 from typing import Annotated, Final, Self
 
 from expression import Error, identity, Nothing, Ok, Option, Some
@@ -58,24 +59,20 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
         def discovered(name: str) -> Outcome[Option[tuple[Self, PyOpenColorIO.Processor]]]:
             candidate = cls(display=display, view=name)
             return (
-                Option
-                .of_optional(
-                    next(
-                        (
-                            PyOpenColorIO.GroupTransform([source], direction=direction)
-                            for native in Option.of_optional(config.getViewTransform(config.getDisplayViewTransformName(display, name))).to_list()
-                            if native.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_SCENE and not config.getDisplayViewLooks(display, name)
-                            for space in candidate.colorspace(config).to_list()
-                            if space.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_DISPLAY and not space.isData()
-                            for side, direction in (
-                                (PyOpenColorIO.VIEWTRANSFORM_DIR_FROM_REFERENCE, PyOpenColorIO.TRANSFORM_DIR_FORWARD),
-                                (PyOpenColorIO.VIEWTRANSFORM_DIR_TO_REFERENCE, PyOpenColorIO.TRANSFORM_DIR_INVERSE),
-                            )
-                            for source in Option.of_optional(native.getTransform(side)).to_list()
-                        ),
-                        None,
+                Block
+                .of_seq(
+                    PyOpenColorIO.GroupTransform([source], direction=direction)
+                    for native in Option.of_optional(config.getViewTransform(config.getDisplayViewTransformName(display, name))).to_list()
+                    if native.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_SCENE and not config.getDisplayViewLooks(display, name)
+                    for space in candidate.colorspace(config).to_list()
+                    if space.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_DISPLAY and not space.isData()
+                    for side, direction in (
+                        (PyOpenColorIO.VIEWTRANSFORM_DIR_FROM_REFERENCE, PyOpenColorIO.TRANSFORM_DIR_FORWARD),
+                        (PyOpenColorIO.VIEWTRANSFORM_DIR_TO_REFERENCE, PyOpenColorIO.TRANSFORM_DIR_INVERSE),
                     )
+                    for source in Option.of_optional(native.getTransform(side)).to_list()
                 )
+                .try_head()
                 .map(
                     lambda request: paired(
                         processor(config, request).map(lambda built: built.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()), candidate.transform(config)
@@ -163,7 +160,7 @@ def lin_to_log() -> PyOpenColorIO.LogCameraTransform:
 def called[**P, T](call: Callable[P, T], subject: str, *args: P.args, **kwargs: P.kwargs) -> Outcome[T]:
     """Returns the value of one OCIO call, or color fault naming `subject` for either OCIO exception class."""
     return catch(catch(call, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(*args, **kwargs).map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
-        lambda error: (Fault(reason=ImagingReason.COLOR, subject=subject, cause=error),)
+        partial(Fault.of, ImagingReason.COLOR, subject)
     )
 
 
@@ -190,7 +187,7 @@ def basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.fl
             case (PyOpenColorIO.MatrixTransform() as op,) if not any(op.getOffset()) and np.isfinite(values := np.asarray(op.getMatrix(), dtype=np.float64).reshape(4, 4)[:3, :3]).all():
                 return Ok(values)
             case _:
-                return Error((Fault(reason=ImagingReason.BASIS, subject=space, member=str(group)),))
+                return Error(Fault.of(ImagingReason.BASIS, space, member=str(group)))
 
     return processor(config, xyz(config, space)).map(lambda built: built.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()).bind(held)
 
@@ -198,16 +195,12 @@ def basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.fl
 def rendering_basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.float64]]:
     """Returns the RGB-to-XYZ basis of `space` when its primaries hold positive luminance and one white sign with an invertible white-normalized matrix, else base fault."""
 
+    @np.errstate(all="ignore")
     def held(values: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
-        with np.errstate(all="ignore"):
-            sums = values.sum(axis=0)
-            normalized = values / sums
-            signed = (values[1] > 0.0).all() and ((sums > 0.0).all() or (sums < 0.0).all()) and np.isfinite(sums.sum()) and np.isfinite(values.sum(axis=1)).all()
-        return (
-            Ok(values)
-            if signed and np.isfinite(normalized).all() and abs(np.linalg.slogdet(normalized).sign) == 1.0
-            else Error((Fault(reason=ImagingReason.BASIS, subject=space, member=str(matrix(values))),))
-        )
+        sums = values.sum(axis=0)
+        normalized = values / sums
+        signed = (values[1] > 0.0).all() and ((sums > 0.0).all() or (sums < 0.0).all()) and np.isfinite(sums.sum()) and np.isfinite(values.sum(axis=1)).all()
+        return Ok(values) if signed and np.isfinite(normalized).all() and abs(np.linalg.slogdet(normalized).sign) == 1.0 else Error(Fault.of(ImagingReason.BASIS, space, member=str(matrix(values))))
 
     return basis(config, space).bind(held)
 
@@ -219,13 +212,13 @@ def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[
     def solved(values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         return np.asarray(np.linalg.solve(values, tristimulus.T).T, dtype=np.float64)
 
+    @np.errstate(all="ignore")
     def normalized(weights: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
-        with np.errstate(all="ignore"):
-            integral = weights.sum(axis=0)
+        integral = weights.sum(axis=0)
         held = np.isfinite(weights).all() and np.isfinite(integral).all() and (integral != 0.0).all()
-        return Ok(weights / integral) if held else Error((Fault(reason=ImagingReason.SPECTRAL, subject=space, member=str(integral)),))
+        return Ok(weights / integral) if held else Error(Fault.of(ImagingReason.SPECTRAL, space, member=str(integral)))
 
-    return basis(config, space).bind(lambda values: solved(values).map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=str(values), cause=error),))).bind(normalized)
+    return basis(config, space).bind(lambda values: solved(values).map_error(partial(Fault.of, RecordReason.NUMERIC, str(values)))).bind(normalized)
 
 
 def luma(config: PyOpenColorIO.Config) -> Outcome[npt.NDArray[np.float64]]:

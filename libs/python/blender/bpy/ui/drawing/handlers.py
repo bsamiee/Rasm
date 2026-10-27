@@ -1,28 +1,27 @@
 """Draw callbacks with cached reads, owned refreshes, and scoped draw handles."""
 
 from collections.abc import Callable, Generator
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager, ExitStack, nullcontext
 from functools import partial
 from itertools import chain
 from typing import Final, Literal, Protocol, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Some
+from expression.extra.result import catch
 import gpu
 import msgspec
 
 from blender.bpy.data.rna.conditions import AllOf, Setting
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.extension.events.handlers import Change, SceneHandler, UpdateHandler
-from blender.bpy.extension.events.subscriptions import Subscription
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.events import Change, Handler, Subscription, updated
+from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.drawing.canvas import Canvas, PROGRAMS
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
-from blender.records.faults import accumulated, Fault, Faults, Outcome
+from blender.records.faults import accumulated, Fault, Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -88,7 +87,8 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
             """Invalidates held read and redraws matching areas."""
             nonlocal held
             held = Nothing
-            for located in self.area.located(bpy.context.window_manager.windows):  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            for located in self.area.located(manager.windows):
                 located.area.tag_redraw()
             return Ok(None)
 
@@ -165,7 +165,7 @@ class Signal:
         return accumulated(refresh() for refresh in self.refreshes).map(lambda _: None)
 
 
-LOADS: Final = Scoped[int](made=lambda _identity: nullcontext(0), renewed=Some(lambda count: count + 1))
+LOADS: Final = Resource[int](made=lambda _identity: nullcontext(0), renewed=Some(lambda count: count + 1))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -192,15 +192,13 @@ def hooked(space: type[bpy.types.Space], callback: Callable[[], None], region: "
     Yields:
         Ok(None) while the handle draws, register fault for a region or phase the space refuses.
     """
-    try:
-        handle = space.draw_handler_add(callback, (), region, draw_type)
-    except TypeError as error:
-        yield Result[None, Faults].Error((Fault(reason=BlenderReason.UNREGISTERED, subject=f"{space.__name__}, {region}, {draw_type}", cause=error),))
-    else:
-        try:
-            yield Result[None, Faults].Ok(None)
-        finally:
-            space.draw_handler_remove(handle, region)
+    with ExitStack() as stack:
+        yield (
+            catch(space.draw_handler_add, exception=TypeError)(callback, (), region, draw_type)
+            .map(lambda handle: stack.callback(space.draw_handler_remove, handle, region))
+            .map(lambda _: None)
+            .map_error(lambda error: (Fault(reason=BlenderReason.UNREGISTERED, subject=f"{space.__name__}, {region}, {draw_type}", cause=error),))
+        )
 
 
 def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Callable[[], Outcome[None]]) -> Outcome[Acquisitions]:
@@ -234,11 +232,11 @@ def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Ca
             case Watch(owner=owner, identifier=identifier):
                 return Descriptor.resolve(owner, identifier, bpy.types.Property).map(lambda found: (Subscription(owner=owner, setting=found.prop, body=refreshed),))
             case Updated(handlers=handlers, ids=ids, changes=changes):
-                return Ok((UpdateHandler(handlers=handlers, ids=ids, body=deferring, changes=changes),))
+                return Ok((Handler(handlers=handlers, body=partial(updated, ids, deferring, changes=changes)),))
             case Signal() as signal:
                 return Ok(((Band.DRAW_HANDLERS, signal.followed(refreshed)),))
             case list():
-                return Ok((SceneHandler(handlers=refresh, body=deferring),))
+                return Ok((Handler(handlers=refresh, body=deferring),))
 
     return accumulated(map(followed, refreshes)).map(lambda rows: ((Band.DRAW_HANDLERS, deferred()), *chain.from_iterable(rows)))
 

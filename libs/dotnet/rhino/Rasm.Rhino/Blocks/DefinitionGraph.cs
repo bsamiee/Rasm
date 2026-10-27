@@ -1,12 +1,12 @@
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.TopologicalSort;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Persistence;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Persistence;
 using Rhino;
 using Rhino.DocObjects;
 
-namespace Rasm.Rhino.Blocks;
+namespace Rasm.RhinoCommon.Blocks;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record MemberReference(Guid Container, Guid Member, Guid Definition);
@@ -18,14 +18,14 @@ public sealed record DefinitionGraph(ArrayBidirectionalGraph<Guid, SEquatableEdg
         Nesting.CondensateStronglyConnected<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>() switch {
             var components => toSeq(components.Vertices).Filter(static component => component.EdgeCount > 0)
                 .Map(static component => toSeq(component.Vertices).Strict()).Strict() is { IsEmpty: false } cycles
-                    ? Error.New($"definitions {cycles} form nesting cycles")
+                    ? new RhinoFault($"nesting of {cycles}", RhinoReason.Repeated)
                     : toSeq(components.SourceFirstBidirectionalTopologicalSort()).Bind(static component => toSeq(component.Vertices)).Strict(),
         };
 
-    public Seq<Guid> Removable(LanguageExt.HashSet<Guid> stale) =>
+    public Seq<Guid> Removable(HashSet<Guid> stale) =>
         Nesting.CondensateStronglyConnected<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>() switch {
             var components => toSeq(components.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward)).Fold(
-                (Components: LanguageExt.HashSet<AdjacencyGraph<Guid, SEquatableEdge<Guid>>>.Empty, Vertices: Seq<Guid>()), (removable, component) =>
+                (Components: HashSet<AdjacencyGraph<Guid, SEquatableEdge<Guid>>>(), Vertices: Seq<Guid>()), (removable, component) =>
                     component.Vertices.All(id => stale.Contains(id) && !Placements.ContainsKey(id)) && components.OutEdges(component).All(edge => removable.Components.Contains(edge.Target))
                         ? (removable.Components.Add(component), [.. removable.Vertices, .. component.Vertices])
                         : removable).Vertices,

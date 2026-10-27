@@ -102,11 +102,6 @@ class FreestyleSection(Line, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def kept[H, W](held: Iterable[H], wanted: Iterable[W], same: Callable[[H, W], bool]) -> int:
-    """Returns the length of the prefix where held and wanted items pair as the same."""
-    return sum(1 for _ in itertools.takewhile(lambda pair: same(*pair), zip(held, wanted)))
-
-
 def used(scene: bpy.types.Scene) -> tuple[bpy.types.ViewLayer, ...]:
     """Returns scene layers with `use` on."""
     return tuple(layer for layer in scene.view_layers if bool(_USE.read(layer)))
@@ -130,42 +125,43 @@ def captured(layer: bpy.types.ViewLayer) -> Outcome[Freestyle]:
     return paired(Snapshot.capture(settings, Some(_SETTINGS)), accumulated(map(lineset, settings.linesets))).map(lambda pair: Freestyle(settings=pair[0], linesets=pair[1]))
 
 
-def styled(row: LineStyle, style: bpy.types.FreestyleLineStyle) -> Outcome[Applied]:
-    """Matches line style modifiers to captured ones, then applies captured values."""
-
-    def stacked(stack: Descriptor[bpy.types.CollectionProperty], kinds: tuple[str, ...]) -> Outcome[None]:
-        identifier = stack.prop.identifier
-        held = getattr(style, identifier)
-        wanted = row.modifiers.get(identifier, ())
-        count = kept(held, wanted, lambda modifier, desired: (modifier.name, modifier.type) == (desired.name, desired.kind))
-
-        def removed(modifier: bpy.types.LineStyleModifier) -> Outcome[None]:
-            return catch(held.remove, exception=RuntimeError)(modifier).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(style), cause=error),))
-
-        def added(modifier: StyleModifier) -> Outcome[None]:
-            return (
-                catch(held.new, exception=RuntimeError)(name=modifier.name, type=modifier.kind)
-                .map(lambda _: None)
-                .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{style!r}.{identifier}", cause=error),))
-                if modifier.kind in kinds
-                else Error((Fault(reason=RecordReason.OUTSIDE, subject=f"{style!r}.{identifier}", member=", ".join(kinds), cause=modifier.kind),))
-            )
-
-        return accumulated(map(removed, tuple(held)[count:])).bind(lambda _: accumulated(map(added, wanted[count:]))).map(lambda _: None)
-
-    def written() -> Outcome[Applied]:
-        applied = row.values.apply(style)
-        return applied.outcome.map(lambda _: applied)
-
-    return accumulated(itertools.starmap(stacked, _STACKS.items())).bind(lambda _: written())
-
-
 def applied(freestyle: Freestyle, layer: bpy.types.ViewLayer, identity: Identity) -> Outcome[Applied]:
     """Writes Freestyle settings onto layer, then reconciles line sets by name in order."""
+
+    def kept[H, W](held: Iterable[H], wanted: Iterable[W], same: Callable[[H, W], bool]) -> int:
+        return sum(1 for _ in itertools.takewhile(lambda pair: same(*pair), zip(held, wanted)))
+
     linesets = layer.freestyle_settings.linesets
     wanted = tuple(row.name for row in freestyle.linesets)
     prefix = wanted[: kept((held.name for held in linesets), wanted, lambda current, desired: current == desired)]
     ownership = FreestyleSection.ownership
+
+    def styled(row: LineStyle, style: bpy.types.FreestyleLineStyle) -> Outcome[Applied]:
+        def stacked(stack: Descriptor[bpy.types.CollectionProperty], kinds: tuple[str, ...]) -> Outcome[None]:
+            identifier = stack.prop.identifier
+            held = getattr(style, identifier)
+            wanted = row.modifiers.get(identifier, ())
+            count = kept(held, wanted, lambda modifier, desired: (modifier.name, modifier.type) == (desired.name, desired.kind))
+
+            def removed(modifier: bpy.types.LineStyleModifier) -> Outcome[None]:
+                return catch(held.remove, exception=RuntimeError)(modifier).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(style), cause=error),))
+
+            def added(modifier: StyleModifier) -> Outcome[None]:
+                return (
+                    catch(held.new, exception=RuntimeError)(name=modifier.name, type=modifier.kind)
+                    .map(lambda _: None)
+                    .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{style!r}.{identifier}", cause=error),))
+                    if modifier.kind in kinds
+                    else Error((Fault(reason=RecordReason.OUTSIDE, subject=f"{style!r}.{identifier}", member=", ".join(kinds), cause=modifier.kind),))
+                )
+
+            return accumulated(map(removed, tuple(held)[count:])).bind(lambda _: accumulated(map(added, wanted[count:]))).map(lambda _: None)
+
+        def written() -> Outcome[Applied]:
+            applied = row.values.apply(style)
+            return applied.outcome.map(lambda _: applied)
+
+        return accumulated(itertools.starmap(stacked, _STACKS.items())).bind(lambda _: written())
 
     def built(row: LineSet) -> Outcome[Applied]:
         held = Option.of_optional(linesets.get(row.name)).default_with(lambda: linesets.new(row.name))
@@ -228,4 +224,4 @@ COPY: Final = Operator(form=Empty, run=freestyle_copy)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["COPY", "Freestyle", "FreestyleSection", "LineSet", "LineStyle", "StyleModifier", "applied", "captured", "freestyle_copy", "kept", "onto", "styled", "used"]
+__all__ = ["COPY", "Freestyle", "FreestyleSection", "LineSet", "LineStyle", "StyleModifier", "applied", "captured", "freestyle_copy", "onto", "used"]

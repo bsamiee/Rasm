@@ -15,7 +15,6 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
-using SixLabors.ImageSharp.PixelFormats;
 using TinyEXR;
 
 namespace Rasm.Imaging.Filtering;
@@ -54,7 +53,7 @@ public sealed partial class Iris {
                 return 1d / (1d - obstruction);
             (double left, double right, double top, double bottom) = (x - (squeeze / 2d), x + (squeeze / 2d), y - 0.5d, y + 0.5d);
             double[] angles = [0d, double.Pi / 2d, double.Pi, 3d * double.Pi / 2d, double.Tau, .. blades, Bearing(left, top), Bearing(left, bottom), Bearing(right, top), Bearing(right, bottom)];
-            System.Array.Sort(angles);
+            angles.AsSpan().Sort();
             double area = 0d;
             for (int i = 1; i < angles.Length; i++)
                 area += Integrate.GaussKronrod(Section, angles[i - 1], angles[i]);
@@ -177,8 +176,8 @@ public sealed class PointSpread : VectorOfMat {
     });
 
     public static PointSpread Diffraction(Iris pupil, double airy, PixelExtent size, PixelExtent canvas, Gamut working) => new([0, 1, 2], size, spread => {
-        const decimal reference = 550m;
-        const decimal firstZero = 1.22m;
+        const double reference = 550d;
+        const double firstZero = 1.22d;
         Arr<(float Wavelength, Vector3 Matching)> rows = StandardObserver.Matching(working);
         Vector3 total = rows.Fold(Vector3.Zero, static (sum, row) => sum + row.Matching);
         int grid = 2 * CvInvoke.GetOptimalDFTSize(int.Max(canvas.Width, canvas.Height));
@@ -202,7 +201,7 @@ public sealed class PointSpread : VectorOfMat {
         ReadOnlySpan2D<double> samples = energy.View<double>();
         Span2D<double> light = dilated.View<double>();
         foreach ((float wavelength, Vector3 matching) in rows) {
-            double step = (double)(reference * firstZero) * pupil.Circumradius / airy / wavelength / grid;
+            double step = reference * firstZero * pupil.Circumradius / airy / wavelength / grid;
             (double Phase, double Footprint)[] across = [.. Enumerable.Range(0, kernel.Width).Select(x => Cell(step, x - center.X))];
             (double Phase, double Footprint)[] down = [.. Enumerable.Range(0, kernel.Height).Select(y => Cell(step, y - center.Y))];
             for (int y = 0; y < light.Height; y++) {
@@ -487,9 +486,8 @@ public static class Bokeh {
 
     public static PixelPass.Frame Gathered(Iris iris, double fringe, Func<Mat, Mat, PixelFrame, Fin<Unit>> field) =>
         new((frame, progress) => frame.Filter(_ => {
-            using Mat source = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4);
+            using Mat source = frame.Premultiplied();
             using Mat radii = Mat.Zeros(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 1);
-            PixelOperations<RgbaVector>.Instance.ToVector4(SixLabors.ImageSharp.Configuration.Default, frame.Block.Cast<float, RgbaVector>(), source.GetSpan<Vector4>(), PixelConversionModifiers.Premultiply);
             return field(source, radii, frame).Bind(_ => {
                 radii.MinMax(out double[] least, out double[] most, out Point[] _, out Point[] _);
                 (float circumradius, float near) = (iris.Circumradius, float.Max(0f, -(float)least[0]));
@@ -512,7 +510,7 @@ public static class Bokeh {
                                 (sum, total) = (sum + (weights * Vector256.Create(pixel.X, pixel.Y, pixel.Z, pixel.W)), total + weights);
                             }
                         }
-                        row[x] = Vector256.Narrow(sum / total, Vector256<double>.Zero).GetLower().AsVector4() switch { { W: > 0f } mean => new(mean.AsVector3() / mean.W, mean.W), _ => Vector4.Zero };
+                        row[x] = Vector256.Narrow(sum / total, Vector256<double>.Zero).GetLower().AsVector4().Unassociated;
                     }
                 }).Run(frame, progress);
             });

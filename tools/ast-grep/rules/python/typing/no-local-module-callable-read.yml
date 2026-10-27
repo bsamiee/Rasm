@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-local-module-callable-read
+language: python
+severity: error
+utils:
+    imported-root:
+        kind: identifier
+        pattern: $ROOT
+        inside:
+            kind: module
+            stopBy: end
+            has:
+                kind: 'import_statement, import_from_statement'
+                has: {stopBy: end, kind: identifier, pattern: $ROOT, not: {inside: {kind: dotted_name, field: module_name}}}
+    module-member:
+        any:
+            - matches: imported-root
+            - kind: attribute
+              has: {field: object, matches: module-member}
+rule:
+    kind: expression_statement
+    all:
+        - has:
+            kind: assignment
+            all:
+                - has: {field: left, kind: identifier, pattern: $NAME}
+                - has: {field: type, regex: '^Callable\['}
+                - has: {field: right, pattern: $MEMBER, matches: module-member}
+        - inside: {kind: function_definition, stopBy: end}
+message: 'Local `$NAME` retypes module member `$MEMBER` on every call'
+note: 'Declare `<NAME>: Final[Callable[...]] = $MEMBER` once at module scope, under the suppression its stub needs, and call it'

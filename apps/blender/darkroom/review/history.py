@@ -24,10 +24,9 @@ from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.timers import Timer
-from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, Band, Registrable
-from blender.bpy.extension.scoped import Scoped
+from blender.bpy.extension.events import Timer
+from blender.bpy.extension.identity import Identity, Resource
+from blender.bpy.extension.registration import Acquisitions, Band, Declaration
 from blender.bpy.faults import BlenderReason
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.outputs.exports import combined
@@ -104,16 +103,26 @@ class _Noting(bpy.types.PropertyGroup):
     note: bpy.props.StringProperty(name="Note", description="Stored render note")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class _Served(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Renders the extension last read or wrote, and the browser rows Blender last read, replaced whole."""
-
-    renders: Option[Renders] = Nothing
-    rows: tuple[_Row, ...] = ()
-
-
 # --- [SERVICES] -------------------------------------------------------------------------
 
-_SERVED: Final = Scoped[_Served](made=lambda _identity: nullcontext(_Served()))
+
+class _Served:
+    """Renders the extension last read or wrote, and the browser rows Blender last read."""
+
+    __slots__ = ("renders", "rows")
+
+    def __init__(self) -> None:
+        """Holds no renders and no rows."""
+        self.renders: Option[Renders] = Nothing
+        self.rows: tuple[_Row, ...] = ()
+
+    def filled(self, renders: Renders) -> Renders:
+        """Serves renders read or written, returning them."""
+        self.renders = Some(renders)
+        return renders
+
+
+_SERVED: Final = Resource[_Served](made=lambda _identity: nullcontext(_Served()))
 
 
 class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -160,11 +169,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 case _:
                     return Error(faults)
 
-        def filled(renders: Renders) -> Renders:
-            _SERVED.held[identity.package] = msgspec.structs.replace(identity.held[_SERVED], renders=Some(renders))
-            return renders
-
-        return served.renders.map(Ok).default_with(lambda: Result[Renders, Faults].or_else_with(HistoryStore.record(identity).read(), absent).map(filled))
+        return served.renders.map(Ok).default_with(lambda: Result[Renders, Faults].or_else_with(HistoryStore.record(identity).read(), absent).map(served.filled))
 
     @staticmethod
     def kept(identity: Identity, before: Renders, after: Renders) -> Outcome[None]:
@@ -180,10 +185,12 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             frame, values = HistoryStore.files(identity, key)
             return accumulated(map(unlinked, (frame, values.path))).bind(lambda _: identity.held[PREVIEWS].dropped(key.hex()))
 
-        def served(_: Path) -> None:
-            _SERVED.held[identity.package] = msgspec.structs.replace(identity.held[_SERVED], renders=Some(current))
-
-        return Result[Path, Faults].map(HistoryStore.record(identity).written(current), served).bind(lambda _: accumulated(map(erased, dropped))).map(lambda _: None)
+        return (
+            Result[Path, Faults]
+            .map(HistoryStore.record(identity).written(current), lambda _: identity.held[_SERVED].filled(current))
+            .bind(lambda _: accumulated(map(erased, dropped)))
+            .map(lambda _: None)
+        )
 
     # --- [BROWSING]
 
@@ -315,7 +322,8 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             key=content_hash(HistoryStore, PreviewKey.read(key, scale)),
             rank=Rank.SHOWN,
             run=lambda: (
-                identity.held[PREVIEWS]
+                identity
+                .held[PREVIEWS]
                 .tile(key.hex(), key, lambda side: plane.map(Ok).default_with(lambda: self.output(identity, key)).bind(lambda found: fitted(found, side)).map(lambda pixels: Some(Some(pixels))), scale)
                 .map(lambda _: None)
             ),
@@ -481,7 +489,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     # --- [REGISTRATION]
 
     @property
-    def prerequisites(self) -> tuple[Registrable, ...]:
+    def prerequisites(self) -> tuple[Declaration, ...]:
         """Served renders cell."""
         return (_SERVED,)
 
@@ -501,7 +509,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 for renders in identity.reports.reported(self.held)(identity).to_list()
                 for index, entry in enumerate(renders.history.past, 1)
             )
-            _SERVED.held[identity.package] = msgspec.structs.replace(identity.held[_SERVED], rows=rows)
+            identity.held[_SERVED].rows = rows
             return rows
 
         _Browsing.__annotations__["shown"].keywords["items"] = listed

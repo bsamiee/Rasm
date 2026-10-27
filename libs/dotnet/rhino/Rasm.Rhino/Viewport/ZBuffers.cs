@@ -2,7 +2,7 @@ using System.Drawing;
 using Rhino.Display;
 using Rhino.Runtime;
 
-namespace Rasm.Rhino.Viewport;
+namespace Rasm.RhinoCommon.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
@@ -32,16 +32,17 @@ public sealed class ZBuffer {
 
     public IO<Option<ZBufferRange>> Range => IO.lift(() => Some(new ZBufferRange(capture.HitCount(), capture.MinZ(), capture.MaxZ())).Filter(static range => range.Hits > 0));
 
-    public IO<Bitmap> Grayscale => IO.lift(() => Refused.UnlessFound(capture.GrayscaleDib(), nameof(ZBufferCapture.GrayscaleDib)));
+    public IO<Bitmap> Grayscale => IO.lift(() => Conversions.Found(capture.GrayscaleDib()));
 
     public IO<Seq<ZBufferSample>> Samples(Seq<System.Drawing.Point> pixels) =>
-        IO.lift(() => Callbacks.Each(pixels, frame.Contains, nameof(ZBufferCapture.WorldPointAt))
+        IO.lift(() => Callbacks.Each(pixels, (pixel, index) => RhinoFault.Unless(frame.Contains(pixel), index))
             .Map(_ => pixels.Map(pixel => new ZBufferSample(pixel, capture.ZValueAt(pixel.X, pixel.Y), capture.WorldPointAt(pixel.X, pixel.Y))).Strict()));
 
-    public static IO<TValue> Capture<TValue>(RhinoViewport viewport, Option<Guid> mode, LanguageExt.HashSet<ZBufferChannel> shown, Func<ZBuffer, IO<TValue>> body) =>
-        DisposalOps.Within(static () => new RiskyAction(nameof(ZBufferCapture)), _ => DisposalOps.Within(() => new ZBufferCapture(viewport), capture =>
-            from moded in IO.lift(() => mode.Iter(capture.SetDisplayMode))
-            from channels in IO.lift(() => toSeq(ZBufferChannel.Items).Iter(channel => channel.Show(capture, shown.Contains(channel))))
-            from value in body(new ZBuffer(capture, new Rectangle(System.Drawing.Point.Empty, viewport.Size)))
-            select value));
+    public static IO<TValue> Capture<TValue>(RhinoViewport viewport, Option<Guid> mode, HashSet<ZBufferChannel> shown, Func<ZBuffer, IO<TValue>> body) =>
+        (from risky in use(static () => new RiskyAction(nameof(ZBufferCapture)))
+         from capture in use(() => new ZBufferCapture(viewport))
+         from moded in IO.lift(() => mode.Iter(capture.SetDisplayMode))
+         from channels in IO.lift(() => toSeq(ZBufferChannel.Items).Iter(channel => channel.Show(capture, shown.Contains(channel))))
+         from value in body(new ZBuffer(capture, new Rectangle(System.Drawing.Point.Empty, viewport.Size)))
+         select value).Bracket();
 }

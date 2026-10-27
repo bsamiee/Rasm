@@ -1,7 +1,9 @@
 """Desired node graphs, graph content, owned groups, the graph expression algebra lowering onto them, and its Array API namespace."""
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+import functools
 import inspect
+import itertools
 from types import MappingProxyType
 import typing
 from typing import Final, Literal, TYPE_CHECKING
@@ -15,7 +17,7 @@ from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
 from blender.bpy.data.ids.images import ImageFrames, Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
-from blender.bpy.data.rna.descriptors import Descriptor, member_path, Value
+from blender.bpy.data.rna.descriptors import Descriptor, RnaPath, Value
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
@@ -119,23 +121,23 @@ class Node(msgspec.Struct, frozen=True, kw_only=True):
     """Desired node with socket values by address."""
 
     kind: type[bpy.types.Node]
-    members: Mapping[Descriptor, Value] = msgspec.field(default_factory=dict)
-    inputs: Mapping[str | int, Value] = msgspec.field(default_factory=dict)
-    outputs: Mapping[str | int, Value] = msgspec.field(default_factory=dict)
+    members: Mapping[Descriptor, Value] = MappingProxyType({})
+    inputs: Mapping[str | int, Value] = MappingProxyType({})
+    outputs: Mapping[str | int, Value] = MappingProxyType({})
     content: Option[Content] = Nothing
 
 
 class FrameNode(msgspec.Struct, frozen=True, kw_only=True):
     """Frame node members and framed nodes."""
 
-    members: Mapping[Descriptor, Value] = msgspec.field(default_factory=dict)
-    nodes: Mapping[Key, "Node | FrameNode"] = msgspec.field(default_factory=dict)
+    members: Mapping[Descriptor, Value] = MappingProxyType({})
+    nodes: Mapping[Key, "Node | FrameNode"] = MappingProxyType({})
 
 
 class Fragment(msgspec.Struct, frozen=True, kw_only=True):
     """Keyed nodes and links of a partial graph."""
 
-    nodes: Mapping[Key, Node | FrameNode] = msgspec.field(default_factory=dict)
+    nodes: Mapping[Key, Node | FrameNode] = MappingProxyType({})
     links: tuple[Link, ...] = ()
 
     @staticmethod
@@ -149,10 +151,12 @@ class Fragment(msgspec.Struct, frozen=True, kw_only=True):
             `Ok` of joined fragment. `Error` of `edit` per key holding different nodes.
         """
         held = tuple(fragments)
-        claims: dict[Key, list[Node | FrameNode]] = {}
-        for key, item in ((key, item) for fragment in held for key, item in fragment.nodes.items()):
-            if item not in claims.setdefault(key, []):
-                claims[key].append(item)
+        pairs = tuple((key, item) for fragment in held for key, item in fragment.nodes.items())
+        first = {key: index for index, key in enumerate(dict.fromkeys(key for key, _ in pairs))}
+        claims: dict[Key, tuple[Node | FrameNode, ...]] = {
+            key: functools.reduce(lambda distinct, item: distinct if item in distinct else (*distinct, item), (item for _, item in run), ())
+            for key, run in itertools.groupby(sorted(pairs, key=lambda pair: first[pair[0]]), key=lambda pair: pair[0])
+        }
         return accumulated(
             Ok((key, first)) if not rest else Error((Fault(reason=BlenderReason.REFUSED, subject=f"Fragment.nodes[{key!r}]", cause=ValueError(f"{len(rest) + 1} different nodes share key {key!r}")),))
             for key, (first, *rest) in claims.items()
@@ -169,7 +173,7 @@ class Expr(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     kind: type[bpy.types.Node]
     inputs: tuple[tuple[str | int, Term], ...] = ()
-    members: tuple[tuple[str, Value], ...] = ()
+    members: tuple[tuple[str | RnaPath, Value], ...] = ()
     content: Option[Content] = Nothing
     socket: str | int = "Value"
     shape: DataType = "FLOAT"
@@ -386,8 +390,8 @@ class Graph(msgspec.Struct, frozen=True, kw_only=True):
     """Desired contents of one node tree."""
 
     kind: type[GraphTree]
-    members: Mapping[Descriptor, Value] = msgspec.field(default_factory=dict)
-    nodes: Mapping[Key, Node | FrameNode] = msgspec.field(default_factory=dict)
+    members: Mapping[Descriptor, Value] = MappingProxyType({})
+    nodes: Mapping[Key, Node | FrameNode] = MappingProxyType({})
     links: tuple[Link, ...] = ()
 
     @property
@@ -479,7 +483,7 @@ class NodeGroup(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Group node expression in the output socket's shape.
         """
-        socket = next(socket for socket in self.interface.outputs if socket.key == output)
+        socket = {socket.key: socket for socket in self.interface.outputs}[output]
         return Expr(kind=GROUP_NODES[self.graph.kind], inputs=tuple(inputs.items()), content=Some(Nested(group=self)), socket=output, shape=_SHAPES[socket.kind])
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
@@ -725,7 +729,7 @@ def lowered(tree: type[GraphTree], *roots: Expr) -> Outcome[Fragment]:
     keys: dict[Expr, Key] = {}
     held: dict[Key, Expr] = {}
     parts: list[Outcome[Fragment]] = []
-    walk: list[Link | tuple[Expr, int]] = []
+    walk: list[Link | tuple[Expr | End, End]] = []
 
     def entry(term: Term) -> tuple[str | Value, ...]:
         match term:
@@ -743,7 +747,7 @@ def lowered(tree: type[GraphTree], *roots: Expr) -> Outcome[Fragment]:
             case Nested(group=group):
                 return group.key
             case FileItems(items=items):
-                return tuple((item.name, item.kind, tuple((member_path(held.owner, held.prop.identifier), value) for held, value in item.members.items())) for item in items)
+                return tuple((item.name, item.kind, tuple((held.path, value) for held, value in item.members.items())) for item in items)
             case Ramp() | CurvePoints() | Loaded() | MenuItems():
                 return content
 
@@ -763,7 +767,7 @@ def lowered(tree: type[GraphTree], *roots: Expr) -> Outcome[Fragment]:
             case None:
                 held[keys[expr]] = expr
                 parts.append(claimed(expr))
-                walk.append((expr, 0))
+                walk.extend((term, End(node=keys[expr], socket=address)) for address, term in reversed(expr.inputs) if isinstance(term, Expr | End))
             case first if first is not expr:
                 parts.append(claimed(expr))
             case _:
@@ -771,26 +775,15 @@ def lowered(tree: type[GraphTree], *roots: Expr) -> Outcome[Fragment]:
         for root in expr.kept:
             entered(root)
 
-    def linked(term: Term, target: End) -> None:
-        match term:
-            case Expr():
-                walk.append(Link(source=End(node=keys[term], socket=term.socket), target=target))
-                entered(term)
-            case End():
-                parts.append(Ok(Fragment(links=(Link(source=term, target=target),))))
-            case _:
-                pass
-
-    def stepped(item: Link | tuple[Expr, int]) -> None:
+    def stepped(item: Link | tuple[Expr | End, End]) -> None:
         match item:
             case Link():
                 parts.append(Ok(Fragment(links=(item,))))
-            case (expr, index) if index < len(expr.inputs):
-                address, term = expr.inputs[index]
-                walk.append((expr, index + 1))
-                linked(term, End(node=keys[expr], socket=address))
-            case _:
-                pass
+            case (Expr() as term, target):
+                walk.append(Link(source=End(node=keys[term], socket=term.socket), target=target))
+                entered(term)
+            case (End() as term, target):
+                parts.append(Ok(Fragment(links=(Link(source=term, target=target),))))
 
     pending = [(root, False) for root in roots]
     while pending:

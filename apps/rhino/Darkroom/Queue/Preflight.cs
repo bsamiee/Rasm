@@ -1,11 +1,11 @@
 using System.Globalization;
 using Darkroom.Chain;
-using Rasm.Rhino;
-using Rasm.Rhino.Blocks;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Objects;
-using Rasm.Rhino.Render.Settings;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Blocks;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Objects;
+using Rasm.RhinoCommon.Render.Settings;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
@@ -40,7 +40,7 @@ public abstract partial record PreflightFinding {
     }
 
     public sealed record FolderUnwritable(string Folder) : PreflightFinding {
-        public override Error Error => new FileRefused(Folder, FileReason.Unwritable);
+        public override Error Error => new RhinoFault(Folder, RhinoReason.Unwritable);
     }
 
     public sealed record SpaceLow(string Folder, long Free) : PreflightFinding {
@@ -119,7 +119,7 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
                     from links in Links.Closure(new LinkedModel.Opened(doc.RuntimeSerialNumber))
                     from style in Links.Style(doc).Read
                     from named in NamedEntry.Read(doc)
-                    from channels in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => DisposalOps.Within(() => scope.Settings.RenderChannels, static held => IO.lift(() => QueueEstimate.Channels(held))))
+                    from channels in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => (from held in use(() => scope.Settings.RenderChannels) select QueueEstimate.Channels(held)).Bracket())
                     from run in reach.Local ? QueueProgress.Observed(context).Map(static observed => Some(observed.State)) : IO.pure(Option<RunState>.None)
                     from host in IO.lift(Host.Read)
                     from disk in Measured(doc, plan, reach)
@@ -206,7 +206,7 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
                     PlugIn.PlugInExists(renderer, out _, out _),
                     RhinoApp.IsSafeModeEnabled,
                     SupportOptions.AutoSaveRenderings(),
-                    Callbacks.Found(Command.InCommand(), RhinoApp.CommandPrompt),
+                    Conversions.Found(Command.InCommand(), RhinoApp.CommandPrompt),
                     Conversions.Rows(RhinoDoc.OpenDocuments()).Filter(static open => open.Modified && Conversions.Present(open.Path).IsNone).Map(static open => open.RuntimeSerialNumber).Strict()),
             };
     }

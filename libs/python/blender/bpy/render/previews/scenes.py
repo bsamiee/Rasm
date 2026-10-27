@@ -21,7 +21,7 @@ import PyOpenColorIO
 from blender.bpy.data.ids.images import filled, Tag
 from blender.bpy.data.ids.ownership import kept, Mark, Ownership, Saved
 from blender.bpy.data.ids.store import IdName
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, Struct, struct_at, Value, written
+from blender.bpy.data.rna.descriptors import assigned, Descriptor, rna, Struct, struct_at, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
@@ -369,7 +369,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                     lambda held: (
                         struct_at(source, held.owner)
                         .map(lambda owner: (final, held.read(owner)))
-                        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(source), member=held.owner),))
+                        .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(source), member=rna(held.owner)))
                     )
                 )
                 for final, preview in ENGINE_SAMPLES.values()

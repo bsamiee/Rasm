@@ -9,31 +9,12 @@ utils:
         all:
             - has: {kind: parameter_list, pattern: $PARAMETERS, has: {kind: parameter}}
             - not: {has: {field: body, kind: declaration_list}}
-    type-parameter-value:
-        kind: parameter
-        has:
-            field: type
-            kind: identifier
-            pattern: $TYPE_PARAMETER
-            inside:
-                stopBy: end
-                kind: declaration_list
-                inside: {has: {kind: type_parameter_list, has: {kind: type_parameter, has: {field: name, pattern: $TYPE_PARAMETER}}}}
-    case-only-body:
-        kind: declaration_list
-        not: {has: {pattern: $_, not: {kind: 'record_declaration, class_declaration, comment'}}}
-    tag-only-case:
-        kind: record_declaration
-        all:
-            - not: {has: {kind: parameter_list, has: {kind: parameter, not: {matches: type-parameter-value}}}}
-            - inside: {matches: case-only-body}
 rule:
     kind: record_declaration
     all:
         - has: {field: name, pattern: $CASE}
         - matches: shaped-case
         - inside: {kind: declaration_list, inside: {matches: {thinktecture-union: {name: {kind: identifier}}}}}
-        - not: {matches: tag-only-case}
         - follows: {stopBy: end, matches: shaped-case}
 message: '`$CASE` repeats parameters `$PARAMETERS` of an earlier case, merge both into one record'
-note: 'Merge into one record of formula parameters or a data-holding smart enum item, type-parameter cases of memberless bases stay'
+note: 'Merge into one record keyed by a data-holding smart enum item, or of formula parameters; other-shape cases stay'

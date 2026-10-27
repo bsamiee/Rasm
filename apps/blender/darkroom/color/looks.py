@@ -99,7 +99,7 @@ class FormationLooks(msgspec.Struct, frozen=True, kw_only=True):
 
         def current(owner: Struct) -> int:
             look = scened(owner).map(lambda scene: shown(scene)[0].look).default_value(NO_LOOK)
-            return next((row[4] for row in offered(owner, None) if row[0] == look), 0)
+            return next((index for index, name in enumerate((NO_LOOK, *PyOpenColorIO.GetCurrentConfig().getLookNames())) if name == look), 0)
 
         def write(handle: Handle[bpy.types.Scene], look: str) -> Outcome[Option[str]]:
             return handle.resolve().bind(lambda scene: looked(identity, scene, look)).map(lambda wrote: Some(f"Look {look}") if wrote else Nothing)
@@ -108,7 +108,7 @@ class FormationLooks(msgspec.Struct, frozen=True, kw_only=True):
 
             def pick(owner: Struct, value: int) -> None:
                 for scene in scened(owner).to_list():
-                    deferred(Handle.of(scene), next((row[0] for row in offered(owner, None) if row[4] == value), NO_LOOK))
+                    deferred(Handle.of(scene), dict(enumerate((NO_LOOK, *PyOpenColorIO.GetCurrentConfig().getLookNames()))).get(value, NO_LOOK))
 
             FormationLook.__annotations__["look"].keywords.update(items=offered, get=current, set=pick)
             yield Ok((FormationLooks.attachment,))
@@ -119,10 +119,10 @@ class FormationLooks(msgspec.Struct, frozen=True, kw_only=True):
         return Rows(rows=lambda identity: self.attachment.bound(identity).map(lambda attached: (IconView(target=Member(root=bpy.types.Scene, path=f"{attached.name}.look"), show_labels=True),)))
 
 
-class StackLooks(msgspec.Struct, frozen=True, kw_only=True):
+class StackLooks(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Scene pick over the layer stack presets, each pick or Strength change writing the picked preset over the head stack."""
 
-    @property
+    @functools.cached_property
     def attachment(self) -> Attachment[StackLook]:
         """Scene pick, a change deferring the preset write."""
         return Attachment(key="stack_looks", form=StackLook, owner=bpy.types.Scene, changed=Some(self.picked))

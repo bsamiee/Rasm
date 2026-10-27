@@ -5,11 +5,10 @@ from enum import Enum
 import functools
 import graphlib
 import itertools
-from types import MemberDescriptorType
 from typing import Final
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Some, try_downcast
 import msgspec
 import PyOpenColorIO
 
@@ -212,26 +211,28 @@ class LayerStack[S: Case, M: Case](msgspec.Struct, frozen=True, kw_only=True):
 
         def written(changed: tuple[object, ...], moved_to: int) -> Outcome[tuple["LayerStack[S, M]", int]]:
             active = moved_to if isinstance(target, LayerAt) else target.layer
-            return located(amended(self, lens, lambda _: changed).to_optional(), type(self).__name__, item_key(*lens)).map(lambda edited: (edited, active))
+            return located(amended(self, lens, lambda _: changed).to_optional(), type(self).__name__, repr(target)).map(lambda edited: (edited, active))
 
         match focused(self, lens).to_optional():
             case tuple(items) if 0 <= index < len(items):
                 return moved(items, items[index]).bind(lambda held: written(*held))
             case _:
-                return located(None, type(self).__name__, item_key(*lens, index))
+                return located(None, type(self).__name__, repr(target))
 
     def masked(self, target: Target, change: int) -> Outcome["LayerStack[S, M]"]:
         """Changes the mask count of the targeted blend by `change`, never below zero, the last mask leaving first."""
 
         def blended(lens: Lens) -> Outcome["LayerStack[S, M]"]:
-            changed = amended(self, lens, lambda blend: msgspec.structs.replace(blend, masks=max(blend.masks + change, 0)) if isinstance(blend, Blend) else blend)
-            return located(changed.to_optional(), type(self).__name__, item_key(*lens))
+            changed = amended(
+                self, lens, lambda held: Option.of_optional(try_downcast(Blend, held)).map(lambda blend: msgspec.structs.replace(blend, masks=max(blend.masks + change, 0))).default_value(held)
+            )
+            return located(changed.to_optional(), type(self).__name__, repr(target))
 
         match target:
             case LayerAt(layer=layer) | LayerMaskAt(layer=layer):
-                return blended((LAYERS, layer, Layer.blend))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                return blended((LAYERS, layer, Layer.blend))
             case EffectAt(layer=layer, entry=entry) | EffectMaskAt(layer=layer, entry=entry):
-                return blended((LAYERS, layer, EFFECTS, entry, Entry.blend))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                return blended((LAYERS, layer, EFFECTS, entry, Entry.blend))
 
 
 class TermFiltering[M: Case](msgspec.Struct, frozen=True, kw_only=True):
@@ -268,9 +269,9 @@ class Built(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [LENSES] ---------------------------------------------------------------------------
 
-LAYERS: Final[MemberDescriptorType] = LayerStack.layers  # type: ignore[misc, assignment]  # ty: ignore[invalid-attribute-access, invalid-assignment]
-SOURCE: Final[MemberDescriptorType] = Layer.source  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
-EFFECTS: Final[MemberDescriptorType] = Layer.effects  # type: ignore[misc, assignment]  # ty: ignore[invalid-attribute-access, invalid-assignment]
+LAYERS: Final = LayerStack.layers  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+SOURCE: Final = Layer.source  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+EFFECTS: Final = Layer.effects  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -284,7 +285,7 @@ def located[T](value: T | None, owner: str, key: str) -> Outcome[T]:
 
 def indexed[T](items: tuple[T, ...], index: int, owner: str) -> Outcome[T]:
     """Answers the item at a zero-based index, absent past the collection."""
-    return located(items[index] if index < len(items) else None, owner, str(index))
+    return located(items[index] if 0 <= index < len(items) else None, owner, str(index))
 
 
 # --- [GRAPHS]
@@ -379,7 +380,7 @@ def unit[M: Case](layer: Layer[Source, M], below: End, base: End, planning: Plan
 
         def weighed(factors: tuple[Expr, ...]) -> Outcome[tuple[Expr, Option[Expr], tuple[tuple[FileItem, Expr], ...]]]:
             mask = Option.of_optional(functools.reduce(lambda held, factor: held * factor, factors) if factors else None)
-            weight = next((math("MULTIPLY", outer("blend", "opacity"), held) for held in mask.to_list()), outer("blend", "opacity"))
+            weight = mask.map(lambda held: math("MULTIPLY", outer("blend", "opacity"), held)).default_value(outer("blend", "opacity"))
             coverage = Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", content), ("Alpha", weight), ("Type", "Apply Mask")), socket="Image", shape="RGBA", label=Some(f"{key}_covered"))
             items = ((FileItem(name=key, kind="RGBA"), content), *((FileItem(name=f"{key} Mask", kind="FLOAT"), held) for held in mask.to_list()))
             return (mixed_back(key, base, content, outer("blend", "mode"), weight).map(Some) if mixes else Ok(Nothing)).map(lambda mixed: (coverage, mixed, items))

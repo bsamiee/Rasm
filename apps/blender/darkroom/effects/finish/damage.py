@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 import functools
+import inspect
 from typing import Final
 
 import bpy
@@ -254,10 +255,9 @@ def _(
     gate = part(Noise, "gate_edge", noise_dimensions="3D", noise_type="RIDGED_MULTIFRACTAL", normalize=True).bind(
         lambda edge: edge.map(lambda found: part(Gate, "gate", edge=found)).default_value(Ok(Nothing))
     )
-    return paired(paired(paired(buffers.pixels(source), paired(seed, clock)), paired(speckles, part(Scratches, "scratches"))), paired(paired(part(Hairs, "hairs"), part(Weave, "weave")), gate)).bind(
-        lambda found: composed(
-            found[0][0][0], found[0][0][1][0], found[0][0][1][1].clock(scene.frame_current + scene.frame_subframe), found[0][1][0], found[0][1][1], found[1][0][0], found[1][0][1], found[1][1]
-        )
+    timed = clock.map(lambda held: held.clock(scene.frame_current + scene.frame_subframe))
+    return paired(paired(buffers.pixels(source), seed, timed, speckles), paired(part(Scratches, "scratches"), part(Hairs, "hairs"), part(Weave, "weave"), gate)).bind(
+        lambda found: composed(*found[0], *found[1])
     )
 
 
@@ -274,7 +274,7 @@ damage: Final = CompositorEffect(
                 InterfacePanel(
                     key=key,
                     name=bpy.path.display_name(key),
-                    description=summary,
+                    description=str(inspect.getdoc(kind)),
                     toggle=Some(enabled),
                     inputs=(
                         *(
@@ -283,37 +283,12 @@ damage: Final = CompositorEffect(
                         ),
                         *extra,
                     ),
-                    panels=(
-                        InterfacePanel(
-                            key="gate_edge",
-                            name="Edge",
-                            description="Ridged noise roughening the edge",
-                            inputs=tuple(
-                                Socket(
-                                    key=item_key("gate_edge", field),
-                                    name=bpy.path.display_name(field),
-                                    kind=bpy.types.NodeSocketFloat,
-                                    members={"min_value": low, "max_value": high, "default_value": default},
-                                )
-                                for field, low, high, default in (
-                                    ("scale", -1000.0, 1000.0, 2.5),
-                                    ("detail", 0.0, 15.0, 15.0),
-                                    ("roughness", 0.0, 1.0, 0.9),
-                                    ("lacunarity", 0.0, 1000.0, 2.0),
-                                    ("offset", -1000.0, 1000.0, 1.0),
-                                    ("gain", 0.0, 1000.0, 74.5),
-                                    ("distortion", -1000.0, 1000.0, 1.9),
-                                )
-                            ),
-                        ),
-                    )
-                    if key == "gate"
-                    else (),
+                    panels=panels,
                 )
-                for key, summary, enabled, rows, extra in (
+                for key, kind, enabled, rows, extra, panels in (
                     (
                         "speckles",
-                        "Independent opaque or translucent black and white film spots",
+                        Speckles,
                         True,
                         (
                             ("population_spacing", "NONE", "Cell width over greater frame side", {"min_value": 1e-6, "default_value": 0.02}),
@@ -325,10 +300,11 @@ damage: Final = CompositorEffect(
                             ("white", "FACTOR", "Share of white spots", {"min_value": 0.0, "max_value": 1.0, "default_value": 0.5}),
                         ),
                         (),
+                        (),
                     ),
                     (
                         "scratches",
-                        "Vertical film scratches with fixed horizontal sites and evolving presence",
+                        Scratches,
                         True,
                         (
                             ("count", "NONE", "Scratch cells across frame width", {"min_value": 1.0, "default_value": 3.0}),
@@ -337,10 +313,11 @@ damage: Final = CompositorEffect(
                             ("rate", "NONE", "Presence evolution in cells per clock frame", {"min_value": 0.0, "default_value": 0.05}),
                         ),
                         (),
+                        (),
                     ),
                     (
                         "hairs",
-                        "Curled, trimmed Voronoi cell edges drawn as film hairs",
+                        Hairs,
                         False,
                         (
                             ("count", "NONE", "Nominal strand density", {"min_value": 0.0, "default_value": 1.0}),
@@ -351,10 +328,11 @@ damage: Final = CompositorEffect(
                             ("rate", "NONE", "Strand evolution in cells per clock frame", {"min_value": 0.0, "default_value": 0.1}),
                         ),
                         (),
+                        (),
                     ),
                     (
                         "weave",
-                        "Film displacement through projector gate",
+                        Weave,
                         True,
                         (("rate", "NONE", "Displacement evolution in cells per clock frame", {"min_value": 0.0, "default_value": 0.125}),),
                         (
@@ -366,10 +344,11 @@ damage: Final = CompositorEffect(
                                 members={"dimensions": 2, "subtype": "XYZ", "min_value": 0.0, "default_value": (0.0006, 0.0006)},
                             ),
                         ),
+                        (),
                     ),
                     (
                         "gate",
-                        "Stationary rounded projector aperture with a rough, feathered edge",
+                        Gate,
                         False,
                         (
                             ("inset", "NONE", "Inset from each frame edge over greater frame side", {"min_value": 0.0, "default_value": 0.02}),
@@ -378,6 +357,30 @@ damage: Final = CompositorEffect(
                             ("roughness", "NONE", "Largest edge displacement", {"min_value": 0.0, "default_value": 0.003}),
                         ),
                         (Socket(key="gate_color", name="Color", kind=bpy.types.NodeSocketColor, description="Display color outside aperture", members={"default_value": (0.0, 0.0, 0.0, 1.0)}),),
+                        (
+                            InterfacePanel(
+                                key="gate_edge",
+                                name="Edge",
+                                description="Ridged noise roughening the edge",
+                                inputs=tuple(
+                                    Socket(
+                                        key=item_key("gate_edge", field),
+                                        name=bpy.path.display_name(field),
+                                        kind=bpy.types.NodeSocketFloat,
+                                        members={"min_value": low, "max_value": high, "default_value": default},
+                                    )
+                                    for field, low, high, default in (
+                                        ("scale", -1000.0, 1000.0, 2.5),
+                                        ("detail", 0.0, 15.0, 15.0),
+                                        ("roughness", 0.0, 1.0, 0.9),
+                                        ("lacunarity", 0.0, 1000.0, 2.0),
+                                        ("offset", -1000.0, 1000.0, 1.0),
+                                        ("gain", 0.0, 1000.0, 74.5),
+                                        ("distortion", -1000.0, 1000.0, 1.9),
+                                    )
+                                ),
+                            ),
+                        ),
                     ),
                 )
             ),

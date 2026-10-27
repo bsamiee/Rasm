@@ -1,8 +1,9 @@
+using System.Runtime.CompilerServices;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
 
-namespace Rasm.Rhino.Document;
+namespace Rasm.RhinoCommon.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -24,28 +25,28 @@ public static class Commits {
         redraw.Switch(
             (Document: doc, Body: body),
             silent: static (state, _) => state.Body,
-            view: static (state, view) => DisposalOps.Within(static () => unit, _ => state.Body, _ => IO.lift(view.Target.Redraw)),
-            allViews: static (state, all) => DisposalOps.Within(static () => unit, _ => state.Body, _ => IO.lift(() => state.Document.Views.Redraw(all.Deferred))),
-            suppressed: static (state, suppressed) => DisposalOps.Within(
-                () => state.Document.Views.RedrawEnabled,
-                _ => IO.lift(() => state.Document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false)).Bind(_ => state.Body),
-                prior => Callbacks.Each(Seq(
+            view: static (state, view) => state.Body.Finally(IO.lift(view.Target.Redraw)),
+            allViews: static (state, all) => state.Body.Finally(IO.lift(() => state.Document.Views.Redraw(all.Deferred))),
+            suppressed: static (state, suppressed) => IO.lift(() => state.Document.Views.RedrawEnabled).Bind(prior =>
+                IO.lift(() => state.Document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false))
+                >> state.Body.Finally(Callbacks.Each(Seq(
                     IO.lift(() => state.Document.Views.EnableRedraw(prior, redrawDocument: false, suppressed.RepaintLayers)),
-                    when(prior, IO.lift(() => state.Document.Views.Redraw(suppressed.Deferred))).As())).Map(unit)));
+                    when(prior, IO.lift(() => state.Document.Views.Redraw(suppressed.Deferred))).As())))));
 
     public static IO<Committed<T>> Commit<T>(RhinoDoc doc, string name, RedrawPolicy redraw, IO<T> body) =>
-        WithinRedraw(doc, redraw, DisposalOps.Transacted(
-            IO.lift(() => Command.InCommand() && doc.UndoRecordingEnabled && !doc.UndoRecordingIsActive
-                ? Error.New("running command has no open undo record") : Fin.Succ(Conversions.Present(doc.BeginUndoRecord(name)))),
-            _ => body,
-            begun => Ended(doc, begun).Bind(kept => when(kept.IsSome,
-                Callbacks.Each(Seq(Step(doc, doc.Undo, nameof(RhinoDoc.Undo)), IO.lift(doc.ClearRedoRecords))).Map(unit)).As()),
-            (begun, value) => Ended(doc, begun).Map(record => new Committed<T>(value, record))));
+        WithinRedraw(doc, redraw,
+            from begun in IO.lift(() => RhinoFault.Unless(!Command.InCommand() || !doc.UndoRecordingEnabled || doc.UndoRecordingIsActive)
+                .Map(_ => Conversions.Present(doc.BeginUndoRecord(name))))
+            from value in body.Catch(error =>
+                Ended(doc, begun).Bind(kept => when(kept.IsSome, Callbacks.Each(Seq(Step(doc, doc.Undo), IO.lift(doc.ClearRedoRecords))).Map(unit)).As())
+                >> IO.fail<T>(error))
+            from record in Ended(doc, begun)
+            select new Committed<T>(value, record));
 
-    internal static IO<Unit> Step(RhinoDoc doc, Func<bool> step, string member) =>
-        IO.lift(() => Refused.Unless(step(), member).Bind(_ => Refused.Unless(doc.EndUndoRecord(doc.CurrentUndoRecordSerialNumber), nameof(RhinoDoc.EndUndoRecord))));
+    internal static IO<Unit> Step(RhinoDoc doc, Func<bool> step, [CallerArgumentExpression(nameof(step))] string call = "") =>
+        IO.lift(() => RhinoFault.Unless(step(), call: call).Bind(_ => RhinoFault.Unless(doc.EndUndoRecord(doc.CurrentUndoRecordSerialNumber))));
 
     private static IO<Option<uint>> Ended(RhinoDoc doc, Option<uint> begun) =>
-        IO.lift(() => begun.Traverse(serial => Refused.Unless(doc.EndUndoRecord(serial), serial, nameof(RhinoDoc.EndUndoRecord))).As()
+        IO.lift(() => begun.Traverse(serial => RhinoFault.Unless(doc.EndUndoRecord(serial)).Map(_ => serial)).As()
             .Map(closed => closed.Filter(serial => doc.GetUndoRecords().Any(entry => entry.SerialNumber == serial))));
 }

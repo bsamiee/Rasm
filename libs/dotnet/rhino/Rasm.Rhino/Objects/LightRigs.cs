@@ -1,17 +1,16 @@
 using LanguageExt.ClassInstances;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Modeling;
-using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Viewport;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Modeling;
+using Rasm.RhinoCommon.Persistence;
+using Rasm.RhinoCommon.Viewport;
 using Rhino;
 using Rhino.DocObjects;
-using Rhino.DocObjects.Tables;
 using UnitsNet;
 
-namespace Rasm.Rhino.Objects;
+namespace Rasm.RhinoCommon.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(SkipIParsable = true)]
@@ -36,7 +35,7 @@ public abstract partial record RigEmitter {
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record RigColor {
-    public sealed record Blackbody(UnitsNet.Temperature Kelvin) : RigColor;
+    public sealed record Blackbody(Temperature Kelvin) : RigColor;
 
     public sealed record Linear(ColorFilter Filter) : RigColor;
 }
@@ -94,8 +93,7 @@ public static class LightRigs {
         target.Switch(
             doc,
             subjects: static (document, subjects) => from found in new ObjectTarget.Ids(subjects.Ids.AsIterable().ToSeq()).Objects(document)
-                                                     let bounds = Measurements.Bounds(found.Map(static held => held.Geometry.GetBoundingBox(accurate: true)))
-                                                     from box in IO.lift(bounds.ToFin(new Refused(nameof(GeometryBase.GetBoundingBox), Refused.Absent)))
+                                                     from box in IO.lift(() => Conversions.Found(Measurements.Bounds(found.Map(static held => held.Geometry.GetBoundingBox(accurate: true)))))
                                                      select new RigTarget.Fixed(box.Center, box.Diagonal.Length / 2d),
             @fixed: static (_, held) => IO.pure(held));
 
@@ -106,8 +104,8 @@ public static class LightRigs {
             view: static (state, view) =>
                 Viewports.With(state.Document, view.Target, static row => Cameras.Read(row.Viewport))
                     .Map(pose => new Plane(state.Focus, pose.Frame.XAxis, pose.Frame.YAxis)),
-            frame: static (state, frame) => IO.lift(() => Refused.UnlessFound(state.Document.Objects.FindId(frame.Object), nameof(ObjectTable.FindId)))
-                .Bind(static found => IO.lift(() => Conversions.Present(found.ObjectFrame()).ToFin(new Refused(nameof(RhinoObject.ObjectFrame), Refused.Invalid))))
+            frame: static (state, frame) => IO.lift(() => Conversions.Found(state.Document.Objects.FindId(frame.Object)))
+                .Bind(static found => IO.lift(() => Conversions.Found(Conversions.Present(found.ObjectFrame()))))
                 .Map(axes => new Plane(state.Focus, axes.XAxis, axes.ZAxis)));
 
     // --- [PLACEMENT]
@@ -142,20 +140,20 @@ public static class LightRigs {
         };
 
     // --- [RECONCILE]
-    public static IO<Committed<LightRig>> Reconcile(RhinoDoc doc, LightRig rig, RigCommit commit, IPlugInSink sink) =>
-        Commits.Commit(doc, RowText.Localize(commit.Name, sink), commit.Redraw,
+    public static IO<Committed<LightRig>> Reconcile(RhinoDoc doc, LightRig rig, RigCommit commit, object owner) =>
+        Commits.Commit(doc, RowText.Localize(commit.Name, owner), commit.Redraw,
             from target in Target(doc, rig.Target)
             from basis in Basis(doc, rig.Basis, target.Focus)
             from held in Held(doc, rig.Id)
-            from placed in Apply(doc, rig.Id, Plan(rig, held, Placed(rig, target, basis, doc.ModelUnits)), role => RowText.Localize(commit.Caption(role), sink))
+            from placed in Apply(doc, rig.Id, Plan(rig, held, Placed(rig, target, basis, doc.ModelUnits)), role => RowText.Localize(commit.Caption(role), owner))
             select rig with { Lights = rig.Lights.Map((light, slot) => light with { Light = placed.Find(slot) }).Strict() });
 
-    public static IO<LanguageExt.HashSet<Guid>> Held(RhinoDoc doc, Guid rig) =>
+    public static IO<HashSet<Guid>> Held(RhinoDoc doc, Guid rig) =>
         IO.lift(() => toHashSet(Conversions.Rows(doc.Lights)
             .Filter(light => !light.IsDeleted && UserStrings.Held(light.Attributes.GetUserStrings()).Find(RigKey) == Some(rig.ToString("D")))
             .Map(static light => light.Id)));
 
-    public static Seq<RigChange> Plan(LightRig rig, LanguageExt.HashSet<Guid> held, Seq<PlacedLight> placed) =>
+    public static Seq<RigChange> Plan(LightRig rig, HashSet<Guid> held, Seq<PlacedLight> placed) =>
         rig.Lights.Choose(static light => light.Light).Filter(held.Contains) switch {
             var recorded => rig.Lights.Zip(placed).Map((pair, slot) => pair.First.Light.Filter(held.Contains).Match(
                     Some: light => (RigChange)new RigChange.Place(slot, light, pair.Second),
@@ -178,7 +176,7 @@ public static class LightRigs {
         select toHashMap(rows.Map(static row => (row.Slot, row.Light)));
 
     private static IO<Seq<Guid>> Created(RhinoDoc doc, Guid rig, RigChange.Create create, Func<LightRole, string> caption) =>
-        from source in create.Source.Traverse(member => IO.lift(() => Refused.UnlessFound(doc.Objects.FindId(member), nameof(ObjectTable.FindId)))).As()
+        from source in create.Source.Traverse(member => IO.lift(() => Conversions.Found(doc.Objects.FindId(member)))).As()
         let joined = source.ToSeq().Bind(static found => Seq(
             AttributeEdits.LayerIndex(new LayerRef.Row(new ComponentRef<Layer>.ByIndex(found.Attributes.LayerIndex))),
             AttributeEdits.Groups(new RowsEdit<ComponentRef<Group>, ComponentRef<Group>>.Add(
@@ -200,36 +198,31 @@ public static class LightRigs {
         };
 
     // --- [FOLLOW]
-    public static IO<Unit> Follow(RhinoDoc doc, LightRig rig, RigCommit commit, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<Unit> Follow(RhinoDoc doc, LightRig rig, RigCommit commit, object owner) =>
         rig.Target.Switch(
-            (Document: doc, Rig: rig, Commit: commit, Sink: sink, Retain: retain),
+            (Document: doc, Rig: rig, Commit: commit, Owner: owner),
             subjects: static (state, subjects) => from initial in Target(state.Document, subjects)
-                                                  from acquisition in IO.lift(() => Watching(state, subjects, initial))
-                                                  from followed in acquisition
+                                                  from followed in Watching(state.Document, state.Rig, state.Commit, state.Owner, subjects, initial)
                                                   select followed,
             @fixed: static (_, _) => IO.pure(unit));
 
-    private static IO<Unit> Watching(
-        (RhinoDoc Document, LightRig Rig, RigCommit Commit, IPlugInSink Sink, Action<IDisposable> Retain) state, RigTarget.Subjects subjects, RigTarget.Fixed initial) {
-        Atom<(RigTarget.Fixed Target, LightRig Rig)> previous = Atom((initial, state.Rig));
-        LanguageExt.HashSet<Guid> ids = toHashSet(subjects.Ids);
-        uint serial = state.Document.RuntimeSerialNumber;
-        CallbackSite site = new(state.Sink, typeof(LightRigs), nameof(Follow));
-        Seq<HostEvent<(Unit, Unit)>> events = Seq(
-            EventKind.ReplaceRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
-            EventKind.DeleteRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
-            EventKind.UndeleteRhinoObject.In(serial).Choose(args => Callbacks.Found(ids.Contains(args.ObjectId), (unit, unit))),
-            EventKind.TransformObjects.In(serial).Choose(args => Callbacks.Found(args.ObjectIds.Exists(ids.Contains) || args.GripOwnerIds.Exists(ids.Contains), (unit, unit))));
+    private static IO<Unit> Watching(RhinoDoc doc, LightRig rig, RigCommit commit, object owner, RigTarget.Subjects subjects, RigTarget.Fixed initial) {
+        Atom<(RigTarget.Fixed Target, LightRig Rig)> previous = Atom((initial, rig));
+        HashSet<Guid> ids = toHashSet(subjects.Ids);
+        uint serial = doc.RuntimeSerialNumber;
+        Seq<HostEvent<Unit>> events = Seq(
+            EventKind.ReplaceRhinoObject.In(serial).Choose(args => Conversions.Found(ids.Contains(args.ObjectId), unit)),
+            EventKind.DeleteRhinoObject.In(serial).Choose(args => Conversions.Found(ids.Contains(args.ObjectId), unit)),
+            EventKind.UndeleteRhinoObject.In(serial).Choose(args => Conversions.Found(ids.Contains(args.ObjectId), unit)),
+            EventKind.TransformObjects.In(serial).Choose(args => Conversions.Found(args.ObjectIds.Exists(ids.Contains) || args.GripOwnerIds.Exists(ids.Contains), unit)));
         IO<Unit> Resync(HashMap<Unit, Unit> _) =>
-            from target in Target(state.Document, state.Rig.Target)
+            from target in Target(doc, rig.Target)
             from held in IO.lift(() => previous.Value)
-            from changed in when(held.Target != target, Reconcile(state.Document, held.Rig with { Target = target }, state.Commit, state.Sink)
-                .Bind(committed => previous.SwapIO(_ => (target, committed.Value with { Target = state.Rig.Target }))).Map(unit)).As()
+            from changed in when(held.Target != target, Reconcile(doc, held.Rig with { Target = target }, commit, owner)
+                .Bind(committed => previous.SwapIO(_ => (target, committed.Value with { Target = rig.Target }))).Map(unit)).As()
             select unit;
-        return DisposalOps.Acquire(
-            owned => from mailbox in Subscriptions.Idle<Unit, Unit>(Resync)(site, owned)
-                     from watched in events.TraverseM(row => row.Inline(mailbox, state.Sink, owned)).As()
-                     select unit,
-            state.Retain);
+        return from post in Mailboxes.Idle<Unit, Unit>(Resync)(owner)
+               from watched in events.TraverseM(row => row.Inline(_ => post(unit, unit), owner)).As()
+               select unit;
     }
 }

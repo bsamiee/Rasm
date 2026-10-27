@@ -21,11 +21,10 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Call, Done, Operator, Save
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.conditions import AllOf, Count, Job
-from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.data.rna.descriptors import Descriptor, rna
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
 from blender.imaging.color.luts import Lattice, LutFormat, LutOutput, Spacing
 from blender.imaging.color.processors import processor
@@ -136,7 +135,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             case bpy.types.Strip(id_data=bpy.types.Scene(sequencer_colorspace_settings=bpy.types.ColorManagedSequencerColorspaceSettings(name=space))) as active:
                 return self.sequenced(call, active, space)
             case _:
-                return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(self.modifiers.root), member=self.modifiers.owner),))
+                return Error(Fault.of(BlenderReason.ABSENT, repr(self.modifiers.root), member=rna(self.modifiers.owner)))
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns lattice ownership, read stamps, and the strip bake command."""
@@ -145,7 +144,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-STAMPS: Final = Scoped[dict[str, tuple[int, int]]](made=lambda _identity: nullcontext({}))
+STAMPS: Final = Resource[dict[str, tuple[int, int]]](made=lambda _identity: nullcontext({}))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

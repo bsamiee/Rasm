@@ -1,14 +1,14 @@
-using Rasm.Rhino.Document.Units;
+using Rasm.RhinoCommon.Document.Units;
 using Rasm.Spatial;
 
-namespace Rasm.Rhino.Modeling;
+namespace Rasm.RhinoCommon.Modeling;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Fields {
     // --- [LEAVES]
     public static Fin<ScalarField.Moved> Solid(Box box) =>
-        Refused.UnlessValid(box.IsValid, box, nameof(Box)).Bind(static valid =>
-            ScalarField.Moved.Of(new ScalarField.Box(new(valid.X.Min, valid.Y.Min, valid.Z.Min), new(valid.X.Max, valid.Y.Max, valid.Z.Max)), Transform.PlaneToPlane(Plane.WorldXY, valid.Plane).ToMatrix()));
+        RhinoFault.Unless(box.IsValid).Bind(_ =>
+            ScalarField.Moved.Of(new ScalarField.Box(new(box.X.Min, box.Y.Min, box.Z.Min), new(box.X.Max, box.Y.Max, box.Z.Max)), Transform.PlaneToPlane(Plane.WorldXY, box.Plane).ToMatrix()));
 
     public static ScalarField Distance(Proximity source) =>
         new ScalarField.Measured(compose(static (Vector3D<double> point) => point.ToPoint3d(), Unsigned(source)), source.Switch(
@@ -38,11 +38,10 @@ public static class Fields {
         planar: static planar => (Unsigned(new Proximity.Curve(planar.Curve)), planar.Plane) switch { var (inPlane, plane) => point => inPlane(plane.ClosestPoint(point)) });
 
     // --- [MESHING]
-    public static IO<Mesh> Isosurface(ScalarField field, int resolution, int rootFindingSteps, Action<IDisposable> retain, Option<BoundingBox> box = default) =>
-        from grid in IO.lift(() => (box.Map(given => (Box: given, Resolution: resolution))
+    public static IO<Mesh> Isosurface(ScalarField field, int resolution, int rootFindingSteps, Option<BoundingBox> box = default) =>
+        from grid in IO.lift(() => Conversions.Found(box.Map(given => (Box: given, Resolution: resolution))
                 | field.Bounds.Map(bounds => (Box: bounds.Inflated(bounds.ToBoundingBox().Diagonal.MinimumCoordinate / resolution).ToBoundingBox(), Resolution: resolution + 2)))
-            .ToFin(new RhinoFault("neither the field nor the caller bounds the isosurface"))
-            .Bind(static grid => grid.Box.IsValid && grid.Box.IsDegenerate(0d) is 0 ? Fin.Succ(grid) : new RhinoFault($"isosurface box {grid.Box} encloses no volume")))
-        from mesh in Copies.Acquire(nameof(Mesh.CreateFromIsosurface), _ => Answer.One(Mesh.CreateFromIsosurface(point => field.Distance(point.ToVector3D()), grid.Box, grid.Resolution, rootFindingSteps)), retain)
+            .Bind(static grid => RhinoFault.Unless(grid.Box.IsValid && grid.Box.IsDegenerate(0d) is 0).Map(_ => grid)))
+        from mesh in Products.Made(Mesh.CreateFromIsosurface(point => field.Distance(point.ToVector3D()), grid.Box, grid.Resolution, rootFindingSteps))
         select mesh;
 }

@@ -65,7 +65,7 @@ class Enabled(Enum):
     @property
     def descriptor(self) -> Descriptor:
         """Owning RNA property for reads and writes."""
-        return Descriptor(root=bpy.types.SceneCompositorEffect, owner="", prop=self.value)
+        return Descriptor(root=bpy.types.SceneCompositorEffect, prop=self.value)
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -442,11 +442,9 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True, kw_only=True):
         straight = self.alpha is Alpha.STRAIGHT
         face = self.faced(record)
         sockets = {key: item[0] for key, item, _, _ in face.walked() if isinstance(item, tuple)}
+        active: bpy.types.ViewLayer = bpy.context.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         render = Expr(
-            kind=bpy.types.CompositorNodeRLayers,
-            members=(("scene", IdName.of(scene)), ("layer", request.map(lambda held: held.layer).default_with(lambda: bpy.context.view_layer.name))),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            socket="Image",
-            shape="RGBA",
+            kind=bpy.types.CompositorNodeRLayers, members=(("scene", IdName.of(scene)), ("layer", request.map(lambda held: held.layer).default_value(active.name))), socket="Image", shape="RGBA"
         ).named("render")
         kept = (render,) if request.filter(lambda held: bool(held.flags)).is_some() else ()
 

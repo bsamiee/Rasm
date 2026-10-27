@@ -1,13 +1,13 @@
 using System.Globalization;
-using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.Viewport;
+using Rasm.RhinoCommon.Persistence;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.Viewport;
 using Rhino;
 using Rhino.DocObjects.Tables;
 using Rhino.PlugIns;
 
-namespace Rasm.Rhino.Document.Tables;
+namespace Rasm.RhinoCommon.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record LayerStateRestore(RestoreLayerProperties Properties, bool ModelProperties, bool ViewportProperties) {
@@ -19,7 +19,7 @@ public sealed record LayerStateRestore(RestoreLayerProperties Properties, bool M
     private static readonly KeyName ViewportKey = KeyName.Create("ViewportPropertiesChecked");
 
     private static readonly IO<(KeyName Section, SettingsNode Node)> Owner =
-        from commands in IO.lift(static () => Conversions.Required(PlugIn.IdFromName("Commands"), nameof(PlugIn.IdFromName)))
+        from commands in IO.lift(static () => Conversions.Found(Conversions.Present(PlugIn.IdFromName("Commands"))))
         from section in IO.lift(() => KeyName.TryCreate(commands.ToString(), out KeyName? held, out RhinoFault? fault) ? Fin.Succ(held) : fault)
         select (Section: section, Node: new SettingsNode(commands).Child("LayerStates"));
 
@@ -33,13 +33,13 @@ public sealed record LayerStateRestore(RestoreLayerProperties Properties, bool M
         from owner in Owner
         from properties in Held(doc, owner, PropertiesKey,
             static text => uint.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out uint raw) ? Some(raw) : None,
-            static (settings, key) => Callbacks.Found(settings.TryGetUnsignedInteger(key, out uint raw), raw), (uint)Default.Properties)
+            static (settings, key) => Conversions.Found(settings.TryGetUnsignedInteger(key, out uint raw), raw), (uint)Default.Properties)
         from model in Held(doc, owner, ModelKey,
             static text => bool.TryParse(text, out bool flag) ? Some(flag) : None,
-            static (settings, key) => Callbacks.Found(settings.TryGetBool(key, out bool flag), flag), Default.ModelProperties)
+            static (settings, key) => Conversions.Found(settings.TryGetBool(key, out bool flag), flag), Default.ModelProperties)
         from viewport in Held(doc, owner, ViewportKey,
             static text => bool.TryParse(text, out bool flag) ? Some(flag) : None,
-            static (settings, key) => Callbacks.Found(settings.TryGetBool(key, out bool flag), flag), Default.ViewportProperties)
+            static (settings, key) => Conversions.Found(settings.TryGetBool(key, out bool flag), flag), Default.ViewportProperties)
         select new LayerStateRestore((RestoreLayerProperties)properties, model, viewport);
 
     public static IO<Unit> Write(Option<RhinoDoc> doc, Override<LayerStateRestore> mask) =>
@@ -79,10 +79,10 @@ internal static class LayerStates {
     internal static IO<Seq<NamedEntry>> Entries(RhinoDoc doc) =>
         IO.lift(() => Conversions.Rows(doc.NamedLayerStates.Names).Map(static name => new NamedEntry(NamedTable.LayerStates, name, None)).Strict());
 
-    internal static IO<NamedWrite> Rename(RhinoDoc doc, NamedEntry entry, StateName name, CallbackSite site) =>
+    internal static IO<NamedWrite> Rename(RhinoDoc doc, NamedEntry entry, StateName name, object owner) =>
         from found in Found(doc, entry.Name)
         from renamed in TableOps.Undoable(doc, $"{nameof(Rename)} {entry.Name}", IO.pure((From: (string)name, To: entry.Name)),
-            names => Renamed(doc, names.From, names.To), (From: entry.Name, To: (string)name), site)
+            names => Renamed(doc, names.From, names.To), (From: entry.Name, To: (string)name), owner)
         select (NamedWrite)new NamedWrite.Recorded();
 
     internal static IO<NamedWrite> Delete(RhinoDoc doc, NamedEntry entry) =>
@@ -96,7 +96,7 @@ internal static class LayerStates {
         from restorable in IO.lift(state.Edits.Bind(static modify => modify.Edits)
             .Traverse(edit => edit.Restores is not RestoreLayerProperties.None && (edit.Viewport.IsNone || edit.Viewport == scope)
                 ? Fin.Succ(unit)
-                : Error.New(ErrorCodes.ValidationFailed, $"layer state restore does not revert {edit.Member}")).As())
+                : new RhinoFault($"{edit.Member} in a layer state", RhinoReason.Unheld)).As())
         let saved = Saved(doc, state.Name, scope)
         from written in state.Edits.IsEmpty
             ? saved
@@ -107,9 +107,8 @@ internal static class LayerStates {
     private static IO<NamedWrite> Saved(RhinoDoc doc, string name, Option<Guid> scope) =>
         from prior in IO.lift(() => Conversions.Present(doc.NamedLayerStates.FindName(name)))
         from held in prior.Traverse(_ => Held(doc, name)).As()
-        from saved in DisposalOps.OnFailure(
-            IO.lift(() => Conversions.Required(doc.NamedLayerStates.Save(name, Conversions.Unset(scope)), nameof(NamedLayerStateTable.Save))),
-            held.Traverse(stored => Renamed(doc, stored, name)).As().Map(static _ => unit))
+        from saved in IO.lift(() => Conversions.Found(Conversions.Present(doc.NamedLayerStates.Save(name, Conversions.Unset(scope)))))
+            .Catch(error => held.Traverse(stored => Renamed(doc, stored, name)).As() >> IO.fail<int>(error))
         select (NamedWrite)new NamedWrite.Compensated(
             Callbacks.Each(Seq(Deleted(doc, name), held.Traverse(stored => Renamed(doc, stored, name)).As().Map(static _ => unit))).Map(static _ => unit),
             held.Traverse(stored => Deleted(doc, stored)).As().Map(static _ => unit));
@@ -128,7 +127,7 @@ internal static class LayerStates {
         from ids in scope.Match(Some: set => Ids(doc, set).Map(static ids => ids.Map(static id => Some(id))), None: static () => IO.pure(Seq(Option<Guid>.None)))
         from held in ids.TraverseM(id =>
             from name in IO.lift(static () => Guid.NewGuid().ToString())
-            from saved in IO.lift(() => Conversions.Required(doc.NamedLayerStates.Save(name, Conversions.Unset(id)), nameof(NamedLayerStateTable.Save)))
+            from saved in IO.lift(() => Conversions.Found(Conversions.Present(doc.NamedLayerStates.Save(name, Conversions.Unset(id)))))
             select (Name: name, Id: id)).As()
         select (NamedWrite)new NamedWrite.Compensated(
             Callbacks.Each(held.Map(stored => Restored(doc, stored.Name, RestoreLayerProperties.All, stored.Id))).Map(static _ => unit),
@@ -136,24 +135,23 @@ internal static class LayerStates {
 
     // --- [IMPORT]
     internal static IO<NamedWrite> Import(RhinoDoc doc, ArchiveSource source, Option<Seq<StateName>> names) =>
-        from whole in when(names.IsSome, IO.fail<Unit>(Error.New($"{nameof(NamedLayerStateTable.Import)} reads every layer state of a file"))).As()
+        from whole in IO.lift(() => RhinoFault.Unless(names.IsNone))
         from path in source.Existing()
-        from filed in DisposalOps.Found(
-            static () => RhinoDoc.CreateHeadless(file3dmTemplatePath: null), nameof(RhinoDoc.CreateHeadless),
-            headless => IO.lift(() => headless.NamedLayerStates.Import(path)).Map(_ => Conversions.Rows(headless.NamedLayerStates.Names)))
+        from filed in (from headless in Products.Made(RhinoDoc.CreateHeadless(file3dmTemplatePath: null))
+                       from imported in IO.lift(() => headless.NamedLayerStates.Import(path))
+                       select Conversions.Rows(headless.NamedLayerStates.Names)).Bracket()
         from live in IO.lift(() => Conversions.Rows(doc.NamedLayerStates.Names))
         from held in filed.Filter(name => live.Exists(present => string.Equals(present, name, StringComparison.Ordinal)))
             .TraverseM(name => Held(doc, name).Map(stored => (Name: name, Held: stored))).As()
-        from imported in DisposalOps.OnFailure(
-            IO.lift(() => doc.NamedLayerStates.Import(path)),
-            Callbacks.Each(held.Map(stored => Renamed(doc, stored.Held, stored.Name))).Map(static _ => unit))
+        from imported in IO.lift(() => doc.NamedLayerStates.Import(path))
+            .Catch(error => Callbacks.Each(held.Map(stored => Renamed(doc, stored.Held, stored.Name))) >> IO.fail<int>(error))
         select (NamedWrite)new NamedWrite.Compensated(
             Callbacks.Each(filed.Map(name => Deleted(doc, name)) + held.Map(stored => Renamed(doc, stored.Held, stored.Name))).Map(static _ => unit),
             Callbacks.Each(held.Map(stored => Deleted(doc, stored.Held))).Map(static _ => unit));
 
     // --- [HOST]
     private static IO<int> Found(RhinoDoc doc, string name) =>
-        IO.lift(() => Conversions.Present(doc.NamedLayerStates.FindName(name)).ToFin(new NotFound(nameof(NamedTable.LayerStates), name)));
+        IO.lift(() => Conversions.Present(doc.NamedLayerStates.FindName(name)).ToFin(NamedTable.LayerStates.Missing(name)));
 
     private static IO<string> Held(RhinoDoc doc, string name) =>
         from held in IO.lift(static () => Guid.NewGuid().ToString())
@@ -161,16 +159,16 @@ internal static class LayerStates {
         select held;
 
     private static IO<Seq<Guid>> Ids(RhinoDoc doc, ViewportSet set) =>
-        DisposalOps.Within((Action<IDisposable> retain) => Viewports.Resolve(doc, set, retain).Map(static rows => rows.Map(static row => row.Viewport.Id)), DisposalOps.Release);
+        Viewports.Resolve(doc, set).Map(static rows => rows.Map(static row => row.Viewport.Id)).Bracket();
 
     private static IO<Unit> Renamed(RhinoDoc doc, string name, string newName) =>
-        IO.lift(() => Refused.Unless(doc.NamedLayerStates.Rename(name, newName), nameof(NamedLayerStateTable.Rename)));
+        IO.lift(() => RhinoFault.Unless(doc.NamedLayerStates.Rename(name, newName)));
 
     private static IO<Unit> Deleted(RhinoDoc doc, string name) =>
-        IO.lift(() => Refused.Unless(doc.NamedLayerStates.Delete(name), nameof(NamedLayerStateTable.Delete)));
+        IO.lift(() => RhinoFault.Unless(doc.NamedLayerStates.Delete(name)));
 
     private static IO<Unit> Restored(RhinoDoc doc, string name, RestoreLayerProperties properties, Option<Guid> scope) =>
-        IO.lift(() => Refused.Unless(scope.Match(
+        IO.lift(() => RhinoFault.Unless(scope.Match(
             Some: id => doc.NamedLayerStates.Restore(name, properties, id),
-            None: () => doc.NamedLayerStates.Restore(name, properties)), nameof(NamedLayerStateTable.Restore)));
+            None: () => doc.NamedLayerStates.Restore(name, properties))));
 }

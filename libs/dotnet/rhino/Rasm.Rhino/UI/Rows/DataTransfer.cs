@@ -1,11 +1,11 @@
-using System.Globalization;
 using Eto.Drawing;
 using Eto.Forms;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Stores;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.PlugIns;
 
-namespace Rasm.Rhino.UI.Rows;
+namespace Rasm.RhinoCommon.UI.Rows;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DataTransfer {
@@ -17,17 +17,17 @@ public static class DataTransfer {
         scope.Shown(bound).Bind(values => Copy(values.Scoped(keys)));
 
     public static IO<ValueDiff> Paste(BindingGroup bound, Option<IterableNE<EntryKey>> keys, RowScope scope) =>
-        from text in IO.lift(static () => Refused.UnlessFound(Clipboard.Instance.Text, nameof(Clipboard.Text)))
+        from text in IO.lift(static () => Conversions.Found(Clipboard.Instance.Text))
         from read in IO.lift(ValueSet.Read(text))
         let scoped = read.Scoped(keys)
-        from matched in IO.lift(guard(bound.Keys().Exists(scoped.Entries.ContainsKey), Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{read.Entries.Count} pasted values match no row"))).ToFin())
+        from matched in IO.lift(() => RhinoFault.Unless(bound.Keys().Exists(scoped.Entries.ContainsKey)))
         from diff in scope.Commit(bound, scoped)
         select diff;
 
     // --- [DRAGS]
     public static IO<Unit> Drag(Control source, Seq<string> files, Option<Image> image) =>
         from paths in Callbacks.Each(files.Map(static file => IO.lift(() => InputPath.Of(file))))
-        from dragged in DisposalOps.Within(static () => new DataObject(), data => Dragged(source, paths, image, data))
+        from dragged in (from data in use(static () => new DataObject()) from dropped in Dragged(source, paths, image, data) select dropped).Bracket()
         select dragged;
 
     private static IO<Unit> Dragged(Control source, Seq<InputPath> paths, Option<Image> image, DataObject data) =>
@@ -36,16 +36,14 @@ public static class DataTransfer {
             None: () => source.DoDragDrop(data, DragEffects.Copy))));
 
     // --- [DROPS]
-    public static IO<Unit> Drops(Control target, Seq<FileTypeRow> accepted, Func<string, IO<Unit>> commit, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<Unit> Drops(Control target, Seq<FileTypeRow> accepted, Func<string, IO<Unit>> commit, IPlugInLifetime owner) =>
         fun((DragEventArgs args) => IO.lift(() => { args.Effects = Accepted(args.Data, accepted).Match(Some: static _ => DragEffects.Copy, None: static () => DragEffects.None); })) switch {
             var gate =>
-                from changed in DisposalOps.Change(() => target.AllowDrop, held => target.AllowDrop = held, value: true, retain)
-                from attached in Seq(
-                        Subscriptions.During<DragEventArgs>(target.GetType(), h => target.DragEnter += h, h => target.DragEnter -= h, nameof(Control.DragEnter)).Inline(gate, sink, retain),
-                        Subscriptions.During<DragEventArgs>(target.GetType(), h => target.DragOver += h, h => target.DragOver -= h, nameof(Control.DragOver)).Inline(gate, sink, retain),
-                        Subscriptions.Host<DragEventArgs>(target.GetType(), h => target.DragDrop += h, h => target.DragDrop -= h, nameof(Control.DragDrop))
-                            .Inline(args => IO.lift(() => Accepted(args.Data, accepted)).Bind(found => found.Match(Some: commit, None: static () => IO.pure(unit))), sink, retain))
-                    .TraverseM(static attached => attached).As()
+                from changed in Products.Changed(() => target.AllowDrop, held => target.AllowDrop = held, value: true)
+                from entered in Subscriptions.During<DragEventArgs>(h => target.DragEnter += h, h => target.DragEnter -= h).Inline(gate, owner)
+                from over in Subscriptions.During<DragEventArgs>(h => target.DragOver += h, h => target.DragOver -= h).Inline(gate, owner)
+                from dropped in Subscriptions.Host<DragEventArgs>(h => target.DragDrop += h, h => target.DragDrop -= h)
+                    .Inline(args => IO.lift(() => Accepted(args.Data, accepted)).Bind(found => found.Match(Some: commit, None: static () => IO.pure(unit))), owner)
                 select unit,
         };
 

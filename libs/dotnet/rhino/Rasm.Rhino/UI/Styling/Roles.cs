@@ -1,8 +1,9 @@
 using Rasm.UI;
 using Rasm.UI.Styling;
+using Rasm.UI.Typography;
 using SkiaSharp;
 
-namespace Rasm.Rhino.UI.Styling;
+namespace Rasm.RhinoCommon.UI.Styling;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 public static class PanelRoles {

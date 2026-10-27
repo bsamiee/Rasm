@@ -4,7 +4,7 @@ from collections.abc import Callable
 import functools
 from typing import Final
 
-from expression import Error, Ok, Option
+from expression import Ok, Option
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
@@ -20,7 +20,7 @@ from blender.records.faults import Fault, Outcome
 
 def checked(image: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
     """Returns buffer, or image fault when buffer holds an error."""
-    return Error((Fault(reason=ImagingReason.BUFFER, subject=image.name, cause=image.geterror()),)) if image.has_error else Ok(image)
+    return Ok(image).filter_with(lambda held: not held.has_error, lambda held: (Fault(reason=ImagingReason.BUFFER, subject=held.name, cause=held.geterror()),))
 
 
 def located(values: npt.NDArray[np.float32 | np.uint8], like: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:

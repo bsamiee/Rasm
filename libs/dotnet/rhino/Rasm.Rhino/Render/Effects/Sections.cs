@@ -1,14 +1,15 @@
+using System.Collections.Generic;
 using System.Globalization;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Rows;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.UI;
+using Rasm.RhinoCommon.UI.Rows;
 using Rhino;
 using Rhino.Render.PostEffects;
 using Rhino.UI;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
 
-namespace Rasm.Rhino.Render.Effects;
+namespace Rasm.RhinoCommon.Render.Effects;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSection, ICollapsibleSection, ICollapsibleSection2, ICollapsibleSection3
@@ -24,12 +25,12 @@ public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSecti
         (views, PostEffectId, stage, this.initial) = (owner, hosted.Id, hosted.PostEffectType, initial);
         row = build(Store);
         (id, Caption) = (row.Identity.GUID, RowText.Localize(row.Caption, views));
-        lifetime = new SectionLifetime(this, views, Some(ProviderIds.RdkRenderingPostEffects), () => Excluded, visible: true, retain =>
-            from document in IO.lift(() => (Optional(ViewModel?.GetData(ProviderIds.RdkRendering, bForWrite: false, bAutoChangeBracket: false))
-                    .Bind(static rendering => Optional(RhinoDoc.FromRuntimeSerialNumber(EffectList.RhinoDocumentId(rendering)))) | Optional(RhinoDoc.ActiveDoc))
-                .ToFin(new Refused(nameof(RhinoDoc.ActiveDoc), Refused.Absent)))
+        lifetime = new SectionLifetime(this, views, Some(ProviderIds.RdkRenderingPostEffects), () => Excluded, visible: true,
+            from document in IO.lift(() => Conversions.Found(
+                Optional(ViewModel?.GetData(ProviderIds.RdkRendering, bForWrite: false, bAutoChangeBracket: false))
+                    .Bind(static rendering => Optional(RhinoDoc.FromRuntimeSerialNumber(EffectList.RhinoDocumentId(rendering)))) | Optional(RhinoDoc.ActiveDoc)))
             from scope in RowScope.Open(views, Some(document), new CommitMode.Immediate())
-            from held in ViewBody.Realize(views, row, scope, retain)
+            from held in ViewBody.Realize(views, row, scope)
             select held);
     }
 
@@ -39,7 +40,7 @@ public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSecti
             var source => ValueStores.Defaulted(
                 EffectList.State(source, PostEffectId, initial),
                 IO.pure(initial),
-                state => IO.lift(() => Refused.Unless(SetParameter(EffectList.StateKey, EffectList.Encoded(state)), nameof(SetParameter))),
+                state => IO.lift(() => RhinoFault.Unless(SetParameter(EffectList.StateKey, EffectList.Encoded(state)))),
                 EqualityComparer<TState>.Default.Equals,
                 Applied.Live,
                 Some(source.Changed)),
@@ -71,15 +72,11 @@ public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSecti
 
     bool ICollapsibleSection2.ShowHeaderButton(int index, bool bShow) => false;
 
-    void ICollapsibleSection3.UpdateView(uint flags) => Callbacks.Run(lifetime.Reread, CallbackSite.Of(views, this, nameof(ICollapsibleSection3.UpdateView)));
+    void ICollapsibleSection3.UpdateView(uint flags) => _ = views.Run(lifetime.Reread);
 
     // --- [RELEASE]
     protected override void Dispose(bool disposing) {
-        try {
-            if (disposing)
-                lifetime.Dispose();
-        } finally {
-            base.Dispose(disposing);
-        }
+        if (disposing) lifetime.Dispose();
+        base.Dispose(disposing);
     }
 }

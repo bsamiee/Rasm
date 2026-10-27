@@ -1,6 +1,7 @@
 """Scene-linear lighting reference images."""
 
 from enum import IntEnum
+from functools import partial
 import math
 from types import MappingProxyType
 from typing import Annotated, Final, Self
@@ -154,12 +155,12 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
         @catch(exception=FloatingPointError)
         @np.errstate(over="raise", divide="raise", invalid="raise")
         def formed() -> npt.NDArray[np.float32]:
+            @np.errstate(over="ignore", under="ignore")
             def glow(x: float, y: float, sharpness: float) -> npt.NDArray[np.float64]:
                 if sharpness == 0.0:
                     return np.ones_like(xs)
-                with np.errstate(over="ignore", under="ignore"):
-                    distance = np.hypot(across - x, along - y)
-                    return np.exp(-((distance * math.sqrt(sharpness)) ** 2) * 4.0)
+                distance = np.hypot(across - x, along - y)
+                return np.exp(-((distance * math.sqrt(sharpness)) ** 2) * 4.0)
 
             centers = (np.arange(size, dtype=np.float64) + 0.5 - size / 2.0) / (size / 2.0)
             xs, ys = np.meshgrid(centers, -centers)
@@ -193,7 +194,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
             )
             return np.ascontiguousarray(rimmed * (1.0 - self.vignette * np.minimum(reach**2, 1.0))[..., None], dtype=np.float32)
 
-        return formed().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(self), cause=error),))
+        return formed().map_error(partial(Fault.of, RecordReason.NUMERIC, repr(self)))
 
 
 class _Scattered(msgspec.Struct, frozen=True, kw_only=True, tag=True):

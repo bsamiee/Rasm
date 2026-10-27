@@ -1,9 +1,9 @@
-using Rasm.Rhino.Blocks;
-using Rasm.Rhino.Document.Tables;
+using Rasm.RhinoCommon.Blocks;
+using Rasm.RhinoCommon.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 
-namespace Rasm.Rhino.Objects;
+namespace Rasm.RhinoCommon.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DocumentStatistics(
@@ -37,15 +37,18 @@ public sealed record DocumentStatistics(
          DefinitionGraph.Read(doc),
          IO.lift(() => Conversions.Present(doc.Path).Map(static path => new FileInfo(path)).Filter(static file => file.Exists).Map(static file => file.Length)))
         .Apply(static (rows, tree, graph, length) => new DocumentStatistics(
-            LanguageExt.HashMap.createRange(rows.CountBy(static row => row.Kind)),
-            LanguageExt.HashMap.createRange(rows.CountBy(static row => row.Space)),
-            LanguageExt.HashMap.createRange(rows.CountBy(static row => row.Mode)),
-            LanguageExt.HashMap.createRange(rows.CountBy(static row => row.Layer)),
-            LanguageExt.HashMap.createRange(rows.CountBy(static row => row.Material)),
-            LanguageExt.HashMap.createRange(rows.CountBy(static row => row.MaterialSource)),
+            Counted(rows, static row => row.Kind),
+            Counted(rows, static row => row.Space),
+            Counted(rows, static row => row.Mode),
+            Counted(rows, static row => row.Layer),
+            Counted(rows, static row => row.Material),
+            Counted(rows, static row => row.MaterialSource),
             rows.Fold(0UL, static (sum, row) => sum + row.Memory),
             tree,
             graph,
             length))
         .As();
+
+    private static HashMap<TKey, int> Counted<TRow, TKey>(Seq<TRow> rows, Func<TRow, TKey> key) where TKey : notnull =>
+        toHashMap(rows.CountBy(key).Select(static counted => (counted.Key, counted.Value)));
 }

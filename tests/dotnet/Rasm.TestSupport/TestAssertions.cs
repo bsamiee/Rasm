@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -142,10 +143,9 @@ public static class TestAssertions {
 
     // --- [CASE_TABLES]
     public static void KeySet<T, TKey>(IReadOnlyList<T> items, IReadOnlyList<TKey> expectedKeys, Func<T, TKey> key, Action<T>? assertion = null) where TKey : notnull {
-        System.Collections.Generic.HashSet<TKey> expected = [.. expectedKeys];
-        System.Collections.Generic.HashSet<TKey> actual = [.. items.Select(key)];
-        Assert.Equal(items.Count, actual.Count);
-        Assert.Equal(expected, actual);
+        Seq<TKey> keys = toSeq(items.Select(key));
+        Assert.Equal(items.Count, toHashSet(keys).Count);
+        Assert.Equal(toHashSet(expectedKeys), toHashSet(keys));
         _ = items.AsIterable().Iter(item => { Cancel(); assertion?.Invoke(item); });
     }
     public static void CaseTable(params (string Label, Func<bool> Evaluate, bool Required)[] rows) {

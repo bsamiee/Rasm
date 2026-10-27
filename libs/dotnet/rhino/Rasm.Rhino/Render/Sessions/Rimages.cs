@@ -4,16 +4,14 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
-using Rasm.Rhino.Render.Effects;
+using Rasm.RhinoCommon.Render.Effects;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 
-namespace Rasm.Rhino.Render.Sessions;
+namespace Rasm.RhinoCommon.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class RimagePart {
     public static readonly RimagePart Start = new("[RIMAGE-START]");
     public static readonly RimagePart Body = new("[RIMAGE-BODY]");
@@ -35,13 +33,17 @@ internal sealed partial class RimagePart {
     public static readonly RimagePart State = new("state");
 }
 
+internal sealed record RimageIndex(XElement Xml, long Body);
+
+internal sealed record RimageEntry(EffectEntry Effect, HashMap<string, string> Fields);
+
 public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects, HashMap<Guid, HashMap<string, string>> State) {
     public Seq<Guid> Running => Effects.Filter(static effect => effect.Runs).Map(static effect => effect.Id);
 
     public static IO<Rimage> Open(string fileName) =>
         Read(fileName, (_, index) =>
             from size in Measured(index.Xml, fileName)
-            from effects in Optional(index.Xml.Element(RimagePart.PostEffects.Key)).ToFin(new FileRefused(fileName, FileReason.Unreadable))
+            from effects in Optional(index.Xml.Element(RimagePart.PostEffects.Key)).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
             from entries in Callbacks.Each(
                 from stage in toSeq(effects.Elements())
                 from entry in toSeq(stage.Elements(RimagePart.PlugIn.Key))
@@ -60,58 +62,58 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
     public IO<float[]> Channel(RenderWindow.StandardChannels channel) =>
         Read(FileName, (file, index) => Offsets(index.Xml, FileName).Bind(offsets => Filled(file, index.Body, offsets, channel)));
 
-    private static IO<A> Read<A>(string fileName, Func<FileStream, (XElement Xml, long Body), Fin<A>> body) =>
-        DisposalOps.Within(
-            () => new FileStream(fileName, new FileStreamOptions { Mode = FileMode.Open, Access = FileAccess.Read, Share = FileShare.Read, Options = FileOptions.RandomAccess }),
-            file => IO.lift(() => Indexed(file, fileName).Bind(index => body(file, index))));
+    private static IO<A> Read<A>(string fileName, Func<FileStream, RimageIndex, Fin<A>> body) =>
+        use(() => new FileStream(fileName, new FileStreamOptions { Mode = FileMode.Open, Access = FileAccess.Read, Share = FileShare.Read, Options = FileOptions.RandomAccess }))
+            .Bind(file => IO.lift(() => Indexed(file, fileName).Bind(index => body(file, index))))
+            .Bracket();
 
-    private static Fin<(XElement Xml, long Body)> Indexed(FileStream file, string fileName) {
+    private static Fin<RimageIndex> Indexed(FileStream file, string fileName) {
         const int Version = 2;
         int start = RimagePart.Start.Key.Length;
         Span<byte> lead = stackalloc byte[start + (2 * sizeof(int))];
         int read = file.ReadAtLeast(lead, lead.Length, throwOnEndOfStream: false);
         if (read != lead.Length || !Ascii.Equals(lead[..start], RimagePart.Start.Key) || BinaryPrimitives.ReadInt32LittleEndian(lead[start..]) != Version)
-            return new FileRefused(fileName, FileReason.Unreadable);
+            return new RhinoFault(fileName, RhinoReason.Unreadable);
         int length = BinaryPrimitives.ReadInt32LittleEndian(lead[^sizeof(int)..]);
         if (length < 0 || length % sizeof(char) is not 0 || length > System.Array.MaxLength - sizeof(char) - RimagePart.Body.Key.Length
             || (long)length + sizeof(char) + RimagePart.Body.Key.Length > file.Length - lead.Length)
-            return new FileRefused(fileName, FileReason.Unreadable);
+            return new RhinoFault(fileName, RhinoReason.Unreadable);
         byte[] header = new byte[length + sizeof(char) + RimagePart.Body.Key.Length];
         long body = (long)lead.Length + header.Length;
         return file.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) == header.Length && Ascii.Equals(header.AsSpan(length + sizeof(char)), RimagePart.Body.Key)
             ? Try.lift(() => XElement.Parse(Encoding.Unicode.GetString(header, 0, length))).Run()
-                .MapFail(error => error.HasException<XmlException>() ? new FileRefused(fileName, FileReason.Unreadable, error) : error)
-                .Map(xml => (Xml: xml, Body: body))
-            : new FileRefused(fileName, FileReason.Unreadable);
+                .MapFail(error => error.HasException<XmlException>() ? new RhinoFault(fileName, RhinoReason.Unreadable, Inner: error) : error)
+                .Map(xml => new RimageIndex(xml, body))
+            : new RhinoFault(fileName, RhinoReason.Unreadable);
     }
 
     private static Fin<Size> Measured(XElement xml, string fileName) =>
-        (Child(xml, RimagePart.Width, parseInt).ToFin(new FileRefused(fileName, FileReason.Unreadable)),
-         Child(xml, RimagePart.Height, parseInt).ToFin(new FileRefused(fileName, FileReason.Unreadable)))
+        (Child(xml, RimagePart.Width, parseInt).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable)),
+         Child(xml, RimagePart.Height, parseInt).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable)))
             .Apply(static (width, height) => new Size(width, height))
             .As()
             .Bind(size => size is { Width: > 0, Height: > 0 } && 4L * size.Width * size.Height <= System.Array.MaxLength
                 ? Fin.Succ(size)
-                : new FileRefused(fileName, FileReason.Unreadable));
+                : new RhinoFault(fileName, RhinoReason.Unreadable));
 
-    private static Fin<(EffectEntry Effect, HashMap<string, string> Fields)> Entry(string fileName, XElement effects, XElement stage, XElement entry) =>
+    private static Fin<RimageEntry> Entry(string fileName, XElement effects, XElement stage, XElement entry) =>
         from id in Optional(entry.Attribute(RimagePart.Id.Key)).Bind(static attribute => parseGuid(attribute.Value))
-            .ToFin(new FileRefused(fileName, FileReason.Unreadable))
+            .ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
         from effect in string.Equals(stage.Name.LocalName, RimagePart.ToneMapping.Key, StringComparison.Ordinal)
             ? (Optional(stage.Attribute(RimagePart.Selection.Key)).Map(static attribute => attribute.Value)
                | Optional(effects.Element($"{stage.Name.LocalName}-{RimagePart.Selection.Key}")).Map(static element => element.Value))
-                .Traverse(text => parseGuid(text).ToFin(new FileRefused(fileName, FileReason.Unreadable))).As()
+                .Traverse(text => parseGuid(text).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))).As()
                 .Map(selected => (EffectEntry)new EffectEntry.Selectable(id, selected.Filter(static value => value != Guid.Empty).IfNone(static () => PostEffectUuids.ToneMapper_Clamp) == id))
             : (Flag(entry, RimagePart.On, fileName), Flag(entry, RimagePart.Shown, fileName))
                 .Apply((enabled, shown) => (EffectEntry)new EffectEntry.Listed(id, enabled, shown))
                 .As()
         let fields = toHashMap(Optional(entry.Element(RimagePart.State.Key)).ToSeq().Bind(static state => toSeq(state.Elements()))
             .Map(static field => (field.Name.LocalName, field.Value)))
-        select (Effect: effect, Fields: fields);
+        select new RimageEntry(effect, fields);
 
     private static Fin<bool> Flag(XElement entry, RimagePart part, string fileName) =>
         Optional(entry.Attribute(part.Key))
-            .Traverse(attribute => parseBool(attribute.Value).ToFin(new FileRefused(fileName, FileReason.Unreadable))).As()
+            .Traverse(attribute => parseBool(attribute.Value).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))).As()
             .Map(static value => value.IfNone(noneValue: false));
 
     private static Fin<HashMap<Guid, long>> Offsets(XElement xml, string fileName) =>
@@ -122,7 +124,7 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
                     from start in Child(channel, RimagePart.Offset, parseLong)
                     select (Id: id, Start: start))
                 .As())
-            .ToFin(new FileRefused(fileName, FileReason.Unreadable))
+            .ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
             .Map(static listed => toHashMap(listed));
 
     private static Seq<RenderWindow.StandardChannels> Components(RenderWindow.StandardChannels channel) =>
@@ -136,11 +138,11 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
 
     private Fin<float[]> Filled(FileStream file, long body, HashMap<Guid, long> offsets, RenderWindow.StandardChannels channel) =>
         from starts in Components(channel)
-            .Traverse(component => offsets.Find(RenderWindow.ChannelId(component)).ToFin(new FileRefused(FileName, FileReason.Unreadable)))
+            .Traverse(component => offsets.Find(RenderWindow.ChannelId(component)).ToFin(new RhinoFault(FileName, RhinoReason.Unreadable)))
             .As()
         let bytes = (long)sizeof(float) * Size.Width * Size.Height
         let marker = RimagePart.Chan.Key.Length + Unsafe.SizeOf<Guid>()
-        from bounded in guard<Error>(starts.ForAll(start => start >= 0 && start <= file.Length - body - marker - bytes), new FileRefused(FileName, FileReason.Unreadable))
+        from bounded in guard<Error>(starts.ForAll(start => start >= 0 && start <= file.Length - body - marker - bytes), new RhinoFault(FileName, RhinoReason.Unreadable))
         select Fill(file, starts.Map(start => body + start + marker).Strict());
 
     private float[] Fill(FileStream file, Seq<long> planes) {

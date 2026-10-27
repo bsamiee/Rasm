@@ -1,8 +1,9 @@
+using System.Collections.Generic;
 using QuikGraph;
 using QuikGraph.Algorithms;
-using Rasm.Rhino.Document.Units;
+using Rasm.RhinoCommon.Document.Units;
 
-namespace Rasm.Rhino.Modeling;
+namespace Rasm.RhinoCommon.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]

@@ -13,7 +13,7 @@ from expression.extra.result import catch
 import msgspec
 from typing_extensions import TypeForm
 
-from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, RecordReason
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -30,7 +30,7 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Ok(record), read fault for a missing, unreadable, or invalid file.
         """
-        refused = partial(_faulted, self.path, reason=RecordReason.UNREADABLE)
+        refused = partial(Fault.of, RecordReason.UNREADABLE, str(self.path))
         return catch(self.path.read_bytes, exception=OSError)().map_error(refused).bind(lambda data: catch(msgspec.json.decode, exception=msgspec.DecodeError)(data, type=self.form).map_error(refused))
 
     def written(self, value: T, *, exclusive: bool = False) -> Outcome[Path]:
@@ -44,7 +44,7 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             Ok(path), write fault for a refused write, `FileExistsError` when exclusive meets a held path.
         """
         encoded = msgspec.json.encode(value, order="deterministic")
-        return committed(self.path, lambda stage: catch(stage.write_bytes, exception=OSError)(encoded).map_error(partial(_faulted, self.path)), exclusive=exclusive)
+        return committed(self.path, lambda stage: catch(stage.write_bytes, exception=OSError)(encoded).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(self.path))), exclusive=exclusive)
 
     def revised(self, change: Callable[[T], T]) -> Outcome[T]:
         """Writes change of the held record.
@@ -63,13 +63,9 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 # --- [WRITES]
 
 
-def _faulted(path: Path, error: Exception, *, reason: RecordReason = RecordReason.UNWRITABLE) -> Faults:
-    return (Fault(reason=reason, subject=str(path), cause=error),)
-
-
 def folder_made(folder: Path) -> Outcome[Path]:
     """Returns existing or created folder, or write fault."""
-    return catch(folder.mkdir, exception=OSError)(parents=True, exist_ok=True).map(lambda _: folder).map_error(partial(_faulted, folder))
+    return catch(folder.mkdir, exception=OSError)(parents=True, exist_ok=True).map(lambda _: folder).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(folder)))
 
 
 def committed(path: Path, write: Callable[[Path], Outcome[object]], *, exclusive: bool = False) -> Outcome[Path]:
@@ -83,13 +79,14 @@ def committed(path: Path, write: Callable[[Path], Outcome[object]], *, exclusive
     Returns:
         Ok(path), writer faults, or write fault for folder creation or replacement, `FileExistsError` when exclusive meets a held path.
     """
+    unwritable = partial(Fault.of, RecordReason.UNWRITABLE, str(path))
 
     def replaced(folder: tempfile.TemporaryDirectory[str]) -> Outcome[Path]:
         with folder as name:
             stage = Path(name) / path.name
-            return write(stage).bind(lambda _: catch(move_atomic if exclusive else replace_atomic, exception=OSError)(str(stage), str(path)).map_error(partial(_faulted, path))).map(lambda _: path)
+            return write(stage).bind(lambda _: catch(move_atomic if exclusive else replace_atomic, exception=OSError)(str(stage), str(path)).map_error(unwritable)).map(lambda _: path)
 
-    return folder_made(path.parent).bind(lambda parent: catch(tempfile.TemporaryDirectory[str], exception=OSError)(dir=parent).map_error(partial(_faulted, path))).bind(replaced)
+    return folder_made(path.parent).bind(lambda parent: catch(tempfile.TemporaryDirectory[str], exception=OSError)(dir=parent).map_error(unwritable)).bind(replaced)
 
 
 def files_copied(pairs: Iterable[tuple[Path, Path]]) -> Outcome[tuple[Path, ...]]:
@@ -99,7 +96,7 @@ def files_copied(pairs: Iterable[tuple[Path, Path]]) -> Outcome[tuple[Path, ...]
         return target if target.exists() and target.samefile(source) else Path(shutil.copytree(source, target, dirs_exist_ok=True) if source.is_dir() else shutil.copy2(source, target))
 
     def one(source: Path, target: Path) -> Outcome[Path]:
-        return folder_made(target.parent).bind(lambda _: catch(copy, exception=OSError)(source, target).map_error(partial(_faulted, target)))
+        return folder_made(target.parent).bind(lambda _: catch(copy, exception=OSError)(source, target).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(target))))
 
     return accumulated(starmap(one, sorted(frozenset(pairs))))
 

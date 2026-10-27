@@ -65,27 +65,24 @@ class ValueHistory[T: msgspec.Struct, O, U](msgspec.Struct, frozen=True, kw_only
     def replaced[V](self, host: O, write: Callable[[], Outcome[Option[V]]], moment: datetime.datetime, retention: Retention) -> Outcome[Option[V]]:
         """Runs edit, adding the prior value when it reports a change."""
 
-        def recorded(pair: tuple[T, History[T]]) -> Outcome[Option[V]]:
-            record, history = pair
+        def recorded(record: T, history: History[T]) -> Outcome[Option[V]]:
             return write().bind(lambda change: change.map(lambda _: self.kept(host, history.add(Dated(moment=moment, value=record), retention)).map(lambda _: change)).default_value(Ok(change)))
 
-        return paired(self.read(host), self.held(host)).bind(recorded)
+        return paired(self.read(host), self.held(host)).bind(lambda pair: recorded(*pair))
 
     # --- [NAVIGATION]
 
     def stepped(self, host: O, offset: int, moment: datetime.datetime, retention: Retention) -> Outcome[Option[U]]:
         """Undoes for positive offset, redoes for negative offset, a refused write keeping both branches with the current value across from the target."""
 
-        def navigated(pair: tuple[T, History[T]]) -> Outcome[Option[U]]:
-            record, history = pair
-
+        def navigated(record: T, history: History[T]) -> Outcome[Option[U]]:
             def moved(target: T, arrived: History[T], parked: History[T]) -> Outcome[Option[U]]:
                 answer = self.write(host, target)
                 return paired(answer, self.kept(host, answer.map(lambda _: arrived).default_value(parked))).map(lambda pair: Some(pair[0]))
 
             return history.step(offset, Dated(moment=moment, value=record), retention).map(lambda found: moved(*found)).default_value(Ok(Nothing))
 
-        return paired(self.read(host), self.held(host)).bind(navigated)
+        return paired(self.read(host), self.held(host)).bind(lambda pair: navigated(*pair))
 
     def removed(self, host: O, offset: int) -> Outcome[Option[T]]:
         """Removes value at signed one-based offset, `Nothing` past either end, leaving the live value unchanged."""

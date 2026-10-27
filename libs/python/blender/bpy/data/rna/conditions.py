@@ -11,7 +11,7 @@ from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import PyOpenColorIO
 
-from blender.bpy.data.rna.descriptors import Descriptor, Value
+from blender.bpy.data.rna.descriptors import Descriptor, Struct, Value
 from blender.bpy.faults import BlenderReason
 from blender.imaging.color.authoring import DynamicRange
 from blender.records.faults import accumulated, Fault, Outcome
@@ -153,7 +153,7 @@ class AllOf(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def holds(condition: Condition, context: bpy.types.Context, item: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> bool:
+def holds(condition: Condition, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
     """Whether requirement holds, nested collection conditions reading each item."""
     match condition:
         case Setting(descriptor=descriptor, accepted=accepted):
@@ -193,7 +193,7 @@ def holds(condition: Condition, context: bpy.types.Context, item: "Option[bpy.ty
             return all(holds(member, context, item) for member in members)
 
 
-def check(condition: Condition, context: bpy.types.Context, item: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> Outcome[None]:
+def check(condition: Condition, context: bpy.types.Context, item: Option[Struct] = Nothing) -> Outcome[None]:
     """Returns unmet fault per failing requirement, each `AllOf` member checked."""
     match condition:
         case AllOf(conditions=members):

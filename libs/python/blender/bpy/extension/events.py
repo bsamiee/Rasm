@@ -10,7 +10,7 @@ from types import MethodType
 from typing import Final, Self
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import identity, Nothing, Ok, Option, Some
 import msgspec
 
 from blender.bpy.data.rna.descriptors import Struct
@@ -31,8 +31,8 @@ class Change(Flag):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Handler(msgspec.Struct, frozen=True, kw_only=True):
-    """Callback on one `bpy.app.handlers` list, held on the extension's one dispatcher there."""
+class Handler(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Callback on one `bpy.app.handlers` list, held on the extension's one dispatcher there, each row distinct since equal lists name different host events."""
 
     handlers: list[Callable[..., None]]
     body: Callable[..., Outcome[None]]
@@ -48,10 +48,11 @@ class Handler(msgspec.Struct, frozen=True, kw_only=True):
             None while the dispatcher runs body with the leading host arguments it takes positionally.
         """
         dispatcher = _Dispatcher.found(self.handlers, identity)
-        entry = (identity.reports.reported(self.body), sum(parameter.kind in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD} for parameter in inspect.signature(self.body).parameters.values()))
+        count = sum(parameter.kind in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD} for parameter in inspect.signature(self.body).parameters.values())
+        entry = (identity.reports.reported(self.body), count)
         with ExitStack() as stack:
             dispatcher.entries.append(entry)
-            stack.callback(dispatcher.released, self.handlers, entry)
+            stack.callback(dispatcher.released, entry)
             yield
 
 
@@ -77,12 +78,17 @@ class Subscription(msgspec.Struct, frozen=True, kw_only=True):
         Yields:
             None while the bus holds the key.
         """
-        bus = identity.held[_BUS]
-        key = ((self.owner, self.setting.identifier), partial(_notified, identity.reports.reported(self.body)))
+        bus, body = identity.held[_BUS], identity.reports.reported(self.body)
+
+        def notified() -> None:
+            """Runs body through reports, the host taking a plain function answering None."""
+            return body().to_optional()
+
+        key = ((self.owner, self.setting.identifier), notified)
         with ExitStack() as stack:
             bus.keys.append(key)
             stack.callback(bus.keys.remove, key)
-            bpy.msgbus.subscribe_rna(key=key[0], owner=bus, args=(), notify=key[1])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            bus.renewed()
             yield
 
 
@@ -120,25 +126,20 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
 class _Dispatcher:
     """One persistent callback an extension keeps on a handler list, skipping its runtime scenes and running each held callback over the arguments it takes."""
 
-    __slots__ = ("entries", "identity")
+    __slots__ = ("entries", "handlers", "identity")
 
-    def __init__(self, identity: Identity) -> None:
-        """Holds no callback of identity."""
-        self.identity = identity
+    def __init__(self, identity: Identity, handlers: list[Callable[..., None]]) -> None:
+        """Appends the dispatcher to handler list, holding no callback of identity."""
+        self.identity, self.handlers = identity, handlers
         self.entries: list[tuple[Callable[..., Option[None]], int]] = []
+        self.handlers.append(self.dispatched)
 
     @classmethod
     def found(cls, handlers: list[Callable[..., None]], identity: Identity) -> Self:
         """Returns the dispatcher of identity's package on handler list, appending a new one when absent."""
-
-        def opened() -> Self:
-            dispatcher = cls(identity)
-            handlers.append(dispatcher.dispatched)
-            return dispatcher
-
         return Option.of_optional(
             next((held.__self__ for held in handlers if isinstance(held, MethodType) and isinstance(held.__self__, cls) and held.__self__.identity.package == identity.package), None)
-        ).default_with(opened)
+        ).default_with(lambda: cls(identity, handlers))
 
     @bpy.app.handlers.persistent  # type: ignore[untyped-decorator]  # ty: ignore[dynamic-function-decorator-return]
     def dispatched(self, *arguments: object) -> None:
@@ -148,13 +149,13 @@ class _Dispatcher:
                 return
             case _:
                 for entry, count in tuple(self.entries):
-                    entry(*arguments[:count])
+                    _ = entry(*arguments[:count])
 
-    def released(self, handlers: list[Callable[..., None]], entry: tuple[Callable[..., Option[None]], int]) -> None:
-        """Drops entry, removing the dispatcher from handler list once it holds none."""
+    def released(self, entry: tuple[Callable[..., Option[None]], int]) -> None:
+        """Drops entry, removing the dispatcher from its handler list once it holds none."""
         self.entries.remove(entry)
         if not self.entries:
-            handlers.remove(self.dispatched)
+            self.handlers.remove(self.dispatched)
 
 
 class _Bus:
@@ -176,7 +177,7 @@ class _Bus:
             yield bus
 
     def renewed(self) -> Self:
-        """Subscribes every held key again, clearing earlier subscriptions first."""
+        """Subscribes every held key, clearing earlier subscriptions first."""
         bpy.msgbus.clear_by_owner(self)
         for key, notify in self.keys:
             bpy.msgbus.subscribe_rna(key=key, owner=self, args=(), notify=notify)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
@@ -269,16 +270,11 @@ def _once(body: Callable[[], Outcome[None]]) -> Outcome[Option[float]]:
     return body().map(lambda _: Nothing)
 
 
-def _notified(body: Callable[[], Option[None]]) -> None:
-    """Runs a msgbus callback, which the host requires to answer None."""
-    return body().to_optional()
-
-
 def _ticked(body: Callable[[], Option[Option[float]]]) -> float | None:
     """Returns the next interval, `None` to stop the timer."""
-    return body().bind(lambda interval: interval).to_optional()
+    return body().bind(identity).to_optional()
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Change", "Handler", "Subscription", "Timer", "changed", "located", "startup", "staged", "updated"]
+__all__ = ["Change", "Handler", "Subscription", "Timer", "changed", "located", "staged", "startup", "updated"]

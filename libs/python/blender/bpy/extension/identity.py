@@ -2,14 +2,15 @@
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
+from functools import partial
 import importlib.resources
 from pathlib import Path
 from types import MappingProxyType
-from typing import Annotated, Final, Generic, Self, TypeVar
+from typing import Annotated, Final, Generic, Protocol, Self, TypeVar
 from uuid import NAMESPACE_URL, uuid5
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 import structlog
@@ -18,7 +19,7 @@ from structlog.typing import FilteringBoundLogger
 from blender.bpy.data.rna.descriptors import Struct
 from blender.bpy.extension.reports import Reports
 from blender.bpy.faults import BlenderReason
-from blender.records.faults import Fault, Faults, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, RecordReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -26,6 +27,16 @@ type Key = Annotated[str, msgspec.Meta(pattern=r"\A[a-z][a-z0-9]*(?:_[a-z0-9]+)*
 type _Made[T] = Callable[[Identity], AbstractContextManager[T]]
 
 _T_co = TypeVar("_T_co", covariant=True)
+
+
+class _Store(Protocol):
+    """Values keyed by resource, each read typed by the resource that made it."""
+
+    def __getitem__[T](self, resource: "Resource[T]", /) -> T: ...
+    def __setitem__[T](self, resource: "Resource[T]", value: T, /) -> None: ...
+    def __contains__(self, resource: object, /) -> bool: ...
+    def pop[T](self, resource: "Resource[T]", /) -> T: ...
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -63,11 +74,11 @@ class Held:
 
     def __init__(self) -> None:
         """Holds no value until the registration scope makes one."""
-        self.values: dict[Resource[object], object] = {}
+        self.values: _Store = {}  # type: ignore[assignment]
 
     def __getitem__[T](self, resource: Resource[T]) -> T:
         """Returns the value resource made."""
-        return self.values[resource]  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+        return self.values[resource]
 
     def get[T](self, resource: Resource[T]) -> Option[T]:
         """Returns the value resource made, Nothing outside its scope."""
@@ -127,11 +138,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
         """
         form = _FORMS[base]
         name = form.template.format(ID=self.manifest.id.upper(), id=self.manifest.id.lower(), key=key, KEY=key.upper(), digest=uuid5(NAMESPACE_URL, f"{self.manifest.id}/{key}").hex)
-        return (
-            catch(msgspec.convert, exception=msgspec.ValidationError)((key, name.encode()), tuple[Key, Annotated[bytes, form.constraint]])
-            .map(lambda _: name)
-            .map_error(lambda error: (Fault(reason=BlenderReason.UNREGISTERED, subject=name, cause=error),))
-        )
+        return _checked(name, (key, name.encode()), tuple[Key, Annotated[bytes, form.constraint]])
 
     def identifier(self, key: Key) -> Outcome[str]:
         """Builds validated property, record, or command identifier.
@@ -142,8 +149,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Ok(identifier), register fault for refused key.
         """
-        name = f"{self.manifest.id.lower()}_{key}"
-        return catch(msgspec.convert, exception=msgspec.ValidationError)(key, Key).map(lambda _: name).map_error(lambda error: (Fault(reason=BlenderReason.UNREGISTERED, subject=name, cause=error),))
+        return _checked(f"{self.manifest.id.lower()}_{key}", key, Key)
 
     # --- [READING]
 
@@ -158,14 +164,10 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
             Ok(identity), read fault for unreadable manifest.
         """
         path = importlib.resources.files(package) / "blender_manifest.toml"
-
-        def unreadable(error: Exception) -> Faults:
-            return (Fault(reason=RecordReason.UNREADABLE, subject=str(path), cause=error),)
-
         return (
-            catch(path.read_bytes, exception=OSError)()
-            .map_error(unreadable)
-            .bind(lambda data: catch(msgspec.toml.decode, exception=msgspec.DecodeError)(data, type=Manifest).map_error(unreadable))
+            Result[bytes, OSError | msgspec.DecodeError]
+            .bind(catch(path.read_bytes, exception=OSError)(), lambda data: catch(msgspec.toml.decode, exception=msgspec.DecodeError)(data, type=Manifest))
+            .map_error(partial(Fault.of, RecordReason.UNREADABLE, str(path)))
             .map(
                 lambda manifest: cls(
                     package=package,
@@ -177,6 +179,14 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
         )
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _checked(name: str, parts: object, form: object) -> Outcome[str]:
+    """Returns name once parts convert to form, register fault naming it otherwise."""
+    return catch(msgspec.convert, exception=msgspec.ValidationError)(parts, form).map(lambda _: name).map_error(partial(Fault.of, BlenderReason.UNREGISTERED, name))
 
 
 # --- [TABLES] ---------------------------------------------------------------------------

@@ -17,7 +17,7 @@ from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.render.color.luts import current, FORMATS
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, entered, Named, Registers, Shell, Spaces
-from blender.bpy.render.compositor.inputs import captured
+from blender.bpy.render.compositor.inputs import captured, valued
 from blender.imaging.color.luts import corrections, LutFormat, LutOutput
 from blender.imaging.color.processors import bracketed, processor
 from blender.records.faults import Fault, Outcome, paired, RecordReason
@@ -118,7 +118,8 @@ def export_cdl(call: Call[Exported]) -> Outcome[Answer]:
         .root(bpy.types.Scene)
         .bind(lambda scene: cdl.named(call.identity, scene, properties.name))
         .bind(lambda entry: captured(call.identity, entry))
-        .bind(lambda values: correction({key: owner.values.get("value") for key, owner in values.tree.owners.items() if key}))
+        .map(valued)
+        .bind(correction)
         .bind(operations)
         .bind(lambda built: LutOutput(format=FORMATS[properties.format]).written({str(call.paths[0]): built}))
         .map(Done.wrote)

@@ -14,7 +14,7 @@ import PyOpenColorIO
 from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
 from blender.bpy.data.rna.descriptors import assigned, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.subscriptions import Subscription
+from blender.bpy.extension.events import Subscription
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason

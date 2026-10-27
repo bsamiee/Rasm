@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;
@@ -15,7 +16,7 @@ namespace Rasm.Imaging.Files;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class LutText {
     // --- [TOKENS]
-    internal const string Blanks = " \t\r\n";
+    internal static readonly char[] Blanks = [' ', '\t', '\r', '\n'];
     private const string Title = "TITLE";
     private const string Lut1DSize = "LUT_1D_SIZE";
     private const string Lut3DSize = "LUT_3D_SIZE";
@@ -284,17 +285,8 @@ internal static class LutText {
 
     private static Option<string> Resolve(Lut1D shaper, Lut3D lattice) =>
         Uniform(shaper.DomainMinimum) && Uniform(shaper.DomainMaximum) && Uniform(lattice.DomainMinimum) && Uniform(lattice.DomainMaximum)
-            ? Rows(
-                Rows(
-                    Ranged(
-                        Sized(Ranged(Sized(new StringBuilder(), Lut1DSize, shaper.Length), Lut1DInputRange, shaper.DomainMinimum.X, shaper.DomainMaximum.X), Lut3DSize, lattice.Size),
-                        Lut3DInputRange,
-                        lattice.DomainMinimum.X,
-                        lattice.DomainMaximum.X),
-                    Interleaved(shaper),
-                    3),
-                lattice.Data,
-                3).ToString()
+            ? Rows(Rows(Ranged(Sized(Ranged(Sized(new StringBuilder(), Lut1DSize, shaper.Length), Lut1DInputRange, shaper.DomainMinimum.X, shaper.DomainMaximum.X), Lut3DSize, lattice.Size),
+                Lut3DInputRange, lattice.DomainMinimum.X, lattice.DomainMaximum.X), Interleaved(shaper), 3), lattice.Data, 3).ToString()
             : None;
 
     private static Option<Lut1D> Shaper(LogCurve curve) {
@@ -374,12 +366,9 @@ internal static class LutText {
     private static Option<Vector2> Pair(string text) => Numbers<float>(text).Bind(static values => values is [var low, var high] ? Some(new Vector2(low, high)) : None);
 
     internal static Option<T[]> Numbers<T>(ReadOnlySpan<char> text) where T : struct, INumberBase<T> {
-        int count = 0;
-        foreach (System.Range token in text.SplitAny(Blanks))
-            count += text[token].IsEmpty ? 0 : 1;
-        using SpanOwner<System.Range> tokens = SpanOwner<System.Range>.Allocate(count + 1);
-        T[] values = new T[count];
-        return Parsed(text, tokens.Span[..text.SplitAny(tokens.Span, Blanks, StringSplitOptions.RemoveEmptyEntries)], values) == count ? values : None;
+        using SpanOwner<System.Range> tokens = SpanOwner<System.Range>.Allocate(text.Length + 1);
+        T[] values = new T[text.SplitAny(tokens.Span, Blanks, StringSplitOptions.RemoveEmptyEntries)];
+        return Parsed(text, tokens.Span[..values.Length], values) == values.Length ? values : None;
     }
 
     private static int Parsed<T>(ReadOnlySpan<char> text, ReadOnlySpan<System.Range> tokens, Span<T> into) where T : struct, INumberBase<T> {

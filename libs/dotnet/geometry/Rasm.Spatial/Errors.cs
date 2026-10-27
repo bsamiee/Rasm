@@ -19,5 +19,5 @@ public sealed partial class SpatialRule {
 public sealed record SpatialFault(string Subject, SpatialRule Reason, Option<int> Index = default, Option<Error> Inner = default)
     : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner) {
     public static Fin<Unit> Unless<T>(bool flag, SpatialRule reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new SpatialFault($"{names} = {Convert.ToString(rejected, CultureInfo.InvariantCulture)}", reason, index);
+        flag ? unit : new SpatialFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
 }

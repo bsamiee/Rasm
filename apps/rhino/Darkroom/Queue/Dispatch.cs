@@ -12,12 +12,12 @@ using System.Text.Json.Serialization;
 using Darkroom.Chain;
 using Darkroom.Output;
 using NodaTime.Text;
-using Rasm.Rhino;
-using Rasm.Rhino.Commands;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.Render.Settings;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Commands;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.Render.Settings;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
@@ -71,7 +71,7 @@ public abstract partial record QueueTarget {
     public sealed record Flamenco(OutputFolder Folder, Stem Stem, FlamencoSettings Farm) : QueueTarget;
 }
 
-public sealed record QueueContext(OutputPath Record, IO<QueueSettings> Settings, IPlugInViews Views, Atom<QueueEstimate> Estimate, Func<QueueEvent, IO<Unit>> Notify, string JobCommand, string FarmScript, Action<IDisposable> Retain) {
+public sealed record QueueContext(OutputPath Record, IO<QueueSettings> Settings, IPlugInViews Views, Atom<QueueEstimate> Estimate, Func<QueueEvent, IO<Unit>> Notify, string JobCommand, string FarmScript) {
     public static PlugInSlot<QueueContext> Current { get; } = new();
 }
 
@@ -113,7 +113,7 @@ internal sealed record QueueJob(int RhinoVersion, string Copy, QueueJob.Entry[] 
         from entries in IO.lift(toSeq(Entries).Map(static (entry, index) => (Entry: entry, Index: index))
             .Traverse(held => Planned(held.Entry, settings).MapFail(error => new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"render queue job entry {held.Index}"), DarkroomReason.Invalid, error)))
             .As()
-            .Bind(static entries => Callbacks.Unique(entries, static entry => entry.Key, nameof(QueueJob))))
+            .Bind(static entries => Conversions.Unique(entries, static entry => entry.Key)))
         from batch in RenderBatch.Placed(doc, entries, overwrite: true)
         select batch;
 
@@ -131,7 +131,7 @@ internal sealed record QueueJob(int RhinoVersion, string Copy, QueueJob.Entry[] 
 
     internal static IO<QueueJob> Read(string path) =>
         from found in JsonFiles.Read(path, JobContext.Default.QueueJob, static job => Fin.Succ(job))
-        from job in IO.lift(found.ToFin(new FileRefused(path, FileReason.Missing)))
+        from job in IO.lift(found.ToFin(new RhinoFault(path, RhinoReason.Missing)))
         select job;
 }
 
@@ -193,8 +193,8 @@ public static class Dispatch {
         from verdict in IO.lift(check.Verdict)
         from sent in chosen.Switch(
             (Context: context, Doc: doc, Plan: plan, Stamp: stamp, Resumed: resumed),
-            local: static (state, _) => DisposalOps.Fork(Reported(state.Context, state.Plan.Resolved(state.Doc, state.Resumed).OnUiThread()
-                .Bind(batch => QueueRuns.Run(state.Context, state.Doc, batch, None, state.Resumed))), state.Context.Retain).Map(static _ => unit),
+            local: static (state, _) => state.Context.Views.Session.Held(Reported(state.Context, state.Plan.Resolved(state.Doc, state.Resumed).OnUiThread()
+                .Bind(batch => QueueRuns.Run(state.Context, state.Doc, batch, None, state.Resumed))).Fork()).Map(static _ => unit),
             packaged: static (state, packaged) => packaged.Use.Switch(
                 (state.Context, state.Doc, state.Plan, state.Stamp, state.Resumed, packaged.Folder, packaged.Stem),
                 jobFile: static held => Packed(held.Doc, held.Plan, held.Resumed, held.Folder, held.Stem, held.Stamp).OnUiThread().Map(static _ => unit),
@@ -207,40 +207,40 @@ public static class Dispatch {
         select sent;
 
     private static IO<T> Reported<T>(QueueContext context, IO<T> run, [CallerMemberName] string member = "") =>
-        DisposalOps.OnFailure(run, error => IO.lift(() => context.Views.Report(error, typeof(Dispatch), member)));
+        run.Catch(error => IO.lift(() => PlugInLog.Of(context.Views).Failed(error, typeof(Dispatch), member)) >> IO.fail<T>(error)).As();
 
     // --- [FLAMENCO]
     public static IO<Unit> InstallCompiler(FlamencoSettings farm) =>
-        from folder in IO.lift(Optional(farm.Scripts).ToFin(new Refused(nameof(FlamencoSettings.Scripts), Refused.Absent)))
-        from path in IO.lift(OutputPath.Of(Path.Join(folder, CompilerFile)))
-        from written in DisposalOps.Found(static () => typeof(Dispatch).Assembly.GetManifestResourceStream(CompilerFile), nameof(System.Reflection.Assembly.GetManifestResourceStream),
-            source => FilePublication.Write(path, overwrite: true, target => IO.liftAsync(async environment => {
-                await source.CopyToAsync(target, environment.Token).ConfigureAwait(false);
-                return unit;
-            })))
-        select written;
+        (from folder in IO.lift(Conversions.Found(farm.Scripts))
+         from path in IO.lift(OutputPath.Of(Path.Join(folder, CompilerFile)))
+         from source in Products.Made(typeof(Dispatch).Assembly.GetManifestResourceStream(CompilerFile))
+         from written in FilePublication.Write(path, overwrite: true, target => IO.liftAsync(async environment => {
+             await source.CopyToAsync(target, environment.Token).ConfigureAwait(false);
+             return unit;
+         }))
+         select written).Bracket();
 
     public static IO<bool> FarmStartup(string farmScript) =>
         IO.lift(() => (OperatingSystem.IsMacOS() ? SafeNativeMethods.Arguments() : Environment.GetCommandLineArgs()).AsSpan().EndsWith(WorkerPlatform.Current().Arguments(farmScript)));
 
     private static IO<Uri> Submitted(FlamencoSettings farm, string copy, string[] arguments) =>
-        DisposalOps.Within(static () => new HttpClient(), client =>
-            from advertised in IO.liftAsync(environment => client.GetFromJsonAsync(new Uri(farm.Manager, "/api/v3/jobs/types"), FlamencoContext.Default.FlamencoTypes, environment.Token))
-            from types in IO.lift(Refused.UnlessFound(advertised, nameof(HttpClientJsonExtensions.GetFromJsonAsync)))
-            let type = Path.GetFileNameWithoutExtension(CompilerFile).Replace('_', '-')
-            from compiled in IO.lift(toSeq(types.JobTypes).Find(job => string.Equals(job.Name, type, StringComparison.Ordinal)).ToFin(new NotFound("Flamenco job type", type)))
-            from submitted in IO.liftAsync(async environment => {
-                using JsonContent content = JsonContent.Create(new FlamencoJob(
-                    Path.GetFileNameWithoutExtension(copy), type, compiled.Etag, farm.Priority, WorkerPlatform.Current().Key,
-                    new FlamencoJob.Parameters(copy, arguments), farm.WorkerTag), FlamencoContext.Default.FlamencoJob);
-                using HttpResponseMessage response = await client.PostAsync(new Uri(farm.Manager, "/api/v3/jobs"), content, environment.Token).ConfigureAwait(false);
-                return response.StatusCode is HttpStatusCode.OK
-                    ? Refused.UnlessFound(await response.Content.ReadFromJsonAsync(FlamencoContext.Default.FlamencoReceipt, environment.Token).ConfigureAwait(false), nameof(HttpContentJsonExtensions.ReadFromJsonAsync))
-                        .Map(receipt => new Uri(farm.Manager, $"/jobs/{receipt.Id:D}"))
-                    : new DarkroomFault($"Flamenco answering {response.StatusCode}", DarkroomReason.Refused);
-            })
-            from received in IO.lift(submitted)
-            select received)
+        (from client in use(static () => new HttpClient())
+         from advertised in IO.liftAsync(environment => client.GetFromJsonAsync(new Uri(farm.Manager, "/api/v3/jobs/types"), FlamencoContext.Default.FlamencoTypes, environment.Token))
+         from types in IO.lift(Conversions.Found(advertised))
+         let type = Path.GetFileNameWithoutExtension(CompilerFile).Replace('_', '-')
+         from compiled in IO.lift(toSeq(types.JobTypes).Find(job => string.Equals(job.Name, type, StringComparison.Ordinal)).ToFin(new DarkroomFault($"Flamenco job type {type}", DarkroomReason.Missing)))
+         from submitted in IO.liftAsync(async environment => {
+             using JsonContent content = JsonContent.Create(new FlamencoJob(
+                 Path.GetFileNameWithoutExtension(copy), type, compiled.Etag, farm.Priority, WorkerPlatform.Current().Key,
+                 new FlamencoJob.Parameters(copy, arguments), farm.WorkerTag), FlamencoContext.Default.FlamencoJob);
+             using HttpResponseMessage response = await client.PostAsync(new Uri(farm.Manager, "/api/v3/jobs"), content, environment.Token).ConfigureAwait(false);
+             return response.StatusCode is HttpStatusCode.OK
+                 ? Conversions.Found(await response.Content.ReadFromJsonAsync(FlamencoContext.Default.FlamencoReceipt, environment.Token).ConfigureAwait(false))
+                     .Map(receipt => new Uri(farm.Manager, $"/jobs/{receipt.Id:D}"))
+                 : new DarkroomFault($"Flamenco answering {response.StatusCode}", DarkroomReason.Refused);
+         })
+         from received in IO.lift(submitted)
+         select received).Bracket()
             .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Uri>(new DarkroomFault($"render job post to {farm.Manager}", DarkroomReason.Failed, error)));
 
     // --- [PACKAGE]
@@ -254,16 +254,15 @@ public static class Dispatch {
 
     // --- [HANDOFF]
     private static IO<Unit> Handed(QueueContext context, RhinoDoc doc, QueuePlan plan, LocalDateTime stamp, Option<QueueProgress> resumed, OutputFolder folder, Stem stem) =>
-        DisposalOps.Within<IDisposable, Unit>(acquired =>
-            from lease in QueueProgress.Acquire(context.Record, acquired)
-            from saved in IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments())).Bind(static open => open.TraverseM(Exchange.Save).As()).OnUiThread()
-            from paths in Packed(doc, plan, resumed, folder, stem, stamp).OnUiThread()
-            from moved in resumed.Traverse(record => QueueProgress.Write(
-                context.Record, record with { Job = Some((string)paths[PackageFile.Job]), Ended = record.Ended | Some(RunEnd.Stopped) })).As()
-            from relayed in IO.lift(() => Launch(paths[PackageFile.Job], context.JobCommand, JobVariable(context)))
-                .Bind(static start => DisposalOps.Found(() => Process.Start(start), nameof(Process.Start), static _ => IO.pure(unit)))
-            from quit in Quit.OnUiThread()
-            select unit, DisposalOps.Release);
+        (from lease in QueueProgress.Acquire(context.Record)
+         from saved in IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments())).Bind(static open => open.TraverseM(Exchange.Save).As()).OnUiThread()
+         from paths in Packed(doc, plan, resumed, folder, stem, stamp).OnUiThread()
+         from moved in resumed.Traverse(record => QueueProgress.Write(
+             context.Record, record with { Job = Some((string)paths[PackageFile.Job]), Ended = record.Ended | Some(RunEnd.Stopped) })).As()
+         from start in IO.lift(() => Launch(paths[PackageFile.Job], context.JobCommand, JobVariable(context)))
+         from relayed in Products.Made(Process.Start(start))
+         from quit in Quit.OnUiThread()
+         select unit).Bracket();
 
     private static Fin<ProcessStartInfo> Launch(string job, string command, string variable) =>
         OperatingSystem.IsMacOS()
@@ -278,7 +277,7 @@ public static class Dispatch {
                 },
                 UseShellExecute = false,
             }
-            : Refused.UnlessFound(Environment.ProcessPath, nameof(Environment.ProcessPath)).Map(path => new ProcessStartInfo(path) {
+            : Conversions.Found(Environment.ProcessPath).Map(path => new ProcessStartInfo(path) {
                 ArgumentList = { "/nosplash", $"/runscript=_NoEcho _{command}" },
                 Environment = { [variable] = job },
                 UseShellExecute = false,
@@ -294,27 +293,28 @@ public static class Dispatch {
 
     public static IO<ForkIO<Unit>> Job(QueueContext context) =>
         JobVariable(context) switch {
-            var variable => IO.lift(() => Conversions.Present(Environment.GetEnvironmentVariable(variable)).ToFin(new Refused(variable, Refused.Absent)))
-                .Bind(path => DisposalOps.Fork(Launched(context, Run(context, path)), context.Retain)),
+            var variable => IO.lift(() => Conversions.Present(Environment.GetEnvironmentVariable(variable)).ToFin(new DarkroomFault(variable, DarkroomReason.Missing)))
+                .Bind(path => context.Views.Session.Held(Launched(context, Run(context, path)).Fork())),
         };
 
     public static IO<Unit> FarmJob(QueueContext context, RhinoDoc doc, IO<Unit> close) =>
-        (from code in Farmed(context, doc).Map(static _ => 0).Catch(error => IO.lift(() => context.Views.Report(error, typeof(Dispatch))).Map(_ => QueueRuns.Stopping(error) ? 2 : 1)).As()
+        (from code in Reported(context, Farmed(context, doc)).Map(static _ => 0).Catch(static error => IO.pure(QueueRuns.Stopping(error) ? 2 : 1)).As()
          from exited in close.OnUiThread().Finally(IO.lift(() => Environment.Exit(code)).OnUiThread())
          select exited).Uninterruptible().Fork().Map(unit);
 
     private static IO<Unit> Farmed(QueueContext context, RhinoDoc doc) =>
-        from path in IO.lift(() => Conversions.Present(doc.Path).ToFin(new Refused(nameof(RhinoDoc.Path), Refused.Absent)).Bind(static saved => InputPath.Of(Path.ChangeExtension(saved, PackageFile.Job.Extension)))).OnUiThread()
+        from path in IO.lift(() => Conversions.Found(Conversions.Present(doc.Path)).Bind(static saved => InputPath.Of(Path.ChangeExtension(saved, PackageFile.Job.Extension)))).OnUiThread()
         from job in QueueJob.Read(path)
         from record in IO.lift(OutputPath.Of(Path.ChangeExtension(path, ".progress.json")))
         from ran in Ran(context with { Record = record, Settings = context.Settings.Map(static settings => settings with { ShutDownAfterSuccess = false }) }, doc, path, job)
         select ran;
 
     public static IO<Unit> Relaunched(QueueContext context) =>
-        DisposalOps.Fork(Reported(context, QueueRuns.Resumable(context))
+        context.Views.Session.Held(Reported(context, QueueRuns.Resumable(context))
             .Bind(found => found.Traverse(relaunch =>
                 Launched(context, IO.yieldFor(relaunch.Delay).Bind(_ => Run(context, relaunch.Job)))).As())
-            .Map(unit), context.Retain).Map(static _ => unit);
+            .Map(unit)
+            .Fork()).Map(static _ => unit);
 
     private static IO<Unit> Launched(QueueContext context, IO<Unit> run, [CallerMemberName] string member = "") =>
         Reported(context, run, member).Finally(Reported(context, Quit.OnUiThread(), member));
@@ -333,36 +333,37 @@ public static class Dispatch {
         select ran;
 
     // --- [REGISTRATION]
-    public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Register { get; } = static (views, retain) =>
-        DisposalOps.Acquire(acquired =>
-            from record in IO.lift(() => OutputPath.Of(Path.Join(Directory.CreateDirectory(views.PlugIn.SettingsDirectory).FullName, $"{nameof(QueueProgress)}.json")))
-            from commands in IO.lift(() => toSeq(views.PlugIn.GetCommands()))
-            from named in IO.lift((Named<QueueJobCommand>(commands), Named<QueueFarmJobCommand>(commands)).Apply(static (job, farm) => (Job: job, Farm: $"_-{farm}")).As())
-            let settings = QueueSettings.Read(views)
-            from sender in NoticeSender.Acquire(settings.Map(static held => held.Notices), views, acquired)
-            from estimate in atomIO(QueueEstimate.Idle)
-            let context = new QueueContext(record, settings, views, estimate, sender.Notify, named.Job, named.Farm, acquired)
-            from published in QueueContext.Current.Publish(views, context)
-            from farm in FarmStartup(named.Farm)
-            from relaunched in unless(farm, Relaunched(context)).As()
-            select unit, retain);
+    public static Func<IPlugInViews, IO<Unit>> Register { get; } = static views =>
+        from record in IO.lift(() => OutputPath.Of(Path.Join(Directory.CreateDirectory(views.PlugIn.SettingsDirectory).FullName, $"{nameof(QueueProgress)}.json")))
+        from commands in IO.lift(() => toSeq(views.PlugIn.GetCommands()))
+        from named in IO.lift((Named<QueueJobCommand>(commands), Named<QueueFarmJobCommand>(commands)).Apply(static (job, farm) => (Job: job, Farm: $"_-{farm}")).As())
+        let settings = QueueSettings.Read(views)
+        from sender in NoticeSender.Acquire(settings.Map(static held => held.Notices), views)
+        from estimate in atomIO(QueueEstimate.Idle)
+        let context = new QueueContext(record, settings, views, estimate, sender.Notify, named.Job, named.Farm)
+        from published in QueueContext.Current.Publish(views, context)
+        from farm in FarmStartup(named.Farm)
+        from relaunched in unless(farm, Relaunched(context)).As()
+        select unit;
 
     private static Fin<string> Named<TCommand>(Seq<Command> commands) where TCommand : Command =>
-        commands.Find(static command => command is TCommand).Map(static command => command.EnglishName).ToFin(new NotFound("command", typeof(TCommand).Name));
+        commands.Find(static command => command is TCommand).Map(static command => command.EnglishName).ToFin(new DarkroomFault($"command {typeof(TCommand).Name}", DarkroomReason.Missing));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public sealed class QueueJobCommand(IPlugInSink sink) : HostCommand(sink, new Guid(0x4a60fdca, 0x6daf, 0x4fef, 0x8d, 0x5e, 0xfd, 0xc7, 0x71, 0x63, 0x9f, 0xee), "DarkroomRenderQueue", None) {
-    protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
-        QueueContext.Current.Of(site.Sink).Bind(Dispatch.Job).Map(unit);
+public sealed class QueueJobCommand() : HostCommand(new Guid(0x4a60fdca, 0x6daf, 0x4fef, 0x8d, 0x5e, 0xfd, 0xc7, 0x71, 0x63, 0x9f, 0xee), "DarkroomRenderQueue", None) {
+    protected override IO<Unit> Run(RhinoDoc doc, RunMode mode) =>
+        from owner in IO.lift(Conversions.Cast<IPlugInLifetime>(PlugIn))
+        from context in QueueContext.Current.Of(owner)
+        from job in Dispatch.Job(context)
+        select unit;
 }
 
-public sealed class QueueFarmJobCommand(IPlugInSink sink) : HostCommand(sink, new Guid(0x3857668a, 0x1b07, 0x4ae9, 0x97, 0x13, 0x63, 0x33, 0xb3, 0xca, 0x46, 0xee), "DarkroomRenderFarm", None) {
-    protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
-        mode is RunMode.Scripted
-            ? from context in QueueContext.Current.Of(site.Sink)
-              from session in IO.lift(() => PlugInSession.Of(site.Sink))
-              from ran in Dispatch.FarmJob(context, doc, session.Close)
-              select ran
-            : IO.fail<Unit>(new Refused(nameof(RunMode.Scripted), Refused.Declined));
+public sealed class QueueFarmJobCommand() : HostCommand(new Guid(0x3857668a, 0x1b07, 0x4ae9, 0x97, 0x13, 0x63, 0x33, 0xb3, 0xca, 0x46, 0xee), "DarkroomRenderFarm", None) {
+    protected override IO<Unit> Run(RhinoDoc doc, RunMode mode) =>
+        from scripted in IO.lift(RhinoFault.Unless(mode is RunMode.Scripted))
+        from owner in IO.lift(Conversions.Cast<IPlugInLifetime>(PlugIn))
+        from context in QueueContext.Current.Of(owner)
+        from ran in Dispatch.FarmJob(context, doc, owner.Session.Close)
+        select ran;
 }

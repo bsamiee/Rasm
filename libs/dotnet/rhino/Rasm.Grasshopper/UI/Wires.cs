@@ -8,7 +8,7 @@ using Grasshopper2.Parameters;
 using Grasshopper2.UI;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Skinning;
-using Rasm.Rhino;
+using Rasm.RhinoCommon.PlugIns;
 
 namespace Rasm.Grasshopper.UI;
 
@@ -129,22 +129,24 @@ public static class CanvasWires {
 
     public static Type BiArc => WireShapeBiArc(PointF.Empty, PointF.Empty).GetType();
 
-    public static IO<Unit> Route(Type shape, Action<IDisposable> retain) =>
-        from free in IO.lift(static Fin<Unit> () => WireShape.ShapeType is { } held ? Error.New($"{nameof(WireShape.ShapeType)} already holds {held}") : unit)
-        from routed in DisposalOps.Acquire(IO.lift(() => WireShape.ShapeType = shape),
+    public static IO<Unit> Route(Type shape) =>
+        from free in IO.lift(static () => Optional(WireShape.ShapeType).Match<Fin<Unit>>(
+            Some: static held => new GrasshopperFault(held.Name, GrasshopperReason.Taken),
+            None: static () => unit))
+        from routed in use(IO.lift(() => WireShape.ShapeType = shape),
             static held => IO.lift(() => {
                 if (WireShape.ShapeType == held) WireShape.ShapeType = null;
-            }).Bind(static _ => Redrawn), retain)
+            }).Bind(static _ => Redrawn))
         from redrawn in Redrawn
         select unit;
 
     // --- [HIGHLIGHTS]
-    public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires, Color color, float reach, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires, Color color, float reach, IPlugInLifetime owner) =>
         GrasshopperEvents.BeforePaintWires(canvas).Inline(args =>
-            DisposalOps.Within(args.Graphics.ProjectionState, _ =>
-                IO.lift(() => Optional(args.Canvas.Document).ToSeq().Bind(document => wires().Choose(ends => Ends(document, ends))))
-                    .Bind(found => found.TraverseM(wire => Halo(args.Graphics.Content, args.Skin.Wires, color, reach, wire)).As())
-                    .Map(unit)), sink, retain);
+            (from projection in use(args.Graphics.ProjectionState)
+             from found in IO.lift(() => Optional(args.Canvas.Document).ToSeq().Bind(document => wires().Choose(ends => Ends(document, ends))))
+             from drawn in found.TraverseM(wire => Halo(args.Graphics.Content, args.Skin.Wires, color, reach, wire)).As()
+             select unit).Bracket(), owner);
 
     private static Option<(IParameter Source, IParameter Target)> Ends(Document document, WireEnds ends) =>
         from source in Optional(document.Objects.FindParameter(ends.Source))
@@ -152,7 +154,7 @@ public static class CanvasWires {
         select (source, target);
 
     private static IO<Unit> Halo(Graphics graphics, WiresSkin skin, Color color, float reach, (IParameter Source, IParameter Target) wire) =>
-        DisposalOps.Within(
-            () => new Pen(color, (float)skin[WiresSkin.ResolveKind(wire.Source, wire.Target)].Outer.Width + reach) { LineCap = PenLineCap.Round },
-            pen => IO.lift(() => WireShape.Create((IParameterAttributes)wire.Source.Attributes, (IParameterAttributes)wire.Target.Attributes).Draw(graphics, pen)));
+        (from pen in use(() => new Pen(color, (float)skin[WiresSkin.ResolveKind(wire.Source, wire.Target)].Outer.Width + reach) { LineCap = PenLineCap.Round })
+         from drawn in IO.lift(() => WireShape.Create((IParameterAttributes)wire.Source.Attributes, (IParameterAttributes)wire.Target.Attributes).Draw(graphics, pen))
+         select unit).Bracket();
 }

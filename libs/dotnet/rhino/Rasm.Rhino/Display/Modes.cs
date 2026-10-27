@@ -4,21 +4,20 @@ using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Modeling;
-using Rasm.Rhino.Objects;
-using Rasm.Rhino.UI;
-using Rasm.Rhino.Viewport;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Objects;
+using Rasm.RhinoCommon.UI;
+using Rasm.RhinoCommon.Viewport;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 using UUIDNext;
 
-namespace Rasm.Rhino.Display;
+namespace Rasm.RhinoCommon.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ModeEdit {
@@ -45,13 +44,13 @@ public sealed record ModeEdit {
     public Fin<Unit> Write(DisplayModeDescription staged) => Applied(staged, Path);
 
     public Fin<Unit> Write(DisplayPipelineAttributes live) =>
-        Path.Head.Exists(static step => step.PropertyType == typeof(DisplayPipelineAttributes)) ? Applied(live, Path.Tail) : new Refused(nameof(DisplayModeDescription), Refused.Declined);
+        RhinoFault.Unless(Path.Head.Exists(static step => step.PropertyType == typeof(DisplayPipelineAttributes))).Bind(_ => Applied(live, Path.Tail));
 
     private Fin<Unit> Applied(object root, Seq<PropertyInfo> path) =>
         path.Fold((object?)root, static (owner, step) => step.GetValue(owner)) switch {
             var target => Setter.Invoke(Setter.IsStatic ? null : target, Setter.IsStatic ? [target, .. Arguments] : [.. Arguments]) switch {
                 Fin<Unit> answer => answer,
-                bool answered => Refused.Unless(answered, Setter.Name),
+                bool answered => RhinoFault.Unless(answered, call: Setter.Name),
                 _ => unit,
             },
         };
@@ -121,7 +120,7 @@ public abstract partial record ModeValue {
     internal Option<ModeValue> Parsed(string host) =>
         Switch(
             host,
-            flag: static (text, _) => Callbacks.Found(ModeFlag.TryGet(text, out ModeFlag? flag), flag!).Map(static held => (ModeValue)new Flag(held.Value)),
+            flag: static (text, _) => Conversions.Found(ModeFlag.TryGet(text, out ModeFlag? flag), flag!).Map(static held => (ModeValue)new Flag(held.Value)),
             whole: static (text, _) => Integral(text).Map(static value => (ModeValue)new Whole(value)),
             real: static (text, _) => Number(text).Map(static value => (ModeValue)new Real(value)),
             colour: static (text, _) => text is "-1"
@@ -302,17 +301,17 @@ public static class DisplayModes {
     public static Guid Id(Guid owner, DisplayModeDefinition mode) => Uuid.NewNameBased(owner, mode.Name);
 
     // --- [ACQUISITION]
-    public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Declared(DisplayModeSpec spec) =>
-        (owner, retain) => Declared(owner.PlugIn.Id, owner.PlugIn.Assembly, spec, owner, retain);
+    public static Func<IPlugInViews, IO<Unit>> Declared(DisplayModeSpec spec) =>
+        owner => Declared(owner.PlugIn.Id, owner.PlugIn.Assembly, spec, owner);
 
-    public static IO<Unit> Declared(Guid owner, Assembly package, DisplayModeSpec spec, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<Unit> Declared(Guid id, Assembly package, DisplayModeSpec spec, object owner) =>
         from folder in IO.lift(() => FolderPath.Installed(package))
-        let reconciled = Reconcile(owner, folder, spec).Map(unit)
-        from loaded in reconciled.Catch(error => IO.lift(() => sink.Report(error, typeof(DisplayModes)))).As()
+        let reconciled = Reconcile(id, folder, spec).Map(unit)
+        from loaded in IO.lift(() => owner.Run(reconciled))
         from opened in when(!spec.Successors.IsEmpty, EventKind.EndOpenDocument.Inline(
-            args => IO.lift(() => Refused.UnlessFound(args.Document, nameof(DocumentOpenEventArgs.Document))).Bind(doc => Reassigned(doc, Successors(owner, spec))),
-            sink, retain)).As()
-        from refreshed in spec.Refreshed.TraverseM(signal => signal.Inline(_ => reconciled, sink, retain)).As()
+            args => IO.lift(() => Conversions.Found(args.Document)).Bind(doc => Reassigned(doc, Successors(id, spec))),
+            owner)).As()
+        from refreshed in spec.Refreshed.TraverseM(signal => signal.Inline(_ => reconciled, owner)).As()
         select unit;
 
     private static HashMap<Guid, Guid> Successors(Guid owner, DisplayModeSpec spec) =>
@@ -351,9 +350,9 @@ public static class DisplayModes {
     private static Fin<Unit> Checked(Guid owner, Seq<(Guid Id, DisplayModeDefinition Mode)> rows, DisplayModeSpec spec) =>
         toHashSet(rows.Map(static row => row.Id)) switch {
             var ids => (
-                    Callbacks.Unique(rows.Map(static row => row.Mode.Name) + toSeq(spec.Successors.Keys), identity, nameof(DisplayModeDefinition.Name), StringComparer.OrdinalIgnoreCase),
-                    Callbacks.Each(rows, (row, index) => Refused.Unless(!ids.Contains(row.Mode.Base), nameof(DisplayModeDefinition.Base), index)),
-                    Callbacks.Each(toSeq(spec.Successors.Values), (successor, index) => Refused.Unless(ids.Contains(Id(owner, successor)), nameof(DisplayModeSpec.Successors), index)))
+                    Conversions.Unique(rows.Map(static row => row.Mode.Name) + toSeq(spec.Successors.Keys), identity, StringComparer.OrdinalIgnoreCase),
+                    Callbacks.Each(rows, (row, index) => RhinoFault.Unless(!ids.Contains(row.Mode.Base), index)),
+                    Callbacks.Each(toSeq(spec.Successors.Values), (successor, index) => RhinoFault.Unless(ids.Contains(Id(owner, successor)), index)))
                 .Apply(static (_, _, _) => unit)
                 .As(),
         };
@@ -386,17 +385,13 @@ public static class DisplayModes {
     ];
 
     private static IO<ReconciledModes> Written(Seq<string> files, Seq<(Guid Id, Seq<ModeEdit> Edits, Seq<ModeKey> Keys)> rows, Seq<(Guid Id, Option<Guid> Successor)> retired, Option<FolderPath> package) =>
-        DisposalOps.Within(
-            static () => unit,
-            _ => from imported in files.TraverseM(static file => Imported(file)).As()
-                 from settled in Callbacks.Each(Seq(
-                     Callbacks.Each(rows.Map(static row => Staged(row.Id, row.Edits))).Map(unit),
-                     Callbacks.Each(rows.Filter(static row => !row.Keys.IsEmpty).Map(row => ReadBack(row.Id, row.Keys, package))).Map(unit),
-                     Retired(rows.Map(static row => row.Id), retired)))
-                 select new ReconciledModes(rows.Map(static row => row.Id), retired.Map(static mode => mode.Id)),
-            _ => from saved in IO.lift(DisplayModeDescription.SaveDisplayModes)
-                 from raised in IO.lift(() => Raise(rows.Map(static row => row.Id) + retired.Map(static mode => mode.Id)))
-                 select unit);
+        (from imported in files.TraverseM(static file => Imported(file)).As()
+         from settled in Callbacks.Each(Seq(
+             Callbacks.Each(rows.Map(static row => Staged(row.Id, row.Edits))).Map(unit),
+             Callbacks.Each(rows.Filter(static row => !row.Keys.IsEmpty).Map(row => ReadBack(row.Id, row.Keys, package))).Map(unit),
+             Retired(rows.Map(static row => row.Id), retired)))
+         select new ReconciledModes(rows.Map(static row => row.Id), retired.Map(static mode => mode.Id)))
+        .Finally(IO.lift(DisplayModeDescription.SaveDisplayModes) >> IO.lift(() => Raise(rows.Map(static row => row.Id) + retired.Map(static mode => mode.Id))));
 
     private static IO<Unit> Staged(Guid id, Seq<ModeEdit> edits) =>
         With(id, staged =>
@@ -406,26 +401,22 @@ public static class DisplayModes {
                     .Map(member => (member.Member, member.Read, Value: member.Read(staged))).Strict(),
             })
             from edited in IO.lift(() => edits.Traverse(edit => edit.Write(staged)).As())
-            from held in IO.lift(() => Accumulated(imported.Filter(member => member.Read(staged) != member.Value).Map(static member => (Error)new Refused(member.Member, Refused.Declined))))
-            from updated in IO.lift(() => Refused.Unless(DisplayModeDescription.UpdateDisplayMode(staged, bSave: false), nameof(DisplayModeDescription.UpdateDisplayMode)))
+            from held in IO.lift(() => imported.Traverse(member => RhinoFault.Unless(member.Read(staged) == member.Value, call: member.Member)).As())
+            from updated in IO.lift(() => RhinoFault.Unless(DisplayModeDescription.UpdateDisplayMode(staged, bSave: false)))
             select updated);
 
     private static IO<Unit> ReadBack(Guid id, Seq<ModeKey> keys, Option<FolderPath> package) =>
-        Keys(id).Bind(table => IO.lift(() => Accumulated(keys
-            .Filter(key => !table.Find((key.Section, key.Key)).Exists(text => key.Value.Holds(text, package)))
-            .Map(static key => (Error)new Refused(key.Section.Length is 0 ? key.Key : $@"{key.Section}\{key.Key}", Refused.Invalid)))));
+        Keys(id).Bind(table => IO.lift(() => keys.Traverse(key => table.Find((key.Section, key.Key)).Exists(text => key.Value.Holds(text, package))
+            ? Fin.Succ(unit)
+            : new RhinoFault(key.Section.Length is 0 ? key.Key : $@"{key.Section}\{key.Key}", RhinoReason.Invalid)).As())).Map(unit);
 
     private static IO<Unit> Retired(Seq<Guid> written, Seq<(Guid Id, Option<Guid> Successor)> retired) =>
         from moves in Callbacks.Each(retired.Map(static mode => mode.Successor.Match(
             Some: successor => IO.pure((mode.Id, successor)),
-            None: () => Keys(mode.Id).Bind(table => IO.lift(() => table.Find(("", DerivedFrom)).Bind(parseGuid)
-                .ToFin(new Refused(DerivedFrom, Refused.Absent))
-                .Map(source => (mode.Id, source)))))))
+            None: () => Keys(mode.Id).Bind(table => IO.lift(() => Conversions.Found(table.Find(("", DerivedFrom)).Bind(parseGuid)).Map(source => (mode.Id, source)))))))
         from moved in Reassigned(toHashMap(written.Map(static id => (id, id))).AddOrUpdateRange(moves))
-        from deleted in Callbacks.Each(retired.Map(static mode => IO.lift(() => Refused.Unless(DisplayModeDescription.DeleteDisplayMode(mode.Id), nameof(DisplayModeDescription.DeleteDisplayMode)))))
+        from deleted in Callbacks.Each(retired.Map(static mode => IO.lift(() => RhinoFault.Unless(DisplayModeDescription.DeleteDisplayMode(mode.Id)))))
         select unit;
-
-    private static Fin<Unit> Accumulated(Seq<Error> errors) => errors.IsEmpty ? unit : Error.Many(errors);
 
     private static Guid PipelineId(DisplayPipelineAttributes attributes) => PipelineId(natives: null, ConstPointer(attributes));
 
@@ -469,14 +460,13 @@ public static class DisplayModes {
     private static IO<Guid> Imported(string text) =>
         Scoped(file =>
             from written in IO.lift(() => File.WriteAllText(file, text))
-            from imported in IO.lift(() => Conversions.Required(DisplayModeDescription.ImportFromFile(file, interactive: false), nameof(DisplayModeDescription.ImportFromFile)))
+            from imported in IO.lift(() => Conversions.Found(Conversions.Present(DisplayModeDescription.ImportFromFile(file, interactive: false))))
             select imported);
 
     private static IO<T> Scoped<T>(Func<OutputPath, IO<T>> body) =>
-        DisposalOps.Within(
-            static () => Directory.CreateTempSubdirectory(nameof(DisplayModes)),
-            folder => IO.lift(() => OutputPath.Of(Path.Join(folder.FullName, $"{nameof(DisplayModes)}.ini"))).Bind(body),
-            static folder => IO.lift(() => folder.Delete(recursive: true)));
+        IO.lift(static () => Directory.CreateTempSubdirectory(nameof(DisplayModes))).Bind(folder =>
+            IO.lift(() => OutputPath.Of(Path.Join(folder.FullName, $"{nameof(DisplayModes)}.ini"))).Bind(body)
+                .Finally(IO.lift(() => folder.Delete(recursive: true))));
 
     // --- [HOLDERS]
     private static IO<Unit> Reassigned(HashMap<Guid, Guid> moves) =>
@@ -496,10 +486,8 @@ public static class DisplayModes {
         };
 
     private static IO<Unit> Overrides(RhinoDoc doc, HashMap<Guid, Guid> moved) =>
-        from slots in DisposalOps.Within(
-            (Action<IDisposable> retain) => Viewports.Resolve(doc, new ViewportSet.Every(ViewTypeFilter.All, Details: true), retain)
-                .Map(static rows => (Seq(Guid.Empty) + rows.Map(static row => row.Viewport.Id)).Strict()),
-            DisposalOps.Release)
+        from slots in Viewports.Resolve(doc, new ViewportSet.Every(ViewTypeFilter.All, Details: true))
+            .Map(static rows => (Seq(Guid.Empty) + rows.Map(static row => row.Viewport.Id)).Strict()).Bracket()
         from rewritten in TableOps.Apply(doc, AttributeOps.Modify(
             doc,
             new ObjectTarget.Lookup(table => table.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true, LockedObjects = true, IncludeLights = true })
@@ -510,7 +498,7 @@ public static class DisplayModes {
         select unit;
 
     private static Seq<(Guid Slot, Guid Target)> Overridden(ObjectAttributes attributes, Seq<Guid> slots, HashMap<Guid, Guid> moved) =>
-        slots.Choose(slot => AttributeOps.DisplayMaterialRef(attributes, slot).Bind(held => moved.Find(held)).Map(target => (slot, target))).Strict();
+        slots.Choose(slot => DisplayMaterialRefs.DisplayMaterialRef(attributes, slot).Bind(held => moved.Find(held)).Map(target => (slot, target))).Strict();
 
     private static Option<Guid> Shown(RhinoViewport viewport) {
         using DisplayModeDescription? mode = viewport.DisplayMode;
@@ -520,9 +508,9 @@ public static class DisplayModes {
     // --- [SIGNALS]
     private static readonly Atom<Guid> Raised = Atom(Guid.Empty);
 
-    public static HostEvent<Guid> Changed { get; } = Subscriptions.Host(typeof(DisplayModes), static () => Seq(
-        Subscriptions.Changed(Raised, nameof(Raised)),
-        EventKind.DisplayModeChanged.Choose(static args => Callbacks.Found(Switched(args).IsNone, args.ChangedDisplayModeId))));
+    public static HostEvent<Guid> Changed { get; } = Subscriptions.Merged(
+        Subscriptions.Changed(Raised),
+        EventKind.DisplayModeChanged.Choose(static args => Conversions.Found(Switched(args).IsNone, args.ChangedDisplayModeId)));
 
     internal static Option<Guid> Switched(DisplayModeChangedEventArgs args) =>
         Optional(args.Viewport)
@@ -533,45 +521,44 @@ public static class DisplayModes {
 
     // --- [TABLE]
     public static IO<TValue> With<TValue>(Guid id, Func<DisplayModeDescription, IO<TValue>> body) =>
-        DisposalOps.Found(() => DisplayModeDescription.GetDisplayMode(id), nameof(DisplayModeDescription.GetDisplayMode), body);
+        unitIO.Bind(_ => Products.Made(DisplayModeDescription.GetDisplayMode(id))).Bind(body).Bracket();
 
     public static IO<Seq<T>> GetDisplayModes<T>(Func<DisplayModeDescription, T> project) =>
-        DisposalOps.Within(static () => Conversions.Rows(DisplayModeDescription.GetDisplayModes()), modes => IO.lift(() => modes.Map(project).Strict()), DisposalOps.Release);
+        unitIO.Bind(static _ => Products.Made(DisplayModeDescription.GetDisplayModes())).Map(modes => modes.Map(project).Strict()).Bracket();
 
     public static IO<Guid> FindByName(string englishName) =>
-        DisposalOps.Found(() => DisplayModeDescription.FindByName(englishName), nameof(DisplayModeDescription.FindByName), static mode => IO.pure(mode.Id));
+        unitIO.Bind(_ => Products.Made(DisplayModeDescription.FindByName(englishName))).Map(static mode => mode.Id).Bracket();
 
     public static IO<Guid> ImportFromFile(InputPath path) =>
-        from imported in IO.lift(() => Conversions.Required(DisplayModeDescription.ImportFromFile(path, interactive: false), nameof(DisplayModeDescription.ImportFromFile)))
+        from imported in IO.lift(() => Conversions.Found(Conversions.Present(DisplayModeDescription.ImportFromFile(path, interactive: false))))
         from saved in IO.lift(DisplayModeDescription.SaveDisplayModes)
         from refreshed in Reassigned(HashMap((imported, imported)))
         from raised in IO.lift(() => Raise(Seq(imported)))
         select imported;
 
     public static IO<Unit> ExportToFile(Guid id, OutputPath path) =>
-        With(id, mode => IO.lift(() => Refused.Unless(DisplayModeDescription.ExportToFile(mode, path), nameof(DisplayModeDescription.ExportToFile))));
+        With(id, mode => IO.lift(() => RhinoFault.Unless(DisplayModeDescription.ExportToFile(mode, path))));
 
     // --- [VIEWPORT]
     public static IO<Guid> DisplayMode(RhinoDoc doc, ViewportTarget target) =>
-        Viewports.With(doc, target, static row => DisposalOps.Found(() => row.Viewport.DisplayMode, nameof(RhinoViewport.DisplayMode), static mode => IO.pure(mode.Id)));
+        Viewports.With(doc, target, static row => Products.Made(row.Viewport.DisplayMode).Map(static mode => mode.Id));
 
     public static IO<Seq<bool>> SetDisplayMode(RhinoDoc doc, ViewportSet viewports, Guid id, RedrawPolicy redraw) =>
         With(id, mode => Viewports.Edit(doc, viewports, viewport => IO.lift(() => { viewport.DisplayMode = mode; }), redraw));
 
     // --- [VARIANTS]
-    public static IO<Bitmap> CaptureToBitmap(RhinoView view, Guid id, Option<Size> pixels, Seq<ModeEdit> edits, Action<IDisposable> retain) =>
-        With(id, mode => IO.lift(() => edits.Traverse(edit => edit.Write(mode)).As()).Bind(_ => Copies.Owned(
-            () => pixels.Match(Some: size => view.CaptureToBitmap(size, mode.DisplayAttributes), None: () => view.CaptureToBitmap(mode.DisplayAttributes)),
-            static bitmap => Refused.UnlessFound(bitmap, nameof(RhinoView.CaptureToBitmap)),
-            static bitmap => DisposalOps.Release(bitmap), retain)));
+    public static IO<Bitmap> CaptureToBitmap(RhinoView view, Guid id, Option<Size> pixels, Seq<ModeEdit> edits) =>
+        from captured in With(id, mode =>
+            from edited in IO.lift(() => edits.Traverse(edit => edit.Write(mode)).As())
+            from bitmap in IO.lift(() => Conversions.Found(pixels.Match(Some: size => view.CaptureToBitmap(size, mode.DisplayAttributes), None: () => view.CaptureToBitmap(mode.DisplayAttributes))))
+            select bitmap)
+        from owned in use(() => captured)
+        select owned;
 
     internal static IO<TValue> Overlaid<TValue>(DisplayPipelineAttributes live, Seq<ModeEdit> edits, IO<TValue> draw) =>
-        DisposalOps.Within(
-            () => Snapshot(live),
-            snapshot => DisposalOps.Within(
-                IO.pure(snapshot),
-                _ => IO.lift(() => edits.Traverse(edit => edit.Write(live)).As()).Bind(_ => draw),
-                held => IO.lift(() => CopyContents(live, held))));
+        (from snapshot in use(() => Snapshot(live))
+         from drawn in IO.lift(() => edits.Traverse(edit => edit.Write(live)).As()).Bind(_ => draw).Finally(IO.lift(() => CopyContents(live, snapshot)))
+         select drawn).Bracket();
 
     [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
     private static extern DisplayPipelineAttributes Snapshot(DisplayPipelineAttributes other);
@@ -586,16 +573,16 @@ public static class DisplayModes {
         Conversions.Rows(material.GetTextures()) switch {
             var textures => Callbacks.Each(
                 textures.Filter(static texture => !Slotted.Exists(type => type == texture.TextureType)),
-                static (texture, _) => (Fin<Unit>)new Refused($"{nameof(TextureType)} {texture.TextureType}", Refused.Declined))
+                static (texture, index) => (Fin<Unit>)new RhinoFault(texture.TextureType.ToString(), RhinoReason.Outside, index))
                 .Bind(_ => Copied(slot, material, textures)),
         };
 
     private static Fin<Unit> Copied(DisplayAttributeMaterial slot, Material material, Seq<Texture> textures) {
         MaterialMapper.Update(material, slot);
-        return Callbacks.Each(Slotted, (type, _) => textures.Find(texture => texture.TextureType == type).Match(
-            Some: texture => Refused.Unless(slot.SetTexture(texture, type), nameof(DisplayAttributeMaterial.SetTexture)),
+        return Callbacks.Each(Slotted, (type, index) => textures.Find(texture => texture.TextureType == type).Match(
+            Some: texture => RhinoFault.Unless(slot.SetTexture(texture, type), index),
             None: () => Optional(slot.GetTexture(type)).Match(
-                Some: _ => Refused.Unless(slot.RemoveTexture(type), nameof(DisplayAttributeMaterial.RemoveTexture)),
+                Some: _ => RhinoFault.Unless(slot.RemoveTexture(type), index),
                 None: static () => unit))).Map(static _ => unit);
     }
 }

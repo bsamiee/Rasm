@@ -1,11 +1,10 @@
 using Arches;
-using Rasm.Rhino;
-using Rasm.Rhino.Commands;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Styling;
+using Rasm.RhinoCommon.Commands;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI;
+using Rasm.RhinoCommon.UI.Rows;
+using Rasm.RhinoCommon.UI.Styling;
 using Rasm.UI;
 using Rhino.Commands;
 using Rhino.PlugIns;
@@ -36,10 +35,10 @@ internal sealed record ArchFamily(Guid Id, string Command, string Caption, strin
                     new ArchChoice.Raised("Drop", "Drop", "Drop arch: pointed arch with radius shorter than the span", new Interval(0.5, ArchGeometry.EquilateralRise), ArchGeometry.Gothic))),
             new(new Guid(0x7fd6b2cd, 0x5a6c, 0x4c55, 0xbf, 0x34, 0x80, 0x34, 0xa0, 0x90, 0x8c, 0x8c), "OgeeArch", "Ogee Arch", "Select ogee arch type",
                 "Ogee arch: reversing or concave arcs rising to the crown", IterableNE.create<ArchChoice>(
-                    new ArchChoice.Raised("ThreeCenteredOgee", "Three-Centered Ogee", "Three-centered ogee arch: semicircle haunches reversing into concave arcs meeting in a point", new Interval(0.5, ArchGeometry.OgeeRise), static (span, apex, retain) => ArchGeometry.Ogee(span, apex, 1d / 2, retain)),
+                    new ArchChoice.Raised("ThreeCenteredOgee", "Three-Centered Ogee", "Three-centered ogee arch: semicircle haunches reversing into concave arcs meeting in a point", new Interval(0.5, ArchGeometry.OgeeRise), static (span, apex) => ArchGeometry.Ogee(span, apex, 1d / 2)),
                     new ArchChoice.Raised("ReverseOgee", "Reverse Ogee", "Reverse ogee arch: concave then convex arcs meeting in a rounded crown at a chosen rise below half the span", new Interval(0, 0.5), ArchGeometry.ReverseOgee),
                     new ArchChoice.Spanned("Tented", "Tented", "Tented arch: four concave arcs rising to a point", ArchGeometry.TentedOgee),
-                    new ArchChoice.Raised("FourCenteredOgee", "Four-Centered Ogee", "Four-centered ogee arch: haunch arcs of a third of the span reversing into concave arcs meeting in a point", new Interval(0.5, ArchGeometry.OgeeRise), static (span, apex, retain) => ArchGeometry.Ogee(span, apex, 1d / 3, retain)))),
+                    new ArchChoice.Raised("FourCenteredOgee", "Four-Centered Ogee", "Four-centered ogee arch: haunch arcs of a third of the span reversing into concave arcs meeting in a point", new Interval(0.5, ArchGeometry.OgeeRise), static (span, apex) => ArchGeometry.Ogee(span, apex, 1d / 3)))),
         ],
         [
             new(new Guid(0x7067d347, 0xeacc, 0x4a47, 0x89, 0xb1, 0xdc, 0xff, 0xcd, 0x69, 0x11, 0x8f), "ThreeCenteredArch", "Three-Centered Arch", "Select three-centered arch type",
@@ -73,7 +72,7 @@ internal sealed record ArchFamily(Guid Id, string Command, string Caption, strin
         []);
 
     // --- [COMMANDS]
-    public Func<IPlugInSink, Command> Registered => sink => new ArchCommand(sink, Id, Command, Prompt, Choices);
+    public Func<Command> Registered => () => new ArchCommand(Id, Command, Prompt, Choices);
 
     // --- [TOOLBAR]
     private CommandFace Face => new(Command, Caption) { Help = Tooltip, Glyph = Some<GlyphSource>(Glyph(Choices.Head)) };

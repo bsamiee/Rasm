@@ -1,13 +1,13 @@
 using System.Globalization;
 using Eto.Forms;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Styling;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.UI.Rows;
+using Rasm.RhinoCommon.UI.Styling;
 using Rasm.UI;
 using Rasm.UI.Components;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.UI;
+namespace Rasm.RhinoCommon.UI;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
@@ -28,10 +28,15 @@ internal static partial class BannerMapper {
 
 public static class Notifications {
     // --- [DOCK]
-    public static IO<Disposal<Application>> Acquire(Action<Disposal<Application>> retain) =>
-        DisposalOps.Acquire(IO.lift(static () => new Disposal<Application>(Application.Instance, Cleared)), retain);
+    public static IO<Application> Acquire() =>
+        from dock in IO.lift(static () => Application.Instance)
+        from cleared in Products.Released(() => dock.Invoke(() => {
+            Taskbar.SetProgress(TaskbarProgressState.None);
+            dock.BadgeLabel = "";
+        }))
+        select dock;
 
-    public static IO<Unit> SetProgress<T>(Disposal<Application> hold, Content<T> work) where T : notnull =>
+    public static IO<Unit> SetProgress<T>(Application dock, Content<T> work) where T : notnull =>
         work.Switch(
             pending: static pending => pending.Work.Match(
                 Some: static progress => (State: TaskbarProgressState.Progress, Progress: (float)progress.Fraction),
@@ -39,28 +44,23 @@ public static class Notifications {
             ready: static _ => (State: TaskbarProgressState.None, Progress: 0f),
             empty: static _ => (State: TaskbarProgressState.None, Progress: 0f),
             failed: static _ => (State: TaskbarProgressState.Error, Progress: 0f)) switch {
-                var shown => IO.lift(() => hold.Held.Iter(_ => Taskbar.SetProgress(shown.State, shown.Progress))),
+                var shown => IO.lift(() => dock.Invoke(() => Taskbar.SetProgress(shown.State, shown.Progress))),
             };
 
-    public static IO<Unit> BadgeLabel(Disposal<Application> hold, Option<string> label) =>
-        IO.lift(() => hold.Held.Iter(app => app.BadgeLabel = Conversions.Unset(label)));
-
-    private static void Cleared(Application app) =>
-        Callbacks.Each(Seq(IO.lift(static () => Taskbar.SetProgress(TaskbarProgressState.None)), IO.lift(() => { app.BadgeLabel = ""; }))).Run();
+    public static IO<Unit> BadgeLabel(Application dock, Option<string> label) =>
+        IO.lift(() => dock.Invoke(() => { dock.BadgeLabel = Conversions.Unset(label); }));
 
     // --- [TRAY]
-    public static IO<Unit> Tray(Command<RowRule, Invoke>.Menu menu, RowScope scope, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(acquired =>
-            from tray in DisposalOps.Acquire(IO.lift(static () => new TrayIndicator()), acquired)
-            from themed in menu.Face.Glyph.Traverse(glyph => Icons.Themed(scope.Sink, glyph, IconSlot.Small, HostTheme.Changed, icon => tray.Image = icon, acquired)).As()
-            from popup in CommandRows.Menu(menu.Groups, scope, acquired)
-            from assigned in IO.lift(() => tray.Menu = popup.Menu)
-            from activated in menu.Primary.Traverse(primary => CommandRows.Press(primary, scope, acquired).Bind(press => Subscriptions.Attach(
-                h => tray.Activated += h, h => tray.Activated -= h,
-                Callbacks.Handler<EventArgs>(_ => press, new CallbackSite(scope.Sink, typeof(TrayIndicator), nameof(TrayIndicator.Activated))), acquired))).As()
-            from shown in IO.lift(tray.Show)
-            from titled in IO.lift(() => tray.Title = RowText.Localize(menu.Face.Caption, scope.Sink).Local)
-            select unit, retain);
+    public static IO<Unit> Tray(Command<RowRule, Invoke>.Menu menu, RowScope scope) =>
+        from tray in use(static () => new TrayIndicator())
+        from themed in menu.Face.Glyph.Traverse(glyph => Icons.Themed(scope.Owner, glyph, IconSlot.Small, HostTheme.Changed, icon => tray.Image = icon)).As()
+        from popup in CommandRows.Menu(menu.Groups, scope)
+        from assigned in IO.lift(() => tray.Menu = popup.Menu)
+        from activated in menu.Primary.Traverse(primary => CommandRows.Press(primary, scope).Bind(press =>
+            Subscriptions.Host<EventArgs>(h => tray.Activated += h, h => tray.Activated -= h).Inline(_ => press, scope.Owner))).As()
+        from shown in IO.lift(tray.Show)
+        from titled in IO.lift(() => tray.Title = RowText.Localize(menu.Face.Caption, scope.Owner).Local)
+        select unit;
 
     // --- [BANNERS]
     public static IO<Unit> Show(Notice notice) =>
@@ -68,21 +68,16 @@ public static class Notifications {
 
     private static IO<Unit> Banner(Notice notice) =>
         from image in notice.Glyph.Traverse(static glyph => Icons.Frames(glyph, IconSlot.Banner)).As()
-        from shown in DisposalOps.Within(static () => new Notification(), banner =>
-            from mapped in IO.lift(() => BannerMapper.Update(notice, banner))
-            from assigned in IO.lift(() => banner.ContentImage = image.ValueUnsafe())
-            from delivered in IO.lift(() => banner.Show())
-            select delivered)
+        from shown in (from banner in use(static () => new Notification())
+                       from mapped in IO.lift(() => BannerMapper.Update(notice, banner))
+                       from assigned in IO.lift(() => banner.ContentImage = image.ValueUnsafe())
+                       from delivered in IO.lift(() => banner.Show())
+                       select delivered).Bracket()
         select shown;
 
     // --- [ACTIVATION]
-    public static IO<Unit> NotificationActivated(IPlugInViews plugIn, Action<IDisposable> retain) =>
-        Subscriptions.Host<NotificationEventArgs>(
-                typeof(Application),
-                static handler => Application.Instance.NotificationActivated += handler,
-                static handler => Application.Instance.NotificationActivated -= handler,
-                nameof(Application.NotificationActivated))
-            .Inline(args => IO.lift(() => Callbacks.Found(Guid.TryParse(args.UserData, CultureInfo.InvariantCulture, out Guid id), id)
-                .Bind(plugIn.Views.Find<View.Panel>))
-                .Bind(static found => found.TraverseM(Showing.Open).As()).Map(static _ => unit), plugIn, retain);
+    public static IO<Unit> NotificationActivated(IPlugInViews plugIn) =>
+        Subscriptions.Host<NotificationEventArgs>(static h => Application.Instance.NotificationActivated += h, static h => Application.Instance.NotificationActivated -= h)
+            .Inline(args => IO.lift(() => Conversions.Found(Guid.TryParse(args.UserData, CultureInfo.InvariantCulture, out Guid id), id).Bind(plugIn.Views.Find<View.Panel>))
+                .Bind(static found => found.TraverseM(Showing.Open).As()).Map(static _ => unit), plugIn);
 }

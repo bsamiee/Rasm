@@ -1,10 +1,11 @@
 using Eto.Drawing;
 using Eto.Forms;
-using Rasm.Rhino.Events;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.PlugIns;
 using Rasm.UI;
 using Rhino.UI.Controls;
 
-namespace Rasm.Rhino.UI.Rows;
+namespace Rasm.RhinoCommon.UI.Rows;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -34,18 +35,18 @@ public abstract record ControlRow(string Label, RowShape Shape) {
     public bool Enabled { get; init; } = true;
     public bool Modified { get; init; }
 
-    internal abstract IO<(Option<RowCells> Cells, Func<ControlRow, IO<bool>> Restated)> Seated(RowScope scope, Action<IDisposable> retain);
+    internal abstract IO<(Option<RowCells> Cells, Func<ControlRow, IO<bool>> Restated)> Seated(RowScope scope);
 
     public sealed record Group(string Label) : ControlRow(Label, RowShape.Nested) {
-        internal override IO<(Option<RowCells> Cells, Func<ControlRow, IO<bool>> Restated)> Seated(RowScope scope, Action<IDisposable> retain) =>
+        internal override IO<(Option<RowCells> Cells, Func<ControlRow, IO<bool>> Restated)> Seated(RowScope scope) =>
             IO.pure<(Option<RowCells>, Func<ControlRow, IO<bool>>)>((None, static next => IO.pure(next is Group)));
     }
 
-    public sealed record Bound<TRow>(string Label, RowShape Shape, TRow Row, Func<IO<Bound<TRow>>, RowScope, Action<IDisposable>, IO<RowCells>> Realize)
+    public sealed record Bound<TRow>(string Label, RowShape Shape, TRow Row, Func<IO<Bound<TRow>>, RowScope, IO<RowCells>> Realize)
         : ControlRow(Label, Shape) where TRow : notnull {
-        internal override IO<(Option<RowCells> Cells, Func<ControlRow, IO<bool>> Restated)> Seated(RowScope scope, Action<IDisposable> retain) =>
+        internal override IO<(Option<RowCells> Cells, Func<ControlRow, IO<bool>> Restated)> Seated(RowScope scope) =>
             from latest in atomIO(this)
-            from cells in Realize(latest.ValueIO, scope, retain)
+            from cells in Realize(latest.ValueIO, scope)
             from shown in cells.Show
             select (Some(cells), (Func<ControlRow, IO<bool>>)(next => next is Bound<TRow> held && held.Realize.Method == Realize.Method
                 ? writeIO(latest, held).Bind(_ => cells.Show).Map(static _ => true)
@@ -54,73 +55,88 @@ public abstract record ControlRow(string Label, RowShape Shape) {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+internal sealed class ControlChange<TArgs> {
+    // --- [STATE]
+    private readonly Ref<Option<Lease<Unit>>> attached = Ref(Option<Lease<Unit>>.None);
+    private readonly HostEvent<TArgs> changes;
+    private readonly Func<TArgs, IO<Unit>> deliver;
+    private readonly IPlugInLifetime owner;
+    private readonly EnvIO scope;
+
+    private ControlChange(HostEvent<TArgs> changes, Func<TArgs, IO<Unit>> deliver, IPlugInLifetime owner, EnvIO scope) =>
+        (this.changes, this.deliver, this.owner, this.scope) = (changes, deliver, owner, scope);
+
+    // --- [ATTACH]
+    public static IO<ControlChange<TArgs>> Attached(HostEvent<TArgs> changes, Func<TArgs, IO<Unit>> deliver, IPlugInLifetime owner) =>
+        from scope in use(static () => EnvIO.New(token: CancellationToken.None))
+        let change = new ControlChange<TArgs>(changes, deliver, owner, scope)
+        from listening in change.Listening
+        select change;
+
+    public IO<T> Detached<T>(IO<T> write) =>
+        Products.Cleared(attached).Under(scope).Bind(_ => write.Finally(Listening));
+
+    private IO<Unit> Listening => Products.Swapped(attached, changes.Inline(deliver, owner)).Under(scope);
+}
+
 public sealed class RowGrid {
     // --- [STATE]
+    private readonly Ref<Seating> seating = Ref(Seating.Empty);
     private readonly RowScope scope;
-    private readonly Retained<IDisposable> owned;
     private readonly Panel view;
-    private Seating seating = Seating.Empty;
 
-    private RowGrid(RowScope scope, Retained<IDisposable> owned, Panel view) => (this.scope, this.owned, this.view) = (scope, owned, view);
+    private RowGrid(RowScope scope, Panel view) => (this.scope, this.view) = (scope, view);
 
     public Control View => view;
 
     // --- [REALIZE]
-    public static IO<RowGrid> Realize(ControlRows rows, RowScope scope, Action<IDisposable> retain) =>
-        from owned in DisposalOps.Acquire(IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)), retain)
-        from grid in DisposalOps.OnFailure(
-            from view in Containers.Frame(static () => new Panel(), owned.Retain)
-            let made = new RowGrid(scope, owned, view)
-            from released in DisposalOps.Acquire(IO.pure(unit), _ => made.Emptied, owned.Retain)
-            from sized in Subscriptions.Host<EventArgs>(typeof(Control), h => view.SizeChanged += h, h => view.SizeChanged -= h, nameof(Control.SizeChanged))
-                .Inline(_ => made.Fitted, scope.Sink, owned.Retain)
-            from attached in made.Attached(rows)
-            select made,
-            IO.lift(owned.Dispose))
-        select grid;
+    public static IO<RowGrid> Realize(ControlRows rows, RowScope scope) =>
+        from made in use(() => new RowGrid(scope, new Panel()), static grid => grid.Released)
+        from sized in Subscriptions.Host<EventArgs>(h => made.view.SizeChanged += h, h => made.view.SizeChanged -= h).Inline(_ => made.Fitted, scope.Owner)
+        from attached in made.Attached(rows)
+        select made;
 
     private IO<Unit> Attached(ControlRows rows) =>
-        from site in IO.pure(CallbackSite.Of(scope.Sink, this))
-        let read = rows.Read(scope).Bind(Show)
-        from mailbox in Subscriptions.Idle<Unit, Unit>(_ => read)(site, owned.Retain)
-        let post = fun((Unit raised) => mailbox((raised, raised)))
+        from post in Mailboxes.Idle<Unit, Unit>(_ => rows.Read(scope).Bind(Show))(scope.Owner)
         from signals in rows.Signals(scope)
-        from held in signals.TraverseM(signal => signal.Inline(post, scope.Sink, owned.Retain)).As()
-        from heard in scope.Listen(_ => post(unit), owned.Retain)
-        from shown in read
+        from held in signals.TraverseM(signal => signal.Inline(raised => post(raised, raised), scope.Owner)).As()
+        from heard in scope.Listen(_ => post(unit, unit))
+        from shown in rows.Read(scope).Bind(Show)
         select unit;
 
     // --- [SHOW]
     public IO<Unit> Show(Seq<ControlRow> rows) =>
-        from prior in IO.lift(() => seating)
+        from prior in seating.ValueIO
         from seated in rows.Map(static (row, at) => (At: at, Row: row)).Filter(static entry => entry.Row.Visible)
             .TraverseM(entry => Restated(prior.Seats.Find(entry.At), entry.Row).Map(held => (entry.At, held.Seat, held.Placed, held.Retired))).As()
         from laid in Arranged(prior.Laid, seated.Map(static entry => entry.Placed), prior.Laid.Map(static arrangement => arrangement.Beside).IfNone(noneValue: true))
-        from stored in IO.lift(() => { seating = new Seating(prior.Seats.Filter((at, _) => at < rows.Count).AddOrUpdateRange(seated.Map(static entry => (entry.At, entry.Seat))), Some(laid)); })
-        from released in (seated.Choose(static entry => entry.Retired) + toSeq(prior.Seats.Filter((at, _) => at >= rows.Count).Values)).TraverseM(static seat => seat.Lease.Close).As()
+        from stored in atomicIO(() => seating.Value = new Seating(prior.Seats.Filter((at, _) => at < rows.Count).AddOrUpdateRange(seated.Map(static entry => (entry.At, entry.Seat))), Some(laid)))
+        from released in (seated.Choose(static entry => entry.Retired) + toSeq(prior.Seats.Filter((at, _) => at >= rows.Count).Values)).TraverseM(static seat => seat.Released).As()
         select unit;
 
     private IO<(Seat Seat, Placed Placed, Option<Seat> Retired)> Restated(Option<Seat> held, ControlRow row) =>
-        from kept in held.Match(Some: seat => seat.Restated(row).Map(same => same ? Some(seat) : None), None: static () => IO.pure(Option<Seat>.None))
+        from kept in held.Match(Some: seat => seat.Restated(row).Under(seat.Scope).Map(same => same ? Some(seat) : None), None: static () => IO.pure(Option<Seat>.None))
         from seat in kept.Match(Some: static seat => IO.pure(seat), None: () => Seated(row))
         from faced in IO.lift(() => Faced(seat, row))
         select (seat, new Placed(row.Shape, seat.Caption.Map(static caption => caption.Control), seat.Value), held.Filter(_ => kept.IsNone));
 
     private IO<Seat> Seated(ControlRow row) =>
-        from lease in IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release))
-        from seat in DisposalOps.OnFailure(
-            from made in row.Seated(scope, lease.Retain)
-            from value in made.Cells.Traverse(cells => Valued(cells, row, lease.Retain)).As()
-            from caption in Captioned(row, value.IsNone, lease.Retain)
-            select new Seat(caption, value, made.Restated, lease),
-            lease.Close)
+        from lease in IO.lift(static () => EnvIO.New(token: CancellationToken.None))
+        from seat in (
+                from made in row.Seated(scope)
+                from value in made.Cells.Traverse(cells => Valued(cells, row)).As()
+                from caption in Captioned(row, value.IsNone)
+                select new Seat(caption, value, made.Restated, lease))
+            .Under(lease)
+            .Catch(error => IO.lift(lease.Dispose) >> IO.fail<Seat>(error))
+            .As()
         select seat;
 
-    private IO<Option<Caption>> Captioned(ControlRow row, bool heading, Action<IDisposable> retain) =>
+    private IO<Option<Caption>> Captioned(ControlRow row, bool heading) =>
         heading
-            ? DisposalOps.Acquire(IO.lift(static () => new LabelSeparator()), retain).Map(rule => Some(new Caption(rule, next => rule.Text = Localized(next.Label))))
+            ? use(static () => new LabelSeparator()).Map(rule => Some(new Caption(rule, next => rule.Text = Localized(next.Label))))
             : row.Shape.Labeled
-                ? DisposalOps.Acquire(IO.lift(static () => new Label { VerticalAlignment = VerticalAlignment.Center }), retain).Map(label => Some(new Caption(label, next =>
+                ? use(static () => new Label { VerticalAlignment = VerticalAlignment.Center }).Map(label => Some(new Caption(label, next =>
                     (label.Text, label.Font, label.Enabled) = (Localized(next.Label), next.Modified ? SystemFonts.Bold(SystemFonts.Label().Size) : SystemFonts.Label(), next.Enabled))))
                 : IO.pure(Option<Caption>.None);
 
@@ -129,20 +145,21 @@ public sealed class RowGrid {
         _ = seat.Value.Iter(value => (value.Enabled, value.ToolTip) = (row.Enabled, row.Help.Map(Localized).ValueUnsafe()));
     }
 
-    private string Localized(string text) => RowText.Localize(text, scope.Sink).Local;
+    private string Localized(string text) => RowText.Localize(text, scope.Owner).Local;
 
-    private IO<Unit> Emptied =>
-        from prior in IO.lift(() => seating)
+    private IO<Unit> Released =>
+        from prior in seating.ValueIO
         from cleared in prior.Laid.Traverse(Cleared).As()
-        from reset in IO.lift(() => { seating = Seating.Empty; })
-        from released in toSeq(prior.Seats.Values).TraverseM(static seat => seat.Lease.Close).As()
+        from reset in atomicIO(() => seating.Value = Seating.Empty)
+        from released in toSeq(prior.Seats.Values).TraverseM(static seat => seat.Released).As()
+        from disposed in IO.lift(view.Dispose)
         select unit;
 
     // --- [ARRANGE]
     private IO<Unit> Fitted =>
-        from prior in IO.lift(() => seating)
+        from prior in seating.ValueIO
         from laid in prior.Laid.Traverse(held => IO.lift(() => view.Width >= Needed(held.Rows)).Bind(beside => Arranged(prior.Laid, held.Rows, beside))).As()
-        from stored in IO.lift(() => { seating = prior with { Laid = laid }; })
+        from stored in atomicIO(() => seating.Value = prior with { Laid = laid })
         select unit;
 
     private IO<Arrangement> Arranged(Option<Arrangement> current, Seq<Placed> rows, bool beside) =>
@@ -195,31 +212,31 @@ public sealed class RowGrid {
     private static int Widest(Seq<Control> controls) => controls.Fold(0, static (widest, control) => int.Max(widest, (int)MathF.Ceiling(control.GetPreferredSize().Width)));
 
     // --- [BODY]
-    private IO<Control> Valued(RowCells cells, ControlRow row, Action<IDisposable> retain) =>
-        from body in Body(cells, row, retain)
+    private IO<Control> Valued(RowCells cells, ControlRow row) =>
+        from body in Body(cells, row)
         from menu in cells.Menu.IsEmpty
             ? IO.pure(Option<ContextMenu>.None)
-            : CommandRows.Menu(cells.Menu, scope, retain).Map(static held => Some(held.Menu))
+            : CommandRows.Menu(cells.Menu, scope).Map(static held => Some(held.Menu))
         from attached in IO.lift(() => menu.Iter(held => body.ContextMenu = held))
         select body;
 
-    private IO<Control> Body(RowCells cells, ControlRow row, Action<IDisposable> retain) =>
-        from main in Lined(Seq(new TableCell(cells.Value, scaleWidth: true)) + cells.Pick.Map(static pick => new TableCell(pick)).ToSeq(), retain)
-        from lines in cells.Lines.TraverseM(line => Line(line, retain)).As()
+    private IO<Control> Body(RowCells cells, ControlRow row) =>
+        from main in Lined(Seq(new TableCell(cells.Value, scaleWidth: true)) + cells.Pick.Map(static pick => new TableCell(pick)).ToSeq())
+        from lines in cells.Lines.TraverseM(Line).As()
         from stack in Containers.Frame(static () => new StackLayout {
             Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table).Height,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-        }, retain)
+        })
         from filled in IO.lift(() => main.Cons(lines).Iter(line => stack.Items.Add(new StackLayoutItem(line, expand: row.Shape.Fills))))
         select (Control)stack;
 
-    private IO<Control> Line(RowLine line, Action<IDisposable> retain) =>
-        from caption in line.Caption.Traverse(text => DisposalOps.Acquire(IO.lift(() => new Label { Text = Localized(text), VerticalAlignment = VerticalAlignment.Center }), retain)).As()
-        from lined in Lined(caption.Map(static label => new TableCell(label)).ToSeq().Add(new TableCell(line.Value, scaleWidth: true)), retain)
+    private IO<Control> Line(RowLine line) =>
+        from caption in line.Caption.Traverse(text => use(() => new Label { Text = Localized(text), VerticalAlignment = VerticalAlignment.Center })).As()
+        from lined in Lined(caption.Map(static label => new TableCell(label)).ToSeq().Add(new TableCell(line.Value, scaleWidth: true)))
         select lined;
 
-    internal static IO<Control> Lined(Seq<TableCell> cells, Action<IDisposable> retain) =>
-        Containers.Frame(() => new TableLayout(new TableRow(cells)) { Padding = 0, Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table) }, retain).Map(static table => (Control)table);
+    internal static IO<Control> Lined(Seq<TableCell> cells) =>
+        Containers.Frame(() => new TableLayout(new TableRow(cells)) { Padding = 0, Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table) }).Map(static table => (Control)table);
 
     // --- [ROWS]
     private sealed record Placed(RowShape Shape, Option<Control> Caption, Option<Control> Value);
@@ -232,5 +249,7 @@ public sealed class RowGrid {
 
     private sealed record Caption(Control Control, Action<ControlRow> Faced);
 
-    private sealed record Seat(Option<Caption> Caption, Option<Control> Value, Func<ControlRow, IO<bool>> Restated, Retained<IDisposable> Lease);
+    private sealed record Seat(Option<Caption> Caption, Option<Control> Value, Func<ControlRow, IO<bool>> Restated, EnvIO Scope) {
+        public IO<Unit> Released => IO.lift(Scope.Dispose);
+    }
 }

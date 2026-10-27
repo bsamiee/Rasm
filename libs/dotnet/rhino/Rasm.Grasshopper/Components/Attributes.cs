@@ -13,8 +13,10 @@ using Grasshopper2.UI.Skinning;
 using Grasshopper2.Undo.Actions;
 using Rasm.Grasshopper.UI;
 using Rasm.Grasshopper.UI.Surfaces;
-using Rasm.Rhino;
-using Rasm.Rhino.UI.Surfaces;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI.Surfaces;
 using Rasm.UI;
 using SkiaSharp;
 
@@ -40,12 +42,13 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     private const string SizeKey = "Attr.Size";
     private const float Rim = 2f * StandardLayout.IconPadding;
     private readonly ModularComponent component;
-    private readonly IPlugInSink sink;
+    private readonly IPlugInLifetime plugin;
     private readonly PlotBody<TReading> body;
     private readonly Atom<Option<TReading>> reading;
     private readonly object modular;
     private readonly Guest guest;
-    private readonly Ref<Option<Either<Resizing, IDisposable>>> track = Ref(Option<Either<Resizing, IDisposable>>.None);
+    private readonly EnvIO scope = EnvIO.New(token: CancellationToken.None);
+    private readonly Ref<Option<Lease<Option<Resizing>>>> track = Ref(Option<Lease<Option<Resizing>>>.None);
     private Option<TReading> read;
     private Option<Node> view;
     private SlabF silhouette;
@@ -53,33 +56,24 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     public Option<Func<PointF, ObjectSolutionState, IO<object>>> Tooltip { get; init; }
     public Option<Func<PointF, IO<Option<Cursor>>>> Cursor { get; init; }
 
-    public PlotAttributes(ModularComponent owner, IPlugInSink sink, PlotBody<TReading> body, Atom<Option<TReading>> reading) : base(owner) {
-        (component, this.sink, this.body, this.reading) = (owner, sink, body, reading);
+    public PlotAttributes(ModularComponent owner, IPlugInLifetime plugin, PlotBody<TReading> body, Atom<Option<TReading>> reading) : base(owner) {
+        (component, this.plugin, this.body, this.reading) = (owner, plugin, body, reading);
         modular = ModularAttributes.Create(owner);
-        guest = new Guest(sink, IO.lift(Owner.OnDisplayChanged));
-        Responder.MouseDownHook += Reply<ResponseMouseArgs>(args => (args.Buttons is MouseButtons.Primary ? Began(args.ContentLocation) : IO.pure(Response.Ignored))
-            .Bind(resized => Or(resized, Guided(args, static (local, clicks) => HostInput.Pressed(local, clicks)))), nameof(Responses.MouseDown));
-        Responder.MouseDoubleClickHook += Reply<ResponseMouseArgs>(args => Guided(args, static (local, clicks) => HostInput.Pressed(local, clicks)), nameof(Responses.MouseDoubleClick));
-        Responder.MouseDragHook += Reply<ResponseMouseArgs>(args => During(current => IO.lift(() => {
-            current.Frame.Continue(args.ContentLocation);
-            ((IResizableAttributes)this).Size = current.Frame.Resized.Size - current.Margins.Size - new SizeF(Rim, Rim);
-            Pivot = RectangleF.Inset(current.Frame.Resized, current.Margins).Center;
-        }).Map(Response.Handled)).Bind(resized => Or(resized, Guided(args, static (local, clicks) => HostInput.Moved(local, clicks)))), nameof(Responses.MouseDrag));
-        Responder.MouseUpHook += Reply<ResponseMouseArgs>(args => (args.Buttons is MouseButtons.Primary ? Finished : IO.pure(Response.Ignored))
-            .Bind(resized => Or(resized, Guided(args, HostInput.Released))), nameof(Responses.MouseUp));
-        Responder.MouseWheelHook += Reply<ResponseMouseArgs>(args => Guided(args, static (local, _) => Some(HostInput.Wheeled(local))), nameof(Responses.MouseWheel));
-        Responder.MouseOverHook += Observe<ResponseMouseArgs>(args => Guided(args, static (local, clicks) => HostInput.Moved(local, clicks)).Map(unit), nameof(Responses.MouseOver));
-        Responder.MouseLeaveHook += () => Callbacks.Started(guest.Receive(new Input.Hover(None)), Site(nameof(Responses.MouseLeave)));
-        Responder.KeyDownHook += Reply<KeyEventArgs>(args => (args.Key, args.Modifiers) switch {
-            (Keys.Escape, _) => track.ValueIO.Bind(held => held.Match(Some: _ => Released, None: () => guest.Keyed(args))),
-            (Keys.S, Keys.None) => During(_ => IO.lift(() => {
-                Grasshopper2.Settings.CanvasSnapToObjects.Value = !Grasshopper2.Settings.CanvasSnapToObjects.Value;
-                args.Handled = true;
-            }).Bind(static _ => Editors.Canvas.Bind(SnapSession.End)).Map(Response.Handled)).Bind(resized => Or(resized, guest.Keyed(args))),
-            _ => guest.Keyed(args),
-        }, nameof(Responses.KeyDown));
-        Responder.GotFocus += Callbacks.Handler<EventArgs>(_ => guest.Rehost(Visibility.Active), Site(nameof(Responses.GotFocus))).Invoke;
-        Responder.LostFocus += Callbacks.Handler<EventArgs>(_ => Cancelled.Bind(__ => guest.Rehost(Visibility.Shown)), Site(nameof(Responses.LostFocus))).Invoke;
+        guest = new Guest(plugin, IO.lift(Owner.OnDisplayChanged));
+        Responder.MouseDownHook += Pressed;
+        Responder.MouseDoubleClickHook += Clicked;
+        Responder.MouseDragHook += Dragged;
+        Responder.MouseUpHook += Lifted;
+        Responder.MouseWheelHook += Wheeled;
+        Responder.MouseOverHook += Hovered;
+        Responder.MouseLeaveHook += Departed;
+        Responder.KeyDownHook += Keyed;
+        _ = plugin.Run((
+            from focused in Subscriptions.Host<EventHandler, EventArgs>(h => Responder.GotFocus += h, h => Responder.GotFocus -= h, static handler => handler.Invoke)
+                .Inline(_ => guest.Rehost(Visibility.Active), plugin)
+            from blurred in Subscriptions.Host<EventHandler, EventArgs>(h => Responder.LostFocus += h, h => Responder.LostFocus -= h, static handler => handler.Invoke)
+                .Inline(_ => Cancelled.Bind(__ => guest.Rehost(Visibility.Shown)), plugin)
+            select unit).Under(scope));
         _ = body.Configure.Iter(configure => configure(this));
     }
 
@@ -162,7 +156,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     }
 
     protected override void DrawContent(Context context, Skin skin, Capsule capsule, Shade shade) =>
-        Callbacks.Run(
+        plugin.Run(
             from before in IO.lift(() => ((IResizableAttributes)this).Size)
             from current in reading.ValueIO
             from viewed in IO.lift(() => Viewed(current))
@@ -171,7 +165,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
                 from drawn in guest.Paint(context.Graphics, device, ContentBox, Responder.HasFocus ? Visibility.Active : Visibility.Shown, shown)
                 select unit).As()
             from refit in IO.lift(() => Refit(before))
-            select unit, Site());
+            select unit);
 
     private Option<Node> Viewed(Option<TReading> current) {
         if (current.Equals(read)) return view;
@@ -188,31 +182,63 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     }
 
     protected override void DrawForeground(Context context, Skin skin, Capsule capsule, Shade shade) {
-        Callbacks.Run(IO.lift(() => {
+        _ = plugin.Run(IO.lift(() => {
             ModularAttributes.ColourInputCategories(modular, context, capsule, component.ModularInputs);
             ModularAttributes.ColourOutputCategories(modular, context, capsule, component.ModularOutputs);
-        }), Site());
+        }));
         base.DrawForeground(context, skin, capsule, shade);
     }
 
     protected override void DrawForegroundDecorations(Context context, Skin skin, Capsule capsule, Shade shade) =>
-        Callbacks.Run(IO.lift(() => ModularAttributes.DrawForegroundDecorations(modular, context, skin, capsule, shade)), Site());
+        plugin.Run(IO.lift(() => ModularAttributes.DrawForegroundDecorations(modular, context, skin, capsule, shade)));
 
     // --- [INTERACTION]
     public Func<TArgs, Response> Reply<TArgs>(Func<TArgs, IO<Response>> respond, [CallerMemberName] string member = "") =>
-        args => Callbacks.Answer(args, value => DisposalOps.OnFailure(IO.pure(value).Bind(respond), Cancelled), static () => Response.Release, Site(member));
+        args => Replied(IO.pure(args).Bind(respond), member);
 
     public Action<TArgs> Observe<TArgs>(Func<TArgs, IO<Unit>> observe, [CallerMemberName] string member = "") =>
-        args => Callbacks.Started(DisposalOps.OnFailure(IO.pure(args).Bind(observe), Cancelled), Site(member));
+        args => plugin.Start(IO.pure(args).Bind(observe).Catch(error => Cancelled >> IO.fail<Unit>(error)).As(), member);
 
-    public IO<Response> Capture(Func<Action<IDisposable>, IO<Unit>> begin) =>
-        DisposalOps.Acquire(begin, (_, release) => atomic(() => {
-            Option<Either<Resizing, IDisposable>> prior = track.Value;
-            track.Value = Some(Right<Resizing, IDisposable>(release));
-            return Cleaned(prior);
-        })).Map(Response.Capture);
+    public IO<Response> Capture(IO<Unit> begin) =>
+        Cancelled.Bind(_ => Products.Swapped(track, begin.Map(static _ => Option<Resizing>.None)).Under(scope)).Map(Response.Capture);
 
     public IO<Response> Released => Cancelled.Map(Response.Release);
+
+    private Response Replied(IO<Response> respond, [CallerMemberName] string member = "") =>
+        plugin.Answer(respond.Catch(error => Cancelled >> IO.fail<Response>(error)).As(), Response.Release, member);
+
+    private Response Pressed(ResponseMouseArgs args) =>
+        Replied((args.Buttons is MouseButtons.Primary ? Began(args.ContentLocation) : IO.pure(Response.Ignored))
+            .Bind(resized => Or(resized, Guided(args, static (local, clicks) => HostInput.Pressed(local, clicks)))));
+
+    private Response Clicked(ResponseMouseArgs args) => Replied(Guided(args, static (local, clicks) => HostInput.Pressed(local, clicks)));
+
+    private Response Dragged(ResponseMouseArgs args) =>
+        Replied(During(current => IO.lift(() => {
+            current.Frame.Continue(args.ContentLocation);
+            ((IResizableAttributes)this).Size = current.Frame.Resized.Size - current.Margins.Size - new SizeF(Rim, Rim);
+            Pivot = RectangleF.Inset(current.Frame.Resized, current.Margins).Center;
+        }).Map(Response.Handled)).Bind(resized => Or(resized, Guided(args, static (local, clicks) => HostInput.Moved(local, clicks)))));
+
+    private Response Lifted(ResponseMouseArgs args) =>
+        Replied((args.Buttons is MouseButtons.Primary ? Finished : IO.pure(Response.Ignored)).Bind(resized => Or(resized, Guided(args, HostInput.Released))));
+
+    private Response Wheeled(ResponseMouseArgs args) => Replied(Guided(args, static (local, _) => Some(HostInput.Wheeled(local))));
+
+    private void Hovered(ResponseMouseArgs args) =>
+        plugin.Start(Guided(args, static (local, clicks) => HostInput.Moved(local, clicks)).Catch(error => Cancelled >> IO.fail<Response>(error)).As());
+
+    private void Departed() => plugin.Start(guest.Receive(new Input.Hover(None)));
+
+    private Response Keyed(KeyEventArgs args) =>
+        Replied((args.Key, args.Modifiers) switch {
+            (Keys.Escape, _) => track.ValueIO.Bind(held => held.Match(Some: _ => Released, None: () => guest.Keyed(args))),
+            (Keys.S, Keys.None) => During(_ => IO.lift(() => {
+                Grasshopper2.Settings.CanvasSnapToObjects.Value = !Grasshopper2.Settings.CanvasSnapToObjects.Value;
+                args.Handled = true;
+            }).Bind(static _ => Editors.Canvas.Bind(SnapSession.End)).Map(Response.Handled)).Bind(resized => Or(resized, guest.Keyed(args))),
+            _ => guest.Keyed(args),
+        });
 
     private IO<Response> Guided(ResponseMouseArgs args, Func<MouseEventArgs, int, Option<Input>> convert) =>
         IO.lift(() => HostInput.Clicks.Map(clicks => convert(Guest.Local(args, ContentBox.TopLeft), clicks)))
@@ -220,27 +246,18 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
 
     private static IO<Response> Or(Response resized, IO<Response> guided) => resized is Response.Ignored ? guided : IO.pure(resized);
 
-    private CallbackSite Site([CallerMemberName] string member = "") => new(sink, typeof(PlotAttributes<TReading>), member);
-
     private IO<Response> During(Func<Resizing, IO<Response>> respond) =>
-        track.ValueIO.Bind(held => held.Match(
-            Some: current => current.Match(Left: respond, Right: static _ => IO.pure(Response.Ignored)),
-            None: static () => IO.pure(Response.Ignored)));
+        track.ValueIO.Bind(held => held.Bind(static lease => lease.Value).Match(Some: respond, None: static () => IO.pure(Response.Ignored)));
 
-    private IO<Option<Either<Resizing, IDisposable>>> Taken => atomicIO(() => {
-        Option<Either<Resizing, IDisposable>> held = track.Value;
-        track.Value = None;
-        return held;
-    });
+    private IO<Unit> Cancelled =>
+        (from held in track.ValueIO
+         from restored in held.Bind(static lease => lease.Value).Traverse(Restored).As()
+         from cleared in Products.Cleared(track).Under(scope)
+         select unit).Uninterruptible();
 
-    private IO<Unit> Cancelled => Taken.Bind(Cleaned).Uninterruptible();
-
-    private IO<Unit> Cleaned(Option<Either<Resizing, IDisposable>> held) => held.Match(
-        Some: current => current.Match(
-            Left: resize => Callbacks.Each(Seq(Editors.Canvas.Bind(SnapSession.End),
-                IO.lift(() => { ((IResizableAttributes)this).Size = resize.Undo.Size; }), IO.lift(() => { Pivot = resize.Undo.Pivot; }))).Map(unit),
-            Right: static release => IO.lift(release.Dispose)),
-        None: static () => IO.pure(unit));
+    private IO<Unit> Restored(Resizing resize) =>
+        Callbacks.Each(Seq(Editors.Canvas.Bind(SnapSession.End),
+            IO.lift(() => { ((IResizableAttributes)this).Size = resize.Undo.Size; }), IO.lift(() => { Pivot = resize.Undo.Pivot; }))).Map(unit);
 
     // --- [RESIZING]
     private IO<Response> Began(PointF point) =>
@@ -250,26 +267,25 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             return frame.Begin(point, bands) ? Some((Frame: frame, Margins: margins)) : None;
         }).Bind(held => held.Match(
             Some: current => Cancelled.Bind(_ => IO.lift(() => new ResizeAction(Owner)))
-                .Bind(undo => atomicIO(() => track.Value = Some<Either<Resizing, IDisposable>>(new Resizing(current.Frame, undo, current.Margins))))
+                .Bind(undo => Products.Swapped(track, IO.pure(Some(new Resizing(current.Frame, undo, current.Margins)))).Under(scope))
                 .Map(Response.Capture),
             None: static () => IO.pure(Response.Ignored))).Uninterruptible();
 
     private IO<Response> Finished =>
-        atomicIO(() => track.Value.Bind(current => current.Match(
-            Left: resize => { track.Value = None; return Some(resize); },
-            Right: static _ => Option<Resizing>.None)))
-        .Bind(held => held.Match(
-            Some: done => DisposalOps.OnFailure(
-                Editors.Canvas.Bind(SnapSession.End).Bind(_ => IO.lift(() => Optional(Owner.Document).Iter(document =>
-                    document.Undo.Do(new(RowText.Localize("Resize", sink), Owner.InstanceId.ToString()), done.Undo))))
-                    .Map(Response.Release),
-                Cleaned(Some<Either<Resizing, IDisposable>>(done))),
+        track.ValueIO.Bind(held => held.Bind(static lease => lease.Value).Match(
+            Some: done =>
+                (from cleared in Products.Cleared(track).Under(scope)
+                 from ended in Editors.Canvas.Bind(SnapSession.End)
+                 from recorded in IO.lift(() => Optional(Owner.Document).Iter(document =>
+                     document.Undo.Do(new(RowText.Localize("Resize", plugin), Owner.InstanceId.ToString()), done.Undo)))
+                 select Response.Release)
+                .Catch(error => Restored(done) >> IO.fail<Response>(error)).As(),
             None: static () => IO.pure(Response.Ignored))).Uninterruptible();
 
     private sealed record Resizing(ResizingFrame Frame, ResizeAction Undo, PaddingF Margins);
 
     // --- [HINTS]
-    Cursor? ICursorAwareAttributes.CursorAt(PointF point) => Callbacks.Answer(
+    Cursor? ICursorAwareAttributes.CursorAt(PointF point) => plugin.Answer(
         IO.lift(() => {
             (SizeF Minimum, SizeF Maximum, Padding Bands, PaddingF Margins) frame = Frame;
             return Optional(new ResizingFrame(Bounds, frame.Minimum, frame.Maximum).CursorAt(point, frame.Bands));
@@ -278,17 +294,20 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             None: () => guest.Cursor.Filter(_ => ContentBox.Contains(point)).Match(
                 Some: static drawn => IO.lift(() => drawn).Map(static cursor => Some(cursor)),
                 None: () => Cursor.Match(Some: custom => IO.pure(point).Bind(custom), None: static () => IO.pure(Option<Cursor>.None)))))
-        .Map(static cursor => cursor.ValueUnsafe()), static () => null, Site(nameof(ICursorAwareAttributes.CursorAt)));
+        .Map(static cursor => cursor.ValueUnsafe()), failed: null);
 
-    protected override object? TooltipDetails(PointF point, ObjectSolutionState state) => Callbacks.Answer(
-        Tooltip.Map(custom => IO.pure(point).Bind(location => custom(location, state)).Map(Some)),
-        () => guest.Help.Map(static help => (object)help)
-              | view.Map(shown => (object)Guest.TooltipPainter(sink, shown, Site(nameof(TooltipDetails))))
-              | Optional(base.TooltipDetails(point, state)),
-        static () => None, Site()).ValueUnsafe();
+    protected override object? TooltipDetails(PointF point, ObjectSolutionState state) =>
+        Tooltip.Match(
+            Some: custom => plugin.Answer(IO.pure(point).Bind(location => custom(location, state)).Map(static details => Some(details)), Option<object>.None),
+            None: () => guest.Help.Map(static help => (object)help)
+                | view.Map(shown => (object)Guest.TooltipPainter(plugin, shown))
+                | Optional(base.TooltipDetails(point, state)))
+        .ValueUnsafe();
 
     public void Dispose() {
-        Callbacks.Run(Cancelled, Site());
+        _ = plugin.Run(Cancelled);
+        _ = plugin.Run(IO.lift(scope.DisposeResources));
+        scope.Dispose();
         guest.Dispose();
     }
 }

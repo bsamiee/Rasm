@@ -1,11 +1,13 @@
 using System.Globalization;
 using System.Numerics;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Tables;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.PlugIns;
 using Rhino;
 using Rhino.Collections;
+using Rhino.FileIO;
 
-namespace Rasm.Rhino.Persistence.Stores;
+namespace Rasm.RhinoCommon.Persistence.Stores;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record HistoryLimits(int Capacity, Duration Window) {
@@ -24,6 +26,9 @@ public sealed record ValueHistory {
     public Seq<HistoryEntry> Done { get; }
     public Seq<HistoryEntry> Undone { get; }
     private BigInteger Next { get; }
+
+    // --- [FRAME]
+    public static HistoryFrame Frame(HistoryLimits limits) => new(limits);
 
     // --- [TRANSITIONS]
     public ValueHistory Committed(ValueDiff diff, Instant at, HistoryLimits limits) =>
@@ -74,8 +79,8 @@ public sealed record ValueHistory {
 
     private static Fin<HashMap<Guid, ValueHistory>> Histories(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
-        from pairs in Callbacks.Each(rows, static (row, _) =>
-            (Guid.TryParseExact(row.Key, "D", out Guid id) ? Fin.Succ(id) : Errors.ParseError($"history owner {row.Key} is no GUID"), History(row.Value))
+        from pairs in Callbacks.Each(rows, static (row, index) =>
+            (Guid.TryParseExact(row.Key, "D", out Guid id) ? Fin.Succ(id) : new RhinoFault(row.Key, RhinoReason.Unreadable, index), History(row.Value))
                 .Apply(static (id, history) => history.Map(held => (id, held))).As())
         select toHashMap(pairs.Somes());
 
@@ -89,8 +94,8 @@ public sealed record ValueHistory {
 
     private static Fin<Option<Seq<HistoryEntry>>> Entries(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
-        from entries in Callbacks.Each(rows, static (row, _) =>
-            (BigInteger.TryParse(row.Key, NumberStyles.None, CultureInfo.InvariantCulture, out BigInteger serial) ? Fin.Succ(serial) : Errors.ParseError($"history serial {row.Key} is no count"),
+        from entries in Callbacks.Each(rows, static (row, index) =>
+            (BigInteger.TryParse(row.Key, NumberStyles.None, CultureInfo.InvariantCulture, out BigInteger serial) ? Fin.Succ(serial) : new RhinoFault(row.Key, RhinoReason.Unreadable, index),
              ArchivableDictionaries.Required<long>(row.Value, AtKey),
              Nested(row.Value, BeforeKey),
              Nested(row.Value, AfterKey))
@@ -104,36 +109,58 @@ public sealed record ValueHistory {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record HistoryScope {
-    public IO<AtomHashMap<Guid, ValueHistory>> Histories =>
+    public IO<Atom<HashMap<Guid, ValueHistory>>> Histories =>
         Switch(applicationScope: static scope => IO.pure(scope.Registry), documentScope: static scope => Of(scope.Doc));
 
-    public static IO<AtomHashMap<Guid, ValueHistory>> Of(RhinoDoc doc) =>
-        IO.lift(() => doc.RuntimeData.GetValue(typeof(ValueHistory), static _ => AtomHashMap<Guid, ValueHistory>()));
+    public static IO<Atom<HashMap<Guid, ValueHistory>>> Of(RhinoDoc doc) =>
+        IO.lift(() => doc.RuntimeData.GetValue(typeof(ValueHistory), static _ => Atom(HashMap<Guid, ValueHistory>())));
 
-    public sealed record ApplicationScope(AtomHashMap<Guid, ValueHistory> Registry) : HistoryScope;
-    public sealed record DocumentScope(RhinoDoc Doc, RedrawPolicy Redraw, CallbackSite Site) : HistoryScope;
+    public sealed record ApplicationScope(Atom<HashMap<Guid, ValueHistory>> Registry) : HistoryScope;
+    public sealed record DocumentScope(RhinoDoc Doc, RedrawPolicy Redraw, IPlugInLifetime Owner) : HistoryScope;
+}
+
+public sealed record HistoryFrame : DocumentFrame {
+    // --- [STATE]
+    private static readonly DocumentFrame Stored = new DocumentFrame<HashMap<Guid, ValueHistory>>(
+        ValueHistory.TypeCode,
+        ValueHistory.Codec,
+        HashMap<Guid, ValueHistory>(),
+        static (doc, options) => options.WriteAsTemplate ? IO.pure(HashMap<Guid, ValueHistory>()) : HistoryScope.Of(doc).Map(static registry => registry.Value),
+        static (doc, histories) => HistoryScope.Of(doc).Bind(registry => registry.SwapIO(held => held.AddOrUpdateRange(histories.AsIterable()))).Map(unit));
+
+    internal HistoryFrame(HistoryLimits limits) => Limits = limits;
+
+    public HistoryLimits Limits { get; }
+
+    public Atom<HashMap<Guid, ValueHistory>> Registry { get; } = Atom(HashMap<Guid, ValueHistory>());
+
+    // --- [ARCHIVE]
+    internal override IO<bool> Filled(RhinoDoc doc, FileWriteOptions options) => Stored.Filled(doc, options);
+
+    internal override IO<Unit> Write(RhinoDoc doc, BinaryArchiveWriter writer, FileWriteOptions options) => Stored.Write(doc, writer, options);
+
+    internal override IO<Unit> Read(RhinoDoc doc, BinaryArchiveReader reader) => Stored.Read(doc, reader);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group, HistoryScope Scope, IO<HistoryLimits> Limits, TimeProvider Clock) {
+public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group, HistoryScope Scope, HistoryLimits Limits, TimeProvider Clock) {
     // --- [READS]
-    public IO<ValueHistory> History => Scope.Histories.Map(histories => histories.Find(Id).IfNone(ValueHistory.Empty));
+    public IO<ValueHistory> History => Scope.Histories.Map(histories => histories.Value.Find(Id).IfNone(ValueHistory.Empty));
 
     // --- [WRITES]
-    public IO<ValueDiff> Commit(ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) => Written(incoming, locks).Bind(Commit);
+    public IO<ValueDiff> Commit(ValueSet incoming, HashSet<EntryKey> locks) => Written(incoming, locks).Bind(Commit);
 
     public IO<ValueDiff> Commit(ValueDiff diff) =>
         from at in IO.lift(Clock.GetCurrentInstant)
-        from limits in Limits
-        from recorded in Swapped(history => history.Committed(diff, at, limits))
+        from recorded in Swapped(history => history.Committed(diff, at, Limits))
         select diff;
 
     public IO<Unit> Clear =>
         from histories in Scope.Histories
-        from cleared in IO.lift(() => histories.Remove(Id))
-        select cleared;
+        from cleared in histories.SwapIO(held => held.Remove(Id))
+        select unit;
 
-    private IO<ValueDiff> Written(ValueSet target, LanguageExt.HashSet<EntryKey> locks) =>
+    private IO<ValueDiff> Written(ValueSet target, HashSet<EntryKey> locks) =>
         Scope.Switch((Binding: this, Target: target, Locks: locks),
             applicationScope: static (state, _) => state.Binding.Group.Apply(state.Target, state.Locks),
             documentScope: static (state, scope) =>
@@ -142,13 +169,13 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
                         from recording in IO.lift(() => scope.Doc.UndoRecordingIsActive)
                         from registered in when(recording && !diff.Changes.IsEmpty,
                             TableOps.Register(scope.Doc, new CustomUndo(state.Binding.Caption,
-                                state.Binding.Swapped(history => history.Followed(diff.Inverse())), state.Binding.Swapped(history => history.Followed(diff)), scope.Site))).As()
+                                state.Binding.Swapped(history => history.Followed(diff.Inverse())), state.Binding.Swapped(history => history.Followed(diff)), scope.Owner))).As()
                         select diff).Map(static committed => committed.Value));
 
     private IO<Unit> Swapped(Func<ValueHistory, ValueHistory> step) =>
         from histories in Scope.Histories
-        from swapped in IO.lift(() => histories.SwapKey(Id, held => Some(step(held.IfNone(ValueHistory.Empty)))))
-        select swapped;
+        from swapped in histories.SwapIO(held => held.AddOrUpdate(Id, step(held.Find(Id).IfNone(ValueHistory.Empty))))
+        select unit;
 
     // --- [STEPS]
     public IO<ValueDiff> Undo => Stepped(identity, static diff => diff.Inverse());
@@ -164,7 +191,7 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
 
     public IO<ValueDiff> Restore(BigInteger serial) =>
         from history in History
-        from target in IO.lift(history.Toward(serial).ToFin(new Refused(nameof(Restore), Refused.Absent)))
+        from target in IO.lift(Conversions.Found(history.Toward(serial)))
         from diff in Commit(target, [])
         select diff;
 

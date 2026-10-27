@@ -1,12 +1,13 @@
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using Darkroom.Catalog;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.Render.Effects;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.Render.Effects;
 using Rhino;
 using Rhino.Render.PostEffects;
 
@@ -68,12 +69,11 @@ public sealed record EffectKind(
                     EqualityComparer<TState>.Default.Equals, Applied.Live, Some(new EffectSource.Document(doc).Changed)))),
         };
 
-    private static Fin<Unit> Copied(PixelFrame result, PixelFrame frame) {
-        if (result.Size != frame.Size)
-            return new Refused(nameof(IFrameJob<,>.Run), Refused.Invalid);
-        result.View.Span.CopyTo(frame.View.Span);
-        return unit;
-    }
+    private static Fin<Unit> Copied(PixelFrame result, PixelFrame frame) =>
+        RhinoFault.Unless(result.Size == frame.Size).Map(_ => {
+            result.View.Span.CopyTo(frame.View.Span);
+            return unit;
+        });
 }
 
 public sealed record ChainState(ImmutableArray<ChainEntry> Entries, ValueSet Values) {
@@ -144,7 +144,7 @@ public sealed record ChainState(ImmutableArray<ChainEntry> Entries, ValueSet Val
 
     public Fin<ChainState> Looked(Guid kind, string name) =>
         from held in Kind(kind)
-        from look in held.Looks.Find(kept => string.Equals(kept.Name, name, StringComparison.Ordinal)).ToFin(new NotFound("look", name))
+        from look in held.Looks.Find(kept => string.Equals(kept.Name, name, StringComparison.Ordinal)).ToFin(new DarkroomFault($"look {name}", DarkroomReason.Missing))
         from added in Added(kind)
         from values in look.Look(added.Values)
         from looked in added.Tuned(kind, values)

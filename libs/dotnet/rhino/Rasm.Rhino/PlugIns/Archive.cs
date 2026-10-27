@@ -16,41 +16,41 @@ public abstract record DocumentFrame {
     internal abstract IO<Unit> Write(RhinoDoc doc, BinaryArchiveWriter writer, FileWriteOptions options);
 
     internal abstract IO<Unit> Read(RhinoDoc doc, BinaryArchiveReader reader);
+}
 
-    public sealed record Of<T>(
-        uint TypeCode,
-        DictionaryCodec<T> Codec,
-        T Empty,
-        Func<RhinoDoc, FileWriteOptions, IO<T>> Held,
-        Func<RhinoDoc, T, IO<Unit>> Restore) : DocumentFrame where T : IEquatable<T> {
-        public IO<Unit> Writable(RhinoDoc doc) =>
-            Newer(doc).Bind(newer => newer.Match(Some: raw => IO.fail<Unit>(Codec.Refusal(raw)), None: static () => IO.pure(unit)));
+public sealed record DocumentFrame<T>(
+    uint TypeCode,
+    DictionaryCodec<T> Codec,
+    T Empty,
+    Func<RhinoDoc, FileWriteOptions, IO<T>> Held,
+    Func<RhinoDoc, T, IO<Unit>> Restore) : DocumentFrame where T : IEquatable<T> {
+    public IO<Unit> Writable(RhinoDoc doc) =>
+        Newer(doc).Bind(newer => newer.Match(Some: raw => IO.fail<Unit>(Codec.Refusal(raw)), None: static () => IO.pure(unit)));
 
-        internal override IO<bool> Filled(RhinoDoc doc, FileWriteOptions options) =>
-            from newer in Newer(doc)
-            from held in Held(doc, options)
-            select newer.IsSome || !held.Equals(Empty);
+    internal override IO<bool> Filled(RhinoDoc doc, FileWriteOptions options) =>
+        from newer in Newer(doc)
+        from held in Held(doc, options)
+        select newer.IsSome || !held.Equals(Empty);
 
-        internal override IO<Unit> Write(RhinoDoc doc, BinaryArchiveWriter writer, FileWriteOptions options) =>
-            Newer(doc).Bind(newer => newer.Match(
-                Some: raw => AttachedData.Write(writer, TypeCode, raw),
-                None: () => Held(doc, options).Bind(held => AttachedData.Write(writer, TypeCode, Codec, held))));
+    internal override IO<Unit> Write(RhinoDoc doc, BinaryArchiveWriter writer, FileWriteOptions options) =>
+        Newer(doc).Bind(newer => newer.Match(
+            Some: raw => AttachedData.Write(writer, TypeCode, raw),
+            None: () => Held(doc, options).Bind(held => AttachedData.Write(writer, TypeCode, Codec, held))));
 
-        internal override IO<Unit> Read(RhinoDoc doc, BinaryArchiveReader reader) =>
-            from cleared in IO.lift(() => ignore(doc.RuntimeData.Remove(Key)))
-            from stored in AttachedData.Read(reader, TypeCode, Codec)
-            from restored in stored.Switch(
-                (Frame: this, Doc: doc),
-                held: static (state, held) => state.Frame.Restore(state.Doc, held.Value),
-                absent: static (_, _) => IO.pure(unit),
-                newer: static (state, newer) => IO.lift(() => { state.Doc.RuntimeData[state.Frame.Key] = newer.Raw; }))
-            select restored;
+    internal override IO<Unit> Read(RhinoDoc doc, BinaryArchiveReader reader) =>
+        from cleared in IO.lift(() => ignore(doc.RuntimeData.Remove(Key)))
+        from stored in AttachedData.Read(reader, TypeCode, Codec)
+        from restored in stored.Switch(
+            (Frame: this, Doc: doc),
+            held: static (state, held) => state.Frame.Restore(state.Doc, held.Value),
+            absent: static (_, _) => IO.pure(unit),
+            newer: static (state, newer) => IO.lift(() => { state.Doc.RuntimeData[state.Frame.Key] = newer.Raw; }))
+        select restored;
 
-        private FrameKey Key => new(TypeCode);
+    private FrameKey Key => new(TypeCode);
 
-        private IO<Option<ArchivableDictionary>> Newer(RhinoDoc doc) =>
-            IO.lift(() => Optional(doc.RuntimeData.TryGetValue<ArchivableDictionary>(Key)));
-    }
+    private IO<Option<ArchivableDictionary>> Newer(RhinoDoc doc) =>
+        IO.lift(() => Optional(doc.RuntimeData.TryGetValue<ArchivableDictionary>(Key)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

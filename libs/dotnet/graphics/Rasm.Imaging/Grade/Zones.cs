@@ -5,101 +5,77 @@ namespace Rasm.Imaging.Grade;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record GradingRgbmsw(float Red, float Green, float Blue, float Master, float Start, float Width) {
     internal static GradingRgbmsw Placed(float start, float width) => new(1f, 1f, 1f, 1f, start, width);
-
-    internal bool Neutral => Red is 1f && Green is 1f && Blue is 1f && Master is 1f;
-
-    internal Func<Vector3, Vector3> PerChannel(Func<float, Func<float, float>> curve) {
-        (Func<float, float> red, Func<float, float> green, Func<float, float> blue, Func<float, float> master) = (curve(Red), curve(Green), curve(Blue), curve(Master));
-        return rgb => new Vector3(master(red(rgb.X)), master(green(rgb.Y)), master(blue(rgb.Z)));
-    }
 }
 
 public sealed record GradingTone(GradingRgbmsw Blacks, GradingRgbmsw Shadows, GradingRgbmsw Midtones, GradingRgbmsw Highlights, GradingRgbmsw Whites, float SContrast) {
-    private static readonly Func<float, float> Identity = static value => value;
+    public Option<Action<Span<Vector4>>> Graded(GradingStyle style) {
+        Curve Shadow(float value) => Bent(value, slope => Spline.Bend(Shadows.Start - Shadows.Width, Shadows.Start, slope, 1f));
+        Curve Highlight(float value) => Bent(2f - value, slope => Spline.Bend(Highlights.Start, Highlights.Start + Highlights.Width, 1f, slope));
+        Zone Each(GradingRgbmsw zone, Func<float, Curve> curve) => new(curve(zone.Red), curve(zone.Green), curve(zone.Blue), curve(zone.Master));
+        (Curve lift, Curve sink, Curve contrast) = (Highlight(Highlights.Master), Shadow(Shadows.Master), Contrasted(style, SContrast));
+        Zone[] zones = [.. toSeq([
+            Each(Midtones, value => Middle(style, value, Midtones.Start, Midtones.Width)),
+            Each(Highlights, Highlight),
+            Each(Whites, value => White(lift.At(Whites.Start), lift.At(Whites.Start + Whites.Width), value)),
+            Each(Shadows, Shadow),
+            Each(Blacks, value => Black(sink.At(Blacks.Start - Blacks.Width), sink.At(Blacks.Start), value)),
+            new Zone(contrast, contrast, contrast, Curve.Kept)]).Filter(static zone => !zone.Kept)];
+        return zones.Length is 0 ? None : Some(Zoned);
 
-    public Option<Action<Span<Vector4>>> Graded(GradingStyle style) =>
-        toSeq([Blacks, Shadows, Midtones, Highlights, Whites]).ForAll(static zone => zone.Neutral) && SContrast is 1f
-            ? None
-            : Composed(style);
-
-    private Action<Span<Vector4>> Composed(GradingStyle style) {
-        Func<float, float> Shadow(float value) => Bent(value, slope => Spline.Bend(Shadows.Start - Shadows.Width, Shadows.Start, slope, 1f));
-        Func<float, float> Highlight(float value) => Bent(2f - value, slope => Spline.Bend(Highlights.Start, Highlights.Start + Highlights.Width, 1f, slope));
-        (Func<float, float> lift, Func<float, float> sink, Func<float, float> contrast) = (Highlight(Highlights.Master), Shadow(Shadows.Master), Contrasted(style, SContrast));
-        Seq<Func<Vector3, Vector3>> zones = [
-            Midtones.PerChannel(value => Middle(style, value, Midtones.Start, Midtones.Width)),
-            Highlights.PerChannel(Highlight),
-            Whites.PerChannel(value => White(lift(Whites.Start), lift(Whites.Start + Whites.Width), value)),
-            Shadows.PerChannel(Shadow),
-            Blacks.PerChannel(value => Black(sink(Blacks.Start - Blacks.Width), sink(Blacks.Start), value)),
-            rgb => new Vector3(contrast(rgb.X), contrast(rgb.Y), contrast(rgb.Z)),
-        ];
-        return row => {
+        void Zoned(Span<Vector4> row) {
             foreach (ref Vector4 pixel in row) {
                 Vector3 rgb = new(style.Encode(pixel.X), style.Encode(pixel.Y), style.Encode(pixel.Z));
-                foreach (Func<Vector3, Vector3> zone in zones.AsSpan())
-                    rgb = zone(rgb);
+                foreach (Zone zone in zones)
+                    rgb = new Vector3(zone.Master.At(zone.Red.At(rgb.X)), zone.Master.At(zone.Green.At(rgb.Y)), zone.Master.At(zone.Blue.At(rgb.Z)));
                 pixel = new Vector4(Vector3.Min(new Vector3(style.Decode(rgb.X), style.Decode(rgb.Y), style.Decode(rgb.Z)), new Vector3((float)Half.MaxValue)), pixel.W);
             }
-        };
+        }
     }
 
-    private static Func<float, float> Bent(float value, Func<float, Spline> spline) =>
-        value switch {
-            1f => Identity,
-            < 1f => spline(value).Forward,
-            _ => spline(2f - value).Inverse,
-        };
+    private static Curve Bent(float value, Func<float, Spline> spline) =>
+        value switch { 1f => Curve.Kept, < 1f => new Curve.Forward(spline(value)), _ => new Curve.Inverse(spline(2f - value)) };
 
-    private static Func<float, float> Middle(GradingStyle style, float value, float start, float width) =>
+    private static Curve Middle(GradingStyle style, float value, float start, float width) =>
         value is 1f
-            ? Identity
+            ? Curve.Kept
             : float.Min(width, (style.Top - style.Bottom) * 0.95f) switch {
-                var span => Balanced(style, float.Clamp(start, style.Bottom + (span * 0.51f), style.Top - (span * 0.51f)), span, (value - 1f) * 0.9f).Forward,
+                var span => new Curve.Forward(Balanced(style, float.Clamp(start, style.Bottom + (span * 0.51f), style.Top - (span * 0.51f)), span, (value - 1f) * 0.9f)),
             };
 
-    private static Spline Balanced(GradingStyle style, float center, float span, float lean) =>
-        (style.Bottom, center - (span * 0.5f), center - (span * 0.25f), center + (span * 0.25f), center + (span * 0.5f), style.Top, 1f + (lean * 0.4f), 1f + lean, 1f - lean, 1f - (lean * 0.4f)) switch {
-            var (x0, x1, x2, x3, x4, x5, m1, m2, m3, m4) => (center <= (x5 + x0) * 0.5f
-                ? (m1, (((x1 - x0) * (m1 - 1f) * 0.5f) + ((x2 - x1) * (m1 - 1f + ((m2 - m1) * 0.5f))) + ((center - x2) * (m2 - 1f) * 0.5f)
-                        - (0.5f * (x5 - x4)) + ((x4 - x3) * ((0.5f * m3) - 1f)) + ((x3 - center) * (m3 - 1f) * 0.5f)) / (-0.5f * (x5 - x3)))
-                : ((((x5 - x4) * (m4 - 1f) * 0.5f) + ((x4 - x3) * (m4 - 1f + ((m3 - m4) * 0.5f))) + ((x3 - center) * (m3 - 1f) * 0.5f)
-                        - (0.5f * (x1 - x0)) + ((x2 - x1) * ((0.5f * m2) - 1f)) + ((center - x2) * (m2 - 1f) * 0.5f)) / (-0.5f * (x2 - x0)), m4)) switch {
-                            var (low, high) => Spline.Of((x0, x0, 1f), [(x1, low), (x2, m2), (x3, m3), (x4, high), (x5, 1f)]),
-                        },
-        };
+    private static Spline Balanced(GradingStyle style, float center, float span, float lean) {
+        (float x0, float x1, float x2, float x3, float x4, float x5) = (style.Bottom, center - (span * 0.5f), center - (span * 0.25f), center + (span * 0.25f), center + (span * 0.5f), style.Top);
+        (float m1, float m2, float m3, float m4) = (1f + (lean * 0.4f), 1f + lean, 1f - lean, 1f - (lean * 0.4f));
+        (float low, float high) = center <= (x5 + x0) * 0.5f
+            ? (m1, (((x1 - x0) * (m1 - 1f) * 0.5f) + ((x2 - x1) * (m1 - 1f + ((m2 - m1) * 0.5f))) + ((center - x2) * (m2 - 1f) * 0.5f)
+                - (0.5f * (x5 - x4)) + ((x4 - x3) * ((0.5f * m3) - 1f)) + ((x3 - center) * (m3 - 1f) * 0.5f)) / (-0.5f * (x5 - x3)))
+            : ((((x5 - x4) * (m4 - 1f) * 0.5f) + ((x4 - x3) * (m4 - 1f + ((m3 - m4) * 0.5f))) + ((x3 - center) * (m3 - 1f) * 0.5f)
+                - (0.5f * (x1 - x0)) + ((x2 - x1) * ((0.5f * m2) - 1f)) + ((center - x2) * (m2 - 1f) * 0.5f)) / (-0.5f * (x2 - x0)), m4);
+        return Spline.Of((x0, x0, 1f), [(x1, low), (x2, m2), (x3, m3), (x4, high), (x5, 1f)]);
+    }
 
-    private static Func<float, float> White(float x0, float x1, float value) =>
-        (Spline.Of((x0, x0, 1f), [(x1, float.Min(value, 2f - value))]), Tail(x0, x1, 2f - value)) switch {
-            _ when value is 1f => Identity,
-            var (spline, _) when value < 1f => spline.Forward,
-            var (spline, (a, b, c, gain)) => t => t >= x1 ? (((a * t) + b) * t) + c : spline.Gained(t, x0, gain),
-        };
+    private static Curve White(float x0, float x1, float value) =>
+        value switch { 1f => Curve.Kept, < 1f => new Curve.Forward(Spline.Of((x0, x0, 1f), [(x1, value)])), _ => Tail(Spline.Of((x0, x0, 1f), [(x1, 2f - value)]), x0, x1, 2f - value) };
 
-    private static (float A, float B, float C, float Gain) Tail(float x0, float x1, float slope) =>
-        (x0 + ((x1 - x0) * 0.99f), (1f + slope) * 0.5f) switch {
-            var (xd, gain) => (0.5f * ((1f / slope) - (1f / (1f + ((xd - x0) * (slope - 1f) / (x1 - x0))))) / (x1 - xd)) switch {
-                var a => ((1f / slope) - (2f * a * x1)) switch { var b => (a, b, ((x1 - x0) / gain) + x0 - (b * x1) - (a * x1 * x1), gain) },
-            },
-        };
+    private static Curve.Tailed Tail(Spline spline, float x0, float x1, float slope) {
+        (float xd, float gain) = (x0 + ((x1 - x0) * 0.99f), (1f + slope) * 0.5f);
+        float a = 0.5f * ((1f / slope) - (1f / (1f + ((xd - x0) * (slope - 1f) / (x1 - x0))))) / (x1 - xd);
+        float b = (1f / slope) - (2f * a * x1);
+        return new(new Curve.Gained(spline, x0, gain), x1, a, b, ((x1 - x0) / gain) + x0 - (b * x1) - (a * x1 * x1));
+    }
 
-    private static Func<float, float> Black(float x0, float x1, float value) =>
+    private static Curve Black(float x0, float x1, float value) =>
         value switch {
-            1f => Identity,
-            > 1f => Spline.Of((x0, x1 - ((3f - value) * 0.5f * (x1 - x0)), 2f - value), [(x1, 1f)]).Forward,
-            _ => ((1f + value) * 0.5f) switch {
-                var gain => Spline.Of((x0, x1 - (gain * (x1 - x0)), value), [(x1, 1f)]) switch {
-                    var spline => t => spline.Gained(t, x1, gain),
-                },
-            },
+            1f => Curve.Kept,
+            > 1f => new Curve.Forward(Spline.Of((x0, x1 - ((3f - value) * 0.5f * (x1 - x0)), 2f - value), [(x1, 1f)])),
+            _ => ((1f + value) * 0.5f) switch { var gain => new Curve.Gained(Spline.Of((x0, x1 - (gain * (x1 - x0)), value), [(x1, 1f)]), x1, gain) },
         };
 
-    private static Func<float, float> Contrasted(GradingStyle style, float contrast) =>
+    private static Curve Contrasted(GradingStyle style, float contrast) =>
         contrast is 1f
-            ? Identity
+            ? Curve.Kept
             : (contrast > 1f ? 1f / (1.8125f - (0.8125f * contrast)) : 0.28125f + (0.71875f * contrast)) switch {
                 var slope => (Lower(style, slope), Upper(style, slope)) switch {
-                    var (low, high) => Spline.Of((low.X1, low.Y2 - ((low.Slope + slope) * (low.X2 - low.X1) * 0.5f), low.Slope), [(low.X2, slope), (high.X1, slope), (high.X2, high.Slope)]).Forward,
+                    var (low, high) => new Curve.Forward(Spline.Of((low.X1, low.Y2 - ((low.Slope + slope) * (low.X2 - low.X1) * 0.5f), low.Slope), [(low.X2, slope), (high.X1, slope), (high.X2, high.Slope)])),
                 },
             };
 
@@ -158,30 +134,39 @@ public sealed record GradingTone(GradingRgbmsw Blacks, GradingRgbmsw Shadows, Gr
                 var after => ~after - 1,
             };
     }
+
+    private sealed record Zone(Curve Red, Curve Green, Curve Blue, Curve Master) { internal bool Kept => Red == Curve.Kept && Green == Curve.Kept && Blue == Curve.Kept && Master == Curve.Kept; }
+
+    private abstract record Curve {
+        internal static Curve Kept { get; } = new Same();
+
+        internal abstract float At(float t);
+
+        internal sealed record Forward(Spline Spline) : Curve { internal override float At(float t) => Spline.Forward(t); }
+        internal sealed record Inverse(Spline Spline) : Curve { internal override float At(float t) => Spline.Inverse(t); }
+        internal sealed record Gained(Spline Spline, float Anchor, float Gain) : Curve { internal override float At(float t) => Spline.Gained(t, Anchor, Gain); }
+        internal sealed record Tailed(Gained Body, float End, float A, float B, float C) : Curve { internal override float At(float t) => t >= End ? (((A * t) + B) * t) + C : Body.At(t); }
+        private sealed record Same : Curve { internal override float At(float t) => t; }
+    }
 }
 
 [SmartEnum]
 public sealed partial class GradingStyle {
     public static readonly GradingStyle Log = new(
-        1f, 1f, 0f, 0.4f,
-        new GradingTone(GradingRgbmsw.Placed(0.4f, 0.4f), GradingRgbmsw.Placed(0.5f, 0.5f), GradingRgbmsw.Placed(0.4f, 0.6f), GradingRgbmsw.Placed(0.3f, 0.7f), GradingRgbmsw.Placed(0.4f, 0.5f), 1f),
-        static value => value,
-        static value => value);
+        1f, 1f, 0f, 0.4f, stops: false,
+        new GradingTone(GradingRgbmsw.Placed(0.4f, 0.4f), GradingRgbmsw.Placed(0.5f, 0.5f), GradingRgbmsw.Placed(0.4f, 0.6f), GradingRgbmsw.Placed(0.3f, 0.7f), GradingRgbmsw.Placed(0.4f, 0.5f), 1f));
     public static readonly GradingStyle Linear = new(
-        7.5f, 6.5f, -5.5f, 0f,
-        new GradingTone(GradingRgbmsw.Placed(0f, 4f), GradingRgbmsw.Placed(2f, 9f), GradingRgbmsw.Placed(0f, 8f), GradingRgbmsw.Placed(-2f, 11f), GradingRgbmsw.Placed(0f, 8f), 1f),
-        static value => (float)CurveAxis.ToStops(value),
-        static stops => (float)CurveAxis.FromStops(stops));
+        7.5f, 6.5f, -5.5f, 0f, stops: true,
+        new GradingTone(GradingRgbmsw.Placed(0f, 4f), GradingRgbmsw.Placed(2f, 9f), GradingRgbmsw.Placed(0f, 8f), GradingRgbmsw.Placed(-2f, 11f), GradingRgbmsw.Placed(0f, 8f), 1f));
 
     internal float Top { get; }
     internal float ContrastTop { get; }
     internal float Bottom { get; }
     internal float Pivot { get; }
+    internal bool Stops { get; }
     public GradingTone Neutral { get; }
 
-    [UseDelegateFromConstructor]
-    internal partial float Encode(float value);
+    internal float Encode(float value) => Stops ? (float)CurveAxis.ToStops(value) : value;
 
-    [UseDelegateFromConstructor]
-    internal partial float Decode(float value);
+    internal float Decode(float value) => Stops ? (float)CurveAxis.FromStops(value) : value;
 }

@@ -104,6 +104,13 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def feeding(socket: bpy.types.NodeSocket) -> tuple[tuple[bpy.types.Node, bpy.types.NodeSocket], ...]:
+    """Returns source node and socket of each valid unmuted link into socket."""
+    links: tuple[bpy.types.NodeLink, ...] = socket.links  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    sources: tuple[tuple[bpy.types.Node, bpy.types.NodeSocket], ...] = tuple((link.from_node, link.from_socket) for link in links if link.is_valid and not link.is_muted)  # type: ignore[misc]  # ty: ignore[invalid-assignment]
+    return sources
+
+
 def strengths(material: bpy.types.Material) -> tuple[bpy.types.NodeSocketFloat, ...]:
     """Returns linked or positive Emission and Principled BSDF strength sockets reaching active Cycles output."""
     type State = tuple[bpy.types.Node, bpy.types.NodeSocket, tuple[bpy.types.ShaderNodeGroup, ...]]
@@ -120,13 +127,10 @@ def strengths(material: bpy.types.Material) -> tuple[bpy.types.NodeSocketFloat, 
         visited.add(state)
         match node:
             case _ if not socket.is_output:
-                pending.extend(
-                    (link.from_node, link.from_socket, path)  # type: ignore[misc]  # ty: ignore[invalid-argument-type]
-                    for link in socket.links  # type: ignore[union-attr]  # ty: ignore[not-iterable]
-                    if link.is_valid and not link.is_muted
-                )
+                pending.extend((source, output, path) for source, output in feeding(socket))
             case _ if node.mute:
-                pending.extend((node, link.from_socket, path) for link in node.internal_links if link.to_socket == socket)  # type: ignore[misc]  # ty: ignore[invalid-argument-type]
+                routed: tuple[bpy.types.NodeSocket, ...] = tuple(link.from_socket for link in node.internal_links if link.to_socket == socket)  # type: ignore[misc]  # ty: ignore[invalid-assignment]
+                pending.extend((node, inner, path) for inner in routed)
             case bpy.types.ShaderNodeGroup(node_tree=tree) if tree is not None:
                 pending.extend(
                     (output, inner, (*path, node))
@@ -142,7 +146,7 @@ def strengths(material: bpy.types.Material) -> tuple[bpy.types.NodeSocketFloat, 
                     (strength, None)
                     for identifier in Option.of_optional(emitted.get(type(node))).to_list()
                     for strength in socket_at(node.inputs, identifier).to_option().to_list()
-                    if isinstance(strength, bpy.types.NodeSocketFloat) and (any(link.is_valid and not link.is_muted for link in strength.links) or strength.default_value > 0.0)  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+                    if isinstance(strength, bpy.types.NodeSocketFloat) and (feeding(strength) or strength.default_value > 0.0)
                 )
                 pending.extend((node, inner, path) for inner in node.inputs)
     return tuple(found)
@@ -267,4 +271,4 @@ mesh_light_add_command: Operator[MeshLight] = Operator(form=MeshLight, run=mesh_
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TEMPERATURE", "MeshLight", "MeshLights", "emission_graph", "emitters", "emitting", "lit", "made", "mesh_light_add_command", "picked", "strengths"]
+__all__ = ["TEMPERATURE", "MeshLight", "MeshLights", "emission_graph", "emitters", "emitting", "feeding", "lit", "made", "mesh_light_add_command", "picked", "strengths"]

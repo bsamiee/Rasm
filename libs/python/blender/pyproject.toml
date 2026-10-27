@@ -11,7 +11,6 @@ dependencies = [
     "colour-science",    # CIE observer datasets
     "expression",        # Results, options, and collections of every library package
     "httpx2",            # HTTP for batch render targets and notices
-    "imagecodecs",       # JPEG codec for compression emulation
     "msgspec",           # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
     "numpy",             # Arrays for image planes, previews, and analysis
     "opencolorio",       # Color processing, config authoring, and LUT baking
@@ -40,7 +39,9 @@ dev-mode-dirs = [".."] # Editable installs expose the folder holding the import 
 
 [tool.hatch.build.targets.wheel]
 only-include = ["bpy", "imaging", "records", "rendering"] # Import packages under the `blender` root, the manifest left out
-sources      = { "" = "blender" }                         # Project folder is the `blender` import root
+
+[tool.hatch.build.targets.wheel.sources]
+"" = "blender"
 
 # --- [RUFF] -----------------------------------------------------------------------------
 

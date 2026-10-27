@@ -1,7 +1,7 @@
 """Rows appended to stock panels, menus, headers, and context menus."""
 
 from collections.abc import Generator
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from functools import partial
 
 import _bpy_types
@@ -19,8 +19,8 @@ from blender.records.faults import Faults, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Extended = bpy.types.Panel | bpy.types.Menu | bpy.types.Header
-type Destination = type[_bpy_types.Panel | _bpy_types.Menu | _bpy_types.Header] | ContextMenu
+type _Extended = bpy.types.Panel | bpy.types.Menu | bpy.types.Header
+type _Destination = type[_bpy_types.Panel | _bpy_types.Menu | _bpy_types.Header] | ContextMenu
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ class ContextMenu(msgspec.Struct, frozen=True, kw_only=True):
 class Append(msgspec.Struct, frozen=True, kw_only=True):
     """Rows drawn on stock panel, menu, header, or context menu."""
 
-    target: Destination
+    target: _Destination
     rows: tuple[Row | RowDraw, ...]
     prepend: bool = False
     condition: Option[Condition] = Nothing
@@ -47,15 +47,12 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
 
         @contextmanager
         def appended() -> Generator[Outcome[None]]:
-            match placed(self.rows, identity).map(painted).map(lambda paint: partial(_shown, self, paint)):
-                case Result(tag="error", error=faults):
-                    yield Result[None, Faults].Error(faults)
-                case Result(ok=draw):
+            drawn = placed(self.rows, identity).map(painted).map(lambda paint: partial(_shown, self, paint))
+            with ExitStack() as scope:
+                for draw in drawn.to_option().to_list():
                     (target.prepend if self.prepend else target.append)(draw)  # ty: ignore[invalid-argument-type]
-                    try:
-                        yield Result[None, Faults].Ok(None)
-                    finally:
-                        target.remove(draw)  # ty: ignore[invalid-argument-type]
+                    scope.callback(target.remove, draw)  # ty: ignore[invalid-argument-type]
+                yield drawn.map(lambda _: None)
 
         return Result[Acquisitions, Faults](ok=(*acquired(self.rows), (Band.APPENDS, appended())))
 
@@ -63,14 +60,14 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _shown(append: Append, paint: SurfaceDraw, surface: Extended, context: bpy.types.Context) -> None:
+def _shown(append: Append, paint: SurfaceDraw, surface: _Extended, context: bpy.types.Context) -> None:
     """Paints rows on the surface while the condition holds and a context menu's button shows its struct type."""
     destination, separator_after = append.target, append.prepend and not isinstance(append.target, ContextMenu)
     if not all(holds(condition, context) for condition in append.condition.to_list()):
         return
     if (
         isinstance(destination, ContextMenu)
-        and catch(lambda: context.button_pointer, exception=AttributeError)().to_option().filter(lambda pointer: isinstance(pointer, destination.hovered)).is_none()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        and catch(getattr, exception=AttributeError)(context, "button_pointer").to_option().filter(lambda pointer: isinstance(pointer, destination.hovered)).is_none()
     ):
         return
     for layout in Option.of_optional(surface.layout).to_list():
@@ -91,4 +88,4 @@ def _shown(append: Append, paint: SurfaceDraw, surface: Extended, context: bpy.t
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Append", "ContextMenu", "Destination", "Extended"]
+__all__ = ["Append", "ContextMenu"]

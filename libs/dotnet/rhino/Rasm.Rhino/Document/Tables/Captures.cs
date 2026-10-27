@@ -1,7 +1,7 @@
-using Rasm.Rhino.Viewport;
+using Rasm.RhinoCommon.Viewport;
 using Rhino.DocObjects;
 
-namespace Rasm.Rhino.Document.Tables;
+namespace Rasm.RhinoCommon.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PickCapture(
@@ -18,8 +18,8 @@ public sealed record PickCapture(
             Conversions.Present(reference.GeometryComponentIndex),
             method,
             Conversions.Present(reference.SelectionPoint()),
-            Callbacks.Found(reference.CurveParameter(out double t) is not null && method is SelectionMethod.MousePick, t),
-            Callbacks.Found(reference.SurfaceParameter(out double u, out double v) is not null, (u, v)),
+            Conversions.Found(reference.CurveParameter(out double t) is not null && method is SelectionMethod.MousePick, t),
+            Conversions.Found(reference.SurfaceParameter(out double u, out double v) is not null, (u, v)),
             (Conversions.Present(reference.SelectionViewDetailSerialNumber()).Bind(serial => Optional(reference.Document.Objects.Find(serial))).Map(static detail => detail.Id)
                 || Optional(reference.SelectionView()).Map(static view => view.MainViewport.Id))
             .Map<ViewportTarget>(static id => new ViewportTarget.Id(id))));

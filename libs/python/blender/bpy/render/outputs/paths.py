@@ -20,8 +20,7 @@ from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, 
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import AllOf, Not, Setting
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, rooted, Value, written
-from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler, SAVE_POST, SAVE_PRE
-from blender.bpy.extension.events.subscriptions import Subscription
+from blender.bpy.extension.events import Handler, located, staged, Subscription
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
@@ -242,7 +241,8 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
             return Ok((native, base)) if base.is_absolute() else Error((Fault(reason=BlenderReason.UNMET, subject=Unrooted(folder=folder).message),))
 
         def rooted(outputs: Outputs) -> Outcome[tuple[str, Path]]:
-            folder = bpy.context.preferences.filepaths.render_output_directory  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            folder = preferences.filepaths.render_output_directory
             return (
                 Option
                 .of_optional(bpy.data.project)
@@ -282,11 +282,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
 
     def refreshed(self, identity: Identity, saving: Option[Path] = Nothing) -> Outcome[None]:
         """Recomposes stored scenes except owned runtime scenes."""
-        return accumulated(
-            self.recomposed(scene, saving)
-            for scene in bpy.data.scenes
-            if self.attached.stored(scene) and not (scene.is_runtime_data and identity.manifest.id in scene)  # type: ignore[operator]
-        ).map(lambda _: None)
+        return accumulated(self.recomposed(scene, saving) for scene in bpy.data.scenes if self.attached.stored(scene) and not staged(identity, scene)).map(lambda _: None)
 
     def took(self, scene: bpy.types.Scene, day: datetime.date) -> Outcome[int]:
         """Writes next take from one settings snapshot."""
@@ -489,19 +485,20 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns commands and refresh handlers binding attachment on call."""
 
-        def refreshed(saving: Option[Path] = Nothing) -> Outcome[None]:
+        def refreshed(saving: Option[Path]) -> Outcome[None]:
             return self.bound(identity).bind(lambda pathed: pathed.refreshed(identity, saving))
 
+        current = partial(refreshed, Nothing)
         return Ok((
             self.replacing,
             self.versioning,
             self.taking,
             self.opening,
-            PathHandler(handlers=LOAD_POST, body=lambda _: refreshed()),
-            PathHandler(handlers=SAVE_PRE, body=refreshed),
-            PathHandler(handlers=SAVE_POST, body=lambda _: refreshed()),
+            Handler(handlers=bpy.app.handlers.load_post, body=current),
+            Handler(handlers=bpy.app.handlers.save_pre, body=partial(located, refreshed)),
+            Handler(handlers=bpy.app.handlers.save_post, body=current),
             *(
-                Subscription(owner=owner, setting=owner.bl_rna.properties[key], body=refreshed)
+                Subscription(owner=owner, setting=owner.bl_rna.properties[key], body=current)
                 for owner, key in ((bpy.types.ViewLayer, "name"), (bpy.types.Scene, "view_layers"), (bpy.types.PreferencesFilePaths, "render_output_directory"))
             ),
         ))

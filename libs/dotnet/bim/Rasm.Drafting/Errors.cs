@@ -21,5 +21,5 @@ public sealed partial class DraftingReason {
 public sealed record DraftingFault(string Subject, DraftingReason Reason, Option<int> Index = default, Option<Error> Inner = default)
     : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner) {
     public static Fin<Unit> Unless<T>(bool flag, DraftingReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new DraftingFault($"{names} = {Convert.ToString(rejected, CultureInfo.InvariantCulture)}", reason, index);
+        flag ? unit : new DraftingFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
 }

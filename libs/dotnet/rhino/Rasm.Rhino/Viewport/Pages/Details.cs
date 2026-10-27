@@ -1,12 +1,12 @@
 using Rasm.Drafting;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Document.Units;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Document.Units;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using UnitsNet;
 
-namespace Rasm.Rhino.Viewport.Pages;
+namespace Rasm.RhinoCommon.Viewport.Pages;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DetailState(Option<string> Name = default, Option<DrawingScale> Scale = default, Option<bool> ProjectionLocked = default, Option<bool> Active = default) {
@@ -53,27 +53,27 @@ public abstract partial record Arrangement {
 public static class Details {
     // --- [READS]
     public static IO<Seq<DetailSnapshot>> Read(RhinoPageView page) =>
-        IO.lift(() => Callbacks.Each(toSeq(page.GetDetailViews()), static (detail, _) =>
-            Refused.UnlessFound(detail.DetailGeometry, nameof(DetailViewObject.DetailGeometry)).Bind(geometry => Snapshot(detail, geometry))));
+        IO.lift(() => Callbacks.Each(toSeq(page.GetDetailViews()), static (detail, index) =>
+            Conversions.Found(detail.DetailGeometry, index).Bind(geometry => Snapshot(detail, geometry))));
 
     private static Fin<DetailSnapshot> Snapshot(DetailViewObject detail, DetailView geometry) =>
-        Callbacks.Found(geometry.IsParallelProjection, geometry.PageToModelRatio).Traverse(static ratio => DrawingScale.Validated(ratio < 1d ? QuantityValue.Inverse(1d / ratio) : ratio)).As()
+        Conversions.Found(geometry.IsParallelProjection, geometry.PageToModelRatio).Traverse(static ratio => DrawingScale.Validated(ratio < 1d ? QuantityValue.Inverse(1d / ratio) : ratio)).As()
             .Map(scale => new DetailSnapshot(detail.Id, Conversions.Present(detail.DescriptiveTitle), geometry.GetBoundingBox(accurate: true),
                 (Conversions.Present(detail.WorldToPageTransform), Conversions.Present(detail.PageToWorldTransform)).Apply(ValueTuple.Create).As(),
                 new DetailState(Conversions.Present(detail.Attributes.Name), scale, geometry.IsProjectionLocked, detail.IsActive)));
 
     // --- [WRITES]
     public static IO<Guid> Add(RhinoPageView page, string title, BoundingBox frame, DefinedViewportProjection projection) =>
-        IO.lift(() => Refused.UnlessFound(page.AddDetailView(title, new Point2d(frame.Min), new Point2d(frame.Max), projection), nameof(RhinoPageView.AddDetailView)).Map(static detail => detail.Id));
+        IO.lift(() => Conversions.Found(page.AddDetailView(title, new Point2d(frame.Min), new Point2d(frame.Max), projection)).Map(static detail => detail.Id));
 
     public static IO<Unit> Write(RhinoDoc doc, Guid detailId, DetailState wanted) =>
         from found in ObjectTarget.Resolve<DetailViewObject, DetailView>(doc, detailId)
         from held in IO.lift(() => Snapshot(found.Object, found.Geometry))
         let change = wanted.Except(held.State)
-        from scaled in change.Scale.Traverse(scale => IO.lift(() => Refused.Unless(found.Geometry.SetScale(
-            Quantities.As(scale.ToModel(Quantities.From(1d, doc.PageUnits)), doc.ModelUnits), doc.ModelUnits, 1d, doc.PageUnits), nameof(DetailView.SetScale)))).As()
+        from scaled in change.Scale.Traverse(scale => IO.lift(() => RhinoFault.Unless(found.Geometry.SetScale(
+            Quantities.As(scale.ToModel(Quantities.From(1d, doc.PageUnits)), doc.ModelUnits), doc.ModelUnits, 1d, doc.PageUnits)))).As()
         from locked in IO.lift(() => change.ProjectionLocked.Iter(value => found.Geometry.IsProjectionLocked = value))
-        from committed in IO.lift(() => change.Scale.IsNone && change.ProjectionLocked.IsNone ? unit : Refused.Unless(found.Object.CommitChanges(), nameof(RhinoObject.CommitChanges)))
+        from committed in IO.lift(() => change.Scale.IsNone && change.ProjectionLocked.IsNone ? unit : RhinoFault.Unless(found.Object.CommitChanges()))
         from activated in IO.lift(() => change.Active.Iter(active => found.Object.IsActive = active))
         from named in change.Name.Traverse(name =>
             TableOps.Apply(doc, new TableOp.ModifyAttributes(new ObjectTarget.Ids(Seq(detailId)), attributes => IO.lift(() => { attributes.Name = name; }), Quiet: true))).As()
@@ -102,7 +102,7 @@ public static class Details {
             distribute: static (state, distribute) => Spaced(distribute.Axis, state.Region, distribute.Ids.Map(id => (Id: id, Frame: state.Frames[id]))));
 
     public static IO<Seq<Guid>> Arrange(RhinoDoc doc, BoundingBox region, Arrangement arrangement) =>
-        from ids in IO.lift(Callbacks.Unique(arrangement.Details, identity, nameof(Arrange)))
+        from ids in IO.lift(Conversions.Unique(arrangement.Details, identity))
         from frames in ids.TraverseM(id => ObjectTarget.Resolve<DetailViewObject, DetailView>(doc, id).Map(found => (Key: id, Value: found.Geometry.GetBoundingBox(accurate: true)))).As()
         from moved in Offsets(region, arrangement, toHashMap(frames)).Filter(static row => !row.Offset.IsZero).TraverseM(row =>
             TableOps.Apply(doc, new TableOp.Move(new ObjectTarget.Ids(Seq(row.Id)), Transform.Translation(row.Offset), new TransformMode.Move(DeleteOriginal: true)))).As()

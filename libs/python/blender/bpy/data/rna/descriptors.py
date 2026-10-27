@@ -1,15 +1,18 @@
-"""RNA property definitions, stored values, and native writes."""
+"""RNA paths, property definitions, stored values, native writes, and `bpy.props` mirrors."""
 
+import ast
 from collections.abc import Callable, Iterable, Mapping
-from functools import reduce
-from itertools import chain, pairwise
-from operator import getitem, setitem
+from functools import partial
+from itertools import pairwise
 import os
-import re
-from typing import Annotated, Generic, TypeVar
+from types import MappingProxyType
+from typing import Annotated, Final, Generic, Protocol, TypeVar
+import zlib
 
+from _bl_rna_utils.data_path import decompose_data_path
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -25,9 +28,21 @@ type Scalar = bool | int | float | str
 type Value = Scalar | tuple[Scalar, ...] | IdName | None
 type Struct = bpy.types.bpy_struct[object]
 type Native = Struct | bpy.types.bpy_prop_collection[Struct]
+type _Step = str | int | tuple[str]
+type RnaPath = tuple[_Step, ...]
+type _Item = tuple[str, str, str, str, int]
 P_co = TypeVar("P_co", bound=bpy.types.Property, covariant=True, default=bpy.types.Property)
 
-# --- [TABLES] ---------------------------------------------------------------------------
+
+class _Array(Protocol):
+    """Uncoerced host array, which the stubs type as a bare property."""
+
+    def __len__(self) -> int: ...
+
+    def foreach_get(self, seq: NDArray[np.generic], /) -> None: ...
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 LEADING = tuple(
     struct.bl_rna.properties[name]
@@ -42,10 +57,13 @@ LEADING = tuple(
         (bpy.types.DriverTarget, "id_type"),
     )
 )
-GATED = tuple(
+_GATED = tuple(
     (bpy.types.ImageFormatSettings, bpy.types.ImageFormatSettings.bl_rna.properties[member], bpy.types.ImageFormatSettings.bl_rna.properties["color_management"], "OVERRIDE")
     for member in ("linear_colorspace_settings", "view_settings", "display_settings")
 )
+_DECOMPOSED: Final[Callable[[str], list[str]]] = decompose_data_path  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_PATHS: Final = frozenset({"FILE_PATH", "DIR_PATH", "FILE_NAME"})
+_DTYPES: Final[Mapping[type[bpy.types.Property], type[np.generic]]] = MappingProxyType({bpy.types.IntProperty: np.int32, bpy.types.FloatProperty: np.float32})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -54,91 +72,56 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
     """Property definition from root type, no live data."""
 
     root: type[Native]
-    owner: str
+    owner: RnaPath = ()
     prop: P_co
-    index: Option[int] = Nothing
+    coordinates: tuple[int, ...] = ()
 
     # --- [RESOLUTION]
 
     @property
-    def path(self) -> str:
-        """RNA path from root to property."""
-        return member_path(self.owner, self.member)
+    def path(self) -> RnaPath:
+        """RNA path from root to property with element coordinates."""
+        return (*self.owner, self.prop.identifier, *self.coordinates)
 
     @property
-    def member(self) -> str:
-        """Property path under owner with element coordinates."""
-        return self.prop.identifier + self.index.map(lambda index: "".join(f"[{coordinate}]" for coordinate in np.unravel_index(index, self.dimensions(self.prop)))).default_value("")
+    def index(self) -> Option[int]:
+        """Flat element index the host's `index=` keyword takes, Nothing for a whole member."""
+        return Some(self.coordinates).filter(bool).map(lambda at: int(np.ravel_multi_index(at, self.dimensions(self.prop))))
 
     @staticmethod
-    def resolve[K: bpy.types.Property](root: type[Struct] | Native, path: str, kind: type[K]) -> Outcome["Descriptor[K]"]:
-        """Resolves dotted path to descriptor, choice fault for another kind."""
-        selector = r'\[(?:"(?:[^"\\]|\\.)*"|\d+)\]'
-        step = rf"(\w+)((?:{selector})*)"
-        steps = tuple(re.finditer(step, path)) if re.fullmatch(rf"{step}(?:\.{step})*", path) else ()
+    def resolve[K: bpy.types.Property](root: type[Struct] | Native, path: str | RnaPath, kind: type[K]) -> Outcome["Descriptor[K]"]:
+        """Resolves path to descriptor, choice fault for another kind.
 
-        def member(struct: bpy.types.Struct, at: re.Match[str]) -> Outcome[bpy.types.Property]:
-            return Option.of_optional(struct.properties.get(at[1])).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=struct.identifier, member=at[0]),))
+        Args:
+            root: Struct type whose definitions the path walks, or live struct whose refined definitions answer.
+            path: RNA path, host path text read through `parsed`.
+            kind: Property class the member must hold.
 
-        def entered(struct: bpy.types.Struct, at: re.Match[str]) -> Outcome[bpy.types.Struct]:
-            def target(prop: bpy.types.Property) -> Option[bpy.types.Struct]:
-                match prop:
-                    case bpy.types.CollectionProperty() if not at[2]:
-                        return Option.of_optional(prop.srna)
-                    case bpy.types.CollectionProperty() if re.fullmatch(selector, at[2]):
-                        return Option.of_optional(prop.fixed_type)
-                    case bpy.types.PointerProperty() if not at[2]:
-                        return Option.of_optional(prop.fixed_type)
-                    case _:
-                        return Nothing
+        Returns:
+            Descriptor, absent fault for a path naming no member or element.
+        """
+        stated = type(root) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else root
 
-            return member(struct, at).bind(lambda prop: target(prop).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=struct.identifier, member=at[0]),)))
+        def owned(owner: RnaPath) -> Option[bpy.types.Struct]:
+            return struct_at(root, owner).bind(_defined) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else _walked(definition(root), owner)
 
-        def indexed(definition: bpy.types.Struct, prop: bpy.types.Property, suffix: str) -> Outcome[Option[int]]:
-            dimensions, coordinates = Descriptor.dimensions(prop), tuple(map(int, re.findall(r"\[(\d+)\]", suffix)))
-            match suffix:
-                case "":
-                    return Ok(Nothing)
-                case _ if re.fullmatch(r"(?:\[\d+\])+", suffix) and len(coordinates) == len(dimensions) and all(coordinate < size for coordinate, size in zip(coordinates, dimensions)):
-                    return Ok(Some(int(np.ravel_multi_index(coordinates, dimensions))))
-                case _:
-                    return Error((Fault(reason=BlenderReason.ABSENT, subject=definition.identifier, member=path),))
+        def within(prop: bpy.types.Property, coordinates: tuple[int, ...]) -> bool:
+            dimensions = Descriptor.dimensions(prop)
+            return not coordinates or (len(coordinates) == len(dimensions) and all(0 <= coordinate < size for coordinate, size in zip(coordinates, dimensions)))
 
-        def kinded(definition: bpy.types.Struct, prop: bpy.types.Property, last: re.Match[str]) -> Outcome[Descriptor[K]]:
-            return typed(prop, kind, f"{definition.identifier}.{path}").bind(
-                lambda prop: indexed(definition, prop, last[2]).map(
-                    lambda index: Descriptor[K](
-                        root=type(root) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else root, owner=path[: last.start()].removesuffix("."), prop=prop, index=index
-                    )
-                )
+        return _steps(root, path).bind(
+            lambda steps: (
+                _split(steps)
+                .bind(lambda split: owned(split[0]).bind(lambda owner: Option.of_optional(owner.properties.get(split[1]))).map(lambda prop: (split, prop)))
+                .filter(lambda found: within(found[1], found[0][2]))
+                .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(root), member=rna(steps)))
+                .bind(lambda found: typed(found[1], kind, rna(steps)).map(lambda prop: Descriptor[K](root=stated, owner=found[0][0], prop=prop, coordinates=found[0][2])))
             )
-
-        def walked(definition: bpy.types.Struct) -> Outcome[Descriptor[K]]:
-            match steps, root:
-                case (*inside, last), type():
-                    return (
-                        reduce(lambda state, at: state.bind(lambda struct: entered(struct, at)), inside, Result[bpy.types.Struct, Faults](ok=definition))
-                        .bind(lambda struct: member(struct, last))
-                        .bind(lambda prop: kinded(definition, prop, last))
-                    )
-                case (*_, last), bpy.types.bpy_struct() | bpy.types.bpy_prop_collection():
-                    owner = path[: last.start()].removesuffix(".")
-                    return (
-                        struct_at(root, owner)
-                        .map(lambda struct: member(struct.bl_rna, last).bind(lambda prop: kinded(definition, prop, last)))  # type: ignore[arg-type, union-attr]  # ty: ignore[invalid-argument-type, unresolved-attribute]
-                        .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=definition.identifier, member=owner),)))
-                    )
-                case _:
-                    return Error((Fault(reason=BlenderReason.ABSENT, subject=definition.identifier, member=path),))
-
-        held: Outcome[bpy.types.Struct] = catch(lambda: root.bl_rna, exception=ReferenceError)().map_error(  # type: ignore[assignment, union-attr]  # ty: ignore[invalid-assignment, unresolved-attribute]
-            lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{root!r}.{path}", cause=error),)
         )
-        return Result[bpy.types.Struct, Faults].bind(held, walked)
 
     @staticmethod
-    def declared[K: bpy.types.Property](root: type[Struct], path: str, kind: type[K]) -> "Descriptor[K]":
-        """Resolves dotted path of a declaration over the pinned host, a missing member raising as a defect."""
+    def declared[K: bpy.types.Property](root: type[Struct], path: str | RnaPath, kind: type[K]) -> "Descriptor[K]":
+        """Resolves path of a declaration over the pinned host, a missing member raising as a defect."""
         match Descriptor.resolve(root, path, kind):
             case Result(tag="ok", ok=descriptor):
                 return descriptor
@@ -156,12 +139,12 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         Returns:
             Descriptors of root's own members in declaration order.
         """
-        definition: bpy.types.Struct = root.bl_rna  # type: ignore[assignment, union-attr]  # ty: ignore[invalid-assignment, unresolved-attribute]
+        held = definition(root)
         base = bpy.types.ID.bl_rna.properties.values()
         return tuple(
-            Descriptor(root=type(root) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else root, owner="", prop=prop)
-            for prop in definition.properties
-            if not (prop.is_hidden or prop.is_skip_save or prop.is_deprecated or prop.is_registered or prop.is_registered_optional or prop == definition.name_property or prop in base) and where(prop)
+            Descriptor(root=type(root) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else root, prop=prop)
+            for prop in held.properties
+            if not (prop.is_hidden or prop.is_skip_save or prop.is_deprecated or prop.is_registered or prop.is_registered_optional or prop == held.name_property or prop in base) and where(prop)
         )
 
     def owner_of(self, context: Native, item: Option[Native] = Nothing) -> Option[Native]:
@@ -171,22 +154,19 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
             .filter(lambda value: isinstance(value, self.root))
             .or_else_with(lambda: Some(context) if isinstance(context, self.root) else root_in(self.root, context) if isinstance(context, bpy.types.Context) else Nothing)
             .bind(lambda value: struct_at(value, self.owner))
-            .filter(
-                lambda owner: owner.bl_rna.properties.get(self.prop.identifier) == self.prop and effective(owner)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            )
+            .filter(lambda owner: _defined(owner).bind(lambda held: Option.of_optional(held.properties.get(self.prop.identifier))) == Some(self.prop) and effective(owner))
         )
 
     # --- [BOUNDS]
 
     @property
     def meta(self) -> msgspec.Meta:
-        """Record constraint of the member: hard range of a number, title from its name, its description."""
-        title, description = self.prop.name or None, self.prop.description or None
+        """Record constraint of the member: hard range of a number."""
         match self.prop:
             case bpy.types.IntProperty() | bpy.types.FloatProperty() as number:
-                return msgspec.Meta(ge=number.hard_min, le=number.hard_max, title=title, description=description)
+                return msgspec.Meta(ge=number.hard_min, le=number.hard_max)
             case _:
-                return msgspec.Meta(title=title, description=description)
+                return msgspec.Meta()
 
     # --- [VALUES]
 
@@ -194,34 +174,36 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
     def dimensions(prop: bpy.types.Property) -> tuple[int, ...]:
         """Returns declared numeric array dimensions, empty for other properties."""
         match prop:
-            case bpy.types.BoolProperty() | bpy.types.IntProperty() | bpy.types.FloatProperty():
-                return tuple(size for size in prop.array_dimensions if size)  # type: ignore[attr-defined]
+            case bpy.types.BoolProperty() | bpy.types.IntProperty() | bpy.types.FloatProperty() as array:
+                sizes: Iterable[int] = array.array_dimensions  # type: ignore[assignment]
+                return tuple(size for size in sizes if size)
             case _:
                 return ()
 
-    def shape(self, owner: Native) -> tuple[int, ...]:
+    def shape(self, owner: Struct) -> tuple[int, ...]:
         """Returns live array dimensions, outer length read from the owner's uncoerced array, a flat `MATRIX` array keeping its flat length."""
-        return (len(owner.path_resolve(self.prop.identifier, False)), *self.dimensions(owner.bl_rna.properties[self.prop.identifier])[1:])  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
+        return (len(_uncoerced(owner, self.prop.identifier)), *self.dimensions(definition(owner).properties[self.prop.identifier])[1:])
 
     def read(self, owner: Native) -> Value:
-        """Returns scalar, flat array, enum identifiers, `IdName`, struct identifier, or None."""
+        """Returns scalar, flat array, element, enum identifiers, `IdName`, struct identifier, or None."""
         name = self.prop.identifier
-        match self.prop:
-            case bpy.types.EnumProperty(is_enum_flag=True):
+        match self.prop, owner:
+            case bpy.types.EnumProperty(is_enum_flag=True), _:
                 return tuple(sorted(getattr(owner, name)))
-            case bpy.types.EnumProperty(is_runtime=True) if isinstance(stored := owner.get(name), str):
+            case bpy.types.EnumProperty(is_runtime=True), _ if isinstance(stored := owner.get(name), str):
                 return stored
-            case bpy.types.PointerProperty(fixed_type=bpy.types.ID()):
+            case bpy.types.PointerProperty(fixed_type=bpy.types.ID()), _:
                 return Option.of_optional(getattr(owner, name)).map(IdName.of).to_optional()  # type: ignore[unreachable]
-            case bpy.types.PointerProperty():
-                return Option.of_optional(getattr(owner, name)).map(lambda struct: struct.bl_rna.identifier).to_optional()
-            case bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True) as prop if isinstance(owner, bpy.types.bpy_struct):
-                buffer = [prop.default] * int(np.prod(self.shape(owner)))
-                owner.path_resolve(name, False).foreach_get(buffer)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                return self.index.map(lambda index: buffer[index]).default_with(lambda: tuple(buffer))
-            case bpy.types.BoolProperty(is_array=True):
-                value = tuple(getattr(owner, name))
-                return self.index.map(lambda index: value[index]).default_value(value)
+            case bpy.types.PointerProperty(), _:
+                return Option.of_optional(getattr(owner, name)).map(lambda struct: definition(struct).identifier).to_optional()
+            case bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True) as prop, bpy.types.bpy_struct():
+                shape = self.shape(owner)
+                buffer = np.empty(int(np.prod(shape)), _DTYPES[type(prop)])
+                _uncoerced(owner, name).foreach_get(buffer)
+                return buffer.reshape(shape)[self.coordinates].item() if self.coordinates else tuple(buffer.tolist())
+            case bpy.types.BoolProperty(is_array=True), _:
+                flags = np.asarray(getattr(owner, name), np.bool)
+                return flags[self.coordinates].item() if self.coordinates else tuple(flags.ravel().tolist())
             case _:
                 return msgspec.convert(msgspec.to_builtins(getattr(owner, name)), bool | int | float | str)
 
@@ -232,107 +214,85 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         return np.array_equal(np.asarray(held, np.float32).view(np.uint32), np.asarray(desired, np.float32).view(np.uint32)) if isinstance(self.prop, bpy.types.FloatProperty) else held == desired
 
     def write(self, owner: Native, value: Value | bytes | Struct) -> Outcome[Option[Value | Struct]]:
-        """Assigns value, returning prior value or Nothing when equal."""
-        name, request = self.prop.identifier, f"{owner!r}.{self.prop.identifier}"
-        numeric = tuple(int(item) if isinstance(item, bool) else item for item in value) if isinstance(value, tuple) else int(value) if isinstance(value, bool) else value
-        kind: object
-        match self.prop:
-            case bpy.types.FloatProperty(is_array=array):
-                source, kind = numeric, tuple[float, ...] if array and self.index.is_none() else float
-            case bpy.types.IntProperty(hard_min=low, hard_max=high, is_array=array):
-                bounded = Annotated[int, msgspec.Meta(ge=low, le=high)]
-                source, kind = numeric, tuple[bounded, ...] if array and self.index.is_none() else bounded
-            case bpy.types.StringProperty(subtype=subtype):
-                source, kind = value, bytes if subtype == "BYTE_STRING" or isinstance(value, bytes) else str
-            case bpy.types.EnumProperty(is_enum_flag=flag):
-                source, kind = value, tuple[str, ...] if flag else str
-            case _:
-                source, kind = value, object
+        """Assigns value through the host, returning prior value or Nothing when equal.
+
+        Args:
+            owner: Struct holding the member.
+            value: Stored value, `IdName` of a pointed ID, or struct.
+
+        Returns:
+            Prior value, domain fault outside a range the host clamps, refusal fault carrying the host's error.
+        """
+        name = self.prop.identifier
         prior = getattr(owner, name) if isinstance(self.prop, bpy.types.PointerProperty) else self.read(owner)
+        held = IdName.of(prior) if isinstance(prior, bpy.types.ID) and isinstance(value, IdName) else prior
 
-        def assigned(assignment: Callable[[], object]) -> Outcome[Option[Value | Struct]]:
-            def published(_: object) -> Option[Value | Struct]:
-                if self.prop.is_runtime and isinstance(owner, bpy.types.bpy_struct):
-                    bpy.msgbus.publish_rna(key=owner.path_resolve(name, False))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                return Some(prior)
+        def published(_: object) -> Option[Value | Struct]:
+            if self.prop.is_runtime and isinstance(owner, bpy.types.bpy_struct):
+                key: bpy.types.Property = owner.path_resolve(name, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                bpy.msgbus.publish_rna(key=key)
+            return Some(prior)
 
-            return catch(assignment, exception=AttributeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),)).map(published)
-
-        def changed(stored: object) -> Outcome[Option[Value | Struct]]:
-            match self.prop, stored, self.index:
-                case (
-                    bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True),
-                    bool() | int() | float(),
-                    Option(tag="some", some=index),
-                ) if isinstance(owner, bpy.types.bpy_struct):
-                    coordinates = np.unravel_index(index, self.shape(owner))
-                    return assigned(lambda: setitem(reduce(getitem, coordinates[:-1], owner.path_resolve(name, False)), coordinates[-1], stored))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                case bpy.types.EnumProperty() as prop, tuple() | str() as chosen, _:
-                    identifiers, native = (chosen, set(chosen)) if isinstance(chosen, tuple) else ((chosen,), chosen)
-                    refusals = tuple(
-                        Fault(
-                            reason=RecordReason.OUTSIDE,
-                            subject=request,
-                            member=", ".join(item.identifier for item in prop.enum_items if bpy.types.UILayout.enum_item_name(owner, name, item.identifier)),
-                            cause=str(identifier),
-                        )
-                        for identifier in identifiers
-                        if not bpy.types.UILayout.enum_item_name(owner, name, identifier)
+        def stored() -> Outcome[object]:
+            match self.prop, value:
+                case bpy.types.FloatProperty() as real, _:
+                    number: Outcome[float | tuple[float, ...]] = catch(msgspec.convert, exception=msgspec.ValidationError)(value, float | tuple[float, ...]).map_error(
+                        partial(_outside, repr(real), value)
                     )
-                    return Error((refusals[0], *refusals[1:])) if refusals else assigned(lambda: setattr(owner, name, native))
-                case bpy.types.PointerProperty(fixed_type=bpy.types.ID() as pointed), IdName() as identity, _:
-                    return (  # type: ignore[unreachable]
-                        identity
-                        .resolve(type(pointed))
-                        .map(lambda found: assigned(lambda: setattr(owner, name, found)))
-                        .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=type(pointed).__name__, member=identity.name),)))
-                    )
-                case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), tuple(), _:
-                    return assigned(lambda: setattr(owner, name, np.asarray(stored).reshape(self.shape(owner)).tolist()))
-                case _:
-                    return assigned(lambda: setattr(owner, name, stored))
-
-        def settled(target: object) -> Outcome[Option[Value | Struct]]:
-            match self.prop, target:
-                case _ if self.equal(IdName.of(prior) if isinstance(prior, bpy.types.ID) and isinstance(target, IdName) else prior, target):
-                    return Ok(Nothing)
-                case bpy.types.FloatProperty() as real, float() | tuple() as number:
-                    return self.quantized(real, number).bind(lambda stored: changed(tuple(stored.tolist()) if stored.ndim else float(stored)))
+                    return number.bind(partial(self.quantized, real)).map(lambda held: tuple(held.tolist()) if held.ndim else float(held))
+                case bpy.types.IntProperty(hard_min=low, hard_max=high) as integer, _:
+                    bounded = Annotated[int, msgspec.Meta(ge=low, le=high)]
+                    return _converted(value, bounded | tuple[bounded, ...], repr(integer))
+                case bpy.types.StringProperty(subtype="BYTE_STRING") as text, str() as encoded:
+                    decoded: Outcome[bytes] = catch(msgspec.convert, exception=msgspec.ValidationError)(encoded, bytes).map_error(partial(_outside, repr(text), value))
+                    return decoded.bind(partial(self.validated, text))
                 case bpy.types.StringProperty() as text, str() | bytes() as content:
-                    return self.validated(text, content).bind(changed)
+                    return self.validated(text, content)
                 case _:
-                    return changed(target)
+                    return Ok(value)
 
-        converted: Outcome[object] = catch(msgspec.convert, exception=msgspec.ValidationError)(source, kind).map_error(
-            lambda error: (Fault(reason=RecordReason.OUTSIDE, subject=request, member=str(error), cause=str(source)),)
+        return (
+            Ok(Nothing)
+            if self.equal(held, value)
+            else stored()
+            .bind(lambda native: self._native(owner, native))
+            .bind(lambda native: _assign(owner, name, native).map_error(partial(Fault.of, BlenderReason.REFUSED, rna(self.path))))
+            .map(published)
         )
-        return Result[object, Faults].bind(converted, settled)
+
+    def _native(self, owner: Native, stored: object) -> Outcome[object]:
+        """Returns the host form of a stored value: the whole array an element write sets, an enum flag set, a pointed ID, or a live-shaped array."""
+        match self.prop, stored:
+            case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), _ if self.coordinates and isinstance(
+                owner, bpy.types.bpy_struct
+            ):
+                buffer = np.array(msgspec.structs.replace(self, coordinates=()).read(owner)).reshape(self.shape(owner))
+                buffer[self.coordinates] = stored
+                return Ok(buffer.tolist())
+            case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), tuple() if isinstance(owner, bpy.types.bpy_struct):
+                return Ok(np.asarray(stored).reshape(self.shape(owner)).tolist())
+            case bpy.types.EnumProperty(is_enum_flag=True), tuple() as chosen:
+                return Ok(set(chosen))
+            case bpy.types.PointerProperty(fixed_type=bpy.types.ID() as pointed), IdName() as identity:
+                return identity.resolve(type(pointed)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, type(pointed).__name__, member=identity.name))  # type: ignore[unreachable]
+            case _:
+                return Ok(stored)
 
     @staticmethod
+    @np.errstate(over="ignore")
     def quantized(prop: bpy.types.FloatProperty, value: float | tuple[float, ...] | NDArray[np.float64]) -> Outcome[NDArray[np.float32]]:
         """Returns float32 storage, domain fault outside hard range."""
-        with np.errstate(over="ignore"):
-            target = np.asarray(value, dtype=np.float32)
-        return (
-            Error((Fault(reason=RecordReason.OUTSIDE, subject=repr(prop), member=f"values within hard range [{prop.hard_min}, {prop.hard_max}]", cause=str(value)),))
-            if np.any((target < prop.hard_min) | (target > prop.hard_max))
-            else Ok(target)
+        return Ok(np.asarray(value, dtype=np.float32)).filter_with(
+            lambda target: not np.any((target < prop.hard_min) | (target > prop.hard_max)),
+            lambda _: Fault.of(RecordReason.OUTSIDE, repr(prop), str(value), member=f"values within hard range [{prop.hard_min}, {prop.hard_max}]"),
         )
 
     @staticmethod
     def validated[T: str | bytes](prop: bpy.types.StringProperty, value: T) -> Outcome[T]:
-        """Returns storable value, domain fault for NUL or overlong text."""
-        try:
-            if prop.subtype != "BYTE_STRING":
-                msgspec.convert(os.fsdecode(value) if prop.subtype in {"FILE_PATH", "DIR_PATH", "FILE_NAME"} else value, Annotated[str, msgspec.Meta(pattern=r"^[^\x00]*$")])
-            encoded = (os.fsencode(value) if prop.subtype in {"FILE_PATH", "DIR_PATH", "FILE_NAME"} else value.encode("utf-8")) if isinstance(value, str) else value
-            if prop.length_max:
-                msgspec.convert(encoded, Annotated[bytes, msgspec.Meta(max_length=prop.length_max - 1)])
-            return Ok(value)
-        except msgspec.ValidationError as error:
-            return Error((Fault(reason=RecordReason.OUTSIDE, subject=repr(prop), member=str(error), cause=str(value)),))
-        except (TypeError, ValueError) as error:
-            return Error((Fault(reason=BlenderReason.REFUSED, subject=repr(prop), cause=error),))
+        """Returns storable value, domain fault for NUL or text past the host's length."""
+        encoded = (os.fsencode(value) if prop.subtype in _PATHS else value.encode("utf-8")) if isinstance(value, str) else value
+        text = Ok(value) if prop.subtype == "BYTE_STRING" else _converted(os.fsdecode(value) if prop.subtype in _PATHS else value, Annotated[str, msgspec.Meta(pattern=r"^[^\x00]*$")], repr(prop))
+        return text.bind(lambda _: _converted(encoded, Annotated[bytes, msgspec.Meta(max_length=prop.length_max - 1)], repr(prop)) if prop.length_max else Ok(encoded)).map(lambda _: value)
 
     def shown(self, value: Value) -> str:
         """Returns enum label or display text of stored value."""
@@ -356,21 +316,93 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [PATHS]
 
 
-def member_path(owner: str, member: str) -> str:
-    """Joins owner path and member, no dot after empty owner or colon or before element."""
-    return f"{owner}{member}" if not owner or owner.endswith(":") or member.startswith("[") else f"{owner}.{member}"
+def rna(path: RnaPath) -> str:
+    """Returns the host path text of a path, the one text the host reads."""
+
+    def token(step: _Step) -> str:
+        match step:
+            case str():
+                return f".{step}"
+            case int():
+                return f"[{step}]"
+            case (key,):
+                return f'["{bpy.utils.escape_identifier(key)}"]'
+
+    return "".join(map(token, path)).removeprefix(".")
 
 
-def beneath(path: str, root: str) -> bool:
-    """Whether path lies inside root path."""
-    return path.startswith((f"{root}.", f"{root}["))
+def parsed(root: Native | type[Native], text: str) -> Outcome[RnaPath]:
+    """Reads host path text as a path, a live root first passing the text through the host resolver.
+
+    Args:
+        root: Live struct or collection the text resolves under, or the type a declaration or host builder wrote it for.
+        text: Host path text.
+
+    Returns:
+        Path, absent fault for text the host refuses.
+    """
+    refused = partial(Fault.of, BlenderReason.ABSENT, repr(root), member=text)
+
+    def step(token: str) -> Option[_Step]:
+        match token[:1], token[1:-1]:
+            case ".", _:
+                return Some(token[1:])
+            case "[", inner:
+                match ast.literal_eval(inner):
+                    case int() as index:
+                        return Some(index)
+                    case str() as key:
+                        return Some((key,))
+                    case _:
+                        return Nothing
+            case _:
+                return Nothing
+
+    anchored: Outcome[RnaPath] = (
+        Ok(()) if isinstance(root, type) else _anchored(root).to_result_with(refused).bind(lambda anchor: _resolved(anchor[0], f"{rna(anchor[1])}{text}").map(lambda _: anchor[1]).map_error(refused))
+    )
+    return (
+        Ok(()) if not text else anchored.bind(lambda anchor: accumulated(step(token).to_result_with(refused) for token in _DECOMPOSED(f".{rna(anchor)}{text}")).map(lambda steps: steps[len(anchor) :]))
+    )
+
+
+def definition(struct: Native | type[Struct]) -> bpy.types.Struct:
+    """Returns the RNA definition of a live struct, a collection holding its own definition, or a struct type."""
+    held: bpy.types.Struct = struct.bl_rna  # type: ignore[assignment, union-attr]  # ty: ignore[invalid-assignment, unresolved-attribute]
+    return held
+
+
+def id_path(struct: Struct) -> Option[RnaPath]:
+    """Returns path from ID to struct, empty for ID itself.
+
+    Structs whose type builds no RNA path (`CurveMapping`, `Stereo3dFormat`) take their path through the ancestor they were reached from.
+    """
+    match struct:
+        case bpy.types.ID():
+            return Some(())
+        case _:
+            return (
+                catch(struct.path_from_id, exception=ValueError)()
+                .to_option()
+                .bind(lambda text: parsed(bpy.types.ID, text).to_option())
+                .or_else_with(lambda: Block.of_seq(reversed(struct.rna_ancestors())).try_head().bind(partial(_held, struct)))
+            )
+
+
+def struct_at(root: Native, path: str | RnaPath) -> Option[Native]:
+    """Returns struct or collection at relative path, Nothing for a value or a removed struct."""
+    return _steps(root, path).to_option().bind(partial(_located, root))
+
+
+# --- [CONTEXT]
 
 
 def typed[T](value: object, kind: type[T], path: str) -> Outcome[T]:
     """Returns value of kind, choice fault otherwise."""
-    return Ok(value) if isinstance(value, kind) else Error((Fault(reason=RecordReason.OUTSIDE, subject=path, member=kind.__name__, cause=type(value).__name__),))
+    return Option.of_optional(try_downcast(kind, value)).to_result_with(lambda: Fault.of(RecordReason.OUTSIDE, path, type(value).__name__, member=kind.__name__))
 
 
 def subclass[T: Struct](base: type[T], identifier: str) -> Outcome[type[T]]:
@@ -379,96 +411,55 @@ def subclass[T: Struct](base: type[T], identifier: str) -> Outcome[type[T]]:
         case type() as kind if issubclass(kind, base) and kind is not base:
             return Ok(kind)
         case _:
-            return Error((Fault(reason=BlenderReason.ABSENT, subject=f"bpy.types.{base.__name__}", member=identifier),))
+            return Error(Fault.of(BlenderReason.ABSENT, f"bpy.types.{base.__name__}", member=identifier))
 
 
 def root_in[K: Native](root: type[K], context: bpy.types.Context) -> Option[K]:
     """Returns context-held root of type."""
-    candidates = (
-        (context,)
-        if root is bpy.types.Context
-        else Option.of_optional(context.preferences.addons.get(root.bl_idname)).map(lambda addon: addon.preferences).to_list()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        if issubclass(root, bpy.types.AddonPreferences)
-        else (getattr(context, member) for member in _members(root))
-    )
-    return Option.of_optional(next((value for value in candidates if isinstance(value, root)), None))
+    preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    candidates: Iterable[object]
+    if root is bpy.types.Context:
+        candidates = (context,)
+    elif issubclass(root, bpy.types.AddonPreferences):
+        candidates = Option.of_optional(preferences.addons.get(root.bl_idname)).map(lambda addon: addon.preferences).to_list()
+    else:
+        candidates = (getattr(context, member) for member in _members(root))
+    return Block.of_seq(candidates).choose(lambda value: Option.of_optional(try_downcast(root, value))).try_head()
 
 
 def rooted[K: Native](root: type[K], context: bpy.types.Context) -> Outcome[K]:
     """Returns context-held root, absent fault naming first matching member."""
-    return root_in(root, context).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="bpy.context", member=next(iter(_members(root)), root.__name__)),))
-
-
-def id_path(struct: Struct) -> Option[str]:
-    """Returns path from ID to struct, empty for ID itself.
-
-    Structs whose type builds no RNA path (`CurveMapping`, `Stereo3dFormat`) take their path through the ancestor they were reached from.
-    """
-
-    def held(parent: Struct) -> Option[str]:
-        """Returns path of the pointer member or collection element of parent holding struct."""
-        kinds = tuple(prop for prop in parent.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty | bpy.types.CollectionProperty) and isinstance(struct, type(prop.fixed_type)))
-        members = chain(
-            ((prop.identifier, getattr(parent, prop.identifier)) for prop in kinds if isinstance(prop, bpy.types.PointerProperty)),
-            ((f"{prop.identifier}[{index}]", item) for prop in kinds if isinstance(prop, bpy.types.CollectionProperty) for index, item in enumerate(getattr(parent, prop.identifier))),
-        )
-        return Option.of_optional(next((member for member, item in members if item == struct), None)).bind(lambda member: id_path(parent).map(lambda base: member_path(base, member)))
-
-    match struct:
-        case bpy.types.ID():
-            return Some("")
-        case _:
-            try:
-                return Some(struct.path_from_id())
-            except ValueError:
-                return Option.of_optional(next(reversed(struct.rna_ancestors()), None)).bind(held)
-
-
-def struct_at(root: Native, path: str) -> Option[Native]:
-    """Returns struct or collection at relative path, Nothing for value."""
-    try:
-        found = (
-            root
-            if not path
-            else root.path_resolve(path, False)
-            if isinstance(root, bpy.types.bpy_struct)
-            else (owner := root.data).path_resolve(  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                member_path(next(prop.identifier for prop in owner.bl_rna.properties if isinstance(prop, bpy.types.CollectionProperty) and getattr(owner, prop.identifier) == root), path),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                False,
-            )
-        )
-    except (ValueError, ReferenceError):
-        return Nothing
-    return Some(found) if isinstance(found, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else Nothing
+    return root_in(root, context).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, "bpy.context", member=Block.of_seq(_members(root)).try_head().default_value(root.__name__)))
 
 
 def effective(struct: Native) -> bool:
-    """Whether host reads struct values, false under `GATED` member its governor disables."""
+    """Whether host reads struct values, false under a gated member its governor disables."""
     return all(
         getattr(parent, governor.identifier) == value
         for parent, child in pairwise((*struct.rna_ancestors(), struct) if isinstance(struct, bpy.types.bpy_struct) else ())
-        for owner, member, governor, value in GATED
+        for owner, member, governor, value in _GATED
         if isinstance(parent, owner) and getattr(parent, member.identifier) == child
     )
 
 
-def written(struct: Native, identifier: str, value: Value | bytes | Struct) -> Outcome[Option[Value | Struct]]:
-    """Writes member at dotted path through `Descriptor.write`."""
-    return Descriptor.resolve(struct, identifier, bpy.types.Property).bind(
+# --- [WRITES]
+
+
+def written(struct: Native, path: str | RnaPath, value: Value | bytes | Struct) -> Outcome[Option[Value | Struct]]:
+    """Writes member at path through `Descriptor.write`."""
+    return Descriptor.resolve(struct, path, bpy.types.Property).bind(
         lambda descriptor: (
-            struct_at(struct, descriptor.owner)
-            .map(lambda owner: descriptor.write(owner, value))
-            .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(struct), member=identifier),)))
+            struct_at(struct, descriptor.owner).map(lambda owner: descriptor.write(owner, value)).default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(struct), member=rna(descriptor.path))))
         )
     )
 
 
-def sequenced[W](writes: Iterable[tuple[str, Native, Descriptor, W]]) -> tuple[tuple[str, Native, Descriptor, W], ...]:
+def sequenced[W](writes: Iterable[tuple[RnaPath, Struct, Descriptor, W]]) -> tuple[tuple[RnaPath, Struct, Descriptor, W], ...]:
     """Orders writes in host order.
 
     `LEADING` members go first, each resetting members it governs.
     Others group by owner path in holder class declaration order (socket `subtype` and `dimensions` before `default_value`).
-    Indexed elements follow their whole array.
+    Elements follow their whole array.
 
     Args:
         writes: Owner path, holder struct, member descriptor, and value per write.
@@ -482,19 +473,19 @@ def sequenced[W](writes: Iterable[tuple[str, Native, Descriptor, W]]) -> tuple[t
             key=lambda write: (
                 LEADING.index(write[2].prop) if write[2].prop in LEADING else len(LEADING),
                 write[0],
-                tuple(prop.identifier for prop in write[1].bl_rna.properties).index(write[2].prop.identifier),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                write[2].index.is_some(),
+                definition(write[1]).properties.find(write[2].prop.identifier),
+                write[2].coordinates,
             ),
         )
     )
 
 
-def differing[K: str | Descriptor](root: Native, members: Mapping[K, Value]) -> dict[K, Value]:
+def differing[K: str | RnaPath | Descriptor](root: Native, members: Mapping[K, Value]) -> dict[K, Value]:
     """Returns members whose owner under root is absent or holds another value under `Descriptor.equal`.
 
     Args:
-        root: Struct where descriptor owner paths and dotted paths start.
-        members: Value per member descriptor or dotted path.
+        root: Struct where descriptor owner paths and paths start.
+        members: Value per member descriptor or path.
 
     Returns:
         Differing members under their given keys, an unresolved path among them.
@@ -506,39 +497,260 @@ def differing[K: str | Descriptor](root: Native, members: Mapping[K, Value]) -> 
     }
 
 
-def assigned[K: str | Descriptor](root: Struct, members: Mapping[K, Value]) -> Outcome[None]:
+def assigned[K: str | RnaPath | Descriptor](root: Struct, members: Mapping[K, Value]) -> Outcome[None]:
     """Writes members under root in `sequenced` order.
 
     Each write re-resolves root from its ID, writes (`dimensions`) refining root class.
 
     Args:
-        root: Struct where descriptor owner paths and dotted paths start.
-        members: Value per member descriptor or dotted path.
+        root: Struct where descriptor owner paths and paths start.
+        members: Value per member descriptor or path.
 
     Returns:
         Faults per unresolved path, unresolved owner, and refused write, accumulated.
     """
     described = tuple((_described(root, key), value) for key, value in members.items())
-    located = tuple((descriptor, value, struct_at(root, descriptor.owner)) for found, value in described for descriptor in found.to_option().to_list())
+    located = tuple((descriptor, value, struct_at(root, descriptor.owner).bind(_struct)) for found, value in described for descriptor in found.to_option().to_list())
 
     def write(descriptor: Descriptor, value: Value) -> Outcome[None]:
         current = id_path(root).bind(lambda path: struct_at(block, path)).default_value(root) if isinstance(block := root.id_data, bpy.types.ID) else root
         return (
             struct_at(current, descriptor.owner)
             .map(lambda owner: descriptor.write(owner, value))
-            .default_value(Error((Fault(reason=BlenderReason.ABSENT, subject=repr(root), member=descriptor.path),)))
+            .default_value(Error(Fault.of(BlenderReason.ABSENT, repr(root), member=rna(descriptor.path))))
             .map(lambda _: None)
         )
 
     return accumulated((
         *(found.map(lambda _: None) for found, _ in described if found.is_error()),
-        *(Error((Fault(reason=BlenderReason.ABSENT, subject=repr(root), member=descriptor.path),)) for descriptor, _, holder in located if holder.is_none()),
+        *(Error(Fault.of(BlenderReason.ABSENT, repr(root), member=rna(descriptor.path))) for descriptor, _, holder in located if holder.is_none()),
         *(write(descriptor, value) for _, _, descriptor, value in sequenced((descriptor.owner, held, descriptor, value) for descriptor, value, holder in located for held in holder.to_list())),
     )).map(lambda _: None)
 
 
-def _described(root: Native, key: "str | Descriptor") -> "Outcome[Descriptor]":
-    """Returns descriptor key itself, or the member a dotted path names under root."""
+# --- [MIRRORS]
+
+
+def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str]]) -> tuple[_Item, ...]:
+    """Returns `EnumProperty` items, each value fixed per identifier.
+
+    Host items the owning property declares statically keep their value. Config items and module rows take a value hashed from the identifier, which stays fixed when rows move or the config changes.
+
+    Args:
+        rows: Host enum items and module `(identifier, name, description)` rows.
+
+    Returns:
+        Five-part items in row order.
+
+    Raises:
+        ValueError: Two rows share a value.
+    """
+
+    def item(row: bpy.types.EnumPropertyItem | tuple[str, str, str]) -> _Item:
+        match row:
+            case (identifier, name, description):
+                return (identifier, name, description, "NONE", zlib.crc32(identifier.encode()) & 0x7FFFFFFF)
+            case bpy.types.EnumPropertyItem() as host:
+                fixed = (
+                    Block
+                    .of_seq(reversed(host.rna_ancestors()))
+                    .choose(lambda parent: Option.of_optional(try_downcast(bpy.types.EnumProperty, parent)))
+                    .filter(lambda prop: host.identifier in prop.enum_items_static)
+                )
+                return (host.identifier, host.name, host.description, host.icon, host.value if fixed.try_head().is_some() else zlib.crc32(host.identifier.encode()) & 0x7FFFFFFF)
+
+    items = tuple(map(item, rows))
+    values = tuple(held[4] for held in items)
+    if len(set(values)) != len(values):
+        raise ValueError(tuple(held[0] for held in items if values.count(held[4]) > 1))
+    return items
+
+
+def mirrored(prop: bpy.types.Property) -> Mapping[str, object]:
+    """Returns the `bpy.props` keywords declaring a host property's name, description, subtype, bounds, default, and items."""
+
+    def defaults(numeric: bpy.types.BoolProperty | bpy.types.IntProperty | bpy.types.FloatProperty, default: object) -> Mapping[str, object]:
+        dimensions = Descriptor.dimensions(numeric)
+        array: Iterable[object] = numeric.default_array  # type: ignore[assignment]
+        return {"size": dimensions if len(dimensions) > 1 else numeric.array_length, "default": np.asarray(tuple(array)).reshape(dimensions).tolist()} if numeric.is_array else {"default": default}
+
+    stated = {"name": prop.name, "description": prop.description}
+    match prop:
+        case bpy.types.FloatProperty() as real:
+            return {
+                **stated,
+                "subtype": real.subtype,
+                "unit": real.unit,
+                "min": real.hard_min,
+                "max": real.hard_max,
+                "soft_min": real.soft_min,
+                "soft_max": real.soft_max,
+                "step": real.step,
+                "precision": real.precision,
+                **defaults(real, real.default),
+            }
+        case bpy.types.IntProperty() as integer:
+            return {
+                **stated,
+                "subtype": integer.subtype,
+                "min": integer.hard_min,
+                "max": integer.hard_max,
+                "soft_min": integer.soft_min,
+                "soft_max": integer.soft_max,
+                "step": integer.step,
+                **defaults(integer, integer.default),
+            }
+        case bpy.types.BoolProperty() as flag:
+            return {**stated, "subtype": flag.subtype, **defaults(flag, flag.default)}
+        case bpy.types.StringProperty() as text:
+            return {**stated, "subtype": text.subtype, "default": text.default, "maxlen": text.length_max}
+        case bpy.types.EnumProperty(is_enum_flag=True) as enum:
+            return {**stated, "items": choices(enum.enum_items), "default": set(enum.default_flag), "options": {"ENUM_FLAG"}}
+        case bpy.types.EnumProperty() as enum:
+            return {**stated, "items": choices(enum.enum_items), "default": enum.default}
+        case _:
+            return stated
+
+
+# --- [READERS]
+
+
+def _steps(root: Native | type[Native], path: str | RnaPath) -> Outcome[RnaPath]:
+    """Returns path itself, or host path text read under root."""
+    return parsed(root, path) if isinstance(path, str) else Ok(path)
+
+
+def _split(path: RnaPath, coordinates: tuple[int, ...] = ()) -> Option[tuple[RnaPath, str, tuple[int, ...]]]:
+    """Splits a member path at its last identifier into owner path, identifier, and trailing coordinates."""
+    match path:
+        case (*owner, str() as identifier):
+            return Some((tuple(owner), identifier, coordinates))
+        case (*rest, int() as coordinate):
+            return _split(tuple(rest), (coordinate, *coordinates))
+        case _:
+            return Nothing
+
+
+def _walked(held: bpy.types.Struct, steps: RnaPath) -> Option[bpy.types.Struct]:
+    """Walks definitions through pointers, collection elements, and a collection's own definition."""
+
+    def entered(prop: bpy.types.Property, rest: RnaPath) -> Option[bpy.types.Struct]:
+        match prop, rest:
+            case bpy.types.CollectionProperty(), (int() | tuple(), *inner):
+                return Option.of_optional(prop.fixed_type).bind(lambda fixed: _walked(fixed, tuple(inner)))
+            case bpy.types.CollectionProperty(), _:
+                return Option.of_optional(prop.srna).bind(lambda own: _walked(own, rest))
+            case bpy.types.PointerProperty(), _:
+                return Option.of_optional(prop.fixed_type).bind(lambda fixed: _walked(fixed, rest))
+            case _:
+                return Nothing
+
+    match steps:
+        case ():
+            return Some(held)
+        case (str() as name, *rest):
+            return Option.of_optional(held.properties.get(name)).bind(lambda prop: entered(prop, tuple(rest)))
+        case _:
+            return Nothing
+
+
+def _located(root: Native, steps: RnaPath) -> Option[Native]:
+    """Returns root for an empty path, else the struct or collection the host resolves."""
+    match steps:
+        case ():
+            return Some(root)
+        case _:
+            return _anchored(root).bind(lambda anchor: _resolved(anchor[0], rna((*anchor[1], *steps))).to_option()).bind(_native)
+
+
+def _anchored(root: Native) -> Option[tuple[Struct, RnaPath]]:
+    """Returns the struct a path resolves against, a collection through its holder and holding member."""
+    match root:
+        case bpy.types.bpy_struct():
+            return Some((root, ()))
+        case _:
+            return Option.of_optional(root.data).bind(
+                lambda holder: (
+                    Block
+                    .of_seq(definition(holder).properties)
+                    .filter(lambda prop: isinstance(prop, bpy.types.CollectionProperty) and getattr(holder, prop.identifier) == root)
+                    .try_head()
+                    .map(lambda prop: (holder, (prop.identifier,)))
+                )
+            )
+
+
+def _path_resolved(root: Struct, text: str) -> object:
+    """Returns what host text resolves to under root, uncoerced."""
+    found: object = root.path_resolve(text, False)
+    return found
+
+
+_resolved: Final[Callable[[Struct, str], Result[object, ValueError | ReferenceError]]] = catch(catch(_path_resolved, exception=ReferenceError), exception=ValueError)
+_assign: Final[Callable[[Native, str, object], Result[object, AttributeError | TypeError | ValueError]]] = catch(
+    catch(catch(setattr, exception=AttributeError), exception=TypeError), exception=ValueError
+)
+
+
+def _uncoerced(owner: Struct, name: str) -> _Array:
+    """Returns a member's uncoerced host array."""
+    held: _Array = owner.path_resolve(name, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return held
+
+
+def _outside(subject: str, value: object, error: Exception) -> Faults:
+    """Returns the domain fault of a value a conversion refused."""
+    return Fault.of(RecordReason.OUTSIDE, subject, str(value), member=str(error))
+
+
+def _converted(value: object, kind: object, subject: str) -> Outcome[object]:
+    """Returns value converted to kind, domain fault naming the refused constraint."""
+    held: Outcome[object] = catch(msgspec.convert, exception=msgspec.ValidationError)(value, kind).map_error(partial(_outside, subject, value))
+    return held
+
+
+def _native(found: object) -> Option[Native]:
+    """Returns a struct or collection, Nothing for a value."""
+    match found:
+        case bpy.types.bpy_struct() | bpy.types.bpy_prop_collection():
+            return Some(found)
+        case _:
+            return Nothing
+
+
+def _struct(native: Native) -> Option[Struct]:
+    """Returns a struct, Nothing for a collection."""
+    return Option.of_optional(try_downcast(bpy.types.bpy_struct, native))
+
+
+def _defined(native: Native) -> Option[bpy.types.Struct]:
+    """Returns the definition of a struct, Nothing for a collection."""
+    return _struct(native).map(definition)
+
+
+def _held(struct: Struct, parent: Struct) -> Option[RnaPath]:
+    """Returns path of the pointer member or collection element of parent holding struct."""
+    return (
+        Block
+        .of_seq(definition(parent).properties)
+        .filter(lambda prop: isinstance(prop, bpy.types.PointerProperty | bpy.types.CollectionProperty) and isinstance(struct, type(prop.fixed_type)))
+        .choose(partial(_holding, parent, struct))
+        .try_head()
+        .bind(lambda steps: id_path(parent).map(lambda base: (*base, *steps)))
+    )
+
+
+def _holding(parent: Struct, struct: Struct, prop: bpy.types.Property) -> Option[RnaPath]:
+    """Returns the steps under parent's member that reach struct."""
+    match prop:
+        case bpy.types.PointerProperty():
+            return Some((prop.identifier,)).filter(lambda _: getattr(parent, prop.identifier) == struct)
+        case _:
+            return Block.of_seq(enumerate(getattr(parent, prop.identifier))).filter(lambda pair: pair[1] == struct).try_head().map(lambda pair: (prop.identifier, pair[0]))
+
+
+def _described(root: Native, key: str | RnaPath | Descriptor) -> Outcome[Descriptor]:
+    """Returns descriptor key itself, or the member a path names under root."""
     return Ok(key) if isinstance(key, Descriptor) else Descriptor.resolve(root, key, bpy.types.Property)
 
 
@@ -551,20 +763,23 @@ def _members[K: Native](root: type[K]) -> tuple[str, ...]:
 
 
 __all__ = [
-    "GATED",
     "LEADING",
     "Descriptor",
     "Native",
     "P_co",
+    "RnaPath",
     "Scalar",
     "Struct",
     "Value",
     "assigned",
-    "beneath",
+    "choices",
+    "definition",
     "differing",
     "effective",
     "id_path",
-    "member_path",
+    "mirrored",
+    "parsed",
+    "rna",
     "root_in",
     "rooted",
     "sequenced",

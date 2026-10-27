@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Reflection;
@@ -16,15 +17,18 @@ using Rhino;
 
 namespace Rasm.Analyzers.Tests;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-internal enum LiftCase {
-    Success,
-    Failure,
-    Message,
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed record LiftValue(string Type, string Text, bool IsError);
+
+[SmartEnum]
+internal sealed partial class LiftCase {
+    public static readonly LiftCase Success = new(succeeds: true, fixes: true);
+    public static readonly LiftCase Failure = new(succeeds: false, fixes: true);
+    public static readonly LiftCase Message = new(succeeds: false, fixes: false);
+
+    public bool Succeeds { get; }
+    public bool Fixes { get; }
+}
 
 internal sealed record LiftForm(Func<string, string> Target, Func<string, string, string> Text, LiftCase Case);
 
@@ -178,9 +182,9 @@ public sealed class Samples {
                     .. slots.Select(static (slot, index) => {
                         (LiftValue value, LiftForm form, LiftPosition position) = slot;
                         (string target, string name) = (form.Target(value.Type), string.Create(CultureInfo.InvariantCulture, $"M{index}"));
-                        string argument = form.Case is LiftCase.Success ? value.Text : """Error.New("refused")""";
+                        string argument = form.Case.Succeeds ? value.Text : """Error.New("refused")""";
                         string lift = form.Text(value.Type, argument);
-                        return position.FixesTarget && form.Case is not LiftCase.Message && !value.IsError
+                        return position.FixesTarget && form.Case.Fixes && !value.IsError
                             ? (position.Member(target, $"{{|RASM1001:{lift}|}}", name), position.Member(target, argument, name))
                             : (position.Member(target, lift, name), position.Member(target, lift, name));
                     }),

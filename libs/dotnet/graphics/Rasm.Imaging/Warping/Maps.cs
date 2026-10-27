@@ -7,7 +7,6 @@ using Emgu.CV;
 using Emgu.CV.CvEnum;
 using MathNet.Numerics.Integration;
 using Rasm.Imaging.Pixels;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Warping;
 
@@ -80,7 +79,7 @@ public abstract partial record CoordinateMap {
                             return Vector256.ConditionalSelect(Vector256.IsZero(weights), Vector256<double>.Zero, weights * source.Sample(at, (wrap, wrap), Vector256<double>.Zero, Associated));
                         });
                     }
-                    row[x] = Unassociated(Vector256.Narrow(associated / total, Vector256<double>.Zero).GetLower().AsVector4());
+                    row[x] = Vector256.Narrow(associated / total, Vector256<double>.Zero).GetLower().AsVector4().Unassociated;
                 }
             }).Run(frame, progress);
 
@@ -101,14 +100,6 @@ public abstract partial record CoordinateMap {
             coverage[i] *= (float)(across * down);
         }
     }
-
-    internal static Mat Premultiplied(PixelFrame frame) {
-        Mat associated = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4);
-        PixelOperations<RgbaVector>.Instance.ToVector4(SixLabors.ImageSharp.Configuration.Default, frame.Block.Cast<float, RgbaVector>(), associated.GetSpan<Vector4>(), PixelConversionModifiers.Premultiply);
-        return associated;
-    }
-
-    internal static Vector4 Unassociated(Vector4 pixel) => pixel.W > 0f ? new(pixel.AsVector3() / pixel.W, pixel.W) : Vector4.Zero;
 
     private void Prepare(Span<(double X, double Y)> points, PixelExtent extent) {
         for (int i = 0; i < points.Length; i++) points[i] = (Sampling.Point(points[i].X, Wrap.Across, extent.Width), Sampling.Point(points[i].Y, Wrap.Down, extent.Height));
@@ -135,7 +126,7 @@ public abstract partial record CoordinateMap {
 
     private static void Sample(PixelFrame original, Point origin, PixelExtent size, PixelExtent output, Seq<(CoordinateMap Map, Vector4 Gains)> subframes, Span2D<Vector4> destination) {
         Vector4 total = subframes.Fold(Vector4.Zero, static (sum, subframe) => sum + subframe.Gains);
-        using Mat source = Premultiplied(original);
+        using Mat source = original.Premultiplied();
         using Mat wide = new();
         using Mat padded = new();
         using Mat across = new(size.Height, size.Width, DepthType.Cv32F, 1);
@@ -165,7 +156,7 @@ public abstract partial record CoordinateMap {
         ReadOnlySpan2D<Vector4> associated = sum.View<Vector4>();
         for (int row = 0; row < size.Height; row++) {
             Span<Vector4> written = destination.GetRowSpan(row);
-            for (int column = 0; column < size.Width; column++) written[column] = Unassociated(associated[row, column]);
+            for (int column = 0; column < size.Width; column++) written[column] = associated[row, column].Unassociated;
         }
     }
 

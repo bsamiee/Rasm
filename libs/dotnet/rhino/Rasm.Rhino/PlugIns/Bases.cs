@@ -134,7 +134,7 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
     protected sealed override FileTypeList AddFileTypes(FileReadOptions options) => this.Answer(FileFormats.AddFileTypes(formats, this), new FileTypeList());
 
     protected sealed override bool ReadFile(string filename, int index, RhinoDoc? doc, FileReadOptions options) =>
-        this.Answer(IO.lift(() => RhinoFault.Found(doc)).Bind(document => FileFormats.Run(formats, index, filename, document, options, done: true, cancelled: false)), failed: false);
+        this.Answer(IO.lift(() => Conversions.Found(doc)).Bind(document => FileFormats.Run(formats, index, filename, document, options, done: true, cancelled: false)), failed: false);
 
     protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) => _ = this.Run(FileFormats.DisplayOptionsDialog(this, formats, description, extension));
 }
@@ -186,7 +186,7 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
 
     protected sealed override WriteFileResult WriteFile(string filename, int index, RhinoDoc? doc, FileWriteOptions options) =>
         this.Answer(
-            IO.lift(() => RhinoFault.Found(doc)).Bind(document => FileFormats.Run(formats, index, filename, document, options, WriteFileResult.Success, WriteFileResult.Cancel)),
+            IO.lift(() => Conversions.Found(doc)).Bind(document => FileFormats.Run(formats, index, filename, document, options, WriteFileResult.Success, WriteFileResult.Cancel)),
             WriteFileResult.Failure);
 
     protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) => _ = this.Run(FileFormats.DisplayOptionsDialog(this, formats, description, extension));

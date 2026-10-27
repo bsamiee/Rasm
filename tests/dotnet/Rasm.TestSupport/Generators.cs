@@ -79,11 +79,10 @@ public static class Generators {
         ArgumentOutOfRangeException.ThrowIfEqual(conditionNumber, double.PositiveInfinity);
         return OrthogonalMatrix(dimension).Select(orthogonal => {
             double[] spectrum = [.. Enumerable.Range(0, dimension).Select(index => Math.Pow(conditionNumber, dimension is 1 ? 0.0 : -(double)index / (dimension - 1)))];
-            IEnumerable<double> entries =
-                from row in Enumerable.Range(0, dimension)
-                from column in Enumerable.Range(0, dimension)
-                select Enumerable.Range(0, dimension).Sum(index => orthogonal[row][index] * spectrum[index] * orthogonal[column][index]);
-            return (double[][])[.. entries.Chunk(dimension)];
+            return (double[][])[.. (from row in Enumerable.Range(0, dimension)
+                                    from column in Enumerable.Range(0, dimension)
+                                    select Enumerable.Range(0, dimension).Sum(index => orthogonal[row][index] * spectrum[index] * orthogonal[column][index]))
+                .Chunk(dimension)];
         });
     }
     private static double[][] IdentityMatrix(int n) =>

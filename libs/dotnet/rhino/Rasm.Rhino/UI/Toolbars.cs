@@ -2,14 +2,15 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Xml.Linq;
-using Rasm.Rhino.UI.Rows;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.UI.Rows;
 using Rasm.UI;
 using Rhino;
 using Rhino.UI;
 using Riok.Mapperly.Abstractions;
 using UUIDNext;
 
-namespace Rasm.Rhino.UI;
+namespace Rasm.RhinoCommon.UI;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IRuiSource {
@@ -93,7 +94,7 @@ public static class Toolbars {
         IO.lift(static () => Conversions.Rows(RhinoApp.ToolbarFiles).Map(ToolbarMapper.ToState).Strict());
 
     public static IO<ToolbarFileState> Find(Guid id) =>
-        IO.lift(() => Conversions.Rows(RhinoApp.ToolbarFiles).Find(file => file.Id == id).Map(ToolbarMapper.ToState).ToFin(new Refused(nameof(RhinoApp.ToolbarFiles), Refused.Absent)));
+        IO.lift(() => Conversions.Rows(RhinoApp.ToolbarFiles).Find(file => file.Id == id).Map(ToolbarMapper.ToState).ToFin(new RhinoFault(id.ToString("D", CultureInfo.InvariantCulture), RhinoReason.Missing)));
 
     // --- [DOCUMENT]
     private const int English = 1033;
@@ -120,8 +121,7 @@ public static class Toolbars {
                 new XElement("bitmaps")))).As();
 
     private static Fin<Guid> Identity(Assembly plugIn) =>
-        Optional(plugIn.GetCustomAttribute<GuidAttribute>()).Bind(static held => parseGuid(held.Value))
-            .ToFin(new NotFound("plug-in guid", $"{plugIn.GetName().Name}"));
+        Conversions.Found(Optional(plugIn.GetCustomAttribute<GuidAttribute>()).Bind(static held => parseGuid(held.Value)));
 
     private static Seq<ToolbarRow> Reached(Seq<ToolbarRow> toolbars) =>
         toolbars.Bind(static toolbar => toolbar.Cons(Reached(toolbar.Groups.Flatten().Bind(static command => command.Switch(
@@ -177,7 +177,7 @@ public static class Toolbars {
 
     private static Fin<Func<Guid, XElement>> Pressed(Guid file, CommandFace face, Option<RowRule> gate, Option<Command<RowRule, Macro>.Run> pressed, Option<ToolbarRow> link) =>
         from run in pressed.Filter(run => gate.IsNone && run.Enabled.IsNone && run.Marked.IsNone)
-            .ToFin(new Refused(nameof(Document), $"realizes toolbar entry {face.Name} only as one run with no gate or mark"))
+            .ToFin(new RhinoFault(face.Name, RhinoReason.Unheld))
         from icon in face.Glyph.Traverse(glyph => Bitmap(file, glyph)).As()
         select (Func<Guid, XElement>)(id => new XElement("tool_bar_item",
             new XAttribute("guid", id),
@@ -201,7 +201,7 @@ public static class Toolbars {
     // --- [ICONS]
     private static Fin<GlyphSource.Paired> Paired(GlyphSource glyph) =>
         glyph.Switch<Fin<GlyphSource.Paired>>(
-            tinted: static _ => new Refused(nameof(Document), $"holds no {nameof(GlyphSource.Tinted)} glyph"),
+            tinted: static held => new RhinoFault(held.Resource, RhinoReason.Unheld),
             paired: static held => held);
 
     private static Fin<XAttribute> Bitmap(Guid file, GlyphSource glyph) =>
@@ -218,7 +218,7 @@ public static class Toolbars {
 
     private static Fin<XElement> Svg(Assembly assembly, string key) {
         using Stream? stream = assembly.GetManifestResourceStream(key);
-        return Optional(stream).Map(XElement.Load).ToFin(new NotFound("embedded SVG", key));
+        return Optional(stream).Map(XElement.Load).ToFin(new RhinoFault(key, RhinoReason.Missing));
     }
 
     // --- [MENUS]
@@ -246,7 +246,7 @@ public static class Toolbars {
                 from holds in gates.TraverseM(rule => rule.Holds(scope)).As()
                 from marks in run.Marked.Traverse(rule => rule.Holds(scope)).As()
                 from written in IO.lift(() => {
-                    (ui.Enabled, ui.Text) = (holds.ForAll(static held => held), RowText.Localize(run.Face.Caption, scope.Sink).Local);
+                    (ui.Enabled, ui.Text) = (holds.ForAll(static held => held), RowText.Localize(run.Face.Caption, scope.Owner).Local);
                     _ = marks.Iter(held => mark(ui, held));
                 })
                 select unit)]);
@@ -262,25 +262,21 @@ public static class Toolbars {
         new(new XElement("menu_item", new XAttribute("guid", id), placed, new XAttribute("item_type", "separator")), []);
 
     // --- [RUNTIME]
-    public static readonly Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Registered =
-        static (plugIn, retain) => Optional(plugIn.GetType().Assembly.GetCustomAttribute<RuiAttribute>()).Match(
-            Some: declared => DisposalOps.Acquire(acquired =>
+    public static readonly Func<IPlugInViews, IO<Unit>> Registered =
+        static plugIn => Optional(plugIn.GetType().Assembly.GetCustomAttribute<RuiAttribute>()).Match(
+            Some: declared =>
                 from file in IO.lift(() => Identity(plugIn.GetType().Assembly))
-                from live in DisposalOps.Acquire(IO.lift(static () => new CancellationTokenSource()),
-                    static source => Callbacks.Each(Seq(IO.lift(source.Cancel), IO.lift(source.Dispose))).Map(unit), acquired)
+                from live in use(static () => new CancellationTokenSource(), static source => Callbacks.Each(Seq(IO.lift(source.Cancel), IO.lift(source.Dispose))).Map(unit))
                 from registered in IO.lift(() => Callbacks.Each(
                     Extensions(file, declared.Rui.Menus).Bind(static held => held.Updates),
-                    update => RuiUpdateUi.RegisterMenuItem(file, update.Menu, update.Item, Handler(update.Write, plugIn, live.Token)),
-                    nameof(RuiUpdateUi.RegisterMenuItem)))
-                select unit, retain),
+                    (update, index) => RhinoFault.Unless(RuiUpdateUi.RegisterMenuItem(file, update.Menu, update.Item, Handler(update.Write, plugIn, live.Token)), index)))
+                select unit,
             None: static () => IO.pure(unit));
 
-    private static RuiUpdateUi.UpdateMenuItemEventHandler Handler(Func<RowScope, RuiUpdateUi, IO<Unit>> write, IPlugInSink sink, CancellationToken live) =>
-        Callbacks.Handler<RuiUpdateUi>(
-            ui => unless(IO.lift(() => live.IsCancellationRequested),
-                from document in IO.lift(static () => Optional(RhinoDoc.ActiveDoc))
-                from scope in RowScope.Open(sink, document, new CommitMode.Immediate())
-                from written in write(scope, ui)
-                select unit).As(),
-            new CallbackSite(sink, typeof(RuiUpdateUi), nameof(RuiUpdateUi.UpdateMenuItemEventHandler))).Invoke;
+    private static RuiUpdateUi.UpdateMenuItemEventHandler Handler(Func<RowScope, RuiUpdateUi, IO<Unit>> write, IPlugInViews owner, CancellationToken live) =>
+        (_, ui) => owner.Run(unless(live.IsCancellationRequested,
+            from document in IO.lift(static () => Optional(RhinoDoc.ActiveDoc))
+            from scope in RowScope.Open(owner, document, new CommitMode.Immediate())
+            from written in write(scope, ui)
+            select unit).As());
 }

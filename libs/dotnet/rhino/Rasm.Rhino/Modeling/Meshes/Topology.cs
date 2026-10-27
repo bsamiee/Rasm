@@ -1,9 +1,10 @@
-using Rasm.Rhino.Document.Units;
+using System.Runtime.CompilerServices;
+using Rasm.RhinoCommon.Commands;
+using Rasm.RhinoCommon.Document.Units;
 using Rhino.Commands;
-using Rhino.Geometry.Collections;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Modeling.Meshes;
+namespace Rasm.RhinoCommon.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -61,92 +62,87 @@ internal static partial class MeshTopologyMapper {
 
 public static class MeshTopology {
     // --- [BOOLEANS]
-    public static IO<(Seq<Grouped<Mesh, int>> Groups, MeshBooleanOptions Report)> Boolean(Tolerances tolerances, Boolean<Mesh> operation, MeshBooleanOptions options, Action<IDisposable> retain) =>
-        operation.Switch(
-            (Tolerance: tolerances.MeshIntersection, Options: options, Retain: retain),
-            union: static (state, union) => Copies.Acquire(nameof(Mesh.CreateBooleanUnion), token => MeshTopologyMapper.Boolean((state.Options, state.Tolerance, token)) switch {
-                var report => Booleaned(Mesh.CreateBooleanUnion(union.Operands, report, out Result result, out int[][] map), result, map, report),
-            }, state.Retain),
-            intersection: static (state, intersection) => Copies.Acquire(nameof(Mesh.CreateBooleanIntersection), token => MeshTopologyMapper.Boolean((state.Options, state.Tolerance, token)) switch {
-                var report => Booleaned(Mesh.CreateBooleanIntersection(intersection.First, intersection.Second, report, out Result result, out int[][] map), result, map, report),
-            }, state.Retain),
-            difference: static (state, difference) => Copies.Acquire(nameof(Mesh.CreateBooleanDifference), token => MeshTopologyMapper.Boolean((state.Options, state.Tolerance, token)) switch {
-                var report => Booleaned(Mesh.CreateBooleanDifference(difference.First, difference.Second, report, out Result result, out int[][] map), result, map, report),
-            }, state.Retain));
+    public static IO<(Seq<Grouped<Mesh, int>> Groups, MeshBooleanOptions Report)> Boolean(Tolerances tolerances, Boolean<Mesh> operation, MeshBooleanOptions options) =>
+        from token in cancelToken
+        from booleaned in operation.Switch(
+            MeshTopologyMapper.Boolean((options, tolerances.MeshIntersection, token)),
+            union: static (report, union) => Booleaned(Mesh.CreateBooleanUnion(union.Operands, report, out Result result, out int[][] map), result, map, report),
+            intersection: static (report, intersection) => Booleaned(Mesh.CreateBooleanIntersection(intersection.First, intersection.Second, report, out Result result, out int[][] map), result, map, report),
+            difference: static (report, difference) => Booleaned(Mesh.CreateBooleanDifference(difference.First, difference.Second, report, out Result result, out int[][] map), result, map, report))
+        select booleaned;
 
-    public static IO<(Seq<Grouped<Mesh, int>> Groups, MeshBooleanOptions Report)> BooleanSplit(
-        Tolerances tolerances, Seq<Mesh> meshesToSplit, Seq<Mesh> meshSplitters, MeshBooleanOptions options, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(Mesh.CreateBooleanSplit), token => MeshTopologyMapper.Boolean((options, tolerances.MeshIntersection, token)) switch {
+    public static IO<(Seq<Grouped<Mesh, int>> Groups, MeshBooleanOptions Report)> BooleanSplit(Tolerances tolerances, Seq<Mesh> meshesToSplit, Seq<Mesh> meshSplitters, MeshBooleanOptions options) =>
+        from token in cancelToken
+        from booleaned in MeshTopologyMapper.Boolean((options, tolerances.MeshIntersection, token)) switch {
             var report => Booleaned(Mesh.CreateBooleanSplit(meshesToSplit, meshSplitters, report, out Result result, out int[][] map), result, map, report),
-        }, retain);
+        }
+        select booleaned;
 
-    private static Answer<(Seq<Grouped<Mesh, int>> Groups, MeshBooleanOptions Report)> Booleaned(Mesh[]? meshes, Result result, int[][]? map, MeshBooleanOptions report) =>
-        (Answer.Ended(result), Answer.Mapped(Answer.Many(meshes), map)).Apply((_, groups) => (Groups: groups, Report: report)).As();
+    private static IO<(Seq<Grouped<Mesh, int>> Groups, MeshBooleanOptions Report)> Booleaned(
+        Mesh[]? meshes, Result result, int[][]? map, MeshBooleanOptions report, [CallerArgumentExpression(nameof(meshes))] string call = "") =>
+        from groups in Copies.Mapped(Products.Made(meshes, call), map, call)
+        from ended in IO.lift(() => Results.Ended(result, call))
+        select (Groups: groups, Report: report);
 
     // --- [SPLITS]
-    public static IO<(Seq<Mesh> Meshes, Option<Seq<Point3d>> OpenCutEnds)> Split(Tolerances tolerances, Mesh mesh, MeshSplit method, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
-        method.Switch(
-            (Mesh: mesh, Tolerances: tolerances, Progress: progress.ValueUnsafe(), Retain: retain),
-            byMeshes: static (state, of) => Copies.Acquire(nameof(Mesh.Split), token =>
-                MeshTopologyMapper.Split((of.Options, state.Tolerances.MeshIntersection, token, state.Progress)) switch {
-                    var options => Answer.Many(state.Mesh.Split(of.Meshes, options)).Map(meshes => (Meshes: meshes, OpenCutEnds: Optional(options.OpenCutEnds).Map(static ends => toSeq(ends)))),
-                }, state.Retain),
-            self: static (state, of) => Copies.Acquire(nameof(Mesh.SelfSplit), token =>
-                MeshTopologyMapper.Split((of.Options, state.Tolerances.MeshIntersection, token, state.Progress)) switch {
-                    var options => Unsplit(state.Mesh.SelfSplit(options), token).Map(meshes => (Meshes: meshes, OpenCutEnds: Optional(options.OpenCutEnds).Map(static ends => toSeq(ends)))),
-                }, state.Retain),
-            non2Manifolds: static (state, _) => Copies.Acquire(nameof(Mesh.SplitNon2Manifolds), token =>
-                Unsplit(state.Mesh.SplitNon2Manifolds(textLog: null, token, state.Progress), token).Map(static meshes => (Meshes: meshes, OpenCutEnds: Option<Seq<Point3d>>.None)), state.Retain),
-            byProjectedPolylines: static (state, of) => Copies.Acquire(nameof(Mesh.SplitWithProjectedPolylines), token =>
-                Unsplit(state.Mesh.SplitWithProjectedPolylines(of.Curves, state.Tolerances.Absolute, textLog: null, token, state.Progress), token)
-                    .Map(static meshes => (Meshes: meshes, OpenCutEnds: Option<Seq<Point3d>>.None)), state.Retain),
-            byPlane: static (state, of) => Copies.Acquire(nameof(Mesh.Split), token =>
-                Unsplit(state.Mesh.Split(of.Plane), token).Map(static meshes => (Meshes: meshes, OpenCutEnds: Option<Seq<Point3d>>.None)), state.Retain),
-            disjoint: static (state, _) => Copies.Acquire(nameof(Mesh.SplitDisjointPieces), _ =>
-                Whole(state.Mesh.SplitDisjointPieces()).Map(static meshes => (Meshes: meshes, OpenCutEnds: Option<Seq<Point3d>>.None)), state.Retain),
-            atUnweldedEdges: static (state, _) => Copies.Acquire(nameof(Mesh.ExplodeAtUnweldedEdges), _ =>
-                Whole(state.Mesh.ExplodeAtUnweldedEdges()).Map(static meshes => (Meshes: meshes, OpenCutEnds: Option<Seq<Point3d>>.None)), state.Retain));
+    public static IO<(Seq<Mesh> Meshes, Option<Seq<Point3d>> OpenCutEnds)> Split(Tolerances tolerances, Mesh mesh, MeshSplit method, Option<IProgress<double>> progress) =>
+        from token in cancelToken
+        from split in method.Switch(
+            (Mesh: mesh, Tolerances: tolerances, Progress: progress.ValueUnsafe(), Token: token),
+            byMeshes: static (state, of) => MeshTopologyMapper.Split((of.Options, state.Tolerances.MeshIntersection, state.Token, state.Progress)) switch {
+                var options => Products.Made(state.Mesh.Split(of.Meshes, options)).Map(meshes => (Meshes: meshes, OpenCutEnds: Optional(options.OpenCutEnds).Map(static ends => toSeq(ends)))),
+            },
+            self: static (state, of) => MeshTopologyMapper.Split((of.Options, state.Tolerances.MeshIntersection, state.Token, state.Progress)) switch {
+                var options => Unsplit(state.Mesh.SelfSplit(options), state.Token).Map(meshes => (Meshes: meshes, OpenCutEnds: Optional(options.OpenCutEnds).Map(static ends => toSeq(ends)))),
+            },
+            non2Manifolds: static (state, _) => Unsplit(state.Mesh.SplitNon2Manifolds(textLog: null, state.Token, state.Progress), state.Token)
+                .Map(static meshes => (Meshes: meshes, OpenCutEnds: Option<Seq<Point3d>>.None)),
+            byProjectedPolylines: static (state, of) => Unsplit(state.Mesh.SplitWithProjectedPolylines(of.Curves, state.Tolerances.Absolute, textLog: null, state.Token, state.Progress), state.Token)
+                .Map(static meshes => (Meshes: meshes, OpenCutEnds: Option<Seq<Point3d>>.None)),
+            byPlane: static (state, of) => Unsplit(state.Mesh.Split(of.Plane), state.Token).Map(static meshes => (Meshes: meshes, OpenCutEnds: Option<Seq<Point3d>>.None)),
+            disjoint: static (state, _) => Whole(state.Mesh.SplitDisjointPieces()).Map(static meshes => (Meshes: meshes, OpenCutEnds: Option<Seq<Point3d>>.None)),
+            atUnweldedEdges: static (state, _) => Whole(state.Mesh.ExplodeAtUnweldedEdges()).Map(static meshes => (Meshes: meshes, OpenCutEnds: Option<Seq<Point3d>>.None)))
+        select split;
 
-    private static Answer<Seq<Mesh>> Unsplit(Mesh[]? meshes, CancellationToken token) =>
-        meshes is null && !token.IsCancellationRequested ? Answer.Many<Mesh>([]) : Answer.Many(meshes);
+    private static IO<Seq<Mesh>> Unsplit(Mesh[]? meshes, CancellationToken token, [CallerArgumentExpression(nameof(meshes))] string call = "") =>
+        Products.Made(meshes ?? (token.IsCancellationRequested ? null : []), call);
 
-    private static Answer<Seq<Mesh>> Whole(Mesh[]? meshes) =>
-        meshes is [var whole] && DisposalOps.Present(whole) ? Answer.Many<Mesh>([]) : Answer.Many(meshes);
+    private static IO<Seq<Mesh>> Whole(Mesh[]? meshes, [CallerArgumentExpression(nameof(meshes))] string call = "") =>
+        meshes is [{ } whole]
+            ? IO.lift(() => {
+                using Mesh discarded = whole;
+                return Seq<Mesh>();
+            })
+            : Products.Made(meshes, call);
 
     // --- [EXTRACTION]
-    public static IO<(Mesh Remaining, Option<Mesh> Extracted)> Extract(Mesh source, MeshExtraction extraction, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(
-            output =>
-                from copy in Copies.Duplicate(source, output)
-                from result in extraction.Switch(
-                    (Copy: copy, Output: output),
-                    nonManifoldEdges: static (at, of) => Extracted(nameof(Mesh.ExtractNonManifoldEdges), at.Copy, mesh => mesh.ExtractNonManifoldEdges(of.Selective), at.Output),
-                    duplicateFaces: static (at, _) => Extracted(nameof(MeshFaceList.ExtractDuplicateFaces), at.Copy, static mesh => mesh.Faces.ExtractDuplicateFaces(), at.Output),
-                    faces: static (at, of) => IO.lift(() => Copies.Within(at.Copy, ComponentIndexType.MeshFace, of.Indices))
-                        .Bind(faces => Extracted(nameof(MeshFaceList.ExtractFaces), at.Copy, mesh => mesh.Faces.ExtractFaces(faces), at.Output)))
-                select result,
-            retain);
+    public static IO<(Mesh Remaining, Option<Mesh> Extracted)> Extract(Mesh source, MeshExtraction extraction) =>
+        from copy in Copies.Duplicate(source)
+        from result in extraction.Switch(
+            copy,
+            nonManifoldEdges: static (held, of) => Extracted(held, held.ExtractNonManifoldEdges(of.Selective)),
+            duplicateFaces: static (held, _) => Extracted(held, held.Faces.ExtractDuplicateFaces()),
+            faces: static (held, of) => IO.lift(() => Copies.Within(held, ComponentIndexType.MeshFace, of.Indices))
+                .Bind(faces => Extracted(held, held.Faces.ExtractFaces(faces))))
+        select result;
 
-    private static IO<(Mesh Remaining, Option<Mesh> Extracted)> Extracted(string member, Mesh copy, Func<Mesh, Mesh?> extract, Action<IDisposable> retain) =>
-        Copies.Acquire(member, _ => (Answer.Optional(extract(copy)), Answer.One(copy) with { Leaves = [] })
-            .Apply(static (extracted, remaining) => (Remaining: remaining, Extracted: extracted)).As(), retain);
+    private static IO<(Mesh Remaining, Option<Mesh> Extracted)> Extracted(Mesh copy, Mesh? extracted, [CallerArgumentExpression(nameof(extracted))] string call = "") =>
+        from held in Products.Held(extracted, call)
+        from remaining in Products.Made(copy, call)
+        select (Remaining: remaining, Extracted: held);
 
     // --- [MATCHING]
-    public static IO<Seq<Mesh>> MatchEdges(Seq<Mesh> inputMeshes, double distance, bool simpleSplits, bool rachet, bool average, bool join, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(
-            output => DisposalOps.Within(
-                (Action<IDisposable> temporary) =>
-                    from copies in inputMeshes.TraverseM(mesh => Copies.Duplicate(mesh, temporary)).As()
-                    from matched in Copies.Acquire(nameof(Mesh.MatchEdges), _ => Answer.Many(Mesh.MatchEdges(copies, distance, simpleSplits, rachet, average, @join)), output)
-                    select matched,
-                DisposalOps.Release),
-            retain);
+    public static IO<Seq<Mesh>> MatchEdges(Seq<Mesh> inputMeshes, double distance, bool simpleSplits, bool rachet, bool average, bool join) =>
+        from copies in inputMeshes.TraverseM(static mesh => Copies.Duplicate(mesh)).As()
+        from matched in Products.Made(Mesh.MatchEdges(copies, distance, simpleSplits, rachet, average, @join))
+        select matched;
 
     // --- [MEASURES]
     public static IO<Seq<MeshThicknessMeasurement>> ComputeThickness(Seq<Mesh> meshes, double maximumThickness, Option<double> sharpAngle) =>
-        DisposalOps.Within(
-            (Action<IDisposable> held) => Copies.Acquire(nameof(Mesh.ComputeThickness), token => Answer.Rows(
-                sharpAngle.Match(Some: angle => Mesh.ComputeThickness(meshes, maximumThickness, angle, token), None: () => Mesh.ComputeThickness(meshes, maximumThickness, token)),
-                static _ => Option<IDisposable>.None), held),
-            DisposalOps.Release);
+        from token in cancelToken
+        from measured in IO.lift(() => Conversions.Found(sharpAngle.Match(
+                Some: angle => Mesh.ComputeThickness(meshes, maximumThickness, angle, token),
+                None: () => Mesh.ComputeThickness(meshes, maximumThickness, token)))
+            .Map(static rows => toSeq(rows)))
+        select measured;
 }

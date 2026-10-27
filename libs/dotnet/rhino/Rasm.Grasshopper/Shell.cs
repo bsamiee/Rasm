@@ -1,8 +1,8 @@
 using Grasshopper2;
 using Grasshopper2.Framework;
 using Grasshopper2.UI.Icon;
-using Rasm.Rhino;
-using Rasm.Rhino.PlugIns;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.PlugIns;
 
 namespace Rasm.Grasshopper;
 
@@ -13,7 +13,7 @@ public abstract class DefinedGrasshopperPlugin : Plugin, IGrasshopperPlugin {
     protected DefinedGrasshopperPlugin(GrasshopperPluginDefinition definition) {
         this.definition = definition;
         SettingsFile = SettingsFile.InDefaultFolder(Path.GetFileNameWithoutExtension(Location));
-        Session = new(GrasshopperStores.Saved(SettingsFile), definition.Logging);
+        Session = new(definition.Logging);
         GrasshopperPlugins.Register(this);
     }
 
@@ -23,9 +23,9 @@ public abstract class DefinedGrasshopperPlugin : Plugin, IGrasshopperPlugin {
 
     public Plugin Plugin => this;
 
-    public sealed override IIcon? Icon => GrasshopperPlugins.Icon(this, CallbackSite.Of(this)).ValueUnsafe();
+    public sealed override IIcon? Icon => this.Answer(CanvasIcons.PlugIn(this), Option<IIcon>.None).ValueUnsafe();
 
-    protected sealed override void HarvestCustomTypes() => GrasshopperPlugins.Harvest(this, definition, CallbackSite.Of(this));
+    protected sealed override void HarvestCustomTypes() => this.Run(GrasshopperPlugins.Harvest(this, definition));
 
-    public sealed override void OnLoaded() => GrasshopperPlugins.Loaded(this, definition, CallbackSite.Of(this));
+    public sealed override void OnLoaded() => this.Run(GrasshopperPlugins.Loaded(this, definition));
 }

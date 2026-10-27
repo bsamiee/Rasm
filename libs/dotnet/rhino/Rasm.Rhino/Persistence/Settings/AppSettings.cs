@@ -1,23 +1,27 @@
 using System.Buffers;
 using System.Drawing;
 using System.Reflection;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Stores;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.UI;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Persistence.Settings;
+namespace Rasm.RhinoCommon.Persistence.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ProcessSetting<T>(IO<T> Read, Func<T, IO<Unit>> Write) where T : notnull {
     public IO<Unit> Edit(Func<T, T> change) => Read.Map(change).Bind(Write);
 
     public IO<TResult> Within<TResult>(Func<T, T> change, IO<TResult> body) =>
-        DisposalOps.Transacted(Read, prior => Write(change(prior)).Bind(_ => body), Write, (prior, result) => Write(prior).Map(_ => result));
+        from prior in Read
+        from result in (Write(change(prior)) >> body).Catch(error => Write(prior) >> IO.fail<TResult>(error))
+        from restored in Write(prior)
+        select result;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -71,7 +75,7 @@ public sealed partial class CommandName {
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
-        validationError = trimmed is { } name && !name.AsSpan().ContainsAny(Separators) ? null : new RhinoFault("command name is blank or holds space, comma, semicolon, or control character");
+        validationError = trimmed is { } name && !name.AsSpan().ContainsAny(Separators) ? null : new RhinoFault(value, RhinoReason.Unqualified);
         value = trimmed ?? value;
     }
 }
@@ -85,7 +89,7 @@ public sealed partial class PackageSource {
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
-        validationError = trimmed is { } source && !source.Contains(Separator, StringComparison.Ordinal) ? null : new RhinoFault($"package source is blank or holds {Separator}");
+        validationError = trimmed is { } source && !source.Contains(Separator, StringComparison.Ordinal) ? null : new RhinoFault(value, RhinoReason.Unqualified);
         value = trimmed ?? value;
     }
 }
@@ -166,12 +170,12 @@ public static class AppSettings {
                 CommandAliasList.Update([new CommandAlias(name, row.Macro, row.Instant)], replaceAll: false);
                 return unit;
             },
-            None: () => Refused.Unless(CommandAliasList.Delete(name), nameof(CommandAliasList.Delete)))));
+            None: () => RhinoFault.Unless(CommandAliasList.Delete(name)))));
 
     public static ProcessSetting<Option<string>> Shortcut(KeyboardKey key, ModifierKey modifier) => new(
         Shortcuts.Map(rows => rows.Find(row => row.Key == key && row.Modifier == modifier).Bind(static row => row.Macro)),
         macro =>
-            from accepted in IO.lift(() => Refused.Unless(macro.IsNone || ShortcutKeySettings.IsAcceptableKeyCombo(key, modifier), nameof(ShortcutKeySettings.IsAcceptableKeyCombo)))
+            from accepted in IO.lift(() => RhinoFault.Unless(macro.IsNone || ShortcutKeySettings.IsAcceptableKeyCombo(key, modifier)))
             from written in IO.lift(() => ShortcutKeySettings.SetMacro(key, modifier, Conversions.Unset(macro)))
             select written);
 
@@ -196,21 +200,24 @@ public static class AppSettings {
         IO.lift(() => toSeq(FileSettings.GetSearchPaths()).Exists(path => string.Equals(path, folder, StringComparison.OrdinalIgnoreCase))),
         listed => IO.lift(() => listed
             ? FolderPath.Of(folder)
-                .Bind(static existing => Conversions.Required(FileSettings.AddSearchPath(existing, Conversions.Unset(Option<int>.None)), nameof(FileSettings.AddSearchPath)))
+                .Bind(static existing => Conversions.Found(Conversions.Present(FileSettings.AddSearchPath(existing, Conversions.Unset(Option<int>.None)))))
                 .Map(static _ => unit)
-            : Refused.Unless(FileSettings.DeleteSearchPath(folder), nameof(FileSettings.DeleteSearchPath))));
+            : RhinoFault.Unless(FileSettings.DeleteSearchPath(folder))));
 
     private static ProcessSetting<Option<TPath>> Location<TPath>(Func<string?> read, Action<string> write, Func<string, Fin<TPath>> located) where TPath : IConvertible<string> => new(
         IO.lift(() => Conversions.Present(read()).Traverse(located).As()),
         path => IO.lift(() => write(Conversions.Unset(path.Map(static held => held.ToValue())))));
 
     // --- [NUDGE]
-    public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> NudgeFollowsActiveDocument(Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
-        (sink, retain) => Subscriptions.Host(typeof(AppSettings), static () => Seq(
-                EventKind.DocumentArrived.Choose(static _ => Some((unit, unit))),
-                EventKind.ActiveDocumentChanged.Choose(static _ => Some((unit, unit))),
-                EventKind.DocumentPropertiesChanged.Choose(static _ => Some((unit, unit)))))
-            .Through(Subscriptions.Idle<Unit, Unit>(_ => NudgeActive(steps)), sink, retain);
+    public static Func<IPlugInViews, IO<Unit>> NudgeFollowsActiveDocument(Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
+        views =>
+            from post in Mailboxes.Idle<Unit, Unit>(_ => NudgeActive(steps))(views)
+            from attached in Subscriptions.Merged(
+                    EventKind.DocumentArrived.Choose(static _ => Some(unit)),
+                    EventKind.ActiveDocumentChanged.Choose(static _ => Some(unit)),
+                    EventKind.DocumentPropertiesChanged.Choose(static _ => Some(unit)))
+                .Inline(_ => post(unit, unit), views)
+            select attached;
 
     private static IO<Unit> NudgeActive(Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
         IO.lift(static () => Optional(RhinoDoc.ActiveDoc)).Bind(active => active.Match(Some: doc => Nudge(doc, steps), None: static () => IO.pure(unit)));
@@ -227,8 +234,10 @@ public static class AppSettings {
         select written;
 
     // --- [LIFETIME]
-    public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Hold<T>(ProcessSetting<T> setting, T value) where T : notnull, IEquatable<T> =>
-        (_, retain) =>
-            setting.Read.Bind(prior => DisposalOps.Acquire(DisposalOps.OnFailure(when(!prior.Equals(value), setting.Write(value)).As(), setting.Write(prior)),
-                _ => setting.Read.Bind(current => when(current.Equals(value) && !prior.Equals(value), setting.Write(prior)).As()), retain));
+    public static Func<IPlugInViews, IO<Unit>> Hold<T>(ProcessSetting<T> setting, T value) where T : notnull, IEquatable<T> =>
+        owner =>
+            from prior in setting.Read
+            from held in when(!prior.Equals(value), setting.Write(value)).As().Catch(error => setting.Write(prior) >> IO.fail<Unit>(error))
+            from restored in Products.Released(() => owner.Run(setting.Read.Bind(current => when(current.Equals(value) && !prior.Equals(value), setting.Write(prior)).As())))
+            select restored;
 }

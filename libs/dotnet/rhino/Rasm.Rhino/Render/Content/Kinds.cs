@@ -1,10 +1,13 @@
+using System.Diagnostics;
 using Rhino.DocObjects;
 using Rhino.Render;
 
-namespace Rasm.Rhino.Render.Content;
+namespace Rasm.RhinoCommon.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ChildSlot(Guid Id, string ChildSlotName, Option<string> ChildSlotDisplayName, bool ChildSlotOn, double ChildSlotAmount);
+
+public sealed record TextureGraph(double AmountU, double AmountV, double AmountW, TextureGraphInfo.Axis ActiveAxis, TextureGraphInfo.Channel ActiveChannel);
 
 public sealed record TextureState(
     TextureProjectionMode ProjectionMode,
@@ -19,10 +22,22 @@ public sealed record TextureState(
     bool PreviewIn3D,
     bool PreviewLocalMapping,
     bool DisplayInViewport,
-    (double AmountU, double AmountV, double AmountW, TextureGraphInfo.Axis ActiveAxis, TextureGraphInfo.Channel ActiveChannel) GraphInfo);
+    TextureGraph GraphInfo);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ContentKinds {
+    // --- [KINDS]
+    public static TResult ByKind<TResult>(RenderContent content, Func<RenderMaterial, TResult> material, Func<RenderEnvironment, TResult> environment, Func<RenderTexture, TResult> texture) =>
+        content switch {
+            RenderMaterial found => material(found),
+            RenderEnvironment found => environment(found),
+            RenderTexture found => texture(found),
+            _ => throw new UnreachableException(),
+        };
+
+    public static RenderContentKind KindOf(RenderContent content) =>
+        ByKind(content, static _ => RenderContentKind.Material, static _ => RenderContentKind.Environment, static _ => RenderContentKind.Texture);
+
     // --- [READS]
     public static IO<Option<ChildSlot>> ReadSlot(RenderMaterial material, RenderMaterial.StandardChildSlots slot) =>
         IO.lift(() => Optional(material.GetTextureFromUsage(slot)).Map(texture => new ChildSlot(
@@ -33,7 +48,7 @@ public static class ContentKinds {
             material.GetTextureAmountFromUsage(slot))));
 
     public static IO<TextureState> ReadTexture(RenderTexture texture) =>
-        DisposalOps.Within(static () => new TextureGraphInfo(), info => IO.lift(() => {
+        use(static () => new TextureGraphInfo()).Bind(info => IO.lift(() => {
             texture.GraphInfo(ref info);
             return new TextureState(
                 texture.GetProjectionMode(),
@@ -48,21 +63,26 @@ public static class ContentKinds {
                 texture.GetPreviewIn3D(),
                 texture.GetPreviewLocalMapping(),
                 texture.GetDisplayInViewport(),
-                (info.AmountU(), info.AmountV(), info.AmountW(), info.ActiveAxis(), info.ActiveChannel()));
-        }));
+                new TextureGraph(info.AmountU(), info.AmountV(), info.AmountW(), info.ActiveAxis(), info.ActiveChannel()));
+        })).Bracket();
 
     public static IO<T> ReadSimulation<T>(
         RenderTexture texture, RenderTexture.TextureGeneration generation, Option<int> size, Option<RhinoObject> obj, Func<SimulatedTexture, IO<T>> body) =>
-        DisposalOps.Within(() => size.Match(
-                Some: pixels => texture.SimulatedTexture(generation, pixels, obj.ValueUnsafe()),
-                None: () => texture.SimulatedTexture(generation, obj: obj.ValueUnsafe())), body);
+        unitIO.Bind(_ => size.Match(
+                Some: pixels => Products.Made(texture.SimulatedTexture(generation, pixels, obj.ValueUnsafe())),
+                None: () => Products.Made(texture.SimulatedTexture(generation, obj: obj.ValueUnsafe()))))
+            .Bind(body)
+            .Bracket();
 
     public static IO<T> ReadEnvironment<T>(RenderEnvironment environment, bool isForDataOnly, Func<SimulatedEnvironment, Texture, IO<T>> body) =>
-        DisposalOps.Within(() => environment.SimulateEnvironment(isForDataOnly), simulation => DisposalOps.Within(() => simulation.BackgroundImage.Texture(), texture => body(simulation, texture)));
+        (from simulation in unitIO.Bind(_ => Products.Made(environment.SimulateEnvironment(isForDataOnly)))
+         from texture in Products.Made(simulation.BackgroundImage?.Texture())
+         from value in body(simulation, texture)
+         select value).Bracket();
 
     // --- [WRITES]
     public static IO<Unit> WriteTexture(RenderTexture texture, TextureState state, RenderContent.ChangeContexts cc) =>
-        Contents.WithinContentChange(texture, cc, DisposalOps.Within(static () => new TextureGraphInfo(), info => IO.lift(() => {
+        Contents.WithinContentChange(texture, cc, use(static () => new TextureGraphInfo()).Bind(info => IO.lift(() => {
             texture.SetProjectionMode(state.ProjectionMode, cc);
             texture.SetWrapType(state.WrapType, cc);
             texture.SetRepeat(state.Repeat, cc);
@@ -81,9 +101,12 @@ public static class ContentKinds {
             info.SetActiveAxis(state.GraphInfo.ActiveAxis);
             info.SetActiveChannel(state.GraphInfo.ActiveChannel);
             texture.SetGraphInfo(info);
-        })));
+        })).Bracket());
 
     // --- [SAMPLING]
     public static IO<T> WithEvaluator<T>(RenderTexture texture, RenderTexture.TextureEvaluatorFlags flags, Func<TextureEvaluator, IO<T>> body) =>
-        DisposalOps.Found(() => texture.CreateEvaluator(flags), nameof(RenderTexture.CreateEvaluator), evaluator => IO.lift(() => Refused.Unless(evaluator.Initialize(), nameof(TextureEvaluator.Initialize))).Bind(_ => body(evaluator)));
+        (from evaluator in unitIO.Bind(_ => Products.Made(texture.CreateEvaluator(flags)))
+         from initialized in IO.lift(() => RhinoFault.Unless(evaluator.Initialize()))
+         from value in body(evaluator)
+         select value).Bracket();
 }

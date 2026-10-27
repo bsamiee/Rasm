@@ -1,16 +1,17 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Stores;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Stores;
 using Rhino;
 using Rhino.Collections;
 using Rhino.Runtime;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Persistence;
+namespace Rasm.RhinoCommon.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DictionaryOwner(IO<ArchivableDictionary> Read, Func<Func<ArchivableDictionary, Fin<Unit>>, IO<Unit>> Edit) {
@@ -71,7 +72,7 @@ public static class ArchivableDictionaries {
 
     public static Fin<T> Required<T>(ArchivableDictionary source, string key) where T : notnull =>
         from found in Find<T>(source, key)
-        from value in found.ToFin(new Refused(key, Refused.Absent))
+        from value in found.ToFin(new RhinoFault(key, RhinoReason.Absent))
         select value;
 
     public static Fin<Seq<(string Key, ArchivableDictionary Value)>> Children(ArchivableDictionary source) =>
@@ -79,8 +80,8 @@ public static class ArchivableDictionaries {
 
     public static Fin<Unit> Set<T>(ArchivableDictionary target, string key, T value) where T : notnull =>
         Setter<T>.Set.Match(
-            Some: set => Refused.Unless(set(target, key, value), nameof(ArchivableDictionary.Set)),
-            None: () => Error.New($"{nameof(ArchivableDictionary.Set)} takes no {typeof(T).Name} for key {key}"));
+            Some: set => RhinoFault.Unless(set(target, key, value)),
+            None: () => new RhinoFault(key, RhinoReason.Mismatched));
 
     public static Fin<ArchivableDictionary> Nested(Seq<(string Key, Fin<ArchivableDictionary> Value)> rows) =>
         from target in Fin.Succ(new ArchivableDictionary())
@@ -95,7 +96,7 @@ public static class ArchivableDictionaries {
 
     // --- [USER_DICTIONARY]
     public static IO<ArchivableDictionary> UserDictionary(CommonObject owner) =>
-        IO.lift(() => Refused.UnlessFound(owner.UserDictionary, nameof(CommonObject.UserDictionary)));
+        IO.lift(() => Conversions.Found(owner.UserDictionary));
 
     public static IO<Unit> Replace(DictionaryOwner owner, ArchivableDictionary source) =>
         owner.Edit(target => ignore(target.ReplaceContentsWith(source.Clone())));

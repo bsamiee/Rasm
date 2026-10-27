@@ -20,7 +20,7 @@ from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.graphs import Component, Expr, math, mixed, rgba, Scalar, switched, vector, where, xyz
 from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
-from blender.bpy.nodes.textures import gaussian, stream
+from blender.bpy.nodes.textures import gaussian, stream, White
 from blender.bpy.render.compositor.colors import from_ycc, ycc
 from blender.bpy.render.compositor.coordinates import Border, clocked, extended, origin, pixels, sampled
 from blender.bpy.render.compositor.effects import Alpha, CameraFrame, CompositorEffect, precise, Requests, Shell
@@ -42,7 +42,7 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
 
     quality: int
     coded_width: int | None
-    subsampling: tuple[int, int]
+    subsampling: str
     generations: int
 
     def coded(self, original: OpenImageIO.ImageSpec) -> Option[OpenImageIO.ImageSpec]:
@@ -146,12 +146,7 @@ def _(
             "compression_subsampling": str(chroma),
             "compression_generations": int(count),
         }:
-            requested = (
-                Option
-                .of_optional({"4:4:4": (1, 1), "4:2:2": (2, 1), "4:2:0": (2, 2), "4:1:1": (4, 1)}.get(chroma))
-                .map(lambda factors: Some(Compression(quality=quality, coded_width=width if sized else None, subsampling=factors, generations=count)))
-                .to_result_with(lambda: (Fault(reason=RecordReason.UNREADABLE, subject=Compression.__name__, cause=chroma),))
-            )
+            requested = Ok(Some(Compression(quality=quality, coded_width=width if sized else None, subsampling=chroma, generations=count)))
         case _:
             requested = Error((Fault(reason=RecordReason.UNREADABLE, subject=Compression.__name__, cause=repr(values)),))
     return paired(fitted(source.spec().height), requested.bind(lambda found: found.map(lambda held: compressed(held).map(Some)).default_value(Ok(Nothing)))).map(lambda parts: parts[1])
@@ -184,7 +179,7 @@ def emulated(shell: Shell[Emulation]) -> Outcome[Expr]:
     half_x, half_y = (0.5 / (dimensions[axis] * scale) for axis in ("X", "Y"))
 
     def white(coordinate: Scalar) -> Expr:
-        return Expr(kind=bpy.types.ShaderNodeTexWhiteNoise, inputs=(("Vector", coordinate), ("W", pattern)), members=(("noise_dimensions", "4D"),))
+        return White(noise_dimensions="4D").node(coordinate, pattern)
 
     def blurred(image: Scalar, size: Scalar) -> Expr:
         return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", image), ("Size", size), ("Type", "Gaussian")), socket="Image", shape="RGBA")

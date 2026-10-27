@@ -1,16 +1,15 @@
 using System.Runtime.CompilerServices;
 using Rasm.Drafting;
-using Rasm.Rhino.Display;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Modeling;
+using Rasm.RhinoCommon.Display;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Document.Units;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 
-namespace Rasm.Rhino.Viewport.Printing;
+namespace Rasm.RhinoCommon.Viewport.Printing;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -54,26 +53,26 @@ public sealed record PageText(Seq<FieldRun> Header, Seq<FieldRun> Footer);
 
 public sealed record FileOutput(OutputFolder Folder, Stem Stem, bool Overwrite, Seq<NamePart> Scope, OutputVersioning Version);
 
-internal sealed record PlannedPage(Func<Action<IDisposable>, IO<ViewCaptureSettings>> Settings, Option<RhinoObject> Context);
+internal sealed record PlannedPage(IO<ViewCaptureSettings> Settings, Option<RhinoObject> Context);
 
-internal sealed record PlannedShot(Func<Action<IDisposable>, IO<(System.Drawing.Bitmap Bitmap, Option<double> Density)>> Capture);
+internal sealed record PlannedShot(IO<(System.Drawing.Bitmap Bitmap, Option<double> Density)> Capture);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PageStreams {
     // --- [PAGES]
-    private static IO<Seq<PlannedPage>> Planned(RhinoDoc doc, PageSource source, Action<IDisposable> retain) =>
+    private static IO<Seq<PlannedPage>> Planned(RhinoDoc doc, PageSource source) =>
         source.Switch(
-            (Document: doc, Retain: retain),
-            viewSet: static (state, views) =>
-                from rows in Viewports.Resolve(state.Document, views.Set, state.Retain)
+            doc,
+            viewSet: static (document, views) =>
+                from rows in Viewports.Resolve(document, views.Set)
                 from pages in rows.Filter(row => views.Kind.ForAll(kind => row.Viewport.ViewportType == kind)).TraverseM(row =>
-                    Context(state.Document, row).Map(context => new PlannedPage(owned => ViewCaptures.Settings(row, views.Subject, views.Request, owned), context))).As()
+                    Context(document, row).Map(context => new PlannedPage(ViewCaptures.Settings(row, views.Subject, views.Request), context))).As()
                 select pages,
-            named: static (state, named) =>
-                from row in Viewports.Resolve(state.Document, named.Viewport, state.Retain)
-                from index in NamedViews.Find(state.Document, named.Name)
-                from context in Context(state.Document, row)
-                select Seq(new PlannedPage(owned => Projected(state.Document, row, index, named, owned), context)));
+            named: static (document, named) =>
+                from row in Viewports.Resolve(document, named.Viewport)
+                from index in NamedViews.Find(document, named.Name)
+                from context in Context(document, row)
+                select Seq(new PlannedPage(Projected(document, row, index, named), context)));
 
     private static IO<Option<RhinoObject>> Context(RhinoDoc doc, ViewportRef row) =>
         row.View is RhinoPageView page
@@ -82,59 +81,49 @@ public static class PageStreams {
                 .Objects(doc).Map(static found => found.Head)
             : IO.pure(Option<RhinoObject>.None);
 
-    private static IO<ViewCaptureSettings> Projected(RhinoDoc doc, ViewportRef row, int index, PageSource.Named named, Action<IDisposable> retain) =>
-        DisposalOps.Within((Action<IDisposable> temporary) =>
-            from mode in Copies.Owned(() => row.Viewport.DisplayMode,
-                static made => Refused.UnlessFound(made, nameof(RhinoViewport.DisplayMode)),
-                static made => DisposalOps.Release(made), temporary)
-            from free in Copies.Owned(() => new ViewportRef(row.View, new RhinoViewport(), None), static made => Fin.Succ(made), temporary)
-            from framed in IO.lift(() => {
-                free.Viewport.Size = named.Frame.Media;
-                free.Viewport.DisplayMode = mode;
-            })
-            from restored in NamedViews.Applied(doc, index, free.Viewport, new RestorePacing.Immediate())
-            from settings in ViewCaptures.Settings(free, named.Frame, named.Request, retain)
-            select settings,
-            DisposalOps.Release);
+    private static IO<ViewCaptureSettings> Projected(RhinoDoc doc, ViewportRef row, int index, PageSource.Named named) =>
+        from mode in Products.Made(row.Viewport.DisplayMode)
+        from free in use(() => new ViewportRef(row.View, new RhinoViewport(), None))
+        from framed in IO.lift(() => {
+            free.Viewport.Size = named.Frame.Media;
+            free.Viewport.DisplayMode = mode;
+        })
+        from restored in NamedViews.Applied(doc, index, free.Viewport, new RestorePacing.Immediate())
+        from settings in ViewCaptures.Settings(free, named.Frame, named.Request)
+        select settings;
 
     private static IO<TValue> Pages<TValue>(RhinoDoc doc, Seq<PageSource> sources, Func<Seq<PlannedPage>, IO<TValue>> body) =>
-        DisposalOps.Within((Action<IDisposable> retain) =>
-            sources.TraverseM(source => Planned(doc, source, retain)).As().Map(static planned => planned.Flatten()).Bind(body),
-            DisposalOps.Release);
+        sources.TraverseM(source => Planned(doc, source)).As().Map(static planned => planned.Flatten()).Bind(body).Bracket();
 
     private static IO<string> Formatted(RhinoDoc doc, Seq<FieldRun> runs, Option<RhinoObject> context) =>
         TextFieldOps.Format(doc, TextFieldOps.Text(runs), obj: context, topParent: context);
 
-    private static IO<ViewCaptureSettings> Decorated(RhinoDoc doc, PlannedPage page, PageText text, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-            from settings in page.Settings(owned)
-            from decorated in Callbacks.Each(Seq(
-                Formatted(doc, text.Header, page.Context).Bind(header => IO.lift(() => { settings.HeaderText = header; })),
-                Formatted(doc, text.Footer, page.Context).Bind(footer => IO.lift(() => { settings.FooterText = footer; }))))
-            select settings,
-            retain);
+    private static IO<ViewCaptureSettings> Decorated(RhinoDoc doc, PlannedPage page, PageText text) =>
+        from settings in page.Settings
+        from decorated in Callbacks.Each(Seq(
+            Formatted(doc, text.Header, page.Context).Bind(header => IO.lift(() => { settings.HeaderText = header; })),
+            Formatted(doc, text.Footer, page.Context).Bind(footer => IO.lift(() => { settings.FooterText = footer; }))))
+        select settings;
 
     // --- [SHOTS]
     private static IO<TValue> Shots<TValue>(RhinoDoc doc, Seq<RasterSource> sources, Func<Seq<PlannedShot>, IO<TValue>> body) =>
-        DisposalOps.Within((Action<IDisposable> retain) =>
-            sources.TraverseM(source => source.Switch(
-                (Document: doc, Retain: retain),
-                printed: static (state, printed) => Planned(state.Document, printed.Source, state.Retain).Map(static pages => pages.Map(static page => new PlannedShot(owned =>
-                    from settings in page.Settings(owned)
-                    from bitmap in Owned(() => ViewCapture.CaptureToBitmap(settings), owned)
+        sources.TraverseM(source => source.Switch(
+                doc,
+                printed: static (document, printed) => Planned(document, printed.Source).Map(static pages => pages.Map(static page => new PlannedShot(
+                    from settings in page.Settings
+                    from bitmap in Rastered(() => ViewCapture.CaptureToBitmap(settings))
                     select (bitmap, Some(settings.Resolution))))),
-                screen: static (state, screen) => Views(state.Document, screen.Set, state.Retain).Map(views => views.Map(view => new PlannedShot(owned =>
-                    Owned(() => screen.Capture.CaptureToBitmap(view), owned).Map(static bitmap => (bitmap, Option<double>.None))))),
-                mode: static (state, mode) => Views(state.Document, mode.Set, state.Retain).Map(views => views.Map(view => new PlannedShot(owned =>
-                    DisplayModes.CaptureToBitmap(view, mode.Id, mode.Pixels, mode.Edits, owned).Map(static bitmap => (bitmap, Option<double>.None))))))).As()
-                .Map(static planned => planned.Flatten()).Bind(body),
-            DisposalOps.Release);
+                screen: static (document, screen) => Views(document, screen.Set).Map(views => views.Map(view => new PlannedShot(
+                    Rastered(() => screen.Capture.CaptureToBitmap(view)).Map(static bitmap => (bitmap, Option<double>.None))))),
+                mode: static (document, mode) => Views(document, mode.Set).Map(views => views.Map(view => new PlannedShot(
+                    DisplayModes.CaptureToBitmap(view, mode.Id, mode.Pixels, mode.Edits).Map(static bitmap => (bitmap, Option<double>.None))))))).As()
+            .Map(static planned => planned.Flatten()).Bind(body).Bracket();
 
-    private static IO<Seq<RhinoView>> Views(RhinoDoc doc, ViewportSet set, Action<IDisposable> retain) =>
-        Viewports.Resolve(doc, set, retain).Map(static rows => toSeq(rows.Map(static row => row.View).DistinctBy(static view => view.RuntimeSerialNumber)).Strict());
+    private static IO<Seq<RhinoView>> Views(RhinoDoc doc, ViewportSet set) =>
+        Viewports.Resolve(doc, set).Map(static rows => toSeq(rows.Map(static row => row.View).DistinctBy(static view => view.RuntimeSerialNumber)).Strict());
 
-    private static IO<System.Drawing.Bitmap> Owned(Func<System.Drawing.Bitmap?> capture, Action<IDisposable> retain, [CallerArgumentExpression(nameof(capture))] string member = "") =>
-        Copies.Owned(capture, bitmap => Refused.UnlessFound(bitmap, member), static bitmap => DisposalOps.Release(bitmap), retain);
+    private static IO<System.Drawing.Bitmap> Rastered(Func<System.Drawing.Bitmap?> capture, [CallerArgumentExpression(nameof(capture))] string call = "") =>
+        unitIO.Bind(_ => Products.Made(capture(), call));
 
     // --- [DRAWING]
     private static float Dots(Length length, double dpi) => (float)(length.Inches.ToDouble() * dpi);
@@ -169,14 +158,13 @@ public static class PageStreams {
     private static int Pixels(Length length, double density) => int.CreateChecked(double.Round(length.Inches.ToDouble() * density, MidpointRounding.ToEven));
 
     private static IO<Unit> Added(RhinoDoc doc, FilePdf pdf, PageText text, bool layers, PlannedPage page, Seq<PageMark> marks) =>
-        DisposalOps.Within((Action<IDisposable> retain) =>
-         from settings in Decorated(doc, page, text, retain)
+        (from settings in Decorated(doc, page, text)
          from number in IO.lift(() => {
              pdf.LayersAsOptionalContentGroups = layers && !settings.RasterMode;
              return pdf.AddPage(settings);
          })
          from drawn in marks.TraverseM(mark => Drawn(doc, pdf, number, (settings.Resolution, settings.MediaSize.Height), page.Context, mark)).As()
-         select unit, DisposalOps.Release);
+         select unit).Bracket();
 
     private static IO<Unit> Blank(RhinoDoc doc, FilePdf pdf, PdfSource.Blank blank) =>
         (Dpi: Pixels(Length.FromInches(1), blank.Density), Width: Pixels(blank.Sheet.Extent.Width, blank.Density), Height: Pixels(blank.Sheet.Extent.Height, blank.Density)) switch {
@@ -187,7 +175,7 @@ public static class PageStreams {
         };
 
     private static IO<FilePdf> Composed(RhinoDoc doc, Seq<PdfSource> sources, PageText text, bool layers) =>
-        from pdf in IO.lift(static () => Refused.UnlessFound(FilePdf.Create(), nameof(FilePdf.Create)))
+        from pdf in IO.lift(static () => Conversions.Found(FilePdf.Create()))
         from added in sources.TraverseM(source => source.Switch(
             (Doc: doc, Pdf: pdf, Text: text, Layers: layers),
             captured: static (state, captured) => Pages(state.Doc, Seq(captured.Source), pages =>
@@ -216,22 +204,17 @@ public static class PageStreams {
         Composed(doc, toSeq(sources), text, layers).Bind(pdf => IO.lift(() => pdf.Write(target)));
 
     public static IO<Unit> ToPrinter(RhinoDoc doc, IterableNE<PageSource> sources, PageText text, string printer, int copies) =>
-        Pages(doc, toSeq(sources), pages => DisposalOps.Within((Action<IDisposable> retain) =>
-            pages.TraverseM(page => Decorated(doc, page, text, retain)).As().Bind(settings =>
-                IO.lift(() => Refused.Unless(ViewCapture.SendToPrinter(printer, [.. settings], copies), nameof(ViewCapture.SendToPrinter)))),
-            DisposalOps.Release));
+        Pages(doc, toSeq(sources), pages =>
+            pages.TraverseM(page => Decorated(doc, page, text)).As().Bind(settings =>
+                IO.lift(() => RhinoFault.Unless(ViewCapture.SendToPrinter(printer, [.. settings], copies)))));
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToRasters(
         RhinoDoc doc, IterableNE<RasterSource> sources, FileExtension extension, Func<System.Drawing.Bitmap, Option<double>, Stream, IO<Unit>> encode, FileOutput output) =>
         Shots(doc, toSeq(sources), shots => Written(doc, shots, extension, output, (shot, path) =>
-            DisposalOps.Within((Action<IDisposable> retain) =>
-                shot.Capture(retain).Bind(captured => FilePublication.Write(path, output.Overwrite, stream => encode(captured.Bitmap, captured.Density, stream))),
-                DisposalOps.Release)));
+            shot.Capture.Bind(captured => FilePublication.Write(path, output.Overwrite, stream => encode(captured.Bitmap, captured.Density, stream))).Bracket()));
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToSvg(RhinoDoc doc, IterableNE<PageSource> sources, PageText text, FileOutput output) =>
         Pages(doc, toSeq(sources), pages => Written(doc, pages, FileExtension.Create(".svg"), output, (page, path) =>
-            DisposalOps.Within((Action<IDisposable> retain) =>
-                Decorated(doc, page, text, retain).Bind(settings =>
-                    FilePublication.Write(path, output.Overwrite, stream => IO.lift(() => ViewCapture.CaptureToSvg(settings).Save(stream)))),
-                DisposalOps.Release)));
+            Decorated(doc, page, text).Bind(settings =>
+                FilePublication.Write(path, output.Overwrite, stream => IO.lift(() => ViewCapture.CaptureToSvg(settings).Save(stream)))).Bracket()));
 }

@@ -2,7 +2,7 @@ using System.Drawing;
 using Rhino.ApplicationSettings;
 using Rhino.Display;
 
-namespace Rasm.Rhino.Display;
+namespace Rasm.RhinoCommon.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FeedbackAppearance(Color Curve, Color Construction, Color ActivePoint, int Thickness) {
@@ -89,17 +89,16 @@ public static class Marks {
     public static IO<TValue> WithState<TValue>(DisplayPipeline pipeline, Seq<RenderState> state, IO<TValue> draw) =>
         state.FoldBack(draw, (inner, render) => render.Switch(
             (Host: pipeline, Body: inner),
-            depthTest: static (state, depth) => DisposalOps.Within(() => { state.Host.PushDepthTesting(depth.Enabled); return unit; }, _ => state.Body, _ => IO.lift(state.Host.PopDepthTesting)),
-            depthWrite: static (state, depth) => DisposalOps.Within(() => { state.Host.PushDepthWriting(depth.Enabled); return unit; }, _ => state.Body, _ => IO.lift(state.Host.PopDepthWriting)),
-            cullFace: static (state, cull) => DisposalOps.Within(() => { state.Host.PushCullFaceMode(cull.Mode); return unit; }, _ => state.Body, _ => IO.lift(state.Host.PopCullFaceMode)),
-            model: static (state, model) => DisposalOps.Within(() => { state.Host.PushModelTransform(model.Xform); return unit; }, _ => state.Body, _ => IO.lift(state.Host.PopModelTransform)),
-            projection2d: static (state, _) => DisposalOps.Within(() => { state.Host.Push2dProjection(); return unit; }, _ => state.Body, _ => IO.lift(state.Host.PopProjection)),
-            depth: static (state, depth) => DisposalOps.Within(() => state.Host.DepthMode,
-                _ => IO.lift(() => { state.Host.DepthMode = depth.Mode; }).Bind(_ => state.Body),
-                prior => IO.lift(() => { state.Host.DepthMode = prior; })),
-            zBias: static (state, bias) => DisposalOps.Within(() => state.Host.ZBiasMode,
-                _ => IO.lift(() => { state.Host.ZBiasMode = bias.Mode; }).Bind(_ => state.Body),
-                prior => IO.lift(() => { state.Host.ZBiasMode = prior; })),
-            clippingPlane: static (state, plane) => DisposalOps.Within(() => state.Host.AddClippingPlane(plane.Point, plane.Normal), _ => state.Body, index => IO.lift(() => state.Host.RemoveClippingPlane(index))),
+            depthTest: static (state, depth) => IO.lift(() => state.Host.PushDepthTesting(depth.Enabled)) >> state.Body.Finally(IO.lift(state.Host.PopDepthTesting)),
+            depthWrite: static (state, depth) => IO.lift(() => state.Host.PushDepthWriting(depth.Enabled)) >> state.Body.Finally(IO.lift(state.Host.PopDepthWriting)),
+            cullFace: static (state, cull) => IO.lift(() => state.Host.PushCullFaceMode(cull.Mode)) >> state.Body.Finally(IO.lift(state.Host.PopCullFaceMode)),
+            model: static (state, model) => IO.lift(() => state.Host.PushModelTransform(model.Xform)) >> state.Body.Finally(IO.lift(state.Host.PopModelTransform)),
+            projection2d: static (state, _) => IO.lift(state.Host.Push2dProjection) >> state.Body.Finally(IO.lift(state.Host.PopProjection)),
+            depth: static (state, depth) => IO.lift(() => state.Host.DepthMode).Bind(prior =>
+                IO.lift(() => { state.Host.DepthMode = depth.Mode; }) >> state.Body.Finally(IO.lift(() => { state.Host.DepthMode = prior; }))),
+            zBias: static (state, bias) => IO.lift(() => state.Host.ZBiasMode).Bind(prior =>
+                IO.lift(() => { state.Host.ZBiasMode = bias.Mode; }) >> state.Body.Finally(IO.lift(() => { state.Host.ZBiasMode = prior; }))),
+            clippingPlane: static (state, plane) => IO.lift(() => state.Host.AddClippingPlane(plane.Point, plane.Normal)).Bind(index =>
+                state.Body.Finally(IO.lift(() => state.Host.RemoveClippingPlane(index)))),
             overlay: static (state, overlay) => DisplayModes.Overlaid(state.Host.DisplayPipelineAttributes, overlay.Edits, state.Body)));
 }

@@ -1,7 +1,7 @@
 using Grasshopper2.Doc;
 using Grasshopper2.Undo;
 using QuikGraph;
-using Rasm.Rhino;
+using Rasm.RhinoCommon;
 
 namespace Rasm.Grasshopper.Doc;
 
@@ -57,17 +57,16 @@ public static class HistoryOps {
 
     // --- [RECORDS]
     public static IO<A> Recorded<A>(IDocumentObject target, VerbNoun name, AutoSaveReason reason, Func<Grasshopper2.Undo.Action> capture, IO<A> edit, Func<A, bool> changed) =>
-        DisposalOps.Transacted(
-            IO.lift(capture),
-            _ => edit,
-            static _ => unitIO,
-            (action, value) => when(changed(value),
-                IO.lift(() => target.AddUndoRecord(name, action)).Bind(_ =>
-                    Callbacks.Each(Seq(
-                        IO.lift(() => target.RequestAutoSave(reason)).Map(unit),
-                        when(action.Response.HasFlag(Effects.ExpireSolution), IO.lift(() => Optional(target.Document).Iter(document => document.Solution.DelayedExpire(target)))).As(),
-                        when(action.Response.HasFlag(Effects.ExpireLayout), IO.lift(target.OnLayoutChanged)).As(),
-                        when(action.Response.HasFlag(Effects.ExpireLayout), IO.lift(() => Optional(target.Attributes).Iter(static attributes => attributes.InvalidateLayout()))).As(),
-                        when(action.Response.HasFlag(Effects.ExpireDisplay), IO.lift(target.OnDisplayChanged)).As())))
-                    .Map(static _ => unit)).As().Map(_ => value));
+        from action in IO.lift(capture)
+        from value in edit
+        from recorded in when(changed(value),
+            IO.lift(() => target.AddUndoRecord(name, action)).Bind(_ =>
+                Callbacks.Each(Seq(
+                    IO.lift(() => target.RequestAutoSave(reason)).Map(unit),
+                    when(action.Response.HasFlag(Effects.ExpireSolution), IO.lift(() => Optional(target.Document).Iter(document => document.Solution.DelayedExpire(target)))).As(),
+                    when(action.Response.HasFlag(Effects.ExpireLayout), IO.lift(target.OnLayoutChanged)).As(),
+                    when(action.Response.HasFlag(Effects.ExpireLayout), IO.lift(() => Optional(target.Attributes).Iter(static attributes => attributes.InvalidateLayout()))).As(),
+                    when(action.Response.HasFlag(Effects.ExpireDisplay), IO.lift(target.OnDisplayChanged)).As())))
+                .Map(static _ => unit)).As()
+        select value;
 }

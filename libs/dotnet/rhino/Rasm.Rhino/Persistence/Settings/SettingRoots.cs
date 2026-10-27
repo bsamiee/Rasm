@@ -1,10 +1,11 @@
 using System.Runtime.CompilerServices;
-using Rasm.Rhino.Events;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
 
-namespace Rasm.Rhino.Persistence.Settings;
+namespace Rasm.RhinoCommon.Persistence.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -46,7 +47,7 @@ public static class SettingRoots {
             commandNode: static command => command.Command.Settings);
 
     internal static Option<PersistentSettings> Resolved(SettingsNode node) =>
-        node.Path.Fold(Some(Root(node.Root)), static (held, key) => held.Bind(parent => Callbacks.Found(parent.TryGetChild(key, out PersistentSettings child), child)));
+        node.Path.Fold(Some(Root(node.Root)), static (held, key) => held.Bind(parent => Conversions.Found(parent.TryGetChild(key, out PersistentSettings child), child)));
 
     // --- [EVENTS]
     public static HostEvent<Unit> Saved(SettingsNode node) =>
@@ -55,17 +56,17 @@ public static class SettingRoots {
             plugInNode: static plugIn => Heard(() => Optional(PlugIn.Find(plugIn.Id))),
             commandNode: static command => Heard(() => Some(command.Command.PlugIn)));
 
-    public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> SavedByAnotherRhino(Func<PersistentSettingsSavedEventArgs, IO<Unit>> deliver) =>
-        (sink, retain) => EventKind.SettingsSaved((PlugIn)sink).Choose(static args => Callbacks.Found(!args.SavedByThisRhino, args)).Inline(deliver, sink, retain);
+    public static Func<IPlugInViews, IO<Unit>> SavedByAnotherRhino(Func<PersistentSettingsSavedEventArgs, IO<Unit>> deliver) =>
+        views => EventKind.SettingsSaved(views.PlugIn).Choose(static args => Conversions.Found(!args.SavedByThisRhino, args)).Inline(deliver, views);
 
     private static readonly HostEvent<Unit> SettingsSaved =
-        Subscriptions.Host<PersistentSettingsSavedEventArgs>(typeof(RhinoApp), static handler => add_SettingsSaved(owner: null, handler), static handler => remove_SettingsSaved(owner: null, handler))
+        Subscriptions.Host<PersistentSettingsSavedEventArgs>(static handler => add_SettingsSaved(owner: null, handler), static handler => remove_SettingsSaved(owner: null, handler))
             .Choose(static _ => Some(unit));
 
-    private static HostEvent<Unit> Heard(Func<Option<PlugIn>> owner) =>
-        new(typeof(PlugIn), nameof(PlugIn.SettingsSaved), (deliver, site, retain) =>
-            IO.lift(owner).Bind(found => found.Match(
-                Some: plugIn => EventKind.SettingsSaved(plugIn).Choose(static _ => Some(unit)).Attach(deliver, site, retain),
+    private static HostEvent<Unit> Heard(Func<Option<PlugIn>> plugIn, [CallerArgumentExpression(nameof(plugIn))] string label = "") =>
+        new(label, (deliver, owner) =>
+            IO.lift(plugIn).Bind(found => found.Match(
+                Some: held => EventKind.SettingsSaved(held).Choose(static _ => Some(unit)).Inline(deliver, owner),
                 None: static () => IO.pure(unit))));
 
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]

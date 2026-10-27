@@ -1,17 +1,18 @@
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using Eto.Drawing;
 using Eto.Forms;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.UI.Styling;
-using Rasm.Rhino.UI.Surfaces;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI.Styling;
+using Rasm.RhinoCommon.UI.Surfaces;
 using Rasm.UI;
+using Rasm.UI.Plotting;
 using Rasm.UI.Styling;
 using Rhino;
 using Rhino.Input;
 using UnitsNet;
 
-namespace Rasm.Rhino.UI.Numeric;
+namespace Rasm.RhinoCommon.UI.Numeric;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public abstract class NumberText<TKey> where TKey : notnull {
@@ -97,12 +98,12 @@ internal abstract partial record FieldState<TKey> where TKey : notnull {
 public abstract class NumberBox : TextBox {
     public static string HandlerStyle { get; } = $"{typeof(NumberBox).Assembly.GetName().Name}.{nameof(NumberBox)}";
 
-    protected NumberBox(IPlugInSink sink) {
-        Sink = sink;
+    protected NumberBox(IPlugInLifetime owner) {
+        Owner = owner;
         Style = HandlerStyle;
     }
 
-    public IPlugInSink Sink { get; }
+    public IPlugInLifetime Owner { get; }
     public event EventHandler<EventArgs>? ScrubStarted;
     public event EventHandler<EventArgs>? ScrubEnded;
     public abstract bool Adjust(int steps);
@@ -124,12 +125,12 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
     private (TKey Low, TKey High) bounds;
     private readonly Func<Edit<TKey>, IO<Unit>> edited;
     private FieldState<TKey> state = new FieldState<TKey>.Resting(None);
+    private readonly EnvIO scope = EnvIO.New(token: CancellationToken.None);
     private Option<Styled> styled;
-    private Option<IDisposable> listening;
 
-    public NumberField(NumberText<TKey> text, (TKey Low, TKey High) bounds, Func<Edit<TKey>, IO<Unit>> edited, IPlugInSink sink) : base(sink) {
+    public NumberField(NumberText<TKey> text, (TKey Low, TKey High) bounds, Func<Edit<TKey>, IO<Unit>> edited, IPlugInLifetime owner) : base(owner) {
         (this.text, this.bounds, this.edited, TextAlignment, Cursor) = (text, bounds, edited, TextAlignment.Right, Cursors.VerticalSplit);
-        Run(ViewOps.WhileLoaded(this, Listened, new CallbackSite(sink, typeof(NumberField<TKey>), nameof(ViewOps.WhileLoaded)), lease => listening = Some(lease)));
+        _ = owner.Run(ViewOps.WhileLoaded(this, Listened, owner).Under(scope));
     }
 
     public IO<Unit> Receive(TKey value) =>
@@ -152,7 +153,7 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
         select unit;
 
     public override bool Adjust(int steps) =>
-        Callbacks.Succeeded(Stepping(state, steps, Keys.None), static () => false, new CallbackSite(Sink, typeof(NumberField<TKey>), nameof(Adjust)));
+        Owner.Answer(Stepping(state, steps, Keys.None).Map(static stepped => stepped.Map(static _ => true)).IfNone(IO.pure(value: false)), failed: false);
 
     private IO<FieldState<TKey>> Current => IO.lift(() => state);
 
@@ -230,9 +231,9 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
     private static IO<Unit> Claimed(Action claim, IO<Unit> effect) => IO.lift(claim).Bind(_ => effect);
 
     // --- [STYLE]
-    private IO<Unit> Listened(Action<IDisposable> retain) =>
+    private IO<Unit> Listened =>
         from restyled in Restyled
-        from changed in HostTheme.Changed.Inline(_ => Restyled, Sink, retain)
+        from changed in HostTheme.Changed.Inline(_ => Restyled, Owner)
         select unit;
 
     private IO<Unit> Restyled =>
@@ -249,13 +250,11 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
         select unit;
 
     private static Fin<Color> Colored(ColorScheme theme, RoleStyle style) =>
-        theme.Color(style.Text, style)
-            .Map(static color => new Color(color.Red, color.Green, color.Blue, color.Alpha))
-            .ToFin(new Refused(nameof(ColorScheme.Color), Refused.Absent));
+        Conversions.Found(theme.Color(style.Text, style).Map(static color => new Color(color.Red, color.Green, color.Blue, color.Alpha)));
 
     // --- [INPUT]
     protected override void OnMouseDown(MouseEventArgs e) {
-        Run(Current.Bind(held => held.SwitchPartially(
+        _ = Owner.Run(Current.Bind(held => held.SwitchPartially(
             (Field: this, Args: e),
             @default: static (_, _) => IO.pure(unit),
             resting: static (s, resting) => resting.Shown.Filter(_ => s.Args.Buttons is MouseButtons.Primary && !s.Field.HasFocus)
@@ -267,7 +266,7 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
     }
 
     protected override void OnMouseMove(MouseEventArgs e) {
-        Run(Current.Bind(held => held.SwitchPartially(
+        _ = Owner.Run(Current.Bind(held => held.SwitchPartially(
             (Field: this, Args: e),
             @default: static (_, _) => IO.pure(unit),
             pressed: static (s, pressed) => when(
@@ -287,7 +286,7 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
     }
 
     protected override void OnMouseUp(MouseEventArgs e) {
-        Run(Current.Bind(held => held.SwitchPartially(
+        _ = Owner.Run(Current.Bind(held => held.SwitchPartially(
             this,
             @default: static (_, _) => IO.pure(unit),
             pressed: static (field, pressed) => field.Released(Some(pressed.Shown)).Bind(_ => IO.lift(field.Focus)),
@@ -296,7 +295,7 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
     }
 
     protected override void OnMouseWheel(MouseEventArgs e) {
-        Run(Current.Bind(held => held.SwitchPartially(
+        _ = Owner.Run(Current.Bind(held => held.SwitchPartially(
             (Field: this, Args: e),
             @default: static (_, _) => IO.pure(unit),
             editing: static (s, editing) => Claimed(() => s.Args.Handled = true,
@@ -307,7 +306,7 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
     }
 
     protected override void OnKeyDown(KeyEventArgs e) {
-        Run(Current.Bind(held => held.SwitchPartially(
+        _ = Owner.Run(Current.Bind(held => held.SwitchPartially(
             (Field: this, Args: e),
             @default: static (_, _) => IO.pure(unit),
             scrubbing: static (s, _) => when(s.Args.Key is Keys.Escape, Claimed(() => s.Args.Handled = true, s.Field.Interrupted)).As(),
@@ -326,7 +325,7 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
     }
 
     protected override void OnTextChanging(TextChangingEventArgs e) {
-        Run(Current.Bind(held => held.SwitchPartially(
+        _ = Owner.Run(Current.Bind(held => held.SwitchPartially(
             (Field: this, Args: e),
             @default: static (_, _) => IO.pure(unit),
             editing: static (s, editing) => when(s.Args.FromUser, s.Field.Typed(editing, s.Args.NewText)).As())));
@@ -335,11 +334,11 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
 
     protected override void OnGotFocus(EventArgs e) {
         base.OnGotFocus(e);
-        Run(Current.Bind(held => held.SwitchPartially(this, @default: static (_, _) => IO.pure(unit), resting: static (field, resting) => field.Entered(resting.Shown))));
+        _ = Owner.Run(Current.Bind(held => held.SwitchPartially(this, @default: static (_, _) => IO.pure(unit), resting: static (field, resting) => field.Entered(resting.Shown))));
     }
 
     protected override void OnLostFocus(EventArgs e) {
-        Run(Current.Bind(held => held.SwitchPartially(
+        _ = Owner.Run(Current.Bind(held => held.SwitchPartially(
             this,
             @default: static (_, _) => IO.pure(unit),
             editing: static (field, editing) => (editing.Typed | editing.Shown) switch {
@@ -350,23 +349,20 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
 
     // --- [LIFETIME]
     protected override void OnEnabledChanged(EventArgs e) {
-        Run(Interrupted);
+        _ = Owner.Run(Interrupted);
         base.OnEnabledChanged(e);
     }
 
     protected override void OnUnLoad(EventArgs e) {
-        Run(Interrupted);
+        _ = Owner.Run(Interrupted);
         base.OnUnLoad(e);
     }
 
     protected override void Dispose(bool disposing) {
-        try {
-            if (disposing) _ = listening.Iter(static lease => lease.Dispose());
-        } finally {
-            base.Dispose(disposing);
+        if (disposing) {
+            _ = Owner.Run(IO.lift(scope.DisposeResources));
+            scope.Dispose();
         }
+        base.Dispose(disposing);
     }
-
-    private void Run(IO<Unit> effect, [CallerMemberName] string member = "") =>
-        Callbacks.Run(effect, new CallbackSite(Sink, typeof(NumberField<TKey>), member));
 }

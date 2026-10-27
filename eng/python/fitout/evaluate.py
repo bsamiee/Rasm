@@ -42,18 +42,19 @@ def run(
         BLENDER_USER_RESOURCES=str(folder), TMPDIR=str(folder), PYTHONPYCACHEPREFIX=str(pycache), BLENDER_SYSTEM_SCRIPTS=str(scripts), PYTHONPATH=str(Path("libs/python").resolve())
     )
 
-    def launched(_: int) -> Result[int, Faults]:
+    @catch(exception=OSError)
+    def launched() -> int:
         given = ("--python-use-system-env", *arguments)
         log = folder / "blender.log"
         direct = sys.platform != "darwin" or not {"-b", "--background"}.isdisjoint(takewhile(lambda argument: argument != "--", arguments))
         variables = (*("--env", f"{name}={value}") for name, value in environment.items())
         opened: tuple[str | Path, ...] = ("/usr/bin/open", "-n", "-g", "-W", "-a", blender.parents[2], *variables, "--stdout", log, "--stderr", log, "--args")
         with log.open("ab") as sink:
-            done = catch(subprocess.run, exception=OSError)((blender, *given) if direct else (*opened, *given), env=os.environ | environment, stdout=sink, stderr=subprocess.STDOUT, check=False)
+            done = subprocess.run((blender, *given) if direct else (*opened, *given), env=os.environ | environment, stdout=sink, stderr=subprocess.STDOUT, check=False)
         sys.stdout.buffer.write(log.read_bytes())
-        return done.map(lambda finished: finished.returncode).map_error(partial(Fault.caught, Reason.PROCESS, blender))
+        return done.returncode
 
-    return reset(folder, Path.mkdir).bind(lambda _: site(scripts / "modules", blender=blender)).bind(launched)
+    return reset(folder, Path.mkdir).bind(lambda _: site(scripts / "modules", blender=blender)).bind(lambda _: launched().map_error(partial(Fault.of, Reason.PROCESS, blender)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

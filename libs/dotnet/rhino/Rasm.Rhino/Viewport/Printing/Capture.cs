@@ -1,10 +1,9 @@
 using System.Drawing;
 using Rasm.Drafting;
-using Rasm.Rhino.Modeling;
 using Rhino;
 using Rhino.Display;
 
-namespace Rasm.Rhino.Viewport.Printing;
+namespace Rasm.RhinoCommon.Viewport.Printing;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -50,16 +49,16 @@ public sealed record CaptureRequest(CaptureArea Area, Option<CaptureScale> Scale
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ViewCaptures {
     // --- [SETTINGS]
-    public static IO<ViewCaptureSettings> Settings(ViewportRef row, CaptureSubject subject, CaptureRequest request, Action<IDisposable> retain) =>
+    public static IO<ViewCaptureSettings> Settings(ViewportRef row, CaptureSubject subject, CaptureRequest request) =>
         Valid(
-            () => subject.Switch(
+            IO.lift(() => subject.Switch(
                 row,
                 view: static (target, view) => Framed(target, new ViewCaptureSettings(target.View, view.Media, view.Density)),
-                page: static (target, page) => Conversions.Cast<RhinoPageView>(target.View).Map(pageView => new ViewCaptureSettings(pageView, page.Density))),
-            Some((ViewCaptureSettings settings) => Configured(row, settings, request)), retain);
+                page: static (target, page) => Conversions.Cast<RhinoPageView>(target.View).Map(pageView => new ViewCaptureSettings(pageView, page.Density)))),
+            Some((ViewCaptureSettings settings) => Configured(row, settings, request)));
 
-    public static IO<ViewCaptureSettings> Preview(ViewCaptureSettings basis, Size pixels, Action<IDisposable> retain) =>
-        Valid(() => Refused.UnlessFound(basis.CreatePreviewSettings(pixels), nameof(ViewCaptureSettings.CreatePreviewSettings)), None, retain);
+    public static IO<ViewCaptureSettings> Preview(ViewCaptureSettings basis, Size pixels) =>
+        Valid(IO.lift(() => Conversions.Found(basis.CreatePreviewSettings(pixels))), None);
 
     private static ViewCaptureSettings Framed(ViewportRef row, ViewCaptureSettings settings) {
         if (row.Viewport.ViewportType is ViewportType.DetailViewport || row.Viewport.ParentView is null)
@@ -67,14 +66,11 @@ public static class ViewCaptures {
         return settings;
     }
 
-    private static IO<ViewCaptureSettings> Valid(Func<Fin<ViewCaptureSettings>> create, Option<Func<ViewCaptureSettings, IO<Unit>>> configure, Action<IDisposable> retain) =>
-        Copies.Owned(create,
-            answer =>
-                from settings in IO.lift(answer)
-                from configured in configure.Traverse(step => step(settings)).As()
-                from valid in IO.lift(() => Refused.Unless(settings.IsValid, settings, nameof(settings)))
-                select valid,
-            static answer => IO.lift(() => { _ = answer.IfSucc(static settings => settings.Dispose()); }), retain);
+    private static IO<ViewCaptureSettings> Valid(IO<ViewCaptureSettings> create, Option<Func<ViewCaptureSettings, IO<Unit>>> configure) =>
+        from settings in create.Bind(static made => use(() => made))
+        from configured in configure.Traverse(step => step(settings)).As()
+        from valid in IO.lift(() => RhinoFault.Unless(settings.IsValid))
+        select settings;
 
     private static IO<Unit> Configured(ViewportRef row, ViewCaptureSettings settings, CaptureRequest request) =>
         from framed in IO.lift(() => {
@@ -90,11 +86,10 @@ public static class ViewCaptures {
         from laid in request.Layout.TraverseM(layout => layout.Switch(
             settings,
             crop: static (target, crop) => IO.lift(() => target.SetLayout(target.MediaSize, crop.CropRectangle)),
-            margins: static (target, margins) => IO.lift(() => Refused.Unless(
-                target.SetMargins(UnitSystem.Millimeters, Millimeters(margins.Inset.Left), Millimeters(margins.Inset.Top), Millimeters(margins.Inset.Right), Millimeters(margins.Inset.Bottom)),
-                nameof(ViewCaptureSettings.SetMargins))),
+            margins: static (target, margins) => IO.lift(() => RhinoFault.Unless(
+                target.SetMargins(UnitSystem.Millimeters, Millimeters(margins.Inset.Left), Millimeters(margins.Inset.Top), Millimeters(margins.Inset.Right), Millimeters(margins.Inset.Bottom)))),
             maximize: static (target, _) => IO.lift(target.MaximizePrintableArea),
-            matchViewport: static (target, _) => IO.lift(() => Refused.Unless(target.MatchViewportAspectRatio(), nameof(ViewCaptureSettings.MatchViewportAspectRatio))))).As()
+            matchViewport: static (target, _) => IO.lift(() => RhinoFault.Unless(target.MatchViewportAspectRatio())))).As()
         from placed in IO.lift(() => {
             _ = request.Offset.Iter(offset => {
                 settings.OffsetAnchor = offset.Anchor;

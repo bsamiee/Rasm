@@ -22,7 +22,7 @@ public static class NamedCallbacks {
         (from args in use(static () => new NamedParametersEventArgs())
          from entered in IO.lift(() => entries.Iter(entry => entry(args)))
          from executed in IO.lift(() => RhinoFault.Unless(HostUtils.ExecuteNamedCallback(name, args)))
-         from value in IO.lift(() => RhinoFault.Found(read(args)))
+         from value in IO.lift(() => Conversions.Found(read(args)))
          select value).Bracket();
 
     public static Option<Unit> Handled(NamedParametersEventArgs args) =>

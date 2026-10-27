@@ -2,9 +2,10 @@
 
 import base64
 from collections.abc import Callable, Mapping
+from functools import partial
 from http import HTTPMethod
 from itertools import batched, starmap
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PurePosixPath
 import platform
 import sys
 from typing import Annotated, ClassVar, Final, Literal, Self
@@ -20,7 +21,7 @@ from blender.records.faults import accumulated, Fault, Outcome, paired, RecordRe
 from blender.records.fields import Case
 from blender.records.stores import files_copied
 from blender.rendering.batch.exchange import Endpoint, exchange, sent
-from blender.rendering.batch.queue import Job, RenderFrames, RenderQueue
+from blender.rendering.batch.queue import Placed, RenderFrames, RenderQueue
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -156,39 +157,36 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
         ).map(lambda found: cls(storage=found[0], job_type=Block(found[1].job_types).filter(lambda kind: kind.name == Flamenco.kind).try_head(), tags=found[2].tags))
 
     def placed(self, client: httpx2.Client, queue: RenderQueue) -> Outcome[_ManagerFiles]:
-        """Uploads blend files to Shaman when enabled, else copies them to Manager storage."""
-        local = {PurePath(str(part), PurePath(job.file).name).as_posix(): job for part, job in {job.file: (part, job) for part, job in enumerate(queue.jobs)}.values()}
-        files = local.items()
+        """Uploads every job's pack to Shaman when enabled, else copies it to Manager storage, each pack under its job's part folder."""
+        jobs = {job.file: (part, job) for part, job in enumerate(queue.jobs)}.values()
+        entries = {PurePosixPath(str(part), placed.path).as_posix(): placed for part, job in jobs for placed in job.placements}
         folder = queue.stem
 
-        def read[T](source: str, reader: Callable[[Path], T]) -> Outcome[T]:
-            return catch(reader, exception=OSError)(Path(source)).map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=source, cause=error),))
+        def stored(root: str, storage: Option[_JobStorageInfo]) -> _ManagerFiles:
+            return _ManagerFiles(files={job.file: f"{{jobs}}/{root}/{part}/{job.blend.path}" for part, job in jobs}, storage=storage)
 
-        def specified(name: str, job: Job) -> Outcome[_ShamanFileSpec]:
-            return read(job.file, Path.stat).map(lambda stat: _ShamanFileSpec(sha=job.digest.hex(), size=stat.st_size, path=name))
+        def read[T](source: str, reader: Callable[[Path], T]) -> Outcome[T]:
+            return catch(reader, exception=OSError)(Path(source)).map_error(partial(Fault.of, RecordReason.UNREADABLE, source))
+
+        def specified(name: str, placed: Placed) -> Outcome[_ShamanFileSpec]:
+            return read(placed.source, Path.stat).map(lambda stat: _ShamanFileSpec(sha=placed.digest.hex(), size=stat.st_size, path=name))
 
         def checked(specs: tuple[_ShamanFileSpec, ...]) -> Outcome[_ManagerFiles]:
-            def uploaded(spec: _ShamanFileSpec, job: Job) -> Outcome[httpx2.Response]:
-                return read(job.file, Path.read_bytes).bind(lambda data: sent(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(data)))
+            def uploaded(spec: _ShamanFileSpec, placed: Placed) -> Outcome[httpx2.Response]:
+                return read(placed.source, Path.read_bytes).bind(lambda data: sent(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(data)))
 
             return (
                 exchange(client, HTTPMethod.POST, "/api/v3/shaman/checkout/requirements", _ShamanRequirements, Some(_ShamanRequirements(files=specs)))
                 .map(lambda wanted: frozenset(spec.path for spec in wanted.files))
-                .bind(lambda lacking: accumulated(uploaded(spec, job) for spec, job in zip(specs, local.values(), strict=True) if spec.path in lacking))
+                .bind(lambda lacking: accumulated(uploaded(spec, placed) for spec, placed in zip(specs, entries.values(), strict=True) if spec.path in lacking))
                 .bind(lambda _: exchange(client, HTTPMethod.POST, "/api/v3/shaman/checkout/create", _ShamanCheckoutResult, Some(_ShamanCheckout(files=specs, checkout_path=folder))))
-                .map(
-                    lambda created: _ManagerFiles(
-                        files={job.file: f"{{jobs}}/{created.checkout_path}/{name}" for name, job in files}, storage=Some(_JobStorageInfo(shaman_checkout_id=created.checkout_path))
-                    )
-                )
+                .map(lambda created: stored(created.checkout_path, Some(_JobStorageInfo(shaman_checkout_id=created.checkout_path))))
             )
 
         return (
-            accumulated(starmap(specified, files)).bind(checked)
+            accumulated(starmap(specified, entries.items())).bind(checked)
             if self.storage.shaman_enabled
-            else files_copied((Path(job.file), Path(self.storage.location, folder, name)) for name, job in files).map(
-                lambda _: _ManagerFiles(files={job.file: f"{{jobs}}/{folder}/{name}" for name, job in files}, storage=Nothing)
-            )
+            else files_copied((Path(placed.source), Path(self.storage.location, folder, name)) for name, placed in entries.items()).map(lambda _: stored(folder, Nothing))
         )
 
 

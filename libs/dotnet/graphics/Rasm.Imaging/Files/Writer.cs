@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using BitMiracle.LibTiff.Classic;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Color;
@@ -176,10 +177,8 @@ public static class StillWriter {
             dng: static (save, dng) => DngWriter.Write(dng, save.Metadata, save.Stream),
             document: static (save, document) => document.Content.Write(save.Metadata, save.Stream));
 
-    internal static void Associate(ReadOnlySpan<Vector4> row, Span<Vector4> into) {
-        for (int x = 0; x < row.Length; x++)
-            into[x] = new Vector4(row[x].AsVector3() * row[x].W, row[x].W);
-    }
+    internal static void Associate(ReadOnlySpan<Vector4> row, Span<Vector4> into) =>
+        PixelOperations<RgbaVector>.Instance.ToVector4(Configuration.Default, MemoryMarshal.Cast<Vector4, RgbaVector>(row), into, PixelConversionModifiers.Premultiply);
 
     internal static Action<int, Span<byte>> Rows(PixelFrame frame, OutputDepth depth, bool alpha) =>
         alpha
@@ -238,18 +237,16 @@ public static class StillWriter {
 
     private static Fin<Unit> Encode(Tiff tiff, Seq<TiffFieldInfo> custom, Func<Tiff, Seq<(TiffTag Tag, object[] Values)>> fields, int height, Action<int, Span<byte>> row, CancellationToken token) {
         tiff.MergeFieldInfo([.. custom], custom.Count);
-        foreach ((TiffTag tag, object[] values) in fields(tiff))
-            if (!tiff.SetField(tag, values))
-                return new ImagingFault($"TIFF field {tag}", ImagingReason.Refused);
-        using MemoryOwner<byte> line = MemoryOwner<byte>.Allocate(tiff.ScanlineSize());
-        ArraySegment<byte> segment = line.DangerousGetArray();
-        for (int y = 0; y < height; y++) {
-            token.ThrowIfCancellationRequested();
-            row(y, line.Span);
-            if (!tiff.WriteScanline(segment.Array, segment.Offset, y, 0))
-                return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"TIFF scanline {y}"), ImagingReason.Refused);
-        }
-        return unit;
+        return fields(tiff).TraverseM(field => tiff.SetField(field.Tag, field.Values) ? Fin.Succ(unit) : new ImagingFault($"TIFF field {field.Tag}", ImagingReason.Refused)).As().Bind(_ => {
+            using MemoryOwner<byte> line = MemoryOwner<byte>.Allocate(tiff.ScanlineSize());
+            ArraySegment<byte> segment = line.DangerousGetArray();
+            for (int y = 0; y < height && !token.IsCancellationRequested; y++) {
+                row(y, line.Span);
+                if (!tiff.WriteScanline(segment.Array, segment.Offset, y, 0))
+                    return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"TIFF scanline {y}"), ImagingReason.Refused);
+            }
+            return token.IsCancellationRequested ? Errors.Cancelled : Fin.Succ(unit);
+        });
     }
 }
 

@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from graphlib import TopologicalSorter
+from pathlib import PurePath
 from typing import Annotated
 
 from expression import Option
@@ -14,6 +15,7 @@ from blender.rendering.outputs.naming import Output
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Frame = Annotated[int, msgspec.Meta(ge=0)]
+type _Digest = Annotated[bytes, msgspec.Meta(min_length=32, max_length=32)]
 type JobCamera = Bound | Fixed
 
 
@@ -71,22 +73,46 @@ class RenderFrames(msgspec.Struct, frozen=True, kw_only=True, tag=True):
     frames: Annotated[tuple[_Frame, ...], msgspec.Meta(min_length=1)]
 
 
+class Placed(msgspec.Struct, frozen=True, kw_only=True):
+    """Local file a job sends to the farm, at its POSIX path in the job's pack, with its SHA-256."""
+
+    source: str
+    path: str
+    digest: _Digest
+
+
 class Job(msgspec.Struct, frozen=True, kw_only=True):
-    """Scene or view layer render over frame range."""
+    """Scene or view layer render over frame range, sending its pack, the blend alone at its file name when the pack is empty."""
 
     file: str
-    digest: Annotated[bytes, msgspec.Meta(min_length=32, max_length=32)]
+    digest: _Digest
     scene: str
     layer: str | None = None
     engine: str
     frames: Frames
     camera: JobCamera
     pixels: tuple[Side, Side]
-    samples: Annotated[int, msgspec.Meta(ge=1)]
+    samples: Side
     output_root: str
     outputs: Mapping[Output, str]
     passes: tuple[str, ...]
     prerequisites: tuple[_Frame, ...] = ()
+    pack: tuple[Placed, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Validates a pack holding the job's blend."""
+        if self.pack and all(placed.source != self.file for placed in self.pack):
+            raise ValueError(self.file)
+
+    @property
+    def placements(self) -> tuple[Placed, ...]:
+        """Files the job sends."""
+        return self.pack or (Placed(source=self.file, path=PurePath(self.file).name, digest=self.digest),)
+
+    @property
+    def blend(self) -> Placed:
+        """Placement of the job's blend."""
+        return next(placed for placed in self.placements if placed.source == self.file)
 
     @property
     def title(self) -> str:
@@ -131,4 +157,4 @@ class RenderQueue(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Bound", "Fixed", "Frames", "Job", "JobCamera", "Marker", "RenderFrames", "RenderQueue"]
+__all__ = ["Bound", "Fixed", "Frames", "Job", "JobCamera", "Marker", "Placed", "RenderFrames", "RenderQueue"]

@@ -1,11 +1,11 @@
 """Callback fault reports and the main-thread queue of requests the host applies while its interface is unlocked."""
 
 from collections.abc import Callable, Mapping
-from contextlib import AbstractContextManager, closing, ExitStack
+from contextlib import AbstractContextManager, closing
 import functools
 from threading import RLock
 from types import MappingProxyType
-from typing import Never, override, Protocol, Self, TYPE_CHECKING
+from typing import override, Protocol, Self, TYPE_CHECKING
 
 import bpy
 from expression import identity, Nothing, Ok, Option
@@ -26,7 +26,6 @@ class Pending(Protocol):
 
     def advanced(self) -> Outcome[Option[Self]]:
         """Applies one step, returning the request left to apply, Nothing once settled."""
-        ...
 
 
 type _Queued = _Deferral[...]
@@ -43,13 +42,10 @@ class _Write(msgspec.Struct, frozen=True, kw_only=True):
 
     def advanced(self) -> Outcome[Option[Self]]:
         """Runs the write, pushing the undo step it names."""
-
-        def pushed(step: Option[str]) -> Option[Never]:
-            for message in step.to_list():
-                bpy.ops.ed.undo_push(message=message)
-            return Nothing
-
-        return self.deferral.applied(*self.args, **self.kwargs).map(pushed)
+        applied = self.deferral.applied(*self.args, **self.kwargs)
+        for message in applied.default_value(Nothing).to_list():
+            bpy.ops.ed.undo_push(message=message)
+        return applied.map(lambda _: Nothing)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -78,7 +74,7 @@ class _Deferral[**P]:
 class Reports(AbstractContextManager["Reports"]):
     """Extension callback faults and queued requests, entered first in registration scope."""
 
-    __slots__ = ("_entries", "_lock", "_pending", "_redraw", "_scopes", "_ticked", "logger")
+    __slots__ = ("_entries", "_lock", "_pending", "_redraw", "_ticked", "logger")
 
     # --- [LIFECYCLE]
 
@@ -103,13 +99,12 @@ class Reports(AbstractContextManager["Reports"]):
                 return 0.0 if self._pending else None
 
         self._ticked = ticked
-        self._scopes = ExitStack()
-        self._redraw = self._scopes.enter_context(self.deferred(redrawn))
+        self._redraw = _Deferral(self, redrawn)
 
     @override
     def __exit__(self, *_: object) -> None:
         """Closes deferred redraw, drops queued requests, and unregisters the queue timer."""
-        self._scopes.close()
+        self._redraw.close()
         with self._lock:
             self._pending.clear()
             if bpy.app.timers.is_registered(self._ticked):

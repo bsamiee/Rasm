@@ -41,9 +41,9 @@ public sealed record RationalQuadratic {
 
     public static RationalQuadratic Rho(Vector3D<double> start, Vector3D<double> apex, Vector3D<double> end, ConicRho rho) => new(start, apex, end, (double)rho / (1d - (double)rho));
 
-    public static RationalQuadratic Hyperbola(double a, double b, ParameterSpan u) => Math.Cosh(u.Length / 2d) switch { var weight => new(Branch(a, b, u.Start), Branch(a, b, (u.Start + u.End) / 2d) / weight, Branch(a, b, u.End), weight) };
+    public static RationalQuadratic Hyperbola(double a, double b, ParameterSpan u) => double.Cosh(u.Length / 2d) switch { var weight => new(Branch(a, b, u.Start), Branch(a, b, (u.Start + u.End) / 2d) / weight, Branch(a, b, u.End), weight) };
 
-    private static Vector3D<double> Branch(double a, double b, double t) => new(a * Math.Cosh(t), b * Math.Sinh(t), 0d);
+    private static Vector3D<double> Branch(double a, double b, double t) => new(a * double.Cosh(t), b * double.Sinh(t), 0d);
 }
 
 [ComplexValueObject(SkipFactoryMethods = true)]
@@ -66,7 +66,7 @@ public sealed partial class HomogeneousGrid {
 
     private static Matrix<double> Basis(int degree, ParameterSpan span) =>
         Matrix<double>.Build.Dense(degree + 1, degree + 1, (row, power) => SpecialFunctions.Binomial(row, power) / SpecialFunctions.Binomial(degree, power))
-        * Matrix<double>.Build.Dense(degree + 1, degree + 1, (power, column) => power <= column ? SpecialFunctions.Binomial(column, power) * Math.Pow(span.Start, column - power) * Math.Pow(span.Length, power) : 0d);
+        * Matrix<double>.Build.Dense(degree + 1, degree + 1, (power, column) => power <= column ? SpecialFunctions.Binomial(column, power) * double.Pow(span.Start, column - power) * double.Pow(span.Length, power) : 0d);
 }
 
 public sealed record PolynomialPatch {
@@ -95,5 +95,5 @@ public sealed partial class BezierVolume {
         (SpatialFault.Unless(uDegree >= 1 && vDegree >= 1 && wDegree >= 1, SpatialRule.Range, (uDegree, vDegree, wDegree)), SpatialFault.Unless(controls.Count == (uDegree + 1L) * (vDegree + 1L) * (wDegree + 1L), SpatialRule.Count, controls.Count))
             .Apply((_, _) => new BezierVolume(uDegree, vDegree, wDegree, controls)).As();
 
-    private static Seq<double> Bernstein(int degree, double at) => toSeq(Range(0, degree + 1)).Map(index => SpecialFunctions.Binomial(degree, index) * Math.Pow(at, index) * Math.Pow(1d - at, degree - index)).Strict();
+    private static Seq<double> Bernstein(int degree, double at) => toSeq(Range(0, degree + 1)).Map(index => SpecialFunctions.Binomial(degree, index) * double.Pow(at, index) * double.Pow(1d - at, degree - index)).Strict();
 }

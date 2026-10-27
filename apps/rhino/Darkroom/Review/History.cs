@@ -3,16 +3,16 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Darkroom.Chain;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.Render.Effects;
-using Rasm.Rhino.Render.Sessions;
-using Rasm.Rhino.Render.Settings;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.Render.Effects;
+using Rasm.RhinoCommon.Render.Sessions;
+using Rasm.RhinoCommon.Render.Settings;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Render;
@@ -44,7 +44,7 @@ public sealed record Rendering(Rimage Image, PixelExtent Extent, Instant Saved, 
         select formed.Frame;
 
     public IO<Unit> RestoreSettings(RhinoDoc doc) =>
-        from saved in IO.lift(State.Bind(static state => state.Settings).ToFin(new NotFound(nameof(RenderingState.Settings), Image.FileName)))
+        from saved in IO.lift(State.Bind(static state => state.Settings).ToFin(new DarkroomFault($"render settings of {Image.FileName}", DarkroomReason.Missing)))
         from restored in Committed(doc, RenderSettingsSources.Edit(doc, saved))
         select restored;
 
@@ -57,9 +57,7 @@ public sealed record Rendering(Rimage Image, PixelExtent Extent, Instant Saved, 
 
 internal sealed record RenderingSidecar(Guid Session, string Engine, Guid EngineId, TimeSpan Elapsed, string? Settings, string? Note) {
     public Fin<RenderingState> State =>
-        Optional(Settings).Traverse(static text => Try.lift(() => CommonObject.FromJSON(text)).Run()
-                .Bind(static read => Refused.UnlessFound(read, nameof(CommonObject.FromJSON)))
-                .Bind(Conversions.Cast<RenderSettings>))
+        Optional(Settings).Traverse(static text => Try.lift(() => Conversions.Found(CommonObject.FromJSON(text))).Run().Bind(static read => Conversions.Cast<RenderSettings>(read)))
             .As()
             .Map(settings => new RenderingState(Session, Engine, EngineId, Elapsed.ToDuration(), settings, Optional(Note)));
 
@@ -76,12 +74,10 @@ public sealed class RenderHistory {
     private readonly IPlugInViews views;
     private readonly string suffix;
     private readonly SemaphoreSlim recording;
-    private readonly Action<IDisposable> retain;
     private readonly Ref<Ledger> held = Ref(Ledger.Empty);
 
-    private RenderHistory(IPlugInViews views, SemaphoreSlim recording, Action<IDisposable> retain) =>
-        (this.views, suffix, this.recording, this.retain, Changed) =
-        (views, $".{views.PlugIn.Id:N}.json", recording, retain, Subscriptions.Changed(held).Choose(static _ => Some(unit)));
+    private RenderHistory(IPlugInViews views, SemaphoreSlim recording) =>
+        (this.views, suffix, this.recording, Changed) = (views, $".{views.PlugIn.Id:N}.json", recording, Subscriptions.Changed(held).Choose(static _ => Some(unit)));
 
     private sealed record Ledger(Option<string> Folder, HashMap<string, Rendering> Renderings) {
         public static Ledger Empty { get; } = new(None, HashMap<string, Rendering>());
@@ -93,15 +89,14 @@ public sealed class RenderHistory {
     // --- [ACQUISITION]
     public static PlugInSlot<RenderHistory> Slot { get; } = new();
 
-    public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Register { get; } = static (views, retain) =>
-        DisposalOps.Acquire(owned =>
-            from recording in DisposalOps.Acquire(IO.lift(static () => new SemaphoreSlim(1, 1)), owned)
-            from history in IO.lift(() => new RenderHistory(views, recording, owned))
-            from saved in EventKind.ImageFileSaved.Inline(history.Saved, views, owned)
-            from loaded in EventKind.ImageFileLoaded.Inline(args => history.Claimed(args.FileName), views, owned)
-            from deleted in EventKind.ImageFileDeleted.Inline(history.Deleted, views, owned)
-            from published in Slot.Publish(views, history)
-            select unit, retain);
+    public static Func<IPlugInViews, IO<Unit>> Register { get; } = static views =>
+        from recording in use(static () => new SemaphoreSlim(1, 1))
+        from history in IO.lift(() => new RenderHistory(views, recording))
+        from saved in EventKind.ImageFileSaved.Inline(history.Saved, views)
+        from loaded in EventKind.ImageFileLoaded.Inline(args => history.Claimed(args.FileName), views)
+        from deleted in EventKind.ImageFileDeleted.Inline(history.Deleted, views)
+        from published in Slot.Publish(views, history)
+        select unit;
 
     // --- [READS]
     public HostEvent<Unit> Changed { get; }
@@ -119,7 +114,7 @@ public sealed class RenderHistory {
         select rendered.Value;
 
     public IO<Rendering> Annotated(Rendering rendering, Option<string> note) =>
-        IO.lift(rendering.State.ToFin(new NotFound(nameof(RenderingState), rendering.Image.FileName))).Bind(state => Recorded(rendering, state with { Note = note }));
+        IO.lift(rendering.State.ToFin(new DarkroomFault($"render state of {rendering.Image.FileName}", DarkroomReason.Missing))).Bind(state => Recorded(rendering, state with { Note = note }));
 
     public IO<Unit> Delete(Rendering rendering) =>
         from deleted in IO.lift(() => File.Delete(rendering.Image.FileName))
@@ -142,13 +137,13 @@ public sealed class RenderHistory {
         select unit;
 
     private IO<Unit> Claimed(string fileName) =>
-        from folder in IO.lift(() => Optional(Path.GetDirectoryName(fileName)).ToFin(new FileRefused(fileName, FileReason.Unqualified)))
+        from folder in IO.lift(() => Optional(Path.GetDirectoryName(fileName)).ToFin(new RhinoFault(fileName, RhinoReason.Unqualified)))
         from claimed in atomicIO(() => (Before: held.Value, After: held.Value = held.Value with { Folder = held.Value.Folder | Some(folder) }))
         from scanned in when(claimed.Before.Folder.IsNone, Forked(Scanned(folder))).As()
         select unit;
 
     private IO<Unit> Forked(IO<Unit> work, [CallerMemberName] string member = "") =>
-        DisposalOps.Fork(work.Catch(error => IO.lift(() => views.Report(error, typeof(RenderHistory), member))).As(), retain).Map(static _ => unit);
+        views.Session.Held(work.Catch(error => IO.lift(() => PlugInLog.Of(views).Failed(error, typeof(RenderHistory), member))).As().Fork()).Map(static _ => unit);
 
     // --- [FILES]
     private IO<Unit> Scanned(string folder) =>
@@ -176,13 +171,12 @@ public sealed class RenderHistory {
         select recorded;
 
     private IO<Rendering> Recorded(Rendering rendering, RenderingState state) =>
-        DisposalOps.Within(IO.liftAsync(environment => recording.WaitAsync(environment.Token).ToUnit()), _ =>
-            from path in IO.lift(OutputPath.Of(Sidecar(rendering.Image.FileName)))
-            from written in JsonFiles.Write(path, RenderingSidecar.Of(state), RenderingSidecarContext.Default.RenderingSidecar)
-            let noted = rendering with { State = Some(state) }
-            from listed in Swapped(ledger => ledger with { Renderings = ledger.Renderings.AddOrUpdate(noted.Image.FileName, noted) })
-            select noted,
-            _ => IO.lift(() => recording.Release()).Map(static _ => unit));
+        IO.liftAsync(environment => recording.WaitAsync(environment.Token).ToUnit()).Bind(_ =>
+            (from path in IO.lift(OutputPath.Of(Sidecar(rendering.Image.FileName)))
+             from written in JsonFiles.Write(path, RenderingSidecar.Of(state), RenderingSidecarContext.Default.RenderingSidecar)
+             let noted = rendering with { State = Some(state) }
+             from listed in Swapped(ledger => ledger with { Renderings = ledger.Renderings.AddOrUpdate(noted.Image.FileName, noted) })
+             select noted).Finally(IO.lift(() => recording.Release())));
 
     private string Sidecar(string fileName) => Path.ChangeExtension(fileName, suffix);
 }

@@ -35,14 +35,12 @@ public sealed partial class StandardIlluminant {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Adaptation {
-    public static WhitePoint White(Wacton.Unicolour.Temperature temperature) =>
-        new Unicolour(Configuration.Default, temperature).Chromaticity switch {
-            var (x, y) => new WhitePoint(x, y),
-        };
+    public static WhitePoint White(Wacton.Unicolour.Temperature temperature) => new Unicolour(Configuration.Default, temperature).Chromaticity switch { var (x, y) => new WhitePoint(x, y) };
 
     public static Unicolour Peaked(Unicolour color) =>
         color.RgbLinear switch {
             var rgb => double.Max(double.Abs(rgb.R), double.Max(double.Abs(rgb.G), double.Abs(rgb.B))) switch {
+                0d => color,
                 var peak => new Unicolour(color.Configuration, ColourSpace.RgbLinear, rgb.R / peak, rgb.G / peak, rgb.B / peak),
             },
         };

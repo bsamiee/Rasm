@@ -1,16 +1,18 @@
+using System.Runtime.CompilerServices;
 using Eto.Forms;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.Viewport;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.Viewport;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
-namespace Rasm.Rhino.UI.Rows;
+namespace Rasm.RhinoCommon.UI.Rows;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads, MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
@@ -59,40 +61,39 @@ public sealed record ControlRows(Func<RowScope, IO<Seq<ControlRow>>> Read, Func<
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class RowScope {
     // --- [STATE]
-    private static readonly LanguageExt.HashSet<EntryKey> Unlocked = [];
-    private static readonly Refused Untargeted = new(nameof(CommitMode.Targets), Refused.Absent);
+    private static readonly HashSet<EntryKey> Unlocked = [];
 
     private readonly Atom<CommitMode> mode;
-    private readonly Atom<LanguageExt.HashSet<Func<Seq<EntryKey>, IO<Unit>>>> listeners;
-    private readonly Atom<(bool Visible, LanguageExt.HashSet<Func<bool, IO<Unit>>> Listeners)> visibility;
+    private readonly Atom<HashSet<Func<Seq<EntryKey>, IO<Unit>>>> listeners;
+    private readonly Atom<(bool Visible, HashSet<Func<bool, IO<Unit>>> Listeners)> visibility;
 
     private RowScope(
-        IPlugInSink sink, Option<RhinoDoc> document, Option<SettingsNode> settings, Atom<CommitMode> mode, Option<HistoryBinding> history,
-        Option<ValueStore<LanguageExt.HashSet<EntryKey>>> locks, Atom<LanguageExt.HashSet<Func<Seq<EntryKey>, IO<Unit>>>> listeners, Option<Control> host,
-        Atom<(bool Visible, LanguageExt.HashSet<Func<bool, IO<Unit>>> Listeners)> visibility) =>
-        (Sink, Document, Settings, this.mode, History, Locks, this.listeners, Host, this.visibility) = (sink, document, settings, mode, history, locks, listeners, host, visibility);
+        IPlugInLifetime owner, Option<RhinoDoc> document, Option<SettingsNode> settings, Atom<CommitMode> mode, Option<HistoryBinding> history,
+        Option<ValueStore<HashSet<EntryKey>>> locks, Atom<HashSet<Func<Seq<EntryKey>, IO<Unit>>>> listeners, Option<Control> host,
+        Atom<(bool Visible, HashSet<Func<bool, IO<Unit>>> Listeners)> visibility) =>
+        (Owner, Document, Settings, this.mode, History, Locks, this.listeners, Host, this.visibility) = (owner, document, settings, mode, history, locks, listeners, host, visibility);
 
-    public IPlugInSink Sink { get; }
+    public IPlugInLifetime Owner { get; }
     public Option<RhinoDoc> Document { get; }
-    public IO<RhinoDoc> DocumentIO => IO.lift(() => Document.ToFin(new Refused(nameof(Document), Refused.Absent)));
+    public IO<RhinoDoc> DocumentIO => IO.lift(() => Conversions.Found(Document));
     public Option<SettingsNode> Settings { get; }
     public Option<HistoryBinding> History { get; }
-    public Option<ValueStore<LanguageExt.HashSet<EntryKey>>> Locks { get; }
+    public Option<ValueStore<HashSet<EntryKey>>> Locks { get; }
     public Option<Control> Host { get; }
 
     // --- [OPENING]
-    public static IO<RowScope> Open(IPlugInSink sink, Option<RhinoDoc> document, CommitMode mode) =>
-        IO.lift(() => new RowScope(sink, document, None, Atom(mode), None, None, Atom(LanguageExt.HashSet<Func<Seq<EntryKey>, IO<Unit>>>.Empty), None,
-            Atom((Visible: true, Listeners: LanguageExt.HashSet<Func<bool, IO<Unit>>>.Empty))));
+    public static IO<RowScope> Open(IPlugInLifetime owner, Option<RhinoDoc> document, CommitMode mode) =>
+        IO.lift(() => new RowScope(owner, document, None, Atom(mode), None, None, Atom(HashSet<Func<Seq<EntryKey>, IO<Unit>>>()), None,
+            Atom((Visible: true, Listeners: HashSet<Func<bool, IO<Unit>>>()))));
 
-    public RowScope Nested(SettingsNode settings, Option<HistoryBinding> history, Option<ValueStore<LanguageExt.HashSet<EntryKey>>> locks) =>
-        new(Sink, Document, Some(settings), mode, history, locks, listeners, Host,
-            Atom((visibility.Value.Visible, LanguageExt.HashSet<Func<bool, IO<Unit>>>.Empty)));
+    public RowScope Nested(SettingsNode settings, Option<HistoryBinding> history, Option<ValueStore<HashSet<EntryKey>>> locks) =>
+        new(Owner, Document, Some(settings), mode, history, locks, listeners, Host,
+            Atom((visibility.Value.Visible, HashSet<Func<bool, IO<Unit>>>())));
 
-    public RowScope Hosted(Control host) => new(Sink, Document, Settings, mode, History, Locks, listeners, Some(host), visibility);
+    public RowScope Hosted(Control host) => new(Owner, Document, Settings, mode, History, Locks, listeners, Some(host), visibility);
 
     public RowScope Separated(bool visible) =>
-        new(Sink, Document, Settings, mode, History, Locks, listeners, Host, Atom((Visible: visible, Listeners: LanguageExt.HashSet<Func<bool, IO<Unit>>>.Empty)));
+        new(Owner, Document, Settings, mode, History, Locks, listeners, Host, Atom((Visible: visible, Listeners: HashSet<Func<bool, IO<Unit>>>())));
 
     public IO<CommitMode> Mode => mode.ValueIO;
 
@@ -102,18 +103,24 @@ public sealed class RowScope {
     public IO<Unit> Shown(bool visible) => visibility.SwapIO(held => held with { Visible = visible })
         .Bind(held => Callbacks.Each(toSeq(held.Listeners).Map(listener => listener(visible)))).Map(unit);
 
-    public IO<Unit> OnVisibility(Func<bool, IO<Unit>> heard, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(visibility.SwapIO(held => held with { Listeners = held.Listeners.TryAdd(heard) }),
-            _ => visibility.SwapIO(held => held with { Listeners = held.Listeners.Remove(heard) }).Map(unit), retain).Bind(_ => Visibility).Bind(heard);
+    public IO<Unit> OnVisibility(Func<bool, IO<Unit>> heard) =>
+        from added in visibility.SwapIO(held => held with { Listeners = held.Listeners.TryAdd(heard) })
+        from removal in Products.Released(() => visibility.Swap(held => held with { Listeners = held.Listeners.Remove(heard) }))
+        from visible in Visibility
+        from told in heard(visible)
+        select unit;
 
     // --- [CHANGES]
     public IO<Unit> Changed(Seq<EntryKey> keys) =>
-        listeners.ValueIO
-            .Bind(held => toSeq(held).Map<K<IO, Unit>>(heard => heard(keys)).Fails().As())
-            .Bind(static fails => unless(fails.IsEmpty, IO.fail<Unit>(Error.Many(fails))).As());
+        listeners.ValueIO.Bind(held => Callbacks.Each(toSeq(held).Map(heard => heard(keys)))).Map(unit);
 
-    public IO<Unit> Listen(Func<Seq<EntryKey>, IO<Unit>> heard, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(listeners.SwapIO(held => held.TryAdd(heard)), _ => listeners.SwapIO(held => held.Remove(heard)).Map(unit), retain).Map(unit);
+    public IO<Unit> Listen(Func<Seq<EntryKey>, IO<Unit>> heard) =>
+        from added in listeners.SwapIO(held => held.TryAdd(heard))
+        from removal in Products.Released(() => listeners.Swap(held => held.Remove(heard)))
+        select unit;
+
+    internal HostEvent<T> Listened<T>(Func<RowScope, IO<T>> read, [CallerArgumentExpression(nameof(read))] string label = "") =>
+        new(label, (deliver, _) => Listen(_ => read(this).Bind(deliver)));
 
     // --- [STORES]
     public IO<Seq<ValueStore<T>>> Objects<T>(Func<RhinoObject, ValueStore<T>> store) where T : notnull =>
@@ -125,7 +132,7 @@ public sealed class RowScope {
         Selected(
             targets => DocumentIO.Map(doc => Optional(new ObjectPropertiesPageEventArgs(targets.Page).Viewport)
                 .ToSeq().Map(port => store(doc, new ViewportTarget.Id(port.Id))).Strict()),
-            static _ => IO.fail<Seq<ValueStore<T>>>(Untargeted));
+            static contents => Untargeted<T>(contents));
 
     public IO<Seq<ValueStore<T>>> Contents<T>(Func<RenderContent, ValueStore<T>> store) where T : notnull =>
         Selected(
@@ -135,12 +142,15 @@ public sealed class RowScope {
     private IO<Seq<ValueStore<T>>> Selected<T>(Func<CommitMode.Targets, IO<Seq<ValueStore<T>>>> targets, Func<CommitMode.Contents, IO<Seq<ValueStore<T>>>> contents) where T : notnull =>
         mode.ValueIO.Bind(held => held.SwitchPartially(
             (Targets: targets, Contents: contents),
-            @default: static (_, _) => IO.fail<Seq<ValueStore<T>>>(Untargeted),
+            @default: static (_, other) => Untargeted<T>(other),
             targets: static (of, page) => of.Targets(page),
             contents: static (of, section) => of.Contents(section)));
 
+    private static IO<Seq<ValueStore<T>>> Untargeted<T>(CommitMode held) where T : notnull =>
+        IO.fail<Seq<ValueStore<T>>>(new RhinoFault(held.GetType().Name, RhinoReason.Mismatched));
+
     // --- [COMMITS]
-    public IO<LanguageExt.HashSet<EntryKey>> Locked =>
+    public IO<HashSet<EntryKey>> Locked =>
         Locks.Match(Some: static store => store.Read.Map(static held => held.IfNone(Unlocked)), None: static () => IO.pure(Unlocked));
 
     public IO<Unit> Lock(Seq<EntryKey> keys, bool locked) =>
@@ -171,8 +181,7 @@ public sealed class RowScope {
         mode.ValueIO.Bind(held => held.SwitchPartially(
             (Scope: this, Body: body),
             @default: static (state, _) => state.Body,
-            targets: static (state, targets) => Callbacks.Captured<ObjectPropertiesPageEventArgs, A>(
-                targets.Page.ModifyPage, _ => state.Scope.Recorded(targets, state.Body), nameof(ObjectPropertiesPage.ModifyPage)),
+            targets: static (state, targets) => Callbacks.Captured<ObjectPropertiesPageEventArgs, A>(targets.Page.ModifyPage, _ => state.Scope.Recorded(targets, state.Body)),
             contents: static (state, contents) => Recorded(contents, state.Body)));
 
     private IO<A> Recorded<A>(CommitMode.Targets targets, IO<A> body) =>
@@ -182,10 +191,10 @@ public sealed class RowScope {
 
     private static IO<A> Recorded<A>(CommitMode.Contents contents, IO<A> body) =>
         from written in SectionModels.UndoRecord(contents.Section, contents.Section.Caption.Local, body)
-        from selected in IO.lift(() => Refused.Unless(contents.Section.SetSelection(contents.Section.GetSelection()), nameof(EtoContentUISection3.SetSelection)))
+        from selected in IO.lift(() => RhinoFault.Unless(contents.Section.SetSelection(contents.Section.GetSelection())))
         select written;
 
-    private IO<ValueDiff> Written(BindingGroup bound, ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>
+    private IO<ValueDiff> Written(BindingGroup bound, ValueSet incoming, HashSet<EntryKey> locks) =>
         History.Match(Some: history => (history with { Group = bound }).Commit(incoming, locks), None: () => bound.Apply(incoming, locks));
 
     // --- [PAGES]
@@ -224,7 +233,7 @@ public sealed class RowScope {
 
     private IO<Unit> Swapped(CommitMode next) => writeIO(mode, next).Map(unit);
 
-    private IO<ValueDiff> Drafted(BindingGroup bound, ValueSet incoming, LanguageExt.HashSet<EntryKey> locks) =>
+    private IO<ValueDiff> Drafted(BindingGroup bound, ValueSet incoming, HashSet<EntryKey> locks) =>
         from before in bound.Capture
         from edits in Edits
         let shown = edits.Over(before, Unlocked)

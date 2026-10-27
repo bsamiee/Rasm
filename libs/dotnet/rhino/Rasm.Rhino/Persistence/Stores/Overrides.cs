@@ -1,4 +1,4 @@
-namespace Rasm.Rhino.Persistence.Stores;
+namespace Rasm.RhinoCommon.Persistence.Stores;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

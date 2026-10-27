@@ -52,7 +52,7 @@ vignette = CompositorEffect(
                 key="falloff",
                 name="Falloff",
                 kind=bpy.types.NodeSocketMenu,
-                description="Lens law or drawn outline",
+                description="Lens falloff or drawn outline",
                 members={"default_value": "Natural"},
                 items=Some(
                     MenuItems(

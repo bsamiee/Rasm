@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Rasm.TestSupport;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct Tolerance(double AbsoluteError, double RelativeError, Option<long> Ulps = default) {
+public sealed record Tolerance(double AbsoluteError, double RelativeError, Option<long> Ulps = default) {
     public static Tolerance Absolute(double epsilon) => new(epsilon, RelativeError: 0.0);
     public static Tolerance Relative(double epsilon) => new(AbsoluteError: 0.0, epsilon);
     public static Tolerance WithinUlps(long units) => new(AbsoluteError: 0.0, RelativeError: 0.0, Some(units));

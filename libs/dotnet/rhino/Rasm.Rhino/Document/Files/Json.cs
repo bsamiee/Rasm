@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 
-namespace Rasm.Rhino.Document.Files;
+namespace Rasm.RhinoCommon.Document.Files;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class JsonFiles {
@@ -9,9 +9,9 @@ public static class JsonFiles {
         IO.lift(() => Some(File.ReadAllBytes(path)))
             .Catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), static _ => IO.pure(Option<byte[]>.None))
             .Bind(found => found.Traverse(bytes =>
-                IO.lift(() => Refused.UnlessFound(JsonSerializer.Deserialize(bytes, info), nameof(JsonSerializer.Deserialize)).Bind(decode))
+                IO.lift(() => Conversions.Found(JsonSerializer.Deserialize(bytes, info)).Bind(decode))
                     .Catch(static error => error.IsExpected || error.HasException<JsonException>(),
-                        error => IO.fail<TValue>(new FileRefused(path, FileReason.Unreadable, error)))).As());
+                        error => IO.fail<TValue>(new RhinoFault(path, RhinoReason.Unreadable, Inner: error)))).As());
 
     public static IO<Unit> Write<TRecord>(OutputPath path, TRecord value, JsonTypeInfo<TRecord> info, bool overwrite = true) =>
         FilePublication.Write(path, overwrite, stream => IO.liftAsync(async environment => {

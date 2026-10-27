@@ -3,14 +3,14 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NodaTime.Text;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Objects;
-using Rasm.Rhino.Render.Content;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Objects;
+using Rasm.RhinoCommon.Render.Content;
 using Rhino;
 using Rhino.Display;
 using Rhino.Render;
 
-namespace Rasm.Rhino.Render.Settings;
+namespace Rasm.RhinoCommon.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed partial record SceneFile(string Captured, string Key, SceneFile.Body Scene) {
@@ -75,27 +75,30 @@ public sealed record LightScene {
         let scale = RhinoMath.UnitScale(doc.ModelUnitSystem, UnitSystem.Meters)
         from gamma in Lights.PreProcessGamma(doc)
         from read in Lights.States(doc)
-        from _ in unless(read.Fails.IsEmpty, IO.fail<Unit>(Error.Many(read.Fails))).As()
-        from sun in RenderSettingsSources.Read(doc, scope => DisposalOps.Within(() => scope.Settings.Sun, held => DisposalOps.Within(static () => new Sun(), copy => IO.lift(() => {
-            copy.CopyFrom(held);
-            copy.Accuracy = Sun.Accuracies.Maximum;
-            return Entry(copy, gamma);
-        }))))
+        from sun in RenderSettingsSources.Read(doc, scope =>
+            (from held in use(() => scope.Settings.Sun)
+             from copy in use(static () => new Sun())
+             from entry in IO.lift(() => {
+                 copy.CopyFrom(held);
+                 copy.Accuracy = Sun.Accuracies.Maximum;
+                 return Entry(copy, gamma);
+             })
+             select entry).Bracket())
         from skylight in Environments.Current(doc, RenderSettings.EnvironmentUsage.Skylighting).Bind(static environment => environment.Traverse(static lit =>
             from gain in Environments.Intensity(lit)
             from hash in Contents.Hash(lit, CrcRenderHashFlags.Normal, [], None)
             select new SceneFile.Skylight(lit.Id, hash, gain.ToNullable())).As())
-        select new LightScene(captured, new SceneFile.Body([.. read.Succs.Map(light => Entry(light, scale, gamma))], sun, skylight.ValueUnsafe()));
+        select new LightScene(captured, new SceneFile.Body([.. read.Map(light => Entry(light, scale, gamma))], sun, skylight.ValueUnsafe()));
 
     // --- [EMISSION]
-    private static float[] Emission(LightColor color, float gamma) =>
+    private static float[] Emitted(LightColor color, float gamma) =>
         color.Switch(
             gamma,
             rgb: static (held, rgb) => Decoded(rgb.Diffuse, held),
-            blackbody: static (_, blackbody) => Normalized(Conversions.Blackbody(blackbody.Kelvin.Kelvins)),
+            blackbody: static (_, blackbody) => Normalized(Lights.Blackbody((double)blackbody.Kelvin.Kelvins)),
             linear: static (_, linear) => Normalized(linear.Filter.Light));
 
-    private static float[] Normalized((Color4f Light, double Luminance) emission) =>
+    private static float[] Normalized(Emission emission) =>
         [(float)(emission.Light.R / emission.Luminance), (float)(emission.Light.G / emission.Luminance), (float)(emission.Light.B / emission.Luminance)];
 
     private static float[] Decoded(Color color, float gamma) =>
@@ -112,7 +115,7 @@ public sealed record LightScene {
             SceneFileContext.Default.SceneFile);
 
     private static ContentKey Keyed(SceneFile.Body body) =>
-        ContentKey.Of(KeyDomain.Scene, stream => stream.Rows(toSeq(JsonSerializer.SerializeToUtf8Bytes(body, SceneFileContext.Default.Body)), ContentKeys.Integer));
+        ContentKey.Of<SceneFile>(stream => stream.Bytes(JsonSerializer.SerializeToUtf8Bytes(body, SceneFileContext.Default.Body)));
 
     private static SceneFile.Sun Entry(Sun sun, float gamma) =>
         SunSite.Read(sun) switch {
@@ -126,7 +129,7 @@ public sealed record LightScene {
 
     private static SceneFile.Light Entry(LightState light, double scale, float gamma) =>
         new(
-            light.Id, light.Spec.Name.ValueUnsafe(), light.Spec.Enabled, Shape(light.Spec.Shape, scale), Emission(light.Spec.Color, gamma),
+            light.Id, light.Spec.Name.ValueUnsafe(), light.Spec.Enabled, Shape(light.Spec.Shape, scale), Emitted(light.Spec.Color, gamma),
             light.Spec.Watts > 0d ? new SceneFile.Power.Watts(light.Spec.Watts) : new SceneFile.Power.Scale(light.Spec.Intensity),
             light.Spec.ShadowIntensity,
             [light.Spec.AttenuationVector.X, light.Spec.AttenuationVector.Y / scale, light.Spec.AttenuationVector.Z / scale / scale]);

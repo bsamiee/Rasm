@@ -81,6 +81,7 @@ _USE: Final = Descriptor.declared(bpy.types.ViewLayer, "use", bpy.types.BoolProp
 _NAME: Final = Descriptor.declared(bpy.types.ViewLayer, "name", bpy.types.StringProperty)
 _OVERRIDE: Final = Descriptor.declared(bpy.types.ViewLayer, "material_override", bpy.types.PointerProperty)
 _LAYERS: Final = Descriptor.declared(bpy.types.Scene, "view_layers", bpy.types.CollectionProperty)
+_ITEMS: Final = MappingProxyType({kind: tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind) for kind in (Role, MoveDirection, Others, Within)})
 SWATCHES: Final = MappingProxyType({
     Swatch.IBM: "648FFF 785EF0 DC267F FE6100 FFB000",
     Swatch.WONG: "000000 E69F00 56B4E9 009E73 F0E442 0072B2 D55E00 CC79A7",
@@ -106,9 +107,7 @@ class Published(Case, frozen=True, kw_only=True):
 class LayerTag(bpy.types.PropertyGroup):
     """Purpose and tag of a view layer."""
 
-    role: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name="Role", description="Beauty layers form image, data layers hold data passes and mattes", items=tuple((role.name, bpy.path.display_name(role.name.lower()), "") for role in Role)
-    )
+    role: bpy.props.EnumProperty(name="Role", description="Beauty layers form image, data layers hold data passes and mattes", items=_ITEMS[Role])  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     color: bpy.props.FloatVectorProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
         name="Tag",
         description="Layer color in lists and on its nodes",
@@ -122,16 +121,14 @@ class LayerTag(bpy.types.PropertyGroup):
 class Moving(bpy.types.PropertyGroup):
     """Active layer move."""
 
-    direction: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name="Direction", description="Direction active layer moves in list", items=tuple((direction.name, bpy.path.display_name(direction.name.lower()), "") for direction in MoveDirection)
-    )
+    direction: bpy.props.EnumProperty(name="Direction", description="Direction active layer moves in list", items=_ITEMS[MoveDirection])  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Renaming(bpy.types.PropertyGroup):
     """Rename of every layer by its list position."""
 
     template: bpy.props.StringProperty(name="Names", description="Layer name grammar holding {order:<width>} and {layer}", default="{order:2}_{layer}")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    within: bpy.props.EnumProperty(name="Scenes", description="Scenes rename reaches", items=tuple((scope.name, bpy.path.display_name(scope.name.lower()), "") for scope in Within))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    within: bpy.props.EnumProperty(name="Scenes", description="Scenes rename reaches", items=_ITEMS[Within])  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Tinting(bpy.types.PropertyGroup):
@@ -146,9 +143,7 @@ class Tinting(bpy.types.PropertyGroup):
 class Splitting(bpy.types.PropertyGroup):
     """Split of top-level collections into layers."""
 
-    others: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name="Others", description="Flag other top-level collections take in a new layer", items=tuple((flag.name, bpy.path.display_name(flag.name.lower()), "") for flag in Others)
-    )
+    others: bpy.props.EnumProperty(name="Others", description="Flag other top-level collections take in a new layer", items=_ITEMS[Others])  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class LayerOverride(Line, frozen=True, kw_only=True):
@@ -275,11 +270,6 @@ def overridden(layer: bpy.types.ViewLayer, setup: Clay | Utility, config: PyOpen
 # --- [COMMANDS]
 
 
-def tinting(properties: Tinting) -> Palette:
-    """Returns the palette the tint properties choose."""
-    return Spectrum(saturation=properties.saturation, value=properties.value) if properties.palette == Spectrum.__name__ else Published(swatches=Swatch[properties.swatches])
-
-
 def view_layer_move(call: Call[Moving]) -> Outcome[Answer]:
     """Move active view layer in list."""
 
@@ -325,14 +315,16 @@ def view_layer_rename(call: Call[Renaming]) -> Outcome[Answer]:
     )
 
 
-def overriding(setup: Clay | Utility, call: Call[Empty]) -> Outcome[Done]:
+def _overriding(setup: Clay | Utility, call: Call[Empty]) -> Outcome[Done]:
     """Toggles the active layer's override to the setup material."""
     return call.root(bpy.types.ViewLayer).bind(lambda layer: overridden(layer, setup, PyOpenColorIO.GetCurrentConfig(), call.identity)).map(lambda _: Done())
 
 
 def view_layer_tint(call: Call[Tinting]) -> Outcome[Answer]:
     """Set view layer tags from palette in list order."""
-    return paired(call.root(bpy.types.Scene), LayerOverride.layer.bound(call.identity)).bind(lambda pair: tinted(pair[0], tinting(call.properties), pair[1]))
+    held = call.properties
+    palette = Spectrum(saturation=held.saturation, value=held.value) if held.palette == Spectrum.__name__ else Published(swatches=Swatch[held.swatches])
+    return paired(call.root(bpy.types.Scene), LayerOverride.layer.bound(call.identity)).bind(lambda pair: tinted(pair[0], palette, pair[1]))
 
 
 def view_layer_split(call: Call[Splitting]) -> Outcome[Answer]:
@@ -346,12 +338,12 @@ def view_layer_split(call: Call[Splitting]) -> Outcome[Answer]:
 
 def view_layer_clay(call: Call[Empty]) -> Outcome[Done]:
     """Toggle clay material override on active layer."""
-    return overriding(Clay(), call)
+    return _overriding(Clay(), call)
 
 
 def view_layer_data(call: Call[Empty]) -> Outcome[Done]:
     """Toggle data material override and role on active layer."""
-    return overriding(Utility(), call)
+    return _overriding(Utility(), call)
 
 
 def view_layer_copy(call: Call[Empty]) -> Outcome[Done]:
@@ -415,11 +407,9 @@ __all__ = [
     "colors",
     "encoded",
     "overridden",
-    "overriding",
     "renamed",
     "split",
     "tinted",
-    "tinting",
     "view_layer_clay",
     "view_layer_copy",
     "view_layer_data",

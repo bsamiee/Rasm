@@ -1,12 +1,12 @@
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Files;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Files;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 using UnitsNet;
 
-namespace Rasm.Rhino.Viewport;
+namespace Rasm.RhinoCommon.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
@@ -61,23 +61,23 @@ public sealed record AnimationRecord(AnimationSequence Sequence, int CurrentFram
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
 public static partial class Animations {
     public static IO<Option<AnimationRecord>> Read(RhinoDoc doc) =>
-        DisposalOps.Within(() => doc.AnimationProperties, static copy => IO.lift(() =>
-            Kind(copy).Bind(found => found.Traverse(kind => Sequence(copy, kind).Map(sequence => ToRecord(copy, sequence))).As())));
+        use(() => doc.AnimationProperties).Bind(static copy => IO.lift(() =>
+            Kind(copy).Bind(found => found.Traverse(kind => Sequence(copy, kind).Map(sequence => ToRecord(copy, sequence))).As()))).Bracket();
 
     public static IO<Unit> Write(RhinoDoc doc, AnimationSequence sequence) =>
-        DisposalOps.Within(() => doc.AnimationProperties, copy => IO.lift(() => {
+        use(() => doc.AnimationProperties).Bind(copy => IO.lift(() => {
             Update(sequence, copy);
             _ = sequence.Output.IfSome(output => Update(output, copy));
             Update(sequence.Kind, copy);
             Update(sequence.Quality, copy);
             doc.AnimationProperties = copy;
-        }));
+        })).Bracket();
 
     internal static IO<Unit> Reassigned(RhinoDoc doc, HashMap<Guid, Guid> moves) =>
-        DisposalOps.Within(() => doc.AnimationProperties, copy => IO.lift(() => moves.Find(copy.DisplayMode).Iter(target => {
+        use(() => doc.AnimationProperties).Bind(copy => IO.lift(() => moves.Find(copy.DisplayMode).Iter(target => {
             copy.DisplayMode = target;
             doc.AnimationProperties = copy;
-        })));
+        }))).Bracket();
 
     private static Fin<Option<AnimationKind>> Kind(AnimationProperties copy) =>
         copy.CaptureType switch {
@@ -96,7 +96,7 @@ public static partial class Animations {
 
     private static Fin<AnimationQuality> Quality((bool Full, bool Preview) held) =>
         toSeq(AnimationQuality.Items).Find(quality => (quality.RenderFull, quality.RenderPreview) == held)
-            .ToFin(Error.New(ErrorCodes.ValidationFailed, $"animation capture with full {held.Full} and preview {held.Preview} is no quality"));
+            .ToFin(new RhinoFault($"animation capture (full, preview) = ({held.Full}, {held.Preview})", RhinoReason.Missing));
 
     private static AnimationPath Traced(Guid curve, Point3d[] points) =>
         Conversions.Present(curve).Match<AnimationPath>(Some: static id => new AnimationPath.FromCurve(id), None: () => new AnimationPath.FromPoints(toSeq(points)));

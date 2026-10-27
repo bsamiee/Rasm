@@ -1,10 +1,11 @@
+using System.Collections.Generic;
 using System.Text.Json;
 using Grasshopper2;
 using Grasshopper2.Doc;
-using Rasm.Rhino;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Persistence.Stores;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence;
+using Rasm.RhinoCommon.Persistence.Stores;
 
 namespace Rasm.Grasshopper;
 
@@ -66,5 +67,5 @@ public static class GrasshopperStores {
     }
 
     public static IO<Unit> Saved(SettingsFile file) =>
-        IO.lift(() => Refused.Unless(Settings.SandBox || file.TrySaveSettingsToFile(), nameof(SettingsFile.TrySaveSettingsToFile)));
+        IO.lift(() => GrasshopperFault.Unless(Settings.SandBox || file.TrySaveSettingsToFile()));
 }

@@ -1,4 +1,6 @@
-namespace Rasm.Rhino.Modeling;
+using System.Runtime.CompilerServices;
+
+namespace Rasm.RhinoCommon.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union<Unit, bool, TypeParamRef1>(T1Name = "Completed", T2Name = "Changed", T3Name = "Count", T1IsStateless = true, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -32,43 +34,43 @@ public sealed record SmoothOptions(double Factor, bool X, bool Y, bool Z, bool F
 public static class Edits {
     // --- [FOLD]
     public static IO<(T Result, Seq<(TEdit Edit, EditResult<TCount> Result)> Results)> Apply<T, TEdit, TCount>(
-        T source, Seq<TEdit> edits, Func<T, TEdit, Action<IDisposable>, IO<EditStep<T, TCount>>> step, Func<T, IO<Unit>> settle, Action<IDisposable> retain)
+        T source, Seq<TEdit> edits, Func<T, TEdit, IO<EditStep<T, TCount>>> step, Func<T, IO<Unit>> settle)
         where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
-        DisposalOps.Acquire(owned =>
-            from subject in DisposalOps.Acquire(IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)), owned)
-            from copy in Copies.Duplicate(source, subject.Retain)
-            from cached in IO.lift(() => (Copy: copy, Source: source) switch {
-                (Copy: SubD edited, Source: SubD original) => ignore(edited.CopyEvaluationCache(original)),
-                _ => unit,
-            })
-            from folded in edits.FoldM((Current: copy, Results: Seq<(TEdit Edit, EditResult<TCount> Result)>()), (state, edit) =>
-                from stepped in DisposalOps.Acquire(held => step(state.Current, edit, held), (result, lease) => result.Switch(
-                    (Subject: subject, Lease: lease),
-                    changed: static (at, _) => IO.lift(at.Lease.Dispose),
-                    replaced: static (at, _) => at.Subject.Replace(at.Lease)))
-                select stepped.Switch(
-                    (State: state, Edit: edit),
-                    changed: static (at, changed) => (at.State.Current, at.State.Results.Add((at.Edit, changed.Result))),
-                    replaced: static (at, replaced) => (replaced.Successor, at.State.Results.Add((at.Edit, EditResult<TCount>.CreateCompleted()))))).As()
-            from settled in settle(folded.Current)
-            select folded, retain);
+        from copy in Copies.Duplicate(source)
+        from cached in IO.lift(() => (Copy: copy, Source: source) switch {
+            (Copy: SubD edited, Source: SubD original) => ignore(edited.CopyEvaluationCache(original)),
+            _ => unit,
+        })
+        from folded in edits.FoldM((Current: copy, Results: Seq<(TEdit Edit, EditResult<TCount> Result)>()), (state, edit) =>
+            step(state.Current, edit).Map(stepped => stepped.Switch(
+                (State: state, Edit: edit),
+                changed: static (at, changed) => (at.State.Current, at.State.Results.Add((at.Edit, changed.Result))),
+                replaced: static (at, replaced) => (replaced.Successor, at.State.Results.Add((at.Edit, EditResult<TCount>.CreateCompleted())))))).As()
+        from settled in settle(folded.Current)
+        select folded;
 
     // --- [STEPS]
-    public static Answer<EditStep<T, TCount>> Accepted<T, TCount>(T edited, bool accepted) where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
-        (Answer.Accepted(accepted), Edited(edited, EditResult<TCount>.CreateCompleted())).Apply(static (_, step) => step).As();
+    public static IO<EditStep<T, TCount>> Accepted<T, TCount>(T edited, bool accepted, [CallerArgumentExpression(nameof(accepted))] string call = "")
+        where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
+        IO.lift(() => RhinoFault.Unless(accepted, call: call)) >> Edited(edited, EditResult<TCount>.CreateCompleted(), call);
 
-    public static Answer<EditStep<T, TCount>> Changed<T, TCount>(T edited, bool changed) where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
-        Edited(edited, EditResult<TCount>.CreateChanged(changed));
+    public static IO<EditStep<T, TCount>> Changed<T, TCount>(T edited, bool changed, [CallerArgumentExpression(nameof(changed))] string call = "")
+        where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
+        Edited(edited, EditResult<TCount>.CreateChanged(changed), call);
 
-    public static Answer<EditStep<T, TCount>> Count<T, TCount>(T edited, TCount count) where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
-        Edited(edited, EditResult<TCount>.CreateCount(count));
+    public static IO<EditStep<T, TCount>> Count<T, TCount>(T edited, TCount count, [CallerArgumentExpression(nameof(count))] string call = "")
+        where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
+        Edited(edited, EditResult<TCount>.CreateCount(count), call);
 
-    public static Answer<EditStep<T, TCount>> Completed<T, TCount>(T edited) where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
-        Edited(edited, EditResult<TCount>.CreateCompleted());
+    public static IO<EditStep<T, TCount>> Completed<T, TCount>(T edited, [CallerArgumentExpression(nameof(edited))] string call = "")
+        where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
+        Edited(edited, EditResult<TCount>.CreateCompleted(), call);
 
-    public static Answer<EditStep<T, TCount>> Replaced<T, TCount>(T? successor) where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
-        Answer.One(successor).Map(static EditStep<T, TCount> (held) => new EditStep<T, TCount>.Replaced(held));
+    public static IO<EditStep<T, TCount>> Replaced<T, TCount>(T? successor, [CallerArgumentExpression(nameof(successor))] string call = "")
+        where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
+        Products.Made(successor, call).Map(static EditStep<T, TCount> (held) => new EditStep<T, TCount>.Replaced(held));
 
-    private static Answer<EditStep<T, TCount>> Edited<T, TCount>(T edited, EditResult<TCount> result) where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
-        (Answer.One(edited) with { Leaves = [] }).Map(EditStep<T, TCount> (_) => new EditStep<T, TCount>.Changed(result));
+    private static IO<EditStep<T, TCount>> Edited<T, TCount>(T edited, EditResult<TCount> result, string call)
+        where T : GeometryBase where TCount : struct, System.Numerics.IBinaryInteger<TCount> =>
+        Products.Made(edited, call).Map(EditStep<T, TCount> (_) => new EditStep<T, TCount>.Changed(result));
 }

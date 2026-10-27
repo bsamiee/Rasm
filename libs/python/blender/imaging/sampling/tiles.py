@@ -28,7 +28,7 @@ def ranks(image: OpenImageIO.ImageBuf) -> Outcome[npt.NDArray[np.float32]]:
     return (
         Option
         .of_optional(image.get_pixels(OpenImageIO.UINT16))
-        .to_result_with(lambda: (Fault(reason=ImagingReason.BUFFER, subject=image.name, cause=image.geterror()),))
+        .to_result_with(lambda: Fault.of(ImagingReason.BUFFER, image.name, image.geterror()))
         .map(lambda codes: (codes[::-1, :, :1].astype(np.float32) + 0.5) / float(codes[..., :1].size))
     )
 

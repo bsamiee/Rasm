@@ -21,7 +21,7 @@ from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.animation import Animation, Keys
 from blender.bpy.data.rna.descriptors import Descriptor, Native, root_in, typed, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.subscriptions import Subscription
+from blender.bpy.extension.events import Subscription
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band, entered
 from blender.bpy.faults import BlenderReason
@@ -169,16 +169,16 @@ class SunLight(msgspec.Struct, frozen=True, kw_only=True):
             def worlds() -> Generator[Outcome[None]]:
                 with ExitStack() as stack:
                     yield (
-                        WorldEnvironment.attachment
-                        .bound(identity)
-                        .bind(
-                            lambda attached: accumulated(
-                                Subscription(owner=kind, setting=kind.bl_rna.properties[name], body=stored).acquisitions(identity)
-                                for kind in (attached.form, *nested(attached.form))
-                                for name in kind.__annotations__
+                        WorldEnvironment.attachment.bound(identity).bind(
+                            lambda attached: entered(
+                                stack,
+                                tuple(
+                                    Subscription(owner=kind, setting=kind.bl_rna.properties[name], body=stored).held(identity)
+                                    for kind in (attached.form, *nested(attached.form))
+                                    for name in kind.__annotations__
+                                ),
                             )
                         )
-                        .bind(lambda parts: entered(stack, tuple(acquisition for part in parts for _, acquisition in part)))
                     )
 
             yield Ok((

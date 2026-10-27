@@ -11,7 +11,7 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 
-from blender.bpy.commands.calls import Operation, Placed, Writer
+from blender.bpy.commands.calls import dotted, Operation, Placed, Writer
 from blender.bpy.commands.keymaps import Chord
 from blender.bpy.commands.operators import Command, Operator, Pick
 from blender.bpy.data.rna.descriptors import rooted, Struct
@@ -108,7 +108,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
                 pending: Option[rna_enums.WindowCursorItems] = Some(picked)
             case _:
                 pending = Nothing
-        named = identity.name(bpy.types.Operator, self.operator.key) if isinstance(self.operator, Command) else Ok(self.operator.idname_py())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        named = identity.name(bpy.types.Operator, self.operator.key) if isinstance(self.operator, Command) else Ok(dotted(self.operator))
         widget = self.gizmo.map(lambda linked: linked.named(identity).map(Some)).default_value(Ok(Nothing))
         pointed = self.pointer.map(lambda drawing: drawing.acquired(identity).map(Some)).default_value(Ok(Nothing))
         bound = accumulated(placed.invocation(identity).map(lambda invocation: (chord, invocation)) for chord, placed in self.bindings.items())

@@ -1,10 +1,10 @@
-using Rasm.Rhino.Objects;
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon.Objects;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.Render;
 
-namespace Rasm.Rhino.Render.Sessions;
+namespace Rasm.RhinoCommon.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record EngineLight(LightState Light, Option<uint> ObjectSerial);
@@ -12,6 +12,16 @@ public sealed record EngineLight(LightState Light, Option<uint> ObjectSerial);
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class DefinedLightManager<TManager> : LightManagerSupport
     where TManager : DefinedLightManager<TManager>, new() {
+    // --- [OWNER]
+    internal static readonly PlugInSlot<DefinedLightManager<TManager>> Slot = new();
+
+    private readonly IPlugInViews owner;
+
+    protected DefinedLightManager() {
+        owner = PlugInOwners.Owner(typeof(TManager));
+        _ = owner.Run(Slot.Publish(owner, this));
+    }
+
     // --- [ROWS]
     protected abstract IO<Seq<EngineLight>> Read(RhinoDoc doc);
 
@@ -31,31 +41,24 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
     public sealed override Guid RenderEngineId() => PluginId();
 
     // --- [READS]
-    public sealed override void GetLights(RhinoDoc doc, ref LightArray light_array) =>
-        Callbacks.Run(Appended(doc, light_array), CallbackSite.Of(owner, this));
+    public sealed override void GetLights(RhinoDoc doc, ref LightArray light_array) => _ = owner.Run(Appended(doc, light_array));
 
-    public sealed override bool LightFromId(RhinoDoc doc, Guid uuid, ref Light light) =>
-        Callbacks.Answer(Filled(doc, uuid, light), static () => false, CallbackSite.Of(owner, this));
+    public sealed override bool LightFromId(RhinoDoc doc, Guid uuid, ref Light light) => owner.Answer(Filled(doc, uuid, light), failed: false);
 
     public sealed override int ObjectSerialNumberFromLight(RhinoDoc doc, ref Light light) =>
-        Callbacks.Answer(
-            Held(doc, light).Map(static held => unchecked((int)Conversions.Unset(held.Bind(static engine => engine.ObjectSerial)))),
-            static () => 0,
-            CallbackSite.Of(owner, this));
+        owner.Answer(Held(doc, light).Map(static held => unchecked((int)Conversions.Unset(held.Bind(static engine => engine.ObjectSerial)))), failed: 0);
 
     public sealed override string LightDescription(RhinoDoc doc, ref Light light) =>
-        Callbacks.Answer(
-            Held(doc, light).Map(held => Conversions.Unset(held.Map(engine => RowText.Localize(Describe(engine.Light.Spec.Shape), owner).Local))),
-            static () => "",
-            CallbackSite.Of(owner, this));
+        owner.Answer(Held(doc, light).Map(held => Conversions.Unset(held.Map(engine => RowText.Localize(Describe(engine.Light.Spec.Shape), owner).Local))), failed: "");
 
     private IO<Unit> Appended(RhinoDoc doc, LightArray lights) =>
         from gamma in Lights.PreProcessGamma(doc)
         from held in Read(doc)
-        from appended in Callbacks.Each(held.Map(engine => DisposalOps.Within(static () => new Light(), staged =>
-            from written in Staged(staged, engine.Light, gamma)
-            from added in IO.lift(() => lights.Append(staged))
-            select added)))
+        from appended in Callbacks.Each(held.Map(engine =>
+            (from staged in use(static () => new Light())
+             from written in Staged(staged, engine.Light, gamma)
+             from added in IO.lift(() => lights.Append(staged))
+             select added).Bracket()))
         select unit;
 
     private IO<bool> Filled(RhinoDoc doc, Guid id, Light target) =>
@@ -75,20 +78,19 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
         select unit;
 
     // --- [EDITS]
-    public sealed override void ModifyLight(RhinoDoc doc, Light light) =>
-        Callbacks.Run(Modified(doc, light), CallbackSite.Of(owner, this));
+    public sealed override void ModifyLight(RhinoDoc doc, Light light) => _ = owner.Run(Modified(doc, light));
 
     public sealed override bool DeleteLight(RhinoDoc doc, Light light, bool bUndelete) =>
-        Callbacks.Succeeded(Delete.Map(delete => Deleted(doc, light, bUndelete, delete)), static () => false, CallbackSite.Of(owner, this));
+        owner.Answer(Delete.Map(delete => Deleted(doc, light, bUndelete, delete).Map(value: true)).IfNone(IO.pure(value: false)), failed: false);
 
     public sealed override bool OnEditLight(RhinoDoc doc, ref LightArray light_array) =>
-        Callbacks.Succeeded(Requested(light_array, Edit.Map(edit => par(edit, doc))), static () => false, CallbackSite.Of(owner, this));
+        owner.Answer(Requested(light_array, Edit.Map(edit => par(edit, doc))).Map(static edited => edited.Map(value: true)).IfNone(IO.pure(value: false)), failed: false);
 
     public sealed override void GroupLights(RhinoDoc doc, ref LightArray light_array) =>
-        Callbacks.Run(Requested(light_array, Group.Map(group => par(group, doc, b: true))), CallbackSite.Of(owner, this));
+        _ = owner.Run(Requested(light_array, Group.Map(group => par(group, doc, b: true))).IfNone(IO.pure(unit)));
 
     public sealed override void UnGroup(RhinoDoc doc, ref LightArray light_array) =>
-        Callbacks.Run(Requested(light_array, Group.Map(group => par(group, doc, b: false))), CallbackSite.Of(owner, this));
+        _ = owner.Run(Requested(light_array, Group.Map(group => par(group, doc, b: false))).IfNone(IO.pure(unit)));
 
     private IO<Unit> Modified(RhinoDoc doc, Light light) =>
         from state in IO.lift(() => Lights.State(light))
@@ -106,15 +108,6 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
         request.Map(apply => IO.lift(() => toSeq(Range(0, lights.Count())).Map(index => lights.ElementAt(index).Id).Strict()).Bind(apply));
 
     // --- [NOTICES]
-    internal static readonly Atom<Option<DefinedLightManager<TManager>>> Registered = Atom(Option<DefinedLightManager<TManager>>.None);
-
-    private readonly IPlugInViews owner;
-
-    protected DefinedLightManager() {
-        owner = HostedTypes.Owner(typeof(TManager));
-        _ = Registered.Swap(_ => Some(this));
-    }
-
     internal IO<Unit> Notified(RhinoDoc doc, LightMangerSupportCustomEvent change) =>
         IO.lift(() => {
             Light? none = null;
@@ -124,8 +117,7 @@ public abstract class DefinedLightManager<TManager> : LightManagerSupport
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LightManagers {
-    public static IO<Unit> Changed<TManager>(RhinoDoc doc, LightMangerSupportCustomEvent change)
+    public static IO<Unit> Changed<TManager>(IPlugInLifetime owner, RhinoDoc doc, LightMangerSupportCustomEvent change)
         where TManager : DefinedLightManager<TManager>, new() =>
-        IO.lift(static () => DefinedLightManager<TManager>.Registered.Value.ToFin(new Refused(nameof(LightManagerSupport.RegisterLightManager), Refused.Absent)))
-            .Bind(manager => manager.Notified(doc, change));
+        DefinedLightManager<TManager>.Slot.Of(owner).Bind(manager => manager.Notified(doc, change));
 }

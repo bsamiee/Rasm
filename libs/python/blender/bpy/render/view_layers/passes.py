@@ -22,8 +22,7 @@ from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.conditions import AllOf, AnyOf, Condition, holds, Not, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler, SAVE_POST, staged
-from blender.bpy.extension.events.subscriptions import Subscription
+from blender.bpy.extension.events import Handler, staged, Subscription
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
@@ -437,7 +436,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             return PassPreset(
                 flags=Snapshot(
                     struct=bpy.types.ViewLayer.__name__,
-                    tree=Tree(roots=owners, owners={owner: Owner(values={flag.prop.identifier: flag in enabled for _, flag in self.flags.every if flag.owner == owner}) for owner in owners}),
+                    tree=Tree(roots=owners, rows=tuple((owner, Owner(values={flag.prop.identifier: flag in enabled for _, flag in self.flags.every if flag.owner == owner})) for owner in owners)),
                 ),
                 routing=Snapshot.of(Routing, {"totals": tuple(sorted(member.name for member in totals)), "derived": tuple(sorted(member.name for member in derived))}),
             )
@@ -609,7 +608,7 @@ class PassSet(Line, frozen=True):
                 routing.lobe,
                 *COMMANDS,
                 routing.listing(),
-                *(PathHandler(handlers=handlers, body=lambda _: routing.refreshed(bpy.context)) for handlers in (LOAD_POST, SAVE_POST)),
+                *(Handler(handlers=handlers, body=lambda: routing.refreshed(bpy.context)) for handlers in (bpy.app.handlers.load_post, bpy.app.handlers.save_post)),
                 *routing.watched(),
             )
         )
@@ -681,8 +680,8 @@ def pass_flags() -> "tuple[tuple[type[bpy.types.bpy_struct[object]], Descriptor[
     """Returns writable pass flags of `ViewLayer` and its pointer structs in RNA order with owning class."""
     root = bpy.types.ViewLayer.bl_rna
     structs = (
-        ("", bpy.types.ViewLayer, root.properties),
-        *((prop.identifier, type(fixed), fixed.properties) for prop in root.properties if isinstance(prop, bpy.types.PointerProperty) for fixed in Option.of_optional(prop.fixed_type).to_list()),
+        ((), bpy.types.ViewLayer, root.properties),
+        *(((prop.identifier,), type(fixed), fixed.properties) for prop in root.properties if isinstance(prop, bpy.types.PointerProperty) for fixed in Option.of_optional(prop.fixed_type).to_list()),
     )
     return tuple(
         (owner, Descriptor(root=bpy.types.ViewLayer, owner=path, prop=prop))

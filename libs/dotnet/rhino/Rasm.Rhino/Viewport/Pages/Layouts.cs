@@ -1,17 +1,18 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO.Hashing;
 using LanguageExt.ClassInstances;
 using Rasm.Drafting;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Document.Units;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
-using Rhino.DocObjects.Tables;
 
-namespace Rasm.Rhino.Viewport.Pages;
+namespace Rasm.RhinoCommon.Viewport.Pages;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
@@ -20,7 +21,7 @@ namespace Rasm.Rhino.Viewport.Pages;
 [ValidationError<RhinoFault>]
 public sealed partial class LayoutName {
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = string.IsNullOrWhiteSpace(value) ? new RhinoFault("layout name is blank") : null;
+        validationError = string.IsNullOrWhiteSpace(value) ? new RhinoFault($"value = '{value}'", RhinoReason.Invalid) : null;
 }
 
 public sealed record FrameStyle(LineGroup Lines, ComponentRef<Layer> Layer, ComponentRef<DimensionStyle> Lettering);
@@ -34,7 +35,7 @@ public static class Layouts {
     // --- [SHEETS]
     public static IO<RhinoPageView> Ensure(RhinoDoc doc, LayoutSheet sheet) =>
         from extent in IO.lift(() => (Width: Quantities.As(sheet.Sheet.Extent.Width, doc.PageUnits), Height: Quantities.As(sheet.Sheet.Extent.Height, doc.PageUnits)))
-        from page in IO.lift(() => Find(doc, sheet.Name).Match(Some: Fin.Succ, None: () => Refused.UnlessFound(doc.Views.AddPageView(sheet.Name, extent.Width, extent.Height, setActive: false), nameof(ViewTable.AddPageView))))
+        from page in IO.lift(() => Find(doc, sheet.Name).Match(Some: Fin.Succ, None: () => Conversions.Found(doc.Views.AddPageView(sheet.Name, extent.Width, extent.Height, setActive: false))))
         from held in SheetOf(doc, page)
         from sized in unless(held == Some(sheet.Sheet), IO.lift(() => { (page.PageWidth, page.PageHeight) = extent; })).As()
         from described in IO.lift(() => sheet.Description.Iter(text => Update(page.Description, text, value => page.Description = value)))
@@ -46,7 +47,7 @@ public static class Layouts {
         IO.lift(() => Sheet.Match(Quantities.From(page.PageWidth, doc.PageUnits), Quantities.From(page.PageHeight, doc.PageUnits), Quantities.From(doc.PageAbsoluteTolerance, doc.PageUnits)));
 
     public static IO<RhinoPageView> Duplicate(RhinoPageView page, LayoutName name, bool duplicatePageGeometry) =>
-        from copy in IO.lift(() => Refused.UnlessFound(page.Duplicate(duplicatePageGeometry), nameof(RhinoPageView.Duplicate)))
+        from copy in IO.lift(() => Conversions.Found(page.Duplicate(duplicatePageGeometry)))
         from named in IO.lift(() => copy.PageName = name)
         select copy;
 
@@ -70,22 +71,22 @@ public static class Layouts {
 
     // --- [GROUPS]
     public static IO<PageViewGroup> Ensure(RhinoDoc doc, LayoutGroup grouping) =>
-        from members in IO.lift(() => (Callbacks.Unique(grouping.Members, identity, nameof(LayoutGroup.Members)),
-                grouping.Members.Traverse(name => Find(doc, name).ToFin(new NotFound("layout", $"{name}"))).As())
+        from members in IO.lift(() => (Conversions.Unique(grouping.Members, identity),
+                grouping.Members.Traverse(name => Find(doc, name).ToFin(new RhinoFault(name, RhinoReason.Missing))).As())
             .Apply(static (_, pages) => pages).As())
         from row in TableOps.Find(doc.PageViewGroups, new ComponentRef<PageViewGroup>.ByName(grouping.Name), includeDeleted: false)
-            .Catch(static error => error.IsType<NotFound>(), _ => Add(doc, grouping.Name))
+            .Catch(static error => error.Filter<RhinoFault>().Head is RhinoFault fault && fault.Reason == RhinoReason.Missing, _ => Add(doc, grouping.Name))
         from described in IO.lift(() => grouping.Description.Iter(text => Update(row.Description, text, value => row.Description = value)))
         from left in IO.lift(() => toSeq(row.GetMembers().Except(members)).Iter(member => member.RemoveFromPageViewGroup(row.Index)))
         from placed in IO.lift(() => members.Iter((position, page) => Update(page.PageViewGroupSortIndex(row.Index), position, index => page.SetPageViewGroupSortIndex(row.Index, index))))
         select row;
 
     private static IO<PageViewGroup> Add(RhinoDoc doc, LayoutName name) =>
-        DisposalOps.Within(static () => new PageViewGroup(), staged =>
-            from named in TableOps.Named(staged, Some<string>(name))
-            from index in IO.lift(() => Conversions.Required(doc.PageViewGroups.Add(staged), nameof(PageViewGroupTable.Add)))
-            from row in TableOps.Find(doc.PageViewGroups, index, includeDeleted: false)
-            select row);
+        (from staged in use(static () => new PageViewGroup())
+         from named in TableOps.Named(staged, Some<string>(name))
+         from index in IO.lift(() => Conversions.Found(Conversions.Present(doc.PageViewGroups.Add(staged))))
+         from row in TableOps.Find(doc.PageViewGroups, index, includeDeleted: false)
+         select row).Bracket();
 
     // --- [ORDER]
     public static IO<Seq<(RhinoPageView Page, StandardName Number)>> Sheets(RhinoDoc doc, NamingStandard grammar) =>
@@ -116,12 +117,16 @@ public static class Layouts {
             select stored).As()
         select unit;
 
-    public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> NumberFollowsPages(NamingStandard grammar) =>
-        (sink, retain) => Subscriptions.Host(typeof(Layouts), static () => Seq(EventKind.RhinoViewCreate, EventKind.RhinoViewDestroy, EventKind.RhinoViewRename)
-                .Map(static row => row.Choose(args => row.DocumentSerial(args).Filter(_ => args.View is RhinoPageView).Map(static serial => (serial, unit))))
-                .Add(EventKind.PageViewPropertiesChange.Choose(static args => EventKind.PageViewPropertiesChange.DocumentSerial(args).Map(static serial => (serial, unit)))))
-            .Through(Subscriptions.Idle<uint, Unit>(serials =>
-                Callbacks.Each(toSeq(serials.Keys).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Map(doc => Number(doc, grammar))).Map(unit)), sink, retain);
+    public static Func<IPlugInViews, IO<Unit>> NumberFollowsPages(NamingStandard grammar) =>
+        views =>
+            from post in Mailboxes.Idle<uint, Unit>(serials =>
+                Callbacks.Each(toSeq(serials.Keys).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Map(doc => Number(doc, grammar))).Map(unit))(views)
+            from attached in Subscriptions.Merged(
+                    Seq(EventKind.RhinoViewCreate, EventKind.RhinoViewDestroy, EventKind.RhinoViewRename)
+                        .Map(static row => row.Choose(args => row.Serial(args).Filter(_ => args.View is RhinoPageView)))
+                        .Add(EventKind.PageViewPropertiesChange.Choose(static args => EventKind.PageViewPropertiesChange.Serial(args))))
+                .Inline(serial => post(serial, unit), views)
+            select unit;
 
     // --- [FRAMES]
     private const string FrameKey = "sheet-frame";
@@ -169,20 +174,20 @@ public static class Layouts {
 
         (string Key, Func<IO<Guid>> Add) Label(string text, Point3d center) =>
             Row(Keyed(stream => stream.Text(nameof(Label)).Id(lettering.Id).Number(letterHeight).Text(text).Number(center.X).Number(center.Y)), None,
-                () => Refused.UnlessFound(TextEntity.Create(text, new Plane(center, Vector3d.XAxis, Vector3d.YAxis), lettering, wrapped: false, rectWidth: 0, rotationRadians: 0), nameof(TextEntity.Create))
+                () => Conversions.Found(TextEntity.Create(text, new Plane(center, Vector3d.XAxis, Vector3d.YAxis), lettering, wrapped: false, rectWidth: 0, rotationRadians: 0))
                     .Map(entity => { (entity.Justification, entity.TextHeight) = (TextJustification.MiddleCenter, letterHeight); return (GeometryBase)entity; }));
 
         string Keyed(Func<XxHash128, XxHash128> fields) =>
-            string.Create(CultureInfo.InvariantCulture, $"{ContentKey.Of(KeyDomain.FrameMark, stream => fields(stream.Integer(layer)))}");
+            string.Create(CultureInfo.InvariantCulture, $"{ContentKey.Of<FrameStyle>(stream => fields(stream.Integer(layer)))}");
 
         (string Key, Func<IO<Guid>> Add) Row(string key, Option<double> plotWeight, Func<Fin<GeometryBase>> shape) =>
             (key, () => TableOps.WithAttributes(doc.CreateDefaultAttributes, None, attributes =>
                 from placed in IO.lift(() => { (attributes.LayerIndex, attributes.Space, attributes.ViewportId) = (layer, ActiveSpace.PageSpace, page.MainViewport.Id); })
                 from weighted in IO.lift(() => plotWeight.Iter(stroke => (attributes.PlotWeightSource, attributes.PlotWeight) = (ObjectPlotWeightSource.PlotWeightFromObject, stroke)))
-                from tagged in IO.lift(() => Refused.Unless(attributes.SetUserString(FrameKey, key), nameof(ObjectAttributes.SetUserString)))
-                from id in DisposalOps.Within(shape,
-                    made => IO.lift(made).Bind(geometry => TableOps.Add(doc, new GeometryPair(geometry, Some(attributes)), None, reference: false)),
-                    static made => DisposalOps.Release(made.ToOption().ToSeq()))
+                from tagged in IO.lift(() => RhinoFault.Unless(attributes.SetUserString(FrameKey, key)))
+                from id in (from geometry in IO.lift(shape).Bind(static made => use(() => made))
+                            from added in TableOps.Add(doc, new GeometryPair(geometry, Some(attributes)), None, reference: false)
+                            select added).Bracket()
                 select id));
     }
 }

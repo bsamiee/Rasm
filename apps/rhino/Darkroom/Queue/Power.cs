@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Rasm.Rhino;
+using Rasm.RhinoCommon;
 
 [assembly: DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
 
@@ -32,34 +32,28 @@ public static class MachinePower {
     public static IO<T> HeldAwake<T>(IO<T> run) =>
         OperatingSystem.IsWindows()
             ? HeldAwakeOnWindows(run)
-            : DisposalOps.Within<Process, T>(retain =>
-                Started("caffeinate", ["-i", "-w", Environment.ProcessId.ToString(CultureInfo.InvariantCulture)], retain).Bind(_ => run),
-                static processes => Callbacks.Each(processes.Rev().Map(static process => Callbacks.Each(Seq(IO.lift(() => process.Kill()), IO.lift(process.Dispose))).Map(unit)))
-                    .Map(static _ => unit));
+            : (from caffeinate in Started("caffeinate", ["-i", "-w", Environment.ProcessId.ToString(CultureInfo.InvariantCulture)])
+               from value in run.Finally(IO.lift(caffeinate.Kill))
+               select value).Bracket();
 
     [SupportedOSPlatform("windows")]
     private static IO<T> HeldAwakeOnWindows<T>(IO<T> run) =>
-        DisposalOps.Within(
-            IO.lift(static () => SafeNativeMethods.SetThreadExecutionState(ExecutionState.Continuous | ExecutionState.SystemRequired | ExecutionState.DisplayRequired) switch {
-                var prior => Refused.Unless(prior is not ExecutionState.None, prior, nameof(SafeNativeMethods.SetThreadExecutionState)),
-            }).OnUiThread(),
-            _ => run,
-            static flags => IO.lift(() => Refused.Unless(SafeNativeMethods.SetThreadExecutionState(flags) is not ExecutionState.None, nameof(SafeNativeMethods.SetThreadExecutionState))).OnUiThread());
+        IO.lift(static () => SafeNativeMethods.SetThreadExecutionState(ExecutionState.Continuous | ExecutionState.SystemRequired | ExecutionState.DisplayRequired) switch {
+            var prior => RhinoFault.Unless(prior is not ExecutionState.None).Map(_ => prior),
+        }).OnUiThread().Bind(prior => run.Finally(IO.lift(() => RhinoFault.Unless(SafeNativeMethods.SetThreadExecutionState(prior) is not ExecutionState.None)).OnUiThread()));
 
     // --- [SHUTDOWN]
     public static IO<Unit> ShutDown =>
         OperatingSystem.IsWindows()
-            ? DisposalOps.Within<Process, Unit>(static retain =>
-                from shutdown in Started("shutdown", ["/s", "/t", "60"], retain)
-                from exited in IO.liftAsync(async environment => {
-                    await shutdown.WaitForExitAsync(environment.Token).ConfigureAwait(false);
-                    return unit;
-                })
-                from code in IO.lift(() => Refused.Unless(shutdown.ExitCode is 0, nameof(Process.ExitCode)))
-                select unit, DisposalOps.Release)
-            : DisposalOps.Within<Process, Unit>(static retain =>
-                Started("osascript", ["-e", "delay 60", "-e", """tell application "System Events" to shut down"""], retain).Map(static _ => unit), DisposalOps.Release);
+            ? (from shutdown in Started("shutdown", ["/s", "/t", "60"])
+               from exited in IO.liftAsync(async environment => {
+                   await shutdown.WaitForExitAsync(environment.Token).ConfigureAwait(false);
+                   return unit;
+               })
+               from code in IO.lift(() => RhinoFault.Unless(shutdown.ExitCode is 0))
+               select unit).Bracket()
+            : Started("osascript", ["-e", "delay 60", "-e", """tell application "System Events" to shut down"""]).Map(static _ => unit).Bracket();
 
-    private static IO<Process> Started(string program, Seq<string> arguments, Action<Process> retain) =>
-        DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound(Process.Start(new ProcessStartInfo(program, arguments) { UseShellExecute = false, CreateNoWindow = true }), nameof(Process.Start))), retain);
+    private static IO<Process> Started(string program, Seq<string> arguments) =>
+        unitIO.Bind(_ => Products.Made(Process.Start(new ProcessStartInfo(program, arguments) { UseShellExecute = false, CreateNoWindow = true })));
 }

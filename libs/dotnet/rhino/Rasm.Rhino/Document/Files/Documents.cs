@@ -4,7 +4,7 @@ using Rhino.Commands;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Document.Files;
+namespace Rasm.RhinoCommon.Document.Files;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum DocumentPhase { Initializing, Creating, Opening, Ready, Closing, Unavailable }
@@ -82,25 +82,23 @@ public static partial class DocumentMapper {
 public static class Documents {
     // --- [LEASE]
     public static IO<T> WithDocument<T>(DocumentSource source, Func<RhinoDoc, IO<T>> body) =>
-        DisposalOps.Within<RhinoDoc, T>(retain => source.Switch(
-            retain,
-            live: static (_, live) => IO.pure(live.Doc),
-            active: static (_, _) => IO.lift(static () => Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc))),
-            keyed: static (_, keyed) =>
-                IO.lift(() => Refused.UnlessFound(RhinoDoc.FromRuntimeSerialNumber(keyed.Serial), nameof(RhinoDoc.FromRuntimeSerialNumber))),
-            opened: static (_, opened) =>
-                IO.lift(() => Refused.UnlessFound(RhinoDoc.Open(opened.Path, out bool _), nameof(RhinoDoc.Open))),
-            worksessionFile: static (_, file) =>
-                IO.lift(() => Refused.UnlessFound(Worksession.Open(file.Path), nameof(Worksession.Open))),
-            headless: static (own, headless) =>
-                headless.Template.Map(static template => (string)template) switch {
-                    var template => DisposalOps.Acquire(IO.lift(() => Try.lift(() => Refused.UnlessFound(RhinoDoc.CreateHeadless(Conversions.Unset(template)), nameof(RhinoDoc.CreateHeadless)))
-                        .Run()
-                        .MapFail(error => error.HasException<ArgumentException>() ? new FileRefused(Conversions.Unset(template), FileReason.Unreadable, error) : error)), own),
-                },
-            archive: static (own, archive) =>
-                DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound(RhinoDoc.OpenHeadless(archive.Path, archive.Options.ValueUnsafe()), nameof(RhinoDoc.OpenHeadless))), own)).OnUiThread().Uninterruptible().Bind(body),
-            static held => DisposalOps.Release(held).OnUiThread());
+        (from doc in source.Switch(
+                 live: static live => IO.pure(live.Doc),
+                 active: static _ => IO.lift(static () => Conversions.Found(RhinoDoc.ActiveDoc)),
+                 keyed: static keyed => IO.lift(() => Conversions.Found(RhinoDoc.FromRuntimeSerialNumber(keyed.Serial))),
+                 opened: static opened => IO.lift(() => Conversions.Found(RhinoDoc.Open(opened.Path, out bool _))),
+                 worksessionFile: static file => IO.lift(() => Conversions.Found(Worksession.Open(file.Path))),
+                 headless: static headless => headless.Template.Map(static template => (string)template) switch {
+                     var template => Owned(IO.lift(() => Conversions.Found(RhinoDoc.CreateHeadless(Conversions.Unset(template))))
+                         .MapFail(error => error.HasException<ArgumentException>() ? new RhinoFault(Conversions.Unset(template), RhinoReason.Unreadable, Inner: error) : error)),
+                 },
+                 archive: static archive => Owned(IO.lift(() => Conversions.Found(RhinoDoc.OpenHeadless(archive.Path, archive.Options.ValueUnsafe())))))
+             .OnUiThread().Uninterruptible()
+         from value in body(doc)
+         select value).Bracket();
+
+    private static IO<RhinoDoc> Owned(IO<RhinoDoc> open) =>
+        use(open, static held => IO.lift(held.Dispose).OnUiThread());
 
     // --- [WORKSESSION]
     public static IO<WorksessionState> ReadWorksession(RhinoDoc doc, bool checkForUpdates) =>
@@ -110,30 +108,25 @@ public static class Documents {
         IO.lift(() => Conversions.Present(Worksession.GetLockInformation(model)));
 
     public static IO<RhinoDoc> ChangeWorksession(RhinoDoc doc, WorksessionChange change) =>
-        change.Switch(
+        IO.lift(() => change.Switch(
             doc,
-            attach: static (target, attach) =>
-                IO.lift(() => Callbacks.Each(attach.Paths, path => target.Worksession.Attach(path), nameof(Worksession.Attach)).Map(_ => target)),
-            detach: static (target, detach) =>
-                IO.lift(() => Callbacks.Each(detach.Models, target.Worksession.Detach, nameof(Worksession.Detach)).Map(_ => target)),
-            update: static (target, update) =>
-                IO.lift(() => Refused.Unless(target.Worksession.Update(Conversions.Unset(update.Model)), target, nameof(Worksession.Update))),
-            setActiveModel: static (target, active) =>
-                IO.lift(() => Refused.UnlessFound(target.Worksession.SetActiveModel(active.Model), nameof(Worksession.SetActiveModel))),
-            save: static (target, save) =>
-                IO.lift(() => save.Path.Match(
-                    Some: path => Refused.Unless(target.Worksession.SaveAs(path), target, nameof(Worksession.SaveAs)),
-                    None: () => Refused.Unless(target.Worksession.Save(), target, nameof(Worksession.Save)))));
+            attach: static (target, attach) => Callbacks.Each(attach.Paths, (path, index) => RhinoFault.Unless(target.Worksession.Attach(path), index)).Map(_ => target),
+            detach: static (target, detach) => Callbacks.Each(detach.Models, (model, index) => RhinoFault.Unless(target.Worksession.Detach(model), index)).Map(_ => target),
+            update: static (target, update) => RhinoFault.Unless(target.Worksession.Update(Conversions.Unset(update.Model))).Map(_ => target),
+            setActiveModel: static (target, active) => Conversions.Found(target.Worksession.SetActiveModel(active.Model)),
+            save: static (target, save) => save.Path.Match(
+                Some: path => RhinoFault.Unless(target.Worksession.SaveAs(path)),
+                None: () => RhinoFault.Unless(target.Worksession.Save())).Map(_ => target)));
 
     // --- [SCRIPTS]
     public static Fin<RhinoDoc> Scripted(RhinoDoc doc) =>
-        Refused.UnlessFound(RhinoDoc.FromRuntimeSerialNumber(doc.RuntimeSerialNumber), nameof(RhinoDoc.FromRuntimeSerialNumber))
+        Conversions.Found(RhinoDoc.FromRuntimeSerialNumber(doc.RuntimeSerialNumber))
             .Bind(static open => (
-                    Command.InCommand() && !Command.InScriptRunnerCommand() ? Error.New("command other than script runner is running") : Fin.Succ(unit),
-                    open.IsHeadless ? Error.New($"headless document {open.RuntimeSerialNumber} takes no script input") : Fin.Succ(unit))
+                    RhinoFault.Unless(!Command.InCommand() || Command.InScriptRunnerCommand()),
+                    RhinoFault.Unless(!open.IsHeadless))
                 .Apply((_, _) => open)
                 .As());
 
     public static IO<Unit> RunScript(RhinoDoc doc, string script, bool echo, Option<string> display) =>
-        IO.lift(() => Scripted(doc).Bind(open => Refused.Unless(RhinoApp.RunScript(open.RuntimeSerialNumber, script, Conversions.Unset(display), echo), nameof(RhinoApp.RunScript))));
+        IO.lift(() => Scripted(doc).Bind(open => RhinoFault.Unless(RhinoApp.RunScript(open.RuntimeSerialNumber, script, Conversions.Unset(display), echo))));
 }

@@ -19,7 +19,7 @@ from blender.bpy.nodes.interface import Interface, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor import lenses
 from blender.bpy.render.compositor.coordinates import Border, BORDERS, covered, extended, FrameSpace, pixels, shorter
 from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, Named, Registers, Shell
-from blender.bpy.render.compositor.inputs import captured
+from blender.bpy.render.compositor.inputs import captured, valued
 from blender.bpy.render.outputs.framing import FrameSize, Framing, Whole
 from blender.imaging.files.images import ImageFile, Storage
 from blender.imaging.geometry.lenses import Radial
@@ -159,7 +159,7 @@ def export_st_map(call: Call[Named]) -> Outcome[Done]:
         entry = distortion.named(call.identity, scene, call.properties.name)
         held = entry.bind(
             lambda found: paired(
-                distortion.read(call.identity, found), captured(call.identity, found).map(lambda snapshot: {key: owner.values.get("value") for key, owner in snapshot.tree.owners.items() if key})
+                distortion.read(call.identity, found), captured(call.identity, found).map(valued)
             )
         )
         framing = FrameSize().bound(call.identity).bind(lambda framed: framed.read(scene, Some(Whole()))).bind(lambda found: found.rendered((RESOLUTION.prop.hard_min, RESOLUTION.prop.hard_max)))

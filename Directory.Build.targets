@@ -6,6 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup Label="Project Usings" Condition="'$(ProjectRole)' != 'analyzers'">
+        <Using Remove="System.Collections.Generic" />
         <Using Include="System.Collections.Frozen;System.Collections.Immutable" />
         <Using Include="Thinktecture" />
         <Using Include="LanguageExt;LanguageExt.Common;LanguageExt.Traits;LanguageExt.UnsafeValueAccess" />

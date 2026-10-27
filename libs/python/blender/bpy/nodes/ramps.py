@@ -11,7 +11,7 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.data.rna.descriptors import Value, written
+from blender.bpy.data.rna.descriptors import RnaPath, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import Fault, Faults, Outcome
@@ -51,14 +51,14 @@ class Ramp(msgspec.Struct, frozen=True, kw_only=True):
 
     def write(self, ramp: bpy.types.ColorRamp) -> Outcome[None]:
         """Writes members and elements by position, adding and removing elements to the stop count."""
-        elements = tuple(f"elements[{index}]" for index in range(len(self.stops)))
-        tree: Tree[Value] = Tree(
-            roots=("",),
-            owners={
-                "": Owner(values={"interpolation": self.interpolation, "color_mode": self.color_mode, "hue_interpolation": self.hue_interpolation}, children=("elements",)),
-                "elements": Owner(values={}, children=elements),
-                **{key: Owner(values={"position": position, "color": (*color, 1.0)}) for key, (position, *color) in zip(elements, self.table.tolist())},
-            },
+        elements: tuple[RnaPath, ...] = tuple(("elements", index) for index in range(len(self.stops)))
+        tree: Tree[Value, RnaPath] = Tree(
+            roots=((),),
+            rows=(
+                ((), Owner(values={"interpolation": self.interpolation, "color_mode": self.color_mode, "hue_interpolation": self.hue_interpolation}, children=(("elements",),))),
+                (("elements",), Owner(values={}, children=elements)),
+                *((key, Owner(values={"position": position, "color": (*color, 1.0)})) for key, (position, *color) in zip(elements, self.table.tolist())),
+            ),
         )
         return Snapshot(struct=bpy.types.ColorRamp.__name__, tree=tree).apply(ramp).outcome
 

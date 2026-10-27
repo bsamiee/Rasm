@@ -21,8 +21,8 @@ lazy from refurb.visitor import RefurbVisitor
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _refurbished(settings: Settings) -> Sequence[Error | str]:
-    """Type-check each source module from its text with cached imports and run checks over its typed tree."""
+def refurbished(settings: Settings) -> Sequence[Error | str]:
+    """Type-checks each source module from its text with cached imports and runs checks over its typed tree."""
     sources, options = process_options([*settings.files, *settings.mypy_args])
     options.preserve_asts = True
     options.python_version = settings.get_python_version()
@@ -49,7 +49,7 @@ def _status() -> int:
     """Returns the exit status of a findings run over configured mypy sources, passing every other run to refurb."""
     match catch(load_settings, exception=ValueError)(sys.argv[1:]):
         case Result(tag="ok", ok=Settings(help=False, version=False, explain=None, generate=False, debug=False, timing_stats=None) as settings):
-            errors = _refurbished(settings)
+            errors = refurbished(settings)
             if output := format_errors(errors, settings):
                 sys.stdout.write(f"{output}\n")
             return 1 if errors else 0

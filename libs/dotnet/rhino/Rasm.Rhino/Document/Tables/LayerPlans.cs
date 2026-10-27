@@ -1,12 +1,9 @@
-using QuikGraph;
-using QuikGraph.Algorithms;
-using QuikGraph.Algorithms.Search;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
 
-namespace Rasm.Rhino.Document.Tables;
+namespace Rasm.RhinoCommon.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
@@ -46,9 +43,9 @@ public static class LayerPlans {
     private sealed record Placement(LayerPath Path, Guid Id, Option<Guid> Parent, Option<LayerNode> Held, Option<Guid> Occupant, Seq<LayerEdit> Edits);
 
     private static Fin<LayerPlan> Checked(LayerPlan plan) =>
-        (Callbacks.Unique(plan.Layers, static layer => layer.Path, nameof(PlannedLayer.Path)),
-         Callbacks.Unique(plan.Layers.Map(static layer => layer.Id).Somes(), static id => id, nameof(PlannedLayer.Id)),
-         Refused.UnlessFound(plan.Current.ForAll(current => Paths(plan).Exists(path => path == current)), nameof(LayerPlan.Current)))
+        (Conversions.Unique(plan.Layers, static layer => layer.Path),
+         Conversions.Unique(plan.Layers.Map(static layer => layer.Id).Somes(), static id => id),
+         RhinoFault.Unless(plan.Current.ForAll(current => Paths(plan).Exists(path => path == current))))
         .Apply((_, _, _) => plan)
         .As();
 
@@ -61,19 +58,15 @@ public static class LayerPlans {
             None: () => new LayerPath(Seq<string>(), name)))).Somes();
 
     private static Seq<LayerPath> Preorder(Seq<LayerPath> paths) {
-        List<LayerPath> ordered = [];
         ILookup<Option<LayerPath>, LayerPath> children = paths.ToLookup(static path => path.Parent);
-        DepthFirstSearchAlgorithm<LayerPath, SEquatableEdge<LayerPath>> search = new(
-            paths.ToBidirectionalGraph(parent => children[Some(parent)].Select(child => new SEquatableEdge<LayerPath>(parent, child)), allowParallelEdges: false));
-        search.DiscoverVertex += ordered.Add;
-        _ = toSeq(children[None]).Iter(search.Compute);
-        return toSeq(ordered);
+        Seq<LayerPath> Below(Option<LayerPath> parent) => toSeq(children[parent]).Bind(child => child.Cons(Below(Some(child))));
+        return Below(None);
     }
 
     private static Seq<Placement> Placed(LayerTree live, LayerPlan plan, Func<Guid> fresh) {
         HashMap<NameHash, Guid> siblings = toHashMap(live.Order.Bind(id => live.Nodes[id].Name.Map(name => (new NameHash(name, Conversions.Unset(live.Parent(id)), ModelComponentType.Layer), id)).ToSeq()));
         HashMap<LayerPath, PlannedLayer> stated = toHashMap(plan.Layers.Map(static layer => (layer.Path, layer)));
-        LanguageExt.HashSet<Guid> claimed = toHashSet(plan.Layers.Map(static layer => layer.Id).Somes());
+        HashSet<Guid> claimed = toHashSet(plan.Layers.Map(static layer => layer.Id).Somes());
         return Preorder(Paths(plan)).Fold(
             (Ids: HashMap<LayerPath, Guid>(), Rows: Seq<Placement>()),
             (placed, path) => {
@@ -89,7 +82,7 @@ public static class LayerPlans {
 
     private static Fin<Unit> Conflicts(Seq<Placement> rows) =>
         rows.Traverse(static row => row.Occupant.Filter(occupant => occupant != row.Id).Match<Fin<Unit>>(
-                Some: occupant => Error.New($"layer {occupant} holds layer path {row.Path.Text}"),
+                Some: _ => new RhinoFault(row.Path.Text, RhinoReason.Taken),
                 None: static () => unit))
             .As()
             .Map(static _ => unit);
@@ -98,7 +91,7 @@ public static class LayerPlans {
     private static Seq<LayerOp> Ops(LayerTree live, LayerPlan plan, Seq<Placement> rows, Seq<Guid> stale) {
         Option<Placement> named = plan.Current.Bind(path => rows.Find(row => row.Path == path));
         HashMap<LayerPath, Guid> ids = toHashMap(rows.Map(static row => (row.Path, row.Id)));
-        LanguageExt.HashSet<Guid> shown = toHashSet(named.Match(Some: row => Lineage(row.Path).Map(path => ids[path]), None: () => live.Ancestors(live.Current)));
+        HashSet<Guid> shown = toHashSet(named.Match(Some: row => Lineage(row.Path).Map(path => ids[path]), None: () => live.Ancestors(live.Current)));
         Seq<Placement> answered = rows.Map(row => shown.Contains(row.Id)
             ? row with { Edits = row.Edits.Filter(static edit => (edit.Restores & (RestoreLayerProperties.Visible | RestoreLayerProperties.Locked)) is RestoreLayerProperties.None) }
             : row);
@@ -106,13 +99,8 @@ public static class LayerPlans {
             .Map<LayerOp>(static row => new LayerOp.Create(row.Path.Leaf, row.Parent, Some(row.Id), row.Edits));
         Seq<LayerOp> current = named.Filter(row => row.Id != live.Current).Map<LayerOp>(static row => new LayerOp.SetCurrent(Address(row.Id))).ToSeq();
         Seq<LayerOp> changed = answered.Choose(row => row.Held.Bind(node => Changed(live, row, node)));
-        Dictionary<Guid, int> components = [];
-        LanguageExt.HashSet<Guid> removed = toHashSet(stale);
-        _ = stale.ToBidirectionalGraph(parent => live.Children(parent).Filter(removed.Contains).Select(child => new SEquatableEdge<Guid>(parent, child)), allowParallelEdges: false)
-            .StronglyConnectedComponents(components);
-        Seq<Guid> subtrees = toSeq(stale.GroupBy(id => components[id]))
-            .Filter(group => !group.Any(id => live.Parent(id).Exists(parent => removed.Contains(parent) && components[parent] != group.Key)))
-            .Map(static group => group.First());
+        HashSet<Guid> removed = toHashSet(stale);
+        Seq<Guid> subtrees = stale.Filter(id => !live.Parent(id).Exists(removed.Contains));
         Seq<LayerOp> pruned = subtrees.Choose(id => plan.Prune.Removal(Address(id)));
         Seq<Guid> order = rows.Map(static row => row.Id) + (plan.Prune == LayerPrune.Keep ? stale : Seq<Guid>()) + live.Order.Filter(id => live.Nodes[id].IsReference);
         return created + current + changed + pruned + (plan.Ordered && order != live.Order ? Seq<LayerOp>(new LayerOp.Sort(order.Map(Address))) : Seq<LayerOp>());

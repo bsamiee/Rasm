@@ -32,6 +32,14 @@ public static class Callbacks {
                 await Threading.Factory.SwitchToMainThreadAsync(environment.Token);
                 return await effect.RunAsync(environment).ConfigureAwait(false);
             });
+
+        public async Task<Fin<T>> SettledAsync() {
+            try {
+                return await effect.RunSafeAsync().ConfigureAwait(false);
+            } catch (OperationCanceledException exception) {
+                return Error.New(exception);
+            }
+        }
     }
 
     // --- [OWNERS]
@@ -46,15 +54,6 @@ public static class Callbacks {
 
         public Unit Start<T>(IO<T> effect, [CallerMemberName] string member = "") =>
             Started(effect.Map(unit).IfFail(error => IO.lift(() => PlugInLog.Of(owner).Failed(error, owner.GetType(), member))));
-
-        public async Task<Fin<T>> Awaited<T>(IO<T> effect) {
-            try {
-                return await effect.RunSafeAsync().ConfigureAwait(false);
-            }
-            catch (OperationCanceledException exception) {
-                return Fin.Fail<T>(Error.New(exception));
-            }
-        }
     }
 
     // --- [CALLS]

@@ -1,8 +1,10 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
+using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Pixels;
 using TinyEXR;
 using UnitsNet;
@@ -26,9 +28,10 @@ internal sealed partial class TransferForm {
 [ValidationError<ImagingFault>]
 public abstract partial record Transfer : IConvertible<string> {
     private static readonly Luminance ReferenceWhite = Luminance.FromNits(DynamicRange.Standard.WhiteLuminance);
-    private static readonly HashMap<string, Transfer> Fixed =
-        toHashMap(Seq<Transfer>(new Linear(), new Srgb(), new AcesCct(), new AcesCc()).Concat(toSeq(CameraLog.Items).Map(static log => (Transfer)new Camera(log)))
-            .Map(static transfer => (transfer.ToValue(), transfer)));
+    private static readonly FrozenDictionary<string, Transfer> Fixed =
+        Seq<Transfer>(new Linear(), new Srgb(), new AcesCct(), new AcesCc()).Concat(toSeq(CameraLog.Items).Map(static log => (Transfer)new Camera(log))).ToFrozenDictionary(static transfer => transfer.ToValue(), StringComparer.Ordinal);
+
+    private interface IChannelCurve { internal double Encode(double value); internal double Decode(double value); }
 
     public virtual Luminance White => ReferenceWhite;
     internal virtual Option<(int Function, Seq<double> Parameters)> IccCurve => None;
@@ -59,7 +62,7 @@ public abstract partial record Transfer : IConvertible<string> {
         return value is not null && item is null ? Unnamed(value) : null;
     }
 
-    private static Option<Transfer> Named(string value) => Fixed.Find(value) | Parametric(value);
+    private static Option<Transfer> Named(string value) => Optional(Fixed.GetValueOrDefault(value)) | Parametric(value);
 
     private static ImagingFault Unnamed(string value) =>
         new($"transfer '{value}' beside curve and camera log names, gamma:<exponent>, pq:<nits>, and hlg:<nits>", ImagingReason.UnknownFormat);
@@ -74,9 +77,11 @@ public abstract partial record Transfer : IConvertible<string> {
     private static Fin<Luminance> Lit(Luminance white) =>
         double.IsFinite(white.Nits.ToDouble()) && white.Nits.ToDouble() > 0d ? white : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"transfer white {white}"), ImagingReason.Range);
 
-    private static void PerChannel(Span<Vector4> row, Func<double, double> curve) {
+    private static void PerChannel<TCurve>(Span<Vector4> row, TCurve curve, bool encode) where TCurve : struct, IChannelCurve {
         for (int index = 0; index < row.Length; index++)
-            row[index] = new Vector4((float)curve(row[index].X), (float)curve(row[index].Y), (float)curve(row[index].Z), row[index].W);
+            row[index] = new Vector4((float)At(row[index].X), (float)At(row[index].Y), (float)At(row[index].Z), row[index].W);
+
+        double At(double value) => encode ? curve.Encode(value) : curve.Decode(value);
     }
 
     private static void Scaled(Span<Vector4> row, float scale) {
@@ -84,14 +89,12 @@ public abstract partial record Transfer : IConvertible<string> {
             row[index] = new Vector4(row[index].AsVector3() * scale, row[index].W);
     }
 
-    private static Span<float> Components(ref Vector4 pixel) => MemoryMarshal.CreateSpan(ref pixel.X, 3);
-
-    private static void Encoded(Span<Vector4> row, TransferFunction curve) {
-        for (int x = 0; x < row.Length; x++) ImageProcessing.EncodeTransfer(Components(ref row[x]), Components(ref row[x]), curve);
-    }
-
-    private static void Decoded(Span<Vector4> row, TransferFunction curve) {
-        for (int x = 0; x < row.Length; x++) ImageProcessing.DecodeTransfer(Components(ref row[x]), Components(ref row[x]), curve);
+    private static void Coded(Span<Vector4> row, TransferFunction curve, Action<ReadOnlySpan<float>, Span<float>, TransferFunction> code) {
+        Span2D<float> samples = MemoryMarshal.Cast<Vector4, float>(row).AsSpan2D(row.Length, 4);
+        using SpanOwner<float> alpha = SpanOwner<float>.Allocate(row.Length);
+        samples.GetColumn(3).CopyTo(alpha.Span);
+        code(MemoryMarshal.Cast<Vector4, float>(row), MemoryMarshal.Cast<Vector4, float>(row), curve);
+        alpha.Span.CopyTo(samples.GetColumn(3));
     }
 
     public sealed record Linear : Transfer {
@@ -102,8 +105,8 @@ public abstract partial record Transfer : IConvertible<string> {
 
     public sealed record Srgb : Transfer {
         internal override Option<(int Function, Seq<double> Parameters)> IccCurve => (3, Seq(2.4, 1d / 1.055, 1d - (1d / 1.055), 1d / 12.92, 0.04045));
-        public override void Encode(Span<Vector4> row) => Encoded(row, TransferFunction.Srgb);
-        public override void Decode(Span<Vector4> row) => Decoded(row, TransferFunction.Srgb);
+        public override void Encode(Span<Vector4> row) => Coded(row, TransferFunction.Srgb, ImageProcessing.EncodeTransfer);
+        public override void Decode(Span<Vector4> row) => Coded(row, TransferFunction.Srgb, ImageProcessing.DecodeTransfer);
     }
 
     public sealed record Pq : Transfer {
@@ -120,11 +123,11 @@ public abstract partial record Transfer : IConvertible<string> {
 
         public override void Encode(Span<Vector4> row) {
             Scaled(row, (float)(White / Peak).ToDouble());
-            Encoded(row, TransferFunction.Pq);
+            Coded(row, TransferFunction.Pq, ImageProcessing.EncodeTransfer);
         }
 
         public override void Decode(Span<Vector4> row) {
-            Decoded(row, TransferFunction.Pq);
+            Coded(row, TransferFunction.Pq, ImageProcessing.DecodeTransfer);
             Scaled(row, (float)(Peak / White).ToDouble());
         }
     }
@@ -153,12 +156,12 @@ public abstract partial record Transfer : IConvertible<string> {
                 Vector256<double> scene = display * double.Pow(double.Max(luminance, Ootf.DisplayFloor), (1d - Ootf.Gamma) / Ootf.Gamma);
                 pixel = new Vector4((float)scene[0], (float)scene[1], (float)scene[2], pixel.W);
             }
-            Encoded(row, TransferFunction.Hlg);
+            Coded(row, TransferFunction.Hlg, ImageProcessing.EncodeTransfer);
         }
 
         public override void Decode(Span<Vector4> row) {
             double scale = (Peak / White).ToDouble();
-            Decoded(row, TransferFunction.Hlg);
+            Coded(row, TransferFunction.Hlg, ImageProcessing.DecodeTransfer);
             foreach (ref Vector4 pixel in row) {
                 Vector256<double> scene = Vector256.Create(pixel.X, pixel.Y, pixel.Z, 0d);
                 double luminance = Vector256.Dot(scene, Ootf.Weights);
@@ -169,13 +172,15 @@ public abstract partial record Transfer : IConvertible<string> {
     }
 
     public sealed record AcesCct : Transfer {
-        public override void Encode(Span<Vector4> row) => PerChannel(row, RgbModels.Acescct.FromLinear);
-        public override void Decode(Span<Vector4> row) => PerChannel(row, RgbModels.Acescct.ToLinear);
+        public override void Encode(Span<Vector4> row) => PerChannel(row, default(Coding), encode: true);
+        public override void Decode(Span<Vector4> row) => PerChannel(row, default(Coding), encode: false);
+        private readonly struct Coding : IChannelCurve { double IChannelCurve.Encode(double value) => RgbModels.Acescct.FromLinear(value); double IChannelCurve.Decode(double value) => RgbModels.Acescct.ToLinear(value); }
     }
 
     public sealed record AcesCc : Transfer {
-        public override void Encode(Span<Vector4> row) => PerChannel(row, RgbModels.Acescc.FromLinear);
-        public override void Decode(Span<Vector4> row) => PerChannel(row, RgbModels.Acescc.ToLinear);
+        public override void Encode(Span<Vector4> row) => PerChannel(row, default(Coding), encode: true);
+        public override void Decode(Span<Vector4> row) => PerChannel(row, default(Coding), encode: false);
+        private readonly struct Coding : IChannelCurve { double IChannelCurve.Encode(double value) => RgbModels.Acescc.FromLinear(value); double IChannelCurve.Decode(double value) => RgbModels.Acescc.ToLinear(value); }
     }
 
     public sealed record Gamma : Transfer {
@@ -191,14 +196,16 @@ public abstract partial record Transfer : IConvertible<string> {
             float.IsFinite(exponent) && exponent > 0f ? new Gamma(exponent) : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"gamma exponent {exponent}"), ImagingReason.Range);
 
         public override void Encode(Span<Vector4> row) {
-            if (Curve.ToSpan() is [var curve]) Encoded(row, curve);
-            else PerChannel(row, linear => double.Pow(double.Max(linear, 0d), 1d / Exponent));
+            if (Curve.ToSpan() is [var curve]) Coded(row, curve, ImageProcessing.EncodeTransfer);
+            else PerChannel(row, new Raised(Exponent), encode: true);
         }
 
         public override void Decode(Span<Vector4> row) {
-            if (Curve.ToSpan() is [var curve]) Decoded(row, curve);
-            else PerChannel(row, signal => double.Pow(double.Max(signal, 0d), Exponent));
+            if (Curve.ToSpan() is [var curve]) Coded(row, curve, ImageProcessing.DecodeTransfer);
+            else PerChannel(row, new Raised(Exponent), encode: false);
         }
+
+        private readonly struct Raised(double exponent) : IChannelCurve { double IChannelCurve.Encode(double value) => double.Pow(double.Max(value, 0d), 1d / exponent); double IChannelCurve.Decode(double value) => double.Pow(double.Max(value, 0d), exponent); }
 
         private Option<TransferFunction> Curve => Exponent switch {
             2.2f => TransferFunction.Gamma22,
@@ -208,8 +215,9 @@ public abstract partial record Transfer : IConvertible<string> {
     }
 
     public sealed record Camera(CameraLog Log) : Transfer {
-        public override void Encode(Span<Vector4> row) => PerChannel(row, Log.Encode);
-        public override void Decode(Span<Vector4> row) => PerChannel(row, Log.Decode);
+        public override void Encode(Span<Vector4> row) => PerChannel(row, new Coding(Log), encode: true);
+        public override void Decode(Span<Vector4> row) => PerChannel(row, new Coding(Log), encode: false);
+        private readonly struct Coding(CameraLog log) : IChannelCurve { double IChannelCurve.Encode(double value) => log.Encode(value); double IChannelCurve.Decode(double value) => log.Decode(value); }
     }
 }
 

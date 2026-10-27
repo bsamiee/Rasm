@@ -33,22 +33,14 @@ class ManualMap(msgspec.Struct, frozen=True, kw_only=True):
         return (
             Option
             .of_optional(identity.manifest.website)
-            .map(lambda website: ((Band.REGISTRIES, self.registered(identity, website)),))
-            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=identity.package, member="website"),))
+            .map(lambda website: ((Band.REGISTRIES, self._registered(identity, website)),))
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, identity.package, member="website"))
         )
 
     @staticmethod
     @contextmanager
-    def registered(identity: Identity, website: str) -> Generator[None]:
-        """Holds manual hook over extension operators, types, and property groups.
-
-        Args:
-            identity: Extension with manifest ID prefixing every generated name.
-            website: Documentation URL prefix hook returns.
-
-        Yields:
-            None while Blender holds hook.
-        """
+    def _registered(identity: Identity, website: str) -> Generator[None]:
+        """Holds the manual hook over extension operators, types, and property groups while the scope stands."""
         hook = partial(_mapped, identity.package, identity.manifest.id.lower(), website)
         with ExitStack() as stack:
             bpy.utils.register_manual_map(hook)
@@ -67,7 +59,11 @@ def _mapped(package: str, category: str, website: str) -> tuple[str, list[tuple[
         return definition
 
     preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    grouped = partial(_grouped, definition(bpy.types.PropertyGroup))
+    group = definition(bpy.types.PropertyGroup)
+
+    def grouped(struct: bpy.types.Struct) -> bool:
+        return struct.base == group
+
     attached = tuple(target for identifier, target in _walked((definition(bpy.types.BlendData),), lambda _: True) if identifier.startswith(f"{category}_") and grouped(target))
     owned = Option.of_optional(preferences.addons.get(package)).bind(lambda addon: Option.of_optional(addon.preferences)).map(definition).to_list()
     nested = tuple(target for _, target in _walked((*attached, *owned), grouped) if grouped(target))
@@ -92,11 +88,6 @@ def _walked(starts: tuple[bpy.types.Struct, ...], followed: Callable[[bpy.types.
                 seen.add(target.identifier)
                 frontier.append(target)
     return tuple(edges)
-
-
-def _grouped(group: bpy.types.Struct, struct: bpy.types.Struct) -> bool:
-    """Returns whether struct derives from the property group definition."""
-    return struct.base == group
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

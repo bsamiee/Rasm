@@ -1,61 +1,30 @@
 using Grasshopper2.UI;
 using Grasshopper2.UI.Canvas;
-using Rasm.Rhino;
-using Rasm.Rhino.Commands;
-using Rasm.Rhino.Events;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Commands;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.PlugIns;
 using Rhino;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-internal abstract partial record Attachment {
-    internal sealed record Waiting : Attachment;
-    internal sealed record Attaching : Attachment;
-    internal sealed record Attached(IDisposable Held) : Attachment;
-    internal sealed record Closed : Attachment;
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Editors {
     // --- [EDITOR]
-    public static IO<Unit> Attach(IPlugInSink sink, Func<Editor, Action<IDisposable>, IO<Unit>> attach, Action<IDisposable> retain) =>
+    public static IO<Unit> Attach(IPlugInLifetime owner, Func<Editor, IO<Unit>> attach) =>
         IO.lift(static () => Optional(Editor.Instance))
-            .Bind(found => found.Match(
-                Some: editor => DisposalOps.Acquire(keep => attach(editor, keep), retain),
-                None: () => Pending(sink, attach, retain)));
+            .Bind(found => found.Match(Some: attach, None: () => Pending(owner, attach)));
 
-    private static IO<Unit> Pending(IPlugInSink sink, Func<Editor, Action<IDisposable>, IO<Unit>> attach, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(keep =>
-        from state in IO.lift(static () => Ref<Attachment>(new Attachment.Waiting()))
-        from cell in DisposalOps.Acquire(IO.pure(state), static cell => IO.lift(() => {
-            if (atomic(() => {
-                Attachment held = cell.Value;
-                cell.Value = new Attachment.Closed();
-                return held;
-            }) is Attachment.Attached attached)
-                attached.Held.Dispose();
-        }), keep)
-        from waiting in EventKind.EndCommand.Inline(_ => Built(state, attach), sink, keep)
-        select unit, retain);
+    private static IO<Unit> Pending(IPlugInLifetime owner, Func<Editor, IO<Unit>> attach) =>
+        from scope in use(static () => EnvIO.New(token: CancellationToken.None))
+        from slot in IO.lift(static () => Ref(Option<Lease<Unit>>.None))
+        from waiting in EventKind.EndCommand.Inline(_ => Built(slot, attach).Under(scope), owner)
+        select unit;
 
-    private static IO<Unit> Built(Ref<Attachment> state, Func<Editor, Action<IDisposable>, IO<Unit>> attach) =>
-        DisposalOps.Transacted(
-            from available in IO.lift(static () => Optional(Editor.Instance))
-            from editor in atomicIO(() => {
-                Option<Editor> claimed = available.Filter(_ => state.Value is Attachment.Waiting);
-                _ = claimed.Iter(_ => state.Value = new Attachment.Attaching());
-                return claimed;
-            })
-            select editor,
-            editor => editor.TraverseM(found => DisposalOps.Acquire(keep => attach(found, keep), (_, release) =>
-                atomicIO(Fin<Unit> () => {
-                    if (state.Value is not Attachment.Attaching) return Errors.Cancelled;
-                    state.Value = new Attachment.Attached(release);
-                    return unit;
-                }).Bind(IO.lift))).As(),
-            _ => atomicIO(() => state.Swap(static _ => new Attachment.Closed())).Map(static _ => unit),
-            static (_, _) => unitIO);
+    private static IO<Unit> Built(Ref<Option<Lease<Unit>>> slot, Func<Editor, IO<Unit>> attach) =>
+        IO.lift(() => Optional(Editor.Instance).Filter(_ => slot.Value.IsNone))
+            .Bind(found => found.Traverse(editor => Products.Swapped(slot, attach(editor))).As())
+            .Map(unit);
 
     public static IO<Editor> Show(RhinoDoc document) =>
         IO.lift(static () => Optional(Editor.Instance)).Bind(found => found.Match(
@@ -63,12 +32,11 @@ public static class Editors {
             None: () => Launched(document)));
 
     private static IO<Editor> Launched(RhinoDoc document) =>
-        CommandOps.ExecuteCommand(document, "_GH2").Bind(static _ => IO.lift(static () => Refused.UnlessFound(Editor.Instance, nameof(Editor.Instance))));
+        CommandOps.ExecuteCommand(document, "_GH2").Bind(static _ => IO.lift(static () => Conversions.Found(Editor.Instance)));
 
-    public static IO<Canvas> Canvas => IO.lift(static () => Refused.UnlessFound(Editor.Instance, nameof(Editor.Instance)).Map(static editor => editor.Canvas));
+    public static IO<Canvas> Canvas => IO.lift(static () => Conversions.Found(Editor.Instance).Map(static editor => editor.Canvas));
 
     // --- [GETTERS]
     public static IO<T> RhinoGetter<T>(RhinoDoc document, IO<T> get) =>
-        IO.lift(() => Refused.Unless(Editor.BeginRhinoGetter(document), nameof(Editor.BeginRhinoGetter)))
-            .Bind(_ => get);
+        IO.lift(() => GrasshopperFault.Unless(Editor.BeginRhinoGetter(document))).Bind(_ => get);
 }

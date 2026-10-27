@@ -9,6 +9,9 @@ using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Grade;
 
+// --- [TYPES] ---------------------------------------------------------------------------
+internal interface IBlendKernel { internal static abstract Vector256<double> Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma); }
+
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class MatteChannel {
@@ -41,100 +44,74 @@ public sealed partial class MaskOperation {
 }
 
 [SmartEnum<string>]
-public sealed partial class BlendingMode {
-    public static readonly BlendingMode Mix = new("mix", BinaryPrimitives.ReadUInt32BigEndian("norm"u8), static (_, over, _) => over);
-    public static readonly BlendingMode Darken = new("darken", BinaryPrimitives.ReadUInt32BigEndian("dark"u8), static (under, over, _) => Vector256.Min(under, over));
-    public static readonly BlendingMode Multiply = new("multiply", BinaryPrimitives.ReadUInt32BigEndian("mul "u8), static (under, over, _) => under * over);
-    public static readonly BlendingMode Burn = new("burn", BinaryPrimitives.ReadUInt32BigEndian("idiv"u8), static (under, over, _) =>
-        Vector256.ConditionalSelect(Vector256.LessThanOrEqual(over, Vector256<double>.Zero), Vector256<double>.Zero, Vector256.Clamp(Vector256<double>.One - ((Vector256<double>.One - under) / over), Vector256<double>.Zero, Vector256<double>.One)));
-    public static readonly BlendingMode Lighten = new("lighten", BinaryPrimitives.ReadUInt32BigEndian("lite"u8), static (under, over, _) => Vector256.Max(under, over));
-    public static readonly BlendingMode Screen = new("screen", BinaryPrimitives.ReadUInt32BigEndian("scrn"u8), static (under, over, _) => Vector256<double>.One - ((Vector256<double>.One - over) * (Vector256<double>.One - under)));
-    public static readonly BlendingMode Dodge = new("dodge", BinaryPrimitives.ReadUInt32BigEndian("div "u8), static (under, over, _) => (Vector256<double>.One - over) switch {
-        var rest => Vector256.ConditionalSelect(
-            Vector256.IsZero(under),
-            under,
-            Vector256.ConditionalSelect(Vector256.LessThanOrEqual(rest, Vector256<double>.Zero), Vector256<double>.One, Vector256.Min(under / rest, Vector256<double>.One))),
-    });
-    public static readonly BlendingMode Add = new("add", BinaryPrimitives.ReadUInt32BigEndian("lddg"u8), static (under, over, _) => under + over);
-    public static readonly BlendingMode Overlay = new("overlay", BinaryPrimitives.ReadUInt32BigEndian("over"u8), static (under, over, _) =>
-        Vector256.ConditionalSelect(Vector256.LessThan(under, Vector256.Create(0.5d)), 2d * under * over, Vector256<double>.One - (2d * (Vector256<double>.One - over) * (Vector256<double>.One - under))));
-    public static readonly BlendingMode SoftLight = new("soft-light", BinaryPrimitives.ReadUInt32BigEndian("sLit"u8), static (under, over, _) => (under * under) + (2d * under * over * (Vector256<double>.One - under)));
-    public static readonly BlendingMode LinearLight = new("linear-light", BinaryPrimitives.ReadUInt32BigEndian("lLit"u8), static (under, over, _) => under + (2d * over) - Vector256<double>.One);
-    public static readonly BlendingMode Difference = new("difference", BinaryPrimitives.ReadUInt32BigEndian("diff"u8), static (under, over, _) => Vector256.Abs(under - over));
-    public static readonly BlendingMode Exclusion = new("exclusion", BinaryPrimitives.ReadUInt32BigEndian("smud"u8), static (under, over, _) => Vector256.Max(under + over - (2d * under * over), Vector256<double>.Zero));
-    public static readonly BlendingMode Subtract = new("subtract", BinaryPrimitives.ReadUInt32BigEndian("fsub"u8), static (under, over, _) => under - over);
-    public static readonly BlendingMode Divide = new("divide", BinaryPrimitives.ReadUInt32BigEndian("fdiv"u8), static (under, over, _) => Vector256.ConditionalSelect(Vector256.IsZero(over), under, under / over));
-    public static readonly BlendingMode Hue = new("hue", BinaryPrimitives.ReadUInt32BigEndian("hue "u8), static (under, over, luma) => Lit(Saturated(over, Chroma(under)), Vector256.Dot(under, luma), luma));
-    public static readonly BlendingMode Saturation = new("saturation", BinaryPrimitives.ReadUInt32BigEndian("sat "u8), static (under, over, luma) => Lit(Saturated(under, Chroma(over)), Vector256.Dot(under, luma), luma));
-    public static readonly BlendingMode Color = new("color", BinaryPrimitives.ReadUInt32BigEndian("colr"u8), static (under, over, luma) => Lit(over, Vector256.Dot(under, luma), luma));
-    public static readonly BlendingMode Value = new("value", BinaryPrimitives.ReadUInt32BigEndian("lum "u8), static (under, over, luma) => Lit(under, Vector256.Dot(over, luma), luma));
+public abstract partial class BlendingMode {
+    public static readonly BlendingMode Mix = new Blended<Kernels.Mix>("mix", "norm"u8);
+    public static readonly BlendingMode Darken = new Blended<Kernels.Darken>("darken", "dark"u8);
+    public static readonly BlendingMode Multiply = new Blended<Kernels.Multiply>("multiply", "mul "u8);
+    public static readonly BlendingMode Burn = new Blended<Kernels.Burn>("burn", "idiv"u8);
+    public static readonly BlendingMode Lighten = new Blended<Kernels.Lighten>("lighten", "lite"u8);
+    public static readonly BlendingMode Screen = new Blended<Kernels.Screen>("screen", "scrn"u8);
+    public static readonly BlendingMode Dodge = new Blended<Kernels.Dodge>("dodge", "div "u8);
+    public static readonly BlendingMode Add = new Blended<Kernels.Add>("add", "lddg"u8);
+    public static readonly BlendingMode Overlay = new Blended<Kernels.Overlay>("overlay", "over"u8);
+    public static readonly BlendingMode SoftLight = new Blended<Kernels.SoftLight>("soft-light", "sLit"u8);
+    public static readonly BlendingMode LinearLight = new Blended<Kernels.LinearLight>("linear-light", "lLit"u8);
+    public static readonly BlendingMode Difference = new Blended<Kernels.Difference>("difference", "diff"u8);
+    public static readonly BlendingMode Exclusion = new Blended<Kernels.Exclusion>("exclusion", "smud"u8);
+    public static readonly BlendingMode Subtract = new Blended<Kernels.Subtract>("subtract", "fsub"u8);
+    public static readonly BlendingMode Divide = new Blended<Kernels.Divide>("divide", "fdiv"u8);
+    public static readonly BlendingMode Hue = new Blended<Kernels.Hue>("hue", "hue "u8);
+    public static readonly BlendingMode Saturation = new Blended<Kernels.Saturation>("saturation", "sat "u8);
+    public static readonly BlendingMode Color = new Blended<Kernels.Color>("color", "colr"u8);
+    public static readonly BlendingMode Value = new Blended<Kernels.Value>("value", "lum "u8);
 
     public uint BlendModeKey { get; }
 
-    [UseDelegateFromConstructor]
-    private partial Vector256<double> Kernel(Vector256<double> under, Vector256<double> over, Vector256<double> luma);
+    public abstract void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, PixelAlphaRepresentation representation, Gamut gamut, PixelAlphaRepresentation sourceRepresentation = PixelAlphaRepresentation.Unassociated);
 
-    public void Composite(
-        Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, PixelAlphaRepresentation representation, Gamut gamut,
-        PixelAlphaRepresentation sourceRepresentation = PixelAlphaRepresentation.Unassociated) {
-        Vector256<double> luma = gamut.LuminanceLanes;
-        for (int x = 0; x < backdrop.Length; x++) {
-            if (weights[x] is 0f || (sourceRepresentation is PixelAlphaRepresentation.Unassociated && layer[x].W is 0f) || (sourceRepresentation is PixelAlphaRepresentation.Associated && layer[x] == Vector4.Zero))
-                continue;
-            double sourceAlpha = sourceRepresentation is PixelAlphaRepresentation.None ? 1d : layer[x].W;
-            double covered = weights[x] * sourceAlpha;
-            Vector4 under = backdrop[x];
-            Vector256<double> source = Vector256.Create(layer[x].X, layer[x].Y, layer[x].Z, 0d);
-            double alpha = representation is PixelAlphaRepresentation.None ? 1d : under.W;
-            Vector256<double> color = Vector256.Create(under.X, under.Y, under.Z, 0d);
-            Vector256<double> associated = representation is PixelAlphaRepresentation.Associated || alpha is 1d ? color
-                : alpha is 0d ? Vector256<double>.Zero : alpha * color;
-            color = representation is PixelAlphaRepresentation.Associated && alpha is not (0d or 1d) ? color / alpha : color;
-            Vector256<double> straight = sourceRepresentation is PixelAlphaRepresentation.Associated && sourceAlpha is not 0d ? source / sourceAlpha : source;
-            Vector256<double> blended = alpha is 0d ? straight
-                : alpha is 1d ? Kernel(color, straight, luma)
-                : Vector256.Lerp(straight, Kernel(color, straight, luma), Vector256.Create(alpha));
-            double outputAlpha = covered is 1d || alpha is 1d ? 1d : alpha is 0d ? covered : covered + ((1d - covered) * alpha);
-            Vector256<double> output = sourceAlpha is 0d ? associated + (weights[x] * source)
-                : covered is 1d ? blended : (covered * blended) + ((1d - covered) * associated);
-            output = representation is PixelAlphaRepresentation.Unassociated && outputAlpha is not (0d or 1d) ? output / outputAlpha : output;
-            backdrop[x] = new Vector4((float)output[0], (float)output[1], (float)output[2], (float)outputAlpha);
+    public abstract void Mixed(ReadOnlySpan<Vector4> input, Span<Vector4> graded, ReadOnlySpan<float> weights, Gamut gamut);
+
+    private sealed class Blended<TKernel>(string key, ReadOnlySpan<byte> code) : BlendingMode(key, BinaryPrimitives.ReadUInt32BigEndian(code)) where TKernel : struct, IBlendKernel {
+        public override void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, PixelAlphaRepresentation representation, Gamut gamut, PixelAlphaRepresentation sourceRepresentation = PixelAlphaRepresentation.Unassociated) {
+            Vector256<double> luma = gamut.LuminanceLanes;
+            for (int x = 0; x < backdrop.Length; x++) {
+                if (weights[x] is 0f || (sourceRepresentation is PixelAlphaRepresentation.Unassociated && layer[x].W is 0f) || (sourceRepresentation is PixelAlphaRepresentation.Associated && layer[x] == Vector4.Zero))
+                    continue;
+                double sourceAlpha = sourceRepresentation is PixelAlphaRepresentation.None ? 1d : layer[x].W;
+                double covered = weights[x] * sourceAlpha;
+                Vector4 under = backdrop[x];
+                Vector256<double> source = Vector256.Create(layer[x].X, layer[x].Y, layer[x].Z, 0d);
+                double alpha = representation is PixelAlphaRepresentation.None ? 1d : under.W;
+                Vector256<double> color = Vector256.Create(under.X, under.Y, under.Z, 0d);
+                Vector256<double> associated = representation is PixelAlphaRepresentation.Associated || alpha is 1d ? color
+                    : alpha is 0d ? Vector256<double>.Zero : alpha * color;
+                color = representation is PixelAlphaRepresentation.Associated && alpha is not (0d or 1d) ? color / alpha : color;
+                Vector256<double> straight = sourceRepresentation is PixelAlphaRepresentation.Associated && sourceAlpha is not 0d ? source / sourceAlpha : source;
+                Vector256<double> blended = alpha is 0d ? straight
+                    : alpha is 1d ? TKernel.Blended(color, straight, luma)
+                    : Vector256.Lerp(straight, TKernel.Blended(color, straight, luma), Vector256.Create(alpha));
+                double outputAlpha = covered is 1d || alpha is 1d ? 1d : alpha is 0d ? covered : covered + ((1d - covered) * alpha);
+                Vector256<double> output = sourceAlpha is 0d ? associated + (weights[x] * source)
+                    : covered is 1d ? blended : (covered * blended) + ((1d - covered) * associated);
+                output = representation is PixelAlphaRepresentation.Unassociated && outputAlpha is not (0d or 1d) ? output / outputAlpha : output;
+                backdrop[x] = new Vector4((float)output[0], (float)output[1], (float)output[2], (float)outputAlpha);
+            }
         }
-    }
 
-    public void Mixed(ReadOnlySpan<Vector4> input, Span<Vector4> graded, ReadOnlySpan<float> weights, Gamut gamut) {
-        Vector256<double> luma = gamut.LuminanceLanes;
-        for (int x = 0; x < graded.Length; x++) {
-            if (weights[x] is 0f)
-                graded[x] = input[x];
-            else {
-                Vector256<double> original = Vector256.Create(input[x].X, input[x].Y, input[x].Z, 0d);
-                Vector256<double> applied = Kernel(original, Vector256.Create(graded[x].X, graded[x].Y, graded[x].Z, 0d), luma);
-                Vector256<double> output = weights[x] is 1f ? applied : Vector256.Lerp(original, applied, Vector256.Create((double)weights[x]));
-                graded[x] = new Vector4((float)output[0], (float)output[1], (float)output[2], input[x].W);
+        public override void Mixed(ReadOnlySpan<Vector4> input, Span<Vector4> graded, ReadOnlySpan<float> weights, Gamut gamut) {
+            Vector256<double> luma = gamut.LuminanceLanes;
+            for (int x = 0; x < graded.Length; x++) {
+                if (weights[x] is 0f)
+                    graded[x] = input[x];
+                else {
+                    Vector256<double> original = Vector256.Create(input[x].X, input[x].Y, input[x].Z, 0d);
+                    Vector256<double> applied = TKernel.Blended(original, Vector256.Create(graded[x].X, graded[x].Y, graded[x].Z, 0d), luma);
+                    Vector256<double> output = weights[x] is 1f ? applied : Vector256.Lerp(original, applied, Vector256.Create((double)weights[x]));
+                    graded[x] = new Vector4((float)output[0], (float)output[1], (float)output[2], input[x].W);
+                }
             }
         }
     }
-
-    private static (double Least, double Most) Extremes(Vector256<double> color) =>
-        (double.Min(double.Min(color[0], color[1]), color[2]), double.Max(double.Max(color[0], color[1]), color[2]));
-
-    private static double Chroma(Vector256<double> color) => double.Max(double.Max(color[0], color[1]), color[2]) - double.Min(double.Min(color[0], color[1]), color[2]);
-
-    private static Vector256<double> Saturated(Vector256<double> color, double chroma) =>
-        Extremes(color) switch {
-            (var least, var most) when most > least => (color - Vector256.Create(least)) * (chroma / (most - least)),
-            _ => Vector256<double>.Zero,
-        };
-
-    private static Vector256<double> Lit(Vector256<double> color, double level, Vector256<double> luma) =>
-        (color + Vector256.Create(level - Vector256.Dot(color, luma))) switch {
-            var shifted => (Vector256.Dot(shifted, luma), Extremes(shifted)) switch {
-                (var lum, (var least, var most)) when least < 0d || most > 1d => Vector256.Lerp(Vector256.Create(lum), shifted,
-                    Vector256.Create((least < 0d ? lum / (lum - least) : 1d) * (most > 1d ? (1d - lum) / (most - lum) : 1d))),
-                _ => shifted,
-            },
-        };
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -144,7 +121,7 @@ public abstract partial record Coverage {
     public sealed record Qualified(HueRange Range, bool Inverted) : Coverage {
         public override void Weights(ReadOnlySpan<Vector4> row, long column, long line, Span<float> weights) {
             for (int x = 0; x < row.Length; x++)
-                weights[x] = Range.Membership(Hsy.From(row[x]));
+                weights[x] = Range.Membership(row[x]);
             if (Inverted)
                 TensorPrimitives.Subtract(1f, weights, weights);
         }
@@ -242,4 +219,41 @@ public static class Blend {
             mask.Operation.Join(weights, key.Span);
         }
     }
+}
+
+file static class Kernels {
+    internal readonly struct Mix : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => over; }
+    internal readonly struct Darken : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Vector256.Min(under, over); }
+    internal readonly struct Multiply : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => under * over; }
+    internal readonly struct Burn : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Vector256.ConditionalSelect(Vector256.LessThanOrEqual(over, Vector256<double>.Zero), Vector256<double>.Zero, Vector256.Clamp(Vector256<double>.One - ((Vector256<double>.One - under) / over), Vector256<double>.Zero, Vector256<double>.One)); }
+    internal readonly struct Lighten : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Vector256.Max(under, over); }
+    internal readonly struct Screen : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Vector256<double>.One - ((Vector256<double>.One - over) * (Vector256<double>.One - under)); }
+    internal readonly struct Dodge : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => (Vector256<double>.One - over) switch { var rest => Vector256.ConditionalSelect(Vector256.IsZero(under), under, Vector256.ConditionalSelect(Vector256.LessThanOrEqual(rest, Vector256<double>.Zero), Vector256<double>.One, Vector256.Min(under / rest, Vector256<double>.One))) }; }
+    internal readonly struct Add : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => under + over; }
+    internal readonly struct Overlay : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Vector256.ConditionalSelect(Vector256.LessThan(under, Vector256.Create(0.5d)), 2d * under * over, Vector256<double>.One - (2d * (Vector256<double>.One - over) * (Vector256<double>.One - under))); }
+    internal readonly struct SoftLight : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => (under * under) + (2d * under * over * (Vector256<double>.One - under)); }
+    internal readonly struct LinearLight : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => under + (2d * over) - Vector256<double>.One; }
+    internal readonly struct Difference : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Vector256.Abs(under - over); }
+    internal readonly struct Exclusion : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Vector256.Max(under + over - (2d * under * over), Vector256<double>.Zero); }
+    internal readonly struct Subtract : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => under - over; }
+    internal readonly struct Divide : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Vector256.ConditionalSelect(Vector256.IsZero(over), under, under / over); }
+    internal readonly struct Hue : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Lit(Saturated(over, Chroma(under)), Vector256.Dot(under, luma), luma); }
+    internal readonly struct Saturation : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Lit(Saturated(under, Chroma(over)), Vector256.Dot(under, luma), luma); }
+    internal readonly struct Color : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Lit(over, Vector256.Dot(under, luma), luma); }
+    internal readonly struct Value : IBlendKernel { static Vector256<double> IBlendKernel.Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma) => Lit(under, Vector256.Dot(over, luma), luma); }
+
+    private static (double Least, double Most) Extremes(Vector256<double> color) => (double.Min(double.Min(color[0], color[1]), color[2]), double.Max(double.Max(color[0], color[1]), color[2]));
+
+    private static double Chroma(Vector256<double> color) => double.Max(double.Max(color[0], color[1]), color[2]) - double.Min(double.Min(color[0], color[1]), color[2]);
+
+    private static Vector256<double> Saturated(Vector256<double> color, double chroma) => Extremes(color) switch { (var least, var most) when most > least => (color - Vector256.Create(least)) * (chroma / (most - least)), _ => Vector256<double>.Zero };
+
+    private static Vector256<double> Lit(Vector256<double> color, double level, Vector256<double> luma) =>
+        (color + Vector256.Create(level - Vector256.Dot(color, luma))) switch {
+            var shifted => (Vector256.Dot(shifted, luma), Extremes(shifted)) switch {
+                (var lum, (var least, var most)) when least < 0d || most > 1d => Vector256.Lerp(Vector256.Create(lum), shifted,
+                    Vector256.Create((least < 0d ? lum / (lum - least) : 1d) * (most > 1d ? (1d - lum) / (most - lum) : 1d))),
+                _ => shifted,
+            },
+        };
 }

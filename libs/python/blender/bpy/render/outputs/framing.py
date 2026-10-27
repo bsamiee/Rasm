@@ -16,7 +16,7 @@ from blender.bpy.commands.operators import Answer, answered, Call, Empty, Operat
 from blender.bpy.data.rna.conditions import AllOf, Count, Setting
 from blender.bpy.data.rna.descriptors import assigned, Descriptor
 from blender.bpy.data.rna.snapshots import Endpoints, Snapshot
-from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
+from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
@@ -392,7 +392,7 @@ class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
             safe_broadcast,
             Append(target=RENDER_PT_format, rows=(Label(text=lambda context: self.bound(identity).map(lambda framed: framed.caption(context)).default_with(summarized)),)),
             Append(target=RENDER_PT_frame_range, rows=(Label(text=duration),)),
-            PathHandler(handlers=LOAD_POST, body=lambda _: self.bound(identity).bind(lambda framed: accumulated(framed.restored(scene) for scene in bpy.data.scenes).map(lambda _: None))),
+            Handler(handlers=bpy.app.handlers.load_post, body=lambda: self.bound(identity).bind(lambda framed: accumulated(framed.restored(scene) for scene in bpy.data.scenes).map(lambda _: None))),
         ))
 
 

@@ -58,10 +58,10 @@ _INTERCHANGE: Final[Callable[[PyOpenColorIO.ColorSpace, str], str]] = PyOpenColo
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _DEPTH_WRITERS: Final = MappingProxyType({
-    Depth.UINT8: frozenset({"bmp", "dpx", "fits", "ico", "iff", "jpeg", "jpeg2000", "jpegxl", "png", "pnm", "rla", "sgi", "targa", "tiff", "webp"}),
-    Depth.UINT16: frozenset({"dpx", "iff", "jpeg2000", "jpegxl", "png", "pnm", "rla", "sgi", "tiff"}),
-    Depth.HALF: frozenset({"jpegxl", "openexr", "tiff"}),
-    Depth.FLOAT: frozenset({"dpx", "fits", "hdr", "jpegxl", "openexr", "pnm", "rla", "tiff"}),
+    Depth.UINT8: frozenset({"bmp", "dpx", "fits", "ico", "iff", "jpeg", "jpeg2000", "png", "pnm", "rla", "sgi", "targa", "tiff", "webp"}),
+    Depth.UINT16: frozenset({"dpx", "iff", "jpeg2000", "png", "pnm", "rla", "sgi", "tiff"}),
+    Depth.HALF: frozenset({"openexr", "tiff"}),
+    Depth.FLOAT: frozenset({"dpx", "fits", "hdr", "openexr", "pnm", "rla", "tiff"}),
 })
 _CODEC_WRITERS: Final = MappingProxyType({
     Codec.NONE: frozenset({"openexr", "tiff"}),

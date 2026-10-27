@@ -52,7 +52,7 @@ public sealed partial class Hull {
         let fit = facet.MapIndexed((_, column, value) => value - middle[column]).Svd(computeVectors: true)
         from planar in SpatialFault.Unless(fit.S[1] > tolerance, SpatialRule.Degenerate, fit.S[1], index)
         let normal = fit.VT.Row(2)
-        let outward = normal * Math.Sign(normal.DotProduct(middle - inside))
+        let outward = normal * double.Sign(normal.DotProduct(middle - inside))
         let distance = outward.DotProduct(middle - centre)
         from clear in SpatialFault.Unless(distance > tolerance, SpatialRule.Range, distance, index)
         let pole = centre + (outward / distance)

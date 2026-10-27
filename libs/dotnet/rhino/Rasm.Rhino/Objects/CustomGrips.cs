@@ -1,11 +1,10 @@
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Custom;
-using Rhino.DocObjects.Tables;
 
-namespace Rasm.Rhino.Objects;
+namespace Rasm.RhinoCommon.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record GripPoint(
@@ -48,7 +47,7 @@ internal sealed class DefinedGripObject : CustomGripObject {
     internal DefinedGripObject(GripPoint point) {
         Point = point;
         weight = Conversions.Unset(point.Weight);
-        _ = DisposalOps.OnFailure(IO.lift(() => { OriginalLocation = point.Location; }), IO.lift(Dispose)).Run();
+        OriginalLocation = point.Location;
     }
 
     internal GripPoint Point { get; }
@@ -94,21 +93,19 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
         freePoints: static dragLine => dragLine ? ObjectGripsType.Custom : ObjectGripsType.CustomNoDragLine,
         curveControlPoint: static _ => ObjectGripsType.CurveControlPoint,
         surfaceControlPoint: static _ => ObjectGripsType.SurfaceControlPoint)) {
-        (this.control, owner) = (control, HostedTypes.Owner(GetType()));
-        grips = DisposalOps.OnFailure(
-            toSeq(points).TraverseM(point => DisposalOps.Acquire(IO.lift(() => new DefinedGripObject(point)), AddGrip)).As(),
-            IO.lift(Dispose)).Run();
+        (this.control, owner) = (control, PlugInOwners.Owner(GetType()));
+        grips = toSeq(points).Map(static point => new DefinedGripObject(point)).Strict();
+        _ = grips.Iter(AddGrip);
     }
 
     // --- [CALLBACKS]
     protected abstract Fin<GeometryBase> Rebuild(Seq<GripPoint> grips);
 
     protected sealed override GeometryBase? NewGeometry() =>
-        Callbacks.Answer(
+        owner.Answer(
             IO.lift(() => Rebuild(grips.Map(static grip => grip.Point with { Location = grip.CurrentLocation, Weight = Conversions.Present(grip.Weight) }).Strict()))
                 .Map(static GeometryBase? (geometry) => geometry).Uninterruptible(),
-            static () => null,
-            CallbackSite.Of(owner, this));
+            failed: null);
 
     protected sealed override NurbsCurve? NurbsCurve() =>
         control.Switch(freePoints: static NurbsCurve? (_) => null, curveControlPoint: static curve => curve, surfaceControlPoint: static _ => null);
@@ -126,14 +123,13 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CustomGrips {
     // --- [REGISTRATION]
-    public static IO<Unit> Register<TGrips>(Func<RhinoObject, Option<TGrips>> grips, IPlugInSink sink) where TGrips : DefinedObjectGrips {
-        TurnOnGripsEventHandler handler = owner => Callbacks.Run(
-            (from candidate in IO.lift(() => grips(owner))
+    public static IO<Unit> Register<TGrips>(Func<RhinoObject, Option<TGrips>> grips, object owner) where TGrips : DefinedObjectGrips {
+        TurnOnGripsEventHandler handler = target => owner.Run(
+            (from candidate in IO.lift(() => grips(target))
              from attached in candidate.Match(
-                 Some: built => DisposalOps.OnFailure(IO.lift(() => Refused.Unless(owner.EnableCustomGrips(built), nameof(RhinoObject.EnableCustomGrips))), IO.lift(built.Dispose)),
+                 Some: built => IO.lift(() => RhinoFault.Unless(target.EnableCustomGrips(built))).Catch(error => IO.lift(built.Dispose) >> IO.fail<Unit>(error)).As(),
                  None: static () => IO.pure(unit))
-             select attached).Uninterruptible(),
-            new CallbackSite(sink, typeof(TGrips), nameof(CustomObjectGrips.RegisterGripsEnabler)));
+             select attached).Uninterruptible());
         return IO.lift(() => CustomObjectGrips.RegisterGripsEnabler(handler, typeof(TGrips)));
     }
 
@@ -145,8 +141,8 @@ public static class CustomGrips {
                 target.GripsOn = enabled;
                 return unit;
             },
-            registered: static (target, id) => Refused.Unless(target.EnableGrips(id), nameof(RhinoObject.EnableGrips)),
-            editPoints: static (target, _) => Refused.Unless(target.EnableEditPointGrips(), nameof(RhinoObject.EnableEditPointGrips))));
+            registered: static (target, id) => RhinoFault.Unless(target.EnableGrips(id)),
+            editPoints: static (target, _) => RhinoFault.Unless(target.EnableEditPointGrips())));
 
     public static IO<GripKind> EnabledGrips(RhinoObject owner) =>
         IO.lift(GripKind () =>
@@ -165,14 +161,14 @@ public static class CustomGrips {
                 grip.OwnerId,
                 grip.OriginalLocation,
                 grip.Moved,
-                Callbacks.Found(grip.GetCageParameters(out double cu, out double cv, out double cw), (U: cu, V: cv, W: cw)),
+                Conversions.Found(grip.GetCageParameters(out double cu, out double cv, out double cw), (U: cu, V: cv, W: cw)),
                 Conversions.Present(grip.SubDComponentId),
                 new GripPoint(
                     grip.CurrentLocation,
                     Conversions.Present(grip.Weight),
-                    Callbacks.Found(grip.GetGripDirections(out Vector3d u, out Vector3d v, out Vector3d normal), (U: u, V: v, Normal: normal)),
-                    Callbacks.Found(grip.GetCurveParameters(out double t), t),
-                    Callbacks.Found(grip.GetSurfaceParameters(out double su, out double sv), (U: su, V: sv)),
+                    Conversions.Found(grip.GetGripDirections(out Vector3d u, out Vector3d v, out Vector3d normal), (U: u, V: v, Normal: normal)),
+                    Conversions.Found(grip.GetCurveParameters(out double t), t),
+                    Conversions.Found(grip.GetSurfaceParameters(out double su, out double sv), (U: su, V: sv)),
                     toSeq(curve),
                     toSeq(surface).Map(static pair => new IndexPair(pair.Item1, pair.Item2))));
         }).Strict();
@@ -180,7 +176,8 @@ public static class CustomGrips {
     // --- [EDITS]
     public static IO<int> Move(RhinoObject owner, Option<int> index, GripMove move) =>
         from available in IO.lift(() => Conversions.Rows(owner.GetGrips()))
-        from chosen in IO.lift(Conversions.NonEmpty(available.Filter(grip => index.ForAll(wanted => grip.Index == wanted)).Strict(), nameof(RhinoObject.GetGrips)))
+        let chosen = available.Filter(grip => index.ForAll(wanted => grip.Index == wanted)).Strict()
+        from present in IO.lift(() => RhinoFault.Unless(!chosen.IsEmpty))
         from moved in IO.lift(() => chosen.Iter(grip => move.Switch(
             grip,
             toPoint: static (target, point) => target.Move(point),
@@ -190,6 +187,5 @@ public static class CustomGrips {
         select chosen.Count;
 
     public static IO<RhinoObject> GripUpdate(RhinoObject owner, bool deleteOriginal) =>
-        IO.lift(() => Refused.UnlessFound(owner.Document, nameof(RhinoObject.Document))
-            .Bind(document => Refused.UnlessFound(document.Objects.GripUpdate(owner, deleteOriginal), nameof(ObjectTable.GripUpdate))));
+        IO.lift(() => Conversions.Found(owner.Document).Bind(document => Conversions.Found(document.Objects.GripUpdate(owner, deleteOriginal))));
 }

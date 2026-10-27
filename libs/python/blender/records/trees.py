@@ -1,14 +1,14 @@
 """Keyed owner trees with their diffs, merges, transfers, and reverts, layered layouts of linked boxes, dated histories under retention, preorder walks over any tree, and record lenses reading and rebuilding nested values."""
 
 from collections import defaultdict
-from collections.abc import Callable, Hashable, Iterable, Mapping
+from collections.abc import Callable, Collection, Hashable, Iterable, Mapping
 import datetime
 from difflib import SequenceMatcher
-from functools import reduce
+from functools import cached_property, reduce
 from graphlib import TopologicalSorter
 from itertools import accumulate
 from operator import sub
-from types import MemberDescriptorType
+from types import MappingProxyType, MemberDescriptorType
 from typing import Annotated, Self
 
 from expression import Nothing, Option, Some
@@ -19,41 +19,45 @@ from blender.records.fields import NonNegative, Side
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Edit[V] = Inserted[V] | Deleted[V] | Moved | Reparametrized[V]
-type Lens = tuple[MemberDescriptorType | int, ...]
+type Edit[V, K: Hashable = str] = Inserted[V, K] | Deleted[V, K] | Moved[K] | Reparametrized[V, K]
+type Lens = tuple[object, ...]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 # --- [TREES]
 
 
-class Owner[V](msgspec.Struct, frozen=True, kw_only=True):
+class Owner[V, K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
     """Owner values by name and ordered child keys."""
 
     values: Mapping[str, V]
-    children: tuple[str, ...] = ()
+    children: tuple[K, ...] = ()
 
 
-class _Place(msgspec.Struct, frozen=True, kw_only=True):
+class _Place[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
     """Sibling index under parent or among roots."""
 
-    parent: Option[str]
+    parent: Option[K]
     index: int
 
 
-class Tree[V](msgspec.Struct, frozen=True, kw_only=True):
+class Tree[V, K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Owners by stable key, ordered under parents."""
 
-    roots: tuple[str, ...]
-    owners: Mapping[str, Owner[V]]
+    roots: tuple[K, ...]
+    rows: tuple[tuple[K, Owner[V, K]], ...]
+
+    @cached_property
+    def owners(self) -> Mapping[K, Owner[V, K]]:
+        """Owners by key."""
+        return MappingProxyType(dict(self.rows))
 
     @classmethod
-    def joined(cls, trees: Iterable["Tree[V]"]) -> Self:
+    def joined(cls, trees: Collection[Self]) -> Self:
         """Concatenates trees in order."""
-        held = tuple(trees)
-        return cls(roots=tuple(key for tree in held for key in tree.roots), owners={key: value for tree in held for key, value in tree.owners.items()})
+        return cls(roots=tuple(key for tree in trees for key in tree.roots), rows=tuple({key: owner for tree in trees for key, owner in tree.rows}.items()))
 
-    def merged(self, other: "Tree[V]") -> Self:
+    def merged(self, other: Self) -> Self:
         """Returns owners of both trees, an owner both hold taking other's children and other's values over this tree's.
 
         Args:
@@ -64,56 +68,62 @@ class Tree[V](msgspec.Struct, frozen=True, kw_only=True):
         """
         return type(self)(
             roots=tuple(dict.fromkeys((*self.roots, *other.roots))),
-            owners={**self.owners, **{key: msgspec.structs.replace(owner, values={**self.owners[key].values, **owner.values}) if key in self.owners else owner for key, owner in other.owners.items()}},
+            rows=tuple(
+                {**self.owners, **{key: msgspec.structs.replace(owner, values={**self.owners[key].values, **owner.values}) if key in self.owners else owner for key, owner in other.rows}}.items()
+            ),
         )
 
-    def children(self, parent: Option[str]) -> tuple[str, ...]:
+    def children(self, parent: Option[K]) -> tuple[K, ...]:
         """Returns ordered child keys under parent, roots for Nothing."""
         return parent.map(lambda key: self.owners[key].children).default_value(self.roots)
 
-    def places(self) -> dict[str, _Place]:
+    def places(self) -> dict[K, _Place[K]]:
         """Returns place per owner."""
         return {key: _Place(parent=parent, index=index) for parent in (Nothing, *map(Some, self.owners)) for index, key in enumerate(self.children(parent))}
 
 
-class _Placed[V](msgspec.Struct, frozen=True, kw_only=True):
+class _Placed[V, K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
     """Owner with values at place."""
 
-    key: str
-    place: _Place
+    key: K
+    place: _Place[K]
     values: Mapping[str, V]
 
 
-class Inserted[V](_Placed[V], frozen=True, kw_only=True):
+class Inserted[V, K: Hashable = str](_Placed[V, K], frozen=True, kw_only=True):
     """Owner entering tree at place."""
 
 
-class Deleted[V](_Placed[V], frozen=True, kw_only=True):
+class Deleted[V, K: Hashable = str](_Placed[V, K], frozen=True, kw_only=True):
     """Owner leaving tree from place."""
 
 
-class Moved(msgspec.Struct, frozen=True, kw_only=True):
+class Moved[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
     """Owner changing parent or sibling position."""
 
-    key: str
-    before: _Place
-    after: _Place
+    key: K
+    before: _Place[K]
+    after: _Place[K]
 
 
-class Reparametrized[V](msgspec.Struct, frozen=True, kw_only=True):
+class Reparametrized[V, K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
     """Owner values changed, removed, or added."""
 
-    key: str
+    key: K
     before: Mapping[str, V]
     after: Mapping[str, V]
 
     @classmethod
-    def of(cls, key: str, before: Mapping[str, V], after: Mapping[str, V], *, shared: bool = False) -> Option[Self]:
-        """Returns changed values, shared names alone when shared."""
-        names = before.keys() & after.keys() if shared else before.keys() | after.keys()
-        old = {name: value for name, value in before.items() if name in names and (name not in after or after[name] != value)}
-        new = {name: value for name, value in after.items() if name in names and (name not in before or before[name] != value)}
+    def of(cls, key: K, before: Mapping[str, V], after: Mapping[str, V]) -> Option[Self]:
+        """Returns changed, removed, and added values."""
+        old = {name: value for name, value in before.items() if name not in after or after[name] != value}
+        new = {name: value for name, value in after.items() if name not in before or before[name] != value}
         return Some(cls(key=key, before=old, after=new)) if old or new else Nothing
+
+    @classmethod
+    def shared(cls, key: K, before: Mapping[str, V], after: Mapping[str, V]) -> Option[Self]:
+        """Returns changed values of names both hold."""
+        return cls.of(key, {name: value for name, value in before.items() if name in after}, {name: value for name, value in after.items() if name in before})
 
 
 # --- [LAYOUTS]
@@ -210,7 +220,7 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
 # --- [TREES]
 
 
-def diff[V](before: Tree[V], after: Tree[V]) -> tuple[Edit[V], ...]:
+def diff[V, K: Hashable](before: Tree[V, K], after: Tree[V, K]) -> tuple[Edit[V, K], ...]:
     """Returns deletions, value changes, and target-ordered moves and insertions."""
     was, now = before.places(), after.places()
     stay = frozenset(key for key, place in now.items() if key in was and was[key].parent == place.parent)
@@ -218,16 +228,16 @@ def diff[V](before: Tree[V], after: Tree[V]) -> tuple[Edit[V], ...]:
     kept = frozenset(key for old, new in orders for block in SequenceMatcher(None, old, new, autojunk=False).get_matching_blocks() for key in new[block.b : block.b + block.size])
     return (
         *(Deleted(key=key, place=was[key], values=owner.values) for key, owner in before.owners.items() if key not in after.owners),
-        *(edit for key, owner in after.owners.items() if key in before.owners for edit in Reparametrized.of(key, before.owners[key].values, owner.values).to_list()),
+        *(edit for key, owner in after.owners.items() if key in before.owners for edit in Reparametrized[V, K].of(key, before.owners[key].values, owner.values).to_list()),
         *(Moved(key=key, before=was[key], after=place) if key in was else Inserted(key=key, place=place, values=after.owners[key].values) for key, place in now.items() if key not in kept),
     )
 
 
-def merge[V](state: Tree[V], edits: Iterable[Edit[V]]) -> Tree[V]:
+def merge[V, K: Hashable](state: Tree[V, K], edits: Iterable[Edit[V, K]]) -> Tree[V, K]:
     """Applies edits drawn against state."""
     values = {key: owner.values for key, owner in state.owners.items()}
-    lifted: set[str] = set()
-    entering: list[tuple[_Place, str]] = []
+    lifted: set[K] = set()
+    entering: list[tuple[_Place[K], K]] = []
     for edit in edits:
         match edit:
             case Inserted(key=key, place=place, values=inserted):
@@ -241,27 +251,26 @@ def merge[V](state: Tree[V], edits: Iterable[Edit[V]]) -> Tree[V]:
                 entering.append((place, key))
             case Reparametrized(key=key, before=old, after=new):
                 values[key] = {**{name: value for name, value in values[key].items() if name not in old}, **new}
-    order = defaultdict[Option[str], list[str]](list, {parent: [key for key in state.children(parent) if key not in lifted] for parent in (Nothing, *map(Some, state.owners))})
+    order = defaultdict[Option[K], list[K]](list, {parent: [key for key in state.children(parent) if key not in lifted] for parent in (Nothing, *map(Some, state.owners))})
     for place, key in sorted(entering, key=lambda row: row[0].index):
         order[place.parent].insert(place.index, key)
-    return Tree(roots=tuple(order[Nothing]), owners={key: Owner(values=owned, children=tuple(order[Some(key)])) for key, owned in values.items()})
+    return Tree(roots=tuple(order[Nothing]), rows=tuple((key, Owner(values=owned, children=tuple(order[Some(key)]))) for key, owned in values.items()))
 
 
-def transfer[V](target: Tree[V], source: Tree[V]) -> tuple[Reparametrized[V], ...]:
+def transfer[V, K: Hashable](target: Tree[V, K], source: Tree[V, K]) -> tuple[Reparametrized[V, K], ...]:
     """Returns source values for owners and names both share."""
-    return tuple(edit for key, owner in source.owners.items() if key in target.owners for edit in Reparametrized.of(key, target.owners[key].values, owner.values, shared=True).to_list())
+    return tuple(edit for key, owner in source.owners.items() if key in target.owners for edit in Reparametrized[V, K].shared(key, target.owners[key].values, owner.values).to_list())
 
 
-def revert[V](current: Tree[V], applied: Iterable[Reparametrized[V]]) -> tuple[Reparametrized[V], ...]:
+def revert[V, K: Hashable](current: Tree[V, K], applied: Iterable[Reparametrized[V, K]]) -> tuple[Reparametrized[V, K], ...]:
     """Returns prior values where current matches applied."""
     return tuple(
         restored
         for edit in applied
-        if edit.key in current.owners
-        for values in (current.owners[edit.key].values,)
-        for restored in Reparametrized.of(
-            edit.key, values, {name: value for name, value in edit.before.items() if name in edit.after and name in values and values[name] == edit.after[name]}, shared=True
-        ).to_list()
+        for held in Option.of_optional(current.owners.get(edit.key)).to_list()
+        for restored in Reparametrized[V, K]
+        .shared(edit.key, held.values, {name: value for name, value in edit.before.items() if name in edit.after and held.values.get(name) == edit.after[name]})
+        .to_list()
     )
 
 

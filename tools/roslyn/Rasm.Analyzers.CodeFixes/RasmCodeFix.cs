@@ -11,6 +11,8 @@ namespace Rasm.Analyzers.CodeFixes;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public abstract class RasmCodeFix(params (DiagnosticDescriptor Rule, Func<SyntaxNode, string?> Title, Action<DocumentEditor, SyntaxNode, Diagnostic, CancellationToken> Edit)[] fixes) : CodeFixProvider {
+    private readonly ImmutableDictionary<string, (Func<SyntaxNode, string?> Title, Action<DocumentEditor, SyntaxNode, Diagnostic, CancellationToken> Edit)> byId = fixes.ToImmutableDictionary(static fix => fix.Rule.Id, static fix => (fix.Title, fix.Edit), StringComparer.Ordinal);
+
     public sealed override ImmutableArray<string> FixableDiagnosticIds { get; } = [.. fixes.Select(static fix => fix.Rule.Id)];
 
     public sealed override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -18,7 +20,7 @@ public abstract class RasmCodeFix(params (DiagnosticDescriptor Rule, Func<Syntax
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context) {
         if (await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false) is not { } root) return;
         foreach (Diagnostic diagnostic in context.Diagnostics)
-            if (fixes.First(fix => string.Equals(fix.Rule.Id, diagnostic.Id, StringComparison.Ordinal)) is var (_, titled, edit) && titled(Site(root, diagnostic.Location)) is { } title)
+            if (byId[diagnostic.Id] is var (titled, edit) && titled(Site(root, diagnostic.Location)) is { } title)
                 context.RegisterCodeFix(CodeAction.Create(title, token => FixedAsync(context.Document, diagnostic, edit, token), diagnostic.Id), diagnostic);
     }
 

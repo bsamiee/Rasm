@@ -1,6 +1,7 @@
 """Owned workspaces with add-on filters and deferred activation."""
 
 from contextlib import ExitStack
+from functools import partial
 from typing import Self, TYPE_CHECKING
 
 import bpy
@@ -12,7 +13,7 @@ from blender.bpy.commands.calls import called, Operation
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import written
-from blender.bpy.extension.events.timers import Startup
+from blender.bpy.extension.events import startup
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
@@ -70,7 +71,7 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Declares ownership and add-on filters applied after registration and every file load."""
-        return Ok((self.ownership, *self.owners.map(lambda _: Startup(body=lambda: self.filtered(identity))).to_list()))
+        return Ok((self.ownership, *(row for _ in self.owners.to_list() for row in startup(partial(self.filtered, identity)))))
 
     # --- [FILTERING]
 

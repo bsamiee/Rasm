@@ -1,15 +1,15 @@
+using System.Collections;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Eto.Forms;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Tables;
-using Rasm.Rhino.Events;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Document.Tables;
+using Rasm.RhinoCommon.Events;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
-using Rhino.DocObjects.Tables;
 
-namespace Rasm.Rhino.Objects;
+namespace Rasm.RhinoCommon.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record NamedSelection(Guid Id, string Name, Seq<Guid> Objects, Seq<(Guid ObjectId, ComponentIndex Component)> SubObjects) {
@@ -27,9 +27,7 @@ internal static class NamedSelections {
         NamedSelection.Read(doc).Map(static rows => rows.Map(static row => new NamedEntry(NamedTable.Selections, row.Name, Some(row.Id))).Strict());
 
     internal static Fin<Unit> Accepts(StateName name) =>
-        ((string)name).Contains(Separator, StringComparison.Ordinal)
-            ? Error.New(ErrorCodes.ValidationFailed, $"{nameof(SelectNamedSelections)} reads {name} as a {Separator} child path")
-            : unit;
+        RhinoFault.Unless(!((string)name).Contains(Separator, StringComparison.Ordinal));
 
     internal static IO<Seq<Guid>> Members(RhinoDoc doc, NamedEntry entry) =>
         Found(doc, entry.Name).Map(static rows => rows.Bind(static row => row.Objects).Distinct().Strict());
@@ -57,12 +55,12 @@ internal static class NamedSelections {
                 .Map(static child => (ObjectId: ChildId(child), Component: ChildComponent(child))).Strict())).Strict();
 
     private static IO<Seq<NamedSelection>> Found(RhinoDoc doc, string name) =>
-        Named(doc, name).Bind(rows => IO.lift(() => rows.IsEmpty ? new NotFound(nameof(NamedTable.Selections), name) : Fin.Succ(rows)));
+        Named(doc, name).Bind(rows => IO.lift(() => rows.IsEmpty ? new RhinoFault(name, RhinoReason.Missing) : Fin.Succ(rows)));
 
     private static IO<Seq<NamedSelection>> Named(RhinoDoc doc, string name) =>
         NamedSelection.Read(doc).Map(rows => rows.Filter(row => NamedTable.Selections.Comparer.Equals(row.Name, name)).Strict());
 
-    private static Seq<object> Items(object list) => toSeq((IEnumerable<object>)list);
+    private static Seq<object> Items(object list) => toSeq(((IEnumerable)list).Cast<object>());
 
     private static Seq<object> Live(Seq<object> children) => children.Filter(static child => !ChildDeleted(child));
 
@@ -82,33 +80,28 @@ internal static class NamedSelections {
         from model in Model(doc)
         from found in Found(doc, target.Name)
         from held in ObjectTarget.Selection(doc)
-        from restored in DisposalOps.OnFailure(
-            target.Edit.Switch(
+        from restored in target.Edit.Switch(
                 (Document: doc, Model: model, Target: target, Held: held),
                 set: static (at, set) => set.Select
                     ? IO.lift(() => SelectNamedSelections(at.Model, at.Target.Name)).Bind(_ => ObjectTarget.Reselected(at.Held))
                     : TableOps.Immediate(at.Document, new RedrawPolicy.Silent(),
                         new ImmediateOp.Selection(new ObjectTarget.Named(new NamedEntry(NamedTable.Selections, at.Target.Name, None)), set, Unrestricted)).Map(static _ => unit),
-                replace: static (at, _) => IO.lift(() => SelectNamedSelections(at.Model, at.Target.Name))),
-            Reverted(doc, held))
+                replace: static (at, _) => IO.lift(() => SelectNamedSelections(at.Model, at.Target.Name)))
+            .Catch(error => Reverted(doc, held) >> IO.fail<Unit>(error)).As()
         select (NamedWrite)new NamedWrite.Compensated(Reverted(doc, held), IO.pure(unit));
 
     private static IO<Unit> Saved(RhinoDoc doc, object model, string name, Seq<Guid> objects, Seq<(Guid ObjectId, ComponentIndex Component)> parts) =>
-        from created in DisposalOps.Within(
-            ObjectTarget.Selection(doc),
-            _ =>
-                from picked in TableOps.Immediate(doc, new RedrawPolicy.Silent(), new ImmediateOp.Selection(new ObjectTarget.Ids(objects), new SelectionEdit.Replace(), Unrestricted))
-                from parted in toSeq(parts.GroupBy(static part => part.ObjectId)).TraverseM(owned =>
-                    from owner in IO.lift(() => Refused.UnlessFound(doc.Objects.FindId(owned.Key), nameof(ObjectTable.FindId)))
-                    from selected in RhinoObjects.SelectSubObjects(owner, toSeq(owned).Map(static part => part.Component), ObjectSelection.Persistent, syncHighlight: true)
-                    select selected).As()
-                from made in IO.lift(() => CreateNamedSectionButtonClick(model, name, RunMode.Scripted, replaceExisting: true, parent: null))
-                select unit,
-            held => Reverted(doc, held))
+        from created in ObjectTarget.Selection(doc).Bind(held =>
+            (from picked in TableOps.Immediate(doc, new RedrawPolicy.Silent(), new ImmediateOp.Selection(new ObjectTarget.Ids(objects), new SelectionEdit.Replace(), Unrestricted))
+             from parted in toSeq(parts.GroupBy(static part => part.ObjectId)).TraverseM(owned =>
+                 from found in IO.lift(() => Conversions.Found(doc.Objects.FindId(owned.Key)))
+                 from selected in RhinoObjects.SelectSubObjects(found, toSeq(owned).Map(static part => part.Component), ObjectSelection.Persistent, syncHighlight: true)
+                 select selected).As()
+             from made in IO.lift(() => CreateNamedSectionButtonClick(model, name, RunMode.Scripted, replaceExisting: true, parent: null))
+             select unit).Finally(Reverted(doc, held)))
         from landed in Named(doc, name)
-        from confirmed in IO.lift(() => Refused.Unless(
-            landed.Head.Exists(row => toHashSet(row.Objects) == toHashSet(objects) && toHashSet(row.SubObjects) == toHashSet(parts)),
-            nameof(CreateNamedSectionButtonClick)))
+        from confirmed in IO.lift(() => RhinoFault.Unless(
+            landed.Head.Exists(row => toHashSet(row.Objects) == toHashSet(objects) && toHashSet(row.SubObjects) == toHashSet(parts))))
         select unit;
 
     private static IO<Unit> Renamed(object model, string name, string newName) =>
@@ -133,26 +126,26 @@ internal static class NamedSelections {
 
     // --- [MARKS]
     internal static HostEvent<Option<uint>> Refreshed { get; } = new(
-        typeof(INotifyPropertyChanged),
-        nameof(INotifyPropertyChanged.PropertyChanged),
-        static (deliver, site, retain) =>
-            from watched in IO.lift(static () => Ref(LanguageExt.HashSet<uint>.Empty))
+        $"{EventKind.DocumentArrived.Label} | {ModelType}",
+        static (deliver, owner) =>
+            from scope in IO.env
+            from watched in IO.lift(static () => Ref(HashSet<uint>()))
             from attached in EventKind.DocumentArrived.Inline(serial =>
                     from fresh in atomicIO(() => {
-                        LanguageExt.HashSet<uint> seen = watched.Value;
+                        HashSet<uint> seen = watched.Value;
                         watched.Value = seen.TryAdd(serial);
                         return !seen.Contains(serial);
                     })
-                    from doc in IO.lift(() => Refused.UnlessFound(RhinoDoc.FromRuntimeSerialNumber(serial), nameof(RhinoDoc.FromRuntimeSerialNumber)))
+                    from doc in IO.lift(() => Conversions.Found(RhinoDoc.FromRuntimeSerialNumber(serial)))
                     from model in Model(doc)
                     from notifier in IO.lift(() => Conversions.Cast<INotifyPropertyChanged>(model))
                     from observed in when(fresh, Subscriptions.Host<PropertyChangedEventHandler, PropertyChangedEventArgs>(
-                            typeof(INotifyPropertyChanged), handler => notifier.PropertyChanged += handler, handler => notifier.PropertyChanged -= handler,
-                            static handler => handler.Invoke, nameof(INotifyPropertyChanged.PropertyChanged))
-                        .Choose(args => Callbacks.Found(string.Equals(args.PropertyName, Collection, StringComparison.Ordinal), Some(serial)))
-                        .Attach(deliver, site, retain)).As()
+                            handler => notifier.PropertyChanged += handler, handler => notifier.PropertyChanged -= handler, static handler => handler.Invoke)
+                        .Choose(args => Conversions.Found(string.Equals(args.PropertyName, Collection, StringComparison.Ordinal), Some(serial)))
+                        .Inline(deliver, owner)
+                        .Under(scope)).As()
                     select unit,
-                site.Sink, retain)
+                owner)
             select attached);
 
     // --- [HOST]
@@ -168,7 +161,7 @@ internal static class NamedSelections {
     private const string Collection = "TreeGridCollection";
 
     internal static IO<object> Model(RhinoDoc doc) =>
-        from type in IO.lift(static () => Refused.UnlessFound(Type.GetType(ModelType), nameof(Type.GetType)))
+        from type in IO.lift(static () => Conversions.Found(Type.GetType(ModelType)))
         from model in IO.lift(() => doc.RuntimeData.GetValue(type, static owner => Created(owner.RuntimeSerialNumber)))
         from watching in IO.lift(() => IsDocumentEventWatchingEnabled(model))
         from read in when(!watching, IO.lift(() => ReadSavedNamedSelectionArray(model))).As()

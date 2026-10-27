@@ -15,7 +15,7 @@ from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
+from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
@@ -207,7 +207,7 @@ class TemporalGroups(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns the load handler building temporal groups."""
-        return Ok((PathHandler(handlers=LOAD_POST, body=lambda _path: self.built(identity)),))
+        return Ok((Handler(handlers=bpy.app.handlers.load_post, body=functools.partial(self.built, identity)),))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

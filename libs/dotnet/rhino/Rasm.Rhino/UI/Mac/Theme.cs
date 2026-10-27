@@ -2,11 +2,11 @@ using AppKit;
 using Eto.Drawing;
 using Eto.Mac.Drawing;
 using Foundation;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Styling;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.UI.Styling;
 using Rasm.UI.Styling;
 
-namespace Rasm.Rhino.UI.Mac;
+namespace Rasm.RhinoCommon.UI.Mac;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class WorkspaceTheme : IThemeHandler {
@@ -18,7 +18,7 @@ internal sealed class WorkspaceTheme : IThemeHandler {
         (static workspace => workspace.AccessibilityDisplayShouldReduceTransparency, Condition.ReduceTransparency),
     ];
 
-    public LanguageExt.HashSet<Condition> Conditions =>
+    public HashSet<Condition> Conditions =>
         toHashSet(Displays.Filter(static row => row.Should(NSWorkspace.SharedWorkspace)).Map(static row => row.Condition));
 
     // --- [INKS]
@@ -28,14 +28,12 @@ internal sealed class WorkspaceTheme : IThemeHandler {
 
     // --- [CHANGE]
     public HostEvent<EventArgs> Changed { get; } =
-        new(typeof(NSWorkspace), nameof(NSWorkspace.DisplayOptionsDidChangeNotification), static (deliver, site, retain) =>
-            DisposalOps.Acquire(owned =>
-                from callback in IO.pure(Callbacks.Handler<NSNotificationEventArgs>(_ => deliver(EventArgs.Empty), site))
-                from accessibility in DisposalOps.Acquire(IO.lift(() => NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(
-                    NSWorkspace.DisplayOptionsDidChangeNotification, notification => callback(notification.Object, new NSNotificationEventArgs(notification)))), owned)
-                from colors in DisposalOps.Acquire(IO.lift(() => NSColor.Notifications.ObserveSystemColorsChanged(callback)), owned)
-                from displays in DisposalOps.Acquire(IO.lift(() => NSApplication.Notifications.ObserveDidChangeScreenParameters(callback)), owned)
-                select unit, retain));
+        Subscriptions.Merged(
+                DrawnViews.Observed(static handler => NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(
+                    NSWorkspace.DisplayOptionsDidChangeNotification, notification => handler(notification.Object, new NSNotificationEventArgs(notification)))),
+                DrawnViews.Observed(NSColor.Notifications.ObserveSystemColorsChanged),
+                DrawnViews.Observed(NSApplication.Notifications.ObserveDidChangeScreenParameters))
+            .Choose(static _ => Some(EventArgs.Empty));
 
     // --- [FONTS]
     private readonly AtomHashMap<(float Size, bool Bold), Font> faces = AtomHashMap<(float Size, bool Bold), Font>();

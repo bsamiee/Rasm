@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from enum import auto, StrEnum
 from functools import partial
 from pathlib import Path
+import shlex
 import subprocess
 import sys
 
@@ -12,7 +13,7 @@ from expression import Nothing, Option
 from expression.extra.result import catch
 import msgspec
 
-from blender.records.faults import Fault, Faults, Outcome
+from blender.records.faults import Fault, Outcome
 from blender.records.stores import folder_made
 from blender.rendering.batch.queue import RenderQueue
 from blender.rendering.faults import RenderingReason
@@ -60,17 +61,12 @@ class Host(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def refused(argv: tuple[str, ...], error: OSError) -> Faults:
-    """Maps launch error to run fault."""
-    return (Fault(reason=RenderingReason.UNSTARTED, subject=" ".join(argv), cause=error),)
-
-
 def ran(argv: tuple[str, ...]) -> Outcome[None]:
     """Runs process to exit, nonzero code as fault."""
     return (
         catch(subprocess.run, exception=OSError)(argv, check=False)
-        .map_error(partial(refused, argv))
-        .filter_with(lambda done: done.returncode == 0, lambda done: (Fault(reason=RenderingReason.EXITED, subject=" ".join(argv), member=str(done.returncode)),))
+        .map_error(partial(Fault.of, RenderingReason.UNSTARTED, shlex.join(argv)))
+        .filter_with(lambda done: done.returncode == 0, lambda done: Fault.of(RenderingReason.EXITED, shlex.join(argv), member=str(done.returncode)))
         .map(lambda _: None)
     )
 
@@ -82,7 +78,7 @@ def spawned(argv: tuple[str, ...], stream: int | None = None) -> Outcome[subproc
     def started() -> subprocess.Popen[bytes]:
         return subprocess.Popen(argv, stdin=stream, stdout=stream)
 
-    return started().map_error(partial(refused, argv))
+    return started().map_error(partial(Fault.of, RenderingReason.UNSTARTED, shlex.join(argv)))
 
 
 def detached(argv: tuple[str, ...], log: Path) -> Outcome[Path]:
@@ -97,9 +93,9 @@ def detached(argv: tuple[str, ...], log: Path) -> Outcome[Path]:
                 subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, start_new_session=True)
         return log
 
-    return folder_made(log.parent).bind(lambda _: launched().map_error(partial(refused, argv)))
+    return folder_made(log.parent).bind(lambda _: launched().map_error(partial(Fault.of, RenderingReason.UNSTARTED, shlex.join(argv))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Host", "RunCommand", "RunFile", "detached", "ran", "refused", "spawned"]
+__all__ = ["Host", "RunCommand", "RunFile", "detached", "ran", "spawned"]

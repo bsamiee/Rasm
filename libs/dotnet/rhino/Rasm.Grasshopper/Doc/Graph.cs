@@ -1,10 +1,11 @@
+using System.Collections.Generic;
 using Grasshopper2.Doc;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Condensation;
 using QuikGraph.Graphviz;
 using QuikGraph.Graphviz.Dot;
-using Rasm.Rhino;
+using Rasm.RhinoCommon;
 
 namespace Rasm.Grasshopper.Doc;
 
@@ -59,7 +60,7 @@ public sealed record WireGraph {
     public Option<Seq<SEquatableEdge<Guid>>> Path(Guid upstream, Guid downstream) =>
         Some(upstream)
             .Filter(Graph.ContainsVertex)
-            .Bind(root => Callbacks.Found(Graph.TreeBreadthFirstSearch(root)(downstream, out IEnumerable<SEquatableEdge<Guid>> path), path))
+            .Bind(root => Conversions.Found(Graph.TreeBreadthFirstSearch(root)(downstream, out IEnumerable<SEquatableEdge<Guid>> path), path))
             .Map(static path => toSeq(path).Strict());
 
     public string Dot() =>

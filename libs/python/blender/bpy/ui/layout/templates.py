@@ -15,10 +15,9 @@ import numpy.typing as npt
 
 from blender.bpy.commands.keymaps import Keymap
 from blender.bpy.data.rna.descriptors import Struct
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.reports import redrawn
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.ui.drawing.canvas import PROGRAMS
 from blender.bpy.ui.drawing.handlers import Part, Refresh, refreshing
 from blender.bpy.ui.drawing.offscreen import Offscreen
@@ -297,7 +296,7 @@ class Shortcut(Line, frozen=True, kw_only=True):
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-GENERATIONS: Final = Scoped[dict[Key, int]](made=lambda _identity: nullcontext({}))
+GENERATIONS: Final = Resource[dict[Key, int]](made=lambda _identity: nullcontext({}))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

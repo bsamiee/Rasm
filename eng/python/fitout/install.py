@@ -1,6 +1,6 @@
 """Installs and enables extension archive in matching Blender GUI session, else through extension CLI."""
 
-from typing import override
+lazy from functools import partial
 lazy import os
 lazy import subprocess
 lazy import sys
@@ -18,37 +18,36 @@ lazy from mcp.types import TextContent
 lazy import psutil
 lazy from pydantic import ValidationError
 
-lazy from eng.python.fitout.faults import Fault
+lazy from eng.python.fitout.faults import Fault, Faults, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _Answer(msgspec.Struct, frozen=True, tag_field="status", tag="ok"):
+class _Answer(msgspec.Struct, frozen=True, kw_only=True, tag_field="status"):
     stdout: str = ""
     stderr: str = ""
 
-    def forwarded(self) -> Result[int, Fault]:
-        """Writes remote output, then returns zero."""
-        sys.stdout.write(self.stdout)
-        sys.stderr.write(self.stderr)
-        return Ok(0)
+
+class _Done(_Answer, frozen=True, kw_only=True, tag="ok"): ...
 
 
 class _Failed(_Answer, frozen=True, kw_only=True, tag="error"):
     message: str
 
-    @override
-    def forwarded(self) -> Result[int, Fault]:
-        """Writes remote output, then returns fault of the remote traceback."""
-        return super().forwarded().bind(lambda _: Error(Fault(message=self.message)))
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def _forwarded(endpoint: str, answer: _Done | _Failed) -> Result[int, Faults]:
+    """Writes remote output, then returns zero, or fault of the remote traceback."""
+    sys.stdout.write(answer.stdout)
+    sys.stderr.write(answer.stderr)
+    return Error(Fault.of(Reason.REMOTE, endpoint, answer.message)) if isinstance(answer, _Failed) else Ok(0)
+
+
 async def install(
     directory: ResolvedExistingDirectory, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
-) -> Result[int, Fault]:
+) -> Result[int, Faults]:
     """Installs archive `pack` built for host into user repository with extension enabled.
 
     GUI sessions with same profile load extension in place.
@@ -76,7 +75,7 @@ async def install(
     )
     if not pids:
         process = await anyio.run_process((blender, "--command", "extension", "install-file", "--repo", repository, "--enable", archive), stdout=None, stderr=None, check=False)
-        return catch(process.check_returncode, exception=subprocess.CalledProcessError)().map(lambda _: 0).map_error(Fault.of)
+        return catch(process.check_returncode, exception=subprocess.CalledProcessError)().map(lambda _: 0).map_error(partial(Fault.of, Reason.PROCESS, blender))
     code = (
         f"import os\nimport bpy\nif os.getpid() not in {pids!r}:\n    raise ProcessLookupError(os.getpid())\n"
         f"bpy.ops.extensions.package_install_files(filepath={str(archive)!r}, repo={repository!r})\n"
@@ -86,11 +85,12 @@ async def install(
         async with Client(endpoint) as client:
             called = await client.call_tool("execute_blender_code", {"code": code})
     except* (OSError, httpx2.HTTPError, MCPError, ValidationError) as errors:
-        failed = Fault.of(errors)
+        failed = Fault.of(Reason.UNANSWERED, endpoint, errors)
     else:
         if called.is_error:
-            return Error(Fault(message="\n".join(block.text for block in called.content if isinstance(block, TextContent))))
-        return catch(msgspec.convert, exception=msgspec.ValidationError)(called.structured_content, type=_Answer | _Failed).map_error(Fault.of).bind(lambda answer: answer.forwarded())
+            return Error(Fault.of(Reason.REMOTE, endpoint, "\n".join(block.text for block in called.content if isinstance(block, TextContent))))
+        answer: Result[_Done | _Failed, msgspec.ValidationError] = catch(msgspec.convert, exception=msgspec.ValidationError)(called.structured_content, type=_Done | _Failed)
+        return answer.map_error(partial(Fault.of, Reason.INVALID, endpoint)).bind(partial(_forwarded, endpoint))
     return Error(failed)
 
 

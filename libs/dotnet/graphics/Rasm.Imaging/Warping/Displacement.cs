@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
+using CommunityToolkit.HighPerformance.Buffers;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
@@ -225,31 +226,33 @@ public sealed record RefractionField(RefractionSurface Surface, ShortSideExtent 
     private Fin<Unit> Kernel(Func<Vector2, Vector4> sample, Sampling sampling, WrapMode wrap, Gamut gamut, PixelFrame frame, IProgress<int> progress) {
         (PixelExtent extent, (double X, double Y) half) = (frame.Extent, FramePosition.Center.Point(frame.Extent));
         (PixelFrame surface, PixelFrame refracted) = (new(frame.Origin, frame.Size, frame.Extent), frame.Copy());
-        return (from painted in new PixelPass.Pointwise((row, column, line) => {
+        return from painted in new PixelPass.Pointwise((row, column, line) => {
             for (int x = 0; x < row.Length; x++) row[x] = new Vector4(extent.ShortSide, extent.ShortSide, 1f, 1f) * sample(new Vector2(
                 (float)(((double)column + x + 0.5d - half.X) / extent.ShortSide), (float)(((double)extent.Height - line - 0.5d - half.Y) / extent.ShortSide)));
         }).Run(surface, new Progress<int>())
-                from displaced in surface.Filter(drawn => {
-                    using Mat level = new();
-                    using Mat slope = new();
-                    using Mat source = refracted.Header();
-                    CvInvoke.ExtractChannel(drawn, level, 2);
-                    return from prepared in (level.Blur(level, 3d * Smoothness.Pixels(extent)).Map(_ => { HeightPlanes.Slope(level, slope, (double)Strength * extent.ShortSide * Scale.Pixels(extent) / 8d); return unit; }),
-                               source.Blur(source, 3d * Blur.Pixels(extent))).Apply(static (_, _) => unit).As()
-                           from applied in new CoordinateMap.Analytic((points, coverage, _) => {
-                               ReadOnlySpan2D<Vector2> bend = slope.View<Vector2>();
-                               ReadOnlySpan2D<Vector4> drops = drawn.View<Vector4>();
-                               for (int i = 0; i < points.Length; i++) {
-                                   (int y, int x) = ((int)double.Floor(points[i].Y - surface.Origin.Y), (int)double.Floor(points[i].X - surface.Origin.X));
-                                   (points[i], coverage[i]) = ((points[i].X + drops[y, x].X - bend[y, x].X, points[i].Y + drops[y, x].Y - bend[y, x].Y), coverage[i] * drops[y, x].W);
-                               }
-                           }, sampling, (wrap, wrap)).Apply(refracted, progress)
-                           select applied;
-                })
-                select Blend.Composite(frame, refracted, BlendingMode.Mix, 1f, [], PixelAlphaRepresentation.Unassociated, gamut)).Map(composite => {
-                    composite.View.Span.CopyTo(frame.View.Span);
-                    return unit;
-                });
+               from displaced in surface.Filter(drawn => {
+                   using Mat level = new();
+                   using Mat slope = new();
+                   using Mat source = refracted.Header();
+                   CvInvoke.ExtractChannel(drawn, level, 2);
+                   return from prepared in (level.Blur(level, 3d * Smoothness.Pixels(extent)).Map(_ => { HeightPlanes.Slope(level, slope, (double)Strength * extent.ShortSide * Scale.Pixels(extent) / 8d); return unit; }),
+                              source.Blur(source, 3d * Blur.Pixels(extent))).Apply(static (_, _) => unit).As()
+                          from applied in new CoordinateMap.Analytic((points, coverage, _) => {
+                              ReadOnlySpan2D<Vector2> bend = slope.View<Vector2>();
+                              ReadOnlySpan2D<Vector4> drops = drawn.View<Vector4>();
+                              for (int i = 0; i < points.Length; i++) {
+                                  (int y, int x) = ((int)double.Floor(points[i].Y - surface.Origin.Y), (int)double.Floor(points[i].X - surface.Origin.X));
+                                  (points[i], coverage[i]) = ((points[i].X + drops[y, x].X - bend[y, x].X, points[i].Y + drops[y, x].Y - bend[y, x].Y), coverage[i] * drops[y, x].W);
+                              }
+                          }, sampling, (wrap, wrap)).Apply(refracted, progress)
+                          select applied;
+               })
+               from composed in new PixelPass.Pointwise((row, _, line) => {
+                   using SpanOwner<float> weights = SpanOwner<float>.Allocate(row.Length);
+                   weights.Span.Fill(1f);
+                   BlendingMode.Mix.Composite(row, refracted.Row(line), weights.Span, PixelAlphaRepresentation.Unassociated, gamut);
+               }).Run(frame, new Progress<int>())
+               select composed;
     }
 }
 

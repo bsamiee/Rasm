@@ -3,20 +3,21 @@ using Eto;
 using Eto.Drawing;
 using Eto.Forms;
 using Microsoft.Win32;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Surfaces;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.UI.Surfaces;
 using Rasm.UI.Styling;
+using Rasm.UI.Typography;
 using Rhino.Display;
 using Rhino.Resources;
 using Rhino.UI;
 using Rhino.UI.Theme;
 using SkiaSharp;
 
-namespace Rasm.Rhino.UI.Styling;
+namespace Rasm.RhinoCommon.UI.Styling;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IThemeHandler {
-    public LanguageExt.HashSet<Condition> Conditions { get; }
+    public HashSet<Condition> Conditions { get; }
 
     public Color Faulted { get; }
 
@@ -33,7 +34,7 @@ public static class HostTheme {
     public static Font Digits(Font font) => Handler.Match(Some: handler => handler.Digits(font), None: () => font);
 
     // --- [CONDITIONS]
-    public static LanguageExt.HashSet<Condition> Conditions => Handler.Match(Some: static handler => handler.Conditions, None: static () => []);
+    public static HashSet<Condition> Conditions => Handler.Match(Some: static handler => handler.Conditions, None: static () => []);
 
     // --- [PROJECTION]
     public static bool Compact(Control control) =>
@@ -104,41 +105,32 @@ public static class HostTheme {
     private static Seq<(Channel Channel, Color Color)> Channels(ThemeState state) => [(Channel.Stroke, state.Border), (Channel.Fill, state.Background), (Channel.Text, state.Text)];
 
     // --- [CHANGE]
-    public static readonly HostEvent<Unit> Changed =
-        Subscriptions.Host(typeof(HostTheme), static () => Seq(EventKind.ThemeChanged, EventKind.AppSettingsChanged).Concat(Handler.Map(static handler => handler.Changed).ToSeq())
-            .Concat(OperatingSystem.IsWindows()
-                ? Seq(DisplayChangesOnWindows())
-                : []))
+    public static HostEvent<Unit> Changed =>
+        Subscriptions.Merged([
+                EventKind.ThemeChanged,
+                EventKind.AppSettingsChanged,
+                .. Handler.Map(static handler => handler.Changed).ToSeq(),
+                .. OperatingSystem.IsWindows() ? Seq(DisplayChangesOnWindows()) : Seq<HostEvent<EventArgs>>(),
+            ])
             .Choose(static _ => Some(unit));
 
     [SupportedOSPlatform("windows")]
     private static HostEvent<EventArgs> DisplayChangesOnWindows() =>
-        Subscriptions.Host<EventHandler, EventArgs>(typeof(SystemEvents),
-            static handler => SystemEvents.DisplaySettingsChanged += handler,
-            static handler => SystemEvents.DisplaySettingsChanged -= handler,
-            static handler => handler.Invoke, nameof(SystemEvents.DisplaySettingsChanged));
+        Subscriptions.Host<EventHandler, EventArgs>(static handler => SystemEvents.DisplaySettingsChanged += handler, static handler => SystemEvents.DisplaySettingsChanged -= handler, static handler => handler.Invoke);
 
     public static HostEvent<Unit> In(Control control) =>
-        new(typeof(Control), nameof(Control.LoadComplete), (deliver, site, retain) =>
-            DisposalOps.Acquire(owned =>
-                from mounted in DisposalOps.Acquire(IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)), owned)
-                let mount = DisposalOps.Acquire(windowOwned =>
-                    IO.lift(() => Optional(control.ParentWindow)).Bind(window => window.Traverse(parent =>
-                        Subscriptions.Host<EventArgs>(typeof(Window),
-                            handler => parent.LogicalPixelSizeChanged += handler,
-                            handler => parent.LogicalPixelSizeChanged -= handler,
-                            nameof(Window.LogicalPixelSizeChanged))
-                        .Choose(static _ => Some(unit)).Inline(deliver, site.Sink, windowOwned)).As()).Map(unit),
-                    (_, lease) => mounted.Replace(lease))
-                from changed in Changed.Inline(deliver, site.Sink, owned)
-                from loaded in Subscriptions.Attach(
-                    handler => control.LoadComplete += handler, handler => control.LoadComplete -= handler,
-                    Callbacks.Handler<EventArgs>(_ => mount.Bind(__ => deliver(unit)), site), owned)
-                from unloaded in Subscriptions.Attach(
-                    handler => control.UnLoad += handler, handler => control.UnLoad -= handler,
-                    Callbacks.Handler<EventArgs>(_ => mounted.Drain, site), owned)
+        Subscriptions.Host<EventArgs>(h => control.LoadComplete += h, h => control.LoadComplete -= h) switch {
+            var loaded => Subscriptions.Merged(Changed, new HostEvent<Unit>(loaded.Label, (deliver, owner) =>
+                from scope in IO.env
+                from mounted in IO.lift(static () => Ref(Option<Lease<Unit>>.None))
+                let mount = Products.Swapped(mounted, IO.lift(() => Optional(control.ParentWindow)).Bind(window => window.Traverse(parent =>
+                        Subscriptions.Host<EventArgs>(h => parent.LogicalPixelSizeChanged += h, h => parent.LogicalPixelSizeChanged -= h).Inline(_ => deliver(unit), owner)).As()).Map(unit))
+                    .Under(scope)
+                from loads in loaded.Inline(_ => mount >> deliver(unit), owner)
+                from unloads in Subscriptions.Host<EventArgs>(h => control.UnLoad += h, h => control.UnLoad -= h).Inline(_ => Products.Cleared(mounted).Under(scope), owner)
                 from initial in when(control.Loaded, mount).As()
-                select unit, retain));
+                select unit)),
+        };
 
     // --- [HOST]
     private static Option<IThemeHandler> Handler =>

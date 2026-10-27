@@ -270,11 +270,11 @@ def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> Outcome[
         case Fixed(camera=camera):
             gaps, bindings = (), (("fixed camera", camera),)
 
-    def checked(binding: str, name: str) -> Outcome[None]:
-        def native(bound_object: bpy.types.Object) -> Outcome[None]:
-            return Ok(None) if isinstance(bound_object.data, bpy.types.Camera) else Error((Fault(reason=BlenderReason.UNMET, subject=NotCamera(binding=binding, kind=bound_object.type).message),))
-
-        return Option.of_optional(bpy.data.objects.get(name)).map(native).default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(bpy.data.objects), member=name),)))
+    def checked(binding: str, name: str) -> Outcome[bpy.types.Object]:
+        found: Outcome[bpy.types.Object] = Option.of_optional(bpy.data.objects.get(name)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(bpy.data.objects), member=name),))
+        return found.filter_with(
+            lambda bound: isinstance(bound.data, bpy.types.Camera), lambda bound: (Fault(reason=BlenderReason.UNMET, subject=NotCamera(binding=binding, kind=bound.type).message),)
+        )
 
     return accumulated((*(Error((Fault(reason=BlenderReason.ABSENT, subject=repr(scene), member=str(frame)),)) for frame in gaps), *starmap(checked, bindings))).map(lambda _: None)
 

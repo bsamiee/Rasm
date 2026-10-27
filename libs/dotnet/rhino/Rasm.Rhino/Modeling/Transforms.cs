@@ -1,9 +1,9 @@
 using System.Globalization;
 using MathNet.Numerics.LinearAlgebra;
 using Rasm.Spatial;
-using Rasm.Rhino.Modeling.Curves;
+using Rasm.RhinoCommon.Modeling.Curves;
 
-namespace Rasm.Rhino.Modeling;
+namespace Rasm.RhinoCommon.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -16,7 +16,9 @@ public abstract partial record Frames {
         public Point3d End { get; }
         public double Interval { get; }
         public static Fin<Spaced> Validated(Point3d start, Point3d end, double interval) =>
-            !(end - start).IsTiny() && interval > 0d ? new Spaced(start, end, interval) : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"spaced frames need distinct ends and a positive interval, received {start} to {end} by {interval}"));
+            (RhinoFault.Unless(!(end - start).IsTiny()),
+             interval > 0d ? Fin.Succ(unit) : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"interval {interval}"), RhinoReason.Outside))
+                .Apply((_, _) => new Spaced(start, end, interval)).As();
     }
 
     public sealed record Linear : Frames {
@@ -51,16 +53,16 @@ public abstract partial record Frames {
                 Callbacks.Each(
                     toSeq(Enumerable.Range(0, polar.Count)).Map(step => Transform.Rotation(step * polar.Sweep / polar.Count, polar.Axis.Direction, polar.Axis.From)).Strict(),
                     (rotation, index) => polar.Start switch {
-                        var plane => Refused.Unless(plane.Transform(rotation), plane, nameof(Plane.Transform), index),
+                        var plane => RhinoFault.Unless(plane.Transform(rotation), index).Map(_ => plane),
                     }),
             along: static along => CurveEvaluation.Frames(along.Rail, along.Frames),
             onSurface: static onSurface =>
-                Callbacks.Each(onSurface.At, (uv, index) => Refused.Unless(onSurface.Surface.FrameAt(uv.X, uv.Y, out Plane frame), frame, nameof(Surface.FrameAt), index)));
+                Callbacks.Each(onSurface.At, (uv, index) => RhinoFault.Unless(onSurface.Surface.FrameAt(uv.X, uv.Y, out Plane frame), index).Map(_ => frame)));
 
     public Fin<Seq<Transform>> Placements(Plane basis) =>
         Planes.Map(planes => planes.Map(plane => Transform.PlaneToPlane(basis, plane)).Strict());
 
-    private static Fin<Unit> Counted(int count) => count >= 0 ? unit : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"frames need a count at or above 0, received {count}"));
+    private static Fin<Unit> Counted(int count) => count >= 0 ? unit : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"count {count}"), RhinoReason.Outside);
 
     private static Seq<Plane> Stepped(Plane start, Vector3d step, int count) =>
         toSeq(Enumerable.Range(0, count)).Map(at => start with { Origin = start.Origin + (step * at) }).Strict();
@@ -69,14 +71,14 @@ public abstract partial record Frames {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Transformations {
     // --- [TRANSFORMS]
-    public static IO<T> Transformed<T>(T copy, Transform xform, Action<IDisposable> retain) where T : GeometryBase =>
-        from subject in xform.SimilarityType is TransformSimilarityType.NotSimilarity ? Deformable(copy, None, retain) : IO.pure(copy)
+    public static IO<T> Transformed<T>(T copy, Transform xform) where T : GeometryBase =>
+        from subject in xform.SimilarityType is TransformSimilarityType.NotSimilarity ? Deformable(copy, None) : IO.pure(copy)
         from outward in IO.lift(() => subject switch {
             Brep brep => brep.SolidOrientation is BrepSolidOrientation.Outward,
             Mesh mesh => mesh.SolidOrientation() > 0,
             _ => false,
         })
-        from moved in IO.lift(() => Refused.Unless(subject.Transform(xform), subject, nameof(GeometryBase.Transform)))
+        from moved in IO.lift(() => RhinoFault.Unless(subject.Transform(xform)).Map(_ => subject))
         from flipped in IO.lift(() => Flipped(moved, outward, xform))
         select moved;
 
@@ -89,29 +91,23 @@ public static class Transformations {
                 mesh.Flip(vertexNormals: true, faceNormals: true, faceOrientation: true);
                 return unit;
             case SubD subdivision when subdivision.IsSolid && xform.Determinant < 0d:
-                return Refused.Unless(subdivision.Flip(), nameof(SubD.Flip));
+                return RhinoFault.Unless(subdivision.Flip());
             default:
                 return unit;
         }
     }
 
     // --- [DEFORMABLE]
-    internal static IO<T> Deformable<T>(T copy, Option<int> index, Action<IDisposable> retain) where T : GeometryBase =>
-        IO.lift(copy.MakeDeformable).Bind(deformable => (Deformable: deformable, Copy: (GeometryBase)copy) switch {
-            (Deformable: true, _) => IO.pure(copy),
-            (_, Copy: Extrusion extrusion) => Successor<T>(Copies.Acquire(nameof(Extrusion.ToBrep), _ => Answer.One<GeometryBase>(extrusion.ToBrep(splitKinkyFaces: false)), retain), index),
-            (_, Copy: Surface surface) => Successor<T>(Copies.Acquire(nameof(Surface.ToNurbsSurface), _ => Answer.One<GeometryBase>(surface.ToNurbsSurface()), retain), index),
-            (_, Copy: Curve curve) => Successor<T>(Copies.Acquire(nameof(Curve.ToNurbsCurve), _ => Answer.One<GeometryBase>(curve.ToNurbsCurve()), retain), index),
-            _ => IO.fail<T>(index.Match(
-                Some: static at => new Refused(nameof(GeometryBase.MakeDeformable), Refused.Declined, at),
-                None: static () => new Refused(nameof(GeometryBase.MakeDeformable), Refused.Declined))),
+    internal static IO<T> Deformable<T>(T copy, Option<int> index) where T : GeometryBase =>
+        IO.lift(copy.MakeDeformable).Bind(deformable => deformable ? IO.pure(copy) : (GeometryBase)copy switch {
+            Extrusion extrusion => Successor<T>(Products.Made<GeometryBase>(extrusion.ToBrep(splitKinkyFaces: false))),
+            Surface surface => Successor<T>(Products.Made<GeometryBase>(surface.ToNurbsSurface())),
+            Curve curve => Successor<T>(Products.Made<GeometryBase>(curve.ToNurbsCurve())),
+            _ => IO.lift(() => RhinoFault.Unless(deformable, index)).Map(_ => copy),
         });
 
-    internal static IO<T> Successor<T>(IO<GeometryBase> successor, Option<int> index) where T : GeometryBase =>
-        successor.Bind(made => IO.lift(() => made is T typed
-            ? Fin.Succ(typed)
-            : Error.New(ErrorCodes.ValidationFailed,
-                $"{nameof(GeometryBase.MakeDeformable)} successor {made.GetType().Name} is no {typeof(T).Name}{index.Map(static at => " at index " + at.ToString(CultureInfo.InvariantCulture)).IfNone("")}")));
+    internal static IO<T> Successor<T>(IO<GeometryBase> successor) where T : GeometryBase =>
+        successor.Bind(static made => IO.lift(() => Conversions.Cast<T>(made)));
 
     // --- [CONVERSIONS]
     extension(Point3d point) {

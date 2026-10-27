@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
@@ -55,7 +54,7 @@ internal sealed class SafeOidnBufferHandle() : SafeOidnHandle(Denoiser.oidnRelea
 public sealed partial class Denoiser : IDisposable {
     // --- [NATIVE]
     private const string Library = "OpenImageDenoise.2";
-    private const int MaxSide = 65536;
+    private static readonly PixelExtent Largest = PixelExtent.Validated(65536, 65536).ThrowIfFail();
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.U1)]
@@ -163,10 +162,12 @@ public sealed partial class Denoiser : IDisposable {
     private Fin<PixelFrame> Denoised(PixelFrame color, Seq<(string Role, PixelFrame Frame)> selected, GuidePrefilter prefilter, DenoiseQuality quality, CancellationToken token, IProgress<int> rows) {
         using Lock.Scope serialized = gate.EnterScope();
         int version = oidnGetDeviceInt(device, "version");
-        if (quality.Since > version)
-            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"denoise quality {quality} from Open Image Denoise {quality.Since} on host {version}"), ImagingReason.Unsupported);
-        if (color.Size.Width > MaxSide || color.Size.Height > MaxSide)
-            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"denoise frame {color.Size.Width}x{color.Size.Height} for side limit {MaxSide}"), ImagingReason.Oversize);
+        return (ImagingFault.Unless(quality.Since <= version, ImagingReason.Unsupported, (quality.Since, version)),
+                ImagingFault.Unless(color.Size.Fitted(Largest) == color.Size, ImagingReason.Oversize, (color.Size, Largest)))
+            .Apply(static (_, _) => unit).As().Bind(_ => Filtered(color, selected, prefilter, quality, token, rows));
+    }
+
+    private Fin<PixelFrame> Filtered(PixelFrame color, Seq<(string Role, PixelFrame Frame)> selected, GuidePrefilter prefilter, DenoiseQuality quality, CancellationToken token, IProgress<int> rows) {
         nuint bytes = (nuint)color.Block.Length * sizeof(float);
         (nuint size, Seq<(string Role, PixelFrame Frame, nuint Offset)> inputs) = (Role: "color", Frame: color).Cons(selected).Fold(
             (Size: (nuint)0, Inputs: Seq<(string Role, PixelFrame Frame, nuint Offset)>()),

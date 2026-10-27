@@ -14,7 +14,7 @@ from msgspec import UNSET, UnsetType
 
 from blender.bpy.commands.calls import Placed, Writer
 from blender.bpy.data.rna.conditions import Condition, holds
-from blender.bpy.data.rna.descriptors import rooted
+from blender.bpy.data.rna.descriptors import rna, rooted
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisition, Band, entered
 from blender.bpy.faults import BlenderReason
@@ -226,7 +226,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                         return found.map(
                             lambda held: accumulated(
                                 catch(gizmo.target_set_prop, exception=RuntimeError)(key, owner, identifier, index=held.descriptor.index.default_value(-1)).map_error(
-                                    lambda error: (Fault(reason=BlenderReason.REFUSED, subject=held.descriptor.path, cause=error),)
+                                    partial(Fault.of, BlenderReason.REFUSED, rna(held.descriptor.path))
                                 )
                                 for owner, identifier in held.at(context, context).to_list()
                             ).map(lambda _: None)
@@ -241,7 +241,8 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
 
             def setup(group: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
                 """Creates gizmos with theme colors, then binds targets."""
-                ui = context.preferences.themes[0].user_interface  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                ui = preferences.themes[0].user_interface
                 for index, (part, _) in enumerate(parts):
                     gizmo = group.gizmos.new(part.kind)
                     for value in icons[index].to_list():

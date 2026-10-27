@@ -1,10 +1,12 @@
 using System.Drawing;
 using Eto.Forms;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Rows;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.Render.Content;
+using Rasm.RhinoCommon.UI.Rows;
 using Rasm.UI;
 using Rhino;
 using Rhino.Display;
@@ -14,10 +16,10 @@ using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
-namespace Rasm.Rhino.UI;
+namespace Rasm.RhinoCommon.UI;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-public interface IPlugInViews : IPlugInSink {
+public interface IPlugInViews : IPlugInLifetime {
     public PlugIn PlugIn { get; }
 
     public ViewCatalog Views { get; }
@@ -26,26 +28,25 @@ public interface IPlugInViews : IPlugInSink {
 
     public Option<HelpTopic> Help { get; }
 
-    public AtomHashMap<Guid, ValueHistory> Histories { get; }
-
-    public IO<HistoryLimits> Limits { get; }
-
     public SettingsNode Settings { get; }
+
+    public Seq<DocumentFrame> Frames { get; }
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[ValidationError<RhinoFault>]
 public sealed partial class HelpTopic {
-    public IO<Unit> Show => IO.lift(() => Refused.Unless(RhinoHelp.Show(_value), nameof(RhinoHelp.Show)));
+    public IO<Unit> Show => IO.lift(() => RhinoFault.Unless(RhinoHelp.Show(_value)));
 
     public static Option<HelpTopic> Of(Option<HelpTopic> row, IPlugInViews owner) => row || owner.Help;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
         (value, validationError) = value.TrimOrNullify() is { } trimmed
-            ? (trimmed, default(ValidationError))
-            : (value, new ValidationError("help topic is blank"));
+            ? (trimmed, default(RhinoFault))
+            : (value, new RhinoFault($"value = '{value}'", RhinoReason.Invalid));
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -79,8 +80,30 @@ public abstract partial record PageSubject {
         public Option<PropertyPageType> PageType { get; init; }
     }
 
-    public sealed record Viewport(LanguageExt.HashSet<ViewportType> ViewportTypes) : PageSubject;
+    public sealed record Viewport(HashSet<ViewportType> ViewportTypes) : PageSubject;
 }
+
+[Union]
+public abstract partial record ContentScope {
+    public bool Covers(RenderContent content) =>
+        Switch(
+            content,
+            kinds: static (held, scope) => scope.Mask.HasFlag(ContentKinds.KindOf(held)),
+            types: static (held, scope) => scope.TypeIds.Contains(held.TypeId));
+
+    public sealed record Kinds(RenderContentKind Mask) : ContentScope;
+
+    public sealed record Types(HashSet<Guid> TypeIds) : ContentScope;
+}
+
+public sealed record ContentMenuRow(
+    string Caption,
+    GlyphSource Icon,
+    ContentScope Scope,
+    HashSet<RenderContentMenu.Context> Contexts,
+    RenderContentMenu.SeparatorStyle Separator,
+    bool TopLevel,
+    Func<Seq<RenderContent>, IO<Unit>> Run);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record View {
@@ -146,7 +169,7 @@ public abstract partial record View {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ViewStore {
-    public Option<Func<RhinoDoc, Guid, ValueStore<LanguageExt.HashSet<EntryKey>>>> Locks { get; init; }
+    public Option<Func<RhinoDoc, Guid, ValueStore<HashSet<EntryKey>>>> Locks { get; init; }
     public Option<Func<IPlugInViews, RhinoDoc, IO<BindingGroup>>> Bindings { get; init; }
 
     public sealed record ApplicationStores : ViewStore;
@@ -187,62 +210,42 @@ public sealed record ViewCatalog(Seq<View> Rows) {
         view.Cons(view.Children.Bind(static child => child.Sections).Bind(static section => Tree(section)));
 }
 
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record UnheldView(Type View, Option<Error> Cause = default) : Expected($"Host cannot hold {View.Name}", 0, Cause);
-
-// --- [SERVICES] ------------------------------------------------------------------------
-public sealed class ShownSubscription(Func<Action<IDisposable>, IO<Unit>> listen) : IDisposable {
-    private Tuple<IDisposable>? held;
-
-    public IO<Unit> Shown(bool shown) => shown
-        ? IO.lift(() => {
-            Option<Tuple<IDisposable>> accepted = None;
-            return DisposalOps.OnFailure(
-                DisposalOps.Acquire(retain => accepted.Match(Some: _ => listen(retain), None: static () => IO.pure(unit)), release => {
-                    accepted = Some(Tuple.Create(release)).Filter(owner => Interlocked.CompareExchange(ref held, owner, comparand: null) is null);
-                    _ = accepted.IfNone(release.Dispose);
-                }),
-                IO.lift(() => accepted.Iter(owner => Interlocked.CompareExchange(ref held, value: null, owner))));
-        }).Flatten()
-        : IO.lift(Dispose);
-
-    public void Dispose() => Optional(Interlocked.Exchange(ref held, value: null)).Iter(static listener => listener.Item1.Dispose());
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ViewOps {
     // --- [STORES]
     public static IO<BindingGroup> Bindings(IPlugInViews owner, View view, RowScope scope) =>
         view.Store.Bind(static store => store.Bindings).Match(
-            Some: stored => IO.lift(scope.Document.ToFin(new UnheldView(view.Identity))).Bind(doc => stored(owner, doc)),
+            Some: stored => IO.lift(() => scope.Document.ToFin(new RhinoFault(view.Identity.Name, RhinoReason.Unheld))).Bind(doc => stored(owner, doc)),
             None: () => IO.pure(new BindingGroup(view.Children.Bind(static child => child.Controls).Choose(static rows => rows.Bound).Map(bound => bound(scope)))));
 
-    public static Option<ValueStore<LanguageExt.HashSet<EntryKey>>> Locks(View view, Option<RhinoDoc> document) =>
+    public static Option<ValueStore<HashSet<EntryKey>>> Locks(View view, Option<RhinoDoc> document) =>
         from doc in document
         from locks in view.Store.Bind(static store => store.Locks)
         select locks(doc, view.Identity.GUID);
 
     public static SettingsNode Settings(IPlugInViews owner, View view) => owner.Settings.Child(EntryKey.TypeOwner(view.Identity.GUID));
 
-    public static Fin<HistoryBinding> History(IPlugInViews owner, View view, ViewStore store, BindingGroup bound, Option<RhinoDoc> document) =>
-        store.Switch(
-                (Owner: owner, View: view, Document: document),
-                applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Owner.Histories),
-                documentStores: static (state, held) => state.Document
-                    .Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw, new CallbackSite(state.Owner, state.View.Identity, nameof(History))))
-                    .ToFin(new UnheldView(state.View.Identity)))
-            .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, owner).Local, bound, scope, owner.Limits, owner.Clock));
+    public static Fin<Option<HistoryBinding>> History(IPlugInViews owner, View view, BindingGroup bound, Option<RhinoDoc> document) =>
+        view.Store
+            .Bind(store => owner.Frames.Choose(static frame => Optional(frame as HistoryFrame)).Head.Map(frame => store.Switch(
+                    (Owner: owner, View: view, Document: document, Frame: frame),
+                    applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Frame.Registry),
+                    documentStores: static (state, held) => state.Document
+                        .Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw, state.Owner))
+                        .ToFin(new RhinoFault(state.View.Identity.Name, RhinoReason.Unheld)))
+                .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, owner).Local, bound, scope, frame.Limits, owner.Clock))))
+            .Traverse(static held => held)
+            .As();
 
     // --- [REALIZATION]
-    public static IO<Control> Realize(IPlugInViews owner, Seq<Child> children, RowScope scope, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-            from stack in Containers.Frame(static () => new RhinoNestedStackLayout(Orientation.Vertical, RhinoLayout.SpacingType.Panel), owned)
-            from parts in Runs(children).TraverseM(run => Part(owner, run, scope, owned)).As()
-            from configured in IO.lift(() => {
-                stack.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-                _ = parts.Iter(part => stack.Items.Add(new StackLayoutItem(part.Body, part.Fill)));
-            })
-            select (Control)stack, retain);
+    public static IO<Control> Realize(IPlugInViews owner, Seq<Child> children, RowScope scope) =>
+        from stack in Containers.Frame(static () => new RhinoNestedStackLayout(Orientation.Vertical, RhinoLayout.SpacingType.Panel))
+        from parts in Runs(children).TraverseM(run => Part(owner, run, scope)).As()
+        from configured in IO.lift(() => {
+            stack.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+            _ = parts.Iter(part => stack.Items.Add(new StackLayoutItem(part.Body, part.Fill)));
+        })
+        select (Control)stack;
 
     private static Seq<(Child Lead, Seq<Child> Run)> Runs(Seq<Child> children) =>
         children.FoldBack(Seq<(Child Lead, Seq<Child> Run)>(), static (runs, child) =>
@@ -252,12 +255,12 @@ public static class ViewOps {
                     ? (Lead: child, Run: child.Cons(next.Run)).Cons(rest)
                     : (Lead: child, Run: Seq(child)).Cons(runs)));
 
-    private static IO<(Control Body, bool Fill)> Part(IPlugInViews owner, (Child Lead, Seq<Child> Run) run, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<(Control Body, bool Fill)> Part(IPlugInViews owner, (Child Lead, Seq<Child> Run) run, RowScope scope) =>
         run.Lead.Switch(
-                (Owner: owner, run.Run, Scope: scope, Retain: retain),
-                control: static (state, _) => RowGrid.Realize(Joined(state.Run.Map(static child => child.AsControl)), state.Scope, state.Retain).Map(static grid => grid.View),
-                holder: static (state, holder) => SectionHolder.Hold(state.Owner, holder, state.Scope, state.Retain).Map(static held => (Control)held),
-                container: static (state, container) => Containers.Realize(state.Owner, container, state.Scope, state.Retain))
+                (Owner: owner, run.Run, Scope: scope),
+                control: static (state, _) => RowGrid.Realize(Joined(state.Run.Map(static child => child.AsControl)), state.Scope).Map(static grid => grid.View),
+                holder: static (state, holder) => SectionHolder.Hold(state.Owner, holder, state.Scope).Map(static held => (Control)held),
+                container: static (state, container) => Containers.Realize(state.Owner, container, state.Scope))
             .Map(body => (Body: body, Fill: run.Run.Exists(static child => child.Fill)));
 
     private static ControlRows Joined(Seq<ControlRows> runs) =>
@@ -266,13 +269,16 @@ public static class ViewOps {
         };
 
     // --- [LISTENERS]
-    public static IO<Unit> WhileLoaded(Control control, Func<Action<IDisposable>, IO<Unit>> listen, CallbackSite site, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-            from subscription in DisposalOps.Acquire(IO.lift(() => new ShownSubscription(listen)), owned)
-            from loaded in Subscriptions.Attach(
-                handler => control.LoadComplete += handler, handler => control.LoadComplete -= handler, Callbacks.Handler<EventArgs>(_ => subscription.Shown(shown: true), site), owned)
-            from unloaded in Subscriptions.Attach(
-                handler => control.UnLoad += handler, handler => control.UnLoad -= handler, Callbacks.Handler<EventArgs>(_ => subscription.Shown(shown: false), site), owned)
-            from current in subscription.Shown(control.Loaded)
-            select unit, retain);
+    public static IO<Unit> WhileLoaded(Control control, IO<Unit> listen, IPlugInLifetime owner) =>
+        from scope in IO.env
+        from held in IO.lift(static () => Ref(Option<Lease<Unit>>.None))
+        from loaded in Subscriptions.Host<EventArgs>(h => control.LoadComplete += h, h => control.LoadComplete -= h).Inline(_ => Toggled(held, shown: true, listen).Under(scope), owner)
+        from unloaded in Subscriptions.Host<EventArgs>(h => control.UnLoad += h, h => control.UnLoad -= h).Inline(_ => Toggled(held, shown: false, listen).Under(scope), owner)
+        from current in IO.lift(() => control.Loaded).Bind(shown => Toggled(held, shown, listen))
+        select unit;
+
+    public static IO<Unit> Toggled(Ref<Option<Lease<Unit>>> held, bool shown, IO<Unit> acquire) =>
+        shown
+            ? IO.lift(() => held.Value.IsSome).Bind(present => unless(present, Products.Swapped(held, acquire)).As())
+            : Products.Cleared(held);
 }

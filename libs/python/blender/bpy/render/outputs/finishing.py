@@ -2,9 +2,10 @@
 
 from collections import Counter
 from collections.abc import Callable, Mapping
+from contextlib import nullcontext
 import functools
 from pathlib import Path
-from typing import Protocol, Self
+from typing import Final, Protocol, Self
 
 import bpy
 from expression import Nothing, Ok, Option
@@ -12,8 +13,8 @@ from expression.collections import Map
 import msgspec
 import OpenImageIO
 
-from blender.bpy.extension.events.handlers import SceneHandler
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.events import Handler
+from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.render.outputs.formats import compression, depth, Kind, kind
 from blender.bpy.render.outputs.framing import FrameSize
@@ -87,9 +88,9 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Declares handlers binding registered framing per event."""
-        running: set[int] = set()
 
         def bracket(scene: bpy.types.Scene, *, started: bool) -> Outcome[None]:
+            running = identity.held[_RUNNING]
             (running.add if started else running.discard)(scene.session_uid)
             return Ok(None)
 
@@ -118,20 +119,25 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
         return Ok((
             FrameSize.attachment,
             INTERMEDIATES,
-            SceneHandler(handlers=bpy.app.handlers.render_init, body=functools.partial(bracket, started=True)),
-            SceneHandler(handlers=bpy.app.handlers.render_complete, body=stopped),
-            SceneHandler(handlers=bpy.app.handlers.render_cancel, body=stopped),
-            SceneHandler(handlers=bpy.app.handlers.render_write, body=lambda scene: windowed(scene, scene_files(scene))),
-            SceneHandler(
+            _RUNNING,
+            Handler(handlers=bpy.app.handlers.render_init, body=functools.partial(bracket, started=True)),
+            Handler(handlers=bpy.app.handlers.render_complete, body=stopped),
+            Handler(handlers=bpy.app.handlers.render_cancel, body=stopped),
+            Handler(handlers=bpy.app.handlers.render_write, body=lambda scene: windowed(scene, scene_files(scene))),
+            Handler(
                 handlers=bpy.app.handlers.render_post,
                 body=lambda scene: (
                     self.files.written(scene, scene.frame_current, identity).bind(lambda files: windowed(scene, files))
-                    if scene.session_uid in running and scene.session_uid not in identity.held[INTERMEDIATES]
+                    if scene.session_uid in identity.held[_RUNNING] and scene.session_uid not in identity.held[INTERMEDIATES]
                     else Ok(None)
                 ),
             ),
         ))
 
+
+# --- [SERVICES] -------------------------------------------------------------------------
+
+_RUNNING: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -139,6 +145,7 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
 def scene_files(scene: bpy.types.Scene) -> tuple[Written, ...]:
     """Returns current frame's existing `frame_path` files per active view, omitting movies and unsupported depths."""
     render, settings = scene.render, scene.render.image_settings
+    active: bpy.types.ViewLayer = bpy.context.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     views = tuple(view.name for view in render.views if view.use) if render.use_multiview and settings.views_format == "INDIVIDUAL" else ("",)
     return (
         ()
@@ -148,7 +155,7 @@ def scene_files(scene: bpy.types.Scene) -> tuple[Written, ...]:
             for view in views
             for path in (render.frame_path(frame=scene.frame_current, view=view),)
             if Path(path).is_file()
-            for file in Written.of(path, settings, Output.PREVIEW, Nothing, bpy.context.view_layer.name, Map.empty()).to_list()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            for file in Written.of(path, settings, Output.PREVIEW, Nothing, active.name, Map.empty()).to_list()
         )
     )
 

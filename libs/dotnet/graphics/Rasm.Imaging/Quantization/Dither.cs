@@ -9,15 +9,18 @@ using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Quantization;
 
+// --- [TYPES] ---------------------------------------------------------------------------
+internal interface IDraw {
+    internal static abstract float At(long column, long line);
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
-public sealed partial class Dither {
-    public static readonly Dither Off = new("off", static levels => new PixelPass.Pointwise((row, column, line) => levels.Quantize(row, column, line, Flat)));
-    public static readonly Dither WhiteNoise = new("white-noise", static levels => new PixelPass.Pointwise((row, column, line) => levels.Quantize(row, column, line, White)));
-    public static readonly Dither BlueNoise = new("blue-noise", static levels => new PixelPass.Pointwise((row, column, line) => levels.Quantize(row, column, line, Blue)));
+public partial class Dither {
+    public static readonly Dither Off = new Pointwise<Even>("off");
+    public static readonly Dither WhiteNoise = new Pointwise<White>("white-noise");
+    public static readonly Dither BlueNoise = new Pointwise<Blue>("blue-noise");
     public static readonly Dither FloydSteinberg = new("floyd-steinberg", static levels => new PixelPass.Frame((frame, progress) => Diffuse(levels, frame, progress)));
-
-    private static readonly Memo<ReadOnlyMemory2D<float>> Draws = memo(Read);
 
     [UseDelegateFromConstructor]
     public partial PixelPass Pass(Quantizer levels);
@@ -49,17 +52,13 @@ public sealed partial class Dither {
         return unit;
     }
 
-    private static float Flat(long column, long line) => 0.5f;
+    private sealed class Pointwise<T>(string key) : Dither(key, static levels => new PixelPass.Pointwise(levels.Quantize<T>)) where T : struct, IDraw;
 
-    private static float White(long column, long line) =>
-        1103515245u switch {
-            var scale => unchecked(scale * ((scale * (((uint)column >> 1) ^ (uint)line)) ^ ((scale * (((uint)line >> 1) ^ (uint)column)) >> 3))) * (1f / uint.MaxValue),
-        };
+    private readonly struct Even : IDraw { static float IDraw.At(long column, long line) => 0.5f; }
 
-    private static float Blue(long column, long line) =>
-        Draws.Value.Span switch {
-            var draws => draws[(int)(line & (draws.Height - 1)), (int)(column & (draws.Width - 1))],
-        };
+    private readonly struct White : IDraw { static float IDraw.At(long column, long line) => 1103515245u switch { var scale => unchecked(scale * ((scale * (((uint)column >> 1) ^ (uint)line)) ^ ((scale * (((uint)line >> 1) ^ (uint)column)) >> 3))) * (1f / uint.MaxValue) }; }
+
+    private readonly struct Blue : IDraw { private static readonly Memo<ReadOnlyMemory2D<float>> Draws = memo(Read); static float IDraw.At(long column, long line) => Draws.Value.Span switch { var draws => draws[(int)(line & (draws.Height - 1)), (int)(column & (draws.Width - 1))] }; }
 
     private static ReadOnlyMemory2D<float> Read() {
         const float codes = ushort.MaxValue + 1f;

@@ -18,9 +18,8 @@ from blender.bpy.commands.keymaps import Chord, Keymap, Toggle
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Gesture, Modal, Operator, Travel
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import assigned, root_in, rooted, Value, written
-from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.extension.scoped import Scoped
+from blender.bpy.extension.identity import Identity, Key, Resource
+from blender.bpy.extension.registration import Acquisitions, Declaration, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.drawing.canvas import Align, Canvas, DECODED, QUAD, Rect, released, Shadow
@@ -261,7 +260,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 case Mode.SIDE_BY_SIDE:
                     return Nothing
 
-        def rows(attached: Attached[Compare], refreshes: tuple[Refresh, ...]) -> tuple[Registrable, ...]:
+        def rows(attached: Attached[Compare], refreshes: tuple[Refresh, ...]) -> tuple[Declaration, ...]:
             def compared(context: bpy.types.Context) -> Option[Compare]:
                 return root_in(bpy.types.Screen, context).map(attached.struct).filter(lambda compare: compare.shown)
 
@@ -358,7 +357,7 @@ void main() {
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_SHADERS: Final = Scoped[None](made=lambda _identity: released(channeled.cache_clear))
+_SHADERS: Final = Resource[None](made=lambda _identity: released(channeled.cache_clear))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

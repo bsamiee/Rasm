@@ -1,7 +1,6 @@
-using System.Runtime.CompilerServices;
 using Rhino;
 
-namespace Rasm.Rhino.Document.Files;
+namespace Rasm.RhinoCommon.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -24,7 +23,7 @@ public abstract partial record OutputFolder : IConvertible<string> {
                     .ValueUnsafe(),
             var text => new Absolute(text),
         };
-        return value is not null && item is null ? new RhinoFault($"{value} names no output folder") : null;
+        return value is not null && item is null ? new RhinoFault($"value = '{value}'", RhinoReason.Invalid) : null;
     }
 
     public string ToValue() => Switch(
@@ -43,7 +42,7 @@ public abstract partial record Stem : IConvertible<string> {
         item = value is null ? null : Conversions.Present(value).Match(
             Some: static text => NamePart.TryCreate(text, out NamePart? part) ? new Literal(part) : default(Stem?),
             None: static () => new DocumentName());
-        return value is not null && item is null ? new RhinoFault($"{value} names no output stem") : null;
+        return value is not null && item is null ? new RhinoFault($"value = '{value}'", RhinoReason.Invalid) : null;
     }
 
     public string ToValue() => Switch(
@@ -56,13 +55,13 @@ public static class Destinations {
     // --- [PLANNING]
     public static Fin<string> FolderOf(OutputFolder folder, Option<string> saved) =>
         folder.Switch(saved,
-            absolute: static (_, absolute) => Path.IsPathFullyQualified(absolute.Folder) ? absolute.Folder : new FileRefused(absolute.Folder, FileReason.Unqualified),
-            besideDocument: static (file, beside) => file.ToFin(Error.New("document has no saved file")).Map(path => Path.Join([Path.GetDirectoryName(path), .. beside.Segments])));
+            absolute: static (_, absolute) => Path.IsPathFullyQualified(absolute.Folder) ? absolute.Folder : new RhinoFault(absolute.Folder, RhinoReason.Unqualified),
+            besideDocument: static (documentPath, beside) => Conversions.Found(documentPath).Map(path => Path.Join([Path.GetDirectoryName(path), .. beside.Segments])));
 
     public static Fin<NamePart> StemOf(Stem stem, Option<string> saved) =>
         stem.Switch(saved,
-            documentName: static (file, _) =>
-                file.ToFin(Error.New("document has no saved file")).Bind(static path => NamePart.TryCreate(Path.GetFileNameWithoutExtension(path), out NamePart? part, out RhinoFault? fault) ? Fin.Succ(part) : fault),
+            documentName: static (documentPath, _) =>
+                Conversions.Found(documentPath).Bind(static path => NamePart.TryCreate(Path.GetFileNameWithoutExtension(path), out NamePart? part, out RhinoFault? fault) ? Fin.Succ(part) : fault),
             literal: static (_, literal) => literal.Value);
 
     public static Fin<(string Folder, NamePart Stem)> Located(OutputFolder folder, Stem stem, Option<string> saved) =>
@@ -79,7 +78,7 @@ public static class Destinations {
         fresh.Traverse(scope => entries.Choose(entry => Naming.VersionOf(stem, scope, entry))
                 .Fold(Option<OutputVersion>.None, static (top, version) => top.Filter(held => held > version) | version)
                 .Match(Some: static top => top.Next(), None: static () => OutputVersion.MinValue)
-                .ToFin(Error.New($"{stem} {scope} has no next output version"))
+                .ToFin(new RhinoFault($"next output version of {stem} {scope}", RhinoReason.Outside))
                 .Map(version => (scope, version)))
             .As()
             .Map(static versions => toHashMap(versions));
@@ -94,22 +93,22 @@ public static class Destinations {
                 .Map(path => (Name: held.Name with { Version = held.Version.Map<OutputVersioning>(static version => version).IfNone(held.Name.Version) }, Path: path)))
             .As();
 
-    private static Fin<Seq<(OutputName Name, OutputPath Path)>> Plan(Seq<(OutputName Name, OutputPath Path)> named, Func<OutputPath, bool> free, string member) =>
+    private static Fin<Seq<(OutputName Name, OutputPath Path)>> Plan(Seq<(OutputName Name, OutputPath Path)> named, Func<OutputPath, bool> free) =>
         (
-            Callbacks.Unique(named, static row => (string)row.Path, member, StringComparer.OrdinalIgnoreCase),
-            named.Traverse(row => free(row.Path) ? Fin.Succ(unit) : new FileRefused(row.Path, FileReason.Taken)).As()
+            Conversions.Unique(named, static row => (string)row.Path, StringComparer.OrdinalIgnoreCase),
+            named.Traverse(row => free(row.Path) ? Fin.Succ(unit) : new RhinoFault(row.Path, RhinoReason.Taken)).As()
         )
             .Apply(static (held, _) => held)
             .As();
 
     private static IO<(string Folder, Seq<(OutputName Name, OutputPath Path)> Placed)> Planned(
-        RhinoDoc document, OutputFolder folder, Stem stem, bool overwrite, Seq<OutputName> names, [CallerMemberName] string member = "") =>
+        RhinoDoc document, OutputFolder folder, Stem stem, bool overwrite, Seq<OutputName> names) =>
         from saved in IO.lift(() => Conversions.Present(document.Path))
         from location in IO.lift(() => Located(folder, stem, saved))
         let fresh = names.Filter(static name => name.Version.Map(unversioned: false, pinned: false, nextFree: true)).Map(static name => name.Scope).Distinct()
-        from entries in FilePublication.Refusing(location.Folder, FileReason.Unreadable, IO.lift(() => Entries(location.Folder, fresh)))
+        from entries in FilePublication.Refusing(location.Folder, RhinoReason.Unreadable, IO.lift(() => Entries(location.Folder, fresh)))
         from next in IO.lift(() => Versions(location.Stem, fresh, entries))
-        from placed in IO.lift(() => Named(location.Folder, location.Stem, next, names).Bind(named => Plan(named, path => overwrite || !Path.Exists(path), member)))
+        from placed in IO.lift(() => Named(location.Folder, location.Stem, next, names).Bind(named => Plan(named, path => overwrite || !Path.Exists(path))))
         select (location.Folder, placed);
 
     // --- [RESOLUTION]
@@ -118,6 +117,6 @@ public static class Destinations {
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> Resolve(RhinoDoc document, OutputFolder folder, Stem stem, bool overwrite, Seq<OutputName> names) =>
         from planned in Planned(document, folder, stem, overwrite, names)
-        from _ in unless(planned.Placed.IsEmpty, FilePublication.Refusing(planned.Folder, FileReason.Unwritable, IO.lift(() => ignore(Directory.CreateDirectory(planned.Folder)))))
+        from _ in unless(planned.Placed.IsEmpty, FilePublication.Refusing(planned.Folder, RhinoReason.Unwritable, IO.lift(() => ignore(Directory.CreateDirectory(planned.Folder)))))
         select planned.Placed;
 }

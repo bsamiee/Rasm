@@ -12,7 +12,7 @@ import msgspec
 from blender.bpy.commands import keymaps, operators
 from blender.bpy.data.rna.descriptors import Struct
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, Band, Gathering, Registrable
+from blender.bpy.extension.registration import Acquisitions, Band, Declaration, Gathering, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.attachments import annotated, Attached, Attachment, nested, updating
 from blender.bpy.ui.drawing.handlers import Signal
@@ -26,7 +26,7 @@ from blender.records.faults import accumulated, Fault, Outcome, paired
 
 
 @runtime_checkable
-class Preferring(Protocol):
+class Preferring(Registrable, Protocol):
     """Registered row adding sections to its extension's preferences page."""
 
     @property
@@ -59,7 +59,7 @@ class PreferencesPage[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, k
 
     # --- [GATHERING]
 
-    def gathered(self, identity: Identity, declared: tuple[Registrable | Gathering, ...], /) -> Outcome[Acquisitions]:
+    def gathered(self, identity: Identity, declared: tuple[Declaration | Gathering, ...], /) -> Outcome[Acquisitions]:
         """Declares page class, confirmation group, commands, and value popovers, building draw after operators register."""
         asks = tuple(row for row in declared if isinstance(row, operators.Operator) and any(isinstance(form, operators.Suppressible) for form in row.invoke.to_list()))
         bindings = tuple(row for row in declared if isinstance(row, keymaps.Keymap))

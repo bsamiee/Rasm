@@ -1,7 +1,7 @@
 """Region draw state, text, and cached GPU primitives."""
 
 from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import Enum
 import functools
 from typing import Final, Literal, Self
@@ -13,7 +13,7 @@ import gpu
 from gpu_extras.batch import batch_for_shader
 import msgspec
 
-from blender.bpy.extension.scoped import Scoped
+from blender.bpy.extension.identity import Resource
 from blender.bpy.ui.resources.theme import Color, Metrics, Theme
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -32,6 +32,9 @@ class Align(Enum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 QUAD: Final = ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0))
+PUSH_POP: Final[Callable[[], AbstractContextManager[None]]] = gpu.matrix.push_pop  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_PUSH_POP_PROJECTION: Final[Callable[[], AbstractContextManager[None]]] = gpu.matrix.push_pop_projection  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_BLEND_GET: Final[Callable[[], Blend]] = gpu.state.blend_get  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
 DECODED: Final = """
 vec3 targeted(vec3 srgb) {
@@ -114,19 +117,18 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     @contextmanager
     def drawn(self) -> Generator[Self]:
         """Scopes matrix stacks and alpha blending."""
-        with gpu.matrix.push_pop(), gpu.matrix.push_pop_projection(), Canvas.blended("ALPHA"):  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
+        with PUSH_POP(), _PUSH_POP_PROJECTION(), Canvas.blended("ALPHA"):
             yield self
 
     @staticmethod
     @contextmanager
     def blended(mode: Blend) -> Generator[None]:
         """Scopes blend mode, restoring the mode it found."""
-        held = gpu.state.blend_get()
+        held = _BLEND_GET()
         gpu.state.blend_set(mode)
-        try:
+        with ExitStack() as stack:
+            stack.callback(gpu.state.blend_set, held)
             yield
-        finally:
-            gpu.state.blend_set(held)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     @staticmethod
     @contextmanager
@@ -139,16 +141,13 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
                 (left, bottom), (right, top) = ((origin_x + column, origin_y + row) for column, row in (region.view_to_region(*corner, clip=False) for corner in corners))  # type: ignore[misc, has-type]
             case _:
                 (left, bottom), (right, top) = ((round(x), round(y)) for x, y in corners)
-        held = gpu.state.scissor_get()
-        held_x, held_y, held_width, held_height = held
+        held_x, held_y, held_width, held_height = held = gpu.state.scissor_get()
         x, y = max(held_x, left), max(held_y, bottom)
-        right = min(held_x + held_width, right)
-        top = min(held_y + held_height, top)
+        right, top = min(held_x + held_width, right), min(held_y + held_height, top)
         gpu.state.scissor_set(x, y, max(0, right - x), max(0, top - y))
-        try:
+        with ExitStack() as stack:
+            stack.callback(gpu.state.scissor_set, *held)
             yield
-        finally:
-            gpu.state.scissor_set(*held)
 
     # --- [PRIMITIVES]
 
@@ -187,11 +186,9 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
             blf.shadow(font, shade.level, *shade.color)
             offset_x, offset_y = shade.offset
             blf.shadow_offset(font, round(offset_x), round(offset_y))
-        with Canvas.blended(gpu.state.blend_get()):  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            try:
-                blf.draw(font, shown)
-            finally:
-                blf.disable(font, blf.SHADOW)
+        with Canvas.blended(_BLEND_GET()), ExitStack() as stack:
+            stack.callback(blf.disable, font, blf.SHADOW)
+            blf.draw(font, shown)
 
     def frame(self, rect: Rect, fill: Color, edge: Color, radius: float) -> None:
         """Draws antialiased rounded frame."""
@@ -209,7 +206,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         shader.bind()
         shader.uniform_sampler("image", texture)
         shader.uniform_float("color", color)
-        with gpu.matrix.push_pop(), Canvas.blended(blend):  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
+        with PUSH_POP(), Canvas.blended(blend):
             gpu.matrix.translate((rect.x, rect.y))
             gpu.matrix.scale((rect.width, rect.height))
             quad.draw(shader)
@@ -269,18 +266,16 @@ def released(*clears: Callable[[], None]) -> Generator[None]:
     Yields:
         None while the programs stay cached.
     """
-    try:
-        yield
-    finally:
+    with ExitStack() as stack:
         for clear in clears:
-            clear()
+            stack.callback(clear)
+        yield
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-PROGRAMS: Final = Scoped[None](made=lambda _identity: released(rounded.cache_clear, textured.cache_clear))
+PROGRAMS: Final = Resource[None](made=lambda _identity: released(rounded.cache_clear, textured.cache_clear))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-
-__all__ = ["DECODED", "PROGRAMS", "QUAD", "Align", "Blend", "Canvas", "Rect", "Shadow", "released", "rounded", "textured"]
+__all__ = ["DECODED", "PROGRAMS", "PUSH_POP", "QUAD", "Align", "Blend", "Canvas", "Rect", "Shadow", "released", "rounded", "textured"]

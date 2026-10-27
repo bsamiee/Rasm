@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal, Self, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option
+from expression import Error, Nothing, Ok, Option, try_downcast
 from expression.extra.result import catch
 import msgspec
 
@@ -174,7 +174,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 
     def chosen(source: object) -> tuple[Outcome[tuple[str, tuple[str, ...]]], Mapping[str, Sequence[str]]]:
         found = _listing(source, kind, path).bind(
-            lambda listing: accumulated(Ok(name) if name in listing[1] else Error((Fault(reason=BlenderReason.ABSENT, subject=str(path), member=name),)) for name in names).map(
+            lambda listing: accumulated(Ok(name).filter_with(listing[1].__contains__, lambda held: (Fault(reason=BlenderReason.ABSENT, subject=str(path), member=held),)) for name in names).map(
                 lambda selected: (listing[0], selected)
             )
         )
@@ -190,8 +190,8 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 
     return sourced(bpy.data, path, chosen, **keywords).bind(
         lambda answer: answer[0].bind(
-            lambda selected: accumulated(
-                Ok(block) if isinstance(block, kind) else Error((Fault(reason=BlenderReason.ABSENT, subject=str(path), member=name),)) for name, block in zip(selected[1], answer[1][selected[0]])
+            lambda picked: accumulated(
+                Option.of_optional(try_downcast(kind, block)).to_result((Fault(reason=BlenderReason.ABSENT, subject=str(path), member=name),)) for name, block in zip(picked[1], answer[1][picked[0]])
             )
         )
     )

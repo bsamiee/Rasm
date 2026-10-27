@@ -1,74 +1,72 @@
 using System.Runtime.CompilerServices;
-using Rasm.Rhino.Events;
-using Rhino.Display;
+using Rasm.RhinoCommon.Events;
 using Rhino.UI;
 
-namespace Rasm.Rhino.Display;
+namespace Rasm.RhinoCommon.Display;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MouseCallbacks {
     // --- [HOOKS]
-    private sealed class BeginMouseMoveHook(EventHandler<MouseCallbackEventArgs> handler) : MouseCallback {
-        protected override void OnMouseMove(MouseCallbackEventArgs e) => handler(this, e);
+    private sealed class BeginMouseMoveHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, object owner) : MouseCallback {
+        protected override void OnMouseMove(MouseCallbackEventArgs e) => _ = owner.Run(IO.pure(e).Bind(deliver));
     }
 
-    private sealed class EndMouseMoveHook(EventHandler<MouseCallbackEventArgs> handler) : MouseCallback {
-        protected override void OnEndMouseMove(MouseCallbackEventArgs e) => handler(this, e);
+    private sealed class EndMouseMoveHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, object owner) : MouseCallback {
+        protected override void OnEndMouseMove(MouseCallbackEventArgs e) => _ = owner.Run(IO.pure(e).Bind(deliver));
     }
 
-    private sealed class BeginMouseDownHook(EventHandler<MouseCallbackEventArgs> handler) : MouseCallback {
-        protected override void OnMouseDown(MouseCallbackEventArgs e) => handler(this, e);
+    private sealed class BeginMouseDownHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, object owner) : MouseCallback {
+        protected override void OnMouseDown(MouseCallbackEventArgs e) => _ = owner.Run(IO.pure(e).Bind(deliver));
     }
 
-    private sealed class EndMouseDownHook(EventHandler<MouseCallbackEventArgs> handler) : MouseCallback {
-        protected override void OnEndMouseDown(MouseCallbackEventArgs e) => handler(this, e);
+    private sealed class EndMouseDownHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, object owner) : MouseCallback {
+        protected override void OnEndMouseDown(MouseCallbackEventArgs e) => _ = owner.Run(IO.pure(e).Bind(deliver));
     }
 
-    private sealed class BeginMouseUpHook(EventHandler<MouseCallbackEventArgs> handler) : MouseCallback {
-        protected override void OnMouseUp(MouseCallbackEventArgs e) => handler(this, e);
+    private sealed class BeginMouseUpHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, object owner) : MouseCallback {
+        protected override void OnMouseUp(MouseCallbackEventArgs e) => _ = owner.Run(IO.pure(e).Bind(deliver));
     }
 
-    private sealed class EndMouseUpHook(EventHandler<MouseCallbackEventArgs> handler) : MouseCallback {
-        protected override void OnEndMouseUp(MouseCallbackEventArgs e) => handler(this, e);
+    private sealed class EndMouseUpHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, object owner) : MouseCallback {
+        protected override void OnEndMouseUp(MouseCallbackEventArgs e) => _ = owner.Run(IO.pure(e).Bind(deliver));
     }
 
-    private sealed class BeginMouseDoubleClickHook(EventHandler<MouseCallbackEventArgs> handler) : MouseCallback {
-        protected override void OnMouseDoubleClick(MouseCallbackEventArgs e) => handler(this, e);
+    private sealed class BeginMouseDoubleClickHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, object owner) : MouseCallback {
+        protected override void OnMouseDoubleClick(MouseCallbackEventArgs e) => _ = owner.Run(IO.pure(e).Bind(deliver));
     }
 
-    private sealed class MouseEnterHook(EventHandler<MouseCallbackEventArgs> handler) : MouseCallback {
-        protected override void OnMouseEnter(MouseCallbackEventArgs e) => handler(this, e);
+    private sealed class MouseEnterHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, object owner) : MouseCallback {
+        protected override void OnMouseEnter(MouseCallbackEventArgs e) => _ = owner.Run(IO.pure(e).Bind(deliver));
     }
 
-    private sealed class MouseHoverHook(EventHandler<MouseCallbackEventArgs> handler) : MouseCallback {
-        protected override void OnMouseHover(MouseCallbackEventArgs e) => handler(this, e);
+    private sealed class MouseHoverHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, object owner) : MouseCallback {
+        protected override void OnMouseHover(MouseCallbackEventArgs e) => _ = owner.Run(IO.pure(e).Bind(deliver));
     }
 
-    private sealed class MouseLeaveHook(EventHandler<MouseCallbackEventArgs> handler) : MouseCallback {
-        protected override void OnMouseLeave(MouseCallbackEventArgs e) => handler(this, e);
+    private sealed class MouseLeaveHook(Func<MouseCallbackEventArgs, IO<Unit>> deliver, object owner) : MouseCallback {
+        protected override void OnMouseLeave(MouseCallbackEventArgs e) => _ = owner.Run(IO.pure(e).Bind(deliver));
     }
 
-    private static DocumentEvent<MouseCallbackEventArgs> Row(Func<EventHandler<MouseCallbackEventArgs>, MouseCallback> hook, [CallerMemberName] string member = "") =>
+    private static DocumentEvent<MouseCallbackEventArgs> Row(
+        Func<Func<MouseCallbackEventArgs, IO<Unit>>, object, MouseCallback> hook, [CallerArgumentExpression(nameof(hook))] string label = "") =>
         new(
-            typeof(RhinoView),
-            member,
-            (deliver, site, retain) => DisposalOps.Acquire(IO.lift(() => {
-                MouseCallback callback = hook(Callbacks.Synchronous(deliver, site));
+            label,
+            (deliver, owner) => use(() => {
+                MouseCallback callback = hook(deliver, owner);
                 callback.Enabled = true;
                 return callback;
-            }),
-                static callback => IO.lift(() => { callback.Enabled = false; }), retain).Map(unit),
+            }, static callback => callback.Enabled = false).Map(unit),
             static args => Conversions.Serial(args.View.Document));
 
     // --- [ROWS]
-    public static readonly DocumentEvent<MouseCallbackEventArgs> BeginMouseMove = Row(static handler => new BeginMouseMoveHook(handler));
-    public static readonly DocumentEvent<MouseCallbackEventArgs> EndMouseMove = Row(static handler => new EndMouseMoveHook(handler));
-    public static readonly DocumentEvent<MouseCallbackEventArgs> BeginMouseDown = Row(static handler => new BeginMouseDownHook(handler));
-    public static readonly DocumentEvent<MouseCallbackEventArgs> EndMouseDown = Row(static handler => new EndMouseDownHook(handler));
-    public static readonly DocumentEvent<MouseCallbackEventArgs> BeginMouseUp = Row(static handler => new BeginMouseUpHook(handler));
-    public static readonly DocumentEvent<MouseCallbackEventArgs> EndMouseUp = Row(static handler => new EndMouseUpHook(handler));
-    public static readonly DocumentEvent<MouseCallbackEventArgs> BeginMouseDoubleClick = Row(static handler => new BeginMouseDoubleClickHook(handler));
-    public static readonly DocumentEvent<MouseCallbackEventArgs> MouseEnter = Row(static handler => new MouseEnterHook(handler));
-    public static readonly DocumentEvent<MouseCallbackEventArgs> MouseHover = Row(static handler => new MouseHoverHook(handler));
-    public static readonly DocumentEvent<MouseCallbackEventArgs> MouseLeave = Row(static handler => new MouseLeaveHook(handler));
+    public static readonly DocumentEvent<MouseCallbackEventArgs> BeginMouseMove = Row(static (deliver, owner) => new BeginMouseMoveHook(deliver, owner));
+    public static readonly DocumentEvent<MouseCallbackEventArgs> EndMouseMove = Row(static (deliver, owner) => new EndMouseMoveHook(deliver, owner));
+    public static readonly DocumentEvent<MouseCallbackEventArgs> BeginMouseDown = Row(static (deliver, owner) => new BeginMouseDownHook(deliver, owner));
+    public static readonly DocumentEvent<MouseCallbackEventArgs> EndMouseDown = Row(static (deliver, owner) => new EndMouseDownHook(deliver, owner));
+    public static readonly DocumentEvent<MouseCallbackEventArgs> BeginMouseUp = Row(static (deliver, owner) => new BeginMouseUpHook(deliver, owner));
+    public static readonly DocumentEvent<MouseCallbackEventArgs> EndMouseUp = Row(static (deliver, owner) => new EndMouseUpHook(deliver, owner));
+    public static readonly DocumentEvent<MouseCallbackEventArgs> BeginMouseDoubleClick = Row(static (deliver, owner) => new BeginMouseDoubleClickHook(deliver, owner));
+    public static readonly DocumentEvent<MouseCallbackEventArgs> MouseEnter = Row(static (deliver, owner) => new MouseEnterHook(deliver, owner));
+    public static readonly DocumentEvent<MouseCallbackEventArgs> MouseHover = Row(static (deliver, owner) => new MouseHoverHook(deliver, owner));
+    public static readonly DocumentEvent<MouseCallbackEventArgs> MouseLeave = Row(static (deliver, owner) => new MouseLeaveHook(deliver, owner));
 }

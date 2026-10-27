@@ -7,7 +7,7 @@ from itertools import chain, starmap
 from typing import Final
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Result, Some
 from expression.collections import Block
 from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
@@ -18,7 +18,7 @@ from blender.bpy.data.ids.store import Handle, resolved
 from blender.bpy.data.rna.descriptors import Descriptor, Struct, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Outcome
+from blender.records.faults import accumulated, Fault, Faults, Outcome
 from blender.records.trees import preorder
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -101,23 +101,7 @@ def parents(collection: bpy.types.Collection) -> tuple[bpy.types.Collection, ...
     )
 
 
-def membership(tree: CollectionTree, collection: bpy.types.Collection) -> Outcome[tuple[MembershipChange, ...]]:
-    """Returns ordered membership changes, accumulating every expired member handle."""
-
-    def listed(wanted: tuple[Handle[Member], ...]) -> Outcome[tuple[MembershipChange, ...]]:
-        held = dict(zip((*collection.objects, *collection.children), (item.sort_index for item in (*collection.collection_objects, *collection.collection_children))))
-        return resolved(tuple(dict.fromkeys(wanted))).map(
-            lambda items: (
-                *(Parted(member=item) for item in held if type(item) in tree.kinds and item not in items),
-                *(Joined(member=item) for item in items if item not in held),
-                *(Sorted(member=item, index=index) for index, item in enumerate(items) if held.get(item) != index),
-            )
-        )
-
-    return tree.members.map(listed).default_value(Ok(()))
-
-
-def applied(collection: bpy.types.Collection, change: MembershipChange) -> Outcome[None]:
+def _applied(collection: bpy.types.Collection, change: MembershipChange) -> Outcome[None]:
     """Applies membership change."""
 
     def linked(row: Joined | Parted) -> None:
@@ -136,30 +120,41 @@ def applied(collection: bpy.types.Collection, change: MembershipChange) -> Outco
 
 
 def reconciled(tree: CollectionTree, collection: bpy.types.Collection) -> Outcome[tuple[MembershipChange, ...]]:
-    """Applies membership changes, then values, stopping at first fault."""
-    initial: Outcome[None] = Ok(None)
-    return membership(tree, collection).bind(
-        lambda rows: reduce(lambda done, row: done.bind(lambda _: applied(collection, row)), rows, initial).bind(
+    """Applies ordered membership changes, accumulating every expired member handle, then values, stopping at first fault."""
+
+    def listed(wanted: tuple[Handle[Member], ...]) -> Outcome[tuple[MembershipChange, ...]]:
+        held = dict(zip((*collection.objects, *collection.children), (item.sort_index for item in (*collection.collection_objects, *collection.collection_children))))
+        return resolved(tuple(dict.fromkeys(wanted))).map(
+            lambda items: (
+                *(Parted(member=item) for item in held if type(item) in tree.kinds and item not in items),
+                *(Joined(member=item) for item in items if item not in held),
+                *(Sorted(member=item, index=index) for index, item in enumerate(items) if held.get(item) != index),
+            )
+        )
+
+    changes: Outcome[tuple[MembershipChange, ...]] = tree.members.map(listed).default_value(Ok(()))
+    return changes.bind(
+        lambda rows: reduce(lambda done, row: done.bind(lambda _: _applied(collection, row)), rows, Result[None, Faults](ok=None)).bind(
             lambda _: tree.values.map(lambda values: values.apply(collection).outcome.map(lambda _: rows)).default_value(Ok(rows))
         )
     )
 
 
-def changed(collection: bpy.types.Collection, members: tuple[Member, ...], kind: type[Joined | Parted]) -> Outcome[tuple[MembershipChange, ...]]:
+def _changed(collection: bpy.types.Collection, members: tuple[Member, ...], kind: type[Joined | Parted]) -> Outcome[tuple[MembershipChange, ...]]:
     """Links absent members or unlinks present ones once each, accumulating faults in input order."""
     held = frozenset((*collection.objects, *collection.children))
     rows = tuple(kind(member=item) for item in dict.fromkeys(members) if (item in held) is (kind is Parted))
-    return accumulated(applied(collection, row) for row in rows).map(lambda _: rows)
+    return accumulated(_applied(collection, row) for row in rows).map(lambda _: rows)
 
 
 def joined(collection: bpy.types.Collection, members: tuple[Member, ...]) -> Outcome[tuple[MembershipChange, ...]]:
     """Links absent members once, accumulating faults in input order."""
-    return changed(collection, members, Joined)
+    return _changed(collection, members, Joined)
 
 
 def parted(collection: bpy.types.Collection, members: tuple[Member, ...]) -> Outcome[tuple[MembershipChange, ...]]:
     """Unlinks present members once, accumulating faults in input order."""
-    return changed(collection, members, Parted)
+    return _changed(collection, members, Parted)
 
 
 # --- [PLACEMENT]
@@ -167,9 +162,10 @@ def parted(collection: bpy.types.Collection, members: tuple[Member, ...]) -> Out
 
 def landing(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Collection]:
     """Returns active collection or nearest editable included ancestor."""
+    active: bpy.types.Collection = view_layer.active_layer_collection.collection  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     layers = {node.collection: node for node, _ in reversed(tuple(walked(view_layer.layer_collection)))}
     return (
-        preorder(view_layer.active_layer_collection.collection, lambda held: parents(held) if held in layers else ())  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        preorder(active, lambda held: parents(held) if held in layers else ())
         .filter(lambda held: held in layers and _editable(held) and not layers[held].exclude)
         .try_head()
         .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(view_layer), member="active_layer_collection"),))
@@ -364,8 +360,6 @@ __all__ = [
     "MembershipChange",
     "Parted",
     "Sorted",
-    "applied",
-    "changed",
     "cloned",
     "deleted",
     "duplicated",
@@ -375,7 +369,6 @@ __all__ = [
     "instanced",
     "joined",
     "landing",
-    "membership",
     "moved",
     "parents",
     "parted",

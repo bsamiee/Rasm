@@ -1,9 +1,8 @@
-using System.Globalization;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 
-namespace Rasm.Rhino.Document.Files;
+namespace Rasm.RhinoCommon.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -32,5 +31,5 @@ public static class Programs {
     public static IO<(Seq<Error> Fails, Seq<(int Index, T Outcome)> Succs)> Partitioned<T>(Seq<IO<T>> steps) =>
         steps.Map<K<IO, (int Index, T Outcome)>>(static (step, index) => Indexed(step.Map(outcome => (Index: index, Outcome: outcome)), index)).PartitionFallible().As();
 
-    private static IO<T> Indexed<T>(IO<T> step, int index) => step.MapFail(error => Error.New(string.Create(CultureInfo.InvariantCulture, $"step {index} failed")) + error);
+    private static IO<T> Indexed<T>(IO<T> step, int index) => step.MapFail(error => new RhinoFault(error.Message, RhinoReason.Stated, index, error));
 }

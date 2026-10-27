@@ -1,7 +1,7 @@
 using Grasshopper2.Doc;
 using Grasshopper2.UI;
 using Grasshopper2.Undo;
-using Rasm.Rhino;
+using Rasm.RhinoCommon;
 
 namespace Rasm.Grasshopper.Doc;
 
@@ -15,13 +15,15 @@ public static class Edits {
             when(response.HasFlag(Effects.ExpireDisplay) || response.HasFlag(Effects.InvalidateDisplay), IO.lift(document.Display.UpdateDisplay)).As()))).Map(unit);
 
     public static IO<A> Commit<A>(Document document, VerbNoun name, AutoSaveReason reason, Func<ActionList, IO<A>> body) =>
-        DisposalOps.Transacted(
-            IO.lift(static () => ActionList.Empty),
-            body,
-            actions => IO.lift(() => Optional(actions.ToRecord(name))).Bind(record => record.Match(
-                Some: held => IO.lift(() => held.Undo(document)).Bind(_ => Respond(document, held)),
-                None: static () => IO.pure(unit))),
-            (actions, value) => Recorded(document, actions, name, reason).Map(_ => value));
+        from actions in IO.lift(static () => ActionList.Empty)
+        from value in body(actions).Catch(error => Reverted(document, actions, name) >> IO.fail<A>(error)).As()
+        from recorded in Recorded(document, actions, name, reason)
+        select value;
+
+    private static IO<Unit> Reverted(Document document, ActionList actions, VerbNoun name) =>
+        IO.lift(() => Optional(actions.ToRecord(name))).Bind(record => record.Match(
+            Some: held => IO.lift(() => held.Undo(document)).Bind(_ => Respond(document, held)),
+            None: static () => IO.pure(unit)));
 
     private static IO<Unit> Recorded(Document document, ActionList actions, VerbNoun name, AutoSaveReason reason) =>
         IO.lift(() => Optional(actions.ToRecord(name))).Bind(record => record.Match(
@@ -32,18 +34,17 @@ public static class Edits {
 
     // --- [CLUSTERS]
     public static IO<IDocumentObject> ClusterObjects(Document document, Seq<IDocumentObject> objects, ActionList actions) =>
-        IO.lift(Fin<IDocumentObject> () => document.Methods.CanCreateCluster(objects, out string whyNot)
-            ? Fin.Succ(document.Methods.ClusterObjects([.. objects], actions))
-            : Error.New(whyNot));
+        IO.lift(() => GrasshopperFault.Unless(document.Methods.CanCreateCluster(objects, out string whyNot), whyNot)
+            .Map(_ => document.Methods.ClusterObjects([.. objects], actions)));
 
     // --- [SELECTION]
-    private static LanguageExt.HashSet<Guid> Adjacent(Connectivity connectivity, Seq<IDocumentObject> selected, bool upstream, bool downstream) =>
+    private static HashSet<Guid> Adjacent(Connectivity connectivity, Seq<IDocumentObject> selected, bool upstream, bool downstream) =>
         toHashSet(selected
             .Map(static item => Connectivity.GetConnectiveId(item))
             .Bind(id => (upstream ? toSeq(connectivity.FindImmediateInputs(id)) : Seq<ConnectiveObject>()) + (downstream ? toSeq(connectivity.FindImmediateOutputs(id)) : Seq<ConnectiveObject>()))
             .Map(static node => node.Id));
 
-    private static IO<int> Reselect(Document document, LanguageExt.HashSet<Guid> selection) =>
+    private static IO<int> Reselect(Document document, HashSet<Guid> selection) =>
         from changed in IO.lift(() => toSeq(document.Objects.PrimaryAndSecondary)
                 .Map(item => (Object: item, Selected: selection.Contains(item.InstanceId)))
                 .Filter(static row => row.Object.Selected != row.Selected).Strict())

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Drawing;
 using System.Numerics;
 using System.Runtime.Intrinsics;
@@ -35,7 +36,7 @@ public sealed record CellGrid(long Columns, long Rows) {
 
     private static (long Cell, int Remainder) Coordinate(long pixel, int extent, long cells) => ((long, int))Floored((Int128)pixel * cells, extent);
 
-    private static (Int128 Quotient, Int128 Remainder) Floored(Int128 numerator, Int128 denominator) =>
+    internal static (Int128 Quotient, Int128 Remainder) Floored(Int128 numerator, Int128 denominator) =>
         Int128.DivRem(numerator, denominator) switch {
             var (quotient, remainder) when remainder < 0 => (quotient - 1, remainder + denominator),
             var split => split,
@@ -47,7 +48,7 @@ public sealed record CellGrid(long Columns, long Rows) {
             Vector4 pixel = plane.Sample(
                 (Interpolated(cell.Column, frame.Extent.Width, Columns), Interpolated(cell.Row, frame.Extent.Height, Rows)),
                 (WrapMode.Black, WrapMode.Black), Vector4.Zero, static (sum, pixel, weight) => sum + (new Vector4(pixel.AsVector3() * pixel.W, pixel.W) * (float)weight), Some((frame.Origin, frame.Extent)));
-            return pixel.W > 0f ? pixel.AsVector3() / pixel.W : Vector3.Zero;
+            return pixel.Unassociated.AsVector3();
         }
         (double left, double right) = Bounds(cell.Column, frame.Extent.Width, frame.Origin.X, frame.Size.Width, Columns);
         (double top, double bottom) = Bounds(cell.Row, frame.Extent.Height, frame.Origin.Y, frame.Size.Height, Rows);
@@ -111,10 +112,9 @@ public sealed record HalftoneScreen(Matrix3x2 Frame, double Pitch, ScreenShape S
     }
 }
 
-[ValueObject<string>(SkipIParsable = true)]
+[ValueObject<string>(SkipIParsable = true, SkipIComparable = true)]
 [ValidationError<ImagingFault>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CharacterSet {
     public static Fin<CharacterSet> Validated(string value) =>
         TryCreate(value, out CharacterSet? characters, out ImagingFault? fault) ? characters : fault;

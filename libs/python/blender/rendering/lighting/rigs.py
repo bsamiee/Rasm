@@ -1,6 +1,7 @@
 """Light rigs placed about target by delivered irradiance."""
 
 from enum import IntEnum
+from functools import partial
 import math
 import sys
 from types import MappingProxyType
@@ -131,10 +132,9 @@ class Matched(Case, frozen=True, kw_only=True):
             key = Light(emitter=self.key, azimuth=azimuth, elevation=elevation, size=size, color=filtered(reading.key))
             fill = Light(role=Role.FILL, azimuth=-azimuth, stops=Option.of_optional(self.fill).default_value(-reading.contrast), size=self.fill_size, color=filtered(reading.fill))
             rim = Option.of_optional(self.rim).bind(
-                lambda offset: reading.rim.bind(
-                    lambda color: reading.backlight.map(
-                        lambda backlight: Light(role=Role.RIM, azimuth=math.remainder(azimuth + math.pi, math.tau), elevation=elevation, stops=backlight + offset, size=size, color=filtered(color))
-                    )
+                lambda offset: reading.rim.map2(
+                    lambda color, backlight: Light(role=Role.RIM, azimuth=math.remainder(azimuth + math.pi, math.tau), elevation=elevation, stops=backlight + offset, size=size, color=filtered(color)),
+                    reading.backlight,
                 )
             )
             accents = (
@@ -156,7 +156,7 @@ class Matched(Case, frozen=True, kw_only=True):
                 .to_optional(),
             )
 
-        return lit().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(reading), cause=error),))
+        return lit().map_error(partial(Fault.of, RecordReason.NUMERIC, repr(reading)))
 
 
 class Placement(msgspec.Struct, frozen=True, kw_only=True):
@@ -240,7 +240,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
 
             def graded(color: tuple[Finite, Finite, Finite]) -> Outcome[tuple[Finite, Finite, Finite]]:
                 return catch(msgspec.convert, exception=msgspec.ValidationError)(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=tuple[Finite, Finite, Finite]).map_error(
-                    lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(color), cause=error),)
+                    partial(Fault.of, RecordReason.NUMERIC, repr(color))
                 )
 
             def light_at(light: Light) -> Outcome[Placement]:
@@ -294,7 +294,7 @@ def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> Outcome[float]:
     def product() -> float:
         return float(np.prod(factors) * np.exp2(stops))
 
-    return product().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=f"{factors} x 2^{stops}", cause=error),))
+    return product().map_error(partial(Fault.of, RecordReason.NUMERIC, f"{factors} x 2^{stops}"))
 
 
 # --- [TABLES] ---------------------------------------------------------------------------

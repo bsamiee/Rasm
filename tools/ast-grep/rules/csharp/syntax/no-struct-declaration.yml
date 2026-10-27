@@ -18,6 +18,12 @@ utils:
                 - has: {field: returns, matches: named-type}
                 - has: {field: type, matches: named-type}
                 - has: {field: parameters, has: {kind: parameter, has: {field: type, matches: named-type}}}
+    constrained-kernel:
+        has: {kind: base_list, has: {stopBy: end, kind: identifier, pattern: $KERNEL}}
+        inside:
+            kind: compilation_unit
+            stopBy: end
+            has: {stopBy: end, kind: type_parameter_constraints_clause, all: [{has: {kind: type_parameter_constraint, regex: "^struct$"}}, {has: {kind: type_parameter_constraint, has: {stopBy: end, kind: identifier, pattern: $KERNEL}}}]}
     parallel-action:
         has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^I(Ref|In)?Action(2D)?$'}}}}}
 rule:
@@ -30,6 +36,7 @@ rule:
         - not: {has: {regex: '^ref$'}}
         - not: {matches: {csharp-attributed: {name: {regex: '^StructLayout(Attribute)?$'}}}}
         - not: {matches: parallel-action}
+        - not: {matches: constrained-kernel}
         - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: native-signature}}}
 message: '`$NAME` is a struct'
-note: 'Declare a record or class, interop structs, `ref struct`, and `ParallelHelper` actions stay'
+note: 'Declare a record or class, interop structs, `ref struct`, `ParallelHelper` actions, and kernels a `struct` constraint reads stay'

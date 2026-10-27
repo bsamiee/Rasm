@@ -5,8 +5,8 @@ using MathNet.Numerics.Random;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using Rasm.Rhino;
-using Rasm.Rhino.Objects;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Objects;
 using Rhino.Display;
 using UnitsNet;
 using Wacton.Unicolour;
@@ -225,8 +225,9 @@ public sealed partial class ReferenceDistribution {
 
 public sealed record DistantLight(Vector3 Direction, Vector3 Color, double Stops) {
     public static DistantLight Of(RigLight light) =>
-        (light.Axes.Toward, light.Color.Switch(blackbody: static blackbody => Conversions.Blackbody((double)blackbody.Kelvin.Kelvins), linear: static linear => linear.Filter.Light)) switch {
-            var (toward, (color, luminance)) => new(new Vector3((float)toward.X, (float)toward.Y, (float)toward.Z), new Vector3(color.R, color.G, color.B) / (float)luminance, light.Stops),
+        (light.Axes.Toward, light.Color.Switch(blackbody: static blackbody => Lights.Blackbody((double)blackbody.Kelvin.Kelvins), linear: static linear => linear.Filter.Light)) switch {
+            var (toward, emission) => new(
+                new Vector3((float)toward.X, (float)toward.Y, (float)toward.Z), new Vector3(emission.Light.R, emission.Light.G, emission.Light.B) / (float)emission.Luminance, light.Stops),
         };
 
     public static PixelFrame Sphere(Seq<DistantLight> lights, PixelExtent size) {
@@ -266,7 +267,7 @@ public sealed record RigReference(Vector3 KeyColor, Vector3 FillColor, Vector2 D
 
 public sealed record RigLayout(
     RigReference Reference, RigEmitter Key, double KeySoftness, Angle FillSize, Option<double> Fill, Option<double> Rim, ColorFilter Tint, double ColorSaturation, double Distance) {
-    public Fin<Seq<RigLight>> Lights =>
+    public Fin<Seq<RigLight>> Rows =>
         (Azimuth: Angle.FromRadians(Reference.Direction.X * Math.PI / 2d),
          Elevation: Angle.FromRadians(Reference.Direction.Y * Math.PI / 2d),
          Size: Angle.FromRadians(Reference.Hardness > 0f ? Math.Atan2(KeySoftness * Reference.Ratio, Reference.Hardness) : Math.PI / 2d),
@@ -279,7 +280,7 @@ public sealed record RigLayout(
                  .As(),
          };
 
-    private static Color4f Peaked(Vector3 color) => color == Vector3.Zero ? Color4f.White : Conversions.Peaked(color.X, color.Y, color.Z).Light;
+    private static Color4f Peaked(Vector3 color) => color == Vector3.Zero ? Color4f.White : Lights.Peaked(color.X, color.Y, color.Z).Light;
 
     private Fin<RigLight> Row(LightRole role, RigEmitter emitter, Angle azimuth, Angle elevation, Angle size, double stops, Color4f color) =>
         ColorFilter.TryCreate(

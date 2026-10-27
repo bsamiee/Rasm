@@ -12,7 +12,7 @@ from expression.collections import Block
 from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Unchanged
 from blender.bpy.data.rna.descriptors import Descriptor, Native, rooted, Struct, Value
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
-from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
+from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
@@ -103,9 +103,9 @@ class CollectionStates(Line, frozen=True, kw_only=True):
             lambda columns: (
                 STATE,
                 *CLIPBOARD,
-                PathHandler(
-                    handlers=LOAD_POST,
-                    body=lambda _: (
+                Handler(
+                    handlers=bpy.app.handlers.load_post,
+                    body=lambda: (
                         rooted(bpy.types.WindowManager, bpy.context).bind(lambda manager: accumulated(columns.applied(found.area) for found in query.located(manager.windows))).map(lambda _: None)
                     ),
                 ),

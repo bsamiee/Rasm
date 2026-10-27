@@ -4,8 +4,8 @@ using System.Runtime.InteropServices;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
-using Rasm.Rhino;
-using Rasm.Rhino.Render.Effects;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Render.Effects;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
@@ -58,26 +58,24 @@ public sealed record ChainScene {
         select lens;
 
     private static Fin<Camera> Viewed(ViewInfo view, double meters, PixelExtent extent, Option<LensFocus> lens) =>
-        (view.Viewport.IsParallelProjection, view.Viewport.GetXform(CoordinateSystem.Camera, CoordinateSystem.World)) switch {
-            var (parallel, xform) => (
-                    Refused.Unless(xform.IsValid, xform, nameof(ViewportInfo.GetXform))
+        view.Viewport.IsParallelProjection switch {
+            var parallel => (
+                    Conversions.Found(Conversions.Present(view.Viewport.GetXform(CoordinateSystem.Camera, CoordinateSystem.World)))
                         .Bind(frame => Pose(frame with { M03 = frame.M03 * meters, M13 = frame.M13 * meters, M23 = frame.M23 * meters })),
                     Window(view.Viewport, parallel, meters))
                 .Apply((pose, window) => new Camera(pose, parallel ? new Frustum.Parallel(window) : new Frustum.Perspective(window), extent, lens))
                 .As(),
         };
 
-    private static Fin<ViewWindow> Window(ViewportInfo viewport, bool parallel, double meters) {
-        if (!viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _))
-            return new Refused(nameof(ViewportInfo.GetFrustum), Refused.Declined);
-        double scale = parallel ? meters : 1d / near;
-        return ViewWindow.Validated(scale * ((left + right) / 2d), scale * ((bottom + top) / 2d), scale * (right - left), scale * (top - bottom));
-    }
+    private static Fin<ViewWindow> Window(ViewportInfo viewport, bool parallel, double meters) =>
+        RhinoFault.Unless(viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _)).Bind(_ => (parallel ? meters : 1d / near) switch {
+            var scale => ViewWindow.Validated(scale * ((left + right) / 2d), scale * ((bottom + top) / 2d), scale * (right - left), scale * (top - bottom)),
+        });
 
     private static Fin<Matrix4x4> Pose(Transform xform) =>
-        xform.ToFloatArray(rowDominant: false) is var entries && entries.All(float.IsFinite)
-            ? MemoryMarshal.Cast<float, Matrix4x4>(entries.AsSpan())[0]
-            : new Refused(nameof(Transform.ToFloatArray), Refused.Invalid);
+        xform.ToFloatArray(rowDominant: false) switch {
+            var entries => RhinoFault.Unless(entries.All(float.IsFinite)).Map(_ => MemoryMarshal.Cast<float, Matrix4x4>(entries.AsSpan())[0]),
+        };
 
     private static Fin<SceneLights> Lit(RhinoDoc doc, double meters) =>
         Conversions.Rows(doc.Lights).Filter(static light => !light.IsDeleted && light.LightGeometry.IsEnabled) switch {
@@ -94,7 +92,6 @@ public sealed record ChainScene {
         };
 
     private static Fin<Vector3> Numeric(Vector3d vector) =>
-        Seq(vector.X, vector.Y, vector.Z).ForAll(static value => double.IsFinite(value) && double.Abs(value) <= float.MaxValue)
-            ? new Vector3((float)vector.X, (float)vector.Y, (float)vector.Z)
-            : new Refused(nameof(Vector3d), Refused.Invalid);
+        RhinoFault.Unless(Seq(vector.X, vector.Y, vector.Z).ForAll(static value => double.IsFinite(value) && double.Abs(value) <= float.MaxValue))
+            .Map(_ => new Vector3((float)vector.X, (float)vector.Y, (float)vector.Z));
 }

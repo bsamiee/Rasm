@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from typing import Annotated, Final
 
 import bpy
-from expression import Ok, Option, Result, Some
+from expression import Ok, Some
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
@@ -13,11 +13,11 @@ from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.graphs import Expr, Generated, grouped, math, Points, vector, xyz
-from blender.bpy.render.compositor.colors import space_item
+from blender.bpy.render.compositor.colors import AXES, space_item
 from blender.imaging.color.luts import Lattice, Logarithmic, Rational, split, Uniform
 from blender.imaging.color.processors import converted, processor
 from blender.imaging.files.buffers import applied
-from blender.records.faults import Faults, Outcome
+from blender.records.faults import Outcome
 from blender.records.identity import content_hash
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -102,7 +102,7 @@ def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32]
             encoded = vector("DIVIDE", vector("SUBTRACT", vector("DIVIDE", source, (scale,) * 3), (low / scale,) * 3), (high / scale - low / scale,) * 3)
         case Logarithmic(low=low, span=span):
             tiny = float(np.finfo(np.float32).tiny)
-            encoded = xyz(*(math("MULTIPLY_ADD", math("LOGARITHM", math("MAXIMUM", source[axis] + 2.0**low, tiny), 2.0), 1.0 / span, -low / span) for axis in ("X", "Y", "Z")))
+            encoded = xyz(*(math("MULTIPLY_ADD", math("LOGARITHM", math("MAXIMUM", source[axis] + 2.0**low, tiny), 2.0), 1.0 / span, -low / span) for axis in AXES))
         case Rational():
             positive = vector("MAXIMUM", source, (0.0,) * 3)
             encoded = positive / (positive + (1.0,) * 3)
@@ -116,14 +116,12 @@ def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32]
 
 def latticed(key: Key, name: str, config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, lattice: Lattice, source: Expr) -> Outcome[Expr]:
     """Samples a transform with no node form at the lattice's nodes into a tetrahedral table of the straight RGB source."""
-    return Result[npt.NDArray[np.float32], Faults].bind(lattice.samples().bind(lambda samples: converted(config, transform, samples)), lambda plane: tabled(key, name, lattice, plane, source, config))
+    return lattice.samples().bind(lambda samples: converted(config, transform, samples)).bind(lambda plane: tabled(key, name, lattice, plane, source, config))
 
 
 def suffixed(key: Key, name: str, config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, source: Expr) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Expr]]:
     """Tables a transform from its first 3D table on at that table's own lattice, answering the operations before it and the table output, the source where it holds none."""
-    return Result[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]], Faults].bind(
-        split(config, transform), lambda parts: parts[1].map(lambda found: tabled(key, name, *found, source, config)).default_value(Ok(source)).map(lambda table: (parts[0], table))
-    )
+    return split(config, transform).bind(lambda parts: parts[1].map(lambda found: tabled(key, name, *found, source, config)).default_value(Ok(source)).map(lambda table: (parts[0], table)))
 
 
 # --- [CURVES]

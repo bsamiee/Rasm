@@ -1,8 +1,8 @@
 """Chart wells in the paints of Blender's scopes and chart geometry over plain arrays in plot fractions."""
 
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
-from typing import ClassVar, Literal, Protocol, Self
+from collections.abc import Callable, Generator, Mapping
+from contextlib import contextmanager, ExitStack
+from typing import ClassVar, Final, Literal, Protocol, Self
 
 from expression import Nothing, Option, Some
 import gpu
@@ -11,7 +11,7 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.ui.drawing.canvas import Align, Blend, Canvas, Rect
+from blender.bpy.ui.drawing.canvas import Align, Blend, Canvas, PUSH_POP, Rect
 from blender.bpy.ui.resources.theme import CLEAR, Color, Metrics
 from blender.records.faults import Outcome
 
@@ -27,6 +27,10 @@ class Plot(Protocol):
 
 
 type ChartLayer = Rules | Trace | Points
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_BATCH_FOR_SHADER: Final[Callable[[gpu.types.GPUShader, str, Mapping[str, npt.NDArray[np.float32]]], gpu.types.GPUBatch]] = batch_for_shader  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -68,14 +72,11 @@ class Well(msgspec.Struct, frozen=True, kw_only=True):
     @contextmanager
     def placed(self, canvas: Canvas, x: float, y: float) -> Generator[None]:
         """Draws the well background at a corner, the body in well coordinates, then the rim above the lower edge."""
-        gpu.matrix.push()
-        try:
+        with PUSH_POP(), ExitStack() as scope:
             gpu.matrix.translate((x, y))
             canvas.frame(Rect(x=0.0, y=0.0, width=self.width, height=self.height), Well.ground, CLEAR, self.radius)
+            scope.callback(canvas.frame, Rect(x=0.0, y=1.0, width=self.width, height=self.height - 1.0), CLEAR, Well.rim, self.radius)
             yield
-        finally:
-            canvas.frame(Rect(x=0.0, y=1.0, width=self.width, height=self.height - 1.0), CLEAR, Well.rim, self.radius)
-            gpu.matrix.pop()
 
 
 class Rules(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -129,10 +130,10 @@ class LayerBatch(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         match layer:
             case Points(points=at, weights=weights):
                 tints = np.column_stack((np.broadcast_to(np.asarray(color[:3], np.float32), (len(weights), 3)), color[3] * weights)).astype(np.float32)
-                batch = batch_for_shader(gpu.shader.from_builtin("POINT_FLAT_COLOR"), "POINTS", {"pos": placed(at).tolist(), "color": tints.tolist()})
+                batch = _BATCH_FOR_SHADER(gpu.shader.from_builtin("POINT_FLAT_COLOR"), "POINTS", {"pos": placed(at), "color": tints})
                 return cls(batch=batch, paint=layer.paint, width=Nothing)
             case Rules(segments=at) | Trace(points=at):
-                batch = batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), layer.primitive, {"pos": placed(at).tolist()})
+                batch = _BATCH_FOR_SHADER(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), layer.primitive, {"pos": placed(at)})
                 return cls(batch=batch, paint=layer.paint, width=Some(layer.paint.stroke))
 
     def drawn(self, canvas: Canvas) -> None:

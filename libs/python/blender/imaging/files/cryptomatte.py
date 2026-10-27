@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from copy import replace
+from functools import partial
 import re
 from typing import Annotated, Self
 
@@ -47,7 +48,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
             )
             return (
                 catch(msgspec.json.decode, exception=msgspec.DecodeError)(manifest, type=_Manifest)
-                .map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=file.path, cause=error),))
+                .map_error(partial(Fault.of, RecordReason.UNREADABLE, file.path))
                 .map(
                     lambda entries: cls(
                         name=name,

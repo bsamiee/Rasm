@@ -4,7 +4,7 @@ from collections.abc import Callable, Generator, Hashable, Mapping
 from contextlib import contextmanager, ExitStack, nullcontext
 from enum import auto, Enum, IntEnum
 import functools
-from functools import reduce
+from functools import partial, reduce
 import inspect
 import itertools
 import math
@@ -33,10 +33,9 @@ from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import Handle, STORES
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events.handlers import Change, SceneHandler, UpdateHandler
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.events import Change, Handler, updated
+from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import reconciled
 from blender.bpy.nodes.graphs import Expr, Graph
@@ -409,7 +408,7 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-NODE_STATES: Final = Scoped[NodeState](made=lambda _identity: nullcontext(NodeState()), renewed=Some(lambda _held: NodeState()))
+NODE_STATES: Final = Resource[NodeState](made=lambda _identity: nullcontext(NodeState()), renewed=Some(lambda _held: NodeState()))
 
 
 class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
@@ -540,7 +539,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
         def swatched() -> Outcome[bpy.types.Material]:
             def defaulted(socket: bpy.types.NodeSocket) -> Option[Value]:
                 found: bpy.types.Property | None = socket.bl_rna.properties.get("default_value")
-                return Option.of_optional(found).map(lambda prop: Descriptor(root=type(socket), owner="", prop=prop).read(socket))
+                return Option.of_optional(found).map(lambda prop: Descriptor(root=type(socket), prop=prop).read(socket))
 
             def graph(source: bpy.types.Node, name: Option[str]) -> Outcome[Graph]:
                 own = tuple(
@@ -649,9 +648,10 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
         """Writes editor cells and returns a job per target key neither cache nor folder holds."""
         state, metrics, failed = identity.held[NODE_STATES], Metrics.read(), identity.held[BACKLOG].failed
         prior, state.keys = state.keys, {}
+        manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         views = tuple(
             (editor, space, region, tree)
-            for window in context.window_manager.windows  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            for window in manager.windows
             for area in window.screen.areas
             for space in (area.spaces.active,)
             if isinstance(space, bpy.types.SpaceNodeEditor)
@@ -705,7 +705,8 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                             return True
 
                         return (
-                            identity.held[TEXTURES]
+                            identity
+                            .held[TEXTURES]
                             .stored(key, image.pixels, limit, kept)
                             .bind(lambda _: catch(os.utime, exception=OSError)(path).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),)))
                             .map(recorded)
@@ -891,9 +892,9 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
             self.export,
             Append(target=NODE_MT_context_menu, rows=(OperatorButton(target=self.mark), OperatorButton(target=self.export), OperatorButton(target=self.refresh))),
             overlay,
-            UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=STORED, body=dropped),
-            UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Object,), body=dropped, changes=Some(Change.GEOMETRY | Change.SHADING)),
-            SceneHandler(handlers=bpy.app.handlers.frame_change_post, body=lambda _: forgotten(lambda settings: settings.frames)),
+            Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, STORED, dropped)),
+            Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Object,), dropped, changes=Some(Change.GEOMETRY | Change.SHADING))),
+            Handler(handlers=bpy.app.handlers.frame_change_post, body=lambda: forgotten(lambda settings: settings.frames)),
         ))
 
     def rerendered(self, identity: Identity) -> Outcome[None]:

@@ -1,9 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Rasm.Rhino;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.UI;
 using Rasm.UI;
 using Rhino.Runtime.Notifications;
 
@@ -33,34 +34,34 @@ public abstract partial record QueueEvent {
 
     public string Title => $"{nameof(QueueState)} {GetType().Name}";
 
-    public abstract string Description(DateTimeZone zone, IPlugInSink sink);
+    public abstract string Description(DateTimeZone zone, IPlugInViews views);
 
     public sealed record Started(int Entries, long Frames) : QueueEvent(NoticePriority.Default, "racehorse", fresh: true) {
-        public override string Description(DateTimeZone zone, IPlugInSink sink) => RowText.Localize("{0} frames across {1} entries", sink, arguments: [Frames, Entries]).Local;
+        public override string Description(DateTimeZone zone, IPlugInViews views) => RowText.Localize("{0} frames across {1} entries", views, arguments: [Frames, Entries]).Local;
     }
 
     public sealed record Submitted(Uri Job) : QueueEvent(NoticePriority.Default, None, fresh: true) {
-        public override string Description(DateTimeZone zone, IPlugInSink sink) => RowText.Localize("Flamenco job {0}", sink, arguments: [Job]).Local;
+        public override string Description(DateTimeZone zone, IPlugInViews views) => RowText.Localize("Flamenco job {0}", views, arguments: [Job]).Local;
     }
 
     public sealed record Estimate(QueueEstimate Reading) : QueueEvent(NoticePriority.Default, "hourglass", fresh: false) {
-        public override string Description(DateTimeZone zone, IPlugInSink sink) => Reading.Description(zone, sink);
+        public override string Description(DateTimeZone zone, IPlugInViews views) => Reading.Description(zone, views);
     }
 
     public sealed record Complete(long Frames, Duration Elapsed) : QueueEvent(NoticePriority.Default, "white_check_mark", fresh: false) {
-        public override string Description(DateTimeZone zone, IPlugInSink sink) => RowText.Localize("{0} frames in {1:-H:mm:ss}", sink, arguments: [Frames, Elapsed]).Local;
+        public override string Description(DateTimeZone zone, IPlugInViews views) => RowText.Localize("{0} frames in {1:-H:mm:ss}", views, arguments: [Frames, Elapsed]).Local;
     }
 
     public sealed record Stopped(long Frames) : QueueEvent(NoticePriority.High, "warning", fresh: false) {
-        public override string Description(DateTimeZone zone, IPlugInSink sink) => RowText.Localize("{0} frames rendered", sink, arguments: [Frames]).Local;
+        public override string Description(DateTimeZone zone, IPlugInViews views) => RowText.Localize("{0} frames rendered", views, arguments: [Frames]).Local;
     }
 
     public sealed record Failed(Error Error) : QueueEvent(NoticePriority.Max, "x", fresh: false) {
-        public override string Description(DateTimeZone zone, IPlugInSink sink) => ErrorOps.Localize(Error);
+        public override string Description(DateTimeZone zone, IPlugInViews views) => ErrorOps.Messages(Error);
     }
 
     public sealed record RetriesExhausted(int Retries) : QueueEvent(NoticePriority.Max, "x", fresh: false) {
-        public override string Description(DateTimeZone zone, IPlugInSink sink) => RowText.Localize("Queue crashed after {0} restarts", sink, arguments: [Retries]).Local;
+        public override string Description(DateTimeZone zone, IPlugInViews views) => RowText.Localize("Queue crashed after {0} restarts", views, arguments: [Retries]).Local;
     }
 }
 
@@ -75,15 +76,14 @@ public sealed class NoticeSender : IDisposable {
     private static readonly GlyphSource Mark = new GlyphSource.Paired(typeof(NoticeSender).Assembly, "mark-16.svg", "mark-16_darkmode.svg");
 
     private readonly HttpClient client = new() { Timeout = Duration.FromSeconds(10).ToTimeSpan() };
-    private readonly Retained<Disposal<Notification>> raised = new(DisposalOps.Release);
+    private readonly Ref<Option<Lease<Notification>>> raised = Ref(Option<Lease<Notification>>.None);
     private readonly IO<NoticeSettings> settings;
     private readonly IPlugInViews views;
 
     private NoticeSender(IO<NoticeSettings> settings, IPlugInViews views) => (this.settings, this.views) = (settings, views);
 
     // --- [ACQUISITION]
-    public static IO<NoticeSender> Acquire(IO<NoticeSettings> settings, IPlugInViews views, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => new NoticeSender(settings, views)), retain);
+    public static IO<NoticeSender> Acquire(IO<NoticeSettings> settings, IPlugInViews views) => use(() => new NoticeSender(settings, views));
 
     // --- [DELIVERY]
     public IO<Unit> Notify(QueueEvent queued) =>
@@ -91,12 +91,12 @@ public sealed class NoticeSender : IDisposable {
             .OnUiThread()
             .Bind(notice => Callbacks.Each(Seq(Noticed(queued.Fresh, notice).OnUiThread(), Notifications.Show(notice).OnUiThread(), Posted(queued, notice))))
             .Map(unit)
-            .Catch(static error => !error.Is(Errors.Cancelled), error => IO.lift(() => views.Report(error, typeof(NoticeSender))));
+            .Catch(static error => !error.Is(Errors.Cancelled), error => Reported(error));
 
     private IO<Unit> Noticed(bool fresh, Notice notice) =>
-        IO.lift(() => raised.Held).Bind(held => held.Head.Filter(_ => !fresh).Match(
-            Some: kept => Status.Revise(kept, notice),
-            None: () => DisposalOps.OnFailure(Status.Show(notice, None, views, cell => raised.Replace(cell).Run()).Map(static _ => unit), raised.Drain)));
+        IO.lift(() => raised.Value).Bind(held => held.Filter(_ => !fresh).Match(
+            Some: kept => Status.Revise(kept.Value, notice),
+            None: () => views.Session.Held(Products.Swapped(raised, Status.Show(notice, None, views))).Map(static _ => unit)));
 
     private IO<Unit> Posted(QueueEvent queued, Notice notice) =>
         settings.OnUiThread().Bind(held => Optional(held.Topic).Match(
@@ -112,12 +112,8 @@ public sealed class NoticeSender : IDisposable {
         .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Unit>(Error.New($"notice post to {server} failed", error)))
         .Catch(static error => error.Is(Errors.Cancelled), static error => cancelToken.Bind(token => IO.fail<Unit>(token.IsCancellationRequested ? error : Errors.TimedOut)));
 
+    private IO<Unit> Reported(Error error, [CallerMemberName] string member = "") => IO.lift(() => PlugInLog.Of(views).Failed(error, typeof(NoticeSender), member));
+
     // --- [RELEASE]
-    public void Dispose() {
-        try {
-            raised.Dispose();
-        } finally {
-            client.Dispose();
-        }
-    }
+    public void Dispose() => client.Dispose();
 }

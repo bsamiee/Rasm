@@ -1,8 +1,8 @@
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI;
 using Rhino.Render;
 
 namespace Darkroom.Chain;
@@ -38,7 +38,7 @@ public sealed class RenderRuns {
 
     public static PlugInSlot<RenderRuns> Slot { get; } = new();
 
-    public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Register { get; } = static (views, _) => Slot.Publish(views, new RenderRuns());
+    public static Func<IPlugInViews, IO<Unit>> Register { get; } = static views => Slot.Publish(views, new RenderRuns());
 
     public HostEvent<Unit> Changed { get; }
 

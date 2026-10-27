@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Iterable, Mapping
 from functools import partial
+import sys
 from typing import Annotated, Literal, Self, TYPE_CHECKING
 
 import bpy
@@ -93,7 +94,7 @@ class Split(msgspec.Struct, frozen=True, kw_only=True):
     """Editor split off at an edge, under half of the source span, its state applied on the next pass."""
 
     side: Edge
-    share: Annotated[float, msgspec.Meta(gt=0.0, lt=0.5)]
+    share: Annotated[float, msgspec.Meta(ge=sys.float_info.min, lt=0.5)]
     ui_type: str
     state: EditorState = EditorState()
 

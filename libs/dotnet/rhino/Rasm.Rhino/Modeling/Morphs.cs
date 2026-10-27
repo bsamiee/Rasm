@@ -1,10 +1,10 @@
 using System.Runtime.CompilerServices;
 using Rasm.Spatial;
-using Rasm.Rhino.Document.Units;
+using Rasm.RhinoCommon.Document.Units;
 using Rhino.Geometry.Morphs;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.Modeling;
+namespace Rasm.RhinoCommon.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -57,85 +57,80 @@ internal static partial class MorphMapper {
 }
 
 public static class Morphs {
-    public static IO<Seq<T>> Morph<T>(Tolerances tolerances, Seq<T> targets, MorphKind kind, MorphSettings settings, Action<IDisposable> retain) where T : GeometryBase =>
-        DisposalOps.Acquire(owned => Morphing(kind, Some((Tolerances: tolerances, Settings: settings)), morph =>
-            Morphed(targets, morph.Morph, settings.PreserveStructure, owned)), retain);
+    public static IO<Seq<T>> Morph<T>(Tolerances tolerances, Seq<T> targets, MorphKind kind, MorphSettings settings) where T : GeometryBase =>
+        Morphing(kind, Some((Tolerances: tolerances, Settings: settings)), morph => Morphed(targets, morph.Morph, settings.PreserveStructure));
 
-    public static IO<Seq<T>> Morph<T>(Tolerances tolerances, Seq<T> targets, NurbsCurve origin, NurbsCurve target, MorphSettings settings, Action<IDisposable> retain) where T : GeometryBase =>
-        DisposalOps.Acquire(owned => DisposalOps.Within(() => new MorphControl(origin, target), control =>
-            from valid in IO.lift(() => Refused.Unless(control.IsValid, nameof(MorphControl)))
-            from configured in IO.lift(() => MorphMapper.Update(settings, control, tolerances.Absolute))
-            from morphed in Morphed(targets, control.Morph, settings.PreserveStructure, owned)
-            select morphed), retain);
+    public static IO<Seq<T>> Morph<T>(Tolerances tolerances, Seq<T> targets, NurbsCurve origin, NurbsCurve target, MorphSettings settings) where T : GeometryBase =>
+        from control in use(() => new MorphControl(origin, target))
+        from valid in IO.lift(() => RhinoFault.Unless(control.IsValid))
+        from configured in IO.lift(() => MorphMapper.Update(settings, control, tolerances.Absolute))
+        from morphed in Morphed(targets, control.Morph, settings.PreserveStructure)
+        select morphed;
 
     public static IO<Seq<Plane>> Morph(Tolerances tolerances, Seq<Plane> planes, MorphKind kind, MorphSettings settings) =>
         Morphing(kind, Some((Tolerances: tolerances, Settings: settings)), morph => IO.lift(() =>
-            Callbacks.Each(planes, (plane, index) => Refused.Unless(morph.Morph(ref plane), plane, nameof(SpaceMorph.Morph), index))));
+            Callbacks.Each(planes, (plane, index) => RhinoFault.Unless(morph.Morph(ref plane), index).Map(_ => plane)))).Bracket();
 
     public static IO<Seq<Point3d>> MorphPoint(Seq<Point3d> points, MorphKind kind) =>
-        Morphing(kind, None, morph => IO.lift(() => points.Map(morph.MorphPoint).Strict()));
+        Morphing(kind, None, morph => IO.lift(() => points.Map(morph.MorphPoint).Strict())).Bracket();
 
     private static IO<A> Morphing<A>(MorphKind kind, Option<(Tolerances Tolerances, MorphSettings Settings)> settings, Func<SpaceMorph, IO<A>> apply) =>
-        DisposalOps.Within((Action<IDisposable> parts) =>
-            from morph in Space(kind, parts)
-            from configured in IO.lift(() => settings.Iter(run => MorphMapper.Update(run.Settings, morph, run.Tolerances.Absolute)))
-            from applied in apply(morph)
-            select applied, DisposalOps.Release);
+        from morph in Space(kind)
+        from configured in IO.lift(() => settings.Iter(run => MorphMapper.Update(run.Settings, morph, run.Tolerances.Absolute)))
+        from applied in apply(morph)
+        select applied;
 
-    private static IO<SpaceMorph> Space(MorphKind kind, Action<IDisposable> parts) =>
+    private static IO<SpaceMorph> Space(MorphKind kind) =>
         kind.Switch(
-            parts,
-            bend: static (held, of) => Hosted(() => new BendSpaceMorph(of.Start, of.End, of.Through, Conversions.Unset(of.Angle), of.Straight, of.Symmetric), static morph => morph.IsValid, held),
-            flow: static (held, of) => Hosted(() => new FlowSpaceMorph(of.Base, of.Target, of.ReverseBase, of.ReverseTarget, of.PreventStretching), static morph => morph.IsValid, held),
-            maelstrom: static (held, of) => Hosted(() => new MaelstromSpaceMorph(of.Plane, of.Radius0, of.Radius1, of.Angle), static morph => morph.IsValid, held),
-            splop: static (held, of) => Hosted(() => new SplopSpaceMorph(of.Plane, of.Surface, of.Parameter, Conversions.Unset(of.Scale), Conversions.Unset(of.Angle)), static morph => morph.IsValid, held),
-            sporph: static (held, of) => Hosted(
+            bend: static of => Hosted(() => new BendSpaceMorph(of.Start, of.End, of.Through, Conversions.Unset(of.Angle), of.Straight, of.Symmetric), static morph => morph.IsValid),
+            flow: static of => Hosted(() => new FlowSpaceMorph(of.Base, of.Target, of.ReverseBase, of.ReverseTarget, of.PreventStretching), static morph => morph.IsValid),
+            maelstrom: static of => Hosted(() => new MaelstromSpaceMorph(of.Plane, of.Radius0, of.Radius1, of.Angle), static morph => morph.IsValid),
+            splop: static of => Hosted(() => new SplopSpaceMorph(of.Plane, of.Surface, of.Parameter, Conversions.Unset(of.Scale), Conversions.Unset(of.Angle)), static morph => morph.IsValid),
+            sporph: static of => Hosted(
                 () => of.Parameters.Case is (Point2d source, Point2d target)
                     ? new SporphSpaceMorph(of.Source, of.Target, source, target)
                     : new SporphSpaceMorph(of.Source, of.Target),
-                static morph => morph.IsValid, held, Some<Action<SporphSpaceMorph>>(morph => morph.ConstrainNormal = Conversions.Unset(of.ConstrainNormal))),
-            stretchToLength: static (held, of) => Hosted(() => new StretchSpaceMorph(of.Start, of.End, of.Length), static morph => morph.IsValid, held),
-            stretchToPoint: static (held, of) => Hosted(() => new StretchSpaceMorph(of.Start, of.End, of.NewEnd), static morph => morph.IsValid, held),
-            taper: static (held, of) => Hosted(() => new TaperSpaceMorph(of.Start, of.End, of.StartRadius, of.EndRadius, of.Flat, of.Infinite), static morph => morph.IsValid, held),
-            twist: static (held, of) => Hosted(() => MorphMapper.Twist(of), static _ => true, held),
-            cage: static (held, of) => Hosted(() => new MeshCageMorph(of.Reference, of.Target), static morph => morph.IsValid, held),
-            sequence: static (held, of) => of.Parts.TraverseM(part => Space(part, held)).As()
+                static morph => morph.IsValid, Some<Action<SporphSpaceMorph>>(morph => morph.ConstrainNormal = Conversions.Unset(of.ConstrainNormal))),
+            stretchToLength: static of => Hosted(() => new StretchSpaceMorph(of.Start, of.End, of.Length), static morph => morph.IsValid),
+            stretchToPoint: static of => Hosted(() => new StretchSpaceMorph(of.Start, of.End, of.NewEnd), static morph => morph.IsValid),
+            taper: static of => Hosted(() => new TaperSpaceMorph(of.Start, of.End, of.StartRadius, of.EndRadius, of.Flat, of.Infinite), static morph => morph.IsValid),
+            twist: static of => Hosted(() => MorphMapper.Twist(of), static _ => true),
+            cage: static of => Hosted(() => new MeshCageMorph(of.Reference, of.Target), static morph => morph.IsValid),
+            sequence: static of => of.Parts.TraverseM(static part => Space(part)).As()
                 .Map(static SpaceMorph (chain) => new PointSpaceMorph(point => chain.Fold(point, static (at, part) => part.MorphPoint(at)))),
-            point: static (_, of) => IO.pure<SpaceMorph>(new PointSpaceMorph(of.Map)),
-            lattice: static (_, of) => IO.lift(Refused.UnlessValid(of.Reference.IsValid, Transform.PlaneToPlane(of.Reference.Plane, Plane.WorldXY), nameof(Box))).Map(SpaceMorph (local) => new PointSpaceMorph(point => (local * point) switch {
-                var at => of.Volume.At(new(of.Reference.X.NormalizedParameterAt(at.X), of.Reference.Y.NormalizedParameterAt(at.Y), of.Reference.Z.NormalizedParameterAt(at.Z))).ToPoint3d(),
-            })));
+            point: static of => IO.pure<SpaceMorph>(new PointSpaceMorph(of.Map)),
+            lattice: static of => IO.lift(() => RhinoFault.Unless(of.Reference.IsValid).Map(_ => Transform.PlaneToPlane(of.Reference.Plane, Plane.WorldXY)))
+                .Map(SpaceMorph (local) => new PointSpaceMorph(point => (local * point) switch {
+                    var at => of.Volume.At(new(of.Reference.X.NormalizedParameterAt(at.X), of.Reference.Y.NormalizedParameterAt(at.Y), of.Reference.Z.NormalizedParameterAt(at.Z))).ToPoint3d(),
+                })));
 
-    private static IO<SpaceMorph> Hosted<TMorph>(Func<TMorph> create, Func<TMorph, bool> valid, Action<IDisposable> held, Option<Action<TMorph>> configure = default)
+    private static IO<SpaceMorph> Hosted<TMorph>(Func<TMorph> create, Func<TMorph, bool> valid, Option<Action<TMorph>> configure = default, [CallerArgumentExpression(nameof(create))] string call = "")
         where TMorph : SpaceMorph, IDisposable =>
-        from morph in DisposalOps.Acquire(IO.lift(create), held)
-        from accepted in IO.lift(Refused.Unless(valid(morph), typeof(TMorph).Name))
+        from morph in use(create)
+        from accepted in IO.lift(() => RhinoFault.Unless(valid(morph), call: call))
         from constrained in IO.lift(() => configure.Iter(set => set(morph)))
         select (SpaceMorph)morph;
 
-    private static IO<Seq<T>> Morphed<T>(Seq<T> targets, Func<GeometryBase, bool> morph, bool preserveStructure, Action<IDisposable> retain, [CallerArgumentExpression(nameof(morph))] string member = "")
+    private static IO<Seq<T>> Morphed<T>(Seq<T> targets, Func<GeometryBase, bool> morph, bool preserveStructure, [CallerArgumentExpression(nameof(morph))] string member = "")
         where T : GeometryBase =>
-        from morphable in IO.lift(() => Callbacks.Each(targets, SpaceMorph.IsMorphable, nameof(SpaceMorph.IsMorphable)))
+        from morphable in IO.lift(() => Callbacks.Each(targets, static (target, index) => RhinoFault.Unless(SpaceMorph.IsMorphable(target), index)))
         from morphed in targets.Map(static (target, index) => (target, index))
-            .TraverseM(row => Edits.Apply(row.target, Seq(morph), (copy, apply, held) =>
-                Deformed(copy, new MorphStep(apply, member, preserveStructure, row.index), held),
-                static _ => IO.pure(unit), retain).Map(static edited => edited.Result)).As()
+            .TraverseM(row => Edits.Apply(row.target, Seq(morph), (copy, apply) => Deformed(copy, new MorphStep(apply, member, preserveStructure, row.index)), static _ => IO.pure(unit))
+                .Map(static edited => edited.Result)).As()
         select morphed;
 
-    private static IO<EditStep<T, int>> Deformed<T>(T copy, MorphStep morph, Action<IDisposable> held) where T : GeometryBase =>
+    private static IO<EditStep<T, int>> Deformed<T>(T copy, MorphStep morph) where T : GeometryBase =>
         from subject in copy is Surface surface and not Extrusion && !morph.PreserveStructure
-            ? Transformations.Successor<T>(DisposalOps.Within((Action<IDisposable> scratch) =>
-                from made in Copies.Acquire(nameof(Surface.ToBrep), _ => Answer.One(surface.ToBrep()), scratch)
-                from brep in Transformations.Deformable(made, Some(morph.Index), scratch)
+            ? Transformations.Successor<T>(
+                from made in Products.Made(surface.ToBrep())
+                from brep in Transformations.Deformable(made, Some(morph.Index))
                 from moved in Moved(brep, morph)
-                from face in Copies.Acquire(nameof(BrepFace.DuplicateSurface), _ => Answer.One<GeometryBase>(brep.Faces[0].DuplicateSurface()), held)
-                select face, DisposalOps.Release), Some(morph.Index))
-            : Transformations.Deformable(copy, Some(morph.Index), held).Bind(deformable => Moved(deformable, morph).Map(_ => deformable))
-        from step in Copies.Acquire(morph.Member, _ => ReferenceEquals(subject, copy)
-            ? Edits.Completed<T, int>(copy)
-            : Edits.Replaced<T, int>(subject) with { Leaves = [] }, held)
+                from face in Products.Made<GeometryBase>(brep.Faces[0].DuplicateSurface())
+                select face)
+            : Transformations.Deformable(copy, Some(morph.Index)).Bind(deformable => Moved(deformable, morph).Map(_ => deformable))
+        from step in ReferenceEquals(subject, copy) ? Edits.Completed<T, int>(copy, morph.Member) : Edits.Replaced<T, int>(subject, morph.Member)
         select step;
 
     private static IO<Unit> Moved(GeometryBase subject, MorphStep morph) =>
-        IO.lift(() => Refused.Unless(morph.Apply(subject), morph.Member, morph.Index));
+        IO.lift(() => RhinoFault.Unless(morph.Apply(subject), morph.Index, morph.Member));
 }

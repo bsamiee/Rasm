@@ -28,13 +28,12 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Call, Done, Empty, Operator, Properties
 from blender.bpy.data.ids.store import IdName, resolved
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, rooted, struct_at
+from blender.bpy.data.rna.descriptors import assigned, Descriptor, rna, rooted, struct_at
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.cli import CliCommand
-from blender.bpy.extension.events.timers import Timer
-from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.extension.scoped import Scoped
+from blender.bpy.extension.events import Timer
+from blender.bpy.extension.identity import Identity, Key, Resource
+from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.faults import BlenderReason
 from blender.bpy.files.blends import BlendFile, OpenFile, packed, saved, SaveMode, session_loaded
 from blender.bpy.render.outputs.framing import Framed, FrameSize
@@ -210,17 +209,31 @@ class Observed(msgspec.Struct, frozen=True, kw_only=True):
     progress: Option[tuple[Progress, datetime.datetime]]
 
 
-class QueueState(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Session state of one extension's queue, replaced whole: Manager facts, last observation, and paused viewports with the state each held before the pause."""
-
-    manager: Option[Manager] = Nothing
-    observed: Option[Observed] = Nothing
-    paused: tuple[tuple[Located, EditorState], ...] = ()
-
-
 # --- [SERVICES] -------------------------------------------------------------------------
 
-QUEUES: Final = Scoped[QueueState](made=lambda _identity: nullcontext(QueueState()))
+
+class QueueState:
+    """Session state of one extension's queue: Manager facts, last observation, and paused viewports with the state each held before the pause."""
+
+    __slots__ = ("manager", "observed", "paused")
+
+    def __init__(self) -> None:
+        """Holds no Manager facts, observation, or paused viewport."""
+        self.manager: Option[Manager] = Nothing
+        self.observed: Option[Observed] = Nothing
+        self.paused: tuple[tuple[Located, EditorState], ...] = ()
+
+    def pausing(self, held: tuple[tuple[Located, Option[EditorState]], ...]) -> None:
+        """Holds each viewport a pause changed with the state it held before."""
+        self.paused = (*self.paused, *((at, prior) for at, found in held for prior in found.to_list()))
+
+    def resumed(self) -> tuple[tuple[Located, EditorState], ...]:
+        """Returns paused viewports with their prior states, holding none after."""
+        paused, self.paused = self.paused, ()
+        return paused
+
+
+QUEUES: Final = Resource[QueueState](made=lambda _identity: nullcontext(QueueState()))
 
 
 class Dispatcher(msgspec.Struct, frozen=True):
@@ -243,10 +256,6 @@ class Dispatcher(msgspec.Struct, frozen=True):
     def state(self) -> QueueState:
         """Session state the extension holds."""
         return self.identity.held[QUEUES]
-
-    def replaced(self, state: QueueState) -> None:
-        """Holds the next session state in place of the current one."""
-        QUEUES.held[self.identity.package] = state
 
     # --- [ACCESS]
 
@@ -306,10 +315,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
 
         def paused(manager: bpy.types.WindowManager) -> Outcome[None]:
             def applied(state: EditorState) -> Outcome[None]:
-                def kept(held: tuple[tuple[Located, Option[EditorState]], ...]) -> None:
-                    self.replaced(msgspec.structs.replace(self.state, paused=(*self.state.paused, *((at, prior) for at, found in held for prior in found.to_list()))))
-
-                return accumulated(state.applied(at.area).map(lambda prior: (at, prior)) for at in AreaQuery(space="VIEW_3D", shows=Some(PAUSABLE)).located(manager.windows)).map(kept)
+                return accumulated(state.applied(at.area).map(lambda prior: (at, prior)) for at in AreaQuery(space="VIEW_3D", shows=Some(PAUSABLE)).located(manager.windows)).map(self.state.pausing)
 
             return EditorState.of(bpy.types.SpaceView3D, {"region_3d.pause_render": True}).bind(applied)
 
@@ -418,7 +424,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                     samples=samples,
                     output_root=str(path.base),
                     outputs=texts,
-                    passes=tuple(sorted({descriptor.path for held in used for _, descriptor in pass_flags() for owner in struct_at(held, descriptor.owner).to_list() if bool(descriptor.read(owner))})),
+                    passes=tuple(sorted({rna(descriptor.path) for held in used for _, descriptor in pass_flags() for owner in struct_at(held, descriptor.owner).to_list() if bool(descriptor.read(owner))})),
                     prerequisites=scope.prerequisites,
                 )
 
@@ -592,9 +598,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
 
     def restored(self) -> Outcome[Option[str]]:
         """Restores paused viewports still open, run as deferred callback."""
-        paused = self.state.paused
-        self.replaced(msgspec.structs.replace(self.state, paused=()))
-        return accumulated(prior.applied(now.area) for at, prior in paused for now in Located.found(at.window, at.area.as_pointer()).to_list()).map(lambda _: Nothing)
+        return accumulated(prior.applied(now.area) for at, prior in self.state.resumed() for now in Located.found(at.window, at.area.as_pointer()).to_list()).map(lambda _: Nothing)
 
     def ticked(self, restore: Callable[[], None]) -> Outcome[Option[float]]:
         """Refreshes observation each second, restoring viewports once run ends."""
@@ -606,7 +610,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                     now, progress=now.progress.or_else_with(lambda: prior.bind(lambda last: last.progress).filter(lambda pair: now.sent.filter(lambda sent: sent.queue.key == pair[0].queue).is_some()))
                 )
             )
-            self.replaced(msgspec.structs.replace(self.state, observed=current))
+            self.state.observed = current
             if current.bind(lambda held: held.progress).bind(lambda pair: Option.of_optional(pair[0].ending)).is_some() and self.state.paused:
                 restore()
             return (
@@ -711,7 +715,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                     return Error((Fault(reason=RecordReason.OUTSIDE, subject=repr(queueing), member=Flamenco.__name__, cause=type(other).__name__),))
 
         def held(manager: Manager) -> Done:
-            self.replaced(msgspec.structs.replace(self.state, manager=Some(manager)))
+            self.state.manager = Some(manager)
             return Done(notes=(("INFO", f"{len(manager.tags)} worker tags, job type {'installed' if manager.job_type.is_some() else 'missing'}"),))
 
         return self.settings(call.identity).bind(flamenco).bind(lambda target: Dispatcher.connected().bind(lambda _: target.server.opened(Manager.queried))).map(held)
@@ -804,7 +808,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
     # --- [BINDING]
 
     @property
-    def prerequisites(self) -> tuple[Registrable, ...]:
+    def prerequisites(self) -> tuple[Declaration, ...]:
         """Queue store and session state with render set, frame size, routing, and path bindings read."""
         return (self.record, QUEUES, *self.sets.prerequisites, FrameSize.attachment, PassSet.attachment, ScenePaths.attachment)
 
@@ -870,7 +874,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
             title=self.title,
             rows=(
                 rows.OperatorButton(target=self.dispatching),
-                (QUEUES, lambda identity: rows.Progress(runs=lambda context: self.runs(identity, context)).drawn(identity)),
+                (self.dispatching, lambda identity: rows.Progress(runs=lambda context: self.runs(identity, context)).drawn(identity)),
                 Status(),
                 rows.Caption(rows=tuple(rows.OperatorButton(target=command, text="") for command in self.controls), flow=rows.Flow.ALIGNED, separator=Nothing),
             ),

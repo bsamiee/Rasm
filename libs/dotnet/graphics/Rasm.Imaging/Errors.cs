@@ -31,5 +31,5 @@ public sealed record ImagingFault(string Subject, ImagingReason Reason, Option<i
     public static ImagingFault Create(string message) => new(message, ImagingReason.Stated);
 
     public static Fin<Unit> Unless<T>(bool flag, ImagingReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new ImagingFault($"{names} = {Convert.ToString(rejected, CultureInfo.InvariantCulture)}", reason, index);
+        flag ? unit : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
 }

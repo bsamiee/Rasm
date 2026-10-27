@@ -1,18 +1,18 @@
+using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.CompilerServices;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon.Document;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Display;
 using Rhino.DocObjects;
-using Rhino.Geometry.Collections;
 using Rhino.UI;
 using Wacton.Unicolour;
 
-namespace Rasm.Rhino.Display;
+namespace Rasm.RhinoCommon.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FalseColorScale(Interval Range, Seq<ColorStop> Stops) {
@@ -59,7 +59,7 @@ public abstract partial record AnalysisDefinition {
                     from entry in meshes.Select(static (mesh, face) => (Mesh: mesh, Face: face))
                     from mesh in Optional(entry.Mesh).ToSeq()
                     select (Mesh: mesh, entry.Face, Colors: Enumerable.Range(0, mesh.Vertices.Count).Select(vertex => color(Measure(obj, entry.Face, mesh, vertex))).ToArray())),
-                static (entry, _) => Refused.Unless(entry.Mesh.VertexColors.SetColors(entry.Colors), nameof(MeshVertexColorList.SetColors), entry.Face)))).As()
+                static (entry, _) => RhinoFault.Unless(entry.Mesh.VertexColors.SetColors(entry.Colors), entry.Face)))).As()
             select unit;
     }
 
@@ -75,11 +75,11 @@ public sealed partial class CurvatureFit {
     // --- [FITS]
     public static readonly CurvatureFit Auto = new(
         IO.lift(static () => VisualAnalysisMode.CurvatureColorAutoRange()),
-        static (meshes, state) => Refused.Unless(CurvatureAnalysisSettings.CalculateCurvatureAutoRange(meshes, ref state), state, nameof(CurvatureAnalysisSettings.CalculateCurvatureAutoRange)));
+        static (meshes, state) => RhinoFault.Unless(CurvatureAnalysisSettings.CalculateCurvatureAutoRange(meshes, ref state)).Map(_ => state));
 
     public static readonly CurvatureFit Max = new(
         IO.lift(static () => VisualAnalysisMode.CurvatureColorMaxRange()),
-        static (meshes, state) => Refused.Unless(CurvatureAnalysisSettings.CalculateCurvatureMaxRange(meshes, state), state, nameof(CurvatureAnalysisSettings.CalculateCurvatureMaxRange)));
+        static (meshes, state) => RhinoFault.Unless(CurvatureAnalysisSettings.CalculateCurvatureMaxRange(meshes, state)).Map(_ => state));
 
     // --- [RANGES]
     public IO<Unit> Adjust { get; }
@@ -100,37 +100,35 @@ public abstract class DefinedAnalysisMode : VisualAnalysisMode {
     private readonly AnalysisDefinition definition;
     private readonly IPlugInViews owner;
 
-    protected DefinedAnalysisMode(AnalysisDefinition definition) => (this.definition, owner) = (definition, HostedTypes.Owner(GetType()));
+    protected DefinedAnalysisMode(AnalysisDefinition definition) => (this.definition, owner) = (definition, PlugInOwners.Owner(GetType()));
 
     // --- [DEFINITION]
     public sealed override string Name => definition.Name.Local;
     public sealed override AnalysisStyle Style => definition.Map(falseColor: AnalysisStyle.FalseColor, texture: AnalysisStyle.Texture, wireframe: AnalysisStyle.Wireframe);
-    public sealed override bool ShowIsoCurves => Callbacks.Answer(definition.ShowIsoCurves, () => base.ShowIsoCurves, static () => false, CallbackSite.Of(owner, this));
+    public sealed override bool ShowIsoCurves => owner.Answer(definition.ShowIsoCurves.IfNone(IO.lift(() => base.ShowIsoCurves)), failed: false);
 
     public sealed override void EnableUserInterface(bool on) =>
-        Callbacks.Run(definition.UserInterface.Map(show => IO.pure(on).Bind(show)), CallbackSite.Of(owner, this));
+        _ = owner.Run(definition.UserInterface.Map(show => IO.pure(on).Bind(show)).IfNone(IO.pure(unit)));
 
     public sealed override bool ObjectSupportsAnalysisMode(RhinoObject obj) =>
-        Callbacks.Answer(definition.Supports.Map(supports => IO.lift(() => supports(obj))), () => base.ObjectSupportsAnalysisMode(obj), static () => false, CallbackSite.Of(owner, this));
+        owner.Answer(definition.Supports.Map(supports => IO.lift(() => supports(obj))).IfNone(IO.lift(() => base.ObjectSupportsAnalysisMode(obj))), failed: false);
 
     // --- [APPEARANCE]
     protected sealed override void SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) =>
-        Callbacks.Run(
+        _ = owner.Run(
             IO.pure((Object: obj, Attributes: attributes)).Bind(args => definition.Switch(
                 args,
                 falseColor: static (input, _) => IO.lift(() => { input.Attributes.ShadeVertexColors = true; }),
                 texture: static (input, texture) => IO.lift(() => texture.SetUp(input.Object).Traverse(edit => edit.Write(input.Attributes)).As()).Map(static _ => unit),
-                wireframe: static (_, _) => IO.pure(unit))),
-            CallbackSite.Of(owner, this));
+                wireframe: static (_, _) => IO.pure(unit))));
 
     protected sealed override void UpdateVertexColors(RhinoObject obj, Mesh[] meshes) =>
-        Callbacks.Run(
+        _ = owner.Run(
             IO.pure((Object: obj, Meshes: meshes)).Bind(args => definition.Switch(
                 args,
                 falseColor: static (input, color) => color.Paint(input.Object, input.Meshes),
                 texture: static (_, _) => IO.pure(unit),
-                wireframe: static (_, _) => IO.pure(unit))),
-            CallbackSite.Of(owner, this));
+                wireframe: static (_, _) => IO.pure(unit))));
 
     // --- [DRAWING]
     private Option<AnalysisDefinition.Wireframe> Wires =>
@@ -141,7 +139,7 @@ public abstract class DefinedAnalysisMode : VisualAnalysisMode {
 
     protected sealed override void DrawCurveObject(CurveObject curve, DisplayPipeline pipeline) =>
         Wires.Bind(static wires => wires.DrawObject).Match(
-            Some: draw => Callbacks.Run(IO.pure(curve).Bind(held => draw(held, pipeline)), CallbackSite.Of(owner, this)),
+            Some: draw => owner.Run(IO.pure(curve).Bind(held => draw(held, pipeline))),
             None: () => base.DrawCurveObject(curve, pipeline));
 
     protected sealed override void DrawBrepObject(BrepObject brep, DisplayPipeline pipeline) => Drawn(brep, pipeline);
@@ -163,10 +161,10 @@ public abstract class DefinedAnalysisMode : VisualAnalysisMode {
     protected sealed override void DrawNurbsSurface(RhinoObject obj, NurbsSurface surface, DisplayPipeline pipeline) => Drawn(obj, surface, pipeline);
 
     private void Drawn(RhinoObject obj, DisplayPipeline pipeline, [CallerMemberName] string member = "") =>
-        Callbacks.Run(Wires.Bind(static wires => wires.DrawObject).Map(draw => IO.pure(obj).Bind(held => draw(held, pipeline))), CallbackSite.Of(owner, this, member));
+        _ = owner.Run(Wires.Bind(static wires => wires.DrawObject).Map(draw => IO.pure(obj).Bind(held => draw(held, pipeline))).IfNone(IO.pure(unit)), member);
 
     private void Drawn(RhinoObject obj, GeometryBase geometry, DisplayPipeline pipeline, [CallerMemberName] string member = "") =>
-        Callbacks.Run(Wires.Bind(static wires => wires.DrawGeometry).Map(draw => IO.pure(geometry).Bind(held => draw(obj, held, pipeline))), CallbackSite.Of(owner, this, member));
+        _ = owner.Run(Wires.Bind(static wires => wires.DrawGeometry).Map(draw => IO.pure(geometry).Bind(held => draw(obj, held, pipeline))).IfNone(IO.pure(unit)), member);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -177,5 +175,5 @@ public static class AnalysisModes {
 
     // --- [OBJECTS]
     public static IO<Unit> Enable(RhinoDoc doc, Seq<RhinoObject> objects, VisualAnalysisMode mode, bool enabled, RedrawPolicy redraw) =>
-        Commits.WithinRedraw(doc, redraw, IO.lift(() => Callbacks.Each(objects, obj => obj.EnableVisualAnalysisMode(mode, enabled), nameof(RhinoObject.EnableVisualAnalysisMode))));
+        Commits.WithinRedraw(doc, redraw, IO.lift(() => Callbacks.Each(objects, (obj, index) => RhinoFault.Unless(obj.EnableVisualAnalysisMode(mode, enabled), index)))).Map(unit);
 }

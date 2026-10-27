@@ -2,8 +2,13 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
+using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
+using Emgu.CV;
+using Emgu.CV.CvEnum;
 using Rasm.Imaging.Color;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Pixels;
 
@@ -34,14 +39,12 @@ public abstract partial record PixelPass {
 public sealed record Channels<T>(T Red, T Green, T Blue) where T : notnull {
     public Channels(T all) : this(all, all, all) { }
 
-    public Vector256<double> Lanes(Func<T, double> lane) => Vector256.Create(lane(Red), lane(Green), lane(Blue), 0d);
-
     public static Fin<Channels<T>> Validated(Vector3 stated, Func<float, Fin<T>> validated) =>
         (validated(stated.X), validated(stated.Y), validated(stated.Z)).Apply(static (red, green, blue) => new Channels<T>(red, green, blue)).As();
 }
 
 file readonly struct RowAction(PixelFrame frame, Memory2D<Vector4> rows, Action<Span<Vector4>, long, long> kernel, IProgress<int> progress, StrongBox<int> finished) : IAction {
-    public static Unit For(PixelFrame frame, Action<Span<Vector4>, long, long> kernel, IProgress<int> progress) {
+    internal static Unit For(PixelFrame frame, Action<Span<Vector4>, long, long> kernel, IProgress<int> progress) {
         ParallelHelper.For(0, frame.Size.Height, new RowAction(frame, frame.View, kernel, progress, new StrongBox<int>()));
         return unit;
     }
@@ -49,5 +52,29 @@ file readonly struct RowAction(PixelFrame frame, Memory2D<Vector4> rows, Action<
     public void Invoke(int i) {
         kernel(rows.Span.GetRowSpan(i), frame.Origin.X, frame.Line(i));
         progress.Report(Interlocked.Increment(ref finished.Value));
+    }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static partial class PixelSampling {
+    extension(PixelFrame frame) {
+        internal Mat Premultiplied() {
+            Mat associated = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4);
+            PixelOperations<RgbaVector>.Instance.ToVector4(Configuration.Default, frame.Block.Cast<float, RgbaVector>(), associated.GetSpan<Vector4>(), PixelConversionModifiers.Premultiply);
+            return associated;
+        }
+
+        public unsafe Fin<Unit> Mutate(Action<Image<RgbaVector>> edit) {
+            Span2D<float> samples = new((void*)frame.Address, frame.Size.Width * frame.Size.Height, 4, 0);
+            using SpanOwner<float> alpha = SpanOwner<float>.Allocate(samples.Height);
+            samples.GetColumn(3).CopyTo(alpha.Span);
+            samples.GetColumn(3).Fill(1f);
+            Fin<Unit> edited = Try.lift(() => {
+                using Image<RgbaVector> image = Image.WrapMemory<RgbaVector>((void*)frame.Address, frame.Block.Length * sizeof(float), frame.Size.Width, frame.Size.Height);
+                edit(image);
+            }).Run();
+            alpha.Span.CopyTo(samples.GetColumn(3));
+            return edited;
+        }
     }
 }

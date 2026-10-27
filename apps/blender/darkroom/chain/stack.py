@@ -17,7 +17,7 @@ from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.blending import Entry, MODE, OPACITY
 from blender.bpy.render.compositor.effects import CompositorEffect, Enabled, Shell, Spaces
 from blender.bpy.render.compositor.entries import EffectRows, Pinned
-from blender.bpy.render.compositor.inputs import captured
+from blender.bpy.render.compositor.inputs import captured, valued
 from blender.bpy.render.sessions.renders import RenderCall
 from blender.imaging.color.processors import bracketed, DisplayView
 from blender.imaging.sampling.integration import Precision
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Formed = tuple[CompositorEffect[Effect], Entry[Effect], Mapping[Key, Value]]
+type _Formed = tuple[CompositorEffect[Effect], Entry[Effect], Mapping[Key, Value]]
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -61,13 +61,21 @@ class Chain(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [FORMING]
 
-    def pointwise(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[Formed]:
-        """Reads an owned entry and its input values by item key, its effect reading each pixel alone under the default blend."""
+    def pointwise(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[_Formed]:
+        """Reads an owned entry and its input values by item key, its effect reading each pixel alone under an unmasked full-opacity plain mix."""
+
+        def local(record: Entry[Effect], values: Mapping[Key, Value]) -> Outcome[tuple[Entry[Effect], Mapping[Key, Value]]]:
+            plain = not record.blend.masks and all(values.get(item_key(Shell.blend, socket.key)) == socket.members["default_value"] for socket in (MODE, OPACITY))
+            return paired(
+                Ok(None) if record.record.pointwise else Error((Fault(reason=RecordReason.OUTSIDE, subject=entry.name, member="pointwise effects", cause=type(record.record).__name__),)),
+                Ok(None) if plain else Error((Fault(reason=RecordReason.OUTSIDE, subject=entry.name, member=Shell.blend, cause=repr(record.blend)),)),
+            ).map(lambda _: (record, values))
+
         return self.rows.found(identity, scene, entry.name).bind(
             lambda held: (
                 paired(held.row.read(identity, entry), captured(identity, entry))
-                .map(lambda pair: (pair[0], {key: owner.values["value"] for key, owner in pair[1].tree.owners.items() if key}))
-                .bind(lambda pair: local(entry, *pair))
+                .map(lambda pair: (pair[0], valued(pair[1])))
+                .bind(lambda pair: local(*pair))
                 .map(lambda pair: (held.row, *pair))
             )
         )
@@ -95,18 +103,6 @@ class Chain(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return self.precision(identity).bind(lambda precision: execution.rendered(identity, self, scene, precision, call))
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def local(entry: bpy.types.SceneCompositorEffect, record: Entry[Effect], values: Mapping[Key, Value]) -> Outcome[tuple[Entry[Effect], Mapping[Key, Value]]]:
-    """Returns the record and its values when its effect reads each pixel alone under an unmasked full-opacity plain mix."""
-    plain = not record.blend.masks and all(values.get(item_key(Shell.blend, socket.key)) == socket.members["default_value"] for socket in (MODE, OPACITY))
-    return paired(
-        Ok(None) if record.record.pointwise else Error((Fault(reason=RecordReason.OUTSIDE, subject=entry.name, member="pointwise effects", cause=type(record.record).__name__),)),
-        Ok(None) if plain else Error((Fault(reason=RecordReason.OUTSIDE, subject=entry.name, member=Shell.blend, cause=repr(record.blend)),)),
-    ).map(lambda _: (record, values))
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Chain", "Formed", "local"]
+__all__ = ["Chain"]

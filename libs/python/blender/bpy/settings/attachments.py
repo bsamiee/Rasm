@@ -6,17 +6,18 @@ from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import StrEnum
 import inspect
 from itertools import islice
-from typing import ClassVar
+from typing import ClassVar, Final
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
 import msgspec
 
 from blender.bpy.data.ids.store import Handle, holder
-from blender.bpy.data.rna.descriptors import Descriptor, Native, Struct, struct_at
+from blender.bpy.data.rna.descriptors import Descriptor, Native, RnaPath, Struct, struct_at
 from blender.bpy.data.rna.snapshots import Applied, Endpoints, native, NativeValue, Snapshot
-from blender.bpy.extension.events.timers import Startup
+from blender.bpy.extension.events import startup
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderReason
@@ -130,7 +131,7 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
         """Returns recovery holding bare endpoints under one key."""
         return Recovery(stored=Stored(name=name, decoder=msgspec.msgpack.Decoder(Endpoints)), ends=lambda ends: ends)
 
-    def prior(self, holder: Host) -> Outcome[Option[tuple[Tree[NativeValue], Tree[NativeValue]]]]:
+    def prior(self, holder: Host) -> Outcome[Option[tuple[Tree[NativeValue, RnaPath], Tree[NativeValue, RnaPath]]]]:
         """Returns decoded before and after trees of held record, absent fault for one never completed."""
         return self.stored.read(holder).bind(lambda found: found.map(lambda kept: self.ends(kept).decoded(holder, self.stored.name).map(Some)).default_value(Ok(Nothing)))
 
@@ -149,13 +150,13 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
         """
         selections = {owner: tuple(descriptor for target, snapshot in writes if target == owner for descriptor in snapshot.selection(owner)) for owner, _ in writes}
 
-        def captured() -> Outcome[Tree[NativeValue]]:
+        def captured() -> Outcome[Tree[NativeValue, RnaPath]]:
             return accumulated(native(owner, Some(selection)) for owner, selection in selections.items()).map(Tree.joined)
 
-        def written(current: Tree[NativeValue], prior: Option[tuple[Tree[NativeValue], Tree[NativeValue]]]) -> Outcome[tuple[Applied, ...]]:
+        def written(current: Tree[NativeValue, RnaPath], prior: Option[tuple[Tree[NativeValue, RnaPath], Tree[NativeValue, RnaPath]]]) -> Outcome[tuple[Applied, ...]]:
             before = prior.map(lambda ends: current.merged(ends[0])).default_value(current)
 
-            def finished(after: Tree[NativeValue]) -> Outcome[None]:
+            def finished(after: Tree[NativeValue, RnaPath]) -> Outcome[None]:
                 latest = prior.map(lambda ends: ends[1].merged(merge(merge(current, transfer(current, ends[1])), transfer(current, after)))).default_value(after)
                 return paired(Snapshot.persisted(before), Snapshot.persisted(latest)).bind(lambda pair: self.stored.write(holder, held(Endpoints(before=pair[0], after=pair[1]))))
 
@@ -177,7 +178,7 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
             Whether holder held a record, the record kept when a restore write fails.
         """
 
-        def live(before: Tree[NativeValue]) -> Outcome[Tree[NativeValue]]:
+        def live(before: Tree[NativeValue, RnaPath]) -> Outcome[Tree[NativeValue, RnaPath]]:
             """Captures current values of every member the before tree holds."""
             return accumulated(
                 native(struct, Some(tuple(descriptor for name in kept.values for descriptor in Descriptor.resolve(struct, name, bpy.types.Property).to_option().to_list())))
@@ -224,7 +225,7 @@ class Attached[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=
     def projected(self, host: Host, preset: Snapshot) -> Outcome[tuple[Snapshot, Snapshot, Snapshot]]:
         """Returns the held group, the preset's unlocked members, and the group they would leave."""
         group = self.struct(host)
-        return Snapshot.capture(group).bind(lambda current: preset.projected(group, current, self.locks(host)).map(lambda pair: (current, *pair)))
+        return Snapshot.capture(group).bind(lambda current: preset.projected(group, current, frozenset((key,) for key in self.locks(host))).map(lambda pair: (current, *pair)))
 
     def applied(self, host: Host, preset: Snapshot) -> Outcome[bool]:
         """Writes the preset's unlocked members when they differ from the held group, returning whether it wrote."""
@@ -316,7 +317,7 @@ class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
                 lambda name: (
                     *((Band.GROUPS, group) for group in groups),
                     (Band.ATTACHMENTS, pointed(self.owner, name, pointer)),
-                    *self.seed.map(lambda seed: Startup(body=lambda: seed(identity).bind(Attached(name=name, owner=self.owner, form=self.form).seeded))).to_list(),
+                    *(row for seed in self.seed.to_list() for row in startup(lambda: seed(identity).bind(Attached(name=name, owner=self.owner, form=self.form).seeded))),
                 )
             )
 
@@ -348,22 +349,26 @@ def updating(groups: tuple[type[bpy.types.PropertyGroup], ...], change: Changed)
             definition.keywords["update"] = change
 
 
+_POINTED: Final[Callable[[type[Struct], str, bpy.props._PropertyDeferred], Result[None, AttributeError | TypeError | ValueError]]] = catch(exception=AttributeError)(
+    catch(exception=TypeError)(catch(setattr, exception=ValueError))
+)  # ty: ignore[invalid-assignment]
+
+
 @contextmanager
 def pointed(owner: type[Struct], name: str, definition: bpy.props._PropertyDeferred) -> Generator[Outcome[None]]:
-    """Registers property under a free name for scope duration."""
+    """Registers property under a free name for scope duration, the host refusing a name past its byte limit."""
     request = f"{owner.__name__}.{name}"
-    if name in owner.bl_rna.properties or name in owner.bl_rna.functions or hasattr(owner, name):  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        yield Result[None, Faults](error=(Fault(reason=BlenderReason.TAKEN, subject=request, member=str(owner.__name__)),))
-        return
-    try:
-        setattr(owner, name, definition)
-    except (AttributeError, TypeError, ValueError) as error:
-        yield Result[None, Faults](error=(Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),))
-        return
-    try:
-        yield Result[None, Faults](ok=None)
-    finally:
-        delattr(owner, name)
+    rna: bpy.types.Struct = owner.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    with ExitStack() as stack:
+        yield (
+            Result[None, Faults](ok=None)
+            .filter_with(
+                lambda _: not (name in rna.properties or name in rna.functions or hasattr(owner, name)), lambda _: (Fault(reason=BlenderReason.TAKEN, subject=request, member=owner.__name__),)
+            )
+            .bind(lambda _: _POINTED(owner, name, definition).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),)))
+            .map(lambda _: stack.callback(delattr, owner, name))
+            .map(lambda _: None)
+        )
 
 
 def reconciling[T: bpy.types.ID](kind: type[T], write: Callable[[Handle[T], Identity], Outcome[Option[str]]]) -> Callable[[Identity], AbstractContextManager[Changed]]:

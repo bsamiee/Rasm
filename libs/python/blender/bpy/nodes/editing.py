@@ -3,6 +3,7 @@
 from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
 from functools import reduce
+from types import MappingProxyType
 import typing
 from typing import Final, Self
 
@@ -113,14 +114,13 @@ class _Edit:
                 lambda held: joined(self.tree, source, held[0], verify_limits=False, handle_dynamic_sockets=True).bind(lambda link: written(link, "is_muted", muted).map(lambda _: linked(held, link)))
             )
 
-        def finished(held: tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]) -> tuple[bpy.types.NodeLink, ...]:
+        def finished(held: tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]) -> Outcome[tuple[bpy.types.NodeLink, ...]]:
             desired = tuple(each if isinstance(each, bpy.types.NodeLink) else held[1][index] for index, each in enumerate(incoming))
-            ordered(held[0], desired)
-            return desired
+            return ordered(held[0], desired).map(lambda _: desired)
 
         requests = tuple((index, *each) for index, each in enumerate(incoming) if not isinstance(each, bpy.types.NodeLink))
         start: Outcome[tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]] = Ok((target, {}))
-        return reduce(added, reversed(requests), start).map(finished)
+        return reduce(added, reversed(requests), start).bind(finished)
 
     def committed[T](self, value: T) -> T:
         self.resources.pop_all()
@@ -134,7 +134,7 @@ class _Edit:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, *, gaps: Gaps = _GAPS, inputs: Mapping[Key, Value] = {}) -> Outcome[bpy.types.Node]:
+def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, *, gaps: Gaps = _GAPS, inputs: Mapping[Key, Value] = MappingProxyType({})) -> Outcome[bpy.types.Node]:
     """Splices group after active node's first enabled output, routing each consumer link through group."""
 
     def spliced(node: bpy.types.Node, tree: bpy.types.NodeTree) -> Outcome[bpy.types.Node]:

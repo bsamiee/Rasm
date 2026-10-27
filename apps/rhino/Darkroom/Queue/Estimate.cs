@@ -1,8 +1,9 @@
 using System.Numerics;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Objects;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Objects;
+using Rasm.RhinoCommon.UI;
 using Rasm.UI;
 using Rasm.UI.Components;
 using Rhino.Render;
@@ -34,18 +35,18 @@ public sealed record QueueEstimate(long Landed, long Total) {
 
     public Content<Unit> Work =>
         Total == 0 ? new Content<Unit>.Empty(nameof(Idle))
-        : Landed < Total ? new Content<Unit>.Pending { Work = Progress.Present(Landed, Total) }
+        : Landed < Total ? new Content<Unit>.Pending { Work = Progress.Validated(Landed, Total).ToOption() }
         : new Content<Unit>.Ready(unit);
 
     public static QueueEstimate Running(RenderBatch batch, QueueProgress record, Option<FrameMark> last, Instant now) => Of(batch, record, last, now, Mean);
 
     public static QueueEstimate Sampled(RenderBatch batch, QueueProgress record, Instant now) => Of(batch, record, None, now, static times => times.At(1) | times.Head);
 
-    public string Description(DateTimeZone zone, IPlugInSink sink) =>
+    public string Description(DateTimeZone zone, IPlugInViews views) =>
         (Remaining, Finish)
-            .Apply((left, at) => RowText.Localize("{0:-H:mm:ss} left, finishing {1:g}, {2} of {3} frames rendered", sink, arguments: [left, at.InZone(zone).LocalDateTime, Landed, Total]).Local)
+            .Apply((left, at) => RowText.Localize("{0:-H:mm:ss} left, finishing {1:g}, {2} of {3} frames rendered", views, arguments: [left, at.InZone(zone).LocalDateTime, Landed, Total]).Local)
             .As()
-            .IfNone(() => RowText.Localize("{0} of {1} frames rendered", sink, arguments: [Landed, Total]).Local);
+            .IfNone(() => RowText.Localize("{0} of {1} frames rendered", views, arguments: [Landed, Total]).Local);
 
     private static QueueEstimate Of(RenderBatch batch, QueueProgress record, Option<FrameMark> last, Instant now, Func<Seq<Duration>, Option<Duration>> rate) =>
         batch.Entries.Map(entry => record.Entries.Find(entry.Key).IfNone(EntryProgress.Empty) switch {

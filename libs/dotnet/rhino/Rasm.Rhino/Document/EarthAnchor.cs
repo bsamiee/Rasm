@@ -2,7 +2,7 @@ using Rhino;
 using Rhino.DocObjects;
 using UnitsNet;
 
-namespace Rasm.Rhino.Document;
+namespace Rasm.RhinoCommon.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record GeoCoordinate(Angle Latitude, Angle Longitude) {
@@ -13,22 +13,22 @@ public sealed record EarthLocation(GeoCoordinate Place, Length Elevation);
 
 public sealed record EarthAnchor(Option<EarthLocation> Earth, Option<EarthCoordinateSystem> Datum, Option<Plane> Compass, Option<string> Name, Option<string> Description) {
     public Fin<(EarthLocation Earth, Plane Compass)> Located =>
-        (Earth.ToFin(new Refused(nameof(EarthAnchorPoint.EarthLocationIsSet), Refused.Absent)),
-         Compass.ToFin(new Refused(nameof(EarthAnchorPoint.ModelLocationIsSet), Refused.Absent)))
+        (Conversions.Found(Earth),
+         Conversions.Found(Compass))
             .Apply(static (earth, compass) => (Earth: earth, Compass: compass))
             .As();
 
     public static EarthAnchor Of(EarthAnchorPoint point) =>
         new(
-            Callbacks.Found(point.EarthLocationIsSet(), point)
+            Conversions.Found(point.EarthLocationIsSet(), point)
                 .Map(static held => new EarthLocation(GeoCoordinate.From(held.EarthBasepointLatitude, held.EarthBasepointLongitude), Length.FromMeters(held.EarthBasepointElevation))),
             Some(point.EarthBasepointElevationCoordinateSystem).Filter(static system => system is not EarthCoordinateSystem.Unset),
-            Callbacks.Found(point.ModelLocationIsSet(), point).Map(static held => held.GetModelCompass()),
+            Conversions.Found(point.ModelLocationIsSet(), point).Map(static held => held.GetModelCompass()),
             Conversions.Present(point.Name),
             Conversions.Present(point.Description));
 
     public static IO<EarthAnchor> Read(Func<EarthAnchorPoint> point) =>
-        DisposalOps.Within(point, static held => IO.lift(() => Of(held)));
+        use(point).Bind(static held => IO.lift(() => Of(held))).Bracket();
 
     public IO<Unit> Apply(EarthAnchorPoint point) =>
         IO.lift(() => {
@@ -42,7 +42,10 @@ public sealed record EarthAnchor(Option<EarthLocation> Earth, Option<EarthCoordi
         });
 
     public IO<Unit> Write(Func<EarthAnchorPoint> point, Action<EarthAnchorPoint> commit) =>
-        DisposalOps.Within(point, held => Apply(held).Bind(_ => IO.lift(() => commit(held))));
+        (from held in use(point)
+         from applied in Apply(held)
+         from committed in IO.lift(() => commit(held))
+         select committed).Bracket();
 }
 
 public sealed record Georeference {
@@ -56,12 +59,12 @@ public sealed record Georeference {
 
     public static IO<Georeference> Of(EarthAnchor anchor, LengthUnit modelUnits) =>
         from located in IO.lift(anchor.Located)
-        from georeference in DisposalOps.Within(static () => new EarthAnchorPoint(), scratch =>
-            from applied in (anchor with { Earth = new EarthLocation(located.Earth.Place, Length.Zero) }).Apply(scratch)
-            from modelToEarth in IO.lift(() => Refused.UnlessFound(scratch.ModelLocationIsSet(), nameof(EarthAnchorPoint.ModelLocationIsSet))
-                .Map(_ => Transform.Translation(0d, 0d, located.Earth.Elevation.Meters.ToDouble()) * scratch.GetModelToEarthTransform(modelUnits)))
-            from earthToModel in IO.lift(() => Refused.Unless(modelToEarth.TryGetInverse(out Transform inverse), inverse, nameof(Transform.TryGetInverse)))
-            select new Georeference(modelToEarth, earthToModel))
+        from georeference in (from scratch in use(static () => new EarthAnchorPoint())
+                              from applied in (anchor with { Earth = new EarthLocation(located.Earth.Place, Length.Zero) }).Apply(scratch)
+                              from modelToEarth in IO.lift(() => RhinoFault.Unless(scratch.ModelLocationIsSet())
+                                  .Map(_ => Transform.Translation(0d, 0d, located.Earth.Elevation.Meters.ToDouble()) * scratch.GetModelToEarthTransform(modelUnits)))
+                              from earthToModel in IO.lift(() => RhinoFault.Unless(modelToEarth.TryGetInverse(out Transform inverse)).Map(_ => inverse))
+                              select new Georeference(modelToEarth, earthToModel)).Bracket()
         select georeference;
 
     public EarthLocation ToEarth(Point3d point) =>

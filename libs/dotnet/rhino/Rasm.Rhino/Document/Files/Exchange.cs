@@ -5,7 +5,7 @@ using Rhino.Collections;
 using Rhino.FileIO;
 using Rhino.PlugIns;
 
-namespace Rasm.Rhino.Document.Files;
+namespace Rasm.RhinoCommon.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(SkipFactoryMethods = true)]
@@ -14,8 +14,8 @@ namespace Rasm.Rhino.Document.Files;
 public sealed partial class InputPath {
     public static Fin<InputPath> Of(string path) =>
         path switch {
-            _ when !Path.IsPathFullyQualified(path) => new FileRefused(path, FileReason.Unqualified),
-            _ when !File.Exists(path) => new FileRefused(path, FileReason.Missing),
+            _ when !Path.IsPathFullyQualified(path) => new RhinoFault(path, RhinoReason.Unqualified),
+            _ when !File.Exists(path) => new RhinoFault(path, RhinoReason.Missing),
             _ => new InputPath(path),
         };
 }
@@ -26,13 +26,13 @@ public sealed partial class InputPath {
 public sealed partial class FolderPath {
     public static Fin<FolderPath> Of(string path) =>
         path switch {
-            _ when !Path.IsPathFullyQualified(path) => new FileRefused(path, FileReason.Unqualified),
-            _ when !Directory.Exists(path) => new FileRefused(path, FileReason.Missing),
+            _ when !Path.IsPathFullyQualified(path) => new RhinoFault(path, RhinoReason.Unqualified),
+            _ when !Directory.Exists(path) => new RhinoFault(path, RhinoReason.Missing),
             _ => new FolderPath(path),
         };
 
     public static Fin<FolderPath> Installed(Assembly assembly) =>
-        Optional(Path.GetDirectoryName(assembly.Location)).ToFin(new FileRefused(assembly.Location, FileReason.Missing)).Bind(Of);
+        Optional(Path.GetDirectoryName(assembly.Location)).ToFin(new RhinoFault(assembly.Location, RhinoReason.Missing)).Bind(Of);
 }
 
 [ValueObject<string>(SkipFactoryMethods = true)]
@@ -42,7 +42,7 @@ public sealed partial class OutputPath {
     public string Folder => Path.GetDirectoryName(_value.AsSpan()).ToString();
 
     public static Fin<OutputPath> Of(string path) =>
-        Path.IsPathFullyQualified(path) && !Path.GetFileName(path.AsSpan()).IsEmpty ? new OutputPath(path) : new FileRefused(path, FileReason.Unqualified);
+        Path.IsPathFullyQualified(path) && !Path.GetFileName(path.AsSpan()).IsEmpty ? new OutputPath(path) : new RhinoFault(path, RhinoReason.Unqualified);
 }
 
 public readonly record struct FileTypeRow(Guid PlugInId, string Description, Seq<string> Extensions) {
@@ -75,50 +75,50 @@ public static class Exchange {
 
     // --- [READS]
     public static IO<Committed<Unit>> Import(RhinoDoc doc, InputPath path, RedrawPolicy redraw, Option<ArchivableDictionary> options) =>
-        Recorded(doc, path, redraw, IO.lift(() => Refused.Unless(doc.Import(path, options.ValueUnsafe()), nameof(RhinoDoc.Import))));
+        Recorded(doc, path, redraw, IO.lift(() => RhinoFault.Unless(doc.Import(path, options.ValueUnsafe()))));
 
     public static IO<Committed<Unit>> Import<TOptions>(
         RhinoDoc doc, InputPath path, RedrawPolicy redraw, Func<string, RhinoDoc, TOptions, bool> reader, Func<FileReadOptions, TOptions> options,
-        [CallerArgumentExpression(nameof(reader))] string member = "") =>
+        [CallerArgumentExpression(nameof(reader))] string call = "") =>
         Recorded(doc, path, redraw, Scoped(
             static () => new FileReadOptions { ImportMode = true, BatchMode = true },
-            carrier => Refused.Unless(reader(path, doc, options(carrier)), member)));
+            carrier => RhinoFault.Unless(reader(path, doc, options(carrier)), call: call)));
 
     public static IO<Committed<Unit>> ReadFile(InputPath path, RedrawPolicy redraw, Action<FileReadOptions> mode) =>
         Documents.WithDocument(new DocumentSource.Active(), active => Recorded(active, path, redraw, Scoped(
             static () => new FileReadOptions { BatchMode = true },
             carrier => {
                 mode(carrier);
-                return Refused.Unless(RhinoDoc.ReadFile(path, carrier), nameof(RhinoDoc.ReadFile));
+                return RhinoFault.Unless(RhinoDoc.ReadFile(path, carrier));
             })));
 
     // --- [WRITES]
     public static IO<Unit> Export<TOptions>(
         RhinoDoc doc, OutputPath path, Func<string, RhinoDoc, TOptions, bool> writer, Func<FileWriteOptions, TOptions> options,
-        [CallerArgumentExpression(nameof(writer))] string member = "") =>
-        Written(doc, path, carrier => Refused.Unless(writer(path, doc, options(carrier)), member));
+        [CallerArgumentExpression(nameof(writer))] string call = "") =>
+        Written(doc, path, carrier => RhinoFault.Unless(writer(path, doc, options(carrier)), call: call));
 
     public static IO<Unit> Export<TOptions>(
         RhinoDoc doc, OutputPath path, Func<string, RhinoDoc, TOptions, WriteFileResult> writer, Func<FileWriteOptions, TOptions> options,
-        [CallerArgumentExpression(nameof(writer))] string member = "") =>
+        [CallerArgumentExpression(nameof(writer))] string call = "") =>
         Written(doc, path, carrier => writer(path, doc, options(carrier)) switch {
             WriteFileResult.Success => unit,
             WriteFileResult.Cancel => Errors.Cancelled,
-            WriteFileResult.Failure => new Refused(member, Refused.Declined),
+            WriteFileResult.Failure => new RhinoFault(call, RhinoReason.Declined),
         });
 
     public static IO<Unit> WriteFile(RhinoDoc doc, OutputPath path, Action<FileWriteOptions> channels) =>
         Written(doc, path, carrier => {
             channels(carrier);
-            return Refused.Unless(doc.WriteFile(path, carrier), nameof(RhinoDoc.WriteFile));
+            return RhinoFault.Unless(doc.WriteFile(path, carrier));
         });
 
     public static IO<Unit> WriteMultipleObjects(OutputPath path, Seq<GeometryBase> geometry) =>
-        IO.lift(() => Refused.Unless(File3dm.WriteMultipleObjects(path, geometry), nameof(File3dm.WriteMultipleObjects)));
+        IO.lift(() => RhinoFault.Unless(File3dm.WriteMultipleObjects(path, geometry)));
 
     public static IO<Option<string>> Save(RhinoDoc doc) =>
         IO.lift(() => doc.Modified || doc.IsHeadless
-                ? Writable(doc, doc.Path).Bind(_ => Refused.Unless(doc.Save(), Some(doc.Path), nameof(RhinoDoc.Save)))
+                ? Writable(doc, doc.Path).Bind(_ => RhinoFault.Unless(doc.Save())).Map(_ => Some(doc.Path))
                 : Option<string>.None);
 
     // --- [SCOPES]
@@ -129,9 +129,9 @@ public static class Exchange {
         IO.lift(() => Writable(doc, path)).Bind(_ => Scoped(static () => new FileWriteOptions { SuppressAllInput = true, SuppressDialogBoxes = true }, write));
 
     private static IO<Unit> Scoped<TCarrier>(Func<TCarrier> acquire, Func<TCarrier, Fin<Unit>> call) where TCarrier : IDisposable =>
-        DisposalOps.Within(acquire, carrier => IO.lift(() => call(carrier)));
+        use(acquire).Bind(carrier => IO.lift(() => call(carrier))).Bracket();
 
     // --- [ANSWERS]
     private static Fin<Unit> Writable(RhinoDoc doc, string target) =>
-        doc.IsReadOnly && string.Equals(target, doc.Path, StringComparison.OrdinalIgnoreCase) ? new FileRefused(target, FileReason.Unwritable) : unit;
+        doc.IsReadOnly && string.Equals(target, doc.Path, StringComparison.OrdinalIgnoreCase) ? new RhinoFault(target, RhinoReason.Unwritable) : unit;
 }

@@ -51,7 +51,7 @@ public abstract partial record AnalyticCurve {
         public override Vector3D<double> At(double t) =>
             Planar(Roll.Switch(
                 (Radius: RollingRadius, Arm: Pen.Switch(RollingRadius, rim: static (radius, _) => radius, at: static (_, at) => at.Distance), Turn: t),
-                line: static (pen, _) => new Complex((pen.Radius * pen.Turn) - (pen.Arm * Math.Sin(pen.Turn)), pen.Radius - (pen.Arm * Math.Cos(pen.Turn))),
+                line: static (pen, _) => new Complex((pen.Radius * pen.Turn) - (pen.Arm * double.Sin(pen.Turn)), pen.Radius - (pen.Arm * double.Cos(pen.Turn))),
                 circle: static (pen, circle) => ((circle.Fixed + (circle.Side.Sign * circle.Rolling)) / (double)circle.Rolling) switch {
                     var speed => (pen.Radius * speed * Complex.FromPolarCoordinates(1d, pen.Turn)) - (circle.Side.Sign * Complex.FromPolarCoordinates(pen.Arm, circle.Side.Sign * speed * pen.Turn)),
                 }));
@@ -71,7 +71,7 @@ public abstract partial record AnalyticCurve {
         private Harmonic(Seq<HarmonicTerm> terms, Seq<double> joins) : base(joins) => Terms = terms;
         public Seq<HarmonicTerm> Terms { get; }
         public override Vector3D<double> At(double t) =>
-            Terms.Fold(new Vector3D<double>(0d, 0d, 0d), (sum, term) => Math.SinCos(term.Frequency * t) switch { var (sin, cos) => sum + (cos * term.Cosine) + (sin * term.Sine) });
+            Terms.Fold(new Vector3D<double>(0d, 0d, 0d), (sum, term) => double.SinCos(term.Frequency * t) switch { var (sin, cos) => sum + (cos * term.Cosine) + (sin * term.Sine) });
 
         public static Fin<Harmonic> Validated(Seq<HarmonicTerm> terms) =>
             terms.Filter(static term => term.Frequency > 0 && (term.Cosine.LengthSquared() > 0d || term.Sine.LengthSquared() > 0d)).Map(static term => (long)term.Frequency) switch {
@@ -87,7 +87,7 @@ public abstract partial record AnalyticCurve {
         public (double N1, double N2, double N3) Exponents { get; }
         public (double A, double B) Radii { get; }
         public override Vector3D<double> At(double t) =>
-            Math.SinCos(Symmetry.Numerator * t / (4d * Symmetry.Denominator)) switch { var (sin, cos) => Planar(Complex.FromPolarCoordinates(Math.Pow(Math.Pow(Math.Abs(cos / Radii.A), Exponents.N2) + Math.Pow(Math.Abs(sin / Radii.B), Exponents.N3), -1d / Exponents.N1), t)) };
+            double.SinCos(Symmetry.Numerator * t / (4d * Symmetry.Denominator)) switch { var (sin, cos) => Planar(Complex.FromPolarCoordinates(double.Pow(double.Pow(double.Abs(cos / Radii.A), Exponents.N2) + double.Pow(double.Abs(sin / Radii.B), Exponents.N3), -1d / Exponents.N1), t)) };
 
         public static Fin<Superformula> Validated(int symmetryNumerator, int symmetryDenominator, double n1, double n2, double n3, double a, double b) =>
             (SpatialFault.Unless(symmetryNumerator >= 1 && symmetryDenominator >= 1, SpatialRule.Count, (symmetryNumerator, symmetryDenominator)),

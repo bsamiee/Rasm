@@ -11,11 +11,11 @@ using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using Rasm.Imaging.Tone;
-using Rasm.Rhino;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Render.Sessions;
-using Rasm.Rhino.Render.Settings;
-using Rasm.Rhino.UI;
+using Rasm.RhinoCommon;
+using Rasm.RhinoCommon.Document.Files;
+using Rasm.RhinoCommon.Render.Sessions;
+using Rasm.RhinoCommon.Render.Settings;
+using Rasm.RhinoCommon.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -72,9 +72,9 @@ public sealed partial class SavedChannel {
             None: () => new DocumentLayer.Raster(PartName, frame, BlendingMode.Mix, 1f, Visible: false));
 
     private static Seq<IdentityLayer> Identified(PixelFrame ids, Seq<IdentitySource> sources, Option<ColorEncoding> encoding) {
-        System.Collections.Generic.HashSet<ushort> present = [];
+        HashSet<ushort> present = HashSet<ushort>();
         foreach (Vector4 pixel in ids.View.Span)
-            _ = present.Add((ushort)pixel.X);
+            present = present.TryAdd((ushort)pixel.X);
         Seq<Action<Span<Vector4>>> steps = encoding.Map(DisplayDevice.Srgb.Encoding.To).IfNone([]);
         return toSeq(sources
                 .Filter(source => present.Contains(source.Id))
@@ -99,14 +99,13 @@ public sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, Oversc
 
     public IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Formed(OutputDepth depth) =>
         depth.Levels.IsSome
-            ? DisposalOps.Found(Rendering.GetBitmap, nameof(RenderWindow.GetBitmap), bitmap => DisposalOps.Within(
-                    IO.lift(() => bitmap.LockBits(new(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb)),
-                    data => IO.lift(() => {
-                        using MemoryOwner<float> pixels = Pixels(data);
-                        return Placed(data.Width, data.Height, pixels.Memory);
-                    }),
-                    data => IO.lift(() => bitmap.UnlockBits(data))))
-                .Map(static frame => (frame, Option<ColorEncoding>.None))
+            ? (from bitmap in unitIO.Bind(_ => Products.Made(Rendering.GetBitmap()))
+               from data in IO.lift(() => bitmap.LockBits(new(0, 0, bitmap.Width, bitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb))
+               from frame in IO.lift(() => {
+                   using MemoryOwner<float> pixels = Pixels(data);
+                   return Placed(data.Width, data.Height, pixels.Memory);
+               }).Finally(IO.lift(() => bitmap.UnlockBits(data)))
+               select (frame, Option<ColorEncoding>.None)).Bracket()
             : Linear.Map(static frame => (frame, Some(SceneLinear)));
 
     public IO<HashMap<SavedChannel, PixelFrame>> Channels(OutputTarget target) =>
@@ -139,7 +138,7 @@ public sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, Oversc
         from channels in Channels(target)
         from layout in IO.lift(ExrLayout.From(target.ColorDepth, target.Codec, DisplayFormation.Working))
         from position in IO.lift(target.Position
-            ? (channels.Find(SavedChannel.Distance).ToFin(new Refused(nameof(SavedChannel.Distance), Refused.Absent)), Scene.Meters.ToFin(new Refused(nameof(ChainScene.Meters), Refused.Absent)))
+            ? (Conversions.Found(channels.Find(SavedChannel.Distance)), Conversions.Found(Scene.Meters))
                 .Apply(static (distance, meters) => Some<ExrPass>(new ExrPass.Position(GuideChannel.Depth.Measured(distance, meters))))
                 .As()
             : Option<ExrPass>.None)
@@ -172,7 +171,7 @@ public sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, Oversc
 
     private Fin<PixelFrame> Placed(int width, int height, ReadOnlyMemory<float> pixels) =>
         Region.Map(region => region.Pixels(Frame.Frame)).IfNone(Frame.DataWindow) switch {
-            var window => Refused.Unless(width == Frame.Padded.Width && height == Frame.Padded.Height, nameof(RenderWindows.Read))
+            var window => RhinoFault.Unless(width == Frame.Padded.Width && height == Frame.Padded.Height)
                 .Bind(_ => PixelExtent.Validated(window.Width, window.Height))
                 .Map(extent => {
                     PixelFrame placed = new(window.Location, extent, Frame.Frame);

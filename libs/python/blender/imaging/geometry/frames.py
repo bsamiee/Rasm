@@ -80,7 +80,7 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             case ProjectiveTransform() as found:
                 return Ok(Some(cls(quad=quad, matrix=np.asarray(found.params, dtype=np.float64))))
             case failed:
-                return Error((Fault(reason=RecordReason.OUTSIDE, subject=cls.__name__, member=f"corners of a projective quad, {failed}", cause=str(quad.corners)),))
+                return Error(Fault.of(RecordReason.OUTSIDE, cls.__name__, str(quad.corners), member=f"corners of a projective quad, {failed}"))
 
     def to_image(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps plane samples to image, zero coverage beyond vanishing line."""
@@ -94,12 +94,12 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+@np.errstate(over="ignore")
 def _projected(matrix: npt.NDArray[np.float64], samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     finite = np.isfinite(samples[..., :2]).all(axis=-1, keepdims=True)
     homogeneous = np.where(finite, samples[..., :2], 0.0) @ matrix[:, :2].T + matrix[:, 2]
     near = finite & (homogeneous[..., 2:] > 0.0)
-    with np.errstate(over="ignore"):
-        planar = np.divide(homogeneous[..., :2], homogeneous[..., 2:], out=np.zeros_like(homogeneous[..., :2]), where=near)
+    planar = np.divide(homogeneous[..., :2], homogeneous[..., 2:], out=np.zeros_like(homogeneous[..., :2]), where=near)
     covered = near & np.isfinite(planar).all(axis=-1, keepdims=True)
     return np.concatenate((np.where(covered, planar, 0.0), np.where(covered, samples[..., 2:], 0.0)), axis=-1)
 

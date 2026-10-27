@@ -3,23 +3,25 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.UI.Surfaces;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI.Surfaces;
 using Rasm.UI;
+using Rasm.UI.Rendering;
 using Rasm.UI.Styling;
 using Rhino.PlugIns;
 using Rhino.Resources;
 using Rhino.Runtime;
 using SkiaSharp;
 
-namespace Rasm.Rhino.UI.Styling;
+namespace Rasm.RhinoCommon.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class IconSlot {
-    public static readonly IconSlot PanelTab = new(static () => Accessors.Scoped(nameof(Accessors.TabIconSize), IO.lift(static () => Accessors.TabIconSize(owner: null))));
-    public static readonly IconSlot PanelButton = new(static () => Accessors.Scoped(nameof(Accessors.Get), IO.lift(static () => Accessors.Get(Accessors.PrivatePanelButtonSize(Accessors.ToolbarButtons)))));
+    public static readonly IconSlot PanelTab = new(static () => Accessors.Scoped(static () => Accessors.TabIconSize(owner: null)));
+    public static readonly IconSlot PanelButton = new(static () => Accessors.Scoped(static () => Accessors.Get(Accessors.PrivatePanelButtonSize(Accessors.ToolbarButtons))));
     public static readonly IconSlot Small = new(static () => IO.pure(16));
     public static readonly IconSlot DropDownItem = new(static () => IO.pure(HostUtils.RunningOnOSX ? 14 : 16));
     public static readonly IconSlot Banner = new(static () => IO.pure(44));
@@ -45,7 +47,7 @@ public static class Icons {
             .Bind(static file => Optional(GetOsKey(file, darkMode: true)))
             .IfNone(light));
 
-    public static IO<Option<GlyphSource.Paired>> PlugInImage(IPlugInSink plugIn) =>
+    public static IO<Option<GlyphSource.Paired>> PlugInImage(IPlugInLifetime plugIn) =>
         IO.lift(() => plugIn.GetType().Assembly switch {
             var assembly => toSeq(assembly.GetCustomAttributes<PlugInDescriptionAttribute>())
                 .Find(static description => description.DescriptionType is DescriptionType.Icon)
@@ -61,7 +63,7 @@ public static class Icons {
 
     // --- [RASTER]
     public static Fin<SKImage> Rastered(GlyphSource glyph, SKSizeI pixels) =>
-        SceneRaster.Of(PanelRoles.Defaults, HostTheme.Projected(compact: false), new Node.Glyph(glyph) { Role = Role.Label, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }, pixels);
+        Capture.Image(PanelRoles.Defaults, HostTheme.Projected(compact: false), new Node.Glyph(glyph) { Role = Role.Label, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }, pixels);
 
     private static Fin<Bitmap> Drawn(SKImage image) {
         using (image) {
@@ -69,7 +71,7 @@ public static class Icons {
             BitmapData data = drawn.LockBits(new Rectangle(0, 0, image.Width, image.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
             Fin<Unit> read;
             using (SKPixmap pixmap = new(new SKImageInfo(image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Premul, HostPixels.Srgb), data.Scan0, data.Stride))
-                read = Refused.Unless(image.ReadPixels(pixmap), nameof(SKImage.ReadPixels));
+                read = RhinoFault.Unless(image.ReadPixels(pixmap));
             drawn.UnlockBits(data);
             return read.Map(_ => new Bitmap(drawn));
         }
@@ -80,7 +82,7 @@ public static class Icons {
             return BitmapPixels.Allocated(new SKSizeI(image.Width, image.Height)).Bind(held => {
                 Fin<Unit> read;
                 using (held.Pixmap)
-                    read = Refused.Unless(image.ReadPixels(held.Pixmap), nameof(SKImage.ReadPixels));
+                    read = RhinoFault.Unless(image.ReadPixels(held.Pixmap));
                 held.Pixels.Data.Dispose();
                 if (read.IsFail) held.Pixels.Bitmap.Dispose();
                 return read.Map(_ => held.Pixels.Bitmap);
@@ -100,9 +102,9 @@ public static class Icons {
     public static IO<Eto.Drawing.Icon> Frames(GlyphSource glyph, IconSlot slot) =>
         slot.Extent().Bind(size => Frames(glyph, new Eto.Drawing.Size(size, size)));
 
-    public static IO<Unit> Themed(IPlugInSink plugIn, GlyphSource glyph, IconSlot slot, HostEvent<Unit> changes, Action<Eto.Drawing.Icon> write, Action<IDisposable> retain) =>
+    public static IO<Unit> Themed(IPlugInLifetime owner, GlyphSource glyph, IconSlot slot, HostEvent<Unit> changes, Action<Eto.Drawing.Icon> write) =>
         Frames(glyph, slot).Bind(icon => IO.lift(() => write(icon))) switch {
-            var written => written.Bind(_ => changes.Inline(_ => written, plugIn, retain)),
+            var written => written.Bind(_ => changes.Inline(_ => written, owner)),
         };
 
     // --- [DRAWING]
@@ -113,7 +115,7 @@ public static class Icons {
     public static IO<Icon> DrawingIcon(GlyphSource glyph, Size pixels) =>
         IO.lift(() => Rastered(glyph, new SKSizeI(pixels.Width, pixels.Height)).Bind(static image => {
             using (image)
-                return Refused.UnlessFound(image.Encode(SKEncodedImageFormat.Png, 100), nameof(SKImage.Encode));
+                return Conversions.Found(image.Encode(SKEncodedImageFormat.Png, 100));
         }).Map(encoded => {
             using (encoded)
             using (Stream stream = encoded.AsStream())

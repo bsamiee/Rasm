@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Rhino.Runtime;
 
 namespace Rasm.RhinoCommon;
 
@@ -39,7 +40,7 @@ public static class Products {
 
     // --- [LEASES]
     public static IO<T> Swapped<T>(Ref<Option<Lease<T>>> slot, IO<T> body) =>
-        from fresh in IO.lift(static () => EnvIO.New())
+        from fresh in IO.lift(static () => EnvIO.New(token: CancellationToken.None))
         from value in body.Under(fresh).Catch(error => IO.lift(fresh.Dispose) >> IO.fail<T>(error))
         from owned in use(() => fresh)
         from prior in atomicIO(() => {

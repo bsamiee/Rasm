@@ -48,7 +48,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         "RASM1105",
         Category,
         "Smart enum with no data, move behavior onto items or declare a union",
-        "`{0}` {1}, move switch behavior onto items, make shape-differing cases a record union, or store one host-read tag",
+        "`{0}` {1}, move consumer data onto items or declare a shape-differing record union",
         "`[SmartEnum]` items carry a key or data, and code reads `[SmartEnum<string>]` member-name keys (key, `Get`, `TryGet`, `Validate`, `Parse`)",
         WellKnownDiagnosticTags.CompilationEnd);
 
@@ -221,8 +221,8 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
                         pair.Key.Locations[0],
                         pair.Key.Name,
                         keyedForm
-                            ? "keys items by member names and no code reads a key"
-                            : "holds items with no key, data, or behavior"));
+                            ? "keys items by unread member names"
+                            : "holds data-free items"));
         });
     }
 

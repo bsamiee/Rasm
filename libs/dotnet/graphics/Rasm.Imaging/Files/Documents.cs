@@ -50,7 +50,7 @@ public sealed record LayeredDocument {
     ];
     private static readonly Seq<(short Id, int Plane)> ColorChannels = [(-1, 3), (0, 0), (1, 1), (2, 2)];
     private static readonly Seq<(short Id, ReadOnlyMemory<byte> Data)> GroupChannels = ColorChannels.Map(static channel => (channel.Id, new ReadOnlyMemory<byte>(new byte[sizeof(ushort)]))).Strict();
-    private static readonly LayerRecord Divider = new((0L, 0L, 0L, 0L), GroupChannels, PassThrough, 1f, Visible: false, "</Layer group>", [3]);
+    private static readonly LayerRecord Divider = new(new FrameWindow(0L, 0L, 0L, 0L), GroupChannels, PassThrough, 1f, Visible: false, "</Layer group>", [3]);
 
     private LayeredDocument((TiffSample Tiff, uint Key) sample, Option<ColorEncoding> encoding, PixelFrame canvas, Seq<DocumentLayer> layers) => (Sample, Encoding, Canvas, Layers) = (sample, encoding, canvas, layers);
 
@@ -167,7 +167,7 @@ public sealed record LayeredDocument {
                 document.Canvas.Window, document.Channels(raster), raster.Mode.BlendModeKey, raster.Opacity, raster.Visible, raster.Name, []) { Mask = raster.Mask.Map(_ => document.Canvas.Window) }),
             folder: static (document, folder) => folder.Mode.Match(Some: static mode => mode.BlendModeKey, None: PassThrough) switch {
                 var key => [Divider, .. document.Records(folder.Children), new LayerRecord(
-                    (0L, 0L, 0L, 0L), GroupChannels, key, folder.Opacity, folder.Visible, folder.Name, [folder.Open ? 1u : 2u, Signature, key])],
+                    new FrameWindow(0L, 0L, 0L, 0L), GroupChannels, key, folder.Opacity, folder.Visible, folder.Name, [folder.Open ? 1u : 2u, Signature, key])],
             }));
 
     private Seq<(short Id, ReadOnlyMemory<byte> Data)> Channels(DocumentLayer.Raster raster) {
@@ -207,22 +207,23 @@ public sealed record LayeredDocument {
     }
 
     private Action<int, Span<byte>> Scanline(PixelFrame composite) {
-        long left = long.Max(composite.Window.Left, 0L);
-        int width = (int)long.Max(long.Min(composite.Window.Right, composite.Extent.Width) - left, 0L);
+        FrameWindow window = composite.Window;
+        long left = long.Max(window.Left, 0L);
+        int width = (int)long.Max(long.Min(window.Right, composite.Extent.Width) - left, 0L);
         return (line, scanline) => {
             scanline.Clear();
-            if (width > 0 && line >= composite.Window.Top && line < composite.Window.Bottom)
+            if (width > 0 && line >= window.Top && line < window.Bottom)
                 Sample.Tiff.Depth.Encode(
                     composite.View.Span.GetRowSpan(line - composite.Origin.Y).Slice((int)(left - composite.Origin.X), width), alpha: true,
                     scanline.Slice((int)Sample.Tiff.Depth.RowBytes((int)left, alpha: true), (int)Sample.Tiff.Depth.RowBytes(width, alpha: true)));
         };
     }
 
-    private sealed record LayerRecord((long Left, long Top, long Right, long Bottom) Bounds, Seq<(short Id, ReadOnlyMemory<byte> Data)> Channels, uint Mode, float Opacity, bool Visible, string Name, Seq<uint> Section) {
-        internal Option<(long Left, long Top, long Right, long Bottom)> Mask { get; init; }
+    private sealed record LayerRecord(FrameWindow Bounds, Seq<(short Id, ReadOnlyMemory<byte> Data)> Channels, uint Mode, float Opacity, bool Visible, string Name, Seq<uint> Section) {
+        internal Option<FrameWindow> Mask { get; init; }
 
         internal void Write(BinaryWriter writer) {
-            static void Edges(BinaryWriter into, (long Left, long Top, long Right, long Bottom) rectangle) {
+            static void Edges(BinaryWriter into, FrameWindow rectangle) {
                 into.Write((int)rectangle.Top);
                 into.Write((int)rectangle.Left);
                 into.Write((int)rectangle.Bottom);
@@ -263,7 +264,7 @@ public sealed record LayeredDocument {
             });
             writer.Write(Signature);
             writer.Write(Mode);
-            writer.Write([(byte)MathF.Round(Opacity * byte.MaxValue, MidpointRounding.ToEven), 0, (byte)(Visible ? 8 : 10), 0]);
+            writer.Write([(byte)float.Round(Opacity * byte.MaxValue, MidpointRounding.ToEven), 0, (byte)(Visible ? 8 : 10), 0]);
             writer.Write((uint)extra.Length);
             writer.Write(extra.GetBuffer(), 0, (int)extra.Length);
         }

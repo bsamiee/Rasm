@@ -11,13 +11,14 @@ using Eto.Mac.Forms;
 using Eto.Mac.Forms.Controls;
 using Foundation;
 using ObjCRuntime;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Surfaces;
+using Rasm.RhinoCommon.Events;
+using Rasm.RhinoCommon.PlugIns;
+using Rasm.RhinoCommon.UI.Surfaces;
 using Rasm.UI;
 using Rasm.UI.Styling;
 using SkiaSharp;
 
-namespace Rasm.Rhino.UI.Mac;
+namespace Rasm.RhinoCommon.UI.Mac;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DrawnViews {
@@ -29,40 +30,38 @@ public static class DrawnViews {
     private static readonly Lazy<Fin<nint>> HostClass = new(static () => NativeControls.Subclass(Class.GetHandle(typeof(NSView)),
         Seq((Selector.GetHandle("hitTest:"), (Delegate)PassThrough)), []));
 
-    public static IO<Unit> Layers(Control control, CALayer layer, IPlugInSink sink, Action<IDisposable> retain) =>
-        NativeControls.Lifetime(control, owned =>
-            from parent in IO.lift(() => Refused.UnlessFound(control.GetContainerView(), nameof(MacControlExtensions.GetContainerView)))
+    public static IO<Unit> Layers(Control control, CALayer layer, IPlugInLifetime owner) =>
+        NativeControls.Lifetime(control,
+            from parent in IO.lift(() => Conversions.Found(control.GetContainerView()))
             from nativeClass in IO.lift(static () => HostClass.Value)
-            let site = new CallbackSite(sink, typeof(DrawnViews), nameof(Layers))
-            from view in DisposalOps.Acquire(IO.lift(() => new NSView(parent.Bounds)), static held =>
-                Callbacks.Each(Seq(IO.lift(held.RemoveFromSuperview), IO.lift(() => { held.Layer = null; }), IO.lift(held.Dispose))).Map(unit), owned)
+            from view in use(IO.lift(() => new NSView(parent.Bounds)), static held =>
+                Callbacks.Each(Seq(IO.lift(held.RemoveFromSuperview), IO.lift(() => { held.Layer = null; }), IO.lift(held.Dispose))).Map(unit))
             from placed in IO.lift(() => {
                 _ = SafeNativeMethods.object_setClass(view.Handle, nativeClass);
                 (view.Layer, view.WantsLayer, view.AutoresizingMask) = (layer, true, NSViewResizingMask.WidthSizable | NSViewResizingMask.HeightSizable);
                 parent.AddSubview(view);
             })
-            from fitted in Fit(parent, view, layer)
-            from bounds in DisposalOps.Acquire(IO.lift(() => NSView.Notifications.ObserveBoundsChanged(parent,
-                Callbacks.Handler<NSNotificationEventArgs>(_ => Fit(parent, view, layer), site))), owned)
-            from backing in DisposalOps.Acquire(IO.lift(() => NSWindow.Notifications.ObserveDidChangeBackingProperties(
-                Callbacks.Handler<NSNotificationEventArgs>(args => when(Equals(args.Notification.Object, view.Window), Fit(parent, view, layer)).As(), site))), owned)
-            let update = Callbacks.Handler<EventArgs>(_ => Fit(parent, view, layer), site)
-            from size in Subscriptions.Attach(
-                handler => control.SizeChanged += handler, handler => control.SizeChanged -= handler, update, owned)
-            from load in Subscriptions.Attach(
-                handler => control.LoadComplete += handler, handler => control.LoadComplete -= handler, update, owned)
+            let fit = Fit(parent, view, layer)
+            from fitted in fit
+            from bounds in Observed(handler => NSView.Notifications.ObserveBoundsChanged(parent, handler)).Inline(_ => fit, owner)
+            from backing in Observed(NSWindow.Notifications.ObserveDidChangeBackingProperties).Inline(args => when(Equals(args.Notification.Object, view.Window), fit).As(), owner)
+            from size in Subscriptions.Host<EventArgs>(h => control.SizeChanged += h, h => control.SizeChanged -= h).Inline(_ => fit, owner)
+            from load in Subscriptions.Host<EventArgs>(h => control.LoadComplete += h, h => control.LoadComplete -= h).Inline(_ => fit, owner)
             select unit,
-            new CallbackSite(sink, typeof(DrawnViews), nameof(Layers)), retain);
+            owner);
 
     private static IO<Unit> Fit(NSView parent, NSView view, CALayer layer) =>
-        DisposalOps.Within(static () => { CATransaction.Begin(); return unit; },
-            _ => IO.lift(() => {
-                CATransaction.DisableActions = true;
-                view.Frame = parent.Bounds;
-                layer.Frame = view.Bounds;
-                layer.GeometryFlipped = true;
-                _ = Scaled(layer, view.ConvertSizeToBacking(new CGSize(1, 1)).Width);
-            }), static _ => IO.lift(CATransaction.Commit));
+        IO.lift(CATransaction.Begin) >> IO.lift(() => {
+            CATransaction.DisableActions = true;
+            view.Frame = parent.Bounds;
+            layer.Frame = view.Bounds;
+            layer.GeometryFlipped = true;
+            _ = Scaled(layer, view.ConvertSizeToBacking(new CGSize(1, 1)).Width);
+        }).Finally(IO.lift(CATransaction.Commit));
+
+    // --- [NOTIFICATIONS]
+    internal static HostEvent<NSNotificationEventArgs> Observed(Func<EventHandler<NSNotificationEventArgs>, NSObject> observe, [CallerArgumentExpression(nameof(observe))] string label = "") =>
+        new(label, (deliver, owner) => use(() => observe((_, args) => owner.Start(deliver(args), label))).Map(unit));
 
     private static Unit Scaled(CALayer layer, NFloat scale) {
         layer.ContentsScale = scale;
@@ -98,7 +97,7 @@ public static class DrawnViews {
         public nint Parent { get; } = parent;
         public HashMap<Seq<Key>, (Element Element, NSAccessibilityElement Shown)> Shown { get; set; }
         public Option<Seq<Element>> Tree { get; set; }
-        public Option<IDisposable> Keyed { get; set; }
+        public Ref<Option<Lease<Unit>>> Keyed { get; } = Ref(Option<Lease<Unit>>.None);
     }
 
     private sealed record Owner(Native Native, Seq<Key> Id);
@@ -168,24 +167,24 @@ public static class DrawnViews {
             (nameof(NSAccessibilityElement.AccessibilityPerformShowMenu), new Act.ShowMenu()))
         .Map(static row => (Exported(typeof(NSAccessibilityElement), row.Member), row.Act)));
 
-    private static Seq<(nint Selector, Delegate Implementation)> ElementMethods(CallbackSite site) =>
-        Performs.Keys.ToSeq().Map(selector => (selector, (Delegate)new Acting((element, called) => Callbacks.Answer(IO.lift(() => Perform(element, called)), static () => false, site))))
+    private static Seq<(nint Selector, Delegate Implementation)> ElementMethods(IPlugInLifetime owner) =>
+        Performs.Keys.ToSeq().Map(selector => (selector, (Delegate)new Acting((element, called) => owner.Answer(IO.lift(() => Perform(element, called)), failed: false))))
             .Add((Exported(typeof(NSAccessibilityElement), nameof(NSAccessibilityElement.IsAccessibilitySelectorAllowed)),
-                new Allowing((element, called, query) => Callbacks.Answer(IO.lift(() => Allow(element, called, query)), static () => false, site))));
+                new Allowing((element, called, query) => owner.Answer(IO.lift(() => Allow(element, called, query)), failed: false))));
 
-    private static Seq<(nint Selector, Delegate Implementation)> SceneMethods(CallbackSite site) => [
+    private static Seq<(nint Selector, Delegate Implementation)> SceneMethods(IPlugInLifetime owner) => [
         (Exported(typeof(INSStandardKeyBindingResponding), nameof(INSStandardKeyBindingResponding.DoCommandBySelector)),
-            new Argued((view, selector, command) => Callbacks.Run(IO.lift(() => Interpreted(view, selector, command)), site))),
-        (Exported(typeof(NSView), nameof(NSView.ViewDidHide)), new Signal((view, selector) => Callbacks.Run(IO.lift(() => Hide(view, selector)), site))),
-        (Exported(typeof(NSView), nameof(NSView.ViewDidUnhide)), new Signal((view, selector) => Callbacks.Run(IO.lift(() => Hide(view, selector)), site))),
-        (Exported(typeof(NSView), nameof(NSView.ViewDidMoveToWindow)), new Signal((view, selector) => Callbacks.Run(IO.lift(() => Moved(view, selector)), site))),
-        (Exported(typeof(NSResponder), nameof(NSResponder.ScrollWheel)), new Argued((view, selector, current) => Callbacks.Run(IO.lift(() => Scroll(view, selector, current)), site))),
-        (Exported(typeof(NSResponder), nameof(NSResponder.MagnifyWithEvent)), new Argued((view, selector, current) => Callbacks.Run(IO.lift(() => Magnify(view, selector, current)), site))),
-        (Exported(typeof(NSResponder), nameof(NSResponder.RotateWithEvent)), new Argued((view, selector, current) => Callbacks.Run(IO.lift(() => Rotate(view, selector, current)), site))),
-        (Exported(typeof(NSResponder), nameof(NSResponder.PressureChange)), new Argued((view, selector, current) => Callbacks.Run(IO.lift(() => Pressure(view, selector, current)), site))),
+            new Argued((view, selector, command) => owner.Run(IO.lift(() => Interpreted(view, selector, command))))),
+        (Exported(typeof(NSView), nameof(NSView.ViewDidHide)), new Signal((view, selector) => owner.Run(IO.lift(() => Hide(view, selector))))),
+        (Exported(typeof(NSView), nameof(NSView.ViewDidUnhide)), new Signal((view, selector) => owner.Run(IO.lift(() => Hide(view, selector))))),
+        (Exported(typeof(NSView), nameof(NSView.ViewDidMoveToWindow)), new Signal((view, selector) => owner.Run(IO.lift(() => Moved(view, selector))))),
+        (Exported(typeof(NSResponder), nameof(NSResponder.ScrollWheel)), new Argued((view, selector, current) => owner.Run(IO.lift(() => Scroll(view, selector, current))))),
+        (Exported(typeof(NSResponder), nameof(NSResponder.MagnifyWithEvent)), new Argued((view, selector, current) => owner.Run(IO.lift(() => Magnify(view, selector, current))))),
+        (Exported(typeof(NSResponder), nameof(NSResponder.RotateWithEvent)), new Argued((view, selector, current) => owner.Run(IO.lift(() => Rotate(view, selector, current))))),
+        (Exported(typeof(NSResponder), nameof(NSResponder.PressureChange)), new Argued((view, selector, current) => owner.Run(IO.lift(() => Pressure(view, selector, current))))),
         (Exported(typeof(INSViewToolTipOwner), nameof(INSViewToolTipOwner.GetStringForToolTip)),
-            new Tipping((owner, _, _, _, _, _) => Callbacks.Answer(IO.lift(() => Tip(owner)), static () => 0, site))),
-        (Exported(typeof(NSView), nameof(NSView.GetAccessibilityFocusedUIElement)), new Answering((view, selector) => Callbacks.Answer(IO.lift(() => Focused(view, selector)), static () => 0, site))),
+            new Tipping((tipped, _, _, _, _, _) => owner.Answer(IO.lift(() => Tip(tipped)), failed: 0))),
+        (Exported(typeof(NSView), nameof(NSView.GetAccessibilityFocusedUIElement)), new Answering((view, selector) => owner.Answer(IO.lift(() => Focused(view, selector)), failed: 0))),
     ];
 
     private static Fin<nint> Classed(nint parent, Func<Seq<(nint Selector, Delegate Implementation)>> methods, Seq<nint> protocols) =>
@@ -197,9 +196,8 @@ public static class DrawnViews {
         SceneView scene = (SceneView)handler.Widget;
         NSView view = handler.Control;
         nint parent = SafeNativeMethods.object_getClass(view.Handle);
-        CallbackSite site = new(scene.Sink, typeof(DrawableHandler), nameof(Scene));
-        Callbacks.Run(
-            from nativeClass in IO.lift(() => Classed(parent, () => SceneMethods(site), [TipOwner]))
+        _ = scene.Owner.Run(
+            from nativeClass in IO.lift(() => Classed(parent, () => SceneMethods(scene.Owner), [TipOwner]))
             from attached in IO.lift(() => {
                 Native native = new(scene, view, parent);
                 Views.Add(view, native);
@@ -207,8 +205,7 @@ public static class DrawnViews {
                 _ = SafeNativeMethods.object_setClass(view.Handle, nativeClass);
                 return Revealed(native);
             })
-            select unit,
-            site);
+            select unit);
     }
 
     private static nint Exported(Type owner, string member) =>
@@ -224,8 +221,6 @@ public static class DrawnViews {
 
     private static TDelegate Super<TDelegate>(nint parent, nint selector) where TDelegate : Delegate =>
         Marshal.GetDelegateForFunctionPointer<TDelegate>(SafeNativeMethods.method_getImplementation(ObjCExtensions.GetInstanceMethod(parent, selector)));
-
-    private static CallbackSite Site(Native native, [CallerMemberName] string member = "") => new(native.Scene.Sink, typeof(DrawnViews), member);
 
     // --- [KEYS]
     private static void Interpreted(nint view, nint selector, nint command) {
@@ -249,16 +244,18 @@ public static class DrawnViews {
     private static void Moved(nint view, nint selector) {
         Native native = Held(view);
         Super<Signal>(native.Parent, selector)(view, selector);
-        _ = native.Keyed.Iter(static lease => lease.Dispose());
-        native.Keyed = Optional(native.View.Window).Map(window => (IDisposable)new Disposal<Seq<NSObject>>(Seq(
-                NSWindow.Notifications.ObserveDidBecomeKey(window, Callbacks.Handler<NSNotificationEventArgs>(_ => IO.lift(() => Revealed(native)), Site(native))),
-                NSWindow.Notifications.ObserveDidResignKey(window, Callbacks.Handler<NSNotificationEventArgs>(_ => IO.lift(() => Revealed(native)), Site(native)))),
-            static tokens => tokens.Iter(static token => token.Dispose())));
+        _ = native.Scene.Owner.Run(Optional(native.View.Window).Match(
+                Some: window => Products.Swapped(native.Keyed, Subscriptions.Merged(
+                        Observed(handler => NSWindow.Notifications.ObserveDidBecomeKey(window, handler)),
+                        Observed(handler => NSWindow.Notifications.ObserveDidResignKey(window, handler)))
+                    .Inline(_ => IO.lift(() => Revealed(native)), native.Scene.Owner)),
+                None: () => Products.Cleared(native.Keyed))
+            .Under(native.Scene.Owned));
         _ = Revealed(native);
     }
 
     private static Unit Revealed(Native native) {
-        Callbacks.Run(native.Scene.Natively(native.View.Window is not null && !native.View.IsHiddenOrHasHiddenAncestor, native.View.Window is { IsKeyWindow: true }), Site(native));
+        _ = native.Scene.Owner.Run(native.Scene.Natively(native.View.Window is not null && !native.View.IsHiddenOrHasHiddenAncestor, native.View.Window is { IsKeyWindow: true }));
         return unit;
     }
 
@@ -279,7 +276,7 @@ public static class DrawnViews {
     private static void Pressure(nint view, nint selector, nint current) =>
         Evented(view, selector, current, static (e, at) => NSEvent.CurrentPressedMouseButtons is 0
             ? None
-            : Some((Input)new Input.Pointer(new Phase<PointerSample>.Changed(new PointerSample(at, e.Pressure)), 1)));
+            : Some((Input)new Input.Pointer(Edit.Preview(new PointerSample(at, e.Pressure)), 1)));
 
     private static void Evented(nint view, nint selector, nint current, Func<NSEvent, SKPoint, Option<Input>> read) {
         Native native = Held(view);
@@ -290,12 +287,12 @@ public static class DrawnViews {
         if (!answered) Super<Argued>(native.Parent, selector)(view, selector, current);
     }
 
-    private static Option<Phase<T>> Phased<T>(NSEventPhase phase, T value) where T : notnull =>
+    private static Option<Edit<T>> Phased<T>(NSEventPhase phase, T value) where T : notnull =>
         phase switch {
-            NSEventPhase.Began => new Phase<T>.Began(value),
-            NSEventPhase.Changed or NSEventPhase.Stationary => new Phase<T>.Changed(value),
-            NSEventPhase.Ended => new Phase<T>.Ended(value),
-            NSEventPhase.Cancelled => new Phase<T>.Cancelled(),
+            NSEventPhase.Began => Edit.Begin(value),
+            NSEventPhase.Changed or NSEventPhase.Stationary => Edit.Preview(value),
+            NSEventPhase.Ended => Edit.Commit(value),
+            NSEventPhase.Cancelled => Edit.Cancel<T>(),
             _ => None,
         };
 
@@ -328,10 +325,10 @@ public static class DrawnViews {
     private static Option<Owner> Owned(nint element) =>
         Optional(Runtime.GetNSObject<NSAccessibilityElement>(element)).Bind(static shown => Owners.TryGetValue(shown, out Owner? owner) ? Some(owner) : None);
 
-    internal static IO<Func<Mount, Output, IO<Unit>>> Projection(SceneView scene, Action<IDisposable> retain) =>
-        from native in IO.lift(() => Refused.UnlessFound(Scenes.TryGetValue(scene, out Native? held) ? held : null, nameof(Scenes)))
-        from elementClass in IO.lift(() => Classed(ElementParent, () => ElementMethods(Site(native)), []))
-        from held in DisposalOps.Acquire(IO.pure(native), Withdrawn, retain)
+    internal static IO<Func<Mount, Output, IO<Unit>>> Projection(SceneView scene) =>
+        from native in IO.lift(() => Conversions.Found(Scenes.TryGetValue(scene, out Native? held) ? held : null))
+        from elementClass in IO.lift(() => Classed(ElementParent, () => ElementMethods(scene.Owner), []))
+        from held in use(IO.pure(native), Withdrawn)
         select fun((Mount mount, Output output) => IO.lift(() => Reconciled(held, elementClass, mount, output)));
 
     private static Unit Reconciled(Native native, nint elementClass, Mount mount, Output output) {
