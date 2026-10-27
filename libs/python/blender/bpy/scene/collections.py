@@ -2,7 +2,7 @@
 
 from collections.abc import Iterable
 from contextlib import ExitStack
-from functools import reduce
+from functools import partial, reduce
 from itertools import chain, starmap
 from typing import Final
 
@@ -13,7 +13,7 @@ from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
 import msgspec
 
-from blender.bpy.data.ids.ownership import committed, kept, released
+from blender.bpy.data.ids.ownership import kept, released, retained
 from blender.bpy.data.ids.store import Handle, resolved
 from blender.bpy.data.rna.descriptors import Descriptor, Struct, written
 from blender.bpy.data.rna.snapshots import Snapshot
@@ -82,8 +82,13 @@ def entry(collection: bpy.types.Collection, member: Member) -> Outcome[bpy.types
     """Returns member entry, failing when member is outside collection."""
 
     def found[E, M](entries: Iterable[E], items: Iterable[M]) -> Outcome[E]:
-        return Option.of_optional(next((held for held, item in zip(entries, items) if item == member), None)).to_result_with(
-            lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(collection), member=member.name),)
+        return (
+            Block
+            .of_seq(zip(entries, items))
+            .filter(lambda pair: pair[1] == member)
+            .map(lambda pair: pair[0])
+            .try_head()
+            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(collection), member=member.name))
         )
 
     match member:
@@ -114,7 +119,7 @@ def _applied(collection: bpy.types.Collection, change: MembershipChange) -> Outc
 
     match change:
         case Joined() | Parted():
-            return catch(linked, exception=RuntimeError)(change).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(collection), cause=error),))
+            return catch(linked, exception=RuntimeError)(change).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(collection)))
         case Sorted(member=member, index=index):
             return entry(collection, member).bind(lambda held: written(held, "sort_index", index)).map(lambda _: None)
 
@@ -168,7 +173,7 @@ def landing(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Collection]:
         preorder(active, lambda held: parents(held) if held in layers else ())
         .filter(lambda held: held in layers and _editable(held) and not layers[held].exclude)
         .try_head()
-        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(view_layer), member="active_layer_collection"),))
+        .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(view_layer), member="active_layer_collection"))
     )
 
 
@@ -181,7 +186,7 @@ def moved(item: bpy.types.Object, target: bpy.types.Collection, scene: bpy.types
 def instanced(collection: bpy.types.Collection, target: bpy.types.Collection, name: str) -> Outcome[bpy.types.Object]:
     """Creates empty instancing collection in target under name, removing it on fault."""
     return kept(
-        catch(bpy.data.objects.new, exception=RuntimeError)(name, None).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=name, cause=error),)),
+        catch(bpy.data.objects.new, exception=RuntimeError)(name, None).map_error(partial(Fault.of, BlenderReason.REFUSED, name)),
         lambda made: accumulated((written(made, "instance_type", "COLLECTION"), written(made, "instance_collection", collection))).bind(lambda _: joined(target, (made,))).map(lambda _: made),
     )
 
@@ -195,9 +200,7 @@ def _editable(collection: bpy.types.Collection) -> bool:
 
 def founded(parent: Option[bpy.types.Collection], name: str) -> Outcome[bpy.types.Collection]:
     """Creates collection under parent named name, removing it on fault."""
-    return kept(
-        catch(bpy.data.collections.new, exception=RuntimeError)(name).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=name, cause=error),)), lambda made: _parented(made, parent)
-    )
+    return kept(catch(bpy.data.collections.new, exception=RuntimeError)(name).map_error(partial(Fault.of, BlenderReason.REFUSED, name)), lambda made: _parented(made, parent))
 
 
 def cloned(collection: bpy.types.Collection, parent: Option[bpy.types.Collection]) -> Outcome[bpy.types.Collection]:
@@ -224,11 +227,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                 def rewired(name: str, value: object) -> Outcome[None]:
                     match value:
                         case bpy.types.ID() if value in mapping:
-                            return (
-                                catch(group.update, exception=ReferenceError)({name: mapping[value]})
-                                .map(lambda _: None)
-                                .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{group!r}[{name!r}]", cause=error),))
-                            )
+                            return catch(group.update, exception=ReferenceError)({name: mapping[value]}).map(lambda _: None).map_error(partial(Fault.of, BlenderReason.REFUSED, f"{group!r}[{name!r}]"))
                         case IDPropertyGroup():
                             return custom(value)
                         case list():
@@ -248,7 +247,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                         case bpy.types.PointerProperty():
                             match getattr(owner, prop.identifier):
                                 case bpy.types.ID() as value if not prop.is_readonly and value in mapping:
-                                    return Descriptor(root=type(owner), owner="", prop=prop).write(owner, mapping[value]).map(lambda _: None)
+                                    return Descriptor(root=type(owner), owner=(), prop=prop).write(owner, mapping[value]).map(lambda _: None)
                                 case bpy.types.ID(is_embedded_data=True) as value if prop.is_readonly:
                                     owned.add(value)
                                     return repointed(value)
@@ -310,7 +309,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                 .bind(placed)
             )
 
-        return committed(
+        return retained(
             copied(tree).bind(
                 lambda collections: copied(dict.fromkeys(item for held in tree for item in held.objects)).bind(
                     lambda objects: copied(dict.fromkeys(block for item in objects for block in Option.of_optional(item.data).to_list() if type(block) in copies)).bind(
@@ -347,7 +346,7 @@ def _parented(collection: bpy.types.Collection, parent: Option[bpy.types.Collect
 
 
 def _copied[T: bpy.types.ID](block: T) -> Outcome[T]:
-    return Option.of_optional(block.copy()).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(block), member="copy"),))
+    return Option.of_optional(block.copy()).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(block), member="copy"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

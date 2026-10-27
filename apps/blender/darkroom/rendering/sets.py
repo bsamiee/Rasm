@@ -198,7 +198,7 @@ class SetupGallery(Line, frozen=True, kw_only=True):
         return (
             self.attachment
             .bound(identity)
-            .bind(lambda attached: realized(IconView(target=Member(root=bpy.types.WindowManager, path=f"{attached.name}.setup"), show_labels=True), identity))
+            .bind(lambda attached: realized(IconView(target=Member(root=bpy.types.WindowManager, path=(attached.name, "setup")), show_labels=True), identity))
             .map(self.conditioned)
         )
 
@@ -220,7 +220,7 @@ def lock_effect(call: Call[LockRequest]) -> Outcome[Done]:
             case bpy.types.SceneCompositorEffect(id_data=bpy.types.Scene() as scene, name=name):
                 return EffectLocks.of(store, scene).bind(lambda locks: store.write(scene, locks.locking(name, call.properties.key)[1])).map(lambda _: Done())
             case _:
-                return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=OWNER),))
+                return Error(Fault.of(BlenderReason.ABSENT, repr(owner), member=OWNER))
 
     return paired(call.identity.identifier(OWNER).bind(lambda name: hosted(name, call.context)), EffectLocks.bound(call.identity)).bind(lambda parts: toggled(*parts))
 
@@ -256,46 +256,46 @@ categories: Final = (
     Category(
         key="sampling",
         settings=(
-            "render.engine",
-            "cycles.device",
+            ("render", "engine"),
+            ("cycles", "device"),
             *AddPresetSampling.preset_values,
             *AddPresetViewportSampling.preset_values,
-            "cycles.denoising_use_gpu",
-            "cycles.preview_denoising_use_gpu",
-            "eevee",
+            ("cycles", "denoising_use_gpu"),
+            ("cycles", "preview_denoising_use_gpu"),
+            ("eevee",),
         ),
     ),
-    Category(key="light_paths", settings=(*AddPresetIntegrator.preset_values, "cycles.sample_clamp_direct", "cycles.sample_clamp_indirect")),
+    Category(key="light_paths", settings=(*AddPresetIntegrator.preset_values, ("cycles", "sample_clamp_direct"), ("cycles", "sample_clamp_indirect"))),
     Category(
         key="simplify",
         settings=(
-            "render.use_simplify",
-            "render.simplify_subdivision_render",
-            "render.simplify_child_particles_render",
-            "render.simplify_volumes",
-            "cycles.dicing_rate",
-            "cycles.preview_dicing_rate",
-            "cycles.offscreen_dicing_scale",
-            "cycles.max_subdivisions",
+            ("render", "use_simplify"),
+            ("render", "simplify_subdivision_render"),
+            ("render", "simplify_child_particles_render"),
+            ("render", "simplify_volumes"),
+            ("cycles", "dicing_rate"),
+            ("cycles", "preview_dicing_rate"),
+            ("cycles", "offscreen_dicing_scale"),
+            ("cycles", "max_subdivisions"),
         ),
     ),
-    Category(key="motion_blur", settings=("render.use_motion_blur", "render.motion_blur_shutter", "render.motion_blur_position", "render.motion_blur_shutter_curve")),
+    Category(key="motion_blur", settings=(("render", "use_motion_blur"), ("render", "motion_blur_shutter"), ("render", "motion_blur_position"), ("render", "motion_blur_shutter_curve"))),
     Category(
         key="film",
         settings=(
-            "render.film_transparent",
-            "render.filter_size",
-            "cycles.film_exposure",
-            "cycles.film_transparent_glass",
-            "cycles.film_transparent_roughness",
-            "cycles.pixel_filter_type",
-            "cycles.filter_width",
+            ("render", "film_transparent"),
+            ("render", "filter_size"),
+            ("cycles", "film_exposure"),
+            ("cycles", "film_transparent_glass"),
+            ("cycles", "film_transparent_roughness"),
+            ("cycles", "pixel_filter_type"),
+            ("cycles", "filter_width"),
         ),
     ),
-    Category(key="performance", settings=(*AddPresetPerformance.preset_values, "cycles.use_auto_tile", "render.compositor_device")),
-    Category(key="color_management", settings=("display_settings", "view_settings", "sequencer_colorspace_settings")),
-    Category(key="resolution", settings=tuple(f"render.{member}" for member in Framing.native)),
-    Category(key="output_format", settings=("render.image_settings",)),
+    Category(key="performance", settings=(*AddPresetPerformance.preset_values, ("cycles", "use_auto_tile"), ("render", "compositor_device"))),
+    Category(key="color_management", settings=(("display_settings",), ("view_settings",), ("sequencer_colorspace_settings",))),
+    Category(key="resolution", settings=tuple(("render", member) for member in Framing.native)),
+    Category(key="output_format", settings=(("render", "image_settings"),)),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

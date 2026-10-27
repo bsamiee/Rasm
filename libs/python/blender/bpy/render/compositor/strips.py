@@ -1,6 +1,7 @@
 """Sequencer strip modifiers and compositor strips running standalone effects."""
 
 from contextlib import ExitStack
+from functools import partial
 from typing import ClassVar, Final
 
 import bpy
@@ -11,7 +12,7 @@ import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Operator
 from blender.bpy.data.rna.conditions import AllOf, Present, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, RnaPath, written
+from blender.bpy.data.rna.descriptors import choices, Descriptor, rna, RnaPath, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
@@ -36,7 +37,7 @@ class Striping(bpy.types.PropertyGroup):
     """Effect placement on active sequencer strip."""
 
     placement: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name="Placement", items=(("MODIFIER", "Modifier", "Compositor strip modifier on the active strip"), ("STRIP", "Strip", "Compositor strip over the active strip"))
+        name="Placement", items=choices((("MODIFIER", "Modifier", "Compositor strip modifier on the active strip"), ("STRIP", "Strip", "Compositor strip over the active strip")))
     )
 
 
@@ -60,7 +61,7 @@ class Strips[R: Case]:
         def offered(row: CompositorEffect[R]) -> Operator[Striping]:
             def run(call: Call[Striping]) -> Outcome[Done]:
                 """Run the effect on the active strip as a strip modifier or a strip over it."""
-                target = active(call.context).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(call.context.workspace), member="sequencer_scene.sequence_editor.active_strip"),))
+                target = active(call.context).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(call.context.workspace), member=rna(_ACTIVE[1:])))
 
                 def built(target: tuple[bpy.types.Scene, bpy.types.SequenceEditor, bpy.types.Strip], record: R) -> Outcome[Done]:
                     scene, editor, strip = target
@@ -83,8 +84,7 @@ class Strips[R: Case]:
                             .bind(lambda group: made(group, call.identity, of=Some(scene)))
                             .bind(
                                 lambda group: Result[bpy.types.Strip | bpy.types.StripModifier, Faults].bind(
-                                    catch(held, exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(strip), cause=error),)),
-                                    lambda holder: written(holder, "node_group", group),
+                                    catch(held, exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(strip))), lambda holder: written(holder, "node_group", group)
                                 )
                             )
                             .map(lambda _: rollback.pop_all())

@@ -16,10 +16,10 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, InvokePopup, Operator, Unchanged
-from blender.bpy.data.ids.ownership import committed, Mark, Ownership, released, Saved
+from blender.bpy.data.ids.ownership import Mark, Ownership, released, retained, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.animation import Animation, Keys
-from blender.bpy.data.rna.descriptors import Descriptor, Native, root_in, typed, written
+from blender.bpy.data.rna.descriptors import choices, Descriptor, id_path, Native, RnaPath, root_in, typed, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Subscription
 from blender.bpy.extension.identity import Identity
@@ -44,8 +44,8 @@ type Timing = Moment | Study
 
 _SPLINE_POINT: Final = Descriptor.declared(bpy.types.SplinePoint, "co", bpy.types.FloatProperty)
 _IRRADIANCE: Final = Descriptor.declared(bpy.types.SunLight, "energy", bpy.types.FloatProperty)
-ZONES: Final = tuple((zone, zone, "") for zone in sorted(zoneinfo.available_timezones()))
-_TIMINGS: Final = (("MOMENT", "Moment", "Single sun moment"), ("DAY", "Day", "Moments stepped by elapsed minutes"), ("SEASON", "Season", "Moments stepped by days at one clock time"))
+ZONES: Final = choices((zone, zone, "") for zone in sorted(zoneinfo.available_timezones()))
+_TIMINGS: Final = choices((("MOMENT", "Moment", "Single sun moment"), ("DAY", "Day", "Moments stepped by elapsed minutes"), ("SEASON", "Season", "Moments stepped by days at one clock time")))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -135,7 +135,7 @@ class SunLight(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             `Nothing` naming no undo step, or `absent` and `sun_placed` faults.
         """
-        return scene.resolve().bind(lambda held: sun_placed(held, identity, bpy.context)).map(lambda _: Nothing)
+        return scene.resolve().bind(lambda held: sun_placed(held, identity)).map(lambda _: Nothing)
 
     attachment: ClassVar[Attachment[SunSetup]] = Attachment(key="sun", form=SunSetup, owner=bpy.types.Scene, changed=Some(reconciling(bpy.types.Scene, resited)))
     sun: ClassVar[Ownership[bpy.types.Object]] = Ownership(kind=bpy.types.Object, key="sun", saved=Saved.USED)
@@ -220,7 +220,7 @@ def sited(setup: SunSetup) -> Outcome[tuple[Site, Timing]]:
         case _:
             timing = Moment(start=start)
     site: Outcome[Site] = catch(Site, exception=ValueError)(latitude=setup.latitude, longitude=setup.longitude, north=setup.north, zone=setup.zone).map_error(
-        lambda error: (Fault(reason=RecordReason.OUTSIDE, subject=repr(setup), member="zone", cause=error),)
+        partial(Fault.of, RecordReason.OUTSIDE, repr(setup), member="zone")
     )
     return site.map(lambda held: (held, timing))
 
@@ -239,13 +239,12 @@ def positions(site: Site, timing: Timing, *, refraction: bool) -> Outcome[SunPos
     return timing.moments(site.clock).map(lambda moments: SunPosition.at(site, np.array([moment.timestamp() for moment in moments]))).map(lambda found: found.apparent() if refraction else found)
 
 
-def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Context) -> Outcome[bpy.types.Object]:
+def sun_placed(scene: bpy.types.Scene, identity: Identity) -> Outcome[bpy.types.Object]:
     """Places and keys scene sun with following nodes, study frame range, and paths.
 
     Args:
         scene: Scene storing setup.
         identity: Identity binding attachment and marking owned objects.
-        context: Context keyframe writes read.
 
     Returns:
         Sun object, calendar faults before any write, or write faults.
@@ -255,9 +254,7 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
         return (
             Result[bpy.types.Light, Faults]
             .bind(
-                catch(bpy.data.lights.new, exception=RuntimeError)(f"{scene.name} Sun", "SUN").map_error(
-                    lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{scene.name} Sun", cause=error),)
-                ),
+                catch(bpy.data.lights.new, exception=RuntimeError)(f"{scene.name} Sun", "SUN").map_error(partial(Fault.of, BlenderReason.REFUSED, f"{scene.name} Sun")),
                 lambda light: SunLight.light.owned(identity, light, of=Some(scene), filled=lambda light: _IRRADIANCE.write(light, 139.3).map(lambda _: light), scope=Some(rollback)),
             )
             .bind(lambda light: spawned(f"{scene.name} Sun", Some(light), scene.collection))
@@ -273,13 +270,13 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
     def keyed(setup: SunSetup, timing: Timing, position: SunPosition, sun: bpy.types.Object, following: tuple[tuple[bpy.types.NodeTree, Follower], ...]) -> Outcome[None]:
         frames, located = (scene.frame_start + np.arange(position.elevation.size)).tolist(), position.vectors * setup.distance
         rows = (
-            *((sun, "", "location", axis, located[:, axis]) for axis in range(3)),
-            (sun, "", "rotation_euler", 0, position.elevation - math.pi / 2.0),
-            (sun, "", "rotation_euler", 2, -position.rotation),
-            *((owner, struct, member, index, value(position)) for tree, follower in following for owner, struct, member, index, value in _channels(tree, follower)),
+            *((sun, (), "location", axis, located[:, axis]) for axis in range(3)),
+            (sun, (), "rotation_euler", 0, position.elevation - math.pi / 2.0),
+            (sun, (), "rotation_euler", 2, -position.rotation),
+            *((owner, path, member, index, value(position)) for tree, follower in following for owner, path, member, index, value in _channels(tree, follower)),
         )
         return accumulated((
-            *(Animation(struct=struct, member=member, index=index, source=Keys(points=tuple(zip(frames, values.tolist())))).apply(owner, context) for owner, struct, member, index, values in rows),
+            *(Animation(owner=path, member=member, index=index, source=Keys(points=tuple(zip(frames, values.tolist())))).apply(owner) for owner, path, member, index, values in rows),
             ranged(timing, len(frames)),
         )).map(lambda _: None)
 
@@ -297,7 +294,7 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
         )
 
     with ExitStack() as rollback:
-        return committed(SunLight.attachment.read(identity, scene).bind(lambda setup: sited(setup).bind(lambda held: placed(setup, *held))), rollback)
+        return retained(SunLight.attachment.read(identity, scene).bind(lambda setup: sited(setup).bind(lambda held: placed(setup, *held))), rollback)
 
 
 def drawn(site: Site, year: int, paths: Option[SunSetup], scene: bpy.types.Scene, identity: Identity) -> Outcome[tuple[bpy.types.Object, ...]]:
@@ -358,10 +355,7 @@ def drawn(site: Site, year: int, paths: Option[SunSetup], scene: bpy.types.Scene
         def built() -> Outcome[bpy.types.Object]:
             return (
                 Result[D, Faults]
-                .bind(
-                    catch(data, exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=name, cause=error),)),
-                    lambda block: owner.owned(identity, block, of=Some(scene), scope=Some(rollback)),
-                )
+                .bind(catch(data, exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, name)), lambda block: owner.owned(identity, block, of=Some(scene), scope=Some(rollback)))
                 .bind(lambda block: spawned(name, Some(block), scene.collection))
             )
 
@@ -385,7 +379,7 @@ def drawn(site: Site, year: int, paths: Option[SunSetup], scene: bpy.types.Scene
         )
 
     with ExitStack() as rollback:
-        return committed(geometry.bind(placed), rollback)
+        return retained(geometry.bind(placed), rollback)
 
 
 def dropped(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
@@ -426,9 +420,9 @@ def _unkeyed(scene: bpy.types.Scene, identity: Identity, chosen: Callable[[bpy.t
             followers(tree, identity)
             .bind(
                 lambda following: accumulated(
-                    Animation(struct=struct, member=member, index=index, source=Keys(points=())).clear(owner)
+                    Animation(owner=path, member=member, index=index, source=Keys(points=())).clear(owner)
                     for node in chosen(tree, following)
-                    for owner, struct, member, index, _ in _channels(tree, node)
+                    for owner, path, member, index, _ in _channels(tree, node)
                 )
             )
             .map(lambda _: None)
@@ -437,19 +431,18 @@ def _unkeyed(scene: bpy.types.Scene, identity: Identity, chosen: Callable[[bpy.t
     return _tree(scene).map(cleared).default_value(Ok(None))
 
 
-def _channels(owner: bpy.types.NodeTree, follower: bpy.types.Node | EnvironmentNode) -> tuple[tuple[bpy.types.ID, str, str, int | None, Callable[[SunPosition], npt.NDArray[np.float64]]], ...]:
+def _channels(owner: bpy.types.NodeTree, follower: bpy.types.Node | EnvironmentNode) -> tuple[tuple[bpy.types.ID, RnaPath, str, int | None, Callable[[SunPosition], npt.NDArray[np.float64]]], ...]:
     """Returns owner, struct path, member, index, and position value per sun channel, heading applied."""
     node, heading = (follower.node, follower.heading) if isinstance(follower, EnvironmentNode) else (follower, 0.0)
-    path = node.path_from_id()
-    match node:
-        case bpy.types.ShaderNodeTexSky():
+    match node, id_path(node).to_optional():
+        case bpy.types.ShaderNodeTexSky(), tuple(path):
             return (
                 (owner, path, "sun_elevation", None, lambda position: position.elevation),
                 (owner, path, "sun_rotation", None, lambda position: position.rotation),
                 *((owner, path, "sun_direction", axis, lambda position, axis=axis: position.vectors[:, axis]) for axis in range(3)),
             )
-        case bpy.types.ShaderNodeTexEnvironment():
-            return ((owner, f"{path}.texture_mapping", "rotation", 2, lambda position: position.rotation - heading),)
+        case bpy.types.ShaderNodeTexEnvironment(), tuple(path):
+            return ((owner, (*path, "texture_mapping"), "rotation", 2, lambda position: position.rotation - heading),)
         case _:
             return ()
 
@@ -464,7 +457,7 @@ def _gone(blocks: tuple[bpy.types.Object, ...], identity: Identity) -> Outcome[i
 
 def sun_place(call: Call[Empty]) -> Outcome[Done]:
     """Places and keys the scene sun with following world nodes."""
-    return call.root(bpy.types.Scene).bind(lambda scene: sun_placed(scene, call.identity, call.context)).map(lambda _: Done())
+    return call.root(bpy.types.Scene).bind(lambda scene: sun_placed(scene, call.identity)).map(lambda _: Done())
 
 
 def sun_remove(call: Call[Empty]) -> Outcome[Answer]:

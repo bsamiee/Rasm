@@ -8,12 +8,13 @@ from typing import Final
 
 import bpy
 from expression import Nothing, Ok, Option, Some
+from expression.collections import Block
 import msgspec
 
 from blender.bpy.data.ids.images import ImageFrames, Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import Descriptor, Value
+from blender.bpy.data.rna.descriptors import Descriptor, rna, Value
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key
@@ -26,7 +27,7 @@ from blender.bpy.render.compositor import filters
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
 from blender.bpy.render.compositor.coordinates import gridded
 from blender.bpy.render.compositor.effects import Blended, CompositorEffect, Holds, PRECISION, Requests, Shell
-from blender.bpy.render.compositor.layers import Layer, Source, TermFiltering
+from blender.bpy.render.compositor.layers import Source, StackLayer, TermFiltering
 from blender.bpy.render.compositor.masks import LUMINANCE, luminance
 from blender.bpy.render.compositor.recombination import Lobes, Recombined, TermFilter
 from blender.bpy.render.outputs.exports import COMBINED
@@ -42,7 +43,7 @@ from ...chain.stages import Effect, Stage
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-ENGINE: Final = Descriptor.declared(bpy.types.Scene, "render.engine", bpy.types.EnumProperty)
+ENGINE: Final = Descriptor.declared(bpy.types.Scene, ("render", "engine"), bpy.types.EnumProperty)
 VECTOR_PASS: Final = Descriptor.declared(bpy.types.ViewLayer, "use_pass_vector", bpy.types.BoolProperty)
 TEMPORAL: Final[Key] = "temporal_denoise"
 _NOISY: Final = Socket(key="noisy", name="Filter Input", kind=bpy.types.NodeSocketColor)
@@ -241,7 +242,7 @@ def _denoiser(working: NodeGroup) -> Outcome[NodeGroup]:
 
 def _guides(render: Expr, family: Option[Family]) -> tuple[Expr, Expr]:
     """Cycles denoising albedo and normal of a render layer, a family's color pass as the albedo of its term."""
-    albedo = family.bind(lambda held: Option.of_optional(next(iter(FAMILIES[held].color), None))).map(lambda path: bpy.types.ViewLayer.bl_rna.properties[path].name).default_value("Denoising Albedo")
+    albedo = family.bind(lambda held: Block.of_seq(FAMILIES[held].color).try_head()).map(lambda path: bpy.types.ViewLayer.bl_rna.properties[rna(path)].name).default_value("Denoising Albedo")
     return msgspec.structs.replace(render, socket=albedo, shape="RGBA"), msgspec.structs.replace(render, socket="Denoising Normal", shape="VECTOR")
 
 
@@ -273,7 +274,7 @@ def denoised(shell: Shell[SpatialDenoise]) -> Outcome[Expr]:
 
 def _guided(_record: SpatialDenoise, layer: str) -> Outcome[PassRequest]:
     """Requests Cycles denoising guide passes under the Cycles engine."""
-    return Descriptor.resolve(bpy.types.ViewLayer, "cycles.denoising_store_passes", bpy.types.BoolProperty).map(
+    return Descriptor.resolve(bpy.types.ViewLayer, ("cycles", "denoising_store_passes"), bpy.types.BoolProperty).map(
         lambda flag: PassRequest(layer=layer, flags=frozenset({flag}), condition=Some(Setting(descriptor=ENGINE, accepted=("CYCLES",))))
     )
 
@@ -281,7 +282,7 @@ def _guided(_record: SpatialDenoise, layer: str) -> Outcome[PassRequest]:
 # --- [LAYERS]
 
 
-def _term_filter(layer: Layer[Source, Effect], _outer: Callable[[Key], Expr], working: NodeGroup) -> Outcome[Option[TermFilter]]:
+def _term_filter(layer: StackLayer[Source, Effect], _outer: Callable[[Key], Expr], working: NodeGroup) -> Outcome[Option[TermFilter]]:
     """Filters a recombined layer's terms through its denoise effect while the effect targets light passes or light groups."""
     found = next((index for index, held in enumerate(layer.effects, 1) if isinstance(held.record, SpatialDenoise)), None)
 
@@ -307,7 +308,7 @@ def _term_filter(layer: Layer[Source, Effect], _outer: Callable[[Key], Expr], wo
     return Ok(Nothing) if found is None else _denoiser(working).map(lambda group: Some(filtered(group, found)))
 
 
-def _term_passes(layer: Layer[Source, Effect]) -> Outcome[tuple[PassRequest, ...]]:
+def _term_passes(layer: StackLayer[Source, Effect]) -> Outcome[tuple[PassRequest, ...]]:
     """Requests guide passes of a recombined layer holding a denoise effect."""
     match layer.source:
         case Recombined(layer=name) if any(isinstance(held.record, SpatialDenoise) for held in layer.effects):
@@ -339,8 +340,11 @@ def temporal(identity: Identity, plan: Plan) -> Outcome[Plan]:
         requests = tuple(PassRequest(layer=layer.name, flags=frozenset({VECTOR_PASS})) for layer in scene.view_layers if layer.use)
 
         def located(files: tuple[Written, ...], source: str) -> Outcome[tuple[str, str]]:
-            return Option.of_optional(next(((written.path, item) for written in files for item, held in written.passes.items() if held == source), None)).to_result_with(
-                lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene), member=source),)
+            return (
+                Block
+                .of_seq((written.path, item) for written in files for item, held in written.passes.items() if held == source)
+                .try_head()
+                .to_result_with(functools.partial(Fault.of, BlenderReason.ABSENT, repr(scene), member=source))
             )
 
         def planned(rendered: str, outputs: str, version: int, base: Path, color: tuple[str, str], motion: tuple[str, str]) -> tuple[JobScope, Option[JobScope]]:

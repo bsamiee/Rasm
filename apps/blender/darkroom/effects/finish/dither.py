@@ -12,7 +12,7 @@ import PyOpenColorIO
 
 from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
-from blender.bpy.data.rna.descriptors import Descriptor, Value
+from blender.bpy.data.rna.descriptors import choices, Descriptor, Value
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.graphs import Expr, Generated, math, mixed, switched, vector
@@ -36,6 +36,11 @@ from blender.rendering.outputs.naming import Output
 from ...chain.stages import Effect, Stage
 from ..formation.display import displayed_frame
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_BLUE_NOISE: Final = MenuItem(name="Blue Noise", description="Triangular blue-noise dither at one output code step with exact black and white endpoints")
+_DIFFUSED: Final = MenuItem(name="Diffused", description="Floyd-Steinberg diffusion of separate color errors in raster order, alpha rounded")
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -52,11 +57,7 @@ class DiffusedCopy(bpy.types.PropertyGroup):
     depth: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
         name="Copy Depth",
         description="Channel depth of diffused PNG copy",
-        items=tuple(
-            (item.identifier, item.name, item.description)
-            for item in Descriptor.declared(bpy.types.ImageFormatSettings, "color_depth", bpy.types.EnumProperty).prop.enum_items
-            if item.identifier in {"8", "16"}
-        ),
+        items=choices(item for item in Descriptor.declared(bpy.types.ImageFormatSettings, "color_depth", bpy.types.EnumProperty).prop.enum_items if item.identifier in {"8", "16"}),
         default="8",
     )
 
@@ -98,7 +99,7 @@ def dithered(shell: Shell[Dither]) -> Outcome[Expr]:
         ends = vector("MINIMUM", vector("MAXIMUM", vector("DIVIDE", nearest, step * 0.5), (0.0, 0.0, 0.0)), (1.0, 1.0, 1.0))
         triangular = vector("MULTIPLY_ADD", ends, triangular_rank - rectangular, rectangular).named("triangular")
         added = mixed(1.0, source, vector("SCALE", triangular, step * weight), blend="ADD")
-        return shell.menu("method", cases={"Blue Noise": added, "Diffused": source}, kind="RGBA")
+        return shell.menu("method", cases={_BLUE_NOISE.name: added, _DIFFUSED.name: source}, kind="RGBA")
 
     return space_item(shell.config, PyOpenColorIO.ROLE_DATA).bind(built)
 
@@ -144,7 +145,7 @@ def copied(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outcome
         return Result[ImageFile[np.float32], Faults].bind(read_file(file.path, config), displayed)
 
     diffusing = accumulated(
-        entry_input(identity, entry, "method").bind(lambda held: Descriptor.resolve(held, "value", bpy.types.Property).map(lambda descriptor: descriptor.read(held) == "Diffused"))
+        entry_input(identity, entry, "method").bind(lambda held: Descriptor.resolve(held, "value", bpy.types.Property).map(lambda descriptor: descriptor.read(held) == _DIFFUSED.name))
         for entry in dither.entries(identity, scene)
         if Enabled.RENDER.descriptor.read(entry) is True
     ).map(lambda found: scene.render.use_compositing and any(found))
@@ -165,15 +166,8 @@ dither: Final[CompositorEffect[Dither]] = CompositorEffect(
                 name="Method",
                 kind=bpy.types.NodeSocketMenu,
                 description="Blue-noise dither or whole-frame error diffusion",
-                members={"default_value": "Blue Noise"},
-                items=Some(
-                    MenuItems(
-                        items=(
-                            MenuItem(name="Blue Noise", description="Triangular blue-noise dither at one output code step with exact black and white endpoints"),
-                            MenuItem(name="Diffused", description="Floyd-Steinberg diffusion of separate color errors in raster order, alpha rounded"),
-                        )
-                    )
-                ),
+                members={"default_value": _BLUE_NOISE.name},
+                items=Some(MenuItems(items=(_BLUE_NOISE, _DIFFUSED))),
             ),
         )
     ),
@@ -189,7 +183,7 @@ dither: Final[CompositorEffect[Dither]] = CompositorEffect(
             ),
             reads=tuple((bpy.types.ImageFormatSettings, bpy.types.ImageFormatSettings.bl_rna.properties[name]) for name in ("media_type", "file_format", "color_depth", "color_mode")),
         ),
-        Holds(scene=Snapshot.of(bpy.types.Scene, {"render.dither_intensity": 0.0})),
+        Holds(scene=Snapshot.of(bpy.types.Scene, {("render", "dither_intensity"): 0.0})),
         Registers(rows=(TILE, COPY)),
     ),
 )

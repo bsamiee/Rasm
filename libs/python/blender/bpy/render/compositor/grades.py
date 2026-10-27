@@ -62,14 +62,9 @@ class MatrixRows(msgspec.Struct, frozen=True, kw_only=True):
                 case [PyOpenColorIO.MatrixTransform() as matrix]:
                     return Ok(msgspec.convert({"rows": np.asarray(matrix.getMatrix(), dtype=np.float64).reshape(4, 4)[:3, :3].tolist(), "offset": matrix.getOffset()[:3]}, cls))
                 case operations:
-                    return Error((
-                        Fault(
-                            reason=RecordReason.OUTSIDE,
-                            subject=type(transform).__name__,
-                            member=PyOpenColorIO.MatrixTransform.__name__,
-                            cause=", ".join(type(operation).__name__ for operation in operations),
-                        ),
-                    ))
+                    return Error(
+                        Fault.of(RecordReason.OUTSIDE, type(transform).__name__, ", ".join(type(operation).__name__ for operation in operations), member=PyOpenColorIO.MatrixTransform.__name__)
+                    )
 
         return processor(config, transform).bind(reduced)
 

@@ -44,7 +44,7 @@ def _(_record: Levels, values: Mapping[Key, Value], _config: PyOpenColorIO.Confi
             operation.setOffset((-black * 2.0**-white,) * 3 + (0.0,))
             return Ok(Some(operation))
         case _:
-            return Error((Fault(reason=RecordReason.UNREADABLE, subject=Levels.__name__, cause=repr(values)),))
+            return Error(Fault.of(RecordReason.UNREADABLE, Levels.__name__, repr(values)))
 
 
 def leveled(shell: Shell[Levels]) -> Outcome[Expr]:

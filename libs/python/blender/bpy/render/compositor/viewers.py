@@ -1,11 +1,13 @@
 """Owned Viewer nodes of offered and pinned entries, and entering-frame reads delivered to a caller's consumer."""
 
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager, nullcontext
+from functools import partial
 from typing import ClassVar, Final
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
+from expression.collections import Block
 import msgspec
 import numpy as np
 import PyOpenColorIO
@@ -121,16 +123,14 @@ class Viewers[R: Case]:
     def entry(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[tuple[bpy.types.SceneCompositorEffect, Option[CompositorEffect[R]]]]:
         """Finds named offered or pinned entry with its offered effect, skipping user groups."""
         pinned = frozenset(row.ownership.key for row in self.rows.pinned)
-        return Option.of_optional(
-            next(
-                (
-                    (entry, Option.of_optional(self.rows.keyed.get(mark.key)))
-                    for entry, mark in Marks.of(identity, scene).held
-                    if entry.name == name and (mark.key in self.rows.keyed or mark.key in pinned)
-                ),
-                None,
-            )
-        ).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene.compositor_effects), member=name),))
+        return (
+            Block
+            .of_seq(Marks.of(identity, scene).held)
+            .filter(lambda pair: pair[0].name == name and (pair[1].key in self.rows.keyed or pair[1].key in pinned))
+            .try_head()
+            .map(lambda pair: (pair[0], Option.of_optional(self.rows.keyed.get(pair[1].key))))
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(scene.compositor_effects), member=name))
+        )
 
     def __init__(self, *, rows: EffectRows[R]) -> None:
         """Declares the view and clear commands."""
@@ -146,8 +146,9 @@ class Viewers[R: Case]:
                 lambda pair: shown(call.identity, pair[1][0], End(node=call.properties.node, socket=call.properties.socket)).bind(
                     lambda _: call.root(bpy.types.WindowManager).bind(
                         lambda manager: (
-                            Option
-                            .of_optional(next(iter(query.located(manager.windows)), None))
+                            Block
+                            .of_seq(query.located(manager.windows))
+                            .try_head()
                             .map(lambda at: pair[0].applied(at.area).map(lambda _: Done()))
                             .default_value(Ok(Done(notes=(("INFO", "No compositor Node Editor open"),))))
                         )
@@ -183,16 +184,24 @@ def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: En
     def viewed(tree: bpy.types.NodeTree, name: str) -> Outcome[None]:
         def source(keyed: Keyed, key: Key) -> Outcome[End]:
             keys = {node: key for key, node in keyed.nodes.items()}
+
+            def ended(link: bpy.types.NodeLink) -> Option[End]:
+                match link.from_node, link.from_socket:
+                    case bpy.types.Node() as node, bpy.types.NodeSocket(identifier=identifier) if node in keys:
+                        return Some(End(node=keys[node], socket=identifier))
+                    case _:
+                        return Nothing
+
+            def linked(socket: bpy.types.NodeSocket) -> Option[End]:
+                links: Iterable[bpy.types.NodeLink] = socket.links  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                return Block.of_seq(links).choose(ended).try_head()
+
             return (
                 Option
                 .of_optional(keyed.nodes.get(OUTPUTS))
                 .bind(lambda output: Option.of_optional(keyed.sockets[OUTPUTS].get(key)).bind(lambda identifier: socket_at(output.inputs, identifier).to_option()))
-                .bind(
-                    lambda socket: Option.of_optional(
-                        next((End(node=keys[link.from_node], socket=link.from_socket.identifier) for link in socket.links if link.from_node in keys), None)  # type: ignore[union-attr]  # ty: ignore[not-iterable, unresolved-attribute]
-                    )
-                )
-                .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(tree.links), member=key),))
+                .bind(linked)
+                .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(tree.links), member=key))
             )
 
         def connected(end: End) -> Outcome[None]:
@@ -214,7 +223,7 @@ def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: En
                 )
             )
             .bind(lambda _: written(entry, "is_active", True))
-            .bind(lambda _: marked(identity, tree).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(tree.nodes), member=Shell.viewer),)))
+            .bind(lambda _: marked(identity, tree).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(tree.nodes), member=Shell.viewer)))
             .bind(lambda viewer: written(tree.nodes, "active", viewer).map(lambda _: None))
         )
 
@@ -232,7 +241,7 @@ def cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outco
 
 def grouped(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[bpy.types.NodeTree, str]]:
     """Returns entry group and interface slot name."""
-    tree: Outcome[bpy.types.NodeTree] = Option.of_optional(entry.node_group).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(entry), member="node_group"),))
+    tree: Outcome[bpy.types.NodeTree] = Option.of_optional(entry.node_group).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(entry), member="node_group"))
     return Result[bpy.types.NodeTree, Faults].bind(tree, lambda tree: slot(identity).map(lambda name: (tree, name)))
 
 

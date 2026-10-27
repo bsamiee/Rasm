@@ -10,6 +10,7 @@ from typing import Annotated, ClassVar, Final, Generic, overload, override, Prot
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some, try_downcast
+from expression.collections import Block
 import msgspec
 from msgspec import UNSET, UnsetType
 
@@ -113,7 +114,7 @@ class Member(msgspec.Struct, frozen=True, kw_only=True):
     """Property path rooted at its owner type."""
 
     root: type[Struct]
-    path: str | RnaPath
+    path: RnaPath
     reach: Option[Reach] = Nothing
 
     @overload
@@ -137,7 +138,7 @@ class Across(msgspec.Struct, frozen=True, kw_only=True):
     """Host member read across every owner of an edit scope."""
 
     scope: Scoped
-    path: str | RnaPath
+    path: RnaPath
 
     def resolved(self) -> Outcome[ResolvedMember]:
         """Resolves metadata on the scope's owner type."""
@@ -428,7 +429,13 @@ class Matrix(Line, frozen=True, kw_only=True):
 
         def cell(setting: Descriptor) -> Outcome[tuple[Descriptor, RowDraw]]:
             action = self.action.map(lambda policy: (policy[0], lambda at: policy[1](at, setting)))
-            template = Option.of_optional(next((place for kind, place in self.compound if isinstance(setting.prop, bpy.types.PointerProperty) and isinstance(setting.prop.fixed_type, kind)), None))
+            template = (
+                Block
+                .of_seq(self.compound)
+                .filter(lambda pair: isinstance(setting.prop, bpy.types.PointerProperty) and isinstance(setting.prop.fixed_type, pair[0]))
+                .try_head()
+                .map(lambda pair: pair[1])
+            )
             return (
                 template
                 .map(lambda place: action.map(lambda row: realized(row, identity).map(Some)).default_value(Ok(Nothing)).map(lambda draw: partial(Matrix.composed, setting, place, draw)))

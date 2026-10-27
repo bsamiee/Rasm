@@ -10,7 +10,7 @@ from typing import ClassVar, Final, Literal, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
-from expression.collections import Map
+from expression.collections import Block, Map
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -20,7 +20,7 @@ from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, 
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.conditions import AllOf, Condition, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
+from blender.bpy.data.rna.descriptors import choices, Descriptor, RnaPath, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, staged, Subscription
 from blender.bpy.extension.identity import Identity, Key
@@ -98,7 +98,7 @@ class Entity(Enum):
     @classmethod
     def named(cls, name: str) -> Option[Self]:
         """Returns kind with pass name `name`, `Nothing` for another."""
-        return Option.of_optional(next((member for member in cls if ENTITIES[member].pass_name == name), None))
+        return Block.of_seq(cls).filter(lambda member: ENTITIES[member].pass_name == name).try_head()
 
 
 class FileSplit(Enum):
@@ -143,9 +143,9 @@ class FamilyPasses(msgspec.Struct, frozen=True, kw_only=True):
     """Total layer name and flag paths per slot of one light family."""
 
     name: str
-    direct: tuple[str, ...]
-    indirect: tuple[str, ...]
-    color: tuple[str, ...]
+    direct: tuple[RnaPath, ...]
+    indirect: tuple[RnaPath, ...]
+    color: tuple[RnaPath, ...]
 
 
 class DerivedLayer(msgspec.Struct, frozen=True, kw_only=True):
@@ -175,7 +175,7 @@ class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
     def of(cls) -> Outcome[Self]:
         """Resolves every pass flag and each family's direct, indirect, and color flags from its declared paths, faulting each path the build lacks."""
 
-        def slot(paths: tuple[str, ...]) -> Outcome[frozenset[Descriptor[bpy.types.BoolProperty]]]:
+        def slot(paths: tuple[RnaPath, ...]) -> Outcome[frozenset[Descriptor[bpy.types.BoolProperty]]]:
             return accumulated(Descriptor.resolve(bpy.types.ViewLayer, path, bpy.types.BoolProperty) for path in paths).map(frozenset)
 
         return accumulated(paired(slot(held.direct), slot(held.indirect), slot(held.color)) for held in FAMILIES.values()).map(
@@ -224,17 +224,17 @@ class PassFile(bpy.types.PropertyGroup):
     """File choice of the source the row names."""
 
     use_output: bpy.props.BoolProperty(name="File", description="Write the pass, skipped when off", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    output: bpy.props.EnumProperty(name="Output", description="Output class file holding pass", items=tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in PassOutput))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    output: bpy.props.EnumProperty(name="Output", description="Output class file holding pass", items=choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in PassOutput))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Routing(bpy.types.PropertyGroup):
     """Routing of view layer passes into files."""
 
     split: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name="Files", description="One file, a file per output class, or a file per pass", items=tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in FileSplit)
+        name="Files", description="One file, a file per output class, or a file per pass", items=choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in FileSplit)
     )
     nuke: bpy.props.BoolProperty(name="Nuke", description="Write the layer names and axes Nuke reads, host names when off")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    normals: bpy.props.EnumProperty(name="Normals", description="Normal pass space", items=tuple((space.name, bpy.path.display_name(space.name.lower()), "") for space in Space))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    normals: bpy.props.EnumProperty(name="Normals", description="Normal pass space", items=choices((space.name, bpy.path.display_name(space.name.lower()), "") for space in Space))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     totals: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
         name="Totals", description="Light families summed into one layer each", options={"ENUM_FLAG"}, items=tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in Family)
     )
@@ -296,7 +296,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
     """`PassSet` bound to an identity, with the members its plans write."""
 
     use: ClassVar[Descriptor[bpy.types.BoolProperty]] = Descriptor.declared(bpy.types.ViewLayer, "use", bpy.types.BoolProperty)
-    precision: ClassVar[Descriptor[bpy.types.EnumProperty]] = Descriptor.declared(bpy.types.Scene, "render.compositor_precision", bpy.types.EnumProperty)
+    precision: ClassVar[Descriptor[bpy.types.EnumProperty]] = Descriptor.declared(bpy.types.Scene, ("render", "compositor_precision"), bpy.types.EnumProperty)
     dimensions: ClassVar[Descriptor[bpy.types.IntProperty]] = Descriptor.declared(bpy.types.NodeCompositorFileOutputItem, "vector_socket_dimensions", bpy.types.IntProperty)
     label: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.NodeFrame, "label", bpy.types.StringProperty)
     custom: ClassVar[Descriptor[bpy.types.BoolProperty]] = Descriptor.declared(bpy.types.NodeFrame, "use_custom_color", bpy.types.BoolProperty)
@@ -589,14 +589,16 @@ class PassSet(Line, frozen=True):
                 )
             )
             return (
-                Property(target=Member(root=bpy.types.Scene, path="render.film_transparent"), condition=Some(Setting(descriptor=_FILM) | opaque)),
+                Property(target=Member(root=bpy.types.Scene, path=("render", "film_transparent")), condition=Some(Setting(descriptor=_FILM) | opaque)),
                 Label(text=lambda context: routing.stale(context).default_with(lambda faults: Some("\n".join(fault.message for fault in faults)))),
                 Caption(rows=tuple(OperatorButton(target=command) for command in COMMANDS), flow=Flow.GRID),
                 routing.listing(),
             )
 
         return (
-            paired(self.bound(identity), Descriptor.resolve(bpy.types.ViewLayer, "cycles.use_pass_shadow_catcher", bpy.types.BoolProperty)).bind(lambda pair: placed(rows(*pair), identity)).map(joined)
+            paired(self.bound(identity), Descriptor.resolve(bpy.types.ViewLayer, ("cycles", "use_pass_shadow_catcher"), bpy.types.BoolProperty))
+            .bind(lambda pair: placed(rows(*pair), identity))
+            .map(joined)
         )
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
@@ -620,10 +622,12 @@ class PassSet(Line, frozen=True):
 # --- [TABLES] ---------------------------------------------------------------------------
 
 FAMILIES: Final[Mapping[Family, FamilyPasses]] = MappingProxyType({
-    Family.DIFFUSE: FamilyPasses(name="Diffuse Total", direct=("use_pass_diffuse_direct",), indirect=("use_pass_diffuse_indirect",), color=("use_pass_diffuse_color",)),
-    Family.GLOSSY: FamilyPasses(name="Glossy Total", direct=("use_pass_glossy_direct",), indirect=("use_pass_glossy_indirect",), color=("use_pass_glossy_color",)),
-    Family.TRANSMISSION: FamilyPasses(name="Transmission Total", direct=("use_pass_transmission_direct",), indirect=("use_pass_transmission_indirect",), color=("use_pass_transmission_color",)),
-    Family.VOLUME: FamilyPasses(name="Volume Total", direct=("cycles.use_pass_volume_direct", "eevee.use_pass_volume_direct"), indirect=("cycles.use_pass_volume_indirect",), color=()),
+    Family.DIFFUSE: FamilyPasses(name="Diffuse Total", direct=(("use_pass_diffuse_direct",),), indirect=(("use_pass_diffuse_indirect",),), color=(("use_pass_diffuse_color",),)),
+    Family.GLOSSY: FamilyPasses(name="Glossy Total", direct=(("use_pass_glossy_direct",),), indirect=(("use_pass_glossy_indirect",),), color=(("use_pass_glossy_color",),)),
+    Family.TRANSMISSION: FamilyPasses(
+        name="Transmission Total", direct=(("use_pass_transmission_direct",),), indirect=(("use_pass_transmission_indirect",),), color=(("use_pass_transmission_color",),)
+    ),
+    Family.VOLUME: FamilyPasses(name="Volume Total", direct=(("cycles", "use_pass_volume_direct"), ("eevee", "use_pass_volume_direct")), indirect=(("cycles", "use_pass_volume_indirect"),), color=()),
 })
 DERIVED: Final[Mapping[Derived, DerivedLayer]] = MappingProxyType({
     Derived.DIRECT: DerivedLayer(name="Direct Light", kind="RGBA", output=Output.BEAUTY),
@@ -697,9 +701,7 @@ def required(scene: bpy.types.Scene, context: bpy.types.Context, requests: tuple
         gate: Outcome[None] = request.condition.map(lambda condition: condition.check(context, Some(scene))).default_value(Ok(None))
         return (
             gate
-            .bind(
-                lambda _: Option.of_optional(scene.view_layers.get(request.layer)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene.view_layers), member=request.layer),))
-            )
+            .bind(lambda _: Option.of_optional(scene.view_layers.get(request.layer)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(scene.view_layers), member=request.layer)))
             .bind(
                 lambda layer: accumulated((
                     *(written(layer, flag.path, value=True) for flag in sorted(request.flags, key=lambda flag: flag.path)),
@@ -781,7 +783,7 @@ def sources(
     gates = {row.name: row for row in routing.files}
 
     def missing(name: str) -> Faults:
-        return (Fault(reason=BlenderReason.ABSENT, subject=repr(live.outputs), member=name),)
+        return Fault.of(BlenderReason.ABSENT, repr(live.outputs), member=name)
 
     def sourced(expr: Expr, name: str, kind: DataType, output: Output, dimensions: Option[int] = Nothing) -> Outcome[tuple[FileSocket, ...]]:
         match gates.get(name):
@@ -799,7 +801,7 @@ def sources(
                 return (
                     Option
                     .of_optional(scene.camera)
-                    .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene), member="camera"),))
+                    .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(scene), member="camera"))
                     .map(lambda held: turned(read, nuke.axes[Space.CAMERA] if nuke else (1, 2, 3), Some(held)))
                 )
             case Space() as space, Nuke() as nuke:
@@ -980,7 +982,7 @@ def _synced(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
                 case _:
                     return {}
 
-        tree: Outcome[bpy.types.NodeTree] = Option.of_optional(material.node_tree).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(material), member="node_tree"),))
+        tree: Outcome[bpy.types.NodeTree] = Option.of_optional(material.node_tree).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(material), member="node_tree"))
         return Result[bpy.types.NodeTree, Faults].bind(tree, lambda found: stored(identity).bind(lambda store: store.read(found))).map(kinds)
 
     def wanted(layer: bpy.types.ViewLayer) -> Outcome[Mapping[str, str]]:
@@ -996,7 +998,7 @@ def _synced(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
             aov = held.get(name) or layer.aovs.add()
             answer = (
                 paired(written(aov, "name", name), written(aov, "type", kind))
-                .filter_with(lambda _: aov.name == name and aov.is_valid, lambda _: (Fault(reason=BlenderReason.TAKEN, subject=name, member=aov.name),))
+                .filter_with(lambda _: aov.name == name and aov.is_valid, lambda _: Fault.of(BlenderReason.TAKEN, name, member=aov.name))
                 .map(lambda _: None)
             )
             if answer.is_error() and name not in held:
@@ -1054,7 +1056,7 @@ def entity_image(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, entity: Ent
                 return Nothing
 
     return accumulated(
-        Ok((matte(name), color)) if "," not in name and name == name.strip() else Error((Fault(reason=BlenderReason.TAKEN, subject=name, member=f"{layer.name}.{ENTITIES[entity].pass_name}"),))
+        Ok((matte(name), color)) if "," not in name and name == name.strip() else Error(Fault.of(BlenderReason.TAKEN, name, member=f"{layer.name}.{ENTITIES[entity].pass_name}"))
         for name, _, color in rows
     ).map(image)
 
@@ -1070,8 +1072,8 @@ def colors_written(layer: bpy.types.ViewLayer, entity: Entity, chosen: Callable[
 def located(scene: bpy.types.Scene, matte: Matte, layer: str) -> Outcome[tuple[bpy.types.ViewLayer, Entity]]:
     """Returns view layer `layer` and the Cryptomatte kind its matte names after the layer prefix."""
     return paired(
-        Option.of_optional(scene.view_layers.get(layer)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene.view_layers), member=layer),)),
-        Entity.named(matte.name.removeprefix(f"{layer}.")).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=matte.file.path, member=matte.name),)),
+        Option.of_optional(scene.view_layers.get(layer)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(scene.view_layers), member=layer)),
+        Entity.named(matte.name.removeprefix(f"{layer}.")).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, matte.file.path, member=matte.name)),
     )
 
 
@@ -1085,13 +1087,13 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outco
             path
             .written(file.layer, Output.MATTE, Some(ENTITIES[entity].pass_name), scene.frame_current, ".exr")
             .map(str)
-            .filter_with(lambda target: target != file.path, lambda target: (Fault(reason=BlenderReason.TAKEN, subject=target, member=file.path),))
+            .filter_with(lambda target: target != file.path, lambda target: Fault.of(BlenderReason.TAKEN, target, member=file.path))
             .bind(
                 lambda target: Multilayer.written(
                     target,
                     tuple(Pass(layer=name, channels=("R", "G", "B", "A"), role=PassRole.COLOR) for name in known),
                     PassLayout.PARTS,
-                    Storage(depth=16, compression=Some(Deflate())),
+                    Storage(depth=Depth.HALF, compression=Some(Deflate())),
                     (matte.file.parts[0].width, matte.file.parts[0].height),
                     stamped(identity),
                     lambda held: matte.filled(frozenset({held.layer}), np.asarray(known[held.layer])),

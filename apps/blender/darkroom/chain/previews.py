@@ -13,14 +13,13 @@ import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.bpy.data.ids.images import Bounded
+from blender.bpy.data.ids.content import fingerprinted
 from blender.bpy.data.rna.descriptors import root_in, rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, updated
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.nodes.interface import item_key
-from blender.bpy.nodes.trees import fingerprinted
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.blending import Entry
 from blender.bpy.render.compositor.effects import CompositorEffect, Context, Enabled, Restoring
@@ -28,11 +27,11 @@ from blender.bpy.render.compositor.entries import EffectRows
 from blender.bpy.render.compositor.inputs import inputs_of, restored
 from blender.bpy.render.compositor.layers import Adjustment, LayerStack, Source
 from blender.bpy.render.compositor.stacking import stacked_by, Valued
-from blender.bpy.render.outputs.exports import combined
+from blender.bpy.render.outputs.exports import combined, LongestSide
 from blender.bpy.render.outputs.framing import FrameSize, Framing
 from blender.bpy.render.outputs.results import intermediate, INTERMEDIATES, ResultRead
 from blender.bpy.render.previews.queue import BACKLOG, Job, PreviewQueue, Rank
-from blender.bpy.render.previews.scenes import Lighting, Mirrored, PreviewScene, PreviewStack, Staging
+from blender.bpy.render.previews.scenes import PreviewLighting, PreviewScene, PreviewStack, RoutedEntry, Staging
 from blender.bpy.ui.layout.rows import Line, RowDraw
 from blender.bpy.ui.resources.previews import PreviewKey, PREVIEWS
 from blender.bpy.ui.resources.theme import Metrics
@@ -130,20 +129,20 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [STACKS]
 
-    def formed(self, identity: Identity, mirror: Mirrored) -> bool:
+    def formed(self, identity: Identity, mirror: RoutedEntry) -> bool:
         """Whether the formation row owns a mirrored entry."""
         return self.chain.rows.row(identity, mirror.entry).filter(lambda row: row is self.chain.formation).is_some()
 
-    def mirrors(self, identity: Identity, scene: bpy.types.Scene) -> tuple[Mirrored, ...]:
+    def mirrors(self, identity: Identity, scene: bpy.types.Scene) -> tuple[RoutedEntry, ...]:
         """Returns preview-enabled entries, the formation alone while isolated."""
-        held = Mirrored.of(scene, Enabled.PREVIEW)
+        held = RoutedEntry.of(scene, Enabled.PREVIEW)
         return tuple(mirror for mirror in held if self.formed(identity, mirror)) if self.isolated else held
 
     def stacked(self, identity: Identity, scene: bpy.types.Scene, record: Previewed, head: Option[npt.NDArray[np.float32]]) -> Outcome[PreviewStack]:
         """Builds the preview stack: an effect replacing the first entry of its type or single stage, a layer stack's adjustment effects replacing the head stack, a recipe replacing every entry, or the entries through a stage, formed through the scene view without a formation."""
         rows, formation, mirrors = self.chain.rows, self.chain.formation, self.mirrors(identity, scene)
 
-        def offered(entries: tuple[Valued[Entry[Effect]], ...], kept: tuple[Mirrored, ...]) -> Outcome[PreviewStack]:
+        def offered(entries: tuple[Valued[Entry[Effect]], ...], kept: tuple[RoutedEntry, ...]) -> Outcome[PreviewStack]:
             formed = any(self.formed(identity, mirror) for mirror in kept) or any(type(entry.structure.record) is formation.record for entry in entries)
             seeded = Ok(()) if formed else formation.seeded(scene).map(lambda view: (Valued(structure=Entry(record=view)),))
             return seeded.bind(lambda opening: accumulated(rows.offering(type(entry.structure.record)).map(lambda row: (row, entry)) for entry in (*opening, *entries))).map(
@@ -182,7 +181,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
     def parts(self, identity: Identity, scene: bpy.types.Scene) -> Outcome[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
         """Reads the scene view, proxy key, mirrored entry records, input values, and group fingerprints, `Nothing` for a group without one."""
 
-        def captured(mirror: Mirrored) -> Outcome[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
+        def captured(mirror: RoutedEntry) -> Outcome[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
             records = self.chain.rows.row(identity, mirror.entry).map(lambda row: row.read(identity, mirror.entry).map(lambda record: (record,))).default_value(Ok(()))
             return paired(records, inputs_of(mirror.entry).bind(Snapshot.capture), fingerprinted(mirror.group)).map(lambda found: found[2].map(lambda key: (*found[0], found[1], key)))
 
@@ -191,7 +190,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
 
     def rendered(self, identity: Identity, record: Previewed, side: int, *, scene: bpy.types.Scene) -> Outcome[npt.NDArray[np.float32]]:
         """Renders a record over the render proxy fitted to side, the source's updates during the render marked as its own."""
-        lighting, proxy = Lighting(), identity.held[TILES].proxy
+        lighting, proxy = PreviewLighting(), identity.held[TILES].proxy
 
         def staged(head: Option[npt.NDArray[np.float32]]) -> Outcome[npt.NDArray[np.float32]]:
             staging = paired(self.stacked(identity, scene, record, head), lighting.environment).map(
@@ -329,7 +328,7 @@ def fitted(plane: npt.NDArray[np.float32], side: int) -> Outcome[npt.NDArray[np.
     def resized(size: tuple[int, int]) -> Outcome[npt.NDArray[np.float32]]:
         return checked(OpenImageIO.ImageBufAlgo.resize(OpenImageIO.ImageBuf(plane), roi=OpenImageIO.ROI(0, size[0], 0, size[1], 0, 1, 0, plane.shape[2]))).bind(pixels)
 
-    return Bounded(pixels=side).fitted(plane.shape[1], plane.shape[0]).map(resized).default_value(Ok(plane))
+    return LongestSide(pixels=side).fitted(plane.shape[1], plane.shape[0]).map(resized).default_value(Ok(plane))
 
 
 def scaled(framing: Framing, stored: tuple[int, int], target: tuple[int, int]) -> Framing:

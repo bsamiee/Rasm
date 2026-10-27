@@ -23,14 +23,14 @@ type Panoramas = Equirectangular | CentralCylindrical | MirrorBall | FisheyeEqui
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-MODES: Final = MenuItems(
-    items=(
-        MenuItem(name="Kaleidoscope", description="Mirror lines and zoom about one center"),
-        MenuItem(name="Tiling", description="Frame copies scaled about a center"),
-        MenuItem(name="Polar Coordinates", description="Full rectangular turn wrapped into the frame's inscribed disc or unwrapped from it"),
-        MenuItem(name="Panorama", description="Perspective frame sampled into a panorama projection"),
-    )
-)
+KALEIDOSCOPE: Final = MenuItem(name="Kaleidoscope", description="Mirror lines and zoom about one center")
+TILING: Final = MenuItem(name="Tiling", description="Frame copies scaled about a center")
+POLAR: Final = MenuItem(name="Polar Coordinates", description="Full rectangular turn wrapped into the frame's inscribed disc or unwrapped from it")
+PANORAMA: Final = MenuItem(name="Panorama", description="Perspective frame sampled into a panorama projection")
+MODES: Final = MenuItems(items=(KALEIDOSCOPE, TILING, POLAR, PANORAMA))
+TO_POLAR: Final = MenuItem(name="Rectangular to Polar")
+TO_RECTANGULAR: Final = MenuItem(name="Polar to Rectangular")
+CONVERSIONS: Final = MenuItems(items=(TO_POLAR, TO_RECTANGULAR))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -83,24 +83,24 @@ def projected(shell: Shell[Projection]) -> Outcome[Expr]:
 
     def selected(polar: Expr) -> Outcome[Expr]:
         arms = (
-            ("Kaleidoscope", "kaleidoscope", sampled(frame, vector("DIVIDE", xyz(x, y) + center, frame.extent))),
-            ("Tiling", "tiling", sampled(frame, vector("SCALE", frame.fraction - shell.input("tiling_center"), shell.input("tiling_count")) + shell.input("tiling_center"))),
-            ("Polar Coordinates", "polar", polar),
-            ("Panorama", "panorama", projected_ray(xyz(rx, ry, rz))),
+            (KALEIDOSCOPE, "kaleidoscope", sampled(frame, vector("DIVIDE", xyz(x, y) + center, frame.extent))),
+            (TILING, "tiling", sampled(frame, vector("SCALE", frame.fraction - shell.input("tiling_center"), shell.input("tiling_count")) + shell.input("tiling_center"))),
+            (POLAR, "polar", polar),
+            (PANORAMA, "panorama", projected_ray(xyz(rx, ry, rz))),
         )
-        samples = tuple((name, extended(shell.color, uv, (shell.input(key, "extension"), shell.input(key, "extension")), clipped=True)) for name, key, uv in arms)
+        samples = tuple((item.name, extended(shell.color, uv, (shell.input(key, "extension"), shell.input(key, "extension")), clipped=True)) for item, key, uv in arms)
 
         def switch(held: Expr, step: tuple[str, Expr], coordinates: Expr) -> Expr:
             return switched(msgspec.structs.replace(coordinates, socket=step[0], shape="FLOAT"), held, step[1])
 
         return (
             shell
-            .menu("mode", cases={name: uv for name, _, uv in arms}, kind="VECTOR")
+            .menu("mode", cases={item.name: uv for item, _, uv in arms}, kind="VECTOR")
             .map(lambda coordinates: coordinates.named("uv"))
             .map(lambda coordinates: functools.reduce(lambda held, step: switch(held, step, coordinates), samples[1:], switch(samples[0][1], samples[0], coordinates)))
         )
 
-    return shell.menu("polar_conversion", cases={"Rectangular to Polar": sampled(frame, xyz(s, t)), "Polar to Rectangular": sampled(frame, unwrapped)}, kind="VECTOR").bind(selected)
+    return shell.menu("polar_conversion", cases={TO_POLAR.name: sampled(frame, xyz(s, t)), TO_RECTANGULAR.name: sampled(frame, unwrapped)}, kind="VECTOR").bind(selected)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -109,7 +109,7 @@ projection = CompositorEffect(
     record=Projection,
     graph=projected,
     interface=Interface(
-        inputs=(Socket(key="mode", name="Mode", kind=bpy.types.NodeSocketMenu, description="Frame mapping", members={"default_value": "Kaleidoscope"}, items=Some(MODES)),),
+        inputs=(Socket(key="mode", name="Mode", kind=bpy.types.NodeSocketMenu, description="Frame mapping", members={"default_value": KALEIDOSCOPE.name}, items=Some(MODES)),),
         panels=tuple(
             InterfacePanel(
                 key=prefix,
@@ -130,7 +130,7 @@ projection = CompositorEffect(
             for prefix, item, border, extras in (
                 (
                     "kaleidoscope",
-                    MODES.items[0],
+                    KALEIDOSCOPE,
                     Border.MIRROR,
                     (
                         Socket(
@@ -144,7 +144,7 @@ projection = CompositorEffect(
                 ),
                 (
                     "tiling",
-                    MODES.items[1],
+                    TILING,
                     Border.MIRROR,
                     (
                         Socket(key="tiling_center", name="Center", kind=bpy.types.NodeSocketVector, description="Point copies scale about", members={"dimensions": 2, "default_value": (0.5, 0.5)}),
@@ -153,7 +153,7 @@ projection = CompositorEffect(
                 ),
                 (
                     "polar",
-                    MODES.items[2],
+                    POLAR,
                     Border.BLACK,
                     (
                         Socket(
@@ -161,12 +161,12 @@ projection = CompositorEffect(
                             name="Conversion",
                             kind=bpy.types.NodeSocketMenu,
                             description="Conversion direction",
-                            members={"default_value": "Rectangular to Polar"},
-                            items=Some(MenuItems(items=(MenuItem(name="Rectangular to Polar"), MenuItem(name="Polar to Rectangular")))),
+                            members={"default_value": TO_POLAR.name},
+                            items=Some(CONVERSIONS),
                         ),
                     ),
                 ),
-                ("panorama", MODES.items[3], Border.MIRROR, ()),
+                ("panorama", PANORAMA, Border.MIRROR, ()),
             )
         ),
     ),

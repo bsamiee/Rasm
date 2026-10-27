@@ -206,7 +206,7 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
         distance = abs(offset)
         source, other = (self.past, self.future) if offset > 0 else (self.future, self.past)
 
-        def oriented(near: tuple[Dated[T], ...], far: tuple[Dated[T], ...]) -> "History[T]":
+        def oriented(near: tuple[Dated[T], ...], far: tuple[Dated[T], ...]) -> History[T]:
             return type(self)(past=near, future=far[: retention.capacity]) if offset > 0 else type(self)(past=far[: retention.capacity], future=near)
 
         return self.at(offset).map(lambda entry: (entry.value, oriented(source[distance:], (*reversed(source[: distance - 1]), current, *other)), oriented(source, (current, *other))))

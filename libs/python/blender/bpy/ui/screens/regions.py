@@ -1,5 +1,6 @@
 """Region visibility, alignment, and editor coordinates."""
 
+from functools import partial
 from typing import Final, Self, TYPE_CHECKING
 
 import bpy
@@ -55,7 +56,7 @@ class RegionView(msgspec.Struct, frozen=True, kw_only=True):
         return located.region(kind).map(lambda region: cls(located=located, region=region))
 
     @property
-    def override(self) -> "bpy.types.ContextTempOverride":
+    def override(self) -> bpy.types.ContextTempOverride:
         """Context override of region."""
         return bpy.context.temp_override(window=self.located.window, area=self.located.area, region=self.region)
 
@@ -73,23 +74,21 @@ class RegionView(msgspec.Struct, frozen=True, kw_only=True):
         def applied(space: bpy.types.Space) -> Outcome[Visibility]:
             """Writes active space visibility member."""
             return (
-                Error((
-                    Fault(
-                        reason=RecordReason.OUTSIDE,
-                        subject=repr(space),
+                Error(
+                    Fault.of(
+                        RecordReason.OUTSIDE,
+                        repr(space),
+                        identifier,
                         member=", ".join(prop.identifier for prop in space.bl_rna.properties if prop.identifier.startswith("show_region_") and prop.identifier != identifier),
-                        cause=identifier,
-                    ),
-                ))
+                    )
+                )
                 if kind == "HUD"
                 else Descriptor.resolve(type(space), identifier, bpy.types.BoolProperty).bind(
                     lambda setting: setting.write(space, visible).map(lambda _: Visibility(window=self.located.window, area=self.located.area.as_pointer(), setting=setting, visible=visible))
                 )
             )
 
-        return (
-            Option.of_optional(self.located.area.spaces.active).map(applied).default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(self.located.area), member="spaces.active"),)))
-        )
+        return Option.of_optional(self.located.area.spaces.active).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(self.located.area), member="spaces.active")).bind(applied)
 
     def flipped(self, side: Edge) -> Outcome[None]:
         """Moves region to `side` across its axis."""
@@ -100,7 +99,7 @@ class RegionView(msgspec.Struct, frozen=True, kw_only=True):
             case axis if side in axis:
                 return called(bpy.ops.screen.region_flip, {}, override=Some(self.override)).map(lambda _: None)
             case axis:
-                return Error((Fault(reason=RecordReason.OUTSIDE, subject=repr(self.located.area), member=", ".join(axis), cause=str(side)),))
+                return Error(Fault.of(RecordReason.OUTSIDE, repr(self.located.area), str(side), member=", ".join(axis)))
 
     def quadded(self, *, shown: bool) -> Outcome[None]:
         """Toggles quad view when state differs."""

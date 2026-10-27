@@ -1,6 +1,7 @@
 """Freestyle settings, line sets, and line styles as one value set."""
 
 from collections.abc import Callable, Iterable, Mapping
+from functools import partial
 import itertools
 from types import MappingProxyType
 from typing import Annotated, ClassVar, Final
@@ -118,9 +119,7 @@ def captured(layer: bpy.types.ViewLayer) -> Outcome[Freestyle]:
                 lambda pair: LineSet(name=held.name, values=pair[0], style=LineStyle(values=pair[1], modifiers=modifiers))
             )
 
-        return Result[bpy.types.FreestyleLineStyle, Faults].bind(
-            Option.of_optional(held.linestyle).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(held), member="linestyle"),)), styled
-        )
+        return Result[bpy.types.FreestyleLineStyle, Faults].bind(Option.of_optional(held.linestyle).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(held), member="linestyle")), styled)
 
     return paired(Snapshot.capture(settings, Some(_SETTINGS)), accumulated(map(lineset, settings.linesets))).map(lambda pair: Freestyle(settings=pair[0], linesets=pair[1]))
 
@@ -144,15 +143,13 @@ def applied(freestyle: Freestyle, layer: bpy.types.ViewLayer, identity: Identity
             count = kept(held, wanted, lambda modifier, desired: (modifier.name, modifier.type) == (desired.name, desired.kind))
 
             def removed(modifier: bpy.types.LineStyleModifier) -> Outcome[None]:
-                return catch(held.remove, exception=RuntimeError)(modifier).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(style), cause=error),))
+                return catch(held.remove, exception=RuntimeError)(modifier).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(style)))
 
             def added(modifier: StyleModifier) -> Outcome[None]:
                 return (
-                    catch(held.new, exception=RuntimeError)(name=modifier.name, type=modifier.kind)
-                    .map(lambda _: None)
-                    .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{style!r}.{identifier}", cause=error),))
+                    catch(held.new, exception=RuntimeError)(name=modifier.name, type=modifier.kind).map(lambda _: None).map_error(partial(Fault.of, BlenderReason.REFUSED, f"{style!r}.{identifier}"))
                     if modifier.kind in kinds
-                    else Error((Fault(reason=RecordReason.OUTSIDE, subject=f"{style!r}.{identifier}", member=", ".join(kinds), cause=modifier.kind),))
+                    else Error(Fault.of(RecordReason.OUTSIDE, f"{style!r}.{identifier}", modifier.kind, member=", ".join(kinds)))
                 )
 
             return accumulated(map(removed, tuple(held)[count:])).bind(lambda _: accumulated(map(added, wanted[count:]))).map(lambda _: None)
@@ -172,10 +169,7 @@ def applied(freestyle: Freestyle, layer: bpy.types.ViewLayer, identity: Identity
             .map(Ok)
             .default_with(
                 lambda: ownership.made(
-                    identity,
-                    lambda: catch(bpy.data.linestyles.new, exception=RuntimeError)(f"{layer.name} {row.name}").map_error(
-                        lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{layer.name} {row.name}", cause=error),)
-                    ),
+                    identity, lambda: catch(bpy.data.linestyles.new, exception=RuntimeError)(f"{layer.name} {row.name}").map_error(partial(Fault.of, BlenderReason.REFUSED, f"{layer.name} {row.name}"))
                 )
             )
         )
@@ -187,7 +181,7 @@ def applied(freestyle: Freestyle, layer: bpy.types.ViewLayer, identity: Identity
         return style.bind(lambda owned: _LINESTYLE.write(held, owned).bind(lambda _: styled(row.style, owned))).bind(values)
 
     def removed(held: bpy.types.FreestyleLineSet) -> Outcome[None]:
-        return catch(linesets.remove, exception=RuntimeError)(held).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(layer.freestyle_settings), cause=error),))
+        return catch(linesets.remove, exception=RuntimeError)(held).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(layer.freestyle_settings)))
 
     first = freestyle.settings.apply(layer.freestyle_settings)
     return (

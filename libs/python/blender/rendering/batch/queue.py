@@ -8,7 +8,7 @@ from typing import Annotated
 from expression import Option
 import msgspec
 
-from blender.records.fields import Case, Side
+from blender.records.fields import Case, Count, Side
 from blender.records.identity import content_hash, ContentHash
 from blender.rendering.outputs.naming import Output
 
@@ -92,7 +92,7 @@ class Job(msgspec.Struct, frozen=True, kw_only=True):
     frames: Frames
     camera: JobCamera
     pixels: tuple[Side, Side]
-    samples: Side
+    samples: Count
     output_root: str
     outputs: Mapping[Output, str]
     passes: tuple[str, ...]

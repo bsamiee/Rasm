@@ -55,7 +55,7 @@ rows: Final = (
     Finishing(rows=(rewrite, diffuse, ids_export), files=passes),
     export,
     PresetMenu(source=format_listing),
-    PresetMenu(source=safe_listing, entries=tuple(OperatorButton(target=Own(command=safe_broadcast, values={"standard": name}), text=label) for name, label, _ in STANDARDS)),
+    PresetMenu(source=safe_listing, entries=tuple(OperatorButton(target=Own(command=safe_broadcast, values={"standard": name}), text=label) for name, label, *_ in STANDARDS)),
     Append(target=RENDER_PT_output, rows=(Pulldown(menu=format_listing.key), output_rows)),
     Append(target=DATA_PT_camera_safe_areas, rows=(Pulldown(menu=safe_listing.key),)),
     Append(target=IMAGE_MT_image, rows=(OperatorButton(target=export.linear), OperatorButton(target=export.still), *(OperatorButton(target=command) for command in export.layered))),

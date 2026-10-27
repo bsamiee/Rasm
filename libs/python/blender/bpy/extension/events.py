@@ -10,7 +10,8 @@ from types import MethodType
 from typing import Final, Self
 
 import bpy
-from expression import identity, Nothing, Ok, Option, Some
+from expression import identity, Nothing, Ok, Option, Some, try_downcast
+from expression.collections import Block
 import msgspec
 
 from blender.bpy.data.rna.descriptors import Struct
@@ -137,9 +138,15 @@ class _Dispatcher:
     @classmethod
     def found(cls, handlers: list[Callable[..., None]], identity: Identity) -> Self:
         """Returns the dispatcher of identity's package on handler list, appending a new one when absent."""
-        return Option.of_optional(
-            next((held.__self__ for held in handlers if isinstance(held, MethodType) and isinstance(held.__self__, cls) and held.__self__.identity.package == identity.package), None)
-        ).default_with(lambda: cls(identity, handlers))
+        return (
+            Block
+            .of_seq(handlers)
+            .choose(lambda held: Option.of_optional(try_downcast(MethodType, held)))
+            .choose(lambda method: Option.of_optional(try_downcast(cls, method.__self__)))
+            .filter(lambda owner: owner.identity.package == identity.package)
+            .try_head()
+            .default_with(lambda: cls(identity, handlers))
+        )
 
     @bpy.app.handlers.persistent  # type: ignore[untyped-decorator]  # ty: ignore[dynamic-function-decorator-return]
     def dispatched(self, *arguments: object) -> None:

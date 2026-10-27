@@ -42,7 +42,7 @@ class Button(Enum):
 class Toggle(msgspec.Struct, frozen=True, kw_only=True):
     """Toggle of context-relative boolean property."""
 
-    path: str | RnaPath
+    path: RnaPath
 
     def invocation(self, identity: Identity, /) -> Outcome[tuple[str, Writer]]:
         """Resolves boolean path and its `wm.context_toggle` operator."""
@@ -54,7 +54,7 @@ class Toggle(msgspec.Struct, frozen=True, kw_only=True):
 class Assign(msgspec.Struct, frozen=True, kw_only=True):
     """Assignment through `wm.context_set_value` of a value the context path accepts."""
 
-    path: str | RnaPath
+    path: RnaPath
     value: Scalar
 
     def invocation(self, identity: Identity, /) -> Outcome[tuple[str, Writer]]:
@@ -139,7 +139,9 @@ class Keymap:
                 operator, write = invocation
                 items = tuple(chord.added(manager, native, operator, pie=isinstance(target, MenuPopup) and target.pie))
                 held.extend((native, item) for item in items)
-                return accumulated(Option.of_optional(item.properties).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, operator, member="properties")).bind(write) for item in items).map(lambda _: None)
+                return accumulated(Option.of_optional(item.properties).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, operator, member="properties")).bind(write) for item in items).map(
+                    lambda _: None
+                )
 
             try:
                 natives = tuple(manager.keyconfigs.addon.keymaps.new(name, space_type=space, region_type=region) for name, space, region in locations)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]

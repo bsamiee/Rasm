@@ -63,7 +63,7 @@ def _(_record: Primary, values: Mapping[Key, Value], _config: PyOpenColorIO.Conf
             linear.offset = PyOpenColorIO.GradingRGBM(red - 1.0, green - 1.0, blue - 1.0, added)
             return Ok(Some(PyOpenColorIO.GradingPrimaryTransform(values=linear, style=PyOpenColorIO.GRADING_LIN)))
         case _:
-            return Error((Fault(reason=RecordReason.UNREADABLE, subject=Primary.__name__, cause=repr(values)),))
+            return Error(Fault.of(RecordReason.UNREADABLE, Primary.__name__, repr(values)))
 
 
 @transform.register
@@ -75,7 +75,7 @@ def _(_record: Contrast, values: Mapping[Key, Value], _config: PyOpenColorIO.Con
             linear.contrast, linear.pivot = PyOpenColorIO.GradingRGBM(1.0, 1.0, 1.0, slope), pivot
             return Ok(Some(PyOpenColorIO.GradingPrimaryTransform(values=linear, style=PyOpenColorIO.GRADING_LIN)))
         case _:
-            return Error((Fault(reason=RecordReason.UNREADABLE, subject=Contrast.__name__, cause=repr(values)),))
+            return Error(Fault.of(RecordReason.UNREADABLE, Contrast.__name__, repr(values)))
 
 
 @transform.register
@@ -87,7 +87,7 @@ def _(_record: Saturation, values: Mapping[Key, Value], config: PyOpenColorIO.Co
         case {"scale": float(scale)}:
             return luma(config).map(lambda weights: Some(PyOpenColorIO.MatrixTransform.Sat(scale, weights.tolist())))
         case _:
-            return Error((Fault(reason=RecordReason.UNREADABLE, subject=Saturation.__name__, cause=repr(values)),))
+            return Error(Fault.of(RecordReason.UNREADABLE, Saturation.__name__, repr(values)))
 
 
 # --- [GRAPHS]

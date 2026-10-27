@@ -34,7 +34,7 @@ class IdSource(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ENGINE: Final = Descriptor.declared(bpy.types.Scene, "render.engine", bpy.types.EnumProperty)
+_ENGINE: Final = Descriptor.declared(bpy.types.Scene, ("render", "engine"), bpy.types.EnumProperty)
 _NORMAL: Final = Descriptor.declared(bpy.types.ViewLayer, "use_pass_normal", bpy.types.BoolProperty)
 _ID_PASSES: Final = MappingProxyType({
     IdSource.CRYPTOMATTE: {entity: (ENTITIES[entity].flag, f"{ENTITIES[entity].pass_name}00") for entity in (Entity.OBJECT, Entity.MATERIAL)},

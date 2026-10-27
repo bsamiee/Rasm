@@ -2,13 +2,14 @@
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack
+from functools import partial
 from pathlib import Path
 from typing import ClassVar, Literal, TYPE_CHECKING
 
 from bl_ui.space_toolsystem_common import ToolDef
 from bl_ui.space_toolsystem_toolbar import IMAGE_PT_tools_active, NODE_PT_tools_active, SEQUENCER_PT_tools_active, VIEW3D_PT_tools_active
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Result, Some
 import msgspec
 
 from blender.bpy.commands.calls import dotted, Operation, Placed, Writer
@@ -197,12 +198,12 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
                     lead = (
                         Result[Callable[[type[bpy.types.WorkSpaceTool]], None], Faults](ok=lambda tool: bpy.utils.register_tool(tool, after={anchor}))
                         if anchor in grouped
-                        else Result[Callable[[type[bpy.types.WorkSpaceTool]], None], Faults](error=(Fault(reason=BlenderReason.ABSENT, subject=owner, member=anchor),))
+                        else Result[Callable[[type[bpy.types.WorkSpaceTool]], None], Faults](error=Fault.of(BlenderReason.ABSENT, owner, member=anchor))
                     )
             ids = grouped | frozenset(item.idname for item in tools if isinstance(item, ToolDef))
-            return paired(
-                lead, accumulated(Result[None, Faults](error=(Fault(reason=BlenderReason.TAKEN, subject=draft.tool.__name__, member=owner),)) for draft in drafts if draft.tool.__name__ in ids)
-            ).map(lambda pair: pair[0])
+            return paired(lead, accumulated(Result[None, Faults](error=Fault.of(BlenderReason.TAKEN, draft.tool.__name__, member=owner)) for draft in drafts if draft.tool.__name__ in ids)).map(
+                lambda pair: pair[0]
+            )
 
         def configured(manager: bpy.types.WindowManager) -> Outcome[tuple[bpy.types.WindowManager, bpy.types.KeyConfig]]:
             """Resolves keyconfigs, refusing taken keymap names."""
@@ -210,27 +211,21 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
             addon, default = Option.of_optional(configs.addon), Option.of_optional(configs.default)
             maps = tuple(pair for present in (addon, default) for config in present.to_list() for pair in config.keymaps.items())
             occupied = accumulated(
-                Result[None, Faults](error=(Fault(reason=BlenderReason.TAKEN, subject=keymap_name, member=repr(keymap)),))
+                Result[None, Faults](error=Fault.of(BlenderReason.TAKEN, keymap_name, member=repr(keymap)))
                 for draft, keymap_name in bindings
                 if draft.items
                 for name, keymap in maps
                 if name == keymap_name
             )
-            available: Outcome[bpy.types.KeyConfig] = addon.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="WindowManager.keyconfigs", member="addon"),))
-            native: Outcome[bpy.types.KeyConfig] = default.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="WindowManager.keyconfigs", member="default"),))
+            available: Outcome[bpy.types.KeyConfig] = addon.to_result_with(partial(Fault.of, BlenderReason.ABSENT, "WindowManager.keyconfigs", member="addon"))
+            native: Outcome[bpy.types.KeyConfig] = default.to_result_with(partial(Fault.of, BlenderReason.ABSENT, "WindowManager.keyconfigs", member="default"))
             return paired(occupied, paired(available, native)).map(lambda values: (manager, values[1][0]))
 
         binding: Outcome[Option[tuple[bpy.types.WindowManager, bpy.types.KeyConfig]]] = (
             rooted(bpy.types.WindowManager, bpy.context).bind(configured).map(Some) if any(draft.items for draft in drafts) else Ok(Nothing)
         )
         tools = dict(panel.tools_all())  # type: ignore[call-overload]  # ty: ignore[no-matching-overload]
-        leading = paired(
-            Option
-            .of_optional(tools.get(mode))
-            .map(planned)
-            .default_with(lambda: Result[Callable[[type[bpy.types.WorkSpaceTool]], None], Faults](error=(Fault(reason=BlenderReason.ABSENT, subject=f"{panel.__name__}._tools", member=str(mode)),))),
-            binding,
-        )
+        leading = paired(Option.of_optional(tools.get(mode)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, f"{panel.__name__}._tools", member=str(mode))).bind(planned), binding)
         with ExitStack() as resources:
             for lead, _ in leading.to_option().to_list():
                 first, *rest = drafts
@@ -241,7 +236,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
                     resources.callback(bpy.utils.unregister_tool, draft.tool)
             yield leading.bind(
                 lambda acquired: accumulated(
-                    Option.of_optional(item.properties).map(write).default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(item), member="properties"),)))
+                    Option.of_optional(item.properties).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(item), member="properties")).bind(write)
                     for manager, config in acquired[1].to_list()
                     for draft, keymap_name in bindings
                     for chord, (operator, write) in draft.items

@@ -22,7 +22,7 @@ from blender.bpy.render.compositor.coordinates import Clock, Shutter
 from blender.bpy.render.compositor.effects import Alpha, CameraFrame, CompositorEffect, precise, Requests, Shell
 from blender.imaging.files import buffers
 from blender.imaging.geometry.lenses import Aperture
-from blender.imaging.sampling.integration import Estimate, Precision
+from blender.imaging.sampling.integration import Bounds, Estimate, Precision
 from blender.imaging.sampling.populations import Population, transmitted
 from blender.records.faults import accumulated, Outcome
 from blender.records.fields import AtLeastOne, Finite, NonNegative, Positive, Seed, Unit
@@ -79,9 +79,8 @@ class Particles(Effect, frozen=True, kw_only=True):
         """Red, green, and blue outline radius factors of the fringe."""
         return np.array((1.0 - max(self.fringe, 0.0), 1.0 - abs(self.fringe) / 2.0, 1.0 + min(self.fringe, 0.0)))
 
-    def layered(self, bounds: tuple[float, float, float, float], held: float, shutter: tuple[float, float], reach: float) -> Layered:
+    def layered(self, bounds: Bounds, held: float, shutter: tuple[float, float], reach: float) -> Layered:
         """Draws every layer's occupied cells able to reach the bounds across the shutter, sorted far to near by depth then lattice key."""
-        left, bottom, right, top = bounds
         heading = np.array((cos(self.direction), sin(self.direction)))
         focus = self.depth ** (-self.focus)
         drawn = self.population.density > 0.0 and self.iris.obstruction < 1.0 and (self.coverage is not None or self.emission is not None)
@@ -94,8 +93,8 @@ class Particles(Effect, frozen=True, kw_only=True):
             support = np.array((extent / self.squeeze, extent))
             travel = np.array([heading * self.clock.speed * scale * time for scale in (near, far) for time in (held + shutter[0], held + shutter[1])])
             low, high = travel.min(axis=0) - self.turbulence * near * reach - support, travel.max(axis=0) + self.turbulence * near * reach + support
-            columns = np.arange(floor((left - high[0]) / spacing) - 1, floor((right - low[0]) / spacing) + 1)
-            rows = np.arange(floor((bottom - high[1]) / spacing) - 1, floor((top - low[1]) / spacing) + 1)
+            columns = np.arange(floor((bounds.left - high[0]) / spacing) - 1, floor((bounds.right - low[0]) / spacing) + 1)
+            rows = np.arange(floor((bounds.bottom - high[1]) / spacing) - 1, floor((bounds.top - low[1]) / spacing) + 1)
             cells = np.stack(np.meshgrid(columns, rows), axis=-1).reshape(-1, 2)
             keys = np.column_stack((cells, np.full(len(cells), index)))
             draws = textures.uniforms(keys, textures.stream(Particles, self.seed), 7)
@@ -111,7 +110,7 @@ class Particles(Effect, frozen=True, kw_only=True):
     def applied(
         self,
         plane: OpenImageIO.ImageBuf,
-        bounds: tuple[float, float, float, float],
+        bounds: Bounds,
         *,
         frame: float,
         shutter: tuple[float, float],
@@ -122,7 +121,7 @@ class Particles(Effect, frozen=True, kw_only=True):
 
         Args:
             plane: Associated RGBA, rows top first.
-            bounds: Data window in original camera units as left, bottom, right, top.
+            bounds: Data window in original camera units.
             frame: Scene frame the clocks hold.
             shutter: Shutter opening and closing in frames from the held frame.
             precision: Sobol resolution and independent error replicates.
@@ -131,7 +130,6 @@ class Particles(Effect, frozen=True, kw_only=True):
         Returns:
             Estimated plane with replicate error and emitted area normalization, or image and color faults.
         """
-        left, bottom, right, top = bounds
         held = self.clock.held(frame)
         opening, closing = shutter if self.motion_blur else (0.0, 0.0)
         heading = np.array((cos(self.direction), sin(self.direction)))
@@ -147,11 +145,11 @@ class Particles(Effect, frozen=True, kw_only=True):
         def moved(selected: npt.NDArray[np.intp], times: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
             rest: npt.NDArray[np.float64] = drawn.centers[selected, None, :] + times[None, :, None] * heading * self.clock.speed * drawn.scales[selected, None, None]
             if self.turbulence == 0.0:
-                return rest - (left, bottom)
+                return rest - (bounds.left, bounds.bottom)
             points = (rest / drawn.scales[selected, None, None]).reshape(-1, 2)
             evolved = np.broadcast_to(self.evolution * times[None, :], rest.shape[:2]).reshape(-1)
             sway = np.stack([evaluated(self.wind, points, evolved, seed=self.seed, stream=textures.stream(Particles, "wind", axis))[:, 0] for axis in range(2)], axis=-1).reshape(rest.shape)
-            return rest - (left, bottom) + self.turbulence * drawn.scales[selected, None, None] * (2.0 * sway - 1.0)
+            return rest - (bounds.left, bounds.bottom) + self.turbulence * drawn.scales[selected, None, None] * (2.0 * sway - 1.0)
 
         def profiles(selected: npt.NDArray[np.intp], offsets: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
             scaled = (offsets * (self.squeeze, 1.0))[..., None, :] / (optical[selected, None, None, None] * np.where(channel > 0.0, channel, 1.0)[:, None])
@@ -167,7 +165,7 @@ class Particles(Effect, frozen=True, kw_only=True):
 
         def rendered(source: npt.NDArray[np.float64], coating: npt.NDArray[np.float64], light: npt.NDArray[np.float64], thermal: npt.NDArray[np.float64]) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
             height, width = source.shape[:2]
-            dx, dy = (right - left) / width, (top - bottom) / height
+            dx, dy = (bounds.right - bounds.left) / width, (bounds.top - bounds.bottom) / height
             illuminant = light * (1.0 - self.incandescence + self.incandescence * thermal)
             radiance = exp2(self.emission.intensity) if self.emission is not None else 0.0
             unit_area, area_error = self.iris.integral(self.population.softness, epsabs=precision.absolute, epsrel=precision.relative) if emitting else (1.0, 0.0)

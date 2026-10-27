@@ -2,6 +2,7 @@
 
 from bisect import bisect_left
 from collections.abc import Callable, Mapping
+from functools import partial
 from typing import Annotated, Any, ClassVar, Final
 
 import bpy
@@ -33,14 +34,18 @@ from ...chain.stages import Effect, Stage, transform
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Axis = Annotated[float, msgspec.Meta(ge=-7.0, le=7.0)]
+type CurveAxis = Annotated[float, msgspec.Meta(ge=-7.0, le=7.0)]
 type Hue = Annotated[float, msgspec.Meta(ge=0.0, lt=1.0)]
 type MappedHue = Annotated[float, msgspec.Meta(ge=-1.0, le=2.0)]
 type Chroma = Annotated[float, msgspec.Meta(ge=0.0, le=2.5)]
 type Gain = Annotated[float, msgspec.Meta(ge=0.0, le=2.0)]
-type ChannelCurve = Annotated[tuple[Knot[Axis, Axis], ...], msgspec.Meta(min_length=2, max_length=15)]
+type ChannelCurve = Annotated[tuple[Knot[CurveAxis, CurveAxis], ...], msgspec.Meta(min_length=2, max_length=15)]
 type HueCurve[X: float, Y: float] = Annotated[tuple[Knot[X, Y], ...], msgspec.Meta(min_length=2, max_length=8)]
 type Knots = tuple[Knot[float, float], ...]
+type ChannelCurveSet = tuple[ChannelCurve, ChannelCurve, ChannelCurve, ChannelCurve]
+type HueCurveSet = tuple[
+    HueCurve[Hue, MappedHue], HueCurve[Hue, Gain], HueCurve[Hue, Gain], HueCurve[CurveAxis, Gain], HueCurve[Chroma, Chroma], HueCurve[CurveAxis, CurveAxis], HueCurve[Chroma, Gain]
+]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -71,9 +76,9 @@ class Curves(Effect, frozen=True, kw_only=True):
     stage = Stage.CURVES
     pointwise = True
     rows: ClassVar[tuple[Curve, ...]] = tuple(Curve(key=key, inputs=(-7.0, 7.0), outputs=(-7.0, 7.0), node=bpy.types.CompositorNodeCurveRGB) for key in ("red", "green", "blue", "master"))
-    curves: tuple[ChannelCurve, ChannelCurve, ChannelCurve, ChannelCurve] = tuple(
-        tuple(Knot(x=point.x, y=point.y) for point in curve.getControlPoints()) for curve in (_NEUTRAL_RGB.red, _NEUTRAL_RGB.green, _NEUTRAL_RGB.blue, _NEUTRAL_RGB.master)
-    )  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    curves: ChannelCurveSet = msgspec.convert(
+        tuple(tuple(curve.getControlPoints()) for curve in (_NEUTRAL_RGB.red, _NEUTRAL_RGB.green, _NEUTRAL_RGB.blue, _NEUTRAL_RGB.master)), ChannelCurveSet, from_attributes=True
+    )
 
     def __post_init__(self) -> None:
         """Refuses curves holding coincident knot inputs or failing OCIO's validation."""
@@ -127,9 +132,13 @@ class HueCurves(Effect, frozen=True, kw_only=True):
         Curve(key="lum_lum", inputs=(-7.0, 7.0), outputs=(-7.0, 7.0)),
         Curve(key="sat_lum", inputs=(0.0, 2.5), outputs=(0.0, 2.0)),
     )
-    curves: tuple[HueCurve[Hue, MappedHue], HueCurve[Hue, Gain], HueCurve[Hue, Gain], HueCurve[Axis, Gain], HueCurve[Chroma, Chroma], HueCurve[Axis, Axis], HueCurve[Chroma, Gain]] = tuple(  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        tuple(Knot(x=point.x, y=point.y) for point in curve.getControlPoints())
-        for curve in (_NEUTRAL_HUE.hue_hue, _NEUTRAL_HUE.hue_sat, _NEUTRAL_HUE.hue_lum, _NEUTRAL_HUE.lum_sat, _NEUTRAL_HUE.sat_sat, _NEUTRAL_HUE.lum_lum, _NEUTRAL_HUE.sat_lum)
+    curves: HueCurveSet = msgspec.convert(
+        tuple(
+            tuple(curve.getControlPoints())
+            for curve in (_NEUTRAL_HUE.hue_hue, _NEUTRAL_HUE.hue_sat, _NEUTRAL_HUE.hue_lum, _NEUTRAL_HUE.lum_sat, _NEUTRAL_HUE.sat_sat, _NEUTRAL_HUE.lum_lum, _NEUTRAL_HUE.sat_lum)
+        ),
+        HueCurveSet,
+        from_attributes=True,
     )
 
     def __post_init__(self) -> None:
@@ -224,7 +233,7 @@ def knotted[R: (Curves, HueCurves)](effect: CompositorEffect[R], call: Call[Name
 
     def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
         config = PyOpenColorIO.GetCurrentConfig()
-        unread: Faults = (Fault(reason=BlenderReason.ABSENT, subject=f"Region of frame entering {entry.name}", member="value its effect reads"),)
+        unread = Fault.of(BlenderReason.ABSENT, f"Region of frame entering {entry.name}", member="value its effect reads")
         straight = unassociated(file.pixels)
         covered = straight[..., :3][straight[..., 3] > 0.0] if straight.shape[-1] == 4 else straight[..., :3].reshape(-1, 3)
 
@@ -239,7 +248,7 @@ def knotted[R: (Curves, HueCurves)](effect: CompositorEffect[R], call: Call[Name
                 Error(unread)
                 if curves == record.curves
                 else catch(msgspec.convert, exception=msgspec.ValidationError)({"curves": msgspec.to_builtins(curves)}, type(record)).map_error(
-                    lambda error: (Fault(reason=RecordReason.OUTSIDE, subject=type(record).__name__, member="curves", cause=error),)
+                    partial(Fault.of, RecordReason.OUTSIDE, type(record).__name__, member="curves")
                 )
             )
 
@@ -294,7 +303,7 @@ def channel_mapped(shell: Shell[Curves]) -> Outcome[Expr]:
         return Expr(
             kind=bpy.types.CompositorNodeCurveRGB,
             inputs=(("Image", image), ("Fac", 1.0), ("Black Level", (0.0, 0.0, 0.0, 1.0)), ("White Level", (1.0, 1.0, 1.0, 1.0))),
-            members=(("mapping.tone", "STANDARD"),),
+            members=((("mapping", "tone"), "STANDARD"),),
             content=Some(CurvePoints(maps=maps, clip=Some((low, low, high, high)))),
             socket="Image",
             shape="RGBA",

@@ -2,11 +2,13 @@
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack, nullcontext
+from functools import partial
 from pathlib import Path
 from typing import Final
 
 import bpy
 from expression import Nothing, Ok, Option, Some
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
@@ -77,12 +79,7 @@ def produced(identity: Identity, image: bpy.types.Image, production: Option[Prod
 
 def production(identity: Identity, image: bpy.types.Image) -> Outcome[Production]:
     """Returns recorded production facts of displayed slot."""
-    return (
-        identity
-        .held[PRODUCTIONS]
-        .get((image.session_uid, image.render_slots.active_index), Nothing)
-        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(image), member="production facts"),))
-    )
+    return identity.held[PRODUCTIONS].get((image.session_uid, image.render_slots.active_index), Nothing).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(image), member="production facts"))
 
 
 def built(kind: str) -> Outcome[bpy.types.Image]:
@@ -90,9 +87,7 @@ def built(kind: str) -> Outcome[bpy.types.Image]:
 
     Callers read Viewer completion pixels before deferring.
     """
-    return Option.of_optional(next((image for image in bpy.data.images if image.type == kind), None)).to_result_with(
-        lambda: (Fault(reason=BlenderReason.ABSENT, subject=type(bpy.data.images).__name__, member=kind),)
-    )
+    return Block.of_seq(bpy.data.images).filter(lambda image: image.type == kind).try_head().to_result_with(partial(Fault.of, BlenderReason.ABSENT, type(bpy.data.images).__name__, member=kind))
 
 
 def saved(scene: bpy.types.Scene) -> Outcome[str]:
@@ -103,12 +98,7 @@ def saved(scene: bpy.types.Scene) -> Outcome[str]:
 
     def exported(image: bpy.types.Image) -> Outcome[str]:
         return assigned(settings, form).bind(
-            lambda _: committed(
-                path,
-                lambda stage: catch(image.save_render, exception=RuntimeError)(str(stage), scene=scene).map_error(
-                    lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(image), cause=error),)
-                ),
-            ).map(str)
+            lambda _: committed(path, lambda stage: catch(image.save_render, exception=RuntimeError)(str(stage), scene=scene).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(image)))).map(str)
         )
 
     return paired(built("RENDER_RESULT"), Snapshot.capture(settings, Some(direct))).bind(lambda held: paired(exported(held[0]), held[1].apply(settings).outcome)).map(lambda pair: pair[0])

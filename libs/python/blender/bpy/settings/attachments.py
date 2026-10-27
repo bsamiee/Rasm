@@ -1,9 +1,9 @@
 """Form group attachments with value locks, startup seeds, before and after recovery, and storage removal."""
 
-from collections import deque
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import StrEnum
+from functools import partial
 import inspect
 from itertools import islice
 from typing import ClassVar, Final
@@ -14,7 +14,7 @@ from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
 import msgspec
 
-from blender.bpy.data.ids.store import Handle, holder
+from blender.bpy.data.ids.store import embedded, Handle, holder
 from blender.bpy.data.rna.descriptors import Descriptor, Native, RnaPath, Struct, struct_at
 from blender.bpy.data.rna.snapshots import Applied, Endpoints, native, NativeValue, Snapshot
 from blender.bpy.extension.events import startup
@@ -27,7 +27,7 @@ from blender.records.trees import merge, transfer, Tree
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Host = bpy.types.ID | bpy.types.Node | bpy.types.ViewLayer
-type Changed = Callable[[bpy.types.bpy_struct[object], bpy.types.Context], None]
+type Changed = Callable[[Struct, bpy.types.Context], None]
 
 
 class Slot(StrEnum):
@@ -58,7 +58,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
         try:
             held = host.get(self.name)
         except (TypeError, ReferenceError) as error:
-            return Error((Fault(reason=BlenderReason.REFUSED, subject=f"{host!r}[{self.name!r}]", cause=error),))
+            return Error(Fault.of(BlenderReason.REFUSED, f"{host!r}[{self.name!r}]", error))
         if held is None:
             return Ok(Nothing)
 
@@ -81,9 +81,9 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
         try:
             return Ok(Some(msgspec.msgpack.decode(held[Slot.DATA], type=self.decoder.type, strict=self.decoder.strict, dec_hook=decoded, ext_hook=extended)))
         except (msgspec.DecodeError, TypeError, KeyError, UnicodeError, NotImplementedError) as error:
-            return Error((Fault(reason=RecordReason.OUTSIDE, subject=f"{host!r}[{self.name!r}]", member=str(error), cause=str(held)),))
+            return Error(Fault.of(RecordReason.OUTSIDE, f"{host!r}[{self.name!r}]", str(held), member=str(error)))
         except ReferenceError as error:
-            return Error((Fault(reason=BlenderReason.REFUSED, subject=f"{host!r}[{self.name!r}]", cause=error),))
+            return Error(Fault.of(BlenderReason.REFUSED, f"{host!r}[{self.name!r}]", error))
 
     def write(self, host: Struct, record: T) -> Outcome[None]:
         """Encodes record, replacing stored group when content differs."""
@@ -106,7 +106,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
             if not (isinstance(held := host.get(self.name), IDPropertyGroup) and held.to_dict() == stored):
                 host[self.name] = stored
         except (msgspec.EncodeError, AttributeError, KeyError, TypeError, ValueError, OverflowError, ReferenceError, NotImplementedError) as error:
-            return Error((Fault(reason=BlenderReason.REFUSED, subject=f"{host!r}[{self.name!r}]", cause=error),))
+            return Error(Fault.of(BlenderReason.REFUSED, f"{host!r}[{self.name!r}]", error))
         return Ok(None)
 
     def removed(self, host: Struct) -> Outcome[bool]:
@@ -116,7 +116,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
         except KeyError:
             return Ok(False)
         except (AttributeError, TypeError, ReferenceError) as error:
-            return Error((Fault(reason=BlenderReason.REFUSED, subject=f"{host!r}[{self.name!r}]", cause=error),))
+            return Error(Fault.of(BlenderReason.REFUSED, f"{host!r}[{self.name!r}]", error))
         return Ok(True)
 
 
@@ -239,25 +239,14 @@ class Attached[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=
 
     def hosts(self) -> tuple[Host, ...]:
         """Returns file hosts of owner class, embedded IDs, nodes, and view layers included."""
-        pending = deque(block for prop in bpy.types.BlendData.bl_rna.properties if isinstance(prop, bpy.types.CollectionProperty) for block in getattr(bpy.data, prop.identifier))
-        blocks: dict[int, bpy.types.ID] = {}
-        while pending:
-            if (key := (block := (pending.popleft())).as_pointer()) not in blocks:
-                blocks[key] = block
-                pending.extend(
-                    child
-                    for prop in block.bl_rna.properties
-                    if isinstance(prop, bpy.types.PointerProperty) and not prop.is_deprecated and isinstance(prop.fixed_type, bpy.types.ID)
-                    for child in Option.of_optional(getattr(block, prop.identifier)).to_list()
-                    if child.is_embedded_data
-                )
+        blocks = (*bpy.data.all_ids, *(tree for block in bpy.data.all_ids for tree in embedded(block).to_list()))
         match self.owner:
             case owner if issubclass(owner, bpy.types.ViewLayer):
                 return tuple(layer for scene in bpy.data.scenes for layer in scene.view_layers if isinstance(layer, owner))
             case owner if issubclass(owner, bpy.types.Node):
-                return tuple(node for tree in blocks.values() if isinstance(tree, bpy.types.NodeTree) for node in tree.nodes if isinstance(node, owner))
+                return tuple(node for tree in blocks if isinstance(tree, bpy.types.NodeTree) for node in tree.nodes if isinstance(node, owner))
             case _:
-                return tuple(block for block in blocks.values() if isinstance(block, self.owner))
+                return tuple(block for block in blocks if isinstance(block, self.owner))
 
     # --- [PERSISTENCE]
 
@@ -291,11 +280,7 @@ class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
     def bound(self, identity: Identity) -> Outcome[Attached[G]]:
         """Binds to registered pointer target."""
         return identity.identifier(self.key).bind(
-            lambda name: (
-                Ok(Attached(name=name, owner=self.owner, form=self.form))
-                if name in self.owner.bl_rna.properties
-                else Error((Fault(reason=BlenderReason.ABSENT, subject=self.owner.__name__, member=name),))
-            )
+            lambda name: Ok(Attached(name=name, owner=self.owner, form=self.form)) if name in self.owner.bl_rna.properties else Error(Fault.of(BlenderReason.ABSENT, self.owner.__name__, member=name))
         )
 
     def read(self, identity: Identity, host: Host) -> Outcome[G]:
@@ -362,10 +347,8 @@ def pointed(owner: type[Struct], name: str, definition: bpy.props._PropertyDefer
     with ExitStack() as stack:
         yield (
             Result[None, Faults](ok=None)
-            .filter_with(
-                lambda _: not (name in rna.properties or name in rna.functions or hasattr(owner, name)), lambda _: (Fault(reason=BlenderReason.TAKEN, subject=request, member=owner.__name__),)
-            )
-            .bind(lambda _: _POINTED(owner, name, definition).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),)))
+            .filter_with(lambda _: not (name in rna.properties or name in rna.functions or hasattr(owner, name)), lambda _: Fault.of(BlenderReason.TAKEN, request, member=owner.__name__))
+            .bind(lambda _: _POINTED(owner, name, definition).map_error(partial(Fault.of, BlenderReason.REFUSED, request)))
             .map(lambda _: stack.callback(delattr, owner, name))
             .map(lambda _: None)
         )
@@ -409,7 +392,7 @@ def preferred[T](identity: Identity, preferences: bpy.types.Preferences, write: 
         .of_optional(preferences.addons.get(identity.package))
         .bind(lambda addon: Option.of_optional(addon.preferences))
         .map(marked)
-        .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(preferences), member=identity.package),)))
+        .default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(preferences), member=identity.package)))
     )
 
 

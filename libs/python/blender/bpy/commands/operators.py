@@ -4,6 +4,7 @@ from abc import abstractmethod
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
 from enum import auto, Enum
+from functools import partial
 import inspect
 from itertools import chain
 from pathlib import Path
@@ -13,6 +14,7 @@ from typing import Final, override, Self, TYPE_CHECKING
 import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
@@ -59,7 +61,7 @@ class InvokePopup(Enum):
             case InvokePopup.REDO, True:
                 return Ok(msgspec.structs.replace(plan, opening=redone))
             case InvokePopup.REDO, _:
-                return Error((Fault(reason=BlenderReason.UNREGISTERED, subject=body.command.key, cause="the redo popup repeats an undo step, so undo must be True"),))
+                return Error(Fault.of(BlenderReason.UNREGISTERED, body.command.key, "the redo popup repeats an undo step, so undo must be True"))
             case InvokePopup.SEARCH, _:
                 return Ok(msgspec.structs.replace(plan, opening=searched))
 
@@ -236,7 +238,7 @@ class Suppressible[T: bpy.types.PropertyGroup](Dialog, frozen=True, kw_only=True
                 .map(lambda preferences: Option.of_optional(preferences.addons.get(body.identity.package)).bind(lambda addon: Option.of_optional(addon.preferences)))
                 .bind(
                     lambda holder: holder.bind(lambda held: Option.of_optional(held.bl_rna.properties.get(ask)).map(lambda prop: bool(getattr(held, prop.identifier)))).to_result_with(
-                        lambda: (Fault(reason=BlenderReason.ABSENT, subject=body.identity.package, member=ask),)
+                        partial(Fault.of, BlenderReason.ABSENT, body.identity.package, member=ask)
                     )
                 )
             )
@@ -296,7 +298,7 @@ class Open[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
         def chosen(operator: bpy.types.Operator, _properties: T) -> Outcome[tuple[Path, ...]]:
             paths = tuple(Path(operator.directory, item.name) for item in operator.files if item.name) or tuple(Path(path) for path in (operator.filepath,) if path)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            return Ok(paths) if paths else Error((Fault(reason=BlenderReason.UNMET, subject=Unopened(title=body.command.title).message),))
+            return Ok(paths).filter_with(bool, partial(Fault.of, BlenderReason.UNMET, Unopened(title=body.command.title).message))
 
         execute: Executed = lambda operator, context: body.finished(operator, body.performed(operator, context, Some(chosen)))
         opening: Opening[T] = lambda operator, context, _manager, _event, _properties: Ok(ImportHelper.invoke_popup(operator, context, confirm_text=self.confirm_text))  # type: ignore[arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
@@ -342,9 +344,7 @@ class Save[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
         def existing(operator: bpy.types.Operator, properties: T) -> Outcome[tuple[Path, ...]]:
             return located(operator, properties).bind(
-                lambda paths: catch(lambda: tuple(path for path in paths if path.exists()), exception=OSError)().map_error(
-                    lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=repr(paths), cause=error),)
-                )
+                lambda paths: catch(lambda: tuple(path for path in paths if path.exists()), exception=OSError)().map_error(partial(Fault.of, RecordReason.UNREADABLE, repr(paths)))
             )
 
         def execute(operator: bpy.types.Operator, context: bpy.types.Context) -> Returns:
@@ -545,21 +545,21 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                     )
                 )
             case _:
-                return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(context), member="window"),))
+                return Error(Fault.of(BlenderReason.ABSENT, repr(context), member="window"))
 
     def ended(self, runs: "Runs[S]", operator: bpy.types.Operator, context: bpy.types.Context, *, cancelled: bool) -> Outcome[None]:
         """Releases live run, restoring initial snapshot when cancelled."""
 
         def released(action: Callable[[], None]) -> Outcome[None]:
-            return catch(action, exception=ReferenceError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=self.ended.__qualname__, cause=error),))
+            return catch(action, exception=ReferenceError)().map_error(partial(Fault.of, BlenderReason.REFUSED, self.ended.__qualname__))
 
         def restored(run: Run[S], live: tuple[bpy.types.Window, ...]) -> Outcome[None]:
-            area = next((area for window in live for area in window.screen.areas if area in run.area.to_list()), None)
-            region = next((region for held in Option.of_optional(area).to_list() for region in held.regions if region in run.region.to_list()), None)
+            area = run.area.filter(lambda held: any(held == area for window in live for area in window.screen.areas))
+            region = run.region.filter(lambda held: any(held == region for found in area.to_list() for region in found.regions))
             with ExitStack() as scope:
-                entered = catch(scope.enter_context, exception=TypeError)(context.temp_override(window=next(iter(live), None), area=area, region=region)).map_error(
-                    lambda error: (Fault(reason=BlenderReason.REFUSED, subject="Context.temp_override", cause=error),)
-                )
+                entered = catch(scope.enter_context, exception=TypeError)(
+                    context.temp_override(window=Block.of_seq(live).try_head().to_optional(), area=area.to_optional(), region=region.to_optional())
+                ).map_error(partial(Fault.of, BlenderReason.REFUSED, "Context.temp_override"))
                 return Result[object, Faults].bind(entered, lambda _: self.restore(context, run.initial))
 
         def closed(run: Run[S]) -> Outcome[None]:
@@ -643,7 +643,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                 for keymap in (_modal(run.manager),)
                 for action in keymap.modal_event_values
                 if (action.identifier == "CANCEL" if self.gesture is Gesture.TIMED else action.identifier != "SNAP_OFF")
-                for item in Option.of_optional(next((item for item in keymap.keymap_items if item.active and item.propvalue == action.identifier), None)).to_list()  # ty: ignore[truthiness-test-of-none-union]
+                for item in Block.of_seq(keymap.keymap_items).filter(lambda item: item.propvalue == action.identifier and bool(item.active)).try_head().to_list()
             )
             for layout in Option.of_optional(header.layout).to_list():
                 for item in items:

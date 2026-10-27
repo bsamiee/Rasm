@@ -22,9 +22,9 @@ import PyOpenColorIO
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Answer, Call, Command, Done, Empty, InvokePopup, Open, Operator, Properties, Unchanged
 from blender.bpy.data.ids.images import loaded, Tag
-from blender.bpy.data.ids.ownership import committed, Mark, Ownership, Saved
+from blender.bpy.data.ids.ownership import Mark, Ownership, retained, Saved
 from blender.bpy.data.rna.conditions import Condition
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, root_in, rooted, Struct, subclass, Value, written
+from blender.bpy.data.rna.descriptors import assigned, choices, Descriptor, root_in, rooted, Struct, subclass, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, Subscription
 from blender.bpy.extension.identity import Identity, Key
@@ -47,7 +47,6 @@ from blender.bpy.render.compositor.layers import (
     EffectMaskAt,
     EFFECTS,
     indexed,
-    Layer,
     LayerAt,
     LayerMaskAt,
     LAYERS,
@@ -61,6 +60,7 @@ from blender.bpy.render.compositor.layers import (
     SOURCE,
     Source,
     sourced,
+    StackLayer,
     Target,
     TermFiltering,
 )
@@ -166,7 +166,9 @@ class RecombinedSourced(bpy.types.PropertyGroup):
 
     layer: bpy.props.EnumProperty(name="View Layer", description="Source view layer", items=views)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     recombination: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name="Sum", description="Light passes or light groups summed into beauty", items=(("LOBES", "Light Passes", Lobes.__doc__ or ""), ("LIGHT_GROUPS", "Light Groups", LightGroups.__doc__ or ""))
+        name="Sum",
+        description="Light passes or light groups summed into beauty",
+        items=choices((("LOBES", "Light Passes", Lobes.__doc__ or ""), ("LIGHT_GROUPS", "Light Groups", LightGroups.__doc__ or ""))),
     )
 
 
@@ -191,7 +193,7 @@ class Selection[M: Case](msgspec.Struct, frozen=True, kw_only=True):
     active: int
 
     @property
-    def layer(self) -> Outcome[Layer[Source, M]]:
+    def layer(self) -> Outcome[StackLayer[Source, M]]:
         """Active layer."""
         return indexed(self.record.layers, self.active, TITLE)
 
@@ -328,7 +330,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
     def reconciled(self, scene: bpy.types.Scene, tree: bpy.types.NodeTree, context: bpy.types.Context, *, record: Option[LayerStack[Source, M]] = Nothing) -> Outcome[bool]:
         """Enables the passes each source and term filter reads, builds the graph, and writes frame inputs, answering whether any changed."""
 
-        def requested(layer: Layer[Source, M]) -> Outcome[tuple[PassRequest, ...]]:
+        def requested(layer: StackLayer[Source, M]) -> Outcome[tuple[PassRequest, ...]]:
             match layer.source:
                 case RenderPass(layer=name):
                     return Ok((PassRequest(layer=name),))
@@ -337,7 +339,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                 case Adjustment() | NodeSource():
                     return Ok(())
 
-        def grouped(layer: Layer[Source, M]) -> Outcome[Layer[Source, M]]:
+        def grouped(layer: StackLayer[Source, M]) -> Outcome[StackLayer[Source, M]]:
             match layer.source:
                 case Recombined(layer=name, recombination=LightGroups()) as source:
                     return located(scene.view_layers.get(name), repr(scene.view_layers), name).bind(
@@ -399,7 +401,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
             entry = held.map(lambda found: found[0]).default_with(lambda: scene.compositor_effects.new(TITLE))
             for _ in () if held.is_some() else (entry,):
                 rollback.callback(scene.compositor_effects.remove, entry)
-            return committed(written(entry, "node_group", tree).bind(lambda _: relocated(scene, entry, 0)).bind(lambda _: self.reconciled(scene, tree, context)).map(lambda _: None), rollback)
+            return retained(written(entry, "node_group", tree).bind(lambda _: relocated(scene, entry, 0)).bind(lambda _: self.reconciled(scene, tree, context)).map(lambda _: None), rollback)
 
     def made(self, scene: bpy.types.Scene, context: bpy.types.Context) -> Outcome[bpy.types.CompositorNodeTree]:
         """Creates an empty stack and places it in the head entry."""
@@ -407,7 +409,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
             lambda group: self.store.write(group, self.stacks.form()).bind(lambda _: self.switched(scene, group, context)).map(lambda _: group)
         )
 
-    def inserted(self, context: bpy.types.Context, layers: tuple[Layer[Source, M], ...], source: Option[bpy.types.NodeTree] = Nothing) -> Outcome[bool]:
+    def inserted(self, context: bpy.types.Context, layers: tuple[StackLayer[Source, M], ...], source: Option[bpy.types.NodeTree] = Nothing) -> Outcome[bool]:
         """Inserts layers after the active layer under fresh keys with source node settings copied, answering whether any was given."""
 
         def insert(held: Selection[M]) -> Outcome[bool]:
@@ -424,7 +426,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                 for _, key in nodes:
                     rollback.callback(dropped, held.tree, self.identity, key)
                 record = msgspec.structs.replace(held.record, layers=(*held.record.layers[:at], *added, *held.record.layers[at:]))
-                return committed(accumulated(itertools.starmap(copy, nodes)).bind(lambda _: self.replaced(context, held, record, at + len(added) - 1 if added else held.active)), rollback)
+                return retained(accumulated(itertools.starmap(copy, nodes)).bind(lambda _: self.replaced(context, held, record, at + len(added) - 1 if added else held.active)), rollback)
 
         return self.selected(context).bind(insert)
 
@@ -441,7 +443,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                         context,
                         held,
                         msgspec.structs.replace(
-                            held.record, layers=(*held.record.layers[:at], Layer(key=key, name=node.bl_label, source=NodeSource(node=kind.__name__, output=output)), *held.record.layers[at:])
+                            held.record, layers=(*held.record.layers[:at], StackLayer(key=key, name=node.bl_label, source=NodeSource(node=kind.__name__, output=output)), *held.record.layers[at:])
                         ),
                         at,
                     )
@@ -449,7 +451,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
 
             with ExitStack() as rollback:
                 rollback.callback(dropped, held.tree, self.identity, layer_node)
-                return committed(created(held.tree, kind).bind(lambda node: Mark(key=layer_node).write(self.identity, node).bind(lambda _: setup(node)).bind(lambda _: placed(node))), rollback)
+                return retained(created(held.tree, kind).bind(lambda node: Mark(key=layer_node).write(self.identity, node).bind(lambda _: setup(node)).bind(lambda _: placed(node))), rollback)
 
         return self.selected(context).bind(add)
 
@@ -515,17 +517,17 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
 
     def add_adjustment_layer(self, call: Call[Empty]) -> Outcome[Answer]:
         """Add layer processing composite beneath."""
-        return self.inserted(call.context, (Layer(key="inserted", name=bpy.path.display_name(item_key(Adjustment)), source=Adjustment()),)).map(lambda _: Done())
+        return self.inserted(call.context, (StackLayer(key="inserted", name=bpy.path.display_name(item_key(Adjustment)), source=Adjustment()),)).map(lambda _: Done())
 
     def add_render_pass_layer(self, call: Call[PassSourced]) -> Outcome[Answer]:
         """Add view layer output."""
         source = RenderPass(layer=call.properties.layer, output=call.properties.output)
-        return self.inserted(call.context, (Layer(key="inserted", name=f"{source.layer} {source.output}", source=source),)).map(lambda _: Done())
+        return self.inserted(call.context, (StackLayer(key="inserted", name=f"{source.layer} {source.output}", source=source),)).map(lambda _: Done())
 
     def add_recombined_layer(self, call: Call[RecombinedSourced]) -> Outcome[Answer]:
         """Add beauty from view layer light."""
         source = Recombined(layer=call.properties.layer, recombination=LightGroups() if call.properties.recombination == "LIGHT_GROUPS" else Lobes())
-        return self.inserted(call.context, (Layer(key="inserted", name=source.layer, source=source),)).map(lambda _: Done())
+        return self.inserted(call.context, (StackLayer(key="inserted", name=source.layer, source=source),)).map(lambda _: Done())
 
     def add_node_layer(self, call: Call[NodeKind]) -> Outcome[Answer]:
         """Add source node at first enabled output."""
@@ -546,7 +548,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         """Set layer source output."""
         index = call.properties.layer
 
-        def chosen(held: Selection[M], layer: Layer[Source, M]) -> Outcome[bool]:
+        def chosen(held: Selection[M], layer: StackLayer[Source, M]) -> Outcome[bool]:
             match layer.source:
                 case RenderPass() | NodeSource() as source:
                     return self.rewritten(call.context, held, (LAYERS, index, SOURCE), lambda _: msgspec.structs.replace(source, output=call.properties.output), index)
@@ -597,7 +599,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
             captures = accumulated(captured(identity, held.entry, item_key(base, position + 1)) for position in range(count))
             return captures.bind(lambda found: structural(scene, held).bind(lambda changed: moved(found).map(lambda wrote: changed or wrote)))
 
-        def duplicated(held: Selection[M], layer: Layer[Source, M]) -> Outcome[bool]:
+        def duplicated(held: Selection[M], layer: StackLayer[Source, M]) -> Outcome[bool]:
             def copied(values: Snapshot, after: Selection[M]) -> Outcome[bool]:
                 return indexed(after.record.layers, after.active, TITLE).bind(lambda made: restored(identity, after.entry, rebased(values, layer.key, made.key)))
 
@@ -606,7 +608,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def applied(scene: bpy.types.Scene, held: Selection[M]) -> Outcome[bool]:
-            def within(index: int) -> Outcome[Layer[Source, M]]:
+            def within(index: int) -> Outcome[StackLayer[Source, M]]:
                 return indexed(held.record.layers, index, TITLE)
 
             match target:
@@ -630,7 +632,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         wrote = paired(call.root(bpy.types.Scene), self.selected(call.context)).bind(lambda parts: applied(*parts))
         return wrote.map(lambda changed: Done() if changed else Unchanged(reason=f"{bpy.path.display_name(action.name.lower())} changes nothing"))
 
-    def applied(self, context: bpy.types.Context, value: Valued[LayerStack[Source, M]] | Valued[Layer[Source, M]] | Valued[Entry[M]]) -> Outcome[Answer]:
+    def applied(self, context: bpy.types.Context, value: Valued[LayerStack[Source, M]] | Valued[StackLayer[Source, M]] | Valued[Entry[M]]) -> Outcome[Answer]:
         """Applies a stack, layer, or effect preset over the selection, then the input values it captured at the keys the applied item takes."""
 
         def valued(prefix: Key, *, changed: bool) -> Outcome[bool]:
@@ -642,7 +644,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
             match value.structure:
                 case LayerStack() as stack:
                     return self.replaced(context, held, stack, 0).bind(lambda changed: valued("", changed=changed))
-                case Layer() as layer:
+                case StackLayer() as layer:
                     return held.layer.bind(
                         lambda prior: self.rewritten(context, held, (LAYERS, held.active), lambda _: msgspec.structs.replace(layer, key=prior.key), held.active).bind(
                             lambda changed: valued(prior.key, changed=changed)
@@ -656,7 +658,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
     # --- [ROWS]
 
     @property
-    def listings(self) -> tuple[Listing[Valued[LayerStack[Source, M]]], Listing[Valued[Layer[Source, M]]], Listing[Valued[Entry[M]]]]:
+    def listings(self) -> tuple[Listing[Valued[LayerStack[Source, M]]], Listing[Valued[StackLayer[Source, M]]], Listing[Valued[Entry[M]]]]:
         """Stack, active layer, and last effect preset listings, each preset holding the input values at its item keys."""
 
         def matched[T](read: Callable[[bpy.types.Context], Outcome[Valued[T]]], context: bpy.types.Context, values: tuple[Valued[T], ...]) -> Outcome[tuple[bool, ...]]:
@@ -671,7 +673,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         def stack(context: bpy.types.Context) -> Outcome[Valued[LayerStack[Source, M]]]:
             return self.selected(context).bind(lambda held: valued(held, held.record, ""))
 
-        def layer(context: bpy.types.Context) -> Outcome[Valued[Layer[Source, M]]]:
+        def layer(context: bpy.types.Context) -> Outcome[Valued[StackLayer[Source, M]]]:
             return self.selected(context).bind(lambda held: held.layer.bind(lambda found: valued(held, found, found.key)))
 
         def last(context: bpy.types.Context) -> Outcome[Valued[Entry[M]]]:
@@ -699,11 +701,11 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
             item=LayerRow,
             collection=Member(
                 root=bpy.types.NodeTree,
-                path=f"{self.layer_rows.name}.layers",
+                path=(self.layer_rows.name, "layers"),
                 reach=Some(lambda context: root_in(bpy.types.Scene, context).bind(lambda scene: self.head(scene).to_option()).map(lambda held: held[1])),
             ),
-            active=Member(root=bpy.types.Screen, path=f"{self.view.name}.active", reach=Some(lambda context: Option.of_optional(context.screen))),
-            columns=tuple(Property(target=Member(root=LayerRow, path=path), text="") for path in ("visible", "solo", "matte")),
+            active=Member(root=bpy.types.Screen, path=(self.view.name, "active"), reach=Some(lambda context: Option.of_optional(context.screen))),
+            columns=tuple(Property(target=Member(root=LayerRow, path=(member,)), text="") for member in ("visible", "solo", "matte")),
             enabled=Some(lambda context, row: self.selected(context).map(lambda found: any(shown.key == row.key for shown, _ in found.record.composited()))),
             sort_reverse=True,
             side=(
@@ -736,7 +738,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
     def layered(self, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document[Coded]]:
         """Builds the document of formed color and raw mask coverage of the head stack at a saved frame, nested stacks as groups."""
         number = located(next((part.header.get("Frame") for part in frame.parts[:1]), None), frame.path, "Frame").bind(
-            lambda text: catch(int, exception=ValueError)(text).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=frame.path, cause=error),))
+            lambda text: catch(int, exception=ValueError)(text).map_error(partial(Fault.of, BlenderReason.REFUSED, frame.path))
         )
 
         coded = functools.partial(depth.coded, coding=Rounded())
@@ -766,7 +768,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                     def color(name: str) -> Outcome[npt.NDArray[np.float32]]:
                         return raw(name).bind(lambda pixels: view.form(config, pixels)).map(unassociated)
 
-                    def each(layer: Layer[Source, M]) -> Outcome[PixelLayer[Coded] | AdjustmentLayer[Coded] | LayerGroup[Coded]]:
+                    def each(layer: StackLayer[Source, M]) -> Outcome[PixelLayer[Coded] | AdjustmentLayer[Coded] | LayerGroup[Coded]]:
                         visible = layer.key in shown
                         if isinstance(layer.source, Adjustment):
                             return color(f"{layer.key} Composite").map(lambda pixels: AdjustmentLayer(name=layer.name, color=coded(pixels[..., :3]), alpha=coded(pixels[..., 3]), visible=visible))
@@ -774,7 +776,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                         blend = paired(valued(item_key(layer.key, "blend", "mode")), valued(item_key(layer.key, "blend", "opacity"))).bind(
                             lambda pair: (
                                 catch(msgspec.convert, exception=msgspec.ValidationError)(pair[1], float)
-                                .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=layer.key, cause=error),))
+                                .map_error(partial(Fault.of, BlenderReason.REFUSED, layer.key))
                                 .map(lambda opacity: (photoshop(str(pair[0])), opacity))
                             )
                         )
@@ -855,7 +857,7 @@ def _editor[M: Case](stacking: LayerStacking[M], listing: RowDraw, adding: RowDr
             for index in range(entry.blend.masks):
                 edits(inner, EffectMaskAt(layer=at.layer, entry=at.entry, mask=index))
 
-    def detail(layout: bpy.types.UILayout, held: Selection[M], layer: Layer[Source, M], context: bpy.types.Context) -> None:
+    def detail(layout: bpy.types.UILayout, held: Selection[M], layer: StackLayer[Source, M], context: bpy.types.Context) -> None:
         at = LayerAt(layer=held.active)
         places = tuple(item_key(layer.key, "effects", index) for index in range(1, len(layer.effects) + 1))
         for source in Option.of_optional(owned(held.tree, identity).get(layer.node)).to_list():
@@ -884,7 +886,9 @@ def _editor[M: Case](stacking: LayerStacking[M], listing: RowDraw, adding: RowDr
 
 
 def _presets[M: Case](
-    stacking: LayerStacking[M], creating: Operator[Empty], listings: tuple[tuple[Listing[Valued[LayerStack[Source, M]]] | Listing[Valued[Layer[Source, M]]] | Listing[Valued[Entry[M]]], RowDraw], ...]
+    stacking: LayerStacking[M],
+    creating: Operator[Empty],
+    listings: tuple[tuple[Listing[Valued[LayerStack[Source, M]]] | Listing[Valued[StackLayer[Source, M]]] | Listing[Valued[Entry[M]]], RowDraw], ...],
 ) -> RowDraw:
     """Preset listing draws of each held stack, layer, or effect, the New Stack button while no stack exists."""
 
@@ -970,7 +974,7 @@ def stacked_by(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Op
     return Option.of_optional(entry.node_group).filter(lambda group: OWNERSHIP.marked(identity, group).is_some())
 
 
-def nested_tree[M: Case](identity: Identity, tree: bpy.types.NodeTree, layer: Layer[Source, M]) -> Option[bpy.types.NodeTree]:
+def nested_tree[M: Case](identity: Identity, tree: bpy.types.NodeTree, layer: StackLayer[Source, M]) -> Option[bpy.types.NodeTree]:
     """Returns the owned stack of a layer's source group node."""
     match owned(tree, identity).get(layer.node):
         case bpy.types.CompositorNodeGroup(node_tree=inner) if inner is not None:
@@ -1019,9 +1023,9 @@ class LayerStacks[M: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
         return Preset(key=OWNERSHIP.key, form=GenericAlias(Valued, (self.form,)), stock=self.looks)  # type: ignore[arg-type]  # ty: ignore[invalid-type-form]
 
     @cached_property
-    def layer_preset(self) -> Preset[Valued[Layer[Source, M]]]:
+    def layer_preset(self) -> Preset[Valued[StackLayer[Source, M]]]:
         """Presets of one layer with its input values."""
-        return Preset(key=f"{OWNERSHIP.key}_layer", form=GenericAlias(Valued, (GenericAlias(Layer, (Source, self.rows.form)),)))  # type: ignore[arg-type]  # ty: ignore[invalid-type-form]
+        return Preset(key=f"{OWNERSHIP.key}_layer", form=GenericAlias(Valued, (GenericAlias(StackLayer, (Source, self.rows.form)),)))  # type: ignore[arg-type]  # ty: ignore[invalid-type-form]
 
     @cached_property
     def entry_preset(self) -> Preset[Valued[Entry[M]]]:

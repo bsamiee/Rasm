@@ -10,7 +10,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Answer, Call, Done, InvokePopup, Operator, Own, Unchanged
-from blender.bpy.data.rna.descriptors import Struct
+from blender.bpy.data.rna.descriptors import choices, Descriptor, Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.changes import owned
@@ -46,7 +46,7 @@ class SpaceField(bpy.types.PropertyGroup):
     space: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
         name="Color Space",
         description="Colorspace the field reads",
-        items=lambda _owner, _context: _spaces(tuple((item.identifier, item.name, item.description) for item in bpy.types.ColorManagedInputColorspaceSettings.bl_rna.properties["name"].enum_items)),  # ty: ignore[unresolved-attribute]
+        items=lambda _owner, _context: choices(Descriptor.declared(bpy.types.ColorManagedInputColorspaceSettings, "name", bpy.types.EnumProperty).prop.enum_items),
     )
 
 
@@ -96,7 +96,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
         chain, rows = self.chain, self.viewers.rows
 
         def bound(held: Struct) -> Member:
-            return Member(root=type(held), path="value", reach=Some(lambda _context: Some(held)))
+            return Member(root=type(held), path=("value",), reach=Some(lambda _context: Some(held)))
 
         def listed(layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, interface: bpy.types.NodeTreeInterface, context: bpy.types.Context) -> Outcome[None]:
             def named(socket: bpy.types.NodeTreeInterfaceSocket) -> str:
@@ -254,11 +254,6 @@ class EffectBody(Line, frozen=True, kw_only=True):
 
 
 @functools.cache
-def _spaces(rows: tuple[tuple[str, str, str], ...]) -> tuple[tuple[str, str, str], ...]:
-    """Holds colorspace enum rows so the strings Blender reads stay referenced."""
-    return rows
-
-
 def effect_section(chain: Chain, viewers: Viewers[Effect], *, thumbnail: Row | RowDraw, locks: Option[Locks] = Nothing) -> Single:
     """Builds the active effect section, open by default, with its colorspace command."""
 
@@ -277,7 +272,7 @@ def effect_section(chain: Chain, viewers: Viewers[Effect], *, thumbnail: Row | R
     return Single(
         key="active_effect",
         title="Active Effect",
-        holder=Some(Member(root=bpy.types.Scene, path="compositor_effects.active")),
+        holder=Some(Member(root=bpy.types.Scene, path=("compositor_effects", "active"))),
         condition=Some(composites),
         rows=(thumbnail, EffectBody(chain=chain, viewers=viewers, colorspace=colorspace, locks=locks)),
         header=(EffectButtons(viewers=viewers, locks=locks),),

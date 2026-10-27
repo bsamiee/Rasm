@@ -43,7 +43,7 @@ def _(record: Primaries, values: Mapping[Key, Value], _config: PyOpenColorIO.Con
         case {"remap": "Mixer", "mixer_red": tuple(red), "mixer_green": tuple(green), "mixer_blue": tuple(blue)}:
             return Ok(Some(matrix(np.array((red, green, blue), dtype=np.float64))))
         case _:
-            return Error((Fault(reason=RecordReason.UNREADABLE, subject=Primaries.__name__, cause=repr(values)),))
+            return Error(Fault.of(RecordReason.UNREADABLE, Primaries.__name__, repr(values)))
 
 
 def remapped(shell: Shell[Primaries]) -> Outcome[Expr]:

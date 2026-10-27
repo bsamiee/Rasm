@@ -12,6 +12,7 @@ from typing import ClassVar, Final, override
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
@@ -162,9 +163,11 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
         """Reports the materials using a shader node, groups included."""
         kind = call.properties.kind
         return (
-            Option
-            .of_optional(next((shader for shader in shader_kinds() if shader.__name__ == kind), None))
-            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="bpy.types", member=kind),))
+            Block
+            .of_seq(shader_kinds())
+            .filter(lambda shader: shader.__name__ == kind)
+            .try_head()
+            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, "bpy.types", member=kind))
             .map(lambda shader: Done(notes=tuple(("INFO", repr(user)) for user in shader_users(shader))))
         )
 
@@ -182,7 +185,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
                 case bpy.types.Library() as library:
                     return detached((bpy.app.binary_path, bpy.path.abspath(library.filepath)), call.identity.folder / "library.log").map(lambda _: Done())
                 case None:
-                    return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(block), member="library"),))
+                    return Error(Fault.of(BlenderReason.ABSENT, repr(block), member="library"))
 
         return active(call.context).bind(opened)
 
@@ -204,7 +207,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
 
 def active(context: bpy.types.Context) -> Outcome[bpy.types.ID]:
     """Reads editor `context.id`, absent when unset."""
-    return catch(lambda: context.id, exception=AttributeError)().to_option().bind(Option.of_optional).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="bpy.context", member="id"),))
+    return catch(lambda: context.id, exception=AttributeError)().to_option().bind(Option.of_optional).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, "bpy.context", member="id"))
 
 
 def audited() -> Outcome[None]:
@@ -212,7 +215,7 @@ def audited() -> Outcome[None]:
 
     def absent(owner: object, key: str) -> Outcome[None]:
         """Returns absent fault naming owner and key."""
-        return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=key),))
+        return Error(Fault.of(BlenderReason.ABSENT, repr(owner), member=key))
 
     def lost(missing: tuple[Dependency, ...]) -> Outcome[None]:
         """Resolves missing dependency owners in one pass, one fault per path."""
@@ -294,12 +297,10 @@ def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> Outcome[
             gaps, bindings = (), (("fixed camera", camera),)
 
     def checked(binding: str, name: str) -> Outcome[bpy.types.Object]:
-        found: Outcome[bpy.types.Object] = Option.of_optional(bpy.data.objects.get(name)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(bpy.data.objects), member=name),))
-        return found.filter_with(
-            lambda bound: isinstance(bound.data, bpy.types.Camera), lambda bound: (Fault(reason=BlenderReason.UNMET, subject=NotCamera(binding=binding, kind=bound.type).message),)
-        )
+        found: Outcome[bpy.types.Object] = Option.of_optional(bpy.data.objects.get(name)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(bpy.data.objects), member=name))
+        return found.filter_with(lambda bound: isinstance(bound.data, bpy.types.Camera), lambda bound: Fault.of(BlenderReason.UNMET, NotCamera(binding=binding, kind=bound.type).message))
 
-    return accumulated((*(Error((Fault(reason=BlenderReason.ABSENT, subject=repr(scene), member=str(frame)),)) for frame in gaps), *starmap(checked, bindings))).map(lambda _: None)
+    return accumulated((*(Error(Fault.of(BlenderReason.ABSENT, repr(scene), member=str(frame))) for frame in gaps), *starmap(checked, bindings))).map(lambda _: None)
 
 
 # --- [DISPATCH]
@@ -321,7 +322,7 @@ def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames:
     )
     return paired(
         accumulated(path.written(layer, output, Nothing, frames.start, "") for layer in layers for output in Output),
-        accumulated(Error((Fault(reason=BlenderReason.UNMET, subject=Unvaried(field=field).message),)) for field in varied),
+        accumulated(Error(Fault.of(BlenderReason.UNMET, Unvaried(field=field).message)) for field in varied),
     ).map(lambda _: None)
 
 

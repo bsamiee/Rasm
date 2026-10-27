@@ -1,11 +1,13 @@
 """Desired group interfaces, curve axes, stored item keys, and live interface writes."""
 
 from collections.abc import Iterator, Mapping
+from functools import partial
 from types import MemberDescriptorType
 from typing import Literal, Self
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Some, try_downcast
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 import msgspec.structs
@@ -13,7 +15,7 @@ import msgspec.structs
 from blender.bpy.data.rna.descriptors import assigned, differing, Value, written
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Faults, Outcome
+from blender.records.faults import accumulated, Fault, Outcome
 from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -293,8 +295,8 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
         return (
             Option
             .of_optional(Addressed.of(tree, slot).resolved.get(key))
-            .bind(lambda each: Some(each) if isinstance(each, kind) else Nothing)
-            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(face), member=key),))
+            .bind(lambda each: Option.of_optional(try_downcast(kind, each)))
+            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(face), member=key))
         )
 
     def withdrawn(held: bpy.types.NodeTreeInterfaceItem, key: Key) -> None:
@@ -303,8 +305,7 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
         face.remove(held)
         stored({name: identifier for name, identifier in Addressed.of(tree, slot).stored.items() if name != key})
 
-    def refused(error: TypeError) -> Faults:
-        return (Fault(reason=BlenderReason.REFUSED, subject=repr(face), cause=error),)
+    refused = partial(Fault.of, BlenderReason.REFUSED, repr(face))
 
     def made(key: Key, entry: DesiredItem) -> Outcome[None]:
         def toggled(panel: bpy.types.NodeTreeInterfacePanel, *, value: bool) -> Outcome[None]:
@@ -366,7 +367,13 @@ def _toggle(item: bpy.types.NodeTreeInterfaceItem) -> Option[bpy.types.NodeTreeI
     """Panel toggle socket, `Nothing` for items without one."""
     match item:
         case bpy.types.NodeTreeInterfacePanel():
-            return Option.of_optional(next((child for child in item.interface_items if isinstance(child, bpy.types.NodeTreeInterfaceSocket) and child.is_panel_toggle), None))
+            return (
+                Block
+                .of_seq(item.interface_items)
+                .choose(lambda child: Option.of_optional(try_downcast(bpy.types.NodeTreeInterfaceSocket, child)))
+                .filter(lambda child: child.is_panel_toggle)
+                .try_head()
+            )
         case _:
             return Nothing
 

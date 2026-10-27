@@ -104,9 +104,8 @@ def slope(plane: npt.NDArray[np.float64], raster: Raster) -> npt.NDArray[np.floa
 
 def tapped(plane: npt.NDArray[np.float64], raster: Raster, points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """Returns bilinear samples of a scalar `plane` over `raster` at global `(..., 2)` points, edges extended."""
-    left, _, _, top = raster.bounds
     step = raster.step
-    return map_coordinates(plane, np.stack(((top - points[..., 1]) / step[1] - 0.5, (points[..., 0] - left) / step[0] - 0.5)), order=1, mode="nearest", prefilter=False)
+    return map_coordinates(plane, np.stack(((raster.bounds.top - points[..., 1]) / step[1] - 0.5, (points[..., 0] - raster.bounds.left) / step[0] - 0.5)), order=1, mode="nearest", prefilter=False)
 
 
 def displaced(
@@ -120,9 +119,9 @@ def displaced(
     filterwidth: float = 2.0,
 ) -> Outcome[npt.NDArray[np.float32]]:
     """Returns `plane` over `raster` sampled at each pixel's global source position through `extension`, weighted by `coverage`."""
-    left, bottom, right, top = raster.bounds
+    bounds = raster.bounds
     height, width = raster.shape
-    mapped = np.stack(((positions[..., 0] - left) / (right - left), (positions[..., 1] - bottom) / (top - bottom), coverage), axis=-1)
+    mapped = np.stack(((positions[..., 0] - bounds.left) / (bounds.right - bounds.left), (positions[..., 1] - bounds.bottom) / (bounds.top - bounds.bottom), coverage), axis=-1)
     return StMap.of(mapped, extension, source_size=(width, height)).warp(plane, filtername=filtername, filterwidth=filterwidth)
 
 

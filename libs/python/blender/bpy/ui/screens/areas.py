@@ -7,6 +7,7 @@ from typing import Annotated, Literal, Self, TYPE_CHECKING
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
+from expression.collections import Block
 import msgspec
 
 from blender.bpy.commands.calls import called, Operation
@@ -42,15 +43,13 @@ class Located(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def found(cls, window: bpy.types.Window, pointer: int) -> Option[Self]:
         """Returns live area by session pointer, Nothing once removed."""
-        return Option.of_optional(next((area for area in (*window.screen.areas, *window.global_areas) if area.as_pointer() == pointer), None)).map(lambda area: cls(window=window, area=area))
+        return Block.of_seq((*window.screen.areas, *window.global_areas)).filter(lambda area: area.as_pointer() == pointer).try_head().map(lambda area: cls(window=window, area=area))
 
     def region(self, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> Outcome[bpy.types.Region]:
         """Returns first region of a type."""
-        return Option.of_optional(next((region for region in self.area.regions if region.type == kind), None)).to_result_with(
-            lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(self.area), member=kind),)
-        )
+        return Block.of_seq(self.area.regions).filter(lambda region: region.type == kind).try_head().to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(self.area), member=kind))
 
-    def override(self, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> Outcome["bpy.types.ContextTempOverride"]:
+    def override(self, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> Outcome[bpy.types.ContextTempOverride]:
         """Returns operator context of a region."""
         return self.region(kind).map(lambda region: bpy.context.temp_override(window=self.window, area=self.area, region=region))
 
@@ -85,9 +84,7 @@ class AreaQuery(msgspec.Struct, frozen=True, kw_only=True):
 
     def first(self, windows: Iterable[bpy.types.Window]) -> Outcome[Located]:
         """Returns largest matching area, or fault naming editor."""
-        return Option.of_optional(next(iter(self.located(windows)), None)).to_result_with(
-            lambda: (Fault(reason=BlenderReason.ABSENT, subject="WindowManager.windows", member=self.ui_type.default_value(self.space)),)
-        )
+        return Block.of_seq(self.located(windows)).try_head().to_result_with(partial(Fault.of, BlenderReason.ABSENT, "WindowManager.windows", member=self.ui_type.default_value(self.space)))
 
 
 class Split(msgspec.Struct, frozen=True, kw_only=True):
@@ -117,9 +114,7 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
     def advanced(self) -> Outcome[Option[Self]]:
         """Applies the next step on the live area, Nothing once every step and the maximization applied."""
         return Result[Located, Faults].bind(
-            Located.found(self.at.window, self.at.area.as_pointer()).to_result_with(
-                lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(self.at.window.screen), member=str(self.at.area.as_pointer())),)
-            ),
+            Located.found(self.at.window, self.at.area.as_pointer()).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(self.at.window.screen), member=str(self.at.area.as_pointer()))),
             self.stepped,
         )
 
@@ -149,8 +144,12 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
                     at
                     .run(bpy.ops.screen.area_split, {"direction": "HORIZONTAL" if side in {"TOP", "BOTTOM"} else "VERTICAL", "factor": 1.0 - share if side in {"TOP", "RIGHT"} else share})
                     .bind(
-                        lambda _: Option.of_optional(next((area for area in window.screen.areas if area.as_pointer() not in before), None)).to_result_with(
-                            lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(window.screen), member="screen.area_split"),)
+                        lambda _: (
+                            Block
+                            .of_seq(window.screen.areas)
+                            .filter(lambda area: area.as_pointer() not in before)
+                            .try_head()
+                            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(window.screen), member="screen.area_split"))
                         )
                     )
                     .bind(

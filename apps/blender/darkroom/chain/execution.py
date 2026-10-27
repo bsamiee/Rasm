@@ -35,7 +35,7 @@ from blender.bpy.render.outputs.exports import COMPOSITE
 from blender.bpy.render.outputs.formats import Kind, OutputFormat
 from blender.bpy.render.outputs.paths import Pathed
 from blender.bpy.render.outputs.results import intermediate, produced, Production, saved
-from blender.bpy.render.sessions.engines import Captured, Engine, Pass, Tile
+from blender.bpy.render.sessions.engines import Captured, Engine, EnginePass, Tile
 from blender.bpy.render.sessions.renders import bounds, engined, RenderCall, sourced
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.faults import ImagingReason
@@ -94,7 +94,7 @@ class Execution:
                         if isinstance(live, bpy.types.CompositorNodeGroup) and isinstance(child := live.node_tree, bpy.types.CompositorNodeTree)
                     ).map(lambda _: result)
                 case _:
-                    return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(tree), member="copy"),))
+                    return Error(Fault.of(BlenderReason.ABSENT, repr(tree), member="copy"))
 
         def swapped(entry: bpy.types.SceneCompositorEffect, original: bpy.types.CompositorNodeTree, pair: tuple[Snapshot, bpy.types.CompositorNodeTree]) -> Outcome[None]:
             inputs, group = pair
@@ -129,7 +129,7 @@ class Execution:
 
     def indexed(self, file: Multilayer, source: bpy.types.Scene, frame: int) -> Outcome[None]:
         """Stores file layers as replay tiles cropped to the border."""
-        groups: dict[tuple[str, str], list[tuple[Pass, npt.NDArray[np.float32]]]] = {}
+        groups: dict[tuple[str, str], list[tuple[EnginePass, npt.NDArray[np.float32]]]] = {}
         names = tuple(sorted((layer.name for layer in source.view_layers), key=len, reverse=True))
         width, height, left, bottom, right, top = bounds(source)
 
@@ -137,7 +137,7 @@ class Execution:
             if (owner := next((name for name in names if layer.name.startswith(f"{name}.")), None)) is None:
                 return Ok(None)
             view = file.parts[layer.part].header.get("view", "")
-            declaration = Pass(name=layer.name[len(owner) + 1 :], chanid="".join(channel.name for channel in layer.channels))
+            declaration = EnginePass(name=layer.name[len(owner) + 1 :], chanid="".join(channel.name for channel in layer.channels))
 
             def retained(values: npt.NDArray[np.float32]) -> None:
                 raw = values[height - top : height - bottom, left:right] if values.shape[:2] == (height, width) and source.render.use_border else values
@@ -185,12 +185,12 @@ class Execution:
                     .of(
                         bpy.types.CompositorNodeOutputFile,
                         {
-                            "format.color_mode": "RGBA",
-                            "format.color_depth": "32",
-                            "format.views_format": "MULTIVIEW",
-                            "format.use_exr_interleave": True,
-                            "format.color_management": "OVERRIDE",
-                            "format.linear_colorspace_settings.name": self.config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName(),
+                            ("format", "color_mode"): "RGBA",
+                            ("format", "color_depth"): "32",
+                            ("format", "views_format"): "MULTIVIEW",
+                            ("format", "use_exr_interleave"): True,
+                            ("format", "color_management"): "OVERRIDE",
+                            ("format", "linear_colorspace_settings", "name"): self.config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName(),
                         },
                     )
                     .apply(capture)
@@ -236,7 +236,7 @@ class Execution:
             def view(layer: Layer) -> Outcome[tuple[str, Prepared]]:
                 def loaded_view(plane: npt.NDArray[np.float32]) -> Outcome[tuple[str, Prepared]]:
                     buffer = OpenImageIO.ImageBuf(OpenImageIO.ImageSpec(spec))
-                    stored: Outcome[None] = Ok(None) if buffer.set_pixels(buffer.roi, plane) else Error((Fault(reason=ImagingReason.BUFFER, subject=buffer.name, cause=buffer.geterror()),))
+                    stored: Outcome[None] = Ok(None) if buffer.set_pixels(buffer.roi, plane) else Error(Fault.of(ImagingReason.BUFFER, buffer.name, buffer.geterror()))
                     return stored.bind(lambda _: prepared(record.record, values, self.config, buffer, self.precision, frame, evaluated)).map(lambda value: (layer.name, value))
 
                 return Result[npt.NDArray[np.float32], Faults].bind(file.plane(layer, layer.channels), loaded_view)
@@ -361,9 +361,7 @@ class Execution:
     def removed(self) -> None:
         """Deletes capture files, holding OS errors in reports."""
         for path in self.files:
-            for faults in (
-                catch(path.unlink, exception=OSError)(missing_ok=True).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),)).swap().to_option().to_list()
-            ):
+            for faults in catch(path.unlink, exception=OSError)(missing_ok=True).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path))).swap().to_option().to_list():
                 self.identity.reports.hold(faults)
 
     def frame(self, frame: int, subframe: float, engine: str, original: tuple[Authored, ...], staged: tuple[Owned[Effect], ...]) -> Outcome[None]:
@@ -381,7 +379,7 @@ class Execution:
                     self
                     .isolated(capture)
                     .bind(lambda _: capture.enter_context(capturing(self.identity, self.scene, held.entry, self.output(name, spec, demand=demand), stop=True)))
-                    .bind(lambda entry: Option.of_optional(entry.node_group).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(entry), member="node_group"),)))
+                    .bind(lambda entry: Option.of_optional(entry.node_group).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(entry), member="node_group")))
                     .bind(self.formatted)
                     .bind(lambda _: called(bpy.ops.render.render, {"scene": self.scene.name, "write_still": False}))
                 )

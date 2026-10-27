@@ -51,7 +51,7 @@ class Condition(msgspec.Struct, frozen=True, kw_only=True):
         """Disjunction of this and other requirement."""
         return AnyOf(conditions=(self, other))
 
-    def __invert__(self) -> "Not":
+    def __invert__(self) -> "Condition":
         """Negation of this requirement."""
         return Not(condition=self)
 
@@ -130,7 +130,7 @@ class Count(Condition, frozen=True, kw_only=True):
         return (
             self.collection
             .owner_of(context, item)
-            .map(lambda owner: sum(1 for each in getattr(owner, self.collection.prop.identifier) if all(test.holds(context, Some(each)) for test in self.where.to_list())))
+            .map(lambda owner: sum(self.where.map(lambda where: where.holds(context, Some(each))).default_value(True) for each in getattr(owner, self.collection.prop.identifier)))
             .filter(lambda size: self.least <= size and all(size <= bound for bound in self.most.to_list()))
             .is_some()
         )
@@ -156,6 +156,10 @@ class Job(Condition, frozen=True, kw_only=True):
     @override
     def message(self) -> str:
         return f"Requires {'' if self.running else 'no '}running {self.kind} job"
+
+    @override
+    def __invert__(self) -> "Job":
+        return msgspec.structs.replace(self, running=not self.running)
 
 
 class Extension(Condition, frozen=True, kw_only=True):

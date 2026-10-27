@@ -3,6 +3,7 @@
 from collections.abc import Callable, Iterable
 from contextlib import AbstractContextManager
 from itertools import product
+from typing import Final
 
 import bpy
 from expression import Nothing, Ok, Option, Some, try_downcast
@@ -24,6 +25,10 @@ from blender.bpy.ui.resources.theme import Color, color, Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.imaging.geometry.frames import Quad
 from blender.records.faults import accumulated, Outcome
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_PUSH_POP: Final[Callable[[], AbstractContextManager[None]]] = gpu.matrix.push_pop  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -74,10 +79,9 @@ class Edges(msgspec.Struct, frozen=True, kw_only=True):
     def drawn(self, canvas: Canvas, state: gpu.types.GPUBatch, /) -> None:
         """Draws the strip through the frame in the role's theme color."""
         lines = canvas.lines(1.0)
-        scoped: Callable[[], AbstractContextManager[None]] = gpu.matrix.push_pop  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         lines.uniform_float("color", color(self.role(canvas.metrics.preferences.themes[0].user_interface)))
         for frame in canvas.region.map(framed).to_list():
-            with scoped():
+            with _PUSH_POP():
                 gpu.matrix.multiply_matrix(mathutils.Matrix.LocRotScale((frame.x, frame.y, 0.0), None, (frame.width, frame.height, 1.0)))
                 state.draw(lines)
 

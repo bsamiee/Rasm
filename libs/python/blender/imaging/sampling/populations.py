@@ -1,6 +1,7 @@
 """Soft disc populations over integer cells, their pixel coverage integrals, and splatting with occlusion into rasters."""
 
 from collections.abc import Callable
+from functools import partial
 import math
 import sys
 from typing import Annotated
@@ -10,7 +11,7 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.imaging.sampling.integration import Estimate, Precision, Raster, smoothstep
+from blender.imaging.sampling.integration import Bounds, Estimate, Precision, Raster, smoothstep
 from blender.records.faults import Fault, Outcome, RecordReason
 from blender.records.fields import NonNegative, Positive, Unit
 
@@ -41,12 +42,11 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
     spread: NonNegative = 1.0
     softness: Unit = 0.5
 
-    def covering(self, bounds: tuple[float, float, float, float]) -> npt.NDArray[np.int64]:
+    def covering(self, bounds: Bounds) -> npt.NDArray[np.int64]:
         """Returns cells with discs able to intersect global bounds, rows bottom first."""
-        left, bottom, right, top = bounds
         radius = self.size / 2.0
-        columns = np.arange(math.floor(left / self.spacing - radius) - 1, math.floor(right / self.spacing + radius) + 1)
-        rows = np.arange(math.floor(bottom / self.spacing - radius) - 1, math.floor(top / self.spacing + radius) + 1)
+        columns = np.arange(math.floor(bounds.left / self.spacing - radius) - 1, math.floor(bounds.right / self.spacing + radius) + 1)
+        rows = np.arange(math.floor(bounds.bottom / self.spacing - radius) - 1, math.floor(bounds.top / self.spacing + radius) + 1)
         return np.stack(np.meshgrid(columns, rows), axis=-1).reshape(-1, 2)
 
     def occupied(self, cells: npt.NDArray[np.int64], draws: _Draws, stream: int) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.float64]]:
@@ -61,7 +61,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
         """Returns centers, radii, and peak gains of occupied cells from their uniforms at lattice spacing and depth scale."""
         return (cells[:, :2] + 0.25 + 0.5 * values[:, 4:6]) * spacing, self.spacing * scale * self.size * (1.0 - self.variation * values[:, 1]) / 2.0, np.exp2(-self.spread * values[:, 2])
 
-    def marks(self, bounds: tuple[float, float, float, float], draws: _Draws, stream: int = 0) -> tuple[Mark, ...]:
+    def marks(self, bounds: Bounds, draws: _Draws, stream: int = 0) -> tuple[Mark, ...]:
         """Returns occupied members of cells covering global bounds, in cell order."""
         cells, values = self.occupied(self.covering(bounds), draws, stream)
         centers, radii, gains = self.placed(cells, values, self.spacing)
@@ -86,11 +86,10 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
             area = float(np.prod(raster.step))
 
             def deposited(points: npt.NDArray[np.float64], masses: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-                left, bottom, _, _ = raster.bounds
                 height, width = raster.shape
                 step = raster.step
-                columns = np.floor((points[:, 0] - left) / step[0]).astype(np.intp)
-                rows = height - 1 - np.floor((points[:, 1] - bottom) / step[1]).astype(np.intp)
+                columns = np.floor((points[:, 0] - raster.bounds.left) / step[0]).astype(np.intp)
+                rows = height - 1 - np.floor((points[:, 1] - raster.bounds.bottom) / step[1]).astype(np.intp)
                 inside = (columns >= 0) & (columns < width) & (rows >= 0) & (rows < height)
                 sums = np.zeros((height * width, masses.shape[-1]), dtype=np.float64)
                 np.add.at(sums, (rows * width + columns)[inside], masses[inside])
@@ -107,7 +106,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
 
             return Estimate.of(np.stack([replicated(replicate) for replicate in range(precision.replicates)]), precision)
 
-        return computed().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(self), cause=error),))
+        return computed().map_error(partial(Fault.of, RecordReason.NUMERIC, repr(self)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 from collections.abc import Generator
 from contextlib import contextmanager, nullcontext
-from functools import cached_property
+from functools import cached_property, partial
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -21,7 +21,7 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Call, Done, Operator, Save
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.conditions import Count, Job
-from blender.bpy.data.rna.descriptors import Descriptor, rna
+from blender.bpy.data.rna.descriptors import choices, Descriptor, rna
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions
@@ -43,22 +43,24 @@ FORMATS: Final = MappingProxyType({row.name: row for row in (*LutFormat.writable
 class Baking(bpy.types.PropertyGroup):
     """Native bake format and its sampled lattice."""
 
-    format: bpy.props.EnumProperty(name="Format", items=tuple((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.bakeable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.bakeable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     size: bpy.props.IntProperty(name="Size", description="Nodes along each axis", min=2, max=129, default=33)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=tuple((name, name, "") for name in SPACINGS))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=choices((name, name, "") for name in SPACINGS))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Writing(bpy.types.PropertyGroup):
     """Exact transform output in a native matrix-capable format."""
 
-    format: bpy.props.EnumProperty(name="Format", items=tuple((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.matrices()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.matrices()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Strip LUT outputs baked from the active strip's modifiers in its sequencer space."""
 
     lattices: ClassVar[Ownership[bpy.types.Scene]] = Ownership(kind=bpy.types.Scene, key="lattice", saved=Saved.NEVER, single=False)
-    modifiers: ClassVar[Descriptor[bpy.types.CollectionProperty]] = Descriptor.declared(bpy.types.WorkSpace, "sequencer_scene.sequence_editor.active_strip.modifiers", bpy.types.CollectionProperty)
+    modifiers: ClassVar[Descriptor[bpy.types.CollectionProperty]] = Descriptor.declared(
+        bpy.types.WorkSpace, ("sequencer_scene", "sequence_editor", "active_strip", "modifiers"), bpy.types.CollectionProperty
+    )
 
     # --- [COMMANDS]
 
@@ -72,9 +74,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @contextmanager
     def staged(self, identity: Identity) -> Generator[Outcome[bpy.types.Scene]]:
         """Owns a marked runtime scene, removed on exit."""
-        made = self.lattices.made(
-            identity, lambda: catch(bpy.data.scenes.new, exception=RuntimeError)("LUT Lattice").map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject="LUT Lattice", cause=error),))
-        )
+        made = self.lattices.made(identity, lambda: catch(bpy.data.scenes.new, exception=RuntimeError)("LUT Lattice").map_error(partial(Fault.of, BlenderReason.REFUSED, "LUT Lattice")))
         try:
             yield made
         finally:
@@ -100,7 +100,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         Snapshot.capture(modifier).bind(lambda snapshot: snapshot.apply(strip.modifiers.new(name=modifier.name, type=modifier.type)).outcome) for modifier in active.modifiers
                     ).map(lambda _: None)
                 case strip, _:
-                    return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(strip), member="colorspace_settings"),))
+                    return Error(Fault.of(BlenderReason.ABSENT, repr(strip), member="colorspace_settings"))
 
         def rendered(scene: bpy.types.Scene, config: PyOpenColorIO.Config, folder: Path) -> Outcome[ImageFile[np.float32]]:
             samples: Outcome[npt.NDArray[np.float32]] = lattice.samples()
@@ -174,7 +174,7 @@ def current(identity: Identity, path: str, config: PyOpenColorIO.Config) -> Outc
             stamps[str(resolved)] = stamp
         return str(resolved)
 
-    return catch(resolved.stat, exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(resolved), cause=error),)).map(held)
+    return catch(resolved.stat, exception=OSError)().map_error(partial(Fault.of, RecordReason.UNREADABLE, str(resolved))).map(held)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -10,7 +10,7 @@ import msgspec
 
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
 from blender.bpy.data.ids.ownership import Ownership, Saved
-from blender.bpy.data.rna.descriptors import Descriptor, root_in
+from blender.bpy.data.rna.descriptors import Descriptor, mirrored, root_in
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.scene.collections import entry, founded, joined, Member, parted
@@ -35,12 +35,7 @@ RECEIVERS: Final = Descriptor.declared(bpy.types.ObjectLightLinking, "receiver_c
 class Linking(bpy.types.PropertyGroup):
     """Link state of each joining member."""
 
-    state: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=LINK_STATE.prop.name,
-        description="Include or exclude each member",
-        items=tuple((item.identifier, item.name, item.description) for item in LINK_STATE.prop.enum_items),
-        default=LINK_STATE.prop.default,
-    )
+    state: bpy.props.EnumProperty(**mirrored(LINK_STATE.prop))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
@@ -57,7 +52,7 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
         reach = Some(lambda context: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)).map(lambda item: item.light_linking))
         return accumulated(
             paired(
-                LightLinking(target=rows.Member(root=bpy.types.ObjectLightLinking, path=descriptor.prop.identifier, reach=reach)).drawn(identity),
+                LightLinking(target=rows.Member(root=bpy.types.ObjectLightLinking, path=(descriptor.prop.identifier,), reach=reach)).drawn(identity),
                 rows.placed((rows.OperatorButton(target=link), rows.OperatorButton(target=unlink)), identity),
             ).map(lambda pair: rows.joined((pair[0], *pair[1])))
             for descriptor in self.sets

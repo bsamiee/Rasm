@@ -6,7 +6,7 @@ import inspect
 from typing import Final
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -157,7 +157,7 @@ class Gate(msgspec.Struct, frozen=True, kw_only=True):
         radius = min(self.radius, shorter)
         excess = np.abs(points - center) - (remaining - radius)
         distance = np.linalg.norm(np.maximum(excess, 0.0), axis=1) + np.minimum(np.max(excess, axis=1), 0.0) - radius
-        rough = distance + self.roughness * (2.0 * self.edge.evaluated(np.column_stack((points, np.full(len(points), stream(Gate, seed)))))["Fac"] - 1.0)
+        rough: npt.NDArray[np.float64] = distance + self.roughness * (2.0 * self.edge.evaluated(np.column_stack((points, np.full(len(points), stream(Gate, seed)))))["Fac"] - 1.0)
         coverage = np.clip(0.5 - rough / self.feather, 0.0, 1.0) if self.feather > 0.0 else (rough < 0.0).astype(np.float64)
         return coverage[:, None]
 
@@ -192,9 +192,7 @@ def _(
         enabled = values.get(prefix) is not False
         held = {**{field.name: values.get(item_key(prefix, field.name)) for field in msgspec.structs.fields(kind) if field.name not in given}, **given}
         return (
-            catch(msgspec.convert, exception=msgspec.ValidationError)(held, kind).map(Some).map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=kind.__name__, cause=error),))
-            if enabled
-            else Ok(Nothing)
+            catch(msgspec.convert, exception=msgspec.ValidationError)(held, kind).map(Some).map_error(functools.partial(Fault.of, RecordReason.UNREADABLE, kind.__name__)) if enabled else Ok(Nothing)
         )
 
     def composed(
@@ -202,7 +200,7 @@ def _(
     ) -> Outcome[Option[OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf] | Mapping[Key, Value]]]:
         height, width = raster.shape
         empty = np.zeros((precision.replicates, height, width, 2), dtype=np.float64)
-        left, step = raster.bounds[0], raster.step[0]
+        left, step = raster.bounds.left, raster.step[0]
         spots = speckles.map(
             lambda held: held.population.integrated(raster, uniforms, precision=precision, stream=stream(Speckles, int(np.floor(clock)), seed), paint=lambda tone: float(tone < held.white)).map(
                 lambda estimate: estimate.replicates
@@ -249,8 +247,8 @@ def _(
 
         return accumulated((spots, Ok(lines.default_value(empty)), strands, aperture)).map(lambda found: np.concatenate(found, axis=-1)).bind(marked)
 
-    seed: Outcome[int] = Ok(held) if isinstance(held := values.get("seed"), int) else Error((Fault(reason=RecordReason.UNREADABLE, subject="seed", cause=repr(held)),))
-    clock = part(Clock, "clock").bind(lambda found: found.to_result_with(lambda: (Fault(reason=RecordReason.UNREADABLE, subject=Clock.__name__),)))
+    seed = Option.of_optional(try_downcast(int, values.get("seed"))).to_result_with(functools.partial(Fault.of, RecordReason.UNREADABLE, "seed", repr(values.get("seed"))))
+    clock = part(Clock, "clock").bind(lambda found: found.to_result_with(functools.partial(Fault.of, RecordReason.UNREADABLE, Clock.__name__)))
     speckles = part(Population, "speckles_population").bind(lambda population: population.map(lambda found: part(Speckles, "speckles", population=found)).default_value(Ok(Nothing)))
     gate = part(Noise, "gate_edge", noise_dimensions="3D", noise_type="RIDGED_MULTIFRACTAL", normalize=True).bind(
         lambda edge: edge.map(lambda found: part(Gate, "gate", edge=found)).default_value(Ok(Nothing))

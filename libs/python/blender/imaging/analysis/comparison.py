@@ -23,7 +23,7 @@ from blender.records.fields import Frozen
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Verdict(IntEnum):
+class Severity(IntEnum):
     """Comparison grade in severity order."""
 
     PASS = 0
@@ -32,7 +32,7 @@ class Verdict(IntEnum):
     REFUSE = auto()
 
 
-class Axis(IntEnum):
+class Metric(IntEnum):
     """Measured axis."""
 
     MEAN_ERROR = 1
@@ -46,14 +46,14 @@ class Axis(IntEnum):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-_HOLDS: Final[Mapping[Axis, Callable[[float, float], bool]]] = MappingProxyType({
-    Axis.MEAN_ERROR: operator.le,
-    Axis.RMS_ERROR: operator.le,
-    Axis.MAX_ERROR: operator.le,
-    Axis.PSNR: operator.ge,
-    Axis.NRMSE: operator.le,
-    Axis.FLIP: operator.le,
-    Axis.SSIM: operator.ge,
+_HOLDS: Final[Mapping[Metric, Callable[[float, float], bool]]] = MappingProxyType({
+    Metric.MEAN_ERROR: operator.le,
+    Metric.RMS_ERROR: operator.le,
+    Metric.MAX_ERROR: operator.le,
+    Metric.PSNR: operator.ge,
+    Metric.NRMSE: operator.le,
+    Metric.FLIP: operator.le,
+    Metric.SSIM: operator.ge,
 })
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -62,26 +62,26 @@ _HOLDS: Final[Mapping[Axis, Callable[[float, float], bool]]] = MappingProxyType(
 class Bar(msgspec.Struct, frozen=True, kw_only=True):
     """Advisory and refusal thresholds of an axis."""
 
-    axis: Axis
+    metric: Metric
     advisory: Annotated[float, msgspec.Meta(ge=0.0)]
     refuse: Annotated[float, msgspec.Meta(ge=0.0)]
 
-    def graded(self, measures: Mapping[Axis, float]) -> Verdict:
+    def graded(self, measures: Mapping[Metric, float]) -> Severity:
         """Grades axis measure, unmeasured when absent."""
-        holds = _HOLDS[self.axis]
+        holds = _HOLDS[self.metric]
         return (
             Option
-            .of_optional(measures.get(self.axis))
-            .map(lambda value: Verdict.REFUSE if not holds(value, self.refuse) else Verdict.ADVISORY if not holds(value, self.advisory) else Verdict.PASS)
-            .default_value(Verdict.UNMEASURED)
+            .of_optional(measures.get(self.metric))
+            .map(lambda value: Severity.REFUSE if not holds(value, self.refuse) else Severity.ADVISORY if not holds(value, self.advisory) else Severity.PASS)
+            .default_value(Severity.UNMEASURED)
         )
 
 
 class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
-    """Axis measures, difference planes, and SSIM map."""
+    """Metric measures, difference planes, and SSIM map."""
 
     structural_window: ClassVar[int] = 7
-    measures: Mapping[Axis, float]
+    measures: Mapping[Metric, float]
     difference: npt.NDArray[np.float32]
     perceptual: npt.NDArray[np.float32]
     structural: Option[npt.NDArray[np.float64]]
@@ -90,7 +90,7 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
     def of(cls, reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: Domain, *, data_range: float) -> Outcome[Self]:
         """Compares equal-shape planes, `data_range` as SSIM input range."""
         if reference.shape != test.shape:
-            return Error((Fault(reason=ImagingReason.MISMATCH, subject=cls.__name__, member=str(reference.shape), cause=str(test.shape)),))
+            return Error(Fault.of(ImagingReason.MISMATCH, cls.__name__, str(test.shape), member=str(reference.shape)))
         first, second = OpenImageIO.ImageBuf(reference[..., :3]), OpenImageIO.ImageBuf(test[..., :3])
 
         def measured(parts: tuple[OpenImageIO.CompareResults, npt.NDArray[np.float32], npt.NDArray[np.float32]]) -> Outcome[Self]:
@@ -101,29 +101,29 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
             window = side - 1 + side % 2
             structural = Some(structural_similarity(reference_color, test_color, data_range=data_range, channel_axis=-1, win_size=window, full=True)) if window >= 3 else Nothing
             measures = {
-                Axis.MEAN_ERROR: signal.meanerror,
-                Axis.RMS_ERROR: signal.rms_error,
-                Axis.MAX_ERROR: signal.maxerror,
-                Axis.PSNR: signal.PSNR,
-                **({Axis.NRMSE: signal.rms_error / scale} if scale > 0.0 else {}),
-                Axis.FLIP: float(flip.mean(dtype=np.float64)),
-                **dict(structural.map(lambda answer: (Axis.SSIM, float(answer[0]))).to_list()),
+                Metric.MEAN_ERROR: signal.meanerror,
+                Metric.RMS_ERROR: signal.rms_error,
+                Metric.MAX_ERROR: signal.maxerror,
+                Metric.PSNR: signal.PSNR,
+                **({Metric.NRMSE: signal.rms_error / scale} if scale > 0.0 else {}),
+                Metric.FLIP: float(flip.mean(dtype=np.float64)),
+                **dict(structural.map(lambda answer: (Metric.SSIM, float(answer[0]))).to_list()),
             }
             return Ok(cls(measures=MappingProxyType(measures), difference=difference, perceptual=flip, structural=structural.map(lambda answer: answer[1])))
 
         return paired(
             Ok(OpenImageIO.ImageBufAlgo.compare(first, second, math.inf, math.inf)).filter_with(
-                lambda result: not result.error, lambda _: (Fault(reason=ImagingReason.COMPARISON, subject=str(reference.shape), cause=OpenImageIO.geterror()),)
+                lambda result: not result.error, lambda _: Fault.of(ImagingReason.COMPARISON, str(reference.shape), OpenImageIO.geterror())
             ),
             checked(OpenImageIO.ImageBufAlgo.absdiff(first, second)).bind(pixels),
             checked(OpenImageIO.ImageBufAlgo.FLIP_diff(first, second, hdr=int(domain is Domain.SCENE_LINEAR))).bind(pixels),
         ).bind(measured)
 
-    def verdict(self, bars: Iterable[Bar]) -> Verdict:
+    def severity(self, bars: Iterable[Bar]) -> Severity:
         """Returns worst grade across thresholds."""
-        return max((bar.graded(self.measures) for bar in bars), default=Verdict.PASS)
+        return max((bar.graded(self.measures) for bar in bars), default=Severity.PASS)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Axis", "Bar", "Comparison", "Verdict"]
+__all__ = ["Bar", "Comparison", "Metric", "Severity"]

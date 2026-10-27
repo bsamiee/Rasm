@@ -1,5 +1,7 @@
 """Form groups saved as owned text blocks and held by window manager."""
 
+from functools import partial
+
 import bpy
 from expression import Nothing, Ok, Option
 from expression.extra.result import catch
@@ -42,7 +44,7 @@ class TextRecord[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
 
         def decoded(text: bpy.types.Text) -> Outcome[Snapshot]:
             return catch(lambda: msgspec.json.decode(text.as_string(), type=Snapshot), exception=msgspec.DecodeError)().map_error(
-                lambda error: (Fault(reason=RecordReason.OUTSIDE, subject=repr(text), member=str(error), cause=text.name),)
+                lambda error: Fault.of(RecordReason.OUTSIDE, repr(text), text.name, member=str(error))
             )
 
         return self.ownership.found(identity).map(lambda text: decoded(text).bind(lambda snapshot: snapshot.apply(attached.struct(manager)).outcome)).default_value(Ok(None))
@@ -67,9 +69,9 @@ class TextRecord[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
             attached, manager = pair
 
             def stored(snapshot: Snapshot) -> Outcome[None]:
-                return ownership.made(
-                    identity, lambda: catch(bpy.data.texts.new, exception=RuntimeError)(title).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=title, cause=error),))
-                ).map(lambda text: text.from_string(msgspec.json.encode(snapshot, order="deterministic").decode()))
+                return ownership.made(identity, lambda: catch(bpy.data.texts.new, exception=RuntimeError)(title).map_error(partial(Fault.of, BlenderReason.REFUSED, title))).map(
+                    lambda text: text.from_string(msgspec.json.encode(snapshot, order="deterministic").decode())
+                )
 
             return Snapshot.capture(attached.struct(manager)).bind(stored)
 

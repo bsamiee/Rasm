@@ -279,7 +279,7 @@ class Each[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, frozen=
                 case None:
                     return Error(Fault.of(BlenderReason.ABSENT, rna(bound.descriptor.path), member="fixed_type"))
                 case item:
-                    opened = Member(root=type(item), path=self.open).resolved(bpy.types.BoolProperty)
+                    opened = Member(root=type(item), path=(self.open,)).resolved(bpy.types.BoolProperty)
                     stored = self.store.map(
                         lambda store: (
                             store.bound(identity) if isinstance(item, store.attachment.owner) else Error(refused(bound.descriptor.path, type(item).__name__, (store.attachment.owner.__name__,)))
@@ -369,7 +369,7 @@ def fields(struct: type[Struct], identity: Identity, replacements: Mapping[str, 
             case bpy.types.CollectionProperty(fixed_type=bpy.types.PropertyGroup() as item):
                 return fields(type(item), identity, replacements).bind(stacked).map(lambda nest: ((), (partial(paneled, prop, nest, items=True),)))  # type: ignore[unreachable]
             case _:
-                member = Member(root=struct, path=prop.identifier)
+                member = Member(root=struct, path=(prop.identifier,))
                 return Ok(((replacements[prop.identifier](member) if prop.identifier in replacements else Property(target=member),), ()))
 
     def joined(parts: tuple[tuple[tuple[RowContent, ...], tuple[Nest, ...]], ...]) -> tuple[tuple[RowContent, ...], Nest]:

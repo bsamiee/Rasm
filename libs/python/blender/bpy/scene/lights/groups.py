@@ -9,11 +9,12 @@ from typing import Annotated, ClassVar, Final
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
+from expression.collections import Block
 from mathutils import Matrix
 import msgspec
 
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
-from blender.bpy.data.ids.ownership import committed, Ownership, released, Saved
+from blender.bpy.data.ids.ownership import Ownership, released, retained, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, root_in, Value, written
@@ -109,7 +110,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
     """Light group operators and section."""
 
     children: ClassVar[Mapping[Lobe, Ownership[bpy.types.Object]]] = MappingProxyType({lobe: Ownership(kind=bpy.types.Object, key=lobe.name.lower(), saved=Saved.USED) for lobe in Lobe})
-    cycles: ClassVar[Option[Setting]] = Some(Setting(descriptor=Descriptor.declared(bpy.types.Context, "scene.render.engine", bpy.types.EnumProperty), accepted=("CYCLES",)))
+    cycles: ClassVar[Option[Setting]] = Some(Setting(descriptor=Descriptor.declared(bpy.types.Context, ("scene", "render", "engine"), bpy.types.EnumProperty), accepted=("CYCLES",)))
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns lobe child ownerships and section."""
@@ -123,7 +124,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
             key="light_groups",
             title="Light Groups",
             rows=(
-                SearchField(target=Member(root=bpy.types.Object, path="lightgroup", reach=active), collection=Member(root=bpy.types.ViewLayer, path="lightgroups")),
+                SearchField(target=Member(root=bpy.types.Object, path=("lightgroup",), reach=active), collection=Member(root=bpy.types.ViewLayer, path=("lightgroups",))),
                 *(OperatorButton(target=command) for command in (light_groups_assign_command, light_group_select_command, light_split_command, light_split_toggle_command, light_unsplit_command)),
             ),
         )
@@ -231,10 +232,10 @@ def split(master: bpy.types.Object, light: bpy.types.Light, lobes: frozenset[Lob
     hidden = Snapshot.of(bpy.types.Object, {"hide_render": True})
 
     with ExitStack() as rollback:
-        return committed(
+        return retained(
             Result[bpy.types.Collection, Faults]
             .bind(
-                Option.of_optional(next(iter(holders), None)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(master), member="users_collection"),)),
+                Block.of_seq(holders).try_head().to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(master), member="users_collection")),
                 lambda home: Snapshot.capture(master.light_linking).bind(lambda links: released(stale).bind(lambda _: accumulated(child(lobe, links, home) for lobe in Lobe if lobe in lobes))),
             )
             .bind(lambda children: reconciled(ObjectState(values=Some(hidden)), master, ()).map(lambda _: children)),

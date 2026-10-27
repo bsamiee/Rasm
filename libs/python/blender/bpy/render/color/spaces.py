@@ -11,7 +11,7 @@ import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Empty, Operator
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, Value, written
+from blender.bpy.data.rna.descriptors import assigned, Descriptor, RnaPath, Value, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.imaging.color.authoring import ConfigBuild, ConfigFile
@@ -21,7 +21,7 @@ from blender.records.faults import accumulated, Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-CONFIGURED: Final = Setting(descriptor=Descriptor.declared(bpy.types.BlendData, "colorspace.is_missing_opencolorio_config", bpy.types.BoolProperty), accepted=(False,))
+CONFIGURED: Final = Setting(descriptor=Descriptor.declared(bpy.types.BlendData, ("colorspace", "is_missing_opencolorio_config"), bpy.types.BoolProperty), accepted=(False,))
 NO_LOOK: Final = "None"
 TINT_PER_DUV: Final = 3000.0
 
@@ -115,12 +115,12 @@ def viewed(holder: bpy.types.Scene | bpy.types.CompositorNodeConvertToDisplay) -
 
 def displayed(scene: bpy.types.Scene, view: DisplayView) -> Outcome[None]:
     """Writes a view to the scene in host order, the display before the view settings it governs, outputs overriding color management keeping their own."""
-    settings: dict[str, Value] = {
-        "display_settings.display_device": view.display,
-        "view_settings.view_transform": view.view,
-        "view_settings.look": view.looks_override if view.looks_override_enabled else NO_LOOK,
-        "view_settings.exposure": view.exposure,
-        "view_settings.gamma": view.gamma,
+    settings: dict[RnaPath, Value] = {
+        ("display_settings", "display_device"): view.display,
+        ("view_settings", "view_transform"): view.view,
+        ("view_settings", "look"): view.looks_override if view.looks_override_enabled else NO_LOOK,
+        ("view_settings", "exposure"): view.exposure,
+        ("view_settings", "gamma"): view.gamma,
     }
     return assigned(scene, settings).map(lambda _: None)
 
@@ -128,7 +128,7 @@ def displayed(scene: bpy.types.Scene, view: DisplayView) -> Outcome[None]:
 def followed(scene: bpy.types.Scene, nodes: Iterable[bpy.types.CompositorNodeConvertToDisplay]) -> Outcome[tuple[tuple[bpy.types.CompositorNodeConvertToDisplay, DisplayView], ...]]:
     """Writes the scene display device to each display node showing another, answering each written node with the view Blender matched to the device."""
     display = viewed(scene).display
-    return accumulated(written(node, "display_settings.display_device", display).map(lambda _: (node, viewed(node))) for node in nodes if viewed(node).display != display)
+    return accumulated(written(node, ("display_settings", "display_device"), display).map(lambda _: (node, viewed(node))) for node in nodes if viewed(node).display != display)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

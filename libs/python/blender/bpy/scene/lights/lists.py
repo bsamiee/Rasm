@@ -9,7 +9,7 @@ from expression import Ok, Option, Some, try_downcast
 import msgspec
 
 from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Unchanged
-from blender.bpy.data.rna.descriptors import assigned, root_in
+from blender.bpy.data.rna.descriptors import assigned, mirrored, root_in
 from blender.bpy.data.rna.snapshots import Applied, Scenes, Scope, scoped, SCOPES, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
@@ -40,16 +40,7 @@ class Bulk(bpy.types.PropertyGroup):
     collection: bpy.props.StringProperty(name="Collection", description="Collection whose objects a collection scope changes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     factor: bpy.props.FloatProperty(name="Factor", description="Power and emission strength multiplier", min=0.0, soft_min=0.1, soft_max=10.0, precision=3, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_temperature: bpy.props.BoolProperty(name="Write Temperature", description="Write a blackbody color to every light")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    temperature: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=TEMPERATURE.prop.name,
-        description="Blackbody color of every light",
-        subtype="COLOR_TEMPERATURE",
-        min=TEMPERATURE.prop.hard_min,
-        max=TEMPERATURE.prop.hard_max,
-        soft_min=TEMPERATURE.prop.soft_min,
-        soft_max=TEMPERATURE.prop.soft_max,
-        default=TEMPERATURE.prop.default,
-    )
+    temperature: bpy.props.FloatProperty(**mirrored(TEMPERATURE.prop))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Emissives(bpy.types.PropertyGroup):
@@ -82,20 +73,20 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
                 ItemList[bpy.types.PropertyGroup, bpy.types.Object](
                     key="emitters",
                     item=bpy.types.Object,
-                    collection=Member(root=bpy.types.Scene, path="objects"),
-                    active=Member(root=bpy.types.LayerObjects, path="active"),
+                    collection=Member(root=bpy.types.Scene, path=("objects",)),
+                    active=Member(root=bpy.types.LayerObjects, path=("active",)),
                     columns=(
-                        Property(target=Member(root=bpy.types.Object, path="hide_viewport"), text="", icon_only=True),
-                        Property(target=Member(root=bpy.types.Object, path="hide_render"), text="", icon_only=True),
-                        SearchField(target=Member(root=bpy.types.Object, path="lightgroup"), collection=Member(root=bpy.types.ViewLayer, path="lightgroups"), text=""),
+                        Property(target=Member(root=bpy.types.Object, path=("hide_viewport",)), text="", icon_only=True),
+                        Property(target=Member(root=bpy.types.Object, path=("hide_render",)), text="", icon_only=True),
+                        SearchField(target=Member(root=bpy.types.Object, path=("lightgroup",)), collection=Member(root=bpy.types.ViewLayer, path=("lightgroups",)), text=""),
                     ),
                     where=Some(lambda _context, item: emitting(item)),
                     order=Some("type"),
                     side=(OperatorButton(target=light_solo_command), OperatorButton(target=light_unsolo_command)),
                 ),
-                *(Property(target=Member(root=bpy.types.Light, path=member, reach=Some(partial(light, bpy.types.Light)))) for member in ("energy", "use_temperature", "temperature")),
+                *(Property(target=Member(root=bpy.types.Light, path=(member,), reach=Some(partial(light, bpy.types.Light)))) for member in ("energy", "use_temperature", "temperature")),
                 *(
-                    Property(target=Member(root=kind, path=member, reach=Some(partial(light, kind))))
+                    Property(target=Member(root=kind, path=(member,), reach=Some(partial(light, kind))))
                     for kind, member in ((bpy.types.PointLight, "shadow_soft_size"), (bpy.types.SpotLight, "shadow_soft_size"), (bpy.types.AreaLight, "size"), (bpy.types.SunLight, "angle"))
                 ),
                 OperatorButton(target=light_bulk_command),

@@ -14,7 +14,7 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.records.faults import Fault, Outcome
-from blender.records.fields import Side
+from blender.records.fields import Count
 from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -243,7 +243,7 @@ class Study(msgspec.Struct, frozen=True, kw_only=True):
 
     start: LocalTime
     step: datetime.timedelta
-    frames: Side
+    frames: Count
 
     def moments(self, zone: zoneinfo.ZoneInfo) -> Outcome[tuple[datetime.datetime, ...]]:
         """Returns study moments on the zone clock, time fault on overflow."""

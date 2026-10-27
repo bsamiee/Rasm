@@ -8,7 +8,8 @@ import pathlib
 import sys
 from typing import Annotated, ClassVar, Self
 
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Some, try_downcast
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -238,8 +239,10 @@ def split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> O
     def sampled(built: PyOpenColorIO.Processor) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
         operations = list(built.createGroupTransform())
         return (
-            Option
-            .of_optional(next(((index, Lattice(size=operation.getGridSize())) for index, operation in enumerate(operations) if isinstance(operation, PyOpenColorIO.Lut3DTransform)), None))
+            Block
+            .of_seq(enumerate(operations))
+            .choose(lambda pair: Option.of_optional(try_downcast(PyOpenColorIO.Lut3DTransform, pair[1])).map(lambda table: (pair[0], Lattice(size=table.getGridSize()))))
+            .try_head()
             .map(
                 lambda found: (
                     found[1]

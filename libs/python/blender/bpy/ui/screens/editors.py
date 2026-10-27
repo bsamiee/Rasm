@@ -6,6 +6,7 @@ from typing import Self, TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.collections import Block
 import msgspec
 
 from blender.bpy.data.rna.descriptors import Descriptor, Native, RnaPath, Struct, struct_at, Value
@@ -40,7 +41,7 @@ class EditorState(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Replaced values, Nothing while the base or an owner is absent.
         """
-        base = self.region.map(lambda kind: Option.of_optional(next((region for region in area.regions if region.type == kind), None))).default_with(lambda: Option.of_optional(area.spaces.active))
+        base = self.region.map(lambda kind: Block.of_seq(area.regions).filter(lambda region: region.type == kind).try_head()).default_with(lambda: Option.of_optional(area.spaces.active))
 
         def written(state: _Written, setting: Descriptor[bpy.types.Property], value: Value | bytes | Struct) -> Result[_Written, _Written]:
             match base.filter(lambda held: isinstance(held, setting.root)).bind(lambda held: struct_at(held, setting.owner)).map(lambda held: (held, setting.write(held, value))):

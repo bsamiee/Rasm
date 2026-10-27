@@ -10,7 +10,7 @@ from expression import Option, Result, Some
 from expression.collections import Block
 
 from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Unchanged
-from blender.bpy.data.rna.descriptors import Descriptor, Native, rooted, Struct, Value
+from blender.bpy.data.rna.descriptors import choices, Descriptor, Native, rooted, Struct, Value
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity
@@ -60,9 +60,9 @@ class CollectionState(bpy.types.PropertyGroup):
 
     layer: bpy.props.StringProperty(name="View Layer", description="View layer the edit writes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     collection: bpy.props.IntProperty(name="Collection", description="Session identifier of the collection the edit writes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    flag: bpy.props.EnumProperty(name="Restriction", description="Restriction the edit writes", items=tuple((flag.name, member.prop.name, member.prop.description) for flag, member in FLAGS.items()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    flag: bpy.props.EnumProperty(name="Restriction", description="Restriction the edit writes", items=choices((flag.name, member.prop.name, member.prop.description) for flag, member in FLAGS.items()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     value: bpy.props.BoolProperty(name="Value", description="Restriction value written")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    extent: bpy.props.EnumProperty(name="Extent", description="Collections the edit reaches", items=tuple((spread.name, bpy.path.display_name(spread.name.lower()), "") for spread in Spread))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    extent: bpy.props.EnumProperty(name="Extent", description="Collections the edit reaches", items=choices((spread.name, bpy.path.display_name(spread.name.lower()), "") for spread in Spread))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class CollectionStates(Line, frozen=True, kw_only=True):
@@ -87,7 +87,7 @@ class CollectionStates(Line, frozen=True, kw_only=True):
             command=STATE,
             toggles=toggled,
             active=Some(lambda cell: bool(_VISIBLE.read(cell))),
-            marks=(Property(target=Member(root=bpy.types.Collection, path="hide_render"), text="", icon_only=True),),
+            marks=(Property(target=Member(root=bpy.types.Collection, path=("hide_render",)), text="", icon_only=True),),
         )
         return placed((matrix, Caption(rows=tuple(OperatorButton(target=row) for row in CLIPBOARD), flow=Flow.GRID)), identity).map(joined)
 
@@ -140,10 +140,10 @@ def applied(scene: bpy.types.Scene, *, layer: str, collection: int, flag: Restri
         return accumulated(member.write(node, state) for node, state in writes if node != held.layer_collection).map(lambda prior: sum(each.is_some() for each in prior))
 
     def located(held: bpy.types.ViewLayer) -> Outcome[int]:
-        target: Outcome[LayerPath] = found(held, collection).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(held.layer_collection), member=str(collection)),))
+        target: Outcome[LayerPath] = found(held, collection).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(held.layer_collection), member=str(collection)))
         return Result[LayerPath, Faults].bind(target, lambda path: written(held, *path))
 
-    named: Outcome[bpy.types.ViewLayer] = Option.of_optional(scene.view_layers.get(layer)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene.view_layers), member=layer),))
+    named: Outcome[bpy.types.ViewLayer] = Option.of_optional(scene.view_layers.get(layer)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(scene.view_layers), member=layer))
     return Result[bpy.types.ViewLayer, Faults].bind(named, located)
 
 

@@ -67,7 +67,7 @@ def _(_record: Zones, values: Mapping[Key, Value], _config: PyOpenColorIO.Config
             tone.blacks, tone.shadows, tone.midtones, tone.highlights, tone.whites, tone.scontrast = blacks, shadows, midtones, highlights, whites, contrast
             return Ok(Some(PyOpenColorIO.GradingToneTransform(values=tone, style=PyOpenColorIO.GRADING_LIN)))
         case _:
-            return Error((Fault(reason=RecordReason.UNREADABLE, subject=Zones.__name__, cause=repr(values)),))
+            return Error(Fault.of(RecordReason.UNREADABLE, Zones.__name__, repr(values)))
 
 
 def zoned(shell: Shell[Zones]) -> Outcome[Expr]:

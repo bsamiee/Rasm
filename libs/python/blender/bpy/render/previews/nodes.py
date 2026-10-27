@@ -17,6 +17,7 @@ from bl_ui.space_node import NODE_MT_context_menu
 import blf
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.collections import Block
 from expression.extra.result import catch
 import gpu
 from mathutils import Vector
@@ -31,7 +32,7 @@ from blender.bpy.data.ids import content
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import Handle, STORES
-from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
+from blender.bpy.data.rna.descriptors import choices, Descriptor, RnaPath, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Change, Handler, updated
 from blender.bpy.extension.identity import Identity, Key, Resource
@@ -39,11 +40,11 @@ from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import reconciled
 from blender.bpy.nodes.graphs import Expr, Graph
-from blender.bpy.nodes.trees import active_output, created, fingerprinted, GroupNode, Holder, joined, OutputNode, socket_at, tree_of
+from blender.bpy.nodes.trees import active_output, created, GroupNode, Holder, joined, OutputNode, socket_at, tree_of
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.outputs.results import intermediate, INTERMEDIATES
 from blender.bpy.render.previews.queue import BACKLOG, Job, PreviewQueue, Rank
-from blender.bpy.render.previews.scenes import Ambient, Fitted, Lamp, Lighting, PreviewMesh, PreviewScene, Readback, Staging, Studio, White
+from blender.bpy.render.previews.scenes import Ambient, Fitted, Lamp, PreviewLighting, PreviewMesh, PreviewScene, Readback, Staging, Studio, White
 from blender.bpy.scene.materials import Clay, shaded
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.settings.presets import removed
@@ -105,8 +106,8 @@ class Status(Enum):
 WRITABLE: Final = Format.writable()
 SUFFIXES: Final = tuple(f".{extension}" for row in WRITABLE for extension in row.extensions)
 STORED: Final = tuple(kind for kind in STORES if issubclass(kind, bpy.types.ID) and kind not in {bpy.types.ID, bpy.types.Object})
-SCOPES, SURFACES, POSITIONS = (tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind) for kind in (PreviewScope, PreviewMesh, Position))
-AMBIENTS: Final = tuple((kind.__name__, kind.__name__, inspect.getdoc(kind) or "") for kind in typing.get_args(Ambient.__value__))
+SCOPES, SURFACES, POSITIONS = (choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind) for kind in (PreviewScope, PreviewMesh, Position))
+AMBIENTS: Final = choices((kind.__name__, kind.__name__, inspect.getdoc(kind) or "") for kind in typing.get_args(Ambient.__value__))
 CLAY_AIM: Final = Vector((0.3, -0.6, 0.9)).normalized().to_track_quat("Z", "Y").to_euler()
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -134,11 +135,11 @@ class NodePreviews(bpy.types.PropertyGroup):
     every: bpy.props.BoolProperty(name="All Linked Outputs", description="Every linked output side by side")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     frames: bpy.props.BoolProperty(name="Follow Frame", description="Render again on frame change and during playback")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     fields: bpy.props.BoolProperty(name="Field Nodes", description="Shader nodes of geometry trees as flat swatches", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    surface: bpy.props.EnumProperty(name="Surface", description="Shader preview surface", items=SURFACES, default=Lighting().surface.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    ambient: bpy.props.EnumProperty(name="Ambient", description="Shader preview ambient light", items=AMBIENTS, default=type(Lighting().ambient).__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    surface: bpy.props.EnumProperty(name="Surface", description="Shader preview surface", items=SURFACES, default=PreviewLighting().surface.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    ambient: bpy.props.EnumProperty(name="Ambient", description="Shader preview ambient light", items=AMBIENTS, default=type(PreviewLighting().ambient).__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     world: bpy.props.StringProperty(name="World", description="Studio light environment", default=Studio().name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    strength: bpy.props.FloatProperty(name="World Light", description="Ambient light strength", min=0.0, max=10.0, default=Lighting().strength)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    key: bpy.props.FloatProperty(name="Key Light", description="Key sun strength", min=0.0, max=20.0, default=Lighting().key)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    strength: bpy.props.FloatProperty(name="World Light", description="Ambient light strength", min=0.0, max=10.0, default=PreviewLighting().strength)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    key: bpy.props.FloatProperty(name="Key Light", description="Key sun strength", min=0.0, max=20.0, default=PreviewLighting().key)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     scale: bpy.props.FloatProperty(name="Thumbnail Size", description="Share of node width", subtype="FACTOR", min=0.25, max=3.0, default=Display().scale)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     position: bpy.props.EnumProperty(name="Position", description="Node side holding thumbnail", items=POSITIONS, default=Display().position.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     enlarged: bpy.props.BoolProperty(name="Enlarge Active Node", description="Active node thumbnail larger on top", default=Display().enlarged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -149,9 +150,9 @@ class NodePreviews(bpy.types.PropertyGroup):
     limit: bpy.props.IntProperty(name="Cached Thumbnails", description="Thumbnails kept in GPU memory and on disk", min=16, max=4096, default=Display().limit)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
     @property
-    def lighting(self) -> Lighting:
+    def lighting(self) -> PreviewLighting:
         """Shader preview lighting."""
-        return Lighting(surface=PreviewMesh[self.surface], ambient=Studio(name=self.world) if self.ambient == Studio.__name__ else White(), strength=self.strength, key=self.key)
+        return PreviewLighting(surface=PreviewMesh[self.surface], ambient=Studio(name=self.world) if self.ambient == Studio.__name__ else White(), strength=self.strength, key=self.key)
 
     @property
     def display(self) -> Display:
@@ -186,7 +187,14 @@ class GeometrySource(msgspec.Struct, frozen=True, kw_only=True):
         match space.id_from, root:
             case bpy.types.Object() as item, bpy.types.GeometryNodeTree():
                 using = tuple(modifier for modifier in item.modifiers if isinstance(modifier, bpy.types.NodesModifier) and modifier.node_group == root)
-                return Option.of_optional(next((modifier for modifier in using if modifier.is_active), next(iter(using), None))).map(lambda modifier: cls(item=Handle.of(item), modifier=modifier.name))
+                return (
+                    Block
+                    .of_seq(using)
+                    .filter(lambda modifier: modifier.is_active)
+                    .try_head()
+                    .or_else_with(lambda: Block.of_seq(using).try_head())
+                    .map(lambda modifier: cls(item=Handle.of(item), modifier=modifier.name))
+                )
             case _:
                 return Nothing
 
@@ -244,7 +252,7 @@ class Staged(msgspec.Struct, frozen=True, kw_only=True):
     socket: str
     engine: str
     size: int
-    lighting: Lighting
+    lighting: PreviewLighting
     view: DisplayView
     frame: tuple[int, ...]
     host: tuple[tuple[int, ...], bytes]
@@ -302,7 +310,7 @@ class NodeState:
         """Holds no demand, value, held hash, or cell."""
         self.keys: dict[Hashable, Demand] = {}
         self.values: dict[Hashable, float] = {}
-        self.held: dict[Handle[bpy.types.ID], ContentHash] = {}
+        self.held: dict[Handle[bpy.types.ID], Option[ContentHash]] = {}
         self.cells: dict[Editor, tuple[Cell, ...]] = {}
 
     def forgotten(self) -> tuple[Hashable, ...]:
@@ -495,13 +503,18 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
             .bind(
                 lambda found: Editor.of(found).bind(lambda editor: Option.of_optional(found.edit_tree).bind(lambda tree: Option.of_optional(tree.nodes.active).map(lambda node: (editor, tree, node))))
             )
-            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="SpaceNodeEditor.edit_tree.nodes", member="active"),))
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, "SpaceNodeEditor.edit_tree.nodes", member="active"))
         )
 
         def chosen(editor: Editor, tree: bpy.types.NodeTree, node: bpy.types.Node, settings: NodePreviews) -> Outcome[TargetRender]:
             return targets(call.identity, editor, tree, settings).bind(
-                lambda found: Option.of_optional(next((render for held, target in found if held == node for render in isolated(held, target, settings).to_list()), None)).to_result_with(
-                    lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(tree.nodes), member=node.name),)
+                lambda found: (
+                    Block
+                    .of_seq(found)
+                    .filter(lambda pair: pair[0] == node)
+                    .choose(lambda pair: isolated(pair[0], pair[1], settings))
+                    .try_head()
+                    .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(tree.nodes), member=node.name))
                 )
             )
 
@@ -509,7 +522,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
             formed = viewed(scene)
             return paired(
                 self.rendered(call.identity, render, call.properties.size, settings, scene=scene),
-                formed.colorspace(config).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(formed), member=formed.display),)),
+                formed.colorspace(config).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(formed), member=formed.display)),
             ).bind(lambda pair: imaged(call.paths[0], pair[0].plane, config, pair[1].getName()))
 
         return (
@@ -526,14 +539,11 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
         lighting, target = settings.lighting, render.target
         aov: Outcome[Option[str]] = identity.identifier(PreviewScene.value).map(Some) if render.valued else Ok(Nothing)
 
-        def staged(world: Mapping[str, Value] | bpy.types.World, lamp: Lamp | bpy.types.Light, *, valued: bool) -> Staging:
+        def staged(world: Mapping[RnaPath, Value] | bpy.types.World, lamp: Lamp | bpy.types.Light, *, valued: bool) -> Staging:
             return Staging(source=scene, size=(size, size), world=world, lamp=lamp, value=valued and render.valued)
 
         def clay() -> Outcome[bpy.types.Material]:
-            made = NodePreview.clay.made(
-                identity,
-                lambda: catch(bpy.data.materials.new, exception=RuntimeError)("Clay").map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=NodePreview.clay.key, cause=error),)),
-            )
+            made = NodePreview.clay.made(identity, lambda: catch(bpy.data.materials.new, exception=RuntimeError)("Clay").map_error(partial(Fault.of, BlenderReason.REFUSED, NodePreview.clay.key)))
             return made.bind(lambda material: shaded(material, Clay(), PyOpenColorIO.GetCurrentConfig(), identity))
 
         def swatched() -> Outcome[bpy.types.Material]:
@@ -560,13 +570,12 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                 .map(lambda root: Editor(source=target.source, groups=target.groups).tree(root) if isinstance(root, bpy.types.NodeTree) else Nothing)
                 .bind(
                     lambda tree: tree.bind(lambda inner: Option.of_optional(inner.nodes.get(target.node))).to_result_with(
-                        lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(target.source), member=target.node),)
+                        lambda: Fault.of(BlenderReason.ABSENT, repr(target.source), member=target.node)
                     )
                 )
             )
             material = NodePreview.swatch.made(
-                identity,
-                lambda: catch(bpy.data.materials.new, exception=RuntimeError)("Swatch").map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=NodePreview.swatch.key, cause=error),)),
+                identity, lambda: catch(bpy.data.materials.new, exception=RuntimeError)("Swatch").map_error(partial(Fault.of, BlenderReason.REFUSED, NodePreview.swatch.key))
             )
             return paired(found, aov, material).bind(lambda parts: paired(graph(parts[0], parts[1]), tree_of(parts[2])).bind(lambda pair: reconciled(*pair, identity)).map(lambda _: parts[2]))
 
@@ -582,7 +591,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 
             def copied(source: bpy.types.Object, carried: Routed[Holder], material: bpy.types.Material) -> Outcome[bpy.types.Object]:
                 copy = Ownership(kind=bpy.types.Object, key=PreviewScene.routes.key, saved=Saved.NEVER, single=False).made(
-                    identity, lambda: Option.of_optional(source.copy()).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(source), member="copy"),)), scope=Some(copies)
+                    identity, lambda: Option.of_optional(source.copy()).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(source), member="copy")), scope=Some(copies)
                 )
                 return paired(tree_of(carried.holder), copy).bind(
                     lambda pair: accumulated((
@@ -614,7 +623,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 
         def pruned() -> Outcome[None]:
             files: Outcome[list[Path]] = catch(sorted, exception=OSError)(folder.glob("*.exr"), key=lambda path: path.stat().st_mtime).map_error(
-                lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(folder), cause=error),)
+                partial(Fault.of, RecordReason.UNREADABLE, str(folder))
             )
             return Result[list[Path], Faults].bind(files, lambda found: accumulated(removed(path) for path in found[:-limit])).map(lambda _: None)
 
@@ -623,7 +632,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 
             def written_file(digest: ContentHash) -> Outcome[None]:
                 fields = number.map(lambda held_value: {name: msgspec.json.encode(held_value).decode()}).default_value({})
-                return ImageFile(pixels=readback.plane, colorspace=space).write(str(folder / f"{digest.hex()}.exr"), Storage(depth=16), fields, config).bind(lambda _: pruned())
+                return ImageFile(pixels=readback.plane, colorspace=space).write(str(folder / f"{digest.hex()}.exr"), Storage(depth=Depth.HALF), fields, config).bind(lambda _: pruned())
 
             def saved(_texture: gpu.types.GPUTexture) -> Outcome[None]:
                 for held_value in number.to_list():
@@ -635,7 +644,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
         formed = viewed(scene)
 
         def spaced(config: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.ColorSpace]:
-            return formed.colorspace(config).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(formed), member=formed.display),))
+            return formed.colorspace(config).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(formed), member=formed.display))
 
         config = PyOpenColorIO.GetCurrentConfig()
         return paired(self.rendered(identity, render, size, settings, scene=scene), identity.identifier(PreviewScene.value), spaced(config)).bind(
@@ -662,29 +671,27 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
         )
 
         def keyed(node: bpy.types.Node, render: TargetRender, staged: Staged, config: PyOpenColorIO.Config, enclosing: tuple[bpy.types.Node, ...]) -> Outcome[Option[ContentHash]]:
-            def cached(block: bpy.types.ID, *, weighted: bool) -> Outcome[ContentHash]:
+            def cached(block: bpy.types.ID, *, weighted: bool) -> Outcome[Option[ContentHash]]:
                 handle: Handle[bpy.types.ID] = Handle.of(block)
                 return Option.of_optional(state.held.get(handle)).map(Ok).default_with(lambda: content.fingerprinted(block, weighted=weighted).map(lambda key: state.held.setdefault(handle, key)))
 
             def geometry(item: bpy.types.Object, name: str) -> Outcome[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
                 earlier = tuple(itertools.takewhile(lambda modifier: modifier.name != name, item.modifiers))
                 snapshots = accumulated(Snapshot.capture(modifier) for modifier in (*earlier, *Option.of_optional(item.modifiers.get(name)).to_list()))
-                trees = accumulated(fingerprinted(group) for modifier in earlier if isinstance(modifier, bpy.types.NodesModifier) for group in Option.of_optional(modifier.node_group).to_list())
+                trees = accumulated(
+                    content.fingerprinted(group) for modifier in earlier if isinstance(modifier, bpy.types.NodesModifier) for group in Option.of_optional(modifier.node_group).to_list()
+                )
                 data = accumulated(cached(block, weighted=bool(item.vertex_groups)) for block in Option.of_optional(item.data).to_list())
                 return paired(snapshots, trees, data).map(
                     lambda parts: reduce(
                         lambda values, key: values.map2(lambda rows, key: (*rows, key), key),
-                        parts[1],
-                        Option[tuple[msgspec.Struct | ContentHash, ...]].Some((
-                            *parts[0],
-                            Snapshot.of(bpy.types.Object, {"vertex_groups": tuple(group.name for group in item.vertex_groups)}),
-                            *parts[2],
-                        )),
+                        (*parts[1], *parts[2]),
+                        Option[tuple[msgspec.Struct | ContentHash, ...]].Some((*parts[0], Snapshot.of(bpy.types.Object, {("vertex_groups",): tuple(group.name for group in item.vertex_groups)}))),
                     )
                 )
 
             source = render.target.source
-            return paired(fingerprinted(node), accumulated(fingerprinted(group) for group in enclosing), source.item.resolve().bind(lambda item: geometry(item, source.modifier))).map(
+            return paired(content.fingerprinted(node), accumulated(content.fingerprinted(group) for group in enclosing), source.item.resolve().bind(lambda item: geometry(item, source.modifier))).map(
                 lambda parts: reduce(
                     lambda own, key: own.map2(lambda prior_key, current: content_hash(TargetRender, prior_key, current), key),
                     parts[1],
@@ -708,7 +715,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                             identity
                             .held[TEXTURES]
                             .stored(key, image.pixels, limit, kept)
-                            .bind(lambda _: catch(os.utime, exception=OSError)(path).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),)))
+                            .bind(lambda _: catch(os.utime, exception=OSError)(path).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path))))
                             .map(recorded)
                         )
                     case _:
@@ -841,11 +848,11 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                     title="Active Node",
                     store=Some(
                         Hosted(
-                            host=Some(Member(root=bpy.types.SpaceNodeEditor, path="edit_tree.nodes.active")),
+                            host=Some(Member(root=bpy.types.SpaceNodeEditor, path=("edit_tree", "nodes", "active"))),
                             store=Store(
                                 attachment=NodePreview.setting,
                                 retention=self.retention,
-                                fields={"output": lambda member: SearchField(target=member, collection=Member(root=bpy.types.SpaceNodeEditor, path="edit_tree.nodes.active.outputs"))},
+                                fields={"output": lambda member: SearchField(target=member, collection=Member(root=bpy.types.SpaceNodeEditor, path=("edit_tree", "nodes", "active", "outputs")))},
                             ),
                         )
                     ),
@@ -959,7 +966,9 @@ def enclosing(space: bpy.types.SpaceNodeEditor) -> tuple[Option[bpy.types.Node],
     """Returns group node entering each tree down editor path, parent active node first."""
     trees = tuple(item.node_tree for item in space.path)
     return tuple(
-        Option.of_optional(next((node for node in (parent.nodes.active, *parent.nodes) if isinstance(node, GroupNode) and node.node_tree == child), None)) if parent is not None else Nothing
+        Block.of_seq((parent.nodes.active, *parent.nodes)).choose(Option.of_optional).filter(lambda node: isinstance(node, GroupNode) and node.node_tree == child).try_head()
+        if parent is not None
+        else Nothing
         for parent, child in itertools.pairwise(trees)
     )
 
@@ -972,7 +981,7 @@ def held(target: Target) -> Outcome[Holder]:
             Option
             .of_optional(item.modifiers.get(name))
             .bind(lambda found: Option.of_optional(found.node_group) if isinstance(found, bpy.types.NodesModifier) else Nothing)
-            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(item.modifiers), member=name),))
+            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(item.modifiers), member=name))
         )
     )
 
@@ -991,14 +1000,14 @@ def routed[H: Holder](identity: Identity, holder: H, target: Target) -> Generato
     """
 
     def found(tree: bpy.types.NodeTree, name: str) -> Outcome[bpy.types.Node]:
-        return Option.of_optional(tree.nodes.get(name)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(tree.nodes), member=name),))
+        return Option.of_optional(tree.nodes.get(name)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(tree.nodes), member=name))
 
     with ExitStack() as copies:
 
         def copied[T: Holder](block: T) -> Outcome[T]:
             duplicate: Callable[[], T] = block.copy  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             return Ownership(kind=type(block), key=PreviewScene.routes.key, saved=Saved.NEVER, single=False).made(
-                identity, lambda: catch(duplicate, exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(block), cause=error),)), scope=Some(copies)
+                identity, lambda: catch(duplicate, exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(block))), scope=Some(copies)
             )
 
         def exposed(inner: bpy.types.NodeTree, source: bpy.types.NodeSocket) -> Outcome[str]:
@@ -1011,7 +1020,7 @@ def routed[H: Holder](identity: Identity, holder: H, target: Target) -> Generato
 
         def entered(node: bpy.types.Node) -> Outcome[bpy.types.NodeTree]:
             group = (Option.of_optional(node.node_tree) if isinstance(node, GroupNode) else Nothing).to_result_with(
-                lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(node), member=bpy.types.NodeTree.__name__),)
+                lambda: Fault.of(BlenderReason.ABSENT, repr(node), member=bpy.types.NodeTree.__name__)
             )
             return Result[bpy.types.NodeTree, Faults].bind(group, copied).bind(lambda inner: written(node, "node_tree", inner).map(lambda _: inner))
 
@@ -1066,14 +1075,18 @@ def imaged(path: Path, plane: npt.NDArray[np.float32], config: PyOpenColorIO.Con
 
     def write(depth: Depth) -> Outcome[str]:
         match depth:
-            case Depth.HALF | Depth.FLOAT:
-                return ImageFile(pixels=plane, colorspace=space).write(str(path), Storage(depth=16 if depth is Depth.HALF else 32), {}, config)
+            case Depth.HALF | Depth.FLOAT as floated:
+                return ImageFile(pixels=plane, colorspace=space).write(str(path), Storage(depth=floated), {}, config)
             case Depth.UINT8 | Depth.UINT16:
                 return ImageFile(pixels=depth.coded(unassociated(plane), Rounded()), colorspace=space).write(str(path), Storage(), {}, config)
 
     suffix = path.suffix.lower()
-    chosen = Option.of_optional(next((row for row in WRITABLE if suffix.removeprefix(".") in row.extensions), None)).to_result_with(
-        lambda: (Fault(reason=RecordReason.OUTSIDE, subject="filepath", member=", ".join(SUFFIXES), cause=suffix),)
+    chosen = (
+        Block
+        .of_seq(WRITABLE)
+        .filter(lambda row: suffix.removeprefix(".") in row.extensions)
+        .try_head()
+        .to_result_with(lambda: Fault.of(RecordReason.OUTSIDE, "filepath", suffix, member=", ".join(SUFFIXES)))
     )
     return Result[Format, Faults].bind(chosen, lambda row: write(row.depths[-1]))
 

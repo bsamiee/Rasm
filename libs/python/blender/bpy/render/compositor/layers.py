@@ -3,6 +3,7 @@
 from collections.abc import Callable, Iterator, Mapping
 from enum import Enum
 import functools
+from functools import partial
 import graphlib
 import itertools
 from typing import Final
@@ -125,7 +126,7 @@ class EffectMaskAt(Case, frozen=True, kw_only=True):
     mask: int
 
 
-class Layer[S: Case, M: Case](msgspec.Struct, frozen=True, kw_only=True):
+class StackLayer[S: Case, M: Case](msgspec.Struct, frozen=True, kw_only=True):
     """Source through compositor effects and placement, blended over the layers beneath, its values held by the stack group's inputs."""
 
     key: str
@@ -151,16 +152,16 @@ class Layer[S: Case, M: Case](msgspec.Struct, frozen=True, kw_only=True):
 class LayerStack[S: Case, M: Case](msgspec.Struct, frozen=True, kw_only=True):
     """Layers ordered bottom first over a transparent frame."""
 
-    layers: tuple[Layer[S, M], ...] = ()
+    layers: tuple[StackLayer[S, M], ...] = ()
 
-    def composited(self) -> tuple[tuple[Layer[S, M], Option[Layer[S, M]]], ...]:
+    def composited(self) -> tuple[tuple[StackLayer[S, M], Option[StackLayer[S, M]]], ...]:
         """Selects visible layers under solo, leaving out layers a matte above consumes.
 
         Returns:
             Layers in stack order, each with the layer beneath, absent at the bottom.
         """
         soloed = any(layer.solo for layer in self.layers)
-        beneath: tuple[Option[Layer[S, M]], ...] = (Nothing, *map(Some, self.layers))
+        beneath: tuple[Option[StackLayer[S, M]], ...] = (Nothing, *map(Some, self.layers))
         consumed = (*(layer.matte for layer in self.layers[1:]), False)
         return tuple((layer, below) for layer, below, matte in zip(self.layers, beneath, consumed) if layer.visible and not matte and (layer.solo or not soloed))
 
@@ -190,7 +191,7 @@ class LayerStack[S: Case, M: Case](msgspec.Struct, frozen=True, kw_only=True):
 
         def fresh(item: object) -> Outcome[object]:
             match item:
-                case Layer():
+                case StackLayer():
                     return Ok(msgspec.structs.replace(item, blend=Blend(), matte=False))
                 case Entry(record=record):
                     return seeded(record).map(lambda value: Entry(record=value))
@@ -230,7 +231,7 @@ class LayerStack[S: Case, M: Case](msgspec.Struct, frozen=True, kw_only=True):
 
         match target:
             case LayerAt(layer=layer) | LayerMaskAt(layer=layer):
-                return blended((LAYERS, layer, Layer.blend))
+                return blended((LAYERS, layer, StackLayer.blend))
             case EffectAt(layer=layer, entry=entry) | EffectMaskAt(layer=layer, entry=entry):
                 return blended((LAYERS, layer, EFFECTS, entry, Entry.blend))
 
@@ -238,8 +239,8 @@ class LayerStack[S: Case, M: Case](msgspec.Struct, frozen=True, kw_only=True):
 class TermFiltering[M: Case](msgspec.Struct, frozen=True, kw_only=True):
     """Filter of a recombined layer's terms before they sum, built over the layer, its outer input reader, and the working luminance group, and the passes the filter reads."""
 
-    filter: Callable[[Layer[Source, M], Callable[[Key], Expr], NodeGroup], Outcome[Option[TermFilter]]] = lambda _layer, _outer, _luminance: Ok(Nothing)
-    requests: Callable[[Layer[Source, M]], Outcome[tuple[PassRequest, ...]]] = lambda _layer: Ok(())
+    filter: Callable[[StackLayer[Source, M], Callable[[Key], Expr], NodeGroup], Outcome[Option[TermFilter]]] = lambda _layer, _outer, _luminance: Ok(Nothing)
+    requests: Callable[[StackLayer[Source, M]], Outcome[tuple[PassRequest, ...]]] = lambda _layer: Ok(())
 
 
 class Planning[M: Case](msgspec.Struct, frozen=True, kw_only=True):
@@ -270,8 +271,8 @@ class Built(msgspec.Struct, frozen=True, kw_only=True):
 # --- [LENSES] ---------------------------------------------------------------------------
 
 LAYERS: Final = LayerStack.layers  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
-SOURCE: Final = Layer.source  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
-EFFECTS: Final = Layer.effects  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+SOURCE: Final = StackLayer.source  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+EFFECTS: Final = StackLayer.effects  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -280,7 +281,7 @@ EFFECTS: Final = Layer.effects  # type: ignore[misc]  # ty: ignore[invalid-attri
 
 def located[T](value: T | None, owner: str, key: str) -> Outcome[T]:
     """Answers a lookup, absent when it found nothing."""
-    return Option.of_optional(value).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=owner, member=key),))
+    return Option.of_optional(value).to_result_with(partial(Fault.of, BlenderReason.ABSENT, owner, member=key))
 
 
 def indexed[T](items: tuple[T, ...], index: int, owner: str) -> Outcome[T]:
@@ -301,7 +302,7 @@ def sourced(key: Key, source: RenderPass | NodeSource | Recombined, scene: bpy.t
             return subclass(bpy.types.Node, identifier).map(lambda kind: Expr(kind=kind, label=Some(node)))
 
 
-def unit[M: Case](layer: Layer[Source, M], below: End, base: End, planning: Planning[M], *, mixes: bool) -> Outcome[Built]:
+def unit[M: Case](layer: StackLayer[Source, M], below: End, base: End, planning: Planning[M], *, mixes: bool) -> Outcome[Built]:
     """Builds layer source, gated effects in rank order, affine sampling, masks, and coverage, a recombined source's terms filtered before they sum."""
     key = layer.key
     frame = {socket.key: group_input(socket.key) for socket in FRAME}
@@ -478,7 +479,6 @@ __all__ = [
     "Edit",
     "EffectAt",
     "EffectMaskAt",
-    "Layer",
     "LayerAt",
     "LayerMaskAt",
     "LayerStack",
@@ -486,6 +486,7 @@ __all__ = [
     "Planning",
     "RenderPass",
     "Source",
+    "StackLayer",
     "Target",
     "TermFiltering",
     "filing",

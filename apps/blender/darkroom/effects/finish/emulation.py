@@ -2,13 +2,15 @@
 
 from collections.abc import Mapping
 from fractions import Fraction
+from functools import partial
 from itertools import product
 from math import ceil, floor
-from typing import Final
+from typing import Final, get_args
 
 import bpy
 from colour.models import WEIGHTS_YCBCR
 from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -42,7 +44,7 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
 
     quality: int
     coded_width: int | None
-    subsampling: str
+    subsampling: coding.Subsampling
     generations: int
 
     def coded(self, original: OpenImageIO.ImageSpec) -> Option[OpenImageIO.ImageSpec]:
@@ -71,9 +73,7 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
             return buffers.checked(target)
 
         def cycled(image: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
-            rgb: Outcome[npt.NDArray[np.uint8]] = Option.of_optional(image.get_pixels(OpenImageIO.UINT8)).to_result_with(
-                lambda: (Fault(reason=ImagingReason.BUFFER, subject=image.name, cause=image.geterror()),)
-            )
+            rgb: Outcome[npt.NDArray[np.uint8]] = Option.of_optional(image.get_pixels(OpenImageIO.UINT8)).to_result_with(partial(Fault.of, ImagingReason.BUFFER, image.name, image.geterror()))
             return (
                 Result[npt.NDArray[np.uint8], Faults]
                 .bind(rgb, lambda codes: coding.generations(np.ascontiguousarray(codes), quality=self.quality, subsampling=self.subsampling, count=self.generations))
@@ -120,7 +120,7 @@ def _(
                 radius = ceil(lines * Fraction(period))
                 return accumulated(capacity(scene, size) for size in ((1, 4 * radius + 1), (1, last - first + 1 + 2 * radius))).map(lambda _: None)
             case _:
-                return Error((Fault(reason=RecordReason.UNREADABLE, subject=Emulation.__name__, cause=repr(values)),))
+                return Error(Fault.of(RecordReason.UNREADABLE, Emulation.__name__, repr(values)))
 
     def compressed(compression: Compression) -> Outcome[OpenImageIO.ImageBuf]:
         def coded(straight: npt.NDArray[np.float32]) -> Outcome[OpenImageIO.ImageBuf]:
@@ -146,9 +146,13 @@ def _(
             "compression_subsampling": str(chroma),
             "compression_generations": int(count),
         }:
-            requested = Ok(Some(Compression(quality=quality, coded_width=width if sized else None, subsampling=chroma, generations=count)))
+            requested = (
+                catch(msgspec.convert, exception=msgspec.ValidationError)({"quality": quality, "coded_width": width if sized else None, "subsampling": chroma, "generations": count}, Compression)
+                .map(Some)
+                .map_error(partial(Fault.of, RecordReason.UNREADABLE, Compression.__name__))
+            )
         case _:
-            requested = Error((Fault(reason=RecordReason.UNREADABLE, subject=Compression.__name__, cause=repr(values)),))
+            requested = Error(Fault.of(RecordReason.UNREADABLE, Compression.__name__, repr(values)))
     return paired(fitted(source.spec().height), requested.bind(lambda found: found.map(lambda held: compressed(held).map(Some)).default_value(Ok(Nothing)))).map(lambda parts: parts[1])
 
 
@@ -375,7 +379,7 @@ emulation: Final = CompositorEffect(
                                 kind=bpy.types.NodeSocketMenu,
                                 description="Chroma resolution relative to luma",
                                 members={"default_value": "4:2:0"},
-                                items=Some(MenuItems(items=(MenuItem(name="4:4:4"), MenuItem(name="4:2:2"), MenuItem(name="4:2:0"), MenuItem(name="4:1:1")))),
+                                items=Some(MenuItems(items=tuple(MenuItem(name=name) for name in get_args(coding.Subsampling.__value__)))),
                             ),
                         ),
                         (

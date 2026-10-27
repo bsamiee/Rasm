@@ -3,12 +3,14 @@
 from collections.abc import Callable, Mapping
 from contextlib import ExitStack
 from enum import auto, Enum
+from functools import partial
 import inspect
 from types import GenericAlias
 from typing import Annotated, ClassVar, Final, Literal, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 import OpenImageIO
@@ -18,7 +20,7 @@ from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.animation import Animation, Driven, Keys
 from blender.bpy.data.rna.conditions import Condition
-from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
+from blender.bpy.data.rna.descriptors import Descriptor, rna, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
@@ -36,6 +38,7 @@ from blender.bpy.render.outputs.framing import Framed, FrameSize, Framing
 from blender.bpy.render.view_layers.passes import PassRequest, required
 from blender.bpy.settings.attachments import Stored
 from blender.imaging.color.processors import ColorSpace, Domain
+from blender.imaging.sampling.integration import Bounds
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 from blender.records.fields import Case
 
@@ -71,7 +74,7 @@ class Enabled(Enum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 DESCRIPTION: Final = Descriptor.declared(bpy.types.CompositorNodeTree, "description", bpy.types.StringProperty)
-PRECISION: Final = Descriptor.declared(bpy.types.Scene, "render.compositor_precision", bpy.types.EnumProperty)
+PRECISION: Final = Descriptor.declared(bpy.types.Scene, ("render", "compositor_precision"), bpy.types.EnumProperty)
 FRAME: Final = tuple(
     Socket(key=f"frame_{name}", name=bpy.path.display_name(name), kind=bpy.types.NodeSocketFloat, description=description, members={"hide_in_modifier": True, "default_value": default})
     for name, description, default in (("aspect", "Pixel aspect", 1.0), ("scale", "Camera share of overscan", 1.0), ("meters", "Meters per Blender unit", 1.0))
@@ -106,22 +109,18 @@ class CameraFrame(msgspec.Struct, frozen=True, kw_only=True):
                 lambda held: Descriptor.resolve(held, "value", bpy.types.FloatProperty).map(lambda descriptor: (socket.key.removeprefix("frame_"), descriptor.read(held)))
             )
             for socket in FRAME
-        ).bind(
-            lambda values: catch(msgspec.convert, exception=msgspec.ValidationError)(dict(values), cls).map_error(
-                lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=repr(entry), cause=error),)
-            )
-        )
+        ).bind(lambda values: catch(msgspec.convert, exception=msgspec.ValidationError)(dict(values), cls).map_error(partial(Fault.of, RecordReason.UNREADABLE, repr(entry))))
 
-    def window(self, spec: OpenImageIO.ImageSpec) -> tuple[tuple[float, float, float, float], tuple[float, float]]:
+    def window(self, spec: OpenImageIO.ImageSpec) -> tuple[Bounds, tuple[float, float]]:
         """Maps captured data window into original camera coordinates."""
         greater = max(spec.full_width * self.aspect, spec.full_height) * self.scale
         margin = (1.0 - self.scale) / 2.0
         return (
-            (
-                (spec.x - spec.full_x - margin * spec.full_width) * self.aspect / greater,
-                (spec.full_y + spec.full_height - spec.y - spec.height - margin * spec.full_height) / greater,
-                (spec.x + spec.width - spec.full_x - margin * spec.full_width) * self.aspect / greater,
-                (spec.full_y + spec.full_height - spec.y - margin * spec.full_height) / greater,
+            Bounds(
+                left=(spec.x - spec.full_x - margin * spec.full_width) * self.aspect / greater,
+                bottom=(spec.full_y + spec.full_height - spec.y - spec.height - margin * spec.full_height) / greater,
+                right=(spec.x + spec.width - spec.full_x - margin * spec.full_width) * self.aspect / greater,
+                top=(spec.full_y + spec.full_height - spec.y - margin * spec.full_height) / greater,
             ),
             (spec.full_width * self.scale * self.aspect / greater, spec.full_height * self.scale / greater),
         )
@@ -187,7 +186,7 @@ class Shell[R: Case](msgspec.Struct, frozen=True, kw_only=True):
             .of_optional(self.sockets.get(key))
             .bind(lambda socket: socket.items)
             .map(lambda items: menu(self.input(*path), items, cases, kind=kind))
-            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=self.identity.package, member=key),))
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, self.identity.package, member=key))
         )
 
 
@@ -287,7 +286,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True, kw_only=True):
 
     def first[P](self, kind: type[P]) -> Option[P]:
         """Returns the first part of kind."""
-        return Option.of_optional(next(iter(self.found(kind)), None))
+        return Block.of_seq(self.found(kind)).try_head()
 
     @property
     def kind(self) -> Key:
@@ -322,10 +321,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True, kw_only=True):
     def seeded(self, scene: bpy.types.Scene) -> Outcome[R]:
         """Returns scene seed, record defaults, or absent file fault for opened effects."""
         return (
-            self
-            .first(Seeds)
-            .map(lambda seeds: Ok(seeds.seed(scene)))
-            .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=self.kind, member="file"),)) if self.found(Opens) else Ok(self.record()))
+            self.first(Seeds).map(lambda seeds: Ok(seeds.seed(scene))).default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, self.kind, member="file")) if self.found(Opens) else Ok(self.record()))
         )
 
     def ownership(self, record: Entry[R]) -> Ownership[bpy.types.NodeTree]:
@@ -345,18 +341,22 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True, kw_only=True):
 
     def read(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[Entry[R]]:
         """Reads the entry record its group stores, absent before the group stores one."""
-        return paired(self.stored(identity), Option.of_optional(entry.node_group).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(entry), member="node_group"),))).bind(
-            lambda pair: pair[0].read(pair[1]).bind(lambda held: held.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(pair[1]), member=pair[0].name),)))
+        return paired(self.stored(identity), Option.of_optional(entry.node_group).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(entry), member="node_group"))).bind(
+            lambda pair: pair[0].read(pair[1]).bind(lambda held: held.to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(pair[1]), member=pair[0].name)))
         )
 
     def current(self, identity: Identity, scene: bpy.types.Scene) -> Outcome[Option[R]]:
         """Reads earliest owned record, Nothing when absent."""
-        return Option.of_optional(next(iter(self.entries(identity, scene)), None)).map(lambda entry: self.read(identity, entry).map(lambda record: Some(record.record))).default_value(Ok(Nothing))
+        return Block.of_seq(self.entries(identity, scene)).try_head().map(lambda entry: self.read(identity, entry).map(lambda record: Some(record.record))).default_value(Ok(Nothing))
 
     def named(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.SceneCompositorEffect]:
         """Finds named entry among the effect's owned groups."""
-        return Option.of_optional(next((entry for entry in self.entries(identity, scene) if entry.name == name), None)).to_result_with(
-            lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene.compositor_effects), member=name),)
+        return (
+            Block
+            .of_seq(self.entries(identity, scene))
+            .filter(lambda entry: entry.name == name)
+            .try_head()
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(scene.compositor_effects), member=name))
         )
 
     def write(
@@ -438,7 +438,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True, kw_only=True):
     def built(self, identity: Identity, scene: bpy.types.Scene, record: Entry[R], config: PyOpenColorIO.Config, context: Context, request: Option[PassRequest]) -> Outcome[NodeGroup]:
         """Builds the owned group of a record, blend, and requested pass layer."""
         original = group_input(Shell.image, "RGBA")
-        space = Option.of_optional(next((part.space(record.record) for part in self.found(Spaces)), None)).filter(lambda name: name != PyOpenColorIO.ROLE_SCENE_LINEAR)
+        space = self.first(Spaces).map(lambda part: part.space(record.record)).filter(lambda name: name != PyOpenColorIO.ROLE_SCENE_LINEAR)
         straight = self.alpha is Alpha.STRAIGHT
         face = self.faced(record)
         sockets = {key: item[0] for key, item, _, _ in face.walked() if isinstance(item, tuple)}
@@ -546,7 +546,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True, kw_only=True):
         own = self.ownership(record)
         owner = Some(scene) if not own.single or request.filter(lambda held: bool(held.flags)).is_some() else Nothing
         held = tree.filter(lambda group: Mark.read(identity, group).filter(lambda mark: mark.key == own.key and mark.of == owner).is_some()).or_else_with(
-            lambda: Option.of_optional(next((group for group, mark in own.held(identity) if mark.of == owner), None)) if own.single else Nothing
+            lambda: Block.of_seq(own.held(identity)).filter(lambda pair: pair[1].of == owner).try_head().map(lambda pair: pair[0]) if own.single else Nothing
         )
         return self.built(identity, scene, record, config, context, request).bind(
             lambda group: held.map(lambda live: slot(identity).bind(lambda name: refreshed(group, live, addresses(live, name)))).default_with(
@@ -652,9 +652,9 @@ def applied_channel(channel: Animation, scene: bpy.types.Scene) -> Outcome[bool]
     """Writes changed keyframes, answering whether it wrote, refusing cycle-forming drivers."""
     match channel.source:
         case Driven():
-            return Error((Fault(reason=RecordReason.OUTSIDE, subject=channel.path, member=Keys.__name__, cause=Driven.__name__),))
+            return Error(Fault.of(RecordReason.OUTSIDE, rna(channel.path), Driven.__name__, member=Keys.__name__))
         case Keys():
-            return channel.apply(scene, bpy.context)
+            return channel.apply(scene)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

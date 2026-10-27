@@ -5,7 +5,7 @@ from functools import partial
 from typing import Self, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -108,9 +108,7 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
                 screens.callback(bpy.data.batch_remove, ids=tuple(workspace.screens))
                 with ExitStack() as pending:
                     pending.callback(bpy.data.batch_remove, ids=(workspace,))
-                    named = catch(workspace.rename, exception=RuntimeError)(self.name, mode="NEVER").map_error(
-                        lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(workspace), cause=error),)
-                    )
+                    named = catch(workspace.rename, exception=RuntimeError)(self.name, mode="NEVER").map_error(partial(Fault.of, BlenderReason.REFUSED, repr(workspace)))
                     if (answer := Result[object, Faults].bind(named, lambda _: moded(workspace))).is_ok():
                         pending.pop_all()
                     return answer
@@ -119,8 +117,8 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
                 Option
                 .of_optional(bpy.data.workspaces.get(self.source))
                 .bind(lambda source: Option.of_optional(source.copy()))
-                .map(copied)
-                .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(bpy.data.workspaces), member=self.source),)))
+                .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(bpy.data.workspaces), member=self.source))
+                .bind(copied)
             )
 
         with ExitStack() as screens:

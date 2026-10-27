@@ -1,6 +1,7 @@
 """Entry inputs by interface key with their captures, restores, and defaults, and scene holds stored as JSON beside owned data."""
 
 from collections.abc import Mapping
+from functools import partial
 from typing import Final
 
 import bpy
@@ -28,9 +29,7 @@ class JsonSlot[T](msgspec.Struct, frozen=True, kw_only=True):
     def read(self, identity: Identity, holder: bpy.types.ID) -> Outcome[T]:
         """Decodes the slot of holder."""
         return identity.identifier(self.key).bind(
-            lambda name: catch(msgspec.json.decode, exception=msgspec.DecodeError)(holder.get(name, b"{}"), type=self.form).map_error(
-                lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=repr(holder), cause=error),)
-            )
+            lambda name: catch(msgspec.json.decode, exception=msgspec.DecodeError)(holder.get(name, b"{}"), type=self.form).map_error(partial(Fault.of, RecordReason.UNREADABLE, repr(holder)))
         )
 
     def written(self, identity: Identity, holder: bpy.types.ID, value: T) -> Outcome[bool]:
@@ -41,7 +40,7 @@ class JsonSlot[T](msgspec.Struct, frozen=True, kw_only=True):
                 Ok(False)
                 if msgspec.json.encode(held[0], order="deterministic") == text
                 else catch(holder.__setitem__, exception=TypeError)(held[1], text.decode())
-                .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(holder), cause=error),))
+                .map_error(partial(Fault.of, BlenderReason.REFUSED, repr(holder)))
                 .map(lambda _: holder.update_tag())
                 .map(lambda _: True)
             )
@@ -58,7 +57,7 @@ HELD: Final = JsonSlot(key="held", form=dict[Key, Snapshot])
 def keyed(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[bpy.types.NodeTree, Mapping[Key, str]]]:
     """Returns the entry's group with its live input socket identifiers by interface item key, panel keys at their toggles."""
     return Result[bpy.types.NodeTree, Faults].bind(
-        Option.of_optional(entry.node_group).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(entry), member="node_group"),)),
+        Option.of_optional(entry.node_group).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(entry), member="node_group")),
         lambda group: slot(identity).map(lambda name: (group, addresses(group, name))),
     )
 
@@ -67,7 +66,7 @@ def entry_input(identity: Identity, entry: bpy.types.SceneCompositorEffect, key:
     """Resolves live entry input by interface item key after interface rebuilds."""
     return (
         keyed(identity, entry)
-        .bind(lambda held: Option.of_optional(held[1].get(key)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(entry), member=key),)))
+        .bind(lambda held: Option.of_optional(held[1].get(key)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(entry), member=key)))
         .bind(lambda address: interface_input(entry, address))
     )
 
@@ -141,11 +140,6 @@ def defaulted(identity: Identity, entry: bpy.types.SceneCompositorEffect, prefix
     return keyed(identity, entry).bind(lambda held: reset(*held))
 
 
-def path(identity: Identity, entry: bpy.types.SceneCompositorEffect, key: Key) -> Outcome[str]:
-    """Returns animation data path of entry input value."""
-    return entry_input(identity, entry, key).map(lambda value: value.path_from_id("value"))
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["HELD", "JsonSlot", "captured", "defaulted", "entry_input", "inputs_of", "interface_input", "keyed", "path", "rebased", "regrouped", "restored", "valued"]
+__all__ = ["HELD", "JsonSlot", "captured", "defaulted", "entry_input", "inputs_of", "interface_input", "keyed", "rebased", "regrouped", "restored", "valued"]

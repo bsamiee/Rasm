@@ -17,7 +17,7 @@ import numpy.typing as npt
 from blender.bpy.commands.keymaps import Chord, Keymap, Toggle
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Gesture, Modal, Operator, Travel
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import assigned, root_in, rooted, Value, written
+from blender.bpy.data.rna.descriptors import assigned, choices, root_in, rooted, Value, written
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions, Declaration, Registrable
 from blender.bpy.faults import BlenderReason
@@ -50,7 +50,7 @@ class Mode(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-MODES: Final = tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in Mode)
+MODES: Final = choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in Mode)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -234,11 +234,11 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def rows(identity: Identity) -> Outcome[tuple[Row, ...]]:
             return self.state.bound(identity).map(
                 lambda attached: (
-                    Property(target=Member(root=bpy.types.Screen, path=f"{attached.name}.shown"), icon=Some(self.glyph), icon_only=True),
+                    Property(target=Member(root=bpy.types.Screen, path=(attached.name, "shown")), icon=Some(self.glyph), icon_only=True),
                     Divider(type="SPACE"),
-                    Property(target=Member(root=bpy.types.Screen, path=f"{attached.name}.mode"), expand=True),
+                    Property(target=Member(root=bpy.types.Screen, path=(attached.name, "mode")), expand=True),
                     Divider(type="SPACE"),
-                    Property(target=Member(root=bpy.types.Screen, path=f"{attached.name}.swapped"), icon=Some("ARROW_LEFTRIGHT"), icon_only=True),
+                    Property(target=Member(root=bpy.types.Screen, path=(attached.name, "swapped")), icon=Some("ARROW_LEFTRIGHT"), icon_only=True),
                 )
             )
 
@@ -275,7 +275,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 return Result[Compare, Faults].bind(
                     compared(context)
                     .filter(lambda compare: Mode[compare.mode] is not Mode.SIDE_BY_SIDE)
-                    .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(context.screen), member=self.key),)),
+                    .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(context.screen), member=self.key)),
                     lambda compare: rooted(bpy.types.Region, context).map(lambda region: (compare, compare.split, framed(region))),
                 )
 
@@ -307,9 +307,9 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     keymap="Image",
                     bindings={
                         **dict(self.commands),
-                        Chord(type="BACK_SLASH"): Toggle(path=f"screen.{attached.name}.shown"),
-                        Chord(type="RET"): Toggle(path=f"screen.{attached.name}.swapped"),
-                        Chord(type="D", shift=1): Toggle(path="scene.render.use_compositing"),
+                        Chord(type="BACK_SLASH"): Toggle(path=("screen", attached.name, "shown")),
+                        Chord(type="RET"): Toggle(path=("screen", attached.name, "swapped")),
+                        Chord(type="D", shift=1): Toggle(path=("scene", "render", "use_compositing")),
                     },
                 ),
             )

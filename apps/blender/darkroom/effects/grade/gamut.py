@@ -47,7 +47,7 @@ def _(_record: GamutCompression, values: Mapping[Key, Value], _config: PyOpenCol
             params = [cyan_limit, magenta_limit, yellow_limit, cyan_threshold, magenta_threshold, yellow_threshold, power]
             return Ok(Some(PyOpenColorIO.FixedFunctionTransform(style=PyOpenColorIO.FIXED_FUNCTION_ACES_GAMUT_COMP_13, params=params)))
         case _:
-            return Error((Fault(reason=RecordReason.UNREADABLE, subject=GamutCompression.__name__, cause=repr(values)),))
+            return Error(Fault.of(RecordReason.UNREADABLE, GamutCompression.__name__, repr(values)))
 
 
 def compressed(shell: Shell[GamutCompression]) -> Outcome[Expr]:

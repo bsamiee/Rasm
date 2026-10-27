@@ -1,11 +1,13 @@
 """Session handles, BlendData collections, and collision-checked renames."""
 
 from collections.abc import Iterable, Mapping
+from functools import partial
 from types import MappingProxyType
 from typing import Final, Self
 
 import bpy
-from expression import Error, Option, Some
+from expression import Error, Option, Some, try_downcast
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
@@ -47,7 +49,7 @@ class IdName(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Block of kind, Nothing when absent or of another class.
         """
-        return Option.of_optional(getattr(bpy.data, member(kind)).get((self.name, self.library))).filter(lambda block: isinstance(block, kind))
+        return Option.of_optional(try_downcast(kind, getattr(bpy.data, member(kind)).get((self.name, self.library))))
 
 
 class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
@@ -72,7 +74,7 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
 def member(kind: type[bpy.types.ID]) -> str:
     """Returns BlendData collection name for kind's nearest MRO type."""
-    return next(STORES[parent] for parent in kind.__mro__ if parent in STORES)
+    return Block.of_seq(kind.__mro__).choose(lambda parent: Option.of_optional(STORES.get(parent))).head()
 
 
 def blocks[T: bpy.types.ID](data: bpy.types.BlendData, kind: type[T]) -> tuple[T, ...]:
@@ -83,13 +85,10 @@ def blocks[T: bpy.types.ID](data: bpy.types.BlendData, kind: type[T]) -> tuple[T
 def resolved[T: bpy.types.ID](handles: Iterable[Handle[T]]) -> Outcome[tuple[T, ...]]:
     """Returns live originals in order, accumulating expired-handle faults."""
     held = tuple(handles)
-    live = {block.session_uid: block for store in dict.fromkeys(member(handle.kind) for handle in held) for block in getattr(bpy.data, store)}
+    kinds = tuple(dict.fromkeys(handle.kind for handle in held))
+    live = {block.session_uid: block for block in bpy.data.all_ids if isinstance(block, kinds)}
     return accumulated(
-        Option
-        .of_optional(live.get(handle.uid))
-        .filter(lambda block: isinstance(block, handle.kind))
-        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=handle.kind.__name__, member=str(handle.uid)),))
-        for handle in held
+        Option.of_optional(try_downcast(handle.kind, live.get(handle.uid))).to_result_with(partial(Fault.of, BlenderReason.ABSENT, handle.kind.__name__, member=str(handle.uid))) for handle in held
     )
 
 
@@ -100,7 +99,7 @@ def embedded(block: bpy.types.ID) -> Option[bpy.types.NodeTree]:
 
 def holder(block: bpy.types.ID) -> Option[bpy.types.ID]:
     """Returns block itself, or `bpy.data` block embedding it as node tree."""
-    return Option.of_optional(next((owner for store, tree in _TREES.items() for owner in getattr(bpy.data, store) if getattr(owner, tree) == block), None)) if block.is_embedded_data else Some(block)
+    return Block.of_seq(bpy.data.all_ids).filter(lambda owner: embedded(owner) == Some(block)).try_head() if block.is_embedded_data else Some(block)
 
 
 def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
@@ -109,12 +108,8 @@ def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
         IdName(name=name, library=IdName.of(block).library)
         .resolve(type(block))
         .filter(lambda holding: holding != block)
-        .map(lambda holding: Error((Fault(reason=BlenderReason.TAKEN, subject=name, member=repr(holding)),)))
-        .default_with(
-            lambda: (
-                catch(block.rename, exception=RuntimeError)(name, mode="NEVER").map(lambda _: block).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(block), cause=error),))
-            )
-        )
+        .map(lambda holding: Error(Fault.of(BlenderReason.TAKEN, name, member=repr(holding))))
+        .default_with(lambda: catch(block.rename, exception=RuntimeError)(name, mode="NEVER").map(lambda _: block).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(block))))
     )
 
 

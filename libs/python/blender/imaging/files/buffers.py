@@ -20,7 +20,7 @@ from blender.records.faults import Fault, Outcome
 
 def checked(image: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
     """Returns buffer, or image fault when buffer holds an error."""
-    return Ok(image).filter_with(lambda held: not held.has_error, lambda held: (Fault(reason=ImagingReason.BUFFER, subject=held.name, cause=held.geterror()),))
+    return Ok(image).filter_with(lambda held: not held.has_error, lambda held: Fault.of(ImagingReason.BUFFER, held.name, held.geterror()))
 
 
 def located(values: npt.NDArray[np.float32 | np.uint8], like: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
@@ -34,7 +34,7 @@ def located(values: npt.NDArray[np.float32 | np.uint8], like: OpenImageIO.ImageB
 
 def pixels(image: OpenImageIO.ImageBuf) -> Outcome[npt.NDArray[np.float32]]:
     """Returns float32 pixels of buffer, or image fault."""
-    return Option.of_optional(image.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (Fault(reason=ImagingReason.BUFFER, subject=image.name, cause=image.geterror()),))
+    return Option.of_optional(image.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: Fault.of(ImagingReason.BUFFER, image.name, image.geterror()))
 
 
 # --- [FITS]

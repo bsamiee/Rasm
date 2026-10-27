@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Mapping
 from contextlib import ExitStack
-from functools import reduce
+from functools import partial, reduce
 from types import MappingProxyType
 from typing import ClassVar, Final
 
@@ -15,7 +15,7 @@ import numpy as np
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
 from blender.bpy.data.ids.ownership import kept, Mark, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, Value, written
+from blender.bpy.data.rna.descriptors import assigned, choices, Descriptor, mirrored, RnaPath, Value, written
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
@@ -43,14 +43,14 @@ _SKY: Final = MappingProxyType({
     name: Descriptor.declared(bpy.types.ShaderNodeTexSky, name, bpy.types.FloatProperty).prop
     for name in ("sun_elevation", "sun_rotation", "sun_size", "sun_intensity", "altitude", "air_density", "aerosol_density", "ozone_density", "turbidity", "ground_albedo")
 })
-_MODES: Final = (
-    *((item.identifier, item.name, item.description) for item in _SKY_TYPE.prop.enum_items),
+_MODES: Final = choices((
+    *_SKY_TYPE.prop.enum_items,
     ("HDRI", "HDRI", "Environment image with projection and rotation"),
     ("COLOR", "Color", "Scene-linear world color"),
     ("GRADIENT", "Gradient", "Vertical camera frame gradient, the background slot alone"),
     ("IMAGE", "Image", "Image filling camera frame, the background slot alone"),
-)
-_TURNS: Final = (("FIXED", "Fixed", "Fixed angles", "NONE", 0), ("SUN", "Sun Light", "Follow scene sun light", "NONE", 1))
+))
+_TURNS: Final = choices((("FIXED", "Fixed", "Fixed angles"), ("SUN", "Sun Light", "Follow scene sun light")))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -65,114 +65,22 @@ class Backdrop(bpy.types.PropertyGroup):
     top: bpy.props.FloatVectorProperty(name="Top", description="Gradient color at frame top", subtype="COLOR", size=3, default=(0.2, 0.2, 0.2))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     bottom: bpy.props.FloatVectorProperty(name="Bottom", description="Gradient color at frame bottom", subtype="COLOR", size=3, default=(0.02, 0.02, 0.02))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     path: bpy.props.StringProperty(name="Image", description="Image file", subtype="FILE_PATH")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    projection: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_PROJECTION.prop.name, items=tuple((item.identifier, item.name, item.description) for item in _PROJECTION.prop.enum_items), default=_PROJECTION.prop.default
-    )
+    projection: bpy.props.EnumProperty(**mirrored(_PROJECTION.prop))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     turn: bpy.props.EnumProperty(name="Turn", description="Image rotation source", items=_TURNS, default="FIXED")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     rotation: bpy.props.FloatProperty(name="Rotation", description="Fixed image rotation", subtype="ANGLE")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     heading: bpy.props.FloatProperty(name="Sun Heading", description="Heading of the image sun turned onto scene sun", subtype="ANGLE")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     sun: bpy.props.EnumProperty(name="Sun", description="Sky sun source", items=_TURNS, default="FIXED")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     sun_disc: bpy.props.BoolProperty(name="Sun Disc", description="Draw the scattering sky sun disc", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    sun_elevation: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_SKY["sun_elevation"].name,
-        description=_SKY["sun_elevation"].description,
-        subtype=_SKY["sun_elevation"].subtype,  # ty: ignore[invalid-argument-type]
-        min=_SKY["sun_elevation"].hard_min,
-        max=_SKY["sun_elevation"].hard_max,
-        soft_min=_SKY["sun_elevation"].soft_min,
-        soft_max=_SKY["sun_elevation"].soft_max,
-        default=_SKY["sun_elevation"].default,
-    )
-    sun_rotation: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_SKY["sun_rotation"].name,
-        description=_SKY["sun_rotation"].description,
-        subtype=_SKY["sun_rotation"].subtype,  # ty: ignore[invalid-argument-type]
-        min=_SKY["sun_rotation"].hard_min,
-        max=_SKY["sun_rotation"].hard_max,
-        soft_min=_SKY["sun_rotation"].soft_min,
-        soft_max=_SKY["sun_rotation"].soft_max,
-        default=_SKY["sun_rotation"].default,
-    )
-    sun_size: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_SKY["sun_size"].name,
-        description=_SKY["sun_size"].description,
-        subtype=_SKY["sun_size"].subtype,  # ty: ignore[invalid-argument-type]
-        min=_SKY["sun_size"].hard_min,
-        max=_SKY["sun_size"].hard_max,
-        soft_min=_SKY["sun_size"].soft_min,
-        soft_max=_SKY["sun_size"].soft_max,
-        default=_SKY["sun_size"].default,
-    )
-    sun_intensity: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_SKY["sun_intensity"].name,
-        description=_SKY["sun_intensity"].description,
-        subtype=_SKY["sun_intensity"].subtype,  # ty: ignore[invalid-argument-type]
-        min=_SKY["sun_intensity"].hard_min,
-        max=_SKY["sun_intensity"].hard_max,
-        soft_min=_SKY["sun_intensity"].soft_min,
-        soft_max=_SKY["sun_intensity"].soft_max,
-        default=_SKY["sun_intensity"].default,
-    )
-    altitude: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_SKY["altitude"].name,
-        description=_SKY["altitude"].description,
-        subtype=_SKY["altitude"].subtype,  # ty: ignore[invalid-argument-type]
-        min=_SKY["altitude"].hard_min,
-        max=_SKY["altitude"].hard_max,
-        soft_min=_SKY["altitude"].soft_min,
-        soft_max=_SKY["altitude"].soft_max,
-        default=_SKY["altitude"].default,
-    )
-    air_density: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_SKY["air_density"].name,
-        description=_SKY["air_density"].description,
-        subtype=_SKY["air_density"].subtype,  # ty: ignore[invalid-argument-type]
-        min=_SKY["air_density"].hard_min,
-        max=_SKY["air_density"].hard_max,
-        soft_min=_SKY["air_density"].soft_min,
-        soft_max=_SKY["air_density"].soft_max,
-        default=_SKY["air_density"].default,
-    )
-    aerosol_density: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_SKY["aerosol_density"].name,
-        description=_SKY["aerosol_density"].description,
-        subtype=_SKY["aerosol_density"].subtype,  # ty: ignore[invalid-argument-type]
-        min=_SKY["aerosol_density"].hard_min,
-        max=_SKY["aerosol_density"].hard_max,
-        soft_min=_SKY["aerosol_density"].soft_min,
-        soft_max=_SKY["aerosol_density"].soft_max,
-        default=_SKY["aerosol_density"].default,
-    )
-    ozone_density: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_SKY["ozone_density"].name,
-        description=_SKY["ozone_density"].description,
-        subtype=_SKY["ozone_density"].subtype,  # ty: ignore[invalid-argument-type]
-        min=_SKY["ozone_density"].hard_min,
-        max=_SKY["ozone_density"].hard_max,
-        soft_min=_SKY["ozone_density"].soft_min,
-        soft_max=_SKY["ozone_density"].soft_max,
-        default=_SKY["ozone_density"].default,
-    )
-    turbidity: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_SKY["turbidity"].name,
-        description=_SKY["turbidity"].description,
-        subtype=_SKY["turbidity"].subtype,  # ty: ignore[invalid-argument-type]
-        min=_SKY["turbidity"].hard_min,
-        max=_SKY["turbidity"].hard_max,
-        soft_min=_SKY["turbidity"].soft_min,
-        soft_max=_SKY["turbidity"].soft_max,
-        default=_SKY["turbidity"].default,
-    )
-    ground_albedo: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_SKY["ground_albedo"].name,
-        description=_SKY["ground_albedo"].description,
-        subtype=_SKY["ground_albedo"].subtype,  # ty: ignore[invalid-argument-type]
-        min=_SKY["ground_albedo"].hard_min,
-        max=_SKY["ground_albedo"].hard_max,
-        soft_min=_SKY["ground_albedo"].soft_min,
-        soft_max=_SKY["ground_albedo"].soft_max,
-        default=_SKY["ground_albedo"].default,
-    )
+    sun_elevation: bpy.props.FloatProperty(**mirrored(_SKY["sun_elevation"]))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    sun_rotation: bpy.props.FloatProperty(**mirrored(_SKY["sun_rotation"]))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    sun_size: bpy.props.FloatProperty(**mirrored(_SKY["sun_size"]))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    sun_intensity: bpy.props.FloatProperty(**mirrored(_SKY["sun_intensity"]))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    altitude: bpy.props.FloatProperty(**mirrored(_SKY["altitude"]))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    air_density: bpy.props.FloatProperty(**mirrored(_SKY["air_density"]))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    aerosol_density: bpy.props.FloatProperty(**mirrored(_SKY["aerosol_density"]))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    ozone_density: bpy.props.FloatProperty(**mirrored(_SKY["ozone_density"]))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    turbidity: bpy.props.FloatProperty(**mirrored(_SKY["turbidity"]))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    ground_albedo: bpy.props.FloatProperty(**mirrored(_SKY["ground_albedo"]))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Environment(bpy.types.PropertyGroup):
@@ -220,9 +128,9 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
         return Single(
             key="environment",
             title="Environment",
-            rows=tuple(Property(target=Member(root=bpy.types.Context, path=f"scene.world.{member}")) for member in ("sun_threshold", "lightgroup")),
+            rows=tuple(Property(target=Member(root=bpy.types.Context, path=("scene", "world", member))) for member in ("sun_threshold", "lightgroup")),
             header=(OperatorButton(target=environment_place_command), OperatorButton(target=environment_restore_command)),
-            store=Some(Hosted(host=Some(Member(root=bpy.types.Context, path="scene.world.node_tree")), store=Store(attachment=self.attachment, retention=self.retention))),
+            store=Some(Hosted(host=Some(Member(root=bpy.types.Context, path=("scene", "world", "node_tree"))), store=Store(attachment=self.attachment, retention=self.retention))),
         )
 
 
@@ -239,7 +147,7 @@ def _slots(environment: Environment) -> tuple[tuple[str, Key, Backdrop], ...]:
 def world_graph(environment: Environment) -> Outcome[Graph]:
     """Builds world graph from switched-on ray slots, each source node under its slot key."""
 
-    def image(kind: type[bpy.types.Node], key: Key, path: str, inputs: tuple[tuple[str, Term], ...], members: tuple[tuple[str, Value], ...]) -> Expr:
+    def image(kind: type[bpy.types.Node], key: Key, path: str, inputs: tuple[tuple[str, Term], ...], members: tuple[tuple[str | RnaPath, Value], ...]) -> Expr:
         return Expr(
             kind=kind,
             inputs=inputs,
@@ -255,7 +163,7 @@ def world_graph(environment: Environment) -> Outcome[Graph]:
             case "COLOR":
                 return (*backdrop.color, 1.0)
             case "HDRI":
-                turned = (("texture_mapping.rotation", (0.0, 0.0, backdrop.rotation)),) if backdrop.turn == "FIXED" else ()
+                turned = ((("texture_mapping", "rotation"), (0.0, 0.0, backdrop.rotation)),) if backdrop.turn == "FIXED" else ()
                 return image(bpy.types.ShaderNodeTexEnvironment, key, backdrop.path, (), (("projection", backdrop.projection), *turned))
             case "GRADIENT":
                 window = Expr(kind=bpy.types.ShaderNodeTexCoord, socket="Window", shape="VECTOR")
@@ -265,9 +173,9 @@ def world_graph(environment: Environment) -> Outcome[Graph]:
             case sky_type:
                 still = backdrop.sun == "FIXED"
                 toward = SunPosition.toward(np.asarray(backdrop.sun_rotation, dtype=np.float64), np.asarray(backdrop.sun_elevation, dtype=np.float64))
-                members: dict[str, Value] = {
+                members: dict[str | RnaPath, Value] = {
                     "sky_type": sky_type,
-                    "texture_mapping.rotation": (0.0, 0.0, 0.0),
+                    ("texture_mapping", "rotation"): (0.0, 0.0, 0.0),
                     "sun_disc": backdrop.sun_disc and still,
                     "sun_size": backdrop.sun_size,
                     "sun_intensity": backdrop.sun_intensity,
@@ -297,8 +205,8 @@ def world_graph(environment: Environment) -> Outcome[Graph]:
 # --- [HOLDERS]
 
 
-def swapped(row: Ownership[bpy.types.World], values: Mapping[str, Value], scene: bpy.types.Scene, identity: Identity, scope: Option[ExitStack] = Nothing) -> Outcome[bpy.types.World]:
-    """Writes environment members by dotted path to an owned world and shows it on scene.
+def swapped(row: Ownership[bpy.types.World], values: Mapping[RnaPath, Value], scene: bpy.types.Scene, identity: Identity, scope: Option[ExitStack] = Nothing) -> Outcome[bpy.types.World]:
+    """Writes environment members by path to an owned world and shows it on scene.
 
     The shown owned world serves first, then the earliest owned world, then a new one, each marking the world it replaces, which scope unwind shows again.
 
@@ -325,10 +233,7 @@ def swapped(row: Ownership[bpy.types.World], values: Mapping[str, Value], scene:
             .map(lambda world: displayed(attached, world))
             .default_with(
                 lambda: kept(
-                    catch(bpy.data.worlds.new, exception=RuntimeError)(f"{scene.name} {bpy.path.display_name(row.key)}").map_error(
-                        lambda error: (Fault(reason=BlenderReason.REFUSED, subject=row.key, cause=error),)
-                    ),
-                    emptied,
+                    catch(bpy.data.worlds.new, exception=RuntimeError)(f"{scene.name} {bpy.path.display_name(row.key)}").map_error(partial(Fault.of, BlenderReason.REFUSED, row.key)), emptied
                 ).bind(lambda world: row.owned(identity, world, of=predecessor, filled=lambda world: displayed(attached, world), scope=scope))
             )
         )
@@ -375,11 +280,7 @@ def studio(name: str, preferences: bpy.types.Preferences) -> Outcome[str]:
     """Returns path of WORLD studio light by name."""
     lights = preferences.studio_lights
     return (
-        Option
-        .of_optional(lights.get(name))
-        .filter(lambda light: light.type == "WORLD")
-        .map(lambda light: light.path)
-        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(lights), member=name),))
+        Option.of_optional(lights.get(name)).filter(lambda light: light.type == "WORLD").map(lambda light: light.path).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(lights), member=name))
     )
 
 

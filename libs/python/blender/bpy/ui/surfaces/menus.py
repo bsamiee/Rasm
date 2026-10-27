@@ -141,7 +141,7 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
 
     preset: Preset[Snapshot]
     scope: Scoped
-    selection: tuple[str | RnaPath, ...]
+    selection: tuple[RnaPath, ...]
 
     @property
     def key(self) -> Key:

@@ -6,7 +6,7 @@ from functools import partial
 from itertools import pairwise
 import os
 from types import MappingProxyType
-from typing import Annotated, Final, Generic, Protocol, TypeVar
+from typing import Annotated, Final, Generic, NotRequired, overload, Protocol, TYPE_CHECKING, TypedDict, TypeVar
 import zlib
 
 from _bl_rna_utils.data_path import decompose_data_path
@@ -21,6 +21,9 @@ from numpy.typing import NDArray
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
+
+if TYPE_CHECKING:
+    from bpy.stub_internal.rna_enums import PropertyFlagEnumItems, PropertySubtypeNumberItems, PropertySubtypeStringItems, PropertyUnitItems
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -40,6 +43,68 @@ class _Array(Protocol):
     def __len__(self) -> int: ...
 
     def foreach_get(self, seq: NDArray[np.generic], /) -> None: ...
+
+
+class _FloatMirror(TypedDict):
+    """`bpy.props.FloatProperty` keywords of a scalar float member."""
+
+    name: str
+    description: str
+    subtype: "PropertySubtypeNumberItems"
+    unit: "PropertyUnitItems"
+    min: float
+    max: float
+    soft_min: float
+    soft_max: float
+    step: float
+    precision: int
+    default: float
+
+
+class _IntMirror(TypedDict):
+    """`bpy.props.IntProperty` keywords of a scalar integer member."""
+
+    name: str
+    description: str
+    subtype: "PropertySubtypeNumberItems"
+    min: int
+    max: int
+    soft_min: int
+    soft_max: int
+    step: int
+    default: int
+
+
+class _BoolMirror(TypedDict):
+    """`bpy.props.BoolProperty` keywords of a scalar boolean member."""
+
+    name: str
+    description: str
+    subtype: "PropertySubtypeNumberItems"
+    default: bool
+
+
+class _StringMirror(TypedDict):
+    """`bpy.props.StringProperty` keywords of a string member."""
+
+    name: str
+    description: str
+    subtype: "PropertySubtypeStringItems"
+    default: str
+    maxlen: int
+
+
+class _EnumMirror(TypedDict):
+    """`bpy.props.EnumProperty` keywords of an enum member, `options` present for a flag enum."""
+
+    name: str
+    description: str
+    items: tuple[_Item, ...]
+    default: str | set[str]
+    options: NotRequired[set["PropertyFlagEnumItems"]]
+
+
+type _Mirror = _FloatMirror | _IntMirror | _BoolMirror | _StringMirror | _EnumMirror
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -243,7 +308,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
                 case bpy.types.IntProperty(hard_min=low, hard_max=high) as integer, _:
                     bounded = Annotated[int, msgspec.Meta(ge=low, le=high)]
                     return _converted(value, bounded | tuple[bounded, ...], repr(integer))
-                case bpy.types.StringProperty(subtype="BYTE_STRING") as text, str() as encoded:
+                case bpy.types.StringProperty(subtype="BYTE_STRING") as text, str(encoded):
                     decoded: Outcome[bytes] = catch(msgspec.convert, exception=msgspec.ValidationError)(encoded, bytes).map_error(partial(_outside, repr(text), value))
                     return decoded.bind(partial(self.validated, text))
                 case bpy.types.StringProperty() as text, str() | bytes() as content:
@@ -271,7 +336,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
                 return Ok(buffer.tolist())
             case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), tuple() if isinstance(owner, bpy.types.bpy_struct):
                 return Ok(np.asarray(stored).reshape(self.shape(owner)).tolist())
-            case bpy.types.EnumProperty(is_enum_flag=True), tuple() as chosen:
+            case bpy.types.EnumProperty(is_enum_flag=True), tuple(chosen):
                 return Ok(set(chosen))
             case bpy.types.PointerProperty(fixed_type=bpy.types.ID() as pointed), IdName() as identity:
                 return identity.resolve(type(pointed)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, type(pointed).__name__, member=identity.name))  # type: ignore[unreachable]
@@ -352,9 +417,9 @@ def parsed(root: Native | type[Native], text: str) -> Outcome[RnaPath]:
                 return Some(token[1:])
             case "[", inner:
                 match ast.literal_eval(inner):
-                    case int() as index:
+                    case int(index):
                         return Some(index)
-                    case str() as key:
+                    case str(key):
                         return Some((key,))
                     case _:
                         return Nothing
@@ -566,50 +631,57 @@ def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str]]) -
     return items
 
 
-def mirrored(prop: bpy.types.Property) -> Mapping[str, object]:
-    """Returns the `bpy.props` keywords declaring a host property's name, description, subtype, bounds, default, and items."""
-
-    def defaults(numeric: bpy.types.BoolProperty | bpy.types.IntProperty | bpy.types.FloatProperty, default: object) -> Mapping[str, object]:
-        dimensions = Descriptor.dimensions(numeric)
-        array: Iterable[object] = numeric.default_array  # type: ignore[assignment]
-        return {"size": dimensions if len(dimensions) > 1 else numeric.array_length, "default": np.asarray(tuple(array)).reshape(dimensions).tolist()} if numeric.is_array else {"default": default}
-
-    stated = {"name": prop.name, "description": prop.description}
+@overload
+def mirrored(prop: bpy.types.FloatProperty) -> _FloatMirror: ...
+@overload
+def mirrored(prop: bpy.types.IntProperty) -> _IntMirror: ...
+@overload
+def mirrored(prop: bpy.types.BoolProperty) -> _BoolMirror: ...
+@overload
+def mirrored(prop: bpy.types.StringProperty) -> _StringMirror: ...
+@overload
+def mirrored(prop: bpy.types.EnumProperty) -> _EnumMirror: ...
+def mirrored(prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.BoolProperty | bpy.types.StringProperty | bpy.types.EnumProperty) -> _Mirror:
+    """Returns the `bpy.props` keywords declaring a scalar host property's name, description, subtype, bounds, default, and items."""
     match prop:
         case bpy.types.FloatProperty() as real:
-            return {
-                **stated,
-                "subtype": real.subtype,
-                "unit": real.unit,
-                "min": real.hard_min,
-                "max": real.hard_max,
-                "soft_min": real.soft_min,
-                "soft_max": real.soft_max,
-                "step": real.step,
-                "precision": real.precision,
-                **defaults(real, real.default),
-            }
+            numeric: PropertySubtypeNumberItems = real.subtype  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return _FloatMirror(
+                name=real.name,
+                description=real.description,
+                subtype=numeric,
+                unit=real.unit,
+                min=real.hard_min,
+                max=real.hard_max,
+                soft_min=real.soft_min,
+                soft_max=real.soft_max,
+                step=real.step,
+                precision=real.precision,
+                default=real.default,
+            )
         case bpy.types.IntProperty() as integer:
-            return {
-                **stated,
-                "subtype": integer.subtype,
-                "min": integer.hard_min,
-                "max": integer.hard_max,
-                "soft_min": integer.soft_min,
-                "soft_max": integer.soft_max,
-                "step": integer.step,
-                **defaults(integer, integer.default),
-            }
+            integral: PropertySubtypeNumberItems = integer.subtype  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return _IntMirror(
+                name=integer.name,
+                description=integer.description,
+                subtype=integral,
+                min=integer.hard_min,
+                max=integer.hard_max,
+                soft_min=integer.soft_min,
+                soft_max=integer.soft_max,
+                step=integer.step,
+                default=integer.default,
+            )
         case bpy.types.BoolProperty() as flag:
-            return {**stated, "subtype": flag.subtype, **defaults(flag, flag.default)}
+            logical: PropertySubtypeNumberItems = flag.subtype  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return _BoolMirror(name=flag.name, description=flag.description, subtype=logical, default=flag.default)
         case bpy.types.StringProperty() as text:
-            return {**stated, "subtype": text.subtype, "default": text.default, "maxlen": text.length_max}
+            textual: PropertySubtypeStringItems = text.subtype  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return _StringMirror(name=text.name, description=text.description, subtype=textual, default=text.default, maxlen=text.length_max)
         case bpy.types.EnumProperty(is_enum_flag=True) as enum:
-            return {**stated, "items": choices(enum.enum_items), "default": set(enum.default_flag), "options": {"ENUM_FLAG"}}
+            return _EnumMirror(name=enum.name, description=enum.description, items=choices(enum.enum_items), default=set(enum.default_flag), options={"ENUM_FLAG"})
         case bpy.types.EnumProperty() as enum:
-            return {**stated, "items": choices(enum.enum_items), "default": enum.default}
-        case _:
-            return stated
+            return _EnumMirror(name=enum.name, description=enum.description, items=choices(enum.enum_items), default=enum.default)
 
 
 # --- [READERS]
@@ -623,9 +695,9 @@ def _steps(root: Native | type[Native], path: str | RnaPath) -> Outcome[RnaPath]
 def _split(path: RnaPath, coordinates: tuple[int, ...] = ()) -> Option[tuple[RnaPath, str, tuple[int, ...]]]:
     """Splits a member path at its last identifier into owner path, identifier, and trailing coordinates."""
     match path:
-        case (*owner, str() as identifier):
+        case (*owner, str(identifier)):
             return Some((tuple(owner), identifier, coordinates))
-        case (*rest, int() as coordinate):
+        case (*rest, int(coordinate)):
             return _split(tuple(rest), (coordinate, *coordinates))
         case _:
             return Nothing
@@ -648,7 +720,7 @@ def _walked(held: bpy.types.Struct, steps: RnaPath) -> Option[bpy.types.Struct]:
     match steps:
         case ():
             return Some(held)
-        case (str() as name, *rest):
+        case (str(name), *rest):
             return Option.of_optional(held.properties.get(name)).bind(lambda prop: entered(prop, tuple(rest)))
         case _:
             return Nothing

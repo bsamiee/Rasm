@@ -16,6 +16,8 @@ type Positive = Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=sys.floa
 type NonNegative = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
 type AtLeastOne = Annotated[float, msgspec.Meta(ge=1.0, le=sys.float_info.max)]
 type Side = Annotated[int, msgspec.Meta(ge=1)]
+type Count = Annotated[int, msgspec.Meta(ge=1)]
+type ProcessId = Annotated[int, msgspec.Meta(ge=1)]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -47,4 +49,4 @@ class Case(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=True
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["AtLeastOne", "Case", "Finite", "Frozen", "Knot", "NonNegative", "Positive", "Seed", "Side", "Unit"]
+__all__ = ["AtLeastOne", "Case", "Count", "Finite", "Frozen", "Knot", "NonNegative", "Positive", "ProcessId", "Seed", "Side", "Unit"]

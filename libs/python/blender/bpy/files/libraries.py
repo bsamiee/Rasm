@@ -1,6 +1,7 @@
 """Library imports, import records, overrides, and library writes."""
 
 from collections.abc import Callable, Mapping, Sequence
+from functools import partial
 from pathlib import Path
 from typing import Literal, Self, TYPE_CHECKING
 
@@ -160,7 +161,7 @@ def _listing(source: object, kind: type[bpy.types.ID], path: Path) -> Outcome[tu
         Option
         .of_optional(None if issubclass(kind, bpy.types.Library) else getattr(source, store, None))
         .map(lambda names: (store, names))
-        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(path), member=store),))
+        .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, str(path), member=store))
     )
 
 
@@ -174,7 +175,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 
     def chosen(source: object) -> tuple[Outcome[tuple[str, tuple[str, ...]]], Mapping[str, Sequence[str]]]:
         found = _listing(source, kind, path).bind(
-            lambda listing: accumulated(Ok(name).filter_with(listing[1].__contains__, lambda held: (Fault(reason=BlenderReason.ABSENT, subject=str(path), member=held),)) for name in names).map(
+            lambda listing: accumulated(Ok(name).filter_with(listing[1].__contains__, lambda held: Fault.of(BlenderReason.ABSENT, str(path), member=held)) for name in names).map(
                 lambda selected: (listing[0], selected)
             )
         )
@@ -191,7 +192,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
     return sourced(bpy.data, path, chosen, **keywords).bind(
         lambda answer: answer[0].bind(
             lambda picked: accumulated(
-                Option.of_optional(try_downcast(kind, block)).to_result((Fault(reason=BlenderReason.ABSENT, subject=str(path), member=name),)) for name, block in zip(picked[1], answer[1][picked[0]])
+                Option.of_optional(try_downcast(kind, block)).to_result(Fault.of(BlenderReason.ABSENT, str(path), member=name)) for name, block in zip(picked[1], answer[1][picked[0]])
             )
         )
     )
@@ -205,7 +206,7 @@ def library_written(
         lambda _: (
             catch(lambda: bpy.data.libraries.write(str(path), set(blocks), path_remap=remap, fake_user=fake_user, compress=compress), exception=OSError)()
             .map(lambda _: path)
-            .map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))
+            .map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path)))
         )
     )
 
@@ -217,7 +218,7 @@ def reloaded(library: bpy.types.Library, path: Option[Path] = Nothing) -> Outcom
     """Reloads library, relocating it to path when given."""
     return (
         accumulated(written(library, "filepath", str(target)) for target in path.to_list())
-        .bind(lambda _: catch(library.reload, exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{library!r}.reload", cause=error),)))
+        .bind(lambda _: catch(library.reload, exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, f"{library!r}.reload")))
         .map(lambda _: library)
     )
 
@@ -232,12 +233,12 @@ def overridden(block: bpy.types.ID, scope: OverrideScope) -> Outcome[bpy.types.I
             made = block.override_create(remap_local_usages=remap)
         case Hierarchy(scene=scene, view_layer=view_layer, reference=reference, do_fully_editable=editable):
             made = block.override_hierarchy_create(scene, view_layer, reference=reference.to_optional(), do_fully_editable=editable)
-    return Option.of_optional(made).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(block), member="override_library"),))
+    return Option.of_optional(made).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(block), member="override_library"))
 
 
 def overriding(block: bpy.types.ID) -> Outcome[bpy.types.IDOverrideLibrary]:
     """Returns override data of ID."""
-    return Option.of_optional(block.override_library).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(block), member="override_library"),))
+    return Option.of_optional(block.override_library).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(block), member="override_library"))
 
 
 def override_changed(block: bpy.types.ID, change: OverrideChange) -> Outcome[None]:
@@ -255,8 +256,8 @@ def override_changed(block: bpy.types.ID, change: OverrideChange) -> Outcome[Non
                 apply = lambda: held.resync(scene=scene, view_layer=view_layer, residual_storage=residual.to_optional(), do_hierarchy_enforce=enforce, do_whole_hierarchy=whole)
         return (
             catch(apply, exception=RuntimeError)()
-            .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),))
-            .bind(lambda done: Error((Fault(reason=BlenderReason.ABSENT, subject=request, member="reference"),)) if done is False else Ok(None))
+            .map_error(partial(Fault.of, BlenderReason.REFUSED, request))
+            .bind(lambda done: Error(Fault.of(BlenderReason.ABSENT, request, member="reference")) if done is False else Ok(None))
         )
 
     return overriding(block).bind(changed)

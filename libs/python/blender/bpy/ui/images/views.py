@@ -54,7 +54,7 @@ class ImageWindow(msgspec.Struct, frozen=True, kw_only=True):
 
 def image_type(kinds: tuple[str, ...]) -> Setting:
     """Returns the condition that an image editor shows an image of one of `kinds`."""
-    return Setting(descriptor=Descriptor.declared(bpy.types.SpaceImageEditor, "image.type", bpy.types.EnumProperty), accepted=kinds)
+    return Setting(descriptor=Descriptor.declared(bpy.types.SpaceImageEditor, ("image", "type"), bpy.types.EnumProperty), accepted=kinds)
 
 
 def framed(region: bpy.types.Region) -> Rect:
@@ -79,7 +79,7 @@ def revealed(context: bpy.types.Context) -> Outcome[Option[Located]]:
 
 RESULT: Final = image_type(("RENDER_RESULT",))
 RENDERED: Final = AreaQuery(space="IMAGE_EDITOR", ui_type=Some("IMAGE_EDITOR"), shows=Some(RESULT))
-WINDOW: Final = Setting(descriptor=Descriptor.declared(bpy.types.Context, "region.type", bpy.types.EnumProperty), accepted=("WINDOW",))
+WINDOW: Final = Setting(descriptor=Descriptor.declared(bpy.types.Context, ("region", "type"), bpy.types.EnumProperty), accepted=("WINDOW",))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -4,7 +4,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 import datetime
 from enum import auto, Enum
-from functools import cached_property
+from functools import cached_property, partial
 from itertools import starmap
 from typing import ClassVar, Final, TYPE_CHECKING
 
@@ -19,7 +19,7 @@ from blender.bpy.commands.calls import called, Stock
 from blender.bpy.commands.operators import Call, Done, Operator, Properties
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import Descriptor, RnaPath, written
+from blender.bpy.data.rna.descriptors import choices, Descriptor, RnaPath, written
 from blender.bpy.data.rna.snapshots import Endpoints, Scenes, Snapshot
 from blender.bpy.extension.events import Handler, Timer
 from blender.bpy.extension.identity import Identity
@@ -90,7 +90,7 @@ class Launch(bpy.types.PropertyGroup):
 
     animation: bpy.props.BoolProperty(name="Animation")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     write: bpy.props.BoolProperty(name="Write Still")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    into: bpy.props.EnumProperty(name="Slot", items=tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in Into))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    into: bpy.props.EnumProperty(name="Slot", items=choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in Into))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_layer: bpy.props.BoolProperty(name="View Layer", description="Render one view layer alone")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     layer: bpy.props.StringProperty(name="Layer", search=lambda _owner, context, _edit: tuple(layer.name for scene in Option.of_optional(context.scene).to_list() for layer in scene.view_layers))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
@@ -108,7 +108,7 @@ class RenderOverride(bpy.types.PropertyGroup):
     use_values: bpy.props.BoolProperty(name="Value Set", description="Apply a scene value preset for the render")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     values: bpy.props.StringProperty(name="Preset", description="Scene value preset applied for the render")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_isolation: bpy.props.BoolProperty(name="Isolate Selection", description="Isolate selected objects for the render")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    isolation: bpy.props.EnumProperty(name="Others", items=tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in Isolation))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    isolation: bpy.props.EnumProperty(name="Others", items=choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in Isolation))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     catcher: bpy.props.BoolProperty(name="Shadow Catcher")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
@@ -217,11 +217,9 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                             return written(image.render_slots, "active", slot).map(lambda _: None)
 
                         destination: Outcome[bpy.types.RenderSlot] = (
-                            Option.of_optional(image.render_slots.active).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(image), member="render_slots.active"),))
+                            Option.of_optional(image.render_slots.active).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(image), member="render_slots.active"))
                             if Into[record.into] is Into.DISPLAYED
-                            else catch(lambda: image.render_slots.new(name=title), exception=RuntimeError)().map_error(
-                                lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{image!r}.render_slots.new", cause=error),)
-                            )
+                            else catch(lambda: image.render_slots.new(name=title), exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, f"{image!r}.render_slots.new"))
                         )
                         return Result[bpy.types.RenderSlot, Faults].bind(
                             destination, lambda slot: written(slot, "name", title).map(lambda _: None) if Into[record.into] is Into.DISPLAYED else retained(slot)
@@ -261,9 +259,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
             def checked(roots: tuple[bpy.types.Scene, bpy.types.ViewLayer]) -> Outcome[Done]:
                 scene = roots[0]
-                return recovery.stored.read(scene).bind(
-                    lambda held: Error((Fault(reason=BlenderReason.TAKEN, subject=repr(scene), member=recovery.stored.name),)) if held.is_some() else scene_render(*roots)
-                )
+                return recovery.stored.read(scene).bind(lambda held: Error(Fault.of(BlenderReason.TAKEN, repr(scene), member=recovery.stored.name)) if held.is_some() else scene_render(*roots))
 
             return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(checked)
 
@@ -335,11 +331,11 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     rows=(
                         OperatorButton(target=Stock(operator=bpy.ops.object.bake)),
                         *(
-                            Property(target=Member(root=bpy.types.Scene, path=f"render.bake.{prop.identifier}"))
+                            Property(target=Member(root=bpy.types.Scene, path=("render", "bake", prop.identifier)))
                             for prop in bpy.types.BakeSettings.bl_rna.properties
                             if not (prop.is_readonly or prop.is_hidden)
                         ),
-                        ImageFormat(target=Member(root=bpy.types.Scene, path=f"render.bake.{pointer(bpy.types.BakeSettings)}")),
+                        ImageFormat(target=Member(root=bpy.types.Scene, path=("render", "bake", pointer(bpy.types.BakeSettings)))),
                         Pulldown(menu=Listing.keyed(RenderSlots.bakes)),
                     ),
                 ),

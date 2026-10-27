@@ -10,6 +10,7 @@ from typing import Final
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -21,7 +22,7 @@ from blender.bpy.commands.operators import Answer, Call, Done, Empty, Open, Oper
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Condition, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, rna, written
+from blender.bpy.data.rna.descriptors import choices, Descriptor, rna, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, startup, Subscription, updated
 from blender.bpy.extension.identity import Identity, Key, Resource
@@ -71,7 +72,11 @@ class Shift(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(name="Entry", description="Compositor entry name")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     toward: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
         name="Toward",
-        items=(("UP", "Up", "Move effect up the stack"), ("DOWN", "Down", "Move effect down the stack"), ("RANK", "Processing Order", "Move effect into processing order")),
+        items=choices((
+            (Toward.UP.name, "Up", "Move effect up the stack"),
+            (Toward.DOWN.name, "Down", "Move effect down the stack"),
+            (Toward.RANK.name, "Processing Order", "Move effect into processing order"),
+        )),
         default="RANK",
     )
 
@@ -158,8 +163,12 @@ class EffectRows[R: Case]:
 
     def offering(self, kind: type[Case]) -> Outcome[CompositorEffect[R]]:
         """Finds the effect of exact record type."""
-        return Option.of_optional(next((row for row in self.rows if row.record is kind), None)).to_result_with(
-            lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(tuple(row.kind for row in self.rows)), member=item_key(kind)),)
+        return (
+            Block
+            .of_seq(self.rows)
+            .filter(lambda row: row.record is kind)
+            .try_head()
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(tuple(row.kind for row in self.rows)), member=item_key(kind)))
         )
 
     # --- [ENTRIES]
@@ -174,8 +183,12 @@ class EffectRows[R: Case]:
 
     def found(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[Owned[R]]:
         """Finds named owned entry, skipping user groups."""
-        return Option.of_optional(next((held for held in self.owned(identity, scene) if held.entry.name == name), None)).to_result_with(
-            lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene.compositor_effects), member=name),)
+        return (
+            Block
+            .of_seq(self.owned(identity, scene))
+            .filter(lambda held: held.entry.name == name)
+            .try_head()
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(scene.compositor_effects), member=name))
         )
 
     def held(self, identity: Identity, scene: bpy.types.Scene) -> tuple[CompositorEffect[R], ...]:
@@ -248,9 +261,7 @@ class EffectRows[R: Case]:
             restores = accumulated(map(self.offering, retired))
             names = accumulated(
                 Descriptor.validated(NAME.prop, name).bind(
-                    lambda _: (
-                        Error((Fault(reason=BlenderReason.TAKEN, subject=name, member=repr(scene.compositor_effects[name])),)) if name not in current and name in scene.compositor_effects else Ok(None)
-                    )
+                    lambda _: Error(Fault.of(BlenderReason.TAKEN, name, member=repr(scene.compositor_effects[name]))) if name not in current and name in scene.compositor_effects else Ok(None)
                 )
                 for name in requested
             )
@@ -264,8 +275,8 @@ class EffectRows[R: Case]:
 
     def placed(self, identity: Identity, scene: bpy.types.Scene, row: CompositorEffect[R], record: Entry[R], *, context: Context = Nothing) -> Outcome[bpy.types.SceneCompositorEffect]:
         """Places entry at rank under the frame context, the held entry of a single rank kept, applying holds and restoring the active entry."""
-        prior = Option.of_optional(next((entry for entry in scene.compositor_effects if entry.is_active), None))
-        existing = Option.of_optional(next((held.entry for held in self.owned(identity, scene) if self.rank(held.row) == self.rank(row)), None)) if self.single(row) else Nothing
+        prior = Block.of_seq(scene.compositor_effects).filter(lambda entry: entry.is_active).try_head()
+        existing = Block.of_seq(self.owned(identity, scene)).filter(lambda held: self.rank(held.row) == self.rank(row)).try_head().map(lambda held: held.entry) if self.single(row) else Nothing
 
         def added() -> Outcome[bpy.types.SceneCompositorEffect]:
             return row.appended(identity, scene, record, context=context).bind(
@@ -284,8 +295,9 @@ class EffectRows[R: Case]:
 
         def assigned(row: CompositorEffect[R]) -> Outcome[bpy.types.SceneCompositorEffect]:
             return (
-                Option
-                .of_optional(next(iter(row.entries(identity, scene)), None))
+                Block
+                .of_seq(row.entries(identity, scene))
+                .try_head()
                 .map(lambda entry: row.read(identity, entry).bind(lambda prior: row.write(identity, scene, entry, msgspec.structs.replace(prior, record=record))).map(lambda _: entry))
                 .default_with(lambda: self.placed(identity, scene, row, Entry(record=record)))
             )
@@ -322,7 +334,7 @@ class EffectRows[R: Case]:
             return (
                 Result[None, Faults]
                 .bind(
-                    catch(scene.compositor_effects.remove, exception=RuntimeError)(held.entry).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(scene), cause=error),)),
+                    catch(scene.compositor_effects.remove, exception=RuntimeError)(held.entry).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(scene))),
                     lambda _: self.release(identity, scene, row) if not row.entries(identity, scene) else Ok(None),
                 )
                 .bind(lambda _: accumulated(owner.removed(identity) for owner in ownerships(row.record)))
@@ -385,7 +397,7 @@ class EffectRows[R: Case]:
             absent = (
                 (pinned, group)
                 for pinned in self.pinned
-                for group in Option.of_optional(next((group for group, mark in pinned.ownership.held(identity) if mark.of == Some(scene)), None)).to_list()
+                for group in Block.of_seq(pinned.ownership.held(identity)).filter(lambda pair: pair[1].of == Some(scene)).try_head().map(lambda pair: pair[0]).to_list()
                 if not any(entry.node_group == group for entry in scene.compositor_effects)
             )
             return (

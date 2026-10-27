@@ -490,7 +490,7 @@ def decoded[T: msgspec.Struct](record: T, values: Mapping[Key, Value], prefix: K
                 return found
 
     return catch(msgspec.convert, exception=msgspec.ValidationError)(raw(msgspec.inspect.type_info(type(record)), msgspec.to_builtins(record), prefix), type(record)).map_error(
-        lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=type(record).__name__, cause=error),)
+        functools.partial(Fault.of, RecordReason.UNREADABLE, type(record).__name__)
     )
 
 
@@ -557,7 +557,7 @@ def spectrum(request: Spectrum, tones: npt.NDArray[np.float64], config: PyOpenCo
             return ramp.evaluated(tones.tolist()).map(lambda colors: colors[:, :3])
         case Incandescence(cool=cool, hot=hot):
             tristimulus = observer.blackbody((1.0 - tones) * cool + tones * hot)
-            return processors.basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).map(lambda matrix: np.linalg.solve(matrix, tristimulus.T).T)
+            return processors.basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).map(lambda matrix: np.asarray(np.linalg.solve(matrix, tristimulus.T).T, dtype=np.float64))
 
 
 # --- [LOWERING]

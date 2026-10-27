@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 from contextlib import ExitStack
 from enum import IntEnum, StrEnum
+from functools import partial
 from pathlib import PurePath
 import re
 from types import MappingProxyType
@@ -16,7 +17,7 @@ import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Empty, Open, Operator
 from blender.bpy.data.ids.images import Tag
-from blender.bpy.data.ids.ownership import committed, kept, Ownership, Saved
+from blender.bpy.data.ids.ownership import kept, Ownership, retained, Saved
 from blender.bpy.data.rna.conditions import Present
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.snapshots import Scenes, Snapshot
@@ -72,7 +73,7 @@ class DataPass(IntEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ACTIVE: Final = Descriptor.declared(bpy.types.ViewLayer, "objects.active", bpy.types.PointerProperty)
+_ACTIVE: Final = Descriptor.declared(bpy.types.ViewLayer, ("objects", "active"), bpy.types.PointerProperty)
 _ACTIVE_MATERIAL: Final = Descriptor.declared(bpy.types.Object, "active_material", bpy.types.PointerProperty)
 _DISPLACEMENT_METHOD: Final = Descriptor.declared(bpy.types.Material, "displacement_method", bpy.types.EnumProperty)
 
@@ -199,7 +200,7 @@ def classified(paths: tuple[str, ...]) -> Outcome[dict[MapKind, str]]:
     maps: list[Outcome[tuple[MapKind, str]]] = []
     for path in paths:
         for found in kind(path).to_list():
-            maps.append(Error((Fault(reason=BlenderReason.TAKEN, subject=path, member=held[found]),)) if found in held else Ok((found, path)))
+            maps.append(Error(Fault.of(BlenderReason.TAKEN, path, member=held[found])) if found in held else Ok((found, path)))
             held.setdefault(found, path)
     return accumulated(maps).map(dict)
 
@@ -307,12 +308,7 @@ def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identi
     """Reuses or creates owned setup material, removing a created one on fault or scope unwind."""
 
     def built() -> Outcome[bpy.types.Material]:
-        return kept(
-            catch(bpy.data.materials.new, exception=RuntimeError)(bpy.path.display_name(setup.ownership.key)).map_error(
-                lambda error: (Fault(reason=BlenderReason.REFUSED, subject=setup.ownership.key, cause=error),)
-            ),
-            emptied,
-        )
+        return kept(catch(bpy.data.materials.new, exception=RuntimeError)(bpy.path.display_name(setup.ownership.key)).map_error(partial(Fault.of, BlenderReason.REFUSED, setup.ownership.key)), emptied)
 
     return stored(identity).bind(
         lambda shading: setup.ownership.made(
@@ -338,7 +334,7 @@ def texture_setup(call: Call[Empty]) -> Outcome[Done]:
     def assigned(maps: dict[MapKind, str], config: PyOpenColorIO.Config, rollback: ExitStack) -> Outcome[dict[MapKind, str]]:
         return (
             paired(
-                Option.of_optional(call.context.active_object).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(call.context), member="active_object"),)),
+                Option.of_optional(call.context.active_object).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(call.context), member="active_object")),
                 material(Textured(maps=maps), config, call.identity, Some(rollback)),
             )
             .bind(lambda pair: _ACTIVE_MATERIAL.write(*pair))
@@ -349,7 +345,7 @@ def texture_setup(call: Call[Empty]) -> Outcome[Done]:
         return Done(notes=tuple(("INFO", f"{PurePath(path).name} matches no map kind") for path in paths if path not in frozenset(maps.values())))
 
     with ExitStack() as rollback:
-        return committed(classified(paths).bind(lambda maps: assigned(maps, PyOpenColorIO.GetCurrentConfig(), rollback)), rollback).map(published)
+        return retained(classified(paths).bind(lambda maps: assigned(maps, PyOpenColorIO.GetCurrentConfig(), rollback)), rollback).map(published)
 
 
 # --- [MATRIX]

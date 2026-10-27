@@ -6,6 +6,7 @@ from typing import ClassVar, Final, get_args
 from bl_ui.space_image import IMAGE_PT_view_histogram
 import bpy
 from expression import Nothing, Ok, Option, Some
+from expression.collections import Block
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -92,7 +93,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 lambda attached: (
                     Caption(
                         rows=tuple(
-                            Property(target=Member(root=bpy.types.Screen, path=f"{attached.name}.{name}"), icon=Some(glyph), icon_only=True)
+                            Property(target=Member(root=bpy.types.Screen, path=(attached.name, name)), icon=Some(glyph), icon_only=True)
                             for name, glyph in zip(annotated(ClipEnds), (self.low, self.high))
                         ),
                         flow=Flow.GRID,
@@ -106,7 +107,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Chart switches section, inactive for another image."""
 
         def rows(identity: Identity) -> Outcome[tuple[Row, ...]]:
-            return self.switches.bound(identity).map(lambda attached: tuple(Property(target=Member(root=bpy.types.Screen, path=f"{attached.name}.{name}")) for name in annotated(Charted)))
+            return self.switches.bound(identity).map(lambda attached: tuple(Property(target=Member(root=bpy.types.Screen, path=(attached.name, name))) for name in annotated(Charted)))
 
         return Single(key=self.switches.key, title=bpy.path.display_name(self.switches.key), rows=(Rows(rows=rows),), condition=Some(RESULT))
 
@@ -191,7 +192,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def consumed(scene: bpy.types.Scene, path: str) -> Outcome[Option[str]]:
             settings = scene.render.image_settings
-            depth = Option.of_optional(next((held for held in get_args(IntegerDepth.__value__) if not settings.has_linear_colorspace and held == int(settings.color_depth)), None))
+            depth = Block.of_seq(get_args(IntegerDepth.__value__)).filter(lambda held: not settings.has_linear_colorspace and held == int(settings.color_depth)).try_head()
 
             def kept(frames: Frames) -> Outcome[Option[str]]:
                 nonlocal last
@@ -227,7 +228,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     )
                 )
 
-            keys = Keymap(keymap="Image", bindings={chord: Toggle(path=f"screen.{clipped.name}.{name}") for chord, name in ((Chord(type="O"), "high"), (Chord(type="U"), "low"))})
+            keys = Keymap(keymap="Image", bindings={chord: Toggle(path=("screen", clipped.name, name)) for chord, name in ((Chord(type="O"), "high"), (Chord(type="U"), "low"))})
             return (
                 ResultRead(consume=consumed),
                 overlaid(plotted(lambda held: held.outline, FrameCharts.histogram), RESULT, refreshes),

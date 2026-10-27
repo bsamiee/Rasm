@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Mapping
 import functools
+from functools import partial
 from typing import Final, Self
 
 import bpy
@@ -178,13 +179,13 @@ class Recombined(Case, frozen=True, kw_only=True):
         sockets = {name: msgspec.structs.replace(render, socket=identifier, shape="RGBA") for name, identifier in offered.items()}
 
         def socket(name: str) -> Outcome[Expr]:
-            return Option.of_optional(sockets.get(name)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(tuple(offered)), member=name),))
+            return Option.of_optional(sockets.get(name)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(tuple(offered)), member=name))
 
         def gained(source: Expr, key: Key) -> Expr:
             return source * (math("POWER", 2.0, outer(f"{key}_gain")) * outer(key))
 
         def total(terms: tuple[Expr, ...], requested: Key) -> Outcome[Expr]:
-            return Ok(sum(terms[1:], terms[0])) if terms else Error((Fault(reason=BlenderReason.ABSENT, subject=repr(tuple(offered)), member=requested),))
+            return Ok(sum(terms[1:], terms[0])) if terms else Error(Fault.of(BlenderReason.ABSENT, repr(tuple(offered)), member=requested))
 
         def finished(terms: tuple[tuple[Key, Expr, Option[Family]], ...], combined: Callable[[Mapping[Key, Expr]], Outcome[Expr]]) -> Outcome[Beauty]:
             def alpha(beauty: Expr, mask: Expr) -> Expr:

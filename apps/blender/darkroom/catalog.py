@@ -13,7 +13,7 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.render.compositor.blending import Entry
 from blender.bpy.render.compositor.effects import Enabled
 from blender.bpy.render.compositor.entries import Edge, Pinned
-from blender.bpy.render.compositor.layers import Adjustment, Layer, LayerStack
+from blender.bpy.render.compositor.layers import Adjustment, LayerStack, StackLayer
 from blender.bpy.render.compositor.library import save_effect
 from blender.bpy.render.compositor.stacking import OWNERSHIP, TITLE, Valued
 from blender.bpy.render.compositor.strips import Strips
@@ -134,7 +134,7 @@ stacks: Final = layers.stacks(
     filtering=filtering,
     looks={
         name: Valued(
-            structure=LayerStack(layers=(Layer(key="look", name=name, source=Adjustment(), effects=(Entry(record=Exposure()), Entry(record=Contrast()))),)),
+            structure=LayerStack(layers=(StackLayer(key="look", name=name, source=Adjustment(), effects=(Entry(record=Exposure()), Entry(record=Contrast()))),)),
             values=Snapshot(
                 struct="SceneCompositorEffectInterfaceInputs",
                 tree=Tree(

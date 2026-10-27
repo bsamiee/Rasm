@@ -136,7 +136,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
         """Names selection property on shared owner or window manager."""
         shared = self.active.root is self.collection.root and self.active.reach == self.collection.reach and isinstance(self.active.root, bpy.types.bpy_struct_meta_idprop)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         root, reach = (self.active.root, self.active.reach) if shared else (bpy.types.WindowManager, Nothing)
-        return identity.identifier(self.key).map(lambda name: Member(root=root, path=name, reach=reach))
+        return identity.identifier(self.key).map(lambda name: Member(root=root, path=(name,), reach=reach))
 
     def resolved(self, identity: Identity) -> Outcome[_Listed]:
         """Resolves selection, item members, attached fields, and row draws."""
@@ -167,7 +167,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
             def member(found: Option[str], kinds: tuple[type[Struct], ...], admitted: Callable[[ResolvedMember], bool], expected: str) -> Outcome[Option[ResolvedMember]]:
                 return found.map(
                     lambda path: (
-                        Member(root=type(item), path=path)
+                        Member(root=type(item), path=(path,))
                         .resolved()
                         .bind(lambda held: held.accepts(kinds))
                         .filter_with(admitted, lambda held: refused(held.descriptor.path, type(held.descriptor.prop).__name__, (expected,)))
@@ -188,7 +188,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
 
                 return (attachment.bound(identity) if isinstance(item, attachment.owner) else Error(refused(collection.descriptor.path, type(item).__name__, (attachment.owner.__name__,)))).bind(
                     lambda attached: accumulated(
-                        realized(Property(target=Member(root=attached.form, path=name), text=""), identity).map(lambda draw: partial(grouped, attached, draw)) for name in annotated(attached.form)
+                        realized(Property(target=Member(root=attached.form, path=(name,)), text=""), identity).map(lambda draw: partial(grouped, attached, draw)) for name in annotated(attached.form)
                     )
                 )
 

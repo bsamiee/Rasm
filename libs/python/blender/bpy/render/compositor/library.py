@@ -1,10 +1,12 @@
 """Active compositor effect group saved into user asset libraries."""
 
 import functools
+from functools import partial
 from pathlib import Path
 
 import bpy
-from expression import Option, Result, Some
+from expression import Option, Result, Some, try_downcast
+from expression.collections import Block
 
 from blender.bpy.commands.operators import Call, Done, Operator, Properties
 from blender.bpy.data.rna.descriptors import Struct, written
@@ -50,14 +52,25 @@ def save_effect_asset(call: Call[Saving]) -> Outcome[Done]:
     """Save active effect to user asset library."""
     chosen = call.properties
     group = call.root(bpy.types.Scene).bind(
-        lambda scene: Option.of_optional(next((entry.node_group for entry in scene.compositor_effects if entry.is_active), None)).to_result_with(
-            lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene.compositor_effects), member="active"),)
+        lambda scene: (
+            Block
+            .of_seq(scene.compositor_effects)
+            .filter(lambda entry: entry.is_active)
+            .choose(lambda entry: Option.of_optional(entry.node_group))
+            .try_head()
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(scene.compositor_effects), member="active"))
         )
     )
     folder = call.root(bpy.types.Preferences).bind(
-        lambda preferences: Option.of_optional(
-            next((Path(row.path) for row in preferences.filepaths.asset_libraries if isinstance(row, bpy.types.PreferencesAssetLibrary) and row.name == chosen.library), None)
-        ).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(preferences.filepaths.asset_libraries), member=chosen.library),))
+        lambda preferences: (
+            Block
+            .of_seq(preferences.filepaths.asset_libraries)
+            .choose(lambda row: Option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)))
+            .filter(lambda row: row.name == chosen.library)
+            .try_head()
+            .map(lambda row: Path(row.path))
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(preferences.filepaths.asset_libraries), member=chosen.library))
+        )
     )
 
     def stored(pair: tuple[bpy.types.NodeTree, Path]) -> Outcome[Done]:

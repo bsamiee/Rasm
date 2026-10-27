@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 import functools
 import inspect
 import itertools
+from math import e
 from types import MappingProxyType
 import typing
 from typing import Final, Literal, TYPE_CHECKING
@@ -158,7 +159,7 @@ class Fragment(msgspec.Struct, frozen=True, kw_only=True):
             for key, run in itertools.groupby(sorted(pairs, key=lambda pair: first[pair[0]]), key=lambda pair: pair[0])
         }
         return accumulated(
-            Ok((key, first)) if not rest else Error((Fault(reason=BlenderReason.REFUSED, subject=f"Fragment.nodes[{key!r}]", cause=ValueError(f"{len(rest) + 1} different nodes share key {key!r}")),))
+            Ok((key, first)) if not rest else Error(Fault.of(BlenderReason.REFUSED, f"Fragment.nodes[{key!r}]", ValueError(f"{len(rest) + 1} different nodes share key {key!r}")))
             for key, (first, *rest) in claims.items()
         ).map(lambda nodes: Fragment(nodes=dict(nodes), links=tuple(dict.fromkeys(link for fragment in held for link in fragment.links))))
 
@@ -328,7 +329,7 @@ class Expr(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     @staticmethod
     def log(x: "Expr", /) -> "Expr":
         """Natural logarithm."""
-        return math("LOGARITHM", x, np.e)
+        return math("LOGARITHM", x, e)
 
     @staticmethod
     def floor(x: "Expr", /) -> "Expr":

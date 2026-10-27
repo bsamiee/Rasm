@@ -311,11 +311,7 @@ class Linked(Gizmos, frozen=True, kw_only=True):
     def linked(self, identity: Identity) -> Generator[Outcome[None]]:
         """Links group into its regions for the scope."""
         acquired = paired(self.named(identity), rooted(bpy.types.WindowManager, bpy.context)).bind(
-            lambda held: (
-                catch(lambda: held[1].gizmo_group_type_ensure(held[0]), exception=RuntimeError)()
-                .map(lambda _: held)
-                .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=held[0], cause=error),))
-            )
+            lambda held: catch(held[1].gizmo_group_type_ensure, exception=RuntimeError)(held[0]).map(lambda _: held).map_error(partial(Fault.of, BlenderReason.REFUSED, held[0]))
         )
         try:
             yield acquired.map(lambda _: None)

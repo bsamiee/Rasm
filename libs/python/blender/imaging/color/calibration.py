@@ -29,14 +29,14 @@ from blender.records.fields import Case
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Chart(IntEnum):
+class PublishedChart(IntEnum):
     """Published color charts."""
 
     COLORCHECKER_CLASSIC = 1
     SPYDERCHECKR_24 = 2
 
 
-type Finding = Mirrored | Skewed | Wide | Clipped
+type Finding = Reversed | Skewed | Wide | Clipped
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -51,12 +51,12 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     @functools.cache
-    def of(cls, chart: Chart) -> Self:
+    def of(cls, chart: PublishedChart) -> Self:
         """Returns published reference data in printed grid order."""
         match chart:
-            case Chart.COLORCHECKER_CLASSIC:
+            case PublishedChart.COLORCHECKER_CLASSIC:
                 return cls(checker=CCS_COLORCHECKER24_AFTER_NOV2014, neutral=21)
-            case Chart.SPYDERCHECKR_24:
+            case PublishedChart.SPYDERCHECKR_24:
                 patches = {
                     "H1 (Bluish Green)": (0.3076822512, 0.4234772396, 0.3374520529),
                     "H2 (Blue Flower)": (0.2452835592, 0.2348654227, 0.3416765010),
@@ -114,7 +114,7 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 # --- [PLACEMENTS]
 
 
-class Mirrored(Case, frozen=True, kw_only=True):
+class Reversed(Case, frozen=True, kw_only=True):
     """Corner order reversing printed grid."""
 
     area: float
@@ -150,7 +150,7 @@ class Limits(msgspec.Struct, frozen=True, kw_only=True):
 class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
     """Chart corners, patch size, and panorama alignment view, direct sampling while absent."""
 
-    chart: Chart = Chart.COLORCHECKER_CLASSIC
+    chart: PublishedChart = PublishedChart.COLORCHECKER_CLASSIC
     quad: Quad = Quad()
     footprint: Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=1.0)] = 0.8
     panorama: PanoramaView | None = None
@@ -202,7 +202,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
             positions = self.mapping(homography)(self.footprints)
             clipped = tuple(np.flatnonzero(np.any((((positions[..., :2] < 0.0) | (positions[..., :2] > 1.0)) & clip), axis=(1, 2)) | np.any(positions[..., 2] <= 0.0, axis=1)).tolist())
             return (
-                *((Mirrored(area=area),) if area > 0.0 else ()),
+                *((Reversed(area=area),) if area > 0.0 else ()),
                 *((Skewed(narrowest=narrowest, widest=widest),) if narrowest < limits.narrowest or widest > limits.widest else ()),
                 *(Wide(field_of_view=held.field_of_view) for held in view.to_list() if held.field_of_view > limits.field_of_view),
                 *((Clipped(patches=clipped),) if clipped else ()),
@@ -264,7 +264,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
 
         def conditioned(fitted: npt.NDArray[np.float64]) -> Outcome[CalibrationFit]:
             if not (condition := float(np.linalg.cond(fitted))) < ceiling:
-                return Error((Fault(reason=RecordReason.OUTSIDE, subject=cls.__name__, member=f"matrix condition below {ceiling:.3g}", cause=str(condition)),))
+                return Error(Fault.of(RecordReason.OUTSIDE, cls.__name__, str(condition), member=f"matrix condition below {ceiling:.3g}"))
             forward, inverse = (
                 cls(gained=msgspec.convert(rows.tolist(), tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]])) for rows in (fitted, np.linalg.inv(fitted))
             )
@@ -273,7 +273,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
         return Result[npt.NDArray[np.float64], Faults].bind(
             catch(colour.matrix_colour_correction, exception=np.linalg.LinAlgError)(source, target, method="Cheung 2004")
             .map(lambda found: np.asarray(found, dtype=np.float64))
-            .map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=str(source), cause=error),)),
+            .map_error(functools.partial(Fault.of, RecordReason.NUMERIC, str(source))),
             conditioned,
         )
 
@@ -315,4 +315,4 @@ class CalibrationFit(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Calibration", "CalibrationFit", "Chart", "ChartPlacement", "ChartReference", "Clipped", "Finding", "Limits", "Mirrored", "Skewed", "Wide"]
+__all__ = ["Calibration", "CalibrationFit", "ChartPlacement", "ChartReference", "Clipped", "Finding", "Limits", "PublishedChart", "Reversed", "Skewed", "Wide"]

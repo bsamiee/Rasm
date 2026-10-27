@@ -3,6 +3,7 @@
 from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import auto, Enum
+from functools import partial
 from itertools import starmap
 import os
 from pathlib import Path
@@ -15,7 +16,7 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.calls import called
-from blender.bpy.data.ids.ownership import committed
+from blender.bpy.data.ids.ownership import retained
 from blender.bpy.data.ids.store import Handle, STORES
 from blender.bpy.data.rna.descriptors import assigned, Value
 from blender.bpy.faults import BlenderReason
@@ -148,7 +149,7 @@ def sourced[T](
         try:
             source, target = loading.enter_context(load)
         except (OSError, ValueError) as error:
-            return Error((Fault(reason=RecordReason.UNREADABLE, subject=str(path), cause=error),))
+            return Error(Fault.of(RecordReason.UNREADABLE, str(path), error))
         value, chosen = take(source)
         for name, names in chosen.items():
             setattr(target, name, list(names))
@@ -257,7 +258,7 @@ def packed(root: Path, *, compress: Option[bool] = Nothing) -> Outcome[Pack]:
                 lambda pair: Pack(blend=pair[0], files=pair[1], missing=tuple(item for item in found if not item.present))
             )
         case _:
-            return Error((Fault(reason=BlenderReason.ABSENT, subject="bpy.data", member="filepath"),))
+            return Error(Fault.of(BlenderReason.ABSENT, "bpy.data", member="filepath"))
 
 
 # --- [PROJECT]
@@ -269,8 +270,8 @@ def projected(project: Project) -> Outcome[None]:
     def initialized() -> Outcome[bpy.types.BlenderProject]:
         return (
             catch(bpy.data.project_init, exception=RuntimeError)(project.name, str(project.root))
-            .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject="bpy.data", cause=error),))
-            .bind(lambda _: Option.of_optional(bpy.data.project).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="bpy.data", member="project"),)))
+            .map_error(partial(Fault.of, BlenderReason.REFUSED, "bpy.data"))
+            .bind(lambda _: Option.of_optional(bpy.data.project).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, "bpy.data", member="project")))
         )
 
     def reconciled(current: bpy.types.BlenderProject) -> Outcome[None]:
@@ -284,8 +285,8 @@ def projected(project: Project) -> Outcome[None]:
 
                 return (
                     catch(made, exception=RuntimeError)()
-                    .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),))
-                    .bind(lambda item: Option.of_optional(item).map(held).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=request, member=name),)))
+                    .map_error(partial(Fault.of, BlenderReason.REFUSED, request))
+                    .bind(lambda item: Option.of_optional(item).map(held).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, request, member=name)))
                 )
 
             def placed(name: str, variable: TemplateVariable) -> Outcome[None]:
@@ -322,7 +323,7 @@ def projected(project: Project) -> Outcome[None]:
                     case items:
                         return accumulated(assigned(item, {"path": path}) for item in items).map(lambda _: None)
 
-            return committed(
+            return retained(
                 accumulated((assigned(current, {"name": project.name}), *starmap(placed, project.variables.items()), *starmap(library, project.libraries.items()))).bind(
                     lambda _: called(bpy.ops.project.save_project, {}).map(lambda _: None) if current.is_dirty else Ok(None)
                 ),

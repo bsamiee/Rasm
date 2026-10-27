@@ -6,10 +6,11 @@ from typing import ClassVar
 
 import bpy
 from expression import Error, Ok, Option, Some
+from expression.collections import Block
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Answer, Call, Done, Open, Operator, Save, Unchanged
-from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.data.rna.descriptors import choices, Value
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.graphs import Expr
@@ -44,8 +45,8 @@ class Imported(Named):
 class Exported(Named):
     """Correction written in an exact transform format, alone or resolved between scene-linear conversions."""
 
-    format: bpy.props.EnumProperty(name="Format", items=tuple((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    source: bpy.props.EnumProperty(name="Source", items=(("CORRECTION", "Correction", "Correction alone"), ("SCENE_LINEAR", "Scene Linear", "Correction between scene-linear conversions")))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    source: bpy.props.EnumProperty(name="Source", items=choices((("CORRECTION", "Correction", "Correction alone"), ("SCENE_LINEAR", "Scene Linear", "Correction between scene-linear conversions"))))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -59,7 +60,7 @@ def correction(values: Mapping[Key, Value]) -> Outcome[PyOpenColorIO.CDLTransfor
         case {"slope": tuple(slope), "offset": tuple(offset), "power": tuple(power), "saturation": float(saturation)}:
             return Ok(PyOpenColorIO.CDLTransform(slope=list(map(float, slope)), offset=list(map(float, offset)), power=list(map(float, power)), sat=saturation))
         case _:
-            return Error((Fault(reason=RecordReason.UNREADABLE, subject=Cdl.__name__, cause=repr(values)),))
+            return Error(Fault.of(RecordReason.UNREADABLE, Cdl.__name__, repr(values)))
 
 
 @transform.register
@@ -87,8 +88,13 @@ def import_cdl(call: Call[Imported]) -> Outcome[Answer]:
     path, properties = str(call.paths[0]), call.properties
 
     def chosen(found: tuple[tuple[Option[str], PyOpenColorIO.CDLTransform], ...]) -> Outcome[PyOpenColorIO.CDLTransform]:
-        return Option.of_optional(next((held for position, (_, held) in enumerate(found) if str(position) == properties.correction), None)).to_result_with(
-            lambda: (Fault(reason=BlenderReason.ABSENT, subject=path, member=properties.correction),)
+        return (
+            Block
+            .of_seq(enumerate(found))
+            .filter(lambda row: str(row[0]) == properties.correction)
+            .map(lambda row: row[1][1])
+            .try_head()
+            .to_result_with(functools.partial(Fault.of, BlenderReason.ABSENT, path, member=properties.correction))
         )
 
     entry = call.root(bpy.types.Scene).bind(lambda scene: cdl.named(call.identity, scene, properties.name))

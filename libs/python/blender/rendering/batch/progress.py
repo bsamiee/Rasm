@@ -17,7 +17,7 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.records.faults import Fault, Outcome, RecordReason
-from blender.records.fields import NonNegative, Side
+from blender.records.fields import NonNegative, ProcessId
 from blender.records.identity import ContentHash
 from blender.records.stores import RecordFile
 from blender.rendering.batch.queue import RenderQueue
@@ -71,7 +71,7 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
     """Progress record of one queue run."""
 
     queue: ContentHash
-    process: Side
+    process: ProcessId
     marks: tuple[StageMark, ...] = ()
     ending: Ending | None = None
     pending: tuple[tuple[int, int], ...] = ()

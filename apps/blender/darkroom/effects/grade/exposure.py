@@ -1,6 +1,7 @@
 """Scene-linear exposure, the opacity-weighted gain of later exposure entries other effects read, and bilateral local exposure about middle gray."""
 
 from collections.abc import Mapping
+from functools import partial
 from typing import ClassVar, Final
 
 import bpy
@@ -10,15 +11,16 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.data.rna.animation import Animation, Keys, sampled
-from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.data.rna.descriptors import id_path, Struct, Value
 from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.graphs import Expr, math, mixed, NodeGroup, rgba, where, xyz
 from blender.bpy.nodes.interface import Interface, item_key, Socket
 from blender.bpy.render.compositor.colors import COLOR_INPUT
 from blender.bpy.render.compositor.coordinates import pixels
 from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, Enabled, Shell
 from blender.bpy.render.compositor.filters import bilateral
-from blender.bpy.render.compositor.inputs import entry_input, path
+from blender.bpy.render.compositor.inputs import entry_input
 from blender.bpy.render.compositor.masks import LUMINANCE, luminance
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import GREY
@@ -61,19 +63,27 @@ class LocalExposure(Effect, frozen=True, kw_only=True):
 # --- [GAIN]
 
 
-def _products(identity: Identity, scene: bpy.types.Scene, held: tuple[bpy.types.SceneCompositorEffect, ...], frames: tuple[float, ...]) -> Outcome[npt.NDArray[np.float64]]:
+def _products(identity: Identity, held: tuple[bpy.types.SceneCompositorEffect, ...], frames: tuple[float, ...]) -> Outcome[npt.NDArray[np.float64]]:
     """Products over frames of the held Exposure entries' gains, each mixed by its opacity and render enable."""
 
     def samples(entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[tuple[float, ...], ...]]:
-        return paired(path(identity, entry, "stops"), path(identity, entry, item_key(Shell.blend, "opacity"))).bind(
-            lambda paths: accumulated(sampled(scene, address, frames) for address in (*paths, entry.path_from_id(Enabled.RENDER.descriptor.prop.identifier)))
+        channels: tuple[tuple[Outcome[Struct], str], ...] = (
+            (entry_input(identity, entry, "stops"), "value"),
+            (entry_input(identity, entry, item_key(Shell.blend, "opacity")), "value"),
+            (Ok(entry), Enabled.RENDER.descriptor.prop.identifier),
         )
+        return accumulated(held.bind(partial(_sampled, frames, member)) for held, member in channels)
 
     def product(found: tuple[tuple[tuple[float, ...], ...], ...]) -> npt.NDArray[np.float64]:
         values, weights, enabled = np.asarray(found, dtype=np.float64).reshape(-1, 3, len(frames)).transpose(1, 0, 2)
-        return np.prod(1.0 + weights * enabled * (np.exp2(values) - 1.0), axis=0)
+        return np.asarray(np.prod(1.0 + weights * enabled * (np.exp2(values) - 1.0), axis=0), dtype=np.float64)
 
     return accumulated(map(samples, held)).map(product)
+
+
+def _sampled(frames: tuple[float, ...], member: str, owner: Struct) -> Outcome[tuple[float, ...]]:
+    """Samples one member of an entry or its input at frames."""
+    return sampled(owner, member, frames)
 
 
 def later(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, _record: Effect) -> Outcome[tuple[Animation, ...]]:
@@ -82,14 +92,14 @@ def later(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneComp
     ordered = tuple(scene.compositor_effects)
     following = ordered[ordered.index(entry) + 1 :]
     return paired(
-        entry_input(identity, entry, LATER.key).map(lambda held: held.path_from_id()),
-        _products(identity, scene, tuple(held for held in exposure.entries(identity, scene) if held in following), frames),
-    ).map(lambda pair: (Animation(struct=pair[0], member="value", source=Keys(points=tuple(zip(frames, map(float, pair[1]))))),))
+        entry_input(identity, entry, LATER.key).bind(lambda held: id_path(held).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(held), member="value"))),
+        _products(identity, tuple(held for held in exposure.entries(identity, scene) if held in following), frames),
+    ).map(lambda pair: (Animation(owner=pair[0], member="value", source=Keys(points=tuple(zip(frames, map(float, pair[1]))))),))
 
 
 def gain(identity: Identity, scene: bpy.types.Scene) -> Outcome[float]:
     """Returns the stops of the Exposure entries' opacity-weighted render gains at the current frame, zero without an entry."""
-    return _products(identity, scene, exposure.entries(identity, scene), (scene.frame_current_final,)).map(lambda product: float(np.log2(product[0])))
+    return _products(identity, exposure.entries(identity, scene), (scene.frame_current_final,)).map(lambda product: float(np.log2(product[0])))
 
 
 @transform.register
@@ -99,7 +109,7 @@ def _(_record: Exposure, values: Mapping[Key, Value], _config: PyOpenColorIO.Con
         case {"stops": float(stops)}:
             return Ok(Some(PyOpenColorIO.MatrixTransform.Scale([2.0**stops] * 3 + [1.0])))
         case _:
-            return Error((Fault(reason=RecordReason.UNREADABLE, subject=Exposure.__name__, cause=repr(values)),))
+            return Error(Fault.of(RecordReason.UNREADABLE, Exposure.__name__, repr(values)))
 
 
 # --- [GRAPHS]

@@ -17,7 +17,7 @@ from blender.bpy.commands.operators import Answer, answered, Call, Operator
 from blender.bpy.data.ids.ownership import kept
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
+from blender.bpy.data.rna.descriptors import Descriptor, mirrored, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Applied, Objects, Scenes, Scope, scoped, SCOPES, Selection, Snapshot, ViewLayers
 from blender.bpy.faults import BlenderReason
 from blender.bpy.scene.collections import joined
@@ -128,17 +128,8 @@ class Reconciled(msgspec.Struct, frozen=True, kw_only=True):
 class LevelEdit(bpy.types.PropertyGroup):
     """Viewport and render subdivision levels within Subsurf bounds and the objects they write."""
 
-    levels: bpy.props.IntProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_LEVELS.prop.name, description=_LEVELS.prop.description, min=_LEVELS.prop.hard_min, max=_LEVELS.prop.hard_max, soft_max=_LEVELS.prop.soft_max, default=_LEVELS.prop.default
-    )
-    render_levels: bpy.props.IntProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name=_RENDER_LEVELS.prop.name,
-        description=_RENDER_LEVELS.prop.description,
-        min=_RENDER_LEVELS.prop.hard_min,
-        max=_RENDER_LEVELS.prop.hard_max,
-        soft_max=_RENDER_LEVELS.prop.soft_max,
-        default=_RENDER_LEVELS.prop.default,
-    )
+    levels: bpy.props.IntProperty(**mirrored(_LEVELS.prop))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    render_levels: bpy.props.IntProperty(**mirrored(_RENDER_LEVELS.prop))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     scope: bpy.props.EnumProperty(name="Scope", description="Objects to write", items=SCOPES, default=Selection.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     collection: bpy.props.StringProperty(name="Collection", description="Collection whose objects a collection scope writes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
@@ -150,7 +141,7 @@ class LevelEdit(bpy.types.PropertyGroup):
 def focused(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Object]:
     """Returns active object of view layer, `absent` when none is active."""
     objects = view_layer.objects
-    return Option.of_optional(objects.active).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(objects), member="active"),))
+    return Option.of_optional(objects.active).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(objects), member="active"))
 
 
 def descendants(item: bpy.types.Object, view_layer: bpy.types.ViewLayer) -> tuple[bpy.types.Object, ...]:
@@ -179,7 +170,7 @@ def extent(items: Iterable[bpy.types.Object], depsgraph: bpy.types.Depsgraph) ->
 def spawned(name: str, data: Option[bpy.types.ID], collection: bpy.types.Collection) -> Outcome[bpy.types.Object]:
     """Creates object linked into collection, removing it on fault."""
     return kept(
-        catch(bpy.data.objects.new, exception=RuntimeError)(name, data.to_optional()).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=name, cause=error),)),
+        catch(bpy.data.objects.new, exception=RuntimeError)(name, data.to_optional()).map_error(partial(Fault.of, BlenderReason.REFUSED, name)),
         lambda item: joined(collection, (item,)).map(lambda _: item),
     )
 
@@ -197,7 +188,7 @@ def restacked(stack: Stack, move: Option[Mover], entries: Entries) -> Outcome[tu
     trees = tuple(Tree(roots=tuple(key for key, _ in pairs), rows=tuple((key, Owner(values=values)) for key, values in pairs)) for pairs in (live, live if move.is_some() else live[:prefix], wanted))
     edits = (*diff(trees[0], trees[1]), *diff(trees[1], trees[2]))
     return accumulated(
-        Ok(value).filter_with(choices[key].__contains__, lambda held: (Fault(reason=RecordReason.OUTSIDE, subject=repr(stack), member=", ".join(choices[key]), cause=held),))
+        Ok(value).filter_with(choices[key].__contains__, partial(Fault.of, RecordReason.OUTSIDE, repr(stack), member=", ".join(choices[key])))
         for _, parameters in wanted
         for key, value in parameters.items()
     ).map(lambda _: (Restacked(stack=stack, move=move, edits=edits, wanted=wanted),) if edits else ())
@@ -209,24 +200,22 @@ def restack(row: Restacked) -> tuple[Step, ...]:
     named = "name" in stack.bl_rna.functions["new"].parameters  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def removed(key: str) -> Outcome[None]:
-        return catch(stack.remove, exception=RuntimeError)(stack[key]).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(stack), cause=error),))
+        return catch(stack.remove, exception=RuntimeError)(stack[key]).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(stack)))
 
     def added(key: str) -> Outcome[None]:
-        entry: Outcome[Struct | None] = catch(stack.new, exception=RuntimeError)(**({"name": key} if named else {}), **parameters[key]).map_error(
-            lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(stack), cause=error),)
-        )
+        entry: Outcome[Struct | None] = catch(stack.new, exception=RuntimeError)(**({"name": key} if named else {}), **parameters[key]).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(stack)))
 
         def renamed(held: Struct | None) -> Outcome[None]:
             match held:
                 case None:
-                    return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(stack), member=key),))
+                    return Error(Fault.of(BlenderReason.ABSENT, repr(stack), member=key))
                 case made:
                     return Ok(None) if named else written(made, "name", key).map(lambda _: None)
 
         return Result[Struct | None, Faults].bind(entry, renamed)
 
     def moved(move: Mover, before: int, index: int) -> Outcome[None]:
-        return catch(move, exception=RuntimeError)(before, index).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(stack), cause=error),))
+        return catch(move, exception=RuntimeError)(before, index).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(stack)))
 
     leaving = tuple(edit.key for edit in row.edits if isinstance(edit, (Deleted, Reparametrized)))
     order = [entry.name for entry in stack if entry.name not in leaving]
@@ -254,7 +243,7 @@ def diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types
         return (
             Ok(())
             if item.parent == block
-            else Error((Fault(reason=RecordReason.OUTSIDE, subject=f"{item!r}.parent", member="objects outside its own hierarchy", cause=block.name),))
+            else Error(Fault.of(RecordReason.OUTSIDE, f"{item!r}.parent", block.name, member="objects outside its own hierarchy"))
             if block == item or block in item.children_recursive
             else Ok((Parented(parent=block),))
         )
@@ -263,7 +252,7 @@ def diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types
         return (
             Result[bpy.types.ID, Faults]
             .bind(
-                data.or_else(Option.of_optional(item.data)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(item), member="data.materials"),)),
+                data.or_else(Option.of_optional(item.data)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(item), member="data.materials")),
                 lambda block: Descriptor.resolve(block, "materials", bpy.types.CollectionProperty).map(lambda member: getattr(block, member.prop.identifier)),
             )
             .map(lambda materials: (Resized(materials=materials, before=before, after=after),) if (before := len(materials)) != (after := len(slots)) else ())
@@ -285,9 +274,7 @@ def diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types
 
 def steps(item: bpy.types.Object, change: ObjectChange) -> tuple[Step, ...]:
     """Returns dependent writes of change."""
-
-    def refused(error: RuntimeError) -> Faults:
-        return (Fault(reason=BlenderReason.REFUSED, subject=repr(item), cause=error),)
+    refused = partial(Fault.of, BlenderReason.REFUSED, repr(item))
 
     match change:
         case Swapped(data=data):
@@ -383,7 +370,7 @@ def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.N
         mesh.clear_geometry()
         mesh.from_pydata(vertices, (), faces)
     except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-        return Error((Fault(reason=BlenderReason.REFUSED, subject=repr(mesh), cause=error),))
+        return Error(Fault.of(BlenderReason.REFUSED, repr(mesh), error))
     return Ok(None)
 
 

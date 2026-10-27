@@ -20,7 +20,7 @@ import PyOpenColorIO
 from blender.imaging.color.processors import interop
 from blender.imaging.faults import ImagingReason
 from blender.imaging.files.coding import Depth
-from blender.records.faults import Fault, Faults, Outcome, paired, RecordReason
+from blender.records.faults import Fault, Outcome, paired, RecordReason
 from blender.records.fields import Case
 from blender.records.stores import committed
 
@@ -144,7 +144,7 @@ type Compressions = Plain | Deflate | Dwa | Quality
 class Storage(msgspec.Struct, frozen=True, kw_only=True):
     """Float plane depth and compression, integer codes stored at their dtype."""
 
-    depth: Literal[16, 32] = 32
+    depth: Literal[Depth.HALF, Depth.FLOAT] = Depth.FLOAT
     compression: Option[Compressions] = Nothing
 
     @property
@@ -155,7 +155,7 @@ class Storage(msgspec.Struct, frozen=True, kw_only=True):
     def clipped[D: np.float32 | np.uint8 | np.uint16](self, plane: npt.NDArray[D]) -> npt.NDArray[D]:
         """Returns plane clipped to 65504 less compression margin at 16-bit depth, else unchanged."""
         bound = 65504.0 - self.compression.map(lambda compression: compression.margin).default_value(0)
-        return np.clip(plane, -bound, bound) if self.depth == 16 else plane
+        return np.clip(plane, -bound, bound) if self.depth is Depth.HALF else plane
 
 
 class Format(msgspec.Struct, frozen=True, kw_only=True):
@@ -233,9 +233,7 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
             )
             return (
                 Subimage(
-                    spec=OpenImageIO.ImageSpec(
-                        width, height, channels, OpenImageIO.TypeDesc(self.pixels.dtype.name) if coded else OpenImageIO.TypeDesc(OpenImageIO.HALF if storage.depth == 16 else OpenImageIO.FLOAT)
-                    ),
+                    spec=OpenImageIO.ImageSpec(width, height, channels, OpenImageIO.TypeDesc(self.pixels.dtype.name) if coded else OpenImageIO.TypeDesc(storage.depth.name.lower())),
                     attributes=attributes,
                     pixels=lambda: Ok(self.pixels if coded else storage.clipped(self.pixels)),
                 ),
@@ -274,9 +272,9 @@ def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str
                 )
             )
             .map(PyOpenColorIO.ColorSpace.getName)
-            .to_result_with(lambda: (Fault(reason=ImagingReason.UNRESOLVED, subject=config.getName(), member=requested),))
+            .to_result_with(lambda: Fault.of(ImagingReason.UNRESOLVED, config.getName(), member=requested))
         )
-        read = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (Fault(reason=RecordReason.UNREADABLE, subject=path, cause=image.geterror()),))
+        read = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: Fault.of(RecordReason.UNREADABLE, path, image.geterror()))
         return paired(resolved, read).map(lambda pair: ImageFile(pixels=pair[1], colorspace=pair[0], header=tuple(spec.extra_attribs)))
 
     return opened(path, decoded, options=options)
@@ -294,7 +292,7 @@ def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], Outcome[T]], *,
             return use(image)
 
     image = options.map(lambda spec: OpenImageIO.ImageInput.open(path, spec)).default_with(lambda: OpenImageIO.ImageInput.open(path))
-    return Option.of_optional(image).map(held).default_with(lambda: Error((Fault(reason=RecordReason.UNREADABLE, subject=path, cause=OpenImageIO.geterror()),)))
+    return Option.of_optional(image).map(held).default_with(lambda: Error(Fault.of(RecordReason.UNREADABLE, path, OpenImageIO.geterror())))
 
 
 def written(path: str, write: Callable[[pathlib.Path], object]) -> Outcome[str]:
@@ -303,10 +301,9 @@ def written(path: str, write: Callable[[pathlib.Path], object]) -> Outcome[str]:
     Returns:
         Path, or `write` fault for folder creation, encoding, or commit.
     """
-    return committed(
-        pathlib.Path(path),
-        lambda stage: catch(catch(write, exception=OSError), exception=ValueError)(stage).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=path, cause=error),)),
-    ).map(str)
+    return committed(pathlib.Path(path), lambda stage: catch(catch(write, exception=OSError), exception=ValueError)(stage).map_error(functools.partial(Fault.of, RecordReason.UNWRITABLE, path))).map(
+        str
+    )
 
 
 def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> Outcome[str]:
@@ -315,9 +312,7 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
     Returns:
         Path, or `write` fault.
     """
-
-    def refused(error: str) -> Faults:
-        return (Fault(reason=RecordReason.UNWRITABLE, subject=path, cause=error),)
+    refused = functools.partial(Fault.of, RecordReason.UNWRITABLE, path)
 
     def encode(stage: str) -> Outcome[str]:
         def into(output: OpenImageIO.ImageOutput) -> Outcome[str]:
@@ -361,7 +356,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[byt
     context = config.getCurrentContext()
 
     def loaded(name: str) -> Outcome[Option[bytes]]:
-        refused: Callable[[Exception], Faults] = lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=name, cause=error),)
+        refused = functools.partial(Fault.of, RecordReason.UNREADABLE, name)
         return (
             catch(context.resolveFileLocation, exception=PyOpenColorIO.ExceptionMissingFile)(name)
             .map_error(refused)

@@ -45,11 +45,11 @@ class ValueHistory[T: msgspec.Struct, O, U](msgspec.Struct, frozen=True, kw_only
         try:
             text = storage.get(self.key)
         except (TypeError, ReferenceError) as error:
-            return Error((Fault(reason=BlenderReason.REFUSED, subject=f"{storage!r}[{self.key!r}]", cause=error),))
+            return Error(Fault.of(BlenderReason.REFUSED, f"{storage!r}[{self.key!r}]", error))
         try:
             return Ok(msgspec.json.decode(text, type=GenericAlias(History, (self.form,))) if text is not None else History[T]())
         except (msgspec.DecodeError, TypeError) as error:
-            return Error((Fault(reason=RecordReason.OUTSIDE, subject=f"{storage!r}[{self.key!r}]", member=str(error), cause=str(text)),))
+            return Error(Fault.of(RecordReason.OUTSIDE, f"{storage!r}[{self.key!r}]", str(text), member=str(error)))
 
     def kept(self, host: O, history: History[T]) -> Outcome[None]:
         """Stores history."""
@@ -57,7 +57,7 @@ class ValueHistory[T: msgspec.Struct, O, U](msgspec.Struct, frozen=True, kw_only
         try:
             storage[self.key] = msgspec.json.encode(history).decode()
         except (TypeError, ReferenceError) as error:
-            return Error((Fault(reason=BlenderReason.REFUSED, subject=f"{storage!r}[{self.key!r}]", cause=error),))
+            return Error(Fault.of(BlenderReason.REFUSED, f"{storage!r}[{self.key!r}]", error))
         return Ok(None)
 
     # --- [EDITS]

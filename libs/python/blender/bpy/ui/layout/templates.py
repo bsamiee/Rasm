@@ -221,8 +221,8 @@ class NodeEditors(msgspec.Struct, frozen=True, kw_only=True):
     def realized(cls, identity: Identity) -> Outcome[Self]:
         """Realizes every curve editor and the ramp editor once."""
         return paired(
-            accumulated(realized(Curve(target=Member(root=kind, path="mapping"), type=tab), identity).map(lambda draw: (kind, draw)) for kind, tab in cls.tabs.items()).map(dict),
-            realized(ColorRamp(target=Member(root=bpy.types.ShaderNodeValToRGB, path="color_ramp")), identity),
+            accumulated(realized(Curve(target=Member(root=kind, path=("mapping",)), type=tab), identity).map(lambda draw: (kind, draw)) for kind, tab in cls.tabs.items()).map(dict),
+            realized(ColorRamp(target=Member(root=bpy.types.ShaderNodeValToRGB, path=("color_ramp",))), identity),
         ).map(lambda parts: cls(curves=parts[0], ramp=parts[1]))
 
     def drawn(self, layout: bpy.types.UILayout, node: bpy.types.Node, context: bpy.types.Context) -> None:

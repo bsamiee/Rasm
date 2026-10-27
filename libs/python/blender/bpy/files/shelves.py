@@ -32,12 +32,7 @@ class Action(msgspec.Struct, frozen=True, kw_only=True):
 
         @wraps(self.use)
         def used(call: Call[Empty]) -> Outcome[Answer]:
-            return (
-                Option
-                .of_optional(call.context.asset)
-                .map(lambda asset: self.use(call, asset))
-                .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject="bpy.context", member="asset"),)))
-            )
+            return Option.of_optional(call.context.asset).map(lambda asset: self.use(call, asset)).default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, "bpy.context", member="asset")))
 
         used.__name__ = used.__qualname__ = key
         return Operator(form=Empty, internal=True, run=used)
@@ -77,7 +72,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
             .of_optional(struct.properties.get(key))
             .filter(lambda prop: isinstance(prop, bpy.types.BoolProperty) and prop.is_registered_optional)
             .map(lambda _: key)
-            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(bpy.types.AssetShelf), member=key),))
+            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(bpy.types.AssetShelf), member=key))
             for key in sorted(self.filters)
         )
 

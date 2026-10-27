@@ -3,11 +3,11 @@
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
 from enum import auto, Enum
-import functools
+from functools import partial
 from typing import Final, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Some, try_downcast
 from expression.extra.result import catch
 import idprop
 import msgspec
@@ -47,13 +47,13 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
         match holder.get(identity.manifest.id):
             case idprop.types.IDPropertyGroup() as group:
                 return (
-                    catch(lambda: msgspec.convert(group.get("key"), Key), exception=msgspec.ValidationError)()
+                    catch(msgspec.convert, exception=msgspec.ValidationError)(group.get("key"), Key)
                     .to_option()
                     .map(
                         lambda key: cls(
                             key=key,
-                            of=Option.of_optional(group.get("of")).filter(lambda value: isinstance(value, bpy.types.ID)),
-                            content=catch(lambda: msgspec.convert(group.get("content"), ContentHash), exception=msgspec.ValidationError)().to_option(),
+                            of=Option.of_optional(try_downcast(bpy.types.ID, group.get("of"))),
+                            content=catch(msgspec.convert, exception=msgspec.ValidationError)(group.get("content"), ContentHash).to_option(),
                         )
                     )
                 )
@@ -62,8 +62,8 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
 
     def write(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Outcome[None]:
         """Writes present fields under manifest ID."""
-        fields = {name: value for name, held in msgspec.structs.asdict(self).items() for value in (held.to_list() if isinstance(held, Option) else (held,))}
-        return catch(holder.__setitem__, exception=TypeError)(identity.manifest.id, fields).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=identity.manifest.id, cause=error),))
+        fields = dict((("key", self.key), *(("of", block) for block in self.of.to_list()), *(("content", content) for content in self.content.to_list())))
+        return catch(holder.__setitem__, exception=TypeError)(identity.manifest.id, fields).map_error(partial(Fault.of, BlenderReason.REFUSED, identity.manifest.id))
 
 
 class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
@@ -133,7 +133,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
             case Option(tag="some", some=mark):
                 return build().bind(lambda block: self.owned(identity, block, of=mark.of, content=mark.content)).bind(swapped)
             case Option():
-                return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(held), member=identity.manifest.id),))
+                return Error(Fault.of(BlenderReason.ABSENT, repr(held), member=identity.manifest.id))
 
     def removed(self, identity: Identity) -> Outcome[int]:
         """Removes zero-user holders of `USED` row, returning their count."""
@@ -143,13 +143,13 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns the saved single row's place on its extension's import merge."""
-        return Ok((MERGES, (Band.APP_HANDLERS, Merges.holding(identity, (self.kind, self.key)))) if self.single and self.saved is not Saved.NEVER else ())
+        return Ok((_MERGES, (Band.APP_HANDLERS, _Merges.holding(identity, (self.kind, self.key)))) if self.single and self.saved is not Saved.NEVER else ())
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Merges:
+class _Merges:
     """Saved single rows of one extension, imported duplicates of each remapped to its earliest local holder by one import handler."""
 
     __slots__ = ("rows",)
@@ -163,14 +163,14 @@ class Merges:
     def opened(cls, identity: Identity) -> Generator[Self]:
         """Holds a new merge with its import handler until scope exit."""
         merges = cls()
-        with Handler(handlers=bpy.app.handlers.blend_import_post, body=functools.partial(merges.merged, identity)).held(identity):
+        with Handler(handlers=bpy.app.handlers.blend_import_post, body=partial(merges.merged, identity)).held(identity):
             yield merges
 
     @staticmethod
     @contextmanager
     def holding(identity: Identity, row: tuple[type[bpy.types.ID], Key]) -> Generator[None]:
         """Holds row on the extension's merge until scope exit."""
-        merges = identity.held[MERGES]
+        merges = identity.held[_MERGES]
         with ExitStack() as stack:
             merges.rows.append(row)
             stack.callback(merges.rows.remove, row)
@@ -194,12 +194,12 @@ class Merges:
         return released(tuple(block for block, _ in duplicates)).map(lambda _: None)
 
 
-MERGES: Final = Resource[Merges](made=Merges.opened)
+_MERGES: Final = Resource[_Merges](made=_Merges.opened)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def committed[T](result: Outcome[T], rollback: ExitStack, scope: Option[ExitStack] = Nothing) -> Outcome[T]:
+def retained[T](result: Outcome[T], rollback: ExitStack, scope: Option[ExitStack] = Nothing) -> Outcome[T]:
     """Moves rollback callbacks into scope on success, dropping them without scope."""
     for _ in result.to_option().to_list():
         held = rollback.pop_all()
@@ -214,18 +214,14 @@ def kept[B: bpy.types.ID, T](made: Outcome[B], fill: Callable[[B], Outcome[T]], 
     def filled(block: B) -> Outcome[T]:
         with ExitStack() as rollback:
             rollback.callback(bpy.data.batch_remove, ids=(block,))
-            return committed(fill(block), rollback, scope)
+            return retained(fill(block), rollback, scope)
 
     return made.bind(filled)
 
 
 def released(blocks: tuple[bpy.types.ID, ...]) -> Outcome[int]:
     """Removes blocks in one `batch_remove`, returning their count."""
-    return (
-        (catch(bpy.data.batch_remove, exception=RuntimeError)(ids=blocks) if blocks else Ok(None))
-        .map(lambda _: len(blocks))
-        .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(blocks), cause=error),))
-    )
+    return (catch(bpy.data.batch_remove, exception=RuntimeError)(ids=blocks) if blocks else Ok(None)).map(lambda _: len(blocks)).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(blocks)))
 
 
 def _held[T: bpy.types.ID](identity: Identity, kind: type[T], keys: frozenset[Key]) -> tuple[tuple[T, Mark], ...]:
@@ -240,4 +236,4 @@ def _earliest[T: bpy.types.ID](pairs: Iterable[tuple[T, Mark]]) -> Mapping[Mark,
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["MERGES", "Mark", "Merges", "Ownership", "Saved", "committed", "kept", "released"]
+__all__ = ["Mark", "Ownership", "Saved", "kept", "released", "retained"]

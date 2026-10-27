@@ -1,19 +1,21 @@
 """RNA channel keyframes, drivers, modifiers, and sampling."""
 
 from collections.abc import Iterable, Mapping
+from functools import partial
+from types import MappingProxyType
 from typing import Annotated, TYPE_CHECKING
 
 import bpy
 from bpy_extras import anim_utils
-from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
+from expression import Error, Nothing, Ok, Option, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 import numpy as np
 from numpy.typing import NDArray
 
-from blender.bpy.data.rna.descriptors import Descriptor, struct_at, Value, written
+from blender.bpy.data.rna.descriptors import assigned, definition, Descriptor, id_path, rna, RnaPath, Struct, struct_at, Value, written
 from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 from blender.records.fields import Case
 
 if TYPE_CHECKING:
@@ -21,7 +23,12 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Source = Keys | Driven
+type _Source = Keys | Driven
+type _Curves = bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_SAMPLED: tuple[type[bpy.types.Property], ...] = (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.EnumProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -29,31 +36,29 @@ type Source = Keys | Driven
 class Keys(Case, frozen=True, kw_only=True):
     """Keyframes as frame and value pairs."""
 
-    title = "Keyframes"
     points: tuple[tuple[float, float], ...]
 
     @staticmethod
-    def curves(data: bpy.types.AnimData) -> Option[bpy.types.ActionChannelbagFCurves]:
+    def curves(data: bpy.types.AnimData) -> Option[_Curves]:
         """Returns F-curves of the slot data animates, Nothing before an action and slot hold one."""
         return Option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(data)).map(lambda bag: bag.fcurves)
 
 
 class Variable(msgspec.Struct, frozen=True, kw_only=True):
-    """Driver variable over animated ID property."""
+    """Driver variable over an animated property of the driven ID."""
 
     name: str
-    path: str
+    path: RnaPath
 
 
 class Driven(Case, frozen=True, kw_only=True):
     """Scripted driver over variables."""
 
-    title = "Driver"
     expression: str
     variables: tuple[Variable, ...] = ()
 
     @staticmethod
-    def curves(data: bpy.types.AnimData) -> Option[bpy.types.AnimDataDrivers]:
+    def curves(data: bpy.types.AnimData) -> Option[_Curves]:
         """Returns driver F-curves of data."""
         return Some(data.drivers)
 
@@ -62,308 +67,245 @@ class Modifier(msgspec.Struct, frozen=True, kw_only=True):
     """F-curve modifier type and property values."""
 
     kind: "rna_enums.FmodifierTypeItems"
-    values: Mapping[str, Value] = msgspec.field(default_factory=dict)
+    values: Mapping[str, Value] = MappingProxyType({})
 
 
 class Animation(msgspec.Struct, frozen=True, kw_only=True):
-    """Desired animation on one scalar property or flat array element."""
+    """Desired animation on one scalar property or flat array element of a struct under an ID."""
 
-    struct: str = ""
+    owner: RnaPath = ()
     member: str
     index: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    source: Source
+    source: _Source
     modifiers: tuple[Modifier, ...] = ()
 
     # --- [RESOLUTION]
 
     @property
-    def path(self) -> str:
-        """RNA data path of channel without array index."""
-        return ".".join(filter(None, (self.struct, self.member)))
+    def path(self) -> RnaPath:
+        """RNA path of the channel from the ID, array index left out."""
+        return (*self.owner, self.member)
 
-    def channel(self, owner: bpy.types.ID) -> Outcome[bpy.types.Property]:
-        """Returns animatable property at member and index."""
-
-        def fits(prop: bpy.types.Property) -> bool:
-            match prop, self.index:
-                case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True) as array, int(index):
-                    return array.is_animatable and index < array.array_length
-                case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), None:
-                    return False
-                case _, None:
-                    return prop.is_animatable
-                case _:
-                    return False
-
+    def channel(self, block: bpy.types.ID) -> Outcome[Struct]:
+        """Returns the struct holding the animatable member at index."""
+        absent = partial(Fault.of, BlenderReason.ABSENT, repr(block), member=rna(self.path))
         return (
-            struct_at(owner, self.struct)
-            .bind(lambda struct: Option.of_optional(struct.bl_rna.properties.get(self.member)))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            .filter(fits)
-            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=self.path),))
+            struct_at(block, self.owner)
+            .bind(lambda struct: Option.of_optional(try_downcast(bpy.types.bpy_struct, struct)))
+            .filter(lambda struct: Option.of_optional(definition(struct).properties.get(self.member)).filter(partial(_fits, self.index)).is_some())
+            .to_result_with(absent)
         )
 
     # --- [CHANNELS]
 
-    def apply(self, owner: bpy.types.ID, context: bpy.types.Context) -> Outcome[bool]:
-        """Reconciles channel, returning whether it wrote."""
-        path, index = self.path, Option.of_optional(self.index).default_value(0)
+    def apply(self, block: bpy.types.ID) -> Outcome[bool]:
+        """Reconciles the channel on block, answering whether it wrote."""
+        text, index = rna(self.path), Option.of_optional(self.index).default_value(0)
+        refused = partial(Fault.of, BlenderReason.REFUSED, f"{block!r}.{text}")
 
-        def matching(curve: bpy.types.FCurve, source: NDArray[np.float32] | Driven) -> Outcome[bool]:
-            coordinates = (
-                len(curve.keyframe_points) == len(source) and all(bool((point == key.co).all()) for key, point in zip(curve.keyframe_points, source))
-                if isinstance(source, np.ndarray)
-                else len(curve.keyframe_points) == 2 and all(key.co.x == key.co.y == float(index) for index, key in enumerate(curve.keyframe_points))
-            )
-            keys = (
-                not curve.mute
-                and not curve.sampled_points
-                and curve.extrapolation == ("CONSTANT" if isinstance(self.source, Keys) else "LINEAR")
-                and curve.auto_smoothing == context.preferences.edit.fcurve_new_auto_smoothing  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                and coordinates
-                and all(key.interpolation == "BEZIER" and key.handle_left_type == key.handle_right_type == "AUTO_CLAMPED" for key in curve.keyframe_points)
-            )
-            match self.source:
-                case Driven(expression=expression, variables=variables):
-                    driven = (
-                        Option
-                        .of_optional(curve.driver)
-                        .filter(
-                            lambda driver: (
-                                driver.type == "SCRIPTED"
-                                and driver.expression == expression
-                                and not driver.use_self
-                                and len(driver.variables) == len(variables)
-                                and all(
-                                    held.type == "SINGLE_PROP"
-                                    and held.name == row.name
-                                    and held.targets[0].id == owner
-                                    and held.targets[0].id_type == owner.id_type
-                                    and held.targets[0].data_path == row.path
-                                    and not held.targets[0].use_fallback_value
-                                    for held, row in zip(driver.variables, variables)
-                                )
-                            )
-                        )
-                        .is_some()
-                    )
-                case Keys():
-                    driven = True
-            if not keys or not driven or len(curve.modifiers) != len(self.modifiers) or any(held.type != row.kind for held, row in zip(curve.modifiers, self.modifiers)):
+        def keyed(curve: bpy.types.FCurve, points: NDArray[np.float32]) -> Outcome[bool]:
+            held = np.empty(len(curve.keyframe_points) * 2, np.float32)
+            curve.keyframe_points.foreach_get("co", held)
+            if np.array_equal(held.reshape(-1, 2), points):
                 return Ok(False)
-            return accumulated(
-                Descriptor.resolve(held, name, bpy.types.Property).map(lambda descriptor: descriptor.equal(descriptor.read(held), value))
-                for held, row in zip(curve.modifiers, self.modifiers)
-                for name, value in row.values.items()
-            ).map(all)
+            curve.keyframe_points.clear()
+            curve.keyframe_points.add(len(points))
+            curve.keyframe_points.foreach_set("co", points.ravel())
+            curve.update_autoflags(block)
+            curve.update()
+            return Ok(True)
 
-        def modified(curve: bpy.types.FCurve) -> Outcome[None]:
+        def driven(curve: bpy.types.FCurve, source: Driven) -> Outcome[bool]:
+            def variables(driver: bpy.types.Driver) -> Outcome[bool]:
+                if len(driver.variables) == len(source.variables) and all(
+                    held.type == "SINGLE_PROP" and held.name == row.name and held.targets[0].id == block and held.targets[0].id_type == block.id_type and held.targets[0].data_path == rna(row.path)
+                    for held, row in zip(driver.variables, source.variables)
+                ):
+                    return Ok(False)
+                for held in tuple(driver.variables):
+                    driver.variables.remove(held)
+                return accumulated(
+                    accumulated((
+                        written(variable, ("name",), row.name),
+                        written(variable, ("targets", 0, "id_type"), block.id_type).bind(lambda _: written(variable, ("targets", 0, "id"), block)),
+                        written(variable, ("targets", 0, "data_path"), rna(row.path)),
+                    ))
+                    for row in source.variables
+                    for variable in (driver.variables.new(),)
+                ).map(lambda _: True)
+
+            return (
+                Option
+                .of_optional(curve.driver)
+                .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(curve), member="driver"))
+                .bind(
+                    lambda driver: accumulated((written(driver, ("type",), "SCRIPTED"), written(driver, ("expression",), source.expression))).bind(
+                        lambda prior: variables(driver).map(lambda wrote: wrote or any(held.is_some() for held in prior))
+                    )
+                )
+            )
+
+        def modified(curve: bpy.types.FCurve) -> Outcome[bool]:
+            held = tuple(curve.modifiers)
+            same = len(held) == len(self.modifiers) and all(
+                modifier.type == row.kind
+                and all(
+                    Descriptor.resolve(modifier, (name,), bpy.types.Property).map(lambda descriptor: descriptor.equal(descriptor.read(modifier), value)).default_value(False)
+                    for name, value in row.values.items()
+                )
+                for modifier, row in zip(held, self.modifiers)
+            )
+            if same:
+                return Ok(False)
+
             def added(row: Modifier) -> Outcome[None]:
                 return (
-                    catch(lambda: curve.modifiers.new(row.kind), exception=TypeError)()
-                    .to_option()
-                    .bind(Option.of_optional)
-                    .map(lambda made: accumulated(written(made, name, value) for name, value in row.values.items()).map(lambda _: None))
-                    .default_with(
-                        lambda: Descriptor.resolve(bpy.types.FModifier, "type", bpy.types.EnumProperty).bind(
-                            lambda kind: Error((
-                                Fault(
-                                    reason=RecordReason.OUTSIDE, subject=repr(curve.modifiers), member=", ".join(item.identifier for item in kind.prop.enum_items if item.value), cause=str(row.kind)
-                                ),
-                            ))
-                        )
-                    )
+                    catch(curve.modifiers.new, exception=TypeError)(row.kind)
+                    .map_error(partial(Fault.of, BlenderReason.REFUSED, repr(curve.modifiers)))
+                    .bind(lambda made: Option.of_optional(made).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(curve.modifiers), member=row.kind)))
+                    .bind(lambda made: assigned(made, row.values))
                 )
-
-            return accumulated(map(added, self.modifiers)).map(lambda _: None)
-
-        def replaced(data: bpy.types.AnimData, source: NDArray[np.float32] | Driven) -> Outcome[bool]:
-            held = self.source.curves(data).bind(lambda curves: Option.of_optional(curves.find(path, index=index)))
-            request = f"{owner!r}.{path}"
-
-            def stored() -> Outcome[bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers]:
-                return (
-                    Ok(data.drivers)
-                    if isinstance(source, Driven)
-                    else Option
-                    .of_optional(data.action)
-                    .map(Ok)
-                    .default_with(
-                        lambda: Result[bpy.types.Action, Faults].bind(
-                            catch(bpy.data.actions.new, exception=RuntimeError)(f"{owner.name}Action").map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),)),
-                            lambda action: written(data, "action", action).map(lambda _: action),
-                        )
-                    )
-                    .bind(
-                        lambda action: (
-                            Option
-                            .of_optional(data.action_slot)
-                            .map(Ok)
-                            .default_with(
-                                lambda: Result[bpy.types.ActionSlot, Faults].bind(
-                                    catch(action.slots.new, exception=RuntimeError)(id_type=owner.id_type, name=owner.name).map_error(
-                                        lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),)
-                                    ),
-                                    lambda slot: written(data, "action_slot", slot).map(lambda _: slot),
-                                )
-                            )
-                            .bind(
-                                lambda slot: catch(anim_utils.action_ensure_channelbag_for_slot, exception=RuntimeError)(action, slot).map_error(
-                                    lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),)
-                                )
-                            )
-                        )
-                    )
-                    .map(lambda bag: bag.fcurves)
-                )
-
-            def filled(curve: bpy.types.FCurve) -> Outcome[bool]:
-                match source:
-                    case np.ndarray() as points:
-                        curve.keyframe_points.add(len(points))
-                        curve.keyframe_points.foreach_set("co", points.ravel())
-                        curve.update_autoflags(owner)
-                        curve.update()
-                        return modified(curve).map(lambda _: True)
-                    case Driven(expression=expression, variables=variables):
-                        curve.update_autoflags(owner)
-                        return (
-                            Option
-                            .of_optional(curve.driver)
-                            .map(
-                                lambda driver: (
-                                    accumulated((written(driver, "type", "SCRIPTED"), written(driver, "expression", expression)))
-                                    .bind(
-                                        lambda _: accumulated(
-                                            accumulated((
-                                                written(variable, "name", row.name),
-                                                written(variable, "targets[0].id_type", owner.id_type).bind(lambda _: written(variable, "targets[0].id", owner)),
-                                                written(variable, "targets[0].data_path", row.path),
-                                            ))
-                                            for row in variables
-                                            for variable in (driver.variables.new(),)
-                                        )
-                                    )
-                                    .bind(lambda _: modified(curve))
-                                    .map(lambda _: True)
-                                )
-                            )
-                            .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(curve), member="driver"),)))
-                        )
 
             return (
-                held
-                .map(lambda curve: matching(curve, source))
-                .default_value(Ok(False))
-                .bind(
-                    lambda matched: (
-                        Ok(False)
-                        if matched
-                        else stored()
-                        .bind(
-                            lambda curves: (
-                                held
-                                .map(catch(curves.remove, exception=RuntimeError))
-                                .default_value(Ok(None))
-                                .bind(lambda _: catch(curves.new, exception=RuntimeError)(path, index=index))
-                                .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),))
+                accumulated(catch(curve.modifiers.remove, exception=RuntimeError)(modifier).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(curve.modifiers))) for modifier in held)
+                .bind(lambda _: accumulated(map(added, self.modifiers)))
+                .map(lambda _: True)
+            )
+
+        def curve_of(data: bpy.types.AnimData, struct: Struct) -> Outcome[bpy.types.FCurve]:
+            match self.source:
+                case Keys():
+                    return (
+                        Option
+                        .of_optional(data.action)
+                        .map(Ok)
+                        .default_with(
+                            lambda: (
+                                catch(bpy.data.actions.new, exception=RuntimeError)(f"{block.name}Action")
+                                .map_error(refused)
+                                .bind(lambda action: written(data, ("action",), action).map(lambda _: action))
                             )
                         )
-                        .bind(filled)
+                        .bind(lambda action: catch(action.fcurve_ensure_for_datablock, exception=RuntimeError)(block, text, index=index).map_error(refused))
                     )
-                )
-            )
+                case Driven():
+                    return (
+                        catch(struct.driver_add, exception=TypeError)(self.member, index)
+                        .map_error(refused)
+                        .bind(lambda made: Option.of_optional(try_downcast(bpy.types.FCurve, made)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(struct), member="driver")))
+                    )
 
-        def read(variable: Variable) -> Outcome[None]:
-            return (
-                catch(lambda: owner.path_resolve(variable.path), exception=ValueError)()
-                .map_error(lambda _: (Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=variable.path),))
-                .map(lambda _: None)
-            )
+        def reconciled(curve: bpy.types.FCurve, source: NDArray[np.float32] | Driven) -> Outcome[bool]:
+            content = driven(curve, source) if isinstance(source, Driven) else keyed(curve, source)
+            return accumulated((content, written(curve, ("mute",), False).map(Option.is_some), modified(curve))).map(any)
 
-        variables = self.source.variables if isinstance(self.source, Driven) else ()
-        coordinates: Outcome[NDArray[np.float32] | Driven]
-        match self.source:
-            case Keys(points=points):
-                coordinates = Descriptor.resolve(bpy.types.Keyframe, "co", bpy.types.FloatProperty).bind(lambda coordinate: Descriptor.quantized(coordinate.prop, np.asarray(points, dtype=np.float64)))
-            case Driven() as driver:
-                coordinates = Ok(driver)
-        return paired(accumulated((self.channel(owner).map(lambda _: None), *map(read, variables))), coordinates).bind(
-            lambda checked: (
+        def prepared() -> Outcome[NDArray[np.float32] | Driven]:
+            match self.source:
+                case Keys(points=points):
+                    return Descriptor.quantized(Descriptor.declared(bpy.types.Keyframe, ("co",), bpy.types.FloatProperty).prop, np.asarray(points, dtype=np.float64))
+                case Driven(variables=variables) as source:
+                    return accumulated(Descriptor.resolve(block, row.path, bpy.types.Property) for row in variables).map(lambda _: source)
+
+        return paired(self.channel(block), prepared()).bind(
+            lambda found: (
                 Option
-                .of_optional(owner.animation_data_create())
-                .map(lambda data: replaced(data, checked[1]))
-                .default_with(lambda: Result[bool, Faults](error=(Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=path),)))
+                .of_optional(block.animation_data_create())
+                .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(block), member="animation_data"))
+                .bind(lambda data: curve_of(data, found[0]).bind(lambda curve: reconciled(curve, found[1])))
             )
         )
 
-    def clear(self, owner: bpy.types.ID) -> Outcome[None]:
-        """Removes channel's F-curve or driver."""
-        path, index = self.path, Option.of_optional(self.index).default_value(0)
-
-        def cleared(_: bpy.types.Property) -> Outcome[None]:
-            held: Option[bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers] = _animation_data(owner).bind(self.source.curves)
-            for curves in held.to_list():
-                for curve in Option.of_optional(curves.find(path, index=index)).to_list():
-                    curves.remove(curve)
-            return Ok(None)
-
-        return self.channel(owner).bind(cleared)
+    def clear(self, block: bpy.types.ID) -> Outcome[None]:
+        """Removes the channel's F-curve or driver."""
+        text, index = rna(self.path), Option.of_optional(self.index).default_value(0)
+        return self.channel(block).bind(
+            lambda _: accumulated(
+                catch(curves.remove, exception=RuntimeError)(curve).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(curves)))
+                for curves in _animation_data(block).bind(self.source.curves).to_list()
+                for curve in Option.of_optional(curves.find(text, index=index)).to_list()
+            ).map(lambda _: None)
+        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int = 0, proposed: Option[float] = Nothing) -> Outcome[tuple[float, ...]]:
-    """Samples keyed channel at frames, repeating proposed or stored value when unkeyed."""
+def sampled(owner: Struct, member: str, frames: Iterable[float], index: int = 0, proposed: Option[float] = Nothing) -> Outcome[tuple[float, ...]]:
+    """Samples the keyed channel of a member at frames, repeating the proposed or stored value when unkeyed.
+
+    Args:
+        owner: Struct holding the member.
+        member: Member identifier.
+        frames: Frames to sample.
+        index: Array element of an array member.
+        proposed: Value repeated for an unkeyed member, its stored value when Nothing.
+
+    Returns:
+        One value per frame, absent fault for a member no number or enum holds.
+    """
     held = tuple(frames)
+    absent = partial(Fault.of, BlenderReason.ABSENT, repr(owner), member=member)
+
+    def projected(prop: bpy.types.Property, values: NDArray[np.float32]) -> Outcome[tuple[float, ...]]:
+        match prop:
+            case bpy.types.BoolProperty():
+                return Ok(tuple((values > (np.float32(1) - np.spacing(np.float32(1)))).astype(float).tolist()))
+            case bpy.types.IntProperty():
+                return Ok(tuple(values.astype(np.int64).clip(prop.hard_min, prop.hard_max).astype(float).tolist()))
+            case bpy.types.FloatProperty():
+                return Ok(tuple(values.clip(prop.hard_min, prop.hard_max).astype(float).tolist()))
+            case bpy.types.EnumProperty():
+                return Ok(tuple(values.astype(np.int64).astype(float).tolist()))
+            case _:
+                return Error(Fault.of(RecordReason.OUTSIDE, member, type(prop).__name__, member=", ".join(kind.__name__ for kind in _SAMPLED)))
 
     def keyed(curve: bpy.types.FCurve) -> Outcome[tuple[float, ...]]:
-        def projected(prop: bpy.types.Property, values: NDArray[np.float32]) -> Outcome[tuple[float, ...]]:
-            match prop:
-                case bpy.types.BoolProperty():
-                    return Ok(tuple((values > (np.float32(1) - np.spacing(np.float32(1)))).astype(float).tolist()))
-                case bpy.types.IntProperty():
-                    return Ok(tuple(values.astype(np.int64).clip(prop.hard_min, prop.hard_max).astype(float).tolist()))
-                case bpy.types.FloatProperty():
-                    return Ok(tuple(values.clip(prop.hard_min, prop.hard_max).astype(float).tolist()))
-                case bpy.types.EnumProperty():
-                    return Ok(tuple(values.astype(np.int64).astype(float).tolist()))
-                case _:
-                    return Error((
-                        Fault(
-                            reason=RecordReason.OUTSIDE,
-                            subject=path,
-                            member=", ".join(kind.__name__ for kind in (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.EnumProperty)),
-                            cause=type(prop).__name__,
-                        ),
-                    ))
-
-        return Descriptor.resolve(owner, path, bpy.types.Property).bind(lambda descriptor: projected(descriptor.prop, np.asarray(tuple(map(curve.evaluate, held)), dtype=np.float32)))
+        return Descriptor.resolve(owner, (member,), bpy.types.Property).bind(lambda descriptor: projected(descriptor.prop, np.asarray(tuple(map(curve.evaluate, held)), dtype=np.float32)))
 
     def stored() -> Outcome[float]:
-        return Descriptor.resolve(owner, path, bpy.types.Property).bind(
+        return Descriptor.resolve(owner, (member,), bpy.types.Property).bind(
             lambda descriptor: (
-                descriptor
-                .owner_of(owner)
-                .filter(lambda _: isinstance(descriptor.prop, bpy.types.BoolProperty | bpy.types.IntProperty | bpy.types.FloatProperty))
-                .map(lambda held: np.asarray(descriptor.read(held), np.float64).ravel())
+                Some(descriptor)
+                .filter(lambda found: isinstance(found.prop, bpy.types.BoolProperty | bpy.types.IntProperty | bpy.types.FloatProperty))
+                .map(lambda found: np.asarray(found.read(owner), np.float64).ravel())
                 .filter(lambda values: index < values.size)
                 .map(lambda values: float(values[index]))
-                .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=path),))
+                .to_result_with(absent)
             )
         )
 
     def unkeyed() -> Outcome[tuple[float, ...]]:
-        return proposed.map(Result[float, Faults].Ok).default_with(stored).map(lambda value: tuple(value for _ in held))
+        return proposed.map(Ok).default_with(stored).map(lambda value: tuple(value for _ in held))
 
-    return _animation_data(owner).bind(Keys.curves).bind(lambda curves: Option.of_optional(curves.find(path, index=index))).map(keyed).default_with(unkeyed)
+    return (
+        Option
+        .of_optional(try_downcast(bpy.types.ID, owner.id_data))
+        .bind(_animation_data)
+        .bind(Keys.curves)
+        .bind(lambda curves: id_path(owner).bind(lambda path: Option.of_optional(curves.find(rna((*path, member)), index=index))))
+        .map(keyed)
+        .default_with(unkeyed)
+    )
 
 
-def _animation_data(owner: bpy.types.ID) -> Option[bpy.types.AnimData]:
-    """Returns owner's animation data, Nothing for an ID kind that holds none."""
-    return struct_at(owner, ("animation_data",)).bind(lambda data: Option.of_optional(try_downcast(bpy.types.AnimData, data)))
+def _fits(index: int | None, prop: bpy.types.Property) -> bool:
+    """Whether the member animates at index, arrays taking an element and other members none."""
+    match prop, index:
+        case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True) as array, int(at):
+            return array.is_animatable and at < array.array_length
+        case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), None:
+            return False
+        case _, None:
+            return prop.is_animatable
+        case _:
+            return False
+
+
+def _animation_data(block: bpy.types.ID) -> Option[bpy.types.AnimData]:
+    """Returns the block's animation data, Nothing for an ID kind that holds none."""
+    return struct_at(block, ("animation_data",)).bind(lambda data: Option.of_optional(try_downcast(bpy.types.AnimData, data)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Animation", "Driven", "Keys", "Modifier", "Source", "Variable", "sampled"]
+__all__ = ["Animation", "Driven", "Keys", "Modifier", "Variable", "sampled"]

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, Final
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -273,9 +273,9 @@ def tabled_tony(shell: Shell[Tony]) -> Outcome[Expr]:
         return (
             Result[Path, Faults]
             .bind(
-                catch(scope.enter_context, exception=OSError)(as_file(table)).map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(table), cause=error),)),
+                catch(scope.enter_context, exception=OSError)(as_file(table)).map_error(partial(Fault.of, RecordReason.UNREADABLE, str(table))),
                 lambda path: split(shell.config, PyOpenColorIO.FileTransform(src=str(path), interpolation=PyOpenColorIO.INTERP_TETRAHEDRAL)).bind(
-                    lambda parts: parts[1].to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(path), member=PyOpenColorIO.Lut3DTransform.__name__),))
+                    lambda parts: parts[1].to_result_with(partial(Fault.of, BlenderReason.ABSENT, str(path), member=PyOpenColorIO.Lut3DTransform.__name__))
                 ),
             )
             .bind(lambda found: tabled(item_key(Tony), "Tony McMapface", msgspec.structs.replace(found[0], spacing=Rational()), found[1], shell.color, shell.config))
@@ -289,17 +289,18 @@ def whitened(prefix: tuple[Key, ...], values: Mapping[Key, Value], config: PyOpe
     """Manual scene white read from covered scene-linear pixels at the white panel under `prefix`, refusing a white outside its stop range or one leaving Hable normalization without contrast."""
 
     def resolved(white: float) -> Outcome[Mapping[Key, Value]]:
-        stops = float(np.log2(white))
-        refused: Faults = (Fault(reason=RecordReason.OUTSIDE, subject=item_key(*prefix, "white"), member="scene white inside its stop range holding nonzero contrast", cause=str(white)),)
-        match values:
-            case {"a": float(a), "b": float(b), "c": float(c), "e": float(e), "f": float(f)} if 2.0**stops * a * (f - e) + b * (c * f - e) == 0.0:
-                return Error(refused)
+        refused = partial(Fault.of, RecordReason.OUTSIDE, item_key(*prefix, "white"), member="scene white inside its stop range holding nonzero contrast")
+        match tuple(values.get(name) for name in ("a", "b", "c", "e", "f")):
+            case (float(shoulder), float(linear), float(angle), float(numerator), float(denominator)):
+                contrast = white * shoulder * (denominator - numerator) + linear * (angle * denominator - numerator)
             case _:
-                return (
-                    catch(msgspec.convert, exception=msgspec.ValidationError)(stops, Stops)
-                    .map_error(lambda _: refused)
-                    .map(lambda held: {item_key(*prefix, "white"): True, item_key(*prefix, "white", "stops"): held})
-                )
+                contrast = 1.0
+        return (
+            catch(msgspec.convert, exception=msgspec.ValidationError)(float(np.log2(white)), Stops)
+            .map_error(refused)
+            .filter_with(lambda _: contrast != 0.0, lambda _: refused(white))
+            .map(lambda held: {item_key(*prefix, "white"): True, item_key(*prefix, "white", "stops"): held})
+        )
 
     return colors.whitened(config, plane).bind(resolved)
 

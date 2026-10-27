@@ -1,6 +1,7 @@
 """White balance from a source white to a target white through Bradford cone response, its matrix derived from the live config."""
 
 from collections.abc import Mapping
+from functools import partial
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -48,7 +49,7 @@ def _(_record: WhiteBalance, values: Mapping[Key, Value], config: PyOpenColorIO.
             bradford = matrix(adaptation(White(temperature=source_temperature, duv=source_duv).xyz, White(temperature=target_temperature, duv=target_duv).xyz))
             return Ok(Some(PyOpenColorIO.GroupTransform([reading, bradford, PyOpenColorIO.GroupTransform([reading], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)])))
         case _:
-            return Error((Fault(reason=RecordReason.UNREADABLE, subject=WhiteBalance.__name__, cause=repr(values)),))
+            return Error(Fault.of(RecordReason.UNREADABLE, WhiteBalance.__name__, repr(values)))
 
 
 def rows(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, record: WhiteBalance) -> Outcome[Mapping[Key, Value]]:
@@ -77,7 +78,7 @@ def white_pick(call: Call[Named]) -> Outcome[Answer]:
             Samples
             .of(config, file.pixels)
             .bind(lambda samples: White.of(config, samples.color[samples.covered].mean(axis=0, dtype=np.float64)) if samples.covered.any() else Ok(Nothing))
-            .bind(lambda white: white.to_result_with(lambda: (Fault(reason=BlenderReason.UNMET, subject=f"Region of frame entering {entry.name} holds no value its effect reads"),)))
+            .bind(lambda white: white.to_result_with(partial(Fault.of, BlenderReason.UNMET, f"Region of frame entering {entry.name} holds no value its effect reads")))
             .bind(lambda white: entered(identity, entry, {"source_temperature": white.temperature, "source_duv": white.duv}))
             .map(lambda wrote: Some(bpy.path.display_name(white_pick.__name__)) if wrote else Nothing)
         )

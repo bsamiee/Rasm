@@ -9,6 +9,7 @@ from typing import Final, Self
 
 import bpy
 from expression import Error, Ok, Option
+from expression.collections import Block
 import msgspec
 
 from blender.bpy.data.rna.descriptors import Value, written
@@ -50,11 +51,11 @@ class Chosen(msgspec.Struct, frozen=True, kw_only=True):
                     case tree if isinstance(tree, accepted):
                         return Ok(cls(cursor=(cursor.x, cursor.y), tree=tree, active=Option.of_optional(tree.nodes.active).filter(lambda node: node.select)))
                     case None:
-                        return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(space), member="edit_tree"),))
+                        return Error(Fault.of(BlenderReason.ABSENT, repr(space), member="edit_tree"))
                     case other:
-                        return Error((Fault(reason=RecordReason.OUTSIDE, subject="edit_tree", member=", ".join(kind.__name__ for kind in accepted), cause=type(other).__name__),))
+                        return Error(Fault.of(RecordReason.OUTSIDE, "edit_tree", type(other).__name__, member=", ".join(kind.__name__ for kind in accepted)))
             case _:
-                return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(context), member="SpaceNodeEditor.WINDOW"),))
+                return Error(Fault.of(BlenderReason.ABSENT, repr(context), member="SpaceNodeEditor.WINDOW"))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -143,8 +144,12 @@ def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, *, gaps: Gaps
 
         def linked(source: bpy.types.NodeSocket) -> Outcome[None]:
             def socket(sockets: Iterable[bpy.types.NodeSocket]) -> Outcome[bpy.types.NodeSocket]:
-                return Option.of_optional(next((each for each in sockets if each.enabled and each.type == source.type), None)).to_result_with(
-                    lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(sockets), member=source.type),)
+                return (
+                    Block
+                    .of_seq(sockets)
+                    .filter(lambda each: each.enabled and each.type == source.type)
+                    .try_head()
+                    .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(sockets), member=source.type))
                 )
 
             links = tuple(link for link in source.links if link.is_valid)  # type: ignore[union-attr]  # ty: ignore[not-iterable]

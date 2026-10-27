@@ -2,10 +2,12 @@
 
 from collections.abc import Callable
 from enum import Enum, IntEnum
+from functools import partial
 from typing import Final, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.collections import Block
 import msgspec
 import PyOpenColorIO
 
@@ -84,16 +86,14 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
             case Kind.EXR:
                 container = Ok({"media_type": "IMAGE", "file_format": "OPEN_EXR"})
             case Kind.IMAGE:
-                container = Error((Fault(reason=RecordReason.OUTSIDE, subject="File Output format", member=f"{Kind.LAYERED.name}, {Kind.EXR.name}", cause=str(kind.name)),))
+                container = Error(Fault.of(RecordReason.OUTSIDE, "File Output format", kind.name, member=f"{Kind.LAYERED.name}, {Kind.EXR.name}"))
         match output:
             case Output.BEAUTY:
                 stored = Ok({"color_depth": "16", "exr_codec": "DWAB"})
             case Output.DATA | Output.MATTE:
                 stored = Ok({"color_depth": "32", "exr_codec": "ZIP"})
             case Output.PREVIEW:
-                stored = Error((
-                    Fault(reason=RecordReason.OUTSIDE, subject="File Output class", member=", ".join(member.name for member in Output if member is not Output.PREVIEW), cause=str(output.name)),
-                ))
+                stored = Error(Fault.of(RecordReason.OUTSIDE, "File Output class", output.name, member=", ".join(member.name for member in Output if member is not Output.PREVIEW)))
         return paired(container, stored).map(lambda pair: cls(own=Snapshot.of(bpy.types.CompositorNodeOutputFile, {}), format=Snapshot.of(bpy.types.ImageFormatSettings, pair[0] | pair[1])))
 
     @classmethod
@@ -129,13 +129,13 @@ def pointer(struct: type[Struct]) -> str:
 
 def writer(name: str) -> Option[Format]:
     """Returns named writer."""
-    return Option.of_optional(next((row for row in Format.writable() if row.name == name), None))
+    return Block.of_seq(Format.writable()).filter(lambda row: row.name == name).try_head()
 
 
 def sample(selected: Format, depth: Depth) -> Outcome[Depth]:
     """Accepts a depth the writer stores."""
     accepted = selected.depths
-    return Ok(depth).filter_with(accepted.__contains__, lambda _: (Fault(reason=RecordReason.OUTSIDE, subject=selected.name, member=", ".join(member.name for member in accepted), cause=depth.name),))
+    return Ok(depth).filter_with(accepted.__contains__, lambda held: Fault.of(RecordReason.OUTSIDE, selected.name, held.name, member=", ".join(member.name for member in accepted)))
 
 
 def display_space(config: PyOpenColorIO.Config, display: str) -> Outcome[str]:
@@ -147,7 +147,7 @@ def display_space(config: PyOpenColorIO.Config, display: str) -> Outcome[str]:
             choice
             .bind(lambda pair: pair[0].colorspace(config))
             .map(PyOpenColorIO.ColorSpace.getName)
-            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(config), member=f"display encoding {display}"),))
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(config), member=f"display encoding {display}"))
         ),
     )
 

@@ -635,7 +635,7 @@ def _walked[W](owner: Native, source: Native, walk: _Walk[W], chosen: Option[tup
         if not sessioned:
             return path
         target = _reference(owner, struct, path)
-        return (target[0].session_uid, *target[1]) if isinstance(target, tuple) else (struct.as_pointer() if isinstance(struct, bpy.types.bpy_struct) else id(struct),)
+        return (target[0].session_uid, *target[1]) if isinstance(target, tuple) else (address(struct)[0],)
 
     def arrayed(prop: bpy.types.Property, names: Collection[str]) -> TypeIs[bpy.types.BoolProperty | bpy.types.IntProperty | bpy.types.FloatProperty]:
         return (

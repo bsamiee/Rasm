@@ -156,7 +156,7 @@ class PreferencesPage[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, k
 def read[T: bpy.types.PropertyGroup](identity: Identity, form: type[T]) -> Outcome[T]:
     """Returns the extension's add-on preferences under the form group type its class declares."""
     holder: Option[T] = Option.of_optional(bpy.context.preferences.addons.get(identity.package)).bind(lambda addon: Option.of_optional(addon.preferences))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-    return holder.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=identity.package, member=form.__name__),))
+    return holder.to_result_with(partial(Fault.of, BlenderReason.ABSENT, identity.package, member=form.__name__))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

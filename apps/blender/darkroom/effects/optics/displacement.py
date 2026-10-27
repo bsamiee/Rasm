@@ -88,7 +88,7 @@ class Twirl(msgspec.Struct, frozen=True, kw_only=True):
             0.5 + 0.5 * np.cos(self.arms * (np.arctan2(arm[..., 1], arm[..., 0]) - self.arm_offset))
         )
         turn = -self.angle * weight
-        return arm - np.stack((arm[..., 0] * np.cos(turn) - arm[..., 1] * np.sin(turn), arm[..., 0] * np.sin(turn) + arm[..., 1] * np.cos(turn)), axis=-1)
+        return arm - np.stack((arm[..., 0] * np.cos(turn) - arm[..., 1] * np.sin(turn), arm[..., 0] * np.sin(turn) + arm[..., 1] * np.cos(turn)), axis=-1, dtype=np.float64)
 
 
 class Wave(msgspec.Struct, frozen=True, kw_only=True):
@@ -129,7 +129,8 @@ class Wave(msgspec.Struct, frozen=True, kw_only=True):
                 axis = {Front.RADIAL: spoke, Front.ZIGZAG: tangent, Front.POND: (spoke + tangent) * 0.5**0.5}[self.front]
                 envelope = np.maximum(0.0, 1.0 - travel / self.radius)
             cycles = travel / wavelength - self.clock.clock(frame) + self.phase / tau + (float(draws[index, 2]) if self.count > 1 else 0.0)
-            return np.asarray(amplitude * (2.0 * profiled(self.profile, cycles, np) - 1.0)[..., None] * envelope[..., None] * axis * self.axes, dtype=np.float64)
+            wave = np.asarray(profiled(self.profile, cycles, np), dtype=np.float64)
+            return np.asarray(amplitude * (2.0 * wave - 1.0)[..., None] * envelope[..., None] * axis * self.axes, dtype=np.float64)
 
         return sum((crest(index) for index in range(self.count)), np.zeros_like(points))
 
@@ -166,7 +167,7 @@ class Sphere(msgspec.Struct, frozen=True, kw_only=True):
         bounded = np.minimum(radial, 1.0)
         target = 2.0 * np.arcsin(bounded) / pi if self.amount >= 0.0 else np.sin(pi * bounded / 2.0)
         change = np.divide(target - bounded, bounded, out=np.zeros_like(bounded), where=(bounded > 0.0) & (radial < 1.0))
-        return -abs(self.amount) * change[..., None] * arm
+        return np.asarray(-abs(self.amount) * change[..., None] * arm, dtype=np.float64)
 
 
 class Luma(msgspec.Struct, frozen=True, kw_only=True):
@@ -257,11 +258,11 @@ class Refraction(msgspec.Struct, frozen=True, kw_only=True):
         fraction = cell % 1.0
         match self.surface:
             case Surface.BLOCKS:
-                return np.prod(1.0 - np.abs(2.0 * fraction - 1.0) ** 4, axis=-1)
+                return np.asarray(np.prod(1.0 - np.abs(2.0 * fraction - 1.0) ** 4, axis=-1), dtype=np.float64)
             case Surface.CANVAS:
-                return 0.5 + 0.5 * np.prod(np.sin(tau * cell), axis=-1)
+                return np.asarray(0.5 + 0.5 * np.prod(np.sin(tau * cell), axis=-1), dtype=np.float64)
             case Surface.TINY_LENS:
-                return np.sqrt(np.maximum(0.0, 1.0 - 4.0 * np.sum((fraction - 0.5) ** 2, axis=-1)))
+                return np.asarray(np.sqrt(np.maximum(0.0, 1.0 - 4.0 * np.sum((fraction - 0.5) ** 2, axis=-1))), dtype=np.float64)
             case Surface.FROSTED:
                 frosted = Perlin(texture=textures.Noise(noise_dimensions="2D", scale=1.0 / self.size))
                 flat = centers.reshape(-1, 2)
@@ -320,7 +321,6 @@ class Displacement(Effect, frozen=True, kw_only=True):
         Returns:
             Estimated image with replicate error, or image faults.
         """
-        left, bottom, right, top = raster.bounds
         wrap = (self.extension_x.wrap, self.extension_y.wrap)
 
         def computed(source: npt.NDArray[np.float32]) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
@@ -344,7 +344,9 @@ class Displacement(Effect, frozen=True, kw_only=True):
             glass_gradient = glass.strength * glass.size * slope(softened(glass.height(centers), raster, glass.softness), raster) if glass is not None else np.zeros((height, width, 2))
             request = Map() if self.map is None else self.map
             plane = mapping.default_value(source)
-            map_origin, map_span = ((0.0, 0.0), tuple(extent)) if mapping.is_some() else ((left, bottom), (right - left, top - bottom))
+            map_origin, map_span = (
+                ((0.0, 0.0), tuple(extent)) if mapping.is_some() else ((raster.bounds.left, raster.bounds.bottom), (raster.bounds.right - raster.bounds.left, raster.bounds.top - raster.bounds.bottom))
+            )
             map_step = np.array(map_span if request.tile is None else request.tile) / plane.shape[1::-1]
             mode: Literal["wrap", "nearest"] = "nearest" if request.tile is None else "wrap"
             map_field = np.ones((*plane.shape[:2], 3), dtype=np.float64)
@@ -460,7 +462,7 @@ def _(
             case float():
                 return Ok(Nothing)
             case found:
-                return Error((Fault(reason=RecordReason.UNREADABLE, subject=LATER.key, cause=repr(found)),))
+                return Error(Fault.of(RecordReason.UNREADABLE, LATER.key, repr(found)))
 
     return decoded(record, values).bind(staged)
 

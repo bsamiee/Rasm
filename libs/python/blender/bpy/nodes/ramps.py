@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable
 from contextlib import ExitStack
+from functools import partial
 from typing import Annotated, Literal, Self
 
 import bpy
@@ -75,7 +76,7 @@ class Ramp(msgspec.Struct, frozen=True, kw_only=True):
                 scratch.callback(bpy.data.textures.remove, texture)
                 return (
                     written(texture, "use_color_ramp", True)
-                    .bind(lambda _: Option.of_optional(texture.color_ramp).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(texture), member="color_ramp"),)))
+                    .bind(lambda _: Option.of_optional(texture.color_ramp).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(texture), member="color_ramp")))
                     .bind(
                         lambda ramp: self.write(ramp).map(
                             lambda _: np.array([msgspec.convert(ramp.evaluate(position), tuple[float, float, float, float]) for position in positions], dtype=np.float64).reshape(-1, 4)
@@ -84,10 +85,7 @@ class Ramp(msgspec.Struct, frozen=True, kw_only=True):
                 )
 
         return Result[bpy.types.Texture, Faults].bind(
-            catch(bpy.data.textures.new, exception=RuntimeError)(type(self).__qualname__, "BLEND").map_error(
-                lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(bpy.data.textures), cause=error),)
-            ),
-            colors,
+            catch(bpy.data.textures.new, exception=RuntimeError)(type(self).__qualname__, "BLEND").map_error(partial(Fault.of, BlenderReason.REFUSED, repr(bpy.data.textures))), colors
         )
 
     @property

@@ -64,7 +64,7 @@ class IconSet:
 
         return cls(collection=collection, sources=dict(source(entry) for entry in Icons.folder(identity).iterdir() if Path(entry.name).suffix == ".png"))
 
-    def reinked(self, tint: Callable[[Path], Option[Color]]) -> bool:
+    def retinted(self, tint: Callable[[Path], Option[Color]]) -> bool:
         """Writes changed tints over source alpha, returning whether one changed."""
         changed = {source: (original, current) for source, (original, applied) in self.sources.items() if applied != (current := tint(source))}
         for source, (original, current) in changed.items():
@@ -86,9 +86,9 @@ class IconSet:
 
 
 class Icons(msgspec.Struct, frozen=True, kw_only=True):
-    """Staged image glyphs of one extension, inked in regular widget text color by default."""
+    """Staged image glyphs of one extension, tinted in regular widget text color by default."""
 
-    tint: Callable[[Path], Option[Color]] = lambda _: Some(ink())
+    tint: Callable[[Path], Option[Color]] = lambda _: Some(text_color())
     brand: Option[Path] = Nothing
 
     # --- [ACQUISITION]
@@ -97,25 +97,25 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
         """Builds the glyph set, its tints and brand held in the resources band, and theme color subscriptions scheduling one deferred tint write."""
 
-        def reinked() -> Outcome[Option[str]]:
+        def retinted() -> Outcome[Option[str]]:
             """Writes changed tints, redrawing when one changed."""
-            return redrawn() if identity.held[ICONS].reinked(self.tint) else Ok(Nothing)
+            return redrawn() if identity.held[ICONS].retinted(self.tint) else Ok(Nothing)
 
         @contextmanager
-        def inked() -> Generator[Outcome[None]]:
-            """Inks glyphs and records the brand icon."""
+        def tinted() -> Generator[Outcome[None]]:
+            """Tints glyphs and records the brand icon."""
             icons = identity.held[ICONS]
-            icons.reinked(self.tint)
+            icons.retinted(self.tint)
             branded: Outcome[Option[int]] = self.brand.map(lambda glyph: icons.icon(identity, glyph).map(Some)).default_value(Ok(Nothing))
             for brand in branded.to_option().to_list():
                 icons.brand = brand
             yield branded.map(lambda _: None)
 
-        with identity.reports.deferred(reinked) as later:
+        with identity.reports.deferred(retinted) as later:
             yield Ok((
                 PREVIEWS,
                 ICONS,
-                (Band.RESOURCES, inked()),
+                (Band.RESOURCES, tinted()),
                 *(
                     Subscription(owner=owner, setting=owner.bl_rna.properties[member], body=lambda: Ok(later()))
                     for owner, member in ((bpy.types.ThemeWidgetColors, "text"), (bpy.types.Theme, "filepath"))
@@ -157,7 +157,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def ink() -> Color:
+def text_color() -> Color:
     """Returns regular widget text color in display RGBA."""
     preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return color(preferences.themes[0].user_interface.wcol_regular.text)
@@ -169,4 +169,4 @@ ICONS: Final = Resource[IconSet](made=lambda identity: nullcontext(IconSet.loade
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ICONS", "Glyph", "IconSet", "Icons", "ink"]
+__all__ = ["ICONS", "Glyph", "IconSet", "Icons", "text_color"]

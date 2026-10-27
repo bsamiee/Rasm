@@ -162,7 +162,7 @@ def called(
     *,
     context: "rna_enums.OperatorContextItems" = "EXEC_DEFAULT",
     undo: bool = False,
-    override: Option["bpy.types.ContextTempOverride"] = Nothing,
+    override: Option[bpy.types.ContextTempOverride] = Nothing,
 ) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
     """Calls operator, leaving Nothing-valued properties unset."""
     keywords = given(properties)

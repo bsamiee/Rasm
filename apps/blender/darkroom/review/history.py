@@ -12,6 +12,7 @@ from typing import ClassVar, Final
 from bl_ui.space_image import IMAGE_HT_header, IMAGE_PT_render_slots
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -22,7 +23,7 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Answer, answered, Call, Confirm, Done, Empty, Operator, Properties
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.store import IdName
-from blender.bpy.data.rna.descriptors import rna, RnaPath, rooted, Struct
+from blender.bpy.data.rna.descriptors import choices, rna, RnaPath, rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Timer
 from blender.bpy.extension.identity import Identity, Resource
@@ -46,7 +47,7 @@ from blender.bpy.ui.resources.theme import color, Metrics
 from blender.bpy.ui.screens.editors import EditorState
 from blender.bpy.ui.surfaces.appends import Append
 from blender.bpy.ui.surfaces.panels import Joined, Panel
-from blender.imaging.analysis.comparison import Axis, Bar, Comparison
+from blender.imaging.analysis.comparison import Bar, Comparison, Metric, Severity
 from blender.imaging.color.processors import DisplayView, Domain
 from blender.imaging.files.buffers import fitted
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
@@ -73,7 +74,7 @@ class Baseline(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-BASELINES: Final = tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in Baseline)
+BASELINES: Final = choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in Baseline)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -130,7 +131,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     retention: Callable[[Identity], Outcome[Retention]]
     glyph: Glyph
-    gates: tuple[Bar, ...] = (Bar(axis=Axis.PSNR, advisory=35.0, refuse=30.0), Bar(axis=Axis.NRMSE, advisory=0.05, refuse=0.10), Bar(axis=Axis.SSIM, advisory=0.98, refuse=0.95))
+    gates: tuple[Bar, ...] = (Bar(metric=Metric.PSNR, advisory=35.0, refuse=30.0), Bar(metric=Metric.NRMSE, advisory=0.05, refuse=0.10), Bar(metric=Metric.SSIM, advisory=0.98, refuse=0.95))
     signal: Signal = msgspec.field(default_factory=Signal)
     key: ClassVar[str] = "history"
 
@@ -179,7 +180,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         current = msgspec.structs.replace(after, notes={stem: note for stem, note in after.notes.items() if bytes.fromhex(stem) in live})
 
         def unlinked(path: Path) -> Outcome[None]:
-            return catch(path.unlink, exception=OSError)(missing_ok=True).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))
+            return catch(path.unlink, exception=OSError)(missing_ok=True).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path)))
 
         def erased(key: ContentHash) -> Outcome[None]:
             frame, values = HistoryStore.files(identity, key)
@@ -207,10 +208,12 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Returns renders and the browsed stored render, absent fault without one."""
         return paired(self.browsed(identity, context), self.held(identity)).bind(
             lambda pair: (
-                Option
-                .of_optional(next((entry.value for entry in pair[1].history.past if entry.value.hex() == pair[0].shown), None))
-                .map(lambda key: (pair[1], key))
-                .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(self.record(identity).path), member=pair[0].shown),))
+                Block
+                .of_seq(pair[1].history.past)
+                .filter(lambda entry: entry.value.hex() == pair[0].shown)
+                .try_head()
+                .map(lambda entry: (pair[1], entry.value))
+                .to_result_with(partial(Fault.of, BlenderReason.ABSENT, str(self.record(identity).path), member=pair[0].shown))
             )
         )
 
@@ -234,7 +237,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     )
                 )
                 .map(lambda key: (renders, key))
-                .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(self.record(identity).path), member=repr(space)),))
+                .to_result_with(partial(Fault.of, BlenderReason.ABSENT, str(self.record(identity).path), member=repr(space)))
             )
 
         return paired(rooted(bpy.types.SpaceImageEditor, context), self.held(identity)).bind(lambda pair: shown(*pair))
@@ -344,7 +347,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             frame, values = self.files(identity, key)
 
             def copied(_: Path) -> Outcome[None]:
-                return catch(shutil.copyfile, exception=OSError)(path, frame).map(lambda _: None).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(frame), cause=error),))
+                return catch(shutil.copyfile, exception=OSError)(path, frame).map(lambda _: None).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(frame)))
 
             def published() -> Outcome[None]:
                 written = Ok(None) if any(entry.value == key for entry in renders.history.past) else Result[Path, Faults].bind(values.written(snapshot), copied)
@@ -424,7 +427,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             """Grade stored render against shown frame."""
             return self.compared(call.identity, call.context).map(
                 lambda comparison: Done(
-                    notes=(*(("INFO", f"{axis.name} {value:.4g}") for axis, value in comparison.measures.items()), ("INFO", f"Verdict {comparison.verdict(self.gates).name.lower()}"))
+                    notes=(*(("INFO", f"{metric.name} {value:.4g}") for metric, value in comparison.measures.items()), ("INFO", f"{Severity.__name__} {comparison.severity(self.gates).name.lower()}"))
                 )
             )
 
@@ -474,10 +477,10 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def rows(identity: Identity) -> Outcome[tuple[Row, ...]]:
             return self.browsing.bound(identity).map(
                 lambda attached: (
-                    Property(target=Member(root=bpy.types.WindowManager, path=f"{attached.name}.baseline"), expand=True),
-                    IconView(target=Member(root=bpy.types.WindowManager, path=f"{attached.name}.shown"), show_labels=True),
+                    Property(target=Member(root=bpy.types.WindowManager, path=(attached.name, "baseline")), expand=True),
+                    IconView(target=Member(root=bpy.types.WindowManager, path=(attached.name, "shown")), show_labels=True),
                     Label(text=lambda context: self.chosen(identity, context).to_option().bind(lambda pair: Option.of_optional(pair[0].notes.get(pair[1].hex()))).filter(bool)),
-                    Property(target=Member(root=bpy.types.WindowManager, path=f"{attached.name}.difference")),
+                    Property(target=Member(root=bpy.types.WindowManager, path=(attached.name, "difference"))),
                     Caption(rows=tuple(OperatorButton(target=command) for command in (restore, compared, shown)), flow=Flow.ALIGNED),
                     Caption(rows=(OperatorButton(target=measure), OperatorButton(target=note)), flow=Flow.ALIGNED),
                     Caption(rows=(OperatorButton(target=remove), OperatorButton(target=clear), OperatorButton(target=folder, text="", icon=Some("FILE_FOLDER"))), flow=Flow.ALIGNED),

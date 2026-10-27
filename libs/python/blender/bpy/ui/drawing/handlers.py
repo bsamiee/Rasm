@@ -197,7 +197,7 @@ def hooked(space: type[bpy.types.Space], callback: Callable[[], None], region: "
             catch(space.draw_handler_add, exception=TypeError)(callback, (), region, draw_type)
             .map(lambda handle: stack.callback(space.draw_handler_remove, handle, region))
             .map(lambda _: None)
-            .map_error(lambda error: (Fault(reason=BlenderReason.UNREGISTERED, subject=f"{space.__name__}, {region}, {draw_type}", cause=error),))
+            .map_error(partial(Fault.of, BlenderReason.UNREGISTERED, f"{space.__name__}, {region}, {draw_type}"))
         )
 
 

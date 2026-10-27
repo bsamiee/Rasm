@@ -1,6 +1,7 @@
 """Scrambled Sobol integration with replicate error, pixel rasters and footprint integrals, and Hermite smoothing."""
 
 from collections.abc import Callable
+from functools import partial
 import math
 from typing import Annotated
 
@@ -21,6 +22,15 @@ from blender.records.identity import content_hash, rng
 type _Integrand = Callable[[npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Bounds(msgspec.Struct, frozen=True, kw_only=True):
+    """Global rectangle sides in the field's own coordinates."""
+
+    left: float
+    bottom: float
+    right: float
+    top: float
 
 
 class Precision(msgspec.Struct, frozen=True, kw_only=True):
@@ -59,23 +69,21 @@ class Estimate[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Raster(msgspec.Struct, frozen=True, kw_only=True):
-    """Pixel rows and columns splitting a global rectangle given as left, bottom, right, top, rows top first."""
+    """Pixel rows and columns splitting a global rectangle, rows top first."""
 
-    bounds: tuple[float, float, float, float]
+    bounds: Bounds
     shape: tuple[Side, Side]
 
     @property
     def step(self) -> npt.NDArray[np.float64]:
         """Pixel width and height."""
-        left, bottom, right, top = self.bounds
-        return np.array(((right - left) / self.shape[1], (top - bottom) / self.shape[0]))
+        return np.array(((self.bounds.right - self.bounds.left) / self.shape[1], (self.bounds.top - self.bounds.bottom) / self.shape[0]))
 
     @property
     def corners(self) -> npt.NDArray[np.float64]:
         """Bottom-left corner of each pixel as `(rows, columns, 2)`."""
-        left, _, _, top = self.bounds
         step = self.step
-        return np.stack(np.meshgrid(left + np.arange(self.shape[1]) * step[0], top - (np.arange(self.shape[0]) + 1) * step[1]), axis=-1)
+        return np.stack(np.meshgrid(self.bounds.left + np.arange(self.shape[1]) * step[0], self.bounds.top - (np.arange(self.shape[0]) + 1) * step[1]), axis=-1)
 
     @property
     def centers(self) -> npt.NDArray[np.float64]:
@@ -98,9 +106,7 @@ def integrated(request: msgspec.Struct, field: _Integrand, bounds: tuple[tuple[f
         return np.asarray(np.mean(values, axis=0) * volume)
 
     return accumulated(
-        field(lower + width * precision.points(len(lower), replicate)).bind(
-            lambda values: averaged(values).map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(request), cause=error),))
-        )
+        field(lower + width * precision.points(len(lower), replicate)).bind(lambda values: averaged(values).map_error(partial(Fault.of, RecordReason.NUMERIC, repr(request))))
         for replicate in range(precision.replicates)
     ).map(lambda values: Estimate.of(np.stack(values), precision))
 
@@ -129,4 +135,4 @@ def smoothstep[V: Field](values: V) -> V:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Estimate", "Precision", "Raster", "footprint", "integrated", "smoothstep"]
+__all__ = ["Bounds", "Estimate", "Precision", "Raster", "footprint", "integrated", "smoothstep"]

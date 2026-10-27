@@ -1,22 +1,28 @@
 """Displayed-render exports as Linear Raw DNG, tagged stills, and layered documents, and the Combined plane of saved renders."""
 
 from collections.abc import Callable, Mapping
-from functools import cached_property
+from functools import cached_property, partial
+import math
+from pathlib import Path
+import sys
 from types import MappingProxyType
 import typing
-from typing import Final, Protocol
+from typing import Annotated, Final, Protocol
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
+from expression.collections import Block
+from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
+import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Empty, Operator, Save
 from blender.bpy.data.ids.images import read
 from blender.bpy.data.rna.conditions import Job
-from blender.bpy.data.rna.descriptors import Descriptor, Value
+from blender.bpy.data.rna.descriptors import choices, Descriptor, Value, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
@@ -27,14 +33,18 @@ from blender.bpy.render.outputs.results import built, Production, production, PR
 from blender.bpy.ui.images.views import RESULT
 from blender.bpy.ui.layout.rows import alerted
 from blender.imaging.color.processors import converted, DisplayView
-from blender.imaging.files.buffers import unassociated
+from blender.imaging.files.buffers import resampled, unassociated
 from blender.imaging.files.coding import Depth, Rounded
 from blender.imaging.files.documents import Document, LinearRaw, Optics
-from blender.imaging.files.images import Compressions, Format, ImageFile, Storage
+from blender.imaging.files.images import Compressions, Format, ImageFile, read_file, Storage
 from blender.imaging.files.multilayer import Channel, Layer, Multilayer
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+
+type _Downscale = Scaled | LongestSide
 
 
 class Documents(Protocol):
@@ -53,12 +63,10 @@ _STILLS: Final = ("RENDER_RESULT", "COMPOSITING")
 _IDLE: Final = Job(kind="RENDER")
 _SAVABLE: Final = RESULT & _IDLE
 _COMPRESSIONS: Final = MappingProxyType({form.__name__: form for form in typing.get_args(Compressions.__value__)})
-_DEPTHS: Final = tuple((depth.name, depth.name, "", "NONE", depth.value) for depth in Depth)
-SOURCES: Final = tuple(
-    (item.identifier, item.name, item.description, item.icon, item.value) for item in Descriptor.declared(bpy.types.Image, "type", bpy.types.EnumProperty).prop.enum_items if item.identifier in _STILLS
-)
-WRITERS: Final = tuple((row.name, f"{row.name} (.{row.extensions[0]})", "") for row in Format.writable())
-CODECS: Final = (("DEFAULT", "Default", ""), *((name, name, "") for name in _COMPRESSIONS))
+_DEPTHS: Final = choices((depth.name, depth.name, "") for depth in Depth)
+SOURCES: Final = choices(item for item in Descriptor.declared(bpy.types.Image, "type", bpy.types.EnumProperty).prop.enum_items if item.identifier in _STILLS)
+WRITERS: Final = choices((row.name, f"{row.name} (.{row.extensions[0]})", "") for row in Format.writable())
+CODECS: Final = choices((("DEFAULT", "Default", ""), *((name, name, "") for name in _COMPRESSIONS)))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -100,7 +108,7 @@ class Layering(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         saved(scene)
                         .bind(Multilayer.read)
                         .bind(lambda frame: self.source.document(call.identity, scene, frame, Depth[call.properties.depth]))
-                        .bind(lambda document: document.written(target, PyOpenColorIO.GetCurrentConfig()))
+                        .bind(lambda document: document.saved(target, PyOpenColorIO.GetCurrentConfig()))
                     )
                 )
                 .map(lambda _: Done.wrote((target,)))
@@ -108,6 +116,27 @@ class Layering(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         exported.__name__ = exported.__qualname__ = f"export_{type(self.source).__name__.lower()}"
         return Operator(form=Sheet, run=exported, condition=Some(_SAVABLE), invoke=Some(Save[Sheet](extensions=lambda _: (".tif",))), undo=False)
+
+
+class Scaled(Case, frozen=True, kw_only=True):
+    """Proxy at fraction of each source side."""
+
+    factor: Annotated[float, msgspec.Meta(ge=sys.float_info.min, lt=1.0)] = 0.5
+
+    def fitted(self, width: int, height: int) -> Option[tuple[int, int]]:
+        """Returns each scaled side rounded up to whole pixel."""
+        return Some((math.ceil(width * self.factor), math.ceil(height * self.factor)))
+
+
+class LongestSide(Case, frozen=True, kw_only=True):
+    """Longest-side proxy bound."""
+
+    pixels: Annotated[int, msgspec.Meta(ge=1, le=2**31 - 1)] = 2048
+
+    def fitted(self, width: int, height: int) -> Option[tuple[int, int]]:
+        """Returns sides rounded up, or Nothing for source within bound."""
+        longest = max(width, height)
+        return Some((width, height)).filter(lambda _: longest > self.pixels).map(lambda sides: ((sides[0] * self.pixels + longest - 1) // longest, (sides[1] * self.pixels + longest - 1) // longest))
 
 
 class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -167,11 +196,11 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def wrote(scene: bpy.types.Scene, frame: npt.NDArray[np.float32], exposure: float, config: PyOpenColorIO.Config) -> Outcome[Done]:
             match scene.camera:
-                case bpy.types.Object(data=bpy.types.Camera(lens=lens, dof=bpy.types.CameraDOFSettings(aperture_fstop=fstop))):
-                    optics = Some(Optics(focal_length=lens / 1000.0, f_number=fstop))
+                case bpy.types.Object(data=bpy.types.Camera(lens=lens, dof=bpy.types.CameraDOFSettings(aperture_fstop=fstop))) as camera:
+                    optics = _optics(lens, fstop).map(Some).map_error(partial(Fault.of, RecordReason.OUTSIDE, repr(camera), member=Optics.__name__))
                 case _:
-                    optics = Nothing
-            return LinearRaw(make="Blender", model=bpy.app.version_string, exposure=exposure, optics=optics).written(target, frame, config).map(lambda _: Done.wrote((target,)))
+                    optics = Ok(Nothing)
+            return optics.bind(lambda held: LinearRaw(make="Blender", model=bpy.app.version_string, exposure=exposure, optics=held).saved(target, frame, config).map(lambda _: Done.wrote((target,))))
 
         def exported(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> Outcome[Done]:
             return paired(saved(scene).bind(lambda path: combined(path, Some(layer.name))), self.gain(call.identity, scene).map(lambda gained: viewed(scene).exposure + gained)).bind(
@@ -189,6 +218,8 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [STILLS]
+
 
 def export_still(call: Call[Still]) -> Outcome[Done]:
     """Write render or Viewer image with chosen encoding."""
@@ -201,7 +232,7 @@ def export_still(call: Call[Still]) -> Outcome[Done]:
             case Depth.UINT8 | Depth.UINT16 as integer:
                 return ImageFile(pixels=integer.coded(unassociated(file.pixels), Rounded()), colorspace=file.colorspace).write(target, Storage(compression=compressed), stamped(call.identity), config)
             case Depth.HALF | Depth.FLOAT as floated:
-                return file.write(target, Storage(depth=16 if floated is Depth.HALF else 32, compression=compressed), stamped(call.identity), config)
+                return file.write(target, Storage(depth=floated, compression=compressed), stamped(call.identity), config)
 
     def encoded(file: ImageFile[np.float32]) -> Outcome[ImageFile[np.float32]]:
         return (
@@ -236,7 +267,16 @@ def export_still(call: Call[Still]) -> Outcome[Done]:
 
 def _chosen(name: str) -> Outcome[Format]:
     """Returns the named writer, absent fault for a format OpenImageIO does not write."""
-    return writer(name).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="OpenImageIO.extension_list", member=name),))
+    return writer(name).to_result_with(partial(Fault.of, BlenderReason.ABSENT, "OpenImageIO.extension_list", member=name))
+
+
+@catch(exception=msgspec.ValidationError)
+def _optics(lens: float, fstop: float) -> Optics:
+    """Returns camera optics of a focal length in millimeters and an f-number, refusing a value outside the positive bounds."""
+    return msgspec.convert({"focal_length": lens / 1000.0, "f_number": fstop}, Optics)
+
+
+# --- [PLANES]
 
 
 def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> Outcome[npt.NDArray[np.float32]]:
@@ -244,10 +284,14 @@ def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> Outco
 
     def picked(file: Multilayer) -> Outcome[npt.NDArray[np.float32]]:
         def channel(found: tuple[Channel, ...], layer: str, name: str) -> Outcome[Channel]:
-            return Option.of_optional(next((held for held in found if held.name == name), None)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=f"{path}:{layer}", member=name),))
+            return Block.of_seq(found).filter(lambda held: held.name == name).try_head().to_result_with(partial(Fault.of, BlenderReason.ABSENT, f"{path}:{layer}", member=name))
 
-        chosen: Outcome[Layer] = Option.of_optional(next((found for name in names for found in file.layers if found.name == name), None)).to_result_with(
-            lambda: (Fault(reason=BlenderReason.ABSENT, subject=path, member=names[-1]),)
+        chosen: Outcome[Layer] = (
+            Block
+            .of_seq(names)
+            .choose(lambda name: Block.of_seq(file.layers).filter(lambda found: found.name == name).try_head())
+            .try_head()
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, path, member=names[-1]))
         )
         return Result[Layer, Faults].bind(chosen, lambda found: accumulated(channel(found.channels, found.name, name) for name in channels).bind(lambda held: file.plane(found, held)))
 
@@ -272,19 +316,87 @@ def combined(path: str, layer: Option[str] = Nothing) -> Outcome[tuple[str, npt.
             case (owner, *_) if owner in owners:
                 return plane(path, (owners[owner].name,), ("R", "G", "B", "A")).map(lambda pixels: (owner, pixels))
             case _:
-                return Error((Fault(reason=BlenderReason.ABSENT, subject=path, member=layer.map(lambda name: f"{name}.{COMBINED}").default_value(COMBINED)),))
+                return Error(Fault.of(BlenderReason.ABSENT, path, member=layer.map(lambda name: f"{name}.{COMBINED}").default_value(COMBINED)))
 
     return Multilayer.read(path).bind(selected)
 
 
 def formed(view: DisplayView, plane: npt.NDArray[np.float32], source: str, config: PyOpenColorIO.Config) -> Outcome[ImageFile[np.float32]]:
     """Forms a plane in `source` through a view into the view's display colorspace."""
-    return paired(
-        view.form(config, plane, source), view.colorspace(config).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(config), member=f"{view.display}/{view.view}"),))
-    ).map(lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName()))
+    return paired(view.form(config, plane, source), view.colorspace(config).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(config), member=f"{view.display}/{view.view}"))).map(
+        lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName())
+    )
+
+
+# --- [PROXIES]
+
+
+def proxied(image: bpy.types.Image, identity: Identity, downscale: _Downscale, config: PyOpenColorIO.Config) -> Outcome[Option[str]]:
+    """Points image at a linear-light proxy beside its source file, Nothing when the source fits."""
+
+    def chosen(path: str) -> Outcome[Format]:
+        return (
+            Option
+            .of_optional(OpenImageIO.ImageOutput.create(path))
+            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, path, OpenImageIO.geterror()))
+            .bind(lambda output: writer(output.format_name()).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, path, member=output.format_name())))
+        )
+
+    def linear(file: ImageFile[np.float32], width: int, height: int) -> Outcome[npt.NDArray[np.float32]]:
+        def moved(values: npt.NDArray[np.float32], direction: PyOpenColorIO.TransformDirection) -> Outcome[npt.NDArray[np.float32]]:
+            transform = PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR, direction=direction)
+            return converted(config, transform, values) if values.shape[2] in {3, 4} else Ok(values)
+
+        return moved(file.pixels, PyOpenColorIO.TRANSFORM_DIR_FORWARD).bind(lambda values: resampled(values, (width, height))).bind(lambda values: moved(values, PyOpenColorIO.TRANSFORM_DIR_INVERSE))
+
+    def proxy(key: str, source: str, row: Format, file: ImageFile[np.float32], width: int, height: int) -> Outcome[str]:
+        origin = Path(source)
+        path, depth = str(origin.with_stem(f"{origin.stem}.{width}x{height}")), row.depths[-1] if image.is_float else Depth.UINT8
+
+        def stored(values: npt.NDArray[np.float32]) -> Outcome[str]:
+            match depth:
+                case Depth.UINT8 | Depth.UINT16 as integer:
+                    return ImageFile(pixels=integer.coded(unassociated(values), Rounded()), colorspace=file.colorspace, header=file.header).write(path, Storage(), {}, config)
+                case Depth.HALF | Depth.FLOAT as floated:
+                    return ImageFile(pixels=values, colorspace=file.colorspace, header=file.header).write(path, Storage(depth=floated), {}, config)
+
+        return (
+            linear(file, width, height)
+            .bind(stored)
+            .bind(lambda _: catch(image.__setitem__, exception=TypeError)(key, source).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(image))))
+            .bind(lambda _: written(image, ("filepath",), path).map(lambda _: path))
+        )
+
+    def sourced(key: str) -> Outcome[Option[str]]:
+        source = Option.of_optional(try_downcast(str, image.get(key))).default_with(lambda: bpy.path.abspath(image.filepath, library=image.library))
+        return chosen(source).bind(
+            lambda row: read_file(source, config).bind(
+                lambda file: downscale.fitted(file.pixels.shape[1], file.pixels.shape[0]).map(lambda size: proxy(key, source, row, file, *size).map(Some)).default_value(Ok(Nothing))
+            )
+        )
+
+    return identity.identifier("proxy").bind(sourced)
+
+
+def restored(image: bpy.types.Image, identity: Identity) -> Outcome[None]:
+    """Points image back at its stored source path and removes the proxy property."""
+
+    def back(key: str) -> Outcome[None]:
+        return (
+            Option
+            .of_optional(try_downcast(str, image.get(key)))
+            .map(
+                lambda source: (
+                    written(image, ("filepath",), source).bind(lambda _: catch(image.pop, exception=KeyError)(key).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(image)))).map(lambda _: None)
+                )
+            )
+            .default_value(Ok(None))
+        )
+
+    return identity.identifier("proxy").bind(back)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["COMBINED", "COMPOSITE", "Documents", "Export", "Layering", "Sheet", "Still", "combined", "export_still", "formed", "plane"]
+__all__ = ["COMBINED", "COMPOSITE", "Documents", "Export", "Layering", "LongestSide", "Scaled", "Sheet", "Still", "combined", "export_still", "formed", "plane", "proxied", "restored"]

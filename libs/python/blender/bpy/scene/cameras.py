@@ -1,5 +1,6 @@
 """Camera framing, requirements, display rows, and multi-view rows."""
 
+from functools import partial
 from itertools import chain
 from typing import Annotated, Final
 
@@ -14,7 +15,7 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import Descriptor, written
+from blender.bpy.data.rna.descriptors import Descriptor, RnaPath, written
 from blender.bpy.data.rna.snapshots import Endpoints, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
@@ -98,7 +99,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
         case bpy.types.Camera() as camera:
             points: Outcome[tuple[tuple[float, float, float], ...]] = catch(msgspec.convert, exception=msgspec.ValidationError)(
                 coordinates.tolist(), Annotated[tuple[tuple[Finite, Finite, Finite], ...], msgspec.Meta(min_length=2)]
-            ).map_error(lambda error: (Fault(reason=RecordReason.OUTSIDE, subject=f"{item!r} framing", member=str(error), cause=str(coordinates)),))
+            ).map_error(lambda error: Fault.of(RecordReason.OUTSIDE, f"{item!r} framing", str(coordinates), member=str(error)))
 
             def fitted(fit: tuple[Vector, float]) -> Outcome[None]:
                 location, scale = fit
@@ -111,14 +112,11 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
             return Result[tuple[tuple[float, float, float], ...], Faults].bind(
                 points,
                 lambda held: Result[tuple[Vector, float], Faults].bind(
-                    catch(item.camera_fit_coords, exception=RuntimeError)(depsgraph, tuple(chain.from_iterable(held))).map_error(
-                        lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(item), cause=error),)
-                    ),
-                    fitted,
+                    catch(item.camera_fit_coords, exception=RuntimeError)(depsgraph, tuple(chain.from_iterable(held))).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(item))), fitted
                 ),
             )
         case _:
-            return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(item), member=bpy.types.Camera.__name__),))
+            return Error(Fault.of(BlenderReason.ABSENT, repr(item), member=bpy.types.Camera.__name__))
 
 
 # --- [REQUIREMENTS]
@@ -149,11 +147,11 @@ def _priors(identity: Identity) -> Outcome[Recovery[Endpoints]]:
 # --- [DISPLAY]
 
 
-def _camera_row(path: str, switch: Option[str] = Nothing) -> Property:
+def _camera_row(member: str, switch: Option[str] = Nothing, *, under: RnaPath = ()) -> Property:
     return Property(
         target=Member(
             root=bpy.types.Camera,
-            path=path,
+            path=(*under, member),
             reach=Some(
                 lambda context: Option.of_optional(context.scene).bind(lambda scene: Option.of_optional(scene.camera)).bind(lambda item: Option.of_optional(try_downcast(bpy.types.Camera, item.data)))
             ),
@@ -168,10 +166,10 @@ camera_views: Final = Single(
     key="render_views",
     title="Render Views",
     rows=(
-        Property(target=Member(root=bpy.types.Scene, path="render.use_multiview")),
-        Property(target=Member(root=bpy.types.Scene, path="render.views_format"), condition=Some(_MULTIVIEW)),
+        Property(target=Member(root=bpy.types.Scene, path=("render", "use_multiview"))),
+        Property(target=Member(root=bpy.types.Scene, path=("render", "views_format")), condition=Some(_MULTIVIEW)),
         Caption(
-            rows=tuple(_camera_row(f"stereo.{prop.identifier}") for prop in bpy.types.CameraStereoData.bl_rna.properties if not prop.is_hidden),
+            rows=tuple(_camera_row(prop.identifier, under=("stereo",)) for prop in bpy.types.CameraStereoData.bl_rna.properties if not prop.is_hidden),
             heading=Some("Stereo"),
             separator=Nothing,
             condition=Some(_MULTIVIEW),

@@ -164,7 +164,7 @@ def checked(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.
     def refused(values: Mapping[Key, Value]) -> Outcome[None]:
         concave = pin_quad(values).filter(lambda quad: not quad.convex)
         return accumulated((
-            concave.map(lambda quad: Error((Fault(reason=RecordReason.OUTSIDE, subject="corner_pin", member="corners of a strictly convex quad", cause=str(quad.corners)),))).default_value(Ok(None)),
+            concave.map(lambda quad: Error(Fault.of(RecordReason.OUTSIDE, "corner_pin", str(quad.corners), member="corners of a strictly convex quad"))).default_value(Ok(None)),
             camera_type("PERSP").check(bpy.context, Some(scene)) if values.get("perspective_heading", 0.0) != 0.0 or values.get("perspective_elevation", 0.0) != 0.0 else Ok(None),
         )).map(lambda _: None)
 

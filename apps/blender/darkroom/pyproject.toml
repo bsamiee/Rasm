@@ -3,6 +3,7 @@
 [project]
 name            = "darkroom"
 version         = "1.0.0"
+description     = "Post-production from raw render to finished image"
 requires-python = ">=3.13"
 
 dependencies = ["blender"]
@@ -11,9 +12,6 @@ dependencies = ["blender"]
 
 [tool.uv]
 package = false
-
-[tool.uv.sources]
-blender = { workspace = true }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 

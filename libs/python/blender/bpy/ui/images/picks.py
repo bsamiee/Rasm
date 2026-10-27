@@ -62,7 +62,7 @@ def _regioned(record: Picked, located: tuple[bpy.types.SpaceImageEditor, bpy.typ
         Some((column, row))
         .filter(lambda pixel: 0 <= pixel[0] < width and 0 <= pixel[1] < height)
         .map(lambda pixel: Region.bounding(np.clip((np.array(pixel) + reach) / (width, height), 0.0, 1.0)))
-        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(space.image), member=f"pixel {column}, {row}"),))
+        .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(space.image), member=f"pixel {column}, {row}"))
     )
 
 

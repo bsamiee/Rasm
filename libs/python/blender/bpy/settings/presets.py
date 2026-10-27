@@ -1,6 +1,7 @@
 """Typed stock presets, user preset files, and snapshot clipboard transfer."""
 
 from collections.abc import Callable, Iterator, Mapping
+from functools import partial
 from pathlib import Path
 import shutil
 from types import MappingProxyType
@@ -56,7 +57,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     def found(self, identity: Identity, stem: str) -> Outcome[T | Path]:
         """Returns stock preset or user path of stem."""
         found: Option[T | Path] = Option.of_optional(self.listed(identity).get(stem))
-        return found.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(self.folder(identity)), member=stem),))
+        return found.to_result_with(lambda: Fault.of(BlenderReason.ABSENT, str(self.folder(identity)), member=stem))
 
     # --- [FILES]
 
@@ -80,11 +81,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     def renamed(source: Path, name: PresetName) -> Outcome[Path]:
         """Moves user preset to a free name."""
         target = source.with_stem(AddPresetBase.as_filename(name))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        copied = committed(
-            target,
-            lambda stage: catch(shutil.copyfile, exception=OSError)(source, stage).map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(source), cause=error),)),
-            exclusive=True,
-        )
+        copied = committed(target, lambda stage: catch(shutil.copyfile, exception=OSError)(source, stage).map_error(partial(Fault.of, RecordReason.UNREADABLE, str(source))), exclusive=True)
         return Result[Path, Faults].bind(copied, lambda _: removed(source)).map(lambda _: target)
 
     def imported(self, identity: Identity, source: Path) -> Outcome[Path]:
@@ -101,7 +98,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 def removed(source: Path) -> Outcome[None]:
     """Deletes file."""
-    return catch(source.unlink, exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(source), cause=error),))
+    return catch(source.unlink, exception=OSError)().map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(source)))
 
 
 def copied(manager: bpy.types.WindowManager, snapshot: Snapshot) -> None:
@@ -112,9 +109,7 @@ def copied(manager: bpy.types.WindowManager, snapshot: Snapshot) -> None:
 def pasted(manager: bpy.types.WindowManager, owners: tuple[Struct, ...]) -> Outcome[tuple[Applied, ...]]:
     """Applies clipboard snapshot to each owner."""
     return Result[Snapshot, Faults].bind(
-        catch(msgspec.json.Decoder(Snapshot).decode, exception=msgspec.DecodeError)(manager.clipboard).map_error(
-            lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=f"{manager!r}.clipboard", cause=error),)
-        ),
+        catch(msgspec.json.Decoder(Snapshot).decode, exception=msgspec.DecodeError)(manager.clipboard).map_error(partial(Fault.of, RecordReason.UNREADABLE, f"{manager!r}.clipboard")),
         lambda clip: accumulated(
             Snapshot
             .capture(owner)

@@ -108,7 +108,7 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
                 lambda prior: paired(self.read(lambda buffer: painted(region, buffer)), prior.map(lambda held: held.applied(located.area)).default_value(Ok(Nothing))).map(lambda pair: pair[0])
             )
 
-        return paired(located.region(), EditorState.of(bpy.types.SpaceView3D, {"overlay.show_overlays": False, "show_gizmo": False})).bind(lambda pair: restored(*pair))
+        return paired(located.region(), EditorState.of(bpy.types.SpaceView3D, {("overlay", "show_overlays"): False, ("show_gizmo",): False})).bind(lambda pair: restored(*pair))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

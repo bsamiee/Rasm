@@ -10,14 +10,15 @@ import OpenImageIO
 
 from blender.bpy.data.rna import animation
 from blender.bpy.data.rna.animation import Animation, Keys
-from blender.bpy.data.rna.descriptors import Descriptor, Value
+from blender.bpy.data.rna.descriptors import Descriptor, id_path, RnaPath, Struct, Value
 from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.graphs import End, Expr, math, menu, Scalar, switched, Term, vector, where, xyz
 from blender.bpy.nodes.interface import item_key, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor.colors import AXES, composed, inverted
-from blender.bpy.render.compositor.inputs import entry_input, path
+from blender.bpy.render.compositor.inputs import entry_input
 from blender.imaging.geometry.frames import Homography
-from blender.records.faults import accumulated, Outcome, paired
+from blender.records.faults import accumulated, Fault, Outcome, paired
 from blender.records.fields import Finite, NonNegative
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -156,14 +157,17 @@ class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
                     return tuple(range(3)) if socket.kind is bpy.types.NodeSocketVector else (None,)
 
         def component(lengths: tuple[float, ...], socket: Socket, side: int, index: int | None) -> Outcome[Animation]:
-            def samples(source: str, target: str) -> Outcome[Animation]:
-                return animation.sampled(scene, source, (frame + (opening + side) * length for frame, length in zip(frames, lengths)), 0 if index is None else index).map(
-                    lambda values: Animation(struct=target, member="value", index=index, source=Keys(points=tuple(zip(map(float, frames), values))))
+            def samples(source: Struct, target: RnaPath) -> Outcome[Animation]:
+                return animation.sampled(source, "value", (frame + (opening + side) * length for frame, length in zip(frames, lengths)), 0 if index is None else index).map(
+                    lambda values: Animation(owner=target, member="value", index=index, source=Keys(points=tuple(zip(map(float, frames), values))))
                 )
 
-            return paired(path(identity, entry, socket.key), entry_input(identity, entry, self.key(side, socket.key)).map(lambda held: held.path_from_id())).bind(lambda values: samples(*values))
+            return paired(
+                entry_input(identity, entry, socket.key),
+                entry_input(identity, entry, self.key(side, socket.key)).bind(lambda held: id_path(held).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(held), member="value"))),
+            ).bind(lambda values: samples(*values))
 
-        return animation.sampled(scene, "render.motion_blur_shutter", frames).bind(
+        return animation.sampled(scene.render, "motion_blur_shutter", frames).bind(
             lambda lengths: accumulated(component(lengths, socket, side, index) for socket in self.sockets for side in range(2) for index in components(socket))
         )
 

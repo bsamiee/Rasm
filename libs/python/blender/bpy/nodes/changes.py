@@ -3,12 +3,12 @@
 from collections import deque
 from collections.abc import Callable, Mapping
 import functools
-import itertools
 from types import MappingProxyType
 from typing import Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
@@ -130,7 +130,7 @@ class Keyed(msgspec.Struct, frozen=True, kw_only=True):
 
     def node(self, key: Key) -> Outcome[bpy.types.Node]:
         """Owned node at key, `absent` fault naming key when no node holds it."""
-        return Option.of_optional(self.nodes.get(key)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(self.tree.nodes), member=key),))
+        return Option.of_optional(self.nodes.get(key)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(self.tree.nodes), member=key))
 
     def socket(self, end: End, *, output: bool) -> Outcome[bpy.types.NodeSocket]:
         """Live socket at end, addressed by item key, item name, identifier, or enabled position."""
@@ -223,9 +223,12 @@ def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> Outcome[None]
     def reordered(target: bpy.types.NodeSocket, sources: tuple[bpy.types.NodeSocket, ...]) -> Outcome[None]:
         marked = tuple(link for link in target.links if Mark.read(identity, link.from_node).is_some())  # type: ignore[union-attr, arg-type]  # ty: ignore[not-iterable, invalid-argument-type]
         return accumulated(
-            Option.of_optional(next(itertools.islice((link for link in marked if link.from_socket == source), sources[:index].count(source), None), None)).to_result_with(
-                lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(target), member=repr(source)),)
-            )
+            Block
+            .of_seq(marked)
+            .filter(lambda link: link.from_socket == source)
+            .skip(sources[:index].count(source))
+            .try_head()
+            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(target), member=repr(source)))
             for index, source in enumerate(sources)
         ).bind(lambda desired: ordered(target, desired))
 
@@ -238,15 +241,15 @@ def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> Outcome[None]
             return (
                 Option
                 .of_optional(tree.nodes.get(name))
-                .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(tree.nodes), member=name),))
-                .bind(lambda node: catch(tree.nodes.remove, exception=RuntimeError)(node).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(tree.nodes), cause=error),)))
+                .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(tree.nodes), member=name))
+                .bind(lambda node: catch(tree.nodes.remove, exception=RuntimeError)(node).map_error(functools.partial(Fault.of, BlenderReason.REFUSED, repr(tree.nodes))))
             )
         case Added(key=key, kind=kind):
             return created(tree, kind).bind(lambda made: Mark(key=key).write(identity, made))
         case Altered():
             return altered(row)
         case Disconnected(link=link):
-            return catch(tree.links.remove, exception=RuntimeError)(link).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(tree.links), cause=error),))
+            return catch(tree.links.remove, exception=RuntimeError)(link).map_error(functools.partial(Fault.of, BlenderReason.REFUSED, repr(tree.links)))
         case Connected(link=link):
             return paired(keyed.socket(link.source, output=True), keyed.socket(link.target, output=False)).bind(lambda pair: joined(tree, *pair, verify_limits=False)).map(lambda _: None)
         case Reordered(target=target, sources=sources):
@@ -270,8 +273,8 @@ def made(group: NodeGroup, identity: Identity, *, of: Option[bpy.types.ID] = Not
         identity,
         lambda: (
             catch(bpy.data.node_groups.new, exception=RuntimeError)(group.name, group.graph.kind.__name__)
-            .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(bpy.data.node_groups), cause=error),))
-            .bind(lambda tree: Option.of_optional(tree).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(bpy.data.node_groups), member=group.name),)))
+            .map_error(functools.partial(Fault.of, BlenderReason.REFUSED, repr(bpy.data.node_groups)))
+            .bind(lambda tree: Option.of_optional(tree).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(bpy.data.node_groups), member=group.name)))
         ),
         of=of,
         filled=lambda tree: reconciled(group, tree, identity).map(lambda _: tree),
@@ -319,7 +322,7 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Outcom
                         Mark
                         .read(identity, live)
                         .map(lambda mark: msgspec.structs.replace(mark, content=Some(hashed) if image.is_none() else Nothing).write(identity, live))
-                        .default_value(Error((Fault(reason=BlenderReason.ABSENT, subject=repr(live), member=identity.manifest.id),)))
+                        .default_value(Error(Fault.of(BlenderReason.ABSENT, repr(live), member=identity.manifest.id)))
                     )
                 )
             )
@@ -592,12 +595,12 @@ def _framed(live: bpy.types.Node) -> Outcome[bpy.types.ImageUser | bpy.types.Com
         case bpy.types.ShaderNodeTexImage() | bpy.types.ShaderNodeTexEnvironment():
             return Ok(live.image_user)
         case _:
-            return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(live), member="image_user"),))
+            return Error(Fault.of(BlenderReason.ABSENT, repr(live), member="image_user"))
 
 
 def _narrowed[N: bpy.types.Node](live: bpy.types.Node, kind: type[N], member: str) -> Outcome[N]:
     """Node as class declaring member, else `absent` fault naming member."""
-    return Option.of_optional(try_downcast(kind, live)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(live), member=member),))
+    return Option.of_optional(try_downcast(kind, live)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(live), member=member))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

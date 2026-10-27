@@ -3,6 +3,7 @@
 import colorsys
 from contextlib import ExitStack
 from enum import auto, Enum
+from functools import partial
 import itertools
 from types import MappingProxyType
 from typing import Annotated, ClassVar, Final
@@ -18,7 +19,7 @@ import PyOpenColorIO
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Own, Unchanged
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna import conditions
-from blender.bpy.data.rna.descriptors import Descriptor, rooted, written
+from blender.bpy.data.rna.descriptors import choices, Descriptor, rooted, written
 from blender.bpy.data.rna.snapshots import Scenes, ViewLayers
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
@@ -81,7 +82,7 @@ _USE: Final = Descriptor.declared(bpy.types.ViewLayer, "use", bpy.types.BoolProp
 _NAME: Final = Descriptor.declared(bpy.types.ViewLayer, "name", bpy.types.StringProperty)
 _OVERRIDE: Final = Descriptor.declared(bpy.types.ViewLayer, "material_override", bpy.types.PointerProperty)
 _LAYERS: Final = Descriptor.declared(bpy.types.Scene, "view_layers", bpy.types.CollectionProperty)
-_ITEMS: Final = MappingProxyType({kind: tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind) for kind in (Role, MoveDirection, Others, Within)})
+_ITEMS: Final = MappingProxyType({kind: choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind) for kind in (Role, MoveDirection, Others, Within)})
 SWATCHES: Final = MappingProxyType({
     Swatch.IBM: "648FFF 785EF0 DC267F FE6100 FFB000",
     Swatch.WONG: "000000 E69F00 56B4E9 009E73 F0E442 0072B2 D55E00 CC79A7",
@@ -134,10 +135,10 @@ class Renaming(bpy.types.PropertyGroup):
 class Tinting(bpy.types.PropertyGroup):
     """Tag colors written from a palette."""
 
-    palette: bpy.props.EnumProperty(name="Palette", description="Palette tags take in list order", items=tuple((case.__name__, case.__name__, "") for case in (Spectrum, Published)))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    palette: bpy.props.EnumProperty(name="Palette", description="Palette tags take in list order", items=choices((case.__name__, case.__name__, "") for case in (Spectrum, Published)))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     saturation: bpy.props.FloatProperty(name="Saturation", description="Saturation of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=Spectrum().saturation)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     value: bpy.props.FloatProperty(name="Value", description="Brightness of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=Spectrum().value)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    swatches: bpy.props.EnumProperty(name="Swatches", description="Published palette the layers cycle through", items=tuple((swatch.name, swatch.name, "") for swatch in Swatch))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    swatches: bpy.props.EnumProperty(name="Swatches", description="Published palette the layers cycle through", items=choices((swatch.name, swatch.name, "") for swatch in Swatch))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Splitting(bpy.types.PropertyGroup):
@@ -157,10 +158,10 @@ class LayerOverride(Line, frozen=True, kw_only=True):
         return ItemList(
             key="layers",
             item=bpy.types.ViewLayer,
-            collection=Member(root=bpy.types.Scene, path="view_layers"),
-            active=Member(root=bpy.types.Window, path="view_layer"),
+            collection=Member(root=bpy.types.Scene, path=("view_layers",)),
+            active=Member(root=bpy.types.Window, path=("view_layer",)),
             attachment=Some(self.layer),
-            columns=(Property(target=Member(root=bpy.types.ViewLayer, path="use"), text=""),),
+            columns=(Property(target=Member(root=bpy.types.ViewLayer, path=("use",)), text=""),),
             side=tuple(
                 OperatorButton(target=Own(command=MOVE, values={"direction": direction.name}), text="", icon=Some("TRIA_UP" if direction is MoveDirection.UP else "TRIA_DOWN"))
                 for direction in MoveDirection
@@ -282,11 +283,7 @@ def view_layer_move(call: Call[Moving]) -> Outcome[Answer]:
                 target = index + 1
         if not 0 <= target < len(scene.view_layers):
             return Ok(Unchanged(reason=f"{layer.name} is at list end"))
-        return (
-            catch(scene.view_layers.move, exception=RuntimeError)(index, target)
-            .map(lambda _: Done())
-            .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(scene.view_layers), cause=error),))
-        )
+        return catch(scene.view_layers.move, exception=RuntimeError)(index, target).map(lambda _: Done()).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(scene.view_layers)))
 
     return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(lambda pair: shifted(*pair))
 

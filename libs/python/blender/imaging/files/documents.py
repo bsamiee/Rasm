@@ -65,7 +65,7 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
     colorspace: str
     density: float
 
-    def written(self, path: str, config: PyOpenColorIO.Config) -> Outcome[str]:
+    def saved(self, path: str, config: PyOpenColorIO.Config) -> Outcome[str]:
         """Writes layered TIFF with colorspace ICC profile.
 
         Returns:
@@ -127,7 +127,7 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
             info=[psdtags.PsdEmpty(psdtags.PsdKey.SAVING_MERGED_TRANSPARENCY2)],
         )
         tagged = catch(source.tifftag, exception=struct.error)(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS).map_error(
-            lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=path, cause=error),)
+            functools.partial(Fault.of, RecordReason.UNWRITABLE, path)
         )
         return paired(tagged, profile(config, self.colorspace)).bind(
             lambda pair: written(
@@ -168,7 +168,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
     exposure: Finite = 0.0
     optics: Option[Optics] = Nothing
 
-    def written(self, path: str, frame: npt.NDArray[np.float32], config: PyOpenColorIO.Config) -> Outcome[str]:
+    def saved(self, path: str, frame: npt.NDArray[np.float32], config: PyOpenColorIO.Config) -> Outcome[str]:
         """Writes C-contiguous `(height, width, 3)` scene-linear frame as Linear Raw DNG.
 
         Returns:
@@ -207,7 +207,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
 
         return (
             basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR)
-            .bind(lambda matrix: catch(np.linalg.inv, exception=np.linalg.LinAlgError)(matrix).map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=str(matrix), cause=error),)))
+            .bind(lambda matrix: catch(np.linalg.inv, exception=np.linalg.LinAlgError)(matrix).map_error(functools.partial(Fault.of, RecordReason.NUMERIC, str(matrix))))
             .bind(
                 lambda inverse: written(
                     path,

@@ -67,8 +67,8 @@ class Chain(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def local(record: Entry[Effect], values: Mapping[Key, Value]) -> Outcome[tuple[Entry[Effect], Mapping[Key, Value]]]:
             plain = not record.blend.masks and all(values.get(item_key(Shell.blend, socket.key)) == socket.members["default_value"] for socket in (MODE, OPACITY))
             return paired(
-                Ok(None) if record.record.pointwise else Error((Fault(reason=RecordReason.OUTSIDE, subject=entry.name, member="pointwise effects", cause=type(record.record).__name__),)),
-                Ok(None) if plain else Error((Fault(reason=RecordReason.OUTSIDE, subject=entry.name, member=Shell.blend, cause=repr(record.blend)),)),
+                Ok(None) if record.record.pointwise else Error(Fault.of(RecordReason.OUTSIDE, entry.name, type(record.record).__name__, member="pointwise effects")),
+                Ok(None) if plain else Error(Fault.of(RecordReason.OUTSIDE, entry.name, repr(record.blend), member=Shell.blend)),
             ).map(lambda _: (record, values))
 
         return self.rows.found(identity, scene, entry.name).bind(

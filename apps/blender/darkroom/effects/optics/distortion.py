@@ -153,7 +153,7 @@ def export_st_map(call: Call[Named]) -> Outcome[Done]:
                 plane = StMap.bake(width, height, mapping, (wrap, wrap), source_size=size).plane
                 return ImageFile(pixels=plane, colorspace=PyOpenColorIO.ROLE_DATA).write(str(call.paths[0]), Storage(), {}, PyOpenColorIO.GetCurrentConfig()).map(lambda path: Done.wrote((path,)))
             case _:
-                return Error((Fault(reason=RecordReason.UNREADABLE, subject=Distortion.__name__, cause=repr(values)),))
+                return Error(Fault.of(RecordReason.UNREADABLE, Distortion.__name__, repr(values)))
 
     def ready(scene: bpy.types.Scene) -> Outcome[Done]:
         entry = distortion.named(call.identity, scene, call.properties.name)

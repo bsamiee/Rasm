@@ -11,6 +11,7 @@ import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 
+from blender.imaging.files.coding import Depth
 from blender.imaging.files.images import Compressions, Deflate, emitted, opened, Storage, Subimage
 from blender.records.faults import accumulated, Fault, Outcome, RecordReason
 
@@ -57,7 +58,7 @@ class Layer(msgspec.Struct, frozen=True, kw_only=True):
     channels: tuple[Channel, ...]
 
 
-class Part(msgspec.Struct, frozen=True, kw_only=True):
+class FilePart(msgspec.Struct, frozen=True, kw_only=True):
     """File part with string header attributes."""
 
     index: int
@@ -71,7 +72,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
     """Multilayer file path and parts."""
 
     path: str
-    parts: tuple[Part, ...]
+    parts: tuple[FilePart, ...]
 
     @property
     def layers(self) -> tuple[Layer, ...]:
@@ -98,7 +99,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
                 cls(
                     path=path,
                     parts=tuple(
-                        Part(
+                        FilePart(
                             index=index, width=spec.width, height=spec.height, channels=spec.channelnames, header={held.name: held.value for held in spec.extra_attribs if isinstance(held.value, str)}
                         )
                         for index, spec in specs
@@ -121,7 +122,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
                 Option
                 .of_optional(image.read_image(layer.part, 0, first, last, OpenImageIO.FLOAT))
                 .map(lambda span: np.ascontiguousarray(span[..., [channel.index - first for channel in channels]]))
-                .to_result_with(lambda: (Fault(reason=RecordReason.UNREADABLE, subject=self.path, cause=image.geterror()),))
+                .to_result_with(lambda: Fault.of(RecordReason.UNREADABLE, self.path, image.geterror()))
             )
 
         return opened(self.path, pixels)
@@ -140,7 +141,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
 
         def subimage(group: tuple[Pass, ...]) -> Subimage[np.float32]:
             channels = tuple(
-                (f"{item.layer}.{channel}", OpenImageIO.TypeDesc(OpenImageIO.FLOAT if item.role is PassRole.DATA or storage.depth == 32 else OpenImageIO.HALF))
+                (f"{item.layer}.{channel}", OpenImageIO.TypeDesc(OpenImageIO.FLOAT if item.role is PassRole.DATA or storage.depth is Depth.FLOAT else OpenImageIO.HALF))
                 for item in group
                 for channel in item.channels
             )
@@ -174,9 +175,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
                 Ok(Nothing)
                 if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed))
                 else accumulated(
-                    Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(
-                        lambda: (Fault(reason=RecordReason.UNREADABLE, subject=path, cause=image.geterror()),)
-                    )
+                    Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: Fault.of(RecordReason.UNREADABLE, path, image.geterror()))
                     for index, spec in enumerate(specs)
                 ).map(lambda arrays: Some(tuple(map(subimage, specs, renamed, arrays))))
             )
@@ -194,4 +193,4 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Channel", "Layer", "Multilayer", "Part", "Pass", "PassLayout", "PassRole"]
+__all__ = ["Channel", "FilePart", "Layer", "Multilayer", "Pass", "PassLayout", "PassRole"]

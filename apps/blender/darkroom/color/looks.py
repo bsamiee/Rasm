@@ -116,7 +116,7 @@ class FormationLooks(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def row(self) -> Rows:
         """Tiles over the pick's look."""
-        return Rows(rows=lambda identity: self.attachment.bound(identity).map(lambda attached: (IconView(target=Member(root=bpy.types.Scene, path=f"{attached.name}.look"), show_labels=True),)))
+        return Rows(rows=lambda identity: self.attachment.bound(identity).map(lambda attached: (IconView(target=Member(root=bpy.types.Scene, path=(attached.name, "look")), show_labels=True),)))
 
 
 class StackLooks(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -166,8 +166,8 @@ class StackLooks(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return Rows(
             rows=lambda identity: self.attachment.bound(identity).map(
                 lambda attached: (
-                    IconView(target=Member(root=bpy.types.Scene, path=f"{attached.name}.look"), show_labels=True),
-                    Property(target=Member(root=bpy.types.Scene, path=f"{attached.name}.strength"), slider=True),
+                    IconView(target=Member(root=bpy.types.Scene, path=(attached.name, "look")), show_labels=True),
+                    Property(target=Member(root=bpy.types.Scene, path=(attached.name, "strength")), slider=True),
                 )
             )
         )

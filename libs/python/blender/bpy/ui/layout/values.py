@@ -11,7 +11,8 @@ from typing import Final
 
 from bl_operators.presets import AddPresetBase
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Some, try_downcast
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
@@ -148,17 +149,17 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
         stem, shown, json = self.preset.key, bpy.path.display_name, lambda _: (".json",)
 
         def user(stored: T | Path, key: str) -> Outcome[Path]:
-            return Ok(stored) if isinstance(stored, Path) else Error((Fault(reason=BlenderReason.ABSENT, subject=str(self.preset.folder(identity)), member=key),))
+            return Option.of_optional(try_downcast(Path, stored)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, str(self.preset.folder(identity)), member=key))
 
         def named(text: str) -> Outcome[PresetName]:
-            return catch(msgspec.convert, exception=msgspec.ValidationError)(text, PresetName).map_error(lambda error: (Fault(reason=RecordReason.OUTSIDE, subject=text, cause=error),))
+            return catch(msgspec.convert, exception=msgspec.ValidationError)(text, PresetName).map_error(partial(Fault.of, RecordReason.OUTSIDE, text))
 
         def claimed(name: PresetName) -> Option[tuple[str, T | Path]]:
             normalized = AddPresetBase.as_filename(name).casefold()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            return Option.of_optional(next(((key, value) for key, value in self.preset.listed(identity).items() if key.casefold() == normalized), None))
+            return Block.of_seq(self.preset.listed(identity).items()).filter(lambda pair: pair[0].casefold() == normalized).try_head()
 
         def available(name: PresetName) -> Outcome[PresetName]:
-            return claimed(name).map(lambda _: Error((Fault(reason=BlenderReason.TAKEN, subject=name, member=str(self.preset.folder(identity))),))).default_value(Ok(name))
+            return Ok(name).filter_with(lambda held: claimed(held).is_none(), partial(Fault.of, BlenderReason.TAKEN, name, member=str(self.preset.folder(identity))))
 
         def neighbor(call: operators.Call[operators.Empty], step: int) -> Outcome[operators.Answer]:
             if not (values := tuple(map(self.preset.read, self.preset.listed(identity).values()))):
@@ -169,12 +170,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 .bind(
                     lambda rows: self.applied(
                         call.context,
-                        rows[
-                            Option
-                            .of_optional(next((index for index, (_, matched) in enumerate(rows) if matched), None))
-                            .map(lambda index: (index + step) % len(rows))
-                            .default_value(0 if step > 0 else -1)
-                        ][0],
+                        rows[Block.of_seq(enumerate(rows)).filter(lambda pair: pair[1][1]).try_head().map(lambda pair: (pair[0] + step) % len(rows)).default_value(0 if step > 0 else -1)][0],
                     )
                 )
             )
@@ -231,7 +227,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 case (_, Path() as path):
                     return self.current(call.context).bind(lambda value: self.preset.written(path, value)).map(lambda _: operators.Done(notes=(("INFO", f"Replaced {shown(path.stem)}"),)))
                 case (_, _):
-                    return Error((Fault(reason=BlenderReason.TAKEN, subject=name, member=str(self.preset.folder(identity))),))
+                    return Error(Fault.of(BlenderReason.TAKEN, name, member=str(self.preset.folder(identity))))
                 case None:
                     return self.current(call.context).bind(lambda value: self.preset.saved(identity, name, value)).map(lambda path: operators.Done(notes=(("INFO", f"Added {shown(path.stem)}"),)))
 
@@ -485,7 +481,7 @@ class Store[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=Tru
                 *slots.picked.values(),
                 slots.lock,
                 *slots.listing.to_list(),
-                *acquired(tuple(build(Member(root=slots.attached.form, path=name)) for name, build in self.fields.items())),
+                *acquired(tuple(build(Member(root=slots.attached.form, path=(name,))) for name, build in self.fields.items())),
             )
         )
 
@@ -545,7 +541,7 @@ TEMPLATES: Final = MappingProxyType({
 
 def hosted(name: str, context: bpy.types.Context) -> Outcome[Host]:
     """Returns host from header context pointer, absent fault when unset."""
-    return catch(lambda: getattr(context, name), exception=AttributeError)().map_error(lambda _: (Fault(reason=BlenderReason.ABSENT, subject="bpy.context", member=name),))
+    return catch(getattr, exception=AttributeError)(context, name).map_error(partial(Fault.of, BlenderReason.ABSENT, "bpy.context", member=name))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

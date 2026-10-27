@@ -12,12 +12,12 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
+from blender.bpy.data.ids.content import fingerprinted
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, updated
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderReason
-from blender.bpy.nodes.trees import fingerprinted
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.effects import Enabled
 from blender.bpy.render.previews.queue import Job, PreviewQueue, Rank
@@ -155,12 +155,12 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     case ((value, inverse),):
                         return processor(config, PyOpenColorIO.GroupTransform([value], direction=PyOpenColorIO.TRANSFORM_DIR_FORWARD if inverse else PyOpenColorIO.TRANSFORM_DIR_INVERSE))
                     case _:
-                        return Error((Fault(reason=BlenderReason.ABSENT, subject=space.getName(), member=PyOpenColorIO.AllocationTransform.__name__),))
+                        return Error(Fault.of(BlenderReason.ABSENT, space.getName(), member=PyOpenColorIO.AllocationTransform.__name__))
 
             match self.allocation:
                 case str(name):
                     return Result[PyOpenColorIO.ColorSpace, Faults].bind(
-                        Option.of_optional(config.getColorSpace(name)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=config.getName(), member=name),)), selected
+                        Option.of_optional(config.getColorSpace(name)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, config.getName(), member=name)), selected
                     )
                 case transform:
                     return processor(config, PyOpenColorIO.GroupTransform([transform], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE))
@@ -171,7 +171,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     display = held.map(lambda view: view.display).default_with(lambda: viewed(scene).display)
                     return Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], Faults].bind(
                         DisplayView.for_encoding(config, display),
-                        lambda found: found.map(lambda pair: pair[1]).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=display, member=DisplayView.for_encoding.__name__),)),
+                        lambda found: found.map(lambda pair: pair[1]).to_result_with(partial(Fault.of, BlenderReason.ABSENT, display, member=DisplayView.for_encoding.__name__)),
                     )
 
                 return self.guide.map(lambda transform: processor(config, transform)).default_with(

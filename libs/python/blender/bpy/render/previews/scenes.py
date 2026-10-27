@@ -3,6 +3,7 @@
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from enum import auto, Enum, IntEnum
+from functools import partial
 import math
 from pathlib import Path
 from types import MappingProxyType
@@ -21,7 +22,7 @@ import PyOpenColorIO
 from blender.bpy.data.ids.images import filled, Tag
 from blender.bpy.data.ids.ownership import kept, Mark, Ownership, Saved
 from blender.bpy.data.ids.store import IdName
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, rna, Struct, struct_at, Value, written
+from blender.bpy.data.rna.descriptors import assigned, Descriptor, rna, RnaPath, Struct, struct_at, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
@@ -110,7 +111,7 @@ class Lamp(msgspec.Struct, frozen=True, kw_only=True):
     rotation: tuple[float, float, float] = 0.9, 0.15, 0.5
 
 
-class Lighting(msgspec.Struct, frozen=True, kw_only=True):
+class PreviewLighting(msgspec.Struct, frozen=True, kw_only=True):
     """Preview surface, ambient, and key strength."""
 
     surface: PreviewMesh = PreviewMesh.SPHERE
@@ -119,13 +120,18 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
     key: Annotated[float, msgspec.Meta(ge=0.0, le=20.0, title="Key Light")] = 2.0
 
     @property
-    def environment(self) -> Outcome[Mapping[str, Value]]:
+    def environment(self) -> Outcome[Mapping[RnaPath, Value]]:
         """Environment members lighting a studio light or a flat white backdrop."""
+
+        def lit(path: str) -> Mapping[RnaPath, Value]:
+            return {("lighting", "mode"): "HDRI", ("lighting", "path"): path, ("lighting", "strength"): self.strength}
+
         match self.ambient:
             case White():
-                return Ok({"lighting.mode": "COLOR", "lighting.color": (1.0, 1.0, 1.0), "lighting.strength": self.strength})
+                return Ok({("lighting", "mode"): "COLOR", ("lighting", "color"): (1.0, 1.0, 1.0), ("lighting", "strength"): self.strength})
             case Studio(name=name):
-                return studio(name, bpy.context.preferences).map(lambda path: {"lighting.mode": "HDRI", "lighting.path": path, "lighting.strength": self.strength})  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                return studio(name, preferences).map(lit)
 
     @property
     def lamp(self) -> Lamp:
@@ -139,7 +145,7 @@ class Fitted(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     subject: bpy.types.Object
 
 
-class Mirrored(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class RoutedEntry(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Source effect entry with own or routed group."""
 
     entry: bpy.types.SceneCompositorEffect
@@ -160,7 +166,7 @@ class PreviewStack(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Compositor entries of one preview render: the render input plane, ordered mirrored entries, and the placement adding entries after them."""
 
     head: Option[npt.NDArray[np.float32]] = Nothing
-    mirrored: tuple[Mirrored, ...] = ()
+    mirrored: tuple[RoutedEntry, ...] = ()
     placing: EntryPlacement = lambda _identity, _source, _scene, _context: Ok(lambda: Ok(None))
 
 
@@ -169,7 +175,7 @@ class Staging(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     source: bpy.types.Scene
     size: tuple[int, int]
-    world: Mapping[str, Value] | bpy.types.World
+    world: Mapping[RnaPath, Value] | bpy.types.World
     lamp: Lamp | bpy.types.Light
     stack: PreviewStack = PreviewStack()
     transparent: bool = True
@@ -211,9 +217,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
     def made(self, identity: Identity) -> Outcome[bpy.types.Scene]:
         """Returns extension runtime preview scene."""
-        return self.scene.made(
-            identity, lambda: catch(bpy.data.scenes.new, exception=RuntimeError)("Preview").map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=self.scene.key, cause=error),))
-        )
+        return self.scene.made(identity, lambda: catch(bpy.data.scenes.new, exception=RuntimeError)("Preview").map_error(partial(Fault.of, BlenderReason.REFUSED, self.scene.key)))
 
     def headed(self, identity: Identity, pixels: npt.NDArray[np.float32]) -> Outcome[bpy.types.NodeTree]:
         """Returns head group reading pixels through a runtime image."""
@@ -222,16 +226,13 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
         def built() -> Outcome[bpy.types.Image]:
             created = catch(bpy.data.images.new, exception=RuntimeError)("Preview Input", width=width, height=height, alpha=True, float_buffer=True)
-            return kept(created.map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=self.image.key, cause=error),)), lambda image: tag.applied(image).map(lambda _: image))
+            return kept(created.map_error(partial(Fault.of, BlenderReason.REFUSED, self.image.key)), lambda image: tag.applied(image).map(lambda _: image))
 
         def graphed(image: bpy.types.Image) -> Outcome[bpy.types.NodeTree]:
             source = Expr(kind=bpy.types.CompositorNodeImage, members=(("image", IdName.of(image)),), socket="Image", shape="RGBA")
             return (
                 Result[None, Faults]
-                .bind(
-                    catch(image.scale, exception=RuntimeError)(width, height).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=self.image.key, cause=error),)),
-                    lambda _: filled(image, pixels),
-                )
+                .bind(catch(image.scale, exception=RuntimeError)(width, height).map_error(partial(Fault.of, BlenderReason.REFUSED, self.image.key)), lambda _: filled(image, pixels))
                 .bind(
                     lambda _: NodeGroup.built(
                         self.head.key, "Preview Input", Interface(outputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),)), {"image": source}, bpy.types.CompositorNodeTree
@@ -264,7 +265,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         releases: list[Callable[[], Outcome[object]]] = []
 
         def undone(request: object, step: Callable[[], object]) -> None:
-            releases.append(lambda: catch(step, exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(request), cause=error),)))
+            releases.append(lambda: catch(step, exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(request))))
 
         def lit(light: bpy.types.Object, data: bpy.types.Light) -> Outcome[None]:
             def relit() -> None:
@@ -294,15 +295,8 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                 undone(subject, lambda: scene.collection.objects.unlink(subject))
 
             return accumulated((
-                *(
-                    catch(shown, exception=RuntimeError)(shape, item, mesh).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(item), cause=error),))
-                    for shape, (item, mesh) in shapes
-                ),
-                *(
-                    catch(linked, exception=RuntimeError)(view.subject).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(scene), cause=error),))
-                    for view in (staging.viewpoint,)
-                    if isinstance(view, Fitted)
-                ),
+                *(catch(shown, exception=RuntimeError)(shape, item, mesh).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(item))) for shape, (item, mesh) in shapes),
+                *(catch(linked, exception=RuntimeError)(view.subject).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(scene))) for view in (staging.viewpoint,) if isinstance(view, Fitted)),
             )).map(lambda _: None)
 
         def aimed(scene: bpy.types.Scene, camera: bpy.types.Object, data: bpy.types.Camera) -> Outcome[None]:
@@ -341,26 +335,25 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
         def unchained(scene: bpy.types.Scene) -> Outcome[object]:
             return accumulated(
-                catch(scene.compositor_effects.remove, exception=RuntimeError)(entry).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(entry), cause=error),))
-                for entry in tuple(scene.compositor_effects)
+                catch(scene.compositor_effects.remove, exception=RuntimeError)(entry).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(entry))) for entry in tuple(scene.compositor_effects)
             )
 
         def prepared(scene: bpy.types.Scene) -> Outcome[bpy.types.Scene]:
             releases.append(lambda: unchained(scene))
             source = staging.source
-            settings: dict[str, Value] = {
-                "render.engine": source.render.engine,
-                "render.resolution_x": staging.size[0],
-                "render.resolution_y": staging.size[1],
-                "render.resolution_percentage": 100,
-                "render.film_transparent": staging.transparent,
-                "render.use_compositing": True,
-                "render.use_sequencer": False,
-                "render.use_multiview": False,
-                "render.use_motion_blur": False,
-                "render.use_border": False,
-                "render.use_stamp": False,
-                "frame_current": source.frame_current,
+            settings: dict[RnaPath, Value] = {
+                ("render", "engine"): source.render.engine,
+                ("render", "resolution_x"): staging.size[0],
+                ("render", "resolution_y"): staging.size[1],
+                ("render", "resolution_percentage"): 100,
+                ("render", "film_transparent"): staging.transparent,
+                ("render", "use_compositing"): True,
+                ("render", "use_sequencer"): False,
+                ("render", "use_multiview"): False,
+                ("render", "use_motion_blur"): False,
+                ("render", "use_border"): False,
+                ("render", "use_stamp"): False,
+                ("frame_current",): source.frame_current,
             }
             owners: tuple[tuple[Struct, Struct], ...] = ((source.eevee, scene.eevee), (source.cycles, scene.cycles), (source.display, scene.display))  # type: ignore[assignment, attr-defined]  # ty: ignore[invalid-assignment, unresolved-attribute]
             engines = accumulated(Snapshot.capture(held).bind(lambda snapshot: snapshot.apply(own).outcome) for held, own in owners)
@@ -422,7 +415,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                 OutputFormat
                 .of(Output.DATA, Kind.EXR)
                 .bind(lambda output: output.applied(native))
-                .bind(lambda _: assigned(native, {"format.color_mode": "RGBA", "format.color_management": "OVERRIDE", "format.linear_colorspace_settings.name": linear}))
+                .bind(lambda _: assigned(native, {("format", "color_mode"): "RGBA", ("format", "color_management"): "OVERRIDE", ("format", "linear_colorspace_settings", "name"): linear}))
                 .map(lambda _: tree)
             )
 
@@ -449,9 +442,9 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
     def sampled(self, identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], pixels: npt.NDArray[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
         """Renders float pixels through entries without adding formation."""
         height, width, channels = pixels.shape
-        lighting = Lighting()
+        lighting = PreviewLighting()
         carrier = (max(width, RESOLUTION[0].prop.hard_min), max(height, RESOLUTION[1].prop.hard_min))
-        stack = PreviewStack(head=Some(pixels), mirrored=tuple(Mirrored(entry=entry, group=group) for entry in entries for group in Option.of_optional(entry.node_group).to_list()))
+        stack = PreviewStack(head=Some(pixels), mirrored=tuple(RoutedEntry(entry=entry, group=group) for entry in entries for group in Option.of_optional(entry.node_group).to_list()))
         return lighting.environment.bind(lambda world: self.rendered(identity, Staging(source=scene, size=carrier, world=world, lamp=lighting.lamp, stack=stack))).map(
             lambda readback: readback.plane[..., :channels]
         )
@@ -469,7 +462,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 def appended(scene: bpy.types.Scene, group: bpy.types.NodeTree) -> Outcome[bpy.types.SceneCompositorEffect]:
     """Appends a compositor entry running group."""
     return Result[bpy.types.SceneCompositorEffect, Faults].bind(
-        catch(scene.compositor_effects.new, exception=RuntimeError)(group.name).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(scene.compositor_effects), cause=error),)),
+        catch(scene.compositor_effects.new, exception=RuntimeError)(group.name).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(scene.compositor_effects))),
         lambda entry: written(entry, "node_group", group).map(lambda _: entry),
     )
 
@@ -478,7 +471,7 @@ def unlinked(paths: Mapping[str, Path]) -> Outcome[None]:
     """Deletes capture files a render writes, absent ones included."""
 
     def unlink(path: Path) -> Outcome[None]:
-        return catch(path.unlink, exception=OSError)(missing_ok=True).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))
+        return catch(path.unlink, exception=OSError)(missing_ok=True).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path)))
 
     return accumulated(map(unlink, paths.values())).map(lambda _: None)
 
@@ -530,14 +523,11 @@ def piece(identity: Identity, kind: Piece, scene: bpy.types.Scene) -> Outcome[tu
     def built() -> Outcome[bpy.types.Mesh | bpy.types.Camera | bpy.types.Light]:
         match kind:
             case Fixture.CAMERA:
-                return catch(bpy.data.cameras.new, exception=RuntimeError)(name).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=data.key, cause=error),))
+                return catch(bpy.data.cameras.new, exception=RuntimeError)(name).map_error(partial(Fault.of, BlenderReason.REFUSED, data.key))
             case Fixture.LAMP:
-                return catch(bpy.data.lights.new, exception=RuntimeError)(name, type="SUN").map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=data.key, cause=error),))
+                return catch(bpy.data.lights.new, exception=RuntimeError)(name, type="SUN").map_error(partial(Fault.of, BlenderReason.REFUSED, data.key))
             case PreviewMesh() as shape:
-                return kept(
-                    catch(bpy.data.meshes.new, exception=RuntimeError)(name).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=data.key, cause=error),)),
-                    lambda mesh: surfaced(shape, mesh),
-                )
+                return kept(catch(bpy.data.meshes.new, exception=RuntimeError)(name).map_error(partial(Fault.of, BlenderReason.REFUSED, data.key)), lambda mesh: surfaced(shape, mesh))
 
     rest: Mapping[str, Value] = {
         "location": (0.0, 0.0, 0.0),
@@ -568,13 +558,13 @@ __all__ = [
     "Fitted",
     "Fixture",
     "Lamp",
-    "Lighting",
-    "Mirrored",
     "Piece",
+    "PreviewLighting",
     "PreviewMesh",
     "PreviewScene",
     "PreviewStack",
     "Readback",
+    "RoutedEntry",
     "Staging",
     "Studio",
     "Viewpoint",

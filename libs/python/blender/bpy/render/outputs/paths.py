@@ -18,7 +18,7 @@ import msgspec
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Suppressible, tallied, Unchanged
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.conditions import AllOf, Not, Setting
+from blender.bpy.data.rna.conditions import AllOf, Condition, Setting
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, rooted, Value, written
 from blender.bpy.extension.events import Handler, located, staged, Subscription
 from blender.bpy.extension.identity import Identity
@@ -144,7 +144,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
                 return Nothing
 
     @classmethod
-    def of(cls, outputs: Outputs, scene: bpy.types.Scene, root: tuple[str, Path], blend: Option[Path], day: datetime.date, unsaved: Not) -> Outcome[Self]:
+    def of(cls, outputs: Outputs, scene: bpy.types.Scene, root: tuple[str, Path], blend: Option[Path], day: datetime.date, unsaved: Condition) -> Outcome[Self]:
         """Combines template and stem grammars with source-file fields."""
         native, base = root
 
@@ -182,7 +182,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
     def text(self, layer: str, output: Output, item: Option[str] = Nothing, *, spelled: bool = True) -> Outcome[str]:
         """Composes a relative native template, refusing a spelled {date}."""
         return (
-            Error((Fault(reason=BlenderReason.UNMET, subject=Undated().message),))
+            Error(Fault.of(BlenderReason.UNMET, Undated().message))
             if spelled and Slot(key=Word.DATE) in self.name.slots
             else self.name.compose(self._filled(layer, output, item), self.spelling if spelled else lambda _: Nothing)
         )
@@ -205,11 +205,9 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
 
         def dropped(frame: int) -> Outcome[None]:
             return Result[Path, Faults].bind(
-                catch(lambda: Path(bpy.path.abspath(scene.render.frame_path(frame=frame))), exception=RuntimeError)().map_error(
-                    lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(scene.render), cause=error),)
-                ),
+                catch(lambda: Path(bpy.path.abspath(scene.render.frame_path(frame=frame))), exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(scene.render))),
                 lambda file: (
-                    catch(lambda: file.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(file), cause=error),))
+                    catch(lambda: file.unlink(missing_ok=True), exception=OSError)().map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(file)))
                     if bpy.path.is_subdir(str(file), str(self.base))
                     else Ok(None)
                 ),
@@ -224,7 +222,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
     filepath: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.RenderSettings, "filepath", bpy.types.StringProperty)
     directory: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.CompositorNodeOutputFile, "directory", bpy.types.StringProperty)
     file_name: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.CompositorNodeOutputFile, "file_name", bpy.types.StringProperty)
-    unsaved: ClassVar[Not] = ~Setting(descriptor=Descriptor.declared(bpy.types.Context, ("blend_data", "filepath"), bpy.types.StringProperty), accepted=("",))
+    unsaved: ClassVar[Condition] = ~Setting(descriptor=Descriptor.declared(bpy.types.Context, ("blend_data", "filepath"), bpy.types.StringProperty), accepted=("",))
     attached: Attached[Outputs]
     scope: Stored[OutputPath]
 
@@ -234,7 +232,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
 
         def resolved(native: str, folder: str) -> Outcome[tuple[str, Path]]:
             base = Path(bpy.path.abspath(folder, start=blend.map(lambda file: str(file.parent)).to_optional()))
-            return Ok((native, base)) if base.is_absolute() else Error((Fault(reason=BlenderReason.UNMET, subject=Unrooted(folder=folder).message),))
+            return Ok((native, base)) if base.is_absolute() else Error(Fault.of(BlenderReason.UNMET, Unrooted(folder=folder).message))
 
         def rooted(outputs: Outputs) -> Outcome[tuple[str, Path]]:
             preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
@@ -244,7 +242,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
                 .of_optional(bpy.data.project)
                 .bind(lambda project: Option.of_optional(project.variables.get(outputs.variable)))
                 .map(lambda variable: resolved(f"{{{variable.name}}}", variable.value))
-                .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject="bpy.data.project.variables", member=outputs.variable),)))
+                .default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, "bpy.data.project.variables", member=outputs.variable)))
                 if outputs.use_variable
                 else resolved(folder, folder)
             )
@@ -337,7 +335,7 @@ def planned(nodes: Iterable[bpy.types.Node], properties: Replace) -> Outcome[tup
         insert: Callable[[re.Match[str]], str] = (lambda found: found.expand(properties.replace)) if properties.regex else (lambda _: properties.replace)
         return (
             catch(lambda: pattern.sub(insert, text), exception=re.PatternError)()
-            .map_error(lambda error: (Fault(reason=BlenderReason.UNMET, subject=Malformed(text=properties.replace, error=error).message),))
+            .map_error(lambda error: Fault.of(BlenderReason.UNMET, Malformed(text=properties.replace, error=error).message))
             .map(lambda changed: Some(changed) if changed != text else Nothing)
         )
 
@@ -345,7 +343,7 @@ def planned(nodes: Iterable[bpy.types.Node], properties: Replace) -> Outcome[tup
         Result[re.Pattern[str], Faults]
         .bind(
             catch(lambda: re.compile(properties.find if properties.regex else re.escape(properties.find), 0 if properties.case else re.IGNORECASE), exception=re.PatternError)().map_error(
-                lambda error: (Fault(reason=BlenderReason.UNMET, subject=Malformed(text=properties.find, error=error).message),)
+                lambda error: Fault.of(BlenderReason.UNMET, Malformed(text=properties.find, error=error).message)
             ),
             lambda pattern: accumulated(edits(node, partial(substituted, pattern)) for node in nodes if isinstance(node, bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame)),
         )
@@ -401,7 +399,7 @@ def output_version(call: Call[Bump]) -> Outcome[Answer]:
         case bpy.types.CompositorNodeOutputFile() as node:
             return edits(node, lambda text: Ok(stepped(text, call.properties.offset))).bind(lambda renames: applied(renames, "No version token in node paths"))
         case _:
-            return Error((Fault(reason=BlenderReason.ABSENT, subject="bpy.context", member="active_node"),))
+            return Error(Fault.of(BlenderReason.ABSENT, "bpy.context", member="active_node"))
 
 
 def output_take(call: Call[Empty]) -> Outcome[Done]:
@@ -414,14 +412,12 @@ def output_take(call: Call[Empty]) -> Outcome[Done]:
 def output_folder(call: Call[Empty]) -> Outcome[Done]:
     """Open deepest existing output folder."""
     if (scene := (call.context.scene)) is None:
-        return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(call.context), member="scene"),))
+        return Error(Fault.of(BlenderReason.ABSENT, repr(call.context), member="scene"))
     render = scene.render
     return (
         Result[Path, Faults]
         .bind(
-            catch(lambda: Path(bpy.path.abspath(render.frame_path(frame=scene.frame_current))), exception=RuntimeError)().map_error(
-                lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(render), cause=error),)
-            ),
+            catch(lambda: Path(bpy.path.abspath(render.frame_path(frame=scene.frame_current))), exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(render))),
             lambda file: called(bpy.ops.wm.path_open, {"filepath": str(existing(file))}),
         )
         .map(lambda _: Done())

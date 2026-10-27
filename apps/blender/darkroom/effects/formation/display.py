@@ -1,11 +1,13 @@
 """Display formation: the chain entry forming scene-linear color through a display view, the scene views it holds, and the frames it displays."""
 
 from collections.abc import Mapping
+from functools import partial
 from itertools import starmap
 from typing import Annotated, Final
 
 import bpy
 from expression import Ok, Option, Result, Some
+from expression.collections import Block
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -84,11 +86,11 @@ def formed_display(shell: Shell[Formation]) -> Outcome[Expr]:
             kind=bpy.types.CompositorNodeConvertToDisplay,
             inputs=(("Image", shell.color),),
             members=(
-                ("display_settings.display_device", view.display),
-                ("view_settings.view_transform", view.view),
-                ("view_settings.look", view.looks_override if view.looks_override_enabled else NO_LOOK),
-                ("view_settings.exposure", view.exposure),
-                ("view_settings.gamma", view.gamma),
+                (("display_settings", "display_device"), view.display),
+                (("view_settings", "view_transform"), view.view),
+                (("view_settings", "look"), view.looks_override if view.looks_override_enabled else NO_LOOK),
+                (("view_settings", "exposure"), view.exposure),
+                (("view_settings", "gamma"), view.gamma),
             ),
             socket="Image",
             shape="RGBA",
@@ -131,7 +133,7 @@ def displayed_frame(identity: Identity, scene: bpy.types.Scene, plane: npt.NDArr
     def tagged(view: DisplayView) -> Outcome[ImageFile[np.float32]]:
         return paired(
             converted(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=PyOpenColorIO.ROLE_SCENE_LINEAR), plane),
-            view.colorspace(config).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(config), member=f"{view.display}/{view.view}"),)),
+            view.colorspace(config).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(config), member=f"{view.display}/{view.view}")),
         ).map(lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName()))
 
     return formed_view(identity, scene).bind(lambda held: held.map(tagged).default_with(lambda: formed(viewed(scene), plane, source, config)))
@@ -140,8 +142,9 @@ def displayed_frame(identity: Identity, scene: bpy.types.Scene, plane: npt.NDArr
 def looked(identity: Identity, scene: bpy.types.Scene, look: str) -> Outcome[bool]:
     """Writes a look into the earliest formation entry, else into the scene view, answering whether either changed."""
     return (
-        Option
-        .of_optional(next(iter(formation.entries(identity, scene)), None))
+        Block
+        .of_seq(formation.entries(identity, scene))
+        .try_head()
         .map(
             lambda entry: revised(
                 formation,
@@ -151,7 +154,7 @@ def looked(identity: Identity, scene: bpy.types.Scene, look: str) -> Outcome[boo
                 lambda record: Ok(msgspec.structs.replace(record, display_view=msgspec.structs.replace(record.display_view, looks_override=look, looks_override_enabled=look != NO_LOOK))),
             )
         )
-        .default_with(lambda: written(scene, "view_settings.look", look).map(Option.is_some))
+        .default_with(lambda: written(scene, ("view_settings", "look"), look).map(Option.is_some))
     )
 
 
@@ -166,10 +169,11 @@ def encode_formation(call: Call[Named]) -> Outcome[Answer]:
 
         def selected(target: DisplayView) -> Outcome[Answer]:
             return (
-                Option
-                .of_optional(next(iter(formation.entries(call.identity, scene)), None))
+                Block
+                .of_seq(formation.entries(call.identity, scene))
+                .try_head()
                 .map(lambda entry: revised(formation, call.identity, scene, entry, lambda record: Ok(msgspec.structs.replace(record, display_view=target))))
-                .default_with(lambda: assigned(scene, {"view_settings.view_transform": target.view, "view_settings.look": NO_LOOK}).map(lambda _: True))
+                .default_with(lambda: assigned(scene, {("view_settings", "view_transform"): target.view, ("view_settings", "look"): NO_LOOK}).map(lambda _: True))
                 .map(lambda changed: Done() if changed else Unchanged(reason=f"Formation encodes through {target.view}"))
             )
 
@@ -177,7 +181,7 @@ def encode_formation(call: Call[Named]) -> Outcome[Answer]:
             Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], Faults]
             .bind(
                 DisplayView.for_encoding(config, display),
-                lambda found: found.map(lambda pair: pair[0]).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=display, member=DisplayView.for_encoding.__name__),)),
+                lambda found: found.map(lambda pair: pair[0]).to_result_with(partial(Fault.of, BlenderReason.ABSENT, display, member=DisplayView.for_encoding.__name__)),
             )
             .bind(selected)
         )
@@ -198,12 +202,12 @@ formation: Final[CompositorEffect[Formation]] = CompositorEffect(
             scene=Snapshot.of(
                 bpy.types.Scene,
                 {
-                    "view_settings.view_transform": "Raw",
-                    "view_settings.look": NO_LOOK,
-                    "view_settings.exposure": 0.0,
-                    "view_settings.gamma": 1.0,
-                    "view_settings.use_white_balance": False,
-                    "view_settings.use_curve_mapping": False,
+                    ("view_settings", "view_transform"): "Raw",
+                    ("view_settings", "look"): NO_LOOK,
+                    ("view_settings", "exposure"): 0.0,
+                    ("view_settings", "gamma"): 1.0,
+                    ("view_settings", "use_white_balance"): False,
+                    ("view_settings", "use_curve_mapping"): False,
                 },
             )
         ),

@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from functools import cached_property
+from functools import cached_property, partial
 from pathlib import Path
 from typing import ClassVar, Final
 
@@ -10,6 +10,7 @@ from bl_ui.properties_render import RENDER_PT_color_management
 import bpy
 from bpy_extras.view3d_utils import location_3d_to_region_2d
 from expression import Nothing, Ok, Option, Result, Some
+from expression.collections import Block
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -170,9 +171,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @staticmethod
     def entry(identity: Identity, scene: bpy.types.Scene) -> Outcome[bpy.types.SceneCompositorEffect]:
         """Returns the earliest Exposure entry, absent fault without one."""
-        return Option.of_optional(next(iter(exposure.entries(identity, scene)), None)).to_result_with(
-            lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene.compositor_effects), member=exposure.kind),)
-        )
+        return Block.of_seq(exposure.entries(identity, scene)).try_head().to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(scene.compositor_effects), member=exposure.kind))
 
     @staticmethod
     def written(identity: Identity, scene: bpy.types.Scene, stops: float) -> Outcome[bool]:
@@ -251,7 +250,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 Overlay[Following](
                     drawing=Drawing(
                         area=AreaQuery(
-                            space="VIEW_3D", shows=Some(Setting(descriptor=Descriptor.declared(bpy.types.SpaceView3D, "shading.type", bpy.types.EnumProperty), accepted=("MATERIAL", "RENDERED")))
+                            space="VIEW_3D", shows=Some(Setting(descriptor=Descriptor.declared(bpy.types.SpaceView3D, ("shading", "type"), bpy.types.EnumProperty), accepted=("MATERIAL", "RENDERED")))
                         ),
                         part=Follower(identity, step),
                         refreshes=(refresh, Updated(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,))),

@@ -5,6 +5,7 @@ from typing import Final
 from bl_ui.space_topbar import TOPBAR_MT_file_export
 import bpy
 from expression import Ok, Option, Some
+from expression.collections import Block
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -12,6 +13,7 @@ import PyOpenColorIO
 
 from blender.bpy.commands.operators import Answer, Call, Done, Operator, Properties, Save
 from blender.bpy.data.rna.conditions import Job
+from blender.bpy.data.rna.descriptors import choices
 from blender.bpy.extension.identity import Identity
 from blender.bpy.render.color.luts import Baking, extension, LutExport, output, spaced, SPACINGS
 from blender.bpy.render.color.spaces import ConfigView
@@ -36,7 +38,7 @@ class ToneView(bpy.types.PropertyGroup):
     view: bpy.props.StringProperty(name="View", description="Name of the installed view")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     description: bpy.props.StringProperty(name="Description", description="Description of the installed view")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     size: bpy.props.IntProperty(name="Size", description="Nodes along each axis", min=2, max=129, default=Lattice().size)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=tuple((name, name, "") for name in SPACINGS), default=type(Lattice().spacing).__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=choices((name, name, "") for name in SPACINGS), default=type(Lattice().spacing).__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -100,7 +102,7 @@ toning: Final = Operator(
     invoke=Some(Properties()),
     seed=Some(
         lambda _properties, _event, identity: (
-            Option.of_optional(bpy.context.scene).bind(lambda scene: Option.of_optional(next(iter(tone_entries(identity, scene)), None))).map(lambda entry: {"entry": entry.name}).default_value({})
+            Option.of_optional(bpy.context.scene).bind(lambda scene: Block.of_seq(tone_entries(identity, scene)).try_head()).map(lambda entry: {"entry": entry.name}).default_value({})
         )
     ),
     undo=False,

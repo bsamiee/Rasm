@@ -162,9 +162,9 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
         def accepted(at: PanelPlacement) -> Outcome[PanelPlacement]:
             match at:
                 case Joined(space=space, category=tab) if tab not in (listed := tabs(space)):
-                    return Error((Fault(reason=RecordReason.OUTSIDE, subject=space, member=", ".join(listed), cause=tab),))
+                    return Error(Fault.of(RecordReason.OUTSIDE, space, tab, member=", ".join(listed)))
                 case Tab(context=context) if context not in (offered := contexts()):
-                    return Error((Fault(reason=RecordReason.OUTSIDE, subject="PROPERTIES", member=", ".join(offered), cause=context),))
+                    return Error(Fault.of(RecordReason.OUTSIDE, "PROPERTIES", context, member=", ".join(offered)))
             return Ok(at)
 
         def preceding(placing: dict[str, object]) -> int:

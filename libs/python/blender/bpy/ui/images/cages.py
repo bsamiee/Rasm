@@ -90,7 +90,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
 
     def pressed(self, context: bpy.types.Context) -> Outcome[tuple[Access, Rect]]:
         """Reads region access at a press, absent fault while the owner holds none."""
-        return self.held(context).bind(lambda found: found.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(context.area), member=self.key),)))
+        return self.held(context).bind(lambda found: found.to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(context.area), member=self.key)))
 
     def cage(self, identity: Identity, aligned: Aligned) -> Cage:
         """Returns a cage over the region rectangle in frame pixels."""

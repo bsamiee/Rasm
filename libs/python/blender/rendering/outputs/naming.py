@@ -10,6 +10,7 @@ import string
 from typing import Annotated, Final, Self
 
 from expression import Error, Nothing, Ok, Option
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
@@ -227,8 +228,9 @@ def _grammar(name: OutputName) -> re.Pattern[str]:
 def stepped(text: str, offset: int) -> Option[str]:
     """Steps version tokens matching last version, keeping token widths."""
     return (
-        Option
-        .of_optional(next(reversed(_VERSION.findall(text)), None))
+        Block
+        .of_seq(reversed(_VERSION.findall(text)))
+        .try_head()
         .map(int)
         .filter(lambda last: last + offset >= 0)
         .map(lambda last: _VERSION.sub(lambda found: found[0].removesuffix(found[1]) + f"{last + offset:0{len(found[1])}d}" if int(found[1]) == last else found[0], text))

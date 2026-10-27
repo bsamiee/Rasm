@@ -28,7 +28,7 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Call, Done, Empty, Operator, Properties
 from blender.bpy.data.ids.store import IdName, resolved
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, rna, rooted, struct_at
+from blender.bpy.data.rna.descriptors import assigned, choices, Descriptor, rna, rooted, struct_at
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.cli import CliCommand
 from blender.bpy.extension.events import Timer
@@ -96,9 +96,9 @@ class PlanFile(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-ONLINE: Final = Setting(descriptor=Descriptor.declared(bpy.types.Preferences, "system.use_online_access", bpy.types.BoolProperty))
-TARGETS: Final = tuple((kind.__name__, kind.__name__, inspect.getdoc(kind) or "") for kind in typing.get_args(Target.__value__))
-PAUSABLE: Final = Setting(descriptor=Descriptor.declared(bpy.types.SpaceView3D, "region_3d.support_pause_render", bpy.types.BoolProperty))
+ONLINE: Final = Setting(descriptor=Descriptor.declared(bpy.types.Preferences, ("system", "use_online_access"), bpy.types.BoolProperty))
+TARGETS: Final = choices((kind.__name__, kind.__name__, inspect.getdoc(kind) or "") for kind in typing.get_args(Target.__value__))
+PAUSABLE: Final = Setting(descriptor=Descriptor.declared(bpy.types.SpaceView3D, ("region_3d", "support_pause_render"), bpy.types.BoolProperty))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -106,7 +106,7 @@ PAUSABLE: Final = Setting(descriptor=Descriptor.declared(bpy.types.SpaceView3D, 
 class Dispatch(bpy.types.PropertyGroup):
     """Dispatch dialog options."""
 
-    reach: bpy.props.EnumProperty(name="Render", description="Scope queue renders", items=tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in Reach))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    reach: bpy.props.EnumProperty(name="Render", description="Scope queue renders", items=choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in Reach))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Plan(msgspec.Struct, frozen=True, kw_only=True):
@@ -262,7 +262,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
     @staticmethod
     def connected() -> Outcome[None]:
         """Requires `bpy.app.online_access`, set by preferences and `--offline-mode`."""
-        return Ok(None) if bpy.app.online_access else Error((Fault(reason=BlenderReason.UNMET, subject=ONLINE.message),))
+        return Ok(None) if bpy.app.online_access else Error(Fault.of(BlenderReason.UNMET, ONLINE.message))
 
     @staticmethod
     def posted(listener: Listener, notice: Notice) -> Outcome[None]:
@@ -300,7 +300,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
         return (
             rooted(bpy.types.Scene, context)
             .bind(reached)
-            .bind(lambda scopes: Ok(Plan(moment=moment, scopes=scopes)) if scopes else Error((Fault(reason=BlenderReason.ABSENT, subject=repr(context), member=dispatch.reach),)))
+            .bind(lambda scopes: Ok(Plan(moment=moment, scopes=scopes)) if scopes else Error(Fault.of(BlenderReason.ABSENT, repr(context), member=dispatch.reach)))
             .bind(lambda plan: self.planning.map(lambda revise: revise(self.identity, plan)).default_value(Ok(plan)))
         )
 
@@ -317,7 +317,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
             def applied(state: EditorState) -> Outcome[None]:
                 return accumulated(state.applied(at.area).map(lambda prior: (at, prior)) for at in AreaQuery(space="VIEW_3D", shows=Some(PAUSABLE)).located(manager.windows)).map(self.state.pausing)
 
-            return EditorState.of(bpy.types.SpaceView3D, {"region_3d.pause_render": True}).bind(applied)
+            return EditorState.of(bpy.types.SpaceView3D, {("region_3d", "pause_render"): True}).bind(applied)
 
         def written(plan: Plan, queueing: Queueing, manager: bpy.types.WindowManager) -> Outcome[Done]:
             path = identity.folder / f"{content_hash(Plan, plan).hex()}{PlanFile.PLAN}"
@@ -340,7 +340,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
     def prepared(self, arguments: Preparing, trailing: tuple[str, ...]) -> Outcome[Sent]:
         """Writes job files of stored plan, sends queue to target, and stores `Sent` record."""
         if trailing:
-            return Error((Fault(reason=RecordReason.OUTSIDE, subject=RunCommand.PREPARE, member="no trailing arguments", cause=repr(trailing)),))
+            return Error(Fault.of(RecordReason.OUTSIDE, RunCommand.PREPARE, repr(trailing), member="no trailing arguments"))
         path = Path(arguments.plan)
         source = Path(bpy.data.filepath)
 
@@ -400,7 +400,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 with path.open("rb") as file:
                     return hashlib.file_digest(file, "sha256").digest()
 
-            return read().map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(path), cause=error),))
+            return read().map_error(partial(Fault.of, RecordReason.UNREADABLE, str(path)))
 
         def written(scene: bpy.types.Scene, path: OutputPath, pixels: tuple[Side, Side]) -> Outcome[Job]:
             used = self.routing.used(scene)
@@ -470,7 +470,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
         return (
             self.pathed.scope
             .read(scene)
-            .bind(lambda found: found.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene), member=self.pathed.scope.name),)))
+            .bind(lambda found: found.to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(scene), member=self.pathed.scope.name)))
             .bind(lambda original: base.map(lambda root: rerooted(original, root)).default_value(Ok(None)))
             .bind(lambda _: reduce(lambda done, number: done.bind(lambda values: frame(number).map(lambda value: (*values, value))), frames, Result[tuple[T, ...], Faults](ok=())))
         )
@@ -479,21 +479,19 @@ class Dispatcher(msgspec.Struct, frozen=True):
         """Runs local queue progress or farm worker frame request."""
         match arguments:
             case Run():
-                return Error((Fault(reason=RecordReason.OUTSIDE, subject=RunCommand.RENDER, member="no trailing arguments", cause=repr(trailing)),)) if trailing else self.rendered(arguments)
+                return Error(Fault.of(RecordReason.OUTSIDE, RunCommand.RENDER, repr(trailing), member="no trailing arguments")) if trailing else self.rendered(arguments)
             case RenderFrames(scene=name, frames=frames):
                 match trailing:
                     case (output_root,):
-                        scene: Outcome[bpy.types.Scene] = Option.of_optional(bpy.data.scenes.get(name)).to_result_with(
-                            lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(bpy.data.scenes), member=name),)
-                        )
+                        scene: Outcome[bpy.types.Scene] = Option.of_optional(bpy.data.scenes.get(name)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(bpy.data.scenes), member=name))
                         return Result[bpy.types.Scene, Faults].bind(scene, lambda held: self.frames(held, frames, lambda _frame, _seconds: Ok(None), Some(Path(output_root)))).map(lambda _: None)
                     case _:
-                        return Error((Fault(reason=RecordReason.OUTSIDE, subject=RunCommand.RENDER, member="<output root>", cause=repr(trailing)),))
+                        return Error(Fault.of(RecordReason.OUTSIDE, RunCommand.RENDER, repr(trailing), member="<output root>"))
 
     def supervised(self, run: Run, trailing: tuple[str, ...]) -> Outcome[Progress]:
         """Supervises local render processes under power hold, posting notices."""
         if trailing:
-            return Error((Fault(reason=RecordReason.OUTSIDE, subject=RunCommand.SUPERVISE, member="no trailing arguments", cause=repr(trailing)),))
+            return Error(Fault.of(RecordReason.OUTSIDE, RunCommand.SUPERVISE, repr(trailing), member="no trailing arguments"))
 
         def ran(queue: RenderQueue, queueing: Queueing) -> Outcome[Progress]:
             def completed(progress: Progress) -> Outcome[Progress]:
@@ -533,7 +531,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 return (
                     self.pathed.scope
                     .read(scene)
-                    .bind(lambda found: found.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene), member=self.pathed.scope.name),)))
+                    .bind(lambda found: found.to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(scene), member=self.pathed.scope.name)))
                     .bind(lambda path: path.removed(scene, job.frames.numbers))
                     .map(lambda _: mark)
                     if all(part != mark.part for part, _ in progress.remaining(queue))
@@ -596,7 +594,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
             case (Sent(queue=queue, target=LocalMachine() as target), progress, beat):
                 return Ok((queue, target, progress, beat))
             case _:
-                return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(self.queued), member=RunFile.PROGRESS),))
+                return Error(Fault.of(BlenderReason.ABSENT, repr(self.queued), member=RunFile.PROGRESS))
 
     def restored(self) -> Outcome[Option[str]]:
         """Restores paused viewports still open, run as deferred callback."""
@@ -638,7 +636,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                     lambda issued: Done(notes=tuple(("INFO", value) for answer in issued for value in answer.to_option().to_list()), skipped=accumulated(issued).swap().to_option())
                 )
                 if phase in resumable
-                else Error((Fault(reason=RecordReason.OUTSIDE, subject=str(self.host.path(queue, RunFile.PROGRESS)), member=", ".join(value.name for value in resumable), cause=str(phase.name)),))
+                else Error(Fault.of(RecordReason.OUTSIDE, str(self.host.path(queue, RunFile.PROGRESS)), str(phase.name), member=", ".join(value.name for value in resumable)))
             )
 
         return paired(self.kept(), self.settings(call.identity)).bind(lambda pair: resent(*pair[0], pair[1]))
@@ -671,7 +669,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
 
         return (
             rooted(bpy.types.WindowManager, call.context)
-            .bind(lambda manager: queued_plan(self.queued.struct(manager)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=QueueRun.record.key, member="plan"),)))
+            .bind(lambda manager: queued_plan(self.queued.struct(manager)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, QueueRun.record.key, member="plan")))
             .bind(opened_log)
         )
 
@@ -679,11 +677,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
         """Cancels the shutdown scheduled after the local queue."""
 
         def cancelling(progress: Progress, power: PowerHold) -> Outcome[Done]:
-            return (
-                cancelled(progress).map(lambda _: Done(notes=(("INFO", "Shutdown canceled"),)))
-                if power.shutdown
-                else Error((Fault(reason=BlenderReason.ABSENT, subject=repr(power), member="shutdown"),))
-            )
+            return cancelled(progress).map(lambda _: Done(notes=(("INFO", "Shutdown canceled"),))) if power.shutdown else Error(Fault.of(BlenderReason.ABSENT, repr(power), member="shutdown"))
 
         return paired(self.kept(), self.settings(call.identity)).bind(lambda pair: cancelling(pair[0][2], pair[1].power))
 
@@ -714,7 +708,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 case Flamenco() as target:
                     return Ok(target)
                 case other:
-                    return Error((Fault(reason=RecordReason.OUTSIDE, subject=repr(queueing), member=Flamenco.__name__, cause=type(other).__name__),))
+                    return Error(Fault.of(RecordReason.OUTSIDE, repr(queueing), type(other).__name__, member=Flamenco.__name__))
 
         def held(manager: Manager) -> Done:
             self.state.manager = Some(manager)
@@ -731,10 +725,10 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 with importlib.resources.as_file(importlib.resources.files(Flamenco.__module__).joinpath(Flamenco.script)) as script:
                     return Path(shutil.copy(script, Path(folder) / Flamenco.script))
 
-            return written().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=folder, cause=error),)).map(lambda path: Done(notes=(("INFO", str(path)),)))
+            return written().map_error(partial(Fault.of, RecordReason.UNWRITABLE, folder)).map(lambda path: Done(notes=(("INFO", str(path)),)))
 
         return self.settings(call.identity).bind(
-            lambda queueing: queueing.scripts.map(copied).default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(call.context.preferences), member="scripts"),)))
+            lambda queueing: queueing.scripts.map(copied).default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(call.context.preferences), member="scripts")))
         )
 
     def test_notice(self, call: Call[Empty]) -> Outcome[Done]:

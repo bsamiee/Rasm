@@ -1,5 +1,6 @@
 """Variable-radius bokeh gathered through the iris from thin-lens depth, an elliptical sharp region, or a tilted sharp band."""
 
+from functools import partial
 from math import pi
 from typing import Final
 
@@ -88,7 +89,7 @@ def match_camera_iris(call: Call[Named]) -> Outcome[Answer]:
                 else {"focus": "Depth of Field", "depth_of_field_f_stop": dof.aperture_fstop, "iris_rotation": dof.aperture_rotation, "iris_blades": dof.aperture_blades, "iris_roundness": 0.0},
             )
             if dof.aperture_fstop > 0.0
-            else Error((Fault(reason=RecordReason.OUTSIDE, subject="depth_of_field_f_stop", member="positive f-numbers", cause=str(dof.aperture_fstop)),))
+            else Error(Fault.of(RecordReason.OUTSIDE, "depth_of_field_f_stop", str(dof.aperture_fstop), member="positive f-numbers"))
         )
         return written.map(lambda changed: Done(notes=(("INFO", f"Copied f-stop and iris from {name}"),)) if changed else Unchanged(reason=f"{entry.name} matches {name} f-stop and iris"))
 
@@ -96,7 +97,7 @@ def match_camera_iris(call: Call[Named]) -> Outcome[Answer]:
         camera: Option[tuple[str, bpy.types.CameraDOFSettings]] = Option.of_optional(scene.camera).bind(
             lambda held: Option.of_optional(held.data.dof).map(lambda dof: (held.name, dof)) if isinstance(held.data, bpy.types.Camera) else Nothing
         )
-        return paired(camera.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene), member="camera"),)), defocus.named(call.identity, scene, call.properties.name)).bind(
+        return paired(camera.to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(scene), member="camera")), defocus.named(call.identity, scene, call.properties.name)).bind(
             lambda found: copied(*found)
         )
 
@@ -181,7 +182,7 @@ defocus = CompositorEffect(
     alpha=Alpha.RESULT,
     parts=(
         Requests[Defocus](request=depth_precise),
-        Holds(cameras=Snapshot.of(bpy.types.Camera, {"dof.use_dof": False})),
+        Holds(cameras=Snapshot.of(bpy.types.Camera, {("dof", "use_dof"): False})),
         Registers(rows=(Operator(form=Named, run=match_camera_iris, icon=Some("CAMERA_DATA")),)),
     ),
 )

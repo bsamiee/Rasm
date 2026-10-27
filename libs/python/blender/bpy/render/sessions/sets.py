@@ -16,7 +16,7 @@ from typing_extensions import TypeForm
 
 from blender.bpy.commands.operators import Answer, answered, Call, Confirm, Done, Empty, Operator, Own, Suppressible, tallied, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, Native, parsed, rna, RnaPath, rooted, Struct, struct_at, Value
+from blender.bpy.data.rna.descriptors import assigned, choices, Descriptor, Native, parsed, rna, RnaPath, rooted, Struct, struct_at, Value
 from blender.bpy.data.rna.snapshots import Applied, Endpoints, Snapshot
 from blender.bpy.extension.events import Handler, updated
 from blender.bpy.extension.identity import Identity, Key
@@ -94,7 +94,7 @@ type Form = Copies | Layers
 class Sets(bpy.types.PropertyGroup):
     """File render set settings."""
 
-    form: bpy.props.EnumProperty(name="Render Sets", description="Copied scenes or view layers of one scene", items=tuple((case.__name__, case.__name__, "") for case in (Layers, Copies)))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    form: bpy.props.EnumProperty(name="Render Sets", description="Copied scenes or view layers of one scene", items=choices((case.__name__, case.__name__, "") for case in (Layers, Copies)))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     across: bpy.props.BoolProperty(name="Edit Across", description="Copy category edits to unlocked members")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
@@ -132,7 +132,7 @@ class Category(msgspec.Struct, frozen=True, kw_only=True):
 class Converting(bpy.types.PropertyGroup):
     """Target form of render set conversion."""
 
-    form: bpy.props.EnumProperty(name="Render Sets", items=tuple((case.__name__, case.__name__, "") for case in (Copies, Layers)))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    form: bpy.props.EnumProperty(name="Render Sets", items=choices((case.__name__, case.__name__, "") for case in (Copies, Layers)))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class CategorySettings(msgspec.Struct, frozen=True, kw_only=True):
@@ -258,18 +258,22 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         """Resolved settings of every category on root."""
         return tuple(descriptor for category, descriptors in self.categories if category.root is root for descriptor in descriptors)
 
+    def described(self, category: Category) -> tuple[Descriptor, ...]:
+        """Resolved settings of one category."""
+        return next(selected for held, selected in self.categories if held == category)
+
     def captured(self, category: Category, context: bpy.types.Context) -> Outcome[Snapshot]:
         """Captures category from source scene or its layer named like active one."""
-        selected = next(selected for held, selected in self.categories if held == category)
+        selected = self.described(category)
 
         def origin(scene: bpy.types.Scene) -> Outcome[bpy.types.Scene | bpy.types.ViewLayer]:
             match category.root, context.view_layer:
                 case root, _ if root is bpy.types.Scene:
                     return Ok(scene)
                 case _, bpy.types.ViewLayer(name=name):
-                    return Option.of_optional(scene.view_layers.get(name)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene.view_layers), member=name),))
+                    return Option.of_optional(scene.view_layers.get(name)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(scene.view_layers), member=name))
                 case _, None:
-                    return Error((Fault(reason=BlenderReason.ABSENT, subject="bpy.context", member="view_layer"),))
+                    return Error(Fault.of(BlenderReason.ABSENT, "bpy.context", member="view_layer"))
 
         return self.source(context).bind(origin).bind(lambda source: Snapshot.capture(source, Some(selected)))
 
@@ -288,7 +292,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
                     return Error(Fault.of(RecordReason.OUTSIDE, rna(descriptor.path), repr(other), member="sample count"))
 
         selected: Outcome[Descriptor[bpy.types.Property]] = self.samples.try_find(scene.render.engine).to_result_with(
-            lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene.render), member=f"{scene.render.engine} samples"),)
+            lambda: Fault.of(BlenderReason.ABSENT, repr(scene.render), member=f"{scene.render.engine} samples")
         )
         return Result[Descriptor[bpy.types.Property], Faults].bind(
             selected,
@@ -457,7 +461,11 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def captured(members: Members, category: Category) -> Captured:
         """Returns category preset source applying to unlocked owners."""
-        return Captured(preset=Preset(key=category.key, form=Snapshot), scope=MemberScope(members=members, owner_type=category.root, unlocked=True), selection=category.paths)
+        return Captured(
+            preset=Preset(key=category.key, form=Snapshot),
+            scope=MemberScope(members=members, owner_type=category.root, unlocked=True),
+            selection=tuple(descriptor.path for descriptor in members.described(category)),
+        )
 
     # --- [COMMANDS]
 
@@ -483,7 +491,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                     return (
                         Mark(key=self.ownership.key, of=Some(source))
                         .write(members.identity, scene)
-                        .bind(lambda _: catch(kept, exception=AttributeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(scene), cause=error),)))
+                        .bind(lambda _: catch(kept, exception=AttributeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(scene))))
                     )
 
                 if not (
@@ -521,7 +529,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                         shown(source, (scene,))
                         return removed(scene).map(lambda _: Done(notes=(("INFO", f"Removed {name}"),)))
                     case _:
-                        return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(call.context.scene), member=RenderSet.ownership.key),))
+                        return Error(Fault.of(BlenderReason.ABSENT, repr(call.context.scene), member=RenderSet.ownership.key))
 
             return members.source(call.context).bind(dropped)
 
@@ -568,12 +576,12 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             header=(Pulldown(menu=scope.listing.key, text="", icon=Some("PRESET")),),
             rows=(
                 *self.capture.rows(members, scope),
-                Property(target=Member(root=bpy.types.WindowManager, path=f"{members.sets.name}.across")),
+                Property(target=Member(root=bpy.types.WindowManager, path=(members.sets.name, "across"))),
                 ItemList[SceneMember, bpy.types.Scene](
                     key="render_set_scenes",
                     item=bpy.types.Scene,
-                    collection=Member(root=bpy.types.BlendData, path="scenes"),
-                    active=Member(root=bpy.types.Window, path="scene"),
+                    collection=Member(root=bpy.types.BlendData, path=("scenes",)),
+                    active=Member(root=bpy.types.Window, path=("scene",)),
                     attachment=Some(self.scenes),
                     where=Some(
                         lambda context, item: members.identity.reports.reported(
@@ -585,8 +593,8 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                 ItemList[LayerMember, bpy.types.ViewLayer](
                     key="render_set_layers",
                     item=bpy.types.ViewLayer,
-                    collection=Member(root=bpy.types.Scene, path="view_layers"),
-                    active=Member(root=bpy.types.Window, path="view_layer"),
+                    collection=Member(root=bpy.types.Scene, path=("view_layers",)),
+                    active=Member(root=bpy.types.Window, path=("view_layer",)),
                     attachment=Some(self.layers),
                     where=Some(lambda context, _item: members.identity.reports.reported(members.form)(context).filter(lambda form: isinstance(form, Layers)).is_some()),
                 ),
@@ -691,7 +699,7 @@ def render_setup_lock(call: Call[LockRequest]) -> Outcome[Done]:
             case bpy.types.Scene() | bpy.types.ViewLayer() if isinstance(scene := owner.id_data, bpy.types.Scene):
                 return locks_of(store, scene).bind(lambda locks: store.write(scene, locks.locking(owner, call.properties.path)[1])).map(lambda _: Done())
             case _:
-                return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=OWNER),))
+                return Error(Fault.of(BlenderReason.ABSENT, repr(owner), member=OWNER))
 
     return paired(call.identity.identifier(OWNER).bind(lambda name: hosted(name, call.context)), SettingLocks.bound(call.identity)).bind(lambda parts: toggled(*parts))
 
@@ -727,9 +735,9 @@ def removed(owner: bpy.types.Scene | tuple[bpy.types.Scene, bpy.types.ViewLayer]
     """Removes a member scene, or a view layer from its scene."""
     match owner:
         case bpy.types.Scene() as scene:
-            return catch(lambda: bpy.data.scenes.remove(scene), exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(scene), cause=error),))
+            return catch(lambda: bpy.data.scenes.remove(scene), exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(scene)))
         case (scene, layer):
-            return catch(lambda: scene.view_layers.remove(layer), exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(layer), cause=error),))
+            return catch(lambda: scene.view_layers.remove(layer), exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(layer)))
 
 
 # --- [TRANSFERS]
@@ -851,7 +859,7 @@ def propagated(members: Members, edited: bpy.types.Scene | bpy.types.ViewLayer) 
 def added(members: Members, source: bpy.types.Scene, name: str) -> Outcome[bpy.types.Scene]:
     """Copies source as retained member under name, the host suffixing a taken name."""
     return RenderSet.ownership.made(
-        members.identity, lambda: Option.of_optional(source.copy()).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(source), member="copy"),)), of=Some(source)
+        members.identity, lambda: Option.of_optional(source.copy()).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(source), member="copy")), of=Some(source)
     ).bind(lambda scene: assigned(scene, {"name": name}).map(lambda _: scene))
 
 
@@ -889,7 +897,7 @@ def converted(members: Members, form: Form, context: bpy.types.Context) -> Outco
                     made.append((source, target))
                     return scene, layer, target
 
-                return catch(created, exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{source!r}.view_layers.new({name!r})", cause=error),))
+                return catch(created, exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, f"{source!r}.view_layers.new({name!r})"))
 
             def filled(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, target: bpy.types.ViewLayer) -> Outcome[str]:
                 def sampled(pair: tuple[Snapshot, int]) -> Outcome[str]:

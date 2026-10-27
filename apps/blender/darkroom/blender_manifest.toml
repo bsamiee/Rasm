@@ -3,7 +3,7 @@
 schema_version      = "1.0.0"
 id                  = "darkroom"
 name                = "Darkroom"
-tagline             = "Render pipeline from image formation through output and review"
+tagline             = "Post-production from raw render to finished image"
 type                = "add-on"
 tags                = ["Compositing", "Render", "Sequencer"]
 blender_version_min = "5.4.0"

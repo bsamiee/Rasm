@@ -3,6 +3,7 @@
 from collections.abc import Callable, Mapping
 from contextlib import ExitStack
 from enum import Enum
+from functools import partial
 from itertools import starmap
 from pathlib import Path
 from typing import Final, Literal, TYPE_CHECKING
@@ -15,7 +16,7 @@ import msgspec
 
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Operator
-from blender.bpy.data.ids.ownership import committed
+from blender.bpy.data.ids.ownership import retained
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, Value
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
@@ -146,7 +147,7 @@ def scale(scene: bpy.types.Scene, source: str) -> Outcome[float]:
     return (
         catch(lambda: bpy.utils.units.to_value(bpy.utils.units.systems.METRIC, bpy.utils.units.categories.LENGTH, source), exception=ValueError)()  # type: ignore[attr-defined]
         .map(lambda meters: meters / scene.unit_settings.scale_length)
-        .map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=source, cause=error),))
+        .map_error(partial(Fault.of, RecordReason.UNREADABLE, source))
     )
 
 
@@ -170,16 +171,16 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
             try:
                 item = held.new(type=handler, name=name)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             except TypeError:
-                return Error((
-                    Fault(
-                        reason=RecordReason.OUTSIDE,
-                        subject=request,
+                return Error(
+                    Fault.of(
+                        RecordReason.OUTSIDE,
+                        request,
+                        handler,
                         member=", ".join(item.identifier for item in bpy.types.CollectionExports.bl_rna.functions["new"].parameters["type"].enum_items),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        cause=handler,
-                    ),
-                ))
+                    )
+                )
             except (RuntimeError, ReferenceError) as error:
-                return Error((Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),))
+                return Error(Fault.of(BlenderReason.REFUSED, request, error))
             cleanup.callback(held.remove, item)
             return Ok(item)
 
@@ -190,19 +191,15 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
                     Option
                     .of_optional(item.export_properties)
                     .map(lambda properties: assigned(properties, exporter.values))
-                    .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(item), member="export_properties"),))),
+                    .default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(item), member="export_properties"))),
                 ).map(lambda _: None)
 
             found = Option.of_optional(existing.get(name))
             return Descriptor.validated(EXPORTER_NAME.prop, name).bind(lambda _: found.map(filled).default_with(lambda: made(name, exporter.handler).bind(filled)))
 
         def completed(_: tuple[None, ...]) -> Outcome[None]:
-            return committed(
-                accumulated(
-                    catch(held.remove, exception=RuntimeError)(item).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),))
-                    for name, item in existing.items()
-                    if name not in exporters
-                ),
+            return retained(
+                accumulated(catch(held.remove, exception=RuntimeError)(item).map_error(partial(Fault.of, BlenderReason.REFUSED, request)) for name, item in existing.items() if name not in exporters),
                 cleanup,
             ).map(lambda _: None)
 

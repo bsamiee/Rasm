@@ -24,7 +24,7 @@ from blender.bpy.data.ids.images import generated, read, Tag
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import AllOf, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, root_in, rooted, Struct, written
+from blender.bpy.data.rna.descriptors import choices, Descriptor, root_in, rooted, Struct, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
@@ -49,7 +49,7 @@ from blender.bpy.ui.resources.icons import Glyph
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.surfaces.gizmos import Button, Gizmos
 from blender.bpy.ui.surfaces.panels import Joined, Panel
-from blender.imaging.color.calibration import Calibration, CalibrationFit, Chart, ChartPlacement, ChartReference, Clipped, Finding, Limits, Mirrored, Skewed, Wide
+from blender.imaging.color.calibration import Calibration, CalibrationFit, ChartPlacement, ChartReference, Clipped, Finding, Limits, PublishedChart, Reversed, Skewed, Wide
 from blender.imaging.color.luts import LutOutput
 from blender.imaging.color.processors import converted, DisplayView
 from blender.imaging.files.images import ImageFile
@@ -100,13 +100,13 @@ class Need(StrEnum):
 
     def unmet(self, subject: str) -> Faults:
         """Returns the unmet fault of subject."""
-        return (Fault(reason=BlenderReason.UNMET, subject=self.format(subject)),)
+        return Fault.of(BlenderReason.UNMET, self.format(subject))
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-SPACES: Final = tuple((item.identifier, item.name, item.description) for item in Descriptor.declared(bpy.types.ColorManagedInputColorspaceSettings, "name", bpy.types.EnumProperty).prop.enum_items)
-CHARTS, TARGETS, SIDES, MIRRORS = (tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind) for kind in (Chart, Target, FitSide, Mirror))
+SPACES: Final = choices(Descriptor.declared(bpy.types.ColorManagedInputColorspaceSettings, "name", bpy.types.EnumProperty).prop.enum_items)
+CHARTS, TARGETS, SIDES, MIRRORS = (choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind) for kind in (PublishedChart, Target, FitSide, Mirror))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -367,7 +367,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def located[T: bpy.types.PropertyGroup](call: Call[T]) -> Outcome[tuple[bpy.types.Image, PlacedChart, Attached[ChartImage]]]:
             return ChartCalibration.charts.bound(call.identity).bind(
                 lambda chart: charted(call.context, call.identity, chart).bind(
-                    lambda found: found.map(lambda pair: (*pair, chart)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(call.context.area), member=chart.name),))
+                    lambda found: found.map(lambda pair: (*pair, chart)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(call.context.area), member=chart.name))
                 )
             )
 
@@ -381,7 +381,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     width, height = np.asarray(image.size)
                     return Ok(float(width / height))
 
-        def seated(chart: Chart, ratio: float) -> ChartPlacement:
+        def seated(chart: PublishedChart, ratio: float) -> ChartPlacement:
             columns, rows = ChartReference.of(chart).shape
             corners = np.array(((-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0))) * (0.25, 0.25 * ratio * rows / columns) + 0.5
             return ChartPlacement(chart=chart, quad=Quad.of(corners))
@@ -405,8 +405,8 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
             def described(finding: Finding, reference: ChartReference) -> str:
                 match finding:
-                    case Mirrored():
-                        return "Chart reads mirrored"
+                    case Reversed():
+                        return "Chart reads reversed"
                     case Skewed(narrowest=narrowest, widest=widest):
                         return f"Corner angles run {math.degrees(narrowest):.0f} to {math.degrees(widest):.0f} degrees"
                     case Wide(field_of_view=field_of_view):
@@ -419,7 +419,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 ChartCalibration.charts
                 .bound(identity)
                 .bind(lambda chart: charted(context, identity, chart))
-                .bind(lambda found: found.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(context.area), member=ChartCalibration.charts.key),)))
+                .bind(lambda found: found.to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(context.area), member=ChartCalibration.charts.key)))
                 .bind(
                     lambda pair: aspect(context, pair[0]).bind(
                         lambda ratio: (
@@ -497,13 +497,13 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def place_chart(call: Call[Empty]) -> Outcome[Answer]:
             """Place a square-cell chart at shown image center."""
             image: Outcome[bpy.types.Image] = rooted(bpy.types.SpaceImageEditor, call.context).bind(
-                lambda space: Option.of_optional(space.image).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(space), member="image"),))
+                lambda space: Option.of_optional(space.image).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(space), member="image"))
             )
             return (
                 paired(image, ChartCalibration.charts.bound(call.identity), call.root(bpy.types.Scene).bind(lambda scene: ChartCalibration.calibrations.read(call.identity, scene)))
                 .bind(
                     lambda found: aspect(call.context, found[0]).bind(
-                        lambda ratio: ChartCalibration.placed.write(found[1].struct(found[0]), PlacedChart(placement=seated(Chart[found[2].charting.chart], ratio)))
+                        lambda ratio: ChartCalibration.placed.write(found[1].struct(found[0]), PlacedChart(placement=seated(PublishedChart[found[2].charting.chart], ratio)))
                     )
                 )
                 .map(lambda _: Done())
@@ -672,7 +672,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         )
 
         def rows(identity: Identity) -> Outcome[tuple[Row, ...]]:
-            return self.charts.bound(identity).map(lambda chart: (Property(target=Member(root=bpy.types.SpaceImageEditor, path=f"image.{chart.name}.shown")), *buttons))
+            return self.charts.bound(identity).map(lambda chart: (Property(target=Member(root=bpy.types.SpaceImageEditor, path=("image", chart.name, "shown"))), *buttons))
 
         return Single(
             key="chart_calibration",
@@ -686,7 +686,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def rows(identity: Identity) -> Outcome[tuple[Row, ...]]:
             return self.calibrations.bound(identity).map(
-                lambda held: (*(Property(target=Member(root=bpy.types.Scene, path=f"{held.name}.{name}")) for name in ("source", "side")), OperatorButton(target=self.commands.node))
+                lambda held: (*(Property(target=Member(root=bpy.types.Scene, path=(held.name, name))) for name in ("source", "side")), OperatorButton(target=self.commands.node))
             )
 
         return Single(key="chart_calibration_node", title=bpy.path.display_name("chart_calibration"), rows=(Rows(rows=rows),), condition=Some(self.shader))

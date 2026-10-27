@@ -19,9 +19,9 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Call, Done, Empty, InvokePopup, Operator
 from blender.bpy.data.ids.evaluation import evaluated
 from blender.bpy.data.ids.images import generated, read, Tag
-from blender.bpy.data.ids.ownership import committed, Mark, Ownership, released, Saved
+from blender.bpy.data.ids.ownership import Mark, Ownership, released, retained, Saved
 from blender.bpy.data.ids.store import Handle, IdName
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, rooted, typed, Value, written
+from blender.bpy.data.rna.descriptors import assigned, Descriptor, RnaPath, rooted, typed, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, updated
 from blender.bpy.extension.identity import Identity
@@ -127,11 +127,11 @@ class RigFrame(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Placing(msgspec.Struct, frozen=True, kw_only=True):
-    """Rig frame, lights with powers, and background environment members by dotted path."""
+    """Rig frame, lights with powers, and background environment members by path."""
 
     frame: RigFrame
     lights: tuple[tuple[Placement, float], ...]
-    background: Option[Mapping[str, Value]]
+    background: Option[Mapping[RnaPath, Value]]
 
 
 class LightRig(msgspec.Struct, frozen=True, kw_only=True):
@@ -201,11 +201,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         return (
             LightRig.empty
             .marked(identity, item)
-            .map(
-                lambda mark: mark.of.map(lambda target: typed(target, bpy.types.Object, f"{item!r}.target")).default_with(
-                    lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(item), member="target"),))
-                )
-            )
+            .map(lambda mark: mark.of.map(lambda target: typed(target, bpy.types.Object, f"{item!r}.target")).default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(item), member="target"))))
             .default_value(Ok(item))
         )
 
@@ -262,7 +258,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
             ),
             store=Some(
                 Hosted(
-                    host=Some(Member(root=bpy.types.LayerObjects, path="active")),
+                    host=Some(Member(root=bpy.types.LayerObjects, path=("active",))),
                     store=Store(
                         attachment=LightRig.attachment,
                         retention=self.retention,
@@ -296,7 +292,7 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
                 return Ok(holder.matrix_world.translation.copy())
             case "BONE":
                 pose: Option[bpy.types.PoseBone] = Option.of_optional(holder.pose).bind(lambda pose: Option.of_optional(pose.bones.get(setup.bone)))
-                return pose.map(lambda pose: holder.matrix_world @ pose.head).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(holder), member=setup.bone),))
+                return pose.map(lambda pose: holder.matrix_world @ pose.head).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(holder), member=setup.bone))
             case "CURSOR":
                 return Ok(scene.cursor.location.copy())
             case _:
@@ -310,15 +306,12 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
                 case bpy.types.SpaceView3D(region_3d=bpy.types.RegionView3D(view_matrix=matrix)):
                     return Ok(matrix.inverted().to_3x3().normalized())
                 case space:
-                    return Error((Fault(reason=RecordReason.OUTSIDE, subject=f"{found.area!r}.spaces.active.region_3d", member=bpy.types.SpaceView3D.__name__, cause=type(space).__name__),))
+                    return Error(Fault.of(RecordReason.OUTSIDE, f"{found.area!r}.spaces.active.region_3d", type(space).__name__, member=bpy.types.SpaceView3D.__name__))
 
         match setup.axes:
             case "CAMERA":
                 return (
-                    Option
-                    .of_optional(scene.camera)
-                    .map(lambda camera: camera.matrix_world.to_3x3().normalized())
-                    .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(scene), member="camera"),))
+                    Option.of_optional(scene.camera).map(lambda camera: camera.matrix_world.to_3x3().normalized()).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(scene), member="camera"))
                 )
             case "VIEW":
                 return rooted(bpy.types.WindowManager, context).bind(lambda manager: AreaQuery(space="VIEW_3D").first(manager.windows)).bind(oriented)
@@ -332,12 +325,12 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
         radius: Outcome[float] = catch(msgspec.convert, exception=msgspec.ValidationError)(
             max((Vector(corner) - center).length for corner in itertools.product(*zip(bounds.low, bounds.high))),  # type: ignore[call-overload]  # ty: ignore[invalid-argument-type]
             type=Positive,
-        ).map_error(lambda error: (Fault(reason=RecordReason.OUTSIDE, subject=f"{holder!r}.bound_box", member=str(error), cause=str(bounds)),))
+        ).map_error(lambda error: Fault.of(RecordReason.OUTSIDE, f"{holder!r}.bound_box", str(bounds), member=str(error)))
         return radius.map(lambda held: RigFrame(matrix=Matrix.LocRotScale(center, frame, None).freeze(), radius=held))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     return (
         evaluated(layer)
-        .bind(lambda depsgraph: extent((holder, *descendants(holder, layer)), depsgraph).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(holder), member="bound_box"),)))
+        .bind(lambda depsgraph: extent((holder, *descendants(holder, layer)), depsgraph).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(holder), member="bound_box")))
         .bind(lambda bounds: paired(centered(bounds), framed()).map(lambda pair: (bounds, *pair)))
         .bind(measured)
     )
@@ -381,16 +374,15 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
                 frame, reading = found
                 return (
                     Result[Option[Placements], Faults]
-                    .bind(
-                        state.rig.placements(config, frame.radius, reading),
-                        lambda placements: placements.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(setup), member="reference"),)),
-                    )
+                    .bind(state.rig.placements(config, frame.radius, reading), lambda placements: placements.to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(setup), member="reference")))
                     .bind(
                         lambda placements: accumulated(placement.power for placement in placements.lights).map(
                             lambda powers: Placing(
                                 frame=frame,
                                 lights=tuple(zip(placements.lights, powers)),
-                                background=placements.background.map(lambda background: {"lighting.mode": "COLOR", "lighting.color": background.color, "lighting.strength": background.strength}),
+                                background=placements.background.map(
+                                    lambda background: {("lighting", "mode"): "COLOR", ("lighting", "color"): background.color, ("lighting", "strength"): background.strength}
+                                ),
                             )
                         )
                     )
@@ -442,7 +434,7 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
                     return (
                         Result[bpy.types.Light, Faults]
                         .bind(
-                            catch(bpy.data.lights.new, exception=RuntimeError)(label, kind).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=label, cause=error),)),
+                            catch(bpy.data.lights.new, exception=RuntimeError)(label, kind).map_error(partial(Fault.of, BlenderReason.REFUSED, label)),
                             lambda light: LightRig.data.owned(identity, light, of=Some(rig), scope=Some(rollback)),
                         )
                         .bind(lambda light: spawned(label, Some(light), home))
@@ -493,7 +485,7 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
         )
 
     with ExitStack() as rollback:
-        return committed(paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(lambda found: placing(*found, PyOpenColorIO.GetCurrentConfig(), rollback)), rollback)
+        return retained(paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(lambda found: placing(*found, PyOpenColorIO.GetCurrentConfig(), rollback)), rollback)
 
 
 def rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scene) -> Outcome[int]:
@@ -521,7 +513,7 @@ def rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scen
 
 def _rig(view_layer: bpy.types.ViewLayer, identity: Identity) -> Outcome[bpy.types.Object]:
     """Returns active object marked as rig empty."""
-    return focused(view_layer).filter_with(lambda rig: LightRig.empty.marked(identity, rig).is_some(), lambda rig: (Fault(reason=BlenderReason.ABSENT, subject=repr(rig), member=LightRig.empty.key),))
+    return focused(view_layer).filter_with(lambda rig: LightRig.empty.marked(identity, rig).is_some(), lambda rig: Fault.of(BlenderReason.ABSENT, repr(rig), member=LightRig.empty.key))
 
 
 def _serving(rig: bpy.types.Object, identity: Identity) -> tuple[tuple[bpy.types.Object, Mark], ...]:
@@ -572,7 +564,7 @@ def rig_arrange(call: Call[Empty]) -> Outcome[Done]:
         return (
             _reading(setup.reference, config)
             .bind(state.rig.arranged)
-            .bind(lambda arranged: arranged.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(rig), member="reference"),)))
+            .bind(lambda arranged: arranged.to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(rig), member="reference")))
             .bind(lambda arranged: store.write(rig, msgspec.structs.replace(state, rig=msgspec.structs.replace(state.rig, layout=arranged))))
         )
 

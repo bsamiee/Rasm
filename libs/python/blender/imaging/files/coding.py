@@ -18,6 +18,7 @@ from blender.records.fields import Case
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type IntegerDepth = Literal[8, 16]
+type Subsampling = Literal["4:4:4", "4:2:2", "4:2:0", "4:1:1"]
 type _Coding = Rounded | Diffused
 
 
@@ -81,7 +82,7 @@ class Diffused(Case, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def generations(rgb: npt.NDArray[np.uint8], *, quality: int, subsampling: str, count: int) -> Outcome[npt.NDArray[np.uint8]]:
+def generations(rgb: npt.NDArray[np.uint8], *, quality: int, subsampling: Subsampling, count: int) -> Outcome[npt.NDArray[np.uint8]]:
     """Returns contiguous eight-bit RGB after `count` JPEG encode and decode cycles through one temporary file removed on return, at IJG `quality` and OpenImageIO `jpeg:subsampling` chroma."""
 
     @catch(exception=OSError)
@@ -108,4 +109,4 @@ def generations(rgb: npt.NDArray[np.uint8], *, quality: int, subsampling: str, c
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Depth", "Diffused", "IntegerDepth", "Rounded", "generations"]
+__all__ = ["Depth", "Diffused", "IntegerDepth", "Rounded", "Subsampling", "generations"]

@@ -2,6 +2,7 @@
 
 from enum import auto, Enum
 from fractions import Fraction
+from functools import partial
 from typing import Annotated, ClassVar, Final, Self
 
 from bl_ui.properties_output import RENDER_PT_format, RENDER_PT_frame_range
@@ -14,7 +15,7 @@ import numpy as np
 
 from blender.bpy.commands.operators import Answer, answered, Call, Empty, Operator
 from blender.bpy.data.rna.conditions import Count, Setting
-from blender.bpy.data.rna.descriptors import assigned, Descriptor
+from blender.bpy.data.rna.descriptors import assigned, choices, Descriptor
 from blender.bpy.data.rna.snapshots import Endpoints, Snapshot
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key
@@ -129,7 +130,7 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
 
         def validated(pixels: tuple[int, int]) -> Outcome[tuple[Self, tuple[Side, Side]]]:
             if any(side < 1 for side in pixels):
-                return Error((Fault(reason=RecordReason.OUTSIDE, subject=type(self).__name__, member="at least 1 pixel per side", cause=str(pixels)),))
+                return Error(Fault.of(RecordReason.OUTSIDE, type(self).__name__, pixels, member="at least 1 pixel per side"))
             if not any(self.padding):
                 return Ok((self, pixels))
             grown_x, grown_y = pixels
@@ -137,7 +138,7 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 Ok((msgspec.structs.replace(self, resolution_x=grown_x, resolution_y=grown_y, resolution_percentage=100, extent=Whole()), pixels))
                 if low <= grown_x <= high and low <= grown_y <= high
-                else Error((Fault(reason=RecordReason.OUTSIDE, subject=type(self).__name__, member=f"{low} to {high} pixels per side with overscan", cause=str(pixels)),))
+                else Error(Fault.of(RecordReason.OUTSIDE, type(self).__name__, pixels, member=f"{low} to {high} pixels per side with overscan"))
             )
 
         return validated(self.pixels())
@@ -197,7 +198,7 @@ class Overscan(bpy.types.PropertyGroup):
 class Standard(bpy.types.PropertyGroup):
     """Safe-area action's broadcast standard."""
 
-    standard: bpy.props.EnumProperty(name="Standard", description="Standard setting safe areas", items=STANDARDS)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    standard: bpy.props.EnumProperty(name="Standard", description="Standard setting safe areas", items=choices(STANDARDS))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Framed(msgspec.Struct, frozen=True, kw_only=True):
@@ -288,7 +289,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
 
         return call.root(bpy.types.Scene).bind(
             lambda scene: Result[Region, Faults].bind(
-                Option.of_optional(scene.camera).bind(lambda camera: projected(camera, scene)).to_result_with(lambda: (Fault(reason=BlenderReason.UNMET, subject=Unseen().message),)),
+                Option.of_optional(scene.camera).bind(lambda camera: projected(camera, scene)).to_result_with(partial(Fault.of, BlenderReason.UNMET, Unseen().message)),
                 lambda region: self.bordered(scene, region),
             )
         )
@@ -324,7 +325,7 @@ def capacity(scene: bpy.types.Scene, size: tuple[Side, Side]) -> Outcome[None]:
     """Accepts canvas sizes within native GPU or CPU compositor limit."""
     width, height = size
     bound = 8192 if scene.render.compositor_device == "GPU" else 32768
-    return Error((Fault(reason=BlenderReason.UNMET, subject=Oversize(width=width, height=height, bound=bound).message),)) if max(size) > bound else Ok(None)
+    return Error(Fault.of(BlenderReason.UNMET, Oversize(width=width, height=height, bound=bound).message)) if max(size) > bound else Ok(None)
 
 
 def camera_border(call: Call[Empty]) -> Outcome[Answer]:
