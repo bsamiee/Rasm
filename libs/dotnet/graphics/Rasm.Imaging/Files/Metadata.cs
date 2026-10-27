@@ -93,16 +93,7 @@ public static class ColorTags {
                 .As();
 
         public Option<byte[]> Profile(DateTimeOffset created) =>
-            encoding.Transfer.Switch(
-                linear: static _ => Some((Function: 0, Parameters: Seq(1d))),
-                srgb: static _ => Some((Function: 3, Parameters: (1d / 1.055) switch { var gain => Seq(2.4, gain, 1d - gain, 1d / 12.92, 0.04045) })),
-                pq: static _ => Option<(int Function, Seq<double> Parameters)>.None,
-                hlg: static _ => Option<(int Function, Seq<double> Parameters)>.None,
-                acesCct: static _ => Option<(int Function, Seq<double> Parameters)>.None,
-                acesCc: static _ => Option<(int Function, Seq<double> Parameters)>.None,
-                gamma: static transfer => Some((Function: 0, Parameters: Seq<double>(transfer.Exponent))),
-                camera: static _ => Option<(int Function, Seq<double> Parameters)>.None)
-            .Map(curve => Written(encoding, curve, created));
+            encoding.Transfer.IccCurve.Map(curve => Written(encoding, curve, created));
     }
 
     internal static ushort ExifColorSpace(ColorEncoding encoding) =>

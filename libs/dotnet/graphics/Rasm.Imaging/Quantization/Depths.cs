@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Pixels;
 
@@ -25,6 +26,13 @@ public sealed record Quantizer {
         float rectangular = draw - 0.5f;
         return Vector4.Create(rectangular)
             + (Vector4.Clamp(2f * Vector4.Min(code, Vector4.Create(MaxCode) - code), Vector4.Zero, Vector4.One) * (MathF.CopySign(1f - MathF.Sqrt(1f - MathF.Abs(signed)), signed) - rectangular));
+    }
+
+    internal void Coded(ReadOnlySpan<float> values, Span<float> codes) {
+        TensorPrimitives.Multiply(values, MaxCode, codes);
+        TensorPrimitives.Add(codes, 0.5f, codes);
+        TensorPrimitives.Clamp(codes, 0f, MaxCode, codes);
+        TensorPrimitives.Truncate(codes, codes);
     }
 
     internal void Quantize(Span<Vector4> row, long column, long line, Func<long, long, float> draw) {
@@ -54,23 +62,18 @@ public abstract partial class OutputDepth {
 
     public static Seq<OutputDepth> Where<T>(Func<OutputDepth, Option<T>> table) => toSeq(Items).Filter(depth => table(depth).IsSome);
 
-    internal static Fin<T> Sampled<T>(string format, OutputDepth depth, Func<OutputDepth, Option<T>> table) =>
+    internal static Fin<T> Sampled<T>(OutputDepth depth, Func<OutputDepth, Option<T>> table, [CallerArgumentExpression(nameof(table))] string format = "") =>
         table(depth).ToFin(new ImagingFault($"{format} {depth} samples beside {Where(table)}", ImagingReason.Unsupported));
 
     public long RowBytes(int width, bool alpha) => (((long)width * (alpha ? 4 : 3) * Bits) + 7) / 8;
 
-    internal Fin<Unit> Buffered(string format, int width, bool alpha) =>
-        RowBytes(width, alpha) switch {
-            var bytes when bytes > System.Array.MaxLength => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"{format} row of {bytes} bytes"), ImagingReason.Oversize),
-            _ => unit,
-        };
+    internal Fin<Unit> Buffered(int width, bool alpha) => ImagingFault.Unless(RowBytes(width, alpha) <= System.Array.MaxLength, ImagingReason.Oversize, (width, alpha));
 
     public void Encode(ReadOnlySpan<Vector4> row, bool alpha, Span<byte> destination) {
         int channels = alpha ? 4 : 3;
-        using SpanOwner<float> samples = SpanOwner<float>.Allocate((channels * row.Length) + 4 - channels);
-        for (int x = 0; x < row.Length; x++)
-            Sample(row[x]).CopyTo(samples.Span[(channels * x)..]);
-        Store(samples.Span[..(channels * row.Length)], destination);
+        using SpanOwner<float> samples = SpanOwner<float>.Allocate(channels * row.Length);
+        MemoryMarshal.Cast<Vector4, float>(row).AsSpan2D(row.Length, 4)[.., ..channels].CopyTo(samples.Span.AsSpan2D(row.Length, channels));
+        Store(samples.Span, destination);
     }
 
     public void ToBigEndian(Span<byte> words) {
@@ -81,18 +84,15 @@ public abstract partial class OutputDepth {
             BinaryPrimitives.ReverseEndianness(MemoryMarshal.Cast<byte, uint>(words), MemoryMarshal.Cast<byte, uint>(words));
     }
 
-    private protected abstract Vector4 Sample(Vector4 pixel);
-
-    private protected abstract void Store(ReadOnlySpan<float> samples, Span<byte> destination);
+    private protected abstract void Store(Span<float> samples, Span<byte> destination);
 
     private sealed class Integer<T>(int bits) : OutputDepth(string.Create(CultureInfo.InvariantCulture, $"uint{bits}"), bits, Unsafe.SizeOf<T>()) where T : unmanaged, IBinaryInteger<T>, IUnsignedNumber<T> {
         private readonly Quantizer levels = new(bits);
 
         public override Option<Quantizer> Levels => Some(levels);
 
-        private protected override Vector4 Sample(Vector4 pixel) => levels.Round(levels.MaxCode * pixel);
-
-        private protected override void Store(ReadOnlySpan<float> samples, Span<byte> destination) {
+        private protected override void Store(Span<float> samples, Span<byte> destination) {
+            levels.Coded(samples, samples);
             using SpanOwner<T> words = SpanOwner<T>.Allocate(samples.Length);
             TensorPrimitives.ConvertSaturating(samples, words.Span);
             if (Bits == 8 * SampleBytes) {
@@ -115,9 +115,7 @@ public abstract partial class OutputDepth {
         where T : unmanaged, IFloatingPointIeee754<T> {
         public override Option<Quantizer> Levels => None;
 
-        private protected override Vector4 Sample(Vector4 pixel) => pixel;
-
-        private protected override void Store(ReadOnlySpan<float> samples, Span<byte> destination) =>
+        private protected override void Store(Span<float> samples, Span<byte> destination) =>
             TensorPrimitives.ConvertSaturating(samples, MemoryMarshal.Cast<byte, T>(destination));
     }
 }

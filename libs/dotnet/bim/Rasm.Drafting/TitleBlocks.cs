@@ -1,4 +1,3 @@
-using System.Globalization;
 using NodaTime.Text;
 
 namespace Rasm.Drafting;
@@ -14,17 +13,17 @@ public sealed partial class RevisionAlphabet {
     public int Count => Range(1, MaxLetters).Fold(0, (sum, _) => (sum + 1) * Symbols.Length);
 }
 
-[ComplexValueObject(SkipToString = true)]
-[ValidationError<DraftingFault>]
+[ComplexValueObject(SkipFactoryMethods = true, SkipToString = true)]
 public sealed partial class RevisionIndex {
     public RevisionAlphabet Alphabet { get; }
     public int Ordinal { get; }
 
-    public static Fin<RevisionIndex> Validated(RevisionAlphabet alphabet, int ordinal) => TryCreate(alphabet, ordinal, out RevisionIndex? index, out DraftingFault? fault) ? index : fault;
+    public static Fin<RevisionIndex> Validated(RevisionAlphabet alphabet, int ordinal) =>
+        DraftingFault.Unless(ordinal >= 1 && ordinal <= alphabet.Count, DraftingReason.RevisionOrdinal, (ordinal, alphabet.Count)).Map(_ => new RevisionIndex(alphabet, ordinal));
 
     public static Fin<RevisionIndex> FromLetters(RevisionAlphabet alphabet, string text) =>
         text.ToUpperInvariant() switch {
-            var letters when letters.Length < 1 || letters.Length > alphabet.MaxLetters || letters.AsSpan().ContainsAnyExcept(alphabet.Symbols) => new DraftingFault($"revision letters {letters}", DraftingReason.RevisionLetters),
+            var letters when letters.Length < 1 || letters.Length > alphabet.MaxLetters || letters.AsSpan().ContainsAnyExcept(alphabet.Symbols) => new DraftingFault(letters, DraftingReason.RevisionLetters),
             var letters => new RevisionIndex(alphabet, toSeq(letters).Fold(0, (ordinal, letter) => (ordinal * alphabet.Symbols.Length) + alphabet.Symbols.IndexOf(letter, StringComparison.Ordinal) + 1)),
         };
 
@@ -32,9 +31,6 @@ public sealed partial class RevisionIndex {
 
     public override string ToString() =>
         string.Concat(LanguageExt.List.unfold(Ordinal, rest => rest is 0 ? None : Some((Alphabet.Symbols[(rest - 1) % Alphabet.Symbols.Length], (rest - 1) / Alphabet.Symbols.Length))).Reverse());
-
-    static partial void ValidateFactoryArguments(ref DraftingFault? validationError, ref RevisionAlphabet alphabet, ref int ordinal) =>
-        validationError = ordinal >= 1 && ordinal <= alphabet.Count ? null : new DraftingFault(string.Create(CultureInfo.InvariantCulture, $"revision {ordinal}"), DraftingReason.RevisionOrdinal);
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -43,13 +39,13 @@ public sealed partial class TitleRule {
     public static readonly TitleRule Optional = new(mandatory: false, static (_, text) => text);
     public static readonly TitleRule Revision = new(mandatory: false, static (alphabet, text) => RevisionIndex.FromLetters(alphabet, text).Map(static index => index.ToString()));
     public static readonly TitleRule IssueDate = new(mandatory: true, static (_, text) =>
-        LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? LocalDatePattern.Iso.Format(parsed.Value) : new DraftingFault($"issue date {text}", DraftingReason.IssueDate));
+        LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? LocalDatePattern.Iso.Format(parsed.Value) : new DraftingFault(text, DraftingReason.IssueDate));
 
     public bool Mandatory { get; }
 
     public Fin<Option<string>> Accept(TitleField field, RevisionAlphabet alphabet, Option<string> entry) =>
         entry.IsNone && Mandatory ? new DraftingFault(field.Key, DraftingReason.TitleMissing)
-            : entry.Traverse(text => Normalize(alphabet, text).MapFail(error => new DraftingFault(field.Key, DraftingReason.TitleInvalid, error))).As();
+            : entry.Traverse(text => Normalize(alphabet, text).MapFail(error => new DraftingFault(field.Key, DraftingReason.TitleInvalid, Inner: error))).As();
 
     [UseDelegateFromConstructor]
     private partial Fin<string> Normalize(RevisionAlphabet alphabet, string text);

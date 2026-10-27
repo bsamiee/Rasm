@@ -97,7 +97,7 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
             nonlocal held
             match bpy.context.area, bpy.context.region:
                 case bpy.types.Area() as area, bpy.types.Region() as region if self.area.matches(area):
-                    canvas, loads = Canvas.of(area, region, pointer), LOADS.of(identity)
+                    canvas, loads = Canvas.of(area, region, pointer), identity.held[LOADS]
                     current = held.filter(lambda state: (state.metrics, state.loads) == (canvas.metrics, loads)).default_with(
                         lambda: DrawState(metrics=canvas.metrics, loads=loads, state=read(canvas.metrics).bind(lambda state: state))
                     )

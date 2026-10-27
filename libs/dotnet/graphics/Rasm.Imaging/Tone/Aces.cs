@@ -50,9 +50,7 @@ public static class Aces {
     private static readonly Func<(Gamut Limit, float Peak), Fin<AcesGamut>> Gamuts = memoUnsafe<(Gamut Limit, float Peak), Fin<AcesGamut>>(Limited);
 
     public static Fin<Action<Span<Vector4>>> Formed(Gamut working, DisplayDevice device) =>
-        Gamuts((device.Map(
-            srgb: Gamut.StandardRgb, displayP3: Gamut.DisplayP3, rec1886: Gamut.StandardRgb, rec2020: Gamut.DisplayP3,
-            rec2100PqHdr: Gamut.Rec2020, rec2100PqSdr: Gamut.StandardRgb, rec2100HlgHdr: Gamut.Rec2020, rec2100HlgSdr: Gamut.StandardRgb), (float)device.Peak.Nits.ToDouble()))
+        Gamuts((device.LimitingGamut, (float)device.Peak.Nits.ToDouble()))
             .Map(gamut => device.Formed(
                 working, Gamut.Acescg,
                 Seq<Action<Span<Vector4>>>(row => {
@@ -189,11 +187,11 @@ public static class Aces {
         };
         (double, double, double) Cone((double, double, double) value) => new Unicolour(sharpened, ColourSpace.Xyz, new Unicolour(own, ColourSpace.RgbLinear, value).Xyz.Tuple).RgbLinear.Tuple;
         (double red, double green, double blue) = Cone((1d, 1d, 1d));
-        return Baked(Gamut.Columns(basis => Cone(basis) switch {
-            var (r, g, b) => (Adaptation * r / red, Adaptation * g / green, Adaptation * b / blue),
-        })) switch {
-            var (toCone, fromCone) => new(gamut, toCone, fromCone),
-        };
+        (Matrix4x4 toCone, Matrix4x4 fromCone) = Baked(Gamut.Columns(basis => {
+            (double r, double g, double b) = Cone(basis);
+            return (Adaptation * r / red, Adaptation * g / green, Adaptation * b / blue);
+        }));
+        return new(gamut, toCone, fromCone);
     }
 
     private static (Matrix4x4 Forward, Matrix4x4 Inverse) Baked(Matrix<double> forward) {
@@ -229,17 +227,17 @@ public static class Aces {
         return Root(hue, m => Rgb(Aab(limitJ, (float)m, cos, sin), Reach) switch { var rgb => float.Min(rgb.X, float.Min(rgb.Y, rgb.Z)) }, 0d, 1300d, 1e-2, Reach);
     }
 
-    private static Fin<float> Scaled(Vector3 corner, AcesPeak peak) =>
-        float.Pow(peak.LimitJ / LightnessScale, 1f / ModelGamma) switch {
-            var limitA => Root(corner, s => limitA - Aab((float)s * corner, Reach).X, 0d, peak.ForwardLimit, 1e-3, Reach),
-        };
+    private static Fin<float> Scaled(Vector3 corner, AcesPeak peak) {
+        float limitA = float.Pow(peak.LimitJ / LightnessScale, 1f / ModelGamma);
+        return Root(corner, s => limitA - Aab((float)s * corner, Reach).X, 0d, peak.ForwardLimit, 1e-3, Reach);
+    }
 
     private static Fin<float> Root<T>(
         T subject, Func<double, double> margin, double lower, double upper, double accuracy, JmhSpace space,
         [CallerArgumentExpression(nameof(subject))] string named = "", [CallerMemberName] string search = "") =>
         margin(upper) >= 0d ? (float)upper
         : Bisection.TryFindRoot(margin, lower, upper, accuracy, RootIterations, out double root) ? (float)root
-        : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"ACES {search} search at {named} {subject} in {space.Gamut.Rgb.Name} over [{lower}, {upper}]"), ImagingReason.Unrooted);
+        : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"ACES {search} search at {named} {subject} in {space.Gamut.Rgb.Name} over [{lower}, {upper}]"), ImagingReason.RootOutsideBracket);
 
     private static Fin<AcesGamut> Limited((Gamut Limit, float Peak) key) =>
         from peak in Peaked(key.Peak)
@@ -258,12 +256,12 @@ public static class Aces {
             peak, limit, Wrapped(nominal, static (hue, turn) => hue + (Degrees * turn)), Wrapped(found.Cusps.Zip(hulls).Map(static pair => new Vector3(pair.First, pair.Second)), static (cusp, _) => cusp),
             offsets.Fold(0, int.Min), offsets.Fold(0, int.Max) + 1);
 
-    private static ImmutableArray<(Vector3 Rgb, Vector3 Jmh)> Cycled(Seq<(Vector3 Rgb, Vector3 Jmh)> corners) =>
-        Range(0, corners.Count).Fold(0, (least, i) => corners[i].Jmh.Z < corners[least].Jmh.Z ? i : least) switch {
-            var least => [.. Range(0, corners.Count + 2).Select(k => corners[(k + corners.Count - 1 + least) % corners.Count] switch {
-                var corner => (corner.Rgb, corner.Jmh with { Z = corner.Jmh.Z + (Degrees * (((k + corners.Count - 1) / corners.Count) - 1)) }),
-            })],
-        };
+    private static ImmutableArray<(Vector3 Rgb, Vector3 Jmh)> Cycled(Seq<(Vector3 Rgb, Vector3 Jmh)> corners) {
+        int least = Range(0, corners.Count).Fold(0, (lowest, i) => corners[i].Jmh.Z < corners[lowest].Jmh.Z ? i : lowest);
+        return [.. Range(0, corners.Count + 2).Select(k => corners[(k + corners.Count - 1 + least) % corners.Count] switch {
+            var corner => (corner.Rgb, corner.Jmh with { Z = corner.Jmh.Z + (Degrees * (((k + corners.Count - 1) / corners.Count) - 1)) }),
+        })];
+    }
 
     private static Seq<float> Nominal(Seq<float> sorted) =>
         sorted.Fold((Counts: Seq<int>(), Last: -1, Floor: sorted.Head.Map(static hue => hue is 0f ? 0 : 1).IfNone(1)), static (state, hue) =>

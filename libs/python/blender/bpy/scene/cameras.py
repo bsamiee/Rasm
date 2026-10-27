@@ -16,7 +16,7 @@ import numpy.typing as npt
 from blender.bpy.data.rna.conditions import AllOf, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.snapshots import Endpoints, Snapshot
-from blender.bpy.extension.identity import Identity, Name
+from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.attachments import Recovery
@@ -143,7 +143,7 @@ def released(identity: Identity) -> Outcome[None]:
 
 def _priors(identity: Identity) -> Outcome[Recovery[Endpoints]]:
     """Returns camera recovery of requirement endpoints."""
-    return identity.name(Name.ATTACHMENT, "camera_prior").map(Recovery.endpoints)
+    return identity.identifier("camera_prior").map(Recovery.endpoints)
 
 
 # --- [DISPLAY]

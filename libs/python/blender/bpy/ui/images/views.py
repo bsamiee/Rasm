@@ -14,7 +14,7 @@ from blender.bpy.data.rna.descriptors import Descriptor, rooted
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.ui.drawing.canvas import Rect
-from blender.bpy.ui.screens.areas import AreaQuery, Arrangement, Located, SETTLING
+from blender.bpy.ui.screens.areas import AreaQuery, Arrangement, Located
 from blender.bpy.ui.screens.editors import EditorState
 from blender.records.faults import Outcome
 
@@ -32,7 +32,7 @@ class ImageWindow(msgspec.Struct, frozen=True, kw_only=True):
         return Operator(undo=False, form=Empty, run=self.show_render_view)
 
     def show_render_view(self, call: Call[Empty]) -> Outcome[Answer]:
-        """Opens the render view unless the window is temporary or shows one, keeping a view the host toggle would hide, then settles its Sidebar."""
+        """Opens the render view unless the window is temporary or shows one, keeping a view the host toggle would hide, then queues its Sidebar."""
         sidebar = EditorState(values=((Descriptor.declared(bpy.types.SpaceImageEditor, "show_region_ui", bpy.types.BoolProperty), True),))
         tabbed = EditorState(region=Some("UI"), values=((Descriptor.declared(bpy.types.Region, "active_panel_category", bpy.types.EnumProperty), self.tab),))
         return (
@@ -40,13 +40,13 @@ class ImageWindow(msgspec.Struct, frozen=True, kw_only=True):
             .current(call.context)
             .bind(lambda located: Ok(None) if located.window.screen.is_temporary or RENDERED.located((located.window,)) else located.run(bpy.ops.render.view_show, {}, context="INVOKE_DEFAULT"))
             .bind(lambda _: viewing(call.context))
-            .bind(lambda located: SETTLING.of(call.identity).settled(Arrangement(at=located, steps=(sidebar, tabbed))))
+            .bind(lambda located: call.identity.reports.queued(Arrangement(at=located, steps=(sidebar, tabbed))))
             .map(lambda _: Done())
         )
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
-        """Returns the command and the settling driver its Sidebar tab waits on."""
-        return Ok((self.command, SETTLING))
+        """Returns the command opening the view."""
+        return Ok((self.command,))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

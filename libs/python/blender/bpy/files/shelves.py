@@ -10,7 +10,7 @@ import msgspec
 
 from blender.bpy.commands.operators import Answer, Call, Empty, Operator
 from blender.bpy.data.rna.conditions import Condition, polled
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.layout.rows import acquired, painted, placed, Row, RowDraw, SurfaceDraw
@@ -73,7 +73,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
             for role, offered in (("activate", self.activate), ("drag", Some(self.drag) if isinstance(self.drag, Action) else Nothing))
             for action in offered.to_list()
         )
-        named = accumulated(identity.name(Name.OPERATOR, row.key).map(lambda name: (role, row, name)) for role, row in actions)
+        named = accumulated(identity.name(bpy.types.Operator, row.key).map(lambda name: (role, row, name)) for role, row in actions)
         filtered = accumulated(
             Option
             .of_optional(struct.properties.get(key))
@@ -108,7 +108,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
             )
             return (*(row for _, row, _ in operators), *acquired(self.menu), (Band.INTERFACE, kind))
 
-        return paired(identity.name(Name.SHELF, self.key), named, filtered, placed(self.menu, identity).map(painted)).map(built)
+        return paired(identity.name(bpy.types.AssetShelf, self.key), named, filtered, placed(self.menu, identity).map(painted)).map(built)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

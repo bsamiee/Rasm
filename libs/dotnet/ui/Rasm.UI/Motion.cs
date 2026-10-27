@@ -1,4 +1,4 @@
-using System.Globalization;
+using System.Diagnostics;
 using MathNet.Numerics.RootFinding;
 using Rasm.UI.Styling;
 using SkiaSharp;
@@ -6,28 +6,23 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<Invalid>]
+[ValueObject<double>(SkipFactoryMethods = true)]
 public sealed partial class DampingRatio {
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref double value) =>
-        validationError = double.IsFinite(value) && value > 0d ? null : new Invalid(string.Create(CultureInfo.InvariantCulture, $"damping ratio {value} is not finite and positive"));
+    public static Fin<DampingRatio> Validated(double value) => UIFault.Unless(double.IsFinite(value) && value > 0d, UIReason.Range).Map(_ => new DampingRatio(value));
 }
 
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<Invalid>]
+[ValueObject<double>(SkipFactoryMethods = true)]
 public sealed partial class VisibleChange {
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref double value) =>
-        validationError = value is > 0d and <= 1d ? null : new Invalid(string.Create(CultureInfo.InvariantCulture, $"visible change {value} lies outside (0, 1]"));
+    public static Fin<VisibleChange> Validated(double value) => UIFault.Unless(value is > 0d and <= 1d, UIReason.Range).Map(_ => new VisibleChange(value));
 }
 
-[ComplexValueObject]
-[ValidationError<Invalid>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class Easing {
-    public static Easing Linear { get; } = Create(0d, 0d, 1d, 1d);
-    public static Easing Ease { get; } = Create(0.25d, 0.1d, 0.25d, 1d);
-    public static Easing EaseIn { get; } = Create(0.42d, 0d, 1d, 1d);
-    public static Easing EaseOut { get; } = Create(0d, 0d, 0.58d, 1d);
-    public static Easing EaseInOut { get; } = Create(0.42d, 0d, 0.58d, 1d);
+    public static Easing Linear { get; } = new(0d, 0d, 1d, 1d);
+    public static Easing Ease { get; } = new(0.25d, 0.1d, 0.25d, 1d);
+    public static Easing EaseIn { get; } = new(0.42d, 0d, 1d, 1d);
+    public static Easing EaseOut { get; } = new(0d, 0d, 0.58d, 1d);
+    public static Easing EaseInOut { get; } = new(0.42d, 0d, 0.58d, 1d);
 
     public double X1 { get; }
     public double Y1 { get; }
@@ -40,18 +35,14 @@ public sealed partial class Easing {
         var solved => Tangent(solved, Y1, Y2) / Tangent(solved, X1, X2),
     };
 
-    public static Fin<Easing> Validated(double x1, double y1, double x2, double y2) => TryCreate(x1, y1, x2, y2, out Easing? easing, out Invalid? fault) ? easing : fault;
+    public static Fin<Easing> Validated(double x1, double y1, double x2, double y2) =>
+        UIFault.Unless(x1 is >= 0d and <= 1d && x2 is >= 0d and <= 1d && double.IsFinite(y1) && double.IsFinite(y2), UIReason.Range).Map(_ => new Easing(x1, y1, x2, y2));
 
-    private double Solved(double time) => Brent.TryFindRoot(s => Bezier(s, X1, X2) - time, 0d, 1d, 1e-12, 100, out double root) ? root : double.Clamp(time, 0d, 1d);
+    private double Solved(double time) => Brent.TryFindRoot(s => Bezier(s, X1, X2) - time, 0d, 1d, 1e-12, 100, out double root) ? root : throw new UnreachableException();
 
     private static double Bezier(double s, double first, double second) => (3d * (1d - s) * (1d - s) * s * first) + (3d * (1d - s) * s * s * second) + (s * s * s);
 
     private static double Tangent(double s, double first, double second) => (3d * (1d - s) * (1d - s) * first) + (6d * (1d - s) * s * (second - first)) + (3d * s * s * (1d - second));
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref double x1, ref double y1, ref double x2, ref double y2) =>
-        validationError = x1 is >= 0d and <= 1d && x2 is >= 0d and <= 1d && double.IsFinite(y1) && double.IsFinite(y2)
-            ? null
-            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"easing ({x1}, {y1}, {x2}, {y2}) holds an abscissa outside [0, 1] or an unbounded ordinate"));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

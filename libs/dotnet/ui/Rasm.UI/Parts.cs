@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Numerics;
 using Rasm.UI.Styling;
 using SkiaSharp;
@@ -92,20 +91,15 @@ internal sealed record Session<TState>(TState Start, Seq<Receiver<TState>> Recei
 
 internal sealed record Aim(Scene Scene, Laid Laid, SKRect Bounds, Seq<Key> Over);
 
-[ComplexValueObject]
-[ValidationError<Invalid>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class Magnification {
-    public static Magnification Free { get; } = Create(float.Epsilon, float.PositiveInfinity);
+    public static Magnification Free { get; } = new(float.Epsilon, float.PositiveInfinity);
 
     public float Least { get; }
     public float Most { get; }
 
-    public static Fin<Magnification> Validated(float least, float most) => TryCreate(least, most, out Magnification? magnification, out Invalid? fault) ? magnification : fault;
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float least, ref float most) =>
-        validationError = float.IsFinite(least) && least > 0f && most >= least
-            ? null
-            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"magnification ({least}, {most}) is not a positive ordered span"));
+    public static Fin<Magnification> Validated(float least, float most) =>
+        UIFault.Unless(float.IsFinite(least) && least > 0f && most >= least, UIReason.Order).Map(_ => new Magnification(least, most));
 }
 
 internal sealed record Sight(Scene Scene, Laid Laid, Seq<Seq<Key>> Hover, Option<SKPoint> Pointer) {

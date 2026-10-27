@@ -183,7 +183,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
             )
             return tuple(fraction.as_integer_ratio() for fraction in bounded)
 
-        def tags(matrix: npt.NDArray[np.inexact]) -> list[tuple[int, int, int, object, bool]]:
+        def tags(matrix: npt.NDArray[np.float64]) -> list[tuple[int, int, int, object, bool]]:
             rows = (
                 ("Make", tifffile.DATATYPE.ASCII, 0, self.make),
                 ("Model", tifffile.DATATYPE.ASCII, 0, self.model),
@@ -220,7 +220,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
                         metadata=None,
                         software=False,
                         bigtiff=False,
-                        extratags=tags(inverse),
+                        extratags=tags(np.asarray(inverse, dtype=np.float64)),
                     ),
                 )
             )

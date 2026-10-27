@@ -369,14 +369,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[byt
             .map(Some)
         )
 
-    return (
-        Option
-        .of_optional(config.getColorSpace(colorspace))
-        .map(lambda space: _INTERCHANGE(space, "icc_profile_name"))
-        .filter(bool)
-        .map(loaded)
-        .default_value(Ok(Nothing))
-    )
+    return Option.of_optional(config.getColorSpace(colorspace)).map(lambda space: _INTERCHANGE(space, "icc_profile_name")).filter(bool).map(loaded).default_value(Ok(Nothing))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

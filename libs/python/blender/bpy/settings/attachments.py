@@ -17,7 +17,7 @@ from blender.bpy.data.ids.store import Handle, holder
 from blender.bpy.data.rna.descriptors import Descriptor, Native, Struct, struct_at
 from blender.bpy.data.rna.snapshots import Applied, Endpoints, native, NativeValue, Snapshot
 from blender.bpy.extension.events.timers import Startup
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
@@ -289,7 +289,7 @@ class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
 
     def bound(self, identity: Identity) -> Outcome[Attached[G]]:
         """Binds to registered pointer target."""
-        return identity.name(Name.ATTACHMENT, self.key).bind(
+        return identity.identifier(self.key).bind(
             lambda name: (
                 Ok(Attached(name=name, owner=self.owner, form=self.form))
                 if name in self.owner.bl_rna.properties
@@ -312,7 +312,7 @@ class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
                 updating(groups, change)
             pointer = bpy.props.PointerProperty(type=self.form, override={"LIBRARY_OVERRIDABLE"})
             pointer.keywords.update(Option.of_optional(inspect.getdoc(self.form)).map(lambda doc: {"description": doc}).default_value({}))
-            yield identity.name(Name.ATTACHMENT, self.key).map(
+            yield identity.identifier(self.key).map(
                 lambda name: (
                     *((Band.GROUPS, group) for group in groups),
                     (Band.ATTACHMENTS, pointed(self.owner, name, pointer)),

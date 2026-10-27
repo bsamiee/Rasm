@@ -77,6 +77,6 @@ public abstract partial record ScalarField {
         public ScalarField Field { get; }
         public Matrix<double> Map { get; }
 
-        public static Fin<Moved> Of(ScalarField field, Matrix<double> map) => SpatialFault.Unless(map.Rank() is 4, SpatialRule.Singular).Map(_ => new Moved(field, map, Transforms.Applied(map.Inverse())));
+        public static Fin<Moved> Of(ScalarField field, Matrix<double> map) => SpatialFault.Unless(map.Rank() is 4, SpatialRule.Singular, map.Rank()).Map(_ => new Moved(field, map, Transforms.Applied(map.Inverse())));
     }
 }

@@ -30,10 +30,10 @@ from blender.bpy.data.ids.store import IdName, resolved
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, rooted, struct_at
 from blender.bpy.data.rna.snapshots import Snapshot
+from blender.bpy.extension.cli import CliCommand
 from blender.bpy.extension.events.timers import Timer
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.extension.registries import CliCommand
 from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
 from blender.bpy.files.blends import BlendFile, OpenFile, packed, saved, SaveMode, session_loaded
@@ -242,7 +242,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
     @property
     def state(self) -> QueueState:
         """Session state the extension holds."""
-        return QUEUES.of(self.identity)
+        return self.identity.held[QUEUES]
 
     def replaced(self, state: QueueState) -> None:
         """Holds the next session state in place of the current one."""
@@ -389,11 +389,12 @@ class Dispatcher(msgspec.Struct, frozen=True):
             return paired(camera, values, layers, self.framed.grown(scene)).bind(lambda parts: self.routed(scene, day).map(lambda path: (path, parts[3][1])))
 
         def digested(path: Path) -> Outcome[bytes]:
+            @catch(exception=OSError)
             def read() -> bytes:
                 with path.open("rb") as file:
                     return hashlib.file_digest(file, "sha256").digest()
 
-            return catch(read, exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(path), cause=error),))
+            return read().map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(path), cause=error),))
 
         def written(scene: bpy.types.Scene, path: OutputPath, pixels: tuple[Side, Side]) -> Outcome[Job]:
             used = self.routing.used(scene)
@@ -719,13 +720,12 @@ class Dispatcher(msgspec.Struct, frozen=True):
         """Copies the job type script into the Manager scripts folder."""
 
         def copied(folder: str) -> Outcome[Done]:
+            @catch(exception=OSError)
             def written() -> Path:
                 with importlib.resources.as_file(importlib.resources.files(Flamenco.__module__).joinpath(Flamenco.script)) as script:
                     return Path(shutil.copy(script, Path(folder) / Flamenco.script))
 
-            return (
-                catch(written, exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=folder, cause=error),)).map(lambda path: Done(notes=(("INFO", str(path)),)))
-            )
+            return written().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=folder, cause=error),)).map(lambda path: Done(notes=(("INFO", str(path)),)))
 
         return self.settings(call.identity).bind(
             lambda queueing: queueing.scripts.map(copied).default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(call.context.preferences), member="scripts"),)))
@@ -810,7 +810,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
 
     def bound(self, identity: Identity) -> Outcome[Dispatcher]:
         """Binds dispatcher to identity stores, render sets, routing, render, planning, and settings."""
-        host = accumulated(identity.name(Name.CLI, command) for command in RunCommand).map(
+        host = accumulated(identity.identifier(command) for command in RunCommand).map(
             lambda names: Host(binary=bpy.app.binary_path, folder=str(identity.folder), commands=dict(zip(RunCommand, names)))
         )
         return paired(host, self.sets.bound(identity), FrameSize().bound(identity), PassSet().bound(identity), ScenePaths().bound(identity), QueueRun.record.attachment.bound(identity)).map(
@@ -858,7 +858,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
         return (
             self
             .settings(identity)
-            .map(lambda queueing: tuple(work(held, queueing.heartbeat) for held in QUEUES.of(identity).observed.to_list()))
+            .map(lambda queueing: tuple(work(held, queueing.heartbeat) for held in identity.held[QUEUES].observed.to_list()))
             .default_with(lambda faults: tuple(rows.Work(text=fault.message, done=0.0) for fault in faults))
         )
 

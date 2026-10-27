@@ -54,7 +54,7 @@ public sealed record ChainScene {
 
     private static Option<LensFocus> Focus(ViewInfo view, double meters, Option<Length> focal, Option<float> aperture) =>
         from length in aperture.IsSome ? focal : None
-        from lens in LensFocus.TryCreate(length, Length.FromMeters(view.FocalBlurDistance * meters), out LensFocus? focus) ? Optional(focus) : None
+        from lens in LensFocus.Validated(length, Length.FromMeters(view.FocalBlurDistance * meters)).ToOption()
         select lens;
 
     private static Fin<Camera> Viewed(ViewInfo view, double meters, PixelExtent extent, Option<LensFocus> lens) =>

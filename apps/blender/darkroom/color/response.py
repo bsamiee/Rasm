@@ -107,7 +107,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def chart(self, identity: Identity, metrics: Metrics) -> Outcome[Option[Chart]]:
         """Charts the cached response of the wanted request, recording the plot columns it draws at."""
-        feed, well = _FEED.of(identity), Well.of(metrics, 0.5)
+        feed, well = identity.held[_FEED], Well.of(metrics, 0.5)
         feed.columns = round(well.plot.width)
 
         def plotted(held: tuple[_Request, npt.NDArray[np.float32], tuple[float, ...]]) -> Chart:
@@ -131,7 +131,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def fed(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Returns the current sampling job, reusing the wanted request while its observed state holds."""
-        if not (feed := _FEED.of(identity)).columns:
+        if not (feed := identity.held[_FEED]).columns:
             return Ok(())
 
         def allocated(config: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.Processor]:
@@ -235,14 +235,14 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         codes = tuple(map(float, applied(request.guide, np.repeat(np.asarray(self.levels, dtype=np.float32)[:, None], 3, axis=1)).mean(axis=1)))
 
         return self.sampling.sampled(identity, request.scene, request.entries, np.repeat(levels[None, :, None], 3, axis=2)).bind(
-            lambda values: self.signal.fired() if _FEED.of(identity).published(request, values[0, :, :3], codes) else Ok(None)
+            lambda values: self.signal.fired() if identity.held[_FEED].published(request, values[0, :, :3], codes) else Ok(None)
         )
 
     # --- [LIFETIME]
 
     def cleared(self, identity: Identity) -> Outcome[tuple[Job, ...]]:
         """Clears the wanted request and its cached response."""
-        return (self.signal.fired() if _FEED.of(identity).cleared() else Ok(None)).map(lambda _: ())
+        return (self.signal.fired() if identity.held[_FEED].cleared() else Ok(None)).map(lambda _: ())
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
@@ -250,7 +250,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         with ExitStack() as scopes:
 
             def invalidated() -> Outcome[Option[str]]:
-                return self.cleared(identity).map(lambda _: Nothing) if _FEED.of(identity).wanted.filter(lambda request: request.content.is_none()).is_some() else Ok(Nothing)
+                return self.cleared(identity).map(lambda _: Nothing) if identity.held[_FEED].wanted.filter(lambda request: request.content.is_none()).is_some() else Ok(Nothing)
 
             later = scopes.enter_context(identity.reports.deferred(invalidated))
 
@@ -267,7 +267,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 UpdateHandler(
                     handlers=bpy.app.handlers.depsgraph_update_post,
                     ids=(bpy.types.Scene, bpy.types.NodeTree, bpy.types.Image),
-                    body=lambda scene, _updates: Ok(later()) if _FEED.of(identity).wanted.filter(lambda request: request.scene == scene).is_some() else Ok(None),
+                    body=lambda scene, _updates: Ok(later()) if identity.held[_FEED].wanted.filter(lambda request: request.scene == scene).is_some() else Ok(None),
                 ),
             ))
 

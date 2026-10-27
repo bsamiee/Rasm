@@ -1,20 +1,19 @@
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<decimal>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<DraftingFault>]
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class LineWidth {
-    public static readonly LineWidth Width013 = new(0.13m);
-    public static readonly LineWidth Width018 = new(0.18m);
-    public static readonly LineWidth Width025 = new(0.25m);
-    public static readonly LineWidth Width035 = new(0.35m);
-    public static readonly LineWidth Width050 = new(0.5m);
-    public static readonly LineWidth Width070 = new(0.7m);
-    public static readonly LineWidth Width100 = new(1m);
-    public static readonly LineWidth Width140 = new(1.4m);
-    public static readonly LineWidth Width200 = new(2m);
+    public static readonly LineWidth Width013 = new(Length.FromMillimeters(0.13m));
+    public static readonly LineWidth Width018 = new(Length.FromMillimeters(0.18m));
+    public static readonly LineWidth Width025 = new(Length.FromMillimeters(0.25m));
+    public static readonly LineWidth Width035 = new(Length.FromMillimeters(0.35m));
+    public static readonly LineWidth Width050 = new(Length.FromMillimeters(0.5m));
+    public static readonly LineWidth Width070 = new(Length.FromMillimeters(0.7m));
+    public static readonly LineWidth Width100 = new(Length.FromMillimeters(1m));
+    public static readonly LineWidth Width140 = new(Length.FromMillimeters(1.4m));
+    public static readonly LineWidth Width200 = new(Length.FromMillimeters(2m));
 
-    public Length Width => Length.FromMillimeters(Key);
+    public Length Width { get; }
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -27,16 +26,16 @@ public sealed partial class LineWeight {
     internal int Steps { get; }
 }
 
-[SmartEnum<decimal>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<DraftingFault>]
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class LineGroup {
-    public static readonly LineGroup Group025 = new(LineWidth.Width025.Key);
-    public static readonly LineGroup Group035 = new(LineWidth.Width035.Key);
-    public static readonly LineGroup Group050 = new(LineWidth.Width050.Key);
-    public static readonly LineGroup Group070 = new(LineWidth.Width070.Key);
-    public static readonly LineGroup Group100 = new(LineWidth.Width100.Key);
+    public static readonly LineGroup Group025 = new(LineWidth.Width025);
+    public static readonly LineGroup Group035 = new(LineWidth.Width035);
+    public static readonly LineGroup Group050 = new(LineWidth.Width050);
+    public static readonly LineGroup Group070 = new(LineWidth.Width070);
+    public static readonly LineGroup Group100 = new(LineWidth.Width100);
 
-    public LineWidth Width(LineWeight weight) => LineWidth.Items[LineWidth.Items.Count(width => width.Key < Key) + weight.Steps];
+    internal LineWidth Wide { get; }
+    public LineWidth Width(LineWeight weight) => LineWidth.Items[LineWidth.Items.Count(width => width.Width < Wide.Width) + weight.Steps];
 }
 
 [SmartEnum]

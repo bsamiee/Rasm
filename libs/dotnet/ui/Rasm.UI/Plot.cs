@@ -6,10 +6,9 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject]
-[ValidationError<Invalid>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class AxisRange {
-    public static AxisRange Unit { get; } = Create(0f, 1f);
+    public static AxisRange Unit { get; } = new(0f, 1f);
 
     public float From { get; }
     public float To { get; }
@@ -19,16 +18,12 @@ public sealed partial class AxisRange {
     public float High => float.Max(From, To);
 
     public Option<AxisRange> Scaled(float about, float factor) =>
-        float.IsFinite(factor) && factor > 0f ? Present(about + ((From - about) * factor), about + ((To - about) * factor)) : None;
+        Factor.Validated(factor).ToOption().Bind(scale => Validated(about + ((From - about) * (float)scale), about + ((To - about) * (float)scale)).ToOption());
 
-    public Option<AxisRange> Shifted(float delta) => Present(From + delta, To + delta);
+    public Option<AxisRange> Shifted(float delta) => Validated(From + delta, To + delta).ToOption();
 
-    public static Option<AxisRange> Present(float from, float to) => TryCreate(from, to, out AxisRange? range) ? range : None;
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float from, ref float to) =>
-        validationError = float.IsFinite(from) && float.IsFinite(to) && from.CompareTo(to) is not 0
-            ? null
-            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"axis range ({from}, {to}) is empty or unbounded"));
+    public static Fin<AxisRange> Validated(float from, float to) =>
+        UIFault.Unless(float.IsFinite(from) && float.IsFinite(to) && from.CompareTo(to) is not 0, UIReason.Range).Map(_ => new AxisRange(from, to));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -131,7 +126,7 @@ public abstract partial record Axis {
         public override float Value(float fraction) => Domain.From * MathF.Exp(fraction * Depth);
 
         public static Fin<Axis> Validated(AxisRange domain, float @base) =>
-            domain.Low > 0f && @base > 1f ? new Log(domain, @base) : new Invalid(string.Create(CultureInfo.InvariantCulture, $"log axis over ({domain.From}, {domain.To}) at base {@base} needs a positive domain and a base above one"));
+            UIFault.Unless(domain.Low > 0f && @base > 1f, UIReason.Range).Map(_ => (Axis)new Log(domain, @base));
 
         public override Option<Axis> Over(AxisRange range) => Validated(range, Base).ToOption();
 

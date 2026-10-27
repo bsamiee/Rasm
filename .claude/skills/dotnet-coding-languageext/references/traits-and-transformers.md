@@ -168,7 +168,7 @@ internal static class Access {
         Readable.ask<M, Session>().Bind(static session =>
             session.Permissions.Exists(static permission => permission is P)
                 ? M.Pure(unit)
-                : M.Fail<Unit>(Error.New($"{session.Current} lacks {typeof(P).Name}")));
+                : M.Fail<Unit>(new Fault($"{session.Current} {typeof(P).Name}", Reason.Missing)));
 }
 ```
 

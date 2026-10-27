@@ -19,7 +19,7 @@ from blender.records.fields import AtLeastOne, NonNegative, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Share = Annotated[float, msgspec.Meta(gt=0.0, lt=1.0)]
+type Share = Annotated[float, msgspec.Meta(ge=sys.float_info.min, lt=1.0)]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -101,7 +101,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
             """Evaluates a power from its exponent's logarithm, including endpoint limits."""
             magnitude = -np.log(ratio, out=np.full_like(ratio, -np.inf), where=ratio > 0.0)
             exponent = logarithm + np.log(magnitude, out=np.full_like(magnitude, -np.inf), where=magnitude > 0.0)
-            return np.exp(-np.exp(exponent, out=np.full_like(exponent, np.inf), where=exponent < log_maximum))
+            return np.asarray(np.exp(-np.exp(exponent, out=np.full_like(exponent, np.inf), where=exponent < log_maximum)), dtype=np.float64)
 
         def density(light: npt.NDArray[np.float64], stock: Stock) -> npt.NDArray[np.float64]:
             """Develops logarithmic light into the shared characteristic's density fraction."""
@@ -149,7 +149,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
             width = chroma.max(axis=-1, keepdims=True)
             saturated = peak - np.minimum(chroma * self.saturation, peak * np.divide(chroma, width, out=np.zeros_like(chroma), where=width > 0.0))
             blend = np.maximum(1.0 - np.abs((formed @ weights)[..., None] - 0.5) / 0.45, 0.0)
-            return (formed + (saturated - formed) * blend).astype(np.float32)
+            return np.asarray(formed + (saturated - formed) * blend, dtype=np.float32)
 
         return (
             catch(np.linalg.solve, exception=np.linalg.LinAlgError)(matrix, right.reshape(-1, 3).T)

@@ -1,10 +1,9 @@
 """Scene-linear histograms, waveforms, vectorscopes, written-code clipping, view bands, and chromaticity."""
 
-from typing import Annotated, ClassVar, Self
+from typing import ClassVar, Self
 
 import colour
 from expression import Nothing, Ok, Option, Some
-import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
@@ -12,7 +11,6 @@ import PyOpenColorIO
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color import observer
 from blender.imaging.color.processors import chromaticities, converted, DisplayView, luma, xyz
-from blender.imaging.files.buffers import unassociated
 from blender.records.faults import Outcome, paired
 from blender.records.fields import Frozen
 
@@ -52,7 +50,7 @@ class Histogram(Frozen, frozen=True, kw_only=True, eq=False):
     @classmethod
     def mask(cls, values: npt.NDArray[np.float32] | npt.NDArray[np.float64], first: int, last: int) -> npt.NDArray[np.bool]:
         """Selects non-NaN values in inclusive bin interval."""
-        return np.isin(np.digitize(values, cls.edges()), np.arange(first, last + 1)) & ~np.isnan(values)
+        return np.asarray(np.isin(np.digitize(values, cls.edges()), np.arange(first, last + 1)) & ~np.isnan(values), dtype=np.bool)
 
 
 class Waveform(Frozen, frozen=True, kw_only=True, eq=False):
@@ -81,12 +79,12 @@ class Vectorscope(Frozen, frozen=True, kw_only=True, eq=False):
     inverse: npt.NDArray[np.float64]
 
     @classmethod
-    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], cells: tuple[int, int], zoom: Annotated[float, msgspec.Meta(gt=0.0)] = 1.0) -> Outcome[Self]:
+    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], cells: tuple[int, int], zoom: float = 1.0) -> Outcome[Self]:
         """Returns covered Cb/Cr counts with full-range YCbCr-to-RGB matrix of working luminance weights."""
 
-        def traced(coefficients: npt.NDArray[np.float64]) -> Outcome[Self]:
+        def traced(samples: Samples, coefficients: npt.NDArray[np.float64]) -> Outcome[Self]:
             weights = coefficients[[0, 2]]
-            values = colour.RGB_to_YCbCr(unassociated(plane)[..., :3][(plane[..., 3:] > 0.0).all(axis=-1)].astype(np.float64), K=weights, in_legal=False, out_legal=False, out_int=False)
+            values = np.asarray(colour.RGB_to_YCbCr(samples.color[samples.covered].astype(np.float64), K=weights, in_legal=False, out_legal=False, out_int=False), dtype=np.float64)
             reach = 0.5 / zoom
             held = ((values[:, 1:] >= -reach) & (values[:, 1:] < reach)).all(axis=-1)
             return Ok(
@@ -96,7 +94,7 @@ class Vectorscope(Frozen, frozen=True, kw_only=True, eq=False):
                 )
             )
 
-        return luma(config).bind(traced)
+        return Samples.of(config, plane).bind(lambda samples: luma(config).bind(lambda coefficients: traced(samples, coefficients)))
 
 
 class Clipping(Frozen, frozen=True, kw_only=True, eq=False):
@@ -108,17 +106,17 @@ class Clipping(Frozen, frozen=True, kw_only=True, eq=False):
     @property
     def low(self) -> npt.NDArray[np.bool]:
         """Pixels with any channel at lowest code."""
-        return self.low_channels.any(axis=-1)
+        return np.asarray(self.low_channels.any(axis=-1), dtype=np.bool)
 
     @property
     def high(self) -> npt.NDArray[np.bool]:
         """Pixels with any channel at highest code."""
-        return self.high_channels.any(axis=-1)
+        return np.asarray(self.high_channels.any(axis=-1), dtype=np.bool)
 
     @classmethod
     def of(cls, codes: npt.NDArray[np.uint8 | np.uint16]) -> Self:
         """Returns channel masks at code endpoints of array dtype."""
-        color, covered = codes[..., :3], (codes[..., 3:] > 0).all(axis=-1)
+        color, covered = codes[..., :3], np.asarray((codes[..., 3:] > 0).all(axis=-1), dtype=np.bool)
         return cls(low_channels=(color == 0) & covered[..., None], high_channels=(color == np.iinfo(codes.dtype).max) & covered[..., None])
 
 

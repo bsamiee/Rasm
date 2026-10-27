@@ -151,7 +151,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Render result, `Ok(None)` for a failed key.
         """
-        backlog, place = BACKLOG.of(identity), (feed, job.place)
+        backlog, place = identity.held[BACKLOG], (feed, job.place)
         if (place, job.key) in backlog.failed.items():
             return Ok(None)
         backlog.requests[place] = request = Request(job=job)
@@ -165,7 +165,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
             identity: Extension whose failures drop.
             places: Places a producer refresh names.
         """
-        backlog, dropped = BACKLOG.of(identity), frozenset(places)
+        backlog, dropped = identity.held[BACKLOG], frozenset(places)
         backlog.requests = {place: request for place, request in backlog.requests.items() if place[1] not in dropped or request.state is Phase.PENDING}
 
     def ticked(self, identity: Identity) -> Outcome[Option[float]]:
@@ -177,7 +177,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             `Ok` of next interval on every tick.
         """
-        context, backlog = bpy.context, BACKLOG.of(identity)
+        context, backlog = bpy.context, identity.held[BACKLOG]
 
         def stepped(manager: bpy.types.WindowManager) -> Outcome[None]:
             budget = self.budget(identity)
@@ -218,11 +218,11 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         Yields:
             None while queue reads feed.
         """
-        BACKLOG.of(identity).feeds.append(feed)
+        identity.held[BACKLOG].feeds.append(feed)
         try:
             yield
         finally:
-            backlog = BACKLOG.of(identity)
+            backlog = identity.held[BACKLOG]
             backlog.feeds.remove(feed)
             backlog.requests = {place: request for place, request in backlog.requests.items() if place[0] != Some(feed)}
 
@@ -240,7 +240,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         """
 
         def remembered(image: bpy.types.Image) -> Option[str]:
-            BACKLOG.of(identity).slot = Option.of_optional(image.render_slots.active_index)
+            identity.held[BACKLOG].slot = Option.of_optional(image.render_slots.active_index)
             return Nothing
 
         with identity.reports.deferred(lambda: built("RENDER_RESULT").map(remembered)) as remember:

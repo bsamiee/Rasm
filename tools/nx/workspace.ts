@@ -45,7 +45,7 @@ const Mise = Toml.pipe(
         }),
     ),
 );
-const PythonRuntime = Schema.fromJsonString(Schema.NonEmptyArray(Schema.Struct({ version: Schema.String })));
+const PythonRuntime = Schema.fromJsonString(Schema.Struct({ versions: Schema.NonEmptyArray(Schema.String) }).pipe(Schema.encodeKeys({ versions: 'active_versions' })));
 const ImportGraph = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.String)));
 const Sgconfig = Yaml.pipe(Schema.decodeTo(Schema.Struct({ ruleDirs: Schema.Array(Schema.String) })));
 const Rule = Yaml.pipe(
@@ -56,12 +56,13 @@ const Rule = Yaml.pipe(
         }),
     ),
 );
-const Host = Toml.pipe(Schema.decodeTo(Schema.Struct({ project: Schema.Struct({ minimum: Schema.TemplateLiteralParser(['>=', Schema.Trim.pipe(Schema.decodeTo(Release))]) }).pipe(Schema.encodeKeys({ minimum: 'requires-python' })) })));
+const Floor = Schema.Struct({ minimum: Schema.TemplateLiteralParser(['>=', Schema.Trim.pipe(Schema.decodeTo(Release))]) }).pipe(Schema.encodeKeys({ minimum: 'requires-python' }));
+const Host = Toml.pipe(Schema.decodeTo(Schema.Struct({ project: Floor })));
 const Root = Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
             tool: Schema.Struct({
-                uv: Schema.Struct({ workspace: Schema.Struct({ members: Schema.Array(Schema.String) }) }),
+                uv: Schema.Struct({ workspace: Schema.Struct({ members: Schema.Array(Schema.String) }), floors: Schema.Record(Schema.String, Floor) }).pipe(Schema.encodeKeys({ floors: 'dependency-groups' })),
                 pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String), testPaths: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files', testPaths: 'testpaths' })),
             }),
         }),
@@ -144,7 +145,7 @@ const readPyproject = Effect.fnUntraced(function* (root: string) {
     const { members } = tool.uv.workspace;
     const manifests = yield* Effect.forEach(members, (member) => decode(Member, root, path.join(member, PYPROJECT)));
     const moduleRoots = Array.zip(members, manifests).flatMap(([member, { tool: held }]) => Option.match(held.hatch, { onNone: () => [], onSome: ({ build }) => build.devModeDirs.map((folder) => path.join(member, folder)) }));
-    return { moduleRoots, ...tool.pytest };
+    return { moduleRoots, floors: tool.uv.floors, ...tool.pytest };
 });
 const openWorkspace = Effect.fnUntraced(function* (root: string) {
     const [fs, path, store] = yield* Effect.all([FileSystem.FileSystem, Path.Path, openStore(root)]);
@@ -306,15 +307,21 @@ const infer = Effect.fnUntraced(
 
 // --- [ROOT]
 const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproject }: Workspace) {
-    const [path, folders, { pythonFiles, testPaths, moduleRoots }] = yield* Effect.all([Path.Path, hosts, pyproject]);
+    const [path, folders, { pythonFiles, testPaths, moduleRoots, floors }] = yield* Effect.all([Path.Path, hosts, pyproject]);
     const claimed = moduleRoots.flatMap((moduleRoot) => mirrored(path, testPaths, moduleRoot));
     const unclaimed = (yield* glob(
         root,
         testPaths.flatMap((testPath) => pythonFiles.map((pattern) => `${testPath}/**/${pattern}`)),
     )).filter((file) => !claimed.some((mirror) => !path.relative(mirror, file).startsWith('..')));
-    const [[interpreter], scopes, gated] = yield* Effect.all(
+    const [
+        {
+            versions: [interpreter],
+        },
+        scopes,
+        gated,
+    ] = yield* Effect.all(
         [
-            cached(PythonRuntime, { root, cache }, { inputs: ['mise.toml'], argv: ['mise', 'ls', 'python', '--current', '--json'] }),
+            cached(PythonRuntime, { root, cache }, { inputs: ['mise.toml'], argv: ['mise', 'tool', 'python', '--json'] }),
             Effect.flatMap(
                 glob(
                     root,
@@ -340,14 +347,18 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
         (version: string) =>
         ({ below, from }: (typeof gated)[number]) =>
             !Option.exists(below, reaches(version)) && Option.match(from, { onNone: () => true, onSome: reaches(version) });
-    const off = gated.filter((rule) => [interpreter.version, ...scopes.map(({ version }) => version)].some((version) => !runs(version)(rule)));
+    const off = gated.filter((rule) => [interpreter, ...scopes.map(({ version }) => version)].some((version) => !runs(version)(rule)));
     const ids = (rules: typeof gated) => `--filter '^(${rules.map(({ id }) => id).join('|')})$'`;
-    const groups = Object.entries(Array.groupBy(scopes, ({ version }) => version)).map(([version, members]) => ({ version, scoped: members.map(({ scope }) => `"${scope}"`).join(' ') }));
+    const groups = Object.entries(Array.groupBy(scopes, ({ version }) => version)).map(([version, members]) => {
+        const environment = `.cache/python/${version}`;
+        const excludedGroups = Object.entries(floors).flatMap(([group, { minimum }]) => (reaches(version)(minimum[1]) ? [] : [`--no-group ${group}`]));
+        return { version, environment, scoped: members.map(({ scope }) => `"${scope}"`).join(' '), synced: [`export VIRTUAL_ENV=${environment} && uv sync --active --python ${version}`, ...excludedGroups, '&&'].join(' ') };
+    });
     const excluded = scopes.map(({ scope }) => `--exclude '^${RegExp.escape(`${scope}/`)}'`).join(' ');
     const scan = (flags: readonly string[]) => ['ast-grep scan --custom-languages allow', ...flags].join(' ');
     const walk = (flags: readonly string[]) => scan(['--no-ignore hidden', "--globs '!pnpm-lock.yaml'", "--globs '!tools/*/examples/**'", ...flags]);
     const tree = walk(['--error=no-suppress-all', ...off.map(({ id }) => `--off=${id}`)]);
-    const rooted = off.filter(runs(interpreter.version));
+    const rooted = off.filter(runs(interpreter));
     const hosted = [
         ...(rooted.length > 0 ? [walk([ids(rooted), ...scopes.map(({ scope }) => `--globs '!${scope}/**'`)])] : []),
         ...groups.flatMap(({ version, scoped }) => {
@@ -365,21 +376,21 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts, pyproj
             '.': {
                 root: '.',
                 targets: {
-                    'lint:ast-grep': versioned(tree, [...hosted, 'ast-grep test --custom-languages allow'], true),
+                    'lint:ast-grep': versioned(tree, hosted, true),
                     rewrite: { command: rewrite },
                     'typecheck:ty': versioned(
                         `ty check ${scopes.map(({ scope }) => `--exclude "${scope}"`).join(' ')}`,
-                        groups.map(({ version, scoped }) => `ty check --python-version ${version} ${scoped}`),
+                        groups.map(({ version, scoped, synced }) => `${synced} ty check --python-version ${version} ${scoped}`),
                         true,
                     ),
                     'typecheck:mypy': versioned(
                         `mypy ${excluded}`,
-                        groups.map(({ version, scoped }) => `mypy --python-version ${version} ${scoped}`),
+                        groups.map(({ version, environment, scoped, synced }) => `${synced} mypy --python-version ${version} --python-executable ${environment}/bin/python ${scoped}`),
                         false,
                     ),
                     'lint:refurb': versioned(
                         `python -m tools.refurb --quiet -- ${excluded}`,
-                        groups.map(({ version, scoped }) => `python -m tools.refurb --quiet --python-version ${version} ${scoped}`),
+                        groups.map(({ version, environment, scoped, synced }) => `${synced} python -m tools.refurb --quiet --python-version ${version} ${scoped} -- --python-executable ${environment}/bin/python`),
                         false,
                     ),
                     ...(unclaimed.length > 0 ? { test: { command: 'pytest', options: { args: [...testPaths, ...claimed.map((mirror) => `--ignore=${mirror}`)] }, inputs: ['python', 'pythonFiles'] } } : {}),

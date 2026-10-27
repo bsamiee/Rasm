@@ -13,10 +13,9 @@ import idprop
 import msgspec
 
 from blender.bpy.data.ids.store import blocks, named
-from blender.bpy.extension.events.handlers import appended, ImportHandler
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.events import Handler
+from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import Fault, Outcome
 from blender.records.identity import ContentHash
@@ -164,20 +163,18 @@ class Merges:
     def opened(cls, identity: Identity) -> Generator[Self]:
         """Holds a new merge with its import handler until scope exit."""
         merges = cls()
-        handler = ImportHandler(handlers=bpy.app.handlers.blend_import_post, body=functools.partial(merges.merged, identity))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        with appended(identity, handler.handlers, handler.entry(identity)):
+        with Handler(handlers=bpy.app.handlers.blend_import_post, body=functools.partial(merges.merged, identity)).held(identity):
             yield merges
 
     @staticmethod
     @contextmanager
     def holding(identity: Identity, row: tuple[type[bpy.types.ID], Key]) -> Generator[None]:
         """Holds row on the extension's merge until scope exit."""
-        merges = MERGES.of(identity)
-        merges.rows.append(row)
-        try:
+        merges = identity.held[MERGES]
+        with ExitStack() as stack:
+            merges.rows.append(row)
+            stack.callback(merges.rows.remove, row)
             yield
-        finally:
-            merges.rows.remove(row)
 
     def merged(self, identity: Identity, context: bpy.types.BlendImportContext) -> Outcome[None]:
         """Scans each held kind once, remapping imported duplicates and removing them in one batch."""
@@ -197,7 +194,7 @@ class Merges:
         return released(tuple(block for block, _ in duplicates)).map(lambda _: None)
 
 
-MERGES: Final = Scoped[Merges](made=Merges.opened)
+MERGES: Final = Resource[Merges](made=Merges.opened)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

@@ -18,7 +18,7 @@ from blender.bpy.commands.calls import idname, Operation, Placed, ShelfPopup, Wr
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import Descriptor, Native, P_co, root_in, Struct, Value
 from blender.bpy.data.rna.snapshots import Scoped, Snapshot
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderReason
@@ -315,7 +315,7 @@ class PropertyPopover(Bound, frozen=True, kw_only=True):
     @override
     def values(self, identity: Identity, /) -> Outcome[dict[str, object]]:
         """Resolves panel idname."""
-        return idname(identity, Name.PANEL, self.panel).map(lambda panel: self.options | {"panel": panel})
+        return idname(identity, bpy.types.Panel, self.panel).map(lambda panel: self.options | {"panel": panel})
 
 
 class PopoverGroup(Call, frozen=True, kw_only=True):
@@ -380,7 +380,7 @@ class Selector(Line, frozen=True, kw_only=True):
         def valued(name: str, value: object) -> Outcome[Option[tuple[str, object]]]:
             match value:
                 case Option(tag="some", some=operators.Command(key=key)):
-                    return identity.name(Name.OPERATOR, key).map(lambda found: Some((name, found)))
+                    return identity.name(bpy.types.Operator, key).map(lambda found: Some((name, found)))
                 case Option(tag="some", some=operation):
                     return Ok(Some((name, operation.idname_py())))
                 case str():
@@ -612,7 +612,7 @@ class Popover(Opens, frozen=True, kw_only=True):
     @override
     def opened(self, identity: Identity, /) -> Outcome[str]:
         """Resolves panel idname."""
-        return idname(identity, Name.PANEL, self.panel)
+        return idname(identity, bpy.types.Panel, self.panel)
 
 
 class Pulldown(Opens, frozen=True, kw_only=True):
@@ -625,7 +625,7 @@ class Pulldown(Opens, frozen=True, kw_only=True):
     @override
     def opened(self, identity: Identity, /) -> Outcome[str]:
         """Resolves menu idname."""
-        return idname(identity, Name.MENU, self.menu)
+        return idname(identity, bpy.types.Menu, self.menu)
 
 
 class ShelfPopover(Opens, frozen=True, kw_only=True):
@@ -638,7 +638,7 @@ class ShelfPopover(Opens, frozen=True, kw_only=True):
     @override
     def opened(self, identity: Identity, /) -> Outcome[str]:
         """Resolves shelf idname."""
-        return idname(identity, Name.SHELF, self.popup.shelf)
+        return idname(identity, bpy.types.AssetShelf, self.popup.shelf)
 
 
 class Divider(Call, frozen=True, kw_only=True):

@@ -185,8 +185,8 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
 
         def step(seconds: npt.NDArray[np.float64], _: int) -> npt.NDArray[np.float64]:
             hour, ratio = reach(seconds)
-            offset = hour - side * np.arccos(np.clip(ratio, -1.0, 1.0))
-            return seconds - np.arctan2(np.sin(offset), np.cos(offset)) * _DAY_SECONDS / math.tau
+            offset = hour - np.arccos(np.clip(ratio, -1.0, 1.0)) * side
+            return seconds - ((offset + math.pi) % math.tau - math.pi) * _DAY_SECONDS / math.tau
 
         solved = functools.reduce(step, range(3), np.full(side.shape, datetime.datetime.combine(date, datetime.time(12), tzinfo=zone).timestamp(), dtype=np.float64))
         epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.UTC)

@@ -17,7 +17,7 @@ from blender.bpy.data.rna.conditions import AllOf, Count, Setting
 from blender.bpy.data.rna.descriptors import assigned, Descriptor
 from blender.bpy.data.rna.snapshots import Endpoints, Snapshot
 from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.render.outputs.formats import struct_listing
@@ -381,7 +381,7 @@ class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
         """Binds registered overscan and its recovery."""
         return paired(
             self.attachment.bound(identity),
-            identity.name(Name.ATTACHMENT, f"{self.key}_recovery").map(lambda name: Recovery(stored=Stored(name=name, decoder=msgspec.msgpack.Decoder(Grown)), ends=lambda grown: grown.ends)),
+            identity.identifier(f"{self.key}_recovery").map(lambda name: Recovery(stored=Stored(name=name, decoder=msgspec.msgpack.Decoder(Grown)), ends=lambda grown: grown.ends)),
         ).map(lambda pair: Framed(attached=pair[0], recovery=pair[1]))
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:

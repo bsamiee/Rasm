@@ -34,7 +34,7 @@ from blender.bpy.data.ids.store import Handle, STORES
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import Change, SceneHandler, UpdateHandler
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
@@ -325,7 +325,7 @@ class Counts(Line, frozen=True):
         """Returns label reading backlog and cache per draw."""
 
         def shown(layout: bpy.types.UILayout, _holder: Struct, _context: bpy.types.Context) -> None:
-            backlog, cache = BACKLOG.of(identity), TEXTURES.of(identity)
+            backlog, cache = identity.held[BACKLOG], identity.held[TEXTURES]
             layout.label(text=f"{len(backlog.jobs)} queued, {len(backlog.failed)} failed, {len(cache.held)} cached, {cache.memory / 2**20:.1f} MiB pixels")
 
         return Ok(shown)
@@ -339,12 +339,12 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
 
     def read(self, _metrics: Metrics, /) -> Outcome[Option[Shown]]:
         """Reads display settings and editor cells while previews show."""
-        return self.settings(self.identity).map(lambda settings: Some(Shown(display=settings.display, cells=NODE_STATES.of(self.identity).cells)) if settings.enabled else Nothing)
+        return self.settings(self.identity).map(lambda settings: Some(Shown(display=settings.display, cells=self.identity.held[NODE_STATES].cells)) if settings.enabled else Nothing)
 
     def drawn(self, canvas: Canvas, state: Shown) -> None:
         """Draws cells beside nodes, active node grid last."""
         metrics, display, theme, style = canvas.metrics, state.display, canvas.metrics.preferences.themes[0], canvas.metrics.preferences.ui_styles[0].widget
-        cache, points, pad, gap, checker = TEXTURES.of(self.identity), metrics.points(), metrics.spacing.button_y, metrics.spacing.template, metrics.checker()
+        cache, points, pad, gap, checker = self.identity.held[TEXTURES], metrics.points(), metrics.spacing.button_y, metrics.spacing.template, metrics.checker()
         shader = gpu.shader.from_builtin("IMAGE_COLOR")
         marks = {Status.QUEUED: ("…", color(theme.info.info_warning_text)), Status.FAILED: ("!", color(theme.info.info_error_text))} if display.status else {}
 
@@ -475,8 +475,8 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
     def clear_node_previews(self, call: Call[Empty]) -> Outcome[Answer]:
         """Empties texture cache, held values, and previews folder, then renders every thumbnail again."""
         files = tuple((call.identity.folder / NodePreview.key).glob("*.exr"))
-        TEXTURES.of(call.identity).held.clear()
-        NODE_STATES.of(call.identity).values.clear()
+        call.identity.held[TEXTURES].held.clear()
+        call.identity.held[NODE_STATES].values.clear()
         return accumulated(removed(path) for path in files).bind(lambda _: self.rerendered(call.identity)).map(lambda _: Done(notes=(("INFO", f"Removed {len(files)} stored thumbnails"),)))
 
     @classmethod
@@ -525,7 +525,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
     def rendered(self, identity: Identity, render: TargetRender, size: int, settings: NodePreviews, *, scene: bpy.types.Scene) -> Outcome[Readback]:
         """Renders target through routed copies in preview scene, staged per source kind and formed through the scene view, the source's updates during the render marked as its own."""
         lighting, target = settings.lighting, render.target
-        aov: Outcome[Option[str]] = identity.name(Name.ATTACHMENT, PreviewScene.value).map(Some) if render.valued else Ok(Nothing)
+        aov: Outcome[Option[str]] = identity.identifier(PreviewScene.value).map(Some) if render.valued else Ok(Nothing)
 
         def staged(world: Mapping[str, Value] | bpy.types.World, lamp: Lamp | bpy.types.Light, *, valued: bool) -> Staging:
             return Staging(source=scene, size=(size, size), world=world, lamp=lamp, value=valued and render.valued)
@@ -611,7 +611,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 
     def thumbnailed(self, identity: Identity, render: TargetRender, demand: Demand, size: int, kept: frozenset[Hashable], settings: NodePreviews, *, scene: bpy.types.Scene) -> Outcome[None]:
         """Renders a target into texture cache and previews folder, holding uniform value."""
-        state, folder, limit = NODE_STATES.of(identity), identity.folder / NodePreview.key, settings.display.limit
+        state, folder, limit = identity.held[NODE_STATES], identity.folder / NodePreview.key, settings.display.limit
 
         def pruned() -> Outcome[None]:
             files: Outcome[list[Path]] = catch(sorted, exception=OSError)(folder.glob("*.exr"), key=lambda path: path.stat().st_mtime).map_error(
@@ -631,7 +631,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                     state.values[demand.key] = held_value
                 return demand.content.map(written_file).default_value(Ok(None)).bind(lambda _: self.signal.fired())
 
-            return TEXTURES.of(identity).stored(demand.key, readback.plane, limit, kept).bind(saved) if state.keys.get(render.target) is demand else Ok(None)
+            return identity.held[TEXTURES].stored(demand.key, readback.plane, limit, kept).bind(saved) if state.keys.get(render.target) is demand else Ok(None)
 
         formed = viewed(scene)
 
@@ -639,7 +639,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
             return formed.colorspace(config).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(formed), member=formed.display),))
 
         config = PyOpenColorIO.GetCurrentConfig()
-        return paired(self.rendered(identity, render, size, settings, scene=scene), identity.name(Name.ATTACHMENT, PreviewScene.value), spaced(config)).bind(
+        return paired(self.rendered(identity, render, size, settings, scene=scene), identity.identifier(PreviewScene.value), spaced(config)).bind(
             lambda parts: stored(parts[0], config, parts[1], parts[2].getName())
         )
 
@@ -647,7 +647,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 
     def jobs(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Writes editor cells and returns a job per target key neither cache nor folder holds."""
-        state, metrics, failed = NODE_STATES.of(identity), Metrics.read(), BACKLOG.of(identity).failed
+        state, metrics, failed = identity.held[NODE_STATES], Metrics.read(), identity.held[BACKLOG].failed
         prior, state.keys = state.keys, {}
         views = tuple(
             (editor, space, region, tree)
@@ -705,8 +705,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                             return True
 
                         return (
-                            TEXTURES
-                            .of(identity)
+                            identity.held[TEXTURES]
                             .stored(key, image.pixels, limit, kept)
                             .bind(lambda _: catch(os.utime, exception=OSError)(path).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),)))
                             .map(recorded)
@@ -811,7 +810,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                 return (
                     accumulated(
                         Ok(Some(key))
-                        if key in TEXTURES.of(identity).held
+                        if key in identity.held[TEXTURES].held
                         else digest.map(lambda found: restored(found, config, name, settings.display.limit, kept).map(lambda held: Some(key) if held else Nothing)).default_value(Ok(Nothing))
                         for key, digest in {key: plan.demand.content for plan, _rank, key in ranked}.items()
                     )
@@ -821,7 +820,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 
             return accumulated(itertools.starmap(viewed_in, views if settings.enabled else ())).map(lambda parts: tuple(itertools.chain.from_iterable(parts))).bind(scheduled)
 
-        return paired(rooted(bpy.types.Scene, context), self.settings(identity), identity.name(Name.ATTACHMENT, PreviewScene.value)).bind(
+        return paired(rooted(bpy.types.Scene, context), self.settings(identity), identity.identifier(PreviewScene.value)).bind(
             lambda parts: planned(parts[0], parts[1], PyOpenColorIO.GetCurrentConfig(), parts[2])
         )
 
@@ -859,14 +858,14 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
         def forgotten(switch: Callable[[NodePreviews], bool]) -> Outcome[None]:
             read = self.settings(identity)
             for _ in read.to_option().filter(switch).to_list():
-                NODE_STATES.of(identity).forgotten()
+                identity.held[NODE_STATES].forgotten()
             return read.map(lambda _: None)
 
         def dropped(scene: bpy.types.Scene, updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> Outcome[None]:
-            if scene.session_uid in INTERMEDIATES.of(identity):
+            if scene.session_uid in identity.held[INTERMEDIATES]:
                 return Ok(None)
             for block in (held for update in updates for held in Option.of_optional(update.id).to_list()):
-                NODE_STATES.of(identity).released(block)
+                identity.held[NODE_STATES].released(block)
             return forgotten(lambda settings: settings.automatic)
 
         overlay = Overlay(
@@ -899,7 +898,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
 
     def rerendered(self, identity: Identity) -> Outcome[None]:
         """Drops target keys and held failures for a full rerender."""
-        PreviewQueue.forced(identity, NODE_STATES.of(identity).forgotten())
+        PreviewQueue.forced(identity, identity.held[NODE_STATES].forgotten())
         return self.signal.fired()
 
 

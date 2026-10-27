@@ -22,6 +22,29 @@ utils:
                 all:
                     - has: {matches: answer}
                     - not: {has: {pattern: $_, not: {any: [{matches: answer}, {kind: comment}]}}}
+    awaited-statement:
+        kind: expression_statement
+        all:
+            - any:
+                - has: {kind: await}
+                - has: {kind: assignment, has: {field: right, kind: await}}
+            - has: {stopBy: end, kind: await, has: {kind: call}}
+            - not: {has: {stopBy: end, kind: call, not: {inside: {kind: await}}}}
+            - not: {has: {stopBy: end, kind: call, has: {stopBy: end, kind: call}}}
+    caught-handler:
+        kind: except_clause
+        all:
+            - has:
+                field: value
+                kind: as_pattern
+                all:
+                    - has: {field: alias, has: {kind: identifier, pattern: $CAUGHT}}
+                    - not: {has: {kind: tuple}}
+            - has:
+                kind: block
+                all:
+                    - has: {nthChild: 1, kind: return_statement, has: {kind: call, has: {stopBy: end, kind: identifier, pattern: $CAUGHT}}}
+                    - not: {has: {nthChild: 2}}
 rule:
     kind: try_statement
     all:
@@ -36,5 +59,9 @@ rule:
                     any:
                         - matches: builtins-stop-iteration
                         - has: {stopBy: end, matches: builtins-stop-iteration}
+        - not:
+            all:
+                - has: {field: body, kind: block, all: [{has: {nthChild: 1, matches: awaited-statement}}, {not: {has: {nthChild: 2}}}]}
+                - not: {has: {kind: except_clause, not: {matches: caught-handler}}}
 message: '`try` answers a value from every handler'
-note: 'Call `expression.extra.result.catch(<callee>, exception=<error>)(<arguments>)` over each raising call, then map or default its error'
+note: 'Call `expression.extra.result.catch(<callee>, exception=<error>)(<arguments>)` over a raising call, one awaited call takes `try` with each handler returning `Error(<caught>)`'

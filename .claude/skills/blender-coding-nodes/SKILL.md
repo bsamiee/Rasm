@@ -335,12 +335,20 @@ Writes follow socket creation, each step adding sockets the next one reads:
 Copies take every writable member, item collections growing through their own `new` before sockets pair by identifier:
 
 ```python
+from typing import Protocol
+
 import bpy
 from expression import Error, Ok, Result
 from expression.extra.result import catch
 
 type Struct = bpy.types.bpy_struct[object]
 type Items = bpy.types.bpy_prop_collection[Struct]
+
+
+class Growing(Protocol):
+    def new(self, *arguments: object) -> Struct: ...
+
+    def remove(self, item: Struct) -> None: ...
 
 
 def mirrored(source: Struct, target: Struct, skipped: frozenset[str] = frozenset({"rna_type"})) -> tuple[RuntimeError | TypeError, ...]:
@@ -352,18 +360,27 @@ def mirrored(source: Struct, target: Struct, skipped: frozenset[str] = frozenset
         return isinstance(prop, bpy.types.CollectionProperty) and prop.fixed_type == sockets
 
     def argument(item: Struct, parameter: bpy.types.Property) -> object:
-        return getattr(item, parameter.identifier) if parameter.identifier in item.bl_rna.properties else parameter.enum_items[0].identifier if parameter.type == "ENUM" else parameter.default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        match parameter:
+            case _ if parameter.identifier in item.bl_rna.properties:
+                return getattr(item, parameter.identifier)
+            case bpy.types.EnumProperty(enum_items=items):
+                return items[0].identifier
+            case bpy.types.BoolProperty(default=value) | bpy.types.IntProperty(default=value) | bpy.types.FloatProperty(default=value) | bpy.types.StringProperty(default=value):
+                return value
+            case _:
+                return None
 
     def grown(prop: bpy.types.CollectionProperty, held: Items, live: Items) -> tuple[RuntimeError, ...]:
         if prop.srna is None or not {"new", "remove"}.issubset(prop.srna.functions.keys()):
             return ()
+        growing: Growing = live  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         parameters: tuple[bpy.types.Property, ...] = tuple(parameter for parameter in prop.srna.functions["new"].parameters if not parameter.is_output)
         for item in tuple(live)[len(held) :]:
-            live.remove(item)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            growing.remove(item)
         return tuple(
             error
             for item in tuple(held)[len(live) :]
-            for error in catch(live.new, exception=RuntimeError)(*(argument(item, parameter) for parameter in parameters)).swap().to_option().to_list()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            for error in catch(growing.new, exception=RuntimeError)(*(argument(item, parameter) for parameter in parameters)).swap().to_option().to_list()
         )
 
     def member(prop: bpy.types.Property) -> tuple[RuntimeError | TypeError, ...]:
@@ -400,7 +417,7 @@ def copied(source: bpy.types.Node, tree: bpy.types.NodeTree) -> Result[bpy.types
 - Writable data-block pointers (`node_tree`, `image`) copy as references
 - Writes skip members already equal, dynamic enums with no items (Image node `layer` and `view` with no image) refusing even their current value
 - Sockets sort last, mode members and items creating every socket before defaults copy
-- Growth fills a `new` parameter its item lacks from the parameter's first enum item or default, the item's own members overwriting it
+- Growth fills a `new` parameter its item lacks from the parameter's first enum item or default, else `None`, the item's own members overwriting it
 
 Group builds declare interface items, then nodes, a zone pair, menu items, and links by identifier, the menu default after its Menu Switch link:
 
@@ -416,20 +433,22 @@ def subdivided(name: str, chosen: str) -> Result[bpy.types.GeometryNodeTree, Typ
     with ExitStack() as rollback:
         tree: bpy.types.GeometryNodeTree = bpy.data.node_groups.new(name, "GeometryNodeTree")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         rollback.callback(bpy.data.node_groups.remove, tree)
-        source, result, steps, shape = (
-            tree.interface.new_socket(label, in_out=side, socket_type=kind.bl_rna.identifier)  # type: ignore[union-attr, arg-type, attr-defined]  # ty: ignore[unresolved-attribute]
-            for label, side, kind in (("Geometry", "INPUT", bpy.types.NodeSocketGeometry), ("Geometry", "OUTPUT", bpy.types.NodeSocketGeometry), ("Steps", "INPUT", bpy.types.NodeSocketInt), ("Shape", "INPUT", bpy.types.NodeSocketMenu))
-        )
-        steps.min_value, steps.default_value = 0, 2  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        nodes: tuple[bpy.types.Node, ...] = tuple(
-            tree.nodes.new(kind.bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            for kind in (bpy.types.NodeGroupInput, bpy.types.NodeGroupOutput, bpy.types.GeometryNodeRepeatInput, bpy.types.GeometryNodeRepeatOutput, bpy.types.GeometryNodeSubdivideMesh, bpy.types.GeometryNodeMenuSwitch)
-        )
-        entry, outlet, start, stop, step, choice = nodes
-        start.pair_with_output(stop)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        for item, label in zip(choice.enum_items, ("Coarse", "Fine"), strict=True):  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        interface: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        source: bpy.types.NodeTreeInterfaceSocket = interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        result: bpy.types.NodeTreeInterfaceSocket = interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        steps: bpy.types.NodeTreeInterfaceSocketInt = interface.new_socket("Steps", in_out="INPUT", socket_type="NodeSocketInt")  # type: ignore[assignment, arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
+        shape: bpy.types.NodeTreeInterfaceSocket = interface.new_socket("Shape", in_out="INPUT", socket_type="NodeSocketMenu")  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        steps.min_value, steps.default_value = 0, 2
+        entry: bpy.types.NodeGroupInput = tree.nodes.new("NodeGroupInput")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        outlet: bpy.types.NodeGroupOutput = tree.nodes.new("NodeGroupOutput")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        start: bpy.types.GeometryNodeRepeatInput = tree.nodes.new("GeometryNodeRepeatInput")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        stop: bpy.types.GeometryNodeRepeatOutput = tree.nodes.new("GeometryNodeRepeatOutput")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        step: bpy.types.Node = tree.nodes.new("GeometryNodeSubdivideMesh")
+        choice: bpy.types.GeometryNodeMenuSwitch = tree.nodes.new("GeometryNodeMenuSwitch")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        start.pair_with_output(stop)
+        for item, label in zip(choice.enum_items, ("Coarse", "Fine"), strict=True):
             item.name = label
-        sockets: dict[tuple[bpy.types.Node, bool, str], bpy.types.NodeSocket] = {(node, socket.is_output, socket.identifier): socket for node in nodes for socket in (*node.inputs, *node.outputs)}
+        sockets: dict[tuple[bpy.types.Node, bool, str], bpy.types.NodeSocket] = {(node, socket.is_output, socket.identifier): socket for node in (entry, outlet, start, stop, step, choice) for socket in (*node.inputs, *node.outputs)}
         for head, output, tail, entering in (
             (entry, source.identifier, start, "Item_0"),
             (entry, steps.identifier, start, "Iterations"),

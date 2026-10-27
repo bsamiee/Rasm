@@ -35,7 +35,7 @@ class White(msgspec.Struct, frozen=True, kw_only=True):
 
         def solved(ucs: NDArrayFloat) -> Option[Self]:
             temperature, duv = colour.temperature.uv_to_CCT_Robertson1968(colour.UCS_to_uv(ucs)).tolist()
-            return catch(msgspec.convert, exception=msgspec.ValidationError)(msgspec.to_builtins(cls(temperature=temperature, duv=duv)), type=cls).to_option()
+            return catch(msgspec.convert, exception=msgspec.ValidationError)({"temperature": temperature, "duv": duv}, type=cls).to_option()
 
         return basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).map(
             lambda matrix: Some(colour.XYZ_to_UCS(matrix @ color)).filter(lambda ucs: float(ucs.sum()) > 0.0).bind(solved).filter(lambda white: white.temperature < cls.hottest)

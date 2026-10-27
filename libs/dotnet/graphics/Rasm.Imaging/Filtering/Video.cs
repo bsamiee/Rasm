@@ -27,19 +27,19 @@ public sealed partial class PhosphorMask {
     public static readonly PhosphorMask SlotMask = new("slot-mask", gap: 1d / 3d, columnStagger: 0.5d, rowStagger: 0d);
     public static readonly PhosphorMask ShadowMask = new("shadow-mask", gap: 1d / 3d, columnStagger: 0d, rowStagger: 0.5d);
 
-    private readonly double _gap;
-    private readonly double _columnStagger;
-    private readonly double _rowStagger;
+    private readonly double gap;
+    private readonly double columnStagger;
+    private readonly double rowStagger;
 
     public (double R, double G, double B) Coverage(long column, long row, double pitch) {
         const double third = 1d / 3d;
         double span = 1d / pitch;
-        (double u, double v, double width) = (column * span, row * span, 1d - _gap);
+        (double u, double v, double width) = (column * span, row * span, 1d - gap);
         return (Channel(0), Channel(1), Channel(2));
 
-        double Channel(int channel) => (_rowStagger is 0d
-            ? (Area(u, 2, channel, 0, third) * Area(v, 1, 0, 0, width)) + (Area(u, 2, channel, 1, third) * Area(v + _columnStagger, 1, 0, 0, width))
-            : (Area(u, 1, channel, 0, third) * Area(v, 2, 0, 0, width)) + (Area(u + _rowStagger, 1, channel, 0, third) * Area(v, 2, 0, 1, width)))
+        double Channel(int channel) => (rowStagger is 0d
+            ? (Area(u, 2, channel, 0, third) * Area(v, 1, 0, 0, width)) + (Area(u, 2, channel, 1, third) * Area(v + columnStagger, 1, 0, 0, width))
+            : (Area(u, 1, channel, 0, third) * Area(v, 2, 0, 0, width)) + (Area(u + rowStagger, 1, channel, 0, third) * Area(v, 2, 0, 1, width)))
             * 3d / (span * span * width);
 
         double Area(double t, int period, int channel, int parity, double open) {
@@ -235,7 +235,7 @@ public static class VideoKernels {
                     continue;
                 (double r, double g, double b) = lit is 0d ? (row[x].X, row[x].Y, row[x].Z)
                     : (double.Lerp(row[x].X, 1d, lit), double.Lerp(row[x].Y, 1d, lit), double.Lerp(row[x].Z, 1d, lit));
-                double shift = (dim - 1d) * ((r * luminance.R) + (g * luminance.G) + (b * luminance.B));
+                double shift = (dim - 1d) * Gamut.RelativeLuminance(r, g, b, luminance);
                 row[x] = new Vector4((float)(r + shift), (float)(g + shift), (float)(b + shift), row[x].W);
             }
         };
@@ -246,7 +246,7 @@ public static class VideoKernels {
         return (row, column, line) => {
             double y = (extent.Height - (2 * line) - 1) / 2d;
             for (int x = 0; x < row.Length; x++) {
-                if (site((((2 * (column + x)) + 1 - extent.Width) / 2d, y)).Case is not (long across, long down))
+                if (site((((2 * (column + x)) + 1 - extent.Width) / 2d, y)).ToSpan() is not [(long across, long down)])
                     continue;
                 Vector4 exponents = CoordinateHash.Uniforms(across, down, field);
                 (double yPower, double cPower) = (double.Exp2((4d * exponents.X) - 2d), double.Exp2((4d * exponents.Y) - 2d));
@@ -266,6 +266,7 @@ public static class VideoKernels {
         int height = coded.IfNone(frame.Size.Height);
         double width = double.Max(1d, Math.Round((double)frame.Size.Width * height / frame.Size.Height, MidpointRounding.ToEven));
         return from size in width > int.MaxValue ? new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"coded frame {width}x{height}"), ImagingReason.Oversize) : PixelExtent.Validated((int)width, height)
+               from counted in ImagingFault.Unless(generations >= 1, ImagingReason.Range, generations)
                let working = size == frame.Size ? frame : new PixelFrame(System.Drawing.Point.Empty, size, size, block =>
                    ImageProcessing.Resize(frame.Block, frame.Size.Width, frame.Size.Height, block, size.Width, size.Height, 4, ResizeFilter.Box, alphaChannel: 3))
                from _ in working.Mutate(source => {

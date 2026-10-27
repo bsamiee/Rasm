@@ -19,7 +19,7 @@ from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, Native, rooted, Struct, struct_at, Value
 from blender.bpy.data.rna.snapshots import Applied, Endpoints, Snapshot
 from blender.bpy.extension.events.handlers import UpdateHandler
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.attachments import Attached, Attachment, Recovery, Stored
@@ -157,7 +157,7 @@ class SettingLocks(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def bound(identity: Identity) -> Outcome[Stored["SettingLocks"]]:
         """Binds setting lock store."""
-        return identity.name(Name.ATTACHMENT, "render_setup_locks").map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(SettingLocks)))
+        return identity.identifier("render_setup_locks").map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(SettingLocks)))
 
     def locking(self, owner: bpy.types.Scene | bpy.types.ViewLayer, path: str) -> tuple[bool, Self]:
         """Answers whether owner holds the path's lock, with the locks toggling it."""
@@ -450,12 +450,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         )
         samples = accumulated(Descriptor.resolve(bpy.types.Scene, path, bpy.types.Property).map(lambda descriptor: (engine, descriptor)) for engine, (path, _) in ENGINE_SAMPLES.items())
         return paired(
-            self.record.attachment.bound(identity),
-            self.scenes.bound(identity),
-            self.layers.bound(identity),
-            selections,
-            samples,
-            identity.name(Name.ATTACHMENT, "render_set_sync").map(Recovery.endpoints),
+            self.record.attachment.bound(identity), self.scenes.bound(identity), self.layers.bound(identity), selections, samples, identity.identifier("render_set_sync").map(Recovery.endpoints)
         ).map(lambda joined: Members(identity=identity, sets=joined[0], scenes=joined[1], layers=joined[2], categories=joined[3], samples=Map.of_seq(joined[4]), recovery=joined[5]))
 
     @staticmethod
@@ -697,7 +692,7 @@ def render_setup_lock(call: Call[LockRequest]) -> Outcome[Done]:
             case _:
                 return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=OWNER),))
 
-    return paired(call.identity.name(Name.ATTACHMENT, OWNER).bind(lambda name: hosted(name, call.context)), SettingLocks.bound(call.identity)).bind(lambda parts: toggled(*parts))
+    return paired(call.identity.identifier(OWNER).bind(lambda name: hosted(name, call.context)), SettingLocks.bound(call.identity)).bind(lambda parts: toggled(*parts))
 
 
 def drawn(path: str, identity: Identity) -> Outcome[RowDraw]:
@@ -710,7 +705,7 @@ def drawn(path: str, identity: Identity) -> Outcome[RowDraw]:
 
     request = Own(command=LOCK, values={"path": path})
     return paired(
-        identity.name(Name.ATTACHMENT, OWNER),
+        identity.identifier(OWNER),
         SettingLocks.bound(identity),
         accumulated(OperatorButton(target=request, text="", icon=Some("LOCKED" if held else "UNLOCKED"), emboss=False).drawn(identity) for held in (False, True)),
     ).map(lambda parts: partial(toggle, parts[0], parts[1], dict(zip((False, True), parts[2]))))

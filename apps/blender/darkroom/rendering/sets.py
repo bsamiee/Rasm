@@ -15,7 +15,7 @@ from typing_extensions import TypeForm
 
 from blender.bpy.commands.operators import Call, Done, Operator, Own
 from blender.bpy.data.rna.descriptors import rooted, Struct
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
 from blender.bpy.render.compositor.effects import EffectName
@@ -68,7 +68,7 @@ class EffectLocks(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def bound(identity: Identity) -> Outcome[Stored["EffectLocks"]]:
         """Binds the scene entry lock store."""
-        return identity.name(Name.ATTACHMENT, "render_effect_locks").map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(EffectLocks)))
+        return identity.identifier("render_effect_locks").map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(EffectLocks)))
 
     @staticmethod
     def of(store: Stored["EffectLocks"], scene: bpy.types.Scene) -> Outcome["EffectLocks"]:
@@ -222,7 +222,7 @@ def lock_effect(call: Call[LockRequest]) -> Outcome[Done]:
             case _:
                 return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=OWNER),))
 
-    return paired(call.identity.name(Name.ATTACHMENT, OWNER).bind(lambda name: hosted(name, call.context)), EffectLocks.bound(call.identity)).bind(lambda parts: toggled(*parts))
+    return paired(call.identity.identifier(OWNER).bind(lambda name: hosted(name, call.context)), EffectLocks.bound(call.identity)).bind(lambda parts: toggled(*parts))
 
 
 def drawn(key: Key, identity: Identity) -> Outcome[RowDraw]:
@@ -238,7 +238,7 @@ def drawn(key: Key, identity: Identity) -> Outcome[RowDraw]:
 
     request = Own(command=LOCK, values={"key": key})
     return paired(
-        identity.name(Name.ATTACHMENT, OWNER),
+        identity.identifier(OWNER),
         EffectLocks.bound(identity),
         accumulated(OperatorButton(target=request, text="", icon=Some("LOCKED" if held else "UNLOCKED"), emboss=False).drawn(identity) for held in (False, True)),
     ).map(lambda parts: partial(toggle, parts[0], parts[1], dict(zip((False, True), parts[2]))))

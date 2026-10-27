@@ -1,6 +1,6 @@
 # [ETO]
 
-Eto.Forms as the host of a drawn scene: handler seams, lifecycle, threading, geometry and scale, pixel interop, input, commands and menus, layout and controls, windows and theme.
+Eto.Forms as host of a drawn scene, from handler seams to view state, windows, and theme.
 
 ## [01]-[HANDLER_SEAMS]
 
@@ -269,11 +269,17 @@ internal sealed class Drag(Control view) {
 
 One `Command` holds text, image, shortcut, and state for every menu and toolbar that shows it:
 - `Command` holds `MenuText`, `ToolBarText`, `ToolTip`, `Image`, `Shortcut`, `Enabled`, `CommandParameter`, and `Executed`, `Execute()` triggers it
+- Synchronous actions take `Command(execute)`, an async action sets `DelegatedCommand` to a CommunityToolkit `AsyncRelayCommand`
+- CommunityToolkit owns async and cancellable commands, Eto `RelayCommand(Action)` and `RelayCommand(Action, Func<bool>)` take no token
+- `DelegatedCommand` sets `Enabled` from `CanExecute` on each `CanExecuteChanged` and runs the delegated command on `Executed`
+- `AsyncRelayCommand` answers `CanExecute` false while it runs unless `AsyncRelayCommandOptions.AllowConcurrentExecutions` is set
+- Async commands run one composed `IO` through `RunSafeAsync` and match its `Fin` after the await
+- `RunSafeAsync` throws `OperationCanceledException` on cancellation, `ICommand.Execute` rethrows it unless a catch around that await converts it
+- `DelegatedCommand = null` releases the delegated command's subscriptions
 - Implicit conversions to `MenuItem` and `ToolItem` call `CreateMenuItem()` and `CreateToolItem()` on one instance
 - `Enabled` written once updates each item and `EnabledChanged` fires
 - `Shortcut` is a `Keys` chord the menu dispatches, a `KeyDown` handler matching chords by hand duplicates it
 - `CheckCommand.Checked` with `CheckedChanged` and `RadioCommand.Controller` cover toggles and groups
-- `Command.DelegatedCommand` adapts an `ICommand`, `RelayCommand(execute, canExecute)` supplies one
 - `MapPlatformCommand(systemCommand, command)` binds a platform edit command, `SupportedPlatformCommands` lists them
 - Platform edit commands are `"cut"`, `"copy"`, `"paste"`, `"selectAll"`, `"delete"`, `"undo"`, and `"redo"`
 - `MenuBar.IncludeSystemItems` (`MenuBarSystemItems.None`, `Common`, `Quit`, `All`) places platform items where each platform expects them
@@ -286,8 +292,12 @@ One `Command` holds text, image, shortcut, and state for every menu and toolbar 
 internal sealed record Chrome(MenuBar Menu, ToolBar Bar);
 
 internal static class Actions {
-    public static Command Keyed(string menuText, Keys shortcut, Action run) =>
-        new((_, _) => run()) { MenuText = menuText, Shortcut = Application.Instance.CommonModifier | shortcut };
+    public static Command Keyed(string menuText, Keys shortcut, IO<Unit> run, Action<Error> report) =>
+        new() {
+            MenuText = menuText,
+            Shortcut = Application.Instance.CommonModifier | shortcut,
+            DelegatedCommand = new AsyncRelayCommand(async () => (await run.RunSafeAsync()).IfFail(report)),
+        };
 
     public static Chrome Built(Control editor, string fileMenu, Command save, Command undo) {
         editor.MapPlatformCommand("undo", undo);
@@ -300,7 +310,7 @@ internal static class Actions {
 
 ## [08]-[LAYOUT_AND_CONTROLS]
 
-Containers lay out logical sizes, a scale flag takes remaining space, and native controls expose the state a view model binds:
+Containers lay out logical sizes, a scale flag takes remaining space, and native controls expose their state as properties:
 - `TableLayout` holds `Rows`, `Spacing`, and `Padding`
 - `TableCell(control, scaleWidth)` and `TableRow.ScaleHeight` mark growing cells, `SetColumnScale` and `SetRowScale` do so by index
 - `TableLayout.Horizontal`, `HorizontalScaled`, and `AutoSized` build one-row and one-cell tables

@@ -26,20 +26,28 @@ utils:
     error-members:
         kind: declaration_list
         inside: {kind: record_declaration, matches: languageext-error-record, has: {field: name, pattern: $RECORD}}
-    inner-error:
+    package-fact:
         kind: parameter
-        all:
-            - has: {field: name, pattern: $FACT}
-            - inside:
-                kind: parameter_list
-                inside: {kind: record_declaration, has: {kind: base_list, has: {kind: primary_constructor_base_type, has: {kind: argument_list, has: {kind: argument, has: {kind: identifier, pattern: $FACT}}}}}}
+        any:
+            - all:
+                - has: {field: name, regex: '^Index$'}
+                - has: {field: type, regex: '^Option<int>$'}
+                - inside: {kind: parameter_list, has: {kind: parameter, has: {field: name, regex: '^Reason$'}}}
+            - all:
+                - has: {field: type, regex: '^Option<Error>$'}
+                - has: {field: name, pattern: $CAUSE}
+                - inside:
+                    kind: parameter_list
+                    inside:
+                        kind: record_declaration
+                        has: {kind: base_list, has: {kind: primary_constructor_base_type, has: {kind: argument_list, has: {kind: argument, has: {kind: identifier, pattern: $CAUSE}}}}}
 rule:
     any:
         - kind: parameter
           all:
             - has: {field: type, matches: optional}
             - has: {field: name, pattern: $FACT}
-            - not: {matches: inner-error}
+            - not: {matches: package-fact}
             - inside: {kind: parameter_list, inside: {kind: record_declaration, matches: languageext-error-record, has: {field: name, pattern: $RECORD}}}
         - kind: property_declaration
           all:
@@ -50,5 +58,5 @@ rule:
           all:
             - has: {kind: variable_declaration, all: [{has: {field: type, matches: optional}}, {has: {kind: variable_declarator, has: {field: name, pattern: $FACT}}}]}
             - inside: {matches: error-members}
-message: 'Error record `$RECORD` holds optional field `$FACT`'
-note: 'Split error record into one record per case, the fact required in every case holding it'
+message: 'Error record `$RECORD` holds optional field `$FACT` other than `Option<int> Index` or a forwarded `Option<Error>` cause'
+note: 'Fold the field into `Subject` or a `Reason` item of the one package error record'

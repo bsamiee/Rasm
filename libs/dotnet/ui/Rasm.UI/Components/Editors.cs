@@ -44,10 +44,10 @@ public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Un
         Points<ColorRamp>.Listed(
             static ramp => ramp.Stops,
             static stop => new Vector2((float)stop.At, 0.5f),
-            static (stop, to) => Fraction.Present(to.X).Map(at => stop with { At = at }).IfNone(stop),
+            static (stop, to) => Fraction.Validated(to.X).Map(at => stop with { At = at }).IfFail(stop),
             static (ramp, stops) => stops.IsEmpty ? None : Some(ramp.WithStops(stops)),
             static (ramp, at) =>
-                from position in Fraction.Present(at.X)
+                from position in Fraction.Validated(at.X).ToOption()
                 from color in ramp.At(position)
                 select new Stop<SKColorF>(color, position));
 }
@@ -110,14 +110,14 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, float Value, F
                 > 1f => (soft.Domain.From, float.Min(soft.Value(2f * position), Domain.High)),
                 _ => (soft.Domain.From, soft.Domain.To),
             };
-            return position is >= 0f and <= 1f ? soft : AxisRange.Present(from, to).Map(Track).IfNone(soft);
+            return Fraction.Validated(position).Match(Succ: _ => soft, Fail: _ => AxisRange.Validated(from, to).Map(Track).IfFail(soft));
         }
     }
 
     private float Snapped(float shown) => float.Clamp(Step.Map(step => MathF.Round(shown / step, MidpointRounding.ToEven) * step).IfNone(shown), Domain.Low, Domain.High);
 
     private Seq<Node> Spanned(PlotPlane.Track plane) =>
-        AxisRange.Present(Origin.IfNone(plane.Axis.Domain.From), Value).Map(static span => (Node)new Node.Mark(new Figure.Region { First = Some(span) }) { Role = Role.Span }).ToSeq();
+        AxisRange.Validated(Origin.IfNone(plane.Axis.Domain.From), Value).ToOption().Map(static span => (Node)new Node.Mark(new Figure.Region { First = Some(span) }) { Role = Role.Span }).ToSeq();
 }
 
 public sealed record Dial(Axis.Periodic Axis, float Value, Func<Edit<float>, IO<Unit>> Edited) {

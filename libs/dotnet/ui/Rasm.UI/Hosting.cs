@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Rasm.UI.Styling;
 using SkiaSharp;
 
@@ -205,13 +206,13 @@ public sealed class SceneHost<TPixels> : IDisposable where TPixels : IDisposable
     private Fin<SceneTarget<TPixels>> Allocated(SKSizeI pixels, bool extended) =>
         extended
             ? SceneRaster.Floated(pixels) switch {
-                var info => SceneRaster.Created(info, () => SKSurface.Create(info, backend.Properties)).Map(surface => new SceneTarget<TPixels>(surface, info, None)),
+                var info => SceneRaster.Created(() => SKSurface.Create(info, backend.Properties)).Map(surface => new SceneTarget<TPixels>(surface, info, None)),
             }
             : backend.Allocated(pixels).Bind(held => Wrapped(held.Pixels, held.Pixmap));
 
     private Fin<SceneTarget<TPixels>> Wrapped(TPixels pixels, SKPixmap pixmap) {
         using (pixmap) {
-            return SceneRaster.Created(pixmap.Info, () => SKSurface.Create(pixmap.Info, pixmap.GetPixels(), pixmap.RowBytes, static (_, held) => ((IDisposable)held).Dispose(), pixels, backend.Properties))
+            return SceneRaster.Created(() => SKSurface.Create(pixmap.Info, pixmap.GetPixels(), pixmap.RowBytes, static (_, held) => ((IDisposable)held).Dispose(), pixels, backend.Properties))
                 .Map(surface => new SceneTarget<TPixels>(surface, pixmap.Info, Some(pixels)))
                 .MapFail(error => {
                     pixels.Dispose();
@@ -263,8 +264,8 @@ public static class SceneRaster {
 
     internal static SKImageInfo Floated(SKSizeI pixels) => new(pixels.Width, pixels.Height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear());
 
-    internal static Fin<SKSurface> Created(SKImageInfo info, Func<SKSurface?> created) =>
-        created() is { } made ? made : new Invalid(string.Create(CultureInfo.InvariantCulture, $"SKSurface.Create refused {info.Width}x{info.Height} {info.ColorType}"));
+    internal static Fin<SKSurface> Created(Func<SKSurface?> created, [CallerArgumentExpression(nameof(created))] string subject = "") =>
+        created() is { } made ? made : new UIFault(subject, UIReason.Refused);
 
     // --- [RASTER]
     public static Fin<SKImage> Of(DefaultStyles defaults, ColorScheme theme, Node node, SKSizeI pixels) {
@@ -277,7 +278,7 @@ public static class SceneRaster {
     private static Fin<SKImage> Painted(Mount mount, SKImageInfo info) {
         using PaintCache cache = new(info, Scaled);
         using SKRegion whole = new(SKRectI.Create(info.Width, info.Height));
-        return Created(info, () => SKSurface.Create(info, Scaled)).Bind(surface => {
+        return Created(() => SKSurface.Create(info, Scaled)).Bind(surface => {
             using SKSurface owned = surface;
             return Painter.Paint(owned.Canvas, cache, mount, whole, Duration.Zero).Map(_ => owned.Snapshot());
         });

@@ -1,24 +1,25 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace Rasm.Drafting;
 
 // --- [ERRORS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class DraftingReason {
-    public static readonly DraftingReason Stated = new("{0}");
-    public static readonly DraftingReason ScaleRatio = new("{0} is no finite positive ratio");
-    public static readonly DraftingReason RevisionLetters = new("{0} lie outside the revision alphabet or its letter count");
-    public static readonly DraftingReason RevisionOrdinal = new("{0} lies outside its revision alphabet");
-    public static readonly DraftingReason IssueDate = new("{0} is no ISO 8601 date");
-    public static readonly DraftingReason TitleMissing = new("title-block field {0} has no entry");
-    public static readonly DraftingReason TitleInvalid = new("title-block field {0} has an invalid entry");
-    public static readonly DraftingReason NameBroken = new("{0} breaks its naming standard");
-    public static readonly DraftingReason NumberTaken = new("{0} takes the number of another sheet");
+    public static readonly DraftingReason ScaleRatio = new("no finite positive ratio");
+    public static readonly DraftingReason RevisionLetters = new("letters outside the revision alphabet or its letter count");
+    public static readonly DraftingReason RevisionOrdinal = new("ordinal outside the revision alphabet");
+    public static readonly DraftingReason IssueDate = new("no ISO 8601 date");
+    public static readonly DraftingReason TitleMissing = new("title-block field without an entry");
+    public static readonly DraftingReason TitleInvalid = new("title-block field with an invalid entry");
+    public static readonly DraftingReason NameBroken = new("name outside its naming standard");
+    public static readonly DraftingReason NumberTaken = new("number another sheet holds");
 
-    public string Template { get; }
+    public string Message { get; }
 }
 
-public sealed record DraftingFault(string Subject, DraftingReason Reason, Option<Error> Inner = default)
-    : Expected(string.Format(CultureInfo.InvariantCulture, Reason.Template, Subject), 0, Inner), IValidationError<DraftingFault> {
-    public static DraftingFault Create(string message) => new(message, DraftingReason.Stated);
+public sealed record DraftingFault(string Subject, DraftingReason Reason, Option<int> Index = default, Option<Error> Inner = default)
+    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner) {
+    public static Fin<Unit> Unless<T>(bool flag, DraftingReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
+        flag ? unit : new DraftingFault($"{names} = {Convert.ToString(rejected, CultureInfo.InvariantCulture)}", reason, index);
 }

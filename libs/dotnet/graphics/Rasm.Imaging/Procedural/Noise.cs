@@ -128,12 +128,12 @@ public sealed partial class NoiseDimensions {
                 + (((h & 4u) is not 0u ? -1f : 1f) * (h < 8u ? offset.Z : offset.W)),
         });
 
-    public static float Peak => Items.Max(static lattice => lattice.Scale * lattice.SlopePeak);
+    public static float Peak => Items.Max(static lattice => lattice.Scale * SlopePeaks(lattice));
 
     internal Neighborhood Cells { get; }
     internal float Scale { get; }
     internal GaborKernel Kernel { get; }
-    private float SlopePeak => Enumerable.Range(0, 32).Max(top => Cells.Corners.Max(corner => MathF.Abs(Slope((uint)top << 27, ((2f * corner.Offset) - Vector4.One) * Cells.Live))));
+    private static readonly Func<NoiseDimensions, float> SlopePeaks = memo(static (NoiseDimensions lattice) => Enumerable.Range(0, 32).Max(top => lattice.Cells.Corners.Max(corner => MathF.Abs(lattice.Slope((uint)top << 27, ((2f * corner.Offset) - Vector4.One) * lattice.Cells.Live)))));
 
     [UseDelegateFromConstructor]
     internal partial float Slope(uint word, Vector4 offset);
@@ -196,7 +196,7 @@ public sealed partial class NoiseDimensions {
 
     public float GaborBound => GaborKernel.Impulses * Kernel.Cells.Near.Count / Kernel.Normalization;
 
-    private float GradientBound => RoundBound((double)Scale * SlopePeak, Cells.Rank + Cells.Corners.Count + 4);
+    private float GradientBound => RoundBound((double)Scale * SlopePeaks(this), Cells.Rank + Cells.Corners.Count + 4);
 
     private static float RoundBound(double magnitude, int operations) {
         double roundoff = (float.BitIncrement(1f) - 1f) / 2d;

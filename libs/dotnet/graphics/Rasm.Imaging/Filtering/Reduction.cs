@@ -7,7 +7,6 @@ using Emgu.CV;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
-using Rasm.Imaging.Tone;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Quantization;
 
@@ -16,7 +15,7 @@ namespace Rasm.Imaging.Filtering;
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SortMetric {
-    public static readonly SortMetric Luma = new("luma", static (color, weights) => LuminanceSamples.Luminance(color.X, color.Y, color.Z, weights));
+    public static readonly SortMetric Luma = new("luma", static (color, weights) => Gamut.RelativeLuminance(color.X, color.Y, color.Z, weights));
     public static readonly SortMetric Hue = new("hue", static (color, _) => RangeAxis.Hue.Coordinate(Hsy.From(color)));
     public static readonly SortMetric Saturation = new("saturation", static (color, _) => RangeAxis.Saturation.Coordinate(Hsy.From(color)));
 

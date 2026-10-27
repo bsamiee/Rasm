@@ -107,7 +107,7 @@ public abstract partial record ColorRamp {
 
     public sealed record Stepped(Seq<Stop<SKColorF>> Stops) : ColorRamp(Stops) {
         private protected override Seq<Stop<SKColorF>> Stopped =>
-            Stops.Zip(Stops.Tail.Map(static stop => stop.At).Add(Fraction.MaxValue)).Bind(static held => Seq(held.First, held.First with { At = held.Second }));
+            toSeq(Stops.AsIterable().Lead(1, static (stop, next) => Seq(stop, stop with { At = Optional(next).Map(static held => held.At).IfNone(Fraction.MaxValue) }))).Bind(static held => held);
 
         public override Option<SKColorF> At(Fraction at) => Segments.Find(segment => (float)at < (float)segment.High.At).Map(static segment => segment.Low.Color) | Last;
     }

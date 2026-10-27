@@ -173,11 +173,11 @@ public abstract partial record CoordinateMap {
         internal override void Trace(Span<(double X, double Y)> points, Span<float> coverage, PixelExtent output, PixelExtent source) => Kernel(points, coverage, source);
     }
 
-    public sealed record Sampled(PixelFrame St, Sampling Sampling, (WrapMode Across, WrapMode Down) Wrap) : CoordinateMap(Sampling, Wrap) {
+    public sealed record Sampled(PixelFrame Coordinates, Sampling Sampling, (WrapMode Across, WrapMode Down) Wrap) : CoordinateMap(Sampling, Wrap) {
         internal override void Trace(Span<(double X, double Y)> points, Span<float> coverage, PixelExtent output, PixelExtent source) {
-            (double X, double Y) = ((double)St.Extent.Width / output.Width, (double)St.Extent.Height / output.Height);
+            (double X, double Y) = ((double)Coordinates.Extent.Width / output.Width, (double)Coordinates.Extent.Height / output.Height);
             for (int i = 0; i < points.Length; i++)
-                (points[i], coverage[i]) = St.Sample((points[i].X * X, points[i].Y * Y), (WrapMode.Clamp, WrapMode.Clamp), Vector256<double>.Zero,
+                (points[i], coverage[i]) = Coordinates.Sample((points[i].X * X, points[i].Y * Y), (WrapMode.Clamp, WrapMode.Clamp), Vector256<double>.Zero,
                     static (sum, pixel, weight) => sum + (weight * Widened(pixel))) switch {
                         var read => ((read.GetElement(0) * source.Width, (1d - read.GetElement(1)) * source.Height), coverage[i] * (float)read.GetElement(3)),
                     };
@@ -190,12 +190,5 @@ public abstract partial record CoordinateMap {
             Second.Bound(points, coverage, output);
             First.Trace(points, coverage, output, source);
         }
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-internal static class Borders {
-    extension(WrapMode wrap) {
-        internal BorderType Border => wrap.Map(black: BorderType.Constant, clamp: BorderType.Replicate, periodic: BorderType.Wrap, mirror: BorderType.Reflect);
     }
 }

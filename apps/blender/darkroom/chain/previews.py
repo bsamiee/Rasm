@@ -187,12 +187,12 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
             records = self.chain.rows.row(identity, mirror.entry).map(lambda row: row.read(identity, mirror.entry).map(lambda record: (record,))).default_value(Ok(()))
             return paired(records, inputs_of(mirror.entry).bind(Snapshot.capture), fingerprinted(mirror.group)).map(lambda found: found[2].map(lambda key: (*found[0], found[1], key)))
 
-        head: Option[tuple[msgspec.Struct | ContentHash, ...]] = Some((viewed(scene), *(proxy.key for proxy in TILES.of(identity).proxy.to_list())))
+        head: Option[tuple[msgspec.Struct | ContentHash, ...]] = Some((viewed(scene), *(proxy.key for proxy in identity.held[TILES].proxy.to_list())))
         return accumulated(map(captured, self.mirrors(identity, scene))).map(lambda values: reduce(lambda held, part: held.map2(lambda prior, current: (*prior, *current), part), values, head))
 
     def rendered(self, identity: Identity, record: Previewed, side: int, *, scene: bpy.types.Scene) -> Outcome[npt.NDArray[np.float32]]:
         """Renders a record over the render proxy fitted to side, the source's updates during the render marked as its own."""
-        lighting, proxy = Lighting(), TILES.of(identity).proxy
+        lighting, proxy = Lighting(), identity.held[TILES].proxy
 
         def staged(head: Option[npt.NDArray[np.float32]]) -> Outcome[npt.NDArray[np.float32]]:
             staging = paired(self.stacked(identity, scene, record, head), lighting.environment).map(
@@ -217,12 +217,12 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
     def icon(identity: Identity, slot: str, record: Previewed, scale: Option[float] = Nothing) -> Option[int]:
         """Records the slot demand at its scale, Blender's preview render size by default, and returns the published slot icon."""
         request = Wanted(record=record, scale=scale.default_with(lambda: bpy.app.render_preview_size / Metrics.read().unit))
-        TILES.of(identity).requested(slot, request)
-        return PREVIEWS.of(identity).icon_id(slot)
+        identity.held[TILES].requested(slot, request)
+        return identity.held[PREVIEWS].icon_id(slot)
 
     def jobs(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Returns a job per stale slot from one config and entry read."""
-        state, previews = TILES.of(identity), PREVIEWS.of(identity)
+        state, previews = identity.held[TILES], identity.held[PREVIEWS]
 
         def requests(scene: bpy.types.Scene, parts: Option[tuple[msgspec.Struct | ContentHash, ...]], config: PyOpenColorIO.Config) -> tuple[Job, ...]:
             cache = config.getCacheID()
@@ -256,7 +256,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
 
             def stored(plane: npt.NDArray[np.float32], framing: Framing, proxy: npt.NDArray[np.float32]) -> Option[str]:
                 fitted_camera = scaled(framing, plane.shape[:2], proxy.shape[:2])
-                TILES.of(identity).proxy = Some(Proxied(plane=proxy, framing=fitted_camera, key=content_hash(Proxied, fitted_camera, arrays=(proxy,))))
+                identity.held[TILES].proxy = Some(Proxied(plane=proxy, framing=fitted_camera, key=content_hash(Proxied, fitted_camera, arrays=(proxy,))))
                 return Nothing
 
             return paired(rooted(bpy.types.ViewLayer, bpy.context).bind(lambda layer: combined(path, Some(layer.name))).map(lambda read: read[1]), camera).bind(
@@ -264,8 +264,8 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def invalidated(scene: bpy.types.Scene, _updates: tuple[bpy.types.DepsgraphUpdate, ...] = ()) -> Outcome[None]:
-            if scene.session_uid not in INTERMEDIATES.of(identity):
-                TILES.of(identity).demands.clear()
+            if scene.session_uid not in identity.held[INTERMEDIATES]:
+                identity.held[TILES].demands.clear()
             return Ok(None)
 
         return Ok((

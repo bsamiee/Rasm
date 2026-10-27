@@ -20,12 +20,12 @@ public sealed record ExrLayout {
 
     public static ExrLayout Coordinates { get; } = new(PixelType.Float, ExrCompression.Zip, None);
 
-    public static Seq<OutputDepth> Depths => OutputDepth.Where(Table);
+    public static Seq<OutputDepth> Depths => OutputDepth.Where(ExrDepth);
 
     public static Fin<ExrLayout> From(OutputDepth depth, ExrCompression compression, Gamut gamut) =>
-        OutputDepth.Sampled("EXR", depth, Table).Map(sample => new ExrLayout(sample, compression, Some(gamut)));
+        OutputDepth.Sampled(depth, ExrDepth).Map(sample => new ExrLayout(sample, compression, Some(gamut)));
 
-    internal static Option<PixelType> Table(OutputDepth depth) =>
+    internal static Option<PixelType> ExrDepth(OutputDepth depth) =>
         depth.Map<Option<PixelType>>(uInt8: None, uInt10: None, uInt12: None, uInt14: None, uInt16: None, float16: PixelType.Half, float32: PixelType.Float);
 }
 
@@ -91,7 +91,7 @@ internal sealed record ExrLayer(PassKind Kind, PixelFrame Source, Action<ReadOnl
 public sealed partial class NormalSpace {
     public static readonly NormalSpace World = new(static (convention, _) => Fin.Succ(convention.Axes));
     public static readonly NormalSpace View = new(static (convention, camera) =>
-        camera.ToFin(new ImagingFault("view-space normals", ImagingReason.Uncamera)).Map(held => {
+        camera.ToFin(new ImagingFault("view-space normals", ImagingReason.CameraRequired)).Map(held => {
             Quaternion toView = Quaternion.Conjugate(held.Orientation);
             return (Func<Vector3, Vector3>)(normal => convention.Screen(Vector3.Transform(normal, toView)));
         }));
@@ -150,7 +150,7 @@ public abstract partial record ExrPass {
 
     public sealed record Position(PixelFrame Distance) : ExrPass {
         internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
-            camera.ToFin(new ImagingFault("position pass", ImagingReason.Uncamera)).Map(held => Seq(new ExrLayer(PassKind.Xyz, Distance, (source, first, part) => {
+            camera.ToFin(new ImagingFault("position pass", ImagingReason.CameraRequired)).Map(held => Seq(new ExrLayer(PassKind.Xyz, Distance, (source, first, part) => {
                 for (int x = 0; x < source.Length; x++)
                     part[x] = new Vector4(convention.Axes(held.WorldPoint((first.X + x + 0.5d, first.Y + 0.5d), source[x].X)), 1f);
             }) { Name = convention.Position }));
@@ -212,26 +212,38 @@ public sealed record PassSet {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ExrParts {
-    internal static IO<Unit> Write(StillFormat.ExrRaster exr, FileMetadata metadata, Stream stream) {
-        static Seq<ChannelBuffer> Buffers(ExrLayout layout, ExrLayer layer) {
-            (int width, int height, int channels) = (layer.Source.Size.Width, layer.Source.Size.Height, layer.Kind.Channels.Count);
-            float[] source = new float[width * height * channels];
-            Span2D<float> lines = new(source, height, width * channels);
-            using SpanOwner<Vector4> row = SpanOwner<Vector4>.Allocate(width);
-            for (int y = 0; y < height; y++) {
-                layer.Row(layer.Source.View.Span.GetRowSpan(y), (layer.Source.Origin.X, (long)layer.Source.Origin.Y + y), row.Span);
-                layer.Kind.Associate(row.Span);
-                MemoryMarshal.Cast<Vector4, float>(row.Span).AsSpan2D(width, 4).Slice(0, 0, width, channels).CopyTo(lines.GetRowSpan(y));
-            }
-            return toSeq(PartConversion.FromInterleavedFloat(source, width, height, channels, layer.Kind.Sample(layout), Compression.None).Levels[0].Channels)
-                .Zip(layer.Kind.Channels)
-                .Map(pair => new ChannelBuffer(layer.Name.Match(Some: name => $"{name}.{pair.Second}", None: () => pair.Second), pair.First.PixelType, pair.First.Data))
-                .Strict();
-        }
+    private static readonly WriterOptions Options = new(new WriterLimits(
+        maximumParts: int.MaxValue, maximumChannelsPerPart: int.MaxValue, maximumAttributesPerPart: int.MaxValue,
+        maximumHeaderByteCount: System.Array.MaxLength, maximumBlocksPerPart: int.MaxValue, maximumTotalBlocks: long.MaxValue,
+        maximumOffsetTableByteCount: System.Array.MaxLength, maximumDimension: long.MaxValue,
+        maximumUncompressedBlockByteCount: System.Array.MaxLength, maximumEncodedBlockByteCount: System.Array.MaxLength,
+        maximumDeepSampleCount: long.MaxValue));
 
-        static Fin<Part> Part(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes, Option<string> name, (long Left, long Top, long Right, long Bottom) window, Seq<ExrLayer> layers) {
-            if (window.Right - 1L > int.MaxValue || window.Bottom - 1L > int.MaxValue)
-                return new ImagingFault($"EXR window {window}", ImagingReason.Oversize);
+    internal static IO<Unit> Write(StillFormat.ExrRaster exr, FileMetadata metadata, Stream stream) =>
+        from image in IO.lift(() => Parts(exr, metadata.Exr(exr.Layout.Gamut)).Map(static parts => new Image(parts)))
+        from token in cancelToken
+        from result in IO.liftVAsync(() => ExrFile.SaveToStreamAsync(image, stream, Options, token))
+        from _ in IO.lift(result.IsSuccess ? Fin.Succ(unit) : new ImagingFault($"EXR write with {result.Status}", ImagingReason.Refused, Inner: Optional(result.Error).Map(Error.New)))
+        select unit;
+
+    private static Seq<ChannelBuffer> Buffers(ExrLayout layout, ExrLayer layer) {
+        (int width, int height, int channels) = (layer.Source.Size.Width, layer.Source.Size.Height, layer.Kind.Channels.Count);
+        float[] source = new float[width * height * channels];
+        Span2D<float> lines = new(source, height, width * channels);
+        using SpanOwner<Vector4> row = SpanOwner<Vector4>.Allocate(width);
+        for (int y = 0; y < height; y++) {
+            layer.Row(layer.Source.View.Span.GetRowSpan(y), (layer.Source.Origin.X, (long)layer.Source.Origin.Y + y), row.Span);
+            layer.Kind.Associate(row.Span);
+            MemoryMarshal.Cast<Vector4, float>(row.Span).AsSpan2D(width, 4).Slice(0, 0, width, channels).CopyTo(lines.GetRowSpan(y));
+        }
+        return toSeq(PartConversion.FromInterleavedFloat(source, width, height, channels, layer.Kind.Sample(layout), Compression.None).Levels[0].Channels)
+            .Zip(layer.Kind.Channels)
+            .Map(pair => new ChannelBuffer(layer.Name.Match(Some: name => $"{name}.{pair.Second}", None: () => pair.Second), pair.First.PixelType, pair.First.Data))
+            .Strict();
+    }
+
+    private static Fin<Part> Part(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes, Option<string> name, (long Left, long Top, long Right, long Bottom) window, Seq<ExrLayer> layers) =>
+        ImagingFault.Unless(window.Right - 1L <= int.MaxValue && window.Bottom - 1L <= int.MaxValue, ImagingReason.Oversize, window).Map(_ => {
             Seq<ChannelBuffer> buffers = layers.Bind(layer => Buffers(exr.Layout, layer)).Strict();
             Header header = new(
                 PartType.Scanline,
@@ -243,27 +255,14 @@ internal static class ExrParts {
                 chromaticities: exr.Layout.Gamut.Map(static gamut => gamut.Chromaticities).ToNullable(),
                 attributes: attributes);
             return new Part(header, [new FlatLevel(0, 0, header.DataWindow, buffers)], isComplete: true);
-        }
+        });
 
-        static Fin<Seq<Part>> Parts(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes) {
-            PassKind beauty = exr.Alpha ? PassKind.Rgba : PassKind.Rgb;
-            Seq<Fin<Part>> parts = exr.Passes.Match(
-                Some: set => set.Layout.Grouped(new ExrLayer(beauty, exr.Beauty, ExrLayer.Held) { Name = set.Convention.Beauty }.Cons(set.Layers), exr.Beauty)
-                    .Map(group => Part(exr, attributes, group.Name, group.Window, group.Layers)),
-                None: () => Seq(Part(exr, attributes, None, exr.Beauty.Window, Seq(new ExrLayer(beauty, exr.Beauty, ExrLayer.Held)))));
-            return parts.Traverse(static part => part).As();
-        }
-
-        WriterOptions options = new(new WriterLimits(
-            maximumParts: int.MaxValue, maximumChannelsPerPart: int.MaxValue, maximumAttributesPerPart: int.MaxValue,
-            maximumHeaderByteCount: System.Array.MaxLength, maximumBlocksPerPart: int.MaxValue, maximumTotalBlocks: long.MaxValue,
-            maximumOffsetTableByteCount: System.Array.MaxLength, maximumDimension: long.MaxValue,
-            maximumUncompressedBlockByteCount: System.Array.MaxLength, maximumEncodedBlockByteCount: System.Array.MaxLength,
-            maximumDeepSampleCount: long.MaxValue));
-        return from image in IO.lift(() => Parts(exr, metadata.Exr(exr.Layout.Gamut)).Map(static parts => new Image(parts)))
-               from token in cancelToken
-               from result in IO.liftVAsync(() => ExrFile.SaveToStreamAsync(image, stream, options, token))
-               from _ in IO.lift(result.IsSuccess ? Fin.Succ(unit) : new ImagingFault($"EXR write with {result.Status}", ImagingReason.Refused, Optional(result.Error).Map(Error.New)))
-               select unit;
+    private static Fin<Seq<Part>> Parts(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes) {
+        PassKind beauty = exr.Alpha ? PassKind.Rgba : PassKind.Rgb;
+        return exr.Passes.Match(
+            Some: set => set.Layout.Grouped(new ExrLayer(beauty, exr.Beauty, ExrLayer.Held) { Name = set.Convention.Beauty }.Cons(set.Layers), exr.Beauty)
+                .Map(group => Part(exr, attributes, group.Name, group.Window, group.Layers)),
+            None: () => Seq(Part(exr, attributes, None, exr.Beauty.Window, Seq(new ExrLayer(beauty, exr.Beauty, ExrLayer.Held)))))
+            .Traverse(static part => part).As();
     }
 }

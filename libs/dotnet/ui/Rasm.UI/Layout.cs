@@ -15,7 +15,7 @@ internal static class Layouts {
         };
 
     internal static Fin<Laid> Unique(Laid laid, HashMap<Seq<Key>, Laid> prior) =>
-        Repeated(laid, prior).Head.Match<Fin<Laid>>(Some: static path => new Invalid($"sibling key /{string.Join('/', path.Map(static key => key.Identifier))} repeats"), None: () => laid);
+        Repeated(laid, prior).Head.Match<Fin<Laid>>(Some: static path => new UIFault(string.Join('/', path.Map(static key => key.Identifier)), UIReason.Repeated), None: () => laid);
 
     internal static SKSize Preferred(Laid laid, SKSize offered, HashMap<Seq<Key>, float> adjusted, Shaping shaping) =>
         Placed(new Pass([], adjusted, shaping), laid, PhysicalAxis.Horizontal, 0f, float.Min(Basis(laid, PhysicalAxis.Horizontal, offered.Width), offered.Width)) switch {
@@ -68,7 +68,7 @@ internal static class Layouts {
         node.Aspect | node.SwitchPartially(
             @default: static _ => Option<Factor>.None,
             plot: static plot => plot.Plane.Aspect,
-            image: static image => Factor.Present(image.Source.Width / (float)image.Source.Height));
+            image: static image => Factor.Validated(image.Source.Width / (float)image.Source.Height).ToOption());
 
     private static Seq<Laid> Panes(Laid owner) => owner.Children.Filter(static child => !IsHandle(child));
 

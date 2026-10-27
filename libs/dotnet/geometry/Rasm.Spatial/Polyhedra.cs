@@ -31,18 +31,14 @@ public sealed partial class PointGroup {
             };
 }
 
-[ComplexValueObject]
-[ValidationError<SpatialFault>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class Hull {
     public Seq<Vector3D<double>> Points { get; }
     public Seq<Seq<int>> Facets { get; }
 
-    public static Fin<Hull> Validated(Seq<Vector3D<double>> points, Seq<Seq<int>> facets) => TryCreate(points, facets, out Hull? hull, out SpatialFault? fault) ? hull : fault;
-    static partial void ValidateFactoryArguments(ref SpatialFault? validationError, ref Seq<Vector3D<double>> points, ref Seq<Seq<int>> facets) =>
-        validationError = points.Count switch {
-            var count => facets.Map((facet, index) => (Rule: facet.Count < 3 ? SpatialRule.Count : SpatialRule.Range, Held: facet.Count >= 3 && facet.ForAll(at => at >= 0 && at < count), Index: index))
-                .Find(static facet => !facet.Held).Map(static facet => new SpatialFault("hull facet", facet.Rule, facet.Index)).ValueUnsafe(),
-        };
+    public static Fin<Hull> Validated(Seq<Vector3D<double>> points, Seq<Seq<int>> facets) =>
+        facets.Map((facet, index) => SpatialFault.Unless(facet.Count >= 3, SpatialRule.Count, facet.Count, index).Bind(_ => SpatialFault.Unless(facet.ForAll(at => at >= 0 && at < points.Count), SpatialRule.Range, facet, index)))
+            .Traverse(static held => held).As().Map(_ => new Hull(points, facets));
 
     public Fin<Seq<Vector3D<double>>> Poles(Vector3D<double> centre, double tolerance) =>
         Matrix<double>.Build.DenseOfRowArrays(Points.Map(static point => new[] { point.X, point.Y, point.Z })) switch {
@@ -54,11 +50,11 @@ public sealed partial class Hull {
     private static Fin<Vector3D<double>> Pole(Matrix<double> facet, Vector<double> inside, Vector<double> centre, double tolerance, int index) =>
         from middle in Fin.Succ(facet.ColumnSums() / facet.RowCount)
         let fit = facet.MapIndexed((_, column, value) => value - middle[column]).Svd(computeVectors: true)
-        from planar in SpatialFault.Unless(fit.S[1] > tolerance, SpatialRule.Degenerate, index)
+        from planar in SpatialFault.Unless(fit.S[1] > tolerance, SpatialRule.Degenerate, fit.S[1], index)
         let normal = fit.VT.Row(2)
         let outward = normal * Math.Sign(normal.DotProduct(middle - inside))
         let distance = outward.DotProduct(middle - centre)
-        from clear in SpatialFault.Unless(distance > tolerance, SpatialRule.Range, index)
+        from clear in SpatialFault.Unless(distance > tolerance, SpatialRule.Range, distance, index)
         let pole = centre + (outward / distance)
         select new Vector3D<double>(pole[0], pole[1], pole[2]);
 }

@@ -1,174 +1,91 @@
-using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Threading.Channels;
 using Rhino;
 
-namespace Rasm.Rhino.Events;
+namespace Rasm.RhinoCommon.Events;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public record HostEvent<TArgs>(Type Owner, string Member, Func<Func<TArgs, IO<Unit>>, CallbackSite, Action<IDisposable>, IO<Unit>> Attach) {
-    public IO<Unit> Inline(Func<TArgs, IO<Unit>> deliver, IPlugInSink sink, Action<IDisposable> retain) =>
-        IO.pure(Site(sink)).Bind(site => Attach(deliver, site, retain));
+public record HostEvent<TArgs>(string Label, Func<Func<TArgs, IO<Unit>>, object, IO<Unit>> Attach) {
+    public IO<Unit> Inline(Func<TArgs, IO<Unit>> deliver, object owner) => Attach(deliver, owner);
 
-    public IO<Unit> Through(Func<CallbackSite, Action<IDisposable>, IO<Func<TArgs, IO<Unit>>>> mailbox, IPlugInSink sink, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-            from site in IO.pure(Site(sink))
-            from post in mailbox(site, owned)
-            from attached in Attach(post, site, owned)
-            select unit, retain);
+    public IO<Unit> Through(Func<object, IO<Func<TArgs, IO<Unit>>>> mailbox, object owner) => mailbox(owner).Bind(post => Attach(post, owner));
 
     public HostEvent<TValue> Choose<TValue>(Func<TArgs, Option<TValue>> choose) =>
-        new(Owner, Member, (deliver, site, retain) => Attach(args => IO.lift(() => choose(args)).Bind(chosen => chosen.Match(deliver, static () => IO.pure(unit))), site, retain));
+        new(Label, (deliver, owner) => Attach(args => IO.lift(() => choose(args)).Bind(chosen => chosen.Match(deliver, static () => IO.pure(unit))), owner));
 
-    public HostEvent<TArgs> DistinctUntilChanged<TKey, TMark>(Func<TArgs, (TKey Key, TMark Mark)> mark) where TKey : notnull =>
-        new(Owner, Member, (deliver, site, retain) =>
+    public HostEvent<TArgs> DistinctUntilChanged<TKey, TMark>(Func<TArgs, TKey> key, Func<TArgs, TMark> mark) where TKey : notnull =>
+        new(Label, (deliver, owner) =>
             from marks in IO.lift(static () => Ref(HashMap<TKey, TMark>()))
             from attached in Attach(
                 args =>
-                    from raised in IO.lift(() => mark(args))
                     from repeat in atomicIO(() => {
                         HashMap<TKey, TMark> seen = marks.Value;
-                        marks.Value = seen.AddOrUpdate(raised.Key, raised.Mark);
-                        return seen.Find(raised.Key) == Some(raised.Mark);
+                        TKey raised = key(args);
+                        TMark marked = mark(args);
+                        marks.Value = seen.AddOrUpdate(raised, marked);
+                        return seen.Find(raised) == Some(marked);
                     })
                     from delivered in unless(repeat, deliver(args)).As()
                     select unit,
-                site, retain)
+                owner)
             select attached);
-
-    private CallbackSite Site(IPlugInSink sink) => new(sink, Owner, Member);
 }
 
-public sealed record DocumentEvent<TArgs>(Type Owner, string Member, Func<Func<TArgs, IO<Unit>>, CallbackSite, Action<IDisposable>, IO<Unit>> Attach, Func<TArgs, Option<uint>> DocumentSerial)
-    : HostEvent<TArgs>(Owner, Member, Attach) {
-    public DocumentEvent(HostEvent<TArgs> row, Func<TArgs, Option<uint>> documentSerial) : this(row.Owner, row.Member, row.Attach, documentSerial) { }
-
-    public HostEvent<TArgs> In(uint serial) => Choose(args => Callbacks.Found(DocumentSerial(args) == Some(serial), args));
-}
-
-public readonly record struct JournalEntry<TKey, TValue>(Option<TKey> Partition, BigInteger Ordinal, Instant At, TValue Value);
-
-public sealed record JournalSnapshot<TKey, TValue>(Seq<JournalEntry<TKey, TValue>> Rows, BigInteger Observed, BigInteger QueueDropped, BigInteger Refused, BigInteger RetentionDropped, Option<Error> Failure) {
-    internal JournalSnapshot<TKey, TValue> Append((Option<TKey> Partition, Instant At, TValue Value) entry, uint retainedPerPartition) {
-        Seq<JournalEntry<TKey, TValue>> partition = Rows.Filter(row => row.Partition == entry.Partition).Strict();
-        JournalEntry<TKey, TValue> recorded = new(entry.Partition, Observed + 1, entry.At, entry.Value);
-        bool full = partition.Count >= retainedPerPartition;
-        return this with {
-            Observed = recorded.Ordinal,
-            Rows = retainedPerPartition == 0 ? Rows
-                : (full ? Rows.Filter(row => row.Ordinal != partition[0].Ordinal) : Rows).Add(recorded).Strict(),
-            RetentionDropped = RetentionDropped + (full ? 1 : 0),
-        };
-    }
-}
-
-// --- [SERVICES] ------------------------------------------------------------------------
-public sealed class EventJournal<TKey, TValue> : IDisposable {
-    // --- [STATE]
-    private readonly Atom<JournalSnapshot<TKey, TValue>> state;
-    private readonly Channel<(Option<TKey> Partition, Instant At, TValue Value)> channel;
-    private readonly ForkIO<Unit> worker;
-
-    private EventJournal(Atom<JournalSnapshot<TKey, TValue>> state, Channel<(Option<TKey> Partition, Instant At, TValue Value)> channel, ForkIO<Unit> worker) =>
-        (this.state, this.channel, this.worker) = (state, channel, worker);
-
-    public JournalSnapshot<TKey, TValue> Snapshot => state.Value;
-
-    // --- [OPEN]
-    public static IO<EventJournal<TKey, TValue>> Open(BoundedChannelOptions queue, uint retainedPerPartition, CallbackSite site, Action<IDisposable> retain) =>
-        (from state in atomIO(new JournalSnapshot<TKey, TValue>([], 0, 0, 0, 0, None))
-         from channel in IO.lift(() => Channel.CreateBounded<(Option<TKey> Partition, Instant At, TValue Value)>(
-             queue, _ => state.Swap(static held => held with { QueueDropped = held.QueueDropped + 1 })))
-         from journal in DisposalOps.OnFailure(
-             from worker in Source.lift(channel)
-             .ReduceIO(unit, (_, entry) => state.SwapIO(held => held.Append(entry, retainedPerPartition)).Map(static _ => Reduced.Continue(unit)))
-             .Catch(error => state.SwapIO(held => held with { Failure = Some(error) })
-                 .Bind(_ => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member))))
-             .Finally(IO.lift(() => channel.Writer.TryComplete()).Map(unit))
-             .As()
-             .Fork()
-             from created in DisposalOps.Acquire(IO.lift(() => new EventJournal<TKey, TValue>(state, channel, worker)), retain)
-             select created,
-             IO.lift(() => channel.Writer.TryComplete()).Map(unit))
-         select journal).Uninterruptible();
-
-    // --- [RECORD]
-    public IO<Unit> Post((Option<TKey> Partition, Instant At, TValue Value) entry) =>
-        IO.lift(() => channel.Writer.TryWrite(entry)).Bind(written => unless(written,
-            state.SwapIO(static held => held with { Refused = held.Refused + 1 }).Bind(static _ => IO.fail<Unit>(Errors.SinkFull))).As()).Uninterruptible();
-
-    // --- [CLOSE]
-    public IO<JournalSnapshot<TKey, TValue>> Close() =>
-        IO.lift(() => channel.Writer.TryComplete()).Bind(_ => worker.Await).Bind(_ => state.ValueIO).Uninterruptible();
-
-    public void Dispose() => _ = Callbacks.Settled(Close(), CancellationToken.None).ThrowIfFail();
+public sealed record DocumentEvent<TArgs>(string Label, Func<Func<TArgs, IO<Unit>>, object, IO<Unit>> Attach, Func<TArgs, Option<uint>> Serial)
+    : HostEvent<TArgs>(Label, Attach) {
+    public HostEvent<TArgs> In(uint serial) => Choose(args => Conversions.Found(Serial(args) == Some(serial), args));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Subscriptions {
-    // --- [ATTACH]
-    public static IO<Unit> Attach<THandler>(Action<THandler> add, Action<THandler> remove, THandler handler, Action<IDisposable> retain) where THandler : Delegate =>
-        DisposalOps.Acquire(IO.lift(() => add(handler)), _ => IO.lift(() => remove(handler)), retain);
+    // --- [ROWS]
+    public static HostEvent<TArgs> Host<TArgs>(Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, [CallerArgumentExpression(nameof(add))] string label = "") =>
+        Host<EventHandler<TArgs>, TArgs>(add, remove, static handler => handler, label);
+
+    public static HostEvent<TArgs> Host<THandler, TArgs>(
+        Action<THandler> add, Action<THandler> remove, Func<EventHandler<TArgs>, THandler> adapt, [CallerArgumentExpression(nameof(add))] string label = "")
+        where THandler : Delegate =>
+        new(label, (deliver, owner) => Attached(add, remove, adapt((_, args) => owner.Start(IO.pure(args).Bind(deliver), label))));
+
+    public static HostEvent<TArgs> During<TArgs>(Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, [CallerArgumentExpression(nameof(add))] string label = "") =>
+        During<EventHandler<TArgs>, TArgs>(add, remove, static handler => handler, label);
+
+    public static HostEvent<TArgs> During<THandler, TArgs>(
+        Action<THandler> add, Action<THandler> remove, Func<EventHandler<TArgs>, THandler> adapt, [CallerArgumentExpression(nameof(add))] string label = "")
+        where THandler : Delegate =>
+        new(label, (deliver, owner) => Attached(add, remove, adapt((_, args) => owner.Run(IO.pure(args).Bind(deliver), label))));
+
+    public static HostEvent<TArgs> Watched<TArgs>(Action<EventWatcher, EventHandler<TArgs>> add, [CallerArgumentExpression(nameof(add))] string label = "") =>
+        new(label, (deliver, owner) =>
+            from watcher in use(static () => new EventWatcher(includeHeadlessDocuments: true))
+            from added in IO.lift(() => add(watcher, (_, args) => owner.Start(IO.pure(args).Bind(deliver), label)))
+            select unit);
+
+    public static HostEvent<TValue> Changed<TValue>(Atom<TValue> cell, [CallerArgumentExpression(nameof(cell))] string label = "") =>
+        Host<AtomChangedEvent<TValue>, TValue>(handler => cell.Change += handler, handler => cell.Change -= handler, static handler => value => handler(sender: null, value), label);
+
+    public static HostEvent<TValue> Changed<TValue>(Ref<TValue> cell, [CallerArgumentExpression(nameof(cell))] string label = "") =>
+        Host<AtomChangedEvent<TValue>, TValue>(handler => cell.Change += handler, handler => cell.Change -= handler, static handler => value => handler(sender: null, value), label);
+
+    public static HostEvent<TArgs> Merged<TArgs>(params Seq<HostEvent<TArgs>> rows) =>
+        new(string.Join(" | ", rows.Map(static row => row.Label)), (deliver, owner) => rows.TraverseM(row => row.Inline(deliver, owner)).As().Map(unit));
 
     public static IO<TResult> Detached<THandler, TResult>(Action<THandler> add, Action<THandler> remove, THandler handler, IO<TResult> effect) where THandler : Delegate =>
-        DisposalOps.Within(fun(() => remove(handler)), _ => effect, _ => IO.lift(() => add(handler)));
+        IO.lift(() => remove(handler)) >> effect.Finally(IO.lift(() => add(handler)));
 
-    // --- [ROWS]
-    public static HostEvent<TArgs> Host<THandler, TArgs>(Type owner, Action<THandler> add, Action<THandler> remove, Func<EventHandler<TArgs>, THandler> adapt, [CallerMemberName] string member = "")
-        where THandler : Delegate =>
-        new(owner, member, (deliver, site, retain) => Attach(add, remove, adapt(Callbacks.Handler(deliver, site)), retain));
+    private static IO<Unit> Attached<THandler>(Action<THandler> add, Action<THandler> remove, THandler handler) where THandler : Delegate =>
+        use(() => {
+            add(handler);
+            return handler;
+        }, remove).Map(unit);
 
-    public static HostEvent<TArgs> Host<TArgs>(Type owner, Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, [CallerMemberName] string member = "") =>
-        Host<EventHandler<TArgs>, TArgs>(owner, add, remove, static handler => handler, member);
+    // --- [DOCUMENTS]
+    extension<TArgs>(HostEvent<TArgs> row) where TArgs : DocumentEventArgs {
+        public DocumentEvent<TArgs> Documents() => new(row.Label, row.Attach, static args => Conversions.Present(args.DocumentSerialNumber));
+    }
 
-    public static DocumentEvent<TArgs> Host<TArgs>(Type owner, Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, Func<TArgs, Option<uint>> documentSerial, [CallerMemberName] string member = "") =>
-        new(Host(owner, add, remove, member), documentSerial);
+    extension<TArgs>(HostEvent<TArgs> row) {
+        public DocumentEvent<TArgs> Documents(Func<TArgs, uint> serial) => new(row.Label, row.Attach, args => Conversions.Present(serial(args)));
 
-    public static HostEvent<TArgs> Host<TArgs>(Type owner, Func<Seq<HostEvent<TArgs>>> sources, [CallerMemberName] string member = "") =>
-        new(owner, member, (deliver, site, retain) =>
-            DisposalOps.Acquire(owned => IO.lift(sources)
-                .Bind(rows => rows.TraverseM(row => row.Inline(deliver, site.Sink, owned)).As()).Map(unit), retain));
-
-    public static HostEvent<TArgs> During<THandler, TArgs>(Type owner, Action<THandler> add, Action<THandler> remove, Func<EventHandler<TArgs>, THandler> adapt, [CallerMemberName] string member = "")
-        where THandler : Delegate =>
-        new(owner, member, (deliver, site, retain) => Attach(add, remove, adapt(Callbacks.Synchronous(deliver, site)), retain));
-
-    public static HostEvent<TArgs> During<TArgs>(Type owner, Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, [CallerMemberName] string member = "") =>
-        During<EventHandler<TArgs>, TArgs>(owner, add, remove, static handler => handler, member);
-
-    public static DocumentEvent<TArgs> During<TArgs>(Type owner, Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, Func<TArgs, Option<uint>> documentSerial, [CallerMemberName] string member = "") =>
-        new(During(owner, add, remove, member), documentSerial);
-
-    public static HostEvent<TValue> Changed<TValue>(Atom<TValue> atom, [CallerMemberName] string member = "") =>
-        Host<AtomChangedEvent<TValue>, TValue>(typeof(Atom<TValue>), handler => atom.Change += handler, handler => atom.Change -= handler, static handler => value => handler(sender: null, value), member);
-
-    public static HostEvent<TValue> Changed<TValue>(Ref<TValue> cell, [CallerMemberName] string member = "") =>
-        Host<AtomChangedEvent<TValue>, TValue>(typeof(Ref<TValue>), handler => cell.Change += handler, handler => cell.Change -= handler, static handler => value => handler(sender: null, value), member);
-
-    public static DocumentEvent<TArgs> Watched<TArgs>(Action<EventWatcher, EventHandler<TArgs>> add, Func<TArgs, Option<uint>> documentSerial, [CallerMemberName] string member = "") =>
-        new(typeof(EventWatcher), member, (deliver, site, retain) =>
-            DisposalOps.Acquire(owned =>
-                from watcher in DisposalOps.Acquire(IO.lift(static () => new EventWatcher(includeHeadlessDocuments: true)), owned)
-                from added in IO.lift(() => add(watcher, Callbacks.Handler(deliver, site)))
-                select unit, retain), documentSerial);
-
-    // --- [MAILBOXES]
-    public static Func<CallbackSite, Action<IDisposable>, IO<Func<(TKey Key, TValue Value), IO<Unit>>>> Idle<TKey, TValue>(Func<HashMap<TKey, TValue>, IO<Unit>> drain) =>
-        (site, retain) =>
-            from pending in IO.lift(static () => Ref(HashMap<TKey, TValue>()))
-            from idle in Attach<EventHandler>(static handler => RhinoApp.Idle += handler, static handler => RhinoApp.Idle -= handler, Callbacks.Handler<EventArgs>(
-                _ => atomicIO(() => {
-                    HashMap<TKey, TValue> taken = pending.Value;
-                    pending.Value = [];
-                    return taken;
-                }).Bind(taken => unless(taken.IsEmpty, drain(taken)).As()), site).Invoke, retain)
-            select fun(((TKey Key, TValue Value) entry) => atomicIO(() => pending.Swap(held => held.AddOrUpdate(entry.Key, entry.Value))).Map(unit));
-
-    public static IO<Func<TItem, IO<Unit>>> Queued<TItem>(Buffer<TItem> buffer, Func<TItem, IO<Unit>> consume, Func<Error, IO<Unit>> failed, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-            from conduit in DisposalOps.Acquire(IO.lift(() => Conduit.make(buffer)), static open => open.Complete(), owned)
-            from forked in conduit.Reduce(unit, (_, item) => IO.pure(item).Bind(consume).Catch(failed).As().Map(Reduced.Continue))
-                .Finally(conduit.Complete()).Fork()
-            select fun((TItem item) => conduit.Post(item) | @catch(Errors.SinkFull, IO.pure(unit))),
-            retain).Uninterruptible();
+        public DocumentEvent<TArgs> Documents(Func<TArgs, RhinoDoc?> document) => new(row.Label, row.Attach, args => Conversions.Serial(document(args)));
+    }
 }

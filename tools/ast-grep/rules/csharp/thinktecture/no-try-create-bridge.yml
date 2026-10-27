@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-try-create-bridge
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+rule:
+    kind: invocation_expression
+    all:
+        - any:
+            - has: {field: function, kind: identifier, regex: '^TryCreate$'}
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^TryCreate$'}
+                    - has: {field: expression, pattern: $TYPE, not: {regex: '^(System\.)?Uri$'}}
+        - inside:
+            kind: conditional_expression
+            field: condition
+            stopBy: {not: {kind: 'binary_expression, parenthesized_expression, prefix_unary_expression'}}
+        - not:
+            any:
+                - all:
+                    - has: {field: function, kind: identifier}
+                    - inside: {stopBy: end, kind: method_declaration, has: {field: name, regex: '^Validated$'}}
+                - matches: {csharp-owner-body: {type: {pattern: $TYPE}, member: {regex: '^Validated$'}}}
+message: '`TryCreate` result converted outside its type''s own `Validated`'
+note: 'Call `X.Validated(...)`, with `.ToOption()` where absence is the meaning'

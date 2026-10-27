@@ -32,7 +32,6 @@ from blender.bpy.ui.layout.rows import Line, OperatorButton, RowDraw
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.layout.values import Hosted, Store
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
-from blender.records.fields import Case, NonNegative
 from blender.records.trees import Retention
 from blender.rendering.lighting.solar import Daylight, LocalTime, Polar, Site, SolarDay, Study, SunPaths, SunPosition
 
@@ -51,7 +50,7 @@ _TIMINGS: Final = (("MOMENT", "Moment", "Single sun moment"), ("DAY", "Day", "Mo
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Moment(Case, frozen=True, kw_only=True):
+class Moment(msgspec.Struct, frozen=True, kw_only=True):
     """Single sun moment."""
 
     start: LocalTime = LocalTime()
@@ -59,14 +58,6 @@ class Moment(Case, frozen=True, kw_only=True):
     def moments(self, zone: zoneinfo.ZoneInfo) -> Outcome[tuple[datetime.datetime, ...]]:
         """Returns the one moment on the zone clock."""
         return Ok((self.start.moment(zone),))
-
-
-class Paths(msgspec.Struct, frozen=True, kw_only=True):
-    """Sun path objects and analemma tube radius."""
-
-    surface: bool = True
-    analemmas: bool = True
-    bevel: NonNegative = 0.0254
 
 
 class SunSetup(bpy.types.PropertyGroup):
@@ -245,12 +236,7 @@ def positions(site: Site, timing: Timing, *, refraction: bool) -> Outcome[SunPos
     Returns:
         One position per frame, apparent with refraction on, or calendar fault.
     """
-    return (
-        timing
-        .moments(site.clock)
-        .map(lambda sequence: SunPosition.at(site, np.array([moment.timestamp() for moment in sequence], dtype=np.float64)))
-        .map(lambda position: position.apparent() if refraction else position)
-    )
+    return timing.moments(site.clock).map(lambda moments: SunPosition.at(site, np.array([moment.timestamp() for moment in moments]))).map(lambda found: found.apparent() if refraction else found)
 
 
 def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Context) -> Outcome[bpy.types.Object]:
@@ -301,12 +287,12 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
         return followers(tree, identity).map(lambda nodes: tuple((tree, node) for node in nodes))
 
     def placed(setup: SunSetup, site: Site, timing: Timing) -> Outcome[bpy.types.Object]:
-        paths = Some(Paths(surface=setup.surface, analemmas=setup.analemmas, bevel=setup.bevel)).filter(lambda _: setup.use_paths)
+        paths = Some(setup).filter(lambda held: held.use_paths)
         return positions(site, timing, refraction=setup.refraction).bind(
             lambda position: (
                 dropped(scene, identity)
                 .bind(lambda _: paired(SunLight.sun.made(identity, built, of=Some(scene), scope=Some(rollback)), _tree(scene).map(followed).default_value(Ok(()))))
-                .bind(lambda pair: keyed(setup, timing, position, *pair).bind(lambda _: drawn(site, timing.start.date.year, setup.distance, paths, scene, identity)).map(lambda _: pair[0]))
+                .bind(lambda pair: keyed(setup, timing, position, *pair).bind(lambda _: drawn(site, timing.start.date.year, paths, scene, identity)).map(lambda _: pair[0]))
             )
         )
 
@@ -314,14 +300,13 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
         return committed(SunLight.attachment.read(identity, scene).bind(lambda setup: sited(setup).bind(lambda held: placed(setup, *held))), rollback)
 
 
-def drawn(site: Site, year: int, distance: float, paths: Option[Paths], scene: bpy.types.Scene, identity: Identity) -> Outcome[tuple[bpy.types.Object, ...]]:
+def drawn(site: Site, year: int, paths: Option[SunSetup], scene: bpy.types.Scene, identity: Identity) -> Outcome[tuple[bpy.types.Object, ...]]:
     """Builds shown path objects, removing the others.
 
     Args:
         site: Observer location the paths trace.
         year: Year the paths trace.
-        distance: Path distance from origin.
-        paths: Path objects to show, `Nothing` showing none.
+        paths: Setup of the path objects to show and their distance from origin, `Nothing` showing none.
         scene: Scene holding path objects.
         identity: Identity marking path objects.
 
@@ -342,12 +327,15 @@ def drawn(site: Site, year: int, distance: float, paths: Option[Paths], scene: b
         return tuple(run for loop in loops for run in split(loop))
 
     geometry = paired(
-        Descriptor.quantized(VERTEX.prop, traced.surface.reshape(-1, 3) * distance).map(Some) if paths.filter(lambda shown: shown.surface).is_some() else Ok(Nothing),
-        accumulated(Descriptor.quantized(_SPLINE_POINT.prop, np.hstack((run, np.ones((len(run), 1))))).map(lambda points: (points, cyclic)) for run, cyclic in runs(traced.analemmas * distance)).map(
-            Some
+        paths.filter(lambda shown: shown.surface).map(lambda shown: Descriptor.quantized(VERTEX.prop, traced.surface.reshape(-1, 3) * shown.distance).map(Some)).default_value(Ok(Nothing)),
+        paths
+        .filter(lambda shown: shown.analemmas)
+        .map(
+            lambda shown: accumulated(
+                Descriptor.quantized(_SPLINE_POINT.prop, np.hstack((run, np.ones((len(run), 1))))).map(lambda points: (points, cyclic)) for run, cyclic in runs(traced.analemmas * shown.distance)
+            ).map(Some)
         )
-        if paths.filter(lambda shown: shown.analemmas).is_some()
-        else Ok(Nothing),
+        .default_value(Ok(Nothing)),
     )
 
     def curved(curve: bpy.types.Curve, loops: tuple[tuple[npt.NDArray[np.float32], bool], ...]) -> Outcome[None]:
@@ -504,7 +492,6 @@ sun_zone_command: Operator[Zoned] = Operator(form=Zoned, invoke=Some(InvokePopup
 __all__ = [
     "ZONES",
     "Moment",
-    "Paths",
     "SolarCaption",
     "SunLight",
     "SunSetup",

@@ -20,7 +20,7 @@ from blender.bpy.data.rna.animation import Animation, Driven, Keys
 from blender.bpy.data.rna.conditions import check, Condition
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import Changes, made, reconciled
@@ -335,7 +335,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True, kw_only=True):
 
     def stored(self, identity: Identity) -> Outcome[Stored[Entry[R]]]:
         """Entry record codec on the entry's group."""
-        return identity.name(Name.ATTACHMENT, Shell.entry).map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(GenericAlias(Entry, (self.record,)))))
+        return identity.identifier(Shell.entry).map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(GenericAlias(Entry, (self.record,)))))
 
     # --- [ENTRIES]
 

@@ -28,7 +28,7 @@ from blender.bpy.data.rna.descriptors import assigned, Descriptor, root_in, root
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
 from blender.bpy.extension.events.subscriptions import Subscription
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import Changes, owned, reconciled
@@ -1144,7 +1144,7 @@ class LayerStacks[M: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
 
     def bound(self, identity: Identity) -> Outcome[LayerStacking[M]]:
         """Binds the stack store, view attachment, pass flags, and framing of an extension."""
-        store = identity.name(Name.ATTACHMENT, OWNERSHIP.key).map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(self.form)))
+        store = identity.identifier(OWNERSHIP.key).map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(self.form)))
         return paired(store, self.layered.bound(identity), VIEW.bound(identity), PassFlags.of(), framing(identity)).map(
             lambda parts: LayerStacking(identity=identity, stacks=self, store=parts[0], layer_rows=parts[1], view=parts[2], flags=parts[3], framing=parts[4])
         )

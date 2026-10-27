@@ -11,7 +11,7 @@ Covers `bpy` code that sets render settings, view layers, compositor effects, ou
 - Use `blender-coding-nodes` for node trees
 
 [REFERENCES]:
-- [01]-[FILES](references/files.md): Written render files, from multilayer parts and cryptomatte to File Output files, metadata, and reads
+- [01]-[FILES](references/files.md): Render files, from multilayer parts and cryptomatte to File Output and metadata, and OpenImageIO reads and writes
 
 ## [01]-[SETTINGS]
 
@@ -36,48 +36,62 @@ Chain writes follow host rules:
 - View writes keep an offered look, else take its namesake after ` - ` (`AgX - Punchy` to `False Color - Punchy`, `AgX - High Contrast` to Filmic `High Contrast`)
 - Restores write governing members before governed ones, a governing write resetting members restored before it
 
-Records declaring every governed member in chain order write and restore a format in one scope that yields members the host kept, a nested record reaching a nested struct:
+Records declaring every governed member write them in chain order, and one scope restores the prior record and yields members the host kept:
 
 ```python
 from collections.abc import Generator
 from contextlib import ExitStack, contextmanager
-from functools import partial
+from typing import Literal, Self, TYPE_CHECKING
 
 import bpy
+from expression import Nothing, Option, Result, Some
+from expression.extra.result import catch
 import msgspec
 
-
-class Colorspace(msgspec.Struct, frozen=True, omit_defaults=True):
-    name: str = ""
+if TYPE_CHECKING:
+    from bpy.stub_internal import rna_enums
 
 
 class FileFormat(msgspec.Struct, frozen=True, kw_only=True):
-    media_type: str
-    file_format: str
-    color_mode: str
-    color_depth: str
-    views_format: str
-    linear_colorspace_settings: Colorspace
+    media_type: Literal["IMAGE", "MULTI_LAYER_IMAGE", "VIDEO"]
+    file_format: "rna_enums.ImageTypeAllItems"
+    color_mode: "rna_enums.ImageColorModeItems"
+    color_depth: "rna_enums.ImageColorDepthItems"
+    views_format: "rna_enums.ViewsFormatMultiviewItems"
+    linear_space: Option[str] = Nothing
 
+    @classmethod
+    def of(cls, settings: bpy.types.ImageFormatSettings) -> Self:
+        linear: bpy.types.ColorManagedInputColorspaceSettings = settings.linear_colorspace_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        return cls(
+            media_type=settings.media_type,
+            file_format=settings.file_format,
+            color_mode=settings.color_mode,
+            color_depth=settings.color_depth,
+            views_format=settings.views_format,
+            linear_space=Some(linear.name).filter(bool),
+        )
 
-def imprinted(owner: Struct, record: msgspec.Struct) -> BlenderResult[None]:
-    def placed(field: msgspec.structs.FieldInfo) -> BlenderResult[None]:
-        value = getattr(record, field.name)
-        return imprinted(getattr(owner, field.name), value) if isinstance(value, msgspec.Struct) else written(owner, (field.name,), value).map(lambda _: None)
-
-    return accumulated(placed(field) for field in msgspec.structs.fields(record)).map(lambda _: None)
+    def applied(self, settings: bpy.types.ImageFormatSettings) -> Self:
+        linear: bpy.types.ColorManagedInputColorspaceSettings = settings.linear_colorspace_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        settings.media_type = self.media_type
+        settings.file_format = self.file_format
+        settings.color_mode = self.color_mode
+        settings.color_depth = self.color_depth
+        settings.views_format = self.views_format
+        for space in self.linear_space.to_list():
+            linear.name = space  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        return self.of(settings)
 
 
 @contextmanager
-def formatted(settings: bpy.types.ImageFormatSettings, output: FileFormat) -> Generator[BlenderResult[FileFormat]]:
-    held = partial(msgspec.convert, settings, FileFormat, from_attributes=True)
-    prior = held()
+def formatted(settings: bpy.types.ImageFormatSettings, output: FileFormat) -> Generator[Result[FileFormat, TypeError]]:
     with ExitStack() as restore:
-        restore.callback(imprinted, settings, prior)
-        yield imprinted(settings, output).map(lambda _: held())
+        restore.callback(FileFormat.of(settings).applied, settings)
+        yield catch(output.applied, exception=TypeError)(settings)
 ```
 
-`Colorspace` defaults its name to `""`, keeping an unset linear space out of the restore.
+Restores keep a linear space name the scope wrote, `linear_space` reading `Nothing` while the name reads `""`.
 
 Render settings follow host rules:
 - Extensions store render state on the `Scene`, ID property writes on nested settings (`RenderSettings`, `ImageFormatSettings`, `ColorManagedViewSettings`, `ColorManagedDisplaySettings`, `SceneEEVEE`) raising `TypeError`
@@ -183,20 +197,6 @@ Light linking on an emitter names `obj.light_linking.receiver_collection` and `b
 - Stock groups with `allow_usage_in_scene_compositor_effect` set are effects (`Bloom`, `Vignette`, `Film Grain`), the rest helpers for use inside a tree (`Retime`, `Rounded Square Mask`)
 - Scripted groups run as effects without the flag
 
-`reuse_local_id=True` takes the local copy of a loaded group in place of a `.001` duplicate, and an absent name loads as `None`:
-
-```python
-from pathlib import Path
-
-import bpy
-
-
-def stocked(name: str) -> BlenderResult[bpy.types.CompositorNodeTree]:
-    return blocks_loaded(Path(bpy.utils.system_resource("DATAFILES", path="assets/nodes"), "compositing_nodes_essentials.blend"), bpy.types.CompositorNodeTree, (name,), reuse_local_id=True).bind(
-        lambda groups: required(next((group for group in groups if group.allow_usage_in_scene_compositor_effect), None), groups, "allow_usage_in_scene_compositor_effect")
-    )
-```
-
 `CompositorNodeOutputFile` nodes in an effect group write their own files during a render:
 - `directory` starts as a copy of the scene's `render.filepath` and names a folder (`<dir>/r_` writing into `<dir>/r_/`)
 - Nodes start with `file_name` at `{blend_name}`, `format` at `OPEN_EXR_MULTILAYER` 32-bit with codec `NONE`, and no items
@@ -249,6 +249,7 @@ Render calls name files from `render.filepath`, PNG output at frame 1, video und
 Output names follow host rules:
 - Video names take container extension and scene `frame_start` to `frame_end` whatever the call's range
 - `render.filepath` and File Output paths resolve templates (`{blend_name}`, `{scene_name}`, `{camera_name}`, `{resolution_x}`, `{fps}`), `{blend_name}` reading `Unsaved` in an unsaved file
+- Text joined into a template path doubles its braces (`{{`), a lone brace raising `RuntimeError` at `frame_path` and render, and template values expand as stored
 - Animation names match `render.frame_path(frame=...)`, which expands templates `bpy.path.abspath` leaves in braces
 - Stills keep `#` runs in `render.filepath` literal
 - `use_file_extension` swaps a known extension of another format (`a.jpg` written as `a.png`), and off it writes no extension
@@ -308,19 +309,21 @@ Colors in code follow the working space and config names:
 - Colors written in code (socket defaults, light colors) are scene-linear in the working space, `COLOR_GAMMA` members (theme colors) sRGB-encoded
 - `mathutils.Color` converts through `from_srgb_to_scene_linear()` and `from_scene_linear_to_<space>()` (`srgb`, `aces`, `acescg`, `rec709_linear`, `rec2020_linear`, `xyz_d65`) with no display, view, or look
 - Colorspace writes take config names (`Linear Rec.709`, `Non-Color`), and `Linear` or `Raw` raise `TypeError`
-- `colorspace_settings.interop_id` and `bpy.data.colorspace.working_space_interop_id` name spaces across configs (`lin_rec709_scene`, `data` for `Non-Color`)
+- `colorspace_settings.interop_id`, `bpy.data.colorspace.working_space_interop_id`, and OCIO `ColorSpace.getInteropID()` name spaces across configs (`lin_rec709_scene`, `data` for `Non-Color`)
 - `DisplayViewTransform(src=<working space>, display=..., view=...)` processors reproduce a display write at look `None`, an `ExposureContrastTransform` before them adding `exposure`
 - `CompositorNodeConvertColorSpace` converts by space name or interop id inside a tree, `CompositorNodeConvertToDisplay` applying its own `view_settings` and `display_settings`
 
-Display encodings of a premultiplied buffer divide alpha out of a copy, run one CPU processor over it, and multiply alpha back, an unknown display or view returning a fault:
+Display encodings of a premultiplied buffer divide alpha out of a copy, run one CPU processor over it, and multiply alpha back, an unknown display or view answering its `PyOpenColorIO.Exception`:
 
 ```python
+from expression import Result
+from expression.extra.result import catch
 import numpy as np
 from numpy.typing import NDArray
 import PyOpenColorIO
 
 
-def displayed(config: PyOpenColorIO.Config, working: str, pixels: NDArray[np.float32], display: str, view: str) -> BlenderResult[NDArray[np.float32]]:
+def displayed(config: PyOpenColorIO.Config, working: str, pixels: NDArray[np.float32], display: str, view: str) -> Result[NDArray[np.float32], PyOpenColorIO.Exception]:
     def encoded(processor: PyOpenColorIO.Processor) -> NDArray[np.float32]:
         buffer, alpha = np.array(pixels, np.float32, order="C"), pixels[..., 3:]
         np.divide(buffer[..., :3], alpha, out=buffer[..., :3], where=alpha > 0)
@@ -328,38 +331,35 @@ def displayed(config: PyOpenColorIO.Config, working: str, pixels: NDArray[np.flo
         np.multiply(buffer[..., :3], alpha, out=buffer[..., :3], where=alpha > 0)
         return buffer
 
-    return host(config.getProcessor, PyOpenColorIO.DisplayViewTransform(src=working, display=display, view=view)).map(encoded)
+    return catch(config.getProcessor, exception=PyOpenColorIO.Exception)(PyOpenColorIO.DisplayViewTransform(src=working, display=display, view=view)).map(encoded)
 ```
 
-`PyOpenColorIO.Baker` bakes a display, view, and look into LUT text, `PyOpenColorIO.Baker.getFormats()` listing format and extension pairs:
+`PyOpenColorIO.Baker(config=, format=, inputSpace=, looks=, cubeSize=)` bakes the display and view `setDisplayView` names into LUT text through `bake()`, `Baker.getFormats()` listing format and extension pairs:
 - Bakes leave out `view_settings.exposure`, `gamma`, white balance, and `curve_mapping`
 - Cubes from a log input space (`ACEScct`) cover HDR input, a linear input space covering 0 to 1 alone
 - Bakes take `""` for the look `None`, and an unknown display, view, look, or space raises `PyOpenColorIO.Exception`
 
-Bakes and linear EXR exports return host refusals as values, exports writing through a scratch scene under `OVERRIDE` with the image keeping its source and tag:
+Linear EXR exports write a `FileFormat` through a scratch scene under `OVERRIDE`, the image keeping its source and tag:
 
 ```python
 from contextlib import ExitStack
 
 import bpy
-import PyOpenColorIO
+from expression import Error, Result, Some
+from expression.extra.result import catch
 
 
-def baked(config: PyOpenColorIO.Config, display: str, view: str, look: str, size: int) -> BlenderResult[str]:
-    baker = PyOpenColorIO.Baker(config=config, format="resolve_cube", inputSpace="ACEScct", targetSpace="", looks="" if look == "None" else look, cubeSize=size)
-    baker.setDisplayView(display, view)
-    return host(baker.bake)
-
-
-def exported(image: bpy.types.Image, path: str, space: str) -> BlenderResult[str]:
+def exported(image: bpy.types.Image, path: str, space: str) -> Result[str, TypeError | RuntimeError]:
+    output: FileFormat = FileFormat(media_type="IMAGE", file_format="OPEN_EXR", color_mode="RGBA", color_depth="32", views_format="INDIVIDUAL", linear_space=Some(space))
     with ExitStack() as scope:
-        scene = bpy.data.scenes.new(".export")
+        scene: bpy.types.Scene = bpy.data.scenes.new(".export")
         scope.callback(bpy.data.scenes.remove, scene)
-        return (
-            imprinted(scene.render.image_settings, Format(file_format="OPEN_EXR", color_depth="32", color_management="OVERRIDE", linear_colorspace_settings=Colorspace(name=space)))
-            .bind(lambda _: host(image.save_render, path, scene=scene))
-            .map(lambda _: path)
-        )
+        scene.render.image_settings.color_management = "OVERRIDE"
+        match catch(output.applied, exception=TypeError)(scene.render.image_settings):
+            case Result(tag="ok"):
+                return catch(image.save_render, exception=RuntimeError)(path, scene=scene).map(lambda _: path)
+            case Result(error=error):
+                return Error(error)
 ```
 
 ## [06]-[SEQUENCER]

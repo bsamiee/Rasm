@@ -48,7 +48,7 @@ class IconSet:
     @classmethod
     def loaded(cls, identity: Identity) -> Self:
         """Loads every staged glyph image into the extension's preview collection at full size."""
-        collection = PREVIEWS.of(identity).collection
+        collection = identity.held[PREVIEWS].collection
 
         def source(entry: Traversable) -> tuple[Path, tuple[npt.NDArray[np.float32], Option[Color]]]:
             glyph = Path(entry.name).with_suffix(".svg")
@@ -96,7 +96,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 
         def reinked() -> Outcome[Option[str]]:
             """Writes changed tints, redrawing when one changed."""
-            return redrawn() if ICONS.of(identity).reinked(self.tint) else Ok(Nothing)
+            return redrawn() if identity.held[ICONS].reinked(self.tint) else Ok(Nothing)
 
         def scheduled() -> Outcome[None]:
             """Schedules tint write on theme color change."""
@@ -107,7 +107,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
         def inked() -> Generator[Outcome[None]]:
             """Inks glyphs and records the brand icon, holding the deferred tint writer for the scope."""
             nonlocal later
-            icons = ICONS.of(identity)
+            icons = identity.held[ICONS]
             with identity.reports.deferred(reinked) as later:
                 icons.reinked(self.tint)
                 branded: Outcome[Option[int]] = self.brand.map(lambda glyph: icons.icon(identity, glyph).map(Some)).default_value(Ok(Nothing))

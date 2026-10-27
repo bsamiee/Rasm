@@ -6,6 +6,7 @@
 
     <ItemGroup Label="Core">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="SuperLinq" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 

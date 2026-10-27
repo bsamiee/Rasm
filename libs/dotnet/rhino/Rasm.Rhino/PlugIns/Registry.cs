@@ -1,8 +1,8 @@
-using Rasm.Rhino.Document.Files;
+using Rasm.RhinoCommon.Document.Files;
 using Rhino.PlugIns;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.Rhino.PlugIns;
+namespace Rasm.RhinoCommon.PlugIns;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PlugInState(
@@ -44,13 +44,13 @@ public static class PlugInRegistry {
         IO.lift(static () => toSeq(PlugIn.GetInstalledPlugIns().Keys))
             .Bind(static ids => ids.Map<K<IO, PlugInState>>(static id => IO.lift(() => Installed(id).Map(RegistryMapper.ToState))).PartitionFallible().As());
 
-    private static Fin<PlugInInfo> Installed(Guid id) => Optional(PlugIn.GetPlugInInfo(id)).ToFin(new NotFound("installed plug-in", $"{id}"));
+    private static Fin<PlugInInfo> Installed(Guid id) => Optional(PlugIn.GetPlugInInfo(id)).ToFin(new RhinoFault(id.ToString(), RhinoReason.Missing));
 
     // --- [LOADS]
     public static IO<Guid> LoadPlugIn(InputPath path) =>
         IO.lift(Fin<Guid> () => PlugIn.LoadPlugIn(path, out Guid loaded) switch {
             LoadPlugInResult.Success or LoadPlugInResult.SuccessAlreadyLoaded => loaded,
-            var result => new FileRefused(path, FileReason.Unreadable, Error.New($"{nameof(PlugIn.LoadPlugIn)} returned {result}")),
+            var result => new RhinoFault(path, RhinoReason.Unreadable, Inner: Error.New(result.ToString())),
         });
 
     public static IO<Unit> LoadPlugIns(Seq<Guid> ids) =>
@@ -58,8 +58,8 @@ public static class PlugInRegistry {
 
     private static Fin<Unit> LoadInstalled(Guid id) =>
         from info in Installed(id)
-        from _ in guard(Exchange.LoadSilently(info), Error.New($"plug-in {id} is disabled"))
-        from __ in guard(info.IsLoaded || PlugIn.LoadPlugIn(id), Error.New($"plug-in {id} failed to load"))
+        from _ in guard<Error>(Exchange.LoadSilently(info), new RhinoFault(id.ToString(), RhinoReason.Disabled))
+        from __ in RhinoFault.Unless(info.IsLoaded || PlugIn.LoadPlugIn(id))
         select unit;
 
     // --- [PROTECTION]
@@ -67,7 +67,7 @@ public static class PlugInRegistry {
         IO.lift(() =>
                 from info in Installed(id)
                 let changed = Exchange.LoadSilently(info) != loadSilently
-                from _ in guard(!changed || !info.IsLoaded, Error.New($"load protection change needs unloaded plug-in {id}"))
+                from _ in guard<Error>(!changed || !info.IsLoaded, new RhinoFault(id.ToString(), RhinoReason.Loaded))
                 select changed)
             .Bind(changed => when(changed, IO.lift(() => PlugIn.SetLoadProtection(id, loadSilently))).As());
 }

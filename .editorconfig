@@ -178,6 +178,7 @@ dotnet_diagnostic.MA0235.severity = error
 dotnet_diagnostic.MA0236.severity = error
 dotnet_diagnostic.MA0237.severity = error
 dotnet_diagnostic.MA0238.severity = error
+MA0185.treat_opaque_runtime_types_as_culture_sensitive = true
 
 # --- [ROSLYNATOR_ANALYZERS] -------------------------------------------------------------
 dotnet_diagnostic.RCS1002.severity = error

@@ -16,7 +16,7 @@ from blender.imaging.color import observer
 from blender.imaging.color.processors import matching
 from blender.imaging.geometry.lenses import Aperture
 from blender.records.faults import Outcome
-from blender.records.fields import NonNegative, Positive, Seed
+from blender.records.fields import NonNegative, Seed
 from blender.records.identity import content_hash, rng
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
     squeeze: Annotated[float, msgspec.Meta(ge=1.0, le=2.0)] = 1.0
     core: NonNegative = 0.002
 
-    def kernel(self, config: PyOpenColorIO.Config, size: tuple[int, int], frame: tuple[int, int], pixel_aspect: Positive) -> Outcome[Option[npt.NDArray[np.float32]]]:
+    def kernel(self, config: PyOpenColorIO.Config, size: tuple[int, int], frame: tuple[int, int], pixel_aspect: float) -> Outcome[Option[npt.NDArray[np.float32]]]:
         """Returns spectral diffraction weights over every displacement of the stored `size` frame, `frame` the camera extent at stored pixel scale.
 
         Returns:
@@ -53,8 +53,9 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
                 first = float((-(extent - 1) * frequency) % 1)
                 offsets = np.arange(-(extent - 1), extent, dtype=np.float64)
                 phase = np.remainder(offsets * step + 0.5, 1.0) - 0.5
-                footprint = (
-                    np.sinc(offsets * float(frequency)) if frequency <= 1 else np.divide(np.sinc(phase) * phase * float(1 / frequency), offsets, out=np.ones_like(offsets), where=offsets != 0.0)
+                footprint = np.asarray(
+                    np.sinc(offsets * float(frequency)) if frequency <= 1 else np.divide(np.sinc(phase) * phase * float(1 / frequency), offsets, out=np.ones_like(offsets), where=offsets != 0.0),
+                    dtype=np.float64,
                 )
                 return ZoomFFT(side, (first, first + count * step), m=count, fs=1.0), footprint
 
@@ -63,7 +64,7 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
                 horizontal, xfootprint = axis(size[1], frequency * aspect)
                 vertical, yfootprint = axis(size[0], frequency)
                 power = abs(vertical(horizontal(pupil, axis=1), axis=0) * yfootprint[:, None] * xfootprint[None, :]) ** 2
-                return power / power.sum()
+                return np.asarray(power / power.sum(), dtype=np.float64)
 
             return sum((np.multiply.outer(spread(wavelength), weight) for wavelength, weight in zip(rows[:, 0].flat, weights)), start=np.zeros(shape, dtype=np.float64)).astype(np.float32)
 
@@ -84,7 +85,7 @@ class Specks(msgspec.Struct, frozen=True, kw_only=True):
         noise = rng(content_hash(Specks), self.seed).standard_normal((height, width), dtype=np.float32)
         smudge = np.fft.irfft2(np.fft.rfft2(noise) / np.hypot(frequency, 1.0 / (self.scale * max(size))), s=(height, width), axes=(-2, -1))
         floor = np.quantile(smudge, 1.0 - self.coverage)
-        return np.clip((smudge - floor) / (smudge.max() - floor), 0.0, 1.0)[: size[0], : size[1]].astype(np.float32)
+        return np.asarray(np.clip((smudge - floor) / (smudge.max() - floor), 0.0, 1.0)[: size[0], : size[1]], dtype=np.float32)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

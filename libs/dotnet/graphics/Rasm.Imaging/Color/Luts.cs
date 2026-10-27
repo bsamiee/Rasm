@@ -11,15 +11,11 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<ImagingFault>]
+[ValueObject<int>(SkipFactoryMethods = true, ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 public sealed partial class CurveLength {
-    public static CurveLength ResolveShaper { get; } = new(65_536);
+    public static CurveLength UInt16Codes { get; } = new(ushort.MaxValue + 1);
 
-    public static Fin<CurveLength> Validated(int value) => TryCreate(value, out CurveLength? length, out ImagingFault? fault) ? length : fault;
-
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int value) =>
-        validationError = value is >= 2 and <= 300_000 ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"curve length {value} in [2, 300000]"), ImagingReason.Range);
+    public static Fin<CurveLength> Validated(int value) => ImagingFault.Unless(value is >= 2 and <= 300_000, ImagingReason.Range, value).Map(_ => new CurveLength(value));
 }
 
 public sealed class Lut1D {
@@ -68,7 +64,7 @@ public sealed class InverseLut1D {
     public Lut1D Forward { get; }
 
     public static Fin<InverseLut1D> From(Lut1D forward) =>
-        toSeq(Range(0, 3)).Traverse(channel => Monotonic(forward.Channel(channel)).ToFin(new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"non-monotonic LUT channel {channel}"), ImagingReason.Uninvertible))).As()
+        toSeq(Range(0, 3)).Traverse(channel => Monotonic(forward.Channel(channel)).ToFin(new ImagingFault("non-monotonic LUT channel", ImagingReason.NoInverse, channel))).As()
             .Map(ranges => new InverseLut1D(forward, ranges));
 
     public void Apply(Span<Vector4> row) {
@@ -235,7 +231,7 @@ public abstract partial record LutTable {
             Span<float> components = MemoryMarshal.Cast<Vector4, float>(row);
             Lattice.Apply(components, components, 4, Interpolation);
         }
-        public override Fin<LutTable> Inverse() => new ImagingFault("3D lattice step", ImagingReason.Uninvertible);
+        public override Fin<LutTable> Inverse() => new ImagingFault("3D lattice step", ImagingReason.NoInverse);
     }
 
     public sealed record ChannelCurve(Lut1D Table) : LutTable {
@@ -266,7 +262,7 @@ public abstract partial record LutTable {
         }
         public override Fin<LutTable> Inverse() =>
             Matrix.LU() switch {
-                var factorization when factorization.U.Diagonal().Contains(0d) => new ImagingFault("singular affine step", ImagingReason.Uninvertible),
+                var factorization when factorization.U.Diagonal().Contains(0d) => new ImagingFault("singular affine step", ImagingReason.NoInverse),
                 var factorization => factorization.Inverse() switch {
                     var inverse => inverse.Multiply(new DenseVector([Offset.X, Offset.Y, Offset.Z])) switch {
                         var offset => new Affine(inverse, (-offset[0], -offset[1], -offset[2])),
@@ -279,7 +275,7 @@ public abstract partial record LutTable {
         public override void Apply(Span<Vector4> row) {
             foreach (ref Vector4 pixel in row) pixel = new Vector4(Bounds.Apply(pixel.AsVector3()), pixel.W);
         }
-        public override Fin<LutTable> Inverse() => Bounds.Inverse().Map(static bounds => (LutTable)new Remap(bounds)).ToFin(new ImagingFault("constant remap step", ImagingReason.Uninvertible));
+        public override Fin<LutTable> Inverse() => Bounds.Inverse().Map(static bounds => (LutTable)new Remap(bounds)).ToFin(new ImagingFault("constant remap step", ImagingReason.NoInverse));
     }
 
     public sealed record Log(LogCurve Curve) : LutTable {
@@ -360,7 +356,7 @@ public static class LutTables {
     extension(Lut3D) {
         public static Fin<Lut3D> From(int size, ReadOnlyMemory<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
             Sampled(samples.Span, domainMinimum, domainMaximum).Bind(_ => Try.lift(() => new Lut3D(size, samples.Span, domainMinimum, domainMaximum)).Run()
-                .MapFail(cause => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT lattice of size {size}"), ImagingReason.Refused, cause)));
+                .MapFail(cause => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT lattice of size {size}"), ImagingReason.Refused, Inner: cause)));
     }
 
     internal static ColorMatrix3x3 Baked(Matrix<double> matrix) =>

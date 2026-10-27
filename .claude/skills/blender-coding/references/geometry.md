@@ -4,9 +4,9 @@ Covers evaluated reads, BMesh, mesh attributes, buffer paths and costs, and anim
 
 ## [01]-[EVALUATED_READS]
 
-Evaluated reads go through `blender.bpy.data.ids.evaluation` and follow host evaluation rules:
-- `evaluated(view_layer)` updates the layer and returns its depsgraph, or an edit fault while evaluation runs
-- `hit(obj, depsgraph, origin, distance, direction)` runs an object-space ray cast along `Some(direction)`, a nearest-surface query for `Nothing`, and returns `BlenderResult[Option[Hit]]`, `Hit.face` indexing the evaluated mesh
+Evaluated reads follow host evaluation rules:
+- `view_layer.update()` evaluates the layer, raising `RuntimeError` while evaluation runs
+- `obj.ray_cast(origin, direction, distance=, depsgraph=)` casts in object space and `obj.closest_point_on_mesh(origin, distance=, depsgraph=)` finds the nearest surface, face indices addressing the evaluated mesh
 - `Scene.ray_cast(depsgraph, origin, direction)` works in world space
 - `BMesh.from_object(obj, depsgraph)` and `BVHTree.FromObject(obj, depsgraph)` read the evaluated mesh
 - `obj.evaluated_get(depsgraph).evaluated_geometry()` answers a `GeometrySet` with `mesh`, `curves`, `pointcloud`, `volume`, `grease_pencil`, `instances_pointcloud()`, and `instance_references()`
@@ -70,7 +70,7 @@ Per-element mesh data goes through attributes and dedicated calls:
 
 Buffers follow host storage:
 - Buffers are flat, and `reshape(-1, 3)` follows the read
-- 2D buffers and wrong lengths raise `RuntimeError("internal error setting the array")`, the exception a `catch` names, and print `Array length mismatch`
+- 2D buffers and wrong lengths raise `RuntimeError("internal error setting the array")` and print `Array length mismatch`
 - Dynamic arrays (`MeshPolygon.vertices`) declare one length in `array_length` and `array_dimensions` while each item holds its own, and buffers take the resolved array's `len()`
 - `MATRIX` arrays of 9 or 16 items read as `Matrix` rows transposed from stored order, `path_resolve("<member>", False)` reading the stored array
 - Mesh shape keys read `co` through `ShapeKey.points`, 100k points in 25 µs against 3.5 ms through `data`
@@ -92,30 +92,35 @@ Hot code reads attribute data with the stored dtype:
 - `float64`, `uintc`, `int64`, list, and strided buffers convert per element
 - `polygons` `loop_start` is the one face-offset path
 
-Exporters read world positions and topology from the evaluated mesh inside the `meshed` scope:
+Exporters read world positions and topology from the evaluated mesh inside a scope calling `to_mesh_clear()`:
 
 ```python
-def surface(source: bpy.types.Object, view_layer: bpy.types.ViewLayer) -> BlenderResult[tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]]:
-    def read(mesh: bpy.types.Mesh) -> tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]:
+type Surface = tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]
+
+
+def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph) -> Option[Surface]:
+    evaluated: bpy.types.Object = source.evaluated_get(depsgraph)
+
+    def read(mesh: bpy.types.Mesh) -> Surface:
         positions, corners, starts = np.empty(len(mesh.vertices) * 3, np.float32), np.empty(len(mesh.loops), np.int32), np.empty(len(mesh.polygons), np.int32)
         for key, member, buffer in (("position", "vector", positions), (".corner_vert", "value", corners)):
             if isinstance(attribute := mesh.attributes[key], bpy.types.FloatVectorAttribute | bpy.types.IntAttribute):
                 attribute.data.foreach_get(member, buffer)
         mesh.polygons.foreach_get("loop_start", starts)
-        world: NDArray[np.float32] = np.asarray(source.matrix_world, np.float32)
+        world: NDArray[np.float32] = np.asarray(evaluated.matrix_world, np.float32)
         return positions.reshape(-1, 3) @ world[:3, :3].T + world[:3, 3], corners, starts
 
-    def scoped(depsgraph: bpy.types.Depsgraph) -> BlenderResult[tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]]:
-        with meshed(source, depsgraph) as mesh:
-            return mesh.map(read)
-
-    return evaluated(view_layer).bind(scoped)
+    with ExitStack() as scope:
+        scope.callback(evaluated.to_mesh_clear)
+        return Option.of_optional(evaluated.to_mesh()).map(read)
 ```
+
+`to_mesh()` reads `None` for geometry that evaluates to no mesh (an empty curve) and raises `RuntimeError` on an object without geometry (camera, empty, point cloud).
 
 Construction sizes the mesh from the buffers, writes them flat, then derives edges, face sizes, and normals through `mesh.update()`:
 
 ```python
-def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32], starts: NDArray[np.int32]) -> BlenderResult[bpy.types.Mesh]:
+def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32], starts: NDArray[np.int32]) -> Result[bpy.types.Mesh, RuntimeError]:
     @catch(exception=RuntimeError)
     def filled(mesh: bpy.types.Mesh) -> bpy.types.Mesh:
         mesh.vertices.add(len(positions))
@@ -131,42 +136,51 @@ def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32],
     with ExitStack() as rollback:
         mesh: bpy.types.Mesh = bpy.data.meshes.new(name)
         rollback.callback(bpy.data.batch_remove, ids=(mesh,))
-        return committed(filled(mesh), rollback)
+        outcome = filled(mesh)
+        if outcome.is_ok():
+            rollback.pop_all()
+        return outcome
 ```
 
-`positions` buffers not shaped `(n, 3)` raise `RuntimeError`, and `rollback` removes the mesh.
+`positions` buffers of another length raise `RuntimeError`, and `rollback` removes the mesh.
 
 Bulk removal names objects and the data no other user holds in one `batch_remove`:
 
 ```python
-def purged(objects: tuple[bpy.types.Object, ...]) -> BlenderResult[None]:
+def purged(objects: tuple[bpy.types.Object, ...]) -> None:
     held: set[bpy.types.ID] = set(objects)
     users: dict[bpy.types.ID, set[bpy.types.ID]] = bpy.data.user_map(subset={obj.data for obj in objects if obj.data is not None})
-    owned: tuple[bpy.types.ID, ...] = tuple(block for block, holders in users.items() if holders <= held)
-    return host(bpy.data.batch_remove, ids=(*objects, *owned))
+    bpy.data.batch_remove(ids=(*objects, *(block for block, holders in users.items() if holders <= held)))
 ```
 
 ## [05]-[ANIMATION]
 
-`blender.bpy.data.rna.animation` owns channels:
-- `Animation(struct, member, index, source, modifiers).apply(owner, context)` reconciles one channel, keeps equal native state and unrelated channels, and answers whether it wrote
-- `Keys(points=...)` writes keyframes, `Driven(expression=..., variables=...)` a scripted driver over the animated ID's own properties
-- `Animation.clear(owner)` removes the declared channel
-- `sampled(owner, path, frames)` evaluates the keyed F-curve per frame within the hard range without moving the scene, an unkeyed channel repeating its value
+Channels follow the layered action model:
+- `Action.fcurve_ensure_for_datablock(datablock, data_path, index=, group_name=)` on an action assigned to `datablock` creates the layer, strip, slot, and channelbag, and returns an existing F-curve, an unassigned action raising `RuntimeError`
+- `fcurve.evaluate(frame)` reads a keyed channel at a frame without moving the scene
 - Values a driver or NLA strip changes read through `frame_set`
-
-```python
-def keyed(light: bpy.types.Light, context: bpy.types.Context, points: tuple[tuple[float, float], ...]) -> BlenderResult[bool]:
-    return Animation(member="energy", source=Keys(points=points)).apply(light, context)
-```
-
-Channel work `Animation` lacks joins `Animation` and follows the layered action model:
-- `Action.fcurve_ensure_for_datablock(datablock, data_path, index=, group_name=)` on an action assigned to `datablock` creates the layer, strip, slot, and channelbag, and returns an existing F-curve
 - `driver_add(path, index)` returns the existing driver F-curve on a second call
 - Actions take one layer, and layered animation runs through NLA strips with `ADD` or `COMBINE` blending
 - Actions assigned to a second ID animate nothing until `animation_data.action_slot` names their slot
-- Keys write through one `keyframe_points.add(count)`, `foreach_set` on `co` and `interpolation`, then `fcurve.update()`
 - Scripted `keyframe_insert` keys are `BEZIER` with `AUTO_CLAMPED` handles whatever the preference
 - `co_ui` moves a key with its handles where `co` moves the key alone
 - Driver F-curves from Python hold keys at (0, 0) and (1, 1)
 - Moving a driver F-curve key remaps the driver value, and removing every key passes the raw value
+
+Keys write through one `keyframe_points.add(count)`, `foreach_set` on `co` and `interpolation`, then `fcurve.update()`:
+
+```python
+def keyed(light: bpy.types.Light, points: NDArray[np.float32]) -> Result[bpy.types.FCurve, RuntimeError]:
+    action: bpy.types.Action = bpy.data.actions.new(light.name)
+    light.animation_data_create().action = action  # type: ignore[union-attr]  # ty: ignore[invalid-assignment]
+    linear: int = bpy.types.Keyframe.bl_rna.properties["interpolation"].enum_items["LINEAR"].value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+
+    def filled(curve: bpy.types.FCurve) -> bpy.types.FCurve:
+        curve.keyframe_points.add(len(points))
+        curve.keyframe_points.foreach_set("co", points.ravel())
+        curve.keyframe_points.foreach_set("interpolation", np.full(len(points), linear, np.int32))
+        curve.update()
+        return curve
+
+    return catch(action.fcurve_ensure_for_datablock, exception=RuntimeError)(light, "energy").map(filled)
+```

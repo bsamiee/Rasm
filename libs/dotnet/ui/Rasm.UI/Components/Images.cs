@@ -6,10 +6,9 @@ using SkiaSharp;
 namespace Rasm.UI.Components;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject]
-[ValidationError<Invalid>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class ImageRegion {
-    public static ImageRegion Whole { get; } = Create(new SKRect(0f, 0f, 1f, 1f));
+    public static ImageRegion Whole { get; } = new(new SKRect(0f, 0f, 1f, 1f));
 
     public SKRect Edges { get; }
 
@@ -27,15 +26,11 @@ public sealed partial class ImageRegion {
                 _ => moved,
             },
             None: () => moved);
-        return Present(held.Standardized);
+        return Validated(held.Standardized).ToOption();
     }
 
-    public static Option<ImageRegion> Present(SKRect edges) => TryCreate(edges, out ImageRegion? region) ? region : None;
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref SKRect edges) =>
-        validationError = edges is { Left: >= 0f, Top: >= 0f, Right: <= 1f, Bottom: <= 1f } && edges.Left < edges.Right && edges.Top < edges.Bottom
-            ? null
-            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"image region ({edges.Left}, {edges.Top}, {edges.Right}, {edges.Bottom}) is empty or leaves the unit square"));
+    public static Fin<ImageRegion> Validated(SKRect edges) =>
+        UIFault.Unless(edges is { Left: >= 0f, Top: >= 0f, Right: <= 1f, Bottom: <= 1f } && edges.Left < edges.Right && edges.Top < edges.Bottom, UIReason.Range).Map(_ => new ImageRegion(edges));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -53,8 +48,8 @@ public abstract partial record ImageTool {
                 Edited).Drawn(view, Ringed(extent).ToSeq());
 
         private Option<Node> Ringed(Vector2 extent) =>
-            (AxisRange.Present(Value.Edges.Left * extent.X, Value.Edges.Right * extent.X), AxisRange.Present(Value.Edges.Top * extent.Y, Value.Edges.Bottom * extent.Y))
-                .Apply(static (across, down) => (Node)new Node.Mark(new Figure.Region { First = Some(across), Second = Some(down) }) { Role = Role.Ring }).As();
+            (AxisRange.Validated(Value.Edges.Left * extent.X, Value.Edges.Right * extent.X), AxisRange.Validated(Value.Edges.Top * extent.Y, Value.Edges.Bottom * extent.Y))
+                .Apply(static (across, down) => (Node)new Node.Mark(new Figure.Region { First = Some(across), Second = Some(down) }) { Role = Role.Ring }).As().ToOption();
     }
 
     public sealed record Pick(Option<Vector2> At, Func<Edit<Option<Vector2>>, IO<Unit>> Edited) : ImageTool {
@@ -75,15 +70,15 @@ public sealed record ImagePlot(Content<SKImage> Image, SKSizeI Pixels, PlotPlane
     public Func<Option<Vector2>, Option<IO<Unit>>> Hovered { get; init; } = static _ => None;
 
     public Option<PlotPlane> Fit =>
-        (AxisRange.Present(0f, Pixels.Width), AxisRange.Present(Pixels.Height, 0f))
-            .Apply(static (across, down) => (PlotPlane)new PlotPlane.Cartesian(new Axis.Linear(across), new Axis.Linear(down))).As();
+        (AxisRange.Validated(0f, Pixels.Width), AxisRange.Validated(Pixels.Height, 0f))
+            .Apply(static (across, down) => (PlotPlane)new PlotPlane.Cartesian(new Axis.Linear(across), new Axis.Linear(down))).As().ToOption();
 
     public Node Drawn =>
         new Node.Overlay(
             new Node.Plot(View, Image.Held.Map(image => (Node)Covering(new Node.Image(image) { Rendering = ImageRendering.Pixelated })).ToSeq() + Overlays + Tool.Map(tool => tool.Drawn(View, Extent)).ToSeq()) {
                 Part = Fit.Map(rest => (Part)new Part.Viewport(rest, Navigated)),
                 Width = Sizing.Grow.Unit,
-                Aspect = Factor.Present((float)Pixels.Width / Pixels.Height),
+                Aspect = Factor.Validated((float)Pixels.Width / Pixels.Height).ToOption(),
                 Conditions = ImageTile.Conditioned(Image),
                 Hovered = Hovered,
                 Accessible = new Accessible { Role = AccessRole.Image, Label = Caption },

@@ -56,7 +56,7 @@ public sealed record Chart(PlotPlane Plane, Seq<Node> Layers) {
         };
 
     private static Seq<Node> Marked(Option<IndexRange> selection) =>
-        selection.Bind(static range => AxisRange.Present(range.Low, range.High + 1)).Map(static span => (Node)new Node.Mark(new Figure.Region { First = Some(span) }) { Role = Role.Selection }).ToSeq();
+        selection.Bind(static range => AxisRange.Validated(range.Low, range.High + 1).ToOption()).Map(static span => (Node)new Node.Mark(new Figure.Region { First = Some(span) }) { Role = Role.Selection }).ToSeq();
 
     public Chart Layer(Fraction opacity, Seq<Node> children) =>
         this with { Layers = Layers.Add(new Node.Styled(new Node.Plot(Plane, children) { Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }) { Opacity = opacity }) };
@@ -72,7 +72,7 @@ public sealed record Chart(PlotPlane Plane, Seq<Node> Layers) {
 
     public static Option<Node.Mark> Area(ReadOnlySpan<int> counts, Axis count) =>
         toSeq(counts.ToArray()) switch {
-            var held => AxisRange.Present(0.5f, held.Count - 0.5f)
+            var held => AxisRange.Validated(0.5f, held.Count - 0.5f).ToOption()
                 .Map(domain => new Node.Mark(new Figure.Area(domain, held.Map(value => float.Clamp(count.Fraction(value), 0f, 1f)).Strict()))),
         };
 

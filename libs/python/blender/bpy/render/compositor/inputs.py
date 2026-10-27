@@ -10,7 +10,7 @@ import msgspec
 
 from blender.bpy.data.rna.descriptors import Descriptor, Native, Struct, struct_at, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.interface import addresses, item_key, slot
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
@@ -27,7 +27,7 @@ class JsonSlot[T](msgspec.Struct, frozen=True, kw_only=True):
 
     def read(self, identity: Identity, holder: bpy.types.ID) -> Outcome[T]:
         """Decodes the slot of holder."""
-        return identity.name(Name.ATTACHMENT, self.key).bind(
+        return identity.identifier(self.key).bind(
             lambda name: catch(msgspec.json.decode, exception=msgspec.DecodeError)(holder.get(name, b"{}"), type=self.form).map_error(
                 lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=repr(holder), cause=error),)
             )
@@ -36,7 +36,7 @@ class JsonSlot[T](msgspec.Struct, frozen=True, kw_only=True):
     def written(self, identity: Identity, holder: bpy.types.ID, value: T) -> Outcome[bool]:
         """Writes value as deterministic JSON text when it differs from the value the slot reads, tagging the holder for its evaluated copies, answering whether it wrote."""
         text = msgspec.json.encode(value, order="deterministic")
-        return paired(self.read(identity, holder), identity.name(Name.ATTACHMENT, self.key)).bind(
+        return paired(self.read(identity, holder), identity.identifier(self.key)).bind(
             lambda held: (
                 Ok(False)
                 if msgspec.json.encode(held[0], order="deterministic") == text

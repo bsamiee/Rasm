@@ -40,7 +40,7 @@ public sealed record DistanceField(Func<(double X, double Y), double> Distance, 
         ((double X, double Y) outer, (double X, double Y) inner) = ((0d, reach), (reach * depth * sine, reach * depth * cosine));
         return new(point => double.SinCos(double.Abs(double.Ieee754Remainder(double.Atan2(point.X, point.Y), 2d * wedge))) switch {
             var (sin, cos) => Length(point) switch { var length => (X: length * sin, Y: length * cos) } switch {
-                var folded => Offset(folded, outer, inner).Offset switch { var offset => double.CopySign(Length(offset), Side(folded, outer, inner)) - radius },
+                var folded => double.CopySign(Length(Offset(folded, outer, inner).Offset), Side(folded, outer, inner)) - radius,
             },
         }, half.X * (1d + depth));
     }
@@ -79,7 +79,7 @@ public sealed record DistanceField(Func<(double X, double Y), double> Distance, 
         }, twiceArea / double.Max(under, double.Max(opposite, across)));
 
         static (double Distance, double Side) Edge((double X, double Y) point, (double X, double Y) start, (double X, double Y) end) =>
-            Offset(point, start, end).Offset switch { var offset => (Length(offset), Side(point, start, end)) };
+            (Length(Offset(point, start, end).Offset), Side(point, start, end));
     }
 
     // --- [SAMPLES]

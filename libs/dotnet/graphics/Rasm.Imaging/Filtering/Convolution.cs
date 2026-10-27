@@ -37,7 +37,7 @@ public sealed partial class Iris {
 
     public (double Reach, double Edge) Outline((double X, double Y) q) {
         (double x, double y) = (Squeeze * q.X, q.Y);
-        double edge = Boundary(double.Atan2(-y, x));
+        double edge = Boundary(double.Atan2(-y, x), Circumradius);
         return (double.Hypot(x, y) / edge, edge);
     }
 
@@ -47,7 +47,7 @@ public sealed partial class Iris {
         double[] blades = [.. Enumerable.Range(0, Blades).Select(i => (((-Rotation - (double.Tau * i / Blades)) % double.Tau) + double.Tau) % double.Tau)];
         return point => {
             (double x, double y) = (squeeze * point.X, point.Y);
-            double reach = double.Hypot(x, y) / Boundary(double.Atan2(-y, x));
+            double reach = double.Hypot(x, y) / Boundary(double.Atan2(-y, x), circumradius);
             if (reach - margin >= radius || reach + margin <= obstruction * radius)
                 return 0d;
             if (reach + margin <= radius && reach - margin >= obstruction * radius)
@@ -66,7 +66,7 @@ public sealed partial class Iris {
                     : (double.Min(left / cos, right / cos), double.Max(left / cos, right / cos));
                 (double nearY, double farY) = sin is 0d ? top <= 0d && bottom >= 0d ? (0d, double.PositiveInfinity) : (double.PositiveInfinity, double.NegativeInfinity)
                     : (double.Min(top / sin, bottom / sin), double.Max(top / sin, bottom / sin));
-                double edge = radius * Boundary(-angle);
+                double edge = radius * Boundary(-angle, circumradius);
                 (double near, double far) = (double.Max(0d, double.Max(double.Max(nearX, nearY), obstruction * edge)), double.Min(edge, double.Min(farX, farY)));
                 return far > near ? (far - near) * (far + near) / (2d * (1d - obstruction)) : 0d;
             }
@@ -90,10 +90,10 @@ public sealed partial class Iris {
     }
 
     public Vector256<double> Integral(double radius, double ramp, double fringe) {
-        Vector256<double> r = Radii(radius, fringe);
+        (Vector256<double> r, double circumradius) = (Radii(radius, fringe), Circumradius);
         double[] areas = [.. Enumerable.Range(0, 3).Select(component => r[component] is 0d || Obstruction is 1d ? 0d
             : Blades / Squeeze * Integrate.GaussKronrod(angle => {
-                double boundary = r[component] * Boundary(angle);
+                double boundary = r[component] * Boundary(angle, circumradius);
                 double inner = Obstruction * boundary;
                 if (ramp is 0d)
                     return (boundary - inner) * (boundary + inner) / 2d;
@@ -106,13 +106,13 @@ public sealed partial class Iris {
         return Vector256.Create(areas[0], areas[1], areas[2], (areas[0] + areas[1] + areas[2]) / 3d);
     }
 
-    private double Boundary(double angle) {
+    private double Boundary(double angle, double circumradius) {
         (int n, double kappa) = (Blades, Roundness);
         (double s1, double c1) = double.SinCos(double.Pi / n);
         (double sa, double ca) = double.SinCos(double.Ieee754Remainder(angle - Rotation - (double.Pi / n), double.Tau / n));
         double root = double.Sqrt(1d - (kappa * kappa * s1 * s1));
         double delta = root - (kappa * c1);
-        return Circumradius * ((2d * c1 * root) - (kappa * (1d - (2d * s1 * s1)))) / ((delta * ca) + double.Sqrt(1d - (delta * delta * sa * sa)));
+        return circumradius * ((2d * c1 * root) - (kappa * (1d - (2d * s1 * s1)))) / ((delta * ca) + double.Sqrt(1d - (delta * delta * sa * sa)));
     }
 
     private static Vector256<double> Radii(double radius, double fringe) =>
@@ -122,6 +122,9 @@ public sealed partial class Iris {
         validationError = blades >= 3 && double.IsFinite(rotation) && roundness is >= 0d and <= 1d && obstruction is >= 0d and <= 1d && double.IsFinite(squeeze) && squeeze > 0d ? null
             : new ImagingFault(string.Create(CultureInfo.InvariantCulture,
                 $"iris of {blades} blades, roundness {roundness}, obstruction {obstruction}, rotation {rotation}, and squeeze {squeeze}"), ImagingReason.Range);
+
+    public static Fin<Iris> Validated(int blades, double rotation, double roundness, double obstruction, double squeeze) =>
+        TryCreate(blades, rotation, roundness, obstruction, squeeze, out Iris? iris, out ImagingFault? fault) ? iris : fault;
 }
 
 [ComplexValueObject]
@@ -141,6 +144,9 @@ public sealed partial class HighlightKey {
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref float threshold, ref float softness) =>
         validationError = float.IsFinite(threshold) && threshold >= 0f && float.IsFinite(softness) && softness >= 0f ? null
             : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"highlight threshold {threshold} and softness {softness}"), ImagingReason.Range);
+
+    public static Fin<HighlightKey> Validated(float threshold, float softness) =>
+        TryCreate(threshold, softness, out HighlightKey? key, out ImagingFault? fault) ? key : fault;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -480,12 +486,12 @@ public static class Bokeh {
         });
 
     public static PixelPass.Frame Gathered(Iris iris, double fringe, Func<Mat, Mat, PixelFrame, Fin<Unit>> field) =>
-        new((frame, progress) => frame.Filter(delegate {
+        new((frame, progress) => frame.Filter(_ => {
             using Mat source = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4);
             using Mat radii = Mat.Zeros(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 1);
             PixelOperations<RgbaVector>.Instance.ToVector4(SixLabors.ImageSharp.Configuration.Default, frame.Block.Cast<float, RgbaVector>(), source.GetSpan<Vector4>(), PixelConversionModifiers.Premultiply);
-            return field(source, radii, frame).Bind(delegate {
-                radii.MinMax(out double[] least, out double[] most, out _, out _);
+            return field(source, radii, frame).Bind(_ => {
+                radii.MinMax(out double[] least, out double[] most, out Point[] _, out Point[] _);
                 (float circumradius, float near) = (iris.Circumradius, float.Max(0f, -(float)least[0]));
                 int side = Window(float.Max(near, (float)most[0]) * circumradius);
                 (double Reach, double Edge)[] outlines = [.. from y in Enumerable.Range(0, side) from x in Enumerable.Range(0, side) select iris.Outline(((side / 2) - x, (side / 2) - y))];

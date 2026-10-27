@@ -210,7 +210,7 @@ public static class GrainNoise {
                    ReadOnlySpan<Vector4> draws = plane.Row(line);
                    for (int x = 0; x < row.Length; x++) {
                        Vector4 log = mix * draws[x];
-                       float share = (float)weight(LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, luminance));
+                       float share = (float)weight(Gamut.RelativeLuminance(row[x].X, row[x].Y, row[x].Z, luminance));
                        row[x] *= new Vector4(Vector3.Lerp(Vector3.One, Vector3.Exp(log.AsVector3() + new Vector3(log.W - bias)), share), 1f);
                    }
                }).Run(frame, progress)
@@ -226,7 +226,7 @@ public static class PhotonNoise {
         return new((row, column, line) => {
             for (int x = 0; x < row.Length; x++) {
                 Vector4 draws = mix * CoordinateHash.Normals(column + x, line, field);
-                double shared = Deviation(LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, luminance), draws.W);
+                double shared = Deviation(Gamut.RelativeLuminance(row[x].X, row[x].Y, row[x].Z, luminance), draws.W);
                 row[x] = new Vector4(
                     (float)(row[x].X + Deviation(row[x].X, draws.X) + shared), (float)(row[x].Y + Deviation(row[x].Y, draws.Y) + shared), (float)(row[x].Z + Deviation(row[x].Z, draws.Z) + shared), row[x].W);
             }

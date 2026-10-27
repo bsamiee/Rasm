@@ -1,86 +1,76 @@
 # [OPERATORS]
 
-Covers operator classes declared through `blender.bpy.commands.operators.Operator`.
+Covers `bpy.types.Operator` classes, from properties and conditions to invoke forms, modal steps, and placements.
 
 ## [01]-[DECLARATION]
 
-`Operator[T, S]` builds the native class from a record type and a body, and its row registers it:
-- `form` is the frozen record the properties bind to, `Empty` for none
-- `run` takes `Call[T]`
-- Redo, Repeat Last, and scripts rerun `execute` over the record alone, and `execute` reads its own properties, preferences and scene settings seeding `invoke` alone
-- `invoke` gathers event input through `seed` and the invoke form
-- `seed` fills only properties `is_property_set` reports unset, keeping keymap, menu, and script values
-- Script `bpy.ops` calls with `undo` off, the `called` default, neither read nor store last-run values, while `undo=True` calls and interface runs read and store them
-- `undo=True` pushes one step per `FINISHED` call, and `grouped=True` declares `UNDO_GROUPED` without `UNDO`, one step covering consecutive calls under a group name from the operator
-- `primary` names the field a search popup or enum operator edits
-- `internal=True` hides the operator from search
-- Bodies that act (write data, save a file, open a view) return `Done`, with report entries in `notes`
-- Bodies return `Unchanged(reason=...)` when the work set tested before writing is empty or a write helper wrote nothing (`Nothing` from `written`, empty `Applied.written`)
+Operator classes declare properties as `bpy.props` annotations and do their work in `execute`:
+- Redo, Repeat Last, and scripts rerun `execute` over its properties alone, and preferences and scene settings seed `invoke` alone
+- `invoke` gathers event input into properties, then opens its invoke form or calls `execute`
+- `invoke` writes only properties `is_property_set` reports unset, keeping keymap, menu, and script values
+- Script `bpy.ops` calls with `undo` off neither read nor store last-run values, while calls with `undo` on and interface runs read and store them
+- `bl_property` names the property a search popup or enum operator edits
+- `INTERNAL` in `bl_options` hides the operator from search
 
 ```python
-class Scaled(msgspec.Struct, frozen=True, kw_only=True):
-    percentage: Annotated[int, msgspec.Meta(ge=1, le=100)] = 100
+class Rescaled(bpy.types.Operator):
+    bl_idname = "item.rescaled"
+    bl_label = "Rescale"
+    bl_description = "Set the render resolution scale"
+    bl_options = frozenset({"REGISTER", "UNDO"})  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
+    percentage: bpy.props.IntProperty(subtype="PERCENTAGE", min=1, max=100, default=100)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
-@command(form=Scaled, undo=True)
-def rescaled(call: Call[Scaled]) -> BlenderResult[Done | Unchanged]:
-    """Set the render resolution scale."""
-    return (
-        call.root(bpy.types.Scene)
-        .bind(lambda scene: written(scene, ("render", "resolution_percentage"), call.record.percentage))
-        .map(lambda prior: Done() if prior.is_some() else Unchanged(reason=Reason.HELD))
-    )
+    @override
+    def execute(self, context: bpy.types.Context) -> set["rna_enums.OperatorReturnItems"]:
+        render: bpy.types.RenderSettings = context.scene.render  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        if render.resolution_percentage == self.percentage:
+            self.report({"INFO"}, "Scale already set")
+            return {"CANCELLED"}
+        render.resolution_percentage = self.percentage
+        return {"FINISHED"}
 ```
+
+`rna_enums` imports from `bpy.stub_internal` under `TYPE_CHECKING`.
 
 ## [02]-[CONDITIONS]
 
-`condition` becomes `poll`:
-- Leaf `Condition` cases read one requirement each, and absent owners fail it
+`poll` answers whether the operator runs in a context:
+- Each requirement reads one context member, an absent member failing it
 - `poll` bodies that raise answer `False` and print their traceback, a raised member read showing as an unavailable operator
-- Shared preconditions compose as `AllOf`, `AnyOf`, and `Not` values in place of `poll` mixins
-- `check` returns every unmet member of an `AllOf`, and `poll_message_set` receives their rendered messages
 
 ## [03]-[INVOKE_FORMS]
 
-`invoke` takes one `WindowManager.invoke_*` call, file browser, pick, or modal form, and window-manager calls take options their `bl_rna.functions[<name>].parameters` state:
+`invoke` takes one `WindowManager.invoke_*` call, file browser, or modal form, and window-manager calls take options their `bl_rna.functions[<name>].parameters` state:
 
-| [INDEX] | [FORM]                | [BEHAVIOR]                                                                  |
-| :-----: | :-------------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `invoke_confirm`      | Confirmation with an optional computed message, then the body               |
-|  [02]   | `invoke_props_dialog` | Editable dialog running the body on confirm, `cancel_default` for data loss |
-|  [03]   | `Suppressible`        | Dialog with "Do not show again" clearing its stored confirmation preference |
-|  [04]   | `invoke_popup`        | Property popup that never runs the body                                     |
-|  [05]   | `invoke_props_popup`  | Redo popup over the last call                                               |
-|  [06]   | `invoke_search_popup` | Enum search over `primary`                                                  |
-|  [07]   | `Open`                | Import browser on `ImportHelper`, chosen files in `Call.paths`              |
-|  [08]   | `Save`                | Export browser on `ExportHelper`, `destinations` confirming replacements    |
-|  [09]   | `Pick`                | Pending cursor until the user picks a location                              |
-|  [10]   | `Modal`               | Interactive gesture with preview, rollback, timer, and status               |
+| [INDEX] | [FORM]                             | [BEHAVIOR]                                                                  |
+| :-----: | :--------------------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `invoke_confirm`                   | Confirmation with an optional computed message, then the body               |
+|  [02]   | `invoke_props_dialog`              | Editable dialog running the body on confirm, `cancel_default` for data loss |
+|  [03]   | `invoke_popup`                     | Property popup that never runs the body                                     |
+|  [04]   | `invoke_props_popup`               | Redo popup over last call                                                   |
+|  [05]   | `invoke_search_popup`              | Enum search over `bl_property`                                              |
+|  [06]   | `fileselect_add` on `ImportHelper` | Import browser, chosen files in `filepath`, `directory`, and `files`        |
+|  [07]   | `fileselect_add` on `ExportHelper` | Export browser, `check_existing` confirming replacements                    |
+|  [08]   | `modal_handler_add`                | Interactive gesture with preview, rollback, timer, and status               |
 
-`Open` and `Save` derive file extensions from the record:
-- Record fields stand in for an exporter's keyword arguments
-- `files.interchange.Interchange` registers a file handler over `Open` and `Save` rows with `poll_file_object_drop` as its drop poll
-- Dropped paths open a confirmation in place of the browser
+`ExportHelper` operators declare `filename_ext`, and a declared `filter_glob` property filters either browser
 
 ## [04]-[MODAL]
 
-`Modal[S]` drives a gesture over a state value:
-- `begin` returns the snapshot `restore` rolls back to on cancel or a finishing body's `Unchanged`
-- `preview` returns header text for each `Travel`, and `Nothing` clears it
-- `tick` steps the state over elapsed seconds on its own window timer, and `Nothing` finishes the run
+`modal` steps a gesture over the operator's state:
+- `invoke` captures values restored on cancel and on a finish that changed nothing
+- Timer steps come from `window_manager.event_timer_add(<seconds>, window=<window>)`, removed through `event_timer_remove` at finish
 - `Event` holds no timer member, and every window timer delivers `TIMER` to each modal step
-- `tick` steps only when its own timer's `time_duration` advances
-- `event` takes raw events in place of the standard modal keymap
-- `priority=True` declares `MODAL_PRIORITY`, handling events ahead of other modal operators in `Window.modal_operators`
-- `status` draws the status bar from the state
-- Cursor, status text, header, timer, and grab release on finish, cancel, and unregister
-- `restore` runs under an override of the invoking window, area, and region
-- Undo can run while the operator is modal, and the state holds handles and values in place of host references
+- Timer steps advance only when their own timer's `time_duration` advances
+- `MODAL_PRIORITY` in `bl_options` handles events ahead of other modal operators in `Window.modal_operators`
+- Finish and `cancel` release cursor, status text, header, timer, and grab
+- `cancel` restores under a `temp_override` of the invoking window, area, and region
+- Undo can run while the operator is modal, and modal state holds `session_uid` keys and values in place of host references
 
 ## [05]-[PLACEMENTS]
 
 Buttons, menus, keymaps, and macros place an operator as a value:
-- `Own(command=..., values=record)` places a library operator with a complete record
-- `Command` (`Operator` or `Macro`) places itself and sets no properties, and `Stock(operator=bpy.ops..., values=...)` places a stock operator with RNA values
-- `Macro(steps=...)` runs placed steps as one undo step and one redo entry
+- Placements hold `(<operator idname>, ((<property>, <value>), ...))`, the keymap-data form keymaps, tools, gizmos, and buttons share
+- `bpy.types.Macro` subclasses run steps added through `define(<operator idname>)` as one undo step and one redo entry
 - Layouts hand a struct to a placed operator through `layout.context_pointer_set("<member>", struct)`, and the operator reads that context member

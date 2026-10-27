@@ -27,13 +27,13 @@ public sealed record ImageFile {
     public PixelFrame Frame { get; }
 
     public static IO<ImageFile> Load(string path) =>
-        from read in IO.lift(Optional(Reads.GetValueOrDefault(System.IO.Path.GetExtension(path))).ToFin(new ImagingFault($"image path {path} beside {string.Join(", ", Reads.Keys)}", ImagingReason.Unnamed)))
+        from read in IO.lift(Optional(Reads.GetValueOrDefault(System.IO.Path.GetExtension(path))).ToFin(new ImagingFault($"image path {path} beside {string.Join(", ", Reads.Keys)}", ImagingReason.UnknownFormat)))
         from frame in read(new FileInfo(path))
         select new ImageFile(path, frame);
 
-    public static IO<(PixelFrame Frame, Option<Chromaticities> Primaries)> Exr(FileInfo file, string layer) =>
+    public static IO<(PixelFrame Frame, Option<Gamut> Primaries)> Exr(FileInfo file, string layer) =>
         from result in IO.liftVAsync(env => ExrFile.LoadFromFileAsync(file.FullName, cancellationToken: env.Token))
-        from image in IO.lift(Optional(result.Value).ToFin(new ImagingFault($"EXR read of {file.FullName} with {result.Status}", ImagingReason.Refused, Optional(result.Error).Map(Error.New))))
+        from image in IO.lift(Optional(result.Value).ToFin(new ImagingFault($"EXR read of {file.FullName} with {result.Status}", ImagingReason.Refused, Inner: Optional(result.Error).Map(Error.New))))
         from read in IO.lift(() => Layer(toSeq(image.Parts), layer))
         select read;
 
@@ -57,9 +57,9 @@ public sealed record ImageFile {
             .Catch(
                 static error => error.HasException<SixLabors.ImageSharp.ImageFormatException>() || error.HasException<InvalidIccProfileException>()
                     || error.HasException<NotSupportedException>() || error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>(),
-                error => IO.fail<PixelFrame>(new ImagingFault($"PNG read of {file.FullName}", ImagingReason.Refused, error)));
+                error => IO.fail<PixelFrame>(new ImagingFault($"PNG read of {file.FullName}", ImagingReason.Refused, Inner: error)));
 
-    private static Fin<(PixelFrame Frame, Option<Chromaticities> Primaries)> Layer(Seq<Part> parts, string layer) =>
+    private static Fin<(PixelFrame Frame, Option<Gamut> Primaries)> Layer(Seq<Part> parts, string layer) =>
         from part in (parts.Find(candidate => string.Equals(candidate.Header.Name, layer, StringComparison.Ordinal)) | parts.Find(static candidate => candidate.Header.Name.Length is 0))
             .ToFin(new ImagingFault($"EXR part for layer '{layer}'", ImagingReason.Empty))
         from header in (
@@ -86,7 +86,7 @@ public sealed record ImageFile {
                 if (header.Layout.Associated)
                     foreach (ref Vector4 pixel in pixels)
                         pixel = pixel.W > 0f ? new(pixel.AsVector3() / pixel.W, pixel.W) : new(Vector3.Zero, pixel.W);
-            }), Optional(part.Header.Chromaticities));
+            }), Optional(part.Header.Chromaticities).Map(Gamut.Of));
 
     private static Fin<((int Component, int Channel)[] Rows, bool Associated)> Components(IReadOnlyList<string> names, string layer) =>
         toSeq(
@@ -111,7 +111,7 @@ public sealed record ImageFile {
                     .Apply(static (gamut, row) => new ColorEncoding(gamut, row.Transfer))
                     .As()
                     .Filter(_ => chunk.MatrixCoefficients is CicpMatrixCoefficients.Identity && chunk.FullRange)
-                    .ToFin(new ImagingFault($"PNG cICP {chunk.ColorPrimaries}/{chunk.TransferCharacteristics}/{chunk.MatrixCoefficients} full range {chunk.FullRange}", ImagingReason.Unnamed)),
+                    .ToFin(new ImagingFault($"PNG cICP {chunk.ColorPrimaries}/{chunk.TransferCharacteristics}/{chunk.MatrixCoefficients} full range {chunk.FullRange}", ImagingReason.UnknownFormat)),
             None: static () => new ColorEncoding(Gamut.StandardRgb, new Transfer.Srgb()));
 
     private static DecoderOptions Decoding(ColorProfileHandling handling) =>

@@ -1,9 +1,8 @@
-"""Editor queries, area contexts, and screen arrangements settled one host pass per step."""
+"""Editor queries, area contexts, and screen arrangements applied one host pass per step."""
 
-from collections.abc import Callable, Generator, Iterable, Mapping
-from contextlib import contextmanager
+from collections.abc import Callable, Iterable, Mapping
 from functools import partial
-from typing import Annotated, Final, Literal, Protocol, Self, TYPE_CHECKING
+from typing import Annotated, Literal, Self, TYPE_CHECKING
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
@@ -12,8 +11,6 @@ import msgspec
 from blender.bpy.commands.calls import called, Operation
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import rooted, written
-from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.screens.editors import EditorState
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
@@ -22,14 +19,6 @@ if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-
-class Pending(Protocol):
-    """Request the host applies over later passes."""
-
-    def advanced(self) -> Outcome[Option[Self]]:
-        """Applies one step, returning the request left to apply, Nothing once settled."""
-        ...
 
 
 type Edge = Literal["LEFT", "RIGHT", "TOP", "BOTTOM"]
@@ -196,60 +185,6 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
         return accumulated(undo() for undo in reversed(self.undo)).map(lambda _: None)
 
 
-# --- [SERVICES] -------------------------------------------------------------------------
-
-
-class Settling:
-    """Requests of one extension advancing one step per host pass on one main-loop timer."""
-
-    __slots__ = ("pending", "ticked")
-
-    def __init__(self, pending: list[Pending], ticked: Callable[[], float | None]) -> None:
-        """Holds the request list and the timer advancing it."""
-        self.pending, self.ticked = pending, ticked
-
-    @classmethod
-    @contextmanager
-    def opened(cls, identity: Identity) -> Generator[Self]:
-        """Holds the request list and its timer until scope exit.
-
-        Args:
-            identity: Extension with reports holding step faults.
-
-        Yields:
-            Settling whose timer advances every request each pass, waiting while the interface is locked.
-        """
-        pending: list[Pending] = []
-
-        def advanced(request: Pending) -> Outcome[Option[Pending]]:
-            return request.advanced()
-
-        advance = identity.reports.reported(advanced)
-
-        def ticked() -> float | None:
-            if bpy.context.window_manager.is_interface_locked:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                return 0.0
-            pending[:] = [later for request in tuple(pending) for later in advance(request).bind(lambda held: held).to_list()]
-            return 0.0 if pending else None
-
-        try:
-            yield cls(pending, ticked)
-        finally:
-            pending.clear()
-            if bpy.app.timers.is_registered(ticked):
-                bpy.app.timers.unregister(ticked)
-
-    def settled(self, request: Pending) -> Outcome[None]:
-        """Applies the request's first step now, leaving the rest to later passes."""
-
-        def queued(later: Option[Pending]) -> None:
-            self.pending.extend(later.to_list())
-            if self.pending and not bpy.app.timers.is_registered(self.ticked):
-                bpy.app.timers.register(self.ticked)
-
-        return request.advanced().map(queued)
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -258,10 +193,6 @@ def _reached(window: bpy.types.Window, pointer: int, revert: Callable[[Located],
     return Located.found(window, pointer).map(revert).default_value(Ok(None))
 
 
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-SETTLING: Final = Scoped[Settling](made=Settling.opened)
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["SETTLING", "AreaQuery", "Arrangement", "Edge", "Located", "Pending", "Retype", "Settling", "Split", "Step"]
+__all__ = ["AreaQuery", "Arrangement", "Edge", "Located", "Retype", "Split", "Step"]

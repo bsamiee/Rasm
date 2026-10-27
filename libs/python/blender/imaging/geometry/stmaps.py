@@ -1,8 +1,9 @@
 """ST maps, filtered warps, and displacement of raster planes through smoothed, sloped, and tapped fields."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 import math
-from typing import Literal, Self
+from types import MappingProxyType
+from typing import Final, Literal, Self
 
 import msgspec
 import numpy as np
@@ -13,7 +14,14 @@ from scipy.ndimage import gaussian_filter, map_coordinates, sobel
 from blender.imaging.files.buffers import checked, pixels
 from blender.imaging.sampling.integration import Raster
 from blender.records.faults import Outcome, paired
-from blender.records.fields import Positive
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_PADDING: Final[Mapping[OpenImageIO.Wrap, Literal["wrap", "symmetric", "edge"]]] = MappingProxyType({
+    OpenImageIO.Wrap.Periodic: "wrap",
+    OpenImageIO.Wrap.Mirror: "symmetric",
+    OpenImageIO.Wrap.Clamp: "edge",
+})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -58,26 +66,14 @@ class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         s, t = np.meshgrid((np.arange(width) + 0.5) / width, 1.0 - (np.arange(height) + 0.5) / height)
         return cls.of(mapping(np.stack((s, t, np.ones_like(s)), axis=-1)), extension, source_size=source_size)
 
-    def warp(self, plane: npt.NDArray[np.float32], *, filtername: str = "triangle", filterwidth: Positive = 2.0) -> Outcome[npt.NDArray[np.float32]]:
+    def warp(self, plane: npt.NDArray[np.float32], *, filtername: str = "triangle", filterwidth: float = 2.0) -> Outcome[npt.NDArray[np.float32]]:
         """Returns `plane` warped through filter, weighted by coverage."""
-
-        def padding(mode: OpenImageIO.Wrap) -> Literal["constant", "edge", "wrap", "symmetric"]:
-            match mode:
-                case OpenImageIO.Wrap.Periodic:
-                    return "wrap"
-                case OpenImageIO.Wrap.Mirror:
-                    return "symmetric"
-                case OpenImageIO.Wrap.Clamp:
-                    return "edge"
-                case _:
-                    return "constant"
-
         height, width, channels = plane.shape
         x, y = self.extension
         border = math.ceil(filterwidth / 2.0)
         margin = np.array((border, border, 0.0))
         size = np.array((width, height, 1.0))
-        source = OpenImageIO.ImageBuf(np.pad(np.pad(plane, ((0, 0), (border, border), (0, 0)), mode=padding(x)), ((border, border), (0, 0), (0, 0)), mode=padding(y)))
+        source = OpenImageIO.ImageBuf(np.pad(np.pad(plane, ((0, 0), (border, border), (0, 0)), mode=_PADDING.get(x, "constant")), ((border, border), (0, 0), (0, 0)), mode=_PADDING.get(y, "constant")))
         st = OpenImageIO.ImageBuf(np.ascontiguousarray((self.plane[..., :3] * size + margin) / (size + 2.0 * margin), dtype=np.float32))
         roi = OpenImageIO.ROI(0, self.plane.shape[1], 0, self.plane.shape[0], 0, 1, 0, channels)
         return (
@@ -121,7 +117,7 @@ def displaced(
     extension: tuple[OpenImageIO.Wrap, OpenImageIO.Wrap],
     *,
     filtername: str = "triangle",
-    filterwidth: Positive = 2.0,
+    filterwidth: float = 2.0,
 ) -> Outcome[npt.NDArray[np.float32]]:
     """Returns `plane` over `raster` sampled at each pixel's global source position through `extension`, weighted by `coverage`."""
     left, bottom, right, top = raster.bounds

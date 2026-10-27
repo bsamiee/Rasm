@@ -23,7 +23,7 @@ from blender.bpy.data.ids.ownership import kept, Mark, Ownership, Saved
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, Struct, struct_at, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import made
@@ -440,7 +440,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
         def captured(scene: bpy.types.Scene) -> Outcome[Readback]:
             paths = {key: Path(bpy.app.tempdir, f"{scene.session_uid}_{self.capture.key}_{key}.exr") for key in ("image", "value", "coverage")}
-            value = identity.name(Name.ATTACHMENT, self.value).map(Some) if staging.value else Ok(Nothing)
+            value = identity.identifier(self.value).map(Some) if staging.value else Ok(Nothing)
             try:
                 return value.bind(lambda name: declared(scene, name, paths)).bind(lambda _: unlinked(paths)).bind(lambda _: self.render(identity, scene, RenderCall())).bind(lambda _: readback(paths))
             finally:

@@ -168,7 +168,7 @@ def extension(properties: Baking | Writing) -> tuple[str]:
 
 def current(identity: Identity, path: str, config: PyOpenColorIO.Config) -> Outcome[str]:
     """Returns the resolved path, clearing OCIO's process-wide caches when the file's modification time or size differs from the extension's last read."""
-    resolved, stamps = Path(bpy.path.abspath(path)).resolve(), STAMPS.of(identity)
+    resolved, stamps = Path(bpy.path.abspath(path)).resolve(), identity.held[STAMPS]
 
     def held(status: os.stat_result) -> str:
         if stamps.get(str(resolved)) != (stamp := (status.st_mtime_ns, status.st_size)):

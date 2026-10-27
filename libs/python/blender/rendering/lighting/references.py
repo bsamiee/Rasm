@@ -12,7 +12,7 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.records.faults import Fault, Outcome, RecordReason
-from blender.records.fields import Finite, NonNegative, Seed, Side, Unit
+from blender.records.fields import Finite, NonNegative, Seed, Unit
 from blender.records.identity import content_hash, rng
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -54,38 +54,6 @@ GELS: Final = MappingProxyType({
 })
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Scattered(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Highlight count range with offsets drawn over the whole frame."""
-
-    count: tuple[int, int]
-    horizontal: tuple[float, float]
-    vertical: tuple[float, float]
-
-
-class Slotted(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Highlights at one drawn slot group, each slot pairing a position with the color at its index."""
-
-    positions: tuple[tuple[float, float], ...]
-    spreads: tuple[tuple[tuple[int, ...], ...], ...]
-    jitter: float
-
-
-class Draw(msgspec.Struct, frozen=True, kw_only=True):
-    """Ranges one reference distribution draws its fields from, rim and vignette leading with their chance."""
-
-    colors: tuple[tuple[Finite, Finite, Finite], ...]
-    placement: Scattered | Slotted
-    sharpness: tuple[float, float]
-    intensity: tuple[float, float]
-    level: tuple[float, float]
-    gradient: tuple[float, float]
-    tints: tuple[tuple[Finite, Finite, Finite], ...]
-    rim: tuple[float, float]
-    vignette: tuple[float, float, float]
-    cycles: tuple[float, ...] = (0.0,)
-    dapples: tuple[int, ...] = (0,)
 
 
 class Highlight(msgspec.Struct, frozen=True, kw_only=True):
@@ -139,7 +107,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
     # --- [DISTRIBUTIONS]
 
     @classmethod
-    def drawn(cls, distribution: ReferenceDistribution, seed: Seed) -> Self:
+    def drawn(cls, distribution: ReferenceDistribution, seed: int) -> Self:
         """Draws editable reference from distribution and seed."""
         generator = rng(content_hash(ReferenceDistribution), seed, int(distribution))
         draw = _DRAWS[distribution]
@@ -151,9 +119,9 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
             return items[int(generator.integers(len(items)))]
 
         match draw.placement:
-            case Scattered(count=count, horizontal=horizontal, vertical=vertical):
+            case _Scattered(count=count, horizontal=horizontal, vertical=vertical):
                 slots: tuple[tuple[tuple[float, float], tuple[Finite, Finite, Finite]], ...] = ()
-            case Slotted(positions=positions, spreads=spreads, jitter=jitter):
+            case _Slotted(positions=positions, spreads=spreads, jitter=jitter):
                 slots = tuple((positions[index], draw.colors[index]) for index in chosen(chosen(spreads)))
                 count, horizontal, vertical = (len(slots), len(slots)), (-jitter, jitter), (-jitter, jitter)
         highlights = tuple(
@@ -180,7 +148,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [DRAWING]
 
-    def plane(self, size: Side) -> Outcome[npt.NDArray[np.float32]]:
+    def plane(self, size: int) -> Outcome[npt.NDArray[np.float32]]:
         """Returns unclipped float32 RGB of square image."""
 
         @catch(exception=FloatingPointError)
@@ -228,12 +196,44 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
         return formed().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(self), cause=error),))
 
 
+class _Scattered(msgspec.Struct, frozen=True, kw_only=True, tag=True):
+    """Highlight count range with offsets drawn over the whole frame."""
+
+    count: tuple[int, int]
+    horizontal: tuple[float, float]
+    vertical: tuple[float, float]
+
+
+class _Slotted(msgspec.Struct, frozen=True, kw_only=True, tag=True):
+    """Highlights at one drawn slot group, each slot pairing a position with the color at its index."""
+
+    positions: tuple[tuple[float, float], ...]
+    spreads: tuple[tuple[tuple[int, ...], ...], ...]
+    jitter: float
+
+
+class _Draw(msgspec.Struct, frozen=True, kw_only=True):
+    """Ranges one reference distribution draws its fields from, rim and vignette leading with their chance."""
+
+    colors: tuple[tuple[Finite, Finite, Finite], ...]
+    placement: _Scattered | _Slotted
+    sharpness: tuple[float, float]
+    intensity: tuple[float, float]
+    level: tuple[float, float]
+    gradient: tuple[float, float]
+    tints: tuple[tuple[Finite, Finite, Finite], ...]
+    rim: tuple[float, float]
+    vignette: tuple[float, float, float]
+    cycles: tuple[float, ...] = (0.0,)
+    dapples: tuple[int, ...] = (0,)
+
+
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _DRAWS: Final = MappingProxyType({
-    ReferenceDistribution.BALANCED: Draw(
+    ReferenceDistribution.BALANCED: _Draw(
         colors=tuple(GELS.values()),
-        placement=Scattered(count=(1, 3), horizontal=(-0.8, 0.8), vertical=(-0.7, 0.85)),
+        placement=_Scattered(count=(1, 3), horizontal=(-0.8, 0.8), vertical=(-0.7, 0.85)),
         sharpness=(0.7, 2.4),
         intensity=(0.5, 1.1),
         level=(0.03, 0.5),
@@ -244,9 +244,9 @@ _DRAWS: Final = MappingProxyType({
         cycles=(0.0, 0.0, 0.0, 5.0, 7.0),
         dapples=(0, 0, 0, 12),
     ),
-    ReferenceDistribution.VIVID: Draw(
+    ReferenceDistribution.VIVID: _Draw(
         colors=((1.4, 0.12, 0.85), (0.15, 0.75, 1.35), (1.35, 0.55, 0.05), (0.25, 1.05, 0.35), (0.75, 0.25, 1.35)),
-        placement=Slotted(
+        placement=_Slotted(
             positions=((-0.62, 0.18), (0.62, 0.18), (0.0, 0.58), (-0.38, -0.42), (0.38, -0.42)),
             spreads=(((0, 1, 3), (0, 1, 4), (0, 2, 4), (1, 2, 4)), ((0, 1, 2, 3), (0, 1, 3, 4), (0, 2, 3, 4)), ((0, 1, 2, 3, 4),)),
             jitter=0.08,
@@ -259,9 +259,9 @@ _DRAWS: Final = MappingProxyType({
         rim=(0.25, 0.5),
         vignette=(1.0, 0.15, 0.45),
     ),
-    ReferenceDistribution.SOFT: Draw(
+    ReferenceDistribution.SOFT: _Draw(
         colors=((1.0, 0.96, 0.92), (0.94, 0.96, 1.0), (0.98, 0.95, 0.9)),
-        placement=Scattered(count=(1, 2), horizontal=(-0.45, 0.45), vertical=(-0.35, 0.55)),
+        placement=_Scattered(count=(1, 2), horizontal=(-0.45, 0.45), vertical=(-0.35, 0.55)),
         sharpness=(0.55, 1.0),
         intensity=(0.35, 0.65),
         level=(0.32, 0.55),

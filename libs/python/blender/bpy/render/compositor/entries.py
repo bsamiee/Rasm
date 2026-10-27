@@ -26,7 +26,7 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import FrameHandler, LOAD_POST, PathHandler, SceneHandler, UpdateHandler
 from blender.bpy.extension.events.subscriptions import Subscription
 from blender.bpy.extension.events.timers import Startup
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
@@ -484,7 +484,7 @@ class EffectRows[R: Case]:
             def update(scene: bpy.types.Scene) -> Outcome[Option[str]]:
                 return (
                     Ok(Nothing)
-                    if scene.session_uid in EXECUTING.of(identity)
+                    if scene.session_uid in identity.held[EXECUTING]
                     else self.refreshed(identity, scene).bind(
                         lambda changed: accumulated(
                             reconciled(held.row, scene, held.entry)
@@ -540,7 +540,7 @@ class EffectRows[R: Case]:
             def rendered(scene: bpy.types.Scene, source: Option[bpy.types.Scene] = Nothing) -> Outcome[None]:
                 return (
                     Ok(None)
-                    if scene.session_uid in EXECUTING.of(identity)
+                    if scene.session_uid in identity.held[EXECUTING]
                     else accumulated(
                         source
                         .map(lambda evaluated: held.row.named(identity, evaluated, held.entry.name))
@@ -623,7 +623,7 @@ class EffectRows[R: Case]:
                     *followed(stamp),
                 )
 
-            yield paired(framing(identity), identity.name(Name.ATTACHMENT, "working_space")).map(lambda pair: built(pair[0], Stored(name=pair[1], decoder=msgspec.msgpack.Decoder(str))))
+            yield paired(framing(identity), identity.identifier("working_space")).map(lambda pair: built(pair[0], Stored(name=pair[1], decoder=msgspec.msgpack.Decoder(str))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

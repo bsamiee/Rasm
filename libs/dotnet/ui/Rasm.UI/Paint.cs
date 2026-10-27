@@ -187,10 +187,10 @@ public sealed class PaintCache : IDisposable {
 
     private Fin<SKPicture> Recorded((Assembly Assembly, string Resource, Option<SKColor> Current) glyph) {
         using Stream? stream = glyph.Assembly.GetManifestResourceStream(glyph.Resource);
-        return from held in Optional(stream).ToFin(new Invalid($"{glyph.Assembly.GetName().Name} embeds no {glyph.Resource}"))
+        return from held in Optional(stream).ToFin(new UIFault(glyph.Resource, UIReason.Missing))
                from document in Optional(SvgService.Open(held, new SvgParameters(Entities: null, Css: null, CurrentColor: glyph.Current.Map(static ink => Color.FromArgb(ink.Alpha, ink.Red, ink.Green, ink.Blue)).ToNullable())))
-                   .ToFin(new Invalid($"{glyph.Resource} in {glyph.Assembly.GetName().Name} holds no SVG document"))
-               from picture in Optional(SKSvg.ToPicture(document, model, loader)).ToFin(new Invalid($"{glyph.Resource} in {glyph.Assembly.GetName().Name} draws nothing"))
+                   .ToFin(new UIFault(glyph.Resource, UIReason.Unreadable))
+               from picture in Optional(SKSvg.ToPicture(document, model, loader)).ToFin(new UIFault(glyph.Resource, UIReason.Unreadable))
                select picture;
     }
 

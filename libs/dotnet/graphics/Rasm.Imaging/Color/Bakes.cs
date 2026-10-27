@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
-using Rasm.Imaging.Color.Calibration;
 using Rasm.Imaging.Pixels;
 using TinyEXR;
 
@@ -64,26 +63,22 @@ file readonly struct LatticeRows(int edge, Seq<Action<Span<Vector4>>> steps, Mem
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Bakes {
-    public static Fin<LutTable> Bake(LutBake bake, Seq<PixelPass.Color> chain, Gamut working) =>
-        new ColorEncoding(working, new Transfer.Linear()) switch {
-            var linear => Lattice(bake.Size, [
-                .. bake.Input.Shaper.ToSeq().Map<Action<Span<Vector4>>>(static shaper => shaper.Decode.Apply),
-                .. bake.Input.Encoding.To(linear),
-                .. chain.Map(static pass => pass.Row),
-                .. linear.To(bake.Output),
-            ]).Map(lattice => new LutTable.Cube(lattice, LutInterpolation.Tetrahedral) switch {
-                var cube => bake.Input.Shaper.Match(Some: shaper => (LutTable)new LutTable.Sequence([shaper.Head, cube]), None: () => cube),
-            }),
-        };
+    public static Fin<LutTable> Bake(LutBake bake, Seq<PixelPass.Color> chain, Gamut working) {
+        (ColorEncoding linear, Option<(LutTable Head, LutTable Decode)> shaper) = (new(working, new Transfer.Linear()), bake.Input.Shaper);
+        return Lattice(bake.Size, [
+            .. shaper.ToSeq().Map<Action<Span<Vector4>>>(static held => held.Decode.Apply),
+            .. bake.Input.Encoding.To(linear),
+            .. chain.Map(static pass => pass.Row),
+            .. linear.To(bake.Output),
+        ]).Map(static lattice => new LutTable.Cube(lattice, LutInterpolation.Tetrahedral))
+            .Map(cube => shaper.Match(Some: held => new LutTable.Sequence([held.Head, cube]), None: () => (LutTable)cube));
+    }
 
     public static Option<LutTable> Exact(LutBake bake, Seq<PixelPass.Color> chain, Gamut working) =>
         from steps in chain.Traverse(static pass => pass.Table).As()
         where bake.Input.Encoding.Transfer is Transfer.Linear && bake.Output.Transfer is Transfer.Linear
         let linear = new ColorEncoding(working, new Transfer.Linear())
         select (LutTable)new LutTable.Sequence(bake.Input.Encoding.LinearTo(linear) + steps + linear.LinearTo(bake.Output));
-
-    public static LutTable Export(ChartFit fit, FitDirection direction) =>
-        new LutTable.Affine(fit.Transform(direction).Matrix);
 
     internal static Fin<Lut3D> Lattice(int size, Seq<Action<Span<Vector4>>> steps) {
         using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * size * size * size);

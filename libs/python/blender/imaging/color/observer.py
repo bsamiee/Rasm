@@ -28,9 +28,7 @@ def sampled(count: int) -> npt.NDArray[np.float64]:
 def blackbody(temperatures: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """Returns float64 XYZ at Y = 1 of Planckian emission at each kelvin temperature, integrated against the observer."""
     rows = table()
-    shape = colour.SpectralShape(rows[0, 0], rows[-1, 0], 1.0)
-    emitted = np.stack([colour.sd_blackbody(float(temperature), shape).values for temperature in temperatures.reshape(-1)]).reshape(*temperatures.shape, len(rows))
-    tristimulus = emitted @ rows[:, 1:]
+    tristimulus = np.reshape(colour.colorimetry.planck_law(rows[:, 0] * 1e-9, temperatures), (len(rows), -1)).T.reshape(*temperatures.shape, len(rows)) @ rows[:, 1:]
     return tristimulus / tristimulus[..., 1:2]
 
 
@@ -53,7 +51,7 @@ def coordinates(xyz: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.flo
     """Returns float64 xy over last axis, NaN where X + Y + Z is nonpositive."""
     xy = xyz[..., :2]
     total = xyz.sum(axis=-1, keepdims=True, dtype=np.float64)
-    return np.divide(xy, total, out=np.full_like(xy, np.nan, dtype=np.float64), where=total > 0.0)
+    return np.asarray(np.divide(xy, total, out=np.full_like(xy, np.nan, dtype=np.float64), where=total > 0.0), dtype=np.float64)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

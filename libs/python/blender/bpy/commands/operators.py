@@ -20,7 +20,7 @@ from blender.bpy.commands.calls import given, Placed, Writer
 from blender.bpy.data.rna.conditions import check, Condition
 from blender.bpy.data.rna.descriptors import assigned, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Applied
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisition, Band
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderReason
@@ -692,7 +692,7 @@ class Command(msgspec.Struct, frozen=True, kw_only=True):
 
     def invocation(self, identity: Identity, /) -> Outcome[tuple[str, Writer]]:
         """Returns operator name with no-op writer."""
-        return identity.name(Name.OPERATOR, self.key).map(lambda name: (name, lambda _: Ok(None)))
+        return identity.name(bpy.types.Operator, self.key).map(lambda name: (name, lambda _: Ok(None)))
 
     # --- [CLASS_MEMBERS]
 
@@ -768,7 +768,7 @@ class Operator[T: bpy.types.PropertyGroup, S = None](Command, frozen=True, kw_on
     @override
     def acquisitions(self, identity: Identity) -> Outcome[tuple[tuple[Band, Acquisition], ...]]:
         """Builds the form's property groups, operator class, and the release scopes of its invocation form."""
-        return identity.name(Name.OPERATOR, self.key).bind(
+        return identity.name(bpy.types.Operator, self.key).bind(
             lambda name: self.built(Body(command=self, identity=identity), name).map(
                 lambda acquired: (*((Band.GROUPS, group) for group in nested(self.form)), *((Band.OPERATORS, item) for item in acquired))
             )
@@ -931,7 +931,7 @@ class Own[T: bpy.types.PropertyGroup, S = None](msgspec.Struct, frozen=True, kw_
 
     def invocation(self, identity: Identity, /) -> Outcome[tuple[str, Writer]]:
         """Returns operator name and writer of supplied values."""
-        return identity.name(Name.OPERATOR, self.command.key).map(lambda name: (name, lambda properties: assigned(properties, self.values)))
+        return identity.name(bpy.types.Operator, self.command.key).map(lambda name: (name, lambda properties: assigned(properties, self.values)))
 
 
 class Macro(Command, frozen=True, kw_only=True):
@@ -954,7 +954,7 @@ class Macro(Command, frozen=True, kw_only=True):
 
             return (Band.OPERATORS, kind), (Band.OPERATORS, defined())
 
-        return identity.name(Name.OPERATOR, self.key).map(built)
+        return identity.name(bpy.types.Operator, self.key).map(built)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------

@@ -11,7 +11,7 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band, entered
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderReason
@@ -205,7 +205,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
         replay = cls(key=key, render=lambda request: map(Ok, matching(request.scene, request.layer)), passes=passes, enabled=frozenset({POSTPROCESS}))
         with ExitStack() as scope:
-            yield identity.name(Name.ENGINE, key).bind(lambda name: entered(scope, (replay.built(identity, name),)).map(lambda _: name))
+            yield identity.name(bpy.types.RenderEngine, key).bind(lambda name: entered(scope, (replay.built(identity, name),)).map(lambda _: name))
 
     @contextmanager
     def joined(self, name: str) -> Generator[Outcome[None]]:
@@ -228,7 +228,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
         """Acquires engine class, then `COMPAT_ENGINES` memberships."""
-        return identity.name(Name.ENGINE, self.key).map(lambda name: ((Band.INTERFACE, self.built(identity, name)), (Band.INTERFACE, self.joined(name))))
+        return identity.name(bpy.types.RenderEngine, self.key).map(lambda name: ((Band.INTERFACE, self.built(identity, name)), (Band.INTERFACE, self.joined(name))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

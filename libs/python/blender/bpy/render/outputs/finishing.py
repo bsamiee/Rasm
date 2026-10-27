@@ -94,7 +94,7 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
             return Ok(None)
 
         def windowed(scene: bpy.types.Scene, files: tuple[Written, ...]) -> Outcome[None]:
-            if scene.session_uid in INTERMEDIATES.of(identity):
+            if scene.session_uid in identity.held[INTERMEDIATES]:
                 return Ok(None)
             return (
                 FrameSize()
@@ -126,7 +126,7 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
                 handlers=bpy.app.handlers.render_post,
                 body=lambda scene: (
                     self.files.written(scene, scene.frame_current, identity).bind(lambda files: windowed(scene, files))
-                    if scene.session_uid in running and scene.session_uid not in INTERMEDIATES.of(identity)
+                    if scene.session_uid in running and scene.session_uid not in identity.held[INTERMEDIATES]
                     else Ok(None)
                 ),
             ),

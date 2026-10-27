@@ -5,7 +5,6 @@ using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
-using Rasm.Imaging.Tone;
 using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Grade;
@@ -15,7 +14,7 @@ namespace Rasm.Imaging.Grade;
 public sealed partial class MatteChannel {
     public static readonly MatteChannel Lightness = new("lightness", static (row, luminance, weights) => {
         for (int x = 0; x < row.Length; x++)
-            weights[x] = row[x].W is 0f ? 0f : (float)double.Clamp(LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, luminance) * row[x].W, 0d, 1d);
+            weights[x] = row[x].W is 0f ? 0f : (float)double.Clamp(Gamut.RelativeLuminance(row[x].X, row[x].Y, row[x].Z, luminance) * row[x].W, 0d, 1d);
     });
     public static readonly MatteChannel Alpha = new("alpha", static (row, _, weights) => {
         for (int x = 0; x < row.Length; x++)
@@ -78,7 +77,7 @@ public sealed partial class BlendingMode {
     public void Composite(
         Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, PixelAlphaRepresentation representation, Gamut gamut,
         PixelAlphaRepresentation sourceRepresentation = PixelAlphaRepresentation.Unassociated) {
-        Vector256<double> luma = gamut.Luminance switch { var (red, green, blue) => Vector256.Create(red, green, blue, 0d) };
+        Vector256<double> luma = gamut.LuminanceLanes;
         for (int x = 0; x < backdrop.Length; x++) {
             if (weights[x] is 0f || (sourceRepresentation is PixelAlphaRepresentation.Unassociated && layer[x].W is 0f) || (sourceRepresentation is PixelAlphaRepresentation.Associated && layer[x] == Vector4.Zero))
                 continue;
@@ -104,7 +103,7 @@ public sealed partial class BlendingMode {
     }
 
     public void Mixed(ReadOnlySpan<Vector4> input, Span<Vector4> graded, ReadOnlySpan<float> weights, Gamut gamut) {
-        Vector256<double> luma = gamut.Luminance switch { var (red, green, blue) => Vector256.Create(red, green, blue, 0d) };
+        Vector256<double> luma = gamut.LuminanceLanes;
         for (int x = 0; x < graded.Length; x++) {
             if (weights[x] is 0f)
                 graded[x] = input[x];
@@ -120,7 +119,7 @@ public sealed partial class BlendingMode {
     private static (double Least, double Most) Extremes(Vector256<double> color) =>
         (double.Min(double.Min(color[0], color[1]), color[2]), double.Max(double.Max(color[0], color[1]), color[2]));
 
-    private static double Chroma(Vector256<double> color) => Extremes(color) switch { var (least, most) => most - least };
+    private static double Chroma(Vector256<double> color) => double.Max(double.Max(color[0], color[1]), color[2]) - double.Min(double.Min(color[0], color[1]), color[2]);
 
     private static Vector256<double> Saturated(Vector256<double> color, double chroma) =>
         Extremes(color) switch {
@@ -163,7 +162,7 @@ public abstract partial record Coverage {
         public override void Weights(ReadOnlySpan<Vector4> row, long column, long line, Span<float> weights) {
             (double R, double G, double B) luminance = Gamut.Luminance;
             for (int x = 0; x < row.Length; x++)
-                weights[x] = row[x].W > 0f && Bins.Holds(LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, luminance)) ? 1f : 0f;
+                weights[x] = row[x].W > 0f && Bins.Holds(Gamut.RelativeLuminance(row[x].X, row[x].Y, row[x].Z, luminance)) ? 1f : 0f;
         }
     }
 

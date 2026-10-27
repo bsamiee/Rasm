@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.Intrinsics;
@@ -7,7 +6,6 @@ using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.Color;
-using Rasm.Imaging.Tone;
 
 namespace Rasm.Imaging.Pixels;
 
@@ -42,8 +40,7 @@ public sealed partial class TracePlane {
     public partial BinGrid Bins(Traces traces);
 }
 
-[ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class BinRange {
     public int First { get; }
     public int Last { get; }
@@ -51,10 +48,7 @@ public sealed partial class BinRange {
     public bool Holds(double level) => !double.IsNaN(level) && HistogramAxis.Bin(level) is var bin && bin >= First && bin <= Last;
 
     public static Fin<BinRange> Validated(int first, int last) =>
-        TryCreate(first, last, out BinRange? range, out ImagingFault? fault) ? range : fault;
-
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int first, ref int last) =>
-        validationError = 0 <= first && first <= last && last < HistogramAxis.Bins ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"bin range [{first}, {last}] in [0, {HistogramAxis.Bins - 1}]"), ImagingReason.Range);
+        ImagingFault.Unless(0 <= first && first <= last && last < HistogramAxis.Bins, ImagingReason.Range, (first, last)).Map(_ => new BinRange(first, last));
 }
 
 [SmartEnum<int>]
@@ -184,27 +178,26 @@ public static class HistogramAxis {
     public static float LowerBound(int bin) => bin < StopBins ? (float)bin / StopBins : float.Exp2((float)(bin - StopBins) / StopBins);
 }
 
-// --- [FOLDS] ---------------------------------------------------------------------------
 internal sealed class HistogramFold((double R, double G, double B) luminance, Option<ClipLevels> clipping) : IRowFold {
     public int Bins => (4 * HistogramAxis.Bins) + (Clips.Ends * clipping.Count());
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
         ReadOnlySpan<ClipLevels> clips = clipping.ToSpan();
         Span2D<int> planes = bins[..(4 * HistogramAxis.Bins)].AsSpan2D(4, HistogramAxis.Bins);
+        Span2D<int> ends = bins[(4 * HistogramAxis.Bins)..].AsSpan2D(2 * clips.Length, 3);
         foreach (Vector4 pixel in row) {
-            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, luminance));
+            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, luminance));
             int covered = pixel.W > 0f ? 1 : 0;
             for (int plane = 0; plane < 4; plane++)
                 planes[plane, HistogramAxis.Bin(levels[plane])] += double.IsNaN(levels[plane]) ? 0 : covered;
-            foreach (ClipLevels clip in clips) {
-                Span<int> ends = bins.Slice(4 * HistogramAxis.Bins, Clips.Ends);
-                ends[0] += pixel.X < clip.Low ? covered : 0;
-                ends[1] += pixel.Y < clip.Low ? covered : 0;
-                ends[2] += pixel.Z < clip.Low ? covered : 0;
-                ends[3] += pixel.X >= clip.High ? covered : 0;
-                ends[4] += pixel.Y >= clip.High ? covered : 0;
-                ends[5] += pixel.Z >= clip.High ? covered : 0;
-            }
+            foreach (ClipLevels clip in clips) Clipped(pixel, covered, clip, ends);
+        }
+    }
+
+    private static void Clipped(Vector4 pixel, int covered, ClipLevels clip, Span2D<int> ends) {
+        for (int channel = 0; channel < 3; channel++) {
+            ends[0, channel] += pixel[channel] < clip.Low ? covered : 0;
+            ends[1, channel] += pixel[channel] >= clip.High ? covered : 0;
         }
     }
 }
@@ -216,7 +209,7 @@ internal sealed class WaveformFold((double R, double G, double B) luminance, int
         Span2D<int> planes = bins.AsSpan2D(4 * rows, columns);
         for (int x = 0; x < row.Length; x++) {
             Vector4 pixel = row[x];
-            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, luminance));
+            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, luminance));
             (int covered, int column) = (row[x].W > 0f ? 1 : 0, (int)((long)x * columns / width));
             for (int plane = 0; plane < 4; plane++)
                 planes[(plane * rows) + int.Clamp(int.CreateSaturating(levels[plane] * rows), 0, rows - 1), column] += double.IsNaN(levels[plane]) ? 0 : covered;
@@ -260,7 +253,6 @@ internal sealed class ChromaticityFold(Matrix<double> toXyz, Transfer encoding, 
     }
 }
 
-// --- [BANDS] ---------------------------------------------------------------------------
 internal static class BandFold {
     public static int[] Run<TFold>(PixelFrame frame, TFold fold) where TFold : IRowFold {
         int bands = int.Min(frame.Size.Height, Environment.ProcessorCount);

@@ -10,7 +10,7 @@ Drawn and hosted .NET UI over SkiaSharp, HarfBuzzSharp, RichTextKit, Svg.Skia, U
 [REFERENCES]:
 - [01]-[SKIA](references/skia.md): SkiaSharp ownership, color management, layers and filters, effects, pictures, GPU surfaces, text, and documents
 - [02]-[TEXT](references/text.md): HarfBuzz objects and buffer protocol, features and variations, RichTextKit blocks, fallback, carets, and editing
-- [03]-[ETO](references/eto.md): Eto handler seams, lifecycle, threading, scale, pixel interop, input, commands, layout controls, windows, and theme
+- [03]-[ETO](references/eto.md): Eto handler seams, lifecycle, threading, scale, pixels, input, commands, layout, windows, and theme
 
 ## [01]-[NATIVE_OVER_DRAWN]
 
@@ -41,7 +41,7 @@ Drawn surfaces sit where no native control can (viewport overlay, plot, tile gal
 One surface type per scene owns its pixels and its `SKImageInfo` contract (device size, `SKColorType`, `SKAlphaType.Premul`, `SKColorSpace`) fixed before the first draw. Host adapters forward input and blit a snapshot:
 - Raster serves panel UI repainted by damage region, GPU serves full-window animation, large images, and runtime shaders
 - One scene paints raster and GPU targets through `SKCanvas`
-- `SKSurface.Create` answers `null` for an info its backend refuses, an allocation returns `Fin` holding the refused info and its host shows it
+- `SKSurface.Create` answers `null` for an info its backend refuses, an allocation returns a `Fault` under `Reason.Refused` naming the info and its host shows it
 - `SKSurface.Create(info, pixels, rowBytes, releaseProc, context)` draws into host memory and releases it with the surface, one object owns both
 - `SKPixmap(info, pointer, rowBytes)` views host bits without a copy, `SKSurface.Create(pixmap, props)` draws into them
 - `Flush(submit: true)` submits GPU work, a raster surface draws synchronously and a `Flush` on it does nothing
@@ -68,8 +68,6 @@ One surface type per scene owns its pixels and its `SKImageInfo` contract (devic
 - Offscreen rasters take their size from the clip intersected with the draw bounds, an unbounded `MapRect` sizes a layer by content
 
 ```csharp
-internal sealed record Unallocated(SKImageInfo Info) : Expected("raster backend refused the frame", 0);
-
 internal sealed class Frame : IDisposable {
     private readonly SKSurface surface;
     private readonly SKRegion damage;
@@ -82,7 +80,8 @@ internal sealed class Frame : IDisposable {
     public static Fin<Frame> Allocated(SKImageInfo info, SKSurfaceProperties properties) =>
         Surfaced(info, () => SKSurface.Create(info, properties)).Map(made => new Frame(made, info));
 
-    private static Fin<SKSurface> Surfaced(SKImageInfo info, Func<SKSurface> create) => Optional(create()).ToFin(new Unallocated(info));
+    private static Fin<SKSurface> Surfaced(SKImageInfo info, Func<SKSurface> create) =>
+        Optional(create()).ToFin(new Fault(string.Create(CultureInfo.InvariantCulture, $"{info.Width}x{info.Height} {info.ColorType}"), Reason.Refused));
 
     public void Damage(SKRect logical, float scale) =>
         damage.Op(SKRectI.Ceiling(SKMatrix.CreateScale(scale, scale).MapRect(logical), outwards: true), SKRegionOperation.Union);
@@ -127,8 +126,7 @@ Paints are style objects built once, every effect on one is a reference-counted 
 - `SKPaint.GetFastBounds` over the filter handle answers a filtered draw's reach, one probe per filter graph
 - `ClipRoundRect` costs less than `ClipPath` over one shape, `antialias: true` buys a coverage mask, a device-snapped rect clips without one
 - `IsDither` removes 8-bit banding in gradients
-- Runtime effects compile once into a static `SKRuntimeEffect.BuildShader` builder, a failed compile throws its compiler text
-- Each use binds its own `SKRuntimeEffectUniforms` and `SKRuntimeEffectChildren` into `Effect.ToShader(uniforms, children, localMatrix)`
+- Runtime effects compile once through `SKRuntimeEffect.BuildShader` into a static builder, each use binds its own uniforms and children into `Effect.ToShader`
 - `WithLocalMatrix` on a built shader makes a second handle per use
 - Pictures record once per content change through `SKPictureRecorder.BeginRecording(cullRect, useRTree: true)` and replay per frame
 - `SKImage.FromPicture` rasterizes a picture when replay cost leads
@@ -203,23 +201,12 @@ Vector art loads once into an `SKPicture` and draws at any scale, tint and theme
 - Pictures that leave the scene stay cached until memory pressure, a hover that re-parses art thrashes
 - `SvgService.GetDimensions(fragment, viewport)` reads intrinsic size and `viewBox`, the viewport resolves percentage sizes
 - `HitTestElements(point, canvasMatrix)` and `HitTestTopmostElement(point, canvasMatrix)` hit test loaded art on an `SKSvg`
-- Missing, unparsable, or empty art is an expected failure answered as `Fin` with the asset as data, a throw at paint stops the frame
+- Missing, unparsable, or empty art is a `Fault` with the asset as subject under `Reason.Missing`, `Unparsed`, or `Empty`, a throw at paint stops the frame
 - Art loads while the scene is retained, the paint pass finds every picture present and parses none
 - Host icons rasterize once per (asset, scale, theme) into an Eto `Icon(scale, bitmap)`, the previous icon is disposed on retheme, no PNG round trip
 
 ```csharp
 internal sealed record ArtKey(Assembly Assembly, string Resource, SKColor Current);
-
-[SmartEnum]
-internal sealed partial class ArtFault {
-    public static readonly ArtFault Missing = new("no resource");
-    public static readonly ArtFault Unparsable = new("no SVG document");
-    public static readonly ArtFault Empty = new("no picture");
-
-    public string Message { get; }
-}
-
-internal sealed record ArtRefused(ArtKey Key, ArtFault Fault) : Expected($"{Key.Resource} fails: {Fault.Message}", 0);
 
 internal sealed class Art {
     private readonly SkiaModel model;
@@ -237,9 +224,9 @@ internal sealed class Art {
         using Stream? stream = key.Assembly.GetManifestResourceStream(key.Resource);
         SvgParameters parameters = new(Entities: null, Css: null, Color.FromArgb(key.Current.Alpha, key.Current.Red, key.Current.Green, key.Current.Blue));
         return
-            from source in Optional(stream).ToFin(new ArtRefused(key, ArtFault.Missing))
-            from document in Optional(SvgService.Open(source, parameters)).ToFin(new ArtRefused(key, ArtFault.Unparsable))
-            from picture in Optional(SKSvg.ToPicture(document, model, loader)).ToFin(new ArtRefused(key, ArtFault.Empty))
+            from source in Optional(stream).ToFin(new Fault(key.Resource, Reason.Missing))
+            from document in Optional(SvgService.Open(source, parameters)).ToFin(new Fault(key.Resource, Reason.Unparsed))
+            from picture in Optional(SKSvg.ToPicture(document, model, loader)).ToFin(new Fault(key.Resource, Reason.Empty))
             select picture;
     }
 }
@@ -270,7 +257,7 @@ Unicolour states every color fact at design scale (swatch, palette, theme color,
 - `Css.FromName(name)` answers a named color or `null`, `Css.All` lists the names
 - Pixel passes derive a matrix from `RgbLinear` and `Xyz` of primaries and white, luma from `YbrConfiguration`, into `Vector4` lanes or a uniform
 - Transfer tables derive from `ToLinear(value, dynamicRange)`
-- Look colors are a typed union (fixed, host role, data series, mix, contrast, relative) in the assembly that declares the role
+- Style colors are a typed union (fixed, host role, data series, mix, contrast, relative) declared in code beside the style that reads them
 - Paint boundary: `SKColorF` from `Rgb` with the sRGB tag or from `RgbLinear` with the linear tag, `SKColor` from `Rgb.Byte255`
 - `Unicolour.Hex` and `Rgb.Byte255.Hex` write `#RRGGBB` and answer `-` outside the RGB gamut, `MapToRgbGamut` precedes them
 - HSL math stays in `ColourSpace.Hsl`
@@ -409,7 +396,7 @@ internal sealed class SceneCanvas(Action<SKCanvas> draw) : Drawable {
 |  [20]   | `new Unicolour` inside a pixel or sample loop                       | Matrix or curve derived once, baked into a span kernel or shader |
 |  [21]   | Hand alpha composite, white point adaptation, or CCT fit            | `Blend`, `ConvertToConfiguration`, `Unicolour.Temperature`       |
 |  [22]   | Hand RGB clipping of an out-of-gamut color                          | `MapToRgbGamut(GamutMap.OklchChromaReduction)`                   |
-|  [23]   | Look file, decoder, or color string grammar                         | Typed look values in the role's assembly                         |
+|  [23]   | Style file, decoder, or color string grammar                        | Typed color values declared in code beside their style           |
 |  [24]   | `TextBlock` laid out per paint, or one block per candidate width    | Laid block cached by text, sealed style, and width               |
 |  [25]   | `Copy` and `ApplyStyle` to recolor text per frame                   | Layer paint or color filter over the laid block                  |
 |  [26]   | Whitespace scan or `Split(' ')` for wrap and word points            | `WordBoundaryIndicies`, `LineIndicies`                           |

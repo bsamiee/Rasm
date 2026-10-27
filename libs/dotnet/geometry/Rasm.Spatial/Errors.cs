@@ -12,13 +12,12 @@ public sealed partial class SpatialRule {
     public static readonly SpatialRule Range = new("value out of range");
     public static readonly SpatialRule Degenerate = new("degenerate extent");
     public static readonly SpatialRule Singular = new("singular map");
-    public static readonly SpatialRule Stated = new("rule its factory states");
 
     public string Message { get; }
 }
-public sealed record SpatialFault(string Subject, SpatialRule Rule, Option<int> Index = default)
-    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Subject} fails: {Rule.Message} at index {at}"), () => $"{Subject} fails: {Rule.Message}"), 0), IValidationError<SpatialFault> {
-    public static SpatialFault Create(string message) => new(message, SpatialRule.Stated);
 
-    public static Fin<Unit> Unless(bool flag, SpatialRule rule, Option<int> index = default, [CallerArgumentExpression(nameof(flag))] string subject = "") => flag ? unit : new SpatialFault(subject, rule, index);
+public sealed record SpatialFault(string Subject, SpatialRule Reason, Option<int> Index = default, Option<Error> Inner = default)
+    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner) {
+    public static Fin<Unit> Unless<T>(bool flag, SpatialRule reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
+        flag ? unit : new SpatialFault($"{names} = {Convert.ToString(rejected, CultureInfo.InvariantCulture)}", reason, index);
 }

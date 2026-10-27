@@ -1,17 +1,18 @@
 """Registration bands, class registration in dependency order, and extension resource scope."""
 
-from collections.abc import Callable, Generator, Iterable
-from contextlib import AbstractContextManager, contextmanager, ExitStack
+from collections.abc import Callable, Iterable
+from contextlib import AbstractContextManager, ExitStack
 from enum import auto, Enum
-from functools import reduce
+from functools import partial, reduce
 import graphlib
-from typing import get_type_hints, NoReturn, Protocol, runtime_checkable
+from typing import Final, get_type_hints, NoReturn, Protocol, runtime_checkable
 
 import bpy
 from expression import Ok, Option, Result
 from expression.extra.result import catch
 
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.events import Handler, Subscription, Timer
+from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import Fault, Faults, Outcome
@@ -38,7 +39,8 @@ class Band(Enum):
 
 
 type Acquisition = type | AbstractContextManager[Outcome[None] | None]
-type Acquisitions = tuple[Registrable | tuple[Band, Acquisition], ...]
+type Declaration = Registrable | Resource[object] | Handler | Subscription | Timer
+type Acquisitions = tuple[Declaration | tuple[Band, Acquisition], ...]
 
 
 @runtime_checkable
@@ -61,7 +63,7 @@ class Dependent(Protocol):
     """Row whose build reads declarations the scope acquires before every row."""
 
     @property
-    def prerequisites(self) -> tuple[Registrable, ...]:
+    def prerequisites(self) -> tuple[Declaration, ...]:
         """Declarations acquired before dependent rows build."""
 
 
@@ -69,7 +71,7 @@ class Dependent(Protocol):
 class Gathering(Protocol):
     """Row building its acquisitions over every declaration the scope built before it."""
 
-    def gathered(self, identity: Identity, declared: "tuple[Registrable | Gathering, ...]", /) -> Outcome[Acquisitions]:
+    def gathered(self, identity: Identity, declared: "tuple[Declaration | Gathering, ...]", /) -> Outcome[Acquisitions]:
         """Builds acquisitions over declarations of every other row.
 
         Args:
@@ -79,6 +81,81 @@ class Gathering(Protocol):
         Returns:
             Build result.
         """
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_SCHEMA: Final = (Band.GROUPS, Band.ATTACHMENTS)
+
+# --- [SERVICES] -------------------------------------------------------------------------
+
+
+class _Scope:
+    """One registration's build state: the stack holding every release, one stack per band, built declarations, and acquisition pairs with whether each was entered."""
+
+    __slots__ = ("declarations", "identity", "pairs", "stack", "stacks")
+
+    def __init__(self, identity: Identity, stack: ExitStack) -> None:
+        """Enters the keymap merge, reports, and band stacks onto stack, holding no declaration."""
+        self.identity, self.stack = identity, stack
+        stack.callback(_merged)
+        stack.enter_context(identity.reports)
+        self.stacks = {band: stack.enter_context(ExitStack()) for band in Band}
+        self.declarations: list[Declaration | Gathering] = []
+        self.pairs: dict[tuple[Band, Acquisition], bool] = {}
+
+    def built(self, row: Declaration | Gathering | tuple[Band, Acquisition]) -> Outcome[None]:
+        """Builds each declaration once after its prerequisites, entering new schema acquisitions after each build."""
+        match row:
+            case (Band(), _):
+                self.pairs.setdefault(row, False)
+                return Ok(None)
+            case _ if row in self.declarations:
+                return Ok(None)
+            case _:
+                return (
+                    self
+                    .folded(row.prerequisites if isinstance(row, Dependent) else ())
+                    .bind(lambda _: self.walked(_SCHEMA))
+                    .bind(lambda _: self.declared(row))
+                    .bind(self.folded)
+                    .bind(lambda _: self.walked(_SCHEMA))
+                )
+
+    def declared(self, row: Declaration | Gathering) -> Outcome[Acquisitions]:
+        """Builds the acquisitions of one declaration, holding a construction scope on the registration stack."""
+        answer: Outcome[Acquisitions] | AbstractContextManager[Outcome[Acquisitions]]
+        match row:
+            case Resource():
+                answer = Ok((
+                    (Band.RESOURCES, self.identity.held.holding(row, partial(row.made, self.identity))),
+                    *(Handler(handlers=bpy.app.handlers.load_post, body=partial(self.identity.held.renewed, row, renew)) for renew in row.renewed.to_list()),
+                ))
+            case Handler():
+                answer = Ok(((Band.APP_HANDLERS, row.held(self.identity)),))
+            case Subscription():
+                answer = Ok(((Band.SUBSCRIPTIONS, row.held(self.identity)),))
+            case Timer():
+                answer = Ok(((Band.TIMERS, row.held(self.identity)),))
+            case Gathering():
+                answer = row.gathered(self.identity, tuple(self.declarations))
+            case _:
+                answer = row.acquisitions(self.identity)
+        self.declarations.append(row)
+        return self.stack.enter_context(answer) if isinstance(answer, AbstractContextManager) else answer
+
+    def folded(self, rows: Iterable[Declaration | Gathering | tuple[Band, Acquisition]]) -> Outcome[None]:
+        """Builds rows in order until first refusal."""
+        return reduce(lambda result, row: result.bind(lambda _: self.built(row)), rows, Result[None, Faults](ok=None))
+
+    def walked(self, bands: Iterable[Band]) -> Outcome[None]:
+        """Enters each band's pairs not yet entered, in band order until first refusal."""
+
+        def entered_band(result: Outcome[None], band: Band) -> Outcome[None]:
+            fresh = tuple(pair for pair, done in self.pairs.items() if pair[0] is band and not done)
+            return result.bind(lambda _: entered(self.stacks[band], tuple(acquisition for _, acquisition in fresh))).map(lambda _: self.pairs.update(dict.fromkeys(fresh, True)))
+
+        return reduce(entered_band, bands, Result[None, Faults](ok=None))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -105,50 +182,72 @@ def ordered(classes: tuple[type, ...]) -> Outcome[tuple[type, ...]]:
         }
         for cls in classes
     }
-    return catch(lambda: tuple(graphlib.TopologicalSorter({cls: held & targets.keys() for cls, held in targets.items()}).static_order()), exception=graphlib.CycleError)().map_error(
+    return catch(tuple, exception=graphlib.CycleError)(graphlib.TopologicalSorter({cls: held & targets.keys() for cls, held in targets.items()}).static_order()).map_error(
         lambda error: (Fault(reason=BlenderReason.UNREGISTERED, subject=", ".join(cls.__name__ for cls in classes), cause=error),)
     )
 
 
-@contextmanager
-def registered(cls: type) -> Generator[Outcome[None]]:
-    """Registers class, unregistering it at exit whenever the host holds it, a refused registration included.
+def registered(cls: type) -> Outcome[None]:
+    """Registers class with the host.
 
     Args:
         cls: Class `bpy.utils.register_class` takes.
 
-    Yields:
+    Returns:
         Ok(None), register fault for a refused class.
     """
-    try:
-        bpy.utils.register_class(cls)  # ty: ignore[invalid-argument-type]
-    except (ValueError, RuntimeError) as error:
-        answer = Result[None, Faults](error=(Fault(reason=BlenderReason.UNREGISTERED, subject=cls.__name__, cause=error),))
-    else:
-        answer = Result[None, Faults](ok=None)
-    try:
-        yield answer
-    finally:
-        if "bl_rna" in vars(cls):
-            bpy.utils.unregister_class(cls)  # ty: ignore[invalid-argument-type]
+    return _register(cls).map_error(lambda error: (Fault(reason=BlenderReason.UNREGISTERED, subject=cls.__name__, cause=error),))
 
 
-def entered(band_stack: ExitStack, acquisitions: tuple[Acquisition, ...]) -> Outcome[None]:
-    """Enters classes in dependency order, then managers, onto stack until first refusal."""
+def entered(stack: ExitStack, acquisitions: tuple[Acquisition, ...]) -> Outcome[None]:
+    """Registers classes in dependency order, then enters managers, onto stack until first refusal, each class released in reverse whenever the host holds it.
+
+    Args:
+        stack: Stack holding every release.
+        acquisitions: Classes and context managers of one band.
+
+    Returns:
+        Ok(None), the first refusal's faults.
+    """
     managers = tuple(acquisition for acquisition in acquisitions if not isinstance(acquisition, type))
     return ordered(tuple(acquisition for acquisition in acquisitions if isinstance(acquisition, type))).bind(
-        lambda order: reduce(
-            lambda result, manager: result.bind(lambda _: Option.of_optional(band_stack.enter_context(manager)).default_value(Ok(None))),
-            (*map(registered, order), *managers),
-            Result[None, Faults](ok=None),
-        )
+        lambda order: reduce(lambda result, acquisition: result.bind(lambda _: _acquired(stack, acquisition)), (*order, *managers), Result[None, Faults](ok=None))
     )
+
+
+@catch(exception=RuntimeError)
+@catch(exception=ValueError)
+def _register(cls: type) -> None:
+    """Registers class, the host raising `ValueError` for a held class and `RuntimeError` for a refused one."""
+    bpy.utils.register_class(cls)  # ty: ignore[invalid-argument-type]
+
+
+def _released(cls: type) -> None:
+    """Unregisters class while the host holds it, a class whose `register` raised included."""
+    if "bl_rna" in vars(cls):
+        bpy.utils.unregister_class(cls)  # ty: ignore[invalid-argument-type]
+
+
+def _acquired(stack: ExitStack, acquisition: Acquisition) -> Outcome[None]:
+    """Registers a class after pushing its release, or enters a manager, onto stack."""
+    match acquisition:
+        case type():
+            stack.callback(_released, acquisition)
+            return registered(acquisition)
+        case _:
+            return Option.of_optional(stack.enter_context(acquisition)).default_value(Ok(None))
+
+
+def _merged() -> None:
+    """Merges user keymap edits after release, keeping properties for next enable."""
+    manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    manager.keyconfigs.update(keep_properties=True)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def scope(package: str, rows: tuple[Registrable | Gathering, ...]) -> tuple[Callable[[], None], Callable[[], None]]:
+def scope(package: str, rows: tuple[Declaration | Gathering, ...]) -> tuple[Callable[[], None], Callable[[], None]]:
     """Builds register and unregister callbacks.
 
     Prerequisites of every row precede the rows, a nested row's prerequisites precede it, and gathering rows build last.
@@ -163,58 +262,16 @@ def scope(package: str, rows: tuple[Registrable | Gathering, ...]) -> tuple[Call
     """
     held = ExitStack()
 
-    def merged() -> None:
-        """Merges user keymap edits after release, keeping properties for next enable."""
-        bpy.context.window_manager.keyconfigs.update(keep_properties=True)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-
     def acquired(stack: ExitStack, identity: Identity) -> Outcome[None]:
-        """Builds rows, schema acquisitions entered before dependents."""
-        stack.callback(merged)
-        stack.enter_context(identity.reports)
-        stacks = {band: stack.enter_context(ExitStack()) for band in Band}
-        schema = (Band.GROUPS, Band.ATTACHMENTS)
-        declarations: list[Registrable | Gathering] = []
-        pairs: dict[tuple[Band, Acquisition], bool] = {}
-
-        def walked(bands: Iterable[Band]) -> Outcome[None]:
-            """Enters each band's pairs not yet entered, in band order until first refusal."""
-
-            def band_entered(result: Outcome[None], band: Band) -> Outcome[None]:
-                fresh = tuple(pair for pair, done in pairs.items() if pair[0] is band and not done)
-                return result.bind(lambda _: entered(stacks[band], tuple(acquisition for _, acquisition in fresh))).map(lambda _: pairs.update(dict.fromkeys(fresh, True)))
-
-            return reduce(band_entered, bands, Result[None, Faults](ok=None))
-
-        def built(row: Registrable | Gathering | tuple[Band, Acquisition]) -> Outcome[None]:
-            """Builds each declaration once after its prerequisites, entering new schema acquisitions."""
-            if not isinstance(row, Registrable | Gathering):
-                pairs.setdefault(row, False)
-                return Ok(None)
-            if row in declarations:
-                return Ok(None)
-
-            def answered(_: None) -> Outcome[None]:
-                answer = row.gathered(identity, tuple(declarations)) if isinstance(row, Gathering) else row.acquisitions(identity)
-                declarations.append(row)
-                acquisitions = stack.enter_context(answer) if isinstance(answer, AbstractContextManager) else answer
-                return acquisitions.bind(folded).bind(lambda _: walked(schema))
-
-            return folded(row.prerequisites if isinstance(row, Dependent) else ()).bind(lambda _: walked(schema)).bind(answered)
-
-        def folded(rows: Iterable[Registrable | Gathering | tuple[Band, Acquisition]]) -> Outcome[None]:
-            """Builds rows in order."""
-            return reduce(lambda result, row: result.bind(lambda _: built(row)), rows, Result[None, Faults](ok=None))
-
-        return folded((*(needed for row in rows if isinstance(row, Dependent) for needed in row.prerequisites), *sorted(rows, key=lambda row: isinstance(row, Gathering)))).bind(
-            lambda _: walked(band for band in Band if band not in schema)
+        built = _Scope(identity, stack)
+        return built.folded((*(needed for row in rows if isinstance(row, Dependent) for needed in row.prerequisites), *sorted(rows, key=lambda row: isinstance(row, Gathering)))).bind(
+            lambda _: built.walked(band for band in Band if band not in _SCHEMA)
         )
 
     def refused(faults: Faults) -> NoReturn:
-        """Raises rendered faults as RuntimeError."""
         raise RuntimeError("\n".join(text for _, text in rendered(faults)))
 
     def register() -> None:
-        """Acquires rows, holding releases once every row succeeds."""
         with ExitStack() as stack:
             Identity.read(package).bind(lambda identity: acquired(stack, identity)).map(lambda _: held.push(stack.pop_all())).default_with(refused)
 
@@ -223,4 +280,4 @@ def scope(package: str, rows: tuple[Registrable | Gathering, ...]) -> tuple[Call
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Acquisition", "Acquisitions", "Band", "Dependent", "Gathering", "Registrable", "entered", "ordered", "registered", "scope"]
+__all__ = ["Acquisition", "Acquisitions", "Band", "Declaration", "Dependent", "Gathering", "Registrable", "entered", "ordered", "registered", "scope"]

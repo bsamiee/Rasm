@@ -9,7 +9,6 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
-using Rasm.Imaging.Tone;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Grade;
@@ -46,7 +45,7 @@ public sealed record WheelOffset(float Hue, float Strength, float Luma) {
             (working.Luminance, global.Multiplier(working), shadows.Multiplier(working), midtones.Multiplier(working), highlights.Multiplier(working));
         return row => {
             foreach (ref Vector4 pixel in row) {
-                double luma = LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, weights);
+                double luma = Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, weights);
                 (float lifted, float raised) = ((float)Smooth(0d, shadowsEnd, luma), (float)Smooth(highlightsStart, highlightsStart + highlightsWidth, luma));
                 pixel = new Vector4(pixel.AsVector3() * all * ((low * (1f - lifted)) + (middle * lifted * (1f - raised)) + (high * lifted * raised)), pixel.W);
             }
@@ -72,12 +71,12 @@ public sealed partial class CdlFormat {
 
     public static Fin<IterableNE<(Option<string> Id, LutTable.Cdl Correction)>> Read(string text) =>
         Try.lift(() => XDocument.Parse(text)).Run()
-            .MapFail(static error => error.Exception.Case is XmlException xml ? new ImagingFault($"CDL text at {xml.Message}", ImagingReason.Unparsed, error) : error)
+            .MapFail(static error => error.HasException<XmlException>() ? new ImagingFault("CDL text", ImagingReason.Malformed, Inner: error) : error)
             .Bind(static document => toSeq(document.Descendants()).Filter(static element => element.Name.LocalName is CorrectionNode)
                 .Traverse(static correction => ProcessLists.CorrectionValues(correction, static name => new ImagingFault($"CDL correction {name}", ImagingReason.Unreadable))
                     .Map(values => (Optional(correction.Attribute(IdAttribute)?.Value), new LutTable.Cdl(CdlStyle.FwdNoClamp, values.Slope, values.Offset, values.Power, values.Saturation))))
                 .As())
-            .Bind(static corrections => corrections.AsIterableNE().ToFin(new ImagingFault($"CDL text {CorrectionNode}", ImagingReason.Empty)));
+            .Bind(static corrections => corrections.AsIterableNE().ToFin(new ImagingFault($"{CorrectionNode} element in CDL text", ImagingReason.Empty)));
 
     public string Write(LutTable.Cdl correction, Option<string> id) =>
         $"{Declaration}\n{Ancestors.FoldBack(
@@ -94,7 +93,7 @@ public static class Primary {
             double high = double.Max(red, double.Max(green, blue));
             double spread = high > 0d ? 1d - (double.Max(double.Min(red, double.Min(green, blue)), 0d) / high) : 1d;
             double gain = saturation * (1d + (vibrance * (vibrance > 0f ? (1d - spread) * (1d - spread) : spread * spread / 2d)));
-            double gray = LuminanceSamples.Luminance(red, green, blue, luminance);
+            double gray = Gamut.RelativeLuminance(red, green, blue, luminance);
             pixel = new Vector4((float)double.Lerp(gray, red, gain), (float)double.Lerp(gray, green, gain), (float)double.Lerp(gray, blue, gain), pixel.W);
         }
 
@@ -127,7 +126,7 @@ public static class Primary {
     public static void Mapped(Span<Vector4> row, ReadOnlySpan<Vector4> table, Gamut gamut) {
         (float top, (double R, double G, double B) luminance) = (table.Length - 1, gamut.Luminance);
         foreach (ref Vector4 pixel in row) {
-            float position = float.Clamp((float)double.Cbrt(LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, luminance)), 0f, 1f) * top;
+            float position = float.Clamp((float)double.Cbrt(Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, luminance)), 0f, 1f) * top;
             int low = int.Clamp((int)float.MaxNumber(position, 0f), 0, int.Max(table.Length - 2, 0));
             Vector4 mapped = Vector4.Lerp(table[low], table[int.Min(low + 1, table.Length - 1)], position - low);
             pixel = new Vector4(Vector3.Lerp(pixel.AsVector3(), mapped.AsVector3(), mapped.W), pixel.W);

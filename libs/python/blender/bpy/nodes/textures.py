@@ -225,7 +225,7 @@ class Voronoi(Texture, frozen=True, kw_only=True):
                     case _:
                         return axes
 
-            started = rounds(tuple(np.moveaxis(cells * 1664525 + 1013904223, -1, 0)))
+            started = rounds(np.unstack(cells * 1664525 + 1013904223, axis=-1))
             return np.stack(tuple((axis & 0x7FFFFFFF).astype(np.float32) * np.float32(2.0**-31) for axis in rounds(tuple(axis ^ (axis >> 16) for axis in started))), axis=-1)
 
         def jitter(cells: Cells) -> Floats:
@@ -241,19 +241,21 @@ class Voronoi(Texture, frozen=True, kw_only=True):
                     return pcg(cells)[..., :3]
 
         def metric(delta: Floats, *, exact: bool) -> Floats:
+            reduced: Floats
             match self.distance:
                 case _ if rank == 1:
                     return np.abs(delta[..., 0])
                 case "EUCLIDEAN":
-                    squared = np.sum(delta * delta, axis=-1)
-                    return np.sqrt(squared) if exact else squared
+                    reduced = np.sum(delta * delta, axis=-1)
+                    return np.sqrt(reduced) if exact else reduced
                 case "MANHATTAN":
-                    return np.sum(np.abs(delta), axis=-1)
+                    reduced = np.sum(np.abs(delta), axis=-1)
                 case "CHEBYCHEV":
-                    return np.max(np.abs(delta), axis=-1)
+                    reduced = np.max(np.abs(delta), axis=-1)
                 case "MINKOWSKI":
                     exponent = np.float32(self.exponent)
-                    return np.sum(np.abs(delta) ** exponent, axis=-1) ** (np.float32(1.0) / exponent)
+                    reduced = np.sum(np.abs(delta) ** exponent, axis=-1) ** (np.float32(1.0) / exponent)
+            return reduced
 
         def scanned(at: Floats, reach: int) -> tuple[Floats, Cells, Cells, Floats]:
             floored = np.floor(at)
@@ -287,15 +289,18 @@ class Voronoi(Texture, frozen=True, kw_only=True):
 
         def edge(at: Floats) -> Floats:
             local, cells, _, vectors = scanned(at, 1)
+            nearest: Floats
             if rank == 1:
                 middle, left, right = (np.float32(side) + jitter(cells + side)[:, 0] * randomness for side in (0, -1, 1))
-                return np.minimum(np.abs((middle + left) / np.float32(2.0) - local[:, 0]), np.abs((middle + right) / np.float32(2.0) - local[:, 0]))
-            toward = vectors - local
-            closest = toward[np.argmin(np.sum(toward * toward, axis=-1), axis=0), columns]
-            across = toward - closest
-            length = np.sqrt(np.sum(across * across, axis=-1))
-            edges = np.sum((closest + toward) / np.float32(2.0) * (across / np.where(length > 0.0, length, np.float32(1.0))[..., None]), axis=-1)
-            return np.min(edges, axis=0, where=length * length > np.float32(0.0001), initial=np.finfo(np.float32).max)
+                nearest = np.minimum(np.abs((middle + left) / np.float32(2.0) - local[:, 0]), np.abs((middle + right) / np.float32(2.0) - local[:, 0]))
+            else:
+                toward = vectors - local
+                closest = toward[np.argmin(np.sum(toward * toward, axis=-1), axis=0), columns]
+                across = toward - closest
+                length = np.sqrt(np.sum(across * across, axis=-1))
+                edges = np.sum((closest + toward) / np.float32(2.0) * (across / np.where(length > 0.0, length, np.float32(1.0))[..., None]), axis=-1)
+                nearest = np.min(edges, axis=0, where=length * length > np.float32(0.0001), initial=np.finfo(np.float32).max)
+            return nearest
 
         amplitude, scale = np.float32(1.0), np.float32(1.0)
         match self.feature:
@@ -332,12 +337,12 @@ class Voronoi(Texture, frozen=True, kw_only=True):
                         break
                     if index <= detail:
                         total, distance, color = total + amplitude, distance + found * amplitude, color + tinted * amplitude
-                        position, scale, amplitude = _lerp(position, at / scale, amplitude), scale * lacunarity, amplitude * roughness
+                        position, scale, amplitude = _lerp(position, np.divide(at, scale), amplitude), scale * lacunarity, amplitude * roughness
                     elif remainder != 0.0:
                         total = _lerp(total, total + amplitude, remainder)
                         distance, color = _lerp(distance, distance + found * amplitude, remainder), _lerp(color, color + tinted * amplitude, remainder)
-                        position = _lerp(position, _lerp(position, at / scale, amplitude), remainder)
-                placed = position / np.float32(self.scale) if self.scale != 0.0 else np.zeros_like(position)
+                        position = _lerp(position, _lerp(position, np.divide(at, scale), amplitude), remainder)
+                placed = np.divide(position, np.float32(self.scale)) if self.scale != 0.0 else np.zeros_like(position)
                 return {
                     "Distance": distance / (total * limit) if self.normalize else distance,
                     "Color": color / total if self.normalize else color,
@@ -422,7 +427,7 @@ class Magic(Texture, frozen=True, kw_only=True):
             lambda held, step: step(*held), steps[: self.turbulence_depth], (np.sin((a + b + c) * np.float32(5.0)), np.cos((-a + b - c) * np.float32(5.0)), -np.cos((-a - b + c) * np.float32(5.0)))
         )
         stacked: Floats = np.stack(turbulence, axis=-1)
-        color = np.float32(0.5) - (stacked / (distort * np.float32(2.0)) if distort != 0.0 else stacked)
+        color = np.float32(0.5) - (np.divide(stacked, distort * np.float32(2.0)) if distort != 0.0 else stacked)
         return {"Fac": np.sum(color, axis=-1) * np.float32(1.0 / 3.0), "Color": color}
 
 
@@ -542,7 +547,7 @@ class MapRange(NodeSettings, frozen=True, kw_only=True):
         """Remaps values as the node's CPU function does, clamping only linear and stepped interpolation."""
         held = np.asarray(values, dtype=np.float32)
         low, high, start, end, steps = (np.float32(bound) for bound in (self.from_min, self.from_max, self.to_min, self.to_max, self.steps))
-        factor = (held - low) / (high - low) if high != low else np.zeros_like(held)
+        factor = np.divide(held - low, high - low) if high != low else np.zeros_like(held)
         match self.interpolation_type:
             case "STEPPED":
                 shaped = np.floor(factor * (steps + np.float32(1.0))) / steps if steps != 0.0 else np.zeros_like(factor)
@@ -694,10 +699,10 @@ def _fractal(noise: Noise, position: Floats) -> Floats:
                 value, total = value + _perlin(scale * position) * amplitude, total + amplitude
                 amplitude, scale = amplitude * roughness, scale * lacunarity
             if remainder == 0.0:
-                return np.float32(0.5) * value / total + np.float32(0.5) if noise.normalize else value
+                return np.divide(np.float32(0.5) * value, total) + np.float32(0.5) if noise.normalize else value
             extended = value + _perlin(scale * position) * amplitude
             return (
-                _lerp(np.float32(0.5) * value / total + np.float32(0.5), np.float32(0.5) * extended / (total + amplitude) + np.float32(0.5), remainder)
+                _lerp(np.divide(np.float32(0.5) * value, total) + np.float32(0.5), np.divide(np.float32(0.5) * extended, total + amplitude) + np.float32(0.5), remainder)
                 if noise.normalize
                 else _lerp(value, extended, remainder)
             )

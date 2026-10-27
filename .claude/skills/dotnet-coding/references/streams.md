@@ -22,7 +22,7 @@ Stream programs have layers, the separation keeps the dataflow composable and sh
 
 ## [03]-[CREATION]
 
-Subscription behavior depends on the source, not every observable is lazy. Callback-based producers (a message subscription) enter through `Event.from`, event-based APIs through `FromEvent` or `FromEventPattern`, and a `Subject<T>` belongs only at a callback boundary that no dedicated source expresses directly, which keeps observer calls out of the stream definition.
+Subscription behavior depends on the source, not every observable is lazy. Callback-based producers (a message subscription) enter through `Event.from`, event-based APIs through `FromEvent` or `FromEventPattern`, and a `Subject<T>` belongs only at a callback boundary no dedicated source expresses, stream definitions hold no observer calls.
 
 ## [04]-[OPERATORS]
 
@@ -64,7 +64,7 @@ internal static class Branches {
 
 ```csharp
 internal static class Failures {
-    public static Fin<decimal> Rate(HashMap<string, decimal> table, string code) => table.Find(code).ToFin(Error.New($"unknown code {code}"));
+    public static Fin<decimal> Rate(HashMap<string, decimal> table, string code) => table.Find(code).ToFin(new Fault(code, Reason.Missing));
     public static Source<Fin<decimal>> Outcomes(HashMap<string, decimal> table, Source<string> codes) => codes.Map(code => Rate(table, code));
     public static Source<string> Outputs(HashMap<string, decimal> table, Source<string> codes) =>
         Source.pure("Enter a code").Combine(
@@ -106,7 +106,7 @@ internal static class Backpressure {
 }
 ```
 
-`Scan` is a running fold that emits each accumulated state while `Aggregate` waits for completion, and it detects a state crossing: `FoldReduce` groups the amounts of each key, `Scan` passes each balance forward with the seed emitted first, and `Window(2)` reads each balance beside its predecessor, the filter sees only a crossing from nonnegative to negative:
+`Scan` is a running fold emitting each accumulated state while `Aggregate` waits for completion, and detects a state crossing: `FoldReduce` groups the amounts of each key, `Scan` passes each balance forward with the seed emitted first, and `Window(2)` reads each balance beside its predecessor, the filter sees only a crossing from nonnegative to negative:
 
 ```csharp
 internal sealed record Entry(Guid Key, decimal Amount);
@@ -189,9 +189,8 @@ internal sealed record Debit(decimal Amount, Conduit<Fin<Snapshot>, Fin<Snapshot
 
 internal static class Rules {
     public static Fin<(Debited Event, Snapshot Next)> Debit(Snapshot state, decimal amount) =>
-        state.Balance - amount < -state.Limit
-            ? Error.New("debit exceeds the limit")
-            : (new Debited(amount), state with { Balance = state.Balance - amount });
+        Fault.Unless(state.Balance - amount >= -state.Limit, Reason.Invalid, (state.Balance, amount))
+            .Map(_ => (new Debited(amount), state with { Balance = state.Balance - amount }));
 }
 
 internal sealed record EntityProcess(Conduit<Debit, Debit> Inbox, ForkIO<Snapshot> Running) {
@@ -237,7 +236,7 @@ internal static class Registry {
             Some: static process => IO.pure(process),
             None: () =>
                 from found in load(id)
-                from state in IO.lift(found.ToFin(Error.New($"no entity has id {id}")))
+                from state in IO.lift(found.ToFin(new Fault($"entity {id}", Reason.Missing)))
                 from started in EntityProcess.Start(persist, state)
                 from resolved in IO.lift(() => processes.FindOrAdd(id, started))
                 from _ in ReferenceEquals(resolved, started) ? IO.pure(unit) : started.Inbox.Complete()

@@ -21,7 +21,7 @@ from blender.imaging.color.processors import basis, GREY
 from blender.imaging.color.white import White
 from blender.imaging.files.buffers import checked, pixels
 from blender.records.faults import Outcome, paired
-from blender.records.fields import Frozen, NonNegative, Side, Unit
+from blender.records.fields import Frozen, NonNegative, Positive, Side, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -79,7 +79,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
     grid: Side = 256
     size: Side = 3
     separation: Annotated[float, msgspec.Meta(ge=0.0)] = 0.08
-    split_range: Annotated[float, msgspec.Meta(gt=0.0)] = math.log2(6.0)
+    split_range: Positive = math.log2(6.0)
     highlights: Annotated[float, msgspec.Meta(ge=0.0, le=100.0)] = 85.0
     chromatic: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)] = 0.18
     subject_inset: _Inset = 0.12

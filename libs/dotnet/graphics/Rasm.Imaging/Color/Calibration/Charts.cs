@@ -1,8 +1,5 @@
-using System.Globalization;
 using System.Numerics;
-using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.Pixels;
-using UnitsNet;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Color.Calibration;
@@ -86,19 +83,14 @@ public sealed partial class ColorChart {
         };
 }
 
-[ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class ChartSamples {
     public ColorChart Chart { get; }
     public Gamut Gamut { get; }
     public HashMap<ChartPatch, (double R, double G, double B)> Patches { get; }
 
     public static Fin<ChartSamples> Validated(ColorChart chart, Gamut gamut, HashMap<ChartPatch, (double R, double G, double B)> patches) =>
-        TryCreate(chart, gamut, patches, out ChartSamples? samples, out ImagingFault? fault) ? samples : fault;
-
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref ColorChart chart, ref Gamut gamut, ref HashMap<ChartPatch, (double R, double G, double B)> patches) =>
-        validationError = patches.Count == ChartPatch.Items.Count ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"chart samples of {patches.Count} for {ChartPatch.Items.Count} patches"), ImagingReason.Miscounted);
+        ImagingFault.Unless(patches.Count == ChartPatch.Items.Count, ImagingReason.Miscounted, patches.Count).Map(_ => new ChartSamples(chart, gamut, patches));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -112,10 +104,10 @@ public abstract partial record ChartPlacement {
     public float Footprint { get; }
 
     public Seq<(ChartPatch Patch, (double X, double Y) TopLeft, (double X, double Y) TopRight, (double X, double Y) BottomRight, (double X, double Y) BottomLeft)> Footprints =>
-        (Quad.Homography, (X: Footprint / 2d / ColorChart.Columns, Y: Footprint / 2d / ColorChart.Rows)) switch {
+        (Quad.Mapping(), (X: Footprint / 2d / ColorChart.Columns, Y: Footprint / 2d / ColorChart.Rows)) switch {
             var (map, half) => Chart.Cells.Map((cell, index) => Center(index) switch {
                 var center => Each(((center.X - half.X, center.Y - half.Y), (center.X + half.X, center.Y - half.Y),
-                        (center.X + half.X, center.Y + half.Y), (center.X - half.X, center.Y + half.Y)), map.Apply)
+                        (center.X + half.X, center.Y + half.Y), (center.X - half.X, center.Y + half.Y)), map)
                     .Map(corners => (cell.Patch, corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft)),
             }).Somes(),
         };
@@ -140,10 +132,10 @@ public abstract partial record ChartPlacement {
                         Some(flat.Footprints.Filter(footprint => Seq(footprint.TopLeft, footprint.TopRight, footprint.BottomRight, footprint.BottomLeft)
                             .Exists(point => point.X < 0f || point.X > state.Frame.Width || point.Y < 0f || point.Y > state.Frame.Height)).Map(static footprint => footprint.Patch))
                             .Filter(static patches => !patches.IsEmpty).Map(static patches => (ChartFinding)new ChartFinding.PatchesOutside(patches)),
-                    latLong: static (state, latLong) => latLong.Quad.Homography switch {
+                    latLong: static (state, latLong) => latLong.Quad.Mapping() switch {
                         var map =>
-                            from left in map.Apply((0d, 0.5d)).Bind(latLong.Lens.Ray)
-                            from right in map.Apply((1d, 0.5d)).Bind(latLong.Lens.Ray)
+                            from left in map((0d, 0.5d)).Bind(latLong.Lens.Ray)
+                            from right in map((1d, 0.5d)).Bind(latLong.Lens.Ray)
                             where latLong.Field > state.Widest
                             select (ChartFinding)new ChartFinding.WideView(latLong.Field, Between(left, right)),
                     })).Somes(),
@@ -151,30 +143,27 @@ public abstract partial record ChartPlacement {
     }
 
     public Fin<ChartSamples> Sample(PixelFrame frame, Gamut gamut) {
-        static double Length((double X, double Y) from, (double X, double Y) to) => double.Hypot(to.X - from.X, to.Y - from.Y);
-        static double MeanLength((double X, double Y) from, (double X, double Y) to, (double X, double Y) otherFrom, (double X, double Y) otherTo) =>
-            (Length(from, to) + Length(otherFrom, otherTo)) / 2d;
-        int Count(double length, int cells) => int.Max(1, (int)double.Round(Footprint * length / cells, MidpointRounding.ToEven));
-        static double Offset(int index, int count, double length) => (index + 0.5d - (count / 2d)) / length;
-        static double Ratio(double part, double weight) => weight is 0d ? 0d : part / weight;
-        static (double R, double G, double B) Mean((double R, double G, double B, double Weight) sum) => (Ratio(sum.R, sum.Weight), Ratio(sum.G, sum.Weight), Ratio(sum.B, sum.Weight));
         (Func<(double X, double Y), Option<(double X, double Y)>> image, (WrapMode Across, WrapMode Down) wrap) = ToImage(frame.Extent);
-        Func<(double R, double G, double B, double Weight), (double X, double Y), (double R, double G, double B, double Weight)> add = (sum, point) =>
-            frame.Sample(point, wrap, sum, static (total, texel, weight) => (total.R + (texel.X * weight), total.G + (texel.Y * weight), total.B + (texel.Z * weight), total.Weight + weight));
-        (double width, double height) = (
-            MeanLength(Quad.TopLeft, Quad.TopRight, Quad.BottomLeft, Quad.BottomRight),
-            MeanLength(Quad.TopLeft, Quad.BottomLeft, Quad.TopRight, Quad.BottomRight));
-        (int across, int down) = (Count(width, ColorChart.Columns), Count(height, ColorChart.Rows));
-        return ChartSamples.Validated(Chart, gamut, toHashMap(Chart.Cells.Map((cell, index) => (cell.Patch, Mean(Sum(index))))));
+        Seq<(double X, double Y)> taps =
+            from y in Taps(Side(Quad.TopLeft, Quad.BottomLeft, Quad.TopRight, Quad.BottomRight), ColorChart.Rows)
+            from x in Taps(Side(Quad.TopLeft, Quad.TopRight, Quad.BottomLeft, Quad.BottomRight), ColorChart.Columns)
+            select (x, y);
+        return ChartSamples.Validated(Chart, gamut, toHashMap(Chart.Cells.Map((cell, index) => (cell.Patch, Mean(frame, wrap, image, Center(index), taps)))));
+    }
 
-        (double R, double G, double B, double Weight) Sum(int cell) {
-            (double x, double y) = Center(cell);
-            (double R, double G, double B, double Weight) sum = (0d, 0d, 0d, 0d);
-            for (int row = 0; row < down; row++)
-                for (int column = 0; column < across; column++)
-                    sum = image((x + Offset(column, across, width), y + Offset(row, down, height))).Fold(sum, add);
-            return sum;
-        }
+    private Seq<double> Taps(double length, int cells) {
+        int count = int.Max(1, (int)double.Round(Footprint * length / cells, MidpointRounding.ToEven));
+        return toSeq(Enumerable.Range(0, count)).Map(index => (index + 0.5d - (count / 2d)) / length);
+    }
+
+    private static double Side((double X, double Y) from, (double X, double Y) to, (double X, double Y) otherFrom, (double X, double Y) otherTo) =>
+        (double.Hypot(to.X - from.X, to.Y - from.Y) + double.Hypot(otherTo.X - otherFrom.X, otherTo.Y - otherFrom.Y)) / 2d;
+
+    private static (double R, double G, double B) Mean(
+        PixelFrame frame, (WrapMode Across, WrapMode Down) wrap, Func<(double X, double Y), Option<(double X, double Y)>> image, (double X, double Y) center, Seq<(double X, double Y)> taps) {
+        (double red, double green, double blue, double weight) = taps.Choose(tap => image((center.X + tap.X, center.Y + tap.Y))).Fold((R: 0d, G: 0d, B: 0d, W: 0d), (sum, point) =>
+            frame.Sample(point, wrap, sum, static (total, texel, weight) => (total.R + (texel.X * weight), total.G + (texel.Y * weight), total.B + (texel.Z * weight), total.W + weight)));
+        return weight is 0d ? (0d, 0d, 0d) : (red / weight, green / weight, blue / weight);
     }
 
     internal abstract (Func<(double X, double Y), Option<(double X, double Y)>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image);
@@ -199,13 +188,12 @@ public abstract partial record ChartPlacement {
             static double Spread(double first, double second, double third, double fourth) =>
                 double.Max(double.Max(first, second), double.Max(third, fourth)) - double.Min(double.Min(first, second), double.Min(third, fourth));
             Projection.Equirectangular panorama = new(source);
-            Matrix<double> map = Quad.Homography;
+            Func<(double X, double Y), Option<(double X, double Y)>> map = Quad.Mapping();
             return
-                from keys in (from left in map.Apply((0d, 0.5d)).Bind(panorama.Ray)
-                              from right in map.Apply((1d, 0.5d)).Bind(panorama.Ray)
+                from view in (from left in map((0d, 0.5d)).Bind(panorama.Ray)
+                              from right in map((1d, 0.5d)).Bind(panorama.Ray)
                               from facing in PanoramaView.Facing(left, right)
                               select facing).ToFin(Unaligned)
-                let view = new PanoramaView(Angle.FromRadians(keys.Heading), Angle.FromRadians(keys.Elevation), Angle.FromRadians(keys.Roll))
                 let level = Quaternion.Conjugate(view.Rotation)
                 from rays in Each((Quad.TopLeft, Quad.TopRight, Quad.BottomRight, Quad.BottomLeft), corner =>
                     panorama.Ray(corner).Map(ray => Vector3.Transform(ray, level)).Filter(static ray => -ray.Z > 0f)).ToFin(Unaligned)
@@ -222,7 +210,7 @@ public abstract partial record ChartPlacement {
         }
 
         internal override (Func<(double X, double Y), Option<(double X, double Y)>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image) =>
-            (Quad.Homography.Apply, (WrapMode.Black, WrapMode.Black));
+            (Quad.Mapping(), (WrapMode.Black, WrapMode.Black));
     }
 
     public sealed record LatLong(ColorChart Chart, FrameQuad Quad, float Footprint, PanoramaView View, Projection.Rectilinear Lens)
@@ -241,9 +229,9 @@ public abstract partial record ChartPlacement {
         }
 
         internal override (Func<(double X, double Y), Option<(double X, double Y)>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image) {
-            (Projection.Equirectangular panorama, Matrix<double> view, Quaternion turn) = (new(image), Quad.Homography, View.Rotation);
+            (Projection.Equirectangular panorama, Func<(double X, double Y), Option<(double X, double Y)>> view, Quaternion turn) = (new(image), Quad.Mapping(), View.Rotation);
             Func<(double X, double Y), Option<(double X, double Y)>> source = frame => Lens.Reprojected(panorama, turn, frame);
-            return (point => view.Apply(point).Bind(source), panorama.Wrap);
+            return (point => view(point).Bind(source), panorama.Wrap);
         }
     }
 }

@@ -11,8 +11,8 @@ from expression import Error, Nothing, Ok, Option, Result
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.data.rna.descriptors import Descriptor, Struct, Value
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Faults, Outcome
 
@@ -87,7 +87,7 @@ class MenuPopup(CalledPopup, frozen=True, kw_only=True):
     @override
     def stock(self, identity: Identity, /) -> Outcome[Stock]:
         """Returns `wm.call_menu_pie` or `wm.call_menu` over the menu idname."""
-        return idname(identity, Name.MENU, self.menu).map(lambda name: Stock(operator=bpy.ops.wm.call_menu_pie if self.pie else bpy.ops.wm.call_menu, values={"name": name}))
+        return idname(identity, bpy.types.Menu, self.menu).map(lambda name: Stock(operator=bpy.ops.wm.call_menu_pie if self.pie else bpy.ops.wm.call_menu, values={"name": name}))
 
 
 class PanelPopup(CalledPopup, frozen=True, kw_only=True):
@@ -100,7 +100,9 @@ class PanelPopup(CalledPopup, frozen=True, kw_only=True):
     @override
     def stock(self, identity: Identity, /) -> Outcome[Stock]:
         """Returns `wm.call_panel` over the panel idname."""
-        return idname(identity, Name.PANEL, self.panel).map(lambda name: Stock(operator=bpy.ops.wm.call_panel, values={"name": name, "keep_open": self.keep_open, "auto_keymap": self.auto_keymap}))
+        return idname(identity, bpy.types.Panel, self.panel).map(
+            lambda name: Stock(operator=bpy.ops.wm.call_panel, values={"name": name, "keep_open": self.keep_open, "auto_keymap": self.auto_keymap})
+        )
 
 
 class ShelfPopup(CalledPopup, frozen=True, kw_only=True):
@@ -111,7 +113,7 @@ class ShelfPopup(CalledPopup, frozen=True, kw_only=True):
     @override
     def stock(self, identity: Identity, /) -> Outcome[Stock]:
         """Returns `wm.call_asset_shelf_popover` over the shelf idname."""
-        return idname(identity, Name.SHELF, self.shelf).map(lambda name: Stock(operator=bpy.ops.wm.call_asset_shelf_popover, values={"name": name}))
+        return idname(identity, bpy.types.AssetShelf, self.shelf).map(lambda name: Stock(operator=bpy.ops.wm.call_asset_shelf_popover, values={"name": name}))
 
 
 class DrawnMenu(msgspec.Struct, frozen=True, kw_only=True):
@@ -139,7 +141,7 @@ def given[V](properties: Mapping[str, V | Option[V]]) -> dict[str, V]:
     return {key: value for key, held in properties.items() for value in (held.to_list() if isinstance(held, Option) else (held,))}
 
 
-def idname(identity: Identity, form: Name, target: type[bpy.types.Panel | bpy.types.Menu | bpy.types.AssetShelf] | Key) -> Outcome[str]:
+def idname(identity: Identity, form: type[Struct], target: type[bpy.types.Panel | bpy.types.Menu | bpy.types.AssetShelf] | Key) -> Outcome[str]:
     """Resolves an extension key under its host name form, or a stock class's RNA identifier."""
     match target:
         case str():

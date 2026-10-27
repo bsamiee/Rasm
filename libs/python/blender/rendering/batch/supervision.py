@@ -10,7 +10,7 @@ import subprocess
 import sys
 from typing import Annotated
 
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 from tenacity import Future, retry_if_result, RetryCallState, Retrying, stop_after_attempt
@@ -18,7 +18,7 @@ from tenacity import Future, retry_if_result, RetryCallState, Retrying, stop_aft
 from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
 from blender.records.fields import Case
 from blender.records.stores import RecordFile
-from blender.rendering.batch.processes import Host, ran, RunCommand, RunFile, spawned
+from blender.rendering.batch.processes import detached, Host, ran, RunCommand, RunFile, spawned
 from blender.rendering.batch.progress import Ending, Heartbeat, observed, Progress
 from blender.rendering.batch.queue import Job, RenderQueue
 from blender.rendering.faults import RenderingReason
@@ -58,6 +58,14 @@ class LocalMachine(Case, frozen=True, kw_only=True):
             graph.done(step)
         return tuple(steps)
 
+    def sent(self, queue: RenderQueue, host: Host) -> Outcome[Path]:
+        """Writes queue file, then starts detached supervisor over the file, returning log path."""
+        return (
+            RecordFile(path=host.path(queue, RunFile.QUEUE), form=RenderQueue)
+            .written(queue)
+            .bind(lambda path: detached(host.argv(RunCommand.SUPERVISE, Run(queue=str(path), target=self)), host.path(queue, RunFile.LOG)))
+        )
+
 
 class Run(msgspec.Struct, frozen=True, kw_only=True, tag=True):
     """Queue path and target settings commands decode."""
@@ -76,30 +84,29 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
     schedule = target.schedule(queue)
 
     def exhausted(state: RetryCallState) -> object:
-        last: Future = state.outcome  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        return last.result()
+        match state.outcome:
+            case Future() as last:
+                return last.result()
+            case None:
+                raise RuntimeError(f"{state} ended with no attempt outcome")
 
     restarted = Retrying(
         stop=stop_after_attempt(target.retries + 1), retry=retry_if_result(lambda answer: answer.map(lambda code: code not in {0, 1}).default_value(False)), retry_error_callback=exhausted
     )
 
     def polled(child: subprocess.Popen[bytes]) -> Option[Outcome[int]]:
-        match catch(child.wait, exception=subprocess.TimeoutExpired)(timeout=heartbeat.interval):
-            case Result(tag="ok", ok=code):
-                return Some(Ok(code))
-            case _:
-                return (
-                    catch(records.path.touch, exception=OSError)()
-                    .map(lambda _: Nothing)
-                    .default_with(lambda error: Some(Error((Fault(reason=RecordReason.UNWRITABLE, subject=str(records.path), cause=error),))))
-                )
+        return (
+            catch(child.wait, exception=subprocess.TimeoutExpired)(timeout=heartbeat.interval)
+            .to_option()
+            .map(Ok)
+            .or_else_with(
+                lambda: catch(records.path.touch, exception=OSError)().swap().to_option().map(lambda error: Error((Fault(reason=RecordReason.UNWRITABLE, subject=str(records.path), cause=error),)))
+            )
+        )
 
     def waited(child: subprocess.Popen[bytes]) -> Outcome[int]:
         with child:
             return next(answer for _ in count() for answer in polled(child).to_list())
-
-    def launched(argv: tuple[str, ...]) -> Outcome[int]:
-        return spawned(argv).bind(waited)
 
     def rendered(progress: Progress) -> Outcome[Progress]:
         remaining = frozenset(progress.remaining(queue))
@@ -107,9 +114,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
             return Ok(progress)
         job = queue.jobs[pending[0][0]]
         argv = host.argv(RunCommand.RENDER, run, Some(job.file))
-        return (
-            Result[Path, Faults].bind(records.written(msgspec.structs.replace(progress, pending=pending)), lambda _: restarted(launched, argv)).bind(lambda code: confirmed(job, code)).bind(rendered)
-        )
+        return records.written(msgspec.structs.replace(progress, pending=pending)).bind(lambda _: restarted(lambda: spawned(argv).bind(waited))).bind(lambda code: confirmed(job, code)).bind(rendered)
 
     def confirmed(job: Job, code: int) -> Outcome[Progress]:
         return (
@@ -122,10 +127,10 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
         return records.revised(lambda held: msgspec.structs.replace(held, ending=ending))
 
     def failed(faults: Faults) -> Outcome[Progress]:
-        return Error((faults[0], *faults[1:], *ended(Ending.FAILED).swap().default_value(())))
+        return Error((*faults, *ended(Ending.FAILED).swap().default_value(())))
 
     def completed(progress: Progress) -> Outcome[Progress]:
-        return Result[Path, Faults].bind(records.written(progress), lambda _: rendered(progress).bind(lambda _: ended(Ending.SUCCEEDED)).or_else_with(failed))
+        return records.written(progress).bind(lambda _: rendered(progress).bind(lambda _: ended(Ending.SUCCEEDED)).or_else_with(failed))
 
     return observed(records.path).map(lambda found: Progress.resumed(found, queue, os.getpid())).bind(completed)
 

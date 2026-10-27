@@ -15,7 +15,7 @@ from msgspec import UNSET, UnsetType
 from blender.bpy.commands.calls import Placed, Writer
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import rooted
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisition, Band, entered
 from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.layout.rows import Member, ResolvedMember
@@ -170,7 +170,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
 
     def named(self, identity: Identity) -> Outcome[str]:
         """Returns group `bl_idname` for tools and linking."""
-        return identity.name(Name.GIZMO_GROUP, self.key)
+        return identity.name(bpy.types.GizmoGroup, self.key)
 
     # --- [REGISTRATION]
 

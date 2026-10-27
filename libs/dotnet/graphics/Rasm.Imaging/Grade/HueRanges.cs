@@ -1,7 +1,6 @@
 using System.Numerics;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Procedural;
-using Rasm.Imaging.Tone;
 
 namespace Rasm.Imaging.Grade;
 
@@ -36,7 +35,7 @@ public sealed record HueRange(RangeBand Hue, RangeBand Saturation, RangeBand Lum
         (double R, double G, double B) luminance = gamut.Luminance;
         foreach (ref Vector4 pixel in row) {
             float membership = Membership(Hsy.From(pixel));
-            double gray = (1d - membership) * LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, luminance);
+            double gray = (1d - membership) * Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, luminance);
             pixel = membership is 1f
                 ? pixel
                 : new Vector4((float)(gray + (membership * (double)pixel.X)), (float)(gray + (membership * (double)pixel.Y)), (float)(gray + (membership * (double)pixel.Z)), pixel.W);
@@ -79,10 +78,7 @@ public static class Hsy {
 
     private static readonly (double R, double G, double B) LumaWeights = Gamut.StandardRgb.Luminance;
 
-    public static double SaturationPeak =>
-        LumaWeights switch {
-            var weights => Scale * (1d + ((weights.R + weights.G + weights.B) / double.Min(double.Min(weights.R, weights.G), weights.B))) / 3d,
-        };
+    public static double SaturationPeak { get; } = Scale * (1d + ((LumaWeights.R + LumaWeights.G + LumaWeights.B) / double.Min(double.Min(LumaWeights.R, LumaWeights.G), LumaWeights.B))) / 3d;
 
     public static (double Hue, double Saturation, double Luma) From(Vector4 color) {
         (double red, double green, double blue) = (color.X, color.Y, color.Z);
@@ -112,7 +108,7 @@ public static class Hsy {
     }
 
     private static double Luminance(double red, double green, double blue) =>
-        LuminanceSamples.Luminance(red, green, blue, LumaWeights) / (LumaWeights.R + LumaWeights.G + LumaWeights.B);
+        Gamut.RelativeLuminance(red, green, blue, LumaWeights) / (LumaWeights.R + LumaWeights.G + LumaWeights.B);
 
     private static double SaturationGain(double luma) =>
         luma switch {

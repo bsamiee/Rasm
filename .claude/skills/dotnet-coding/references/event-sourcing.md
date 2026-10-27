@@ -102,7 +102,7 @@ command -> validate -> derive event -> persist and publish
 events  -> fold, map, filter -> projection or view model -> query response
 ```
 
-Commands are imperative requests (`Debit`) that can be invalid, ignored, or interrupted before completion, and a command and its event can share fields while the conversion adds or derives values. Command handling validates the command's general form, loads the entity's snapshot and validates the requested transition against it, and converts a valid command into an event that it persists and publishes. Checks over the loaded snapshot are independent and combine under the tuple `Apply`, which reports both rejections, and the transition returns the event beside the derived snapshot:
+Commands are imperative requests (`Debit`) that can be invalid, ignored, or interrupted before completion, and a command and its event can share fields while the conversion adds or derives values. Command handling validates the command's general form, loads the entity's snapshot and validates the requested transition against it, and converts a valid command into an event that it persists and publishes. Checks over the loaded snapshot are independent and combine under tuple `Apply` to report both rejections, the transition returns its event beside the derived snapshot:
 
 ```csharp
 internal sealed record Debit(Guid EntryId, decimal Amount, string Target) {
@@ -111,7 +111,7 @@ internal sealed record Debit(Guid EntryId, decimal Amount, string Target) {
 
 internal static partial class Entry {
     public static Fin<(Event Event, Snapshot Snapshot)> Debit(Snapshot snapshot, Debit command) =>
-        (Failure.Unless(snapshot.Status.AcceptsDebit, Reason.Invalid), Failure.Unless(snapshot.Balance - command.Amount >= snapshot.Limit, Reason.Invalid))
+        (Fault.Unless(snapshot.Status.AcceptsDebit, Reason.Invalid, snapshot.Status), Fault.Unless(snapshot.Balance - command.Amount >= snapshot.Limit, Reason.Invalid, (snapshot.Balance, command.Amount)))
             .Apply((_, _) => command.ToEvent())
             .As()
             .Map(evt => (Event: evt, Snapshot: Apply(snapshot, evt)));
@@ -123,9 +123,9 @@ Loading history returns `IO<Seq<Event>>`, saving an event returns `IO<Unit>`, an
 ```csharp
 internal static class Commands {
     public static IO<(Event Event, Snapshot Snapshot)> Handle(Func<Guid, IO<Seq<Event>>> load, Func<Event, IO<Unit>> save, Debit command) =>
-        from _ in guard(command.Amount > 0m, Error.New("amount is not positive"))
+        from _ in IO.lift(Fault.Unless(command.Amount > 0m, Reason.Invalid, command.Amount))
         from history in load(command.EntryId)
-        from snapshot in IO.lift(Entry.Rebuild(history).ToFin(Error.New($"no entry has id {command.EntryId}")))
+        from snapshot in IO.lift(Entry.Rebuild(history).ToFin(new Fault($"entry {command.EntryId}", Reason.Missing)))
         from result in IO.lift(Entry.Debit(snapshot, command))
         from __ in save(result.Event)
         select result;

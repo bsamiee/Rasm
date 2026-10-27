@@ -14,7 +14,7 @@ from blender.bpy.commands.operators import Answer, answered, Unchanged
 from blender.bpy.data.rna.conditions import Condition, polled
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct
 from blender.bpy.data.rna.snapshots import Applied, Scoped, Snapshot
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band, entered
 from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.presets import Preset
@@ -234,7 +234,7 @@ def registered(
         yield (
             drawing()
             .bind(
-                lambda draw: identity.name(Name.MENU, key).bind(
+                lambda draw: identity.name(bpy.types.Menu, key).bind(
                     lambda name: (
                         realized(OperatorButton(target=Stock(operator=bpy.ops.wm.search_single_menu, values={"menu_idname": name}), text="Search...", icon=Some("VIEWZOOM")), identity).map(Some)
                         if search

@@ -203,7 +203,7 @@ internal static class Workflow {
         Func<Command, IO<Unit>> save, Command command) =>
         from valid in Eff<RT, Command>.Lift(() => validate(command))
         from owner in lookup(valid.OwnerId)
-        from found in Eff<RT, Entry>.Lift(() => owner.ToFin(Error.New($"no owner has id {valid.OwnerId}")))
+        from found in Eff<RT, Entry>.Lift(() => owner.ToFin(new Fault($"owner {valid.OwnerId}", Reason.Missing)))
         from _ in save(valid)
         select found;
 }
@@ -269,7 +269,7 @@ internal sealed record State(decimal Balance);
 internal static class Transitions {
     extension(State state) {
         public Fin<State> Debit(decimal amount) =>
-            state.Balance < amount ? Error.New("insufficient balance") : new State(state.Balance - amount);
+            Fault.Unless(state.Balance >= amount, Reason.Invalid, (state.Balance, amount)).Map(_ => new State(state.Balance - amount));
     }
 }
 ```
@@ -297,7 +297,7 @@ internal sealed class Handler(IRepository<State> states, Func<Command, State, IO
         select unit;
 
     private static IO<State> Require(IO<Option<State>> lookup) =>
-        lookup.Bind(static option => IO.lift(option.ToFin(Error.New("state not found"))));
+        lookup.Bind(static option => IO.lift(option.ToFin(new Fault("state", Reason.Missing))));
 }
 ```
 

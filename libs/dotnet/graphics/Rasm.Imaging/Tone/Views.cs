@@ -3,9 +3,11 @@ using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using CommunityToolkit.HighPerformance;
 using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
+using SuperLinq;
 using TinyEXR;
 using Wacton.Unicolour;
 
@@ -76,10 +78,10 @@ public sealed record FilmStock(
         }
     }
 
-    private static Func<Vector256<double>, Vector256<double>> Transform(Matrix<double> matrix) =>
-        Lanes.Of(matrix.Transpose()) switch {
-            var (red, green, blue) => value => Vector256.Create(Vector256.Dot(red, value), Vector256.Dot(green, value), Vector256.Dot(blue, value), 0d),
-        };
+    private static Func<Vector256<double>, Vector256<double>> Transform(Matrix<double> matrix) {
+        (Vector256<double> red, Vector256<double> green, Vector256<double> blue) = Lanes.Of(matrix.Transpose());
+        return value => Vector256.Create(Vector256.Dot(red, value), Vector256.Dot(green, value), Vector256.Dot(blue, value), 0d);
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -103,11 +105,7 @@ public static class FalseColor {
 
     public static Fin<(Seq<(double At, Vector4 Color)> Bands, Seq<Option<float>> Stops)> Legend(LogSpace space, Seq<Action<Span<Vector4>>> graded, LutTable table, Lut1D key) {
         Seq<Vector4> codes = toSeq(Range(0, key.Length)).Map(k => new Vector4(key.Channel(0)[k], key.Channel(1)[k], key.Channel(2)[k], 1f)).Strict();
-        Seq<(int Entry, Vector4 Code)> bands = codes
-            .Zip(Option<Vector4>.None.Cons(codes.Map(static code => Some(code))))
-            .Map(static (pair, k) => (Entry: k, Code: pair.First, Before: pair.Second))
-            .Filter(static step => step.Before != Some(step.Code))
-            .Map(static step => (step.Entry, step.Code));
+        Seq<(int Entry, Vector4 Code)> bands = toSeq(codes.Select(static (code, k) => (Entry: k, Code: code)).DistinctUntilChanged(static step => step.Code));
         Seq<double> openings = bands.Tail.Map(band => (band.Entry - 0.5d) / (key.Length - 1)).Strict();
         Vector4[] colors = [.. bands.Map(static band => band.Code)];
         Vector4[] positions = [.. toSeq(Range(0, key.Length)).Map(i => new Vector4(new Vector3(i / (key.Length - 1f)), 1f))];
@@ -115,7 +113,9 @@ public static class FalseColor {
         new LutTable.Antilog(space.Allocation).Apply(positions);
         foreach (Action<Span<Vector4>> step in Positioned(space, graded, table))
             step(positions);
-        return Lut1D.From(key.Length, positions.SelectMany(static position => (float[])[position.X, position.Y, position.Z]).ToArray(), Vector3.Zero, Vector3.One)
+        float[] rows = GC.AllocateUninitializedArray<float>(3 * positions.Length);
+        MemoryMarshal.Cast<Vector4, float>(positions).AsSpan2D(positions.Length, 4)[.., ..3].CopyTo(rows.AsSpan().AsSpan2D(positions.Length, 3));
+        return Lut1D.From(key.Length, rows, Vector3.Zero, Vector3.One)
             .Bind(response => new LutTable.Sequence([new LutTable.Log(space.Allocation), new LutTable.ChannelCurve(response)]).Inverse())
             .Map(scene => (0d.Cons(openings).Zip(toSeq(colors)).Map(static stop => (At: stop.First, Color: stop.Second)).Strict(), Labels(openings, scene)));
 
@@ -150,7 +150,9 @@ public static class Tony {
 
     public static Fin<Lut3D> Table(ReadOnlyMemory<byte> texture) {
         ReadOnlySpan<byte> bytes = texture.Span;
-        (int height, int width, int depth, uint format) = bytes.Length < Header ? (0, 0, 0, 0u) : (
+        if (bytes.Length < Header)
+            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Tony cube texture of {bytes.Length} bytes"), ImagingReason.Unsupported);
+        (int height, int width, int depth, uint format) = (
             BinaryPrimitives.ReadInt32LittleEndian(bytes[12..]), BinaryPrimitives.ReadInt32LittleEndian(bytes[16..]),
             BinaryPrimitives.ReadInt32LittleEndian(bytes[24..]), BinaryPrimitives.ReadUInt32LittleEndian(bytes[128..]));
         return from edge in width == height && width == depth && format == SharedExponent && bytes.Length == Header + (Texel * width * height * depth)

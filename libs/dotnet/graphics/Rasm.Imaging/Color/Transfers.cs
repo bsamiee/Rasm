@@ -31,6 +31,7 @@ public abstract partial record Transfer : IConvertible<string> {
             .Map(static transfer => (transfer.ToValue(), transfer)));
 
     public virtual Luminance White => ReferenceWhite;
+    internal virtual Option<(int Function, Seq<double> Parameters)> IccCurve => None;
 
     public abstract void Encode(Span<Vector4> row);
     public abstract void Decode(Span<Vector4> row);
@@ -61,7 +62,7 @@ public abstract partial record Transfer : IConvertible<string> {
     private static Option<Transfer> Named(string value) => Fixed.Find(value) | Parametric(value);
 
     private static ImagingFault Unnamed(string value) =>
-        new($"transfer '{value}' beside curve and camera log names, gamma:<exponent>, pq:<nits>, and hlg:<nits>", ImagingReason.Unnamed);
+        new($"transfer '{value}' beside curve and camera log names, gamma:<exponent>, pq:<nits>, and hlg:<nits>", ImagingReason.UnknownFormat);
 
     private static Option<Transfer> Parametric(string value) =>
         from parts in value.Split(':', 2) is [var form, var number] ? Some((Form: form, Number: number)) : None
@@ -86,23 +87,21 @@ public abstract partial record Transfer : IConvertible<string> {
     private static Span<float> Components(ref Vector4 pixel) => MemoryMarshal.CreateSpan(ref pixel.X, 3);
 
     private static void Encoded(Span<Vector4> row, TransferFunction curve) {
-        Span2D<float> pixels = MemoryMarshal.Cast<Vector4, float>(row).AsSpan2D(row.Length, 4).Slice(0, 0, row.Length, 3);
-        for (int pixel = 0; pixel < pixels.Height; pixel++)
-            ImageProcessing.EncodeTransfer(pixels.GetRowSpan(pixel), pixels.GetRowSpan(pixel), curve);
+        for (int x = 0; x < row.Length; x++) ImageProcessing.EncodeTransfer(Components(ref row[x]), Components(ref row[x]), curve);
     }
 
     private static void Decoded(Span<Vector4> row, TransferFunction curve) {
-        Span2D<float> pixels = MemoryMarshal.Cast<Vector4, float>(row).AsSpan2D(row.Length, 4).Slice(0, 0, row.Length, 3);
-        for (int pixel = 0; pixel < pixels.Height; pixel++)
-            ImageProcessing.DecodeTransfer(pixels.GetRowSpan(pixel), pixels.GetRowSpan(pixel), curve);
+        for (int x = 0; x < row.Length; x++) ImageProcessing.DecodeTransfer(Components(ref row[x]), Components(ref row[x]), curve);
     }
 
     public sealed record Linear : Transfer {
+        internal override Option<(int Function, Seq<double> Parameters)> IccCurve => (0, Seq(1d));
         public override void Encode(Span<Vector4> row) { }
         public override void Decode(Span<Vector4> row) { }
     }
 
     public sealed record Srgb : Transfer {
+        internal override Option<(int Function, Seq<double> Parameters)> IccCurve => (3, Seq(2.4, 1d / 1.055, 1d - (1d / 1.055), 1d / 12.92, 0.04045));
         public override void Encode(Span<Vector4> row) => Encoded(row, TransferFunction.Srgb);
         public override void Decode(Span<Vector4> row) => Decoded(row, TransferFunction.Srgb);
     }
@@ -133,8 +132,8 @@ public abstract partial record Transfer : IConvertible<string> {
     public sealed record Hlg : Transfer {
         private static readonly Luminance Peak = Luminance.FromNits(DynamicRange.High.MaxLuminance);
         private static readonly (Vector256<double> Weights, double Gamma, double SceneFloor, double DisplayFloor) Ootf =
-            (Gamut.Rec2020.Luminance, 1.2d + (0.42d * double.Log10(Peak.Nits.ToDouble() / 1_000d))) switch {
-                var ((r, g, b), gamma) => (Vector256.Create(r, g, b, 0d), gamma, double.Pow(1e-4d, 1d / gamma) / 3d, 1e-4d / double.Pow(3d, gamma)),
+            (Gamut.Rec2020.LuminanceLanes, 1.2d + (0.42d * double.Log10(Peak.Nits.ToDouble() / 1_000d))) switch {
+                var (weights, gamma) => (weights, gamma, double.Pow(1e-4d, 1d / gamma) / 3d, 1e-4d / double.Pow(3d, gamma)),
             };
 
         private Hlg(Luminance white) => White = white;
@@ -153,14 +152,14 @@ public abstract partial record Transfer : IConvertible<string> {
                 double luminance = Vector256.Dot(display, Ootf.Weights);
                 Vector256<double> scene = display * double.Pow(double.Max(luminance, Ootf.DisplayFloor), (1d - Ootf.Gamma) / Ootf.Gamma);
                 pixel = new Vector4((float)scene[0], (float)scene[1], (float)scene[2], pixel.W);
-                ImageProcessing.EncodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Hlg);
             }
+            Encoded(row, TransferFunction.Hlg);
         }
 
         public override void Decode(Span<Vector4> row) {
             double scale = (Peak / White).ToDouble();
+            Decoded(row, TransferFunction.Hlg);
             foreach (ref Vector4 pixel in row) {
-                ImageProcessing.DecodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Hlg);
                 Vector256<double> scene = Vector256.Create(pixel.X, pixel.Y, pixel.Z, 0d);
                 double luminance = Vector256.Dot(scene, Ootf.Weights);
                 Vector256<double> display = scene * (double.Pow(double.Max(luminance, Ootf.SceneFloor), Ootf.Gamma - 1d) * scale);
@@ -186,6 +185,7 @@ public abstract partial record Transfer : IConvertible<string> {
         public static Gamma Rec1886 { get; } = new(2.4f);
 
         public float Exponent { get; }
+        internal override Option<(int Function, Seq<double> Parameters)> IccCurve => (0, Seq<double>(Exponent));
 
         public static Fin<Gamma> Of(float exponent) =>
             float.IsFinite(exponent) && exponent > 0f ? new Gamma(exponent) : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"gamma exponent {exponent}"), ImagingReason.Range);
@@ -222,8 +222,5 @@ public sealed record ColorEncoding(Gamut Gamut, Transfer Transfer) {
               + (target.Transfer is Transfer.Linear ? Seq<Action<Span<Vector4>>>() : Seq(target.Transfer.Encode));
 
     internal Seq<LutTable> LinearTo(ColorEncoding target) =>
-        (Transfer.White / target.Transfer.White).ToDouble() switch {
-            1d when Gamut == target.Gamut => [],
-            var white => [new LutTable.Affine(Gamut.MatrixTo(target.Gamut).Multiply(white))],
-        };
+        Gamut == target.Gamut && Transfer.White == target.Transfer.White ? [] : [new LutTable.Affine(Gamut.MatrixTo(target.Gamut).Multiply((Transfer.White / target.Transfer.White).ToDouble()))];
 }

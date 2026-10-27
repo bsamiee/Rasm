@@ -40,7 +40,6 @@ public sealed partial class DraftingConvention {
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<DraftingFault>]
 public sealed partial class SheetSize {
     public static readonly SheetSize A0 = new("A0", DraftingConvention.Iso, (Length.FromMillimeters(841), Length.FromMillimeters(1189)));
     public static readonly SheetSize A1 = new("A1", DraftingConvention.Iso, (Length.FromMillimeters(594), Length.FromMillimeters(841)));

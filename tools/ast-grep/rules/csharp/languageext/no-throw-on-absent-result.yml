@@ -9,7 +9,7 @@ rule:
           pattern: $CALL ?? throw new $EXCEPTION($$$MESSAGE)
           all:
             - has: {field: left, kind: invocation_expression}
-            - not: {has: {field: right, has: {field: type, regex: '^UnreachableException$'}}}
+            - not: {has: {field: right, has: {kind: object_creation_expression, has: {field: type, regex: '^(UnreachableException|XunitException)$'}}}}
             - not: {inside: {stopBy: end, kind: field_declaration}}
         - kind: invocation_expression
           pattern: $CALL.ThrowIfFail()

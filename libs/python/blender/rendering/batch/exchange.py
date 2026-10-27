@@ -47,13 +47,9 @@ def sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[msgs
         case None:
             request = client.build_request(method, path)
     url = str(request.url)
-
-    def refused(error: httpx2.RequestError) -> Faults:
-        return (Fault(reason=RenderingReason.EXCHANGE, subject=url, cause=error),)
-
     return (
         catch(client.send, exception=httpx2.RequestError)(request)
-        .map_error(refused)
+        .map_error(lambda error: (Fault(reason=RenderingReason.EXCHANGE, subject=url, cause=error),))
         .filter_with(lambda response: response.is_success, lambda response: (Fault(reason=RenderingReason.STATUS, subject=url, member=str(response.status_code)),))
     )
 

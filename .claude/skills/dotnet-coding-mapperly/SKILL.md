@@ -177,7 +177,7 @@ Nullable analysis and the property-null options do not apply inside a projection
 - Nullable paths can become empty text, `default`, or a conditional fallback, the read model matches storage nullability
 - Object factories, existing-target mapping, dictionary mapping, deep cloning, and reference handling do not apply
 - Reference handling reports `RMG029`, unsupported enum configuration reports `RMG032` and emits a value cast
-- Projections hold stored values, `Validated` crossings, LanguageExt composition, and effects run after materialization
+- Projections select stored values, and `Validated` crossings, LanguageExt composition, and effects run after materialization
 - Unmatched derived projections return `default(TTarget)`, valid only when the target contract states that result
 - `AsEnumerable` leaves the boundary where it is, a narrow query materializes before the in-memory pipeline begins
 
@@ -447,7 +447,7 @@ void SetReference<TSource, TTarget>(TSource source, TTarget target)
     where TSource : notnull where TTarget : notnull;
 ```
 
-- Mapperly calls `TryGetReference` before it creates a target and uses a found one, else creates the target and records it through `SetReference`
+- Mapperly calls `TryGetReference` before creating a target and uses a found one, else creates the target and records it through `SetReference`
 - To supply another handler, add a parameter of type `IReferenceHandler` marked `ReferenceHandlerAttribute`
 - Hand-written mapping methods take the same parameter to join the same handler, with a second `using` directive for the namespace
 

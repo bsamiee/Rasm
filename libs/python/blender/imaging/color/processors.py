@@ -103,9 +103,7 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
             built.setLinearCC(PyOpenColorIO.MatrixTransform.Scale([2.0**self.exposure] * 3 + [1.0]))
         if self.gamma != 1.0:
             built.setDisplayCC(PyOpenColorIO.ExponentTransform([1.0 / max(self.gamma, float(np.spacing(np.float32(1))))] * 3 + [1.0]))
-        return catch(catch(built.getProcessor, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(config).map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
-            lambda error: (Fault(reason=ImagingReason.COLOR, subject=repr(self), cause=error),)
-        )
+        return called(built.getProcessor, repr(self), config)
 
     def form(self, config: PyOpenColorIO.Config, values: npt.NDArray[np.float32], source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[npt.NDArray[np.float32]]:
         """Returns associated display colors of associated `values` in `source`."""
@@ -162,11 +160,16 @@ def lin_to_log() -> PyOpenColorIO.LogCameraTransform:
 # --- [BUILDS]
 
 
+def called[**P, T](call: Callable[P, T], subject: str, *args: P.args, **kwargs: P.kwargs) -> Outcome[T]:
+    """Returns the value of one OCIO call, or color fault naming `subject` for either OCIO exception class."""
+    return catch(catch(call, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(*args, **kwargs).map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+        lambda error: (Fault(reason=ImagingReason.COLOR, subject=subject, cause=error),)
+    )
+
+
 def processor(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> Outcome[PyOpenColorIO.Processor]:
     """Returns processor, or color fault."""
-    return catch(catch(config.getProcessor, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(transform).map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
-        lambda error: (Fault(reason=ImagingReason.COLOR, subject=type(transform).__name__, cause=error),)
-    )
+    return called(config.getProcessor, type(transform).__name__, transform)
 
 
 def converted(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, values: npt.NDArray[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
@@ -200,7 +203,11 @@ def rendering_basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDA
             sums = values.sum(axis=0)
             normalized = values / sums
             signed = (values[1] > 0.0).all() and ((sums > 0.0).all() or (sums < 0.0).all()) and np.isfinite(sums.sum()) and np.isfinite(values.sum(axis=1)).all()
-        return Ok(values) if signed and np.isfinite(normalized).all() and abs(np.linalg.slogdet(normalized).sign) == 1.0 else Error((Fault(reason=ImagingReason.BASIS, subject=space, member=str(matrix(values))),))
+        return (
+            Ok(values)
+            if signed and np.isfinite(normalized).all() and abs(np.linalg.slogdet(normalized).sign) == 1.0
+            else Error((Fault(reason=ImagingReason.BASIS, subject=space, member=str(matrix(values))),))
+        )
 
     return basis(config, space).bind(held)
 
@@ -210,7 +217,7 @@ def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[
 
     @catch(exception=np.linalg.LinAlgError)
     def solved(values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return np.linalg.solve(values, tristimulus.T).T
+        return np.asarray(np.linalg.solve(values, tristimulus.T).T, dtype=np.float64)
 
     def normalized(weights: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
         with np.errstate(all="ignore"):
@@ -242,6 +249,7 @@ __all__ = [
     "Stops",
     "basis",
     "bracketed",
+    "called",
     "chromaticities",
     "converted",
     "interop",

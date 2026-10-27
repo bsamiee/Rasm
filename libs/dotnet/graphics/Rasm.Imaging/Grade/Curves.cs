@@ -1,6 +1,8 @@
 using System.Numerics;
 using MathNet.Numerics.Interpolation;
+using Rasm.Imaging.Color;
 using Rasm.Imaging.Tone;
+using SuperLinq;
 
 namespace Rasm.Imaging.Grade;
 
@@ -58,17 +60,19 @@ public sealed class SequenceEquality<T> : IEqualityComparerAccessor<ImmutableArr
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 internal sealed partial class SplineShape {
     public static readonly SplineShape Open = new(Extended);
-    public static readonly SplineShape Wrapped = new(static points => Interpolated(Periodic(points, turning: false)) switch {
-        var spline => coordinate => spline.Interpolate(coordinate - double.Floor(coordinate)),
+    public static readonly SplineShape Wrapped = new(static points => {
+        IInterpolation spline = Interpolated(Periodic(points, turning: false));
+        return coordinate => spline.Interpolate(coordinate - double.Floor(coordinate));
     });
-    public static readonly SplineShape Turning = new(static points => Interpolated(Periodic(points, turning: true)) switch {
-        var spline => coordinate => double.Floor(coordinate) switch { var turn => turn + spline.Interpolate(coordinate - turn) },
+    public static readonly SplineShape Turning = new(static points => {
+        IInterpolation spline = Interpolated(Periodic(points, turning: true));
+        return coordinate => double.Floor(coordinate) switch { var turn => turn + spline.Interpolate(coordinate - turn) };
     });
 
-    public Func<double, double> Fit(ImmutableArray<CurvePoint> points, double input, double output) =>
-        Shaped(toSeq(points).Map(point => new CurvePoint(point.X / input, point.Y / output)).Strict()) switch {
-            var curve => coordinate => output * curve(coordinate / input),
-        };
+    public Func<double, double> Fit(ImmutableArray<CurvePoint> points, double input, double output) {
+        Func<double, double> curve = Shaped(toSeq(points).Map(point => new CurvePoint(point.X / input, point.Y / output)).Strict());
+        return coordinate => output * curve(coordinate / input);
+    }
 
     [UseDelegateFromConstructor]
     private partial Func<double, double> Shaped(Seq<CurvePoint> points);
@@ -88,10 +92,10 @@ internal sealed partial class SplineShape {
             var spaced => [Shifted(spaced[^1], -1d, turning), .. spaced, Shifted(spaced[0], 1d, turning)],
         };
 
-    private static Seq<double> Spaced(Seq<double> values) =>
-        ((values[^1] - values[0]) * 2e-3) switch {
-            var gap => values.Tail.Scan(values[0], (previous, value) => double.Max(value, previous + gap)),
-        };
+    private static Seq<double> Spaced(Seq<double> values) {
+        double gap = (values[^1] - values[0]) * 2e-3;
+        return values.Tail.Scan(values[0], (previous, value) => double.Max(value, previous + gap));
+    }
 
     private static CurvePoint Shifted(CurvePoint point, double turn, bool turning) => new(point.X + turn, turning ? point.Y + turn : point.Y);
 
@@ -102,8 +106,7 @@ internal sealed partial class SplineShape {
         };
 }
 
-[ComplexValueObject(SkipToString = true)]
-[ValidationError<ImagingFault>]
+[ComplexValueObject(SkipFactoryMethods = true, SkipToString = true)]
 public sealed partial class PointCurve {
     private static readonly Func<PointCurve, Func<double, double>> Fits = memo(static (PointCurve curve) => SplineShape.Open.Fit(curve.Points, CurveAxis.Stops.Unit, CurveAxis.Stops.Unit));
 
@@ -115,24 +118,17 @@ public sealed partial class PointCurve {
     public Func<double, double> Fit() => Fits(this);
 
     public static Fin<PointCurve> Validated(ImmutableArray<CurvePoint> points) =>
-        TryCreate(points, out PointCurve? curve, out ImagingFault? fault) ? curve : fault;
-
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref ImmutableArray<CurvePoint> points) =>
-        validationError = points.Length >= 2
+        ImagingFault.Unless(points.Length >= 2
             && points.All(static point => CurveAxis.Stops.Contains(point.X) && CurveAxis.Stops.Contains(point.Y))
-            && points.Zip(points.Skip(1)).All(static pair => pair.First.X < pair.Second.X && pair.First.Y <= pair.Second.Y)
-                ? null
-                : new ImagingFault("point curve of 2 or more ascending stop axis points with non-descending outputs", ImagingReason.Degenerate);
+            && points.Window(2).All(static pair => pair[0].X < pair[1].X && pair[0].Y <= pair[1].Y), ImagingReason.Degenerate, toSeq(points)).Map(_ => new PointCurve(points));
 }
 
 public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Blue, PointCurve Master) {
     public static PointCurves Identity { get; } = new(PointCurve.Identity, PointCurve.Identity, PointCurve.Identity, PointCurve.Identity);
 
     public (double Red, double Green, double Blue, double Master) Inputs(Vector4 pixel, (double R, double G, double B) luminance) =>
-        (Red.Fit(), Green.Fit(), Blue.Fit()) switch {
-            var (red, green, blue) => (CurveAxis.ToStops(pixel.X), CurveAxis.ToStops(pixel.Y), CurveAxis.ToStops(pixel.Z), CurveAxis.ToStops(LuminanceSamples.Luminance(
-                CurveAxis.FromStops(Mapped(red, pixel.X)), CurveAxis.FromStops(Mapped(green, pixel.Y)), CurveAxis.FromStops(Mapped(blue, pixel.Z)), luminance))),
-        };
+        (CurveAxis.ToStops(pixel.X), CurveAxis.ToStops(pixel.Y), CurveAxis.ToStops(pixel.Z), CurveAxis.ToStops(Gamut.RelativeLuminance(
+            CurveAxis.FromStops(Mapped(Red.Fit(), pixel.X)), CurveAxis.FromStops(Mapped(Green.Fit(), pixel.Y)), CurveAxis.FromStops(Mapped(Blue.Fit(), pixel.Z)), luminance)));
 
     public Action<Span<Vector4>> Graded(float preserveHue) {
         (Func<double, double> red, Func<double, double> green, Func<double, double> blue, Func<double, double> master) = (Red.Fit(), Green.Fit(), Blue.Fit(), Master.Fit());
@@ -150,8 +146,7 @@ public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Bl
     private static double Mapped(Func<double, double> channel, float value) => channel(CurveAxis.ToStops(value));
 }
 
-[ComplexValueObject(SkipToString = true)]
-[ValidationError<ImagingFault>]
+[ComplexValueObject(SkipFactoryMethods = true, SkipToString = true)]
 public sealed partial class HueCurve {
     private static readonly Func<HueCurve, Func<double, double>> Fits = memo(static (HueCurve curve) => curve.Kind.Shape.Fit(curve.Points, curve.Kind.Input.Axis.Unit, curve.Kind.Output.Unit));
 
@@ -165,16 +160,9 @@ public sealed partial class HueCurve {
     public Func<double, double> Fit() => Fits(this);
 
     public static Fin<HueCurve> Validated(HueCurveKind kind, ImmutableArray<CurvePoint> points) =>
-        TryCreate(kind, points, out HueCurve? curve, out ImagingFault? fault) ? curve : fault;
-
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref HueCurveKind kind, ref ImmutableArray<CurvePoint> points) {
-        (CurveAxis input, (double Low, double High) output) = (kind.Input.Axis, kind.Output.Extent);
-        validationError = points.Length >= 2
-            && points.All(point => input.Contains(point.X) && point.Y >= output.Low && point.Y <= output.High)
-            && points.Zip(points.Skip(1)).All(static pair => pair.First.X < pair.Second.X)
-                ? null
-                : new ImagingFault("hue curve of 2 or more ascending points inside its kind's axes", ImagingReason.Degenerate);
-    }
+        ImagingFault.Unless(points.Length >= 2
+            && points.All(point => kind.Input.Axis.Contains(point.X) && point.Y >= kind.Output.Extent.Low && point.Y <= kind.Output.Extent.High)
+            && points.Window(2).All(static pair => pair[0].X < pair[1].X), ImagingReason.Degenerate, toSeq(points)).Map(_ => new HueCurve(kind, points));
 }
 
 [SmartEnum<string>]

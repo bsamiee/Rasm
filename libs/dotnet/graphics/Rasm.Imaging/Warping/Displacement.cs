@@ -118,16 +118,10 @@ public abstract partial record Displacement {
 [SmartEnum<string>]
 public sealed partial class MapReading {
     public static readonly MapReading Gradient = new("gradient", static (map, plane, sigma, luminance, exposure) =>
-        Height(map, sigma, luminance, exposure, height => HeightPlanes.Slope(height, plane, -double.Sqrt(double.Tau) * sigma / 8d)));
+        Height(map, sigma, luminance, exposure, height => { HeightPlanes.Slope(height, plane, -double.Sqrt(double.Tau) * sigma / 8d); return unit; }));
     public static readonly MapReading Luma = new("luma", static (map, plane, sigma, luminance, exposure) =>
-        Height(map, sigma, luminance, exposure, height => {
-            HeightPlanes.Weighted(height, plane, 2, [2d, -1d, 2d, -1d]);
-            return unit;
-        }));
-    public static readonly MapReading Offsets = new("offsets", static (map, plane, _, _, _) => {
-        HeightPlanes.Weighted(map, plane, 2, [2d, 0d, 0d, 0d, -1d, 0d, -2d, 0d, 0d, 1d]);
-        return unit;
-    });
+        Height(map, sigma, luminance, exposure, height => { HeightPlanes.Weighted(height, plane, 2, [2d, -1d, 2d, -1d]); return unit; }));
+    public static readonly MapReading Offsets = new("offsets", static (map, plane, _, _, _) => { HeightPlanes.Weighted(map, plane, 2, [2d, 0d, 0d, 0d, -1d, 0d, -2d, 0d, 0d, 1d]); return unit; });
 
     [UseDelegateFromConstructor]
     internal partial Fin<Unit> Plane(Mat map, Mat plane, double sigma, (double R, double G, double B) luminance, double exposure);
@@ -240,7 +234,7 @@ public sealed record RefractionField(RefractionSurface Surface, ShortSideExtent 
                     using Mat slope = new();
                     using Mat source = refracted.Header();
                     CvInvoke.ExtractChannel(drawn, level, 2);
-                    return from prepared in (level.Blur(level, 3d * Smoothness.Pixels(extent)).Map(_ => HeightPlanes.Slope(level, slope, (double)Strength * extent.ShortSide * Scale.Pixels(extent) / 8d)),
+                    return from prepared in (level.Blur(level, 3d * Smoothness.Pixels(extent)).Map(_ => { HeightPlanes.Slope(level, slope, (double)Strength * extent.ShortSide * Scale.Pixels(extent) / 8d); return unit; }),
                                source.Blur(source, 3d * Blur.Pixels(extent))).Apply(static (_, _) => unit).As()
                            from applied in new CoordinateMap.Analytic((points, coverage, _) => {
                                ReadOnlySpan2D<Vector2> bend = slope.View<Vector2>();
@@ -261,14 +255,13 @@ public sealed record RefractionField(RefractionSurface Surface, ShortSideExtent 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 file static class HeightPlanes {
-    public static Unit Slope(Mat level, Mat plane, double scale) {
+    public static void Slope(Mat level, Mat plane, double scale) {
         using Mat across = new();
         using Mat down = new();
         CvInvoke.Sobel(level, across, DepthType.Cv32F, 1, 0, 3, scale, 0d, BorderType.Replicate);
         CvInvoke.Sobel(level, down, DepthType.Cv32F, 0, 1, 3, scale, 0d, BorderType.Replicate);
         using VectorOfMat pair = new(across, down);
         CvInvoke.Merge(pair, plane);
-        return unit;
     }
 
     public static void Weighted(Mat source, Mat target, int rows, double[] weights) {

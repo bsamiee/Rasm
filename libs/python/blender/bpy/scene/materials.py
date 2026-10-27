@@ -20,7 +20,7 @@ from blender.bpy.data.ids.ownership import committed, kept, Ownership, Saved
 from blender.bpy.data.rna.conditions import Present
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.snapshots import Scenes, Snapshot
-from blender.bpy.extension.identity import Identity, Name
+from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import reconciled
@@ -323,7 +323,7 @@ def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identi
 
 def stored(identity: Identity) -> Outcome[Stored[Shading]]:
     """Returns the store of the shading setup an owned material tree holds."""
-    return identity.name(Name.ATTACHMENT, "shading").map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(Shading)))
+    return identity.identifier("shading").map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(Shading)))
 
 
 def referenced(scene: bpy.types.Scene, context: bpy.types.Context) -> Outcome[tuple[Reconciled, ...]]:

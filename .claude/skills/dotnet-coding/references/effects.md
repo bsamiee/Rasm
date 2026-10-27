@@ -259,7 +259,7 @@ Each `Bind` understands only its outer effect, nested effects do not compose dir
 internal static class Stacks {
     public static IO<decimal> Converted(Func<Guid, IO<Option<State>>> lookup, Guid id, IO<decimal> rate) =>
         from found in lookup(id)
-        from state in IO.lift(found.ToFin(Error.New($"no state has id {id}")))
+        from state in IO.lift(found.ToFin(new Fault($"state {id}", Reason.Missing)))
         from factor in rate
         select state.Balance * factor;
     public static IO<Unit> Publish(Func<Task> publish) =>
@@ -271,4 +271,4 @@ internal static class Stacks {
 }
 ```
 
-Reduce unnecessary effects before building the workflow, and adapt every operation to `IO` at its boundary: a `Fin` from validation or a pure transition enters through `IO.lift`, and an `IO<Option<A>>` read meets its one match through `ToFin` with an `Error` under `IO.lift`.
+Reduce unnecessary effects before building a workflow and adapt every operation to `IO` at its boundary: a `Fin` from validation or a pure transition enters through `IO.lift`, an `IO<Option<A>>` read meets its one match through `ToFin` with an `Error` under `IO.lift`.

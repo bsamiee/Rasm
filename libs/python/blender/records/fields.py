@@ -12,7 +12,7 @@ import numpy as np
 type Seed = Annotated[int, msgspec.Meta(ge=0, le=2**24)]
 type Finite = Annotated[float, msgspec.Meta(ge=-sys.float_info.max, le=sys.float_info.max)]
 type Unit = Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
-type Positive = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
+type Positive = Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=sys.float_info.max)]
 type NonNegative = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
 type AtLeastOne = Annotated[float, msgspec.Meta(ge=1.0, le=sys.float_info.max)]
 type Side = Annotated[int, msgspec.Meta(ge=1)]

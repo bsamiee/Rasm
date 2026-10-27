@@ -1,5 +1,6 @@
 """Runs Blender in a fresh user base under `.artifacts/blender/evaluate/<name>/` with repository modules."""
 
+lazy from functools import partial
 lazy from itertools import takewhile
 lazy import os
 lazy from pathlib import Path
@@ -13,14 +14,14 @@ lazy from expression import Result
 lazy from expression.extra.result import catch
 
 lazy from eng.python.fitout.assembly import reset, site
-lazy from eng.python.fitout.faults import Fault
+lazy from eng.python.fitout.faults import Fault, Faults, Reason
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def run(
     name: str, /, *arguments: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")], pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")]
-) -> Result[int, Fault]:
+) -> Result[int, Faults]:
     """Runs Blender with `--python-use-system-env` in a fresh user base, headless on `-b` or `--background` before any `--`, else as GUI.
 
     Blender resolves every user folder under `BLENDER_USER_RESOURCES`, lookups failing with no profile fallback.
@@ -41,7 +42,7 @@ def run(
         BLENDER_USER_RESOURCES=str(folder), TMPDIR=str(folder), PYTHONPYCACHEPREFIX=str(pycache), BLENDER_SYSTEM_SCRIPTS=str(scripts), PYTHONPATH=str(Path("libs/python").resolve())
     )
 
-    def launched(_: int) -> Result[int, Fault]:
+    def launched(_: int) -> Result[int, Faults]:
         given = ("--python-use-system-env", *arguments)
         log = folder / "blender.log"
         direct = sys.platform != "darwin" or not {"-b", "--background"}.isdisjoint(takewhile(lambda argument: argument != "--", arguments))
@@ -50,7 +51,7 @@ def run(
         with log.open("ab") as sink:
             done = catch(subprocess.run, exception=OSError)((blender, *given) if direct else (*opened, *given), env=os.environ | environment, stdout=sink, stderr=subprocess.STDOUT, check=False)
         sys.stdout.buffer.write(log.read_bytes())
-        return done.map(lambda finished: finished.returncode).map_error(Fault.of)
+        return done.map(lambda finished: finished.returncode).map_error(partial(Fault.caught, Reason.PROCESS, blender))
 
     return reset(folder, Path.mkdir).bind(lambda _: site(scripts / "modules", blender=blender)).bind(launched)
 

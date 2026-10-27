@@ -3,23 +3,13 @@ using System.IO.Hashing;
 using System.Numerics;
 using System.Text;
 
-namespace Rasm.Rhino;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-public enum KeyDomain {
-    Definition = 0,
-    Scene = 3,
-    RenderMeshes = 5,
-    FrameMark = 7,
-}
+namespace Rasm.RhinoCommon;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record NamedId(Guid Id, Option<string> Name);
-
 [ValueObject<UInt128>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct ContentKey {
-    public static ContentKey Of(KeyDomain domain, Func<XxHash128, XxHash128> fields) =>
-        new(fields(new XxHash128().Integer((int)domain)).GetCurrentHashAsUInt128());
+public sealed partial class ContentKey {
+    public static ContentKey Of<TOwner>(Func<XxHash128, XxHash128> fields) =>
+        new(fields(new XxHash128().Id(typeof(TOwner).GUID)).GetCurrentHashAsUInt128());
 
     public Guid Id {
         get {
@@ -40,11 +30,12 @@ public static class ContentKeys {
             return accumulator;
         }
 
-        public XxHash128 Text(string value) {
-            byte[] field = Encoding.UTF8.GetBytes(value);
-            accumulator.Integer(field.Length).Append(field);
+        public XxHash128 Bytes(ReadOnlySpan<byte> value) {
+            accumulator.Integer(value.Length).Append(value);
             return accumulator;
         }
+
+        public XxHash128 Text(string value) => accumulator.Bytes(Encoding.UTF8.GetBytes(value));
 
         public XxHash128 Id(Guid value) => accumulator.Integer(BinaryPrimitives.ReadUInt128BigEndian(value.ToByteArray(bigEndian: true)));
 

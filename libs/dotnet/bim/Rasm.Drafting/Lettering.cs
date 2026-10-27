@@ -3,11 +3,10 @@ using UnitsNet;
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<DraftingFault>]
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class LetteringForm {
-    public static readonly LetteringForm TypeA = new("type-a", divisor: 14, xHeight: 10, pitch: 21);
-    public static readonly LetteringForm TypeB = new("type-b", divisor: 10, xHeight: 7, pitch: 15);
+    public static readonly LetteringForm TypeA = new(divisor: 14, xHeight: 10, pitch: 21);
+    public static readonly LetteringForm TypeB = new(divisor: 10, xHeight: 7, pitch: 15);
 
     internal int Divisor { get; }
     internal int XHeight { get; }
@@ -25,13 +24,12 @@ public sealed partial class LetteringStandard {
     public partial Length Height(SheetSize size);
 }
 
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<DraftingFault>]
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class Terminator {
-    public static readonly Terminator ClosedArrow = new("closed-arrow", proportion: 1);
-    public static readonly Terminator OpenArrow = new("open-arrow", proportion: 1);
-    public static readonly Terminator Oblique = new("oblique", proportion: 1);
-    public static readonly Terminator Dot = new("dot", proportion: QuantityValue.FromTerms(1, 2));
+    public static readonly Terminator ClosedArrow = new(proportion: 1);
+    public static readonly Terminator OpenArrow = new(proportion: 1);
+    public static readonly Terminator Oblique = new(proportion: 1);
+    public static readonly Terminator Dot = new(proportion: QuantityValue.FromTerms(1, 2));
 
     internal QuantityValue Proportion { get; }
 }

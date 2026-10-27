@@ -45,10 +45,10 @@ public sealed record Affine(Matrix<double> Linear, (double X, double Y) Shift) {
 
     public bool Still => Linear.Equals(Identity.Linear) && Shift is (0d, 0d);
 
-    public Affine Then(Affine next) =>
-        new(Linear * next.Linear, (
-            (Shift.X * next.Linear[0, 0]) + (Shift.Y * next.Linear[1, 0]) + next.Shift.X,
-            (Shift.X * next.Linear[0, 1]) + (Shift.Y * next.Linear[1, 1]) + next.Shift.Y));
+    public Affine Then(Affine next) {
+        Matrix<double> shift = Matrix<double>.Build.DenseOfRowMajor(1, 2, [Shift.X, Shift.Y]) * next.Linear;
+        return new(Linear * next.Linear, (shift[0, 0] + next.Shift.X, shift[0, 1] + next.Shift.Y));
+    }
 
     public CoordinateMap.Analytic Map(Sampling sampling, WrapMode wrap) {
         ((double xx, double xy, double yx, double yy), (double X, double Y) shift) = ((Linear[0, 0], Linear[0, 1], Linear[1, 0], Linear[1, 1]), Shift);
@@ -125,10 +125,10 @@ public static class QuadWarp {
                 perspective.SetTo(map.ToRowMajorArray());
                 CvInvoke.WarpPerspective(source, target, perspective, source.Size, sampling.Interpolation, Warp.InverseMap, wrap.Border, default);
                 Span2D<Vector4> pixels = target.View<Vector4>();
-                for (int row = 0; row < pixels.Height; row++) {
+                (double across, double down, double constant) = (map[2, 0], map[2, 1], map[2, 2]);
+                for (int row = 0; row < pixels.Height; row++)
                     for (int column = 0; column < pixels.Width; column++)
-                        pixels[row, column] = (map[2, 0] * column) + (map[2, 1] * row) + map[2, 2] > 0d ? CoordinateMap.Unassociated(pixels[row, column]) : Vector4.Zero;
-                }
+                        pixels[row, column] = (across * column) + (down * row) + constant > 0d ? CoordinateMap.Unassociated(pixels[row, column]) : Vector4.Zero;
                 progress.Report(frame.Size.Height);
                 return unit;
             }));

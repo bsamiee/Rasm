@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Numerics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Rasm.UI.Styling;
 using SkiaSharp;
 using Topten.RichTextKit;
@@ -25,8 +26,7 @@ public sealed partial class PhysicalAxis {
     public SKRect Spanned(SKRect frame, float start, float extent) => SKRect.Create(With(frame.Location, start), new SKSize(With(frame.Size.ToPoint(), extent)));
 }
 
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<Invalid>]
+[ValueObject<float>(SkipFactoryMethods = true)]
 public sealed partial class Fraction {
     public static Fraction MinValue { get; } = new(0f);
     public static Fraction Half { get; } = new(0.5f);
@@ -36,21 +36,14 @@ public sealed partial class Fraction {
 
     public Fraction Midpoint(Fraction other) => new((_value + other._value) / 2f);
 
-    public static Option<Fraction> Present(float value) => TryCreate(value, out Fraction? fraction) ? fraction : None;
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float value) =>
-        validationError = value is >= 0f and <= 1f ? null : new Invalid(string.Create(CultureInfo.InvariantCulture, $"fraction {value} lies outside [0, 1]"));
+    public static Fin<Fraction> Validated(float value) => UIFault.Unless(value is >= 0f and <= 1f, UIReason.Range).Map(_ => new Fraction(value));
 }
 
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<Invalid>]
+[ValueObject<float>(SkipFactoryMethods = true)]
 public sealed partial class Factor {
     public static Factor Unit { get; } = new(1f);
 
-    public static Option<Factor> Present(float value) => TryCreate(value, out Factor? factor) ? factor : None;
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float value) =>
-        validationError = float.IsFinite(value) && value > 0f ? null : new Invalid(string.Create(CultureInfo.InvariantCulture, $"factor {value} is not finite and positive"));
+    public static Fin<Factor> Validated(float value) => UIFault.Unless(float.IsFinite(value) && value > 0f, UIReason.Range).Map(_ => new Factor(value));
 }
 
 public sealed record UnitPoint(Fraction X, Fraction Y) {
@@ -60,22 +53,16 @@ public sealed record UnitPoint(Fraction X, Fraction Y) {
     public float Of(PhysicalAxis along) => along.Of(new Vector2((float)X, (float)Y));
 }
 
-[ComplexValueObject]
-[ValidationError<Invalid>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class Limits {
-    public static Limits Open { get; } = Create(0f, float.PositiveInfinity);
+    public static Limits Open { get; } = new(0f, float.PositiveInfinity);
 
     public float Min { get; }
     public float Max { get; }
 
     public float Clamped(float value) => float.Clamp(value, Min, Max);
 
-    public static Fin<Limits> Validated(float min, float max) => TryCreate(min, max, out Limits? limits, out Invalid? fault) ? limits : fault;
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float min, ref float max) =>
-        validationError = float.IsFinite(min) && min >= 0f && max >= min
-            ? null
-            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"limits ({min}, {max}) are not a non-negative ordered span"));
+    public static Fin<Limits> Validated(float min, float max) => UIFault.Unless(float.IsFinite(min) && min >= 0f && max >= min, UIReason.Order).Map(_ => new Limits(min, max));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
@@ -433,8 +420,23 @@ public abstract partial record Node {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-public sealed record Invalid(string Message) : Expected(Message, 0), IValidationError<Invalid> {
-    public static Invalid Create(string message) => new(message);
+[SmartEnum]
+public sealed partial class UIReason {
+    public static readonly UIReason Range = new("value out of range");
+    public static readonly UIReason Order = new("values out of order");
+    public static readonly UIReason Missing = new("missing entry");
+    public static readonly UIReason Derived = new("states a derived fact");
+    public static readonly UIReason Repeated = new("repeated entry");
+    public static readonly UIReason Unreadable = new("unreadable");
+    public static readonly UIReason Refused = new("refused by the renderer");
+
+    public string Message { get; }
+}
+
+public sealed record UIFault(string Subject, UIReason Reason, Option<int> Index = default, Option<Error> Inner = default)
+    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner) {
+    public static Fin<Unit> Unless(bool flag, UIReason reason, Option<int> index = default, [CallerArgumentExpression(nameof(flag))] string subject = "") =>
+        flag ? unit : new UIFault(subject, reason, index);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

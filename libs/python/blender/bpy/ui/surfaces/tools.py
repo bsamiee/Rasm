@@ -15,7 +15,7 @@ from blender.bpy.commands.calls import Operation, Placed, Writer
 from blender.bpy.commands.keymaps import Chord
 from blender.bpy.commands.operators import Command, Operator, Pick
 from blender.bpy.data.rna.descriptors import rooted, Struct
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.drawing.handlers import Drawing, Drew
@@ -108,7 +108,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
                 pending: Option[rna_enums.WindowCursorItems] = Some(picked)
             case _:
                 pending = Nothing
-        named = identity.name(Name.OPERATOR, self.operator.key) if isinstance(self.operator, Command) else Ok(self.operator.idname_py())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        named = identity.name(bpy.types.Operator, self.operator.key) if isinstance(self.operator, Command) else Ok(self.operator.idname_py())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         widget = self.gizmo.map(lambda linked: linked.named(identity).map(Some)).default_value(Ok(Nothing))
         pointed = self.pointer.map(lambda drawing: drawing.acquired(identity).map(Some)).default_value(Ok(Nothing))
         bound = accumulated(placed.invocation(identity).map(lambda invocation: (chord, invocation)) for chord, placed in self.bindings.items())
@@ -153,7 +153,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
                 rows=(*self.gizmo.to_list(), *(row for rows, _ in pointer.to_list() for row in rows), *acquired(self.settings)),
             )
 
-        return paired(paired(paired(identity.name(Name.OPERATOR, self.key), named), placed(self.settings, identity)), paired(paired(widget, pointed), bound)).map(built)
+        return paired(paired(paired(identity.name(bpy.types.Operator, self.key), named), placed(self.settings, identity)), paired(paired(widget, pointed), bound)).map(built)
 
 
 class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
@@ -167,7 +167,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
 
     def invocation(self, identity: Identity, tool: Tool[S], *, cycle: bool = False, as_fallback: bool = False) -> Outcome[tuple[Operation, dict[str, object]]]:
         """Returns `wm.tool_set_by_id` call activating tool."""
-        return identity.name(Name.OPERATOR, tool.key).map(
+        return identity.name(bpy.types.Operator, tool.key).map(
             lambda name: (bpy.ops.wm.tool_set_by_id, {"name": name, "space_type": self.toolbar.panel.bl_space_type, "cycle": cycle, "as_fallback": as_fallback})
         )
 

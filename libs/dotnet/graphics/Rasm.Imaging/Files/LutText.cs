@@ -299,11 +299,11 @@ internal static class LutText {
 
     private static Option<Lut1D> Shaper(LogCurve curve) {
         float top = curve.Inverse(Vector3.One).X;
-        using MemoryOwner<float> rows = MemoryOwner<float>.Allocate(3 * CurveLength.ResolveShaper);
+        using MemoryOwner<float> rows = MemoryOwner<float>.Allocate(3 * CurveLength.UInt16Codes);
         Span<Vector3> entries = MemoryMarshal.Cast<float, Vector3>(rows.Span);
         for (int entry = 0; entry < entries.Length; entry++)
             entries[entry] = curve.Forward(new Vector3(entry * top / (entries.Length - 1)));
-        return Lut1D.From(CurveLength.ResolveShaper, rows.Memory, Vector3.Zero, new Vector3(top)).ToOption();
+        return Lut1D.From(CurveLength.UInt16Codes, rows.Memory, Vector3.Zero, new Vector3(top)).ToOption();
     }
 
     private static float[] Indexed(Lut3D lattice) {
@@ -358,8 +358,7 @@ internal static class LutText {
 
     private static float[] Quantized(ReadOnlySpan<float> values, Quantizer levels) {
         float[] codes = GC.AllocateUninitializedArray<float>(values.Length);
-        for (int at = 0; at < values.Length; at++)
-            codes[at] = levels.Round(new Vector4(levels.MaxCode * values[at])).X;
+        levels.Coded(values, codes);
         return codes;
     }
 
@@ -368,7 +367,7 @@ internal static class LutText {
 
     internal static Option<float> Number(string text) => float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float value) ? Some(value) : None;
 
-    internal static Option<CurveLength> Entries(int count) => CurveLength.TryCreate(count, out CurveLength? length) ? Optional(length) : None;
+    internal static Option<CurveLength> Entries(int count) => CurveLength.Validated(count).ToOption();
 
     internal static Option<Vector3> Triple(string text) => Numbers<float>(text).Bind(static values => values is [var r, var g, var b] ? Some(new Vector3(r, g, b)) : None);
 
@@ -408,7 +407,7 @@ internal static class LutText {
     }
 
     // --- [FAULTS]
-    internal static ImagingFault Misstated(LutFormat format, int line) => new(string.Create(CultureInfo.InvariantCulture, $"{format} LUT line {line}"), ImagingReason.Unparsed);
+    internal static ImagingFault Misstated(LutFormat format, int line) => new(string.Create(CultureInfo.InvariantCulture, $"{format} LUT line {line}"), ImagingReason.Malformed);
 
     private static ImagingFault Sizeless(LutFormat format) => new($"{format} LUT size", ImagingReason.Empty);
 

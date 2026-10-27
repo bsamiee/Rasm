@@ -7,7 +7,8 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Root Ruff `target-version` and ty `python-version` follow the Python version resolved by mise
 - Host folders with code a host runs or imports state its interpreter floor once in a nested `requires-python`
 - Host `pyproject.toml` files are virtual uv workspace members (`[tool.uv] package = false`) holding `name`, a static `version`, the floor, `[project] dependencies`, and Ruff `extend`, and create no Nx project
-- The `blender` library is a packaged workspace member, its hatchling wheel mapping its own folder onto the `blender` import root, its `[project] dependencies` naming every package its modules import
+- `blender` is a packaged workspace member, its hatchling wheel mapping its folder onto the `blender` import root
+- `blender` `[project] dependencies` name every package its modules import
 - Root `rasm` is a virtual workspace root packaging no module and depending on `blender` through a workspace source, no package depending on `rasm`
 - Extension rows name `blender` alone, a new extension joining root `[tool.uv.workspace] members` and `uv.lock` first, ty's `missing-direct-dependency` off under `apps/blender/` where extensions import the library's closure
 - Fitout bundles the closure `uv export --project <extension> --no-editable` reads from `uv.lock`, building workspace members as wheels it copies in as submodules
@@ -42,7 +43,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 ## [04]-[ENVIRONMENT]
 
 - `uv sync` installs the `blender` library editable, its hatch `dev-mode-dirs` exposing the folder holding its import root through `.pth` without a `PYTHONPATH` row
-- Target commands find the synced `.venv` on `PATH` through mise `python.uv_venv_auto`, `uv run` syncs before every run
+- Target commands find the synced `.venv` on `PATH` through mise `python.uv_venv_auto`, versioned commands export `VIRTUAL_ENV` to `.cache/python/<version>`, and `uv run` syncs before every run
 - Builds reuse objects or a CMake cache an earlier build left in the cached sdist tree
 - Modules in `sys.stdlib_module_names` shadow standard libraries when earlier on `sys.path` or `mypy_path`
 
@@ -66,7 +67,8 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - `[tool.refurb] enable_all` loads every check a release adds
 - `[tool.refurb] load` imports every `tools/refurb/` module, `__main__` guards its run
 - Check modules hold one `RASM` `Error` subclass and one `check`
-- `deptry` reads every dependency group as development, `lint:deptry` reads the `blender` library's manifest and `[tool.deptry]` table and scans the host and wheel roots importing its dependencies
+- `deptry` reads every dependency group as development
+- `lint:deptry` reads the `blender` manifest and `[tool.deptry]` table, then scans host and wheel roots importing its dependencies
 - Imports there fail on a group-only, transitive, or undeclared package, type checks over a fully synced environment pass them
 - Host-supplied modules take a `per_rule_ignores` `DEP001` row, their typings package names `-stubs` folders deptry maps to no module
 - Requirements no repository file imports (data packages, modules a dependency imports undeclared) take a `per_rule_ignores` `DEP002` row
@@ -85,8 +87,8 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Host interpreter's markers and wheel tags govern `pip wheel` compatibility of wheels an extension bundles
 - Fitout omits Blender-provided distributions from locked export
 - `blender_manifest.toml` holds no `version`, `pack` writes the one MinVer computes from `blender-<id>-v<version>` tags into the staged manifest
-- `install` runs `install-file --repo user_default --enable` in a running GUI on the same user profile, else `install-file` in a background process
-- `install` adds a preference row the native handler left absent, a failed enable included, and saves preferences for the next startup's wheel sync
+- `install` runs `extensions.package_install_files` in a GUI on the same executable and user profile, then saves changed preferences
+- `install` runs `extension install-file --repo user_default --enable` through `--command` when no such GUI runs
 
 ## [08]-[TYPING]
 

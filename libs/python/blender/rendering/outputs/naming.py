@@ -59,6 +59,7 @@ class Output(StrEnum):
 RESERVED: Final = r'\x00-\x1f"*:<>?|'
 _UNLITERAL = re.compile(r"[{}\x00]")
 _SEPARATOR = re.compile(r"[\W_]")
+_VERSION = re.compile(r"(?i)(?<![^\W\d_])(?:version|v)[._]?(\d+)")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -118,15 +119,15 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 case _:
                     return Error(refused(f"Field {name!r} with conversion {conversion!r} and width {spec!r} names no output field"))
 
-        def checked(reason: str, *, holds: bool) -> Outcome[None]:
-            return Ok(None) if holds else Error(refused(reason))
-
         def parsed(pieces: tuple[tuple[str, str | None, str | None, str | None], ...]) -> Outcome[Self]:
-            counts = {(name, spec) for _, name, spec, _ in pieces if name is not None and name in Count}
             return paired(
                 accumulated(starmap(parted, pieces)),
-                checked("Adjacent fields need a non-word or underscore separator", holds=all(_SEPARATOR.search(text) for text, name, _, _ in pieces[1:] if name is not None)),
-                checked("A count field repeats at another width", holds=len(counts) == len({name for name, _ in counts})),
+                Ok(pieces[1:]).filter_with(
+                    lambda later: all(_SEPARATOR.search(text) for text, name, _, _ in later if name is not None), lambda _: refused("Adjacent fields need a non-word or underscore separator")
+                ),
+                Ok({(name, spec) for _, name, spec, _ in pieces if name is not None and name in Count}).filter_with(
+                    lambda counts: len(counts) == len({name for name, _ in counts}), lambda _: refused("A count field repeats at another width")
+                ),
             ).map(lambda found: cls(parts=tuple(chain.from_iterable(found[0]))))
 
         return catch(tuple, exception=ValueError)(string.Formatter().parse(template)).map_error(refused).bind(parsed)
@@ -151,7 +152,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 case Number(width=width):
                     return re.compile(rf"[0-9]{{{width}}}|[1-9][0-9]{{{width},}}")
 
-        return {part: pattern(part) for part in self.parts if not isinstance(part, Text)}
+        return {part: pattern(part) for part in self.slots}
 
     def compose(self, fields: Fields, written: Callable[[Field], Option[str]] = lambda _: Nothing) -> Outcome[str]:
         """Composes name, accumulating field refusals."""
@@ -162,28 +163,21 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 case Text(text=text):
                     return Ok(text)
                 case Slot(key=key):
-                    value = fields.words.get(key, "")
+                    value = Option.of_optional(fields.words.get(key))
                 case Number(key=key, width=width):
-                    value = Option.of_optional(fields.counts.get(key)).map(lambda count: f"{count:0{width}d}").default_value("")
+                    value = Option.of_optional(fields.counts.get(key)).map(lambda count: f"{count:0{width}d}")
             pattern = patterns[part]
-            return (
-                written(part)
-                .map(Ok)
-                .default_with(
-                    lambda: Ok(value).filter_with(lambda held: pattern.fullmatch(held) is not None, lambda held: (Fault(reason=RenderingReason.UNMATCHED, subject=held, member=pattern.pattern),))
-                )
-            )
+            unmatched = Fault(reason=RenderingReason.UNMATCHED, subject=value.default_value(f"{{{key}}}"), member=pattern.pattern)
+            return written(part).or_else(value.filter(lambda held: pattern.fullmatch(held) is not None)).to_result((unmatched,))
 
         return accumulated(map(spelled, self.parts)).map("".join)
 
     def parse(self, text: str) -> Outcome[Fields]:
         """Parses relative extensionless name, requiring repeated fields to agree."""
         patterns = self.patterns()
-        names = {part: f"{type(part).__name__}_{part.key.name}" for part in patterns}
-        first = {part: index for index, part in reversed(tuple(enumerate(self.parts))) if not isinstance(part, Text)}
         grammar = re.compile(
             "".join(
-                re.escape(part.text) if isinstance(part, Text) else f"(?P<{names[part]}>{patterns[part].pattern})" if first[part] == index else f"(?P={names[part]})"
+                re.escape(part.text) if isinstance(part, Text) else f"(?P<{part.key}>{patterns[part].pattern})" if self.parts.index(part) == index else f"(?P={part.key})"
                 for index, part in enumerate(self.parts)
             )
         )
@@ -192,7 +186,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
             .of_optional(grammar.fullmatch(text))
             .map(
                 lambda found: Fields(
-                    words={part.key: found[names[part]] for part in patterns if isinstance(part, Slot)}, counts={part.key: int(found[names[part]]) for part in patterns if isinstance(part, Number)}
+                    words={part.key: found[part.key] for part in patterns if isinstance(part, Slot)}, counts={part.key: int(found[part.key]) for part in patterns if isinstance(part, Number)}
                 )
             )
             .to_result_with(lambda: (Fault(reason=RenderingReason.UNMATCHED, subject=text, member=grammar.pattern),))
@@ -203,7 +197,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
         return (
             self
             .compose(fields)
-            .map(lambda text: root / text)
+            .map(root.joinpath)
             .filter_with(lambda path: path.resolve().is_relative_to(root.resolve()), lambda path: (Fault(reason=RenderingReason.ROOT, subject=str(path.resolve()), member=str(root.resolve())),))
         )
 
@@ -227,13 +221,12 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
 
 def stepped(text: str, offset: int) -> Option[str]:
     """Steps version tokens matching last version, keeping token widths."""
-    token = re.compile(r"(?i)(?<![^\W\d_])(?:version|v)[._]?(\d+)")
     return (
         Option
-        .of_optional(next(reversed(token.findall(text)), None))
+        .of_optional(next(reversed(_VERSION.findall(text)), None))
         .map(int)
         .filter(lambda last: last + offset >= 0)
-        .map(lambda last: token.sub(lambda found: found[0].removesuffix(found[1]) + f"{last + offset:0{len(found[1])}d}" if int(found[1]) == last else found[0], text))
+        .map(lambda last: _VERSION.sub(lambda found: found[0].removesuffix(found[1]) + f"{last + offset:0{len(found[1])}d}" if int(found[1]) == last else found[0], text))
     )
 
 

@@ -20,24 +20,24 @@ Covers `bpy` code decisions under workspace standards, from holding a data refer
 
 Host references go stale after their event, and code holds the form that survives:
 
-| [INDEX] | [REFERENCE]                          | [STALE_AFTER]                                   | [HOLD]                                       |
-| :-----: | :----------------------------------- | :---------------------------------------------- | :------------------------------------------- |
-|  [01]   | ID                                   | `remove()`, an undo step touching it, file load | `session_uid` in a session, name and library across file loads |
-|  [02]   | Vertex, bone, point, UV, attribute   | `mode_set`, container growth, ID removal        | Index or name, re-read after the change      |
-|  [03]   | `CollectionProperty` item            | `add()` on its collection                       | Index, re-read after each `add()`            |
-|  [04]   | Grease Pencil stroke or point        | `remove_strokes`, `resize_strokes`              | `frame.drawing` read again                   |
-|  [05]   | `Keyframe`                           | Next insert on its F-curve                      | `keyframe_points` re-read per insert         |
-|  [06]   | `mathutils` value read from RNA      | Owner write (read live), owner removal          | `.copy()`                                    |
-|  [07]   | `PropertyGroup` on an ID             | Undo                                            | Re-resolved through its ID                   |
-|  [08]   | Evaluated ID                         | `Depsgraph.update()`, rewriting it in place     | Values copied out per evaluation             |
-|  [09]   | `object_instances` item              | Next iteration step                             | Values copied per step |
-|  [10]   | `to_mesh()` result                   | Re-evaluation, `to_mesh()`, `to_mesh_clear()`   | Scope calling `to_mesh_clear()` |
-|  [11]   | GeometrySet component                | Release of its GeometrySet                      | GeometrySet bound for the read               |
-|  [12]   | Struct with a class a write refines  | `Light.type`, `dimensions`, `socket_type`       | Re-read from its ID through its `path_from_id()` path |
-|  [13]   | Generated `properties.inputs` struct | Group assignment, any interface write           | Re-read from `properties.inputs` after each write |
-|  [14]   | Pointer an operator re-targets       | `object.convert`, importer `obj.data` swaps     | Read through its owner after the call        |
-|  [15]   | `ui_styles` item                     | Theme reset, preset load                        | Re-read from its owner                       |
-|  [16]   | Dynamic enum `EnumPropertyItem`      | End of `enum_items` iteration listing it        | Item `identifier`                            |
+| [INDEX] | [REFERENCE]                          | [STALE_AFTER]                                 | [HOLD]                                       |
+| :-----: | :----------------------------------- | :-------------------------------------------- | :------------------------------------------- |
+|  [01]   | ID                                   | `remove()`, undo step touching it, file load  | `session_uid`, name and library after a load |
+|  [02]   | Vertex, bone, point, UV, attribute   | `mode_set`, container growth, ID removal      | Index or name, re-read after the change      |
+|  [03]   | `CollectionProperty` item            | `add()` on its collection                     | Index, re-read after each `add()`            |
+|  [04]   | Grease Pencil stroke or point        | `remove_strokes`, `resize_strokes`            | `frame.drawing` read again                   |
+|  [05]   | `Keyframe`                           | Next insert on its F-curve                    | `keyframe_points` re-read per insert         |
+|  [06]   | `mathutils` value read from RNA      | Owner write (read live), owner removal        | `.copy()`                                    |
+|  [07]   | `PropertyGroup` on an ID             | Undo                                          | Re-resolved through its ID                   |
+|  [08]   | Evaluated ID                         | `Depsgraph.update()`, rewriting it in place   | Values copied out per evaluation             |
+|  [09]   | `object_instances` item              | Next iteration step                           | Values copied per step                       |
+|  [10]   | `to_mesh()` result                   | Re-evaluation, `to_mesh()`, `to_mesh_clear()` | Scope calling `to_mesh_clear()`              |
+|  [11]   | GeometrySet component                | Release of its GeometrySet                    | GeometrySet bound for the read               |
+|  [12]   | Struct with a class a write refines  | `Light.type`, `dimensions`, `socket_type`     | Re-read through its ID's `path_from_id()`    |
+|  [13]   | Generated `properties.inputs` struct | Group assignment, any interface write         | `properties.inputs` re-read after each write |
+|  [14]   | Pointer an operator re-targets       | `object.convert`, importer `obj.data` swaps   | Read through its owner after the call        |
+|  [15]   | `ui_styles` item                     | Theme reset, preset load                      | Re-read from its owner                       |
+|  [16]   | Dynamic enum `EnumPropertyItem`      | End of `enum_items` iteration listing it      | Item `identifier`                            |
 
 Stale references fail by kind:
 - Stale ID, `object_instances` item, `to_mesh()` mesh, and GeometrySet component references raise `ReferenceError` on every read
@@ -55,7 +55,7 @@ Creation, removal, and work sets follow host lifetimes:
 - Removing an object leaves its data at zero users, and removals name objects with their unshared data
 - `bpy.data.batch_remove(ids=...)` removes only the IDs named
 - `remove()` scans every user per call, and removals of more than one ID run through one `batch_remove`
-- `batch_remove` crashes Blender on an already removed ID, and held IDs resolve by `session_uid` before the call
+- `batch_remove` crashes Blender on a removed ID, and held IDs resolve by `session_uid` before the call
 - Work sets come from the context scope (`context.scene.objects`, `view_layer.objects`, a collection), `bpy.data.<collection>` holding other scenes, orphans, and linked data
 - Current data comes from its owner (`scene.world`, `context.scene`), `bpy.data.<collection>[0]` naming the alphabetically first block
 - `select_set(True)` raises `RuntimeError` for an object outside the view layer and changes nothing on a `hide_select` object
@@ -96,10 +96,10 @@ Work takes its data API form where one member does it, and a stock operator, `bp
 |  [01]   | New ID                      | `bpy.data.<collection>.new`, then an explicit link           |
 |  [02]   | Topology edit               | `bmesh` scope                                                |
 |  [03]   | Per-element values          | `foreach_set` over attributes                                |
-|  [04]   | Keys and drivers            | `keyframe_points.add` with `foreach_set`, `driver_add` |
+|  [04]   | Keys and drivers            | `keyframe_points.add` with `foreach_set`, `driver_add`       |
 |  [05]   | Active and selected objects | `view_layer.objects.active`, `select_set`, set independently |
 |  [06]   | Operator override           | Every member the operator reads, derived members included    |
-|  [07]   | Procedure Blender includes  | Included member, operators under a `temp_override` |
+|  [07]   | Procedure Blender includes  | Included member, operators under a `temp_override`           |
 
 Overrides reach the members an operator reads alone:
 - `selected_objects` overrides leave `selected_editable_objects` reading the window's own selection
@@ -142,22 +142,22 @@ Calls and their answers:
 
 Original data holds no modifier, constraint, or animation result, and each read or write takes its path:
 
-| [INDEX] | [NEED]                                         | [PATH]                                                                           |
-| :-----: | :--------------------------------------------- | :------------------------------------------------------------------------------- |
+| [INDEX] | [NEED]                                         | [PATH]                                                                                  |
+| :-----: | :--------------------------------------------- | :-------------------------------------------------------------------------------------- |
 |  [01]   | Modified or animated state                     | `evaluated_get` on one `view_layer.depsgraph` per operation after `view_layer.update()` |
-|  [02]   | Selection, identity, any write                 | `.original` of the evaluated ID                                                  |
-|  [03]   | `matrix_world`, `dimensions`, `bound_box`      | `view_layer.update()` after the data write |
-|  [04]   | World extents                                  | `matrix_world` over the evaluated geometry                                       |
-|  [05]   | Keyed F-curve value at other frames            | `fcurve.evaluate(frame)` |
-|  [06]   | Evaluated state at another frame               | `frame_set` on the window scene, its frame restored after                        |
-|  [07]   | Instances                                      | `depsgraph.object_instances`, values copied per step |
-|  [08]   | Evaluated mesh                                 | `evaluated_get(depsgraph).to_mesh()` in a scope calling `to_mesh_clear()` |
-|  [09]   | Evaluated attributes, instance references      | `obj.evaluated_get(depsgraph).evaluated_geometry()`, bound for the read          |
-|  [10]   | Persistent evaluated mesh                      | `new_from_object(evaluated, preserve_all_data_layers=True, depsgraph=depsgraph)` |
-|  [11]   | Result after a write that tags nothing         | `id.update_tag()` on the written ID, then evaluation                             |
-|  [12]   | Result after a modifier input write            | `obj.update_tag()`, then evaluation                                              |
-|  [13]   | Original mesh read in Edit Mode                | `obj.update_from_editmode()` first                                               |
-|  [14]   | `view_layer.objects` after a link or `exclude` | `view_layer.update()` first |
+|  [02]   | Selection, identity, any write                 | Evaluated ID's `.original`                                                              |
+|  [03]   | `matrix_world`, `dimensions`, `bound_box`      | `view_layer.update()` after data write                                                  |
+|  [04]   | World extents                                  | `matrix_world` over evaluated geometry                                                  |
+|  [05]   | Keyed F-curve value at other frames            | `fcurve.evaluate(frame)`                                                                |
+|  [06]   | Evaluated state at another frame               | `frame_set` on window scene, frame restored after                                       |
+|  [07]   | Instances                                      | `depsgraph.object_instances`, values copied per step                                    |
+|  [08]   | Evaluated mesh                                 | `evaluated_get(depsgraph).to_mesh()` in a scope calling `to_mesh_clear()`               |
+|  [09]   | Evaluated attributes, instance references      | `obj.evaluated_get(depsgraph).evaluated_geometry()`, bound for the read                 |
+|  [10]   | Persistent evaluated mesh                      | `new_from_object(evaluated, preserve_all_data_layers=True, depsgraph=depsgraph)`        |
+|  [11]   | Result after a write that tags nothing         | `id.update_tag()` on written ID, then evaluation                                        |
+|  [12]   | Result after a modifier input write            | `obj.update_tag()`, then evaluation                                                     |
+|  [13]   | Original mesh read in Edit Mode                | `obj.update_from_editmode()` first                                                      |
+|  [14]   | `view_layer.objects` after a link or `exclude` | `view_layer.update()` first                                                             |
 
 Evaluation follows host rules:
 - Writes to an evaluated ID succeed with no raise and drop at the next evaluation
@@ -169,20 +169,19 @@ Evaluation follows host rules:
 - Instances stay out of the evaluated mesh and `dimensions`
 - `Object.hide_viewport`, `Collection.hide_viewport`, and `LayerCollection.exclude` take objects out of the depsgraph, and `hide_set` objects still evaluate
 - Evaluated meshes hold their source mesh's name, and code branches on the object it evaluated
-- Reads copy through `foreach_get` into numpy buffers inside the `to_mesh()` scope, the mesh clearing at scope exit
+- Reads copy through `foreach_get` into numpy buffers before `to_mesh()` scope exit clears the mesh
 
 ## [04]-[PROPERTIES]
 
 Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes, passing Blender's own keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`):
 - Switchable settings take a `use_<name>` `BoolProperty` beside the value they switch
-- Enum items mirroring an RNA enum are 5-tuples ending in the item's `value`, a 3-tuple numbering items by position (`Image.type` `RENDER_RESULT` 4 registering as 3)
+- Enum items matching an RNA enum are 5-tuples ending in the item's `value`, a 3-tuple numbering items by position (`Image.type` `RENDER_RESULT` 4 registering as 3)
 
 `bpy.props` definitions take the form the host registers:
 - `poll` and `update` take function objects with exact positional arity, defaulted parameters counted, and a factory returns the closure
-- Bad arguments print and drop the property at `register_class`, integer bounds past `int32` printing `OverflowError`
+- Bad arguments print a `TypeError` and drop the property at `register_class` with the class registered, integer bounds past `int32` printing `OverflowError`
 - Float bounds past `float32` store as infinity, and `min > max` and out-of-range defaults register with no error
 - Assignment clamps to hard bounds with no raise and leaves soft bounds unenforced
-- Socket defaults take `float32` limits as hard bounds
 - Operator properties hold an ID by name or `session_uid`, an ID `PointerProperty` on an operator printing a `ValueError` at `register_class` and the operator registering without it
 - `PointerProperty` takes ID and `PropertyGroup` types, `CurveMapping`, `ColorRamp`, `Scopes`, and `Histogram` coming from an owning ID
 - `PointerProperty` `poll` filters UI assignment alone, and assigning an embedded ID (`Scene.collection`, `Material.node_tree`) raises `RuntimeError`
@@ -215,18 +214,18 @@ Undo restores `bpy.data` alone, and each change pushes its step by form:
 
 | [INDEX] | [CHANGE]                                 | [STEP]                                          | [FORM]                                     |
 | :-----: | :--------------------------------------- | :---------------------------------------------- | :----------------------------------------- |
-|  [01]   | Operator body that edits data            | One per `FINISHED` from UI, keymap, or `undo` call argument | `bl_options` with `UNDO` |
-|  [02]   | Script `bpy.ops` call                    | None, writes joining the next step              | `bpy.ops.<module>.<name>('EXEC_DEFAULT', True)` |
-|  [03]   | Operator called inside an `UNDO` body    | None, the outer step holding every write        | Nested `bpy.ops` call |
-|  [04]   | Window manager, screen, preference write | None, undo restoring no such state              | `bl_options` without `UNDO` |
+|  [01]   | Operator body that edits data            | One per `FINISHED` from UI, keymap, `undo` call | `bl_options` with `UNDO`                   |
+|  [02]   | Script `bpy.ops` call                    | None, writes joining the next step              | `bpy.ops.<op>('EXEC_DEFAULT', True)`       |
+|  [03]   | Operator called inside an `UNDO` body    | None, outer step holding every write            | Nested `bpy.ops` call                      |
+|  [04]   | Window manager, screen, preference write | None, undo restoring no such state              | `bl_options` without `UNDO`                |
 |  [05]   | Steps the operator names itself          | One per `ed.undo_push(message=...)`             | `REGISTER` without `UNDO`                  |
 |  [06]   | Repeated calls collapsing into one step  | One across consecutive calls of a group         | `UNDO_GROUPED`, no `UNDO`, `bl_undo_group` |
-|  [07]   | Deferred callback write                  | One per write that changed data | `ed.undo_push(message=<step>)` after the write |
+|  [07]   | Deferred callback write                  | One per write that changed data                 | Write, then `ed.undo_push(message=<step>)` |
 |  [08]   | Background run                           | None until a script's `ed.undo_push()`          | Rollback scope                             |
 
 Undo steps act on held state:
 - Undo re-reads every ID its step touched at its old address, held references to touched IDs raising `ReferenceError` while untouched IDs keep working references
-- `session_uid` survives undo, and a lookup by `session_uid` reaches the restored ID
+- `session_uid` lookups survive undo and reach the restored ID
 - Undo restores registered groups, ID properties, and compositor inputs and runs no `update` callback
 - Each undo push marks the file unsaved
 - Window manager, screen, preference, module, and external file state stay as they are across undo
@@ -241,7 +240,7 @@ Handler, timer, msgbus, and modal bodies run in a context Blender chose:
 - Depsgraph `*_post` handlers read the scene and depsgraph they receive
 - `frame_set` fires `frame_change_pre` and `frame_change_post` alone
 - `frame_change_pre` writes data for the frame, and `frame_change_post` handlers read evaluated results
-- Timer functions return the seconds until their next call, `None` stopping the timer
+- Timer functions return seconds until their next call, `None` stopping the timer
 - Raising native timers unregister permanently, and a raising handler prints its traceback while later handlers run
 - Handlers remove only themselves from their list during their call
 - State seeds from a one-shot persistent timer beside a `load_post` handler, native collections included
@@ -258,22 +257,22 @@ Handler, timer, msgbus, and modal bodies run in a context Blender chose:
 
 Each entry point translates the result once into the host's form:
 
-| [INDEX] | [ENTRY]                         | [HOST_FORM]                                                                   |
-| :-----: | :------------------------------ | :---------------------------------------------------------------------------- |
-|  [01]   | `execute` with changes made | Reports at their levels, a `WARNING` per skipped item, with `{'FINISHED'}` |
-|  [02]   | `execute` with nothing changed | Reason as `INFO` with `{'CANCELLED'}` |
-|  [03]   | `execute` with faults | `ERROR` report per fault with `{'CANCELLED'}`, the file as the body found it |
-|  [04]   | `poll`                          | `False` with `poll_message_set` of the unmet requirements |
-|  [05]   | `draw`, draw handler            | Failed part drawn as an alert row, the rest drawn                             |
-|  [06]   | Update callback, handler, timer | Faults held for the extension, a raise printing its traceback alone |
-|  [07]   | `register`                      | One `RuntimeError` naming every fault after the release stack unwinds |
-|  [08]   | `RenderEngine.render`           | `report({'ERROR'}, ...)` cancelling the render                                |
-|  [09]   | `register_cli_command` function | Exit status 0 or 1 |
-|  [10]   | `--python` script               | `sys.exit` of `None`, or of the faults joined by newlines for exit 1 |
-|  [11]   | `execute_blender_code` body     | Raise naming every fault, data in `result` |
+| [INDEX] | [ENTRY]                         | [HOST_FORM]                                                                |
+| :-----: | :------------------------------ | :------------------------------------------------------------------------- |
+|  [01]   | `execute` with changes made     | Reports at their levels, a `WARNING` per skipped item, with `{'FINISHED'}` |
+|  [02]   | `execute` with nothing changed  | Reason as `INFO` with `{'CANCELLED'}`                                      |
+|  [03]   | `execute` with faults           | `ERROR` report per fault with `{'CANCELLED'}`, file as the body found it   |
+|  [04]   | `poll`                          | `False` with `poll_message_set` of unmet requirements                      |
+|  [05]   | `draw`, draw handler            | Failed part drawn as an alert row, rest drawn                              |
+|  [06]   | Update callback, handler, timer | Faults held for extension, a raise printing its traceback alone            |
+|  [07]   | `register`                      | One `RuntimeError` naming every fault after release stack unwinds          |
+|  [08]   | `RenderEngine.render`           | `report({'ERROR'}, ...)` cancelling render                                 |
+|  [09]   | `register_cli_command` function | Exit status 0 or 1                                                         |
+|  [10]   | `--python` script               | `sys.exit` of `None`, or of faults joined by newlines for exit 1           |
+|  [11]   | `execute_blender_code` body     | Raise naming every fault, data in `result`                                 |
 
 Faults and exceptions stay apart:
-- Host refusals raise `RuntimeError`, `TypeError`, or `ValueError` by call, and the one call's `catch` names that class
+- Host refusals raise `RuntimeError`, `TypeError`, or `ValueError` by call
 - Host calls answering `None` (`links.new` across trees) or an invalid result (`NodeLink.is_valid` false) become faults at the call
 - `CANCELLED` keeps the writes a body made before its fault outside undo, and dependent steps roll back through the body's `ExitStack` scope
 - Python raises inside `RenderEngine.render` complete the render as `FINISHED`, and `error_set` cancels nothing

@@ -11,7 +11,7 @@ import msgspec
 
 from blender.bpy.commands import keymaps, operators
 from blender.bpy.data.rna.descriptors import Struct
-from blender.bpy.extension.identity import Identity, Name
+from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band, Gathering, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.attachments import annotated, Attached, Attachment, nested, updating
@@ -147,7 +147,7 @@ class PreferencesPage[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, k
                 (Band.INTERFACE, prepared()),
             )
 
-        return paired(identity.name(Name.ATTACHMENT, "preferences"), identity.name(Name.GROUP, "preferences_asks")).map(built)
+        return paired(identity.identifier("preferences"), identity.name(bpy.types.PropertyGroup, "preferences_asks")).map(built)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

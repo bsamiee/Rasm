@@ -88,7 +88,7 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def to_plane(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps image samples to plane, zero coverage beyond vanishing line."""
-        return _projected(np.linalg.inv(self.matrix), samples)
+        return _projected(np.asarray(np.linalg.inv(self.matrix), dtype=np.float64), samples)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

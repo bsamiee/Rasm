@@ -1092,7 +1092,7 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outco
             path
             .written(file.layer, Output.MATTE, Some(ENTITIES[entity].pass_name), scene.frame_current, ".exr")
             .map(str)
-            .bind(lambda target: Error((Fault(reason=BlenderReason.TAKEN, subject=target, member=file.path),)) if target == file.path else Ok(target))
+            .filter_with(lambda target: target != file.path, lambda target: (Fault(reason=BlenderReason.TAKEN, subject=target, member=file.path),))
             .bind(
                 lambda target: Multilayer.written(
                     target,

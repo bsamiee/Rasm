@@ -13,7 +13,7 @@ import msgspec
 from blender.bpy.commands import operators
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import root_in, Struct
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.attachments import Host
@@ -96,7 +96,7 @@ class _Frame[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=Tr
                 lambda draws: cls(name=name, gate=gated, header=heads, rows=draws[: len(rows)], fields=draws[len(rows) :], nest=walked.map(lambda nested: nested[1]), slots=slots)
             )
 
-        return paired(paired(identity.name(Name.ATTACHMENT, key), gate), paired(accumulated(realized(row, identity) for row in header), walk)).bind(built)
+        return paired(paired(identity.identifier(key), gate), paired(accumulated(realized(row, identity) for row in header), walk)).bind(built)
 
     def head(self, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws textless header enable."""

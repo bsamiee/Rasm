@@ -16,7 +16,7 @@ import httpx2
 import msgspec
 from scipy.cluster.hierarchy import DisjointSet
 
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 from blender.records.fields import Case
 from blender.records.stores import files_copied
 from blender.rendering.batch.exchange import Endpoint, exchange, sent
@@ -24,16 +24,16 @@ from blender.rendering.batch.queue import Job, RenderFrames, RenderQueue
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-PLATFORM: Final = platform.system().lower()
+_PLATFORM: Final = platform.system().lower()
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _SharedStorageLocation(msgspec.Struct, frozen=True, kw_only=True):
+class _SharedStorageLocation(msgspec.Struct, frozen=True, kw_only=True, rename="camel"):
     """Platform job storage path with Shaman state."""
 
     location: str
-    shaman_enabled: bool = msgspec.field(name="shamanEnabled")
+    shaman_enabled: bool
 
 
 class _AvailableJobType(msgspec.Struct, frozen=True, kw_only=True):
@@ -77,17 +77,17 @@ class _ShamanRequirements(msgspec.Struct, frozen=True, kw_only=True):
     files: tuple[_ShamanFileSpec, ...]
 
 
-class _ShamanCheckout(msgspec.Struct, frozen=True, kw_only=True):
+class _ShamanCheckout(msgspec.Struct, frozen=True, kw_only=True, rename="camel"):
     """Files linked into checkout folder."""
 
     files: tuple[_ShamanFileSpec, ...]
-    checkout_path: str = msgspec.field(name="checkoutPath")
+    checkout_path: str
 
 
-class _ShamanCheckoutResult(msgspec.Struct, frozen=True, kw_only=True):
+class _ShamanCheckoutResult(msgspec.Struct, frozen=True, kw_only=True, rename="camel"):
     """Checkout folder Manager created."""
 
-    checkout_path: str = msgspec.field(name="checkoutPath")
+    checkout_path: str
 
 
 class _JobStorageInfo(msgspec.Struct, frozen=True, kw_only=True):
@@ -150,7 +150,7 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
     def queried(cls, client: httpx2.Client) -> Outcome[Self]:
         """Reads storage location, the Rasm job type, and worker tags."""
         return paired(
-            exchange(client, HTTPMethod.GET, f"/api/v3/configuration/shared-storage/users/{PLATFORM}", _SharedStorageLocation),
+            exchange(client, HTTPMethod.GET, f"/api/v3/configuration/shared-storage/users/{_PLATFORM}", _SharedStorageLocation),
             exchange(client, HTTPMethod.GET, "/api/v3/jobs/types", _AvailableJobTypes),
             exchange(client, HTTPMethod.GET, "/api/v3/worker-mgt/tags", _WorkerTagList),
         ).map(lambda found: cls(storage=found[0], job_type=Block(found[1].job_types).filter(lambda kind: kind.name == Flamenco.kind).try_head(), tags=found[2].tags))
@@ -165,24 +165,16 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
             return catch(reader, exception=OSError)(Path(source)).map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=source, cause=error),))
 
         def specified(name: str, job: Job) -> Outcome[_ShamanFileSpec]:
-            return read(job.file, lambda path: path.stat().st_size).map(lambda size: _ShamanFileSpec(sha=job.digest.hex(), size=size, path=name))
+            return read(job.file, Path.stat).map(lambda stat: _ShamanFileSpec(sha=job.digest.hex(), size=stat.st_size, path=name))
 
         def checked(specs: tuple[_ShamanFileSpec, ...]) -> Outcome[_ManagerFiles]:
-            def uploaded(spec: _ShamanFileSpec) -> Outcome[httpx2.Response]:
-                def unlisted() -> Faults:
-                    return (Fault(reason=RecordReason.UNREADABLE, subject=spec.path, cause=KeyError(spec.path)),)
-
-                return (
-                    Option
-                    .of_optional(local.get(spec.path))
-                    .to_result_with(unlisted)
-                    .bind(lambda job: read(job.file, Path.read_bytes))
-                    .bind(lambda data: sent(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(data)))
-                )
+            def uploaded(spec: _ShamanFileSpec, job: Job) -> Outcome[httpx2.Response]:
+                return read(job.file, Path.read_bytes).bind(lambda data: sent(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(data)))
 
             return (
                 exchange(client, HTTPMethod.POST, "/api/v3/shaman/checkout/requirements", _ShamanRequirements, Some(_ShamanRequirements(files=specs)))
-                .bind(lambda wanted: accumulated(uploaded(spec) for spec in wanted.files))
+                .map(lambda wanted: frozenset(spec.path for spec in wanted.files))
+                .bind(lambda lacking: accumulated(uploaded(spec, job) for spec, job in zip(specs, local.values(), strict=True) if spec.path in lacking))
                 .bind(lambda _: exchange(client, HTTPMethod.POST, "/api/v3/shaman/checkout/create", _ShamanCheckoutResult, Some(_ShamanCheckout(files=specs, checkout_path=folder))))
                 .map(
                     lambda created: _ManagerFiles(
@@ -249,7 +241,7 @@ class Flamenco(Case, frozen=True, kw_only=True):
                             type=Flamenco.kind,
                             type_etag=manager.job_type.map(lambda kind: kind.etag).to_optional(),
                             priority=self.priority,
-                            submitter_platform=PLATFORM,
+                            submitter_platform=_PLATFORM,
                             settings={"jobs": tuple(task for _, task in tasks), "render_command": render_command, **{task.output_root: root for root, task in tasks}},
                             initial_status="paused" if self.paused else "queued",
                             worker_tag=self.tag,

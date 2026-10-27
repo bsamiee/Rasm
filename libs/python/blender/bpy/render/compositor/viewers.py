@@ -67,11 +67,11 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def entering(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, consume: Consume, region: Option[Region] = Nothing) -> Outcome[None]:
         """Views entry input, replacing the scene's pending read."""
-        return shown(identity, entry, End(node=INPUTS, socket=Shell.image)).map(lambda _: self.pending.of(identity).update({Handle.of(scene): Arm(name=entry.name, region=region, consume=consume)}))
+        return shown(identity, entry, End(node=INPUTS, socket=Shell.image)).map(lambda _: identity.held[self.pending].update({Handle.of(scene): Arm(name=entry.name, region=region, consume=consume)}))
 
     def delivered(self, identity: Identity, handle: Handle[bpy.types.Scene], arm: Arm, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
         """Consumes captured pixels while the capture is the scene's pending read."""
-        if (held := self.pending.of(identity)).get(handle) is not arm:
+        if (held := identity.held[self.pending]).get(handle) is not arm:
             return Ok(Nothing)
         del held[handle]
         cropped = arm.region.map(lambda region: msgspec.structs.replace(file, pixels=file.pixels[region.window(*file.pixels.shape[:2])])).default_value(file)
@@ -90,9 +90,9 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         with identity.reports.deferred(lambda handle, arm, file: self.delivered(identity, handle, arm, file)) as deferred:
 
             def completed(scene: bpy.types.Scene) -> Outcome[None]:
-                if scene.session_uid in INTERMEDIATES.of(identity):
+                if scene.session_uid in identity.held[INTERMEDIATES]:
                     return Ok(None)
-                handle, held = Handle.of(scene), self.pending.of(identity)
+                handle, held = Handle.of(scene), identity.held[self.pending]
 
                 def queued(arm: Arm, file: ImageFile[np.float32]) -> None:
                     taken = held[handle] = msgspec.structs.replace(arm, captured=True)

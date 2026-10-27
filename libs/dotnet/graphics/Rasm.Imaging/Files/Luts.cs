@@ -44,7 +44,7 @@ public sealed partial class LookupLayout {
 
     public static Fin<LutTable> Decode(ReadOnlyMemory<byte> bytes) =>
         Try.lift(() => Image.Load<Rgb48>(Options, bytes.Span)).Run()
-            .MapFail(static Error (cause) => new ImagingFault("lookup image", ImagingReason.Refused, cause))
+            .MapFail(static Error (cause) => new ImagingFault("lookup image", ImagingReason.Refused, Inner: cause))
             .Bind(Lattice);
 
     public Fin<Func<Stream, IO<Unit>>> Encode(LutTable table, FileMetadata metadata) =>
@@ -56,12 +56,12 @@ public sealed partial class LookupLayout {
             .Bind(static frame => StillFormat.PngRaster.From(frame, OutputDepth.UInt16, None, alpha: false))
             .Map<Func<Stream, IO<Unit>>>(still => stream => StillWriter.Encode(still, metadata, stream));
 
-    private static Option<PixelExtent> Extended(int width, int height) => PixelExtent.TryCreate(width, height, out PixelExtent? extent) ? Optional(extent) : None;
+    private static Option<PixelExtent> Extended(int width, int height) => PixelExtent.Validated(width, height).ToOption();
 
     private static Fin<LutTable> Lattice(Image<Rgb48> image) {
         using Image<Rgb48> owned = image;
         return toSeq(Items).Choose(layout => layout.Edge(owned.Width, owned.Height).Map(edge => (Layout: layout, Edge: edge))).Head
-            .ToFin(new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"lookup image of {owned.Width}x{owned.Height}"), ImagingReason.Unnamed))
+            .ToFin(new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"lookup image of {owned.Width}x{owned.Height}"), ImagingReason.UnknownFormat))
             .Bind(found => {
                 (LookupLayout layout, int edge) = found;
                 using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * edge * edge * edge);
@@ -101,27 +101,13 @@ public sealed partial class LookupLayout {
 
 [SmartEnum<string>]
 public sealed partial class LutFormat {
-    public static readonly LutFormat Cube = new("cube", ".cube",
-        static bytes => LutText.ParseCube(LutText.Text(bytes)),
-        static (table, _, _) => LutText.Written(LutText.RenderCube(table)));
-    public static readonly LutFormat Spi1d = new("spi1d", ".spi1d",
-        static bytes => LutText.ParseSpi1d(LutText.Text(bytes)),
-        static (table, _, _) => LutText.Written(LutText.RenderSpi1d(table)));
-    public static readonly LutFormat Spi3d = new("spi3d", ".spi3d",
-        static bytes => LutText.ParseSpi3d(LutText.Text(bytes)),
-        static (table, _, _) => LutText.Written(LutText.RenderSpi3d(table)));
-    public static readonly LutFormat SpiMatrix = new("spimtx", ".spimtx",
-        static bytes => LutText.ParseSpiMatrix(LutText.Text(bytes)),
-        static (table, _, _) => LutText.Written(LutText.RenderSpiMatrix(table)));
-    public static readonly LutFormat Autodesk = new("3dl", ".3dl",
-        static bytes => LutText.Parse3dl(LutText.Text(bytes)),
-        static (table, _, _) => LutText.Written(LutText.Render3dl(table)));
-    public static readonly LutFormat Clf = new("clf", ".clf",
-        static bytes => ProcessLists.ParseClf(LutText.Text(bytes)),
-        static (table, name, _) => LutText.Written(ProcessLists.RenderClf(table, name)));
-    public static readonly LutFormat Ctf = new("ctf", ".ctf",
-        static bytes => ProcessLists.ParseCtf(LutText.Text(bytes)),
-        static (table, name, _) => LutText.Written(ProcessLists.RenderCtf(table, name)));
+    public static readonly LutFormat Cube = Text("cube", LutText.ParseCube, static (table, _) => LutText.RenderCube(table));
+    public static readonly LutFormat Spi1d = Text("spi1d", LutText.ParseSpi1d, static (table, _) => LutText.RenderSpi1d(table));
+    public static readonly LutFormat Spi3d = Text("spi3d", LutText.ParseSpi3d, static (table, _) => LutText.RenderSpi3d(table));
+    public static readonly LutFormat SpiMatrix = Text("spimtx", LutText.ParseSpiMatrix, static (table, _) => LutText.RenderSpiMatrix(table));
+    public static readonly LutFormat Autodesk = Text("3dl", LutText.Parse3dl, static (table, _) => LutText.Render3dl(table));
+    public static readonly LutFormat Clf = Text("clf", ProcessLists.ParseClf, ProcessLists.RenderClf);
+    public static readonly LutFormat Ctf = Text("ctf", ProcessLists.ParseCtf, ProcessLists.RenderCtf);
     public static readonly LutFormat Hald = new("hald", ".png",
         LookupLayout.Decode,
         static (table, _, metadata) => LookupLayout.Hald.Encode(table, metadata));
@@ -136,6 +122,9 @@ public sealed partial class LutFormat {
 
     [UseDelegateFromConstructor]
     public partial Fin<Func<Stream, IO<Unit>>> Encode(LutTable table, string name, FileMetadata metadata);
+
+    private static LutFormat Text(string key, Func<string, Fin<LutTable>> parse, Func<LutTable, string, Fin<string>> render) =>
+        new(key, $".{key}", bytes => parse(LutText.Text(bytes)), (table, name, _) => LutText.Written(render(table, name)));
 }
 
 public sealed record LutFile {
@@ -155,10 +144,10 @@ public sealed record LutFile {
          select new LutFile(path, table))
             .Catch(
                 static error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>(),
-                error => IO.fail<LutFile>(new ImagingFault($"LUT file {path}", ImagingReason.Unreadable, error)));
+                error => IO.fail<LutFile>(new ImagingFault($"LUT file {path}", ImagingReason.Unreadable, Inner: error)));
 
     private static Fin<LutFormat> Named(string path) =>
         Formats.TryGetValue(new FileInfo(path).Extension, out LutFormat? format)
             ? format
-            : new ImagingFault($"LUT path {path} beside {string.Join(", ", Formats.Keys)}", ImagingReason.Unnamed);
+            : new ImagingFault($"LUT path {path} beside {string.Join(", ", Formats.Keys)}", ImagingReason.UnknownFormat);
 }

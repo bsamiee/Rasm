@@ -6,27 +6,23 @@ Covers storage owners per value lifetime, created IDs, library loads, paths, and
 
 Value lifetime picks the owner:
 
-| [INDEX] | [LIFETIME]                                | [OWNER]                                                                              |
-| :-----: | :---------------------------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | One operator call                         | `Operator.form` record, `SKIP_SAVE` in a field's `Definition` options                |
-|  [02]   | Saved with an ID, node, or view layer     | `settings.attachments.Attachment`                                                    |
-|  [03]   | Saved with the file, read for the session | `settings.texts.TextRecord`, a fake-user text mirrored on the window manager         |
-|  [04]   | Typed record holding ID references        | `settings.attachments.Stored`, MessagePack beside the referenced IDs                 |
-|  [05]   | Saved with a screen, one per window       | `bpy.props` on `Screen`, `Window` and `Space` types registering none                 |
-|  [06]   | User setting across files                 | `ui.surfaces.preferences.PreferencesPage`, written through `preferred`               |
-|  [07]   | Named preset files                        | `settings.presets.Preset` under `Identity.folder`                                    |
-|  [08]   | Session cache                             | Scope-owned dict keyed by `Handle`, cleared on `load_post`, `undo_post`, `redo_post` |
-
-`Stored`, `TextRecord`, `imaging.files.records.Record`, and effect slots encode with msgspec `order`, refusing records with non-`str` mapping keys
+| [INDEX] | [LIFETIME]                            | [OWNER]                                                                                   |
+| :-----: | :------------------------------------ | :---------------------------------------------------------------------------------------- |
+|  [01]   | One operator call                     | Operator properties, `options={'SKIP_SAVE'}` on values next call must not reuse           |
+|  [02]   | Saved with an ID, node, or view layer | `PointerProperty(type=<group>)` attached to holding type                                  |
+|  [03]   | Saved with file, read for session     | `bpy.data.texts` block with `use_fake_user`, copied to window manager                     |
+|  [04]   | Typed record holding ID references    | MessagePack bytes beside a group of ID pointers in one ID property                        |
+|  [05]   | Saved with a screen, one per window   | `bpy.props` on `Screen`, `Window` and `Space` types registering none                      |
+|  [06]   | User setting across files             | `AddonPreferences` on extension package                                                   |
+|  [07]   | Named preset files                    | `bpy.utils.register_preset_path` folder                                                   |
+|  [08]   | Session cache                         | Scope-owned dict keyed by `session_uid`, cleared on `load_post`, `undo_post`, `redo_post` |
 
 ## [02]-[CREATED_IDS]
 
-Each created kind takes one `Ownership` row:
-- `Saved.NEVER` marks runtime data the file never saves, `Saved.USED` saves while used, `Saved.ALWAYS` sets a fake user
-- `made` returns the earliest holder of an equal `Mark` (key, source ID, content hash) before it builds, `single=False` builds per call
-- `rebuilt` remaps users onto the replacement, removes the predecessor, and restores its name
-- `removed` removes unused `Saved.USED` holders
-- Saved single rows merge imported duplicates on `blend_import_post`
+Created IDs take their saved lifetime from their users:
+- `use_fake_user = True` keeps an ID saved with no other user
+- `<old>.user_remap(<new>)` moves every user onto a replacement before old ID's removal
+- Appends and links fire `bpy.app.handlers.blend_import_post`, where code merges imported duplicates of data it owns
 
 Created and shared data follow host links:
 - Writes to data with `users > 1` reach every user, and per-data work runs once per data
@@ -34,18 +30,18 @@ Created and shared data follow host links:
 - `bpy.data.scenes.new()` takes factory settings (metric units, EEVEE, no world, no camera), and `bpy.ops.scene.new(type="EMPTY")` copies the window scene's units and engine
 - Linked libraries repeat local names, and created IDs map from their source key in place of a name lookup
 
-Creation outside `Ownership` runs through `created(<kind>, <name>, <arguments>)`, and `kept` removes the ID on any later refusal
+Creation registers new ID's removal on scope rollback, kept once every later step succeeds
 
 ## [03]-[LIBRARY_LOADS]
 
 `libraries.load` takes names and returns IDs after its context exits:
-- `files.blends.sourced(data, path, take, **keywords)` runs `take` over the source listing and returns its value with the loaded IDs per store
-- `files.blends.inspected(path)` yields another file's data in a `bpy.data.temp_data()` store closing with the scope, session data untouched
-- `files.libraries.blocks_loaded(path, kind, names, **load)` passes `bpy.data.libraries.load` keywords (`link`, `pack`, `reuse_local_id`) and accumulates every absent name
+- `data_from` lists source names inside the context, and `data_to` holds loaded IDs after it exits
+- `bpy.data.temp_data()` opens another file's data in a store closing with its scope, session data untouched
+- Loads take `link`, `pack`, and `reuse_local_id` keywords, `reuse_local_id=True` taking a local copy in place of a `.001` duplicate
 - Loads and appends bring every ID a requested ID references, and the created set is the `bpy.data` difference before and after
 - Invalid flag sets and the current file raise `ValueError` before loading
 - Names the source lacks load as `None` with a `UserWarning`, and `data_from.libraries` lists nested libraries
-- `files.libraries.library_written(path, blocks, remap, fake_user, compress)` writes a subset of IDs with every ID they reference, a remap other than `NONE` keeping `//` paths valid in another folder
+- `bpy.data.libraries.write(path, blocks, path_remap=, fake_user=, compress=)` writes a subset of IDs with every ID they reference, a `path_remap` other than `NONE` keeping `//` paths valid in another folder
 - Undo skips library data and crashes where a library ID points at local data
 - Edits to linked data take an override from `ID.override_create(remap_local_usages=)` or `ID.override_hierarchy_create(scene, view_layer, reference=, do_fully_editable=)`
 - `IDOverrideLibrary.reset`, `destroy`, and `resync` take their host keywords
@@ -57,13 +53,12 @@ Path properties hold blend-relative and byte paths:
 - `//` paths resolve through `bpy.path.abspath(path, library=block.library)`, linked data relative to its library
 - Unsaved files resolve `//` against the process working directory in `bpy.path.abspath` (`tex.png` for `//tex.png`) and in render writes
 - `bpy.app.tempdir` names a session folder Blender deletes at quit
-- `files.blends.dependencies` reads every external path with its presence
 - `bpy.data.file_path_map()` maps IDs to paths
 - `bpy.data.file_path_foreach(fn)` calls `fn(owner, path, meta)` and rewrites each path to the string it returns
 - `bpy.data.user_map(subset=, key_types=, value_types=)` answers the users of each ID in one call
 - `wm.save_as_mainfile` remaps relative paths and `wm.save_mainfile` keeps them
 - Saves with `compress` unset keep a saved file's compression and read `use_file_compression` for a file never saved
-- Portable files pack images (`file.pack_all`) or go through `files.blends.packed`
+- Portable files pack external data through `file.pack_all`
 - Importers reference images at absolute paths, and temporary sources pack before removal
 - Script writes leave `bpy.data.is_dirty` false in GUI and background runs
 - Scripted `wm.save_mainfile` under `save_modified_images` `ASK` saves no modified image, and images save through `image.save()`

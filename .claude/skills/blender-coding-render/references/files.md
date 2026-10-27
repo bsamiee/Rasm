@@ -1,6 +1,6 @@
 # [FILES]
 
-Covers written render files, from multilayer parts and channels to cryptomatte layouts, multi-view parts, File Output files, header metadata, and reads.
+Covers written render files, from multilayer parts and channels to cryptomatte layouts, multi-view parts, File Output files, header metadata, and OpenImageIO reads and writes.
 
 ## [01]-[PARTS]
 
@@ -41,42 +41,29 @@ from numpy.typing import NDArray
 import OpenImageIO
 
 
-class Unreadable(msgspec.Struct, frozen=True, kw_only=True):
-    path: str
-    reason: str
-
-
-class Unlayered(msgspec.Struct, frozen=True, kw_only=True):
-    layer: str
-
-
-class Unlisted(msgspec.Struct, frozen=True, kw_only=True):
-    names: frozenset[str]
-
-
-def coverage(path: str, layer: str, names: frozenset[str]) -> Result[NDArray[np.float32], Unreadable | Unlayered | Unlisted]:
+def coverage(path: str, layer: str, names: frozenset[str]) -> Result[NDArray[np.float32], OSError | KeyError]:
     def matted(opened: OpenImageIO.ImageBuf, manifest: dict[str, str]) -> NDArray[np.float32]:
         hashes = np.array([int(manifest[name], 16) for name in names], np.uint32)
         parts = (OpenImageIO.ImageBuf(path, index, 0) for index in range(opened.nsubimages))
         ranks = np.concatenate([part.get_pixels(OpenImageIO.FLOAT) for part in parts if part.spec().getattribute("name").rstrip(digits) == layer], axis=-1)
         return np.where(np.isin(ranks.view(np.uint32)[..., ::2], hashes & 0x807FFFFF | np.clip(hashes >> 23 & 0xFF, 1, 254) << 23), ranks[..., 1::2], 0).sum(axis=-1)
 
-    def manifested(header: OpenImageIO.ImageSpec) -> Result[dict[str, str], Unlayered]:
+    def manifested(header: OpenImageIO.ImageSpec) -> Result[dict[str, str], OSError | KeyError]:
         return (
             Option
             .of_optional(next((held.name.removesuffix("/name") for held in header.extra_attribs if held.name.endswith("/name") and held.value == layer), None))
-            .to_result(Unlayered(layer=layer))
+            .to_result(KeyError(layer))
             .map(lambda key: msgspec.json.decode(header.getattribute(f"{key}/manifest"), type=dict[str, str]))
         )
 
     match OpenImageIO.ImageBuf(path):
         case OpenImageIO.ImageBuf(has_error=True) as failed:
-            return Error(Unreadable(path=path, reason=failed.geterror()))
+            return Error(OSError(failed.geterror()))
         case opened:
             return (
-                Result[OpenImageIO.ImageSpec, Unlayered | Unlisted](ok=opened.spec())
+                Result[OpenImageIO.ImageSpec, OSError | KeyError](ok=opened.spec())
                 .bind(manifested)
-                .filter_with(lambda manifest: names <= manifest.keys(), lambda manifest: Unlisted(names=names.difference(manifest)))
+                .filter_with(lambda manifest: names <= manifest.keys(), lambda manifest: KeyError(*sorted(names.difference(manifest))))
                 .map(lambda manifest: matted(opened, manifest))
             )
 ```
@@ -105,10 +92,14 @@ Headers hold render metadata:
 - EXR headers name the written linear space in `colorInteropID` (`lin_rec709_scene`, `lin_ap1_scene` under an `ACEScg` override), which OpenImageIO reads as `oiio:ColorSpace`
 - PNG files hold `CICP`, which OpenImageIO reads as `oiio:ColorSpace` (`srgb_rec709_scene` under `sRGB`, `pq_rec2020_display` under `Rec.2100-PQ`)
 
-## [06]-[READS]
+## [06]-[OPENIMAGEIO]
 
-Bundled `OpenImageIO` reads written files:
+Bundled `OpenImageIO` reads written files and writes images through file paths, its Python module holding no `IOProxy`:
 - `OpenImageIO.ImageBuf(path, part, 0)` opens one multilayer part, and `OpenImageIO.ImageBuf(path).nsubimages` counts parts
 - Missing or unreadable files open with `nsubimages` 0 and `has_error` set, `geterror()` reading the cause OpenImageIO otherwise prints at teardown
 - `spec().getattribute("name")` names a part `<layer>.<pass>`, split at its last dot, and `spec().channelnames` hold `<layer>.<pass>.<channel>`
 - `get_pixels(OpenImageIO.FLOAT)` returns a `(height, width, channels)` array, top row first
+- `OpenImageIO.get_string_attribute("output_format_list")` lists the build's writers, Blender's build holding no JPEG XL, PSD, DDS, or raw writer
+- `ImageOutput.supports("cicp")` holds for PNG and HEIF writers alone
+- JPEG writes read `CompressionQuality` and `jpeg:subsampling` (`4:4:4`, `4:2:2`, `4:2:0`, `4:1:1`) from the spec, `4:2:1` writing `4:2:0`
+- JPEG reads report no `CompressionQuality`

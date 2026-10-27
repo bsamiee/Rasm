@@ -11,7 +11,7 @@ from mathutils import Matrix, Vector
 import msgspec
 
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.extension.events.handlers import Change, changed
+from blender.bpy.extension.events import Change, changed
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import Fault, Faults, Outcome
 

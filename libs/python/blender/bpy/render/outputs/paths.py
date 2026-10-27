@@ -22,7 +22,7 @@ from blender.bpy.data.rna.conditions import AllOf, Not, Setting
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, rooted, Value, written
 from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler, SAVE_POST, SAVE_PRE
 from blender.bpy.extension.events.subscriptions import Subscription
-from blender.bpy.extension.identity import Identity, Name
+from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.files.blends import BlendFile
@@ -482,7 +482,7 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def scope(identity: Identity) -> Outcome[Stored[OutputPath]]:
         """Names persistent render paths shared by preparation, workers, and finishing."""
-        return identity.name(Name.ATTACHMENT, "output_path").map(
+        return identity.identifier("output_path").map(
             lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(OutputPath, dec_hook=lambda kind, value: kind(value)), encoder=msgspec.msgpack.Encoder(enc_hook=Path.as_posix))
         )
 

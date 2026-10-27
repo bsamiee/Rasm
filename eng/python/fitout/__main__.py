@@ -5,19 +5,19 @@ lazy import sys
 from cyclopts import App
 lazy from expression import Result
 
-lazy from eng.python.fitout.faults import Fault
+lazy from eng.python.fitout.faults import Faults
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _reported(result: Result[int, Fault]) -> int:
-    """Returns exit status, writing any fault to stderr."""
-    match result:
-        case Result(tag="ok", ok=status):
-            return status
-        case Result(error=fault):
-            sys.stderr.write(f"{fault.message}\n")
-            return fault.status
+def _reported(result: Result[int, Faults]) -> int:
+    """Returns exit status, a lone fault's status or 1 for several, writing each fault to stderr."""
+    match result.tag:
+        case "ok":
+            return result.ok
+        case "error":
+            sys.stderr.writelines(f"{fault.message}\n" for fault in result.error)
+            return result.error[0].status if len(result.error) == 1 else 1
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

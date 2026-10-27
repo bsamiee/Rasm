@@ -1,32 +1,29 @@
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Loader;
+using Eto;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.PlugIns.Licenses;
-using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Surfaces;
+using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.RhinoCommon.PlugIns.Licenses;
+using Rasm.RhinoCommon.UI;
+using Rasm.RhinoCommon.UI.Surfaces;
 using Rhino.Commands;
-using Rhino.Display;
-using Rhino.DocObjects.Custom;
 using Rhino.PlugIns;
-using Rhino.Render;
-using Rhino.Render.PostEffects;
 using Rhino.Runtime;
 
-namespace Rasm.Rhino.PlugIns;
+namespace Rasm.RhinoCommon.PlugIns;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-public interface IPlugInLifetime : IPlugInSink {
+public interface IPlugInLifetime {
     public PlugInSession Session { get; }
 }
 
-internal interface IDefinedPlugIn : IPlugInViews, IPlugInLifetime {
+internal interface IDefinedPlugIn : IPlugInViews {
     public Guid Id { get; }
 
     public PlugInLifetime Lifetime { get; }
-
-    void IPlugInSink.Report(Error error, Type owner, string member) => Lifetime.Session.Report(error, owner, member);
 
     PlugInSession IPlugInLifetime.Session => Lifetime.Session;
 
@@ -38,9 +35,7 @@ internal interface IDefinedPlugIn : IPlugInViews, IPlugInLifetime {
 
     Option<HelpTopic> IPlugInViews.Help => Lifetime.Definition.Help;
 
-    AtomHashMap<Guid, ValueHistory> IPlugInViews.Histories => Lifetime.Histories;
-
-    IO<HistoryLimits> IPlugInViews.Limits => Lifetime.Definition.History(Settings);
+    Seq<DocumentFrame> IPlugInViews.Frames => Lifetime.Definition.DocumentFrames;
 
     SettingsNode IPlugInViews.Settings => new(new SettingsRoot.PlugInNode(Id));
 }
@@ -48,85 +43,35 @@ internal interface IDefinedPlugIn : IPlugInViews, IPlugInLifetime {
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PlugInSession(Seq<Action<ILoggingBuilder>> logging) {
     // --- [STATE]
-    private static readonly Action<ILoggingBuilder> Host = static builder => builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, CommandWindowLoggerProvider>());
-    private static readonly ILoggerFactory Window = LoggerFactory.Create(Host);
+    private static readonly Action<ILoggingBuilder> Window = static builder => builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, CommandWindowLoggerProvider>());
 
-    private readonly ILoggerFactory loggers = LoggerFactory.Create(builder => (Host + logging).Iter(row => row(builder)));
-    private readonly Ref<Option<Held>> state = Ref(Option<Held>.None);
+    private readonly EnvIO environment = EnvIO.New();
+    private readonly ILoggerFactory loggers = LoggerFactory.Create(builder => (Window + logging).Iter(row => row(builder)));
+    private readonly AtomHashMap<object, object> slots = AtomHashMap<object, object>();
 
-    private sealed record Held(Seq<IDisposable> Releases, HashMap<object, object> Slots);
+    // --- [SCOPE]
+    public IO<T> Held<T>(IO<T> effect) => effect.Under(environment);
 
-    public static Fin<PlugInSession> Of(IPlugInSink sink) => sink is IPlugInLifetime lifetime ? lifetime.Session : new NotFound("plug-in session", $"{sink}");
+    public IO<Unit> Open<TOwner>(TOwner owner, Seq<Func<TOwner, IO<Unit>>> rows) =>
+        Held(rows.TraverseM(row => row(owner)).As().Map(unit)).Catch(error => IO.lift(environment.DisposeResources) >> IO.fail<Unit>(error));
 
-    private Fin<Unit> Changed(Func<Held, Held> change) => atomic(() => state.Swap(held => held.Map(change))).ToFin(Errors.Cancelled).Map(static _ => unit);
+    public IO<Unit> Close => Callbacks.Drained >> IO.lift(environment.Dispose) >> IO.lift(loggers.Dispose);
 
-    // --- [OPEN]
-    public IO<Unit> Open<TOwner>(TOwner owner, Seq<Func<TOwner, Action<IDisposable>, IO<Unit>>> rows) =>
-        DisposalOps.OnFailure(Opened(owner, rows, lease => Changed(open => open with { Releases = open.Releases.Add(lease) }).ThrowIfFail()), Released);
-
-    private IO<Unit> Opened<TOwner>(TOwner owner, Seq<Func<TOwner, Action<IDisposable>, IO<Unit>>> rows, Action<IDisposable> retain) =>
-        from opened in atomicIO(() => state.Swap(static held => held || Some(new Held([], []))))
-        from acquired in rows.TraverseM(row => row(owner, retain)).As()
-        select unit;
+    // --- [LOGS]
+    public ILogger Logger(Type category) => loggers.CreateLogger(category);
 
     // --- [SLOTS]
-    internal IO<Unit> Publish(object slot, object value) => IO.lift(() => Changed(open => open with { Slots = open.Slots.AddOrUpdate(slot, value) }));
+    internal IO<Unit> Publish(object slot, object value) => IO.lift(() => slots.AddOrUpdate(slot, value)).Map(unit);
 
-    internal Option<object> Find(object slot) => state.Value.Bind(held => held.Slots.Find(slot));
-
-    // --- [REPORT]
-    public void Report(Error error, Type owner, [CallerMemberName] string member = "") =>
-        Try.lift(fun(() => ErrorOps.Log(Try.lift(() => loggers.CreateLogger(owner)).Run().IfFail(_ => Window.CreateLogger(owner)), error, member)))
-            .Run()
-            .IfFail(fault => HostUtils.ExceptionReport($"{owner.FullName}.{member}", (error + fault).ToException()));
-
-    // --- [CLOSE]
-    public IO<Unit> Close =>
-        (from settled in Callbacks.Each(Seq(Callbacks.Drained, Released)).Map(unit).Catch(error => IO.lift(() => Report(error, typeof(PlugInSession)))).As()
-         from disposed in IO.lift(loggers.Dispose)
-         select unit).Uninterruptible();
-
-    private IO<Unit> Released =>
-        (from taken in atomicIO(() => {
-            Option<Held> held = state.Value;
-            state.Value = None;
-            return held;
-        })
-         from released in taken.TraverseM(static held => DisposalOps.Release(held.Releases)).As()
-         select unit).Uninterruptible();
+    internal Option<object> Find(object slot) => slots.Find(slot);
 }
 
 public sealed class PlugInSlot<T> where T : notnull {
-    public IO<Unit> Publish(IPlugInSink owner, T value) => IO.lift(() => PlugInSession.Of(owner)).Bind(session => session.Publish(this, value));
+    public IO<Unit> Publish(IPlugInLifetime owner, T value) => owner.Session.Publish(this, value);
 
-    public IO<Option<T>> Find(IPlugInSink owner) =>
-        IO.lift(() => PlugInSession.Of(owner).Map(session => session.Find(this).Map(static value => (T)value)));
+    public IO<Option<T>> Find(IPlugInLifetime owner) => IO.lift(() => owner.Session.Find(this).Map(static value => (T)value));
 
-    public IO<T> Of(IPlugInSink owner) => Find(owner).Bind(static found => IO.lift(found.ToFin(Error.New($"plug-in session holds no {typeof(T).Name}"))));
-}
-
-internal static class HostedTypes {
-    // --- [STATE]
-    private static readonly Seq<Type> Scanned = [
-        typeof(RenderContent), typeof(PostEffect), typeof(RealtimeDisplayMode), typeof(RealtimeDisplayModeClassInfo),
-        typeof(LightManagerSupport), typeof(UserData), typeof(VisualAnalysisMode), typeof(CustomObjectGrips),
-    ];
-
-    private static readonly AtomHashMap<Type, IPlugInViews> Claimed = AtomHashMap<Type, IPlugInViews>();
-
-    // --- [CLAIMS]
-    public static Seq<Type> Declared(PlugIn plugIn, ViewCatalog views) =>
-        views.Rows.Bind(ViewCatalog.Tree).Filter(static view => view is View.Panel or View.Tab or View.Pane).Map(static view => view.Identity)
-        + toSeq(plugIn.Assembly.GetExportedTypes()).Filter(static type => !type.IsAbstract && Scanned.Exists(type.IsSubclassOf));
-
-    public static IO<Unit> Claim(IPlugInViews owner, Seq<Type> types, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(
-            IO.lift(() => types.Iter(type => Claimed.AddOrUpdate(type, owner))).Map(types),
-            static held => IO.lift(() => held.Iter(static type => Claimed.Remove(type))),
-            retain).Map(unit);
-
-    // --- [OWNERS]
-    public static IPlugInViews Owner(Type type) => Claimed.Find(type).ToFin(new NotFound("hosted type", type.FullName ?? type.Name)).ThrowIfFail();
+    public IO<T> Of(IPlugInLifetime owner) => Find(owner).Bind(static found => IO.lift(found.ToFin(new RhinoFault(typeof(T).Name, RhinoReason.Absent))));
 }
 
 internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kindViews) {
@@ -139,8 +84,6 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
 
     public ViewCatalog Views => views.Value;
 
-    public AtomHashMap<Guid, ValueHistory> Histories { get; } = AtomHashMap<Guid, ValueHistory>();
-
     // --- [READS]
     public PlugInLoadTime LoadTime(PlugInLoadTime inherited) =>
         definition.LoadTime.IfNone(() =>
@@ -150,17 +93,20 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
                 _ => inherited,
             });
 
+    public IO<bool> DisplayHelp => definition.Help.Map(static topic => topic.Show.Map(value: true)).IfNone(IO.pure(false));
+
     // --- [LOAD]
-    public LoadReturnCode Load<TPlugIn>(TPlugIn plugIn, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense, CallbackSite site, ref string errorMessage)
+    public LoadReturnCode Load<TPlugIn>(
+        TPlugIn plugIn, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense, ref string errorMessage, [CallerMemberName] string member = "")
         where TPlugIn : PlugIn, IDefinedPlugIn {
-        (LoadReturnCode code, errorMessage) = Callbacks.Answer(
+        (LoadReturnCode code, errorMessage) = plugIn.Answer(
             Loading(plugIn, getLicense)
                 .Map(static _ => (LoadReturnCode.Success, ""))
                 .Catch(ErrorOps.Cancellation, static _ => IO.pure((LoadReturnCode.ErrorNoDialog, "")))
-                .Catch(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)).Map(_ => (LoadReturnCode.ErrorShowDialog, ErrorOps.Localize(error))))
+                .Catch(error => IO.lift(() => PlugInLog.Of(plugIn).Failed(error, plugIn.GetType(), member)).Map(_ => (LoadReturnCode.ErrorShowDialog, ErrorOps.Messages(error))))
                 .As(),
-            static () => (LoadReturnCode.ErrorShowDialog, ""),
-            site);
+            (LoadReturnCode.ErrorShowDialog, ""),
+            member);
         return code;
     }
 
@@ -171,8 +117,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
         from published in views.SwapIO(_ => collection)
         from dependencies in PlugInRegistry.LoadPlugIns(definition.Dependencies)
         from registered in PlugInSettings.RegisterAll(((IPlugInViews)plugIn).Settings, HostDialogs.Suppressions(collection))
-        from opened in Session.Open(plugIn, [
-            (owner, retain) => HostedTypes.Claim(owner, HostedTypes.Declared(plugIn, collection), retain),
+        from opened in Session.Open<IPlugInViews>(plugIn, [
             Notifications.NotificationActivated,
             ViewRegistration.RegisterPanels,
             ViewRegistration.AddCustomUISections,
@@ -180,25 +125,39 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
             DocumentArchive.Rewrites,
             .. SceneView.Opened(collection, definition.Clock),
             .. definition.Acquisitions,
-            (_, _) => IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type))),
+            _ => IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type))),
         ])
         select unit;
 
     // --- [COMMANDS]
-    public void Register(Func<Command, bool> register, CallbackSite site) =>
-        Callbacks.Run(
-            Callbacks.Each(definition.Commands.Map(row =>
-                from command in IO.lift(() => row(site.Sink))
-                from registered in IO.lift(() => register(command) ? Fin.Succ(unit) : new Refused(nameof(register), $"refused {command.EnglishName} {command.Id}"))
-                select unit)),
-            site);
+    public IO<Unit> Commands(Func<Command, bool> register) =>
+        Callbacks.Each(definition.Commands.Map((row, index) => IO.lift(row).Bind(command => IO.lift(() => RhinoFault.Unless(register(command), index))))).Map(unit);
+}
 
-    // --- [HELP]
-    public bool DisplayHelp(CallbackSite site) => Callbacks.Succeeded(definition.Help.Map(static topic => topic.Show), static () => false, site);
+// --- [OPERATIONS] ----------------------------------------------------------------------
+internal static class PlugInOwners {
+    internal static Fin<IPlugInViews> Owner(Type type) => Conversions.Cast<IPlugInViews>(PlugIn.Find(type.Assembly));
+}
 
-    // --- [DIALOGS]
-    public void ResetMessageBoxes(IPlugInViews plugIn, CallbackSite site) => Callbacks.Run(HostDialogs.ResetMessageBoxes(Views, plugIn.Settings), site);
+// --- [COMPOSITION] ---------------------------------------------------------------------
+public static class AssemblyLoading {
+    // --- [INITIALIZATION]
+    public static readonly Unit Initialized = Initialize(typeof(AssemblyLoading).Assembly);
 
-    // --- [SHUTDOWN]
-    public void Shutdown(CallbackSite site) => Callbacks.Run(Session.Close, site);
+    private static Unit Initialize(Assembly copy) {
+        Platform.Instance.LoadAssembly(copy);
+        return (from context in Optional(AssemblyLoadContext.GetLoadContext(copy))
+                from folder in Optional(Path.GetDirectoryName(copy.Location))
+                from executables in Optional(Path.GetDirectoryName(Environment.ProcessPath))
+                select (Context: context, Folder: folder, Frameworks: Path.Join(executables, "..", "Frameworks")))
+            .Iter(static held => held.Context.ResolvingUnmanagedDll += (importer, name) =>
+                string.Equals(Path.GetDirectoryName(importer.Location), held.Folder, StringComparison.Ordinal) ? Library(held.Frameworks, name) : 0);
+    }
+
+    // --- [NATIVE_LIBRARIES]
+    private static nint Library(string frameworks, string name) {
+        string path = Path.Join(frameworks, $"lib{name}.dylib");
+        using RiskyAction risky = new(path);
+        return NativeLibrary.TryLoad(path, out nint handle) ? handle : 0;
+    }
 }

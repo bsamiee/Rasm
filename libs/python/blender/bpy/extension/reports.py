@@ -1,13 +1,15 @@
-"""Callback fault reports and deferred main-thread writes."""
+"""Callback fault reports and the main-thread queue of requests the host applies while its interface is unlocked."""
 
-from collections.abc import Callable, Generator
-from contextlib import AbstractContextManager, contextmanager, ExitStack
+from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager, closing, ExitStack
 import functools
 from threading import RLock
-from typing import override, TYPE_CHECKING
+from types import MappingProxyType
+from typing import Never, override, Protocol, Self, TYPE_CHECKING
 
 import bpy
 from expression import identity, Nothing, Ok, Option
+import msgspec
 from structlog.typing import FilteringBoundLogger
 
 from blender.bpy.faults import BlenderReason
@@ -16,41 +18,109 @@ from blender.records.faults import Fault, Faults, Outcome, RecordReason
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class Pending(Protocol):
+    """Request the host applies over later passes."""
+
+    def advanced(self) -> Outcome[Option[Self]]:
+        """Applies one step, returning the request left to apply, Nothing once settled."""
+        ...
+
+
+type _Queued = _Deferral[...]
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _Write(msgspec.Struct, frozen=True, kw_only=True):
+    """One deferred write call, equal to another call of the same deferral with equal arguments."""
+
+    deferral: _Queued
+    args: tuple[object, ...]
+    kwargs: Mapping[str, object]
+
+    def advanced(self) -> Outcome[Option[Self]]:
+        """Runs the write, pushing the undo step it names."""
+
+        def pushed(step: Option[str]) -> Option[Never]:
+            for message in step.to_list():
+                bpy.ops.ed.undo_push(message=message)
+            return Nothing
+
+        return self.deferral.applied(*self.args, **self.kwargs).map(pushed)
+
+
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
+class _Deferral[**P]:
+    """Write accepting calls while its scope stands."""
+
+    __slots__ = ("applied", "open", "reports")
+
+    def __init__(self, reports: "Reports", applied: Callable[P, Outcome[Option[str]]]) -> None:
+        """Opens the write to calls."""
+        self.reports, self.applied, self.open = reports, applied, True
+
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> None:
+        """Queues the write unless its scope closed."""
+        if self.open:
+            self.reports.waiting(_Write(deferral=self, args=args, kwargs=MappingProxyType(kwargs)))
+
+    def close(self) -> None:
+        """Closes the write to calls and drops its queued ones."""
+        self.open = False
+        self.reports.cancelled(self)
+
+
 class Reports(AbstractContextManager["Reports"]):
-    """Extension callback faults and pending writes, entered first in registration scope."""
+    """Extension callback faults and queued requests, entered first in registration scope."""
+
+    __slots__ = ("_entries", "_lock", "_pending", "_redraw", "_scopes", "_ticked", "logger")
 
     # --- [LIFECYCLE]
 
     def __init__(self, logger: FilteringBoundLogger) -> None:
-        """Initializes empty reports and pending writes, opening the deferred redraw.
+        """Initializes empty reports and queue, opening the deferred redraw.
 
         Args:
             logger: Logger receiving each new entry with its report type.
         """
         self.logger = logger
-        self.held: dict[tuple[rna_enums.WmReportItems, str], None] = {}
-        self.pending: dict[tuple[object, object, tuple[object, ...], frozenset[tuple[str, object]]], Callable[[], float | None]] = {}
-        self.lock = RLock()
-        self.scopes = ExitStack()
-        self.redraw = self.scopes.enter_context(self.deferred(redrawn))
+        self._entries: dict[tuple[rna_enums.WmReportItems, str], None] = {}
+        self._pending: list[Pending] = []
+        self._lock = RLock()
+
+        def ticked() -> float | None:
+            manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            if manager.is_interface_locked:
+                return 0.0
+            with self._lock:
+                requests, self._pending[:] = tuple(self._pending), []
+                self._pending[:0] = [later for request in requests for later in self.reported(request.advanced)().bind(identity).to_list()]
+                return 0.0 if self._pending else None
+
+        self._ticked = ticked
+        self._scopes = ExitStack()
+        self._redraw = self._scopes.enter_context(self.deferred(redrawn))
 
     @override
     def __exit__(self, *_: object) -> None:
-        """Closes deferred redraw and unregisters pending write timers."""
-        self.scopes.close()
-        with self.lock:
-            for write in dict.fromkeys(original for original, *_ in self.pending):
-                self.cancelled(write)
+        """Closes deferred redraw, drops queued requests, and unregisters the queue timer."""
+        self._scopes.close()
+        with self._lock:
+            self._pending.clear()
+            if bpy.app.timers.is_registered(self._ticked):
+                bpy.app.timers.unregister(self._ticked)
 
     # --- [REPORTING]
 
     @property
     def entries(self) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
         """Report type and text per distinct held fault, in hold order."""
-        return tuple(self.held)
+        return tuple(self._entries)
 
     def hold(self, faults: Faults) -> None:
         """Holds each distinct fault entry once, logging and redrawing new ones.
@@ -58,13 +128,13 @@ class Reports(AbstractContextManager["Reports"]):
         Args:
             faults: Ordered faults of one callback.
         """
-        with self.lock:
-            fresh = tuple(entry for entry in dict.fromkeys(rendered(faults)) if entry not in self.held)
-            self.held.update(dict.fromkeys(fresh))
+        with self._lock:
+            fresh = tuple(entry for entry in dict.fromkeys(rendered(faults)) if entry not in self._entries)
+            self._entries.update(dict.fromkeys(fresh))
         for kind, text in fresh:
             self.logger.error(text, report=kind)
         if fresh:
-            self.redraw()
+            self._redraw()
 
     def reported[**P, T](self, callback: Callable[P, Outcome[T]]) -> Callable[P, Option[T]]:
         """Wraps callback to return Option, holding its faults.
@@ -83,68 +153,53 @@ class Reports(AbstractContextManager["Reports"]):
 
         return translated
 
-    # --- [DEFERRAL]
+    # --- [QUEUE]
 
-    def cancelled(self, write: object) -> None:
-        """Cancels write's queued calls, scopes staying open.
-
-        Args:
-            write: Original write or callable one deferred scope yielded.
-        """
-        with self.lock:
-            for key in tuple((original, called, args, kwargs) for original, called, args, kwargs in self.pending if original is write or called is write):
-                ticked = self.pending.pop(key)
-                if bpy.app.timers.is_registered(ticked):
-                    bpy.app.timers.unregister(ticked)
-
-    @contextmanager
-    def deferred[**P](self, write: Callable[P, Outcome[Option[str]]]) -> Generator[Callable[P, None]]:
-        """Accepts write calls until scope exit, then cancels queued ones.
+    def queued(self, request: Pending) -> Outcome[None]:
+        """Applies the request's first step now, leaving the rest to later passes.
 
         Args:
-            write: Write returning optional undo step name, its arguments hashable handles or records.
+            request: Request the host applies one step per pass.
 
-        Yields:
-            Callable running write at call in background mode, else coalescing each argument set into one main-thread timer.
+        Returns:
+            Ok(None), the first step's faults.
         """
-        active = True
-        applied = self.reported(write)
+        return request.advanced().map(lambda later: later.map(self.waiting).default_value(None))
 
-        @functools.wraps(write)
-        def immediate(*args: P.args, **kwargs: P.kwargs) -> None:
-            """Runs write at call with no undo push."""
-            if active:
-                _ = applied(*args, **kwargs)
+    def waiting(self, request: Pending) -> None:
+        """Queues request for the next pass the interface leaves unlocked unless an equal one waits, applying it whole now in background mode, where no timer runs.
 
-        @functools.wraps(write)
-        def queued(*args: P.args, **kwargs: P.kwargs) -> None:
-            """Schedules one write per argument set."""
-            key = (write, queued, args, frozenset(kwargs.items()))
+        Args:
+            request: Request the queue timer advances.
+        """
+        if bpy.app.background:
+            _ = self.reported(request.advanced)().bind(identity).map(self.waiting)
+        else:
+            with self._lock:
+                if request not in self._pending:
+                    self._pending.append(request)
+                if not bpy.app.timers.is_registered(self._ticked):
+                    bpy.app.timers.register(self._ticked)
 
-            def ticked() -> float | None:
-                """Runs queued call while scope and timer own it, rescheduling under interface lock."""
-                with self.lock:
-                    if not active or self.pending.get(key) is not ticked:
-                        return None
-                    if bpy.context.window_manager.is_interface_locked:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                        return 0.0
-                    del self.pending[key]
-                    for step in applied(*args, **kwargs).bind(identity).to_list():
-                        bpy.ops.ed.undo_push(message=step)
-                    return None
+    def deferred[**P](self, write: Callable[P, Outcome[Option[str]]]) -> AbstractContextManager[Callable[P, None]]:
+        """Accepts write calls until scope exit, then drops queued ones.
 
-            with self.lock:
-                if active and (key not in self.pending or not bpy.app.timers.is_registered(self.pending[key])):
-                    self.pending[key] = ticked
-                    bpy.app.timers.register(ticked)
+        Args:
+            write: Write returning optional undo step name.
 
-        called = immediate if bpy.app.background else queued
-        try:
-            yield called
-        finally:
-            with self.lock:
-                active = False
-                self.cancelled(called)
+        Returns:
+            Scope yielding a callable queueing each distinct argument set once.
+        """
+        return closing(_Deferral(self, write))
+
+    def cancelled(self, deferral: Callable[..., None]) -> None:
+        """Drops deferral's queued calls, its scope staying open.
+
+        Args:
+            deferral: Callable one deferred scope yielded.
+        """
+        with self._lock:
+            self._pending[:] = [request for request in self._pending if not (isinstance(request, _Write) and request.deferral is deferral)]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -186,11 +241,12 @@ def redrawn() -> Outcome[Option[str]]:
     Returns:
         Ok(Nothing), redraw pushing no undo step.
     """
-    for area in (area for window in bpy.context.window_manager.windows for area in window.screen.areas):  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    for area in (area for window in manager.windows for area in window.screen.areas):
         area.tag_redraw()
     return Ok(Nothing)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Reports", "level", "redrawn", "rendered"]
+__all__ = ["Pending", "Reports", "level", "redrawn", "rendered"]

@@ -78,16 +78,16 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
             if thickness == 0.0:
                 return np.zeros(1, dtype=np.float64)
             cuts = sorted({0.0, 1.0, min(1.0, softness / thickness), max(0.0, 1.0 - softness / thickness)})
-            area = 0.0
-            for first, last in itertools.pairwise(cuts):
+
+            def piece(first: float, last: float) -> float:
                 span = last - first
                 gap = thickness * Polynomial((first, span))
-                radius = outer - gap
                 outside = gap / softness if thickness * (first + last) / 2.0 < softness else Polynomial((1.0,))
                 inside = (thickness - gap) / softness if self.obstruction > 0.0 and thickness * (1.0 - (first + last) / 2.0) < softness else Polynomial((1.0,))
-                primitive = (radius * smoothstep(outside) * smoothstep(inside)).integ()
-                area += thickness * span * float(primitive(1.0) - primitive(0.0))
-            return np.array((area,))
+                primitive = ((outer - gap) * smoothstep(outside) * smoothstep(inside)).integ()
+                return thickness * span * float(primitive(1.0) - primitive(0.0))
+
+            return np.array((sum(itertools.starmap(piece, itertools.pairwise(cuts))),))
 
         area, error = quad_vec(radial_area, 0.0, math.tau, epsabs=epsabs, epsrel=epsrel, points=math.pi / 2.0 - self.rotation + self.sector * np.arange(self.blades))
         return float(area[0]), error
@@ -148,7 +148,7 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
             upper = leaving.min(axis=0)
             near = np.clip((outer - upper) / thickness, 0.0, 1.0)
             far = np.clip((outer - lower) / thickness, 0.0, 1.0)
-            return span * width * np.clip(far - near, 0.0, None) * (outer - thickness * (far + near) / 2.0)
+            return np.asarray(span * width * np.clip(far - near, 0.0, None) * (outer - thickness * (far + near) / 2.0), dtype=np.float64)
 
         integrated, _ = quad_vec(area, 0.0, 1.0)
         result[rows, columns] = np.bincount(owners, weights=integrated, minlength=len(rows)) * (1.0 - self.obstruction) / ((xmax - xmin) * (ymax - ymin))

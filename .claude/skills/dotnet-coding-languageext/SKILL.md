@@ -46,8 +46,8 @@ Each conversion is a method on the source type named for the target, and convert
 
 ```csharp
 internal static class Conversions {
-    public static Fin<int> Required(Option<int> value) => value.ToFin(new NotFound("count"));
-    public static Validation<Error, int> Checked(Option<int> value) => value.ToValidation<Error>(new NotFound("count"));
+    public static Fin<int> Required(Option<int> value) => value.ToFin(new Fault("count", Reason.Missing));
+    public static Validation<Error, int> Checked(Option<int> value) => value.ToValidation<Error>(new Fault("count", Reason.Missing));
     public static Either<Error, Quantity> Split(Fin<Quantity> quantity) => quantity.ToEither();
     public static Seq<int> Items(Option<int> value) => value.ToSeq();
     public static Fin<Item> Exit(Validation<Error, Item> form) => form.ToFin();
@@ -59,7 +59,6 @@ internal static class Conversions {
 ```
 
 - `ToOption` on a `Fin` drops the failure reason
-- `Validation` becomes `Fin` at the end of input validation
 - Independent `Fin` values combine under tuple `Apply` or `Traverse` and accumulate every error, `Bind` and `TraverseM` stop at the first
 - `Try`, `IO`, and `Eff` return `Fin` when run
 
@@ -105,14 +104,11 @@ Use `Skill(dotnet-coding)` for error type design.
 - `Is` and value `Catch` compare the message of a code-0 error
 
 ```csharp
-internal sealed record NotFound(string Key) : Expected($"no item has key {Key}", 0);
-internal sealed record Rejected(string Request, Error Cause) : Expected($"{Request} was rejected", 0, Cause);
-
 internal static class Classify {
     public static bool Retryable(Error error) => error.Is(Errors.TimedOut) || error.HasException<IOException>();
-    public static bool IsRejection(Error error) => error.HasCode(ErrorCodes.ValidationFailed) || error.IsType<NotFound>();
-    public static int Absences(Error error) => error.Filter<NotFound>().Count;
-    public static Option<Error> RejectionCause(Error error) => error.Filter<Rejected>().Head is Rejected rejected ? rejected.Inner : None;
+    public static bool IsRejection(Error error) => error.HasCode(ErrorCodes.ValidationFailed) || error.IsType<Fault>();
+    public static int Faults(Error error) => error.Filter<Fault>().Count;
+    public static Option<Error> Cause(Error error) => error.Filter<Fault>().Head is Fault fault ? fault.Inner : None;
 }
 ```
 
@@ -121,7 +117,7 @@ internal static class Classify {
 - `Count` returns the number of leaves, `Head` the first leaf, `Errors.None` holds no leaf and is its own `Head`
 - `Filter<E>().Head is E <case>` binds the first `E` leaf to read its fields, `Errors.None` fails the pattern
 - `HasCode` and `Catch(int)` select a LanguageExt code (`ErrorCodes.ValidationFailed`, `ErrorCodes.ParseError`), `IsType<E>` a package's typed failure
-- Record parameters named `Inner` collide with `Expected.Inner` (CS8866), a cause parameter takes another name
+- Record parameters named `Inner` reuse `Expected.Inner` when typed `Option<Error>`, any other type fails CS8866
 - `IsType`, `HasCode`, `HasException`, `Is`, and `Catch` do not descend into `Inner`, only the typed record that wraps a cause stays classifiable
 - `Error` implements `Monoid<Error>`, a custom failure type implements `Monoid<F>` before `Validation<F, A>` accumulates it
 - `&` on operands with one success type collects the successes into `Seq<A>` and accumulates the failures
@@ -133,11 +129,11 @@ internal static class Recovery {
     public static Fin<Quantity> ByCode(Fin<Quantity> quantity) => quantity.Catch(ErrorCodes.ValidationFailed, static _ => Zero).As();
     public static Fin<Quantity> ByValue(Fin<Quantity> quantity) => quantity.Catch(Errors.TimedOut, static _ => Zero).As();
     public static IO<string> Read(string path) =>
-        IO.lift(() => File.ReadAllText(path)).Catch(static error => error.HasException<FileNotFoundException>(), error => IO.fail<string>(Error.New($"{path} was not found", error)));
-    public static IO<Item> Cached(IO<Item> load, Item cached) => (load | @catch(static error => error.IsType<NotFound>(), _ => IO.pure(cached))).As();
+        IO.lift(() => File.ReadAllText(path)).Catch(static error => error.HasException<FileNotFoundException>(), error => IO.fail<string>(new Fault(path, Reason.Missing, Inner: error)));
+    public static IO<Item> Cached(IO<Item> load, Item cached) => (load | @catch(static error => error.IsType<Fault>(), _ => IO.pure(cached))).As();
     public static IO<Item> Fallback(IO<Item> primary, IO<Item> secondary) => primary | secondary;
     public static Fin<Quantity> Rebound(Fin<Quantity> quantity) => quantity.BindFail(static error => error.HasCode(ErrorCodes.ValidationFailed) ? Zero : error);
-    public static Fin<Quantity> WithContext(Fin<Quantity> quantity) => quantity.MapFail(static error => new Rejected("quantity", error));
+    public static Fin<Quantity> WithContext(Fin<Quantity> quantity) => quantity.MapFail(static error => new Fault("quantity", Reason.Invalid, Inner: error));
     public static int AtHost(Fin<int> result) => result.IfFail(static _ => -1);
 
     private static Fin<Quantity> Zero => Quantity.Validated(0);
@@ -169,7 +165,7 @@ internal static class Guards {
         from _ in unless(v % 2 == 0, IO.fail<Unit>(Odd(v)))
         select v;
 
-    private static Error Odd(int value) => Error.New(string.Create(CultureInfo.InvariantCulture, $"{value} is odd"));
+    private static Error Odd(int value) => new Fault(value.ToString(CultureInfo.InvariantCulture), Reason.Invalid);
 }
 ```
 
@@ -417,7 +413,7 @@ internal static class Folds {
 
 Forms the compiler rejects:
 - Comparing a `Zip` result with a `Seq` of unnamed tuples is ambiguous (CS9342), the expected value declares `First` and `Second`
-- `Contains`, `Sum`, and `Average` on a `Seq` are ambiguous with the LINQ extensions (CS0121), membership is `Exists` and a sum is `Fold`
+- `Contains`, `Sum`, `Average`, and argument-free `Max` and `Min` on a `Seq` are ambiguous with the LINQ extensions (CS0121), membership is `Exists`, a sum is `Fold`, and an extreme is `Max(seed)` or `Max<Seq, A>()` returning `Option<A>`
 - `Scan` over an `IEnumerable<A>` or `Lst<A>` is ambiguous with `SuperEnumerable.Scan` under `using SuperLinq` (CS0121), a `Seq<A>` receiver resolves
 - `Seq<A>.Empty` in expression context fails (CS0119), the simple name `Seq` binds to the `Prelude` function, the empty value is `Seq<A>()`
 - `Seq<A>` has no `Sort` instance, sorting is LINQ `Order()` followed by `toSeq`

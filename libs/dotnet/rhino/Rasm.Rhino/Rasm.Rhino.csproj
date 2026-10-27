@@ -1,9 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>RhinoCommon wrapped in LanguageExt effects with typed errors for Rhino plug-ins and apps</Description>
+        <RootNamespace>Rasm.RhinoCommon</RootNamespace>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <MapperlyAbstractionsScope>runtime</MapperlyAbstractionsScope>
     </PropertyGroup>
+
+    <ItemGroup Label="Usings">
+        <Using Remove="System.Collections.Generic" />
+        <Using Include="UnitsNet.Temperature" Alias="Temperature" />
+    </ItemGroup>
 
     <ItemGroup Label="Rhino">
         <PackageReference Include="Microsoft.Win32.SystemEvents" />
@@ -26,7 +32,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Mathematics">
-        <PackageReference Include="HyperJet" />
         <PackageReference Include="MathNet.Numerics" />
     </ItemGroup>
 

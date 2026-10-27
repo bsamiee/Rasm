@@ -7,8 +7,7 @@ using UnitsNet;
 namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class FrameQuad {
     public (double X, double Y) TopLeft { get; }
     public (double X, double Y) TopRight { get; }
@@ -30,17 +29,26 @@ public sealed partial class FrameQuad {
         }
     }
 
+    public Func<(double X, double Y), Option<(double X, double Y)>> Mapping() {
+        Matrix<double> map = Homography;
+        return point =>
+            from input in double.IsFinite(point.X) && double.IsFinite(point.Y) ? Some(point) : None
+            let denominator = (map[2, 0] * input.X) + (map[2, 1] * input.Y) + map[2, 2]
+            from w in denominator > 0d ? Some(denominator) : None
+            let x = ((map[0, 0] * input.X) + (map[0, 1] * input.Y) + map[0, 2]) / w
+            let y = ((map[1, 0] * input.X) + (map[1, 1] * input.Y) + map[1, 2]) / w
+            from result in double.IsFinite(x) && double.IsFinite(y) ? Some((x, y)) : None
+            select result;
+    }
+
     public static Fin<FrameQuad> Validated((double X, double Y) topLeft, (double X, double Y) topRight, (double X, double Y) bottomRight, (double X, double Y) bottomLeft) =>
-        TryCreate(topLeft, topRight, bottomRight, bottomLeft, out FrameQuad? quad, out ImagingFault? fault) ? quad : fault;
+        ImagingFault.Unless((Turn(bottomLeft, topLeft, topRight), Turn(topLeft, topRight, bottomRight), Turn(topRight, bottomRight, bottomLeft), Turn(bottomRight, bottomLeft, topLeft))
+            is ( > 0d, > 0d, > 0d, > 0d) or ( < 0d, < 0d, < 0d, < 0d), ImagingReason.Degenerate, (topLeft, topRight, bottomRight, bottomLeft)).Map(_ => new FrameQuad(topLeft, topRight, bottomRight, bottomLeft));
 
     private static PointF Corner((double X, double Y) corner) => new((float)corner.X, (float)corner.Y);
 
     private static double Turn((double X, double Y) previous, (double X, double Y) corner, (double X, double Y) next) =>
         ((corner.X - previous.X) * (next.Y - corner.Y)) - ((corner.Y - previous.Y) * (next.X - corner.X));
-
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref (double X, double Y) topLeft, ref (double X, double Y) topRight, ref (double X, double Y) bottomRight, ref (double X, double Y) bottomLeft) =>
-        validationError = (Turn(bottomLeft, topLeft, topRight), Turn(topLeft, topRight, bottomRight), Turn(topRight, bottomRight, bottomLeft), Turn(bottomRight, bottomLeft, topLeft))
-                is ( > 0d, > 0d, > 0d, > 0d) or ( < 0d, < 0d, < 0d, < 0d) ? null : new ImagingFault("frame quad", ImagingReason.Degenerate);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -194,28 +202,19 @@ public abstract partial record Projection {
 public sealed record PanoramaView(Angle Heading, Angle Elevation, Angle Roll) {
     public Quaternion Rotation => Quaternion.CreateFromYawPitchRoll(-(float)Heading.Radians, (float)Elevation.Radians, (float)Roll.Radians);
 
-    public static Option<(float Heading, float Elevation, float Roll)> Facing(Vector3 left, Vector3 right) =>
-        from normal in Vector3.AllWhereAllBitsSet(Vector3.IsFinite(left) & Vector3.IsFinite(right)) ? Some(Vector3.Cross(left, right)) : None
-        where normal != Vector3.Zero
-        let forward = Vector3.Normalize(left) + Vector3.Normalize(right)
-        let across = Vector3.Cross(normal, forward)
+    public static Option<PanoramaView> Facing(Vector3 left, Vector3 right) =>
+        from input in Vector3.AllWhereAllBitsSet(Vector3.IsFinite(left) & Vector3.IsFinite(right)) ? Some((Left: left, Right: right)) : None
+        let normal = (X: ((double)input.Left.Y * input.Right.Z) - ((double)input.Left.Z * input.Right.Y),
+            Y: ((double)input.Left.Z * input.Right.X) - ((double)input.Left.X * input.Right.Z), Z: ((double)input.Left.X * input.Right.Y) - ((double)input.Left.Y * input.Right.X))
+        where normal != (0d, 0d, 0d)
+        let leftLength = double.Hypot(double.Hypot(input.Left.X, input.Left.Y), input.Left.Z)
+        let rightLength = double.Hypot(double.Hypot(input.Right.X, input.Right.Y), input.Right.Z)
+        let forward = (X: (input.Left.X / leftLength) + (input.Right.X / rightLength), Y: (input.Left.Y / leftLength) + (input.Right.Y / rightLength), Z: (input.Left.Z / leftLength) + (input.Right.Z / rightLength))
+        let across = (X: (normal.Y * forward.Z) - (normal.Z * forward.Y), Y: (normal.Z * forward.X) - (normal.X * forward.Z), Z: (normal.X * forward.Y) - (normal.Y * forward.X))
         let heading = double.Atan2(forward.X, -forward.Z)
         let elevation = double.Atan2(forward.Y, double.Hypot(forward.X, forward.Z))
         let yaw = double.SinCos(heading)
         let pitch = double.SinCos(elevation)
-        select ((float)heading, (float)elevation, (float)double.Atan2((-across.X * yaw.Sin * pitch.Sin) + (across.Y * pitch.Cos) + (across.Z * yaw.Cos * pitch.Sin), (across.X * yaw.Cos) + (across.Z * yaw.Sin)));
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Homography {
-    extension(Matrix<double> map) {
-        public Option<(double X, double Y)> Apply((double X, double Y) point) =>
-            from input in double.IsFinite(point.X) && double.IsFinite(point.Y) ? Some(point) : None
-            let denominator = (map[2, 0] * input.X) + (map[2, 1] * input.Y) + map[2, 2]
-            from w in denominator > 0d ? Some(denominator) : None
-            let x = ((map[0, 0] * input.X) + (map[0, 1] * input.Y) + map[0, 2]) / w
-            let y = ((map[1, 0] * input.X) + (map[1, 1] * input.Y) + map[1, 2]) / w
-            from result in double.IsFinite(x) && double.IsFinite(y) ? Some((x, y)) : None
-            select result;
-    }
+        select new PanoramaView(Angle.FromRadians(heading), Angle.FromRadians(elevation),
+            Angle.FromRadians(double.Atan2((-across.X * yaw.Sin * pitch.Sin) + (across.Y * pitch.Cos) + (across.Z * yaw.Cos * pitch.Sin), (across.X * yaw.Cos) + (across.Z * yaw.Sin))));
 }

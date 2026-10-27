@@ -14,7 +14,7 @@ import msgspec
 
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import Descriptor, subclass
-from blender.bpy.extension.identity import Identity, Name
+from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band, entered, Registrable
 from blender.bpy.ui.drawing.handlers import Signal
 from blender.bpy.ui.layout.rows import acquired, Caption, painted, placed, RowContent, RowDraw
@@ -176,8 +176,8 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
             (top, children), header = drawn
 
             def site(stem: str, at: PanelPlacement, condition: Option[Condition]) -> Outcome[PanelSite]:
-                nested = accumulated(identity.name(Name.PANEL, f"{stem}_{child.key}").map(lambda name: Drawing(name=name, section=child, drawn=each)) for child, each in children)
-                return paired(paired(identity.name(Name.PANEL, stem), nested), accepted(at)).map(
+                nested = accumulated(identity.name(bpy.types.Panel, f"{stem}_{child.key}").map(lambda name: Drawing(name=name, section=child, drawn=each)) for child, each in children)
+                return paired(paired(identity.name(bpy.types.Panel, stem), nested), accepted(at)).map(
                     lambda parts: PanelSite(at=at, condition=condition, top=Drawing(name=parts[0][0], section=self.section, drawn=top), children=parts[0][1], header=header)
                 )
 

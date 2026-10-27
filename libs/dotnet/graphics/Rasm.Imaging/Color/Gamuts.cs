@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -60,7 +59,12 @@ public sealed record Gamut {
 
     public (double R, double G, double B) Luminance => Luminances(this);
 
+    public Vector256<double> LuminanceLanes => Vector256.Create(Luminance.R, Luminance.G, Luminance.B, 0d);
+
     public YbrConfiguration Ybr => new(Luminance.R, Luminance.B, Configuration.Ybr.RangeY, Configuration.Ybr.RangeC, Rgb.Name);
+
+    public static double RelativeLuminance(double red, double green, double blue, (double R, double G, double B) weights) =>
+        (weights.R * red) + (weights.G * green) + (weights.B * blue);
 
     public bool Equals([NotNullWhen(true)] Gamut? other) => other is not null && ReferenceEquals(Rgb, other.Rgb);
 
@@ -96,14 +100,16 @@ public sealed record Gamut {
 
     private static double Relative(Gamut gamut, (double, double, double) basis) => new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, basis).RelativeLuminance;
 
-    private static Gamut Primaries(Chromaticity red, Chromaticity green, Chromaticity blue, string name, Option<string> interopId = default) =>
-        new(new RgbConfiguration(red, green, blue, Illuminant.D65.GetWhitePoint(Observer.Degree2), static linear => linear, static linear => linear, name), interopId);
+    public static Gamut Of(Chromaticities stated) =>
+        Primaries(new(stated.RedX, stated.RedY), new(stated.GreenX, stated.GreenY), new(stated.BlueX, stated.BlueY), nameof(Chromaticities), white: new WhitePoint(stated.WhiteX, stated.WhiteY));
+
+    private static Gamut Primaries(Chromaticity red, Chromaticity green, Chromaticity blue, string name, Option<string> interopId = default, Option<WhitePoint> white = default) =>
+        new(new RgbConfiguration(red, green, blue, white.IfNone(static () => Illuminant.D65.GetWhitePoint(Observer.Degree2)), static linear => linear, static linear => linear, name), interopId);
 }
 
-[ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class GamutCompression {
-    public static GamutCompression Reference { get; } = Create(new Channels<float>(0.815f, 0.803f, 0.880f), new Channels<float>(1.147f, 1.264f, 1.312f), 1.2f);
+    public static GamutCompression Reference { get; } = new(new Channels<float>(0.815f, 0.803f, 0.880f), new Channels<float>(1.147f, 1.264f, 1.312f), 1.2f);
 
     public Channels<float> Threshold { get; }
     public Channels<float> Limit { get; }
@@ -139,12 +145,9 @@ public sealed partial class GamutCompression {
         };
 
     public static Fin<GamutCompression> Validated(Channels<float> threshold, Channels<float> limit, float power) =>
-        TryCreate(threshold, limit, power, out GamutCompression? compression, out ImagingFault? fault) ? compression : fault;
-
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Channels<float> threshold, ref Channels<float> limit, ref float power) =>
-        validationError = Seq((threshold.Red, limit.Red), (threshold.Green, limit.Green), (threshold.Blue, limit.Blue))
-            .ForAll(static pair => pair.Item1 is >= 0f and < 1f && pair.Item2 > 1f && float.IsFinite(pair.Item2)) && float.IsFinite(power) && power >= 1f ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"gamut compression threshold {threshold}, limit {limit}, and power {power}"), ImagingReason.Range);
+        ImagingFault.Unless(Seq((threshold.Red, limit.Red), (threshold.Green, limit.Green), (threshold.Blue, limit.Blue))
+            .ForAll(static pair => pair.Item1 is >= 0f and < 1f && pair.Item2 > 1f && float.IsFinite(pair.Item2)) && float.IsFinite(power) && power >= 1f, ImagingReason.Range, (threshold, limit, power))
+            .Map(_ => new GamutCompression(threshold, limit, power));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

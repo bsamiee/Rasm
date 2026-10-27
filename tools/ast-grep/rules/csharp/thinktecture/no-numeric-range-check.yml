@@ -235,6 +235,26 @@ utils:
                 - all: [{has: {field: operator, regex: '^<$'}}, {has: {field: right, pattern: $VALUE}}, {has: {field: left, matches: count-bound}}]
             - kind: parenthesized_expression
               has: {matches: index-upper-violation}
+    skipped-unless:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Unless$'}}
+            - inside:
+                stopBy: end
+                kind: method_declaration
+                all:
+                    - has: {field: name, regex: '^Validated$'}
+                    - inside:
+                        kind: declaration_list
+                        inside:
+                            kind: class_declaration
+                            has:
+                                kind: attribute_list
+                                has:
+                                    kind: attribute
+                                    all:
+                                        - has: {field: name, matches: {csharp-type-name: {name: {regex: '^(Complex)?ValueObject(Attribute)?$'}}}}
+                                        - has: {kind: attribute_argument_list, has: {kind: attribute_argument, regex: '^SkipFactoryMethods\s*=\s*true$'}}
     parse-chain:
         inside:
             stopBy: {not: {matches: condition-chain}}
@@ -288,5 +308,10 @@ rule:
                 has: {field: name, regex: '^Unless\w*$'}
                 inside: {kind: declaration_list, inside: {matches: languageext-error-record}}
             - inside: {stopBy: end, matches: thinktecture-factory-validation}
+            - inside:
+                stopBy: end
+                kind: argument
+                nthChild: 1
+                inside: {kind: argument_list, inside: {matches: skipped-unless}}
 message: '`$CHECK` checks a numeric range'
-note: 'Read as a bounding UnitsNet, NodaTime, or host type, else a value object with one `ValidateFactoryArguments` comparison'
+note: 'Read as a bounding UnitsNet, NodaTime, or host type, else a value object''s `Unless` in `Validated` or its hook'

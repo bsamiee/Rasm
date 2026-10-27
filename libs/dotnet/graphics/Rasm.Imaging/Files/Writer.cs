@@ -30,18 +30,13 @@ internal sealed record TiffSample(OutputDepth Depth, SampleFormat Format) {
     internal Option<Predictor> Predictor { get; init; }
 }
 
-[ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 internal sealed partial class DngExtent {
     public int Width { get; }
     public int Height { get; }
 
     public static Fin<DngExtent> Validated(int width, int height) =>
-        TryCreate(width, height, out DngExtent? extent, out ImagingFault? fault) ? extent : fault;
-
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int width, ref int height) =>
-        validationError = width is >= 22 and <= 64000 && height is >= 22 and <= 64000 ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"DNG frame {width}x{height} in the 22 to 64000 pixels LibRaw reads"), ImagingReason.Range);
+        ImagingFault.Unless(width is >= 22 and <= 64000 && height is >= 22 and <= 64000, ImagingReason.Range, (width, height)).Map(_ => new DngExtent(width, height));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -55,12 +50,12 @@ public abstract partial record StillFormat {
         internal ImageSample Sample { get; }
 
         public static IterableNE<string> Extensions => IterableNE.create(".png");
-        public static Seq<OutputDepth> Depths => OutputDepth.Where(Table);
+        public static Seq<OutputDepth> Depths => OutputDepth.Where(PngDepth);
 
         public static Fin<StillFormat> From(PixelFrame frame, OutputDepth depth, Option<ColorEncoding> encoding, bool alpha) =>
-            OutputDepth.Sampled("PNG", depth, Table).Map(sample => (StillFormat)new PngRaster(frame, sample, encoding, alpha));
+            OutputDepth.Sampled(depth, PngDepth).Map(sample => (StillFormat)new PngRaster(frame, sample, encoding, alpha));
 
-        internal static Option<ImageSample> Table(OutputDepth depth) =>
+        internal static Option<ImageSample> PngDepth(OutputDepth depth) =>
             depth.Map<Option<ImageSample>>(
                 uInt8: ImageSample.Bytes,
                 uInt10: None,
@@ -97,14 +92,14 @@ public abstract partial record StillFormat {
         internal TiffSample Sample { get; }
 
         public static IterableNE<string> Extensions => IterableNE.create(".tif", ".tiff");
-        public static Seq<OutputDepth> Depths => OutputDepth.Where(Table);
+        public static Seq<OutputDepth> Depths => OutputDepth.Where(TiffDepth);
 
         public static Fin<StillFormat> From(PixelFrame frame, OutputDepth depth, Option<ColorEncoding> encoding, bool alpha) =>
-            from sample in OutputDepth.Sampled("TIFF", depth, Table)
-            from _ in sample.Depth.Buffered("TIFF", frame.Size.Width, alpha)
+            from sample in OutputDepth.Sampled(depth, TiffDepth)
+            from _ in sample.Depth.Buffered(frame.Size.Width, alpha)
             select (StillFormat)new TiffRaster(frame, sample, encoding, alpha);
 
-        internal static Option<TiffSample> Table(OutputDepth depth) =>
+        internal static Option<TiffSample> TiffDepth(OutputDepth depth) =>
             depth.Map<Option<TiffSample>>(
                 uInt8: new TiffSample(depth, SampleFormat.UINT) { Predictor = Predictor.HORIZONTAL },
                 uInt10: new TiffSample(depth, SampleFormat.UINT),

@@ -19,7 +19,7 @@ public abstract partial record Decomposition {
     public sealed record Singular(Vector3D<double> Translation, Matrix<double> Linear) : Decomposition(Translation, Linear);
 
     public static Fin<Decomposition> Of(Matrix<double> map, double tolerance) =>
-        from affine in SpatialFault.Unless(map is { RowCount: 4, ColumnCount: 4 } && map.Row(3).Equals(Vector<double>.Build.Dense([0d, 0d, 0d, 1d])), SpatialRule.Shape)
+        from affine in SpatialFault.Unless(map is { RowCount: 4, ColumnCount: 4 } && map.Row(3).Equals(Vector<double>.Build.Dense([0d, 0d, 0d, 1d])), SpatialRule.Shape, (map.RowCount, map.ColumnCount))
         let translation = new Vector3D<double>(map[0, 3], map[1, 3], map[2, 3])
         let linear = map.SubMatrix(0, 3, 0, 3)
         let svd = linear.Svd(computeVectors: true)
@@ -32,7 +32,7 @@ public abstract partial record Decomposition {
         };
 
     public Fin<Matrix<double>> Interpolate(Decomposition other, double at) =>
-        from oriented in SpatialFault.Unless(this is not Singular && other is not Singular && Reversing == other.Reversing, SpatialRule.Singular)
+        from oriented in SpatialFault.Unless(this is not Singular && other is not Singular && Reversing == other.Reversing, SpatialRule.Singular, (Reversing, other.Reversing))
         let start = Polar(Linear.Svd(computeVectors: true))
         let end = Polar(other.Linear.Svd(computeVectors: true))
         let relative = start.Rotation.TransposeThisAndMultiply(end.Rotation)

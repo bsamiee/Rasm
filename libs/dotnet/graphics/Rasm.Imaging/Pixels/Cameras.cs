@@ -1,12 +1,10 @@
-using System.Globalization;
 using System.Numerics;
 using UnitsNet;
 
 namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class ViewWindow {
     public double CenterX { get; }
     public double CenterY { get; }
@@ -29,10 +27,7 @@ public sealed partial class ViewWindow {
         select result;
 
     public static Fin<ViewWindow> Validated(double centerX, double centerY, double width, double height) =>
-        TryCreate(centerX, centerY, width, height, out ViewWindow? window, out ImagingFault? fault) ? window : fault;
-
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref double centerX, ref double centerY, ref double width, ref double height) =>
-        validationError = width > 0d && height > 0d ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"view window {width}x{height}"), ImagingReason.Range);
+        ImagingFault.Unless(width > 0d && height > 0d, ImagingReason.Range, (width, height)).Map(_ => new ViewWindow(centerX, centerY, width, height));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -66,18 +61,13 @@ public abstract partial record Frustum {
     }
 }
 
-[ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class LensFocus {
     public Length FocalLength { get; }
     public Length FocusDistance { get; }
 
     public static Fin<LensFocus> Validated(Length focalLength, Length focusDistance) =>
-        TryCreate(focalLength, focusDistance, out LensFocus? focus, out ImagingFault? fault) ? focus : fault;
-
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Length focalLength, ref Length focusDistance) =>
-        validationError = focalLength > Length.Zero && focusDistance > focalLength ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"focus distance {focusDistance} at focal length {focalLength}"), ImagingReason.Range);
+        ImagingFault.Unless(focalLength > Length.Zero && focusDistance > focalLength, ImagingReason.Range, (focalLength, focusDistance)).Map(_ => new LensFocus(focalLength, focusDistance));
 }
 
 public sealed record Camera {

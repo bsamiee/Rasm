@@ -4,22 +4,22 @@ Covers the result-type flows, from validators to the laws and their property tes
 
 ## [01]-[VALIDATION]
 
-Validators accept the request, return it on success for the next validator, and return the error for the violated rule. Rules that read the clock receive the date as an argument, and `Failure.Unless` raises the package error record:
+Validators accept the request, return it on success for the next validator, and return the error for the violated rule. Rules reading the clock receive the date as an argument. `Fault.Unless` raises the package error record:
 
 ```csharp
 internal sealed record Command(string Code, LocalDate Date);
 
 internal static class Rules {
     public static Fin<Command> ValidCode(Command command) =>
-        Failure.Unless(command.Code.Length is 8 or 11 && command.Code.All(char.IsLetterOrDigit), Reason.Invalid).Map(_ => command);
+        Fault.Unless(command.Code.Length is 8 or 11 && command.Code.All(char.IsLetterOrDigit), Reason.Invalid, command.Code).Map(_ => command);
     public static Fin<Command> ValidDate(Command command, LocalDate today) =>
-        Failure.Unless(command.Date > today, Reason.Invalid).Map(_ => command);
+        Fault.Unless(command.Date > today, Reason.Invalid, command.Date).Map(_ => command);
     public static Fin<Command> Valid(Command command, LocalDate today) =>
         (ValidCode(command), ValidDate(command, today)).Apply(static (_, valid) => valid).As();
 }
 ```
 
-Both rules read only the command, the tuple `Apply` runs both and the failure holds each violated rule (`Error.Count` counts them), a value object field joins the same tuple through `X.Validated`, and `Apply` takes 2 to 10 operands with one uncurried function. A check reading an earlier result binds, and the first failure stops the checks after it.
+Rules reading only the command run together under tuple `Apply`, and its failure holds each violated rule (`Error.Count` counts them). Value object fields join the same tuple through `X.Validated`. `Apply` takes 2 to 10 operands with one uncurried function. Checks reading an earlier result bind, the first failure stops later checks.
 
 Collections of validators of shape `T -> Fin<T>` fold into one validator, and the traversal selects the behavior:
 
@@ -41,15 +41,15 @@ internal static class Validators {
 ```csharp
 internal static class Roots {
     public static Fin<double> Ratio(double x, double y) =>
-        y == 0 ? Error.New("divisor is 0")
-        : x != 0 && Math.Sign(x) != Math.Sign(y) ? Error.New("ratio is negative")
+        y == 0 ? new Fault("divisor", Reason.Invalid)
+        : x != 0 && Math.Sign(x) != Math.Sign(y) ? new Fault("ratio", Reason.Invalid)
         : Math.Sqrt(x / y);
     public static Fin<string> Rendered(double x, double y) =>
         Ratio(x, y).Map(static root => root.ToString(CultureInfo.InvariantCulture));
     public static Fin<double> Nested(double x, double y) =>
         Ratio(x, y).Bind(static root => Ratio(root, 1));
     public static Fin<double> Root(double value) =>
-        from _ in guard(value >= 0, Error.New("value is negative")).ToFin()
+        from _ in guard<Error>(value >= 0, new Fault("value", Reason.Invalid)).ToFin()
         select Math.Sqrt(value);
 }
 ```
@@ -64,13 +64,13 @@ internal sealed record Updated(string Key, decimal Balance);
 
 internal static class Pipeline {
     public static Fin<ValidRequest> Validate(Request request) =>
-        request.Amount > 0 ? new ValidRequest(request.Key, request.Amount) : Error.New("amount is not positive");
+        Fault.Unless(request.Amount > 0, Reason.Invalid, request.Amount).Map(_ => new ValidRequest(request.Key, request.Amount));
     public static Fin<Model> Load(Func<string, Option<(string Key, decimal Balance)>> find, ValidRequest request) =>
-        find(request.Key).ToFin(Error.New($"no row has key {request.Key}")).Map(row => new Model(row.Key, row.Balance, request.Amount));
+        find(request.Key).ToFin(new Fault(request.Key, Reason.Missing)).Map(row => new Model(row.Key, row.Balance, request.Amount));
     public static Fin<Updated> Update(Model model) =>
-        model.Balance >= model.Amount ? new Updated(model.Key, model.Balance - model.Amount) : Error.New("insufficient balance");
+        Fault.Unless(model.Balance >= model.Amount, Reason.Invalid, (model.Balance, model.Amount)).Map(_ => new Updated(model.Key, model.Balance - model.Amount));
     public static Fin<Unit> Save(Updated model) =>
-        model.Balance <= Limits.Reporting ? unit : Error.New("balance exceeds the reporting limit");
+        Fault.Unless(model.Balance <= Limits.Reporting, Reason.Invalid, model.Balance);
     public static Fin<Unit> Handle(Func<string, Option<(string Key, decimal Balance)>> find, Request request) =>
         Validate(request)
             .Bind(valid => Load(find, valid))
@@ -235,7 +235,7 @@ Monad associativity:  m.Bind(f).Bind(g) == m.Bind(x => f(x).Bind(g))
 
 Identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion. Associativity lets a multi-argument function enter a monadic pipeline, the right-associated form lets the innermost function close over every earlier value and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run the checks.
 
-Property-based tests state invariants over generated inputs and check algebraic laws and invariants (removing items from a cart never increases its total), and random sampling raises confidence without proving a universal law:
+Property-based tests check algebraic laws and invariants over generated inputs (removing items from a cart never increases its total), random sampling raises confidence without proving a universal law:
 
 ```csharp
 internal static class Properties {

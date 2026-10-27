@@ -8,10 +8,10 @@ public sealed record GradingRgbmsw(float Red, float Green, float Blue, float Mas
 
     internal bool Neutral => Red is 1f && Green is 1f && Blue is 1f && Master is 1f;
 
-    internal Func<Vector3, Vector3> PerChannel(Func<float, Func<float, float>> curve) =>
-        (curve(Red), curve(Green), curve(Blue), curve(Master)) switch {
-            var (red, green, blue, master) => rgb => new Vector3(master(red(rgb.X)), master(green(rgb.Y)), master(blue(rgb.Z))),
-        };
+    internal Func<Vector3, Vector3> PerChannel(Func<float, Func<float, float>> curve) {
+        (Func<float, float> red, Func<float, float> green, Func<float, float> blue, Func<float, float> master) = (curve(Red), curve(Green), curve(Blue), curve(Master));
+        return rgb => new Vector3(master(red(rgb.X)), master(green(rgb.Y)), master(blue(rgb.Z)));
+    }
 }
 
 public sealed record GradingTone(GradingRgbmsw Blacks, GradingRgbmsw Shadows, GradingRgbmsw Midtones, GradingRgbmsw Highlights, GradingRgbmsw Whites, float SContrast) {
@@ -55,9 +55,7 @@ public sealed record GradingTone(GradingRgbmsw Blacks, GradingRgbmsw Shadows, Gr
         value is 1f
             ? Identity
             : float.Min(width, (style.Top - style.Bottom) * 0.95f) switch {
-                var span => float.Clamp(start, style.Bottom + (span * 0.51f), style.Top - (span * 0.51f)) switch {
-                    var center => Balanced(style, center, span, (value - 1f) * 0.9f).Forward,
-                },
+                var span => Balanced(style, float.Clamp(start, style.Bottom + (span * 0.51f), style.Top - (span * 0.51f)), span, (value - 1f) * 0.9f).Forward,
             };
 
     private static Spline Balanced(GradingStyle style, float center, float span, float lean) =>

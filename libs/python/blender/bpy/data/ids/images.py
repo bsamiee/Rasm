@@ -16,7 +16,7 @@ import PyOpenColorIO
 from blender.bpy.data.ids.ownership import kept, Ownership
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.identity import Identity, Name
+from blender.bpy.extension.identity import Identity
 from blender.bpy.faults import BlenderReason
 from blender.imaging.color.processors import converted
 from blender.imaging.files.buffers import associated, resampled, unassociated
@@ -245,7 +245,7 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, co
             .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject="output_format_list", member=suffix),)))
         )
 
-    return identity.name(Name.ATTACHMENT, "proxy").bind(sourced)
+    return identity.identifier("proxy").bind(sourced)
 
 
 def restored(image: bpy.types.Image, identity: Identity) -> Outcome[None]:
@@ -258,7 +258,7 @@ def restored(image: bpy.types.Image, identity: Identity) -> Outcome[None]:
             case _:
                 return Ok(None)
 
-    return identity.name(Name.ATTACHMENT, "proxy").bind(back)
+    return identity.identifier("proxy").bind(back)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

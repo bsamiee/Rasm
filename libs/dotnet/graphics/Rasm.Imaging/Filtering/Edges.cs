@@ -10,7 +10,6 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
-using Rasm.Imaging.Tone;
 using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Filtering;
@@ -100,7 +99,7 @@ public abstract partial class EdgeOperator {
 [SmartEnum<string>]
 public sealed partial class EdgeSource {
     public static readonly EdgeSource Color = new("color", 3, separate: true, static (pixel, levels, _) => (levels[0], levels[1], levels[2]) = (pixel.X, pixel.Y, pixel.Z));
-    public static readonly EdgeSource Luma = new("luma", 1, separate: false, static (pixel, levels, weights) => levels[0] = LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, weights));
+    public static readonly EdgeSource Luma = new("luma", 1, separate: false, static (pixel, levels, weights) => levels[0] = Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, weights));
     public static readonly EdgeSource Hue = new("hue", 2, separate: false, static (pixel, levels, _) =>
         (levels[0], levels[1]) = double.SinCos(Hsy.From(pixel).Hue) switch { var (sine, cosine) => (cosine / double.Tau, sine / double.Tau) });
     public static readonly EdgeSource Saturation = new("saturation", 1, separate: false, static (pixel, levels, _) => levels[0] = RangeAxis.Saturation.Coordinate(Hsy.From(pixel)));
@@ -250,7 +249,7 @@ public static class GuideEdges {
 public static class Contours {
     public static Fin<Func<float, double>> Width(double pixels, Option<double> world, Option<Camera> camera, PixelExtent extent, Option<(double Near, Func<float, float> Scale)> taper) =>
         world.Match(
-            meters => meters is 0d || pixels is 0d ? Fin.Succ<Func<float, double>>(static _ => 0d) : camera.ToFin(new ImagingFault("world line width", ImagingReason.Uncamera)).Map(view =>
+            meters => meters is 0d || pixels is 0d ? Fin.Succ<Func<float, double>>(static _ => 0d) : camera.ToFin(new ImagingFault("world line width", ImagingReason.CameraRequired)).Map(view =>
                 view.Frustum.Switch(
                     (Frame: pixels, Span: meters * extent.Width / view.Frustum.Window.Width),
                     perspective: static (scale, _) => (Func<float, double>)(depth => double.Min(scale.Span / depth, scale.Frame)),
@@ -278,7 +277,7 @@ public static class Contours {
                     weights.Span.Fill(1f);
                     ReadOnlySpan2D<float> covers = cover.View<float>().GetRowSpan(frame.RowIndex(line))
                         .AsSpan2D(row.Length, cover.NumberOfChannels);
-                    foreach (Vector4 ground in paper.ToSeq())
+                    if (paper.ToSpan() is [var ground])
                         row.Fill(ground);
                     for (int x = 0; x < row.Length; x++) {
                         (Vector3 color, float weight) = (Vector3.Zero, 0f);

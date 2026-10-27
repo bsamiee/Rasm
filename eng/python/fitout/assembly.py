@@ -2,6 +2,7 @@
 
 lazy import ast
 lazy from collections.abc import Callable
+lazy from functools import partial
 lazy from math import ceil, comb, prod, sqrt
 lazy from pathlib import Path, PurePosixPath
 lazy import shutil
@@ -31,7 +32,7 @@ lazy from picosvg.svg_types import SVGShape
 lazy import shapely
 lazy import tomlkit
 
-lazy from eng.python.fitout.faults import Fault
+lazy from eng.python.fitout.faults import Fault, Faults, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -48,25 +49,25 @@ class _Interpreter(msgspec.Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _accumulated[T](head: Result[T, Fault], *others: Result[object, Fault]) -> Result[T, Fault]:
+def _accumulated[T](head: Result[T, Faults], *others: Result[object, Faults]) -> Result[T, Faults]:
     """Returns `head`, else fault of every failed independent outcome."""
-    failures = [*outcome.swap().to_option().to_list() for outcome in (head, *others)]
-    return Error(Fault.joined(failures)) if failures else head
+    failures = tuple(*outcome.swap().default_value(()) for outcome in (head, *others))
+    return Error(failures) if failures else head
 
 
-def _ran(*command: str | Path, stdout: int | None = None, stderr: int | None = None) -> Result[subprocess.CompletedProcess[bytes], Fault]:
+def _ran(*command: str | Path, stdout: int | None = None, stderr: int | None = None) -> Result[subprocess.CompletedProcess[bytes], Faults]:
     """Runs child process, nonzero exit as fault."""
     done = subprocess.run(command, stdout=stdout, stderr=stderr, check=False)
-    return catch(done.check_returncode, exception=subprocess.CalledProcessError)().map(lambda _: done).map_error(Fault.of)
+    return catch(done.check_returncode, exception=subprocess.CalledProcessError)().map(lambda _: done).map_error(partial(Fault.caught, Reason.PROCESS, command[0]))
 
 
-def _interpreter(blender: Path) -> Result[_Interpreter, Fault]:
+def _interpreter(blender: Path) -> Result[_Interpreter, Faults]:
     """Returns Blender Python executable and host extension platform."""
     probe = "import json, sys; from bl_pkg.cli.blender_ext import platform_from_this_system; sys.stderr.write(json.dumps({'executable': sys.executable, 'platform': platform_from_this_system()}))"
     return _ran(blender, "-b", "--factory-startup", "--python-exit-code", "1", "--python-expr", probe, stderr=subprocess.PIPE).map(lambda host: msgspec.json.decode(host.stderr, type=_Interpreter))
 
 
-def _exported(lock: Path, *options: str) -> Result[Path, Fault]:
+def _exported(lock: Path, *options: str) -> Result[Path, Faults]:
     """Returns `lock` holding the locked runtime closure of the project `options` select, workspace members and distributions Blender bundles left out."""
     bundled = (*("--no-emit-package", Requirement(entry).name) for entry in msgspec.toml.decode(Path("pyproject.toml").read_bytes())["tool"]["uv"]["constraint-dependencies"])
     return _ran("uv", "export", "--locked", "--no-default-groups", "--no-hashes", *bundled, *options, "--output-file", lock, stdout=subprocess.DEVNULL).map(lambda _: lock)
@@ -140,7 +141,7 @@ def encoded(master: Path) -> bytes:
 
 def pack(
     source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, maintainer: str, website: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
-) -> Result[int, Fault]:
+) -> Result[int, Faults]:
     """Builds host platform extension archive, first-party packages as submodules and the extension's locked dependency closure as wheels.
 
     Args:
@@ -205,7 +206,7 @@ def pack(
                 _exported(lock, "--no-editable", "--project", str(source)),
                 *(
                     *(
-                        catch(encoded, exception=ValueError)(master).map((previews / f"{master.stem}.dat").write_bytes).map_error(Fault.of),
+                        catch(encoded, exception=ValueError)(master).map((previews / f"{master.stem}.dat").write_bytes).map_error(partial(Fault.caught, Reason.INVALID, master)),
                         _ran("resvg", "--width", "256", "--height", "256", master, previews / f"{master.stem}.png"),
                     )
                     for master in icons.glob("*.svg")
@@ -222,7 +223,7 @@ def pack(
         )
 
 
-def reset[T](folder: Path, made: Callable[[Path], T], /) -> Result[T, Fault]:
+def reset[T](folder: Path, made: Callable[[Path], T], /) -> Result[T, Faults]:
     """Removes `folder` with its tree, a missing one counting as removed, then makes it through `made` under created parents.
 
     Args:
@@ -237,11 +238,11 @@ def reset[T](folder: Path, made: Callable[[Path], T], /) -> Result[T, Fault]:
         .or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error))
         .bind(lambda _: catch(folder.parent.mkdir, exception=OSError)(parents=True, exist_ok=True))
         .bind(lambda _: catch(made, exception=OSError)(folder))
-        .map_error(Fault.of)
+        .map_error(partial(Fault.caught, Reason.UNWRITABLE, folder))
     )
 
 
-def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]) -> Result[int, Fault]:
+def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]) -> Result[int, Faults]:
     """Syncs Blender import folder to distributions `pack` bundles, reinstalling only on version or tag change.
 
     Args:

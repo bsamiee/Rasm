@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Numerics;
 using Rasm.UI.Styling;
 using SkiaSharp;
@@ -6,8 +5,7 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject]
-[ValidationError<Invalid>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class Corners {
     private static readonly Seq<Vector2> Headings = [Vector2.UnitX, Vector2.UnitY, -Vector2.UnitX, -Vector2.UnitY];
 
@@ -21,12 +19,7 @@ public sealed partial class Corners {
     public Option<float> Uniform => TopLeft switch { var first => Seq(TopRight, BottomRight, BottomLeft).ForAll(radius => radius.CompareTo(first) is 0) ? Some(first) : None };
 
     public static Fin<Corners> Validated(float topLeft, float topRight, float bottomRight, float bottomLeft) =>
-        TryCreate(topLeft, topRight, bottomRight, bottomLeft, out Corners? corners, out Invalid? fault) ? corners : fault;
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float topLeft, ref float topRight, ref float bottomRight, ref float bottomLeft) =>
-        validationError = Seq(topLeft, topRight, bottomRight, bottomLeft).ForAll(static radius => float.IsFinite(radius) && radius >= 0f)
-            ? null
-            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"corners ({topLeft}, {topRight}, {bottomRight}, {bottomLeft}) are not finite non-negative radii"));
+        UIFault.Unless(Seq(topLeft, topRight, bottomRight, bottomLeft).ForAll(static radius => float.IsFinite(radius) && radius >= 0f), UIReason.Range).Map(_ => new Corners(topLeft, topRight, bottomRight, bottomLeft));
 
     internal static Corners Round(float radius) => new(radius, radius, radius, radius);
 

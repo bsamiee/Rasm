@@ -4,6 +4,7 @@ from collections.abc import Callable
 from enum import IntEnum
 import functools
 import math
+import sys
 from typing import Annotated, Self
 
 import colour
@@ -23,6 +24,7 @@ from blender.imaging.geometry.frames import Homography, Quad
 from blender.imaging.geometry.panoramas import PanoramaView
 from blender.imaging.geometry.stmaps import StMap
 from blender.records.faults import Fault, Faults, Outcome, paired, RecordReason
+from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -112,26 +114,26 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 # --- [PLACEMENTS]
 
 
-class Mirrored(msgspec.Struct, frozen=True, kw_only=True):
+class Mirrored(Case, frozen=True, kw_only=True):
     """Corner order reversing printed grid."""
 
     area: float
 
 
-class Skewed(msgspec.Struct, frozen=True, kw_only=True):
+class Skewed(Case, frozen=True, kw_only=True):
     """Corner angles outside sampling limits."""
 
     narrowest: float
     widest: float
 
 
-class Wide(msgspec.Struct, frozen=True, kw_only=True):
+class Wide(Case, frozen=True, kw_only=True):
     """Panorama view wider than field-of-view limit."""
 
     field_of_view: float
 
 
-class Clipped(msgspec.Struct, frozen=True, kw_only=True):
+class Clipped(Case, frozen=True, kw_only=True):
     """Patch indices with footprints past clipped source edge."""
 
     patches: tuple[int, ...]
@@ -150,7 +152,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
 
     chart: Chart = Chart.COLORCHECKER_CLASSIC
     quad: Quad = Quad()
-    footprint: Annotated[float, msgspec.Meta(gt=0.0, le=1.0)] = 0.8
+    footprint: Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=1.0)] = 0.8
     panorama: PanoramaView | None = None
 
     @property

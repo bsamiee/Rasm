@@ -49,7 +49,7 @@ blender-mcp = "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdire
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 [tools]
-python                           = "3.15.0"
+python                           = ["3.15.0", "3.13"]
 java                             = "latest"
 node                             = "latest"
 pnpm                             = "latest"

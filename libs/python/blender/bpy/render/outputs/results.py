@@ -51,7 +51,7 @@ class ResultRead(msgspec.Struct, frozen=True, kw_only=True):
             with ExitStack() as stack:
                 deferred = stack.enter_context(identity.reports.deferred(consumed))
                 yield (
-                    SceneHandler(handlers=bpy.app.handlers.render_complete, body=lambda scene: Ok(None if scene.session_uid in INTERMEDIATES.of(identity) else deferred(Handle.of(scene))))
+                    SceneHandler(handlers=bpy.app.handlers.render_complete, body=lambda scene: Ok(None if scene.session_uid in identity.held[INTERMEDIATES] else deferred(Handle.of(scene))))
                     .acquisitions(identity)
                     .bind(lambda pairs: entered(stack, tuple(acquisition for _, acquisition in pairs)))
                 )
@@ -70,7 +70,7 @@ PRODUCTIONS: Final = Scoped[dict[tuple[int, int | None], Option[Production]]](ma
 @contextmanager
 def intermediate(identity: Identity, scene: bpy.types.Scene) -> Generator[None]:
     """Hides scene renders from the extension's completed-image consumers during scope."""
-    held = INTERMEDIATES.of(identity)
+    held = identity.held[INTERMEDIATES]
     held.add(scene.session_uid)
     try:
         yield
@@ -80,14 +80,13 @@ def intermediate(identity: Identity, scene: bpy.types.Scene) -> Generator[None]:
 
 def produced(identity: Identity, image: bpy.types.Image, production: Option[Production]) -> None:
     """Records production facts of displayed slot."""
-    PRODUCTIONS.of(identity)[image.session_uid, image.render_slots.active_index] = production
+    identity.held[PRODUCTIONS][image.session_uid, image.render_slots.active_index] = production
 
 
 def production(identity: Identity, image: bpy.types.Image) -> Outcome[Production]:
     """Returns recorded production facts of displayed slot."""
     return (
-        PRODUCTIONS
-        .of(identity)
+        identity.held[PRODUCTIONS]
         .get((image.session_uid, image.render_slots.active_index), Nothing)
         .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(image), member="production facts"),))
     )

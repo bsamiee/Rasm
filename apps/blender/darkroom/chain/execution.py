@@ -426,7 +426,7 @@ class Execution:
                 )
 
         with self.scope:
-            executing = EXECUTING.of(self.identity)
+            executing = self.identity.held[EXECUTING]
             for source in self.sources:
                 executing.add(source.session_uid)
                 self.scope.callback(executing.remove, source.session_uid)

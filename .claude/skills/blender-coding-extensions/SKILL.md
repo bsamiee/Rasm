@@ -23,7 +23,7 @@ Registration runs under host conditions a release stack answers:
 - `bpy.utils.register_classes_factory` stops at a raise with earlier classes registered, and an extension registers each class on its own stack
 - Pointers or collections naming an unregistered group raise `ValueError` after the print with the class registered, and releases test `is_registered`
 
-`acquired` enters every acquisition into one `ExitStack` and yields once the last succeeds, `register()` entering it into the module release stack and `unregister()` closing that stack:
+`acquired` enters every acquisition into one `ExitStack` and yields once the last succeeds, and `register()` enters it into a module release stack `unregister()` closes:
 
 ```python
 from collections.abc import Generator
@@ -41,10 +41,12 @@ type Keymaps = list[tuple[str, dict[str, str], dict[str, list[tuple[str, dict[st
 @contextmanager
 def acquired() -> Generator[None]:
     def unregistered(cls: type[bpy.types.PropertyGroup | bpy.types.Operator | bpy.types.Panel]) -> None:
-        if cls.is_registered:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        registered: bool = cls.is_registered  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        if registered:
             bpy.utils.unregister_class(cls)
 
     keyconfigs: bpy.types.KeyConfigurations = bpy.context.window_manager.keyconfigs  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    addon: bpy.types.KeyConfig = keyconfigs.addon  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     keymaps: Keymaps = (keyconfig_data_oskey_from_ctrl_for_macos if platform == "darwin" else identity)(  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         [("Object Mode", {}, {"items": [(ITEM_OT_run.bl_idname, {"type": "J", "value": "PRESS", "ctrl": 1}, {"properties": [("amount", 2)]})]})]
     )
@@ -57,7 +59,7 @@ def acquired() -> Generator[None]:
         stack.callback(delattr, bpy.types.Scene, "item_settings")
         bpy.app.handlers.load_post.append(loaded)
         stack.callback(bpy.app.handlers.load_post.remove, loaded)
-        for keymap, content in ((keyconfigs.addon.keymaps.new(name, **params), content) for name, params, content in keymaps):  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
+        for keymap, content in ((addon.keymaps.new(name, **params), content) for name, params, content in keymaps):  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             present = len(keymap.keymap_items)
             keymap_init_from_data(keymap, content["items"])
             for item in keymap.keymap_items[present:]:
@@ -94,7 +96,7 @@ Registered classes take the forms Blender checks at `register_class` and at each
 - Callbacks declaring more or fewer positional parameters than the host passes raise `ValueError` at `register_class`, `*args` counting none (Panel `draw` takes 2)
 - `__init__` overrides take `*args, **kwargs` and pass them to `super().__init__` first, a narrower signature reaching callers as `RuntimeError`
 - Blender builds a new operator, panel, and menu instance per call, and instance attributes reach no later call
-- Panel and menu `bl_idname` values register cut to 63 bytes, and a class under a held idname replaces the earlier class with an `Info` line
+- Panel, menu, list, and render engine `bl_idname` values register cut to 63 bytes, and a class under a held idname replaces the earlier class with an `Info` line
 - Second `register_class` calls on one class raise `ValueError`
 - Unregistering an operator class while it runs modal leaves its `window.modal_operators` entry reading `None` until the next event removes it
 
@@ -121,7 +123,7 @@ Each callback kind pairs one acquisition with one release on the same object, me
 |  [08]   | Command      | `handle = utils.register_cli_command(<id>, fn)`                    | `utils.unregister_cli_command(handle)`               |
 |  [09]   | Manual links | `utils.register_manual_map(fn)`                                    | `utils.unregister_manual_map(fn)`                    |
 |  [10]   | Presets      | `utils.register_preset_path(<folder holding presets/>)`            | `utils.unregister_preset_path(<same path>)`          |
-|  [11]   | Tool         | `utils.register_tool(<tool>)`, its keymap built from `bl_keymap`   | `utils.unregister_tool(<tool>)`, keymap included     |
+|  [11]   | Tool         | `utils.register_tool(<tool>)`                                      | `utils.unregister_tool(<tool>)`                      |
 
 Acquisitions follow host identity rules:
 - Handler lists, timers, UI extensions, manual maps, and message bus keys hold one entry per acquisition call

@@ -71,8 +71,6 @@ Skia converts a source to its destination on draw (unpremultiply, linearize, one
 - `SKImage.ReadPixels(pixmap)` converts across color type, alpha type, and color space on the copy out
 
 ```csharp
-internal sealed record Unreadable(SKImageInfo Target) : Expected("frame refused a linear float read", 0);
-
 internal sealed class SceneSpace(SKColorSpaceXyz gamut) : IDisposable {
     private readonly SKColorSpace space = SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, gamut);
 
@@ -82,7 +80,7 @@ internal sealed class SceneSpace(SKColorSpaceXyz gamut) : IDisposable {
         SKImageInfo linear = frame.Info.WithColorType(SKColorType.RgbaF32).WithAlphaType(SKAlphaType.Unpremul).WithColorSpace(space);
         using SKBitmap bitmap = new(linear);
         using SKPixmap pixels = bitmap.PeekPixels();
-        return frame.ReadPixels(pixels) ? MemoryMarshal.Cast<byte, float>(bitmap.GetPixelSpan()).ToArray() : new Unreadable(linear);
+        return Fault.Unless(frame.ReadPixels(pixels), Reason.Refused, (frame.Width, frame.Height)).Map(_ => MemoryMarshal.Cast<byte, float>(bitmap.GetPixelSpan()).ToArray());
     }
 
     public void Dispose() => space.Dispose();

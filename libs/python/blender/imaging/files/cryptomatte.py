@@ -87,7 +87,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
 
         def counted(ranked: npt.NDArray[np.float32]) -> tuple[npt.NDArray[np.uint32], npt.NDArray[np.float64]]:
             codes, inverse = np.unique(ranked.view(np.uint32)[..., 0::2], return_inverse=True)
-            return codes, np.bincount(inverse.reshape(-1), weights=ranked[..., 1::2].reshape(-1))
+            return codes, np.asarray(np.bincount(inverse.reshape(-1), weights=ranked[..., 1::2].reshape(-1)), dtype=np.float64)
 
         def joined(terms: tuple[tuple[npt.NDArray[np.uint32], npt.NDArray[np.float64]], ...]) -> dict[str, float]:
             codes, inverse = np.unique(np.concatenate((np.empty(0, dtype=np.uint32), *(codes for codes, _ in terms))), return_inverse=True)

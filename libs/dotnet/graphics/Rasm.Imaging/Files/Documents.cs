@@ -60,13 +60,13 @@ public sealed record LayeredDocument {
     private PixelFrame Canvas { get; }
     private Gamut Gamut => Encoding.Map(static encoding => encoding.Gamut).IfNone(Gamut.StandardRgb);
 
-    public static Seq<OutputDepth> Depths => OutputDepth.Where(Table);
+    public static Seq<OutputDepth> Depths => OutputDepth.Where(LayeredDepth);
 
     private static ReadOnlySpan<byte> DataBlock => "Adobe Photoshop Document Data Block\0"u8;
 
     public static Fin<LayeredDocument> From(OutputDepth depth, Option<ColorEncoding> encoding, Seq<DocumentLayer> layers) =>
-        from accepted in (OutputDepth.Sampled("Layered document", depth, Table), CanvasOf(Rasters(layers))).Apply(static (sample, canvas) => (Sample: sample, Canvas: canvas)).As()
-        from buffered in accepted.Sample.Tiff.Depth.Buffered("Layered document", accepted.Canvas.Extent.Width, alpha: true)
+        from accepted in (OutputDepth.Sampled(depth, LayeredDepth), CanvasOf(Rasters(layers))).Apply(static (sample, canvas) => (Sample: sample, Canvas: canvas)).As()
+        from buffered in accepted.Sample.Tiff.Depth.Buffered(accepted.Canvas.Extent.Width, alpha: true)
         select new LayeredDocument(accepted.Sample, encoding, accepted.Canvas, layers);
 
     public PixelFrame Composite() => Isolated(Layers);
@@ -82,7 +82,7 @@ public sealed record LayeredDocument {
             Scanline(Composite()))
         select written;
 
-    private static Option<(TiffSample Tiff, uint Key)> Table(OutputDepth depth) =>
+    private static Option<(TiffSample Tiff, uint Key)> LayeredDepth(OutputDepth depth) =>
         from key in depth.Map<Option<uint>>(
             uInt8: BinaryPrimitives.ReadUInt32BigEndian("Layr"u8),
             uInt10: None,
@@ -91,7 +91,7 @@ public sealed record LayeredDocument {
             uInt16: BinaryPrimitives.ReadUInt32BigEndian("Lr16"u8),
             float16: None,
             float32: BinaryPrimitives.ReadUInt32BigEndian("Lr32"u8))
-        from tiff in StillFormat.TiffRaster.Table(depth)
+        from tiff in StillFormat.TiffRaster.TiffDepth(depth)
         select (Tiff: tiff, Key: key);
 
     private static Seq<DocumentLayer.Raster> Rasters(Seq<DocumentLayer> layers) =>
@@ -112,13 +112,12 @@ public sealed record LayeredDocument {
             .Apply(static (_, _) => unit).As()
         select canvas;
 
-    private PixelFrame Isolated(Seq<DocumentLayer> layers) =>
-        new(Canvas.Origin, Canvas.Size, Canvas.Extent, block => {
-            ReadOnlySpan<Vector4> associated = MemoryMarshal.Cast<float, Vector4>(Flatten(layers, new PixelFrame(Canvas.Origin, Canvas.Size, Canvas.Extent, static cleared => cleared.AsSpan().Clear())).Block);
-            Span<Vector4> straight = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
-            for (int i = 0; i < straight.Length; i++)
-                straight[i] = associated[i].W is 0f or 1f ? associated[i] : new Vector4(associated[i].AsVector3() / associated[i].W, associated[i].W);
-        });
+    private PixelFrame Isolated(Seq<DocumentLayer> layers) {
+        PixelFrame flat = Flatten(layers, new PixelFrame(Canvas.Origin, Canvas.Size, Canvas.Extent, static cleared => cleared.AsSpan().Clear()));
+        foreach (ref Vector4 pixel in flat.View.Span)
+            pixel = pixel.W is 0f or 1f ? pixel : new Vector4(pixel.AsVector3() / pixel.W, pixel.W);
+        return flat;
+    }
 
     private PixelFrame Flatten(Seq<DocumentLayer> layers, PixelFrame backdrop) =>
         layers.Filter(static layer => layer.Visible && layer.Opacity is not 0f).Fold(backdrop, Over);

@@ -146,7 +146,7 @@ Complex value objects compose simple value objects, smart enums, and other compl
 Smart enums declare a fixed set of items as `public static readonly` fields of a `partial` class under `[SmartEnum<TKey>]`, or under `[SmartEnum]` for a keyless set:
 - Each item holds data a consumer reads, a plain `enum` stands only where a host or file format defines the values
 - Consumers read item data or call an item method in place of branching, a struct or subclass per item restates constructor data
-- `Items` is the one list of a set, a menu, preset list, or lookup over the items derives from it (`toSeq(X.Items)`, `X.Items.ToFrozenDictionary(…)`)
+- `Items` is the one list of a set, menus, preset lists, and lookups derive from it (`toSeq(X.Items)`, `X.Items.ToFrozenDictionary(…)`)
 - Keys exist where a consumer parses, stores, or looks an item up, a set nothing reads by key is a keyless `[SmartEnum]`
 
 ```csharp
@@ -281,7 +281,7 @@ Generator gives the base a private constructor, types declared outside the base 
 - Non-abstract cases are no less accessible than the base (056), a nested type that does not derive from the base is 106
 - Positional record cases are the natural form, abstract members hold behavior that needs no dependency
 - Transitions that read context pass it through the `Switch` state overload
-- Cases with an invariant keep a private constructor and a static `Validated` that joins its `Unless` checks under the tuple `Apply`
+- Cases with an invariant keep a private constructor and a static `Validated` over `Unless` checks
 
 ```csharp
 [Union]
@@ -392,15 +392,17 @@ internal sealed partial class TextOrCount {
 
 ## [06]-[VALIDATED_RESULTS]
 
-Generated factories return no result type, `Validate` returns the error beside an `out` value, `TryCreate` a `bool` beside both, and `Create` throws `ValidationException`. Types a `Fin` caller constructs state their rule in their own `Validated` factory:
-- `SkipFactoryMethods = true` keeps the private constructor, equality, and conversion to the key, and drops the factories with the hook
-- `Validated(members)` states the rule once as `Failure.Unless` over the private constructor, the form of a union case with an invariant
-- `Failure` is the package error record dotnet-coding declares, `Reason.Invalid` one of its reasons
-- Hooks under `[ValidationError<Failure>]` stay on a type code never computes and an integration point or `Parse` reads, each runs the hook
-- Types code computes and an integration point reads cross that point as their key or members and enter code through `Validated`
-- Range rules sit in one type per rule implementing `IMinMaxValue<TSelf>`, relative changes saturate into `MinValue` and `MaxValue` before `Validated`
+Generated members return no result type and take no rule delegate, `Validate` returns the error beside an `out` value, `TryCreate` a `bool`, and `Create` throws. Each type a `Fin` caller constructs declares one `Validated`, with `Fault` the package error record dotnet-coding declares:
+- Types no serializer, binder, `TypeConverter`, or `Parse` reads set `SkipFactoryMethods = true` and drop `[ValidationError<Fault>]` with the hook
+- Their `Validated(members)` states the rule once, a numeric range included, as `Fault.Unless(rule, reason, members).Map(_ => new X(members))` over private constructor
+- Members pass as the subject, one value or a tuple, and the message names each with its value, no type writes message text
+- Independent rules join under the tuple `Apply`, a rule per element traverses with its index
+- Types a serializer, binder, `TypeConverter`, or `Parse` reads keep the hook, and `Validated` is `TryCreate(members, out X? x, out Fault? fault) ? x : fault`
+- `[ObjectFactory]` converters on a `SkipFactoryMethods` type cost a `Validate` converting `Fin` back and change a complex type's wire shape
+- Consumers and successors cross through `Validated`, a `Validate` or `TryCreate` call outside the type is a defect
+- Ranges a relative change reaches implement `IMinMaxValue<TSelf>`, the change saturates into `MinValue` and `MaxValue` before `Validated`
 - Absence as the meaning is `X.Validated(raw).ToOption()`
-- Static defaults pass a literal to the private constructor or `Create`, a computed value crosses through `Validated`, the one factory name
+- Literal defaults pass to private constructor inside the type, outside it a hook type's to `Create` and a skipped type's to `Validated(…).ThrowIfFail()`
 
 ```csharp
 [ValueObject<int>(SkipFactoryMethods = true)]
@@ -408,20 +410,24 @@ internal sealed partial class Count : IMinMaxValue<Count> {
     public static Count MinValue { get; } = new(0);
     public static Count MaxValue { get; } = new(100);
 
-    public static Fin<Count> Validated(int value) => Failure.Unless(value >= MinValue && value <= MaxValue, Reason.Invalid).Map(_ => new Count(value));
+    public Fin<Count> Next() => Validated(_value + 1);
+
+    public static Fin<Count> Validated(int value) => Fault.Unless(value >= MinValue && value <= MaxValue, Reason.Invalid, value).Map(_ => new Count(value));
 }
 
-[ComplexValueObject(SkipFactoryMethods = true)]
-internal sealed partial class Span {
-    public double Start { get; }
-    public double End { get; }
+[ValueObject<string>]
+[ValidationError<Fault>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+internal sealed partial class Glyphs {
+    public static Fin<Glyphs> Validated(string value) => TryCreate(value, out Glyphs? glyphs, out Fault? fault) ? glyphs : fault;
 
-    public static Fin<Span> Validated(double start, double end) => Failure.Unless(start <= end, Reason.Invalid).Map(_ => new Span(start, end));
+    static partial void ValidateFactoryArguments(ref Fault? validationError, ref string value) =>
+        validationError = value.Length > 0 && toHashSet(value).Count == value.Length ? null : new Fault(value, Reason.Invalid);
 }
 
 internal static class Crossings {
     public static Fin<Seq<Count>> Counts(Seq<int> raw) => raw.Traverse(Count.Validated).As();
-    public static Option<Span> Present(double start, double end) => Span.Validated(start, end).ToOption();
 }
 ```
 
@@ -495,11 +501,11 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 |  [08]   | Catch-all `switch` arm over a smart enum, union, `Key`, or `Value`   | Generated `Switch` or `Map`                                       |
 |  [09]   | Lambdas without `static` in a `Switch` arm                           | State overload with a `static` lambda                             |
 |  [10]   | `SwitchPartially` where every case matters                           | Exhaustive `Switch`                                               |
-|  [11]   | Ad hoc union declared `partial struct`                               | `partial class`, a struct where a native call requires one        |
+|  [11]   | Ad hoc union declared `partial struct`                               | `partial class`                                                   |
 |  [12]   | `string` failure case beside a `string` success value                | One distinct type per case                                        |
 |  [13]   | Hand-written serializers for an ad hoc union                         | `[ObjectFactory<string>]` with `ToValue` and `Validate`           |
 |  [14]   | `new List<T>()` as an empty `IReadOnlyList<T>` at the BCL boundary   | `Thinktecture.Empty.Collection<T>()`                              |
-|  [15]   | `TryCreate` ternary, `Create` in a `Try`, or `Error.New` by hand     | `SkipFactoryMethods` with the rule in `Validated`                 |
+|  [15]   | Hook bridge on unserialized types, `Create` in a `Try`, `Error.New`  | `SkipFactoryMethods`, `Unless` rule in `Validated`                |
 |  [16]   | `Items` scanned for the item with a matching `Key`                   | `Get(key)`, or `TryGet(key, out item)` where the key can miss     |
 |  [17]   | `switch` or `Equals` over text keys selecting one of a closed set    | `[SmartEnum<string>]` item per key, `TryGet` reads, `Key` writes  |
 |  [18]   | Smart enum or union `ToString` override, or one returning case text  | `Key`, or the consumer's own text through `Map`                   |

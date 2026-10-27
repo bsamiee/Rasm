@@ -23,7 +23,7 @@ from blender.bpy.data.ids.store import Handle, IdName
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, rooted, typed, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import UpdateHandler
-from blender.bpy.extension.identity import Identity, Name
+from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
 from blender.bpy.scene.collections import founded
@@ -520,9 +520,7 @@ def rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scen
 
 def _rig(view_layer: bpy.types.ViewLayer, identity: Identity) -> Outcome[bpy.types.Object]:
     """Returns active object marked as rig empty."""
-    return focused(view_layer).filter_with(
-        lambda item: LightRig.empty.marked(identity, item).is_some(), lambda item: (Fault(reason=BlenderReason.ABSENT, subject=repr(item), member=LightRig.empty.key),)
-    )
+    return focused(view_layer).filter_with(lambda rig: LightRig.empty.marked(identity, rig).is_some(), lambda rig: (Fault(reason=BlenderReason.ABSENT, subject=repr(rig), member=LightRig.empty.key),))
 
 
 def _serving(rig: bpy.types.Object, identity: Identity) -> tuple[tuple[bpy.types.Object, Mark], ...]:
@@ -532,7 +530,7 @@ def _serving(rig: bpy.types.Object, identity: Identity) -> tuple[tuple[bpy.types
 
 def states(identity: Identity, holder: bpy.types.Object) -> Outcome[tuple[Stored[RigState], RigState]]:
     """Returns the rig state store and the state holder keeps, defaults while it holds none."""
-    return identity.name(Name.ATTACHMENT, "rig_state").bind(
+    return identity.identifier("rig_state").bind(
         lambda name: Ok(Stored(name=name, decoder=msgspec.msgpack.Decoder(RigState))).bind(lambda store: store.read(holder).map(lambda found: (store, found.default_with(RigState))))
     )
 

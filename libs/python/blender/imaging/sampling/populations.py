@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 import math
+import sys
 from typing import Annotated
 
 from expression.extra.result import catch
@@ -35,7 +36,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
 
     spacing: Positive = 0.01
     density: Unit = 0.5
-    size: Annotated[float, msgspec.Meta(gt=0.0, le=0.5)] = 0.2
+    size: Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=0.5)] = 0.2
     variation: Unit = 0.5
     spread: NonNegative = 1.0
     softness: Unit = 0.5
@@ -114,7 +115,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
 
 def transmitted(gains: npt.NDArray[np.float64], coverage: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """Returns light passing every nearer disc, the product over `(discs, points)` coverage of one less each disc's gain-weighted coverage."""
-    return np.prod(1.0 - gains[:, None] * coverage, axis=0)
+    return np.asarray(np.prod(1.0 - gains[:, None] * coverage, axis=0), dtype=np.float64)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

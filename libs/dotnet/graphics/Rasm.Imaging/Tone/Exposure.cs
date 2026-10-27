@@ -33,18 +33,17 @@ public sealed class LuminanceSamples {
         }
     }
 
-    public static Fin<LuminanceSamples> Gather(PixelFrame frame, Gamut gamut) =>
-        gamut.Luminance switch {
-            var luminance => Sorted(frame, frame.Window, rgb => Luminance(rgb.X, rgb.Y, rgb.Z, luminance), static (key, _) => key).Map(static keys => new LuminanceSamples(keys)),
-        };
+    public static Fin<LuminanceSamples> Gather(PixelFrame frame, Gamut gamut) {
+        (double R, double G, double B) luminance = gamut.Luminance;
+        return Sorted(frame, frame.Window, rgb => Gamut.RelativeLuminance(rgb.X, rgb.Y, rgb.Z, luminance), static (key, _) => key).Map(static keys => new LuminanceSamples(keys));
+    }
 
     public static Fin<LuminanceSamples> Greatest(PixelFrame frame) =>
         Sorted(frame, frame.Window, static rgb => float.Max(rgb.X, float.Max(rgb.Y, rgb.Z)), static (key, _) => key).Map(static keys => new LuminanceSamples(keys));
 
     public double At(float percentile) => SortedArrayStatistics.QuantileCustom(sorted, percentile, QuantileDefinition.EmpiricalInvCDF);
 
-    public static double Luminance(double red, double green, double blue, (double R, double G, double B) weights) =>
-        (weights.R * red) + (weights.G * green) + (weights.B * blue);
+    public static double Luminance(double red, double green, double blue, (double R, double G, double B) weights) => (weights.R * red) + (weights.G * green) + (weights.B * blue);
 
     internal static ArraySegment<T> Slice<T>(T[] samples, float low, float high) =>
         (int)double.Min(double.Floor(samples.Length * (double)float.Min(low, high)), samples.Length - 1) switch {
@@ -83,7 +82,7 @@ public sealed record Metering(float Low, float High, float Center, FramePosition
             long.Min((long)double.Round(end.Y, MidpointRounding.ToEven), frame.Window.Bottom));
         (double width, double height, float border, (double R, double G, double B) luminance) = (window.Right - window.Left, window.Bottom - window.Top, 1f - Center, gamut.Luminance);
         (double middleX, double middleY) = (window.Left + (width / 2d), window.Top + (height / 2d));
-        return LuminanceSamples.Sorted(frame, window, rgb => LuminanceSamples.Luminance(rgb.X, rgb.Y, rgb.Z, luminance),
+        return LuminanceSamples.Sorted(frame, window, rgb => Gamut.RelativeLuminance(rgb.X, rgb.Y, rgb.Z, luminance),
                 (key, pixel) => (Key: key, Weight: double.Abs(pixel.X + 0.5d - middleX) < width / 4d && double.Abs(pixel.Y + 0.5d - middleY) < height / 4d ? 1f : border))
             .Bind(samples => Metered(samples, window));
     }

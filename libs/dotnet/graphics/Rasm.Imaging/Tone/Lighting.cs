@@ -59,7 +59,7 @@ public static class Lighting {
         PixelFrame analysis = frame.Downscaled(PixelExtent.Analysis);
         (int width, int height) = (analysis.Size.Width, analysis.Size.Height);
         (double R, double G, double B) luminance = gamut.Luminance;
-        double Luma(double red, double green, double blue) => double.Max(LuminanceSamples.Luminance(red, green, blue, luminance), LuminanceSamples.Floor);
+        double Luma(double red, double green, double blue) => double.Max(Gamut.RelativeLuminance(red, green, blue, luminance), LuminanceSamples.Floor);
         (int Left, int Top, int Right, int Bottom) Inset(double fraction) =>
             ((int)double.Floor(width * fraction), (int)double.Floor(height * fraction)) switch {
                 var (x, y) => (x, y, width - x, height - y),

@@ -18,13 +18,15 @@ from mdit_py_plugins.front_matter import front_matter_plugin
 import msgspec
 import regex
 lazy from editorconfig import get_properties
+lazy from expression.extra.result import catch
 lazy from markdown_it.helpers import parseLinkDestination, parseLinkLabel, parseLinkTitle
 lazy from markdown_it.rules_block.table import escapedSplit
 lazy from markdown_it.rules_inline import StateInline
 lazy from markdown_it.token import Token
-lazy from pygments.lexers import get_all_lexers, get_lexer_for_filename
+lazy from pygments.lexers import find_lexer_class_by_name, get_lexer_for_filename
 lazy from pygments.lexers.special import TextLexer
 lazy from pygments.token import Comment, is_token_subtype
+lazy from pygments.util import ClassNotFound
 lazy from wcwidth import wcswidth
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -98,12 +100,12 @@ class _Doc[T](msgspec.Struct, frozen=True):
 
 
 class _Grammar[T](msgspec.Struct, frozen=True):
-    """Parse, text units, fixes, and message-keyed reports of one file grammar."""
+    """Parse, text units, fixes, and each report's message template of one file grammar."""
 
     parse: Callable[[Path, tuple[str, ...]], T]
     texts: Callable[[_Doc[T]], Iterable[_Text]]
     fixes: tuple[Callable[[_Doc[T]], Iterable[_Edit]], ...]
-    reports: frozendict[str, Callable[[_Doc[T]], Iterable[tuple[int, str]]]]
+    reports: frozendict[Callable[[_Doc[T]], Iterable[tuple[int, str]]], str]
 
     def lint(self, path: Path) -> _Doc[tuple[str, ...]]:
         """Lines of `path` after every fix, the count of edits that changed lines, and as parts each `path:line: message` the reports and `_TEXTS` make, in line order."""
@@ -120,7 +122,7 @@ class _Grammar[T](msgspec.Struct, frozen=True):
             lines = tuple(line.removesuffix("\n") for line in file)
         doc = reduce(edited, self.fixes, _Doc(path, lines, self.parse(path, lines)))
         texts = [*self.texts(doc)]
-        ran = (*((message, report(doc)) for message, report in self.reports.items()), *((message, [(t.line, s) for t in texts for s in report(t)]) for message, report in _TEXTS.items()))
+        ran = (*((message, report(doc)) for report, message in self.reports.items()), *((message, [(t.line, s) for t in texts for s in report(t)]) for report, message in _TEXTS.items()))
         hits = sorted(((line, message.format(subject)) for message, found in ran for line, subject in found), key=lambda hit: hit[0])
         return _Doc(path, doc.lines, tuple(f"{path}:{line + 1}: {message}\n" for line, message in hits), doc.fixed)
 
@@ -392,11 +394,9 @@ def _wide(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
 @cache
 def _steps(path: Path, info: str) -> range:
     """Indent steps below the `.editorconfig` space indent size of the `info` language at `path`, none for an unknown language."""
-    match next((patterns[0] for name, aliases, patterns, _ in get_all_lexers() if info in aliases and patterns and name != TextLexer.name), None):
-        case str(pattern) if (props := get_properties(str(path.with_name(pattern.replace("*", path.stem))))).get("indent_style") == "space":
-            return range(2, int(props["indent_size"]))
-        case _:
-            return range(0)
+    patterns = catch(find_lexer_class_by_name, exception=ClassNotFound)(info).map(lambda lexer: () if lexer is TextLexer else lexer.filenames).default_value(())
+    props = get_properties(str(path.with_name(patterns[0].replace("*", path.stem)))) if patterns else {}
+    return range(2, int(props["indent_size"])) if props.get("indent_style") == "space" else range(0)
 
 
 def _shallow(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
@@ -489,25 +489,25 @@ def _orphans(doc: _Doc[tuple[_Note, ...]]) -> list[tuple[int, str]]:
 _COUNTED = regex.compile(
     rf"(?i)(?<!\ba )\b(?:{'|'.join(map(regex.escape, _words(SyntaxTreeNode(_MARKDOWN.parse((Path(__file__).parents[1] / 'references' / 'word-map.md').read_text(encoding='utf-8'))))))})\b(?!-\w)"
 )
-_TEXTS: frozendict[str, Callable[[_Text], list[str]]] = frozendict({
-    "Text opens with an article": lambda t: regex.findall(r"(?i)\A(?:a|an|the)\s+\S", t.raw),
-    "Text opens with a lowercase letter": lambda t: regex.findall(r"\A\p{Ll}", t.raw) if t.capital else [],
-    "Text counts visible items with `{}`": lambda t: _COUNTED.findall(t.prose),
+_TEXTS: frozendict[Callable[[_Text], list[str]], str] = frozendict({
+    (lambda t: regex.findall(r"(?i)\A(?:a|an|the)\s+\S", t.raw)): "Text opens with an article",
+    (lambda t: regex.findall(r"\A\p{Ll}", t.raw) if t.capital else []): "Text opens with a lowercase letter",
+    (lambda t: _COUNTED.findall(t.prose)): "Text counts visible items with `{}`",
 })
 _PAGES = _Grammar(
     _parsed,
     _markdown_texts,
     (_trimmed, _joined, _plain, _leaders, _headings, _labels, _tables, _spacing),
     frozendict({
-        "`{}` is not the one `[TOKEN]` H1": _h1s,
-        "Marker `{}` opens no Markdown list item": _ordinals,
-        "`{}` resolves to no file": _dead,
-        "Table row holds cells past its header columns": _overflows,
-        f"{{}} runs past column {_WIDTH}": _wide,
-        "Fence line `{}` indents by fewer columns than `.editorconfig` sets for its language": _shallow,
+        _h1s: "`{}` is not the one `[TOKEN]` H1",
+        _ordinals: "Marker `{}` opens no Markdown list item",
+        _dead: "`{}` resolves to no file",
+        _overflows: "Table row holds cells past its header columns",
+        _wide: f"{{}} runs past column {_WIDTH}",
+        _shallow: "Fence line `{}` indents by fewer columns than `.editorconfig` sets for its language",
     }),
 )
-_CODE = _Grammar(_noted, _source_texts, (_comments, _unlabeled), frozendict({"Divider `{}` repeats an earlier full divider": _repeats, "Sub divider `{}` precedes first full divider": _orphans}))
+_CODE = _Grammar(_noted, _source_texts, (_comments, _unlabeled), frozendict({_repeats: "Divider `{}` repeats an earlier full divider", _orphans: "Sub divider `{}` precedes first full divider"}))
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 

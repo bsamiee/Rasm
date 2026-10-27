@@ -253,7 +253,7 @@ class Picture[S](Line, frozen=True, kw_only=True):
         """Owns the preview collection, generation counts, and refresh sources, each refresh renewing the drawing."""
 
         def refreshed() -> Outcome[None]:
-            generations = GENERATIONS.of(identity)
+            generations = identity.held[GENERATIONS]
             generations[self.slot] = generations.get(self.slot, 0) + 1
             return redrawn().map(lambda _: None)
 
@@ -271,8 +271,8 @@ class Picture[S](Line, frozen=True, kw_only=True):
         def shown(layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
             for area, region in ((area, region) for area in Option.of_optional(context.area).to_list() for region in Option.of_optional(context.region).to_list()):
                 theme = Theme(space=area.type, region=region.type, preferences=Metrics.read().preferences)
-                key = GENERATIONS.of(identity).get(self.slot, 0)
-                pictured = PREVIEWS.of(identity).picture(self.slot, key, lambda metrics: rendered(theme, metrics))
+                key = identity.held[GENERATIONS].get(self.slot, 0)
+                pictured = identity.held[PREVIEWS].picture(self.slot, key, lambda metrics: rendered(theme, metrics))
                 alerted(layout, pictured)
                 for value in pictured.to_option().bind(lambda icon: icon).to_list():
                     layout.template_icon(icon_value=value, scale=self.scale)

@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using TinyEXR;
@@ -14,17 +15,18 @@ public sealed partial class DisplayDevice {
     private static readonly Luminance Standard = Luminance.FromNits(DynamicRange.Standard.MaxLuminance);
     private static readonly Luminance High = Luminance.FromNits(DynamicRange.High.MaxLuminance);
 
-    public static readonly DisplayDevice Srgb = new("srgb", new ColorEncoding(Gamut.StandardRgb, new Transfer.Srgb()), Standard);
-    public static readonly DisplayDevice DisplayP3 = new("display-p3", new ColorEncoding(Gamut.DisplayP3, new Transfer.Srgb()), Standard);
-    public static readonly DisplayDevice Rec1886 = new("rec1886", new ColorEncoding(Gamut.StandardRgb, Transfer.Gamma.Rec1886), Standard);
-    public static readonly DisplayDevice Rec2020 = new("rec2020", new ColorEncoding(Gamut.Rec2020, Transfer.Gamma.Rec1886), Standard);
-    public static readonly DisplayDevice Rec2100PqHdr = new("rec2100-pq-hdr", new ColorEncoding(Gamut.Rec2020, Transfer.Pq.High), High);
-    public static readonly DisplayDevice Rec2100PqSdr = new("rec2100-pq-sdr", new ColorEncoding(Gamut.Rec2020, Transfer.Pq.High), Standard);
-    public static readonly DisplayDevice Rec2100HlgHdr = new("rec2100-hlg-hdr", new ColorEncoding(Gamut.Rec2020, Transfer.Hlg.High), High);
-    public static readonly DisplayDevice Rec2100HlgSdr = new("rec2100-hlg-sdr", new ColorEncoding(Gamut.Rec2020, Transfer.Hlg.High), Standard);
+    public static readonly DisplayDevice Srgb = new("srgb", new ColorEncoding(Gamut.StandardRgb, new Transfer.Srgb()), Standard, Gamut.StandardRgb);
+    public static readonly DisplayDevice DisplayP3 = new("display-p3", new ColorEncoding(Gamut.DisplayP3, new Transfer.Srgb()), Standard, Gamut.DisplayP3);
+    public static readonly DisplayDevice Rec1886 = new("rec1886", new ColorEncoding(Gamut.StandardRgb, Transfer.Gamma.Rec1886), Standard, Gamut.StandardRgb);
+    public static readonly DisplayDevice Rec2020 = new("rec2020", new ColorEncoding(Gamut.Rec2020, Transfer.Gamma.Rec1886), Standard, Gamut.DisplayP3);
+    public static readonly DisplayDevice Rec2100PqHdr = new("rec2100-pq-hdr", new ColorEncoding(Gamut.Rec2020, Transfer.Pq.High), High, Gamut.Rec2020);
+    public static readonly DisplayDevice Rec2100PqSdr = new("rec2100-pq-sdr", new ColorEncoding(Gamut.Rec2020, Transfer.Pq.High), Standard, Gamut.StandardRgb);
+    public static readonly DisplayDevice Rec2100HlgHdr = new("rec2100-hlg-hdr", new ColorEncoding(Gamut.Rec2020, Transfer.Hlg.High), High, Gamut.Rec2020);
+    public static readonly DisplayDevice Rec2100HlgSdr = new("rec2100-hlg-sdr", new ColorEncoding(Gamut.Rec2020, Transfer.Hlg.High), Standard, Gamut.StandardRgb);
 
     public ColorEncoding Encoding { get; }
     public Luminance Peak { get; }
+    public Gamut LimitingGamut { get; }
 
     public Action<Span<Vector4>> Formed(Gamut working, Gamut scene, Seq<Action<Span<Vector4>>> steps, ColorEncoding signal) {
         Action<Span<Vector4>>[] chain = [.. LutTables.Between(working, scene).Map<Action<Span<Vector4>>>(static step => step.Apply), .. steps, .. signal.To(Encoding)];
@@ -158,14 +160,17 @@ public static class ToneCurves {
     private static Action<Span<Vector4>> Adapted(
         PixelFrame frame, (double R, double G, double B) weights, (double Mean, double Maximum, double Minimum) logs, float intensity, Option<float> contrast, float light, float chromatic) {
         (double red, double green, double blue, long count) = (0d, 0d, 0d, 0L);
-        foreach (Vector4 pixel in frame.View.Span) {
-            Vector4 sample = pixel;
-            Desaturated(new Span<Vector4>(ref sample));
-            (red, green, blue, count) = pixel.W > 0f && double.IsFinite(LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, weights))
-                ? (red + sample.X, green + sample.Y, blue + sample.Z, count + 1L) : (red, green, blue, count);
+        using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(frame.Size.Width);
+        for (int y = 0; y < frame.Size.Height; y++) {
+            ReadOnlySpan<Vector4> row = frame.View.Span.GetRowSpan(y);
+            row.CopyTo(scratch.Span);
+            Desaturated(scratch.Span);
+            for (int x = 0; x < row.Length; x++)
+                (red, green, blue, count) = row[x].W > 0f && double.IsFinite(Gamut.RelativeLuminance(row[x].X, row[x].Y, row[x].Z, weights))
+                    ? (red + scratch.Span[x].X, green + scratch.Span[x].Y, blue + scratch.Span[x].Z, count + 1L) : (red, green, blue, count);
         }
         (double r, double g, double b) = (red / count, green / count, blue / count);
-        double mean = LuminanceSamples.Luminance(r, g, b, weights);
+        double mean = Gamut.RelativeLuminance(r, g, b, weights);
         double scale = double.Exp(-intensity);
         double power = contrast.Match(
             Some: static manual => (double)manual,
@@ -173,7 +178,7 @@ public static class ToneCurves {
         (double globalR, double globalG, double globalB) = (double.Lerp(mean, r, chromatic), double.Lerp(mean, g, chromatic), double.Lerp(mean, b, chromatic));
         return row => {
             foreach (ref Vector4 pixel in row) {
-                double luminance = LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, weights);
+                double luminance = Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, weights);
                 pixel = new Vector4(Mapped(pixel.X, globalR, luminance), Mapped(pixel.Y, globalG, luminance), Mapped(pixel.Z, globalB, luminance), pixel.W);
             }
         };

@@ -5,15 +5,14 @@ using SkiaSharp;
 namespace Rasm.UI.Components;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject]
-[ValidationError<Invalid>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class Progress {
     public long Done { get; }
     public long Total { get; }
+    public Fraction Fraction { get; }
 
-    public Fraction Fraction => Fraction.Create((float)((double)Done / Total));
-
-    public static Option<Progress> Present(long done, long total) => TryCreate(done, total, out Progress? progress) ? progress : None;
+    public static Fin<Progress> Validated(long done, long total) =>
+        UIFault.Unless(total > 0L && done >= 0L && done <= total, UIReason.Range).Bind(_ => Fraction.Validated((float)((double)done / total))).Map(fraction => new Progress(done, total, fraction));
 
     public static Node Meter(Option<Progress> work) =>
         new Node.Flex(PhysicalAxis.Horizontal, work.Map(static progress => (Node)new Node.Box { Role = Role.Span, Width = new Sizing.Percent(progress.Fraction), Height = Sizing.Grow.Unit }).ToSeq()) {
@@ -22,11 +21,6 @@ public sealed partial class Progress {
             Conditions = [Condition.Busy],
             Accessible = new Accessible { Role = AccessRole.ProgressBar, Value = work.Map(static progress => (AccessValue)new AccessValue.Ranged(progress.Done, 0d, progress.Total)) },
         };
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref long done, ref long total) =>
-        validationError = total > 0L
-            ? done is >= 0L && done <= total ? null : new Invalid(string.Create(CultureInfo.InvariantCulture, $"progress {done} lies outside [0, {total}]"))
-            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"progress total {total} is not positive"));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -117,8 +111,10 @@ public sealed record TileCache<TItem>(HashMap<Key, Tile<TItem>> Held, int Revisi
 }
 
 public sealed record Gallery<TItem>(Seq<TItem> Items, Func<TItem, Key> Keyed, Func<TItem, string> Label, TileCache<TItem> Tiles, Func<Seq<Key>, Part.Choice> Choice) where TItem : notnull {
+    private static readonly AxisRange Sides = AxisRange.Validated(32f, 256f).ThrowIfFail();
+
     public Option<float> TileSize { get; init; }
-    public AxisRange TileSizes { get; init; } = AxisRange.Create(32f, 256f);
+    public AxisRange TileSizes { get; init; } = Sides;
     public Factor Aspect { get; init; } = Factor.Unit;
     public LanguageExt.HashSet<Key> Realized { get; init; }
     public Option<Key> Current { get; init; }

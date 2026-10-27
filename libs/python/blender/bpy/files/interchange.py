@@ -17,7 +17,7 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Operator
 from blender.bpy.data.ids.ownership import committed
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, Value
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
@@ -96,7 +96,7 @@ class Interchange[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup](msgspe
                 importing, exporting, extensions = Nothing, Some(row), row.extensions
 
         def named(key: Option[Key]) -> Outcome[Option[str]]:
-            return key.map(lambda held: identity.name(Name.OPERATOR, held).map(Some)).default_value(Ok(Nothing))
+            return key.map(lambda held: identity.name(bpy.types.Operator, held).map(Some)).default_value(Ok(Nothing))
 
         def built(parts: tuple[Option[str], Option[str], str]) -> Acquisitions:
             import_name, export_name, name = parts
@@ -114,7 +114,7 @@ class Interchange[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup](msgspe
             )
             return (*importing.map(lambda row: row.operator).to_list(), *exporting.map(lambda row: row.operator).to_list(), (Band.INTERFACE, kind))
 
-        return paired(named(importing.map(lambda row: row.operator.key)), named(exporting.map(lambda row: row.operator.key)), identity.name(Name.FILE_HANDLER, self.key)).map(built)
+        return paired(named(importing.map(lambda row: row.operator.key)), named(exporting.map(lambda row: row.operator.key)), identity.name(bpy.types.FileHandler, self.key)).map(built)
 
 
 class References(msgspec.Struct, frozen=True, kw_only=True):
@@ -131,7 +131,7 @@ class References(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Exporter(msgspec.Struct, frozen=True, kw_only=True):
-    """Collection exporter over a file handler `bl_idname`, a stock one or an `Interchange` row's `Name.FILE_HANDLER` name."""
+    """Collection exporter over a file handler `bl_idname`, a stock one or an `Interchange` row's `FileHandler` name."""
 
     handler: str
     path: str

@@ -1,22 +1,18 @@
+using System.Diagnostics;
 using System.Globalization;
-using System.Runtime.CompilerServices;
+using Rasm.RhinoCommon.PlugIns;
 using Rhino;
-using Rhino.Runtime;
+using Rhino.PlugIns;
 using Rhino.UI;
 
-namespace Rasm.Rhino;
-
-// --- [TYPES] ---------------------------------------------------------------------------
-public interface IPlugInSink {
-    public void Report(Error error, Type owner, [CallerMemberName] string member = "");
-}
+namespace Rasm.RhinoCommon;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 [ProviderAlias("CommandWindow")]
 public sealed class CommandWindowLoggerProvider : ILoggerProvider {
     public ILogger CreateLogger(string categoryName) => new CommandWindowLogger(categoryName);
 
-    public void Dispose() => Callbacks.Settled(Callbacks.Drained, CancellationToken.None).IfFail(static fault => HostUtils.ExceptionReport(nameof(CommandWindowLoggerProvider), fault.ToException()));
+    public void Dispose() { }
 }
 
 internal sealed class CommandWindowLogger(string category) : ILogger {
@@ -26,15 +22,22 @@ internal sealed class CommandWindowLogger(string category) : ILogger {
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) {
         if (!IsEnabled(logLevel)) return;
-        Callbacks.Started(
-            IO.lift(() => RhinoApp.WriteLine($"{category}: {formatter(state, exception)}")).Map(_ => Optional(exception).Map(static held => Error.New(held)))
-                .Catch(fault => IO.pure(Some(Optional(exception).Map(held => Error.New(held) + fault).IfNone(fault)))).As()
-                .Bind(raised => IO.lift(() => raised.Iter(held => HostUtils.ExceptionReport(category, held.ToException()))))
-            .OnUiThread());
+        string message = $"{category}: {formatter(state, exception)}";
+        _ = Callbacks.Started(IO.lift(() => RhinoApp.WriteLine(exception is null ? message : $"{message}{Environment.NewLine}{exception}")).OnUiThread());
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+public static class PlugInLog {
+    public static PlugInSession Of(object owner) =>
+        (owner as IPlugInLifetime ?? PlugIn.Find(owner.GetType().Assembly) as IPlugInLifetime)?.Session
+        ?? throw new UnreachableException($"{owner.GetType().FullName} resolves to no plug-in session");
+
+    extension(PlugInSession session) {
+        public void Failed(Error error, Type category, string member) => ErrorOps.Log(session.Logger(category), error, member);
+    }
+}
+
 public static class RowText {
     public static CultureInfo Culture => CultureInfo.GetCultureInfo(Localization.CurrentLanguageId);
 
@@ -48,13 +51,13 @@ public static class RowText {
 }
 
 public static partial class ErrorOps {
-    public static string Localize(Error error) => string.Join(Environment.NewLine, Causes(error).Map(static cause => cause.Message));
+    public static string Messages(Error error) => string.Join(Environment.NewLine, Causes(error).Map(static cause => cause.Message));
 
     public static bool Cancellation(Error error) => error.Count is 1 && error.Is(Errors.Cancelled);
 
     public static void Log(ILogger logger, Error error, string member) {
         if (Cancellation(error)) Cancelled(logger, member);
-        else if (logger.IsEnabled(LogLevel.Error)) Failed(logger, member, Localize(error), Causes(error).Choose(static cause => cause.Exception) switch { [] => null, [var single] => single, var many => new AggregateException(many) });
+        else if (logger.IsEnabled(LogLevel.Error)) Failed(logger, member, Messages(error), Causes(error).Choose(static cause => cause.Exception) switch { [] => null, [var single] => single, var many => new AggregateException(many) });
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "{Member} failed with {Message}", SkipEnabledCheck = true)]

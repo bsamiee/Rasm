@@ -16,7 +16,7 @@ from msgspec import UNSET, UnsetType
 from blender.bpy.commands.operators import Answer, Done, Empty, Gesture, Modal, Operator, Travel
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import Native, Struct, struct_at
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisition, Acquisitions, Band, entered
 from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.attachments import annotated, Attached, Attachment, pointed
@@ -137,7 +137,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
         """Names selection property on shared owner or window manager."""
         shared = self.active.root is self.collection.root and self.active.reach == self.collection.reach and isinstance(self.active.root, bpy.types.bpy_struct_meta_idprop)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         root, reach = (self.active.root, self.active.reach) if shared else (bpy.types.WindowManager, Nothing)
-        return identity.name(Name.ATTACHMENT, self.key).map(lambda name: Member(root=root, path=name, reach=reach))
+        return identity.identifier(self.key).map(lambda name: Member(root=root, path=name, reach=reach))
 
     def resolved(self, identity: Identity) -> Outcome[_Listed]:
         """Resolves selection, item members, attached fields, and row draws."""
@@ -218,7 +218,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
             ).map(listed)
 
         held = paired(self.collection.resolved(bpy.types.CollectionProperty).bind(itemized), self.active.resolved())
-        return paired(identity.name(Name.LIST, self.key), held).bind(over)
+        return paired(identity.name(bpy.types.UIList, self.key), held).bind(over)
 
     def uilist(self, listed: _Listed) -> builtins.type[bpy.types.UIList]:
         """Builds list class, filtering when `where` or `order` is set."""

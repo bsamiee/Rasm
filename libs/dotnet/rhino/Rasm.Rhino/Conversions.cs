@@ -1,16 +1,12 @@
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.Drawing;
-using System.Globalization;
+using System.Runtime.CompilerServices;
 using Rhino;
-using Rhino.Commands;
-using Rhino.Display;
-using Rhino.Render;
 using Riok.Mapperly.Abstractions;
-using Wacton.Unicolour;
 
-[assembly: UseStaticMapper(typeof(Rasm.Rhino.Conversions))]
+[assembly: UseStaticMapper(typeof(Rasm.RhinoCommon.Conversions))]
 
-namespace Rasm.Rhino;
+namespace Rasm.RhinoCommon;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Conversions {
@@ -69,62 +65,59 @@ public static class Conversions {
     [UserMapping]
     public static Rectangle Unset(Option<Rectangle> rectangle) => rectangle.IfNone(Rectangle.Empty);
 
-    private static Option<T> Present<T>(T? value, Func<Option<T>, T> unset) =>
-        Optional(value).Filter(held => !EqualityComparer<T>.Default.Equals(held, unset(None)));
-
     [UserMapping]
-    public static Option<Guid> Present(Guid id) => Present(id, Unset);
+    public static Option<Guid> Present(Guid id) => Some(id).Filter(static value => value != Guid.Empty);
 
     [UserMapping]
     public static Option<int> Present(int index) => Some(index).Filter(static value => value >= 0);
 
     [UserMapping]
-    public static Option<uint> Present(uint serial) => Present(serial, Unset);
+    public static Option<uint> Present(uint serial) => Some(serial).Filter(static value => value != 0u);
 
     [UserMapping]
-    public static Option<string> Present(string? text) => Present(text, Unset);
+    public static Option<string> Present(string? text) => Optional(text).Filter(static value => !string.IsNullOrEmpty(value));
 
     [UserMapping]
-    public static Option<double> Present(double scalar) => Present(scalar, Unset);
+    public static Option<double> Present(double scalar) => Some(scalar).Filter(RhinoMath.IsValidDouble);
 
     [UserMapping]
-    public static Option<Point3d> Present(Point3d point) => Present(point, Unset);
+    public static Option<Point3d> Present(Point3d point) => Some(point).Filter(static value => value.IsValid);
 
     [UserMapping]
-    public static Option<Vector3d> Present(Vector3d vector) => Present(vector, Unset);
+    public static Option<Vector3d> Present(Vector3d vector) => Some(vector).Filter(static value => value.IsValid);
 
     [UserMapping]
-    public static Option<float> Present(float scalar) => Present(scalar, Unset);
+    public static Option<float> Present(float scalar) => Some(scalar).Filter(RhinoMath.IsValidSingle);
 
     [UserMapping]
-    public static Option<Plane> Present(Plane plane) => Present(plane, Unset);
+    public static Option<Plane> Present(Plane plane) => Some(plane).Filter(static value => value.IsValid);
 
     [UserMapping]
-    public static Option<Line> Present(Line line) => Present(line, Unset);
+    public static Option<Line> Present(Line line) => Some(line).Filter(static value => value.IsValid);
 
     [UserMapping]
-    public static Option<Arc> Present(Arc arc) => Present(arc, Unset);
+    public static Option<Arc> Present(Arc arc) => Some(arc).Filter(static value => value.IsValid);
 
     [UserMapping]
     public static Option<BoundingBox> Present(BoundingBox box) => Some(box).Filter(static value => value.IsValid);
 
     [UserMapping]
-    public static Option<Transform> Present(Transform xform) => Present(xform, Unset);
+    public static Option<Transform> Present(Transform xform) => Some(xform).Filter(static value => value.IsValid);
 
     [UserMapping]
-    public static Option<ComponentIndex> Present(ComponentIndex index) => Present(index, Unset);
+    public static Option<ComponentIndex> Present(ComponentIndex index) => Some(index).Filter(static value => !value.IsUnset());
 
     [UserMapping]
-    public static Option<CurveOrientation> Present(CurveOrientation orientation) => Present(orientation, Unset);
+    public static Option<CurveOrientation> Present(CurveOrientation orientation) => Some(orientation).Filter(static value => value is not CurveOrientation.Undefined);
 
     [UserMapping]
-    public static Option<PointContainment> Present(PointContainment containment) => Present(containment, Unset);
+    public static Option<PointContainment> Present(PointContainment containment) => Some(containment).Filter(static value => value is not PointContainment.Unset);
 
     [UserMapping]
     public static Option<Color> Present(Color color) => Some(color).Filter(static value => !Same(value, Color.Empty));
 
     [UserMapping]
-    public static Option<Rectangle> Present(Rectangle rectangle) => Present(rectangle, Unset);
+    public static Option<Rectangle> Present(Rectangle rectangle) => Some(rectangle).Filter(static value => !value.IsEmpty);
 
     [UserMapping]
     public static Option<uint> Serial(RhinoDoc? document) => Optional(document).Map(static value => value.RuntimeSerialNumber);
@@ -136,108 +129,32 @@ public static class Conversions {
 
     // --- [TIME]
     [UserMapping]
-    public static Option<LocalDateTime> Present(DateTime value) => Present(value, static _ => DateTime.MinValue).Map(LocalDateTime.FromDateTime);
+    public static Option<LocalDateTime> Present(DateTime value) => Some(value).Filter(static held => held != DateTime.MinValue).Map(LocalDateTime.FromDateTime);
 
     [UserMapping]
     public static Option<LocalDateTime> Present(DateTime? value) => Optional(value).Bind(Present);
 
-    public static Fin<int> Whole(Duration span, Duration step) =>
+    public static Fin<int> Whole(Duration span, Duration step, [CallerArgumentExpression(nameof(span))] string call = "") =>
         Int128.DivRem(span.ToInt128Nanoseconds(), step.ToInt128Nanoseconds()) is var (count, remainder) && remainder == 0 && count >= 0 && count <= int.MaxValue
             ? (int)count
-            : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{span} is no whole count of {step}"));
+            : new RhinoFault(call, RhinoReason.Outside);
 
     // --- [BOUNDS]
-    public static Fin<Unit> Within(int index, int itemCount, string member) =>
-        index >= 0 && index < itemCount ? unit : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{member} index {index} is outside {itemCount} items"));
+    public static Fin<Unit> Within(int index, int itemCount, [CallerArgumentExpression(nameof(index))] string call = "") =>
+        index >= 0 && index < itemCount ? unit : new RhinoFault(call, RhinoReason.Outside, index);
 
-    public static Fin<double> Within(Interval domain, double parameter, string member) =>
-        domain.IncludesParameter(parameter) ? parameter : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{member} parameter {parameter} is outside {domain}"));
+    public static Fin<double> Within(Interval domain, double parameter, [CallerArgumentExpression(nameof(parameter))] string call = "") =>
+        domain.IncludesParameter(parameter) ? parameter : new RhinoFault(call, RhinoReason.Outside);
 
     // --- [TYPES]
-    public static Fin<T> Cast<T>(object value) where T : notnull =>
-        value is T typed ? typed : Error.New($"expected {typeof(T).Name}, got {value.GetType().Name}");
+    public static Fin<T> Cast<T>(object? value, [CallerArgumentExpression(nameof(value))] string call = "") where T : notnull =>
+        value is T typed ? typed : new RhinoFault(call, RhinoReason.Mismatched);
 
     public static Fin<T> Typed<T>(object value, string key) where T : notnull =>
-        value is T typed ? typed : Errors.ParseError($"key {key} holds {value.GetType().Name}, expected {typeof(T).Name}");
-
-    // --- [ANSWERS]
-    public static Fin<Guid> Required(Guid id, string member) => Present(id).ToFin(new Refused(member, Refused.Declined));
-
-    public static Fin<int> Required(int index, string member) => Present(index).ToFin(new Refused(member, Refused.Declined));
-
-    public static Fin<uint> Required(uint serial, string member) => Present(serial).ToFin(new Refused(member, Refused.Declined));
-
-    public static Fin<Seq<TRow>> NonEmpty<TRow>(Seq<TRow> rows, string member) => rows.IsEmpty ? new Refused(member, Refused.Absent) : rows;
-
-    public static Fin<Unit> FromResult(Result result, string member) =>
-        result switch {
-            Result.Success => unit,
-            Result.Cancel or Result.CancelModelessDialog => Errors.Cancelled,
-            Result.Nothing or Result.ExitRhino or Result.UnknownCommand => new Ended(member, result),
-            Result.Failure => new Refused(member, Refused.Declined),
-        };
-
-    public static Fin<Result> ToResult(IO<Unit> effect) => ToResult(Callbacks.Settled(effect, CancellationToken.None));
-
-    public static Fin<Result> ToResult(Fin<Unit> settled) =>
-        settled.Map(static _ => Result.Success).BindFail(static error =>
-            Seq(Result.ExitRhino, Result.Cancel, Result.Nothing, Result.UnknownCommand).Find(error.FoldM(static cause =>
-                cause is Ended ended ? Seq(ended.Result) : cause.Is(Errors.Cancelled) ? Seq(Result.Cancel) : Seq<Result>()).Contains).ToFin(error));
-
-    public static TResult ByKind<TResult>(RenderContent content, Func<RenderMaterial, TResult> material, Func<RenderEnvironment, TResult> environment, Func<RenderTexture, TResult> texture) =>
-        content switch {
-            RenderMaterial found => material(found),
-            RenderEnvironment found => environment(found),
-            RenderTexture found => texture(found),
-            _ => throw new UnreachableException(),
-        };
-
-    [UserMapping(Default = false)]
-    public static RenderContentKind KindOf(RenderContent content) =>
-        ByKind(content, static _ => RenderContentKind.Material, static _ => RenderContentKind.Environment, static _ => RenderContentKind.Texture);
+        value is T typed ? typed : new RhinoFault(key, RhinoReason.Mismatched);
 
     // --- [VALUES]
+    public static Option<T> Found<T>(bool found, T value) => found ? Some(value) : None;
+
     public static bool Same(Color held, Color wanted) => held.ToArgb() == wanted.ToArgb();
-
-    // --- [COLORS]
-    public static (Color4f Light, double Luminance) Peaked(double red, double green, double blue) =>
-        Peaked(new Unicolour(Configuration.Default, ColourSpace.RgbLinear, red, green, blue));
-
-    public static (Color4f Light, double Luminance) Blackbody(double kelvins) =>
-        Peaked(new Unicolour(Configuration.Default, kelvins, Locus.Blackbody));
-
-    private static (Color4f Light, double Luminance) Peaked(Unicolour light) =>
-        Scaled(Scaled(light).MapToRgbGamut()) switch {
-            var peaked => (new Color4f((float)peaked.RgbLinear.R, (float)peaked.RgbLinear.G, (float)peaked.RgbLinear.B, 1f), peaked.Xyz.Y),
-        };
-
-    private static Unicolour Scaled(Unicolour light) =>
-        light.RgbLinear switch {
-            var rgb => double.Max(double.Abs(rgb.R), double.Max(double.Abs(rgb.G), double.Abs(rgb.B))) switch {
-                var peak => new Unicolour(light.Configuration, ColourSpace.RgbLinear, rgb.R / peak, rgb.G / peak, rgb.B / peak),
-            },
-        };
-}
-
-internal static class Patches {
-    [UserMapping(Default = true)]
-    public static int Patched(Option<int> value, [MappingTargetOriginalValue] int original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static double Patched(Option<double> value, [MappingTargetOriginalValue] double original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static bool Patched(Option<bool> value, [MappingTargetOriginalValue] bool original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static Guid Patched(Option<Guid> value, [MappingTargetOriginalValue] Guid original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static Color Patched(Option<Color> value, [MappingTargetOriginalValue] Color original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static Point3d Patched(Option<Point3d> value, [MappingTargetOriginalValue] Point3d original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static Plane Patched(Option<Plane> value, [MappingTargetOriginalValue] Plane original) => value.IfNone(original);
 }

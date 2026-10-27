@@ -24,7 +24,7 @@ from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.snapshots import Endpoints, Scenes, Snapshot
 from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
 from blender.bpy.extension.events.timers import Timer
-from blender.bpy.extension.identity import Identity, Name
+from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.trees import nested
@@ -156,7 +156,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def bound(self, identity: Identity) -> Outcome[Overriding]:
         """Binds override store, frame size, pass routing, and recovery."""
-        return paired(self.override.bound(identity), FrameSize().bound(identity), PassSet().bound(identity), identity.name(Name.ATTACHMENT, "render_restore").map(Recovery.endpoints)).map(
+        return paired(self.override.bound(identity), FrameSize().bound(identity), PassSet().bound(identity), identity.identifier("render_restore").map(Recovery.endpoints)).map(
             lambda parts: Overriding(*parts)
         )
 

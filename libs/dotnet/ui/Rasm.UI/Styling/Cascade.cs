@@ -13,12 +13,12 @@ public sealed record Token(Role Role, Channel Channel) {
 
 public sealed record Ground(SKColorF Under, bool Opaque);
 
-[ComplexValueObject]
-[ValidationError<Invalid>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class ColorScheme {
     private static readonly Token WindowFill = new(Role.Window, Channel.Fill);
     private static readonly Token WindowText = new(Role.Window, Channel.Text);
     private static readonly Token WindowDisabled = new(Role.Window, Channel.Text) { Condition = Condition.Disabled };
+    private static readonly Seq<Token> Required = [WindowFill, WindowText, WindowDisabled];
 
     private static readonly Seq<(Token Token, SKColorF Color)> Signals = [
         (new Token(Role.Window, Channel.Text) { Condition = Condition.Warning }, new Unicolour(ColourSpace.Oklch, 0.77, 0.17, 64).ToSKColorF()),
@@ -43,22 +43,11 @@ public sealed partial class ColorScheme {
         };
 
     public static Fin<ColorScheme> Validated(HashMap<Token, SKColorF> chrome, LanguageExt.HashSet<Condition> conditions, TextFace face, float fontSize) =>
-        TryCreate(chrome, conditions, face, fontSize, out ColorScheme? scheme, out Invalid? fault) ? scheme : fault;
+        (UIFault.Unless(Required.ForAll(chrome.ContainsKey), UIReason.Missing), UIFault.Unless(face.Family.IsSome, UIReason.Missing), UIFault.Unless(!conditions.Contains(Condition.Dark), UIReason.Derived))
+            .Apply((_, _, _) => new ColorScheme(chrome.TryAddRange(Signals), Darkened(chrome, conditions), face, fontSize)).As();
 
-    static partial void ValidateFactoryArguments(
-        ref Invalid? validationError, ref HashMap<Token, SKColorF> chrome, ref LanguageExt.HashSet<Condition> conditions, ref TextFace face, ref float fontSize) {
-        HashMap<Token, SKColorF> stated = chrome;
-        Seq<Token> missing = Seq(WindowFill, WindowText, WindowDisabled).Filter(token => !stated.ContainsKey(token));
-        validationError = (Missing: !missing.IsEmpty, Unfaced: face.Family.IsNone, Darkened: conditions.Contains(Condition.Dark)) switch {
-            { Missing: true } => new Invalid($"theme chrome misses {string.Join(", ", missing.Map(static token => $"{token.Role}.{token.Channel.Key}{token.Condition.Map(static condition => $":{condition.Key}").IfNone("")}"))}"),
-            { Unfaced: true } => new Invalid("theme face states no family"),
-            { Darkened: true } => new Invalid($"theme conditions state {Condition.Dark.Key}, which the window fill and text tokens derive"),
-            _ => null,
-        };
-        if (validationError is not null) return;
-        conditions = chrome[WindowFill].ToUnicolour().Oklch.L < chrome[WindowText].ToUnicolour().Oklch.L ? conditions.Add(Condition.Dark) : conditions;
-        chrome = chrome.TryAddRange(Signals);
-    }
+    private static LanguageExt.HashSet<Condition> Darkened(HashMap<Token, SKColorF> chrome, LanguageExt.HashSet<Condition> conditions) =>
+        chrome[WindowFill].ToUnicolour().Oklch.L < chrome[WindowText].ToUnicolour().Oklch.L ? conditions.Add(Condition.Dark) : conditions;
 
     // --- [COLORS]
     public Option<SKColorF> Color(ColorValue value, RoleStyle style, Option<Series> series = default) =>
@@ -166,7 +155,7 @@ public sealed record RoleStyle {
     public Seq<Filter> Filters => Look.Filters.IfNone([]);
     public SKBlendMode Blend => Look.Blend.IfNone(SKBlendMode.SrcOver);
     public TimingCurve Motion => Look.Motion.IfNone(static () => new TimingCurve.Instant());
-    public Option<ColorValue> Solid => Fills.Choose(static fill => fill.SwitchPartially(@default: static _ => Option<ColorValue>.None, solid: static solid => Some(solid.Color))).Head;
+    public Option<ColorValue> Solid => Fills.Choose(static fill => fill.Under).Head;
 
     internal float HalfStroke => Strokes.IsEmpty ? 0f : Metrics[Metric.Stroke] / 2f;
 
@@ -216,9 +205,8 @@ public static class Styles {
 
     internal static Ground Grounded(Cascade cascade, RoleStyle style, Node node) =>
         node.Role.IsSome && node.Painting.AcceptsBackground
-            ? (style.Solid.Bind(value => cascade.Theme.Color(value, style)).Filter(static color => color.Alpha >= 1f).Map(static color => new Ground(color, Opaque: true))
-               | style.Fills.Choose(static fill => fill.SwitchPartially(@default: static _ => Option<ColorValue>.None, backdrop: static backdrop => Some(backdrop.Fallback), blurred: static blurred => Some(blurred.Tint))).Head
-                   .Bind(value => cascade.Theme.Color(value, style)).Map(static color => new Ground(color, Opaque: false))).IfNone(cascade.Ground)
+            ? style.Solid.Bind(value => cascade.Theme.Color(value, style))
+                .Map(color => new Ground(color.ToUnicolour().Blend(cascade.Ground.Under.ToUnicolour(), BlendMode.Normal).ToSKColorF(), Opaque: color.Alpha >= 1f)).IfNone(cascade.Ground)
             : cascade.Ground;
 
     private static RoleStyle Resolved(ColorScheme theme, Seq<HashMap<Role, Look>> appearances, Seq<HashMap<Role, HashMap<Metric, float>>> metrics,
@@ -253,9 +241,8 @@ public static class Styles {
         (double lightness, double chroma, double hue) = held.Color.ToUnicolour().Oklch.Tuple;
         double floor = held.Ground.WithAlpha(1f).ToUnicolour().Oklch.L;
         Seq<(double From, double To)> spans = lightness >= floor ? [(lightness, 1d), (floor, 0d)] : [(lightness, 0d), (floor, 1d)];
-        return spans.Find(span => Margin(span.To) >= 0d).Match(
-            Some: span => At(Bisection.TryFindRoot(Margin, span.From, span.To, Accuracy, 100, out double shade) ? shade : span.To),
-            None: () => spans.Map(static span => span.To).Map(At).MaxBy(color => Ratio(color, held.Ground)));
+        return spans.Find(span => Margin(span.To) >= 0d).Bind(span => Bisection.TryFindRoot(Margin, span.From, span.To, Accuracy, 100, out double shade) ? Some(At(shade)) : None)
+            .IfNone(() => spans.Map(static span => span.To).Map(At).MaxBy(color => Ratio(color, held.Ground)));
 
         SKColorF At(double shade) => new Unicolour(ColourSpace.Oklch, shade, chroma, double.IsNaN(hue) ? 0d : hue, held.Color.Alpha).MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF();
 

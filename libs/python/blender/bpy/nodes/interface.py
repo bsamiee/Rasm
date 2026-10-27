@@ -11,7 +11,7 @@ import msgspec
 import msgspec.structs
 
 from blender.bpy.data.rna.descriptors import assigned, differing, Value, written
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Faults, Outcome
 from blender.records.fields import Case
@@ -208,7 +208,7 @@ def under[I: Interface](prefix: Key, face: I) -> I:
 
 def slot(identity: Identity) -> Outcome[str]:
     """Returns ID property name holding group item keys, or refused attachment name fault."""
-    return identity.name(Name.ATTACHMENT, "interface")
+    return identity.identifier("interface")
 
 
 def addresses(tree: bpy.types.NodeTree, slot: str) -> dict[Key, str]:

@@ -151,7 +151,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @staticmethod
     def held(identity: Identity) -> Outcome[Renders]:
         """Returns served renders, read from the history file on first use and empty without one."""
-        served = _SERVED.of(identity)
+        served = identity.held[_SERVED]
 
         def absent(faults: Faults) -> Outcome[Renders]:
             match faults:
@@ -161,7 +161,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     return Error(faults)
 
         def filled(renders: Renders) -> Renders:
-            _SERVED.held[identity.package] = msgspec.structs.replace(_SERVED.of(identity), renders=Some(renders))
+            _SERVED.held[identity.package] = msgspec.structs.replace(identity.held[_SERVED], renders=Some(renders))
             return renders
 
         return served.renders.map(Ok).default_with(lambda: Result[Renders, Faults].or_else_with(HistoryStore.record(identity).read(), absent).map(filled))
@@ -178,10 +178,10 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def erased(key: ContentHash) -> Outcome[None]:
             frame, values = HistoryStore.files(identity, key)
-            return accumulated(map(unlinked, (frame, values.path))).bind(lambda _: PREVIEWS.of(identity).dropped(key.hex()))
+            return accumulated(map(unlinked, (frame, values.path))).bind(lambda _: identity.held[PREVIEWS].dropped(key.hex()))
 
         def served(_: Path) -> None:
-            _SERVED.held[identity.package] = msgspec.structs.replace(_SERVED.of(identity), renders=Some(current))
+            _SERVED.held[identity.package] = msgspec.structs.replace(identity.held[_SERVED], renders=Some(current))
 
         return Result[Path, Faults].map(HistoryStore.record(identity).written(current), served).bind(lambda _: accumulated(map(erased, dropped))).map(lambda _: None)
 
@@ -315,8 +315,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             key=content_hash(HistoryStore, PreviewKey.read(key, scale)),
             rank=Rank.SHOWN,
             run=lambda: (
-                PREVIEWS
-                .of(identity)
+                identity.held[PREVIEWS]
                 .tile(key.hex(), key, lambda side: plane.map(Ok).default_with(lambda: self.output(identity, key)).bind(lambda found: fitted(found, side)).map(lambda pixels: Some(Some(pixels))), scale)
                 .map(lambda _: None)
             ),
@@ -324,7 +323,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def jobs(self, identity: Identity, _context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Returns the tile request of every stale stored render from one history read."""
-        previews, scale = PREVIEWS.of(identity), bpy.app.render_preview_size / Metrics.read().unit
+        previews, scale = identity.held[PREVIEWS], bpy.app.render_preview_size / Metrics.read().unit
         return self.held(identity).map(lambda renders: tuple(self.tiled(identity, entry.value) for entry in renders.history.past if not previews.current(entry.value.hex(), entry.value, scale)))
 
     def recorded(self, identity: Identity, scene: bpy.types.Scene, path: str) -> Outcome[Option[str]]:
@@ -490,7 +489,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Binds the stored render rows of the browser, then returns it with previews, the tile feed and startup tiling, the render read, commands, the compare, and the difference mask."""
 
         def listed(_owner: Struct, _context: bpy.types.Context | None) -> tuple[_Row, ...]:
-            previews = PREVIEWS.of(identity)
+            previews = identity.held[PREVIEWS]
             rows = tuple(
                 (
                     entry.value.hex(),
@@ -502,7 +501,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 for renders in identity.reports.reported(self.held)(identity).to_list()
                 for index, entry in enumerate(renders.history.past, 1)
             )
-            _SERVED.held[identity.package] = msgspec.structs.replace(_SERVED.of(identity), rows=rows)
+            _SERVED.held[identity.package] = msgspec.structs.replace(identity.held[_SERVED], rows=rows)
             return rows
 
         _Browsing.__annotations__["shown"].keywords["items"] = listed

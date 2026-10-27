@@ -87,7 +87,7 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
     structural: Option[npt.NDArray[np.float64]]
 
     @classmethod
-    def of(cls, reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: Domain, *, data_range: Annotated[float, msgspec.Meta(gt=0.0)]) -> Outcome[Self]:
+    def of(cls, reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: Domain, *, data_range: float) -> Outcome[Self]:
         """Compares equal-shape planes, `data_range` as SSIM input range."""
         if reference.shape != test.shape:
             return Error((Fault(reason=ImagingReason.MISMATCH, subject=cls.__name__, member=str(reference.shape), cause=str(test.shape)),))

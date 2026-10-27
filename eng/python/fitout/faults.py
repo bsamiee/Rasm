@@ -1,54 +1,59 @@
 """Failure every fitout command returns, with message and exit status."""
 
-lazy from collections.abc import Sequence
+from enum import StrEnum
 lazy import subprocess
 
 import msgspec
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Faults = tuple[Fault, ...]
+
+
+class Reason(StrEnum):
+    """Fitout refusals, each value the message template of its fault."""
+
+    PROCESS = "{subject} failed. {cause}"
+    INVALID = "{subject} is invalid. {cause}"
+    UNWRITABLE = "{subject} is unwritable. {cause}"
+    UNANSWERED = "{subject} gave no answer. {cause}"
+    REMOTE = "{subject} raised in Blender. {cause}"
+
+
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-class Fault(msgspec.Struct, frozen=True):
-    """Failure of a fitout command, rendered as its message and exit status."""
+class Fault(msgspec.Struct, frozen=True, kw_only=True):
+    """Failure of a fitout step, rendered as its message and exit status."""
 
-    message: str
-    status: int = 1
+    reason: Reason
+    subject: str
+    cause: BaseException | str
 
-    @classmethod
-    def joined(cls, faults: Sequence[Fault]) -> Fault:
-        """Fault stating every fault of independent failed steps in order.
+    @property
+    def message(self) -> str:
+        """Report text of the fault."""
+        return self.reason.format(subject=self.subject, cause=self.cause)
 
-        Args:
-            faults: Faults of failed steps, at least one.
-
-        Returns:
-            Lone fault with its exit status, else fault joining every message.
-        """
-        match faults:
-            case [fault]:
-                return fault
-            case _:
-                return cls(message="\n".join(fault.message for fault in faults))
-
-    @classmethod
-    def of(cls, error: Exception) -> Fault:
-        """Fault stating a caught error.
-
-        Args:
-            error: Error a call raised, a group rendered from its leaves.
-
-        Returns:
-            Fault with the error's own text, and a failed child process's exit status.
-        """
-        match error:
+    @property
+    def status(self) -> int:
+        """Exit status of a failed child process, else 1."""
+        match self.cause:
             case subprocess.CalledProcessError(returncode=status):
-                return cls(message=str(error), status=status)
-            case ExceptionGroup(exceptions=leaves):
-                return cls.joined([cls.of(leaf) for leaf in leaves])
+                return status
             case _:
-                return cls(message=str(error))
+                return 1
+
+    @classmethod
+    def caught(cls, reason: Reason, subject: object, error: BaseException) -> Faults:
+        """Faults of a caught error, one per leaf of a group."""
+        match error:
+            case BaseExceptionGroup(exceptions=leaves):
+                return tuple(*cls.caught(reason, subject, leaf) for leaf in leaves)
+            case _:
+                return (cls(reason=reason, subject=str(subject), cause=error),)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Fault"]
+__all__ = ["Fault", "Faults", "Reason"]

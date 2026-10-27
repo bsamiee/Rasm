@@ -94,7 +94,7 @@ internal static class Replacement {
 
 ## [05]-[ADJACENCY]
 
-`Window(2, selector)` over `AsIterable()` reads each element beside its successor as one span, and a quantifier over the results decides the answer: `Exists` answers whether one window matches, `ForAll` answers whether no window disproves the condition, fewer than 2 elements produce no windows, `Exists` returns `false` and `ForAll` returns `true`:
+`Window(2, selector)` over `AsIterable()` reads each element beside its successor as one span, and a quantifier over the results decides the answer: `Exists` whether one window matches, `ForAll` whether no window disproves the condition. Fewer than 2 elements produce no windows, `Exists` then returns `false` and `ForAll` `true`:
 
 ```csharp
 internal static class Adjacency {
@@ -105,7 +105,9 @@ internal static class Adjacency {
 }
 ```
 
-Sorting first and then testing whether any adjacent pair differs by one answers a gap question without a loop. Runs cut where an element and its predecessor disagree are `Segment((current, previous, index) => …)`, runs of one key are `GroupAdjacent`, n-wide neighbors are `Window(n, …)`, and a `Fold` over `Last` and `Init` or a `Zip` with `Tail` restates them.
+Sorting first and then testing whether any adjacent pair differs by one answers a gap question without a loop.
+
+Runs cut where an element and its predecessor disagree are `Segment((current, previous, index) => …)`, runs of one key are `GroupAdjacent`, n-wide neighbors are `Window(n, …)`, and a `Fold` over `Last` and `Init` or a `Zip` with `Tail` restates them.
 
 ## [06]-[PIPELINE]
 

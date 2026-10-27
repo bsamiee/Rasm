@@ -13,8 +13,7 @@ using TinyEXR;
 namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class PixelExtent {
     public static PixelExtent Analysis { get; } = new(256, 256);
 
@@ -29,11 +28,7 @@ public sealed partial class PixelExtent {
             : bound.Height < Height ? new((int)((((long)Width * bound.Height) + Height - 1) / Height), bound.Height) : this;
 
     public static Fin<PixelExtent> Validated(int width, int height) =>
-        TryCreate(width, height, out PixelExtent? extent, out ImagingFault? fault) ? extent : fault;
-
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int width, ref int height) =>
-        validationError = width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height ? null
-            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"extent {width}x{height}"), ImagingReason.Range);
+        ImagingFault.Unless(width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height, ImagingReason.Range, (width, height)).Map(_ => new PixelExtent(width, height));
 }
 
 [ValueObject<float>(ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -68,21 +63,26 @@ public sealed record FramePosition(float X, float Y) {
 
 [SmartEnum<string>]
 public sealed partial class WrapMode {
-    public static readonly WrapMode Black = new("black", static (point, size, offset) => (point + offset) switch {
+    public static readonly WrapMode Black = new("black", windowed: true, tiles: false, border: BorderType.Constant, static (point, size, offset) => (point + offset) switch {
         var center => (double.Clamp(center, 0.5d, size - 0.5d), double.Clamp(center + 0.5d, 0d, 1d) * double.Clamp(size + 0.5d - center, 0d, 1d)),
     });
-    public static readonly WrapMode Clamp = new("clamp", static (point, size, offset) => (double.Clamp(point + offset, 0.5d, size - 0.5d), 1d));
-    public static readonly WrapMode Periodic = new("periodic", static (point, size, offset) => (((point % size) + (offset % size)) % size) switch {
+    public static readonly WrapMode Clamp = new("clamp", windowed: false, tiles: false, border: BorderType.Replicate, static (point, size, offset) => (double.Clamp(point + offset, 0.5d, size - 0.5d), 1d));
+    public static readonly WrapMode Periodic = new("periodic", windowed: false, tiles: true, border: BorderType.Wrap, static (point, size, offset) => (((point % size) + (offset % size)) % size) switch {
         var turn => (turn < 0d ? turn + size : turn, 1d),
     });
-    public static readonly WrapMode Mirror = new("mirror", static (point, size, offset) => (2d * size) switch {
+    public static readonly WrapMode Mirror = new("mirror", windowed: false, tiles: true, border: BorderType.Reflect, static (point, size, offset) => (2d * size) switch {
         var period => double.Abs(((point % period) + (offset % period)) % period) switch { var turn => (double.Min(turn, period - turn), 1d) },
     });
 
-    public bool Tiles => Map(black: false, clamp: false, periodic: true, mirror: true);
+    private readonly bool windowed;
+
+    public bool Tiles { get; }
+    internal BorderType Border { get; }
 
     [UseDelegateFromConstructor]
     public partial (double Point, double Weight) Fold(double point, int size, double offset);
+
+    internal (int Start, int Size) Bounds(int origin, int stored, int extent) => windowed ? (origin, stored) : (0, extent);
 
     internal Option<int> Index(double index, int size) =>
         Fold(index, size, 0.5d) switch {
@@ -125,13 +125,14 @@ public sealed class PixelFrame {
 
     public Fin<Unit> Mutate(Action<SixLabors.ImageSharp.Image<RgbaVector>> edit) {
         Span2D<float> samples = block.AsSpan().AsSpan2D(Size.Width * Size.Height, 4);
-        using SpanOwner<float> rental = SpanOwner<float>.Allocate(samples.Height);
-        Span2D<float> alpha = rental.Span.AsSpan2D(samples.Height, 1);
-        samples.GetColumn(3).CopyTo(alpha.GetColumn(0));
+        using SpanOwner<float> alpha = SpanOwner<float>.Allocate(samples.Height);
+        samples.GetColumn(3).CopyTo(alpha.Span);
         samples.GetColumn(3).Fill(1f);
-        using SixLabors.ImageSharp.Image<RgbaVector> image = SixLabors.ImageSharp.Image.WrapMemory(block.AsMemory().Cast<float, RgbaVector>(), Size.Width, Size.Height);
-        Fin<Unit> edited = Try.lift(() => edit(image)).Run();
-        alpha.GetColumn(0).CopyTo(samples.GetColumn(3));
+        Fin<Unit> edited = Try.lift(() => {
+            using SixLabors.ImageSharp.Image<RgbaVector> image = SixLabors.ImageSharp.Image.WrapMemory(block.AsMemory().Cast<float, RgbaVector>(), Size.Width, Size.Height);
+            edit(image);
+        }).Run();
+        alpha.Span.CopyTo(samples.GetColumn(3));
         return edited;
     }
 
@@ -175,11 +176,7 @@ public static class PixelSampling {
                 return sum;
             (int storedWidth, int storedHeight) = (plane.Width, plane.Height);
             (Point origin, int width, int height) = framing.Match(Some: static frame => (frame.Origin, frame.Extent.Width, frame.Extent.Height), None: () => (Point.Empty, storedWidth, storedHeight));
-            (int boundsX, int boundsY, int boundsWidth, int boundsHeight) = (
-                wrap.Across == WrapMode.Black ? origin.X : 0,
-                wrap.Down == WrapMode.Black ? origin.Y : 0,
-                wrap.Across == WrapMode.Black ? storedWidth : width,
-                wrap.Down == WrapMode.Black ? storedHeight : height);
+            ((int boundsX, int boundsWidth), (int boundsY, int boundsHeight)) = (wrap.Across.Bounds(origin.X, storedWidth, width), wrap.Down.Bounds(origin.Y, storedHeight, height));
             ((double horizontalPoint, double horizontalWeight), (double verticalPoint, double verticalWeight)) =
                 (wrap.Across.Fold(point.X - boundsX, boundsWidth, 0d), wrap.Down.Fold(point.Y - boundsY, boundsHeight, 0d));
             (double x, double y) = (horizontalPoint - 0.5d, verticalPoint - 0.5d);

@@ -378,7 +378,7 @@ Shaders and batches follow host rules:
 - `batch_for_shader` content keys match the shader's attributes, an extra key raising `ValueError`, a missing one `KeyError`, and unequal lengths `ValueError`
 - Batch content takes `float32` numpy arrays shaped `(N, k)`, `k` the attribute width, and `indices=` shares vertices between triangles
 - `float64` content builds and draws nothing with no raise, and a reversed view (`[::-1]`, `np.flipud`) crashes Blender in `batch_for_shader`
-- Shapes of one shader draw as one batch, per-vertex `color` on `FLAT_COLOR` and `POLYLINE_FLAT_COLOR` replacing a `color` uniform and draw per shape
+- Shapes of one shader draw as one batch, per-vertex `color` on `FLAT_COLOR` and `POLYLINE_FLAT_COLOR` replacing a draw per shape under a `color` uniform
 
 Text draws through `blf` over font `0`, the interface font:
 - `blf.size(<font>, <pixels>)` applies no interface scale, and text matching the interface takes `ui_styles[0].widget.points * preferences.system.ui_scale`
@@ -425,7 +425,7 @@ Custom shaders come from `gpu.shader.create_from_info` over a `gpu.types.GPUShad
 - `GPUUniformBuf` values passed to `shader.uniform_block` stay bound to a name through `batch.draw`, an inline buffer freeing before the draw and drawing nothing
 - Sources compile to Metal Shading Language on macOS, MSL keywords (`vertex`, `fragment`, `kernel`) being reserved names
 - Matrix constructors under Metal take one scalar, all scalars, whole columns, or a square matrix, a split column failing to compile
-- Compile errors raise a plain `Exception`, the class a `catch` over the compile names, and log the detail under `gpu.shader`
+- Compile errors raise a plain `Exception` and log the detail under `gpu.shader`
 
 ```python
 @cache
@@ -449,7 +449,7 @@ def tinted() -> Result[gpu.types.GPUShader, Exception]:
     return catch(gpu.shader.create_from_info, exception=Exception)(info)
 ```
 
-`tinted` compiles at its first call and answers that `Result` to every later call with no retry, a first call outside a GPU context holding its `SystemError` for the session.
+`tinted` compiles at its first call and returns the cached `Result` to every later call, a first call outside a GPU context holding its `SystemError` for the session.
 
 Offscreen buffers draw away from the window:
 - `gpu.types.GPUOffScreen(<width>, <height>, format=<format>)` takes `RGBA8`, `RGBA16`, `RGBA16F`, or `RGBA32F`
@@ -493,7 +493,6 @@ Blender translates interface text at draw time in the interface language:
 - `data_` names new data-blocks and group sockets, and `pgettext` ignores every flag
 - `pgettext_n(<text>, <context>)`, imported as `n_`, marks table strings for extraction untranslated, and `iface_` translates them at draw
 - `bpy.app.handlers.translation_update_post` runs after each language or translation flag change, and caches of translated text rebuild there
-- `bpy.props` names default to the identifier as written (`ev_bias`), and labels derive from `bpy.path.display_name(<identifier>)`
-- Acronyms and `use_` booleans take a written label, `display_name` reading them as `Ev Bias` and `Use Region`
+- `bpy.props` names default to the identifier as written (`ev_bias`), and `bpy.path.display_name(<identifier>)` derives labels, misreading acronyms and `use_` booleans as `Ev Bias` and `Use Region`
 - Labels take title case and end in `...` where the action asks for more input, and boolean labels take no `Use`, `Enable`, or `Is`
 - Tooltips open with an imperative verb, describe a toggle's on state, and end with no period

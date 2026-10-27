@@ -30,13 +30,10 @@ public sealed record CellGrid(long Columns, long Rows) {
             Memory2D<Vector4> cells = means.AsMemory().Cast<float, Vector4>().AsMemory2D(rows, columns);
             return cell => cells.Span[(int)cell.Row, (int)cell.Column].AsVector3();
         }
-        foreach (ref Vector4 pixel in plane.GetSpan<Vector4>())
-            pixel = new Vector4(pixel.AsVector3() * pixel.W, pixel.W);
         return cell => Mean(plane, frame, cell);
     }
 
-    private static (long Cell, int Remainder) Coordinate(long pixel, int extent, long cells) =>
-        Floored((Int128)pixel * cells, extent) switch { var (cell, remainder) => ((long)cell, (int)remainder) };
+    private static (long Cell, int Remainder) Coordinate(long pixel, int extent, long cells) => ((long, int))Floored((Int128)pixel * cells, extent);
 
     private static (Int128 Quotient, Int128 Remainder) Floored(Int128 numerator, Int128 denominator) =>
         Int128.DivRem(numerator, denominator) switch {
@@ -49,7 +46,7 @@ public sealed record CellGrid(long Columns, long Rows) {
         if (Columns > frame.Extent.Width || Rows > frame.Extent.Height) {
             Vector4 pixel = plane.Sample(
                 (Interpolated(cell.Column, frame.Extent.Width, Columns), Interpolated(cell.Row, frame.Extent.Height, Rows)),
-                (WrapMode.Black, WrapMode.Black), Vector4.Zero, static (sum, pixel, weight) => sum + (pixel * (float)weight), Some((frame.Origin, frame.Extent)));
+                (WrapMode.Black, WrapMode.Black), Vector4.Zero, static (sum, pixel, weight) => sum + (new Vector4(pixel.AsVector3() * pixel.W, pixel.W) * (float)weight), Some((frame.Origin, frame.Extent)));
             return pixel.W > 0f ? pixel.AsVector3() / pixel.W : Vector3.Zero;
         }
         (double left, double right) = Bounds(cell.Column, frame.Extent.Width, frame.Origin.X, frame.Size.Width, Columns);
@@ -59,7 +56,7 @@ public sealed record CellGrid(long Columns, long Rows) {
             double down = double.Min(y + 1d, bottom) - double.Max(y, top);
             for (int x = (int)double.Floor(left); x < (int)double.Ceiling(right); x++) {
                 Vector4 pixel = plane[y, x];
-                sum += Vector256.Create(pixel.X, pixel.Y, pixel.Z, pixel.W) * (down * (double.Min(x + 1d, right) - double.Max(x, left)));
+                sum += Vector256.Create(pixel.X * pixel.W, pixel.Y * pixel.W, pixel.Z * pixel.W, pixel.W) * (down * (double.Min(x + 1d, right) - double.Max(x, left)));
             }
         }
         return sum.GetElement(3) > 0d

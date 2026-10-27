@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-one-arm-binding-switch
+language: csharp
+severity: error
+utils:
+    read:
+        kind: identifier
+        pattern: $NAME
+        not: {inside: {kind: 'member_access_expression, member_binding_expression', field: name}}
+    other-read:
+        kind: identifier
+        pattern: $OTHER
+        not: {inside: {kind: 'member_access_expression, member_binding_expression', field: name}}
+    prior-read:
+        not: {kind: declaration_pattern}
+        any: [{matches: read}, {has: {stopBy: end, matches: read}}]
+    repeat-read:
+        matches: read
+        any:
+            - inside:
+                stopBy: end
+                kind: 'lambda_expression, anonymous_method_expression, local_function_statement, query_expression'
+                inside: &declaring {stopBy: end, kind: switch_expression_arm, has: {nthChild: 1, kind: declaration_pattern, has: {stopBy: end, kind: identifier, pattern: $NAME}}}
+            - follows: {stopBy: end, matches: prior-read}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: prior-read}, inside: *declaring}
+    shared-argument:
+        kind: argument
+        inside: {kind: argument_list, inside: {kind: invocation_expression}}
+        all:
+            - has: {nthChild: 1, kind: identifier, pattern: $SHARED}
+            - inside: {stopBy: end, kind: switch_expression_arm, follows: {stopBy: end, has: {stopBy: end, kind: identifier, pattern: $SHARED}}}
+    prior-shared-argument:
+        not: {kind: declaration_pattern}
+        any: [{matches: shared-argument}, {has: {stopBy: end, matches: shared-argument}}]
+    late-read:
+        matches: read
+        any:
+            - follows: {stopBy: end, matches: prior-shared-argument}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: prior-shared-argument}, inside: *declaring}
+    late-name:
+        kind: identifier
+        pattern: $NAME
+        inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: late-read}, {has: {stopBy: end, matches: late-read}}]}}
+    reused-name:
+        kind: identifier
+        pattern: $NAME
+        inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: repeat-read}, {has: {stopBy: end, matches: repeat-read}}]}}
+    read-name:
+        kind: identifier
+        pattern: $NAME
+        inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: read}, {has: {stopBy: end, matches: read}}]}}
+    other-read-name:
+        kind: identifier
+        pattern: $OTHER
+        not: {pattern: $NAME}
+        inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: other-read}, {has: {stopBy: end, matches: other-read}}]}}
+    binding-arm:
+        kind: switch_expression_arm
+        all:
+            - has: {nthChild: 1, kind: declaration_pattern, pattern: $PATTERN, all: [{has: {field: type, kind: implicit_type}}, {not: {has: {kind: discard}}}]}
+            - not: {has: {kind: when_clause}}
+            - not: {has: {nthChild: 1, has: {stopBy: end, matches: reused-name}}}
+            - not: {has: {nthChild: 1, has: {stopBy: end, matches: late-name}}}
+            - not: {has: {nthChild: 1, all: [{has: {stopBy: end, matches: read-name}}, {has: {stopBy: end, matches: other-read-name}}]}}
+rule:
+    kind: switch_expression
+    all:
+        - has: {nthChild: 1, pattern: $VALUE}
+        - not: {has: {kind: switch_expression_arm, nthChild: {position: 2, ofRule: {kind: switch_expression_arm}}}}
+        - has: {matches: binding-arm}
+message: 'One-arm switch binds `$PATTERN` for at most one read'
+note: 'Write `$VALUE` at the read and drop the switch'

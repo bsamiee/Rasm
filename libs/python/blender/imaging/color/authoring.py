@@ -5,7 +5,7 @@ import copy
 from enum import auto, Enum
 import pathlib
 import shutil
-from typing import Any, Final, Self
+from typing import Any, Final
 
 from expression import Error, Ok, Option
 from expression.extra.result import catch
@@ -13,7 +13,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.imaging.color.luts import LutFormat
-from blender.imaging.color.processors import interop
+from blender.imaging.color.processors import called, interop
 from blender.imaging.faults import ImagingReason
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.fields import Case
@@ -28,10 +28,10 @@ class DynamicRange(Enum):
     STANDARD = auto()
     HIGH = auto()
 
-    @classmethod
-    def of(cls, space: PyOpenColorIO.ColorSpace) -> Self:
+    @staticmethod
+    def of(space: PyOpenColorIO.ColorSpace) -> "DynamicRange":
         """Classifies display colorspace by its OCIO encoding, HIGH for hdr-video or edr-video."""
-        return cls.HIGH if space.getEncoding() in {"hdr-video", "edr-video"} else cls.STANDARD
+        return DynamicRange.HIGH if space.getEncoding() in {"hdr-video", "edr-video"} else DynamicRange.STANDARD
 
     @staticmethod
     def absolute(space: PyOpenColorIO.ColorSpace) -> bool:
@@ -58,9 +58,7 @@ class ConfigFile(Case, frozen=True, kw_only=True):
 
     def opened(self) -> Outcome[PyOpenColorIO.Config]:
         """Opens the configuration, a color fault for one OCIO cannot read."""
-        return catch(catch(PyOpenColorIO.Config.CreateFromFile, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(self.path).map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
-            lambda error: (Fault(reason=ImagingReason.COLOR, subject=self.path, cause=error),)
-        )
+        return called(PyOpenColorIO.Config.CreateFromFile, self.path, self.path)
 
 
 class EnvironmentConfig(Case, frozen=True):
@@ -69,9 +67,7 @@ class EnvironmentConfig(Case, frozen=True):
     @staticmethod
     def opened() -> Outcome[PyOpenColorIO.Config]:
         """Opens the configuration, a color fault for one OCIO cannot read."""
-        return catch(catch(PyOpenColorIO.Config.CreateFromEnv, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)().map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
-            lambda error: (Fault(reason=ImagingReason.COLOR, subject=PyOpenColorIO.OCIO_CONFIG_ENVVAR, cause=error),)
-        )
+        return called(PyOpenColorIO.Config.CreateFromEnv, PyOpenColorIO.OCIO_CONFIG_ENVVAR)
 
 
 # --- [BUILDS]
@@ -213,14 +209,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Published path, or `color` and `write` faults.
         """
-        return committed(
-            path,
-            lambda stage: self.staged(base, stage.parent).bind(
-                lambda config: catch(catch(config.archive, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(str(stage)).map_error(
-                    lambda error: (Fault(reason=ImagingReason.COLOR, subject=str(path), cause=error),)
-                )
-            ),
-        )
+        return committed(path, lambda stage: self.staged(base, stage.parent).bind(lambda config: called(config.archive, str(path), str(stage))))
 
     def installed(self, base: PyOpenColorIO.Config, folder: pathlib.Path) -> Outcome[pathlib.Path]:
         """Replaces `folder` whole with rows merged into `base` and their files.

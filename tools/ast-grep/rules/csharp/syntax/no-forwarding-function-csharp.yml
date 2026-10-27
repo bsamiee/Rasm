@@ -3,6 +3,18 @@ id: no-forwarding-function-csharp
 language: csharp
 severity: error
 utils:
+    trait-member:
+        kind: method_declaration
+        all:
+            - has: {kind: modifier, regex: '^public$'}
+            - has: {kind: modifier, regex: '^static$'}
+            - inside:
+                kind: declaration_list
+                inside:
+                    all:
+                        - has: {field: name, pattern: $TRAIT_OWNER}
+                        - not: {has: {kind: type_parameter_list}}
+                        - has: {kind: base_list, has: {kind: generic_name, has: {kind: type_argument_list, has: {kind: identifier, pattern: $TRAIT_OWNER}}}}
     plain-parameter:
         kind: parameter
         not:
@@ -212,6 +224,7 @@ rule:
                     - kind: method_declaration
                     - inside: {kind: declaration_list, inside: {has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^I[A-Z]\w*$'}}}}}}}
                     - has: {kind: modifier, regex: '^public$'}
+                - matches: trait-member
                 - matches: mapperly-mapping-method
         - any:
             - all:

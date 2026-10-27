@@ -1,4 +1,3 @@
-using System.Globalization;
 using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra;
 using SuperLinq;
@@ -16,27 +15,21 @@ public sealed record HermiteSpline {
             new CubicBezier(pair[0].Point, pair[0].Point + (pair[0].Out / 3d), pair[1].Point - (pair[1].In / 3d), pair[1].Point))).Strict();
     public Seq<CubicBezier> Spans { get; }
 
-    public static Fin<HermiteSpline> Through(Seq<HermiteStation> stations) => SpatialFault.Unless(stations.Count >= 2, SpatialRule.Count).Map(_ => new HermiteSpline(stations, closed: false));
+    public static Fin<HermiteSpline> Through(Seq<HermiteStation> stations) => SpatialFault.Unless(stations.Count >= 2, SpatialRule.Count, stations.Count).Map(_ => new HermiteSpline(stations, closed: false));
 
     public static Fin<HermiteSpline> Tcb(Seq<Vector3D<double>> points, double tension, double continuity, double bias, bool closed) =>
-        (SpatialFault.Unless(points.Count >= 2, SpatialRule.Count), SpatialFault.Unless(double.IsFinite(tension) && double.IsFinite(continuity) && double.IsFinite(bias), SpatialRule.Range))
+        (SpatialFault.Unless(points.Count >= 2, SpatialRule.Count, points.Count), SpatialFault.Unless(double.IsFinite(tension) && double.IsFinite(continuity) && double.IsFinite(bias), SpatialRule.Range, (tension, continuity, bias)))
             .Apply((_, _) => (Before: (1d - tension) * (1d + bias) / 2d, After: (1d - tension) * (1d - bias) / 2d) switch {
                 var lean => new HermiteSpline(toSeq((Seq(closed ? points[^1] : points[0] + (points[0] - points[1])) + points + Seq(closed ? points[0] : points[^1] + (points[^1] - points[^2])))
                     .AsIterable().Window(3, span => (Before: span[1] - span[0], After: span[2] - span[1]) switch {
-                        var chords => new HermiteStation(
-                            span[1],
-                            (lean.Before * (1d - continuity) * chords.Before) + (lean.After * (1d + continuity) * chords.After),
-                            (lean.Before * (1d + continuity) * chords.Before) + (lean.After * (1d - continuity) * chords.After)),
+                        var chords => new HermiteStation(span[1], (lean.Before * (1d - continuity) * chords.Before) + (lean.After * (1d + continuity) * chords.After), (lean.Before * (1d + continuity) * chords.Before) + (lean.After * (1d - continuity) * chords.After)),
                     })).Strict(), closed),
             }).As();
 }
 
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<SpatialFault>]
+[ValueObject<double>(SkipFactoryMethods = true)]
 public sealed partial class ConicRho {
-    public static Fin<ConicRho> Validated(double value) => TryCreate(value, out ConicRho? rho, out SpatialFault? fault) ? rho : fault;
-    static partial void ValidateFactoryArguments(ref SpatialFault? validationError, ref double value) =>
-        validationError = value is > 0d and < 1d ? null : new SpatialFault(string.Create(CultureInfo.InvariantCulture, $"conic rho {value}"), SpatialRule.Range);
+    public static Fin<ConicRho> Validated(double value) => SpatialFault.Unless(value is > 0d and < 1d, SpatialRule.Range, value).Map(_ => new ConicRho(value));
 }
 
 public sealed record RationalQuadratic {
@@ -53,15 +46,16 @@ public sealed record RationalQuadratic {
     private static Vector3D<double> Branch(double a, double b, double t) => new(a * Math.Cosh(t), b * Math.Sinh(t), 0d);
 }
 
-[ComplexValueObject]
-[ValidationError<SpatialFault>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class HomogeneousGrid {
     public Matrix<double> X { get; }
     public Matrix<double> Y { get; }
     public Matrix<double> Z { get; }
     public Matrix<double> W { get; }
 
-    public static Fin<HomogeneousGrid> Validated(Matrix<double> x, Matrix<double> y, Matrix<double> z, Matrix<double> w) => TryCreate(x, y, z, w, out HomogeneousGrid? grid, out SpatialFault? fault) ? grid : fault;
+    public static Fin<HomogeneousGrid> Validated(Matrix<double> x, Matrix<double> y, Matrix<double> z, Matrix<double> w) =>
+        SpatialFault.Unless(x.RowCount >= 2 && x.ColumnCount >= 2 && Seq(y, z, w).ForAll(component => component.RowCount == x.RowCount && component.ColumnCount == x.ColumnCount), SpatialRule.Shape, Seq(x, y, z, w).Map(static grid => (grid.RowCount, grid.ColumnCount)))
+            .Map(_ => new HomogeneousGrid(x, y, z, w));
 
     internal static HomogeneousGrid Paraboloid(double curvatureU, double curvatureV) =>
         new(Matrix<double>.Build.DenseOfRowArrays([0d, 0d, 0d], [1d, 0d, 0d], [0d, 0d, 0d]), Matrix<double>.Build.DenseOfRowArrays([0d, 1d, 0d], [0d, 0d, 0d], [0d, 0d, 0d]),
@@ -73,12 +67,6 @@ public sealed partial class HomogeneousGrid {
     private static Matrix<double> Basis(int degree, ParameterSpan span) =>
         Matrix<double>.Build.Dense(degree + 1, degree + 1, (row, power) => SpecialFunctions.Binomial(row, power) / SpecialFunctions.Binomial(degree, power))
         * Matrix<double>.Build.Dense(degree + 1, degree + 1, (power, column) => power <= column ? SpecialFunctions.Binomial(column, power) * Math.Pow(span.Start, column - power) * Math.Pow(span.Length, power) : 0d);
-
-    static partial void ValidateFactoryArguments(ref SpatialFault? validationError, ref Matrix<double> x, ref Matrix<double> y, ref Matrix<double> z, ref Matrix<double> w) =>
-        validationError = (Rows: x.RowCount, Columns: x.ColumnCount) switch {
-            { Rows: >= 2, Columns: >= 2 } shape when Seq(y, z, w).ForAll(component => component.RowCount == shape.Rows && component.ColumnCount == shape.Columns) => null,
-            var shape => new SpatialFault(string.Create(CultureInfo.InvariantCulture, $"homogeneous grid of {shape.Rows} by {shape.Columns}"), SpatialRule.Shape),
-        };
 }
 
 public sealed record PolynomialPatch {
@@ -92,8 +80,7 @@ public sealed record PolynomialPatch {
     public static PolynomialPatch Paraboloid(double curvatureU, double curvatureV, ParameterSpan u, ParameterSpan v) => new(HomogeneousGrid.Paraboloid(curvatureU, curvatureV), u, v);
 }
 
-[ComplexValueObject]
-[ValidationError<SpatialFault>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class BezierVolume {
     public int UDegree { get; }
     public int VDegree { get; }
@@ -101,15 +88,12 @@ public sealed partial class BezierVolume {
     public Seq<Vector3D<double>> Controls { get; }
 
     public Vector3D<double> At(Vector3D<double> uvw) =>
-        Seq((Degree: UDegree, At: uvw.X), (Degree: VDegree, At: uvw.Y), (Degree: WDegree, At: uvw.Z))
-            .Fold(Controls, static (net, axis) => toSeq(net.Chunk(axis.Degree + 1)).Map(row => toSeq(row)
-                .Map((point, index) => SpecialFunctions.Binomial(axis.Degree, index) * Math.Pow(axis.At, index) * Math.Pow(1d - axis.At, axis.Degree - index) * point)
-                .Fold(new Vector3D<double>(0d, 0d, 0d), static (sum, term) => sum + term)).Strict())[0];
+        Controls.Zip(Seq(Bernstein(VDegree, uvw.Y), Bernstein(WDegree, uvw.Z)).Fold(Bernstein(UDegree, uvw.X), static (tensor, axis) => from weight in axis from held in tensor select weight * held))
+            .Fold(new Vector3D<double>(0d, 0d, 0d), static (sum, term) => sum + (term.Second * term.First));
 
-    public static Fin<BezierVolume> Validated(int uDegree, int vDegree, int wDegree, Seq<Vector3D<double>> controls) => TryCreate(uDegree, vDegree, wDegree, controls, out BezierVolume? volume, out SpatialFault? fault) ? volume : fault;
+    public static Fin<BezierVolume> Validated(int uDegree, int vDegree, int wDegree, Seq<Vector3D<double>> controls) =>
+        (SpatialFault.Unless(uDegree >= 1 && vDegree >= 1 && wDegree >= 1, SpatialRule.Range, (uDegree, vDegree, wDegree)), SpatialFault.Unless(controls.Count == (uDegree + 1L) * (vDegree + 1L) * (wDegree + 1L), SpatialRule.Count, controls.Count))
+            .Apply((_, _) => new BezierVolume(uDegree, vDegree, wDegree, controls)).As();
 
-    static partial void ValidateFactoryArguments(ref SpatialFault? validationError, ref int uDegree, ref int vDegree, ref int wDegree, ref Seq<Vector3D<double>> controls) =>
-        validationError = uDegree >= 1 && vDegree >= 1 && wDegree >= 1
-            ? controls.Count == (uDegree + 1L) * (vDegree + 1L) * (wDegree + 1L) ? null : new SpatialFault(string.Create(CultureInfo.InvariantCulture, $"bezier volume of {controls.Count} controls"), SpatialRule.Count)
-            : new SpatialFault(string.Create(CultureInfo.InvariantCulture, $"bezier volume degrees ({uDegree}, {vDegree}, {wDegree})"), SpatialRule.Range);
+    private static Seq<double> Bernstein(int degree, double at) => toSeq(Range(0, degree + 1)).Map(index => SpecialFunctions.Binomial(degree, index) * Math.Pow(at, index) * Math.Pow(1d - at, degree - index)).Strict();
 }

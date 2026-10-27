@@ -4,6 +4,7 @@ from collections.abc import Iterable, Mapping
 from enum import IntEnum
 import math
 import pathlib
+import sys
 from typing import Annotated, ClassVar, Self
 
 from expression import Error, Nothing, Ok, Option, Some
@@ -111,7 +112,7 @@ class LutFormat(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def matrices(cls) -> tuple[Self, ...]:
         """Returns formats both `GroupTransform` and `Baker` write."""
-        return tuple(row for row in cls.writable() if row in cls.bakeable())
+        return tuple(filter(frozenset(cls.bakeable()).__contains__, cls.writable()))
 
 
 class Uniform(Case, frozen=True, kw_only=True):
@@ -126,7 +127,7 @@ class Logarithmic(Case, frozen=True, kw_only=True):
     """Nodes evenly spaced in stops, scene zero on first node."""
 
     low: Annotated[float, msgspec.Meta(ge=-24.0, le=16.0)] = -10.0
-    span: Annotated[float, msgspec.Meta(gt=0.0, le=40.0)] = 20.0
+    span: Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=40.0)] = 20.0
 
 
 class Rational(Case, frozen=True):
@@ -211,10 +212,15 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
 
         def encoded(item: tuple[str, PyOpenColorIO.GroupTransform]) -> Outcome[tuple[str, str]]:
             path, source = item
+
+            @catch(exception=PyOpenColorIO.Exception)
+            def exact() -> str:
+                return source.write(formatName=self.format.name, config=PyOpenColorIO.Config())
+
             return (
                 self.lattice
                 .map(lambda lattice: baked(source, lattice))
-                .default_with(lambda: catch(source.write, exception=PyOpenColorIO.Exception)(formatName=self.format.name, config=PyOpenColorIO.Config()).map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),)))
+                .default_with(lambda: exact().map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),)))
                 .map(lambda text: (path, text))
             )
 
