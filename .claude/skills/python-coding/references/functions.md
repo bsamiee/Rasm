@@ -1,160 +1,144 @@
 # [FUNCTIONS]
 
-Covers functions as values, from decorators that read a declaration at import to pipelines of unary steps.
+Covers functions as values, from bound dependencies and operator families to dispatch, iteration, recursion, pipelines, and records of functions.
 
-## [01]-[DECORATORS]
+## [01]-[SPECIALIZATION]
 
-`Command` holds a decorated function and types each call through its parameters `P` and return `R`, and `Body` adds the `__name__` its key reads. `@Command` over a module-level `def build_all(target: str, *, clean: bool = False) -> int` keeps its signature and derives key `build-all`:
-
-```python
-class Body[**P, R](Protocol):
-    __name__: str
-
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R: ...
-
-
-class Command[**P, R](msgspec.Struct, frozen=True):
-    __wrapped__: Body[P, R]
-
-    @property
-    def key(self) -> str:
-        return self.__wrapped__.__name__.replace("_", "-")
-
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
-        return self.__wrapped__(*args, **kwargs)
-
-
-@Command
-def build_all(target: str, *, clean: bool = False) -> int:
-    return 0 if clean else len(target)
-```
-
-- Calls through a record check against `P`, and `build_all(1)` or a keyword for a positional-only parameter fails mypy and ty
-- Records over one function compare and hash equal (`Command(build_all.__wrapped__) == build_all`), a table keyed by record holds each function once
-
-Class declarations derive through a base hook when each entry is a type with class attributes. `ClassVar` declarations on `Rule` type every attribute its hook writes, and each subclass states its docstring and pattern alone:
-
-```python
-class Rule:
-    code: ClassVar[str]
-    pattern: ClassVar[re.Pattern[str]]
-
-    @override
-    def __init_subclass__(cls) -> None:
-        super().__init_subclass__()
-        if cls.__doc__ is None:
-            raise TypeError(cls.__qualname__)
-        cls.code = "-".join(word.lower() for word in re.findall(r"[A-Z][a-z\d]*", cls.__name__))
-
-    def hit(self, line: str, /) -> bool:
-        return self.pattern.search(line) is not None
-
-
-class TrailingSpace(Rule):
-    """Line ends in whitespace."""
-
-    pattern = re.compile(r"\s$")
-
-
-class HardTab(Rule):
-    """Line holds a tab."""
-
-    pattern = re.compile(r"\t")
-```
-
-- `TrailingSpace.code` is `trailing-space` once its class statement runs, checkers type it through the base `ClassVar[str]`
-- Subclasses of a subclass run the same hook, `class TrailingTab(TrailingSpace)` derives `trailing-tab`
-
-## [02]-[REGISTRIES]
-
-Registries derive from declarations a module holds, each new entry is one declaration, and module state is one frozen table built at import. Function registries read module namespace for their decorator's record type, class registries read their base's direct subclasses:
-
-```python
-@Command
-def remove(target: str, /) -> int:
-    return len(target)
-
-
-COMMANDS: frozendict[str, Command[..., int]] = frozendict({entry.key: entry for entry in globals().values() if isinstance(entry, Command)})
-RULES: frozendict[str, type[Rule]] = frozendict({rule.code: rule for rule in Rule.__subclasses__()})
-```
-
-- Tables sit after the last declaration they read, a declaration below a table stays out of it
-- `COMMANDS` reads every `Command` its namespace binds, a command imported by name joins it
-- `isinstance` narrows each namespace value to its record type, and declared table types need no cast
-- `__subclasses__()` lists direct subclasses in definition order, `TrailingTab` stays out of `RULES`
-
-Select the form by the call site:
-
-| [INDEX] | [CALL_SITE]                            | [FORM]                                                                                      |
-| :-----: | :------------------------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | Lookup table built once                | `frozendict` keyed by object answering lookup (enum member, final leaf type, tuple of both) |
-|  [02]   | Implementations other modules register | `functools.singledispatch`, dispatch follows MRO and ABC registration                       |
-|  [03]   | Short-circuiting boolean               | `any` or `all` over a generator                                                             |
-|  [04]   | Threshold decision                     | `bisect` over sorted breaks indexes a label tuple                                           |
-
-`RATES` answers per enum member, `rate` finds its member through `bisect`, and `rendered` dispatches on the first parameter each `register` implementation annotates:
-
-```python
-class Tier(StrEnum):
-    DEPLETED = "depleted"
-    LOW = "low"
-    HEALTHY = "healthy"
-
-
-RATES: frozendict[Tier, float] = frozendict({Tier.DEPLETED: 0.5, Tier.LOW: 1.0, Tier.HEALTHY: 2.0})
-
-
-def rate(volts: float, /) -> float:
-    return RATES[(Tier.DEPLETED, Tier.LOW, Tier.HEALTHY)[bisect((3.2, 3.6), volts)]]
-
-
-def drained(readings: tuple[float, ...], /) -> bool:
-    return any(volts < 3.2 for volts in readings)
-
-
-@singledispatch
-def rendered(value: object, /) -> str:
-    return repr(value)
-
-
-@rendered.register
-def _(value: Decimal, /) -> str:
-    return f"{value:.2f}"
-```
-
-- Tables keyed by a tuple of members hold every combination, `TABLE[kind, tier]` reads one, and a missing pair raises `KeyError` as a defect
-- Dict displays keyed by subclasses of one `msgspec.Struct` base fail mypy, an annotated tuple of pairs passes both checkers
-- Implementations in another module register when their module imports, and the dispatcher's module imports none of them
-
-## [03]-[SPECIALIZATION]
-
-Handlers take each dependency as the function they call, and composition binds it once through `partial`. `sized` reads bytes through `Reader` and checks a limit, production binds `disk`, and a probe binds `fixed` over chosen content. `Fault`, `Outcome`, and `Reason` are the package faults:
+Handlers take each dependency as the function they call, and composition binds it once through `partial`. `sized` reads bytes through `Reader` and checks a limit, production binds `content`, and a probe binds `fixed` over chosen bytes. `Fault`, `Outcome`, and `Reason` are the package faults, and `content` is the package byte reader:
 
 ```python
 type Reader = Callable[[Path], Outcome[bytes]]
 
 
-def disk(path: Path, /) -> Outcome[bytes]:
-    return catch(path.read_bytes, exception=OSError)().map_error(lambda error: (Fault(reason=Reason.UNREADABLE, subject=str(path), cause=error),))
+def fixed(data: bytes, _path: Path, /) -> Outcome[bytes]:
+    return Ok(data)
 
 
 def sized(read: Reader, limit: int, path: Path, /) -> Outcome[int]:
-    return read(path).map(len).filter_with(lambda size: size <= limit, lambda size: (Fault(reason=Reason.OUTSIDE, subject=str(path), member=f"at most {limit} bytes", cause=str(size)),))
+    return read(path).map(len).filter_with(lambda size: size <= limit, partial(Fault.of, Reason.OUTSIDE, str(path), member=f"at most {limit} bytes"))
 
 
-def fixed(content: bytes, _path: Path, /) -> Outcome[bytes]:
-    return Ok(content)
-
-
-handled: Callable[[Path], Outcome[int]] = partial(sized, disk, 4096)
+handled: Callable[[Path], Outcome[int]] = partial(sized, content, 4096)
 probe: Callable[[Path], Outcome[int]] = partial(sized, partial(fixed, b"abc"), 2)
 ```
 
+`probe(Path("x"))` fails with `x accepts at most 2 bytes, not 3`:
 - Both checkers check arguments a `partial` binds, and mypy accepts the `partial[R]` it infers in any `Callable` slot returning `R`
 - `partial` values keep their remaining parameters under ty, and a slot with other parameters fails
+- Nested partials flatten (`partial(partial(f, a), b).func is f`), and a call-site keyword overrides a bound one
 
-## [04]-[PIPELINES]
+## [02]-[OPERATOR_FAMILIES]
+
+Members that differ by the function they apply are one method and one `partialmethod` per member. `Vec` writes its componentwise rule once, and each operator binds the `operator` function it applies:
+
+```python
+class Vec(msgspec.Struct, frozen=True):
+    x: float
+    y: float
+
+    def _zipped(self, op: Callable[[float, float], float], other: Vec | float, /) -> Vec:
+        match other:
+            case Vec(x=x, y=y):
+                return Vec(op(self.x, x), op(self.y, y))
+            case _:
+                return Vec(op(self.x, other), op(self.y, other))
+
+    __add__ = partialmethod(_zipped, operator.add)
+    __sub__ = partialmethod(_zipped, operator.sub)
+    __mul__ = partialmethod(_zipped, operator.mul)
+    __truediv__ = partialmethod(_zipped, operator.truediv)
+```
+
+`(Vec(1.0, 2.0) + Vec(3.0, 4.0)) * 2.0 - 1.0` returns `Vec(7.0, 11.0)`, and `sum(vectors, start=Vec(0.0, 0.0))` folds with no accumulator:
+- Both checkers type each operator's result as `Vec` and check no operand, the method's own `match` decides every operand type
+- Reflected operators (`__radd__`) bind a swapping operator function, `partialmethod(_zipped, lambda a, b: b - a)` for `__rsub__`
+- Expression trees take the same form, each operator building a node of its operation in place of one method per node kind
+
+## [03]-[DISPATCH]
+
+Decisions over values read a table built once or a member that states the decision. `graded` maps each error to a grade through sorted breaks, and `max` reads the worst grade from the `IntEnum` order:
+
+```python
+class Grade(IntEnum):
+    PASS = 0
+    WARN = 1
+    FAIL = 2
+
+
+BREAKS: tuple[float, ...] = (0.5, 0.9)
+
+
+def graded(errors: Iterable[float], /) -> Grade:
+    return max((Grade(bisect(BREAKS, error)) for error in errors), default=Grade.PASS)
+```
+
+`Grade` values count the breaks below each grade, and an empty input grades `PASS` through `default`. Select the form by the decision:
+
+| [INDEX] | [DECISION]                             | [FORM]                                                                        |
+| :-----: | :------------------------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | Lookup table built once                | `frozendict` keyed by the object answering it (enum member, leaf type, tuple) |
+|  [02]   | Threshold                              | `bisect` over sorted breaks into an `IntEnum` or a label tuple                |
+|  [03]   | Worst or best of a set                 | `max` or `min` over an `IntEnum` with `default=`                              |
+|  [04]   | Short-circuiting boolean               | `any` or `all` over a generator                                               |
+|  [05]   | Implementations other modules register | `functools.singledispatch`                                                    |
+
+- Tables keyed by a tuple of members hold every combination, `TABLE[kind, tier]` reads one, and a missing pair raises `KeyError` as a defect
+- Tables keyed by a type resolve a subclass through `next(TABLE[base] for base in kind.__mro__ if base in TABLE)`
+
+## [04]-[ITERATION]
+
+Iterators produce values lazily and once, and a consumer that stops early computes only what it read. Select the member by the operation:
+
+| [INDEX] | [OPERATION]      | [MEMBER]                                              |
+| :-----: | :--------------- | :---------------------------------------------------- |
+|  [01]   | Parallel walk    | `zip(a, b, strict=True)`                              |
+|  [02]   | Neighbor pairs   | `pairwise`, `pairwise((None, *items, None))` for ends |
+|  [03]   | Fixed chunks     | `batched(items, size, strict=True)`                   |
+|  [04]   | Running fold     | `accumulate(items, f, initial=seed)`                  |
+|  [05]   | Single fold      | `reduce(f, items, seed)`                              |
+|  [06]   | Consecutive runs | `groupby` over input ordered by key                   |
+|  [07]   | Host cursor      | `takewhile(advance, count())`                         |
+|  [08]   | Chunked reads    | `iter(partial(stream.read, size), b"")`               |
+|  [09]   | Transpose        | `zip(*rows)`, `for a, b in [zip(*pairs)]` to bind it  |
+
+`numbered` holds a two-level counter as `accumulate` state, each heading at depth 1 opening a new section and every other heading counting inside it:
+
+```python
+def numbered(depths: Iterable[int], /) -> tuple[tuple[int, int], ...]:
+    return tuple(accumulate(depths, lambda at, depth: (at[0] + 1, 0) if depth == 1 else (at[0], at[1] + 1), initial=(0, 0)))[1:]
+```
+
+`numbered((1, 2, 2, 1, 2))` returns `((1, 0), (1, 1), (1, 2), (2, 0), (2, 1))`, and the slice drops the seed `accumulate` yields first:
+- Fold seeds are their operator's identity (`0`, `1`, `()`), and a fold returns its seed for empty input
+- Generator functions separate producing values from transforming them, each stage takes an iterable and delegates through `yield from`
+- Second passes over a spent iterator read nothing, and a value read twice is a `tuple`
+
+## [05]-[RECURSION]
+
+Recursive functions need a base case that returns a final value, a recursive case that moves closer to it, and a returned value on every path. Python performs no tail-call optimization and bounds recursion depth, and depth and successor sharing select the form:
+
+| [INDEX] | [APPROACH]                   | [USE_WHEN]                            | [COST]                         |
+| :-----: | :--------------------------- | :------------------------------------ | :----------------------------- |
+|  [01]   | Recursive `match` with `*`   | Tree depth small and bounded          | Each level grows the stack     |
+|  [02]   | `reduce` or `accumulate`     | Linear recursion over a sequence      | `reduce` keeps no intermediate |
+|  [03]   | `graphlib.TopologicalSorter` | Shared successors in an acyclic graph | `prepare` raises `CycleError`  |
+|  [04]   | `deque` worklist with `seen` | Cyclic successors                     | Mutation stays inside the walk |
+
+Recursive folds return a tuple per node and flatten children through unpacking (`tuple(*leaves(child) for child in node.children)`). `generations` yields each batch of nodes with every predecessor done, one batch per longest-path layer:
+
+```python
+def generations[K: Hashable](graph: Mapping[K, Iterable[K]], /) -> Iterator[tuple[K, ...]]:
+    sorter = TopologicalSorter(graph)
+    sorter.prepare()
+    while sorter.is_active():
+        ready = sorter.get_ready()
+        sorter.done(*ready)
+        yield ready
+```
+
+`graph` maps each node to its predecessors, `{"c": ("a", "b"), "b": ("a",), "d": ()}` yields `a` and `d`, then `b`, then `c`, and nodes of one batch can run in parallel. Sorters are local state their generator owns, and `static_order()` serves a flat order.
+
+## [06]-[PIPELINES]
 
 Pipelines name a composition of unary steps once and apply it where each value enters. `slug` normalizes text left to right, and `tier` pipes text through `slug` into a raising enum lookup that `catch` converts:
 
@@ -163,12 +147,40 @@ slug: Callable[[str], str] = compose(str.strip, str.casefold, partial(re.compile
 
 
 def tier(text: str, /) -> Outcome[Tier]:
-    return pipe(text, slug, catch(Tier, exception=ValueError)).map_error(lambda error: (Fault(reason=Reason.INVALID, subject=repr(text), cause=error),))
+    return pipe(text, slug, catch(Tier, exception=ValueError)).map_error(partial(Fault.of, Reason.INVALID, repr(text)))
 ```
 
+`Tier` is a `StrEnum` with a `"high-water"` member, and `tier(" High_Water ")` returns it:
 - Unbound methods (`str.strip`, `str.casefold`) are unary steps over their subject
 - Steps fixing a later argument bind a method of the fixed object, `partial(pattern.sub, "-")` leaves the text parameter open
 - `catch(Tier, exception=ValueError)` keeps `Tier` as its value type
 - `compose` takes at most nine steps and `pipe` sixteen, a longer call matches no overload, and a long chain splits into named compositions
 - Composition is associative and `compose()` is the identity, regrouping steps into named parts keeps behavior
 - `Result.pipe` and `Option.pipe` apply functions to the container, `map` and `bind` apply them to its value
+
+## [07]-[STRATEGIES]
+
+Behavior that varies by format or backend is a generic record of functions with one instance per variant, in place of a base class and a subclass per variant. `Grammar` holds parse, unit, and rule functions over its own parse type, and `REPORTS` holds grammars of different parse types as their bound `report` methods:
+
+```python
+class Grammar[T](msgspec.Struct, frozen=True, kw_only=True):
+    parse: Callable[[str], T]
+    units: Callable[[T], Iterable[tuple[int, str]]]
+    rules: frozendict[Callable[[str], bool], str]
+
+    def report(self, text: str, /) -> tuple[str, ...]:
+        return tuple(f"{line}: {message}" for line, unit in self.units(self.parse(text)) for rule, message in self.rules.items() if rule(unit))
+
+
+PROSE = Grammar(parse=str.splitlines, units=lambda lines: enumerate(lines, start=1), rules=frozendict({str.isupper: "shouts", (lambda unit: unit != unit.rstrip()): "trails"}))
+CODE = Grammar(
+    parse=lambda text: tokenize.generate_tokens(io.StringIO(text).readline),
+    units=lambda tokens: ((token.start[0], token.string) for token in tokens if token.type == tokenize.COMMENT),
+    rules=frozendict({str.isupper: "shouts"}),
+)
+REPORTS: frozendict[str, Callable[[str], tuple[str, ...]]] = frozendict({".md": PROSE.report, ".py": CODE.report})
+```
+
+`REPORTS[".py"]("x = 1  # LOUD\n")` returns `("1: shouts",)`:
+- Both checkers infer `T` from `parse` (`Grammar[list[str]]` for `str.splitlines`) and type each later lambda parameter from it
+- `T` is invariant, read by `parse` and taken by `units`, and a `frozendict[str, Grammar[object]]` refuses both instances

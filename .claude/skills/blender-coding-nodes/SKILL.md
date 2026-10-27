@@ -5,10 +5,14 @@ description: "Use when writing or reviewing Python over a Blender node tree, cov
 
 # [BLENDER_CODING_NODES]
 
-Covers `bpy` code over node trees, from reaching a tree and its sockets to fields, interfaces, zones, and modifier and compositor effect inputs.
+Covers `bpy` code over node trees.
 
 - Use `blender-coding` for data references, host faults, and evaluation
 - Use `blender-coding-render` for compositor effect stacks and strips
+
+[REFERENCES]:
+- [01]-[EXPRESSIONS](references/expressions.md): Node graphs as expression values, from operator algebra to lowering by content key
+- [02]-[EVALUATION](references/evaluation.md): Tree evaluation, stock nodes computing values for code, modifier inputs and outputs, and bakes
 
 ## [01]-[TREES]
 
@@ -32,7 +36,7 @@ Tree kinds decide node classes and socket types:
 - Stock nodes resolve by `bl_idname` and state, `tree.get_output_node("ALL")` in shader trees and `NodeGroupOutput` with `is_active_output` in groups
 - Modifier-type geometry editors swap a written `space.node_tree` for the active modifier's tree at next redraw while `space.pin` is off
 
-Group flags and stock content follow host rules:
+Groups take flags for pickers and tools, and host members build and inline stock content:
 - `is_modifier`, `is_strip_modifier`, and `allow_usage_in_scene_compositor_effect` list a group in pickers and asset menus
 - `node_group` writes take any tree of the kind whatever its flags
 - Group node `node_tree` writes of another tree kind or a tree containing the host (`tree.contains_tree(other)`) leave `node_tree` empty with no raise
@@ -46,28 +50,27 @@ Group flags and stock content follow host rules:
 
 ## [02]-[SOCKETS]
 
-Mode sockets take one shape per node:
-- Mix and Math hold every mode's variants (`A_Float`, `A_Vector`, `A_Rotation`, `Value_001`), and enabled sockets in input order are a mode's operands after its `data_type` or `operation` write
+Mode writes (`data_type`, `operation`) enable sockets or retype them by node:
+- Mix and Math hold sockets for every mode (`A_Float`, `A_Vector`, `A_Rotation`, Math `Value_002`), and enabled sockets in input order are the mode's operands
 - Socket positions on Mix and Math count disabled variants
 - Switch, Compare, Sample Index, Index Switch, Store Named Attribute, Random Value, and Boolean Math hold one socket per role
 - Mode writes on one-socket nodes retype each socket under its identifier with its links and drop sockets the mode lacks (Boolean Math `NOT`)
 - Code writes mode members before reads, writes, and links on sockets they enable
 - Sockets held across a retyping mode write crash Blender at their next read
 - `is_unavailable` reads true on disabled sockets, `is_inactive` on those and sockets the mode leaves unused (Switch `True` while `Switch` is false)
-- String keys (`inputs[key]`, `get`, `find`) match an enabled socket's display name alone, `inputs["Value_001"]` raising `KeyError`
-- Iteration by `identifier` reaches every socket, disabled ones included
+- String keys (`inputs[key]`, `get`, `find`) match an enabled socket's identifier or display name and miss every disabled socket (Math `Value_001` under `SINE`)
+- Iteration matching `identifier` reaches every socket, disabled ones included
 
 Compositor nodes take every option through input sockets, and geometry nodes take some (Merge by Distance `Mode`, Raycast `Interpolation`):
 - Mode choices are `MENU` sockets (Glare `Type`, Blur `Type`, Scale `Frame Type`), `default_value` taking the item name case for case
 - Stock menu sockets read empty `bl_rna.properties["default_value"].enum_items`, and the `TypeError` of a wrong name lists valid names
-- Compositor node classes hold no settings, and comparisons read their socket defaults
+- Compositor node comparisons read socket defaults alone
 
 Socket values take per-class shapes:
 - Vector defaults hold 2, 3, or 4 components by class (`NodeSocketVector2D`), colors 4, rotations an `Euler`
 - `socket.bl_rna.properties["default_value"].array_length` reads the live length
 - Matrix, Geometry, Shader, Bundle, and Closure sockets hold no `default_value`
 - Group Input, Group Output, zone, and item nodes end socket lists with virtual sockets (`NodeSocketVirtual`, identifiers starting `__extend__`)
-- `NodeSocket.links` scans `tree.links` on each read and lists muted links, and reads over many sockets group one `tree.links` pass by endpoint
 - Keyframes and drivers on socket defaults sit in the tree's `animation_data` at `socket.path_from_id("default_value")`
 
 ## [03]-[FIELDS]
@@ -77,8 +80,6 @@ Geometry tree sockets take single values or fields, and a field computes per ele
 - `inferred_structure_type` reads what reaches a socket (`SINGLE`, `FIELD`, `DYNAMIC`) in geometry and compositor trees and `DYNAMIC` in shader trees
 - Unlinked implicit inputs (Set Position `Position`) read `FIELD`
 - Fields entering `CIRCLE` sockets (Math, Vector Math) make the node's outputs `FIELD`
-- Fields evaluate on the consuming node's `domain`, values from another domain interpolating (Face Area stored on `POINT` averages adjacent faces)
-- Capture Attribute holds `domain` on the node, its sockets taking identifiers `Value`, `Value_1` in and `Attribute`, `Attribute_1` out
 
 ## [04]-[LINKS]
 
@@ -93,7 +94,28 @@ Geometry tree sockets take single values or fields, and a field computes per ele
 - `link.is_muted` mutes a link in place, the target reading its own default
 - `nodes.remove(node)` removes the node's links, a held node raising `ReferenceError` and a held link reading `None` endpoints with no raise
 
-Multi-input order resolves every position from one read of `socket.links`, then swaps sort ids slot by slot:
+`NodeSocket.links` scans `tree.links` on each read and lists muted links, and walks over a tree index one `tree.links` pass by target node:
+
+```python
+from functools import reduce
+from graphlib import TopologicalSorter
+
+import bpy
+
+
+def upstream(tree: bpy.types.NodeTree, root: bpy.types.Node) -> tuple[bpy.types.Node, ...]:
+    feeding: dict[bpy.types.Node, set[bpy.types.Node]] = {root: set()}
+    for link in tree.links:
+        if link.is_valid and not link.is_muted:
+            feeding.setdefault(link.to_node, set()).add(link.from_node)  # type: ignore[arg-type]  # ty: ignore[no-matching-overload]
+    order: tuple[bpy.types.Node, ...] = tuple(TopologicalSorter(feeding).static_order())
+    reached: set[bpy.types.Node] = reduce(lambda held, node: held | feeding.get(node, set()) if node in held else held, reversed(order), {root})
+    return tuple(node for node in order if node in reached)
+```
+
+`upstream` returns sources first and `root` last, leaving out nodes no valid unmuted link connects to `root`.
+
+Multi-input reorders read `socket.links` once, then swap sort ids slot by slot:
 
 ```python
 from collections.abc import Iterator
@@ -119,14 +141,13 @@ def stacked(socket: bpy.types.NodeSocket, sources: tuple[bpy.types.NodeSocket, .
 - `sources` lists output sockets top first, a source linked twice appearing twice and taking its next link, other sources' links keeping their slots
 - Absent positions report together before any swap, leaving the order as found
 
-Geometry and compositor trees convert link values through one table:
+Geometry and compositor trees convert link values by type pair:
 - Floats, integers, and booleans convert among each other and into vectors and colors, a scalar filling every channel and color alpha reading 1
 - Floats and integers read true above zero, vectors true with any nonzero component, colors true through luminance
-- Floats convert to integers truncating toward zero
-- Vectors convert to floats as the component mean, colors as luminance
+- Floats convert to integers truncating toward zero, vectors to floats as component mean, and colors as luminance
 - Vectors and colors convert into each other, a vector taking alpha 1 and a color dropping alpha
-- Rotations take floats and vectors as XYZ Euler angles in radians, and matrices through their rotation part
-- Rotations convert to vectors as Euler angles and to matrices alone, and matrices convert to rotations alone
+- Rotations take floats and vectors as XYZ Euler radians and matrices through their rotation part, and convert to Euler vectors and matrices
+- Matrices convert to rotations alone
 - Strings, menus, bundles, closures, geometry, and data-blocks link to their own type alone
 
 Other tree kinds validate links by their own rules:
@@ -142,9 +163,8 @@ Links read `is_valid` false for:
 - Zone-internal value reaching a node downstream of the zone output
 - Field reaching a `LINE` input
 
-`is_valid` follows host rules:
-- `links.new` sets `is_valid` at creation, and a topology change recomputes it, overwriting a Python write
-- Passes over `tree.links` find false links, and the node editor alone draws why
+`links.new` sets `is_valid` at creation, and topology changes recompute it, overwriting Python writes:
+- Passes over `tree.links` find false links, `node_warnings` holding no entry for them and the node editor alone drawing why
 - Evaluation ignores `is_valid`, unconvertible pairs leaving targets at the stored `default_value` and fields handing `LINE` inputs the type's zero
 
 ## [05]-[ZONES_AND_ITEMS]
@@ -184,16 +204,17 @@ Item collections (`capture_items`, `bake_items`, `bundle_items`, `index_switch_i
 - Collections take `remove(item)`, `clear()`, and `move(from_index, to_index)`, an index past the range moving nothing
 - `enum_items` and `rasterize_items` take `new(name)`, `index_switch_items` and `combine_list_items` take `new()`
 - Repeat and For Each items hold `socket_type`, Simulation items add `attribute_domain`, Bake items `attribute_domain` and `is_attribute`
-- For Each generation items hold `domain`, and closure, Evaluate Closure, and bundle items hold `structure_type`
+- For Each generation items hold `domain`, Capture Attribute holding `domain` on the node, and closure, Evaluate Closure, and bundle items hold `structure_type`
 - Item sockets follow collection order after the node's fixed sockets and take each item rename
 - Item socket identifiers come from a counter per node (`Item_<n>`, For Each `Input_<n>`, `Main_<n>`, `Generation_<n>`) that `clear()` keeps
+- Capture items take identifiers `Value`, `Value_1` on inputs and `Attribute`, `Attribute_1` on outputs
 - Repeat Output starts with one `Geometry` item in geometry trees and none in shader trees, `Item_0` on both zone nodes once paired
 - Menu Switch starts with items `A` and `B` and `GEOMETRY` data in geometry trees, `RGBA` in others
 - Menu Switch item sockets take identifiers `Item_<n>` in item order on both sides, beside the `Menu` input and `Output` value
 
 ## [06]-[INTERFACES]
 
-`NodeTree.interface` declares a group's parameters as sockets and panels, each item holding its settings in its own RNA members:
+`NodeTree.interface` declares a group's parameters as sockets and panels:
 - `new_socket(name, description=, in_out=, socket_type=, parent=)` takes a base socket idname (`NodeSocketFloat`)
 - `subtype` and vector `dimensions` follow as separate writes refining the item class `items_tree` returns (`NodeTreeInterfaceSocketFloatDistance`)
 - Refined items keep the base idname in `socket_type`
@@ -211,7 +232,7 @@ Item collections (`capture_items`, `bake_items`, `bundle_items`, `index_switch_i
 - Float socket and interface `default_value` writes clamp to `float32` limits, and `min_value` and `max_value` writes past them store infinity
 - `default_value`, `min_value`, and `max_value` seed group nodes and modifier inputs created after the write, existing ones keeping stored values
 
-Panel toggles follow host rules:
+Panel toggles bind a Bool socket to its panel header:
 - `is_panel_toggle = True` takes effect on a Bool socket inside a non-root panel alone, and other writes do nothing
 - Toggles move to position 0 and take their panel's name, following it on every tree update
 - `remove(panel)` lifts the toggle into the parent with `is_panel_toggle` kept, and removal takes the toggle first
@@ -226,11 +247,11 @@ Input items shape the values a group takes:
 - `SCENE_FRAME` takes Float or Int, `SELF_OBJECT` Object, and `UNIFORM_IMAGE_COORDINATES` compositor Vector sockets
 - `default_input` writes outside a socket's set raise a `TypeError` listing the set
 - Modifier inputs ignore `default_input` and evaluate `default_value`
-- `hide_in_modifier` hides the modifier panel row alone, `properties.inputs.<identifier>` still evaluating its `value`
+- `hide_in_modifier` hides the modifier panel row alone, `properties.inputs.<identifier>` evaluating its `value`
 - Output items take `attribute_domain`
 - `default_attribute_name` seeds the modifier's `attribute_name` on an output and sets `type = "ATTRIBUTE"` with that name on an input
 
-Menu sockets store an item's integer identifier, keeping each selection across renames, and take item names case for case:
+Menu sockets store an item's integer identifier, keeping each selection across renames:
 - Menu Switch item edits regenerate `properties.inputs` of every modifier on the group
 - Values matching no item evaluate to the output type's default with no error
 - Group menu inputs list items while a link chain reaches a Menu Switch through group nodes, reroutes, and generic nodes
@@ -238,68 +259,68 @@ Menu sockets store an item's integer identifier, keeping each selection across r
 - Menu outputs feeding more than one Menu Switch invalidate each such link and list no items with no `node_warnings` entry, equal item names included
 - Stock nodes of one built-in menu share one definition, and one output feeds them all
 
-Interface writes update every user before the call returns, and users keep values by identifier:
-- Group nodes and modifiers gain and lose sockets with each interface write, with no update call
+Interface writes add and remove sockets on every group node and modifier before the call returns, and users keep values by identifier:
 - Moves, removals, and retypes rewrite group node keyframe and driver paths to new indices and drop F-curves of removed sockets
 - Retypes convert modifier values, floats truncating to integers, numbers testing nonzero as booleans, menus keeping their integer, data-blocks kept
 - Retypes between scalars and arrays reset modifier values to the interface default, and arrays keep leading values
 - Group nodes rebuild a retyped socket from the interface default and move its links over
-- `remove` followed by `new_socket` issues a fresh identifier, dropping every stored value of the removed item
+- `remove` followed by `new_socket` drops every stored value of the removed item
 - `tree.copy()` keeps every identifier
 - `node_group` writes on modifiers and compositor effects keep input values across groups with coinciding identifiers
 
-## [07]-[EVALUATION]
+Sockets key by name and side, the first holder of a key staying, and records write onto held identifiers in field order:
 
-Tree edits reach every user's next evaluation, nested groups included:
-- Node additions, removals, settings, socket defaults, links, and node mutes evaluate with no tag, `link.is_muted` writes after `tree.update_tag()`
-- `node_warnings` items hold `message` and `type` (`ERROR`, `WARNING`, `INFO`), filled once an active depsgraph evaluates the modifier
-- `node_warnings` lists closure and bundle signature faults, and invalid links and broken zones evaluate with none
-- `mod.is_input_used(identifier)` and `mod.is_input_visible(identifier)` answer what menus and toggles leave in use
-- Stock shader nodes (textures, Map Range, Color Ramp) evaluate in geometry trees, a Store Named Attribute output reading back through `foreach_get`
-- Legacy Curve objects pass curves to the modifier, bevel and resolution applying after it
+```python
+from typing import Literal
 
-## [08]-[MODIFIER_INPUTS]
+import bpy
+import msgspec
 
-`obj.modifiers.new(name, "NODES")` takes a group through `node_group`:
-- Groups without Group Output, logging `Node group must have a group output node`, or a geometry first output evaluate empty with no `node_warnings`
-- Groups with a Geometry output and no Geometry input generate geometry
-- `properties.inputs.bl_rna.properties` lists `name` and one pointer per input identifier in interface order, read through `getattr`
-- `properties.panels.open_<panel identifier>` holds each panel's open state
-- `type = "ATTRIBUTE"` reads the attribute on attribute-capable inputs with a `FIELD` or `DYNAMIC` group input, `value` applying elsewhere silently
-- Attribute names starting `.select`, `.edge`, or `.corner` read the type's zero
-- `properties.outputs.<identifier>.attribute_name` stores each Group Output input past the first on its item's `attribute_domain`
-- Output stores replace a same-named attribute of another domain or type
-- `value` holds the socket's static type: numbers, data-blocks for ID sockets, and menu item names from `item.bl_rna.properties["value"].enum_items`
-- `item.property_unset("value")` returns an input to the current interface default
-- `item.path_from_id("value")` returns the data path keyframes and drivers take on the object
-- `mod[identifier]` and `mod.get(identifier)` raise `TypeError`, modifiers holding no ID properties
 
-Input items hold members by socket type:
+class InterfaceSocket(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
+    name: str
+    in_out: Literal["INPUT", "OUTPUT"]
+    socket_type: str
+    description: str = ""
+    default_value: bool | int | float | str | tuple[float, ...] | None = None
+    min_value: float | None = None
+    max_value: float | None = None
 
-| [INDEX] | [SOCKETS]                           | [MEMBERS]                                                                             |
-| :-----: | :---------------------------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | Float, Int, Vector, Color, Rotation | `value`, `type` (`VALUE`, `ATTRIBUTE`), `attribute_name`                              |
-|  [02]   | Bool                                | Numeric members, `type` `LAYER` (default under `layer_selection_field`), `layer_name` |
-|  [03]   | String, Menu, data-block            | `value`, `type` `VALUE`                                                               |
-|  [04]   | Geometry, Matrix, Bundle, Closure   | `name`, `type` `FALLBACK`                                                             |
 
-Compositor effect, strip, and strip modifier inputs sit at `<owner>.properties.inputs.<identifier>`:
-- Inputs hold `value`, and strip modifier inputs add `type`
-- Values take any float over the interface's `min_value` and `max_value`, the hard range unbounded
+def interfaced(tree: bpy.types.NodeTree, records: tuple[InterfaceSocket, ...]) -> None:
+    interface: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    live: tuple[bpy.types.NodeTreeInterfaceSocket, ...] = tuple(item for item in interface.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket))
+    held: dict[tuple[str, str], str] = dict(reversed([((item.name, item.in_out), item.identifier) for item in live]))
+    wanted: frozenset[tuple[str, str]] = frozenset((record.name, record.in_out) for record in records)
+    for item in live:
+        if (key := (item.name, item.in_out)) not in wanted or held[key] != item.identifier:
+            interface.remove(item)
+    for record in records:
+        identifier: str = held.get((record.name, record.in_out)) or interface.new_socket(record.name, in_out=record.in_out, socket_type=record.socket_type).identifier  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        for member, value in msgspec.to_builtins(record).items():
+            socket: bpy.types.NodeTreeInterfaceSocket = interface.items_tree[identifier]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            if msgspec.to_builtins(getattr(socket, member), enc_hook=list) != value:
+                setattr(socket, member, value)
+        interface.move(interface.items_tree[identifier], len(interface.items_tree))
+```
 
-## [09]-[BAKING]
+- `InterfaceSocket` fields follow governing order, `socket_type` writing before the defaults it resets
+- `bpy_prop_array` values equal other `bpy_prop_array` values alone, every tuple and list reading unequal, and compares convert them through `enc_hook=list`
+- `move` to `len(items_tree)` puts each socket last on its side, outputs and inputs each ending in record order
+- Refused socket types and values raise `TypeError` uncaught, a defect in the record
 
-Modifier `bakes` hold one item per Simulation Output and Bake node once `node_group` names the group:
-- `bake.node` names the node, and a node's bake comes from a scan of `bakes`
-- Bake nodes start with no items
-- Items hold `bake_id`, and item `bake_target` `INHERIT` follows the modifier's `bake_target`, `PACKED` by default or `DISK`
-- Disk bakes write under `<bake_directory>/<bake_id>`, or under `bake.directory` with `use_custom_path`
-- `bpy.ops.object.geometry_node_bake_single(session_uid=obj.session_uid, modifier_name=mod.name, bake_id=item.bake_id)` bakes one item
-- `geometry_node_bake_delete_single` and `geometry_node_bake_pack_single` take the same arguments, `geometry_node_bake_unpack_single` adding `method`
-- `simulation_nodes_cache_bake` bakes simulation zones of objects with `use_simulation_cache` set, skipping Bake nodes
-- Baked frames replay in any frame order, hold the last baked frame past the range, and ignore tree edits until the bake is deleted
+## [07]-[PYTHON_TYPES]
 
-## [10]-[RECONCILIATION]
+Python-defined trees, nodes, and sockets subclass `bpy.types.NodeTree`, `Node`, and `NodeSocket`, and Blender evaluates none of them:
+- `NodeTree.update()` runs more than once per node addition and link change, and code evaluating the tree runs once from a deferred step `update` queues
+- Socket and node property writes call neither tree nor node `update`, and evaluation they change runs from the property's own `update=` callback
+- Nodes with no `poll` join every tree kind, stock trees included, and `poll(cls, ntree)` refusing a tree makes `nodes.new` raise `RuntimeError`
+- `Node.init(self, context)` builds sockets through `inputs.new(<socket idname>, <name>)` and `outputs.new`, `nodes.new` passing `None` as `context`
+- `NodeSocket` subclasses define `draw(self, context, layout, node, text)`, `register_class` raising `AttributeError` without it
+- `links.new` calls `update` on both endpoint nodes and skips `insert_link`
+- `NodeTree.valid_socket_type(cls, idname)` filters interface socket types per interface write
+
+## [08]-[RECONCILIATION]
 
 Trees reach a desired state through edits in place and keep nodes a user added:
 - Desired nodes, links, and interface items are frozen records keyed by structure, compared against live state before each write
@@ -315,7 +336,7 @@ Writes follow socket creation, each step adding sockets the next one reads:
 4. Links, then multi-input order
 5. Socket defaults, then interface defaults, a menu default after its Menu Switch link
 
-Copies take every writable member, item collections growing through their own `new` before sockets pair by identifier:
+Copies take every writable member, sockets pairing by identifier:
 
 ```python
 from typing import Protocol
@@ -328,14 +349,14 @@ type Struct = bpy.types.bpy_struct[object]
 type Items = bpy.types.bpy_prop_collection[Struct]
 
 
-class Growing(Protocol):
+class MutableItems(Protocol):
     def new(self, *arguments: object) -> Struct: ...
 
     def remove(self, item: Struct) -> None: ...
 
 
-def mirrored(source: Struct, target: Struct, skipped: frozenset[str] = frozenset({"rna_type"})) -> tuple[RuntimeError | TypeError, ...]:
-    opaque: tuple[type[Struct], ...] = (bpy.types.ID, bpy.types.Node, bpy.types.NodeInternalLink)
+def matched(source: Struct, target: Struct, skipped: frozenset[str] = frozenset({"rna_type"})) -> tuple[RuntimeError | TypeError, ...]:
+    referenced: tuple[type[Struct], ...] = (bpy.types.ID, bpy.types.Node, bpy.types.NodeInternalLink)
     sockets: bpy.types.Struct = bpy.types.NodeSocket.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     definition: bpy.types.Struct = source.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
@@ -353,17 +374,17 @@ def mirrored(source: Struct, target: Struct, skipped: frozenset[str] = frozenset
             case _:
                 return None
 
-    def grown(prop: bpy.types.CollectionProperty, held: Items, live: Items) -> tuple[RuntimeError, ...]:
+    def resized(prop: bpy.types.CollectionProperty, held: Items, live: Items) -> tuple[RuntimeError, ...]:
         if prop.srna is None or not {"new", "remove"}.issubset(prop.srna.functions.keys()):
             return ()
-        growing: Growing = live  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        mutable: MutableItems = live  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         parameters: tuple[bpy.types.Property, ...] = tuple(parameter for parameter in prop.srna.functions["new"].parameters if not parameter.is_output)
         for item in tuple(live)[len(held) :]:
-            growing.remove(item)
+            mutable.remove(item)
         return tuple(
             error
             for item in tuple(held)[len(live) :]
-            for error in catch(growing.new, exception=RuntimeError)(*(argument(item, parameter) for parameter in parameters)).swap().to_option().to_list()
+            for error in catch(mutable.new, exception=RuntimeError)(*(argument(item, parameter) for parameter in parameters)).swap().to_option().to_list()
         )
 
     def member(prop: bpy.types.Property) -> tuple[RuntimeError | TypeError, ...]:
@@ -371,11 +392,11 @@ def mirrored(source: Struct, target: Struct, skipped: frozenset[str] = frozenset
         match held, prop:
             case bpy.types.bpy_prop_collection(), _ if socketed(prop):
                 found: dict[str, Struct] = {socket.identifier: socket for socket in live}
-                return tuple(error for socket in held for error in mirrored(socket, found[socket.identifier]))
-            case bpy.types.bpy_prop_collection(), bpy.types.CollectionProperty() as collection if not isinstance(next(iter(held), None), opaque):
-                return (*grown(collection, held, live), *(error for pair in zip(held, live) for error in mirrored(*pair)))
-            case bpy.types.bpy_struct(), _ if prop.is_readonly and not isinstance(held, opaque):
-                return mirrored(held, live)
+                return tuple(error for socket in held for error in matched(socket, found[socket.identifier]))
+            case bpy.types.bpy_prop_collection(), bpy.types.CollectionProperty() as collection if not isinstance(next(iter(held), None), referenced):
+                return (*resized(collection, held, live), *(error for pair in zip(held, live) for error in matched(*pair)))
+            case bpy.types.bpy_struct(), _ if prop.is_readonly and not isinstance(held, referenced):
+                return matched(held, live)
             case _ if not prop.is_readonly and held != live and (isinstance(held, bpy.types.ID) or not isinstance(held, bpy.types.bpy_struct | bpy.types.bpy_prop_collection)):
                 return tuple(catch(setattr, exception=TypeError)(target, name, held).swap().to_option().to_list())
             case _:
@@ -387,7 +408,7 @@ def mirrored(source: Struct, target: Struct, skipped: frozenset[str] = frozenset
 
 def copied(source: bpy.types.Node, tree: bpy.types.NodeTree) -> Result[bpy.types.Node, tuple[RuntimeError | TypeError, ...]]:
     node: bpy.types.Node = tree.nodes.new(source.bl_idname)
-    match mirrored(source, node, frozenset({"rna_type", "name", "location", "select"})):
+    match matched(source, node, frozenset({"rna_type", "name", "location", "select"})):
         case ():
             return Ok(node)
         case refused:
@@ -398,58 +419,12 @@ def copied(source: bpy.types.Node, tree: bpy.types.NodeTree) -> Result[bpy.types
 - Copies keep `label`, `mute`, `hide`, `width`, custom color, and `location_absolute`, and leave identity and frame membership to the target tree
 - Read-only pointers copy their content (Color Ramp elements, curve points, `image_user`)
 - Writable data-block pointers (`node_tree`, `image`) copy as references
-- Writes skip members already equal, dynamic enums with no items (Image node `layer` and `view` with no image) refusing even their current value
+- Writes skip equal members, dynamic enums with no items (Image node `layer` and `view` with no image) refusing even their current value
 - Sockets sort last, mode members and items creating every socket before defaults copy
-- Growth fills a `new` parameter its item lacks from the parameter's first enum item or default, else `None`, the item's own members overwriting it
+- Item collections resize through their own `new` and `remove`
+- `new` parameters an item lacks take the first enum item or default, else `None`, the item's own members overwriting them
 
-Group builds declare interface items, then nodes, a zone pair, menu items, and links by identifier, the menu default after its Menu Switch link:
-
-```python
-from contextlib import ExitStack
-
-import bpy
-from expression import Result
-from expression.extra.result import catch
-
-
-def subdivided(name: str, chosen: str) -> Result[bpy.types.GeometryNodeTree, TypeError]:
-    with ExitStack() as rollback:
-        tree: bpy.types.GeometryNodeTree = bpy.data.node_groups.new(name, "GeometryNodeTree")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        rollback.callback(bpy.data.node_groups.remove, tree)
-        interface: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        source: bpy.types.NodeTreeInterfaceSocket = interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        result: bpy.types.NodeTreeInterfaceSocket = interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        steps: bpy.types.NodeTreeInterfaceSocketInt = interface.new_socket("Steps", in_out="INPUT", socket_type="NodeSocketInt")  # type: ignore[assignment, arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
-        shape: bpy.types.NodeTreeInterfaceSocket = interface.new_socket("Shape", in_out="INPUT", socket_type="NodeSocketMenu")  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        steps.min_value, steps.default_value = 0, 2
-        entry: bpy.types.NodeGroupInput = tree.nodes.new("NodeGroupInput")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        outlet: bpy.types.NodeGroupOutput = tree.nodes.new("NodeGroupOutput")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        start: bpy.types.GeometryNodeRepeatInput = tree.nodes.new("GeometryNodeRepeatInput")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        stop: bpy.types.GeometryNodeRepeatOutput = tree.nodes.new("GeometryNodeRepeatOutput")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        step: bpy.types.Node = tree.nodes.new("GeometryNodeSubdivideMesh")
-        choice: bpy.types.GeometryNodeMenuSwitch = tree.nodes.new("GeometryNodeMenuSwitch")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        start.pair_with_output(stop)
-        for item, label in zip(choice.enum_items, ("Coarse", "Fine"), strict=True):
-            item.name = label
-        sockets: dict[tuple[bpy.types.Node, bool, str], bpy.types.NodeSocket] = {(node, socket.is_output, socket.identifier): socket for node in (entry, outlet, start, stop, step, choice) for socket in (*node.inputs, *node.outputs)}
-        for head, output, tail, entering in (
-            (entry, source.identifier, start, "Item_0"),
-            (entry, steps.identifier, start, "Iterations"),
-            (start, "Item_0", step, "Mesh"),
-            (step, "Mesh", stop, "Item_0"),
-            (entry, source.identifier, choice, "Item_0"),
-            (stop, "Item_0", choice, "Item_1"),
-            (entry, shape.identifier, choice, "Menu"),
-            (choice, "Output", outlet, result.identifier),
-        ):
-            tree.links.new(sockets[head, True, output], sockets[tail, False, entering])
-        outcome: Result[bpy.types.GeometryNodeTree, TypeError] = catch(setattr, exception=TypeError)(shape, "default_value", chosen).map(lambda _: tree)
-        if outcome.is_ok():
-            rollback.pop_all()
-        return outcome
-```
-
-## [11]-[PLACEMENT]
+## [09]-[PLACEMENT]
 
 New nodes sit at the canvas origin:
 - `location` is relative to a parent frame, `location_absolute` canvas position

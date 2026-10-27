@@ -13,18 +13,18 @@ Draw handler types decide coordinates, and a region the space lacks or `args=Non
 |  [03]   | `BACKDROP`              | Node editor `WINDOW` region pixels before the backdrop         |
 
 Handler bodies draw over editor state they restore:
-- Handlers name the drawing editor in `context.area` and run with no write guard
-- Handlers draw while overlays are off, and overlay drawing returns early on a false `space.overlay.show_overlays`
+- Handlers read the drawing editor as `context.area`, and Blender refuses no data write inside them
+- Handlers draw while overlays are off, and overlay handlers return early on a false `space.overlay.show_overlays`
 - `preferences.system.use_region_overlap` extends 3D View, Image Editor, and node editor `WINDOW` regions under their toolbar, sidebar, asset shelf, and tool header, and drawing insets by them
 - Blending restores the mode `gpu.state.blend_get()` read on entry
 - Handlers enabling the scissor test disable it before returning, `gpu.state` holding no read for it
-- Nested clips set the intersection of their box with `gpu.state.scissor_get()` and restore the box they read
+- Nested clips intersect their box with `gpu.state.scissor_get()` and restore the box they read
 - `POST_VIEW` bodies call `gpu.state.depth_test_set('LESS_EQUAL')` to hide geometry behind objects and restore the prior test after
 
 ## [02]-[COORDINATES]
 
 Each coordinate space converts through the host member that owns it:
-- `event.mouse_x` and `mouse_y` hold window pixels, `mouse_region_x` and `mouse_region_y` pixels of the region the event reached
+- `event.mouse_x` and `mouse_y` hold window pixels, `mouse_region_x` and `mouse_region_y` pixels of the region an event reached
 - Region pixels are device pixels, `preferences.system.ui_scale` reading 2.0 on a Retina display at a user scale of 1.0
 - `region.view2d.region_to_view(x, y)` and `view_to_region(x, y, clip=False)` convert between region pixels and View2D coordinates, `clip=False` answering points outside the region
 - Image Editor View2D coordinates are image fractions, `view_to_region` of `(0, 0)` and `(1, 1)` giving the displayed image's corners
@@ -50,7 +50,7 @@ Text draws through `blf` over font `0`, the interface font:
 
 ## [04]-[BUILT_IN_SHADERS]
 
-Built-in shaders read `ModelViewProjectionMatrix` from the `gpu.matrix` stack and take `pos` as `VEC3` with 2D tuples accepted, and every shader but the `POINT_*` pair converts its sRGB colors on the window's sRGB framebuffer:
+Built-in shaders read `ModelViewProjectionMatrix` from the `gpu.matrix` stack and take `pos` as `VEC3` with 2D tuples accepted, every shader but `POINT_*` converting its sRGB colors on a window's sRGB framebuffer:
 
 | [INDEX] | [SHADER]                                       | [INPUTS]                                                           | [CLIPPED] |
 | :-----: | :--------------------------------------------- | :----------------------------------------------------------------- | :-------: |
@@ -107,14 +107,14 @@ class Stroke(msgspec.Struct, frozen=True, kw_only=True):
             blf.draw(0, label)
 ```
 
-Handler bodies call `drawn` on the `Stroke` cached for current points with `context.preferences`, and the scope restores the entry blend mode after a raise and after `blf.draw`.
+Handler bodies call `drawn` on the `Stroke` cached for current points with `context.preferences`, and `scope` restores entry blend mode after a raise and after `blf.draw`.
 
 ## [05]-[CUSTOM_SHADERS]
 
 Custom shaders come from `gpu.shader.create_from_info` over a `gpu.types.GPUShaderCreateInfo`:
 - `vertex_in(<slot>, <type>, <name>)` declares each attribute `batch_for_shader` fills by name
 - `push_constant("MAT4", "ModelViewProjectionMatrix")` receives the `gpu.matrix` stack at each `batch.draw`
-- `push_constant("BOOL", "srgbTarget")` receives `True` on the window's sRGB framebuffer, and the fragment converts sRGB colors to linear there to match built-in shaders
+- `push_constant("BOOL", "srgbTarget")` reads `True` on a window's sRGB framebuffer, where fragments convert sRGB colors to linear to match built-in shaders
 - `GPUStageInterfaceInfo(<name>)` with `smooth`, `flat`, or `no_perspective` members passes values to the fragment stage through `vertex_out`
 - `sampler(<slot>, <type>, <name>)` declares a texture, bound through `shader.uniform_sampler(<name>, <texture>)`
 - Push constants past 128 bytes print a portability warning at declaration and compile, and larger data goes through `uniform_buf` over a `typedef_source` struct
@@ -123,9 +123,11 @@ Custom shaders come from `gpu.shader.create_from_info` over a `gpu.types.GPUShad
 - Matrix constructors under Metal take one scalar, all scalars, whole columns, or a square matrix, a split column failing to compile
 - Compile errors raise a plain `Exception` and log the detail under `gpu.shader`
 
-Shapes the built-in shaders lack draw from one unit quad and a uniform block describing the shape, an antialiased rounded frame here:
+Shapes built-in shaders lack draw from one unit quad and a uniform block describing the shape:
 
 ```python
+type Vec4 = tuple[float, float, float, float]
+
 FRAME = """
 vec3 decoded(vec3 srgb) { return srgbTarget ? mix(srgb / 12.92, pow((srgb + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), srgb)) : srgb; }
 void main() {
@@ -139,8 +141,8 @@ void main() {
 
 
 @cache
-def framing() -> Result[tuple[gpu.types.GPUShader, gpu.types.GPUBatch], Exception]:
-    stage = gpu.types.GPUStageInterfaceInfo("framing_interface")
+def frame_program() -> Result[tuple[gpu.types.GPUShader, gpu.types.GPUBatch], Exception]:
+    stage = gpu.types.GPUStageInterfaceInfo("frame_interface")
     stage.smooth("VEC2", "local")
     info = gpu.types.GPUShaderCreateInfo()
     info.typedef_source("struct Box { vec4 rect; vec4 fill; vec4 edge; vec4 widths; };")
@@ -157,7 +159,7 @@ def framing() -> Result[tuple[gpu.types.GPUShader, gpu.types.GPUBatch], Exceptio
     )
 
 
-def framed(rect: tuple[float, float, float, float], fill: tuple[float, ...], edge: tuple[float, ...], radius: float, line: float) -> Result[None, Exception]:
+def framed(rect: Vec4, fill: Vec4, edge: Vec4, radius: float, line: float) -> Result[None, Exception]:
     def drawn(program: tuple[gpu.types.GPUShader, gpu.types.GPUBatch]) -> None:
         shader, quad = program
         box = gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", 16, (*rect, *fill, *edge, radius, line, 0.0, 0.0)))
@@ -167,21 +169,21 @@ def framed(rect: tuple[float, float, float, float], fill: tuple[float, ...], edg
             gpu.state.blend_set("ALPHA_PREMULT")
             quad.draw(shader)
 
-    return framing().map(drawn)
+    return frame_program().map(drawn)
 ```
 
-`Box` packs four `vec4` rows in std140 order, the last holding radius and line width in pixels. The fragment answers premultiplied color for `ALPHA_PREMULT`, and `fwidth` of the signed distance keeps the edge one pixel soft at any scale. `framing` compiles at its first call and returns the cached `Result` to every later call, a first call outside a GPU context holding its `SystemError` for the session.
+`Box` packs `vec4` rows in std140 order, the last holding radius and line width in pixels. Fragments write premultiplied color for `ALPHA_PREMULT`, and `fwidth` of the signed distance keeps edges one pixel soft at any scale. `frame_program` compiles once and returns its cached `Result` to every later call, a first call outside a GPU context caching its `SystemError` for the session.
 
 ## [06]-[OFFSCREEN]
 
-Offscreen buffers draw away from the window:
+Offscreen buffers draw outside a window:
 - `gpu.types.GPUOffScreen(<width>, <height>, format=<format>)` takes `RGBA8`, `RGBA16`, `RGBA16F`, or `RGBA32F`
 - Sizes past `gpu.capabilities.max_texture_size_get()` construct and abort Blender at the buffer's first bind
 - Offscreen buffers bind in any window's GPU context, outliving the window that made them, and access after `free()` raises `ReferenceError`
 - Offscreen framebuffers are no sRGB target, `srgbTarget` reading `False` and colors writing as given
 - `read_color(<x>, <y>, <width>, <height>, <channels>, <slot>, "FLOAT")` returns a `[height, width, channels]` float buffer bottom row first
 - `"FLOAT"` reads normalize every format, `texture_color.read()` returning `RGBA8` texels as bytes
-- `draw_view3d(scene, view_layer, view3d, region, view_matrix, projection_matrix, do_color_management=<bool>)` draws the shading mode the 3D View shows with its overlays
+- `draw_view3d(scene, view_layer, view3d, region, view_matrix, projection_matrix, do_color_management=<bool>)` draws in `view3d`'s shading mode with its overlays
 - Camera views take `camera.calc_matrix_camera(depsgraph, x=<width>, y=<height>)` as projection and `matrix_world.normalized().inverted()` as view
 
 Panels show a custom drawing as a preview icon drawn offscreen, its pixels bottom row first as preview buffers store them:
@@ -211,4 +213,4 @@ def pictured(previews: bpy.utils.previews.ImagePreviewCollection, slot: str, siz
     return Some(filled(painted(gpu.types.GPUOffScreen(size, size)))) if size <= gpu.capabilities.max_texture_size_get() else Nothing
 ```
 
-`layout.template_icon(icon_value=pictured(previews, <slot>, <size>, partial(stroke.drawn, label, preferences)).default_value(0), scale=<n>)` shows a handler's drawing in a panel, the pixel projection placing `POST_PIXEL` coordinates as a region does. Both matrix stacks return to the caller's values, a draw handler included, and redraws call `pictured` again only after the drawing's data or interface scale changes.
+Panel `draw` calls `pictured(previews, <slot>, <size>, partial(stroke.drawn, label, context.preferences))` once per change of drawn data or interface scale and shows the held id through `layout.template_icon(icon_value=<id>, scale=<n>)`. Pixel projection places `POST_PIXEL` coordinates as a region does, and both matrix stacks return to caller values, a draw handler's included.

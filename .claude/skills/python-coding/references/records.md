@@ -1,10 +1,10 @@
 # [RECORDS]
 
-Covers record flows from decode to transition, with tagged unions, recursive unions, transitions, and array fields.
+Covers record flows from decode to transition, with generic edit unions, declared graphs, recursive unions, histories, and array fields.
 
 ## [01]-[LIFECYCLE]
 
-`Line` bounds `sku` and `count` through `Meta`, checks `reserved` against `count` in `__post_init__`, and books stock through a transition. `Fault`, `Outcome`, and `Reason` are the package faults:
+`Line` bounds `sku` and `count` through `Meta`, checks `reserved` against `count` in `__post_init__`, and books stock through a transition that refuses an expected failure before the replace. `Fault`, `Outcome`, and `Reason` are the package faults:
 
 ```python
 type Count = Annotated[int, msgspec.Meta(ge=1)]
@@ -29,10 +29,10 @@ class Line(msgspec.Struct, frozen=True, kw_only=True):
     def total(self) -> Decimal:
         return self.count * self.price
 
-    def booked(self, extra: int, /) -> Outcome[Line]:
+    def booked(self, extra: int, /) -> Outcome[Self]:
         return (
             Ok(self)
-            .filter_with(lambda line: 0 < extra <= line.free, lambda line: (Fault(reason=Reason.OUTSIDE, subject="extra", member=f"1 to {line.free}", cause=str(extra)),))
+            .filter_with(lambda line: 0 < extra <= line.free, lambda line: Fault.of(Reason.OUTSIDE, "extra", extra, member=f"1 to {line.free}"))
             .map(lambda line: msgspec.structs.replace(line, reserved=line.reserved + extra))
         )
 
@@ -40,133 +40,135 @@ class Line(msgspec.Struct, frozen=True, kw_only=True):
 LINE = msgspec.json.Decoder(Line)
 ```
 
-`LINE.decode(b'{"sku": "ABC-0001", "count": 3, "price": "2.50"}')` returns a `Line` with `total` `Decimal("7.50")`. `Decimal` fields decode from a JSON string or number and encode as a string. Rejections read `` Expected `int` >= 1 - at `$.count` `` for a zero count, `` Expected `str` matching regex ... - at `$.sku` `` for a malformed code, and the record's repr from `ValueError(self)` for a `reserved` past `count`, followed by its path inside a container (`` - at `$[0]` ``). `msgspec.convert({"sku": sku, "count": count, "price": price}, Line)` applies the same checks and messages to computed values.
+`LINE.decode(b'{"sku": "ABC-0001", "count": 3, "price": "2.50"}')` returns a `Line` with `total` `Decimal("7.50")`, and `Decimal` fields decode from a JSON string or number. Rejections name their path (`` Expected `int` >= 1 - at `$.count` ``), and a `reserved` past `count` reports the record's repr:
+- Fields a transition moves keep their bound in `__post_init__`, and `Meta` bounds fields only a decode or `convert` sets
+- `booked` returns a fault for an `extra` past `free`, and the `__post_init__` raise stays a defect no valid call reaches
+- `__post_init__` raising `TypeError` or `ValueError` reports as a `ValidationError` with its path at decode and `convert`
 
-Fields a transition moves keep their bound in `__post_init__`, and `Meta` holds bounds of fields only a decode or `convert` sets: `reserved` takes no `Meta`. Transitions refuse an expected failure before the replace: `booked` returns a fault for an `extra` past `free`, and the `__post_init__` raise stays a defect no valid call reaches. `line.booked(2)` returns `Ok` of a new line and leaves `line` unchanged.
+## [02]-[GENERIC_UNIONS]
 
-## [02]-[UNIONS]
-
-Tagged cases own their behavior, a `type` alias names the union consumers take, and one codec decodes a collection of cases:
-
-```python
-class Figure(msgspec.Struct, frozen=True, kw_only=True, tag=True): ...
-
-
-class Circle(Figure, frozen=True, kw_only=True):
-    radius: float
-
-    @property
-    def area(self) -> float:
-        return math.pi * self.radius**2
-
-    def scaled(self, factor: float, /) -> Circle:
-        return msgspec.structs.replace(self, radius=self.radius * factor)
-
-
-class Rect(Figure, frozen=True, kw_only=True):
-    width: float
-    height: float
-
-    @property
-    def area(self) -> float:
-        return self.width * self.height
-
-    def scaled(self, factor: float, /) -> Rect:
-        return msgspec.structs.replace(self, width=self.width * factor, height=self.height * factor)
-
-
-type Shape = Circle | Rect
-
-SHAPES = msgspec.json.Decoder(tuple[Shape, ...])
-
-
-def covered(shapes: Iterable[Shape], /) -> float:
-    return math.fsum(shape.area for shape in shapes)
-```
-
-Encoded cases hold their tag under `type` (`{"type":"Circle","radius":1.0}`), and `SHAPES` dispatches each element by tag. Unknown tags fail as `` Invalid value 'Hex' - at `$[0].type` ``, and a missing tag fails as `` Object missing required field `type` - at `$[0]` ``. Consumers take `Shape` in place of `Figure`: the base declares no `area`, and a `match` over the alias proves coverage. `covered` reads `area` from every case without a `match`. Each `scaled` returns its own case type, and `tuple(shape.scaled(2.0) for shape in shapes)` keeps every case.
-
-## [03]-[RECURSIVE_UNIONS]
-
-Recursive unions hold the union inside a case, and each case folds its parts through their own properties (series and parallel groups of cells):
+Generic unions keep one value type across every case, cases sharing fields extend one private base, and a smart constructor returns `Nothing` for no change. `edits` compares keyed snapshots and returns deletions, changes, and insertions in one tuple:
 
 ```python
-type Node = Cell | Series | Parallel
+class _Placed[V](msgspec.Struct, frozen=True, kw_only=True):
+    key: str
+    values: frozendict[str, V]
 
 
-class Part(msgspec.Struct, frozen=True, kw_only=True, tag=True): ...
+class Inserted[V](_Placed[V], frozen=True, kw_only=True): ...
 
 
-class Cell(Part, frozen=True, kw_only=True):
-    capacity: float
-    voltage: float
-    resistance: float
-
-    def __post_init__(self) -> None:
-        if min(self.capacity, self.voltage, self.resistance) <= 0.0:
-            raise ValueError(self)
-
-    @property
-    def cells(self) -> tuple[Cell, ...]:
-        return (self,)
-
-    def aged(self, fade: float, /) -> Cell:
-        return msgspec.structs.replace(self, capacity=self.capacity * (1.0 - fade), resistance=self.resistance * (1.0 + fade))
+class Deleted[V](_Placed[V], frozen=True, kw_only=True): ...
 
 
-class Group(Part, frozen=True, kw_only=True):
-    parts: tuple[Node, ...]
+class Changed[V](msgspec.Struct, frozen=True, kw_only=True):
+    key: str
+    before: frozendict[str, V]
+    after: frozendict[str, V]
 
-    def __post_init__(self) -> None:
-        if not self.parts:
-            raise ValueError(self)
-
-    @property
-    def cells(self) -> tuple[Cell, ...]:
-        return tuple(*part.cells for part in self.parts)
-
-    def aged(self, fade: float, /) -> Self:
-        return msgspec.structs.replace(self, parts=tuple(part.aged(fade) for part in self.parts))
+    @classmethod
+    def of(cls, key: str, before: Mapping[str, V], after: Mapping[str, V], /) -> Option[Self]:
+        old = frozendict({name: value for name, value in before.items() if name not in after or after[name] != value})
+        new = frozendict({name: value for name, value in after.items() if name not in before or before[name] != value})
+        return Some(cls(key=key, before=old, after=new)).filter(lambda change: bool(change.before or change.after))
 
 
-class Series(Group, frozen=True, kw_only=True):
-    @property
-    def capacity(self) -> float:
-        return min(part.capacity for part in self.parts)
-
-    @property
-    def voltage(self) -> float:
-        return math.fsum(part.voltage for part in self.parts)
-
-    @property
-    def resistance(self) -> float:
-        return math.fsum(part.resistance for part in self.parts)
+type Edit[V] = Inserted[V] | Deleted[V] | Changed[V]
 
 
-class Parallel(Group, frozen=True, kw_only=True):
-    @property
-    def capacity(self) -> float:
-        return math.fsum(part.capacity for part in self.parts)
-
-    @property
-    def voltage(self) -> float:
-        return min(part.voltage for part in self.parts)
-
-    @property
-    def resistance(self) -> float:
-        return 1.0 / math.fsum(1.0 / part.resistance for part in self.parts)
-
-
-NODE: msgspec.json.Decoder[Node] = msgspec.json.Decoder(Node)
+def edits[V](before: Mapping[str, Mapping[str, V]], after: Mapping[str, Mapping[str, V]], /) -> tuple[Edit[V], ...]:
+    return (
+        *(Deleted(key=key, values=frozendict(values)) for key, values in before.items() if key not in after),
+        *(*Changed.of(key, before[key], values).to_list() for key, values in after.items() if key in before),
+        *(Inserted(key=key, values=frozendict(values)) for key, values in after.items() if key not in before),
+    )
 ```
 
-`type Node` precedes the classes it names, an alias value evaluates on first use. `Group` holds what both groups share (`parts`, `cells`, `aged`), and each group adds the ratings that differ: capacity takes the weakest part in series and adds in parallel, voltage adds in series, and resistance adds in series and adds as conductance in parallel. Recursion sits in the properties: a group computes `capacity` from each part's `capacity`, a cell holds `capacity` as a field, and nesting depth bounds the recursion. `cells` flattens leaves in order through comprehension unpacking, and `aged` rebuilds every level and returns `Self`: an aged `Series` stays a `Series`. `Series(parts=(Parallel(parts=(cell, cell)),) * 4)` over `Cell(capacity=3.0, voltage=3.6, resistance=0.03)` rates `6.0` capacity, `14.4` voltage, and `0.06` resistance.
+Keys present on both sides with equal values produce no edit, `Changed.of` keeps changed, removed, and added values alone, and `Inserted` and `Deleted` stay distinct cases a `match` tells apart.
 
-`NODE` validates every level of a nested pack, and an empty group at any depth fails with its path (`` Parallel(parts=()) - at `$.parts[0]` ``). `Node` lists the cases alone, and `Group` decodes as no case (`` Invalid value 'Group' - at `$.type` ``). The annotation on `NODE` restores the `Node` type its alias argument erases.
+## [03]-[DECLARED_GRAPHS]
 
-## [04]-[TRANSITIONS]
+`Plan` refuses an unknown dependency and a cycle at decode, and `TopologicalSorter.prepare` raises the `CycleError` msgspec reports as a `ValidationError`:
 
-Transitions return the next state as a value, and `reduce` replays a history into its final state while `accumulate` yields each state. `History` holds its merge interval beside its entries, newest first:
+```python
+class Plan(msgspec.Struct, frozen=True, kw_only=True):
+    needs: frozendict[str, frozenset[str]]
+
+    def __post_init__(self) -> None:
+        if unknown := frozenset(*needed for needed in self.needs.values()) - self.needs.keys():
+            raise ValueError(sorted(unknown))
+        TopologicalSorter(self.needs).prepare()
+
+    @property
+    def order(self) -> tuple[str, ...]:
+        return tuple(TopologicalSorter(self.needs).static_order())
+
+
+PLAN = msgspec.json.Decoder(Plan)
+```
+
+`PLAN.decode(b'{"needs": {"a": ["b"], "b": ["a"]}}')` fails with `('nodes are in a cycle', ['a', 'b', 'a'])`, and a decoded `Plan` holds an order every consumer can read:
+- `frozendict` and `frozenset` fields decode from JSON objects and arrays
+
+## [04]-[RECURSIVE_UNIONS]
+
+Recursive unions hold the union inside a case, and each operation over them is one function with one recursive `match`. `holds` evaluates a decoded requirement tree against held facts, and `unmet` returns the failing parts of each conjunction at any depth:
+
+```python
+type Condition = Has | Not | AllOf | AnyOf
+
+
+class Rule(msgspec.Struct, frozen=True, kw_only=True, tag=str.lower): ...
+
+
+class Has(Rule, frozen=True, kw_only=True):
+    key: str
+
+
+class Not(Rule, frozen=True, kw_only=True):
+    inner: Condition
+
+
+class AllOf(Rule, frozen=True, kw_only=True):
+    members: tuple[Condition, ...]
+
+
+class AnyOf(Rule, frozen=True, kw_only=True):
+    members: tuple[Condition, ...]
+
+
+def holds(condition: Condition, facts: frozenset[str], /) -> bool:
+    match condition:
+        case Has(key=key):
+            return key in facts
+        case Not(inner=inner):
+            return not holds(inner, facts)
+        case AllOf(members=members):
+            return all(holds(member, facts) for member in members)
+        case AnyOf(members=members):
+            return any(holds(member, facts) for member in members)
+
+
+def unmet(condition: Condition, facts: frozenset[str], /) -> tuple[Condition, ...]:
+    match condition:
+        case AllOf(members=members):
+            return tuple(*unmet(member, facts) for member in members)
+        case _:
+            return () if holds(condition, facts) else (condition,)
+
+
+CONDITION: msgspec.json.Decoder[Condition] = msgspec.json.Decoder(Condition)
+```
+
+`unmet` over `allof(has gpu, not has busy, anyof(has a, has b))` with facts `{"gpu", "busy"}` returns the `Not` and the whole `AnyOf`, a disjunction failing as one part:
+- `type` aliases evaluate their value at first use, `Condition` above the classes it names resolves once they exist
+- `CONDITION` validates every level, an inner failure names its path (`` Object missing required field `key` - at `$.members[0]` ``)
+- `Rule` decodes as no case (`` Invalid value 'rule' - at `$.type` ``), the alias lists leaves alone
+- `all` and `any` stop at the first deciding member, and nesting depth bounds the recursion
+
+## [05]-[TRANSITIONS]
+
+`reduce` replays a history into its final state, and `accumulate` yields each state. `History` holds its merge interval beside its entries, newest first:
 
 ```python
 class History[T](msgspec.Struct, frozen=True, kw_only=True):
@@ -189,9 +191,12 @@ def history[T](start: History[T], entries: Iterable[tuple[float, T]], /) -> tupl
     return tuple(accumulate(entries, History.added, initial=start))
 ```
 
-Entries within `interval` of the newest entry replace it, and every other entry goes first: entries at `0.0`, `0.5`, and `2.0` under an interval of `1.0` leave the ones at `2.0` and `0.5`. The sequence pattern binds the newest entry's moment and every older entry, and its guard reads the record's own setting. Configuration a record holds leaves the unbound `History.added` as the `(state, event) -> state` step `reduce` and `accumulate` take, with no `partial`. `history` returns `start` and the state after each entry, and an empty history replays to `start`.
+Entries within `interval` of the newest entry replace it, and every other entry goes first: entries at `0.0`, `0.5`, and `2.0` under an interval of `1.0` leave the ones at `2.0` and `0.5`:
+- `case ((moment, _), *rest)` binds the newest entry's moment and every older entry, and its guard reads `interval` from the record
+- Configuration a record holds leaves the unbound `History.added` as the `(state, event) -> state` step `reduce` and `accumulate` take, with no `partial`
+- `history` returns `start` and the state after each entry
 
-## [05]-[ARRAY_FIELDS]
+## [06]-[ARRAY_FIELDS]
 
 `Trace` checks its array's shape in `__post_init__` and derives each new array through a whole-array call:
 
@@ -215,4 +220,7 @@ class Trace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return msgspec.structs.replace(self, volts=np.maximum(self.volts, floor))
 ```
 
-`Trace` records over one array compare unequal and share one `set`. Frozen records refuse field assignment with `AttributeError` and leave array elements writable. `clipped` builds a new array through `np.maximum` and leaves `trace.volts` unchanged. Codecs neither decode nor encode an `ndarray` field (`` Expected `numpy.ndarray`, got `list` ``): a wire record holds `tuple[float, ...]`, and the array record builds after the decode.
+`eq=False` compares and hashes each `Trace` by identity, and records over one array compare unequal:
+- Frozen records refuse field assignment with `AttributeError` and leave array elements writable
+- Codecs neither decode nor encode an `ndarray` field (`` Expected `numpy.ndarray`, got `list` ``), a wire record holds `tuple[float, ...]` and the array record builds after the decode
+- Per-channel values take the shape their consumer takes whole, a `tuple[float, float, float]` for one color and one `(n, 3)` array for many, in place of one field per channel

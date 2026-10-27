@@ -5,16 +5,17 @@ description: "Use when writing or reviewing Python that runs inside Blender, cov
 
 # [BLENDER_CODING]
 
-Covers `bpy` code decisions under workspace standards, from holding a data reference to translating a fault at a host entry point.
+Covers `bpy` code from holding a data reference to translating a result at a host entry point.
 
 - Use `python-coding` for result types, records, pattern matching, and comprehensions
 
 [REFERENCES]:
 - [01]-[DATA](references/data.md): Storage owner per value lifetime, created IDs, library loads, paths, custom property values
 - [02]-[OPERATORS](references/operators.md): `bpy.types.Operator` classes, from conditions and invoke forms to modal steps and placements
-- [03]-[GEOMETRY](references/geometry.md): Evaluated reads, BMesh, mesh attributes, buffer paths and costs, and animation channels
-- [04]-[LIFECYCLE](references/lifecycle.md): Callback bodies across file loads, updates, deferred writes, frames, drivers, and worker processes
-- [05]-[TYPING](references/typing.md): Annotation forms under eager evaluation, stub declarations runtime contradicts, and the code form each takes
+- [03]-[GEOMETRY](references/geometry.md): Evaluated reads, BMesh, mesh attributes, buffers derived from RNA, and animation channels
+- [04]-[MATHUTILS](references/mathutils.md): `mathutils` values against numpy arrays, transforms over many objects, rotations, and spatial queries
+- [05]-[LIFECYCLE](references/lifecycle.md): Callback bodies across file loads, updates, deferred writes, frames, drivers, and worker processes
+- [06]-[TYPING](references/typing.md): Annotation forms under eager evaluation, stub declarations runtime contradicts, and the code form each takes
 
 ## [01]-[DATA]
 
@@ -33,7 +34,7 @@ Host references go stale after their event, and code holds the form that survive
 |  [09]   | `object_instances` item              | Next iteration step                           | Values copied per step                       |
 |  [10]   | `to_mesh()` result                   | Re-evaluation, `to_mesh()`, `to_mesh_clear()` | Scope calling `to_mesh_clear()`              |
 |  [11]   | GeometrySet component                | Release of its GeometrySet                    | GeometrySet bound for the read               |
-|  [12]   | Struct with a class a write refines  | `Light.type`, `dimensions`, `socket_type`     | Re-read through its ID's `path_from_id()`    |
+|  [12]   | Struct with a class a write refines  | `Light.type`, interface `socket_type`         | Re-read from its owner after the write       |
 |  [13]   | Generated `properties.inputs` struct | Group assignment, any interface write         | `properties.inputs` re-read after each write |
 |  [14]   | Pointer an operator re-targets       | `object.convert`, importer `obj.data` swaps   | Read through its owner after the call        |
 |  [15]   | `ui_styles` item                     | Theme reset, preset load                      | Re-read from its owner                       |
@@ -44,22 +45,29 @@ Stale references fail by kind:
 - Stale sub-data, `Keyframe`, `PropertyGroup`, and `mathutils` references read freed or reused memory with no raise, and reads return wrong values or crash Blender
 - Held generated input structs crash Blender at their next read after an interface write, a `default_value` write included
 
-Writes to a governing member reset governed members, and member maps write in host order:
+Writes to a governing member reset governed members:
 - Unit `system` writes reset `length_unit` and `mass_unit`, an equal value included, and leave `temperature_unit` and `time_unit`
 - `rotation_mode` names the rotation member evaluation reads, and writes to the other rotation members store and change nothing
-- Driver targets write `id_type` before `id`, an `id` of another type raising `TypeError`
+- `parent` writes keep `matrix_basis` and move the object, and a `matrix_world` copied before the write and assigned after it keeps the placement
 
-Creation, removal, and work sets follow host lifetimes:
+Creation, removal, selection, and scope follow host rules:
 - `.new()` returns the ID or node to keep, a name taken in its collection or tree suffixed `.001`, an ID name cut at 255 bytes
 - IDs from `bpy.data.<collection>.new` and `new_from_object` meshes start with zero users until code links them, and saves drop zero-user IDs
-- Removing an object leaves its data at zero users, and removals name objects with their unshared data
-- `bpy.data.batch_remove(ids=...)` removes only the IDs named
-- `remove()` scans every user per call, and removals of more than one ID run through one `batch_remove`
+- `bpy.data.batch_remove(ids=...)` removes the IDs named alone, scanning users once where each `remove()` scans every user
 - `batch_remove` crashes Blender on a removed ID, and held IDs resolve by `session_uid` before the call
-- Work sets come from the context scope (`context.scene.objects`, `view_layer.objects`, a collection), `bpy.data.<collection>` holding other scenes, orphans, and linked data
+- Objects a call acts on come from the context scope (`context.scene.objects`, `view_layer.objects`, a collection), `bpy.data.<collection>` holding other scenes, orphans, and linked data
 - Current data comes from its owner (`scene.world`, `context.scene`), `bpy.data.<collection>[0]` naming the alphabetically first block
 - `select_set(True)` raises `RuntimeError` for an object outside the view layer and changes nothing on a `hide_select` object
 - Visibility has one owner per scope: `hide_set` per view layer, `hide_viewport` on objects and collections globally, `LayerCollection.exclude` and `hide_viewport` per layer, `visible_get()` combining them
+
+Removing an object leaves its data at zero users, and removals name objects with the data no other user holds in one `batch_remove`:
+
+```python
+def purged(objects: tuple[bpy.types.Object, ...]) -> None:
+    held: frozenset[bpy.types.ID] = frozenset(objects)
+    users: dict[bpy.types.ID, set[bpy.types.ID]] = bpy.data.user_map(subset={obj.data for obj in objects if obj.data is not None})
+    bpy.data.batch_remove(ids=(*objects, *(block for block, holders in users.items() if holders <= held)))
+```
 
 Identity and lookup follow host keys:
 - `bpy.data.<collection>[(name, None)]` reads local data alone, `(name, <library path>)` linked data
@@ -69,11 +77,8 @@ Identity and lookup follow host keys:
 - Loops writing object visibility iterate `Collection.all_objects[:]`
 - Default names (`"Material Output"`) translate with the interface language, and code holds the returned reference or matches `type`
 - Embedded node trees sit outside `bpy.data.node_groups` with `id_data` naming each tree, and keys over them take the holding ID
-- Data paths and msgbus paths hold member, index, and `["<name>"]` key steps as a tuple until the call taking text
-- Path text escapes names through `bpy.utils.escape_identifier`, and generated expression text quotes through `repr`
-- Structs compare with `==`
+- Struct wrappers rebuild per access and ID wrappers per class refinement, and structs compare with `==`
 - Caches key by `session_uid`, stable across renames, undo, and an undone removal while `as_pointer()` addresses repeat
-- Struct wrappers rebuild per access and ID wrappers per class refinement
 - `bl_rna.identifier` names a refined subtype (`SunLight`), and dispatch matches base classes through `isinstance` or a class pattern
 - Collection struct type tests (`ObjectModifiers`) never match a `bpy_prop_collection` value, and code binds the collection's own member
 - RNA members of a class test through `name in T.bl_rna.properties` or `T.bl_rna.functions`
@@ -81,6 +86,28 @@ Identity and lookup follow host keys:
 - Dynamic enums (engine, color management, OCIO views) list a static placeholder in `enum_items` (`BLENDER_EEVEE`, `NONE`), and assignments outside the live items raise `TypeError` listing them
 - `UILayout.enum_item_name(data, prop, identifier)` reads a dynamic enum's live label and `""` for an identifier outside the live items
 - Collections can hold `None` items (`texture_slots`), and iteration enumerates before skipping `None` to keep host indices
+
+Data paths and msgbus paths hold member, index, and `["<name>"]` key steps as a tuple, a tuple prefix answering containment, and render text once at the call taking it:
+
+```python
+type Step = str | int | tuple[str]
+
+
+def spelled(step: Step) -> str:
+    match step:
+        case str():
+            return f".{step}"
+        case int():
+            return f"[{step}]"
+        case (key,):
+            return f'["{bpy.utils.escape_identifier(key)}"]'
+
+
+def path(*steps: Step) -> str:
+    return "".join(map(spelled, steps)).removeprefix(".")
+```
+
+`path("render", "views", 0, "name")` resolves on a scene, and `obj.keyframe_insert(path(('<key>',)))` keys a custom property with quotes in its name. Generated expression text quotes values through `repr`.
 
 ## [02]-[OPERATORS]
 
@@ -132,11 +159,21 @@ Calls and their answers:
 - `FINISHED` reports that a stock operator ran (`mesh.fill_grid` on an odd loop adds no face), and work depending on its effect reads the data it wrote
 - Calls answer `{'FINISHED'}`, `{'RUNNING_MODAL'}`, `{'INTERFACE'}`, `{'CANCELLED'}`, or `{'PASS_THROUGH'}`, and code reads `CANCELLED` and `PASS_THROUGH` as a refusal
 - Work behind `RUNNING_MODAL` or `INTERFACE` finishes after the call in a GUI session, dependent reads running from a later timer step
-- Stock operators can answer `CANCELLED` on an empty work set, and code tests the work set before the call
-- Created IDs come from the `bpy.data.<collection>` difference before and after a call, each read by its own `name` in place of the requested one or `selected_objects`
-- Operators that raise keep the writes made before the raise, and callers remove the created set through `batch_remove`
+- Stock operators can answer `CANCELLED` with nothing to act on, and code tests the selection or data before the call
 - `window.workspace` and file-browser `params` writes apply one event-loop pass later, dependent work running from a timer or modal step
 - `area.type` and `show_region_*` writes apply inside the write
+
+Created IDs are the `bpy.data.all_ids` difference across a call in place of a requested name or `selected_objects`, and a raising call keeps its writes, the created set leaving through one `batch_remove`:
+
+```python
+def imported(source: Path) -> Result[frozenset[bpy.types.ID], RuntimeError]:
+    before = frozenset(bpy.data.all_ids)
+    answer = catch(bpy.ops.wm.obj_import, exception=RuntimeError)(filepath=str(source))
+    created = frozenset(bpy.data.all_ids) - before
+    if answer.is_error():
+        bpy.data.batch_remove(ids=tuple(created))
+    return answer.map(lambda _: created)
+```
 
 ## [03]-[EVALUATION]
 
@@ -150,9 +187,9 @@ Original data holds no modifier, constraint, or animation result, and each read 
 |  [04]   | World extents                                  | `matrix_world` over evaluated geometry                                                  |
 |  [05]   | Keyed F-curve value at other frames            | `fcurve.evaluate(frame)`                                                                |
 |  [06]   | Evaluated state at another frame               | `frame_set` on window scene, frame restored after                                       |
-|  [07]   | Instances                                      | `depsgraph.object_instances`, values copied per step                                    |
-|  [08]   | Evaluated mesh                                 | `evaluated_get(depsgraph).to_mesh()` in a scope calling `to_mesh_clear()`               |
-|  [09]   | Evaluated attributes, instance references      | `obj.evaluated_get(depsgraph).evaluated_geometry()`, bound for the read                 |
+|  [07]   | Instances                                      | `depsgraph.object_instances`                                                            |
+|  [08]   | Evaluated mesh                                 | `evaluated_get(depsgraph).to_mesh()`                                                    |
+|  [09]   | Evaluated attributes, instance references      | `obj.evaluated_get(depsgraph).evaluated_geometry()`                                     |
 |  [10]   | Persistent evaluated mesh                      | `new_from_object(evaluated, preserve_all_data_layers=True, depsgraph=depsgraph)`        |
 |  [11]   | Result after a write that tags nothing         | `id.update_tag()` on written ID, then evaluation                                        |
 |  [12]   | Result after a modifier input write            | `obj.update_tag()`, then evaluation                                                     |
@@ -161,6 +198,7 @@ Original data holds no modifier, constraint, or animation result, and each read 
 
 Evaluation follows host rules:
 - Writes to an evaluated ID succeed with no raise and drop at the next evaluation
+- Evaluated IDs hold a `session_uid` of their own, and keys read it from `.original`
 - RNA writes to built-in members tag their owner, while `id["key"]` writes, script writes to registered `bpy.props`, `CurveProfile` point writes with `update()`, `PointCloud.resize`, and `GreasePencilFrames.move` tag nothing
 - `scene.frame_current = n` applies at the next `view_layer.update()`, and `frame_set` evaluates at the call
 - `view_layer.update()` and `view_layer.depsgraph` serve every scene's layers, and `context.evaluated_depsgraph_get()` returns the active layer's depsgraph
@@ -169,13 +207,36 @@ Evaluation follows host rules:
 - Instances stay out of the evaluated mesh and `dimensions`
 - `Object.hide_viewport`, `Collection.hide_viewport`, and `LayerCollection.exclude` take objects out of the depsgraph, and `hide_set` objects still evaluate
 - Evaluated meshes hold their source mesh's name, and code branches on the object it evaluated
-- Reads copy through `foreach_get` into numpy buffers before `to_mesh()` scope exit clears the mesh
 
 ## [04]-[PROPERTIES]
 
-Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes, passing Blender's own keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`):
-- Switchable settings take a `use_<name>` `BoolProperty` beside the value they switch
-- Enum items matching an RNA enum are 5-tuples ending in the item's `value`, a 3-tuple numbering items by position (`Image.type` `RENDER_RESULT` 4 registering as 3)
+Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes, passing Blender's own keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`) and a `use_<name>` `BoolProperty` beside each value it switches. Enum items copying an RNA enum derive from its `enum_items` as 5-tuples keeping each item's `value`, and update callbacks act on `self.id_data` in place of the active item:
+
+```python
+type Struct = bpy.types.bpy_struct[object]
+
+
+def copied(owner: type[Struct], member: str) -> tuple[tuple[str, str, str, str, int], ...]:
+    rna: bpy.types.Struct = owner.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    match rna.properties[member]:
+        case bpy.types.EnumProperty(enum_items=items):
+            return tuple((item.identifier, item.name, item.description, item.icon, item.value) for item in items)
+        case other:
+            raise TypeError(f"{rna.identifier}.{member} is {other.type}, not ENUM")
+
+
+def retagged(self: bpy.types.PropertyGroup, _context: bpy.types.Context) -> None:
+    owner: bpy.types.ID = self.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    owner.update_tag()
+
+
+class Lamp(bpy.types.PropertyGroup):
+    kind: bpy.props.EnumProperty(name="Kind", items=copied(bpy.types.Light, "type"), default="SUN", update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    use_reach: bpy.props.BoolProperty(name="Reach", update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    reach: bpy.props.FloatProperty(name="Reach", subtype="DISTANCE", min=0.0, soft_max=100.0, default=10.0, update=retagged)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+```
+
+`kind` stores `AREA` as 4, its `Light.type` value, where a 3-tuple list stores its position 3.
 
 `bpy.props` definitions take the form the host registers:
 - `poll` and `update` take function objects with exact positional arity, defaulted parameters counted, and a factory returns the closure
@@ -186,15 +247,13 @@ Settings, operator properties, and preferences are `bpy.props` annotations on `P
 - `PointerProperty` takes ID and `PropertyGroup` types, `CurveMapping`, `ColorRamp`, `Scopes`, and `Histogram` coming from an owning ID
 - `PointerProperty` `poll` filters UI assignment alone, and assigning an embedded ID (`Scene.collection`, `Material.node_tree`) raises `RuntimeError`
 - `FloatProperty` and `FloatVectorProperty` take their unit from `subtype` (`DISTANCE` and `XYZ_LENGTH` read `unit` `LENGTH`), and a `unit` the subtype lacks logs an enum mismatch on each read of `subtype`
-- `get` and `set` hold values stored outside Blender
-- `set` needs `get`, and `get` alone makes the property read-only
+- `get` and `set` hold values stored outside Blender, `set` needing `get` and `get` alone making the property read-only
 - `get_transform(self, stored_value, is_set)` and `set_transform(self, new_value, stored_raw_value, is_set)` transform stored values
 - `set_transform` results clamp to the hard range, `get` and `get_transform` results reach readers unclamped, and a wrong type prints `TypeError`
 - `update`, `get`, `set`, and transform callbacks can run in a threaded context per data-block, call no operator, and touch their own ID alone
 - Dynamic `items` callbacks keep their strings referenced, answer a `None` context, and number items stably per identifier, a dynamic `EnumProperty` taking an integer default
 - `ENUM_FLAG` items number by powers of 2
 - `FILE_PATH` and `DIR_PATH` properties accepting `//` declare `PATH_SUPPORTS_BLEND_RELATIVE`
-- Update callbacks act on `self` and `self.id_data` in place of the active item
 - Operator property update callbacks receive properties alone as `self`, with the window manager as `id_data`
 
 Registered values read and write through the host:
@@ -210,26 +269,24 @@ Registered values read and write through the host:
 
 ## [05]-[UNDO]
 
-Undo restores `bpy.data` alone, and each change pushes its step by form:
+Undo restores `bpy.data` outside window manager and screen data, and each change pushes its step by form:
 
 | [INDEX] | [CHANGE]                                 | [STEP]                                          | [FORM]                                     |
 | :-----: | :--------------------------------------- | :---------------------------------------------- | :----------------------------------------- |
 |  [01]   | Operator body that edits data            | One per `FINISHED` from UI, keymap, `undo` call | `bl_options` with `UNDO`                   |
 |  [02]   | Script `bpy.ops` call                    | None, writes joining the next step              | `bpy.ops.<op>('EXEC_DEFAULT', True)`       |
 |  [03]   | Operator called inside an `UNDO` body    | None, outer step holding every write            | Nested `bpy.ops` call                      |
-|  [04]   | Window manager, screen, preference write | None, undo restoring no such state              | `bl_options` without `UNDO`                |
+|  [04]   | Window manager, screen, preference write | None                                            | `bl_options` without `UNDO`                |
 |  [05]   | Steps the operator names itself          | One per `ed.undo_push(message=...)`             | `REGISTER` without `UNDO`                  |
 |  [06]   | Repeated calls collapsing into one step  | One across consecutive calls of a group         | `UNDO_GROUPED`, no `UNDO`, `bl_undo_group` |
 |  [07]   | Deferred callback write                  | One per write that changed data                 | Write, then `ed.undo_push(message=<step>)` |
-|  [08]   | Background run                           | None until a script's `ed.undo_push()`          | Rollback scope                             |
+|  [08]   | Background run                           | None until a script's `ed.undo_push()`          | `ExitStack` of restores and inverse writes |
 
 Undo steps act on held state:
 - Undo re-reads every ID its step touched at its old address, held references to touched IDs raising `ReferenceError` while untouched IDs keep working references
 - `session_uid` lookups survive undo and reach the restored ID
 - Undo restores registered groups, ID properties, and compositor inputs and runs no `update` callback
 - Each undo push marks the file unsaved
-- Window manager, screen, preference, module, and external file state stay as they are across undo
-- Code reverts its own edits through its rollback scope, a restore of captured values, or the inverse write
 - `window_manager.undo_stack` lists `steps`, `active_index`, and `active`, reading `None` before the first push
 
 ## [06]-[CALLBACKS]
@@ -243,7 +300,6 @@ Handler, timer, msgbus, and modal bodies run in a context Blender chose:
 - Timer functions return seconds until their next call, `None` stopping the timer
 - Raising native timers unregister permanently, and a raising handler prints its traceback while later handlers run
 - Handlers remove only themselves from their list during their call
-- State seeds from a one-shot persistent timer beside a `load_post` handler, native collections included
 - GPU calls outside a GPU context raise `SystemError`
 - Background runs draw (`GPUOffScreen`, `batch_for_shader`, `draw_view3d`) after `gpu.init()`, and `gpu.texture.from_image` before it crashes Blender
 - Background runs read `Region.data` `None`, and `RegionView3D.update()` crashes them
@@ -264,12 +320,11 @@ Each entry point translates the result once into the host's form:
 |  [03]   | `execute` with faults           | `ERROR` report per fault with `{'CANCELLED'}`, file as the body found it   |
 |  [04]   | `poll`                          | `False` with `poll_message_set` of unmet requirements                      |
 |  [05]   | `draw`, draw handler            | Failed part drawn as an alert row, rest drawn                              |
-|  [06]   | Update callback, handler, timer | Faults held for extension, a raise printing its traceback alone            |
-|  [07]   | `register`                      | One `RuntimeError` naming every fault after release stack unwinds          |
+|  [06]   | Update callback, handler, timer | Faults stored for the extension to report, a raise printing its traceback  |
+|  [07]   | `register`                      | One `RuntimeError` naming every fault after every acquired release runs    |
 |  [08]   | `RenderEngine.render`           | `report({'ERROR'}, ...)` cancelling render                                 |
 |  [09]   | `register_cli_command` function | Exit status 0 or 1                                                         |
 |  [10]   | `--python` script               | `sys.exit` of `None`, or of faults joined by newlines for exit 1           |
-|  [11]   | `execute_blender_code` body     | Raise naming every fault, data in `result`                                 |
 
 Faults and exceptions stay apart:
 - Host refusals raise `RuntimeError`, `TypeError`, or `ValueError` by call
@@ -283,5 +338,6 @@ Values cross the boundary in host units and axes:
 - Lengths are Blender units scaled by `unit_settings.scale_length` and angles radians, and decoded values hold SI quantities
 - Display strings come from `bpy.utils.units.to_string(system, category, value, split_unit=True)` and parse through `bpy.utils.units.to_value`
 - `to_value` reads `-` and `+` as arithmetic and unitless numbers as the base unit
+- `bpy.utils.time_to_frame` and `time_from_frame` convert seconds through the context scene's frame rate
 - Importers and exporters convert axes through `bpy_extras.io_utils.axis_conversion(from_forward=, from_up=, to_forward=, to_up=).to_4x4()`
 - Stock exporters take `forward_axis` and `up_axis` (OBJ, STL, PLY), `axis_forward` and `axis_up` (FBX), or `export_yup` (glTF)

@@ -20,7 +20,7 @@ def diffused(heat: Samples, ratio: float, /) -> Samples:
     return following
 ```
 
-`diffused` takes one explicit diffusion step over a rod with fixed ends. `heat.copy()` keeps both boundary values in `following`, `out=inner` writes a neighbor sum with no temporary array, and `heat` stays unwritten. Each step reads its predecessor's whole result, a loop-carried recurrence, and steps run as a fold over whole-array passes:
+`diffused` takes one explicit diffusion step over a rod with fixed ends. `heat.copy()` keeps both boundary values in `following`, and `out=inner` writes a neighbor sum with no temporary array. Each step reads its predecessor's whole result, a loop-carried recurrence, and steps run as a fold over whole-array passes:
 
 ```python
 def evolved(heat: Samples, ratio: float, steps: int, /) -> Samples:
@@ -65,25 +65,26 @@ Writes through views and indexes reach their base by form:
 
 ## [03]-[FLOATING_POINT]
 
-Floating-point failures warn by default and return `inf` or `nan`. Scopes raising them are `np.errstate` on one named `def`, and `@catch` above it converts `FloatingPointError` into a `Result`. `Fault`, `Outcome`, and `Reason` are the package faults:
+Floating-point failures warn by default and return `inf` or `nan`. Scopes nest per call, and a helper ignoring one condition keeps ignoring it inside a caller raising every other one:
 
 ```python
+@np.errstate(under="ignore")
+def _falloff(distance: Samples, /) -> Samples:
+    return np.exp(-distance * distance)
+
+
 @catch(exception=FloatingPointError)
-@np.errstate(divide="raise", invalid="raise")
-def ratios(numerator: Samples, denominator: Samples, /) -> Samples:
-    return numerator / denominator
-
-
-def efficiency(output: Samples, supply: Samples, /) -> Outcome[Samples]:
-    return ratios(output, supply).map_error(lambda error: (Fault(reason=Reason.INVALID, subject="supply", cause=error),))
+@np.errstate(all="raise")
+def _glow(distance: Samples, weight: Samples, /) -> Samples:
+    return _falloff(distance) / weight
 ```
 
-`np.errstate` sits below `catch`, and each call of `ratios` runs its body inside a fresh scope. `efficiency` returns `Ok` over nonzero supply and an `INVALID` fault for a zero. Each `errstate` keyword names one error kind:
+`_glow` returns `Ok` holding zero for a distant sample with an underflowing `exp` and an `Error` holding `FloatingPointError` for a zero weight. Each `errstate` keyword names one error kind:
 - `divide` covers division by zero and `log(0)`, `invalid` covers `0 / 0`, `inf - inf`, and `sqrt` of a negative
 - `over` covers float overflow and integer scalar overflow (`np.int8(127) + np.int8(1)`)
-- Integer array arithmetic wraps unseen even under `all="raise"`
+- Integer array arithmetic wraps unseen under `all="raise"`
 - `np.mean` over an empty array warns and raises `FloatingPointError` under `invalid="raise"`
-- Scopes hold per thread, calls from a thread pool raise in their own call alone and leave `np.geterr()` unchanged
+- Scopes hold per thread, and calls from a thread pool raise in their own call alone
 
 ## [04]-[RANDOM_STREAMS]
 
@@ -103,20 +104,14 @@ def trials(seed: int, points: Samples, scale: float, count: int, /) -> tuple[Sam
 - One call drawing a whole shape reads its stream in C order, `normal(size=(2, 3))` equals six scalar draws in any split
 - Children spawned once at the root reach every consumer as arguments, a consumer spawns no stream of its own
 
-Streams that stay fixed as consumers are added or reordered derive from a declared key through `SeedSequence(seed, spawn_key=...)`:
+Streams that stay fixed as consumers are added or reordered derive from what their draws depend on, a content digest as entropy and a path of integers as `spawn_key`:
 
 ```python
-class Axis(IntEnum):
-    X = 0
-    Y = 1
-    Z = 2
-
-
-def stream(seed: int, axis: Axis, /) -> np.random.Generator:
-    return np.random.default_rng(np.random.SeedSequence(seed, spawn_key=(axis,)))
+def stream(key: bytes, /, *path: int) -> np.random.Generator:
+    return np.random.default_rng(np.random.SeedSequence(int.from_bytes(key, "little"), spawn_key=path))
 ```
 
-`stream(seed, Axis.Y)` equals `default_rng(seed).spawn(3)[1]`, and adding a member to `Axis` leaves every existing stream unchanged.
+`stream(key, 1)` equals the second child `spawn` returns from the root over `key`, and equal content draws equal samples in any run and call order with no enum of stream names to keep.
 
 ## [05]-[TABLES]
 
@@ -136,4 +131,4 @@ def weighted(volts: Samples, /) -> Samples:
 `weighted` maps each reading to its tier weight in one pass, and values on a breakpoint fall in the upper tier:
 - Writes into a locked table raise `ValueError` (assignment destination is read-only), from item assignment, `out=`, and `fill` alike
 - Views of a locked table are read-only, and `setflags(write=True)` on one raises `ValueError`
-- Fancy indexing returns a writable copy, and `weighted` hands its caller an array the caller owns
+- `weighted` returns a writable copy its caller owns

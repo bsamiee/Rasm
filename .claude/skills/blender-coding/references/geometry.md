@@ -1,7 +1,5 @@
 # [GEOMETRY]
 
-Covers evaluated reads, BMesh, mesh attributes, buffer paths and costs, and animation channels.
-
 ## [01]-[EVALUATED_READS]
 
 Evaluated reads follow host evaluation rules:
@@ -38,38 +36,67 @@ Per-element mesh data goes through attributes and dedicated calls:
 - Masks, face sets, bevel weights, and creases are the `.sculpt_mask` point, `.sculpt_face_set`, `bevel_weight_edge`, and `crease_edge` attributes
 - `mesh.validate()` follows input not known to be valid and answers `True` when it repaired something
 - `VertexGroup.remove` takes indices below `len(mesh.vertices)`, a larger index crashing Blender
-- Object Mode `mesh.attributes` lists `position`, `.edge_verts`, `.corner_vert`, `.corner_edge`, `sharp_face`, UV maps, and `material_index`
+- Object Mode `mesh.attributes` lists `position`, `.edge_verts`, `.corner_vert`, and `.corner_edge` on every mesh, other built-in layers (`sharp_face`, `material_index`) existing once written
 - Vertex groups sit outside original and evaluated mesh attributes, weights reading through `MeshVertex.groups` alone
 - Vertex group names belong to the mesh, every object sharing it listing them, and `vertex_groups.clear()` empties `groups` on each vertex
+- Triangles come from `mesh.calc_loop_triangles()`, `loop_triangles` key `vertices` holding 3 `int32` per triangle and `loop_triangle_polygons` key `value` its face
 
 ## [04]-[MESH_BUFFERS]
 
-`foreach_get` and `foreach_set` take flat C-contiguous numpy buffers of the member's stored type, sized to `len(collection) * item_size`:
+`foreach_get` and `foreach_set` take flat buffers sized to `len(collection) * item_size`, and topology and image members sit at fixed keys:
 
-| [INDEX] | [NEED]                   | [MEMBER_AND_KEY]                                          | [BUFFER]                                        |
-| :-----: | :----------------------- | :-------------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | Vertex positions         | `attributes["position"].data` key `vector`                | `float32`, 3 per vertex                         |
-|  [02]   | Corner vertices          | `attributes[".corner_vert"].data` key `value`             | `int32` per corner                              |
-|  [03]   | Corner edges             | `attributes[".corner_edge"].data` key `value`             | `int32` per corner                              |
-|  [04]   | Edge vertices            | `attributes[".edge_verts"].data` key `value`              | `int32`, 2 per edge                             |
-|  [05]   | Face corner offsets      | `polygons` key `loop_start`                               | `int32` per face                                |
-|  [06]   | `FLOAT` attribute        | Key `value`                                               | `float32`                                       |
-|  [07]   | `FLOAT_VECTOR` attribute | Key `vector`                                              | `float32`, 3 per item                           |
-|  [08]   | `FLOAT_COLOR` attribute  | Key `color` linear, `color_srgb` encoded                  | `float32`, 4 per item                           |
-|  [09]   | `BYTE_COLOR` attribute   | Key `color_srgb` keeping stored bytes, `color` converting | `float32`, 4 per item                           |
-|  [10]   | `INT` attribute          | Key `value`                                               | `int32`                                         |
-|  [11]   | `BOOLEAN` attribute      | Key `value`                                               | `bool`                                          |
-|  [12]   | Image pixels             | `Image.pixels` through `foreach_get`                      | `float32`, channels per pixel, bottom row first |
-|  [13]   | Keyframes                | `keyframe_points` key `co`                                | `float32`, 2 per key                            |
-|  [14]   | Enum members             | `interpolation` and other enum keys                       | `enum_items[identifier].value` per item         |
-|  [15]   | ID-collection members    | `bpy.data.<collection>` key `location`, `hide_viewport`   | Member's stored type                            |
-|  [16]   | `mathutils` value        | `np.asarray(value, np.float32)`                           | `np.ascontiguousarray` before a handoff         |
+| [INDEX] | [NEED]              | [MEMBER_AND_KEY]                              | [BUFFER]                                        |
+| :-----: | :------------------ | :-------------------------------------------- | :---------------------------------------------- |
+|  [01]   | Vertex positions    | `attributes["position"].data` key `vector`    | `float32`, 3 per vertex                         |
+|  [02]   | Corner vertices     | `attributes[".corner_vert"].data` key `value` | `int32` per corner                              |
+|  [03]   | Corner edges        | `attributes[".corner_edge"].data` key `value` | `int32` per corner                              |
+|  [04]   | Edge vertices       | `attributes[".edge_verts"].data` key `value`  | `int32`, 2 per edge                             |
+|  [05]   | Face corner offsets | `polygons` key `loop_start` alone             | `int32` per face                                |
+|  [06]   | Image pixels        | `Image.pixels` through `foreach_get`          | `float32`, channels per pixel, bottom row first |
+
+Every other buffer takes dtype and width from its member's RNA class, enum members holding each item's `value` as `int32`, and an attribute of any `data_type` reads through the members of its value struct (`vector` 2 wide on `FLOAT2`, `color` and `color_srgb` on both color types):
+
+```python
+type Elements[T] = bpy.types.bpy_prop_collection[T]
+type Buffer = NDArray[np.bool | np.int32 | np.float32]
+
+STORED: MappingProxyType[type[bpy.types.Property], type[np.bool | np.int32 | np.float32]] = MappingProxyType({
+    bpy.types.BoolProperty: np.bool,
+    bpy.types.IntProperty: np.int32,
+    bpy.types.FloatProperty: np.float32,
+    bpy.types.EnumProperty: np.int32,
+})
+
+
+def column[T](items: Elements[T], member: bpy.types.Property) -> Option[Buffer]:
+    match member:
+        case bpy.types.BoolProperty(array_length=width) | bpy.types.IntProperty(array_length=width) | bpy.types.FloatProperty(array_length=width):
+            size = len(items) * max(width, 1)
+        case bpy.types.EnumProperty():
+            size = len(items)
+        case _:
+            return Nothing
+    items.foreach_get(member.identifier, buffer := np.empty(size, STORED[type(member)]))
+    return Some(buffer)
+
+
+def columns(attribute: bpy.types.Attribute) -> MappingProxyType[str, Buffer]:
+    match attribute.bl_rna.properties["data"]:
+        case bpy.types.CollectionProperty(identifier=key, fixed_type=bpy.types.bpy_struct() as item):
+            return MappingProxyType({member.identifier: buffer for member in item.properties for buffer in column(getattr(attribute, key), member).to_list()})
+        case _:
+            return MappingProxyType({})
+```
+
+`column(scene.objects, bpy.types.Object.bl_rna.properties["matrix_world"])` reads 16 floats per object, and `columns(mesh.attributes["UVMap"])` holds one `vector` buffer 2 wide per corner.
+
+`BYTE_COLOR` `color_srgb` reads stored bytes where `color` converts them to linear.
 
 Buffers follow host storage:
 - 2D buffers and wrong lengths raise `RuntimeError("internal error setting the array")` and print `Array length mismatch`
 - Dynamic arrays (`MeshPolygon.vertices`) declare one length in `array_length` and `array_dimensions` while each item holds its own, and buffers take the resolved array's `len()`
 - `MATRIX` arrays of 9 or 16 items read as `Matrix` rows transposed from stored order, `path_resolve("<member>", False)` reading the stored array
-- Mesh shape keys read `co` through `ShapeKey.points`, 100k points in 25 µs against 3.5 ms through `data`
+- Mesh shape keys read `co` through `ShapeKey.points` at memcpy cost, `data` paying per element
 - Curve shape keys hold an empty `points`, and `data` mixes `ShapeKeyBezierPoint` and `ShapeKeyCurvePoint` items, `co` 3 wide on both, with `fixed_type` reading `UnknownType`
 - Hair `curve_offset_data` and Grease Pencil `drawing.curve_offsets` hold curve offsets in `value`, one more than the curve count, outside the attributes
 - `foreach_get` reads read-only members (`GreasePencilFrame.frame_number`), and `foreach_set` on attribute data tags the mesh for evaluation
@@ -83,15 +110,16 @@ Each path falls in a cost class, ordered cheapest first:
 |  [02]   | Per element           | Other `foreach_get` paths (`vertices` `co`, `polygons` `loop_start`), memcpy paths given another dtype or layout |
 |  [03]   | Per element in Python | `v.co.x` loops, `pixels[:]`                                                                                      |
 
-Hot code reads attribute data with the stored dtype, `float64`, `uintc`, `int64`, list, and strided buffers converting per element. `polygons` `loop_start` is the one face-offset path.
-
-Exporters read world positions and topology from the evaluated mesh inside a scope calling `to_mesh_clear()`:
+Exporters read world positions and topology from the evaluated mesh:
 
 ```python
-def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph) -> Option[tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]]:
+type Surface = tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]
+
+
+def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph) -> Option[Surface]:
     evaluated: bpy.types.Object = source.evaluated_get(depsgraph)
 
-    def read(mesh: bpy.types.Mesh) -> tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]:
+    def read(mesh: bpy.types.Mesh) -> Surface:
         positions, corners, starts = np.empty(len(mesh.vertices) * 3, np.float32), np.empty(len(mesh.loops), np.int32), np.empty(len(mesh.polygons), np.int32)
         for key, member, buffer in (("position", "vector", positions), (".corner_vert", "value", corners)):
             if isinstance(attribute := mesh.attributes[key], bpy.types.FloatVectorAttribute | bpy.types.IntAttribute):
@@ -107,7 +135,7 @@ def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph) -> Option[
 
 `to_mesh()` reads `None` for geometry that evaluates to no mesh (an empty curve) and raises `RuntimeError` on an object without geometry (camera, empty, point cloud).
 
-Construction sizes the mesh from the buffers, writes them flat, then derives edges, face sizes, and normals through `mesh.update()`, and `rollback` removes the mesh after a raise:
+Construction sizes the mesh from the buffers, writes them flat, then derives edges, face sizes, and normals through `mesh.update()`:
 
 ```python
 def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32], starts: NDArray[np.int32]) -> Result[bpy.types.Mesh, RuntimeError]:
@@ -132,20 +160,11 @@ def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32],
         return outcome
 ```
 
-Bulk removal names objects and the data no other user holds in one `batch_remove`:
-
-```python
-def purged(objects: tuple[bpy.types.Object, ...]) -> None:
-    held: set[bpy.types.ID] = set(objects)
-    users: dict[bpy.types.ID, set[bpy.types.ID]] = bpy.data.user_map(subset={obj.data for obj in objects if obj.data is not None})
-    bpy.data.batch_remove(ids=(*objects, *(block for block, holders in users.items() if holders <= held)))
-```
-
 ## [05]-[ANIMATION]
 
 Channels follow the layered action model:
 - `Action.fcurve_ensure_for_datablock(datablock, data_path, index=, group_name=)` on an action assigned to `datablock` creates the layer, strip, slot, and channelbag, and returns an existing F-curve, an unassigned action raising `RuntimeError`
-- `fcurve.evaluate(frame)` leaves out values a driver or NLA strip changes, which read through `frame_set`
+- `fcurve.evaluate(frame)` reads keys alone, values a driver or NLA strip changes reading through `frame_set`
 - `driver_add(path, index)` returns the existing driver F-curve on a second call
 - Actions take one layer, and layered animation runs through NLA strips with `ADD` or `COMBINE` blending
 - Actions assigned to a second ID animate nothing until `animation_data.action_slot` names their slot

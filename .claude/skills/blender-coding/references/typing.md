@@ -1,27 +1,22 @@
 # [TYPING]
 
-Covers annotation forms under Blender's eager evaluation and stub declarations Blender's runtime contradicts, with the code form each takes.
-
 - Use `manage-repo` for ignore policy
 
 ## [01]-[ANNOTATIONS]
 
-Blender's Python 3.13 evaluates module, class, and signature annotations when their statement runs, an unbound name raising `NameError`:
-- Repository code holds no `from __future__ import annotations`
-- Methods naming their own class annotate with `typing.Self`
+Blender's interpreter evaluates module, class, and signature annotations when their statement runs, an unbound name raising `NameError`:
 - Declarations follow dependency order, every annotation naming an earlier declaration
 - `type` alias values and type parameter bounds and defaults evaluate on first read, naming later declarations unquoted
-- Quotes hold later declarations and `TYPE_CHECKING` names, and a `bpy.types` subscript sits behind one `type` alias (`type Struct = bpy.types.bpy_struct[object]`)
+- Quotes hold later declarations and `TYPE_CHECKING` names
 - `register_class` evaluates every annotation on an ID-property class and each base, quoted `bpy.types` subscripts and `TYPE_CHECKING` names raising
-- Ruff under the 3.13 declaration flags quotes on local variable annotations (UP037) and `type` alias values (TC008)
-- `bpy.types` classes raise `TypeError` on a runtime subscript, while stubs declare them generic
-- Blender's Python 3.13 lacks `frozendict`, `lazy import`, and `typing.TypeForm`, and code takes `types.MappingProxyType` for read-only tables and `typing_extensions.TypeForm` for type forms
-- Type checks read bundled numpy, OpenColorIO, and OpenImageIO, an `Any` axis reduction takes one annotated local, a float32 scalar division `np.divide`
-- Float `msgspec.Meta` `gt` bounds reach Blender as a subnormal `ge` flushed to zero, and positive floats bound `ge=sys.float_info.min`
+- `bpy.types` classes raise `TypeError` on a runtime subscript while stubs declare them generic, and each subscript sits behind one `type` alias (`type Struct = bpy.types.bpy_struct[object]`)
+- Code Blender imports keeps older-interpreter forms, `typing_extensions.TypeForm` standing in for `typing.TypeForm`
+- Code calls members of the numpy, OpenColorIO, and OpenImageIO releases Blender bundles
+- Blender flushes subnormal floats to zero, `msgspec.Meta(gt=0.0)` accepting `0.0`, and positive floats bound `ge=sys.float_info.min`
 
 ## [02]-[STUB_DEFECTS]
 
-Stub declarations runtime contradicts take the form in `[FORM]`, each checker code there going in the line's one `# type: ignore[<code>]  # ty: ignore[<rule>]` suppression:
+Stub declarations runtime contradicts take one form each, checker codes going in the line's one `# type: ignore[<code>]  # ty: ignore[<rule>]` suppression:
 
 | [INDEX] | [STUB]                                      | [RUNTIME]                             | [FORM]                                            |
 | :-----: | :------------------------------------------ | :------------------------------------ | :------------------------------------------------ |
@@ -30,13 +25,13 @@ Stub declarations runtime contradicts take the form in `[FORM]`, each checker co
 |  [03]   | Handler lists as list unions                | Path callbacks for `load_*`, `save_*` | `arg-type` at a `list[Callable[..., None]]` field |
 |  [04]   | `bpy_prop_array`, `Color` without iteration | Iterates, indexes, takes `len`        | `np.asarray(image.size)` and unpack               |
 |  [05]   | `bpy_struct` without `__contains__`         | `key in struct` tests ID properties   | `operator` on the test                            |
-|  [06]   | `PointerProperty.fixed_type` as `Struct`    | Instance of the described class       | `fixed_type=ID()` pattern, `unreachable`          |
+|  [06]   | `fixed_type` as `Struct`                    | Instance of the described class       | `bpy_struct()` pattern, `ID()` with `unreachable` |
 |  [07]   | `Menu.append` draw as `draw(context)`       | Blender calls `draw(self, context)`   | Two-parameter draw, `arg-type` at the call        |
 |  [08]   | Never-null members typed optional           | Present                               | One typed read at stub boundary, `assignment`     |
-|  [09]   | Engine and color space enums as literals    | Live engine and OCIO enums            | `str`, setter `TypeError` listing live items      |
+|  [09]   | Engine and color space enums as literals    | Live engine and OCIO enums            | `str`                                             |
 |  [10]   | `Vector`, `Matrix` declaring `__set__`      | No descriptor protocol                | `arg-type` where a struct field takes one         |
 |  [11]   | `gpu` stack contexts as plain classes       | Context managers                      | `ExitStack.enter_context`, `arg-type`             |
-|  [12]   | `bpy_prop_array.foreach_set`, batch content | Take flat numpy buffers               | `arg-type`, `dict-item`, `invalid-argument-type`  |
+|  [12]   | Array `foreach_set`, batch, `FromPolygons`  | Take numpy arrays                     | `arg-type`, `dict-item`, `invalid-argument-type`  |
 |  [13]   | `bl_ui` classes on `_bpy_types` bases       | `bpy.types` class subclasses          | `type[bpy.types.Panel]`, `arg-type`               |
 |  [14]   | Python helpers stubbed `-> None` or absent  | Return values                         | Return from installed `__doc__` or source         |
 |  [15]   | Data and node `new` returning base classes  | Subclass the call names               | Class pattern or annotated local, `assignment`    |
@@ -51,7 +46,7 @@ Stub declarations runtime contradicts take the form in `[FORM]`, each checker co
 |  [24]   | `app.handlers.persistent` untyped           | Returns marked function               | `untyped-decorator`                               |
 |  [25]   | `Operator.bl_options` as `set`              | Takes a `frozenset`                   | `frozenset`, `assignment`, `invalid-assignment`   |
 
-ty reports `persistent` decorators as `dynamic-function-decorator-return` and `libraries.load` locals as `invalid-assignment`
+ty reports `persistent` decorators as `dynamic-function-decorator-return`
 
 Never-null members the stubs type optional, `Property.is_never_none` reading False on them:
 - `Context.preferences` and `window_manager`, `Scene.view_settings` and `display_settings`, `ViewLayer.active_layer_collection`

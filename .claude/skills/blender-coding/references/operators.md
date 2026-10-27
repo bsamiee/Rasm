@@ -1,34 +1,41 @@
 # [OPERATORS]
 
-Covers `bpy.types.Operator` classes, from properties and conditions to invoke forms, modal steps, and placements.
-
 ## [01]-[DECLARATION]
 
 Operator classes declare properties as `bpy.props` annotations and do their work in `execute`:
-- Redo, Repeat Last, and scripts rerun `execute` over its properties alone, and preferences and scene settings seed `invoke` alone
+- Redo, Repeat Last, and scripts rerun `execute` over its properties, and `execute` reads them alone, preferences and scene settings seeding them in `invoke`
 - `invoke` gathers event input into properties, then opens its invoke form or calls `execute`
 - `invoke` writes only properties `is_property_set` reports unset, keeping keymap, menu, and script values
 - Script `bpy.ops` calls with `undo` off neither read nor store last-run values, while calls with `undo` on and interface runs read and store them
 - `bl_property` names the property a search popup or enum operator edits
 - `INTERNAL` in `bl_options` hides the operator from search
+- Class docstrings supply the description a class without `bl_description` shows, and a `description(cls, context, properties)` classmethod returns one per property values
+
+`execute` translates its work's result once into reports and an answer:
 
 ```python
-class Rescaled(bpy.types.Operator):
-    bl_idname = "item.rescaled"
-    bl_label = "Rescale"
-    bl_description = "Set the render resolution scale"
+class EngineSet(bpy.types.Operator):
+    """Set the render engine."""
+
+    bl_idname = "item.engine_set"
+    bl_label = "Set Engine"
     bl_options = frozenset({"REGISTER", "UNDO"})  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
-    percentage: bpy.props.IntProperty(subtype="PERCENTAGE", min=1, max=100, default=100)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    engine: bpy.props.StringProperty(name="Engine")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
     @override
     def execute(self, context: bpy.types.Context) -> set["rna_enums.OperatorReturnItems"]:
         render: bpy.types.RenderSettings = context.scene.render  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        if render.resolution_percentage == self.percentage:
-            self.report({"INFO"}, "Scale already set")
+        if render.engine == self.engine:
+            self.report({"INFO"}, f"{self.engine} already set")
             return {"CANCELLED"}
-        render.resolution_percentage = self.percentage
-        return {"FINISHED"}
+        outcome = catch(setattr, exception=TypeError)(render, "engine", self.engine)
+        match outcome.tag:
+            case "ok":
+                return {"FINISHED"}
+            case "error":
+                self.report({"ERROR"}, str(outcome.error))
+                return {"CANCELLED"}
 ```
 
 `rna_enums` imports from `bpy.stub_internal` under `TYPE_CHECKING`.
@@ -54,7 +61,10 @@ class Rescaled(bpy.types.Operator):
 |  [07]   | `fileselect_add` on `ExportHelper` | Export browser, `check_existing` confirming replacements                    |
 |  [08]   | `modal_handler_add`                | Interactive gesture with preview, rollback, timer, and status               |
 
-`ExportHelper` operators declare `filename_ext`, and a declared `filter_glob` property filters either browser
+Dialogs and file browsers read operator members:
+- `draw(self, context)` lays out the dialog, the default layout listing every property without `HIDDEN`
+- `check(self, context)` runs after property edits, `True` redrawing the layout
+- `ExportHelper` operators declare `filename_ext`, its `check` correcting the `filepath` extension, and a declared `filter_glob` property filters either browser
 
 ## [04]-[MODAL]
 

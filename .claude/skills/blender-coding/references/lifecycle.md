@@ -1,7 +1,5 @@
 # [LIFECYCLE]
 
-Covers callback bodies across file loads, updates, deferred writes, frames, drivers, and worker processes.
-
 - Use `use-blender` for background run behavior
 
 ## [01]-[FILE_LOADS]
@@ -14,6 +12,7 @@ File loads drop callbacks:
 
 `register()` never runs again for the new file, and per-file state rebuilds from a persistent `load_post` handler:
 - Startup runs `load_post` once after extensions register, every callback `register()` acquired live
+- Extensions enabled within a session see no `load_post`, and a one-shot persistent timer beside the handler seeds their state
 - `load_post` runs after versioning and before drivers and the depsgraph evaluate, evaluated reads waiting for a later step
 - Heavy `load_post` work queues one item per timer call
 - Subscriptions renew in one `load_post` handler that calls `msgbus.clear_by_owner(<owner>)` and subscribes every key again
@@ -37,38 +36,77 @@ File loads drop callbacks:
 
 ## [03]-[DEFERRED_WRITES]
 
-Deferred writes register one `bpy.app.timers` function per argument set in GUI sessions and run at the call in background runs, `bpy.app.background` choosing once per scope:
-- Handler, msgbus, and update callback bodies hand ID writes to the deferred writer, one call per `session_uid`, each write answering whether it changed data
-- Pending timers return `0.0` while `window_manager.is_interface_locked` reads true, then run the write and push a step named from the write function through `ed.undo_push(message=<step>)`
-- Background runs push no undo step
+Handler, msgbus, and update callback bodies defer ID writes to one `bpy.app.timers` function per argument set, and background runs write at the call with no undo step:
+
+```python
+def marked(uids: frozenset[int]) -> bool:
+    changed = tuple(block for block in bpy.data.objects if block.session_uid in uids and not block.get("moved"))
+    for block in changed:
+        block["moved"] = True
+    return bool(changed)
+
+
+def deferred(uids: frozenset[int]) -> float | None:
+    manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    if manager.is_interface_locked:
+        return 0.0
+    if marked(uids):
+        bpy.ops.ed.undo_push(message=bpy.path.display_name(marked.__name__))
+    return None
+
+
+@bpy.app.handlers.persistent  # type: ignore[untyped-decorator]  # ty: ignore[dynamic-function-decorator-return]
+def moved(_scene: bpy.types.Scene, depsgraph: bpy.types.Depsgraph) -> None:
+    uids = frozenset(
+        original.session_uid
+        for update in depsgraph.updates
+        if update.is_updated_transform and isinstance(update.id, bpy.types.Object) and isinstance(original := update.id.original, bpy.types.Object)
+    )
+    if uids and bpy.app.background:
+        marked(uids)
+    elif uids:
+        bpy.app.timers.register(partial(deferred, uids))
+```
+
+Deferred writes follow host scheduling:
 - Native timers run beside a GUI render with no interface-lock test
-- `bpy.app.is_job_running` gates native timers per job type (`RENDER`, `RENDER_PREVIEW`, `OBJECT_BAKE`, `COMPOSITE`, `SHADER_COMPILATION`)
+- Timers test `bpy.app.is_job_running(<job>)` per job type (`RENDER`, `RENDER_PREVIEW`, `OBJECT_BAKE`, `COMPOSITE`, `SHADER_COMPILATION`)
 - Timers registered from the render job thread run on the main thread at the next event-loop pass
-- Update callbacks fire on every assignment, equal values included, and writes assign only differing values to end the cycle under either executor
+- Update callbacks fire on every assignment, equal values included, and writes assign only differing values to end the cycle
 - Comparisons against a read-back value run at stored precision (`FloatProperty` as `float32`, theme colors as bytes, `maxlen` in UTF-8 bytes)
 - Update callbacks skip `property_unset`, and derived state is computed where read
-- Scope exit unregisters every pending timer
 
 ## [04]-[FRAMES]
 
 Frame and `render_*` handlers run on the render job thread beside viewport drawing during a GUI render:
 - `render_init` runs once before the scene is read and `render_pre` after settings copy
-- Job-wide writes go in `render_init` and per-frame writes in `frame_change_pre`
-- Per-job state starts in `render_init`, and ID writes go through the deferred writer
+- Job-wide writes and per-job state go in `render_init`
 - Restores run from both `render_complete` and `render_cancel`
 - `render.render` in exec form runs its handlers on the calling thread
 - Before a render with handlers that change data the viewport reads, set `RenderSettings.use_lock_interface`
 
 ## [05]-[DRIVERS]
 
-Drivers survive auto-run off when built from variables and simple expressions:
+Drivers survive auto-run off when built from variables and a simple expression, each target writing `id_type` from its source before `id`:
+
+```python
+def driven(owner: bpy.types.ID, member: str, index: int, source: bpy.types.ID, source_path: str) -> bpy.types.Driver:
+    driver: bpy.types.Driver = owner.driver_add(member, index).driver  # type: ignore[union-attr, assignment]  # ty: ignore[unresolved-attribute, invalid-assignment]
+    variable = driver.variables.new()
+    variable.type = "SINGLE_PROP"
+    target = variable.targets[0]
+    target.id_type, target.id, target.data_path = source.id_type, source, source_path
+    driver.expression = variable.name
+    return driver
+```
+
+Drivers evaluate by host rules:
+- `driver.is_simple_expression` answers whether an expression evaluates with auto-run off, and an `id` of a type other than `id_type` raises `TypeError`
 - Expressions reading `bpy.context` or data paths outside variables stay invalid until the file's scripts are trusted
 - Code writes each ID property a driver reads, then `id.update_tag()` on that ID, before the driver's first evaluation
 - Drivers that first evaluated without their property recover through `source.update_tag()`, `driver.is_valid = True`, and `owner.update_tag()` on the driven ID, then one evaluation
 - `driver.is_valid = True` alone sets the flag with the value left stale, and tags without that write leave the driver invalid
 - `driver_namespace` functions run with auto-run off
-- Persistent `load_post` bodies restore each `driver_namespace` entry after a load
-- `view_layer.update()` inside a `driver_namespace` function raises `RuntimeError("Dependency graph update requested during evaluation")`
 - Code building a driver with an expression that is not simple reads `preferences.filepaths.use_scripts_auto_execute` first
 
 ## [06]-[WORKERS]

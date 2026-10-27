@@ -1,10 +1,8 @@
 # [FILES]
 
-Covers written render files, from multilayer parts and channels to cryptomatte layouts, multi-view parts, File Output files, header metadata, and OpenImageIO reads and writes.
-
 ## [01]-[PARTS]
 
-Multilayer EXR parts follow which stage produced the image:
+Multilayer EXR parts follow the stage that produced the image:
 
 | [INDEX] | [CASE]                                   | [PARTS]                                                            |
 | :-----: | :--------------------------------------- | :----------------------------------------------------------------- |
@@ -25,11 +23,11 @@ Parts take pass display names, and channels take component suffixes in file orde
 ## [02]-[CRYPTOMATTE]
 
 Cryptomatte parts `<layer>.CryptoObjectNN`, `CryptoMaterialNN`, and `CryptoAssetNN` hold channels `r`, `g`, `b`, `a`:
-- Parts hold ranks as (id, coverage) pairs in `r`, `g` and `b`, `a`
-- `pass_cryptomatte_depth` ranks fill `CryptoObject00` to `02` at the default 6
+- Parts hold ranks as (id, coverage) pairs in `r`, `g` and `b`, `a`, depth 6 filling `CryptoObject00` to `02`
 - Headers hold `cryptomatte/<key>/name` naming `<layer>.<Kind>`, `manifest` as a JSON map of names to hex hashes, `hash` `MurmurHash3_32`, and `conversion` `uint32_to_float32`
 - Cycles manifests list lights, the world, and default materials, EEVEE manifests items it drew
-- Hashes become ids by keeping sign and mantissa bits and clamping the exponent to 1 through 254
+
+Mattes match manifest hashes as float ids that keep sign and mantissa bits and clamp the exponent to 1 through 254:
 
 ```python
 from string import digits
@@ -41,17 +39,18 @@ from numpy.typing import NDArray
 import OpenImageIO
 
 
-def coverage(path: str, layer: str, names: frozenset[str]) -> Result[NDArray[np.float32], OSError | KeyError]:
-    def matted(opened: OpenImageIO.ImageBuf, manifest: dict[str, str]) -> NDArray[np.float32]:
+def matted(path: str, layer: str, names: frozenset[str]) -> Result[NDArray[np.float32], OSError | KeyError]:
+    def summed(opened: OpenImageIO.ImageBuf, manifest: dict[str, str]) -> NDArray[np.float32]:
         hashes = np.array([int(manifest[name], 16) for name in names], np.uint32)
         parts = (OpenImageIO.ImageBuf(path, index, 0) for index in range(opened.nsubimages))
         ranks = np.concatenate([part.get_pixels(OpenImageIO.FLOAT) for part in parts if part.spec().getattribute("name").rstrip(digits) == layer], axis=-1)
-        return np.where(np.isin(ranks.view(np.uint32)[..., ::2], hashes & 0x807FFFFF | np.clip(hashes >> 23 & 0xFF, 1, 254) << 23), ranks[..., 1::2], 0).sum(axis=-1)
+        matte: NDArray[np.float32] = np.where(np.isin(ranks.view(np.uint32)[..., ::2], hashes & 0x807FFFFF | np.clip(hashes >> 23 & 0xFF, 1, 254) << 23), ranks[..., 1::2], 0).sum(axis=-1)
+        return matte
 
     def manifested(header: OpenImageIO.ImageSpec) -> Result[dict[str, str], OSError | KeyError]:
         return (
             Option
-            .of_optional(next((held.name.removesuffix("/name") for held in header.extra_attribs if held.name.endswith("/name") and held.value == layer), None))
+            .of_optional(next((attribute.name.removesuffix("/name") for attribute in header.extra_attribs if attribute.name.endswith("/name") and attribute.value == layer), None))
             .to_result(KeyError(layer))
             .map(lambda key: msgspec.json.decode(header.getattribute(f"{key}/manifest"), type=dict[str, str]))
         )
@@ -64,7 +63,7 @@ def coverage(path: str, layer: str, names: frozenset[str]) -> Result[NDArray[np.
                 Result[OpenImageIO.ImageSpec, OSError | KeyError](ok=opened.spec())
                 .bind(manifested)
                 .filter_with(lambda manifest: names <= manifest.keys(), lambda manifest: KeyError(*sorted(names.difference(manifest))))
-                .map(lambda manifest: matted(opened, manifest))
+                .map(lambda manifest: summed(opened, manifest))
             )
 ```
 
@@ -76,7 +75,7 @@ Multi-view EXR files place views by `image_settings.views_format`:
 
 ## [04]-[FILE_OUTPUT]
 
-File Output nodes write one part or file per item:
+File Output parts and channels take item names and socket types:
 - Multilayer parts take the item name with no layer prefix (`beauty`), channels `<item>.<channel>`
 - `RGBA` items write `R`, `G`, `B`, `A`, `FLOAT` items `V`, and `VECTOR` items `X` to the item's `vector_socket_dimensions`
 - Items fed a cryptomatte result write lowercase `r`, `g`, `b`, `a`
@@ -89,8 +88,8 @@ Headers hold render metadata:
 - Default flags write `Camera`, `Date`, `File`, `Frame`, `RenderTime`, `Scene`, and `Time`
 - `use_stamp_note` writes `stamp_note_text` as `Note`
 - Cycles adds `cycles.<layer>.samples`, `render_time`, `synchronization_time`, and `total_time`
-- EXR headers name the written linear space in `colorInteropID` (`lin_rec709_scene`, `lin_ap1_scene` under an `ACEScg` override), which OpenImageIO reads as `oiio:ColorSpace`
-- PNG files hold `CICP`, which OpenImageIO reads as `oiio:ColorSpace` (`srgb_rec709_scene` under `sRGB`, `pq_rec2020_display` under `Rec.2100-PQ`)
+- EXR headers name the written linear space in `colorInteropID` (`lin_rec709_scene`, `lin_ap1_scene` under an `ACEScg` override)
+- OpenImageIO reads EXR `colorInteropID` and PNG `CICP` as `oiio:ColorSpace` (`srgb_rec709_scene` under `sRGB`, `pq_rec2020_display` under `Rec.2100-PQ`)
 
 ## [06]-[OPENIMAGEIO]
 
