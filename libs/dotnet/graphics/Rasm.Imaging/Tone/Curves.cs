@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
@@ -39,6 +40,71 @@ public sealed partial class DisplayDevice {
 
 public sealed record CurveApplication(float PreserveHue, float Purity, Vector3 Inset, Vector3 Rotation) {
     public static CurveApplication Default { get; } = new(1f, 0f, Vector3.Zero, Vector3.Zero);
+}
+
+public abstract class ToneCurve {
+    private interface IKernel { internal float At(float value); }
+
+    public abstract float At(float value);
+
+    internal abstract void Graded(Span<Vector4> row, float preserveHue);
+
+    private sealed class Shaped<TKernel>(TKernel kernel) : ToneCurve where TKernel : struct, IKernel {
+        public override float At(float value) => kernel.At(value);
+
+        internal override void Graded(Span<Vector4> row, float preserveHue) {
+            foreach (ref Vector4 pixel in row)
+                pixel = new Vector4(ToneCurves.PreserveHue(pixel.AsVector3(), new Vector3(kernel.At(pixel.X), kernel.At(pixel.Y), kernel.At(pixel.Z)), preserveHue), pixel.W);
+        }
+    }
+
+    private readonly struct Sigmoidal(float white, float paper, float fog, float contrast, float skew) : IKernel {
+        float IKernel.At(float value) => white * float.Pow(1f + (paper * float.Pow(fog + float.MaxNumber(value, 0f), -contrast)), -skew);
+    }
+
+    private readonly struct Segmented(float scale, float toeEnd, float toeValue, float toePower, float intercept, float gamma, float shoulderStart, float shoulderValue, float shoulderSlope, float shoulderEnd, float top) : IKernel {
+        float IKernel.At(float value) =>
+            scale * (float.MaxNumber(value, 0f) switch {
+                var x when x < toeEnd => toeValue * float.Pow(x / toeEnd, toePower),
+                var x when x < shoulderStart => float.Pow(x + intercept, gamma),
+                var x when x < shoulderEnd => top - ((top - shoulderValue) * float.Pow((shoulderEnd - x) / (shoulderEnd - shoulderStart), shoulderSlope)),
+                _ => top,
+            });
+    }
+
+    private readonly struct Logarithm(float white, float normalizer, float inverseWhite, float power) : IKernel {
+        float IKernel.At(float value) => float.MaxNumber(value, 0f) switch { var x => white * float.LogP1(x) / (normalizer * float.Log(2f + (8f * float.Pow(x * inverseWhite, power)))) };
+    }
+
+    public static ToneCurve Sigmoid(float contrast, float skew, float black, Luminance peak) {
+        const double gray = Exposure.MiddleGray;
+        double ceiling = peak.Nits.ToDouble() / DynamicRange.Standard.WhiteLuminance;
+        double bend = double.Pow(5d, -skew);
+        double power = contrast * (1d - gray) / (bend * (1d - double.Pow(gray / ceiling, 1d / bend)));
+        double towardGray = double.Pow(ceiling / gray, 1d / bend) - 1d;
+        double floor = double.Pow(black, 1d / bend);
+        double lifted = double.Pow(towardGray * floor, 1d / power);
+        double fog = gray * lifted / (double.Pow(1d - floor, 1d / power) - lifted);
+        return new Shaped<Sigmoidal>(new((float)ceiling, (float)(double.Pow(fog + gray, power) * towardGray), (float)fog, (float)power, (float)bend));
+    }
+
+    public static ToneCurve Piecewise(float toeStrength, float toeLength, float shoulderAngle, float gamma, float shoulderStrength, float shoulderLength) {
+        double toeX = 0.5d * double.Pow(toeLength, 2.2d);
+        double toeY = (1d - toeStrength) * toeX;
+        double shoulderX = toeX + ((1d - shoulderLength) * (1d - toeY));
+        double white = toeX + (1d - toeY) + double.Exp2(shoulderStrength) - 1d;
+        double end = white * (1d + (2d * shoulderAngle * shoulderStrength));
+        double ceiling = double.Pow(1d + (0.5d * shoulderAngle * shoulderStrength), gamma);
+        (double toe, double shoulder) = (double.Max(1e-5d, double.Pow(toeY, gamma)), double.Max(1e-5d, double.Pow(toeY + shoulderX - toeX, gamma)));
+        double shoulderPower = gamma * double.Pow(shoulder, 1d - (1d / gamma)) * (end - shoulderX) / (ceiling - shoulder);
+        double scale = 1d / (ceiling - ((ceiling - shoulder) * double.Pow((end - white) / (end - shoulderX), shoulderPower)));
+        return new Shaped<Segmented>(new(
+            (float)scale, (float)toeX, (float)toe, (float)(gamma * toeX * double.Pow(toe, -1d / gamma)), (float)(toeY - toeX), gamma,
+            (float)shoulderX, (float)shoulder, (float)shoulderPower, (float)end, (float)ceiling));
+    }
+
+    public static ToneCurve Logarithmic(float bias, float white, Luminance peak) =>
+        new Shaped<Logarithm>(new((float)(peak.Nits.ToDouble() / DynamicRange.Standard.WhiteLuminance), float.Log10P1(white), 1f / white, (float)(double.Log(bias) / double.Log(0.5d))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -89,60 +155,14 @@ public static class ToneCurves {
         float Placed(int channel) => channel == min ? low : channel == mid ? middle : high;
     }
 
-    public static Func<float, float> Sigmoid(float contrast, float skew, float black, Luminance peak) {
-        const double gray = Exposure.MiddleGray;
-        double ceiling = peak.Nits.ToDouble() / DynamicRange.Standard.WhiteLuminance;
-        double bend = double.Pow(5d, -skew);
-        double power = contrast * (1d - gray) / (bend * (1d - double.Pow(gray / ceiling, 1d / bend)));
-        double towardGray = double.Pow(ceiling / gray, 1d / bend) - 1d;
-        double floor = double.Pow(black, 1d / bend);
-        double lifted = double.Pow(towardGray * floor, 1d / power);
-        double fog = gray * lifted / (double.Pow(1d - floor, 1d / power) - lifted);
-        (float whiteTarget, float paperExposure, float filmFog, float contrastPower, float skewPower) =
-            ((float)ceiling, (float)(double.Pow(fog + gray, power) * towardGray), (float)fog, (float)power, (float)bend);
-        return value => whiteTarget * float.Pow(1f + (paperExposure * float.Pow(filmFog + float.MaxNumber(value, 0f), -contrastPower)), -skewPower);
-    }
-
-    public static Func<float, float> Piecewise(float toeStrength, float toeLength, float shoulderAngle, float gamma, float shoulderStrength, float shoulderLength) {
-        double toeX = 0.5d * double.Pow(toeLength, 2.2d);
-        double toeY = (1d - toeStrength) * toeX;
-        double shoulderX = toeX + ((1d - shoulderLength) * (1d - toeY));
-        double white = toeX + (1d - toeY) + double.Exp2(shoulderStrength) - 1d;
-        double end = white * (1d + (2d * shoulderAngle * shoulderStrength));
-        double ceiling = double.Pow(1d + (0.5d * shoulderAngle * shoulderStrength), gamma);
-        (double toe, double shoulder) = (double.Max(1e-5d, double.Pow(toeY, gamma)), double.Max(1e-5d, double.Pow(toeY + shoulderX - toeX, gamma)));
-        double shoulderPower = gamma * double.Pow(shoulder, 1d - (1d / gamma)) * (end - shoulderX) / (ceiling - shoulder);
-        (float toeEnd, float toeValue, float toePower, float intercept) = ((float)toeX, (float)toe, (float)(gamma * toeX * double.Pow(toe, -1d / gamma)), (float)(toeY - toeX));
-        (float shoulderStart, float shoulderValue, float shoulderSlope, float shoulderEnd, float top) = ((float)shoulderX, (float)shoulder, (float)shoulderPower, (float)end, (float)ceiling);
-        float scale = (float)(1d / (ceiling - ((ceiling - shoulder) * double.Pow((end - white) / (end - shoulderX), shoulderPower))));
-        return value =>
-            scale * (float.MaxNumber(value, 0f) switch {
-                var x when x < toeEnd => toeValue * float.Pow(x / toeEnd, toePower),
-                var x when x < shoulderStart => float.Pow(x + intercept, gamma),
-                var x when x < shoulderEnd => top - ((top - shoulderValue) * float.Pow((shoulderEnd - x) / (shoulderEnd - shoulderStart), shoulderSlope)),
-                _ => top,
-            });
-    }
-
-    public static Func<float, float> Logarithmic(float bias, float white, Luminance peak) {
-        (float whiteTarget, float normalizer, float inverseWhite, float power) =
-            ((float)(peak.Nits.ToDouble() / DynamicRange.Standard.WhiteLuminance), float.Log10P1(white), 1f / white, (float)(double.Log(bias) / double.Log(0.5d)));
-        return value => float.MaxNumber(value, 0f) switch {
-            var x => whiteTarget * float.LogP1(x) / (normalizer * float.Log(2f + (8f * float.Pow(x * inverseWhite, power)))),
-        };
-    }
-
     public static Action<Span<Vector4>> Curved(Gamut working, DisplayDevice device, Gamut basis, Action<Span<Vector4>> curve) =>
         device.Formed(working, basis, [Desaturated, curve], new ColorEncoding(basis, new Transfer.Linear()));
 
-    public static Action<Span<Vector4>> Applied(Gamut working, DisplayDevice device, Gamut basis, CurveApplication application, Func<float, float> curve) =>
+    public static Action<Span<Vector4>> Applied(Gamut working, DisplayDevice device, Gamut basis, CurveApplication application, ToneCurve curve) =>
         device.Formed(working, basis, [
             Desaturated,
             new LutTable.Affine(Gamut.Between(Adjusted(basis, application, 1f), basis.Configuration)).Apply,
-            row => {
-                foreach (ref Vector4 pixel in row)
-                    pixel = new Vector4(PreserveHue(pixel.AsVector3(), new Vector3(curve(pixel.X), curve(pixel.Y), curve(pixel.Z)), application.PreserveHue), pixel.W);
-            },
+            row => curve.Graded(row, application.PreserveHue),
             new LutTable.Affine(Gamut.Between(basis.Configuration, Adjusted(basis, application, application.Purity))).Apply,
         ], new ColorEncoding(basis, new Transfer.Linear()));
 
@@ -158,7 +178,7 @@ public static class ToneCurves {
         LuminanceSamples.Gather(frame, working).Map(samples => Curved(working, device, working, Adapted(frame, working.Luminance, samples.LogStatistics, intensity, contrast, light, chromatic)));
 
     private static Action<Span<Vector4>> Adapted(
-        PixelFrame frame, (double R, double G, double B) weights, (double Mean, double Maximum, double Minimum) logs, float intensity, Option<float> contrast, float light, float chromatic) {
+        PixelFrame frame, Vector256<double> weights, (double Mean, double Maximum, double Minimum) logs, float intensity, Option<float> contrast, float light, float chromatic) {
         (double red, double green, double blue, long count) = (0d, 0d, 0d, 0L);
         using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(frame.Size.Width);
         for (int y = 0; y < frame.Size.Height; y++) {
@@ -166,11 +186,11 @@ public static class ToneCurves {
             row.CopyTo(scratch.Span);
             Desaturated(scratch.Span);
             for (int x = 0; x < row.Length; x++)
-                (red, green, blue, count) = row[x].W > 0f && double.IsFinite(Gamut.RelativeLuminance(row[x].X, row[x].Y, row[x].Z, weights))
+                (red, green, blue, count) = row[x].W > 0f && double.IsFinite(Vector256.Dot(weights, row[x].Wide))
                     ? (red + scratch.Span[x].X, green + scratch.Span[x].Y, blue + scratch.Span[x].Z, count + 1L) : (red, green, blue, count);
         }
         (double r, double g, double b) = (red / count, green / count, blue / count);
-        double mean = Gamut.RelativeLuminance(r, g, b, weights);
+        double mean = Vector256.Dot(weights, Vector256.Create(r, g, b, 0d));
         double scale = double.Exp(-intensity);
         double power = contrast.Match(
             Some: static manual => (double)manual,
@@ -178,7 +198,7 @@ public static class ToneCurves {
         (double globalR, double globalG, double globalB) = (double.Lerp(mean, r, chromatic), double.Lerp(mean, g, chromatic), double.Lerp(mean, b, chromatic));
         return row => {
             foreach (ref Vector4 pixel in row) {
-                double luminance = Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, weights);
+                double luminance = Vector256.Dot(weights, pixel.Wide);
                 pixel = new Vector4(Mapped(pixel.X, globalR, luminance), Mapped(pixel.Y, globalG, luminance), Mapped(pixel.Z, globalB, luminance), pixel.W);
             }
         };

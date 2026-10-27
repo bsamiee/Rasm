@@ -1,9 +1,11 @@
 using System.Drawing;
 using System.Globalization;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
+using CommunityToolkit.HighPerformance.Helpers;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using TinyEXR;
@@ -126,8 +128,41 @@ public sealed class PixelFrame {
         Size.Fitted(bound) switch { var fitted => new(Point.Empty, fitted, fitted, block => ImageProcessing.Resize(Block, Size.Width, Size.Height, block, fitted.Width, fitted.Height, 4, ResizeFilter.Triangle, alphaChannel: 3)) };
 }
 
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PixelPass {
+    public abstract Fin<Unit> Run(PixelFrame frame, IProgress<int> progress);
+
+    public sealed record Uniform(Action<Span<Vector4>> Row) : PixelPass {
+        public override Fin<Unit> Run(PixelFrame frame, IProgress<int> progress) => RowAction.For(frame, (row, _, _) => Row(row), progress);
+    }
+
+    public sealed record Pointwise(Action<Span<Vector4>, long, long> Row) : PixelPass {
+        public override Fin<Unit> Run(PixelFrame frame, IProgress<int> progress) => RowAction.For(frame, Row, progress);
+    }
+
+    public sealed record Frame(Func<PixelFrame, IProgress<int>, Fin<Unit>> Kernel) : PixelPass {
+        public override Fin<Unit> Run(PixelFrame frame, IProgress<int> progress) => Kernel(frame, progress);
+    }
+}
+
+public sealed record Channels<T>(T Red, T Green, T Blue) where T : notnull {
+    public Channels(T all) : this(all, all, all) { }
+}
+
+file readonly struct RowAction(PixelFrame frame, Memory2D<Vector4> rows, Action<Span<Vector4>, long, long> kernel, IProgress<int> progress, StrongBox<int> finished) : IAction {
+    internal static Unit For(PixelFrame frame, Action<Span<Vector4>, long, long> kernel, IProgress<int> progress) {
+        ParallelHelper.For(0, frame.Size.Height, new RowAction(frame, frame.View, kernel, progress, new StrongBox<int>()));
+        return unit;
+    }
+
+    public void Invoke(int i) {
+        kernel(rows.Span.GetRowSpan(i), frame.Origin.X, frame.Line(i));
+        progress.Report(Interlocked.Increment(ref finished.Value));
+    }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static partial class PixelSampling {
+public static class PixelSampling {
     public static Fin<TCount> GaussianTaps<TCount>(double sigma) where TCount : IBinaryInteger<TCount>, IMinMaxValue<TCount> => KernelTaps<TCount>(3d * sigma);
 
     public static Fin<TCount> KernelTaps<TCount>(double radius) where TCount : IBinaryInteger<TCount>, IMinMaxValue<TCount> =>
@@ -144,6 +179,11 @@ public static partial class PixelSampling {
 
     extension(Vector4 pixel) {
         public Vector4 Unassociated => pixel.W > 0f ? new(pixel.AsVector3() / pixel.W, pixel.W) : new(Vector3.Zero, pixel.W);
+        public Vector256<double> Wide => Vector256.WidenLower(pixel.AsVector128().ToVector256());
+    }
+
+    extension(Vector256<double> lanes) {
+        public Vector128<float> Narrowed => Vector256.Narrow(lanes, Vector256<double>.Zero).GetLower();
     }
 
     extension<T>(Channels<T> channels) where T : INumberBase<T> {
@@ -152,7 +192,7 @@ public static partial class PixelSampling {
 
     extension(ReadOnlySpan2D<Vector4> plane) {
         public Vector4 Sample((double X, double Y) point, (WrapMode Across, WrapMode Down) wrap) =>
-            plane.Sample(point, wrap, Vector256<double>.Zero, static (sum, pixel, weight) => sum + (Vector256.Create(pixel.X, pixel.Y, pixel.Z, pixel.W) * weight)) switch { var value => new((float)value[0], (float)value[1], (float)value[2], (float)value[3]) };
+            plane.Sample(point, wrap, Vector256<double>.Zero, static (sum, pixel, weight) => sum + (pixel.Wide * weight)).Narrowed.AsVector4();
     }
 
     extension<TPixel>(ReadOnlySpan2D<TPixel> plane) {

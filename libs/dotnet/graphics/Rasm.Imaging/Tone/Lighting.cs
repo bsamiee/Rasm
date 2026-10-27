@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
+using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
@@ -59,8 +60,8 @@ public static class Lighting {
     public static Fin<LightingReading> Read(PixelFrame frame, Gamut gamut, int paletteSize) {
         PixelFrame analysis = frame.Downscaled(PixelExtent.Analysis);
         (int width, int height) = (analysis.Size.Width, analysis.Size.Height);
-        (double R, double G, double B) luminance = gamut.Luminance;
-        double Luma(double red, double green, double blue) => double.Max(Gamut.RelativeLuminance(red, green, blue, luminance), LuminanceSamples.Floor);
+        Vector256<double> luminance = gamut.Luminance;
+        double Luma(double red, double green, double blue) => double.Max(Vector256.Dot(luminance, Vector256.Create(red, green, blue, 0d)), LuminanceSamples.Floor);
         (int Left, int Top, int Right, int Bottom) Inset(double fraction) =>
             ((int)double.Floor(width * fraction), (int)double.Floor(height * fraction)) switch {
                 var (x, y) => (x, y, width - x, height - y),

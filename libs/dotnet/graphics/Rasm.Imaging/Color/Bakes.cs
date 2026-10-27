@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
-using Rasm.Imaging.Pixels;
 using TinyEXR;
 
 namespace Rasm.Imaging.Color;
@@ -63,22 +62,20 @@ file readonly struct LatticeRows(int edge, Seq<Action<Span<Vector4>>> steps, Mem
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Bakes {
-    public static Fin<LutTable> Bake(LutBake bake, Seq<PixelPass.Color> chain, Gamut working) {
+    public static Fin<LutTable> Bake(LutBake bake, Seq<Action<Span<Vector4>>> chain, Gamut working) {
         (ColorEncoding linear, Option<(LutTable Head, LutTable Decode)> shaper) = (new(working, new Transfer.Linear()), bake.Input.Shaper);
         return Lattice(bake.Size, [
             .. shaper.ToSeq().Map<Action<Span<Vector4>>>(static held => held.Decode.Apply),
             .. bake.Input.Encoding.To(linear),
-            .. chain.Map(static pass => pass.Row),
+            .. chain,
             .. linear.To(bake.Output),
         ]).Map(static lattice => new LutTable.Cube(lattice, LutInterpolation.Tetrahedral))
             .Map(cube => shaper.Match(Some: held => new LutTable.Sequence([held.Head, cube]), None: () => (LutTable)cube));
     }
 
-    public static Option<LutTable> Exact(LutBake bake, Seq<PixelPass.Color> chain, Gamut working) =>
-        from steps in chain.Traverse(static pass => pass.Table).As()
-        where bake.Input.Encoding.Transfer is Transfer.Linear && bake.Output.Transfer is Transfer.Linear
-        let linear = new ColorEncoding(working, new Transfer.Linear())
-        select (LutTable)new LutTable.Sequence(bake.Input.Encoding.LinearTo(linear) + steps + linear.LinearTo(bake.Output));
+    public static Option<LutTable> Exact(LutBake bake, Seq<LutTable> chain, Gamut working) =>
+        from linear in bake.Input.Encoding.Transfer is Transfer.Linear && bake.Output.Transfer is Transfer.Linear ? Some(new ColorEncoding(working, new Transfer.Linear())) : None
+        select (LutTable)new LutTable.Sequence(bake.Input.Encoding.LinearTo(linear) + chain + linear.LinearTo(bake.Output));
 
     internal static Fin<Lut3D> Lattice(int size, Seq<Action<Span<Vector4>>> steps) {
         using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * size * size * size);

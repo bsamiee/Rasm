@@ -114,16 +114,20 @@ public sealed partial class PolarConversion {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class QuadWarp {
     extension(FrameQuad quad) {
-        public PixelPass.Frame Pinned(Sampling sampling, WrapMode wrap) =>
+        public PixelPass.Frame Pinned(Sampling sampling, (WrapMode Across, WrapMode Down) wrap) =>
             new((frame, progress) => frame.Filter(target => {
-                (double left, double top) = (frame.Origin.X + 0.5d, frame.Origin.Y + 0.5d);
-                Matrix<double> map = Matrix<double>.Build.DenseOfRowMajor(3, 3, [frame.Extent.Width, 0d, -left, 0d, frame.Extent.Height, -top, 0d, 0d, 1d])
+                (int pad, double left, double top) = (sampling.Reach + 1, frame.Origin.X + 0.5d, frame.Origin.Y + 0.5d);
+                Matrix<double> map = Matrix<double>.Build.DenseOfRowMajor(3, 3, [frame.Extent.Width, 0d, pad - left, 0d, frame.Extent.Height, pad - top, 0d, 0d, 1d])
                     * quad.Homography.Inverse()
                     * Matrix<double>.Build.DenseOfRowMajor(3, 3, [1d, 0d, left, 0d, 1d, top, 0d, 0d, 1d]);
                 using Mat source = frame.Premultiplied();
+                using Mat wide = new();
+                using Mat padded = new();
                 using Mat perspective = new(3, 3, DepthType.Cv64F, 1);
                 perspective.SetTo(map.ToRowMajorArray());
-                CvInvoke.WarpPerspective(source, target, perspective, source.Size, sampling.Interpolation, Warp.InverseMap, wrap.Border, default);
+                CvInvoke.CopyMakeBorder(source, wide, 0, 0, pad, pad, wrap.Across.Border, default);
+                CvInvoke.CopyMakeBorder(wide, padded, pad, pad, 0, 0, wrap.Down.Border, default);
+                CvInvoke.WarpPerspective(padded, target, perspective, source.Size, sampling.Interpolation, Warp.InverseMap, BorderType.Constant, default);
                 Span2D<Vector4> pixels = target.View<Vector4>();
                 (double across, double down, double constant) = (map[2, 0], map[2, 1], map[2, 2]);
                 for (int row = 0; row < pixels.Height; row++)

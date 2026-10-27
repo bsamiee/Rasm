@@ -21,7 +21,7 @@ namespace Rasm.Imaging.Filtering;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Sharpening {
     public static Fin<Unit> Laplacian(PixelFrame frame, float amount, double exposure, Gamut gamut, IProgress<int> progress) => frame.Filter(header => {
-        (int width, (double R, double G, double B) luminance) = (frame.Size.Width, gamut.Luminance);
+        (int width, Vector256<double> luminance) = (frame.Size.Width, gamut.Luminance);
         using Mat linear = new();
         using Mat light = new(frame.Size.Height, width, DepthType.Cv64F, 4);
         using Mat weights = new(2, 4, DepthType.Cv64F, 1);
@@ -33,7 +33,7 @@ public static class Sharpening {
         CvInvoke.MixChannels(linear, light, [3, 0, 3, 1, 3, 2, 3, 3]);
         CvInvoke.Multiply(linear, light, light);
         CvInvoke.Laplacian(light, laplacian, DepthType.Cv64F, 1, 1d, 0d, BorderType.Replicate);
-        weights.SetTo([luminance.R, luminance.G, luminance.B, 0d, -luminance.R, -luminance.G, -luminance.B, 0d]);
+        weights.SetTo([luminance[0], luminance[1], luminance[2], 0d, -luminance[0], -luminance[1], -luminance[2], 0d]);
         CvInvoke.Transform(light, luma, weights);
         CvInvoke.Dilate(luma, rise, cross, new Point(-1, -1), 1, BorderType.Replicate, default);
         CvInvoke.Subtract(rise, luma, rise);
@@ -73,7 +73,7 @@ public static class ContrastGrid {
             using Mat alpha = new();
             using Mat mask = new();
             using ScalarArray zero = new(0d);
-            weights.SetTo([gamut.Luminance.R, gamut.Luminance.G, gamut.Luminance.B, 0d]);
+            weights.SetTo([gamut.Luminance[0], gamut.Luminance[1], gamut.Luminance[2], 0d]);
             header.ConvertTo(linear, DepthType.Cv64F);
             CvInvoke.Transform(linear, luma, weights);
             CvInvoke.ExtractChannel(linear, alpha, 3);
@@ -208,7 +208,7 @@ public static class GrainNoise {
     }
 
     public static Fin<Unit> Multiplied(PixelFrame frame, Action<Span<Vector4>, long, long> draw, Option<double> sigma, float deviation, float chroma, Func<double, double> weight, Gamut gamut, IProgress<int> progress) {
-        (float bias, Vector4 mix, (double R, double G, double B) luminance) = (deviation * deviation / 2f, deviation * Mix(chroma), gamut.Luminance);
+        (float bias, Vector4 mix, Vector256<double> luminance) = (deviation * deviation / 2f, deviation * Mix(chroma), gamut.Luminance);
         PixelFrame plane = new(frame.Origin, frame.Size, frame.Extent);
         return from drawn in new PixelPass.Pointwise(draw).Run(plane, new Progress<int>())
                from shaped in sigma.Traverse(spread => plane.Filter(draws => Shaped(draws, spread))).As()
@@ -216,7 +216,7 @@ public static class GrainNoise {
                    ReadOnlySpan<Vector4> draws = plane.Row(line);
                    for (int x = 0; x < row.Length; x++) {
                        Vector4 log = mix * draws[x];
-                       float share = (float)weight(Gamut.RelativeLuminance(row[x].X, row[x].Y, row[x].Z, luminance));
+                       float share = (float)weight(Vector256.Dot(luminance, row[x].Wide));
                        row[x] *= new Vector4(Vector3.Lerp(Vector3.One, Vector3.Exp(log.AsVector3() + new Vector3(log.W - bias)), share), 1f);
                    }
                }).Run(frame, progress)
@@ -228,11 +228,11 @@ public static class PhotonNoise {
     public static PixelPass.Pointwise Pass(float shot, float read, float chroma, double exposure, Gamut gamut, uint field) {
         double shotStops = double.Log2(shot) - (0.5d * (exposure + double.Log2(Exposure.MiddleGray)));
         double readStops = double.Log2(read) - exposure;
-        (Vector4 mix, (double R, double G, double B) luminance) = (GrainNoise.Mix(chroma), gamut.Luminance);
+        (Vector4 mix, Vector256<double> luminance) = (GrainNoise.Mix(chroma), gamut.Luminance);
         return new((row, column, line) => {
             for (int x = 0; x < row.Length; x++) {
                 Vector4 draws = mix * CoordinateHash.Normals(column + x, line, field);
-                double shared = Deviation(Gamut.RelativeLuminance(row[x].X, row[x].Y, row[x].Z, luminance), draws.W);
+                double shared = Deviation(Vector256.Dot(luminance, row[x].Wide), draws.W);
                 row[x] = new Vector4(
                     (float)(row[x].X + Deviation(row[x].X, draws.X) + shared), (float)(row[x].Y + Deviation(row[x].Y, draws.Y) + shared), (float)(row[x].Z + Deviation(row[x].Z, draws.Z) + shared), row[x].W);
             }

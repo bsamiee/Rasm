@@ -38,7 +38,7 @@ public sealed record FilmStock(
                 Seq((Scale: Scale.Red, Rotation: Rotation.Red), (Scale: Scale.Green, Rotation: Rotation.Green), (Scale: Scale.Blue, Rotation: Rotation.Blue))
                     .Map(static (primary, index) => new Unicolour(Configuration.Default, ColourSpace.Hsb, (120d * index) + double.RadiansToDegrees(primary.Rotation), 1d / primary.Scale, 1d).Rgb.ToArray()))
                 .NormalizeRows(1d);
-        ((Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) gamut, (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) back) = (Lanes.Of(extension.Transpose()), Lanes.Of(extension.Inverse().Transpose()));
+        ((Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) gamut, (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) back) = (extension.Transpose().Lanes, extension.Inverse().Transpose().Lanes);
         (double toeX, double toeY) = (ToeX, ToeY);
         (double shoulderX, double shoulderY) = (toeX + (ShoulderReachX * (1d - toeX)), toeY + (ShoulderReachY * (1d - toeY)));
         double slope = (shoulderY - toeY) / (shoulderX - toeX);

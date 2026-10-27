@@ -1,8 +1,14 @@
 using System.Collections.Generic;
+using System.Drawing;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.Intrinsics;
+using CommunityToolkit.HighPerformance;
+using Emgu.CV;
+using Emgu.CV.CvEnum;
 using MathNet.Numerics.Distributions;
+using MathNet.Numerics.Statistics;
+using Rasm.Imaging.Pixels;
 
 namespace Rasm.Imaging.Procedural;
 
@@ -73,7 +79,7 @@ public sealed record MagicNoise(int Depth, float Distortion) {
 
     public Vector3 Sample(Vector256<double> point) {
         const double period = float.Tau;
-        Vector3 p = Vector256.Narrow(point - (period * Vector256.Floor(point / period)), Vector256<double>.Zero).GetLower().AsVector3();
+        Vector3 p = (point - (period * Vector256.Floor(point / period))).Narrowed.AsVector3();
         Vector3 turned = new Vector3(float.Sin((p.X + p.Y + p.Z) * 5f), float.Cos((-p.X + p.Y - p.Z) * 5f), -float.Cos((-p.X - p.Y + p.Z) * 5f)) * (Depth is 0 ? 1f : Distortion);
         foreach (Func<Vector3, float, Vector3> step in Turbulence.AsSpan()[..Depth])
             turned = step(turned, Distortion);
@@ -88,15 +94,13 @@ internal sealed record Neighborhood(
     Arr<(Vector4 Offset, Vector256<long> Step)> Wide) {
     public static Neighborhood Of(int rank) =>
         Vector4.Clamp(Vector4.Create(rank) - new Vector4(0f, 1f, 2f, 3f), Vector4.Zero, Vector4.One) switch {
-            var live => new(rank, live, Widened(live), Offsets(rank, live, 0, 1), Offsets(rank, live, -1, 1), Offsets(rank, live, -2, 2)),
+            var live => new(rank, live, live.Wide, Offsets(rank, live, 0, 1), Offsets(rank, live, -1, 1), Offsets(rank, live, -2, 2)),
         };
-
-    public static Vector256<double> Widened(Vector4 value) => Vector256.WidenLower(value.AsVector128().ToVector256());
 
     private static Arr<(Vector4 Offset, Vector256<long> Step)> Offsets(int rank, Vector4 live, int low, int high) {
         return [.. from w in Axis(3) from z in Axis(2) from y in Axis(1) from x in Axis(0)
                    let offset = new Vector4(x, y, z, w) * live
-                   select (offset, Vector256.ConvertToInt64(Widened(offset)))];
+                   select (offset, Vector256.ConvertToInt64(offset.Wide))];
 
         IEnumerable<int> Axis(int axis) => axis < rank ? Enumerable.Range(low, high - low + 1) : [0];
     }
@@ -159,15 +163,15 @@ public sealed partial class NoiseDimensions {
         Vector4 moved = Vector4.Zero;
         for (int axis = 0; axis < (distortion is 0f ? 0 : Cells.Rank); axis++)
             moved[axis] = distortion * Gradient(point, CoordinateHash.Branch(field, (uint)axis));
-        return point + Neighborhood.Widened(moved);
+        return point + moved.Wide;
     }
 
-    private static Vector256<double> GradientShift(uint field) => Neighborhood.Widened(100f * (Vector4.One + CoordinateHash.White(Vector256<double>.Zero, field)));
+    private static Vector256<double> GradientShift(uint field) => (100f * (Vector4.One + CoordinateHash.White(Vector256<double>.Zero, field))).Wide;
 
     private static (Vector256<long> Cell, Vector4 Local) Split(Vector256<double> point) =>
-        Vector256.Floor(point) switch { var floor => (Vector256.ConvertToInt64(floor), Vector256.Narrow(point - floor, Vector256<double>.Zero).GetLower().AsVector4()) };
+        Vector256.Floor(point) switch { var floor => (Vector256.ConvertToInt64(floor), (point - floor).Narrowed.AsVector4()) };
 
-    private static Vector256<double> At(Vector256<long> cell, Vector4 local) => Vector256.ConvertToDouble(cell) + Neighborhood.Widened(local);
+    private static Vector256<double> At(Vector256<long> cell, Vector4 local) => Vector256.ConvertToDouble(cell) + local.Wide;
 
     // --- [BOUNDS]
     public float FbmBound(Octaves octaves) => GradientBound switch { var peak => Fbm(Vector256<double>.Zero, octaves, 0u, (_, _, _) => peak) };
@@ -442,4 +446,40 @@ public static class CoordinateHash {
 
     private static Vector4 Normals(Vector4 uniforms) =>
         new((float)Normal.InvCDF(0d, 1d, uniforms.X), (float)Normal.InvCDF(0d, 1d, uniforms.Y), (float)Normal.InvCDF(0d, 1d, uniforms.Z), (float)Normal.InvCDF(0d, 1d, uniforms.W));
+}
+
+public static class PinkSpecks {
+    public static PixelFrame Field(PixelExtent extent, double scale, double coverage, uint field) {
+        const int frequencyPair = 2;
+        static double Frequency(int index, int length) => (index <= length / 2 ? index : index - length) / (double)length;
+        Size size = new(CvInvoke.GetOptimalDFTSize(int.Max(frequencyPair, extent.Width)), CvInvoke.GetOptimalDFTSize(int.Max(frequencyPair, extent.Height)));
+        using Mat draw = new(size.Height, size.Width, DepthType.Cv64F, 1);
+        using Mat pink = new(size.Height, size.Width, DepthType.Cv64F, 2);
+        using Mat spectrum = new();
+        double knee = 1d / scale;
+        double reference = double.Hypot(1d / int.Max(size.Width, size.Height), knee);
+        Span2D<double> cells = draw.View<double>();
+        Span2D<Complex> gains = pink.View<Complex>();
+        for (int y = 0; y < size.Height; y++) {
+            for (int x = 0; x < size.Width; x++) {
+                double gain = x is 0 && y is 0 ? 0d : reference / double.Hypot(double.Hypot(Frequency(x, size.Width), Frequency(y, size.Height)), knee);
+                (cells[y, x], gains[y, x]) = (CoordinateHash.Normals(x, y, field).X, new Complex(gain, gain));
+            }
+        }
+        CvInvoke.Dft(draw, spectrum, DxtType.ComplexOutput, 0);
+        CvInvoke.Multiply(spectrum, pink, spectrum);
+        CvInvoke.Dft(spectrum, draw, DxtType.Inverse | DxtType.RealOutput | DxtType.Scale, 0);
+        double floor = ArrayStatistics.QuantileCustomInplace(draw.GetSpan<double>().ToArray(), 1d - coverage, QuantileDefinition.R7);
+        draw.ConvertTo(draw, DepthType.Cv64F, 1d, -floor);
+        _ = CvInvoke.Threshold(draw, draw, 0d, 0d, ThresholdType.ToZero);
+        CvInvoke.Normalize(draw, draw, 0d, 1d, NormType.MinMax);
+        PixelFrame specks = new(Point.Empty, extent, extent);
+        Span2D<Vector4> plane = specks.View.Span;
+        ReadOnlySpan2D<double> values = draw.View<double>();
+        for (int y = 0; y < plane.Height; y++) {
+            for (int x = 0; x < plane.Width; x++)
+                plane[y, x] = new Vector4((float)values[y, x]);
+        }
+        return specks;
+    }
 }

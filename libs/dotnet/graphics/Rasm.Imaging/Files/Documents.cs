@@ -10,7 +10,6 @@ using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using Rasm.Imaging.Color;
-using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using SixLabors.ImageSharp.PixelFormats;

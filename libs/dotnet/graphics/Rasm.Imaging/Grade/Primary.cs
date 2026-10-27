@@ -36,15 +36,16 @@ public sealed record WheelOffset(float Hue, float Strength, float Luma) {
             .Map(static step => float.DegreesToRadians(step))
             .Map(angle => Tint(gamut, 0.5f * new Vector2(float.Cos(angle), float.Sin(angle))))
             .Fold((Low: new Vector3(float.MaxValue), High: new Vector3(float.MinValue)), static (bounds, tint) => (Vector3.Min(bounds.Low, tint), Vector3.Max(bounds.High, tint)));
+}
 
-    public static Action<Span<Vector4>> Graded(
-        Gamut working, WheelOffset global, WheelOffset shadows, WheelOffset midtones, WheelOffset highlights, float shadowsEnd, float highlightsStart, float highlightsWidth) {
-        ((double R, double G, double B) weights, Vector3 all, Vector3 low, Vector3 middle, Vector3 high) =
-            (working.Luminance, global.Multiplier(working), shadows.Multiplier(working), midtones.Multiplier(working), highlights.Multiplier(working));
+public sealed record ColorWheels(WheelOffset Global, WheelOffset Shadows, WheelOffset Midtones, WheelOffset Highlights, float ShadowsEnd, float HighlightsStart, float HighlightsWidth) {
+    public Action<Span<Vector4>> Graded(Gamut working) {
+        (Vector256<double> weights, Vector3 all, Vector3 low, Vector3 middle, Vector3 high) =
+            (working.Luminance, Global.Multiplier(working), Shadows.Multiplier(working), Midtones.Multiplier(working), Highlights.Multiplier(working));
         return row => {
             foreach (ref Vector4 pixel in row) {
-                double luma = Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, weights);
-                (float lifted, float raised) = ((float)Smooth(0d, shadowsEnd, luma), (float)Smooth(highlightsStart, highlightsStart + highlightsWidth, luma));
+                double luma = Vector256.Dot(weights, pixel.Wide);
+                (float lifted, float raised) = ((float)Smooth(0d, ShadowsEnd, luma), (float)Smooth(HighlightsStart, HighlightsStart + HighlightsWidth, luma));
                 pixel = new Vector4(pixel.AsVector3() * all * ((low * (1f - lifted)) + (middle * lifted * (1f - raised)) + (high * lifted * raised)), pixel.W);
             }
         };
@@ -84,16 +85,18 @@ public sealed partial class CdlFormat {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Primary {
-    public static void Contrast(Span<Vector4> row, float contrast, float pivot, float vibrance, float saturation, Gamut gamut) {
-        (double R, double G, double B) luminance = gamut.Luminance;
-        foreach (ref Vector4 pixel in row) {
-            (double red, double green, double blue) = (Curved(pixel.X), Curved(pixel.Y), Curved(pixel.Z));
-            double high = double.Max(red, double.Max(green, blue));
-            double spread = high > 0d ? 1d - (double.Max(double.Min(red, double.Min(green, blue)), 0d) / high) : 1d;
-            double gain = saturation * (1d + (vibrance * (vibrance > 0f ? (1d - spread) * (1d - spread) : spread * spread / 2d)));
-            double gray = Gamut.RelativeLuminance(red, green, blue, luminance);
-            pixel = new Vector4((float)double.Lerp(gray, red, gain), (float)double.Lerp(gray, green, gain), (float)double.Lerp(gray, blue, gain), pixel.W);
-        }
+    public static Action<Span<Vector4>> Contrast(float contrast, float pivot, float vibrance, float saturation, Gamut gamut) {
+        Vector256<double> luminance = gamut.Luminance;
+        return row => {
+            foreach (ref Vector4 pixel in row) {
+                (double red, double green, double blue) = (Curved(pixel.X), Curved(pixel.Y), Curved(pixel.Z));
+                double high = double.Max(red, double.Max(green, blue));
+                double spread = high > 0d ? 1d - (double.Max(double.Min(red, double.Min(green, blue)), 0d) / high) : 1d;
+                double gain = saturation * (1d + (vibrance * (vibrance > 0f ? (1d - spread) * (1d - spread) : spread * spread / 2d)));
+                double gray = Vector256.Dot(luminance, Vector256.Create(red, green, blue, 0d));
+                pixel = new Vector4((float)double.Lerp(gray, red, gain), (float)double.Lerp(gray, green, gain), (float)double.Lerp(gray, blue, gain), pixel.W);
+            }
+        };
 
         double Curved(float value) => double.CopySign(pivot * double.Pow(double.Abs(value) / pivot, contrast), value);
     }
@@ -115,16 +118,19 @@ public static class Primary {
         }
         return sum[3] is 0d
             ? new ImagingFault($"white balance region {bounds}", ImagingReason.Empty)
-            : Adaptation.Correlate(working, Vector256.Narrow(sum / sum[3], Vector256<double>.Zero).GetLower().AsVector3());
+            : Adaptation.Correlate(working, (sum / sum[3]).Narrowed.AsVector3());
     }
 
-    public static void Mapped(Span<Vector4> row, ReadOnlySpan<Vector4> table, Gamut gamut) {
-        (float top, (double R, double G, double B) luminance) = (table.Length - 1, gamut.Luminance);
-        foreach (ref Vector4 pixel in row) {
-            float position = float.Clamp((float)double.Cbrt(Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, luminance)), 0f, 1f) * top;
-            int low = int.Clamp((int)float.MaxNumber(position, 0f), 0, int.Max(table.Length - 2, 0));
-            Vector4 mapped = Vector4.Lerp(table[low], table[int.Min(low + 1, table.Length - 1)], position - low);
-            pixel = new Vector4(Vector3.Lerp(pixel.AsVector3(), mapped.AsVector3(), mapped.W), pixel.W);
-        }
+    public static Action<Span<Vector4>> Mapped(ReadOnlyMemory<Vector4> gradient, Gamut gamut) {
+        (float top, Vector256<double> luminance) = (gradient.Length - 1, gamut.Luminance);
+        return row => {
+            ReadOnlySpan<Vector4> table = gradient.Span;
+            foreach (ref Vector4 pixel in row) {
+                float position = float.Clamp((float)double.Cbrt(Vector256.Dot(luminance, pixel.Wide)), 0f, 1f) * top;
+                int low = int.Clamp((int)float.MaxNumber(position, 0f), 0, int.Max(table.Length - 2, 0));
+                Vector4 mapped = Vector4.Lerp(table[low], table[int.Min(low + 1, table.Length - 1)], position - low);
+                pixel = new Vector4(Vector3.Lerp(pixel.AsVector3(), mapped.AsVector3(), mapped.W), pixel.W);
+            }
+        };
     }
 }

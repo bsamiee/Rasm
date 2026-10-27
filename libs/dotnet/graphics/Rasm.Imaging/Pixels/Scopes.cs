@@ -65,8 +65,8 @@ public sealed partial class SampleSquare {
         (Vector256<double> sum, int count) = (Vector256<double>.Zero, 0);
         if (right > left && bottom > top)
             foreach (Vector4 sample in frame.View.Span.Slice((int)top, (int)left, (int)(bottom - top), (int)(right - left)))
-                (sum, count) = sample.W > 0f ? (sum + Vector256.Create(sample.X, sample.Y, sample.Z, sample.W), count + 1) : (sum, count);
-        return count > 0 ? Some((sum / count) switch { var mean => new Vector4((float)mean[0], (float)mean[1], (float)mean[2], (float)mean[3]) }) : None;
+                (sum, count) = sample.W > 0f ? (sum + sample.Wide, count + 1) : (sum, count);
+        return count > 0 ? Some((sum / count).Narrowed.AsVector4()) : None;
     }
 }
 
@@ -156,6 +156,22 @@ public abstract partial record ScopeReading {
     public sealed record Chromaticity(ScopeRequest.Chromaticity Request, BinGrid Bins) : ScopeReading;
 }
 
+public sealed record FrameComparison(double Psnr, Option<double> Nrmse, PixelFrame Difference) {
+    public static Fin<FrameComparison> Of(PixelFrame reference, PixelFrame test) =>
+        reference.Size == test.Size ? Measured(reference, test) : new ImagingFault($"reference size {reference.Size} against test size {test.Size}", ImagingReason.Mismatch);
+
+    private static FrameComparison Measured(PixelFrame reference, PixelFrame test) {
+        using MemoryOwner<(double Error, double Signal, Vector3 Peak)> rows = MemoryOwner<(double Error, double Signal, Vector3 Peak)>.Allocate(test.Size.Height);
+        PixelFrame difference = new(test.Origin, test.Size, test.Extent);
+        ParallelHelper.For(0, test.Size.Height, new DifferenceAction(reference.View, test.View, difference.View, rows.Memory));
+        (double error, double signal, Vector3 peak) = (0d, 0d, Vector3.One);
+        foreach ((double Error, double Signal, Vector3 Peak) row in rows.Span)
+            (error, signal, peak) = (error + row.Error, signal + row.Signal, Vector3.Max(peak, row.Peak));
+        double top = float.Max(peak.X, float.Max(peak.Y, peak.Z));
+        return new(10d * double.Log10(top * top * 3d * test.Size.Width * test.Size.Height / error), signal > 0d ? Some(double.Sqrt(error / signal)) : None, difference);
+    }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HistogramAxis {
     private const int StopBins = 256;
@@ -175,7 +191,7 @@ public static class HistogramAxis {
     public static float LowerBound(int bin) => bin < StopBins ? (float)bin / StopBins : float.Exp2((float)(bin - StopBins) / StopBins);
 }
 
-internal sealed class HistogramFold((double R, double G, double B) luminance, Option<ClipLevels> clipping) : IRowFold {
+internal sealed class HistogramFold(Vector256<double> luminance, Option<ClipLevels> clipping) : IRowFold {
     public int Bins => (4 * HistogramAxis.Bins) + (Clips.Ends * clipping.Count());
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
@@ -183,7 +199,7 @@ internal sealed class HistogramFold((double R, double G, double B) luminance, Op
         Span2D<int> planes = bins[..(4 * HistogramAxis.Bins)].AsSpan2D(4, HistogramAxis.Bins);
         Span2D<int> ends = bins[(4 * HistogramAxis.Bins)..].AsSpan2D(2 * clips.Length, 3);
         foreach (Vector4 pixel in row) {
-            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, luminance));
+            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, Vector256.Dot(luminance, pixel.Wide));
             int covered = pixel.W > 0f ? 1 : 0;
             for (int plane = 0; plane < 4; plane++)
                 planes[plane, HistogramAxis.Bin(levels[plane])] += double.IsNaN(levels[plane]) ? 0 : covered;
@@ -199,14 +215,14 @@ internal sealed class HistogramFold((double R, double G, double B) luminance, Op
     }
 }
 
-internal sealed class WaveformFold((double R, double G, double B) luminance, int columns, int rows, int width) : IRowFold {
+internal sealed class WaveformFold(Vector256<double> luminance, int columns, int rows, int width) : IRowFold {
     public int Bins => 4 * columns * rows;
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
         Span2D<int> planes = bins.AsSpan2D(4 * rows, columns);
         for (int x = 0; x < row.Length; x++) {
             Vector4 pixel = row[x];
-            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, luminance));
+            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, Vector256.Dot(luminance, pixel.Wide));
             (int covered, int column) = (row[x].W > 0f ? 1 : 0, (int)((long)x * columns / width));
             for (int plane = 0; plane < 4; plane++)
                 planes[(plane * rows) + int.Clamp(int.CreateSaturating(levels[plane] * rows), 0, rows - 1), column] += double.IsNaN(levels[plane]) ? 0 : covered;
@@ -215,14 +231,14 @@ internal sealed class WaveformFold((double R, double G, double B) luminance, int
 }
 
 internal sealed class VectorscopeFold(Matrix<double> forward, float reach, int columns, int rows) : IRowFold {
-    private readonly (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) _lanes = Lanes.Of(forward);
+    private readonly (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) lanes = forward.Lanes;
 
     public int Bins => columns * rows;
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
         Span2D<int> grid = bins.AsSpan2D(rows, columns);
         foreach (Vector4 pixel in row) {
-            Vector256<double> ycc = (_lanes.Red * pixel.X) + (_lanes.Green * pixel.Y) + (_lanes.Blue * pixel.Z);
+            Vector256<double> ycc = (lanes.Red * pixel.X) + (lanes.Green * pixel.Y) + (lanes.Blue * pixel.Z);
             (double u, double v) = ((ycc[1] + reach) / (2d * reach), (ycc[2] + reach) / (2d * reach));
             if (pixel.W > 0f && u >= 0f && u < 1f && v >= 0f && v < 1f)
                 grid[(int)(v * rows), (int)(u * columns)]++;
@@ -231,7 +247,7 @@ internal sealed class VectorscopeFold(Matrix<double> forward, float reach, int c
 }
 
 internal sealed class ChromaticityFold(Matrix<double> toXyz, Transfer encoding, int columns, int rows) : IRowFold {
-    private readonly (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) _lanes = Lanes.Of(toXyz);
+    private readonly (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) lanes = toXyz.Lanes;
 
     public int Bins => columns * rows;
 
@@ -241,7 +257,7 @@ internal sealed class ChromaticityFold(Matrix<double> toXyz, Transfer encoding, 
         encoding.Decode(scratch.Span);
         Span2D<int> grid = bins.AsSpan2D(rows, columns);
         foreach (Vector4 rgb in scratch.Span) {
-            Vector256<double> xyz = (_lanes.Red * rgb.X) + (_lanes.Green * rgb.Y) + (_lanes.Blue * rgb.Z);
+            Vector256<double> xyz = (lanes.Red * rgb.X) + (lanes.Green * rgb.Y) + (lanes.Blue * rgb.Z);
             double sum = Vector256.Sum(xyz);
             (double x, double y) = (xyz[0] / sum, xyz[1] / sum);
             if (rgb.W > 0f && sum > 0d && x >= 0d && x < 1d && y >= 0d && y < 1d)
@@ -268,5 +284,20 @@ file readonly struct BandAction<TFold>(Memory2D<Vector4> rows, int[][] counts, T
         counts[i] = bins;
         for (int line = (int)((long)i * rows.Height / counts.Length); line < (int)((long)(i + 1) * rows.Height / counts.Length); line++)
             fold.Fold(rows.Span.GetRowSpan(line), bins);
+    }
+}
+
+file readonly struct DifferenceAction(Memory2D<Vector4> reference, Memory2D<Vector4> test, Memory2D<Vector4> difference, Memory<(double Error, double Signal, Vector3 Peak)> rows) : IAction {
+    public void Invoke(int i) {
+        ReadOnlySpan<Vector4> a = reference.Span.GetRowSpan(i);
+        ReadOnlySpan<Vector4> b = test.Span.GetRowSpan(i);
+        Span<Vector4> d = difference.Span.GetRowSpan(i);
+        (double error, double signal, Vector3 peak) = (0d, 0d, Vector3.Zero);
+        for (int x = 0; x < d.Length; x++) {
+            (Vector3 r, Vector3 t) = (a[x].AsVector3(), b[x].AsVector3());
+            d[x] = new(Vector3.Abs(r - t), 1f);
+            (error, signal, peak) = (error + Vector3.DistanceSquared(r, t), signal + r.LengthSquared(), Vector3.Max(peak, Vector3.Max(r, t)));
+        }
+        rows.Span[i] = (error, signal, peak);
     }
 }

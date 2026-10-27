@@ -1,13 +1,17 @@
 using System.Buffers.Binary;
 using System.Numerics;
 using System.Numerics.Tensors;
+using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
+using Emgu.CV;
+using Emgu.CV.CvEnum;
 using Rasm.Imaging.Color;
-using Rasm.Imaging.Pixels;
+using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
-namespace Rasm.Imaging.Grade;
+namespace Rasm.Imaging.Pixels;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 internal interface IBlendKernel { internal static abstract Vector256<double> Blended(Vector256<double> under, Vector256<double> over, Vector256<double> luma); }
@@ -17,7 +21,7 @@ internal interface IBlendKernel { internal static abstract Vector256<double> Ble
 public sealed partial class MatteChannel {
     public static readonly MatteChannel Lightness = new("lightness", static (row, luminance, weights) => {
         for (int x = 0; x < row.Length; x++)
-            weights[x] = row[x].W is 0f ? 0f : (float)double.Clamp(Gamut.RelativeLuminance(row[x].X, row[x].Y, row[x].Z, luminance) * row[x].W, 0d, 1d);
+            weights[x] = row[x].W is 0f ? 0f : (float)double.Clamp(Vector256.Dot(luminance, row[x].Wide) * row[x].W, 0d, 1d);
     });
     public static readonly MatteChannel Alpha = new("alpha", static (row, _, weights) => {
         for (int x = 0; x < row.Length; x++)
@@ -25,7 +29,7 @@ public sealed partial class MatteChannel {
     });
 
     [UseDelegateFromConstructor]
-    public partial void Read(ReadOnlySpan<Vector4> row, (double R, double G, double B) luminance, Span<float> weights);
+    public partial void Read(ReadOnlySpan<Vector4> row, Vector256<double> luminance, Span<float> weights);
 }
 
 [SmartEnum<string>]
@@ -73,7 +77,7 @@ public abstract partial class BlendingMode {
 
     private sealed class Blended<TKernel>(string key, ReadOnlySpan<byte> code) : BlendingMode(key, BinaryPrimitives.ReadUInt32BigEndian(code)) where TKernel : struct, IBlendKernel {
         public override void Composite(Span<Vector4> backdrop, ReadOnlySpan<Vector4> layer, ReadOnlySpan<float> weights, PixelAlphaRepresentation representation, Gamut gamut, PixelAlphaRepresentation sourceRepresentation = PixelAlphaRepresentation.Unassociated) {
-            Vector256<double> luma = gamut.LuminanceLanes;
+            Vector256<double> luma = gamut.Luminance;
             for (int x = 0; x < backdrop.Length; x++) {
                 if (weights[x] is 0f || (sourceRepresentation is PixelAlphaRepresentation.Unassociated && layer[x].W is 0f) || (sourceRepresentation is PixelAlphaRepresentation.Associated && layer[x] == Vector4.Zero))
                     continue;
@@ -99,7 +103,7 @@ public abstract partial class BlendingMode {
         }
 
         public override void Mixed(ReadOnlySpan<Vector4> input, Span<Vector4> graded, ReadOnlySpan<float> weights, Gamut gamut) {
-            Vector256<double> luma = gamut.LuminanceLanes;
+            Vector256<double> luma = gamut.Luminance;
             for (int x = 0; x < graded.Length; x++) {
                 if (weights[x] is 0f)
                     graded[x] = input[x];
@@ -118,10 +122,10 @@ public abstract partial class BlendingMode {
 public abstract partial record Coverage {
     public abstract void Weights(ReadOnlySpan<Vector4> row, long column, long line, Span<float> weights);
 
-    public sealed record Qualified(HueRange Range, bool Inverted) : Coverage {
+    public sealed record Keyed(Func<Vector4, float> Membership, bool Inverted) : Coverage {
         public override void Weights(ReadOnlySpan<Vector4> row, long column, long line, Span<float> weights) {
             for (int x = 0; x < row.Length; x++)
-                weights[x] = Range.Membership(row[x]);
+                weights[x] = Membership(row[x]);
             if (Inverted)
                 TensorPrimitives.Subtract(1f, weights, weights);
         }
@@ -137,9 +141,9 @@ public abstract partial record Coverage {
 
     public sealed record Luma(Gamut Gamut, BinRange Bins) : Coverage {
         public override void Weights(ReadOnlySpan<Vector4> row, long column, long line, Span<float> weights) {
-            (double R, double G, double B) luminance = Gamut.Luminance;
+            Vector256<double> luminance = Gamut.Luminance;
             for (int x = 0; x < row.Length; x++)
-                weights[x] = row[x].W > 0f && Bins.Holds(Gamut.RelativeLuminance(row[x].X, row[x].Y, row[x].Z, luminance)) ? 1f : 0f;
+                weights[x] = row[x].W > 0f && Bins.Holds(Vector256.Dot(luminance, row[x].Wide)) ? 1f : 0f;
         }
     }
 
@@ -185,6 +189,30 @@ file sealed record Blending(BlendingMode Mode, float Amount, Seq<Mask> Masks, Ga
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Blend {
+    internal static void Associated(ReadOnlySpan<Vector4> row, Span<Vector4> into) =>
+        PixelOperations<RgbaVector>.Instance.ToVector4(Configuration.Default, MemoryMarshal.Cast<Vector4, RgbaVector>(row), into, PixelConversionModifiers.Premultiply);
+
+    extension(PixelFrame frame) {
+        internal Mat Premultiplied() {
+            Mat associated = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4);
+            Associated(MemoryMarshal.Cast<float, Vector4>(frame.Block), associated.GetSpan<Vector4>());
+            return associated;
+        }
+
+        public unsafe Fin<Unit> Mutate(Action<Image<RgbaVector>> edit) {
+            Span2D<float> samples = new((void*)frame.Address, frame.Size.Width * frame.Size.Height, 4, 0);
+            using SpanOwner<float> alpha = SpanOwner<float>.Allocate(samples.Height);
+            samples.GetColumn(3).CopyTo(alpha.Span);
+            samples.GetColumn(3).Fill(1f);
+            Fin<Unit> edited = Try.lift(() => {
+                using Image<RgbaVector> image = Image.WrapMemory<RgbaVector>((void*)frame.Address, frame.Block.Length * sizeof(float), frame.Size.Width, frame.Size.Height);
+                edit(image);
+            }).Run();
+            alpha.Span.CopyTo(samples.GetColumn(3));
+            return edited;
+        }
+    }
+
     public static Option<PixelPass> Mixed(PixelPass stage, BlendingMode mode, float mix, Seq<Mask> masks, Gamut gamut) =>
         mix is 0f
             ? None
@@ -192,9 +220,9 @@ public static class Blend {
             ? stage
             : stage.Switch<Blending, PixelPass>(
                 new Blending(mode, mix, masks, gamut),
-                color: static (blending, color) => blending.Masks.IsEmpty
-                    ? new PixelPass.Color(row => blending.Graded(row, color.Row, (_, weights) => weights.Fill(blending.Amount)))
-                    : new PixelPass.Pointwise((row, column, line) => blending.Graded(row, color.Row, (input, weights) => blending.Weigh(input, column, line, weights))),
+                uniform: static (blending, uniform) => blending.Masks.IsEmpty
+                    ? new PixelPass.Uniform(row => blending.Graded(row, uniform.Row, (_, weights) => weights.Fill(blending.Amount)))
+                    : new PixelPass.Pointwise((row, column, line) => blending.Graded(row, uniform.Row, (input, weights) => blending.Weigh(input, column, line, weights))),
                 pointwise: static (blending, pointwise) => new PixelPass.Pointwise((row, column, line) =>
                     blending.Graded(row, graded => pointwise.Row(graded, column, line), (input, weights) => blending.Weigh(input, column, line, weights))),
                 frame: static (blending, frame) => new PixelPass.Frame((target, progress) => target.Copy() switch {

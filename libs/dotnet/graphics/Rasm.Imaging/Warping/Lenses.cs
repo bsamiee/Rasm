@@ -1,8 +1,6 @@
 using System.Globalization;
 using System.Numerics;
-using System.Runtime.Intrinsics;
 using MathNet.Numerics;
-using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Pixels;
 
 namespace Rasm.Imaging.Warping;
@@ -73,9 +71,4 @@ public sealed partial class RadialDistortion {
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref double coefficient, ref double dispersion, ref LensFraming framing, ref LensDirection direction) =>
         validationError = coefficient >= Bounds.Low && coefficient <= Bounds.High && dispersion >= 0d ? null
             : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"radial coefficient {coefficient} in [{Bounds.Low}, {Bounds.High}] with dispersion {dispersion}"), ImagingReason.Range);
-}
-
-public sealed record AxialDefocus(Iris Iris, ShortSideLength Radius) {
-    public PixelPass.Frame Pass =>
-        Bokeh.Gathered(Iris, 0d, (light, _, frame) => Bokeh.Correlate(light, Iris, 0d, Vector256.Create(0.5d, 0d, 1d, 0d) * Radius.Pixels(frame.Extent)));
 }

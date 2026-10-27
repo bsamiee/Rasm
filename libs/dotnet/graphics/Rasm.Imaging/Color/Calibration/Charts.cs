@@ -1,5 +1,6 @@
 using System.Numerics;
 using Rasm.Imaging.Pixels;
+using UnitsNet;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Color.Calibration;
@@ -113,7 +114,7 @@ public abstract partial record ChartPlacement {
         };
 
     public Seq<ChartFinding> Findings(PixelExtent frame) {
-        static double Angle(((double X, double Y) Previous, (double X, double Y) Corner, (double X, double Y) Next) turn) {
+        static double Opening(((double X, double Y) Previous, (double X, double Y) Corner, (double X, double Y) Next) turn) {
             (double ax, double ay, double bx, double by) = (turn.Previous.X - turn.Corner.X, turn.Previous.Y - turn.Corner.Y, turn.Next.X - turn.Corner.X, turn.Next.Y - turn.Corner.Y);
             return double.Atan2(double.Abs((ax * by) - (ay * bx)), (ax * bx) + (ay * by));
         }
@@ -121,13 +122,14 @@ public abstract partial record ChartPlacement {
             var (narrowest, widest) => Seq(
                 Quad.Mirrored ? Some<ChartFinding>(new ChartFinding.Reversed()) : None,
                 Seq((Quad.BottomLeft, Quad.TopLeft, Quad.TopRight), (Quad.TopLeft, Quad.TopRight, Quad.BottomRight), (Quad.TopRight, Quad.BottomRight, Quad.BottomLeft), (Quad.BottomRight, Quad.BottomLeft, Quad.TopLeft))
-                    .Map(Angle)
+                    .Map(Opening)
                     .Fold((Smallest: double.PositiveInfinity, Largest: 0d), static (range, angle) => (double.Min(range.Smallest, angle), double.Max(range.Largest, angle))) switch {
-                        var (smallest, largest) when smallest < narrowest || largest > widest => Some<ChartFinding>(new ChartFinding.Distorted(smallest, largest)),
+                        var (smallest, largest) when smallest < narrowest || largest > widest =>
+                            Some<ChartFinding>(new ChartFinding.Distorted(Angle.FromRadians(smallest), Angle.FromRadians(largest))),
                         _ => None,
                     },
                 Switch(
-                    (Frame: frame, Widest: widest),
+                    (Frame: frame, Widest: Angle.FromRadians(widest)),
                     flat: static (state, flat) =>
                         Some(flat.Footprints.Filter(footprint => Seq(footprint.TopLeft, footprint.TopRight, footprint.BottomRight, footprint.BottomLeft)
                             .Exists(point => point.X < 0f || point.X > state.Frame.Width || point.Y < 0f || point.Y > state.Frame.Height)).Map(static footprint => footprint.Patch))
@@ -137,7 +139,7 @@ public abstract partial record ChartPlacement {
                             from left in map((0d, 0.5d)).Bind(latLong.Lens.Ray)
                             from right in map((1d, 0.5d)).Bind(latLong.Lens.Ray)
                             where latLong.Field > state.Widest
-                            select (ChartFinding)new ChartFinding.WideView(latLong.Field, Between(left, right)),
+                            select (ChartFinding)new ChartFinding.WideView(latLong.Field, Angle.FromRadians(Between(left, right))),
                     })).Somes(),
         };
     }
@@ -203,7 +205,8 @@ public abstract partial record ChartPlacement {
                     (double)ColorChart.Columns / ColorChart.Rows * Spread(slopes.TopLeft.Y, slopes.TopRight.Y, slopes.BottomRight.Y, slopes.BottomLeft.Y))
                 let width = double.Max(1d, double.Round(source.Width * reach / double.Pi, MidpointRounding.ToEven))
                 from extent in Sized(width, double.Max(1d, double.Round(width * ColorChart.Rows / ColorChart.Columns, MidpointRounding.ToEven)))
-                let lens = new Projection.Rectilinear(extent, new Frustum.Perspective(ViewWindow.Centered(2d * reach, extent)))
+                from window in ViewWindow.Centered(2d * reach, extent)
+                let lens = new Projection.Rectilinear(extent, new Frustum.Perspective(window))
                 from corners in Each(rays, lens.Pixel).ToFin(Unaligned)
                 from quad in FrameQuad.Validated(corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft)
                 select new LatLong(Chart, quad, Footprint, view, lens);
@@ -215,7 +218,7 @@ public abstract partial record ChartPlacement {
 
     public sealed record LatLong(ColorChart Chart, FrameQuad Quad, float Footprint, PanoramaView View, Projection.Rectilinear Lens)
         : ChartPlacement(Chart, Quad, Footprint) {
-        public double Field => 2d * double.Atan(Lens.Frustum.Window.Width / 2d);
+        public Angle Field => Angle.FromRadians(2d * double.Atan(Lens.Frustum.Window.Width / 2d));
 
         public Fin<Flat> ToFlat(PixelExtent source) {
             (Projection.Equirectangular panorama, Quaternion turn) = (new(source), View.Rotation);
@@ -239,7 +242,7 @@ public abstract partial record ChartPlacement {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChartFinding {
     public sealed record Reversed : ChartFinding;
-    public sealed record Distorted(double Smallest, double Largest) : ChartFinding;
-    public sealed record WideView(double Field, double Span) : ChartFinding;
+    public sealed record Distorted(Angle Smallest, Angle Largest) : ChartFinding;
+    public sealed record WideView(Angle Field, Angle Span) : ChartFinding;
     public sealed record PatchesOutside(Seq<ChartPatch> Patches) : ChartFinding;
 }

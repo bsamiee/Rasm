@@ -148,9 +148,9 @@ public sealed record DistanceField(Func<(double X, double Y), double> Distance, 
 public sealed record GridLattice(double Height, double Span, double Shift, double Line, double Band) {
     public float Lines((double X, double Y) point) => ShapeEdge.Strip(Locate(point).Side, Line, Band);
 
-    public Vector3 Cells((double X, double Y) point, Func<long, long, Vector3> color, Vector3 ink) =>
+    public Vector3 Cells((double X, double Y) point, Func<long, long, Vector3> color, Vector3 stroke) =>
         Locate(point) switch {
-            var (i, j, side, acrossI, acrossJ) => Vector3.Lerp(Vector3.Lerp(color(i, j), color(acrossI, acrossJ), ShapeEdge.Coverage(side, Band)), ink, ShapeEdge.Strip(side, Line, Band)),
+            var (i, j, side, acrossI, acrossJ) => Vector3.Lerp(Vector3.Lerp(color(i, j), color(acrossI, acrossJ), ShapeEdge.Coverage(side, Band)), stroke, ShapeEdge.Strip(side, Line, Band)),
         };
 
     private (long I, long J, double Side, long AcrossI, long AcrossJ) Locate((double X, double Y) point) {

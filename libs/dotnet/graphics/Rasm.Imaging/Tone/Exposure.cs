@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Numerics.Tensors;
+using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using MathNet.Numerics.Interpolation;
@@ -12,7 +13,7 @@ using UnitsNet;
 namespace Rasm.Imaging.Tone;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-internal interface ISampleKernel<out T> { internal double Key(Vector3 rgb); internal T Sample(double key, long x, long y); }
+internal interface ISampleKernel<out T> { internal double Key(Vector4 rgb); internal T Sample(double key, long x, long y); }
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed class LuminanceSamples {
@@ -44,8 +45,6 @@ public sealed class LuminanceSamples {
 
     public double At(float percentile) => SortedArrayStatistics.QuantileCustom(sorted, percentile, QuantileDefinition.EmpiricalInvCDF);
 
-    public static double Luminance(double red, double green, double blue, (double R, double G, double B) weights) => (weights.R * red) + (weights.G * green) + (weights.B * blue);
-
     internal static ArraySegment<T> Slice<T>(T[] samples, float low, float high) =>
         (int)double.Min(double.Floor(samples.Length * (double)float.Min(low, high)), samples.Length - 1) switch {
             var start => new ArraySegment<T>(samples)[start..int.Max((int)double.Ceiling(samples.Length * (double)float.Max(low, high)), start + 1)],
@@ -58,7 +57,7 @@ public sealed class LuminanceSamples {
         for (long y = window.Top; width > 0 && y < window.Bottom; y++) {
             ReadOnlySpan<Vector4> row = view.GetRowSpan((int)(y - frame.Origin.Y)).Slice((int)(window.Left - frame.Origin.X), width);
             for (int x = 0; x < width; x++) {
-                double level = kernel.Key(row[x].AsVector3());
+                double level = kernel.Key(row[x]);
                 samples[count] = kernel.Sample(level, window.Left + x, y);
                 count += row[x].W > 0f && double.IsFinite(level) ? 1 : 0;
             }
@@ -131,12 +130,12 @@ public static class Peak {
     }
 }
 
-file readonly struct Luminous((double R, double G, double B) luminance) : ISampleKernel<double> { double ISampleKernel<double>.Key(Vector3 rgb) => Gamut.RelativeLuminance(rgb.X, rgb.Y, rgb.Z, luminance); double ISampleKernel<double>.Sample(double key, long x, long y) => key; }
-file readonly struct Brightest : ISampleKernel<double> { double ISampleKernel<double>.Key(Vector3 rgb) => float.Max(rgb.X, float.Max(rgb.Y, rgb.Z)); double ISampleKernel<double>.Sample(double key, long x, long y) => key; }
-file readonly struct Centered((double R, double G, double B) luminance, FrameWindow window, float border) : ISampleKernel<(double Key, float Weight)> {
+file readonly struct Luminous(Vector256<double> luminance) : ISampleKernel<double> { double ISampleKernel<double>.Key(Vector4 rgb) => Vector256.Dot(luminance, rgb.Wide); double ISampleKernel<double>.Sample(double key, long x, long y) => key; }
+file readonly struct Brightest : ISampleKernel<double> { double ISampleKernel<double>.Key(Vector4 rgb) => float.Max(rgb.X, float.Max(rgb.Y, rgb.Z)); double ISampleKernel<double>.Sample(double key, long x, long y) => key; }
+file readonly struct Centered(Vector256<double> luminance, FrameWindow window, float border) : ISampleKernel<(double Key, float Weight)> {
     private readonly (double X, double Y, double Across, double Down) center = ((double)(window.Right - window.Left), (double)(window.Bottom - window.Top)) switch { var (width, height) => (window.Left + (width / 2d), window.Top + (height / 2d), width / 4d, height / 4d) };
-    double ISampleKernel<(double Key, float Weight)>.Key(Vector3 rgb) => Gamut.RelativeLuminance(rgb.X, rgb.Y, rgb.Z, luminance);
+    double ISampleKernel<(double Key, float Weight)>.Key(Vector4 rgb) => Vector256.Dot(luminance, rgb.Wide);
     (double Key, float Weight) ISampleKernel<(double Key, float Weight)>.Sample(double key, long x, long y) =>
         (key, double.Abs(x + 0.5d - center.X) < center.Across && double.Abs(y + 0.5d - center.Y) < center.Down ? 1f : border);
 }
-internal readonly struct Placed((double R, double G, double B) luminance, PixelFrame frame) : ISampleKernel<(double Key, int Y, int X)> { double ISampleKernel<(double Key, int Y, int X)>.Key(Vector3 rgb) => double.Max(Gamut.RelativeLuminance(rgb.X, rgb.Y, rgb.Z, luminance), LuminanceSamples.Floor); (double Key, int Y, int X) ISampleKernel<(double Key, int Y, int X)>.Sample(double key, long x, long y) => (key, (int)(y - frame.Origin.Y), (int)(x - frame.Origin.X)); }
+internal readonly struct Placed(Vector256<double> luminance, PixelFrame frame) : ISampleKernel<(double Key, int Y, int X)> { double ISampleKernel<(double Key, int Y, int X)>.Key(Vector4 rgb) => double.Max(Vector256.Dot(luminance, rgb.Wide), LuminanceSamples.Floor); (double Key, int Y, int X) ISampleKernel<(double Key, int Y, int X)>.Sample(double key, long x, long y) => (key, (int)(y - frame.Origin.Y), (int)(x - frame.Origin.X)); }

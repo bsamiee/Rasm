@@ -61,7 +61,7 @@ public abstract partial class PassKind {
     private sealed class ColorPass(string key, Seq<string> channels) : PassKind(key, channels) {
         internal override PixelType Sample(ExrLayout layout) => layout.Sample;
         internal override Compression Codec(ExrCompression compression, Compression held) => held;
-        internal override void Associate(Span<Vector4> row) => StillWriter.Associate(row, row);
+        internal override void Associate(Span<Vector4> row) => Blend.Associated(row, row);
     }
 
     private sealed class DataPass(string key, Seq<string> channels) : PassKind(key, channels) {

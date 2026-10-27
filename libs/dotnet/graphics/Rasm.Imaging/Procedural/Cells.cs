@@ -128,29 +128,30 @@ public sealed class GlyphAtlas {
     private readonly Arr<ReadOnlyMemory<byte>> planes;
     private readonly Arr<int> ranked;
 
-    public GlyphAtlas(CharacterSet glyphs, HersheyFonts font, double cell, PixelExtent extent) {
+    private GlyphAtlas(CellGrid grid, Size tile, Arr<ReadOnlyMemory<byte>> planes, Arr<int> ranked) => (Grid, Tile, this.planes, this.ranked) = (grid, tile, planes, ranked);
+
+    public CellGrid Grid { get; }
+    public Size Tile { get; }
+
+    public static GlyphAtlas Rendered(CharacterSet glyphs, HersheyFonts font, double cell, PixelExtent extent) {
         string set = glyphs;
         (Size Size, int Baseline)[] measures = [.. set.Select(glyph => {
             int baseline = 0;
             return (CvInvoke.GetTextSize(glyph.ToString(), font, 1d, 1, ref baseline), baseline);
         })];
         (int widest, int tallest) = (measures.Max(static measure => measure.Size.Width), measures.Max(static measure => measure.Size.Height + measure.Baseline));
-        Grid = CellGrid.Fit(extent, cell * widest / tallest, cell);
-        Tile = new((int)((extent.Width + Grid.Columns - 1L) / Grid.Columns), (int)((extent.Height + Grid.Rows - 1L) / Grid.Rows));
-        double scale = double.Min((double)Tile.Height / tallest, (double)Tile.Width / widest);
+        CellGrid grid = CellGrid.Fit(extent, cell * widest / tallest, cell);
+        Size tile = new((int)((extent.Width + grid.Columns - 1L) / grid.Columns), (int)((extent.Height + grid.Rows - 1L) / grid.Rows));
+        double scale = double.Min((double)tile.Height / tallest, (double)tile.Width / widest);
         (ReadOnlyMemory<byte> Texels, double Mean)[] drawn = [.. Enumerable.Range(0, set.Length).Select(i => {
-            using Mat plane = Mat.Zeros(Tile.Height, Tile.Width, DepthType.Cv8U, 1);
+            using Mat plane = Mat.Zeros(tile.Height, tile.Width, DepthType.Cv8U, 1);
             CvInvoke.PutText(
-                plane, set[i].ToString(), new Point((int)double.Round((Tile.Width - (measures[i].Size.Width * scale)) / 2d, MidpointRounding.ToEven), Tile.Height - (int)double.Ceiling(measures[i].Baseline * scale)),
+                plane, set[i].ToString(), new Point((int)double.Round((tile.Width - (measures[i].Size.Width * scale)) / 2d, MidpointRounding.ToEven), tile.Height - (int)double.Ceiling(measures[i].Baseline * scale)),
                 font, scale, new MCvScalar(byte.MaxValue), int.Max(1, (int)double.Round(scale, MidpointRounding.ToEven)), LineType.AntiAlias);
             return (new ReadOnlyMemory<byte>(plane.GetSpan<byte>().ToArray()), CvInvoke.Mean(plane).V0);
         })];
-        planes = [.. drawn.Select(static glyph => glyph.Texels)];
-        ranked = [.. Enumerable.Range(0, drawn.Length).OrderBy(i => drawn[i].Mean)];
+        return new(grid, tile, [.. drawn.Select(static glyph => glyph.Texels)], [.. Enumerable.Range(0, drawn.Length).OrderBy(i => drawn[i].Mean)]);
     }
-
-    public CellGrid Grid { get; }
-    public Size Tile { get; }
 
     public int Glyph(float level) => ranked[int.Min(ranked.Count - 1, (int)(level * ranked.Count))];
 

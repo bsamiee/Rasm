@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using BitMiracle.LibTiff.Classic;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Color;
@@ -67,17 +66,8 @@ public abstract partial record StillFormat {
                 float32: None);
     }
 
-    public sealed record JpegRaster : StillFormat {
-        private JpegRaster(PixelFrame frame, Option<ColorEncoding> encoding, JpegEncoder encoder) => (Frame, Encoding, Encoder) = (frame, encoding, encoder);
-
-        public PixelFrame Frame { get; }
-        public Option<ColorEncoding> Encoding { get; }
-        internal JpegEncoder Encoder { get; }
-
+    public sealed record JpegRaster(PixelFrame Frame, Option<ColorEncoding> Encoding, int Quality) : StillFormat {
         public static IterableNE<string> Extensions => IterableNE.create(".jpg", ".jpeg");
-
-        public static StillFormat From(PixelFrame frame, Option<ColorEncoding> encoding, int quality) =>
-            new JpegRaster(frame, encoding, new JpegEncoder { Quality = quality });
     }
 
     public sealed record WebpRaster(PixelFrame Frame, ColorEncoding Encoding, bool Alpha, WebpFileFormatType Format, int Quality) : StillFormat {
@@ -170,22 +160,19 @@ public static class StillWriter {
             pngRaster: static (save, png) => png.Sample.Write(png.Frame, png.Alpha, save.Metadata, png.Encoding, new PngEncoder {
                 BitDepth = (PngBitDepth)png.Sample.Depth.Bits, ColorType = png.Alpha ? PngColorType.RgbWithAlpha : PngColorType.Rgb,
             }, save.Stream),
-            jpegRaster: static (save, jpeg) => ImageSample.Bytes.Write(jpeg.Frame, false, save.Metadata, jpeg.Encoding, jpeg.Encoder, save.Stream),
+            jpegRaster: static (save, jpeg) => ImageSample.Bytes.Write(jpeg.Frame, false, save.Metadata, jpeg.Encoding, new JpegEncoder { Quality = jpeg.Quality }, save.Stream),
             webpRaster: static (save, webp) => ImageSample.Bytes.Write(webp.Frame, webp.Alpha, save.Metadata, Some(webp.Encoding), new WebpEncoder { FileFormat = webp.Format, Quality = webp.Quality }, save.Stream),
             tiffRaster: static (save, tiff) => Scanlines(save.Stream, "w", [], Tagged(tiff.Frame.Size, tiff.Sample, tiff.Alpha, tiff.Encoding, save.Metadata, []), tiff.Frame.Size.Height, Rows(tiff.Frame, tiff.Sample.Depth, tiff.Alpha)),
             exrRaster: static (save, exr) => ExrParts.Write(exr, save.Metadata, save.Stream),
             dng: static (save, dng) => DngWriter.Write(dng, save.Metadata, save.Stream),
             document: static (save, document) => document.Content.Write(save.Metadata, save.Stream));
 
-    internal static void Associate(ReadOnlySpan<Vector4> row, Span<Vector4> into) =>
-        PixelOperations<RgbaVector>.Instance.ToVector4(Configuration.Default, MemoryMarshal.Cast<Vector4, RgbaVector>(row), into, PixelConversionModifiers.Premultiply);
-
     internal static Action<int, Span<byte>> Rows(PixelFrame frame, OutputDepth depth, bool alpha) =>
         alpha
             ? (y, destination) => depth.Encode(frame.View.Span.GetRowSpan(y), alpha: true, destination)
             : (y, destination) => {
                 using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(frame.Size.Width);
-                Associate(frame.View.Span.GetRowSpan(y), scratch.Span);
+                Blend.Associated(frame.View.Span.GetRowSpan(y), scratch.Span);
                 depth.Encode(scratch.Span, alpha: false, destination);
             };
 
@@ -227,7 +214,7 @@ public static class StillWriter {
                     if (alpha)
                         source.CopyTo(scratch.Span);
                     else
-                        Associate(source, scratch.Span);
+                        Blend.Associated(source, scratch.Span);
                     PixelOperations<TPixel>.Instance.FromVector4Destructive(Configuration.Default, scratch.Span, rows.GetRowSpan(y), PixelConversionModifiers.Scale);
                 }
             });

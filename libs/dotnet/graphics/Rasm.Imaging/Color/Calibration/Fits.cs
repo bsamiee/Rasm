@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.Intrinsics;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Factorization;
 
@@ -64,7 +65,7 @@ public sealed record ChartFit {
     private static (Matrix<double> Rows, double Neutral) Operand(Gamut gamut, HashMap<ChartPatch, (double R, double G, double B)> colors) =>
         (Matrix<double>.Build.DenseOfRowArrays(toSeq(ChartPatch.Items).Map(patch => colors[patch] switch { var (r, g, b) => new[] { r, g, b } })),
          colors[ChartPatch.Neutral5] switch {
-             var (r, g, b) => Gamut.RelativeLuminance(r, g, b, gamut.Luminance),
+             var (r, g, b) => Vector256.Dot(gamut.Luminance, Vector256.Create(r, g, b, 0d)),
          });
 }
 

@@ -8,7 +8,6 @@ using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Filtering;
-using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
 using Rasm.Imaging.Tone;
@@ -125,15 +124,15 @@ public sealed partial class MapReading {
     public static readonly MapReading Offsets = new("offsets", static (map, plane, _, _, _) => { HeightPlanes.Weighted(map, plane, 2, [2d, 0d, 0d, 0d, -1d, 0d, -2d, 0d, 0d, 1d]); return unit; });
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Plane(Mat map, Mat plane, double sigma, (double R, double G, double B) luminance, double exposure);
+    internal partial Fin<Unit> Plane(Mat map, Mat plane, double sigma, Vector256<double> luminance, double exposure);
 
-    private static Fin<Unit> Height(Mat map, double sigma, (double R, double G, double B) luminance, double exposure, Func<Mat, Fin<Unit>> read) {
+    private static Fin<Unit> Height(Mat map, double sigma, Vector256<double> luminance, double exposure, Func<Mat, Fin<Unit>> read) {
         double logGray = double.Log(Exposure.MiddleGray) - (exposure * double.Log(2d));
         using Mat linear = new();
         using Mat height = new();
         using Mat plane = new();
         map.ConvertTo(linear, DepthType.Cv64F);
-        HeightPlanes.Weighted(linear, height, 1, [luminance.R, luminance.G, luminance.B, 0d]);
+        HeightPlanes.Weighted(linear, height, 1, [luminance[0], luminance[1], luminance[2], 0d]);
         foreach (ref double luma in height.GetSpan<double>())
             luma = double.Log(double.Max(luma, 0d)) switch {
                 var logLuma => double.Exp(logLuma - double.Max(logLuma, logGray) - double.LogP1(double.Exp(-double.Abs(logLuma - logGray)))),

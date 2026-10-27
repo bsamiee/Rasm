@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using MathNet.Numerics.LinearAlgebra;
-using Rasm.Imaging.Pixels;
 using TinyEXR;
 using Wacton.Unicolour;
 
@@ -12,8 +11,8 @@ namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Gamut {
-    private static readonly Func<Gamut, (double R, double G, double B)> Luminances = memoUnsafe(static (Gamut gamut) =>
-        (Relative(gamut, (1d, 0d, 0d)), Relative(gamut, (0d, 1d, 0d)), Relative(gamut, (0d, 0d, 1d))));
+    private static readonly Func<Gamut, Vector256<double>> Luminances = memoUnsafe(static (Gamut gamut) =>
+        Vector256.Create(Relative(gamut, (1d, 0d, 0d)), Relative(gamut, (0d, 1d, 0d)), Relative(gamut, (0d, 0d, 1d)), 0d));
 
     public Gamut(RgbConfiguration rgb, Option<string> interopId = default) =>
         (Rgb, Configuration, InteropId) = (rgb, new Configuration(rgbConfig: rgb), interopId);
@@ -55,14 +54,9 @@ public sealed record Gamut {
 
     public Matrix<double> FromXyz => Columns(Configuration, ColourSpace.Xyz, static color => color.RgbLinear);
 
-    public (double R, double G, double B) Luminance => Luminances(this);
+    public Vector256<double> Luminance => Luminances(this);
 
-    public Vector256<double> LuminanceLanes => Vector256.Create(Luminance.R, Luminance.G, Luminance.B, 0d);
-
-    public YbrConfiguration Ybr => new(Luminance.R, Luminance.B, Configuration.Ybr.RangeY, Configuration.Ybr.RangeC, Rgb.Name);
-
-    public static double RelativeLuminance(double red, double green, double blue, (double R, double G, double B) weights) =>
-        (weights.R * red) + (weights.G * green) + (weights.B * blue);
+    public YbrConfiguration Ybr => new(Luminance[0], Luminance[2], Configuration.Ybr.RangeY, Configuration.Ybr.RangeC, Rgb.Name);
 
     public bool Equals([NotNullWhen(true)] Gamut? other) => other is not null && ReferenceEquals(Rgb, other.Rgb);
 
@@ -101,16 +95,16 @@ public sealed record Gamut {
 
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class GamutCompression {
-    public static GamutCompression Reference { get; } = new(new Channels<float>(0.815f, 0.803f, 0.880f), new Channels<float>(1.147f, 1.264f, 1.312f), 1.2f);
+    public static GamutCompression Reference { get; } = new(new Vector3(0.815f, 0.803f, 0.880f), new Vector3(1.147f, 1.264f, 1.312f), 1.2f);
 
-    public Channels<float> Threshold { get; }
-    public Channels<float> Limit { get; }
+    public Vector3 Threshold { get; }
+    public Vector3 Limit { get; }
     public float Power { get; }
 
     public Action<Span<Vector4>> Within(Gamut working, Gamut target) {
         (ColorMatrix3x3 inward, ColorMatrix3x3 outward, double power) = (LutTables.Baked(working.MatrixTo(target)), LutTables.Baked(target.MatrixTo(working)), Power);
         ((double Threshold, double Scale) red, (double Threshold, double Scale) green, (double Threshold, double Scale) blue) =
-            (Curve(Threshold.Red, Limit.Red, power), Curve(Threshold.Green, Limit.Green, power), Curve(Threshold.Blue, Limit.Blue, power));
+            (Curve(Threshold.X, Limit.X, power), Curve(Threshold.Y, Limit.Y, power), Curve(Threshold.Z, Limit.Z, power));
         return row => {
             Span<float> samples = MemoryMarshal.Cast<Vector4, float>(row);
             ImageProcessing.ApplyColorMatrix(samples, samples, 4, inward);
@@ -136,14 +130,10 @@ public sealed partial class GamutCompression {
             },
         };
 
-    public static Fin<GamutCompression> Validated(Channels<float> threshold, Channels<float> limit, float power) =>
-        ImagingFault.Unless(Seq((threshold.Red, limit.Red), (threshold.Green, limit.Green), (threshold.Blue, limit.Blue))
-            .ForAll(static pair => pair.Item1 is >= 0f and < 1f && pair.Item2 > 1f && float.IsFinite(pair.Item2)) && float.IsFinite(power) && power >= 1f, ImagingReason.Range, (threshold, limit, power))
+    public static Fin<GamutCompression> Validated(Vector3 threshold, Vector3 limit, float power) =>
+        ImagingFault.Unless(
+            Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(threshold, Vector3.Zero) & Vector3.LessThan(threshold, Vector3.One) & Vector3.GreaterThan(limit, Vector3.One) & Vector3.IsFinite(limit))
+                && float.IsFinite(power) && power >= 1f,
+            ImagingReason.Range, (threshold, limit, power))
             .Map(_ => new GamutCompression(threshold, limit, power));
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Lanes {
-    public static (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) Of(Matrix<double> matrix) =>
-        (Vector256.Create([.. matrix.Column(0), 0d]), Vector256.Create([.. matrix.Column(1), 0d]), Vector256.Create([.. matrix.Column(2), 0d]));
 }

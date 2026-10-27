@@ -15,12 +15,12 @@ namespace Rasm.Imaging.Filtering;
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SortMetric {
-    public static readonly SortMetric Luma = new("luma", static (color, weights) => Gamut.RelativeLuminance(color.X, color.Y, color.Z, weights));
+    public static readonly SortMetric Luma = new("luma", static (color, weights) => Vector256.Dot(weights, color.Wide));
     public static readonly SortMetric Hue = new("hue", static (color, _) => RangeAxis.Hue.Coordinate(Hsy.HueOf(color)));
     public static readonly SortMetric Saturation = new("saturation", static (color, _) => RangeAxis.Saturation.Coordinate(Hsy.SaturationOf(color, Hsy.LumaOf(color))));
 
     [UseDelegateFromConstructor]
-    public partial double Level(Vector4 color, (double R, double G, double B) weights);
+    public partial double Level(Vector4 color, Vector256<double> weights);
 }
 
 [SmartEnum<string>]
@@ -34,7 +34,7 @@ public sealed partial class SortDirection {
     public bool Transposed { get; }
 
     public PixelPass Sorted(SortMetric metric, double low, double high, Gamut gamut) {
-        (double R, double G, double B) luminance = gamut.Luminance;
+        Vector256<double> luminance = gamut.Luminance;
         PixelPass.Pointwise rows = new((row, _, _) => {
             using SpanOwner<double> owner = SpanOwner<double>.Allocate(row.Length);
             Span<double> keys = owner.Span;

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
@@ -357,6 +358,11 @@ public static class LutTables {
         public static Fin<Lut3D> From(int size, ReadOnlyMemory<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
             Sampled(samples.Span, domainMinimum, domainMaximum).Bind(_ => Try.lift(() => new Lut3D(size, samples.Span, domainMinimum, domainMaximum)).Run()
                 .MapFail(cause => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT lattice of size {size}"), ImagingReason.Refused, Inner: cause)));
+    }
+
+    extension(Matrix<double> matrix) {
+        public (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) Lanes =>
+            (Vector256.Create([.. matrix.Column(0), 0d]), Vector256.Create([.. matrix.Column(1), 0d]), Vector256.Create([.. matrix.Column(2), 0d]));
     }
 
     internal static ColorMatrix3x3 Baked(Matrix<double> matrix) =>

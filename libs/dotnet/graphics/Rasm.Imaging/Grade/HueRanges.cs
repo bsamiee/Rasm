@@ -1,5 +1,7 @@
 using System.Numerics;
+using System.Runtime.Intrinsics;
 using Rasm.Imaging.Color;
+using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
 
 namespace Rasm.Imaging.Grade;
@@ -12,9 +14,9 @@ public sealed record Hsy(double Hue, double Saturation, double Luma) {
     private const double MinLuma = 0.001d;
     private const double MaxLuma = 0.01d;
 
-    private static readonly (double R, double G, double B) LumaWeights = Gamut.StandardRgb.Luminance;
+    private static readonly Vector256<double> LumaWeights = Gamut.StandardRgb.Luminance;
 
-    public static double SaturationPeak { get; } = Scale * (1d + ((LumaWeights.R + LumaWeights.G + LumaWeights.B) / double.Min(double.Min(LumaWeights.R, LumaWeights.G), LumaWeights.B))) / 3d;
+    public static double SaturationPeak { get; } = Scale * (1d + (Vector256.Sum(LumaWeights) / double.Min(double.Min(LumaWeights[0], LumaWeights[1]), LumaWeights[2]))) / 3d;
 
     public static Hsy From(Vector4 color) => LumaOf(color) switch { var luma => new(HueOf(color), SaturationOf(color, luma), luma) };
 
@@ -45,7 +47,7 @@ public sealed record Hsy(double Hue, double Saturation, double Luma) {
     }
 
     private static double Luminance(double red, double green, double blue) =>
-        Gamut.RelativeLuminance(red, green, blue, LumaWeights) / (LumaWeights.R + LumaWeights.G + LumaWeights.B);
+        Vector256.Dot(LumaWeights, Vector256.Create(red, green, blue, 0d)) / Vector256.Sum(LumaWeights);
 
     private static double SaturationGain(double luma) =>
         luma switch {
@@ -81,28 +83,30 @@ public sealed record HueRange(RangeBand Hue, RangeBand Saturation, RangeBand Lum
 
     public float Membership(Hsy hsy) => Membership(hsy.Hue, hsy.Saturation, hsy.Luma);
 
-    public void Graded(Span<Vector4> row, float shift, float saturation, float stops) {
+    public Action<Span<Vector4>> Graded(float shift, float saturation, float stops) {
         float gain = float.Exp2(stops);
-        foreach (ref Vector4 pixel in row) {
-            double luma = Hsy.LumaOf(pixel);
-            (double hue, double chroma) = (Hsy.HueOf(pixel), Hsy.SaturationOf(pixel, luma));
-            Vector3 graded = shift is 0f && saturation is 1f ? pixel.AsVector3() * gain : Hsy.ToRgb(hue + shift, chroma * saturation, luma, pixel.W).AsVector3() * gain;
-            pixel = new Vector4(Vector3.Lerp(pixel.AsVector3(), graded, Membership(hue, chroma, luma)), pixel.W);
-        }
+        return row => {
+            foreach (ref Vector4 pixel in row) {
+                double luma = Hsy.LumaOf(pixel);
+                (double hue, double chroma) = (Hsy.HueOf(pixel), Hsy.SaturationOf(pixel, luma));
+                Vector3 graded = shift is 0f && saturation is 1f ? pixel.AsVector3() * gain : Hsy.ToRgb(hue + shift, chroma * saturation, luma, pixel.W).AsVector3() * gain;
+                pixel = new Vector4(Vector3.Lerp(pixel.AsVector3(), graded, Membership(hue, chroma, luma)), pixel.W);
+            }
+        };
     }
 
-    public void Isolated(Span<Vector4> row, Gamut gamut) {
-        (double R, double G, double B) luminance = gamut.Luminance;
-        foreach (ref Vector4 pixel in row) {
-            float membership = Membership(pixel);
-            double gray = (1d - membership) * Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, luminance);
-            pixel = membership is 1f
-                ? pixel
-                : new Vector4((float)(gray + (membership * (double)pixel.X)), (float)(gray + (membership * (double)pixel.Y)), (float)(gray + (membership * (double)pixel.Z)), pixel.W);
-        }
+    public Action<Span<Vector4>> Isolated(Gamut gamut) {
+        Vector256<double> luminance = gamut.Luminance;
+        return row => {
+            foreach (ref Vector4 pixel in row) {
+                float membership = Membership(pixel);
+                float gray = (float)((1d - membership) * Vector256.Dot(luminance, pixel.Wide));
+                pixel = new Vector4(new Vector3(gray) + (membership * pixel.AsVector3()), pixel.W);
+            }
+        };
     }
 
-    internal float Membership(Vector4 pixel) => Hsy.LumaOf(pixel) switch { var luma => Membership(Hsy.HueOf(pixel), Hsy.SaturationOf(pixel, luma), luma) };
+    public float Membership(Vector4 pixel) => Hsy.LumaOf(pixel) switch { var luma => Membership(Hsy.HueOf(pixel), Hsy.SaturationOf(pixel, luma), luma) };
 
     private float Membership(double hue, double saturation, double luma) =>
         RangeAxis.Hue.Membership(Hue, hue) * RangeAxis.Saturation.Membership(Saturation, saturation) * RangeAxis.Luma.Membership(Luma, CurveAxis.ToStops(luma));

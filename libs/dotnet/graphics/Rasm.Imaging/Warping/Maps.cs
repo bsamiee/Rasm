@@ -67,7 +67,7 @@ public abstract partial record CoordinateMap {
         (frame, progress) => {
             PixelFrame source = frame.Copy();
             MapPath[] paths = [path, .. additional];
-            Vector256<double> total = paths.Aggregate(Vector256<double>.Zero, (sum, sample) => sum + Integrated(t => Widened(sample.Gains(t))));
+            Vector256<double> total = paths.Aggregate(Vector256<double>.Zero, (sum, sample) => sum + Integrated(t => sample.Gains(t).Wide));
             return new PixelPass.Pointwise((row, column, line) => {
                 for (int x = 0; x < row.Length; x++) {
                     (double X, double Y) point = (column + x + 0.5d, frame.Extent.Height - line - 0.5d);
@@ -75,11 +75,11 @@ public abstract partial record CoordinateMap {
                     foreach (MapPath sample in paths) {
                         associated += Integrated(t => {
                             ((double X, double Y) at, float coverage) = sample.At(point, t, frame.Extent);
-                            Vector256<double> weights = Widened(sample.Gains(t)) * coverage;
+                            Vector256<double> weights = sample.Gains(t).Wide * coverage;
                             return Vector256.ConditionalSelect(Vector256.IsZero(weights), Vector256<double>.Zero, weights * source.Sample(at, (wrap, wrap), Vector256<double>.Zero, Associated));
                         });
                     }
-                    row[x] = Vector256.Narrow(associated / total, Vector256<double>.Zero).GetLower().AsVector4().Unassociated;
+                    row[x] = (associated / total).Narrowed.AsVector4().Unassociated;
                 }
             }).Run(frame, progress);
 
@@ -111,8 +111,6 @@ public abstract partial record CoordinateMap {
         Trace(points, coverage, output, source);
         Bound(points, coverage, source);
     }
-
-    private static Vector256<double> Widened(Vector4 value) => Vector256.Create(value.X, value.Y, value.Z, value.W);
 
     private static Vector256<double> Associated(Vector256<double> sum, Vector4 pixel, double weight) =>
         sum + (weight * Vector256.Create((double)pixel.X * pixel.W, (double)pixel.Y * pixel.W, (double)pixel.Z * pixel.W, pixel.W));
@@ -169,7 +167,7 @@ public abstract partial record CoordinateMap {
             (double X, double Y) = ((double)Coordinates.Extent.Width / output.Width, (double)Coordinates.Extent.Height / output.Height);
             for (int i = 0; i < points.Length; i++)
                 (points[i], coverage[i]) = Coordinates.Sample((points[i].X * X, points[i].Y * Y), (WrapMode.Clamp, WrapMode.Clamp), Vector256<double>.Zero,
-                    static (sum, pixel, weight) => sum + (weight * Widened(pixel))) switch {
+                    static (sum, pixel, weight) => sum + (weight * pixel.Wide)) switch {
                         var read => ((read.GetElement(0) * source.Width, (1d - read.GetElement(1)) * source.Height), coverage[i] * (float)read.GetElement(3)),
                     };
         }

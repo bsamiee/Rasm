@@ -67,7 +67,7 @@ public static class VideoKernels {
     private const double NearShare = 0.890909d;
     private const int JpegTile = 65504;
 
-    public static Fin<Mat> Unit(double sigma) => Gaussian.Kernel(sigma).Map(static taps => {
+    public static Fin<Mat> Normalized(double sigma) => Gaussian.Kernel(sigma).Map(static taps => {
         CvInvoke.Normalize(taps, taps, 1d, 0d, NormType.L2);
         return taps;
     });
@@ -94,12 +94,10 @@ public static class VideoKernels {
         return matrix;
     }
 
-    public static Fin<Unit> Filter(Mat plane, Fin<Mat> taps, bool vertical = false) => taps.Map(kernel => {
-        using (kernel)
-        using (Mat impulse = Mat.Ones(1, 1, DepthType.Cv64F, 1))
-            CvInvoke.SepFilter2D(plane, plane, DepthType.Cv64F, vertical ? impulse : kernel, vertical ? kernel : impulse, new System.Drawing.Point(-1, -1), 0d, BorderType.Replicate);
-        return unit;
-    });
+    public static void Filter(Mat plane, Mat taps, bool vertical = false) {
+        using Mat impulse = Mat.Ones(1, 1, DepthType.Cv64F, 1);
+        CvInvoke.SepFilter2D(plane, plane, DepthType.Cv64F, vertical ? impulse : taps, vertical ? taps : impulse, new System.Drawing.Point(-1, -1), 0d, BorderType.Replicate);
+    }
 
     public static Fin<Unit> Decomposed(Mat header, Gamut signal, Func<Mat, Mat, Mat, Fin<Unit>> planes) {
         using Mat alpha = new();
@@ -165,7 +163,9 @@ public static class VideoKernels {
 
     public static Fin<Unit> CrossColor(Mat luma, Mat blue, Mat red, PixelFrame frame, int lines, long count, float amount) {
         using Mat detail = luma.Clone();
-        return Filter(detail, Gaussian.Kernel(frame.Extent.Width / (6d * SystemM.Subcarrier))).Map(_ => {
+        return Gaussian.Kernel(frame.Extent.Width / (6d * SystemM.Subcarrier)).Map(kernel => {
+            using (kernel)
+                Filter(detail, kernel);
             CvInvoke.Subtract(luma, detail, detail);
             (int width, double cycles) = (frame.Size.Width, SystemM.Subcarrier / frame.Extent.Width);
             using SpanOwner<double> phases = SpanOwner<double>.Allocate(width);
@@ -190,7 +190,7 @@ public static class VideoKernels {
     }
 
     public static Fin<Unit> LineNoise(Mat luma, Mat blue, Mat red, PixelFrame frame, int lines, double length, float lumaLevel, float chromaLevel, uint field) =>
-        Unit(length).Bind(taps => {
+        Normalized(length).Bind(taps => {
             using (taps) {
                 if ((long)taps.Rows + frame.Size.Width - 1 > int.MaxValue)
                     return Fin.Fail<Unit>(new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"line noise of {taps.Rows} taps across {frame.Size.Width} pixels"), ImagingReason.Oversize));
@@ -202,7 +202,7 @@ public static class VideoKernels {
                 for (int line = 0; line < frame.Size.Height; line++) {
                     long scan = SystemM.Line((long)frame.Origin.Y + line, lines, frame.Extent.Height);
                     for (int column = 0; column < width; column++)
-                        cells[line, column] = Vector256.WidenLower(CoordinateHash.Normals((long)frame.Origin.X - reach + column, scan, field).AsVector128().ToVector256());
+                        cells[line, column] = CoordinateHash.Normals((long)frame.Origin.X - reach + column, scan, field).Wide;
                 }
                 CvInvoke.Filter2D(draws, draws, row, new System.Drawing.Point(-1, -1), 0d, BorderType.Replicate);
                 CvInvoke.Split(draws, planes);
@@ -219,7 +219,7 @@ public static class VideoKernels {
 
     public static Action<Span<Vector4>, long, long> Snow(PixelExtent extent, int lines, double length, float snow, float density, float hum, double humPhase, Gamut gamut, uint field) =>
         (row, column, line) => {
-            (long y, (double R, double G, double B) luminance) = ((long)extent.Height - 1 - line, gamut.Luminance);
+            (long y, Vector256<double> luminance) = ((long)extent.Height - 1 - line, gamut.Luminance);
             long scan = SystemM.Line(y, lines, extent.Height);
             double cycle = ((((2 * y) + 1) / 2d / extent.Height) + humPhase) switch { var turns => turns - double.Floor(turns) };
             double dim = 1d - (hum * (1d + double.CosPi(2d * cycle)) / 2d);
@@ -234,14 +234,14 @@ public static class VideoKernels {
                     continue;
                 (double r, double g, double b) = lit is 0d ? (row[x].X, row[x].Y, row[x].Z)
                     : (double.Lerp(row[x].X, 1d, lit), double.Lerp(row[x].Y, 1d, lit), double.Lerp(row[x].Z, 1d, lit));
-                double shift = (dim - 1d) * Gamut.RelativeLuminance(r, g, b, luminance);
+                double shift = (dim - 1d) * Vector256.Dot(luminance, Vector256.Create(r, g, b, 0d));
                 row[x] = new Vector4((float)(r + shift), (float)(g + shift), (float)(b + shift), row[x].W);
             }
         };
 
     public static Action<Span<Vector4>, long, long> Corrupted(Gamut signal, float luma, float chroma, PixelExtent extent, Func<(double X, double Y), Option<(long X, long Y)>> site, uint field) {
-        (Vector256<double> yAxis, Vector256<double> cbAxis, Vector256<double> crAxis) = Lanes.Of(Gamut.ToYpbpr(signal.Ybr).Transpose());
-        (Vector256<double> rAxis, Vector256<double> gAxis, Vector256<double> bAxis) = Lanes.Of(Gamut.FromYpbpr(signal.Ybr).Transpose());
+        (Vector256<double> yAxis, Vector256<double> cbAxis, Vector256<double> crAxis) = Gamut.ToYpbpr(signal.Ybr).Transpose().Lanes;
+        (Vector256<double> rAxis, Vector256<double> gAxis, Vector256<double> bAxis) = Gamut.FromYpbpr(signal.Ybr).Transpose().Lanes;
         return (row, column, line) => {
             double y = (extent.Height - (2 * line) - 1) / 2d;
             for (int x = 0; x < row.Length; x++) {

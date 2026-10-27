@@ -93,7 +93,7 @@ public abstract partial class EdgeOperator {
 [SmartEnum<string>]
 public sealed partial class EdgeSource {
     public static readonly EdgeSource Color = new("color", 3, separate: true, static (pixel, levels, _) => (levels[0], levels[1], levels[2]) = (pixel.X, pixel.Y, pixel.Z));
-    public static readonly EdgeSource Luma = new("luma", 1, separate: false, static (pixel, levels, weights) => levels[0] = Gamut.RelativeLuminance(pixel.X, pixel.Y, pixel.Z, weights));
+    public static readonly EdgeSource Luma = new("luma", 1, separate: false, static (pixel, levels, weights) => levels[0] = Vector256.Dot(weights, pixel.Wide));
     public static readonly EdgeSource Hue = new("hue", 2, separate: false, static (pixel, levels, _) =>
         (levels[0], levels[1]) = double.SinCos(Hsy.HueOf(pixel)) switch { var (sine, cosine) => (cosine / double.Tau, sine / double.Tau) });
     public static readonly EdgeSource Saturation = new("saturation", 1, separate: false, static (pixel, levels, _) => levels[0] = RangeAxis.Saturation.Coordinate(Hsy.SaturationOf(pixel, Hsy.LumaOf(pixel))));
@@ -104,13 +104,13 @@ public sealed partial class EdgeSource {
     public bool Separate { get; }
 
     [UseDelegateFromConstructor]
-    public partial void Read(Vector4 pixel, Span<double> levels, (double R, double G, double B) weights);
+    public partial void Read(Vector4 pixel, Span<double> levels, Vector256<double> weights);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EdgeResponse {
     public static Fin<Unit> Detected(PixelFrame frame, EdgeOperator kernel, EdgeSource source, double softening, Gamut gamut, Func<Mat, Fin<Unit>> render) => frame.Filter(_ => {
-        (int width, int planes, (double R, double G, double B) luminance) = (frame.Size.Width, source.Planes, gamut.Luminance);
+        (int width, int planes, Vector256<double> luminance) = (frame.Size.Width, source.Planes, gamut.Luminance);
         using Mat plane = new(frame.Size.Height, width, DepthType.Cv64F, planes);
         using Mat response = new(frame.Size.Height, width, DepthType.Cv64F, planes);
         using Mat squares = new();
@@ -148,7 +148,7 @@ public static class EdgeResponse {
         using ScalarArray cut = new(threshold);
         if (edges.NumberOfChannels is 3) {
             using Mat weights = new(1, 3, DepthType.Cv64F, 1);
-            weights.SetTo([gamut.Luminance.R, gamut.Luminance.G, gamut.Luminance.B]);
+            weights.SetTo([gamut.Luminance[0], gamut.Luminance[1], gamut.Luminance[2]]);
             CvInvoke.Transform(edges, value, weights);
         } else
             CvInvoke.ExtractChannel(edges, value, 0);

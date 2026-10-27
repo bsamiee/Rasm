@@ -1,12 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Color-managed scene-linear frames for render pipelines</Description>
+        <Description>Color-managed image processing in scene-linear light</Description>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup Label="Core">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
-        <PackageReference Include="SuperLinq" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
@@ -17,6 +16,10 @@
     <ItemGroup Label="Mathematics">
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="System.Numerics.Tensors" />
+    </ItemGroup>
+
+    <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="SuperLinq" />
     </ItemGroup>
 
     <ItemGroup Label="Color">

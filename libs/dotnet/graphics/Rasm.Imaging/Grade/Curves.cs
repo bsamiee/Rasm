@@ -1,7 +1,6 @@
-using System.Collections.Generic;
 using System.Numerics;
+using System.Runtime.Intrinsics;
 using MathNet.Numerics.Interpolation;
-using Rasm.Imaging.Color;
 using Rasm.Imaging.Tone;
 using SuperLinq;
 
@@ -54,18 +53,14 @@ public sealed partial class InputAxis {
 
 public sealed record CurvePoint(double X, double Y);
 
-public sealed class SequenceEquality<T> : IEqualityComparerAccessor<ImmutableArray<T>> {
-    public static IEqualityComparer<ImmutableArray<T>> EqualityComparer { get; } = EqualityComparer<ImmutableArray<T>>.Create(static (left, right) => left.SequenceEqual(right), static items => toSeq(items).GetHashCode());
-}
-
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 internal sealed partial class SplineShape {
     public static readonly SplineShape Open = new(static (points, input, output) => new CurveFit.Open(Interpolated(points), points[0], points[^1], input, output));
     public static readonly SplineShape Wrapped = new(static (points, input, output) => new CurveFit.Wrapped(Interpolated(Periodic(points, turning: false)), input, output));
     public static readonly SplineShape Turning = new(static (points, input, output) => new CurveFit.Turning(Interpolated(Periodic(points, turning: true)), input, output));
 
-    internal CurveFit Fit(ImmutableArray<CurvePoint> points, double input, double output) =>
-        Shaped(toSeq(points).Map(point => new CurvePoint(point.X / input, point.Y / output)).Strict(), input, output);
+    internal CurveFit Fit(Seq<CurvePoint> points, double input, double output) =>
+        Shaped(points.Map(point => new CurvePoint(point.X / input, point.Y / output)).Strict(), input, output);
 
     [UseDelegateFromConstructor]
     private partial CurveFit Shaped(Seq<CurvePoint> points, double input, double output);
@@ -107,26 +102,25 @@ internal abstract class CurveFit(double input, double output) {
 public sealed partial class PointCurve {
     public static PointCurve Identity { get; } = new([new CurvePoint(CurveAxis.Stops.Span.Low, CurveAxis.Stops.Span.Low), new CurvePoint(0d, 0d), new CurvePoint(CurveAxis.Stops.Span.High, CurveAxis.Stops.Span.High)]);
 
-    [MemberEqualityComparer<SequenceEquality<CurvePoint>, ImmutableArray<CurvePoint>>]
-    public ImmutableArray<CurvePoint> Points { get; }
+    public Seq<CurvePoint> Points { get; }
 
     [IgnoreMember]
     internal CurveFit Fitted => field ??= SplineShape.Open.Fit(Points, CurveAxis.Stops.Unit, CurveAxis.Stops.Unit);
 
     public Func<double, double> Fit() => Fitted.At;
 
-    public static Fin<PointCurve> Validated(ImmutableArray<CurvePoint> points) =>
-        ImagingFault.Unless(points.Length >= 2
-            && points.All(static point => CurveAxis.Stops.Contains(point.X) && CurveAxis.Stops.Contains(point.Y))
-            && points.Window(2).All(static pair => pair[0].X < pair[1].X && pair[0].Y <= pair[1].Y), ImagingReason.Degenerate, toSeq(points)).Map(_ => new PointCurve(points));
+    public static Fin<PointCurve> Validated(Seq<CurvePoint> points) =>
+        ImagingFault.Unless(points.Count >= 2
+            && points.ForAll(static point => CurveAxis.Stops.Contains(point.X) && CurveAxis.Stops.Contains(point.Y))
+            && points.Window(2).All(static pair => pair[0].X < pair[1].X && pair[0].Y <= pair[1].Y), ImagingReason.Degenerate, points).Map(_ => new PointCurve(points));
 }
 
 public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Blue, PointCurve Master) {
     public static PointCurves Identity { get; } = new(PointCurve.Identity, PointCurve.Identity, PointCurve.Identity, PointCurve.Identity);
 
-    public (double Red, double Green, double Blue, double Master) Inputs(Vector4 pixel, (double R, double G, double B) luminance) =>
-        (CurveAxis.ToStops(pixel.X), CurveAxis.ToStops(pixel.Y), CurveAxis.ToStops(pixel.Z), CurveAxis.ToStops(Gamut.RelativeLuminance(
-            CurveAxis.FromStops(Mapped(Red.Fitted, pixel.X)), CurveAxis.FromStops(Mapped(Green.Fitted, pixel.Y)), CurveAxis.FromStops(Mapped(Blue.Fitted, pixel.Z)), luminance)));
+    public (double Red, double Green, double Blue, double Master) Inputs(Vector4 pixel, Vector256<double> luminance) =>
+        (CurveAxis.ToStops(pixel.X), CurveAxis.ToStops(pixel.Y), CurveAxis.ToStops(pixel.Z), CurveAxis.ToStops(Vector256.Dot(luminance,
+            Vector256.Create(CurveAxis.FromStops(Mapped(Red.Fitted, pixel.X)), CurveAxis.FromStops(Mapped(Green.Fitted, pixel.Y)), CurveAxis.FromStops(Mapped(Blue.Fitted, pixel.Z)), 0d))));
 
     public Action<Span<Vector4>> Graded(float preserveHue) {
         (CurveFit red, CurveFit green, CurveFit blue, CurveFit master) = (Red.Fitted, Green.Fitted, Blue.Fitted, Master.Fitted);
@@ -148,8 +142,7 @@ public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Bl
 public sealed partial class HueCurve {
     [MemberEqualityComparer<ComparerAccessors.Default<HueCurveKind>, HueCurveKind>]
     public HueCurveKind Kind { get; }
-    [MemberEqualityComparer<SequenceEquality<CurvePoint>, ImmutableArray<CurvePoint>>]
-    public ImmutableArray<CurvePoint> Points { get; }
+    public Seq<CurvePoint> Points { get; }
 
     [IgnoreMember]
     internal CurveFit Fitted => field ??= Kind.Shape.Fit(Points, Kind.Input.Axis.Unit, Kind.Output.Unit);
@@ -158,10 +151,10 @@ public sealed partial class HueCurve {
 
     public Func<double, double> Fit() => Fitted.At;
 
-    public static Fin<HueCurve> Validated(HueCurveKind kind, ImmutableArray<CurvePoint> points) =>
-        ImagingFault.Unless(points.Length >= 2
-            && points.All(point => kind.Input.Axis.Contains(point.X) && point.Y >= kind.Output.Extent.Low && point.Y <= kind.Output.Extent.High)
-            && points.Window(2).All(static pair => pair[0].X < pair[1].X), ImagingReason.Degenerate, toSeq(points)).Map(_ => new HueCurve(kind, points));
+    public static Fin<HueCurve> Validated(HueCurveKind kind, Seq<CurvePoint> points) =>
+        ImagingFault.Unless(points.Count >= 2
+            && points.ForAll(point => kind.Input.Axis.Contains(point.X) && point.Y >= kind.Output.Extent.Low && point.Y <= kind.Output.Extent.High)
+            && points.Window(2).All(static pair => pair[0].X < pair[1].X), ImagingReason.Degenerate, points).Map(_ => new HueCurve(kind, points));
 }
 
 [SmartEnum<string>]
@@ -177,26 +170,32 @@ public sealed partial class HueCurveKind {
     public InputAxis Input { get; }
     public CurveAxis Output { get; }
     internal SplineShape Shape { get; }
-    public ImmutableArray<CurvePoint> Neutral { get; }
+    public Seq<CurvePoint> Neutral { get; }
 
-    private static ImmutableArray<CurvePoint> Sixths(Func<double, double> output) =>
-        [.. toSeq(Range(0, 6)).Map(static k => k / 6d * CurveAxis.Hue.Unit).Map(hue => new CurvePoint(hue, output(hue)))];
+    private static Seq<CurvePoint> Sixths(Func<double, double> output) =>
+        toSeq(Range(0, 6)).Map(static k => k / 6d * CurveAxis.Hue.Unit).Map(hue => new CurvePoint(hue, output(hue))).Strict();
 }
 
-public sealed record HueCurves(
-    HueCurve HueHue, HueCurve HueSat, HueCurve HueLum, HueCurve LumSat, HueCurve SatSat, HueCurve LumLum, HueCurve SatLum) {
-    public static HueCurves Identity { get; } = new(
-        HueCurve.Neutral(HueCurveKind.HueHue), HueCurve.Neutral(HueCurveKind.HueSat), HueCurve.Neutral(HueCurveKind.HueLum), HueCurve.Neutral(HueCurveKind.LumSat),
-        HueCurve.Neutral(HueCurveKind.SatSat), HueCurve.Neutral(HueCurveKind.LumLum), HueCurve.Neutral(HueCurveKind.SatLum));
+public sealed record HueCurves {
+    private HueCurves(HashMap<HueCurveKind, HueCurve> curves) => Curves = curves;
+
+    public static HueCurves Identity { get; } = Of(HueCurve.Neutral);
+
+    public HashMap<HueCurveKind, HueCurve> Curves { get; }
+
+    public static HueCurves Of(Func<HueCurveKind, HueCurve> curve) => new(toHashMap(HueCurveKind.Items.Select(kind => (kind, curve(kind)))));
+
+    public HueCurves With(HueCurve curve) => new(Curves.SetItem(curve.Kind, curve));
 
     public double Read(HueCurveKind kind, Hsy hsy) =>
         kind == HueCurveKind.SatLum
-            ? Saturation(SatSat.Fitted, HueSat.Fitted, LumSat.Fitted, hsy.Saturation, InputAxis.Hue.Read(hsy), InputAxis.Stops.Read(hsy))
+            ? Saturation(Curves[HueCurveKind.SatSat].Fitted, Curves[HueCurveKind.HueSat].Fitted, Curves[HueCurveKind.LumSat].Fitted, hsy.Saturation, InputAxis.Hue.Read(hsy), InputAxis.Stops.Read(hsy))
             : kind.Input.Read(hsy);
 
     public Action<Span<Vector4>> Graded() {
-        (CurveFit hueHue, CurveFit hueSat, CurveFit hueLum, CurveFit lumSat, CurveFit satSat, CurveFit lumLum, CurveFit satLum) =
-            (HueHue.Fitted, HueSat.Fitted, HueLum.Fitted, LumSat.Fitted, SatSat.Fitted, LumLum.Fitted, SatLum.Fitted);
+        (CurveFit hueHue, CurveFit hueSat, CurveFit hueLum, CurveFit lumSat, CurveFit satSat, CurveFit lumLum, CurveFit satLum) = (
+            Curves[HueCurveKind.HueHue].Fitted, Curves[HueCurveKind.HueSat].Fitted, Curves[HueCurveKind.HueLum].Fitted, Curves[HueCurveKind.LumSat].Fitted,
+            Curves[HueCurveKind.SatSat].Fitted, Curves[HueCurveKind.LumLum].Fitted, Curves[HueCurveKind.SatLum].Fitted);
         return row => {
             foreach (ref Vector4 pixel in row) {
                 double luma = Hsy.LumaOf(pixel);

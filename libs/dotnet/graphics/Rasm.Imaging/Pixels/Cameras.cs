@@ -12,8 +12,8 @@ public sealed partial class ViewWindow {
     public double Width { get; }
     public double Height { get; }
 
-    public static ViewWindow Centered(Angle field, PixelExtent extent) => Centered(2d * double.Tan(field.Radians.ToDouble() / 2d), extent);
-    public static ViewWindow Centered(double width, PixelExtent extent) => new(0d, 0d, width, width * extent.Height / extent.Width);
+    public static Fin<ViewWindow> Centered(Angle field, PixelExtent extent) => Centered(2d * double.Tan(field.Radians.ToDouble() / 2d), extent);
+    public static Fin<ViewWindow> Centered(double width, PixelExtent extent) => Validated(0d, 0d, width, width * extent.Height / extent.Width);
 
     public ViewWindow Raised(float height) => new(CenterX, CenterY + height, Width, Height);
 
