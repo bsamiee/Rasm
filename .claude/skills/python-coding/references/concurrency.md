@@ -4,46 +4,46 @@ Covers async Python under anyio, from one awaited call returning its result to b
 
 ## [01]-[AWAITED_CALLS]
 
-`try` holds one awaited raising call, its handler returns an `Error`, and success returns after the block:
+`loaded` returns its read's outcome, and `Fault`, `Outcome`, `Reason`, and `paired` come from the package faults:
 
 ```python
-async def loaded(path: anyio.Path, /) -> Result[bytes, Faults]:
+async def loaded(path: anyio.Path, /) -> Outcome[bytes]:
     try:
         content = await path.read_bytes()
     except OSError as error:
-        return Error(Fault.caught(Reason.UNREADABLE, path, error))
+        return Error((Fault(reason=Reason.UNREADABLE, subject=str(path), cause=error),))
     return Ok(content)
 ```
 
-Steps after an awaited call stay outside `try`, a handler around them reports their defects as the call's failure. Awaited calls running a task group raise an `ExceptionGroup` even for one failed task, and `return` inside an `except*` block is a `SyntaxError`. Handlers over a group bind faults in `except*`, `else` returns success, and functions return faults after the block:
+Steps after an awaited call stay outside `try`, a handler around them reports their defects as the call's failure. Awaited calls running a task group raise an `ExceptionGroup` even for one failed task, and `return` inside an `except*` block is a `SyntaxError`. `gathered` binds faults in `except*`, returns success from `else`, and returns faults after the block:
 
 ```python
-async def gathered(paths: Sequence[anyio.Path], /) -> Result[tuple[bytes, ...], Faults]:
+async def gathered(paths: Sequence[anyio.Path], /) -> Outcome[tuple[bytes, ...]]:
     try:
         contents = await anyio.gather(*(path.read_bytes() for path in paths))
     except* OSError as group:
-        failed = Fault.caught(Reason.UNREADABLE, paths, group)
+        failed = (Fault(reason=Reason.UNREADABLE, subject=", ".join(map(str, paths)), cause=group),)
     else:
         return Ok(contents)
     return Error(failed)
 ```
 
-First `OSError` cancels every other read in `gathered`, and `Fault.caught` turns each group leaf into one fault with the leaf as cause. Reads that fail independently run as separate tasks returning their own results (`amap` over `loaded`).
+First `OSError` cancels every other read in `gathered`, and its fault keeps the `ExceptionGroup` as cause with each failed read under `exceptions`. Reads that fail independently run as separate tasks returning their own results (`amap` over `loaded`).
 
 ## [02]-[TAGGED_STEPS]
 
 Synchronous steps chain on an awaited result through `bind` and `map`, and a step that awaits matches each awaited result's `tag`. Error arms return `Error(target.error)` under their function's success type, the one rewrap an `await` forces:
 
 ```python
-def named(folder: anyio.Path, raw: bytes, /) -> Result[anyio.Path, Faults]:
+def named(folder: anyio.Path, raw: bytes, /) -> Outcome[anyio.Path]:
     return (
         catch(bytes.decode, exception=UnicodeDecodeError)(raw)
         .map(lambda text: folder / text.strip())
-        .map_error(partial(Fault.caught, Reason.INVALID, raw))
+        .map_error(lambda error: (Fault(reason=Reason.INVALID, subject=repr(raw), cause=error),))
     )
 
 
-async def followed(index: anyio.Path, /) -> Result[bytes, Faults]:
+async def followed(index: anyio.Path, /) -> Outcome[bytes]:
     target = (await loaded(index)).bind(partial(named, index.parent))
     match target.tag:
         case "ok":
@@ -52,16 +52,11 @@ async def followed(index: anyio.Path, /) -> Result[bytes, Faults]:
             return Error(target.error)
 ```
 
-`followed` reads an index file, decodes a file name from it, and reads the named file. Returning `target` itself from the error arm fails both checkers, `target` holds `anyio.Path` where `followed` declares `bytes`. Independent awaits start together through `anyio.gather`, and a match over both tags keeps the faults of every failed read:
+`followed` reads an index file, decodes a file name from it, and reads the named file. Returning `target` itself from the error arm fails both checkers, `target` holds `anyio.Path` where `followed` declares `bytes`. Independent awaits start together through `anyio.gather`, and `paired` keeps the faults of every failed read:
 
 ```python
-async def paired(left: anyio.Path, right: anyio.Path, /) -> Result[tuple[bytes, bytes], Faults]:
-    first, second = await anyio.gather(loaded(left), loaded(right))
-    match first.tag, second.tag:
-        case "ok", "ok":
-            return Ok((first.ok, second.ok))
-        case _:
-            return Error((*first.swap().default_value(()), *second.swap().default_value(())))
+async def pair(left: anyio.Path, right: anyio.Path, /) -> Outcome[tuple[bytes, bytes]]:
+    return paired(*await anyio.gather(loaded(left), loaded(right)))
 ```
 
 ## [03]-[BOUNDED_FAN_OUT]
@@ -69,19 +64,19 @@ async def paired(left: anyio.Path, right: anyio.Path, /) -> Result[tuple[bytes, 
 Fan-outs bind their policy into a per-item step with `partial` and pass `anyio.amap` the step and its items. Each item holds one limiter token for its work, and its deadline opens inside the token and excludes time spent waiting for one:
 
 ```python
-type Reader = Callable[[anyio.Path], Awaitable[Result[bytes, Faults]]]
+type Reader = Callable[[anyio.Path], Awaitable[Outcome[bytes]]]
 
 
-async def bounded(read: Reader, limiter: anyio.CapacityLimiter, seconds: float, path: anyio.Path, /) -> Result[bytes, Faults]:
+async def bounded(read: Reader, limiter: anyio.CapacityLimiter, seconds: float, path: anyio.Path, /) -> Outcome[bytes]:
     async with limiter:
         try:
             with anyio.fail_after(seconds):
                 return await read(path)
         except TimeoutError as error:
-            return Error(Fault.caught(Reason.EXPIRED, path, error))
+            return Error((Fault(reason=Reason.EXPIRED, subject=str(path), cause=error),))
 
 
-async def surveyed(read: Reader, paths: Iterable[anyio.Path], limit: int, seconds: float, /) -> list[Result[bytes, Faults]]:
+async def surveyed(read: Reader, paths: Iterable[anyio.Path], limit: int, seconds: float, /) -> list[Outcome[bytes]]:
     return await anyio.amap(partial(bounded, read, anyio.CapacityLimiter(limit), seconds), paths)
 ```
 
@@ -95,7 +90,7 @@ async def surveyed(read: Reader, paths: Iterable[anyio.Path], limit: int, second
 
 ## [04]-[CANCELLATION]
 
-Cancel scopes cancel at every checkpoint inside them until they exit, and an `await` in a `finally` under a cancelled scope raises at its first checkpoint, before its cleanup runs. Cleanup that awaits runs under a shielded scope:
+Cancel scopes cancel at every checkpoint inside them until they exit, and an `await` in a `finally` under a cancelled scope raises at its first checkpoint, before its cleanup runs. `claimed` removes its marker under a shielded scope:
 
 ```python
 @asynccontextmanager
@@ -116,22 +111,22 @@ Cancelling a task group with a task inside `claimed` removes its marker before `
 
 ## [05]-[WORKERS]
 
-Blocking work runs as one synchronous function in a worker thread with its `catch` inside, and its `Result` returns to the loop as a value. Fan-outs over threads pass their own limiter through `limiter=`:
+`digested` reads and hashes in a worker thread, and its `Result` returns to the loop as a value. Fan-outs over threads pass their own limiter through `limiter=`:
 
 ```python
-def digested(path: Path, /) -> Result[str, Faults]:
+def digested(path: Path, /) -> Outcome[str]:
     return (
         catch(path.read_bytes, exception=OSError)()
         .map(lambda content: hashlib.sha256(content).hexdigest())
-        .map_error(partial(Fault.caught, Reason.UNREADABLE, path))
+        .map_error(lambda error: (Fault(reason=Reason.UNREADABLE, subject=str(path), cause=error),))
     )
 
 
-async def digest(limiter: anyio.CapacityLimiter, path: Path, /) -> Result[str, Faults]:
+async def digest(limiter: anyio.CapacityLimiter, path: Path, /) -> Outcome[str]:
     return await to_thread.run_sync(digested, path, limiter=limiter)
 
 
-async def digests(paths: Iterable[Path], limit: int, /) -> list[Result[str, Faults]]:
+async def digests(paths: Iterable[Path], limit: int, /) -> list[Outcome[str]]:
     return await anyio.amap(partial(digest, anyio.CapacityLimiter(limit)), paths)
 ```
 
@@ -150,9 +145,9 @@ def parsed(text: str, /) -> dict[str, object]:
     return tomllib.loads(text)
 
 
-async def table(name: str, text: str, /) -> Result[dict[str, object], Faults]:
+async def table(name: str, text: str, /) -> Outcome[dict[str, object]]:
     outcome = await to_process.run_sync(parsed, text)
-    return outcome.map_error(partial(Fault.caught, Reason.INVALID, name))
+    return outcome.map_error(lambda error: (Fault(reason=Reason.INVALID, subject=name, cause=error),))
 ```
 
 `Result` cases and a caught `TOMLDecodeError` pickle back intact, and `map_error` builds faults in the parent. Process calls follow `to_process.run_sync`:
@@ -184,11 +179,11 @@ Code calling anyio members alone runs unchanged under asyncio and trio, and host
 type Backend = Literal["asyncio", "trio"]
 
 
-def run(paths: Sequence[anyio.Path], backend: Backend, /) -> list[Result[bytes, Faults]]:
+def run(paths: Sequence[anyio.Path], backend: Backend, /) -> list[Outcome[bytes]]:
     return anyio.run(surveyed, loaded, paths, 4, 1.0, backend=backend)
 ```
 
-`run(paths, "asyncio")` and `run(paths, "trio")` return equal lists. Backends differ at their own calls and classes:
+`run(paths, "asyncio")` and `run(paths, "trio")` return equal bytes and equal fault messages, and a caught exception compares by identity. Backends differ at their own calls and classes:
 - Direct `asyncio` or `trio` calls bind code to one backend, `asyncio.sleep` under trio raises `RuntimeError` (no running event loop)
 - `anyio.get_cancelled_exc_class()` returns `asyncio.CancelledError` or `trio.Cancelled` for the running backend
 - `backend_options` passes loop settings to the backend (`{"use_uvloop": True}` on asyncio)

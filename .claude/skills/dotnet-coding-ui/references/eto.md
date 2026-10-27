@@ -24,8 +24,7 @@ Native reach stays in the platform file:
 - `ControlObject` is the native view (`NSView`, a WPF `FrameworkElement`), `NativeHandle` its handle
 - Eto.Mac `ToNative(attach)` and `ToEto(this NSView)` convert both ways, `GetContainerView()` answers the outer view of a scrolled control
 - `ToNative(attach: true)` fires the load events for a control hosted in a native view
-- `Style.Add<THandler>(name, StyleHandler<THandler>)` runs for every widget with `Style` equal to `name` and a `THandler` handler
-- `Style.Add<TWidget>(name, StyleWidgetHandler<TWidget>)` runs on the widget type
+- `Style.Add<THandler>(name, StyleHandler<THandler>)` and `Style.Add<TWidget>(name, StyleWidgetHandler<TWidget>)` run where `Style` holds `name`
 - Style handlers read `handler.Control` and set what Eto exposes no property for, an empty `name` matches every widget of the type
 - `Widget.Style` is a space-separated list, `Control.TriggerStyleChanged()` reruns the handlers, `Style.Provider` replaces the registry
 - Objective-C class pairs, blocks, and `GCHandle` pins allocated for a view release with it, an allocation with no release leaks per view
@@ -65,8 +64,7 @@ Controls attach to a window in a fixed order and detach in reverse, and each sta
 - `FindParent<T>()` walks the logical tree, `Tag` holds caller data, `ID` names a control for `FindParent` and styles
 - `Invalidate()`, `Invalidate(rect)`, and `Invalidate(invalidateChildren)` schedule paints on a visible control
 - `Drawable.Update(region)` paints synchronously or acts as `Invalidate` per platform
-- `UpdateLayout()` runs a pending layout
-- `SuspendLayout()` and `ResumeLayout()` nest around a batch, `ResumeLayout` throws when unbalanced
+- `UpdateLayout()` runs a pending layout, `SuspendLayout()` and `ResumeLayout()` nest around a batch and an unbalanced `ResumeLayout` throws
 - `Closing` runs for a user close and a programmatic `Close()`, `Closed` disposes what the window owned
 
 ```csharp
@@ -113,14 +111,12 @@ internal sealed class Lifetime : IDisposable {
 
 Eto runs one UI thread and checks it on every widget call:
 - `Application.Instance.IsUIThread` tests the thread that ran `Run` or `Attach`
-- `UIThreadCheckMode` defaults to `Error` with a debugger attached and `Warning` otherwise, `None` disables the check
-- `EnsureUIThread()` throws or traces per mode
+- `UIThreadCheckMode` defaults to `Error` under a debugger and `Warning` otherwise, `None` disables it, `EnsureUIThread()` throws or traces per mode
 - `Invoke(action)` and `Invoke<T>(func)` block the caller until the UI thread runs them, a UI thread waiting on that caller deadlocks
 - `AsyncInvoke(action)` posts and returns, `InvokeAsync(action)` and `InvokeAsync<T>(func)` post and return a `Task`
 - Work off the UI thread computes a value and posts the widget write, a worker holding a widget reference writes nothing through it
 - `RunIteration()` runs one message loop pass inside a blocking host call
 - `UITimer` fires `Elapsed` on the UI thread every `Interval` seconds (`double`) between `Start()` and `Stop()`, `Started` reads the state
-- `UITimer` serves cadence and debounce, a frame clock is the platform display link behind a seam
 - `PlatformFeatures.MultiThreadedUI` is absent on macOS, a worker under the flag holds `Platform.ThreadStart()` while creating widgets
 - `UnhandledException` and `Terminating` are process-level events, `Terminating` holds `CancelEventArgs`
 
@@ -152,7 +148,6 @@ internal sealed class Debounce : IDisposable {
 Every control measure is in logical points, and device scale is a fact of the window's screen:
 - `Screen.Scale` is the logical scale, `DPI` is `Scale * 72`, `RealScale` the device scale
 - `LogicalPixelSize` is `RealScale / Scale`, device pixels per point
-- Backing bitmaps, icon rasters, and text blob caches key on that scale
 - `Graphics.PixelsPerPoint` and `PointsPerPixel` give the scale of one graphics context, `Graphics.DPI` is `72 / PointsPerPixel`
 - `PointToScreen`, `PointFromScreen`, `RectangleToScreen`, and `RectangleFromScreen` move between logical control space and logical screen space
 - `Screen.FromPoint` and `FromRectangle` find the screen under a point or most of a rectangle, `WorkingArea` excludes the dock and taskbar
@@ -179,7 +174,6 @@ internal static class Scales {
 - `Bitmap(size, PixelFormat.Format32bppRgba)` holds alpha, `Format32bppRgb` and `Format24bppRgb` hold none
 - `Lock()` returns `BitmapData` with `Data` (pointer), `ScanWidth` (bytes per row), `BytesPerPixel`, `PremultipliedAlpha`, and `Flipped` (row order)
 - `TranslateArgbToData(argb)` maps one ARGB value into the platform byte order and premultiplies under `PremultipliedAlpha`, an opaque probe survives
-- `new SKPixmap(info, data.Data, data.ScanWidth)` under `SKSurface.Create(pixmap, props)` draws into the locked bits, `info` follows the probe
 - `BitmapData` disposes before the bitmap draws or reads, platforms publish pixels on unlock and a draw during the lock shows stale pixels
 - `Graphics.DrawImage(image, RectangleF)` of a device-sized bitmap into logical bounds is the one resample, `ImageInterpolation.None` keeps it a copy
 - `Graphics.AntiAlias` and `ClipBounds` describe the context, `SaveTransformState()` scopes a transform
@@ -234,9 +228,8 @@ Input arrives as logical points, flags, and characters, with `Handled` stopping 
 - `DoDragDrop(data, effects, image, offset)` starts a drag with a preview, `AllowDrop` enables `DragEnter`, `DragOver`, `DragDrop`, and `DragLeave`
 - `DragEventArgs.Effects` defaults to `DragEffects.None`, a target accepts by setting `Copy`, `Move`, or `Link` in `DragOver`
 - `DoDragDrop` returns before the drop on macOS (`NSDraggingSession`) and after it on WPF (blocking), the source reads `Effects` in `DragEnd`
+- `DragEventArgs` holds `Data`, `AllowedEffects`, `Location`, `Modifiers`, `Buttons`, and `Source`, `SetDropDescription(format, inner)` sets its hint
 - `Mouse.Position`, `Mouse.Buttons`, and `Mouse.SetCursor(cursor)` read and set pointer state outside an event
-- `DragEventArgs.Data`, `AllowedEffects`, `Location`, `Modifiers`, `Buttons`, and `Source` describe the drag
-- `DragEventArgs.SetDropDescription(format, inner)` sets the platform hint
 - `Clipboard.Instance` and `DataObject` share `Text`, `Html`, `Image`, `Uris`, `SetString(value, type)`, `GetObject<T>(type)`, and `Types`
 - Custom type names are strings both sides agree on, `Types` lists what a foreign source offers
 - `TreeGridView.GetDragInfo(args)` answers the row and insertion position
@@ -269,13 +262,12 @@ internal sealed class Drag(Control view) {
 
 One `Command` holds text, image, shortcut, and state for every menu and toolbar that shows it:
 - `Command` holds `MenuText`, `ToolBarText`, `ToolTip`, `Image`, `Shortcut`, `Enabled`, `CommandParameter`, and `Executed`, `Execute()` triggers it
-- Synchronous actions take `Command(execute)`, an async action sets `DelegatedCommand` to a CommunityToolkit `AsyncRelayCommand`
-- CommunityToolkit owns async and cancellable commands, Eto `RelayCommand(Action)` and `RelayCommand(Action, Func<bool>)` take no token
-- `DelegatedCommand` sets `Enabled` from `CanExecute` on each `CanExecuteChanged` and runs the delegated command on `Executed`
+- Synchronous actions take `Command(execute)`, an async or cancellable action sets `DelegatedCommand` to a CommunityToolkit `AsyncRelayCommand`
+- Eto `RelayCommand(Action)` and `RelayCommand(Action, Func<bool>)` take no cancellation token
+- `DelegatedCommand` sets `Enabled` from `CanExecute` on each `CanExecuteChanged`, runs on `Executed`, and releases its subscriptions at `null`
 - `AsyncRelayCommand` answers `CanExecute` false while it runs unless `AsyncRelayCommandOptions.AllowConcurrentExecutions` is set
 - Async commands run one composed `IO` through `RunSafeAsync` and match its `Fin` after the await
 - `RunSafeAsync` throws `OperationCanceledException` on cancellation, `ICommand.Execute` rethrows it unless a catch around that await converts it
-- `DelegatedCommand = null` releases the delegated command's subscriptions
 - Implicit conversions to `MenuItem` and `ToolItem` call `CreateMenuItem()` and `CreateToolItem()` on one instance
 - `Enabled` written once updates each item and `EnabledChanged` fires
 - `Shortcut` is a `Keys` chord the menu dispatches, a `KeyDown` handler matching chords by hand duplicates it
@@ -283,8 +275,7 @@ One `Command` holds text, image, shortcut, and state for every menu and toolbar 
 - `MapPlatformCommand(systemCommand, command)` binds a platform edit command, `SupportedPlatformCommands` lists them
 - Platform edit commands are `"cut"`, `"copy"`, `"paste"`, `"selectAll"`, `"delete"`, `"undo"`, and `"redo"`
 - `MenuBar.IncludeSystemItems` (`MenuBarSystemItems.None`, `Common`, `Quit`, `All`) places platform items where each platform expects them
-- `QuitItem` and `AboutItem` name the commands they wrap
-- `MenuBar.ApplicationItems` and `HelpItems` are the platform menus, `Items` the top-level menus
+- `MenuBar.ApplicationItems` and `HelpItems` are the platform menus, `Items` the top-level menus, `QuitItem` and `AboutItem` their commands
 - `ContextMenu.Show(control, location)` opens at a point, a `null` location opens at the pointer, `Opening` refreshes state before display
 - `Control.ContextMenu` is the menu a platform opens on its secondary button
 
@@ -296,7 +287,7 @@ internal static class Actions {
         new() {
             MenuText = menuText,
             Shortcut = Application.Instance.CommonModifier | shortcut,
-            DelegatedCommand = new AsyncRelayCommand(async () => (await run.RunSafeAsync()).IfFail(report)),
+            DelegatedCommand = new AsyncRelayCommand(async () => (await run.RunSafeAsync().ConfigureAwait(true)).IfFail(report)),
         };
 
     public static Chrome Built(Control editor, string fileMenu, Command save, Command undo) {
@@ -324,8 +315,7 @@ Containers lay out logical sizes, a scale flag takes remaining space, and native
 - `Scrollable` raises `Scroll`, `UpdateScrollSizes()` remeasures
 - `Splitter` holds `Panel1`, `Panel2`, `Orientation`, `Position`, `RelativePosition`, `FixedPanel`, and minimum sizes
 - `Splitter` raises `PositionChanging`, `PositionChanged`, and `PositionChangeCompleted`
-- `TabControl` holds `Pages`, `SelectedIndex`, `SelectedPage`, and `TabPosition`
-- `Expander` holds `Header` and `Expanded`
+- `TabControl` holds `Pages`, `SelectedIndex`, `SelectedPage`, and `TabPosition`, `Expander` holds `Header` and `Expanded`
 - `Label` holds `Wrap`, `TextAlignment`, `VerticalAlignment`, `Trimming`, and `UseMnemonic`, `Font` and `TextColor` show a modified state
 - `TextBox` holds `CaretIndex`, `Selection`, `PlaceholderText`, `MaxLength`, and `ReadOnly`
 - `TextBox.TextChanging` runs before the change with `Range`, `OldText`, `NewText`, `Source`, and `Cancel`
@@ -357,8 +347,7 @@ Windows own a content panel, a menu, a toolbar, and a modality, and appearance c
 - `Form.Show()` and `ShowAsync()` float, `Owner` keeps a form above its parent, `FloatingForm` floats above every window of its owner
 - `Topmost`, `ShowInTaskbar`, `WindowStyle`, `WindowState`, `RestoreBounds`, and `Opacity` complete the frame
 - `WindowStyle.None` with `Opacity` below 1 and a `Drawable` content makes a floating overlay, `Topmost` keeps it over its owner
-- `Application.Instance.Theme` is a `Theme` with `Name` and `ThemeStyle`, compared through `Equals`
-- `Themes.System`, `Light`, `Dark`, and `AllThemes` are the values
+- `Application.Instance.Theme` (`Name`, `ThemeStyle`) compares by `Equals` to `Themes.System`, `Light`, or `Dark`, `AllThemes` lists them
 - `ThemeChanged` on the application and on each control signals the change
 - `SystemColors.Highlight`, `HighlightText`, `SelectionText`, `ControlText`, `DisabledText`, `ControlBackground`, `WindowBackground` are host colors
 

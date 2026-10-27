@@ -10,7 +10,7 @@ Covers C# design decisions under workspace standards (TOTALITY, PURITY, BOUNDARY
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Worked flows for functions as values, from combinators to the composition root and a request's effects
 - [02]-[SEQUENCES](references/sequences.md): Worked flows behind the expression rules, from deferral to a text-to-report pipeline
-- [03]-[RESULTS](references/results.md): Worked flows for validators, `Fin` workflows, host translation, union folds, and the law tests
+- [03]-[RESULTS](references/results.md): Worked flows for validators, `Fin` workflows, host translation, union folds, and result equations
 - [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshot and transition model behind the immutability rules, with persistent structure costs
 - [05]-[EFFECTS](references/effects.md): Worked flows for effects at the boundary, from isolating I/O and injection to running the composed effect
 - [06]-[STATE](references/state.md): Worked flows for state passed through `State` and `StateT`, with the generators and the loop forms
@@ -46,13 +46,11 @@ Function signatures are contracts, input types describe every value the function
 Functions honor their signature when each declared input produces a declared output, they return no `null` and throw no exception as an outcome the signature omits. Correct a dishonest contract by narrowing the input to a validated type or widening the output to `Option<A>` or `Fin<A>`:
 - `int -> Tier` is incomplete when some integers fail validation, and `Quantity -> Tier` is accurate for every constructible `Quantity`
 - `string -> int` hides the undefined parses, `string -> Option<int>` describes every outcome, and `parseInt` has that signature
-- `Unit` is the one-value type that removes the split `void` makes between `Func` and `Action` and between `Task` and `Task<T>`
-- `void` stays on an imperative API that returns nothing
+- One-value `Unit` removes the `void` split between `Func` and `Action` and between `Task` and `Task<T>`, `void` stays on an imperative API
 - `fun` converts an `Action` into a `Func<Unit>`, and an `Action` overload delegates to the `Func<T>` implementation through it
 - `Unit` does not make an effectful function pure
 - Statements stay statements in a block body in place of `Unit` arithmetic or a discard ternary spelling them as a value
-- Nullable reference types stay enabled, `?` appears only where an external representation requires it
-- `Optional` converts a nullable value to `Option<A>` at the parse boundary
+- Nullable reference types stay enabled, `?` appears only where an external representation requires it, `Optional` converts it to `Option<A>` there
 
 ### [01.2]-[PURITY]
 
@@ -80,7 +78,7 @@ Function factories turn configuration into behavior. `compose(f, g)` joins funct
 
 ```csharp
 internal static class Factories {
-    public static Func<int, bool> IsMod(int divisor) => value => value % divisor == 0;
+    public static Func<int, bool> IsMod(int divisor) => value => value % divisor is 0;
     public static Seq<int> MultiplesOfThree => toSeq(Range(1, 20)).Filter(IsMod(3));
 }
 ```
@@ -173,12 +171,11 @@ Graphs build once into a read-only graph a record holds, successor functions wal
 Immutable values are fixed once created, a needed change derives a new value from existing values, and a state transition is a function that receives the old state and the information the change needs and returns the replacement. Language features constrain reassignment:
 - `readonly` protects the fields and not the objects reached through them
 - `init` accessors permit object-initializer syntax and prevent reassignment after initialization
-- `required` marks a property that cannot be omitted
-- Optional parts are `init` members or defaulted parameters, a positional `None` at each call is a defect
+- `required` marks a property that cannot be omitted, optional parts are `init` members or defaulted parameters in place of a positional `None`
 - `record` supports nondestructive mutation through `with`, which copies the unchanged properties and leaves the original unchanged
 - State machines pattern match the next interaction to select the transition
 - Getter-only auto-properties get a compiler-generated readonly backing field, assigned inline or in the constructor
-- Declared types are records, classes, and unions, a `struct` only where a native call or package API requires one (a parallel action)
+- Declared types are records, classes, and unions, a `struct` only where a native call, package API (a parallel action), or per-sample kernel the JIT specializes over a static abstract type argument requires one
 
 ```csharp
 internal sealed record Document {
@@ -198,19 +195,11 @@ None of `readonly`, `init`, and `with` makes a referenced child object immutable
 - `Lens<A, B>` with `lens(outer, inner)` updates a nested field
 - Confine local mutation to a scope that owns it, a `List<T>` or `Dictionary<K, V>` stays inside a scope that publishes an immutable value
 
-In-place updates destroy the prior value:
-
-```csharp
-List<int> values = [7, 6, 1];
-values.Sort();
-```
-
-Transformations preserve it, `values` keeps its order:
+In-place updates (`List<T>.Sort()`) destroy the prior value, transformations preserve it and `values` keeps its order:
 
 ```csharp
 Seq<int> values = Seq(7, 6, 1);
 Seq<int> sorted = toSeq(values.Order());
-Seq<int> odd = values.Filter(static x => x % 2 == 1);
 ```
 
 Concurrent reorders of a shared list during a sum give readers an inconsistent traversal, a separate ordered view removes interference. Choose collections by their most frequent operation: `Seq<A>` for ordered reads, `Lst<A>` for indexed edits, `Map<K, V>` or `HashMap<K, V>` for keyed lookups successors update, `FrozenDictionary<K, V>` for a table built once and only read, `Set<A>` or `HashSet<A>` for uniqueness, and `Iterable<A>` for a lazy source.
@@ -246,23 +235,20 @@ Give each step a function and select the operator by the step's signature and by
 
 - Errors from one traversed element hold the element index
 - Values stay in one abstraction through the pipeline, an unwrap followed by a rewrap duplicates effect handling
-- Nested `Bind` calls with an inner step reading the callback value become a query
-- Inner steps reading nothing bound move up to the outer chain
+- Nested `Bind` calls become a query when an inner step reads the callback value, an inner step reading nothing bound moves to the outer chain
 - Final `from` clauses that `select` returns unchanged become `select <value>` over the earlier steps
 - Nested contexts (`IO<Option<A>>`) stay nested, the consumer matches the inner `Option` once and no chain binds through it with a transformer
 - Stacks that appear throughout a workflow become a dedicated type
 
 ```csharp
 internal static class Workflow {
-    public static Fin<State> Handle(Command command, State state) =>
+    public static Fin<Account> Handle(Command command, Account state) =>
         from normalized in Pure(Normalize(command)).ToFin()
         from _ in Fault.Unless(IsValid(normalized), Reason.Invalid, normalized)
         from next in state.Transition(normalized.Amount)
         select next;
 }
 ```
-
-Workflow runs in order (normalize, validate, transition), `Fin` handles the control flow, and adding a step means defining one function and inserting one clause.
 
 ### [04.2]-[ERRORS]
 
@@ -283,7 +269,7 @@ public sealed record Fault(string Subject, Reason Reason, Option<int> Index = de
     public static Fault Create(string message) => new(message, Reason.Stated);
 
     public static Fin<Unit> Unless<T>(bool flag, Reason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new Fault($"{names} = {rejected}", reason, index);
+        flag ? unit : new Fault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
 }
 ```
 
@@ -293,7 +279,7 @@ Use `Skill(dotnet-coding-thinktecture)` for value type validation.
 
 ### [04.3]-[UNIONS]
 
-Model each valid state a consumer inspects as a distinct case. States differing only by a tag or holding special values of one formula are one record of the tag or formula parameters. Counting values a type has (a product multiplies its fields' counts, `Option<A>` adds one) exposes unneeded states:
+Model each valid state a consumer inspects as a distinct case. States differing only by a tag are one record keyed by a smart enum item holding the data consumers read. Special values of one formula are one record of its parameters. Counting values a type has (a product multiplies its fields' counts, `Option<A>` adds one) exposes unneeded states:
 
 ```csharp
 [Union]
@@ -310,7 +296,6 @@ internal abstract partial record Shape {
 - Cases pass shared data and each fact they derive (a function, bounds, a linear part) to the base constructor, consumers read one base member
 - Call `Switch` only where behavior depends on the case, and pass the union onward elsewhere
 - Treat a case as an alternative to its siblings, name each case's data in its own terms, and hold mixed cases in one `Seq` of the base type
-- Every `Switch` lacking an arm for a new union case fails to compile
 - Unions fit a growing set of operations, abstract members fit a growing set of cases
 - Use a union of named outcomes when the consumer needs the names, and `Option`, `Fin`, or `Either` otherwise
 - Keep absence and failure separate when the consumer responds differently

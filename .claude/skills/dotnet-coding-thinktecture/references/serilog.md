@@ -72,10 +72,10 @@ internal abstract partial record Shape {
 internal sealed record Entry(Status Status, Amount Total);
 
 internal static class Families {
-    public static void Log(Logger logger) {
+    public static void Log(Logger logger, string stored) {
         Amount amount = Amount.Create(99.95m);
         Bounds bounds = Bounds.Create(1m, 10m);
-        logger.Information("keyed smart enum: {@Value}", Status.Paid);
+        logger.Information("keyed smart enum: {@Value}", Status.Get(stored));
         logger.Information("simple value object: {@Value}", amount);
         logger.Information("union holding string: {@Value}", (AmountOrText)"pending");
         logger.Information("union holding value object: {@Value}", (AmountOrText)amount);

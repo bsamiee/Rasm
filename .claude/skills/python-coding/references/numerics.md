@@ -4,7 +4,7 @@ Covers numpy array passes, from stencils over shifted slices and buffer ownershi
 
 ## [01]-[STENCILS]
 
-Elementwise, reduction, and stencil passes are whole-array calls, and a stencil reads each neighbor as a shifted slice of its input. Slices `heat[:-2]` and `heat[2:]` hold every left and right neighbor of `heat[1:-1]`, and in-place operators on an `inner` view write a buffer the pass allocated:
+Stencils read each neighbor as a shifted slice of their input. Slices `heat[:-2]` and `heat[2:]` hold every left and right neighbor of `heat[1:-1]`, and in-place operators on an `inner` view write a buffer the pass allocated:
 
 ```python
 type Samples = NDArray[np.float64]
@@ -65,7 +65,7 @@ Writes through views and indexes reach their base by form:
 
 ## [03]-[FLOATING_POINT]
 
-Floating-point failures warn by default and return `inf` or `nan`. Scopes raising them are `np.errstate` on one named `def`, and `@catch` above it converts `FloatingPointError` into a `Result`:
+Floating-point failures warn by default and return `inf` or `nan`. Scopes raising them are `np.errstate` on one named `def`, and `@catch` above it converts `FloatingPointError` into a `Result`. `Fault`, `Outcome`, and `Reason` are the package faults:
 
 ```python
 @catch(exception=FloatingPointError)
@@ -74,8 +74,8 @@ def ratios(numerator: Samples, denominator: Samples, /) -> Samples:
     return numerator / denominator
 
 
-def efficiency(output: Samples, supply: Samples, /) -> Result[Samples, Faults]:
-    return ratios(output, supply).map_error(partial(Fault.caught, Reason.INVALID, "supply"))
+def efficiency(output: Samples, supply: Samples, /) -> Outcome[Samples]:
+    return ratios(output, supply).map_error(lambda error: (Fault(reason=Reason.INVALID, subject="supply", cause=error),))
 ```
 
 `np.errstate` sits below `catch`, and each call of `ratios` runs its body inside a fresh scope. `efficiency` returns `Ok` over nonzero supply and an `INVALID` fault for a zero. Each `errstate` keyword names one error kind:

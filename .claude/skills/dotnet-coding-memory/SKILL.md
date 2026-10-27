@@ -1,269 +1,252 @@
 ---
 name: dotnet-coding-memory
-description: "Use when writing or reviewing C# over spans, memory, or pooled buffers, covering ownership, views, parallel passes, and kernels"
+description: "Use when writing or reviewing C# over spans, memory, or pooled buffers, covering ownership, views, kernels, and parallel passes"
 ---
 
 # [DOTNET_CODING_MEMORY]
 
-Covers C# code over buffers (`Span<T>`, `Memory<T>`, pooled owners, 2D views), from ownership to parallel passes, kernels, and span search. `CommunityToolkit.HighPerformance` supplies 2D views, pooled owners, and `ParallelHelper`, `System.Numerics.Tensors` supplies `TensorPrimitives`, and `System.IO.Hashing` supplies stable digests, each namespace imported per file with no global using.
+Covers C# passes over buffers, from the lease a view holds to struct kernels a JIT specializes. `CommunityToolkit.HighPerformance` supplies 2D views, pooled owners, and `ParallelHelper`, `System.Numerics.Tensors` supplies `TensorPrimitives`.
 
 ## [01]-[OWNERSHIP]
 
-Buffers have one owner that releases them and consumers that use them for a lease, the period a call or an object holds them. Lifetime selects type:
+Pooled and pinned buffers stay inside the pass that rents them, and a domain signature takes spans for one call and returns a published value. Lease length selects the type a member takes or holds:
 
-| [INDEX] | [TYPE]                           | [HOLDS]                      | [LIFETIME]                                          |
-| :-----: | :------------------------------- | :--------------------------- | :-------------------------------------------------- |
-|  [01]   | `ReadOnlySpan<T>`, `Span<T>`     | Stack-only view              | One synchronous call                                |
-|  [02]   | `ReadOnlyMemory<T>`, `Memory<T>` | Storable view                | Field, closure, or `await`, within its owner's life |
-|  [03]   | `SpanOwner<T>`                   | Pooled array, `ref struct`   | One `using` scope                                   |
-|  [04]   | `MemoryOwner<T>`                 | Pooled array, `IMemoryOwner` | Until `Dispose` or a `Slice` transfer               |
-|  [05]   | `ArrayPoolBufferWriter<T>`       | Growing pooled output        | Until `Dispose`                                     |
-|  [06]   | `T[]`, `ImmutableArray<T>`       | Garbage-collected array      | As long as a result references it                   |
+| [INDEX] | [LEASE]                                     | [TYPE]                                                      |
+| :-----: | :------------------------------------------ | :---------------------------------------------------------- |
+|  [01]   | One synchronous call                        | `ReadOnlySpan<T>` input, `Span<T>` destination              |
+|  [02]   | Field, closure, `await`, or parallel action | `ReadOnlyMemory<T>` or `Memory2D<T>`, `.Span` read per step |
+|  [03]   | Scratch of one scope                        | `using SpanOwner<T>`                                        |
+|  [04]   | Buffer its receiver releases                | `MemoryOwner<T>` in the signature, `use` under `Bracket`    |
+|  [05]   | Published result                            | Array filled once, `ImmutableArray<T>` over it without copy |
 
-- Pure synchronous transforms take `ReadOnlySpan<T>` and write a `Span<T>` destination
-- Effects, fields, and closures take `ReadOnlyMemory<T>` or `Memory<T>` and read `.Span` inside each synchronous step
-- Span locals held across an `await` fail `CS4007`, lambdas capturing one fail `CS8175`
-- Methods taking `Memory<T>` hold it for their call, one returning a `Task` or `IO` holds it until the effect completes
-- Constructors taking `Memory<T>` make every instance member a consumer, and each instance lives no longer than its owner
-- `IMemoryOwner<T>` in a parameter or return type transfers ownership, the receiver disposes it or transfers it once
-- `Memory<T>` read from an owner before `Dispose` stays readable afterward and reads an array the next renter writes
+- `Memory<T>` taken from an owner views, after `Dispose`, an array its next renter writes, and an owner outlives every view of it
+- `MemoryOwner<T>.Slice` moves its array into a returned owner and disposes its parent
+- Native calls reading a buffer for one call pin it for that call (`using MemoryHandle` from `Pin()`, `fixed`)
+- Native objects reading a buffer across calls hold an array from `GC.AllocateUninitializedArray<T>(length, pinned: true)` that outlives them
 
-Effects hold the owner under `use` and slice its span by the count each read returns:
+Effects hold an owner under `use`, release it at `Bracket`, and slice its span by the count each read returns:
 
 ```csharp
 internal static class Digests {
-    public static IO<ulong> Read(Stream stream, int length) =>
-        from owner in use(() => MemoryOwner<byte>.Allocate(length))
-        from count in IO.liftVAsync(env => stream.ReadAtLeastAsync(owner.Memory, length, throwOnEndOfStream: false, env.Token))
-        select XxHash3.HashToUInt64(owner.Span[..count]);
+    public static IO<UInt128> Read(Stream stream, int length) =>
+        (from owner in use(() => MemoryOwner<byte>.Allocate(length))
+         from count in IO.liftVAsync(env => stream.ReadAtLeastAsync(owner.Memory, length, throwOnEndOfStream: false, env.Token))
+         select XxHash128.HashToUInt128(owner.Span[..count])).Bracket();
 }
 ```
 
-## [02]-[POOLED_BUFFERS]
+## [02]-[SCRATCH]
 
-Pooled owners rent from `ArrayPool<T>.Shared` and return the array on `Dispose`:
-- `Length` is requested size and `Span` slices to it, rented arrays are longer (a request for 10 rents 16)
-- `DangerousGetArray` returns an `ArraySegment<T>` for an API taking `T[]`, its `Offset` and `Count` bound the rented range
-- Rented contents hold the previous renter's data, `AllocationMode.Clear` zeroes a buffer read before every element is written
-- `SpanOwner<T>.Dispose` returns its array on every call, a second call puts one array in the pool twice
-- `MemoryOwner<T>` throws `ObjectDisposedException` from `Span` and `Memory` after `Dispose`, a second `Dispose` does nothing
-- `MemoryOwner<T>` has no finalizer, an owner that is never disposed never returns its array
-- `MemoryOwner<T>.Slice(start, length)` moves its array into a new owner and leaves its parent disposed
-- Stack buffers up to a constant limit are `stackalloc`, one conditional picks `SpanOwner<T>` above it, and `stackalloc` sits outside loops (`CA2014`)
-- `[SkipLocalsInit]` requires `AllowUnsafeBlocks` (`CS0227`) and fits a method that writes its whole `stackalloc` buffer before reading it
-- `ArrayPoolBufferWriter<T>` collects output of unknown length through `GetSpan(sizeHint)` and `Advance(count)`, `WrittenSpan` reads it in scope
+Scratch exists for a value an in-place write destroys and for nothing else. `TensorPrimitives` destinations alias an input exactly or not at all, and a chain of calls rewrites one destination with no scratch:
 
 ```csharp
-internal static class Spreads {
-    private const int StackLimit = 256;
-
-    public static float Of(ReadOnlySpan<float> samples, float mean) {
-        using SpanOwner<float> rented = samples.Length > StackLimit ? SpanOwner<float>.Allocate(samples.Length) : SpanOwner<float>.Empty;
-        Span<float> centered = (samples.Length > StackLimit ? rented.Span : stackalloc float[StackLimit])[..samples.Length];
-        TensorPrimitives.Subtract(samples, mean, centered);
-        return TensorPrimitives.SumOfSquares(centered);
+internal sealed record Levels(float Max) {
+    public void Coded(ReadOnlySpan<float> values, Span<float> codes) {
+        TensorPrimitives.Multiply(values, Max, codes);
+        TensorPrimitives.Add(codes, 0.5f, codes);
+        TensorPrimitives.Clamp(codes, 0f, Max, codes);
+        TensorPrimitives.Truncate(codes, codes);
     }
 }
 ```
 
-APIs writing to an `IBufferWriter<T>` (`Utf8JsonWriter`, `TryFormat` into `GetSpan`) fill a pooled writer that one scope reads and releases inside a pure function:
+Inputs a stage overwrites and a later step reads take one rented copy:
 
 ```csharp
-internal static class Fingerprints {
-    public static ulong Of<T>(T value, JsonTypeInfo<T> type) {
-        using ArrayPoolBufferWriter<byte> buffer = new();
-        using (Utf8JsonWriter writer = new(buffer)) {
-            JsonSerializer.Serialize(writer, value, type);
-        }
-        return XxHash3.HashToUInt64(buffer.WrittenSpan);
+internal static class Stages {
+    public static void Mixed(Span<float> row, Action<Span<float>> stage, float amount) {
+        using SpanOwner<float> input = SpanOwner<float>.Allocate(row.Length);
+        row.CopyTo(input.Span);
+        stage(row);
+        TensorPrimitives.Lerp(input.Span, row, amount, row);
     }
 }
 ```
+
+- Fixed small scratch is a constant-size `stackalloc` before any loop, and one conditional takes `SpanOwner<T>` above that size
+- Rented arrays hold their previous renter's data, `AllocationMode.Clear` serves a buffer a pass reads before writing every element
+- Output of unknown length fills an `ArrayPoolBufferWriter<T>` (`Utf8JsonWriter`, `TryFormat` into `GetSpan`) that its renting scope reads as `WrittenSpan`
+- Neighbor passes carry state in a padded two-row `Span2D<T>` ring, `line & 1` selects its current row and edge taps read padding with no bounds branch
 
 ## [03]-[VIEWS]
 
-Views reinterpret or reshape a buffer in place:
-- `MemoryMarshal.Cast<TFrom, TTo>` and toolkit `Cast` drop a trailing partial element (10 `float` values give 2 `Vector4`)
-- Span casts allocate nothing, toolkit `Memory<T>.Cast` allocates a `MemoryManager<TTo>` per call, a storable cast view is built once and held
-- `MemoryMarshal.AsBytes` gives the byte view a digest or a file write reads
-- `MemoryMarshal.CreateSpan(ref value.X, 3)` views consecutive fields of one struct for one call
-- First-class span conversions bind `array.AsSpan2D(height, width)` to a `ReadOnlySpan<T>` extension returning `ReadOnlySpan2D<T>`
-- `new Span2D<T>(array, height, width)` and `array.AsSpan().AsSpan2D(height, width)` give a writable view
-- `Memory2D<T>` is the storable form for a field, an action member, or an `await`, and `.Span` yields `Span2D<T>` in each synchronous step
-- Range indexers slice both axes (`view[1.., 1..]`), and `Slice(row, column, height, width)` takes counts
-- `Span2D<T>` pitch is the element gap between one row's end and the next row's start, a host row stride in elements enters once as `stride - width`
-- `TryGetSpan` succeeds on a contiguous view alone, a view with a nonzero pitch is read row by row
-- `GetRow` and `GetColumn` return `RefEnumerable<T>` with `CopyTo`, `Fill`, `Clear`, and `TryCopyFrom`, which returns `false` for a short target
-- `span.CopyTo(column)` writes a span into a column and throws for a short column
-
-Channel planes of a `pixels × 4` sample view copy out and back through columns:
+Views reinterpret and reshape a buffer in place of copying it. `MemoryMarshal.Cast` changes element type, `AsSpan2D` shapes rows and columns, and a 2D range selects channels, so one copy moves a channel subset between interleaved layouts. `Pixmap` is a host type with a `Data` address, `Rows`, `Columns`, and a byte `Step`:
 
 ```csharp
-internal static class Alphas {
-    public static void Opaque(Span2D<float> samples, Span<float> alpha, Action<Span2D<float>> edit) {
-        samples.GetColumn(3).CopyTo(alpha);
-        samples.GetColumn(3).Fill(1f);
-        edit(samples);
-        alpha.CopyTo(samples.GetColumn(3));
+internal static class Planes {
+    public static void Channels(ReadOnlySpan<Vector4> pixels, Span<float> samples, int channels) =>
+        MemoryMarshal.Cast<Vector4, float>(pixels).AsSpan2D(pixels.Length, 4)[.., ..channels].CopyTo(samples.AsSpan2D(pixels.Length, channels));
+
+    extension(Pixmap image) {
+        public unsafe Span2D<float> Samples => new((void*)image.Data, image.Rows, image.Columns, (image.Step / sizeof(float)) - image.Columns);
     }
 }
 ```
 
-## [04]-[PINNING]
+- Pitch is the element gap after each row (`stride - width`), and a view with a nonzero pitch reads row by row through `GetRowSpan`
+- Storable views (`Memory2D<T>`, a `Memory<T>.Cast` result) are built once and held, each `Memory<T>.Cast` call allocates a manager
+- Column views (`GetColumn(c)`) take `Fill`, `CopyTo`, and `span.CopyTo(column)`, a channel plane needs no hand index
 
-Native code reads a managed buffer at an address the garbage collector cannot move:
-- Calls that read a buffer during one call pin it for that call through `using MemoryHandle pinned = memory.Pin()` or `fixed`
-- Buffers a native object reads across calls are `GC.AllocateUninitializedArray<T>(length, pinned: true)`, an array that never moves
-- `Marshal.UnsafeAddrOfPinnedArrayElement(array, 0)` reads a pinned array's address, and the array outlives every native object holding it
-- `new Span2D<T>(pointer, height, width, pitch)` views native memory within the lock or handle that keeps it valid
+## [04]-[KERNELS]
 
-## [05]-[PUBLISHED_RESULTS]
-
-Filled arrays publish without a copy, and records over buffers state content equality:
-- `GC.AllocateUninitializedArray<T>(length)` allocates a result the pass writes in full
-- `ImmutableCollectionsMarshal.AsImmutableArray` publishes a filled array with no copy, and a later write changes the published value
-- `CollectionsMarshal.AsSpan` views a `List<T>` backing array, and an `Add` that grows it leaves views on its old array
-- `CollectionsMarshal.SetCount` exposes backing slots with their old values
-- Records holding `ReadOnlyMemory<T>` or `ImmutableArray<T>` compare the buffer by reference, a `Seq<A>` member compares by content
-- Content equality is an `Equals` over `SequenceEqual` beside a `GetHashCode` that agrees with it
-- `HashCode<T>.Combine(span)` hashes element bytes and agrees with `SequenceEqual` for integer and `char` elements
-- Float elements hash through `HashCode.Add` per element, byte hashes split `0` from `-0` that `SequenceEqual` holds equal
-- `HashCode` and `string.GetHashCode` seed per process, persisted or cross-process keys are `XxHash3` or `XxHash128` digests
-- Persisted digests read canonical bytes: integers through `WriteLittleEndian`, text as UTF-8 behind its byte count, floats with NaN and `-0` folded
-- `XxHash128` takes fields in order through `Append`, and `GetCurrentHashAsUInt128` reads the key
+Elementwise and reduction work over a scalar plane is one `TensorPrimitives` call per span or row. Loops stay where each element is a pixel vector or reads neighbors, and an operation that varies is a `struct` type argument the JIT specializes, never a delegate or interface call per element. Closed kernel sets are a smart enum whose items are one private generic subclass over a stateless kernel each, and that subclass holds the loop once:
 
 ```csharp
-internal static class Gains {
-    public static ImmutableArray<float> Scaled(ReadOnlySpan<float> source, float gain) {
-        float[] target = GC.AllocateUninitializedArray<float>(source.Length);
-        TensorPrimitives.Multiply(source, gain, target);
-        return ImmutableCollectionsMarshal.AsImmutableArray(target);
-    }
+internal interface IBlend {
+    public static abstract Vector4 Blended(Vector4 under, Vector4 over);
 }
 
-internal sealed record Samples(ImmutableArray<float> Values) {
-    public bool Equals(Samples? other) => other is not null && Values.AsSpan().SequenceEqual(other.Values.AsSpan());
+[SmartEnum<string>]
+internal abstract partial class BlendMode {
+    public static readonly BlendMode Multiply = new Kernel<Multiplied>("multiply");
+    public static readonly BlendMode Screen = new Kernel<Screened>("screen");
+    public static readonly BlendMode Darken = new Kernel<Darkened>("darken");
 
-    public override int GetHashCode() {
-        HashCode hash = new();
-        foreach (float value in Values) {
-            hash.Add(value);
+    public abstract void Composite(Span<Vector4> under, ReadOnlySpan<Vector4> over, ReadOnlySpan<float> weights);
+
+    private sealed class Kernel<T>(string key) : BlendMode(key) where T : struct, IBlend {
+        public override void Composite(Span<Vector4> under, ReadOnlySpan<Vector4> over, ReadOnlySpan<float> weights) {
+            for (int x = 0; x < under.Length; x++)
+                under[x] = Vector4.Lerp(under[x], T.Blended(under[x], over[x]), weights[x]);
         }
-        return hash.ToHashCode();
+    }
+
+    private readonly struct Multiplied : IBlend { public static Vector4 Blended(Vector4 under, Vector4 over) => under * over; }
+    private readonly struct Screened : IBlend { public static Vector4 Blended(Vector4 under, Vector4 over) => Vector4.One - ((Vector4.One - under) * (Vector4.One - over)); }
+    private readonly struct Darkened : IBlend { public static Vector4 Blended(Vector4 under, Vector4 over) => Vector4.Min(under, over); }
+}
+```
+
+- Kernel structs sit `private` or `file` beside their set, and a `class` type argument shares one generic body that dispatches every call
+- Item facts (key text, sample size, code range) derive from the type argument (`Unsafe.SizeOf<T>()`, `T.MaxValue`), a literal per item restates them
+- Kernels holding inputs (weights, a window, a border) are instance structs passed by value into a generic driver that owns the loop and the output
+- Element type changes are one `TensorPrimitives.ConvertSaturating`, `ConvertChecked`, or `ConvertTruncating` call per span
+
+Drivers that filter write every sample and advance the count by the keep test, so the loop holds no branch around the write:
+
+```csharp
+internal interface ISample<out T> {
+    public T Sample(Vector4 pixel, int x);
+    public bool Keeps(Vector4 pixel);
+}
+
+internal readonly struct Luma(Vector3 weights) : ISample<float> {
+    public float Sample(Vector4 pixel, int x) => Vector3.Dot(pixel.AsVector3(), weights);
+    public bool Keeps(Vector4 pixel) => pixel.W > 0f;
+}
+
+internal static class Samples {
+    public static ImmutableArray<T> Kept<T, TKernel>(ReadOnlySpan<Vector4> pixels, TKernel kernel) where TKernel : struct, ISample<T> {
+        T[] kept = GC.AllocateUninitializedArray<T>(pixels.Length);
+        int count = 0;
+        for (int x = 0; x < pixels.Length; x++) {
+            kept[count] = kernel.Sample(pixels[x], x);
+            count += kernel.Keeps(pixels[x]) ? 1 : 0;
+        }
+        return ImmutableCollectionsMarshal.AsImmutableArray(kept[..count]);
     }
 }
 ```
 
-## [06]-[PARALLEL_PASSES]
+## [05]-[PARALLEL_PASSES]
 
-`ParallelHelper` splits an index range into batches and runs each batch as a sequential loop:
-- Batch count is `min(ceil(count / minimumActionsPerThread), Environment.ProcessorCount)`, a `minimumActionsPerThread` above 1 suits a cheap body
-- `For2D` and `ForEach` over `Memory2D<T>` cap batch count at the row count, and every batch runs whole rows
-- One batch runs inline on the calling thread, more run under `Parallel.For` with batch count as degree of parallelism
-- Parallel batches share one action copy, an inline batch runs on the caller's `in` reference
-- Mutable action fields race across workers or write the caller's local, results leave through reference members
-- Reference members are a `T[]` written at `[i]`, a `Memory2D<T>` target, or a `StrongBox<int>` under `Interlocked`
-- `ref struct` actions fail `CS9244`, `Invoke` reads `.Span` from a memory member
-- One batch rethrows the action's exception, parallel batches throw `AggregateException`
-- Passes take no `CancellationToken` and no per-worker state, `Invoke` reads a token it holds and rents its own row scratch
-- `ForEach` writes each element in place through `IRefAction<T>` over `Memory<T>` or `Memory2D<T>`, `IInAction<T>` reads read-only forms
-- Overloads without an action argument run `default(TAction)` with every field unset
-- Action instances infer every type argument, and a static member on the action starts its pass
-
-Per-worker accumulators are one row per band of a `bands × bins` buffer, `For` runs over bands, and one `TensorPrimitives.Add` per band merges rows:
+`ParallelHelper` splits an index range into batches, and each batch runs a sequential loop over one shared copy of a `readonly struct` action. Actions hold inputs as `ReadOnlyMemory2D<T>` or `Memory<T>` and read `.Span` in `Invoke`, results leave through reference members (a `Memory2D<T>` target, an array written at `[i]`, a `StrongBox<int>` under `Interlocked`), and a mutable field races across workers. Accumulating passes give each band one row of a `bands × bins` buffer and merge rows with `TensorPrimitives.Add`, and one generic action over a fold struct serves every histogram:
 
 ```csharp
-internal readonly struct BandCount(ReadOnlyMemory<int> source, Memory2D<int> bands) : IAction {
-    public static ImmutableArray<int> Of(ReadOnlyMemory<int> source, int bins) {
-        int height = int.Clamp(source.Length, 1, Environment.ProcessorCount);
-        Memory2D<int> bands = new(new int[height * bins], height, bins);
-        ParallelHelper.For(0, height, new BandCount(source, bands));
-        Span2D<int> rows = bands.Span;
-        for (int band = 1; band < height; band++) {
-            TensorPrimitives.Add(rows.GetRowSpan(0), rows.GetRowSpan(band), rows.GetRowSpan(0));
-        }
-        return [.. rows.GetRowSpan(0)];
+internal interface IRowFold {
+    public int Bins { get; }
+    public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins);
+}
+
+internal readonly struct Bands<TFold>(ReadOnlyMemory2D<Vector4> rows, Memory2D<int> counts, TFold fold) : IAction where TFold : struct, IRowFold {
+    public static ImmutableArray<int> Counted(ReadOnlyMemory2D<Vector4> rows, TFold fold) {
+        int height = int.Clamp(rows.Height, 1, Environment.ProcessorCount);
+        Memory2D<int> counts = new(new int[height * fold.Bins], height, fold.Bins);
+        ParallelHelper.For(0, height, new Bands<TFold>(rows, counts, fold));
+        Span2D<int> merged = counts.Span;
+        for (int band = 1; band < height; band++)
+            TensorPrimitives.Add(merged.GetRowSpan(0), merged.GetRowSpan(band), merged.GetRowSpan(0));
+        return [.. merged.GetRowSpan(0)];
     }
 
     public void Invoke(int i) {
-        Span<int> counts = bands.Span.GetRowSpan(i);
-        (long length, int height) = (source.Length, bands.Height);
-        foreach (int value in source.Span[(int)(length * i / height)..(int)(length * (i + 1) / height)]) {
-            counts[value]++;
-        }
+        ReadOnlySpan2D<Vector4> view = rows.Span;
+        Span<int> bins = counts.Span.GetRowSpan(i);
+        for (int line = (int)((long)view.Height * i / counts.Height); line < (int)((long)view.Height * (i + 1) / counts.Height); line++)
+            fold.Fold(view.GetRowSpan(line), bins);
     }
 }
 ```
 
-## [07]-[KERNELS]
+- Batches cover whole rows or bands, and a body of nanoseconds per element runs a row per `Invoke` or raises `minimumActionsPerThread`
+- Actions receive no token and no per-worker state, `Invoke` reads a token its action holds and rents its own row scratch
+- `ForEach` over `Memory2D<T>` writes elements in place through `IRefAction<T>`, and a read-only memory takes `IInAction<T>`
+- Overloads without an action argument run `default(TAction)`, an action holding data passes its instance and every type argument infers
 
-Elementwise and reduction loops over a float span are one `TensorPrimitives` call, a loop stays where each element is a `Vector4` pixel or reads neighbors. `TensorPrimitives` validates spans before computing and throws `ArgumentException` on a violation:
-- Destinations alias an input exactly or not at all, a partial overlap throws
-- Destinations shorter than their input throw, longer ones keep elements past input length unchanged
-- Binary inputs of unequal length throw
-- `Max`, `Min`, and `Average` throw on an empty span, `Sum` and `SumOfSquares` return 0, and `IndexOfMax` returns -1
-- Reductions over a span that can be empty return `Option<T>`
-- Element type changes are one `ConvertChecked`, `ConvertSaturating`, `ConvertTruncating`, or `ConvertToHalf` call per span
+## [06]-[PUBLISHED_RESULTS]
+
+Results publish a filled array as `ImmutableArray<T>` through `ImmutableCollectionsMarshal.AsImmutableArray`, and a later write to that array changes the published value. Records compare an `ImmutableArray<T>` member by reference: a member a span pass reads takes one sequence-equality accessor, and a member no pass spans is a `Seq<A>`:
 
 ```csharp
-internal static class Peaks {
-    public static Option<float> Of(ReadOnlySpan<float> samples) => samples.IsEmpty ? None : TensorPrimitives.Max(samples);
+public sealed class SequenceEquality<T> : IEqualityComparerAccessor<ImmutableArray<T>> {
+    public static IEqualityComparer<ImmutableArray<T>> EqualityComparer { get; } =
+        EqualityComparer<ImmutableArray<T>>.Create(static (left, right) => left.SequenceEqual(right), static items => toSeq(items).GetHashCode());
+}
+
+[ComplexValueObject(SkipFactoryMethods = true, SkipToString = true)]
+public sealed partial class Response {
+    [MemberEqualityComparer<SequenceEquality<float>, ImmutableArray<float>>]
+    public ImmutableArray<float> Samples { get; }
+
+    public static Response Scaled(ReadOnlySpan<float> source, float gain) {
+        float[] samples = GC.AllocateUninitializedArray<float>(source.Length);
+        TensorPrimitives.Multiply(source, gain, samples);
+        return new(ImmutableCollectionsMarshal.AsImmutableArray(samples));
+    }
 }
 ```
 
-## [08]-[SEARCH]
+- `HashCode` and `string.GetHashCode` seed per process, and a persisted or cross-process key is an `XxHash128` digest over canonical bytes
+- Canonical bytes write integers little-endian, text as UTF-8 after its byte count, and floats with NaN and `-0` folded
+- `CollectionsMarshal.AsSpan` views a list's backing array until its next growth
+- `CollectionsMarshal.GetValueRefOrAddDefault` counts or merges with one lookup inside a builder that publishes its dictionary
 
-Span search reads precomputed sets and lookups that a `static readonly` field holds:
-- `SearchValues<T>` serves `IndexOfAny`, `IndexOfAnyExcept`, `ContainsAny`, and `ContainsAnyExcept`
-- `SearchValues<string>` accepts `Ordinal` or `OrdinalIgnoreCase` alone, every other comparison throws `ArgumentException`
-- Frozen and hash collections read span keys through `GetAlternateLookup<ReadOnlySpan<char>>()` with no string allocation
-- Comparers without `IAlternateEqualityComparer<ReadOnlySpan<char>, string>` fail `TryGetAlternateLookup`, and `GetAlternateLookup` throws
-- `MemoryExtensions.Split(separator)` enumerates `System.Range` values with empty fields included
-- Unqualified `Range` is ambiguous between `System.Range` and `LanguageExt.Range` (`CS0104`)
-- `StringPool.Shared.GetOrAdd(span)` returns one instance per equal span and discards least recently used entries at capacity
+## [07]-[SPAN_TEXT]
+
+Parsers read ranges of their source span and allocate their result alone. `SplitAny` fills a pooled `System.Range` buffer, and generic parsing writes each token into its slot of the result:
 
 ```csharp
-internal static class Codes {
-    private static readonly SearchValues<char> Slug = SearchValues.Create("-0123456789abcdefghijklmnopqrstuvwxyz");
-    private static readonly FrozenDictionary<string, int>.AlternateLookup<ReadOnlySpan<char>> Table =
-        new Dictionary<string, int>(StringComparer.Ordinal) { ["alpha"] = 1, ["beta"] = 2 }.ToFrozenDictionary(StringComparer.Ordinal).GetAlternateLookup<ReadOnlySpan<char>>();
-
-    public static bool IsSlug(ReadOnlySpan<char> text) => !text.IsEmpty && !text.ContainsAnyExcept(Slug);
-
-    public static Option<int> Find(ReadOnlySpan<char> key) => Table.TryGetValue(key, out int code) ? code : None;
+internal static class Numbers {
+    public static Option<T[]> Parsed<T>(ReadOnlySpan<char> text) where T : struct, INumberBase<T> {
+        using SpanOwner<System.Range> tokens = SpanOwner<System.Range>.Allocate(text.Length + 1);
+        T[] values = new T[text.SplitAny(tokens.Span, " \t\r\n", StringSplitOptions.RemoveEmptyEntries)];
+        int at = 0;
+        while (at < values.Length && T.TryParse(text[tokens.Span[at]], NumberStyles.Float, CultureInfo.InvariantCulture, out values[at]))
+            at++;
+        return at == values.Length ? values : None;
+    }
 }
 ```
 
-## [09]-[ANTI_PATTERNS]
+- Character sets a pass tests are one `static readonly SearchValues<char>`, and a literal set one site tests stays a pattern (`c is '/' or '\\'`)
+- Frozen and hash tables read span keys through `GetAlternateLookup<ReadOnlySpan<char>>()` under a comparer with an alternate (ordinal comparers have one)
+- `StringPool.Shared.GetOrAdd(span)` deduplicates repeated tokens and evicts at capacity, and an identity map is a dictionary
 
-| [INDEX] | [WRONG_FORM]                                                      | [CORRECT_FORM]                                                      |
-| :-----: | :---------------------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | `ArrayPool<T>.Shared.Rent` with `try/finally` and a manual slice  | `using SpanOwner<T>`, or `MemoryOwner<T>` under `use`               |
-|  [02]   | `Dispose` called by hand on a `SpanOwner<T>`                      | `using` declaration                                                 |
-|  [03]   | `Memory<T>` from an owner kept past `Dispose`                     | Owner held for the lease, or a published copy                       |
-|  [04]   | Parent `MemoryOwner<T>` read after `Slice`                        | Slice as the one owner                                              |
-|  [05]   | `stackalloc` sized by input or inside a loop                      | Constant-size `stackalloc` before the loop, `SpanOwner<T>` above it |
-|  [06]   | Pooled buffer read before a full write under the default mode     | `AllocationMode.Clear`                                              |
-|  [07]   | `new T[]` scratch per call that never leaves its pass             | `SpanOwner<T>`                                                      |
-|  [08]   | `IO` lifted around pure serialization into a pooled writer        | `using` scope inside a pure function                                |
-|  [09]   | `array.AsSpan2D(height, width)` assigned to `Span2D<T>`           | `new Span2D<T>(array, height, width)`                               |
-|  [10]   | `Memory<T>.Cast` in a property read per access                    | Cast view built once and held                                       |
-|  [11]   | One-column view built to copy a span into a column                | `span.CopyTo(column)`                                               |
-|  [12]   | Hand `[(y * width) + x]` index or `DivRem` row recovery           | `Span2D<T>` rows and `GetColumn` channel planes                     |
-|  [13]   | `GCHandle.Alloc` pinning with a manual `Free`                     | `using MemoryHandle` from `Pin()`, or a pinned array                |
-|  [14]   | `Parallel.For` closure over a buffer                              | `ParallelHelper` action over `Memory<T>` or `Memory2D<T>`           |
-|  [15]   | Mutable field on a parallel action                                | Reference member (`T[]`, `Memory2D<T>`, `StrongBox<T>`) per result  |
-|  [16]   | `Interlocked` on one shared accumulator per element               | Band rows merged after the pass                                     |
-|  [17]   | `ParallelHelper.For<TAction>(start, end)` on an action with data  | Action instance passed to the overload                              |
-|  [18]   | `TensorPrimitives` destination at an offset into its input        | Exact alias or a separate destination                               |
-|  [19]   | `TensorPrimitives.Max` over a span that can be empty              | `IsEmpty` check returning `Option<T>`                               |
-|  [20]   | Per-element cast loop between numeric spans                       | `TensorPrimitives.Convert*` call                                    |
-|  [21]   | Record equality over a `ReadOnlyMemory<T>` or `ImmutableArray<T>` | `Equals` over `SequenceEqual` with an agreeing `GetHashCode`        |
-|  [22]   | `HashCode<float>.Combine` beside `SequenceEqual` equality         | `HashCode.Add` per element                                          |
-|  [23]   | `HashCode<T>` or `GetHashCode` value persisted                    | `XxHash3` or `XxHash128` digest over canonical bytes                |
-|  [24]   | `ToArray()` on a filled array to publish it                       | `ImmutableCollectionsMarshal.AsImmutableArray`                      |
-|  [25]   | `CollectionsMarshal.AsSpan` view held across `Add`                | View taken after the last growth                                    |
-|  [26]   | `dictionary[span.ToString()]` per lookup                          | `GetAlternateLookup<ReadOnlySpan<char>>()`                          |
-|  [27]   | `char[]` set or `IndexOfAny(char[])` per call                     | `static readonly SearchValues<char>`                                |
-|  [28]   | Toolkit `Tokenize`                                                | `MemoryExtensions.Split` over `System.Range`                        |
-|  [29]   | `Array.Empty<T>()` under static `LanguageExt.Prelude` (`CS0119`)  | `[]` or `ReadOnlyMemory<T>.Empty`                                   |
+## [08]-[ANTI_PATTERNS]
+
+| [INDEX] | [WRONG_FORM]                                                     | [CORRECT_FORM]                                        |
+| :-----: | :--------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `ArrayPool<T>.Shared.Rent` with `try/finally` and a manual slice | `using SpanOwner<T>`, or `MemoryOwner<T>` under `use` |
+|  [02]   | `new T[]` scratch per call that never leaves its pass            | Destination written in place, or `SpanOwner<T>`       |
+|  [03]   | `for` loop over a float span per element                         | One `TensorPrimitives` call                           |
+|  [04]   | Per-element cast loop between numeric spans                      | `TensorPrimitives.Convert*` call                      |
+|  [05]   | `TensorPrimitives.Max` over a span that can be empty             | `IsEmpty` test returning `Option<T>`                  |
+|  [06]   | Item or member per kernel, each with its own loop                | Private generic subclass over a kernel struct         |
+|  [07]   | Hand `[(y * width) + x]` index or `DivRem` row recovery          | `Span2D<T>` rows and columns                          |
+|  [08]   | `array.AsSpan2D(height, width)` assigned to `Span2D<T>`          | `new Span2D<T>(array, height, width)`                 |
+|  [09]   | `Parallel.For` closure over an array                             | `ParallelHelper` action over `Memory2D<T>`            |
+|  [10]   | `Interlocked` on one shared accumulator per element              | Band rows merged after the pass                       |
+|  [11]   | `ToArray()` over a filled array to publish it                    | `ImmutableCollectionsMarshal.AsImmutableArray`        |
+|  [12]   | Hand `Equals` and `GetHashCode` over a buffer member             | Sequence-equality accessor                            |
+|  [13]   | `GetHashCode` value persisted                                    | `XxHash128` digest over canonical bytes               |
+|  [14]   | `dictionary[span.ToString()]` per lookup                         | `GetAlternateLookup<ReadOnlySpan<char>>()`            |

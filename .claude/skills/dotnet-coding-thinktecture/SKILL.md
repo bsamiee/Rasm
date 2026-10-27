@@ -24,14 +24,15 @@ Simple value objects wrap one key member under `[ValueObject<TKey>]`, complex va
 
 ```csharp
 [ValueObject<string>(SkipIComparable = true)]
+[ValidationError<Fault>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class Code {
     public int Length => _value.Length;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref Fault? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
         if (trimmed is not { Length: <= 16 }) {
-            validationError = new ValidationError("code is blank or longer than 16 characters");
+            validationError = new Fault(value, Reason.Invalid);
             return;
         }
         value = trimmed.ToUpperInvariant();
@@ -39,13 +40,14 @@ internal sealed partial class Code {
 }
 
 [ComplexValueObject]
+[ValidationError<Fault>]
 internal sealed partial class Bounds {
     public decimal Lower { get; }
     public decimal Upper { get; }
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref decimal lower, ref decimal upper) {
+    static partial void ValidateFactoryArguments(ref Fault? validationError, ref decimal lower, ref decimal upper) {
         if (lower > upper) {
-            validationError = new ValidationError("lower bound exceeds upper bound");
+            validationError = new Fault(string.Create(CultureInfo.InvariantCulture, $"(lower, upper) = ({lower}, {upper})"), Reason.Invalid);
             return;
         }
         lower = Math.Round(lower, 2, MidpointRounding.ToEven);
@@ -99,14 +101,10 @@ Trailing parameters after the members are declared by value without a default (0
 
 ```csharp
 [ValueObject<decimal>(MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+[ValidationError<Fault>]
 internal sealed partial class Amount {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref decimal value, MidpointRounding rounding) {
-        if (value < 0) {
-            validationError = new ValidationError("amount is negative");
-            return;
-        }
-        value = decimal.Round(value, 2, rounding);
-    }
+    static partial void ValidateFactoryArguments(ref Fault? validationError, ref decimal value, MidpointRounding rounding) =>
+        (validationError, value) = value < 0 ? (new Fault(value.ToString(CultureInfo.InvariantCulture), Reason.Invalid), value) : (null, decimal.Round(value, 2, rounding));
 
     public static Amount Create(decimal value, MidpointRounding rounding) => CreateCore(value, rounding);
 }

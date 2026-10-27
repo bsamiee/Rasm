@@ -35,9 +35,6 @@ Identifier and file renames update every reference:
 - BEFORE: `Effects such as IO and database calls run at the boundary`
 - AFTER: `Effects (IO, database calls) run at boundary`
 
-- BEFORE: `Types whose Map obeys the functor laws are functors`
-- AFTER: `Types with a lawful Map are functors`
-
 - BEFORE: `Union whose cases are a value and its absence`
 - AFTER: `Union of a value and its absence`
 
@@ -194,7 +191,7 @@ Identifier and file renames update every reference:
 - BEFORE: `# Nx plugin that infers the packaging projects, their stage and pack targets, and their edges` (tree comment)
 - AFTER: `# Nx plugin that adds packaging projects to task graph`
 
-- BEFORE: `## [03]-[STANDING_LAW] (safety rules for irreversible acts)`
+- BEFORE: `## [03]-[GUARDRAILS] (safety rules for irreversible acts)`
 - AFTER: `## [03]-[SAFETY_RULES]` (scope, irreversible acts, opens section sentence)
 
 - BEFORE: `` In <library>, `<type>` represents absence `` (page already titled after library)

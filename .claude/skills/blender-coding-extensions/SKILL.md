@@ -77,9 +77,7 @@ def register() -> None:
 unregister = releases.close
 ```
 
-Snippet placeholders stand for extension declarations and values:
-- `Settings` for a `PropertyGroup`, `ITEM_OT_run` for an operator with an `amount` property, and `ITEM_PT_settings` for a panel
-- `item` for the manifest `id`, and `loaded` for a `@bpy.app.handlers.persistent` function
+`Settings` stands for a `PropertyGroup`, `ITEM_OT_run` for an operator with an `amount` property, `ITEM_PT_settings` for a panel, `item` for the manifest `id`, and `loaded` for a `@bpy.app.handlers.persistent` function.
 
 Acquisitions follow host dependency order, and releases run in reverse, a group unregistered while an attachment names it crashing Blender at the attachment's next read:
 
@@ -103,8 +101,7 @@ Registered classes take the forms Blender checks at `register_class` and at each
 `bpy.types.<Type>.<name> = bpy.props.PointerProperty(type=<group>)` attaches a group, and `delattr(bpy.types.<Type>, "<name>")` releases it:
 - Releases remove the attachment alone, stored values staying on IDs, saving with the file, and reading back when the group attaches again
 - Files saved after a first read hold group storage whether the attachment stays or goes
-- Static RNA member names (`render`, `frame_current`) refuse an attachment with `ValueError`
-- `name`, RNA functions, and `bl_rna` take an attachment that shadows the member
+- Static RNA members (`render`, `frame_current`) refuse an attachment with `ValueError`, and `name`, RNA functions, and `bl_rna` take a shadowing one
 - Second attachments under one name replace the first with no raise
 
 ## [03]-[CALLBACKS]
@@ -127,8 +124,7 @@ Each callback kind pairs one acquisition with one release on the same object, me
 
 Acquisitions follow host identity rules:
 - Handler lists, timers, UI extensions, manual maps, and message bus keys hold one entry per acquisition call
-- Timers match callables by identity, each read of a bound method building a new object
-- Timer calls take one stored callable
+- Timers store one callable and match it by identity, each read of a bound method building a new object
 - `bpy.app.timers.unregister` raises `ValueError` for a function no longer registered, a timer that stopped itself included
 - `persistent(fn)` marks and returns `fn` for plain functions and lambdas, raising `ValueError` on a bound method, `functools.partial`, or callable instance
 - File loads keep persistent functions and their bound methods in handler lists and drop every other callable
@@ -137,19 +133,16 @@ Acquisitions follow host identity rules:
 
 Presets resolve through host paths:
 - Preset menus reach an extension's presets through its registered path alone, user presets saving under `<user scripts>/presets/<subdir>`
-- Operators with `PRESET` in `bl_options` read presets from `presets/operator/<category>.<name>`
-- Operator presets hold every property without `SKIP_PRESET`
+- Operators with `PRESET` in `bl_options` read presets from `presets/operator/<category>.<name>`, each holding every property without `SKIP_PRESET`
 - Preset adds under a name any preset path holds cancel with a warning
 
 ## [04]-[COMMANDS]
 
 `blender --command <id> <args>` calls the registered `fn(argv)`:
 - `argv` holds every argument after the id unparsed, `--`, `--python-expr`, and `-c` included, and Blender acts on none of them
-- Returned integers exit modulo 256, and `sys.exit(<n>)` exits `<n>`, `argparse` exits included
-- Raises and non-integer returns print their error and exit 1
+- Returned integers exit modulo 256, `sys.exit(<n>)` and `argparse` exit `<n>`, and raises and non-integer returns print their error and exit 1
 - Commands run in background with full `bpy.data`, the startup file's window and scene, and no area
-- `.blend` and `--python` arguments before `--command` run first
-- `.blend` arguments leave `context.window` `None` beside one window in `window_manager.windows`
+- Arguments before `--command` (`.blend`, `--python`) run first, a `.blend` leaving `context.window` `None` beside one `window_manager.windows` entry
 - Commands reach extensions enabled in preferences or through `--addons` placed before `--command`, and `--factory-startup` alone drops them
 - Every `unregister()` runs after `fn` returns, `sys.exit` included
 - Second registrations of a held id, stock `extension` included, abort that command with exit 1 until either handle releases
@@ -163,8 +156,7 @@ Tables take the form `{<locale>: {(<context>, <msgid>): <text>}}`, one per packa
 - Tables key each language once, a full code beside a shorter form (`pt_BR` beside `pt`) answering from the shorter form after an earlier table misses
 - Stock catalogs answer first, and tables translate only msgids the stock catalog leaves untranslated
 - `en_US` entries relabel stock English text
-- Shared keys answer from the first registered table
-- Second registrations of one package raise `ValueError`
+- Shared keys answer from the first registered table, and second registrations of one package raise `ValueError`
 - `_bl_i18n_utils.bl_extract_messages.dump_addon_messages(<package>, False, <settings>)` returns a `.pot` keyed by `(context, msgid)`
 - Extraction reads extension RNA strings, literal `text=` and report strings, and manifest `name` and `tagline`
 - Extraction skips panel `bl_label` and `bl_category` and returns stock definition strings beside extension keys
@@ -173,9 +165,8 @@ Tables take the form `{<locale>: {(<context>, <msgid>): <text>}}`, one per packa
 ## [06]-[MANUAL_MAPS]
 
 Online Manual lookups call manual map functions returning `(<url prefix>, ((<pattern>, <url suffix>), ...))`:
-- Lookups call functions newest first with the stock map last, and the first matching mapping answers, extension patterns overriding stock pages
+- Lookups call functions newest first and the stock map last, the first matching pattern answering, and specific patterns precede wildcards
 - Lookup ids lowercase before `fnmatchcase`, and patterns are lowercase
-- Mappings answer with their first matching pattern, specific patterns preceding wildcards
 - URLs join prefix and suffix with no separator
 - Operator buttons and their property buttons resolve to `bpy.ops.<category>.<name>`
 - Registered group and `AddonPreferences` property buttons resolve to `bpy.types.<class name>.<property>`, a pattern on the attachment missing them
@@ -221,8 +212,7 @@ User edits sit on `keyconfigs.user` as differences from addon items:
 - Subpackage modules read the extension package through a relative import (`from .. import __package__ as package` one level down)
 - `AddonPreferences.bl_idname` takes that package
 - Names sharing one namespace across extensions (operator and class `bl_idname`, `bpy.types` attachments, commands) open with the manifest `id`
-- Stored preference values key on the full `bl_ext.<repo>.<id>`
-- Another repository or a changed manifest `id` installs a separate extension at defaults
+- Preference values key on the full `bl_ext.<repo>.<id>`, another repository or changed manifest `id` installing a separate extension at defaults
 
 ## [09]-[LIFECYCLE]
 
@@ -258,10 +248,9 @@ Code changes reach a session through an upgrade install or a `disable` and `enab
 - Values of renamed or removed properties stay stored and return when a version declares the name again
 - `bl_system_properties_get()` holds stored values by name, orphaned keys included
 - Stored values the property's type refuses delete at read and return the default, `bool`, `int`, and enum values reading as each other
-- Script writes leave `preferences.is_dirty` false
+- Script writes leave `preferences.is_dirty` false, and code sets `is_dirty = True` after a write it keeps
 - Core preference writes, preferences page edits, and row-changing enables and disables set `is_dirty`
 - GUI quits run `exit_pre` handlers, then a save of dirty preferences, then every `unregister()`
-- Code sets `is_dirty = True` after a write it keeps
 - Background exits skip the save, and background runs save through `bpy.ops.wm.save_userpref()` alone
 - `exit_pre` writes to `filepaths.asset_libraries` hang Blender while a remote listing job runs
 - `filepaths.asset_libraries.new()` rows set `is_dirty` and save at quit, the next registration taking the saved row and `unregister()` removing it
@@ -336,14 +325,12 @@ def recalled(package: str) -> Result[Recent, OSError | msgspec.DecodeError]:
             return Error(error)
 
 
-def kept(package: str, recent: Recent) -> Result[Recent, OSError]:
-    @catch(exception=OSError)
-    def written(path: Path) -> Recent:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(msgspec.json.encode(recent))
-        return recent
-
-    return written(placed(package))
+@catch(exception=OSError)
+def kept(package: str, recent: Recent) -> Recent:
+    path: Path = placed(package)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(msgspec.json.encode(recent))
+    return recent
 ```
 
 `bpy.types.FileHandler` classes route file drops and collection exports to operators:

@@ -127,7 +127,7 @@ Repeated `try/catch` blocks obscure a computation, exception-prone lazy work is 
 
 ```csharp
 internal static class Parsing {
-    public static Try<System.Text.Json.JsonDocument> Parse(string json) => Try.lift(() => System.Text.Json.JsonDocument.Parse(json));
+    public static Try<JsonDocument> Parse(string json) => Try.lift(() => JsonDocument.Parse(json));
     public static Try<Uri> MakeUri(string value) => Try.lift(() => new Uri(value));
     public static Try<Uri> ExtractUri(string json) =>
         from document in Parse(json)
@@ -183,7 +183,7 @@ internal static class Scopes {
 }
 ```
 
-Once helpers return `IO<A>`, query syntax exposes scoped behavior without callback nesting: a transaction scope depends on the connection and supplies the transaction downstream, the commit step runs only after every statement succeeds, and a failure skips it, `Dispose` rolls the open transaction back:
+Once helpers return `IO<A>`, query syntax exposes scoped behavior without callback nesting: a transaction scope depends on the connection and supplies the transaction downstream, the commit step runs only after every statement succeeds, and a failure skips it, `Dispose` rolls the open transaction back, and each scope closes at its own `.Bracket()`, the transaction before its connection:
 
 ```csharp
 internal static class Removals {
@@ -191,16 +191,15 @@ internal static class Removals {
         Scopes.Timed(
             time,
             report,
-            from connection in use(static () => new Connection())
-            select connection.Execute("DELETE Entries WHERE Timestamp < @upTo"));
+            (from connection in use(static () => new Connection())
+             select connection.Execute("DELETE Entries WHERE Timestamp < @upTo")).Bracket());
     public static IO<int> RemoveOrder =>
-        from connection in use(static () => new Connection())
-        from transaction in use(connection.BeginTransaction)
-        from affected in IO.lift(() =>
-            connection.Execute("DELETE Lines WHERE OrderId = @Id", transaction)
-            + connection.Execute("DELETE Orders WHERE OrderId = @Id", transaction))
-        from _ in IO.lift(fun(transaction.Commit))
-        select affected;
+        (from connection in use(static () => new Connection())
+         from affected in (from transaction in use(connection.BeginTransaction)
+                           from deleted in IO.lift(() => connection.Execute("DELETE Lines WHERE OrderId = @Id", transaction) + connection.Execute("DELETE Orders WHERE OrderId = @Id", transaction))
+                           from _ in IO.lift(fun(transaction.Commit))
+                           select deleted).Bracket()
+         select affected).Bracket();
 }
 ```
 
@@ -239,8 +238,8 @@ internal static class Traversals {
     public static Fin<Seq<int>> ValidateUntilFirstFailure(Seq<string> values, Func<string, Fin<int>> validate) => values.TraverseM(validate).As();
     public static IO<Seq<Quote>> SearchParallel(Seq<Provider> providers) => providers.Traverse(static p => p.Quotes).As().Map(static groups => groups.Flatten());
     public static IO<Seq<Quote>> SearchSerial(Seq<Provider> providers) => providers.TraverseM(static p => p.Quotes).As().Map(static groups => groups.Flatten());
-    public static IO<Seq<Quote>> SearchBestEffort(Seq<Provider> providers) =>
-        providers.Map<K<IO, Seq<Quote>>>(static p => p.Quotes).PartitionFallible().As().Map(static parts => parts.Succs.Flatten());
+    public static IO<(Seq<Error> Fails, Seq<Quote> Quotes)> SearchBestEffort(Seq<Provider> providers) =>
+        providers.Map<K<IO, Seq<Quote>>>(static p => p.Quotes).PartitionFallible().As().Map(static parts => (parts.Fails, parts.Succs.Flatten()));
 }
 ```
 
@@ -257,17 +256,17 @@ Each `Bind` understands only its outer effect, nested effects do not compose dir
 
 ```csharp
 internal static class Stacks {
-    public static IO<decimal> Converted(Func<Guid, IO<Option<State>>> lookup, Guid id, IO<decimal> rate) =>
+    public static IO<decimal> Converted(Func<Guid, IO<Option<Account>>> lookup, Guid id, IO<decimal> rate) =>
         from found in lookup(id)
-        from state in IO.lift(found.ToFin(new Fault($"state {id}", Reason.Missing)))
+        from account in IO.lift(found.ToFin(new Fault($"account {id}", Reason.Missing)))
         from factor in rate
-        select state.Balance * factor;
+        select account.Balance * factor;
     public static IO<Unit> Publish(Func<Task> publish) =>
         IO.liftAsync(async () => {
             await publish().ConfigureAwait(false);
             return unit;
         });
-    public static Task<Fin<State>> ExitAsync(Eff<AppRuntime, State> workflow, AppRuntime runtime) => workflow.RunAsync(runtime);
+    public static Task<Fin<Account>> ExitAsync(Eff<AppRuntime, Account> workflow, AppRuntime runtime) => workflow.RunAsync(runtime);
 }
 ```
 

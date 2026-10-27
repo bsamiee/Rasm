@@ -130,7 +130,7 @@ internal static class Recovery {
     public static Fin<Quantity> ByValue(Fin<Quantity> quantity) => quantity.Catch(Errors.TimedOut, static _ => Zero).As();
     public static IO<string> Read(string path) =>
         IO.lift(() => File.ReadAllText(path)).Catch(static error => error.HasException<FileNotFoundException>(), error => IO.fail<string>(new Fault(path, Reason.Missing, Inner: error)));
-    public static IO<Item> Cached(IO<Item> load, Item cached) => (load | @catch(static error => error.IsType<Fault>(), _ => IO.pure(cached))).As();
+    public static IO<Item> Cached(IO<Item> load, Item cached) => load | @catch(static error => error.IsType<Fault>(), _ => IO.pure(cached));
     public static IO<Item> Fallback(IO<Item> primary, IO<Item> secondary) => primary | secondary;
     public static Fin<Quantity> Rebound(Fin<Quantity> quantity) => quantity.BindFail(static error => error.HasCode(ErrorCodes.ValidationFailed) ? Zero : error);
     public static Fin<Quantity> WithContext(Fin<Quantity> quantity) => quantity.MapFail(static error => new Fault("quantity", Reason.Invalid, Inner: error));
@@ -158,14 +158,14 @@ In a LINQ query, `guard` raises an `Error` when its flag is false:
 internal static class Guards {
     public static Fin<int> Even(string text) =>
         from value in parseInt(text).ToFin(Errors.ParseError(text))
-        from _ in guard(int.IsEvenInteger(value), Odd(value))
+        from _ in guard<Error>(int.IsEvenInteger(value), Odd(value))
         select value;
     public static IO<int> Metered(IO<int> read) =>
         from v in read
-        from _ in unless(v % 2 == 0, IO.fail<Unit>(Odd(v)))
+        from _ in unless(int.IsEvenInteger(v), IO.fail<Unit>(Odd(v)))
         select v;
 
-    private static Error Odd(int value) => new Fault(value.ToString(CultureInfo.InvariantCulture), Reason.Invalid);
+    private static Fault Odd(int value) => new(value.ToString(CultureInfo.InvariantCulture), Reason.Invalid);
 }
 ```
 
@@ -201,7 +201,7 @@ internal static class Construction {
 - `Bracket()` with no arguments releases every `use` inside its receiver and sits on the expression that starts at the scope's first `use`
 
 ```csharp
-internal static class Resources {
+internal static class Leases {
     public static IO<int> Released =>
         from connection in use(static () => new Connection(), static c => c.Dispose())
         select connection.Query();
@@ -423,23 +423,22 @@ Forms the compiler rejects:
 
 ## [07]-[LENSES_AND_SHARED_STATE]
 
-`Lens<A, B>.New` takes a getter and a curried setter for a focus no record property states, a `[Field]` property under `[StateRecord]` reads its lens from the generated `<Record>Lenses.<Property>`:
+`Lens<A, B>.New` takes a getter and a curried setter for a focus no record property states, LanguageExt.Core generates no lens, and each one is a static member beside its record:
 - `Get` reads the focus, `Set` writes a value and `Update` applies a function to it, both return a new `A`
-- `lens(outer, inner)` composes lenses into one that focuses on a value in a nested record
-- `Lens.identity<A>()` focuses on the whole value
+- `lens(outer, inner)` composes lenses into one that focuses on the inner focus of the outer one
+- `Lens.identity<A>()` focuses on the whole value, and a record property path is `with` at the edit (`RASM1010`)
 
 ```csharp
-[StateRecord]
-internal sealed partial record Item([Field] Detail Detail);
-
-[StateRecord]
-internal sealed partial record Detail([Field] string Code);
+internal sealed record Extent(double Start, double End) {
+    public static readonly Lens<Extent, double> Width = Lens<Extent, double>.New(static span => span.End - span.Start, static width => span => span with { End = span.Start + width });
+}
 
 internal static class Lenses {
-    public static readonly Lens<Item, string> ItemCode = lens(<ItemLenses>.Detail, <DetailLenses>.Code);
+    private static readonly Lens<double, double> Half = Lens<double, double>.New(static whole => whole / 2, static half => _ => half * 2);
+    public static readonly Lens<Extent, double> HalfWidth = lens(Extent.Width, Half);
 
-    public static Item Recoded(Item item, string code) => ItemCode.Set(code, item);
-    public static Item Uppercased(Item item) => ItemCode.Update(static code => code.ToUpperInvariant(), item);
+    public static Extent Widened(Extent span, double width) => Extent.Width.Set(width, span);
+    public static Extent Grown(Extent span, double margin) => HalfWidth.Update(half => half + margin, span);
 }
 ```
 

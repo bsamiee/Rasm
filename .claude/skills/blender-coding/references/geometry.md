@@ -19,15 +19,13 @@ Evaluated reads follow host evaluation rules:
 BMesh ownership follows the mode:
 - Outside Edit Mode, `bmesh.new()` registers `free` on the scope's `ExitStack`, fills, and writes back through `to_mesh(mesh)`
 - In Edit Mode, `bmesh.from_edit_mesh(mesh)` borrows the live mesh until a mode change or an Edit Mode undo
-- Held BMesh and element references raise `ReferenceError` after that change
+- Held BMesh and element references raise `ReferenceError` after that change, and held elements after a `bmesh.ops` call removes them
 - In Edit Mode, `mesh.attributes` lists the edit mesh's layers with no `position`, a `position` attribute held from Object Mode reading `name` `""` with no raise
 - `mesh.vertices` reads the pre-edit state until `obj.update_from_editmode()`, and `mesh.vertices[i].co` writes in Edit Mode are discarded at mode exit
 - In Edit Mode, `bmesh.update_edit_mesh(mesh)` follows each change, a selection-only change calling `bm.select_flush_mode()` first and passing `loop_triangles=False, destructive=False`
 - Multi-object Edit Mode work iterates `context.objects_in_mode_unique_data`, one entry per shared mesh
 - Index reads follow `ensure_lookup_table()` on every new or borrowed BMesh and after every topology edit, `bmesh.ops.create_cube` included
-- Loops that add elements iterate a copy (`list(bm.faces)`), new elements joining a live iteration with no raise
-- Held elements a `bmesh.ops` call removes raise `ReferenceError` on access
-- New elements hold index -1 until `index_update()`
+- Loops adding elements iterate a copy (`list(bm.faces)`), new elements joining live iterations silently and holding index -1 until `index_update()`
 - `bm.normal_update()` follows manual vertex moves before BMesh normals are read, `to_mesh` deriving mesh normals itself
 - UV selection is `BMLoop.uv_select_vert`, `BMLoop.uv_select_edge`, and `BMFace.uv_select`
 - `calc_uvs=True` on `bmesh.ops.create_*` writes into an existing UV layer alone, and `bm.loops.layers.uv.verify()` creates it first
@@ -37,8 +35,7 @@ BMesh ownership follows the mode:
 Per-element mesh data goes through attributes and dedicated calls:
 - Normals read through `Mesh.corner_normals`, custom normals write through `mesh.normals_split_custom_set`, and `MeshLoop.normal` stays read-only
 - `mesh.shade_smooth()` then `mesh.set_sharp_from_angle(angle=...)` smooths through the data API
-- Sculpt mask is the `.sculpt_mask` point attribute, face sets `.sculpt_face_set`
-- Bevel weights and creases are the `bevel_weight_edge` and `crease_edge` attributes
+- Masks, face sets, bevel weights, and creases are the `.sculpt_mask` point, `.sculpt_face_set`, `bevel_weight_edge`, and `crease_edge` attributes
 - `mesh.validate()` follows input not known to be valid and answers `True` when it repaired something
 - `VertexGroup.remove` takes indices below `len(mesh.vertices)`, a larger index crashing Blender
 - Object Mode `mesh.attributes` lists `position`, `.edge_verts`, `.corner_vert`, `.corner_edge`, `sharp_face`, UV maps, and `material_index`
@@ -69,15 +66,13 @@ Per-element mesh data goes through attributes and dedicated calls:
 |  [16]   | `mathutils` value        | `np.asarray(value, np.float32)`                           | `np.ascontiguousarray` before a handoff         |
 
 Buffers follow host storage:
-- Buffers are flat, and `reshape(-1, 3)` follows the read
 - 2D buffers and wrong lengths raise `RuntimeError("internal error setting the array")` and print `Array length mismatch`
 - Dynamic arrays (`MeshPolygon.vertices`) declare one length in `array_length` and `array_dimensions` while each item holds its own, and buffers take the resolved array's `len()`
 - `MATRIX` arrays of 9 or 16 items read as `Matrix` rows transposed from stored order, `path_resolve("<member>", False)` reading the stored array
 - Mesh shape keys read `co` through `ShapeKey.points`, 100k points in 25 µs against 3.5 ms through `data`
 - Curve shape keys hold an empty `points`, and `data` mixes `ShapeKeyBezierPoint` and `ShapeKeyCurvePoint` items, `co` 3 wide on both, with `fixed_type` reading `UnknownType`
 - Hair `curve_offset_data` and Grease Pencil `drawing.curve_offsets` hold curve offsets in `value`, one more than the curve count, outside the attributes
-- `foreach_get` reads read-only members (`GreasePencilFrame.frame_number`)
-- `foreach_set` on attribute data tags the mesh for evaluation
+- `foreach_get` reads read-only members (`GreasePencilFrame.frame_number`), and `foreach_set` on attribute data tags the mesh for evaluation
 - `.corner_vert`, `.corner_edge`, and `.edge_verts` are internal attributes with no public fast accessor, and Blender's bundled FBX and glTF exporters read and write them as their bulk path
 
 Each path falls in a cost class, ordered cheapest first:
@@ -88,20 +83,15 @@ Each path falls in a cost class, ordered cheapest first:
 |  [02]   | Per element           | Other `foreach_get` paths (`vertices` `co`, `polygons` `loop_start`), memcpy paths given another dtype or layout |
 |  [03]   | Per element in Python | `v.co.x` loops, `pixels[:]`                                                                                      |
 
-Hot code reads attribute data with the stored dtype:
-- `float64`, `uintc`, `int64`, list, and strided buffers convert per element
-- `polygons` `loop_start` is the one face-offset path
+Hot code reads attribute data with the stored dtype, `float64`, `uintc`, `int64`, list, and strided buffers converting per element. `polygons` `loop_start` is the one face-offset path.
 
 Exporters read world positions and topology from the evaluated mesh inside a scope calling `to_mesh_clear()`:
 
 ```python
-type Surface = tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]
-
-
-def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph) -> Option[Surface]:
+def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph) -> Option[tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]]:
     evaluated: bpy.types.Object = source.evaluated_get(depsgraph)
 
-    def read(mesh: bpy.types.Mesh) -> Surface:
+    def read(mesh: bpy.types.Mesh) -> tuple[NDArray[np.float32], NDArray[np.int32], NDArray[np.int32]]:
         positions, corners, starts = np.empty(len(mesh.vertices) * 3, np.float32), np.empty(len(mesh.loops), np.int32), np.empty(len(mesh.polygons), np.int32)
         for key, member, buffer in (("position", "vector", positions), (".corner_vert", "value", corners)):
             if isinstance(attribute := mesh.attributes[key], bpy.types.FloatVectorAttribute | bpy.types.IntAttribute):
@@ -117,7 +107,7 @@ def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph) -> Option[
 
 `to_mesh()` reads `None` for geometry that evaluates to no mesh (an empty curve) and raises `RuntimeError` on an object without geometry (camera, empty, point cloud).
 
-Construction sizes the mesh from the buffers, writes them flat, then derives edges, face sizes, and normals through `mesh.update()`:
+Construction sizes the mesh from the buffers, writes them flat, then derives edges, face sizes, and normals through `mesh.update()`, and `rollback` removes the mesh after a raise:
 
 ```python
 def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32], starts: NDArray[np.int32]) -> Result[bpy.types.Mesh, RuntimeError]:
@@ -142,8 +132,6 @@ def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32],
         return outcome
 ```
 
-`positions` buffers of another length raise `RuntimeError`, and `rollback` removes the mesh.
-
 Bulk removal names objects and the data no other user holds in one `batch_remove`:
 
 ```python
@@ -157,15 +145,13 @@ def purged(objects: tuple[bpy.types.Object, ...]) -> None:
 
 Channels follow the layered action model:
 - `Action.fcurve_ensure_for_datablock(datablock, data_path, index=, group_name=)` on an action assigned to `datablock` creates the layer, strip, slot, and channelbag, and returns an existing F-curve, an unassigned action raising `RuntimeError`
-- `fcurve.evaluate(frame)` reads a keyed channel at a frame without moving the scene
-- Values a driver or NLA strip changes read through `frame_set`
+- `fcurve.evaluate(frame)` leaves out values a driver or NLA strip changes, which read through `frame_set`
 - `driver_add(path, index)` returns the existing driver F-curve on a second call
 - Actions take one layer, and layered animation runs through NLA strips with `ADD` or `COMBINE` blending
 - Actions assigned to a second ID animate nothing until `animation_data.action_slot` names their slot
 - Scripted `keyframe_insert` keys are `BEZIER` with `AUTO_CLAMPED` handles whatever the preference
 - `co_ui` moves a key with its handles where `co` moves the key alone
-- Driver F-curves from Python hold keys at (0, 0) and (1, 1)
-- Moving a driver F-curve key remaps the driver value, and removing every key passes the raw value
+- Driver F-curves from Python hold keys at (0, 0) and (1, 1) that remap the driver value as they move, and removing every key passes the raw value
 
 Keys write through one `keyframe_points.add(count)`, `foreach_set` on `co` and `interpolation`, then `fcurve.update()`:
 

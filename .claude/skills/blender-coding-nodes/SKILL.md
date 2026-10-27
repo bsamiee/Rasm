@@ -26,8 +26,7 @@ Holders decide how code reaches a tree:
 Tree kinds decide node classes and socket types:
 - `nodes.new(bl_idname)` raises `RuntimeError` for a class the tree refuses or the build lacks
 - `interface.new_socket` raises `TypeError` listing socket types the tree kind takes
-- Geometry trees take every zone, and shader trees take repeat zones and closures
-- Bundles, Menu Switch, and Index Switch go to geometry, shader, and compositor trees
+- Geometry trees take every zone, shader trees repeat zones and closures, and both with compositor trees take Bundles, Menu Switch, and Index Switch
 - Texture trees take `TextureNode*` classes and Float, Vector, and Color sockets alone
 - `nodes.new` maps aliased classes to current ones (`ShaderNodeBsdfGlossy` to `ShaderNodeBsdfAnisotropic`), and matches read the created `bl_idname`
 - Stock nodes resolve by `bl_idname` and state, `tree.get_output_node("ALL")` in shader trees and `NodeGroupOutput` with `is_active_output` in groups
@@ -36,8 +35,7 @@ Tree kinds decide node classes and socket types:
 Group flags and stock content follow host rules:
 - `is_modifier`, `is_strip_modifier`, and `allow_usage_in_scene_compositor_effect` list a group in pickers and asset menus
 - `node_group` writes take any tree of the kind whatever its flags
-- Group node `node_tree` writes of another tree kind, or of a tree containing the host, leave `node_tree` empty with no raise
-- `tree.contains_tree(other)` tests nesting before a `node_tree` write
+- Group node `node_tree` writes of another tree kind or a tree containing the host (`tree.contains_tree(other)`) leave `node_tree` empty with no raise
 - Node tools set `is_tool`, one `is_type_*` and one `is_mode_*` flag, and `node_tool_idname`
 - Background runs register node tool operators through `window_manager.register_node_group_operators()`
 - Stock groups in the `assets/nodes` blends hold `Input_<n>` and `Output_<n>` identifiers beside `Socket_<n>`
@@ -52,12 +50,10 @@ Mode sockets take one shape per node:
 - Mix and Math hold every mode's variants (`A_Float`, `A_Vector`, `A_Rotation`, `Value_001`), and enabled sockets in input order are a mode's operands after its `data_type` or `operation` write
 - Socket positions on Mix and Math count disabled variants
 - Switch, Compare, Sample Index, Index Switch, Store Named Attribute, Random Value, and Boolean Math hold one socket per role
-- Mode writes on one-socket nodes retype each socket under its identifier and keep its links
-- Mode writes drop sockets the mode lacks (Boolean Math `NOT`, Random Value `BOOLEAN`)
+- Mode writes on one-socket nodes retype each socket under its identifier with its links and drop sockets the mode lacks (Boolean Math `NOT`)
 - Code writes mode members before reads, writes, and links on sockets they enable
 - Sockets held across a retyping mode write crash Blender at their next read
-- `is_unavailable` reads true on disabled sockets
-- `is_inactive` reads true on disabled sockets and on sockets the current mode leaves unused (Switch `True` while `Switch` is false)
+- `is_unavailable` reads true on disabled sockets, `is_inactive` on those and sockets the mode leaves unused (Switch `True` while `Switch` is false)
 - String keys (`inputs[key]`, `get`, `find`) match an enabled socket's display name alone, `inputs["Value_001"]` raising `KeyError`
 - Iteration by `identifier` reaches every socket, disabled ones included
 
@@ -78,8 +74,7 @@ Socket values take per-class shapes:
 
 Geometry tree sockets take single values or fields, and a field computes per element where a geometry node consumes it:
 - `display_shape` states what a socket takes: `LINE` a single value, `DIAMOND` a field, `CIRCLE` whatever reaches it
-- `inferred_structure_type` states what reaches a socket (`SINGLE`, `FIELD`, `DYNAMIC`)
-- `inferred_structure_type` computes in geometry and compositor trees alone, shader sockets reading `DYNAMIC`
+- `inferred_structure_type` reads what reaches a socket (`SINGLE`, `FIELD`, `DYNAMIC`) in geometry and compositor trees and `DYNAMIC` in shader trees
 - Unlinked implicit inputs (Set Position `Position`) read `FIELD`
 - Fields entering `CIRCLE` sockets (Math, Vector Math) make the node's outputs `FIELD`
 - Fields evaluate on the consuming node's `domain`, values from another domain interpolating (Face Area stored on `POINT` averages adjacent faces)
@@ -90,8 +85,7 @@ Geometry tree sockets take single values or fields, and a field computes per ele
 `tree.links.new(output, input, verify_limits=True, handle_dynamic_sockets=False)` links sockets of one tree:
 - Endpoints arrive in either order, both pointing one way raising `RuntimeError`, sockets of different trees returning `None`
 - Links into a linked single input replace the old link
-- `verify_limits=True` removes links past `link_limit` on either endpoint and clears `hide` on both sockets
-- `verify_limits=False` stacks links that read `is_valid` true
+- `verify_limits=True` removes links past `link_limit` on either endpoint and clears `hide` on both, and `False` stacks links reading `is_valid` true
 - Links onto a virtual socket pass `handle_dynamic_sockets=True` to add an item named and typed after the source, `None` answering a refused type
 - Plain links onto a virtual socket read `is_valid` false and add nothing
 - Multi-input sockets take up to 4095 links and add each new link on top, `socket.links` listing top first by descending `multi_input_sort_id`
@@ -122,8 +116,7 @@ def stacked(socket: bpy.types.NodeSocket, sources: tuple[bpy.types.NodeSocket, .
             return Error(absent)
 ```
 
-- `sources` lists output sockets top first, a source linked twice appearing twice and taking its next link
-- Links of other sources keep their slots
+- `sources` lists output sockets top first, a source linked twice appearing twice and taking its next link, other sources' links keeping their slots
 - Absent positions report together before any swap, leaving the order as found
 
 Geometry and compositor trees convert link values through one table:
@@ -152,8 +145,7 @@ Links read `is_valid` false for:
 `is_valid` follows host rules:
 - `links.new` sets `is_valid` at creation, and a topology change recomputes it, overwriting a Python write
 - Passes over `tree.links` find false links, and the node editor alone draws why
-- Evaluation ignores `is_valid`, a pair with no conversion leaving its target at the stored `default_value`
-- Fields in a `LINE` input hand it the type's zero
+- Evaluation ignores `is_valid`, unconvertible pairs leaving targets at the stored `default_value` and fields handing `LINE` inputs the type's zero
 
 ## [05]-[ZONES_AND_ITEMS]
 
@@ -174,17 +166,15 @@ Zone outputs hold the item collections:
 |  [04]   | Closure    | `input_items`, `output_items`                   |
 
 Zone bodies run per kind:
-- Simulation state items read zone input on the first frame
+- Simulation state items read zone input on the first frame and refuse `CLOSURE` with `RuntimeError`
 - Simulation outputs replay cached frames when stepped back and compute one step on a jump past the cache
-- Simulation state items refuse `CLOSURE` with `RuntimeError`
 - For Each bodies run once per element of the output's `domain`, input items taking a field outside and one value inside the zone
 - For Each main items return a field on that domain read on the zone output's `Geometry`, and generation items join each pass's geometry
 
 Closures and bundles match items by exact, case-sensitive name:
 - Evaluate Closure items match the closure's input and output items by name, and with no closure linked same-named inputs pass through
 - Missing closure outputs report `ERROR` in `node_warnings` and read the default, and type differences convert with an `INFO` entry
-- Separate Bundle reads Combine Bundle items by name and ignores extra keys
-- Missing bundle names and types with no conversion report `ERROR` and read the default
+- Separate Bundle reads Combine Bundle items by name and ignores extra keys, missing names and unconvertible types reading the default with `ERROR`
 - Bundle item names store `/*&|"^~!,{}()+$#@[];:?<>.-%\=` and leading and trailing spaces as `_`, duplicates taking `_001`
 - `define_signature` items sync through `bpy.ops.node.sockets_sync(node_name=...)` in a node editor context alone, `links.new` never syncing them
 
@@ -195,9 +185,8 @@ Item collections (`capture_items`, `bake_items`, `bundle_items`, `index_switch_i
 - `enum_items` and `rasterize_items` take `new(name)`, `index_switch_items` and `combine_list_items` take `new()`
 - Repeat and For Each items hold `socket_type`, Simulation items add `attribute_domain`, Bake items `attribute_domain` and `is_attribute`
 - For Each generation items hold `domain`, and closure, Evaluate Closure, and bundle items hold `structure_type`
-- Item sockets follow collection order after the node's fixed sockets
+- Item sockets follow collection order after the node's fixed sockets and take each item rename
 - Item socket identifiers come from a counter per node (`Item_<n>`, For Each `Input_<n>`, `Main_<n>`, `Generation_<n>`) that `clear()` keeps
-- Item renames rename item sockets
 - Repeat Output starts with one `Geometry` item in geometry trees and none in shader trees, `Item_0` on both zone nodes once paired
 - Menu Switch starts with items `A` and `B` and `GEOMETRY` data in geometry trees, `RGBA` in others
 - Menu Switch item sockets take identifiers `Item_<n>` in item order on both sides, beside the `Menu` input and `Output` value
@@ -241,8 +230,7 @@ Input items shape the values a group takes:
 - Output items take `attribute_domain`
 - `default_attribute_name` seeds the modifier's `attribute_name` on an output and sets `type = "ATTRIBUTE"` with that name on an input
 
-Menu sockets store an item's integer identifier and take item names case for case:
-- Renames keep every stored selection on sockets, interfaces, and modifiers
+Menu sockets store an item's integer identifier, keeping each selection across renames, and take item names case for case:
 - Menu Switch item edits regenerate `properties.inputs` of every modifier on the group
 - Values matching no item evaluate to the output type's default with no error
 - Group menu inputs list items while a link chain reaches a Menu Switch through group nodes, reroutes, and generic nodes
@@ -252,7 +240,6 @@ Menu sockets store an item's integer identifier and take item names case for cas
 
 Interface writes update every user before the call returns, and users keep values by identifier:
 - Group nodes and modifiers gain and lose sockets with each interface write, with no update call
-- Renames and moves keep stored values on group nodes and modifiers
 - Moves, removals, and retypes rewrite group node keyframe and driver paths to new indices and drop F-curves of removed sockets
 - Retypes convert modifier values, floats truncating to integers, numbers testing nonzero as booleans, menus keeping their integer, data-blocks kept
 - Retypes between scalars and arrays reset modifier values to the interface default, and arrays keep leading values
@@ -264,8 +251,7 @@ Interface writes update every user before the call returns, and users keep value
 ## [07]-[EVALUATION]
 
 Tree edits reach every user's next evaluation, nested groups included:
-- Node additions, removals, settings, socket defaults, links, and node mutes evaluate with no tag
-- `link.is_muted` writes evaluate after `tree.update_tag()`
+- Node additions, removals, settings, socket defaults, links, and node mutes evaluate with no tag, `link.is_muted` writes after `tree.update_tag()`
 - `node_warnings` items hold `message` and `type` (`ERROR`, `WARNING`, `INFO`), filled once an active depsgraph evaluates the modifier
 - `node_warnings` lists closure and bundle signature faults, and invalid links and broken zones evaluate with none
 - `mod.is_input_used(identifier)` and `mod.is_input_visible(identifier)` answer what menus and toggles leave in use
@@ -275,18 +261,15 @@ Tree edits reach every user's next evaluation, nested groups included:
 ## [08]-[MODIFIER_INPUTS]
 
 `obj.modifiers.new(name, "NODES")` takes a group through `node_group`:
-- Groups with no Group Output log `Node group must have a group output node` and evaluate empty with no `node_warnings` entry
-- Groups with a first output other than geometry evaluate empty with no `node_warnings` entry
+- Groups without Group Output, logging `Node group must have a group output node`, or a geometry first output evaluate empty with no `node_warnings`
 - Groups with a Geometry output and no Geometry input generate geometry
-- `properties.inputs.bl_rna.properties` lists `name` and one pointer per input identifier in interface order
-- `getattr(properties.inputs, identifier)` reads each input
+- `properties.inputs.bl_rna.properties` lists `name` and one pointer per input identifier in interface order, read through `getattr`
 - `properties.panels.open_<panel identifier>` holds each panel's open state
 - `type = "ATTRIBUTE"` reads the attribute on attribute-capable inputs with a `FIELD` or `DYNAMIC` group input, `value` applying elsewhere silently
 - Attribute names starting `.select`, `.edge`, or `.corner` read the type's zero
 - `properties.outputs.<identifier>.attribute_name` stores each Group Output input past the first on its item's `attribute_domain`
 - Output stores replace a same-named attribute of another domain or type
-- `value` holds the socket's static type: numbers, data-blocks for ID sockets, item names for menus
-- Menu input items list item names in `item.bl_rna.properties["value"].enum_items`
+- `value` holds the socket's static type: numbers, data-blocks for ID sockets, and menu item names from `item.bl_rna.properties["value"].enum_items`
 - `item.property_unset("value")` returns an input to the current interface default
 - `item.path_from_id("value")` returns the data path keyframes and drivers take on the object
 - `mod[identifier]` and `mod.get(identifier)` raise `TypeError`, modifiers holding no ID properties

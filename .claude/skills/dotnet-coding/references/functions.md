@@ -167,24 +167,24 @@ Existing APIs can expose arguments in an order that works poorly for partial app
 internal sealed record Template(string Text);
 internal sealed record Entry(Guid Id, string Name, decimal Amount);
 
-internal interface ConnectionIO {
+internal interface IConnection {
     public Seq<T> Query<T>(Template template, object parameters);
 }
 
 internal static class Queries {
     public static readonly Template EntryById = new("select * from entry where id = @Id");
-    public static Func<Template, object, Eff<RT, Seq<T>>> Query<RT, T>() where RT : Has<Eff<RT>, ConnectionIO> =>
-        static (template, parameters) => Has<Eff<RT>, RT, ConnectionIO>.ask.As().Map(connection => connection.Query<T>(template, parameters));
+    public static Func<Template, object, Eff<RT, Seq<T>>> Query<RT, T>() where RT : Has<Eff<RT>, IConnection> =>
+        static (template, parameters) => Has<Eff<RT>, RT, IConnection>.ask.As().Map(connection => connection.Query<T>(template, parameters));
 }
 
-internal static class Lookups<RT> where RT : Has<Eff<RT>, ConnectionIO> {
+internal static class Lookups<RT> where RT : Has<Eff<RT>, IConnection> {
     private static readonly Func<Template, object, Eff<RT, Seq<Entry>>> QueryEntries = Queries.Query<RT, Entry>();
     private static readonly Func<object, Eff<RT, Seq<Entry>>> QueryById = par(QueryEntries, Queries.EntryById);
     public static readonly Func<Guid, Eff<RT, Option<Entry>>> Lookup = static id => QueryById(new { Id = id }).Map(static rows => rows.Head);
 }
 ```
 
-Runtime `RT` supplies the connection through `Has<Eff<RT>, ConnectionIO>`, the runtime record holds the capability from startup and the implementation opens the short-lived connection when the query runs. Effects read the trait when the host runs them and not when the function is built. `EntryById` specializes the query to one operation and leaves only the invocation parameters, `Seq<A>.Head` is an `Option<A>` and lookup absence stays explicit. Custom types (`ConnectionIO`, `Template`) make the signature intention-revealing and own extension methods that do not belong on `string`.
+Runtime `RT` supplies the connection through `Has<Eff<RT>, IConnection>`, the runtime record holds the capability from startup and the implementation opens the short-lived connection when the query runs. Effects read the trait when the host runs them and not when the function is built. `EntryById` specializes the query to one operation and leaves only the invocation parameters, `Seq<A>.Head` is an `Option<A>` and lookup absence stays explicit. Custom types (`IConnection`, `Template`) make the signature intention-revealing and own extension methods that do not belong on `string`.
 
 ## [05]-[COMPOSITION_ROOT]
 
@@ -193,8 +193,8 @@ Function dependencies decouple the consumer from the implementation, take a dete
 Runtime record holds the configuration and implements one `Has` trait per capability, the workflow is generic over `RT` and builds an `Eff<RT, A>` from its function dependencies, `Eff<RT, A>.Lift(Func<Fin<A>>)` lifts a `Fin` into the query, a `from` clause binds the `IO<Unit>` dependency, and the host runs the effect once with `Run(rt)`, which returns `Fin<A>`:
 
 ```csharp
-internal sealed record AppRuntime(ConnectionIO Connection, TimeProvider Time) : Has<Eff<AppRuntime>, ConnectionIO> {
-    static K<Eff<AppRuntime>, ConnectionIO> Has<Eff<AppRuntime>, ConnectionIO>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Connection);
+internal sealed record AppRuntime(IConnection Connection, TimeProvider Time) : Has<Eff<AppRuntime>, IConnection> {
+    static K<Eff<AppRuntime>, IConnection> Has<Eff<AppRuntime>, IConnection>.Ask => Eff.runtime<AppRuntime>().Map(static rt => rt.Connection);
 }
 
 internal static class Workflow {
@@ -210,10 +210,7 @@ internal static class Workflow {
 
 internal static class Host {
     public static Fin<Entry> Book(AppRuntime runtime, Func<Command, IO<Unit>> save, Command command) =>
-        Workflow.Book(Validators.NotPast(Today(runtime.Time)), Lookups<AppRuntime>.Lookup, save, command).Run(runtime);
-
-    private static LocalDate Today(TimeProvider time) =>
-        time.ToZonedClock().GetCurrentDate();
+        Workflow.Book(Validators.NotPast(runtime.Time.ToZonedClock().GetCurrentDate()), Lookups<AppRuntime>.Lookup, save, command).Run(runtime);
 }
 ```
 
@@ -264,12 +261,12 @@ internal static class Stages {
 Immutable state stays separate from behavior, and a pure transition returns its expected failure as data in the return type, produces a value that later steps consume, and leaves the original state unchanged:
 
 ```csharp
-internal sealed record State(decimal Balance);
+internal sealed record Account(decimal Balance);
 
 internal static class Transitions {
-    extension(State state) {
-        public Fin<State> Debit(decimal amount) =>
-            Fault.Unless(state.Balance >= amount, Reason.Invalid, (state.Balance, amount)).Map(_ => new State(state.Balance - amount));
+    extension(Account state) {
+        public Fin<Account> Debit(decimal amount) =>
+            Fault.Unless(state.Balance >= amount, Reason.Invalid, (state.Balance, amount)).Map(_ => new Account(state.Balance - amount));
     }
 }
 ```
@@ -282,13 +279,13 @@ internal interface IRepository<T> {
     public IO<Unit> Save(Guid id, T value);
 }
 
-internal sealed class MemoryStates : IRepository<State> {
-    private readonly AtomHashMap<Guid, State> store = AtomHashMap<Guid, State>();
+internal sealed class MemoryAccounts : IRepository<Account> {
+    private readonly AtomHashMap<Guid, Account> store = AtomHashMap<Guid, Account>();
 
-    public IO<Option<State>> Get(Guid id) => IO.lift(() => store.Find(id));
-    public IO<Unit> Save(Guid id, State value) => IO.lift(() => store.AddOrUpdate(id, value));
+    public IO<Option<Account>> Get(Guid id) => IO.lift(() => store.Find(id));
+    public IO<Unit> Save(Guid id, Account value) => IO.lift(() => store.AddOrUpdate(id, value));
 }
-internal sealed class Handler(IRepository<State> states, Func<Command, State, IO<Unit>> notify) {
+internal sealed class Handler(IRepository<Account> states, Func<Command, Account, IO<Unit>> notify) {
     public IO<Unit> Handle(Command command) =>
         from state in Require(states.Get(command.TargetId))
         from next in IO.lift(Workflow.Handle(command, state))
@@ -296,8 +293,8 @@ internal sealed class Handler(IRepository<State> states, Func<Command, State, IO
         from __ in notify(command, next)
         select unit;
 
-    private static IO<State> Require(IO<Option<State>> lookup) =>
-        lookup.Bind(static option => IO.lift(option.ToFin(new Fault("state", Reason.Missing))));
+    private static IO<Account> Require(IO<Option<Account>> lookup) =>
+        lookup.Bind(static option => IO.lift(option.ToFin(new Fault("account", Reason.Missing))));
 }
 ```
 

@@ -1,6 +1,6 @@
 # [RESULTS]
 
-Covers the result-type flows, from validators to the laws and their property tests.
+Covers the result-type flows, from validators to the equations results satisfy and their property tests.
 
 ## [01]-[VALIDATION]
 
@@ -85,13 +85,13 @@ Every bound function returns the same failure type, choose the workflow's errors
 internal static class Lifting {
     private static readonly Func<int, int, int> Multiply = static (x, y) => x * y;
 
-    public static Option<int> Mapped(Option<int> left, Option<int> right) => Multiply.Map(left).Apply(right).As();
-    public static Option<int> Lifted(Option<int> left, Option<int> right) => Some(Multiply).Apply(left).Apply(right).As();
+    public static Option<int> Mapped(Option<int> left, Option<int> right) => Multiply.Map(left).Apply(right);
+    public static Option<int> Lifted(Option<int> left, Option<int> right) => Some(Multiply).Apply(left).Apply(right);
     public static Option<int> Tupled(Option<int> left, Option<int> right) => (left, right).Apply(Multiply).As();
 }
 ```
 
-`As()` returns the concrete type from the `K<Option, int>` the trait method returns.
+Chained `Apply` on `Option` returns `Option<int>`, and `As()` returns the concrete type from the `K<Option, int>` the tuple `Apply` returns.
 
 C# translates query clauses into method calls by name and signature, and an effect needs no `IEnumerable<T>` to take part: one `from` with `select` calls `Select`, an alias of `Map`, and every further `from` calls the ternary `SelectMany` that passes earlier values into the final projection without nested lambdas, one query shape runs over `Option` and over `Fin<A>`:
 
@@ -220,9 +220,9 @@ internal static class Folds {
 
 Scalar cases are the leaves and `Many` and `Keyed` are the containers, the recursive members are ordinary case properties that leave the generator's case discovery unchanged, and a fold takes one replacement per constructor: each scalar replacement receives that case's value, `Nil` receives nothing, and the container replacements receive already-folded child results. Recursion sits in `Fold` once, the handler record passes as the `Switch` state, every arm stays `static`, `Count` replaces every leaf with 1 and adds the node to its children, and `Depth` replaces each container with one more than its deepest child. Remaining operations follow the return-type rules: member lookup passes the requested key as the state and returns `Option<Node>`, a `Keyed` without the key and every other case answer `None`, typed extraction returns `Fin<A>` with an error naming the wanted and the found case, and an operation that preserves a case takes the case type directly when the caller already holds one, which removes the wrong-shape error from its signature.
 
-## [05]-[LAWS]
+## [05]-[EQUATIONS]
 
-Dedicated `Apply` stays more efficient than one derived from `Bind` and keeps the semantics (accumulation) that a short-circuiting `Bind` cannot give. Laws are equations an implementation must satisfy for every value, including `None` and the failure case, and an implementation that hides mutation, counters, or state tied to the number of calls breaks safe refactoring:
+Dedicated `Apply` stays more efficient than one derived from `Bind` and keeps the semantics (accumulation) that a short-circuiting `Bind` cannot give. Implementations satisfy these equations for every value, including `None` and the failure case, and an implementation that hides mutation, counters, or state tied to the number of calls breaks safe refactoring:
 
 ```text
 Functor identity:    fa.Map(x => x) == fa
@@ -233,9 +233,9 @@ Monad left identity:  Pure(t).Bind(f) == f(t)
 Monad associativity:  m.Bind(f).Bind(g) == m.Bind(x => f(x).Bind(g))
 ```
 
-Identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion. Associativity lets a multi-argument function enter a monadic pipeline, the right-associated form lets the innermost function close over every earlier value and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run the checks.
+Both identities require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion. Associativity lets a multi-argument function enter a monadic pipeline, the right-associated form lets the innermost function close over every earlier value and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run the checks.
 
-Property-based tests check algebraic laws and invariants over generated inputs (removing items from a cart never increases its total), random sampling raises confidence without proving a universal law:
+Property-based tests check these equations and invariants over generated inputs (removing items from a cart never increases its total), random sampling raises confidence without proving an equation for every input:
 
 ```csharp
 internal static class Properties {
@@ -245,7 +245,7 @@ internal static class Properties {
         Gen.OneOf(Gen.Int[-1000, 1000].Select(static x => Some(x)), Gen.Const(Option<int>.None));
 
     public static void Equivalence() =>
-        Operand.Select(Operand).Sample((a, b) => Multiply.Map(a).Apply(b).As() == Lifted.Apply(a).Apply(b).As());
+        Operand.Select(Operand).Sample(static (a, b) => Multiply.Map(a).Apply(b) == Lifted.Apply(a).Apply(b));
 }
 ```
 

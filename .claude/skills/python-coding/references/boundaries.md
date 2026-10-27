@@ -4,7 +4,7 @@ Covers one entry's flow from argv and environment through codecs and resources t
 
 ## [01]-[SETTINGS]
 
-Entries decode settings once from every source a run reads. `Environment` maps a process variable onto its field through `rename`, `tomllib` parses the file it names, and `key=value` arguments override its table before one `convert` with `strict=False` validates the merge:
+Entries decode settings once from every source a run reads. `Environment` maps a process variable onto its field through `rename`, `tomllib` parses the file it names, and `key=value` arguments override its table before one `convert` with `strict=False` validates the merge. `Fault`, `Faults`, `Outcome`, and `Reason` are the package faults with an `UNWRITABLE` reason:
 
 ```python
 class Environment(msgspec.Struct, frozen=True, kw_only=True, rename={"config": "TOOL_CONFIG"}):
@@ -15,6 +15,10 @@ class Settings(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=
     target: str
     limit: Annotated[int, msgspec.Meta(ge=1)] = 4
     verbose: bool = False
+
+
+def _invalid(subject: str, error: msgspec.ValidationError, /) -> Faults:
+    return (Fault(reason=Reason.INVALID, subject=subject, cause=error),)
 
 
 @catch(exception=msgspec.ValidationError)
@@ -32,25 +36,24 @@ def _converted(fields: dict[str, object], /) -> Settings:
     return msgspec.convert(fields, Settings, strict=False)
 
 
-def _table(path: Path, /) -> Result[dict[str, object], Faults]:
+def _table(path: Path, /) -> Outcome[dict[str, object]]:
     return (
         catch(path.read_bytes, exception=OSError)()
-        .map_error(partial(Fault.caught, Reason.UNREADABLE, path))
-        .bind(lambda raw: _parsed(raw).map_error(partial(Fault.caught, Reason.INVALID, path)))
+        .map_error(lambda error: (Fault(reason=Reason.UNREADABLE, subject=str(path), cause=error),))
+        .bind(lambda raw: _parsed(raw).map_error(lambda error: (Fault(reason=Reason.INVALID, subject=str(path), cause=error),)))
     )
 
 
-def configured(environ: Mapping[str, str], argv: Sequence[str], /) -> Result[Settings, Faults]:
+def configured(environ: Mapping[str, str], argv: Sequence[str], /) -> Outcome[Settings]:
     overrides = {key: value for key, _, value in (pair.partition("=") for pair in argv)}
     return (
         _environment(environ)
-        .map_error(partial(Fault.caught, Reason.INVALID, Environment.__name__))
+        .map_error(partial(_invalid, Environment.__name__))
         .bind(lambda environment: _table(Path(environment.config)))
-        .bind(lambda table: _converted(table | overrides).map_error(partial(Fault.caught, Reason.INVALID, Settings.__name__)))
+        .bind(lambda table: _converted(table | overrides).map_error(partial(_invalid, Settings.__name__)))
     )
 ```
 
-- `Fault`, `Faults`, and `Reason` are the package's fault record, its tuple alias, and its reason enum
 - `convert` over `os.environ` reads the variables `Environment` declares and ignores every other one
 - `TOMLDecodeError` and `UnicodeDecodeError` are both `ValueError`, one `catch` over `_parsed` keeps either as cause
 - `table | overrides` lets arguments win, and `strict=False` turns `limit=8` and `verbose=true` into an `int` and a `bool`
@@ -58,7 +61,7 @@ def configured(environ: Mapping[str, str], argv: Sequence[str], /) -> Result[Set
 
 ## [02]-[CODECS]
 
-Wire records keep an optional field as `T | None` for the codec and hand consumers its `Option` through a property. Request streams decode line by line, each malformed line becomes faults that name its line number, and every other line decodes:
+`Quota` decodes its optional `limit` as `int | None`, and `ceiling` returns its `Option`. Request streams decode line by line, each malformed line becomes faults that name its line number, and every other line decodes:
 
 ```python
 class Quota(msgspec.Struct, frozen=True, kw_only=True):
@@ -73,15 +76,14 @@ class Quota(msgspec.Struct, frozen=True, kw_only=True):
 QUOTA = msgspec.json.Decoder(Quota)
 
 
-def quota(index: int, line: bytes, /) -> Result[Quota, Faults]:
-    return catch(QUOTA.decode, exception=msgspec.DecodeError)(line).map_error(partial(Fault.caught, Reason.INVALID, f"line {index}"))
+def quota(index: int, line: bytes, /) -> Outcome[Quota]:
+    return catch(QUOTA.decode, exception=msgspec.DecodeError)(line).map_error(lambda error: (Fault(reason=Reason.INVALID, subject=f"line {index}", cause=error),))
 
 
-def quotas(raw: bytes, /) -> tuple[Result[Quota, Faults], ...]:
+def quotas(raw: bytes, /) -> tuple[Outcome[Quota], ...]:
     return tuple(quota(index, line) for index, line in enumerate(raw.splitlines(), start=1) if line.strip())
 ```
 
-- `catch(QUOTA.decode, ...)` types as `Result[Quota, DecodeError]`, `catch(msgspec.json.decode, ...)(line, type=Quota)` types its value as `Any`
 - Numbering runs before the blank-line filter, fault subjects keep each line's position in the input
 - Causes keep msgspec's message with its field path (``Expected `str`, got `int` - at `$.name` ``)
 
@@ -107,15 +109,15 @@ def _written(target: Path, content: bytes, /) -> Path:
     return target
 
 
-def written(target: Path, content: bytes, /) -> Result[Path, Faults]:
-    return _written(target, content).map_error(partial(Fault.caught, Reason.UNWRITABLE, target))
+def written(target: Path, content: bytes, /) -> Outcome[Path]:
+    return _written(target, content).map_error(lambda error: (Fault(reason=Reason.UNWRITABLE, subject=str(target), cause=error),))
 ```
 
 - Staged names share their target's folder, `replace` stays one rename on one filesystem, and readers see the old file or the new one
 - Failed writes leave their target as it was, and release after a commit finds no staged name
 - `_written` is the one typed reader for its block, every call in it raises `OSError`
 
-Acquisitions with a count known at runtime enter one `ExitStack`, and `pop_all` moves every release to a new stack once the last acquisition succeeds. A failed open closes each stream opened before it, and success hands the caller a stack owning every stream:
+`_opened` enters each stream on one `ExitStack`, and `pop_all` moves every release to a new stack after the last open. A failed open closes each stream opened before it, and success hands the caller a stack owning every stream to enter (`with owner:`) or pass to its entry's stack (`root.enter_context(owner)`):
 
 ```python
 @catch(exception=OSError)
@@ -125,11 +127,9 @@ def _opened(paths: Sequence[Path], /) -> tuple[ExitStack, tuple[BufferedReader, 
         return stack.pop_all(), streams
 
 
-def opened(paths: Sequence[Path], /) -> Result[tuple[ExitStack, tuple[BufferedReader, ...]], Faults]:
-    return _opened(paths).map_error(partial(Fault.caught, Reason.UNREADABLE, paths))
+def opened(paths: Sequence[Path], /) -> Outcome[tuple[ExitStack, tuple[BufferedReader, ...]]]:
+    return _opened(paths).map_error(lambda error: (Fault(reason=Reason.UNREADABLE, subject=", ".join(map(str, paths)), cause=error),))
 ```
-
-- Callers enter the returned stack (`with owner:`) or hand it to their entry's stack through `root.enter_context(owner)`
 
 ## [04]-[ENTRY]
 
@@ -141,35 +141,32 @@ class Summary(msgspec.Struct, frozen=True, kw_only=True):
     refused: tuple[str, ...]
 
     @classmethod
-    def of(cls, outcomes: Iterable[Result[Quota, Faults]], /) -> Summary:
-        settled = tuple(outcomes)
+    def of(cls, outcomes: Sequence[Outcome[Quota]], /) -> Summary:
         return cls(
-            granted=tuple(*outcome.map(lambda quota: (quota.name,)).default_value(()) for outcome in settled),
-            refused=tuple(*outcome.swap().map(lambda faults: tuple(fault.message for fault in faults)).default_value(()) for outcome in settled),
+            granted=tuple(*outcome.map(lambda quota: (quota.name,)).default_value(()) for outcome in outcomes),
+            refused=tuple(*outcome.swap().map(lambda faults: tuple(fault.message for fault in faults)).default_value(()) for outcome in outcomes),
         )
-
-    @property
-    def code(self) -> int:
-        return 1 if self.refused else 0
-
 
 SUMMARY = msgspec.json.Encoder()
 
 
-def granted(settings: Settings, quota: Quota, /) -> Result[Quota, Faults]:
-    return Ok(quota).filter_with(lambda entry: entry.ceiling.map(lambda limit: limit <= settings.limit).default_value(True), partial(Fault.of, Reason.EXCEEDED))
+def granted(settings: Settings, quota: Quota, /) -> Outcome[Quota]:
+    return Ok(quota).filter_with(
+        lambda entry: entry.ceiling.map(lambda limit: limit <= settings.limit).default_value(True),
+        lambda entry: (Fault(reason=Reason.OUTSIDE, subject=entry.name, member=f"a limit up to {settings.limit}", cause=str(entry.limit)),),
+    )
 
 
-def run(settings: Settings, raw: bytes, /) -> Result[Summary, Faults]:
-    summary = Summary.of(outcome.bind(partial(granted, settings)) for outcome in quotas(raw))
+def run(settings: Settings, raw: bytes, /) -> Outcome[Summary]:
+    summary = Summary.of(tuple(outcome.bind(partial(granted, settings)) for outcome in quotas(raw)))
     return written(Path(settings.target), SUMMARY.encode(summary)).map(lambda _: summary)
 
 
-def exited(outcome: Result[Summary, Faults], /) -> int:
+def exited(outcome: Outcome[Summary], /) -> int:
     match outcome.tag:
         case "ok":
             sys.stderr.writelines(f"{line}\n" for line in outcome.ok.refused)
-            return outcome.ok.code
+            return 1 if outcome.ok.refused else 0
         case "error":
             sys.stderr.writelines(f"{fault.message}\n" for fault in outcome.error)
             return 2
@@ -185,5 +182,5 @@ if __name__ == "__main__":
 
 - `main` receives process input as arguments, and the `__main__` guard reads `os.environ`, `sys.argv`, and stdin once
 - Summaries hold fault messages, msgspec raises `TypeError` encoding a `Fault` with its caught cause
-- Refused lines leave the run's result `Ok`, and `Summary.code` carries them into the exit code
+- Refused lines leave the run's result `Ok`, and `exited` turns them into exit code 1
 - Unwritable targets fail a run after its batch, its summary reaches no reader, and its exit code is 2

@@ -1,10 +1,10 @@
 # [RECORDS]
 
-Covers record flows from decode to transition, with tagged unions, recursive unions, state machines, and array fields.
+Covers record flows from decode to transition, with tagged unions, recursive unions, transitions, and array fields.
 
 ## [01]-[LIFECYCLE]
 
-Records enter through a decode or `msgspec.convert` checking `Meta` bounds and `__post_init__`, and change through transitions returning a `msgspec.structs.replace` copy. `Fault`, `Faults`, and `Reason` are the package faults:
+`Line` bounds `sku` and `count` through `Meta`, checks `reserved` against `count` in `__post_init__`, and books stock through a transition. `Fault`, `Outcome`, and `Reason` are the package faults:
 
 ```python
 type Count = Annotated[int, msgspec.Meta(ge=1)]
@@ -29,10 +29,10 @@ class Line(msgspec.Struct, frozen=True, kw_only=True):
     def total(self) -> Decimal:
         return self.count * self.price
 
-    def booked(self, extra: int, /) -> Result[Line, Faults]:
+    def booked(self, extra: int, /) -> Outcome[Line]:
         return (
             Ok(self)
-            .filter_with(lambda line: 0 < extra <= line.free, lambda _: Fault.of(Reason.INVALID, extra))
+            .filter_with(lambda line: 0 < extra <= line.free, lambda line: (Fault(reason=Reason.OUTSIDE, subject="extra", member=f"1 to {line.free}", cause=str(extra)),))
             .map(lambda line: msgspec.structs.replace(line, reserved=line.reserved + extra))
         )
 
@@ -162,108 +162,38 @@ NODE: msgspec.json.Decoder[Node] = msgspec.json.Decoder(Node)
 
 `type Node` precedes the classes it names, an alias value evaluates on first use. `Group` holds what both groups share (`parts`, `cells`, `aged`), and each group adds the ratings that differ: capacity takes the weakest part in series and adds in parallel, voltage adds in series, and resistance adds in series and adds as conductance in parallel. Recursion sits in the properties: a group computes `capacity` from each part's `capacity`, a cell holds `capacity` as a field, and nesting depth bounds the recursion. `cells` flattens leaves in order through comprehension unpacking, and `aged` rebuilds every level and returns `Self`: an aged `Series` stays a `Series`. `Series(parts=(Parallel(parts=(cell, cell)),) * 4)` over `Cell(capacity=3.0, voltage=3.6, resistance=0.03)` rates `6.0` capacity, `14.4` voltage, and `0.06` resistance.
 
-`NODE` validates every level of a nested pack, and an empty group at any depth fails with its path (`` Parallel(parts=()) - at `$.parts[0]` ``). `Node` lists the cases alone, and `Group` decodes as no case (`` Invalid value 'Group' - at `$.type` ``). `Decoder(tuple[Shape, ...])` types its result from its argument, a bare `type` alias argument types the codec as `Decoder[Any]`, and the annotation on `NODE` restores `Node`.
+`NODE` validates every level of a nested pack, and an empty group at any depth fails with its path (`` Parallel(parts=()) - at `$.parts[0]` ``). `Node` lists the cases alone, and `Group` decodes as no case (`` Invalid value 'Group' - at `$.type` ``). The annotation on `NODE` restores the `Node` type its alias argument erases.
 
-## [04]-[STATE_MACHINES]
+## [04]-[TRANSITIONS]
 
-Transitions take configuration, then state, then event, and match on the `(state, event)` pair. `reduce` replays a history into its final state, and `accumulate` yields each state:
+Transitions return the next state as a value, and `reduce` replays a history into its final state while `accumulate` yields each state. `History` holds its merge interval beside its entries, newest first:
 
 ```python
-class Trip(StrEnum):
-    OVERHEAT = "overheat"
-    UNDERVOLTAGE = "undervoltage"
+class History[T](msgspec.Struct, frozen=True, kw_only=True):
+    interval: float
+    past: tuple[tuple[float, T], ...] = ()
+
+    def added(self, entry: tuple[float, T], /) -> Self:
+        match self.past:
+            case ((moment, _), *rest) if 0.0 <= entry[0] - moment < self.interval:
+                return msgspec.structs.replace(self, past=(entry, *rest))
+            case _:
+                return msgspec.structs.replace(self, past=(entry, *self.past))
 
 
-class Limits(msgspec.Struct, frozen=True, kw_only=True):
-    temperature: float = 60.0
-    floor: float = 0.05
-    full: float = 0.95
+def replayed[T](start: History[T], entries: Iterable[tuple[float, T]], /) -> History[T]:
+    return reduce(History.added, entries, start)
 
 
-class Mode(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    soc: float
-
-
-class Idle(Mode, frozen=True, kw_only=True): ...
-
-
-class Charging(Mode, frozen=True, kw_only=True): ...
-
-
-class Discharging(Mode, frozen=True, kw_only=True):
-    current: float
-
-
-class Tripped(Mode, frozen=True, kw_only=True):
-    trip: Trip
-
-
-class Signal(msgspec.Struct, frozen=True, kw_only=True, tag=True): ...
-
-
-class Plugged(Signal, frozen=True, kw_only=True): ...
-
-
-class Unplugged(Signal, frozen=True, kw_only=True): ...
-
-
-class Drawn(Signal, frozen=True, kw_only=True):
-    current: float
-
-
-class Sampled(Signal, frozen=True, kw_only=True):
-    soc: float
-    temperature: float
-
-
-class Reset(Signal, frozen=True, kw_only=True): ...
-
-
-type State = Idle | Charging | Discharging | Tripped
-type Event = Plugged | Unplugged | Drawn | Sampled | Reset
-
-
-def transition(limits: Limits, state: State, event: Event, /) -> State:
-    match state, event:
-        case Tripped(soc=soc), Reset():
-            return Idle(soc=soc)
-        case Tripped(), _:
-            return state
-        case _, Sampled(soc=soc, temperature=temperature) if temperature >= limits.temperature:
-            return Tripped(soc=soc, trip=Trip.OVERHEAT)
-        case Discharging(), Sampled(soc=soc) if soc <= limits.floor:
-            return Tripped(soc=soc, trip=Trip.UNDERVOLTAGE)
-        case Charging(), Sampled(soc=soc) if soc >= limits.full:
-            return Idle(soc=soc)
-        case _, Sampled(soc=soc):
-            return msgspec.structs.replace(state, soc=soc)
-        case Idle(soc=soc) | Discharging(soc=soc), Plugged():
-            return Charging(soc=soc)
-        case Charging(soc=soc), Unplugged():
-            return Idle(soc=soc)
-        case Idle(soc=soc) | Discharging(soc=soc), Drawn(current=current) if current > 0.0:
-            return Discharging(soc=soc, current=current)
-        case Discharging(soc=soc), Drawn():
-            return Idle(soc=soc)
-        case _:
-            return state
-
-
-def replayed(limits: Limits, start: State, events: Iterable[Event], /) -> State:
-    return reduce(partial(transition, limits), events, start)
-
-
-def history(limits: Limits, start: State, events: Iterable[Event], /) -> tuple[State, ...]:
-    return tuple(accumulate(events, partial(transition, limits), initial=start))
+def history[T](start: History[T], entries: Iterable[tuple[float, T]], /) -> tuple[History[T], ...]:
+    return tuple(accumulate(entries, History.added, initial=start))
 ```
 
-Arm order states precedence: `Tripped` absorbs every event except `Reset`, an overheat sample trips from any other state, and guards read `limits`. Alternatives (`Idle(soc=soc) | Discharging(soc=soc)`) bind one name in each alternative and share one body. `msgspec.structs.replace(state, soc=soc)` keeps the case and its other fields and moves the `soc` every case shares through `Mode`. Pairs no arm names keep their state through `case _:`, and mypy and ty report a missing return without it.
-
-`partial(transition, limits)` leaves the `(State, Event) -> State` step `reduce` and `accumulate` take. `history` returns `start` and the state after each event, and an empty history replays to `start`. Events are tagged records, and a codec annotated `msgspec.json.Decoder[Event]` reads an event log through `decode_lines`.
+Entries within `interval` of the newest entry replace it, and every other entry goes first: entries at `0.0`, `0.5`, and `2.0` under an interval of `1.0` leave the ones at `2.0` and `0.5`. The sequence pattern binds the newest entry's moment and every older entry, and its guard reads the record's own setting. Configuration a record holds leaves the unbound `History.added` as the `(state, event) -> state` step `reduce` and `accumulate` take, with no `partial`. `history` returns `start` and the state after each entry, and an empty history replays to `start`.
 
 ## [05]-[ARRAY_FIELDS]
 
-Records holding an array declare `eq=False`, check shape in `__post_init__`, and derive each new array through a whole-array call:
+`Trace` checks its array's shape in `__post_init__` and derives each new array through a whole-array call:
 
 ```python
 type Samples = npt.NDArray[np.float64]
@@ -285,4 +215,4 @@ class Trace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return msgspec.structs.replace(self, volts=np.maximum(self.volts, floor))
 ```
 
-`eq=False` makes `==` and `hash` read identity: a record equals itself, a second record over the same array compares unequal, and both enter one `set`. Frozen records refuse field assignment with `AttributeError` and leave array elements writable. `clipped` builds a new array through `np.maximum` and leaves `trace.volts` unchanged. Codecs neither decode nor encode an `ndarray` field (`` Expected `numpy.ndarray`, got `list` ``): a wire record holds `tuple[float, ...]`, and the array record builds after the decode.
+`Trace` records over one array compare unequal and share one `set`. Frozen records refuse field assignment with `AttributeError` and leave array elements writable. `clipped` builds a new array through `np.maximum` and leaves `trace.volts` unchanged. Codecs neither decode nor encode an `ndarray` field (`` Expected `numpy.ndarray`, got `list` ``): a wire record holds `tuple[float, ...]`, and the array record builds after the decode.

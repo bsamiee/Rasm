@@ -14,7 +14,7 @@ internal sealed record Total(decimal Value) : Monoid<Total> {
 
 internal static class Monoids {
     public static B FoldMap<A, B>(Seq<A> items, Func<A, B> project) where B : Monoid<B> =>
-        items.Fold(B.Empty, static (state, item) => state + project(item));
+        items.Fold(B.Empty, (state, item) => state + project(item));
 }
 ```
 
@@ -61,9 +61,9 @@ Generic functions target `Foldable<T>` and reach the optimized witness members, 
 internal static class Independent {
     private static readonly Func<int, int, int> Add = static (left, right) => left + right;
 
-    public static Option<int> Summed(Option<int> left, Option<int> right) => Add.Map(left).Apply(right).As();
+    public static Option<int> Summed(Option<int> left, Option<int> right) => Add.Map(left).Apply(right);
     public static IO<string> Joined(IO<string> first, IO<string> second, IO<string> third) =>
-        fun((string a, string b, string c) => a + b + c).Map(first).Apply(second).Apply(third).As();
+        fun(static (string a, string b, string c) => a + b + c).Map(first).Apply(second).Apply(third);
 }
 ```
 
@@ -108,12 +108,12 @@ Monads sequence computations in a context through `Bind : M<A> -> (A -> M<B>) ->
 
 Monads in a return type mark the expression with their behavior, `IO<A>` declares that it performs I/O and `Option<A>` that it can produce no value. Visible contexts separate effectful from non-effectful code and preserve composition. Custom monads are ordinary application types with cross-cutting behavior (a database monad that manages connections and I/O, a service monad that manages configuration and third-party access). Trait operations enable the generic library behavior including LINQ, and the type's supporting functions (`ask`, `tell`, `get`, `put`) form its practical API. Each is a single-feature monad, `Option` and `IO` do not combine in one expression, and transformers replace handwritten combined types that grow with every pairing.
 
-## [07]-[LAWS]
+## [07]-[VALIDATION]
 
-`FunctorLaw<F>.validate(fa)`, `ApplicativeLaw<F>.validate()`, and `MonadLaw<F>.validate()` return `Validation<Error, Unit>`, a failed law contributes an accumulated `Error`, and `IsSuccess` reads the outcome. The functor check tests identity and composition on one value, the applicative check runs the functor laws and then identity, composition, homomorphism, and interchange, and the monad check runs the applicative laws, both identities, associativity, and the equivalence of `Monad.recur` with `Bind`:
+`FunctorLaw<F>.validate(fa)`, `ApplicativeLaw<F>.validate()`, and `MonadLaw<F>.validate()` return `Validation<Error, Unit>`, a failed equation contributes an accumulated `Error`, and `IsSuccess` reads the outcome. The functor check tests identity and composition on one value, the applicative check runs the functor equations and then identity, composition, homomorphism, and interchange, and the monad check runs the applicative equations, both identities, associativity, and the equivalence of `Monad.recur` with `Bind`:
 
 ```csharp
-internal static class Laws {
+internal static class Validations {
     public static Validation<Error, Unit> OptionFunctor => FunctorLaw<Option>.validate(Some(1));
     public static Validation<Error, Unit> FinApplicative => ApplicativeLaw<Fin>.validate();
     public static Validation<Error, Unit> FinMonad => MonadLaw<Fin>.validate();

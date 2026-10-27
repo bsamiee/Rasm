@@ -96,7 +96,7 @@ class _Doc[T](msgspec.Struct, frozen=True):
     path: Path
     lines: tuple[str, ...]
     parts: T
-    fixed: int = 0
+    edits: int = 0
 
 
 class _Grammar[T](msgspec.Struct, frozen=True):
@@ -116,7 +116,7 @@ class _Grammar[T](msgspec.Struct, frozen=True):
                     return doc
                 case changed:
                     lines = reduce(lambda done, edit: (*done[: edit.start], *edit.lines, *done[edit.stop :]), changed, doc.lines)
-                    return msgspec.structs.replace(doc, lines=lines, parts=self.parse(doc.path, lines), fixed=doc.fixed + len(changed))
+                    return msgspec.structs.replace(doc, lines=lines, parts=self.parse(doc.path, lines), edits=doc.edits + len(changed))
 
         with path.open(encoding="utf-8") as file:
             lines = tuple(line.removesuffix("\n") for line in file)
@@ -124,7 +124,7 @@ class _Grammar[T](msgspec.Struct, frozen=True):
         texts = [*self.texts(doc)]
         ran = (*((message, report(doc)) for report, message in self.reports.items()), *((message, [(t.line, s) for t in texts for s in report(t)]) for report, message in _TEXTS.items()))
         hits = sorted(((line, message.format(subject)) for message, found in ran for line, subject in found), key=lambda hit: hit[0])
-        return _Doc(path, doc.lines, tuple(f"{path}:{line + 1}: {message}\n" for line, message in hits), doc.fixed)
+        return _Doc(path, doc.lines, tuple(f"{path}:{line + 1}: {message}\n" for line, message in hits), doc.edits)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -527,18 +527,18 @@ def check(*paths: ExistingPath) -> int:
     """Prints fix command per fixable file, then each report as `path:line: message`, exiting 1 on any."""
     linted = _linted(paths)
     found = [*d.parts for d in linted]
-    total = sum(d.fixed for d in linted)
-    sys.stdout.writelines((*(f"{d.path}: {d.fixed} fixable, python {sys.argv[0]} fix {d.path}\n" for d in linted if d.fixed), *found, f"Found {len(found) + total} findings, {total} fixable\n"))
+    total = sum(d.edits for d in linted)
+    sys.stdout.writelines((*(f"{d.path}: {d.edits} fixable, python {sys.argv[0]} fix {d.path}\n" for d in linted if d.edits), *found, f"Found {len(found) + total} findings, {total} fixable\n"))
     return int(bool(found or total))
 
 
 def fix(*paths: ExistingPath) -> int:
     """Writes fixed files and prints remaining reports, exiting 1 on any."""
     linted = _linted(paths)
-    for d in (d for d in linted if d.fixed):
+    for d in (d for d in linted if d.edits):
         d.path.write_text("".join(f"{line}\n" for line in d.lines), encoding="utf-8")
     left = [*d.parts for d in linted]
-    sys.stdout.writelines((*left, f"Fixed {sum(d.fixed for d in linted)}, {len(left)} remaining\n"))
+    sys.stdout.writelines((*left, f"Fixed {sum(d.edits for d in linted)}, {len(left)} remaining\n"))
     return int(bool(left))
 
 

@@ -29,8 +29,7 @@ def build_all(target: str, *, clean: bool = False) -> int:
     return 0 if clean else len(target)
 ```
 
-- Calls through a record check against `P` under both checkers, `build_all(1)` fails mypy and ty
-- Keyword arguments for a positional-only parameter pass ty through `P` and fail mypy
+- Calls through a record check against `P`, and `build_all(1)` or a keyword for a positional-only parameter fails mypy and ty
 - Records over one function compare and hash equal (`Command(build_all.__wrapped__) == build_all`), a table keyed by record holds each function once
 
 Class declarations derive through a base hook when each entry is a type with class attributes. `ClassVar` declarations on `Rule` type every attribute its hook writes, and each subclass states its docstring and pattern alone:
@@ -124,35 +123,34 @@ def _(value: Decimal, /) -> str:
     return f"{value:.2f}"
 ```
 
-- Tables keyed by a tuple hold every combination, `RATES[kind, tier]` reads one, and a missing pair raises `KeyError` as a defect
-- Dict displays keyed by `msgspec.Struct` classes fail mypy as `frozendict` input, a tuple of pairs (`frozendict(((Circle, 0), (Square, 4)))`) passes both
+- Tables keyed by a tuple of members hold every combination, `TABLE[kind, tier]` reads one, and a missing pair raises `KeyError` as a defect
+- Dict displays keyed by subclasses of one `msgspec.Struct` base fail mypy, an annotated tuple of pairs passes both checkers
 - Implementations in another module register when their module imports, and the dispatcher's module imports none of them
 
 ## [03]-[SPECIALIZATION]
 
-Handlers take each dependency as the function they call, and composition binds it once through `partial`. `sized` reads bytes through `Reader` and checks a limit, production binds `disk`, and a probe binds `fixed` over chosen content:
+Handlers take each dependency as the function they call, and composition binds it once through `partial`. `sized` reads bytes through `Reader` and checks a limit, production binds `disk`, and a probe binds `fixed` over chosen content. `Fault`, `Outcome`, and `Reason` are the package faults:
 
 ```python
-type Reader = Callable[[Path], Result[bytes, Faults]]
+type Reader = Callable[[Path], Outcome[bytes]]
 
 
-def disk(path: Path, /) -> Result[bytes, Faults]:
-    return catch(path.read_bytes, exception=OSError)().map_error(partial(Fault.caught, Reason.UNREADABLE, path))
+def disk(path: Path, /) -> Outcome[bytes]:
+    return catch(path.read_bytes, exception=OSError)().map_error(lambda error: (Fault(reason=Reason.UNREADABLE, subject=str(path), cause=error),))
 
 
-def sized(read: Reader, limit: int, path: Path, /) -> Result[int, Faults]:
-    return read(path).map(len).filter_with(lambda size: size <= limit, partial(Fault.of, Reason.INVALID))
+def sized(read: Reader, limit: int, path: Path, /) -> Outcome[int]:
+    return read(path).map(len).filter_with(lambda size: size <= limit, lambda size: (Fault(reason=Reason.OUTSIDE, subject=str(path), member=f"at most {limit} bytes", cause=str(size)),))
 
 
-def fixed(content: bytes, _path: Path, /) -> Result[bytes, Faults]:
+def fixed(content: bytes, _path: Path, /) -> Outcome[bytes]:
     return Ok(content)
 
 
-handled: Callable[[Path], Result[int, Faults]] = partial(sized, disk, 4096)
-probe: Callable[[Path], Result[int, Faults]] = partial(sized, partial(fixed, b"abc"), 2)
+handled: Callable[[Path], Outcome[int]] = partial(sized, disk, 4096)
+probe: Callable[[Path], Outcome[int]] = partial(sized, partial(fixed, b"abc"), 2)
 ```
 
-- `Fault`, `Faults`, and `Reason` are the package's fault record, its tuple alias, and its reason enum
 - Both checkers check arguments a `partial` binds, and mypy accepts the `partial[R]` it infers in any `Callable` slot returning `R`
 - `partial` values keep their remaining parameters under ty, and a slot with other parameters fails
 
@@ -164,13 +162,13 @@ Pipelines name a composition of unary steps once and apply it where each value e
 slug: Callable[[str], str] = compose(str.strip, str.casefold, partial(re.compile(r"[\s_]+").sub, "-"))
 
 
-def tier(text: str, /) -> Result[Tier, Faults]:
-    return pipe(text, slug, catch(Tier, exception=ValueError)).map_error(partial(Fault.caught, Reason.INVALID, text))
+def tier(text: str, /) -> Outcome[Tier]:
+    return pipe(text, slug, catch(Tier, exception=ValueError)).map_error(lambda error: (Fault(reason=Reason.INVALID, subject=repr(text), cause=error),))
 ```
 
 - Unbound methods (`str.strip`, `str.casefold`) are unary steps over their subject
 - Steps fixing a later argument bind a method of the fixed object, `partial(pattern.sub, "-")` leaves the text parameter open
-- `catch(Tier, exception=ValueError)` keeps `Tier` as its value type, and its `...` parameters accept the text unchecked
-- `compose` takes at most nine steps and `pipe` thirteen, a longer call matches no overload, and a long chain splits into named compositions
+- `catch(Tier, exception=ValueError)` keeps `Tier` as its value type
+- `compose` takes at most nine steps and `pipe` sixteen, a longer call matches no overload, and a long chain splits into named compositions
 - Composition is associative and `compose()` is the identity, regrouping steps into named parts keeps behavior
 - `Result.pipe` and `Option.pipe` apply functions to the container, `map` and `bind` apply them to its value
