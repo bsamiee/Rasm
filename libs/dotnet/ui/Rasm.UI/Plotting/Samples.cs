@@ -13,14 +13,15 @@ public sealed class Samples(ReadOnlyMemory<float> values) {
     private const int Shift = 6;
     private const int Block = 1 << Shift;
 
-    private readonly Lazy<Seq<Level>> pyramid = new(() => toSeq(SuperEnumerable.Generate(Coarsened(values, values), static level => Coarsened(level.Low, level.High)).TakeWhile(static level => level.Low.Length > 1)));
+    private readonly Lazy<Seq<(ReadOnlyMemory<float> Low, ReadOnlyMemory<float> High)>> pyramid =
+        new(() => toSeq(SuperEnumerable.Generate(Coarsened(values, values), static level => Coarsened(level.Low, level.High)).TakeWhile(static level => level.Low.Length > 1)));
+
+    private readonly Lazy<Option<AxisRange>> extent =
+        new(() => values.IsEmpty ? None : AxisRange.Validated(TensorPrimitives.MinNumber(values.Span), TensorPrimitives.MaxNumber(values.Span)).ToOption());
 
     public ReadOnlyMemory<float> Values => values;
 
-    public Option<AxisRange> Extent =>
-        (pyramid.Value.Last.Map(static top => new MinMax(TensorPrimitives.MinNumber(top.Low.Span), TensorPrimitives.MaxNumber(top.High.Span)))
-            | (Values.IsEmpty ? None : Some(new MinMax(TensorPrimitives.MinNumber(Values.Span), TensorPrimitives.MaxNumber(Values.Span)))))
-        .Bind(static spread => AxisRange.Validated(spread.Low, spread.High).ToOption());
+    public Option<AxisRange> Extent => extent.Value;
 
     internal Option<float> At(int index) => (uint)index < (uint)Values.Length ? Some(Values.Span[index]) : None;
 
@@ -32,21 +33,21 @@ public sealed class Samples(ReadOnlyMemory<float> values) {
 
     internal Option<Datum> Nearest(AxisRange domain, float across) => DatumAt(domain, int.Clamp((int)MathF.Round((across - domain.From) / Slot(domain), MidpointRounding.ToEven), 0, int.Max(0, Values.Length - 1)));
 
-    internal Run Visible(PlotFrame frame, AxisRange domain) {
+    internal (int Start, int End) Visible(PlotFrame frame, AxisRange domain) {
         float slot = Slot(domain);
         float Position(float fraction) => (frame.Plane.Value(PhysicalAxis.Horizontal, fraction) - domain.From) / slot;
         (float first, float last) = (Position(0f), Position(1f));
         int start = int.Clamp((int)MathF.Floor(float.Min(first, last)) - 1, 0, Values.Length);
-        return new Run(start, int.Clamp((int)MathF.Ceiling(float.Max(first, last)) + 2, start, Values.Length));
+        return (start, int.Clamp((int)MathF.Ceiling(float.Max(first, last)) + 2, start, Values.Length));
     }
 
-    internal Seq<Run> Finite(Run window, Option<Samples> paired) =>
+    internal Seq<(int Start, int End)> Finite((int Start, int End) window, Option<Samples> paired) =>
         paired.IsNone && TensorPrimitives.IsFiniteAll(Values.Span[window.Start..window.End])
             ? [window]
-            : toSeq(Enumerable.Range(window.Start, window.Count).GroupAdjacent(index => float.IsFinite(Values.Span[index]) && paired.ForAll(other => other.At(index).Exists(float.IsFinite)))
-                .Where(static run => run.Key).Select(static run => new Run(run.First(), run.Last() + 1)));
+            : toSeq(Enumerable.Range(window.Start, window.End - window.Start).GroupAdjacent(index => float.IsFinite(Values.Span[index]) && paired.ForAll(other => other.At(index).Exists(float.IsFinite)))
+                .Where(static run => run.Key).Select(static run => (run.First(), run.Last() + 1)));
 
-    internal Seq<Seq<Vector2>> Decimated(PlotFrame frame, AxisRange domain, float columns, Seq<Run> runs) {
+    internal Seq<Seq<Vector2>> Decimated(PlotFrame frame, AxisRange domain, float columns, Seq<(int Start, int End)> runs) {
         PlotPlane plane = frame.Plane;
         float slot = Slot(domain);
         float Across(int index) => domain.From + (index * slot);
@@ -68,12 +69,10 @@ public sealed class Samples(ReadOnlyMemory<float> values) {
     }
 
     internal Option<Samples> Toward(Samples to, float progress) {
-        Samples Blended() {
-            float[] blended = new float[Values.Length];
-            TensorPrimitives.Lerp(Values.Span, to.Values.Span, progress, blended);
-            return new Samples(blended);
-        }
-        return to.Values.Length == Values.Length ? Some(Blended()) : None;
+        if (to.Values.Length != Values.Length) return None;
+        float[] blended = new float[Values.Length];
+        TensorPrimitives.Lerp(Values.Span, to.Values.Span, progress, blended);
+        return new Samples(blended);
     }
 
     private Seq<Vector2> Kept(int start, int end, Func<int, float> across) {
@@ -90,18 +89,18 @@ public sealed class Samples(ReadOnlyMemory<float> values) {
         };
     }
 
-    private MinMax Spread(int start, int end, int level) {
-        if (level < 0) return new MinMax(TensorPrimitives.MinNumber(Values.Span[start..end]), TensorPrimitives.MaxNumber(Values.Span[start..end]));
+    private (float Low, float High) Spread(int start, int end, int level) {
+        if (level < 0) return (TensorPrimitives.MinNumber(Values.Span[start..end]), TensorPrimitives.MaxNumber(Values.Span[start..end]));
         int size = 1 << (Shift * (level + 1));
         (int first, int last) = ((start + size - 1) / size, end / size);
         if (first >= last) return Spread(start, end, level - 1);
-        Level held = pyramid.Value[level];
+        (ReadOnlyMemory<float> lows, ReadOnlyMemory<float> highs) = pyramid.Value[level];
         return ((start < first * size ? Seq(Spread(start, first * size, level - 1)) : []) + (last * size < end ? Seq(Spread(last * size, end, level - 1)) : []))
-            .Fold(new MinMax(TensorPrimitives.MinNumber(held.Low.Span[first..last]), TensorPrimitives.MaxNumber(held.High.Span[first..last])),
-                static (one, other) => new MinMax(float.MinNumber(one.Low, other.Low), float.MaxNumber(one.High, other.High)));
+            .Fold((Low: TensorPrimitives.MinNumber(lows.Span[first..last]), High: TensorPrimitives.MaxNumber(highs.Span[first..last])),
+                static (one, other) => (float.MinNumber(one.Low, other.Low), float.MaxNumber(one.High, other.High)));
     }
 
-    private static Level Coarsened(ReadOnlyMemory<float> low, ReadOnlyMemory<float> high) {
+    private static (ReadOnlyMemory<float> Low, ReadOnlyMemory<float> High) Coarsened(ReadOnlyMemory<float> low, ReadOnlyMemory<float> high) {
         int count = (low.Length + Block - 1) / Block;
         float[] lows = new float[count];
         float[] highs = new float[count];
@@ -109,18 +108,10 @@ public sealed class Samples(ReadOnlyMemory<float> values) {
             lows[block] = TensorPrimitives.MinNumber(Chunk(low.Span, block));
             highs[block] = TensorPrimitives.MaxNumber(Chunk(high.Span, block));
         }
-        return new Level(lows, highs);
+        return (lows, highs);
 
         static ReadOnlySpan<float> Chunk(ReadOnlySpan<float> span, int block) => span[(block * Block)..int.Min((block + 1) * Block, span.Length)];
     }
-
-    private sealed record Level(ReadOnlyMemory<float> Low, ReadOnlyMemory<float> High);
-
-    private sealed record MinMax(float Low, float High);
-}
-
-internal sealed record Run(int Start, int End) {
-    public int Count => End - Start;
 }
 
 public sealed record Datum(int Index, Vector2 Value);
@@ -162,26 +153,24 @@ internal sealed class Indexed(int index, Envelope envelope) : ISpatialData {
     }
 
     internal static Option<int> Nearest(RBush<Indexed> tree, PlotFrame frame, SKPoint local, Option<PhysicalAxis> along, Func<int, float> distance) =>
-        frame.Plane.Separable ? Grown(tree, frame, local, along, distance, 1f) : Closest(toSeq(tree.Search()), distance);
+        frame.Plane.Separable ? Grown(tree, frame, local, along, distance, 1f) : Closest(toSeq(tree.Search()).Map(static held => held.Index), distance);
+
+    internal static Option<T> Closest<T>(Seq<T> items, Func<T, float> distance, float reach = float.PositiveInfinity) =>
+        toSeq(items.Map(item => (Item: item, Distance: distance(item))).Filter(held => float.IsFinite(held.Distance) && held.Distance <= reach).MinItemsBy(static held => held.Distance)).Head.Map(static held => held.Item);
 
     private static Option<int> Grown(RBush<Indexed> tree, PlotFrame frame, SKPoint local, Option<PhysicalAxis> along, Func<int, float> distance, float reach) =>
-        Boxed(frame, local, along, reach).Bind(box => Closest(toSeq(tree.Search(box)), distance).Match(
+        Boxed(frame, local, along, reach).Bind(box => Closest(toSeq(tree.Search(box)).Map(static held => held.Index), distance).Match(
             Some: index => distance(index) <= reach ? Some(index) : Grown(tree, frame, local, along, distance, distance(index)),
             None: () => box.Contains(tree.Envelope) ? None : Grown(tree, frame, local, along, distance, 2f * reach)));
 
-    private static Option<int> Closest(Seq<Indexed> candidates, Func<int, float> distance) =>
-        candidates.Map(held => (held.Index, Distance: distance(held.Index))).Filter(static held => float.IsFinite(held.Distance)) switch {
-            { IsEmpty: true } => None,
-            var near => Some(near.MinBy(static held => held.Distance).Index),
-        };
-
     private static Option<Envelope> Boxed(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along, float reach) {
         Vector2 offset = along.Match(Some: axis => axis.With(Vector2.Zero, reach), None: () => new Vector2(reach));
-        bool Open(PhysicalAxis dimension) => along.Exists(axis => axis.Cross == dimension);
+        (double Low, double High) Bound(PhysicalAxis dimension, float one, float two) =>
+            along.Exists(axis => axis.Cross == dimension) ? (double.NegativeInfinity, double.PositiveInfinity) : (float.Min(one, two), float.Max(one, two));
         return from low in frame.Valued(local - (SKPoint)offset)
                from high in frame.Valued(local + (SKPoint)offset)
-               select new Envelope(
-                   Open(PhysicalAxis.Horizontal) ? double.NegativeInfinity : float.Min(low.X, high.X), Open(PhysicalAxis.Vertical) ? double.NegativeInfinity : float.Min(low.Y, high.Y),
-                   Open(PhysicalAxis.Horizontal) ? double.PositiveInfinity : float.Max(low.X, high.X), Open(PhysicalAxis.Vertical) ? double.PositiveInfinity : float.Max(low.Y, high.Y));
+               select (Bound(PhysicalAxis.Horizontal, low.X, high.X), Bound(PhysicalAxis.Vertical, low.Y, high.Y)) switch {
+                   var (across, up) => new Envelope(across.Low, up.Low, across.High, up.High),
+               };
     }
 }

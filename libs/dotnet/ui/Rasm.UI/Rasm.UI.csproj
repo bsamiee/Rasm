@@ -36,7 +36,7 @@
 
     <ItemGroup Label="User Interface">
         <PackageReference Include="SkiaSharp" />
-        <PackageReference Include="SkiaSharp.SceneGraph" />
+        <PackageReference Include="SkiaSharp.Resources" />
         <PackageReference Include="SkiaSharp.Skottie" />
         <PackageReference Include="Svg.Custom" />
         <PackageReference Include="Svg.Model" />

@@ -11,6 +11,8 @@ namespace Rasm.UI.Typography;
 public sealed class Shaping : IDisposable {
     private readonly AtomHashMap<SKTypeface, Face> faces = AtomHashMap<SKTypeface, Face>();
     private readonly AtomHashMap<SKTypeface, Font> fonts = AtomHashMap<SKTypeface, Font>();
+    private readonly AtomHashMap<SKTypeface, SKTypeface> bases = AtomHashMap<SKTypeface, SKTypeface>();
+    private readonly AtomHashMap<(SKTypeface, Seq<SKFontVariationPositionCoordinate>, int, Seq<SKFontPaletteOverride>), SKTypeface> clones = AtomHashMap<(SKTypeface, Seq<SKFontVariationPositionCoordinate>, int, Seq<SKFontPaletteOverride>), SKTypeface>();
     private readonly Seq<SKTypeface> embedded;
 
     public Shaping(Seq<SKTypeface> embedded = default) {
@@ -32,7 +34,7 @@ public sealed class Shaping : IDisposable {
             .MinBy(face => (face.IsItalic != (slant is not SKFontStyleSlant.Upright), Math.Abs(face.FontWeight - (int)weight), Math.Abs(face.FontWidth - (int)width))));
 
     internal Font HarfBuzzFont(SKTypeface typeface) {
-        Option<Font> parent = Varied.Bases.Find(typeface).Map(HarfBuzzFont);
+        Option<Font> parent = bases.Find(typeface).Map(HarfBuzzFont);
         return fonts.FindOrAdd(typeface, () => {
             Font font = parent.Map(static based => new Font(based)).IfNone(() => new Font(HarfBuzzFace(typeface)));
             font.SetVariations([.. typeface.VariationDesignPosition.Select(static at => new Variation { Tag = (uint)at.Axis, Value = at.Value })]);
@@ -43,8 +45,7 @@ public sealed class Shaping : IDisposable {
     public void Dispose() {
         _ = fonts.Values.Iter(static font => font.Dispose());
         _ = faces.Values.Iter(static face => face.Dispose());
-        _ = fonts.Clear();
-        _ = faces.Clear();
+        _ = clones.Values.Iter(static clone => clone.Dispose());
         Buffer.Dispose();
     }
 
@@ -54,16 +55,7 @@ public sealed class Shaping : IDisposable {
             return new Face(blob, index);
         });
 
-    private int DarkPalette(SKTypeface typeface) =>
-        HarfBuzzFace(typeface) switch {
-            var face => toSeq(Enumerable.Range(0, face.PaletteCount)).Find(index => face.GetPaletteFlags(index).HasFlag(OpenTypeColorPaletteFlags.UsableWithDarkBackground)).IfNone(0),
-        };
-
-    private sealed record CloneKey(SKTypeface Typeface, Seq<SKFontVariationPositionCoordinate> Position, int PaletteIndex, Seq<SKFontPaletteOverride> Palette);
-
     private sealed class Varied(Shaping shaping) : FontMapper {
-        internal static readonly AtomHashMap<SKTypeface, SKTypeface> Bases = AtomHashMap<SKTypeface, SKTypeface>();
-        private static readonly AtomHashMap<CloneKey, SKTypeface> Clones = AtomHashMap<CloneKey, SKTypeface>();
         private static readonly float[] WidthPercents = [50f, 62.5f, 75f, 87.5f, 100f, 112.5f, 125f, 150f, 200f];
         private static readonly HashMap<Tag, Func<TextStyle, SKFontVariationAxis, float>> Derived = HashMap<Tag, Func<TextStyle, SKFontVariationAxis, float>>(
             (Tag.Parse("wght"), static (style, _) => style.FontWeight),
@@ -86,12 +78,13 @@ public sealed class Shaping : IDisposable {
                     Value = float.Clamp((style.Variations.Find(tag) | Derived.Find(tag).Map(derive => derive(style, axis)) | current.Find(tag)).IfNone(axis.Default), axis.Min, axis.Max),
                 },
             }).Strict();
-            int palette = style.Dark ? shaping.DarkPalette(based) : 0;
+            int palette = (style.Dark ? Some(shaping.HarfBuzzFace(based)) : None)
+                .Bind(static face => Range(0, face.PaletteCount).Find(index => face.GetPaletteFlags(index).HasFlag(OpenTypeColorPaletteFlags.UsableWithDarkBackground))).IfNone(0);
             return position == toSeq(based.VariationDesignPosition) && palette is 0 && style.Palette.IsEmpty
                 ? based
-                : Clones.FindOrAdd(new CloneKey(based, position, palette, style.Palette), () => {
+                : shaping.clones.FindOrAdd((based, position, palette, style.Palette), () => {
                     SKTypeface clone = based.Clone(new SKFontArguments { VariationDesignPosition = [.. position], PaletteIndex = palette, PaletteOverrides = [.. style.Palette] });
-                    _ = Bases.TryAdd(clone, based);
+                    _ = shaping.bases.TryAdd(clone, based);
                     return clone;
                 });
         }

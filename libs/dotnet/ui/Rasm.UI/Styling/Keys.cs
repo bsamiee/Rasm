@@ -3,46 +3,37 @@ namespace Rasm.UI.Styling;
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class Condition {
-    public static readonly Condition IncreaseContrast = new(inherited: false, identity);
-    public static readonly Condition DifferentiateWithoutColor = new(inherited: false, identity);
-    public static readonly Condition ReduceTransparency = new(inherited: false,
-        static look => look with { Fills = look.Fills.Map(static fills => fills.Map(static fill => fill.Opaque)) });
-    public static readonly Condition ReduceMotion = new(inherited: false, identity);
-    public static readonly Condition Dark = new(inherited: false, identity);
-    public static readonly Condition Default = new(inherited: false, identity);
-    public static readonly Condition Destructive = new(inherited: false, identity);
-    public static readonly Condition Selected = new(inherited: false, identity);
-    public static readonly Condition Modified = new(inherited: false, identity);
-    public static readonly Condition Pending = new(inherited: false, identity);
-    public static readonly Condition Mixed = new(inherited: false, identity);
-    public static readonly Condition Busy = new(inherited: false, identity);
-    public static readonly Condition Success = new(inherited: false, identity);
-    public static readonly Condition Warning = new(inherited: false, identity);
-    public static readonly Condition Faulted = new(inherited: false, identity);
-    public static readonly Condition Disabled = new(inherited: true, identity);
+    public static readonly Condition Compact = new(inherited: true);
+    public static readonly Condition Glass = new(inherited: true);
+    public static readonly Condition Drawn = new(inherited: true);
+    public static readonly Condition Borderless = new(inherited: true);
+    public static readonly Condition IncreaseContrast = new(inherited: false);
+    public static readonly Condition DifferentiateWithoutColor = new(inherited: false);
+    public static readonly Condition ReduceTransparency = new(inherited: false);
+    public static readonly Condition ReduceMotion = new(inherited: false);
+    public static readonly Condition Dark = new(inherited: false);
+    public static readonly Condition Default = new(inherited: false);
+    public static readonly Condition Destructive = new(inherited: false);
+    public static readonly Condition Selected = new(inherited: false);
+    public static readonly Condition Modified = new(inherited: false);
+    public static readonly Condition Pending = new(inherited: false);
+    public static readonly Condition Mixed = new(inherited: false);
+    public static readonly Condition Busy = new(inherited: false);
+    public static readonly Condition Success = new(inherited: false);
+    public static readonly Condition Warning = new(inherited: false);
+    public static readonly Condition Faulted = new(inherited: false);
+    public static readonly Condition Disabled = new(inherited: true);
 
     internal bool Inherited { get; }
-
-    [UseDelegateFromConstructor]
-    internal partial Look Applied(Look look);
-}
-
-[SmartEnum]
-public sealed partial class ContrastLevel {
-    public static readonly ContrastLevel Minimum = new(text: 4.5, graphic: 3.0);
-    public static readonly ContrastLevel Enhanced = new(text: 7.0, graphic: 3.0);
-
-    public double Text { get; }
-    public double Graphic { get; }
 }
 
 [SmartEnum]
 public sealed partial class Interaction {
-    public static readonly Interaction Hover = new(showsFocusRing: false);
-    public static readonly Interaction Pressed = new(showsFocusRing: false);
-    public static readonly Interaction Focused = new(showsFocusRing: true);
+    public static readonly Interaction Hover = new(emphasis: Fraction.Validated(0.16f).ToOption());
+    public static readonly Interaction Pressed = new(emphasis: Fraction.Validated(0.24f).ToOption());
+    public static readonly Interaction Focused = new(emphasis: None);
 
-    public bool ShowsFocusRing { get; }
+    internal Option<Fraction> Emphasis { get; }
 }
 
 [SmartEnum]

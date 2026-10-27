@@ -10,7 +10,7 @@ namespace Rasm.UI.Rendering;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Layouts {
     // --- [ARRANGE]
-    internal sealed record Pass(HashMap<Seq<Key>, LayoutNode> Prior, HashMap<Seq<Key>, float> Adjusted, Shaping Shaping, ColorCache ColorCache, CultureInfo Culture);
+    internal sealed record Pass(HashMap<Seq<Key>, LayoutNode> Prior, HashMap<Seq<Key>, float> Offsets, Shaping Shaping, Slot<OutlineKey, Outline> Outlines, CultureInfo Culture);
 
     internal static LayoutNode Arrange(Pass pass, Cascade root, Node node, SKSize size) => WithCorners(Framed(pass, Built(pass, root, [], node, pass.Prior.Find([])), SKRect.Create(size)), None);
 
@@ -18,7 +18,10 @@ internal static class Layouts {
         Placed(pass, Placed(pass, layout, PhysicalAxis.Horizontal, frame.Left, frame.Width), PhysicalAxis.Vertical, frame.Top, frame.Height);
 
     internal static Fin<LayoutNode> Unique(LayoutNode layout, HashMap<Seq<Key>, LayoutNode> prior) =>
-        Repeated(layout, prior).Head.Match<Fin<LayoutNode>>(Some: static path => new UIFault(string.Join('/', path.Map(static key => key.Identifier)), UIReason.Repeated), None: () => layout);
+        Repeated(layout, prior) switch {
+            var repeated when repeated.IsEmpty => layout,
+            var repeated => Error.Many(repeated.Map(static path => (Error)new UIFault(string.Join('/', path.Map(static key => key.Identifier)), UIReason.Repeated))),
+        };
 
     internal static SKSize Preferred(Pass pass, LayoutNode layout, SKSize offered) {
         LayoutNode wide = Placed(pass, layout, PhysicalAxis.Horizontal, 0f, float.Min(Basis(layout, PhysicalAxis.Horizontal, offered.Width), offered.Width));
@@ -30,13 +33,11 @@ internal static class Layouts {
     private static Seq<Seq<Key>> Repeated(LayoutNode layout, HashMap<Seq<Key>, LayoutNode> prior) =>
         Reused(layout, prior)
             ? []
-            : Duplicates(layout.Children + layout.Layers).Concat((layout.Members + layout.Layers).Bind(member => Repeated(member, prior)));
-
-    private static Seq<Seq<Key>> Duplicates(Seq<LayoutNode> members) =>
-        members.Fold((Seen: HashSet<Seq<Key>>(), Repeated: Seq<Seq<Key>>()), static (held, member) => held.Seen.Contains(member.Path)
-                ? (held.Seen, held.Repeated.Add(member.Path))
-                : (held.Seen.Add(member.Path), held.Repeated))
-            .Repeated;
+            : (layout.Children + layout.Layers).Fold((Seen: HashSet<Seq<Key>>(), Repeated: Seq<Seq<Key>>()), static (held, member) => held.Seen.Contains(member.Path)
+                    ? (held.Seen, held.Repeated.Add(member.Path))
+                    : (held.Seen.Add(member.Path), held.Repeated))
+                .Repeated
+                .Concat((layout.Members + layout.Layers).Bind(member => Repeated(member, prior)));
 
     // --- [QUERY]
     internal sealed record Overflow(float Content, float Viewport) {
@@ -47,7 +48,7 @@ internal static class Layouts {
 
     internal static Option<PlotFrame> Plotted(LayoutNode layout) => layout.Node.Plotted.Map(plane => plane.In(layout.Data));
 
-    internal static bool IsHandle(LayoutNode layout) => layout.Path.Last.Exists(static last => last.Map(named: false, ordinal: false, handle: true));
+    internal static bool IsHandle(LayoutNode layout) => layout.Path.Last.Exists(static last => last is Key.Handle);
 
     internal static Seq<Key> Stored(LayoutNode scroll, Node.Scroll node) => node.Follows.IfNone(scroll.Path);
 
@@ -64,28 +65,16 @@ internal static class Layouts {
         node.Aspect | node.Plotted.Bind(static plane => plane.Aspect)
         | (node is Node.Image image ? Factor.Validated(image.Source.Info.Width / (float)image.Source.Info.Height).ToOption() : None);
 
-    private static float MinContent(LayoutNode layout) => layout.TextNode.Map(static text => text.MinContent).IfNone(0f);
-
     // --- [WINDOW]
-    private sealed record Window(float From, float To) {
-        internal static Window Of(PhysicalAxis axis, LayoutNode lazy, SKRect frame, SKRect shown) {
-            float offset = axis.Of(shown.Location - frame.Location) - axis.Of(lazy.ContentBox.Location);
-            float viewport = axis.Of(shown.Size);
-            return new(offset - viewport, offset + (2f * viewport));
-        }
-
-        internal bool Meets(GridTrack track) => track.Start + track.Extent >= From && track.Start <= To;
-    }
-
     internal static Seq<Key> Visible(Scene scene, LayoutNode lazy, Node.Lazy node) =>
         (from frame in scene.Frame(lazy.Path)
          from shown in scene.Visible(lazy.Path)
          let perLine = PerLine(lazy, node)
-         let lines = Window.Of(node.Axis, lazy, frame, shown)
+         let lines = Window(node.Axis, lazy, frame, shown)
+         let across = Window(node.Axis.Cross, lazy, frame, shown)
          let first = Line(lazy, node, perLine, lines.From)
-         let across = Window.Of(node.Axis.Cross, lazy, frame, shown)
          let tracks = Definite(lazy, node, perLine)
-             .Map(definite => definite.Map(static (track, index) => (Track: track, Index: index)).Filter(held => across.Meets(held.Track)).Map(static held => held.Index))
+             .Map(definite => definite.Map(static (track, index) => (Track: track, Index: index)).Filter(held => held.Track.Start + held.Track.Extent >= across.From && held.Track.Start <= across.To).Map(static held => held.Index))
              .IfNone(() => toSeq(Range(0, perLine)))
          select toSeq(from line in toSeq(Range(first, Line(lazy, node, perLine, lines.To) - first + 1)) from track in tracks select (line * perLine) + track).Choose(index => node.Items.At(index))).IfNone([]);
 
@@ -99,7 +88,12 @@ internal static class Layouts {
         return Definite(lazy, node, perLine).Map(tracks => node.Axis.Cross.Spanned(span, node.Axis.Cross.Of(box.Location) + tracks[track].Start, tracks[track].Extent)).IfNone(span);
     }
 
-    private static Option<Seq<GridTrack>> Definite(LayoutNode lazy, Node.Lazy node, int perLine) =>
+    private static (float From, float To) Window(PhysicalAxis axis, LayoutNode lazy, SKRect frame, SKRect shown) =>
+        (Offset: axis.Of(shown.Location - frame.Location) - axis.Of(lazy.ContentBox.Location), Viewport: axis.Of(shown.Size)) switch {
+            var held => (held.Offset - held.Viewport, held.Offset + (2f * held.Viewport)),
+        };
+
+    private static Option<Seq<(float Start, float Extent)>> Definite(LayoutNode lazy, Node.Lazy node, int perLine) =>
         Sizes(node.Across, perLine).Traverse(static size => size.Definite).As().Map(extents => Started(lazy, extents));
 
     private static int Line(LayoutNode lazy, Node.Lazy node, int perLine, float at) =>
@@ -111,16 +105,13 @@ internal static class Layouts {
     internal static LayoutNode Built(Pass pass, Cascade cascade, Seq<Key> path, Node node, Option<LayoutNode> held) =>
         held.Filter(kept => kept.Node.Equals(node) && kept.Cascade.Equals(cascade)).IfNone(() => Created(pass, cascade, path, node, held));
 
-    private static Option<LayoutNode> Held(HashMap<Seq<Key>, LayoutNode> prior, Option<LayoutNode> parent, Seq<Key> path) =>
-        prior.Find(path) | parent.Bind(held => (held.Members + held.Layers).Find(member => member.Path == path));
-
-    private sealed record Member(Key Segment, Node Node);
+    internal static Option<LayoutNode> Held(Pass pass, Seq<LayoutNode> earlier, Seq<Key> path) => pass.Prior.Find(path) | earlier.Find(member => member.Path == path);
 
     private static LayoutNode Created(Pass pass, Cascade cascade, Seq<Key> path, Node node, Option<LayoutNode> prior) {
         Cascade inner = Styles.Enter(cascade, node);
-        Seq<LayoutNode> members = Members(node).Map(member => {
-            Seq<Key> at = path.Add(member.Segment);
-            return Built(pass, inner, at, member.Node, Held(pass.Prior, prior, at));
+        Seq<LayoutNode> earlier = prior.Map(static held => held.Members + held.Layers).IfNone([]);
+        Seq<LayoutNode> members = Members(node).Map(member => path.Add(member.Segment) switch {
+            var at => Built(pass, inner, at, member.Node, Held(pass, earlier, at)),
         }).Strict();
         LayoutNode.Box box = new() { Path = path, Node = node, Cascade = cascade, Inner = inner, Style = inner.Enclosing, Members = members.Filter(static member => member.Node is not Node.Layer) };
         LayoutNode built = node.SwitchPartially(
@@ -136,28 +127,25 @@ internal static class Layouts {
     }
 
     private static LayoutNode.Text TextNode(Pass pass, LayoutNode box, Node.Text text) {
-        TextStyle face = Typesetting.Resolve(pass.Shaping, pass.ColorCache, box.Inner, box.Style);
-        Typeset set = Typesetting.Set(pass.Shaping, pass.ColorCache, text, box.Inner, face, float.PositiveInfinity, pass.Culture);
-        return new LayoutNode.Text(text, set, face) {
-            Path = box.Path, Node = box.Node, Cascade = box.Cascade, Inner = box.Inner, Style = box.Style, MinContent = Typesetting.MinContent(pass.Shaping, set),
-        };
+        Typeset set = Typesetting.Set(pass.Shaping, text, box.Inner, Typesetting.Resolve(pass.Shaping, box.Inner, box.Style), float.PositiveInfinity, pass.Culture);
+        return new LayoutNode.Text(set) { Path = box.Path, Node = box.Node, Cascade = box.Cascade, Inner = box.Inner, Style = box.Style, MinContent = Typesetting.MinContent(pass.Shaping, set, pass.Culture) };
     }
 
-    private static Seq<Member> Members(Node node) =>
+    private static Seq<(Key Segment, Node Node)> Members(Node node) =>
         node.SwitchPartially(
             @default: static held => Segments(held.Inner.ToSeq()),
             flex: static flex => Segments(flex.Children),
             grid: static grid => Segments(grid.Rows.Flatten()),
-            lazy: static lazy => lazy.Items.Choose(key => lazy.Realized.Find(key).Map(realized => new Member(key, realized))),
+            lazy: static lazy => lazy.Items.Choose(key => lazy.Realized.Find(key).Map(realized => (Segment: key, Node: realized))),
             overlay: static overlay => Segments(overlay.Base.Cons(overlay.Above)),
-            layer: static layer => (layer.Modal ? Seq(new Member(LayerStack.Veil, new Node.Box { Role = Role.Veil })) : []) + Segments([layer.Content]),
-            choice: static choice => choice.Alternatives.Map(static alternative => new Member(alternative.Key.IfNone(static () => new Key.Ordinal(0)), alternative)),
-            scroll: static scroll => Seq(new Member(scroll.Content.Key.IfNone(static () => new Key.Ordinal(0)), scroll.Content), Handle(Role.Scrollbar)),
+            layer: static layer => (layer.Modal ? Seq<(Key Segment, Node Node)>((LayerStack.Scrim, new Node.Box { Role = Role.Scrim })) : []) + Segments([layer.Content]),
+            choice: static choice => choice.Alternatives.Map(static alternative => (Segment: alternative.Key.IfNone(static () => new Key.Ordinal(0)), Node: alternative)),
+            scroll: static scroll => Seq<(Key Segment, Node Node)>(
+                (scroll.Content.Key.IfNone(static () => new Key.Ordinal(0)), scroll.Content),
+                (new Key.Handle(), new Node.Box { Key = new Key.Handle(), Role = Role.Scrollbar })),
             plot: static plot => Segments(plot.Children));
 
-    private static Member Handle(Role role) => new(new Key.Handle(), new Node.Box { Key = new Key.Handle(), Role = role });
-
-    private static Seq<Member> Segments(Seq<Node> nodes) => nodes.Map(static (node, index) => new Member(node.Key.IfNone(() => new Key.Ordinal((uint)index)), node));
+    private static Seq<(Key Segment, Node Node)> Segments(Seq<Node> nodes) => nodes.Map(static (node, index) => (Segment: node.Key.IfNone(() => new Key.Ordinal((uint)index)), Node: node));
 
     // --- [FIT]
     private static float IntrinsicWidth(LayoutNode layout) =>
@@ -176,18 +164,35 @@ internal static class Layouts {
         layout.Node.SwitchPartially(
             (Layout: layout, Along: along),
             @default: static (held, _) => Widest(held.Layout.Children, held.Along),
-            flex: static (held, flex) => Summed(held.Layout.Children, flex.Axis, held.Along, Gap(held.Layout)),
+            flex: static (held, flex) => flex.Axis == held.Along
+                ? Summed(held.Layout.Children.Map(child => Basis(child, held.Along, float.PositiveInfinity)), Gap(held.Layout))
+                : Widest(held.Layout.Children, held.Along),
             grid: static (held, grid) => Lattice.Of(held.Layout, grid).Extent(held.Layout, held.Along),
             lazy: static (held, lazy) => Lattice.Of(held.Layout, lazy).Extent(held.Layout, held.Along),
-            overlay: static (held, _) => Widest(held.Layout.Children.Head.ToSeq(), held.Along),
+            overlay: static (held, _) => Widest(held.Layout.Children.Take(1), held.Along),
             choice: static (held, choice) => Widest((held.Along == choice.Axis ? held.Layout.Members : held.Along.Map(horizontal: held.Layout.Members, vertical: held.Layout.Children)).Take(1), held.Along),
             scroll: static (held, _) => Widest(Panes(held.Layout), held.Along),
             plot: static (held, _) => Widest(held.Layout.Children.Filter(static child => child.Node.Pinned.IsNone), held.Along),
             glyph: static (held, _) => held.Layout.Style.Metrics[Metric.Icon],
-            image: static (held, image) => held.Along.Of(new SKSize(image.Source.Info.Width / image.Density, image.Source.Info.Height / image.Density)));
+            image: static (held, image) => held.Along.Of(image.Source.Info.Size) / (float)image.Density);
 
-    private static float Summed(Seq<LayoutNode> children, PhysicalAxis axis, PhysicalAxis along, float gap) =>
-        axis == along ? Summed(children.Map(child => Basis(child, along, float.PositiveInfinity)), gap) : Widest(children, along);
+    private static float Least(LayoutNode layout) =>
+        Sized(layout.Node, PhysicalAxis.Horizontal).Definite.IfNone(() => float.Max(layout.Node.Role.IsSome ? layout.Style.Metrics[Metric.Extent] : 0f, (2f * layout.Inset) + layout.Switch(
+            box: static box => box.Node.SwitchPartially(
+                box,
+                @default: static (held, _) => Floors(held.Children).Fold(0f, float.Max),
+                flex: static (held, flex) => flex.Axis == PhysicalAxis.Horizontal ? Summed(Floors(held.Children), Gap(held)) : Floors(held.Children).Fold(0f, float.Max),
+                grid: static (_, _) => 0f,
+                lazy: static (_, _) => 0f,
+                overlay: static (held, _) => Floors(held.Children.Take(1)).Fold(0f, float.Max),
+                choice: static (held, _) => Floors(held.Members.Last.ToSeq()).Fold(0f, float.Max),
+                scroll: static (_, _) => 0f,
+                plot: static (_, _) => 0f,
+                glyph: static (held, _) => held.Style.Metrics[Metric.Icon],
+                image: static (_, _) => 0f),
+            text: static text => text.MinContent)));
+
+    private static Seq<float> Floors(Seq<LayoutNode> children) => children.Map(static child => Sized(child.Node, PhysicalAxis.Horizontal).Floor(Least(child)));
 
     private static float Summed(Seq<float> extents, float gap) => TensorPrimitives.Sum<float>([.. extents]) + (gap * float.Max(0, extents.Count - 1));
 
@@ -195,7 +200,7 @@ internal static class Layouts {
 
     private static float Basis(LayoutNode layout, PhysicalAxis along, float space) => Based(Sized(layout.Node, along), along.Of(layout.Intrinsic), space);
 
-    private static float Based(Sizing sizing, float fit, float space) =>
+    internal static float Based(Sizing sizing, float fit, float space) =>
         sizing.Limits.Clamped(sizing.Switch(
             (Fit: fit, Space: space),
             @fixed: static (_, held) => held.Extent,
@@ -220,15 +225,13 @@ internal static class Layouts {
         AvailableSpace available = new(pass, framed, along, along.Of(box.Location), along.Of(box.Size));
         return along.Switch(
             (Room: available, Layout: Arranged(available)),
-            horizontal: static held => {
-                LayoutNode set = Wrapped(held.Room, held.Layout);
-                return set with { Intrinsic = new SKSize(set.Intrinsic.Width, IntrinsicHeight(set, set.Frame.Width)) };
+            horizontal: static held => Wrapped(held.Room, held.Layout) switch {
+                var set => set with { Intrinsic = new SKSize(set.Intrinsic.Width, IntrinsicHeight(set, set.Frame.Width)) },
             },
             vertical: static held => held.Layout.Switch(
                 box: static box => (LayoutNode)box,
-                text: static text => {
-                    SKRect box = text.ContentBox;
-                    return text with { Origin = new SKPoint(box.Left, box.Top + (float.Max(0f, box.Height - text.Typeset.Size.Height) * (float)text.Source.Align.Y)) };
+                text: static text => text.ContentBox switch {
+                    var box => text with { Origin = new SKPoint(box.Left, box.Top + (float.Max(0f, box.Height - text.Typeset.Size.Height) * (float)text.Typeset.Text.Align.Y)) },
                 }));
     }
 
@@ -236,14 +239,14 @@ internal static class Layouts {
         layout.Switch(
             available,
             box: static (_, box) => (LayoutNode)box,
-            text: static (available, wrapped) => wrapped.Typeset.Setting.Width.CompareTo(available.Space) is 0
+            text: static (available, wrapped) => wrapped.Typeset.Width.CompareTo(available.Space) is 0
                 ? wrapped
                 : wrapped with {
                     Typeset = available.Pass.Prior.Find(wrapped.Path)
                         .Bind(static held => held.TextNode)
-                        .Filter(held => held.Source.Equals(wrapped.Source) && held.Style.Equals(wrapped.Style) && held.Frame.Width.CompareTo(wrapped.Frame.Width) is 0)
                         .Map(static held => held.Typeset)
-                        .IfNone(() => Typesetting.Set(available.Pass.Shaping, available.Pass.ColorCache, wrapped.Source, wrapped.Inner, wrapped.TextStyle, available.Space, available.Pass.Culture)),
+                        .Filter(held => held.Width.CompareTo(available.Space) is 0 && held.Text.Equals(wrapped.Typeset.Text) && held.Style.Equals(wrapped.Typeset.Style))
+                        .IfNone(() => Typesetting.Set(available.Pass.Shaping, wrapped.Typeset.Text, wrapped.Inner, wrapped.Typeset.Style, available.Space, available.Pass.Culture)),
                 });
 
     private static Option<float> Baseline(LayoutNode layout, Baseline baseline) =>
@@ -254,12 +257,6 @@ internal static class Layouts {
             },
             text: static (line, text) => text.Typeset.At(line).Map(at => text.Origin.Y + at));
 
-    private static Seq<LayoutNode> Baselined(AvailableSpace available, Seq<LayoutNode> placed, Baseline baseline) {
-        Seq<(LayoutNode Child, Option<float> Line)> lines = placed.Map(child => (Child: child, Line: Baseline(child, baseline))).Strict();
-        float most = lines.Choose(static held => held.Line).Fold(0f, float.Max);
-        return lines.Map(held => held.Line.Match(Some: line => Moved(held.Child, available.Along, available.Start + most - line), None: () => held.Child));
-    }
-
     private static LayoutNode Moved(LayoutNode layout, PhysicalAxis along, float start) =>
         along.Of(layout.Frame.Location).CompareTo(start) is 0
             ? layout
@@ -269,7 +266,7 @@ internal static class Layouts {
 
     internal static LayoutNode Filled(AvailableSpace available, LayoutNode child) => Placed(available.Pass, child, available.Along, available.Start, available.Space);
 
-    internal static LayoutNode Layered(AvailableSpace available, LayoutNode child) => Aligned(available, child, available.Start, available.Space, child.Node.Align.Of(available.Along));
+    private static LayoutNode Layered(AvailableSpace available, LayoutNode child) => Aligned(available, child, available.Start, available.Space, child.Node.Align.Of(available.Along));
 
     private static LayoutNode Aligned(AvailableSpace available, LayoutNode child, float start, float space, float align) {
         float extent = Cross(child, available.Along, space);
@@ -294,17 +291,20 @@ internal static class Layouts {
         Seq<LayoutNode> children = available.Layout.Members;
         float gap = Gap(available.Layout);
         float space = available.Space - (gap * float.Max(0, children.Count - 1));
-        Seq<float> extents = Distribute(children.Map(child => {
-            Sizing sizing = Sized(child.Node, available.Along);
-            return new FlexItem(sizing, Basis(child, available.Along, space), sizing.Floor(available.Along.Map(horizontal: MinContent(child), vertical: 0f)));
+        Seq<float> extents = Distribute(children.Map(child => Sized(child.Node, available.Along) switch {
+            var sizing => (Sizing: sizing, Basis: Basis(child, available.Along, space), Floor: sizing.Floor(available.Along.Map(horizontal: Least(child), vertical: 0f))),
         }), space);
-        Seq<float> starts = extents.Scan(available.Start, (start, extent) => start + extent + gap);
-        return children.Zip(extents.Zip(starts)).Map(placed => Placed(available.Pass, placed.First, available.Along, placed.Second.Second, placed.Second.First));
+        return children.Zip(extents.Zip(extents.Scan(available.Start, (start, extent) => start + extent + gap)))
+            .Map(placed => Placed(available.Pass, placed.First, available.Along, placed.Second.Second, placed.Second.First));
     }
 
     private static Seq<LayoutNode> Across(AvailableSpace available, Option<Baseline> baseline) {
         Seq<LayoutNode> layered = available.Layout.Members.Map(member => Layered(available, member));
-        return baseline.Filter(_ => available.Along == PhysicalAxis.Vertical).Map(line => Baselined(available, layered, line)).IfNone(layered);
+        return baseline.Filter(_ => available.Along == PhysicalAxis.Vertical).Map(line => {
+            Seq<(LayoutNode Child, Option<float> Line)> lines = layered.Map(child => (Child: child, Line: Baseline(child, line))).Strict();
+            float most = lines.Choose(static held => held.Line).Fold(0f, float.Max);
+            return lines.Map(held => held.Line.Match(Some: at => Moved(held.Child, available.Along, available.Start + most - at), None: () => held.Child));
+        }).IfNone(layered);
     }
 
     private static LayoutNode Chosen(AvailableSpace available, Node.Choice choice) =>
@@ -320,96 +320,75 @@ internal static class Layouts {
     private static Seq<LayoutNode> Overlaid(AvailableSpace available) =>
         available.Layout.Members.Match(
             Empty: static () => Seq<LayoutNode>(),
-            Tail: (baseNode, above) => {
-                SKRect box = available.Layout.ContentBox;
-                SKMatrix placed = SKMatrix.CreateScaleTranslation(box.Width, box.Height, box.Left, box.Top);
-                return Filled(available, baseNode).Cons(Guides.Pins(available, box, above, at => placed.MapPoint(at), Layered));
+            Tail: (baseNode, above) => available.Layout.ContentBox switch {
+                var box => SKMatrix.CreateScaleTranslation(box.Width, box.Height, box.Left, box.Top) switch {
+                    var placed => Filled(available, baseNode).Cons(Guides.Pins(available, box, above, at => placed.MapPoint(at), Layered)),
+                },
             });
 
     // --- [TRACKS]
-    private sealed record Cell(int Line, int Track, bool Spans, LayoutNode Layout);
-
-    internal sealed record GridTrack(float Start, float Extent);
-
-    private sealed record Lattice(PhysicalAxis Axis, int Count, Option<float> Line, Seq<Sizing> Tracks, Seq<Cell> Cells) {
+    private sealed record Lattice(PhysicalAxis Axis, int Count, Option<float> Line, Seq<Sizing> Tracks, Seq<(int Line, int Track, bool Spans, LayoutNode Layout)> Cells) {
         internal static Lattice Of(LayoutNode layout, Node.Grid grid) {
-            Seq<Sizing> columns = Columns(layout, grid);
-            Seq<Cell> cells = Celled(layout, grid, columns.Count);
+            int longest = grid.Rows.Map(static row => row.Count).Fold(0, int.Max);
+            Seq<Sizing> columns = Sizes(grid.Columns, PerLine(layout, grid.Columns, PhysicalAxis.Horizontal, longest, longest));
+            Seq<(int Line, int Track, bool Spans, LayoutNode Layout)> cells =
+                from row in grid.Rows.Zip(grid.Rows.Scan(0, static (start, cells) => start + cells.Count))
+                    .Bind(row => toSeq(Enumerable.Range(row.Second, row.First.Count).Chunk(columns.Count)))
+                    .Map(static (members, index) => (Members: members, Index: index))
+                from cell in toSeq(row.Members).Map(static (member, column) => (Member: member, Column: column))
+                select (Line: row.Index, Track: cell.Column, Spans: cell.Column == row.Members.Length - 1 && row.Members.Length < columns.Count, Layout: layout.Members[cell.Member]);
             return new(PhysicalAxis.Vertical, cells.Map(static cell => cell.Line + 1).Fold(0, int.Max), None, columns, cells);
         }
 
         internal static Lattice Of(LayoutNode layout, Node.Lazy lazy) {
             int perLine = PerLine(layout, lazy);
-            Seq<Cell> cells = layout.Members.Zip(Slots(lazy)).Map(held => new Cell(held.Second / perLine, held.Second % perLine, Spans: false, held.First));
+            Seq<(int Line, int Track, bool Spans, LayoutNode Layout)> cells = layout.Members
+                .Zip(lazy.Items.Map(static (key, index) => (Key: key, Index: index)).Filter(held => lazy.Realized.ContainsKey(held.Key)))
+                .Map(held => (Line: held.Second.Index / perLine, Track: held.Second.Index % perLine, Spans: false, Layout: held.First));
             return new(lazy.Axis, Lines(lazy, perLine), Some(lazy.Extent), Sizes(lazy.Across, perLine), cells);
         }
 
-        internal Seq<GridTrack> Tracked(LayoutNode layout, PhysicalAxis along, float space) {
+        internal Seq<(float Start, float Extent)> Tracked(LayoutNode layout, PhysicalAxis along, float space) {
             if (along != Axis) {
-                float available = space - (Gap(layout) * float.Max(0, Tracks.Count - 1));
-                return Started(layout, Distributed(Tracks, Columned(along, available), available));
+                HashMap<int, float> widths = toHashMap(Cells.Filter(static cell => !cell.Spans).GroupBy(static cell => cell.Track).Select(track => (track.Key, Widest(toSeq(track).Map(static cell => cell.Layout), along))));
+                return Started(layout, Sizing.Shared(Tracks, Tracks.Map((_, track) => widths.Find(track).IfNone(0f)), space - (Gap(layout) * float.Max(0, Tracks.Count - 1))));
             }
             HashMap<int, float> tallest = toHashMap(Cells.GroupBy(static cell => cell.Line).Select(line => (line.Key, Widest(toSeq(line).Map(static cell => cell.Layout), along))));
-            return Started(layout, Line.Match(Some: extent => LanguageExt.Seq.repeat(extent, Count), None: () => toSeq(Range(0, Count)).Map(line => tallest.Find(line).IfNone(0f))));
+            return Started(layout, toSeq(Range(0, Count)).Map(line => Line.IfNone(() => tallest.Find(line).IfNone(0f))));
         }
 
         internal float Extent(LayoutNode layout, PhysicalAxis along) {
-            Seq<GridTrack> tracks = Tracked(layout, along, float.PositiveInfinity);
+            Seq<(float Start, float Extent)> tracks = Tracked(layout, along, float.PositiveInfinity);
             float extent = Summed(tracks.Map(static track => track.Extent), Gap(layout));
             return along == Axis ? extent : Cells.Filter(static cell => cell.Spans).Fold(extent, (widest, cell) => float.Max(widest, tracks[cell.Track].Start + Basis(cell.Layout, along, float.PositiveInfinity)));
         }
 
         internal Seq<LayoutNode> Arranged(AvailableSpace available) {
-            Seq<GridTrack> tracks = Tracked(available.Layout, available.Along, available.Space);
+            Seq<(float Start, float Extent)> tracks = Tracked(available.Layout, available.Along, available.Space);
             bool lines = available.Along == Axis;
             return Cells.Map(cell => tracks[lines ? cell.Line : cell.Track] switch {
                 var track => Aligned(available, cell.Layout, available.Start + track.Start, !lines && cell.Spans ? available.Space - track.Start : track.Extent, cell.Layout.Node.Align.Of(available.Along)),
             });
         }
-
-        private Seq<float> Columned(PhysicalAxis across, float space) {
-            HashMap<int, float> widths = toHashMap(Cells.Filter(static cell => !cell.Spans).GroupBy(static cell => cell.Track).Select(track => (track.Key, Widest(toSeq(track).Map(static cell => cell.Layout), across))));
-            return Tracks.Map((sizing, track) => Based(sizing, widths.Find(track).IfNone(0f), space));
-        }
-    }
-
-    private static Seq<Sizing> Columns(LayoutNode layout, Node.Grid grid) {
-        int longest = grid.Rows.Map(static row => row.Count).Fold(0, int.Max);
-        return Sizes(grid.Columns, grid.Columns.Switch(
-            (Layout: layout, Longest: longest),
-            @explicit: static (held, tracks) => int.Max(tracks.Sizes.Count, held.Longest),
-            autoFill: static (held, tracks) => Fill(tracks.Size, held.Layout.ContentBox.Width, Gap(held.Layout), Widest(held.Layout.Members, PhysicalAxis.Horizontal), held.Longest)));
     }
 
     private static Seq<Sizing> Sizes(Tracks tracks, int count) =>
-        tracks.Switch(
-            count,
-            @explicit: static (perLine, held) => toSeq(Range(0, perLine)).Map(column => held.Sizes.At(column).IfNone(Sizing.Fit.Content)),
-            autoFill: static (perLine, held) => LanguageExt.Seq.repeat(held.Size, perLine));
+        toSeq(Range(0, count)).Map(index => tracks.Sizes.At(tracks.AutoFill ? index % int.Max(1, tracks.Sizes.Count) : index).IfNone(Sizing.Fit.Content));
 
-    private static int Fill(Sizing size, float space, float gap, float widest, int most) =>
-        (int)float.Clamp(MathF.Floor((space + gap) / float.Max(Based(size, widest, space) + gap, float.Epsilon)), 1f, float.Max(1f, most));
-
-    private static Seq<Cell> Celled(LayoutNode layout, Node.Grid grid, int columns) =>
-        from row in grid.Rows.Zip(grid.Rows.Scan(0, static (start, cells) => start + cells.Count))
-            .Bind(row => toSeq(Enumerable.Range(row.Second, row.First.Count).Chunk(columns)))
-            .Map(static (members, index) => (Members: members, Index: index))
-        from cell in toSeq(row.Members).Map(static (member, column) => (Member: member, Column: column))
-        select new Cell(row.Index, cell.Column, cell.Column == row.Members.Length - 1 && row.Members.Length < columns, layout.Members[cell.Member]);
-
-    private static Seq<GridTrack> Started(LayoutNode layout, Seq<float> extents) {
-        float gap = Gap(layout);
-        return extents.Zip(extents.Scan(0f, (start, extent) => start + extent + gap)).Map(static track => new GridTrack(track.Second, track.First));
+    private static int PerLine(LayoutNode layout, Tracks tracks, PhysicalAxis across, int most, int least) {
+        if (!tracks.AutoFill) return int.Max(least, tracks.Sizes.Count);
+        int period = int.Max(1, tracks.Sizes.Count);
+        (float space, float gap, float widest) = (across.Of(layout.ContentBox.Size), Gap(layout), Widest(layout.Members, across));
+        float pattern = Sizes(tracks, period).Fold(0f, (sum, size) => sum + Based(size, widest, space) + gap);
+        return period * (int)float.Clamp(MathF.Floor((space + gap) / float.Max(pattern, float.Epsilon)), 1f, float.Max(1f, MathF.Ceiling(most / (float)period)));
     }
 
-    private static int PerLine(LayoutNode layout, Node.Lazy lazy) =>
-        lazy.Across.Switch(
-            (Layout: layout, Lazy: lazy),
-            @explicit: static (_, tracks) => int.Max(1, tracks.Sizes.Count),
-            autoFill: static (held, tracks) => Fill(tracks.Size, held.Lazy.Axis.Cross.Of(held.Layout.ContentBox.Size), Gap(held.Layout), Widest(held.Layout.Members, held.Lazy.Axis.Cross), held.Lazy.Items.Count));
+    private static int PerLine(LayoutNode layout, Node.Lazy lazy) => PerLine(layout, lazy.Across, lazy.Axis.Cross, lazy.Items.Count, 1);
 
-    private static Seq<int> Slots(Node.Lazy lazy) =>
-        lazy.Items.Map(static (key, index) => (Key: key, Index: index)).Filter(held => lazy.Realized.ContainsKey(held.Key)).Map(static held => held.Index);
+    private static Seq<(float Start, float Extent)> Started(LayoutNode layout, Seq<float> extents) =>
+        Gap(layout) switch {
+            var gap => extents.Zip(extents.Scan(0f, (start, extent) => start + extent + gap)).Map(static track => (Start: track.Second, Extent: track.First)),
+        };
 
     // --- [SCROLL]
     private static LayoutNode Scrolled(AvailableSpace available, Node.Scroll scroll) {
@@ -426,22 +405,20 @@ internal static class Layouts {
         float least = Basis(thumb, available.Along, float.PositiveInfinity);
         if (scroll.Axis != available.Along) return Placed(available.Pass, thumb, available.Along, available.Start + available.Space - least, least);
         float length = overflow.Max > 0f ? float.Min(overflow.Viewport, float.Max(least, overflow.Viewport * overflow.Viewport / overflow.Content)) : 0f;
-        float offset = overflow.Clamped(available.Pass.Adjusted.Find(Stored(available.Layout, scroll)).IfNone(0f));
+        float offset = overflow.Clamped(available.Pass.Offsets.Find(Stored(available.Layout, scroll)).IfNone(0f));
         return Placed(available.Pass, thumb, available.Along, available.Start + Rescaled(offset, overflow.Max, overflow.Viewport - length), length);
     }
 
     // --- [CORNER]
-    internal sealed record CornerBackground(Corners Corners, SKRect Frame);
-
-    internal static LayoutNode WithCorners(LayoutNode layout, Option<CornerBackground> background) {
+    internal static LayoutNode WithCorners(LayoutNode layout, Option<(Corners Corners, SKRect Frame)> background) {
         Corners stated = layout.Node.Role.IsNone
             ? Corners.Square
             : layout.Style.Rounded.Match(
                 Some: Corners.Round,
                 None: () => background.Map(outer => outer.Corners.Within(outer.Frame, layout.Frame)).IfNone(() => Corners.Round(layout.Style.Metrics[Metric.Radius])));
         Corners corners = layout.Smoothing > 0f ? stated.Fitted(layout.Frame.Size) : stated;
-        Option<CornerBackground> inner = (layout.HasBackground ? Some(new CornerBackground(corners, layout.Frame)) : background)
-            .Map(held => held with { Frame = SKRect.Create(held.Frame.Location - layout.Frame.Location, held.Frame.Size) });
+        Option<(Corners Corners, SKRect Frame)> inner = (layout.HasBackground ? Some<(Corners Corners, SKRect Frame)>((corners, layout.Frame)) : background)
+            .Map(held => (held.Corners, Frame: SKRect.Create(held.Frame.Location - layout.Frame.Location, held.Frame.Size)));
         Seq<(LayoutNode Was, LayoutNode Now)> children = layout.Children.Map(child => (Was: child, Now: WithCorners(child, inner))).Strict();
         return layout.Corners == corners && children.ForAll(static held => ReferenceEquals(held.Was, held.Now))
             ? layout
@@ -453,12 +430,7 @@ internal static class Layouts {
     }
 
     // --- [DISTRIBUTE]
-    internal sealed record FlexItem(Sizing Sizing, float Basis, float Floor);
-
-    private static Seq<float> Distributed(Seq<Sizing> tracks, Seq<float> bases, float space) =>
-        Distribute(tracks.Zip(bases).Map(static track => new FlexItem(track.First, track.Second, track.First.Floor(0f))), space);
-
-    internal static Seq<float> Distribute(Seq<FlexItem> items, float space) {
+    internal static Seq<float> Distribute(Seq<(Sizing Sizing, float Basis, float Floor)> items, float space) {
         float[] bases = [.. items.Map(static item => item.Basis)];
         float free = space - TensorPrimitives.Sum<float>(bases);
         return toSeq(!float.IsFinite(space)
@@ -468,7 +440,7 @@ internal static class Layouts {
                 : toSeq(items.Map(static item => item.Sizing.ShrinkTier).Somes().Distinct().Order()).Fold(bases, (extents, tier) => Shrunk(items, extents, TensorPrimitives.Sum<float>(extents) - space, tier)));
     }
 
-    private static float[] Shrunk(Seq<FlexItem> items, float[] extents, float deficit, int tier) {
+    private static float[] Shrunk(Seq<(Sizing Sizing, float Basis, float Floor)> items, float[] extents, float deficit, int tier) {
         float[] room = [.. items.Map((item, index) => item.Sizing.ShrinkTier == Some(tier) ? float.Max(0f, extents[index] - item.Floor) : 0f)];
         float total = TensorPrimitives.Sum<float>(room);
         if (total <= 0f || deficit <= 0f) return extents;
@@ -477,7 +449,7 @@ internal static class Layouts {
         return shrunk;
     }
 
-    private static float[] Shared(Seq<FlexItem> items, float[] extents, float free) {
+    private static float[] Shared(Seq<(Sizing Sizing, float Basis, float Floor)> items, float[] extents, float free) {
         float[] open = [.. items.Map((item, index) => extents[index] < item.Sizing.Limits.Max ? item.Sizing.GrowWeight : 0f)];
         float weight = TensorPrimitives.Sum<float>(open);
         if (weight <= 0f || free <= 0f) return extents;

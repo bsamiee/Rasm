@@ -16,8 +16,10 @@ internal abstract partial record Gesture {
 
     internal sealed record Press(SKPoint From, Option<SKPoint> Dragged, int Clicks) : Gesture {
         internal SKPoint At => Dragged.IfNone(From);
+        internal SKRect Swept => new SKRect(From.X, From.Y, At.X, At.Y).Standardized;
         internal Seq<PointerSample> Trail { get; init; }
         internal Vector2 Scrolled { get; init; }
+        internal bool Ended { get; init; }
 
         internal Press Updated(PointerSample sample, float slop) =>
             Dragged.IsSome || SKPoint.Distance(sample.At, From) >= slop ? this with { Dragged = Some(sample.At), Trail = Trail.Add(sample) } : this;
@@ -33,16 +35,14 @@ internal abstract partial record Gesture {
     }
 
     internal sealed record Scroll(SKPoint At, Vector2 Delta) : Gesture {
-        internal Scroll Accumulated(Scroll next) => next with { Delta = Delta + next.Delta };
-
-        internal override Option<Gesture> Accumulated(Gesture increment) => Optional(increment as Scroll).Map(next => (Gesture)Accumulated(next));
+        internal override Option<Gesture> Accumulated(Gesture increment) => Optional(increment as Scroll).Map(next => (Gesture)(next with { Delta = Delta + next.Delta }));
     }
 
     internal sealed record Magnify(SKPoint About, float Magnification) : Gesture {
         internal override Option<Gesture> Accumulated(Gesture increment) => Optional(increment as Magnify).Map(next => (Gesture)(next with { Magnification = ((1f + Magnification) * (1f + next.Magnification)) - 1f }));
     }
 
-    internal sealed record Rotate(SKPoint About, float Rotation) : Gesture {
+    internal sealed record Rotate(float Rotation) : Gesture {
         internal override Option<Gesture> Accumulated(Gesture increment) => Optional(increment as Rotate).Map(next => (Gesture)(next with { Rotation = Rotation + next.Rotation }));
     }
 
@@ -51,23 +51,40 @@ internal abstract partial record Gesture {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record PointerCapture {
-    internal sealed record Part(Seq<Key> Owner, Seq<Key> Hit, Gesture.Press Press, Track Track) : PointerCapture;
+    private PointerCapture(Seq<Key> owner, Seq<Key> hit) => (Owner, Hit) = (owner, hit);
 
-    internal sealed record Handle(Seq<Key> Adjuster, SKPoint From, float Start) : PointerCapture;
+    internal Seq<Key> Owner { get; }
+    internal Seq<Key> Hit { get; }
+
+    internal virtual Seq<IO<Unit>> Cancelled => [];
+
+    internal bool Live(Scene scene) => Switch(scene, part: static (held, part) => held.EnabledPartAt(part.Owner).IsSome, handle: static (held, handle) => held.Scroller(handle.Owner).IsSome);
+
+    internal sealed record Part(Seq<Key> Owner, Seq<Key> Hit, Gesture.Press Press, Track Track) : PointerCapture(Owner, Hit) {
+        internal override Seq<IO<Unit>> Cancelled => Track.Cancelled();
+    }
+
+    internal sealed record Handle(Seq<Key> Owner, SKPoint From, float Start) : PointerCapture(Owner, Owner);
 }
-
-internal sealed record ActiveGesture(Gesture Gesture, Track Track);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record Latch {
-    internal sealed record Part(Seq<Key> Owner, Option<ActiveGesture> Active) : Latch;
+    private Latch(Seq<Key> owner) => Owner = owner;
 
-    internal sealed record Scroll(Seq<Key> Adjuster, Option<Gesture.Scroll> Active) : Latch;
+    internal Seq<Key> Owner { get; }
+
+    internal virtual Seq<IO<Unit>> Cancelled => [];
+
+    internal bool Live(Scene scene) => Switch(scene, part: static (held, part) => held.EnabledPartAt(part.Owner).IsSome, scroll: static (held, scroll) => held.Scroller(scroll.Owner).IsSome);
+
+    internal sealed record Part(Seq<Key> Owner, Option<(Gesture Gesture, Track Track)> Active) : Latch(Owner) {
+        internal override Seq<IO<Unit>> Cancelled => Active.Map(static live => live.Track.Cancelled()).IfNone([]);
+    }
+
+    internal sealed record Scroll(Seq<Key> Owner, Option<Gesture.Scroll> Active) : Latch(Owner);
 }
 
 internal sealed record Focus(Seq<Key> Element, bool Traversed);
-
-internal sealed record Candidate<T>(T Item, SKRect Frame);
 
 internal sealed record Routing {
     // --- [STATE]
@@ -80,9 +97,11 @@ internal sealed record Routing {
     internal Option<Focus> Focus { get; init; }
 
     // --- [DERIVED]
-    internal Option<Seq<Key>> Pressed => Capture.Map(static capture => capture.Switch(part: static part => part.Hit, handle: static handle => handle.Adjuster));
+    internal Option<Seq<Key>> Pressed => Capture.Map(static capture => capture.Hit);
 
-    internal Option<Track> ActiveTrack => Capture.Bind(static capture => capture.Switch(part: static part => Some(part.Track), handle: static _ => Option<Track>.None));
+    internal Option<PointerCapture.Part> Part => Capture.Bind(static capture => Optional(capture as PointerCapture.Part));
+
+    internal Option<Track> ActiveTrack => Part.Map(static part => part.Track);
 
     // --- [FOCUS]
     private const float AlignWeight = 5f;
@@ -97,7 +116,7 @@ internal sealed record Routing {
         from entry in stop.Find(static element => element.Conditions.Contains(Condition.Selected)) | (sign > 0 ? stop.Head : stop.Last)
         select entry.Id;
 
-    internal static Option<T> Toward<T>(SKRect origin, Seq<Candidate<T>> candidates, NavigationDirection toward) =>
+    internal static Option<T> Toward<T>(SKRect origin, Seq<(T Item, SKRect Frame)> candidates, Bearing toward) =>
         candidates.Choose(candidate => Distance(origin, candidate.Frame, toward).Map(distance => (candidate.Item, Distance: distance))) switch {
             { IsEmpty: true } => None,
             var ahead => Some(ahead.MinBy(static held => held.Distance).Item),
@@ -114,7 +133,7 @@ internal sealed record Routing {
     private static bool Focusable(Element element) =>
         !element.Conditions.Contains(Condition.Disabled) && !element.Actions.IsEmpty;
 
-    private static Option<float> Distance(SKRect origin, SKRect candidate, NavigationDirection toward) {
+    private static Option<float> Distance(SKRect origin, SKRect candidate, Bearing toward) {
         SKMatrix facing = toward.Along.Map(horizontal: new SKMatrix(toward.Sign, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f), vertical: new SKMatrix(0f, toward.Sign, 0f, 1f, 0f, 0f, 0f, 0f, 1f));
         SKRect exit = facing.MapRect(origin);
         SKRect entry = facing.MapRect(candidate);
@@ -130,22 +149,13 @@ internal sealed record Routing {
     }
 }
 
-internal sealed record Lifting(Transfer.Keys Keys, IO<Transfer> Payload);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-internal abstract partial record Reply {
-    internal static Reply Ignore<TState, TGesture>(TState _, TGesture __) => new Ignored();
-
-    internal sealed record Ignored : Reply;
-
-    internal sealed record Accepted(Seq<IO<Unit>> Effects, Option<Track> Track) : Reply;
-}
+internal sealed record Reply(Seq<IO<Unit>> Effects, Option<Track> Track);
 
 internal sealed record Track(Func<Gesture, Reply> Moved, Func<Gesture, Seq<IO<Unit>>> Released, Func<Seq<IO<Unit>>> Cancelled) {
     internal CursorShape Cursor { get; init; } = CursorShape.Default;
     internal Option<Vector2> Detent { get; init; }
     internal Option<Figure> Preview { get; init; }
-    internal Option<Lifting> Lifted { get; init; }
+    internal Option<(Transfer.Keys Keys, IO<Transfer> Payload)> Lifted { get; init; }
 }
 
 internal sealed record Receiver<TState>(Func<TState, TState, bool> Same, Func<Edit<TState>, Option<IO<Unit>>> Emit) where TState : notnull {
@@ -157,63 +167,46 @@ internal sealed record Session<TState>(TState Start, Seq<Receiver<TState>> Recei
     // --- [STATE]
     internal Func<TState, Gesture, Option<TState>> Step { get; init; } = static (_, _) => None;
     internal Func<TState, TState> Released { get; init; } = static state => state;
-    internal Option<CursorShape> Dragging { get; init; }
     internal Func<TState, Option<Vector2>> Detent { get; init; } = static _ => None;
     internal Func<TState, Option<Figure>> Preview { get; init; } = static _ => None;
-    internal Func<TState, Option<Lifting>> Lifted { get; init; } = static _ => None;
+    internal Func<TState, Option<(Transfer.Keys Keys, IO<Transfer> Payload)>> Lifted { get; init; } = static _ => None;
+
+    private TState Last { get; init; } = Start;
+    private bool Dragging { get; init; }
+    private HashSet<int> Opened { get; init; }
 
     // --- [EMIT]
-    internal Reply Began(Gesture first) =>
-        Step(Start, first).Match(
-            Some: state => {
-                Seq<Emitted> opened = Previewed(Start, state);
-                return (Reply)new Reply.Accepted(opened.Map(static held => held.Effect), Some(Tracked(new Drag(Start, state, first, toHashSet(opened.Map(static held => held.Index))))));
-            },
-            None: static () => new Reply.Ignored());
+    internal Option<Reply> Began(Gesture first) => Step(Start, first).Map(state => Continued(state, Drags(first)));
 
-    internal Reply Stepped(Gesture gesture) =>
-        Step(Start, gesture).Match(
-            Some: state => (Reply)new Reply.Accepted(Receivers.Filter(receiver => !receiver.Same(Start, state)).Choose(receiver => receiver.Emit(Edit.Step(state))), None),
-            None: static () => new Reply.Ignored());
+    internal Option<Reply> Stepped(Gesture gesture) => Stepped(start => Step(start, gesture));
 
-    private sealed record Drag(TState Origin, TState Last, Gesture Latest, HashSet<int> Opened);
+    internal Option<Reply> Stepped(Func<TState, Option<TState>> next) =>
+        next(Start).Map(state => new Reply(Receivers.Filter(receiver => !receiver.Same(Start, state)).Choose(receiver => receiver.Emit(Edit.Of(EditPhase.Step, state))), None));
 
-    private sealed record IndexedReceiver(Receiver<TState> Receiver, int Index);
+    private Seq<(Receiver<TState> Receiver, int Index)> Indexed => Receivers.Map(static (receiver, index) => (Receiver: receiver, Index: index));
 
-    private sealed record Emitted(int Index, IO<Unit> Effect);
-
-    private Seq<IndexedReceiver> Indexed => Receivers.Map(static (receiver, index) => new IndexedReceiver(receiver, index));
-
-    private Seq<Emitted> Previewed(TState from, TState to) =>
-        Indexed.Filter(held => !held.Receiver.Same(from, to)).Choose(held => held.Receiver.Emit(Edit.Preview(to)).Map(effect => new Emitted(held.Index, effect)));
-
-    private Track Tracked(Drag run) =>
-        new(gesture => Moved(run, gesture), gesture => Finished(run, Released(Step(Start, gesture).IfNone(run.Last))), () => Cancelled(run)) {
-            Cursor = run.Latest.SwitchPartially(
-                this,
-                @default: static (session, _) => session.Cursor,
-                press: static (session, press) => press.Dragged.IsSome ? session.Dragging.IfNone(session.Cursor) : session.Cursor),
-            Detent = Detent(run.Last),
-            Preview = Preview(run.Last),
-            Lifted = run.Latest is Gesture.Press { Dragged.IsSome: true } ? Lifted(run.Last) : None,
+    private Track Tracked =>
+        new(gesture => Step(Start, gesture).Match(Some: state => Continued(state, Drags(gesture)), None: () => Continued(Last, Dragging)), gesture => Finished(Released(Step(Start, gesture).IfNone(Last))),
+            () => Indexed.Filter(held => Opened.Contains(held.Index)).Choose(static held => held.Receiver.Emit(Edit.Cancel<TState>()))) {
+            Cursor = Dragging ? Cursor.Dragged : Cursor,
+            Detent = Detent(Last),
+            Preview = Preview(Last),
+            Lifted = Dragging ? Lifted(Last) : None,
         };
 
-    private Reply.Accepted Moved(Drag run, Gesture gesture) =>
-        Step(Start, gesture).Match(Some: state => Continued(run, state, gesture), None: () => Continued(run, run.Last, run.Latest));
-
-    private Reply.Accepted Continued(Drag run, TState state, Gesture latest) {
-        Seq<Emitted> moved = Previewed(run.Last, state);
-        return new(moved.Map(static held => held.Effect), Some(Tracked(run with { Last = state, Latest = latest, Opened = run.Opened.Union(moved.Map(static held => held.Index)) })));
+    private Reply Continued(TState state, bool dragging) {
+        Seq<(int Index, IO<Unit> Effect)> moved = Indexed.Filter(held => !held.Receiver.Same(Last, state))
+            .Choose(held => held.Receiver.Emit(Edit.Of(Opened.Contains(held.Index) ? EditPhase.Preview : EditPhase.Begin, state)).Map(effect => (held.Index, effect)));
+        return new(moved.Map(static held => held.Effect), Some((this with { Last = state, Dragging = dragging, Opened = Opened.Union(moved.Map(static held => held.Index)) }).Tracked));
     }
 
-    private Seq<IO<Unit>> Finished(Drag run, TState state) =>
+    private Seq<IO<Unit>> Finished(TState state) =>
         Indexed.Choose(held =>
-            !held.Receiver.Same(run.Origin, state) ? held.Receiver.Emit(Edit.Commit(state))
-            : run.Opened.Contains(held.Index) ? held.Receiver.Emit(Edit.Cancel<TState>())
+            !held.Receiver.Same(Start, state) ? held.Receiver.Emit(Edit.Of(EditPhase.Commit, state))
+            : Opened.Contains(held.Index) ? held.Receiver.Emit(Edit.Cancel<TState>())
             : None);
 
-    private Seq<IO<Unit>> Cancelled(Drag run) =>
-        Indexed.Filter(held => run.Opened.Contains(held.Index)).Choose(static held => held.Receiver.Emit(Edit.Cancel<TState>()));
+    private static bool Drags(Gesture gesture) => gesture is Gesture.Press { Dragged.IsSome: true };
 }
 
 internal sealed record HitTarget(Scene Scene, LayoutNode Layout, SKRect Bounds, Seq<Key> Hit) {
@@ -221,8 +214,6 @@ internal sealed record HitTarget(Scene Scene, LayoutNode Layout, SKRect Bounds, 
 }
 
 internal sealed record HoverState(Scene Scene, LayoutNode Layout, Seq<Seq<Key>> Hover, Option<SKPoint> Pointer) {
-    internal bool InView(Seq<Key> path) => Scene.Bounds(path).Exists(static bounds => !bounds.IsEmpty);
-
     internal Option<Vector2> Plotted =>
         from pointer in Pointer
         where Hover.Exists(path => path.Take(Layout.Path.Count) == Layout.Path)

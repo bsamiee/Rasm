@@ -8,12 +8,13 @@ using Topten.RichTextKit;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Part {
-    // --- [GESTURES]
-    internal abstract Reply Began(Gesture gesture, HitTarget aim);
+public abstract record Part {
+    private protected Part() { }
 
-    internal virtual Reply Performed(Gesture gesture, HitTarget aim) => new Reply.Ignored();
+    // --- [GESTURES]
+    internal abstract Option<Reply> Began(Gesture gesture, HitTarget aim);
+
+    internal virtual Option<Reply> Performed(Gesture gesture, HitTarget aim) => None;
 
     internal virtual bool Offers(LayoutNode owner, Seq<Key> path) => path == owner.Path;
 
@@ -28,37 +29,17 @@ public abstract partial record Part {
 
         public Node Drawn(Node face) => face with { Part = this, Accessible = face.Accessible.Combine(new Accessible { Role = AccessRole.Button }) };
 
-        internal override Reply Began(Gesture gesture, HitTarget aim) =>
-            gesture.SwitchPartially((Press: this, Aim: aim), @default: Reply.Ignore, press: static (held, _) => new Reply.Accepted([], Some(held.Press.Holding(held.Aim))));
+        internal override Option<Reply> Began(Gesture gesture, HitTarget aim) => gesture is Gesture.Press ? Some(new Reply([], Some(Holding(aim)))) : None;
 
-        internal override Reply Performed(Gesture gesture, HitTarget aim) =>
-            gesture.SwitchPartially(
-                (Press: this, aim.Bounds),
-                @default: Reply.Ignore,
-                perform: static (held, perform) => perform.Act.SwitchPartially(
-                    held,
-                    @default: static (_, _) => new Reply.Ignored(),
-                    press: static (state, _) => new Reply.Accepted([state.Press.Run(state.Bounds)], None),
-                    confirm: static (state, _) => new Reply.Accepted([state.Press.Run(state.Bounds)], None),
-                    showMenu: static (state, _) => state.Press.Secondary(state.Bounds).Match(Some: static effect => (Reply)new Reply.Accepted([effect], None), None: static () => new Reply.Ignored())));
+        internal override Option<Reply> Performed(Gesture gesture, HitTarget aim) =>
+            from perform in Optional(gesture as Gesture.Perform)
+            from effect in perform.Act == Act.ShowMenu ? Secondary(aim.Bounds) : perform.Act == Act.Press || perform.Act == Act.Confirm ? Some(Run(aim.Bounds)) : None
+            select new Reply([effect], None);
 
         private Track Holding(HitTarget aim) =>
-            new(_ => new Reply.Accepted([], Some(Holding(aim))),
-                gesture => gesture.SwitchPartially(
-                    (Press: this, Aim: aim),
-                    @default: static (_, _) => Seq<IO<Unit>>(),
-                    press: static (held, press) => held.Aim.Bounds.Contains(press.At) ? Seq(held.Press.Run(held.Aim.Bounds)) : []),
+            new(_ => new Reply([], Some(Holding(aim))),
+                gesture => gesture is Gesture.Press press && aim.Bounds.Contains(press.At) ? Seq(Run(aim.Bounds)) : [],
                 static () => []);
-    }
-
-    public sealed record Pad(HandleLayer Handles) : Part {
-        internal override Reply Began(Gesture gesture, HitTarget aim) => Handles.Began(gesture, aim);
-
-        internal override Reply Performed(Gesture gesture, HitTarget aim) => Handles.Performed(gesture, aim);
-
-        internal override bool Offers(LayoutNode owner, Seq<Key> path) => HandleLayer.Offers(owner, path);
-
-        internal override Option<Seq<Key>> Revealed(LayoutNode layout) => Handles.Revealed(layout);
     }
 
     public sealed record Choice(Seq<Key> Items, Selection Value, Func<Edit<Selection>, IO<Unit>> Edited) : Part {
@@ -70,14 +51,11 @@ public abstract partial record Part {
 
         private AccessRole Composite => Value.Map(one: AccessRole.RadioGroup, many: AccessRole.List);
 
-        private Seq<Receiver<State>> Receivers =>
-            Seq(Receiver<State>.Of(static held => held.Value, edit => Some(Edited(edit)))) + Reorder.Map(static reorder => Receiver<State>.Of(static held => held.Order, edit => Some(reorder(edit)))).ToSeq();
-
         // --- [DRAW]
-        public Node Drawn(Func<Key, Node> item, Func<Seq<Node>, Node> container) {
-            Node held = container(Items.Map(key => Member(item(key), key)));
-            return held with { Part = this, Accessible = held.Accessible.Combine(new Accessible { Role = Composite }) };
-        }
+        public Node Drawn(Func<Key, Node> item, Func<Seq<Node>, Node> container) =>
+            container(Items.Map(key => Member(item(key), key))) switch {
+                var held => held with { Part = this, Accessible = held.Accessible.Combine(new Accessible { Role = Composite }) },
+            };
 
         public Node.Lazy Drawn(Func<Key, Node> item, PhysicalAxis axis, Tracks across, float extent, HashSet<Key> realized) =>
             new(axis, across, extent, Items) {
@@ -99,38 +77,26 @@ public abstract partial record Part {
 
         internal override Option<Seq<Key>> Revealed(LayoutNode layout) => Value.Lead.Bind(lead => Paths(layout, [lead]).Head);
 
-        internal override Reply Began(Gesture gesture, HitTarget aim) =>
-            gesture.SwitchPartially(
-                (Choice: this, Aim: aim),
-                @default: Reply.Ignore,
-                press: static (held, press) => held.Choice.Item(held.Aim.Hit, held.Aim.Layout).Match(
-                    Some: key => held.Choice.Pressing(key, held.Aim).Began(press),
-                    None: () => held.Choice.Value.Switch(
-                        (held.Choice, held.Aim, Press: press),
-                        one: Reply.Ignore,
-                        many: static (state, _) => state.Choice.Marquee(state.Aim).Began(state.Press))));
+        internal override Option<Reply> Began(Gesture gesture, HitTarget aim) =>
+            from press in Optional(gesture as Gesture.Press)
+            from session in Item(aim.Hit, aim.Layout).Map(key => Pressing(key, aim)) | (Value is Selection.Many ? Some(Marquee(aim)) : None)
+            from reply in session.Began(press)
+            select reply;
 
-        internal override Reply Performed(Gesture gesture, HitTarget aim) =>
-            gesture.SwitchPartially(
-                (Choice: this, Aim: aim),
-                @default: Reply.Ignore,
-                perform: static (held, perform) => perform.Act.SwitchPartially(
-                    (held.Choice, held.Aim, Perform: perform),
-                    @default: static (_, _) => new Reply.Ignored(),
-                    press: static (state, _) => state.Choice.Selected(state.Aim, state.Perform),
-                    confirm: static (state, _) => state.Choice.Selected(state.Aim, state.Perform),
-                    showMenu: static (state, _) => (from key in state.Choice.Item(state.Aim.Hit, state.Aim.Layout)
-                                                    from tile in state.Choice.Framed(state.Aim).Find(tile => tile.Item == key)
-                                                    from effect in state.Choice.Menu(state.Choice.Moving(state.Choice.Value, key), tile.Frame)
-                                                    select (Reply)new Reply.Accepted([effect], None))
-                        .IfNone(static () => new Reply.Ignored()),
-                    navigate: static (state, navigate) => navigate.Toward.Granularity.Distance(1f, 0f).Match(
-                            Some: stride => stride > 0f ? state.Choice.Adjacent(state.Aim, navigate.Toward) : None,
-                            None: () => navigate.Toward.Sign < 0 ? state.Choice.Items.Head : state.Choice.Items.Last)
-                        .Match(
-                            Some: key => state.Choice.Stepping(start => start with { Value = start.Value.Navigated(state.Choice.Items, key, state.Perform.Modifiers.Shift) }).Stepped(state.Perform),
-                            None: static () => new Reply.Ignored()),
-                    selectAll: static (state, _) => state.Choice.Stepping(start => start with { Value = start.Value.All(state.Choice.Items) }).Stepped(state.Perform)));
+        internal override Option<Reply> Performed(Gesture gesture, HitTarget aim) =>
+            gesture is Gesture.Perform perform
+                ? perform.Act.SwitchPartially(
+                    (Choice: this, Aim: aim, perform.Modifiers),
+                    @default: static (held, act) => act.Toward.Bind(toward => held.Choice.Landed(held.Aim, toward)).Bind(key => held.Choice.Stepping(start => start.Navigated(held.Choice.Items, key, held.Modifiers.Shift))),
+                    press: static held => held.Choice.Selected(held.Aim, held.Modifiers),
+                    confirm: static held => held.Choice.Selected(held.Aim, held.Modifiers),
+                    showMenu: static held =>
+                        from key in held.Choice.Item(held.Aim.Hit, held.Aim.Layout)
+                        from tile in held.Choice.Framed(held.Aim).Find(tile => tile.Item == key)
+                        from effect in held.Choice.Menu(held.Choice.Moving(held.Choice.Value, key), tile.Frame)
+                        select new Reply([effect], None),
+                    selectAll: static held => held.Choice.Stepping(start => start.All(held.Choice.Items)))
+                : None;
 
         internal override Seq<IO<Unit>> Watched(Option<HoverState> before, HoverState after) {
             Option<Key> hovered = Hovered(after);
@@ -138,61 +104,64 @@ public abstract partial record Part {
             return (before.Bind(Hovered) == hovered ? [] : Hover(hovered).ToSeq()) + (before.Map(Seen) == Some(seen) ? [] : Viewed(seen).ToSeq());
         }
 
-        private Session<State> Pressing(Key key, HitTarget aim) =>
-            new(new State(Value, Items), Receivers, Reorder.IsSome ? CursorShape.Grab : CursorShape.Default) {
+        private Session<(Selection Value, Seq<Key> Order)> Session(CursorShape cursor) =>
+            new((Value, Items), Seq(Receiver<(Selection Value, Seq<Key> Order)>.Of(static held => held.Value, edit => Some(Edited(edit)))) + Reorder.Map(static reorder => Receiver<(Selection Value, Seq<Key> Order)>.Of(static held => held.Order, edit => Some(reorder(edit)))).ToSeq(), cursor);
+
+        private Session<(Selection Value, Seq<Key> Order)> Pressing(Key key, HitTarget aim) =>
+            Session(Reorder.IsSome ? CursorShape.Grab : CursorShape.Default) with {
                 Step = (start, gesture) => gesture is Gesture.Press press ? Some(Pressed(start, key, press, aim)) : None,
-                Dragging = Reorder.Map(static _ => CursorShape.Grabbing),
                 Lifted = state => aim.Layout.Node.Lift.Map(lift => Moving(state.Value, key) switch {
-                    var moving => new Lifting(new Transfer.Keys(Paths(aim.Layout, moving)), lift.Payload(moving)),
+                    var moving => (new Transfer.Keys(Paths(aim.Layout, moving)), lift.Payload(moving)),
                 }),
             };
 
-        private State Pressed(State start, Key key, Gesture.Press press, HitTarget aim) =>
-            start.Value.Pressed(Items, key, press.Modifiers) switch {
-                var selection when press.Dragged.IsNone || (aim.Layout.Node.Lift.IsSome && !aim.Scene.Covers(press.At)) => new State(selection, Items),
-                var selection => new State(selection, Reorder.IsSome ? Ordered(Moving(selection, key), At(aim, press.At)) : Items),
+        private (Selection Value, Seq<Key> Order) Pressed((Selection Value, Seq<Key> Order) start, Key key, Gesture.Press press, HitTarget aim) =>
+            start.Value.Pressed(Items, key, press.Modifiers, press is { Ended: true, Dragged.IsNone: true }) switch {
+                var selection when press.Dragged.IsNone || (aim.Layout.Node.Lift.IsSome && !aim.Scene.Covers(press.At)) => (selection, Items),
+                var selection => (selection, Reorder.IsSome ? Ordered(Moving(selection, key), At(aim, press.At)) : Items),
             };
 
-        private Session<State> Marquee(HitTarget aim) =>
-            new(new State(Value, Items), Receivers, CursorShape.Default) {
+        private Session<(Selection Value, Seq<Key> Order)> Marquee(HitTarget aim) =>
+            Session(CursorShape.Default) with {
                 Step = (start, gesture) => gesture is Gesture.Press press ? Some(start with { Value = start.Value.Enclosed(Items, Covered(aim, press), press.Modifiers) }) : None,
             };
 
-        private Session<State> Stepping(Func<State, State> next) => new(new State(Value, Items), Receivers, CursorShape.Default) { Step = (start, gesture) => gesture is Gesture.Perform ? Some(next(start)) : None };
+        private Option<Reply> Stepping(Func<Selection, Selection> next) =>
+            Session(CursorShape.Default).Stepped(start => Some(start with { Value = next(start.Value) }));
 
-        private Reply Selected(HitTarget aim, Gesture.Perform perform) =>
-            Item(aim.Hit, aim.Layout).Match(
-                Some: key => Stepping(start => start with { Value = start.Value.Pressed(Items, key, perform.Modifiers) }).Stepped(perform),
-                None: static () => new Reply.Ignored());
+        private Option<Reply> Selected(HitTarget aim, KeyModifiers modifiers) =>
+            Item(aim.Hit, aim.Layout).Bind(key => Stepping(start => start.Pressed(Items, key, modifiers, clicked: true)));
 
-        private Option<Key> Adjacent(HitTarget aim, NavigationDirection toward) =>
+        private Option<Key> Landed(HitTarget aim, Bearing toward) =>
+            toward.Granularity.Distance(1f, 0f).Match(
+                Some: stride => stride > 0f ? Adjacent(aim, toward) : None,
+                None: () => toward.Sign < 0 ? Items.Head : Items.Last);
+
+        private Option<Key> Adjacent(HitTarget aim, Bearing toward) =>
             Value.Lead.Match(
-                Some: lead => {
-                    Seq<Candidate<Key>> tiles = Framed(aim);
-                    return tiles.Find(tile => tile.Item == lead).Bind(origin => Routing.Toward(origin.Frame, tiles.Filter(tile => tile.Item != lead), toward));
+                Some: lead => Framed(aim) switch {
+                    var tiles => tiles.Find(tile => tile.Item == lead).Bind(origin => Routing.Toward(origin.Frame, tiles.Filter(tile => tile.Item != lead), toward)),
                 },
                 None: () => Items.Head);
 
         // --- [READ]
-        internal Option<Key> Item(Seq<Key> over, LayoutNode layout) => Item(over, layout, toHashSet(Items));
+        private Option<Key> Item(Seq<Key> over, LayoutNode layout) => Item(over, layout, toHashSet(Items));
 
-        internal Seq<TileNode> Tiles(LayoutNode layout) => Tiles(layout, toHashSet(Items));
+        private Seq<(Key Key, LayoutNode Layout)> Tiles(LayoutNode layout) => Tiles(layout, toHashSet(Items));
 
-        internal Seq<Seq<Key>> Paths(LayoutNode layout, Seq<Key> keys) {
+        private Seq<Seq<Key>> Paths(LayoutNode layout, Seq<Key> keys) {
             HashMap<Key, Seq<Key>> tiles = toHashMap(Tiles(layout).Map(static tile => (tile.Key, tile.Layout.Path)));
-            return keys.Choose(key => tiles.Find(key) | layout.Node.Windowed.Filter(lazy => lazy.Items.Exists(item => item == key)).Map(_ => layout.Path.Add(key)));
+            return keys.Choose(key => tiles.Find(key) | Optional(layout.Node as Node.Lazy).Filter(lazy => lazy.Items.Exists(item => item == key)).Map(_ => layout.Path.Add(key)));
         }
 
-        private Seq<Candidate<Key>> Framed(HitTarget aim) => Tiles(aim.Layout).Choose(tile => aim.Scene.Frame(tile.Layout.Path).Map(frame => new Candidate<Key>(tile.Key, frame))).Strict();
+        private Seq<(Key Item, SKRect Frame)> Framed(HitTarget aim) => Tiles(aim.Layout).Choose(tile => aim.Scene.Frame(tile.Layout.Path).Map(frame => (Item: tile.Key, Frame: frame))).Strict();
 
         private Seq<Key> Moving(Selection selection, Key key) => selection.Holds(key) ? Items.Filter(selection.Holds) : [key];
 
         private Option<Key> At(HitTarget aim, SKPoint at) => Framed(aim).Find(tile => tile.Frame.Contains(at)).Map(static tile => tile.Item);
 
-        private HashSet<Key> Covered(HitTarget aim, Gesture.Press press) {
-            SKRect enclosed = new SKRect(press.From.X, press.From.Y, press.At.X, press.At.Y).Standardized;
-            return press.Dragged.IsNone ? [] : toHashSet(Framed(aim).Filter(tile => tile.Frame.IntersectsWith(enclosed)).Map(static tile => tile.Item));
-        }
+        private HashSet<Key> Covered(HitTarget aim, Gesture.Press press) =>
+            press.Dragged.IsNone ? [] : toHashSet(Framed(aim).Filter(tile => tile.Frame.IntersectsWith(press.Swept)).Map(static tile => tile.Item));
 
         private Seq<Key> Ordered(Seq<Key> moving, Option<Key> under) {
             HashSet<Key> moved = toHashSet(moving);
@@ -208,21 +177,18 @@ public abstract partial record Part {
         private Option<Key> Hovered(HoverState sight) => sight.Hover.Choose(path => Item(path, sight.Layout)).Head;
 
         private HashSet<Key> Seen(HoverState sight) =>
-            toHashSet(sight.Layout.Node.Windowed.Match(
+            toHashSet(Optional(sight.Layout.Node as Node.Lazy).Match(
                 Some: lazy => Layouts.Visible(sight.Scene, sight.Layout, lazy),
-                None: () => Tiles(sight.Layout).Filter(tile => sight.InView(tile.Layout.Path)).Map(static tile => tile.Key)));
+                None: () => Tiles(sight.Layout).Filter(tile => sight.Scene.Bounds(tile.Layout.Path).Exists(static bounds => !bounds.IsEmpty)).Map(static tile => tile.Key)));
 
         private static Option<Key> Item(Seq<Key> over, LayoutNode layout, HashSet<Key> members) =>
             layout.Children.Find(child => over.Take(child.Path.Count) == child.Path).Bind(child => Tile(child, members) | Item(over, child, members));
 
-        private static Seq<TileNode> Tiles(LayoutNode layout, HashSet<Key> members) =>
-            layout.Children.Bind(child => Tile(child, members).Match(Some: key => Seq(new TileNode(key, child)), None: () => Tiles(child, members)));
+        private static Seq<(Key Key, LayoutNode Layout)> Tiles(LayoutNode layout, HashSet<Key> members) =>
+            layout.Children.Bind(child => Tile(child, members).Match(Some: key => Seq((Key: key, Layout: child)), None: () => Tiles(child, members)));
 
         private static Option<Key> Tile(LayoutNode layout, HashSet<Key> members) => layout.Node.Key.Filter(members.Contains);
 
-        private sealed record State(Selection Value, Seq<Key> Order);
-
-        internal sealed record TileNode(Key Key, LayoutNode Layout);
     }
 
     public sealed record Viewport(PlotPlane Rest, Func<Edit<PlotPlane>, IO<Unit>> Edited) : Part {
@@ -233,57 +199,51 @@ public abstract partial record Part {
         public Limits Magnification { get; init; } = Limits.Open;
 
         // --- [GESTURES]
-        internal override Reply Began(Gesture gesture, HitTarget aim) =>
-            aim.Frame.Match(
-                Some: frame => gesture.SwitchPartially(
-                    (Viewport: this, Frame: frame),
-                    @default: Reply.Ignore,
-                    press: static (held, press) => (press.Clicks >= 2
-                        ? held.Viewport.Tracking(held.Frame, (_, gesture) => gesture is Gesture.Press ? Some(held.Viewport.Rest) : None)
-                        : held.Viewport.Boxed
-                            ? held.Viewport.Boxing(held.Frame)
-                            : held.Viewport.Tracking(held.Frame, (start, gesture) => gesture is Gesture.Press moved ? held.Viewport.Panned(held.Frame, start, moved.From, moved.At) : None)).Began(press),
-                    scroll: static (held, scroll) => held.Viewport.Tracking(held.Frame, (start, gesture) => gesture is Gesture.Scroll slid ? held.Viewport.Panned(held.Frame, start, slid.At, slid.At + (SKPoint)slid.Delta) : None).Began(scroll),
-                    magnify: static (held, magnify) => held.Viewport.Tracking(held.Frame, (start, gesture) => gesture is Gesture.Magnify pinched
-                        ? held.Frame.At(pinched.About).Bind(about => held.Viewport.Zoomed(start, about, 1f / (1f + pinched.Magnification)))
-                        : None).Began(magnify)),
-                None: static () => new Reply.Ignored());
+        internal override Option<Reply> Began(Gesture gesture, HitTarget aim) =>
+            aim.Frame.Bind(frame => gesture.SwitchPartially(
+                (Viewport: this, Frame: frame),
+                @default: static (held, _) => held.Viewport.Panning(held.Frame),
+                press: static (held, press) =>
+                    press.Clicks >= 2 ? held.Viewport.Tracking(held.Frame, (_, next) => next is Gesture.Press ? Some(held.Viewport.Rest) : None)
+                    : held.Viewport.Boxed ? held.Viewport.Boxing(held.Frame)
+                    : held.Viewport.Panning(held.Frame)).Began(gesture));
 
-        internal override Reply Performed(Gesture gesture, HitTarget aim) =>
-            aim.Frame.Match(
-                Some: frame => gesture.SwitchPartially(
-                    (Viewport: this, Frame: frame, Center: new SKPoint(aim.Bounds.MidX, aim.Bounds.MidY), Metrics: HandleLayer.Metrics(aim.Layout, None)),
-                    @default: Reply.Ignore,
-                    scroll: static (held, scroll) => held.Viewport.Tracking(held.Frame, (start, gesture) => gesture is Gesture.Scroll notched
-                        ? held.Frame.At(notched.At).Bind(about => held.Viewport.Zoomed(start, about, MathF.Pow(held.Metrics[Metric.Notch], -notched.Delta.Y / held.Metrics[Metric.Extent])))
-                        : None).Stepped(scroll),
-                    perform: static (held, perform) => perform.Act.SwitchPartially(
-                            (held.Viewport, held.Frame, held.Center, held.Metrics, Perform: perform),
-                            @default: static (_, _) => Option<Func<PlotPlane, Option<PlotPlane>>>.None,
-                            increment: static (state, _) => Some(state.Viewport.Notched(state.Frame, state.Center, state.Metrics, state.Perform.Modifiers, -1f)),
-                            decrement: static (state, _) => Some(state.Viewport.Notched(state.Frame, state.Center, state.Metrics, state.Perform.Modifiers, 1f)),
-                            reset: static (state, _) => Some<Func<PlotPlane, Option<PlotPlane>>>(_ => Some(state.Viewport.Rest)),
-                            navigate: static (state, navigate) => Some(state.Viewport.Navigated(state.Frame, state.Center, navigate.Toward, state.Metrics[Metric.Extent])))
-                        .Match(
-                            Some: move => held.Viewport.Tracking(held.Frame, (start, gesture) => gesture is Gesture.Perform ? move(start) : None).Stepped(perform),
-                            None: static () => new Reply.Ignored())),
-                None: static () => new Reply.Ignored());
+        internal override Option<Reply> Performed(Gesture gesture, HitTarget aim) =>
+            from frame in aim.Frame
+            from move in gesture.SwitchPartially(
+                (Viewport: this, Frame: frame, Center: new SKPoint(aim.Bounds.MidX, aim.Bounds.MidY), Styles.Resolve(aim.Layout.Cascade, Role.Handle, aim.Layout.Style.Conditions).Metrics),
+                @default: static (_, _) => Option<Func<PlotPlane, Option<PlotPlane>>>.None,
+                scroll: static (held, notched) => Some(held.Viewport.Notched(held.Frame, notched.At, held.Metrics[Metric.Notch], -notched.Delta.Y / held.Metrics[Metric.Extent])),
+                perform: static (held, perform) => perform.Act.SwitchPartially(
+                    (held.Viewport, held.Frame, held.Center, Notch: held.Metrics[Metric.Notch], Extent: held.Metrics[Metric.Extent], Fine: perform.Modifiers.Primary ? held.Metrics[Metric.Fine] : 1f),
+                    @default: static (state, act) => act.Toward.Map(toward => state.Viewport.Navigated(state.Frame, state.Center, toward, state.Extent)),
+                    increment: static state => Some(state.Viewport.Notched(state.Frame, state.Center, state.Notch, -state.Fine)),
+                    decrement: static state => Some(state.Viewport.Notched(state.Frame, state.Center, state.Notch, state.Fine)),
+                    reset: static state => Some<Func<PlotPlane, Option<PlotPlane>>>(_ => Some(state.Viewport.Rest))))
+            from reply in Tracking(frame, (start, _) => move(start)).Stepped(gesture)
+            select reply;
 
         // --- [SESSIONS]
-        private Session<View> Tracking(PlotFrame frame, Func<PlotPlane, Gesture, Option<PlotPlane>> step) =>
-            new(new View(frame.Plane), [Receiver<View>.Of(static view => view.Plane, edit => Some(Edited(edit)))], CursorShape.Grab) {
-                Step = (start, gesture) => step(start.Plane, gesture).Bind(plane => Settled(frame, plane)).Map(static plane => new View(plane)),
-                Dragging = CursorShape.Grabbing,
+        private Session<(PlotPlane Plane, Option<Figure.Region> Box)> Tracking(PlotFrame frame, Func<PlotPlane, Gesture, Option<PlotPlane>> step) =>
+            new((frame.Plane, None), [Receiver<(PlotPlane Plane, Option<Figure.Region> Box)>.Of(static view => view.Plane, edit => Some(Edited(edit)))], CursorShape.Grab) {
+                Step = (start, gesture) => step(start.Plane, gesture).Bind(plane => Settled(frame, plane)).Map(static plane => (plane, Option<Figure.Region>.None)),
             };
 
-        private Session<View> Boxing(PlotFrame frame) =>
+        private Session<(PlotPlane Plane, Option<Figure.Region> Box)> Boxing(PlotFrame frame) =>
             Tracking(frame, static (_, _) => None) with {
                 Cursor = CursorShape.Crosshair,
-                Dragging = None,
                 Step = (start, gesture) => gesture is Gesture.Press press ? Some(start with { Box = press.Enclosed(frame).Map(box => box with { First = box.First.Filter(_ => Free.Contains(PhysicalAxis.Horizontal)), Second = box.Second.Filter(_ => Free.Contains(PhysicalAxis.Vertical)) }) }) : None,
-                Released = view => view.Box.Bind(box => Fitted(frame, view.Plane, box)).Map(static plane => new View(plane)).IfNone(view),
+                Released = view => view.Box.Bind(box => Fitted(frame, view.Plane, box)).Map(static plane => (plane, Option<Figure.Region>.None)).IfNone(view),
                 Preview = static view => view.Box.Map(static box => (Figure)box),
             };
+
+        private Session<(PlotPlane Plane, Option<Figure.Region> Box)> Panning(PlotFrame frame) =>
+            Tracking(frame, (start, gesture) => gesture.SwitchPartially(
+                (Viewport: this, Frame: frame, Start: start),
+                @default: static (_, _) => Option<PlotPlane>.None,
+                press: static (held, press) => held.Viewport.Panned(held.Frame, held.Start, press.From, press.At),
+                scroll: static (held, slid) => held.Viewport.Panned(held.Frame, held.Start, slid.At, slid.At + (SKPoint)slid.Delta),
+                magnify: static (held, pinched) => held.Frame.At(pinched.About).Bind(about => held.Viewport.Zoomed(held.Start, about, 1f / (1f + pinched.Magnification)))));
 
         // --- [MOVES]
         private Option<PlotPlane> Panned(PlotFrame frame, PlotPlane start, SKPoint from, SKPoint to) =>
@@ -296,23 +256,22 @@ public abstract partial record Part {
             from plane in held.CompareTo(1f) is 0 ? Some(start) : start.Scaled(about, about, Free.Fold(Vector2.One, (factors, along) => along.With(factors, held)))
             select plane;
 
-        private Func<PlotPlane, Option<PlotPlane>> Notched(PlotFrame frame, SKPoint center, HashMap<Metric, float> metrics, KeyModifiers modifiers, float sign) =>
-            start => frame.At(center).Bind(about => Zoomed(start, about, MathF.Pow(metrics[Metric.Notch], sign * (modifiers.Primary ? metrics[Metric.Fine] : 1f))));
+        private Func<PlotPlane, Option<PlotPlane>> Notched(PlotFrame frame, SKPoint about, float notch, float notches) =>
+            start => frame.At(about).Bind(at => Zoomed(start, at, MathF.Pow(notch, notches)));
 
-        private Func<PlotPlane, Option<PlotPlane>> Navigated(PlotFrame frame, SKPoint center, NavigationDirection toward, float step) =>
+        private Func<PlotPlane, Option<PlotPlane>> Navigated(PlotFrame frame, SKPoint center, Bearing toward, float step) =>
             start => toward.Granularity.Distance(step, frame.Pixels(toward.Along)).Match(
                 Some: distance => Panned(frame, start, center + (SKPoint)(toward.Vector * distance), center),
                 None: () => from bound in Bounds.Bind(bounds => bounds.Dimension(toward.Along))
                             from held in start.Dimension(toward.Along)
                             where Free.Contains(toward.Along)
-                            from plane in start.Shifted(toward.Along.With(Vector2.Zero, toward.ValueSign(frame) > 0 ? bound.Domain.High - held.Domain.High : bound.Domain.Low - held.Domain.Low))
+                            from plane in start.Shifted(toward.Along.With(Vector2.Zero, toward.Sign * frame.Sign(toward.Along) > 0 ? bound.Domain.High - held.Domain.High : bound.Domain.Low - held.Domain.Low))
                             select plane);
 
         private Option<PlotPlane> Fitted(PlotFrame frame, PlotPlane start, Figure.Region box) {
             Seq<(PlaneAxis Free, AxisRange Target)> targets = start.Dimensions.Map(free => (free, free.Along.Map(horizontal: box.First, vertical: box.Second).IfNone(free.Axis.Domain)));
-            Vector2 center = targets.Fold(Vector2.Zero, static (held, target) => target.Free.Along.With(held, Midpoint(target.Target)));
-            return from centered in start.Shifted(targets.Fold(Vector2.Zero, static (held, target) => target.Free.Along.With(held, Midpoint(target.Target) - Midpoint(target.Free.Axis.Domain))))
-                   from zoomed in Zoomed(centered, center, targets.Fold(0f, static (most, target) => float.Max(most, MathF.Abs(target.Target.Span / target.Free.Axis.Domain.Span))))
+            return from centered in start.Shifted(targets.Fold(Vector2.Zero, static (held, target) => target.Free.Along.With(held, target.Target.Mid - target.Free.Axis.Domain.Mid)))
+                   from zoomed in Zoomed(centered, targets.Fold(Vector2.Zero, static (held, target) => target.Free.Along.With(held, target.Target.Mid)), targets.Fold(0f, static (most, target) => float.Max(most, MathF.Abs(target.Target.Span / target.Free.Axis.Domain.Span))))
                    from plane in Settled(frame, zoomed)
                    select plane;
         }
@@ -331,52 +290,41 @@ public abstract partial record Part {
             from room in Limits.Validated(Magnification.Min / ratio, float.Min(Magnification.Max / ratio, Bounds.Bind(bounds => bounds.Dimension(held.Along)).Map(bound => MathF.Abs(bound.Domain.Span) / span).IfNone(float.PositiveInfinity))).ToOption()
             select room;
 
-        private static float Midpoint(AxisRange range) => (range.From + range.To) / 2f;
-
         private static float Inside(AxisRange domain, AxisRange bound) => float.Max(bound.Low - domain.Low, 0f) + float.Min(bound.High - domain.High, 0f);
-
-        private sealed record View(PlotPlane Plane) {
-            internal Option<Figure.Region> Box { get; init; }
-        }
     }
 
-    public sealed record Trace(Func<Edit<Seq<TracePoint>>, IO<Unit>> Edited) : Part {
+    public sealed record Trace(Func<Edit<Seq<PointerSample>>, IO<Unit>> Edited) : Part {
         public bool Closed { get; init; }
 
-        internal override Reply Began(Gesture gesture, HitTarget aim) =>
-            aim.Frame.Match(
-                Some: frame => gesture.SwitchPartially((Trace: this, Frame: frame), @default: Reply.Ignore, press: static (held, press) => held.Trace.Tracing(held.Frame).Began(press)),
-                None: static () => new Reply.Ignored());
+        internal override Option<Reply> Began(Gesture gesture, HitTarget aim) =>
+            from press in Optional(gesture as Gesture.Press)
+            from frame in aim.Frame
+            from reply in Tracing(frame).Began(press)
+            select reply;
 
-        private Session<Seq<TracePoint>> Tracing(PlotFrame frame) =>
-            new([], [Receiver<Seq<TracePoint>>.Of(static points => points, edit => Some(Edited(edit)))], CursorShape.Crosshair) {
-                Step = (_, gesture) => gesture is Gesture.Press press ? Some(press.Trail.Choose(sample => frame.At(sample.At).Map(at => new TracePoint(at, sample.Stylus)))) : None,
+        private Session<Seq<PointerSample>> Tracing(PlotFrame frame) =>
+            new([], [Receiver<Seq<PointerSample>>.Of(static points => points, edit => Some(Edited(edit)))], CursorShape.Crosshair) {
+                Step = (_, gesture) => gesture is Gesture.Press press ? Some(press.Trail.Choose(sample => frame.At(sample.At).Map(at => sample with { At = at }))) : None,
                 Released = points => Closed && points is [var first, _, _, ..] ? points.Add(first) : points,
             };
     }
 
     public sealed record Selecting(Func<Edit<TextRange>, IO<Unit>> Edited) : Part {
-        internal override Reply Began(Gesture gesture, HitTarget aim) =>
-            aim.Layout.TextNode.Match(
-                Some: text => gesture.SwitchPartially(
-                    (Selecting: this, Text: text, Origin: aim.Bounds.Location),
-                    @default: Reply.Ignore,
-                    press: static (held, press) => held.Selecting.Spanning(held.Text, (_, gesture) => gesture is Gesture.Press moved ? Some(Spanned(held.Text, held.Origin, moved)) : None).Began(press)),
-                None: static () => new Reply.Ignored());
+        internal override Option<Reply> Began(Gesture gesture, HitTarget aim) =>
+            from press in Optional(gesture as Gesture.Press)
+            from text in aim.Layout.TextNode
+            from reply in (Spanning(text) with { Step = (_, next) => next is Gesture.Press moved ? Some(Spanned(text, aim.Bounds.Location, moved)) : None }).Began(press)
+            select reply;
 
-        internal override Reply Performed(Gesture gesture, HitTarget aim) =>
-            aim.Layout.TextNode.Match(
-                Some: text => gesture.SwitchPartially(
-                    (Selecting: this, Text: text),
-                    @default: Reply.Ignore,
-                    perform: static (held, perform) => perform.Act.SwitchPartially(
-                        (held.Selecting, held.Text, Perform: perform),
-                        @default: static (_, _) => new Reply.Ignored(),
-                        selectAll: static (state, _) => state.Selecting.Spanning(state.Text, (_, gesture) => gesture is Gesture.Perform ? Some(new TextRange(0, state.Text.Typeset.Lines.Length)) : None).Stepped(state.Perform))),
-                None: static () => new Reply.Ignored());
+        internal override Option<Reply> Performed(Gesture gesture, HitTarget aim) =>
+            from perform in Optional(gesture as Gesture.Perform)
+            where perform.Act == Act.SelectAll
+            from text in aim.Layout.TextNode
+            from reply in Spanning(text).Stepped(_ => Some(new TextRange(0, text.Typeset.Lines.Length)))
+            select reply;
 
-        private Session<TextRange> Spanning(LayoutNode.Text text, Func<TextRange, Gesture, Option<TextRange>> step) =>
-            new(text.Source.Selected.IfNone(new TextRange(0)), [Receiver<TextRange>.Of(static range => range, edit => Some(Edited(edit)))], CursorShape.Text) { Step = step };
+        private Session<TextRange> Spanning(LayoutNode.Text text) =>
+            new(text.Typeset.Text.Selected.IfNone(new TextRange(0)), [Receiver<TextRange>.Of(static range => range, edit => Some(Edited(edit)))], CursorShape.Text);
 
         private static TextRange Spanned(LayoutNode.Text text, SKPoint origin, Gesture.Press press) =>
             (Caret(text, origin, press.From), Caret(text, origin, press.At), press.Clicks) switch {

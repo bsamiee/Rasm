@@ -38,25 +38,14 @@ public sealed record Edit<TValue>(EditPhase Phase, Option<TValue> Value) : K<Edi
 }
 
 public sealed class Edit : Traversable<Edit> {
-    public static Edit<T> Begin<T>(T value) => new(EditPhase.Begin, Some(value));
-
-    public static Edit<T> Preview<T>(T value) => new(EditPhase.Preview, Some(value));
-
-    public static Edit<T> Step<T>(T value) => new(EditPhase.Step, Some(value));
-
-    public static Edit<T> Commit<T>(T value) => new(EditPhase.Commit, Some(value));
+    public static Edit<T> Of<T>(EditPhase phase, T value) => new(phase, Some(value));
 
     public static Edit<T> Cancel<T>() => new(EditPhase.Cancel, None);
 
-    public static K<Edit, B> Map<A, B>(Func<A, B> f, K<Edit, A> ma) {
-        Edit<A> edit = ma.As();
-        return new Edit<B>(edit.Phase, edit.Value.Map(f));
-    }
+    public static K<Edit, B> Map<A, B>(Func<A, B> f, K<Edit, A> ma) => ma.As() switch { var edit => new Edit<B>(edit.Phase, edit.Value.Map(f)) };
 
-    public static K<F, K<Edit, B>> Traverse<F, A, B>(Func<A, K<F, B>> f, K<Edit, A> ta) where F : Applicative<F> {
-        Edit<A> edit = ta.As();
-        return edit.Value.Match(Some: value => f(value).Map(held => (K<Edit, B>)new Edit<B>(edit.Phase, Some(held))), None: () => F.Pure<K<Edit, B>>(new Edit<B>(edit.Phase, None)));
-    }
+    public static K<F, K<Edit, B>> Traverse<F, A, B>(Func<A, K<F, B>> f, K<Edit, A> ta) where F : Applicative<F> =>
+        ta.As() switch { var edit => edit.Value.Traverse(f).Map(value => (K<Edit, B>)new Edit<B>(edit.Phase, value)) };
 
     public static Fold<A, S> FoldStep<A, S>(K<Edit, A> ta, S initialState) =>
         ta.As().Value.Match(Some: value => Fold.Loop(initialState, value, Fold.Done<A, S>), None: () => Fold.Done<A, S>(initialState));
@@ -70,14 +59,14 @@ public abstract partial record Selection {
 
     public bool Holds(Key key) => Switch(key, one: static (held, one) => one.Selected == Some(held), many: static (held, many) => many.Selected.Contains(held));
 
-    public Selection Pressed(Seq<Key> ordered, Key hit, KeyModifiers modifiers) =>
+    public Selection Pressed(Seq<Key> ordered, Key hit, KeyModifiers modifiers, bool clicked) =>
         Switch(
-            (Ordered: ordered, Hit: hit, Modifiers: modifiers),
+            (Ordered: ordered, Hit: hit, Modifiers: modifiers, Clicked: clicked),
             one: static (held, _) => (Selection)new One(Some(held.Hit)),
             many: static (held, many) => (held.Modifiers.Primary, held.Modifiers.Shift) switch {
                 (true, _) => new Many(many.Selected.SymmetricExcept([held.Hit])) { Anchor = Some(held.Hit), Focus = Some(held.Hit) },
                 (_, true) => Spanned(held.Ordered, many.Anchor, held.Hit),
-                _ when many.Selected.Contains(held.Hit) => many with { Anchor = Some(held.Hit), Focus = Some(held.Hit) },
+                _ when !held.Clicked && many.Selected.Contains(held.Hit) => many with { Anchor = Some(held.Hit), Focus = Some(held.Hit) },
                 _ => Only(held.Hit),
             });
 
@@ -93,13 +82,12 @@ public abstract partial record Selection {
         Switch(
             (Ordered: ordered, Covered: covered, Modifiers: modifiers),
             one: static (held, _) => (Selection)new One(held.Ordered.Find(held.Covered.Contains)),
-            many: static (held, many) => {
-                Seq<Key> enclosed = held.Ordered.Filter(held.Covered.Contains);
-                return new Many((held.Modifiers.Primary, held.Modifiers.Shift) switch {
+            many: static (held, many) => held.Ordered.Filter(held.Covered.Contains) switch {
+                var enclosed => new Many((held.Modifiers.Primary, held.Modifiers.Shift) switch {
                     (true, _) => many.Selected.SymmetricExcept(held.Covered),
                     (_, true) => many.Selected.Union(held.Covered),
                     _ => held.Covered,
-                }) { Anchor = enclosed.Head | many.Anchor, Focus = enclosed.Last | many.Focus };
+                }) { Anchor = enclosed.Head | many.Anchor, Focus = enclosed.Last | many.Focus },
             });
 
     internal Selection Renamed(HashMap<Key, Key> renames) =>
@@ -147,10 +135,8 @@ public sealed partial class Placement {
     public static readonly Placement Inside = new();
     public static readonly Placement After = new();
 
-    internal static Placement At(Fraction along, bool nests) {
-        Seq<Placement> bands = nests ? toSeq(Items) : [Before, After];
-        return bands[int.Min((int)((float)along * bands.Count), bands.Count - 1)];
-    }
+    internal static Placement At(Fraction along, bool nests) =>
+        (nests ? toSeq(Items) : [Before, After]) switch { var bands => bands[int.Min((int)((float)along * bands.Count), bands.Count - 1)] };
 }
 
 public sealed record Lift(Func<Seq<Key>, IO<Transfer>> Payload) {
@@ -159,9 +145,10 @@ public sealed record Lift(Func<Seq<Key>, IO<Transfer>> Payload) {
 
 public sealed record Drop(Func<Transfer, Option<Key>, Placement, Option<IO<Unit>>> Accepted) {
     public bool Nests { get; init; }
-}
 
-public sealed record TracePoint(Vector2 At, Option<Stylus> Stylus);
+    public static Drop Of<TCase>(Func<TCase, Option<Key>, Placement, IO<Unit>> accepted) where TCase : Transfer =>
+        new((transfer, target, placement) => Optional(transfer as TCase).Map(held => accepted(held, target, placement)));
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EditExtensions {

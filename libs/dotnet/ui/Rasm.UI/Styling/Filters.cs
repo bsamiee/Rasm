@@ -13,20 +13,16 @@ public sealed partial class FilterFunction {
     private static readonly Matrix4x4 HueRotation = Rows(new(-Luma.X, -Luma.Y, 1f - Luma.Z), new(0.143f, 0.140f, -0.283f), new(Luma.X - 1f, Luma.Y, Luma.Z));
 
     public static readonly FilterFunction Blur = new(NonNegative, static (amount, input, _) => SKImageFilter.CreateBlur(amount, amount, input));
-    public static readonly FilterFunction Grayscale = new(NonNegative, static (amount, input, target) => ColorMatrix(Matrix4x4.Lerp(Luminance, Matrix4x4.Identity, 1f - float.Min(amount, 1f)), Vector3.Zero, input, target));
-    public static readonly FilterFunction Saturate = new(NonNegative, static (amount, input, target) => ColorMatrix(Matrix4x4.Lerp(Luminance, Matrix4x4.Identity, amount), Vector3.Zero, input, target));
-    public static readonly FilterFunction Brightness = new(NonNegative, static (amount, input, target) => ColorMatrix(Matrix4x4.CreateScale(amount), Vector3.Zero, input, target));
-    public static readonly FilterFunction Contrast = new(NonNegative, static (amount, input, target) => ColorMatrix(Matrix4x4.CreateScale(amount), new Vector3(0.5f - (0.5f * amount)), input, target));
-    public static readonly FilterFunction HueRotate = new(float.IsFinite, static (amount, input, target) => ColorMatrix(HueRotated(float.DegreesToRadians(amount)), Vector3.Zero, input, target));
-    public static readonly FilterFunction Invert = new(NonNegative,
-        static (amount, input, target) => {
-            float held = float.Min(amount, 1f);
-            return ColorMatrix(Matrix4x4.CreateScale(1f - (2f * held)), new Vector3(held), input, target);
-        });
-    public static readonly FilterFunction Sepia = new(NonNegative, static (amount, input, target) => ColorMatrix(Matrix4x4.Lerp(SepiaMatrix, Matrix4x4.Identity, 1f - float.Min(amount, 1f)), Vector3.Zero, input, target));
+    public static readonly FilterFunction Grayscale = new(NonNegative, Matrixed(static amount => (Toward(Luminance, amount), Vector3.Zero)));
+    public static readonly FilterFunction Saturate = new(NonNegative, Matrixed(static amount => (Matrix4x4.Lerp(Luminance, Matrix4x4.Identity, amount), Vector3.Zero)));
+    public static readonly FilterFunction Brightness = new(NonNegative, Matrixed(static amount => (Matrix4x4.CreateScale(amount), Vector3.Zero)));
+    public static readonly FilterFunction Contrast = new(NonNegative, Matrixed(static amount => (Matrix4x4.CreateScale(amount), new Vector3(0.5f - (0.5f * amount)))));
+    public static readonly FilterFunction HueRotate = new(float.IsFinite, Matrixed(static amount => (HueRotated(float.DegreesToRadians(amount)), Vector3.Zero)));
+    public static readonly FilterFunction Invert = new(NonNegative, Matrixed(static amount => float.Min(amount, 1f) switch { var held => (Matrix4x4.CreateScale(1f - (2f * held)), new Vector3(held)) }));
+    public static readonly FilterFunction Sepia = new(NonNegative, Matrixed(static amount => (Toward(SepiaMatrix, amount), Vector3.Zero)));
 
     [UseDelegateFromConstructor]
-    public partial bool Accepts(float amount);
+    internal partial bool Accepts(float amount);
 
     [UseDelegateFromConstructor]
     internal partial SKImageFilter Built(float amount, SKImageFilter? input, SKColorSpace target);
@@ -35,28 +31,44 @@ public sealed partial class FilterFunction {
 
     private static Matrix4x4 Rows(Vector3 red, Vector3 green, Vector3 blue) => new(red.X, red.Y, red.Z, 0f, green.X, green.Y, green.Z, 0f, blue.X, blue.Y, blue.Z, 0f, 0f, 0f, 0f, 1f);
 
+    private static Matrix4x4 Toward(Matrix4x4 full, float amount) => Matrix4x4.Lerp(full, Matrix4x4.Identity, 1f - float.Min(amount, 1f));
+
     private static Matrix4x4 HueRotated(float radians) {
         (float sin, float cos) = MathF.SinCos(radians);
         return Matrix4x4.Lerp(Luminance, Matrix4x4.Identity, cos) + (HueRotation * sin);
     }
 
-    private static SKImageFilter ColorMatrix(Matrix4x4 rows, Vector3 offset, SKImageFilter? input, SKColorSpace target) {
-        using SKColorFilter color = target.ColorMatrix([
-            rows.M11, rows.M12, rows.M13, 0f, offset.X,
-            rows.M21, rows.M22, rows.M23, 0f, offset.Y,
-            rows.M31, rows.M32, rows.M33, 0f, offset.Z,
-            0f, 0f, 0f, 1f, 0f,
-        ]);
-        return SKImageFilter.CreateColorFilter(color, input);
-    }
+    private static Func<float, SKImageFilter?, SKColorSpace, SKImageFilter> Matrixed(Func<float, (Matrix4x4 Rows, Vector3 Offset)> matrix) =>
+        (amount, input, target) => {
+            (Matrix4x4 rows, Vector3 offset) = matrix(amount);
+            using SKColorFilter color = target.ColorMatrix([
+                rows.M11, rows.M12, rows.M13, 0f, offset.X,
+                rows.M21, rows.M22, rows.M23, 0f, offset.Y,
+                rows.M31, rows.M32, rows.M33, 0f, offset.Z,
+                0f, 0f, 0f, 1f, 0f,
+            ]);
+            return SKImageFilter.CreateColorFilter(color, input);
+        };
 }
 
-internal sealed record FilterTarget(SKColorSpace Space, SKRect Frame, Func<ColorValue, Option<SKColorF>> Resolve, Func<Child, Option<SKShader>> Child);
+internal sealed record FilterTarget(SKColorSpace Space, SKRect Frame, Func<ColorValue, Option<SKColorF>> Resolve, Func<Metric, float> Metric, Func<Material, Option<SKShader>> Shader) {
+    internal Corners Corners { get; init; } = Corners.Square;
+    internal float Clock { get; init; }
+    internal Option<SKPoint> Pointer { get; init; }
+}
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Filter {
     // --- [CHAIN]
+    internal static readonly FilterTarget Probe = new(SKColorSpace.CreateSrgb(), SKRect.Create(1f, 1f), static _ => None, static metric => metric.Default, static _ => SKShader.CreateEmpty());
+
+    internal static readonly Func<Seq<Filter>, float> Outset = memo<Seq<Filter>, float>(static filters => Chained(filters, Probe).Map(Reach).IfNone(0f));
+
     internal virtual Seq<GlyphSource> Arts => [];
+
+    internal virtual bool Timed => false;
+
+    internal virtual bool Pointing => false;
 
     internal abstract Option<SKImageFilter> Built(FilterTarget target, SKImageFilter? input);
 
@@ -66,6 +78,14 @@ public abstract partial record Filter {
                 _ = input.Iter(static held => held.Dispose());
                 return built;
             }) | input);
+
+    // --- [REACH]
+    internal static float Reach(SKImageFilter graph) {
+        using SKImageFilter owned = graph;
+        using SKPaint probe = new() { ImageFilter = owned };
+        _ = probe.GetFastBounds(SKRect.Create(1f, 1f), out SKRect bounds);
+        return float.Max(float.Max(-bounds.Left, -bounds.Top), float.Max(bounds.Right - 1f, bounds.Bottom - 1f));
+    }
 
     // --- [CASES]
     public sealed record Css : Filter {
@@ -79,20 +99,28 @@ public abstract partial record Filter {
         internal override Option<SKImageFilter> Built(FilterTarget target, SKImageFilter? input) => Function.Built(Amount, input, target.Space);
     }
 
-    public sealed record Displace(Child Source, float Scale) : Filter {
+    public sealed record Displace(Material Source, float Scale) : Filter {
         internal override Seq<GlyphSource> Arts => Source.Arts;
 
+        internal override bool Timed => Source.Timed;
+
+        internal override bool Pointing => Source.Pointing;
+
         internal override Option<SKImageFilter> Built(FilterTarget target, SKImageFilter? input) =>
-            target.Child(Source).Map(map => {
+            target.Shader(Source).Map(map => {
                 using SKShader owned = map;
                 using SKImageFilter displacement = SKImageFilter.CreateShader(owned);
                 return SKImageFilter.CreateDisplacementMapEffect(SKColorChannel.R, SKColorChannel.G, Scale, displacement, input);
             });
     }
 
-    public sealed record Lit(SKPoint3 Direction, ColorValue Light, float SurfaceScale, float Specular, float Shine) : Filter {
+    public sealed record Lit(SKPoint3 Direction, ColorValue Light, float SurfaceScale, float Strength) : Filter {
+        public Option<float> Shine { get; init; }
+
         internal override Option<SKImageFilter> Built(FilterTarget target, SKImageFilter? input) =>
-            target.Resolve(Light).Map(light => SKImageFilter.CreateDistantLitSpecular(Direction, (SKColor)light, SurfaceScale, Specular, Shine, input));
+            target.Resolve(Light).Map(light => Shine.Match(
+                Some: shine => SKImageFilter.CreateDistantLitSpecular(Direction, (SKColor)light, SurfaceScale, Strength, shine, input),
+                None: () => SKImageFilter.CreateDistantLitDiffuse(Direction, (SKColor)light, SurfaceScale, Strength, input)));
     }
 
     public sealed record Magnify(float Zoom, float Inset) : Filter {
@@ -116,43 +144,29 @@ public abstract partial record Filter {
     }
 
     public sealed record Effect : Filter {
-        private Effect(SKRuntimeEffect program) => Program = program;
+        private readonly RuntimeEffect effect;
 
-        public SKRuntimeEffect Program { get; }
+        private Effect(RuntimeEffect effect) => this.effect = effect;
 
-        public static Fin<Effect> Validated(string sksl) =>
-            SKRuntimeEffect.CreateColorFilter(sksl, out string errors) switch {
-                null => new UIFault(errors, UIReason.Refused),
-                var program => new Effect(program),
-            };
+        internal override Seq<GlyphSource> Arts => effect.Arts;
 
-        internal override Option<SKImageFilter> Built(FilterTarget target, SKImageFilter? input) {
-            using SKColorFilter program = Program.ToColorFilter();
-            return SKImageFilter.CreateColorFilter(program, input);
-        }
+        internal override bool Timed => effect.Timed;
+
+        internal override bool Pointing => effect.Pointing;
+
+        public static Fin<Effect> Validated(string sksl, HashMap<string, ColorValue> colors = default, HashMap<string, Metric> floats = default, HashMap<string, Material> children = default) =>
+            RuntimeEffect.Validated(SKRuntimeEffect.CreateColorFilter, sksl, colors, floats, children).Map(static effect => new Effect(effect));
+
+        internal override Option<SKImageFilter> Built(FilterTarget target, SKImageFilter? input) =>
+            effect.Bound(target.Resolve, target.Metric, target.Shader, target.Frame, target.Corners, target.Clock, target.Pointer, SKMatrix.Identity, static (program, uniforms, children) => program.ToColorFilter(uniforms, children))
+                .Map(filter => {
+                    using SKColorFilter owned = filter;
+                    return SKImageFilter.CreateColorFilter(owned, input);
+                });
     }
 
-    public sealed record HighContrast : Filter {
-        private HighContrast(bool grayscale, SKHighContrastConfigInvertStyle invert, float contrast) => (Grayscale, Invert, Contrast) = (grayscale, invert, contrast);
-
-        public bool Grayscale { get; }
-        public SKHighContrastConfigInvertStyle Invert { get; }
-        public float Contrast { get; }
-
-        public static Fin<HighContrast> Validated(bool grayscale, SKHighContrastConfigInvertStyle invert, float contrast) =>
-            UIFault.Unless(new SKHighContrastConfig(grayscale, invert, contrast).IsValid, UIReason.Range, (invert, contrast)).Map(_ => new HighContrast(grayscale, invert, contrast));
-
-        internal override Option<SKImageFilter> Built(FilterTarget target, SKImageFilter? input) {
-            using SKColorFilter contrast = SKColorFilter.CreateHighContrast(Grayscale, Invert, Contrast);
-            return SKImageFilter.CreateColorFilter(contrast, input);
-        }
-    }
-
-    public sealed record Luma : Filter {
-        internal override Option<SKImageFilter> Built(FilterTarget target, SKImageFilter? input) {
-            using SKColorFilter luma = SKColorFilter.CreateLumaColor();
-            return SKImageFilter.CreateColorFilter(luma, input);
-        }
+    public sealed record ColorFilter(SKColorFilter Source) : Filter {
+        internal override Option<SKImageFilter> Built(FilterTarget target, SKImageFilter? input) => SKImageFilter.CreateColorFilter(Source, input);
     }
 }
 

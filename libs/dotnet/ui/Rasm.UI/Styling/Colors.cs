@@ -1,3 +1,4 @@
+using System.Numerics;
 using SkiaSharp;
 using SuperLinq;
 using Wacton.Unicolour;
@@ -30,104 +31,116 @@ public abstract partial record ColorValue {
 
     public sealed record Contrasting(ColorValue Over, Seq<ColorValue> Candidates) : ColorValue;
 
-    public sealed record Relative(ColorValue From, ColourSpace Space, ChannelShift First, ChannelShift Second, ChannelShift Third) : ColorValue {
-        public ChannelShift Alpha { get; init; } = ChannelShift.Identity;
+    public sealed record Relative(ColorValue From, ColourSpace Space) : ColorValue {
+        public Vector4 Scale { get; init; } = Vector4.One;
+        public Vector4 Offset { get; init; } = Vector4.Zero;
 
-        internal SKColorF Shifted(SKColorF origin, Configuration gamut) {
+        internal Unicolour Shifted(SKColorF origin) {
             Unicolour colour = origin.ToUnicolour();
             (double first, double second, double third) = colour.GetRepresentation(Space).Tuple;
-            return new Unicolour(Space, First.Applied(Defined(first)), Second.Applied(Defined(second)), Third.Applied(Defined(third)), double.Clamp(Alpha.Applied(colour.Alpha.A), 0d, 1d)).Mapped(gamut);
+            Vector4 shifted = Vector4.FusedMultiplyAdd(new Vector4(Defined(first), Defined(second), Defined(third), (float)colour.Alpha.A), Scale, Offset);
+            return new Unicolour(Space, shifted.X, shifted.Y, shifted.Z, float.Clamp(shifted.W, 0f, 1f));
         }
 
-        private static double Defined(double channel) => double.IsNaN(channel) ? 0d : channel;
+        private static float Defined(double channel) => double.IsNaN(channel) ? 0f : (float)channel;
     }
 }
 
-public sealed record ChannelShift(double Scale, double Offset) {
-    public static ChannelShift Identity { get; } = new(1d, 0d);
-
-    internal double Applied(double kept) => Math.FusedMultiplyAdd(kept, Scale, Offset);
-}
-
 public sealed record DataSeries(uint Ordinal) {
-    public Option<SKColorF> Color { get; init; }
+    public Option<ColorValue> Color { get; init; }
     public Option<double> Value { get; init; }
 }
 
-public sealed record Stop<TColor>(TColor Color, Fraction At);
-
-internal sealed record RampSegment(Stop<SKColorF> Low, Stop<SKColorF> High) {
-    internal float Progress(Fraction at) => ((float)at - (float)Low.At) / ((float)High.At - (float)Low.At);
-}
+public sealed record Stop(ColorValue Color, Fraction At);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ColorRamp {
     // --- [STOPS]
-    private ColorRamp(Seq<Stop<SKColorF>> stops) => Stops = toSeq(stops.OrderBy(static stop => stop.At));
+    private ColorRamp(Seq<Stop> stops) => Stops = toSeq(stops.OrderBy(static stop => stop.At));
 
-    public Seq<Stop<SKColorF>> Stops { get; }
+    public Seq<Stop> Stops { get; }
 
-    private protected Seq<RampSegment> Segments => Paired(Stops);
+    private protected Seq<(Stop Low, Stop High)> Segments => toSeq(Stops.AsIterable().Window(2, static pair => (Low: pair[0], High: pair[1])));
 
-    private protected Option<SKColorF> Last => Stops.Last.Map(static stop => stop.Color);
+    private protected Option<ColorValue> Last => Stops.Last.Map(static stop => stop.Color);
 
-    public ColorRamp WithStops(Seq<Stop<SKColorF>> stops) =>
+    public ColorRamp WithStops(Seq<Stop> stops) =>
         Switch(stops,
-            smooth: static (held, smooth) => (ColorRamp)new Smooth(held) { Space = smooth.Space, Easing = smooth.Easing },
+            smooth: static (held, smooth) => (ColorRamp)new Smooth(held) { Space = smooth.Space, Hue = smooth.Hue, Easing = smooth.Easing },
             stepped: static (held, _) => new Stepped(held),
             mapped: static (held, _) => new Smooth(held));
 
-    // --- [SAMPLING]
-    public abstract Option<SKColorF> At(Fraction at);
+    public ColorRamp Banded(uint count) =>
+        new Stepped(toSeq(Enumerable.Range(0, (int)count)).Choose(band =>
+            from at in Fraction.Validated((float)band / count).ToOption()
+            from middle in Fraction.Validated((band + 0.5f) / count).ToOption()
+            from color in At(middle)
+            select new Stop(color, at)));
 
-    internal virtual Option<SKColorF> Valued(double value) =>
+    // --- [SAMPLING]
+    public abstract Option<ColorValue> At(Fraction at);
+
+    internal virtual Option<ColorValue> Valued(double value) =>
         Fraction.Validated((float)value).Match(Succ: At, Fail: _ => (value < 0d ? Stops.Head : Stops.Last).Map(static stop => stop.Color));
 
     // --- [DENSITY]
     private const double JustNoticeable = 0.02d;
 
-    internal static Seq<Stop<SKColorF>> Dense(Seq<Stop<SKColorF>> stops, Func<RampSegment, Fraction, SKColorF> color) =>
-        stops.Head.ToSeq() + Paired(stops).Bind(segment => Subdivided(at => color(segment, at), segment.Low, segment.High).Add(segment.High));
+    internal virtual Option<Seq<(Fraction At, SKColorF Color)>> Dense(Func<ColorValue, Option<SKColorF>> resolve) =>
+        Subdivided(Stops.Map(static stop => stop.At), at => At(at).Bind(resolve));
 
-    private static Seq<RampSegment> Paired(Seq<Stop<SKColorF>> stops) => toSeq(stops.AsIterable().Window(2, static pair => new RampSegment(pair[0], pair[1])));
+    private static Option<Seq<(Fraction At, SKColorF Color)>> Subdivided(Seq<Fraction> knots, Func<Fraction, Option<SKColorF>> color) =>
+        from resolved in knots.Traverse(at => color(at).Map(held => (At: at, Color: held))).As()
+        from segments in toSeq(resolved.AsIterable().Window(2, static pair => (Low: pair[0], High: pair[1]))).Traverse(pair => Split(color, pair.Low, pair.High).Map(inner => inner.Add(pair.High))).As()
+        select resolved.Take(1) + segments.Bind(static inner => inner);
 
-    private static Seq<Stop<SKColorF>> Subdivided(Func<Fraction, SKColorF> color, Stop<SKColorF> low, Stop<SKColorF> high) =>
+    private static Option<Seq<(Fraction At, SKColorF Color)>> Split(Func<Fraction, Option<SKColorF>> color, (Fraction At, SKColorF Color) low, (Fraction At, SKColorF Color) high) =>
         low.At.Midpoint(high.At) switch {
-            var at when at == low.At || at == high.At => [],
-            var at => new Stop<SKColorF>(color(at), at) switch {
-                var middle when low.Color.ToUnicolour().Mix(high.Color.ToUnicolour(), ColourSpace.Rgb, premultiplyAlpha: false).Difference(middle.Color.ToUnicolour(), DeltaE.Ok) <= JustNoticeable => [],
-                var middle => Subdivided(color, low, middle).Add(middle) + Subdivided(color, middle, high),
-            },
+            var at when at == low.At || at == high.At => Some(Seq<(Fraction At, SKColorF Color)>()),
+            var at => color(at).Bind(middle =>
+                low.Color.ToUnicolour().Mix(high.Color.ToUnicolour(), ColourSpace.Rgb, premultiplyAlpha: false).Difference(middle.ToUnicolour(), DeltaE.Ok) <= JustNoticeable
+                    ? Some(Seq<(Fraction At, SKColorF Color)>())
+                    : from left in Split(color, low, (at, middle))
+                      from right in Split(color, (at, middle), high)
+                      select left.Add((at, middle)) + right),
         };
 
     // --- [CASES]
-    public sealed record Smooth(Seq<Stop<SKColorF>> Stops) : ColorRamp(Stops) {
+    public sealed record Smooth(Seq<Stop> Stops) : ColorRamp(Stops) {
         public ColourSpace Space { get; init; } = ColourSpace.Oklab;
+        public HueSpan Hue { get; init; } = HueSpan.Shorter;
         public Easing Easing { get; init; } = Easing.Linear;
 
-        public override Option<SKColorF> At(Fraction at) =>
-            Segments.Find(segment => at <= segment.High.At).Bind(segment => at <= segment.Low.At ? Some(segment.Low.Color) : Mixed(segment, at)) | Last;
+        public override Option<ColorValue> At(Fraction at) =>
+            Segments.Find(segment => at <= segment.High.At).Bind(segment => at <= segment.Low.At ? Some(segment.Low.Color) : Mixed(segment.Low, segment.High, at)) | Last;
 
-        private Option<SKColorF> Mixed(RampSegment segment, Fraction at) =>
-            Fraction.Validated(segment.Progress(at)).ToOption().Bind(Easing.Progress)
-                .Map(progress => segment.Low.Color.ToUnicolour().Mix(segment.High.Color.ToUnicolour(), Space, progress).Mapped(Configuration.Default));
+        private Option<ColorValue> Mixed(Stop low, Stop high, Fraction at) =>
+            from progress in Fraction.Validated(((float)at - (float)low.At) / ((float)high.At - (float)low.At)).ToOption()
+            from eased in Easing.At(progress).Map(static sampled => (float)sampled.Progress)
+            select Fraction.Validated(eased).Match<ColorValue>(
+                Succ: amount => new ColorValue.Mixed(low.Color, high.Color, amount) { Space = Space, Hue = Hue },
+                Fail: _ => eased < 0f ? low.Color : high.Color);
     }
 
-    public sealed record Stepped(Seq<Stop<SKColorF>> Stops) : ColorRamp(Stops) {
-        public override Option<SKColorF> At(Fraction at) => Segments.Find(segment => at < segment.High.At).Map(static segment => segment.Low.Color) | Last;
+    public sealed record Stepped(Seq<Stop> Stops) : ColorRamp(Stops) {
+        public override Option<ColorValue> At(Fraction at) => Segments.Find(segment => at < segment.High.At).Map(static segment => segment.Low.Color) | Last;
+
+        internal override Option<Seq<(Fraction At, SKColorF Color)>> Dense(Func<ColorValue, Option<SKColorF>> resolve) =>
+            Stops.Traverse(stop => resolve(stop.Color).Map(color => (From: stop.At, Color: color))).As().Map(static resolved =>
+                resolved.Zip(resolved.Tail.Map(static held => held.From).Add(Fraction.MaxValue), static (held, until) => Seq((held.From, held.Color), (until, held.Color))).Bind(static pair => pair));
     }
 
     public sealed record Mapped(Colourmap Map) : ColorRamp(Sampled(Map)) {
         public Option<Unicolour> Under { get; init; }
         public Option<Unicolour> Over { get; init; }
 
-        public override Option<SKColorF> At(Fraction at) => Map.Map((float)at).ToSKColorF();
+        public override Option<ColorValue> At(Fraction at) => new ColorValue.Fixed(Map.Map((float)at));
 
-        internal override Option<SKColorF> Valued(double value) =>
-            Map.MapWithClipping(value, Under.ValueUnsafe(), Over.ValueUnsafe()).ToSKColorF();
+        internal override Option<ColorValue> Valued(double value) => new ColorValue.Fixed(Map.MapWithClipping(value, Under.ValueUnsafe(), Over.ValueUnsafe()));
 
-        private static Seq<Stop<SKColorF>> Sampled(Colourmap map) =>
-            Dense([new Stop<SKColorF>(map.Map(0d).ToSKColorF(), Fraction.MinValue), new Stop<SKColorF>(map.Map(1d).ToSKColorF(), Fraction.MaxValue)], (_, at) => map.Map((float)at).ToSKColorF());
+        private static Seq<Stop> Sampled(Colourmap map) =>
+            Subdivided([Fraction.MinValue, Fraction.MaxValue], at => Some(map.Map((float)at).ToSKColorF())).ToSeq().Bind(static stops => stops)
+                .Map(static stop => new Stop(new ColorValue.Fixed(stop.Color.ToUnicolour()), stop.At));
     }
 }
 

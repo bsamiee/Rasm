@@ -3,7 +3,6 @@ using System.Numerics;
 using System.Numerics.Tensors;
 using Rasm.UI.Plotting;
 using Rasm.UI.Styling;
-using SkiaSharp;
 using SuperLinq;
 
 namespace Rasm.UI.Components;
@@ -16,15 +15,12 @@ public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Un
     public Option<Func<Edit<Selection>, IO<Unit>>> Selected { get; init; }
 
     public Node Drawn =>
-        new Node.Styled(new Handles<ColorRamp>(Value, Stops, Edited) {
+        new Handles<ColorRamp>(Value, Stops, Edited) {
             Selection = Selection,
             Selected = Selected,
             Handle = (key, at) => new Node.Pin(at, new Node.Box { Role = Role.Stop, Conditions = Selection.Holds(key) ? [Condition.Selected] : [] }) { Align = UnitPoint.Center },
         }.Drawn(Track, [Legend.Strip]) with {
-            Width = Sizing.Grow.Unit,
-        }) {
             Sheet = Legend.Scaled(Value),
-            Width = Sizing.Grow.Unit,
         };
 
     private static Points<ColorRamp> Stops { get; } =
@@ -36,7 +32,7 @@ public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Un
             static (ramp, at) =>
                 from position in Fraction.Validated(at.X).ToOption()
                 from color in ramp.At(position)
-                select new Stop<SKColorF>(color, position));
+                select new Stop(color, position));
 }
 
 public sealed record CurveEditor(PlotPlane.Cartesian Plane, Seq<Vector2> Points, Func<float, float> Fit, Func<Edit<Seq<Vector2>>, IO<Unit>> Edited) {
@@ -52,11 +48,10 @@ public sealed record CurveEditor(PlotPlane.Cartesian Plane, Seq<Vector2> Points,
             Background
             + Underlay.Map(underlay => (Node)new Node.Mark(new Figure.Curve(Plane.X.Domain, underlay) { Fill = new Floor.Baseline(0f) }) { Role = Role.Trace }).ToSeq()
             + Seq<Node>(new Node.Mark(new Figure.Grid(PhysicalAxis.Horizontal)) { Role = Role.Grid }, new Node.Mark(new Figure.Grid(PhysicalAxis.Vertical)) { Role = Role.Grid })
-            + (Plane.X == Plane.Y ? Seq<Node>(new Node.Mark(new Figure.Rule(new Vector2(Plane.X.Domain.From), new Vector2(Plane.X.Domain.To))) { Role = Role.GridFine }) : [])
+            + (Plane.X == Plane.Y ? Seq<Node>(new Node.Mark(new Figure.Path([new Vector2(Plane.X.Domain.From), new Vector2(Plane.X.Domain.To)])) { Role = Role.GridFine }) : [])
             + References.Map(reference => (Node)new Node.Mark(new Figure.Graph(Plane.X.Domain, reference)) { Role = Role.Trace })
             + Seq<Node>(new Node.Mark(new Figure.Graph(Plane.X.Domain, Fit)) { Role = Role.Series, Series = Series })) with {
             Role = Role.Well,
-            Width = Sizing.Grow.Unit,
             Aspect = Factor.Unit,
         };
 
@@ -73,8 +68,6 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, float Value, F
     public Func<AxisRange, Axis> Track { get; init; } = static range => new Axis.Linear(range);
     public Option<AxisRange> SoftRange { get; init; }
     public Option<float> Step { get; init; }
-    public Option<int> Decimals { get; init; }
-    public Option<string> Unit { get; init; }
     public Option<float> Origin { get; init; }
     public Option<float> Rest { get; init; }
     public Seq<Node> Background { get; init; }
@@ -82,35 +75,33 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, float Value, F
     public Node Drawn =>
         Placed.Match(
             Succ: Shown,
-            Fail: error => Shown(Track(SoftRange.IfNone(Domain))).Conditioned(Condition.Faulted) switch {
+            Fail: error => Shown(Laid(SoftRange.IfNone(Domain))).Conditioned(Condition.Faulted) switch {
                 var faulted => faulted with { Accessible = faulted.Accessible.Combine(new Accessible { Help = error.Message }) },
             });
 
     private Fin<Axis> Placed {
         get {
-            Axis soft = Track(SoftRange.IfNone(Domain));
+            Axis soft = Laid(SoftRange.IfNone(Domain));
             float position = soft.Fraction(Value);
             return position switch {
-                < 0f => AxisRange.Validated(float.Max(soft.Value((2f * position) - 1f), Domain.Low), soft.Domain.To).Map(Track),
-                > 1f => AxisRange.Validated(soft.Domain.From, float.Min(soft.Value(2f * position), Domain.High)).Map(Track),
+                < 0f => AxisRange.Validated(float.Max(soft.Value((2f * position) - 1f), Domain.Low), soft.Domain.To).Map(Laid),
+                > 1f => AxisRange.Validated(soft.Domain.From, float.Min(soft.Value(2f * position), Domain.High)).Map(Laid),
                 _ => soft,
             };
         }
     }
 
+    private Axis Laid(AxisRange range) => Track(range) switch { var axis => axis with { Places = axis.Places | Step.Map(Axis.Digits) } };
+
     private Node Shown(Axis axis) {
         PlotPlane.Track plane = new(Along, axis);
-        return plane.Stretched(new Handles<float>(Value, Points<float>.Scalar(plane, Lens<float, float>.New(static held => held, shown => _ => Snapped(shown))), Edited) {
-            Rest = Rest,
-            Decimals = Decimals | Step.Map(Axis.Places),
-            Unit = Unit,
-        }.Drawn(plane, plane.Stretched(new Node.Box { Role = Role.Track }).Cons(Background) + Spanned(plane)));
+        return plane.Stretched(new Handles<float>(
+                Value,
+                Points<float>.Scalar(plane, Lens<float, float>.New(static held => held, shown => _ => float.Clamp(Step.Map(step => MathF.Round(shown / step, MidpointRounding.ToEven) * step).IfNone(shown), Domain.Low, Domain.High))),
+                Edited) { Rest = Rest }
+            .Drawn(plane, plane.Stretched(new Node.Box { Role = Role.Track }).Cons(Background)
+                + AxisRange.Validated(Origin.IfNone(axis.Domain.From), Value).ToOption().Map(static span => (Node)new Node.Mark(new Figure.Region { First = Some(span) }) { Role = Role.Span }).ToSeq()));
     }
-
-    private float Snapped(float shown) => float.Clamp(Step.Map(step => MathF.Round(shown / step, MidpointRounding.ToEven) * step).IfNone(shown), Domain.Low, Domain.High);
-
-    private Seq<Node> Spanned(PlotPlane.Track plane) =>
-        AxisRange.Validated(Origin.IfNone(plane.Axis.Domain.From), Value).ToOption().Map(static span => (Node)new Node.Mark(new Figure.Region { First = Some(span) }) { Role = Role.Span }).ToSeq();
 }
 
 public sealed record Dial(Axis.Periodic Axis, float Value, Func<Edit<float>, IO<Unit>> Edited) {
@@ -122,9 +113,8 @@ public sealed record Dial(Axis.Periodic Axis, float Value, Func<Edit<float>, IO<
         new Handles<float>(Value, Points<float>.Fixed([Lens<float, Vector2>.New(static held => new Vector2(held, 1f), at => _ => Axis.Constrained(at.X))]), Edited) { Rest = Rest }
             .Drawn(Plane, [
                 new Node.Mark(new Figure.Region()) { Role = Role.Track },
-                new Node.Mark(new Figure.Rule(new Vector2(Value, 0f), new Vector2(Value, 1f))) { Role = Role.Needle },
+                new Node.Mark(new Figure.Path([new Vector2(Value, 0f), new Vector2(Value, 1f)])) { Role = Role.Needle },
             ]) with {
-            Width = Sizing.Grow.Unit,
             Aspect = Plane.Aspect,
         };
 }
@@ -146,8 +136,10 @@ public sealed record Scrub(string Label, AxisRange Domain, float Value, Func<Edi
             }.Drawn(plane, [new Node.Text([Label]) { Role = Role.Label }]) with {
                 Width = Sizing.Fit.Content,
             },
-            new Node.Slot(new SlotKind.Text(axis.Spoken(Value, culture), Some(1), edit => IO.lift(() => edit.Value.Traverse(text => Number(axis, text, culture)).As()).Bind(value => Edited(new Edit<float>(edit.Phase, value))))) {
+            new Node.Text([axis.Formatted(Value, culture)]) {
+                MaxLines = 1,
                 Width = Sizing.Grow.Unit,
+                Edited = Some<Func<Edit<string>, IO<Unit>>>(edit => IO.lift(Traversable.traverse<Edit, Fin, string, float>(text => Number(axis, text, culture), edit).As().Map(static next => next.As())).Bind(Edited)),
             },
         ]) {
             Width = Sizing.Grow.Unit,
@@ -155,9 +147,9 @@ public sealed record Scrub(string Label, AxisRange Domain, float Value, Func<Edi
     }
 
     private Fin<float> Number(Axis axis, string text, CultureInfo culture) =>
-        from parsed in (float.TryParse(text, NumberStyles.Float, culture, out float value) ? Some(value) : None).ToFin(new UIFault(text, UIReason.Unreadable))
-        from held in UIFault.Unless(axis.Contains(Domain, parsed), UIReason.Range, parsed)
-        select parsed;
+        float.TryParse(text, NumberStyles.Float, culture, out float parsed)
+            ? UIFault.Unless(axis.Contains(Domain, parsed), UIReason.Range, parsed).Map(_ => parsed)
+            : new UIFault(text, UIReason.Unreadable);
 }
 
 public sealed record Pane(Node Content, Factor Weight);
@@ -185,13 +177,9 @@ public sealed record Split(PhysicalAxis Along, Seq<Pane> Panes, Func<Edit<Seq<Fa
                 (_, edges) => toSeq((Seq(0f) + edges).Add(total).AsIterable().Window(2).Select(static pair => Factor.Validated(pair[1] - pair[0]))).Traverse(static weight => weight).As().ToOption(),
                 static (_, _) => None) with {
             Removed = static (_, _) => None,
-            DraggedOut = None,
         },
             Edited) {
             BackgroundCursor = CursorShape.Default,
             Handle = (_, at) => new Node.Pin(Along.Cross.With(at, 0f), new Node.Box()) { Span = Along.Cross.With(Vector2.Zero, 1f) },
-        }.Drawn(plane, [panes]) with {
-            Width = Sizing.Grow.Unit,
-            Height = Sizing.Grow.Unit,
-        };
+        }.Drawn(plane, [panes]);
 }

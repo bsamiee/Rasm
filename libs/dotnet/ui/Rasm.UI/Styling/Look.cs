@@ -57,10 +57,12 @@ public abstract partial record PathEffect {
 
 public sealed record Stroke(ColorValue Color) {
     public Seq<Seq<PathEffect>> Patterns { get; init; }
+    public SKStrokeCap Cap { get; init; } = SKStrokeCap.Round;
+    public SKStrokeJoin Join { get; init; } = SKStrokeJoin.Round;
 
     internal bool Timed => Patterns.Exists(static cycle => cycle.Exists(static pattern => pattern.Timed));
 
-    public Seq<PathEffect> Patterned(uint ordinal) => Patterns.IsEmpty ? [] : Patterns[(int)(ordinal % (uint)Patterns.Count)];
+    internal Seq<PathEffect> Patterned(uint ordinal) => Patterns.IsEmpty ? [] : Patterns[(int)(ordinal % (uint)Patterns.Count)];
 
     internal static Option<SKPathEffect> Effect(Seq<PathEffect> patterns, float width, float clock) =>
         patterns.Fold(Option<SKPathEffect>.None, (inner, pattern) => Some(inner.Match(
@@ -95,6 +97,10 @@ public abstract partial record Shape {
 }
 
 public sealed record Shadow(ColorValue Color, float Blur) {
+    private static readonly SKColorF Probe = new(0f, 0f, 0f, 1f);
+    internal static readonly Func<Seq<Shadow>, float> Outset = memo<Seq<Shadow>, float>(static shadows =>
+        shadows.Filter(static shadow => !shadow.Inside).Fold(0f, static (reach, shadow) => float.Max(reach, Filter.Reach(shadow.Filtered(Probe, Filter.Probe.Space)))));
+
     public float X { get; init; }
     public float Y { get; init; }
     public float Spread { get; init; }
@@ -136,6 +142,7 @@ public sealed record Look : Monoid<Look> {
     public Option<TimingCurve> Motion { get; init; }
     public HashMap<Condition, Look> When { get; init; }
     public HashMap<Role, Look> Within { get; init; }
+    public HashMap<Metric, float> Metrics { get; init; }
 
     public Look Combine(Look rhs) =>
         new() {
@@ -153,5 +160,6 @@ public sealed record Look : Monoid<Look> {
             Motion = rhs.Motion | Motion,
             When = When.Union(rhs.When, Merge: static (_, under, over) => under.Combine(over)),
             Within = Within.Union(rhs.Within, Merge: static (_, under, over) => under.Combine(over)),
+            Metrics = Metrics.Union(rhs.Metrics, Merge: static (_, _, over) => over),
         };
 }

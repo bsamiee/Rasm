@@ -20,6 +20,8 @@ public sealed partial class PhysicalAxis {
     public Vector2 With(Vector2 value, float along) => value.WithElement(Key, along);
 
     public SKRect Spanned(SKRect frame, float start, float extent) => SKRect.Create(With(frame.Location, start), new SKSize(With(frame.Size.ToPoint(), extent)));
+
+    internal float End(SKRect rect) => Of(new SKPoint(rect.Right, rect.Bottom));
 }
 
 [ValueObject<float>(SkipFactoryMethods = true)]
@@ -87,27 +89,15 @@ public sealed partial class Corners {
     internal Corners Fitted(SKSize size) =>
         Seq((Length: size.Width, Radii: TopLeft + TopRight), (Length: size.Height, Radii: TopRight + BottomRight), (Length: size.Width, Radii: BottomRight + BottomLeft), (Length: size.Height, Radii: BottomLeft + TopLeft))
             .Fold(1f, static (least, edge) => edge.Radii > edge.Length ? float.Min(least, edge.Length / edge.Radii) : least) switch {
-                < 1f and var scale => new(TopLeft * scale, TopRight * scale, BottomRight * scale, BottomLeft * scale),
+                < 1f and var scale => Each(radius => radius * scale),
                 _ => this,
             };
 
-    internal Corners Grown(float by) => new(Grown(TopLeft, by), Grown(TopRight, by), Grown(BottomRight, by), Grown(BottomLeft, by));
+    internal Corners Grown(float by) => Each(radius => radius > 0f ? float.Max(0f, radius + by) : 0f);
 
-    internal bool Holds(SKRect frame, float reach, SKPoint at) {
-        SKRect grown = SKRect.Inflate(frame, reach, reach);
-        Corners radii = Fitted(frame.Size).Grown(reach);
-        Vector2 middle = new(grown.MidX, grown.MidY);
-        Vector2 half = new(grown.Width / 2f, grown.Height / 2f);
-        return grown.Contains(at)
-            && Seq((Radius: radii.TopLeft, Sign: new Vector2(-1f, -1f)), (Radius: radii.TopRight, Sign: new Vector2(1f, -1f)), (Radius: radii.BottomRight, Sign: Vector2.One), (Radius: radii.BottomLeft, Sign: new Vector2(-1f, 1f)))
-                .ForAll(corner => ((((Vector2)at - middle) * corner.Sign) - half + new Vector2(corner.Radius)) switch {
-                    var beyond => beyond.X <= 0f || beyond.Y <= 0f || beyond.LengthSquared() <= corner.Radius * corner.Radius,
-                });
-    }
+    private Corners Each(Func<float, float> radius) => new(radius(TopLeft), radius(TopRight), radius(BottomRight), radius(BottomLeft));
 
     private static float Concentric(float outer, float across, float down) => float.Max(0f, outer - float.Max(across, down));
-
-    private static float Grown(float radius, float by) => radius > 0f ? float.Max(0f, radius + by) : 0f;
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

@@ -14,39 +14,43 @@ internal sealed record PlacedLayer(LayoutNode Layout, Node.Layer Layer) {
 
 public sealed record Mount {
     // --- [STATE]
-    private Mount(Host host, Scene scene) => (Host, Scene, Routing, Tree) = (host, scene, Routing.Idle, Access.Project(scene, host.Culture));
+    private Mount(Host host, Scene scene) => (Host, Scene, Routing, Tree) = (host, scene, Routing.Idle, Access.Project(scene));
 
     public Host Host { get; internal init; }
-    public Scene Scene { get; internal init; }
-    public Seq<Seq<Key>> Hover { get; internal init; }
-    public Option<Nearest> Nearest { get; internal init; }
-    public HashSet<Seq<Key>> Opened { get; internal init; }
+    public Output Output { get; private init; } = new([], [], None);
 
     public Seq<Element> Tree {
         get;
         internal init {
             field = value;
-            Elements = Access.Indexed(value);
+            (Elements, Stops) = (Access.Indexed(value), Routing.Stops(value));
         }
     }
 
+    internal Scene Scene { get; init; }
+    internal Seq<Seq<Key>> Hover { get; init; }
+    internal Option<Nearest> Nearest { get; init; }
+    internal HashSet<Seq<Key>> Opened { get; init; }
     internal HashMap<Seq<Key>, Element> Elements { get; private init; }
+    internal Seq<Seq<Element>> Stops { get; private init; }
     internal Routing Routing { get; init; }
     internal Animations Animations { get; init; } = Animations.Idle;
     internal HashMap<Seq<Key>, Focus> Returns { get; init; }
     internal Duration LastTick { get; init; }
 
     // --- [DERIVED]
-    public Option<Seq<Key>> Captured => Routing.Capture.Map(static capture => capture.Switch(part: static part => part.Owner, handle: static handle => handle.Adjuster));
+    public Option<Seq<Key>> Captured => Routing.Capture.Map(static capture => capture.Owner);
 
     public Option<Seq<Key>> Focused => Routing.Focus.Map(static focus => focus.Element);
 
     public CursorShape Cursor =>
-        Routing.Capture.Match(
-            Some: static capture => capture.Switch(part: static part => part.Track.Cursor, handle: static _ => CursorShape.Default),
-            None: () => (from path in Hover.Head from pointer in Routing.Pointer select Prospective(path, pointer)).IfNone(CursorShape.Default));
+        Routing.Capture.IsSome
+            ? Routing.ActiveTrack.Map(static track => track.Cursor).IfNone(CursorShape.Default)
+            : (from path in Hover.Head from pointer in Routing.Pointer select Prospective(path, pointer)).IfNone(CursorShape.Default);
 
     public Seq<Hosted> Hosted => Animations.Hosted(Scene, LastTick);
+
+    public bool Covered => Routing.Pointer.Exists(Scene.Covers);
 
     internal bool Animating(Seq<Seq<Key>> animated) => Host.Visibility.Drawn && (Animations.Animating || Scene.Timed.Map(static layout => layout.Path).Concat(animated).Exists(Clocked));
 
@@ -54,52 +58,53 @@ public sealed record Mount {
 
     internal Seq<PlacedLayer> Layers => Scene.Layers.Choose(Layered);
 
+    internal Option<PlacedLayer> Dismissible => Layers.Filter(static held => held.Layer.Dismissed.IsSome).Last;
+
     // --- [TRANSITIONS]
-    public static Fin<Mounted> Create(Host host, DefaultStyles defaults, Node view, HashMap<Seq<Key>, float> adjusted, Shaping shaping) =>
-        Scene.Of(Styles.Root(host.Theme, defaults, host.Placement.Root), view, host, adjusted, [], shaping).Map(static scene => scene.Revealed(None).Scene).Map(scene => {
-            Mount mount = new(host, scene);
-            return new Mounted(mount, new Output(Seq(SKRect.Create(host.Size)), [], Sequenced(mount.WithEffects(mount.Watched(None)).Effects)));
+    public static Fin<Mount> Create(Host host, StyleSheet sheet, Node view, Shaping shaping) =>
+        Scene.Of(Styles.Root(host.Theme, sheet, host.Root), view, host, shaping).Map(static scene => scene.Revealed(None).Scene).Map(scene => new Mount(host, scene) switch {
+            var mount => mount with { Output = new Output([SKRect.Create(host.Size)], [], Sequenced(mount.WithEffects(mount.Watched(None)).Effects)) },
         });
 
-    public Fin<Mounted> Show(Node view, Duration now) =>
+    public Fin<Mount> Show(Node view, Duration now) =>
         Scene.Reconcile(view).Map(moved => Completed(new Routed(this with { Scene = moved.Scene, Animations = Animations.Started(Scene, moved.Scene, now) }, moved.Damage, None), now));
 
-    public Mounted Rehost(Host host, Duration now) =>
-        Completed(Restyled(host, now).Then(mount => Host.Visibility.HasKeyFocus && !host.Visibility.HasKeyFocus ? mount.Cancel() : mount.Unhandled), now);
+    public Mount Rehost(Host host, StyleSheet sheet, Duration now) =>
+        Completed(Restyled(host, sheet, now).Then(mount => Host.Visibility.HasKeyFocus && !host.Visibility.HasKeyFocus ? mount.Cancel() : mount.Unhandled), now);
 
-    public Mounted Receive(Input input, Duration now) => Completed(this.Dispatched(input), now);
+    public Mount Receive(Input input, Duration now) => Completed(this.Dispatched(input), now);
 
-    internal Mounted Tick(Duration now, Seq<Seq<Key>> animated) {
-        Animations.Ticked ticked = Animations.Tick(Scene, LastTick, now);
+    internal Mount Tick(Duration now, Seq<Seq<Key>> animated) {
+        (Animations Animations, Seq<SKRect> Damage, Seq<IO<Unit>> Elapsed, HashSet<Seq<Key>> Opened) ticked = Animations.Tick(Scene, LastTick, now);
         Routed moved = new(this with { Animations = ticked.Animations, LastTick = now },
             ticked.Damage.Concat(Scene.Timed.Map(static layout => layout.Path).Concat(animated).Filter(Clocked).Choose(Scene.Bounds)),
             Some(ticked.Elapsed).Filter(static effects => !effects.IsEmpty));
         return ticked.Opened.IsEmpty
-            ? new(moved.Mount with { Animations = ticked.Animations.WithTimers(Scene, Routing.Pointer, Pending, now) }, new Output(Scene.Sampled(moved.Damage), [], Sequenced(moved.Effects)))
+            ? moved.Mount with { Animations = ticked.Animations.WithTimers(Scene, Routing.Pointer, Pending, now), Output = new Output(Scene.Sampled(moved.Damage), [], Sequenced(moved.Effects)) }
             : Completed(moved.Then(next => next.Reopened(next.Opened.Union(ticked.Opened))), now);
     }
 
-    private Routed Restyled(Host host, Duration now) {
-        SceneChange styled = Host.Theme == host.Theme && Host.Placement.Root == host.Placement.Root && Host.Culture.Equals(host.Culture) && Host.Blending == host.Blending
-            ? Scene.Unchanged
-            : Scene.Restyle(host);
+    private Routed Restyled(Host host, StyleSheet sheet, Duration now) {
+        SceneChange styled = Host with { Size = host.Size, Visibility = host.Visibility } == host && Scene.Layout.Cascade.Sheet.Equals(sheet) ? Scene.Unchanged : Scene.Restyle(host, sheet);
         SceneChange sized = styled.Scene.Layout.Frame.Size == host.Size ? styled.Scene.Unchanged : styled.Scene.Resize(host);
         return new Routed(this with { Host = host, Scene = sized.Scene, Animations = Animations.Restyled(Scene, styled.Scene, now) },
             styled.Damage.Concat(sized.Damage).Concat(Host.Visibility == host.Visibility ? [] : Focused.Bind(sized.Scene.Bounds).ToSeq()), None);
     }
 
     // --- [COMPLETION]
-    private Mounted Completed(Routed routed, Duration now) {
+    private Mount Completed(Routed routed, Duration now) {
         Routed done = routed.Then(static next => next.Opening()).Then(next => next.Revealing(this)).Then(next => next.Pruning(this)).Then(next => next.Layering(this)).Then(static next => next.Hovering())
             .Then(next => next.Nearing(this)).Then(next => next.Fragmenting(this)).Then(next => next.Watching(this)).Then(next => next.Tweening(this, now));
         Option<Vector2> detent = done.Mount.Routing.ActiveTrack.Bind(static track => track.Detent);
-        return new(done.Mount, new Output(
-            done.Mount.Scene.Sampled(done.Damage.Concat(done.Mount.Routing.Focus != Routing.Focus ? Seq(Focused, done.Mount.Focused).Somes().Choose(done.Mount.Scene.Bounds) : [])),
-            (done.Mount.Projected(this) ? Access.Changes(Elements, done.Mount.Elements, done.Mount.Host.Culture) : [])
-                .Concat(done.Mount.Focused != Focused ? done.Mount.Focused.Map(static path => (AccessibilityNotice)new AccessibilityNotice.FocusChanged(path)).ToSeq() : [])
-                .Concat(detent.IsSome && detent != Routing.ActiveTrack.Bind(static track => track.Detent) ? Seq<AccessibilityNotice>(new AccessibilityNotice.Detent()) : [])
-                .Concat(done.Notices),
-            Sequenced(done.Effects)) { Lifted = done.Lifted });
+        return done.Mount with {
+            Output = new Output(
+                done.Mount.Scene.Sampled(done.Damage.Concat(done.Mount.Routing.Focus != Routing.Focus ? Seq(Focused, done.Mount.Focused).Somes().Choose(done.Mount.Scene.Bounds) : [])),
+                (done.Mount.Projected(this) ? Access.Changes(Elements, done.Mount.Elements, done.Mount.Host.Culture) : [])
+                    .Concat(done.Mount.Focused != Focused ? done.Mount.Focused.Map(static path => (AccessibilityNotice)new AccessibilityNotice.FocusChanged(path)).ToSeq() : [])
+                    .Concat(detent.IsSome && detent != Routing.ActiveTrack.Bind(static track => track.Detent) ? Seq<AccessibilityNotice>(new AccessibilityNotice.Detent()) : [])
+                    .Concat(done.Notices),
+                Sequenced(done.Effects)) { Lifted = done.Lifted },
+        };
     }
 
     private bool Projected(Mount prior) => !ReferenceEquals(prior.Scene, Scene) || !prior.Host.Culture.Equals(Host.Culture);
@@ -115,26 +120,17 @@ public sealed record Mount {
     private Routed Revealing(Mount prior) {
         if (!Projected(prior)) return Unhandled;
         SceneChange revealed = Scene.Revealed(Some(prior.Scene));
-        return new Routed(this with { Scene = revealed.Scene, Tree = Access.Project(revealed.Scene, Host.Culture) }, revealed.Damage, None);
+        return new Routed(this with { Scene = revealed.Scene, Tree = Access.Project(revealed.Scene) }, revealed.Damage, None);
     }
 
-    private Routed Pruning(Mount prior) {
-        Option<(Option<PointerCapture> Kept, Seq<IO<Unit>> Cancelled)> capture = Routing.Capture.Map(held => held.Switch<Mount, (Option<PointerCapture> Kept, Seq<IO<Unit>> Cancelled)>(
-            this,
-            part: static (mount, part) => mount.Scene.EnabledPartAt(part.Owner).IsSome ? (Some<PointerCapture>(part), []) : (None, part.Track.Cancelled()),
-            handle: static (mount, handle) => (mount.Scene.Adjustment(handle.Adjuster).Map(_ => (PointerCapture)handle), [])));
-        Option<(Option<Latch> Kept, Seq<IO<Unit>> Cancelled)> latch = Routing.Latch.Map(held => held.Switch<Mount, (Option<Latch> Kept, Seq<IO<Unit>> Cancelled)>(
-            this,
-            part: static (mount, part) => mount.Scene.EnabledPartAt(part.Owner).IsSome ? (Some<Latch>(part), []) : (None, part.Active.Map(static live => live.Track.Cancelled()).IfNone([])),
-            scroll: static (mount, scroll) => (mount.Scene.Adjustment(scroll.Adjuster).Map(_ => (Latch)scroll), [])));
-        return (this with {
+    private Routed Pruning(Mount prior) =>
+        (this with {
             Routing = Routing with {
-                Capture = capture.Bind(static kept => kept.Kept),
-                Latch = latch.Bind(static kept => kept.Kept),
-                Focus = Routing.Focus.Map(focus => Followed(prior, focus)).Filter(followed => Elements.ContainsKey(followed.Element) && (Scene.Owner(followed.Element).IsSome || Scene.Adjustment(followed.Element).IsSome)),
+                Capture = Routing.Capture.Filter(held => held.Live(Scene)),
+                Latch = Routing.Latch.Filter(held => held.Live(Scene)),
+                Focus = Routing.Focus.Map(focus => Followed(prior, focus)).Filter(followed => Elements.ContainsKey(followed.Element) && (Scene.Owner(followed.Element).IsSome || Scene.Scroller(followed.Element).IsSome)),
             },
-        }).WithEffects(capture.Map(static kept => kept.Cancelled).IfNone([]) + latch.Map(static kept => kept.Cancelled).IfNone([]));
-    }
+        }).WithEffects(Routing.Capture.Filter(held => !held.Live(Scene)).ToSeq().Bind(static held => held.Cancelled) + Routing.Latch.Filter(held => !held.Live(Scene)).ToSeq().Bind(static held => held.Cancelled));
 
     private Focus Followed(Mount prior, Focus focus) =>
         (from owner in Scene.Owner(focus.Element)
@@ -148,7 +144,7 @@ public sealed record Mount {
         HashSet<Seq<Key>> now = toHashSet(layers.Map(static held => held.Layout.Path));
         Seq<PlacedLayer> opened = layers.Filter(held => !was.Contains(held.Layout.Path) && held.Layer.Hover.IsNone);
         Seq<Seq<Key>> closed = toSeq(was).Filter(path => !now.Contains(path));
-        Option<Focus> entered = opened.Last.Bind(held => Focusing(Routing.Traversed(Routing.Stops(Tree).Filter(stop => stop.Exists(element => held.Holds(element.Id))), None, 1, cycles: false), traversed: false));
+        Option<Focus> entered = opened.Last.Bind(held => Focusing(Routing.Traversed(Stops.Filter(stop => stop.Exists(element => held.Holds(element.Id))), None, 1, cycles: false), traversed: false));
         Option<Focus> returned = Focused.IsNone ? closed.Choose(Returns.Find).Filter(focus => Elements.ContainsKey(focus.Element)).Head : None;
         Seq<IO<Unit>> left = layers.Filter(held => was.Contains(held.Layout.Path) && !held.Layer.Modal && prior.Focused.Exists(held.Holds) && Focused.Exists(focus => !held.Holds(focus))).Choose(static held => held.Layer.Dismissed);
         return (this with { Returns = Returns.RemoveRange(closed).AddOrUpdateRange(opened.Choose(held => prior.Routing.Focus.Map(focus => (held.Layout.Path, focus)))) })
@@ -157,21 +153,21 @@ public sealed record Mount {
 
     private Routed Hovering() =>
         (this with {
-            Hover = Routing.Pointer.Map(Hits).Map(hits => Routing.Pressed.Match(
+            Hover = Routing.Pointer.Map(Scene.Hit).Map(hits => Routing.Pressed.Match(
                 Some: pressing => hits.Filter(hit => hit == pressing || (Routing.ActiveTrack.Exists(static track => track.Lifted.IsSome) && Scene.AncestorsAndSelf(hit).Exists(prefix => Scene.Index.Find(prefix).Exists(static layout => layout.Node.Drop.IsSome)))),
                 None: () => {
                     HashSet<Seq<Key>> anchors = toHashSet(Delayed.Choose(static held => held.Layer.Anchor));
-                    return hits.Filter(hit => Handle(hit).IsSome || Scene.AncestorsAndSelf(hit).Exists(prefix =>
-                        Scene.PartAt(prefix).IsSome || anchors.Contains(prefix) || Scene.Index.Find(prefix).Exists(static layout => layout.Node.Hovering.IsSome)));
+                    return hits.Filter(hit => Thumb(hit).IsSome || Scene.AncestorsAndSelf(hit).Exists(prefix =>
+                        Scene.PartAt(prefix).IsSome || anchors.Contains(prefix) || Scene.Index.Find(prefix).Exists(static layout => layout.Node is Node.Plot { Hovered.IsSome: true })));
                 })).IfNone([]),
         }).Unhandled;
 
     private Routed Nearing(Mount prior) =>
         (this with {
             Nearest = prior.Routing.Pointer == Routing.Pointer
-                ? Nearest.Filter(near => Scene.Index.Find(near.Plot).Exists(static layout => layout.Node.PlotNode.IsSome))
+                ? Nearest.Filter(near => Scene.Index.Find(near.Plot).Exists(static layout => layout.Node is Node.Plot))
                 : from at in Routing.Pointer
-                  from layout in Scene.Order.Rev().Find(layout => layout.Node.PlotNode.Exists(static plot => plot.Pointed.IsSome || plot.Crosshair.IsSome) && !Inert(layout.Path) && Scene.Visible(layout.Path).Exists(shown => shown.Contains(at)))
+                  from layout in Scene.Order.Rev().Find(layout => layout.Node is Node.Plot plot && (plot.Pointed.IsSome || plot.Crosshair.IsSome) && !Inert(layout.Path) && Scene.Visible(layout.Path).Exists(shown => shown.Contains(at)))
                   from near in Scene.Nearest(layout.Path, at)
                   select near,
         }).Unhandled;
@@ -187,7 +183,7 @@ public sealed record Mount {
         ReferenceEquals(prior.Scene, Scene) && prior.Hover == Hover && prior.Routing.Pointer == Routing.Pointer && prior.Nearest == Nearest ? Unhandled : WithEffects(Watched(Some(prior)));
 
     private Routed Tweening(Mount prior, Duration now) {
-        Animations.StateLayerChange faded = Animations.Pruned(Scene).Fading(prior.Scene, Scene, prior.Active(), Active(), now);
+        (Animations Animations, Seq<SKRect> Damage) faded = Animations.Pruned(Scene).Fading(prior.Scene, Scene, prior.Active(), Active(), now);
         return new Routed(this with { Animations = faded.Animations.WithTimers(Scene, Routing.Pointer, Pending, now), LastTick = now }, faded.Damage, None);
     }
 
@@ -198,7 +194,7 @@ public sealed record Mount {
                 select new HoverState(held.Scene, was, held.Hover, held.Routing.Pointer),
                 new HoverState(Scene, layout, Hover, Routing.Pointer)))
         + Scene.Order.Choose(layout =>
-            from plot in layout.Node.PlotNode
+            from plot in Optional(layout.Node as Node.Plot)
             from pointed in plot.Pointed
             let near = Nearest.Filter(held => held.Plot == layout.Path)
             where prior.Bind(static held => held.Nearest).Filter(held => held.Plot == layout.Path) != near
@@ -206,7 +202,8 @@ public sealed record Mount {
 
     private static Seq<IO<Unit>> Watched(Option<HoverState> before, HoverState after) =>
         after.Layout.Node.Part.Map(part => part.Watched(before.Filter(static held => held.Layout.Node.Part.IsSome), after)).IfNone([])
-        + (from hovered in after.Layout.Node.Hovering
+        + (from plot in Optional(after.Layout.Node as Node.Plot)
+           from hovered in plot.Hovered
            let now = after.Plotted
            where before.Bind(static held => held.Plotted) != now
            select hovered(now)).ToSeq();
@@ -236,14 +233,11 @@ public sealed record Mount {
             .Find(entry => Elements.ContainsKey(entry) && Scene.Owner(entry).Exists(owner => owner.Path == stop)));
 
     // --- [LOOKUP]
-    internal Seq<Seq<Key>> Hits(SKPoint at) => Scene.Hit(at).Map(static hit => hit.Layout.Path);
-
-    internal Option<Adjustment> Handle(Seq<Key> path) => Scene.Adjustment(path).Filter(adjuster => adjuster.Owner != path);
+    internal Option<Scroller> Thumb(Seq<Key> path) => Scene.Scroller(path).Filter(scroller => scroller.Owner != path);
 
     internal bool Inert(Seq<Key> path) => Scene.AncestorsAndSelf(path).Exists(Scene.Inert.Contains);
 
-    private static Option<PlacedLayer> Layered(LayoutNode layout) =>
-        layout.Node.LayerNode.Map(layer => new PlacedLayer(layout, layer));
+    private static Option<PlacedLayer> Layered(LayoutNode layout) => layout.Node is Node.Layer layer ? Some(new PlacedLayer(layout, layer)) : None;
 
     private Seq<PlacedLayer> Delayed => toSeq(Scene.Index.Values).Choose(Layered).Filter(static held => held.Layer.Hover.IsSome);
 
@@ -259,11 +253,10 @@ public sealed record Mount {
     private HashMap<Seq<Key>, Node> Overlays =>
         toHashMap((from near in Nearest
                    from layout in Scene.Index.Find(near.Plot)
-                   from plot in layout.Node.PlotNode
+                   from plot in Optional(layout.Node as Node.Plot)
                    from crosshair in plot.Crosshair
                    select (near.Plot, crosshair(near))).ToSeq())
-            .AddOrUpdateRange((from capture in Routing.Capture
-                               from part in capture.Switch(part: static part => Some(part), handle: static _ => Option<PointerCapture.Part>.None)
+            .AddOrUpdateRange((from part in Routing.Part
                                from overlay in Previewed(part) | part.Track.Preview.Map(static figure => (Node)new Node.Mark(figure) { Role = Role.Selection })
                                select (part.Owner, overlay)).ToSeq());
 
@@ -276,10 +269,10 @@ public sealed record Mount {
         select preview((Vector2)(part.Press.At - frame.Location));
 
     private CursorShape Prospective(Seq<Key> path, SKPoint pointer) =>
-        Handle(path).IsSome ? CursorShape.Default
+        Thumb(path).IsSome ? CursorShape.Default
         : Scene.AncestorsAndSelf(path).Choose(Scene.PartAt).Head.Exists(static owner => !owner.Enabled) ? CursorShape.NotAllowed
         : Scene.Owners(path).Choose(owner => owner.Part.Began(new Gesture.Press(pointer, None, 1) { Modifiers = Routing.Modifiers }, Scene.HitTarget(owner, path))
-                .Switch(ignored: static _ => Option<CursorShape>.None, accepted: static accepted => Some(accepted.Track.Map(static track => track.Cursor).IfNone(CursorShape.Default))))
+                .Map(static reply => reply.Track.Map(static track => track.Cursor).IfNone(CursorShape.Default)))
             .Head.IfNone(CursorShape.Default);
 
     private HashSet<InteractionState> Active() =>
@@ -287,5 +280,3 @@ public sealed record Mount {
             .Concat(Routing.Pressed.Map(static path => new InteractionState(path, Interaction.Pressed)).ToSeq())
             .Concat(Routing.Focus.Filter(focus => Host.Visibility.HasKeyFocus && focus.Traversed).Map(static focus => new InteractionState(focus.Element, Interaction.Focused)).ToSeq()));
 }
-
-public sealed record Mounted(Mount Mount, Output Output);

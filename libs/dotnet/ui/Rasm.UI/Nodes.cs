@@ -6,7 +6,7 @@ using Rasm.UI.Rendering;
 using Rasm.UI.Styling;
 using SkiaSharp;
 using Topten.RichTextKit;
-using Wacton.Unicolour;
+using Wacton.Unicolour.Datasets;
 
 namespace Rasm.UI;
 
@@ -20,10 +20,10 @@ public abstract partial record Sizing {
     internal bool Stretches => GrowWeight > 0f;
     internal virtual Option<float> Definite => None;
 
-    public static Seq<float> Stretched(Seq<Fixed> items, float space) =>
-        Layouts.Distribute(items.Map(static item => new Layouts.FlexItem(Grow.Unit with { Limits = item.Limits }, item.Limits.Clamped(item.Extent), item.Limits.Min)), space);
+    public static Seq<float> Shared(Seq<Sizing> sizes, Seq<float> content, float space) =>
+        Layouts.Distribute(sizes.Zip(content).Map(held => (held.First, Layouts.Based(held.First, held.Second, space), held.First.Floor(0f))), space);
 
-    internal float Floor(float content) => SwitchPartially(content, @default: static (_, held) => held.Limits.Min, fit: static (least, held) => float.Max(held.Limits.Min, least));
+    internal float Floor(float content) => float.Max(Limits.Min, content);
 
     public sealed record Fixed(float Extent) : Sizing {
         internal override Option<float> Definite => Some(Limits.Clamped(Extent));
@@ -42,11 +42,8 @@ public abstract partial record Sizing {
     public sealed record Percent(Fraction Fraction) : Sizing;
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Tracks {
-    public sealed record Explicit(Seq<Sizing> Sizes) : Tracks;
-
-    public sealed record AutoFill(Sizing Size) : Tracks;
+public sealed record Tracks(Seq<Sizing> Sizes) {
+    public bool AutoFill { get; init; }
 }
 
 [SmartEnum]
@@ -57,6 +54,11 @@ public sealed partial class ImageFit {
 
     [UseDelegateFromConstructor]
     public partial SKRect Fitted(SKRect content, SKSize natural);
+
+    internal static SKMatrix Mapping(SKRect from, SKRect to) =>
+        (to.Width / from.Width, to.Height / from.Height) switch {
+            var (x, y) => SKMatrix.CreateScaleTranslation(x, y, to.Left - (from.Left * x), to.Top - (from.Top * y)),
+        };
 }
 
 [SmartEnum]
@@ -87,10 +89,10 @@ public abstract partial record ImageSource {
     public sealed record Still(SKImage Image) : ImageSource(Image.Info);
 
     public sealed record Encoded : ImageSource {
-        private Encoded(SKData data, SKCodec codec) : base(Oriented(codec.Info, codec.EncodedOrigin)) => (Data, Origin, FrameCount) = (data, codec.EncodedOrigin, codec.FrameCount);
+        private Encoded(SKData data, SKCodec codec)
+            : base(Transposed(codec.EncodedOrigin) ? codec.Info.WithSize(codec.Info.Height, codec.Info.Width) : codec.Info) => (Data, FrameCount) = (data, codec.FrameCount);
 
         public SKData Data { get; }
-        public SKEncodedOrigin Origin { get; }
         public int FrameCount { get; }
 
         public static Fin<Encoded> Validated(SKData data) {
@@ -100,8 +102,7 @@ public abstract partial record ImageSource {
                 : new UIFault(string.Create(CultureInfo.InvariantCulture, $"{nameof(data)}.{nameof(data.Size)} = {data.Size}"), UIReason.Unreadable);
         }
 
-        private static SKImageInfo Oriented(SKImageInfo info, SKEncodedOrigin origin) =>
-            origin is SKEncodedOrigin.LeftTop or SKEncodedOrigin.RightTop or SKEncodedOrigin.RightBottom or SKEncodedOrigin.LeftBottom ? info.WithSize(info.Height, info.Width) : info;
+        internal static bool Transposed(SKEncodedOrigin origin) => origin is SKEncodedOrigin.LeftTop or SKEncodedOrigin.RightTop or SKEncodedOrigin.RightBottom or SKEncodedOrigin.LeftBottom;
     }
 }
 
@@ -117,39 +118,25 @@ internal sealed partial class Painting {
     internal bool Inherits { get; }
 }
 
-internal sealed record Art(Assembly Assembly, string Resource, bool Tinted) {
-    internal Option<SKColor> Current { get; init; }
-    internal HashMap<string, ColorValue> Classes { get; init; }
-    internal bool Animated { get; init; }
-}
+public sealed record GlyphSource {
+    public GlyphSource(Assembly assembly, string resource) =>
+        (Assembly, Resource, Dark) = (assembly, resource, $"{Path.ChangeExtension(resource, extension: null)}_darkmode{Path.GetExtension(resource)}" switch {
+            var dark => Optional(assembly.GetManifestResourceInfo(dark)).Map(_ => dark),
+        });
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record GlyphSource {
+    public Assembly Assembly { get; }
+    public string Resource { get; }
+    public bool Tinted { get; init; }
     public HashMap<string, ColorValue> Classes { get; init; }
 
-    internal Art Resolved(SKColorF under) => Drawn(under) with { Classes = Classes };
+    internal Option<string> Dark { get; }
 
-    private protected abstract Art Drawn(SKColorF under);
+    internal bool Animated => Path.GetExtension(Resource).Equals(".json", StringComparison.OrdinalIgnoreCase);
 
-    public sealed record Tinted(Assembly Assembly, string Resource) : GlyphSource {
-        private protected override Art Drawn(SKColorF under) => new(Assembly, Resource, Tinted: true);
-    }
-
-    public sealed record Paired(Assembly Assembly, string Light, string Dark) : GlyphSource {
-        private static readonly Unicolour White = new(ColourSpace.Rgb, 1.0, 1.0, 1.0);
-        private static readonly Unicolour Black = new(ColourSpace.Rgb, 0.0, 0.0, 0.0);
-
-        public string Resource(SKColorF under) {
-            Unicolour held = under.ToUnicolour();
-            return held.Contrast(White) > held.Contrast(Black) ? Dark : Light;
-        }
-
-        private protected override Art Drawn(SKColorF under) => new(Assembly, Resource(under), Tinted: false);
-    }
-
-    public sealed record Motion(Assembly Assembly, string Resource) : GlyphSource {
-        private protected override Art Drawn(SKColorF under) => new(Assembly, Resource, Tinted: false) { Animated = true };
-    }
+    internal string Shown(SKColorF under) =>
+        under.ToUnicolour() switch {
+            var held => held.Contrast(Css.White) > held.Contrast(Css.Black) ? Dark.IfNone(Resource) : Resource,
+        };
 }
 
 public sealed record Span(string Text) {
@@ -162,15 +149,6 @@ public sealed record Span(string Text) {
 
     public static Span FromString(string text) => new(text);
 }
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SlotKind {
-    public sealed record Text(string Value, Option<int> MaxLines, Func<Edit<string>, IO<Unit>> Edited) : SlotKind;
-
-    public sealed record Native : SlotKind;
-}
-
-public sealed record Expiry(Duration Lifetime, IO<Unit> Elapsed);
 
 [SmartEnum]
 public sealed partial class Baseline {
@@ -193,11 +171,13 @@ public sealed partial class Truncation {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads, MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record Node {
-    private Node(Painting painting) => Painting = painting;
+    private Node(Option<Painting> painting = default) => Painting = painting.IfNone(Painting.Frame);
 
     public Option<Key> Key { get; init; }
     public Option<Role> Role { get; init; }
     public HashSet<Condition> Conditions { get; init; }
+    public StyleSheet Sheet { get; init; } = StyleSheet.Empty;
+    public Fraction Opacity { get; init; } = Fraction.MaxValue;
     public Option<Sizing> Width { get; init; }
     public Option<Sizing> Height { get; init; }
     public Option<Factor> Aspect { get; init; }
@@ -208,62 +188,46 @@ public abstract partial record Node {
     public Option<Lift> Lift { get; init; }
     public Option<Drop> Drop { get; init; }
     public Option<Uri> Link { get; init; }
-    public Option<Expiry> Expires { get; init; }
+    public Option<(Duration Lifetime, IO<Unit> Elapsed)> Expires { get; init; }
     public Accessible Accessible { get; init; } = Accessible.Empty;
 
-    internal virtual Option<Node> Inner => None;
-
-    internal virtual Option<PlotPlane> Plotted => None;
-
-    internal virtual Option<Func<Option<Vector2>, IO<Unit>>> Hovering => None;
-
-    internal virtual Option<Lazy> Windowed => None;
-
-    internal Option<Pin> Pinned => SwitchPartially(@default: static node => node.Inner.Bind(static inner => inner.Pinned), pin: static pin => Some(pin));
-
-    internal virtual Option<Figure> Traced => None;
-
-    internal virtual Option<GlyphSource> GlyphArt => None;
-
-    internal virtual Option<Styled> StyledNode => None;
-
-    internal virtual Option<Plot> PlotNode => None;
-
-    internal virtual Option<Layer> LayerNode => None;
-
-    internal virtual Option<PhysicalAxis> MainAxis => None;
-
-    internal float Alpha => StyledNode.Map(static styled => (float)styled.Opacity).IfNone(1f);
+    public Node Conditioned(Condition condition) => this with { Conditions = Conditions.TryAdd(condition) };
 
     internal Painting Painting { get; }
 
-    internal bool Clips(Node child) => SwitchPartially(child, @default: static (_, _) => false, scroll: static (_, _) => true, plot: static (held, _) => held.Pinned.IsNone);
+    internal virtual Option<Node> Inner => None;
 
-    internal Node Conditioned(Condition condition) =>
-        StyledNode.Match(Some: styled => styled with { Content = styled.Content.Conditioned(condition) }, None: () => this with { Conditions = Conditions.TryAdd(condition) });
+    internal virtual Option<PhysicalAxis> MainAxis => None;
 
-    public sealed record Box() : Node(Painting.Frame);
+    internal virtual Option<PlotPlane> Plotted => None;
 
-    public sealed record Flex(PhysicalAxis Axis, Seq<Node> Children) : Node(Painting.Frame) {
+    internal virtual Option<Figure> Traced => None;
+
+    internal Option<Pin> Pinned => SwitchPartially(@default: static node => node.Inner.Bind(static inner => inner.Pinned), pin: static pin => Some(pin));
+
+    internal virtual bool Clips(Node child) => false;
+
+    public sealed record Box : Node;
+
+    public sealed record Flex(PhysicalAxis Axis, Seq<Node> Children) : Node {
         public Option<Baseline> Baseline { get; init; }
 
         internal override Option<PhysicalAxis> MainAxis => Some(Axis);
     }
 
-    public sealed record Grid(Tracks Columns, Seq<Seq<Node>> Rows) : Node(Painting.Frame);
+    public sealed record Grid(Tracks Columns, Seq<Seq<Node>> Rows) : Node;
 
-    public sealed record Lazy(PhysicalAxis Axis, Tracks Across, float Extent, Seq<Key> Items) : Node(Painting.Frame) {
+    public sealed record Lazy(PhysicalAxis Axis, Tracks Across, float Extent, Seq<Key> Items) : Node {
         public HashMap<Key, Node> Realized { get; init; }
 
-        internal override Option<Lazy> Windowed => Some(this);
         internal override Option<PhysicalAxis> MainAxis => Some(Axis);
     }
 
-    public sealed record Overlay(Node Base, Seq<Node> Above) : Node(Painting.Frame) {
+    public sealed record Overlay(Node Base, Seq<Node> Above) : Node {
         internal override Option<Node> Inner => Some(Base);
     }
 
-    public sealed record Layer(Option<Seq<Key>> Anchor, Node Content) : Node(Painting.Frame) {
+    public sealed record Layer(Option<Seq<Key>> Anchor, Node Content) : Node {
         public UnitPoint Side { get; init; } = UnitPoint.Bottom;
         public float Gap { get; init; }
         public bool Flips { get; init; } = true;
@@ -272,32 +236,33 @@ public abstract partial record Node {
         public Option<Duration> Hover { get; init; }
 
         internal override Option<Node> Inner => Some(Content);
-        internal override Option<Layer> LayerNode => Some(this);
     }
 
-    public sealed record Choice(PhysicalAxis Axis, Seq<Node> Alternatives) : Node(Painting.Frame) {
+    public sealed record Choice(PhysicalAxis Axis, Seq<Node> Alternatives) : Node {
         internal override Option<PhysicalAxis> MainAxis => Some(Axis);
     }
 
-    public sealed record Scroll(PhysicalAxis Axis, Node Content) : Node(Painting.Frame) {
+    public sealed record Scroll(PhysicalAxis Axis, Node Content) : Node {
         public Option<UnitPoint> Snap { get; init; }
         public Option<Seq<Key>> Follows { get; init; }
 
         internal override Option<PhysicalAxis> MainAxis => Some(Axis);
+
+        internal override bool Clips(Node child) => true;
     }
 
-    public sealed record Plot(PlotPlane Plane, Seq<Node> Children) : Node(Painting.Frame) {
+    public sealed record Plot(PlotPlane Plane, Seq<Node> Children) : Node {
         public Seq<Guide> Guides { get; init; }
         public Option<Func<Option<Vector2>, IO<Unit>>> Hovered { get; init; }
         public Option<Func<Option<Nearest>, IO<Unit>>> Pointed { get; init; }
         public Option<Func<Nearest, Node>> Crosshair { get; init; }
 
         internal override Option<PlotPlane> Plotted => Some(Plane);
-        internal override Option<Func<Option<Vector2>, IO<Unit>>> Hovering => Hovered;
-        internal override Option<Plot> PlotNode => Some(this);
+
+        internal override bool Clips(Node child) => child.Pinned.IsNone;
     }
 
-    public sealed record Pin(Vector2 At, Node Content) : Node(Painting.Frame) {
+    public sealed record Pin(Vector2 At, Node Content) : Node {
         public Option<Vector2> Span { get; init; }
 
         internal override Option<Node> Inner => Some(Content);
@@ -316,27 +281,18 @@ public abstract partial record Node {
         public Truncation Truncation { get; init; } = Truncation.End;
         public TextAlignment Alignment { get; init; } = TextAlignment.Auto;
         public Option<TextRange> Selected { get; init; }
+        public Option<Func<Edit<string>, IO<Unit>>> Edited { get; init; }
     }
 
-    public sealed record Glyph(GlyphSource Art) : Node(Painting.Foreground) {
-        internal override Option<GlyphSource> GlyphArt => Some(Art);
-    }
+    public sealed record Glyph(GlyphSource Art) : Node(Painting.Foreground);
 
     public sealed record Image(ImageSource Source) : Node(Painting.Figure) {
         public ImageFit Fit { get; init; } = ImageFit.Stretch;
-        public float Density { get; init; } = 1f;
+        public Factor Density { get; init; } = Factor.Unit;
         public ImageRendering Rendering { get; init; } = ImageRendering.Auto;
         public Option<DataSeries> Series { get; init; }
         public Option<ColorRamp> Scale { get; init; }
     }
 
-    public sealed record Slot(SlotKind Kind) : Node(Painting.Hosted);
-
-    public sealed record Styled(Node Content) : Node(Painting.Frame) {
-        public StyleSheet Sheet { get; init; } = StyleSheet.Empty;
-        public Fraction Opacity { get; init; } = Fraction.MaxValue;
-
-        internal override Option<Node> Inner => Some(Content);
-        internal override Option<Styled> StyledNode => Some(this);
-    }
+    public sealed record Slot() : Node(Painting.Hosted);
 }

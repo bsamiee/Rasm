@@ -15,17 +15,17 @@ namespace Rasm.UI.Components;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Plotted(Key Key, string Label, Figure Figure) {
     public Option<Role> Role { get; init; }
-    public Option<SKColorF> Color { get; init; }
+    public Option<ColorValue> Color { get; init; }
     public Option<double> Value { get; init; }
     public Option<Vector2> LabelAt { get; init; }
 
     internal DataSeries Series(int ordinal, Option<ColorAxis> axis) =>
-        new((uint)ordinal) { Color = Color, Value = axis.Match(Some: held => Value.Map(held.Fraction), None: () => Value) };
+        new((uint)ordinal) { Color = Color, Value = Value.Map(value => axis.Map(held => (double)held.Axis.Fraction((float)value)).IfNone(value)) };
 
     // --- [STATISTICS]
-    public static Fin<Plotted> Histogram(Key key, string label, Samples samples, Seq<AxisRange> buckets) =>
-        UIFault.Unless(!buckets.IsEmpty && buckets.ForAll(static bucket => bucket.Span > 0f) && buckets.AsIterable().Window(2).All(static pair => pair[0].To.CompareTo(pair[1].From) is 0), UIReason.Order, buckets)
-            .Bind(_ => Binned(buckets, Counted(samples, buckets)))
+    public static Fin<Plotted> Histogram(Key key, string label, Samples samples, Seq<float> edges) =>
+        UIFault.Unless(edges.Count >= 2 && edges.AsIterable().Window(2).All(static pair => pair[0] < pair[1]), UIReason.Order, edges)
+            .Bind(_ => Binned(samples, edges))
             .Map(figure => new Plotted(key, label, figure));
 
     public static Fin<Plotted> Density(Key key, string label, Samples samples, Factor bandwidth, AxisRange domain, int count) {
@@ -36,8 +36,6 @@ public sealed record Plotted(Key Key, string Label, Figure Figure) {
                 Interpolation = Interpolation.Monotone,
             })).As();
     }
-
-    public static Fin<Plotted> Box(Key key, string label, Samples samples, float at) => Summary.Of(samples).Map(summary => new Plotted(key, label, new Figure.Box(at, summary)));
 
     public static Fin<Plotted> Regression(Key key, string label, Seq<Vector2> points, int order) {
         double[] across = [.. points.Map(static point => (double)point.X)];
@@ -51,21 +49,17 @@ public sealed record Plotted(Key Key, string Label, Figure Figure) {
 
     private static Seq<double> Finite(Samples samples) => toSeq(MemoryMarshal.ToEnumerable(samples.Values).Where(float.IsFinite).Select(static value => (double)value));
 
-    private static float[] Counted(Samples samples, Seq<AxisRange> buckets) {
-        (float low, float high) = (buckets[0].From, buckets[^1].To);
+    private static Fin<Figure> Binned(Samples samples, Seq<float> edges) {
+        Seq<(float From, float To)> bins = toSeq(edges.AsIterable().Window(2).Select(static pair => (pair[0], pair[1]))).Strict();
         Histogram histogram = new();
-        _ = buckets.Iter(bucket => histogram.AddBucket(new Bucket(bucket.From, bucket.To, 0d)));
-        histogram.AddData(Finite(samples).Filter(value => value > low && value <= high));
-        return [.. Enumerable.Range(0, histogram.BucketCount).Select(index => (float)histogram[index].Count)];
-    }
-
-    private static Fin<Figure> Binned(Seq<AxisRange> buckets, float[] counts) {
-        AxisRange first = buckets[0];
-        float center = first.From + (first.Span / 2f);
-        return buckets.ForAll(bucket => bucket.Span.CompareTo(first.Span) is 0)
-            ? AxisRange.Validated(center, center + (first.Span * int.Max(1, buckets.Count - 1))).Map(domain => (Figure)new Figure.Bars(domain, new Samples(counts)))
-            : new Figure.Path(new Vector2(first.From, 0f).Cons(buckets.Map((bucket, index) => Seq(new Vector2(bucket.From, counts[index]), new Vector2(bucket.To, counts[index]))).Bind(static steps => steps))
-                .Add(new Vector2(buckets[^1].To, 0f))) { Closed = true };
+        _ = bins.Iter(bin => histogram.AddBucket(new Bucket(bin.From, bin.To)));
+        histogram.AddData(Finite(samples).Filter(value => value >= edges[0] && value <= edges[^1]));
+        float[] counts = [.. Enumerable.Range(0, histogram.BucketCount).Select(index => (float)histogram[index].Count)];
+        float width = edges[1] - edges[0];
+        float center = edges[0] + (width / 2f);
+        return bins.ForAll(bin => Precision.AlmostEqualRelative(bin.To - bin.From, width))
+            ? AxisRange.Validated(center, center + (width * int.Max(1, bins.Count - 1))).Map(domain => (Figure)new Figure.Bars(domain, new Samples(counts)))
+            : new Figure.Path(new Vector2(edges[0], 0f).Cons(bins.Map((bin, index) => Seq(new Vector2(bin.From, counts[index]), new Vector2(bin.To, counts[index]))).Bind(static steps => steps)).Add(new Vector2(edges[^1], 0f))) { Closed = true };
     }
 }
 
@@ -80,7 +74,7 @@ public sealed partial class Stacking {
     internal partial Fin<Seq<Plotted>> Arranged(Seq<Plotted> series, PlotPlane plane);
 
     private static Fin<Seq<Plotted>> Summed(Seq<Plotted> series, bool normalized) =>
-        from layers in series.Traverse(static plotted => Layered(plotted.Figure)).As()
+        from layers in series.Traverse(Layered).As()
         from aligned in UIFault.Unless(layers.ForAll(layer => layer.Domain == layers[0].Domain && layer.Values.Length == layers[0].Values.Length), UIReason.Range, layers.Map(static layer => (layer.Domain, layer.Values.Length)))
         let bounds = Bounds(layers, normalized)
         select series.Map((plotted, index) => plotted with { Figure = layers[index].Rebuilt(new Samples(bounds[index]), new Samples(bounds[index + 1])) });
@@ -90,21 +84,20 @@ public sealed partial class Stacking {
         return normalized ? sums.Map(sum => Divided(sum, sums[^1])).Strict() : sums;
     }
 
-    private static Fin<Seq<Plotted>> Dodged(Seq<Plotted> series, PlotPlane plane) {
-        float bandwidth = plane.Dimension(PhysicalAxis.Horizontal).Map(static axis => axis.Bandwidth).IfNone(1f);
-        return series.Map(static (plotted, index) => (Plotted: plotted, Index: index)).Traverse(held => held.Plotted.Figure is Figure.Bars bars
+    private static Fin<Seq<Plotted>> Dodged(Seq<Plotted> series, PlotPlane plane) =>
+        series.Map(static (plotted, index) => (Plotted: plotted, Index: index)).Traverse(held => held.Plotted.Figure is Figure.Bars bars
             ? from width in Fraction.Validated((float)bars.Width / series.Count)
-              let offset = (((held.Index + 0.5f) / series.Count) - 0.5f) * (float)bars.Width * bandwidth * bars.Values.Slot(bars.Domain)
+              let offset = (((held.Index + 0.5f) / series.Count) - 0.5f) * (float)bars.Width * plane.Bandwidth * bars.Values.Slot(bars.Domain)
               from domain in AxisRange.Validated(bars.Domain.From + offset, bars.Domain.To + offset)
               select held.Plotted with { Figure = bars with { Domain = domain, Width = width } }
-            : new UIFault(held.Plotted.Figure.ToString(), UIReason.Range)).As();
-    }
+            : new UIFault(held.Plotted.Key.Identifier, UIReason.Range, held.Index)).As();
 
-    private static Fin<Layer> Layered(Figure figure) =>
-        figure.SwitchPartially<Fin<Layer>>(
-            @default: static held => new UIFault(held.ToString(), UIReason.Range),
-            curve: static curve => new Layer(curve.Domain, curve.Samples.Values, (lower, upper) => curve with { Samples = upper, Fill = curve.Fill.Map(_ => (Floor)new Floor.Lower(lower)) }),
-            bars: static bars => new Layer(bars.Domain, bars.Values.Values, (lower, upper) => bars with { Values = upper, Bases = lower }));
+    private static Fin<Layer> Layered(Plotted plotted) =>
+        plotted.Figure.SwitchPartially<Key, Fin<Layer>>(
+            plotted.Key,
+            @default: static (key, _) => new UIFault(key.Identifier, UIReason.Range),
+            curve: static (_, curve) => new Layer(curve.Domain, curve.Samples.Values, (lower, upper) => curve with { Samples = upper, Fill = curve.Fill.Map(_ => (Floor)new Floor.Lower(lower)) }),
+            bars: static (_, bars) => new Layer(bars.Domain, bars.Values.Values, (lower, upper) => bars with { Values = upper, Floor = new Floor.Lower(lower) }));
 
     private static float[] Added(float[] sum, ReadOnlyMemory<float> values) {
         float[] next = new float[sum.Length];
@@ -122,16 +115,8 @@ public sealed partial class Stacking {
 }
 
 public sealed record ColorAxis(Axis Axis, ColorRamp Ramp) {
-    public Option<int> Bands { get; private init; }
     public Option<AxisRange> Shown { get; init; }
     public Option<Func<Edit<AxisRange>, IO<Unit>>> Filtered { get; init; }
-
-    public Fin<ColorAxis> Banded(int count) => UIFault.Unless(count > 0, UIReason.Range, count).Map(_ => this with { Bands = count });
-
-    internal double Fraction(double value) {
-        double at = Axis.Fraction((float)value);
-        return Bands.Match(Some: count => (Math.Clamp(Math.Floor(at * count), 0d, count - 1d) + 0.5d) / count, None: () => at);
-    }
 
     internal bool Holds(double value) => Shown.ForAll(range => Axis.Contains(range, (float)value));
 }
@@ -142,10 +127,7 @@ public sealed record Brush(PlotPlane Value, Func<Edit<PlotPlane>, IO<Unit>> Edit
             new Node.Mark(new Figure.Region { First = Value.Dimension(PhysicalAxis.Horizontal).Map(static axis => axis.Domain), Second = Value.Dimension(PhysicalAxis.Vertical).Map(static axis => axis.Domain) }) {
                 Role = Role.Selection,
             },
-        ]) with {
-            Width = Sizing.Grow.Unit,
-            Height = Sizing.Grow.Unit,
-        };
+        ]);
 
     private static Points<PlotPlane> Ends(PlotPlane plane) {
         Vector2 middle = plane.Value(new SKPoint(0.5f, 0.5f));
@@ -157,28 +139,32 @@ public sealed record Brush(PlotPlane Value, Func<Edit<PlotPlane>, IO<Unit>> Edit
             Placed = (brush, at, _) =>
                 from banded in brush.Dimensions.Fold(Some(brush), (held, free) =>
                     from current in held
-                    from band in plane.Dimension(free.Along).Bind(static axis => axis is Axis.Band band ? Some(band) : None)
-                    from range in AxisRange.Validated(band.Edge(free.Along.Of(at), 0), band.Edge(free.Along.Of(at), 1)).ToOption()
+                    from band in Banded(plane, free.Along)
+                    let under = free.Along.Of(at) - 0.5f
+                    from range in AxisRange.Validated(band.Edge(under, 0), band.Edge(under, 1)).ToOption()
                     from next in current.WithDomain(free.Along, range)
                     select next)
-                select new Added<PlotPlane>(banded, new Key.Ordinal(1u)),
+                select new Dragged<PlotPlane>(banded, [new Key.Ordinal(1u)]),
         };
     }
 
     private static PlotPlane Moved(PlotPlane plane, PlotPlane brush, HandlePoint target) =>
-        (from index in target.Key is Key.Ordinal ordinal ? Some((int)ordinal.Index) : None
+        (from ordinal in Optional(target.Key as Key.Ordinal)
+         let index = (int)ordinal.Index
          from free in brush.Dimensions.At(index / 2)
-         let edge = plane.Dimension(free.Along).Bind(static axis => axis is Axis.Band band ? Some(band) : None).Match(Some: band => band.Edge(free.Along.Of(target.At), 0), None: () => free.Along.Of(target.At))
+         let at = free.Along.Of(target.At)
+         let edge = Banded(plane, free.Along).Map(band => band.Edge(at, 0)).IfNone(at)
          from range in AxisRange.Validated(index % 2 is 0 ? edge : free.Axis.Domain.From, index % 2 is 0 ? free.Axis.Domain.To : edge).ToOption()
          from next in brush.WithDomain(free.Along, range)
          select next).IfNone(brush);
+
+    private static Option<Axis.Band> Banded(PlotPlane plane, PhysicalAxis along) => plane.Dimension(along).Bind(static axis => Optional(axis as Axis.Band));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Legend {
     private const int Resolution = Marks.Steps;
-    private static readonly PlotPlane Square = new PlotPlane.Cartesian(new Axis.Linear(AxisRange.Unit), new Axis.Linear(AxisRange.Unit));
-    private static readonly Figure Line = new Figure.Rule(new Vector2(0f, 0.5f), new Vector2(1f, 0.5f));
+    private static readonly Figure Line = new Figure.Path([new Vector2(0f, 0.5f), new Vector2(1f, 0.5f)]);
     private static readonly Figure Area = new Figure.Region();
     private static readonly Figure.Field Spectrum = Figure.Field.Validated(Resolution, 1, new Samples(Generate.LinearSpacedMap(Resolution, 0.5d / Resolution, 1d - (0.5d / Resolution), static at => (float)at))).ThrowIfFail();
 
@@ -187,7 +173,7 @@ public abstract partial record Legend {
     public abstract Node Drawn { get; }
 
     internal static StyleSheet Scaled(ColorRamp ramp) =>
-        new() { Looks = HashMap((Role.Well, new Look { Fills = Seq<Material>(new Material.Solid(new ColorValue.Data())), Strokes = Seq<Stroke>(), Scale = ramp })) };
+        new(HashMap((Role.Well, Look.Unpainted with { Fills = Seq<Material>(new Material.Solid(new ColorValue.Data())), Scale = ramp })));
 
     public sealed record Swatches(Seq<Plotted> Series) : Legend {
         public Option<Selection> Shown { get; init; }
@@ -209,7 +195,7 @@ public abstract partial record Legend {
         private static Node Stacked(Seq<Node> rows) => new Node.Flex(PhysicalAxis.Vertical, rows) { Role = Role.Panel };
 
         private static Node.Flex Row(Plotted plotted, int ordinal, bool shown) {
-            Node key = new Node.Plot(Square, [new Node.Mark(Keyed(plotted.Figure)) { Role = plotted.Role | Some(Role.Series), Series = plotted.Series(ordinal, None) }]) { Role = Role.Legend };
+            Node key = new Node.Plot(PlotPlane.Cartesian.Unit, [new Node.Mark(Keyed(plotted.Figure)) { Role = plotted.Role | Some(Role.Series), Series = plotted.Series(ordinal, None) }]) { Role = Role.Legend };
             return new Node.Flex(PhysicalAxis.Horizontal, [shown ? key : key.Conditioned(Condition.Disabled), new Node.Text([plotted.Label]) { Role = Role.Label }]) {
                 Baseline = Baseline.Cap,
                 Accessible = new Accessible { Label = plotted.Label },
@@ -228,15 +214,13 @@ public abstract partial record Legend {
         public override Node Drawn {
             get {
                 PlotPlane.Track plane = new(PhysicalAxis.Horizontal, Axis.Axis);
-                Seq<Node> marks = Axis.Bands.Match(Some: count => toSeq(Range(0, count)).Choose(band => Banded(band, count)), None: static () => Seq<Node>(Strip));
-                return new Node.Styled(plane.Stretched(new Node.Plot(plane, Axis.Filtered.Match(
-                    Some: filtered => Seq(new Handles<AxisRange>(Axis.Shown.IfNone(Axis.Axis.Domain), Filter, filtered).Drawn(plane, marks) with { Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }),
-                    None: () => marks)) {
+                return plane.Stretched(new Node.Plot(plane, [
+                    Axis.Filtered.Match(Some: filtered => new Handles<AxisRange>(Axis.Shown.IfNone(Axis.Axis.Domain), Filter, filtered).Drawn(plane, [Strip]), None: static () => Strip),
+                ]) {
                     Role = Role.Legend,
                     Guides = [new Guide(PhysicalAxis.Horizontal)],
-                })) {
                     Sheet = Scaled(Axis.Ramp),
-                };
+                });
             }
         }
 
@@ -244,12 +228,6 @@ public abstract partial record Legend {
             Lens<AxisRange, Vector2>.New(static range => new Vector2(range.From, 0.5f), static to => range => AxisRange.Validated(to.X, range.To).ToOption().IfNone(range)),
             Lens<AxisRange, Vector2>.New(static range => new Vector2(range.To, 0.5f), static to => range => AxisRange.Validated(range.From, to.X).ToOption().IfNone(range)),
         ]);
-
-        private Option<Node> Banded(int band, int count) =>
-            AxisRange.Validated(Axis.Axis.Value(band / (float)count), Axis.Axis.Value((band + 1) / (float)count)).ToOption().Map(span => (Node)new Node.Mark(new Figure.Region { First = span }) {
-                Role = Role.Well,
-                Series = new DataSeries((uint)band) { Value = (band + 0.5d) / count },
-            });
     }
 }
 
@@ -281,11 +259,11 @@ public sealed record Chart(PlotPlane Plane, Seq<Plotted> Series) {
                 Crosshair = Some<Func<Nearest, Node>>(nearest => Crossed(nearest, keyed, culture)),
                 Part = Navigation.Map(static viewport => (Part)viewport),
                 Accessible = new Accessible { Role = AccessRole.Image, Label = title, Chart = Described(arranged, title) },
+                Sheet = Color.Map(static axis => new StyleSheet(HashMap((Role.Series, new Look { Scale = axis.Ramp })))).IfNone(StyleSheet.Empty),
             };
-            Node scaled = Color.Match(Some: axis => new Node.Styled(plot) { Sheet = new StyleSheet { Looks = HashMap((Role.Series, new Look { Scale = axis.Ramp })) } }, None: () => plot);
             return Color.Match(Some: static axis => Some(new Legend.Ramp(axis).Drawn), None: () => Series.Count > 1 || Toggled.IsSome ? Some(swatches.Drawn) : None).Match(
-                Some: legend => new Node.Overlay(scaled, [legend with { Align = LegendAlign }]) { Width = Sizing.Grow.Unit },
-                None: () => scaled);
+                Some: legend => new Node.Overlay(plot, [legend with { Align = LegendAlign }]),
+                None: () => plot);
         });
 
     private Node Marked(Plotted plotted, int ordinal, bool shown) {
@@ -308,7 +286,7 @@ public sealed record Chart(PlotPlane Plane, Seq<Plotted> Series) {
         AxisRange across = Plane.Dimension(PhysicalAxis.Vertical).Map(static axis => axis.Domain).IfNone(AxisRange.Unit);
         Seq<(Plotted Plotted, Datum Datum)> read = toSeq<(Key Key, Datum Value)>(nearest.Data).Choose(held => keyed.Find(held.Key).Map(plotted => (plotted, held.Value))).Strict();
         return new Node.Plot(Plane,
-            read.Map(static held => held.Datum.Value.X).Distinct().Map(at => (Node)new Node.Mark(new Figure.Rule(new Vector2(at, across.From), new Vector2(at, across.To))) { Role = Role.Crosshair })
+            read.Map(static held => held.Datum.Value.X).Distinct().Map(at => (Node)new Node.Mark(new Figure.Path([new Vector2(at, across.From), new Vector2(at, across.To)])) { Role = Role.Crosshair })
             + read.Head.Map(first => (Node)new Node.Pin(first.Datum.Value, new Node.Flex(PhysicalAxis.Vertical, read.Map(held => (Node)new Node.Flex(PhysicalAxis.Horizontal, [
                 new Node.Text([held.Plotted.Label]) { Role = Role.Label },
                 new Node.Text([Plane.Spoken(held.Datum.Value, culture)]),
@@ -322,7 +300,7 @@ public sealed record Chart(PlotPlane Plane, Seq<Plotted> Series) {
         HashMap<PhysicalAxis, string> titles = toHashMap(Guides.Choose(static guide => guide.Title.Map(text => (guide.Along, text))));
         return new ChartDescription(
             title,
-            Plane.Dimensions.Map(held => new AxisDescription(titles.Find(held.Along).IfNone(""), held.Axis)),
+            Plane.Dimensions.Map(held => new AxisDescription(titles.Find(held.Along), held.Axis)),
             arranged.Map(static plotted => new SeriesDescription(plotted.Label, plotted.Figure)));
     }
 }

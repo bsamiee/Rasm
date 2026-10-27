@@ -12,7 +12,7 @@ public sealed record Halo(ColorValue Color, float Width, float Blur);
 public sealed record TextFace : Monoid<TextFace> {
     public static TextFace Empty { get; } = new();
 
-    public static TextFace Tabular { get; } = new() { Features = Seq(new Feature(Tag.Parse("tnum"))) };
+    public static TextFace Tabular { get; } = new() { Features = HashMap((Tag.Parse("tnum"), 1u)) };
 
     public Option<string> Family { get; init; }
     public Option<SKFontStyleWeight> Weight { get; init; }
@@ -24,14 +24,13 @@ public sealed record TextFace : Monoid<TextFace> {
     public Option<UnderlineStyle> Underline { get; init; }
     public Option<StrikeThroughStyle> StrikeThrough { get; init; }
     public Option<FontVariant> Variant { get; init; }
-    public Option<Seq<Feature>> Features { get; init; }
-    public Option<Seq<ColorValue>> Palette { get; init; }
+    public HashMap<Tag, uint> Features { get; init; }
+    public HashMap<ushort, ColorValue> Palette { get; init; }
     public Option<ColorValue> Background { get; init; }
     public Option<Halo> Halo { get; init; }
     public Option<float> Stroked { get; init; }
     public Option<char> Replacement { get; init; }
     public Option<TextDirection> Direction { get; init; }
-    public Option<bool> Mono { get; init; }
 
     public TextFace Combine(TextFace rhs) =>
         new() {
@@ -45,18 +44,15 @@ public sealed record TextFace : Monoid<TextFace> {
             Underline = rhs.Underline | Underline,
             StrikeThrough = rhs.StrikeThrough | StrikeThrough,
             Variant = rhs.Variant | Variant,
-            Features = rhs.Features | Features,
-            Palette = rhs.Palette | Palette,
+            Features = Features.Union(rhs.Features, static (_, _, stated) => stated),
+            Palette = Palette.Union(rhs.Palette, static (_, _, stated) => stated),
             Background = rhs.Background | Background,
             Halo = rhs.Halo | Halo,
             Stroked = rhs.Stroked | Stroked,
             Replacement = rhs.Replacement | Replacement,
             Direction = rhs.Direction | Direction,
-            Mono = rhs.Mono | Mono,
         };
 }
-
-internal sealed record Variant(Feature Feature, OpenTypeMetricsTag Size, OpenTypeMetricsTag Offset, float Direction);
 
 internal sealed record TextStyle : IStyle {
     public required string FontFamily { get; init; }
@@ -77,7 +73,7 @@ internal sealed record TextStyle : IStyle {
     public TextDirection TextDirection { get; init; }
     public char ReplacementCharacter { get; init; }
     public Seq<Feature> Features { get; init; }
-    public Option<Variant> Variant { get; init; }
+    public Option<(Feature Feature, OpenTypeMetricsTag Size, OpenTypeMetricsTag Offset, float Direction)> Variant { get; init; }
     public HashMap<Tag, float> Variations { get; init; }
     public Seq<SKFontPaletteOverride> Palette { get; init; }
     public bool Dark { get; init; }
@@ -85,21 +81,20 @@ internal sealed record TextStyle : IStyle {
     public Option<CultureInfo> Language { get; init; }
     public Option<float> Cell { get; init; }
     public Option<float> Stroked { get; init; }
-    public Option<Part> Part { get; init; }
+    public Option<(int Index, Part Part)> Span { get; init; }
 }
 
-internal sealed record TextSelection(TextRange Range, SKColor Color);
+internal sealed class Typeset(Shaping shaping, Node.Text text, TextStyle style, float width, Option<(TextRange Range, SKColor Color)> selection, TextBlock lines, bool clipped) {
+    private readonly Lazy<Option<float>> capHeight = new(() => toSeq(lines.FontRuns).Head.Bind(run =>
+        shaping.HarfBuzzFont(run.Typeface).OpenTypeMetrics.TryGetPosition(OpenTypeMetricsTag.CapHeight, out int units) ? Some(units * run.Style.FontSize / run.Typeface.UnitsPerEm) : None));
 
-internal sealed record Setting(Node.Text Text, TextStyle Style, float Width, CultureInfo Culture, Option<TextSelection> Selection);
-
-internal sealed class Typeset(Shaping shaping, Setting setting, TextBlock lines, bool clipped) {
-    private readonly Lazy<Option<float>> capHeight = new(() => toSeq(lines.FontRuns).Head.Bind(run => Typesetting.CapHeight(shaping, run)));
-
-    internal Setting Setting { get; } = setting;
+    internal Node.Text Text { get; } = text;
+    internal TextStyle Style { get; } = style;
+    internal float Width { get; } = width;
+    internal Option<(TextRange Range, SKColor Color)> Selection { get; } = selection;
     internal TextBlock Lines { get; } = lines;
     internal SKSize Size { get; } = new(Typesetting.Widest(lines), lines.MeasuredHeight);
     internal bool Truncated { get; } = lines.Truncated || clipped;
-    internal Option<float> CapHeight => capHeight.Value;
 
     internal SKRect Overhang => Lines.MeasuredOverhang switch {
         var over => over with { Right = float.Max(0f, over.Right + (Lines.MaxWidth ?? Lines.MeasuredWidth) - Size.Width) },
@@ -109,13 +104,13 @@ internal sealed class Typeset(Shaping shaping, Setting setting, TextBlock lines,
         from line in toSeq(Lines.Lines).At(baseline.Line.GetOffset(Lines.Lines.Count))
         from rise in (float)baseline.Rise switch {
             0f => Some(0f),
-            var share => CapHeight.Map(cap => cap * share),
+            var share => capHeight.Value.Map(cap => cap * share),
         }
         select line.YCoord + line.BaseLine - rise;
 
-    internal Option<Part> PartAt(SKPoint local) =>
+    internal Option<(int Index, Part Part)> PartAt(SKPoint local) =>
         Lines.HitTest(local.X, local.Y).OverCodePointIndex switch {
             < 0 => None,
-            var index => ((TextStyle)Lines.GetStyleAtOffset(index + 1)).Part,
+            var index => ((TextStyle)Lines.GetStyleAtOffset(index + 1)).Span,
         };
 }

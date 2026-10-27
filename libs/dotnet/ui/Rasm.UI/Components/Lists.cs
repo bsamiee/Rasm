@@ -36,7 +36,7 @@ public sealed partial class Progress {
             None: static () => new Node.Box { Role = Role.Spinner, Conditions = [Condition.Busy], Accessible = Announced(None) });
 
     private Seq<Node> Swept =>
-        AxisRange.Validated(0f, (float)((double)Done / Total)).ToOption().Map(static span => (Node)new Node.Mark(new Figure.Region { First = span, Second = Annulus }) { Role = Role.Span }).ToSeq();
+        AxisRange.Validated(0f, (float)Fraction).ToOption().Map(static span => (Node)new Node.Mark(new Figure.Region { First = span, Second = Annulus }) { Role = Role.Span }).ToSeq();
 
     private static Accessible Announced(Option<Progress> work) =>
         new() { Role = AccessRole.ProgressBar, Value = work.Map(static progress => (AccessValue)new AccessValue.Ranged(progress.Done, 0d, progress.Total)) };
@@ -94,63 +94,58 @@ public sealed record Row<TItem>(TItem Item, Key Key, int Depth, Option<bool> Ope
             });
     }
 
-    public static Node.Lazy Keyed(Seq<Row<TItem>> rows, Func<Seq<Key>, Part.Choice> choice, Func<Row<TItem>, Node> drawn, float extent, HashSet<Key> realized) {
+    public static Node.Lazy Drawn(Seq<Row<TItem>> rows, Func<Seq<Key>, Part.Choice> choice, Func<Row<TItem>, Node> drawn, float extent, HashSet<Key> realized) {
         HashMap<Key, Row<TItem>> keyed = toHashMap(rows.Map(static row => (row.Key, row)));
         return choice(rows.Map(static row => row.Key)).Drawn(
             key => keyed[key] switch { var row => drawn(row) with { Sticks = row.Open.Map(static _ => PhysicalAxis.Vertical) } },
-            PhysicalAxis.Vertical, new Tracks.Explicit([Sizing.Grow.Unit]), extent, realized);
+            PhysicalAxis.Vertical, new Tracks([Sizing.Grow.Unit]), extent, realized);
     }
 }
 
-public sealed record Search {
+public sealed record Search(string Pattern) {
     private const CompareOptions Folded = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace;
-
-    public Search(string pattern) => (Pattern, Segments) = (pattern, toSeq(pattern.Split('*', StringSplitOptions.RemoveEmptyEntries)));
-
-    public string Pattern { get; }
-    private Seq<string> Segments { get; }
 
     public bool Matches(string text, CultureInfo culture) => Found(text, culture).IsSome;
 
     public Seq<Span> Marked(string text, CultureInfo culture) =>
         Found(text, culture).Match(
-            Some: hits => hits.Fold((At: 0, Spans: Seq<Span>()), (held, hit) => (hit.Start + hit.Length, held.Spans + Plain(text[held.At..hit.Start]).Add(new Span(text.Substring(hit.Start, hit.Length)) { Role = Role.Mark })))
+            Some: hits => hits.Fold((At: 0, Spans: Seq<Span>()), (held, hit) => (hit.End.Value, held.Spans + Plain(text[held.At..hit.Start.Value]).Add(new Span(text[hit]) { Role = Role.Mark })))
                 switch { var held => held.Spans + Plain(text[held.At..]), },
             None: () => [text]);
 
     private static Seq<Span> Plain(string text) => text.Length > 0 ? [text] : [];
 
-    private Option<Seq<Hit>> Found(string text, CultureInfo culture) =>
-        Segments.FoldM((At: 0, Hits: Seq<Hit>()), (held, segment) => {
-            int index = culture.CompareInfo.IndexOf(text.AsSpan(held.At), segment.AsSpan(), Folded, out int length);
-            return index < 0 ? Option<(int At, Seq<Hit> Hits)>.None : Some((held.At + index + length, held.Hits.Add(new Hit(held.At + index, length))));
-        }).As().Map(static held => held.Hits);
-
-    private sealed record Hit(int Start, int Length);
+    private Option<Seq<System.Range>> Found(string text, CultureInfo culture) =>
+        toSeq(Pattern.Split('*', StringSplitOptions.RemoveEmptyEntries)).FoldM(Seq<System.Range>(), (hits, segment) => {
+            int at = hits.Last.Map(static hit => hit.End.Value).IfNone(0);
+            int index = culture.CompareInfo.IndexOf(text.AsSpan(at), segment.AsSpan(), Folded, out int length);
+            return index < 0 ? Option<Seq<System.Range>>.None : Some(hits.Add(new System.Range(at + index, at + index + length)));
+        }).As();
 }
 
 public sealed record Toast(Key Key, Node Content, Option<Duration> Lifetime);
 
-public sealed record Toasts(Seq<Toast> Shown, Role Role, Func<Key, IO<Unit>> Dismissed) {
+public sealed record Toasts(Seq<Toast> Shown, Func<Key, IO<Unit>> Dismissed) {
     private static readonly Key Surface = new Key.Ordinal(0);
-    private static readonly PlotPlane Square = new PlotPlane.Cartesian(new Axis.Linear(AxisRange.Unit), new Axis.Linear(AxisRange.Unit));
     private static readonly Points<bool> Swiped = new(static _ => [], static (shown, _, _) => new Dragged<bool>(shown, [])) {
-        Placed = static (shown, _, _) => Some(new Added<bool>(shown, Surface)),
-        DraggedOut = Some<Func<bool, Key, Option<bool>>>(static (_, _) => Some(value: false)),
+        Placed = static (shown, _, _) => Some(new Dragged<bool>(shown, [Surface])),
+        Removed = static (_, _) => Some(value: false),
+        DraggedOut = true,
     };
 
+    public Role Role { get; init; } = Role.Popover;
     public UnitPoint Corner { get; init; } = new(Fraction.MaxValue, Fraction.MaxValue);
     public int Limit { get; init; } = 3;
 
     public Node.Layer Drawn => new(None, new Node.Flex(PhysicalAxis.Vertical, toSeq(Shown.TakeLast(Limit)).Map(Toasted)) { Align = Corner }) { Side = Corner, Align = Corner };
 
     private Node Toasted(Toast toast) =>
-        new Node.Plot(Square, [
-            new Handles<bool>(Value: true, Swiped, edit => when(edit.Phase == EditPhase.Commit && edit.Value.Exists(static shown => !shown), Dismissed(toast.Key)).As()).Drawn(Square, []),
+        new Node.Plot(PlotPlane.Cartesian.Unit, [
+            new Handles<bool>(Value: true, Swiped, edit => when(edit.Phase == EditPhase.Commit && edit.Value.Exists(static shown => !shown), Dismissed(toast.Key)).As()).Drawn(PlotPlane.Cartesian.Unit, []),
             new Node.Flex(PhysicalAxis.Horizontal, [toast.Content]) { Role = Role, Accessible = new Accessible { Role = AccessRole.Status, Live = Live.Polite } },
         ]) {
             Key = toast.Key,
-            Expires = toast.Lifetime.Map(lifetime => new Expiry(lifetime, Dismissed(toast.Key))),
+            Expires = toast.Lifetime.Map(lifetime => (lifetime, Dismissed(toast.Key))),
         };
 }
 
@@ -160,17 +155,19 @@ public sealed record Swatch(SKColorF Color, Func<SKRect, IO<Unit>> Pressed) {
     public Node Drawn =>
         new Part.Press(Pressed).Drawn(Patch(Color)) with {
             Lift = new Lift(_ => IO.pure<Transfer>(new Transfer.Color(Color))),
-            Drop = Dropped.Map(static dropped => new Drop((transfer, _, _) => Colored(transfer).Map(dropped))),
+            Drop = Dropped.Map(static dropped => Drop.Of<Transfer.Color>((color, _, _) => dropped(color.Value))),
         };
 
     public static Node Patch(SKColorF color) =>
-        new Node.Styled(new Node.Box { Role = Role.Field, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }) {
-            Sheet = new StyleSheet { Looks = HashMap((Role.Field, new Look { Fills = Some(Seq<Material>(new Material.Solid(new ColorValue.Fixed(color.ToUnicolour())))) })) },
-            Accessible = new Accessible { Value = new AccessValue.Text(color.ToUnicolour().Hex) },
+        color.ToUnicolour() switch {
+            var colour => new Node.Box {
+                Role = Role.Field,
+                Width = Sizing.Grow.Unit,
+                Height = Sizing.Grow.Unit,
+                Sheet = new StyleSheet(HashMap((Role.Field, new Look { Fills = Seq<Material>(new Material.Solid(new ColorValue.Fixed(colour))) }))),
+                Accessible = new Accessible { Value = new AccessValue.Text(colour.Hex) },
+            },
         };
-
-    internal static Option<SKColorF> Colored(Transfer transfer) =>
-        transfer.Switch(keys: static _ => Option<SKColorF>.None, files: static _ => Option<SKColorF>.None, text: static _ => Option<SKColorF>.None, color: static color => Some(color.Value));
 }
 
 public sealed record SwatchList(Seq<SKColorF> Colors, Selection Selection, Func<Edit<Selection>, IO<Unit>> Selected) {
@@ -183,16 +180,15 @@ public sealed record SwatchList(Seq<SKColorF> Colors, Selection Selection, Func<
             Seq<Key> keys = keyed.Map(static held => held.Key);
             return new Part.Choice(keys, Selection, Selected).Drawn(key => Swatch.Patch(faces[key]), static items => new Node.Flex(PhysicalAxis.Horizontal, items) { Width = Sizing.Grow.Unit }) with {
                 Lift = new Lift(moved => IO.lift(moved.Head.Bind(faces.Find).Map(static color => (Transfer)new Transfer.Color(color)).ToFin(new UIFault(moved.ToString(), UIReason.Missing)))),
-                Drop = Edited.Map(edited => new Drop((transfer, target, placement) => Swatch.Colored(transfer).Map(color => edited(Edit.Commit(Inserted(keys, color, target, placement)))))),
+                Drop = Edited.Map(edited => Drop.Of<Transfer.Color>((color, target, placement) => edited(Edit.Of(EditPhase.Commit, Inserted(keys, color.Value, target, placement))))),
             };
         }
     }
 
     private Seq<SKColorF> Inserted(Seq<Key> keys, SKColorF color, Option<Key> target, Placement placement) =>
         target.Bind(key => Selection.Position(keys, key)).Match(
-            Some: index => placement.Map(
-                before: Colors.Take(index) + Seq(color) + Colors.Skip(index),
-                inside: Colors.Take(index) + Seq(color) + Colors.Skip(index + 1),
-                after: Colors.Take(index + 1) + Seq(color) + Colors.Skip(index + 1)),
+            Some: index => placement.Map(before: (Cut: index, Resume: index), inside: (Cut: index, Resume: index + 1), after: (Cut: index + 1, Resume: index + 1)) switch {
+                var (cut, resume) => Colors.Take(cut) + Seq(color) + Colors.Skip(resume),
+            },
             None: () => Colors.Add(color));
 }
