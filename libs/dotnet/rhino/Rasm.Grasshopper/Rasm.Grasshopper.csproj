@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Rasm.Rhino for Grasshopper 2 documents, components, and canvas</Description>
+        <Description>Grasshopper 2 components, parameters, document behavior and canvas UI declared as data, with every host call run as an effect with typed failure</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino">
@@ -8,8 +8,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Core">
-        <PackageReference Include="LanguageExt.Streaming" />
-        <PackageReference Include="NodaTime" />
         <PackageReference Include="UUIDNext" />
     </ItemGroup>
 
@@ -20,26 +18,15 @@
     <ItemGroup Label="Algorithms and Data Structures">
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="QuikGraph.Graphviz" />
+        <PackageReference Include="SuperLinq" />
     </ItemGroup>
 
     <ItemGroup Label="Solvers">
         <PackageReference Include="Kiwi" />
     </ItemGroup>
 
-    <ItemGroup Label="Desktop UI">
-        <PackageReference Include="SkiaSharp" />
-    </ItemGroup>
-
     <ItemGroup Label="Application Hosting">
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-    </ItemGroup>
-
-    <ItemGroup Label="Workspace Packages">
-        <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
-        <ProjectReference Include="../../ui/Rasm.UI/Rasm.UI.csproj" />
-    </ItemGroup>
-
-    <ItemGroup Label="Grasshopper 2 Plug-In Shell">
-        <Compile Remove="Shell.cs" />
+        <PackageReference Include="Microsoft.VisualStudio.Threading" />
     </ItemGroup>
 </Project>

@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using Eto.Drawing;
 using Grasshopper2.Doc;
 using Grasshopper2.Eto.Drawing;
@@ -8,7 +7,7 @@ using Grasshopper2.Parameters;
 using Grasshopper2.UI;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Skinning;
-using Rasm.RhinoCommon.PlugIns;
+using SuperLinq;
 
 namespace Rasm.Grasshopper.UI;
 
@@ -49,9 +48,7 @@ public sealed partial class RouteSegment {
         };
 
     private static bool Swept(ArcF arc, PointF point) =>
-        float.RadiansToDegrees(MathF.Atan2(point.Y - arc.Centre.Y, point.X - arc.Centre.X)) switch {
-            var angle => (((float.Sign(arc.Sweep) * (angle - arc.Start) % 360f) + 360f) % 360f) <= MathF.Abs(arc.Sweep),
-        };
+        (((float.Sign(arc.Sweep) * (float.RadiansToDegrees(MathF.Atan2(point.Y - arc.Centre.Y, point.X - arc.Centre.X)) - arc.Start) % 360f) + 360f) % 360f) <= MathF.Abs(arc.Sweep);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -88,10 +85,10 @@ public abstract class RoutedWire(PointF source, PointF target, IterableNE<RouteS
 
     // --- [CONSTRUCTION]
     protected static IterableNE<RouteSegment> Lines(PointF a, PointF b, params PointF[] more) =>
-        b.Cons(toSeq(more)) switch {
-            var corners => IterableNE.create(new LineF(a, b), corners.Zip<PointF, PointF, RouteSegment>(corners.Tail, static (start, end) => new LineF(start, end))),
-        };
+        IterableNE.create(new LineF(a, b), toSeq(b.Cons(toSeq(more)).Window(2, static window => (RouteSegment)new LineF(window[0], window[1]))).AsIterable());
 }
+
+public sealed class StraightWire(PointF source, PointF target) : RoutedWire(source, target, Lines(source, target));
 
 public sealed class OrthogonalWire(PointF source, PointF target) : RoutedWire(source, target, Course(source, target)) {
     private const float Stub = 60f;
@@ -114,21 +111,6 @@ public static class CanvasWires {
     // --- [ROUTES]
     internal static readonly IO<Unit> Redrawn = IO.lift(static () => Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw()));
 
-    private const string LinearShape = "Grasshopper2.UI.Canvas.WireShapeLinear, Grasshopper2";
-    private const string BiArcShape = "Grasshopper2.UI.Canvas.WireShapeBiArc, Grasshopper2";
-
-    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
-    [return: UnsafeAccessorType(LinearShape)]
-    private static extern object WireShapeLinear(PointF source, PointF target);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
-    [return: UnsafeAccessorType(BiArcShape)]
-    private static extern object WireShapeBiArc(PointF source, PointF target);
-
-    public static Type Linear => WireShapeLinear(PointF.Empty, PointF.Empty).GetType();
-
-    public static Type BiArc => WireShapeBiArc(PointF.Empty, PointF.Empty).GetType();
-
     public static IO<Unit> Route(Type shape) =>
         from free in IO.lift(static () => Optional(WireShape.ShapeType).Match<Fin<Unit>>(
             Some: static held => new GrasshopperFault(held.Name, GrasshopperReason.Taken),
@@ -141,8 +123,8 @@ public static class CanvasWires {
         select unit;
 
     // --- [HIGHLIGHTS]
-    public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires, Color color, float reach, IPlugInLifetime owner) =>
-        GrasshopperEvents.BeforePaintWires(canvas).Inline(args =>
+    public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires, Color color, float reach, IGrasshopperPlugin owner) =>
+        Hooks.On<CanvasPaintEventArgs>(h => canvas.BeforePaintWires += h, h => canvas.BeforePaintWires -= h, args =>
             (from projection in use(args.Graphics.ProjectionState)
              from found in IO.lift(() => Optional(args.Canvas.Document).ToSeq().Bind(document => wires().Choose(ends => Ends(document, ends))))
              from drawn in found.TraverseM(wire => Halo(args.Graphics.Content, args.Skin.Wires, color, reach, wire)).As()

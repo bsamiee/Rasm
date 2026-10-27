@@ -13,11 +13,13 @@ using Nanoray.Kiwi;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Grasshopper.Doc;
-using Rasm.RhinoCommon;
+using SuperLinq;
 
 namespace Rasm.Grasshopper.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+public sealed record Move(IDocumentObject Object, PointF Pivot);
+
 public sealed record Distribution(Orientation Axis, Seq<Guid> Objects);
 
 public sealed record Arrangement(HashSet<Guid> Objects, SnappingSettings Settings, Seq<Distribution> Distributions, Option<RectangleF> Frame);
@@ -31,20 +33,20 @@ public sealed record SnapSession(SnappingConstraints Constraints, RectangleF Sta
         IO.lift(() => {
             SnappingSettings settings = SnappingSettings.Current;
             RectangleF target = Start.Move(offset.Width, offset.Height);
-            (SnappingAction? edgeX, SnappingAction? edgeY) = Settings.CanvasSnapToObjects.Value ? Snaps() : (null, null);
+            (Option<SnappingAction> edgeX, Option<SnappingAction> edgeY) = Settings.CanvasSnapToObjects.Value ? Snaps() : (None, None);
             bool wide = Math.Abs(offset.Width) > Math.Abs(offset.Height);
             PointF center = Eto.Drawing.Point.Round(Start.Center);
-            SnappingAction? x = orthogonal && !wide ? SnappingAction.VerticalOrthoAction(center, canvas.VisibleFrame) : edgeX;
-            SnappingAction? y = orthogonal && wide ? SnappingAction.HorizontalOrthoAction(center, canvas.VisibleFrame) : edgeY;
-            canvas.SnapXAction = x;
-            canvas.SnapYAction = y;
+            Option<SnappingAction> x = orthogonal && !wide ? Some(SnappingAction.VerticalOrthoAction(center, canvas.VisibleFrame)) : edgeX;
+            Option<SnappingAction> y = orthogonal && wide ? Some(SnappingAction.HorizontalOrthoAction(center, canvas.VisibleFrame)) : edgeY;
+            canvas.SnapXAction = x.ValueUnsafe();
+            canvas.SnapYAction = y.ValueUnsafe();
             return new SizeF(
-                (orthogonal && !wide ? 0f : offset.Width) + Optional(x).Map(static action => action.ΔX).IfNone(0f),
-                (orthogonal && wide ? 0f : offset.Height) + Optional(y).Map(static action => action.ΔY).IfNone(0f));
+                (orthogonal && !wide ? 0f : offset.Width) + x.Map(static action => action.ΔX).IfNone(0f),
+                (orthogonal && wide ? 0f : offset.Height) + y.Map(static action => action.ΔY).IfNone(0f));
 
-            (SnappingAction? X, SnappingAction? Y) Snaps() {
+            (Option<SnappingAction> X, Option<SnappingAction> Y) Snaps() {
                 Constraints.SnapRectangle(target, settings, canvas.VisibleFrame, out SnappingAction? snapX, out SnappingAction? snapY);
-                return (snapX, SnappingAction.SmallerMagnitude(snapY, SnappingConstraints.SnapWires(Primary.ValueUnsafe(), target, settings)));
+                return (Optional(snapX), Optional(SnappingAction.SmallerMagnitude(snapY, SnappingConstraints.SnapWires(Primary.ValueUnsafe(), target, settings))));
             }
         });
 
@@ -72,40 +74,55 @@ public static class CanvasLayout {
             }))
             .Strict();
 
+    private static Seq<Guid> Movable(Document document, IDocumentObject item) =>
+        item switch {
+            IPin pin => Optional(document.Objects.Find(pin.PinningTarget)).Match(Some: target => Movable(document, target), None: () => Seq(item.InstanceId)),
+            GroupObject group when group.Content.Any() => toSeq(group.Content).Bind(member => Movable(document, member)),
+            _ => Seq(item.InstanceId),
+        };
+
+    private static Seq<Move> Changed(Seq<Footprint> rows, Func<Footprint, PointF> pivot) =>
+        rows.Map(row => new Move(row.Object, pivot(row))).Filter(static move => move.Pivot != move.Object.Attributes.Pivot).Strict();
+
     // --- [MOVES]
-    public static IO<bool> Moved(Document document, VerbNoun name, Seq<(IDocumentObject Object, PointF Pivot)> moves) =>
+    public static IO<bool> Moved(Document document, VerbNoun name, Seq<Move> moves) =>
         Edits.Commit(document, name, AutoSaveReason.ObjectChanged, actions =>
             from captured in IO.lift(() => moves.Iter(move => actions.Add(new PivotAction(move.Object))))
             from placed in IO.lift(() => moves.Iter(static move => move.Object.Attributes.Pivot = move.Pivot))
             select !moves.IsEmpty);
 
     public static IO<bool> Nudged(Document document, SizeF offset, VerbNoun name) =>
-        IO.lift(() => {
-            return Changed(Footprints(document, toHashSet(toSeq(document.Objects.SelectedObjects).Bind(Movable))).Map(row => (row, row.Object.Attributes.Pivot + offset)));
-
-            Seq<Guid> Movable(IDocumentObject item) => item switch {
-                IPin pin => Conversions.Present(pin.PinningTarget).Bind(target => Optional(document.Objects.Find(target)))
-                    .Match(Some: Movable, None: () => Seq(item.InstanceId)),
-                GroupObject group => toSeq(group.Content) switch {
-                    { IsEmpty: true } => Seq(item.InstanceId),
-                    var content => content.Bind(Movable),
-                },
-                _ => Seq(item.InstanceId),
-            };
-        }).Bind(moves => Moved(document, name, moves));
+        IO.lift(() => Changed(Footprints(document, toHashSet(toSeq(document.Objects.SelectedObjects).Bind(item => Movable(document, item)))), row => row.Object.Attributes.Pivot + offset))
+            .Bind(moves => Moved(document, name, moves));
 
     public static IO<bool> Snapped(Document document, HashSet<Guid> objects, SnapSpace space, VerbNoun name) =>
-        IO.lift(() => {
-            return Changed(Footprints(document, objects).Map(row => (row, Pivot(row.Object.Attributes.Pivot))));
+        IO.lift(() => Changed(Footprints(document, objects), row => {
+            space.Snap(row.Object.Attributes.Pivot.X, row.Object.Attributes.Pivot.Y, out double x, out double y, out _);
+            return new PointF((float)x, (float)y);
+        })).Bind(moves => Moved(document, name, moves));
 
-            PointF Pivot(PointF pivot) {
-                space.Snap(pivot.X, pivot.Y, out double x, out double y, out _);
-                return new PointF((float)x, (float)y);
-            }
-        }).Bind(moves => Moved(document, name, moves));
-
-    private static Seq<(IDocumentObject Object, PointF Pivot)> Changed(Seq<(Footprint Row, PointF Pivot)> moves) =>
-        moves.Filter(static move => move.Pivot != move.Row.Object.Attributes.Pivot).Map(static move => (move.Row.Object, move.Pivot)).Strict();
+    public static IO<Unit> Nudge(Canvas canvas, IGrasshopperPlugin owner) =>
+        Hooks.On<KeyEventArgs>(h => canvas.KeyDown += h, h => canvas.KeyDown -= h, args =>
+            (from document in Optional(canvas.Document).Filter(_ => !args.Handled)
+             from direction in args.Key switch {
+                 Keys.Left => Some(new SizeF(-1f, 0f)),
+                 Keys.Right => Some(new SizeF(1f, 0f)),
+                 Keys.Up => Some(new SizeF(0f, -1f)),
+                 Keys.Down => Some(new SizeF(0f, 1f)),
+                 _ => Option<SizeF>.None,
+             }
+             from step in args.Modifiers switch {
+                 Keys.None => Some(new SizeF(1f, 1f)),
+                 Keys.Shift => Some(new SizeF(SnappingSettings.Current.HorizontalGapSize, SnappingSettings.Current.VerticalGapSize)),
+                 _ => Option<SizeF>.None,
+             }
+             select Nudged(document, direction * step, new VerbNoun("Nudge", "Selection")))
+            .Match(
+                Some: nudged => nudged.Bind(moved => when(moved, IO.lift(() => {
+                    args.Handled = true;
+                    canvas.Invalidate();
+                })).As()),
+                None: static () => unitIO), owner);
 
     // --- [ARRANGEMENT]
     public static IO<bool> Arrange(Document document, Arrangement request, VerbNoun name, Option<Seq<WireEnds>> wires = default) =>
@@ -122,7 +139,7 @@ public static class CanvasLayout {
         let stack = Pairs(rows, ranks, Orientation.Vertical)
         let x = Solved(request, rows, side, stack, levels, Orientation.Horizontal)
         let y = Solved(request, rows, stack, side, levels, Orientation.Vertical)
-        from moved in Moved(document, name, Changed(rows.Map(row => (row, new PointF(x[row.Object.InstanceId], y[row.Object.InstanceId])))))
+        from moved in Moved(document, name, Changed(rows, row => new PointF(x[row.Object.InstanceId], y[row.Object.InstanceId])))
         select moved;
 
     private static Seq<(Footprint A, Footprint B)> Pairs(Seq<Footprint> rows, HashMap<Guid, int> ranks, Orientation axis) {
@@ -153,12 +170,11 @@ public static class CanvasLayout {
                 .OrderBy(rule => Math.Abs(rule.Edge(pair.A.Object.Attributes.AggregateBounds) - rule.Edge(pair.B.Object.Attributes.AggregateBounds))).Take(1))
             select (pair.A, pair.B, rule.Edge);
         Option<int> gap = axis is Orientation.Horizontal
-            ? Conversions.Found(request.Settings.SpaceHorizontalGaps, request.Settings.HorizontalGapSize)
-            : Conversions.Found(request.Settings.SpaceVerticalGaps, request.Settings.VerticalGapSize);
+            ? Some(request.Settings.HorizontalGapSize).Filter(_ => request.Settings.SpaceHorizontalGaps)
+            : Some(request.Settings.VerticalGapSize).Filter(_ => request.Settings.SpaceVerticalGaps);
         Seq<(Footprint A, Footprint B, Footprint C)> spread = request.Distributions.Filter(run => run.Axis == axis)
             .Map(run => run.Objects.Choose(id => rows.Find(row => row.Object.InstanceId == id)))
-            .Bind(static run => run.Zip(run.Tail).Zip(run.Tail.Tail))
-            .Map(static triple => (triple.First.First, triple.First.Second, triple.Second));
+            .Bind(static run => toSeq(run.Window(3, static window => (window[0], window[1], window[2]))));
         Seq<WireLevel> levelled = axis is Orientation.Vertical && request.Settings.AlignWires ? wires : Seq<WireLevel>();
         Seq<(Guid A, Guid B)> links = along.Map(static pair => (pair.A.Object.InstanceId, pair.B.Object.InstanceId))
             .Concat(aligned.Map(static pair => (pair.A.Object.InstanceId, pair.B.Object.InstanceId)))

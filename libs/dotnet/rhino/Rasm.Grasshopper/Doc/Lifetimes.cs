@@ -1,7 +1,6 @@
 using System.Security;
 using Grasshopper2.Doc;
 using Grasshopper2.UI.Canvas;
-using Rasm.RhinoCommon;
 
 namespace Rasm.Grasshopper.Doc;
 
@@ -9,11 +8,13 @@ namespace Rasm.Grasshopper.Doc;
 public static class Lifetimes {
     // --- [FILES]
     public static IO<Document> Load(string path, Seq<Document> blockingList, bool trackFiles, bool resolvePlugins) =>
-        Callbacks.Captured<Document>(receive => IO.lift(() => {
-            DocumentIO io = new(document: null, trackFiles, reportErrors: false, retainRoot: false, resolvePlugins);
-            if (io.Open(path, blockingList, found => receive(found)))
-                receive(io.Document);
-        }))
+        (from blocking in atomIO(Option<Document>.None)
+         from opened in IO.lift(() => {
+             DocumentIO io = new(document: null, trackFiles, reportErrors: false, retainRoot: false, resolvePlugins);
+             return io.Open(path, blockingList, found => blocking.Swap(_ => Some(found))) ? Some(io.Document) : None;
+         })
+         from document in IO.lift(() => (opened | blocking.Value).ToFin(new GrasshopperFault(path, GrasshopperReason.Unreadable)))
+         select document)
         .Catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(new GrasshopperFault(path, GrasshopperReason.Missing, Inner: error)))
         .Catch(
             static error => error.HasException<UnauthorizedAccessException>() || error.HasException<SecurityException>() || error.HasException<IOException>() || error.HasException<InvalidDataException>(),
@@ -22,7 +23,7 @@ public static class Lifetimes {
     public static IO<Document> Open(DocumentBag bag, string path) =>
         from roots in IO.lift(() => toSeq(bag.All.Select(static stack => stack.Root)))
         from document in Load(path, roots, trackFiles: true, resolvePlugins: true)
-        from _ in IO.lift(() => bag.Push(document))
+        from pushed in IO.lift(() => GrasshopperFault.Unless(bag.Push(document)))
         select document;
 
     public static IO<Document> Recover(string path) =>
@@ -34,16 +35,10 @@ public static class Lifetimes {
         })
         select document;
 
-    public static IO<Unit> Save(Document document, string path, FileContents contents, bool trackFiles) =>
-        IO.lift(() => GrasshopperFault.Unless(new DocumentIO(document, trackFiles, reportErrors: false).Save(path, contents)));
-
-    public static IO<Unit> SaveCopy(Document document, string path, FileContents contents, BackupMethod method, bool trackFiles) =>
-        IO.lift(() => GrasshopperFault.Unless(new DocumentIO(document, trackFiles, reportErrors: false).SaveCopy(path, contents, method)));
-
     // --- [NODES]
     public static IO<byte[]> Store(Document document, FileContents contents) =>
         from node in IO.lift(static () => GrasshopperIO.DataBase.Node.Create("Document"))
-        from _ in IO.lift(() => document.Store(node, contents))
+        from stored in IO.lift(() => document.Store(node, contents))
         from bytes in IO.lift(() => GrasshopperIO.IO.WriteNodeToByteArray(node, pathHint: null))
         select bytes;
 
@@ -51,14 +46,9 @@ public static class Lifetimes {
         IO.lift(() => new Document(GrasshopperIO.IO.ReadNodeFromByteArray(bytes, pathHint: null)));
 
     // --- [RELEASE]
-    public static void Close(Document document) {
-        document.Display.Enabled = false;
-        document.Close();
-    }
-
     public static IO<Unit> Pop(DocumentBag bag, Document doc, bool accept) =>
         from root in IO.lift(() => bag.All.Any(stack => stack.Head == doc && stack.Root == doc))
-        from _ in when(root, IO.lift(() => { doc.Display.Enabled = false; })).As()
-        from __ in IO.lift(() => GrasshopperFault.Unless(bag.Pop(doc, accept)))
+        from hidden in when(root, IO.lift(() => { doc.Display.Enabled = false; })).As()
+        from popped in IO.lift(() => GrasshopperFault.Unless(bag.Pop(doc, accept)))
         select unit;
 }

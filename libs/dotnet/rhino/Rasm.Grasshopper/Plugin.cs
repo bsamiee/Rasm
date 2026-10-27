@@ -1,23 +1,23 @@
 using System.Reflection;
+using Grasshopper2;
 using Grasshopper2.Framework;
-using Rasm.Grasshopper.UI.Surfaces;
-using Rasm.RhinoCommon;
-using Rasm.RhinoCommon.Display;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.PlugIns;
+using Grasshopper2.UI.Icon;
+using Rhino;
 
 namespace Rasm.Grasshopper;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-public interface IGrasshopperPlugin : IPlugInLifetime {
+public interface IGrasshopperPlugin {
     public Plugin Plugin { get; }
+
+    public PluginSession Session { get; }
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record GrasshopperPluginDefinition {
+    public required ILoggerFactory Loggers { get; init; }
+    public Option<IIcon> Icon { get; init; }
     public Seq<Func<IGrasshopperPlugin, IO<Unit>>> DataTypes { get; init; }
-    public required TimeProvider Clock { get; init; }
-    public Seq<Action<ILoggingBuilder>> Logging { get; init; }
     public Seq<Func<IGrasshopperPlugin, IO<Unit>>> Acquisitions { get; init; }
 }
 
@@ -27,30 +27,40 @@ public static class GrasshopperPlugins {
 
     // --- [DISCOVERY]
     public static IO<Unit> Load(string location) =>
-        from scoped in IO.lift(() => PluginServer.ScopePlugin(location))
-        from loaded in IO.lift(Fin<Unit> () => PluginServer.LoadPlugin(location, out FailureInfo failure)
+        IO.lift(() => ignore(PluginServer.ScopePlugin(location)))
+        >> IO.lift(Fin<Unit> () => PluginServer.LoadPlugin(location, out FailureInfo failure)
             ? unit
-            : new GrasshopperFault(failure.Location, GrasshopperReason.Unloaded, Inner: Error.New($"{failure.Kind}: {failure.Reason}", failure.Exception)))
-        select loaded;
+            : new GrasshopperFault(failure.Location, GrasshopperReason.Unloaded, Inner: Error.New($"{failure.Kind}: {failure.Reason}", failure.Exception)));
 
     // --- [OWNERS]
-    public static Fin<IGrasshopperPlugin> Owner(Type type) => Conversions.Found(Owners.Find(type.Assembly));
+    public static IGrasshopperPlugin Owner(Type type) => Owners[type.Assembly];
 
     public static void Register(IGrasshopperPlugin plugin) => Owners.AddOrUpdate(plugin.Plugin.Assembly, plugin);
+}
 
-    // --- [ACQUISITIONS]
-    public static Func<IGrasshopperPlugin, IO<Unit>> Modes(DisplayModeSpec spec) =>
-        plugin => DisplayModes.Declared(plugin.Plugin.Id, plugin.Plugin.Assembly, spec, plugin);
+// --- [COMPOSITION] ---------------------------------------------------------------------
+public abstract class DefinedGrasshopperPlugin : Plugin, IGrasshopperPlugin {
+    private readonly GrasshopperPluginDefinition definition;
 
-    // --- [LIFECYCLE]
-    public static IO<Unit> Harvest(IGrasshopperPlugin plugin, GrasshopperPluginDefinition definition) =>
-        Callbacks.Each(definition.DataTypes.Map(row => row(plugin))).Map(unit);
+    protected DefinedGrasshopperPlugin(GrasshopperPluginDefinition definition) {
+        this.definition = definition;
+        SettingsFile = SettingsFile.InDefaultFolder(Path.GetFileNameWithoutExtension(Location));
+        Session = new(definition.Loggers.CreateLogger(GetType()));
+        GrasshopperPlugins.Register(this);
+    }
 
-    public static IO<Unit> Loaded(IGrasshopperPlugin plugin, GrasshopperPluginDefinition definition) =>
-        from initialized in IO.lift(static () => AssemblyLoading.Initialized)
-        from opened in plugin.Session.Open<IGrasshopperPlugin>(plugin, [
-            static owner => EventKind.RhinoAppClosing.Inline(_ => owner.Session.Close, owner),
-            owner => Guest.Opened(owner, definition.Clock),
-            .. definition.Acquisitions])
-        select unit;
+    public SettingsFile SettingsFile { get; }
+
+    public PluginSession Session { get; }
+
+    public Plugin Plugin => this;
+
+    public sealed override IIcon Icon => definition.Icon.IfNone(() => base.Icon);
+
+    protected sealed override void HarvestCustomTypes() => Session.Run(definition.DataTypes.TraverseM(row => row(this)).As());
+
+    public sealed override void OnLoaded() =>
+        Session.Run(Session.Open(this, [
+            static owner => Hooks.On(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, owner.Session.Close, owner),
+            .. definition.Acquisitions]));
 }

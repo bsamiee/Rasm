@@ -10,7 +10,6 @@ using Grasshopper2.Types.ConversionMethods;
 using Grasshopper2.UI;
 using Grasshopper2.UI.Icon;
 using GrasshopperIO;
-using Rasm.RhinoCommon;
 using UUIDNext;
 using UnitsNet;
 
@@ -34,8 +33,7 @@ public sealed class DataParameter<T> : Parameter<T>, ICustomIoId {
     protected override IIcon IconInternal => TypeAssistant.Icon;
 }
 
-internal class DataAssistant<T>(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon, Func<T, T> copy, Func<T, string> describe)
-    : TypeAssistant<T>(RowText.Localize(name, plugin).Local), ICustomIoId {
+internal class DataAssistant<T>(Guid parameterId, string name, IIcon icon, Func<T, T> copy, Func<T, string> describe) : TypeAssistant<T>(name), ICustomIoId {
     public Guid CustomIoId { get; } = parameterId;
 
     public sealed override IIcon Icon { get; } = icon;
@@ -47,8 +45,8 @@ internal class DataAssistant<T>(Guid parameterId, string name, IGrasshopperPlugi
     public override string DescribePrimary(Pear<T> pear) => describe(pear.Item);
 }
 
-internal class StoredDataAssistant<T>(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon, DataTexts<T> texts)
-    : DataAssistant<T>(parameterId, name, plugin, icon, identity, texts.Capture) where T : notnull {
+internal class StoredDataAssistant<T>(Guid parameterId, string name, IIcon icon, DataTexts<T> texts)
+    : DataAssistant<T>(parameterId, name, icon, identity, texts.Capture) where T : notnull {
     public override string Format(T instance) => texts.Capture(instance);
 
     public override Result<T> Parse(string constructor, string text, Pear<T> existing) => Recall(text);
@@ -70,8 +68,8 @@ internal class StoredDataAssistant<T>(Guid parameterId, string name, IGrasshoppe
             Fail: error => Result<T>.Fail(error.Message, text));
 }
 
-internal sealed class KeyedDataAssistant<TValue, TKey>(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon, DataTexts<TValue> texts, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
-    : StoredDataAssistant<TValue>(parameterId, name, plugin, icon, texts)
+internal sealed class KeyedDataAssistant<TValue, TKey>(Guid parameterId, string name, IIcon icon, DataTexts<TValue> texts, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
+    : StoredDataAssistant<TValue>(parameterId, name, icon, texts)
     where TValue : notnull
     where TKey : notnull {
     public Func<TKey, Fin<TValue>> Create { get; } = create;
@@ -166,24 +164,24 @@ internal abstract class OperandArithmetic<TValue, TKey, TOperand> : ArithmeticRe
 public static class DataTypes {
     // --- [ROWS]
     public static Func<IGrasshopperPlugin, IO<Unit>> Of<T>(Guid parameterId, string name, IIcon icon, Func<T, T> copy, Func<T, string> describe) =>
-        plugin => Registered(new DataAssistant<T>(parameterId, name, plugin, icon, copy, describe));
+        _ => Registered(new DataAssistant<T>(parameterId, name, icon, copy, describe));
 
-    public static Func<IGrasshopperPlugin, IO<Unit>> Opaque<T>(string caption, IO<IIcon> icon, Func<T, T> copy, Func<T, string> describe) =>
-        plugin => icon.Bind(held => Of(ParameterId<T>(plugin), caption, held, copy, describe)(plugin));
+    public static Func<IGrasshopperPlugin, IO<Unit>> Opaque<T>(string caption, IIcon icon, Func<T, T> copy, Func<T, string> describe) =>
+        plugin => Of(ParameterId<T>(plugin), caption, icon, copy, describe)(plugin);
 
     public static Func<IGrasshopperPlugin, IO<Unit>> Of<T, TAssistant>(Func<IGrasshopperPlugin, IO<TAssistant>> create)
         where TAssistant : TypeAssistant<T>, ICustomIoId =>
         plugin => create(plugin).Bind(static assistant => Registered(assistant));
 
     public static Func<IGrasshopperPlugin, IO<Unit>> Stored<T>(Guid parameterId, string name, IIcon icon, DataTexts<T> texts) where T : notnull =>
-        plugin => Registered(new StoredDataAssistant<T>(parameterId, name, plugin, icon, texts));
+        _ => Registered(new StoredDataAssistant<T>(parameterId, name, icon, texts));
 
     public static Func<IGrasshopperPlugin, IO<Unit>> Number<TValue, TKey>(
         Guid parameterId, string name, IIcon icon, DataTexts<TValue> texts, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
         where TValue : notnull
         where TKey : struct, INumber<TKey> =>
-        plugin => Registered(
-            new KeyedDataAssistant<TValue, TKey>(parameterId, name, plugin, icon, texts, create, key),
+        _ => Registered(
+            new KeyedDataAssistant<TValue, TKey>(parameterId, name, icon, texts, create, key),
             [
                 Converted<double, TValue>(NumberConversions<TValue, TKey>.Inbound),
                 Converted<TValue, double>(NumberConversions<TValue, TKey>.Outbound),
@@ -199,8 +197,8 @@ public static class DataTypes {
         Guid parameterId, string name, IIcon icon, DataTexts<TValue> texts, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
         where TValue : notnull
         where TKey : notnull =>
-        plugin => Registered(
-            new KeyedDataAssistant<TValue, TKey>(parameterId, name, plugin, icon, texts, create, key),
+        _ => Registered(
+            new KeyedDataAssistant<TValue, TKey>(parameterId, name, icon, texts, create, key),
             Seq(
                 Converted<TKey, TValue>(KeyConversions<TValue, TKey>.Inbound),
                 Converted<TValue, TKey>(KeyConversions<TValue, TKey>.Outbound)));
@@ -212,9 +210,9 @@ public static class DataTypes {
         () => GrasshopperFault.Unless(ConversionServer.TryAddConversion(conversion.Method));
 
     private static IO<Unit> Registered<T>(TypeAssistant<T> assistant, Seq<Func<Fin<Unit>>> steps = default) =>
-        LanguageExt.IO.lift(() => Callbacks.Each(
-                steps.Add(() => GrasshopperFault.Unless(TypeAssistantServer.Register(assistant)))
-                    .Add(static () => GrasshopperFault.Unless(GrasshopperIO.IO.RegisterRestorableType(typeof(DataParameter<T>)))),
-                static (step, _) => step()))
+        LanguageExt.IO.lift(() => steps
+                .Add(() => GrasshopperFault.Unless(TypeAssistantServer.Register(assistant)))
+                .Add(static () => GrasshopperFault.Unless(GrasshopperIO.IO.RegisterRestorableType(typeof(DataParameter<T>))))
+                .Traverse(static step => step()).As())
             .Map(static _ => unit);
 }

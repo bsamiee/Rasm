@@ -5,7 +5,6 @@ using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Condensation;
 using QuikGraph.Graphviz;
 using QuikGraph.Graphviz.Dot;
-using Rasm.RhinoCommon;
 
 namespace Rasm.Grasshopper.Doc;
 
@@ -60,8 +59,7 @@ public sealed record WireGraph {
     public Option<Seq<SEquatableEdge<Guid>>> Path(Guid upstream, Guid downstream) =>
         Some(upstream)
             .Filter(Graph.ContainsVertex)
-            .Bind(root => Conversions.Found(Graph.TreeBreadthFirstSearch(root)(downstream, out IEnumerable<SEquatableEdge<Guid>> path), path))
-            .Map(static path => toSeq(path).Strict());
+            .Bind(root => Graph.TreeBreadthFirstSearch(root)(downstream, out IEnumerable<SEquatableEdge<Guid>> path) ? Some(toSeq(path).Strict()) : None);
 
     public string Dot() =>
         Graph.ToGraphviz(algorithm => {
