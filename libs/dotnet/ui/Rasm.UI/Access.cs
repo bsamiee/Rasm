@@ -67,7 +67,7 @@ public sealed partial class AccessRole {
     public Option<AccessRole> Owns { get; }
 
     [UseDelegateFromConstructor]
-    public partial Accessible Marked(Accessible accessible, Check mark);
+    public partial Accessible WithCheck(Accessible accessible, Check mark);
 
     private static Accessible Checked(Accessible accessible, Check mark) => accessible with { Value = new AccessValue.Checked(mark) };
 
@@ -146,7 +146,7 @@ public abstract partial record AccessibilityNotice {
     public sealed record Detent : AccessibilityNotice;
 }
 
-public sealed record Output(Seq<SKRect> Damage, Seq<AccessibilityNotice> Notices, Option<IO<Unit>> Answer);
+public sealed record Output(Seq<SKRect> Damage, Seq<AccessibilityNotice> Notices, Option<IO<Unit>> Effects);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Access {
@@ -157,23 +157,23 @@ public static class Access {
 
     internal static HashMap<Seq<Key>, Element> Indexed(Seq<Element> elements) => toHashMap(Flattened(elements).Map(static element => (element.Id, element)));
 
-    private static Seq<Element> Projected(Scene scene, CultureInfo culture, Laid laid, Option<Owned> owner, Accessible lent) {
-        Option<Owned> owning = scene.Parted(laid.Path) | owner;
-        Accessible accessible = laid.Node.Accessible.Combine(owning.IsSome ? Accessible.Empty : Implied(scene, laid));
+    private static Seq<Element> Projected(Scene scene, CultureInfo culture, LayoutNode layout, Option<PartOwner> owner, Accessible lent) {
+        Option<PartOwner> owning = scene.PartAt(layout.Path) | owner;
+        Accessible accessible = layout.Node.Accessible.Combine(owning.IsSome ? Accessible.Empty : Implied(scene, layout));
         Accessible lends = accessible.Role.IsSome ? Accessible.Empty : new Accessible { Label = accessible.Label, Help = accessible.Help, Shortcut = accessible.Shortcut }.Combine(lent);
-        Seq<Element> children = laid.Children.Bind(child => Projected(scene, culture, child, owning, lends));
+        Seq<Element> children = layout.Children.Bind(child => Projected(scene, culture, child, owning, lends));
         return (from role in accessible.Role
-                from frame in scene.Frame(laid.Path)
-                select new Element(laid.Path, role, Described(Named(accessible, role, laid, lent), culture), owning.Filter(held => held.Part.Offers(held.Laid, laid.Path)).Map(held => Offered(scene, held, laid.Path)).IfNone([]),
-                    laid.Style.Conditions, frame, children))
+                from frame in scene.Frame(layout.Path)
+                select new Element(layout.Path, role, Described(Named(accessible, role, layout, lent), culture), owning.Filter(held => held.Part.Offers(held.Layout, layout.Path)).Map(held => Offered(scene, held, layout.Path)).IfNone([]),
+                    layout.Style.Conditions, frame, children))
             .Match(Some: static element => [element], None: () => children);
     }
 
-    private static Accessible Implied(Scene scene, Laid laid) =>
-        laid.Node.SwitchPartially(
-            (Scene: scene, Laid: laid),
+    private static Accessible Implied(Scene scene, LayoutNode layout) =>
+        layout.Node.SwitchPartially(
+            (Scene: scene, Layout: layout),
             @default: static (_, _) => Accessible.Empty,
-            scroll: static (held, _) => held.Scene.Adjuster(held.Laid.Path)
+            scroll: static (held, _) => held.Scene.Adjustment(held.Layout.Path)
                 .Map(static adjuster => new Accessible { Role = AccessRole.ScrollArea, Value = new AccessValue.Ranged(adjuster.Value, adjuster.Min, adjuster.Max), Orientation = adjuster.Axis })
                 .IfNone(Accessible.Empty),
             text: static (_, text) => new Accessible { Role = AccessRole.Text, Label = text.Content },
@@ -182,16 +182,16 @@ public static class Access {
 
     private static Accessible Pictured(Node node) => node.Accessible.Label.Map(static _ => new Accessible { Role = AccessRole.Image }).IfNone(Accessible.Empty);
 
-    private static Accessible Named(Accessible accessible, AccessRole role, Laid laid, Accessible lent) =>
+    private static Accessible Named(Accessible accessible, AccessRole role, LayoutNode layout, Accessible lent) =>
         accessible with {
-            Label = accessible.Label | (role.NamedByContents ? Contents(laid) : None) | lent.Label,
+            Label = accessible.Label | (role.NamedByContents ? Contents(layout) : None) | lent.Label,
             Help = accessible.Help | lent.Help,
             Shortcut = accessible.Shortcut | lent.Shortcut,
         };
 
-    private static Option<string> Contents(Laid laid) => Texts(laid) switch { { IsEmpty: true } => None, var texts => Some(string.Join(' ', texts)) };
+    private static Option<string> Contents(LayoutNode layout) => Texts(layout) switch { { IsEmpty: true } => None, var texts => Some(string.Join(' ', texts)) };
 
-    private static Seq<string> Texts(Laid laid) => laid.Texted.Map(static text => text.Source.Content).ToSeq() + laid.Children.Bind(Texts);
+    private static Seq<string> Texts(LayoutNode layout) => layout.TextNode.Map(static text => text.Source.Content).ToSeq() + layout.Children.Bind(Texts);
 
     private static Accessible Described(Accessible accessible, CultureInfo culture) =>
         accessible with {
@@ -213,16 +213,16 @@ public static class Access {
     // --- [ACTIONS]
     private static readonly Seq<Act> Standard = Seq<Act>(new Act.Press(), new Act.Confirm(), new Act.Cancel(), new Act.ShowMenu(), new Act.Delete(), new Act.Increment(), new Act.Decrement());
 
-    private static Seq<Act> Offered(Scene scene, Owned owner, Seq<Key> path) =>
-        Standard.Filter(act => owner.Part.Performed(new Gesture.Perform(act), scene.Aimed(owner, path)).Switch(pass: static _ => false, take: static _ => true));
+    private static Seq<Act> Offered(Scene scene, PartOwner owner, Seq<Key> path) =>
+        Standard.Filter(act => owner.Part.Performed(new Gesture.Perform(act), scene.HitTarget(owner, path)).Switch(ignored: static _ => false, accepted: static _ => true));
 
     // --- [HELP]
     public static Option<string> Help(Mount mount) =>
         mount.Hover.Head.Bind(path => {
-            Seq<Element> above = Scene.Above(path).Choose(mount.Elements.Find);
+            Seq<Element> above = Scene.AncestorsAndSelf(path).Choose(mount.Elements.Find);
             return Seq(
                     above.Choose(static element => element.Accessible.Help).Head
-                    | mount.Scene.Index.Find(path).Bind(static laid => Scene.Preorder(laid).Choose(static held => held.Texted.Filter(static text => text.Typeset.Truncated).Map(static text => text.Source.Content)).Head),
+                    | mount.Scene.Index.Find(path).Bind(static layout => Scene.Preorder(layout).Choose(static held => held.TextNode.Filter(static text => text.Typeset.Truncated).Map(static text => text.Source.Content)).Head),
                     above.Choose(static element => element.Accessible.Shortcut).Head)
                 .Somes() switch {
                     { IsEmpty: true } => Option<string>.None,

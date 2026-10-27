@@ -17,6 +17,11 @@
         <PackageReference Include="SuperLinq" />
     </ItemGroup>
 
+    <ItemGroup Label="Geospatial">
+        <PackageReference Include="NetTopologySuite" />
+        <PackageReference Include="ProjNET" />
+    </ItemGroup>
+
     <ItemGroup Label="Color">
         <PackageReference Include="Wacton.Unicolour" />
         <PackageReference Include="Wacton.Unicolour.Datasets" />

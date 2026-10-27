@@ -8,21 +8,21 @@ namespace Rasm.UI.Styling;
 public sealed partial class FilterFunction {
     private static readonly Matrix4x4 Luminance = Rows(new(0.2126f, 0.7152f, 0.0722f), new(0.2126f, 0.7152f, 0.0722f), new(0.2126f, 0.7152f, 0.0722f));
     private static readonly Matrix4x4 Saturation = Rows(new(0.213f, 0.715f, 0.072f), new(0.213f, 0.715f, 0.072f), new(0.213f, 0.715f, 0.072f));
-    private static readonly Matrix4x4 Aged = Rows(new(0.393f, 0.769f, 0.189f), new(0.349f, 0.686f, 0.168f), new(0.272f, 0.534f, 0.131f));
-    private static readonly Matrix4x4 Quadrature = Rows(new(-0.213f, -0.715f, 0.928f), new(0.143f, 0.140f, -0.283f), new(-0.787f, 0.715f, 0.072f));
+    private static readonly Matrix4x4 SepiaMatrix = Rows(new(0.393f, 0.769f, 0.189f), new(0.349f, 0.686f, 0.168f), new(0.272f, 0.534f, 0.131f));
+    private static readonly Matrix4x4 HueRotation = Rows(new(-0.213f, -0.715f, 0.928f), new(0.143f, 0.140f, -0.283f), new(-0.787f, 0.715f, 0.072f));
 
     public static readonly FilterFunction Blur = new(NonNegative, static (amount, input) => SKImageFilter.CreateBlur(amount, amount, input));
-    public static readonly FilterFunction Grayscale = new(NonNegative, static (amount, input) => Matrixed(Matrix4x4.Lerp(Luminance, Matrix4x4.Identity, 1f - float.Min(amount, 1f)), Vector3.Zero, input));
-    public static readonly FilterFunction Saturate = new(NonNegative, static (amount, input) => Matrixed(Matrix4x4.Lerp(Saturation, Matrix4x4.Identity, amount), Vector3.Zero, input));
-    public static readonly FilterFunction Brightness = new(NonNegative, static (amount, input) => Matrixed(Matrix4x4.CreateScale(amount), Vector3.Zero, input));
-    public static readonly FilterFunction Contrast = new(NonNegative, static (amount, input) => Matrixed(Matrix4x4.CreateScale(amount), new Vector3(0.5f - (0.5f * amount)), input));
-    public static readonly FilterFunction HueRotate = new(float.IsFinite, static (amount, input) => Matrixed(Turned(float.DegreesToRadians(amount)), Vector3.Zero, input));
+    public static readonly FilterFunction Grayscale = new(NonNegative, static (amount, input) => ColorMatrix(Matrix4x4.Lerp(Luminance, Matrix4x4.Identity, 1f - float.Min(amount, 1f)), Vector3.Zero, input));
+    public static readonly FilterFunction Saturate = new(NonNegative, static (amount, input) => ColorMatrix(Matrix4x4.Lerp(Saturation, Matrix4x4.Identity, amount), Vector3.Zero, input));
+    public static readonly FilterFunction Brightness = new(NonNegative, static (amount, input) => ColorMatrix(Matrix4x4.CreateScale(amount), Vector3.Zero, input));
+    public static readonly FilterFunction Contrast = new(NonNegative, static (amount, input) => ColorMatrix(Matrix4x4.CreateScale(amount), new Vector3(0.5f - (0.5f * amount)), input));
+    public static readonly FilterFunction HueRotate = new(float.IsFinite, static (amount, input) => ColorMatrix(HueRotated(float.DegreesToRadians(amount)), Vector3.Zero, input));
     public static readonly FilterFunction Invert = new(NonNegative,
         static (amount, input) => {
             float held = float.Min(amount, 1f);
-            return Matrixed(Matrix4x4.CreateScale(1f - (2f * held)), new Vector3(held), input);
+            return ColorMatrix(Matrix4x4.CreateScale(1f - (2f * held)), new Vector3(held), input);
         });
-    public static readonly FilterFunction Sepia = new(NonNegative, static (amount, input) => Matrixed(Matrix4x4.Lerp(Aged, Matrix4x4.Identity, 1f - float.Min(amount, 1f)), Vector3.Zero, input));
+    public static readonly FilterFunction Sepia = new(NonNegative, static (amount, input) => ColorMatrix(Matrix4x4.Lerp(SepiaMatrix, Matrix4x4.Identity, 1f - float.Min(amount, 1f)), Vector3.Zero, input));
 
     [UseDelegateFromConstructor]
     public partial bool Accepts(float amount);
@@ -34,12 +34,12 @@ public sealed partial class FilterFunction {
 
     private static Matrix4x4 Rows(Vector3 red, Vector3 green, Vector3 blue) => new(red.X, red.Y, red.Z, 0f, green.X, green.Y, green.Z, 0f, blue.X, blue.Y, blue.Z, 0f, 0f, 0f, 0f, 1f);
 
-    private static Matrix4x4 Turned(float radians) {
+    private static Matrix4x4 HueRotated(float radians) {
         (float sin, float cos) = MathF.SinCos(radians);
-        return Matrix4x4.Lerp(Saturation, Matrix4x4.Identity, cos) + (Quadrature * sin);
+        return Matrix4x4.Lerp(Saturation, Matrix4x4.Identity, cos) + (HueRotation * sin);
     }
 
-    private static SKImageFilter Matrixed(Matrix4x4 rows, Vector3 offset, SKImageFilter? input) {
+    private static SKImageFilter ColorMatrix(Matrix4x4 rows, Vector3 offset, SKImageFilter? input) {
         using SKColorFilter color = SKColorFilter.CreateColorMatrix([
             rows.M11, rows.M12, rows.M13, 0f, offset.X,
             rows.M21, rows.M22, rows.M23, 0f, offset.Y,

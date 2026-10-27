@@ -9,14 +9,14 @@ namespace Rasm.UI.Components;
 public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Unit>> Edited) {
     private static readonly PlotPlane.Track Track = PlotPlane.Track.Unit(PhysicalAxis.Horizontal);
 
-    public Selection Picked { get; init; } = new Selection.Many([]);
-    public Option<Func<Edit<Selection>, IO<Unit>>> Pick { get; init; }
+    public Selection Selection { get; init; } = new Selection.Many([]);
+    public Option<Func<Edit<Selection>, IO<Unit>>> Selected { get; init; }
 
     public Node Drawn =>
         new Handles<ColorRamp>(Value, Stops, Edited) {
-            Picked = Picked,
-            Pick = Pick,
-            Handle = (key, at) => new Node.Pin(at, new Node.Box { Role = Role.Stop, Conditions = Picked.Holds(key) ? [Condition.Selected] : [] }) { Align = UnitPoint.Center },
+            Selection = Selection,
+            Selected = Selected,
+            Handle = (key, at) => new Node.Pin(at, new Node.Box { Role = Role.Stop, Conditions = Selection.Holds(key) ? [Condition.Selected] : [] }) { Align = UnitPoint.Center },
         }.Drawn(Track, [new GradientKey(Value, []).Drawn]) with {
             Width = Sizing.Grow.Unit,
         };
@@ -36,14 +36,14 @@ public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Un
 public sealed record CurveEditor(PlotPlane.Cartesian Plane, Seq<Vector2> Points, Func<float, float> Fit, Func<Edit<Seq<Vector2>>, IO<Unit>> Edited) {
     public Seq<Func<float, float>> References { get; init; }
     public Option<Seq<float>> Underlay { get; init; }
-    public Seq<Node> Ground { get; init; }
-    public Series Series { get; init; } = new(0);
-    public Selection Picked { get; init; } = new Selection.Many([]);
-    public Option<Func<Edit<Selection>, IO<Unit>>> Pick { get; init; }
+    public Seq<Node> Background { get; init; }
+    public DataSeries Series { get; init; } = new(0);
+    public Selection Selection { get; init; } = new Selection.Many([]);
+    public Option<Func<Edit<Selection>, IO<Unit>>> Selected { get; init; }
 
     public Node Drawn =>
-        new Handles<Seq<Vector2>>(Points, Knots, Edited) { Picked = Picked, Pick = Pick }.Drawn(Plane,
-            Ground
+        new Handles<Seq<Vector2>>(Points, Knots, Edited) { Selection = Selection, Selected = Selected }.Drawn(Plane,
+            Background
             + Underlay.Map(underlay => (Node)new Node.Mark(new Figure.Area(Plane.X.Domain, underlay)) { Role = Role.Trace }).ToSeq()
             + Seq<Node>(new Node.Mark(new Figure.Grid(PhysicalAxis.Horizontal)) { Role = Role.Grid }, new Node.Mark(new Figure.Grid(PhysicalAxis.Vertical)) { Role = Role.Grid })
             + (Plane.X == Plane.Y ? Seq<Node>(new Node.Mark(new Figure.Rule(new Vector2(Plane.X.Domain.From), new Vector2(Plane.X.Domain.To))) { Role = Role.GridFine }) : [])
@@ -60,33 +60,33 @@ public sealed record CurveEditor(PlotPlane.Cartesian Plane, Seq<Vector2> Points,
             static knot => knot,
             static (_, to) => Some(to),
             static (_, knots) => Some(toSeq(knots.OrderBy(static knot => knot.X))),
-            (_, at) => Some(at with { Y = Plane.Y.Held(Fit(at.X)) }));
+            (_, at) => Some(at with { Y = Plane.Y.Constrained(Fit(at.X)) }));
 }
 
 public sealed record Slider(PhysicalAxis Along, AxisRange Domain, float Value, Func<Edit<float>, IO<Unit>> Edited) {
     public Func<AxisRange, Axis> Track { get; init; } = static range => new Axis.Linear(range);
-    public Option<AxisRange> Soft { get; init; }
+    public Option<AxisRange> SoftRange { get; init; }
     public Option<float> Step { get; init; }
     public Option<int> Decimals { get; init; }
     public Option<string> Unit { get; init; }
     public Option<float> Origin { get; init; }
     public Option<float> Rest { get; init; }
-    public Seq<Node> Ground { get; init; }
+    public Seq<Node> Background { get; init; }
 
     public Node Drawn {
         get {
             PlotPlane.Track plane = new(Along, Placed);
-            return plane.Grown(new Handles<float>(Value, Points<float>.Scalar(plane, Lens<float, float>.New(static held => held, shown => _ => Snapped(shown))), Edited) {
+            return plane.Stretched(new Handles<float>(Value, Points<float>.Scalar(plane, Lens<float, float>.New(static held => held, shown => _ => Snapped(shown))), Edited) {
                 Rest = Rest,
                 Decimals = Decimals | Step.Map(static step => int.Max(0, (int)MathF.Ceiling(-MathF.Log10(step)))),
                 Unit = Unit,
-            }.Drawn(plane, plane.Grown(new Node.Box { Role = Role.Track }).Cons(Ground) + Spanned(plane)));
+            }.Drawn(plane, plane.Stretched(new Node.Box { Role = Role.Track }).Cons(Background) + Spanned(plane)));
         }
     }
 
     private Axis Placed {
         get {
-            Axis soft = Track(Soft.IfNone(Domain));
+            Axis soft = Track(SoftRange.IfNone(Domain));
             float position = soft.Fraction(Value);
             (float from, float to) = position switch {
                 < 0f => (float.Max(soft.Value((2f * position) - 1f), Domain.Low), soft.Domain.To),
@@ -109,7 +109,7 @@ public sealed record Dial(Axis.Periodic Axis, float Value, Func<Edit<float>, IO<
     private PlotPlane.Polar Plane => new(Axis, None);
 
     public Node Drawn =>
-        new Handles<float>(Value, Points<float>.Fixed([Lens<float, Vector2>.New(static held => new Vector2(held, 1f), at => _ => Axis.Held(at.X))]), Edited) { Rest = Rest }
+        new Handles<float>(Value, Points<float>.Fixed([Lens<float, Vector2>.New(static held => new Vector2(held, 1f), at => _ => Axis.Constrained(at.X))]), Edited) { Rest = Rest }
             .Drawn(Plane, [
                 new Node.Mark(new Figure.Region()) { Role = Role.Track },
                 new Node.Mark(new Figure.Rule(new Vector2(Value, 0f), new Vector2(Value, 1f))) { Role = Role.Needle },
@@ -122,7 +122,7 @@ public sealed record Dial(Axis.Periodic Axis, float Value, Func<Edit<float>, IO<
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class TrackExtensions {
     extension(PlotPlane.Track track) {
-        internal Node Grown(Node node) =>
+        internal Node Stretched(Node node) =>
             track.Along.Map(horizontal: node with { Width = Sizing.Grow.Unit, Height = Sizing.Fit.Content }, vertical: node with { Width = Sizing.Fit.Content, Height = Sizing.Grow.Unit });
     }
 }

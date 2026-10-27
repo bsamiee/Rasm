@@ -24,7 +24,7 @@ public sealed record IndexRange {
         int Binned(Vector2 at) => int.Clamp((int)MathF.Floor(along.Of(at)), first, last);
         Vector2 Centered(int index) => along.With(middle, index + 0.5f);
         return new Points<Option<IndexRange>>(
-            held => held.Map(range => Seq(new Anchor(First, Centered(range.Low)), new Anchor(Last, Centered(range.High)))).IfNone([]),
+            held => held.Map(range => Seq(new HandlePoint(First, Centered(range.Low)), new HandlePoint(Last, Centered(range.High)))).IfNone([]),
             (held, targets, _) => held.Map(range => targets.Fold((range.Low, range.High), (ends, target) => target.Key == First ? (Binned(target.At), ends.High) : (ends.Low, Binned(target.At)))).Match(
                 Some: ends => new Dragged<Option<IndexRange>>(Some(Spanning(ends.Low, ends.High)), ends.Low > ends.High ? targets.Map(static target => target.Key == First ? Last : First) : targets.Map(static target => target.Key)),
                 None: () => new Dragged<Option<IndexRange>>(held, targets.Map(static target => target.Key)))) {
@@ -42,7 +42,7 @@ public sealed record Chart(PlotPlane Plane, Seq<Node> Layers) {
 
     public Node Selecting(Option<IndexRange> selection, Func<Edit<Option<IndexRange>>, IO<Unit>> select) =>
         Plotted([
-            new Handles<Option<IndexRange>>(selection, IndexRange.Ends(Plane), select) { GroundCursor = CursorShape.Crosshair }.Drawn(Plane, Marked(selection) + Layers) with {
+            new Handles<Option<IndexRange>>(selection, IndexRange.Ends(Plane), select) { BackgroundCursor = CursorShape.Crosshair }.Drawn(Plane, Marked(selection) + Layers) with {
                 Width = Sizing.Grow.Unit,
                 Height = Sizing.Grow.Unit,
             },

@@ -16,24 +16,24 @@ internal sealed class Media : IDisposable {
 
     internal HashMap<Art, SKPicture> Pictures { get; private set; }
 
-    internal static Art Shown(Laid laid, GlyphSource source, SKColorF under) {
-        Art shown = source.Shown(under);
+    internal static Art Resolved(LayoutNode layout, GlyphSource source, SKColorF under) {
+        Art shown = source.Resolved(under);
         return shown.Tinted
             ? shown
-            : shown with { Current = laid.Cascade.Theme.Color(laid.Style.Text, laid.Style).Map(ink => (SKColor)Styles.Legible(laid.Style, under, ink, laid.Cascade.Theme.Contrast.Graphic)) };
+            : shown with { Current = layout.Cascade.Theme.Color(layout.Style.Text, layout.Style).Map(ink => (SKColor)Styles.Legible(layout.Style, under, ink, layout.Cascade.Theme.Contrast.Graphic)) };
     }
 
-    internal Fin<Unit> Retain(Seq<Laid> drawn) {
-        Seq<Art> shown = drawn.Choose(static laid => laid.Node.Glyphed.Map(glyph => Shown(laid, glyph, Styles.Grounded(laid.Cascade, laid.Style, laid.Node)))).Distinct().Strict();
+    internal Fin<Unit> Retain(Seq<LayoutNode> drawn) {
+        Seq<Art> shown = drawn.Choose(static layout => layout.Node.GlyphArt.Map(glyph => Resolved(layout, glyph, Styles.Background(layout.Cascade, layout.Style, layout.Node)))).Distinct().Strict();
         HashSet<Art> kept = toHashSet(shown);
-        Seq<(Art Key, Fin<SKPicture> Picture)> loaded = shown.Filter(key => !Pictures.ContainsKey(key)).Map(key => (Key: key, Picture: Recorded(key))).Strict();
+        Seq<(Art Key, Fin<SKPicture> Picture)> loaded = shown.Filter(key => !Pictures.ContainsKey(key)).Map(key => (Key: key, Picture: Loaded(key))).Strict();
         Pictures = Released(Pictures, (key, _) => kept.Contains(key)).AddRange(loaded.Choose(static held => held.Picture.ToOption().Map(picture => (held.Key, picture))));
         return loaded.Traverse(static held => held.Picture).As().Map(static _ => unit);
     }
 
     public void Dispose() => Pictures = Released(Pictures, static (_, _) => false);
 
-    private Fin<SKPicture> Recorded(Art glyph) {
+    private Fin<SKPicture> Loaded(Art glyph) {
         using Stream? stream = glyph.Assembly.GetManifestResourceStream(glyph.Resource);
         return from held in Optional(stream).ToFin(new UIFault(glyph.Resource, UIReason.Missing))
                from document in Optional(SvgService.Open(held, new SvgParameters(Entities: null, Css: null, CurrentColor: glyph.Current.Map(static ink => Color.FromArgb(ink.Alpha, ink.Red, ink.Green, ink.Blue)).ToNullable())))

@@ -30,32 +30,32 @@ public abstract partial record ColorValue {
     public sealed record Contrasting(ColorValue Over, Seq<ColorValue> Candidates) : ColorValue;
 
     public sealed record Relative(ColorValue From, ColourSpace Space, ChannelShift First, ChannelShift Second, ChannelShift Third) : ColorValue {
-        public ChannelShift Alpha { get; init; } = ChannelShift.Kept;
+        public ChannelShift Alpha { get; init; } = ChannelShift.Identity;
 
         internal SKColorF Shifted(SKColorF origin) {
             Unicolour colour = origin.ToUnicolour();
             (double first, double second, double third) = colour.GetRepresentation(Space).Tuple;
-            return new Unicolour(Space, First.Applied(Kept(first)), Second.Applied(Kept(second)), Third.Applied(Kept(third)), double.Clamp(Alpha.Applied(colour.Alpha.A), 0d, 1d))
+            return new Unicolour(Space, First.Applied(Defined(first)), Second.Applied(Defined(second)), Third.Applied(Defined(third)), double.Clamp(Alpha.Applied(colour.Alpha.A), 0d, 1d))
                 .MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF();
         }
 
-        private static double Kept(double channel) => double.IsNaN(channel) ? 0d : channel;
+        private static double Defined(double channel) => double.IsNaN(channel) ? 0d : channel;
     }
 }
 
 public sealed record ChannelShift(double Scale, double Offset) {
-    public static ChannelShift Kept { get; } = new(1d, 0d);
+    public static ChannelShift Identity { get; } = new(1d, 0d);
 
     internal double Applied(double kept) => Math.FusedMultiplyAdd(kept, Scale, Offset);
 }
 
-public sealed record Series(uint Ordinal) {
+public sealed record DataSeries(uint Ordinal) {
     public Option<SKColorF> Color { get; init; }
 }
 
 public sealed record Stop<TColor>(TColor Color, Fraction At);
 
-internal sealed record Segment(Stop<SKColorF> Low, Stop<SKColorF> High);
+internal sealed record RampSegment(Stop<SKColorF> Low, Stop<SKColorF> High);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ColorRamp {
@@ -65,11 +65,11 @@ public abstract partial record ColorRamp {
 
     public Seq<Stop<SKColorF>> Stops { get; }
 
-    public Material.Gradient Material => new(Stopped.Map(static stop => new Stop<ColorValue>(new ColorValue.Fixed(stop.Color.ToUnicolour()), stop.At)), 0f);
+    public Material.Gradient Material => new(DenseStops.Map(static stop => new Stop<ColorValue>(new ColorValue.Fixed(stop.Color.ToUnicolour()), stop.At)), 0f);
 
-    private protected abstract Seq<Stop<SKColorF>> Stopped { get; }
+    private protected abstract Seq<Stop<SKColorF>> DenseStops { get; }
 
-    private protected Seq<Segment> Segments => toSeq(Stops.AsIterable().Window(2, static pair => new Segment(pair[0], pair[1])));
+    private protected Seq<RampSegment> Segments => toSeq(Stops.AsIterable().Window(2, static pair => new RampSegment(pair[0], pair[1])));
 
     private protected Option<SKColorF> Last => Stops.Last.Map(static stop => stop.Color);
 
@@ -83,30 +83,30 @@ public abstract partial record ColorRamp {
         public ColourSpace Space { get; init; } = ColourSpace.Oklab;
         public Easing Easing { get; init; } = Easing.Linear;
 
-        private protected override Seq<Stop<SKColorF>> Stopped =>
-            Stops.Head.ToSeq() + Segments.Bind(segment => Divided(at => Mixed(segment, at), segment.Low, segment.High).Add(segment.High));
+        private protected override Seq<Stop<SKColorF>> DenseStops =>
+            Stops.Head.ToSeq() + Segments.Bind(segment => Subdivided(at => Mixed(segment, at), segment.Low, segment.High).Add(segment.High));
 
         public override Option<SKColorF> At(Fraction at) => Segments.Find(segment => (float)at <= (float)segment.High.At).Map(segment => Mixed(segment, at)) | Last;
 
-        private SKColorF Mixed(Segment segment, Fraction at) {
+        private SKColorF Mixed(RampSegment segment, Fraction at) {
             float span = (float)segment.High.At - (float)segment.Low.At;
             return segment.Low.Color.ToUnicolour()
                 .Mix(segment.High.Color.ToUnicolour(), Space, Easing.Progress(span > 0f ? float.Clamp(((float)at - (float)segment.Low.At) / span, 0f, 1f) : 1f))
                 .MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF();
         }
 
-        private static Seq<Stop<SKColorF>> Divided(Func<Fraction, SKColorF> color, Stop<SKColorF> low, Stop<SKColorF> high) =>
+        private static Seq<Stop<SKColorF>> Subdivided(Func<Fraction, SKColorF> color, Stop<SKColorF> low, Stop<SKColorF> high) =>
             low.At.Midpoint(high.At) switch {
                 var at when at == low.At || at == high.At => [],
                 var at => new Stop<SKColorF>(color(at), at) switch {
                     var middle when low.Color.ToUnicolour().Mix(high.Color.ToUnicolour(), ColourSpace.Rgb, premultiplyAlpha: false).Difference(middle.Color.ToUnicolour(), DeltaE.Ok) <= JustNoticeable => [],
-                    var middle => Divided(color, low, middle).Add(middle) + Divided(color, middle, high),
+                    var middle => Subdivided(color, low, middle).Add(middle) + Subdivided(color, middle, high),
                 },
             };
     }
 
     public sealed record Stepped(Seq<Stop<SKColorF>> Stops) : ColorRamp(Stops) {
-        private protected override Seq<Stop<SKColorF>> Stopped =>
+        private protected override Seq<Stop<SKColorF>> DenseStops =>
             toSeq(Stops.AsIterable().Lead(1, static (stop, next) => Seq(stop, stop with { At = Optional(next).Map(static held => held.At).IfNone(Fraction.MaxValue) }))).Bind(static held => held);
 
         public override Option<SKColorF> At(Fraction at) => Segments.Find(segment => (float)at < (float)segment.High.At).Map(static segment => segment.Low.Color) | Last;
@@ -114,7 +114,7 @@ public abstract partial record ColorRamp {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-internal static class Colours {
+internal static class UnicolourExtensions {
     extension(SKColorF color) {
         internal Unicolour ToUnicolour() => new(ColourSpace.Rgb, color.Red, color.Green, color.Blue, color.Alpha);
     }

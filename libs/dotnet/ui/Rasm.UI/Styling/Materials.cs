@@ -7,22 +7,22 @@ namespace Rasm.UI.Styling;
 public abstract partial record Material {
     public virtual bool Timed => false;
 
-    internal abstract Option<ColorValue> Under { get; }
+    internal abstract Option<ColorValue> BaseColor { get; }
 
-    internal virtual Option<Backdrop> Backdropped => None;
+    internal virtual Option<Backdrop> AsBackdrop => None;
 
     internal virtual Option<float> Blur => None;
 
-    internal Material Opaqued => Under.Map(static color => (Material)new Solid(color)).IfNone(this);
+    internal Material Opaque => BaseColor.Map(static color => (Material)new Solid(color)).IfNone(this);
 
     public sealed record Solid(ColorValue Color) : Material {
-        internal override Option<ColorValue> Under => Some(Color);
+        internal override Option<ColorValue> BaseColor => Some(Color);
     }
 
     public sealed record Gradient(Seq<Stop<ColorValue>> Stops, float Angle) : Material {
         private static readonly SKColorSpace Srgb = SKColorSpace.CreateSrgb();
 
-        internal override Option<ColorValue> Under => None;
+        internal override Option<ColorValue> BaseColor => None;
 
         internal SKShader Shader(SKRect frame, Seq<SKColorF> colors) {
             (float sin, float cos) = MathF.SinCos(float.DegreesToRadians(Angle));
@@ -44,7 +44,7 @@ public abstract partial record Material {
 
         public override bool Timed => Effect.Uniforms.Contains(Clock, StringComparer.Ordinal);
 
-        internal override Option<ColorValue> Under => None;
+        internal override Option<ColorValue> BaseColor => None;
 
         internal SKShader Shader(HashMap<string, Option<SKColorF>> colors, SKRect frame, float clock) {
             using SKRuntimeEffectUniforms uniforms = new(Effect);
@@ -59,13 +59,13 @@ public abstract partial record Material {
     public sealed record Backdrop(bool Clear, ColorValue Fallback) : Material {
         public Option<ColorValue> Tint { get; init; }
 
-        internal override Option<ColorValue> Under => Some(Fallback);
+        internal override Option<ColorValue> BaseColor => Some(Fallback);
 
-        internal override Option<Backdrop> Backdropped => Some(this);
+        internal override Option<Backdrop> AsBackdrop => Some(this);
     }
 
     public sealed record Blurred(float Sigma, ColorValue Tint) : Material {
-        internal override Option<ColorValue> Under => Some(Tint);
+        internal override Option<ColorValue> BaseColor => Some(Tint);
 
         internal override Option<float> Blur => Some(Sigma);
     }

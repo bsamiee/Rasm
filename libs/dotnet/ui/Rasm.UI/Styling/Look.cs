@@ -5,7 +5,7 @@ namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Stroke(ColorValue Color, Seq<Seq<float>> Dash = default) {
-    public Seq<float> Rhythm(uint ordinal) => Dash.IsEmpty ? [] : Dash[(int)(ordinal % (uint)Dash.Count)];
+    public Seq<float> DashPattern(uint ordinal) => Dash.IsEmpty ? [] : Dash[(int)(ordinal % (uint)Dash.Count)];
 }
 
 public sealed record Shadow(ColorValue Color, float Blur) {
@@ -14,7 +14,7 @@ public sealed record Shadow(ColorValue Color, float Blur) {
     public float Spread { get; init; }
     public bool Inside { get; init; }
 
-    internal Drop Outlined => Inside ? new(0f, this) : new(Spread, this with { Spread = 0f });
+    internal OutsetShadow Outlined => Inside ? new(0f, this) : new(Spread, this with { Spread = 0f });
 
     internal SKImageFilter Filtered(SKColorF color) {
         float grown = Inside ? -Spread : Spread;
@@ -33,12 +33,12 @@ public sealed record Shadow(ColorValue Color, float Blur) {
     }
 }
 
-internal sealed record Drop(float Outset, Shadow Graph);
+internal sealed record OutsetShadow(float Outset, Shadow Shadow);
 
 public sealed record Look : Monoid<Look> {
     public static Look Empty { get; } = new();
 
-    public static Look Bare { get; } = new() { Fills = Seq<Material>(), Strokes = Seq<Stroke>() };
+    public static Look Unpainted { get; } = new() { Fills = Seq<Material>(), Strokes = Seq<Stroke>() };
 
     public Option<Seq<Material>> Fills { get; init; }
     public Option<Seq<Stroke>> Strokes { get; init; }
@@ -47,7 +47,7 @@ public sealed record Look : Monoid<Look> {
     public Option<Seq<Shadow>> Shadows { get; init; }
     public Option<Seq<Filter>> Filters { get; init; }
     public Option<Seq<ColorValue>> Palette { get; init; }
-    public HashMap<Interaction, ColorValue> Washes { get; init; }
+    public HashMap<Interaction, ColorValue> StateLayers { get; init; }
     public Option<SKBlendMode> Blend { get; init; }
     public Option<TimingCurve> Motion { get; init; }
     public HashMap<Condition, Look> When { get; init; }
@@ -62,7 +62,7 @@ public sealed record Look : Monoid<Look> {
             Shadows = rhs.Shadows | Shadows,
             Filters = rhs.Filters | Filters,
             Palette = rhs.Palette | Palette,
-            Washes = Washes.Union(rhs.Washes, Merge: static (_, _, over) => over),
+            StateLayers = StateLayers.Union(rhs.StateLayers, Merge: static (_, _, over) => over),
             Blend = rhs.Blend | Blend,
             Motion = rhs.Motion | Motion,
             When = When.Union(rhs.When, Merge: static (_, under, over) => under.Combine(over)),

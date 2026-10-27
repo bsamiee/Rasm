@@ -45,6 +45,7 @@ public sealed partial class Factor {
 public sealed record UnitPoint(Fraction X, Fraction Y) {
     public static UnitPoint Start { get; } = new(Fraction.MinValue, Fraction.MinValue);
     public static UnitPoint Center { get; } = new(Fraction.Half, Fraction.Half);
+    public static UnitPoint Bottom { get; } = new(Fraction.Half, Fraction.MaxValue);
 
     public float Of(PhysicalAxis along) => along.Of(new Vector2((float)X, (float)Y));
 }
@@ -92,6 +93,18 @@ public sealed partial class Corners {
 
     internal Corners Grown(float by) => new(Grown(TopLeft, by), Grown(TopRight, by), Grown(BottomRight, by), Grown(BottomLeft, by));
 
+    internal bool Holds(SKRect frame, float reach, SKPoint at) {
+        SKRect grown = SKRect.Inflate(frame, reach, reach);
+        Corners radii = Fitted(frame.Size).Grown(reach);
+        Vector2 middle = new(grown.MidX, grown.MidY);
+        Vector2 half = new(grown.Width / 2f, grown.Height / 2f);
+        return grown.Contains(at)
+            && Seq((Radius: radii.TopLeft, Sign: new Vector2(-1f, -1f)), (Radius: radii.TopRight, Sign: new Vector2(1f, -1f)), (Radius: radii.BottomRight, Sign: Vector2.One), (Radius: radii.BottomLeft, Sign: new Vector2(-1f, 1f)))
+                .ForAll(corner => ((((Vector2)at - middle) * corner.Sign) - half + new Vector2(corner.Radius)) switch {
+                    var beyond => beyond.X <= 0f || beyond.Y <= 0f || beyond.LengthSquared() <= corner.Radius * corner.Radius,
+                });
+    }
+
     private static float Concentric(float outer, float across, float down) => float.Max(0f, outer - float.Max(across, down));
 
     private static float Grown(float radius, float by) => radius > 0f ? float.Max(0f, radius + by) : 0f;
@@ -101,8 +114,8 @@ public sealed partial class Corners {
 public sealed partial class Magnification {
     public static Magnification Free { get; } = new(float.Epsilon, float.PositiveInfinity);
 
-    public float Least { get; }
-    public float Most { get; }
+    public float Min { get; }
+    public float Max { get; }
 
     public static Fin<Magnification> Validated(float least, float most) =>
         UIFault.Unless(float.IsFinite(least) && least > 0f && most >= least, UIReason.Order, (least, most)).Map(_ => new Magnification(least, most));

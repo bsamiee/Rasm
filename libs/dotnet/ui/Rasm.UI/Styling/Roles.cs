@@ -61,7 +61,7 @@ public sealed record ControlSize(string Key) {
 }
 
 public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appearances, HashMap<ControlSize, HashMap<Role, HashMap<Metric, float>>> Sizes) : Monoid<DefaultStyles> {
-    private static readonly SKRuntimeShaderBuilder Sweep = SKRuntimeEffect.BuildShader(
+    private static readonly SKRuntimeShaderBuilder Shimmer = SKRuntimeEffect.BuildShader(
         "uniform float2 size; uniform float time; layout(color) uniform half4 base; layout(color) uniform half4 sweep; half4 main(float2 p) { float head = fract(time * 0.8) * 1.6 - 0.3; half a = half(1.0 - smoothstep(0.0, 0.15, abs(p.x / max(size.x, 1.0) - head))); half4 c = mix(base, sweep, a); return half4(c.rgb * c.a, c.a); }");
     private static readonly SKRuntimeShaderBuilder Glow = SKRuntimeEffect.BuildShader(
         "uniform float2 size; layout(color) uniform half4 base; layout(color) uniform half4 glow; half4 main(float2 p) { float2 uv = p / size; float halo = 1.0 - smoothstep(0.0, 1.1, distance(uv, float2(0.15, -0.2))); float grain = fract(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453) - 0.5; half3 rgb = mix(base.rgb, glow.rgb, half(halo) * glow.a) + half3(grain * 0.012); return half4(rgb * base.a, base.a); }");
@@ -107,15 +107,15 @@ public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appe
                 (Role.Label, new Look {
                     When = HashMap(
                         (Condition.Modified, new Look { Text = SelectionFill, Face = SemiBold }),
-                        (Condition.Warning, Look.Bare with { Text = Warning }),
-                        (Condition.Faulted, Look.Bare with { Text = Faulted })),
+                        (Condition.Warning, Look.Unpainted with { Text = Warning }),
+                        (Condition.Faulted, Look.Unpainted with { Text = Faulted })),
                 }),
                 (Role.Track, new Look {
                     Fills = Seq<Material>(),
                     Strokes = Seq(new Stroke(new ColorValue.Host(Channel.Text) { Role = Role.Panel, Alpha = Fraction.Validated(0.2f).ThrowIfFail() })),
                     Text = PanelText,
                     When = HashMap((Condition.Busy, new Look {
-                        Fills = Seq<Material>(new Material.Drawn(Sweep.Effect, HashMap(
+                        Fills = Seq<Material>(new Material.Drawn(Shimmer.Effect, HashMap(
                             ("base", new ColorValue.Host(Channel.Text) { Role = Role.Panel, Alpha = Fraction.Validated(0.12f).ThrowIfFail() }),
                             ("sweep", SelectionFill)))),
                     })),
@@ -133,12 +133,12 @@ public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appe
                     Fills = Seq<Material>(new Material.Solid(FieldFill)),
                     Strokes = Seq(new Stroke(PanelText)),
                     Text = PanelText,
-                    Washes = Washed(FieldFill, PanelText),
+                    StateLayers = StateLayers(FieldFill, PanelText),
                     Motion = Eased,
                     When = HashMap((Condition.Modified, new Look { Fills = Seq<Material>(new Material.Solid(SelectionFill)) })),
                 }),
-                (Role.FocusRing, Look.Bare with { Shadows = Seq(new Shadow(new ColorValue.Host(Channel.Stroke) { Role = Role.FocusRing }, Blur: 0f) { Spread = 3f }), Motion = Eased }),
-                (Role.OverlayCaption, Look.Bare with {
+                (Role.FocusRing, Look.Unpainted with { Shadows = Seq(new Shadow(new ColorValue.Host(Channel.Stroke) { Role = Role.FocusRing }, Blur: 0f) { Spread = 3f }), Motion = Eased }),
+                (Role.OverlayCaption, Look.Unpainted with {
                     Text = new ColorValue.Fixed("#FFFFFFFF"),
                     Shadows = Seq(new Shadow(new ColorValue.Fixed("#00000080"), Blur: 0f) { X = 1f, Y = 1f }),
                 }),
@@ -159,7 +159,7 @@ public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appe
                             Fills = Seq<Material>(new Material.Solid(WellFill)),
                             Strokes = Seq(new Stroke(new ColorValue.Fixed("#FFFFFFBF"))),
                             Text = WellText,
-                            Washes = Washed(WellFill, new ColorValue.Fixed("#FFFFFF")),
+                            StateLayers = StateLayers(WellFill, new ColorValue.Fixed("#FFFFFF")),
                             Motion = Eased,
                         }),
                         (Role.Grid, new Look {
@@ -182,7 +182,7 @@ public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appe
                             When = HashMap((Condition.DifferentiateWithoutColor, new Look { Strokes = Seq(new Stroke(new ColorValue.Data(), [[4f, 2f, 1f, 2f], [], [4f, 2f], [1f, 2f]])) })),
                         }),
                         (Role.Selection, new Look { Fills = Seq<Material>(new Material.Solid(new ColorValue.Fixed("#FFFFFF63"))), Strokes = Seq<Stroke>() }),
-                        (Role.Label, Look.Bare with { Text = WellText, Face = TextFace.Tabular })),
+                        (Role.Label, Look.Unpainted with { Text = WellText, Face = TextFace.Tabular })),
                 }))),
             (Appearance.Glass, HashMap(
                 (Role.Panel, Frosted),
@@ -230,7 +230,7 @@ public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appe
         new(Appearances.Union(rhs.Appearances, Merge: static (_, under, over) => under.Union(over, Merge: static (_, below, above) => below.Combine(above))),
             Sizes.Union(rhs.Sizes, Merge: static (_, under, over) => under.Union(over, Merge: static (_, below, above) => below.Union(above, Merge: static (_, _, held) => held))));
 
-    private static HashMap<Interaction, ColorValue> Washed(ColorValue from, ColorValue to) =>
+    private static HashMap<Interaction, ColorValue> StateLayers(ColorValue from, ColorValue to) =>
         HashMap(
             (Interaction.Hover, (ColorValue)new ColorValue.Mixed(from, to, Fraction.Validated(0.16f).ThrowIfFail()) { Space = ColourSpace.Rgb }),
             (Interaction.Pressed, new ColorValue.Mixed(from, to, Fraction.Validated(0.24f).ThrowIfFail()) { Space = ColourSpace.Rgb }));

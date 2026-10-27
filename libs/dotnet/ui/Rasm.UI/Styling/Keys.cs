@@ -6,7 +6,7 @@ public sealed partial class Condition {
     public static readonly Condition IncreaseContrast = new(inherited: false, identity);
     public static readonly Condition DifferentiateWithoutColor = new(inherited: false, identity);
     public static readonly Condition ReduceTransparency = new(inherited: false,
-        static look => look with { Fills = look.Fills.Map(static fills => fills.Map(static fill => fill.Opaqued)) });
+        static look => look with { Fills = look.Fills.Map(static fills => fills.Map(static fill => fill.Opaque)) });
     public static readonly Condition ReduceMotion = new(inherited: false, static look => look with { Motion = Some<TimingCurve>(new TimingCurve.Instant()) });
     public static readonly Condition Dark = new(inherited: false, identity);
     public static readonly Condition Default = new(inherited: false, identity);
@@ -22,7 +22,7 @@ public sealed partial class Condition {
     internal bool Inherited { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Look Restyled(Look look);
+    internal partial Look Applied(Look look);
 }
 
 [SmartEnum]
@@ -36,11 +36,11 @@ public sealed partial class ContrastLevel {
 
 [SmartEnum]
 public sealed partial class Interaction {
-    public static readonly Interaction Hover = new(ring: false);
-    public static readonly Interaction Pressed = new(ring: false);
-    public static readonly Interaction Focused = new(ring: true);
+    public static readonly Interaction Hover = new(showsFocusRing: false);
+    public static readonly Interaction Pressed = new(showsFocusRing: false);
+    public static readonly Interaction Focused = new(showsFocusRing: true);
 
-    public bool Ring { get; }
+    public bool ShowsFocusRing { get; }
 }
 
 [SmartEnum]

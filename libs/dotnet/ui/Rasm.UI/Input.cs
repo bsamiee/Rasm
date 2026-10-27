@@ -5,42 +5,46 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record PointerSample(SKPoint At, float Pressure);
+public sealed record Stylus(Fraction Pressure, Vector2 Tilt, bool Eraser);
 
-public sealed record KeyModifiers(bool Common, bool Alternate, bool Shift) {
-    public static KeyModifiers Plain { get; } = new(Common: false, Alternate: false, Shift: false);
+public sealed record PointerSample(SKPoint At) {
+    public Option<Stylus> Stylus { get; init; }
+}
+
+public sealed record KeyModifiers(bool Primary, bool Alternate, bool Shift) {
+    public static KeyModifiers Empty { get; } = new(Primary: false, Alternate: false, Shift: false);
 }
 
 [SmartEnum]
-public sealed partial class Grain {
-    public static readonly Grain Unit = new(static (step, _) => Some(step));
-    public static readonly Grain Page = new(static (_, page) => Some(page));
-    public static readonly Grain End = new(static (_, _) => Option<float>.None);
+public sealed partial class Granularity {
+    public static readonly Granularity Step = new(static (step, _) => Some(step));
+    public static readonly Granularity Page = new(static (_, page) => Some(page));
+    public static readonly Granularity End = new(static (_, _) => Option<float>.None);
 
     [UseDelegateFromConstructor]
-    public partial Option<float> Stride(float step, float page);
+    public partial Option<float> Distance(float step, float page);
 }
 
 [SmartEnum]
 public sealed partial class NavigationDirection {
-    public static readonly NavigationDirection Left = new(PhysicalAxis.Horizontal, -1, Grain.Unit);
-    public static readonly NavigationDirection Right = new(PhysicalAxis.Horizontal, 1, Grain.Unit);
-    public static readonly NavigationDirection Up = new(PhysicalAxis.Vertical, -1, Grain.Unit);
-    public static readonly NavigationDirection Down = new(PhysicalAxis.Vertical, 1, Grain.Unit);
-    public static readonly NavigationDirection PageUp = new(PhysicalAxis.Vertical, -1, Grain.Page);
-    public static readonly NavigationDirection PageDown = new(PhysicalAxis.Vertical, 1, Grain.Page);
-    public static readonly NavigationDirection Home = new(PhysicalAxis.Horizontal, -1, Grain.End);
-    public static readonly NavigationDirection End = new(PhysicalAxis.Horizontal, 1, Grain.End);
-    public static readonly NavigationDirection Top = new(PhysicalAxis.Vertical, -1, Grain.End);
-    public static readonly NavigationDirection Bottom = new(PhysicalAxis.Vertical, 1, Grain.End);
+    public static readonly NavigationDirection Left = new(PhysicalAxis.Horizontal, -1, Granularity.Step);
+    public static readonly NavigationDirection Right = new(PhysicalAxis.Horizontal, 1, Granularity.Step);
+    public static readonly NavigationDirection Up = new(PhysicalAxis.Vertical, -1, Granularity.Step);
+    public static readonly NavigationDirection Down = new(PhysicalAxis.Vertical, 1, Granularity.Step);
+    public static readonly NavigationDirection PageUp = new(PhysicalAxis.Vertical, -1, Granularity.Page);
+    public static readonly NavigationDirection PageDown = new(PhysicalAxis.Vertical, 1, Granularity.Page);
+    public static readonly NavigationDirection Home = new(PhysicalAxis.Horizontal, -1, Granularity.End);
+    public static readonly NavigationDirection End = new(PhysicalAxis.Horizontal, 1, Granularity.End);
+    public static readonly NavigationDirection Top = new(PhysicalAxis.Vertical, -1, Granularity.End);
+    public static readonly NavigationDirection Bottom = new(PhysicalAxis.Vertical, 1, Granularity.End);
 
     public PhysicalAxis Along { get; }
     public int Sign { get; }
-    public Grain Grain { get; }
+    public Granularity Granularity { get; }
 
-    public Vector2 Screen => Along.With(Vector2.Zero, Sign);
+    public Vector2 Vector => Along.With(Vector2.Zero, Sign);
 
-    public int Valued(PlotFrame frame) => Sign * MathF.Sign(Along.Of(new Vector2(frame.Matrix.ScaleX, frame.Matrix.ScaleY)));
+    public int ValueSign(PlotFrame frame) => Sign * MathF.Sign(Along.Of(new Vector2(frame.Matrix.ScaleX, frame.Matrix.ScaleY)));
 }
 
 [SmartEnum]
@@ -86,6 +90,8 @@ public abstract partial record Act {
 
     public sealed record Decrement : Act;
 
+    public sealed record Reset : Act;
+
     public sealed record Navigate(NavigationDirection Toward) : Act;
 
     public sealed record Delete : Act;
@@ -99,7 +105,7 @@ public abstract partial record Act {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Input {
-    public KeyModifiers Modifiers { get; init; } = KeyModifiers.Plain;
+    public KeyModifiers Modifiers { get; init; } = KeyModifiers.Empty;
 
     public sealed record Pointer(Edit<PointerSample> Stroke, int Clicks) : Input;
 
@@ -113,6 +119,8 @@ public abstract partial record Input {
 
     public sealed record Rotate(SKPoint At, Edit<float> Radians) : Input;
 
+    public sealed record Drop(SKPoint At, Edit<Transfer> Transfer) : Input;
+
     public sealed record Perform(Act Act, Target Target) : Input;
 
     public sealed record Focused : Input;
@@ -122,8 +130,8 @@ public abstract partial record Input {
     public static Option<Input> Pointed(Edit<PointerSample> stroke, bool primary, bool alternate, int clicks, KeyModifiers modifiers) =>
         stroke.Value.Match(
                 Some: sample => stroke.Phase switch {
-                    { Opens: true } => Some(alternate ? (Input)new Perform(new Act.ShowMenu(), new Target.At(sample.At)) : new Pointer(stroke, clicks)),
-                    { Settles: true } => primary ? Some<Input>(new Pointer(stroke, clicks)) : None,
+                    { Begins: true } => Some(alternate ? (Input)new Perform(new Act.ShowMenu(), new Target.At(sample.At)) : new Pointer(stroke, clicks)),
+                    { Applies: true } => primary ? Some<Input>(new Pointer(stroke, clicks)) : None,
                     _ => Some(primary ? (Input)new Pointer(stroke, clicks) : new Hover(Some(sample.At))),
                 },
                 None: () => Some<Input>(new Pointer(stroke, clicks)))

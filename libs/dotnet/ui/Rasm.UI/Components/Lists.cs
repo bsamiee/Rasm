@@ -24,9 +24,9 @@ public sealed partial class Progress {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Content<T> where T : notnull {
-    public Option<T> Held => Switch(pending: static pending => pending.Prior, ready: static ready => Some(ready.Value), empty: static _ => Option<T>.None, failed: static _ => Option<T>.None);
+    public Option<T> Current => Switch(pending: static pending => pending.Prior, ready: static ready => Some(ready.Value), empty: static _ => Option<T>.None, failed: static _ => Option<T>.None);
 
-    public Content<T> Requested(Option<Progress> work) => new Pending { Prior = Held, Work = work };
+    public Content<T> Requested(Option<Progress> work) => new Pending { Prior = Current, Work = work };
 
     public static Content<T> Arrived(Fin<T> arrival) => arrival.Match<Content<T>>(Succ: static value => new Ready(value), Fail: static error => new Failed(error));
 
@@ -69,11 +69,11 @@ public sealed record Toast(Key Key, Node Content, Option<Duration> Lifetime);
 
 public sealed record Toasts(Seq<Toast> Shown, Role Role, Func<Key, IO<Unit>> Dismissed) {
     public UnitPoint Corner { get; init; } = new(Fraction.MaxValue, Fraction.MaxValue);
-    public int Cap { get; init; } = 3;
+    public int Limit { get; init; } = 3;
 
-    public Node Over(Node beneath) =>
+    public Node Overlaid(Node beneath) =>
         new Node.Overlay(beneath, [
-            new Node.Flex(PhysicalAxis.Vertical, Shown.Skip(int.Max(0, Shown.Count - Cap)).Map(toast => (Node)new Node.Flex(PhysicalAxis.Horizontal, [toast.Content]) {
+            new Node.Flex(PhysicalAxis.Vertical, Shown.Skip(int.Max(0, Shown.Count - Limit)).Map(toast => (Node)new Node.Flex(PhysicalAxis.Horizontal, [toast.Content]) {
                 Key = Some(toast.Key),
                 Role = Role,
                 Expires = toast.Lifetime.Map(lifetime => new Expiry(lifetime, Dismissed(toast.Key))),
@@ -85,22 +85,22 @@ public sealed record Toasts(Seq<Toast> Shown, Role Role, Func<Key, IO<Unit>> Dis
 }
 
 public sealed record Swatch(SKColorF Color, Func<SKRect, IO<Unit>> Pressed) {
-    public Node Drawn => new Part.Press(Pressed).Drawn(Face(Color));
+    public Node Drawn => new Part.Press(Pressed).Drawn(Patch(Color));
 
-    public static Node Face(SKColorF color) =>
+    public static Node Patch(SKColorF color) =>
         new Node.Styled(new Node.Box { Role = Role.Field, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }) {
             Sheet = new StyleSheet { Looks = HashMap((Role.Field, new Look { Fills = Some(Seq<Material>(new Material.Solid(new ColorValue.Fixed(color.ToUnicolour())))) })) },
             Accessible = new Accessible { Value = new AccessValue.Text(color.ToUnicolour().Hex) },
         };
 }
 
-public sealed record SwatchList(Seq<SKColorF> Colors, Selection Picked, Func<Edit<Selection>, IO<Unit>> Pick) {
+public sealed record SwatchList(Seq<SKColorF> Colors, Selection Selection, Func<Edit<Selection>, IO<Unit>> Selected) {
     public Node Drawn {
         get {
             Seq<(Key Key, SKColorF Color)> keyed = Colors.Map(static (color, index) => ((Key)new Key.Ordinal((uint)index), color));
             HashMap<Key, SKColorF> faces = toHashMap(keyed);
-            return new Part.Choice(keyed.Map(static held => held.Key), Picked, Pick)
-                .Drawn(key => Swatch.Face(faces[key]), static items => new Node.Flex(PhysicalAxis.Horizontal, items) { Width = Sizing.Grow.Unit });
+            return new Part.Choice(keyed.Map(static held => held.Key), Selection, Selected)
+                .Drawn(key => Swatch.Patch(faces[key]), static items => new Node.Flex(PhysicalAxis.Horizontal, items) { Width = Sizing.Grow.Unit });
         }
     }
 }
