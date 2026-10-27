@@ -76,6 +76,8 @@ public abstract partial record Target {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record Act {
+    internal virtual Option<NavigationDirection> Direction => None;
+
     public sealed record Press : Act;
 
     public sealed record Confirm : Act;
@@ -92,7 +94,9 @@ public abstract partial record Act {
 
     public sealed record Reset : Act;
 
-    public sealed record Navigate(NavigationDirection Toward) : Act;
+    public sealed record Navigate(NavigationDirection Toward) : Act {
+        internal override Option<NavigationDirection> Direction => Some(Toward);
+    }
 
     public sealed record Delete : Act;
 
@@ -128,16 +132,16 @@ public abstract partial record Input {
     public sealed record Blurred : Input;
 
     public static Option<Input> Pointed(Edit<PointerSample> stroke, bool primary, bool alternate, int clicks, KeyModifiers modifiers) =>
-        stroke.Value.Match(
-                Some: sample => stroke.Phase switch {
-                    { Begins: true } => Some(alternate ? (Input)new Perform(new Act.ShowMenu(), new Target.At(sample.At)) : new Pointer(stroke, clicks)),
-                    { Applies: true } => primary ? Some<Input>(new Pointer(stroke, clicks)) : None,
-                    _ => Some(primary ? (Input)new Pointer(stroke, clicks) : new Hover(Some(sample.At))),
-                },
-                None: () => Some<Input>(new Pointer(stroke, clicks)))
+        stroke.Phase.Switch(
+                (Stroke: stroke, Primary: primary, Alternate: alternate, Clicks: clicks),
+                begin: static held => held.Stroke.Value.Map(sample => held.Alternate ? (Input)new Perform(new Act.ShowMenu(), new Target.At(sample.At)) : new Pointer(held.Stroke, held.Clicks)),
+                preview: static held => held.Stroke.Value.Map(sample => held.Primary ? (Input)new Pointer(held.Stroke, held.Clicks) : new Hover(Some(sample.At))),
+                step: static held => held.Stroke.Value.Map(sample => held.Primary ? (Input)new Pointer(held.Stroke, held.Clicks) : new Hover(Some(sample.At))),
+                commit: static held => held.Stroke.Value.Filter(_ => held.Primary).Map(_ => (Input)new Pointer(held.Stroke, held.Clicks)),
+                cancel: static held => Some<Input>(new Pointer(held.Stroke, held.Clicks)))
             .Map(input => input with { Modifiers = modifiers });
 
     public static Option<Input> Keyed(Mount mount, string shortcut, KeyModifiers modifiers) =>
-        Access.Flattened(mount.Tree).Find(element => element.Accessible.Shortcut == Some(shortcut))
+        mount.Elements.Values.Find(element => element.Accessible.Shortcut == Some(shortcut))
             .Map(element => (Input)new Perform(new Act.Press(), new Target.Element(element.Id)) { Modifiers = modifiers });
 }

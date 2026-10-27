@@ -319,8 +319,8 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 # --- [PATHS]
 
 
-def rna(path: RnaPath) -> str:
-    """Returns the host path text of a path, the one text the host reads."""
+def rna(path: str | RnaPath) -> str:
+    """Returns the host path text of a path, the one text the host reads, host path text passing as it is."""
 
     def token(step: _Step) -> str:
         match step:
@@ -331,7 +331,7 @@ def rna(path: RnaPath) -> str:
             case (key,):
                 return f'["{bpy.utils.escape_identifier(key)}"]'
 
-    return "".join(map(token, path)).removeprefix(".")
+    return path if isinstance(path, str) else "".join(map(token, path)).removeprefix(".")
 
 
 def parsed(root: Native | type[Native], text: str) -> Outcome[RnaPath]:

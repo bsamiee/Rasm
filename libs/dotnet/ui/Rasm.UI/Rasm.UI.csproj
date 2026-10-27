@@ -34,9 +34,11 @@
     <ItemGroup Label="Desktop UI">
         <PackageReference Include="SkiaSharp" />
         <PackageReference Include="SkiaSharp.HarfBuzz" />
+        <PackageReference Include="SkiaSharp.SceneGraph" />
         <PackageReference Include="SkiaSharp.Skottie" />
         <PackageReference Include="HarfBuzzSharp" />
         <PackageReference Include="Topten.RichTextKit" />
+        <PackageReference Include="Svg.Custom" />
         <PackageReference Include="Svg.Skia" />
         <PackageReference Include="Svg.Model" />
     </ItemGroup>

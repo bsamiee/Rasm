@@ -17,7 +17,7 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.calls import given, Placed, Writer
-from blender.bpy.data.rna.conditions import check, Condition
+from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import assigned, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Applied
 from blender.bpy.extension.identity import Identity, Key
@@ -701,7 +701,7 @@ class Command(msgspec.Struct, frozen=True, kw_only=True):
         """Returns class members with poll message of condition faults."""
 
         def poll(cls: type[bpy.types.Operator], context: bpy.types.Context) -> bool:
-            faults = self.condition.bind(lambda condition: check(condition, context).swap().to_option())
+            faults = self.condition.bind(lambda condition: condition.check(context).swap().to_option())
             for failures in faults.to_list():
                 cls.poll_message_set(lambda: " ".join(fault.message for fault in failures))
             return faults.is_none()

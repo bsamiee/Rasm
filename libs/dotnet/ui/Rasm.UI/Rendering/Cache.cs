@@ -1,16 +1,19 @@
 using LanguageExt.ClassInstances;
 using Rasm.UI.Plotting;
 using Rasm.UI.Styling;
+using Rasm.UI.Typography;
 using SkiaSharp;
 using Topten.RichTextKit;
 
 namespace Rasm.UI.Rendering;
 
+// --- [TYPES] ---------------------------------------------------------------------------
+internal interface ISlot {
+    public void Retain(Func<Seq<Key>, Option<LayoutNode>> shown);
+    public void Clear();
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record Fade(SKPoint From, SKPoint To, bool Before, bool After, float Edge);
-
-internal sealed record FillKey(Material Fill, Seq<Option<SKColorF>> Colors, SKRect Frame, SKBlendMode Blend, float Scale, float Clock);
-
 internal sealed record Context(SKMatrix Device, Seq<StateLayer> StateLayers) {
     internal Option<PlotFrame> Plot { get; init; }
 
@@ -20,207 +23,284 @@ internal sealed record Context(SKMatrix Device, Seq<StateLayer> StateLayers) {
 
     internal Context Translated(SKPoint at) => this with { Device = Device.PreConcat(SKMatrix.CreateTranslation(at.X, at.Y)), Plot = Plot.Map(plot => plot.Translated(new SKPoint(-at.X, -at.Y))) };
 
-    internal Pen Pen(RoleStyle style) => new(style.Metrics[Metric.Stroke], style.Metrics[Metric.Spacing]) { Device = Device };
+    internal Pen Pen(RoleStyle style) => new(style.Metrics[Metric.Stroke], style.Metrics[Metric.Spacing]) { Device = Device, Icon = style.Metrics[Metric.Icon] };
 
     private static float Fractional(float offset) => offset - MathF.Floor(offset);
 }
 
+internal sealed record Fade(SKPoint From, SKPoint To, bool Before, bool After, float Edge);
+
+internal sealed record ResolvedShadow(Shadow Shadow, SKColorF Color);
+
+internal sealed record Recording(Context Context, float Alpha, HashSet<Seq<Key>> Live);
+
+internal sealed record PaintSlot(Seq<Key> Path, int Index);
+
+internal sealed record RoleKey(Seq<Key> Path, Role Role);
+
+internal sealed record ShadowKey(Seq<Key> Path, Role Role, Shadow Shadow);
+
+internal sealed record OutlineKey(Seq<Key> Path, float Offset);
+
+internal sealed record OutlineShape(Shape Shape, Corners Corners, float Smoothing, SKRect Frame);
+
+internal sealed record FillKey(Seq<StateLayer> StateLayers, SKRect Frame, float Scale, float Clock, Option<SKPoint> Pointer);
+
+internal sealed record StrokeKey(SKColorF Color, float Width, Seq<PathEffect> Patterns, float Clock, Option<SKBlender> Blend);
+
+internal sealed record LayerKey(float Alpha, Option<SKImageFilter> Filter);
+
+internal sealed record MatteKey(SKSize Size, Corners Corners, float Smoothing, float Scale);
+
+internal sealed record TextKey(Seq<Key> Path, SKColor Tint);
+
+internal sealed record TextOutlineKey(Typeset Set, SKPoint Origin);
+
+internal sealed record ImagePaintKey(Option<SKColorF> Color, Option<ColorRamp> Scale);
+
+internal sealed record MarkKey(Figure Figure, PlotFrame Frame, Pen Pen);
+
+internal sealed record ShownMedia(Seq<Key> Path, LoadedMedia Media);
+
+internal sealed record RetainedScene(Scene Scene, HashSet<Seq<Key>> Leaving, float Scale, HashSet<Seq<Key>> Moving, Seq<ShownMedia> Motion);
+
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class PaintCache : IDisposable {
+internal sealed class Entries<TSlot, TKey, TValue>(bool byReference) : ISlot where TSlot : notnull {
+    private HashMap<TSlot, Entry> held;
+
+    internal Func<TValue, Seq<IDisposable>> Holds { get; init; } = static _ => [];
+
+    internal Seq<TValue> Values => held.Values.ToSeq().Map(static entry => entry.Value);
+
+    internal Option<TValue> Find(TSlot slot) => held.Find(slot).Map(static entry => entry.Value);
+
+    internal TValue GetOrAdd(TSlot slot, LayoutNode layout, TKey key, Func<TValue> make) =>
+        held.Find(slot).Filter(found => Reuses(found.Layout, layout) && EqDefault<TKey>.Equals(found.Key, key)).Match(
+            Some: found => {
+                if (!ReferenceEquals(found.Layout, layout)) held = held.SetItem(slot, found with { Layout = layout });
+                return found.Value;
+            },
+            None: () => {
+                TValue made = make();
+                _ = held.Find(slot).Iter(stale => Release(stale.Value));
+                held = held.AddOrUpdate(slot, new Entry(layout, key, made));
+                return made;
+            });
+
+    void ISlot.Retain(Func<Seq<Key>, Option<LayoutNode>> shown) => KeepOnly(entry => shown(entry.Layout.Path).Exists(next => Reuses(entry.Layout, next)));
+
+    void ISlot.Clear() => KeepOnly(static _ => false);
+
+    private bool Reuses(LayoutNode before, LayoutNode after) => !byReference || ReferenceEquals(before, after);
+
+    private void KeepOnly(Func<Entry, bool> kept) {
+        _ = held.Filter(entry => !kept(entry)).Values.Iter(entry => Release(entry.Value));
+        held = held.Filter(kept);
+    }
+
+    private void Release(TValue value) => _ = Holds(value).Iter(static resource => resource.Dispose());
+
+    private sealed record Entry(LayoutNode Layout, TKey Key, TValue Value);
+}
+
+internal sealed class PaintCache : IDisposable {
     // --- [STATE]
+    private static readonly SKColorSpace Srgb = SKColorSpace.CreateSrgb();
     private static readonly SKSamplingOptions Sampling = new(SKFilterMode.Linear);
-    private readonly Entries<Seq<Key>, Recording, SKPicture> subtrees = new(ReferenceEquals, static picture => picture.Dispose());
-    private readonly Entries<Seq<Key>, Seq<Filter>, Option<SKImageFilter>> filters = new(Content, Released);
-    private readonly Entries<ShadowKey, SKColorF, SKPaint> shadows = new(Content, static paint => paint.Dispose());
-    private readonly Entries<OutlineKey, OutlineShape, Outline> outlines = new(Content, static outline => outline.Dispose());
-    private readonly Entries<PaintSlot, FillKey, Option<SKPaint>> brushes = new(Content, Released);
-    private readonly Entries<PaintSlot, StrokeKey, SKPaint> edges = new(Content, static paint => paint.Dispose());
-    private readonly Entries<Seq<Key>, Fade, SKPaint> fades = new(Content, static paint => paint.Dispose());
-    private readonly Entries<RoleKey, LayerKey, SKPaint> veils = new(Content, static paint => paint.Dispose());
-    private readonly Entries<Seq<Key>, float, SKPaint> tweens = new(Content, static paint => paint.Dispose());
-    private readonly Entries<Seq<Key>, ImagePaintKey, SKPaint> images = new(Content, static paint => paint.Dispose());
-    private readonly Entries<Seq<Key>, TintKey, SKPaint> tints = new(Content, static paint => paint.Dispose());
-    private readonly Seq<ISlot> slots;
+    private static readonly SKImageFilter Source = SKImageFilter.CreateOffset(0f, 0f);
     private readonly SKImageInfo target;
-    private readonly SKSurfaceProperties raster;
-    private readonly float density;
-    private readonly Media media = new();
+    private readonly Media media;
+    private readonly Seq<ISlot> slots;
     private Option<RetainedScene> retained;
 
-    public PaintCache(SKImageInfo target, SKSurfaceProperties raster, float density = 1f) {
-        (this.target, this.raster, this.density) = (target, raster, density);
-        slots = [subtrees, filters, shadows, outlines, brushes, edges, fades, veils, tweens, images, tints];
+    internal PaintCache(SKImageInfo target, SKSurfaceProperties raster, Shaping shaping, Func<SKImageInfo, Option<SKSurface>> offscreen) {
+        (this.target, Offscreen) = (target, offscreen);
+        media = new Media(target, shaping, offscreen);
+        Space = target.ColorSpace ?? Srgb;
+        Precision = target.BytesPerPixel < 8 ? SKCanvasSaveLayerRecFlags.F16ColorType : SKCanvasSaveLayerRecFlags.None;
         Raster = new TextPaintOptions {
             Edging = raster.PixelGeometry is SKPixelGeometry.Unknown ? SKFontEdging.Antialias : SKFontEdging.SubpixelAntialias,
             Hinting = raster.IsUseDeviceIndependentFonts ? SKFontHinting.None : SKFontHinting.Slight,
             SubpixelPositioning = true,
         };
+        slots = [Recordings, Leaves, Filters, Shadows, Casts, Outlines, Brushes, Backdrops, Mattes, Edges, Fades, Veils, Images, Tints, Solids, Texts, TextOutlines, TextStrokes,
+            Interiors, Contours, Dots, Sprites, Atlases, Fields, Meshes, Labels, Arts, Decoded];
     }
 
-    public TextPaintOptions Raster { get; }
+    internal Func<SKImageInfo, Option<SKSurface>> Offscreen { get; }
+    internal TextPaintOptions Raster { get; }
+    internal SKColorSpace Space { get; }
+    internal SKCanvasSaveLayerRecFlags Precision { get; }
+    internal Seq<Seq<Key>> Animated { get; private set; }
+    internal HashSet<Seq<Key>> Moving => retained.Map(static held => held.Moving).IfNone([]);
 
-    // --- [RECORD]
-    internal SKPicture Subtree(LayoutNode layout, Context context, float alpha, Action<SKCanvas> record) =>
-        subtrees.GetOrAdd(layout.Path, layout, new Recording(context.CacheKey, alpha), () => {
-            using SKPictureRecorder recorder = new();
-            record(recorder.BeginRecording(layout.LocalSubtreeBounds, useRTree: true));
-            return recorder.EndRecording();
+    // --- [SLOTS]
+    internal Entries<Seq<Key>, Recording, SKDrawable> Recordings { get; } = new(byReference: true) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, Unit, Painter.Leaf> Leaves { get; } = new(byReference: true) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, SKRect, Option<SKImageFilter>> Filters { get; } = new(byReference: true) { Holds = static held => [.. held.ToSeq()] };
+    internal Entries<ShadowKey, SKColorF, SKPaint> Shadows { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<RoleKey, Seq<ResolvedShadow>, SKPaint> Casts { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<OutlineKey, OutlineShape, Fin<Outline>> Outlines { get; } = new(byReference: false) { Holds = static held => [.. held.ToSeq()] };
+    internal Entries<PaintSlot, FillKey, Option<SKPaint>> Brushes { get; } = new(byReference: true) { Holds = static held => [.. held.ToSeq()] };
+    internal Entries<PaintSlot, FillKey, Option<SKImageFilter>> Backdrops { get; } = new(byReference: true) { Holds = static held => [.. held.ToSeq()] };
+    internal Entries<Seq<Key>, MatteKey, Option<SKImage>> Mattes { get; } = new(byReference: false) { Holds = static held => [.. held.ToSeq()] };
+    internal Entries<PaintSlot, StrokeKey, SKPaint> Edges { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, Fade, SKPaint> Fades { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<RoleKey, LayerKey, SKPaint> Veils { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, ImagePaintKey, SKPaint> Images { get; } = new(byReference: true) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, SKColorF, SKPaint> Tints { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, SKColorF, SKPaint> Solids { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<TextKey, Typeset, TextBlock> Texts { get; } = new(byReference: false);
+    internal Entries<Seq<Key>, TextOutlineKey, SKPath> TextOutlines { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, StrokeKey, SKPaint> TextStrokes { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, MarkKey, Outline> Interiors { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, MarkKey, Outline> Contours { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, Marks.DotsKey, SKPicture> Dots { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, Marks.SpriteKey, Option<SKImage>> Sprites { get; } = new(byReference: false) { Holds = static held => [.. held.ToSeq()] };
+    internal Entries<Seq<Key>, Marks.AtlasKey, SKPicture> Atlases { get; } = new(byReference: false) { Holds = static held => [held] };
+    internal Entries<Seq<Key>, Marks.FieldKey, Option<SKPaint>> Fields { get; } = new(byReference: true) { Holds = static held => [.. held.ToSeq()] };
+    internal Entries<Seq<Key>, MarkKey, Seq<SKVertices>> Meshes { get; } = new(byReference: false) { Holds = static meshes => [.. meshes] };
+    internal Entries<Seq<Key>, Marks.LabelKey, Option<SKTextBlob>> Labels { get; } = new(byReference: false) { Holds = static held => [.. held.ToSeq()] };
+    internal Entries<ArtKey, HashMap<string, SKColor>, Fin<LoadedMedia>> Arts { get; } = new(byReference: false) { Holds = static loaded => [.. loaded.ToSeq()] };
+    internal Entries<Seq<Key>, DecodeKey, Fin<Decoded>> Decoded { get; } = new(byReference: false) { Holds = static decoded => [.. decoded.ToSeq()] };
+
+    // --- [LAYERS]
+    internal SKPaint Veil(LayoutNode layout, Role role, float alpha, Option<SKImageFilter> filter) =>
+        Veils.GetOrAdd(new RoleKey(layout.Path, role), layout, new LayerKey(alpha, filter), () => new SKPaint { ColorF = new SKColorF(0f, 0f, 0f, alpha), ImageFilter = filter.ValueUnsafe() });
+
+    internal SKPaint Cast(LayoutNode layout, Role role, Seq<ResolvedShadow> stack) =>
+        Casts.GetOrAdd(new RoleKey(layout.Path, role), layout, stack, () => {
+            Seq<SKImageFilter> graph = stack.Filter(static held => !held.Shadow.Inside).Map(held => held.Shadow.Filtered(held.Color, Space)).Strict().Add(Source)
+                + stack.Filter(static held => held.Shadow.Inside).Map(held => held.Shadow.Filtered(held.Color, Space)).Strict();
+            using SKImageFilter merged = SKImageFilter.CreateMerge([.. graph]);
+            _ = graph.Filter(static filter => !ReferenceEquals(filter, Source)).Iter(static filter => filter.Dispose());
+            return new SKPaint { ImageFilter = merged };
         });
 
-    internal Option<SKImageFilter> Filtered(LayoutNode layout, Seq<Filter> chain) => filters.GetOrAdd(layout.Path, layout, chain, () => Filter.Chained(chain));
-
-    internal SKPaint Shadowed(LayoutNode layout, Role role, Shadow shadow, SKColorF color) =>
-        shadows.GetOrAdd(new ShadowKey(layout.Path, role, shadow), layout, color, () => {
-            using SKImageFilter graph = shadow.Filtered(color);
-            return new SKPaint { ImageFilter = graph };
+    internal SKPaint Shadowed(LayoutNode layout, Role role, ResolvedShadow held) =>
+        Shadows.GetOrAdd(new ShadowKey(layout.Path, role, held.Shadow), layout, held.Color, () => {
+            using SKMaskFilter? blur = held.Shadow.Blur > 0f ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, held.Shadow.Blur) : null;
+            return new SKPaint { IsAntialias = true, ColorF = held.Color, MaskFilter = blur };
         });
 
-    internal SKPaint LayerPaint(LayoutNode layout, Role role, float alpha, Option<SKImageFilter> filter) =>
-        veils.GetOrAdd(new RoleKey(layout.Path, role), layout, new LayerKey(alpha, filter), () => new SKPaint { ColorF = new SKColorF(0f, 0f, 0f, alpha), ImageFilter = filter.ValueUnsafe() });
+    // --- [OUTLINES]
+    internal Option<Outline> Outlined(LayoutNode layout, SKRect frame, float offset) => Lowered(layout, frame, offset).ToOption();
 
-    internal SKPaint TweenPaint(LayoutNode layout, float alpha) => tweens.GetOrAdd(layout.Path, layout, alpha, () => new SKPaint { ColorF = new SKColorF(0f, 0f, 0f, alpha) });
-
-    // --- [OUTLINE]
-    internal Outline Outlined(LayoutNode layout, SKRect frame, float offset) =>
-        outlines.GetOrAdd(new OutlineKey(layout.Path, offset), layout, new OutlineShape(layout.Corners, layout.Smoothing, frame), () => Outline.Of(layout.Corners, layout.Smoothing, frame, offset));
+    private Fin<Outline> Lowered(LayoutNode layout, SKRect frame, float offset) =>
+        Outlines.GetOrAdd(new OutlineKey(layout.Path, offset), layout, new OutlineShape(layout.Style.Shape, layout.Corners, layout.Smoothing, frame),
+            () => Outline.Of(layout.Style.Shape, layout.Corners, layout.Smoothing, frame, offset));
 
     // --- [PAINTS]
-    internal Option<SKPaint> FillPaint(LayoutNode layout, int fill, FillKey key, Func<Option<SKPaint>> make) => brushes.GetOrAdd(new PaintSlot(layout.Path, fill), layout, key, make);
-
-    internal SKPaint StrokePaint(LayoutNode layout, int stroke, SKColorF color, float width, Seq<float> rhythm, SKBlendMode blend) =>
-        edges.GetOrAdd(new PaintSlot(layout.Path, stroke), layout, new StrokeKey(color, width, rhythm, blend), () => {
-            using SKPathEffect? dash = rhythm.IsEmpty ? null : SKPathEffect.CreateDash([.. rhythm.Map(beat => beat * width)], 0f);
-            return new SKPaint { IsAntialias = true, ColorF = color, Style = SKPaintStyle.Stroke, StrokeWidth = width, StrokeCap = SKStrokeCap.Round, PathEffect = dash, BlendMode = blend };
+    internal static SKPaint StrokePaint<TSlot>(Entries<TSlot, StrokeKey, SKPaint> slot, TSlot at, LayoutNode layout, StrokeKey key) where TSlot : notnull =>
+        slot.GetOrAdd(at, layout, key, () => {
+            using SKPathEffect? effect = Stroke.Effect(key.Patterns, key.Width, key.Clock).ValueUnsafe();
+            return new SKPaint { IsAntialias = true, ColorF = key.Color, Style = SKPaintStyle.Stroke, StrokeWidth = key.Width, StrokeCap = SKStrokeCap.Round, PathEffect = effect, Blender = key.Blend.ValueUnsafe() };
         });
 
     internal SKPaint FadeMask(LayoutNode layout, Fade fade) =>
-        fades.GetOrAdd(layout.Path, layout, fade, () => {
+        Fades.GetOrAdd(layout.Path, layout, fade, () => {
             using SKShader shader = SKShader.CreateLinearGradient(fade.From, fade.To, [fade.Before ? SKColors.Transparent : SKColors.Black, SKColors.Black, SKColors.Black, fade.After ? SKColors.Transparent : SKColors.Black],
                 [0f, fade.Edge, 1f - fade.Edge, 1f], SKShaderTileMode.Clamp);
             return new SKPaint { Shader = shader, BlendMode = SKBlendMode.DstIn };
         });
 
-    internal SKPaint ImagePaint(LayoutNode layout, SKBlendMode blend, Option<SKColorF> color) =>
-        images.GetOrAdd(layout.Path, layout, new ImagePaintKey(blend, color), () => color.Match(Some: held => new SKPaint { IsAntialias = true, BlendMode = blend, ColorF = held }, None: () => new SKPaint { IsAntialias = true, BlendMode = blend }));
+    internal SKPaint Tint(LayoutNode layout, SKColorF tint) =>
+        Tints.GetOrAdd(layout.Path, layout, tint, () => {
+            using SKColorFilter tintFilter = TintMatrix(tint);
+            return new SKPaint { IsAntialias = true, ColorFilter = tintFilter };
+        });
 
-    // --- [FILLS]
-    internal Option<SKShader> DrawnShader(Material.Drawn drawn, HashMap<string, Option<SKColorF>> colors, SKRect frame, float scale, float clock) =>
-        drawn.Timed
-            ? Some(drawn.Shader(colors, frame, clock))
-            : Rastered(SKRect.Create(frame.Size), SKMatrix.CreateScale(scale, scale), frame.Location, recording => {
-                using SKShader shader = drawn.Shader(colors, SKRect.Create(frame.Size), clock);
-                using SKPaint paint = new() { Shader = shader };
-                recording.DrawRect(SKRect.Create(frame.Size), paint);
-            });
+    internal SKPaint Solid(LayoutNode layout, SKColorF color) => Solids.GetOrAdd(layout.Path, layout, color, () => new SKPaint { IsAntialias = true, ColorF = color });
 
-    private Option<SKShader> Rastered(SKRect local, SKMatrix device, SKPoint at, Action<SKCanvas> record) {
-        using SKPictureRecorder recorder = new();
-        record(recorder.BeginRecording(local));
-        using SKPicture drawn = recorder.EndRecording();
-        SKMatrix grid = device.PostConcat(SKMatrix.CreateScale(density, density));
+    internal SKColorFilter TintMatrix(SKColorF tint) => Space.ColorMatrix([0f, 0f, 0f, 0f, tint.Red, 0f, 0f, 0f, 0f, tint.Green, 0f, 0f, 0f, 0f, tint.Blue, 0f, 0f, 0f, tint.Alpha, 0f]);
+
+    // --- [OFFSCREENS]
+    internal Option<SKShader> Rastered(SKShader drawn, SKRect frame, float scale) {
+        using SKShader owned = drawn;
+        SKRect local = SKRect.Create(frame.Size);
+        SKMatrix grid = SKMatrix.CreateScale(scale, scale);
         SKRectI pixels = SKRectI.Ceiling(grid.MapRect(local), outwards: true);
-        using SKSurface? surface = SKSurface.Create(target.WithSize(pixels.Width, pixels.Height), raster);
-        return Optional(surface).Map(held => {
+        return Offscreen(target.WithSize(pixels.Width, pixels.Height)).Map(surface => {
+            using SKSurface held = surface;
+            using SKPaint paint = new() { Shader = owned };
             held.Canvas.SetMatrix(grid.PostConcat(SKMatrix.CreateTranslation(-pixels.Left, -pixels.Top)));
-            held.Canvas.DrawPicture(drawn);
+            held.Canvas.DrawRect(local, paint);
             using SKImage image = held.Snapshot();
             return image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, Sampling,
-                SKMatrix.CreateTranslation(at.X, at.Y).PreConcat(grid.Invert()).PreConcat(SKMatrix.CreateTranslation(pixels.Left, pixels.Top)));
+                SKMatrix.CreateTranslation(frame.Left, frame.Top).PreConcat(grid.Invert()).PreConcat(SKMatrix.CreateTranslation(pixels.Left, pixels.Top)));
         });
     }
 
-    // --- [GLYPH]
-    internal void Glyph(SKCanvas canvas, LayoutNode layout, GlyphSource source, SKColorF under, Pen pen, SKColorF tint, SKRect content) {
-        Art shown = Media.Resolved(layout, source, under);
-        _ = media.Pictures.Find(shown).Iter(picture => {
-            SKRect cull = picture.CullRect;
-            SKRect fitted = ImageFit.Contain.Fitted(content, cull.Size);
-            SKPoint origin = pen.Snapped(fitted.Location);
-            (float x, float y) = (fitted.Width / cull.Width, fitted.Height / cull.Height);
-            SKMatrix place = SKMatrix.CreateScaleTranslation(x, y, origin.X - (cull.Left * x), origin.Y - (cull.Top * y));
-            if (shown.Tinted) canvas.DrawRect(place.MapRect(cull), Tinted(layout, picture, tint, place));
-            else canvas.DrawPicture(picture, in place);
+    internal Option<SKImage> Matte(LayoutNode layout, MatteKey key) =>
+        Mattes.GetOrAdd(layout.Path, layout, key, () => {
+            SKSizeI pixels = SKRectI.Ceiling(SKRect.Create(key.Size.Width * key.Scale, key.Size.Height * key.Scale), outwards: true).Size;
+            return Offscreen(new SKImageInfo(pixels.Width, pixels.Height, SKColorType.RgbaF16, SKAlphaType.Premul, Space)).Map(surface => {
+                using SKSurface held = surface;
+                using SKShader shader = Refraction.Shader(key.Size, key.Corners, key.Smoothing);
+                using SKPaint paint = new() { Shader = shader };
+                held.Canvas.Scale(key.Scale);
+                held.Canvas.DrawRect(SKRect.Create(key.Size), paint);
+                return held.Snapshot();
+            });
         });
-    }
 
-    private SKPaint Tinted(LayoutNode layout, SKPicture picture, SKColorF tint, SKMatrix place) =>
-        tints.GetOrAdd(layout.Path, layout, new TintKey(picture, tint, place), () => {
-            using SKShader drawn = SKShader.CreatePicture(picture, SKShaderTileMode.Decal, SKShaderTileMode.Decal, SKFilterMode.Linear, place, picture.CullRect);
-            using SKColorFilter ink = SKColorFilter.CreateColorMatrix([0f, 0f, 0f, 0f, tint.Red, 0f, 0f, 0f, 0f, tint.Green, 0f, 0f, 0f, 0f, tint.Blue, 0f, 0f, 0f, tint.Alpha, 0f]);
-            using SKShader tinted = SKShader.CreateColorFilter(drawn, ink);
-            return new SKPaint { IsAntialias = true, Shader = tinted };
-        });
+    internal SKCanvasSaveLayerRecFlags Layer(bool previous) => previous ? (SKCanvasSaveLayerRecFlags)((int)Precision | (int)SKCanvasSaveLayerRecFlags.InitializeWithPrevious) : Precision;
 
     // --- [RETENTION]
-    internal Fin<Unit> Retain(Mount mount) {
+    internal Fin<Unit> Retain(Mount mount, float scale) {
         Scene scene = mount.Scene;
-        HashSet<Seq<Key>> leaving = toHashSet(mount.Animations.Exiting.Keys);
-        if (retained.Exists(held => ReferenceEquals(held.Scene, scene) && held.Leaving == leaving)) return unit;
-        HashMap<Seq<Key>, LayoutNode> departed = toHashMap(mount.Animations.Exiting.Values.ToSeq().Bind(static left => Scene.Preorder(left.Last)).Map(static layout => (layout.Path, layout)));
-        return media.Retain(scene.Order + departed.Values.ToSeq()).Map(_ => {
-            retained = new RetainedScene(scene, leaving);
-            return slots.Iter(slot => slot.Retain(path => scene.Index.Find(path) | departed.Find(path)));
-        });
+        HashSet<Seq<Key>> leaving = toHashSet(mount.Animations.Exiting.Keys).Union(mount.Animations.Departing.Keys);
+        if (retained.Exists(held => ReferenceEquals(held.Scene, scene) && held.Leaving == leaving && held.Scale.CompareTo(scale) is 0)) return unit;
+        Seq<LayoutNode> current = (Seq(scene.Layout) + scene.Layers + scene.Fragments.Values.ToSeq()).Bind(Scene.Preorder).Strict();
+        Seq<LayoutNode> departed = (toSeq(mount.Animations.Exiting.Values) + toSeq(mount.Animations.Departing.Values)).Map(static left => left.Last).Bind(Scene.Preorder).Strict();
+        Seq<LayoutNode> drawn = current + departed;
+        HashMap<Seq<Key>, LayoutNode> shown = toHashMap(departed.Map(static layout => (layout.Path, layout))).AddOrUpdateRange(current.Map(static layout => (layout.Path, layout)));
+        Seq<(Seq<Key> Path, Fin<LoadedMedia> Media)> arts = drawn.Bind(layout => Loaded(layout, scene.ColorCache)).Strict();
+        Seq<(Seq<Key> Path, Fin<Decoded> Frames)> images = drawn.Choose(layout => Decode(layout, scale)).Strict();
+        Seq<Fin<Outline>> outlines = drawn.Filter(static layout => layout.Style.Shape is not Shape.Rounded).Map(layout => Lowered(layout, SKRect.Create(layout.Frame.Size), 0f)).Strict();
+        return (arts.Traverse(static held => held.Media).As(), images.Traverse(static held => held.Frames).As(), outlines.Traverse(static held => held).As()).Apply((_, _, _) => {
+            Seq<ShownMedia> motion = arts.Choose(static held => held.Media.ToOption().Filter(static media => media.Animated).Map(media => new ShownMedia(held.Path, media))).Strict();
+            Animated = toSeq(motion.Map(static held => held.Path) + images.Filter(static held => held.Frames.Exists(static frames => frames.Animated)).Map(static held => held.Path)).Distinct().Strict();
+            retained = new RetainedScene(scene, leaving, scale, toHashSet(drawn.Filter(static layout => layout.Timed || layout.Style.Pointing).Map(static layout => layout.Path) + Animated), motion);
+            return slots.Iter(slot => slot.Retain(path => shown.Find(path)));
+        }).As();
     }
 
-    public void Dispose() {
-        _ = slots.Iter(static slot => slot.Clear());
-        media.Dispose();
+    internal void Framed(Painter.Pass pass) {
+        Seq<ShownMedia> motion = retained.Map(static held => held.Motion).IfNone([]);
+        Seq<LoadedMedia> moved = motion.Map(static held => held.Media).Distinct().Filter(media => media.Seek(pass.Now)).Strict();
+        HashSet<Seq<Key>> still = toHashSet(motion.Filter(held => !moved.Exists(media => ReferenceEquals(media, held.Media))).Map(static held => held.Path));
+        _ = Leaves.Values.Iter(leaf => leaf.Framed(pass, !still.Contains(leaf.Layout.Path)));
     }
 
-    private static bool Content(LayoutNode held, LayoutNode layout) => true;
+    public void Dispose() => _ = slots.Iter(static slot => slot.Clear());
 
-    private static void Released<T>(Option<T> held) where T : IDisposable => _ = held.Iter(static value => value.Dispose());
-
-    private interface ISlot {
-        public void Retain(Func<Seq<Key>, Option<LayoutNode>> shown);
-        public void Clear();
+    private Seq<(Seq<Key> Path, Fin<LoadedMedia> Media)> Loaded(LayoutNode layout, ColorCache colorCache) {
+        SKColorF under = Styles.Background(layout.Cascade, layout.Style, layout.Node);
+        HashMap<string, SKColor> chrome = Media.Chrome(layout.Cascade.Theme, layout.Style);
+        Seq<GlyphSource> sources = layout.Node.GlyphArt.ToSeq()
+            + layout.Style.Fills.Choose(static fill => fill is Material.Pattern { Source: PatternSource.Art art } ? Some(art.Glyph) : None)
+            + layout.Node.Traced.ToSeq().Bind(Marks.Markers).Map(static marker => marker.Art);
+        return sources.Map(source => Media.Keyed(layout, source, under, colorCache)).Map(key => (layout.Path, Arts.GetOrAdd(key, layout, chrome, () => media.Load(key, chrome))));
     }
 
-    private sealed record Recording(Context Context, float Alpha);
+    private Option<(Seq<Key> Path, Fin<Decoded> Frames)> Decode(LayoutNode layout, float scale) =>
+        layout.Node is Node.Image { Source: ImageSource.Encoded encoded } image
+            ? new DecodeKey(encoded, Pixels(image, encoded, layout.ContentBox, scale)) switch {
+                var key => Some((layout.Path, Decoded.GetOrAdd(layout.Path, layout, key, () => media.Decode(key)))),
+            }
+            : None;
 
-    private sealed record ShadowKey(Seq<Key> Path, Role Role, Shadow Shadow);
+    internal Option<SKImage> Frame(LayoutNode layout, ImageSource source, Duration now) =>
+        source.Switch(
+            (Cache: this, Layout: layout, Now: now),
+            still: static (_, still) => Some(still.Image),
+            encoded: static (held, _) => held.Cache.Decoded.Find(held.Layout.Path).Bind(static frames => frames.ToOption()).Map(frames => frames.At(held.Now)));
 
-    private sealed record OutlineKey(Seq<Key> Path, float Distance);
+    internal Option<LoadedMedia> Art(ArtKey key) => Arts.Find(key).Bind(static loaded => loaded.ToOption());
 
-    private sealed record OutlineShape(Corners Corners, float Smoothing, SKRect Frame);
-
-    private sealed record PaintSlot(Seq<Key> Path, int Index);
-
-    private sealed record StrokeKey(SKColorF Color, float Width, Seq<float> Rhythm, SKBlendMode Blend);
-
-    private sealed record RoleKey(Seq<Key> Path, Role Role);
-
-    private sealed record LayerKey(float Alpha, Option<SKImageFilter> Filter);
-
-    private sealed record ImagePaintKey(SKBlendMode Blend, Option<SKColorF> Color);
-
-    private sealed record TintKey(SKPicture Art, SKColorF Color, SKMatrix Place);
-
-    private sealed record RetainedScene(Scene Scene, HashSet<Seq<Key>> Leaving);
-
-    private sealed class Entries<TSlot, TKey, TValue>(Func<LayoutNode, LayoutNode, bool> reuses, Action<TValue> release) : ISlot where TSlot : notnull {
-        private HashMap<TSlot, Entry> held;
-
-        internal TValue GetOrAdd(TSlot slot, LayoutNode layout, TKey key, Func<TValue> make) =>
-            held.Find(slot).Filter(found => reuses(found.Layout, layout) && EqDefault<TKey>.Equals(found.Key, key)).Match(
-                Some: static found => found.Value,
-                None: () => {
-                    TValue made = make();
-                    _ = held.Find(slot).Iter(stale => release(stale.Value));
-                    held = held.AddOrUpdate(slot, new Entry(layout, key, made));
-                    return made;
-                });
-
-        void ISlot.Retain(Func<Seq<Key>, Option<LayoutNode>> shown) => KeepOnly(entry => shown(entry.Layout.Path).Exists(held => reuses(entry.Layout, held)));
-
-        void ISlot.Clear() => KeepOnly(static _ => false);
-
-        private sealed record Entry(LayoutNode Layout, TKey Key, TValue Value);
-
-        private void KeepOnly(Func<Entry, bool> kept) {
-            _ = held.Filter(entry => !kept(entry)).Values.Iter(entry => release(entry.Value));
-            held = held.Filter(kept);
-        }
+    private static SKSizeI Pixels(Node.Image image, ImageSource source, SKRect content, float scale) {
+        SKRect fitted = image.Fit.Fitted(content, new SKSize(source.Info.Width, source.Info.Height));
+        return SKRectI.Ceiling(SKRect.Create(fitted.Width * scale, fitted.Height * scale), outwards: true).Size;
     }
 }

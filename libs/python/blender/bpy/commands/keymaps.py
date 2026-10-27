@@ -8,12 +8,12 @@ from typing import Literal, TYPE_CHECKING
 
 from bl_keymap_utils import keymap_hierarchy, platform_helpers
 import bpy
-from expression import Error, Nothing, Ok, Option
+from expression import Nothing, Ok, Option
 import msgspec
 import rna_keymap_ui
 
 from blender.bpy.commands.calls import MenuPopup, Placed, Stock, Writer
-from blender.bpy.data.rna.descriptors import Descriptor, rooted, Scalar
+from blender.bpy.data.rna.descriptors import Descriptor, rna, RnaPath, rooted, Scalar
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisition, Band
 from blender.bpy.faults import BlenderReason
@@ -42,23 +42,25 @@ class Button(Enum):
 class Toggle(msgspec.Struct, frozen=True, kw_only=True):
     """Toggle of context-relative boolean property."""
 
-    path: str
+    path: str | RnaPath
 
     def invocation(self, identity: Identity, /) -> Outcome[tuple[str, Writer]]:
         """Resolves boolean path and its `wm.context_toggle` operator."""
-        return Descriptor.resolve(bpy.types.Context, self.path, bpy.types.BoolProperty).bind(lambda _: Stock(operator=bpy.ops.wm.context_toggle, values={"data_path": self.path}).invocation(identity))
+        return Descriptor.resolve(bpy.types.Context, self.path, bpy.types.BoolProperty).bind(
+            lambda _: Stock(operator=bpy.ops.wm.context_toggle, values={"data_path": rna(self.path)}).invocation(identity)
+        )
 
 
 class Assign(msgspec.Struct, frozen=True, kw_only=True):
     """Assignment through `wm.context_set_value` of a value the context path accepts."""
 
-    path: str
+    path: str | RnaPath
     value: Scalar
 
     def invocation(self, identity: Identity, /) -> Outcome[tuple[str, Writer]]:
         """Resolves the context path and the setter values."""
         return Descriptor.resolve(bpy.types.Context, self.path, bpy.types.Property).bind(
-            lambda _: Stock(operator=bpy.ops.wm.context_set_value, values={"data_path": self.path, "value": repr(self.value)}).invocation(identity)
+            lambda _: Stock(operator=bpy.ops.wm.context_set_value, values={"data_path": rna(self.path), "value": repr(self.value)}).invocation(identity)
         )
 
 
@@ -137,9 +139,7 @@ class Keymap:
                 operator, write = invocation
                 items = tuple(chord.added(manager, native, operator, pie=isinstance(target, MenuPopup) and target.pie))
                 held.extend((native, item) for item in items)
-                return accumulated(
-                    Option.of_optional(item.properties).map(write).default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=operator, member="properties"),))) for item in items
-                ).map(lambda _: None)
+                return accumulated(Option.of_optional(item.properties).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, operator, member="properties")).bind(write) for item in items).map(lambda _: None)
 
             try:
                 natives = tuple(manager.keyconfigs.addon.keymaps.new(name, space_type=space, region_type=region) for name, space, region in locations)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
@@ -185,7 +185,7 @@ def nesting(name: str) -> Outcome[tuple[Location, ...]]:
             yield from walked(children)
 
     found = tuple(dict.fromkeys(walked(keymap_hierarchy.generate())))  # type: ignore[func-returns-value, arg-type]  # ty: ignore[invalid-argument-type]
-    return Ok(found) if found else Error((Fault(reason=BlenderReason.ABSENT, subject="bl_keymap_utils.keymap_hierarchy", member=name),))
+    return Ok(found).filter_with(bool, lambda _: Fault.of(BlenderReason.ABSENT, "bl_keymap_utils.keymap_hierarchy", member=name))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

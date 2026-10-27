@@ -1,6 +1,6 @@
 """BT.2390 peak mapping of formed absolute PQ display codes into a display's peak and black."""
 
-from typing import Final
+from typing import Final, override
 
 import bpy
 from expression import Nothing, Ok, Option, Some
@@ -8,7 +8,8 @@ import numpy as np
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Answer, Call, Done, Operator
-from blender.bpy.data.rna.conditions import AllOf, HdrWindow, Job
+from blender.bpy.data.rna.conditions import Condition, Job
+from blender.bpy.data.rna.descriptors import Struct
 from blender.bpy.extension.identity import Identity
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.nodes.interface import Interface, Socket
@@ -16,6 +17,7 @@ from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.effects import CompositorEffect, entered, Named, Registers, Shell
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
+from blender.imaging.color.authoring import DynamicRange
 from blender.imaging.color.processors import Domain
 from blender.imaging.files.images import ImageFile
 from blender.records.faults import Outcome
@@ -31,6 +33,22 @@ class PeakMapping(Effect, frozen=True, kw_only=True):
 
     stage = Stage.PEAK
     pointwise = True
+
+
+class _HdrWindow(Condition, frozen=True, kw_only=True):
+    """Window with HDR color showing a frame formed into an absolute PQ display space."""
+
+    @override
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
+        return (
+            shown_space(context).bind(lambda name: Option.of_optional(PyOpenColorIO.GetCurrentConfig().getColorSpace(name))).filter(DynamicRange.absolute).is_some()
+            and Option.of_optional(context.window).filter(lambda window: window.support_hdr_color).is_some()
+        )
+
+    @property
+    @override
+    def message(self) -> str:
+        return "Requires frame formed for PQ display in window with HDR color"
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -78,7 +96,7 @@ peak_mapping: Final[CompositorEffect[PeakMapping]] = CompositorEffect(
         )
     ),
     domain=Domain.DISPLAY,
-    parts=(Registers(rows=(Operator(form=Named, run=measure_peak, undo=False, condition=Some(AllOf(conditions=(Job(kind="RENDER"), HdrWindow(space=shown_space))))),)),),
+    parts=(Registers(rows=(Operator(form=Named, run=measure_peak, undo=False, condition=Some(Job(kind="RENDER") & _HdrWindow())),)),),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

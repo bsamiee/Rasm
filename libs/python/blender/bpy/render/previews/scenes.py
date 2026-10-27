@@ -366,11 +366,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
             engines = accumulated(Snapshot.capture(held).bind(lambda snapshot: snapshot.apply(own).outcome) for held, own in owners)
             previewed = accumulated(
                 Descriptor.resolve(bpy.types.Scene, preview, bpy.types.Property).bind(
-                    lambda held: (
-                        struct_at(source, held.owner)
-                        .map(lambda owner: (final, held.read(owner)))
-                        .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(source), member=rna(held.owner)))
-                    )
+                    lambda held: struct_at(source, held.owner).map(lambda owner: (final, held.read(owner))).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(source), member=rna(held.owner)))
                 )
                 for final, preview in ENGINE_SAMPLES.values()
             )

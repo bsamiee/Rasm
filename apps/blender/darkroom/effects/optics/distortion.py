@@ -157,11 +157,7 @@ def export_st_map(call: Call[Named]) -> Outcome[Done]:
 
     def ready(scene: bpy.types.Scene) -> Outcome[Done]:
         entry = distortion.named(call.identity, scene, call.properties.name)
-        held = entry.bind(
-            lambda found: paired(
-                distortion.read(call.identity, found), captured(call.identity, found).map(valued)
-            )
-        )
+        held = entry.bind(lambda found: paired(distortion.read(call.identity, found), captured(call.identity, found).map(valued)))
         framing = FrameSize().bound(call.identity).bind(lambda framed: framed.read(scene, Some(Whole()))).bind(lambda found: found.rendered((RESOLUTION.prop.hard_min, RESOLUTION.prop.hard_max)))
         return paired(held, framing).bind(lambda parts: written(parts[0][0].record, parts[0][1], *parts[1]))
 

@@ -10,7 +10,7 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.ids.store import Handle, member
-from blender.bpy.data.rna.descriptors import Descriptor, written
+from blender.bpy.data.rna.descriptors import Descriptor, parsed, written
 from blender.bpy.faults import BlenderReason
 from blender.bpy.files.blends import sourced
 from blender.records.faults import accumulated, Fault, Outcome, RecordReason
@@ -264,7 +264,7 @@ def override_changed(block: bpy.types.ID, change: OverrideChange) -> Outcome[Non
 
 def edits(block: bpy.types.ID) -> Outcome[tuple[Descriptor[bpy.types.Property], ...]]:
     """Returns descriptor per override property."""
-    return overriding(block).bind(lambda held: accumulated(Descriptor.resolve(type(block), item.rna_path, bpy.types.Property) for item in held.properties))
+    return overriding(block).bind(lambda held: accumulated(parsed(block, item.rna_path).bind(lambda path: Descriptor.resolve(block, path, bpy.types.Property)) for item in held.properties))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

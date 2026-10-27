@@ -1,4 +1,5 @@
 using System.Numerics;
+using Rasm.UI.Plotting;
 using Rasm.UI.Rendering;
 using SkiaSharp;
 
@@ -6,9 +7,15 @@ namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed record Routed(Mount Mount, Seq<SKRect> Damage, Option<Seq<IO<Unit>>> Effects) {
+    internal Seq<AccessibilityNotice> Notices { get; init; }
+    internal Option<Lifted> Lifted { get; init; }
+
     internal Routed Then(Func<Mount, Routed> next) {
         Routed after = next(Mount);
-        return new(after.Mount, Damage.Concat(after.Damage), Effects.Match(Some: effects => Some(effects + after.Effects.IfNone([])), None: () => after.Effects));
+        return new(after.Mount, Damage.Concat(after.Damage), Effects.Match(Some: effects => Some(effects + after.Effects.IfNone([])), None: () => after.Effects)) {
+            Notices = Notices + after.Notices,
+            Lifted = Lifted | after.Lifted,
+        };
     }
 
     internal Routed Otherwise(Func<Mount, Routed> next) => Effects.IsSome ? this : Then(next);
@@ -22,29 +29,28 @@ internal sealed record Routed(Mount Mount, Seq<SKRect> Damage, Option<Seq<IO<Uni
 internal static class Dispatch {
     private sealed record Scrolls(Gesture.Scroll Scroll, Seq<Adjustment> Scrollers);
 
+    private sealed record Placed(Option<Key> Key, Placement Placement);
+
+    private sealed record Readout(Key Series, Datum Datum, Option<string> Label);
+
     extension(Mount mount) {
         // --- [DISPATCH]
-        internal Routed Dispatched(Input input, Duration now) =>
+        internal Routed Dispatched(Input input) =>
             input.Switch(
-                (Mount: mount, Now: now),
-                pointer: static (held, pointer) => pointer.Stroke.Value.Match(
-                    Some: sample => pointer.Stroke.Phase switch {
-                        { Begins: true } => held.Mount.Uncaptured().Then(next => next.Pointed(Some(sample.At), pointer.Modifiers)).Then(next => next.Pressed(sample, pointer, held.Now)),
-                        { Applies: true } => held.Mount.Pointed(Some(sample.At), pointer.Modifiers).Then(next => next.Released(sample, pointer.Modifiers)),
-                        _ => held.Mount.Pointed(Some(sample.At), pointer.Modifiers).Then(next => next.Moved(sample, pointer.Modifiers, held.Now)),
-                    },
-                    None: () => held.Mount.Cancel()),
-                hover: static (held, hover) => held.Mount.Pointed(hover.At, hover.Modifiers),
-                wheel: static (held, wheel) => held.Mount.Pointed(Some(wheel.At), wheel.Modifiers).Then(mount => mount.Notched(new Gesture.Scroll(wheel.At, wheel.Delta) { Modifiers = wheel.Modifiers })),
-                scroll: static (held, scroll) => held.Mount.Pointed(Some(scroll.At), scroll.Modifiers).Then(mount => mount.Streamed<Gesture.Scroll, Vector2>(scroll.At, scroll.Delta, scroll.Modifiers)),
-                magnify: static (held, magnify) => held.Mount.Pointed(Some(magnify.At), magnify.Modifiers).Then(mount => mount.Streamed<Gesture.Magnify, float>(magnify.At, magnify.Amount, magnify.Modifiers)),
-                rotate: static (held, rotate) => held.Mount.Pointed(Some(rotate.At), rotate.Modifiers).Then(mount => mount.Streamed<Gesture.Rotate, float>(rotate.At, rotate.Radians, rotate.Modifiers)),
+                mount,
+                pointer: static (held, pointer) => held.Stroked(pointer),
+                hover: static (held, hover) => held.Pointed(hover.At, hover.Modifiers),
+                wheel: static (held, wheel) => held.Pointed(Some(wheel.At), wheel.Modifiers).Then(next => next.Notched(new Gesture.Scroll(wheel.At, wheel.Delta) { Modifiers = wheel.Modifiers })),
+                scroll: static (held, scroll) => held.Pointed(Some(scroll.At), scroll.Modifiers).Then(next => next.Streamed<Gesture.Scroll, Vector2>(scroll.At, scroll.Delta, scroll.Modifiers)),
+                magnify: static (held, magnify) => held.Pointed(Some(magnify.At), magnify.Modifiers).Then(next => next.Streamed<Gesture.Magnify, float>(magnify.At, magnify.Amount, magnify.Modifiers)),
+                rotate: static (held, rotate) => held.Pointed(Some(rotate.At), rotate.Modifiers).Then(next => next.Streamed<Gesture.Rotate, float>(rotate.At, rotate.Radians, rotate.Modifiers)),
+                drop: static (held, drop) => held.Pointed(Some(drop.At), drop.Modifiers).Then(next => next.Dropped(drop)),
                 perform: static (held, perform) => perform.Act.SwitchPartially(
-                    (held.Mount, Perform: perform),
+                    (Mount: held, Perform: perform),
                     @default: static (state, _) => state.Mount.Targeted(state.Perform),
                     cancel: static (state, _) => state.Mount.Routing.Capture.IsSome ? state.Mount.Uncaptured() : state.Mount.Targeted(state.Perform)),
-                focused: static (held, _) => held.Mount.Unhandled,
-                blurred: static (held, _) => held.Mount.Cancel());
+                focused: static (held, _) => held.Unhandled,
+                blurred: static (held, _) => held.Cancel());
 
         internal Routed Cancel() => mount.Uncaptured().Then(static next => next.Unlatched());
 
@@ -59,49 +65,69 @@ internal static class Dispatch {
             ReferenceEquals(next.Scene, mount.Scene) ? mount.Unhandled : new Routed(mount with { Scene = next.Scene }, next.Damage, Some(Seq<IO<Unit>>()));
 
         // --- [POINTER]
-        private Routed Pressed(PointerSample sample, Input.Pointer pointer, Duration now) {
+        private Routed Stroked(Input.Pointer pointer) =>
+            pointer.Stroke.Value.Match(
+                Some: sample => pointer.Stroke.Phase.Switch(
+                    (Mount: mount, Pointer: pointer, Sample: sample),
+                    begin: static held => held.Mount.Uncaptured().Then(next => next.Pointed(Some(held.Sample.At), held.Pointer.Modifiers)).Then(next => next.Pressed(held.Sample, held.Pointer)),
+                    preview: static held => held.Mount.Pointed(Some(held.Sample.At), held.Pointer.Modifiers).Then(next => next.Moved(held.Sample, held.Pointer.Modifiers)),
+                    step: static held => held.Mount.Pointed(Some(held.Sample.At), held.Pointer.Modifiers).Then(next => next.Moved(held.Sample, held.Pointer.Modifiers)),
+                    commit: static held => held.Mount.Pointed(Some(held.Sample.At), held.Pointer.Modifiers).Then(next => next.Released(held.Sample, held.Pointer.Modifiers)),
+                    cancel: static held => held.Mount.Cancel()),
+                None: () => mount.Cancel());
+
+        private Routed Pressed(PointerSample sample, Input.Pointer pointer) =>
+            mount.Layers.Filter(static held => held.Layer.Dismissed.IsSome).Last.Filter(held => !mount.Within(held, sample.At)).Match(
+                Some: held => held.Layer.Modal
+                    ? mount.Handled(held.Layer.Dismissed.ToSeq())
+                    : mount.Handled(held.Layer.Dismissed.ToSeq()).Then(next => next.Engaged(sample, pointer)),
+                None: () => mount.Engaged(sample, pointer));
+
+        private Routed Engaged(PointerSample sample, Input.Pointer pointer) {
             Seq<Seq<Key>> hits = mount.Hits(sample.At);
             return (from top in hits.Head from adjuster in mount.Handle(top) select (Handle: top, adjuster.Value)).Match(
                 Some: held => mount.Unhandled.WithRouting(routing => routing with { Capture = new PointerCapture.Handle(held.Handle, sample.At, held.Value) }).Handled(),
                 None: () => {
-                    Gesture.Press press = new(sample.At, None, pointer.Clicks, sample.Pressure) { Modifiers = pointer.Modifiers };
-                    return mount.FirstHandled(mount.Scene.Chain(hits), (next, owner, over) => next.PressBegan(owner, over, press, now));
+                    Gesture.Press press = new(sample.At, None, pointer.Clicks) { Modifiers = pointer.Modifiers, Trail = [sample] };
+                    return mount.FirstHandled(mount.Scene.Chain(hits), (next, owner, over) => next.PressBegan(owner, over, press));
                 });
         }
 
-        private Routed PressBegan(PartOwner owner, Seq<Key> over, Gesture.Press press, Duration now) =>
+        private Routed PressBegan(PartOwner owner, Seq<Key> over, Gesture.Press press) =>
             owner.Part.Began(press, mount.Scene.HitTarget(owner, over)).Switch(
-                (Mount: mount, Owner: owner, Over: over, Press: press, Now: now, Focusing: mount.Focusing(mount.Element(owner.Path, over), traversed: false)),
+                (Mount: mount, Owner: owner, Over: over, Press: press, Focusing: mount.Focusing(mount.Element(owner.Path, over), traversed: false)),
                 ignored: static (held, _) => held.Mount.Unhandled,
                 accepted: static (held, accepted) => held.Mount.Refocused(held.Focusing).Then(next =>
-                    (next with { Routing = next.Routing with { Capture = accepted.Track.Map(track => (PointerCapture)new PointerCapture.Part(held.Owner.Path, held.Over, held.Press, track, held.Now)) } })
+                    (next with { Routing = next.Routing with { Capture = accepted.Track.Map(track => (PointerCapture)new PointerCapture.Part(held.Owner.Path, held.Over, held.Press, track)) } })
                     .Handled(accepted.Effects)));
 
-        private Routed Moved(PointerSample sample, KeyModifiers modifiers, Duration now) =>
+        private Routed Moved(PointerSample sample, KeyModifiers modifiers) =>
             mount.Routing.Capture.Match(
                 Some: capture => capture.Switch(
-                    (Mount: mount, Sample: sample, Modifiers: modifiers, Now: now),
-                    part: static (held, part) => held.Mount.Dragged(part, held.Sample, held.Modifiers, held.Now),
+                    (Mount: mount, Sample: sample, Modifiers: modifiers),
+                    part: static (held, part) => held.Mount.Dragged(part, held.Sample, held.Modifiers),
                     handle: static (held, handle) => held.Mount.ThumbDragged(handle, held.Sample.At)),
                 None: () => mount.Unhandled);
 
-        private Routed Dragged(PointerCapture.Part part, PointerSample sample, KeyModifiers modifiers, Duration now) {
+        private Routed Dragged(PointerCapture.Part part, PointerSample sample, KeyModifiers modifiers) {
             Gesture.Press press = part.Press.Updated(sample, mount.Scene.Slop(part.Owner)) with { Modifiers = modifiers };
-            if (press == part.Press) return mount.Handled([]);
-            float seconds = (float)(now - part.Time).TotalSeconds;
-            Gesture.Press sampled = press with { Velocity = seconds > 0f ? (Vector2)(sample.At - part.Press.At) / seconds : part.Press.Velocity };
-            return mount.Tracked(part with { Press = sampled, Time = now }, part.Track.Moved(sampled));
+            return press == part.Press ? mount.Handled([]) : mount.Tracked(part with { Press = press }, part.Track.Moved(press)).Then(next => next.Exited(press));
         }
+
+        private Routed Exited(Gesture.Press press) =>
+            (from capture in mount.Routing.Capture
+             from part in capture.Switch(part: static part => Some(part), handle: static _ => Option<PointerCapture.Part>.None)
+             from lifting in part.Track.Lifted
+             where !mount.Scene.Covers(press.At)
+             select (mount with { Routing = mount.Routing with { Capture = None } }).Handled(part.Track.Released(press)) with { Lifted = Some(new Lifted(lifting.Payload, press.At)) })
+            .IfNone(mount.Unhandled);
 
         private Routed Released(PointerSample sample, KeyModifiers modifiers) =>
             mount.Routing.Capture.Match(
                 Some: capture => capture.Switch(
                     (Mount: mount with { Routing = mount.Routing with { Capture = None } }, Sample: sample, Modifiers: modifiers),
                     part: static (held, part) => held.Mount.Handled(part.Track.Released(part.Press.Updated(held.Sample, held.Mount.Scene.Slop(part.Owner)) with { Modifiers = held.Modifiers })
-                        + (part.Track.Dragged.IsEmpty
-                            ? []
-                            : held.Mount.Scene.Chain(held.Mount.Hits(held.Sample.At)).Filter(owner => owner.Owner.Path != part.Owner)
-                                .Choose(owner => owner.Owner.Part.Drop(part.Track.Dragged, held.Mount.Scene.HitTarget(owner.Owner, owner.Hit))).Take(1))),
+                        + part.Track.Lifted.Bind(lifting => held.Mount.Received(held.Sample.At, lifting.Keys, Some(part.Owner))).ToSeq()),
                     handle: static (held, handle) => held.Mount.ThumbDragged(handle, held.Sample.At)),
                 None: () => mount.Unhandled);
 
@@ -121,6 +147,42 @@ internal static class Dispatch {
             mount.Routing.Capture.Match(
                 Some: capture => new Routed(mount with { Routing = mount.Routing with { Capture = None } }, [], Some(capture.Switch(part: static part => part.Track.Cancelled(), handle: static _ => Seq<IO<Unit>>()))),
                 None: () => mount.Unhandled);
+
+        // --- [DROP]
+        private Routed Dropped(Input.Drop drop) =>
+            drop.Transfer.Value.Match(
+                Some: transfer => drop.Transfer.Phase.Switch(
+                    (Mount: mount, drop.At, Transfer: transfer),
+                    begin: static held => held.Mount.Probed(held.At, held.Transfer),
+                    preview: static held => held.Mount.Probed(held.At, held.Transfer),
+                    step: static held => held.Mount.Probed(held.At, held.Transfer),
+                    commit: static held => held.Mount.Received(held.At, held.Transfer, None).Match(Some: effect => held.Mount.Handled([effect]), None: () => held.Mount.Unhandled),
+                    cancel: static held => held.Mount.Unhandled),
+                None: () => mount.Unhandled);
+
+        private Routed Probed(SKPoint at, Transfer transfer) => mount.Received(at, transfer, None).IsSome ? mount.Handled([]) : mount.Unhandled;
+
+        private Option<IO<Unit>> Received(SKPoint at, Transfer transfer, Option<Seq<Key>> source) {
+            Option<Seq<Key>> hit = mount.Hits(at).Head;
+            return hit.Map(Scene.AncestorsAndSelf).IfNone([])
+                .Filter(path => source != Some(path))
+                .Choose(path =>
+                    from layout in mount.Scene.Index.Find(path)
+                    from drop in layout.Node.Drop
+                    from placed in mount.Placing(path, hit, at, layout.Node, drop.Nests)
+                    from effect in drop.Accepted(transfer, placed.Key, placed.Placement)
+                    select effect)
+                .Head;
+        }
+
+        private Option<Placed> Placing(Seq<Key> target, Option<Seq<Key>> hit, SKPoint at, Node node, bool nests) {
+            Option<LayoutNode> child = hit.Filter(over => over.Count > target.Count).Bind(over => mount.Scene.Index.Find(over.Take(target.Count + 1)));
+            return from frame in child.Bind(held => mount.Scene.Frame(held.Path)) | mount.Scene.Frame(target)
+                   from placement in node.MainAxis.Match(
+                       Some: axis => Fraction.Validated((axis.Of(at) - axis.Of(frame.Location)) / axis.Of(frame.Size)).ToOption().Map(along => Placement.At(along, nests)),
+                       None: static () => Some(Placement.Inside))
+                   select new Placed(child.Bind(static held => held.Node.Key), placement);
+        }
 
         // --- [STREAM]
         private Routed Notched(Gesture.Scroll notch) =>
@@ -268,15 +330,16 @@ internal static class Dispatch {
             select mount.Changed(mount.Scene.Adjust(adjuster.Owner, _ => value));
 
         private Routed Bubbled(Gesture.Perform gesture) =>
-            mount.Routing.Focus.Match(
+            mount.Walked(gesture.Act).IfNone(() => mount.Routing.Focus.Match(
                     Some: focus => mount.FirstHandled(mount.Scene.Owners(focus.Element).Map(owner => new PartHit(owner, focus.Element)), (next, owner, over) => next.Performed(owner, over, gesture)),
                     None: () => mount.Unhandled)
-                .Otherwise(next => next.Defaulted(gesture.Act));
+                .Otherwise(next => next.Defaulted(gesture.Act)));
 
         private Routed Defaulted(Act act) =>
             act.SwitchPartially(
                 mount,
                 @default: static (held, _) => held.Unhandled,
+                cancel: static (held, _) => held.Layers.Filter(static layer => layer.Layer.Dismissed.IsSome).Last.Match(Some: layer => held.Handled(layer.Layer.Dismissed.ToSeq()), None: () => held.Unhandled),
                 navigate: static (held, navigate) => held.Focused.Bind(focus => held.Adjusting(focus, adjuster => adjuster.Navigated(navigate.Toward))).IfNone(() => held.NavigatedSpatially(navigate.Toward)),
                 next: static (held, _) => held.Traversed(Routing.Traversed(Routing.Stops(held.Tree), held.Focused, 1, held.Host.Placement.Cycles)),
                 previous: static (held, _) => held.Traversed(Routing.Traversed(Routing.Stops(held.Tree), held.Focused, -1, held.Host.Placement.Cycles)));
@@ -298,5 +361,38 @@ internal static class Dispatch {
                 mount,
                 ignored: static (held, _) => held.Unhandled,
                 accepted: static (held, accepted) => held.Handled(accepted.Effects));
+
+        // --- [DATUM]
+        private Option<Routed> Walked(Act act) =>
+            from toward in act.Direction
+            where toward.Along == PhysicalAxis.Horizontal
+            from focus in mount.Focused
+            from layout in mount.Scene.Index.Find(focus)
+            from plot in layout.Node.PlotNode
+            where plot.Crosshair.IsSome
+            let was = mount.Nearest.Filter(near => near.Plot == focus).Map(static near => near.Data).IfNone([])
+            let read = Scene.Preorder(layout).Choose(held =>
+                from series in held.Node.Key
+                from figure in held.Node.Traced
+                from datum in Stepped(figure, was.Find(series), toward)
+                select new Readout(series, datum, held.Node.Accessible.Label))
+            where !read.IsEmpty
+            select (mount with { Nearest = Some(new Nearest(focus, toHashMap(read.Map(static held => (held.Series, held.Datum))))) }).Handled([]) with {
+                Notices = [new AccessibilityNotice.Announced(string.Join($"{mount.Host.Culture.TextInfo.ListSeparator} ", read.Map(held => Spoken(held, plot.Plane, mount))), Live.Polite)],
+            };
+
+        private bool Within(PlacedLayer held, SKPoint at) =>
+            mount.Scene.Frame(held.Layout.Path).Exists(frame => frame.Contains(at)) || held.Layer.Anchor.Bind(mount.Scene.Frame).Exists(frame => frame.Contains(at));
     }
+
+    private static Option<Datum> Stepped(Figure figure, Option<Datum> current, NavigationDirection toward) {
+        int last = figure.Data.Count - 1;
+        int index = toward.Granularity.Distance(1f, float.Max(1f, MathF.Round(last / 10f, MidpointRounding.ToEven))).Match(
+            Some: stride => current.Map(datum => datum.Index + (toward.Sign * (int)stride)).IfNone(toward.Sign > 0 ? 0 : last),
+            None: () => toward.Sign > 0 ? last : 0);
+        return last < 0 ? None : figure.DatumAt(int.Clamp(index, 0, last));
+    }
+
+    private static string Spoken(Readout held, PlotPlane plane, Mount mount) =>
+        held.Label.Match(Some: label => $"{label} {plane.Spoken(held.Datum.Value, mount.Host.Culture)}", None: () => plane.Spoken(held.Datum.Value, mount.Host.Culture));
 }

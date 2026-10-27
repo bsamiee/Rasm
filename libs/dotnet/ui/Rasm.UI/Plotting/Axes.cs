@@ -20,6 +20,8 @@ public sealed partial class AxisRange {
     public float Low => float.Min(From, To);
     public float High => float.Max(From, To);
 
+    public bool Contains(float value) => value >= Low && value <= High;
+
     public Option<AxisRange> Scaled(float from, float to, float factor) =>
         Factor.Validated(factor).ToOption().Bind(scale => Validated(to + ((From - from) * (float)scale), to + ((To - from) * (float)scale)).ToOption());
 
@@ -35,8 +37,6 @@ public sealed record Tick(float Value, bool Major);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Axis {
-    private const string Superscripts = "⁰¹²³⁴⁵⁶⁷⁸⁹⁻";
-
     private Axis(AxisRange domain) => Domain = domain;
 
     public AxisRange Domain { get; init; }
@@ -56,7 +56,7 @@ public abstract partial record Axis {
 
     public virtual float Constrained(float value) => float.Clamp(value, Domain.Low, Domain.High);
 
-    public virtual bool Contains(AxisRange band, float value) => value >= band.Low && value <= band.High;
+    public bool Contains(AxisRange band, float value) => band.Contains(Within(band.Low, value));
 
     public virtual Seq<FractionRange> Spans(AxisRange band) {
         float from = Fraction(band.From);
@@ -66,7 +66,9 @@ public abstract partial record Axis {
 
     public virtual Option<Axis> WithDomain(AxisRange range) => Some(this with { Domain = range });
 
-    public int Decimals => Nice(0.01f * MathF.Abs(Domain.Span)).Map(static step => int.Max(0, (int)MathF.Ceiling(-MathF.Log10(step)))).IfNone(0);
+    public int Decimals => Nice(0.01f * MathF.Abs(Domain.Span)).Map(Places).IfNone(0);
+
+    public static int Places(float step) => int.Max(0, (int)MathF.Ceiling(-MathF.Log10(step)));
 
     public virtual string Spoken(float value, CultureInfo culture) => MathF.Round(value, Decimals, MidpointRounding.ToEven).ToString(culture);
 
@@ -85,6 +87,8 @@ public abstract partial record Axis {
 
     private protected virtual float Wrapped(float fraction) => fraction;
 
+    private protected virtual float Within(float low, float value) => value;
+
     private protected float Ticked(float value, int steps, float least) {
         Seq<float> ticks = Ticks(least).Map(static tick => tick.Value).Strict();
         float at = Fraction(value);
@@ -93,9 +97,10 @@ public abstract partial record Axis {
 
     private protected Seq<Tick> Spaced(float least) =>
         Step(least).Map(step => {
-            float minor = step / 5f;
+            int divisions = MathF.Round(step / float.Exp10(MathF.Floor(MathF.Log10(step))), MidpointRounding.ToEven) is 2f ? 4 : 5;
+            float minor = step / divisions;
             int first = (int)MathF.Ceiling(Domain.Low / minor);
-            return toSeq(Range(first, int.Max(0, (int)MathF.Floor(Domain.High / minor) - first + 1))).Map(multiple => new Tick(multiple * minor, multiple % 5 is 0));
+            return toSeq(Range(first, int.Max(0, (int)MathF.Floor(Domain.High / minor) - first + 1))).Map(multiple => new Tick(multiple * minor, multiple % divisions is 0));
         }).IfNone([]);
 
     private protected float Rounded(float value, int steps, float least) =>
@@ -115,7 +120,9 @@ public abstract partial record Axis {
     }
 
     public sealed record Power(AxisRange Domain) : Axis(Domain) {
-        public Factor Exponent { get; init; } = Factor.Validated(0.5f).ThrowIfFail();
+        private static readonly Factor SquareRoot = Factor.Validated(0.5f).ThrowIfFail();
+
+        public Factor Exponent { get; init; } = SquareRoot;
 
         private float Start => Raised(Domain.From, (float)Exponent);
         private float Depth => Raised(Domain.To, (float)Exponent) - Start;
@@ -152,15 +159,14 @@ public abstract partial record Axis {
         }
 
         public override void Fractions(ReadOnlySpan<float> values, Span<float> into) {
-            float[] magnitude = ArrayPool<float>.Shared.Rent(values.Length);
-            Span<float> held = magnitude.AsSpan(0, values.Length);
+            using IMemoryOwner<float> magnitude = MemoryPool<float>.Shared.Rent(values.Length);
+            Span<float> held = magnitude.Memory.Span[..values.Length];
             TensorPrimitives.Subtract(values, Domain.From, into);
             TensorPrimitives.Multiply(into, MathF.Sign(Domain.Span) / (float)Constant, into);
             TensorPrimitives.Abs(into, held);
             TensorPrimitives.LogP1(held, held);
             TensorPrimitives.CopySign(held, into, into);
             TensorPrimitives.Divide(into, Depth, into);
-            ArrayPool<float>.Shared.Return(magnitude);
         }
 
         public override float Value(float fraction) => Domain.From + (MathF.Sign(Domain.Span) * (float)Constant * MathF.CopySign(float.ExpM1(MathF.Abs(fraction) * Depth), fraction));
@@ -176,6 +182,7 @@ public abstract partial record Axis {
 
     public sealed record Log : Axis {
         private const float Tolerance = 1e-4f;
+        private const string Superscripts = "⁰¹²³⁴⁵⁶⁷⁸⁹⁻";
 
         private Log(AxisRange domain, float @base) : base(domain) => Base = @base;
 
@@ -230,52 +237,56 @@ public abstract partial record Axis {
     public sealed record Time(AxisRange Domain, Instant Origin, DateTimeZone Zone) : Axis(Domain) {
         private static readonly Duration Year = Duration.FromDays(146097d / 400d);
 
-        private static readonly Seq<Rung> Rungs =
-            from calendar in Seq(
-                new Calendar(static local => local.With(TimeAdjusters.TruncateToSecond), static local => local.Second, static count => Period.FromSeconds(count), Duration.FromSeconds(1), "HH:mm:ss", [1, 5, 15, 30]),
-                new Calendar(static local => local.With(TimeAdjusters.TruncateToMinute), static local => local.Minute, static count => Period.FromMinutes(count), Duration.FromMinutes(1), "HH:mm", [1, 5, 15, 30]),
-                new Calendar(static local => local.With(TimeAdjusters.TruncateToHour), static local => local.Hour, static count => Period.FromHours(count), Duration.FromHours(1), "HH:mm", [1, 3, 6, 12]),
-                new Calendar(static local => local.Date.AtMidnight(), static local => local.Day - 1, static count => Period.FromDays(count), Duration.FromDays(1), "MMM d", [1, 2, 7]),
-                new Calendar(static local => local.Date.With(DateAdjusters.StartOfMonth).AtMidnight(), static local => local.Month - 1, static count => Period.FromMonths(count), Year / 12, "MMM uuuu", [1, 3, 6]))
-            from count in calendar.Counts
-            select new Rung(calendar, count);
+        private static readonly Seq<TimeUnit> Units = Seq(
+            new TimeUnit(static (local, _) => local.With(TimeAdjusters.TruncateToSecond), static local => local.Second, static count => Period.FromSeconds(count), Duration.FromSeconds(1), static format => format.LongTimePattern, [1, 5, 15, 30]),
+            new TimeUnit(static (local, _) => local.With(TimeAdjusters.TruncateToMinute), static local => local.Minute, static count => Period.FromMinutes(count), Duration.FromMinutes(1), static format => format.ShortTimePattern, [1, 5, 15, 30]),
+            new TimeUnit(static (local, _) => local.With(TimeAdjusters.TruncateToHour), static local => local.Hour, static count => Period.FromHours(count), Duration.FromHours(1), static format => format.ShortTimePattern, [1, 3, 6, 12]),
+            new TimeUnit(static (local, _) => local.Date.AtMidnight(), static local => local.Day - 1, static count => Period.FromDays(count), Duration.FromDays(1), static format => format.MonthDayPattern, [1, 2]),
+            new TimeUnit(static (local, first) => local.Date.With(DateAdjusters.PreviousOrSame(first)).AtMidnight(), static _ => 0, static count => Period.FromWeeks(count), Duration.FromDays(7), static format => format.MonthDayPattern, [1]),
+            new TimeUnit(static (local, _) => local.Date.With(DateAdjusters.StartOfMonth).AtMidnight(), static local => local.Month - 1, static count => Period.FromMonths(count), Year / 12, static format => format.YearMonthPattern, [1, 3, 6]));
 
-        private static readonly Calendar Years =
-            new(static local => local.Date.With(DateAdjusters.StartOfMonth).With(DateAdjusters.Month(1)).AtMidnight(), static local => local.Year, static count => Period.FromYears(count), Year, "uuuu", []);
+        private static readonly TimeUnit Years =
+            new(static (local, _) => local.Date.With(DateAdjusters.StartOfMonth).With(DateAdjusters.Month(1)).AtMidnight(), static local => local.Year, static count => Period.FromYears(count), Year, static _ => "uuuu", []);
 
-        public override string Spoken(float value, CultureInfo culture) =>
-            LocalDateTimePattern.Create(Laddered(0.01f).Calendar.Pattern, culture).Format((Origin + Duration.FromSeconds(value)).InZone(Zone).LocalDateTime);
+        private static readonly Seq<TimeStep> Steps = from kind in Units from count in kind.Counts select new TimeStep(kind, count);
+
+        public CultureInfo Culture { get; init; } = CultureInfo.InvariantCulture;
+
+        public override string Spoken(float value, CultureInfo culture) => LocalDateTimePattern.Create(Chosen(0.01f).Unit.Pattern(culture.DateTimeFormat), culture).Format(Local(value));
 
         public override Option<float> Step(float least) => None;
 
         public override Seq<Tick> Ticks(float least) {
-            Rung major = Laddered(least);
+            TimeStep major = Chosen(least);
             Seq<float> majors = Placed(major);
             HashSet<float> kept = toHashSet(majors);
-            Seq<float> minors = Rungs.TakeWhile(rung => rung != major).Last.Map(Placed).IfNone([]).Filter(at => !kept.Contains(at));
+            Seq<float> minors = Steps.TakeWhile(step => step != major).Last.Map(Placed).IfNone([]).Filter(at => !kept.Contains(at));
             return toSeq(majors.Map(static at => new Tick(at, Major: true)).Concat(minors.Map(static at => new Tick(at, Major: false))).OrderBy(static tick => tick.Value));
         }
 
         public override float Snapped(float value, int steps, float least) => Constrained(Ticked(value, steps, least));
 
-        private Rung Laddered(float least) {
+        private TimeStep Chosen(float least) {
             Duration need = Duration.FromSeconds(least * MathF.Abs(Domain.Span));
-            return Rungs.Find(rung => rung.Length >= need).IfNone(() => new Rung(Years, (int)MathF.Ceiling(Nice((float)(need / Year)).IfNone(1f))));
+            return Steps.Find(step => step.Length >= need).IfNone(() => new TimeStep(Years, (int)MathF.Ceiling(Nice((float)(need / Year)).IfNone(1f))));
         }
 
-        private Seq<float> Placed(Rung rung) {
-            LocalDateTime start = rung.Calendar.Truncated((Origin + Duration.FromSeconds(Domain.Low)).InZone(Zone).LocalDateTime);
-            return toSeq(SuperEnumerable.Generate(start - rung.Calendar.Steps(rung.Calendar.Field(start) % rung.Count), local => local + rung.Calendar.Steps(rung.Count))
+        private Seq<float> Placed(TimeStep step) {
+            LocalDateTime start = step.Unit.Truncated(Local(Domain.Low), Culture.DateTimeFormat.FirstDayOfWeek.ToIsoDayOfWeek());
+            return toSeq(SuperEnumerable.Generate(start - step.Unit.Stride(step.Unit.Field(start) % step.Count), local => local + step.Unit.Stride(step.Count))
                 .Select(local => (float)(local.InZoneLeniently(Zone).ToInstant() - Origin).TotalSeconds)
                 .SkipWhile(at => at < Domain.Low)
                 .TakeWhile(at => at <= Domain.High)
                 .Distinct());
         }
 
-        private sealed record Calendar(Func<LocalDateTime, LocalDateTime> Truncated, Func<LocalDateTime, int> Field, Func<int, Period> Steps, Duration Length, string Pattern, Seq<int> Counts);
+        private LocalDateTime Local(float seconds) => (Origin + Duration.FromSeconds(seconds)).InZone(Zone).LocalDateTime;
 
-        private sealed record Rung(Calendar Calendar, int Count) {
-            public Duration Length => Calendar.Length * Count;
+        private sealed record TimeUnit(
+            Func<LocalDateTime, IsoDayOfWeek, LocalDateTime> Truncated, Func<LocalDateTime, int> Field, Func<int, Period> Stride, Duration Length, Func<DateTimeFormatInfo, string> Pattern, Seq<int> Counts);
+
+        private sealed record TimeStep(TimeUnit Unit, int Count) {
+            public Duration Length => Unit.Length * Count;
         }
     }
 
@@ -297,6 +308,8 @@ public abstract partial record Axis {
             Step(least).Map(stride => toSeq(Range(0, Labels.Count)).Filter(index => index % (int)stride is 0 && index >= Domain.Low && index <= Domain.High).Map(static index => new Tick(index, Major: true))).IfNone([]);
 
         public override float Snapped(float value, int steps, float least) => Constrained(Indexed(MathF.Round(value, MidpointRounding.ToEven) + (steps * MathF.Sign(Domain.Span))));
+
+        public float Edge(float value, int steps) => int.Clamp((int)MathF.Round(value + 0.5f, MidpointRounding.ToEven) + (steps * MathF.Sign(Domain.Span)), 0, Labels.Count) - 0.5f;
 
         private int Indexed(float value) => int.Clamp((int)value, 0, Labels.Count - 1);
     }
@@ -329,8 +342,6 @@ public abstract partial record Axis {
 
         public override float Constrained(float value) => Value(Unit(value));
 
-        public override bool Contains(AxisRange band, float value) => band.Low + (Wrapped((value - band.Low) / Period) * Period) <= band.High;
-
         public override Seq<FractionRange> Spans(AxisRange band) {
             float from = Fraction(band.From);
             float to = Fraction(band.To);
@@ -353,5 +364,7 @@ public abstract partial record Axis {
             Step(least).Map(step => Constrained(Domain.From + ((MathF.Round((value - Domain.From) / step, MidpointRounding.ToEven) + steps) * step))).IfNone(value);
 
         private protected override float Wrapped(float fraction) => ((fraction % 1f) + 1f) % 1f;
+
+        private protected override float Within(float low, float value) => low + (Wrapped((value - low) / Period) * Period);
     }
 }

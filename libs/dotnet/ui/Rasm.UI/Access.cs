@@ -4,6 +4,7 @@ using Rasm.UI.Plotting;
 using Rasm.UI.Rendering;
 using Rasm.UI.Styling;
 using SkiaSharp;
+using SuperLinq;
 
 namespace Rasm.UI;
 
@@ -31,6 +32,7 @@ public sealed partial class AccessRole {
     public static readonly AccessRole Text = new(composite: false, namedByContents: true);
     public static readonly AccessRole Image = new(composite: false, namedByContents: false);
     public static readonly AccessRole Heading = new(composite: false, namedByContents: true);
+    public static readonly AccessRole Link = new(composite: false, namedByContents: true);
     public static readonly AccessRole Button = new(composite: false, namedByContents: true);
     public static readonly AccessRole MenuButton = new(composite: false, namedByContents: true);
     public static readonly AccessRole PopUpButton = new(composite: false, namedByContents: true);
@@ -52,6 +54,8 @@ public sealed partial class AccessRole {
     public static readonly AccessRole ScrollArea = new(composite: false, namedByContents: false);
     public static readonly AccessRole Status = new(composite: false, namedByContents: false);
     public static readonly AccessRole Dialog = new(composite: false, namedByContents: false);
+    public static readonly AccessRole Popover = new(composite: false, namedByContents: false);
+    public static readonly AccessRole Tooltip = new(composite: false, namedByContents: true);
     public static readonly AccessRole Toolbar = new(composite: true, namedByContents: false);
     public static readonly AccessRole RadioGroup = new(composite: true, namedByContents: false, Some(Radio), Checked);
     public static readonly AccessRole TabList = new(composite: true, namedByContents: false, Some(Tab), Checked);
@@ -93,6 +97,17 @@ public abstract partial record AccessValue {
     }
 }
 
+public sealed record AxisDescription(string Label, Axis Axis) {
+    public Seq<float> Gridlines => Axis.Ticks(0.1f).Filter(static tick => tick.Major).Map(static tick => tick.Value);
+    public Seq<string> Categories => Axis is Axis.Band band ? band.Labels : [];
+}
+
+public sealed record SeriesDescription(string Label, bool Continuous, Seq<Vector2> Values);
+
+public sealed record ChartDescription(string Title, Seq<AxisDescription> Axes, Seq<SeriesDescription> Series) {
+    public Option<string> Summary { get; init; }
+}
+
 public sealed record Accessible : Monoid<Accessible> {
     public static Accessible Empty { get; } = new();
 
@@ -104,6 +119,7 @@ public sealed record Accessible : Monoid<Accessible> {
     public Option<bool> Expanded { get; init; }
     public Option<PhysicalAxis> Orientation { get; init; }
     public Option<Live> Live { get; init; }
+    public Option<ChartDescription> Chart { get; init; }
 
     public Accessible Combine(Accessible rhs) =>
         new() {
@@ -115,6 +131,7 @@ public sealed record Accessible : Monoid<Accessible> {
             Expanded = Expanded | rhs.Expanded,
             Orientation = Orientation | rhs.Orientation,
             Live = Live | rhs.Live,
+            Chart = Chart | rhs.Chart,
         };
 }
 
@@ -146,18 +163,26 @@ public abstract partial record AccessibilityNotice {
     public sealed record Detent : AccessibilityNotice;
 }
 
-public sealed record Output(Seq<SKRect> Damage, Seq<AccessibilityNotice> Notices, Option<IO<Unit>> Effects);
+public sealed record Lifted(IO<Transfer> Transfer, SKPoint At);
+
+public sealed record Output(Seq<SKRect> Damage, Seq<AccessibilityNotice> Notices, Option<IO<Unit>> Effects) {
+    public Option<Lifted> Lifted { get; init; }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Access {
     // --- [PROJECT]
-    internal static Seq<Element> Project(Scene scene, CultureInfo culture) => Projected(scene, culture, scene.Layout, None, Accessible.Empty);
+    internal static Seq<Element> Project(Scene scene, CultureInfo culture) =>
+        scene.Layout.Cons(scene.Layers).Bind(layout => Projected(scene, culture, layout, None, Accessible.Empty));
 
-    public static Seq<Element> Flattened(Seq<Element> tree) => tree.Bind(static element => element.Cons(Flattened(element.Children)));
+    public static Seq<Element> Flattened(Seq<Element> tree) => tree.Bind(static root => toSeq(SuperEnumerable.TraverseDepthFirst(root, static element => element.Children)));
 
     internal static HashMap<Seq<Key>, Element> Indexed(Seq<Element> elements) => toHashMap(Flattened(elements).Map(static element => (element.Id, element)));
 
-    private static Seq<Element> Projected(Scene scene, CultureInfo culture, LayoutNode layout, Option<PartOwner> owner, Accessible lent) {
+    private static Seq<Element> Projected(Scene scene, CultureInfo culture, LayoutNode layout, Option<PartOwner> owner, Accessible lent) =>
+        scene.Inert.Contains(layout.Path) ? [] : Admitted(scene, culture, layout, owner, lent);
+
+    private static Seq<Element> Admitted(Scene scene, CultureInfo culture, LayoutNode layout, Option<PartOwner> owner, Accessible lent) {
         Option<PartOwner> owning = scene.PartAt(layout.Path) | owner;
         Accessible accessible = layout.Node.Accessible.Combine(owning.IsSome ? Accessible.Empty : Implied(scene, layout));
         Accessible lends = accessible.Role.IsSome ? Accessible.Empty : new Accessible { Label = accessible.Label, Help = accessible.Help, Shortcut = accessible.Shortcut }.Combine(lent);
@@ -170,11 +195,12 @@ public static class Access {
     }
 
     private static Accessible Implied(Scene scene, LayoutNode layout) =>
-        layout.Node.SwitchPartially(
+        layout.Node.Link.IsSome ? new Accessible { Role = AccessRole.Link } : layout.Node.SwitchPartially(
             (Scene: scene, Layout: layout),
             @default: static (_, _) => Accessible.Empty,
+            layer: static (_, layer) => new Accessible { Role = layer.Modal ? AccessRole.Dialog : layer.Hover.IsSome ? AccessRole.Tooltip : AccessRole.Popover },
             scroll: static (held, _) => held.Scene.Adjustment(held.Layout.Path)
-                .Map(static adjuster => new Accessible { Role = AccessRole.ScrollArea, Value = new AccessValue.Ranged(adjuster.Value, adjuster.Min, adjuster.Max), Orientation = adjuster.Axis })
+                .Map(static adjuster => new Accessible { Role = AccessRole.ScrollArea, Value = new AccessValue.Ranged(adjuster.Value, 0f, adjuster.Overflow.Max), Orientation = adjuster.Axis })
                 .IfNone(Accessible.Empty),
             text: static (_, text) => new Accessible { Role = AccessRole.Text, Label = text.Content },
             glyph: static (_, glyph) => Pictured(glyph),
@@ -211,7 +237,7 @@ public static class Access {
         };
 
     // --- [ACTIONS]
-    private static readonly Seq<Act> Standard = Seq<Act>(new Act.Press(), new Act.Confirm(), new Act.Cancel(), new Act.ShowMenu(), new Act.Delete(), new Act.Increment(), new Act.Decrement());
+    private static readonly Seq<Act> Standard = Seq<Act>(new Act.Press(), new Act.Confirm(), new Act.Cancel(), new Act.ShowMenu(), new Act.Delete(), new Act.Increment(), new Act.Decrement(), new Act.Reset());
 
     private static Seq<Act> Offered(Scene scene, PartOwner owner, Seq<Key> path) =>
         Standard.Filter(act => owner.Part.Performed(new Gesture.Perform(act), scene.HitTarget(owner, path)).Switch(ignored: static _ => false, accepted: static _ => true));
@@ -232,16 +258,19 @@ public static class Access {
 
     // --- [CHANGES]
     internal static Seq<AccessibilityNotice> Changes(HashMap<Seq<Key>, Element> was, HashMap<Seq<Key>, Element> now) {
-        Seq<(Element Prior, Element Next)> kept = now.Values.ToSeq().Choose(element => was.Find(element.Id).Map(prior => (Prior: prior, Next: element)));
+        Seq<Change<Element>> changes = toSeq(toTrackingHashMap(was.AsIterable()).Snapshot().RemoveRange(was.Keys).AddOrUpdateRange(now.AsIterable()).Changes.Values);
+        Seq<EntryMapped<Element, Element>> kept = changes.Choose(static change => change is EntryMapped<Element, Element> mapped ? Some(mapped) : None);
         return (from held in kept
                 from change in toSeq(ElementChange.Items)
-                where change.Differs(held.Prior, held.Next)
-                select (AccessibilityNotice)new AccessibilityNotice.Changed(held.Next.Id, change))
-            .Concat(toHashSet(was.Keys) != toHashSet(now.Keys) || kept.Exists(static held => held.Prior.Frame != held.Next.Frame) ? Seq<AccessibilityNotice>(new AccessibilityNotice.LayoutChanged()) : [])
-            .Concat(now.Values.ToSeq().Choose(element =>
-                from live in element.Accessible.Live
-                where was.Find(element.Id).ForAll(prior => prior.Accessible.Label != element.Accessible.Label || prior.Accessible.Value != element.Accessible.Value)
-                select (AccessibilityNotice)new AccessibilityNotice.Announced(Spoken(element.Accessible), live)));
+                where change.Differs(held.From, held.To)
+                select (AccessibilityNotice)new AccessibilityNotice.Changed(held.To.Id, change))
+            .Concat(changes.Exists(static change => change.HasAdded || change.HasRemoved) || kept.Exists(static held => held.From.Frame != held.To.Frame) ? Seq<AccessibilityNotice>(new AccessibilityNotice.LayoutChanged()) : [])
+            .Concat(changes.Choose(static change => change switch {
+                EntryAdded<Element> added => Some(added.Value),
+                EntryMapped<Element, Element> mapped when mapped.From.Accessible.Label != mapped.To.Accessible.Label || mapped.From.Accessible.Value != mapped.To.Accessible.Value => Some(mapped.To),
+                _ => Option<Element>.None,
+            })
+                .Choose(static element => element.Accessible.Live.Map(live => (AccessibilityNotice)new AccessibilityNotice.Announced(Spoken(element.Accessible), live))));
     }
 
     private static string Spoken(Accessible accessible) =>

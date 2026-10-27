@@ -16,7 +16,7 @@ import numpy.typing as npt
 from blender.bpy.commands.operators import Answer, answered, Call, Operator
 from blender.bpy.data.ids.ownership import kept
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.conditions import Not, Setting
+from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Applied, Objects, Scenes, Scope, scoped, SCOPES, Selection, Snapshot, ViewLayers
 from blender.bpy.faults import BlenderReason
@@ -139,7 +139,7 @@ class LevelEdit(bpy.types.PropertyGroup):
         soft_max=_RENDER_LEVELS.prop.soft_max,
         default=_RENDER_LEVELS.prop.default,
     )
-    scope: bpy.props.EnumProperty(name="Scope", description="Objects to write", items=SCOPES, default="SELECTION")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    scope: bpy.props.EnumProperty(name="Scope", description="Objects to write", items=SCOPES, default=Selection.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     collection: bpy.props.StringProperty(name="Collection", description="Collection whose objects a collection scope writes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
@@ -248,13 +248,7 @@ def diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types
     """Returns changes from object to state, accumulating independent faults."""
 
     def swapped(block: bpy.types.ID) -> Outcome[tuple[ObjectChange, ...]]:
-        return (
-            Ok(())
-            if item.data == block
-            else Error((Fault(reason=BlenderReason.UNMET, subject=Not(condition=_EDITING).message),))
-            if _EDITING.descriptor.read(item) in _EDITING.accepted
-            else Ok((Swapped(data=block),))
-        )
+        return Ok(()) if item.data == block else (~_EDITING).check(bpy.context, Some(item)).map(lambda _: (Swapped(data=block),))
 
     def parented(block: bpy.types.Object) -> Outcome[tuple[ObjectChange, ...]]:
         return (

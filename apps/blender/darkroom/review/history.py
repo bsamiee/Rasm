@@ -22,7 +22,7 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Answer, answered, Call, Confirm, Done, Empty, Operator, Properties
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.store import IdName
-from blender.bpy.data.rna.descriptors import rooted, Struct
+from blender.bpy.data.rna.descriptors import rna, RnaPath, rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Timer
 from blender.bpy.extension.identity import Identity, Resource
@@ -385,16 +385,16 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def compare_settings(call: Call[Empty]) -> Outcome[Answer]:
             """Report settings changed since stored render."""
 
-            def noted[V](edit: Edit[V]) -> str:
+            def noted[V](edit: Edit[V, RnaPath]) -> str:
                 match edit:
                     case Reparametrized(key=key, before=before, after=after):
-                        return f"{key} changed {', '.join(sorted(before.keys() | after.keys()))}"
+                        return f"{rna(key)} changed {', '.join(sorted(before.keys() | after.keys()))}"
                     case Inserted(key=key):
-                        return f"{key} added"
+                        return f"{rna(key)} added"
                     case Deleted(key=key):
-                        return f"{key} removed"
+                        return f"{rna(key)} removed"
                     case Moved(key=key):
-                        return f"{key} moved"
+                        return f"{rna(key)} moved"
 
             return (
                 self

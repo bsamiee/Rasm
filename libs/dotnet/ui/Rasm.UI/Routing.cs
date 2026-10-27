@@ -22,8 +22,6 @@ internal abstract partial record Gesture {
     internal sealed record Press(SKPoint From, Option<SKPoint> Dragged, int Clicks) : Gesture {
         internal SKPoint At => Dragged.IfNone(From);
         internal Seq<PointerSample> Trail { get; init; }
-        internal Option<Stylus> Stylus => Trail.Last.Bind(static sample => sample.Stylus);
-        internal Vector2 Velocity { get; init; }
         internal Vector2 Scrolled { get; init; }
 
         internal Press Updated(PointerSample sample, float slop) =>
@@ -63,7 +61,7 @@ internal abstract partial record Gesture {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record PointerCapture {
-    internal sealed record Part(Seq<Key> Owner, Seq<Key> Hit, Gesture.Press Press, Track Track, Duration Time) : PointerCapture;
+    internal sealed record Part(Seq<Key> Owner, Seq<Key> Hit, Gesture.Press Press, Track Track) : PointerCapture;
 
     internal sealed record Handle(Seq<Key> Adjuster, SKPoint From, float Start) : PointerCapture;
 }
@@ -127,27 +125,22 @@ internal sealed record Routing {
         !element.Conditions.Contains(Condition.Disabled) && !element.Actions.IsEmpty;
 
     private static Option<float> Distance(SKRect origin, SKRect candidate, NavigationDirection toward) {
-        (float exitLow, float exitHigh) = Spanned(origin, toward.Along, toward.Sign);
-        (float entryLow, float entryHigh) = Spanned(candidate, toward.Along, toward.Sign);
-        (float originLow, float originHigh) = Spanned(origin, toward.Along.Cross, 1);
-        (float candidateLow, float candidateHigh) = Spanned(candidate, toward.Along.Cross, 1);
-        float overlap = float.Min(exitHigh, entryHigh) - float.Max(exitLow, entryLow);
-        float aligned = float.Min(originHigh, candidateHigh) - float.Max(originLow, candidateLow);
-        float gap = float.Max(0f, float.Max(candidateLow - originHigh, originLow - candidateHigh));
-        float extent = originHigh - originLow;
-        return entryLow >= exitHigh || (entryLow >= exitLow && entryHigh > exitHigh && aligned > 0f)
-            ? Some(float.Hypot(float.Max(0f, entryLow - exitHigh), gap)
-                + ((gap + (aligned > 0f ? 0f : extent / 2f)) * toward.Along.Map(horizontal: 30f, vertical: 2f))
-                - (aligned > 0f ? AlignWeight * float.Min(aligned / extent, 1f) : 0f)
+        SKMatrix facing = toward.Along.Map(horizontal: new SKMatrix(toward.Sign, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f), vertical: new SKMatrix(0f, toward.Sign, 0f, 1f, 0f, 0f, 0f, 0f, 1f));
+        SKRect exit = facing.MapRect(origin);
+        SKRect entry = facing.MapRect(candidate);
+        float overlap = float.Min(exit.Right, entry.Right) - float.Max(exit.Left, entry.Left);
+        float aligned = float.Min(exit.Bottom, entry.Bottom) - float.Max(exit.Top, entry.Top);
+        float gap = float.Max(0f, float.Max(entry.Top - exit.Bottom, exit.Top - entry.Bottom));
+        return entry.Left >= exit.Right || (entry.Left >= exit.Left && entry.Right > exit.Right && aligned > 0f)
+            ? Some(float.Hypot(float.Max(0f, entry.Left - exit.Right), gap)
+                + ((gap + (aligned > 0f ? 0f : exit.Height / 2f)) * toward.Along.Map(horizontal: 30f, vertical: 2f))
+                - (aligned > 0f ? AlignWeight * float.Min(aligned / exit.Height, 1f) : 0f)
                 - (overlap > 0f && aligned > 0f ? MathF.Sqrt(overlap * aligned) : 0f))
             : None;
     }
-
-    private static FractionRange Spanned(SKRect frame, PhysicalAxis along, int sign) {
-        FractionRange span = new(along.Of(frame.Location), along.Of(new SKPoint(frame.Right, frame.Bottom)));
-        return sign > 0 ? span : new FractionRange(-span.High, -span.Low);
-    }
 }
+
+internal sealed record Lifting(Transfer.Keys Keys, IO<Transfer> Payload);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record Reply {
@@ -162,7 +155,7 @@ internal sealed record Track(Func<Gesture, Reply> Moved, Func<Gesture, Seq<IO<Un
     internal CursorShape Cursor { get; init; } = CursorShape.Default;
     internal Option<Vector2> Detent { get; init; }
     internal Option<Figure> Preview { get; init; }
-    internal Option<IO<Transfer>> Lifted { get; init; }
+    internal Option<Lifting> Lifted { get; init; }
 }
 
 internal sealed record Receiver<TState>(Func<TState, TState, bool> Same, Func<Edit<TState>, Option<IO<Unit>>> Emit) where TState : notnull {
@@ -177,7 +170,7 @@ internal sealed record Session<TState>(TState Start, Seq<Receiver<TState>> Recei
     internal Option<CursorShape> Dragging { get; init; }
     internal Func<TState, Option<Vector2>> Detent { get; init; } = static _ => None;
     internal Func<TState, Option<Figure>> Preview { get; init; } = static _ => None;
-    internal Func<TState, Option<IO<Transfer>>> Lifted { get; init; } = static _ => None;
+    internal Func<TState, Option<Lifting>> Lifted { get; init; } = static _ => None;
 
     // --- [EMIT]
     internal Reply Began(Gesture first) =>

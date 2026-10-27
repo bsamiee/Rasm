@@ -13,7 +13,7 @@ import msgspec
 import numpy as np
 
 from blender.bpy.commands.operators import Answer, answered, Call, Empty, Operator
-from blender.bpy.data.rna.conditions import AllOf, Count, Setting
+from blender.bpy.data.rna.conditions import Count, Setting
 from blender.bpy.data.rna.descriptors import assigned, Descriptor
 from blender.bpy.data.rna.snapshots import Endpoints, Snapshot
 from blender.bpy.extension.events import Handler
@@ -374,7 +374,7 @@ class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
     camera: ClassVar[Setting] = Setting(descriptor=Descriptor.declared(bpy.types.RegionView3D, "view_perspective", bpy.types.EnumProperty), accepted=("CAMERA",))
     camera_bordering: ClassVar[Operator[Empty]] = Operator(form=Empty, run=camera_border, condition=Some(camera))
     selection_bordering: ClassVar[Operator[Empty]] = Operator(
-        form=Empty, run=selection_border, condition=Some(AllOf(conditions=(camera, Count(collection=Descriptor.declared(bpy.types.ViewLayer, "objects.selected", bpy.types.CollectionProperty)))))
+        form=Empty, run=selection_border, condition=Some(camera & Count(collection=Descriptor.declared(bpy.types.ViewLayer, ("objects", "selected"), bpy.types.CollectionProperty)))
     )
 
     def bound(self, identity: Identity) -> Outcome[Framed]:

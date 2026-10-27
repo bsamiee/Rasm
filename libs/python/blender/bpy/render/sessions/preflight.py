@@ -5,7 +5,10 @@ import functools
 from functools import partial
 from itertools import groupby, starmap
 from math import prod
-from typing import ClassVar, Final
+import os
+from pathlib import Path
+import shutil
+from typing import ClassVar, Final, override
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -17,7 +20,7 @@ from blender.bpy.commands.operators import Answer, Call, Done, Empty, InvokePopu
 from blender.bpy.data.ids.evaluation import evaluated, Instance
 from blender.bpy.data.ids.store import resolved
 from blender.bpy.data.rna import conditions
-from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.data.rna.descriptors import definition, Descriptor, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
@@ -28,6 +31,7 @@ from blender.bpy.render.outputs.paths import OutputPath, Pathed
 from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.records.faults import accumulated, Fault, Outcome, paired
+from blender.records.stores import existing
 from blender.rendering.batch.processes import detached
 from blender.rendering.batch.queue import Bound, Fixed, Frames, JobCamera
 from blender.rendering.outputs.naming import Count, Number, Output, Slot, Word
@@ -60,6 +64,27 @@ class Unvaried(msgspec.Struct, frozen=True, kw_only=True):
     def message(self) -> str:
         """Requirement text."""
         return f"Requires {{{self.field}}} in output template to name one file per {self.field}"
+
+
+class _Folder(conditions.Condition, frozen=True, kw_only=True):
+    """Writable output folder of the scene frame path with enough free space."""
+
+    least: int
+
+    @override
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
+        return (
+            Option
+            .of_optional(context.scene)
+            .map(lambda scene: existing(Path(scene.render.frame_path())))
+            .filter(lambda folder: os.access(folder, os.W_OK) and shutil.disk_usage(folder).free >= self.least)
+            .is_some()
+        )
+
+    @property
+    @override
+    def message(self) -> str:
+        return f"Requires writable {definition(bpy.types.RenderSettings).properties['filepath'].name} folder with {self.least // 2**20} MiB free"
 
 
 class Measure(msgspec.Struct, frozen=True, kw_only=True):
@@ -99,16 +124,14 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [CONDITIONS]
 
-    condition: ClassVar[conditions.AllOf] = conditions.AllOf(
-        conditions=(
-            Pathed.unsaved,
-            conditions.Count(
-                collection=Descriptor.declared(bpy.types.Scene, "view_layers", bpy.types.CollectionProperty),
-                where=Some(conditions.Setting(descriptor=Descriptor.declared(bpy.types.ViewLayer, "use", bpy.types.BoolProperty))),
-            ),
-            conditions.Folder(path=Descriptor.declared(bpy.types.Scene, "render.filepath", bpy.types.StringProperty), least=0),
-            conditions.Job(kind="RENDER"),
+    condition: ClassVar[conditions.AllOf] = (
+        Pathed.unsaved
+        & conditions.Count(
+            collection=Descriptor.declared(bpy.types.Scene, "view_layers", bpy.types.CollectionProperty),
+            where=Some(conditions.Setting(descriptor=Descriptor.declared(bpy.types.ViewLayer, "use", bpy.types.BoolProperty))),
         )
+        & _Folder(least=0)
+        & conditions.Job(kind="RENDER")
     )
 
     # --- [COMMANDS]

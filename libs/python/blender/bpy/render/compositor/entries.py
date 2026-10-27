@@ -20,7 +20,7 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Open, Operator, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.conditions import check, Condition, Setting
+from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, rna, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, startup, Subscription, updated
@@ -697,7 +697,8 @@ def capturing(
         for entry in suffix:
             scope.callback(setattr, entry, "enable_for_render", entry.enable_for_render)
         yield (
-            check(composites, bpy.context, Some(scene))
+            composites
+            .check(bpy.context, Some(scene))
             .bind(lambda _: accumulated(written(entry, "enable_for_render", False) for entry in suffix))
             .bind(lambda _: NodeGroup.built("input_capture", "Input Capture", face, {Shell.result: group_input(Shell.image, "RGBA").keeping(*output)}, bpy.types.CompositorNodeTree))
             .map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER))
@@ -709,7 +710,7 @@ def capturing(
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 NAME: Final = Descriptor.declared(bpy.types.SceneCompositorEffect, "name", bpy.types.StringProperty)
-composites: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, "render.use_compositing", bpy.types.BoolProperty))
+composites: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, ("render", "use_compositing"), bpy.types.BoolProperty))
 EXECUTING: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
 
 # --- [EXPORTS] --------------------------------------------------------------------------

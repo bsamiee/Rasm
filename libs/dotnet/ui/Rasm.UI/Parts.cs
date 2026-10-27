@@ -44,8 +44,7 @@ public abstract partial record Part {
             layout,
             @default: static (_, _) => Option<Seq<Key>>.None,
             pad: static (held, pad) => pad.Handles.Revealed(held),
-            choice: static (held, choice) => choice.Value.Lead.Bind(lead => choice.Tiles(held).Find(tile => tile.Key == lead).Map(static tile => tile.Layout.Path)
-                | held.Node.Windowed.Filter(lazy => lazy.Items.Exists(item => item == lead)).Map(_ => held.Path.Add(lead))));
+            choice: static (held, choice) => choice.Value.Lead.Bind(lead => choice.Paths(held, [lead]).Head));
 
     internal Seq<IO<Unit>> Watched(Option<HoverState> before, HoverState after) =>
         SwitchPartially(
@@ -161,7 +160,9 @@ public abstract partial record Part {
             new(new State(Value, Items), Receivers, Reorder.IsSome ? CursorShape.Grab : CursorShape.Default) {
                 Step = (start, gesture) => gesture is Gesture.Press press ? Some(Pressed(start, key, press, aim)) : None,
                 Dragging = Reorder.Map(static _ => CursorShape.Grabbing),
-                Lifted = state => aim.Layout.Node.Lift.Map(lift => lift.Payload(Moving(state.Value, key))),
+                Lifted = state => aim.Layout.Node.Lift.Map(lift => Moving(state.Value, key) switch {
+                    var moving => new Lifting(new Transfer.Keys(Paths(aim.Layout, moving)), lift.Payload(moving)),
+                }),
             };
 
         private State Pressed(State start, Key key, Gesture.Press press, HitTarget aim) =>
@@ -195,6 +196,11 @@ public abstract partial record Part {
 
         internal Seq<TileNode> Tiles(LayoutNode layout) => Tiles(layout, toHashSet(Items));
 
+        internal Seq<Seq<Key>> Paths(LayoutNode layout, Seq<Key> keys) {
+            HashMap<Key, Seq<Key>> tiles = toHashMap(Tiles(layout).Map(static tile => (tile.Key, tile.Layout.Path)));
+            return keys.Choose(key => tiles.Find(key) | layout.Node.Windowed.Filter(lazy => lazy.Items.Exists(item => item == key)).Map(_ => layout.Path.Add(key)));
+        }
+
         private Seq<Candidate<Key>> Framed(HitTarget aim) => Tiles(aim.Layout).Choose(tile => aim.Scene.Frame(tile.Layout.Path).Map(frame => new Candidate<Key>(tile.Key, frame))).Strict();
 
         private Seq<Key> Moving(Selection selection, Key key) => selection.Holds(key) ? Items.Filter(selection.Holds) : [key];
@@ -221,9 +227,7 @@ public abstract partial record Part {
 
         private HashSet<Key> Seen(HoverState sight) =>
             toHashSet(sight.Layout.Node.Windowed.Match(
-                Some: lazy => (from frame in sight.Scene.Frame(sight.Layout.Path)
-                               from shown in sight.Scene.Visible(sight.Layout.Path)
-                               select Layouts.Visible(sight.Layout, lazy, lazy.Axis.Of(shown.Location - frame.Location), lazy.Axis.Of(shown.Size))).IfNone([]),
+                Some: lazy => Layouts.Visible(sight.Scene, sight.Layout, lazy),
                 None: () => Tiles(sight.Layout).Filter(tile => sight.InView(tile.Layout.Path)).Map(static tile => tile.Key)));
 
         private static Option<Key> Item(Seq<Key> over, LayoutNode layout, HashSet<Key> members) =>
@@ -304,9 +308,9 @@ public abstract partial record Part {
             frame.Delta(from, to).Bind(travel => start.Shifted(-Free.Fold(Vector2.Zero, (held, along) => along.With(held, along.Of(travel)))));
 
         private Option<PlotPlane> Zoomed(PlotPlane start, Vector2 about, float factor) =>
-            from available in start.Dimensions.Traverse(held => Room(held)).As()
-            let limit = available.Fold(new FractionRange(0f, float.PositiveInfinity), static (held, next) => new FractionRange(float.Max(held.Low, next.Low), float.Min(held.High, next.High)))
-            let held = float.Min(float.Max(factor, limit.Low), limit.High)
+            from rooms in start.Dimensions.Filter(free => Free.Contains(free.Along)).Traverse(free => Room(free)).As()
+            from room in Limits.Validated(rooms.Fold(0f, static (floor, next) => float.Max(floor, next.Min)), rooms.Fold(float.PositiveInfinity, static (ceiling, next) => float.Min(ceiling, next.Max))).ToOption()
+            let held = room.Clamped(factor)
             from plane in held.CompareTo(1f) is 0 ? Some(start) : start.Scaled(about, about, Free.Fold(Vector2.One, (factors, along) => along.With(factors, held)))
             select plane;
 
@@ -338,12 +342,12 @@ public abstract partial record Part {
                 .Filter(held => (frame with { Plane = held }).Resolves);
 
         // --- [READ]
-        private Option<FractionRange> Room(PlaneAxis held) =>
+        private Option<Limits> Room(PlaneAxis held) =>
             from rest in Rest.Dimension(held.Along)
-            where Free.Contains(held.Along)
             let span = MathF.Abs(held.Axis.Domain.Span)
             let ratio = span / MathF.Abs(rest.Domain.Span)
-            select new FractionRange(Magnification.Min / ratio, float.Min(Magnification.Max / ratio, Bounds.Bind(bounds => bounds.Dimension(held.Along)).Map(bound => MathF.Abs(bound.Domain.Span) / span).IfNone(float.PositiveInfinity)));
+            from room in Limits.Validated(Magnification.Min / ratio, float.Min(Magnification.Max / ratio, Bounds.Bind(bounds => bounds.Dimension(held.Along)).Map(bound => MathF.Abs(bound.Domain.Span) / span).IfNone(float.PositiveInfinity))).ToOption()
+            select room;
 
         private static float Midpoint(AxisRange range) => (range.From + range.To) / 2f;
 
@@ -354,7 +358,7 @@ public abstract partial record Part {
         }
     }
 
-    public sealed record Trace(Func<Edit<Seq<PointerSample>>, IO<Unit>> Edited) : Part {
+    public sealed record Trace(Func<Edit<Seq<TracePoint>>, IO<Unit>> Edited) : Part {
         public bool Closed { get; init; }
 
         internal Reply Begin(Gesture gesture, HitTarget aim) =>
@@ -362,10 +366,10 @@ public abstract partial record Part {
                 Some: frame => gesture.SwitchPartially((Trace: this, Frame: frame), @default: Reply.Ignore, press: static (held, press) => held.Trace.Tracing(held.Frame).Began(press)),
                 None: static () => new Reply.Ignored());
 
-        private Session<Seq<PointerSample>> Tracing(PlotFrame frame) =>
-            new([], [Receiver<Seq<PointerSample>>.Of(static samples => samples, edit => Some(Edited(edit)))], CursorShape.Crosshair) {
-                Step = (_, gesture) => gesture is Gesture.Press press ? Some(press.Trail.Choose(sample => frame.At(sample.At).Map(at => sample with { At = at }))) : None,
-                Released = samples => Closed && samples is [var first, _, _, ..] ? samples.Add(first) : samples,
+        private Session<Seq<TracePoint>> Tracing(PlotFrame frame) =>
+            new([], [Receiver<Seq<TracePoint>>.Of(static points => points, edit => Some(Edited(edit)))], CursorShape.Crosshair) {
+                Step = (_, gesture) => gesture is Gesture.Press press ? Some(press.Trail.Choose(sample => frame.At(sample.At).Map(at => new TracePoint(at, sample.Stylus)))) : None,
+                Released = points => Closed && points is [var first, _, _, ..] ? points.Add(first) : points,
             };
     }
 

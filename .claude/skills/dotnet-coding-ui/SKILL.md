@@ -245,7 +245,7 @@ Unicolour states every color fact at design scale (swatch, palette, theme color,
 - Instances allocate and evaluate representations on first read, one per swatch, style step, or table entry and none per pixel or frame
 - `Blend(backdrop, BlendMode)` composites, `Palette(other, space, count)` returns a ramp
 - `Mix(other, ColourSpace.Oklch, amount, HueSpan)` interpolates one step
-- Interaction ramps are one `Palette` at style time indexed per frame, a `Mix` per frame allocates per hovered ink
+- Interaction ramps are one `Palette` at style time indexed per frame, a `Mix` per frame allocates per hovered color
 - `Contrast(other)` is the WCAG ratio, a legibility floor lifts `Oklch.L` until the ratio holds and keeps hue and chroma
 - Dark appearance derives from `Oklch.L` of the window fill below the window text, a host flag restates it
 - `Difference(reference, DeltaE.Ok)` orders perceptual distance, `Ciede2000` and `Itp` serve print and HDR
@@ -277,7 +277,7 @@ internal static class Swatches {
 
 Text becomes pixels through one measured block per text, sealed style, and width. RichTextKit itemizes, shapes, breaks, lays out, and paints, HarfBuzz shapes a run that needs features or axes, `SKFont` rasterizes:
 - Laid `TextBlock` instances cache per key and paint per frame, a block is device-free and survives a scale change
-- Max-content is `MeasuredWidth` at `MaxWidth = null`, min-content the widest word between `WordBoundaryIndicies` carets, from one unbounded block
+- Max-content is `MeasuredWidth` at `MaxWidth = null`, min-content the widest span between UAX #14 line-break opportunities from ICU4N `BreakIterator.GetLineInstance`, measured as carets on one unbounded block
 - Every `Layout` reshapes every run, the wrapped block replaces the unbounded one when the resolved width differs, none lays out twice at one width
 - `Style.Seal()` fixes a style for sharing across blocks and as a cache key, `StyleManager.FromStyle` dedupes equal styles into one instance
 - `TextPaintOptions` (`Edging`, `Hinting`, `SubpixelPositioning`, `Selection`) derives from surface properties and changes no layout

@@ -63,13 +63,14 @@ public sealed partial class ImageFit {
 public sealed partial class ImageRendering {
     private static readonly SKSamplingOptions Smooth = new(SKFilterMode.Linear, SKMipmapMode.Linear);
     private static readonly SKSamplingOptions Nearest = new(SKFilterMode.Nearest, SKMipmapMode.None);
+    private static readonly SKSamplingOptions Anisotropy = new(maxAniso: 16);
 
     public static readonly ImageRendering Auto = new(Smooth, Smooth);
     public static readonly ImageRendering HighQuality = new(new SKSamplingOptions(SKCubicResampler.Mitchell), Smooth);
     public static readonly ImageRendering CrispEdges = new(Nearest, Nearest);
     public static readonly ImageRendering Pixelated = new(Nearest, Smooth);
     public static readonly ImageRendering Sharp = new(Smooth, new SKSamplingOptions(SKCubicResampler.CatmullRom));
-    public static readonly ImageRendering Anisotropic = new(new SKSamplingOptions(int.MaxValue), new SKSamplingOptions(int.MaxValue));
+    public static readonly ImageRendering Anisotropic = new(Anisotropy, Anisotropy);
 
     private readonly SKSamplingOptions magnified;
     private readonly SKSamplingOptions minified;
@@ -77,18 +78,38 @@ public sealed partial class ImageRendering {
     internal SKSamplingOptions Sampling(float density) => density > 1f ? magnified : minified;
 }
 
-[Union]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ImageSource {
-    public sealed record Still(SKImage Image) : ImageSource;
+    private ImageSource(SKImageInfo info) => Info = info;
 
-    public sealed record Encoded(SKData Data) : ImageSource;
+    public SKImageInfo Info { get; }
+
+    public sealed record Still(SKImage Image) : ImageSource(Image.Info);
+
+    public sealed record Encoded : ImageSource {
+        private Encoded(SKData data, SKCodec codec) : base(Oriented(codec.Info, codec.EncodedOrigin)) => (Data, Origin, FrameCount) = (data, codec.EncodedOrigin, codec.FrameCount);
+
+        public SKData Data { get; }
+        public SKEncodedOrigin Origin { get; }
+        public int FrameCount { get; }
+
+        public static Fin<Encoded> Validated(SKData data) {
+            using SKCodec? codec = SKCodec.Create(data);
+            return codec is { } read
+                ? new Encoded(data, read)
+                : new UIFault(string.Create(CultureInfo.InvariantCulture, $"{nameof(data)}.{nameof(data.Size)} = {data.Size}"), UIReason.Unreadable);
+        }
+
+        private static SKImageInfo Oriented(SKImageInfo info, SKEncodedOrigin origin) =>
+            origin is SKEncodedOrigin.LeftTop or SKEncodedOrigin.RightTop or SKEncodedOrigin.RightBottom or SKEncodedOrigin.LeftBottom ? info.WithSize(info.Height, info.Width) : info;
+    }
 }
 
 [SmartEnum]
 internal sealed partial class Painting {
     public static readonly Painting Frame = new(paints: false, acceptsBackground: true, inherits: false);
     public static readonly Painting Figure = new(paints: true, acceptsBackground: false, inherits: false);
-    public static readonly Painting Ink = new(paints: true, acceptsBackground: true, inherits: true);
+    public static readonly Painting Foreground = new(paints: true, acceptsBackground: true, inherits: true);
     public static readonly Painting Hosted = new(paints: true, acceptsBackground: true, inherits: false);
 
     internal bool Paints { get; }
@@ -204,9 +225,13 @@ public abstract partial record Node {
 
     internal virtual Option<GlyphSource> GlyphArt => None;
 
-    internal virtual Option<SKImage> SourceImage => None;
-
     internal virtual Option<Styled> StyledNode => None;
+
+    internal virtual Option<Plot> PlotNode => None;
+
+    internal virtual Option<Layer> LayerNode => None;
+
+    internal virtual Option<PhysicalAxis> MainAxis => None;
 
     internal float Alpha => StyledNode.Map(static styled => (float)styled.Opacity).IfNone(1f);
 
@@ -221,6 +246,8 @@ public abstract partial record Node {
 
     public sealed record Flex(PhysicalAxis Axis, Seq<Node> Children) : Node(Painting.Frame) {
         public Option<Baseline> Baseline { get; init; }
+
+        internal override Option<PhysicalAxis> MainAxis => Some(Axis);
     }
 
     public sealed record Grid(Tracks Columns, Seq<Seq<Node>> Rows) : Node(Painting.Frame);
@@ -229,6 +256,7 @@ public abstract partial record Node {
         public HashMap<Key, Node> Realized { get; init; }
 
         internal override Option<Lazy> Windowed => Some(this);
+        internal override Option<PhysicalAxis> MainAxis => Some(Axis);
     }
 
     public sealed record Overlay(Node Base, Seq<Node> Above) : Node(Painting.Frame) {
@@ -244,20 +272,29 @@ public abstract partial record Node {
         public Option<Duration> Hover { get; init; }
 
         internal override Option<Node> Inner => Some(Content);
+        internal override Option<Layer> LayerNode => Some(this);
     }
 
-    public sealed record Choice(PhysicalAxis Axis, Seq<Node> Alternatives) : Node(Painting.Frame);
+    public sealed record Choice(PhysicalAxis Axis, Seq<Node> Alternatives) : Node(Painting.Frame) {
+        internal override Option<PhysicalAxis> MainAxis => Some(Axis);
+    }
 
     public sealed record Scroll(PhysicalAxis Axis, Node Content) : Node(Painting.Frame) {
         public Option<UnitPoint> Snap { get; init; }
         public Option<Seq<Key>> Follows { get; init; }
+
+        internal override Option<PhysicalAxis> MainAxis => Some(Axis);
     }
 
     public sealed record Plot(PlotPlane Plane, Seq<Node> Children) : Node(Painting.Frame) {
+        public Seq<Guide> Guides { get; init; }
         public Option<Func<Option<Vector2>, IO<Unit>>> Hovered { get; init; }
+        public Option<Func<Option<Nearest>, IO<Unit>>> Pointed { get; init; }
+        public Option<Func<Nearest, Node>> Crosshair { get; init; }
 
         internal override Option<PlotPlane> Plotted => Some(Plane);
         internal override Option<Func<Option<Vector2>, IO<Unit>>> Hovering => Hovered;
+        internal override Option<Plot> PlotNode => Some(this);
     }
 
     public sealed record Pin(Vector2 At, Node Content) : Node(Painting.Frame) {
@@ -272,7 +309,7 @@ public abstract partial record Node {
         internal override Option<Figure> Traced => Some(Figure);
     }
 
-    public sealed record Text(Seq<Span> Spans) : Node(Painting.Ink) {
+    public sealed record Text(Seq<Span> Spans) : Node(Painting.Foreground) {
         public string Content => string.Concat(Spans.Map(static span => span.Text));
         public Option<int> MaxLines { get; init; }
         public Option<float> MaxHeight { get; init; }
@@ -281,7 +318,7 @@ public abstract partial record Node {
         public Option<TextRange> Selected { get; init; }
     }
 
-    public sealed record Glyph(GlyphSource Art) : Node(Painting.Ink) {
+    public sealed record Glyph(GlyphSource Art) : Node(Painting.Foreground) {
         internal override Option<GlyphSource> GlyphArt => Some(Art);
     }
 
@@ -290,8 +327,7 @@ public abstract partial record Node {
         public float Density { get; init; } = 1f;
         public ImageRendering Rendering { get; init; } = ImageRendering.Auto;
         public Option<DataSeries> Series { get; init; }
-
-        internal override Option<SKImage> SourceImage => Source.Switch(still: static still => Some(still.Image), encoded: static _ => Option<SKImage>.None);
+        public Option<ColorRamp> Scale { get; init; }
     }
 
     public sealed record Slot(SlotKind Kind) : Node(Painting.Hosted);

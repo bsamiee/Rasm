@@ -15,7 +15,7 @@ import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Empty, Operator, Save
 from blender.bpy.data.ids.images import read
-from blender.bpy.data.rna.conditions import AllOf, Job
+from blender.bpy.data.rna.conditions import Job
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
@@ -51,7 +51,7 @@ COMBINED: Final = bpy.types.ViewLayer.bl_rna.properties["use_pass_combined"].nam
 COMPOSITE: Final = "Composite"
 _STILLS: Final = ("RENDER_RESULT", "COMPOSITING")
 _IDLE: Final = Job(kind="RENDER")
-_SAVABLE: Final = AllOf(conditions=(RESULT, _IDLE))
+_SAVABLE: Final = RESULT & _IDLE
 _COMPRESSIONS: Final = MappingProxyType({form.__name__: form for form in typing.get_args(Compressions.__value__)})
 _DEPTHS: Final = tuple((depth.name, depth.name, "", "NONE", depth.value) for depth in Depth)
 SOURCES: Final = tuple(

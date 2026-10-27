@@ -31,7 +31,7 @@ public sealed record TextFace : Monoid<TextFace> {
     public Option<float> Stroked { get; init; }
     public Option<char> Replacement { get; init; }
     public Option<TextDirection> Direction { get; init; }
-    public bool Mono { get; init; }
+    public Option<bool> Mono { get; init; }
 
     public TextFace Combine(TextFace rhs) =>
         new() {
@@ -52,9 +52,11 @@ public sealed record TextFace : Monoid<TextFace> {
             Stroked = rhs.Stroked | Stroked,
             Replacement = rhs.Replacement | Replacement,
             Direction = rhs.Direction | Direction,
-            Mono = Mono || rhs.Mono,
+            Mono = rhs.Mono | Mono,
         };
 }
+
+internal sealed record Variant(Feature Feature, OpenTypeMetricsTag Size, OpenTypeMetricsTag Offset, float Direction);
 
 internal sealed record TextStyle : IStyle {
     public required string FontFamily { get; init; }
@@ -75,32 +77,45 @@ internal sealed record TextStyle : IStyle {
     public TextDirection TextDirection { get; init; }
     public char ReplacementCharacter { get; init; }
     public Seq<Feature> Features { get; init; }
+    public Option<Variant> Variant { get; init; }
     public HashMap<Tag, float> Variations { get; init; }
     public Seq<SKFontPaletteOverride> Palette { get; init; }
-    public Option<SKTypeface> Matched { get; init; }
+    public bool Dark { get; init; }
+    public Option<SKTypeface> Fallback { get; init; }
     public Option<CultureInfo> Language { get; init; }
     public Option<float> Cell { get; init; }
     public Option<float> Stroked { get; init; }
+    public Option<Part> Part { get; init; }
 }
 
-internal sealed class Typeset(TextBlock lines, bool clipped, Func<SKColor, TextBlock> tinted) {
+internal sealed record TextSelection(TextRange Range, SKColor Color);
+
+internal sealed record Setting(Node.Text Text, TextStyle Style, float Width, CultureInfo Culture, Option<TextSelection> Selection);
+
+internal sealed class Typeset(Shaping shaping, Setting setting, TextBlock lines, bool clipped) {
+    private readonly Lazy<Option<float>> capHeight = new(() => toSeq(lines.FontRuns).Head.Bind(run => Typesetting.CapHeight(shaping, run)));
+
+    public Setting Setting { get; } = setting;
     public TextBlock Lines { get; } = lines;
-    public SKSize Size { get; } = new(Widest(lines), lines.MeasuredHeight);
+    public SKSize Size { get; } = new(Typesetting.Widest(lines), lines.MeasuredHeight);
     public bool Truncated { get; } = lines.Truncated || clipped;
-    public Option<float> Baseline { get; } = toSeq(lines.Lines).Head.Map(static line => line.YCoord + line.BaseLine);
-    public Option<float> LastBaseline { get; } = toSeq(lines.Lines).Last.Map(static line => line.YCoord + line.BaseLine);
-    public Option<float> CapHeight => Metrics.Map(static metrics => metrics.CapHeight);
-    public Option<float> XHeight => Metrics.Map(static metrics => metrics.XHeight);
+    public Option<float> CapHeight => capHeight.Value;
 
-    private Option<SKFontMetrics> Metrics { get; } = toSeq(lines.FontRuns).Head.Map(static run => {
-        using SKFont font = new(run.Typeface, run.Style.FontSize);
-        return font.Metrics;
-    });
+    public SKRect Overhang => Lines.MeasuredOverhang switch {
+        var over => over with { Right = float.Max(0f, over.Right + (Lines.MaxWidth ?? Lines.MeasuredWidth) - Size.Width) },
+    };
 
-    public Func<SKColor, TextBlock> Tinted { get; } = tinted;
+    public Option<float> At(Baseline baseline) =>
+        from line in toSeq(Lines.Lines).At(baseline.Line.GetOffset(Lines.Lines.Count))
+        from rise in (float)baseline.Rise switch {
+            0f => Some(0f),
+            var share => CapHeight.Map(cap => cap * share),
+        }
+        select line.YCoord + line.BaseLine - rise;
 
-    internal static float Widest(TextBlock lines) => toSeq(lines.Lines).Fold(0f, static (widest, line) => float.Max(widest, Advance(line)));
-
-    internal static float Advance(TextLine line) =>
-        toSeq(line.Runs).Filter(static run => run.RunKind is not FontRunKind.TrailingWhitespace).Fold(0f, static (sum, run) => sum + run.Width);
+    public Option<Part> PartAt(SKPoint local) =>
+        Lines.HitTest(local.X, local.Y).OverCodePointIndex switch {
+            < 0 => None,
+            var index => ((TextStyle)Lines.GetStyleAtOffset(index + 1)).Part,
+        };
 }

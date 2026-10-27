@@ -10,7 +10,7 @@ from expression import Some
 import numpy as np
 
 from blender.bpy.commands.operators import Answer, Call, Operator, Pick
-from blender.bpy.data.rna.conditions import AllOf, check, Setting
+from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderReason
@@ -41,7 +41,8 @@ def picking[P: Picked](key: Key, cursor: "rna_enums.WindowCursorItems", form: ty
     @wraps(taken)
     def ran(call: Call[P]) -> Outcome[Answer]:
         return (
-            check(AllOf(conditions=(shown, WINDOW)), call.context)
+            (shown & WINDOW)
+            .check(call.context)
             .bind(lambda _: paired(rooted(bpy.types.SpaceImageEditor, call.context), call.root(bpy.types.Region)))
             .bind(partial(_regioned, call.properties))
             .bind(lambda region: taken(call, region))

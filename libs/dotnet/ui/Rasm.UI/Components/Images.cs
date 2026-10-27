@@ -42,6 +42,16 @@ public abstract partial record ImageTool {
 
     internal abstract Node Drawn(PlotPlane view, Vector2 extent);
 
+    private static Option<PlotPlane> Framed(SKRect pixels) =>
+        (AxisRange.Validated(pixels.Left, pixels.Right), AxisRange.Validated(pixels.Bottom, pixels.Top))
+            .Apply(static (across, down) => (PlotPlane)new PlotPlane.Cartesian(new Axis.Linear(across), new Axis.Linear(down))).As().ToOption();
+
+    internal static Option<Node> Clipped(SKRect pixels, Vector2 extent, Node image) =>
+        Framed(pixels).Map(plane => (Node)new Node.Pin(new Vector2(pixels.Left, pixels.Top), new Node.Plot(plane, [new Node.Pin(Vector2.Zero, image) { Span = extent }]) {
+            Width = Sizing.Grow.Unit,
+            Height = Sizing.Grow.Unit,
+        }) { Span = new Vector2(pixels.Width, pixels.Height) });
+
     public sealed record Region(ImageRegion Value, Option<float> Aspect, Func<Edit<ImageRegion>, IO<Unit>> Edited) : ImageTool {
         internal override Node Drawn(PlotPlane view, Vector2 extent) =>
             new Handles<ImageRegion>(Value, Points<ImageRegion>.Fixed(HandlePositions.Map(anchor => Lens<ImageRegion, Vector2>.New(
@@ -63,43 +73,62 @@ public abstract partial record ImageTool {
             },
                 Edited) { BackgroundCursor = CursorShape.Crosshair }.Drawn(view, []);
     }
+
+    public sealed record Compare(Content<ImageSource> Before, float At, Func<Edit<float>, IO<Unit>> Edited) : ImageTool {
+        internal override Node Drawn(PlotPlane view, Vector2 extent) =>
+            new Handles<float>(At, Points<float>.Fixed([Lens<float, Vector2>.New(at => new Vector2(at, extent.Y / 2f), to => _ => float.Clamp(to.X, 0f, extent.X))]), Edited)
+                .Drawn(view, Before.Current.Bind(source => Clipped(new SKRect(0f, 0f, At, extent.Y), extent, new Node.Image(source) { Rendering = ImageRendering.Pixelated })).ToSeq()
+                    .Add(new Node.Mark(new Figure.Rule(new Vector2(At, 0f), new Vector2(At, extent.Y))) { Role = Role.Needle }));
+    }
 }
 
-public sealed record ImagePlot(Content<SKImage> Image, SKSizeI Pixels, PlotPlane View, Func<Edit<PlotPlane>, IO<Unit>> Navigated) {
+public sealed record Loupe(SKRect Lens, Filter.Magnify Magnify);
+
+public sealed record ImagePlot(Content<ImageSource> Image, PlotPlane View, Func<Edit<PlotPlane>, IO<Unit>> Navigated) {
     public Option<string> Caption { get; init; }
     public Seq<Node> Overlays { get; init; }
     public Option<ImageTool> Tool { get; init; }
+    public Option<Loupe> Loupe { get; init; }
+    public Option<ColorRamp> Scale { get; init; }
     public Option<Func<Option<Vector2>, IO<Unit>>> Hovered { get; init; }
 
     public Option<PlotPlane> Fit =>
-        (AxisRange.Validated(0f, Pixels.Width), AxisRange.Validated(Pixels.Height, 0f))
-            .Apply(static (across, down) => (PlotPlane)new PlotPlane.Cartesian(new Axis.Linear(across), new Axis.Linear(down))).As().ToOption();
+        Image.Current.Bind(static source => (AxisRange.Validated(0f, source.Info.Width), AxisRange.Validated(source.Info.Height, 0f))
+            .Apply(static (across, down) => (PlotPlane)new PlotPlane.Cartesian(new Axis.Linear(across), new Axis.Linear(down))).As().ToOption());
 
     public Node Drawn =>
         new Node.Overlay(
-            new Node.Plot(View, Image.Current.Map(image => (Node)Covering(new Node.Image(image) { Rendering = ImageRendering.Pixelated })).ToSeq() + Overlays + Tool.Map(tool => tool.Drawn(View, Extent)).ToSeq()) {
+            new Node.Plot(View, Image.Current.ToSeq().Bind(Imaged)) {
                 Part = Fit.Map(rest => (Part)new Part.Viewport(rest, Navigated)),
                 Width = Sizing.Grow.Unit,
-                Aspect = Factor.Validated((float)Pixels.Width / Pixels.Height).ToOption(),
-                Conditions = ImageTile.Conditioned(Image),
+                Aspect = Image.Current.Bind(static source => Factor.Validated((float)source.Info.Width / source.Info.Height).ToOption()),
+                Conditions = Image.Conditions,
                 Hovered = Hovered,
-                Accessible = new Accessible { Role = AccessRole.Image, Label = Caption },
+                Accessible = new Accessible { Role = AccessRole.Image, Label = Caption, Help = Image.Message },
             },
             Caption.Map(static caption => (Node)new Node.Text([caption]) { Role = Role.OverlayCaption }).ToSeq()) {
             Width = Sizing.Grow.Unit,
         };
 
-    public Node.Pin Covering(Node content) => new(Vector2.Zero, content) { Span = Extent };
-
     public Option<PlotPlane> ActualSize(float across) =>
-        View.Dimension(PhysicalAxis.Horizontal)
-            .Bind(axis => View.Scaled(View.Dimensions.Fold(Vector2.Zero, static (center, held) => held.Along.With(center, (held.Axis.Domain.From + held.Axis.Domain.To) / 2f)), across / MathF.Abs(axis.Domain.Span)));
+        View.Dimension(PhysicalAxis.Horizontal).Bind(axis => View.Value(new SKPoint(0.5f, 0.5f)) switch {
+            var center => View.Scaled(center, center, new Vector2(across / MathF.Abs(axis.Domain.Span))),
+        });
 
     public Option<string> Zoom(float across, CultureInfo culture) => View.Dimension(PhysicalAxis.Horizontal).Map(axis => (across / MathF.Abs(axis.Domain.Span)).ToString("P0", culture));
 
     internal Option<IO<Unit>> Navigation(PlotPlane plane) => plane == View ? None : Some(Navigated(Edit.Commit(plane)));
 
-    private Vector2 Extent => new(Pixels.Width, Pixels.Height);
+    private Seq<Node> Imaged(ImageSource source) {
+        Vector2 extent = new(source.Info.Width, source.Info.Height);
+        Node.Image image = new(source) { Rendering = ImageRendering.Pixelated, Scale = Scale };
+        return Seq<Node>(new Node.Pin(Vector2.Zero, image) { Span = extent })
+            + Overlays
+            + Tool.Map(tool => tool.Drawn(View, extent)).ToSeq()
+            + (from loupe in Loupe
+               from lens in ImageTool.Clipped(loupe.Lens, extent, image)
+               select (Node)new Node.Styled(lens with { Role = Role.Ring }) { Sheet = new StyleSheet { Looks = HashMap((Role.Ring, new Look { Filters = Seq<Filter>(loupe.Magnify) })) } }).ToSeq();
+    }
 }
 
 [SmartEnum<string>]
@@ -110,30 +139,28 @@ public sealed partial class ImageOperation {
     [UseDelegateFromConstructor]
     public partial Option<IO<Unit>> Applied(ImagePlot view, float across);
 
-    public Command<TGate, TInvoke>.Run Command<TGate, TInvoke>(string caption, Func<ImageOperation, TGate> enabled, Func<ImageOperation, TInvoke> invoke) where TGate : notnull where TInvoke : notnull =>
-        new(new CommandPresentation(Key, caption), Some(enabled(this)), invoke(this));
+    public Command<TGate, TInvoke>.Run Command<TGate, TInvoke>(string caption, TGate enabled, TInvoke invoke) where TGate : notnull where TInvoke : notnull =>
+        new(new CommandPresentation(Key, caption), Some(enabled), invoke);
 }
 
 public sealed record ImageTile(Content<SKImage> Image) {
+    public Option<IO<Seq<string>>> Files { get; init; }
+    public Option<Func<Seq<string>, IO<Unit>>> Dropped { get; init; }
+
     public Node Drawn =>
         new Node.Overlay(
             new Node.Box { Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit },
-            Image.Current.Map(static image => (Node)new Node.Image(image) { Fit = ImageFit.Contain, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }).ToSeq()) {
+            Image.Current.Map(static image => (Node)new Node.Image(new ImageSource.Still(image)) { Fit = ImageFit.Contain, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }).ToSeq()) {
             Width = Sizing.Grow.Unit,
             Height = Sizing.Grow.Unit,
-            Conditions = Conditioned(Image),
-            Accessible = new Accessible {
-                Role = AccessRole.Image,
-                Help = Image.Switch(
-                    pending: static _ => Option<string>.None,
-                    ready: static _ => Option<string>.None,
-                    empty: static empty => Some(empty.Reason),
-                    failed: static failed => failed.Error.IsExpected ? Some(failed.Error.Message) : None),
-            },
+            Conditions = Image.Conditions,
+            Lift = Files.Map(static files => new Lift(_ => files.Map(static paths => (Transfer)new Transfer.Files(paths)))),
+            Drop = Dropped.Map(static dropped => new Drop((transfer, _, _) => Filed(transfer).Map(dropped))),
+            Accessible = new Accessible { Role = AccessRole.Image, Help = Image.Message },
         };
 
-    internal static HashSet<Condition> Conditioned(Content<SKImage> image) =>
-        image.Map<HashSet<Condition>>(pending: [Condition.Busy], ready: [], empty: [], failed: [Condition.Faulted]);
+    internal static Option<Seq<string>> Filed(Transfer transfer) =>
+        transfer.Switch(keys: static _ => Option<Seq<string>>.None, files: static files => Some(files.Paths), text: static _ => Option<Seq<string>>.None, color: static _ => Option<Seq<string>>.None);
 }
 
 public sealed record Tile<TItem>(Content<SKImage> Content, TItem Item, int Revision, SKSizeI Pixels) where TItem : notnull;
@@ -160,7 +187,10 @@ public sealed record TileCache<TItem>(HashMap<Key, Tile<TItem>> Tiles, int Revis
 
     private Seq<SKImage> Images => toSeq(Tiles.Values).Bind(static tile => tile.Content.Current.ToSeq());
 
-    private RetainedTiles<TItem> Released(TileCache<TItem> next) => new(next, Images.Filter(image => !next.Images.Exists(kept => ReferenceEquals(kept, image))));
+    private RetainedTiles<TItem> Released(TileCache<TItem> next) {
+        HashSet<SKImage> kept = toHashSet(next.Images);
+        return new(next, Images.Filter(image => !kept.Contains(image)));
+    }
 }
 
 public sealed record KeyedItem<TItem>(Key Key, TItem Item) where TItem : notnull;
@@ -185,8 +215,10 @@ public sealed record Gallery<TItem>(Seq<TItem> Items, Func<TItem, Key> Keyed, Fu
     public Func<TItem, Seq<Node>> Overlay { get; init; } = static _ => [];
     public Option<TileResize> Resize { get; init; }
     public Option<string> Empty { get; init; }
+    public Option<Func<TItem, Option<string>>> File { get; init; }
+    public Option<Func<Seq<string>, Option<Key>, Placement, IO<Unit>>> Dropped { get; init; }
 
-    private float TileSide => float.Clamp(TileSize.IfNone(96f), TileSizes.Low, TileSizes.High);
+    private float TileSide => float.Clamp(TileSize.IfNone(() => (TileSizes.Low + TileSizes.High) / 2f), TileSizes.Low, TileSizes.High);
 
     private Seq<KeyedItem<TItem>> Shown => Items.Map(item => new KeyedItem<TItem>(Keyed(item), item)).Filter(entry => Realized.Contains(entry.Key));
 
@@ -194,12 +226,14 @@ public sealed record Gallery<TItem>(Seq<TItem> Items, Func<TItem, Key> Keyed, Fu
         get {
             Seq<(Key Key, TItem Item, int Number)> entries = Items.Map((item, index) => (Key: Keyed(item), Item: item, Number: index + 1)).Strict();
             HashMap<Key, (Key Key, TItem Item, int Number)> keyed = toHashMap(entries.Map(static entry => (entry.Key, entry)));
-            return new Node.Flex(PhysicalAxis.Vertical, ResizeSlider.ToSeq().Add(Empty.Filter(_ => Items.IsEmpty).Match(
+            return new Node.Flex(PhysicalAxis.Vertical, Resized.ToSeq().Add(Empty.Filter(_ => Items.IsEmpty).Match(
                 Some: static empty => (Node)new Node.Text([empty]) { Role = Role.Label, Align = UnitPoint.Center, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit },
                 None: () => new Node.Scroll(PhysicalAxis.Vertical, Choice(entries.Map(static entry => entry.Key)).Drawn(
                     key => TileNode(keyed[key].Item, key, keyed[key].Number), PhysicalAxis.Vertical, new Tracks.AutoFill(new Sizing.Fixed(TileSide)), TileSide / (float)Aspect, Realized) with {
                     Width = Sizing.Grow.Unit,
                     Height = Sizing.Grow.Unit,
+                    Lift = File.Map(file => new Lift(keys => IO.pure<Transfer>(new Transfer.Files(keys.Choose(key => keyed.Find(key)).Choose(entry => file(entry.Item)))))),
+                    Drop = Dropped.Map(static dropped => new Drop((transfer, target, placement) => ImageTile.Filed(transfer).Map(paths => dropped(paths, target, placement)))),
                 }) {
                     Width = Sizing.Grow.Unit,
                     Height = Sizing.Grow.Unit,
@@ -227,18 +261,12 @@ public sealed record Gallery<TItem>(Seq<TItem> Items, Func<TItem, Key> Keyed, Fu
         ]) {
             Width = Sizing.Grow.Unit,
             Height = Sizing.Grow.Unit,
-            Conditions = Current == Some(key) ? [Condition.Modified] : [],
+            Conditions = Current == Some(key) ? [Condition.Selected] : [],
             Accessible = new Accessible { Label = Label(item), Shortcut = Numbered && number <= 9 ? Some(number.ToString(CultureInfo.InvariantCulture)) : None },
         };
 
-    private Option<Node> ResizeSlider =>
-        Resize.Map(resized => {
-            PlotPlane.Track plane = new(PhysicalAxis.Horizontal, new Axis.Linear(TileSizes));
-            return new Handles<float>(TileSide, Points<float>.Scalar(plane, Lens.identity<float>()), resized.Edited) { Decimals = 0 }
-                .Drawn(plane, [new Node.Box { Role = Role.Track, Width = Sizing.Grow.Unit }]) with {
-                Width = Sizing.Grow.Unit,
-                Height = Sizing.Fit.Content,
-                Accessible = new Accessible { Label = resized.Label },
-            };
+    private Option<Node> Resized =>
+        Resize.Map(resize => new Slider(PhysicalAxis.Horizontal, TileSizes, TileSide, resize.Edited) { Decimals = 0 }.Drawn switch {
+            var slider => slider with { Accessible = slider.Accessible.Combine(new Accessible { Label = resize.Label }) },
         });
 }

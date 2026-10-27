@@ -8,7 +8,7 @@ import bpy
 from expression import Ok, Option, Some
 import msgspec
 
-from blender.bpy.data.rna.conditions import check, Present
+from blender.bpy.data.rna.conditions import Present
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes import textures
@@ -250,9 +250,9 @@ def _source_checked[R: LightRays | LensFlare](identity: Identity, scene: bpy.typ
 
     def bound(held: bpy.types.SceneCompositorEffect, kind: Value, reading: Value) -> Outcome[None]:
         present = entry_input(identity, held, "source_object").bind(
-            lambda socket: Descriptor.resolve(socket, "value", bpy.types.PointerProperty).bind(lambda descriptor: check(Present(descriptor=descriptor), bpy.context, Some(socket)))
+            lambda socket: Descriptor.resolve(socket, "value", bpy.types.PointerProperty).bind(lambda descriptor: Present(descriptor=descriptor).check(bpy.context, Some(socket)))
         )
-        camera = check(camera_type(*(("PERSP",) if reading == "Direction" else ("PERSP", "ORTHO"))), bpy.context, Some(scene))
+        camera = camera_type(*(("PERSP",) if reading == "Direction" else ("PERSP", "ORTHO"))).check(bpy.context, Some(scene))
         return paired(present, camera).map(lambda _: None) if kind == "Object" else Ok(None)
 
     return entry.map(lambda held: paired(valued(held, "source_kind"), valued(held, "source_reading")).bind(lambda pair: bound(held, *pair))).default_value(Ok(None))

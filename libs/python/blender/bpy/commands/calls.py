@@ -55,9 +55,7 @@ class Stock(msgspec.Struct, frozen=True, kw_only=True):
                 .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, identifier, member=key))
             )
 
-        kind: Outcome[bpy.types.Struct] = catch(self.operator.get_rna_type, exception=KeyError)().map_error(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            lambda _: (Fault(reason=BlenderReason.ABSENT, subject="bpy.ops", member=identifier),)
-        )
+        kind: Outcome[bpy.types.Struct] = catch(self.operator.get_rna_type, exception=KeyError)().map_error(partial(Fault.of, BlenderReason.ABSENT, "bpy.ops", member=identifier))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         return (
             Result[bpy.types.Struct, Faults]
             .bind(kind, lambda found: accumulated(member(found, key) for key in self.values))
@@ -178,15 +176,13 @@ def called(
     def refused(error: Exception) -> Faults:
         match error:
             case AttributeError():
-                return (Fault(reason=BlenderReason.ABSENT, subject="bpy.ops", member=identifier),)
+                return Fault.of(BlenderReason.ABSENT, "bpy.ops", error, member=identifier)
             case _:
-                return (Fault(reason=BlenderReason.FAILED, subject=request, cause=error),)
+                return Fault.of(BlenderReason.FAILED, request, error)
 
     ran: Result[frozenset[rna_enums.OperatorReturnItems], Exception] = catch(run, exception=(AttributeError, RuntimeError))()  # type: ignore[call-overload]  # ty: ignore[invalid-argument-type]
-    return ran.map_error(refused).bind(
-        lambda answer: (
-            Ok(answer) if not answer.isdisjoint(("FINISHED", "RUNNING_MODAL", "INTERFACE")) else Error((Fault(reason=BlenderReason.ANSWERED, subject=request, member=", ".join(sorted(answer))),))
-        )
+    return ran.map_error(refused).filter_with(
+        lambda answer: not answer.isdisjoint(("FINISHED", "RUNNING_MODAL", "INTERFACE")), lambda answer: Fault.of(BlenderReason.ANSWERED, request, member=", ".join(sorted(answer)))
     )
 
 
@@ -207,7 +203,7 @@ def opened(popup: Popup, context: bpy.types.Context, event: bpy.types.Event, ide
         case DrawnPopover(draw=draw, units=units, anchored=anchored), bpy.types.WindowManager() as manager:
             manager.popover(partial(painted, draw), ui_units_x=units, from_active_button=anchored)
         case _:
-            return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(context), member="window_manager"),))
+            return Error(Fault.of(BlenderReason.ABSENT, repr(context), member="window_manager"))
     return Ok(None)
 
 

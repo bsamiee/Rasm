@@ -17,7 +17,7 @@ import PyOpenColorIO
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.animation import Animation, Driven, Keys
-from blender.bpy.data.rna.conditions import check, Condition
+from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
@@ -410,7 +410,7 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True, kw_only=True):
     ) -> Outcome[Option[PassRequest]]:
         """Checks conditions and scene checks, then makes the pass request of the context view layer."""
         reading = source.default_value(scene)
-        return paired(accumulated(check(part.condition(record), bpy.context, Some(reading)) for part in self.found(Conditions)), self.checked(identity, reading, entry, record, context)).bind(
+        return paired(accumulated(part.condition(record).check(bpy.context, Some(reading)) for part in self.found(Conditions)), self.checked(identity, reading, entry, record, context)).bind(
             lambda _: (
                 self
                 .first(Requests)

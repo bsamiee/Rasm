@@ -201,7 +201,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 for key in self.tree.owners
                 if key
                 for descriptor in Descriptor.resolve(owner, key, bpy.types.Property).to_option().to_list()
-                if isinstance(descriptor.prop, bpy.types.PointerProperty | bpy.types.CollectionProperty)
+                if isinstance(descriptor.prop, bpy.types.CollectionProperty) or _curve(descriptor.prop)
             ),
             *(
                 descriptor
@@ -671,8 +671,8 @@ def _walked[W](owner: Native, source: Native, walk: _Walk[W], chosen: Option[tup
             case _:
                 return ()
 
-    def grouped(path: RnaPath, prop: bpy.types.Property, keys: tuple[RnaPath, ...]) -> tuple[RnaPath, ...]:
-        if isinstance(prop, bpy.types.CollectionProperty) and not isinstance(prop.fixed_type, bpy.types.ID):
+    def grouped(struct: Native, path: RnaPath, prop: bpy.types.Property, keys: tuple[RnaPath, ...]) -> tuple[RnaPath, ...]:
+        if isinstance(prop, bpy.types.CollectionProperty) and not isinstance(prop.fixed_type, bpy.types.ID) and (keys or not tuple(getattr(struct, prop.identifier))):
             owners.setdefault(row := (*path, prop.identifier), Owner(values={}, children=keys))
             return (row,)
         return keys
@@ -699,7 +699,7 @@ def _walked[W](owner: Native, source: Native, walk: _Walk[W], chosen: Option[tup
             for descriptor in members
             if not (walk.native and (isinstance(descriptor.prop, bpy.types.CollectionProperty) or _curve(descriptor.prop)))
         )
-        nested = tuple(at for prop, keys in branches for at in grouped(path, prop, keys))
+        nested = tuple(at for prop, keys in branches for at in grouped(struct, path, prop, keys))
         owners[key] = Owner(values={**held.values, **values}, children=tuple(dict.fromkeys((*held.children, *nested))))
         for descriptor in members:
             if arrayed(descriptor.prop, held.values):

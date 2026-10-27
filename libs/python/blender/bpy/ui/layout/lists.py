@@ -9,12 +9,11 @@ from typing import override
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some, try_downcast
-from expression.extra.result import catch
 import msgspec
 from msgspec import UNSET, UnsetType
 
 from blender.bpy.commands.operators import Answer, Done, Empty, Gesture, Modal, Operator, Travel
-from blender.bpy.data.rna.conditions import Condition, holds
+from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import Native, rna, Struct, struct_at
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisition, Acquisitions, Band, entered
@@ -171,7 +170,8 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                         Member(root=type(item), path=path)
                         .resolved()
                         .bind(lambda held: held.accepts(kinds))
-                        .bind(lambda held: Ok(Some(held)) if admitted(held) else Error(refused(held.descriptor.path, type(held.descriptor.prop).__name__, (expected,))))
+                        .filter_with(admitted, lambda held: refused(held.descriptor.path, type(held.descriptor.prop).__name__, (expected,)))
+                        .map(Some)
                     )
                 ).default_value(Ok(Nothing))
 
@@ -228,7 +228,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                 case Callable():
                     return where(context, item)
                 case _:
-                    return holds(where, context, Some(item))
+                    return where.holds(context, Some(item))
 
         def draw_item(
             ui: bpy.types.UIList,
@@ -299,7 +299,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                     for holder, key in active.at(owner, bpy.context).to_list():
                         setattr(holder, key, members[index] if index >= 0 else None)
 
-            return Ok(((Band.ATTACHMENTS, pointed(member.root, member.path, bpy.props.IntProperty(get=selected, set=written, options={"HIDDEN", "SKIP_SAVE"}))),))
+            return Ok(((Band.ATTACHMENTS, pointed(member.root, rna(member.path), bpy.props.IntProperty(get=selected, set=written, options={"HIDDEN", "SKIP_SAVE"}))),))
 
         def schema(active: ResolvedMember) -> Outcome[tuple[tuple[Band, Acquisition], ...]]:
             match active.descriptor.prop:

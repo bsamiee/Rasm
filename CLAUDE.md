@@ -26,11 +26,6 @@
 - ALWAYS use `uxp-coding` skill for code that runs in an Adobe UXP host
 - ALWAYS use `dotnet-roslyn-codelens` skill for any file in a .NET solution
 - ALWAYS use `dotnet-coding` skill for any C# code
-- ALWAYS use `dotnet-msbuild-evaluation` skill for an MSBuild declaration
-- ALWAYS use `dotnet-msbuild-antipatterns` skill before changing an MSBuild file
-- ALWAYS use `dotnet-msbuild-execution` skill for a `<Target>`
-- ALWAYS use `dotnet-msbuild-diagnostics` skill for diagnosing a .NET build
-- ALWAYS use `dotnet-msbuild-packaging` skill for NuGet and .slnx
 - ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
 - ALWAYS use `use-rhino` skill for running Rhino and Grasshopper application
@@ -53,41 +48,17 @@
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
-[TOTALITY]:
+Code calls the owning API in the direct form, and every layer between a caller and that API adds a fact the API lacks
+
 - ALWAYS define one error type in the package every raiser imports, errors differing only in reason, source, field, or message become its data
 - ALWAYS make invalid states unrepresentable at construction, every consumer receives a validated value without re-validating it
-- ALWAYS reserve exceptions for defects, expected failures use the result type, a catch covers one throwing call and keeps the caught error as cause
-
-[PURITY]: Domain functions read only their arguments and write only their return value
-- ALWAYS pair acquisition and release in one resource scope, release runs on the error path
-- ALWAYS pass changing context to the next domain operation as a returned value, shared mutable state does not coordinate domain operations
-- ALWAYS confine mutation to a scope that owns it and publishes an immutable value, a buffer that never escapes stays pure
-- ALWAYS describe a target's desired state as data and reconcile it against the live or stored target, a host type holding desired state is data
-
-[BOUNDARY]: Boundaries own every conversion between external values and domain values
-- ALWAYS return the language's result type from every fallible package and project API, consumers compose without unwrapping
-- ALWAYS validate host, protocol, and file input once at the boundary into domain values, domain logic receives no raw input
-- ALWAYS keep a host or protocol name for the concept it names, a domain name that differs maps both ways at the validating boundary in one module
-- ALWAYS translate the result at the boundary into the host's representation: exit code, status, host exception, or UI state
-
-[DIRECTNESS]: Code calls the owning API in the direct form, and every layer between a caller and that API adds a fact the API lacks
-- ALWAYS call the owning type or package directly, a middle function is one boundary conversion per host convention or a step every caller repeats
-- ALWAYS import each name under its declared name, a naming conflict is fixed at its root in project code, an alias or forwarder around it is a defect
 - ALWAYS reach a dependency through the function or runtime that supplies it, a service locator or a layer forwarding a call unchanged is a defect
 
-[DERIVATION]: Values derive from the declaration or host API that states them
+Values derive from the declaration or host API that states them:
 - ALWAYS declare a fact the API hides once at its owner, every other use derives it
 - ALWAYS reach members through typed handles the compiler or a generator derives, a name string or hand-written handle per member is a defect
-- ALWAYS derive a label, undo name, or progress text from the operation and its target, a caller-written description is a defect
-
-[CAPABILITY]: Libraries hold general capability in layers independent of any consumer, specific instances sit where a composition uses them
-- ALWAYS build each part once in the layer of what it does, on whole layers, packages, or hosts beneath and on nothing beside or above
+- ALWAYS derive a values from the operation and its target, a caller-written description is a defect
 - ALWAYS derive behavior and presentation from count, kind, and nesting of supplied parts, callers state content alone
-
-[PRODUCTS]: Products are the artifacts their host installs or serves to a person holding no checkout
-- ALWAYS give a product the identity its host reads from an installed one (identifier, version, signature)
-- ALWAYS register a product's services and permissions through the mechanism its host gives installed products
-- ALWAYS supply what a product reads and runs from its package and host, a path, variable, or row from a checkout or development tool is a defect
 
 ## [03]-[DEPENDENCY_POLICY]
 

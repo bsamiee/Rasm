@@ -9,13 +9,13 @@ import typing
 from typing import Annotated, ClassVar, Final, Generic, overload, override, Protocol, runtime_checkable, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Some, try_downcast
 import msgspec
 from msgspec import UNSET, UnsetType
 
 from blender.bpy.commands import operators
 from blender.bpy.commands.calls import dotted, idname, Operation, Placed, ShelfPopup, Writer
-from blender.bpy.data.rna.conditions import Condition, holds
+from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import Descriptor, Native, P_co, rna, RnaPath, root_in, Struct, Value
 from blender.bpy.data.rna.snapshots import Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key
@@ -34,9 +34,9 @@ if typing.TYPE_CHECKING:
 
 
 type At = tuple[Native, str]
-type RowDraw = Callable[[bpy.types.UILayout, bpy.types.bpy_struct[object], bpy.types.Context], None]
+type RowDraw = Callable[[bpy.types.UILayout, Struct, bpy.types.Context], None]
 type SurfaceDraw = Callable[[bpy.types.UILayout, bpy.types.Context], None]
-type Reach = Callable[[bpy.types.Context], Option[bpy.types.bpy_struct[object]]]
+type Reach = Callable[[bpy.types.Context], Option[Struct]]
 type Binding = Member | Across
 type Accept = Callable[[ResolvedMember], Outcome[ResolvedMember]]
 type Opener = operators.Command | Operation
@@ -104,7 +104,9 @@ class ResolvedMember(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         """Accepts property or pointer target kinds."""
         prop = self.descriptor.prop
         target = prop.fixed_type if isinstance(prop, bpy.types.PointerProperty) else prop
-        return Ok(self) if isinstance(prop, kinds) or isinstance(target, kinds) else Error(refused(self.descriptor.path, type(target).__name__, tuple(kind.__name__ for kind in kinds)))
+        return Ok(self).filter_with(
+            lambda _: isinstance(prop, kinds) or isinstance(target, kinds), lambda _: refused(self.descriptor.path, type(target).__name__, tuple(kind.__name__ for kind in kinds))
+        )
 
 
 class Member(msgspec.Struct, frozen=True, kw_only=True):
@@ -202,7 +204,7 @@ class Line(msgspec.Struct, frozen=True, kw_only=True):
         def shown(layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
             for required in self.condition.to_list():
                 layout = layout.column()
-                layout.active = holds(required, context, Some(holder))
+                layout.active = required.holds(context, Some(holder))
             draw(layout, holder, context)
 
         return shown
@@ -410,7 +412,7 @@ class Matrix(Line, frozen=True, kw_only=True):
     """Setting cells across scoped owners, compound settings through caller editors."""
 
     scope: Scoped
-    settings: tuple[str, ...]
+    settings: tuple[str | RnaPath, ...]
     compound: tuple[tuple[type[Struct], Callable[[bpy.types.UILayout, Native, str], None]], ...] = ()
     action: Option[tuple[Registrable, Callable[[Identity, Descriptor], Outcome[RowDraw]]]] = Nothing
 
@@ -711,7 +713,7 @@ class Rows(Line, frozen=True, kw_only=True):
             return super().conditioned(draw)
 
         def shown(layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
-            if all(holds(required, context, Some(holder)) for required in self.condition.to_list()):
+            if all(required.holds(context, Some(holder)) for required in self.condition.to_list()):
                 draw(layout, holder, context)
 
         return shown
@@ -786,7 +788,7 @@ class Progress(Call, frozen=True, kw_only=True):
 
 def refused(path: str | RnaPath, found: str, accepted: tuple[str, ...]) -> Faults:
     """Returns choice fault for an unsupported binding at host path text or a path."""
-    return Fault.of(RecordReason.OUTSIDE, path if isinstance(path, str) else rna(path), found, member=", ".join(accepted))
+    return Fault.of(RecordReason.OUTSIDE, rna(path), found, member=", ".join(accepted))
 
 
 def bound(bindings: tuple[tuple[Binding, Accept], ...], place: Callable[[tuple[ResolvedMember, ...]], RowDraw]) -> Outcome[RowDraw]:
@@ -829,7 +831,7 @@ def iconed(identity: Identity, icon: Option[Glyph]) -> Outcome[int]:
 
 def operated(properties: object, operator: str) -> Outcome[bpy.types.OperatorProperties]:
     """Maps missing operator properties to absent fault."""
-    return Ok(properties) if isinstance(properties, bpy.types.OperatorProperties) else Error((Fault(reason=BlenderReason.ABSENT, subject="bpy.ops", member=operator),))
+    return Option.of_optional(try_downcast(bpy.types.OperatorProperties, properties)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, "bpy.ops", member=operator))
 
 
 def pressed[T: bpy.types.PropertyGroup, S](

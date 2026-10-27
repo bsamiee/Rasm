@@ -10,7 +10,7 @@ from expression import Nothing, Ok, Option, Result, Some
 import msgspec
 
 from blender.bpy.commands.calls import called, Operation
-from blender.bpy.data.rna.conditions import Condition, holds
+from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import rooted, written
 from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.screens.editors import EditorState
@@ -71,7 +71,7 @@ class AreaQuery(msgspec.Struct, frozen=True, kw_only=True):
         return (
             area.type == self.space
             and all(area.ui_type == kind for kind in self.ui_type.to_list())
-            and all(holds(condition, bpy.context, Option.of_optional(area.spaces.active)) for condition in self.shows.to_list())
+            and all(condition.holds(bpy.context, Option.of_optional(area.spaces.active)) for condition in self.shows.to_list())
         )
 
     def located(self, windows: Iterable[bpy.types.Window]) -> tuple[Located, ...]:

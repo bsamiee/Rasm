@@ -151,7 +151,7 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
         selections = {owner: tuple(descriptor for target, snapshot in writes if target == owner for descriptor in snapshot.selection(owner)) for owner, _ in writes}
 
         def captured() -> Outcome[Tree[NativeValue, RnaPath]]:
-            return accumulated(native(owner, Some(selection)) for owner, selection in selections.items()).map(Tree.joined)
+            return accumulated(native(owner, Some(selection)) for owner, selection in selections.items()).map(Tree[NativeValue, RnaPath].joined)
 
         def written(current: Tree[NativeValue, RnaPath], prior: Option[tuple[Tree[NativeValue, RnaPath], Tree[NativeValue, RnaPath]]]) -> Outcome[tuple[Applied, ...]]:
             before = prior.map(lambda ends: current.merged(ends[0])).default_value(current)
@@ -185,7 +185,7 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
                 for kept in before.owners.values()
                 for target, _ in islice(kept.values.values(), 1)
                 for struct in (struct_at(*target) if isinstance(target, tuple) else Some(target)).to_list()
-            ).map(Tree.joined)
+            ).map(Tree[NativeValue, RnaPath].joined)
 
         def restored(kept: T) -> Outcome[bool]:
             ends = self.ends(kept)

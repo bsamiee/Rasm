@@ -20,7 +20,7 @@ import PyOpenColorIO
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Call, Done, Operator, Save
 from blender.bpy.data.ids.ownership import Ownership, Saved
-from blender.bpy.data.rna.conditions import AllOf, Count, Job
+from blender.bpy.data.rna.conditions import Count, Job
 from blender.bpy.data.rna.descriptors import Descriptor, rna
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Resource
@@ -65,9 +65,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def stripping(self) -> Operator[Baking]:
         """Command baking the active strip's modifiers."""
-        return Operator(
-            form=Baking, run=self.bake_strip, condition=Some(AllOf(conditions=(Count(collection=self.modifiers), Job(kind="RENDER")))), invoke=Some(Save[Baking](extensions=extension)), undo=False
-        )
+        return Operator(form=Baking, run=self.bake_strip, condition=Some(Count(collection=self.modifiers) & Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=False)
 
     # --- [BAKES]
 

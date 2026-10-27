@@ -117,8 +117,8 @@ public sealed partial class Magnification {
     public float Min { get; }
     public float Max { get; }
 
-    public static Fin<Magnification> Validated(float least, float most) =>
-        UIFault.Unless(float.IsFinite(least) && least > 0f && most >= least, UIReason.Order, (least, most)).Map(_ => new Magnification(least, most));
+    public static Fin<Magnification> Validated(float min, float max) =>
+        UIFault.Unless(float.IsFinite(min) && min > 0f && max >= min, UIReason.Order, (min, max)).Map(_ => new Magnification(min, max));
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------

@@ -57,7 +57,7 @@ class Ramp(msgspec.Struct, frozen=True, kw_only=True):
             rows=(
                 ((), Owner(values={"interpolation": self.interpolation, "color_mode": self.color_mode, "hue_interpolation": self.hue_interpolation}, children=(("elements",),))),
                 (("elements",), Owner(values={}, children=elements)),
-                *((key, Owner(values={"position": position, "color": (*color, 1.0)})) for key, (position, *color) in zip(elements, self.table.tolist())),
+                *((key, Owner[Value, RnaPath](values={"position": position, "color": (*color, 1.0)})) for key, (position, *color) in zip(elements, self.table.tolist())),
             ),
         )
         return Snapshot(struct=bpy.types.ColorRamp.__name__, tree=tree).apply(ramp).outcome

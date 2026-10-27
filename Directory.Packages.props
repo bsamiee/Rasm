@@ -778,8 +778,10 @@
         <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies"             Version="4.156.0-preview.1.26512.10" />        <!-- Linux native binaries with no system library dependencies -->
         <PackageVersion Include="SkiaSharp.NativeAssets.macOS"                            Version="4.156.0-preview.1.26512.10" />        <!-- macOS native binaries -->
         <PackageVersion Include="SkiaSharp.NativeAssets.Win32"                            Version="4.156.0-preview.1.26512.10" />        <!-- Windows native binaries -->
+        <PackageVersion Include="SkiaSharp.SceneGraph"                                    Version="4.156.0-preview.1.26512.10" />        <!-- Scene graph invalidation tracking for Skottie animations -->
         <PackageVersion Include="SkiaSharp.Skottie"                                       Version="4.156.0-preview.1.26512.10" />        <!-- Lottie animation loading, seeking, and rendering over Skia -->
         <PackageVersion Include="Svg.Controls.Skia.Avalonia"                              Version="12.0.0.17" />                         <!-- SVG image display controls and markup extensions -->
+        <PackageVersion Include="Svg.Custom"                                              Version="5.2.3" />                             <!-- SVG document model, parsing, and system color resolution -->
         <PackageVersion Include="Svg.Model"                                               Version="5.2.3" />                             <!-- SVG document parameters and rendering model -->
         <PackageVersion Include="Svg.Skia"                                                Version="5.2.3" />                             <!-- SVG rendering over SkiaSharp -->
         <PackageVersion Include="System.Reactive"                                         Version="7.0.0" />                             <!-- Reactive Extensions for composable event and asynchronous sequences -->

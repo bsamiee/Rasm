@@ -11,7 +11,8 @@ from expression import Nothing, Option, Result
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.data.rna.conditions import Condition, holds
+from blender.bpy.data.rna.conditions import Condition
+from blender.bpy.data.rna.descriptors import Struct
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.ui.layout.rows import acquired, painted, placed, Row, RowDraw, SurfaceDraw
@@ -29,7 +30,7 @@ class ContextMenu(msgspec.Struct, frozen=True, kw_only=True):
     """Context menu showing rows on buttons of one struct type alone."""
 
     menu: type[UI_MT_button_context_menu | UI_MT_list_item_context_menu]
-    hovered: "type[bpy.types.bpy_struct[object]]"
+    hovered: type[Struct]
 
 
 class Append(msgspec.Struct, frozen=True, kw_only=True):
@@ -63,7 +64,7 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
 def _shown(append: Append, paint: SurfaceDraw, surface: _Extended, context: bpy.types.Context) -> None:
     """Paints rows on the surface while the condition holds and a context menu's button shows its struct type."""
     destination, separator_after = append.target, append.prepend and not isinstance(append.target, ContextMenu)
-    if not all(holds(condition, context) for condition in append.condition.to_list()):
+    if not all(condition.holds(context) for condition in append.condition.to_list()):
         return
     if (
         isinstance(destination, ContextMenu)

@@ -90,7 +90,9 @@ public sealed partial class Marquee {
 
     public static readonly Marquee Lasso = new(
         static (press, points) => {
-            using SKPath lasso = Outline.Built(path => path.AddPoly([press.From, .. press.Trail.Map(static sample => sample.At)], close: true));
+            using SKPathBuilder builder = new();
+            builder.AddPoly([.. press.Trail.Map(static sample => sample.At)], close: true);
+            using SKPath lasso = builder.Detach();
             return points.Map(static (point, index) => (Point: point, Index: index)).Filter(held => lasso.Contains(held.Point.X, held.Point.Y)).Map(static held => held.Index).Strict();
         },
         static (frame, press) => press.Trail.Choose(sample => frame.At(sample.At)) switch {

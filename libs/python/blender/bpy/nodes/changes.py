@@ -570,7 +570,7 @@ def _tree(content: CurvePoints) -> Tree[Value, RnaPath]:
             (("mapping", "curves"), Owner(values={}, children=tuple(curves))),
             *((curve, Owner(values={}, children=((*curve, "points"),))) for curve in curves),
             *(((*curve, "points"), Owner(values={}, children=keys[curve])) for curve in curves),
-            *((key, Owner(values={"location": point, "handle_type": content.handle})) for curve, points in curves.items() for key, point in zip(keys[curve], points)),
+            *((key, Owner[Value, RnaPath](values={"location": point, "handle_type": content.handle})) for curve, points in curves.items() for key, point in zip(keys[curve], points)),
         ),
     )
 

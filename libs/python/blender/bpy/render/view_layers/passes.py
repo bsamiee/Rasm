@@ -19,7 +19,7 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Properties, tallied, Unchanged
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import IdName
-from blender.bpy.data.rna.conditions import AllOf, AnyOf, Condition, holds, Not, Setting
+from blender.bpy.data.rna.conditions import AllOf, Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, staged, Subscription
@@ -112,9 +112,9 @@ class FileSplit(Enum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _DEPTH: Final = Descriptor.declared(bpy.types.ViewLayer, "use_pass_z", bpy.types.BoolProperty)
-_FILM: Final = Descriptor.declared(bpy.types.Scene, "render.film_transparent", bpy.types.BoolProperty)
-_ENGINE: Final = Descriptor.declared(bpy.types.Scene, "render.engine", bpy.types.EnumProperty)
-_TRANSPARENT: Final = Descriptor.declared(bpy.types.ViewLayer, "eevee.use_pass_transparent", bpy.types.BoolProperty)
+_FILM: Final = Descriptor.declared(bpy.types.Scene, ("render", "film_transparent"), bpy.types.BoolProperty)
+_ENGINE: Final = Descriptor.declared(bpy.types.Scene, ("render", "engine"), bpy.types.EnumProperty)
+_TRANSPARENT: Final = Descriptor.declared(bpy.types.ViewLayer, ("eevee", "use_pass_transparent"), bpy.types.BoolProperty)
 _EMISSION: Final = Descriptor.declared(bpy.types.ViewLayer, "use_pass_emit", bpy.types.BoolProperty)
 _ENVIRONMENT: Final = Descriptor.declared(bpy.types.ViewLayer, "use_pass_environment", bpy.types.BoolProperty)
 _SHADOW: Final = Descriptor.declared(bpy.types.ViewLayer, "use_pass_shadow", bpy.types.BoolProperty)
@@ -585,12 +585,11 @@ class PassSet(Line, frozen=True):
         def rows(routing: PassRouting, catcher: Descriptor[bpy.types.BoolProperty]) -> tuple[Row, ...]:
             opaque = AllOf(
                 conditions=tuple(
-                    AnyOf(conditions=(Setting(descriptor=flag, accepted=(False,)), Not(condition=Setting(descriptor=_ENGINE, accepted=(running,)))))
-                    for flag, running in ((catcher, "CYCLES"), (_TRANSPARENT, "BLENDER_EEVEE"))
+                    Setting(descriptor=flag, accepted=(False,)) | ~Setting(descriptor=_ENGINE, accepted=(running,)) for flag, running in ((catcher, "CYCLES"), (_TRANSPARENT, "BLENDER_EEVEE"))
                 )
             )
             return (
-                Property(target=Member(root=bpy.types.Scene, path="render.film_transparent"), condition=Some(AnyOf(conditions=(Setting(descriptor=_FILM), opaque)))),
+                Property(target=Member(root=bpy.types.Scene, path="render.film_transparent"), condition=Some(Setting(descriptor=_FILM) | opaque)),
                 Label(text=lambda context: routing.stale(context).default_with(lambda faults: Some("\n".join(fault.message for fault in faults)))),
                 Caption(rows=tuple(OperatorButton(target=command) for command in COMMANDS), flow=Flow.GRID),
                 routing.listing(),
@@ -676,7 +675,7 @@ def grouped(frames: tuple[tuple[FrameNode, tuple[Link, ...], LayerPlan], ...]) -
     )
 
 
-def pass_flags() -> "tuple[tuple[type[bpy.types.bpy_struct[object]], Descriptor[bpy.types.BoolProperty]], ...]":
+def pass_flags() -> tuple[tuple[type[Struct], Descriptor[bpy.types.BoolProperty]], ...]:
     """Returns writable pass flags of `ViewLayer` and its pointer structs in RNA order with owning class."""
     root = bpy.types.ViewLayer.bl_rna
     structs = (
@@ -695,12 +694,7 @@ def required(scene: bpy.types.Scene, context: bpy.types.Context, requests: tuple
     """Enables passes and precision each request needs, faulting unmet conditions."""
 
     def met(request: PassRequest) -> Outcome[None]:
-        gate: Outcome[None] = (
-            request.condition
-            .filter(lambda condition: not holds(condition, context, Some(scene)))
-            .map(lambda condition: Error((Fault(reason=BlenderReason.UNMET, subject=condition.message),)))
-            .default_value(Ok(None))
-        )
+        gate: Outcome[None] = request.condition.map(lambda condition: condition.check(context, Some(scene))).default_value(Ok(None))
         return (
             gate
             .bind(

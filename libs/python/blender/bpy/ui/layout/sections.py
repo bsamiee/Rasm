@@ -11,7 +11,7 @@ from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
 from blender.bpy.commands import operators
-from blender.bpy.data.rna.conditions import Condition, holds
+from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import rna, root_in, Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
@@ -24,9 +24,9 @@ from blender.records.faults import accumulated, Fault, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Nest = Callable[[bpy.types.UILayout, bpy.types.bpy_struct[object], bpy.types.Context, str], None]
-type Holding = Callable[[bpy.types.bpy_struct[object], bpy.types.Context], Option[bpy.types.bpy_struct[object]]]
-type Hosting = Callable[[bpy.types.bpy_struct[object], bpy.types.Context], Option[Host]]
+type Nest = Callable[[bpy.types.UILayout, Struct, bpy.types.Context, str], None]
+type Holding = Callable[[Struct, bpy.types.Context], Option[Struct]]
+type Hosting = Callable[[Struct, bpy.types.Context], Option[Host]]
 
 
 @runtime_checkable
@@ -215,12 +215,12 @@ class Single[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, froze
 
             def body(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
                 for holder in held(context, context).to_list():
-                    layout.active = layout.active and all(holds(required, context, Some(holder)) for required in self.condition.to_list())
+                    layout.active = layout.active and all(required.holds(context, Some(holder)) for required in self.condition.to_list())
                     frame.body(layout, holder, found(holder, context), context, frame.name)
 
             def inline(layout: bpy.types.UILayout, outer: Struct, context: bpy.types.Context) -> None:
                 for holder in held(outer, context).to_list():
-                    active = all(holds(required, context, Some(holder)) for required in self.condition.to_list())
+                    active = all(required.holds(context, Some(holder)) for required in self.condition.to_list())
                     host = found(holder, context)
                     for shown in frame.framed(layout, frame.name, self.title, holder, host, context, opened=self.opened, active=active).to_list():
                         frame.body(shown, holder, host, context, frame.name)
@@ -295,7 +295,7 @@ class Each[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, frozen=
 
             def section(layout: bpy.types.UILayout, item: Host, context: bpy.types.Context) -> None:
                 idname = f"{frame.name}_{keyed(item)}"
-                active = all(holds(required, context, Some(item)) for required in self.condition.to_list())
+                active = all(required.holds(context, Some(item)) for required in self.condition.to_list())
                 for place in opened.at(item, context).to_list():
                     for shown in frame.framed(layout, idname, getattr(item, named.identifier), item, Some(item), context, opened=place, active=active).to_list():
                         frame.body(shown, item, Some(item), context, idname)

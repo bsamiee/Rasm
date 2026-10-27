@@ -151,11 +151,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         def built(name: OutputName, stem: OutputName) -> Outcome[Self]:
             words = frozenset(part.key for part in name.slots if isinstance(part, Slot)) & frozenset(part.key for part in stem.slots if isinstance(part, Slot))
             counted = all(any(isinstance(part, Number) and part.key is Count.VERSION for part in grammar.slots) for grammar in (name, stem))
-            parsed = (
-                Result[Path, Faults].bind(blend.to_result_with(lambda: (Fault(reason=BlenderReason.UNMET, subject=unsaved.message),)), lambda path: stem.parse(path.stem))
-                if words or counted
-                else Ok(Fields())
-            )
+            parsed = Result[Path, Faults].bind(blend.to_result_with(lambda: Fault.of(BlenderReason.UNMET, unsaved.message)), lambda path: stem.parse(path.stem)) if words or counted else Ok(Fields())
             host = (
                 {Word.SCENE: scene.name, Word.DATE: day.isoformat()}
                 | dict(Option.of_optional(scene.camera).map(lambda camera: (Word.CAMERA, camera.name)).to_list())
@@ -228,7 +224,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
     filepath: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.RenderSettings, "filepath", bpy.types.StringProperty)
     directory: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.CompositorNodeOutputFile, "directory", bpy.types.StringProperty)
     file_name: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.CompositorNodeOutputFile, "file_name", bpy.types.StringProperty)
-    unsaved: ClassVar[Not] = Not(condition=Setting(descriptor=Descriptor.declared(bpy.types.Context, "blend_data.filepath", bpy.types.StringProperty), accepted=("",)))
+    unsaved: ClassVar[Not] = ~Setting(descriptor=Descriptor.declared(bpy.types.Context, ("blend_data", "filepath"), bpy.types.StringProperty), accepted=("",))
     attached: Attached[Outputs]
     scope: Stored[OutputPath]
 
@@ -438,9 +434,8 @@ def output_folder(call: Call[Empty]) -> Outcome[Done]:
 class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     """Scene grammar attachment with replace, version, take, and folder actions."""
 
-    edited: ClassVar[tuple[Setting, Setting]] = (
-        Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, "tree_type", bpy.types.EnumProperty), accepted=(bpy.types.CompositorNodeTree.__name__,)),
-        Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, "edit_tree.is_editable", bpy.types.BoolProperty)),
+    edited: ClassVar[AllOf] = Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, "tree_type", bpy.types.EnumProperty), accepted=(bpy.types.CompositorNodeTree.__name__,)) & Setting(
+        descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("edit_tree", "is_editable"), bpy.types.BoolProperty)
     )
 
     @staticmethod
@@ -451,17 +446,11 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
             yield lambda group, _context: write(Handle.of(group.id_data))
 
     attachment: ClassVar[Attachment[Outputs]] = Attachment(key="outputs", form=Outputs, owner=bpy.types.Scene, changed=Some(changed))
-    replacing: ClassVar[Operator[Replace]] = Operator(
-        condition=Some(AllOf(conditions=edited)), icon=Some("FILE_REFRESH"), form=Replace, run=output_replace, invoke=Some(Suppressible(message=previewed, width=400))
-    )
+    replacing: ClassVar[Operator[Replace]] = Operator(condition=Some(edited), icon=Some("FILE_REFRESH"), form=Replace, run=output_replace, invoke=Some(Suppressible(message=previewed, width=400)))
     versioning: ClassVar[Operator[Bump]] = Operator(
         condition=Some(
-            AllOf(
-                conditions=(
-                    *edited,
-                    Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, "edit_tree.nodes.active", bpy.types.PointerProperty), accepted=(bpy.types.CompositorNodeOutputFile.__name__,)),
-                )
-            )
+            edited
+            & Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("edit_tree", "nodes", "active"), bpy.types.PointerProperty), accepted=(bpy.types.CompositorNodeOutputFile.__name__,))
         ),
         form=Bump,
         run=output_version,

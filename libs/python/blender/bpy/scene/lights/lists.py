@@ -10,7 +10,7 @@ import msgspec
 
 from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Unchanged
 from blender.bpy.data.rna.descriptors import assigned, root_in
-from blender.bpy.data.rna.snapshots import Applied, Scope, scoped, SCOPES, Snapshot
+from blender.bpy.data.rna.snapshots import Applied, Scenes, Scope, scoped, SCOPES, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.scene.lights.emitters import emitters, emitting, feeding, picked, strengths, TEMPERATURE
@@ -36,7 +36,7 @@ class Solo(bpy.types.PropertyGroup):
 class Bulk(bpy.types.PropertyGroup):
     """Multiplier on power and emission of emitters in scope, with a blackbody color for every light."""
 
-    scope: bpy.props.EnumProperty(name="Scope", description="Owners to change", items=SCOPES, default="SCENES")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    scope: bpy.props.EnumProperty(name="Scope", description="Owners to change", items=SCOPES, default=Scenes.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     collection: bpy.props.StringProperty(name="Collection", description="Collection whose objects a collection scope changes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     factor: bpy.props.FloatProperty(name="Factor", description="Power and emission strength multiplier", min=0.0, soft_min=0.1, soft_max=10.0, precision=3, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_temperature: bpy.props.BoolProperty(name="Write Temperature", description="Write a blackbody color to every light")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -55,7 +55,7 @@ class Bulk(bpy.types.PropertyGroup):
 class Emissives(bpy.types.PropertyGroup):
     """Scope of emissive objects to select."""
 
-    scope: bpy.props.EnumProperty(name="Scope", description="Owners to select from", items=SCOPES, default="SCENES")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    scope: bpy.props.EnumProperty(name="Scope", description="Owners to select from", items=SCOPES, default=Scenes.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     collection: bpy.props.StringProperty(name="Collection", description="Collection whose objects a collection scope selects from")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 

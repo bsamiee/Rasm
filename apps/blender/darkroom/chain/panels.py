@@ -10,7 +10,6 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Answer, Call, Done, InvokePopup, Operator, Own, Unchanged
-from blender.bpy.data.rna.conditions import check
 from blender.bpy.data.rna.descriptors import Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
@@ -230,7 +229,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
                     alerted(
                         layout,
                         accumulated(
-                            gates.bind(lambda held: accumulated(check(condition, context, Some(entry)) for condition in held.values()))
+                            gates.bind(lambda held: accumulated(condition.check(context, Some(entry)) for condition in held.values()))
                             for pinned in rows.pinned
                             if row.is_none() and pinned.ownership.marked(identity, group).is_some()
                             for gates in pinned.conditions.map(lambda conditions: conditions(identity, entry)).to_list()

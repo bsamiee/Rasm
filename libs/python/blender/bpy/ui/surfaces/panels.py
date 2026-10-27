@@ -12,7 +12,7 @@ from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.data.rna.conditions import Condition, holds
+from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import Descriptor, subclass
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band, entered, Registrable
@@ -191,7 +191,7 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
             shared = members(at, mark) | {"bl_owner_id": identity.package}
 
             def poll(_cls: type[bpy.types.Panel], context: bpy.types.Context) -> bool:
-                return site.condition.map(lambda condition: holds(condition, context)).default_value(True) and site.top.drawn.present(context)
+                return site.condition.map(lambda condition: condition.holds(context)).default_value(True) and site.top.drawn.present(context)
 
             def classed(drawing: Drawing, placing: dict[str, object], header: tuple[RowDraw, ...] = ()) -> type[bpy.types.Panel]:
                 drawn = drawing.drawn

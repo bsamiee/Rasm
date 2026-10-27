@@ -9,7 +9,6 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
-from blender.bpy.data.rna.conditions import check
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes import textures
@@ -166,12 +165,10 @@ def checked(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.
         concave = pin_quad(values).filter(lambda quad: not quad.convex)
         return accumulated((
             concave.map(lambda quad: Error((Fault(reason=RecordReason.OUTSIDE, subject="corner_pin", member="corners of a strictly convex quad", cause=str(quad.corners)),))).default_value(Ok(None)),
-            check(camera_type("PERSP"), bpy.context, Some(scene)) if values.get("perspective_heading", 0.0) != 0.0 or values.get("perspective_elevation", 0.0) != 0.0 else Ok(None),
+            camera_type("PERSP").check(bpy.context, Some(scene)) if values.get("perspective_heading", 0.0) != 0.0 or values.get("perspective_elevation", 0.0) != 0.0 else Ok(None),
         )).map(lambda _: None)
 
-    return entry.map(lambda held: captured(identity, held).map(valued).bind(refused)).default_value(
-        Ok(None)
-    )
+    return entry.map(lambda held: captured(identity, held).map(valued).bind(refused)).default_value(Ok(None))
 
 
 # --- [GRAPHS]

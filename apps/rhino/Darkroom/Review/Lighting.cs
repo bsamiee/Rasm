@@ -194,8 +194,8 @@ public sealed partial class ReferenceDistribution {
         Tint = random.Pick(toSeq(Gel.Items)).Color,
         Rim = random.Chance(0.4d) ? random.Uniform(0d, 1.2d) : 0f,
         Vignette = random.Chance(0.5d) ? random.Uniform(0d, 0.5d) : 0f,
-        Stripes = random.Pick<float>([0f, 0f, 0f, 5f, 7f]),
-        Dapples = random.Pick<int>([0, 0, 0, 12]),
+        Stripes = random.Pick([0f, 0f, 0f, 5f, 7f]),
+        Dapples = random.Pick([0, 0, 0, 12]),
     });
     public static readonly ReferenceDistribution Vivid = new("vivid", static random => new() {
         Blobs = random.Pick(random.Pick(VividSets)).Map(gel => new Blob(

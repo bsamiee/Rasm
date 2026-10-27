@@ -8,6 +8,7 @@ from bl_ui.space_sequencer import SEQUENCER_MT_modifier_add
 import bpy
 from expression import Some
 
+from blender.bpy.data.rna.descriptors import RnaPath, Value
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.render.compositor.blending import Entry
 from blender.bpy.render.compositor.effects import Enabled
@@ -136,7 +137,13 @@ stacks: Final = layers.stacks(
             structure=LayerStack(layers=(Layer(key="look", name=name, source=Adjustment(), effects=(Entry(record=Exposure()), Entry(record=Contrast()))),)),
             values=Snapshot(
                 struct="SceneCompositorEffectInterfaceInputs",
-                tree=Tree(roots=("",), rows=(("", Owner(values={}, children=tuple(values))), *((key, Owner(values={"value": value})) for key, value in values.items()))),
+                tree=Tree(
+                    roots=((),),
+                    rows=(
+                        ((), Owner[Value, RnaPath](values={}, children=tuple((key,) for key in values))),
+                        *(((key,), Owner[Value, RnaPath](values={"value": value})) for key, value in values.items()),
+                    ),
+                ),
             ),
         )
         for name, values in (

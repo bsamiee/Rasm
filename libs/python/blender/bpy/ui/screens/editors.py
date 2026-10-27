@@ -8,7 +8,7 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 
-from blender.bpy.data.rna.descriptors import Descriptor, Native, Struct, struct_at, Value
+from blender.bpy.data.rna.descriptors import Descriptor, Native, RnaPath, Struct, struct_at, Value
 from blender.records.faults import accumulated, Outcome
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class EditorState(msgspec.Struct, frozen=True, kw_only=True):
     values: tuple[tuple[Descriptor[bpy.types.Property], Value | bytes | Struct], ...] = ()
 
     @classmethod
-    def of(cls, root: type[Struct], values: Mapping[str, Value | bytes | Struct], region: "Option[rna_enums.RegionTypeItems]" = Nothing) -> Outcome[Self]:
+    def of[K: str | RnaPath](cls, root: type[Struct], values: Mapping[K, Value | bytes | Struct], region: "Option[rna_enums.RegionTypeItems]" = Nothing) -> Outcome[Self]:
         """Resolves values in declaration order."""
         return accumulated(Descriptor.resolve(root, path, bpy.types.Property).map(lambda setting: (setting, value)) for path, value in values.items()).map(
             lambda pairs: cls(region=region, values=pairs)

@@ -345,11 +345,7 @@ def meter_white(call: Call[Named]) -> Outcome[Answer]:
                 return Ok(Unchanged(reason="Curve has no scene white parameter"))
 
     return call.root(bpy.types.Scene).bind(
-        lambda scene: tone_curve.named(call.identity, scene, call.properties.name).bind(
-            lambda entry: captured(call.identity, entry).bind(
-                lambda snapshot: armed(scene, entry, valued(snapshot))
-            )
-        )
+        lambda scene: tone_curve.named(call.identity, scene, call.properties.name).bind(lambda entry: captured(call.identity, entry).bind(lambda snapshot: armed(scene, entry, valued(snapshot))))
     )
 
 

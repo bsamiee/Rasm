@@ -73,10 +73,7 @@ class Chain(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         return self.rows.found(identity, scene, entry.name).bind(
             lambda held: (
-                paired(held.row.read(identity, entry), captured(identity, entry))
-                .map(lambda pair: (pair[0], valued(pair[1])))
-                .bind(lambda pair: local(*pair))
-                .map(lambda pair: (held.row, *pair))
+                paired(held.row.read(identity, entry), captured(identity, entry)).map(lambda pair: (pair[0], valued(pair[1]))).bind(lambda pair: local(*pair)).map(lambda pair: (held.row, *pair))
             )
         )
 

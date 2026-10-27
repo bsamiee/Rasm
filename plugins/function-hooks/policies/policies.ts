@@ -23,6 +23,7 @@ interface Call {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const WORKTREE = 'creates second checkout. Work in main checkout';
+const BRANCH = 'creates branch. Work on current branch';
 const UNPLACED = 'runs after unresolved directory change. Run cd to named directory first';
 const ALIAS = 'defines alias that can hide refused subcommand';
 const OVERWRITES = 'overwrites working-tree files. Edit files';
@@ -99,14 +100,19 @@ const flagged = (args: readonly string[], reason: string, words: readonly string
 
 const GIT = new Map(
     Object.entries<(args: readonly string[], present: (word: string) => boolean) => readonly string[]>({
-        branch: (args) => flagged(args, 'deletes or force-moves branch', ['-d', '-D', '-M', '--delete'], ['--force']),
+        branch: (args) => {
+            const deleting = flagged(args, 'deletes or force-moves branch', ['-d', '-D', '-M', '--delete'], ['--force']);
+            const listing = args.some((word) => ['-l', '--list', '-a', '--all', '-r', '--remotes', '-v', '-vv', '--verbose', '--show-current', '--contains', '--no-contains', '--merged', '--no-merged', '--points-at'].includes(word));
+            const creating = flagged(args, BRANCH, ['-c', '-C', '--copy', '-m', '--move'], []);
+            return [...deleting, ...creating, ...(!listing && args.some((word) => !word.startsWith('-')) ? [BRANCH] : [])].slice(0, 1);
+        },
         checkout: (args, present) => {
             const forced = flagged(args, 'discards local changes', ['-f', '-B', '-p', '--patch', '--ours', '--theirs'], ['--force']);
+            const creating = flagged(args, BRANCH, ['-b', '--orphan', '-t', '--track'], []);
             const [first, ...more] = args.filter((word) => word === '-' || !word.startsWith('-'));
             const separated = args.includes('--');
-            const branching = !separated && args.some((word) => ['-b', '--orphan', '-t', '--track', '--detach'].includes(word));
             const paths = separated || more.length > 0 || first === '.' || first?.startsWith(':') === true || (first !== undefined && first !== '-' && present(first));
-            return forced.length > 0 || branching || !paths ? forced : [`${args.join(' ')} ${OVERWRITES}`];
+            return [...forced, ...creating, ...(args.includes('--detach') || !paths ? [] : [`${args.join(' ')} ${OVERWRITES}`])].slice(0, 1);
         },
         clean: () => ['deletes untracked files. Remove named files with rm'],
         config: (args) => args.flatMap((word, at) => (word.startsWith('alias.') && args.slice(at + 1).some((value) => !value.startsWith('-')) ? [`${word} ${ALIAS}`] : [])).slice(0, 1),
@@ -125,7 +131,10 @@ const GIT = new Map(
         },
         revert: () => ['reverses committed history'],
         stash: ([first]) => (first === 'list' || first === 'show' ? [] : ['hides uncommitted work other agents depend on. Commit to branch']),
-        switch: (args) => flagged(args, 'discards local changes', ['-f', '-C', '--discard-changes'], ['--force']),
+        switch: (args) => {
+            const forced = flagged(args, 'discards local changes', ['-f', '-C', '--discard-changes'], ['--force']);
+            return [...forced, ...flagged(args, BRANCH, ['-c', '--create', '--orphan'], [])].slice(0, 1);
+        },
         worktree: ([first]) => (first === 'list' ? [] : [WORKTREE]),
     }),
 );

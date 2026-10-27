@@ -293,9 +293,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         return Result[Descriptor[bpy.types.Property], Faults].bind(
             selected,
             lambda descriptor: (
-                struct_at(scene, descriptor.owner)
-                .map(lambda owner: counted(descriptor, owner))
-                .default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(scene), member=rna(descriptor.owner))))
+                struct_at(scene, descriptor.owner).map(lambda owner: counted(descriptor, owner)).default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(scene), member=rna(descriptor.owner))))
             ),
         )
 
@@ -446,7 +444,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     def bound(self, identity: Identity) -> Outcome[Members]:
         """Resolves stores and descriptors."""
         selections = accumulated(
-            accumulated(Descriptor.resolve(category.root, setting, bpy.types.Property) if isinstance(setting, str) else Ok(setting) for setting in category.settings).map(
+            accumulated(Ok(setting) if isinstance(setting, Descriptor) else Descriptor.resolve(category.root, setting, bpy.types.Property) for setting in category.settings).map(
                 lambda found: (category, found)
             )
             for category in self.capture.categories

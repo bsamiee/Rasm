@@ -157,7 +157,11 @@ public sealed record Lift(Func<Seq<Key>, IO<Transfer>> Payload) {
     public Option<Func<Vector2, Node>> Preview { get; init; }
 }
 
-public sealed record Drop(Func<Transfer, Option<Key>, Placement, Option<IO<Unit>>> Accepted);
+public sealed record Drop(Func<Transfer, Option<Key>, Placement, Option<IO<Unit>>> Accepted) {
+    public bool Nests { get; init; }
+}
+
+public sealed record TracePoint(Vector2 At, Option<Stylus> Stylus);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EditExtensions {

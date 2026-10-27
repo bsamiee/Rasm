@@ -6,14 +6,14 @@ from typing import Annotated, Final
 from bl_ui.properties_data_camera import CAMERA_PT_presets
 from bl_ui.space_view3d import VIEW3D_MT_object_context_menu
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
 from expression.extra.result import catch
 from mathutils import Vector
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.data.rna.conditions import AllOf, Setting
+from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.snapshots import Endpoints, Snapshot
 from blender.bpy.extension.identity import Identity
@@ -28,9 +28,9 @@ from blender.records.fields import Finite
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_SCENE_CAMERA: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, "camera.type", bpy.types.EnumProperty), accepted=("CAMERA",))
+_SCENE_CAMERA: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, ("camera", "type"), bpy.types.EnumProperty), accepted=("CAMERA",))
 _CAMERA_VIEW: Final = Setting(descriptor=Descriptor.declared(bpy.types.RegionView3D, "view_perspective", bpy.types.EnumProperty), accepted=("CAMERA",))
-_MULTIVIEW: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, "render.use_multiview", bpy.types.BoolProperty))
+_MULTIVIEW: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, ("render", "use_multiview"), bpy.types.BoolProperty))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns passepartout rows on object context menu in camera view."""
-        return Ok((Append(target=VIEW3D_MT_object_context_menu, rows=self.passepartout, condition=Some(AllOf(conditions=(_CAMERA_VIEW, _SCENE_CAMERA)))),))
+        return Ok((Append(target=VIEW3D_MT_object_context_menu, rows=self.passepartout, condition=Some(_CAMERA_VIEW & _SCENE_CAMERA)),))
 
     def section(self) -> Section:
         """Returns display rows under sensor preset popover."""
@@ -155,9 +155,7 @@ def _camera_row(path: str, switch: Option[str] = Nothing) -> Property:
             root=bpy.types.Camera,
             path=path,
             reach=Some(
-                lambda context: (
-                    Option.of_optional(context.scene).bind(lambda scene: Option.of_optional(scene.camera)).bind(lambda item: Some(item.data) if isinstance(item.data, bpy.types.Camera) else Nothing)
-                )
+                lambda context: Option.of_optional(context.scene).bind(lambda scene: Option.of_optional(scene.camera)).bind(lambda item: Option.of_optional(try_downcast(bpy.types.Camera, item.data)))
             ),
         ),
         condition=switch.map(lambda name: Setting(descriptor=Descriptor(root=bpy.types.Scene, owner=("camera", "data"), prop=bpy.types.Camera.bl_rna.properties[name]))),

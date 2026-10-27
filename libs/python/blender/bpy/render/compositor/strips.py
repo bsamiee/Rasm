@@ -1,7 +1,7 @@
 """Sequencer strip modifiers and compositor strips running standalone effects."""
 
 from contextlib import ExitStack
-from typing import ClassVar
+from typing import ClassVar, Final
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
@@ -10,8 +10,8 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Operator
-from blender.bpy.data.rna.conditions import AllOf, Not, Present, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, written
+from blender.bpy.data.rna.conditions import AllOf, Present, Setting
+from blender.bpy.data.rna.descriptors import Descriptor, RnaPath, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
@@ -24,6 +24,10 @@ from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.surfaces.menus import Dropdown, Menu
 from blender.records.faults import Fault, Faults, Outcome, paired
 from blender.records.fields import Case
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_ACTIVE: Final[RnaPath] = ("workspace", "sequencer_scene", "sequence_editor", "active_strip")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -42,11 +46,8 @@ class Striping(bpy.types.PropertyGroup):
 class Strips[R: Case]:
     """Strip placement commands for standalone effects and the menu listing them."""
 
-    placeable: ClassVar[AllOf] = AllOf(
-        conditions=(
-            Present(descriptor=Descriptor.declared(bpy.types.Context, "workspace.sequencer_scene.sequence_editor.active_strip", bpy.types.PointerProperty)),
-            Not(condition=Setting(descriptor=Descriptor.declared(bpy.types.Context, "workspace.sequencer_scene.sequence_editor.active_strip.type", bpy.types.EnumProperty), accepted=("SOUND",))),
-        )
+    placeable: ClassVar[AllOf] = Present(descriptor=Descriptor.declared(bpy.types.Context, _ACTIVE, bpy.types.PointerProperty)) & ~Setting(
+        descriptor=Descriptor.declared(bpy.types.Context, (*_ACTIVE, "type"), bpy.types.EnumProperty), accepted=("SOUND",)
     )
     rows: EffectRows[R]
     operators: tuple[Operator[Striping], ...]

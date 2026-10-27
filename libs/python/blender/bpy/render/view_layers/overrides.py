@@ -191,8 +191,8 @@ class LayerOverride(Line, frozen=True, kw_only=True):
             key="layer_overrides",
             title="Layer Overrides",
             rows=(
-                Matrix(scope=ViewLayers(), settings=("use", "material_override", "world_override", "samples", *filters, "cycles.use_denoising")),
-                Matrix(scope=Scenes(), settings=("cycles.samples",)),
+                Matrix(scope=ViewLayers(), settings=("use", "material_override", "world_override", "samples", *filters, ("cycles", "use_denoising"))),
+                Matrix(scope=Scenes(), settings=(("cycles", "samples"),)),
             ),
         )
 

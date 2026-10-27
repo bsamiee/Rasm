@@ -424,7 +424,9 @@ class Dispatcher(msgspec.Struct, frozen=True):
                     samples=samples,
                     output_root=str(path.base),
                     outputs=texts,
-                    passes=tuple(sorted({rna(descriptor.path) for held in used for _, descriptor in pass_flags() for owner in struct_at(held, descriptor.owner).to_list() if bool(descriptor.read(owner))})),
+                    passes=tuple(
+                        sorted({rna(descriptor.path) for held in used for _, descriptor in pass_flags() for owner in struct_at(held, descriptor.owner).to_list() if bool(descriptor.read(owner))})
+                    ),
                     prerequisites=scope.prerequisites,
                 )
 

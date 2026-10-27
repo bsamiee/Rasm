@@ -14,5 +14,6 @@ rule:
                 inside:
                     kind: invocation_expression
                     matches: {csharp-owner-call: {type: {regex: '^(SKColorFilter|SKImageFilter|SKShader)$'}, member: {regex: '^Create\w*$'}}}
+                    not: {has: {field: function, regex: 'Lit(Diffuse|Specular)$'}}
 message: '`$CAST` quantizes a float color to 8 bits for a Skia filter or shader'
-note: 'Pass float rows to `SKColorFilter.CreateColorMatrix`, or an `SKColorF` overload (`SKShader.CreateColor(color, space)`)'
+note: 'Pass float rows to `SKColorFilter.CreateColorMatrix`, or an `SKColorF` overload (`SKShader.CreateColor(color, space)`), the lighting filters take `SKColor` alone'

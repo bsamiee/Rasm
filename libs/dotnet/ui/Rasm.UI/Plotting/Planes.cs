@@ -1,5 +1,8 @@
+using System.Buffers;
 using System.Globalization;
 using System.Numerics;
+using System.Numerics.Tensors;
+using MathNet.Numerics;
 using ProjNet.CoordinateSystems.Transformations;
 using SkiaSharp;
 using SuperLinq;
@@ -22,7 +25,7 @@ public abstract partial record PlotPlane {
 
     public PlotFrame In(SKRect content) => new(this, Frame(content));
 
-    public SKPoint Unit(Vector2 value) => Projected(Each(value, static (axis, held) => axis.Unit(held)));
+    public SKPoint Unit(Vector2 value) => Projected(Fraction(value));
 
     public Vector2 Value(SKPoint square) => Each(Unprojected(square), static (axis, held) => axis.Value(held));
 
@@ -36,6 +39,8 @@ public abstract partial record PlotPlane {
 
     public Option<PlotPlane> Scaled(Vector2 from, Vector2 to, Vector2 factors) => Over((along, axis) => axis.Domain.Scaled(along.Of(from), along.Of(to), along.Of(factors)).Bind(axis.WithDomain));
 
+    public Option<PlotPlane> WithDomain(PhysicalAxis along, AxisRange domain) => Over((held, axis) => held == along ? axis.WithDomain(domain) : Some(axis));
+
     public Option<PlotPlane> Toward(PlotPlane to, float progress) =>
         to.Over((along, _) => Dimension(along)).Filter(same => same == this).Bind(_ => Over((along, axis) => to.Dimension(along).Bind(other => axis.Toward(other, progress))));
 
@@ -44,6 +49,8 @@ public abstract partial record PlotPlane {
     internal virtual bool Separable => true;
 
     internal virtual SKPoint Projected(Vector2 fractions) => fractions;
+
+    internal virtual void Projected(Span<float> x, Span<float> y) { }
 
     internal virtual Vector2 Unprojected(SKPoint square) => square;
 
@@ -65,6 +72,17 @@ public abstract partial record PlotPlane {
                 path.AddRect(new SKRect(low.X, low.Y, high.X, high.Y));
             });
 
+    internal Seq<SKPoint> Projected(SKMatrix frame, Seq<Vector2> fractions) {
+        float[] x = [.. fractions.Map(static at => at.X)];
+        float[] y = [.. fractions.Map(static at => at.Y)];
+        Projected(x, y);
+        SKPoint[] points = [.. x.Zip(y, static (across, up) => new SKPoint(across, up))];
+        frame.MapPoints(points, points);
+        return toSeq(points);
+    }
+
+    internal Vector2 Fraction(Vector2 value) => Each(value, static (axis, held) => axis.Unit(held));
+
     internal float Fraction(PhysicalAxis along, float value) => Of(along, value, static (axis, held) => axis.Fraction(held));
 
     internal float Value(PhysicalAxis along, float fraction) => Of(along, fraction, static (axis, held) => axis.Value(held));
@@ -73,20 +91,28 @@ public abstract partial record PlotPlane {
 
     internal void Fractions(PhysicalAxis along, float[] values) => _ = Dimension(along).Iter(axis => axis.Fractions(values, values));
 
+    internal bool Contains(PhysicalAxis along, Option<AxisRange> band, float value) =>
+        Dimension(along).Match(Some: axis => axis.Contains(band.IfNone(axis.Domain), value), None: () => band.IfNone(AxisRange.Unit).Contains(value));
+
     internal Seq<FractionRange> Spans(PhysicalAxis along, Option<AxisRange> band) =>
         band.Match(
             Some: held => Dimension(along).Match(Some: axis => axis.Spans(held), None: () => [new FractionRange(held.Low, held.High)]),
             None: static () => [new FractionRange(0f, 1f)]);
+
+    internal static int Density(SKMatrix frame, Pen pen) => int.Max(2, (int)MathF.Ceiling(float.Max(MathF.Abs(frame.ScaleX), MathF.Abs(frame.ScaleY)) * pen.Device.MapRadius(1f)));
+
+    internal static Seq<Vector2> Walked(Vector2 from, Vector2 to, int count) => toSeq(Range(0, count)).Map(step => Vector2.Lerp(from, to, step / (float)count));
+
+    internal static Seq<Vector2> Densified(Seq<Vector2> fractions, bool closed, int density) =>
+        toSeq((closed ? fractions + fractions.Take(1) : fractions).Window(2)
+            .SelectMany(pair => Walked(pair[0], pair[1], int.Max(1, (int)MathF.Ceiling(float.Max(MathF.Abs(pair[1].X - pair[0].X), MathF.Abs(pair[1].Y - pair[0].Y)) * density)))))
+        + (closed ? [] : fractions.Last.ToSeq());
 
     private protected abstract Option<PlotPlane> Over(Func<PhysicalAxis, Axis, Option<Axis>> map);
 
     private float Of(PhysicalAxis along, float value, Func<Axis, float, float> map) => Dimension(along).Map(axis => map(axis, value)).IfNone(value);
 
     private Vector2 Each(Vector2 value, Func<Axis, float, float> map) => new(Of(PhysicalAxis.Horizontal, value.X, map), Of(PhysicalAxis.Vertical, value.Y, map));
-
-    private static int Density(SKMatrix frame, Pen pen) => int.Max(2, (int)MathF.Ceiling(float.Max(MathF.Abs(frame.ScaleX), MathF.Abs(frame.ScaleY)) * pen.Device.MapRadius(1f)));
-
-    private static Seq<Vector2> Walked(Vector2 from, Vector2 to, int count) => toSeq(Range(0, count)).Map(step => Vector2.Lerp(from, to, step / (float)count));
 
     public sealed record Cartesian(Axis X, Axis Y) : PlotPlane {
         public override Option<Axis> Dimension(PhysicalAxis along) => Some(along.Map(horizontal: X, vertical: Y));
@@ -101,6 +127,9 @@ public abstract partial record PlotPlane {
         public static Track Unit(PhysicalAxis along) => new(along, new Axis.Linear(AxisRange.Unit));
 
         public override Option<Axis> Dimension(PhysicalAxis along) => along == Along ? Some(Axis) : None;
+
+        public Node Stretched(Node node) =>
+            Along.Map(horizontal: node with { Width = Sizing.Grow.Unit, Height = Sizing.Fit.Content }, vertical: node with { Width = Sizing.Fit.Content, Height = Sizing.Grow.Unit });
 
         private protected override Option<PlotPlane> Over(Func<PhysicalAxis, Axis, Option<Axis>> map) => map(Along, Axis).Map(axis => (PlotPlane)(this with { Axis = axis }));
     }
@@ -117,6 +146,16 @@ public abstract partial record PlotPlane {
         internal override SKPoint Projected(Vector2 fractions) {
             (float sin, float cos) = MathF.SinCos(MathF.Tau * fractions.X);
             return new Vector2(0.5f) + (new Vector2(cos, sin) * (0.5f * fractions.Y));
+        }
+
+        internal override void Projected(Span<float> x, Span<float> y) {
+            using IMemoryOwner<float> sine = MemoryPool<float>.Shared.Rent(x.Length);
+            Span<float> held = sine.Memory.Span[..x.Length];
+            TensorPrimitives.Multiply(x, 2f, x);
+            TensorPrimitives.SinCosPi(x, held, x);
+            TensorPrimitives.Multiply(y, 0.5f, y);
+            TensorPrimitives.MultiplyAdd(x, y, 0.5f, x);
+            TensorPrimitives.MultiplyAdd(held, y, 0.5f, y);
         }
 
         internal override Vector2 Unprojected(SKPoint square) {
@@ -138,7 +177,7 @@ public abstract partial record PlotPlane {
         internal override void Enclose(SKPathBuilder path, SKMatrix frame, Pen pen, Seq<FractionRange> across, Seq<FractionRange> up) {
             SKPoint center = frame.MapPoint(Projected(Vector2.Zero));
             float half = Half(frame);
-            float extent = across.Fold(0f, static (sum, span) => sum + (span.High - span.Low));
+            float extent = across.Sum(static span => span.High - span.Low);
             float turn = MathF.CopySign(360f, frame.ScaleX * frame.ScaleY);
             float start = across.Head.Map(static span => span.Low).IfNone(0f) * turn;
             float sweep = extent * turn;
@@ -167,66 +206,100 @@ public abstract partial record PlotPlane {
     }
 
     public sealed record Mapped : PlotPlane {
-        private const int Boundary = 256;
+        private const int Lattice = 32;
 
+        private readonly Mapping mapping;
         private readonly SKRect world;
 
-        private Mapped(Axis x, Axis y, Func<Vector2, Vector2> place, Func<Vector2, Vector2> unplace, SKRect world) => (X, Y, Place, Unplace, this.world) = (x, y, place, unplace, world);
+        private Mapped(Axis x, Axis y, Mapping mapping, SKRect world) => (X, Y, this.mapping, this.world) = (x, y, mapping, world);
 
         public Axis X { get; }
         public Axis Y { get; }
-        public Func<Vector2, Vector2> Place { get; }
-        public Func<Vector2, Vector2> Unplace { get; }
 
         public override Option<Factor> Aspect => Factor.Validated(world.Width / world.Height).ToOption();
 
         public override Option<Axis> Dimension(PhysicalAxis along) => Some(along.Map(horizontal: X, vertical: Y));
 
-        public static Fin<Mapped> Validated(Axis x, Axis y, Func<Vector2, Vector2> place, Func<Vector2, Vector2> unplace) =>
-            (from corner in Seq(Vector2.Zero, Vector2.UnitX, Vector2.One, Vector2.UnitY, Vector2.Zero).AsIterable().Window(2)
-             from step in Enumerable.Range(0, Boundary)
-             select place(Vector2.Lerp(corner[0], corner[1], step / (float)Boundary) switch { var fractions => new Vector2(x.Value(fractions.X), y.Value(fractions.Y)) }))
-            .Aggregate(
-                new SKRect(float.PositiveInfinity, float.PositiveInfinity, float.NegativeInfinity, float.NegativeInfinity),
-                static (bounds, at) => new SKRect(float.Min(bounds.Left, at.X), float.Min(bounds.Top, at.Y), float.Max(bounds.Right, at.X), float.Max(bounds.Bottom, at.Y))) switch {
-                    var world => UIFault.Unless(float.IsFinite(world.Width) && float.IsFinite(world.Height) && world.Width > 0f && world.Height > 0f, UIReason.Range, world).Map(_ => new Mapped(x, y, place, unplace, world)),
-                };
+        public static Fin<Mapped> Validated(Axis x, Axis y, Func<Vector2, Vector2> place, Func<Vector2, Vector2> unplace) => Bounded(x, y, new Mapping.Functions(place, unplace));
 
-        public static Fin<Mapped> Projected(Axis longitude, Axis latitude, MathTransform projection) {
-            MathTransform inverse = projection.Inverse();
-            return Validated(longitude, latitude, at => Planar(projection.Transform(at.X, at.Y)), at => Planar(inverse.Transform(at.X, at.Y)));
-
-            static Vector2 Planar((double X, double Y) at) => new((float)at.X, (float)at.Y);
-        }
+        public static Fin<Mapped> Validated(Axis longitude, Axis latitude, MathTransform projection) => Bounded(longitude, latitude, new Mapping.Transformed(projection, projection.Inverse()));
 
         internal override bool Separable => false;
 
         internal override SKPoint Projected(Vector2 fractions) =>
-            Place(new Vector2(X.Value(fractions.X), Y.Value(fractions.Y))) switch {
+            mapping.Placed(new Vector2(X.Value(fractions.X), Y.Value(fractions.Y))) switch {
                 var at => new SKPoint((at.X - world.Left) / world.Width, (at.Y - world.Top) / world.Height),
             };
 
+        internal override void Projected(Span<float> x, Span<float> y) {
+            using IMemoryOwner<double> across = MemoryPool<double>.Shared.Rent(x.Length);
+            using IMemoryOwner<double> down = MemoryPool<double>.Shared.Rent(y.Length);
+            Span<double> placedX = across.Memory.Span[..x.Length];
+            Span<double> placedY = down.Memory.Span[..y.Length];
+            for (int index = 0; index < x.Length; index++) (placedX[index], placedY[index]) = (X.Value(x[index]), Y.Value(y[index]));
+            mapping.Placed(placedX, placedY);
+            TensorPrimitives.ConvertTruncating(placedX, x);
+            TensorPrimitives.ConvertTruncating(placedY, y);
+            TensorPrimitives.Subtract(x, world.Left, x);
+            TensorPrimitives.Divide(x, world.Width, x);
+            TensorPrimitives.Subtract(y, world.Top, y);
+            TensorPrimitives.Divide(y, world.Height, y);
+        }
+
         internal override Vector2 Unprojected(SKPoint square) =>
-            Unplace(new Vector2(world.Left + (square.X * world.Width), world.Top + (square.Y * world.Height))) switch {
+            mapping.Unplaced(new Vector2(world.Left + (square.X * world.Width), world.Top + (square.Y * world.Height))) switch {
                 var at => new Vector2(X.Fraction(at.X), Y.Fraction(at.Y)),
             };
 
         internal override void GridLine(SKPathBuilder path, SKMatrix frame, Pen pen, PhysicalAxis held, float at) =>
-            path.AddPoly([.. Walked(held.With(Vector2.Zero, at), held.With(Vector2.One, at), Density(frame, pen)).Add(held.With(Vector2.One, at)).Map(fractions => frame.MapPoint(Projected(fractions)))], close: false);
+            path.AddPoly([.. Projected(frame, Walked(held.With(Vector2.Zero, at), held.With(Vector2.One, at), Density(frame, pen)).Add(held.With(Vector2.One, at)))], close: false);
 
         internal override void Enclose(SKPathBuilder path, SKMatrix frame, Pen pen, Seq<FractionRange> across, Seq<FractionRange> up) =>
             _ = (from x in across
                  from y in up
-                 let count = Density(frame, pen)
-                 select Walked(new(x.Low, y.Low), new(x.High, y.Low), count) + Walked(new(x.High, y.Low), new(x.High, y.High), count)
-                     + Walked(new(x.High, y.High), new(x.Low, y.High), count) + Walked(new(x.Low, y.High), new(x.Low, y.Low), count))
-                .Iter(cell => path.AddPoly([.. cell.Map(fractions => frame.MapPoint(Projected(fractions)))], close: true));
+                 select Densified([new(x.Low, y.Low), new(x.High, y.Low), new(x.High, y.High), new(x.Low, y.High)], closed: true, Density(frame, pen)))
+                .Iter(cell => path.AddPoly([.. Projected(frame, cell)], close: true));
 
         private protected override Option<PlotPlane> Over(Func<PhysicalAxis, Axis, Option<Axis>> map) =>
             from x in map(PhysicalAxis.Horizontal, X)
             from y in map(PhysicalAxis.Vertical, Y)
-            from mapped in Validated(x, y, Place, Unplace).ToOption()
+            from mapped in Bounded(x, y, mapping).ToOption()
             select (PlotPlane)mapped;
+
+        private static Fin<Mapped> Bounded(Axis x, Axis y, Mapping mapping) {
+            double[] lattice = Generate.LinearSpaced(Lattice, 0d, 1d);
+            double[] across = [.. from up in lattice from along in lattice select (double)x.Value((float)along)];
+            double[] down = [.. from up in lattice from along in lattice select (double)y.Value((float)up)];
+            mapping.Placed(across, down);
+            SKRect bounds = new((float)TensorPrimitives.Min(across), (float)TensorPrimitives.Min(down), (float)TensorPrimitives.Max(across), (float)TensorPrimitives.Max(down));
+            return UIFault.Unless(float.IsFinite(bounds.Width) && float.IsFinite(bounds.Height) && bounds.Width > 0f && bounds.Height > 0f, UIReason.Range, bounds).Map(_ => new Mapped(x, y, mapping, bounds));
+        }
+
+        private abstract record Mapping {
+            internal abstract Vector2 Placed(Vector2 value);
+
+            internal abstract void Placed(Span<double> x, Span<double> y);
+
+            internal abstract Vector2 Unplaced(Vector2 world);
+
+            internal sealed record Functions(Func<Vector2, Vector2> Place, Func<Vector2, Vector2> Unplace) : Mapping {
+                internal override Vector2 Placed(Vector2 value) => Place(value);
+
+                internal override void Placed(Span<double> x, Span<double> y) {
+                    for (int index = 0; index < x.Length; index++) (x[index], y[index]) = Place(new Vector2((float)x[index], (float)y[index])) switch { var at => (at.X, at.Y) };
+                }
+
+                internal override Vector2 Unplaced(Vector2 world) => Unplace(world);
+            }
+
+            internal sealed record Transformed(MathTransform Forward, MathTransform Inverse) : Mapping {
+                internal override Vector2 Placed(Vector2 value) => Forward.Transform(value.X, value.Y) switch { var (x, y) => new((float)x, (float)y) };
+
+                internal override void Placed(Span<double> x, Span<double> y) => Forward.Transform(x, y);
+
+                internal override Vector2 Unplaced(Vector2 world) => Inverse.Transform(world.X, world.Y) switch { var (x, y) => new((float)x, (float)y) };
+            }
+        }
     }
 }
 
@@ -235,6 +308,8 @@ public sealed record Guide(PhysicalAxis Along) {
     public Option<string> Title { get; init; }
     public Option<Func<float, string>> Format { get; init; }
     public float Angle { get; init; }
+
+    internal Vector2 Anchor(PlotPlane plane, float value) => Along.With(Along.Cross.With(Vector2.Zero, plane.Value(Along.Cross, (float)Edge)), value);
 
     internal string Label(Axis axis, float value, CultureInfo culture) => Format.Match(Some: format => format(value), None: () => axis.Spoken(value, culture));
 }
@@ -280,7 +355,17 @@ public sealed record PlotFrame {
 
     internal SKPoint Projected(Vector2 fractions) => Matrix.MapPoint(Plane.Projected(fractions));
 
+    internal Seq<SKPoint> Projected(Seq<Vector2> fractions) => Plane.Projected(Matrix, fractions);
+
+    internal Seq<SKPoint> Walked(Seq<Vector2> fractions, bool closed, Pen pen) =>
+        Projected(Plane.Separable || fractions.IsEmpty ? fractions : PlotPlane.Densified(fractions, closed, PlotPlane.Density(Matrix, pen)));
+
+    internal Seq<SKPoint> Traced(Seq<Vector2> values, bool closed, Pen pen) => Walked(values.Map(Plane.Fraction), closed, pen);
+
     internal Option<Vector2> Valued(SKPoint local) => inverse.Map(held => Plane.Value(held.MapPoint(local)));
+
+    internal bool Contains(SKPoint local, Option<AxisRange> across, Option<AxisRange> up) =>
+        Valued(local).Exists(at => Plane.Contains(PhysicalAxis.Horizontal, across, at.X) && Plane.Contains(PhysicalAxis.Vertical, up, at.Y));
 
     private Option<PlaneAxis> PlaneAxisOrFirst(PhysicalAxis along) => Plane.Dimension(along).Map(axis => new PlaneAxis(along, axis)) | Plane.Dimensions.Head;
 }

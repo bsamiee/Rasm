@@ -134,8 +134,8 @@ internal sealed record Shadow(float X, float Y, float Sigma, float Spread, SKCol
         };
         using SKImageFilter moved = SKImageFilter.CreateOffset(X, Y, grown);
         using SKImageFilter blurred = SKImageFilter.CreateBlur(Sigma, Sigma, moved);
-        using SKColorFilter inked = SKColorFilter.CreateColorMatrix([0f, 0f, 0f, 0f, Color.Red, 0f, 0f, 0f, 0f, Color.Green, 0f, 0f, 0f, 0f, Color.Blue, 0f, 0f, 0f, Inset ? -Color.Alpha : Color.Alpha, Inset ? Color.Alpha : 0f]);
-        SKImageFilter colored = SKImageFilter.CreateColorFilter(inked, blurred);
+        using SKColorFilter tinted = SKColorFilter.CreateColorMatrix([0f, 0f, 0f, 0f, Color.Red, 0f, 0f, 0f, 0f, Color.Green, 0f, 0f, 0f, 0f, Color.Blue, 0f, 0f, 0f, Inset ? -Color.Alpha : Color.Alpha, Inset ? Color.Alpha : 0f]);
+        SKImageFilter colored = SKImageFilter.CreateColorFilter(tinted, blurred);
         if (!Inset) return colored;
         using (colored) return SKImageFilter.CreateBlendMode(SKBlendMode.SrcIn, background: null, foreground: colored);
     }

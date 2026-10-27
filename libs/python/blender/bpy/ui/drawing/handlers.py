@@ -13,7 +13,7 @@ import gpu
 import msgspec
 
 from blender.bpy.data.rna.conditions import AllOf, Setting
-from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.data.rna.descriptors import Descriptor, Struct
 from blender.bpy.extension.events import Change, Handler, Subscription, updated
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
@@ -51,7 +51,7 @@ type Refresh = Watch | Updated | Signal | list[Callable[[bpy.types.Scene], None]
 class Watch(msgspec.Struct, frozen=True, kw_only=True):
     """Property invalidating cached read on each change."""
 
-    owner: "type[bpy.types.bpy_struct[object]]"
+    owner: type[Struct]
     identifier: str
 
 
@@ -124,7 +124,7 @@ class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):
         """Owns region draw handle, hiding the drawing while the editor's overlays are off."""
         switch = (
             Descriptor
-            .resolve(self.space, "overlay.show_overlays", bpy.types.BoolProperty)
+            .resolve(self.space, ("overlay", "show_overlays"), bpy.types.BoolProperty)
             .to_option()
             .or_else_with(lambda: Descriptor.resolve(self.space, "show_overlays", bpy.types.BoolProperty).to_option())
             if self.respect_overlays

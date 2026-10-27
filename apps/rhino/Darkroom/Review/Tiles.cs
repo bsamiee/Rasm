@@ -153,7 +153,7 @@ public sealed class PreviewTiles : IDisposable {
     private IO<Unit> Ticked =>
         from bounds in limits.ValueIO
         from started in IO.lift(views.Clock.GetTimestamp)
-        from ran in Monad.recur<IO, int, Unit>(0, count =>
+        from ran in Monad.recur(0, count =>
             from now in IO.lift(views.Clock.GetTimestamp)
             from next in count >= bounds.Batch || (count > 0 && views.Clock.GetElapsedTime(started, now) >= bounds.Budget)
                 ? IO.pure(Next.Done<int, Unit>(unit))

@@ -13,7 +13,7 @@ import msgspec
 from msgspec import UNSET, UnsetType
 
 from blender.bpy.commands.calls import Placed, Writer
-from blender.bpy.data.rna.conditions import Condition, holds
+from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import rna, rooted
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisition, Band, entered
@@ -234,7 +234,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
 
             def poll(_cls: type[bpy.types.GizmoGroup], context: bpy.types.Context) -> bool:
                 """Returns whether condition holds and every owner resolves."""
-                if not all(holds(required, context) for required in self.condition.to_list()):
+                if not all(required.holds(context) for required in self.condition.to_list()):
                     return False
                 resolved = accumulated(reached(binding[1], context) for _, binding in parts if isinstance(binding, tuple)).map_error(identity.reports.hold).to_option()
                 return resolved.is_some() and all(member.bind(lambda held: held.at(context, context)).is_some() for members in resolved.to_list() for member in members)

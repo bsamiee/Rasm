@@ -7,14 +7,16 @@ public sealed partial class Condition {
     public static readonly Condition DifferentiateWithoutColor = new(inherited: false, identity);
     public static readonly Condition ReduceTransparency = new(inherited: false,
         static look => look with { Fills = look.Fills.Map(static fills => fills.Map(static fill => fill.Opaque)) });
-    public static readonly Condition ReduceMotion = new(inherited: false, static look => look with { Motion = Some<TimingCurve>(new TimingCurve.Instant()) });
+    public static readonly Condition ReduceMotion = new(inherited: false, identity);
     public static readonly Condition Dark = new(inherited: false, identity);
     public static readonly Condition Default = new(inherited: false, identity);
     public static readonly Condition Destructive = new(inherited: false, identity);
     public static readonly Condition Selected = new(inherited: false, identity);
     public static readonly Condition Modified = new(inherited: false, identity);
+    public static readonly Condition Pending = new(inherited: false, identity);
     public static readonly Condition Mixed = new(inherited: false, identity);
     public static readonly Condition Busy = new(inherited: false, identity);
+    public static readonly Condition Success = new(inherited: false, identity);
     public static readonly Condition Warning = new(inherited: false, identity);
     public static readonly Condition Faulted = new(inherited: false, identity);
     public static readonly Condition Disabled = new(inherited: true, identity);

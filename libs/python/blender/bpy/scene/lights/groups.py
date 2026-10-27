@@ -17,7 +17,7 @@ from blender.bpy.data.ids.ownership import committed, Ownership, released, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, root_in, Value, written
-from blender.bpy.data.rna.snapshots import Scope, scoped, SCOPES, Snapshot
+from blender.bpy.data.rna.snapshots import Scenes, Scope, scoped, SCOPES, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
@@ -89,7 +89,7 @@ class Assignment(bpy.types.PropertyGroup):
     emissive: bpy.props.EnumProperty(name="Emissive", description="Group of each emissive object", items=GROUPINGS, default="SHARED")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     world: bpy.props.EnumProperty(name="World", description="World light group", items=GROUPINGS, default="PER_EMITTER")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     shared: bpy.props.StringProperty(name="Shared Group", description="Group every holder of a shared rule joins", default="Emission")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    scope: bpy.props.EnumProperty(name="Scope", description="Owners to group", items=SCOPES, default="SCENES")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    scope: bpy.props.EnumProperty(name="Scope", description="Owners to group", items=SCOPES, default=Scenes.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     collection: bpy.props.StringProperty(name="Collection", description="Collection whose objects a collection scope groups")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 

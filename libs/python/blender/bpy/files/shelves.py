@@ -5,7 +5,7 @@ from functools import wraps
 from typing import TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Option, Some
+from expression import Error, Nothing, Option, try_downcast
 import msgspec
 
 from blender.bpy.commands.operators import Answer, Call, Empty, Operator
@@ -69,9 +69,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
         """
         struct = bpy.types.AssetShelf.bl_rna
         actions = tuple(
-            (role, action.row(f"{role}_{self.key}"))
-            for role, offered in (("activate", self.activate), ("drag", Some(self.drag) if isinstance(self.drag, Action) else Nothing))
-            for action in offered.to_list()
+            (role, action.row(f"{role}_{self.key}")) for role, offered in (("activate", self.activate), ("drag", Option.of_optional(try_downcast(Action, self.drag)))) for action in offered.to_list()
         )
         named = accumulated(identity.name(bpy.types.Operator, row.key).map(lambda name: (role, row, name)) for role, row in actions)
         filtered = accumulated(

@@ -354,7 +354,7 @@ def temporal(identity: Identity, plan: Plan) -> Outcome[Plan]:
                 f"{outputs}.version": version + 1,
                 **{f"compositor_effects[{position}].enable_for_render": False for position in range(len(scene.compositor_effects))},
             }
-            blur = Snapshot.of(bpy.types.Scene, {"render.use_motion_blur": False})
+            blur = Snapshot.of(bpy.types.Scene, {("render", "use_motion_blur"): False})
             return (
                 msgspec.structs.replace(scope, values=Option.of_optional(scope.values).map(lambda held: msgspec.structs.replace(held, tree=held.tree.merged(blur.tree))).default_value(blur)),
                 Some(JobScope(scene=scope.scene, camera=scope.camera, layer=scope.layer, values=Snapshot.of(bpy.types.Scene, values), prerequisites=(index,))),
@@ -421,7 +421,7 @@ spatial_denoise = CompositorEffect(
         ),
     ),
     mix=Blended(base=Some(End(node="frame_base", socket="Output"))),
-    parts=(Requests[SpatialDenoise](request=_guided), Holds(scene=Snapshot.of(bpy.types.Scene, {"cycles.use_denoising": False}))),
+    parts=(Requests[SpatialDenoise](request=_guided), Holds(scene=Snapshot.of(bpy.types.Scene, {("cycles", "use_denoising"): False}))),
 )
 filtering: Final = TermFiltering[Effect](filter=_term_filter, requests=_term_passes)
 

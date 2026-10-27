@@ -292,11 +292,8 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     placed: ClassVar[Stored[PlacedChart]] = Stored(name="placed", decoder=msgspec.msgpack.Decoder(PlacedChart))
     views: ClassVar[Ownership[bpy.types.Image]] = Ownership(kind=bpy.types.Image, key="chart_view", saved=Saved.USED)
     imaged: ClassVar[Setting] = image_type(("IMAGE", "RENDER_RESULT"))
-    shader: ClassVar[AllOf] = AllOf(
-        conditions=(
-            Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, "tree_type", bpy.types.EnumProperty), accepted=(bpy.types.ShaderNodeTree.__name__,)),
-            Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, "edit_tree.is_editable", bpy.types.BoolProperty)),
-        )
+    shader: ClassVar[AllOf] = Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, "tree_type", bpy.types.EnumProperty), accepted=(bpy.types.ShaderNodeTree.__name__,)) & Setting(
+        descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("edit_tree", "is_editable"), bpy.types.BoolProperty)
     )
 
     @property
