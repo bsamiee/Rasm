@@ -13,7 +13,7 @@ from blender.bpy.data.rna.descriptors import Descriptor, Native, rna, RnaPath, S
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
-from blender.bpy.nodes.interface import addresses, item_key, slot
+from blender.bpy.nodes.interface import addresses, input_sockets, item_key, slot
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.trees import Owner, Tree
 
@@ -128,7 +128,7 @@ def defaulted(identity: Identity, entry: bpy.types.SceneCompositorEffect, prefix
     """Writes each group socket's interface default into the entry's inputs at the item keys under a prefix, every key while it is empty, answering whether any changed."""
 
     def reset(group: bpy.types.NodeTree, keys: Mapping[Key, str]) -> Outcome[bool]:
-        sockets = {item.identifier: item for item in group.interface.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"}  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        sockets = input_sockets(group)
         defaults = {
             identifier: descriptor.read(sockets[identifier])
             for key, identifier in keys.items()

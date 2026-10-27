@@ -146,7 +146,8 @@ class Addressed(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, tree: bpy.types.NodeTree, slot: str) -> Self:
         """Reads item identifiers by stored key, list entries holding keys past 63-byte ID property name limit, and live sockets and panels."""
-        live = {item.identifier: item for item in tree.interface.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket | bpy.types.NodeTreeInterfacePanel)}  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        face: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        live = {item.identifier: item for item in face.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket | bpy.types.NodeTreeInterfacePanel)}
         return cls(stored={row["key"]: row["identifier"] for row in Option.of_optional(tree.get(slot)).filter(lambda value: isinstance(value, list)).default_value([])}, live=live)
 
     @property
@@ -216,6 +217,12 @@ def slot(identity: Identity) -> Outcome[str]:
 def addresses(tree: bpy.types.NodeTree, slot: str) -> dict[Key, str]:
     """Reads live socket identifiers by item key, panel keys mapping to toggle sockets."""
     return Addressed.of(tree, slot).sockets
+
+
+def input_sockets(tree: bpy.types.NodeTree) -> dict[str, bpy.types.NodeTreeInterfaceSocket]:
+    """Reads live input sockets of a tree's interface by identifier in tree order."""
+    face: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return {item.identifier: item for item in face.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"}
 
 
 def interfaced(tree: bpy.types.NodeTree, interface: Interface, slot: str) -> tuple[tuple[Withdrawn, ...], tuple[Declared, ...], tuple[Restated, ...]]:
@@ -310,7 +317,7 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
     def made(key: Key, entry: DesiredItem) -> Outcome[None]:
         def toggled(panel: bpy.types.NodeTreeInterfacePanel, *, value: bool) -> Outcome[None]:
             return (
-                catch(lambda: face.new_socket(panel.name, in_out="INPUT", socket_type=bpy.types.NodeSocketBool.__name__), exception=TypeError)()  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                catch(face.new_socket, exception=TypeError)(panel.name, in_out="INPUT", socket_type=bpy.types.NodeSocketBool.__name__)
                 .bind(lambda socket: catch(face.move_to_parent, exception=TypeError)(socket, panel, 0).map(lambda _: socket))
                 .map_error(refused)
                 .bind(lambda socket: accumulated((written(socket, "is_panel_toggle", True), written(socket, "default_value", value))).map(lambda _: None))
@@ -320,10 +327,10 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
             match entry:
                 case tuple(pair):
                     socket, side = pair
-                    return catch(lambda: face.new_socket(socket.name, description=socket.description, in_out=side, socket_type=socket.kind.__name__), exception=TypeError)().map_error(refused)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    return catch(face.new_socket, exception=TypeError)(socket.name, description=socket.description, in_out=side, socket_type=socket.kind.__name__).map_error(refused)
                 case InterfacePanel(name=name, description=description, closed=closed, toggle=toggle):
                     return (
-                        catch(lambda: face.new_panel(name, description=description, default_closed=closed), exception=TypeError)()
+                        catch(face.new_panel, exception=TypeError)(name, description=description, default_closed=closed)
                         .map_error(refused)
                         .bind(lambda panel: accumulated(toggled(panel, value=value) for value in toggle.to_list()).map(lambda _: panel))
                     )
@@ -395,6 +402,7 @@ __all__ = [
     "SocketSide",
     "Withdrawn",
     "addresses",
+    "input_sockets",
     "interfaced",
     "item_key",
     "revised",

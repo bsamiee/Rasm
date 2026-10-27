@@ -2,16 +2,24 @@
 
 from collections.abc import Callable
 import datetime
+from functools import partial
+import operator
 from types import GenericAlias
+from typing import Final
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Result, Some
+from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.data.rna.descriptors import Struct
+from blender.bpy.data.rna.descriptors import custom_read, Struct, typed
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import Fault, Outcome, paired, RecordReason
 from blender.records.trees import Dated, History, Retention
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_SET: Final[Callable[[Struct, str, str], Result[object, TypeError | ReferenceError]]] = catch(catch(operator.setitem, exception=ReferenceError), exception=TypeError)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -39,26 +47,29 @@ class ValueHistory[T: msgspec.Struct, O, U](msgspec.Struct, frozen=True, kw_only
 
     # --- [STORAGE]
 
+    @property
+    def codec(self) -> msgspec.json.Decoder[History[T]]:
+        """JSON decoder of the history under the record form."""
+        decoder: msgspec.json.Decoder[History[T]] = msgspec.json.Decoder(GenericAlias(History, (self.form,)))
+        return decoder
+
     def held(self, host: O) -> Outcome[History[T]]:
         """Returns stored history."""
         storage = self.storage(host)
-        try:
-            text = storage.get(self.key)
-        except (TypeError, ReferenceError) as error:
-            return Error(Fault.of(BlenderReason.REFUSED, f"{storage!r}[{self.key!r}]", error))
-        try:
-            return Ok(msgspec.json.decode(text, type=GenericAlias(History, (self.form,))) if text is not None else History[T]())
-        except (msgspec.DecodeError, TypeError) as error:
-            return Error(Fault.of(RecordReason.OUTSIDE, f"{storage!r}[{self.key!r}]", str(text), member=str(error)))
+        request = f"{storage!r}[{self.key!r}]"
+
+        def decoded(text: str) -> Outcome[History[T]]:
+            return catch(self.codec.decode, exception=msgspec.DecodeError)(text).map_error(lambda error: Fault.of(RecordReason.OUTSIDE, request, text, member=str(error)))
+
+        def found(text: object) -> Outcome[History[T]]:
+            return Ok(History[T]()) if text is None else typed(text, str, request).bind(decoded)
+
+        return custom_read(storage, self.key).map_error(partial(Fault.of, BlenderReason.REFUSED, request)).bind(found)
 
     def kept(self, host: O, history: History[T]) -> Outcome[None]:
         """Stores history."""
         storage = self.storage(host)
-        try:
-            storage[self.key] = msgspec.json.encode(history).decode()
-        except (TypeError, ReferenceError) as error:
-            return Error(Fault.of(BlenderReason.REFUSED, f"{storage!r}[{self.key!r}]", error))
-        return Ok(None)
+        return _SET(storage, self.key, msgspec.json.encode(history).decode()).map_error(partial(Fault.of, BlenderReason.REFUSED, f"{storage!r}[{self.key!r}]")).map(lambda _: None)
 
     # --- [EDITS]
 

@@ -49,7 +49,7 @@ class Tab(Case, frozen=True, kw_only=True):
     @classmethod
     def beside(cls, panel: type[_bpy_types.Panel]) -> Self:
         """Returns the Properties tab a stock panel class sits in."""
-        return cls(context=panel.bl_context)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return cls(context=_declared(panel).bl_context)
 
 
 class Sidebar(Case, frozen=True, kw_only=True):
@@ -68,7 +68,8 @@ class Joined(Case, frozen=True, kw_only=True):
     @classmethod
     def beside(cls, panel: type[_bpy_types.Panel]) -> Self:
         """Returns the Sidebar tab a stock panel class sits in."""
-        return cls(space=panel.bl_space_type, category=panel.bl_category)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        declared = _declared(panel)
+        return cls(space=declared.bl_space_type, category=declared.bl_category)
 
 
 class Child(msgspec.Struct, frozen=True, kw_only=True):
@@ -118,8 +119,8 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns section acquisitions, value popover panels, and one scope registering every placement."""
 
-        def stated[P: type, T](panel: P, member: Callable[[P], T]) -> Option[T]:
-            return catch(lambda: member(panel), exception=AttributeError)().to_option()
+        def stated[P, T](panel: P, member: Callable[[P], T]) -> Option[T]:
+            return catch(member, exception=AttributeError)(panel).to_option()
 
         def members(at: Placed, mark: int) -> dict[str, object]:
             match at:
@@ -130,11 +131,12 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
                 case Joined(space=space, category=tab):
                     return {"bl_space_type": space, "bl_region_type": "UI", "bl_category": tab}
                 case Child(parent=parent):
+                    declared = _declared(parent)
                     return {
-                        "bl_space_type": parent.bl_space_type,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        "bl_region_type": parent.bl_region_type,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        "bl_space_type": declared.bl_space_type,
+                        "bl_region_type": declared.bl_region_type,
                         "bl_parent_id": parent.bl_rna.identifier,
-                        **stated(parent, lambda held: held.bl_category).map(lambda tab: {"bl_category": tab}).default_value({}),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        **stated(declared, lambda held: held.bl_category).map(lambda tab: {"bl_category": tab}).default_value({}),
                     }
                 case EditorRegion(space=space, region=region):
                     return {"bl_space_type": space, "bl_region_type": region}
@@ -317,6 +319,12 @@ def reached(rows: Iterable[RowContent | Registrable]) -> Iterator[Section]:
 def registered() -> tuple[type[bpy.types.Panel], ...]:
     """Returns every registered Python panel class, subclasses included."""
     return tuple(panel for name in dir(bpy.types) for panel in subclass(bpy.types.Panel, name).to_option().to_list())
+
+
+def _declared(panel: type[_bpy_types.Panel]) -> type[bpy.types.Panel]:
+    """Returns a stock panel class as the RNA panel type declaring its placement members, which the stubs give `_bpy_types.Panel` no sight of."""
+    declared: type[bpy.types.Panel] = panel  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return declared
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

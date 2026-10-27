@@ -5,7 +5,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 from functools import partial
 import typing
-from typing import override
+from typing import Final, override
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some, try_downcast
@@ -14,7 +14,7 @@ from msgspec import UNSET, UnsetType
 
 from blender.bpy.commands.operators import Answer, Done, Empty, Gesture, Modal, Operator, Travel
 from blender.bpy.data.rna.conditions import Condition
-from blender.bpy.data.rna.descriptors import Native, rna, Struct, struct_at
+from blender.bpy.data.rna.descriptors import definition, Native, rna, Struct, struct_at
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisition, Acquisitions, Band, entered
 from blender.bpy.faults import BlenderReason
@@ -29,6 +29,10 @@ if typing.TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Where[O: Struct] = Condition | Callable[[bpy.types.Context, O], bool]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_META_IDPROP: Final[type] = bpy.types.bpy_struct_meta_idprop  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -134,7 +138,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
 
     def selection(self, identity: Identity) -> Outcome[Member]:
         """Names selection property on shared owner or window manager."""
-        shared = self.active.root is self.collection.root and self.active.reach == self.collection.reach and isinstance(self.active.root, bpy.types.bpy_struct_meta_idprop)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        shared = self.active.root is self.collection.root and self.active.reach == self.collection.reach and isinstance(self.active.root, _META_IDPROP)
         root, reach = (self.active.root, self.active.reach) if shared else (bpy.types.WindowManager, Nothing)
         return identity.identifier(self.key).map(lambda name: Member(root=root, path=(name,), reach=reach))
 
@@ -147,7 +151,7 @@ class ItemList[T: bpy.types.PropertyGroup = bpy.types.PropertyGroup, O: Struct =
                 return Error(refused(bound.descriptor.path, type(item).__name__, (self.item.__name__,)))
             return (
                 Option
-                .of_optional(item.bl_rna.name_property)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                .of_optional(definition(item).name_property)
                 .map(lambda named: (bound, item, named.identifier))
                 .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, rna(bound.descriptor.path), member="name_property"))
             )
@@ -355,7 +359,7 @@ def keyed(struct: Native) -> str:
     """Returns ID `session_uid`, struct name, or nameless struct address."""
     if isinstance(struct, bpy.types.bpy_prop_collection):
         return keyed(struct.data)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-    match struct, struct.bl_rna.name_property:  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    match struct, definition(struct).name_property:
         case bpy.types.ID(), _:
             return str(struct.session_uid)
         case _, bpy.types.StringProperty(identifier=name):

@@ -61,8 +61,7 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, block: T) -> Self:
         """Returns handle of block's original."""
-        original: bpy.types.ID = block.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        return cls(kind=type(block), uid=original.session_uid)
+        return cls(kind=type(block), uid=original(block).session_uid)
 
     def resolve(self) -> Outcome[T]:
         """Returns live original, absent fault once expired."""
@@ -70,6 +69,12 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def original[T: bpy.types.ID](block: T) -> T:
+    """Returns the `bpy.data` block an evaluated copy came from, an original answering itself."""
+    held: T = block.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return held
 
 
 def member(kind: type[bpy.types.ID]) -> str:
@@ -115,4 +120,4 @@ def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["STORES", "Handle", "IdName", "blocks", "embedded", "holder", "member", "named", "resolved"]
+__all__ = ["STORES", "Handle", "IdName", "blocks", "embedded", "holder", "member", "named", "original", "resolved"]

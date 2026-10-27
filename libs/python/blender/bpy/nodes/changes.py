@@ -1,7 +1,7 @@
 """Desired graph reconciliation onto node trees, owned groups, and node content."""
 
 from collections import deque
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 import functools
 from types import MappingProxyType
 from typing import Self
@@ -12,6 +12,7 @@ from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
+from blender.bpy.data.ids.content import endpoints
 from blender.bpy.data.ids.images import generated, loaded
 from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.rna.descriptors import assigned, definition, Descriptor, differing, Native, RnaPath, struct_at, Value, written
@@ -221,11 +222,12 @@ def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> Outcome[None]
         )
 
     def reordered(target: bpy.types.NodeSocket, sources: tuple[bpy.types.NodeSocket, ...]) -> Outcome[None]:
-        marked = tuple(link for link in target.links if Mark.read(identity, link.from_node).is_some())  # type: ignore[union-attr, arg-type]  # ty: ignore[not-iterable, invalid-argument-type]
+        links: Iterable[bpy.types.NodeLink] = target.links  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        marked = tuple(link for link in links if Mark.read(identity, endpoints(link)[0]).is_some())
         return accumulated(
             Block
             .of_seq(marked)
-            .filter(lambda link: link.from_socket == source)
+            .filter(lambda link: endpoints(link)[1] == source)
             .skip(sources[:index].count(source))
             .try_head()
             .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(target), member=repr(source)))
@@ -478,7 +480,7 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
             return {key: (address, entry[0].kind if isinstance(entry := entries[key], tuple) else bpy.types.NodeSocketBool) for key, address in live.sockets.items() if key in items}
 
         nested = {
-            key: group.ownership.found(identity).map(lambda found: surviving(found, group.interface)).default_value({}) if group.single else {}
+            key: group.ownership.reused(identity).map(lambda found: surviving(found, group.interface)).default_value({})
             for change in alterations
             if change.key in held
             for content in change.content.to_list()

@@ -98,7 +98,7 @@ class Wave(msgspec.Struct, frozen=True, kw_only=True):
     wavelength: Positive = tau / (20.0 * 2.0**0.5)
     direction: Finite = 0.0
     phase: Finite = 0.0
-    clock: Clock = Clock(speed=0.5 * 10.0 / tau / 24.0)
+    clock: Clock = Clock(speed=0.0332)
     profile: WaveProfile = "SIN"
     front: Front = Front.LINEAR
     count: Annotated[int, msgspec.Meta(ge=1)] = 1
@@ -141,7 +141,7 @@ class Turbulence(msgspec.Struct, frozen=True, kw_only=True):
     amplitude: NonNegative = 0.1
     basis: Basis = Perlin(texture=textures.Noise(noise_dimensions="4D", scale=2.0))
     axes: tuple[Finite, Finite] = (1.0, 1.0)
-    clock: Clock = Clock(speed=0.5 / 24.0)
+    clock: Clock = Clock(speed=0.0208)
     seed: Seed = 0
 
     def displaced(self, points: npt.NDArray[np.float64], frame: float) -> npt.NDArray[np.float64]:
@@ -190,9 +190,9 @@ class Raindrops(msgspec.Struct, frozen=True, kw_only=True):
 
     drops: Population = Population(spacing=1.0 / (2.0 * 3.8), size=0.5, spread=0.0, softness=0.05)
     refraction: NonNegative = 2.0
-    blur: NonNegative = 14.6 / 1920.0
+    blur: NonNegative = 0.0076
     direction: Finite = 0.0
-    clock: Clock = Clock(speed=0.01 / (24.0 * drops.spacing))
+    clock: Clock = Clock(speed=0.000417 / drops.spacing)
     trails: Unit = 0.0
     seed: Seed = 0
     strength: Finite = 0.0
@@ -543,7 +543,7 @@ displacement = CompositorEffect[Displacement](
                         )
                     ),
                 ),
-                panels=(clock("wave_clock", speed=0.5 * 10.0 / tau / 24.0),),
+                panels=(clock("wave_clock", speed=Wave().clock.speed),),
             ),
             InterfacePanel(
                 key="turbulence",
@@ -558,7 +558,7 @@ displacement = CompositorEffect[Displacement](
                         ("seed", bpy.types.NodeSocketInt, "Number selecting pattern", {"min_value": 0, "max_value": 2**24}),
                     )
                 ),
-                panels=(bases("turbulence_basis", Turbulence().basis, "Noise sampled per displacement axis"), clock("turbulence_clock", speed=0.5 / 24.0)),
+                panels=(bases("turbulence_basis", Turbulence().basis, "Noise sampled per displacement axis"), clock("turbulence_clock", speed=Turbulence().clock.speed)),
             ),
             InterfacePanel(
                 key="sphere",
@@ -608,7 +608,7 @@ displacement = CompositorEffect[Displacement](
                     Socket(key=item_key("raindrops", field), name=bpy.path.display_name(field), kind=kind, description=text, members=members)
                     for field, kind, text, members in (
                         ("refraction", bpy.types.NodeSocketFloat, "Scene radii each drop shows inverted", {"min_value": 0.0, "default_value": 2.0}),
-                        ("blur", bpy.types.NodeSocketFloat, "View blur inside each drop", {"min_value": 0.0, "default_value": 14.6 / 1920.0}),
+                        ("blur", bpy.types.NodeSocketFloat, "View blur radius inside each drop over greater frame side", {"min_value": 0.0, "default_value": Raindrops().blur}),
                         ("direction", bpy.types.NodeSocketFloat, "Drop fall slant from straight down", ANGLE),
                         ("trails", bpy.types.NodeSocketFloat, "Trail height behind each drop", FACTOR),
                         ("seed", bpy.types.NodeSocketInt, "Number selecting drop population", {"min_value": 0, "max_value": 2**24}),
@@ -633,7 +633,7 @@ displacement = CompositorEffect[Displacement](
                             )
                         ),
                     ),
-                    clock("raindrops_clock", speed=0.01 / (24.0 * Raindrops().drops.spacing)),
+                    clock("raindrops_clock", speed=Raindrops().clock.speed),
                 ),
             ),
             InterfacePanel(

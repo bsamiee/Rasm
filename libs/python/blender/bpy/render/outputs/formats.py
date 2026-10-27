@@ -174,8 +174,8 @@ def output_rows(layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.
     """Draws native output format, depth, and display policy."""
     for scene in Option.of_optional(context.scene).to_list():
         settings = scene.render.image_settings
-        display = (settings.display_settings if settings.color_management == "OVERRIDE" else scene.display_settings).display_device  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        for row in native_readouts(settings, display):
+        shown: bpy.types.ColorManagedDisplaySettings = settings.display_settings if settings.color_management == "OVERRIDE" else scene.display_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        for row in native_readouts(settings, shown.display_device):
             layout.label(text=row.text)
 
 

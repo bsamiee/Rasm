@@ -18,7 +18,7 @@ import msgspec
 
 from blender.bpy.commands.calls import Stock
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, InvokePopup, Operator
-from blender.bpy.data.ids.evaluation import evaluated, Instance
+from blender.bpy.data.ids.evaluation import evaluated, instances
 from blender.bpy.data.ids.store import resolved
 from blender.bpy.data.rna import conditions
 from blender.bpy.data.rna.descriptors import definition, Descriptor, Struct
@@ -250,7 +250,7 @@ def shader_kinds() -> tuple[type[bpy.types.ShaderNode], ...]:
 @functools.cache
 def shader_rows(kinds: tuple[type[bpy.types.ShaderNode], ...]) -> tuple[tuple[str, str, str], ...]:
     """Returns enum rows of shader classes, cached so the host's dynamic enum reads keep their strings."""
-    return tuple((kind.__name__, kind.bl_rna.name, kind.bl_rna.description) for kind in kinds)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    return tuple((kind.__name__, rna.name, rna.description) for kind in kinds for rna in (definition(kind),))
 
 
 def shader_users(kind: type[bpy.types.ShaderNode]) -> tuple[bpy.types.Material, ...]:
@@ -268,11 +268,11 @@ def measured(view_layer: bpy.types.ViewLayer) -> Outcome[Measure]:
 
     def counted(depsgraph: bpy.types.Depsgraph) -> Measure:
         """Counts instance meshes and images of depsgraph."""
-        instances = Instance.read(depsgraph)
-        meshes = tuple(data for instance in instances for data in (instance.source.evaluated_get(depsgraph).data,) if isinstance(data, bpy.types.Mesh))
+        copies = instances(depsgraph)
+        meshes = tuple(data for instance in copies for data in (instance.source.evaluated_get(depsgraph).data,) if isinstance(data, bpy.types.Mesh))
         images = tuple(image for block in depsgraph.ids for image in (block.original,) if isinstance(image, bpy.types.Image))
         return Measure(
-            objects=len(instances),
+            objects=len(copies),
             vertices=sum(len(mesh.vertices) for mesh in meshes),
             faces=sum(len(mesh.polygons) for mesh in meshes),
             triangles=sum(len(mesh.loop_triangles) for mesh in meshes),

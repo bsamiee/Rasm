@@ -207,7 +207,7 @@ grain = CompositorEffect(
                     *(
                         Socket(key=item_key("film", field), name=bpy.path.display_name(field), kind=bpy.types.NodeSocketFloat, description=text, members={"subtype": subtype, **members})
                         for field, text, subtype, members in (
-                            ("size", "Grain diameter over greater frame side", "NONE", {"min_value": 0.0, "default_value": 2.0 / 1920.0}),
+                            ("size", "Grain diameter over greater frame side", "NONE", {"min_value": 0.0, "default_value": 0.00104}),
                             ("span", "Tile width over greater frame side", "NONE", {"min_value": 0.0, "default_value": 1.0}),
                             ("granularity", "Deviation of the log grain factor", "NONE", {"min_value": 0.0}),
                             ("shadows", "Grain weight below the shadow edge", "FACTOR", {"min_value": 0.0, "max_value": 1.0, "default_value": 1.0}),

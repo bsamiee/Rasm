@@ -19,7 +19,7 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Suppressible, tallied, Unchanged
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import AllOf, Condition, Setting
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, rooted, Value, written
+from blender.bpy.data.rna.descriptors import assigned, definition, Descriptor, rooted, Value, written
 from blender.bpy.extension.events import Handler, located, staged, Subscription
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
@@ -205,9 +205,11 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
 
         def dropped(frame: int) -> Outcome[None]:
             return Result[Path, Faults].bind(
-                catch(lambda: Path(bpy.path.abspath(scene.render.frame_path(frame=frame))), exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(scene.render))),
+                catch(scene.render.frame_path, exception=RuntimeError)(frame=frame)
+                .map(lambda text: Path(bpy.path.abspath(text)))
+                .map_error(partial(Fault.of, BlenderReason.REFUSED, repr(scene.render))),
                 lambda file: (
-                    catch(lambda: file.unlink(missing_ok=True), exception=OSError)().map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(file)))
+                    catch(file.unlink, exception=OSError)(missing_ok=True).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(file)))
                     if bpy.path.is_subdir(str(file), str(self.base))
                     else Ok(None)
                 ),
@@ -306,11 +308,9 @@ def predicted(requested: Iterable[str], held: tuple[str, ...] = ()) -> tuple[str
 
 def edits(node: bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame, transform: Callable[[str], Outcome[Option[str]]]) -> Outcome[tuple[Rename, ...]]:
     """Plans node strings and File Output item names a transform changes, item names predicted as the host stores them."""
-    texts = tuple(prop for prop in node.bl_rna.properties if isinstance(prop, bpy.types.StringProperty) and (prop.is_path_supports_templates or prop.identifier == "label"))
+    texts = tuple(prop for prop in definition(node).properties if isinstance(prop, bpy.types.StringProperty) and (prop.is_path_supports_templates or prop.identifier == "label"))
     items = tuple(
-        (item, prop)
-        for item in (node.file_output_items if isinstance(node, bpy.types.CompositorNodeOutputFile) else ())
-        for prop in Option.of_optional(item.bl_rna.name_property).to_list()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        (item, prop) for item in (node.file_output_items if isinstance(node, bpy.types.CompositorNodeOutputFile) else ()) for prop in Option.of_optional(definition(item).name_property).to_list()
     )
     before, held = tuple(getattr(node, prop.identifier) for prop in texts), tuple(getattr(item, prop.identifier) for item, prop in items)
 
@@ -334,7 +334,7 @@ def planned(nodes: Iterable[bpy.types.Node], properties: Replace) -> Outcome[tup
     def substituted(pattern: re.Pattern[str], text: str) -> Outcome[Option[str]]:
         insert: Callable[[re.Match[str]], str] = (lambda found: found.expand(properties.replace)) if properties.regex else (lambda _: properties.replace)
         return (
-            catch(lambda: pattern.sub(insert, text), exception=re.PatternError)()
+            catch(pattern.sub, exception=re.PatternError)(insert, text)
             .map_error(lambda error: Fault.of(BlenderReason.UNMET, Malformed(text=properties.replace, error=error).message))
             .map(lambda changed: Some(changed) if changed != text else Nothing)
         )
@@ -342,7 +342,7 @@ def planned(nodes: Iterable[bpy.types.Node], properties: Replace) -> Outcome[tup
     return (
         Result[re.Pattern[str], Faults]
         .bind(
-            catch(lambda: re.compile(properties.find if properties.regex else re.escape(properties.find), 0 if properties.case else re.IGNORECASE), exception=re.PatternError)().map_error(
+            catch(re.compile, exception=re.PatternError)(properties.find if properties.regex else re.escape(properties.find), 0 if properties.case else re.IGNORECASE).map_error(
                 lambda error: Fault.of(BlenderReason.UNMET, Malformed(text=properties.find, error=error).message)
             ),
             lambda pattern: accumulated(edits(node, partial(substituted, pattern)) for node in nodes if isinstance(node, bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame)),
@@ -417,7 +417,9 @@ def output_folder(call: Call[Empty]) -> Outcome[Done]:
     return (
         Result[Path, Faults]
         .bind(
-            catch(lambda: Path(bpy.path.abspath(render.frame_path(frame=scene.frame_current))), exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(render))),
+            catch(render.frame_path, exception=RuntimeError)(frame=scene.frame_current)
+            .map(lambda text: Path(bpy.path.abspath(text)))
+            .map_error(partial(Fault.of, BlenderReason.REFUSED, repr(render))),
             lambda file: called(bpy.ops.wm.path_open, {"filepath": str(existing(file))}),
         )
         .map(lambda _: Done())

@@ -225,7 +225,7 @@ halation = CompositorEffect(
     graph=halated,
     interface=Interface(
         inputs=(
-            Socket(key="radius", name="Radius", kind=bpy.types.NodeSocketFloat, description="Halo blur radius", members={"min_value": 0.0, "default_value": 64.0 * 0.2 / 1920.0}),
+            Socket(key="radius", name="Radius", kind=bpy.types.NodeSocketFloat, description="Halo blur radius over greater frame side", members={"min_value": 0.0, "default_value": 0.0067}),
             Socket(key="color", name="Color", kind=bpy.types.NodeSocketColor, description="Film re-exposure per channel", members={"default_value": (1.0, 0.1, 0.0, 1.0)}),
         ),
         panels=(

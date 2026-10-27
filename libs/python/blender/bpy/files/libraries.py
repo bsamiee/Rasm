@@ -204,7 +204,7 @@ def library_written(
     """Writes blocks to library file, returning path."""
     return folder_made(path.parent).bind(
         lambda _: (
-            catch(lambda: bpy.data.libraries.write(str(path), set(blocks), path_remap=remap, fake_user=fake_user, compress=compress), exception=OSError)()
+            catch(bpy.data.libraries.write, exception=OSError)(str(path), set(blocks), path_remap=remap, fake_user=fake_user, compress=compress)
             .map(lambda _: path)
             .map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path)))
         )

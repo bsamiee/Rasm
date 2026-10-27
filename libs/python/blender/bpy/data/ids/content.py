@@ -1,9 +1,8 @@
 """Content hashes of data-blocks over their saved members, element buffers, pixels, and node graphs, and the upstream walk of a node."""
 
-from collections.abc import Iterable, Mapping
-from functools import reduce
+from collections.abc import Iterable
+from functools import partial, reduce
 from itertools import starmap
-from types import MappingProxyType
 from typing import Final
 
 import bpy
@@ -15,7 +14,7 @@ import numpy.typing as npt
 
 from blender.bpy.data.ids.images import pixels
 from blender.bpy.data.ids.store import IdName
-from blender.bpy.data.rna.descriptors import definition, Descriptor, Struct, struct_at
+from blender.bpy.data.rna.descriptors import definition, Descriptor, DTYPES, Struct, struct_at
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.records.faults import accumulated, Outcome, paired
 from blender.records.identity import content_hash, ContentHash
@@ -27,21 +26,17 @@ type _Dtype = type[np.bool | np.int32 | np.float32]
 type _Elements[T] = bpy.types.bpy_prop_collection[T]
 type _Arrays = tuple[npt.NDArray[np.bool | np.int32 | np.float32 | np.float64], ...]
 type _Parts = tuple[tuple[Struct, ...], tuple[bpy.types.Attribute, ...], _Arrays, tuple[tuple[str, str | None], ...]]
+type _Captured = tuple[Snapshot, tuple[Option[ContentHash], ...]]
 type _Frontier = tuple[tuple[bpy.types.Node, ...], frozenset[bpy.types.Node]]
 type _Ends = tuple[bpy.types.Node, bpy.types.NodeSocket, bpy.types.Node, bpy.types.NodeSocket]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_DTYPES: Final[Mapping[type[bpy.types.Property], _Dtype]] = MappingProxyType({
-    bpy.types.BoolProperty: np.bool,
-    bpy.types.IntProperty: np.int32,
-    bpy.types.FloatProperty: np.float32,
-    bpy.types.EnumProperty: np.int32,
-})
 _UNHASHED: Final = frozenset({"MOVIE", "SEQUENCE", "TILED"})
 _COMPOSITE: Final = frozenset({"MULTILAYER", "RENDER_RESULT"})
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [HASHES]
 
 
 def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = False) -> Outcome[Option[ContentHash]]:
@@ -64,7 +59,7 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = Fals
             return buffer
 
         def chosen(member: bpy.types.Property) -> Option[_Dtype]:
-            return Option.of_optional(_DTYPES.get(type(member)))
+            return Option.of_optional(DTYPES.get(type(member)))
 
         return tuple(read(member, dtype) for member in members for dtype in chosen(member).to_list())
 
@@ -74,7 +69,7 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = Fals
         if transient or empty:
             return Ok(Nothing)
         members = Descriptor.saved(image, lambda prop: prop != bpy.types.Image.bl_rna.properties["pixels"])
-        settings = Snapshot.of(bpy.types.Image, {("type",): image.type, ("is_float",): image.is_float})
+        settings = msgspec.msgpack.encode((image.type, image.is_float))
         packed = tuple(np.frombuffer(file.data, np.uint8) for part in image.packed_files for file in Option.of_optional(part.packed_file).to_list())
         return paired(pixels(image), Snapshot.capture(image, Some(members))).map(lambda pair: Some(content_hash(bpy.types.Image, pair[1], settings, arrays=(pair[0], *packed))))
 
@@ -84,27 +79,24 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = Fals
         reached = frozenset(nodes)
         settings = Descriptor.saved(tree, lambda prop: not isinstance(prop, bpy.types.CollectionProperty))
 
-        def captured(struct: Struct, selection: Option[tuple[Descriptor, ...]] = Nothing) -> Outcome[tuple[Snapshot, tuple[Option[ContentHash], ...]]]:
-            def referenced(snapshot: Snapshot) -> Outcome[tuple[Snapshot, tuple[Option[ContentHash], ...]]]:
-                blocks = dict.fromkeys(
-                    block
-                    for at, held in snapshot.tree.owners.items()
-                    for name, value in held.values.items()
-                    if isinstance(value, IdName)
-                    for block in struct_at(struct, (*at, name)).to_list()
-                    if isinstance(block, bpy.types.NodeTree | bpy.types.Image)
-                )
-                return accumulated(map(fingerprinted, blocks)).map(lambda hashes: (snapshot, hashes))
-
-            return Snapshot.capture(struct, selection).bind(referenced)
+        def referenced(struct: Struct, snapshot: Snapshot) -> Outcome[_Captured]:
+            blocks = dict.fromkeys(
+                block
+                for at, held in snapshot.tree.owners.items()
+                for name, value in held.values.items()
+                if isinstance(value, IdName)
+                for block in struct_at(struct, (*at, name)).to_list()
+                if isinstance(block, bpy.types.NodeTree | bpy.types.Image)
+            )
+            return accumulated(map(fingerprinted, blocks)).map(lambda hashes: (snapshot, hashes))
 
         def linked(link: bpy.types.NodeLink, ends: _Ends) -> Outcome[ContentHash]:
             source, outlet, target, inlet = ends
-            endpoints = msgspec.msgpack.encode((source.name, outlet.identifier, target.name, inlet.identifier))
-            return Snapshot.capture(link, Some(Descriptor.saved(link, lambda prop: not prop.is_readonly))).map(lambda snapshot: content_hash(bpy.types.NodeLink, endpoints, snapshot))
+            connection = msgspec.msgpack.encode((source.name, outlet.identifier, target.name, inlet.identifier))
+            return Snapshot.capture(link, Some(Descriptor.saved(link, lambda prop: not prop.is_readonly))).map(lambda snapshot: content_hash(bpy.types.NodeLink, connection, snapshot))
 
         return paired(
-            accumulated(starmap(captured, ((tree, Some(settings)), *((item, Nothing) for item in nodes)))),
+            accumulated(starmap(lambda struct, selection: Snapshot.capture(struct, selection).bind(partial(referenced, struct)), ((tree, Some(settings)), *((item, Nothing) for item in nodes)))),
             accumulated(linked(link, ends) for link in tree.links for ends in (endpoints(link),) if ends[2] in reached),
         ).map(
             lambda parts: reduce(
@@ -122,12 +114,16 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = Fals
         def parts(structs: tuple[Struct, ...]) -> _Parts:
             match block:
                 case bpy.types.Mesh():
-                    weights = (np.fromiter((value for index, vertex in enumerate(block.vertices) for element in vertex.groups for value in (index, element.group, element.weight)), np.float64),)
+                    weights = (
+                        (np.fromiter((value for index, vertex in enumerate(block.vertices) for element in vertex.groups for value in (index, element.group, element.weight)), np.float64),)
+                        if weighted
+                        else ()
+                    )
                     arrays = (
                         *buffers(block.polygons, (bpy.types.MeshPolygon.bl_rna.properties["loop_start"],)),
                         *(array for key in keys for array in buffers(key.points, bpy.types.ShapeKeyPoint.bl_rna.properties)),
                         *(array for layer in block.skin_vertices for array in buffers(layer.data, bpy.types.MeshSkinVertex.bl_rna.properties)),
-                        *(weights if weighted else ()),
+                        *weights,
                     )
                     return structs, tuple(block.attributes), arrays, ()
                 case bpy.types.Curve():
@@ -191,6 +187,9 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = Fals
             return graph(owner)
         case _:
             return elements(owner).map(Some)
+
+
+# --- [WALKS]
 
 
 def upstream(node: bpy.types.Node) -> tuple[bpy.types.Node, ...]:

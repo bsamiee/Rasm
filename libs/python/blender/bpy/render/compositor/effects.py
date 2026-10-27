@@ -1,6 +1,6 @@
 """Scene compositor effects: the effect declared over its group interface and structure record with its parts, the graph context its builder reads, and the entries a scene holds for it."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import ExitStack
 from enum import auto, Enum
 from functools import partial
@@ -16,6 +16,7 @@ import msgspec
 import OpenImageIO
 import PyOpenColorIO
 
+from blender.bpy.data.ids.content import endpoints
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.animation import Animation, Driven, Keys
@@ -527,19 +528,19 @@ class CompositorEffect[R: Case](msgspec.Struct, frozen=True, kw_only=True):
             def endpoint(socket: bpy.types.NodeSocket) -> End:
                 return End(node=marked[socket.node], socket=semantic.get(socket.identifier, socket.identifier) if marked[socket.node] in {INPUTS, OUTPUTS} else socket.identifier)  # type: ignore[index]  # ty: ignore[invalid-argument-type]
 
+            def fed(socket: bpy.types.NodeSocket) -> tuple[Link, ...]:
+                links: Iterable[bpy.types.NodeLink] = socket.links  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                return tuple(
+                    Link(source=endpoint(outlet), target=endpoint(inlet))
+                    for link in links
+                    for source, outlet, _, inlet in (endpoints(link),)
+                    if source in marked and marked[source] in group.graph.placed
+                )
+
             graph = msgspec.structs.replace(
                 group.graph,
                 nodes={**group.graph.nodes, **({Shell.viewer: Node(kind=bpy.types.CompositorNodeViewer)} if viewers else {})},
-                links=(
-                    *group.graph.links,
-                    *(
-                        Link(source=endpoint(link.from_socket), target=endpoint(link.to_socket))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                        for viewer in viewers
-                        for socket in socket_at(viewer.inputs, "Image").to_option().to_list()
-                        for link in socket.links  # type: ignore[union-attr]  # ty: ignore[not-iterable]
-                        if link.from_node in marked and marked[link.from_node] in group.graph.placed
-                    ),
-                ),
+                links=(*group.graph.links, *(link for viewer in viewers for socket in socket_at(viewer.inputs, "Image").to_option().to_list() for link in fed(socket))),
             )
             return reconciled(msgspec.structs.replace(group, graph=graph), live, identity).map(lambda changes: (live, changes != Changes()))
 

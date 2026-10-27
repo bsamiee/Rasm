@@ -191,7 +191,12 @@ class SetupGallery(Line, frozen=True, kw_only=True):
             )
 
         with identity.reports.deferred(applied) as deferred:
-            yield lambda owner, _context: deferred(owner.setup)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+
+            def picked(owner: Struct, _context: bpy.types.Context) -> None:
+                pick: SetupPick = owner  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                deferred(pick.setup)
+
+            yield picked
 
     def drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Draws preset tiles at the host preview size."""

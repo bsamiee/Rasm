@@ -8,17 +8,17 @@ from itertools import starmap
 import os
 from pathlib import Path
 from types import MappingProxyType
-from typing import Literal, Self
+from typing import Final, Literal, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.calls import called
 from blender.bpy.data.ids.ownership import retained
 from blender.bpy.data.ids.store import Handle, STORES
-from blender.bpy.data.rna.descriptors import assigned, Value
+from blender.bpy.data.rna.descriptors import assigned, typed, Value
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 from blender.records.stores import files_copied, folder_made, mirrored
@@ -36,6 +36,12 @@ class SaveMode(Enum):
     COPY = auto()
     INCREMENTAL = auto()
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_ENTERED: Final[Callable[[ExitStack, AbstractContextManager[tuple[object, object]]], Result[object, OSError | ValueError]]] = catch(
+    catch(ExitStack.enter_context, exception=ValueError), exception=OSError
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -145,15 +151,16 @@ def sourced[T](
 ) -> Outcome[tuple[T, dict[str, tuple[bpy.types.ID | str | None, ...]]]]:
     """Returns source selection with loaded destination slots, read fault when the library load refuses the file."""
     load: AbstractContextManager[tuple[object, object]] = data.libraries.load(str(path), **keywords)  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
-    with ExitStack() as loading:
-        try:
-            source, target = loading.enter_context(load)
-        except (OSError, ValueError) as error:
-            return Error(Fault.of(RecordReason.UNREADABLE, str(path), error))
-        value, chosen = take(source)
+
+    def requested(ends: tuple[object, ...]) -> tuple[object, T, Mapping[str, Sequence[str]]]:
+        value, chosen = take(ends[0])
         for name, names in chosen.items():
-            setattr(target, name, list(names))
-    return Ok((value, {name: tuple(getattr(target, name)) for name in chosen}))
+            setattr(ends[1], name, list(names))
+        return ends[1], value, chosen
+
+    with ExitStack() as loading:
+        requests = _ENTERED(loading, load).map_error(partial(Fault.of, RecordReason.UNREADABLE, str(path))).bind(lambda ends: typed(ends, tuple, str(path))).map(requested)
+    return requests.map(lambda held: (held[1], {name: tuple(getattr(held[0], name)) for name in held[2]}))
 
 
 # --- [SAVE]
@@ -161,7 +168,8 @@ def sourced[T](
 
 def saved(path: Path, kind: SaveMode, *, compress: Option[bool] = Nothing, remap: Option[bool] = Nothing) -> Outcome[Path]:
     """Saves file, returning saved path."""
-    relative = remap.default_with(lambda: bpy.context.preferences.filepaths.use_relative_paths)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    relative = remap.default_with(lambda: preferences.filepaths.use_relative_paths)
 
     def written() -> Outcome[Path]:
         match kind:

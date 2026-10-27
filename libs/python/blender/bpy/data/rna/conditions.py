@@ -8,7 +8,7 @@ import bpy
 from expression import Nothing, Ok, Option, Some
 import msgspec
 
-from blender.bpy.data.rna.descriptors import Descriptor, Struct, Value
+from blender.bpy.data.rna.descriptors import Descriptor, root_in, Struct, Value
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Outcome
 
@@ -169,8 +169,7 @@ class Extension(Condition, frozen=True, kw_only=True):
 
     @override
     def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
-        preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        return self.module in preferences.addons
+        return root_in(bpy.types.Preferences, context).map(lambda preferences: self.module in preferences.addons).default_value(False)
 
     @property
     @override

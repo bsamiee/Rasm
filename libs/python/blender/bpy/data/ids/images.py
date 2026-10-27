@@ -92,14 +92,14 @@ def read(image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[ImageF
 
     def formed(plane: npt.NDArray[np.float32]) -> ImageFile[np.float32]:
         flipped = np.ascontiguousarray(plane[::-1])
-        return ImageFile(pixels=associated(flipped) if _associated(image) else flipped, colorspace=space)
+        return ImageFile(pixels=associated(flipped) if _straight(image) else flipped, colorspace=space)
 
     return pixels(image).map(formed) if np.asarray(image.size).prod() else Error(Fault.of(BlenderReason.ABSENT, repr(image), member=image.filepath))
 
 
 def filled(image: bpy.types.Image, plane: npt.NDArray[np.float32]) -> Outcome[None]:
     """Writes associated plane into pixels, widening gray and padding channels."""
-    straight = unassociated(plane) if _associated(image) else plane
+    straight = unassociated(plane) if _straight(image) else plane
     color = np.repeat(straight, 3, axis=-1) if straight.shape[2] == 1 else straight
     padded = np.pad(color, ((0, 0), (0, 0), (0, image.channels - color.shape[2])))
     if color.shape[2] < 4 and image.channels == 4:
@@ -135,15 +135,11 @@ def generated(
     def owned(values: npt.NDArray[np.float32]) -> Outcome[Option[bpy.types.Image]]:
         return built(values).bind(lambda image: ownership.owned(identity, image, of=of, content=Some(content))).map(Some)
 
-    return (
-        (ownership.found(identity, of=of, content=Some(content)) if ownership.single else Nothing)
-        .map(lambda image: Ok(Some(image)))
-        .default_with(lambda: plane().bind(lambda values: values.map(owned).default_value(Ok(Nothing))))
-    )
+    return ownership.reused(identity, of=of, content=Some(content)).map(lambda image: Ok(Some(image))).default_with(lambda: plane().bind(lambda values: values.map(owned).default_value(Ok(Nothing))))
 
 
-def _associated(image: bpy.types.Image) -> bool:
-    """Whether image byte buffer stores straight color with alpha."""
+def _straight(image: bpy.types.Image) -> bool:
+    """Whether the image's byte buffer stores straight color under an alpha the host reads, which float buffers and data images never do."""
     settings: bpy.types.ColorManagedInputColorspaceSettings = image.colorspace_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return not image.is_float and image.channels == 4 and not settings.is_data and image.alpha_mode in {"STRAIGHT", "PREMUL"}
 

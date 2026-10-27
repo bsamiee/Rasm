@@ -9,7 +9,7 @@ import inspect
 from itertools import chain
 from pathlib import Path
 from types import FunctionType, MappingProxyType, MethodType
-from typing import Final, override, Self, TYPE_CHECKING
+from typing import Final, override, Protocol, Self, TYPE_CHECKING
 
 import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
@@ -41,6 +41,20 @@ type Draw = Callable[[bpy.types.UILayout, bpy.types.Context, bpy.types.OperatorP
 type Invoke[T: bpy.types.PropertyGroup, S] = Confirm[T] | Suppressible[T] | Properties | Floating | InvokePopup | Open[T] | Save[T] | Pick | Modal[S]
 type Answer = Done | Unchanged
 type Located[T] = Callable[[bpy.types.Operator, T], Outcome[tuple[Path, ...]]]
+type Files = bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+
+
+class _Saved(Protocol):
+    """File browser properties `ExportHelper` declares on its operator."""
+
+    filepath: str
+
+
+class _Opened(_Saved, Protocol):
+    """File browser properties `ImportHelper` and the `Open` form declare on its operator."""
+
+    directory: str
+    files: Files
 
 
 class InvokePopup(Enum):
@@ -297,7 +311,8 @@ class Open[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
         """Bases the class on `ImportHelper`, running the body over the chosen files."""
 
         def chosen(operator: bpy.types.Operator, _properties: T) -> Outcome[tuple[Path, ...]]:
-            paths = tuple(Path(operator.directory, item.name) for item in operator.files if item.name) or tuple(Path(path) for path in (operator.filepath,) if path)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            held: _Opened = operator  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            paths = tuple(Path(held.directory, item.name) for item in held.files if item.name) or tuple(Path(path) for path in (held.filepath,) if path)
             return Ok(paths).filter_with(bool, partial(Fault.of, BlenderReason.UNMET, Unopened(title=body.command.title).message))
 
         execute: Executed = lambda operator, context: body.finished(operator, body.performed(operator, context, Some(chosen)))
@@ -339,13 +354,12 @@ class Save[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
         """Bases the class on `ExportHelper`, confirming replacement of existing destinations once per invocation."""
 
         def located(operator: bpy.types.Operator, properties: T) -> Outcome[tuple[Path, ...]]:
-            path = Path(operator.filepath)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            held: _Saved = operator  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            path = Path(held.filepath)
             return Ok(self.destinations.map(lambda project: project(path, properties)).default_value((path,)))
 
         def existing(operator: bpy.types.Operator, properties: T) -> Outcome[tuple[Path, ...]]:
-            return located(operator, properties).bind(
-                lambda paths: catch(lambda: tuple(path for path in paths if path.exists()), exception=OSError)().map_error(partial(Fault.of, RecordReason.UNREADABLE, repr(paths)))
-            )
+            return located(operator, properties).bind(lambda paths: _present(paths).map_error(partial(Fault.of, RecordReason.UNREADABLE, repr(paths))))
 
         def execute(operator: bpy.types.Operator, context: bpy.types.Context) -> Returns:
             confirming: bool = self.destinations.is_some() and operator.options.is_invoke and not operator.options.is_repeat and not operator.replacing  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
@@ -1033,6 +1047,12 @@ def matched(item: bpy.types.KeyMapItem, event: bpy.types.Event, held: frozenset[
             )
         )
     )
+
+
+@catch(exception=OSError)
+def _present(paths: tuple[Path, ...]) -> tuple[Path, ...]:
+    """Returns the paths that exist, a path whose stat is refused raising."""
+    return tuple(path for path in paths if path.exists())
 
 
 def _modal(manager: bpy.types.WindowManager) -> bpy.types.KeyMap:

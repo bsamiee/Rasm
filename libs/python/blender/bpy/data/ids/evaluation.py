@@ -11,7 +11,7 @@ from expression.extra.result import catch
 from mathutils import Matrix, Vector
 import msgspec
 
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.ids.store import Handle, original
 from blender.bpy.extension.events import Change, changed
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import Fault, Outcome
@@ -89,35 +89,6 @@ class Instance(msgspec.Struct, frozen=True, kw_only=True):
     show_particles: bool
     instancing: Option[Instancing]
 
-    @staticmethod
-    def read(depsgraph: bpy.types.Depsgraph) -> tuple["Instance", ...]:
-        """Copies object instances in iterator order."""
-        items: Iterable[_Instance] = depsgraph.object_instances  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-
-        def copied(item: _Instance) -> "Instance":
-            source: bpy.types.Object = item.object.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-
-            def instancing(parent: bpy.types.Object) -> Instancing:
-                instancer: bpy.types.Object = parent.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                return Instancing(
-                    instancer=instancer,
-                    persistent_id=tuple(item.persistent_id),
-                    random_id=item.random_id,
-                    orco=item.orco.copy(),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                    uv=Vector(tuple(item.uv)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                    particle_system=Option.of_optional(item.particle_system).map(lambda system: system.name),
-                )
-
-            return Instance(
-                source=source,
-                matrix=item.matrix_world.copy(),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                show_self=item.show_self,
-                show_particles=item.show_particles,
-                instancing=Option.of_optional(item.parent).map(instancing),
-            )
-
-        return tuple(map(copied, items))
-
 
 class Hit(msgspec.Struct, frozen=True, kw_only=True):
     """Object-space surface hit."""
@@ -128,6 +99,33 @@ class Hit(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def instances(depsgraph: bpy.types.Depsgraph) -> tuple[Instance, ...]:
+    """Copies object instances in iterator order."""
+    items: Iterable[_Instance] = depsgraph.object_instances  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+
+    def copied(item: _Instance) -> Instance:
+
+        def instancing(parent: bpy.types.Object) -> Instancing:
+            return Instancing(
+                instancer=original(parent),
+                persistent_id=tuple(item.persistent_id),
+                random_id=item.random_id,
+                orco=item.orco.copy(),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                uv=Vector(tuple(item.uv)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                particle_system=Option.of_optional(item.particle_system).map(lambda system: system.name),
+            )
+
+        return Instance(
+            source=original(item.object),
+            matrix=item.matrix_world.copy(),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            show_self=item.show_self,
+            show_particles=item.show_particles,
+            instancing=Option.of_optional(item.parent).map(instancing),
+        )
+
+    return tuple(map(copied, items))
 
 
 def evaluated(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Depsgraph]:
@@ -177,4 +175,4 @@ def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Hit", "Instance", "Instancing", "Update", "evaluated", "hit", "meshed"]
+__all__ = ["Hit", "Instance", "Instancing", "Update", "evaluated", "hit", "instances", "meshed"]

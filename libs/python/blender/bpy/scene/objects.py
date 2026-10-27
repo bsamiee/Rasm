@@ -17,7 +17,7 @@ from blender.bpy.commands.operators import Answer, answered, Call, Operator
 from blender.bpy.data.ids.ownership import kept
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import Descriptor, mirrored, rooted, Struct, Value, written
+from blender.bpy.data.rna.descriptors import definition, Descriptor, mirrored, rooted, Struct, Value, written
 from blender.bpy.data.rna.snapshots import Applied, Objects, Scenes, Scope, scoped, SCOPES, Selection, Snapshot, ViewLayers
 from blender.bpy.faults import BlenderReason
 from blender.bpy.scene.collections import joined
@@ -38,6 +38,9 @@ _EDITING: Final = Setting(descriptor=Descriptor.declared(bpy.types.Object, "mode
 _LEVELS: Final = Descriptor.declared(bpy.types.SubsurfModifier, "levels", bpy.types.IntProperty)
 _RENDER_LEVELS: Final = Descriptor.declared(bpy.types.SubsurfModifier, "render_levels", bpy.types.IntProperty)
 VERTEX: Final = Descriptor.declared(bpy.types.MeshVertex, "co", bpy.types.FloatProperty)
+_FILLED: Final[Callable[[bpy.types.Mesh, npt.NDArray[np.float32], tuple[()], npt.NDArray[np.int64]], Result[object, ReferenceError | RuntimeError | TypeError | ValueError]]] = catch(
+    catch(catch(catch(bpy.types.Mesh.from_pydata, exception=ValueError), exception=TypeError), exception=RuntimeError), exception=ReferenceError
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -180,7 +183,7 @@ def spawned(name: str, data: Option[bpy.types.ID], collection: bpy.types.Collect
 
 def restacked(stack: Stack, move: Option[Mover], entries: Entries) -> Outcome[tuple[Restacked, ...]]:
     """Returns stack edits toward entries, recreating out-of-order entries of a stack without reorder call."""
-    inputs = tuple(parameter for parameter in stack.bl_rna.functions["new"].parameters if not parameter.is_output)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    inputs = tuple(parameter for parameter in definition(stack).functions["new"].parameters if not parameter.is_output)
     choices = {parameter.identifier: tuple(item.identifier for item in parameter.enum_items) for parameter in inputs if isinstance(parameter, bpy.types.EnumProperty)}
     live = tuple((entry.name, {key: getattr(entry, key) for key in choices}) for entry in stack)
     wanted = tuple((name, {"type": entry.kind} if isinstance(entry, StackEntry) else {}) for name, entry in entries.items())
@@ -197,7 +200,7 @@ def restacked(stack: Stack, move: Option[Mover], entries: Entries) -> Outcome[tu
 def restack(row: Restacked) -> tuple[Step, ...]:
     """Returns removal, insertion, and reorder steps in target order."""
     stack, parameters = row.stack, dict(row.wanted)
-    named = "name" in stack.bl_rna.functions["new"].parameters  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    named = "name" in definition(stack).functions["new"].parameters
 
     def removed(key: str) -> Outcome[None]:
         return catch(stack.remove, exception=RuntimeError)(stack[key]).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(stack)))
@@ -295,8 +298,8 @@ def steps(item: bpy.types.Object, change: ObjectChange) -> tuple[Step, ...]:
                 lambda: accumulated(
                     result.map_error(refused)
                     for result in (
-                        *(catch(lambda: item.hide_set(hide, view_layer=layer), exception=RuntimeError)() for hide in hidden.to_list()),
-                        *(catch(lambda: item.select_set(select, view_layer=layer), exception=RuntimeError)() for select in selected.to_list()),
+                        *(catch(item.hide_set, exception=RuntimeError)(hide, view_layer=layer) for hide in hidden.to_list()),
+                        *(catch(item.select_set, exception=RuntimeError)(select, view_layer=layer) for select in selected.to_list()),
                     )
                 ).map(lambda _: None),
             )
@@ -366,12 +369,8 @@ def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.N
     mesh.polygons.foreach_get("loop_start", starts)
     if np.array_equal(live.view(np.uint32), vertices.ravel().view(np.uint32)) and np.array_equal(corners, faces.ravel()) and np.array_equal(starts, np.arange(0, faces.size, faces.shape[1])):
         return Ok(None)
-    try:
-        mesh.clear_geometry()
-        mesh.from_pydata(vertices, (), faces)
-    except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-        return Error(Fault.of(BlenderReason.REFUSED, repr(mesh), error))
-    return Ok(None)
+    refused = partial(Fault.of, BlenderReason.REFUSED, repr(mesh))
+    return catch(mesh.clear_geometry, exception=ReferenceError)().map_error(refused).bind(lambda _: _FILLED(mesh, vertices, (), faces).map_error(refused)).map(lambda _: None)
 
 
 # --- [SCOPES]

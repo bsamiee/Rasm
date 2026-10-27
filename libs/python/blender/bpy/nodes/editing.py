@@ -12,6 +12,7 @@ from expression import Error, Ok, Option
 from expression.collections import Block
 import msgspec
 
+from blender.bpy.data.ids.content import endpoints
 from blender.bpy.data.rna.descriptors import Value, written
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
@@ -128,8 +129,12 @@ class _Edit:
         return value
 
     def replaced(self, replacements: Mapping[bpy.types.NodeLink, tuple[Incoming, ...]]) -> Outcome[None]:
-        targets: tuple[bpy.types.NodeSocket, ...] = tuple(dict.fromkeys(link.to_socket for link in replacements))  # type: ignore[misc]  # ty: ignore[invalid-assignment]
-        return accumulated(self.rewired(target, tuple(replacement for link in target.links for replacement in replacements.get(link, (link,)))) for target in targets).map(lambda _: None)  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+        def forwarded(target: bpy.types.NodeSocket) -> tuple[Incoming, ...]:
+            links: Iterable[bpy.types.NodeLink] = target.links  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return tuple(replacement for link in links for replacement in replacements.get(link, (link,)))
+
+        targets = tuple(dict.fromkeys(endpoints(link)[3] for link in replacements))
+        return accumulated(self.rewired(target, forwarded(target)) for target in targets).map(lambda _: None)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -152,7 +157,8 @@ def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, *, gaps: Gaps
                     .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(sockets), member=source.type))
                 )
 
-            links = tuple(link for link in source.links if link.is_valid)  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+            attached: Iterable[bpy.types.NodeLink] = source.links  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            links = tuple(link for link in attached if link.is_valid)
             return paired(socket(node.inputs), socket(node.outputs)).bind(
                 lambda pair: edit.rewired(pair[0], ((source, False),)).bind(lambda _: edit.replaced({link: ((pair[1], link.is_muted),) for link in links}))
             )

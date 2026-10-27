@@ -14,6 +14,7 @@ from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, RnaPath, Value, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.files.assets import SYSTEM_RESOURCE
 from blender.imaging.color.authoring import ConfigBuild, ConfigFile
 from blender.imaging.color.processors import ColorSpace, DisplayView
 from blender.imaging.color.white import White
@@ -22,7 +23,7 @@ from blender.records.faults import accumulated, Outcome
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 CONFIGURED: Final = Setting(descriptor=Descriptor.declared(bpy.types.BlendData, ("colorspace", "is_missing_opencolorio_config"), bpy.types.BoolProperty), accepted=(False,))
-NO_LOOK: Final = "None"
+NO_LOOK: Final[str] = "None"
 TINT_PER_DUV: Final = 3000.0
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -61,7 +62,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def base(self) -> Outcome[PyOpenColorIO.Config]:
         """Bundled base configuration independent of a user installation."""
-        return ConfigFile(path=str(Path(bpy.utils.system_resource("DATAFILES", path="colormanagement"), "config.ocio"))).opened()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return ConfigFile(path=str(Path(SYSTEM_RESOURCE("DATAFILES", path="colormanagement"), "config.ocio"))).opened()
 
     def merged(self, base: PyOpenColorIO.Config) -> Outcome[ConfigBuild]:
         """Application build with the views' view transforms added."""
@@ -109,8 +110,9 @@ def tint_of(white: White) -> float:
 
 def viewed(holder: bpy.types.Scene | bpy.types.CompositorNodeConvertToDisplay) -> DisplayView:
     """Reads the display, view, look, exposure, and gamma a scene or display node forms through, the host's look `NO_LOOK` as disabled."""
-    view, shown = holder.view_settings, holder.display_settings
-    return DisplayView(display=shown.display_device, view=view.view_transform, looks_override=view.look, looks_override_enabled=view.look != NO_LOOK, exposure=view.exposure, gamma=view.gamma)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    view: bpy.types.ColorManagedViewSettings = holder.view_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    shown: bpy.types.ColorManagedDisplaySettings = holder.display_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return DisplayView(display=shown.display_device, view=view.view_transform, looks_override=view.look, looks_override_enabled=view.look != NO_LOOK, exposure=view.exposure, gamma=view.gamma)
 
 
 def displayed(scene: bpy.types.Scene, view: DisplayView) -> Outcome[None]:

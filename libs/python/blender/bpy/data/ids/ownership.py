@@ -88,6 +88,10 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         """Returns earliest holder of source and content."""
         return Option.of_optional(_earliest(self.held(identity)).get(Mark(key=self.key, of=of, content=content)))
 
+    def reused(self, identity: Identity, *, of: Option[bpy.types.ID] = Nothing, content: Option[ContentHash] = Nothing) -> Option[T]:
+        """Returns the holder a single row reuses for source and content, Nothing for a row holding many."""
+        return self.found(identity, of=of, content=content) if self.single else Nothing
+
     def serving(self, identity: Identity, source: bpy.types.ID) -> tuple[T, ...]:
         """Returns holders marked for source."""
         return tuple(block for block, mark in self.held(identity) if mark.of == Some(source))
@@ -116,9 +120,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
     ) -> Outcome[T]:
         """Reuses equal-mark holder of single row or owns built block, then fills it."""
         return (
-            (self.found(identity, of=of, content=content) if self.single else Nothing)
-            .map(filled)
-            .default_with(lambda: build().bind(lambda block: self.owned(identity, block, of=of, content=content, filled=filled, scope=scope)))
+            self.reused(identity, of=of, content=content).map(filled).default_with(lambda: build().bind(lambda block: self.owned(identity, block, of=of, content=content, filled=filled, scope=scope)))
         )
 
     def rebuilt(self, identity: Identity, held: T, build: Callable[[], Outcome[T]]) -> Outcome[T]:

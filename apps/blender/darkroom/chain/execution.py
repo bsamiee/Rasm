@@ -1,6 +1,6 @@
 """CPU chain render: each staged entry prepared over its captured compositor prefix, replayed through a render engine, then the native render over prepared groups."""
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from contextlib import ExitStack
 from functools import cache, partial, reduce
 from pathlib import Path
@@ -16,6 +16,7 @@ import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.commands.calls import called
+from blender.bpy.data.ids.content import endpoints
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Mark, Saved
 from blender.bpy.data.ids.store import Handle, IdName
@@ -299,7 +300,8 @@ class Execution:
 
         def shown(entering: Option[str], leaving: Option[str], entry: bpy.types.SceneCompositorEffect) -> Option[str]:
             def routed(link: bpy.types.NodeLink) -> Option[str]:
-                match link.from_node:
+                source, outlet, _, _ = endpoints(link)
+                match source:
                     case bpy.types.NodeGroupInput():
                         return entering
                     case bpy.types.CompositorNodeImage(image=bpy.types.Image(colorspace_settings=bpy.types.ColorManagedInputColorspaceSettings(is_data=True, name=name))):
@@ -309,7 +311,8 @@ class Execution:
                     case bpy.types.CompositorNodeConvertColorSpace() as conversion:
                         return Some(self.config.getColorSpace(conversion.to_color_space).getName())
                     case _:
-                        return leaving if any(isinstance(other.to_node, bpy.types.NodeGroupOutput) for other in link.from_socket.links) else Nothing  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute, not-iterable]
+                        links: Iterable[bpy.types.NodeLink] = outlet.links  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                        return leaving if any(isinstance(endpoints(other)[2], bpy.types.NodeGroupOutput) for other in links) else Nothing
 
             return Option.of_optional(
                 next(
@@ -319,7 +322,8 @@ class Execution:
                         for live in tree.nodes
                         if isinstance(live, bpy.types.CompositorNodeViewer)
                         for socket in socket_at(live.inputs, "Image").to_option().to_list()  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                        for link in socket.links  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+                        for link in tree.links
+                        if endpoints(link)[3] == socket
                     ),
                     None,
                 )

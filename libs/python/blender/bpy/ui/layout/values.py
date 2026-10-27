@@ -71,6 +71,10 @@ class Verb(Enum):
         return operators.Operator(icon=Some(held.icon), internal=True, form=form, run=run, undo=held.undo, invoke=invoke)
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_AS_FILENAME: Final[Callable[[str], str]] = AddPresetBase.as_filename  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -155,7 +159,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
             return catch(msgspec.convert, exception=msgspec.ValidationError)(text, PresetName).map_error(partial(Fault.of, RecordReason.OUTSIDE, text))
 
         def claimed(name: PresetName) -> Option[tuple[str, T | Path]]:
-            normalized = AddPresetBase.as_filename(name).casefold()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            normalized = _AS_FILENAME(name).casefold()
             return Block.of_seq(self.preset.listed(identity).items()).filter(lambda pair: pair[0].casefold() == normalized).try_head()
 
         def available(name: PresetName) -> Outcome[PresetName]:

@@ -105,8 +105,7 @@ _FACE: Final = Interface(
                     under("shake", CLOCK),
                     description="Shake clock, continuous within exposure",
                     inputs=tuple(
-                        msgspec.structs.replace(socket, members={**socket.members, "default_value": 1.0 / 24.0}) if socket.key == "shake_clock_speed" else socket
-                        for socket in under("shake", CLOCK).inputs
+                        msgspec.structs.replace(socket, members={**socket.members, "default_value": 0.0417}) if socket.key == "shake_clock_speed" else socket for socket in under("shake", CLOCK).inputs
                     ),
                 ),
             ),

@@ -8,6 +8,7 @@ import bpy
 from expression import Nothing, Ok, Option
 import msgspec
 
+from blender.bpy.data.ids.content import endpoints
 from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.ids.store import Handle, holder
 from blender.bpy.data.rna.descriptors import Descriptor
@@ -38,9 +39,11 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
         sizes = {name: measured(node) for name, node in marked.items()}
         slots = {socket.as_pointer(): slot for node in marked.values() for slot, socket in enumerate(node.outputs)}
         links = tuple(
-            (link.from_node.name, slots[link.from_socket.as_pointer()], link.to_node.name)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            (source.name, slots[outlet.as_pointer()], target.name)
             for link in tree.links
-            if link.is_valid and link.from_node != link.to_node and link.from_node.name in marked and link.to_node.name in marked  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            if link.is_valid
+            for source, outlet, target, _ in (endpoints(link),)
+            if source != target and source.name in marked and target.name in marked
         )
         bands = {name: Option.of_optional(node.parent).map(lambda parent: parent.name) for name, node in marked.items()}
 
@@ -97,7 +100,8 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
 
 def measured(node: bpy.types.Node) -> Size:
     """Returns drawn node size in node space, `Node.dimensions` over `PreferencesSystem.ui_scale`."""
-    size, scale = node.dimensions, bpy.context.preferences.system.ui_scale  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    size, scale = node.dimensions, preferences.system.ui_scale
     return Size(width=size.x / scale, height=size.y / scale)
 
 

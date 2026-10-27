@@ -14,7 +14,7 @@ import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.commands.keymaps import Keymap
-from blender.bpy.data.rna.descriptors import Struct
+from blender.bpy.data.rna.descriptors import definition, Struct
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.reports import redrawn
@@ -157,7 +157,7 @@ class IconView(Bound, frozen=True, kw_only=True):
     def placed(self, layout: bpy.types.UILayout, at: At, _context: bpy.types.Context, options: dict[str, object], /) -> None:
         """Draws the picker beside the enum's name."""
         owner, key = at
-        self.called(gridded(layout, Some(owner.bl_rna.properties[key].name)), owner, key, **options)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        self.called(gridded(layout, Some(definition(owner).properties[key].name)), owner, key, **options)
 
 
 class Preview(Bound, frozen=True, kw_only=True):

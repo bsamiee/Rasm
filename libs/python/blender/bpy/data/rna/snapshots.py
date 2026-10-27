@@ -151,11 +151,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 lambda value: not (isinstance(descriptor.prop, bpy.types.EnumProperty) and not descriptor.prop.is_enum_flag and isinstance(value, str) and not value)
             )
 
-        return (
-            catch(_walked, exception=msgspec.ValidationError)(owner, owner, _Walk(read=stored), selection)
-            .map(lambda tree: cls(struct=definition(owner).identifier, tree=tree))
-            .map_error(partial(Fault.of, RecordReason.OUTSIDE, repr(owner), member=Value.__name__))
-        )
+        return _captured(owner, _Walk(read=stored), selection).map(lambda tree: cls(struct=definition(owner).identifier, tree=tree))
 
     @staticmethod
     def settings(setting: Descriptor, compound: tuple[type[Struct], ...] = ()) -> tuple[Descriptor, ...]:
@@ -306,14 +302,14 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             rows = tuple({name: projected(Descriptor(root=type(fixed), prop=held[name]), value) for name, value in tree.owners[at].values.items() if name in held} for at in tree.owners[path].children)
             items: _Elements = getattr(struct, prop.identifier)
             subject = f"{struct!r}.{prop.identifier}"
-            match Option.of_optional(_ADDED.get(type(fixed))), fixed:
-                case Option(tag="some", some=adding), _:
-                    return changed(items, path, rows, adding, indexed=False).map_error(partial(Fault.of, BlenderReason.REFUSED, subject)).default_with(Applied.refused)
-                case _, bpy.types.PropertyGroup() if prop.is_runtime:
+            match _ADDED.get(type(fixed)), fixed:
+                case None, bpy.types.PropertyGroup() if prop.is_runtime:
                     return changed(items, path, rows, lambda grown, _: grown.add(), indexed=True).map_error(partial(Fault.of, BlenderReason.REFUSED, subject)).default_with(Applied.refused)
-                case _:
+                case None, _:
                     present = sum(item is not None for item in items)
                     return Applied() if present == len(rows) else Applied.refused(Fault.of(RecordReason.OUTSIDE, subject, str(len(rows)), member=str(present)))
+                case adding, _:
+                    return changed(items, path, rows, adding, indexed=False).map_error(partial(Fault.of, BlenderReason.REFUSED, subject)).default_with(Applied.refused)
 
         def written(struct: Struct, key: RnaPath) -> Applied:
             members = tuple((name, value, Descriptor.resolve(struct, name, bpy.types.Property).to_option()) for name, value in tree.owners[key].values.items() if (key, name) not in completed)
@@ -590,14 +586,17 @@ def native(owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, p
     Returns:
         Native tree, domain fault for an undecodable value.
     """
-    return catch(_walked, exception=msgspec.ValidationError)(owner, owner, _Walk(read=partial(_native_read, owner), native=True), selection, prior).map_error(
-        partial(Fault.of, RecordReason.OUTSIDE, repr(owner), member=Value.__name__)
-    )
+    return _captured(owner, _Walk(read=partial(_native_read, owner), native=True), selection, prior)
 
 
 def scoped(kind: str, collection: str) -> Scope:
     """Returns the scope a `SCOPES` choice names, a collection's objects by its name."""
     return Objects(collection=collection) if issubclass(case := _SCOPED[kind], Objects) else case()
+
+
+def _captured[W](owner: Native, walk: _Walk[W], selection: Option[tuple[Descriptor, ...]], prior: Option[Tree[W, RnaPath]] = Nothing) -> Outcome[Tree[W, RnaPath]]:
+    """Walks owner under a capture policy, a value no member decodes answering a domain fault."""
+    return catch(_walked, exception=msgspec.ValidationError)(owner, owner, walk, selection, prior).map_error(partial(Fault.of, RecordReason.OUTSIDE, repr(owner), member=Value.__name__))
 
 
 def _native_read(owner: Native, descriptor: Descriptor, struct: Native, enclosing: _Enclosing) -> Option[NativeValue]:

@@ -43,7 +43,7 @@ class TextRecord[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
         attached, manager = session
 
         def decoded(text: bpy.types.Text) -> Outcome[Snapshot]:
-            return catch(lambda: msgspec.json.decode(text.as_string(), type=Snapshot), exception=msgspec.DecodeError)().map_error(
+            return catch(msgspec.json.decode, exception=msgspec.DecodeError)(text.as_string(), type=Snapshot).map_error(
                 lambda error: Fault.of(RecordReason.OUTSIDE, repr(text), text.name, member=str(error))
             )
 

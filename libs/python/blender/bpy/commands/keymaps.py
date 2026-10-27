@@ -1,10 +1,10 @@
 """Add-on shortcuts with user keymap editors."""
 
-from collections.abc import Generator, Iterator, Mapping
+from collections.abc import Callable, Generator, Iterator, Mapping
 from contextlib import contextmanager
 from enum import auto, Enum
 import sys
-from typing import Literal, TYPE_CHECKING
+from typing import Final, Literal, NotRequired, TYPE_CHECKING, TypedDict
 
 from bl_keymap_utils import keymap_hierarchy, platform_helpers
 import bpy
@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 type Location = tuple[str, rna_enums.SpaceTypeItems, rna_enums.RegionTypeItems]
 type Node = tuple[str, rna_enums.SpaceTypeItems, rna_enums.RegionTypeItems, list[Node]]
 type ModifierState = Literal[-1, 0, 1]
+type KeyconfigData = list[tuple[str, dict[str, object], dict[str, list[tuple[None, Event, None]]]]]
 
 
 class Button(Enum):
@@ -35,6 +36,27 @@ class Button(Enum):
     SELECT = auto()
     CONTEXT = auto()
 
+
+class Event(TypedDict):
+    """`KeyMapItems.new` keywords of one chord, `ctrl` present on the chords macOS doubles as Cmd."""
+
+    type: "rna_enums.EventTypeItems"
+    value: "rna_enums.EventValueItems"
+    any: bool
+    shift: ModifierState
+    ctrl: NotRequired[ModifierState]
+    alt: ModifierState
+    oskey: ModifierState
+    hyper: ModifierState
+    key_modifier: "rna_enums.EventTypeItems"
+    direction: "rna_enums.EventDirectionItems"
+    repeat: bool
+    head: bool
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_OSKEY_FROM_CTRL: Final[Callable[[KeyconfigData], KeyconfigData]] = platform_helpers.keyconfig_data_oskey_from_ctrl_for_macos  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -100,16 +122,23 @@ class Chord(msgspec.Struct, frozen=True, kw_only=True):
             case str():
                 kind = self.type
         value: rna_enums.EventValueItems = self.value.default_with(lambda: "CLICK_DRAG" if pie and preference("use_pie_click_drag").map(bool).default_value(False) else "PRESS")
-        event = msgspec.structs.asdict(self)
-        event.update(type=kind, value=value)
-        if not self.ctrl:
-            del event["ctrl"]
-        data = [(keymap.name, dict[str, object](), {"items": [(None, event, None)]})]
-        return (
-            keymap.keymap_items.new(operator, **item)
-            for _, _, block in (platform_helpers.keyconfig_data_oskey_from_ctrl_for_macos(data) if sys.platform == "darwin" else data)  # type: ignore[func-returns-value, union-attr]  # ty: ignore[not-iterable]
-            for _, item, _ in block["items"]
+        event = Event(
+            type=kind,
+            value=value,
+            any=self.any,
+            shift=self.shift,
+            alt=self.alt,
+            oskey=self.oskey,
+            hyper=self.hyper,
+            key_modifier=self.key_modifier,
+            direction=self.direction,
+            repeat=self.repeat,
+            head=self.head,
         )
+        if self.ctrl:
+            event["ctrl"] = self.ctrl
+        data: KeyconfigData = [(keymap.name, {}, {"items": [(None, event, None)]})]
+        return (keymap.keymap_items.new(operator, **item) for _, _, block in (_OSKEY_FROM_CTRL(data) if sys.platform == "darwin" else data) for _, item, _ in block["items"])
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -133,6 +162,7 @@ class Keymap:
         @contextmanager
         def added(given: tuple[tuple[Location, ...], bpy.types.WindowManager]) -> Generator[Outcome[None]]:
             locations, manager = given
+            addon: bpy.types.KeyConfig = manager.keyconfigs.addon  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             held: list[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem]] = []
 
             def placed(native: bpy.types.KeyMap, chord: Chord, target: Placed, invocation: tuple[str, Writer]) -> Outcome[None]:
@@ -144,7 +174,7 @@ class Keymap:
                 )
 
             try:
-                natives = tuple(manager.keyconfigs.addon.keymaps.new(name, space_type=space, region_type=region) for name, space, region in locations)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                natives = tuple(addon.keymaps.new(name, space_type=space, region_type=region) for name, space, region in locations)
                 answer = accumulated(target.invocation(identity).map(lambda invocation: (chord, target, invocation)) for chord, target in self.bindings.items()).bind(
                     lambda bound: accumulated(placed(native, *binding) for native in natives for binding in bound).map(lambda _: None)
                 )
@@ -161,17 +191,21 @@ class Keymap:
 
     def counterparts(self, context: bpy.types.Context) -> tuple[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem], ...]:
         """Returns user keymap and item matching each owned item."""
+        manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        user: bpy.types.KeyConfig = manager.keyconfigs.user  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         return tuple(
             (keymap, item)
             for added, mine in self._items
-            for keymap in Option.of_optional(context.window_manager.keyconfigs.user.keymaps.find_match(added)).to_list()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            for keymap in Option.of_optional(user.keymaps.find_match(added)).to_list()
             for item in Option.of_optional(keymap.keymap_items.find_match(added, mine)).to_list()
         )
 
     def drawn(self, layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
         """Draws user shortcut editors with per-item restore controls."""
+        manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        user: bpy.types.KeyConfig = manager.keyconfigs.user  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         for keymap, item in self.counterparts(context):
-            rna_keymap_ui.draw_kmi([], context.window_manager.keyconfigs.user, keymap, item, layout, 0)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            rna_keymap_ui.draw_kmi([], user, keymap, item, layout, 0)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

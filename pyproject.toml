@@ -3,7 +3,7 @@
 [project]
 name            = "rasm"
 version         = "1.0.0"
-description     = "Rasm monorepo's Python workspace root over its library and host members, its tools, and their dependency groups"
+description     = "Repository Python environment and checker policy"
 requires-python = ">=3.13"
 
 dependencies = ["blender"]
@@ -12,21 +12,22 @@ dependencies = ["blender"]
 
 [dependency-groups]
 workspace = [
-    # --- [GENERAL]
-    "apscheduler",                                                                # Cron, interval, and date triggers
+    # --- [CORE]
+    "beartype",                                                                   # Runtime type checks over annotations
+    "pydantic-settings",                                                          # Settings models read from environment and files
+    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",                           # AppKit, Foundation, and CoreFoundation for apps and main run loop
+    "xxhash",                                                                     # Content identity hashes matching C# System.IO.Hashing
+
+    # --- [SECURITY]
     "azure-identity",                                                             # DefaultAzureCredential chain for Azure Key Vault secrets
     "azure-keyvault-secrets",                                                     # Azure Key Vault secret store
-    "beartype",                                                                   # Runtime type checks over annotations
-    "cloudpickle",                                                                # Kernel and closure transfer to processes and subinterpreters
     "cryptography",                                                               # AES-GCM envelopes and key wrap for per-subject crypto-shredding
     "google-cloud-secret-manager",                                                # Google Cloud Secret Manager secret store
     "google-crc32c",                                                              # CRC32C integrity check for Google Cloud secret payloads
     "hvac",                                                                       # HashiCorp Vault secret store
-    "jinja2",                                                                     # Report templating for visual and document outputs
     "keyring",                                                                    # OS keychain credential store
-    "lark",                                                                       # Parser generator for CESQL filter, IDS, and selector grammars
-    "loky",                                                                       # Reusable process pool with worker restart
-    "lxml",                                                                       # XML processing
+
+    # --- [OBSERVABILITY]
     "opentelemetry-exporter-otlp-proto-grpc",                                     # OTLP gRPC exporter beside proto-http default
     "opentelemetry-exporter-otlp-proto-http",                                     # OTLP HTTP exporter, default transport
     "opentelemetry-instrumentation-asgi",                                         # ASGI server spans and W3C context extraction per Connect request
@@ -41,18 +42,25 @@ workspace = [
     "opentelemetry-processor-baggage",                                            # Baggage entries copied to span attributes for tenant dimension
     "opentelemetry-resource-detector-containerid",                                # container.id resource detector
     "opentelemetry-semantic-conventions",                                         # Schema URL for telemetry
-    "pebble",                                                                     # Worker kill at a terminal deadline and per-worker task recycling
-    "pydantic-settings",                                                          # Settings models read from environment and files
-    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",                           # AppKit, Foundation, and CoreFoundation for apps and main run loop
     "pyroscope-io",                                                               # Profiling agent feeding pyroscope-otel span-link exporter
     "pyroscope-otel",                                                             # Continuous-profiling span links beside OTLP exporters
-    "ruamel-yaml",                                                                # Round-trip YAML with comments and layout kept
+
+    # --- [EXECUTION]
+    "apscheduler",                                                                # Cron, interval, and date triggers
+    "cloudpickle",                                                                # Kernel and closure transfer to processes and subinterpreters
+    "loky",                                                                       # Reusable process pool with worker restart
+    "pebble",                                                                     # Worker kill at a terminal deadline and per-worker task recycling
     "tblib",                                                                      # Picklable tracebacks for worker exceptions across processes
     "wasmtime",                                                                   # In-process WASM guest sandbox for workers
     "watchfiles",                                                                 # File-change watching over Rust notify backend
-    "xxhash",                                                                     # Content identity hashes matching C# System.IO.Hashing
 
-    # --- [IO_TRANSPORT]
+    # --- [PARSING]
+    "jinja2",                                                                     # Report templating for visual and document outputs
+    "lark",                                                                       # Parser generator for CESQL filter, IDS, and selector grammars
+    "lxml",                                                                       # XML processing
+    "ruamel-yaml",                                                                # Round-trip YAML with comments and layout kept
+
+    # --- [DATA_EXCHANGE]
     "asyncssh",                                                                   # SSH and SFTP client for remote workers
     "brotli",                                                                     # Brotli compression
     "cloudevents",                                                                # CloudEvents attribute validation and protocol bindings
@@ -81,7 +89,7 @@ workspace = [
     "zlib-ng",                                                                    # Accelerated zlib and gzip compression
     "zstandard",                                                                  # Zstandard compression
 
-    # --- [NUMERICS_SOLVERS]
+    # --- [MATHEMATICS]
     "array-api-compat",                                                           # Array API standard namespaces over each array library
     "array-api-extra",                                                            # Supplemental array API functions
     "clarabel",                                                                   # Clarabel conic solver, a cvxpy backend
@@ -106,7 +114,7 @@ workspace = [
     "sympy",                                                                      # Symbolic expressions beside python-flint and mpmath ground domains
     "uncertainties",                                                              # First-order error propagation with correlated values
 
-    # --- [STATISTICS_ML]
+    # --- [STATISTICS]
     "arviz",                                                                      # Bayesian diagnostics
     "blackjax",                                                                   # JAX NUTS/HMC samplers
     "numpyro",                                                                    # JAX NUTS sampler
@@ -118,7 +126,7 @@ workspace = [
     "scikit-learn",                                                               # Classical ML and ONNX export
     "skl2onnx",                                                                   # sklearn-to-ONNX converter
 
-    # --- [DATAFRAMES_QUERY]
+    # --- [ANALYTICS]
     "cubed",                                                                      # Bounded-memory distributed arrays
     "daft",                                                                       # Distributed and streaming out-of-core query engine
     "dask",                                                                       # Out-of-core arrays and dataframes
@@ -135,7 +143,7 @@ workspace = [
     "sqlglot",                                                                    # SQL parser, transpiler, optimizer, and lineage engine
     "substrait[extensions]",                                                      # Typed Substrait plan IR with extension registry and validator
 
-    # --- [ARROW_LAKEHOUSE]
+    # --- [DATA_STORAGE]
     "adbc-driver-flightsql",                                                      # Arrow Flight SQL remote driver
     "adbc-driver-manager",                                                        # ADBC driver manager for Arrow Flight SQL and DuckDB
     "adbc-driver-postgresql",                                                     # PostgreSQL driver for COPY ingest and partitioned Arrow reads
@@ -150,7 +158,7 @@ workspace = [
     "pyiceberg",                                                                  # Apache Iceberg tables
     "pylance",                                                                    # Lance columnar/vector format
 
-    # --- [ARRAY_STORES]
+    # --- [ARRAYS]
     "awkward",                                                                    # Ragged arrays
     "flox",                                                                       # Vectorized and parallel grouped reductions for xarray
     "h5netcdf",                                                                   # Pure-h5py netCDF-4 engine
@@ -185,7 +193,7 @@ workspace = [
     "stac-geoparquet",                                                            # STAC item GeoParquet table interchange
     "xvec",                                                                       # Vector data cubes with geometry-indexed xarray dimensions
 
-    # --- [GEOMETRY_CAD]
+    # --- [GEOMETRY]
     "compas",                                                                     # COMPAS geometry, data, and datastructure core
     "compas_dr",                                                                  # COMPAS dynamic relaxation form finding
     "compas_tna",                                                                 # COMPAS thrust network analysis
@@ -195,7 +203,7 @@ workspace = [
     "small-gicp",                                                                 # Point-cloud registration
     "trimesh",                                                                    # Triangle mesh loading, repair, and queries
 
-    # --- [BIM_ENERGY]
+    # --- [ENERGY_SIMULATION]
     "dragonfly-core",                                                             # Dragonfly district and urban model object graph
     "dragonfly-energy",                                                           # Dragonfly energy model aggregation and translation
     "honeybee-core",                                                              # HBJSON base object model and validation companion
@@ -211,7 +219,7 @@ workspace = [
     "pvlib",                                                                      # Solar position and irradiance calculations
     "queenbee",                                                                   # Recipe and workflow schema contract models
 
-    # --- [LCA]
+    # --- [LIFE_CYCLE_ASSESSMENT]
     "bw-processing",                                                              # Brightway matrix data preparation
     "bw2analyzer",                                                                # Brightway contribution and comparison analysis after calculation
     "bw2calc",                                                                    # Brightway LCA calculation engine
@@ -221,14 +229,22 @@ workspace = [
     "olca-ipc",                                                                   # openLCA IPC client for foreground and background LCA interchange
     "openepd",                                                                    # OpenEPD declarations and PCR material-impact data
 
-    # --- [PLOTTING_VIZ]
+    # --- [VISUALIZATION]
     "altair",                                                                     # Declarative Vega-Lite charts
     "great-tables",                                                               # Display tables for documents
     "vegafusion",                                                                 # Server-side Vega transform and pre-transform export
     "vl-convert-python",                                                          # Vega and Vega-Lite rendering to SVG, PNG, and PDF
 
-    # --- [PDF]
+    # --- [DOCUMENTS]
+    "docxtpl",                                                                    # Template-driven docx authoring
+    "jupytext",                                                                   # Notebook round-trip text source
+    "msoffcrypto-tool",                                                           # ECMA-376 Office decrypt and encrypt
+    "nbclient",                                                                   # Headless notebook execution client
+    "nbconvert",                                                                  # Executed-notebook export to HTML and Markdown
     "ocrmypdf",                                                                   # OCR to PDF/A with sidecar text
+    "odfpy",                                                                      # OpenDocument text, spreadsheet, and presentation writes
+    "openpyxl",                                                                   # xlsx read and write with styles
+    "papermill",                                                                  # Parameterized notebook runs
     "pdf-oxide",                                                                  # Rust PDF extract, render, create, and forms (abi3)
     "pdfimpose",                                                                  # Press signatures, creep, cuts, and folds
     "pdfplumber",                                                                 # Ruled-table extraction over pdfminer.six
@@ -237,26 +253,17 @@ workspace = [
     "pymupdf",                                                                    # PDF render, text extraction, and edits over MuPDF
     "pypdf",                                                                      # Pure-Python PDF read, merge, and split
     "pypdfium2",                                                                  # PDF rasterization over PDFium
-    "reportlab",                                                                  # Programmatic PDF drawing and layout
-    "typst",                                                                      # Typst PDF typesetting
-    "weasyprint",                                                                 # HTML and CSS to PDF
-
-    # --- [OFFICE_NOTEBOOKS]
-    "docxtpl",                                                                    # Template-driven docx authoring
-    "jupytext",                                                                   # Notebook round-trip text source
-    "msoffcrypto-tool",                                                           # ECMA-376 Office decrypt and encrypt
-    "nbclient",                                                                   # Headless notebook execution client
-    "nbconvert",                                                                  # Executed-notebook export to HTML and Markdown
-    "odfpy",                                                                      # OpenDocument text, spreadsheet, and presentation writes
-    "openpyxl",                                                                   # xlsx read and write with styles
-    "papermill",                                                                  # Parameterized notebook runs
     "python-calamine",                                                            # xlsx, xlsb, xls, and ods reader
     "python-docx",                                                                # docx read and write
     "python-pptx",                                                                # pptx read and write
+    "reportlab",                                                                  # Programmatic PDF drawing and layout
+    "typst",                                                                      # Typst PDF typesetting
+    "weasyprint",                                                                 # HTML and CSS to PDF
     "xlsxwriter",                                                                 # Streaming write-only xlsx
 
-    # --- [IMAGING_MEDIA]
+    # --- [MEDIA]
     "av",                                                                         # PyAV video and audio mux and encode
+    "colour-cxf",                                                                 # CxF3 spot and spectral color exchange
     "openexr",                                                                    # Named-channel, multipart, and tiled EXR read and write
     "pillow",                                                                     # Image IO and WebP decoding
     "psd-tools",                                                                  # PSD read and pixel authoring
@@ -264,9 +271,8 @@ workspace = [
     "pyvips",                                                                     # Fused decode, downscale, ICC, and smartcrop over libvips
     "simpleidml",                                                                 # IDML package mutation and composition
 
-    # --- [TYPOGRAPHY_COLOR]
+    # --- [TYPOGRAPHY]
     "blackrenderer",                                                              # COLRv1 color-glyph SVG rasterization
-    "colour-cxf",                                                                 # CxF3 spot and spectral color exchange
     "opentype-feature-freezer",                                                   # Freeze OpenType features into default glyph set
     "PyICU",                                                                      # ICU line breaking, bidi, and collation, built on Pixi's ICU
     "pyphen",                                                                     # Language-aware hyphenation dictionaries
@@ -275,7 +281,7 @@ workspace = [
     "uniseg",                                                                     # Unicode line, word, and grapheme segmentation
     "vharfbuzz",                                                                  # HarfBuzz shaping QA and buffer-diff
 
-    # --- [GRAPHS_VECTOR]
+    # --- [DIAGRAMS]
     "drawpyo",                                                                    # draw.io export
     "drawsvg",                                                                    # Hierarchical named-layer SVG authoring
     "ezdxf",                                                                      # DXF read, write, and render
@@ -293,7 +299,7 @@ workspace = [
     "ziafont",                                                                    # Text to SVG glyph paths
     "ziamath",                                                                    # Math-to-SVG rendering
 
-    # --- [CODES_METADATA]
+    # --- [IDENTIFICATION]
     "c2pa-python",                                                                # Cross-format C2PA content credentials
     "puremagic",                                                                  # Pure-Python format sniffer, default detection beside libmagic
     "pyexiftool",                                                                 # Descriptive metadata read and write over exiftool binary
@@ -306,7 +312,6 @@ dev       = [
     # --- [CHECKERS]
     "deptry",                                                                     # Import-to-requirement checker over runtime code rasm:lint runs
     "mypy",                                                                       # Type checker rasm:typecheck runs
-    "pydantic",                                                                   # Validated models at protocol boundaries
     "refurb",                                                                     # Modernization checker over a mypy build rasm:lint runs
     "ruff",                                                                       # Linter, formatter, and import graph source of Nx Python project edges
     "ty",                                                                         # Type checker rasm:typecheck runs
@@ -344,6 +349,7 @@ dev       = [
     "packaging",                                                                  # Python requirement, version, and wheel filename parsing
     "picosvg",                                                                    # SVG geometry normalization and path operations
     "psutil",                                                                     # Process and host resource readings
+    "pydantic",                                                                   # Validated models at protocol boundaries
     "pygments",                                                                   # Lexer aliases and filename patterns
     "regex",                                                                      # DEFINE groups and Unicode property classes `re` lacks
     "shapely",                                                                    # Planar operations
@@ -385,8 +391,8 @@ environments             = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 prerelease               = "allow"
-no-build-package         = ["epdx", "numpy"]                                                                                                                                                                                          # `epdx` sdist lacks `project.version`, numpy sdists fail on Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`)
 constraint-dependencies  = ["numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'", "packaging==25.0; python_full_version < '3.15'"] # Versions Blender 5.4 bundles in the interpreter running host code
+no-build-package         = ["epdx", "numpy"]                                                                                                                                                                                          # `epdx` sdist lacks `project.version`, numpy sdists fail on Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`)
 extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                                                                               # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
 [tool.uv.workspace]

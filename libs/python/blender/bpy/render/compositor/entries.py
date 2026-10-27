@@ -31,7 +31,7 @@ from blender.bpy.faults import BlenderReason
 from blender.bpy.files.interchange import Importing, Interchange
 from blender.bpy.nodes.changes import made
 from blender.bpy.nodes.graphs import Expr, group_input, NodeGroup
-from blender.bpy.nodes.interface import Interface, item_key, Socket
+from blender.bpy.nodes.interface import input_sockets, Interface, item_key, Socket
 from blender.bpy.render.compositor.blending import Entry
 from blender.bpy.render.compositor.effects import CompositorEffect, Context, Derives, EffectName, Enabled, framing, Holds, Marks, Named, Opens, ownerships, Shell
 from blender.bpy.render.compositor.inputs import captured, defaulted, HELD, interface_input, regrouped, restored
@@ -517,9 +517,8 @@ class EffectRows[R: Case]:
                         (owner, np.asarray(descriptor.read(owner), dtype=np.float32))
                         for entry in scene.compositor_effects
                         for group in Option.of_optional(entry.node_group).to_list()
-                        for item in group.interface.items_tree  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                        if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"
-                        for owner in interface_input(entry, item.identifier).to_option().to_list()
+                        for identifier in input_sockets(group)
+                        for owner in interface_input(entry, identifier).to_option().to_list()
                         for descriptor in Descriptor.resolve(owner, "value", bpy.types.FloatProperty).to_option().to_list()
                         if descriptor.prop.subtype == "COLOR"
                     )

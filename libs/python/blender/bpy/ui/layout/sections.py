@@ -12,7 +12,7 @@ import msgspec
 
 from blender.bpy.commands import operators
 from blender.bpy.data.rna.conditions import Condition
-from blender.bpy.data.rna.descriptors import rna, root_in, Struct
+from blender.bpy.data.rna.descriptors import definition, rna, root_in, Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
@@ -286,7 +286,7 @@ class Each[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, frozen=
                         ).map(Some)
                     ).default_value(Ok(Nothing))
                     return paired(
-                        Option.of_optional(item.bl_rna.name_property).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, rna(bound.descriptor.path), member="name_property")),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        Option.of_optional(definition(item).name_property).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, rna(bound.descriptor.path), member="name_property")),
                         paired(opened, stored),
                     ).map(lambda pair: (bound, pair[0], *pair[1]))
 

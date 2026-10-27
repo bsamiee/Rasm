@@ -6,6 +6,7 @@ from enum import StrEnum
 from functools import partial
 import inspect
 from itertools import islice
+import operator
 from typing import ClassVar, Final
 
 import bpy
@@ -15,7 +16,7 @@ from idprop.types import IDPropertyGroup
 import msgspec
 
 from blender.bpy.data.ids.store import embedded, Handle, holder
-from blender.bpy.data.rna.descriptors import Descriptor, Native, RnaPath, Struct, struct_at
+from blender.bpy.data.rna.descriptors import custom_read, Descriptor, Native, RnaPath, Struct, struct_at, typed
 from blender.bpy.data.rna.snapshots import Applied, Endpoints, native, NativeValue, Snapshot
 from blender.bpy.extension.events import startup
 from blender.bpy.extension.identity import Identity, Key
@@ -39,6 +40,27 @@ class Slot(StrEnum):
     REFERENCES = ".references"
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_ITEM: Final[Callable[[IDPropertyGroup, str], object]] = operator.getitem  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_DATA: Final[Callable[[IDPropertyGroup, str], Result[object, KeyError | ReferenceError]]] = catch(catch(_ITEM, exception=ReferenceError), exception=KeyError)
+_PACKED: Final[Callable[..., Result[object, msgspec.EncodeError | TypeError | ValueError | OverflowError | NotImplementedError]]] = catch(
+    catch(catch(catch(catch(msgspec.msgpack.encode, exception=NotImplementedError), exception=OverflowError), exception=ValueError), exception=TypeError), exception=msgspec.EncodeError
+)
+_UNPACKED: Final[Callable[..., Result[object, msgspec.DecodeError | TypeError | KeyError | UnicodeError | NotImplementedError | ReferenceError]]] = catch(
+    catch(catch(catch(catch(catch(msgspec.msgpack.Decoder.decode, exception=ReferenceError), exception=NotImplementedError), exception=UnicodeError), exception=KeyError), exception=TypeError),
+    exception=msgspec.DecodeError,
+)
+_STORED: Final[Callable[[Struct, str, dict[str, object]], Result[object, AttributeError | KeyError | TypeError | ValueError | OverflowError | ReferenceError]]] = catch(
+    catch(catch(catch(catch(catch(operator.setitem, exception=ReferenceError), exception=OverflowError), exception=ValueError), exception=TypeError), exception=KeyError), exception=AttributeError
+)
+_POPPED: Final[Callable[[Struct, str, None], Result[object, AttributeError | TypeError | ReferenceError]]] = catch(
+    catch(catch(bpy.types.bpy_struct.pop, exception=ReferenceError), exception=TypeError), exception=AttributeError
+)
+_POINTED: Final[Callable[[type[Struct], str, bpy.props._PropertyDeferred], Result[None, AttributeError | TypeError | ValueError]]] = catch(exception=AttributeError)(
+    catch(exception=TypeError)(catch(setattr, exception=ValueError))
+)  # ty: ignore[invalid-assignment]
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -55,38 +77,51 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
 
     def read(self, host: Struct) -> Outcome[Option[T]]:
         """Returns decoded value, `Nothing` when absent."""
-        try:
-            held = host.get(self.name)
-        except (TypeError, ReferenceError) as error:
-            return Error(Fault.of(BlenderReason.REFUSED, f"{host!r}[{self.name!r}]", error))
-        if held is None:
-            return Ok(Nothing)
+        request = f"{host!r}[{self.name!r}]"
+        refused = partial(Fault.of, BlenderReason.REFUSED, request)
 
-        def decoded(kind: type[object], value: object) -> object:
-            """Keeps values of declared kind and passes other custom types to caller codec."""
-            if isinstance(value, kind):
-                return value
-            if self.decoder.dec_hook is None:
-                raise TypeError(kind)
-            return self.decoder.dec_hook(kind, value)
+        def unpacked(held: IDPropertyGroup) -> Outcome[T]:
+            def decoded(kind: type[object], value: object) -> object:
+                """Keeps values of declared kind and passes other custom types to caller codec."""
+                if isinstance(value, kind):
+                    return value
+                if self.decoder.dec_hook is None:
+                    raise TypeError(kind)
+                return self.decoder.dec_hook(kind, value)
 
-        def extended(code: int, data: memoryview) -> object:
-            """Resolves ID references and passes other codes to caller codec."""
-            match code:
-                case self.reference_code:
-                    return held[Slot.REFERENCES][bytes(data).decode()]
-                case _:
-                    return Option.of_optional(self.decoder.ext_hook).map(lambda hook: hook(code, data)).default_with(lambda: msgspec.msgpack.Ext(code, data))
+            def extended(references: IDPropertyGroup, code: int, data: memoryview) -> object:
+                """Resolves ID references and passes other codes to caller codec."""
+                match code:
+                    case self.reference_code:
+                        return _ITEM(references, bytes(data).decode())
+                    case _:
+                        return Option.of_optional(self.decoder.ext_hook).map(lambda hook: hook(code, data)).default_with(lambda: msgspec.msgpack.Ext(code, data))
 
-        try:
-            return Ok(Some(msgspec.msgpack.decode(held[Slot.DATA], type=self.decoder.type, strict=self.decoder.strict, dec_hook=decoded, ext_hook=extended)))
-        except (msgspec.DecodeError, TypeError, KeyError, UnicodeError, NotImplementedError) as error:
-            return Error(Fault.of(RecordReason.OUTSIDE, f"{host!r}[{self.name!r}]", str(held), member=str(error)))
-        except ReferenceError as error:
-            return Error(Fault.of(BlenderReason.REFUSED, f"{host!r}[{self.name!r}]", error))
+            def outside(error: Exception) -> Faults:
+                match error:
+                    case ReferenceError():
+                        return refused(error)
+                    case _:
+                        return Fault.of(RecordReason.OUTSIDE, request, str(held), member=str(error))
+
+            def item[V](slot: Slot, kind: type[V]) -> Outcome[V]:
+                return _DATA(held, slot).map_error(outside).bind(lambda value: typed(value, kind, request))
+
+            def unpacked_with(references: IDPropertyGroup, data: bytes) -> Outcome[T]:
+                decoder = msgspec.msgpack.Decoder(self.decoder.type, strict=self.decoder.strict, dec_hook=decoded, ext_hook=partial(extended, references))
+                return _UNPACKED(decoder, data).map_error(outside).bind(lambda record: typed(record, self.decoder.type, request))
+
+            return paired(item(Slot.REFERENCES, IDPropertyGroup), item(Slot.DATA, bytes)).bind(lambda pair: unpacked_with(*pair))
+
+        def found(held: object) -> Outcome[Option[T]]:
+            return Option.of_optional(held).map(lambda value: typed(value, IDPropertyGroup, request).bind(unpacked).map(Some)).default_value(Ok(Nothing))
+
+        return custom_read(host, self.name).map_error(refused).bind(found)
 
     def write(self, host: Struct, record: T) -> Outcome[None]:
         """Encodes record, replacing stored group when content differs."""
+        request = f"{host!r}[{self.name!r}]"
+        refused = partial(Fault.of, BlenderReason.REFUSED, request)
         references: dict[str, bpy.types.ID] = {}
 
         def encoded(value: object) -> object:
@@ -101,23 +136,19 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
                 case hook:
                     return hook(value)
 
-        try:
-            stored = {Slot.DATA: msgspec.msgpack.encode(record, enc_hook=encoded, order="deterministic"), Slot.REFERENCES: references}
-            if not (isinstance(held := host.get(self.name), IDPropertyGroup) and held.to_dict() == stored):
-                host[self.name] = stored
-        except (msgspec.EncodeError, AttributeError, KeyError, TypeError, ValueError, OverflowError, ReferenceError, NotImplementedError) as error:
-            return Error(Fault.of(BlenderReason.REFUSED, f"{host!r}[{self.name!r}]", error))
-        return Ok(None)
+        def stored(data: bytes) -> Outcome[None]:
+            packed: dict[str, object] = {Slot.DATA: data, Slot.REFERENCES: references}
+
+            def replaced(held: object) -> Outcome[None]:
+                return Ok(None) if isinstance(held, IDPropertyGroup) and held.to_dict() == packed else _STORED(host, self.name, packed).map_error(refused).map(lambda _: None)
+
+            return custom_read(host, self.name).map_error(refused).bind(replaced)
+
+        return _PACKED(record, enc_hook=encoded, order="deterministic").map_error(refused).bind(lambda data: typed(data, bytes, request)).bind(stored)
 
     def removed(self, host: Struct) -> Outcome[bool]:
         """Removes stored record, returning whether host held one."""
-        try:
-            del host[self.name]
-        except KeyError:
-            return Ok(False)
-        except (AttributeError, TypeError, ReferenceError) as error:
-            return Error(Fault.of(BlenderReason.REFUSED, f"{host!r}[{self.name!r}]", error))
-        return Ok(True)
+        return _POPPED(host, self.name, None).map_error(partial(Fault.of, BlenderReason.REFUSED, f"{host!r}[{self.name!r}]")).map(lambda found: found is not None)
 
 
 class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
@@ -332,11 +363,6 @@ def updating(groups: tuple[type[bpy.types.PropertyGroup], ...], change: Changed)
     for definition in (definition for group in groups for definition in annotated(group).values()):
         if definition.function is not bpy.props.CollectionProperty and not issubclass(definition.keywords.get("type", bpy.types.ID), bpy.types.PropertyGroup):
             definition.keywords["update"] = change
-
-
-_POINTED: Final[Callable[[type[Struct], str, bpy.props._PropertyDeferred], Result[None, AttributeError | TypeError | ValueError]]] = catch(exception=AttributeError)(
-    catch(exception=TypeError)(catch(setattr, exception=ValueError))
-)  # ty: ignore[invalid-assignment]
 
 
 @contextmanager

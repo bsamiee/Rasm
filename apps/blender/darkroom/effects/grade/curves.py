@@ -55,6 +55,7 @@ _HUE_TRANSFORM: Final[Callable[..., PyOpenColorIO.Transform]] = PyOpenColorIO.Gr
 _SPLINE_OF: Final[Callable[[PyOpenColorIO.GradingBSplineCurve], Any]] = PyOpenColorIO.GradingBSplineCurve.getSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 _SPLINE_SET: Final[Callable[[PyOpenColorIO.GradingBSplineCurve, Any], None]] = PyOpenColorIO.GradingBSplineCurve.setSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 _NEUTRAL_HUE: Final = _HUE_CURVE(PyOpenColorIO.GRADING_LIN)
+_RGB_TO_HSY: Final[PyOpenColorIO.FixedFunctionStyle] = PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -183,7 +184,7 @@ class HueCurves(Effect, frozen=True, kw_only=True):
             gains = (max(0.0, read(held[name], inputs[name])) for name in (sat_sat, lum_sat, hue_sat))
             return inputs | {sat_lum: float(np.prod(tuple(gains)))}
 
-        return converted(raw, PyOpenColorIO.FixedFunctionTransform(PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN), mean).bind(  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return converted(raw, PyOpenColorIO.FixedFunctionTransform(_RGB_TO_HSY), mean).bind(
             lambda spaced: converted(raw, lin_to_log(), np.full(3, spaced[2], dtype=np.float32)).map(lambda stops: at(float(spaced[0]), float(spaced[1]), float(stops[0])))
         )
 

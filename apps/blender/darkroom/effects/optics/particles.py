@@ -54,7 +54,7 @@ class Particles(Effect, frozen=True, kw_only=True):
     emission: Emission | None = None
     incandescence: Unit = 0.0
     temperature: Incandescence = Incandescence()
-    clock: Clock = Clock(speed=2.5 / 24.0)
+    clock: Clock = Clock(speed=0.104)
     direction: Finite = -pi / 2.0
     turbulence: NonNegative = 0.0
     wind: Basis = Perlin(texture=textures.Noise(noise_dimensions="4D", scale=3.2))
@@ -293,7 +293,7 @@ particles = CompositorEffect(
             spectra("coverage", Tint(), "Scene-linear cover color by particle tone", Some(True)),
             emission("emission", Emission(), "Light a particle adds", Some(False)),
             incandescence("temperature", Incandescence(), "Blackbody band multiplying emitted spectrum"),
-            clock("clock", speed=2.5 / 24.0),
+            clock("clock", speed=Particles().clock.speed),
             bases("wind", Particles().wind, "Texture displacing each axis independently", "Wind"),
             InterfacePanel(
                 key="iris",

@@ -219,7 +219,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         destination: Outcome[bpy.types.RenderSlot] = (
                             Option.of_optional(image.render_slots.active).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(image), member="render_slots.active"))
                             if Into[record.into] is Into.DISPLAYED
-                            else catch(lambda: image.render_slots.new(name=title), exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, f"{image!r}.render_slots.new"))
+                            else catch(image.render_slots.new, exception=RuntimeError)(name=title).map_error(partial(Fault.of, BlenderReason.REFUSED, f"{image!r}.render_slots.new"))
                         )
                         return Result[bpy.types.RenderSlot, Faults].bind(
                             destination, lambda slot: written(slot, "name", title).map(lambda _: None) if Into[record.into] is Into.DISPLAYED else retained(slot)

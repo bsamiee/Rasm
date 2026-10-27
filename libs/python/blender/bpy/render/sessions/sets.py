@@ -735,9 +735,9 @@ def removed(owner: bpy.types.Scene | tuple[bpy.types.Scene, bpy.types.ViewLayer]
     """Removes a member scene, or a view layer from its scene."""
     match owner:
         case bpy.types.Scene() as scene:
-            return catch(lambda: bpy.data.scenes.remove(scene), exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(scene)))
+            return catch(bpy.data.scenes.remove, exception=RuntimeError)(scene).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(scene)))
         case (scene, layer):
-            return catch(lambda: scene.view_layers.remove(layer), exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(layer)))
+            return catch(scene.view_layers.remove, exception=RuntimeError)(layer).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(layer)))
 
 
 # --- [TRANSFERS]

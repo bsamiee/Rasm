@@ -17,7 +17,7 @@ from msgspec import UNSET, UnsetType
 from blender.bpy.commands import operators
 from blender.bpy.commands.calls import dotted, idname, Operation, Placed, ShelfPopup, Writer
 from blender.bpy.data.rna.conditions import Condition
-from blender.bpy.data.rna.descriptors import Descriptor, Native, P_co, rna, RnaPath, root_in, Struct, Value
+from blender.bpy.data.rna.descriptors import definition, Descriptor, Native, P_co, rna, RnaPath, root_in, Struct, Value
 from blender.bpy.data.rna.snapshots import Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
@@ -77,7 +77,7 @@ class Flow(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-FUNCTIONS: "Final[bpy.types.bpy_prop_collection[bpy.types.Function]]" = bpy.types.UILayout.bl_rna.functions  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+FUNCTIONS: Final = definition(bpy.types.UILayout).functions
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -425,7 +425,7 @@ class Matrix(Line, frozen=True, kw_only=True):
         """Resolves leaf settings and owner names into table draw."""
         owner_type = self.scope.owner_type
         compound = tuple(kind for kind, _ in self.compound)
-        named = Option.of_optional(owner_type.bl_rna.name_property).to_result_with(lambda: refused(owner_type.__name__, "name_property", (bpy.types.StringProperty.__name__,)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        named = Option.of_optional(definition(owner_type).name_property).to_result_with(lambda: refused(owner_type.__name__, "name_property", (bpy.types.StringProperty.__name__,)))
 
         def cell(setting: Descriptor) -> Outcome[tuple[Descriptor, RowDraw]]:
             action = self.action.map(lambda policy: (policy[0], lambda at: policy[1](at, setting)))
@@ -519,7 +519,7 @@ class TreeMatrix[R: bpy.types.PropertyGroup, L: Struct, C: Struct](Line, frozen=
                 names, values = split(layout)
                 for _ in range(held.depth):
                     names.label(text="", icon="BLANK1")
-                for text in Option.of_optional(held.label.bl_rna.name_property).map(lambda prop: getattr(held.label, prop.identifier)).to_list():  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                for text in Option.of_optional(definition(held.label).name_property).map(lambda prop: getattr(held.label, prop.identifier)).to_list():
                     names.label(text=text)
                 for mark in marks:
                     mark(names, held.label, context)

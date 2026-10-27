@@ -94,6 +94,8 @@ type Rows = tuple[tuple[str, str, str], ...]
 
 OWNERSHIP: Final = Ownership(kind=bpy.types.CompositorNodeTree, key="layer_stack", saved=Saved.ALWAYS, single=False)
 TITLE: Final = bpy.path.display_name(OWNERSHIP.key)
+_IMAGE_EXTENSIONS: Final[frozenset[str]] = bpy.path.extensions_image  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_MOVIE_EXTENSIONS: Final[frozenset[str]] = bpy.path.extensions_movie  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -1064,7 +1066,7 @@ class LayerStacks[M: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True)
     @cached_property
     def sourcing(self) -> tuple[Command, ...]:
         """Commands adding a layer of each source."""
-        extensions = (*sorted(bpy.path.extensions_image), *sorted(bpy.path.extensions_movie))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        extensions = (*sorted(_IMAGE_EXTENSIONS), *sorted(_MOVIE_EXTENSIONS))
         return (
             Operator(form=Empty, run=self.bound_run(LayerStacking.add_adjustment_layer)),
             Operator(form=PassSourced, run=self.bound_run(LayerStacking.add_render_pass_layer), invoke=Some(Properties())),

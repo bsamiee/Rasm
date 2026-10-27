@@ -3,7 +3,7 @@
 from collections.abc import Iterable, Mapping
 from functools import partial
 from types import MappingProxyType
-from typing import Annotated, TYPE_CHECKING
+from typing import Annotated, Final, TYPE_CHECKING
 
 import bpy
 from bpy_extras import anim_utils
@@ -29,6 +29,7 @@ type _Curves = bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _SAMPLED: tuple[type[bpy.types.Property], ...] = (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.EnumProperty)
+_CO: Final = Descriptor.declared(bpy.types.Keyframe, ("co",), bpy.types.FloatProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -99,8 +100,15 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
     # --- [CHANNELS]
 
     def apply(self, block: bpy.types.ID) -> Outcome[bool]:
-        """Reconciles the channel on block, answering whether it wrote."""
-        text, index = rna(self.path), Option.of_optional(self.index).default_value(0)
+        """Reconciles the channel on block, the host's `index=-1` naming the one channel of a scalar member and an array member taking its declared element.
+
+        Args:
+            block: ID the channel's owner sits under.
+
+        Returns:
+            Whether a key, driver, mute, or modifier value changed, refusal faults of every host call accumulated.
+        """
+        text, index = rna(self.path), Option.of_optional(self.index).default_value(-1)
         refused = partial(Fault.of, BlenderReason.REFUSED, f"{block!r}.{text}")
 
         def keyed(curve: bpy.types.FCurve, points: NDArray[np.float32]) -> Outcome[bool]:
@@ -202,7 +210,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         def prepared() -> Outcome[NDArray[np.float32] | Driven]:
             match self.source:
                 case Keys(points=points):
-                    return Descriptor.quantized(Descriptor.declared(bpy.types.Keyframe, ("co",), bpy.types.FloatProperty).prop, np.asarray(points, dtype=np.float64))
+                    return Descriptor.quantized(_CO.prop, np.asarray(points, dtype=np.float64))
                 case Driven(variables=variables) as source:
                     return accumulated(Descriptor.resolve(block, row.path, bpy.types.Property) for row in variables).map(lambda _: source)
 
@@ -217,7 +225,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
     def clear(self, block: bpy.types.ID) -> Outcome[None]:
         """Removes the channel's F-curve or driver."""
-        text, index = rna(self.path), Option.of_optional(self.index).default_value(0)
+        text, index = rna(self.path), Option.of_optional(self.index).default_value(-1)
         return self.channel(block).bind(
             lambda _: accumulated(
                 catch(curves.remove, exception=RuntimeError)(curve).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(curves)))

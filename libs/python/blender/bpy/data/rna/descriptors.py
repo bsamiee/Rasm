@@ -9,7 +9,6 @@ from types import MappingProxyType
 from typing import Annotated, Final, Generic, NotRequired, overload, Protocol, TYPE_CHECKING, TypedDict, TypeVar
 import zlib
 
-from _bl_rna_utils.data_path import decompose_data_path
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
 from expression.collections import Block
@@ -126,9 +125,13 @@ _GATED = tuple(
     (bpy.types.ImageFormatSettings, bpy.types.ImageFormatSettings.bl_rna.properties[member], bpy.types.ImageFormatSettings.bl_rna.properties["color_management"], "OVERRIDE")
     for member in ("linear_colorspace_settings", "view_settings", "display_settings")
 )
-_DECOMPOSED: Final[Callable[[str], list[str]]] = decompose_data_path  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _PATHS: Final = frozenset({"FILE_PATH", "DIR_PATH", "FILE_NAME"})
-_DTYPES: Final[Mapping[type[bpy.types.Property], type[np.generic]]] = MappingProxyType({bpy.types.IntProperty: np.int32, bpy.types.FloatProperty: np.float32})
+DTYPES: Final[Mapping[type[bpy.types.Property], type[np.bool | np.int32 | np.float32]]] = MappingProxyType({
+    bpy.types.BoolProperty: np.bool,
+    bpy.types.IntProperty: np.int32,
+    bpy.types.FloatProperty: np.float32,
+    bpy.types.EnumProperty: np.int32,
+})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -263,7 +266,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
                 return Option.of_optional(getattr(owner, name)).map(lambda struct: definition(struct).identifier).to_optional()
             case bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True) as prop, bpy.types.bpy_struct():
                 shape = self.shape(owner)
-                buffer = np.empty(int(np.prod(shape)), _DTYPES[type(prop)])
+                buffer = np.empty(int(np.prod(shape)), DTYPES[type(prop)])
                 _uncoerced(owner, name).foreach_get(buffer)
                 return buffer.reshape(shape)[self.coordinates].item() if self.coordinates else tuple(buffer.tolist())
             case bpy.types.BoolProperty(is_array=True), _:
@@ -410,27 +413,11 @@ def parsed(root: Native | type[Native], text: str) -> Outcome[RnaPath]:
         Path, absent fault for text the host refuses.
     """
     refused = partial(Fault.of, BlenderReason.ABSENT, repr(root), member=text)
-
-    def step(token: str) -> Option[_Step]:
-        match token[:1], token[1:-1]:
-            case ".", _:
-                return Some(token[1:])
-            case "[", inner:
-                match ast.literal_eval(inner):
-                    case int(index):
-                        return Some(index)
-                    case str(key):
-                        return Some((key,))
-                    case _:
-                        return Nothing
-            case _:
-                return Nothing
-
-    anchored: Outcome[RnaPath] = (
-        Ok(()) if isinstance(root, type) else _anchored(root).to_result_with(refused).bind(lambda anchor: _resolved(anchor[0], f"{rna(anchor[1])}{text}").map(lambda _: anchor[1]).map_error(refused))
+    accepted: Outcome[None] = (
+        Ok(None) if isinstance(root, type) else _anchored(root).to_result_with(refused).bind(lambda anchor: _resolved(anchor[0], f"{rna(anchor[1])}{text}").map(lambda _: None).map_error(refused))
     )
     return (
-        Ok(()) if not text else anchored.bind(lambda anchor: accumulated(step(token).to_result_with(refused) for token in _DECOMPOSED(f".{rna(anchor)}{text}")).map(lambda steps: steps[len(anchor) :]))
+        Ok(()) if not text else accepted.bind(lambda _: _expression(f"_{text}" if text.startswith("[") else f"_.{text}").map_error(refused).bind(lambda node: _stepped(node).to_result_with(refused)))
     )
 
 
@@ -507,6 +494,11 @@ def effective(struct: Native) -> bool:
     )
 
 
+# --- [PROPERTIES]
+
+custom_read: Final[Callable[[Struct, str], Result[object, TypeError | ReferenceError]]] = catch(catch(bpy.types.bpy_struct.get, exception=ReferenceError), exception=TypeError)
+
+
 # --- [WRITES]
 
 
@@ -514,7 +506,7 @@ def written(struct: Native, path: str | RnaPath, value: Value | bytes | Struct) 
     """Writes member at path through `Descriptor.write`."""
     return Descriptor.resolve(struct, path, bpy.types.Property).bind(
         lambda descriptor: (
-            struct_at(struct, descriptor.owner).map(lambda owner: descriptor.write(owner, value)).default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(struct), member=rna(descriptor.path))))
+            struct_at(struct, descriptor.owner).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(struct), member=rna(descriptor.path))).bind(lambda owner: descriptor.write(owner, value))
         )
     )
 
@@ -581,8 +573,8 @@ def assigned[K: str | RnaPath | Descriptor](root: Struct, members: Mapping[K, Va
         current = id_path(root).bind(lambda path: struct_at(block, path)).default_value(root) if isinstance(block := root.id_data, bpy.types.ID) else root
         return (
             struct_at(current, descriptor.owner)
-            .map(lambda owner: descriptor.write(owner, value))
-            .default_value(Error(Fault.of(BlenderReason.ABSENT, repr(root), member=rna(descriptor.path))))
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(root), member=rna(descriptor.path)))
+            .bind(lambda owner: descriptor.write(owner, value))
             .map(lambda _: None)
         )
 
@@ -690,6 +682,27 @@ def mirrored(prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.B
 def _steps(root: Native | type[Native], path: str | RnaPath) -> Outcome[RnaPath]:
     """Returns path itself, or host path text read under root."""
     return parsed(root, path) if isinstance(path, str) else Ok(path)
+
+
+@catch(exception=SyntaxError)
+def _expression(text: str) -> ast.expr:
+    """Parses path text over a `_` root through Python's own grammar, which the host's path grammar is a subset of."""
+    return ast.parse(text, mode="eval").body
+
+
+def _stepped(node: ast.expr) -> Option[RnaPath]:
+    """Reads an attribute and subscript chain over the `_` root as steps, Nothing for any other expression."""
+    match node:
+        case ast.Name(id="_"):
+            return Some(())
+        case ast.Attribute(value=inner, attr=name):
+            return _stepped(inner).map(lambda steps: (*steps, name))
+        case ast.Subscript(value=inner, slice=ast.Constant(value=int(index))):
+            return _stepped(inner).map(lambda steps: (*steps, index))
+        case ast.Subscript(value=inner, slice=ast.Constant(value=str(key))):
+            return _stepped(inner).map(lambda steps: (*steps, (key,)))
+        case _:
+            return Nothing
 
 
 def _split(path: RnaPath, coordinates: tuple[int, ...] = ()) -> Option[tuple[RnaPath, str, tuple[int, ...]]]:
@@ -835,6 +848,7 @@ def _members[K: Native](root: type[K]) -> tuple[str, ...]:
 
 
 __all__ = [
+    "DTYPES",
     "LEADING",
     "Descriptor",
     "Native",
@@ -845,6 +859,7 @@ __all__ = [
     "Value",
     "assigned",
     "choices",
+    "custom_read",
     "definition",
     "differing",
     "effective",

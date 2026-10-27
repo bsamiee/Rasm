@@ -79,7 +79,7 @@ noise_field = CompositorEffect(
         inputs=tuple(
             Socket(key=key, name=bpy.path.display_name(key), kind=kind, description=text, members=members)
             for key, kind, text, members in (
-                ("drift", bpy.types.NodeSocketVector, "Velocity along field axes in greater frame sides per clock frame", {**PLANAR, "default_value": (0.0, 5.0 * _FIRE_SHORT_SIDE / 24.0)}),
+                ("drift", bpy.types.NodeSocketVector, "Velocity along field axes in greater frame sides per clock frame", {**PLANAR, "default_value": (0.0, 0.208 * _FIRE_SHORT_SIDE)}),
                 ("evolution", bpy.types.NodeSocketFloat, "Signed feature evolution per clock frame", {}),
                 ("center", bpy.types.NodeSocketVector, "Axis pivot in frame fractions", {**PLANAR, "default_value": (0.5, 0.0)}),
                 ("angle", bpy.types.NodeSocketFloat, "Turn of field axes", ANGLE),
@@ -114,7 +114,7 @@ noise_field = CompositorEffect(
                         ("radius", bpy.types.NodeSocketFloat, "Twirl and widening reach over greater frame side", {"min_value": 0.0, "default_value": 0.25}),
                         ("twirl", bpy.types.NodeSocketFloat, "Turn at center, falling to 0 at radius", {**ANGLE, "default_value": 3.0}),
                         ("arms", bpy.types.NodeSocketInt, "Field repeats around center, 0 leaving rings", {"min_value": 0, "default_value": 1}),
-                        ("spin", bpy.types.NodeSocketFloat, "Vortex turn in radians per clock frame", {"default_value": 1.0 / 24.0}),
+                        ("spin", bpy.types.NodeSocketFloat, "Vortex turn in radians per clock frame", {"default_value": 0.0417}),
                         ("tunnel", bpy.types.NodeSocketFloat, "Axial sample height per unit radius", {"min_value": 0.0, "default_value": 1.0}),
                     )
                 ),

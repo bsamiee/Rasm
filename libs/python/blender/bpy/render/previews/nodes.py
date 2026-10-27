@@ -16,7 +16,7 @@ from typing import Annotated, ClassVar, Final, Self
 from bl_ui.space_node import NODE_MT_context_menu
 import blf
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import gpu
@@ -32,7 +32,7 @@ from blender.bpy.data.ids import content
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import Handle, STORES
-from blender.bpy.data.rna.descriptors import choices, Descriptor, RnaPath, rooted, Struct, Value, written
+from blender.bpy.data.rna.descriptors import choices, Descriptor, RnaPath, rooted, Struct, struct_at, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Change, Handler, updated
 from blender.bpy.extension.identity import Identity, Key, Resource
@@ -703,7 +703,11 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
             path = identity.folder / NodePreview.key / f"{key.hex()}.exr"
 
             def cached(image: ImageFile[np.float32]) -> Outcome[bool]:
-                match catch(lambda: tuple(msgspec.json.decode(str(field.value), type=float) for field in image.header if field.name == name), exception=msgspec.DecodeError)():
+                match accumulated(
+                    catch(msgspec.json.decode, exception=msgspec.DecodeError)(str(field.value), type=float).map_error(partial(Fault.of, RecordReason.OUTSIDE, str(path), member=name))
+                    for field in image.header
+                    if field.name == name
+                ):
                     case Result(tag="ok", ok=numbers):
 
                         def recorded(_: object) -> bool:
@@ -1015,7 +1019,7 @@ def routed[H: Holder](identity: Identity, holder: H, target: Target) -> Generato
                 active_output(inner)
                 .bind(lambda output: socket_at(output.inputs, "__extend__"))
                 .bind(lambda extend: joined(inner, source, extend, handle_dynamic_sockets=True))
-                .map(lambda link: link.to_socket.identifier)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                .map(lambda link: content.endpoints(link)[3].identifier)
             )
 
         def entered(node: bpy.types.Node) -> Outcome[bpy.types.NodeTree]:
@@ -1050,7 +1054,7 @@ def outputs_of(node: bpy.types.Node) -> tuple[bpy.types.NodeSocket, ...]:
 
 def zoned(tree: bpy.types.NodeTree) -> frozenset[str]:
     """Returns names of nodes inside paired zones."""
-    pairs = sorted((link.from_node.name, link.to_node.name) for link in tree.links)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    pairs = sorted((source.name, target.name) for source, _, target, _ in map(content.endpoints, tree.links))
     following = {name: frozenset(target for _, target in group) for name, group in itertools.groupby(pairs, key=lambda pair: pair[0])}
 
     def inside(start: str, end: str) -> frozenset[str]:
@@ -1063,9 +1067,7 @@ def zoned(tree: bpy.types.NodeTree) -> frozenset[str]:
     return frozenset(
         name
         for node in tree.nodes
-        if "paired_output" in node.bl_rna.properties
-        for end in (node.paired_output,)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        if isinstance(end, bpy.types.Node)
+        for end in struct_at(node, ("paired_output",)).bind(lambda found: Option.of_optional(try_downcast(bpy.types.Node, found))).to_list()
         for name in inside(node.name, end.name)
     )
 

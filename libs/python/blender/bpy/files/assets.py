@@ -1,10 +1,10 @@
 """Asset metadata, catalogs, extension libraries, imports, and publication."""
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 from functools import partial
 from pathlib import Path
-from typing import Annotated, Literal, TYPE_CHECKING
+from typing import Annotated, Final, Literal, Protocol, TYPE_CHECKING
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from _bpy_internal.assets.remote_library.listing_asset_catalogs import parse_catalogs
@@ -14,7 +14,7 @@ from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.data.rna.descriptors import assigned
+from blender.bpy.data.rna.descriptors import assigned, typed
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderReason
@@ -29,6 +29,26 @@ if TYPE_CHECKING:
 
 type CatalogPath = Annotated[str, msgspec.Meta(pattern=r"\A[^:/\\\r\n]+(?:/[^:/\\\r\n]+)*\Z")]
 type LinkOrAppend = Literal["LINK", "APPEND"]
+
+
+class _Catalog(Protocol):
+    """Catalog row `parse_catalogs` returns, whose stub lacks its path and UUIDs."""
+
+    path: str
+    uuids: list[str]
+
+
+class _Resource(Protocol):
+    """`bpy.utils.system_resource`, which the stubs lack, its path keyword kept."""
+
+    def __call__(self, kind: str, /, *, path: str) -> str: ...
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_PARSE_CATALOGS: Final[Callable[[Path], list[_Catalog]]] = parse_catalogs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+SYSTEM_RESOURCE: Final[_Resource] = bpy.utils.system_resource  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_CATALOGS: Final[Callable[[Path], Result[object, OSError | UnicodeError]]] = catch(catch(_PARSE_CATALOGS, exception=UnicodeError), exception=OSError)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -123,9 +143,10 @@ class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
                     lifetime.callback(rows.remove, row)
                 return made
 
+            preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             yield (
                 folder_made(self.located(identity))
-                .bind(lambda folder: held(folder, bpy.context.preferences.filepaths.asset_libraries))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                .bind(lambda folder: held(folder, preferences.filepaths.asset_libraries))
                 .bind(lambda row: assigned(row, {"name": self.title, **self.method.map(lambda method: {"import_method": method}).default_value({})}))
             )
 
@@ -155,16 +176,19 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
         return Fault.of(RecordReason.UNREADABLE, str(target), error)
 
     def ensured(_: Path) -> Outcome[dict[str, UUID]]:
-        try:
-            return accumulated(
-                paired(
-                    catch(lambda: msgspec.convert(catalog.path, CatalogPath), exception=msgspec.ValidationError)().map_error(unread),
-                    catch(lambda: UUID(catalog.uuids[0]), exception=ValueError)().map_error(unread),
-                )
-                for catalog in parse_catalogs(folder)  # type: ignore[attr-defined, func-returns-value]  # ty: ignore[not-iterable]
-            ).map(dict)
-        except (OSError, UnicodeError) as error:
-            return Error(Fault.of(RecordReason.UNREADABLE, str(target), error))
+        return (
+            _CATALOGS(folder)
+            .map_error(partial(Fault.of, RecordReason.UNREADABLE, str(target)))
+            .bind(lambda found: typed(found, list, str(target)))
+            .bind(
+                lambda catalogs: accumulated(
+                    paired(
+                        catch(msgspec.convert, exception=msgspec.ValidationError)(catalog.path, CatalogPath).map_error(unread), catch(UUID, exception=ValueError)(catalog.uuids[0]).map_error(unread)
+                    )
+                    for catalog in catalogs
+                ).map(dict)
+            )
+        )
 
     def appended(held: dict[str, UUID]) -> Outcome[dict[str, UUID]]:
         added = {path: uuid5(NAMESPACE_URL, f"{identity.manifest.id}/{path}") for path in sorted({mark.catalog for _, mark in entries} - held.keys())}
@@ -201,7 +225,8 @@ def linking(method: "rna_enums.AssetImportMethodItems", *, relative: bool) -> Li
 
 def essential() -> "rna_enums.AssetImportMethodItems":
     """Returns Essentials import method for packing preference."""
-    return "APPEND_REUSE" if bpy.context.preferences.experimental.no_data_block_packing else "PACK"  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return "APPEND_REUSE" if preferences.experimental.no_data_block_packing else "PACK"
 
 
 def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T], library: Option[bpy.types.UserAssetLibrary] = Nothing) -> Outcome[T]:
@@ -231,6 +256,12 @@ def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T
             return link.bind(lambda method: blocks_loaded(path, kind, (asset.name,), method)).map(lambda blocks: blocks[0])
 
 
+@catch(exception=OSError)
+def _blends(root: Path) -> tuple[Path, ...]:
+    """Lists every blend file under root in path order, a folder the walk cannot read raising."""
+    return tuple(sorted(root.rglob("*.blend")))
+
+
 def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
     """Imports named asset from bundled asset libraries.
 
@@ -241,11 +272,11 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
     Returns:
         Imported block, absent fault for missing name.
     """
-    root = Path(bpy.utils.system_resource("DATAFILES", path="assets"))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    root = Path(SYSTEM_RESOURCE("DATAFILES", path="assets"))
     return (
         Result[tuple[Path, ...], Faults]
         .bind(
-            catch(lambda: tuple(sorted(root.rglob("*.blend"))), exception=OSError)().map_error(partial(Fault.of, RecordReason.UNREADABLE, str(root))),
+            _blends(root).map_error(partial(Fault.of, RecordReason.UNREADABLE, str(root))),
             lambda paths: accumulated(listed(path, kind, assets_only=True) for path in paths).bind(
                 lambda listings: (
                     Block
@@ -265,4 +296,4 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["AssetLibrary", "AssetMark", "CatalogPath", "LinkOrAppend", "bundled", "essential", "imported", "linking", "published"]
+__all__ = ["SYSTEM_RESOURCE", "AssetLibrary", "AssetMark", "CatalogPath", "LinkOrAppend", "bundled", "essential", "imported", "linking", "published"]
