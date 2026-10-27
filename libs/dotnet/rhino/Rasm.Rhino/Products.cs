@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Rhino.Runtime;
 
-namespace Rasm.RhinoCommon;
+namespace Rasm.Rhino;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Lease<T>(T Value, EnvIO Scope);

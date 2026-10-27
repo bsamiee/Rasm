@@ -1,15 +1,15 @@
 using System.Runtime.CompilerServices;
 using Rasm.Drafting;
-using Rasm.RhinoCommon.Display;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Display;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Document.Units;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.Viewport.Printing;
+namespace Rasm.Rhino.Viewport.Printing;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]

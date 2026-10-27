@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Rasm.RhinoCommon.Modeling.Solids;
+namespace Rasm.Rhino.Modeling.Solids;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
@@ -85,7 +85,9 @@ public static class SolidAssembly {
         from curves in Callbacks.Each(topology.Curves, (curve, at) => Conversions.Found(Conversions.Present(brep.AddEdgeCurve(curve)), at))
         from vertices in Callbacks.Each(topology.Vertices, (vertex, at) => Conversions.Found(brep.Vertices.Add(vertex.Point, Conversions.Unset(vertex.Tolerance)), at))
         from edges in Callbacks.Each(topology.Edges, (edge, at) =>
-            Conversions.Found(brep.Edges.Add(vertices[edge.Start], vertices[edge.End], curves[edge.Curve], edge.Domain.IfNone(Interval.Unset), Conversions.Unset(edge.Tolerance)), at))
+            Conversions.Found(edge.Domain.Match(
+                Some: domain => brep.Edges.Add(vertices[edge.Start], vertices[edge.End], curves[edge.Curve], domain, Conversions.Unset(edge.Tolerance)),
+                None: () => brep.Edges.Add(vertices[edge.Start], vertices[edge.End], curves[edge.Curve], Conversions.Unset(edge.Tolerance))), at))
         from trims in Callbacks.Each(topology.Faces, (face, at) => Faced((Brep: brep, Surfaces: surfaces, Vertices: vertices, Edges: edges, At: at), face))
         select Settled(brep, trims.Bind(static held => held));
 
@@ -98,9 +100,10 @@ public static class SolidAssembly {
                         .Bind(held => Callbacks.Each(toSeq(loop.Trims), (trim, _) => Trimmed((of.Brep, Loop: held, of.Vertices, of.Edges, of.At), trim))))
                     .Map(static loops => loops.Bind(static trims => trims));
             }),
-            planar: static (of, planar) => Conversions.Found(of.Brep.Faces.Add(of.Surfaces[planar.Surface]), of.At).Bind(added =>
-                Callbacks.Each(toSeq(planar.Loops), (loop, _) => Conversions.Found(of.Brep.Loops.AddPlanarFaceLoop(added.FaceIndex, loop.Type, loop.Boundary), of.At))
-                    .Map(static _ => Seq<(BrepTrim Trim, Option<IsoStatus> Iso)>())));
+            planar: static (of, planar) =>
+                from added in Conversions.Found(of.Brep.Faces.Add(of.Surfaces[planar.Surface]), of.At)
+                from loops in Callbacks.Each(toSeq(planar.Loops), (loop, _) => Conversions.Found(of.Brep.Loops.AddPlanarFaceLoop(added.FaceIndex, loop.Type, loop.Boundary), of.At))
+                select Seq<(BrepTrim Trim, Option<IsoStatus> Iso)>());
 
     private static Fin<(BrepTrim Trim, Option<IsoStatus> Iso)> Trimmed((Brep Brep, BrepLoop Loop, Seq<BrepVertex> Vertices, Seq<BrepEdge> Edges, int At) of, BrepTopology.Trim trim) =>
         trim.Switch(

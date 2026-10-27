@@ -4,8 +4,8 @@ using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
-using Rasm.RhinoCommon;
-using Rasm.RhinoCommon.Render.Effects;
+using Rasm.Rhino;
+using Rasm.Rhino.Render.Effects;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 

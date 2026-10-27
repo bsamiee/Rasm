@@ -1,11 +1,11 @@
-using Rasm.RhinoCommon.Annotation.Styles;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Annotation.Styles;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Annotation;
+namespace Rasm.Rhino.Annotation;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -77,9 +77,6 @@ internal static partial class TextMapper {
 
     // --- [UPDATES]
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    internal static partial void Update((bool TextIsWrapped, double FormatWidth) source, AnnotationBase target);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     [MapPropertyFromSource(nameof(Leader.Points3D))]
     internal static partial void Update(Seq<Point3d> source, Leader target);
 }
@@ -101,7 +98,7 @@ public static class Texts {
         DimensionStyles.Edit<AnnotationBase>(doc, id, annotation =>
             edits.TraverseM(edit => edit(annotation)).Map(static _ => unit).As()
                 >> IO.lift(() => {
-                    _ = wrapWidth.Iter(width => TextMapper.Update((TextIsWrapped: true, FormatWidth: width), annotation));
+                    _ = wrapWidth.Iter(width => (annotation.TextIsWrapped, annotation.FormatWidth) = (true, width));
                     if (annotation.TextIsWrapped)
                         annotation.WrapText();
                 }));
@@ -176,6 +173,6 @@ public static class Texts {
 
     public static IO<T> LeaderCurve<T>(Leader leader, Func<NurbsCurve, IO<T>> body) =>
         from curve in IO.lift(() => Conversions.Found(leader.Curve))
-        from value in use(() => (NurbsCurve)curve.DuplicateShallow()).Bind(body).Bracket()
+        from value in unitIO.Bind(_ => Products.Made(curve.ToNurbsCurve())).Bind(body).Bracket()
         select value;
 }

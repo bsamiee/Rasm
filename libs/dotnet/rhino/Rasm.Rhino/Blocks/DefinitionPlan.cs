@@ -1,9 +1,9 @@
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 
-namespace Rasm.RhinoCommon.Blocks;
+namespace Rasm.Rhino.Blocks;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PlannedDefinition(Option<string> Description, Option<Hyperlink> Link, Point3d BasePoint, Seq<GeometryPair> Members);

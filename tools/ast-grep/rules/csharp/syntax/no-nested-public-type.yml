@@ -1,13 +1,15 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-nested-public-type
-language: csharp
+language: csharplang
 severity: error
 utils:
     closed:
         kind: class_declaration, record_declaration
         all:
             - has: {kind: modifier, regex: '^abstract$'}
-            - has: {kind: declaration_list, has: {kind: constructor_declaration, has: {kind: modifier, regex: '^private$'}}}
+            - any:
+                - has: {kind: declaration_list, has: {kind: constructor_declaration, has: {kind: modifier, regex: '^private$'}}}
+                - has: {kind: modifier, regex: '^partial$'}
     member-union:
         kind: class_declaration, struct_declaration
         has:

@@ -1,8 +1,8 @@
 using System.Globalization;
 using Rasm.Spatial;
-using Rasm.RhinoCommon.Modeling.Curves;
+using Rasm.Rhino.Modeling.Curves;
 
-namespace Rasm.RhinoCommon.Modeling.Surfaces;
+namespace Rasm.Rhino.Modeling.Surfaces;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum SurfaceDirection { U = 0, V = 1 }
@@ -65,13 +65,12 @@ public static class SurfaceConstruction {
     private static Unit Filled(HermiteSurface hermite, HermiteGrid grid) {
         _ = grid.U.Values.Iter(hermite.SetUParameterAt);
         _ = grid.V.Values.Iter(hermite.SetVParameterAt);
-        _ = grid.Stations.Iter((index, station) => {
-            (int u, int v) = (index / grid.V.Values.Count, index % grid.V.Values.Count);
+        _ = toSeq(grid.Stations.Chunk(grid.V.Values.Count)).Iter((u, row) => toSeq(row).Iter((v, station) => {
             hermite.SetPointAt(u, v, station.Point);
             hermite.SetUTangentAt(u, v, station.UTangent);
             hermite.SetVTangentAt(u, v, station.VTangent);
             hermite.SetTwistAt(u, v, station.Twist);
-        });
+        }));
         return unit;
     }
 

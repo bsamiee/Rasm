@@ -1,8 +1,8 @@
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Objects;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Objects;
 using Rhino;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -33,9 +33,8 @@ public abstract partial record SubDEdit {
             subdivideFaces: static (at, of) => IO.lift(() => Within(at.SubD, ComponentIndexType.SubdFace, of.Faces))
                 .Bind(_ => Tagged(at.SubD, Edits.Accepted<SubD, uint>(at.SubD, at.SubD.Subdivide(of.Faces.Map(static id => (int)id))))),
             setControlNetPoints: static (at, of) => IO.lift(() => Within(at.SubD, ComponentIndexType.SubdVertex, toSeq(of.Moved.Keys)))
-                .Bind(_ => toSeq(of.Moved.AsIterable()).Map(row => at.SubD.Vertices.Find(row.Key).SetControlNetPoint(row.Value, bClearNeighborhoodCache: false)).Strict() switch {
-                    var moved => Tagged(at.SubD, IO.lift(at.SubD.ClearEvaluationCache) >> Edits.Accepted<SubD, uint>(at.SubD, moved.ForAll(static held => held))),
-                }),
+                .Bind(_ => Tagged(at.SubD, IO.lift(at.SubD.ClearEvaluationCache) >> Edits.Accepted<SubD, uint>(at.SubD,
+                    toSeq(of.Moved.AsIterable()).Map(row => at.SubD.Vertices.Find(row.Key).SetControlNetPoint(row.Value, bClearNeighborhoodCache: false)).Strict().ForAll(static held => held)))),
             interpolateSurfacePoints: static (at, of) => IO.lift(() => Within(at.SubD, ComponentIndexType.SubdVertex, toSeq(of.Moved.Keys)))
                 .Bind(_ => Tagged(at.SubD, Edits.Accepted<SubD, uint>(
                     at.SubD, at.SubD.InterpolateSurfacePoints([.. toSeq(at.SubD.Vertices).Map(vertex => of.Moved.Find(vertex.Id).IfNone(vertex.SurfacePoint))])))),
@@ -87,8 +86,9 @@ public abstract partial record SubDEdit {
     private static Fin<Seq<(SubDEdge A, SubDEdge B)>> Rails(SubD subd, uint edgeA, uint edgeB) =>
         from held in Within(subd, ComponentIndexType.SubdEdge, [edgeA, edgeB])
         let boundaries = Boundaries(subd)
-        from first in Boundary(boundaries, edgeA)
-        from second in Boundary(boundaries, edgeB)
+        from ends in (Boundary(boundaries, edgeA), Boundary(boundaries, edgeB)).Apply(static (first, second) => (First: first, Second: second)).As()
+        let first = ends.First
+        let second = ends.Second
         from apart in RhinoFault.Unless(!first.Edges.Exists(link => link.Id == edgeB))
         from even in RhinoFault.Unless(first.Edges.Count == second.Edges.Count)
         select Anchored(first, edgeA).Zip(Anchored(second with { Edges = second.Edges.Rev() }, edgeB), static (a, b) => (A: a, B: b)).Strict();

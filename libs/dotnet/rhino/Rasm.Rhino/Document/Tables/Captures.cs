@@ -1,7 +1,7 @@
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Viewport;
 using Rhino.DocObjects;
 
-namespace Rasm.RhinoCommon.Document.Tables;
+namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PickCapture(

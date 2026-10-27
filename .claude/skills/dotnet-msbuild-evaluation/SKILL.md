@@ -128,6 +128,7 @@ Properties hold one string, the last assignment in evaluation order wins, a glob
 |  [12]   | `[MSBuild]::GetTargetFrameworkIdentifier(tfm)`         | `.NETCoreApp` for `net10.0`, `.NETStandard` for `netstandard2.0`        |
 |  [13]   | `[MSBuild]::StableStringHash(text, 'Sha256')`          | Hash stable across machines and hosts                                   |
 |  [14]   | `[System.IO.Path]::GetFileName(path)`                  | Any static method of the allowed `System.*` classes                     |
+|  [15]   | `[MSBuild]::GetRegistryValue(key, value)`              | Registry value on Windows under `dotnet build`, empty on other hosts    |
 
 - Reversed arguments return empty from `GetDirectoryNameOfFileAbove(dir, file)` and fail `MSB4184` in `GetPathOfFileAbove(file, dir)`
 - `$(MSBuildThisFileDirectory)` names the evaluating file's folder with a trailing slash, `$(MSBuildProjectDirectory)` the project folder without one
@@ -151,6 +152,7 @@ Item elements perform one operation each, in order of appearance across every im
 - Inside a target, `Update` applies its metadata to every item of the type, `Condition="'%(Identity)' == 'name'"` on an item element selects one item
 - Outside a target, an item condition reads properties and `@(Item)` lists, `%(Custom)` fails `MSB4191` and `%(Filename)` fails `MSB4190`
 - Transform `@(Item->'%(Meta)')` is the one `%()` form an evaluation-time condition or property accepts, item metadata reads its own item
+- Metadata named with a leading `_` (`_Parameter1`) goes in a child element, as an attribute it fails `MSB4066`
 - `ItemDefinitionGroup` sets default metadata for a type, an item's own metadata wins, `@(Item)` in a definition fails `MSB4164`
 - `Include` paths in an imported file resolve against the project directory, a `$(MSBuildThisFileDirectory)` prefix resolves beside the importing file
 - Every item has metadata `FullPath`, `RootDir`, `Filename`, `Extension`, `RelativeDir`, `RecursiveDir`, `Identity`, and `DefiningProjectDirectory`

@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Rasm.RhinoCommon.Events;
+using Rasm.Rhino.Events;
 using Rhino.PlugIns;
 
-namespace Rasm.RhinoCommon.Persistence.Stores;
+namespace Rasm.Rhino.Persistence.Stores;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]

@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union<Surface, Brep>(SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -44,16 +44,17 @@ public static class Flattening {
             created.AddFollowingGeometry(dots);
             return created;
         })
-        from unrolled in Products.Made(unroller.PerformUnroll(out Curve[] unrolledCurves, out Point3d[] unrolledPoints, out TextDot[] unrolledDots)).Bind(flat =>
-            from flatCurves in Products.Made(unrolledCurves)
-            from flatDots in Products.Made(unrolledDots)
-            from filled in IO.lift(() => RhinoFault.Unless(!flat.IsEmpty))
-            select new UnrollResult(
-                flat,
-                flatCurves.Map(curve => (Curve: curve, Source: Conversions.Present(unroller.FollowingGeometryIndex(curve)))).Strict(),
-                Conversions.Rows(unrolledPoints),
-                flatDots.Map(dot => (Dot: dot, Source: Conversions.Present(unroller.FollowingGeometryIndex(dot)))).Strict()))
-        select unrolled;
+        from unrolled in IO.lift(() => (
+            Breps: unroller.PerformUnroll(out Curve[] curves, out Point3d[] points, out TextDot[] dots), Curves: curves, Points: points, Dots: dots))
+        from flat in Products.Made(unrolled.Breps)
+        from flatCurves in Products.Made(unrolled.Curves)
+        from flatDots in Products.Made(unrolled.Dots)
+        from filled in IO.lift(() => RhinoFault.Unless(!flat.IsEmpty))
+        select new UnrollResult(
+            flat,
+            flatCurves.Map(curve => (Curve: curve, Source: Conversions.Present(unroller.FollowingGeometryIndex(curve)))).Strict(),
+            Conversions.Rows(unrolled.Points),
+            flatDots.Map(dot => (Dot: dot, Source: Conversions.Present(unroller.FollowingGeometryIndex(dot)))).Strict());
 
     public static IO<SquishResult> Squish(SquishSource source, SquishParameters parameters, Seq<GeometryBase> marks) =>
         from squisher in use(static () => new Squisher())

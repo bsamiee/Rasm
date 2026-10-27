@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Description>Historical arch forms drawn by their traditional geometric constructions</Description>
         <TargetExt>.rhp</TargetExt>
-        <Description>Draws historical arch profiles as joined curves from picked span ends, apex or rise, and foil count, with live preview</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Plug-In Identity">
@@ -10,7 +10,7 @@
         </AssemblyAttribute>
     </ItemGroup>
 
-    <ItemGroup Label="Workspace Packages">
+    <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
         <ProjectReference Include="../../../libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
     </ItemGroup>

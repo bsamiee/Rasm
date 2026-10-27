@@ -1,10 +1,10 @@
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.UI;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 
-namespace Rasm.RhinoCommon.Render.Effects;
+namespace Rasm.Rhino.Render.Effects;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class DefinedEffect<TState> : PostEffect where TState : notnull {

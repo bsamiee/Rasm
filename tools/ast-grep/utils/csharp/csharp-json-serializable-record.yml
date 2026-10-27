@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: csharp-json-serializable-record
-language: csharp
+language: csharplang
 utils:
     serializable-attribute:
         matches: {csharp-type-name: {name: {regex: '^JsonSerializable(Attribute)?$'}}}

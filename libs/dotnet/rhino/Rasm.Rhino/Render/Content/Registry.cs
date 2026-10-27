@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Render;
 
-namespace Rasm.RhinoCommon.Render.Content;
+namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ContentLoad(

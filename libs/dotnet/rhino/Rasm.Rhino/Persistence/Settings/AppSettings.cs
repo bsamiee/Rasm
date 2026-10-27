@@ -1,17 +1,17 @@
 using System.Buffers;
 using System.Drawing;
 using System.Reflection;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.UI;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Persistence.Settings;
+namespace Rasm.Rhino.Persistence.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ProcessSetting<T>(IO<T> Read, Func<T, IO<Unit>> Write) where T : notnull {

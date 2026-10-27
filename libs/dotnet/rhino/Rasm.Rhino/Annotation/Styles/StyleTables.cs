@@ -1,13 +1,13 @@
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.TopologicalSort;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 
-namespace Rasm.RhinoCommon.Annotation.Styles;
+namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record StyleSpec(

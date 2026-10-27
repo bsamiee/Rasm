@@ -1,9 +1,9 @@
 using Eto.Forms;
-using Rasm.RhinoCommon.Document;
+using Rasm.Rhino.Document;
 using Rhino;
 using UnitsNet;
 
-namespace Rasm.RhinoCommon.Viewport;
+namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CameraMove(ViewportSet Viewports, CameraPose To, Duration Span, Func<double, double> Progress, RedrawPolicy Redraw) {

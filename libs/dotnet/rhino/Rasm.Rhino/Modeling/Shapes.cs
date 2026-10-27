@@ -1,35 +1,35 @@
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record CurveShape {
     public sealed record Linear(Line Value) : CurveShape;
 
-    public sealed record Polyline(Rhino.Geometry.Polyline Value) : CurveShape;
+    public sealed record Polygonal(Polyline Value) : CurveShape;
 
-    public sealed record Circle(Rhino.Geometry.Circle Value) : CurveShape;
+    public sealed record Circular(Circle Value) : CurveShape;
 
-    public sealed record Arc(Rhino.Geometry.Arc Value) : CurveShape;
+    public sealed record Arcuate(Arc Value) : CurveShape;
 
-    public sealed record Ellipse(Rhino.Geometry.Ellipse Value) : CurveShape;
+    public sealed record Elliptic(Ellipse Value) : CurveShape;
 
-    public sealed record Parabola(Point3d Focus) : CurveShape;
+    public sealed record Parabolic(Point3d Focus) : CurveShape;
 
-    public sealed record Hyperbola(Point3d Focus1, Point3d Focus2, Point3d Center) : CurveShape;
+    public sealed record Hyperbolic(Point3d Focus1, Point3d Focus2, Point3d Center) : CurveShape;
 
     public sealed record Planar(Plane Value) : CurveShape;
 
     public static Option<CurveShape> Recognize(Tolerances tolerances, Curve curve) =>
         curve.IsLinear(tolerances.Absolute) ? new Linear(new Line(curve.PointAtStart, curve.PointAtEnd))
-        : curve.TryGetPolyline(out Rhino.Geometry.Polyline polyline) ? new Polyline(polyline)
-        : curve.TryGetCircle(out Rhino.Geometry.Circle circle, tolerances.Absolute) ? new Circle(circle)
-        : curve.TryGetArc(out Rhino.Geometry.Arc arc, tolerances.Absolute) ? new Arc(arc)
-        : curve.TryGetEllipse(out Rhino.Geometry.Ellipse ellipse, tolerances.Absolute) ? new Ellipse(ellipse)
+        : curve.TryGetPolyline(out Polyline polyline) ? new Polygonal(polyline)
+        : curve.TryGetCircle(out Circle circle, tolerances.Absolute) ? new Circular(circle)
+        : curve.TryGetArc(out Arc arc, tolerances.Absolute) ? new Arcuate(arc)
+        : curve.TryGetEllipse(out Ellipse ellipse, tolerances.Absolute) ? new Elliptic(ellipse)
         : curve.GetConicSectionType(out Point3d focus1, out Point3d focus2, out Point3d center) switch {
-            ConicSectionType.Parabola => new Parabola(focus1),
-            ConicSectionType.Hyperbola => new Hyperbola(focus1, focus2, center),
+            ConicSectionType.Parabola => new Parabolic(focus1),
+            ConicSectionType.Hyperbola => new Hyperbolic(focus1, focus2, center),
             ConicSectionType.Unknown or ConicSectionType.Circle or ConicSectionType.Ellipse =>
                 curve.TryGetPlane(out Plane plane, tolerances.Absolute) ? new Planar(plane) : Option<CurveShape>.None,
         };
@@ -37,12 +37,12 @@ public abstract partial record CurveShape {
     public Option<IO<Curve>> ToCurve() =>
         Switch(
             linear: static linear => Some(Products.Made<Curve>(new LineCurve(linear.Value))),
-            polyline: static polyline => Some(Products.Made<Curve>(new PolylineCurve(polyline.Value))),
-            circle: static circle => Some(Products.Made<Curve>(new ArcCurve(circle.Value))),
-            arc: static arc => Some(Products.Made<Curve>(new ArcCurve(arc.Value))),
-            ellipse: static ellipse => Some(Products.Made<Curve>(ellipse.Value.ToNurbsCurve())),
-            parabola: static _ => Option<IO<Curve>>.None,
-            hyperbola: static _ => Option<IO<Curve>>.None,
+            polygonal: static polygonal => Some(Products.Made<Curve>(new PolylineCurve(polygonal.Value))),
+            circular: static circular => Some(Products.Made<Curve>(new ArcCurve(circular.Value))),
+            arcuate: static arcuate => Some(Products.Made<Curve>(new ArcCurve(arcuate.Value))),
+            elliptic: static elliptic => Some(Products.Made<Curve>(elliptic.Value.ToNurbsCurve())),
+            parabolic: static _ => Option<IO<Curve>>.None,
+            hyperbolic: static _ => Option<IO<Curve>>.None,
             planar: static _ => Option<IO<Curve>>.None);
 }
 

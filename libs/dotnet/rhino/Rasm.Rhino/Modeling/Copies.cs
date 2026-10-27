@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Grouped<T, TFrom>(T Value, Seq<TFrom> From);
@@ -20,8 +20,10 @@ public static class Copies {
             held.Map((output, index) => new Grouped<T, int>(output, entries.Filter(entry => entry.Owner == index).Map(static entry => entry.Input))).Strict())));
 
     public static IO<Seq<Grouped<T, int>>> Mapped<T>(IO<Seq<T>> outputs, IEnumerable<int[]>? map, [CallerArgumentExpression(nameof(map))] string call = "") =>
-        outputs.Bind(held => IO.lift(() => Conversions.Found(map, call: call).Map(toSeq).Bind(inputs =>
-            RhinoFault.Unless(inputs.Count == held.Count, call: call).Map(_ => held.Zip(inputs, static (output, from) => new Grouped<T, int>(output, toSeq(from))).Strict()))));
+        outputs.Bind(held => IO.lift(() =>
+            from inputs in Conversions.Found(map, call: call).Map(toSeq)
+            from matched in RhinoFault.Unless(inputs.Count == held.Count, call: call)
+            select held.Zip(inputs, static (output, sources) => new Grouped<T, int>(output, toSeq(sources))).Strict()));
 
     // --- [INDICES]
     public static Fin<Seq<ComponentIndex>> Within(GeometryBase geometry, Seq<ComponentIndex> components) =>

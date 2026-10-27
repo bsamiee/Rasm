@@ -1,12 +1,11 @@
 using System.Collections.Generic;
-using Rasm.RhinoCommon.Commands;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.RhinoCommon.UI.Styling;
-using Rasm.UI;
+using Rasm.Rhino.Commands;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
@@ -14,7 +13,7 @@ using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
-namespace Rasm.RhinoCommon.UI;
+namespace Rasm.Rhino.UI;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ViewRegistration {
@@ -22,25 +21,15 @@ public static class ViewRegistration {
     private static IO<Unit> Each<TCase>(IPlugInViews plugIn, Func<TCase, IO<Unit>> register) where TCase : View =>
         IO.lift(() => plugIn.Views.Listed<TCase>()).Bind(rows => Callbacks.Each(rows.Map(register))).Map(unit);
 
-    private static IO<Unit> Hosted(Type view, Action register) =>
-        IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? new RhinoFault(view.Name, RhinoReason.Unheld, Inner: error) : error);
+    private static IO<Unit> Hosted(View view, Action register) =>
+        IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? new RhinoFault(view.Caption, RhinoReason.Unheld, Inner: error) : error);
 
     // --- [PANELS]
     public static readonly Func<IPlugInViews, IO<Unit>> RegisterPanels =
         static plugIn => Each<View.Panel>(plugIn, row => (Caption: RowText.Localize(row.Caption, plugIn).Local, Kind: row.Kind.IfNone(PanelType.PerDoc)) switch {
-            var face => row.Icon.Match(
-                Some: glyph => glyph.Switch(
-                    (PlugIn: plugIn, Row: row, Face: face, Glyph: glyph),
-                    tinted: static (at, _) => Drawn(at.PlugIn, at.Row, at.Glyph, at.Face.Caption, at.Face.Kind),
-                    paired: static (at, art) => Hosted(at.Row.Identity, () => Panels.RegisterPanel(at.PlugIn.PlugIn, at.Row.Identity, at.Face.Caption, art.Assembly, art.Light, at.Face.Kind))),
-                None: () => Hosted(row.Identity, () => Panels.RegisterPanel(plugIn.PlugIn, row.Identity, face.Caption, iconAssembly: null, iconResourceId: null, face.Kind))),
+            var face => Hosted(row, () => Panels.RegisterPanel(
+                plugIn.PlugIn, row.Identity, face.Caption, row.Icon.Map(static icon => icon.Assembly).ValueUnsafe(), row.Icon.Map(static icon => icon.Id).ValueUnsafe(), face.Kind)),
         });
-
-    private static IO<Unit> Drawn(IPlugInViews plugIn, View.Panel row, GlyphSource glyph, string caption, PanelType kind) =>
-        from pixels in IconSlot.PanelTab.Pixels
-        from icon in Icons.DrawingIcon(glyph, pixels)
-        from registered in Hosted(row.Identity, () => Panels.RegisterPanel(plugIn.PlugIn, row.Identity, caption, icon, kind))
-        select registered;
 
     // --- [PAGES]
     public static IO<Unit> OptionsDialogPages(IPlugInViews plugIn, ICollection<OptionsDialogPage> pages) =>
@@ -72,13 +61,13 @@ public static class ViewRegistration {
     public static IO<Unit> RegisterRenderTabs<TPlugIn>(TPlugIn plugIn, RenderTabs tabs) where TPlugIn : PlugIn, IPlugInViews =>
         Each<View.Tab>(plugIn, row =>
             from pixels in IconSlot.RenderTab.Pixels
-            from icon in row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph, pixels)).As()
-            from registered in Hosted(row.Identity, () => tabs.RegisterTab(
+            from icon in row.Icon.TraverseM(art => Icons.DrawingIcon(art, pixels)).As()
+            from registered in Hosted(row, () => tabs.RegisterTab(
                 plugIn, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, plugIn).Local, icon.ValueUnsafe()))
             select registered);
 
     public static IO<Unit> RegisterRenderPanels<TPlugIn>(TPlugIn plugIn, RenderPanels panels) where TPlugIn : PlugIn, IPlugInViews =>
-        Each<View.Pane>(plugIn, row => Hosted(row.Identity, () => panels.RegisterPanel(
+        Each<View.Pane>(plugIn, row => Hosted(row, () => panels.RegisterPanel(
             plugIn, RenderPanelType.RenderWindow, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, plugIn).Local,
             row.Scope.AlwaysShow, row.InitialShow, row.Position)));
 
@@ -92,9 +81,7 @@ public static class ViewRegistration {
     // --- [CONTENT_SECTIONS]
     public static readonly Func<IPlugInViews, IO<Unit>> AddCustomUISections =
         static plugIn => EventKind.OnAddCustomUISections.Inline(
-            args => Each<View.Section>(plugIn, row => row.Create.Match(
-                Left: static _ => IO.pure(unit),
-                Right: content => IO.lift(() => args.ExpandableContentUI.AddSection(content(row, plugIn))))),
+            args => Each<View.Section>(plugIn, row => IO.lift(() => row.Create.IfRight(content => args.ExpandableContentUI.AddSection(content(row, plugIn))))),
             plugIn);
 
     public static EntryKey FieldKey(RenderContent content, string field) =>

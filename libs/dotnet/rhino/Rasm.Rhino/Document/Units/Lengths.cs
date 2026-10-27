@@ -1,10 +1,10 @@
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.Geometry.Intersect;
 using Rhino.UI;
 using UnitsNet;
 
-namespace Rasm.RhinoCommon.Document.Units;
+namespace Rasm.Rhino.Document.Units;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Tolerances(double Absolute, double Relative, double Angle, double MeshCoefficient) {

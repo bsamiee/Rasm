@@ -1,11 +1,11 @@
 using Eto.Drawing;
 using Eto.Forms;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.PlugIns;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.PlugIns;
 
-namespace Rasm.RhinoCommon.UI.Rows;
+namespace Rasm.Rhino.UI.Rows;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DataTransfer {

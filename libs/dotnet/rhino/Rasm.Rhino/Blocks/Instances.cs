@@ -1,10 +1,10 @@
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Modeling;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Modeling;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;
 
-namespace Rasm.RhinoCommon.Blocks;
+namespace Rasm.Rhino.Blocks;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]

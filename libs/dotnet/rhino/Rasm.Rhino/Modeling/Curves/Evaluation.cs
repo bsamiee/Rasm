@@ -1,7 +1,8 @@
 using System.Globalization;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
+using SuperLinq;
 
-namespace Rasm.RhinoCommon.Modeling.Curves;
+namespace Rasm.Rhino.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
@@ -10,7 +11,7 @@ public sealed partial class AscendingParameters {
     public Seq<double> Values { get; }
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Seq<double> values) =>
-        validationError = values.Count >= 2 && values.Zip(values.Tail).ForAll(static pair => pair.First < pair.Second)
+        validationError = values.Count >= 2 && values.Window(2).All(static pair => pair[0] < pair[1])
             ? null
             : new RhinoFault($"parameters [{string.Join(", ", values.Map(static value => value.ToString(CultureInfo.InvariantCulture)))}]", RhinoReason.Outside);
 }

@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using Eto.Drawing;
-using Rasm.RhinoCommon.Display;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.Rhino.Display;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Stores;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.UI;
 
-namespace Rasm.RhinoCommon.Viewport;
+namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -79,8 +79,11 @@ public static class Viewports {
                 var views => views.Filter(static view => view is not RhinoPageView).Map(static view => new ViewportRef(view, view.MainViewport, None))
                     + Rows(Pages(views.Choose(static view => Optional(view as RhinoPageView))), every.Details),
             }).Bind(Owned),
-            group: static (document, grouped) => TableOps.Find(document.PageViewGroups, grouped.Address, includeDeleted: false)
-                .Bind(found => IO.lift(() => Rows(Pages(found.GetMembers()), grouped.Details)).Bind(Owned)));
+            group: static (document, grouped) =>
+                from found in TableOps.Find(document.PageViewGroups, grouped.Address, includeDeleted: false)
+                from rows in IO.lift(() => Rows(Pages(found.GetMembers()), grouped.Details))
+                from owned in Owned(rows)
+                select owned);
 
     public static IO<T> With<T>(RhinoDoc doc, ViewportTarget target, Func<ViewportRef, IO<T>> body) =>
         Resolve(doc, target).Bind(body).Bracket();

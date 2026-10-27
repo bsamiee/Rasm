@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-host-event-member
-language: csharp
+language: csharplang
 severity: error
 files: ['**/Rasm.Grasshopper/**']
 utils:

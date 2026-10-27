@@ -1,11 +1,10 @@
-using Rasm.RhinoCommon.Annotation.Styles;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Modeling;
+using Rasm.Rhino.Annotation.Styles;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Modeling;
 using Rhino;
 using Rhino.DocObjects;
-using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Annotation;
+namespace Rasm.Rhino.Annotation;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public delegate IO<Seq<Seq<T>>> OutlineFactory<T>(TextEntity text, DimensionStyle style, bool makeSmallCaps, double smallCapsScale, double spacing)
@@ -17,8 +16,7 @@ public sealed record OutlineText(string Text, Plane Plane, Option<ComponentRef<D
 public sealed record OutlineOptions(Option<double> SmallCapsScale, double Spacing, Option<Transform> Transform);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
-public static partial class Outlines {
+public static class Outlines {
     // --- [OUTLINES]
     public static IO<Seq<Seq<T>>> Create<T>(RhinoDoc doc, TextEntity text, OutlineOptions options, OutlineFactory<T> create) where T : GeometryBase =>
         options.Transform.IsSome
@@ -32,7 +30,7 @@ public static partial class Outlines {
         from parent in DimensionStyles.Resolve(doc, text.Style)
         from face in text.Face.Resolve()
         from entity in Products.Made(TextEntity.Create(text.Text, text.Plane, parent, wrapped: false, rectWidth: 0.0, rotationRadians: 0.0))
-        from assigned in IO.lift(() => Update((face, text.Height), entity))
+        from assigned in IO.lift(() => { (entity.Font, entity.TextHeight) = (face, text.Height); })
         from outlines in Generate(doc, entity, options, create)
         from released in release(entity)
         select outlines;
@@ -47,7 +45,4 @@ public static partial class Outlines {
         from created in create(text, style, options.SmallCapsScale.IsSome, options.SmallCapsScale.IfNone(1.0), options.Spacing)
         from released in release(style)
         select created;
-
-    // --- [MAPPING]
-    private static partial void Update((Font Font, double TextHeight) source, TextEntity target);
 }

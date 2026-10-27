@@ -4,7 +4,8 @@ MSBuild directory files and central package versions own every shared .NET decla
 
 ## [01]-[UPGRADES]
 
-- Upgrades move each `Directory.Packages.props` row holding a version, prereleases included, a row holding a range stays
+- Upgrades move each `Directory.Packages.props` row holding a version, prereleases included, and an exact `[<version>]` row inside its major.minor
+- Rows holding any other range stay
 - Releases come from nuget.org, the one `NuGet.config` source, a per-commit build on a dnceng feed (`dotnet-tools`) is no release
 - Version edits splice attribute text in place, `XmlDocument` or `ProjectRootElement` saves collapse row alignment
 - Newest release is the highest listed framework-compatible release by `NuGetVersion` across base versions, a stable release above its prereleases

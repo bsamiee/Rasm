@@ -4,11 +4,11 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
-using Rasm.RhinoCommon.Render.Effects;
+using Rasm.Rhino.Render.Effects;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 
-namespace Rasm.RhinoCommon.Render.Sessions;
+namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

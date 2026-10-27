@@ -3,14 +3,14 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NodaTime.Text;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Objects;
-using Rasm.RhinoCommon.Render.Content;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Objects;
+using Rasm.Rhino.Render.Content;
 using Rhino;
 using Rhino.Display;
 using Rhino.Render;
 
-namespace Rasm.RhinoCommon.Render.Settings;
+namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed partial record SceneFile(string Captured, string Key, SceneFile.Body Scene) {

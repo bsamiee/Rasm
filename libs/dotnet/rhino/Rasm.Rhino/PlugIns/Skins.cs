@@ -1,10 +1,10 @@
 using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.UI;
-using Rasm.RhinoCommon.UI.Styling;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.UI;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Resources;
@@ -12,7 +12,7 @@ using Rhino.Runtime;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
-namespace Rasm.RhinoCommon.PlugIns;
+namespace Rasm.Rhino.PlugIns;
 
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed record Splash(Form Window, Label Status, ProgressBar Bar);

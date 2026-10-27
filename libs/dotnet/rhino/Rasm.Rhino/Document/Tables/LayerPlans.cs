@@ -3,7 +3,7 @@ using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.Document.Tables;
+namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]

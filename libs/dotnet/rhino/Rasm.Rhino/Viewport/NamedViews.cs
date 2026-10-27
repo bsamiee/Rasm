@@ -1,16 +1,17 @@
-using Rasm.RhinoCommon.Display;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Persistence;
-using Rasm.RhinoCommon.Persistence.Settings;
+using System.Runtime.CompilerServices;
+using Rasm.Rhino.Display;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Persistence.Settings;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.Viewport;
+namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -55,10 +56,10 @@ public static class NamedViews {
     // --- [SAVE]
     internal static IO<NamedWrite> Save(RhinoDoc doc, NamedState.View state, object owner) =>
         from copy in Viewports.With(doc, state.Source, static row => IO.lift(() => new RhinoViewport(row.Viewport)))
-        from written in Staged(doc, nameof(Save), state.Name, copy, state.Stage, owner)
+        from written in Staged(doc, state.Name, copy, state.Stage, owner)
         select written;
 
-    private static IO<NamedWrite> Staged(RhinoDoc doc, string verb, string name, RhinoViewport copy, Option<Func<RhinoViewport, ViewInfo, IO<Unit>>> stage, object owner) =>
+    private static IO<NamedWrite> Staged(RhinoDoc doc, string name, RhinoViewport copy, Option<Func<RhinoViewport, ViewInfo, IO<Unit>>> stage, object owner, [CallerMemberName] string verb = "") =>
         (from staged in use(() => new ViewInfo(copy)).Bind(view => stage.Traverse(run => run(copy, view)).As()).Bracket()
          from prior in Stored(doc, name)
          from same in Same(doc, prior, copy).Catch(error => Released(prior.ToSeq()) >> IO.fail<bool>(error)).As()
@@ -142,12 +143,12 @@ public static class NamedViews {
     // --- [EXCHANGE]
     internal static IO<NamedWrite> Transform(RhinoDoc doc, NamedEntry entry, Transform xform, object owner) =>
         from copy in Read(doc, entry.Name, Held)
-        from written in Staged(doc, nameof(Transform), entry.Name, copy, Some(Moved(xform)), owner)
+        from written in Staged(doc, entry.Name, copy, Some(Moved(xform)), owner)
         select written;
 
     internal static IO<NamedWrite> Import(RhinoDoc doc, ArchiveSource source, Option<Seq<StateName>> names, object owner) =>
         NamedTable.Views.Imported(doc, source, names, static archive => archive.AllNamedViews, static view => view.Name,
-            (view, scaling) => Held(view).Bind(copy => Staged(doc, nameof(Import), view.Name, copy, Some(Detached(scaling)), owner)));
+            (view, scaling) => Held(view).Bind(copy => Staged(doc, view.Name, copy, Some(Detached(scaling)), owner)));
 
     internal static IO<Unit> Archive(RhinoDoc doc, Seq<NamedEntry> entries, File3dm archive) =>
         entries.TraverseM(entry => Read(doc, entry.Name, view => IO.lift(() => archive.AllNamedViews.Add(view)))).As().Map(static _ => unit);

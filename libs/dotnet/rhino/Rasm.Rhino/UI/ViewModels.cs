@@ -3,7 +3,7 @@ using Rhino.Render.DataSources;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
 
-namespace Rasm.RhinoCommon.UI;
+namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed class ProviderId<T> where T : class {

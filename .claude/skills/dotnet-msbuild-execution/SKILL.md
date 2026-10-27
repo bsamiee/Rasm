@@ -143,8 +143,10 @@ Tasks inside a target, `ItemGroup` and `PropertyGroup` children included, run at
 - `Exec` never skips by itself, the target holding it takes `Inputs` and `Outputs`
 - `Exec` fails on a non-zero exit code and on a line in the standard error and warning format
 - `IgnoreExitCode="true"` ignores the exit code, `IgnoreStandardErrorWarningFormat="true"` ignores format lines, the target reads `ExitCode`
+- `LogStandardErrorAsError="true"` fails on every standard error line, for a tool writing warnings in its own format and exiting 0
 - `ConsoleToMSBuild="true"` fills `ConsoleOutput` with every output line, `EchoOff="true"` keeps the expanded command out of the log
-- `StandardOutputImportance="low"` hides tool output at normal verbosity, `EnvironmentVariables` and `WorkingDirectory` replace a shell prefix
+- `Exec` logs standard output at `high` importance, `StandardOutputImportance="low"` hides it at normal verbosity
+- `EnvironmentVariables` and `WorkingDirectory` replace a shell prefix
 - `<Output>` fills a property or an item list, never item metadata
 - `Copy` with `SkipUnchangedFiles="true"` compares size and timestamp, `UseHardlinksIfPossible` links in place of copying, `Retries` hides a file race
 - Boolean parameters read `true`, `on`, `yes`, `!false`, `!off`, and `!no` as true

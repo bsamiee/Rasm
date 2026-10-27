@@ -1,10 +1,10 @@
 using System.Runtime.CompilerServices;
 using Rasm.Spatial;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 using Rhino.Geometry.Morphs;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -127,7 +127,9 @@ public static class Morphs {
                 from moved in Moved(brep, morph)
                 from face in Products.Made<GeometryBase>(brep.Faces[0].DuplicateSurface())
                 select face)
-            : Transformations.Deformable(copy, Some(morph.Index)).Bind(deformable => Moved(deformable, morph).Map(_ => deformable))
+            : from deformable in Transformations.Deformable(copy, Some(morph.Index))
+              from moved in Moved(deformable, morph)
+              select deformable
         from step in ReferenceEquals(subject, copy) ? Edits.Completed<T, int>(copy, morph.Member) : Edits.Replaced<T, int>(subject, morph.Member)
         select step;
 

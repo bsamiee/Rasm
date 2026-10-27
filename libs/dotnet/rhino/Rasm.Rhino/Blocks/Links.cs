@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using QuikGraph;
 using QuikGraph.Algorithms;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Persistence;
-using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Persistence.Stores;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.Blocks;
+namespace Rasm.Rhino.Blocks;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]

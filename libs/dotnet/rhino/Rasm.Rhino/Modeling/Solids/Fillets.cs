@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 
-namespace Rasm.RhinoCommon.Modeling.Solids;
+namespace Rasm.Rhino.Modeling.Solids;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum ArcDegree {
@@ -68,8 +68,8 @@ public abstract partial record FilletSection {
 public abstract partial record FilletContact {
     public sealed record Faces(BrepFace A, Point2d UvA, BrepFace B, Point2d UvB, double Radius, bool AllowExtend) : FilletContact;
     public sealed record Chamfer(BrepFace A, Point2d UvA, BrepFace B, Point2d UvB, double Radius0, double Radius1, bool AllowExtend) : FilletContact;
-    public sealed record Rail(BrepFace RailFace, Rhino.Geometry.Curve Rail3d, BrepFace Face, Point2d Uv) : FilletContact;
-    public sealed record Curve(BrepFace Face, Point2d Uv, Rhino.Geometry.Curve Rail3d, double T, double Radius) : FilletContact;
+    public sealed record Rail(BrepFace RailFace, Curve Rail3d, BrepFace Face, Point2d Uv) : FilletContact;
+    public sealed record FaceCurve(BrepFace Face, Point2d Uv, Curve Rail3d, double T, double Radius) : FilletContact;
 
     public IO<FilletEngine> Engine(Tolerances tolerances) =>
         from engine in use(() => Switch(
@@ -77,7 +77,7 @@ public abstract partial record FilletContact {
             faces: static (tolerance, faces) => new FilletEngine(faces.A, faces.UvA, faces.B, faces.UvB, faces.Radius, faces.AllowExtend, tolerance),
             chamfer: static (tolerance, chamfer) => new FilletEngine(chamfer.A, chamfer.UvA, chamfer.B, chamfer.UvB, chamfer.Radius0, chamfer.Radius1, chamfer.AllowExtend, tolerance),
             rail: static (tolerance, rail) => new FilletEngine(rail.RailFace, rail.Rail3d, rail.Face, rail.Uv, tolerance),
-            curve: static (tolerance, curve) => new FilletEngine(curve.Face, curve.Uv, curve.Rail3d, curve.T, curve.Radius, tolerance)))
+            faceCurve: static (tolerance, faceCurve) => new FilletEngine(faceCurve.Face, faceCurve.Uv, faceCurve.Rail3d, faceCurve.T, faceCurve.Radius, tolerance)))
         from initialized in IO.lift(() => RhinoFault.Unless(engine.IsInitialized()))
         select engine;
 }

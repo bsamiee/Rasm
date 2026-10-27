@@ -1,13 +1,13 @@
 using System.Drawing;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.PlugIns;
 using Rhino.Render;
 using Rhino.UI;
 
-namespace Rasm.RhinoCommon.Render.Content;
+namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ContentPreviewRow(

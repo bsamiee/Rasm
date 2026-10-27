@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-type-name-field
-language: csharp
+language: csharplang
 severity: error
 utils:
     type-type: {matches: {csharp-type-name: {name: {regex: '^Type$'}}}}

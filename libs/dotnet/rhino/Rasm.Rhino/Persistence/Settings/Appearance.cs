@@ -2,15 +2,15 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Stores;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Runtime;
 using Rhino.UI;
 using Rhino.UI.Theme;
 
-namespace Rasm.RhinoCommon.Persistence.Settings;
+namespace Rasm.Rhino.Persistence.Settings;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Accessors {

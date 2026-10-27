@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-placeholder-no-op-csharp
-language: csharp
+language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
 utils:

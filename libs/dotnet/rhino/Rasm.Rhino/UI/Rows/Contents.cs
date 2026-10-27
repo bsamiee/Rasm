@@ -1,39 +1,40 @@
 using System.Collections.Generic;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.UI.Surfaces;
-using Rasm.UI;
-using Rasm.UI.Components;
+using Eto.Drawing;
+using Eto.Forms;
+using Rasm.Rhino.Events;
 
-namespace Rasm.RhinoCommon.UI.Rows;
+namespace Rasm.Rhino.UI.Rows;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ContentRows {
     // --- [COMPUTED]
-    public static ControlRow Computed<TRequest, TValue>(string label, TRequest request, Func<TRequest, IO<TValue>> compute, Func<TValue, IO<Unit>> release, Func<TValue, Node> drawn)
+    public static ControlRow Computed<TRequest, TValue>(string label, TRequest request, Func<TRequest, IO<TValue>> compute, Func<TValue, IO<Unit>> release, Func<TValue, IO<Control>> shown)
         where TRequest : notnull
         where TValue : notnull =>
-        new ControlRow.Bound<(TRequest Request, Func<TRequest, IO<TValue>> Compute, Func<TValue, IO<Unit>> Release, Func<TValue, Node> Drawn)>(label, RowShape.Block, (request, compute, release, drawn),
+        new ControlRow.Bound<(TRequest Request, Func<TRequest, IO<TValue>> Compute, Func<TValue, IO<Unit>> Release, Func<TValue, IO<Control>> Shown)>(label, RowShape.Block, (request, compute, release, shown),
             static (latest, scope) =>
-                from held in atomIO(Option<(TRequest Request, Content<TValue> Content)>.None)
-                from view in use(() => new SceneView(scope, new Node.Box()))
+                from held in atomIO(Option<(TRequest Request, Loading<TValue> Content)>.None)
+                from frame in Containers.Frame(static () => new Panel())
                 from owned in use(static () => EnvIO.New(token: CancellationToken.None))
                 from kept in IO.lift(static () => Ref(Option<Lease<TValue>>.None))
+                from body in IO.lift(static () => Ref(Option<Lease<Control>>.None))
                 from working in IO.lift(static () => Ref(Option<Lease<ForkIO<Unit>>>.None))
                 let shown =
                     from row in latest
                     from current in held.ValueIO
-                    from drew in view.Show(current.Map(static state => state.Content).IfNone(new Content<TValue>.Pending())
-                        .Drawn(row.Row.Drawn, RowText.Localize("{0} unavailable", scope.Owner, arguments: [RowText.Localize(row.Label, scope.Owner).Local]).Local))
-                    select drew
-                from landed in Mailboxes.Idle<TRequest, Content<TValue>>(arrived => Landed(held, kept, owned, latest, arrived).Bind(_ => shown))(scope.Owner)
-                select new RowCells(view,
+                    from control in Products.Swapped(body, Placed(current.Map(static state => state.Content).IfNone(new Loading<TValue>.Pending(None)), row.Row.Shown,
+                        RowText.Localize("{0} unavailable", scope.Owner, arguments: [RowText.Localize(row.Label, scope.Owner).Local]).Local)).Under(owned)
+                    from seated in IO.lift(() => { frame.Content = control; })
+                    select unit
+                from landed in Mailboxes.Idle<TRequest, Loading<TValue>>(arrived => Landed(held, kept, owned, latest, arrived).Bind(_ => shown))(scope.Owner)
+                select new RowCells(frame,
                     from row in latest
                     from prior in held.ValueIO
                     from changed in when(!prior.Exists(current => EqualityComparer<TRequest>.Default.Equals(current.Request, row.Row.Request)),
-                        from pending in held.SwapIO(current => Some((row.Row.Request, current.Map(static state => state.Content.Requested(None)).IfNone(new Content<TValue>.Pending()))))
+                        from pending in held.SwapIO(current => Some((row.Row.Request, current.Map(static state => state.Content.Requested(None)).IfNone(new Loading<TValue>.Pending(None)))))
                         from forked in Products.Cleared(working).Bind(_ => Products.Swapped(working, use(
-                            row.Row.Compute(row.Row.Request).Map(static value => (Content<TValue>)new Content<TValue>.Ready(value))
-                                .Catch(static error => !error.Is(Errors.Cancelled), static error => IO.pure<Content<TValue>>(new Content<TValue>.Failed(error)))
+                            row.Row.Compute(row.Row.Request).Map(static value => (Loading<TValue>)new Loading<TValue>.Ready(value))
+                                .Catch(static error => !error.Is(Errors.Cancelled), static error => IO.pure<Loading<TValue>>(new Loading<TValue>.Failed(error)))
                                 .Bind(content => landed(row.Row.Request, content))
                                 .Fork(),
                             static fork => fork.Cancel))).Under(owned)
@@ -41,9 +42,19 @@ public static class ContentRows {
                     from redrawn in shown
                     select unit));
 
+    private static IO<Control> Placed<TValue>(Loading<TValue> content, Func<TValue, IO<Control>> shown, string unavailable) where TValue : notnull =>
+        content.Switch(
+            (Shown: shown, Unavailable: unavailable),
+            pending: static (_, pending) =>
+                from bar in use(() => new ProgressBar { Indeterminate = pending.Work.IsNone })
+                from ranged in IO.lift(() => pending.Work.Iter(progress => (bar.MaxValue, bar.Value) = progress.Positions))
+                select (Control)bar,
+            ready: static (at, ready) => at.Shown(ready.Value),
+            failed: static (at, _) => use(() => new Label { Text = at.Unavailable, TextColor = SystemColors.DisabledText }).Map(static label => (Control)label));
+
     private static IO<Unit> Landed<TRequest, TValue>(
-        Atom<Option<(TRequest Request, Content<TValue> Content)>> held, Ref<Option<Lease<TValue>>> kept, EnvIO owned,
-        IO<ControlRow.Bound<(TRequest Request, Func<TRequest, IO<TValue>> Compute, Func<TValue, IO<Unit>> Release, Func<TValue, Node> Drawn)>> latest, HashMap<TRequest, Content<TValue>> arrived)
+        Atom<Option<(TRequest Request, Loading<TValue> Content)>> held, Ref<Option<Lease<TValue>>> kept, EnvIO owned,
+        IO<ControlRow.Bound<(TRequest Request, Func<TRequest, IO<TValue>> Compute, Func<TValue, IO<Unit>> Release, Func<TValue, IO<Control>> Shown)>> latest, HashMap<TRequest, Loading<TValue>> arrived)
         where TRequest : notnull
         where TValue : notnull =>
         toSeq(arrived.AsIterable()).TraverseM(entry =>

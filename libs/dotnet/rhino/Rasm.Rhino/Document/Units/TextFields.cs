@@ -5,7 +5,7 @@ using Rhino;
 using Rhino.DocObjects;
 using Rhino.Runtime;
 
-namespace Rasm.RhinoCommon.Document.Units;
+namespace Rasm.Rhino.Document.Units;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]

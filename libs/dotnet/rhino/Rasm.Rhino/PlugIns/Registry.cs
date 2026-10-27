@@ -1,8 +1,8 @@
-using Rasm.RhinoCommon.Document.Files;
+using Rasm.Rhino.Document.Files;
 using Rhino.PlugIns;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.PlugIns;
+namespace Rasm.Rhino.PlugIns;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PlugInState(

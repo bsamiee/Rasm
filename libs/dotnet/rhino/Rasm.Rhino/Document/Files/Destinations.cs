@@ -1,6 +1,6 @@
 using Rhino;
 
-namespace Rasm.RhinoCommon.Document.Files;
+namespace Rasm.Rhino.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

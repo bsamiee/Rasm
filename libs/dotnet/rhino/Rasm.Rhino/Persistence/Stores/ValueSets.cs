@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-namespace Rasm.RhinoCommon.Persistence.Stores;
+namespace Rasm.Rhino.Persistence.Stores;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record EntryKey(string Owner, Seq<string> Path) : IComparable<EntryKey> {
@@ -44,10 +44,10 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
         toHashMap(Leaves(JsonSerializer.SerializeToNode(record, ArchivableDictionaries.Options), []));
 
     public Fin<T> Recalled<T>(string owner, T current) =>
-        ArchivableDictionaries.Decoded<T>(owner, () => Merged(
+        ArchivableDictionaries.Decoded(owner, () => Merged(
                 JsonSerializer.SerializeToNode(current, ArchivableDictionaries.Options),
                 Grown(toSeq(Entries.AsIterable().Filter(entry => string.Equals(entry.Key.Owner, owner, StringComparison.Ordinal)).OrderBy(static entry => entry.Key)).Map(static entry => (entry.Key.Path, entry.Value)),
-                    static text => JsonNode.Parse(text), Branch))
+                    Parsed, Branch))
             .Deserialize<T>(ArchivableDictionaries.Options));
 
     public string Text() => JsonSerializer.Serialize(this, ValueSetContext.Default.ValueSet);
@@ -77,6 +77,8 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
             ? toSeq(branch).Bind(child => Leaves(child.Value, path.Add(child.Key)))
             : Seq((path, node?.ToJsonString() ?? "null"));
 
+    internal static readonly Func<string, JsonNode?> Parsed = static text => JsonNode.Parse(text);
+
     internal static JsonObject Branch(Seq<(string Name, JsonNode? Node)> children) =>
         children.Fold(new JsonObject(), static (branch, child) => {
             branch[child.Name] = child.Node;
@@ -86,7 +88,7 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
     private static JsonNode? Merged(JsonNode? held, JsonNode? stored) =>
         (held, stored) is (JsonObject kept, JsonObject read) && read.Where(static entry => entry.Key.StartsWith('$')).All(entry => JsonNode.DeepEquals(kept[entry.Key], entry.Value))
             ? Branch(toSeq(kept.Select(static entry => entry.Key).Union(read.Select(static entry => entry.Key), StringComparer.Ordinal))
-                .Map(key => (key, read.ContainsKey(key) ? Merged(kept[key]?.DeepClone(), read[key]?.DeepClone()) : kept[key]?.DeepClone())))
+                .Map(key => (key, read.TryGetPropertyValue(key, out JsonNode? stored) ? Merged(kept[key]?.DeepClone(), stored?.DeepClone()) : kept[key]?.DeepClone())))
             : stored;
 
     private static TNode Grown<TNode>(Seq<(Seq<string> Path, string Text)> rows, Func<string, TNode> leaf, Func<Seq<(string Name, TNode Node)>, TNode> branch) =>
@@ -173,7 +175,7 @@ public sealed class ValueSetConverter : JsonConverter<ValueSet> {
             select (new EntryKey(owner.Key, leaf.Path), leaf.Text)));
 
     public override void Write(Utf8JsonWriter writer, ValueSet value, JsonSerializerOptions options) =>
-        JsonSerializer.Serialize(writer, ValueSet.Branch(value.Tree(static text => JsonNode.Parse(text), ValueSet.Branch)), ValueSetContext.Default.JsonObject);
+        JsonSerializer.Serialize(writer, ValueSet.Branch(value.Tree(ValueSet.Parsed, ValueSet.Branch)), ValueSetContext.Default.JsonObject);
 }
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Strict, WriteIndented = true)]

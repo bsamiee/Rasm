@@ -1,12 +1,11 @@
 using Eto.Forms;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Settings;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.RhinoCommon.UI.Styling;
-using Rasm.UI;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Settings;
+using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino.UI.Controls;
 
-namespace Rasm.RhinoCommon.UI;
+namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SplitAnchor(string Name, double Default, SplitterFixedPanel Fixed) {
@@ -45,7 +44,7 @@ public abstract partial record ContainerRow {
 
     public sealed record Disclosure(string Caption, bool Expanded, IterableNE<Child> Body) : ContainerRow;
 
-    public sealed record Tiles(IterableNE<Command<RowRule, Invoke>> Cells) : ContainerRow;
+    public sealed record Tiles(IterableNE<Command<Invoke>> Cells) : ContainerRow;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

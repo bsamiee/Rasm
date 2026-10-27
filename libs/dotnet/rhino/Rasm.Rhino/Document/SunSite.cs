@@ -7,7 +7,7 @@ using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 using UnitsNet;
 
-namespace Rasm.RhinoCommon.Document;
+namespace Rasm.Rhino.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record SunSite(GeoCoordinate Place, Angle North, Offset Standard, Option<Duration> Saving) {
@@ -59,10 +59,7 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, Offset Standard, 
 
     public IO<SunSample> Sample(LocalDateTime local, TimeProvider clock) =>
         InstantOf(local) switch {
-            var at => Observed(clock, (sun, computer) =>
-                Direction(sun, computer, at) switch {
-                    var direction => new SunSample(direction, sun.Altitude, Sun.ColorFromAltitude(sun.Altitude), at.ToJulianDate()),
-                }),
+            var at => Observed(clock, (sun, computer) => new SunSample(Direction(sun, computer, at), sun.Altitude, Sun.ColorFromAltitude(sun.Altitude), at.ToJulianDate())),
         };
 
     public SunDay Day(LocalDate date) =>

@@ -1,8 +1,8 @@
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.UI;
 
-namespace Rasm.RhinoCommon.Display;
+namespace Rasm.Rhino.Display;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class DefinedGrip(Point3d location, Func<Point3d, MouseState, IO<Unit>> dragged, IPlugInViews owner) : GripUserInterfaceObject(location) {

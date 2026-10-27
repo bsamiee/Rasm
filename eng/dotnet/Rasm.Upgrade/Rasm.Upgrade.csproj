@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Upgrades each Directory.Packages.props central package version to newest NuGet release compatible with repository target framework, prereleases included</Description>
+        <Description>Central package versions kept at newest releases the target framework can consume</Description>
         <OutputType>Exe</OutputType>
     </PropertyGroup>
 
-    <ItemGroup Label="Application Hosting">
+    <ItemGroup Label="Package Management">
         <PackageReference Include="NuGet.Common" />
         <PackageReference Include="NuGet.Configuration" />
         <PackageReference Include="NuGet.Frameworks" />

@@ -1,10 +1,10 @@
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Custom;
 
-namespace Rasm.RhinoCommon.Objects;
+namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record GripPoint(

@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum NetworkContinuity { Loose = 0, Position = 1, Tangency = 2, Curvature = 3 }

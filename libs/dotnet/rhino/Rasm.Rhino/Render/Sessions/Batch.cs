@@ -1,6 +1,6 @@
 using System.Drawing;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
@@ -10,7 +10,7 @@ using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI;
 
-namespace Rasm.RhinoCommon.Render.Sessions;
+namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

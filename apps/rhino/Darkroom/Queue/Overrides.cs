@@ -1,9 +1,9 @@
 using System.Drawing;
 using Rasm.Imaging.Pixels;
-using Rasm.RhinoCommon;
-using Rasm.RhinoCommon.Render.Sessions;
-using Rasm.RhinoCommon.Render.Settings;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino;
+using Rasm.Rhino.Render.Sessions;
+using Rasm.Rhino.Render.Settings;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;

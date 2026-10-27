@@ -1,6 +1,6 @@
 using Rhino.NodeInCode;
 
-namespace Rasm.RhinoCommon.Commands;
+namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record NodeOutput(string Name, Option<object> Value);

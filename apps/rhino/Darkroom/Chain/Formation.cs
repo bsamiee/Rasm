@@ -1,7 +1,7 @@
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using Rasm.RhinoCommon;
+using Rasm.Rhino;
 using Rhino.Render.PostEffects;
 
 namespace Darkroom.Chain;

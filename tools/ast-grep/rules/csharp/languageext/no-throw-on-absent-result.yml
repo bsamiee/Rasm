@@ -1,12 +1,12 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-throw-on-absent-result
-language: csharp
+language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
 rule:
     any:
         - kind: binary_expression
-          pattern: $CALL ?? throw new $EXCEPTION($$$MESSAGE)
+          pattern: {context: 'return $CALL ?? throw new $EXCEPTION($$$MESSAGE);', selector: binary_expression}
           all:
             - has: {field: left, kind: invocation_expression}
             - not: {has: {field: right, has: {kind: object_creation_expression, has: {field: type, regex: '^(UnreachableException|XunitException)$'}}}}

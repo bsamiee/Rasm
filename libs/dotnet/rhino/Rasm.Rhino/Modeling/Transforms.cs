@@ -1,9 +1,9 @@
 using System.Globalization;
 using MathNet.Numerics.LinearAlgebra;
 using Rasm.Spatial;
-using Rasm.RhinoCommon.Modeling.Curves;
+using Rasm.Rhino.Modeling.Curves;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -43,7 +43,7 @@ public abstract partial record Frames {
     public sealed record OnSurface(Surface Surface, Seq<Point2d> At) : Frames;
 
     public Fin<Seq<Plane>> Planes =>
-        Switch<Fin<Seq<Plane>>>(
+        Switch(
             through: static through => through.Frames,
             spaced: static spaced => (spaced.End - spaced.Start) switch {
                 var span => Stepped(new Plane(spaced.Start, span), span / span.Length * spaced.Interval, (int)Math.Floor(span.Length / spaced.Interval) + 1),

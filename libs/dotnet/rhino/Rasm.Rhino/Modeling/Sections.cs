@@ -1,8 +1,8 @@
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 using Rhino;
 using Rhino.Geometry.Intersect;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -56,11 +56,13 @@ public static class Sections {
 
     private static IO<Section> Sectioned(Tolerances tolerances, SectionSubject source, Plane plane, int index, bool joinCurves, PlaneIntersectionCache cache, CancellationToken token) =>
         source.Arguments switch {
-            var (geometry, pointCloudAsPoints, includeHiddenObjects, document) => IO.lift(() => RhinoFault.Unless(
+            var (geometry, pointCloudAsPoints, includeHiddenObjects, document) =>
+                from cut in IO.lift(() => RhinoFault.Unless(
                         Intersection.GeometryPlane(geometry, plane, tolerances.Absolute, joinCurves, pointCloudAsPoints, includeHiddenObjects, document, source.Xform, cache, token, out Curve[] curves, out Point3d[] points),
                         index)
                     .Map(_ => (Curves: curves, Points: points)))
-                .Bind(cut => Products.Made(cut.Curves).Map(kept => new Section(plane, kept, toSeq(cut.Points)))),
+                from kept in Products.Made(cut.Curves)
+                select new Section(plane, kept, toSeq(cut.Points)),
         };
 
     // --- [LEVELS]

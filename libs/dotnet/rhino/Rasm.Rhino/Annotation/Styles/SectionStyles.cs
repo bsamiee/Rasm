@@ -1,12 +1,11 @@
 using System.Drawing;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
-using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Annotation.Styles;
+namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -36,29 +35,24 @@ public sealed record SectionBoundary(Option<Color> Color, Option<Color> PrintCol
     internal IO<Unit> Written(RhinoDoc doc, SectionStyle staged) =>
         from cleared in IO.lift(staged.RemoveBoundaryLinetype)
         from linetype in Linetype.Traverse(held => held.Written(doc, staged)).As()
-        from settings in IO.lift(() => SectionStyleMapper.Update((Color, PrintColor, WidthScale, PrintWidth, linetype.IfNone(RhinoMath.UnsetIntIndex)), staged))
+        from settings in IO.lift(() => {
+            (staged.BoundaryColor, staged.BoundaryPrintColor, staged.BoundaryWidthScale, staged.BoundaryPlotWeightMillimeters, staged.BoundaryLinetypeIndex) =
+                (Conversions.Unset(Color), Conversions.Unset(PrintColor), WidthScale, PlotWeight.ToInheritable(PrintWidth), linetype.IfNone(RhinoMath.UnsetIntIndex));
+        })
         select settings;
 }
 
-public sealed record SectionHatch(ComponentRef<HatchPattern> Pattern, double Scale, double Rotation, Option<Color> Color, Option<Color> PrintColor, Option<PlotWeight> PrintWidth);
+public sealed record SectionHatch(ComponentRef<HatchPattern> Pattern, double Scale, double Rotation, Option<Color> Color, Option<Color> PrintColor, Option<PlotWeight> PrintWidth) {
+    internal Unit Written(SectionStyle staged) {
+        (staged.HatchScale, staged.HatchRotationRadians, staged.HatchPatternColor, staged.HatchPatternPrintColor, staged.HatchPatternPlotWeightMillimeters) =
+            (Scale, Rotation, Conversions.Unset(Color), Conversions.Unset(PrintColor), PlotWeight.ToInheritable(PrintWidth));
+        return unit;
+    }
+}
 
 public sealed record SectionStyleDefinition(ObjectSectionFillRule SectionFillRule, SectionFill Fill, Option<SectionBoundary> Boundary, Option<SectionHatch> Hatch);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
-internal static partial class SectionStyleMapper {
-    // --- [UPDATES]
-    internal static partial void Update((ObjectSectionFillRule SectionFillRule, bool BoundaryVisible, int HatchIndex, SectionBackgroundFillMode BackgroundFillMode) settings, SectionStyle staged);
-
-    internal static partial void Update((Option<Color> BackgroundFillColor, Option<Color> BackgroundFillPrintColor) fill, SectionStyle staged);
-
-    [MapProperty(nameof(SectionStyle.BoundaryPlotWeightMillimeters), nameof(SectionStyle.BoundaryPlotWeightMillimeters), Use = nameof(@PlotWeight.ToInheritable))]
-    internal static partial void Update((Option<Color> BoundaryColor, Option<Color> BoundaryPrintColor, double BoundaryWidthScale, Option<PlotWeight> BoundaryPlotWeightMillimeters, int BoundaryLinetypeIndex) boundary, SectionStyle staged);
-
-    [MapProperty(nameof(SectionStyle.HatchPatternPlotWeightMillimeters), nameof(SectionStyle.HatchPatternPlotWeightMillimeters), Use = nameof(@PlotWeight.ToInheritable))]
-    internal static partial void Update((double HatchScale, double HatchRotationRadians, Option<Color> HatchPatternColor, Option<Color> HatchPatternPrintColor, Option<PlotWeight> HatchPatternPlotWeightMillimeters) hatch, SectionStyle staged);
-}
-
 public static class SectionStyles {
     // --- [READS]
     public static IO<(SectionStyleDefinition Definition, bool BoundaryHasShapes)> Definition(SectionStyle style, Option<Seq<HatchPattern>> patterns = default) =>
@@ -97,17 +91,19 @@ public static class SectionStyles {
 
     public static IO<Unit> Written(RhinoDoc doc, SectionStyle staged, SectionStyleDefinition definition) =>
         from pattern in TableOps.Index(doc.HatchPatterns, definition.Hatch.Map(static hatch => hatch.Pattern))
-        from settings in IO.lift(() => SectionStyleMapper.Update((definition.SectionFillRule, definition.Boundary.IsSome, pattern, definition.Fill.Switch(
-            noFill: static _ => SectionBackgroundFillMode.None,
-            viewportFill: static _ => SectionBackgroundFillMode.Viewport,
-            solidFill: static _ => SectionBackgroundFillMode.SolidColor)), staged))
+        from settings in IO.lift(() => {
+            (staged.SectionFillRule, staged.BoundaryVisible, staged.HatchIndex, staged.BackgroundFillMode) = (definition.SectionFillRule, definition.Boundary.IsSome, pattern, definition.Fill.Switch(
+                noFill: static _ => SectionBackgroundFillMode.None,
+                viewportFill: static _ => SectionBackgroundFillMode.Viewport,
+                solidFill: static _ => SectionBackgroundFillMode.SolidColor));
+        })
         from filled in IO.lift(() => definition.Fill.Switch(
             staged,
             noFill: static (_, _) => { },
             viewportFill: static (_, _) => { },
-            solidFill: static (target, solid) => SectionStyleMapper.Update((solid.Color, solid.PrintColor), target)))
+            solidFill: static (target, solid) => (target.BackgroundFillColor, target.BackgroundFillPrintColor) = (Conversions.Unset(solid.Color), Conversions.Unset(solid.PrintColor))))
         from bordered in definition.Boundary.Traverse(boundary => boundary.Written(doc, staged)).As()
-        from hatched in IO.lift(() => definition.Hatch.Iter(hatch => SectionStyleMapper.Update((hatch.Scale, hatch.Rotation, hatch.Color, hatch.PrintColor, hatch.PrintWidth), staged)))
+        from hatched in IO.lift(() => definition.Hatch.Iter(hatch => hatch.Written(staged)))
         select unit;
 
     public static IO<int> Add(RhinoDoc doc, TableKind<SectionStyle> kind, string name, SectionStyleDefinition definition) =>

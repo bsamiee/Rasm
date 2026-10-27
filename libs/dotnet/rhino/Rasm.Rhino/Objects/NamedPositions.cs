@@ -1,8 +1,8 @@
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects.Tables;
 
-namespace Rasm.RhinoCommon.Objects;
+namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record NamedPosition(Guid Id, string Name, Seq<(Guid ObjectId, Transform Xform)> Objects, Seq<Guid> Skipped) {

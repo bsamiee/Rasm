@@ -130,8 +130,9 @@ MCP uses plain `ast-grep` after `ast-grep --custom-languages trust --version` ru
 - `customLanguages.<name>` holds `libraryPath` and `extensions`, with optional `expandoChar`, `languageSymbol`, and `outlineRules`
 - Custom language names are alphanumeric, names resolve built-in languages first and extensions custom languages first
 - Newer grammars of a built-in language take a new name
-- Swift parses as custom `swiftlang` from the newest tree-sitter-swift
-- `-l` and MCP `language` match files only under the language `sgconfig.yml` maps their extension to, `swift` walks no `.swift` file
+- Swift parses as custom `swiftlang` from newest tree-sitter-swift
+- C# parses as custom `csharplang` from tree-sitter-c-sharp commit holding C# 14 `extension` declarations, `c_sharp` fails letters-and-digits name rule, `cs` is a built-in alias
+- `-l` and MCP `language` match files only under the language `sgconfig.yml` maps their extension to, `swift` walks no `.swift` file and `csharp` no `.cs` file
 - `ast-grep` loads the `sgconfig.yml` the nearest ancestor of the working directory holds, a run outside the tree reads none
 - Untrusted custom languages require `--custom-languages allow` per invocation
 - Missing paths print `ERROR: <path>: No such file or directory` at `scan` exit 0, exit 1 under `run`, `No matches found` from MCP
@@ -209,6 +210,8 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`.
 | :-----: | :---------------------------------- | :----------------------------------------------------------------------------------------------- |
 |  [01]   | `Match(Succ: x => x, Fail: e => 0)` | `$F` in `Match($I, $F)` binds the whole `argument` with its name, `Fail: $F` the lambda alone    |
 |  [02]   | `delegate (int v, int i) { }`       | `anonymous_method_expression` with a `parameters: parameter_list` field like `lambda_expression` |
+|  [03]   | `a ? b : c`, `a ?? throw e` alone   | `ERROR`, no statement form, expression patterns take `context: return <expr>;` with `selector`   |
+|  [04]   | `extension<T>(IO<T> effect) { }`    | `extension_declaration` in a `declaration_list` with `receiver_parameter` and `extension_body`   |
 
 | [INDEX] | [XML]               | [SHAPE]                                                                                      |
 | :-----: | :------------------ | :------------------------------------------------------------------------------------------- |

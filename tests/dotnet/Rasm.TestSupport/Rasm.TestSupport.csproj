@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>xUnit v3 support for property-based, metamorphic, and reference-checked CsCheck tests</Description>
+        <Description>Property and reference checks over generated edge-case inputs</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Testing">

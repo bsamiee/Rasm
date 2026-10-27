@@ -19,8 +19,9 @@ using NuGet.Versioning;
 namespace Rasm.Upgrade;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record Row(string Id, NuGetVersion Version, Group Attribute);
+internal sealed record Row(string Id, NuGetVersion Version, bool Exact, Group Attribute);
 internal sealed record Move(Row Row, NuGetVersion Version);
+internal sealed record Feed(string Source, PackageMetadataResource Metadata, FindPackageByIdResource Downloads);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class Packages {
@@ -32,11 +33,16 @@ internal static partial class Packages {
             .Choose(element =>
                 from include in Optional(element.Attribute("Include") ?? element.Attribute("Update"))
                 from version in Optional(element.Attribute("Version"))
-                from current in NuGetVersion.TryParse(version.Value, out NuGetVersion? parsed) ? Some(parsed) : None
+                from current in Requirement(version.Value)
                 let at = (IXmlLineInfo)version
                 let attribute = VersionAttribute.Match(text, lineStarts[at.LineNumber - 1] + at.LinePosition - 1).Groups["value"]
-                select new Row(include.Value, current, attribute));
+                select new Row(include.Value, current.Version, current.Exact, attribute));
     }
+
+    private static Option<(NuGetVersion Version, bool Exact)> Requirement(string text) =>
+        NuGetVersion.TryParse(text, out NuGetVersion? version) ? Some((version, false))
+        : VersionRange.TryParse(text, out VersionRange? range) && range is { HasLowerAndUpperBounds: true, IsMinInclusive: true, IsMaxInclusive: true } && VersionComparer.Default.Equals(range.MinVersion, range.MaxVersion) ? Some((range.MinVersion, true))
+        : None;
 
     [GeneratedRegex("\\r\\n|[\\r\\n]")]
     private static partial Regex LineBreak { get; }
@@ -45,21 +51,18 @@ internal static partial class Packages {
     private static partial Regex VersionAttribute { get; }
 
     // --- [RELEASES]
-    public static IO<Seq<(PackageMetadataResource Metadata, FindPackageByIdResource Downloads)>> Feeds(PackageSourceMapping mapping, Seq<SourceRepository> sources, string packageId) {
+    public static IO<Seq<Feed>> Feeds(Seq<SourceRepository> sources) {
         static FinT<IO, T> Resource<T>(SourceRepository source) where T : class, INuGetResource =>
             (from resource in IO.liftAsync(env => source.GetResourceAsync<T>(env.Token))
              from required in IO.lift(Optional(resource).ToFin(Error.New($"Package source {source.PackageSource.Name} serves no {typeof(T).Name} resource, update NuGet.config")))
              select required).Try();
 
-        HashSet<EqStringOrdinalIgnoreCase, string> configured = toHashSet<EqStringOrdinalIgnoreCase, string>(mapping.GetConfiguredPackageSources(packageId));
-        return Collect(sources
-            .Filter(source => !mapping.IsEnabled || configured.Contains(source.PackageSource.Name))
-            .Map(static source =>
-                (Resource<PackageMetadataResource>(source), Resource<FindPackageByIdResource>(source))
-                    .Apply(static (metadata, downloads) => (Metadata: metadata, Downloads: downloads))
-                    .Run()
-                    .As()
-                    .Bind(IO.lift)));
+        return Collect(sources.Map(static source =>
+            (Resource<PackageMetadataResource>(source), Resource<FindPackageByIdResource>(source))
+                .Apply((metadata, downloads) => new Feed(source.PackageSource.Name, metadata, downloads))
+                .Run()
+                .As()
+                .Bind(IO.lift)));
     }
 
     public static IO<Seq<T>> Collect<T>(Seq<IO<T>> effects) =>
@@ -69,14 +72,16 @@ internal static partial class Packages {
             .As()
             .Bind(IO.lift);
 
-    public static IO<Option<Move>> Newest(NuGetFramework framework, SourceCacheContext cache, PackageSourceMapping mapping, Seq<SourceRepository> sources, Row row) {
-        return from feeds in Feeds(mapping, sources, row.Id)
-               from published in Collect(feeds
+    public static IO<Option<Move>> Newest(NuGetFramework framework, SourceCacheContext cache, PackageSourceMapping mapping, Seq<Feed> feeds, Row row) {
+        HashSet<EqStringOrdinalIgnoreCase, string> configured = toHashSet<EqStringOrdinalIgnoreCase, string>(mapping.GetConfiguredPackageSources(row.Id));
+        return from published in Collect(feeds
+                   .Filter(feed => !mapping.IsEnabled || configured.Contains(feed.Source))
                    .Map(feed =>
                        IO.liftAsync(env => feed.Metadata.GetMetadataAsync(row.Id, includePrerelease: true, includeUnlisted: false, cache, NullLogger.Instance, env.Token))
                            .Map(releases => toSeq(releases).Map(metadata => (Metadata: metadata, feed.Downloads)))))
                from latest in IO.liftAsync(async env =>
                    await published.Flatten()
+                       .Where(release => !row.Exact || (release.Metadata.Identity.Version.Major, release.Metadata.Identity.Version.Minor) == (row.Version.Major, row.Version.Minor))
                        .OrderByDescending(static release => release.Metadata, Comparer<IPackageSearchMetadata>.Create(Rank))
                        .ToAsyncEnumerable()
                        .Where(SupportedAsync)
@@ -151,7 +156,7 @@ internal static partial class Packages {
         int end = 0;
         foreach (Move move in moves) {
             Group attribute = move.Row.Attribute;
-            _ = rewritten.Append(text.AsSpan(end, attribute.Index - end)).Append(move.Version.ToNormalizedString());
+            _ = rewritten.Append(text.AsSpan(end, attribute.Index - end)).Append(Spelling(move));
             end = attribute.Index + attribute.Length;
         }
         string versioned = rewritten.Append(text.AsSpan(end)).ToString();
@@ -159,12 +164,17 @@ internal static partial class Packages {
         return TrailingComment.Replace(versioned, row => row.Groups["code"].Value.PadRight(column));
     }
 
+    public static string Spelling(Move move) =>
+        new VersionRange(move.Version, includeMinVersion: true, move.Row.Exact ? move.Version : null, includeMaxVersion: move.Row.Exact).ToString("A", VersionRangeFormatter.Instance);
+
     [GeneratedRegex("""^(?<code>[^\r\n]*?\S)[ \t]*(?=<!--)""", RegexOptions.Multiline)]
     private static partial Regex TrailingComment { get; }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 internal static class Program {
+    private const int ConcurrentRows = 256;
+
     public static async Task<int> Main(string[] args) =>
         (await Upgrade(args).RunSafeAsync().ConfigureAwait(false)).Match(
             Succ: Report,
@@ -178,16 +188,16 @@ internal static class Program {
         from cache in use(static () => new SourceCacheContext())
         let settings = Settings.LoadDefaultSettings(Path.GetDirectoryName(path))
         let mapping = PackageSourceMapping.GetPackageSourceMapping(settings)
-        let sources = toSeq(SettingsUtility.GetEnabledSources(settings)).Map(static source => Repository.Factory.GetCoreV3(source))
-        from moves in toSeq(rows.Chunk(Environment.ProcessorCount))
-            .TraverseM(chunk => Packages.Collect(toSeq(chunk).Map(row => Packages.Newest(framework, cache, mapping, sources, row))))
+        from feeds in Packages.Feeds(toSeq(SettingsUtility.GetEnabledSources(settings)).Map(static source => Repository.Factory.GetCoreV3(source)))
+        from moves in toSeq(rows.Chunk(ConcurrentRows))
+            .TraverseM(chunk => Packages.Collect(toSeq(chunk).Map(row => Packages.Newest(framework, cache, mapping, feeds, row))))
             .As()
             .Map(static chunks => chunks.Flatten().Somes())
         from written in when(!moves.IsEmpty, IO.liftAsync(env => File.WriteAllTextAsync(path, Packages.Rewrite(text, moves), env.Token).ToUnit())).As()
         select moves;
 
     private static int Report(Seq<Move> moves) {
-        _ = moves.Iter(static move => Console.WriteLine($"{move.Row.Id} {move.Row.Version.OriginalVersion} -> {move.Version.ToNormalizedString()}"));
+        _ = moves.Iter(static move => Console.WriteLine($"{move.Row.Id} {move.Row.Attribute.Value} -> {Packages.Spelling(move)}"));
         return 0;
     }
 

@@ -5,7 +5,7 @@ using Rhino.Collections;
 using Rhino.FileIO;
 using Rhino.PlugIns;
 
-namespace Rasm.RhinoCommon.Document.Files;
+namespace Rasm.Rhino.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(SkipFactoryMethods = true)]

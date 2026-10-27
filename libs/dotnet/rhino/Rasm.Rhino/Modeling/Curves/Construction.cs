@@ -1,8 +1,8 @@
 using System.Runtime.CompilerServices;
 using Rasm.Spatial;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 
-namespace Rasm.RhinoCommon.Modeling.Curves;
+namespace Rasm.Rhino.Modeling.Curves;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public delegate Curve? CatenaryCall(out Point3d apex, out double parameter, out double length, out double deviation);

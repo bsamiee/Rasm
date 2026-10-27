@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Persistence.Settings;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Persistence.Settings;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Display;
@@ -12,7 +12,7 @@ using Rhino.DocObjects;
 using Rhino.UI;
 using Wacton.Unicolour;
 
-namespace Rasm.RhinoCommon.Display;
+namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FalseColorScale(Interval Range, Seq<ColorStop> Stops) {

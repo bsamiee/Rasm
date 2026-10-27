@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Description>Snapshot tests of analyzer rules and their code fixes</Description>
         <OutputType>Exe</OutputType>
-        <Description>Tests one marked C# sample per Rasm analyzer rule, its code fix, and fix-all against reviewed diagnostic and fixed-source snapshots</Description>
-        <SolutionDir>$([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'Workspace.slnx'))/</SolutionDir>
+        <SolutionDir>$([MSBuild]::EnsureTrailingSlash($([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'Workspace.slnx'))))</SolutionDir>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino">
@@ -22,7 +22,7 @@
         <PackageReference Include="xunit.v3.mtp-v2" />
     </ItemGroup>
 
-    <ItemGroup Label="Workspace Packages">
+    <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../../../tools/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj" />
         <ProjectReference Include="../../../../../tools/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
     </ItemGroup>

@@ -1,7 +1,7 @@
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 using Rhino.ApplicationSettings;
 
-namespace Rasm.RhinoCommon.Modeling.Surfaces;
+namespace Rasm.Rhino.Modeling.Surfaces;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union<BrepFace, Surface>(SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -77,8 +77,10 @@ public static class SurfaceEvaluation {
             (Constant: constant, Parameter: parameter),
             brepFace: static (at, face) => IO.lift(() => Conversions.Within(face.Domain((int)at.Constant), at.Parameter))
                 .Bind(t => Products.Made(face.TrimAwareIsoCurve(Varying(at.Constant), t))),
-            surface: static (at, surface) => IO.lift(() => Conversions.Within(surface.Domain((int)at.Constant), at.Parameter))
-                .Bind(t => Products.Made(surface.IsoCurve(Varying(at.Constant), t)).Map(static curve => Seq(curve))));
+            surface: static (at, surface) =>
+                from t in IO.lift(() => Conversions.Within(surface.Domain((int)at.Constant), at.Parameter))
+                from curve in Products.Made(surface.IsoCurve(Varying(at.Constant), t))
+                select Seq(curve));
 
     public static IO<Curve> ShortPath(Tolerances tolerances, Surface surface, Point2d start, Point2d end) =>
         IO.lift(() => (InDomain(surface, start), InDomain(surface, end)).Apply(static (origin, target) => (Origin: origin, Target: target)).As())

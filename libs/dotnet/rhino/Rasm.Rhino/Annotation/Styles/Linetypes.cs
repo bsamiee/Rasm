@@ -2,17 +2,15 @@ using System.Drawing;
 using System.Numerics;
 using LanguageExt.ClassInstances;
 using Rasm.Drafting;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Persistence;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.DocObjects;
-using Rhino.DocObjects.Tables;
 using Rhino.UI;
-using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Annotation.Styles;
+namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record LinetypeTaper<TWidth>(TWidth Start, Option<(double Position, TWidth Width)> Waist, TWidth End) where TWidth : struct {
@@ -44,7 +42,12 @@ public sealed record LinetypeSettings(
     LineCapStyle LineCapStyle,
     LineJoinStyle LineJoinStyle,
     bool AlwaysModelDistances,
-    HashMap<EqStringOrdinalIgnoreCase, string, string> UserStrings);
+    HashMap<EqStringOrdinalIgnoreCase, string, string> UserStrings) {
+    internal Unit Written(Linetype staged, double width, UnitSystem widthUnits) {
+        (staged.LineCapStyle, staged.LineJoinStyle, staged.AlwaysModelDistances, staged.Width, staged.WidthUnits) = (LineCapStyle, LineJoinStyle, AlwaysModelDistances, width, widthUnits);
+        return unit;
+    }
+}
 
 public sealed record LinetypeDefinition(LinetypeSettings Settings, Option<LinetypeShapes> Shapes) {
     public static LinetypeDefinition Of(LineType type, LineWidth width) =>
@@ -56,8 +59,7 @@ public sealed record LinetypeTableState(LinetypeRef Current, ObjectLinetypeSourc
 public sealed record LinetypePreview(Seq<Seq<Vector2>> Dashes, Seq<Seq<Vector2>> CurveShapes, Seq<Seq<Vector2>> TextSurfaceShapes);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
-public static partial class Linetypes {
+public static class Linetypes {
     // --- [READS]
     public static IO<LinetypeDefinition> Definition(Linetype linetype) =>
         IO.lift(() => new LinetypeDefinition(
@@ -102,7 +104,7 @@ public static partial class Linetypes {
         let stroke = definition.Settings.Width.Switch(
             screen: static screen => (screen.Width, WidthUnits: UnitSystem.None, Taper: screen.Taper.Map(static taper => taper.Lowered(identity))),
             distance: static distance => (Width: Millimeters(distance.Width), WidthUnits: UnitSystem.Millimeters, Taper: distance.Taper.Map(static taper => taper.Lowered(Millimeters))))
-        from styled in IO.lift(() => Write((definition.Settings.LineCapStyle, definition.Settings.LineJoinStyle, definition.Settings.AlwaysModelDistances, stroke.Width, stroke.WidthUnits), staged))
+        from styled in IO.lift(() => definition.Settings.Written(staged, stroke.Width, stroke.WidthUnits))
         from tapered in IO.lift(() => stroke.Taper.Match(
             Some: taper => taper.Waist.Match(
                 Some: waist => staged.SetTaper(taper.Start, waist, taper.End),
@@ -114,8 +116,9 @@ public static partial class Linetypes {
             (Row: staged, Index: index),
             fromCurve: static (at, curve) => RhinoFault.Unless(at.Row.AddShape(curve.Curve, Millimeters(curve.Offset)), at.Index),
             fromText: static (at, text) => RhinoFault.Unless(at.Row.AddShape(text.Text, Millimeters(text.Offset)), at.Index)))))
-        from laid in IO.lift(() => definition.Shapes.Iter(shapes => Write((shapes.Layout.ShapeSpacing, shapes.Layout.ShapeGap,
-            new Vector2d(Millimeters(shapes.Layout.ShapeLocalOffset.X), Millimeters(shapes.Layout.ShapeLocalOffset.Y))), staged)))
+        from laid in IO.lift(() => definition.Shapes.Iter(shapes =>
+            (staged.ShapeSpacing, staged.ShapeGap, staged.ShapeLocalOffset) = (
+                Millimeters(shapes.Layout.ShapeSpacing), Millimeters(shapes.Layout.ShapeGap), new Vector2d(Millimeters(shapes.Layout.ShapeLocalOffset.X), Millimeters(shapes.Layout.ShapeLocalOffset.Y)))))
         from strings in IO.lift(() => UserStrings.Held(staged.GetUserStrings()))
         from stored in UserStrings.Write(strings, staged.SetUserString, UserStrings.Replacing(strings, definition.Settings.UserStrings))
         select unit;
@@ -135,7 +138,7 @@ public static partial class Linetypes {
     public static IO<Unit> WriteTable(RhinoDoc doc, LinetypeTableState state) =>
         from index in state.Current.Resolve(doc)
         from current in IO.lift(() => RhinoFault.Unless(doc.Linetypes.CurrentLinetypeIndex == index || doc.Linetypes.SetCurrentLinetypeIndex(index, quiet: true)))
-        from source in IO.lift(() => Write((state.CurrentLinetypeSource, state.LinetypeScale), doc.Linetypes))
+        from source in IO.lift(() => { (doc.Linetypes.CurrentLinetypeSource, doc.Linetypes.LinetypeScale) = (state.CurrentLinetypeSource, state.LinetypeScale); })
         select source;
 
     public static IO<LinetypeRef> Effective(RhinoDoc doc, RhinoObject target) =>
@@ -194,13 +197,6 @@ public static partial class Linetypes {
          from definitions in rows.TraverseM(static row => (IO.pure(row.Name), Definition(row)).Apply(ValueTuple.Create).As()).As()
          select definitions).Bracket();
 
-    // --- [MAPPING]
-    private static partial void Write((LineCapStyle LineCapStyle, LineJoinStyle LineJoinStyle, bool AlwaysModelDistances, double Width, UnitSystem WidthUnits) source, Linetype target);
-
-    private static partial void Write((Length ShapeSpacing, Length ShapeGap, Vector2d ShapeLocalOffset) source, Linetype target);
-
-    private static partial void Write((ObjectLinetypeSource CurrentLinetypeSource, double LinetypeScale) source, LinetypeTable target);
-
-    [UserMapping]
+    // --- [UNITS]
     private static double Millimeters(Length value) => value.Millimeters.ToDouble();
 }

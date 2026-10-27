@@ -1,12 +1,11 @@
 using System.Collections.Generic;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;
-using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Objects;
+namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ClipParticipation(Seq<Guid> ObjectIds, Seq<int> LayerIndices, bool IsExclusionList);
@@ -67,10 +66,10 @@ public static class ClippingPlanes {
     private static void Staged(ClippingPlaneSurface surface, Seq<ViewportRef> attach, Seq<ViewportRef> detach, ClipSettings settings, Option<Guid> style) {
         _ = attach.Iter(row => surface.AddClipViewportId(row.Viewport.Id));
         _ = detach.Iter(row => surface.RemoveClipViewportId(row.Viewport.Id));
-        ClipMapper.Update((
-            settings.Participation.Map<Option<bool>>(keep: None, set: true, clear: false),
-            settings.Depth.Map<Option<bool>>(keep: None, set: true, clear: false),
-            settings.Depth.Applied(None), style), surface);
+        _ = settings.Participation.Map<Option<bool>>(keep: None, set: true, clear: false).Iter(enabled => surface.ParticipationListsEnabled = enabled);
+        _ = settings.Depth.Map<Option<bool>>(keep: None, set: true, clear: false).Iter(enabled => surface.PlaneDepthEnabled = enabled);
+        _ = settings.Depth.Applied(None).Iter(depth => surface.PlaneDepth = depth);
+        _ = style.Iter(id => surface.DimensionStyleId = id);
         _ = settings.Participation.Applied(None).Iter(value => surface.SetClipParticipation(value.ObjectIds, value.LayerIndices, value.IsExclusionList));
     }
 
@@ -97,10 +96,4 @@ public static class ClippingPlanes {
             keep: static (_, _) => IO.pure(Option<Guid>.None),
             set: static (document, set) => TableOps.Find(document.DimStyles, set.Value, includeDeleted: false).Map(static row => Some(row.Id)),
             clear: static (_, _) => IO.pure(Some(Guid.Empty)));
-}
-
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
-[UseStaticMapper(typeof(Patches))]
-internal static partial class ClipMapper {
-    internal static partial void Update((Option<bool> ParticipationListsEnabled, Option<bool> PlaneDepthEnabled, Option<double> PlaneDepth, Option<Guid> DimensionStyleId) settings, ClippingPlaneSurface surface);
 }

@@ -7,7 +7,7 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using Rasm.RhinoCommon;
+using Rasm.Rhino;
 using SkiaSharp;
 using UnitsNet;
 

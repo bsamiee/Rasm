@@ -1,6 +1,6 @@
 ---
 name: clean-prose
-description: "Use when writing, rewriting, or reviewing any English text in a project, names and comments included, covering house style"
+description: "Use when writing, rewriting, or reviewing any English text in a project, names and comments included"
 ---
 
 # [CLEAN_PROSE]
@@ -13,7 +13,7 @@ Governs every English text in a project (markdown, comments, messages, identifie
 - [03]-[ACTIONS](references/actions.md): Verbs and forms for actions a reader takes
 
 [SCRIPTS]:
-- [01]-[PROSE](scripts/prose.py): House style check and fix over markdown, dividers, and comments
+- [01]-[PROSE](scripts/prose.py): Checks and fixes markdown, dividers, and comments
 
 ## [01]-[TERMINOLOGY]
 
@@ -179,7 +179,7 @@ Tables hold values a reader decides by, the sentence that explains them stays in
 - Columns with one value down every row go, their lead-in states value
 - Rows over the width hold a narrating cell or too many columns
 
-Bracket headers with an [INDEX] column are house style:
+Tables take bracket headers with an [INDEX] column:
 
 ```markdown
 | [INDEX] | [FLAG]    | [EFFECT]                        |

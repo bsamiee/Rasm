@@ -1,9 +1,9 @@
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 using Rhino.Display;
 using Rhino.DocObjects;
 using UnitsNet;
 
-namespace Rasm.RhinoCommon.Viewport;
+namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -32,14 +32,15 @@ public sealed record CameraPose(Plane Frame, Point3d Target, CameraLens Lens) {
 public static class Cameras {
     // --- [POSE]
     public static IO<CameraPose> Read(ViewportInfo camera) =>
-        IO.lift(() => RhinoFault.Unless(camera.GetCameraFrame(out Point3d location, out Vector3d x, out Vector3d y, out _)).Map(_ => new Plane(location, x, y))
-            .Bind(frame => (camera.IsParallelProjection
-                    ? RhinoFault.Unless(camera.GetFrustum(out double left, out double right, out double bottom, out double top, out _, out _))
-                        .Map(_ => (CameraLens)new CameraLens.Parallel(Math.Min(Math.Max(right, -left), Math.Max(top, -bottom))))
-                    : camera.IsTwoPointPerspectiveProjection
-                        ? (CameraLens)new CameraLens.TwoPoint(Angle.FromRadians(camera.CameraAngle), camera.CameraUp)
-                        : new CameraLens.Perspective(Angle.FromRadians(camera.CameraAngle)))
-                .Map(lens => new CameraPose(frame, camera.TargetPoint, lens))));
+        IO.lift(() =>
+            from frame in RhinoFault.Unless(camera.GetCameraFrame(out Point3d location, out Vector3d x, out Vector3d y, out _)).Map(_ => new Plane(location, x, y))
+            from lens in camera.IsParallelProjection
+                ? RhinoFault.Unless(camera.GetFrustum(out double left, out double right, out double bottom, out double top, out _, out _))
+                    .Map(_ => (CameraLens)new CameraLens.Parallel(Math.Min(Math.Max(right, -left), Math.Max(top, -bottom))))
+                : camera.IsTwoPointPerspectiveProjection
+                    ? (CameraLens)new CameraLens.TwoPoint(Angle.FromRadians(camera.CameraAngle), camera.CameraUp)
+                    : new CameraLens.Perspective(Angle.FromRadians(camera.CameraAngle))
+            select new CameraPose(frame, camera.TargetPoint, lens));
 
     public static IO<CameraPose> Read(RhinoViewport viewport) =>
         use(() => new ViewportInfo(viewport)).Bind(static info => Read(info)).Bracket();

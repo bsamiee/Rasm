@@ -1,57 +1,57 @@
 using System.Globalization;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Proximity {
-    public sealed record Curve(Rhino.Geometry.Curve Geometry) : Proximity;
+    public sealed record OnCurve(Curve Geometry) : Proximity;
 
-    public sealed record Surface : Proximity {
-        private Surface(Rhino.Geometry.Surface geometry) => Geometry = geometry;
+    public sealed record OnSurface : Proximity {
+        private OnSurface(Surface geometry) => Geometry = geometry;
 
-        public Rhino.Geometry.Surface Geometry { get; }
+        public Surface Geometry { get; }
 
-        public static Fin<Surface> Validated(Rhino.Geometry.Surface geometry) =>
+        public static Fin<OnSurface> Validated(Surface geometry) =>
             geometry is Extrusion { CapCount: > 0 and var caps }
                 ? new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{geometry.ObjectType} with {caps} caps"), RhinoReason.Mismatched)
-                : new Surface(geometry);
+                : new OnSurface(geometry);
     }
 
-    public sealed record Face(BrepFace Geometry) : Proximity;
+    public sealed record OnFace(BrepFace Geometry) : Proximity;
 
-    public sealed record Brep(Rhino.Geometry.Brep Geometry) : Proximity;
+    public sealed record OnBrep(Brep Geometry) : Proximity;
 
-    public sealed record Mesh(Rhino.Geometry.Mesh Geometry) : Proximity;
+    public sealed record OnMesh(Mesh Geometry) : Proximity;
 
-    public sealed record SubD(Rhino.Geometry.SubD Geometry) : Proximity;
+    public sealed record OnSubD(SubD Geometry) : Proximity;
 
-    public sealed record Cloud(PointCloud Geometry) : Proximity;
+    public sealed record OnCloud(PointCloud Geometry) : Proximity;
 
     public Seq<Option<Point3d>> Nearest(Seq<Point3d> points, Option<double> limit) =>
         Switch(
             limit switch {
                 var held => (Points: points, Limit: held, Bound: held.IfNone(0d)),
             },
-            curve: static (at, of) => at.Points.Map(point => at.Limit
+            onCurve: static (at, of) => at.Points.Map(point => at.Limit
                 .Match(
                     Some: distance => Conversions.Found(of.Geometry.ClosestPoint(point, out double t, distance), t),
                     None: () => Conversions.Found(of.Geometry.ClosestPoint(point, out double t), t))
                 .Map(of.Geometry.PointAt)).Strict(),
-            surface: static (at, of) => at.Points.Map(point => Conversions.Found(of.Geometry.ClosestPoint(point, out double u, out double v), (U: u, V: v))
+            onSurface: static (at, of) => at.Points.Map(point => Conversions.Found(of.Geometry.ClosestPoint(point, out double u, out double v), (U: u, V: v))
                 .Map(uv => of.Geometry.PointAt(uv.U, uv.V))
                 .Filter(found => at.Limit.ForAll(distance => point.DistanceTo(found) <= distance))).Strict(),
-            face: static (at, of) => at.Points.Map(point => Conversions.Found(of.Geometry.ClosestPointOnFace(point, out double u, out double v, at.Bound), (U: u, V: v))
+            onFace: static (at, of) => at.Points.Map(point => Conversions.Found(of.Geometry.ClosestPointOnFace(point, out double u, out double v, at.Bound), (U: u, V: v))
                 .Map(uv => of.Geometry.PointAt(uv.U, uv.V))).Strict(),
-            brep: static (at, of) => at.Points.Map(point => Conversions.Found(
+            onBrep: static (at, of) => at.Points.Map(point => Conversions.Found(
                 of.Geometry.ClosestPoint(point, out Point3d closest, out ComponentIndex _, out double _, out double _, at.Bound, out Vector3d _), closest)).Strict(),
-            mesh: static (at, of) => at.Points.Map(point => Optional(of.Geometry.ClosestMeshPoint(point, at.Bound)).Map(static found => found.Point)).Strict(),
-            subD: static (at, of) => {
+            onMesh: static (at, of) => at.Points.Map(point => Optional(of.Geometry.ClosestMeshPoint(point, at.Bound)).Map(static found => found.Point)).Strict(),
+            onSubD: static (at, of) => {
                 _ = of.Geometry.ClosestPoints(at.Points, out Point3d[] closest, out SubDComponentParameter[] _, at.Bound);
                 return toSeq(closest).Map(Conversions.Present).Strict();
             },
-            cloud: static (at, of) => at.Points.Map(point => Conversions.Present(of.Geometry.ClosestPoint(point))
+            onCloud: static (at, of) => at.Points.Map(point => Conversions.Present(of.Geometry.ClosestPoint(point))
                 .Map(of.Geometry.PointAt)
                 .Filter(found => at.Limit.ForAll(distance => point.DistanceTo(found) <= distance))).Strict());
 }

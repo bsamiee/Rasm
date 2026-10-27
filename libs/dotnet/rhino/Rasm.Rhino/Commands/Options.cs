@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Persistence.Settings;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Persistence.Settings;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Input;
@@ -10,7 +10,7 @@ using Rhino.Input.Custom;
 using Rhino.PlugIns;
 using Rhino.UI;
 
-namespace Rasm.RhinoCommon.Commands;
+namespace Rasm.Rhino.Commands;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public delegate IO<AddedOption<TValue>> OptionAdder<TValue>(GetBaseClass getter, LocalizeStringPair name, PlugIn plugIn, TValue initial);

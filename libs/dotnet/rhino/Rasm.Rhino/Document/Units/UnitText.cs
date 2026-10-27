@@ -3,7 +3,7 @@ using Rhino;
 using Rhino.Input;
 using UnitsNet;
 
-namespace Rasm.RhinoCommon.Document.Units;
+namespace Rasm.Rhino.Document.Units;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class UnitText {

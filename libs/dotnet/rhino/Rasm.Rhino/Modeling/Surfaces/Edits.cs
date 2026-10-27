@@ -1,7 +1,7 @@
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 using Rhino.Geometry.Collections;
 
-namespace Rasm.RhinoCommon.Modeling.Surfaces;
+namespace Rasm.Rhino.Modeling.Surfaces;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -71,10 +71,10 @@ public abstract partial record NurbsSurfaceEdit {
             makeNonRational: static (at, _) => Edits.Accepted<NurbsSurface, int>(at.Nurbs, at.Nurbs.MakeNonRational()),
             makeUniform: static (at, of) => Edits.Accepted<NurbsSurface, int>(at.Nurbs, at.Nurbs.MakeUniform(of.Direction.Match(static direction => (int)direction, 2))),
             insertKnot: static (at, of) => Edits.Accepted<NurbsSurface, int>(at.Nurbs, Knots(at.Nurbs, of.Direction).InsertKnot(of.Value, of.Multiplicity)),
-            removeKnots: static (at, of) =>
-                IO.lift(() => (Conversions.Within(of.Start, Knots(at.Nurbs, of.Direction).Count), Conversions.Within(of.End - 1, Knots(at.Nurbs, of.Direction).Count))
-                        .Apply(static (_, _) => unit).As())
-                    .Bind(_ => Edits.Accepted<NurbsSurface, int>(at.Nurbs, Knots(at.Nurbs, of.Direction).RemoveKnots(of.Start, of.End))),
+            removeKnots: static (at, of) => Knots(at.Nurbs, of.Direction) switch {
+                var knots => IO.lift(() => (Conversions.Within(of.Start, knots.Count), Conversions.Within(of.End - 1, knots.Count)).Apply(static (_, _) => unit).As())
+                    .Bind(_ => Edits.Accepted<NurbsSurface, int>(at.Nurbs, knots.RemoveKnots(of.Start, of.End))),
+            },
             removeKnotsAt: static (at, of) => Edits.Accepted<NurbsSurface, int>(at.Nurbs, Knots(at.Nurbs, of.Direction).RemoveKnotsAt(of.At.X, of.At.Y)),
             setPoint: static (at, of) =>
                 IO.lift(() => (Conversions.Within(of.U, at.Nurbs.Points.CountU), Conversions.Within(of.V, at.Nurbs.Points.CountV)).Apply(static (_, _) => unit).As())

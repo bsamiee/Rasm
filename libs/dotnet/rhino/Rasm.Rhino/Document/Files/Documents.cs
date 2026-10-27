@@ -4,7 +4,7 @@ using Rhino.Commands;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Document.Files;
+namespace Rasm.Rhino.Document.Files;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum DocumentPhase { Initializing, Creating, Opening, Ready, Closing, Unavailable }

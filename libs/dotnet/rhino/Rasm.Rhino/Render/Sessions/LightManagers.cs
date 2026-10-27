@@ -1,10 +1,10 @@
-using Rasm.RhinoCommon.Objects;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Objects;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Render;
 
-namespace Rasm.RhinoCommon.Render.Sessions;
+namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record EngineLight(LightState Light, Option<uint> ObjectSerial);

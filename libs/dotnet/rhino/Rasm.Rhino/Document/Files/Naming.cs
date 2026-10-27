@@ -1,7 +1,7 @@
 using System.Buffers;
 using System.Globalization;
 
-namespace Rasm.RhinoCommon.Document.Files;
+namespace Rasm.Rhino.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]

@@ -1,7 +1,7 @@
 using Rasm.Spatial;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 
-namespace Rasm.RhinoCommon.Modeling.Meshes;
+namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Polyhedra {

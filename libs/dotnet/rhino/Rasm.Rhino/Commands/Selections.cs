@@ -1,13 +1,13 @@
 using System.Drawing;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Input.Custom;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Commands;
+namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]

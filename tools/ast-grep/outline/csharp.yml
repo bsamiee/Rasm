@@ -1,0 +1,169 @@
+id: csharp-using
+language: csharplang
+role: item
+symbolType: module
+rule:
+    kind: using_directive
+    has: {pattern: $NAME}
+name: $NAME
+isImport: true
+isExported: false
+
+---
+id: csharp-interface
+language: csharplang
+role: item
+symbolType: interface
+rule:
+    kind: interface_declaration
+    has: {field: name, pattern: $NAME}
+name: $NAME
+isExported: {has: {kind: modifier, regex: '^public$'}}
+
+---
+id: csharp-class
+language: csharplang
+role: item
+symbolType: class
+rule:
+    kind: class_declaration
+    has: {field: name, pattern: $NAME}
+name: $NAME
+isExported: {has: {kind: modifier, regex: '^public$'}}
+
+---
+id: csharp-record
+language: csharplang
+role: item
+symbolType: struct
+rule:
+    kind: record_declaration
+    has: {field: name, pattern: $NAME}
+name: $NAME
+isExported: {has: {kind: modifier, regex: '^public$'}}
+
+---
+id: csharp-struct
+language: csharplang
+role: item
+symbolType: struct
+rule:
+    kind: struct_declaration
+    has: {field: name, pattern: $NAME}
+name: $NAME
+isExported: {has: {kind: modifier, regex: '^public$'}}
+
+---
+id: csharp-enum
+language: csharplang
+role: item
+symbolType: enum
+rule:
+    kind: enum_declaration
+    has: {field: name, pattern: $NAME}
+name: $NAME
+isExported: {has: {kind: modifier, regex: '^public$'}}
+
+---
+id: csharp-delegate
+language: csharplang
+role: item
+symbolType: function
+rule:
+    kind: delegate_declaration
+    has: {field: name, pattern: $NAME}
+name: $NAME
+isExported: {has: {kind: modifier, regex: '^public$'}}
+
+---
+id: csharp-member-constructor
+language: csharplang
+role: member
+symbolType: constructor
+parentRuleIds: [csharp-class, csharp-record, csharp-struct]
+rule:
+    kind: constructor_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+transform:
+    BODYLESS: {replace: {source: $DECLARATION, replace: '\s*(\{[\s\S]*$|=>[\s\S]*$|;\s*$)', by: ''}}
+    LINE: {replace: {source: $BODYLESS, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {has: {kind: modifier, regex: '^public$'}}
+
+---
+id: csharp-member-method
+language: csharplang
+role: member
+symbolType: method
+parentRuleIds: [csharp-class, csharp-record, csharp-struct]
+rule:
+    kind: method_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+transform:
+    BODYLESS: {replace: {source: $DECLARATION, replace: '\s*(\{[\s\S]*$|=>[\s\S]*$|;\s*$)', by: ''}}
+    LINE: {replace: {source: $BODYLESS, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {has: {kind: modifier, regex: '^public$'}}
+
+---
+id: csharp-interface-method
+language: csharplang
+role: member
+symbolType: method
+parentRuleIds: [csharp-interface]
+rule:
+    kind: method_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+transform:
+    BODYLESS: {replace: {source: $DECLARATION, replace: '\s*(\{[\s\S]*$|=>[\s\S]*$|;\s*$)', by: ''}}
+    LINE: {replace: {source: $BODYLESS, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: true
+
+---
+id: csharp-member-property
+language: csharplang
+role: member
+symbolType: property
+parentRuleIds: [csharp-class, csharp-record, csharp-struct, csharp-interface]
+rule:
+    kind: property_declaration
+    has: {field: name, pattern: $NAME}
+name: $NAME
+isPublic:
+    any:
+        - has: {kind: modifier, regex: '^public$'}
+        - inside: {kind: interface_declaration, stopBy: end}
+
+---
+id: csharp-member-field
+language: csharplang
+role: member
+symbolType: field
+parentRuleIds: [csharp-class, csharp-record, csharp-struct]
+rule:
+    kind: field_declaration
+    has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: $NAME}}
+name: $NAME
+isPublic: {has: {kind: modifier, regex: '^public$'}}
+
+---
+id: csharp-enum-member
+language: csharplang
+role: member
+symbolType: enumMember
+parentRuleIds: [csharp-enum]
+rule:
+    kind: enum_member_declaration
+    has: {field: name, pattern: $NAME}
+name: $NAME
+isPublic: true

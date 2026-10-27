@@ -1,12 +1,12 @@
 using System.Drawing;
 using System.Globalization;
 using Eto.Forms;
-using Rasm.RhinoCommon.Commands;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.RhinoCommon.UI.Styling;
+using Rasm.Rhino.Commands;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
@@ -14,8 +14,9 @@ using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
+using DataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
-namespace Rasm.RhinoCommon.UI;
+namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed record PageFrame(ViewBody Body, Control Frame);
@@ -205,7 +206,7 @@ public abstract class DefinedContentSection : EtoContentUISection3 {
         from rows in RowScope.Open(owner, None, new CommitMode.Contents(this))
         from held in ViewBody.Realize(owner, row, rows)
         from fields in FieldChanges(rows)
-        from selections in Subscriptions.Host<Rhino.UI.Controls.DataSource.EventArgs>(h => DataChanged += h, h => DataChanged -= h)
+        from selections in Subscriptions.Host<DataSourceEventArgs>(h => DataChanged += h, h => DataChanged -= h)
             .Inline(args => when(args.DataType == ProviderIds.ContentSelection, held.Reread).As(), owner)
         select held;
 
@@ -246,7 +247,7 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
         owner.Answer(
             new Size(128, 128) switch {
                 var size => row.Icon.Match(
-                    Some: glyph => Icons.Raster(glyph, size).Map(static Image? (bitmap) => bitmap),
+                    Some: icon => Icons.Raster(icon, size).Map(static Image? (bitmap) => bitmap),
                     None: () => IO.lift(Image? () => owner.PlugIn.Icon(size))),
             },
             failed: null);
@@ -289,7 +290,7 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
             from held in document.ValueIO
             from frame in IO.lift(() => new ViewHost(owner))
             from realized in Products.Swapped(page,
-                    from body in ViewBody.Open(owner, row, held, commit, Some<Func<ViewBody, IO<Unit>>>(Marking))
+                    from body in ViewBody.Open(owner, row, held, commit, Some(Marking))
                     from seated in frame.Seat(row, body.Content)
                     from configured in IO.lift(frame.UseRhinoStyle)
                     select new PageFrame(body, frame))
@@ -327,13 +328,10 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row, IPlugInView
     public override int Index => row.Index.IfNone(() => base.Index);
 
     public override string? PageIconEmbeddedResourceString =>
-        row.Icon.Bind(glyph => glyph.Switch(
-            GetType().Assembly,
-            tinted: static (_, _) => Option<string>.None,
-            paired: static (own, art) => art.Assembly == own ? Some(art.Light) : None)).ValueUnsafe();
+        row.Icon.Filter(icon => icon.Assembly == GetType().Assembly).Map(static icon => icon.Id).ValueUnsafe();
 
     public override Icon? PageIcon(Size sizeInPixels) =>
-        owner.Answer(row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph, sizeInPixels)).As(), Option<Icon>.None).ValueUnsafe();
+        owner.Answer(row.Icon.TraverseM(icon => Icons.DrawingIcon(icon, sizeInPixels)).As(), Option<Icon>.None).ValueUnsafe();
 
     public override object? PageControl => Current.Map(static object (held) => held.Frame).ValueUnsafe();
 

@@ -2,7 +2,7 @@ using System.Diagnostics;
 using Rhino.DocObjects;
 using Rhino.Render;
 
-namespace Rasm.RhinoCommon.Render.Content;
+namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ChildSlot(Guid Id, string ChildSlotName, Option<string> ChildSlotDisplayName, bool ChildSlotOn, double ChildSlotAmount);

@@ -3,7 +3,7 @@ using Rasm.Drafting;
 using Rhino;
 using Rhino.Display;
 
-namespace Rasm.RhinoCommon.Viewport.Printing;
+namespace Rasm.Rhino.Viewport.Printing;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]

@@ -1,9 +1,9 @@
 using System.Drawing;
 using LanguageExt.ClassInstances;
-using Rasm.RhinoCommon.Display;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Persistence;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Display;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -11,7 +11,7 @@ using Rhino.FileIO;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Objects;
+namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
@@ -52,21 +52,6 @@ public sealed record AttributeState(
     Option<Plane> ObjectFrame, bool HasCustomMeshing, bool EnableCustomMeshingParameters, Seq<MeshModifier> MeshModifiers, bool HasMapping,
     Seq<DecalState> Decals, Seq<MaterialRefState> MaterialRefs, HashMap<EqStringOrdinalIgnoreCase, string, string> UserStrings);
 
-public sealed record AttributePatch(
-    Option<Option<string>> Name = default, Option<Option<string>> Url = default,
-    Option<ObjectColorSource> ColorSource = default, Option<Color> ObjectColor = default,
-    Option<ObjectPlotColorSource> PlotColorSource = default, Option<Color> PlotColor = default,
-    Option<ObjectPlotWeightSource> PlotWeightSource = default, Option<PlotWeight> PlotWeight = default,
-    Option<ObjectLinetypeSource> LinetypeSource = default, Option<double> LinetypePatternScale = default,
-    Option<ObjectMaterialSource> MaterialSource = default, Option<ObjectSectionAttributesSource> SectionAttributesSource = default,
-    Option<SectionLabelStyle> ClippingPlaneLabelStyle = default, Option<bool> CastsShadows = default, Option<bool> ReceivesShadows = default,
-    Option<int> WireDensity = default, Option<int> DisplayOrder = default, Option<ObjectDecoration> ObjectDecoration = default,
-    Option<ActiveSpace> Space = default, Option<Option<Guid>> ViewportId = default, Option<bool> DetailBackgroundVisible = default,
-    Option<Color> HatchBackgroundFillColor = default, Option<Color> HatchBackgroundFillPrintColor = default,
-    Option<bool> HatchBoundaryVisible = default, Option<Color> HatchBoundaryColor = default, Option<Color> HatchBoundaryPlotColor = default,
-    Option<ItemColorSource> HatchBoundaryColorSource = default, Option<ItemColorSource> HatchBoundaryPlotColorSource = default,
-    Option<Option<PlotWeight>> HatchBoundaryPlotWeight = default, Option<bool> EnableCustomMeshingParameters = default);
-
 public sealed record EffectiveDisplay(Color DrawColor, Color ComputedPlotColor, PlotWeight ComputedPlotWeight, Option<Guid> DisplayModeOverride, Option<bool> ActiveInViewport);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -79,29 +64,6 @@ public abstract partial record RowsEdit<TRow, TKey> {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-internal static class Patches {
-    [UserMapping(Default = true)]
-    public static int Patched(Option<int> value, [MappingTargetOriginalValue] int original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static double Patched(Option<double> value, [MappingTargetOriginalValue] double original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static bool Patched(Option<bool> value, [MappingTargetOriginalValue] bool original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static Guid Patched(Option<Guid> value, [MappingTargetOriginalValue] Guid original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static Color Patched(Option<Color> value, [MappingTargetOriginalValue] Color original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static Point3d Patched(Option<Point3d> value, [MappingTargetOriginalValue] Point3d original) => value.IfNone(original);
-
-    [UserMapping(Default = true)]
-    public static Plane Patched(Option<Plane> value, [MappingTargetOriginalValue] Plane original) => value.IfNone(original);
-}
-
 [Mapper]
 internal static partial class AttributeMapper {
     // --- [SNAPSHOTS]
@@ -195,57 +157,27 @@ internal static partial class AttributeMapper {
     }
 }
 
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source, AllowNullPropertyAssignment = false, AutoUserMappings = false)]
-[UseStaticMapper(typeof(Patches))]
-public static partial class AttributeEdits {
-    // --- [PROPERTIES]
-    [MapProperty(nameof(AttributePatch.HatchBoundaryPlotWeight), nameof(ObjectAttributes.HatchBoundaryPlotWeightMillimeters))]
-    private static partial void UpdateFields(AttributePatch patch, ObjectAttributes staged);
-
-    public static IO<Unit> Update(ObjectAttributes staged, AttributePatch patch, bool clearRendering = false) =>
-        IO.lift(() => {
-            if (clearRendering)
-                staged.ClearRenderingAttributes();
-            UpdateFields(patch, staged);
-        });
-
-    [UserMapping]
-    private static T Retained<T>(Option<T> value, [MappingTargetOriginalValue] T original) => value.IfNone(original);
-
-    [UserMapping]
-    private static string Text(Option<Option<string>> value, [MappingTargetOriginalValue] string original) => value.Map(Conversions.Unset).IfNone(original);
-
-    [UserMapping]
-    private static Guid Viewport(Option<Option<Guid>> value, [MappingTargetOriginalValue] Guid original) => value.Map(Conversions.Unset).IfNone(original);
-
-    [UserMapping]
-    private static double Weight(Option<PlotWeight> value, [MappingTargetOriginalValue] double original) => value.Map(static weight => weight.ToHost()).IfNone(original);
-
-    [UserMapping]
-    private static double InheritedWeight(Option<Option<PlotWeight>> value, [MappingTargetOriginalValue] double original) => value.Map(PlotWeight.ToInheritable).IfNone(original);
-
+public static class AttributeEdits {
     // --- [REFERENCES]
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> LayerIndex(LayerRef address) =>
         (doc, staged) => from layer in Layers.Resolve(doc, address)
-                         from written in IO.lift(() => Indices((layer.Index, None, None, None), staged))
+                         from written in IO.lift(() => { staged.LayerIndex = layer.Index; })
                          select written;
 
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> LinetypeIndex(LinetypeRef address) =>
         (doc, staged) => from index in address.Resolve(doc)
-                         from written in IO.lift(() => Indices((None, index, None, None), staged))
+                         from written in IO.lift(() => { staged.LinetypeIndex = index; })
                          select written;
 
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> MaterialIndex(Option<ComponentRef<Material>> address) =>
         (doc, staged) => from index in TableOps.Index(doc.Materials, address)
-                         from written in IO.lift(() => Indices((None, None, index, None), staged))
+                         from written in IO.lift(() => { staged.MaterialIndex = index; })
                          select written;
 
     public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> SectionStyleIndex(Option<ComponentRef<SectionStyle>> address) =>
         (doc, staged) => from index in TableOps.Index(doc.SectionStyles, address)
-                         from written in IO.lift(() => Indices((None, None, None, index), staged))
+                         from written in IO.lift(() => { staged.SectionStyleIndex = index; })
                          select written;
-
-    private static partial void Indices((Option<int> LayerIndex, Option<int> LinetypeIndex, Option<int> MaterialIndex, Option<int> SectionStyleIndex) indices, ObjectAttributes staged);
 
     public static IO<Unit> CustomLinetype(ObjectAttributes staged, Option<Linetype> value) => IO.lift(() => staged.SetCustomLinetype(value.ValueUnsafe()));
 
@@ -320,14 +252,8 @@ public static partial class AttributeEdits {
         IO.lift(() => RhinoFault.Unless(staged.Transform(xform)));
 
     // --- [RENDERING]
-    [MapPropertyFromSource(nameof(ObjectAttributes.CustomMeshingParameters), Use = nameof(Meshing))]
-    private static partial void SetMeshing(Option<MeshingParameters> value, ObjectAttributes staged);
-
     public static IO<Unit> CustomMeshingParameters(ObjectAttributes staged, Option<MeshingParameters> value) =>
-        IO.lift(() => SetMeshing(value, staged));
-
-    [UserMapping]
-    private static MeshingParameters? Meshing(Option<MeshingParameters> value) => value.ValueUnsafe();
+        IO.lift(() => { staged.CustomMeshingParameters = value.ValueUnsafe(); });
 
     public static IO<Seq<uint>> Decals(ObjectAttributes staged, RowsEdit<DecalCreateParams, int> edit) =>
         Edited(edit, IO.lift(staged.Decals.RemoveAllDecals),

@@ -2,10 +2,10 @@ using System.Globalization;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Search;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Modeling.Curves;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Modeling.Curves;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -99,12 +99,13 @@ public static class Points {
 
     // --- [TANGENCY]
     public static Fin<Circle> TangentCircle(Curve first, CurveAddress nearFirst, Curve second, CurveAddress nearSecond) =>
-        (CurveEvaluation.Resolve(first, nearFirst), CurveEvaluation.Resolve(second, nearSecond))
-            .Apply((t1, t2) => Circle.TryFitCircleTT(first, second, t1, t2)).As()
-            .Bind(static circle => RhinoFault.Unless(circle.IsValid).Map(_ => circle));
+        from circle in (CurveEvaluation.Resolve(first, nearFirst), CurveEvaluation.Resolve(second, nearSecond)).Apply((t1, t2) => Circle.TryFitCircleTT(first, second, t1, t2)).As()
+        from valid in RhinoFault.Unless(circle.IsValid)
+        select circle;
 
     public static Fin<Circle> TangentCircle(Curve first, CurveAddress nearFirst, Curve second, CurveAddress nearSecond, Curve third, CurveAddress nearThird) =>
-        (CurveEvaluation.Resolve(first, nearFirst), CurveEvaluation.Resolve(second, nearSecond), CurveEvaluation.Resolve(third, nearThird))
+        from circle in (CurveEvaluation.Resolve(first, nearFirst), CurveEvaluation.Resolve(second, nearSecond), CurveEvaluation.Resolve(third, nearThird))
             .Apply((t1, t2, t3) => Circle.TryFitCircleTTT(first, second, third, t1, t2, t3)).As()
-            .Bind(static circle => RhinoFault.Unless(circle.IsValid).Map(_ => circle));
+        from valid in RhinoFault.Unless(circle.IsValid)
+        select circle;
 }

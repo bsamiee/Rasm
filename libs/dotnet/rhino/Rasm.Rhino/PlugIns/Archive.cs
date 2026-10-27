@@ -1,11 +1,11 @@
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Collections;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.PlugIns;
+namespace Rasm.Rhino.PlugIns;
 
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed record FrameKey(uint TypeCode);
@@ -18,7 +18,7 @@ public abstract record DocumentFrame {
     internal abstract IO<Unit> Read(RhinoDoc doc, BinaryArchiveReader reader);
 }
 
-public sealed record DocumentFrame<T>(
+public sealed record ArchiveFrame<T>(
     uint TypeCode,
     DictionaryCodec<T> Codec,
     T Empty,

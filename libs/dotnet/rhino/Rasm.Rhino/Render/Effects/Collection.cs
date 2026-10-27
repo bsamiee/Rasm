@@ -1,19 +1,20 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.Render.Sessions;
-using Rasm.RhinoCommon.Render.Settings;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.Render.Sessions;
+using Rasm.Rhino.Render.Settings;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
+using DataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
-namespace Rasm.RhinoCommon.Render.Effects;
+namespace Rasm.Rhino.Render.Effects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -22,7 +23,7 @@ public abstract partial record EffectSource {
         Switch(
             document: static held => ValueStores.Signal(EventKind.DocumentPropertiesChanged.In(held.Doc.RuntimeSerialNumber), static _ => true),
             section: static held => ValueStores.Signal(
-                Subscriptions.Host<Rhino.UI.Controls.DataSource.EventArgs>(handler => held.Host.DataChanged += handler, handler => held.Host.DataChanged -= handler),
+                Subscriptions.Host<DataSourceEventArgs>(handler => held.Host.DataChanged += handler, handler => held.Host.DataChanged -= handler),
                 static args => args.DataType == ProviderIds.RdkRenderingPostEffects));
 
     public sealed record Document(RhinoDoc Doc) : EffectSource;

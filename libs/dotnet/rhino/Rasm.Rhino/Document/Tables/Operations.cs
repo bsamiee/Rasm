@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Rasm.Drafting;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.Document.Tables;
+namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]

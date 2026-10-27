@@ -1,13 +1,13 @@
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Persistence;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Render;
 using Rhino.UI.Controls;
 
-namespace Rasm.RhinoCommon.Render.Settings;
+namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record RenderSettingsScope(RenderSettings Settings, LengthUnit Units);
@@ -59,11 +59,9 @@ public static class RenderSettingsSources {
     private static IO<Unit> Committed(RhinoDoc doc, RenderSettings next, object owner) =>
         from open in IO.lift(() => doc.UndoRecordingIsActive)
         from committed in open
-            ? TableOps.Undoable(doc, nameof(RhinoDoc.RenderSettings), IO.lift(() => doc.RenderSettings), settings => Assigned(doc, settings), next.Duplicate(), owner)
-            : Assigned(doc, next)
+            ? TableOps.Undoable(doc, nameof(RhinoDoc.RenderSettings), IO.lift(() => doc.RenderSettings), settings => IO.lift(() => { doc.RenderSettings = settings; }), next.Duplicate(), owner)
+            : IO.lift(() => { doc.RenderSettings = next; })
         select committed;
-
-    private static IO<Unit> Assigned(RhinoDoc doc, RenderSettings settings) => IO.lift(() => { doc.RenderSettings = settings; });
 
     // --- [DICTIONARY]
     public static DictionaryOwner Dictionary(RenderSettingsSource source, object owner) =>

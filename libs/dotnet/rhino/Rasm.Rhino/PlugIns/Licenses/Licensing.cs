@@ -1,10 +1,10 @@
 using System.Drawing;
 using Eto.Forms;
-using Rasm.RhinoCommon.UI.Styling;
+using Rasm.Rhino.UI.Styling;
 using Rhino.PlugIns;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.PlugIns.Licenses;
+namespace Rasm.Rhino.PlugIns.Licenses;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record LeaseState(

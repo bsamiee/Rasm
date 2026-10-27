@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-operation-on-error-record
-language: csharp
+language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
 utils:
@@ -26,8 +26,19 @@ utils:
                 - has: {field: left, matches: limit-name}
                 - has: {field: right, matches: limit-name}
     own-error:
-        kind: object_creation_expression
-        has: {field: type, pattern: $SELF}
+        any:
+            - kind: object_creation_expression
+              has: {field: type, pattern: $SELF}
+            - kind: invocation_expression
+              has: {field: function, kind: identifier, regex: '^Of$'}
+    error-factory:
+        kind: method_declaration
+        all:
+            - has: {field: name, regex: '^Of$'}
+            - has: {kind: modifier, regex: '^static$'}
+            - has: {field: returns, kind: identifier, pattern: $SELF}
+            - has: {field: body, kind: arrow_expression_clause, has: {kind: object_creation_expression, has: {field: type, pattern: $SELF}}}
+            - inside: {stopBy: end, kind: record_declaration, has: {field: name, pattern: $SELF}}
     guarded-value:
         any:
             - regex: '^unit$'
@@ -143,7 +154,7 @@ rule:
         - kind: method_declaration
           all:
             - has: {field: name, pattern: $MEMBER}
-            - not: {any: [{matches: guard-factory}, {matches: validation-factory}, {matches: inherited}]}
+            - not: {any: [{matches: guard-factory}, {matches: error-factory}, {matches: validation-factory}, {matches: inherited}]}
     inside: {stopBy: end, kind: declaration_list, inside: {matches: languageext-error-record}}
 message: '`$MEMBER` declares a limit or operation inside an error record'
 note: 'Move member to an operations class that raises the error'

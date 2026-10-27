@@ -1,15 +1,15 @@
 using System.Collections.Generic;
 using System.Globalization;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.UI;
-using Rasm.RhinoCommon.UI.Rows;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.UI;
+using Rasm.Rhino.UI.Rows;
 using Rhino;
 using Rhino.Render.PostEffects;
 using Rhino.UI;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
 
-namespace Rasm.RhinoCommon.Render.Effects;
+namespace Rasm.Rhino.Render.Effects;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSection, ICollapsibleSection, ICollapsibleSection2, ICollapsibleSection3

@@ -1,8 +1,9 @@
-using Rasm.RhinoCommon.Persistence;
-using Rasm.RhinoCommon.Persistence.Settings;
-using Rasm.RhinoCommon.Persistence.Stores;
+using System.Runtime.CompilerServices;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Persistence.Settings;
+using Rasm.Rhino.Persistence.Stores;
 
-namespace Rasm.RhinoCommon.Render.Settings;
+namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CyclesKey<T>(string Key) where T : notnull {
@@ -67,10 +68,12 @@ public static class CyclesSetting {
     public static readonly PlugInSetting<double> SpotLightFactor =
         new(nameof(SpotLightFactor), 40d, static (settings, key, out value, legacy) => settings.TryGetDouble(key, out value, legacy), static (settings, key, value) => settings.SetDouble(key, value));
 
-    public static IO<Option<PlugInSetting<int>>> Threads =>
+    public static IO<Option<PlugInSetting<int>>> Threads => Defaulted();
+
+    private static IO<Option<PlugInSetting<int>>> Defaulted([CallerMemberName] string key = "") =>
         from node in SettingRoots.TryGetChild(Node)
         select node
-            .Bind(static settings => Conversions.Found(settings.TryGetDefault(nameof(Threads), out int factory), factory))
-            .Map(static factory => new PlugInSetting<int>(nameof(Threads), factory,
+            .Bind(settings => Conversions.Found(settings.TryGetDefault(key, out int factory), factory))
+            .Map(factory => new PlugInSetting<int>(key, factory,
                 static (settings, key, out value, legacy) => settings.TryGetInteger(key, out value, legacy), static (settings, key, value) => settings.SetInteger(key, value)));
 }

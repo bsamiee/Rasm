@@ -1,17 +1,16 @@
 using System.Collections.Generic;
 using System.Globalization;
 using Eto.Forms;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.RhinoCommon.UI.Styling;
-using Rasm.UI;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 
-namespace Rasm.RhinoCommon.UI.Inputs;
+namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ChoiceItem<TModel>(TModel Value, string Caption) where TModel : notnull {
-    public Option<GlyphSource> Glyph { get; init; }
+    public Option<IconResource> Icon { get; init; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -19,7 +18,7 @@ public static class ChoiceRows {
     // --- [ITEMS]
     public static Seq<ChoiceItem<Option<TModel>>> Optional<TModel>(string absent, Seq<ChoiceItem<TModel>> items, IPlugInLifetime owner) where TModel : notnull =>
         new ChoiceItem<Option<TModel>>(None, RowText.Localize(absent, owner).Local)
-            .Cons(items.Map(static item => new ChoiceItem<Option<TModel>>(Some(item.Value), item.Caption) { Glyph = item.Glyph }));
+            .Cons(items.Map(static item => new ChoiceItem<Option<TModel>>(Some(item.Value), item.Caption) { Icon = item.Icon }));
 
     // --- [ROWS]
     public static ControlRow Choice<TModel>(string label, TModel value, Seq<ChoiceItem<TModel>> items, Func<Edit<TModel>, IO<Unit>> edited) where TModel : notnull =>
@@ -31,7 +30,7 @@ public static class ChoiceRows {
                 _ =>
                     from picked in popup.Picked
                     from current in latest
-                    from committed in picked.Traverse(pick => current.Row.Edited(Edit.Commit(pick))).As()
+                    from committed in picked.Traverse(pick => current.Row.Edited(Edits.Commit(pick))).As()
                     select unit,
                 scope.Owner)
             select new RowCells(popup.Control, latest.Bind(current => change.Detached(popup.Relist(current.Row.Items).Bind(_ => popup.Write(current.Row.Value))))));
@@ -45,7 +44,7 @@ public static class ChoiceRows {
                 _ =>
                     from picked in strip.Picked
                     from current in latest
-                    from committed in current.Row.Edited(Edit.Commit(picked))
+                    from committed in current.Row.Edited(Edits.Commit(picked))
                     select unit,
                 scope.Owner)
             select new RowCells(strip.Control, latest.Bind(current => change.Detached(strip.Write(current.Row.Value)))));
@@ -99,8 +98,8 @@ public static class ChoiceRows {
 
     private static IO<Listing<TModel>> Listed<TModel>(Control control, Seq<ChoiceItem<TModel>> items, IPlugInLifetime owner) where TModel : notnull =>
         from rows in IO.lift(() => items.Map(static item => (Item: item, Entry: new ImageListItem { Text = item.Caption })).Strict())
-        from themed in rows.TraverseM(row => row.Item.Glyph.Traverse(glyph =>
-            Icons.Themed(owner, glyph, IconSlot.DropDownItem, HostTheme.In(control), icon => row.Entry.Image = icon)).As()).As()
+        from themed in rows.TraverseM(row => row.Item.Icon.Traverse(icon =>
+            Icons.Themed(owner, icon, IconSlot.DropDownItem, HostTheme.In(control), frames => row.Entry.Image = frames)).As()).As()
         select new Listing<TModel>(rows);
 
     private static IO<(SegmentedButton Control, Func<Seq<TModel>, IO<Unit>> Write, IO<Seq<TModel>> Picked)> Segmented<TModel>(
@@ -109,11 +108,11 @@ public static class ChoiceRows {
         from selected in IO.lift(() => strip.SelectionMode = mode)
         from rows in items.TraverseM(static item =>
             from segment in ButtonRows.Segment<ButtonSegmentedItem>()
-            from faced in IO.lift(() => { (segment.Text, segment.ToolTip) = (item.Glyph.Map(static _ => "").IfNone(item.Caption), item.Caption); })
+            from faced in IO.lift(() => { (segment.Text, segment.ToolTip) = (item.Icon.Map(static _ => "").IfNone(item.Caption), item.Caption); })
             select (Item: item, Segment: segment)).As()
         from added in IO.lift(() => strip.Items.AddRange(rows.Map(static row => (SegmentedItem)row.Segment)))
-        from themed in rows.TraverseM(row => row.Item.Glyph.Traverse(glyph =>
-            Icons.Themed(owner, glyph, IconSlot.PanelButton, HostTheme.In(strip), icon => row.Segment.Image = icon)).As()).As()
+        from themed in rows.TraverseM(row => row.Item.Icon.Traverse(icon =>
+            Icons.Themed(owner, icon, IconSlot.PanelButton, HostTheme.In(strip), frames => row.Segment.Image = frames)).As()).As()
         select (
             strip,
             (Func<Seq<TModel>, IO<Unit>>)(value => toHashSet(value) switch {

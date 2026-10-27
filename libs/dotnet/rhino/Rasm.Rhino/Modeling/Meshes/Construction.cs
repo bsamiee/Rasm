@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 using Rhino.Geometry.MeshRefinements;
 
-namespace Rasm.RhinoCommon.Modeling.Meshes;
+namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]

@@ -1,13 +1,14 @@
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Persistence;
+using System.Runtime.CompilerServices;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.Viewport;
+namespace Rasm.Rhino.Viewport;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ConstructionPlanes {
@@ -65,16 +66,16 @@ public static class ConstructionPlanes {
         select (NamedWrite)new NamedWrite.Recorded();
 
     // --- [STATES]
-    internal static IO<NamedWrite> Save(RhinoDoc doc, NamedState.ConstructionPlane state, object owner) =>
+    internal static IO<NamedWrite> Save(RhinoDoc doc, NamedState.CPlane state, object owner) =>
         from source in state.Source.Match(
             Some: target => Viewports.With(doc, target, static row => Read(row.Viewport)),
             None: static () => IO.lift(static () => new ConstructionPlane()))
         from staged in state.Stage.Traverse(stage => stage(source)).As()
         from named in IO.lift(() => { source.Name = state.Name; })
-        from written in Written(doc, nameof(Save), source, owner)
+        from written in Written(doc, source, owner)
         select written;
 
-    internal static IO<NamedWrite> Restore(RhinoDoc doc, NamedRestore.ConstructionPlane target) =>
+    internal static IO<NamedWrite> Restore(RhinoDoc doc, NamedRestore.CPlane target) =>
         from plane in Found(doc, target.Name)
         from restored in Viewports.Edit(doc, target.Viewports, viewport => IO.lift(() => viewport.PushConstructionPlane(plane)), new RedrawPolicy.Silent())
         select (NamedWrite)new NamedWrite.Compensated(
@@ -96,12 +97,12 @@ public static class ConstructionPlanes {
     internal static IO<NamedWrite> Transform(RhinoDoc doc, NamedEntry entry, Transform xform, object owner) =>
         from stored in Found(doc, entry.Name)
         from moved in Moved(stored, xform)
-        from written in Written(doc, nameof(Transform), moved, owner)
+        from written in Written(doc, moved, owner)
         select written;
 
     internal static IO<NamedWrite> Import(RhinoDoc doc, ArchiveSource source, Option<Seq<StateName>> names, object owner) =>
         NamedTable.ConstructionPlanes.Imported(doc, source, names, static archive => archive.AllNamedConstructionPlanes, static plane => plane.Name,
-            (plane, scaling) => Moved(plane, scaling).Bind(moved => Written(doc, nameof(Import), moved, owner)));
+            (plane, scaling) => Moved(plane, scaling).Bind(moved => Written(doc, moved, owner)));
 
     internal static IO<Unit> Archive(RhinoDoc doc, Seq<NamedEntry> entries, File3dm archive) =>
         entries.TraverseM(entry => Found(doc, entry.Name).Bind(plane => IO.lift(() => archive.AllNamedConstructionPlanes.Add(plane)))).As().Map(static _ => unit);
@@ -122,7 +123,7 @@ public static class ConstructionPlanes {
     private static IO<ConstructionPlane> Found(RhinoDoc doc, string name) =>
         Stored(doc, name).Bind(found => IO.lift(() => found.ToFin(new RhinoFault(name, RhinoReason.Missing))));
 
-    private static IO<NamedWrite> Written(RhinoDoc doc, string verb, ConstructionPlane plane, object owner) =>
+    private static IO<NamedWrite> Written(RhinoDoc doc, ConstructionPlane plane, object owner, [CallerMemberName] string verb = "") =>
         from prior in Stored(doc, plane.Name)
         from tolerances in Tolerances.Read(doc, modelUnits: true)
         from written in unless(prior.Exists(held => Same(held, plane, tolerances)),

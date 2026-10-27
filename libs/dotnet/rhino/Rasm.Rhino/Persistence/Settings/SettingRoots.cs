@@ -1,11 +1,11 @@
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
 
-namespace Rasm.RhinoCommon.Persistence.Settings;
+namespace Rasm.Rhino.Persistence.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]

@@ -3,7 +3,7 @@ using Rhino;
 using Rhino.FileIO;
 using Rhino.Runtime;
 
-namespace Rasm.RhinoCommon.Viewport.Printing;
+namespace Rasm.Rhino.Viewport.Printing;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record PrinterMargins(Length Left, Length Top, Length Right, Length Bottom);

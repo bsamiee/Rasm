@@ -1,10 +1,9 @@
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Commands;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Commands;
+using Rasm.Rhino.Document.Units;
 using Rhino.Commands;
-using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Modeling.Meshes;
+namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -44,28 +43,23 @@ public abstract partial record MeshManifold {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-internal static partial class MeshTopologyMapper {
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    [MapNestedProperties(nameof(MeshSplit.Self.Options))]
-    [MapperIgnoreTarget(nameof(MeshSplitOptions.OpenCutEnds), Justification = "Booleans write open cut ends into options they run with")]
-    [MapperIgnoreTarget(nameof(MeshBooleanOptions.UnmergedResultPairs), Justification = "Booleans write unmerged result pairs into options they run with")]
-    [MapperIgnoreTarget(nameof(MeshBooleanOptions.OpenResults), Justification = "Booleans write open results into options they run with")]
-    [MapperIgnoreTarget(nameof(MeshBooleanOptions.FailedInputPairs), Justification = "Booleans write failed input pairs into options they run with")]
-    internal static partial MeshBooleanOptions Boolean((MeshBooleanOptions Options, double Tolerance, CancellationToken CancellationToken) source);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    [MapNestedProperties(nameof(MeshSplit.Self.Options))]
-    [MapperIgnoreTarget(nameof(MeshSplitOptions.OpenCutEnds), Justification = "Split writes open cut ends into options it runs with")]
-    internal static partial MeshSplitOptions Split((MeshSplitOptions Options, double Tolerance, CancellationToken CancellationToken, IProgress<double>? ProgressReporter) source);
-}
-
 public static class MeshTopology {
+    // --- [RUNS]
+    private static MeshBooleanOptions Running(MeshBooleanOptions options, double tolerance, CancellationToken token) {
+        (options.Tolerance, options.CancellationToken) = (tolerance, token);
+        return options;
+    }
+
+    private static MeshSplitOptions Running(MeshSplitOptions options, double tolerance, CancellationToken token, IProgress<double>? progress) {
+        (options.Tolerance, options.CancellationToken, options.ProgressReporter) = (tolerance, token, progress);
+        return options;
+    }
+
     // --- [BOOLEANS]
     public static IO<(Seq<Grouped<Mesh, int>> Groups, MeshBooleanOptions Report)> Boolean(Tolerances tolerances, Boolean<Mesh> operation, MeshBooleanOptions options) =>
         from token in cancelToken
         from booleaned in operation.Switch(
-            MeshTopologyMapper.Boolean((options, tolerances.MeshIntersection, token)),
+            Running(options, tolerances.MeshIntersection, token),
             union: static (report, union) => Booleaned(Mesh.CreateBooleanUnion(union.Operands, report, out Result result, out int[][] map), result, map, report),
             intersection: static (report, intersection) => Booleaned(Mesh.CreateBooleanIntersection(intersection.First, intersection.Second, report, out Result result, out int[][] map), result, map, report),
             difference: static (report, difference) => Booleaned(Mesh.CreateBooleanDifference(difference.First, difference.Second, report, out Result result, out int[][] map), result, map, report))
@@ -73,7 +67,7 @@ public static class MeshTopology {
 
     public static IO<(Seq<Grouped<Mesh, int>> Groups, MeshBooleanOptions Report)> BooleanSplit(Tolerances tolerances, Seq<Mesh> meshesToSplit, Seq<Mesh> meshSplitters, MeshBooleanOptions options) =>
         from token in cancelToken
-        from booleaned in MeshTopologyMapper.Boolean((options, tolerances.MeshIntersection, token)) switch {
+        from booleaned in Running(options, tolerances.MeshIntersection, token) switch {
             var report => Booleaned(Mesh.CreateBooleanSplit(meshesToSplit, meshSplitters, report, out Result result, out int[][] map), result, map, report),
         }
         select booleaned;
@@ -89,10 +83,10 @@ public static class MeshTopology {
         from token in cancelToken
         from split in method.Switch(
             (Mesh: mesh, Tolerances: tolerances, Progress: progress.ValueUnsafe(), Token: token),
-            byMeshes: static (state, of) => MeshTopologyMapper.Split((of.Options, state.Tolerances.MeshIntersection, state.Token, state.Progress)) switch {
+            byMeshes: static (state, of) => Running(of.Options, state.Tolerances.MeshIntersection, state.Token, state.Progress) switch {
                 var options => Products.Made(state.Mesh.Split(of.Meshes, options)).Map(meshes => (Meshes: meshes, OpenCutEnds: Optional(options.OpenCutEnds).Map(static ends => toSeq(ends)))),
             },
-            self: static (state, of) => MeshTopologyMapper.Split((of.Options, state.Tolerances.MeshIntersection, state.Token, state.Progress)) switch {
+            self: static (state, of) => Running(of.Options, state.Tolerances.MeshIntersection, state.Token, state.Progress) switch {
                 var options => Unsplit(state.Mesh.SelfSplit(options), state.Token).Map(meshes => (Meshes: meshes, OpenCutEnds: Optional(options.OpenCutEnds).Map(static ends => toSeq(ends)))),
             },
             non2Manifolds: static (state, _) => Unsplit(state.Mesh.SplitNon2Manifolds(textLog: null, state.Token, state.Progress), state.Token)

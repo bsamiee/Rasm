@@ -3,7 +3,7 @@ using Rhino.Input.Custom;
 using Rhino.UI.Gumball;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Display;
+namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union<Ray, Plane>(MapMethods = SwitchMapMethodsGeneration.None)]

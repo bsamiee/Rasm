@@ -1,10 +1,10 @@
 using System.Drawing;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.UI;
 using Rhino.Render;
 using Rhino.Render.DataSources;
 
-namespace Rasm.RhinoCommon.Render.Settings;
+namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]

@@ -1,38 +1,40 @@
 using System.Runtime.CompilerServices;
 using Eto.Forms;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Settings;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Settings;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
-namespace Rasm.RhinoCommon.UI.Rows;
+namespace Rasm.Rhino.UI.Rows;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads, MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record CommitMode {
-    public bool Drafts => MapPartially(@default: false, deferred: true);
+    private CommitMode(bool drafts) => Drafts = drafts;
 
-    public sealed record Immediate : CommitMode;
+    public bool Drafts { get; }
 
-    public sealed record Revertible(ValueSet Opening) : CommitMode;
+    public sealed record Immediate() : CommitMode(drafts: false);
 
-    public sealed record Deferred(ValueSet Edits) : CommitMode;
+    public sealed record Revertible(ValueSet Opening) : CommitMode(drafts: false);
+
+    public sealed record Deferred(ValueSet Edits) : CommitMode(drafts: true);
 
     public sealed record Targets : CommitMode {
-        internal Targets(ObjectPropertiesPage page) => Page = page;
+        internal Targets(ObjectPropertiesPage page) : base(drafts: false) => Page = page;
 
         public ObjectPropertiesPage Page { get; }
     }
 
     public sealed record Contents : CommitMode {
-        internal Contents(EtoContentUISection3 section) => Section = section;
+        internal Contents(EtoContentUISection3 section) : base(drafts: false) => Section = section;
 
         public EtoContentUISection3 Section { get; }
     }
@@ -68,32 +70,29 @@ public sealed class RowScope {
     private readonly Atom<(bool Visible, HashSet<Func<bool, IO<Unit>>> Listeners)> visibility;
 
     private RowScope(
-        IPlugInLifetime owner, Option<RhinoDoc> document, Option<SettingsNode> settings, Atom<CommitMode> mode, Option<HistoryBinding> history,
-        Option<ValueStore<HashSet<EntryKey>>> locks, Atom<HashSet<Func<Seq<EntryKey>, IO<Unit>>>> listeners, Option<Control> host,
+        IPlugInLifetime owner, Option<RhinoDoc> document, Atom<CommitMode> mode, Atom<HashSet<Func<Seq<EntryKey>, IO<Unit>>>> listeners,
         Atom<(bool Visible, HashSet<Func<bool, IO<Unit>>> Listeners)> visibility) =>
-        (Owner, Document, Settings, this.mode, History, Locks, this.listeners, Host, this.visibility) = (owner, document, settings, mode, history, locks, listeners, host, visibility);
+        (Owner, Document, this.mode, this.listeners, this.visibility) = (owner, document, mode, listeners, visibility);
 
     public IPlugInLifetime Owner { get; }
     public Option<RhinoDoc> Document { get; }
     public IO<RhinoDoc> DocumentIO => IO.lift(() => Conversions.Found(Document));
-    public Option<SettingsNode> Settings { get; }
-    public Option<HistoryBinding> History { get; }
-    public Option<ValueStore<HashSet<EntryKey>>> Locks { get; }
-    public Option<Control> Host { get; }
+    public Option<SettingsNode> Settings { get; init; }
+    public Option<HistoryBinding> History { get; init; }
+    public Option<ValueStore<HashSet<EntryKey>>> Locks { get; init; }
+    public Option<Control> Host { get; init; }
 
     // --- [OPENING]
     public static IO<RowScope> Open(IPlugInLifetime owner, Option<RhinoDoc> document, CommitMode mode) =>
-        IO.lift(() => new RowScope(owner, document, None, Atom(mode), None, None, Atom(HashSet<Func<Seq<EntryKey>, IO<Unit>>>()), None,
-            Atom((Visible: true, Listeners: HashSet<Func<bool, IO<Unit>>>()))));
+        IO.lift(() => new RowScope(owner, document, Atom(mode), Atom(HashSet<Func<Seq<EntryKey>, IO<Unit>>>()), Atom((Visible: true, Listeners: HashSet<Func<bool, IO<Unit>>>()))));
 
     public RowScope Nested(SettingsNode settings, Option<HistoryBinding> history, Option<ValueStore<HashSet<EntryKey>>> locks) =>
-        new(Owner, Document, Some(settings), mode, history, locks, listeners, Host,
-            Atom((visibility.Value.Visible, HashSet<Func<bool, IO<Unit>>>())));
+        new(Owner, Document, mode, listeners, Atom((visibility.Value.Visible, HashSet<Func<bool, IO<Unit>>>()))) { Settings = Some(settings), History = history, Locks = locks, Host = Host };
 
-    public RowScope Hosted(Control host) => new(Owner, Document, Settings, mode, History, Locks, listeners, Some(host), visibility);
+    public RowScope Hosted(Control host) => new(Owner, Document, mode, listeners, visibility) { Settings = Settings, History = History, Locks = Locks, Host = Some(host) };
 
     public RowScope Separated(bool visible) =>
-        new(Owner, Document, Settings, mode, History, Locks, listeners, Host, Atom((Visible: visible, Listeners: HashSet<Func<bool, IO<Unit>>>())));
+        new(Owner, Document, mode, listeners, Atom((Visible: visible, Listeners: HashSet<Func<bool, IO<Unit>>>()))) { Settings = Settings, History = History, Locks = Locks, Host = Host };
 
     public IO<CommitMode> Mode => mode.ValueIO;
 

@@ -1,17 +1,17 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Objects;
-using Rasm.RhinoCommon.Persistence;
-using Rasm.RhinoCommon.UI;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Objects;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.UI;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Runtime;
 
-namespace Rasm.RhinoCommon.Display;
+namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DisplayModeRule(Func<RhinoObject, bool> Applies, Option<ViewportTarget> Viewport, Guid Mode);

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: csharp-visible-member
-language: csharp
+language: csharplang
 rule:
     any:
         - kind: 'field_declaration, event_field_declaration, property_declaration, indexer_declaration, event_declaration, method_declaration'

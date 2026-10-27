@@ -1,17 +1,17 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 
-namespace Rasm.RhinoCommon.Modeling.Solids;
+namespace Rasm.Rhino.Modeling.Solids;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record BrepCut {
-    public sealed record Brep(Rhino.Geometry.Brep Cutter) : BrepCut;
-    public sealed record Breps(IterableNE<Rhino.Geometry.Brep> Cutters) : BrepCut;
-    public sealed record Curves(IterableNE<Curve> Cutters) : BrepCut;
-    public sealed record Projected(IterableNE<GeometryBase> Cutters, Vector3d Normal, bool PlanView) : BrepCut;
+    public sealed record ByBrep(Brep Cutter) : BrepCut;
+    public sealed record ByBreps(IterableNE<Brep> Cutters) : BrepCut;
+    public sealed record ByCurves(IterableNE<Curve> Cutters) : BrepCut;
+    public sealed record ByProjection(IterableNE<GeometryBase> Cutters, Vector3d Normal, bool PlanView) : BrepCut;
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -211,10 +211,8 @@ public static class SolidTopology {
                 indexMap?.Select(static int[] (input) => [input])));
 
     public static IO<Seq<Brep>> CreateBooleanUnion(Tolerances tolerances, Seq<Brep> breps, bool manifoldOnly) =>
-        Brep.CreateBooleanUnion(breps, tolerances.Absolute, manifoldOnly, out Point3d[] naked, out Point3d[] bad, out Point3d[] nonManifold) switch {
-            var united => Products.Made(united).MapFail(error => error + Error.New(
-                $"naked edges at [{string.Join("; ", naked)}], bad intersections at [{string.Join("; ", bad)}], non-manifold edges at [{string.Join("; ", nonManifold)}]")),
-        };
+        Products.Made(Brep.CreateBooleanUnion(breps, tolerances.Absolute, manifoldOnly, out Point3d[] naked, out Point3d[] bad, out Point3d[] nonManifold)).MapFail(error => error + Error.New(
+            $"naked edges at [{string.Join("; ", naked)}], bad intersections at [{string.Join("; ", bad)}], non-manifold edges at [{string.Join("; ", nonManifold)}]"));
 
     public static IO<Seq<Grouped<Brep, int>>> Boolean(Tolerances tolerances, Boolean<Brep> operation, Plane plane) =>
         operation.Switch(
@@ -268,10 +266,10 @@ public static class SolidTopology {
     public static IO<(Seq<Brep> Pieces, Option<bool> ToleranceWasRaised)> Split(Tolerances tolerances, Brep brep, BrepCut cut) =>
         cut.Switch(
             (Brep: brep, Tolerance: tolerances.Absolute),
-            brep: static (at, cutter) => Products.Made(at.Brep.Split(cutter.Cutter, at.Tolerance, out bool raised)).Map(pieces => (Pieces: pieces, ToleranceWasRaised: Some(raised))),
-            breps: static (at, cutters) => Products.Made(at.Brep.Split(cutters.Cutters, at.Tolerance)).Map(static pieces => (Pieces: pieces, ToleranceWasRaised: Option<bool>.None)),
-            curves: static (at, cutters) => Products.Made(at.Brep.Split(cutters.Cutters, at.Tolerance)).Map(static pieces => (Pieces: pieces, ToleranceWasRaised: Option<bool>.None)),
-            projected: static (at, cutters) => Products.Made(at.Brep.Split(cutters.Cutters, cutters.Normal, cutters.PlanView, at.Tolerance))
+            byBrep: static (at, cutter) => Products.Made(at.Brep.Split(cutter.Cutter, at.Tolerance, out bool raised)).Map(pieces => (Pieces: pieces, ToleranceWasRaised: Some(raised))),
+            byBreps: static (at, cutters) => Products.Made(at.Brep.Split(cutters.Cutters, at.Tolerance)).Map(static pieces => (Pieces: pieces, ToleranceWasRaised: Option<bool>.None)),
+            byCurves: static (at, cutters) => Products.Made(at.Brep.Split(cutters.Cutters, at.Tolerance)).Map(static pieces => (Pieces: pieces, ToleranceWasRaised: Option<bool>.None)),
+            byProjection: static (at, cutters) => Products.Made(at.Brep.Split(cutters.Cutters, cutters.Normal, cutters.PlanView, at.Tolerance))
                 .Map(static pieces => (Pieces: pieces, ToleranceWasRaised: Option<bool>.None)));
 
     public static IO<(Seq<Brep> Kept, Seq<Brep> CutAway)> WireCut(Tolerances tolerances, Brep brep, WireCutter cutter, Vector3d direction, bool splitKinkyFaces) =>

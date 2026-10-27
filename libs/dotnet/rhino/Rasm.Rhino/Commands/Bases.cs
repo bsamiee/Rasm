@@ -1,14 +1,14 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Objects;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Objects;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
 using Rhino.UI;
 
-namespace Rasm.RhinoCommon.Commands;
+namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CommandHistory(int Version, bool HistoryReplayOnObjectAttributeChange, Func<ReplayHistoryData, Seq<ReplayHistoryResult>, IO<Seq<HistoryOutput>>> Outputs);

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-sentinel-option
-language: csharp
+language: csharplang
 severity: error
 files: ['**/rhino/**']
 utils:
@@ -312,7 +312,7 @@ rule:
         - not: {has: {stopBy: end, kind: comment}}
         - not: {inside: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, kind: ERROR}}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Conversions$'}, member: {regex: '^Present$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^'}, member: {regex: '^Present$'}}}}
 transform:
     OPEN:
         replace:
@@ -332,5 +332,5 @@ transform:
 fix:
     template: $OPEN$PRESENT$CLOSE
     expandStart: {kind: local_declaration_statement}
-message: 'Sentinel or `Has` test on `$X` rebuilds `Conversions.Present`'
-note: 'Call `Conversions.Present(<value>)`'
+message: 'Sentinel or `Has` test on `$X` rebuilds the package `Present` member'
+note: 'Call the package `Present(<value>)` member, the one site that tests the host sentinel'

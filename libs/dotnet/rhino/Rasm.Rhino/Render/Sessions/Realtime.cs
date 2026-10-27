@@ -1,14 +1,14 @@
 using System.Drawing;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Render;
 
-namespace Rasm.RhinoCommon.Render.Sessions;
+namespace Rasm.Rhino.Render.Sessions;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IRealtimeProduct {
@@ -24,11 +24,13 @@ public sealed record RealtimeTarget(Size Size, bool ForCapture, RenderWindow Win
 
 public sealed record RealtimeStart(RealtimeTarget Target, RhinoDoc Document, ViewInfo View, ViewportInfo Viewport, DefinedChangeFeed Feed);
 
-public sealed record RealtimeSession(
-    RealtimeTarget Target, Instant Started, int Pass, Option<int> Limit,
-    Option<uint> Frame, Option<string> Status, Option<Instant> PausedAt, bool Locked) {
-    public static RealtimeSession Of(RealtimeTarget target, Instant now, Option<int> limit) =>
-        new(target, now, 0, limit, None, None, None, Locked: false);
+public sealed record RealtimeSession(RealtimeTarget Target, Instant Started, int Pass, Option<int> Limit) {
+    public Option<uint> Frame { get; init; }
+    public Option<string> Status { get; init; }
+    public Option<Instant> PausedAt { get; init; }
+    public bool Locked { get; init; }
+
+    public static RealtimeSession Of(RealtimeTarget target, Instant now, Option<int> limit) => new(target, now, 0, limit);
 
     public bool Completed => !Locked && Frame.IsSome && Limit.Match(Some: limit => Pass >= limit, None: () => Target.ForCapture);
 

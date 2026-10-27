@@ -1,11 +1,11 @@
 using System.Diagnostics;
 using System.Globalization;
-using Rasm.RhinoCommon.PlugIns;
+using Rasm.Rhino.PlugIns;
 using Rhino;
 using Rhino.PlugIns;
 using Rhino.UI;
 
-namespace Rasm.RhinoCommon;
+namespace Rasm.Rhino;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 [ProviderAlias("CommandWindow")]

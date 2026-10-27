@@ -1,8 +1,8 @@
-using Rasm.RhinoCommon.Document.Files;
+using Rasm.Rhino.Document.Files;
 using Rhino;
 using Rhino.Runtime;
 
-namespace Rasm.RhinoCommon.Commands;
+namespace Rasm.Rhino.Commands;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Scripts {

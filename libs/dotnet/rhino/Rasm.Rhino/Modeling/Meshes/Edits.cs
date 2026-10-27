@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Modeling.Surfaces;
-using Rasm.RhinoCommon.Render.Content;
-using Riok.Mapperly.Abstractions;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Modeling.Surfaces;
+using Rasm.Rhino.Render.Content;
 
-namespace Rasm.RhinoCommon.Modeling.Meshes;
+namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum QuadSplit { Default = 0, ShortDiagonal = 1, LongDiagonal = 2, MinimumArea = 3, MaximumArea = 4, MinimumNormalAngle = 5, MaximumNormalAngle = 6 }
@@ -106,7 +105,8 @@ public abstract partial record MeshEdit {
             (Mesh: mesh, Tolerances: tolerances),
             reduce: static (at, of) =>
                 from token in cancelToken
-                from step in Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Reduce(MeshMapper.Reduction((of.Parameters, token)), of.Threaded))
+                from cancellable in IO.lift(() => { of.Parameters.CancelToken = token; })
+                from step in Edits.Accepted<Mesh, int>(at.Mesh, at.Mesh.Reduce(of.Parameters, of.Threaded))
                 select step,
             weld: static (at, of) => IO.lift(() => at.Mesh.Weld(of.AngleToleranceRadians, of.PreserveSurfaceParameters)) >> Edits.Completed<Mesh, int>(at.Mesh),
             unweld: static (at, of) => IO.lift(() => at.Mesh.Unweld(of.AngleToleranceRadians, of.ModifyNormals)) >> Edits.Completed<Mesh, int>(at.Mesh),
@@ -200,13 +200,6 @@ public abstract partial record MeshEdit {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-internal static partial class MeshMapper {
-    [MapperRequiredMapping(RequiredMappingStrategy.Target)]
-    [MapNestedProperties(nameof(MeshEdit.Reduce.Parameters))]
-    internal static partial ReduceMeshParameters Reduction((ReduceMeshParameters Parameters, CancellationToken CancelToken) source);
-}
-
 public static class MeshEdits {
     // --- [EDITS]
     public static IO<(Mesh Result, Seq<(MeshEdit Edit, EditResult<int> Result)> Results)> Edit(Tolerances tolerances, Mesh source, Seq<MeshEdit> edits) =>
@@ -217,10 +210,10 @@ public static class MeshEdits {
         Products.Made(source.Offset(distance, solidify, Conversions.Unset(direction), out List<int> walls)).Map(mesh => (Mesh: mesh, WallFaces: toSeq(walls)));
 
     public static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extrude(Mesh source, Seq<ComponentIndex> components, Action<MeshExtruder> configure) =>
-        IO.lift(() => Copies.Within(source, components)).Bind(held =>
-            from extruder in use(() => new MeshExtruder(source, held))
-            from configured in IO.lift(() => configure(extruder))
-            from extruded in IO.lift(() => RhinoFault.Unless(extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map)).Map(_ => (Mesh: mesh, Map: map)))
-            from made in Products.Made(extruded.Mesh)
-            select (Mesh: made, Components: toSeq(extruded.Map), WallFaces: toSeq(extruder.GetWallFaces())));
+        from held in IO.lift(() => Copies.Within(source, components))
+        from extruder in use(() => new MeshExtruder(source, held))
+        from configured in IO.lift(() => configure(extruder))
+        from extruded in IO.lift(() => RhinoFault.Unless(extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map)).Map(_ => (Mesh: mesh, Map: map)))
+        from made in Products.Made(extruded.Mesh)
+        select (Mesh: made, Components: toSeq(extruded.Map), WallFaces: toSeq(extruder.GetWallFaces()));
 }

@@ -1,12 +1,12 @@
 using QuikGraph;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Persistence;
+namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

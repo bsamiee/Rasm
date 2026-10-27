@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: thinktecture-factory-validation
-language: csharp
+language: csharplang
 rule:
     kind: method_declaration
     all:

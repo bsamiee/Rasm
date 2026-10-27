@@ -1,15 +1,15 @@
 using System.Drawing;
 using System.Numerics;
 using LanguageExt.ClassInstances;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Persistence;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Annotation.Styles;
+namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record HatchLineDefinition(double Angle, Point2d BasePoint, Vector2d Offset, Seq<double> Dashes);

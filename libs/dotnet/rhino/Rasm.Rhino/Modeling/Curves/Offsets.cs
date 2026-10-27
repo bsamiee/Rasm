@@ -1,7 +1,7 @@
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Modeling.Surfaces;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Modeling.Surfaces;
 
-namespace Rasm.RhinoCommon.Modeling.Curves;
+namespace Rasm.Rhino.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]

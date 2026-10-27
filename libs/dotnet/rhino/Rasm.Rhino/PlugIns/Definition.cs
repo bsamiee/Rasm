@@ -1,14 +1,14 @@
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.PlugIns.Licenses;
-using Rasm.RhinoCommon.Render.Content;
-using Rasm.RhinoCommon.Render.Sessions;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.PlugIns.Licenses;
+using Rasm.Rhino.Render.Content;
+using Rasm.Rhino.Render.Sessions;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
 using Rhino.Render;
 
-namespace Rasm.RhinoCommon.PlugIns;
+namespace Rasm.Rhino.PlugIns;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ComputeEndpoint(string Path, Type Type);

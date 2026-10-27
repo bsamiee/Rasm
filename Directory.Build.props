@@ -1,33 +1,28 @@
 <Project>
-    <PropertyGroup Label="Workspace">
+    <PropertyGroup Label="Artifacts Output">
         <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Package Metadata">
         <Authors>Bardia Samiee</Authors>
         <PackageProjectUrl>https://github.com/bsamiee/Rasm</PackageProjectUrl>
-        <SixLaborsLicenseFile>$(MSBuildThisFileDirectory).config/sixlabors.lic</SixLaborsLicenseFile>
-        <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>
-        <Verify_SponsorshipExemptionUntil>2027-10</Verify_SponsorshipExemptionUntil>
     </PropertyGroup>
 
     <PropertyGroup Label="Project Classification">
-        <_RepoRelativeDir>/$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\', '/'))/</_RepoRelativeDir>
+        <_RepoRelativeDir>/$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\', '/').ToLowerInvariant())/</_RepoRelativeDir>
+        <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/libs/'))">library</ProjectRole>
         <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/tests/'))">tests</ProjectRole>
         <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/tools/roslyn/'))">analyzers</ProjectRole>
         <RhinoHost Condition="$(_RepoRelativeDir.Contains('/rhino/'))">true</RhinoHost>
-        <AssemblyName Condition="'$(RhinoPlugIn)' != ''">$(RhinoPlugIn).$(MSBuildProjectName)</AssemblyName>
     </PropertyGroup>
 
-    <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
-        <UseCurrentRuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">true</UseCurrentRuntimeIdentifier>
-        <PlatformTarget>AnyCPU</PlatformTarget>
-        <RhinoEnableWindowsFormsTargeting>false</RhinoEnableWindowsFormsTargeting>
-        <PublishDocumentationFiles>false</PublishDocumentationFiles>
-        <PublishReferencesSymbols>false</PublishReferencesSymbols>
+    <PropertyGroup Label="Rhino Plug-In Library Copies" Condition="'$(RhinoPlugIn)' != ''">
+        <AssemblyName>$(RhinoPlugIn).$(MSBuildProjectName)</AssemblyName>
     </PropertyGroup>
 
     <PropertyGroup Label="Build Defaults">
         <RepoTargetFramework>net10.0</RepoTargetFramework>
         <TargetFramework>$(RepoTargetFramework)</TargetFramework>
-        <TargetFramework Condition="'$(RhinoHost)' != '' and ($(RuntimeIdentifier.StartsWith('win')) or ('$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('Windows'))))">$(RepoTargetFramework)-windows</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
@@ -40,6 +35,15 @@
         <NuGetAudit>false</NuGetAudit>
     </PropertyGroup>
 
+    <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
+        <TargetFramework Condition="$([MSBuild]::ValueOrDefault('$(RuntimeIdentifier)', '$(NETCoreSdkPortableRuntimeIdentifier)').StartsWith('win'))">$(RepoTargetFramework)-windows</TargetFramework>
+        <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
+        <PlatformTarget>AnyCPU</PlatformTarget>
+        <RhinoEnableWindowsFormsTargeting>false</RhinoEnableWindowsFormsTargeting>
+        <PublishDocumentationFiles>false</PublishDocumentationFiles>
+        <PublishReferencesSymbols>false</PublishReferencesSymbols>
+    </PropertyGroup>
+
     <PropertyGroup Label="Roslyn Components" Condition="'$(ProjectRole)' == 'analyzers'">
         <TargetFramework>netstandard2.0</TargetFramework>
         <LangVersion>14.0</LangVersion>
@@ -48,7 +52,10 @@
         <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
     </PropertyGroup>
 
-    <PropertyGroup Label="Mapperly">
+    <PropertyGroup Label="Package Settings">
+        <SixLaborsLicenseFile>$(MSBuildThisFileDirectory).config/sixlabors.lic</SixLaborsLicenseFile>
+        <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>
+        <Verify_SponsorshipExemptionUntil>2027-10</Verify_SponsorshipExemptionUntil>
         <MapperlyEnumMappingStrategy>ByName</MapperlyEnumMappingStrategy>
         <MapperlyAutoUserMappings>false</MapperlyAutoUserMappings>
         <MapperlyRequiredMappingStrategy>Target</MapperlyRequiredMappingStrategy>
@@ -60,7 +67,7 @@
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
-    <ItemGroup Label="Workspace Language" Condition="'$(ProjectRole)' != 'analyzers'">
+    <ItemGroup Label="Workspace Packages" Condition="'$(ProjectRole)' != 'analyzers'">
         <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
     </ItemGroup>

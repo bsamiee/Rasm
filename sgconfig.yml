@@ -24,6 +24,12 @@ customLanguages:
         extensions: [swift]
         expandoChar: µ
         outlineRules: tools/ast-grep/outline/swift.yml
+    csharplang:
+        libraryPath: .cache/ast-grep/csharp.so
+        languageSymbol: tree_sitter_c_sharp
+        extensions: [cs]
+        expandoChar: µ
+        outlineRules: tools/ast-grep/outline/csharp.yml
 languageInjections:
     - hostLanguage: rust
       rule:

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: languageext-bind-callback
-language: csharp
+language: csharplang
 arguments: [value, body]
 utils:
     unary-parameters:

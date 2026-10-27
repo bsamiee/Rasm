@@ -2,7 +2,7 @@ using System.Drawing;
 using Rhino.Display;
 using Rhino.Runtime;
 
-namespace Rasm.RhinoCommon.Viewport;
+namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]

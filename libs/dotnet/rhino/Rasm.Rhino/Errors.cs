@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using Rhino.Commands;
 
-namespace Rasm.RhinoCommon;
+namespace Rasm.Rhino;
 
 // --- [ERRORS] --------------------------------------------------------------------------
 [SmartEnum]

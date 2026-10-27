@@ -1,8 +1,8 @@
-using Rasm.RhinoCommon.Render.Content;
+using Rasm.Rhino.Render.Content;
 using Rhino;
 using Rhino.Render;
 
-namespace Rasm.RhinoCommon.Render.Settings;
+namespace Rasm.Rhino.Render.Settings;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Environments {

@@ -2,7 +2,7 @@ using System.Drawing;
 using Rhino.ApplicationSettings;
 using Rhino.Display;
 
-namespace Rasm.RhinoCommon.Display;
+namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FeedbackAppearance(Color Curve, Color Construction, Color ActivePoint, int Thickness) {

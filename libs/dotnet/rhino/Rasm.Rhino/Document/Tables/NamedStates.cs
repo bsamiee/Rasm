@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Objects;
-using Rasm.RhinoCommon.Persistence;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Objects;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.Document.Tables;
+namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(SkipIParsable = true)]
@@ -222,7 +222,7 @@ public abstract partial record NamedState {
         internal override string Key => Name;
     }
 
-    public sealed record ConstructionPlane(StateName Name, Option<ViewportTarget> Source, Option<Func<Rhino.DocObjects.ConstructionPlane, IO<Unit>>> Stage) : NamedState {
+    public sealed record CPlane(StateName Name, Option<ViewportTarget> Source, Option<Func<ConstructionPlane, IO<Unit>>> Stage) : NamedState {
         public override NamedTable Table => NamedTable.ConstructionPlanes;
 
         internal override string Key => Name;
@@ -257,7 +257,7 @@ public abstract partial record NamedState {
             (Document: doc, Owner: owner),
             layerState: static (at, state) => LayerStates.Save(at.Document, state),
             view: static (at, state) => NamedViews.Save(at.Document, state, at.Owner),
-            constructionPlane: static (at, state) => ConstructionPlanes.Save(at.Document, state, at.Owner),
+            cPlane: static (at, state) => ConstructionPlanes.Save(at.Document, state, at.Owner),
             position: static (at, state) => NamedPositions.Save(at.Document, state),
             snapshot: static (at, state) => SnapshotChange.Saved(at.Document, state.Name),
             selection: static (at, state) => NamedSelections.Save(at.Document, state),
@@ -282,7 +282,7 @@ public abstract partial record NamedRestore {
         internal override string Key => Name;
     }
 
-    public sealed record ConstructionPlane(StateName Name, ViewportSet Viewports) : NamedRestore {
+    public sealed record CPlane(StateName Name, ViewportSet Viewports) : NamedRestore {
         public override NamedTable Table => NamedTable.ConstructionPlanes;
 
         internal override string Key => Name;
@@ -317,7 +317,7 @@ public abstract partial record NamedRestore {
             doc,
             layerState: static (document, target) => LayerStates.Restore(document, target),
             view: static (document, target) => NamedViews.Restore(document, target),
-            constructionPlane: static (document, target) => ConstructionPlanes.Restore(document, target),
+            cPlane: static (document, target) => ConstructionPlanes.Restore(document, target),
             position: static (document, target) => NamedPositions.Restore(document, target),
             snapshot: static (document, target) => SnapshotChange.Restored(document, target.Name),
             selection: static (document, target) => NamedSelections.Restore(document, target),
@@ -354,7 +354,7 @@ public abstract partial record NamedChange {
         public override string Label => $"{nameof(Delete)} {Entry.Name}";
     }
 
-    public sealed record Transform(NamedEntry Entry, Rhino.Geometry.Transform Xform) : NamedChange {
+    public sealed record Xform(NamedEntry Entry, Transform Transform) : NamedChange {
         public override NamedTable Table => Entry.Table;
 
         public override string Label => $"{nameof(Transform)} {Entry.Name}";
@@ -411,7 +411,7 @@ public abstract partial record NamedChange {
             ? Commits.Commit(
                     doc,
                     string.Join(", ", segment.Map(static change => change.Label)),
-                    segment.Exists(static change => change is Restore or Transform) ? new RedrawPolicy.AllViews(Deferred: true) : new RedrawPolicy.Silent(),
+                    segment.Exists(static change => change is Restore or Xform) ? new RedrawPolicy.AllViews(Deferred: true) : new RedrawPolicy.Silent(),
                     segment.TraverseM(change => Ran(doc, change, owner, writes)).As())
                 .Map(static committed => committed.Record)
             : Commanded(doc, segment, owner, writes)
@@ -436,8 +436,8 @@ public abstract partial record NamedChange {
             restore: static (at, restore) => restore.Target.Run(at.Document),
             rename: static (at, rename) => rename.Entry.Table.Rename(at.Document, rename.Entry, rename.Name, at.Owner),
             delete: static (at, delete) => delete.Entry.Table.Delete(at.Document, delete.Entry, at.Owner),
-            transform: static (at, transform) => IO.lift(() => transform.Entry.Table.Held(transform.Entry.Table.Transform))
-                .Bind(run => run(at.Document, transform.Entry, transform.Xform, at.Owner)),
+            xform: static (at, xform) => IO.lift(() => xform.Entry.Table.Held(xform.Entry.Table.Transform))
+                .Bind(run => run(at.Document, xform.Entry, xform.Transform, at.Owner)),
             import: static (at, import) => IO.lift(() => import.Table.Held(import.Table.Import))
                 .Bind(run => run(at.Document, import.Source, import.Names, at.Owner)));
 
@@ -457,9 +457,9 @@ public abstract partial record NamedChange {
                     : new RhinoFault($"{rename.Name} in {rename.Entry.Table}", RhinoReason.Taken)
                 select held.Map(entry => entry == found ? entry with { Name = rename.Name } : entry),
             delete: static (held, delete) => Present(held, delete.Entry.Table, delete.Entry.Name).Map(found => held.Filter(entry => entry != found)),
-            transform: static (held, transform) =>
-                from found in Present(held, transform.Entry.Table, transform.Entry.Name)
-                from verb in transform.Entry.Table.Held(transform.Entry.Table.Transform)
+            xform: static (held, xform) =>
+                from found in Present(held, xform.Entry.Table, xform.Entry.Name)
+                from verb in xform.Entry.Table.Held(xform.Entry.Table.Transform)
                 select held,
             import: static (held, import) =>
                 from verb in import.Table.Held(import.Table.Import)

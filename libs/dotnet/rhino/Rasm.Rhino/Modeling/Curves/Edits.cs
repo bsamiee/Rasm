@@ -1,9 +1,9 @@
 using System.Globalization;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Modeling.Surfaces;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Modeling.Surfaces;
 using Rhino;
 
-namespace Rasm.RhinoCommon.Modeling.Curves;
+namespace Rasm.Rhino.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record NurbsCurveFit(NurbsCurve Curve, Option<Line> MaximumSeparation, Option<(double Source, double Fit)> SeparationParameters);

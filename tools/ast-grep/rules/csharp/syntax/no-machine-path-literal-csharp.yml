@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-machine-path-literal-csharp
-language: csharp
+language: csharplang
 severity: error
 rule:
     kind: 'string_literal, verbatim_string_literal, raw_string_literal, interpolated_string_expression'

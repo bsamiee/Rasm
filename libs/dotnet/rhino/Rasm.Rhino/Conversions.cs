@@ -2,12 +2,13 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using Rasm.Rhino;
 using Rhino;
 using Riok.Mapperly.Abstractions;
 
-[assembly: UseStaticMapper(typeof(Rasm.RhinoCommon.Conversions))]
+[assembly: UseStaticMapper(typeof(Conversions))]
 
-namespace Rasm.RhinoCommon;
+namespace Rasm.Rhino;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Conversions {

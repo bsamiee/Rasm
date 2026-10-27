@@ -1,5 +1,5 @@
 using System.Drawing;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
@@ -7,7 +7,7 @@ using Rhino.Input;
 using Rhino.Input.Custom;
 using Rhino.PlugIns;
 
-namespace Rasm.RhinoCommon.Commands;
+namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ClientRectangle(Rectangle Client, ViewportTarget Viewport);

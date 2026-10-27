@@ -1,7 +1,7 @@
 {
     "name": "rasm",
     "private": true,
-    "description": "Rasm root Nx targets and catalog dev dependencies",
+    "description": "Repository task graph and shared dependency catalog",
     "type": "module",
     "imports": { "#/*": "./*.ts", "#/libs/typescript/web/ui/*": "./libs/typescript/web/ui/*.tsx", "#/package.json": "./package.json" },
     "scripts": { "postinstall": "effect-tsgo patch" },
@@ -303,6 +303,7 @@
         "testcontainers": "catalog:",
         "three": "catalog:",
         "three-mesh-bvh": "catalog:",
+        "tree-sitter-c-sharp": "catalog:",
         "tree-sitter-sqlite3": "catalog:",
         "tree-sitter-swift": "catalog:",
         "ts-morph": "catalog:",
@@ -344,12 +345,13 @@
                         "tree-sitter generate --output .cache/ast-grep/sql/src tools/ast-grep/grammars/sql/grammar.js",
                         "cp node_modules/tree-sitter-sqlite3/src/scanner.c .cache/ast-grep/sql/src/scanner.c",
                         "tree-sitter build --output .cache/ast-grep/sql.so .cache/ast-grep/sql",
-                        "tree-sitter build --output .cache/ast-grep/swift.so node_modules/tree-sitter-swift"
+                        "tree-sitter build --output .cache/ast-grep/swift.so node_modules/tree-sitter-swift",
+                        "tree-sitter build --output .cache/ast-grep/csharp.so node_modules/tree-sitter-c-sharp"
                     ],
                     "parallel": false
                 },
-                "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/**/grammar.js", { "externalDependencies": [ "@tree-sitter-grammars/tree-sitter-xml", "tree-sitter-sqlite3", "tree-sitter-swift" ] }, { "runtime": "tree-sitter --version" }, { "runtime": "node --version" } ],
-                "outputs": [ "{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql", "{workspaceRoot}/.cache/ast-grep/sql.so", "{workspaceRoot}/.cache/ast-grep/swift.so" ],
+                "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/**/grammar.js", { "externalDependencies": [ "@tree-sitter-grammars/tree-sitter-xml", "tree-sitter-sqlite3", "tree-sitter-swift", "tree-sitter-c-sharp" ] }, { "runtime": "tree-sitter --version" }, { "runtime": "node --version" } ],
+                "outputs": [ "{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql", "{workspaceRoot}/.cache/ast-grep/sql.so", "{workspaceRoot}/.cache/ast-grep/swift.so", "{workspaceRoot}/.cache/ast-grep/csharp.so" ],
                 "cache": true
             },
             "outline": {

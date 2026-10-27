@@ -8,7 +8,7 @@ Single-targeting `Microsoft.NET.Sdk` projects import the listed files in order, 
 | :-----: | :------------------------------------------- | :---------------------------------------------------------------------------------------- |
 |  [01]   | `Sdk/Sdk.props`                              | `UsingMicrosoftNETSdk`, imports `Microsoft.Common.props`                                  |
 |  [02]   | `Microsoft.NET.Sdk.BeforeCommon.props`       | Imports `Microsoft.NETCoreSdk.BundledVersions.props`                                      |
-|  [03]   | `Microsoft.NETCoreSdk.BundledVersions.props` | `NETCoreSdkVersion`, `BundledNETCoreAppPackageVersion`                                    |
+|  [03]   | `Microsoft.NETCoreSdk.BundledVersions.props` | `NETCoreSdkVersion`, `NETCoreSdkPortableRuntimeIdentifier`, bundled package versions      |
 |  [04]   | `Current/Microsoft.Common.props`             | `ImportDirectoryBuildProps`, `DirectoryBuildPropsPath` from `GetDirectoryNameOfFileAbove` |
 |  [05]   | `$(CustomBeforeDirectoryBuildProps)`         | Repository or caller import, non-empty value                                              |
 |  [06]   | `Directory.Build.props`                      | Repository defaults, project-body values are empty                                        |

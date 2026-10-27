@@ -1,4 +1,4 @@
-namespace Rasm.RhinoCommon.Modeling.Solids;
+namespace Rasm.Rhino.Modeling.Solids;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SolidConstruction {

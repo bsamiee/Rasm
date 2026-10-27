@@ -1,12 +1,12 @@
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.TopologicalSort;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Persistence;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.DocObjects;
 
-namespace Rasm.RhinoCommon.Blocks;
+namespace Rasm.Rhino.Blocks;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record MemberReference(Guid Container, Guid Member, Guid Definition);

@@ -1,12 +1,12 @@
 using System.Text.Json;
 using LanguageExt.ClassInstances;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.Viewport;
 using Rhino;
 
-namespace Rasm.RhinoCommon.Persistence;
+namespace Rasm.Rhino.Persistence;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class UserTexts {

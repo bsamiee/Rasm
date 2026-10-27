@@ -3,7 +3,7 @@ using Rhino.DocObjects;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Render.Content;
+namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]

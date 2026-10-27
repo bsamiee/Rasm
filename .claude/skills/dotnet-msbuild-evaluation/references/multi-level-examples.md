@@ -63,7 +63,7 @@ Private property `_OuterDirectoryBuildProps` keeps nested quotes out of the impo
     </PropertyGroup>
 
     <ItemGroup>
-        <Using Include="Microsoft.Extensions.Logging" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Microsoft.Extensions.Logging'))' != ''" />
+        <Using Include="Microsoft.Extensions.Logging" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.Logging'))" />
         <Compile Update="Generated/*.cs" AutoGen="true" />
     </ItemGroup>
 </Project>

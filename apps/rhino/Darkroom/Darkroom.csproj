@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Description>Post-production from raw render to finished image</Description>
         <TargetExt>.rhp</TargetExt>
-        <Description>Image formation, effects, review, and render queue for Rhino renders</Description>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
@@ -19,9 +19,12 @@
     </ItemGroup>
 
     <ItemGroup Label="Quantities">
+        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mathematics">
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="System.Numerics.Tensors" />
-        <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
     <ItemGroup Label="Color">
@@ -31,8 +34,8 @@
     <ItemGroup Label="Imaging">
         <PackageReference Include="Emgu.CV" />
         <PackageReference Include="Emgu.CV.runtime.mini.macos" Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
+        <PackageReference Include="Emgu.CV.runtime.mini.windows" Condition="$(RuntimeIdentifier.StartsWith('win'))" />
         <PackageReference Include="SixLabors.ImageSharp" />
-        <PackageReference Include="SkiaSharp" />
         <PackageReference Include="TinyEXR.NET" />
     </ItemGroup>
 
@@ -41,14 +44,17 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Console" />
     </ItemGroup>
 
-    <ItemGroup Label="Workspace Packages">
+    <ItemGroup Label="User Interface">
+        <PackageReference Include="SkiaSharp" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../libs/dotnet/graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
         <ProjectReference Include="../../../libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Embedded Resources">
-        <EmbeddedResource Include="EmbeddedResources/Tables/*" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
-        <EmbeddedResource Include="EmbeddedResources/darkroom_render.js" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <EmbeddedResource Include="EmbeddedResources/Tables/*;EmbeddedResources/darkroom_render.js" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
     </ItemGroup>
 </Project>

@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Globalization;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public delegate bool PrincipalRead(out double x, out Vector3d xAxis, out double y, out Vector3d yAxis, out double z, out Vector3d zAxis);
@@ -72,7 +72,7 @@ public static class Measurements {
         Option<Func<T, Transform, Fin<T>>> Moved) where T : class, IDisposable {
         public IO<(Seq<Seq<T>> Parts, T Total)> Of(Seq<MassSubject> subjects) =>
             from parts in subjects.Map(static (subject, index) => (Subject: subject, Index: index)).TraverseM(row => Placed(row.Subject, row.Index)).As()
-            from total in Products.Made(Weighted(parts.Bind(static placed => placed), subjects.Zip(parts).Bind(static row => row.Second.Map(_ => row.First.Density))))
+            from total in Products.Made(Weighted(parts.Bind(static placed => placed), from row in subjects.Zip(parts) from _ in row.Second select row.First.Density))
             select (parts, total);
 
         private IO<Seq<T>> Placed(MassSubject subject, int index) =>

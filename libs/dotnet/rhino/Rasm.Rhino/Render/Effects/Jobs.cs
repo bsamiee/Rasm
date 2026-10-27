@@ -2,7 +2,7 @@ using System.Drawing;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 
-namespace Rasm.RhinoCommon.Render.Effects;
+namespace Rasm.Rhino.Render.Effects;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class EffectJob : PostEffectJob {

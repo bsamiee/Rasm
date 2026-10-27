@@ -1,13 +1,11 @@
 using System.Globalization;
 using Eto.Forms;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.RhinoCommon.UI.Styling;
-using Rasm.UI;
-using Rasm.UI.Components;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.UI;
+namespace Rasm.Rhino.UI;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
@@ -17,8 +15,8 @@ internal static partial class BannerMapper {
     [MapProperty(nameof(Notice.Reveal), nameof(Notification.UserData), Use = nameof(Revealed))]
     [MapperIgnoreSource(nameof(Notice.Message), Justification = "Rhino notification center holds detail text")]
     [MapperIgnoreSource(nameof(Notice.Severity), Justification = "System banner shows no severity")]
-    [MapperIgnoreSource(nameof(Notice.Glyph), Justification = "Notifications reads glyph as content image")]
-    [MapperIgnoreTarget(nameof(Notification.ContentImage), Justification = "Notifications assigns acquired glyph")]
+    [MapperIgnoreSource(nameof(Notice.Icon), Justification = "Notifications reads the icon as content image")]
+    [MapperIgnoreTarget(nameof(Notification.ContentImage), Justification = "Notifications assigns the acquired icon")]
     internal static partial void Update(Notice notice, Notification banner);
 
     [UserMapping(Default = false)]
@@ -30,30 +28,29 @@ public static class Notifications {
     // --- [DOCK]
     public static IO<Application> Acquire() =>
         from dock in IO.lift(static () => Application.Instance)
-        from cleared in Products.Released(() => dock.Invoke(() => {
+        from cleared in use(IO.pure(dock), static held => IO.lift(() => {
             Taskbar.SetProgress(TaskbarProgressState.None);
-            dock.BadgeLabel = "";
-        }))
+            held.BadgeLabel = "";
+        }).OnUiThread())
         select dock;
 
-    public static IO<Unit> SetProgress<T>(Application dock, Content<T> work) where T : notnull =>
+    public static IO<Unit> SetProgress<T>(Loading<T> work) where T : notnull =>
         work.Switch(
             pending: static pending => pending.Work.Match(
                 Some: static progress => (State: TaskbarProgressState.Progress, Progress: (float)progress.Fraction),
                 None: static () => (State: TaskbarProgressState.Indeterminate, Progress: 0f)),
             ready: static _ => (State: TaskbarProgressState.None, Progress: 0f),
-            empty: static _ => (State: TaskbarProgressState.None, Progress: 0f),
             failed: static _ => (State: TaskbarProgressState.Error, Progress: 0f)) switch {
-                var shown => IO.lift(() => dock.Invoke(() => Taskbar.SetProgress(shown.State, shown.Progress))),
+                var shown => IO.lift(() => Taskbar.SetProgress(shown.State, shown.Progress)).OnUiThread(),
             };
 
     public static IO<Unit> BadgeLabel(Application dock, Option<string> label) =>
-        IO.lift(() => dock.Invoke(() => { dock.BadgeLabel = Conversions.Unset(label); }));
+        IO.lift(() => { dock.BadgeLabel = Conversions.Unset(label); }).OnUiThread();
 
     // --- [TRAY]
-    public static IO<Unit> Tray(Command<RowRule, Invoke>.Menu menu, RowScope scope) =>
+    public static IO<Unit> Tray(Command<Invoke>.Menu menu, RowScope scope) =>
         from tray in use(static () => new TrayIndicator())
-        from themed in menu.Face.Glyph.Traverse(glyph => Icons.Themed(scope.Owner, glyph, IconSlot.Small, HostTheme.Changed, icon => tray.Image = icon)).As()
+        from themed in menu.Face.Icon.Traverse(icon => Icons.Themed(scope.Owner, icon, IconSlot.Small, HostTheme.Changed, frames => tray.Image = frames)).As()
         from popup in CommandRows.Menu(menu.Groups, scope)
         from assigned in IO.lift(() => tray.Menu = popup.Menu)
         from activated in menu.Primary.Traverse(primary => CommandRows.Press(primary, scope).Bind(press =>
@@ -67,7 +64,7 @@ public static class Notifications {
         IO.lift(static () => Application.Instance.IsActive).Bind(active => unless(active, Banner(notice)).As());
 
     private static IO<Unit> Banner(Notice notice) =>
-        from image in notice.Glyph.Traverse(static glyph => Icons.Frames(glyph, IconSlot.Banner)).As()
+        from image in notice.Icon.Traverse(static icon => Icons.Frames(icon, IconSlot.Banner)).As()
         from shown in (from banner in use(static () => new Notification())
                        from mapped in IO.lift(() => BannerMapper.Update(notice, banner))
                        from assigned in IO.lift(() => banner.ContentImage = image.ValueUnsafe())

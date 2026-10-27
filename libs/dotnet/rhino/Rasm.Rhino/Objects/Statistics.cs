@@ -1,9 +1,9 @@
-using Rasm.RhinoCommon.Blocks;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Blocks;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 
-namespace Rasm.RhinoCommon.Objects;
+namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DocumentStatistics(

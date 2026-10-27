@@ -1,11 +1,10 @@
 using Eto.Drawing;
 using Eto.Forms;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.UI;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.PlugIns;
 using Rhino.UI.Controls;
 
-namespace Rasm.RhinoCommon.UI.Rows;
+namespace Rasm.Rhino.UI.Rows;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -26,7 +25,7 @@ public sealed record RowLine(Option<string> Caption, Control Value);
 public sealed record RowCells(Control Value, IO<Unit> Show) {
     public Option<Control> Pick { get; init; }
     public Seq<RowLine> Lines { get; init; }
-    public Seq<Seq<Command<RowRule, Invoke>>> Menu { get; init; }
+    public Seq<Seq<Command<Invoke>>> Menu { get; init; }
 }
 
 public abstract record ControlRow(string Label, RowShape Shape) {

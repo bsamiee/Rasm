@@ -1,11 +1,11 @@
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Viewport;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union<RhinoViewport, CameraPose>(SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]

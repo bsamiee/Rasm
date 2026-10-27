@@ -1,12 +1,12 @@
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Objects;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Objects;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Annotation;
+namespace Rasm.Rhino.Annotation;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record HatchFill(ComponentRef<HatchPattern> Pattern, double Rotation, double Scale);
@@ -28,10 +28,18 @@ public sealed record HatchEdit(
     Option<Option<ColorGradient>> Gradient = default) {
     public IO<Unit> Apply(RhinoDoc doc, Hatch hatch) =>
         from patternIndex in Pattern.TraverseM(address => TableOps.Find(doc.HatchPatterns, address, includeDeleted: false).Map(static row => row.Index)).As()
-        from written in IO.lift(() => HatchMapper.Update((patternIndex, PatternRotation, PatternScale, BasePoint, Plane), hatch))
-        from rescaled in IO.lift(() => Rescale.Iter(hatch.ScalePattern))
-        from filled in IO.lift(() => Gradient.Iter(fill => hatch.SetGradientFill(fill.ValueUnsafe())))
-        select filled;
+        from written in Seq(
+                patternIndex.Map(static index => (Func<Hatch, IO<Unit>>)(held => IO.lift(() => { held.PatternIndex = index; }))),
+                PatternRotation.Map(static rotation => (Func<Hatch, IO<Unit>>)(held => IO.lift(() => { held.PatternRotation = rotation; }))),
+                PatternScale.Map(static scale => (Func<Hatch, IO<Unit>>)(held => IO.lift(() => { held.PatternScale = scale; }))),
+                BasePoint.Map(static point => (Func<Hatch, IO<Unit>>)(held => IO.lift(() => { held.BasePoint = point; }))),
+                Plane.Map(static plane => (Func<Hatch, IO<Unit>>)(held => IO.lift(() => { held.Plane = plane; }))),
+                Rescale.Map(static xform => (Func<Hatch, IO<Unit>>)(held => IO.lift(() => held.ScalePattern(xform)))),
+                Gradient.Map(static fill => (Func<Hatch, IO<Unit>>)(held => IO.lift(() => held.SetGradientFill(fill.ValueUnsafe())))))
+            .Somes()
+            .TraverseM(edit => edit(hatch))
+            .As()
+        select unit;
 }
 
 public sealed record HatchState(Option<int> PatternIndex, Plane Plane, Point3d BasePoint, double PatternRotation, double PatternScale, Option<ColorGradient> Gradient);
@@ -40,13 +48,7 @@ public sealed record HatchDisplay(Seq<Curve> Bounds, Seq<Line> Lines, Option<Bre
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
-[UseStaticMapper(typeof(Patches))]
 internal static partial class HatchMapper {
-    // --- [EDITS]
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    internal static partial void Update((Option<int> PatternIndex, Option<double> PatternRotation, Option<double> PatternScale, Option<Point3d> BasePoint, Option<Plane> Plane) edit, Hatch hatch);
-
-    // --- [READS]
     [MapPropertyFromSource(nameof(HatchState.Gradient), Use = nameof(Gradient))]
     internal static partial HatchState ToState(Hatch hatch);
 

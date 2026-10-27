@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-value-out-of-callback
-language: csharp
+language: csharplang
 severity: error
 utils:
     mutator:

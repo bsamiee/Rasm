@@ -1,60 +1,46 @@
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.RhinoCommon.UI.Surfaces;
-using Rasm.UI;
-using Rasm.UI.Components;
-using Rhino;
-using UnitsNet;
+using Eto.Forms;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.UI.Rows;
 
-namespace Rasm.RhinoCommon.UI.Numeric;
+namespace Rasm.Rhino.UI.Numeric;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Sliders {
     // --- [ROWS]
-    public static ControlRow Numeric(string label, Slider track) =>
-        new ControlRow.Bound<Slider>(label, RowShape.Inline, track, static (latest, scope) =>
-            Scened(latest, static row => (row.Row.Drawn, new ScalarText(row.Row.Track(row.Row.Soft.IfNone(row.Row.Domain)), RowText.Culture) { Step = row.Row.Step, Decimals = row.Row.Decimals, Suffix = row.Row.Unit },
-                (row.Row.Domain.Low, row.Row.Domain.High), row.Row.Value, row.Row.Edited), square: false, scope));
-
-    public static ControlRow Turned(string label, Dial dial) =>
-        new ControlRow.Bound<Dial>(label, RowShape.Inline, dial, static (latest, scope) =>
-            Scened(latest, static row => (row.Row.Drawn, new ScalarText(row.Row.Axis, RowText.Culture) { Step = row.Row.Axis.Step(0f) },
-                (row.Row.Axis.Domain.Low, row.Row.Axis.Domain.High), row.Row.Value, row.Row.Edited), square: true, scope));
+    public static ControlRow Numeric(string label, double value, NumberRange range, Func<Edit<double>, IO<Unit>> edited) =>
+        new ControlRow.Bound<(double Value, NumberRange Range, Func<Edit<double>, IO<Unit>> Edited)>(label, RowShape.Inline, (value, range, edited), static (latest, scope) =>
+            from first in latest
+            from field in NumberFields.Scalar(first.Row.Range, edit => latest.Bind(current => current.Row.Edited(edit)), scope.Owner)
+            from track in use(static () => new Slider { MinValue = 0, SnapToTick = false })
+            let step = first.Row.Range.Step.IfNone(() => field.Control.Increment)
+            let ticks = (int)double.Ceiling((first.Row.Range.High - first.Row.Range.Low) / step)
+            let placed = fun((double held) => (int)double.Round((first.Row.Range.Clamped(held) - first.Row.Range.Low) / step, MidpointRounding.AwayFromZero))
+            let valued = fun((int tick) => first.Row.Range.Clamped(first.Row.Range.Low + (tick * step)))
+            from sized in IO.lift(() => { track.MaxValue = ticks; })
+            from change in ControlChange<EventArgs>.Attached(
+                Subscriptions.Host<EventArgs>(h => track.ValueChanged += h, h => track.ValueChanged -= h),
+                _ =>
+                    from current in latest
+                    from shown in field.Show(valued(track.Value))
+                    from previewed in current.Row.Edited(Edits.Preview(valued(track.Value)))
+                    select unit,
+                scope.Owner)
+            from committed in Subscriptions.Merged(
+                    Subscriptions.Host<MouseEventArgs>(h => track.MouseUp += h, h => track.MouseUp -= h).Choose(static _ => Some(EventArgs.Empty)),
+                    Subscriptions.Host<KeyEventArgs>(h => track.KeyUp += h, h => track.KeyUp -= h).Choose(static _ => Some(EventArgs.Empty)))
+                .Inline(_ => latest.Bind(current => current.Row.Edited(Edits.Commit(valued(track.Value)))), scope.Owner)
+            from line in RowGrid.Lined([new TableCell(track, scaleWidth: true), new TableCell(field.Control)])
+            select new RowCells(line,
+                from current in latest
+                from shown in field.Show(current.Row.Value)
+                from moved in change.Detached(IO.lift(() => { track.Value = placed(current.Row.Value); }))
+                select unit));
 
     public static ControlRow Distance(string label, Length value, (Length Low, Length High) domain, bool modelUnits, Func<Edit<Length>, IO<Unit>> edited) =>
         new ControlRow.Bound<(Length Value, (Length Low, Length High) Domain, bool ModelUnits, Func<Edit<Length>, IO<Unit>> Edited)>(
             label, RowShape.Inline, (value, domain, modelUnits, edited), static (latest, scope) =>
                 from row in latest
                 from doc in scope.DocumentIO
-                from text in Measure(doc, row.Row.Domain, row.Row.ModelUnits)
-                from field in use(() => new NumberField<Length>(text, row.Row.Domain, edit => latest.Bind(current => current.Row.Edited(edit)), scope.Owner))
-                from retexted in EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber).Inline(_ =>
-                    from current in latest
-                    from next in Measure(doc, current.Row.Domain, current.Row.ModelUnits)
-                    from retexted in field.Retext(next, current.Row.Domain)
-                    select retexted, scope.Owner)
-                select new RowCells(field, latest.Bind(current => field.Receive(current.Row.Value))));
-
-    // --- [REALIZE]
-    private static IO<RowCells> Scened<TRow>(
-        IO<ControlRow.Bound<TRow>> latest, Func<ControlRow.Bound<TRow>, (Node Drawn, NumberText<float> Text, (float Low, float High) Bounds, float Value, Func<Edit<float>, IO<Unit>> Edited)> read,
-        bool square, RowScope scope)
-        where TRow : notnull =>
-        from first in latest.Map(read)
-        from field in use(() => new NumberField<float>(first.Text, first.Bounds, edit => latest.Bind(current => read(current).Edited(edit)), scope.Owner))
-        from view in use(() => new SceneView(scope, new Node.Box()))
-        from squared in when(square, Subscriptions.Host<EventArgs>(h => field.SizeChanged += h, h => field.SizeChanged -= h)
-            .Inline(_ => IO.lift(() => { view.Width = field.Height; }), scope.Owner)).As()
-        from line in RowGrid.Lined([new(view, scaleWidth: !square), new(field)])
-        select new RowCells(line, latest.Bind(current => read(current) switch {
-            var shown =>
-                from drawn in view.Show(shown.Drawn with { Accessible = shown.Drawn.Accessible.Combine(new Accessible { Label = RowText.Localize(current.Label, scope.Owner).Local }) })
-                from retexted in field.Retext(shown.Text, shown.Bounds)
-                from received in field.Receive(shown.Value)
-                select unit,
-        }));
-
-    private static IO<NumberText<Length>> Measure(RhinoDoc doc, (Length Low, Length High) ends, bool modelUnits) =>
-        DistanceDisplay.Read(doc, modelUnits).Map<NumberText<Length>>(display => new DistanceText(modelUnits ? doc.ModelUnits : doc.PageUnits, display, ends));
+                from field in NumberFields.Distance(doc, row.Row.Domain, row.Row.ModelUnits, edit => latest.Bind(current => current.Row.Edited(edit)), scope.Owner)
+                select new RowCells(field.Control, latest.Bind(current => field.Show(current.Row.Value))));
 }

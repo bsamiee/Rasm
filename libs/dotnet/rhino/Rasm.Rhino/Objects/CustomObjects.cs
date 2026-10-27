@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Custom;
 
-namespace Rasm.RhinoCommon.Objects;
+namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union<CustomBrepObject, CustomCurveObject, CustomMeshObject, CustomPointObject>(

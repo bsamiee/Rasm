@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using Rhino.Render;
 using Rhino.Render.Fields;
 
-namespace Rasm.RhinoCommon.Render.Content;
+namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FieldBounds<T>(T Min, T Max);

@@ -1,8 +1,8 @@
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino.Render;
 
 namespace Darkroom.Chain;

@@ -1,8 +1,8 @@
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 using Rhino;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.Modeling.Meshes;
+namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -36,14 +36,16 @@ public sealed record MeshDiagnosis(bool Valid, MeshCheckParameters Counts, strin
                     return new MeshDefect.ZeroArea(toSeq(whole), toSeq(partial));
                 })),
                 (Counted: report.Counts.NakedEdgeCount > 0, Locate: IO.lift(MeshDefect () => new MeshDefect.Naked(Conversions.Rows(mesh.GetNakedEdges())))),
-                (Counted: report.Counts.SelfIntersectingPairsCount > 0, Locate: (
+                (Counted: report.Counts.SelfIntersectingPairsCount > 0, Locate:
                     from token in cancelToken
-                    from log in use(static () => new TextLog())
-                    from defect in IO.lift(() => RhinoFault.Unless(mesh.GetSelfIntersections(tolerances.MeshIntersection, out Polyline[] perforations, overlapsPolylines: true, out Polyline[] overlaps,
-                            overlapsMesh: false, out Mesh _, log, token, progress.ValueUnsafe()))
-                        .Map(MeshDefect (_) => new MeshDefect.SelfIntersecting(
-                            toSeq(mesh.Faces.GetClashingFacePairs(report.Counts.SelfIntersectingPairsCount)), Conversions.Rows(perforations), Conversions.Rows(overlaps))))
-                    select defect).Bracket()),
+                    from defect in IO.lift(() => {
+                        using TextLog log = new();
+                        return RhinoFault.Unless(mesh.GetSelfIntersections(tolerances.MeshIntersection, out Polyline[] perforations, overlapsPolylines: true, out Polyline[] overlaps,
+                                overlapsMesh: false, out Mesh _, log, token, progress.ValueUnsafe()))
+                            .Map(MeshDefect (_) => new MeshDefect.SelfIntersecting(
+                                toSeq(mesh.Faces.GetClashingFacePairs(report.Counts.SelfIntersectingPairsCount)), Conversions.Rows(perforations), Conversions.Rows(overlaps)));
+                    })
+                    select defect),
                 (Counted: report.Counts.DisjointMeshCount > 1, Locate: unitIO.Bind(_ => Products.Made(mesh.SplitDisjointPieces()))
                     .Map(static MeshDefect (pieces) => new MeshDefect.Disjoint(pieces))))
             .Filter(static kind => kind.Counted)

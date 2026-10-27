@@ -1,4 +1,4 @@
-"""Checks and fixes house style of markdown pages and source comments."""
+"""Checks and fixes markdown pages and source comments."""
 
 from functools import cache
 from pathlib import Path

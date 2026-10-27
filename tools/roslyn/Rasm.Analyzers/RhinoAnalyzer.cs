@@ -65,7 +65,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         "RASM2009",
         Category,
         "`GrayscaleDib` result read without null check, acquire through `Optional`",
-        "`{0}` returns null on macOS, acquire `Optional({0}).ToFin(new Refused(...))` with `use` and `[CallerArgumentExpression]` call text",
+        "`{0}` returns null on macOS, acquire it through `Products.Made` or `Conversions.Found`",
         "`ZBufferCapture.GrayscaleDib` results enter as first argument of `Optional` or a null-checking acquire");
 
     public static readonly DiagnosticDescriptor Page = Rule(
@@ -86,7 +86,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         "RASM2012",
         Category,
         "Owned `DisplayModeDescription` left undisposed, acquire through `use`",
-        "`{0}` returns an owned `DisplayModeDescription` copy no release reaches, acquire `Optional({0}).ToFin(new Refused(...))` with `use` and `[CallerArgumentExpression]` call text",
+        "`{0}` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `Products.Made` or `Conversions.Found`",
         "`DisplayModeDescription.GetDisplayMode`, `FindByName`, and `RhinoViewport.DisplayMode` copies reach `Dispose`, `using`, `use`, `release`, acquire, holder, or retaining call");
 
     public static readonly DiagnosticDescriptor Settings = Rule(
@@ -146,7 +146,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         if (rhino is { Command: { } command, CommandStyle: { } style, ScriptRunner: IFieldSymbol { ConstantValue: int runner } }) Scripts(context, rhino.RunScript, command, style, runner);
         if (!rhino.SetDisplayModeOverride.IsEmpty) Overrides(context, rhino.SetDisplayModeOverride);
         if (system.IsMacOS is { } mac) Platforms(context, rhino, system, mac);
-        if (rhino.GrayscaleDib is { } grayscale) Captures(context, grayscale, [.. rasm.UnlessFound, .. languageExt.Optional], rasm.Found);
+        if (rhino.GrayscaleDib is { } grayscale) Captures(context, grayscale, [.. rasm.Found, .. languageExt.Optional], rasm.Found);
         if (rhino is { ObjectPropertiesPage: { } page, PageControl: IPropertySymbol shown } && new EtoSymbols(compilation).Control is { } control) Pages(context, rasm, page, shown, control);
         Writes(context, rhino.Floating, Docked, static (assignment, _) => assignment is ISimpleAssignmentOperation { Value.ConstantValue: { HasValue: true, Value: false } });
         if (rhino.DisplayModeDescription is { } description && Lifetimes.Of(system, rasm, languageExt) is { } lifetimes) Modes(context, lifetimes, rhino.OwnedModes, description);

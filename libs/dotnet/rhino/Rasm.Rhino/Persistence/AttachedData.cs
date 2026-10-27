@@ -1,11 +1,11 @@
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino.Collections;
 using Rhino.DocObjects.Custom;
 using Rhino.FileIO;
 using Rhino.Runtime;
 
-namespace Rasm.RhinoCommon.Persistence;
+namespace Rasm.Rhino.Persistence;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class DefinedUserData<TState> : UserData where TState : notnull {
@@ -66,9 +66,9 @@ public static class AttachedData {
         IO.lift(() => codec.ToDictionary(payload)).Bind(dictionary => Write(writer, typeCode, dictionary));
 
     public static IO<Unit> Write(BinaryArchiveWriter writer, uint typeCode, ArchivableDictionary dictionary) =>
-        from begun in IO.lift(() => RhinoFault.Unless(writer.BeginWrite3dmChunk(typeCode, majorVersion: 1, minorVersion: 0)))
-        from written in IO.lift(() => writer.WriteDictionary(dictionary)).Finally(IO.lift(() => RhinoFault.Unless(writer.EndWrite3dmChunk())))
-        select written;
+        (from begun in use(IO.lift(() => RhinoFault.Unless(writer.BeginWrite3dmChunk(typeCode, majorVersion: 1, minorVersion: 0))), _ => IO.lift(() => RhinoFault.Unless(writer.EndWrite3dmChunk())))
+         from written in IO.lift(() => writer.WriteDictionary(dictionary))
+         select written).Bracket();
 
     public static IO<StoredRecord<T>> Read<T>(BinaryArchiveReader reader, uint typeCode, DictionaryCodec<T> codec) =>
         from begun in IO.lift(() => RhinoFault.Unless(reader.BeginRead3dmChunk(typeCode, out _, out _)))

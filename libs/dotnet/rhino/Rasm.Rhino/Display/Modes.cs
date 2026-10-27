@@ -4,20 +4,20 @@ using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Objects;
-using Rasm.RhinoCommon.UI;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Objects;
+using Rasm.Rhino.UI;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 using UUIDNext;
 
-namespace Rasm.RhinoCommon.Display;
+namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ModeEdit {
@@ -77,8 +77,8 @@ public sealed record ModeEdit {
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 internal sealed partial class ModeFlag {
     public static readonly ModeFlag Yes = new("y", value: true);
     public static readonly ModeFlag No = new("n", value: false);

@@ -10,7 +10,7 @@ using Rhino.DocObjects.Tables;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Document.Tables;
+namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record LayerPath(Seq<string> Ancestors, string Leaf) {

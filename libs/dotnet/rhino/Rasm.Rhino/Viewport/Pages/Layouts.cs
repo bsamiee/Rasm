@@ -3,16 +3,16 @@ using System.Globalization;
 using System.IO.Hashing;
 using LanguageExt.ClassInstances;
 using Rasm.Drafting;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 
-namespace Rasm.RhinoCommon.Viewport.Pages;
+namespace Rasm.Rhino.Viewport.Pages;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]

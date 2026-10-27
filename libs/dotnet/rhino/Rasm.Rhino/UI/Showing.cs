@@ -1,14 +1,14 @@
 using System.Runtime.CompilerServices;
 using Eto.Drawing;
 using Eto.Forms;
-using Rasm.RhinoCommon.Commands;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Settings;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.RhinoCommon.UI.Styling;
+using Rasm.Rhino.Commands;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Settings;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Input;
@@ -18,7 +18,7 @@ using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Forms;
 
-namespace Rasm.RhinoCommon.UI;
+namespace Rasm.Rhino.UI;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum TabVisibility { Hidden, Visible, Selected }
@@ -70,7 +70,7 @@ public static class Showing {
         let owner = window.Views
         from frame in use(() => new ViewHost(owner))
         from body in ViewBody.Open(owner, window.Row, Some(doc), new CommitMode.Immediate(), None).Under(frame.Scope)
-        from icon in window.Row.Icon.TraverseM(glyph => Icons.Themed(owner, glyph, IconSlot.Small, HostTheme.In(window), frames => window.Icon = frames)).As()
+        from icon in window.Row.Icon.TraverseM(art => Icons.Themed(owner, art, IconSlot.Small, HostTheme.In(window), frames => window.Icon = frames)).As()
         from seated in frame.Seat(window.Row, body.Content)
         from configured in IO.lift(() => {
             window.Title = RowText.Localize(window.Row.Caption, owner).Local;

@@ -15,8 +15,9 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `skills.dirs: []` disables agent skill links, pnpm offers no package skill for approval and removes links it created
 - `CI` set makes `pnpm install` frozen, a lock out of step with a `package.json` fails the install in place of a lock rewrite
 - `ncu --target newest` takes the latest publish, prereleases included, `greatest` takes abandoned prerelease lines with a higher number
+- Lock downgrade checks rank npm prereleases of one base by registry publish time where the first differing label is alphanumeric
 - `ncu --reject` skips rows `ncu` cannot pick (`typescript`, `tree-sitter-swift`'s suffixed tag), `eng/typescript/upgrade/typescript.ts` moves them
-- `pnpm install` keeps orphaned packages for `modulesCacheMaxAge`, `pnpm prune` removes them, then `playwright install` deletes unused browser builds
+- `pnpm install` keeps orphaned packages for `modulesCacheMaxAge`, `pnpm update` and `pnpm prune` remove them, then `playwright install` deletes unused browser builds
 
 ## [02]-[COMPILER]
 

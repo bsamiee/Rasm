@@ -4,7 +4,7 @@ using LanguageExt.ClassInstances;
 using Rhino;
 using Rhino.Display;
 
-namespace Rasm.RhinoCommon.Persistence;
+namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]

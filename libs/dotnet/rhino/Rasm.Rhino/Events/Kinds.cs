@@ -4,12 +4,13 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
+using ImageFile = Rhino.Render.ImageFile;
 using Rhino.PlugIns;
 using Rhino.Render;
 using Rhino.Runtime;
 using Rhino.UI;
 
-namespace Rasm.RhinoCommon.Events;
+namespace Rasm.Rhino.Events;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record TransformedObjects(Transform Transform, bool ObjectsWillBeCopied, Seq<Guid> ObjectIds, Seq<Guid> GripOwnerIds, int GripCount, Option<uint> Document) {
@@ -176,9 +177,9 @@ public static class EventKind {
         Subscriptions.Host<RenderPropertyChangedEvent>(static h => RenderChannels.Changed += h, static h => RenderChannels.Changed -= h).Documents(static args => args.Document);
     public static readonly HostEvent<AddCustomUISectionsEventArgs> OnAddCustomUISections =
         Subscriptions.Host<AddCustomUISectionsEventArgs>(static h => AddCustomUISections.OnAddCustomUISections += h, static h => AddCustomUISections.OnAddCustomUISections -= h);
-    public static readonly HostEvent<ImageFileEventArgs> ImageFileSaved = Subscriptions.Host<ImageFileEventArgs>(static h => Rhino.Render.ImageFile.Saved += h, static h => Rhino.Render.ImageFile.Saved -= h);
-    public static readonly HostEvent<ImageFileEventArgs> ImageFileLoaded = Subscriptions.Host<ImageFileEventArgs>(static h => Rhino.Render.ImageFile.Loaded += h, static h => Rhino.Render.ImageFile.Loaded -= h);
-    public static readonly HostEvent<ImageFileEventArgs> ImageFileDeleted = Subscriptions.Host<ImageFileEventArgs>(static h => Rhino.Render.ImageFile.Deleted += h, static h => Rhino.Render.ImageFile.Deleted -= h);
+    public static readonly HostEvent<ImageFileEventArgs> ImageFileSaved = Subscriptions.Host<ImageFileEventArgs>(static h => ImageFile.Saved += h, static h => ImageFile.Saved -= h);
+    public static readonly HostEvent<ImageFileEventArgs> ImageFileLoaded = Subscriptions.Host<ImageFileEventArgs>(static h => ImageFile.Loaded += h, static h => ImageFile.Loaded -= h);
+    public static readonly HostEvent<ImageFileEventArgs> ImageFileDeleted = Subscriptions.Host<ImageFileEventArgs>(static h => ImageFile.Deleted += h, static h => ImageFile.Deleted -= h);
 
     // --- [VIEWS]
     public static readonly DocumentEvent<ViewEventArgs> RhinoViewCreate = Subscriptions.Host<ViewEventArgs>(static h => RhinoView.Create += h, static h => RhinoView.Create -= h).Documents(static args => args.View.Document);

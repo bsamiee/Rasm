@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.VisualStudio.Threading;
 
-namespace Rasm.RhinoCommon;
+namespace Rasm.Rhino;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Callbacks {
@@ -34,11 +34,9 @@ public static class Callbacks {
             });
 
         public async Task<Fin<T>> SettledAsync() {
-            try {
-                return await effect.RunSafeAsync().ConfigureAwait(false);
-            } catch (OperationCanceledException exception) {
-                return Error.New(exception);
-            }
+            Task<Fin<T>> run = effect.RunSafeAsync().AsTask();
+            _ = await run.ContinueWith(static _ => unit, TaskScheduler.Default).ConfigureAwait(false);
+            return run.IsCompletedSuccessfully ? await run.ConfigureAwait(false) : Errors.Cancelled;
         }
     }
 
@@ -71,6 +69,6 @@ public static class Callbacks {
         items.Map(element).Strict().Traverse(static answer => answer).As();
 
     public static IO<Seq<T>> Each<T>(Seq<IO<T>> effects) =>
-        effects.TraverseM(static effect => effect.Map(Fin.Succ<T>).Catch(static error => IO.pure(Fin.Fail<T>(error)))).As()
+        effects.TraverseM(static effect => effect.Map(Fin.Succ).Catch(static error => IO.pure(Fin.Fail<T>(error)))).As()
             .Bind(static settled => IO.lift(settled.Traverse(static answer => answer).As()));
 }

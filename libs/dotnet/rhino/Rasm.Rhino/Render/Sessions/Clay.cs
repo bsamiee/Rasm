@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
-using Rasm.RhinoCommon.Objects;
-using Rasm.RhinoCommon.Render.Content;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Objects;
+using Rasm.Rhino.Render.Content;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -9,7 +9,7 @@ using Rhino.Render;
 using Rhino.Render.CustomRenderMeshes;
 using Rhino.Render.ParameterNames;
 
-namespace Rasm.RhinoCommon.Render.Sessions;
+namespace Rasm.Rhino.Render.Sessions;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 [Guid("1E61FAC0-CB0C-4245-A299-03464E5F6EDC")]
@@ -28,7 +28,7 @@ public sealed class ClayMeshProvider : DefinedMeshProvider {
                 (PhysicallyBased.BaseColor, Color4f.ApplyGamma(new Color4f(albedo, albedo, albedo, 1f), 1f / gamma)),
                 (PhysicallyBased.Roughness, 0.5)),
             (parameter, index) => RhinoFault.Unless(material.SetParameter(parameter.Name, parameter.Value), index))))
-        from provider in DefinedMeshProvider.Register(views => new ClayMeshProvider(views, document.RuntimeSerialNumber, material))(owner)
+        from provider in Register(views => new ClayMeshProvider(views, document.RuntimeSerialNumber, material))(owner)
         select unit;
 
     protected override IO<MeshProvision> Provides(MeshRequest request, RhinoDoc document, Guid objectId) =>

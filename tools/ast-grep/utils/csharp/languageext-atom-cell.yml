@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: languageext-atom-cell
-language: csharp
+language: csharplang
 utils:
     atom-type:
         regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<.*>\s*\??$'

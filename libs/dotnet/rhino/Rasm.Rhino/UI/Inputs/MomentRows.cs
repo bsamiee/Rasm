@@ -1,14 +1,13 @@
 using Eto.Drawing;
 using Eto.Forms;
 using NodaTime.Text;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.UI;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.UI.Rows;
 using Rhino.Render;
 using Rhino.UI.Controls;
 
-namespace Rasm.RhinoCommon.UI.Inputs;
+namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<int>]
@@ -55,7 +54,7 @@ public static class MomentRows {
                     Subscriptions.Host<EventArgs>(h => picker.ValueChanged += h, h => picker.ValueChanged -= h),
                     _ =>
                         from current in latest
-                        from answered in Optional(picker.Value).Map(static picked => LocalDateTime.FromDateTime(picked)).Traverse(wall => current.Row.Edited(Edit.Commit(current.Row.Part switch {
+                        from answered in Optional(picker.Value).Map(static picked => LocalDateTime.FromDateTime(picked)).Traverse(wall => current.Row.Edited(Edits.Commit(current.Row.Part switch {
                             DateTimePickerMode.Date => wall.Date.At(current.Row.Value.TimeOfDay),
                             DateTimePickerMode.Time => current.Row.Value.Date.At(wall.TimeOfDay),
                             _ => wall,
@@ -89,7 +88,7 @@ public static class MomentRows {
                         from current in latest
                         from routed in (Optional(start.Value), Optional(end.Value))
                             .Apply(static (first, last) => new DateInterval(LocalDate.FromDateTime(first), LocalDate.FromDateTime(last))).As()
-                            .Traverse(picked => current.Row.Edited(Edit.Commit(picked))).As()
+                            .Traverse(picked => current.Row.Edited(Edits.Commit(picked))).As()
                         select unit,
                     scope.Owner)
                 select new RowCells(table, from current in latest

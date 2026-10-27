@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union<Unit, bool, TypeParamRef1>(T1Name = "Completed", T2Name = "Changed", T3Name = "Count", T1IsStateless = true, MapMethods = SwitchMapMethodsGeneration.None)]

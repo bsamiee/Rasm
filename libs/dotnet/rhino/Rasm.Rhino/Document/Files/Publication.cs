@@ -1,7 +1,7 @@
 using Mono.Unix;
 using Mono.Unix.Native;
 
-namespace Rasm.RhinoCommon.Document.Files;
+namespace Rasm.Rhino.Document.Files;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FilePublication {

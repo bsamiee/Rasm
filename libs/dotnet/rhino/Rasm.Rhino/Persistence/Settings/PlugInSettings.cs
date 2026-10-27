@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Text.Json;
-using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.Rhino.Persistence.Stores;
 using Rhino;
 using Rhino.PlugIns;
 
-namespace Rasm.RhinoCommon.Persistence.Settings;
+namespace Rasm.Rhino.Persistence.Settings;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public delegate bool SettingRead<T>(PersistentSettings settings, string key, out T value, IEnumerable<string> legacyKeyList);

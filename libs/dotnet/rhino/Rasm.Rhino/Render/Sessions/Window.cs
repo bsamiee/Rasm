@@ -1,10 +1,10 @@
 using System.Drawing;
-using Rasm.RhinoCommon.Render.Effects;
+using Rasm.Rhino.Render.Effects;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
 
-namespace Rasm.RhinoCommon.Render.Sessions;
+namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record WireframeRegion(RhinoDoc Document, ViewportInfo Viewport, Rectangle Region);
@@ -32,7 +32,7 @@ public sealed record WindowChannels(
     HashSet<RenderWindow.StandardChannels> Available,
     Option<RenderWindow.StandardChannels> Shown);
 
-public sealed record ChannelPixels(Size Size, Memory<float> Pixels);
+public sealed record ChannelPixels(Size Size, ReadOnlyMemory<float> Pixels);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RenderWindows {

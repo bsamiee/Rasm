@@ -1,22 +1,21 @@
 using Eto.Forms;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.RhinoCommon.UI.Styling;
-using Rasm.UI;
+using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino.UI.Controls;
 
-namespace Rasm.RhinoCommon.UI.Inputs;
+namespace Rasm.Rhino.UI.Inputs;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ButtonRows {
     // --- [ROWS]
-    public static ControlRow Pushed(Command<RowRule, Invoke>.Run run) =>
-        new ControlRow.Bound<Command<RowRule, Invoke>.Run>(run.Face.Caption, RowShape.Unlabeled, run, static (latest, scope) =>
+    public static ControlRow Pushed(Command<Invoke>.Run run) =>
+        new ControlRow.Bound<Command<Invoke>.Run>(run.Face.Caption, RowShape.Unlabeled, run, static (latest, scope) =>
             from row in latest
             from button in CommandRows.Button(row.Row, IconSlot.PanelButton, scope)
             select new RowCells(button.Control, button.Refresh)) { Help = run.Face.Help };
 
     // --- [GROUPS]
-    public static IO<(AddRemoveButton Control, IO<Unit> Refresh)> AddRemove(Command<RowRule, Invoke>.Run add, Command<RowRule, Invoke>.Run remove, RowScope scope) =>
+    public static IO<(AddRemoveButton Control, IO<Unit> Refresh)> AddRemove(Command<Invoke>.Run add, Command<Invoke>.Run remove, RowScope scope) =>
         from adding in Bound(add, scope)
         from removing in Bound(remove, scope)
         from pair in use(static () => new AddRemoveButton())
@@ -26,7 +25,7 @@ public static class ButtonRows {
         from refresh in CommandRows.Listened(Seq(adding.Refresh, removing.Refresh), scope)
         select (pair, refresh);
 
-    public static IO<(StackLayout Control, IO<Unit> Refresh)> Strip(Seq<Seq<Command<RowRule, Invoke>>> groups, IconSlot slot, RowScope scope) =>
+    public static IO<(StackLayout Control, IO<Unit> Refresh)> Strip(Seq<Seq<Command<Invoke>>> groups, IconSlot slot, RowScope scope) =>
         from clusters in CommandRows.Localized(groups, scope.Owner).Filter(static cluster => !cluster.IsEmpty).TraverseM(cluster =>
             from pressed in cluster.TraverseM(command => CommandRows.Pressed(command, slot, scope)).As()
             from row in Containers.Frame(static () => new RhinoButtonRow { VerticalContentAlignment = VerticalAlignment.Center })
@@ -40,7 +39,7 @@ public static class ButtonRows {
         from refresh in CommandRows.Listened(clusters.Bind(static cluster => cluster.Refreshes), scope)
         select (strip, refresh);
 
-    private static IO<(Command Command, IO<Unit> Refresh)> Bound(Command<RowRule, Invoke>.Run run, RowScope scope) =>
+    private static IO<(Command Command, IO<Unit> Refresh)> Bound(Command<Invoke>.Run run, RowScope scope) =>
         IO.lift(static () => new Command()).Bind(command =>
             CommandRows.Bound(run, CommandRows.Localized(run.Face, Some(run.Invoke), scope.Owner), run.Enabled, command, IO.pure(unit), scope));
 

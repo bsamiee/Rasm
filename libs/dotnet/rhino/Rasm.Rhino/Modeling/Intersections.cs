@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Modeling.Curves;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Modeling.Curves;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 using Rhino.Geometry.Intersect;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

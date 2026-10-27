@@ -1,7 +1,7 @@
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 using Rasm.Spatial;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Fields {
@@ -12,13 +12,13 @@ public static class Fields {
 
     public static ScalarField Distance(Proximity source) =>
         new ScalarField.Measured(compose(static (Vector3D<double> point) => point.ToPoint3d(), Unsigned(source)), source.Switch(
-            curve: static curve => (GeometryBase)curve.Geometry,
-            surface: static surface => surface.Geometry,
-            face: static face => face.Geometry,
-            brep: static brep => brep.Geometry,
-            mesh: static mesh => mesh.Geometry,
-            subD: static subd => subd.Geometry,
-            cloud: static cloud => cloud.Geometry).GetBoundingBox(accurate: true).ToBounds());
+            onCurve: static curve => (GeometryBase)curve.Geometry,
+            onSurface: static surface => surface.Geometry,
+            onFace: static face => face.Geometry,
+            onBrep: static brep => brep.Geometry,
+            onMesh: static mesh => mesh.Geometry,
+            onSubD: static subd => subd.Geometry,
+            onCloud: static cloud => cloud.Geometry).GetBoundingBox(accurate: true).ToBounds());
 
     public static ScalarField Signed(Tolerances tolerances, Interior region) =>
         Boundary(region) switch {
@@ -33,15 +33,17 @@ public static class Fields {
     private static Func<Point3d, double> Unsigned(Proximity source) => point => source.Nearest([point], None).Head.Bind(static found => found).Map(point.DistanceTo).IfNone(double.NaN);
 
     private static Func<Point3d, double> Boundary(Interior region) => region.Switch(
-        solid: static solid => Unsigned(new Proximity.Brep(solid.Brep)),
-        closed: static closed => Unsigned(new Proximity.Mesh(closed.Mesh)),
-        planar: static planar => (Unsigned(new Proximity.Curve(planar.Curve)), planar.Plane) switch { var (inPlane, plane) => point => inPlane(plane.ClosestPoint(point)) });
+        solid: static solid => Unsigned(new Proximity.OnBrep(solid.Brep)),
+        closed: static closed => Unsigned(new Proximity.OnMesh(closed.Mesh)),
+        planar: static planar => (Unsigned(new Proximity.OnCurve(planar.Curve)), planar.Plane) switch { var (inPlane, plane) => point => inPlane(plane.ClosestPoint(point)) });
 
     // --- [MESHING]
     public static IO<Mesh> Isosurface(ScalarField field, int resolution, int rootFindingSteps, Option<BoundingBox> box = default) =>
-        from grid in IO.lift(() => Conversions.Found(box.Map(given => (Box: given, Resolution: resolution))
+        from grid in IO.lift(() =>
+            from found in Conversions.Found(box.Map(given => (Box: given, Resolution: resolution))
                 | field.Bounds.Map(bounds => (Box: bounds.Inflated(bounds.ToBoundingBox().Diagonal.MinimumCoordinate / resolution).ToBoundingBox(), Resolution: resolution + 2)))
-            .Bind(static grid => RhinoFault.Unless(grid.Box.IsValid && grid.Box.IsDegenerate(0d) is 0).Map(_ => grid)))
+            from valid in RhinoFault.Unless(found.Box.IsValid && found.Box.IsDegenerate(0d) is 0)
+            select found)
         from mesh in Products.Made(Mesh.CreateFromIsosurface(point => field.Distance(point.ToVector3D()), grid.Box, grid.Resolution, rootFindingSteps))
         select mesh;
 }

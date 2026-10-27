@@ -2,7 +2,7 @@ using Rhino;
 using Rhino.DocObjects;
 using UnitsNet;
 
-namespace Rasm.RhinoCommon.Document;
+namespace Rasm.Rhino.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record GeoCoordinate(Angle Latitude, Angle Longitude) {

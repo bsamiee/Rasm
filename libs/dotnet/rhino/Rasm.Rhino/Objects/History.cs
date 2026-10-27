@@ -4,12 +4,12 @@ using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Condensation;
 using QuikGraph.Algorithms.Search;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
 
-namespace Rasm.RhinoCommon.Objects;
+namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record HistoryInput(int Id, Func<RhinoDoc, HistoryRecord, IO<Unit>> Write);
@@ -31,51 +31,51 @@ public abstract partial record HistoryOutput {
 public static class Histories {
     // --- [KEYS]
     public static HistoryKey<bool> Bool(int id) =>
-        Plain<bool>(id, static (record, slot, value) => RhinoFault.Unless(record.SetBool(slot, value), slot),
+        Plain(id, static (record, slot, value) => RhinoFault.Unless(record.SetBool(slot, value), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetBool(slot, out bool value), slot).Map(_ => value));
 
     public static HistoryKey<int> Int(int id) =>
-        Plain<int>(id, static (record, slot, value) => RhinoFault.Unless(record.SetInt(slot, value), slot),
+        Plain(id, static (record, slot, value) => RhinoFault.Unless(record.SetInt(slot, value), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetInt(slot, out int value), slot).Map(_ => value));
 
     public static HistoryKey<Seq<int>> Ints(int id) =>
-        Plain<Seq<int>>(id, static (record, slot, values) => RhinoFault.Unless(record.SetInts(slot, values), slot),
+        Plain(id, static (record, slot, values) => RhinoFault.Unless(record.SetInts(slot, values), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetInts(slot, out int[] values), slot).Map(_ => toSeq(values)));
 
     public static HistoryKey<double> Double(int id) =>
-        Plain<double>(id, static (record, slot, value) => RhinoFault.Unless(record.SetDouble(slot, value), slot),
+        Plain(id, static (record, slot, value) => RhinoFault.Unless(record.SetDouble(slot, value), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetDouble(slot, out double value), slot).Map(_ => value));
 
     public static HistoryKey<Seq<double>> Doubles(int id) =>
-        Plain<Seq<double>>(id, static (record, slot, values) => RhinoFault.Unless(record.SetDoubles(slot, values), slot),
+        Plain(id, static (record, slot, values) => RhinoFault.Unless(record.SetDoubles(slot, values), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetDoubles(slot, out double[] values), slot).Map(_ => toSeq(values)));
 
     public static HistoryKey<Point3d> Point3d(int id) =>
-        Plain<Point3d>(id, static (record, slot, value) => RhinoFault.Unless(record.SetPoint3d(slot, value), slot),
+        Plain(id, static (record, slot, value) => RhinoFault.Unless(record.SetPoint3d(slot, value), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetPoint3d(slot, out Point3d value), slot).Map(_ => value));
 
     public static HistoryKey<Vector3d> Vector3d(int id) =>
-        Plain<Vector3d>(id, static (record, slot, value) => RhinoFault.Unless(record.SetVector3d(slot, value), slot),
+        Plain(id, static (record, slot, value) => RhinoFault.Unless(record.SetVector3d(slot, value), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetVector3d(slot, out Vector3d value), slot).Map(_ => value));
 
     public static HistoryKey<Transform> Transform(int id) =>
-        Plain<Transform>(id, static (record, slot, value) => RhinoFault.Unless(record.SetTransorm(slot, value), slot),
+        Plain(id, static (record, slot, value) => RhinoFault.Unless(record.SetTransorm(slot, value), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetTransform(slot, out Transform value), slot).Map(_ => value));
 
     public static HistoryKey<Color> Color(int id) =>
-        Plain<Color>(id, static (record, slot, value) => RhinoFault.Unless(record.SetColor(slot, value), slot),
+        Plain(id, static (record, slot, value) => RhinoFault.Unless(record.SetColor(slot, value), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetColor(slot, out Color value), slot).Map(_ => value));
 
     public static HistoryKey<Guid> Guid(int id) =>
-        Plain<Guid>(id, static (record, slot, value) => RhinoFault.Unless(record.SetGuid(slot, value), slot),
+        Plain(id, static (record, slot, value) => RhinoFault.Unless(record.SetGuid(slot, value), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetGuid(slot, out Guid value), slot).Map(_ => value));
 
     public static HistoryKey<Seq<Guid>> Guids(int id) =>
-        Plain<Seq<Guid>>(id, static (record, slot, values) => RhinoFault.Unless(record.SetGuids(slot, values), slot),
+        Plain(id, static (record, slot, values) => RhinoFault.Unless(record.SetGuids(slot, values), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetGuids(slot, out Guid[] values), slot).Map(_ => toSeq(values)));
 
     public static HistoryKey<string> String(int id) =>
-        Plain<string>(id, static (record, slot, value) => RhinoFault.Unless(record.SetString(slot, value), slot),
+        Plain(id, static (record, slot, value) => RhinoFault.Unless(record.SetString(slot, value), slot),
             static (data, slot) => RhinoFault.Unless(data.TryGetString(slot, out string value), slot).Map(_ => value));
 
     public static HistoryKey<PickCapture> ObjRef(int id) =>

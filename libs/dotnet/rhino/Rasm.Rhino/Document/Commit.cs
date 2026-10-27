@@ -3,7 +3,7 @@ using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
 
-namespace Rasm.RhinoCommon.Document;
+namespace Rasm.Rhino.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]

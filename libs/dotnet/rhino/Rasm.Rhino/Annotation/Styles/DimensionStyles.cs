@@ -1,14 +1,14 @@
 using System.Runtime.CompilerServices;
 using LanguageExt.ClassInstances;
 using Rasm.Drafting;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Objects;
-using Rasm.RhinoCommon.Persistence;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Objects;
+using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.DocObjects;
 
-namespace Rasm.RhinoCommon.Annotation.Styles;
+namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

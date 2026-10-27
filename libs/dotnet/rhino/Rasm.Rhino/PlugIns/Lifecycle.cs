@@ -6,15 +6,14 @@ using System.Runtime.Loader;
 using Eto;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Rasm.RhinoCommon.Persistence.Settings;
-using Rasm.RhinoCommon.PlugIns.Licenses;
-using Rasm.RhinoCommon.UI;
-using Rasm.RhinoCommon.UI.Surfaces;
+using Rasm.Rhino.Persistence.Settings;
+using Rasm.Rhino.PlugIns.Licenses;
+using Rasm.Rhino.UI;
 using Rhino.Commands;
 using Rhino.PlugIns;
 using Rhino.Runtime;
 
-namespace Rasm.RhinoCommon.PlugIns;
+namespace Rasm.Rhino.PlugIns;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IPlugInLifetime {
@@ -118,13 +117,12 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
         from published in views.SwapIO(_ => collection)
         from dependencies in PlugInRegistry.LoadPlugIns(definition.Dependencies)
         from registered in PlugInSettings.RegisterAll(((IPlugInViews)plugIn).Settings, HostDialogs.Suppressions(collection))
-        from opened in Session.Open<IPlugInViews>(plugIn, [
+        from opened in Session.Open(plugIn, [
             Notifications.NotificationActivated,
             ViewRegistration.RegisterPanels,
             ViewRegistration.AddCustomUISections,
             Toolbars.Registered,
             DocumentArchive.Rewrites,
-            .. SceneView.Opened(collection, definition.Clock),
             .. definition.Acquisitions,
             _ => IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type))),
         ])

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Roslyn analyzers reporting repository rules that resolved symbols, types, and operations decide</Description>
+        <Description>Repository conventions that need semantic analysis, enforced as compile errors</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Analyzer Authoring">

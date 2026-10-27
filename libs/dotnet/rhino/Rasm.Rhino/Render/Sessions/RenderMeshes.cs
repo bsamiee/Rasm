@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Globalization;
-using Rasm.RhinoCommon.Commands;
-using Rasm.RhinoCommon.Modeling;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Commands;
+using Rasm.Rhino.Modeling;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -10,7 +10,7 @@ using Rhino.PlugIns;
 using Rhino.Render.CustomRenderMeshes;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Render.Sessions;
+namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record MeshRequest(MeshType Type, ViewportInfo Viewport, RenderMeshProvider.Flags Flags, Option<PlugIn> Requester, Option<DisplayPipelineAttributes> Display);
@@ -126,19 +126,19 @@ public static class Meshing {
     public static IO<MeshBatch> MeshObjects(Seq<RhinoObject> rhinoObjects, MeshingParameters parameters, MeshRun run) =>
         from made in IO.lift(() => run.Switch(
             (Objects: rhinoObjects, Parameters: parameters),
-            unattended: static (state, unattended) => new MeshMade(
-                Results.Ended(RhinoObject.MeshObjects(state.Objects, state.Parameters, out Mesh[] meshes, out ObjectAttributes[] attributes, unattended.WorkerThread)), meshes, attributes, None),
+            unattended: static (state, unattended) =>
+                (Ended: Results.Ended(RhinoObject.MeshObjects(state.Objects, state.Parameters, out Mesh[] meshes, out ObjectAttributes[] attributes, unattended.WorkerThread)),
+                    Meshes: Products.Made(meshes), Attributes: Products.Made(attributes), Style: Option<int>.None),
             styled: static (state, styled) => {
                 int style = styled.Interface;
-                return new MeshMade(
-                    Results.Ended(RhinoObject.MeshObjects(state.Objects, ref state.Parameters, ref style, styled.Xform, out Mesh[] meshes, out ObjectAttributes[] attributes)), meshes, attributes, Some(style));
+                return (
+                    Ended: Results.Ended(RhinoObject.MeshObjects(state.Objects, ref state.Parameters, ref style, styled.Xform, out Mesh[] meshes, out ObjectAttributes[] attributes)),
+                    Meshes: Products.Made(meshes), Attributes: Products.Made(attributes), Style: Some(style));
             }))
-        from meshes in Products.Made(made.Meshes)
-        from attributes in Products.Made(made.Attributes)
+        from meshes in made.Meshes
+        from attributes in made.Attributes
         from ended in IO.lift(made.Ended)
         select new MeshBatch(meshes.Zip(attributes, static (mesh, row) => new MeshRow(mesh, row)), made.Style);
 
     private sealed record MeshRead(RenderMeshes Meshes, RenderMeshProvider.Flags Flags);
-
-    private sealed record MeshMade(Fin<Unit> Ended, Mesh[]? Meshes, ObjectAttributes[]? Attributes, Option<int> Style);
 }

@@ -1,13 +1,13 @@
 using System.Drawing;
 using Eto.Forms;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Settings;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.Render.Content;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.UI;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Settings;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.Render.Content;
+using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -16,7 +16,7 @@ using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
-namespace Rasm.RhinoCommon.UI;
+namespace Rasm.Rhino.UI;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IPlugInViews : IPlugInLifetime {
@@ -98,7 +98,7 @@ public abstract partial record ContentScope {
 
 public sealed record ContentMenuRow(
     string Caption,
-    GlyphSource Icon,
+    IconResource Icon,
     ContentScope Scope,
     HashSet<RenderContentMenu.Context> Contexts,
     RenderContentMenu.SeparatorStyle Separator,
@@ -109,7 +109,7 @@ public sealed record ContentMenuRow(
 public abstract partial record View {
     public required Type Identity { get; init; }
     public required string Caption { get; init; }
-    public Option<GlyphSource> Icon { get; init; }
+    public Option<IconResource> Icon { get; init; }
     public Option<HelpTopic> Help { get; init; }
     public Option<RowRule> Enabled { get; init; }
     public Option<RowRule> Visible { get; init; }
@@ -133,7 +133,7 @@ public abstract partial record View {
 
     public sealed record Section : View {
         public required Either<Func<Section, IPlugInViews, DefinedSection>, Func<Section, IPlugInViews, DefinedContentSection>> Create { get; init; }
-        public Seq<Command<RowRule, Invoke>> Actions { get; init; }
+        public Seq<Command<Invoke>> Actions { get; init; }
     }
 
     public sealed record OptionsPage : View {
@@ -226,16 +226,17 @@ public static class ViewOps {
     public static SettingsNode Settings(IPlugInViews owner, View view) => owner.Settings.Child(EntryKey.TypeOwner(view.Identity.GUID));
 
     public static Fin<Option<HistoryBinding>> History(IPlugInViews owner, View view, BindingGroup bound, Option<RhinoDoc> document) =>
-        view.Store
-            .Bind(store => owner.Frames.Choose(static frame => Optional(frame as HistoryFrame)).Head.Map(frame => store.Switch(
-                    (Owner: owner, View: view, Document: document, Frame: frame),
-                    applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Frame.Registry),
-                    documentStores: static (state, held) => state.Document
-                        .Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw, state.Owner))
-                        .ToFin(new RhinoFault(state.View.Identity.Name, RhinoReason.Unheld)))
-                .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, owner).Local, bound, scope, frame.Limits, owner.Clock))))
-            .Traverse(static held => held)
-            .As();
+        (from store in view.Store
+         from frame in owner.Frames.Choose(static frame => Optional(frame as HistoryFrame)).Head
+         select store.Switch(
+                 (Owner: owner, View: view, Document: document, Frame: frame),
+                 applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Frame.Registry),
+                 documentStores: static (state, held) => state.Document
+                     .Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw, state.Owner))
+                     .ToFin(new RhinoFault(state.View.Identity.Name, RhinoReason.Unheld)))
+             .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, owner).Local, bound, scope, frame.Limits, owner.Clock)))
+        .Traverse(static held => held)
+        .As();
 
     // --- [REALIZATION]
     public static IO<Control> Realize(IPlugInViews owner, Seq<Child> children, RowScope scope) =>
@@ -269,11 +270,15 @@ public static class ViewOps {
         };
 
     // --- [LISTENERS]
+    public static HostEvent<bool> Loaded(Control control) =>
+        Subscriptions.Merged(
+            Subscriptions.Host<EventArgs>(h => control.LoadComplete += h, h => control.LoadComplete -= h).Choose(static _ => Some(value: true)),
+            Subscriptions.Host<EventArgs>(h => control.UnLoad += h, h => control.UnLoad -= h).Choose(static _ => Some(value: false)));
+
     public static IO<Unit> WhileLoaded(Control control, IO<Unit> listen, IPlugInLifetime owner) =>
         from scope in IO.env
         from held in IO.lift(static () => Ref(Option<Lease<Unit>>.None))
-        from loaded in Subscriptions.Host<EventArgs>(h => control.LoadComplete += h, h => control.LoadComplete -= h).Inline(_ => Toggled(held, shown: true, listen).Under(scope), owner)
-        from unloaded in Subscriptions.Host<EventArgs>(h => control.UnLoad += h, h => control.UnLoad -= h).Inline(_ => Toggled(held, shown: false, listen).Under(scope), owner)
+        from changes in Loaded(control).Inline(shown => Toggled(held, shown, listen).Under(scope), owner)
         from current in IO.lift(() => control.Loaded).Bind(shown => Toggled(held, shown, listen))
         select unit;
 

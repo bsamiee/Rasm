@@ -3,7 +3,7 @@ using Rhino;
 using Rhino.Runtime;
 using Rhino.Runtime.RhinoAccounts;
 
-namespace Rasm.RhinoCommon.PlugIns.Licenses;
+namespace Rasm.Rhino.PlugIns.Licenses;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record AccountClient(string ClientId, string ClientSecret);

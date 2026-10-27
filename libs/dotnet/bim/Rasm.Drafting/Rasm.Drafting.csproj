@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>ISO, ASME, and national CAD drafting standards as validated values for technical drawing apps and plug-ins</Description>
+        <Description>Drafting standards as typed values that reject nonconforming data</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Core">

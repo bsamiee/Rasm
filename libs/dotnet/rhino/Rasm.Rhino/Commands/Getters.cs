@@ -1,7 +1,7 @@
 using System.Drawing;
-using Rasm.RhinoCommon.Document.Units;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Collections;
@@ -11,7 +11,7 @@ using Rhino.Input;
 using Rhino.Input.Custom;
 using Rhino.PlugIns;
 
-namespace Rasm.RhinoCommon.Commands;
+namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ViewFrame(ViewportTarget Viewport, Plane ConstructionPlane);
@@ -294,7 +294,7 @@ public static class Getters {
 
     // --- [ENTRY]
     public static IO<T> Number<T>(RhinoDoc doc, EntryRequest<GetNumber, double, T> request, Func<Entered<double>, IO<T>> entered) =>
-        Number<double, T>(doc, request, identity, identity, entered);
+        Number(doc, request, identity, identity, entered);
 
     public static IO<T> Integer<T>(RhinoDoc doc, EntryRequest<GetInteger, int, T> request, Func<Entered<int>, IO<T>> entered) =>
         Run(
@@ -370,7 +370,7 @@ public static class Getters {
 
     // --- [STAGES]
     public static IO<TValue> Stages<TStage, TValue>(TStage entry, Func<TStage, StageKit<TStage, TValue>, IO<StageStep<TStage, TValue>>> prompt) =>
-        Monad.recur<IO, StageTrail<TStage>, TValue>(new StageTrail<TStage>(entry, []), trail => StageStep<TStage, TValue>.Transition(trail, prompt)).As();
+        Monad.recur(new StageTrail<TStage>(entry, []), trail => StageStep<TStage, TValue>.Transition(trail, prompt)).As();
 
     // --- [AWAIT]
     public static IO<T> Await<T>(RhinoDoc doc, string prompt, Option<string> progress, Func<IProgress<double>, IO<T>> work) =>

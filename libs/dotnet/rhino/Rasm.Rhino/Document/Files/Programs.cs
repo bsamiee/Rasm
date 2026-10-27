@@ -2,7 +2,7 @@ using Rhino;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.Document.Files;
+namespace Rasm.Rhino.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

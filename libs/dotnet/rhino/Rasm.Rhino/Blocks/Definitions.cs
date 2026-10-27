@@ -1,16 +1,16 @@
 using System.Drawing;
 using LanguageExt.ClassInstances;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Modeling;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Modeling;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Custom;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.Blocks;
+namespace Rasm.Rhino.Blocks;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum ReferenceScope { TopLevel = 0, TopLevelAndNested = 1, FromOtherDefinitions = 2 }

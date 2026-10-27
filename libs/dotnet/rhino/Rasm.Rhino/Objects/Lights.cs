@@ -1,6 +1,6 @@
 using System.Drawing;
 using System.Globalization;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -10,7 +10,7 @@ using Riok.Mapperly.Abstractions;
 using UnitsNet;
 using Wacton.Unicolour;
 
-namespace Rasm.RhinoCommon.Objects;
+namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Emission(Color4f Light, double Luminance);

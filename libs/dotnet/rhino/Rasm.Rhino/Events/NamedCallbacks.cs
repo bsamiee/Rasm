@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Rhino.Runtime;
 
-namespace Rasm.RhinoCommon.Events;
+namespace Rasm.Rhino.Events;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class NamedCallbacks {

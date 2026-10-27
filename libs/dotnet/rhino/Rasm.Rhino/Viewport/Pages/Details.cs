@@ -1,12 +1,12 @@
 using Rasm.Drafting;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Document.Units;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using UnitsNet;
 
-namespace Rasm.RhinoCommon.Viewport.Pages;
+namespace Rasm.Rhino.Viewport.Pages;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DetailState(Option<string> Name = default, Option<DrawingScale> Scale = default, Option<bool> ProjectionLocked = default, Option<bool> Active = default) {

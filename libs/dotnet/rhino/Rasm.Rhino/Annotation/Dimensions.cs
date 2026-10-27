@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using System.Diagnostics;
-using Rasm.RhinoCommon.Annotation.Styles;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Annotation.Styles;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Annotation;
+namespace Rasm.Rhino.Annotation;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

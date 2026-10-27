@@ -1,21 +1,14 @@
-using System.Runtime.CompilerServices;
 using Eto.Drawing;
 using Eto.Forms;
 using LanguageExt.ClassInstances;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Settings;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.RhinoCommon.UI.Styling;
-using Rasm.RhinoCommon.UI.Surfaces;
-using Rasm.UI;
-using Rasm.UI.Components;
-using Rasm.UI.Styling;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino.UI;
 using Rhino.UI.Controls;
-using SkiaSharp;
 
-namespace Rasm.RhinoCommon.UI.Inputs;
+namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -30,12 +23,12 @@ public abstract partial record ListColumn<TItem> where TItem : notnull {
 
     public bool Stretches => Map(label: true, check: false, glyph: false, progress: true);
 
-    public sealed record Label(Option<string> Caption, Func<TItem, string> Read, Option<Func<TItem, GlyphSource>> Icon, Option<Func<TItem, string, Fin<TItem>>> Rename)
+    public sealed record Label(Option<string> Caption, Func<TItem, string> Read, Option<Func<TItem, IconResource>> Icon, Option<Func<TItem, string, Fin<TItem>>> Rename)
         : ListColumn<TItem>(Caption);
 
     public sealed record Check(Option<string> Caption, Lens<TItem, bool> Value) : ListColumn<TItem>(Caption);
 
-    public sealed record Glyph(Option<string> Caption, Func<TItem, GlyphSource> Icon) : ListColumn<TItem>(Caption);
+    public sealed record Glyph(Option<string> Caption, Func<TItem, IconResource> Icon) : ListColumn<TItem>(Caption);
 
     public sealed record Progress(Option<string> Caption, Func<TItem, Option<float>> Read) : ListColumn<TItem>(Caption);
 }
@@ -60,29 +53,18 @@ public sealed record ListRow<TItem, TKey>(IterableNE<ListColumn<TItem>> Columns,
     public Option<Func<TItem, bool>> Available { get; init; }
     public Option<Func<TItem, IO<Unit>>> Activate { get; init; }
     public Option<string> Empty { get; init; }
-    public Option<(Command<RowRule, Invoke>.Run Add, Command<RowRule, Invoke>.Run Remove)> Pair { get; init; }
-    public Func<IO<Seq<TItem>>, Seq<Command<RowRule, Invoke>>> Commands { get; init; } = static _ => [];
+    public Option<(Command<Invoke>.Run Add, Command<Invoke>.Run Remove)> Pair { get; init; }
+    public Func<IO<Seq<TItem>>, Seq<Command<Invoke>>> Commands { get; init; } = static _ => [];
     public bool AllowMultipleSelection { get; init; }
 }
 
-public sealed record TileMark<TItem>(string Caption, GlyphSource On, GlyphSource Off, Lens<TItem, bool> Value) where TItem : notnull;
-
-public sealed record BrowserRow<TItem>(Func<TItem, Key> Key, Func<TItem, string> Label, Func<RowScope, TItem, SKSizeI, IO<SKImage>> Tile, Seq<TItem> Items, string Empty)
-    where TItem : notnull {
-    public Func<Edit<Seq<TItem>>, IO<Unit>> Edited { get; init; } = static _ => IO.pure(unit);
-    public Option<Key> Current { get; init; }
-    public Func<Edit<Key>, IO<Unit>> Chosen { get; init; } = static _ => IO.pure(unit);
-    public Factor Aspect { get; init; } = Factor.Unit;
-    public Option<float> TileSize { get; init; }
-    public Option<Func<Edit<float>, IO<Unit>>> Resized { get; init; }
-    public bool Numbered { get; init; }
-    public bool Reorders { get; init; }
+public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, string> Label, Func<RowScope, TItem, Size, IO<Image>> Tile, Seq<TItem> Items, Size TileSize, string Empty)
+    where TItem : notnull
+    where TKey : notnull {
+    public Option<TKey> Current { get; init; }
+    public Func<Edit<TKey>, IO<Unit>> Chosen { get; init; } = static _ => IO.pure(unit);
     public Option<ListSearch<TItem>> Search { get; init; }
-    public Seq<TileMark<TItem>> Marks { get; init; }
-    public Option<Func<TItem, Option<string>>> File { get; init; }
-    public Option<Func<RowScope, TItem, IO<Unit>>> Preview { get; init; }
-    public Seq<HostEvent<Unit>> Reloads { get; init; }
-    public Func<IO<Seq<TItem>>, Seq<Command<RowRule, Invoke>>> Commands { get; init; } = static _ => [];
+    public Func<IO<Seq<TItem>>, Seq<Command<Invoke>>> Commands { get; init; } = static _ => [];
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -122,12 +104,12 @@ public static class ListRows {
                 _ =>
                     from current in latest
                     from keys in IO.lift(() => toHashSet(Chosen<TItem>(grid).Map(node => current.Row.Key(node.Row))))
-                    from picked in when(keys != current.Row.Selected, current.Row.Picked(Edit.Commit(keys))).As()
+                    from picked in when(keys != current.Row.Selected, current.Row.Picked(Edits.Commit(keys))).As()
                     select unit,
                 scope.Owner)
             from editing in Subscriptions.Host<GridViewCellEventArgs>(h => grid.CellEdited += h, h => grid.CellEdited -= h).Inline(args =>
                 from current in latest
-                from committed in RowItem<TItem>.Of(args.Item).Traverse(node => current.Row.Edited(Edit.Commit(Replaced(current.Row.Key, current.Row.Branches, current.Row.Items, node.Row)))).As()
+                from committed in RowItem<TItem>.Of(args.Item).Traverse(node => current.Row.Edited(Edits.Commit(Replaced(current.Row.Key, current.Row.Branches, current.Row.Items, node.Row)))).As()
                 select unit, scope.Owner)
             from expanding in Subscriptions.Merged(
                     Subscriptions.Host<TreeGridViewItemEventArgs>(h => grid.Expanded += h, h => grid.Expanded -= h),
@@ -135,7 +117,7 @@ public static class ListRows {
                 .Inline(_ =>
                     from current in latest
                     from state in list.ValueIO
-                    from opened in current.Row.Branches.Traverse(branches => branches.Edited(Edit.Commit(Open(current.Row, state.Nodes)))).As()
+                    from opened in current.Row.Branches.Traverse(branches => branches.Edited(Edits.Commit(Open(current.Row, state.Nodes)))).As()
                     select unit, scope.Owner)
             let shown =
                 from current in latest
@@ -216,9 +198,8 @@ public static class ListRows {
         where TItem : notnull
         where TKey : notnull =>
         from size in IconSlot.Small.Extent()
-        from pixels in IconSlot.Small.Pixels
         from added in toSeq(row.Columns).Map(static (column, index) => (Column: column, Index: index)).TraverseM(entry =>
-            from cell in CellFor(entry.Column, new Size(size, size), (float)pixels.Width / size)
+            from cell in CellFor(entry.Column, new Size(size, size), owner)
             from column in use(static () => new GridColumn())
             from placed in IO.lift(() => {
                 (column.HeaderText, column.DataCell, column.Editable, column.Resizable, column.Expand) =
@@ -229,12 +210,12 @@ public static class ListRows {
             select unit).As()
         select unit;
 
-    private static IO<Cell> CellFor<TItem>(ListColumn<TItem> column, Size logical, float scale) where TItem : notnull =>
-        column.Switch((Logical: logical, Scale: scale),
+    private static IO<Cell> CellFor<TItem>(ListColumn<TItem> column, Size logical, IPlugInLifetime owner) where TItem : notnull =>
+        column.Switch((Logical: logical, Owner: owner),
             label: static (held, label) => label.Icon.Match(
                 Some: icon =>
                     from cell in use(static () => new ImageTextCell())
-                    from bound in IO.lift(() => { (cell.ImageBinding, cell.TextBinding) = (Pictured(icon, held.Logical, held.Scale), Written(label)); })
+                    from bound in IO.lift(() => { (cell.ImageBinding, cell.TextBinding) = (Pictured(icon, held.Logical, held.Owner), Written(label)); })
                     select (Cell)cell,
                 None: () =>
                     from cell in use(static () => new TextBoxCell())
@@ -246,15 +227,15 @@ public static class ListRows {
                 select (Cell)cell,
             glyph: static (held, glyph) =>
                 from cell in use(static () => new ImageViewCell())
-                from bound in IO.lift(() => cell.Binding = Pictured(glyph.Icon, held.Logical, held.Scale))
+                from bound in IO.lift(() => cell.Binding = Pictured(glyph.Icon, held.Logical, held.Owner))
                 select (Cell)cell,
             progress: static (_, progress) =>
                 from cell in use(static () => new ProgressCell())
                 from bound in IO.lift(() => cell.Binding = Binding.Delegate<RowItem<TItem>, float?>(node => progress.Read(node.Row).ToNullable()))
                 select (Cell)cell);
 
-    private static IndirectBinding<Image> Pictured<TItem>(Func<TItem, GlyphSource> icon, Size logical, float scale) where TItem : notnull =>
-        Binding.Delegate<RowItem<TItem>, Image>(node => Icons.Frame(icon(node.Row), logical, scale));
+    private static IndirectBinding<Image?> Pictured<TItem>(Func<TItem, IconResource> icon, Size logical, IPlugInLifetime owner) where TItem : notnull =>
+        Binding.Delegate<RowItem<TItem>, Image?>(node => owner.Answer(Icons.Frames(icon(node.Row), logical).Map(static Image? (frames) => frames), failed: null));
 
     private static IndirectBinding<string> Written<TItem>(ListColumn<TItem>.Label label) where TItem : notnull =>
         Binding.Delegate<RowItem<TItem>, string>(
@@ -326,10 +307,10 @@ public static class ListRows {
         }));
 
     // --- [COMMANDS]
-    private static IO<(Option<Control> Pair, Seq<Seq<Command<RowRule, Invoke>>> Menu, Func<Keys, IO<bool>> Keyed, IO<Unit> Refresh)> Commanded(
-        Option<(Command<RowRule, Invoke>.Run Add, Command<RowRule, Invoke>.Run Remove)> pair, Seq<Command<RowRule, Invoke>> commands, RowScope scope) =>
+    private static IO<(Option<Control> Pair, Seq<Seq<Command<Invoke>>> Menu, Func<Keys, IO<bool>> Keyed, IO<Unit> Refresh)> Commanded(
+        Option<(Command<Invoke>.Run Add, Command<Invoke>.Run Remove)> pair, Seq<Command<Invoke>> commands, RowScope scope) =>
         from paired in pair.Traverse(held => ButtonRows.AddRemove(held.Add, held.Remove, scope)).As()
-        let menu = pair.Map(static held => Seq<Command<RowRule, Invoke>>(held.Add, held.Remove)).ToSeq().Add(commands)
+        let menu = pair.Map(static held => Seq<Command<Invoke>>(held.Add, held.Remove)).ToSeq().Add(commands)
         from keyed in CommandRows.Keyed(menu, scope)
         select (paired.Map(static held => (Control)held.Control), menu, keyed, paired.Map(static held => held.Refresh).IfNone(IO.pure(unit)));
 
@@ -364,175 +345,78 @@ public static class ListRows {
             None: () => IO.pure((content, (Func<Option<ListSearch<TItem>>, IO<Unit>>)(static _ => IO.pure(unit)))));
 
     // --- [BROWSERS]
-    public static ControlRow Browser<TItem>(string label, BrowserRow<TItem> row) where TItem : notnull =>
-        new ControlRow.Bound<BrowserRow<TItem>>(label, RowShape.Filled, row, static (latest, scope) =>
+    public static ControlRow Browser<TItem, TKey>(string label, BrowserRow<TItem, TKey> row)
+        where TItem : notnull
+        where TKey : notnull =>
+        new ControlRow.Bound<BrowserRow<TItem, TKey>>(label, RowShape.Filled, row, static (latest, scope) =>
             from first in latest
-            from held in atomIO(new Browsing<TItem>(TileCache<TItem>.Empty))
+            from tiles in IO.lift(static () => Ref(HashMap<TKey, Image>()))
+            from keep in atomIO<Func<TItem, bool>>(static _ => true)
             from owned in use(static () => EnvIO.New(token: CancellationToken.None))
             from loads in IO.lift(static () => Ref(Option<Lease<Unit>>.None))
-            from dwell in IO.lift(static () => Ref(Option<Lease<Unit>>.None))
-            from loading in Products.Swapped(loads, unitIO).Under(owned)
-            from view in use(() => new SceneView(scope, new Node.Box()))
-            from commands in Commanded(None, first.Row.Commands(from current in latest from state in held.ValueIO select Picked(current.Row, state)), scope)
-            from host in CommandRows.Host(scope.Hosted(view))
-            let browser = new Realized<TItem>(latest, scope, view, held, owned, loads, dwell, host, commands.Menu)
-            from keys in Subscriptions.During<KeyEventArgs>(h => view.KeyDown += h, h => view.KeyDown -= h).Inline(args => Keyed(commands.Keyed, args.KeyData, args), scope.Owner)
-            from placed in Subscriptions.Merged(
-                    Subscriptions.Host<EventArgs>(h => view.SizeChanged += h, h => view.SizeChanged -= h),
-                    Subscriptions.Host<EventArgs>(h => view.LoadComplete += h, h => view.LoadComplete -= h))
-                .Inline(_ => Placed(browser), scope.Owner)
-            from post in Mailboxes.Idle<Unit, Unit>(_ =>
-                Products.Cleared(loads).Bind(_ => Products.Swapped(loads, unitIO)).Under(owned)
-                    .Bind(_ => Advanced(browser, static state => state with { Tiles = state.Tiles.Reloaded })))(scope.Owner)
-            from reloads in Callbacks.Each(first.Row.Reloads.Map(reload => reload.Inline(_ => post(unit, unit), scope.Owner)))
-            from content in Searched(view, first.Row.Search, keep => Advanced(browser, state => state with { Keep = keep }), scope)
-            select new RowCells(content.Control, latest.Bind(current => content.Shown(current.Row.Search)).Bind(_ => Placed(browser)).Bind(_ => commands.Refresh)) { Menu = commands.Menu });
+            from seated in IO.lift(static () => Ref(Option<Lease<Unit>>.None))
+            from grid in Containers.Frame(static () => new ControlGridLayout { Wrap = true, GridWrapMode = GridWrapMode.Horizontal, ItemPadding = RhinoLayout.Padding(RhinoLayout.PaddingType.ButtonRow) })
+            from scroll in Containers.Frame(static () => new Scrollable { Border = BorderType.None, ExpandContentWidth = true, ExpandContentHeight = false })
+            from empty in use(() => new Label { Text = RowText.Localize(first.Row.Empty, scope.Owner).Local, TextColor = SystemColors.DisabledText, TextAlignment = TextAlignment.Center })
+            from stack in Containers.Frame(static () => new StackLayout { HorizontalContentAlignment = HorizontalAlignment.Stretch })
+            from placed in IO.lift(() => {
+                scroll.Content = grid;
+                stack.Items.Add(new StackLayoutItem(scroll, expand: true));
+                stack.Items.Add(empty);
+            })
+            from commands in Commanded(None, first.Row.Commands(from current in latest from kept in keep.ValueIO select Listed(current.Row, kept)), scope)
+            let shown =
+                from current in latest
+                from kept in keep.ValueIO
+                let listed = Listed(current.Row, kept)
+                let size = current.Row.TileSize
+                from loaded in Products.Cleared(loads).Bind(_ => Products.Swapped(loads, Loaded(latest, tiles, listed, size, scope))).Under(owned)
+                from reseated in Products.Cleared(seated).Bind(_ => Products.Swapped(seated, Seated(grid, latest, tiles, listed, size, commands.Menu, scope))).Under(owned)
+                from emptied in IO.lift(() => { (scroll.Visible, empty.Visible, grid.ItemSize) = (!listed.IsEmpty, listed.IsEmpty, size); })
+                select unit
+            from keys in Subscriptions.During<KeyEventArgs>(h => grid.KeyDown += h, h => grid.KeyDown -= h).Inline(args => CommandRows.Pressed(commands.Keyed, args), scope.Owner)
+            from content in Searched(stack, first.Row.Search, kept => writeIO(keep, kept).Bind(_ => shown), scope)
+            select new RowCells(content.Control, latest.Bind(current => content.Shown(current.Row.Search)).Bind(_ => shown).Bind(_ => commands.Refresh)) { Menu = commands.Menu });
 
-    private sealed record Browsing<TItem>(TileCache<TItem> Tiles) where TItem : notnull {
-        public Func<TItem, bool> Keep { get; init; } = static _ => true;
-        public Option<float> Resizing { get; init; }
-        public Selection Picked { get; init; } = new Selection.Many([]);
-        public Option<Key> Hovered { get; init; }
-        public HashSet<Key> Viewed { get; init; }
-        public Option<float> Scale { get; init; }
-    }
+    private static Seq<TItem> Listed<TItem, TKey>(BrowserRow<TItem, TKey> row, Func<TItem, bool> keep) where TItem : notnull where TKey : notnull =>
+        row.Items.Filter(keep);
 
-    private sealed record Realized<TItem>(
-        IO<ControlRow.Bound<BrowserRow<TItem>>> Latest, RowScope Scope, SceneView View, Atom<Browsing<TItem>> State, EnvIO Owned,
-        Ref<Option<Lease<Unit>>> Loads, Ref<Option<Lease<Unit>>> Dwell, CommandHost<RowRule, Invoke> Host, Seq<Seq<Command<RowRule, Invoke>>> Menu)
-        where TItem : notnull;
-
-    private static IO<Unit> Released<TItem>(Realized<TItem> browser, Seq<SKImage> images) where TItem : notnull =>
-        images.TraverseM(static image => release(image)).As().Under(browser.Owned).Map(unit);
-
-    // --- [GALLERY]
-    private static Gallery<TItem> Laid<TItem>(Realized<TItem> browser, ControlRow.Bound<BrowserRow<TItem>> current, Browsing<TItem> state) where TItem : notnull =>
-        new(current.Row.Items.Filter(state.Keep), current.Row.Key, current.Row.Label, state.Tiles, keys => new Part.Choice(keys, state.Picked, change => Selecting(browser, change)) {
-            Reorder = change => current.Row.Reorders ? Some(current.Row.Edited(change.Map(order => Rearranged(current.Row.Key, current.Row.Items, order)).As())) : None,
-            Exported = moved => current.Row.File.Map(file => DataTransfer.Drag(browser.View, Listed(current.Row, toHashSet(moved)).Choose(file), None)),
-            Menu = (targeted, frame) => Some(Menued(browser, targeted, frame)),
-            Hover = hovered => Some(Hovered(browser, hovered)),
-            Viewed = seen => Some(Advanced(browser, held => held with { Viewed = seen })),
-        }) {
-            TileSize = state.Resizing | current.Row.TileSize,
-            Aspect = current.Row.Aspect,
-            Realized = state.Viewed,
-            Current = current.Row.Current,
-            Numbered = current.Row.Numbered,
-            Overlay = item => current.Row.Marks.Map(mark => mark.Value.Get(item) switch {
-                var on => new Part.Press(_ => current.Row.Edited(Edit.Commit(Replaced(current.Row.Key, current.Row.Items, mark.Value.Set(!on, item))))).Drawn(new Node.Glyph(on ? mark.On : mark.Off) {
-                    Accessible = AccessRole.CheckBox.Marked(new Accessible { Role = AccessRole.CheckBox, Label = RowText.Localize(mark.Caption, browser.Scope.Owner).Local }, on ? Check.On : Check.Off),
-                }),
-            }),
-            Resized = current.Row.Resized.Map(resized => (RowText.Localize("Tile size", browser.Scope.Owner).Local, (Func<Edit<float>, IO<Unit>>)(change => Resized(browser, resized, change)))),
-            Empty = Some(RowText.Localize(current.Row.Empty, browser.Scope.Owner).Local),
-        };
-
-    private static IO<Unit> Advanced<TItem>(Realized<TItem> browser, Func<Browsing<TItem>, Browsing<TItem>> next) where TItem : notnull =>
-        from current in browser.Latest
-        from moved in browser.State.SwapIO(state => Normalized(current.Row, next(state)))
-        let pruned = Laid(browser, current, moved).Pruned
-        from kept in browser.State.SwapIO(state => state with { Tiles = pruned.Tiles })
-        from released in Released(browser, pruned.Released)
-        from shown in browser.View.Show(Laid(browser, current, kept).Drawn with { Conditions = current.Enabled ? [] : [Condition.Disabled] })
-        from requested in Requested(browser)
+    private static IO<Unit> Seated<TItem, TKey>(
+        ControlGridLayout grid, IO<ControlRow.Bound<BrowserRow<TItem, TKey>>> latest, Ref<HashMap<TKey, Image>> tiles, Seq<TItem> listed, Size size, Seq<Seq<Command<Invoke>>> menu, RowScope scope)
+        where TItem : notnull
+        where TKey : notnull =>
+        from current in latest
+        from held in tiles.ValueIO
+        from buttons in listed.TraverseM(item => current.Row.Key(item) switch {
+            var key =>
+                from button in use(() => new ImageButton {
+                    Size = size,
+                    ToolTip = current.Row.Label(item),
+                    Image = held.Find(key).ValueUnsafe(),
+                    BackgroundColor = current.Row.Current == Some(key) ? SystemColors.Highlight : Colors.Transparent,
+                })
+                from pressed in Subscriptions.Host<EventArgs>(h => button.Click += h, h => button.Click -= h)
+                    .Inline(_ => latest.Bind(last => last.Row.Chosen(Edits.Commit(key))), scope.Owner)
+                from popup in unless(menu.IsEmpty, CommandRows.Menu(menu, scope).Bind(made => IO.lift(() => { button.ContextMenu = made.Menu; }))).As()
+                select (Control)button,
+        }).As()
+        from released in Products.Released(grid.Items.Clear)
+        from added in IO.lift(() => buttons.Iter(button => grid.Items.Add(button)))
         select unit;
 
-    private static Browsing<TItem> Normalized<TItem>(BrowserRow<TItem> row, Browsing<TItem> state) where TItem : notnull =>
-        toHashSet(row.Items.Filter(state.Keep).Map(row.Key)) switch {
-            var shown => state with {
-                Picked = state.Picked.Switch(
-                    shown,
-                    one: static (keys, one) => (Selection)new Selection.One(one.Picked.Filter(keys.Contains)),
-                    many: static (keys, many) => new Selection.Many(many.Picked.Intersect(keys)) { Anchor = many.Anchor.Filter(keys.Contains), Focus = many.Focus.Filter(keys.Contains) }),
-                Hovered = state.Hovered.Filter(shown.Contains),
-                Viewed = state.Viewed.Intersect(shown),
-            },
-        };
-
-    private static IO<Unit> Placed<TItem>(Realized<TItem> browser) where TItem : notnull =>
-        IO.lift(() => Optional(browser.View.ParentWindow).Map(static window => window.LogicalPixelSize)).Bind(scale => Advanced(browser, state => state with { Scale = scale }));
-
-    private static Seq<TItem> Listed<TItem>(BrowserRow<TItem> row, HashSet<Key> keys) where TItem : notnull =>
-        row.Items.Filter(item => keys.Contains(row.Key(item)));
-
-    private static Seq<TItem> Picked<TItem>(BrowserRow<TItem> row, Browsing<TItem> state) where TItem : notnull =>
-        row.Items.Filter(state.Keep).Filter(item => state.Picked.Holds(row.Key(item)));
-
-    private static Seq<TItem> Replaced<TItem>(Func<TItem, Key> key, Seq<TItem> items, TItem edited) where TItem : notnull =>
-        items.Map(item => key(item) == key(edited) ? edited : item);
-
-    // --- [TILES]
-    private static IO<Unit> Requested<TItem>(Realized<TItem> browser) where TItem : notnull =>
-        from current in browser.Latest
-        from state in browser.State.ValueIO
-        from loaded in state.Scale.Map(scale => Laid(browser, current, state).Requested(scale)).Filter(static asked => !asked.Wanted.IsEmpty).Traverse(asked =>
-            from marked in browser.State.SwapIO(held => held with { Tiles = asked.Tiles })
-            from forked in asked.Wanted.TraverseM(ask => browser.Loads.Value.Traverse(lease =>
-                use(Reported(browser, Loaded(browser, current.Row, ask.Key, ask.Tile)).Fork(), static fork => fork.Cancel).Under(lease.Scope)).As()).As()
-            select unit).As()
-        select unit;
-
-    private static IO<Unit> Loaded<TItem>(Realized<TItem> browser, BrowserRow<TItem> row, Key key, Tile<TItem> tile) where TItem : notnull =>
-        (row.Tile(browser.Scope, tile.Item, tile.Pixels).Bind(image => use(() => image).Under(browser.Owned)).Map(static image => Fin.Succ(image))
-         | @catch(static error => !ErrorOps.Cancellation(error), static error => IO.pure(Fin.Fail<SKImage>(error))))
-            .Bind(arrival => (
-                from state in browser.State.ValueIO
-                let arrived = state.Tiles.Arrived(key, tile, arrival)
-                from stored in browser.State.SwapIO(held => held with { Tiles = arrived.Cache })
-                from released in Released(browser, arrived.Released)
-                from shown in Advanced(browser, static held => held)
-                select unit).OnUiThread());
-
-    private static IO<Unit> Reported<TItem>(Realized<TItem> browser, IO<Unit> work, [CallerMemberName] string member = "") where TItem : notnull =>
-        work | @catch(static error => !ErrorOps.Cancellation(error), error => IO.lift(() => PlugInLog.Of(browser.Scope.Owner).Failed(error, browser.Scope.Owner.GetType(), member)));
-
-    // --- [CHOICE]
-    private static IO<Unit> Selecting<TItem>(Realized<TItem> browser, Edit<Selection> change) where TItem : notnull =>
-        from moved in change.Value.Traverse(picked => Advanced(browser, state => state with { Picked = picked })).As()
-        from current in browser.Latest
-        from chosen in (from picked in change.Applied from lead in picked.Lead where picked.Holds(lead) select lead).Filter(lead => current.Row.Current != Some(lead))
-            .Traverse(lead => current.Row.Chosen(change.Map(_ => lead).As())).As()
-        select unit;
-
-    private static Seq<TItem> Rearranged<TItem>(Func<TItem, Key> key, Seq<TItem> latest, Seq<Key> order) where TItem : notnull =>
-        (Moved: toHashSet(order), Items: toHashMap(latest.Map(item => (key(item), item)))) switch {
-            var held => latest.Fold((Placed: Seq<TItem>(), Next: order), (placed, item) => held.Moved.Contains(key(item))
-                    ? placed.Next.Head.Bind(held.Items.Find).Match(Some: next => (placed.Placed.Add(next), placed.Next.Tail), None: () => (placed.Placed.Add(item), placed.Next))
-                    : (placed.Placed.Add(item), placed.Next))
-                .Placed,
-        };
-
-    private static IO<Unit> Menued<TItem>(Realized<TItem> browser, Seq<Key> targeted, SKRect frame) where TItem : notnull =>
-        from moved in Advanced(browser, state => state with { Picked = new Selection.Many(toHashSet(targeted)) { Anchor = targeted.Head, Focus = targeted.Head } })
-        from shown in browser.Host.Menu(browser.Menu, frame)
-        select unit;
-
-    // --- [HOVER]
-    private static IO<Unit> Hovered<TItem>(Realized<TItem> browser, Option<Key> key) where TItem : notnull =>
-        from moved in Advanced(browser, state => state with { Hovered = key })
-        from current in browser.Latest
-        from dwelt in Products.Cleared(browser.Dwell).Bind(_ => (from preview in current.Row.Preview from held in key select (Preview: preview, Key: held)).Traverse(hover =>
-            Products.Swapped(browser.Dwell,
-                from shown in use(static () => EnvIO.New(token: CancellationToken.None))
-                from forked in use(Reported(browser, Dwelled(browser, hover.Key, hover.Preview, shown)).Fork(), static fork => fork.Cancel)
-                select unit)).As()).Under(browser.Owned)
-        select unit;
-
-    private static IO<Unit> Dwelled<TItem>(Realized<TItem> browser, Key key, Func<RowScope, TItem, IO<Unit>> preview, EnvIO shown) where TItem : notnull =>
-        from delay in Accessors.StepEventsDelay
-        from waited in IO.yieldFor(TimeSpan.FromSeconds(delay))
-        from previewed in (from current in browser.Latest
-                           from state in browser.State.ValueIO
-                           from visible in browser.Scope.Visibility
-                           from opened in (from item in Listed(current.Row, [key]).Head where visible && current.Enabled && state.Hovered == Some(key) select item)
-                               .Traverse(item => preview(browser.Scope, item).Under(shown)).As()
-                           select unit).OnUiThread()
-        select unit;
-
-    // --- [SIZE]
-    private static IO<Unit> Resized<TItem>(Realized<TItem> browser, Func<Edit<float>, IO<Unit>> resized, Edit<float> change) where TItem : notnull =>
-        from moved in Advanced(browser, state => state with { Resizing = change.Value.Filter(_ => change.Phase == EditPhase.Preview) })
-        from applied in change.Applied.Traverse(_ => resized(change)).As()
+    private static IO<Unit> Loaded<TItem, TKey>(IO<ControlRow.Bound<BrowserRow<TItem, TKey>>> latest, Ref<HashMap<TKey, Image>> tiles, Seq<TItem> listed, Size size, RowScope scope)
+        where TItem : notnull
+        where TKey : notnull =>
+        from current in latest
+        let wanted = toHashSet(listed.Map(current.Row.Key))
+        from pruned in atomicIO(() => (Before: tiles.Value, After: tiles.Value = tiles.Value.Filter((key, _) => wanted.Contains(key))))
+        from disposed in IO.lift(() => pruned.Before.Filter((key, _) => !wanted.Contains(key)).Values.Iter(static image => image.Dispose()))
+        from forked in listed.Filter(item => !pruned.After.ContainsKey(current.Row.Key(item))).TraverseM(item =>
+            use(((from made in current.Row.Tile(scope, item, size)
+                  from image in use(() => made)
+                  from cached in atomicIO(() => tiles.Value = tiles.Value.AddOrUpdate(current.Row.Key(item), image))
+                  select unit)
+                    | @catch(static error => !ErrorOps.Cancellation(error), error => IO.lift(() => PlugInLog.Of(scope.Owner).Failed(error, scope.Owner.GetType(), nameof(Browser)))))
+                .Fork(), static fork => fork.Cancel)).As()
         select unit;
 }

@@ -1,12 +1,12 @@
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Document.Units;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 using Rhino.UI.Gumball;
 
-namespace Rasm.RhinoCommon.Objects;
+namespace Rasm.Rhino.Objects;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public enum ObjectSelection { Unselected = 0, Selected = 1, Persistent = 2 }

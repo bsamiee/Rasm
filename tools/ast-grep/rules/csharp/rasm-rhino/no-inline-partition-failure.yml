@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-inline-partition-failure
-language: csharp
+language: csharplang
 severity: error
 files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
 rule:
     any:
-        - pattern: '$PARTS.Fails.IsEmpty ? $SUCCEEDED : IO.fail<$T>(Error.Many($PARTS.Fails))'
-        - pattern: '$FAILS.IsEmpty ? $SUCCEEDED : IO.fail<$T>(Error.Many($FAILS))'
-        - pattern: '$FAILS.IsEmpty ? $SUCCEEDED : Error.Many($FAILS)'
+        - pattern: {context: 'var _ = $PARTS.Fails.IsEmpty ? $SUCCEEDED : IO.fail<$T>(Error.Many($PARTS.Fails));', selector: conditional_expression}
+        - pattern: {context: 'var _ = $FAILS.IsEmpty ? $SUCCEEDED : IO.fail<$T>(Error.Many($FAILS));', selector: conditional_expression}
+        - pattern: {context: 'var _ = $FAILS.IsEmpty ? $SUCCEEDED : Error.Many($FAILS);', selector: conditional_expression}
         - pattern: 'unless($FAILS.IsEmpty, IO.fail<$T>(Error.Many($FAILS)))'
     all:
         - not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^Callbacks$'}}}

@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Drawing;
-using Rasm.RhinoCommon.Commands;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Render.Sessions;
-using Rasm.RhinoCommon.UI;
+using Rasm.Rhino.Commands;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Render.Sessions;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
@@ -13,7 +13,7 @@ using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
-namespace Rasm.RhinoCommon.PlugIns;
+namespace Rasm.Rhino.PlugIns;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class FileFormats {

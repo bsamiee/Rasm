@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Viewport;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 
-namespace Rasm.RhinoCommon.Document.Tables;
+namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record NamedId(Guid Id, Option<string> Name);

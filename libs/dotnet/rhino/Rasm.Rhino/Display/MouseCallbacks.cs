@@ -1,8 +1,8 @@
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Events;
+using Rasm.Rhino.Events;
 using Rhino.UI;
 
-namespace Rasm.RhinoCommon.Display;
+namespace Rasm.Rhino.Display;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MouseCallbacks {

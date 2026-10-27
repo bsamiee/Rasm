@@ -490,31 +490,29 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
     }
 
     private protected sealed class RasmRhinoSymbols(Compilation compilation) {
-        public INamedTypeSymbol? DisposalOps { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.DisposalOps");
+        public INamedTypeSymbol? Products { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Products");
+
+        public INamedTypeSymbol? Conversions { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Conversions");
 
         public INamedTypeSymbol? Copies { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Modeling.Copies");
 
-        public ImmutableArray<IMethodSymbol> Acquire => Members(DisposalOps, "Acquire", "Within");
+        public ImmutableArray<IMethodSymbol> Acquire => Members(Products, "Made", "Held");
 
-        public ImmutableArray<IMethodSymbol> Found => Members(DisposalOps, "Found");
+        public ImmutableArray<IMethodSymbol> Found => Members(Conversions, "Found");
 
         public ImmutableArray<IMethodSymbol> Owned => Members(Copies, "Owned");
 
-        public ImmutableArray<IMethodSymbol> Release => Members(DisposalOps, "Release", "Present");
+        public ImmutableArray<IMethodSymbol> Release => Members(Products, "Released");
 
-        public ImmutableArray<IMethodSymbol> OnFailure => Members(DisposalOps, "OnFailure");
+        public ImmutableArray<IMethodSymbol> Disposal { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Lease`1")?.InstanceConstructors ?? [];
 
-        public ImmutableArray<IMethodSymbol> Disposal { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Disposal`1")?.InstanceConstructors ?? [];
-
-        public ImmutableArray<IMethodSymbol> Retain { get; } = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Retained`1"), "Retain");
-
-        public ImmutableArray<IMethodSymbol> UnlessFound { get; } = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Refused"), "UnlessFound");
+        public ImmutableArray<IMethodSymbol> Retain => Members(Products, "Swapped");
 
         public INamedTypeSymbol? Callbacks { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Callbacks");
 
-        public ImmutableArray<IMethodSymbol> Boundaries => Members(Callbacks, "Run", "Answer", "Succeeded", "Started");
+        public ImmutableArray<IMethodSymbol> Boundaries => Members(Callbacks, "Run", "Answer", "Start", "Started");
 
-        public ImmutableArray<IMethodSymbol> Producers => Members(Callbacks, "Handler", "Synchronous");
+        public ImmutableArray<IMethodSymbol> Producers => Members(Callbacks, "Captured");
 
         public INamedTypeSymbol? Conduits { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Display.Conduits");
 
@@ -535,9 +533,9 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
                 && method.Parameters[0].Type is INamedTypeSymbol { TypeArguments.Length: 1 } holder
                 && (Same(holder, languageExt.IO1) || Same(holder, system.Thunk)) && SymbolEqualityComparer.Default.Equals(holder.TypeArguments[0], method.TypeParameters[0]);
             (Dispose, Action) = (dispose, action);
-            Acquires = [.. rasm.Acquire.Concat(rasm.Found).Concat(rasm.Owned).Concat(languageExt.Uses).Where(Acquiring)];
+            Acquires = [.. rasm.Acquire, .. rasm.Owned.Concat(languageExt.Uses).Where(Acquiring)];
             Releases = [.. rasm.Release, .. languageExt.Releases];
-            Failures = rasm.OnFailure;
+            Failures = [];
             Holders = rasm.Disposal;
             Retains = rasm.Retain;
             Lifts = languageExt.Lifts;

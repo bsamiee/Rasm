@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Closed-form curves, Bernstein patches, affine maps, point groups, and signed distance fields over HyperJet and MathNet values for any geometry host</Description>
+        <Description>Geometry as pure mathematics, independent of any CAD host</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Mathematics">

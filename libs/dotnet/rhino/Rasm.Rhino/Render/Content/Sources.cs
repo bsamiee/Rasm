@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.CompilerServices;
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
 
-namespace Rasm.RhinoCommon.Render.Content;
+namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
@@ -93,18 +93,18 @@ public static class Contents {
             makeGroupInstance: static (_, group) => IO.lift(() => Conversions.Found(group.Content.MakeGroupInstance())),
             makeCopy: static (_, copy) => IO.lift(() => Conversions.Found(copy.Content.MakeCopy())),
             edit: static (_, edit) => IO.lift(() => Optional(edit.Content.Edit()).ToFin(Errors.Cancelled)),
-            fromMaterial: static (state, material) => IO.lift(() => RhinoFault.Found<RenderContent>(RenderMaterial.FromMaterial(material.Material, state))),
-            createBasicMaterial: static (state, basic) => IO.lift(() => RhinoFault.Found<RenderContent>(RenderMaterial.CreateBasicMaterial(basic.Material, state))),
-            newBitmapTexture: static (state, bitmap) => IO.lift(() => RhinoFault.Found<RenderContent>(RenderTexture.NewBitmapTexture(bitmap.Image, state))),
+            fromMaterial: static (state, material) => IO.lift(() => Conversions.Found<RenderContent>(RenderMaterial.FromMaterial(material.Material, state))),
+            createBasicMaterial: static (state, basic) => IO.lift(() => Conversions.Found<RenderContent>(RenderMaterial.CreateBasicMaterial(basic.Material, state))),
+            newBitmapTexture: static (state, bitmap) => IO.lift(() => Conversions.Found<RenderContent>(RenderTexture.NewBitmapTexture(bitmap.Image, state))),
             fromSimulation: static (state, simulated) =>
                 from simulation in use(() => new SimulatedTexture(state))
                 from configured in simulated.Configure(simulation)
-                from content in IO.lift(() => RhinoFault.Found<RenderContent>(RenderTexture.NewBitmapTexture(simulation, state)))
+                from content in IO.lift(() => Conversions.Found<RenderContent>(RenderTexture.NewBitmapTexture(simulation, state)))
                 select content,
             newBasicEnvironment: static (state, environment) =>
                 from simulation in use(static () => new SimulatedEnvironment())
                 from configured in environment.Configure(simulation)
-                from content in IO.lift(() => RhinoFault.Found<RenderContent>(RenderEnvironment.NewBasicEnvironment(simulation, state)))
+                from content in IO.lift(() => Conversions.Found<RenderContent>(RenderEnvironment.NewBasicEnvironment(simulation, state)))
                 select content,
             nativeFactory: static (_, factory) => IO.lift(factory.Create));
 

@@ -1,9 +1,9 @@
 using System.Globalization;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 using Rhino;
 using SuperLinq;
 
-namespace Rasm.RhinoCommon.Modeling.Curves;
+namespace Rasm.Rhino.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Rhino;
 
-namespace Rasm.RhinoCommon.Events;
+namespace Rasm.Rhino.Events;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Transition<TState>(TState Before, TState After);

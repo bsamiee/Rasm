@@ -4,14 +4,13 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Stores;
 using Rhino;
 using Rhino.Collections;
 using Rhino.Runtime;
-using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Persistence;
+namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DictionaryOwner(IO<ArchivableDictionary> Read, Func<Func<ArchivableDictionary, Fin<Unit>>, IO<Unit>> Edit) {
@@ -42,7 +41,7 @@ public abstract partial record StoredRecord<T> {
 public sealed record DictionaryCodec<T>(string Name, int Version, Func<T, Fin<ArchivableDictionary>> Encode, Func<ArchivableDictionary, Fin<T>> Decode, Option<RecordUpgrade<T>> Upgrade = default) {
     public Fin<ArchivableDictionary> ToDictionary(T value) =>
         Encode(value).Map(encoded => {
-            DictionaryMapper.Stamp((Name, Version), encoded);
+            (encoded.Name, encoded.Version) = (Name, Version);
             return encoded;
         });
 
@@ -60,11 +59,6 @@ public sealed record DictionaryCodec<T>(string Name, int Version, Func<T, Fin<Ar
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
-internal static partial class DictionaryMapper {
-    internal static partial void Stamp((string Name, int Version) header, ArchivableDictionary target);
-}
-
 public static class ArchivableDictionaries {
     // --- [VALUES]
     public static Fin<Option<T>> Find<T>(ArchivableDictionary source, string key) where T : notnull =>

@@ -2,17 +2,17 @@ using System.Drawing;
 using System.Globalization;
 using Eto.Forms;
 using NodaTime.Text;
-using Rasm.RhinoCommon.Events;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.PlugIns;
-using Rasm.RhinoCommon.UI.Rows;
-using Rasm.RhinoCommon.UI.Styling;
-using Rasm.UI;
+using Rasm.Rhino.Events;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Resources;
 using Rhino.UI.Controls;
+using DataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
-namespace Rasm.RhinoCommon.UI;
+namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -110,8 +110,8 @@ internal sealed class HeaderButtons(Seq<CommandFace> faces, Func<int, IO<Unit>> 
     public bool ButtonDetails(int index, ref Bitmap iconOut, ref string sToolTipOut) {
         (bool Shown, Bitmap Icon, string ToolTip) held = (false, iconOut, sToolTipOut);
         (bool shown, iconOut, sToolTipOut) = owner.Answer(
-            (from face in faces.At(index) from glyph in face.Glyph select (Face: face, Glyph: glyph))
-                .Traverse(shown => Icons.Raster(shown.Glyph, IconSlot.SectionHeader).Map(icon => (Shown: true, Icon: icon, ToolTip: RowText.Localize(shown.Face.Caption, owner).Local)))
+            (from face in faces.At(index) from icon in face.Icon select (Face: face, Icon: icon))
+                .Traverse(shown => Icons.Raster(shown.Icon, IconSlot.SectionHeader).Map(icon => (Shown: true, Icon: icon, ToolTip: RowText.Localize(shown.Face.Caption, owner).Local)))
                 .As()
                 .Map(found => found.IfNone(held)),
             held);
@@ -172,7 +172,7 @@ public sealed class SectionLifetime : IDisposable {
             IO.lift(() => expander.ForAll(static held => held.Expanded) && !excluded()).Bind(Realizing) switch {
                 var evaluated =>
                     from expansions in expander.Traverse(held => Subscriptions.Host<EventArgs>(h => held.ExpandedChanged += h, h => held.ExpandedChanged -= h).Inline(_ => evaluated, owner)).As()
-                    from changes in data.Traverse(type => Subscriptions.Host<Rhino.UI.Controls.DataSource.EventArgs>(h => section.DataChanged += h, h => section.DataChanged -= h)
+                    from changes in data.Traverse(type => Subscriptions.Host<DataSourceEventArgs>(h => section.DataChanged += h, h => section.DataChanged -= h)
                         .Inline(args => when(args.DataType == type, evaluated).As(), owner)).As()
                     from shows in Subscriptions.Host<EventArgs>(h => section.Shown += h, h => section.Shown -= h).Inline(_ => evaluated, owner)
                     from current in evaluated
@@ -202,7 +202,10 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
 
     public static IO<DefinedSection> Section(IPlugInViews owner, View.Section row, RowScope scope) =>
         row.Create.Match(
-            Left: create => IO.lift(() => create(row, owner)).Bind(section => section.Attach(ViewBody.Realize(owner, row, scope)).Map(_ => section)),
+            Left: create =>
+                from section in IO.lift(() => create(row, owner))
+                from attached in section.Attach(ViewBody.Realize(owner, row, scope))
+                select section,
             Right: _ => IO.fail<DefinedSection>(new RhinoFault(row.Identity.Name, RhinoReason.Unheld)));
 
     public static IO<SectionHolder> Disclose(IPlugInViews owner, ContainerRow.Disclosure disclosure, RowScope scope) =>
@@ -249,21 +252,21 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SectionCommands {
     // --- [ACTIONS]
-    public static Command<RowRule, Invoke>.Run Presets(Func<RowScope, IO<Seq<Seq<Command<RowRule, Invoke>>>>> listing) =>
-        new(new CommandFace("section-presets", "Presets") { Glyph = Some<GlyphSource>(Icons.Embedded(typeof(SectionHolder).Assembly, "presets.svg")) }, None, new Invoke.Listed(listing));
+    public static Command<Invoke>.Run Presets(Func<RowScope, IO<Seq<Seq<Command<Invoke>>>>> listing) =>
+        new(new CommandFace("section-presets", "Presets") { Icon = Some(new IconResource(typeof(SectionHolder).Assembly, "presets.svg")) }, None, new Invoke.Listed(listing));
 
-    public static Command<RowRule, Invoke>.Run Values { get; } =
-        new(new CommandFace("section-values", "Values") { Glyph = Some<GlyphSource>(Icons.Embedded(typeof(SectionHolder).Assembly, "options.svg")) }, None,
+    public static Command<Invoke>.Run Values { get; } =
+        new(new CommandFace("section-values", "Values") { Icon = Some(new IconResource(typeof(SectionHolder).Assembly, "options.svg")) }, None,
             new Invoke.Listed(static scope => Historied(scope).Bind(history => Listing(history, scope))));
 
-    public static Command<RowRule, Invoke>.Run Reset { get; } =
-        new(new CommandFace("section-reset", "Reset") { Glyph = Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.Svg_namedItemRestoreHotSvg)) }, None,
+    public static Command<Invoke>.Run Reset { get; } =
+        new(new CommandFace("section-reset", "Reset") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.Svg_namedItemRestoreHotSvg)) }, None,
             new Invoke.Effect(static scope => Historied(scope).Bind(history => scope.Commit(history.Group, history.Group.Defaults)).Map(unit)));
 
     private static IO<HistoryBinding> Historied(RowScope scope) => IO.lift(() => Conversions.Found(scope.History));
 
     // --- [VALUES]
-    private static IO<Seq<Seq<Command<RowRule, Invoke>>>> Listing(HistoryBinding history, RowScope scope) =>
+    private static IO<Seq<Seq<Command<Invoke>>>> Listing(HistoryBinding history, RowScope scope) =>
         from held in history.History
         from pastes in IO.lift(static () => Clipboard.Instance.ContainsText)
         from zone in IO.lift(() => history.Clock.ToZonedClock().Zone)
@@ -274,13 +277,13 @@ public static class SectionCommands {
             Seq(Ran("section-copy", "Copy values", DataTransfer.Copy(history.Group, None, scope)))
                 + Seq(Ran("section-paste", "Paste values", DataTransfer.Paste(history.Group, None, scope))).Filter(_ => pastes),
             Seq(Ran("section-clear", "Clear history", history.Clear)).Filter(_ => !(held.Done.IsEmpty && held.Undone.IsEmpty))
-                + Seq<Command<RowRule, Invoke>>(new Command<RowRule, Invoke>.Menu(new CommandFace("section-restore", "Restore"), None, [held.Done.Map(entry => Ran(
+                + Seq<Command<Invoke>>(new Command<Invoke>.Menu(new CommandFace("section-restore", "Restore"), None, [held.Done.Map(entry => Ran(
                     string.Create(CultureInfo.InvariantCulture, $"section-restore-{entry.Serial}"),
                     RowText.Localize("{0}, {1}", arguments: [Described(entry, scope.Owner), stamp.Format(entry.At.InZone(zone).LocalDateTime)]).Local,
                     Heard(history.Restore(entry.Serial), scope)))])).Filter(_ => !held.Done.IsEmpty));
 
-    private static Command<RowRule, Invoke> Ran<T>(string name, string caption, IO<T> run) =>
-        new Command<RowRule, Invoke>.Run(new CommandFace(name, caption), None, new Invoke.Effect(_ => run.Map(unit)));
+    private static Command<Invoke> Ran<T>(string name, string caption, IO<T> run) =>
+        new Command<Invoke>.Run(new CommandFace(name, caption), None, new Invoke.Effect(_ => run.Map(unit)));
 
     private static IO<ValueDiff> Heard(IO<ValueDiff> step, RowScope scope) =>
         from diff in step

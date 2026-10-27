@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-forwarding-function-csharp
-language: csharp
+language: csharplang
 severity: error
 utils:
     trait-member:
@@ -216,7 +216,7 @@ rule:
         - has: {field: name, pattern: $NAME}
         - not:
             any:
-                - has: {kind: modifier, regex: '^(override|partial|extern|abstract|async)$'}
+                - has: {kind: modifier, regex: '^(override|virtual|partial|extern|abstract|async)$'}
                 - has:
                     kind: attribute_list
                     has:
@@ -259,4 +259,4 @@ rule:
                                           has: {field: body, kind: invocation_expression, has: {field: function, matches: boundary-callee}}
                                         - matches: boundary-callee
 message: '`$NAME` forwards its parameters unchanged to `$CALLEE`, delete it and call `$CALLEE` at each use'
-note: 'Call it through `IO.lift(<receiver>.<member>)` in an effect, `fun(<action>)` for an `Action` value; overrides, interface and trait members stay'
+note: 'Call it through `IO.lift(<receiver>.<member>)` in an effect, `fun(<action>)` for an `Action` value; overrides, virtual defaults, interface and trait members stay'

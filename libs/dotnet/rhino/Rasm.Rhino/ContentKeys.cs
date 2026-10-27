@@ -3,7 +3,7 @@ using System.IO.Hashing;
 using System.Numerics;
 using System.Text;
 
-namespace Rasm.RhinoCommon;
+namespace Rasm.Rhino;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<UInt128>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]

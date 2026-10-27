@@ -1,9 +1,9 @@
-using Rasm.RhinoCommon.Document.Files;
-using Rasm.RhinoCommon.Persistence.Stores;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Persistence.Stores;
 using Rhino.PlugIns;
 using Rhino.UI;
 
-namespace Rasm.RhinoCommon.Persistence;
+namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(SkipIParsable = true)]

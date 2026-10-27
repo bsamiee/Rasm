@@ -1,13 +1,13 @@
 using System.Globalization;
 using System.Numerics;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Tables;
-using Rasm.RhinoCommon.PlugIns;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.PlugIns;
 using Rhino;
 using Rhino.Collections;
 using Rhino.FileIO;
 
-namespace Rasm.RhinoCommon.Persistence.Stores;
+namespace Rasm.Rhino.Persistence.Stores;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record HistoryLimits(int Capacity, Duration Window) {
@@ -121,7 +121,7 @@ public abstract partial record HistoryScope {
 
 public sealed record HistoryFrame : DocumentFrame {
     // --- [STATE]
-    private static readonly DocumentFrame Stored = new DocumentFrame<HashMap<Guid, ValueHistory>>(
+    private static readonly DocumentFrame Stored = new ArchiveFrame<HashMap<Guid, ValueHistory>>(
         ValueHistory.TypeCode,
         ValueHistory.Codec,
         HashMap<Guid, ValueHistory>(),

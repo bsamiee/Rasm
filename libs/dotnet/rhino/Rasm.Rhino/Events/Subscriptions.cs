@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using Rhino;
 
-namespace Rasm.RhinoCommon.Events;
+namespace Rasm.Rhino.Events;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public record HostEvent<TArgs>(string Label, Func<Func<TArgs, IO<Unit>>, object, IO<Unit>> Inline) {

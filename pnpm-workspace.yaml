@@ -20,7 +20,7 @@ catalog:
     # --- [SERIALIZATION_MESSAGING]
     jsesc: 3.1.0 # JavaScript literals for Acrobat scripts
     '@types/jsesc': 3.0.3
-    '@solana/codecs': 8.5.1-canary-20261022083205 # Bidirectional binary format declarations for Adobe palette exchange
+    '@solana/codecs': 8.5.1-canary-20261026083951 # Bidirectional binary format declarations for Adobe palette exchange
     hash-wasm: 4.12.0
     '@bufbuild/protobuf': 2.16.0
     '@bufbuild/protovalidate': 1.3.0
@@ -59,24 +59,24 @@ catalog:
     '@effect/sql-sqlite-node': 4.0.6
     '@effect/sql-sqlite-bun': 4.0.6
     '@effect/sql-sqlite-wasm': 4.0.6
-    '@effect/sql-libsql': 4.0.5
+    '@effect/sql-libsql': 4.0.6
     '@effect/sql-d1': 4.0.6
-    '@effect/sql-mysql2': 4.0.5
+    '@effect/sql-mysql2': 4.0.6
     '@effect/sql-mssql': 4.0.6
-    '@effect/sql-clickhouse': 4.0.5
+    '@effect/sql-clickhouse': 4.0.6
     '@effect/sql-pglite': 4.0.6
     '@effect/sql-sqlite-do': 4.0.6
-    '@electric-sql/pglite': 0.5.11
-    '@electric-sql/pglite-tools': 0.4.11
+    '@electric-sql/pglite': 0.5.12
+    '@electric-sql/pglite-tools': 0.4.12
     '@duckdb/node-api': 2.0.0-r.1
-    '@duckdb/duckdb-wasm': "1.33.1-dev65.0"
+    '@duckdb/duckdb-wasm': "1.33.1-dev110.0"
     '@qualithm/arrow-flight-client': 0.2.2
     parquet-wasm: 0.9.0
-    '@aws-sdk/client-s3': 3.1155.0
-    '@aws-sdk/s3-request-presigner': 3.1155.0
-    '@aws-sdk/lib-storage': 3.1155.0
+    '@aws-sdk/client-s3': 3.1157.0
+    '@aws-sdk/s3-request-presigner': 3.1157.0
+    '@aws-sdk/lib-storage': 3.1157.0
     '@tus/server': 2.4.6
-    '@tus/s3-store': 2.0.8
+    '@tus/s3-store': 2.0.9
     sharp: 0.35.5
     shell-quote: 1.12.0
     '@gltf-transform/core': 4.5.1
@@ -98,11 +98,11 @@ catalog:
     '@nats-io/obj': "3.4.1-0"
     '@connectrpc/connect-node': 2.2.0
     chevrotain: 13.2.0
-    nodemailer: 10.2.0
+    nodemailer: 10.2.1
     '@types/nodemailer': 8.0.2
     validator: 13.15.35
     '@types/validator': 13.15.10
-    hucre: 1.2.0
+    hucre: 1.3.0
     jspdf: 4.2.1
     jszip: 3.10.2
     papaparse: 5.7.0
@@ -155,9 +155,9 @@ catalog:
     # --- [WEB_UI]
     '@dnd-kit/helpers': 0.5.1
     '@dnd-kit/react': 0.5.1
-    '@embedpdf/core-geometry': 3.0.0-next.15
-    '@embedpdf/engine': 3.0.0-next.15
-    '@embedpdf/react': 3.0.0-next.15
+    '@embedpdf/core-geometry': 3.0.0-next.16
+    '@embedpdf/engine': 3.0.0-next.16
+    '@embedpdf/react': 3.0.0-next.16
     '@uppy/core': 6.3.0
     '@uppy/dashboard': 6.0.2
     '@uppy/react': 6.1.0
@@ -180,10 +180,10 @@ catalog:
     '@effect/atom-react': 4.0.6
     '@floating-ui/react': 0.27.20
     '@tanstack/react-table': 9.3.1
-    '@tanstack/react-virtual': 3.14.21
+    '@tanstack/react-virtual': 3.14.23
     '@tanstack/store': 0.11.2
     '@use-gesture/react': 10.3.1
-    lucide-react: 1.61.0
+    lucide-react: 1.62.0
     class-variance-authority: 0.7.1
     clsx: 2.1.1
     tailwindcss: 4.3.3
@@ -194,13 +194,13 @@ catalog:
     colorjs.io: 0.7.1
     isomorphic-dompurify: 4.6.0
     tus-js-client: 5.0.0-pre3
-    react-resizable-panels: 4.14.8
+    react-resizable-panels: 4.15.0
     '@xyflow/react': 13.0.0-next.0
     elkjs: 0.12.0
     prosemirror-model: 1.25.12
     prosemirror-state: 1.4.4
-    prosemirror-view: 1.42.6
-    prosemirror-transform: 1.12.2
+    prosemirror-view: 1.42.8
+    prosemirror-transform: 1.12.4
     prosemirror-commands: 1.7.2
     prosemirror-keymap: 1.2.3
     prosemirror-history: 1.5.1
@@ -218,16 +218,16 @@ catalog:
     '@visx/axis': 4.0.0
     '@visx/group': 4.0.0
     '@visx/responsive': 4.0.0
-    '@perspective-dev/client': 5.6.0
-    '@perspective-dev/viewer': 5.6.0
-    '@perspective-dev/viewer-datagrid': 5.6.0
-    '@perspective-dev/viewer-charts': 5.6.0
+    '@perspective-dev/client': 5.6.1
+    '@perspective-dev/viewer': 5.6.1
+    '@perspective-dev/viewer-datagrid': 5.6.1
+    '@perspective-dev/viewer-charts': 5.6.1
     web-vitals: 6.2.3
     # --- [SPATIAL_RENDERING]
     three: 0.186.1
     '@types/three': 0.186.0
     three-mesh-bvh: 0.9.16
-    maplibre-gl: 6.15.0
+    maplibre-gl: 6.16.0
     '@deck.gl/core': 9.4.0
     '@deck.gl/geo-layers': 9.4.0
     '@deck.gl/layers': 9.4.0
@@ -235,8 +235,8 @@ catalog:
     '@deck.gl/mesh-layers': 9.4.0
     '@deck.gl/extensions': 9.4.0
     '@loaders.gl/3d-tiles': "5.0.0-alpha.12"
-    '@loaders.gl/core': "5.0.0-alpha.12"
-    '@loaders.gl/las': "5.0.0-alpha.12"
+    '@loaders.gl/core': "5.0.0-alpha.14"
+    '@loaders.gl/las': "5.0.0-alpha.14"
     '@geoarrow/deck.gl-geoarrow': 0.4.2
     apache-arrow: 21.2.0
     '@google/model-viewer': 4.4.0
@@ -244,7 +244,7 @@ catalog:
     '@turf/turf': 7.4.0
     '@types/geojson': 7946.0.16
     '@webgpu/types': 0.1.74
-    typegpu: 0.12.8
+    typegpu: 0.12.9
     # --- [ADOBE_HOSTS_FONTS]
     types-for-adobe: 7.2.6
     '@adobe-uxp-types/uxp': 0.1.4
@@ -254,7 +254,7 @@ catalog:
     indesign-uxp-types: 1.0.0
     fontkit: 2.0.4
     '@types/fontkit': 2.0.9
-    harfbuzzjs: 1.6.3 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
+    harfbuzzjs: 1.6.4 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
     ts-morph: 28.0.0 # TypeScript syntax tree reads and edits through compiler API
     '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
@@ -263,29 +263,29 @@ catalog:
     astring: 1.9.0 # JavaScript source text from ESTree syntax trees
     image-size: 2.0.4 # Image width and height read from encoded bytes
     # --- [INFRASTRUCTURE]
-    '@pulumi/pulumi': "3.272.0-alpha.x3b3c825"
+    '@pulumi/pulumi': "3.273.0-alpha.x3cc2de3"
     '@pulumi/kubernetes': "4.35.0-alpha.1792650132"
-    '@pulumi/aws': "7.52.0-alpha.1792217185"
-    '@pulumi/awsx': "3.12.0-alpha.1792648628"
-    '@pulumi/gcp': "10.3.0-alpha.1792649487"
+    '@pulumi/aws': "7.52.0-alpha.1792577301"
+    '@pulumi/awsx': "3.12.0-alpha.1793037951"
+    '@pulumi/gcp': "10.3.0-alpha.1793053451"
     '@pulumi/cloudflare': "6.24.0-alpha.1792649795"
     '@pulumi/postgresql': "3.19.0-alpha.1792650309"
     '@pulumi/tls': "5.7.0-alpha.1792651467"
     '@pulumi/random': "4.22.0-alpha.1792650729"
-    '@pulumi/command': "1.3.0-alpha.1792647281"
+    '@pulumi/command': "1.3.0-alpha.1793046795"
     '@pulumi/docker': "5.3.0-alpha.1792648153"
-    '@pulumi/docker-build': "0.1.0-alpha.1792647954"
+    '@pulumi/docker-build': "0.1.0-alpha.1792716480"
     '@pulumi/minio': "1.0.0-alpha.1789107308"
     '@pulumi/policy': "1.22.0-alpha.1787747072"
     '@pulumiverse/doppler': 0.9.0
     '@pulumiverse/grafana': 2.44.0
     '@grafana/grafana-foundation-sdk': 0.0.21
-    '@pulumi/eks': "4.5.0-alpha.1792478347"
+    '@pulumi/eks': "4.5.0-alpha.1792736806"
     '@pulumi/cloudinit': "1.7.0-alpha.1792647110"
     '@pulumi/github': "6.16.0-alpha.1792648425"
-    '@pulumi/synced-folder': 0.12.4
+    '@pulumi/synced-folder': 0.12.6
     '@pulumi/esc-sdk': 0.14.0
-    '@pulumi/pulumiservice': "1.6.0-alpha.1792613334"
+    '@pulumi/pulumiservice': "1.6.0-alpha.1792787233"
     '@pulumiverse/acme': "0.18.1"
     # --- [TESTING]
     vitest: 5.1.0-beta.1
@@ -295,56 +295,57 @@ catalog:
     '@vitest/browser': 5.1.0-beta.1
     '@vitest/browser-playwright': 5.1.0-beta.1
     vitest-browser-react: 2.3.0
-    '@stryker-mutator/core': 10.0.0
-    '@stryker-mutator/vitest-runner': 10.0.0
-    '@playwright/test': 1.65.0-alpha-2026-10-22
-    playwright: 1.65.0-alpha-2026-10-22
+    '@stryker-mutator/core': 10.1.1
+    '@stryker-mutator/vitest-runner': 10.1.1
+    '@playwright/test': 1.65.0-alpha-2026-10-27
+    playwright: 1.65.0-alpha-2026-10-27
     '@axe-core/playwright': 4.14.1-55245d5.0.sha-55245d5
     storybook: 11.0.0-alpha.6
     '@storybook/react-vite': 11.0.0-alpha.6
     '@storybook/addon-vitest': 11.0.0-alpha.6
     '@storybook/addon-a11y': 11.0.0-alpha.6
     '@storybook/addon-docs': 11.0.0-alpha.6
-    '@cloudflare/vitest-plugin': 1.4.6
+    '@cloudflare/vitest-plugin': 1.4.8
     testcontainers: 12.2.1
     '@testcontainers/postgresql': 12.2.1
     # --- [TOOLING]
-    '@cloudflare/vite-plugin': 2.0.0-beta.v.3
-    '@cloudflare/workers-types': 5.20261022.1
+    '@cloudflare/vite-plugin': 2.0.0-beta.v.5
+    '@cloudflare/workers-types': 5.20261027.1
     '@openai/sites-vite-plugin': 0.2.0
-    '@cloudflare/build-output-utils': 0.9.3 # Build Output tree reader for hosting programs
-    cf: 1.0.0-beta.20 # `cloudflare.config.ts` definitions and local resource commands against Vite plugin state
-    '@effect/tsgo': 0.56.0 # Effect diagnostics in patched `tsc` and language server
-    typescript: 7.1.0-dev.20261020.3 # Newest build `@effect/tsgo` patches, every `effect-tsgo` subcommand fails on another build
-    '@effect/docgen': 4.0.5
-    '@effect/openapi-generator': 4.0.5
-    nx: 24.0.0
-    '@nx/devkit': 24.0.0
-    '@nx/dotnet': 24.0.0
-    '@nx/playwright': 24.0.0
-    '@nx/vitest': 24.0.0
+    '@cloudflare/build-output-utils': 0.9.5 # Build Output tree reader for hosting programs
+    cf: 1.0.0-beta.23 # `cloudflare.config.ts` definitions and local resource commands against Vite plugin state
+    '@effect/tsgo': 0.59.0 # Effect diagnostics in patched `tsc` and language server
+    typescript: 7.1.0-dev.20261026.1 # Newest build `@effect/tsgo` patches, every `effect-tsgo` subcommand fails on another build
+    '@effect/docgen': 4.0.6
+    '@effect/openapi-generator': 4.0.6
+    nx: 24.0.2
+    '@nx/devkit': 24.0.2
+    '@nx/dotnet': 24.0.2
+    '@nx/playwright': 24.0.2
+    '@nx/vitest': 24.0.2
     '@ast-grep/napi': 0.51.0 # Structural search and rewrite over syntax trees from Node
     '@ast-grep/lang-python': 0.0.6 # Python grammar `@ast-grep/napi` registers as a dynamic language
     smol-toml: 1.9.1 # Nx parser for `pyproject.toml` and `blender_manifest.toml`
     minimatch: 10.2.6
-    '@biomejs/biome': 2.6.2
+    '@biomejs/biome': 2.6.3
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
+    tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5 # Master commit with generated parser holding C# 14 `extension` declarations, newest release 0.23.5 stops at C# 13
     tree-sitter-sqlite3: 0.1.0
     tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#0.7.4-with-generated-files # Newest release tag with generated parser, npm stops at 0.7.1 and plain tag omits `src/parser.c`
-    '@swc/core': 1.16.19-nightly-20261015.1
+    '@swc/core': 1.16.20
     '@swc/cli': 0.8.1
     tslib: 2.8.1
     '@types/node': 26.6.5
     vite-plugin-static-copy: 4.1.1
     vite: 8.3.5
     '@vitejs/plugin-react': 6.1.2
-    oxc-transform-react: 0.155.0
+    oxc-transform-react: 0.156.0
     '@tailwindcss/vite': 4.3.3
     '@rolldown/plugin-babel': 0.2.4
     rollup-plugin-visualizer: 7.1.1
     lightningcss: 1.33.0
     vite-plugin-pwa: 2.0.0
-    vite-plugin-compression2: 2.5.3
+    vite-plugin-compression2: 2.5.4
     vite-plugin-csp-guard: 4.0.1
     vite-plugin-image-optimizer: 2.0.3
     vite-plugin-inspect: 12.1.0
@@ -412,6 +413,7 @@ allowBuilds:
     ssh2: false
     tldjs: false
     workerd: true
+    tree-sitter-c-sharp: false
     tree-sitter-sqlite3: false
     tree-sitter-swift: false
 

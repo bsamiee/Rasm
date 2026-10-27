@@ -4,10 +4,10 @@ using System.Diagnostics.CodeAnalysis;
 using Darkroom.Catalog;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
-using Rasm.RhinoCommon;
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Persistence.Stores;
-using Rasm.RhinoCommon.Render.Effects;
+using Rasm.Rhino;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.Render.Effects;
 using Rhino;
 using Rhino.Render.PostEffects;
 

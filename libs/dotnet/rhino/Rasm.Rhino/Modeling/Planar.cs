@@ -3,9 +3,9 @@ using System.Runtime.CompilerServices;
 using NetTopologySuite;
 using NetTopologySuite.Algorithm;
 using NetTopologySuite.Geometries;
-using Rasm.RhinoCommon.Document.Units;
+using Rasm.Rhino.Document.Units;
 
-namespace Rasm.RhinoCommon.Modeling;
+namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject(SkipToString = true)]

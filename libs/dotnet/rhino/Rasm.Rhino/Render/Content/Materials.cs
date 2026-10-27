@@ -1,11 +1,11 @@
-using Rasm.RhinoCommon.Document;
-using Rasm.RhinoCommon.Document.Tables;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 
-namespace Rasm.RhinoCommon.Render.Content;
+namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
