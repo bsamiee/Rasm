@@ -5,7 +5,6 @@
 
     <ItemGroup Label="Core">
         <PackageReference Include="NodaTime" />
-        <PackageReference Include="SuperLinq" />
     </ItemGroup>
 
     <ItemGroup Label="Mathematics">
@@ -13,13 +12,24 @@
         <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 
+    <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="RBush.Signed" />
+        <PackageReference Include="SuperLinq" />
+    </ItemGroup>
+
     <ItemGroup Label="Color">
         <PackageReference Include="Wacton.Unicolour" />
+        <PackageReference Include="Wacton.Unicolour.Datasets" />
+    </ItemGroup>
+
+    <ItemGroup Label="Text">
+        <PackageReference Include="ICU4N" />
     </ItemGroup>
 
     <ItemGroup Label="Desktop UI">
         <PackageReference Include="SkiaSharp" />
         <PackageReference Include="SkiaSharp.HarfBuzz" />
+        <PackageReference Include="SkiaSharp.Skottie" />
         <PackageReference Include="HarfBuzzSharp" />
         <PackageReference Include="Topten.RichTextKit" />
         <PackageReference Include="Svg.Skia" />

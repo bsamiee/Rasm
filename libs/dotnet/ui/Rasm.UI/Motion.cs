@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using MathNet.Numerics.RootFinding;
+using Rasm.UI.Rendering;
 using Rasm.UI.Styling;
 using SkiaSharp;
 
@@ -8,12 +9,12 @@ namespace Rasm.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipFactoryMethods = true)]
 public sealed partial class DampingRatio {
-    public static Fin<DampingRatio> Validated(double value) => UIFault.Unless(double.IsFinite(value) && value > 0d, UIReason.Range).Map(_ => new DampingRatio(value));
+    public static Fin<DampingRatio> Validated(double value) => UIFault.Unless(double.IsFinite(value) && value > 0d, UIReason.Range, value).Map(_ => new DampingRatio(value));
 }
 
 [ValueObject<double>(SkipFactoryMethods = true)]
 public sealed partial class VisibleChange {
-    public static Fin<VisibleChange> Validated(double value) => UIFault.Unless(value is > 0d and <= 1d, UIReason.Range).Map(_ => new VisibleChange(value));
+    public static Fin<VisibleChange> Validated(double value) => UIFault.Unless(value is > 0d and <= 1d, UIReason.Range, value).Map(_ => new VisibleChange(value));
 }
 
 [ComplexValueObject(SkipFactoryMethods = true)]
@@ -31,12 +32,13 @@ public sealed partial class Easing {
 
     public double Progress(double time) => Bezier(Solved(time), Y1, Y2);
 
-    public double Slope(double time) => Solved(time) switch {
-        var solved => Tangent(solved, Y1, Y2) / Tangent(solved, X1, X2),
-    };
+    public double Slope(double time) {
+        double solved = Solved(time);
+        return Tangent(solved, Y1, Y2) / Tangent(solved, X1, X2);
+    }
 
     public static Fin<Easing> Validated(double x1, double y1, double x2, double y2) =>
-        UIFault.Unless(x1 is >= 0d and <= 1d && x2 is >= 0d and <= 1d && double.IsFinite(y1) && double.IsFinite(y2), UIReason.Range).Map(_ => new Easing(x1, y1, x2, y2));
+        UIFault.Unless(x1 is >= 0d and <= 1d && x2 is >= 0d and <= 1d && double.IsFinite(y1) && double.IsFinite(y2), UIReason.Range, (x1, y1, x2, y2)).Map(_ => new Easing(x1, y1, x2, y2));
 
     private double Solved(double time) => Brent.TryFindRoot(s => Bezier(s, X1, X2) - time, 0d, 1d, 1e-12, 100, out double root) ? root : throw new UnreachableException();
 
@@ -45,12 +47,18 @@ public sealed partial class Easing {
     private static double Tangent(double s, double first, double second) => (3d * (1d - s) * (1d - s) * first) + (6d * (1d - s) * s * (second - first)) + (3d * s * s * (1d - second));
 }
 
+public sealed record Sample(double Value, bool Settled);
+
+internal sealed record Moving(double Progress, double Rate);
+
+internal sealed record Mode(double Even, double Odd);
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TimingCurve {
     // --- [SAMPLE]
-    public static Next<double, double> End { get; } = Next.Done<double, double>(1d);
+    private static readonly Sample End = new(1d, Settled: true);
 
-    public abstract Next<double, double> Sample(Duration elapsed);
+    public abstract Sample Sample(Duration elapsed);
 
     public abstract double Velocity(Duration elapsed);
 
@@ -58,41 +66,36 @@ public abstract partial record TimingCurve {
 
     internal bool Moves => Map(instant: false, eased: true, spring: true, glide: true);
 
-    private static Next<double, double> Sampled(Option<(double Progress, double Rate)> moved) =>
-        moved.Match(Some: static held => Next.Loop<double, double>(held.Progress), None: static () => End);
+    private static Sample Sampled(Option<Moving> moved) => moved.Match(Some: static held => new Sample(held.Progress, Settled: false), None: static () => End);
 
-    private static Option<(double Progress, double Rate)> Oscillated(double damping, double phase, double start, VisibleChange rest) =>
-        Modes(damping, phase) switch {
-            var (even, odd) => (Remaining: even + ((damping - start) * odd), Rate: (start * even) + ((1d - (damping * start)) * odd)) switch {
-                var moved when double.Abs(moved.Remaining) < rest && double.Abs(moved.Rate) < rest => None,
-                var moved => Some((1d - moved.Remaining, moved.Rate)),
-            },
-        };
+    private static Option<Moving> Oscillated(double damping, double phase, double start, VisibleChange rest) {
+        Mode mode = Modes(damping, phase);
+        double remaining = mode.Even + ((damping - start) * mode.Odd);
+        double rate = (start * mode.Even) + ((1d - (damping * start)) * mode.Odd);
+        return double.Abs(remaining) < rest && double.Abs(rate) < rest ? None : Some(new Moving(1d - remaining, rate));
+    }
 
-    private static (double Even, double Odd) Modes(double damping, double phase) =>
-        (damping - 1d) switch {
-            < 0d => (Root: double.Sqrt((1d - damping) * (1d + damping)), Decay: double.Exp(-damping * phase)) switch {
-                var under => (under.Decay * double.Cos(under.Root * phase), under.Decay * double.Sin(under.Root * phase) / under.Root),
-            },
-            > 0d => double.Sqrt((damping - 1d) * (damping + 1d)) switch {
-                var root => (Slow: double.Exp(-phase / (damping + root)), Gap: double.ExpM1(-2d * root * phase)) switch {
-                    var over => (0.5d * over.Slow * (2d + over.Gap), -0.5d * over.Slow * over.Gap / root),
-                },
-            },
-            _ => double.Exp(-phase) switch {
-                var decay => (decay, phase * decay),
-            },
+    private static Mode Modes(double damping, double phase) {
+        double root = double.Sqrt(double.Abs((1d - damping) * (1d + damping)));
+        double decay = double.Exp(-damping * phase);
+        double slow = double.Exp(-phase / (damping + root));
+        double gap = double.ExpM1(-2d * root * phase);
+        return (damping - 1d) switch {
+            < 0d => new Mode(decay * double.Cos(root * phase), decay * double.Sin(root * phase) / root),
+            > 0d => new Mode(0.5d * slow * (2d + gap), -0.5d * slow * gap / root),
+            _ => new Mode(decay, phase * decay),
         };
+    }
 
     // --- [CASES]
     public sealed record Instant : TimingCurve {
-        public override Next<double, double> Sample(Duration elapsed) => End;
+        public override Sample Sample(Duration elapsed) => End;
 
         public override double Velocity(Duration elapsed) => 0d;
     }
 
     public sealed record Eased(Duration Length, Easing Easing) : TimingCurve {
-        public override Next<double, double> Sample(Duration elapsed) => elapsed >= Length ? End : Next.Loop<double, double>(Easing.Progress(elapsed / Length));
+        public override Sample Sample(Duration elapsed) => elapsed >= Length ? End : new Sample(Easing.Progress(elapsed / Length), Settled: false);
 
         public override double Velocity(Duration elapsed) => elapsed >= Length ? 0d : Easing.Slope(elapsed / Length) / Length.TotalSeconds;
     }
@@ -102,44 +105,40 @@ public abstract partial record TimingCurve {
 
         private double Frequency => double.Tau / Response.TotalSeconds;
 
-        public override Next<double, double> Sample(Duration elapsed) => Sampled(Moved(elapsed));
+        public override Sample Sample(Duration elapsed) => Sampled(Moved(elapsed));
 
         public override double Velocity(Duration elapsed) => Moved(elapsed).Map(moved => Frequency * moved.Rate).IfNone(0d);
 
         public override TimingCurve From(double velocity) => this with { Initial = velocity };
 
-        private Option<(double Progress, double Rate)> Moved(Duration elapsed) => Oscillated((double)Damping, double.Tau * (elapsed / Response), Initial / Frequency, Rest);
+        private Option<Moving> Moved(Duration elapsed) => Oscillated((double)Damping, double.Tau * (elapsed / Response), Initial / Frequency, Rest);
     }
 
     public sealed record Glide(Duration TimeConstant, VisibleChange Rest) : TimingCurve {
         public double Initial { get; init; } = 1d / TimeConstant.TotalSeconds;
 
-        public override Next<double, double> Sample(Duration elapsed) => Sampled(Moved(elapsed));
+        public override Sample Sample(Duration elapsed) => Sampled(Moved(elapsed));
 
         public override double Velocity(Duration elapsed) => Moved(elapsed).Map(moved => moved.Rate / TimeConstant.TotalSeconds).IfNone(0d);
 
         public override TimingCurve From(double velocity) => this with { Initial = velocity };
 
-        private Option<(double Progress, double Rate)> Moved(Duration elapsed) => Oscillated(1d, elapsed / TimeConstant, Initial * TimeConstant.TotalSeconds, Rest);
+        private Option<Moving> Moved(Duration elapsed) => Oscillated(1d, elapsed / TimeConstant, Initial * TimeConstant.TotalSeconds, Rest);
     }
 }
 
 public sealed record Animated(float From, float To, Duration Start, TimingCurve Curve) {
-    public Next<float, float> At(Duration now) =>
-        Curve.Sample(now - Start).Match(Loop: progress => Next.Loop<float, float>(Lerped(progress)), Done: progress => Next.Done<float, float>(Lerped(progress)));
+    public float Value(Duration now) => float.Lerp(From, To, (float)Curve.Sample(now - Start).Value);
 
-    public float Value(Duration now) => At(now).Match(Loop: static value => value, Done: static value => value);
+    public bool Settled(Duration now) => Curve.Sample(now - Start).Settled;
 
-    public Animated Toward(float target, Duration now, TimingCurve curve) =>
-        To.CompareTo(target) is 0
-            ? this
-            : Value(now) switch {
-                var at => new(at, target, now, curve.From(at.CompareTo(target) is 0 ? 0d : Curve.Velocity(now - Start) * (To - From) / (target - at))),
-            };
+    public Animated Toward(float target, Duration now, TimingCurve curve) {
+        if (To.CompareTo(target) is 0) return this;
+        float at = Value(now);
+        return new(at, target, now, curve.From(at.CompareTo(target) is 0 ? 0d : Curve.Velocity(now - Start) * (To - From) / (target - at)));
+    }
 
     internal static Animated Rest(float value, Duration now) => new(value, value, now, new TimingCurve.Instant());
-
-    private float Lerped(double progress) => float.Lerp(From, To, (float)progress);
 }
 
 internal sealed record Transition(Animated X, Animated Y, Animated Width, Animated Height, Animated Opacity) {
@@ -154,12 +153,14 @@ internal sealed record Transition(Animated X, Animated Y, Animated Width, Animat
         X.To.CompareTo(laid.Frame.Left) is 0 && Y.To.CompareTo(laid.Frame.Top) is 0 && Width.To.CompareTo(laid.Frame.Width) is 0 && Height.To.CompareTo(laid.Frame.Height) is 0
         && Opacity.To.CompareTo(laid.Alpha) is 0;
 
-    internal bool Moving(Duration now) => Seq(X, Y, Width, Height, Opacity).Exists(animated => animated.At(now).IsLoop);
+    internal bool Moving(Duration now) => Seq(X, Y, Width, Height, Opacity).Exists(animated => !animated.Settled(now));
 
     internal SKPoint Shift(Laid laid, Duration now) => new(X.Value(now) - laid.Frame.Left, Y.Value(now) - laid.Frame.Top);
 
-    internal (SKPoint Shift, SKSize Size, float Alpha) Tweened(Laid laid, Duration now) => (Shift(laid, now), new SKSize(Width.Value(now), Height.Value(now)), Opacity.Value(now));
+    internal Tween Tweened(Laid laid, Duration now) => new(Shift(laid, now), new SKSize(Width.Value(now), Height.Value(now)), Opacity.Value(now));
 }
+
+internal sealed record Tween(SKPoint Shift, SKSize Size, float Alpha);
 
 internal sealed record Departure(Laid Last, Place Place, Animated Opacity) {
     internal SKPoint At => Last.Frame.Location + Place.Origin;
@@ -180,8 +181,10 @@ internal sealed record Countdown(Expiry Expiry, Duration Left, Option<Duration> 
             None: () => !hovered && Left > Duration.Zero ? this with { Since = Some(now) } : this);
 }
 
+public sealed record Washed(Seq<Key> Path, Interaction Interaction);
+
 internal sealed record Animations(
-    HashMap<(Seq<Key> Path, Interaction Interaction), Animated> Fades,
+    HashMap<Washed, Animated> Fades,
     HashMap<Seq<Key>, Transition> Transitions,
     HashMap<Seq<Key>, Departure> Leaving,
     HashMap<Seq<Key>, Countdown> Timers) {
@@ -193,16 +196,14 @@ internal sealed record Animations(
     internal Option<Duration> Due =>
         toSeq(Timers.Values).Choose(static countdown => countdown.Deadline).Fold(Option<Duration>.None, static (least, deadline) => Some(least.Match(Some: held => Duration.Min(held, deadline), None: () => deadline)));
 
-    internal HashMap<(Seq<Key> Path, Interaction Interaction), float> Washes(LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> active, Duration now) =>
+    internal HashMap<Washed, float> Washes(HashSet<Washed> active, Duration now) =>
         toHashMap(active.ToSeq().Map(key => (Key: key, Weight: Fades.Find(key).Map(fade => fade.Value(now)).IfNone(1f)))
             .Concat(toSeq(Fades.Filter((key, _) => !active.Contains(key)).AsIterable()).Map(entry => (entry.Key, Weight: entry.Value.Value(now))))
             .Map(static entry => (entry.Key, Weight: float.Clamp(entry.Weight, 0f, 1f)))
             .Filter(static entry => entry.Weight > 0f));
 
     internal Seq<Hosted> Hosted(Scene scene, Duration now) =>
-        scene.Hosted.Map(hosted => Shift(scene, hosted.Path, now) switch {
-            var shift => hosted with { Frame = Scene.Absolute(hosted.Frame, shift) },
-        });
+        scene.Hosted.Map(hosted => hosted with { Frame = Scene.Absolute(hosted.Frame, Shift(scene, hosted.Path, now)) });
 
     private SKPoint Shift(Scene scene, Seq<Key> path, Duration now) =>
         Scene.Above(path).Choose(above =>
@@ -235,38 +236,40 @@ internal sealed record Animations(
         select transition;
 
     // --- [FADE]
-    internal (Animations Animations, Seq<SKRect> Damage) Fading(Scene prior, Scene scene, LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> was,
-                                                                LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> active, Duration now) =>
-        was.SymmetricExcept(active) switch {
-            var changed => (this with { Fades = changed.ToSeq().Fold(Fades.Filter((key, _) => scene.Index.ContainsKey(key.Path)), (fades, key) => Faded(scene, fades, key, active, now)) },
-                Repainted(prior, scene, was.Union(active).Union(toHashSet(Fades.Filter(fade => fade.At(now).IsLoop).Keys)), changed)),
-        };
+    internal sealed record Washing(Animations Animations, Seq<SKRect> Damage);
 
-    private static Seq<SKRect> Repainted(Scene prior, Scene scene, LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> washed, LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> changed) =>
+    private sealed record Swept(SKRect Damage, Option<SKRect> Beyond, TimingCurve Motion);
+
+    internal Washing Fading(Scene prior, Scene scene, HashSet<Washed> was, HashSet<Washed> active, Duration now) {
+        HashSet<Washed> changed = was.SymmetricExcept(active);
+        return new(this with { Fades = changed.ToSeq().Fold(Fades.Filter((key, _) => scene.Index.ContainsKey(key.Path)), (fades, key) => Faded(scene, fades, key, active, now)) },
+            Repainted(prior, scene, was.Union(active).Union(toHashSet(Fades.Filter(fade => !fade.Settled(now)).Keys)), changed));
+    }
+
+    private static Seq<SKRect> Repainted(Scene prior, Scene scene, HashSet<Washed> washed, HashSet<Washed> changed) =>
         from key in toSeq(washed)
-        let now = Washed(scene, key)
-        let was = Washed(prior, key).Bind(static held => held.Beyond)
+        let now = Sweep(scene, key)
+        let was = Sweep(prior, key).Bind(static held => held.Beyond)
         let beyond = now.Bind(static held => held.Beyond)
         from damage in toSeq(((changed.Contains(key) ? now.Map(static held => held.Damage).ToSeq() : []) + (was == beyond ? [] : Seq(was, beyond).Somes())).Distinct())
         select damage;
 
-    private static HashMap<(Seq<Key> Path, Interaction Interaction), Animated> Faded(Scene scene, HashMap<(Seq<Key> Path, Interaction Interaction), Animated> fades, (Seq<Key> Path, Interaction Interaction) key,
-                                                                                LanguageExt.HashSet<(Seq<Key> Path, Interaction Interaction)> active, Duration now) =>
-        (Curve: Washed(scene, key).Map(static held => held.Motion).IfNone(new TimingCurve.Instant()), Target: active.Contains(key) ? 1f : 0f) switch {
-            var (curve, target) => fades.Find(key).Map(fade => fade.Toward(target, now, curve)).IfNone(new Animated(1f - target, target, now, curve)) switch {
-                var fade when fade.At(now).IsLoop => fades.AddOrUpdate(key, fade),
-                _ => fades.Remove(key),
-            },
-        };
+    private static HashMap<Washed, Animated> Faded(Scene scene, HashMap<Washed, Animated> fades, Washed key, HashSet<Washed> active, Duration now) {
+        TimingCurve curve = Sweep(scene, key).Map(static held => held.Motion).IfNone(new TimingCurve.Instant());
+        float target = active.Contains(key) ? 1f : 0f;
+        Animated fade = fades.Find(key).Map(open => open.Toward(target, now, curve)).IfNone(new Animated(1f - target, target, now, curve));
+        return fade.Settled(now) ? fades.Remove(key) : fades.AddOrUpdate(key, fade);
+    }
 
-    private static Option<(SKRect Damage, Option<SKRect> Beyond, TimingCurve Motion)> Washed(Scene scene, (Seq<Key> Path, Interaction Interaction) key) =>
+    private static Option<Swept> Sweep(Scene scene, Washed key) =>
         key.Interaction.Ring
-            ? scene.Ring(key.Path).Map(static ring => SKRect.Intersect(SKRect.Inflate(ring.Frame, ring.Style.Overhang, ring.Style.Overhang), ring.Clip) switch {
-                var reach => (reach, Some(reach), ring.Style.Motion),
+            ? scene.Ring(key.Path).Map(static ring => {
+                SKRect reach = SKRect.Intersect(SKRect.Inflate(ring.Frame, ring.Style.Overhang, ring.Style.Overhang), ring.Clip);
+                return new Swept(reach, Some(reach), ring.Style.Motion);
             })
             : from laid in scene.Index.Find(key.Path)
               from bounds in scene.Bounds(key.Path)
-              select (bounds, Option<SKRect>.None, laid.Style.Motion);
+              select new Swept(bounds, None, laid.Style.Motion);
 
     // --- [TIMERS]
     internal Animations Timed(Scene scene, Option<SKPoint> pointer, Duration now) =>
@@ -277,23 +280,27 @@ internal sealed record Animations(
         };
 
     // --- [TICK]
-    internal (Animations Animations, Seq<SKRect> Damage, Seq<IO<Unit>> Elapsed) Tick(Scene scene, Duration prior, Duration now) =>
-        Timers.Filter(countdown => countdown.Deadline.Exists(deadline => deadline <= now)) switch {
-            var elapsed => (
-                new Animations(
-                    Fades.Filter(fade => fade.At(now).IsLoop),
-                    Transitions.Filter(transition => transition.Moving(now)),
-                    Leaving.Filter(left => left.Opacity.At(now).IsLoop),
-                    Timers.AddOrUpdateRange(elapsed.Map(static countdown => countdown.Spent).AsIterable())),
-                Fades.Keys.ToSeq().Choose(key => Washed(scene, key).Map(static held => held.Damage))
-                    .Concat(Transitions.Keys.ToSeq().Choose(path => Reached(scene, path).Map(held =>
-                        SKRect.Intersect(SKRect.Union(Scene.Absolute(held.Reach, Shift(scene, path, prior)), Scene.Absolute(held.Reach, Shift(scene, path, now))), held.Clip))))
-                    .Concat(Leaving.Values.ToSeq().Map(static left => left.Reach)),
-                elapsed.Values.ToSeq().Map(static countdown => countdown.Expiry.Elapsed)),
-        };
+    internal sealed record Ticked(Animations Animations, Seq<SKRect> Damage, Seq<IO<Unit>> Elapsed);
 
-    private static Option<(SKRect Reach, SKRect Clip)> Reached(Scene scene, Seq<Key> path) =>
+    private sealed record Bounded(SKRect Reach, SKRect Clip);
+
+    internal Ticked Tick(Scene scene, Duration prior, Duration now) {
+        HashMap<Seq<Key>, Countdown> elapsed = Timers.Filter(countdown => countdown.Deadline.Exists(deadline => deadline <= now));
+        return new(
+            new Animations(
+                Fades.Filter(fade => !fade.Settled(now)),
+                Transitions.Filter(transition => transition.Moving(now)),
+                Leaving.Filter(left => !left.Opacity.Settled(now)),
+                Timers.AddOrUpdateRange(elapsed.Map(static countdown => countdown.Spent).AsIterable())),
+            Fades.Keys.ToSeq().Choose(key => Sweep(scene, key).Map(static held => held.Damage))
+                .Concat(Transitions.Keys.ToSeq().Choose(path => Reached(scene, path).Map(held =>
+                    SKRect.Intersect(SKRect.Union(Scene.Absolute(held.Reach, Shift(scene, path, prior)), Scene.Absolute(held.Reach, Shift(scene, path, now))), held.Clip))))
+                .Concat(Leaving.Values.ToSeq().Map(static left => left.Reach)),
+            elapsed.Values.ToSeq().Map(static countdown => countdown.Expiry.Elapsed));
+    }
+
+    private static Option<Bounded> Reached(Scene scene, Seq<Key> path) =>
         from laid in scene.Index.Find(path)
         from place in scene.Places.Find(path)
-        select (Scene.Absolute(laid.Reach, place.Origin), place.Clip);
+        select new Bounded(Scene.Absolute(laid.Reach, place.Origin), place.Clip);
 }

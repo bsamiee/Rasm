@@ -32,14 +32,12 @@ public abstract partial record ColorValue {
     public sealed record Relative(ColorValue From, ColourSpace Space, ChannelShift First, ChannelShift Second, ChannelShift Third) : ColorValue {
         public ChannelShift Alpha { get; init; } = ChannelShift.Kept;
 
-        internal SKColorF Shifted(SKColorF origin) =>
-            origin.ToUnicolour() switch {
-                var colour => colour.GetRepresentation(Space).Tuple switch {
-                    var (first, second, third) => new Unicolour(Space, First.Applied(Kept(first)), Second.Applied(Kept(second)), Third.Applied(Kept(third)),
-                            double.Clamp(Alpha.Applied(colour.Alpha.A), 0d, 1d))
-                        .MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF(),
-                },
-            };
+        internal SKColorF Shifted(SKColorF origin) {
+            Unicolour colour = origin.ToUnicolour();
+            (double first, double second, double third) = colour.GetRepresentation(Space).Tuple;
+            return new Unicolour(Space, First.Applied(Kept(first)), Second.Applied(Kept(second)), Third.Applied(Kept(third)), double.Clamp(Alpha.Applied(colour.Alpha.A), 0d, 1d))
+                .MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF();
+        }
 
         private static double Kept(double channel) => double.IsNaN(channel) ? 0d : channel;
     }
@@ -57,6 +55,8 @@ public sealed record Series(uint Ordinal) {
 
 public sealed record Stop<TColor>(TColor Color, Fraction At);
 
+internal sealed record Segment(Stop<SKColorF> Low, Stop<SKColorF> High);
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ColorRamp {
     private const double JustNoticeable = 0.02d;
@@ -69,7 +69,7 @@ public abstract partial record ColorRamp {
 
     private protected abstract Seq<Stop<SKColorF>> Stopped { get; }
 
-    private protected Seq<(Stop<SKColorF> Low, Stop<SKColorF> High)> Segments => toSeq(Stops.AsIterable().Window(2, static pair => (Low: pair[0], High: pair[1])));
+    private protected Seq<Segment> Segments => toSeq(Stops.AsIterable().Window(2, static pair => new Segment(pair[0], pair[1])));
 
     private protected Option<SKColorF> Last => Stops.Last.Map(static stop => stop.Color);
 
@@ -88,12 +88,12 @@ public abstract partial record ColorRamp {
 
         public override Option<SKColorF> At(Fraction at) => Segments.Find(segment => (float)at <= (float)segment.High.At).Map(segment => Mixed(segment, at)) | Last;
 
-        private SKColorF Mixed((Stop<SKColorF> Low, Stop<SKColorF> High) segment, Fraction at) =>
-            ((float)segment.High.At - (float)segment.Low.At) switch {
-                var span => segment.Low.Color.ToUnicolour()
-                    .Mix(segment.High.Color.ToUnicolour(), Space, Easing.Progress(span > 0f ? float.Clamp(((float)at - (float)segment.Low.At) / span, 0f, 1f) : 1f))
-                    .MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF(),
-            };
+        private SKColorF Mixed(Segment segment, Fraction at) {
+            float span = (float)segment.High.At - (float)segment.Low.At;
+            return segment.Low.Color.ToUnicolour()
+                .Mix(segment.High.Color.ToUnicolour(), Space, Easing.Progress(span > 0f ? float.Clamp(((float)at - (float)segment.Low.At) / span, 0f, 1f) : 1f))
+                .MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF();
+        }
 
         private static Seq<Stop<SKColorF>> Divided(Func<Fraction, SKColorF> color, Stop<SKColorF> low, Stop<SKColorF> high) =>
             low.At.Midpoint(high.At) switch {

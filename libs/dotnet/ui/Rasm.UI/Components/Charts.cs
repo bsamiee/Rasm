@@ -1,4 +1,5 @@
 using System.Numerics;
+using Rasm.UI.Plotting;
 using Rasm.UI.Styling;
 using SkiaSharp;
 
@@ -23,11 +24,11 @@ public sealed record IndexRange {
         int Binned(Vector2 at) => int.Clamp((int)MathF.Floor(along.Of(at)), first, last);
         Vector2 Centered(int index) => along.With(middle, index + 0.5f);
         return new Points<Option<IndexRange>>(
-            held => held.Map(range => Seq((First, Centered(range.Low)), (Last, Centered(range.High)))).IfNone([]),
-            (held, targets, _) => held.Map(range => targets.Fold((range.Low, range.High), (ends, target) => target.Key == First ? (Binned(target.To), ends.High) : (ends.Low, Binned(target.To)))).Match(
-                Some: ends => (Some(Spanning(ends.Low, ends.High)), ends.Low > ends.High ? targets.Map(static target => target.Key == First ? Last : First) : targets.Map(static target => target.Key)),
-                None: () => (held, targets.Map(static target => target.Key)))) {
-            Placed = (_, at, _) => Some((Some(Spanning(Binned(at), Binned(at))), Last)),
+            held => held.Map(range => Seq(new Anchor(First, Centered(range.Low)), new Anchor(Last, Centered(range.High)))).IfNone([]),
+            (held, targets, _) => held.Map(range => targets.Fold((range.Low, range.High), (ends, target) => target.Key == First ? (Binned(target.At), ends.High) : (ends.Low, Binned(target.At)))).Match(
+                Some: ends => new Dragged<Option<IndexRange>>(Some(Spanning(ends.Low, ends.High)), ends.Low > ends.High ? targets.Map(static target => target.Key == First ? Last : First) : targets.Map(static target => target.Key)),
+                None: () => new Dragged<Option<IndexRange>>(held, targets.Map(static target => target.Key)))) {
+            Placed = (_, at, _) => Some(new Added<Option<IndexRange>>(Some(Spanning(Binned(at), Binned(at))), Last)),
             Removed = static (_, _) => Some(Option<IndexRange>.None),
         };
     }
@@ -35,7 +36,7 @@ public sealed record IndexRange {
 
 public sealed record Chart(PlotPlane Plane, Seq<Node> Layers) {
     public Seq<Node.Pin> Labels { get; init; }
-    public Func<Option<Vector2>, Option<IO<Unit>>> Hovered { get; init; } = static _ => None;
+    public Option<Func<Option<Vector2>, IO<Unit>>> Hovered { get; init; }
 
     public Node Drawn => Plotted(Layers);
 
@@ -70,16 +71,17 @@ public sealed record Chart(PlotPlane Plane, Seq<Node> Layers) {
             })).IfNone([]),
         };
 
-    public static Option<Node.Mark> Area(ReadOnlySpan<int> counts, Axis count) =>
-        toSeq(counts.ToArray()) switch {
-            var held => AxisRange.Validated(0.5f, held.Count - 0.5f).ToOption()
-                .Map(domain => new Node.Mark(new Figure.Area(domain, held.Map(value => float.Clamp(count.Fraction(value), 0f, 1f)).Strict()))),
-        };
+    public static Option<Node.Mark> Area(ReadOnlySpan<int> counts, Axis count) {
+        Seq<int> held = toSeq(counts.ToArray());
+        return AxisRange.Validated(0.5f, held.Count - 0.5f).ToOption().Map(domain => new Node.Mark(new Figure.Area(domain, held.Map(value => float.Clamp(count.Fraction(value), 0f, 1f)).Strict())));
+    }
 
     public static Node.Mark Rules(Axis ticks, PhysicalAxis along) => new(new Figure.Grid(along) { Ticks = Some(ticks) });
 }
 
-public sealed record GradientKey(ColorRamp Ramp, Seq<(float At, string Label)> Labels) {
+public sealed record GradientLabel(float At, string Label);
+
+public sealed record GradientKey(ColorRamp Ramp, Seq<GradientLabel> Labels) {
     public Node Drawn =>
         new Node.Plot(PlotPlane.Track.Unit(PhysicalAxis.Horizontal), [
             new Node.Styled(new Node.Box { Role = Role.Well, Width = Sizing.Grow.Unit }) {

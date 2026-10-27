@@ -1,17 +1,18 @@
 using System.Numerics;
 using MathNet.Numerics.RootFinding;
+using Rasm.UI.Typography;
 using SkiaSharp;
 using Wacton.Unicolour;
 
 namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+internal sealed record Wash(Interaction Interaction, float Weight);
+
 public sealed record Token(Role Role, Channel Channel) {
     public Option<Condition> Condition { get; init; }
     public Option<Interaction> Interaction { get; init; }
 }
-
-public sealed record Ground(SKColorF Under, bool Opaque);
 
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class ColorScheme {
@@ -20,33 +21,34 @@ public sealed partial class ColorScheme {
     private static readonly Token WindowDisabled = new(Role.Window, Channel.Text) { Condition = Condition.Disabled };
     private static readonly Seq<Token> Required = [WindowFill, WindowText, WindowDisabled];
 
-    private static readonly Seq<(Token Token, SKColorF Color)> Signals = [
+    private static readonly HashMap<Token, SKColorF> Signals = HashMap(
         (new Token(Role.Window, Channel.Text) { Condition = Condition.Warning }, new Unicolour(ColourSpace.Oklch, 0.77, 0.17, 64).ToSKColorF()),
-        (new Token(Role.Window, Channel.Text) { Condition = Condition.Faulted }, new Unicolour(ColourSpace.Oklch, 0.63, 0.24, 29).ToSKColorF()),
-    ];
+        (new Token(Role.Window, Channel.Text) { Condition = Condition.Faulted }, new Unicolour(ColourSpace.Oklch, 0.63, 0.24, 29).ToSKColorF()));
 
     public HashMap<Token, SKColorF> Chrome { get; }
-    public LanguageExt.HashSet<Condition> Conditions { get; }
+    public HashSet<Condition> Conditions { get; }
     public TextFace Face { get; }
     public float FontSize { get; }
 
-    public Ground Ground => new(Chrome[WindowFill], Opaque: true);
+    public SKColorF Ground => Chrome[WindowFill];
 
     public ContrastLevel Contrast => Conditions.Contains(Condition.IncreaseContrast) ? ContrastLevel.Enhanced : ContrastLevel.Minimum;
 
-    public float Veil =>
-        (Offset(Chrome[WindowText], Chrome[WindowFill]), Offset(Chrome[WindowDisabled], Chrome[WindowFill])) switch {
-            var (text, disabled) => (Span: Vector3.Dot(text, text), Moved: Vector3.Dot(text, disabled)) switch {
-                { Span: > 0f } held => float.Clamp(held.Moved / held.Span, 0f, 1f),
-                _ => 1f,
-            },
-        };
+    public float Veil {
+        get {
+            Vector3 text = Offset(Chrome[WindowText], Chrome[WindowFill]);
+            float span = Vector3.Dot(text, text);
+            return span > 0f ? float.Clamp(Vector3.Dot(text, Offset(Chrome[WindowDisabled], Chrome[WindowFill])) / span, 0f, 1f) : 1f;
+        }
+    }
 
-    public static Fin<ColorScheme> Validated(HashMap<Token, SKColorF> chrome, LanguageExt.HashSet<Condition> conditions, TextFace face, float fontSize) =>
-        (UIFault.Unless(Required.ForAll(chrome.ContainsKey), UIReason.Missing), UIFault.Unless(face.Family.IsSome, UIReason.Missing), UIFault.Unless(!conditions.Contains(Condition.Dark), UIReason.Derived))
-            .Apply((_, _, _) => new ColorScheme(chrome.TryAddRange(Signals), Darkened(chrome, conditions), face, fontSize)).As();
+    public static Fin<ColorScheme> Validated(HashMap<Token, SKColorF> chrome, HashSet<Condition> conditions, TextFace face, float fontSize) {
+        Seq<Token> missing = Required.Filter(token => !chrome.ContainsKey(token));
+        return (UIFault.Unless(missing.IsEmpty, UIReason.Missing, missing), UIFault.Unless(face.Family.IsSome, UIReason.Missing, face.Family), UIFault.Unless(!conditions.Contains(Condition.Dark), UIReason.Derived, conditions))
+            .Apply((_, _, _) => new ColorScheme(chrome.TryAddRange(Signals.AsIterable()), Darkened(chrome, conditions), face, fontSize)).As();
+    }
 
-    private static LanguageExt.HashSet<Condition> Darkened(HashMap<Token, SKColorF> chrome, LanguageExt.HashSet<Condition> conditions) =>
+    private static HashSet<Condition> Darkened(HashMap<Token, SKColorF> chrome, HashSet<Condition> conditions) =>
         chrome[WindowFill].ToUnicolour().Oklch.L < chrome[WindowText].ToUnicolour().Oklch.L ? conditions.Add(Condition.Dark) : conditions;
 
     // --- [COLORS]
@@ -67,16 +69,18 @@ public sealed partial class ColorScheme {
                     .Fold(Option<SKColorF>.None, (best, next) => best.Filter(kept => Styles.Ratio(kept, over) >= Styles.Ratio(next, over)) | Some(next))),
             relative: static (held, relative) => held.Theme.Color(relative.From, held.Style, held.Series).Map(relative.Shifted));
 
-    internal Option<SKColorF> Washed(ColorValue value, RoleStyle style, Seq<(Interaction Interaction, float Weight)> washes, HashMap<Interaction, ColorValue> targets = default, Option<Series> series = default) =>
+    internal Option<SKColorF> Washed(ColorValue value, RoleStyle style, Seq<Wash> washes, HashMap<Interaction, ColorValue> targets = default, Option<Series> series = default) =>
         washes.Fold(Color(value, style, series), (rest, wash) =>
             from start in rest
             select (Engaged(value, style, wash.Interaction) | targets.Find(wash.Interaction).Bind(target => Color(target, style, series)))
-                .Map(end => Ramps((start, end))[(int)MathF.Round(wash.Weight * WashSteps, MidpointRounding.ToEven)]).IfNone(start));
+                .Map(end => Ramps(new Ramp(start, end))[(int)MathF.Round(wash.Weight * WashSteps, MidpointRounding.ToEven)]).IfNone(start));
 
     private const int WashSteps = 16;
 
-    private static readonly Func<(SKColorF From, SKColorF To), Seq<SKColorF>> Ramps =
-        memo<(SKColorF From, SKColorF To), Seq<SKColorF>>(static pair =>
+    private sealed record Ramp(SKColorF From, SKColorF To);
+
+    private static readonly Func<Ramp, Seq<SKColorF>> Ramps =
+        memo<Ramp, Seq<SKColorF>>(static pair =>
             toSeq(pair.From.ToUnicolour().Palette(pair.To.ToUnicolour(), ColourSpace.Oklab, WashSteps + 1)).Map(static colour => colour.MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF()).Strict());
 
     private Option<SKColorF> Engaged(ColorValue value, RoleStyle style, Interaction interaction) =>
@@ -127,7 +131,7 @@ public sealed record RoleStyle {
 
     private static readonly Func<Seq<Filter>, float> FilterReach = memo<Seq<Filter>, float>(static filters => Filter.Chained(filters).Map(Beyond).IfNone(0f));
 
-    public RoleStyle(Role role, LanguageExt.HashSet<Condition> conditions, Look look, HashMap<Metric, float> metrics, bool veiled, Option<RoleStyle> enclosing) {
+    public RoleStyle(Role role, HashSet<Condition> conditions, Look look, HashMap<Metric, float> metrics, bool veiled, Option<RoleStyle> enclosing) {
         Role = role;
         Enclosing = enclosing;
         Conditions = conditions;
@@ -140,12 +144,12 @@ public sealed record RoleStyle {
 
     public Role Role { get; }
     public Option<RoleStyle> Enclosing { get; }
-    public LanguageExt.HashSet<Condition> Conditions { get; }
+    public HashSet<Condition> Conditions { get; }
     public Look Look { get; }
     public HashMap<Metric, float> Metrics { get; }
     public Option<float> Rounded { get; init; }
     public bool Veiled { get; }
-    public LanguageExt.HashSet<Condition> Shown { get; }
+    public HashSet<Condition> Shown { get; }
     public float Overhang { get; }
 
     public Seq<Material> Fills => Look.Fills.IfNone(NativeFills);
@@ -173,22 +177,25 @@ public sealed record Cascade(
     Seq<HashMap<Role, Look>> Appearances,
     Seq<HashMap<Role, HashMap<Metric, float>>> Metrics,
     RoleStyle Enclosing,
-    Ground Ground);
+    SKColorF Ground);
+
+public sealed record Entered(RoleStyle Style, Cascade Inner);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Styles {
     // --- [RESOLVE]
     private static readonly HashMap<Metric, float> Defaulted = toHashMap(Metric.Items.Select(static metric => (metric, metric.Default)));
 
-    public static Cascade Root(ColorScheme theme, DefaultStyles defaults, Role root) =>
-        (Appearances: defaults.Appearances.Find(Appearance.Native).ToSeq(), Metrics: defaults.Sizes.Find(ControlSize.Regular).ToSeq()) switch {
-            var held => new(theme, defaults, held.Appearances, held.Metrics, Resolved(theme, held.Appearances, held.Metrics, root, []), theme.Ground),
-        };
+    public static Cascade Root(ColorScheme theme, DefaultStyles defaults, Role root) {
+        Seq<HashMap<Role, Look>> appearances = defaults.Appearances.Find(Appearance.Native).ToSeq();
+        Seq<HashMap<Role, HashMap<Metric, float>>> metrics = defaults.Sizes.Find(ControlSize.Regular).ToSeq();
+        return new(theme, defaults, appearances, metrics, Resolved(theme, appearances, metrics, root, []), theme.Ground);
+    }
 
-    public static RoleStyle Resolve(Cascade cascade, Role role, LanguageExt.HashSet<Condition> conditions) =>
+    public static RoleStyle Resolve(Cascade cascade, Role role, HashSet<Condition> conditions) =>
         Resolved(cascade.Theme, cascade.Appearances, cascade.Metrics, role, conditions, cascade.Enclosing);
 
-    public static (RoleStyle Style, Cascade Inner) Enter(Cascade cascade, Node node) {
+    public static Entered Enter(Cascade cascade, Node node) {
         Cascade pushed = node.Restyled.Map(static styled => styled.Sheet).Map(sheet => cascade with {
             Appearances = cascade.Appearances + sheet.Appearance.Bind(name => cascade.Defaults.Appearances.Find(name)).ToSeq() + Seq(sheet.Looks),
             Metrics = cascade.Metrics + sheet.Size.Bind(name => cascade.Defaults.Sizes.Find(name)).ToSeq() + Seq(sheet.Metrics),
@@ -196,24 +203,23 @@ public static class Styles {
         RoleStyle style = (node.Role | (node.Conditions.IsEmpty ? None : Some(cascade.Enclosing.Role)))
             .Map(role => Resolve(pushed, role, node.Role.IsNone || node.Painting.Inherits ? node.Conditions.Union(cascade.Enclosing.Conditions) : node.Conditions))
             .IfNone(cascade.Enclosing);
-        return (style, pushed with {
+        return new Entered(style, pushed with {
             Appearances = node.Role.IsSome && !style.Look.Within.IsEmpty ? pushed.Appearances.Add(style.Look.Within) : pushed.Appearances,
             Enclosing = style,
             Ground = Grounded(cascade, style, node),
         });
     }
 
-    internal static Ground Grounded(Cascade cascade, RoleStyle style, Node node) =>
+    internal static SKColorF Grounded(Cascade cascade, RoleStyle style, Node node) =>
         node.Role.IsSome && node.Painting.AcceptsBackground
-            ? style.Solid.Bind(value => cascade.Theme.Color(value, style))
-                .Map(color => new Ground(color.ToUnicolour().Blend(cascade.Ground.Under.ToUnicolour(), BlendMode.Normal).ToSKColorF(), Opaque: color.Alpha >= 1f)).IfNone(cascade.Ground)
+            ? style.Solid.Bind(value => cascade.Theme.Color(value, style)).Map(color => color.ToUnicolour().Blend(cascade.Ground.ToUnicolour(), BlendMode.Normal).ToSKColorF()).IfNone(cascade.Ground)
             : cascade.Ground;
 
     private static RoleStyle Resolved(ColorScheme theme, Seq<HashMap<Role, Look>> appearances, Seq<HashMap<Role, HashMap<Metric, float>>> metrics,
-                                      Role role, LanguageExt.HashSet<Condition> conditions, Option<RoleStyle> enclosing = default) {
+                                      Role role, HashSet<Condition> conditions, Option<RoleStyle> enclosing = default) {
         bool veiled = enclosing.Exists(static held => held.Veiled);
-        LanguageExt.HashSet<Condition> effective = conditions.Union(enclosing.Map(static held => held.Conditions.Filter(static condition => condition.Inherited)).IfNone([])).Union(theme.Conditions);
-        LanguageExt.HashSet<Condition> shown = veiled ? effective.Remove(Condition.Disabled) : effective;
+        HashSet<Condition> effective = conditions.Union(enclosing.Map(static held => held.Conditions.Filter(static condition => condition.Inherited)).IfNone([])).Union(theme.Conditions);
+        HashSet<Condition> shown = veiled ? effective.Remove(Condition.Disabled) : effective;
         Seq<Look> rows = appearances.Choose(appearance => appearance.Find(role));
         Seq<HashMap<Metric, float>> sized = metrics.Choose(layer => layer.Find(role));
         Look look = Monoid.combine(rows + toSeq(Condition.Items).Filter(shown.Contains).Bind(condition => rows.Choose(row => row.When.Find(condition))));
@@ -227,16 +233,18 @@ public static class Styles {
     }
 
     // --- [LEGIBILITY]
-    private static readonly Func<(SKColorF Color, SKColorF Ground, double Ratio), SKColorF> Lifts = memo<(SKColorF Color, SKColorF Ground, double Ratio), SKColorF>(Lift);
+    private sealed record Legibility(SKColorF Color, SKColorF Ground, double Ratio);
 
-    public static SKColorF Legible(RoleStyle style, Ground ground, SKColorF color, double ratio) =>
-        style.Conditions.Contains(Condition.Disabled) ? color : Lifts((color, ground.Under, ratio));
+    private static readonly Func<Legibility, SKColorF> Lifts = memo<Legibility, SKColorF>(Lift);
+
+    public static SKColorF Legible(RoleStyle style, SKColorF ground, SKColorF color, double ratio) =>
+        style.Conditions.Contains(Condition.Disabled) ? color : Lifts(new Legibility(color, ground, ratio));
 
     public static double Ratio(SKColorF color, SKColorF ground) => color.ToUnicolour().Blend(ground.WithAlpha(1f).ToUnicolour(), BlendMode.Normal).Contrast(ground.WithAlpha(1f).ToUnicolour());
 
     private const double Accuracy = 1e-6;
 
-    private static SKColorF Lift((SKColorF Color, SKColorF Ground, double Ratio) held) {
+    private static SKColorF Lift(Legibility held) {
         if (Ratio(held.Color, held.Ground) >= held.Ratio) return held.Color;
         (double lightness, double chroma, double hue) = held.Color.ToUnicolour().Oklch.Tuple;
         double floor = held.Ground.WithAlpha(1f).ToUnicolour().Oklch.L;

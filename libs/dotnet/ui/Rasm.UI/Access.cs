@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Numerics;
+using Rasm.UI.Plotting;
+using Rasm.UI.Rendering;
 using Rasm.UI.Styling;
 using SkiaSharp;
 
@@ -116,7 +118,7 @@ public sealed record Accessible : Monoid<Accessible> {
         };
 }
 
-public sealed record Element(Seq<Key> Id, AccessRole Role, Accessible Accessible, Seq<Act> Actions, LanguageExt.HashSet<Condition> Conditions, SKRect Frame, Seq<Element> Children);
+public sealed record Element(Seq<Key> Id, AccessRole Role, Accessible Accessible, Seq<Act> Actions, HashSet<Condition> Conditions, SKRect Frame, Seq<Element> Children);
 
 [SmartEnum]
 public sealed partial class ElementChange {
@@ -127,7 +129,7 @@ public sealed partial class ElementChange {
     [UseDelegateFromConstructor]
     internal partial bool Differs(Element prior, Element next);
 
-    private static LanguageExt.HashSet<Seq<Key>> Selected(Element element) =>
+    private static HashSet<Seq<Key>> Selected(Element element) =>
         toHashSet(element.Children.Filter(static child => child.Conditions.Contains(Condition.Selected)).Map(static child => child.Id));
 }
 
@@ -199,8 +201,9 @@ public static class Access {
                 @checked: static (_, mark) => mark,
                 ranged: static (culture, ranged) => ranged with {
                     Description = ranged.Decimals.Match(
-                        Some: digits => Math.Round(ranged.Value, digits, MidpointRounding.ToEven).ToString(culture) switch {
-                            var number => ranged.Unit.Match(Some: suffix => $"{number} {suffix}", None: () => number),
+                        Some: digits => {
+                            string number = Math.Round(ranged.Value, digits, MidpointRounding.ToEven).ToString(culture);
+                            return ranged.Unit.Match(Some: suffix => $"{number} {suffix}", None: () => number);
                         },
                         None: () => string.Create(culture, $"{(ranged.Value - ranged.Min) / double.Max(ranged.Max - ranged.Min, double.Epsilon):P0}")),
                 },
@@ -212,6 +215,20 @@ public static class Access {
 
     private static Seq<Act> Offered(Scene scene, Owned owner, Seq<Key> path) =>
         Standard.Filter(act => owner.Part.Performed(new Gesture.Perform(act), scene.Aimed(owner, path)).Switch(pass: static _ => false, take: static _ => true));
+
+    // --- [HELP]
+    public static Option<string> Help(Mount mount) =>
+        mount.Hover.Head.Bind(path => {
+            Seq<Element> above = Scene.Above(path).Choose(mount.Elements.Find);
+            return Seq(
+                    above.Choose(static element => element.Accessible.Help).Head
+                    | mount.Scene.Index.Find(path).Bind(static laid => Scene.Preorder(laid).Choose(static held => held.Texted.Filter(static text => text.Typeset.Truncated).Map(static text => text.Source.Content)).Head),
+                    above.Choose(static element => element.Accessible.Shortcut).Head)
+                .Somes() switch {
+                    { IsEmpty: true } => Option<string>.None,
+                    var shown => Some(string.Join(' ', shown)),
+                };
+        });
 
     // --- [CHANGES]
     internal static Seq<AccessibilityNotice> Changes(HashMap<Seq<Key>, Element> was, HashMap<Seq<Key>, Element> now) {

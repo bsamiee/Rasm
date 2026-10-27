@@ -51,20 +51,7 @@ public abstract partial record Command<TGate, TInvoke> where TGate : notnull whe
     }
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Stated<TGate, TInvoke> where TGate : notnull where TInvoke : notnull {
-    private Stated(CommandState state) => State = state;
-
-    public CommandState State { get; }
-
-    public Command<TGate, TInvoke> Command => Switch(run: static run => (Command<TGate, TInvoke>)run.Source, choice: static choice => choice.Source, menu: static menu => menu.Source);
-
-    public sealed record Run(Command<TGate, TInvoke>.Run Source, CommandState State) : Stated<TGate, TInvoke>(State);
-
-    public sealed record Choice(Command<TGate, TInvoke>.Choice Source, CommandState State, Seq<Run> Members) : Stated<TGate, TInvoke>(State);
-
-    public sealed record Menu(Command<TGate, TInvoke>.Menu Source, CommandState State, Option<Run> Primary) : Stated<TGate, TInvoke>(State);
-}
+public sealed record Stated<TGate, TInvoke>(Command<TGate, TInvoke> Command, CommandState State, Seq<Stated<TGate, TInvoke>> Members) where TGate : notnull where TInvoke : notnull;
 
 public sealed record Toolbar<TGate, TInvoke>(Seq<Seq<Command<TGate, TInvoke>>> Groups, CommandFace Overflow) where TGate : notnull where TInvoke : notnull {
     public PhysicalAxis Axis { get; init; } = PhysicalAxis.Horizontal;
@@ -80,17 +67,10 @@ public static class Commands {
 
     private static IO<Stated<TGate, TInvoke>> Stated<TGate, TInvoke>(Command<TGate, TInvoke> command, CommandHost<TGate, TInvoke> host)
         where TGate : notnull where TInvoke : notnull =>
-        State(command, host).Bind(state => command.Switch(
-            (State: state, Host: host),
-            run: static (held, run) => IO.pure<Stated<TGate, TInvoke>>(new Stated<TGate, TInvoke>.Run(run, held.State)),
-            choice: static (held, choice) => choice.Members.TraverseM(member => Ran(member, held.Host)).As()
-                .Map(members => (Stated<TGate, TInvoke>)new Stated<TGate, TInvoke>.Choice(choice, held.State, members)),
-            menu: static (held, menu) => menu.Primary.Traverse(primary => Ran(primary, held.Host)).As()
-                .Map(primary => (Stated<TGate, TInvoke>)new Stated<TGate, TInvoke>.Menu(menu, held.State, primary))));
-
-    private static IO<Stated<TGate, TInvoke>.Run> Ran<TGate, TInvoke>(Command<TGate, TInvoke>.Run run, CommandHost<TGate, TInvoke> host)
-        where TGate : notnull where TInvoke : notnull =>
-        State(run, host).Map(state => new Stated<TGate, TInvoke>.Run(run, state));
+        from state in State(command, host)
+        from members in command.Switch(run: static _ => Seq<Command<TGate, TInvoke>.Run>(), choice: static choice => choice.Members, menu: static menu => menu.Primary.ToSeq())
+            .TraverseM(member => Stated(member, host)).As()
+        select new Stated<TGate, TInvoke>(command, state, members);
 
     private static IO<CommandState> State<TGate, TInvoke>(Command<TGate, TInvoke> command, CommandHost<TGate, TInvoke> host)
         where TGate : notnull where TInvoke : notnull =>
@@ -100,13 +80,12 @@ public static class Commands {
 
     // --- [BAR]
     public static Node Bar<TGate, TInvoke>(Seq<Seq<Stated<TGate, TInvoke>>> stated, CommandHost<TGate, TInvoke> host, Toolbar<TGate, TInvoke> toolbar)
-        where TGate : notnull where TInvoke : notnull =>
-        stated.Map(group => group.Map(held => Drawn(held, host, toolbar.Face, toolbar.Axis, None))) switch {
-            var drawn => stated.Count > 1
-                ? new Node.Choice(toolbar.Axis, toSeq(Range(0, stated.Count)).Map(dropped =>
-                    (Node)Row(drawn.Take(stated.Count - dropped), stated.Skip(stated.Count - dropped), host, toolbar)))
-                : Row(drawn, [], host, toolbar),
-        };
+        where TGate : notnull where TInvoke : notnull {
+        Seq<Seq<Node>> drawn = stated.Map(group => group.Map(held => Drawn(held, host, toolbar.Face, toolbar.Axis, None)));
+        return stated.Count > 1
+            ? new Node.Choice(toolbar.Axis, toSeq(Range(0, stated.Count)).Map(dropped => (Node)Row(drawn.Take(stated.Count - dropped), stated.Skip(stated.Count - dropped), host, toolbar)))
+            : Row(drawn, [], host, toolbar);
+    }
 
     private static Node.Flex Row<TGate, TInvoke>(Seq<Seq<Node>> shown, Seq<Seq<Stated<TGate, TInvoke>>> rest, CommandHost<TGate, TInvoke> host, Toolbar<TGate, TInvoke> toolbar)
         where TGate : notnull where TInvoke : notnull =>
@@ -121,18 +100,20 @@ public static class Commands {
 
     private static Node Drawn<TGate, TInvoke>(Stated<TGate, TInvoke> stated, CommandHost<TGate, TInvoke> host, Func<CommandFace, Seq<Node>> face, PhysicalAxis axis, Option<AccessRole> within)
         where TGate : notnull where TInvoke : notnull =>
-        stated.Switch(
-            (Host: host, Face: face, Axis: axis, Within: within),
-            run: static (held, run) => Button(run.Source.Face, run.State, held.Within, Pressing(run.Source, held.Host), held.Face),
-            choice: static (held, choice) => new Node.Flex(held.Axis, choice.Members.Map(member => Drawn(member, held.Host, held.Face, held.Axis, AccessRole.RadioGroup.Owns))) {
-                Key = new Key.Named(choice.Source.Face.Name),
-                Conditions = Conditioned(choice.State),
-                Accessible = new Accessible { Role = AccessRole.RadioGroup, Label = choice.Source.Face.Caption, Help = choice.Source.Face.Help, Shortcut = choice.Source.Face.Shortcut },
+        stated.Command.Switch(
+            (Stated: stated, Host: host, Face: face, Axis: axis, Within: within),
+            run: static (held, run) => Button(run.Face, held.Stated.State, held.Within, Pressing(run, held.Host), held.Face),
+            choice: static (held, choice) => new Node.Flex(held.Axis, held.Stated.Members.Map(member => Drawn(member, held.Host, held.Face, held.Axis, AccessRole.RadioGroup.Owns))) {
+                Key = new Key.Named(choice.Face.Name),
+                Conditions = Conditioned(held.Stated.State),
+                Accessible = new Accessible { Role = AccessRole.RadioGroup, Label = choice.Face.Caption, Help = choice.Face.Help, Shortcut = choice.Face.Shortcut },
             },
-            menu: static (held, menu) => menu.Primary.Filter(static primary => primary.State.Enabled).Match(
-                Some: primary => Button(menu.Source.Face, menu.State with { Mark = primary.State.Mark }, held.Within,
-                    new Part.Press(bounds => held.Host.Run(primary.Source.Invoke, bounds)) { Secondary = bounds => Some(held.Host.Menu(menu.Source.Groups, bounds)) }, held.Face),
-                None: () => Opening(menu.Source.Face, menu.State, menu.Source.Groups, held.Host, held.Face)));
+            menu: static (held, menu) => (from primary in menu.Primary
+                                          from shown in held.Stated.Members.Head.Map(static member => member.State)
+                                          where shown.Enabled
+                                          select Button(menu.Face, held.Stated.State with { Mark = shown.Mark }, held.Within,
+                                              new Part.Press(bounds => held.Host.Run(primary.Invoke, bounds)) { Secondary = bounds => Some(held.Host.Menu(menu.Groups, bounds)) }, held.Face))
+                .IfNone(() => Opening(menu.Face, held.Stated.State, menu.Groups, held.Host, held.Face)));
 
     private static Part.Press Pressing<TGate, TInvoke>(Command<TGate, TInvoke>.Run run, CommandHost<TGate, TInvoke> host)
         where TGate : notnull where TInvoke : notnull =>
@@ -143,17 +124,17 @@ public static class Commands {
         where TGate : notnull where TInvoke : notnull =>
         Button(shown, state, Some(AccessRole.MenuButton), new Part.Press(bounds => host.Menu(groups, bounds)), face);
 
-    private static Node Button(CommandFace shown, CommandState state, Option<AccessRole> within, Part.Press press, Func<CommandFace, Seq<Node>> face) =>
-        within.IfNone(state.Mark.IsSome ? AccessRole.CheckBox : AccessRole.Button) switch {
-            var role => press.Drawn(new Node.Flex(PhysicalAxis.Horizontal, face(shown)) {
-                Key = new Key.Named(shown.Name),
-                Role = Role.Button,
-                Conditions = Conditioned(state),
-                Accessible = state.Mark.Fold(new Accessible { Role = role, Label = shown.Caption, Help = shown.Help, Shortcut = shown.Shortcut }, role.Marked),
-            }),
-        };
+    private static Node Button(CommandFace shown, CommandState state, Option<AccessRole> within, Part.Press press, Func<CommandFace, Seq<Node>> face) {
+        AccessRole role = within.IfNone(state.Mark.IsSome ? AccessRole.CheckBox : AccessRole.Button);
+        return press.Drawn(new Node.Flex(PhysicalAxis.Horizontal, face(shown)) {
+            Key = new Key.Named(shown.Name),
+            Role = Role.Button,
+            Conditions = Conditioned(state),
+            Accessible = state.Mark.Fold(new Accessible { Role = role, Label = shown.Caption, Help = shown.Help, Shortcut = shown.Shortcut }, role.Marked),
+        });
+    }
 
-    private static LanguageExt.HashSet<Condition> Conditioned(CommandState state) =>
+    private static HashSet<Condition> Conditioned(CommandState state) =>
         toHashSet(Seq(Condition.Disabled).Filter(_ => !state.Enabled) + state.Mark.Bind(static mark => mark.Conditioned).ToSeq());
 
     private static Node.Box Divider(PhysicalAxis axis) =>

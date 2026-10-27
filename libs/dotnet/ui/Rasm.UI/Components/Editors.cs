@@ -1,35 +1,16 @@
 using System.Numerics;
+using Rasm.UI.Plotting;
 using Rasm.UI.Styling;
 using SkiaSharp;
 
 namespace Rasm.UI.Components;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record Swatch(SKColorF Color, Func<SKRect, IO<Unit>> Pressed) {
-    public Node Drawn => new Part.Press(Pressed).Drawn(Face(Color));
-
-    public static Node Face(SKColorF color) =>
-        new Node.Styled(new Node.Box { Role = Role.Field, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit }) {
-            Sheet = new StyleSheet { Looks = HashMap((Role.Field, new Look { Fills = Some(Seq<Material>(new Material.Solid(new ColorValue.Fixed(color.ToUnicolour())))) })) },
-            Accessible = new Accessible { Value = new AccessValue.Text(color.ToUnicolour().Hex) },
-        };
-}
-
-public sealed record SwatchList(Seq<SKColorF> Colors, Selection Picked, Func<Edit<Selection>, IO<Unit>> Pick) {
-    private Seq<(Key Key, SKColorF Color)> Keyed => Colors.Map(static (color, index) => ((Key)new Key.Ordinal((uint)index), color));
-
-    public Node Drawn =>
-        toHashMap(Keyed) switch {
-            var faces => new Part.Choice(Keyed.Map(static held => held.Key), Picked, Pick)
-                .Drawn(key => Swatch.Face(faces[key]), static items => new Node.Flex(PhysicalAxis.Horizontal, items) { Width = Sizing.Grow.Unit }),
-        };
-}
-
 public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Unit>> Edited) {
     private static readonly PlotPlane.Track Track = PlotPlane.Track.Unit(PhysicalAxis.Horizontal);
 
     public Selection Picked { get; init; } = new Selection.Many([]);
-    public Func<Edit<Selection>, Option<IO<Unit>>> Pick { get; init; } = static _ => None;
+    public Option<Func<Edit<Selection>, IO<Unit>>> Pick { get; init; }
 
     public Node Drawn =>
         new Handles<ColorRamp>(Value, Stops, Edited) {
@@ -44,7 +25,7 @@ public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Un
         Points<ColorRamp>.Listed(
             static ramp => ramp.Stops,
             static stop => new Vector2((float)stop.At, 0.5f),
-            static (stop, to) => Fraction.Validated(to.X).Map(at => stop with { At = at }).IfFail(stop),
+            static (stop, to) => Fraction.Validated(to.X).ToOption().Map(at => stop with { At = at }),
             static (ramp, stops) => stops.IsEmpty ? None : Some(ramp.WithStops(stops)),
             static (ramp, at) =>
                 from position in Fraction.Validated(at.X).ToOption()
@@ -58,7 +39,7 @@ public sealed record CurveEditor(PlotPlane.Cartesian Plane, Seq<Vector2> Points,
     public Seq<Node> Ground { get; init; }
     public Series Series { get; init; } = new(0);
     public Selection Picked { get; init; } = new Selection.Many([]);
-    public Func<Edit<Selection>, Option<IO<Unit>>> Pick { get; init; } = static _ => None;
+    public Option<Func<Edit<Selection>, IO<Unit>>> Pick { get; init; }
 
     public Node Drawn =>
         new Handles<Seq<Vector2>>(Points, Knots, Edited) { Picked = Picked, Pick = Pick }.Drawn(Plane,
@@ -77,7 +58,7 @@ public sealed record CurveEditor(PlotPlane.Cartesian Plane, Seq<Vector2> Points,
         Points<Seq<Vector2>>.Listed(
             static knots => knots,
             static knot => knot,
-            static (_, to) => to,
+            static (_, to) => Some(to),
             static (_, knots) => Some(toSeq(knots.OrderBy(static knot => knot.X))),
             (_, at) => Some(at with { Y = Plane.Y.Held(Fit(at.X)) }));
 }
@@ -92,14 +73,16 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, float Value, F
     public Option<float> Rest { get; init; }
     public Seq<Node> Ground { get; init; }
 
-    public Node Drawn =>
-        new PlotPlane.Track(Along, Placed) switch {
-            var plane => plane.Grown(new Handles<float>(Value, Points<float>.Scalar(plane, Lens<float, float>.New(static held => held, shown => _ => Snapped(shown))), Edited) {
+    public Node Drawn {
+        get {
+            PlotPlane.Track plane = new(Along, Placed);
+            return plane.Grown(new Handles<float>(Value, Points<float>.Scalar(plane, Lens<float, float>.New(static held => held, shown => _ => Snapped(shown))), Edited) {
                 Rest = Rest,
                 Decimals = Decimals | Step.Map(static step => int.Max(0, (int)MathF.Ceiling(-MathF.Log10(step)))),
                 Unit = Unit,
-            }.Drawn(plane, plane.Grown(new Node.Box { Role = Role.Track }).Cons(Ground) + Spanned(plane))),
-        };
+            }.Drawn(plane, plane.Grown(new Node.Box { Role = Role.Track }).Cons(Ground) + Spanned(plane)));
+        }
+    }
 
     private Axis Placed {
         get {
