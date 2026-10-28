@@ -8,10 +8,6 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record PlacedLayer(LayoutNode Layout, Node.Layer Layer) {
-    internal bool Holds(Seq<Key> path) => path.Take(Layout.Path.Count) == Layout.Path;
-}
-
 public sealed record Mount {
     // --- [STATE]
     private Mount(Host host, Scene scene) => (Host, Scene, Routing, Tree) = (host, scene, Routing.Idle, Access.Project(scene));
@@ -30,7 +26,7 @@ public sealed record Mount {
     internal Scene Scene { get; init; }
     internal Seq<Seq<Key>> Hover { get; init; }
     internal Option<Nearest> Nearest { get; init; }
-    internal HashSet<Seq<Key>> Opened { get; init; }
+    internal HashMap<Seq<Key>, Option<SKPoint>> Opened { get; init; }
     internal HashMap<Seq<Key>, Element> Elements { get; private init; }
     internal Seq<Seq<Element>> Stops { get; private init; }
     internal Routing Routing { get; init; }
@@ -56,9 +52,9 @@ public sealed record Mount {
 
     internal HashMap<InteractionState, float> StateLayers(Duration now) => Animations.StateLayers(Active(), now);
 
-    internal Seq<PlacedLayer> Layers => Scene.Layers.Choose(Layered);
+    internal Seq<PlacedLayer> Layers => Scene.Layers.Choose(PlacedLayer.Of);
 
-    internal Option<PlacedLayer> Dismissible => Layers.Filter(static held => held.Layer.Dismissed.IsSome).Last;
+    internal Seq<PlacedLayer> Dismissible => Layers.Filter(static held => held.Dismisses);
 
     // --- [TRANSITIONS]
     public static Fin<Mount> Create(Host host, StyleSheet sheet, Node view, Shaping shaping) =>
@@ -81,7 +77,7 @@ public sealed record Mount {
             Some(ticked.Elapsed).Filter(static effects => !effects.IsEmpty));
         return ticked.Opened.IsEmpty
             ? moved.Mount with { Animations = ticked.Animations.WithTimers(Scene, Routing.Pointer, Pending, now), Output = new Output(Scene.Sampled(moved.Damage), [], Sequenced(moved.Effects)) }
-            : Completed(moved.Then(next => next.Reopened(next.Opened.Union(ticked.Opened))), now);
+            : Completed(moved.Then(next => next.Reopened(ticked.Opened.Fold(next.Opened, static (held, path) => held.TryAdd(path, None)))), now);
     }
 
     private Routed Restyled(Host host, StyleSheet sheet, Duration now) {
@@ -110,12 +106,12 @@ public sealed record Mount {
     private bool Projected(Mount prior) => !ReferenceEquals(prior.Scene, Scene) || !prior.Host.Culture.Equals(Host.Culture);
 
     private Routed Opening() =>
-        toHashSet(Delayed.Filter(held => Opened.Contains(held.Layout.Path) && Over(held)).Map(static held => held.Layout.Path)) switch {
+        Opened.Filter((path, _) => Scene.Triggered.Exists(held => held.Layout.Path == path && (held.Delay.IsNone || Over(held) || (!held.Acts.IsEmpty && Focused.Exists(focus => held.Holds(focus) || held.Anchor.Exists(anchor => focus.Take(anchor.Count) == anchor)))))) switch {
             var opened when opened == Opened => Unhandled,
             var opened => Reopened(opened),
         };
 
-    private Routed Reopened(HashSet<Seq<Key>> opened) => (this with { Opened = opened }).Applied(Scene.Opened(opened));
+    private Routed Reopened(HashMap<Seq<Key>, Option<SKPoint>> opened) => (this with { Opened = opened }).Applied(Scene.Opened(opened));
 
     private Routed Revealing(Mount prior) {
         if (!Projected(prior)) return Unhandled;
@@ -128,7 +124,7 @@ public sealed record Mount {
             Routing = Routing with {
                 Capture = Routing.Capture.Filter(held => held.Live(Scene)),
                 Latch = Routing.Latch.Filter(held => held.Live(Scene)),
-                Focus = Routing.Focus.Map(focus => Followed(prior, focus)).Filter(followed => Elements.ContainsKey(followed.Element) && (Scene.Owner(followed.Element).IsSome || Scene.Scroller(followed.Element).IsSome)),
+                Focus = Routing.Focus.Map(focus => Followed(prior, focus)).Filter(followed => Elements.ContainsKey(followed.Element) && (Scene.Owner(followed.Element).IsSome || Scene.Scroller(followed.Element).IsSome || !Scene.Anchoring(followed.Element).IsEmpty)),
             },
         }).WithEffects(Routing.Capture.Filter(held => !held.Live(Scene)).ToSeq().Bind(static held => held.Cancelled) + Routing.Latch.Filter(held => !held.Live(Scene)).ToSeq().Bind(static held => held.Cancelled));
 
@@ -142,24 +138,21 @@ public sealed record Mount {
         Seq<PlacedLayer> layers = Layers;
         HashSet<Seq<Key>> was = toHashSet(prior.Layers.Map(static held => held.Layout.Path));
         HashSet<Seq<Key>> now = toHashSet(layers.Map(static held => held.Layout.Path));
-        Seq<PlacedLayer> opened = layers.Filter(held => !was.Contains(held.Layout.Path) && held.Layer.Hover.IsNone);
+        Seq<PlacedLayer> opened = layers.Filter(held => !was.Contains(held.Layout.Path) && (held.Delay.IsNone || !Over(held)));
         Seq<Seq<Key>> closed = toSeq(was).Filter(path => !now.Contains(path));
         Option<Focus> entered = opened.Last.Bind(held => Focusing(Routing.Traversed(Stops.Filter(stop => stop.Exists(element => held.Holds(element.Id))), None, 1, cycles: false), traversed: false));
         Option<Focus> returned = Focused.IsNone ? closed.Choose(Returns.Find).Filter(focus => Elements.ContainsKey(focus.Element)).Head : None;
-        Seq<IO<Unit>> left = layers.Filter(held => was.Contains(held.Layout.Path) && !held.Layer.Modal && prior.Focused.Exists(held.Holds) && Focused.Exists(focus => !held.Holds(focus))).Choose(static held => held.Layer.Dismissed);
-        return (this with { Returns = Returns.RemoveRange(closed).AddOrUpdateRange(opened.Choose(held => prior.Routing.Focus.Map(focus => (held.Layout.Path, focus)))) })
-            .Refocused(entered | returned | Routing.Focus).Then(next => next.WithEffects(left));
+        Seq<PlacedLayer> left = layers.Filter(held => held.Dismisses && was.Contains(held.Layout.Path) && !held.Layer.Modal && prior.Focused.Exists(held.Holds) && Focused.Exists(focus => !held.Holds(focus)));
+        return (this with { Returns = Returns.RemoveRange(closed).AddOrUpdateRange(opened.Choose(held => Routing.Focus.Map(focus => (held.Layout.Path, focus)))) })
+            .Refocused(entered | returned | Routing.Focus).Then(next => next.Closed(left));
     }
 
     private Routed Hovering() =>
         (this with {
             Hover = Routing.Pointer.Map(Scene.Hit).Map(hits => Routing.Pressed.Match(
                 Some: pressing => hits.Filter(hit => hit == pressing || (Routing.ActiveTrack.Exists(static track => track.Lifted.IsSome) && Scene.AncestorsAndSelf(hit).Exists(prefix => Scene.Index.Find(prefix).Exists(static layout => layout.Node.Drop.IsSome)))),
-                None: () => {
-                    HashSet<Seq<Key>> anchors = toHashSet(Delayed.Choose(static held => held.Layer.Anchor));
-                    return hits.Filter(hit => Thumb(hit).IsSome || Scene.AncestorsAndSelf(hit).Exists(prefix =>
-                        Scene.PartAt(prefix).IsSome || anchors.Contains(prefix) || Scene.Index.Find(prefix).Exists(static layout => layout.Node is Node.Plot { Hovered.IsSome: true })));
-                })).IfNone([]),
+                None: () => hits.Filter(hit => Thumb(hit).IsSome || Scene.AncestorsAndSelf(hit).Exists(prefix =>
+                    Scene.PartAt(prefix).IsSome || !Scene.Anchoring(prefix).IsEmpty || Scene.Index.Find(prefix).Exists(static layout => layout.Node is Node.Plot { Hovered.IsSome: true }))))).IfNone([]),
         }).Unhandled;
 
     private Routed Nearing(Mount prior) =>
@@ -219,6 +212,23 @@ public sealed record Mount {
 
     internal Routed Applied(SceneChange change) => new(this with { Scene = change.Scene }, change.Damage, None);
 
+    // --- [LAYERS]
+    internal Routed Toggled(PlacedLayer held, Option<SKPoint> at) =>
+        at.Filter(_ => held.Layer.Trigger.Exists(static trigger => trigger.AtPointer)) switch {
+            var pointed when Opened.ContainsKey(held.Layout.Path) && pointed.IsNone => Closed([held]).Handled(),
+            var pointed => Refocused(held.Anchor.Bind(anchor => Focusing(Element(anchor, anchor), traversed: false)) | Routing.Focus)
+                .Then(next => next.Closed(next.Dismissible.Filter(open => !open.Holds(held.Layout.Path))))
+                .Then(next => next.Reopened(next.Opened.AddOrUpdate(held.Layout.Path, pointed)))
+                .Handled(),
+        };
+
+    internal Routed Closed(Seq<PlacedLayer> closing) =>
+        Reopened(Opened.RemoveRange(closing.Map(static held => held.Layout.Path))).Then(next => next.WithEffects(closing.Choose(static held => held.Layer.Dismissed)));
+
+    internal Routed Picked(Seq<Key> owner) =>
+        Closed(Layers.Filter(held => held.Holds(owner) && Scene.AncestorsAndSelf(owner).TakeWhile(prefix => prefix.Count >= held.Layout.Path.Count)
+            .Exists(prefix => Scene.Index.Find(prefix).Exists(static layout => layout.Node.Accessible.Role.Exists(static role => role.Picks)))));
+
     // --- [FOCUS]
     internal Option<Focus> Focusing(Option<Seq<Key>> element, bool traversed) =>
         element.Map(target => Routing.Focus.Filter(focus => focus.Element == target).IfNone(() => new Focus(target, traversed)));
@@ -237,15 +247,12 @@ public sealed record Mount {
 
     internal bool Inert(Seq<Key> path) => Scene.AncestorsAndSelf(path).Exists(Scene.Inert.Contains);
 
-    private static Option<PlacedLayer> Layered(LayoutNode layout) => layout.Node is Node.Layer layer ? Some(new PlacedLayer(layout, layer)) : None;
-
-    private Seq<PlacedLayer> Delayed => toSeq(Scene.Index.Values).Choose(Layered).Filter(static held => held.Layer.Hover.IsSome);
-
-    private HashMap<Seq<Key>, Duration> Pending => toHashMap(Delayed.Filter(held => !Opened.Contains(held.Layout.Path) && Over(held)).Choose(static held => held.Layer.Hover.Map(delay => (held.Layout.Path, delay))));
+    private HashMap<Seq<Key>, Duration> Pending =>
+        toHashMap(Scene.Triggered.Filter(held => held.Delay.IsSome && !Opened.ContainsKey(held.Layout.Path) && Over(held)).Choose(static held => held.Delay.Map(delay => (held.Layout.Path, delay))));
 
     private bool Over(PlacedLayer held) =>
-        Routing.Pointer.Exists(at => held.Layer.Anchor.Match(Some: anchor => Scene.Visible(anchor).Exists(shown => shown.Contains(at)), None: static () => true)
-            || (Opened.Contains(held.Layout.Path) && Scene.Visible(held.Layout.Path).Exists(shown => shown.Contains(at))));
+        Routing.Pointer.Exists(at => held.Anchor.Match(Some: anchor => Scene.Visible(anchor).Exists(shown => shown.Contains(at)), None: static () => true)
+            || (Opened.ContainsKey(held.Layout.Path) && Scene.Visible(held.Layout.Path).Exists(shown => shown.Contains(at))));
 
     private bool Clocked(Seq<Key> path) =>
         !Host.Theme.Conditions.Contains(Condition.ReduceMotion) || Scene.AncestorsAndSelf(path).Exists(above => Scene.Index.Find(above).Exists(static layout => layout.Style.Conditions.Contains(Condition.Busy)));
@@ -265,8 +272,11 @@ public sealed record Mount {
         from layout in Scene.Index.Find(part.Owner)
         from lift in layout.Node.Lift
         from preview in lift.Preview
-        from frame in Scene.Frame(part.Owner)
-        select preview((Vector2)(part.Press.At - frame.Location));
+        from place in Scene.Places.Find(part.Owner)
+        from local in place.Local(part.Press.At)
+        let frame = Scene.Absolute(layout.Frame, place.Origin)
+        from at in (Layouts.Plotted(layout).Map(own => own.Translated(frame.Location)) | place.Plot).Match(Some: plot => plot.At(local), None: () => Some((Vector2)(local - frame.Location)))
+        select preview(at);
 
     private CursorShape Prospective(Seq<Key> path, SKPoint pointer) =>
         Thumb(path).IsSome ? CursorShape.Default
@@ -276,7 +286,7 @@ public sealed record Mount {
             .Head.IfNone(CursorShape.Default);
 
     private HashSet<InteractionState> Active() =>
-        toHashSet(Hover.Head.Filter(path => Scene.Index.Find(path).Exists(static layout => !layout.Style.Conditions.Contains(Condition.Disabled))).Map(static path => new InteractionState(path, Interaction.Hover)).ToSeq()
+        toHashSet((Hover.Head.Filter(path => Scene.Index.Find(path).Exists(static layout => !layout.Style.Conditions.Contains(Condition.Disabled))).ToSeq() + Scene.Highlighted).Map(static path => new InteractionState(path, Interaction.Hover))
             .Concat(Routing.Pressed.Map(static path => new InteractionState(path, Interaction.Pressed)).ToSeq())
             .Concat(Routing.Focus.Filter(focus => Host.Visibility.HasKeyFocus && focus.Traversed).Map(static focus => new InteractionState(focus.Element, Interaction.Focused)).ToSeq()));
 }

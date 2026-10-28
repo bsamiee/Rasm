@@ -5,6 +5,7 @@ using Rasm.UI.Rendering;
 using Rasm.UI.Styling;
 using SkiaSharp;
 using SuperLinq;
+using Topten.RichTextKit.Utils;
 
 namespace Rasm.UI;
 
@@ -55,21 +56,23 @@ public sealed partial class AccessRole {
     public static readonly AccessRole Dialog = new(namedByContents: false);
     public static readonly AccessRole Popover = new(namedByContents: false);
     public static readonly AccessRole Tooltip = new(namedByContents: true);
-    public static readonly AccessRole Toolbar = new(composite: true, namedByContents: false, None);
-    public static readonly AccessRole RadioGroup = new(Radio);
-    public static readonly AccessRole TabList = new(Tab);
-    public static readonly AccessRole List = new(ListItem);
-    public static readonly AccessRole Tree = new(TreeItem);
-    public static readonly AccessRole Grid = new(GridCell);
-    public static readonly AccessRole Menu = new(MenuItem);
+    public static readonly AccessRole Toolbar = new(composite: true, namedByContents: false, None, picks: false);
+    public static readonly AccessRole RadioGroup = new(Radio, picks: true);
+    public static readonly AccessRole TabList = new(Tab, picks: false);
+    public static readonly AccessRole List = new(ListItem, picks: false);
+    public static readonly AccessRole Tree = new(TreeItem, picks: false);
+    public static readonly AccessRole Row = new(GridCell, picks: false);
+    public static readonly AccessRole Grid = new(Row, picks: false);
+    public static readonly AccessRole Menu = new(MenuItem, picks: true);
 
-    private AccessRole(bool namedByContents) : this(composite: false, namedByContents, None) { }
+    private AccessRole(bool namedByContents) : this(composite: false, namedByContents, None, picks: false) { }
 
-    private AccessRole(AccessRole owns) : this(composite: true, namedByContents: false, Some(owns)) { }
+    private AccessRole(AccessRole owns, bool picks) : this(composite: true, namedByContents: false, Some(owns), picks) { }
 
     internal bool Composite { get; }
     internal bool NamedByContents { get; }
     internal Option<AccessRole> Owns { get; }
+    internal bool Picks { get; }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -176,21 +179,32 @@ public static class Access {
         scene.Inert.Contains(layout.Path) ? [] : Admitted(scene, layout, scene.PartAt(layout.Path) | owner, lent);
 
     private static Seq<Element> Admitted(Scene scene, LayoutNode layout, Option<PartOwner> owning, Accessible lent) {
-        Accessible accessible = Charted(layout.Node.Accessible.Combine(owning.IsSome ? Accessible.Empty : Implied(scene, layout)), layout);
+        Seq<PlacedLayer> anchoring = scene.Anchoring(layout.Path);
+        Accessible anchored = anchoring.Choose(held => held.Layer.Trigger.Map(trigger => trigger.Anchoring(scene.Open.Contains(held.Layout.Path)))).Fold(Accessible.Empty, static (held, next) => held.Combine(next));
+        Accessible accessible = Charted(layout.Node.Accessible.Combine(anchored).Combine(owning.IsSome ? Accessible.Empty : Implied(scene, layout)), layout);
         Accessible lends = accessible.Role.IsSome ? Accessible.Empty : new Accessible { Label = accessible.Label, Help = accessible.Help, Shortcut = accessible.Shortcut }.Combine(lent);
-        Seq<Element> children = layout.Children.Bind(child => Projected(scene, child, owning, lends));
+        Seq<Element> children = layout.Children.Bind(child => Projected(scene, child, owning, lends)) + Spanned(scene, layout);
         return (from role in accessible.Role
                 from frame in scene.Frame(layout.Path)
                 select new Element(layout.Path, role, accessible.Combine(new Accessible { Label = role.NamedByContents ? Joined(Texts(layout)) : None }).Combine(lent),
-                    owning.Filter(held => held.Part.Offers(held.Layout, layout.Path)).Map(held => Offered(scene, held, layout.Path)).IfNone([]), layout.Style.Conditions, frame, children))
+                    toSeq((owning.Filter(held => held.Part.Offers(held.Layout, layout.Path)).Map(held => Offered(scene, held, layout.Path)).IfNone([]) + anchoring.Bind(static held => held.Acts)).Distinct()),
+                    layout.Style.Conditions, frame, children))
             .Match(Some: static element => [element], None: () => children);
     }
+
+    private static Seq<Element> Spanned(Scene scene, LayoutNode layout) =>
+        layout.TextNode.Map(text => toSeq(text.Typeset.Parts.AsIterable()).Choose(laid =>
+            from owner in scene.PartAt(layout.Path.Add(new Key.Ordinal((uint)laid.Key)))
+            from span in text.Typeset.Text.Spans.At(laid.Key)
+            let role = span.Role.Exists(static held => held == Role.Link) ? AccessRole.Link : AccessRole.Button
+            select new Element(owner.Path, role, new Accessible { Role = role, Label = string.Concat(laid.Value.Map(static run => Utf32Utils.FromUtf32(run.CodePoints))).Trim() },
+                Offered(scene, owner, owner.Path), layout.Style.Conditions.Union(span.Conditions), owner.Bounds, []))).IfNone([]);
 
     private static Accessible Implied(Scene scene, LayoutNode layout) =>
         layout.Node.Link.IsSome ? new Accessible { Role = AccessRole.Link } : layout.Node.SwitchPartially(
             (Scene: scene, Layout: layout),
             @default: static (_, _) => Accessible.Empty,
-            layer: static (_, layer) => new Accessible { Role = layer.Modal ? AccessRole.Dialog : layer.Hover.IsSome ? AccessRole.Tooltip : AccessRole.Popover },
+            layer: static (_, layer) => new Accessible { Role = layer.Modal ? AccessRole.Dialog : layer.Trigger.Exists(static trigger => trigger.Acts.IsEmpty) ? AccessRole.Tooltip : AccessRole.Popover },
             scroll: static (held, _) => held.Scene.Scroller(held.Layout.Path)
                 .Map(static scroller => new Accessible { Role = AccessRole.ScrollArea, Value = new AccessValue.Ranged(scroller.Value, 0f, scroller.Overflow.Max), Orientation = scroller.Axis })
                 .IfNone(Accessible.Empty),

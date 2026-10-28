@@ -81,7 +81,7 @@ internal sealed record TextStyle : IStyle {
     public Option<CultureInfo> Language { get; init; }
     public Option<float> Cell { get; init; }
     public Option<float> Stroked { get; init; }
-    public Option<(int Index, Part Part)> Span { get; init; }
+    public Option<int> Span { get; init; }
 }
 
 internal sealed class Typeset(Shaping shaping, Node.Text text, TextStyle style, float width, Option<(TextRange Range, SKColor Color)> selection, TextBlock lines, bool clipped) {
@@ -95,6 +95,8 @@ internal sealed class Typeset(Shaping shaping, Node.Text text, TextStyle style, 
     internal TextBlock Lines { get; } = lines;
     internal SKSize Size { get; } = new(Typesetting.Widest(lines), lines.MeasuredHeight);
     internal bool Truncated { get; } = lines.Truncated || clipped;
+    internal Map<int, Seq<FontRun>> Parts { get; } = toSeq(lines.Lines).Bind(static line => toSeq(line.Runs)).Filter(static run => run.RunKind is not FontRunKind.TrailingWhitespace)
+        .Fold(Map<int, Seq<FontRun>>(), static (held, run) => ((TextStyle)run.Style).Span.Map(head => held.AddOrUpdate(head, Some: runs => runs.Add(run), None: () => [run])).IfNone(held));
 
     internal SKRect Overhang => Lines.MeasuredOverhang switch {
         var over => over with { Right = float.Max(0f, over.Right + (Lines.MaxWidth ?? Lines.MeasuredWidth) - Size.Width) },
@@ -108,7 +110,7 @@ internal sealed class Typeset(Shaping shaping, Node.Text text, TextStyle style, 
         }
         select line.YCoord + line.BaseLine - rise;
 
-    internal Option<(int Index, Part Part)> PartAt(SKPoint local) =>
+    internal Option<int> PartAt(SKPoint local) =>
         Lines.HitTest(local.X, local.Y).OverCodePointIndex switch {
             < 0 => None,
             var index => ((TextStyle)Lines.GetStyleAtOffset(index + 1)).Span,

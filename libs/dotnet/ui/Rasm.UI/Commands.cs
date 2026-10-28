@@ -65,16 +65,11 @@ public sealed record Toolbar<TGate, TInvoke>(Seq<Seq<Command<TGate, TInvoke>>> G
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Commands {
     // --- [MENU]
-    private static readonly Key Items = new Key.Named("items");
     private static readonly Key Submenu = new Key.Named("menu");
 
-    public static IO<Node.Layer> Menu<TGate, TInvoke>(Seq<Seq<Command<TGate, TInvoke>>> groups, CommandHost<TGate, TInvoke> host, Seq<Key> path, Option<Seq<Key>> anchor, IO<Unit> dismissed)
+    public static IO<Node.Layer> Menu<TGate, TInvoke>(Seq<Seq<Command<TGate, TInvoke>>> groups, CommandHost<TGate, TInvoke> host, Trigger trigger)
         where TGate : notnull where TInvoke : notnull =>
-        host.Listed(groups, path, dismissed).Map(listed => new Node.Layer(anchor, listed) {
-            Key = path.Last,
-            Dismissed = Some(dismissed),
-            Accessible = new Accessible { Role = AccessRole.Menu },
-        });
+        host.Listed(groups).Map(listed => new Node.Layer(Some(Seq<Key>()), listed) { Trigger = trigger, Accessible = new Accessible { Role = AccessRole.Menu } });
 
     // --- [PRESENTATIONS]
     public static Seq<Node> IconOnly(CommandPresentation presentation, CommandState state) =>
@@ -125,9 +120,9 @@ public static class Commands {
                 Accessible = new Accessible { Role = AccessRole.Toolbar },
             };
 
-        internal IO<Node.Flex> Listed(Seq<Seq<Command<TGate, TInvoke>>> groups, Seq<Key> layer, IO<Unit> dismissed) =>
-            groups.TraverseM(group => group.TraverseM(command => host.Rows(command, layer.Add(Items), dismissed)).As().Map(static rows => rows.Flatten())).As()
-                .Map(static rows => new Node.Flex(PhysicalAxis.Vertical, rows.Intersperse(Seq<Node>(Divider(PhysicalAxis.Vertical))).Flatten()) { Key = Items, Role = Role.Menu });
+        internal IO<Node.Flex> Listed(Seq<Seq<Command<TGate, TInvoke>>> groups) =>
+            groups.TraverseM(group => group.TraverseM(command => host.Rows(command)).As().Map(static rows => rows.Flatten())).As()
+                .Map(static rows => new Node.Flex(PhysicalAxis.Vertical, rows.Intersperse(Seq<Node>(Divider(PhysicalAxis.Vertical))).Flatten()) { Role = Role.Menu });
 
         private IO<CommandState> State(Option<TGate> enabled, Option<TGate> busy, Option<TGate> check) =>
             from open in enabled.Traverse(host.Enabled).As()
@@ -142,27 +137,25 @@ public static class Commands {
         private Node MenuButton(CommandPresentation shown, CommandState state, Seq<Seq<Command<TGate, TInvoke>>> groups, Func<CommandPresentation, CommandState, Seq<Node>> content) =>
             Button(shown, state, Some(AccessRole.MenuButton), Role.Button, Some(new Part.Press(bounds => host.Menu(groups, bounds))), content(shown, state));
 
-        private IO<Seq<Node>> Rows(Command<TGate, TInvoke> command, Seq<Key> within, IO<Unit> dismissed) =>
+        private IO<Seq<Node>> Rows(Command<TGate, TInvoke> command) =>
             command.Switch(
-                (Host: host, Within: within, Dismissed: dismissed, Ran: (Func<TInvoke, SKRect, IO<Unit>>)((invoke, bounds) => host.Run(invoke, bounds).Bind(_ => dismissed))),
-                run: static (held, run) => held.Host.State(run.Enabled, run.Busy, run.Checked).Map(state => Seq(Item(run.Presentation, state, Some(Pressing(run, held.Ran))))),
+                host,
+                run: static (held, run) => held.State(run.Enabled, run.Busy, run.Checked).Map(state => Seq(Item(run.Presentation, state, Some(Pressing(run, held.Run))))),
                 choice: static (held, choice) =>
-                    from state in held.Host.State(choice.Enabled, None, None)
-                    from rows in choice.Members.TraverseM(member => held.Host.Rows(member, held.Within, held.Dismissed)).As()
+                    from state in held.State(choice.Enabled, None, None)
+                    from rows in choice.Members.TraverseM(member => held.Rows(member)).As()
                     select rows.Flatten().Map(row => row with { Conditions = row.Conditions + state.Conditions }),
-                menu: static (held, menu) => held.Within.Add(new Key.Named(menu.Presentation.Name)) switch {
-                    var row =>
-                        from state in held.Host.State(menu.Enabled, None, None)
-                        from split in held.Host.Split(menu, state)
-                        from listed in held.Host.Listed(menu.Groups, row.Add(Submenu), held.Dismissed)
-                        select Seq(Item(menu.Presentation, split.IfNone(state), split.Bind(_ => menu.Primary).Map(primary => Pressing(primary, held.Ran)),
-                            [new Node.Layer(Some(row), listed) {
-                                Key = Submenu,
-                                Side = new UnitPoint(Fraction.MaxValue, Fraction.MinValue),
-                                Hover = Some(Duration.Zero),
-                                Accessible = new Accessible { Role = AccessRole.Menu },
-                            }])),
-                });
+                menu: static (held, menu) =>
+                    from state in held.State(menu.Enabled, None, None)
+                    from split in held.Split(menu, state)
+                    from listed in held.Listed(menu.Groups)
+                    select Seq(Item(menu.Presentation, split.IfNone(state), split.Bind(_ => menu.Primary).Map(primary => Pressing(primary, held.Run)),
+                        [new Node.Layer(Some(Seq<Key>()), listed) {
+                            Key = Submenu,
+                            Side = new UnitPoint(Fraction.MaxValue, Fraction.MinValue),
+                            Trigger = split.IsSome ? new Trigger.Hover(Duration.Zero) : (Trigger)new Trigger.Press { Delay = Duration.Zero },
+                            Accessible = new Accessible { Role = AccessRole.Menu },
+                        }])));
     }
 
     // --- [FACES]

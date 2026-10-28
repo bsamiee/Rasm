@@ -30,18 +30,18 @@ internal static class Marks {
         """);
 
     // --- [MARKS]
-    internal static void Mark(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, Context context, Figure figure, Option<DataSeries> series, PlotFrame frame) {
+    internal static void Mark(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, Context context, Figure figure, PlotFrame frame) {
         RoleStyle style = layout.Style;
         PaintCache cache = pass.Cache;
         Pen pen = context.Pen(style);
         MarkKey key = new(figure, frame, pen);
-        Option<SKColorF> lead = Lead(layout, context, series);
+        Option<SKColorF> lead = Lead(layout, context);
         if (figure is Figure.Field field) {
             Field(canvas, pass, layout, key, field, lead);
             return;
         }
         if (figure is Figure.Points { Marker.IsNone: true, Sizes.IsNone: true, Values.IsNone: true, Opacity.IsNone: true } dots) {
-            Seq<SKPaint> paints = Edged(pass, layout, context, series, figure, frame, pen);
+            Seq<SKPaint> paints = Edged(pass, layout, context, figure, frame, pen);
             canvas.DrawPicture(cache.Dots.GetOrAdd((key, paints), () => {
                 Seq<SKPoint> points = dots.At.Map(frame.Point).Strict();
                 using SKPictureRecorder recorder = new();
@@ -57,24 +57,24 @@ internal static class Marks {
         }
         if (!style.Fills.IsEmpty) {
             Outline.Traced interior = cache.Interiors.GetOrAdd(key, () => Outline.Of(path => figure.Interior(path, frame, pen)));
-            Seq<Action<SKCanvas>> fills = style.Fills.Map((fill, index) => Fills.Fill(new FillContext(pass, layout, context, interior.Path.Bounds, index) { Blend = Some(style.Blend), Series = series }, fill, interior)).Somes().Strict();
+            Seq<Action<SKCanvas>> fills = style.Fills.Map((fill, index) => Fills.Fill(new FillContext(pass, layout, context, interior.Path.Bounds, index) { Blend = Some(style.Blend) }, fill, interior)).Somes().Strict();
             using SKAutoCanvasRestore covered = new(canvas);
             _ = fills.Iter(fill => fill(canvas));
         }
         Outline.Traced edge = cache.Contours.GetOrAdd(key, () => Outline.Of(path => figure.Edges(path, frame, pen)));
-        _ = Edged(pass, layout, context, series, figure, frame, pen).Iter(paint => canvas.DrawPath(edge.Path, paint));
+        _ = Edged(pass, layout, context, figure, frame, pen).Iter(paint => canvas.DrawPath(edge.Path, paint));
         Seq<(Marker Marker, SKPoint At, float Degrees)> placements = figure.Markers(edge.Path);
         _ = lead.Iter(color => toSeq(placements.GroupBy(static placed => placed.Marker)).Iter(group =>
             Sprites(canvas, pass, layout, key, color, Some(group.Key), toSeq(group).Map(static placed => (placed.At, placed.Degrees, Diameter: placed.Marker.Size, Value: Option<float>.None, Opacity: 1f)))));
     }
 
-    private static Option<SKColorF> Lead(LayoutNode layout, Context context, Option<DataSeries> series) =>
-        (layout.Style.Strokes.Head.Map(static stroke => stroke.Color) | layout.Style.Solid).Bind(value => context.Color(value, layout, series: series));
+    private static Option<SKColorF> Lead(LayoutNode layout, Context context) =>
+        (layout.Style.Strokes.Head.Map(static stroke => stroke.Color) | layout.Style.Solid).Bind(value => context.Color(value, layout));
 
-    private static Seq<SKPaint> Edged(Painter.Pass pass, LayoutNode layout, Context context, Option<DataSeries> series, Figure figure, PlotFrame frame, Pen pen) {
+    private static Seq<SKPaint> Edged(Painter.Pass pass, LayoutNode layout, Context context, Figure figure, PlotFrame frame, Pen pen) {
         float weight = figure.Weight(frame, pen);
-        uint ordinal = series.Map(static held => held.Ordinal).IfNone(0u);
-        return layout.Style.Strokes.Choose(stroke => context.Color(stroke.Color, layout, series: series)
+        uint ordinal = layout.Node.Series.Map(static held => held.Ordinal).IfNone(0u);
+        return layout.Style.Strokes.Choose(stroke => context.Color(stroke.Color, layout)
             .Map(color => pass.Cache.Stroke(stroke, color.WithAlpha(color.Alpha * weight), pen.Stroke, ordinal, pass.Clock, Some(layout.Style.Blend)))).Strict();
     }
 
@@ -203,7 +203,7 @@ internal static class Marks {
             SKRect target = image.Fit.Fitted(content, new SKSize(image.Source.Info.Width, image.Source.Info.Height));
             SKRect device = context.Device.MapRect(target);
             bool alphaOnly = source.ColorType is SKColorType.Alpha8 or SKColorType.Alpha16 or SKColorType.AlphaF16;
-            Option<SKColorF> color = alphaOnly && image.Scale.IsNone ? Lead(layout, context, image.Series) : None;
+            Option<SKColorF> color = alphaOnly && image.Scale.IsNone ? Lead(layout, context) : None;
             SKPaint paint = pass.Cache.Images.GetOrAdd((layout, color, alphaOnly), () => {
                 using SKColorFilter? ramp = image.Scale.Bind(scale => RampFilter(layout, scale, alphaOnly)).ValueUnsafe();
                 return new SKPaint { IsAntialias = true, Blender = layout.Style.Blend, ColorF = color.IfNone(SKColors.Black), ColorFilter = ramp };

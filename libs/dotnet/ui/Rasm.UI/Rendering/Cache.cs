@@ -23,8 +23,8 @@ internal sealed record Context(SKMatrix Device) {
 
     internal Context Translated(SKPoint at) => this with { Device = Device.PreConcat(SKMatrix.CreateTranslation(at.X, at.Y)), Plot = Plot.Map(plot => plot.Translated(new SKPoint(-at.X, -at.Y))) };
 
-    internal Option<SKColorF> Color(ColorValue value, LayoutNode layout, HashMap<Interaction, ColorValue> targets = default, Option<DataSeries> series = default) =>
-        layout.Cascade.Theme.WithStateLayers(value, layout.Style, StateLayers, targets, series);
+    internal Option<SKColorF> Color(ColorValue value, LayoutNode layout, HashMap<Interaction, ColorValue> targets = default) =>
+        layout.Cascade.Theme.WithStateLayers(value, layout.Style, StateLayers, targets, layout.Node.Series);
 
     internal Pen Pen(RoleStyle style) => new(style.Metrics[Metric.Stroke], style.Metrics[Metric.Spacing]) { Device = Device, Icon = style.Metrics[Metric.Icon] };
 

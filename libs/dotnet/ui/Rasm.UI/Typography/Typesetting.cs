@@ -31,7 +31,7 @@ internal static class Typesetting {
             Underline = face.Underline.IfNone(Plain.Underline),
             StrikeThrough = face.StrikeThrough.IfNone(Plain.StrikeThrough),
             LineHeight = face.LineHeight.IfNone(Plain.LineHeight),
-            TextColor = cascade.Theme.Color(style.Text, style).Map(color => (SKColor)cascade.Theme.Legible(style, cascade.Background, color, text: true)).IfNone(SKColors.Transparent),
+            TextColor = Colored(cascade, style),
             BackgroundColor = face.Background.Bind(color => cascade.Theme.Color(color, style)).Map(static color => (SKColor)color).IfNone(Plain.BackgroundColor),
             HaloColor = face.Halo.Bind(halo => cascade.Theme.Color(halo.Color, style)).Map(static halo => (SKColor)halo).IfNone(Plain.HaloColor),
             HaloWidth = face.Halo.Map(static halo => halo.Width).IfNone(Plain.HaloWidth),
@@ -49,15 +49,18 @@ internal static class Typesetting {
         return resolved with { Cell = Cell(shaping, resolved) };
     }
 
+    private static SKColor Colored(Cascade cascade, RoleStyle style) =>
+        cascade.Theme.Color(style.Text, style).Map(color => (SKColor)cascade.Theme.Legible(style, cascade.Background, color, text: true)).IfNone(SKColors.Transparent);
+
     private static Option<float> Cell(Shaping shaping, TextStyle style) =>
         Some(shaping.Mapper.TypefaceFromStyle(style, ignoreFontVariants: false)).Filter(static primary => primary.IsFixedPitch).Bind(primary => shaping.HarfBuzzFont(primary) switch {
             var font => font.TryGetGlyph('0', out uint zero) ? Some(font.GetHorizontalGlyphAdvance(zero) * style.FontSize / primary.UnitsPerEm) : None,
         });
 
-    private static TextStyle SpanStyle(Shaping shaping, Cascade cascade, TextStyle face, Span span, int index) =>
+    private static TextStyle SpanStyle(Shaping shaping, Cascade cascade, TextStyle face, Span span, int head) =>
         (span.Role.IsNone && span.Conditions.IsEmpty
             ? face
-            : Resolve(shaping, cascade, Styles.Resolve(cascade, span.Role.IfNone(cascade.Enclosing.Role), span.Conditions.Union(cascade.Enclosing.Conditions)))) with { Language = span.Language, Span = span.Part.Map(part => (index, part)), };
+            : Resolve(shaping, cascade, Styles.Resolve(cascade, span.Role.IfNone(cascade.Enclosing.Role), span.Conditions.Union(cascade.Enclosing.Conditions)))) with { Language = span.Language, Span = span.Part.Map(_ => head), };
 
     private static Option<(TextRange Range, SKColor Color)> Selected(Node.Text text, Cascade cascade) =>
         from range in text.Selected
@@ -101,7 +104,11 @@ internal static class Typesetting {
 
     internal static Typeset Set(Shaping shaping, Node.Text text, Cascade cascade, TextStyle style, float width, CultureInfo culture) {
         StyledText runs = new();
-        _ = text.Spans.Map((span, index) => FaceRuns(shaping, span.Text, SpanStyle(shaping, cascade, style, span, index), culture)).Flatten().Iter(run => runs.AddText(run.Text, run.Style));
+        _ = text.Placeholder.Filter(_ => text.Edited.IsNone && text.Content.Length is 0).Match(
+                Some: placeholder => FaceRuns(shaping, placeholder, style with { TextColor = Colored(cascade, Styles.Resolve(cascade, Role.Placeholder, cascade.Enclosing.Conditions)) }, culture),
+                None: () => text.Spans.Fold(Seq<(Span Span, int Head)>(), static (held, span) => held.Add((span, held.Last.Filter(prior => span.Part.IsSome && prior.Span.Part == span.Part).Map(static prior => prior.Head).IfNone(held.Count))))
+                    .Map(held => FaceRuns(shaping, held.Span.Text, SpanStyle(shaping, cascade, style, held.Span, held.Head), culture)).Flatten())
+            .Iter(run => runs.AddText(run.Text, run.Style));
         Option<StyledText> cut = text.MaxLines.Filter(static lines => lines is 1).Bind(_ => Cut(shaping, text, style, width, culture, runs));
         return Fit(width, []);
 

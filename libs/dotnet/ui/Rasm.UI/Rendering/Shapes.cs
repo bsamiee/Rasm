@@ -1,11 +1,12 @@
 using System.Numerics;
 using Rasm.UI.Styling;
+using Rasm.UI.Typography;
 using SkiaSharp;
 
 namespace Rasm.UI.Rendering;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record OutlineKey(Shape Shape, Corners Corners, float Smoothing, SKRect Frame, float Offset);
+internal sealed record OutlineKey(Shape Shape, Corners Corners, float Smoothing, SKRect Frame, float Offset, float Inset, float Turn, SKFontStyleWeight Weight);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal abstract class Outline : IDisposable {
@@ -14,14 +15,17 @@ internal abstract class Outline : IDisposable {
     private Outline() { }
 
     // --- [CONSTRUCTION]
-    internal static Fin<Outline> Of(Slot<OutlineKey, Outline> outlines, LayoutNode layout, SKRect frame, float offset) =>
-        new OutlineKey(layout.Style.Shape, layout.Corners, layout.Smoothing, frame, offset) switch {
-            var key => outlines.GetOrAdd(key, () => key.Shape is Shape.Rounded && key.Smoothing <= 0f
-                ? new Rounded(Radii(key.Corners, key.Frame, key.Offset))
-                : Lowered(key.Shape, key.Corners, key.Smoothing, key.Frame, key.Offset).Map(static path => (Outline)new Traced(path))),
-        };
+    internal static Fin<Outline> Of(Slot<OutlineKey, Outline> outlines, LayoutNode layout, SKRect frame, float offset) {
+        OutlineKey key = new(layout.Style.Shape, layout.Corners, layout.Smoothing, frame, offset, layout.Style.Metrics[Metric.Inset], layout.Style.Metrics[Metric.Turn],
+            Faced(layout.Style, layout.Cascade.Theme.Face).Weight.IfNone(SKFontStyleWeight.Normal));
+        return outlines.GetOrAdd(key, () => key.Shape is Shape.Rounded && key.Smoothing <= 0f && key.Turn is 0f
+            ? new Rounded(Radii(key.Corners, key.Frame, key.Offset))
+            : Lowered(key).Map(path => (Outline)new Traced(Turned(path, key))));
+    }
 
     internal static Traced Of(Action<SKPathBuilder> trace) => new(Built(trace));
+
+    private static TextFace Faced(RoleStyle style, TextFace theme) => style.Enclosing.Match(Some: outer => Faced(outer, theme), None: () => theme).Combine(style.Look.Face);
 
     // --- [DRAWING]
     internal abstract void Draw(SKCanvas canvas, SKPaint paint);
@@ -86,9 +90,9 @@ internal abstract class Outline : IDisposable {
     }
 
     // --- [LOWERING]
-    private static Fin<SKPath> Lowered(Shape shape, Corners corners, float smoothing, SKRect frame, float offset) =>
-        shape.Switch(
-            (Corners: corners, Smoothing: smoothing, Frame: frame, Offset: offset),
+    private static Fin<SKPath> Lowered(OutlineKey key) =>
+        key.Shape.Switch(
+            key,
             rounded: static (held, _) => held.Smoothing <= 0f
                 ? Built(path => path.AddRoundRect(Radii(held.Corners, held.Frame, held.Offset), SKPathDirection.Clockwise))
                 : Built(path => Continuous(path, held.Corners.Grown(held.Offset), SKRect.Inflate(held.Frame, held.Offset, held.Offset), held.Smoothing)),
@@ -97,15 +101,32 @@ internal abstract class Outline : IDisposable {
                 SKMatrix placed = ImageFit.Mapping(parsed.Bounds, held.Frame);
                 return Offset(Built(path => path.AddPath(parsed, in placed)), held.Offset);
             },
+            icon: static (held, icon) => {
+                using SKPath? parsed = SKPath.ParseSvgPathData(icon.PathData);
+                return Optional(parsed).Filter(static path => !path.Bounds.IsEmpty).ToFin(new UIFault(icon.PathData, UIReason.Unreadable)).Bind(grid => {
+                    SKMatrix placed = ImageFit.Mapping(grid.Bounds, ImageFit.Contain.Fitted(SKRect.Inflate(held.Frame, -held.Inset, -held.Inset), grid.Bounds.Size));
+                    float weighted = icon.Set.Stem * placed.ScaleX * (((float)held.Weight / (float)SKFontStyleWeight.Normal) - 1f) / 2f;
+                    return Offset(Built(path => path.AddPath(grid, in placed)), held.Offset + weighted);
+                });
+            },
             placed: static (held, placed) =>
-                Lowered(placed.Inner, held.Corners, held.Smoothing, SKRect.Create(held.Frame.Left + (placed.Unit.Left * held.Frame.Width), held.Frame.Top + (placed.Unit.Top * held.Frame.Height),
-                    placed.Unit.Width * held.Frame.Width, placed.Unit.Height * held.Frame.Height), held.Offset),
+                Lowered(held with {
+                    Shape = placed.Inner,
+                    Frame = SKRect.Create(held.Frame.Left + (placed.Unit.Left * held.Frame.Width), held.Frame.Top + (placed.Unit.Top * held.Frame.Height), placed.Unit.Width * held.Frame.Width, placed.Unit.Height * held.Frame.Height),
+                }),
             combined: static (held, combined) =>
-                from operands in (Lowered(combined.First, held.Corners, held.Smoothing, held.Frame, 0f), Lowered(combined.Second, held.Corners, held.Smoothing, held.Frame, 0f))
+                from operands in (Lowered(held with { Shape = combined.First, Offset = 0f }), Lowered(held with { Shape = combined.Second, Offset = 0f }))
                     .Apply(static (first, second) => (First: first, Second: second)).As()
                 from joined in Joined(operands.First, operands.Second, combined.Op)
                 from offset in Offset(joined, held.Offset)
                 select offset);
+
+    private static SKPath Turned(SKPath path, OutlineKey key) {
+        if (key.Turn is 0f) return path;
+        using SKPath held = path;
+        SKMatrix turn = SKMatrix.CreateRotationDegrees(key.Turn, key.Frame.MidX, key.Frame.MidY);
+        return Built(builder => builder.AddPath(held, in turn));
+    }
 
     private static Fin<SKPath> Offset(SKPath path, float by) {
         if (by is 0f) return path;

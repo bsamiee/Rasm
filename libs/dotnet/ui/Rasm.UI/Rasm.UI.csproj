@@ -13,6 +13,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="QuikGraph" />
         <PackageReference Include="RBush.Signed" />
         <PackageReference Include="SuperLinq" />
     </ItemGroup>
@@ -30,6 +31,7 @@
     <ItemGroup Label="Typography">
         <PackageReference Include="HarfBuzzSharp" />
         <PackageReference Include="ICU4N" />
+        <PackageReference Include="Markdig" />
         <PackageReference Include="SkiaSharp.HarfBuzz" />
         <PackageReference Include="Topten.RichTextKit" />
     </ItemGroup>
@@ -41,5 +43,9 @@
         <PackageReference Include="Svg.Custom" />
         <PackageReference Include="Svg.Model" />
         <PackageReference Include="Svg.Skia" />
+    </ItemGroup>
+
+    <ItemGroup Label="Icons">
+        <PackageReference Include="IconPacks.Lucide" />
     </ItemGroup>
 </Project>

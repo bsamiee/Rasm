@@ -760,6 +760,10 @@
         <PackageVersion Include="FluentIcons.Avalonia"                                    Version="2.1.344" />                                     <!-- Icon controls and markup extensions -->
         <PackageVersion Include="FluentIcons.Common"                                      Version="2.1.344" />                                     <!-- Symbol enums and glyph metadata -->
         <PackageVersion Include="HotAvalonia"                                             Version="3.1.5" />                                       <!-- XAML hot reload at application runtime -->
+        <PackageVersion Include="IconPacks.Fluent"                                        Version="1.0.9768.17-build" />                           <!-- Fluent UI System regular and filled icon outlines as path data constants on a 20 unit grid -->
+        <PackageVersion Include="IconPacks.Lucide"                                        Version="1.0.9768.17-build" />                           <!-- Lucide icon outlines as path data constants on a 24 unit grid -->
+        <PackageVersion Include="IconPacks.MaterialCommunity"                             Version="1.0.9768.17-build" />                           <!-- Material Design community icons as path data constants on a 24 unit grid -->
+        <PackageVersion Include="IconPacks.Tabler"                                        Version="1.0.9768.17-build" />                           <!-- Tabler outline and filled icon outlines as path data constants on a 24 unit grid -->
         <PackageVersion Include="Irihi.Ursa"                                              Version="2.2.0" />                                       <!-- Form, picker, navigation, pagination, dialog, drawer, and toast controls -->
         <PackageVersion Include="Irihi.Ursa.Themes.Semi"                                  Version="2.2.0" />                                       <!-- Semi Design theme for Ursa -->
         <PackageVersion Include="Mapsui.Avalonia12"                                       Version="5.2.0-beta.1" />                                <!-- Interactive map control with tile and vector layers -->

@@ -2,6 +2,18 @@ using SkiaSharp;
 
 namespace Rasm.UI.Rendering;
 
+// --- [MODELS] --------------------------------------------------------------------------
+internal sealed record PlacedLayer(LayoutNode Layout, Node.Layer Layer) {
+    internal Option<Seq<Key>> Anchor { get; } = Layer.Anchor.Map(relative => Layout.Path.Init + relative);
+    internal Seq<Act> Acts => Layer.Trigger.Map(static trigger => trigger.Acts).IfNone([]);
+    internal Option<Duration> Delay => Layer.Trigger.Bind(static trigger => trigger.Hovered);
+    internal bool Dismisses => Layer.Dismissed.IsSome || !Acts.IsEmpty;
+
+    internal bool Holds(Seq<Key> path) => path.Take(Layout.Path.Count) == Layout.Path;
+
+    internal static Option<PlacedLayer> Of(LayoutNode layout) => layout.Node is Node.Layer layer ? Some(new PlacedLayer(layout, layer)) : None;
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class LayerStack {
     // --- [PLACEMENT]
@@ -21,18 +33,19 @@ internal static class LayerStack {
     // --- [STACK]
     internal static Seq<LayoutNode> Declared(LayoutNode root) => Scene.Preorder(root).Bind(static layout => layout.Layers);
 
-    internal static Seq<LayoutNode> Stacked(Layouts.Pass pass, LayoutNode root, HashSet<Seq<Key>> opened, SKRect window, HashMap<Seq<Key>, LayoutNode> index, HashMap<Seq<Key>, Place> places) =>
+    internal static Seq<LayoutNode> Stacked(Layouts.Pass pass, LayoutNode root, HashMap<Seq<Key>, Option<SKPoint>> opened, SKRect window, HashMap<Seq<Key>, LayoutNode> index, HashMap<Seq<Key>, Place> places) =>
         Stacking(pass, Declared(root), opened, window, (Laid: [], Index: index, Places: places)).Laid;
 
     private static (Seq<LayoutNode> Laid, HashMap<Seq<Key>, LayoutNode> Index, HashMap<Seq<Key>, Place> Places) Stacking(
-        Layouts.Pass pass, Seq<LayoutNode> declared, HashSet<Seq<Key>> opened, SKRect window, (Seq<LayoutNode> Laid, HashMap<Seq<Key>, LayoutNode> Index, HashMap<Seq<Key>, Place> Places) stack) =>
+        Layouts.Pass pass, Seq<LayoutNode> declared, HashMap<Seq<Key>, Option<SKPoint>> opened, SKRect window, (Seq<LayoutNode> Laid, HashMap<Seq<Key>, LayoutNode> Index, HashMap<Seq<Key>, Place> Places) stack) =>
         declared.Fold(stack, (held, layer) =>
-            (from node in Optional(layer.Node as Node.Layer)
-             where node.Hover.IsNone || opened.Contains(layer.Path)
-             from anchor in node.Anchor.Match(
+            (from placed in PlacedLayer.Of(layer)
+             let opening = opened.Find(layer.Path)
+             where placed.Layer.Trigger.IsNone || opening.IsSome
+             from anchor in opening.Flatten().Map(static at => SKRect.Create(at, SKSize.Empty)) | placed.Anchor.Match(
                  Some: path => from target in held.Index.Find(path) from place in held.Places.Find(path) select place.Transform.MapRect(Scene.Absolute(target.Frame, place.Origin)),
                  None: () => Some(window))
-             let laid = Laid(pass, layer, node, anchor, window)
+             let laid = Laid(pass, layer, placed.Layer, anchor, window)
              select Stacking(pass, Declared(laid), opened, window, (held.Laid.Add(laid), held.Index.AddOrUpdateRange(Scene.Indexed(laid).AsIterable()),
                  Scene.Placing(laid, Scene.Root(laid, window), pass.Offsets, held.Places)))).IfNone(held));
 

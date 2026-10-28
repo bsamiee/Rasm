@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Rasm.UI.Typography;
 using SkiaSharp;
 
@@ -74,6 +75,13 @@ public sealed record Stroke(ColorValue Color) {
             None: () => pattern.Effect(width, clock))));
 }
 
+public sealed record IconSet(float Stem, [CallerMemberName] string Name = "") {
+    public static readonly IconSet Lucide = new(Stem: 2f);
+    public static readonly IconSet Tabler = new(Stem: 2f);
+    public static readonly IconSet Fluent = new(Stem: 1f);
+    public static readonly IconSet MaterialCommunity = new(Stem: 2f);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Shape {
     public sealed record Rounded : Shape;
@@ -89,6 +97,10 @@ public abstract partial record Shape {
         }
 
         internal SKPath Path() => SKPath.ParseSvgPathData(PathData);
+    }
+
+    public sealed record Icon(IconSet Set, string PathData) : Shape {
+        public Node Drawn => new Node.Box { Role = Role.Icon, Sheet = new StyleSheet(HashMap((Role.Icon, new Look { Shape = this }))) };
     }
 
     public sealed record Placed(Shape Inner, SKRect Unit) : Shape;

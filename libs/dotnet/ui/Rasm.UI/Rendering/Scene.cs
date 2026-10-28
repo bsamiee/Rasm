@@ -93,6 +93,9 @@ internal abstract partial record LayoutNode {
 
 internal sealed record Scroller(Seq<Key> Owner, Seq<Key> Stored, PhysicalAxis Axis, float Value, Layouts.Overflow Overflow, float ThumbRatio, float Step, float Page) {
     internal Seq<float> Stops { get; init; }
+    internal bool KeepsEnd { get; init; }
+
+    internal float Held(float value) => KeepsEnd && value >= Overflow.Max ? float.PositiveInfinity : value;
 
     internal Option<float> Navigated(Bearing toward) =>
         toward.Along == Axis
@@ -141,24 +144,28 @@ internal sealed record PartOwner(Seq<Key> Path, LayoutNode Layout, Part Part, SK
 internal sealed record PlacedNode(LayoutNode Layout, Place Place) {
     internal RoleStyle Style { get; init; } = Layout.Style;
 
-    internal SKRect Frame => Scene.Absolute(Layout.Frame, Place.Origin);
+    internal SKRect Frame { get; init; } = Scene.Absolute(Layout.Frame, Place.Origin);
 }
 
 internal sealed record SceneChange(Scene Scene, Seq<SKRect> Damage);
 
-internal sealed class Scene {
+internal sealed partial class Scene {
     // --- [STATE]
-    private readonly HashSet<Seq<Key>> opened;
+    private readonly HashMap<Seq<Key>, Option<SKPoint>> opened;
     private readonly HashMap<Seq<Key>, Seq<Seq<Key>>> readers;
+    private readonly HashMap<Seq<Key>, Seq<PlacedLayer>> anchors;
     private readonly Seq<(SKRect Reach, SKRect Bounds)> sampling;
 
-    private Scene(Host host, Layouts.Pass pass, LayoutNode root, Seq<LayoutNode> layers, HashMap<Seq<Key>, LayoutNode> index, HashMap<Seq<Key>, Place> places, HashSet<Seq<Key>> opened, HashMap<Seq<Key>, LayoutNode> fragments) {
-        (Host, Shaping, Outlines, Layout, Layers, Index, Places, Fragments, this.opened) = (host, pass.Shaping, pass.Outlines, root, layers, index, places, fragments, opened);
+    private Scene(Host host, Layouts.Pass pass, LayoutNode root, Seq<LayoutNode> layers, HashMap<Seq<Key>, LayoutNode> index, HashMap<Seq<Key>, Place> places, HashMap<Seq<Key>, Option<SKPoint>> opened, HashSet<Seq<Key>> open, HashMap<Seq<Key>, LayoutNode> fragments) {
+        (Host, Shaping, Outlines, Layout, Layers, Open, Index, Places, Fragments, this.opened) = (host, pass.Shaping, pass.Outlines, root, layers, open, index, places, fragments, opened);
         Order = Preorder(root) + layers.Bind(Preorder);
         readers = Order.Fold(HashMap<Seq<Key>, Seq<Seq<Key>>>(), static (held, layout) =>
             layout.Node is Node.Scroll scroll ? held.AddOrUpdate(Layouts.Stored(layout, scroll), Some: paths => paths.Add(layout.Path), None: () => [layout.Path]) : held);
-        Offsets = toHashMap(toSeq(pass.Offsets.AsIterable()).Choose(entry => readers.Find(entry.Key).IfNone([]).Choose(index.Find).Choose(layout => Scroller(layout, None, pass.Offsets)).Head.Map(scroller => (entry.Key, scroller.Value))));
+        Offsets = toHashMap(toSeq(pass.Offsets.AsIterable()).Choose(entry => readers.Find(entry.Key).IfNone([]).Choose(index.Find).Choose(layout => Scroller(layout, None, pass.Offsets)).Head.Map(scroller => (entry.Key, scroller.Held(scroller.Value)))));
         Timed = Order.Filter(static layout => layout.Timed);
+        Highlighted = Order.Filter(static layout => layout.Node.Conditions.Contains(Condition.Highlighted)).Map(static layout => layout.Path);
+        Triggered = toSeq(index.Values).Choose(PlacedLayer.Of).Filter(static held => held.Layer.Trigger.IsSome);
+        anchors = Triggered.Fold(HashMap<Seq<Key>, Seq<PlacedLayer>>(), static (held, layer) => layer.Anchor.Map(anchor => held.AddOrUpdate(anchor, Some: layers => layers.Add(layer), None: () => [layer])).IfNone(held));
         Inert = LayerStack.Inert(root, layers);
         Hosted = Order.Fold(Seq<Hosted>(), (hosted, layout) => Places.Find(layout.Path).Map(place => hosted + Hosting(hosted, new PlacedNode(layout, place))).IfNone(hosted))
             + layers.Choose(layer => LayerStack.Popup(layer, SKRect.Create(root.Frame.Size)));
@@ -174,9 +181,9 @@ internal sealed class Scene {
     }
 
     private Scene(Scene prior, HashMap<Seq<Key>, LayoutNode> fragments) {
-        (Host, Shaping, Outlines, Layout, Layers, Index, Places, Offsets, Order, Timed, Inert, Hosted, Backdrops, Popups, Extended) =
-            (prior.Host, prior.Shaping, prior.Outlines, prior.Layout, prior.Layers, prior.Index, prior.Places, prior.Offsets, prior.Order, prior.Timed, prior.Inert, prior.Hosted, prior.Backdrops, prior.Popups, prior.Extended);
-        (opened, readers, sampling, Fragments) = (prior.opened, prior.readers, prior.sampling, fragments);
+        (Host, Shaping, Outlines, Layout, Layers, Open, Index, Places, Offsets, Order, Timed, Highlighted, Triggered, Inert, Hosted, Backdrops, Popups, Extended) =
+            (prior.Host, prior.Shaping, prior.Outlines, prior.Layout, prior.Layers, prior.Open, prior.Index, prior.Places, prior.Offsets, prior.Order, prior.Timed, prior.Highlighted, prior.Triggered, prior.Inert, prior.Hosted, prior.Backdrops, prior.Popups, prior.Extended);
+        (opened, readers, anchors, sampling, Fragments) = (prior.opened, prior.readers, prior.anchors, prior.sampling, fragments);
     }
 
     internal Host Host { get; }
@@ -184,12 +191,15 @@ internal sealed class Scene {
     internal Slot<OutlineKey, Outline> Outlines { get; }
     internal LayoutNode Layout { get; }
     internal Seq<LayoutNode> Layers { get; }
+    internal HashSet<Seq<Key>> Open { get; }
     internal HashMap<Seq<Key>, LayoutNode> Index { get; }
     internal HashMap<Seq<Key>, Place> Places { get; }
     internal HashMap<Seq<Key>, LayoutNode> Fragments { get; }
     internal HashMap<Seq<Key>, float> Offsets { get; }
     internal Seq<LayoutNode> Order { get; }
     internal Seq<LayoutNode> Timed { get; }
+    internal Seq<Seq<Key>> Highlighted { get; }
+    internal Seq<PlacedLayer> Triggered { get; }
     internal HashSet<Seq<Key>> Inert { get; }
     internal Seq<Hosted> Hosted { get; }
     internal HashSet<Seq<Key>> Backdrops { get; }
@@ -211,7 +221,7 @@ internal sealed class Scene {
 
     internal SceneChange Restyle(Host host, StyleSheet sheet) => Arranged(Styles.Root(host.Theme, sheet, host.Root), host, Offsets, [], opened);
 
-    internal SceneChange Opened(HashSet<Seq<Key>> next) => next == opened ? Unchanged : Arranged(Layout.Cascade, Host, Offsets, Index, next);
+    internal SceneChange Opened(HashMap<Seq<Key>, Option<SKPoint>> next) => next == opened ? Unchanged : Arranged(Layout.Cascade, Host, Offsets, Index, next);
 
     internal SceneChange Unchanged => new(this, []);
 
@@ -219,24 +229,21 @@ internal sealed class Scene {
         (from scroller in Scroller(path)
          let value = scroller.Overflow.Clamped(move(scroller.Value))
          where value.CompareTo(scroller.Value) is not 0
-         select Offset(Offsets.AddOrUpdate(scroller.Stored, value), Seq(scroller.Stored)))
+         select Offset(Offsets.AddOrUpdate(scroller.Stored, scroller.Held(value)), Seq(scroller.Stored)))
         .IfNone(Unchanged);
 
     internal SceneChange Reveal(Seq<Key> path) =>
         (Frame(path) | Slotted(path)).Map(target => AncestorsAndSelf(path).Tail.Choose(Scroller).Fold(
                 (Offsets, Target: target, Moved: Seq<Seq<Key>>()),
                 (held, scroller) => Revealing(scroller, held.Target).Filter(static moved => moved.CompareTo(0f) is not 0).Match(
-                    Some: moved => (held.Offsets.AddOrUpdate(scroller.Stored, scroller.Value + moved), Absolute(held.Target, (SKPoint)scroller.Axis.With(Vector2.Zero, -moved)), held.Moved.Add(scroller.Stored)),
+                    Some: moved => (held.Offsets.AddOrUpdate(scroller.Stored, scroller.Held(scroller.Value + moved)), Absolute(held.Target, (SKPoint)scroller.Axis.With(Vector2.Zero, -moved)), held.Moved.Add(scroller.Stored)),
                     None: () => held)))
             .Filter(static revealed => !revealed.Moved.IsEmpty)
             .Match(Some: revealed => Offset(revealed.Offsets, revealed.Moved), None: () => Unchanged);
 
     internal SceneChange Revealed(Option<Scene> prior) =>
         Order.Choose(layout => Lead(layout).Filter(lead => prior.Bind(held => held.Index.Find(layout.Path)).Bind(Lead) != Some(lead)))
-            .Fold(Unchanged, static (held, lead) => {
-                SceneChange shown = held.Scene.Reveal(lead);
-                return shown with { Damage = held.Damage.Concat(shown.Damage) };
-            });
+            .Fold(Unchanged, static (held, lead) => held.Scene.Reveal(lead) switch { var shown => shown with { Damage = held.Damage.Concat(shown.Damage) } });
 
     internal SceneChange Fragment(Seq<Key> plot, Option<Node> overlay) {
         Option<LayoutNode> was = Fragments.Find(plot);
@@ -247,7 +254,7 @@ internal sealed class Scene {
 
     private Layouts.Pass Pass(HashMap<Seq<Key>, LayoutNode> prior, HashMap<Seq<Key>, float> offsets, CultureInfo culture) => new(prior, offsets, Shaping, Outlines, culture);
 
-    private SceneChange Arranged(Cascade root, Host host, HashMap<Seq<Key>, float> offsets, HashMap<Seq<Key>, LayoutNode> prior, HashSet<Seq<Key>> next) {
+    private SceneChange Arranged(Cascade root, Host host, HashMap<Seq<Key>, float> offsets, HashMap<Seq<Key>, LayoutNode> prior, HashMap<Seq<Key>, Option<SKPoint>> next) {
         Layouts.Pass pass = Pass(prior, offsets, host.Culture);
         return Laid(host, pass, Layouts.Arrange(pass, root, Layout.Node, host.Size), next, Some(this));
     }
@@ -255,7 +262,7 @@ internal sealed class Scene {
     private SceneChange Offset(HashMap<Seq<Key>, float> offsets, Seq<Seq<Key>> stored) =>
         Arranged(Layout.Cascade, Host, offsets, Index.RemoveRange(stored.Bind(key => readers.Find(key).IfNone([])).Bind(AncestorsAndSelf)), opened);
 
-    private static SceneChange Laid(Host host, Layouts.Pass pass, LayoutNode main, HashSet<Seq<Key>> opened, Option<Scene> prior) {
+    private static SceneChange Laid(Host host, Layouts.Pass pass, LayoutNode main, HashMap<Seq<Key>, Option<SKPoint>> opened, Option<Scene> prior) {
         SKRect window = SKRect.Create(main.Frame.Size);
         SKRect was = prior.Map(static held => SKRect.Create(held.Layout.Frame.Size)).IfNone(window);
         WalkState walked = Matched(prior.Map(static held => held.Layout).ToSeq(), [main], layout => Root(layout, was), layout => Root(layout, window),
@@ -268,7 +275,7 @@ internal sealed class Scene {
         HashSet<Seq<Key>> open = toHashSet(layers.Map(static layer => layer.Path));
         HashMap<Seq<Key>, LayoutNode> index = stacked.Index.RemoveRange(prior.ToSeq().Bind(static held => Declared(held.Layout, held.Layers)).Map(static layer => layer.Path).Filter(path => !open.Contains(path)))
             .AddOrUpdateRange(Declared(main, layers).Filter(layer => !open.Contains(layer.Path)).Map(static layer => (layer.Path, layer)));
-        Scene scene = new(host, pass, main, layers, index, stacked.Places, opened, toHashMap(fragments.Map(static held => (held.Plot, held.Laid))));
+        Scene scene = new(host, pass, main, layers, index, stacked.Places, opened, open, toHashMap(fragments.Map(static held => (held.Plot, held.Laid))));
         return new SceneChange(scene, stacked.Damage + fragments.Bind(held => Reached(stacked.Index, stacked.Places, scene.Offsets, held.Plot, held.Laid) switch {
             var now when now == held.Was => Seq<SKRect>(),
             var now => held.Was.ToSeq() + now.ToSeq(),
@@ -304,6 +311,8 @@ internal sealed class Scene {
 
     internal Seq<SKRect> Sampled(Seq<SKRect> damage) => damage + sampling.Filter(glass => damage.Exists(rect => rect.IntersectsWith(glass.Reach))).Map(static glass => glass.Bounds);
 
+    internal Seq<PlacedLayer> Anchoring(Seq<Key> path) => anchors.Find(path).IfNone([]);
+
     internal Option<Nearest> Nearest(Seq<Key> plot, SKPoint at) =>
         from layout in Index.Find(plot)
         let data = toHashMap(Preorder(layout).Choose(mark =>
@@ -338,9 +347,18 @@ internal sealed class Scene {
     internal static Seq<LayoutNode> Preorder(LayoutNode layout) => toSeq(SuperEnumerable.TraverseDepthFirst(layout, static held => held.Children));
 
     private Option<PlacedNode> Placed(Seq<Key> path) =>
-        from layout in Index.Find(path)
-        from place in Places.Find(path)
-        select new PlacedNode(layout, place);
+        (from layout in Index.Find(path) from place in Places.Find(path) select new PlacedNode(layout, place)) switch {
+            { IsSome: true } placed => placed,
+            _ => from key in path.Last
+                 from span in Optional(key as Key.Ordinal)
+                 from held in Placed(path.Init)
+                 from text in held.Layout.TextNode
+                 from runs in text.Typeset.Parts.Find((int)span.Index)
+                 let laid = runs.Fold(SKRect.Empty, static (union, run) => SKRect.Create(run.XCoord, run.Line.YCoord, run.Width, run.Line.Height) switch {
+                     var line => union.IsEmpty ? line : SKRect.Union(union, line),
+                 })
+                 select held with { Frame = SKRect.Create(held.Frame.Location + text.Origin + laid.Location, laid.Size) },
+        };
 
     private Option<Seq<Key>> HitAt(LayoutNode layout, SKPoint at) =>
         from place in Places.Find(layout.Path)
@@ -349,8 +367,8 @@ internal sealed class Scene {
         where place.Clip.Contains(local)
         let frame = Absolute(layout.Frame, place.Origin)
         let reach = layout.Style.Metrics[Metric.Reach]
-        from hit in layout.TextNode.Bind(text => text.Typeset.PartAt(local - frame.Location - text.Origin)).Map(span => layout.Path.Add(new Key.Ordinal((uint)span.Index)))
-            | ((layout.Node.Key.IsSome || layout.Node.Part.IsSome || layout.Node is Node.Plot { Hovered.IsSome: true } || layout.Node.Lift.IsSome || layout.Node.Drop.IsSome) && layout.Node.Traced.Match(
+        from hit in layout.TextNode.Bind(text => text.Typeset.PartAt(local - frame.Location - text.Origin)).Map(head => layout.Path.Add(new Key.Ordinal((uint)head)))
+            | ((layout.Node.Key.IsSome || layout.Node.Part.IsSome || layout.Node is Node.Plot { Hovered.IsSome: true } || layout.Node.Lift.IsSome || layout.Node.Drop.IsSome || anchors.ContainsKey(layout.Path)) && layout.Node.Traced.Match(
                 Some: figure => place.Plot.Exists(plot => figure.Hits(plot, local, reach + layout.Style.HalfStroke)),
                 None: () => Holds(layout, place, local, layout.Node.Pinned.IsSome || Layouts.IsHandle(layout) ? reach : 0f))
                 ? Some(layout.Path)
@@ -368,11 +386,12 @@ internal sealed class Scene {
         from node in Optional(owner.Node as Node.Scroll)
         from overflow in Layouts.Scrollable(owner, node)
         let stored = Layouts.Stored(owner, node)
-        select new Scroller(owner.Path, stored, node.Axis, overflow.Clamped(offsets.Find(stored).IfNone(0f)), overflow,
+        select new Scroller(owner.Path, stored, node.Axis, Layouts.Offset(offsets, owner, node, overflow), overflow,
             ThumbRatio: thumb.Map(held => Layouts.Rescaled(1f, overflow.Viewport - node.Axis.Of(held.Frame.Size), overflow.Max)).IfNone(1f), Step: owner.Style.Metrics[Metric.Spacing], Page: overflow.Viewport) {
             Stops = node.Snap.Map(snap => toSeq((from pane in Layouts.Panes(owner)
                                                  from child in pane.Children
                                                  select overflow.Clamped(node.Axis.Of(pane.Frame.Location + child.Frame.Location - owner.ContentBox.Location) + (snap.Of(node.Axis) * (node.Axis.Of(child.Frame.Size) - overflow.Viewport)))).Distinct().Order())).IfNone([]),
+            KeepsEnd = node.KeepsEnd,
         };
 
     private Seq<Hosted> Hosting(Seq<Hosted> earlier, PlacedNode held) =>
@@ -397,7 +416,7 @@ internal sealed class Scene {
                          from spanned in text.Typeset.Text.Spans.At((int)span.Index)
                          from part in spanned.Part
                          select (Layout: layout, Part: part))
-        from bounds in Frame(owned.Layout.Path)
+        from bounds in Frame(path)
         select new PartOwner(path, owned.Layout, owned.Part, bounds);
 
     internal Option<PartOwner> EnabledPartAt(Seq<Key> path) => PartAt(path).Filter(static owner => owner.Enabled);
@@ -415,88 +434,4 @@ internal sealed class Scene {
     internal Seq<Scroller> Scrollers(Seq<Seq<Key>> hits, Vector2 delta) => hits.Head.Map(AncestorsAndSelf).IfNone([]).Choose(Scroller).Filter(scroller => scroller.Scrolls(delta));
 
     internal static Option<Seq<Key>> Lead(LayoutNode layout) => layout.Node.Part.Bind(part => part.Revealed(layout));
-
-    // --- [DAMAGE]
-    private sealed record WalkState(HashMap<Seq<Key>, float> Was, HashMap<Seq<Key>, float> Now, bool Restyled, HashMap<Seq<Key>, LayoutNode> Index, HashMap<Seq<Key>, Place> Places, Seq<SKRect> Damage);
-
-    private static WalkState Walk(LayoutNode before, LayoutNode after, Place was, Place now, WalkState state) {
-        bool same = ReferenceEquals(before, after);
-        bool moved = state.Restyled || was != now || before.Node.Plotted != after.Node.Plotted || before.Node.Opacity != after.Node.Opacity;
-        if (same && !moved) return state;
-        if (moved) return Added(after, now, Removed(before, was, state));
-        bool own = before.Frame != after.Frame || before.Corners != after.Corners || !before.Style.Equals(after.Style) || (before.Children.IsEmpty && after.Children.IsEmpty && !before.Node.Equals(after.Node));
-        return Matched(before.Children, after.Children, child => Within(before, child, was, state.Was), child => Within(after, child, now, state.Now),
-            state with { Index = state.Index.AddOrUpdate(after.Path, after), Damage = own ? state.Damage.Add(Painted(before, was)).Add(Painted(after, now)) : state.Damage });
-    }
-
-    private static WalkState Matched(Seq<LayoutNode> before, Seq<LayoutNode> after, Func<LayoutNode, Place> was, Func<LayoutNode, Place> now, WalkState state) {
-        HashMap<Seq<Key>, LayoutNode> prior = toHashMap(before.Map(static held => (held.Path, held)));
-        HashSet<Seq<Key>> kept = toHashSet(after.Map(static held => held.Path));
-        WalkState walked = after.Fold(state, (held, laid) => prior.Find(laid.Path).Match(
-            Some: matched => Walk(matched, laid, was(matched), now(laid), held),
-            None: () => Added(laid, now(laid), held)));
-        return before.Filter(held => !kept.Contains(held.Path)).Fold(walked, (held, gone) => Removed(gone, was(gone), held));
-    }
-
-    private static WalkState Added(LayoutNode layout, Place place, WalkState state) =>
-        state with { Index = state.Index.AddOrUpdateRange(Indexed(layout).AsIterable()), Places = Placing(layout, place, state.Now, state.Places), Damage = state.Damage.Concat(Extents(layout, place)) };
-
-    private static WalkState Removed(LayoutNode layout, Place place, WalkState state) {
-        Seq<Seq<Key>> paths = Preorder(layout).Map(static held => held.Path);
-        return state with { Index = state.Index.RemoveRange(paths), Places = state.Places.RemoveRange(paths), Damage = state.Damage.Concat(Extents(layout, place)) };
-    }
-
-    private static Seq<SKRect> Extents(LayoutNode layout, Place place) =>
-        SKRect.Intersect(Absolute(layout.SubtreeBounds, place.Origin), place.Clip) switch {
-            var reach when reach.IsEmpty => [],
-            var reach => [place.Transform.MapRect(reach)],
-        };
-
-    private static SKRect Painted(LayoutNode layout, Place place) => place.Transform.MapRect(SKRect.Intersect(Absolute(layout.Painted, place.Origin), place.Clip));
-
-    private static Option<SKRect> Reached(HashMap<Seq<Key>, LayoutNode> index, HashMap<Seq<Key>, Place> places, HashMap<Seq<Key>, float> offsets, Seq<Key> plot, LayoutNode fragment) =>
-        from layout in index.Find(plot)
-        from place in places.Find(plot)
-        from reach in Extents(fragment, Within(layout, fragment, place, offsets)).Head
-        select reach;
-
-    private static LayoutNode Fragmented(Layouts.Pass pass, LayoutNode plot, Node overlay, Option<LayoutNode> held) =>
-        Layouts.WithCorners(Layouts.Framed(pass, Layouts.Built(pass, plot.Inner, plot.Path.Add(Overlaid), overlay, held), SKRect.Create(plot.Frame.Size)), None);
-
-    // --- [PLACEMENT]
-    private static readonly Key Overlaid = new Key.Named("fragment");
-
-    internal static Place Root(LayoutNode layout, SKRect window) => Turned(layout, new Place(SKPoint.Empty, window, None));
-
-    private static Seq<LayoutNode> Declared(LayoutNode root, Seq<LayoutNode> layers) => LayerStack.Declared(root) + layers.Bind(LayerStack.Declared);
-
-    internal static HashMap<Seq<Key>, LayoutNode> Indexed(LayoutNode layout) => toHashMap(Preorder(layout).Map(static held => (held.Path, held)));
-
-    internal static HashMap<Seq<Key>, Place> Placing(LayoutNode layout, Place place, HashMap<Seq<Key>, float> offsets, HashMap<Seq<Key>, Place> placed) =>
-        layout.Children.Fold(placed.AddOrUpdate(layout.Path, place), (held, child) => Placing(child, Within(layout, child, place, offsets), offsets, held));
-
-    private static Place Within(LayoutNode parent, LayoutNode child, Place place, HashMap<Seq<Key>, float> offsets) {
-        SKRect frame = Absolute(parent.Frame, place.Origin);
-        SKPoint origin = frame.Location + Scrolled(parent, child, offsets);
-        return Turned(child, new Place(origin + Stuck(parent, child, place.Clip, origin), parent.Node.Clips(child.Node) ? SKRect.Intersect(place.Clip, frame) : place.Clip,
-            Layouts.Plotted(parent).Map(own => own.Translated(frame.Location)) | place.Plot) { Transform = place.Transform });
-    }
-
-    private static Place Turned(LayoutNode layout, Place place) =>
-        layout.Node.Transform.Map(turn => place with { Transform = place.Transform.PreConcat(((SKMatrix44)layout.Turned(turn, Absolute(layout.Frame, place.Origin).Location)).Matrix) }).IfNone(place);
-
-    private static SKPoint Stuck(LayoutNode parent, LayoutNode child, SKRect clip, SKPoint origin) =>
-        child.Node.Sticks.Map(axis => {
-            float start = axis.Of(origin + child.Frame.Location);
-            float limit = toSeq(parent.Children.SkipWhile(sibling => !ReferenceEquals(sibling, child)).Skip(1)).Find(sibling => sibling.Node.Sticks == Some(axis))
-                .Map(next => axis.Of(origin + next.Frame.Location)).IfNone(() => axis.Of(origin) + axis.End(parent.ContentBox));
-            return (SKPoint)axis.With(Vector2.Zero, float.Clamp(axis.Of(clip.Location), start, float.Max(start, limit - axis.Of(child.Frame.Size))) - start);
-        }).IfNone(SKPoint.Empty);
-
-    private static SKPoint Scrolled(LayoutNode parent, LayoutNode child, HashMap<Seq<Key>, float> offsets) =>
-        (from scroller in Scroller(parent, None, offsets)
-         where !Layouts.IsHandle(child)
-         select (SKPoint)scroller.Axis.With(Vector2.Zero, -scroller.Value)).IfNone(SKPoint.Empty);
-
-    internal static SKRect Absolute(SKRect frame, SKPoint origin) => SKRect.Create(frame.Location + origin, frame.Size);
 }

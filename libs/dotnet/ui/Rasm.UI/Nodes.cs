@@ -169,6 +169,41 @@ public sealed partial class Truncation {
     internal Fraction Head { get; }
 }
 
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Trigger {
+    private readonly Option<AccessRole> anchoring;
+
+    private Trigger(Seq<Act> acts, Option<AccessRole> anchoring = default) => (Acts, this.anchoring) = (acts, anchoring);
+
+    internal Seq<Act> Acts { get; }
+    internal virtual Option<Duration> Hovered => None;
+    internal virtual bool AtPointer => false;
+
+    internal Accessible Anchoring(bool open) => new() { Role = anchoring, Expanded = anchoring.Map(_ => open) };
+
+    public sealed record Hover : Trigger {
+        private readonly Duration delay;
+
+        public Hover(Duration delay) : base([]) => this.delay = delay;
+
+        internal override Option<Duration> Hovered => Some(delay);
+    }
+
+    public sealed record Press() : Trigger([Act.Press, Act.Confirm], AccessRole.PopUpButton) {
+        public Option<Duration> Delay { get; init; }
+
+        internal override Option<Duration> Hovered => Delay;
+    }
+
+    public sealed record Secondary() : Trigger([Act.ShowMenu]) {
+        internal override bool AtPointer => true;
+    }
+}
+
+public sealed record CellSpan(int Columns, int Rows);
+
+public sealed record Expiry(Duration Lifetime, IO<Unit> Elapsed);
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads, MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record Node {
     private Node(Option<Painting> painting = default) => Painting = painting.IfNone(Painting.Frame);
@@ -178,17 +213,19 @@ public abstract partial record Node {
     public HashSet<Condition> Conditions { get; init; }
     public StyleSheet Sheet { get; init; } = StyleSheet.Empty;
     public Fraction Opacity { get; init; } = Fraction.MaxValue;
+    public Option<DataSeries> Series { get; init; }
     public Option<Sizing> Width { get; init; }
     public Option<Sizing> Height { get; init; }
     public Option<Factor> Aspect { get; init; }
     public UnitPoint Align { get; init; } = UnitPoint.Start;
     public Option<Matrix4x4> Transform { get; init; }
     public Option<PhysicalAxis> Sticks { get; init; }
+    public Option<CellSpan> Spanning { get; init; }
     public Option<Part> Part { get; init; }
     public Option<Lift> Lift { get; init; }
     public Option<Drop> Drop { get; init; }
     public Option<Uri> Link { get; init; }
-    public Option<(Duration Lifetime, IO<Unit> Elapsed)> Expires { get; init; }
+    public Option<Expiry> Expires { get; init; }
     public Accessible Accessible { get; init; } = Accessible.Empty;
 
     public Node Conditioned(Condition condition) => this with { Conditions = Conditions.TryAdd(condition) };
@@ -211,13 +248,16 @@ public abstract partial record Node {
 
     public sealed record Flex(PhysicalAxis Axis, Seq<Node> Children) : Node {
         public Option<Baseline> Baseline { get; init; }
+        public bool Wraps { get; init; }
 
         internal override Option<PhysicalAxis> MainAxis => Some(Axis);
     }
 
     public sealed record Grid(Tracks Columns, Seq<Seq<Node>> Rows) : Node;
 
-    public sealed record Lazy(PhysicalAxis Axis, Tracks Across, float Extent, Seq<Key> Items) : Node {
+    public sealed record Lazy(PhysicalAxis Axis, Tracks Across, Seq<Key> Items) : Node {
+        public Option<float> Extent { get; init; }
+        public Role Rows { get; init; } = Styling.Role.ListRow;
         public HashMap<Key, Node> Realized { get; init; }
 
         internal override Option<PhysicalAxis> MainAxis => Some(Axis);
@@ -233,7 +273,7 @@ public abstract partial record Node {
         public bool Flips { get; init; } = true;
         public Option<IO<Unit>> Dismissed { get; init; }
         public bool Modal { get; init; }
-        public Option<Duration> Hover { get; init; }
+        public Option<Trigger> Trigger { get; init; }
 
         internal override Option<Node> Inner => Some(Content);
     }
@@ -245,6 +285,7 @@ public abstract partial record Node {
     public sealed record Scroll(PhysicalAxis Axis, Node Content) : Node {
         public Option<UnitPoint> Snap { get; init; }
         public Option<Seq<Key>> Follows { get; init; }
+        public bool KeepsEnd { get; init; }
 
         internal override Option<PhysicalAxis> MainAxis => Some(Axis);
 
@@ -269,8 +310,6 @@ public abstract partial record Node {
     }
 
     public sealed record Mark(Figure Figure) : Node(Painting.Figure) {
-        public Option<DataSeries> Series { get; init; }
-
         internal override Option<Figure> Traced => Some(Figure);
     }
 
@@ -282,6 +321,7 @@ public abstract partial record Node {
         public TextAlignment Alignment { get; init; } = TextAlignment.Auto;
         public Option<TextRange> Selected { get; init; }
         public Option<Func<Edit<string>, IO<Unit>>> Edited { get; init; }
+        public Option<string> Placeholder { get; init; }
     }
 
     public sealed record Glyph(GlyphSource Art) : Node(Painting.Foreground);
@@ -290,7 +330,6 @@ public abstract partial record Node {
         public ImageFit Fit { get; init; } = ImageFit.Stretch;
         public Factor Density { get; init; } = Factor.Unit;
         public ImageRendering Rendering { get; init; } = ImageRendering.Auto;
-        public Option<DataSeries> Series { get; init; }
         public Option<ColorRamp> Scale { get; init; }
     }
 

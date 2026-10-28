@@ -15,6 +15,8 @@ public sealed partial class Condition {
     public static readonly Condition Default = new(inherited: false);
     public static readonly Condition Destructive = new(inherited: false);
     public static readonly Condition Selected = new(inherited: false);
+    public static readonly Condition Highlighted = new(inherited: false);
+    public static readonly Condition Descending = new(inherited: false);
     public static readonly Condition Modified = new(inherited: false);
     public static readonly Condition Pending = new(inherited: false);
     public static readonly Condition Mixed = new(inherited: false);
@@ -47,20 +49,32 @@ public sealed partial class Channel {
 
 [SmartEnum]
 public sealed partial class Metric {
-    public static readonly Metric Extent = new(0f);
-    public static readonly Metric Reach = new(0f);
-    public static readonly Metric Inset = new(0f);
-    public static readonly Metric Gap = new(0f);
-    public static readonly Metric Radius = new(0f);
-    public static readonly Metric Smoothing = new(0f);
-    public static readonly Metric Stroke = new(1f);
-    public static readonly Metric Icon = new(16f);
-    public static readonly Metric FontSize = new(1f);
-    public static readonly Metric Spacing = new(32f);
-    public static readonly Metric Slop = new(3f);
-    public static readonly Metric Fine = new(0.1f);
-    public static readonly Metric Notch = new(1.2f);
-    public static readonly Metric EdgeFade = new(0f);
+    public static readonly Metric Extent = new(0f, inherited: false, Dense);
+    public static readonly Metric Measure = new(float.PositiveInfinity, inherited: false, Dense);
+    public static readonly Metric Reach = new(0f, inherited: false, Dense);
+    public static readonly Metric Inset = new(0f, inherited: false, Dense);
+    public static readonly Metric Gap = new(0f, inherited: false, Dense);
+    public static readonly Metric Radius = new(0f, inherited: false, Rounded);
+    public static readonly Metric Smoothing = new(0f, inherited: false, Unscaled);
+    public static readonly Metric Stroke = new(1f, inherited: false, Unscaled);
+    public static readonly Metric Icon = new(16f, inherited: true, Dense);
+    public static readonly Metric Turn = new(0f, inherited: false, Unscaled);
+    public static readonly Metric FontSize = new(1f, inherited: false, Unscaled);
+    public static readonly Metric Spacing = new(32f, inherited: false, Dense);
+    public static readonly Metric Slop = new(3f, inherited: false, Dense);
+    public static readonly Metric Fine = new(0.1f, inherited: false, Unscaled);
+    public static readonly Metric Notch = new(1.2f, inherited: false, Unscaled);
+    public static readonly Metric EdgeFade = new(0f, inherited: false, Dense);
 
     public float Default { get; }
+    internal bool Inherited { get; }
+
+    [UseDelegateFromConstructor]
+    internal partial float Scale(Theme theme);
+
+    private static float Dense(Theme theme) => (float)theme.Density;
+
+    private static float Rounded(Theme theme) => (float)theme.Density * theme.Rounding;
+
+    private static float Unscaled(Theme _) => 1f;
 }

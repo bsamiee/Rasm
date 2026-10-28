@@ -11,12 +11,15 @@ namespace Rasm.UI.Styling;
 public abstract partial record ColorValue {
     public sealed record Fixed(Unicolour Color) : ColorValue {
         public Fixed(string hex) : this(new Unicolour(hex)) { }
+
+        public Fraction Alpha { get; init; } = Fraction.MaxValue;
     }
 
     public sealed record Host(Channel Channel) : ColorValue {
         public Option<Role> Role { get; init; }
         public Fraction Alpha { get; init; } = Fraction.MaxValue;
         public Option<Condition> Condition { get; init; }
+        public Option<Interaction> Interaction { get; init; }
         public Option<ColorValue> Fallback { get; init; }
     }
 

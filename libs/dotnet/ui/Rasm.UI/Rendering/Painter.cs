@@ -246,7 +246,7 @@ internal static class Painter {
     private static void Contained(SKCanvas canvas, Pass pass, LayoutNode.Box layout, Context context, SKColorF under, Option<Tween> tween) =>
         layout.Node.SwitchPartially(
             (Canvas: canvas, Pass: pass, Layout: layout, Context: context, Under: under, Tween: tween),
-            mark: static (held, mark) => held.Context.Plot.Iter(plot => Marks.Mark(held.Canvas, held.Pass, held.Layout, held.Context, held.Tween.Bind(static tween => tween.Figure).IfNone(mark.Figure), mark.Series, plot)),
+            mark: static (held, mark) => held.Context.Plot.Iter(plot => Marks.Mark(held.Canvas, held.Pass, held.Layout, held.Context, held.Tween.Bind(static tween => tween.Figure).IfNone(mark.Figure), plot)),
             glyph: static (held, glyph) => held.Pass.Cache.Art(held.Layout, glyph.Art).Iter(media => {
                 SKRect fitted = media.Fitted(held.Layout.ContentBox);
                 media.Draw(held.Canvas, SKRect.Create(held.Context.Pen(held.Layout.Style).Snapped(fitted.Location), fitted.Size), glyph.Art.Tinted

@@ -45,11 +45,13 @@ public sealed record SceneBackend(
     public Option<Func<Transfer, SKPoint, IO<Unit>>> Lifted { get; init; }
 }
 
+public sealed record PlacedControl<TControl>(Hosted.Slot Slot, TControl Control) where TControl : notnull;
+
 public sealed record PlacedControls<TControl>(
     Func<Hosted.Slot, Option<Element>, IO<TControl>> Added,
     Func<TControl, Hosted.Slot, IO<TControl>> Moved,
     Func<TControl, IO<Unit>> Removed) where TControl : notnull {
-    public HashMap<Seq<Key>, (Hosted.Slot Slot, TControl Control)> Controls { get; private init; }
+    public HashMap<Seq<Key>, PlacedControl<TControl>> Controls { get; private init; }
 
     public IO<Unit> Released => Controls.Values.ToSeq().TraverseM(held => Removed(held.Control)).As().Map(static _ => unit);
 
@@ -61,10 +63,10 @@ public sealed record PlacedControls<TControl>(
     private IO<PlacedControls<TControl>> Changed(Seq<Key> path, Option<Hosted.Slot> wanted, Mount mount) =>
         Controls.Find(path).Match(
             Some: held => wanted.Match(
-                Some: slot => held.Slot == slot ? IO.pure(this) : Moved(held.Control, slot).Map(moved => this with { Controls = Controls.AddOrUpdate(path, (slot, moved)) }),
+                Some: slot => held.Slot == slot ? IO.pure(this) : Moved(held.Control, slot).Map(moved => this with { Controls = Controls.AddOrUpdate(path, new PlacedControl<TControl>(slot, moved)) }),
                 None: () => Removed(held.Control).Map(_ => this with { Controls = Controls.Remove(path) })),
             None: () => wanted.Match(
-                Some: slot => Added(slot, mount.Elements.Find(path)).Map(control => this with { Controls = Controls.AddOrUpdate(path, (slot, control)) }),
+                Some: slot => Added(slot, mount.Elements.Find(path)).Map(control => this with { Controls = Controls.AddOrUpdate(path, new PlacedControl<TControl>(slot, control)) }),
                 None: () => IO.pure(this)));
 }
 
@@ -131,10 +133,7 @@ public sealed class SceneHost : IDisposable {
     // --- [DERIVED]
     public IO<Duration> Now => IO.lift(() => clock.GetElapsedTime(0L).ToDuration());
 
-    public Option<SKSize> Preferred(SKSize offered) =>
-        Current.Map(held => held.Scene.Preferred(offered) switch {
-            var preferred => preferred with { Height = float.Min(preferred.Height, offered.Height) },
-        });
+    public Option<SKSize> Preferred(SKSize offered) => Current.Map(held => held.Scene.Preferred(offered));
 
     private Seq<Seq<Key>> Animated => toSeq(rasters.Values).Bind(static held => held.Cache.Animated).Distinct();
 

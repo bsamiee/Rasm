@@ -16,6 +16,7 @@ public sealed record Points<TValue>(Func<TValue, Seq<HandlePoint>> Read, Func<TV
     public Func<TValue, Seq<Key>, Option<TValue>> Removed { get; init; } = static (_, _) => None;
     public bool DraggedOut { get; init; }
     public Func<TValue, Key, float, Option<TValue>> Spread { get; init; } = static (_, _, _) => None;
+    public Func<TValue, Key, int, Option<TValue>> Incremented { get; init; } = static (_, _, _) => None;
 
     public static Points<TValue> Fixed(Seq<Lens<TValue, Vector2>> lenses) {
         HashMap<Key, Lens<TValue, Vector2>> keyed = toHashMap(lenses.Map(static (lens, index) => ((Key)Keyed(index), lens)));
@@ -107,6 +108,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     public Func<Key, Vector2, Node> Handle { get; init; } = static (_, at) => new Node.Pin(at, new Node.Box()) { Role = Role.Handle, Align = UnitPoint.Center };
     public Option<TValue> Rest { get; init; }
     public Option<float> Gearing { get; init; }
+    public bool Snaps { get; init; }
 
     // --- [DRAW]
     public Node Drawn(PlotPlane plane, Seq<Node> background) {
@@ -159,9 +161,12 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
             scroll: static (held, scroll) => held.Handles.Moving(held.Aim, held.Frame).Bind(session => session.Stepped(scroll)),
             perform: static (held, perform) => perform.Act.SwitchPartially(
                 (held.Handles, held.Aim, held.Frame, perform.Modifiers),
-                @default: static (state, act) => act.Toward.Bind(toward => state.Handles.Nudged(state.Aim, state.Modifiers, point => Navigated(state.Aim, state.Frame, toward, point))),
-                increment: static state => state.Handles.Nudged(state.Aim, state.Modifiers, point => Incremented(state.Aim, state.Frame, point, 1)),
-                decrement: static state => state.Handles.Nudged(state.Aim, state.Modifiers, point => Incremented(state.Aim, state.Frame, point, -1)),
+                @default: static (state, act) => act.Toward.Bind(toward =>
+                    toward.Granularity.Distance(1f, 0f).Exists(static stride => stride > 0f) && state.Frame.Plane.Dimensions is [var only] && only.Along == toward.Along
+                        ? state.Handles.Incrementing(state.Aim, state.Frame, state.Modifiers, toward.Sign * state.Frame.Sign(toward.Along))
+                        : state.Handles.Nudged(state.Aim, state.Modifiers, point => Navigated(state.Aim, state.Frame, toward, point))),
+                increment: static state => state.Handles.Incrementing(state.Aim, state.Frame, state.Modifiers, 1),
+                decrement: static state => state.Handles.Incrementing(state.Aim, state.Frame, state.Modifiers, -1),
                 reset: static state => state.Handles.Stepped(start => state.Handles.Rest.Map(rest => start with { Value = rest })),
                 delete: static state => state.Handles.Stepped(start => state.Handles.Points.Removed(start.Value, state.Handles.Deleted(state.Aim)).Map(value => start with { Value = value })),
                 selectAll: static state => state.Handles.Selected.Bind(_ => state.Handles.Stepped(start => Some(start with { Selection = start.Selection.All(state.Handles.Keys(start.Value)) }))))));
@@ -217,7 +222,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
         Seq<HandlePoint> read = Points.Read(start.Value);
         HashSet<Key> moving = toHashSet(read.Map(static point => point.Key).Filter(held => start.Selection.Holds(key) ? start.Selection.Holds(held) : held == key));
         Vector2 travel = Gearing.Match(Some: gearing => Geared(frame, press, gearing), None: () => frame.Delta(press.From, press.At).IfNone(Vector2.Zero)) * (fine ? metrics[Metric.Fine] : 1f);
-        Seq<HandlePoint> targets = read.Filter(point => moving.Contains(point.Key)).Map(point => point with { At = Snapped(frame, frame.Plane.Constrained(point.At + travel), press.Modifiers, aim.Layout) });
+        Seq<HandlePoint> targets = read.Filter(point => moving.Contains(point.Key)).Map(point => point with { At = Snapped(frame, frame.Plane.Constrained(point.At + travel), press.Modifiers.Shift != Snaps, aim.Layout) });
         Seq<Vector2> detents = Rest.Map(rest => Points.Read(rest).Map(static point => point.At)).IfNone([]) + read.Filter(point => !moving.Contains(point.Key)).Map(static point => point.At);
         Option<Vector2> detent = targets is [var only] && !fine ? frame.Nearest(only.At, detents, metrics[Metric.Reach]).Bind(index => detents.At(index)) : None;
         return Moved(start, detent.Match(Some: to => targets.Map(target => target with { At = to }), None: () => targets), press.Modifiers, detent);
@@ -234,7 +239,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     }
 
     private Option<Session<State>> Moving(HitTarget aim, PlotFrame frame) =>
-        Aimed(aim).Map(point => Session(DragCursor(frame)) with {
+        Aimed(aim).Filter(_ => !aim.Scene.Owners(aim.Layout.Path.Init).Exists(static owner => owner.Part.Navigates)).Map(point => Session(DragCursor(frame)) with {
             Step = (start, gesture) => gesture.SwitchPartially(
                 (Handles: this, Start: start, Point: point, Frame: frame, Notch: Extent(aim, point.Key)),
                 @default: static (_, _) => Option<State>.None,
@@ -262,6 +267,11 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     private Option<Reply> Nudged(HitTarget aim, KeyModifiers modifiers, Func<HandlePoint, Vector2> move) =>
         Aimed(aim).Bind(point => Stepped(start => Some(Moved(start, [point with { At = move(point) }], modifiers, None))));
 
+    private Option<Reply> Incrementing(HitTarget aim, PlotFrame frame, KeyModifiers modifiers, int sign) =>
+        Aimed(aim).Bind(point => Stepped(start =>
+            Points.Incremented(start.Value, point.Key, sign).Map(value => start with { Value = value })
+            | Some(Moved(start, [point with { At = Incremented(aim, frame, point, sign) }], modifiers, None))));
+
     private static Vector2 Incremented(HitTarget aim, PlotFrame frame, HandlePoint point, int sign) =>
         frame.Plane.Dimensions.Head.Map(first => frame.Stepped(point.At, first.Along, sign, Extent(aim, point.Key))).IfNone(point.At);
 
@@ -270,8 +280,8 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
             Some: stride => frame.Stepped(point.At, toward.Along, toward.Sign * frame.Sign(toward.Along), stride),
             None: () => frame.Ended(point.At, toward.Along, toward.Sign));
 
-    private static Vector2 Snapped(PlotFrame frame, Vector2 value, KeyModifiers modifiers, LayoutNode layout) =>
-        modifiers.Shift ? frame.Plane.Dimensions.Fold(value, (held, free) => frame.Stepped(held, free.Along, 0, Spacing(layout))) : value;
+    private static Vector2 Snapped(PlotFrame frame, Vector2 value, bool snaps, LayoutNode layout) =>
+        snaps ? frame.Plane.Dimensions.Fold(value, (held, free) => frame.Stepped(held, free.Along, 0, Spacing(layout))) : value;
 
     // --- [READ]
     internal override Option<Seq<Key>> Revealed(LayoutNode layout) => Selection.Lead.Map(lead => layout.Path.Add(Layer).Add(lead));

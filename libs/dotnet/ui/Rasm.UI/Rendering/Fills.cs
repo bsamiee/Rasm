@@ -6,9 +6,8 @@ namespace Rasm.UI.Rendering;
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed record FillContext(Painter.Pass Pass, LayoutNode Layout, Context Context, SKRect Frame, int Index) {
     internal Option<SKBlender> Blend { get; init; }
-    internal Option<DataSeries> Series { get; init; }
 
-    internal Option<SKColorF> Color(ColorValue value) => Context.Color(value, Layout, Layout.Style.Look.StateLayers, Series);
+    internal Option<SKColorF> Color(ColorValue value) => Context.Color(value, Layout, Layout.Style.Look.StateLayers);
 
     internal float Metric(Metric metric) => Layout.Style.Metrics[metric];
 

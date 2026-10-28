@@ -94,11 +94,11 @@ public sealed record Row<TItem>(TItem Item, Key Key, int Depth, Option<bool> Ope
             });
     }
 
-    public static Node.Lazy Drawn(Seq<Row<TItem>> rows, Func<Seq<Key>, Part.Choice> choice, Func<Row<TItem>, Node> drawn, float extent, HashSet<Key> realized) {
+    public static Node.Lazy Drawn(Seq<Row<TItem>> rows, Func<Seq<Key>, Part.Choice> choice, Func<Row<TItem>, Node> drawn, HashSet<Key> realized) {
         HashMap<Key, Row<TItem>> keyed = toHashMap(rows.Map(static row => (row.Key, row)));
         return choice(rows.Map(static row => row.Key)).Drawn(
             key => keyed[key] switch { var row => drawn(row) with { Sticks = row.Open.Map(static _ => PhysicalAxis.Vertical) } },
-            PhysicalAxis.Vertical, new Tracks([Sizing.Grow.Unit]), extent, realized);
+            PhysicalAxis.Vertical, new Tracks([Sizing.Grow.Unit]), realized);
     }
 }
 
@@ -145,7 +145,7 @@ public sealed record Toasts(Seq<Toast> Shown, Func<Key, IO<Unit>> Dismissed) {
             new Node.Flex(PhysicalAxis.Horizontal, [toast.Content]) { Role = Role, Accessible = new Accessible { Role = AccessRole.Status, Live = Live.Polite } },
         ]) {
             Key = toast.Key,
-            Expires = toast.Lifetime.Map(lifetime => (lifetime, Dismissed(toast.Key))),
+            Expires = toast.Lifetime.Map(lifetime => new Expiry(lifetime, Dismissed(toast.Key))),
         };
 }
 
@@ -160,13 +160,7 @@ public sealed record Swatch(SKColorF Color, Func<SKRect, IO<Unit>> Pressed) {
 
     public static Node Patch(SKColorF color) =>
         color.ToUnicolour() switch {
-            var colour => new Node.Box {
-                Role = Role.Field,
-                Width = Sizing.Grow.Unit,
-                Height = Sizing.Grow.Unit,
-                Sheet = new StyleSheet(HashMap((Role.Field, new Look { Fills = Seq<Material>(new Material.Solid(new ColorValue.Fixed(colour))) }))),
-                Accessible = new Accessible { Value = new AccessValue.Text(colour.Hex) },
-            },
+            var colour => Controls.Patch([new Material.Solid(new ColorValue.Fixed(colour))]) with { Accessible = new Accessible { Value = new AccessValue.Text(colour.Hex) } },
         };
 }
 
