@@ -13,34 +13,31 @@ import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.bpy.data.ids.content import fingerprinted
+from blender.bpy.data.ids.images import fingerprinted
 from blender.bpy.data.rna.paths import root_in, rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, updated
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.nodes.interface import item_key
+from blender.bpy.nodes.desired import item_key
 from blender.bpy.render.color.spaces import viewed
-from blender.bpy.render.compositor.blending import Entry
-from blender.bpy.render.compositor.effects import CompositorEffect, Enabled
+from blender.bpy.render.compositor.effects import CompositorEffect, Enabled, Entry
 from blender.bpy.render.compositor.entries import EffectRows
-from blender.bpy.render.compositor.inputs import inputs_of, restored
+from blender.bpy.render.compositor.inputs import inputs_of, PreviewFrame, restored
 from blender.bpy.render.compositor.layers import Adjustment, EFFECTS, LayerStack, Source
 from blender.bpy.render.compositor.recipes import Valued
-from blender.bpy.render.compositor.shells import PreviewFrame
 from blender.bpy.render.compositor.stacking import stacked_by
 from blender.bpy.render.outputs.exports import LongestSide
 from blender.bpy.render.outputs.framing import FrameSize, Framing
 from blender.bpy.render.outputs.results import combined, intermediate, INTERMEDIATES, ResultRead
-from blender.bpy.render.previews.fixtures import PreviewLighting
 from blender.bpy.render.previews.queue import BACKLOG, Job, PreviewQueue, Rank
-from blender.bpy.render.previews.scenes import PreviewScene, PreviewStack, Restoring, RoutedEntry, Staging
+from blender.bpy.render.previews.scenes import PreviewLighting, PreviewScene, PreviewStack, Restoring, RoutedEntry, Staging
 from blender.bpy.ui.layout.rows import Line, RowDraw
 from blender.bpy.ui.resources.previews import PreviewKey, PREVIEWS
 from blender.bpy.ui.resources.theme import Metrics
 from blender.imaging.files.buffers import checked, pixels
 from blender.records.faults import accumulated, Outcome, paired
-from blender.records.identity import content_hash, ContentHash
+from blender.records.stores import content_hash, ContentHash
 
 from .stack import Chain
 from .stages import Effect, Stage
@@ -168,7 +165,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
                             if isinstance(layer.source, Adjustment)
                             for index, entry in enumerate(layer.effects, 1)
                         )
-                        return offered(layered, tuple(mirror for mirror in mirrors if stacked_by(identity, mirror.entry).is_none()))
+                        return offered(layered, tuple(mirror for mirror in mirrors if stacked_by(identity, mirror.entry.node_group).is_none()))
                     case Entry(record=effect):
                         kind = type(effect)
                         replaced = next(

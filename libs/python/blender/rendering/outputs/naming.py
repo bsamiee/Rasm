@@ -15,7 +15,7 @@ from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
-from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -89,7 +89,7 @@ class Fields(msgspec.Struct, frozen=True, kw_only=True):
     """Output name field values."""
 
     words: Mapping[Word, str] = MappingProxyType({})
-    counts: Mapping[NumberField, Annotated[int, msgspec.Meta(ge=0)]] = MappingProxyType({})
+    counts: Mapping[NumberField, int] = MappingProxyType({})
 
 
 class OutputName(msgspec.Struct, frozen=True, kw_only=True):
@@ -100,7 +100,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, template: str) -> Outcome[Self]:
         """Parses `{word}` and `{count:width}` fields, refusing braces in text, unknown fields, unseparated fields, and one count at two widths."""
-        refused = functools.partial(Fault.of, RecordReason.INVALID, template)
+        refused = functools.partial(Fault.of, Reason.INVALID, template)
 
         def width(spec: str) -> Option[int]:
             return catch(msgspec.json.decode, exception=msgspec.DecodeError)(spec, type=_Width).to_option() if spec.isdigit() else Nothing
@@ -137,6 +137,11 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
         """Text and number fields in template."""
         return frozenset(part for part in self.parts if not isinstance(part, Text))
 
+    @property
+    def keys(self) -> frozenset[Word | NumberField]:
+        """Keys of the text and number fields in template."""
+        return frozenset(part.key for part in self.slots)
+
     def patterns(self) -> dict[Field, re.Pattern[str]]:
         """Returns value pattern per field, excluding template separators."""
         excluded = re.escape("".join(dict.fromkeys((*[char for part in self.parts if isinstance(part, Text) for char in part.text if not char.isalnum()], "/", "\\"))))
@@ -167,7 +172,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 case Number(key=key, width=width):
                     value = Option.of_optional(fields.counts.get(key)).map(lambda count: f"{count:0{width}d}")
             pattern = patterns[part]
-            unmatched = Fault.of(RecordReason.OUTSIDE, f"{{{key}}}", value.default_value("no value"), member=pattern.pattern)
+            unmatched = Fault.of(Reason.OUTSIDE, f"{{{key}}}", value.default_value("no value"), member=pattern.pattern)
             return written(part).or_else(value.filter(lambda held: pattern.fullmatch(held) is not None)).to_result(unmatched)
 
         return accumulated(map(spelled, self.parts)).map("".join)
@@ -183,7 +188,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                     words={part.key: found[part.key] for part in self.slots if isinstance(part, Slot)}, counts={part.key: int(found[part.key]) for part in self.slots if isinstance(part, Number)}
                 )
             )
-            .to_result_with(functools.partial(Fault.of, RecordReason.OUTSIDE, type(self).__name__, text, member=grammar.pattern))
+            .to_result_with(functools.partial(Fault.of, Reason.OUTSIDE, type(self).__name__, text, member=grammar.pattern))
         )
 
     def path(self, root: Path, fields: Fields) -> Outcome[Path]:
@@ -192,7 +197,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
             self
             .compose(fields)
             .map(root.joinpath)
-            .filter_with(lambda path: path.resolve().is_relative_to(root.resolve()), lambda path: Fault.of(RecordReason.OUTSIDE, str(root.resolve()), str(path.resolve()), member="paths beneath it"))
+            .filter_with(lambda path: path.resolve().is_relative_to(root.resolve()), lambda path: Fault.of(Reason.OUTSIDE, str(root.resolve()), str(path.resolve()), member="paths beneath it"))
         )
 
     def next_version(self, root: Path, fields: Fields) -> int:

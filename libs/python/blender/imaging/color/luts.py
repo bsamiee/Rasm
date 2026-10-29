@@ -17,7 +17,7 @@ import PyOpenColorIO
 
 from blender.imaging.color.processors import called, converted, processor
 from blender.imaging.files.images import emitted, ImageFile, read_file, Subimage
-from blender.records.faults import accumulated, Fault, Outcome, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, Reason
 from blender.records.fields import Case
 from blender.records.stores import committed
 
@@ -43,13 +43,43 @@ class LutLayout(IntEnum):
         match self:
             case LutLayout.HALD:
                 if (level := math.isqrt(size)) * level != size:
-                    return Error(Fault.of(RecordReason.OUTSIDE, str(path), str(size), member="Hald grid sizes that are perfect squares"))
+                    return Error(Fault.of(Reason.OUTSIDE, str(path), str(size), member="Hald grid sizes that are perfect squares"))
                 side = level**3
                 pixels = cube.reshape(side, side, 3)
             case LutLayout.KEYSHOT:
                 pixels = cube.transpose(1, 0, 2, 3)[::-1].reshape(size, size * size, 3)
         height, width, channels = pixels.shape
         return emitted(path, lambda _: (Subimage(spec=OpenImageIO.ImageSpec(width, height, channels, OpenImageIO.UINT16), attributes=(), pixels=lambda: Ok(np.ascontiguousarray(pixels))),))
+
+    @classmethod
+    def read(cls, path: pathlib.Path, config: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.GroupTransform]:
+        """Reads a Hald or KeyShot image as a uniform cube, its dimensions selecting the layout.
+
+        Returns:
+            Table group, or `read`, outside, and `color` faults.
+        """
+
+        def decoded(image: ImageFile) -> Outcome[PyOpenColorIO.GroupTransform]:
+            refused = Fault.of(Reason.OUTSIDE, str(path), str(image.pixels.shape), member="Hald and KeyShot cube images")
+            if (pixels := image.pixels).ndim != 3:
+                return Error(refused)
+            height, width, channels = pixels.shape
+            rgb = pixels[..., :3] if channels >= 3 else np.broadcast_to(pixels[..., :1], (height, width, 3))
+            level = round(np.cbrt(width))
+            match height, width:
+                case _ if height == width == level**3:
+                    size = level**2
+                    plane = rgb.reshape(size, size * size, 3)
+                case _ if width == height * height:
+                    size = height
+                    plane = rgb[::-1].reshape(size, size, size, 3).transpose(1, 0, 2, 3).reshape(size, size * size, 3)
+                case _:
+                    return Error(refused)
+            return called(Lattice(size=size).transform, str(path), plane)
+
+        options = OpenImageIO.ImageSpec()
+        options.attribute("oiio:UnassociatedAlpha", 1)
+        return read_file(path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA), options=Some(options)).bind(decoded)
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -202,37 +232,7 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [READS]
-
-
-def read_lut_image(path: pathlib.Path, config: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.GroupTransform]:
-    """Reads a Hald or KeyShot image as a uniform cube, its dimensions selecting the layout.
-
-    Returns:
-        Table group, or `read`, outside, and `color` faults.
-    """
-
-    def decoded(image: ImageFile[np.float32]) -> Outcome[PyOpenColorIO.GroupTransform]:
-        refused = Fault.of(RecordReason.OUTSIDE, str(path), str(image.pixels.shape), member="Hald and KeyShot cube images")
-        if (pixels := image.pixels).ndim != 3:
-            return Error(refused)
-        height, width, channels = pixels.shape
-        rgb = pixels[..., :3] if channels >= 3 else np.broadcast_to(pixels[..., :1], (height, width, 3))
-        level = round(np.cbrt(width))
-        match height, width:
-            case _ if height == width == level**3:
-                size = level**2
-                plane = rgb.reshape(size, size * size, 3)
-            case _ if width == height * height:
-                size = height
-                plane = rgb[::-1].reshape(size, size, size, 3).transpose(1, 0, 2, 3).reshape(size, size * size, 3)
-            case _:
-                return Error(refused)
-        return called(Lattice(size=size).transform, str(path), plane)
-
-    options = OpenImageIO.ImageSpec()
-    options.attribute("oiio:UnassociatedAlpha", 1)
-    return read_file(path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA), options=Some(options)).bind(decoded)
+# --- [CORRECTIONS]
 
 
 def corrections(path: pathlib.Path) -> Outcome[tuple[tuple[Option[str], PyOpenColorIO.CDLTransform], ...]]:
@@ -271,4 +271,4 @@ def split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> O
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Lattice", "Logarithmic", "LutFormat", "LutLayout", "LutOutput", "Rational", "Spacing", "Uniform", "corrections", "read_lut_image", "split"]
+__all__ = ["Lattice", "Logarithmic", "LutFormat", "LutLayout", "LutOutput", "Rational", "Spacing", "Uniform", "corrections", "split"]

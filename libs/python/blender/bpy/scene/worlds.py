@@ -22,7 +22,6 @@ from blender.bpy.data.rna.paths import RnaPath, rooted
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes import functions
 from blender.bpy.nodes.changes import reconciled
 from blender.bpy.nodes.content import Loaded
@@ -30,17 +29,16 @@ from blender.bpy.nodes.desired import Graph, Members
 from blender.bpy.nodes.graphs import Expr, mixed, Term
 from blender.bpy.nodes.trees import emptied, tree_of
 from blender.bpy.settings.attachments import Attached, Attachment
-from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import OperatorButton, Property
+from blender.bpy.ui.layout.rows import Member, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
-from blender.records.faults import Fault, Outcome
+from blender.records.faults import Fault, Outcome, Reason
 from blender.records.fields import Retention
 from blender.rendering.lighting.solar import SunPosition
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Follower = bpy.types.ShaderNodeTexSky | EnvironmentNode
+type Follower = tuple[bpy.types.ShaderNodeTexSky | bpy.types.ShaderNodeTexEnvironment, float]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -69,7 +67,7 @@ _TURNS: Final = choices((("FIXED", "Fixed", "Fixed angles"), ("SUN", "Sun Light"
 class Sky(bpy.types.PropertyGroup):
     """Scalar members of the Sky Texture node, each declared from the node's own property."""
 
-    __annotations__ = {prop.identifier: bpy.props.FloatProperty(**mirrored(prop)) if isinstance(prop, bpy.types.FloatProperty) else bpy.props.BoolProperty(**mirrored(prop)) for prop in _SKY}
+    __annotations__ = {prop.identifier: mirrored(prop) for prop in _SKY}
 
 
 class Backdrop(bpy.types.PropertyGroup):
@@ -82,7 +80,7 @@ class Backdrop(bpy.types.PropertyGroup):
     top: bpy.props.FloatVectorProperty(name="Top", description="Gradient color at frame top", subtype="COLOR", size=3, default=(0.2, 0.2, 0.2))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     bottom: bpy.props.FloatVectorProperty(name="Bottom", description="Gradient color at frame bottom", subtype="COLOR", size=3, default=(0.02, 0.02, 0.02))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     path: bpy.props.StringProperty(name="Image", description="Image file", subtype="FILE_PATH")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    projection: bpy.props.EnumProperty(**mirrored(_PROJECTION.prop))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    projection: mirrored(_PROJECTION.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     rotation: bpy.props.FloatProperty(name="Rotation", description="Fixed image rotation", subtype="ANGLE")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     heading: bpy.props.FloatProperty(name="Sun Heading", description="Heading of the image sun turned onto scene sun", subtype="ANGLE")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     sun: bpy.props.EnumProperty(name="Sun", description="Source of the sky sun and the image rotation", items=_TURNS, default="FIXED")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -97,13 +95,6 @@ class Environment(bpy.types.PropertyGroup):
     camera: bpy.props.PointerProperty(type=Backdrop, name="Background")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_glossy: bpy.props.BoolProperty(name="Reflection", description="Show another source in glossy reflections")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     glossy: bpy.props.PointerProperty(type=Backdrop, name="Reflection")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-
-
-class EnvironmentNode(msgspec.Struct, frozen=True, kw_only=True):
-    """Environment Texture node with image sun heading."""
-
-    node: bpy.types.ShaderNodeTexEnvironment
-    heading: float
 
 
 class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
@@ -127,7 +118,7 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns attachment, ownership, and operators."""
-        return Ok((self.attachment, self.ownership, environment_place_command, environment_restore_command))
+        return Ok((self.attachment, self.ownership, environment_place, environment_restore))
 
     def section(self) -> Section[Environment]:
         """Returns environment, world settings, and place and restore buttons."""
@@ -135,7 +126,7 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
             key="environment",
             title="Environment",
             rows=tuple(Property(target=Member(root=bpy.types.Context, path=("scene", "world", member))) for member in ("sun_threshold", "lightgroup")),
-            header=(OperatorButton(target=environment_place_command), OperatorButton(target=environment_restore_command)),
+            header=(OperatorButton(target=environment_place), OperatorButton(target=environment_restore)),
             store=Some(Store(attachment=self.attachment, host=Some(Member(root=bpy.types.Context, path=("scene", "world", "node_tree"))), retention=self.retention)),
         )
 
@@ -227,9 +218,9 @@ def swapped(row: Ownership[bpy.types.World], values: Mapping[RnaPath, Value], sc
             .or_else_with(lambda: row.found(identity, of=predecessor) if row.single else Nothing)
             .map(lambda world: displayed(attached, world))
             .default_with(
-                lambda: kept(
-                    catch(bpy.data.worlds.new, exception=RuntimeError)(f"{scene.name} {bpy.path.display_name(row.key)}").map_error(partial(Fault.of, BlenderReason.REFUSED, row.key)), emptied
-                ).bind(lambda world: row.owned(identity, world, of=predecessor, filled=lambda world: displayed(attached, world), scope=scope))
+                lambda: kept(catch(bpy.data.worlds.new, exception=RuntimeError)(f"{scene.name} {bpy.path.display_name(row.key)}").map_error(partial(Fault.of, Reason.REFUSED, row.key)), emptied).bind(
+                    lambda world: row.owned(identity, world, of=predecessor, filled=lambda world: displayed(attached, world), scope=scope)
+                )
             )
         )
     )
@@ -250,14 +241,14 @@ def reverted(row: Ownership[bpy.types.World], scene: bpy.types.Scene, identity: 
 
 
 def followers(tree: bpy.types.NodeTree, identity: Identity) -> Outcome[tuple[Follower, ...]]:
-    """Returns owned sun-following sky and environment nodes, none without stored environment."""
+    """Returns owned sun-following sky and environment nodes with the heading of the image sun, none without stored environment."""
 
     def followed(backdrop: Backdrop, source: bpy.types.Node) -> tuple[Follower, ...]:
         match source:
             case bpy.types.ShaderNodeTexSky() as sky if backdrop.mode == sky.sky_type and backdrop.sun == "SUN":
-                return (sky,)
+                return ((sky, 0.0),)
             case bpy.types.ShaderNodeTexEnvironment() as picture if backdrop.mode == "HDRI" and backdrop.sun == "SUN":
-                return (EnvironmentNode(node=picture, heading=backdrop.heading),)
+                return ((picture, backdrop.heading),)
             case _:
                 return ()
 
@@ -274,19 +265,19 @@ def followers(tree: bpy.types.NodeTree, identity: Identity) -> Outcome[tuple[Fol
 def studio(name: str, preferences: bpy.types.Preferences) -> Outcome[str]:
     """Returns path of WORLD studio light by name."""
     lights = preferences.studio_lights
-    return (
-        Option.of_optional(lights.get(name)).filter(lambda light: light.type == "WORLD").map(lambda light: light.path).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(lights), member=name))
-    )
+    return Option.of_optional(lights.get(name)).filter(lambda light: light.type == "WORLD").map(lambda light: light.path).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(lights), member=name))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
+@Operator.of(Empty)
 def environment_place(call: Call[Empty]) -> Outcome[Done]:
     """Shows the owned environment world on the scene."""
     return rooted(bpy.types.Scene, call.context).bind(lambda scene: swapped(WorldEnvironment.ownership, {}, scene, call.identity)).map(lambda _: Done())
 
 
+@Operator.of(Empty)
 def environment_restore(call: Call[Empty]) -> Outcome[Answer]:
     """Shows the world the owned environment replaced."""
     return (
@@ -296,22 +287,6 @@ def environment_restore(call: Call[Empty]) -> Outcome[Answer]:
     )
 
 
-environment_place_command: Operator[Empty] = Operator(form=Empty, run=environment_place)
-environment_restore_command: Operator[Empty] = Operator(form=Empty, run=environment_restore)
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "Backdrop",
-    "Environment",
-    "EnvironmentNode",
-    "Follower",
-    "WorldEnvironment",
-    "environment_place_command",
-    "environment_restore_command",
-    "followers",
-    "reverted",
-    "studio",
-    "swapped",
-    "world_graph",
-]
+__all__ = ["Backdrop", "Environment", "Follower", "WorldEnvironment", "environment_place", "environment_restore", "followers", "reverted", "studio", "swapped", "world_graph"]

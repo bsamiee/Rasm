@@ -1,16 +1,29 @@
-"""Rectangles, pixel rasters, and quads from the bottom left, and projective maps from the unit plane onto convex quads."""
+"""Rectangles, pixel rasters, and quads from the bottom left, projective maps from the unit plane onto convex quads, ST maps, filtered warps, and displacement through smoothed, sloped, and tapped fields."""
 
+from collections.abc import Callable, Mapping
 import math
-from typing import Self
+from types import MappingProxyType
+from typing import Final, Literal, Self
 
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
+import OpenImageIO
+from scipy.ndimage import gaussian_filter, map_coordinates, sobel
 from skimage.transform import ProjectiveTransform
 
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.imaging.files.buffers import checked, pixels
+from blender.records.faults import Fault, Outcome, paired, Reason
 from blender.records.fields import Count, Finite
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_PADDING: Final[Mapping[OpenImageIO.Wrap, Literal["wrap", "symmetric", "edge"]]] = MappingProxyType({
+    OpenImageIO.Wrap.Periodic: "wrap",
+    OpenImageIO.Wrap.Mirror: "symmetric",
+    OpenImageIO.Wrap.Clamp: "edge",
+})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -120,7 +133,7 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             case ProjectiveTransform() as found:
                 return Ok(Some(cls(quad=quad, matrix=np.asarray(found.params, dtype=np.float64))))
             case failed:
-                return Error(Fault.of(RecordReason.OUTSIDE, cls.__name__, str(quad.corners), member=f"corners of a projective quad, {failed}"))
+                return Error(Fault.of(Reason.OUTSIDE, cls.__name__, str(quad.corners), member=f"corners of a projective quad, {failed}"))
 
     def to_image(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps plane samples to image, zero coverage beyond vanishing line."""
@@ -129,6 +142,63 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     def to_plane(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps image samples to plane, zero coverage beyond vanishing line."""
         return _projected(np.asarray(np.linalg.inv(self.matrix), dtype=np.float64), samples)
+
+
+class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Source positions with coverage in blue and alpha, rows top first, sampled past each source edge by its OIIO wrap."""
+
+    plane: npt.NDArray[np.float32]
+    extension: tuple[OpenImageIO.Wrap, OpenImageIO.Wrap]
+
+    @classmethod
+    def of(cls, mapped: npt.NDArray[np.float64], extension: tuple[OpenImageIO.Wrap, OpenImageIO.Wrap], *, source_size: tuple[int, int]) -> Self:
+        """Returns map of `(rows, columns, 3)` source positions with coverage, folding each axis at source texel centers."""
+
+        def folded(position: npt.NDArray[np.float64], size: int, mode: OpenImageIO.Wrap) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+            center = 0.5 / size
+            match mode:
+                case OpenImageIO.Wrap.Periodic:
+                    return np.mod(position, 1.0), np.ones_like(position)
+                case OpenImageIO.Wrap.Mirror:
+                    return np.clip(1.0 - np.abs(np.mod(position, 2.0) - 1.0), center, 1.0 - center), np.ones_like(position)
+                case OpenImageIO.Wrap.Clamp:
+                    return np.clip(position, center, 1.0 - center), np.ones_like(position)
+                case _:
+                    return np.clip(position, center, 1.0 - center), np.clip(np.minimum(position, 1.0 - position) * size + 0.5, 0.0, 1.0)
+
+        x, y = (folded(mapped[..., axis], size, mode) for axis, (size, mode) in enumerate(zip(source_size, extension)))
+        coverage = mapped[..., 2] * x[1] * y[1]
+        return cls(plane=np.ascontiguousarray(np.stack((x[0], y[0], coverage, coverage), axis=-1), dtype=np.float32), extension=extension)
+
+    @classmethod
+    def bake(
+        cls,
+        width: int,
+        height: int,
+        mapping: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+        extension: tuple[OpenImageIO.Wrap, OpenImageIO.Wrap] = (OpenImageIO.Wrap.Black, OpenImageIO.Wrap.Black),
+        *,
+        source_size: tuple[int, int],
+    ) -> Self:
+        """Evaluates `mapping` once over output texel centers with unit coverage."""
+        s, t = np.meshgrid((np.arange(width) + 0.5) / width, 1.0 - (np.arange(height) + 0.5) / height)
+        return cls.of(mapping(np.stack((s, t, np.ones_like(s)), axis=-1)), extension, source_size=source_size)
+
+    def warp(self, plane: npt.NDArray[np.float32], *, filtername: str = "triangle", filterwidth: float = 2.0) -> Outcome[npt.NDArray[np.float32]]:
+        """Returns `plane` warped through filter, weighted by coverage."""
+        height, width, channels = plane.shape
+        x, y = self.extension
+        border = math.ceil(filterwidth / 2.0)
+        margin = np.array((border, border, 0.0))
+        size = np.array((width, height, 1.0))
+        source = OpenImageIO.ImageBuf(np.pad(np.pad(plane, ((0, 0), (border, border), (0, 0)), mode=_PADDING.get(x, "constant")), ((border, border), (0, 0), (0, 0)), mode=_PADDING.get(y, "constant")))
+        st = OpenImageIO.ImageBuf(np.ascontiguousarray((self.plane[..., :3] * size + margin) / (size + 2.0 * margin), dtype=np.float32))
+        roi = OpenImageIO.ROI(0, self.plane.shape[1], 0, self.plane.shape[0], 0, 1, 0, channels)
+        return (
+            paired(checked(OpenImageIO.ImageBufAlgo.st_warp(source, st, filtername, filterwidth, flip_t=True, roi=roi)), checked(OpenImageIO.ImageBufAlgo.channels(st, (2,) * channels)))
+            .bind(lambda buffers: checked(OpenImageIO.ImageBufAlgo.mul(*buffers)))
+            .bind(pixels)
+        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -144,6 +214,39 @@ def _projected(matrix: npt.NDArray[np.float64], samples: npt.NDArray[np.float64]
     return np.concatenate((np.where(covered, planar, 0.0), np.where(covered, samples[..., 2:], 0.0)), axis=-1)
 
 
+def softened(plane: npt.NDArray[np.float64], raster: Raster, radius: float) -> npt.NDArray[np.float64]:
+    """Returns `plane` over `raster` blurred by a Gaussian of `radius` global units, edges extended."""
+    return gaussian_filter(plane, radius / raster.step[::-1], axes=(0, 1), mode="nearest")
+
+
+def slope(plane: npt.NDArray[np.float64], raster: Raster) -> npt.NDArray[np.float64]:
+    """Returns the Sobel gradient of a scalar `plane` over `raster` per global unit, rightward and upward, as `(rows, columns, 2)`."""
+    return np.stack((sobel(plane, axis=1, mode="nearest") / (8.0 * raster.step[0]), -sobel(plane, axis=0, mode="nearest") / (8.0 * raster.step[1])), axis=-1)
+
+
+def tapped(plane: npt.NDArray[np.float64], raster: Raster, points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Returns bilinear samples of a scalar `plane` over `raster` at global `(..., 2)` points, edges extended."""
+    step = raster.step
+    return map_coordinates(plane, np.stack(((raster.bounds.top - points[..., 1]) / step[1] - 0.5, (points[..., 0] - raster.bounds.left) / step[0] - 0.5)), order=1, mode="nearest", prefilter=False)
+
+
+def displaced(
+    plane: npt.NDArray[np.float32],
+    raster: Raster,
+    positions: npt.NDArray[np.float64],
+    coverage: npt.NDArray[np.float64],
+    extension: tuple[OpenImageIO.Wrap, OpenImageIO.Wrap],
+    *,
+    filtername: str = "triangle",
+    filterwidth: float = 2.0,
+) -> Outcome[npt.NDArray[np.float32]]:
+    """Returns `plane` over `raster` sampled at each pixel's global source position through `extension`, weighted by `coverage`."""
+    bounds = raster.bounds
+    height, width = raster.shape
+    mapped = np.stack(((positions[..., 0] - bounds.left) / (bounds.right - bounds.left), (positions[..., 1] - bounds.bottom) / (bounds.top - bounds.bottom), coverage), axis=-1)
+    return StMap.of(mapped, extension, source_size=(width, height)).warp(plane, filtername=filtername, filterwidth=filterwidth)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Homography", "Quad", "Raster", "Region"]
+__all__ = ["Homography", "Quad", "Raster", "Region", "StMap", "displaced", "slope", "softened", "tapped"]

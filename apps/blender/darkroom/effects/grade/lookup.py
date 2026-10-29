@@ -19,10 +19,9 @@ from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.render.color.luts import current
-from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Named, Opened, revised
-from blender.bpy.render.compositor.inputs import CameraFrame
-from blender.bpy.render.compositor.shells import Shell
-from blender.bpy.render.compositor.tables import latticed, tabled, TILES
+from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Named, Opened
+from blender.bpy.render.compositor.grades import latticed, tabled, TILES
+from blender.bpy.render.compositor.inputs import CameraFrame, Shell
 from blender.imaging.color.luts import Lattice, LutFormat, split
 from blender.imaging.color.processors import bracketed, ColorSpace, converted
 from blender.imaging.files.buffers import located, pixels
@@ -82,7 +81,7 @@ def lookup_reload(call: Call[Named]) -> Outcome[Answer]:
     """Rebuild the entry from its LUT file."""
     return (
         rooted(bpy.types.Scene, call.context)
-        .bind(lambda scene: lookup.named(call.identity, scene, call.properties.name).bind(lambda entry: revised(lookup, call.identity, scene, entry, Ok)))
+        .bind(lambda scene: lookup.named(call.identity, scene, call.properties.name).bind(lambda entry: lookup.revised(call.identity, scene, entry, Ok)))
         .map(lambda changed: Done() if changed else Unchanged(reason=f"{call.properties.name} matches its current file"))
     )
 

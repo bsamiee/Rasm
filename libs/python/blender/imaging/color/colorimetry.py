@@ -14,8 +14,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.imaging.color.processors import basis, converted, xyz
-from blender.imaging.faults import ImagingReason
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -90,13 +89,11 @@ def locus() -> npt.NDArray[np.float64]:
 
 
 @cache
-def frame() -> tuple[npt.NDArray[np.float64], npt.NDArray[np.intp]]:
-    """Returns the diagram frame's far xy corner from the origin, the spectral locus maxima rounded up to tenths, and its tenths per axis."""
-    tenths = np.ceil(locus().max(axis=0) * 10.0).astype(np.intp)
-    extent = tenths / 10.0
-    for array in (extent, tenths):
-        array.setflags(write=False)
-    return extent, tenths
+def frame() -> npt.NDArray[np.float64]:
+    """Returns the read-only diagram frame's far xy corner from the origin, the spectral locus maxima rounded up to tenths."""
+    extent: npt.NDArray[np.float64] = np.ceil(locus().max(axis=0) * 10.0) / 10.0
+    extent.setflags(write=False)
+    return extent
 
 
 def chromaticities(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.float64]]:
@@ -118,9 +115,9 @@ def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[
     def normalized(weights: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
         integral = weights.sum(axis=0)
         held = np.isfinite(weights).all() and np.isfinite(integral).all() and (integral != 0.0).all()
-        return Ok(weights / integral) if held else Error(Fault.of(ImagingReason.SPECTRAL, space, member=str(integral)))
+        return Ok(weights / integral) if held else Error(Fault.of(Reason.INVALID, space, f"spectral matching cannot normalize RGB integrals {integral}"))
 
-    return basis(config, space).bind(lambda values: solved(values).map_error(partial(Fault.of, RecordReason.NUMERIC, str(values)))).bind(normalized)
+    return basis(config, space).bind(lambda values: solved(values).map_error(partial(Fault.of, Reason.FAILED, str(values)))).bind(normalized)
 
 
 def adaptation(source: npt.NDArray[np.float64], target: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:

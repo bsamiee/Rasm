@@ -4,7 +4,7 @@ Context roots sit here as one more RNA reach: `root_in` follows the `Context` RN
 """
 
 import ast
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from functools import partial
 from typing import Final, overload
 
@@ -13,8 +13,7 @@ from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -57,7 +56,7 @@ def parsed(text: str) -> Outcome[RnaPath]:
     Returns:
         Path, unreadable fault for text outside the host's path grammar.
     """
-    refused = partial(Fault.of, RecordReason.UNREADABLE, text)
+    refused = partial(Fault.of, Reason.UNREADABLE, text)
     return Ok(()) if not text else _expression(f"_{text}" if text.startswith("[") else f"_.{text}").map_error(refused).bind(lambda node: _stepped(node).to_result_with(refused))
 
 
@@ -65,6 +64,11 @@ def definition(struct: Native | type[Struct]) -> bpy.types.Struct:
     """Returns the RNA definition of a live struct, a collection holding its own definition, or a struct type."""
     held: bpy.types.Struct = struct.bl_rna  # type: ignore[assignment, union-attr]  # ty: ignore[invalid-assignment, unresolved-attribute]
     return held
+
+
+def defined(struct: Native) -> Option[bpy.types.Struct]:
+    """Returns the RNA definition a live struct or collection holds, Nothing for a collection declaring no members of its own (`Scene.objects`, where `RenderSlots` declares `active`)."""
+    return catch(definition, exception=AttributeError)(struct).to_option()
 
 
 def id_path(struct: Struct) -> Option[RnaPath]:
@@ -82,6 +86,19 @@ def id_path(struct: Struct) -> Option[RnaPath]:
                 .bind(lambda text: parsed(text).to_option())
                 .or_else_with(lambda: Block.of_seq(reversed(struct.rna_ancestors())).try_head().bind(partial(_held, struct)))
             )
+
+
+def context_path(owner: Struct, name: str = "", /) -> Option[str]:
+    """Returns the context data path of an owner or its named member, through `blend_data` for ID data and the context for preferences, Nothing for data neither reaches."""
+    return (
+        catch(owner.path_from_module, exception=ValueError)(name)
+        .to_option()
+        .bind(
+            lambda path: (
+                Some(f"blend_data.{path.removeprefix('bpy.data.')}") if path.startswith("bpy.data.") else Some(path.removeprefix("bpy.context.")) if path.startswith("bpy.context.") else Nothing
+            )
+        )
+    )
 
 
 @overload
@@ -146,7 +163,7 @@ def subclass[T: Struct](base: type[T], identifier: str) -> Outcome[type[T]]:
         case type() as kind if issubclass(kind, base) and kind is not base:
             return Ok(kind)
         case _:
-            return Error(Fault.of(BlenderReason.ABSENT, f"bpy.types.{base.__name__}", member=identifier))
+            return Error(Fault.of(Reason.ABSENT, f"bpy.types.{base.__name__}", member=identifier))
 
 
 def addon_preferences(preferences: bpy.types.Preferences, package: str) -> Option[bpy.types.AddonPreferences]:
@@ -154,15 +171,11 @@ def addon_preferences(preferences: bpy.types.Preferences, package: str) -> Optio
     return Option.of_optional(preferences.addons.get(package)).bind(lambda addon: Option.of_optional(addon.preferences))
 
 
-def _dirtied[T](preferences: bpy.types.Preferences, answer: T) -> T:
-    """Marks preferences dirty after a write the host leaves unmarked."""
-    preferences.is_dirty = True
-    return answer
-
-
 def preferred[T](preferences: bpy.types.Preferences, package: str, write: Callable[[bpy.types.AddonPreferences], Outcome[T]]) -> Outcome[T]:
-    """Writes the package's add-on preferences, marking them dirty once the write succeeds, absent fault for a package holding none."""
-    return addon_preferences(preferences, package).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(preferences), member=package)).bind(write).map(partial(_dirtied, preferences))
+    """Writes the package's add-on preferences, marking them dirty once the write succeeds since the host marks no Python write to add-on preferences, absent fault for a package holding none."""
+    answer = addon_preferences(preferences, package).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(preferences), member=package)).bind(write)
+    preferences.is_dirty = preferences.is_dirty or answer.is_ok()
+    return answer
 
 
 def root_in[K: Native](root: type[K], context: bpy.types.Context) -> Option[K]:
@@ -180,7 +193,7 @@ def root_in[K: Native](root: type[K], context: bpy.types.Context) -> Option[K]:
 
 def rooted[K: Native](root: type[K], context: bpy.types.Context) -> Outcome[K]:
     """Returns context-held root, absent fault naming first matching member."""
-    return root_in(root, context).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, "bpy.context", member=Block.of_seq(_members(root)).try_head().default_value(root.__name__)))
+    return root_in(root, context).to_result_with(lambda: Fault.of(Reason.ABSENT, "bpy.context", member=Block.of_seq(_members(root)).try_head().default_value(root.__name__)))
 
 
 # --- [READERS]
@@ -208,24 +221,15 @@ def _stepped(node: ast.expr) -> Option[RnaPath]:
 
 
 def _held(struct: Struct, parent: Struct) -> Option[RnaPath]:
-    """Returns path of the pointer member or collection element of parent holding struct."""
-    return (
-        Block
-        .of_seq(definition(parent).properties)
-        .filter(lambda prop: isinstance(prop, bpy.types.PointerProperty | bpy.types.CollectionProperty) and isinstance(struct, type(prop.fixed_type)))
-        .choose(partial(_holding, parent, struct))
-        .try_head()
-        .bind(lambda steps: id_path(parent).map(lambda base: (*base, *steps)))
+    """Returns path of the pointer member or collection element of parent holding struct, the first holding member read alone."""
+    steps: Iterator[RnaPath] = (
+        (prop.identifier,) if isinstance(prop, bpy.types.PointerProperty) else (prop.identifier, index)
+        for prop in definition(parent).properties
+        if isinstance(prop, bpy.types.PointerProperty | bpy.types.CollectionProperty) and isinstance(struct, type(prop.fixed_type))
+        for index, item in (((0, getattr(parent, prop.identifier)),) if isinstance(prop, bpy.types.PointerProperty) else enumerate(getattr(parent, prop.identifier)))
+        if item == struct
     )
-
-
-def _holding(parent: Struct, struct: Struct, prop: bpy.types.Property) -> Option[RnaPath]:
-    """Returns the steps under parent's member that reach struct."""
-    match prop:
-        case bpy.types.PointerProperty():
-            return Some((prop.identifier,)).filter(lambda _: getattr(parent, prop.identifier) == struct)
-        case _:
-            return Block.of_seq(enumerate(getattr(parent, prop.identifier))).filter(lambda pair: pair[1] == struct).try_head().map(lambda pair: (prop.identifier, pair[0]))
+    return Option.of_optional(next(steps, None)).bind(lambda found: id_path(parent).map(lambda base: (*base, *found)))
 
 
 def _members[K: Native](root: type[K]) -> tuple[str, ...]:
@@ -235,4 +239,21 @@ def _members[K: Native](root: type[K]) -> tuple[str, ...]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Native", "RnaPath", "Struct", "addon_preferences", "definition", "definition_at", "id_path", "parsed", "preferred", "rna", "root_in", "rooted", "struct_at", "subclass"]
+__all__ = [
+    "Native",
+    "RnaPath",
+    "Struct",
+    "addon_preferences",
+    "context_path",
+    "defined",
+    "definition",
+    "definition_at",
+    "id_path",
+    "parsed",
+    "preferred",
+    "rna",
+    "root_in",
+    "rooted",
+    "struct_at",
+    "subclass",
+]

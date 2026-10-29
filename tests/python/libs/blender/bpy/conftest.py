@@ -1,49 +1,41 @@
-"""Session fixtures running the background Blender session over the fixture extension once and reviving its observations into results and options."""
+"""Session fixture running the background Blender session over the fixture extension once, its observations read by tuple paths, and the case table parametrization every bpy test module takes."""
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 lazy from functools import reduce
 lazy from pathlib import Path
 
 import msgspec
 import pytest
-lazy from expression import downcast, Error, Nothing, Ok, Option, Result, Some
+lazy from expression import Error, Nothing, Ok, Some
 
 lazy from eng.python.fitout.__main__ import app
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Step = str | int
+type Steps = tuple[str | int, ...]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Observations(msgspec.Struct, frozen=True):
-    """Probe observations keyed `<area>.<probe>`, read by key and the steps into its value."""
+    """Probe observations as decoded JSON nested by phase, fixture area, and probe, read by the steps into a revived value."""
 
     values: Mapping[str, object]
 
-    def __getitem__(self, path: str | tuple[str, *tuple[Step, ...]]) -> object:
-        """Returns the observation at a key, or at the steps into the observation under its key."""
+    def __getitem__(self, path: Steps, /) -> object:
+        """Returns the observation the steps reach, keys into objects, `ok` and `some` into one-key result and option objects, indices into arrays."""
 
-        def stepped(node: object, step: Step) -> object:
+        def stepped(node: object, step: str | int) -> object:
             match node, step:
-                case Result(tag="ok", ok=value), "ok":
-                    return value
-                case Option(tag="some", some=value), "some":
-                    return value
                 case Mapping(), str():
                     return node[step]
-                case tuple(), int():
+                case list(), int():
                     return node[step]
                 case _:
                     raise KeyError(step)
 
-        key, *steps = (path,) if isinstance(path, str) else path
-        return reduce(stepped, steps, self.values[key])
-
-    def of[T](self, kind: type[T], path: str | tuple[str, *tuple[Step, ...]]) -> T:
-        """Returns the observation at a path narrowed to a kind, failing the asserting test for another kind."""
-        return downcast(kind, self[path])
+        root: object = self.values
+        return revived(reduce(stepped, path, root))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -68,27 +60,19 @@ def revived(node: object) -> object:
             return node
 
 
+def observing(cases: Iterable[tuple[Steps, object]], /) -> pytest.MarkDecorator:
+    """Parametrizes `path` and `expected` over a case table, each case identified by its path."""
+    return pytest.mark.parametrize("path,expected", [pytest.param(path, expected, id="/".join(map(str, path))) for path, expected in cases])
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 @pytest.fixture(scope="session")
-def session(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Mapping[str, Observations]:
-    """Runs one headless factory-settings Blender over the session script through the fitout `run` command, decoding the observations of each phase."""
+def observed(tmp_path_factory: pytest.TempPathFactory, worker_id: str) -> Observations:
+    """Runs one headless factory-settings Blender over the session script through the fitout `run` command, decoding the observations of both phases."""
     target = tmp_path_factory.mktemp("bpy") / "observed.json"
     script = Path(__file__).parent / "background" / "session.py"
     command, bound, _ = app.parse_args(["run", f"bpy-{worker_id}", "--", "-b", "--factory-startup", "--python-exit-code", "1", "--python", str(script), "--", str(target)])
     assert command(*bound.args, **bound.kwargs) == Ok(0)
-    phases = msgspec.json.decode(target.read_bytes(), type=dict[str, dict[str, object]])
-    return {phase: Observations({key: revived(value) for key, value in values.items()}) for phase, values in phases.items()}
-
-
-@pytest.fixture(scope="session")
-def observed(session: Mapping[str, Observations]) -> Observations:
-    """Observations read while the fixture extension is enabled."""
-    return session["enabled"]
-
-
-@pytest.fixture(scope="session")
-def released(session: Mapping[str, Observations]) -> Observations:
-    """Observations read after the fixture extension is disabled."""
-    return session["released"]
+    return Observations(msgspec.json.decode(target.read_bytes(), type=dict[str, object]))

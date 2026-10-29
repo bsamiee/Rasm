@@ -1,16 +1,27 @@
-"""Render queue jobs, cameras, and frame ranges."""
+"""Render queue jobs, cameras, and frame ranges, the progress record of a queue run, and its duration forecast."""
 
+from collections import Counter
 from collections.abc import Mapping
+import datetime
+from enum import auto, Enum, IntEnum
+from fractions import Fraction
+from functools import partial
 from graphlib import TopologicalSorter
 import hashlib
-from pathlib import PurePath
-from typing import Annotated
+from itertools import groupby
+import math
+from operator import add
+from pathlib import Path, PurePath
+from statistics import fmean
+from typing import Annotated, Self
 
-from expression import Option
+from expression import Nothing, Ok, Option, Some
+from expression.extra.result import catch
 import msgspec
 
+from blender.records.faults import Fault, Outcome, Reason
 from blender.records.fields import Case, Count
-from blender.records.identity import content_hash, ContentHash
+from blender.records.stores import content_hash, ContentHash, RecordFile
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -18,9 +29,27 @@ from blender.rendering.outputs.naming import Output
 type _Frame = Annotated[int, msgspec.Meta(ge=0)]
 type _Digest = Annotated[bytes, msgspec.Meta(min_length=hashlib.sha256().digest_size, max_length=hashlib.sha256().digest_size)]
 type JobCamera = MarkedCamera | FixedCamera
+type _Phase = Liveness | Ending
+
+
+class Liveness(Enum):
+    """State of unfinished run."""
+
+    ACTIVE = auto()
+    STOPPED = auto()
+
+
+class Ending(IntEnum):
+    """State of finished run."""
+
+    SUCCEEDED = 1
+    FAILED = 2
+    CANCELLED = 3
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+# --- [QUEUE]
 
 
 class Frames(msgspec.Struct, frozen=True, kw_only=True):
@@ -56,8 +85,8 @@ class MarkedCamera(Case, frozen=True, kw_only=True):
 
     def at(self, frame: int) -> Option[str]:
         """Returns camera of last marker reached, else first marker, else scene camera."""
-        preceding = tuple(marker for marker in self.markers if marker.frame <= frame)
-        marker = max(preceding, key=lambda marker: marker.frame) if preceding else min(self.markers, key=lambda marker: marker.frame) if self.markers else None
+        by_frame = lambda marker: marker.frame
+        marker = max((marker for marker in self.markers if marker.frame <= frame), key=by_frame, default=None) or min(self.markers, key=by_frame, default=None)
         return Option.of_optional(marker).map(lambda marker: marker.camera).or_else_with(lambda: Option.of_optional(self.camera))
 
 
@@ -156,6 +185,90 @@ class RenderQueue(msgspec.Struct, frozen=True, kw_only=True):
         return tuple((index, frame) for index, job in enumerate(self.jobs) for frame in job.frames.numbers)
 
 
+# --- [PROGRESS]
+
+
+class StageMark(msgspec.Struct, frozen=True, kw_only=True):
+    """Measured render time of one finished step."""
+
+    part: int
+    item: int
+    elapsed: datetime.timedelta
+
+
+class Forecast(msgspec.Struct, frozen=True, kw_only=True):
+    """Render duration left with finish time."""
+
+    left: datetime.timedelta
+    finish: Option[datetime.datetime]
+
+
+class Progress(msgspec.Struct, frozen=True, kw_only=True):
+    """Progress record of one queue run."""
+
+    queue: ContentHash
+    process: int
+    marks: tuple[StageMark, ...] = ()
+    ending: Ending | None = None
+    pending: tuple[tuple[int, int], ...] = ()
+
+    @classmethod
+    def resumed(cls, found: Option[tuple[Self, datetime.datetime]], queue: RenderQueue, process: int) -> Self:
+        """Starts run, resuming the observed record of the same queue that did not succeed."""
+        key = queue.key
+        return (
+            found
+            .map(lambda observed: observed[0])
+            .filter(lambda held: held.queue == key and held.ending is not Ending.SUCCEEDED)
+            .map(lambda held: msgspec.structs.replace(held, process=process, ending=None))
+            .default_with(lambda: cls(queue=key, process=process))
+        )
+
+    @property
+    def elapsed(self) -> datetime.timedelta:
+        """Measured render time of every mark."""
+        return sum((mark.elapsed for mark in self.marks), datetime.timedelta())
+
+    def remaining(self, queue: RenderQueue) -> tuple[tuple[int, int], ...]:
+        """Returns renders no mark covers."""
+        marked = {(mark.part, mark.item) for mark in self.marks}
+        return tuple(step for step in queue.steps if step not in marked)
+
+    def done(self, queue: RenderQueue) -> Fraction:
+        """Returns share of queue renders marks cover."""
+        total = len(queue.steps)
+        return Fraction(total - len(self.remaining(queue)), total)
+
+    def phase(self, beat: datetime.datetime, now: datetime.datetime, stale: datetime.timedelta, /) -> _Phase:
+        """Returns ending when set, else stopped once the heartbeat is `stale` old, else active."""
+        ending: Option[_Phase] = Option.of_optional(self.ending)
+        return ending.default_with(lambda: Liveness.ACTIVE if now - beat < stale else Liveness.STOPPED)
+
+    def forecast(self, queue: RenderQueue, now: datetime.datetime) -> Option[Forecast]:
+        """Forecasts renders left at each job's measured seconds per weight, the mean rate for unmeasured jobs, Nothing before any mark or past the longest duration."""
+        counts = Counter(part for part, _ in self.remaining(queue))
+        jobs = dict(enumerate(queue.jobs))
+        timed = {part: tuple(mark.elapsed.total_seconds() for mark in marks) for part, marks in groupby(sorted(self.marks, key=lambda mark: mark.part), key=lambda mark: mark.part)}
+        if not (rates := {part: fmean(times[1:] or times) / jobs[part].weight for part, times in timed.items()}):
+            return Nothing
+        average = fmean(rates.values())
+        seconds = math.fsum(counts[part] * job.weight * rates.get(part, average) for part, job in jobs.items())
+        return catch(datetime.timedelta, exception=OverflowError)(seconds=seconds).to_option().map(lambda left: Forecast(left=left, finish=catch(add, exception=OverflowError)(now, left).to_option()))
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def observed(path: Path) -> Outcome[Option[tuple[Progress, datetime.datetime]]]:
+    """Reads progress record with heartbeat moment, Nothing when absent."""
+    return (
+        catch(path.stat, exception=OSError)()
+        .map(lambda stat: datetime.datetime.fromtimestamp(stat.st_mtime, datetime.UTC))
+        .map(lambda beat: RecordFile(path=path, form=Progress).read().map(lambda progress: Some((progress, beat))))
+        .default_with(lambda error: Ok(error).filter_with(lambda held: isinstance(held, FileNotFoundError), partial(Fault.of, Reason.UNREADABLE, str(path))).map(lambda _: Nothing))
+    )
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FixedCamera", "Frames", "Job", "JobCamera", "MarkedCamera", "Marker", "PackedFile", "RenderFrames", "RenderQueue"]
+__all__ = ["Ending", "FixedCamera", "Forecast", "Frames", "Job", "JobCamera", "Liveness", "MarkedCamera", "Marker", "PackedFile", "Progress", "RenderFrames", "RenderQueue", "StageMark", "observed"]

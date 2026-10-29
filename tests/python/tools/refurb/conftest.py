@@ -1,14 +1,18 @@
 """Fixture running repository refurb checks over a sample module and returning the findings one check reports."""
 
 import re
+lazy from collections.abc import Callable
 lazy from pathlib import Path
 
 import pytest
 lazy from refurb.error import Error
 lazy from refurb.settings import load_settings
 
-lazy from tests.python.support.doubles import Findings
 lazy from tools.refurb.__main__ import refurbished
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Findings = Callable[[type[Error], str], list[tuple[int, str]]]
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 

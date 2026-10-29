@@ -13,13 +13,11 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.extension.identity import Key
-from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes import functions
-from blender.bpy.nodes.desired import INPUTS, NodeGroup
-from blender.bpy.nodes.graphs import Component, composed, directed, equal, Expr, inverted, math, matrix, mixed, rgba, Term, vector, where, xyz
-from blender.bpy.nodes.interface import Interface, Socket
+from blender.bpy.nodes.desired import Interface, NodeGroup, Socket
+from blender.bpy.nodes.graphs import Component, composed, directed, equal, Expr, group_input, inverted, math, matrix, mixed, rgba, Term, vector, where, xyz
 from blender.imaging.color.processors import lin_to_log, luma
-from blender.records.faults import Fault, Faults, Outcome, paired
+from blender.records.faults import Fault, Faults, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -43,7 +41,7 @@ def space_item(config: PyOpenColorIO.Config, name: str) -> Outcome[str]:
     return (
         Ok(name)
         if name == PyOpenColorIO.ROLE_SCENE_LINEAR
-        else Option.of_optional(config.getColorSpace(name)).map(PyOpenColorIO.ColorSpace.getName).to_result_with(partial(Fault.of, BlenderReason.ABSENT, config.getName(), member=name))
+        else Option.of_optional(config.getColorSpace(name)).map(PyOpenColorIO.ColorSpace.getName).to_result_with(partial(Fault.of, Reason.ABSENT, config.getName(), member=name))
     )
 
 
@@ -93,25 +91,20 @@ def with_alpha(image: Term, alpha: Term, *, masked: bool = False) -> Expr:
 
 def _converter(key: Key, name: str, body: Callable[[Expr, Expr, Expr], tuple[Expr, Expr, Expr]]) -> Outcome[NodeGroup]:
     """Converts RGB channels and passes alpha unchanged."""
-    image = Expr(kind=bpy.types.NodeGroupInput, socket=COLOR_INPUT.key, shape=bpy.types.NodeSocketColor, label=Some(INPUTS))
-    return functions.built(
-        key, name, Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,)), {COLOR_RESULT.key: rgba(*body(image["Red"], image["Green"], image["Blue"]), image["Alpha"])}, bpy.types.CompositorNodeTree
-    )
+    image = group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor)
+    rgb = body(image["Red"], image["Green"], image["Blue"])
+    return functions.built(key, Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,)), {COLOR_RESULT.key: rgba(*rgb, image["Alpha"])}, bpy.types.CompositorNodeTree, name=Some(name))
 
 
 def logarithmic(direction: PyOpenColorIO.TransformDirection, image: Term) -> Outcome[Expr]:
     """Places OCIO channel stop coordinates of an image, the LogCamera encoding forward and its decoding inverse."""
-    return _logarithmic(direction).map(partial(_placed, image))
+    return _logarithmic(direction).map(lambda group: functions.placed(group, {COLOR_INPUT.key: image}, COLOR_RESULT.key))
 
 
 def hsy(config: PyOpenColorIO.Config, direction: PyOpenColorIO.TransformDirection, image: Term) -> Outcome[Expr]:
     """Places OCIO linear HSY coordinates of an image over the configuration's scene-linear luma weights, the inverse direction returning RGB."""
-    return Result[npt.NDArray[np.float64], Faults].bind(luma(config), lambda weights: _hsy(direction, tuple(map(float, weights)))).map(partial(_placed, image))
-
-
-def _placed(image: Term, group: NodeGroup) -> Expr:
-    """Places a converter group over an image at its result."""
-    return functions.placed(group, {COLOR_INPUT.key: image}, COLOR_RESULT.key)
+    grouped = Result[npt.NDArray[np.float64], Faults].bind(luma(config), lambda weights: _hsy(direction, tuple(map(float, weights))))
+    return grouped.map(lambda group: functions.placed(group, {COLOR_INPUT.key: image}, COLOR_RESULT.key))
 
 
 @functools.cache

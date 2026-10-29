@@ -1,15 +1,15 @@
-"""Chart references, perspective chart sampling, and color correction fits."""
+"""Published chart data, perspective chart sampling, and color correction fits."""
 
 from collections.abc import Callable
 from enum import IntEnum
 import functools
 import math
 import sys
-from typing import Annotated, Self
+from typing import Annotated, Final, Self
 
 import colour
 from colour.characterisation import ColourChecker
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -19,42 +19,27 @@ import PyOpenColorIO
 
 from blender.imaging.color.colorimetry import adaptation
 from blender.imaging.color.processors import basis, converted, matrix, Stops, xyz
-from blender.imaging.geometry.frames import Homography, Quad
+from blender.imaging.geometry.frames import Homography, Quad, StMap
 from blender.imaging.geometry.panoramas import PanoramaView
-from blender.imaging.geometry.stmaps import StMap
-from blender.records.faults import Fault, Faults, Outcome, paired, RecordReason
+from blender.records.faults import Fault, Outcome, paired, Reason
 from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
 class PublishedChart(IntEnum):
-    """Published color charts."""
+    """Published color charts, each holding its reference data in printed grid order."""
 
     COLORCHECKER_CLASSIC = 1
     SPYDERCHECKR_24 = 2
 
-
-type Finding = Reversed | Skewed | Wide | Clipped
-
-# --- [MODELS] ---------------------------------------------------------------------------
-
-# --- [REFERENCES]
-
-
-class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Chart data with neutral patch index."""
-
-    checker: ColourChecker
-    neutral: int
-
-    @classmethod
-    @functools.cache
-    def of(cls, chart: PublishedChart) -> Self:
-        """Returns published reference data in printed grid order."""
-        match chart:
+    @functools.cached_property
+    def checker(self) -> ColourChecker:
+        """Published patch chromaticities, illuminant, and grid."""
+        match self:
             case PublishedChart.COLORCHECKER_CLASSIC:
-                return cls(checker=colour.CCS_COLOURCHECKERS["ColorChecker24 - After November 2014"], neutral=21)
+                published: ColourChecker = colour.CCS_COLOURCHECKERS["ColorChecker24 - After November 2014"]
+                return published
             case PublishedChart.SPYDERCHECKR_24:
                 patches = {
                     "H1 (Bluish Green)": (0.3076822512, 0.4234772396, 0.3374520529),
@@ -83,7 +68,12 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                     "E6 (Black 2)": (0.0248551698, 0.0258980980, 0.0222499522),
                 }
                 values = np.array(tuple(patches.values()), dtype=np.float64)
-                return cls(checker=ColourChecker("SpyderCheckr 24", dict(zip(patches, np.unstack(colour.XYZ_to_xyY(values)))), np.array((0.3457, 0.3585), dtype=np.float64), 4, 6), neutral=21)
+                return ColourChecker("SpyderCheckr 24", dict(zip(patches, np.unstack(colour.XYZ_to_xyY(values)))), np.array((0.3457, 0.3585), dtype=np.float64), 4, 6)
+
+    @property
+    def neutral(self) -> int:
+        """Index of the middle gray patch."""
+        return 21
 
     @property
     def shape(self) -> npt.NDArray[np.int64]:
@@ -109,6 +99,14 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             .map(lambda rgb: msgspec.convert(rgb.tolist(), tuple[tuple[float, float, float], ...]))
         )
 
+
+type Finding = Reversed | Skewed | Wide | Clipped
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_CEILING: Final = 1.0 / (3 * float(np.finfo(np.float64).eps))
+
+# --- [MODELS] ---------------------------------------------------------------------------
 
 # --- [PLACEMENTS]
 
@@ -138,14 +136,6 @@ class Clipped(Case, frozen=True, kw_only=True):
     patches: tuple[int, ...]
 
 
-class Limits(msgspec.Struct, frozen=True, kw_only=True):
-    """Corner angle and panorama field-of-view limits."""
-
-    narrowest: float = math.radians(60.0)
-    widest: float = math.radians(120.0)
-    field_of_view: float = math.radians(120.0)
-
-
 class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
     """Chart corners, patch size, and panorama alignment view, direct sampling while absent."""
 
@@ -157,10 +147,10 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def footprints(self) -> npt.NDArray[np.float64]:
         """Clockwise footprint corners in chart coordinates, top-left patch first."""
-        reference = ChartReference.of(self.chart)
-        rows, columns = np.divmod(np.arange(len(reference.checker.data)), reference.checker.columns)
-        centers = (np.stack((columns, rows), axis=-1) + 0.5) / reference.shape * (1.0, -1.0) + (0.0, 1.0)
-        planar = centers[:, np.newaxis] + (Quad().samples[:, :2] - 0.5) * self.footprint / reference.shape
+        chart = self.chart
+        rows, columns = np.divmod(np.arange(len(chart.checker.data)), chart.checker.columns)
+        centers = (np.stack((columns, rows), axis=-1) + 0.5) / chart.shape * (1.0, -1.0) + (0.0, 1.0)
+        planar = centers[:, np.newaxis] + (Quad().samples[:, :2] - 0.5) * self.footprint / chart.shape
         return np.concatenate((planar, np.ones_like(planar[..., :1])), axis=-1)
 
     @property
@@ -186,8 +176,10 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
         """Returns chart-to-source map for aligned homography."""
         return Option.of_optional(self.panorama).map(lambda panorama: lambda samples: panorama.to_panorama(homography.to_image(samples))).default_value(homography.to_image)
 
-    def findings(self, aspect: float, limits: Limits) -> Outcome[Option[tuple[Finding, ...]]]:
-        """Returns placement findings, or absence when chart cannot align."""
+    def findings(
+        self, aspect: float, /, *, narrowest: float = math.radians(60.0), widest: float = math.radians(120.0), field_of_view: float = math.radians(120.0)
+    ) -> Outcome[Option[tuple[Finding, ...]]]:
+        """Returns findings against corner angle and panorama field-of-view limits, or absence when chart cannot align."""
         view = Option.of_optional(self.panorama).map(lambda panorama: panorama.view)
         clip = np.array([axis == OpenImageIO.Wrap.Black for axis in self.extension])
 
@@ -196,14 +188,14 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
             following = np.roll(corners, -1, axis=0)
             before, after = np.roll(corners, 1, axis=0) - corners, following - corners
             angles = np.arctan2(np.abs(before[:, 0] * after[:, 1] - before[:, 1] * after[:, 0]), np.vecdot(before, after))
-            narrowest, widest = float(angles.min()), float(angles.max())
+            least, most = float(angles.min()), float(angles.max())
             area = float((corners[:, 0] * following[:, 1] - corners[:, 1] * following[:, 0]).sum() / 2.0)
             positions = self.mapping(homography)(self.footprints)
             clipped = tuple(np.flatnonzero(np.any((((positions[..., :2] < 0.0) | (positions[..., :2] > 1.0)) & clip), axis=(1, 2)) | np.any(positions[..., 2] <= 0.0, axis=1)).tolist())
             return (
                 *((Reversed(area=area),) if area > 0.0 else ()),
-                *((Skewed(narrowest=narrowest, widest=widest),) if narrowest < limits.narrowest or widest > limits.widest else ()),
-                *(Wide(field_of_view=held.field_of_view) for held in view.to_list() if held.field_of_view > limits.field_of_view),
+                *((Skewed(narrowest=least, widest=most),) if least < narrowest or most > widest else ()),
+                *(Wide(field_of_view=held.field_of_view) for held in view.to_list() if held.field_of_view > field_of_view),
                 *((Clipped(patches=clipped),) if clipped else ()),
             )
 
@@ -211,7 +203,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
 
     def means(self, plane: npt.NDArray[np.float32]) -> Outcome[Option[tuple[tuple[float, float, float], ...]]]:
         """Returns alpha-weighted patch means, or absence when chart cannot align."""
-        shape, channels = ChartReference.of(self.chart).shape, plane.shape[2]
+        shape, channels = self.chart.shape, plane.shape[2]
         repeat = np.array([axis == OpenImageIO.Wrap.Periodic for axis in self.extension])
 
         def cells(samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -250,31 +242,39 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Calibration(msgspec.Struct, frozen=True, kw_only=True):
-    """Output-channel RGB rows with factored exposure in stops."""
+    """Invertible output-channel RGB rows with factored exposure in stops."""
 
     gained: tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
     exposure: Stops = 0.0
 
+    def __post_init__(self) -> None:
+        """Refuses rows whose condition number reaches the float64 inversion ceiling."""
+        if not self.condition < _CEILING:
+            raise ValueError(f"matrix condition {self.condition:.3g} reaches {_CEILING:.3g}")
+
     @classmethod
-    def fit(cls, samples: tuple[tuple[tuple[float, float, float], tuple[float, float, float]], ...]) -> Outcome["CalibrationFit"]:
-        """Returns the Cheung 2004 linear fit of measured onto reference colors with its inverse, or numeric and ill-conditioned fit faults."""
+    def fit(cls, samples: tuple[tuple[tuple[float, float, float], tuple[float, float, float]], ...]) -> Outcome[Self]:
+        """Returns the Cheung 2004 linear fit of measured onto reference colors, or numeric and ill-conditioned fit faults."""
         source, target = np.unstack(np.array(samples, dtype=np.float64).reshape(-1, 2, 3), axis=1)
-        ceiling = 1.0 / (3 * float(np.finfo(np.float64).eps))
-
-        def conditioned(fitted: npt.NDArray[np.float64]) -> Outcome[CalibrationFit]:
-            if not (condition := float(np.linalg.cond(fitted))) < ceiling:
-                return Error(Fault.of(RecordReason.OUTSIDE, cls.__name__, str(condition), member=f"matrix condition below {ceiling:.3g}"))
-            forward, inverse = (
-                cls(gained=msgspec.convert(rows.tolist(), tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]])) for rows in (fitted, np.linalg.inv(fitted))
-            )
-            return Ok(CalibrationFit(forward=forward, inverse=inverse, condition=condition))
-
-        return Result[npt.NDArray[np.float64], Faults].bind(
+        return (
             catch(colour.matrix_colour_correction, exception=np.linalg.LinAlgError)(source, target, method="Cheung 2004")
-            .map(lambda found: np.asarray(found, dtype=np.float64))
-            .map_error(functools.partial(Fault.of, RecordReason.NUMERIC, str(source))),
-            conditioned,
+            .map_error(functools.partial(Fault.of, Reason.FAILED, str(source)))
+            .bind(
+                lambda found: catch(msgspec.convert, exception=msgspec.ValidationError)({"gained": np.asarray(found, dtype=np.float64).tolist()}, cls).map_error(
+                    functools.partial(Fault.of, Reason.OUTSIDE, cls.__name__, member=f"matrix condition below {_CEILING:.3g}")
+                )
+            )
         )
+
+    @property
+    def condition(self) -> float:
+        """Condition number of the RGB rows."""
+        return float(np.linalg.cond(np.array(self.gained, dtype=np.float64)))
+
+    @property
+    def inverted(self) -> Self:
+        """Calibration undoing this one, its exposure negated."""
+        return msgspec.convert({"gained": np.linalg.inv(np.array(self.gained, dtype=np.float64)).tolist(), "exposure": -self.exposure}, type(self))
 
     def normalized(
         self,
@@ -306,14 +306,6 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
         return matrix(np.array(self.gained, dtype=np.float64))
 
 
-class CalibrationFit(msgspec.Struct, frozen=True, kw_only=True):
-    """Forward and inverse calibrations with the fitted matrix's condition number."""
-
-    forward: Calibration
-    inverse: Calibration
-    condition: float
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Calibration", "CalibrationFit", "ChartPlacement", "ChartReference", "Clipped", "Finding", "Limits", "PublishedChart", "Reversed", "Skewed", "Wide"]
+__all__ = ["Calibration", "ChartPlacement", "Clipped", "Finding", "PublishedChart", "Reversed", "Skewed", "Wide"]

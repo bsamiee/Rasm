@@ -1,4 +1,4 @@
-"""Record field domains, record bases, curve points, dated histories under retention, and record lenses reading and rebuilding nested values."""
+"""Record field domains and names, record bases, curve points, dated histories under retention, and record lenses reading and rebuilding nested values."""
 
 from collections.abc import Callable
 import datetime
@@ -20,6 +20,7 @@ type Positive = Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=sys.floa
 type NonNegative = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
 type AtLeastOne = Annotated[float, msgspec.Meta(ge=1.0, le=sys.float_info.max)]
 type Count = Annotated[int, msgspec.Meta(ge=1)]
+type Name = Annotated[str, msgspec.Meta(min_length=1)]
 type Lens = tuple[object, ...]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -60,13 +61,8 @@ class Case(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=True
 class Retention(msgspec.Struct, frozen=True, kw_only=True):
     """History capacity in entries and the interval within which a new entry merges into the nearest past."""
 
-    capacity: Count = 10
+    capacity: int = 10
     interval: datetime.timedelta = datetime.timedelta(seconds=5)
-
-    def __post_init__(self) -> None:
-        """Validates a merge interval at or above zero."""
-        if self.interval < datetime.timedelta():
-            raise ValueError(self.interval)
 
 
 class Dated[T](msgspec.Struct, frozen=True, kw_only=True):
@@ -159,6 +155,7 @@ __all__ = [
     "History",
     "Knot",
     "Lens",
+    "Name",
     "NonNegative",
     "Percent",
     "Positive",

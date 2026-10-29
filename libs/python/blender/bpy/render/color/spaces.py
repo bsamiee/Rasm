@@ -1,6 +1,7 @@
 """Color-managed view and display settings records, scene and display node views, Blender tint, and OCIO installation."""
 
 from collections.abc import Callable, Iterable
+from functools import cached_property
 from pathlib import Path
 from typing import Final
 
@@ -17,12 +18,12 @@ from blender.bpy.data.rna.paths import RnaPath
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.files.assets import SYSTEM_RESOURCE
 from blender.bpy.nodes.desired import member_paths, Members
 from blender.imaging.color.authoring import ConfigBuild
 from blender.imaging.color.colorimetry import WhitePoint
-from blender.imaging.color.processors import called, ColorSpace, DisplayView
+from blender.imaging.color.processors import called, DisplayView
 from blender.records.faults import accumulated, Outcome
+from blender.records.fields import Name
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -96,7 +97,7 @@ class ConfigView(msgspec.Struct, frozen=True, kw_only=True):
     name: str
     description: str
     transform: Callable[[PyOpenColorIO.Config], Outcome[PyOpenColorIO.Transform]]
-    space: ColorSpace = PyOpenColorIO.ROLE_SCENE_LINEAR
+    space: Name = PyOpenColorIO.ROLE_SCENE_LINEAR
 
     def view_transform(self, base: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.ViewTransform]:
         """Scene-referred view transform of the operation over base, entered from the scene interchange role and left to the display interchange role in the process space."""
@@ -114,35 +115,36 @@ class ConfigView(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
+class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Application OCIO rows and views installed over Blender's bundled configuration."""
 
     build: ConfigBuild
     views: tuple[ConfigView, ...] = ()
 
     @property
-    def base(self) -> Outcome[PyOpenColorIO.Config]:
-        """Bundled base configuration independent of a user installation."""
-        path = str(Path(SYSTEM_RESOURCE("DATAFILES", path="colormanagement"), "config.ocio"))
-        return called(PyOpenColorIO.Config.CreateFromFile, path, path)
-
-    def merged(self, base: PyOpenColorIO.Config) -> Outcome[ConfigBuild]:
-        """Application build with the views' view transforms added."""
-        return accumulated(view.view_transform(base) for view in self.views).map(lambda rows: msgspec.structs.replace(self.build, view_transforms=(*self.build.view_transforms, *rows)))
+    def merged(self) -> Outcome[tuple[PyOpenColorIO.Config, ConfigBuild]]:
+        """Bundled base configuration, independent of a user installation, and the application build with the views' view transforms added."""
+        folder: str = bpy.utils.system_resource("DATAFILES", path="colormanagement")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        path = str(Path(folder, "config.ocio"))
+        return called(PyOpenColorIO.Config.CreateFromFile, path, path).bind(
+            lambda base: accumulated(view.view_transform(base) for view in self.views).map(
+                lambda rows: (base, msgspec.structs.replace(self.build, view_transforms=(*self.build.view_transforms, *rows)))
+            )
+        )
 
     def staged(self, stage: Path) -> Outcome[PyOpenColorIO.Config]:
         """Stages full build in caller's resource scope."""
-        return self.base.bind(lambda base: self.merged(base).bind(lambda build: build.staged(base, stage)))
+        return self.merged.bind(lambda parts: parts[1].staged(parts[0], stage))
 
     def written(self) -> Outcome[Path]:
         """Installs complete configuration read on restart."""
-        return self.base.bind(lambda base: self.merged(base).bind(lambda build: build.installed(base, Path(bpy.utils.user_resource("DATAFILES", path="colormanagement")))))
+        return self.merged.bind(lambda parts: parts[1].installed(parts[0], Path(bpy.utils.user_resource("DATAFILES", path="colormanagement"))))
 
     def install_config(self, _call: Call[Empty]) -> Outcome[Done]:
         """Install extension view transforms read on restart."""
         return self.written().map(lambda path: Done(notes=(("INFO", f"Installed {path}, restart Blender to read it"),)))
 
-    @property
+    @cached_property
     def installing(self) -> Operator[Empty]:
         """Command installing the build."""
         return Operator(form=Empty, run=self.install_config, undo=Nothing)

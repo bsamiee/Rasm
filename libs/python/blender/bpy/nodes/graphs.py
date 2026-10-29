@@ -10,8 +10,7 @@ import msgspec
 
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
-from blender.bpy.nodes.desired import Content, End, INPUTS, member_paths, Members
-from blender.bpy.nodes.interface import MenuItem, MenuItems
+from blender.bpy.nodes.desired import Content, End, INPUTS, member_paths, Members, MenuItem, MenuItems
 from blender.bpy.nodes.trees import base_socket, DATA_TYPES
 
 if TYPE_CHECKING:

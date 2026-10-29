@@ -1,7 +1,7 @@
-"""Screen probes over the background window: region overlap and visible bounds, region visibility, located editors and queries, editor coordinates, and arrangements applied and reverted."""
+"""Screen rows and probes over the background window: region overlap and visible bounds, region visibility, located editors and queries, editor coordinates, arrangements applied and reverted, and an owned workspace copy with its activation."""
 
-from collections.abc import Callable, Mapping
-from types import MappingProxyType
+from collections.abc import Callable, Generator
+from contextlib import contextmanager, ExitStack
 from typing import Final, TYPE_CHECKING
 
 import bpy
@@ -10,8 +10,8 @@ from expression.extra.result import catch
 
 from blender.bpy.extension.identity import Identity
 from blender.bpy.ui.resources.theme import overlaps
-from blender.bpy.ui.screens.areas import AreaQuery, areas, Arrangement, Located, region_in, Retype, Split, Step
-from blender.bpy.ui.screens.regions import flipped, quadded, to_region, to_view, visibility, visible_bounds
+from blender.bpy.ui.screens.areas import AreaQuery, areas, Arrangement, flipped, Located, quadded, region_in, Retype, Split, Step, to_region, to_view, visibility, visible_bounds
+from blender.bpy.ui.screens.workspaces import WorkspaceSetup
 from blender.records.faults import Outcome
 
 if TYPE_CHECKING:
@@ -42,6 +42,16 @@ def _rect(region: bpy.types.Region) -> tuple[int, int, int, int]:
     return region.x, region.y, region.width, region.height
 
 
+@contextmanager
+def _overlap(*, enabled: bool) -> Generator[bpy.types.Preferences]:
+    """Sets region overlap for the scope, restoring the preference it found."""
+    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    with ExitStack() as stack:
+        stack.callback(setattr, preferences.system, "use_region_overlap", preferences.system.use_region_overlap)
+        preferences.system.use_region_overlap = enabled
+        yield preferences
+
+
 def _settled(arrangement: Arrangement) -> Outcome[Arrangement]:
     """Advances an arrangement until it settles, answering its last pending form, which holds every revert."""
     return arrangement.advanced().bind(lambda pending: pending.map(_settled).default_value(Ok(arrangement)))
@@ -61,7 +71,6 @@ def _arranged(area: bpy.types.Area, steps: tuple[Step, ...], read: Callable[[], 
 
 def overlapping(_identity: Identity) -> dict[str, object]:
     """Reads which regions overlap their editor's main region with region overlap on and off."""
-    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     pairs: tuple[tuple[rna_enums.SpaceTypeItems, rna_enums.RegionTypeItems], ...] = (
         ("VIEW_3D", "UI"),
         ("VIEW_3D", "TOOLS"),
@@ -71,28 +80,22 @@ def overlapping(_identity: Identity) -> dict[str, object]:
         ("IMAGE_EDITOR", "TOOL_HEADER"),
         ("SEQUENCE_EDITOR", "UI"),
     )
-    prior = preferences.system.use_region_overlap
 
     def read(*, enabled: bool) -> dict[str, bool]:
-        preferences.system.use_region_overlap = enabled
-        return {f"{space} {region}": overlaps(preferences, space, region) for space, region in pairs}
+        with _overlap(enabled=enabled) as preferences:
+            return {f"{space} {region}": overlaps(preferences, space, region) for space, region in pairs}
 
-    answer: dict[str, object] = {"on": read(enabled=True), "off": read(enabled=False)}
-    preferences.system.use_region_overlap = prior
-    return answer
+    return {"on": read(enabled=True), "off": read(enabled=False)}
 
 
 def bounded(_identity: Identity) -> dict[str, object]:
     """Reads the 3D View main region's visible bounds with region overlap on and off, beside its own and its toolbar's rectangles."""
-    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     area = _area("VIEW_3D")
     window, tools = _region(area, "WINDOW"), _region(area, "TOOLS")
-    prior = preferences.system.use_region_overlap
-    preferences.system.use_region_overlap = True
-    shared = visible_bounds(area, window)
-    preferences.system.use_region_overlap = False
-    alone = visible_bounds(area, window)
-    preferences.system.use_region_overlap = prior
+    with _overlap(enabled=True):
+        shared = visible_bounds(area, window)
+    with _overlap(enabled=False):
+        alone = visible_bounds(area, window)
     return {"overlapping": shared, "alone": alone, "region": _rect(window), "toolbar": _rect(tools), "toolbar alignment": tools.alignment}
 
 
@@ -184,29 +187,31 @@ def flips(_identity: Identity) -> dict[str, object]:
 def quads(_identity: Identity) -> dict[str, object]:
     """Shows and hides quad view of the 3D View, reading the quad regions after each."""
     area = _area("VIEW_3D")
-    at = Located(window=_window(), area=area, region=Some(_region(area, "WINDOW")))
     space: bpy.types.SpaceView3D = area.spaces.active  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    shown_quads = quadded(at, shown=True).map(lambda _: len(space.region_quadviews))
+    shown_quads = quadded(Located(window=_window(), area=area, region=Some(_region(area, "WINDOW"))), shown=True).map(lambda _: len(space.region_quadviews))
     hidden_quads = quadded(Located(window=_window(), area=area, region=Some(_region(area, "WINDOW"))), shown=False).map(lambda _: len(space.region_quadviews))
     return {"shown": shown_quads, "hidden": hidden_quads}
 
 
+def workspaced(identity: Identity) -> dict[str, object]:
+    """Copies the Layout workspace under its owned name, mode, scene pin, and add-on filter, makes it again as the same owned copy, and requests and reverts a switch the background session leaves pending."""
+    made = LAYOUT.made(identity)
+    activation = LAYOUT.activated(identity, _window())
+    return {
+        "made": made.map(lambda held: (held.name, held.object_mode, held.use_pin_scene, held.use_filter_by_owner, tuple(owner.name for owner in held.owner_ids))),
+        "again": made.bind(lambda held: LAYOUT.made(identity).map(lambda again: again.session_uid == held.session_uid)),
+        "pending": activation.bind(lambda held: held.advanced()).map(lambda pending: pending.is_some()),
+        "reverted": activation.bind(lambda held: held.reverted()),
+    }
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-rows: Final = ()
-PROBES: Final[Mapping[str, Callable[[Identity], object]]] = MappingProxyType({
-    "overlapping": overlapping,
-    "bounded": bounded,
-    "shown": shown,
-    "located": located,
-    "converted": converted,
-    "retyped": retyped,
-    "shared": shared,
-    "flips": flips,
-    "quads": quads,
-    "split": split,
-})
-RELEASED: Final[Mapping[str, Callable[[], object]]] = MappingProxyType({})
+LAYOUT: Final = WorkspaceSetup(key="layout", name="Fixture Layout", source="Layout", mode=Some("OBJECT"), use_pin_scene=Some(True), owners=Some(()))
+
+rows: Final = (LAYOUT,)
+PROBES: Final = (overlapping, bounded, shown, located, converted, retyped, shared, flips, quads, split, workspaced)
+RELEASED: Final = ()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

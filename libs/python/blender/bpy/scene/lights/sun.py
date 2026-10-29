@@ -10,13 +10,12 @@ from typing import ClassVar, Final
 import zoneinfo
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.commands.invocations import Popup
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, released, retained, Saved
 from blender.bpy.data.ids.store import Handle
@@ -28,15 +27,14 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Subscription
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band, entered
-from blender.bpy.faults import BlenderReason
 from blender.bpy.scene.lights.groups import Lobe
-from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned, VERTEX
-from blender.bpy.scene.worlds import EnvironmentNode, Follower, followers, WorldEnvironment
+from blender.bpy.scene.objects import ObjectState, owned_object, reconciled, shaped, VERTEX
+from blender.bpy.scene.worlds import Follower, followers, WorldEnvironment
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.layout.rows import Line, OperatorButton, RowDraw
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason, typed
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Retention
 from blender.rendering.lighting.solar import Daylight, Polar, Site, SolarDay, Study, SunPaths, SunPosition
 
@@ -45,7 +43,7 @@ from blender.rendering.lighting.solar import Daylight, Polar, Site, SolarDay, St
 _SPLINE_POINT: Final = Descriptor.declared(bpy.types.SplinePoint, ("co",), bpy.types.FloatProperty)
 _IRRADIANCE: Final = Descriptor.declared(bpy.types.SunLight, ("energy",), bpy.types.FloatProperty)
 _CAMERA_ALONE: Final[Mapping[RnaPath, Value]] = MappingProxyType(dict[RnaPath, Value]({(name,): False for name in (*(lobe.value for lobe in Lobe), "visible_shadow")}))
-ZONES: Final = choices((zone, zone, "") for zone in sorted(zoneinfo.available_timezones()))
+_ZONES: Final = tuple(sorted(zoneinfo.available_timezones()))
 _TIMINGS: Final = choices((("MOMENT", "Moment", "Single sun moment"), ("DAY", "Day", "Moments stepped by elapsed minutes"), ("SEASON", "Season", "Moments stepped by days at one clock time")))
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -57,7 +55,13 @@ class SunSetup(bpy.types.PropertyGroup):
     latitude: bpy.props.FloatProperty(name="Latitude", description="Angle north of equator", subtype="ANGLE", min=-math.pi / 2.0, max=math.pi / 2.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     longitude: bpy.props.FloatProperty(name="Longitude", description="Angle east of Greenwich", subtype="ANGLE", min=-math.pi, max=math.pi)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     north: bpy.props.FloatProperty(name="North", description="True north counterclockwise from +Y", subtype="ANGLE", min=-math.pi, max=math.pi)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    zone: bpy.props.EnumProperty(name="Time Zone", description="IANA time zone of site clock", items=ZONES, default="UTC")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    zone: bpy.props.StringProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+        name="Time Zone",
+        description="IANA time zone of site clock",
+        default="UTC",
+        search=lambda _setup, _context, text: tuple(zone for zone in _ZONES if text.casefold() in zone.casefold()),
+        search_options={"SORT"},
+    )
     timing: bpy.props.EnumProperty(name="Timing", description="Moment, or study keying one moment per frame", items=_TIMINGS, default="MOMENT")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     year: bpy.props.IntProperty(name="Year", min=datetime.MINYEAR, max=datetime.MAXYEAR, default=2000)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     month: bpy.props.IntProperty(name="Month", min=1, max=12, default=1)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -73,12 +77,6 @@ class SunSetup(bpy.types.PropertyGroup):
     surface: bpy.props.BoolProperty(name="Surface", description="Yearly sky band of sun", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     analemmas: bpy.props.BoolProperty(name="Analemmas", description="Hourly sun positions over year", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     bevel: bpy.props.FloatProperty(name="Bevel", description="Analemma tube radius", subtype="DISTANCE", min=0.0, soft_min=0.00635, soft_max=0.3048, default=0.0254)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-
-
-class Zoned(bpy.types.PropertyGroup):
-    """Site time zone."""
-
-    zone: bpy.props.EnumProperty(name="Time Zone", description="IANA time zone of site clock", items=ZONES, default="UTC")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class SolarCaption(Line, frozen=True, kw_only=True):
@@ -100,7 +98,7 @@ class SolarCaption(Line, frozen=True, kw_only=True):
                         return (f"Solar noon {day.noon:%H:%M}", "Polar night", sun)
 
             return sited(setup).bind(
-                lambda held: paired(SolarDay.of(held[0], held[1].start.date()), positions(held[0], msgspec.structs.replace(held[1], frames=1), refraction=setup.refraction)).map(text)
+                lambda held: paired(SolarDay.of(held[0], held[1].start.date()), msgspec.structs.replace(held[1], frames=1).positions(held[0], refraction=setup.refraction)).map(text)
             )
 
         def shown(attached: Attached[SunSetup], layout: bpy.types.UILayout, _holder: Native, context: bpy.types.Context) -> None:
@@ -187,12 +185,12 @@ class SunLight(msgspec.Struct, frozen=True, kw_only=True):
             ))
 
     def section(self) -> Section[SunSetup]:
-        """Returns scene sun setup with zone button, solar caption, and place and remove buttons."""
+        """Returns scene sun setup with solar caption, and place and remove buttons."""
         return Section(
             key="sun",
             title="Sun",
-            rows=(OperatorButton(target=sun_zone_command), SolarCaption()),
-            header=(OperatorButton(target=sun_place_command), OperatorButton(target=sun_remove_command)),
+            rows=(SolarCaption(),),
+            header=(OperatorButton(target=sun_place), OperatorButton(target=sun_remove)),
             store=Some(Store(attachment=SunLight.attachment, retention=self.retention)),
         )
 
@@ -212,22 +210,8 @@ def sited(setup: SunSetup) -> Outcome[tuple[Site, Study]]:
             timing = Study(start=start, step=datetime.timedelta(), frames=1)
     site: Outcome[Site] = catch(msgspec.convert, exception=msgspec.ValidationError)(
         {"latitude": setup.latitude, "longitude": setup.longitude, "north": setup.north, "zone": setup.zone}, Site
-    ).map_error(lambda error: Fault.of(RecordReason.OUTSIDE, repr(setup), str(error), member="a site the time zone database holds"))
+    ).map_error(lambda error: Fault.of(Reason.OUTSIDE, repr(setup), str(error), member="a site the time zone database holds"))
     return site.map(lambda held: (held, timing))
-
-
-def positions(site: Site, timing: Study, *, refraction: bool) -> Outcome[SunPosition]:
-    """Returns sun position at each keyed moment of timing on the site clock.
-
-    Args:
-        site: Observer location and clock.
-        timing: Study keying one moment per frame, one frame for a moment.
-        refraction: Whether positions are apparent.
-
-    Returns:
-        One position per frame, apparent with refraction on, or calendar fault.
-    """
-    return timing.moments(site.clock).map(lambda moments: SunPosition.at(site, np.array([moment.timestamp() for moment in moments]))).map(lambda found: found.apparent() if refraction else found)
 
 
 def sun_placed(scene: bpy.types.Scene, identity: Identity) -> Outcome[bpy.types.Object]:
@@ -240,16 +224,7 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity) -> Outcome[bpy.types.
     Returns:
         Sun object, calendar faults before any write, or write faults.
     """
-
-    def built() -> Outcome[bpy.types.Object]:
-        return (
-            Result[bpy.types.Light, Faults]
-            .bind(
-                catch(bpy.data.lights.new, exception=RuntimeError)(f"{scene.name} Sun", "SUN").map_error(partial(Fault.of, BlenderReason.REFUSED, f"{scene.name} Sun")),
-                lambda light: SunLight.light.owned(identity, light, of=Some(scene), filled=lambda light: _IRRADIANCE.write(light, 139.3).map(lambda _: light), scope=Some(rollback)),
-            )
-            .bind(lambda light: spawned(f"{scene.name} Sun", Some(light), scene.collection))
-        )
+    name = f"{scene.name} Sun"
 
     def ranged(setup: SunSetup, count: int) -> Outcome[None]:
         return Ok(None) if setup.timing == "MOMENT" else written(scene, ("frame_end",), scene.frame_start + count - 1).map(lambda _: None)
@@ -260,7 +235,7 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity) -> Outcome[bpy.types.
             *((sun, ("location", axis), located[:, axis]) for axis in range(3)),
             (sun, ("rotation_euler", 0), position.elevation - math.pi / 2.0),
             (sun, ("rotation_euler", 2), -position.rotation),
-            *((owner, path, value(position)) for tree, follower in following for owner, path, value in _channels(tree, follower)),
+            *((owner, path, value(position)) for tree, follower in following for owner, path, value in _channels(tree, *follower)),
         )
         return accumulated((*(Animation(path=path, source=Keys(points=tuple(zip(frames, values.tolist())))).apply(owner) for owner, path, values in rows), ranged(setup, len(frames)))).map(
             lambda _: None
@@ -269,13 +244,22 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity) -> Outcome[bpy.types.
     def followed(tree: bpy.types.NodeTree) -> Outcome[tuple[tuple[bpy.types.NodeTree, Follower], ...]]:
         return followers(tree, identity).map(lambda nodes: tuple((tree, node) for node in nodes))
 
+    def lit() -> Outcome[tuple[bpy.types.Object, bpy.types.Light]]:
+        seeded: Callable[[bpy.types.Light], Outcome[bpy.types.Light]] = lambda light: _IRRADIANCE.write(light, 139.3).map(lambda _: light)
+        return owned_object((SunLight.sun, SunLight.light), name, partial(bpy.data.lights.new, name, "SUN"), scene.collection, identity, of=Some(scene), scope=Some(rollback), seeded=seeded)
+
     def placed(setup: SunSetup, site: Site, timing: Study) -> Outcome[bpy.types.Object]:
-        paths = Some(setup).filter(lambda held: held.use_paths)
-        return positions(site, timing, refraction=setup.refraction).bind(
+        return timing.positions(site, refraction=setup.refraction).bind(
             lambda position: (
                 dropped(scene, identity)
-                .bind(lambda _: paired(SunLight.sun.made(identity, built, of=Some(scene), scope=Some(rollback)), _tree(scene).map(followed).default_value(Ok(()))))
-                .bind(lambda pair: keyed(setup, position, *pair).bind(lambda _: drawn(site, timing.start.year, paths, scene, identity)).map(lambda _: pair[0]))
+                .bind(lambda _: paired(lit(), _tree(scene).map(followed).default_value(Ok(()))))
+                .bind(
+                    lambda pair: (
+                        keyed(setup, position, pair[0][0], pair[1])
+                        .bind(lambda _: drawn(site, timing.start.year, Some(setup).filter(lambda held: held.use_paths), scene, identity))
+                        .map(lambda _: pair[0][0])
+                    )
+                )
             )
         )
 
@@ -299,23 +283,13 @@ def drawn(site: Site, year: int, paths: Option[SunSetup], scene: bpy.types.Scene
     traced = SunPaths.of(site, year)
     camera = Snapshot.of(bpy.types.Object, _CAMERA_ALONE)
     bevel = Snapshot.of(bpy.types.Curve, {("dimensions",): "3D", ("bevel_depth",): paths.map(lambda shown: shown.bevel).default_value(0.0)})
-
-    def runs(loops: npt.NDArray[np.float64]) -> tuple[tuple[npt.NDArray[np.float64], bool], ...]:
-        def split(loop: npt.NDArray[np.float64]) -> tuple[tuple[npt.NDArray[np.float64], bool], ...]:
-            above = loop[:, 2] >= 0.0
-            rolled = np.roll(loop, -int(np.argmin(above)), axis=0)
-            pieces = np.split(rolled, np.flatnonzero(np.diff(rolled[:, 2] >= 0.0)) + 1)
-            return ((loop, True),) if above.all() else tuple((piece, False) for piece in pieces if piece[0, 2] >= 0.0 and len(piece) > 1)
-
-        return tuple(run for loop in loops for run in split(loop))
-
     geometry = paired(
         paths.filter(lambda shown: shown.surface).map(lambda shown: Descriptor.quantized(VERTEX.prop, traced.surface.reshape(-1, 3) * shown.distance).map(Some)).default_value(Ok(Nothing)),
         paths
         .filter(lambda shown: shown.analemmas)
         .map(
             lambda shown: accumulated(
-                Descriptor.quantized(_SPLINE_POINT.prop, np.hstack((run, np.ones((len(run), 1))))).map(lambda points: (points, cyclic)) for run, cyclic in runs(traced.analemmas * shown.distance)
+                Descriptor.quantized(_SPLINE_POINT.prop, np.hstack((run * shown.distance, np.ones((len(run), 1))))).map(lambda points: (points, cyclic)) for run, cyclic in traced.arcs
             ).map(Some)
         )
         .default_value(Ok(Nothing)),
@@ -337,30 +311,18 @@ def drawn(site: Site, year: int, paths: Option[SunSetup], scene: bpy.types.Scene
                 spline.use_cyclic_u = cyclic
         return bevel.apply(curve).outcome
 
-    def held[D: bpy.types.ID](row: Ownership[bpy.types.Object], owner: Ownership[D], name: str, data: Callable[[], D], filled: Callable[[D], Outcome[None]]) -> Outcome[bpy.types.Object]:
-        def built() -> Outcome[bpy.types.Object]:
-            return (
-                Result[D, Faults]
-                .bind(catch(data, exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, name)), lambda block: owner.owned(identity, block, of=Some(scene), scope=Some(rollback)))
-                .bind(lambda block: spawned(name, Some(block), scene.collection))
-            )
-
-        return row.made(identity, built, of=Some(scene), scope=Some(rollback)).bind(
-            lambda item: typed(owner.kind, f"{item!r}.data", item.data).bind(filled).bind(lambda _: reconciled(ObjectState(values=Some(camera)), item, ())).map(lambda _: item)
+    def held[D: bpy.types.ID](rows: tuple[Ownership[bpy.types.Object], Ownership[D]], name: str, data: Callable[[], D], filled: Callable[[D], Outcome[None]]) -> Outcome[bpy.types.Object]:
+        return owned_object(rows, name, data, scene.collection, identity, of=Some(scene), scope=Some(rollback)).bind(
+            lambda pair: filled(pair[1]).bind(lambda _: reconciled(ObjectState(values=Some(camera)), pair[0], ())).map(lambda _: pair[0])
         )
 
     def placed(prepared: tuple[Option[npt.NDArray[np.float32]], Option[tuple[tuple[npt.NDArray[np.float32], bool], ...]]]) -> Outcome[tuple[bpy.types.Object, ...]]:
         vertices, loops = prepared
+        surface, analemmas = f"{scene.name} Sun Surface", f"{scene.name} Sun Analemmas"
         return _gone(tuple(item for row, value in ((SunLight.surface, vertices), (SunLight.analemmas, loops)) if value.is_none() for item in row.serving(identity, scene)), identity).bind(
             lambda _: accumulated((
-                *(
-                    held(SunLight.surface, SunLight.mesh, f"{scene.name} Sun Surface", lambda: bpy.data.meshes.new(f"{scene.name} Sun Surface"), lambda mesh: shaped(mesh, points, traced.faces))
-                    for points in vertices.to_list()
-                ),
-                *(
-                    held(SunLight.analemmas, SunLight.curve, f"{scene.name} Sun Analemmas", lambda: bpy.data.curves.new(f"{scene.name} Sun Analemmas", "CURVE"), lambda curve: curved(curve, points))
-                    for points in loops.to_list()
-                ),
+                *(held((SunLight.surface, SunLight.mesh), surface, partial(bpy.data.meshes.new, surface), lambda mesh: shaped(mesh, points, traced.faces)) for points in vertices.to_list()),
+                *(held((SunLight.analemmas, SunLight.curve), analemmas, partial(bpy.data.curves.new, analemmas, "CURVE"), lambda curve: curved(curve, points)) for points in loops.to_list()),
             ))
         )
 
@@ -371,9 +333,9 @@ def drawn(site: Site, year: int, paths: Option[SunSetup], scene: bpy.types.Scene
 def dropped(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
     """Clears sun keys on owned world nodes that follow no sun, `Ok` without world."""
 
-    def unfollowed(tree: bpy.types.NodeTree, following: tuple[Follower, ...]) -> tuple[bpy.types.Node, ...]:
-        held = frozenset(follower.node if isinstance(follower, EnvironmentNode) else follower for follower in following)
-        return tuple(node for node in tree.nodes if node not in held and Mark.read(identity, node).is_some())
+    def unfollowed(tree: bpy.types.NodeTree, following: tuple[Follower, ...]) -> tuple[tuple[bpy.types.Node, float], ...]:
+        held = frozenset(node for node, _ in following)
+        return tuple((node, 0.0) for node in tree.nodes if node not in held and Mark.read(identity, node).is_some())
 
     return _unkeyed(scene, identity, unfollowed)
 
@@ -398,22 +360,25 @@ def _tree(scene: bpy.types.Scene) -> Option[bpy.types.NodeTree]:
     return Option.of_optional(scene.world).bind(lambda world: Option.of_optional(world.node_tree))
 
 
-def _unkeyed(scene: bpy.types.Scene, identity: Identity, chosen: Callable[[bpy.types.NodeTree, tuple[Follower, ...]], Iterable[bpy.types.Node | EnvironmentNode]]) -> Outcome[None]:
+def _unkeyed(scene: bpy.types.Scene, identity: Identity, chosen: Callable[[bpy.types.NodeTree, tuple[Follower, ...]], Iterable[tuple[bpy.types.Node, float]]]) -> Outcome[None]:
     """Clears sun channel keys of the world nodes `chosen` picks from the tree and its followers."""
 
     def cleared(tree: bpy.types.NodeTree) -> Outcome[None]:
         return (
             followers(tree, identity)
-            .bind(lambda following: accumulated(Animation(path=path, source=Keys(points=())).clear(owner) for node in chosen(tree, following) for owner, path, _ in _channels(tree, node)))
+            .bind(
+                lambda following: accumulated(
+                    Animation(path=path, source=Keys(points=())).clear(owner) for node, heading in chosen(tree, following) for owner, path, _ in _channels(tree, node, heading)
+                )
+            )
             .map(lambda _: None)
         )
 
     return _tree(scene).map(cleared).default_value(Ok(None))
 
 
-def _channels(owner: bpy.types.NodeTree, follower: bpy.types.Node | EnvironmentNode) -> tuple[tuple[bpy.types.ID, RnaPath, Callable[[SunPosition], npt.NDArray[np.float64]]], ...]:
-    """Returns owner, channel path ending at the member or its element, and position value per sun channel, heading applied."""
-    node, heading = (follower.node, follower.heading) if isinstance(follower, EnvironmentNode) else (follower, 0.0)
+def _channels(owner: bpy.types.NodeTree, node: bpy.types.Node, heading: float) -> tuple[tuple[bpy.types.ID, RnaPath, Callable[[SunPosition], npt.NDArray[np.float64]]], ...]:
+    """Returns owner, channel path ending at the member or its element, and position value per sun channel, the image sun heading applied."""
     match node, id_path(node).to_optional():
         case bpy.types.ShaderNodeTexSky(), tuple(path):
             return (
@@ -435,45 +400,18 @@ def _gone(blocks: tuple[bpy.types.Object, ...], identity: Identity) -> Outcome[i
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
+@Operator.of(Empty)
 def sun_place(call: Call[Empty]) -> Outcome[Done]:
     """Places and keys the scene sun with following world nodes."""
     return rooted(bpy.types.Scene, call.context).bind(lambda scene: sun_placed(scene, call.identity)).map(lambda _: Done())
 
 
+@Operator.of(Empty)
 def sun_remove(call: Call[Empty]) -> Outcome[Answer]:
     """Removes the scene sun, its paths, and its keys."""
     return rooted(bpy.types.Scene, call.context).bind(lambda scene: sun_removed(scene, call.identity))
 
 
-def sun_zone(call: Call[Zoned]) -> Outcome[Answer]:
-    """Sets the site time zone."""
-    return (
-        rooted(bpy.types.Scene, call.context)
-        .bind(lambda scene: SunLight.attachment.read(call.identity, scene))
-        .bind(lambda setup: written(setup, ("zone",), call.properties.zone))
-        .map(lambda prior: Done() if prior.is_some() else Unchanged(reason=f"Site clock is {call.properties.zone}"))
-    )
-
-
-sun_place_command: Operator[Empty] = Operator(form=Empty, run=sun_place)
-sun_remove_command: Operator[Empty] = Operator(form=Empty, run=sun_remove)
-sun_zone_command: Operator[Zoned] = Operator(form=Zoned, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_search_popup))), primary=Some("zone"), run=sun_zone)
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "ZONES",
-    "SolarCaption",
-    "SunLight",
-    "SunSetup",
-    "Zoned",
-    "drawn",
-    "dropped",
-    "positions",
-    "sited",
-    "sun_place_command",
-    "sun_placed",
-    "sun_remove_command",
-    "sun_removed",
-    "sun_zone_command",
-]
+__all__ = ["SolarCaption", "SunLight", "SunSetup", "drawn", "dropped", "sited", "sun_place", "sun_placed", "sun_remove", "sun_removed"]

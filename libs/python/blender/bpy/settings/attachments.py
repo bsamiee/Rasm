@@ -1,4 +1,4 @@
-"""Form group attachments with value locks, histories, startup seeds, before and after recovery, and storage removal."""
+"""Form group attachments with value locks, histories, startup seeds, before and after recovery, storage removal, and window manager groups saved in text blocks."""
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
@@ -8,23 +8,23 @@ import inspect
 from typing import ClassVar, Final, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some, try_downcast
+from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
 import msgspec
 
+from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import embedded
 from blender.bpy.data.rna.descriptors import custom_read, Descriptor
 from blender.bpy.data.rna.mirrors import annotated, Changed, nested, pointed, Updated
-from blender.bpy.data.rna.paths import Native, RnaPath, Struct
+from blender.bpy.data.rna.paths import Native, RnaPath, rooted, Struct
 from blender.bpy.data.rna.restoration import Endpoints, native, NativeTree, NativeValue, persisted
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
-from blender.bpy.extension.events import startup
+from blender.bpy.extension.events import Handler, Startup, Timer
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason, typed
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
 from blender.records.fields import Dated, History, Retention
 from blender.records.trees import merge, transfer, Tree
 
@@ -35,10 +35,6 @@ if TYPE_CHECKING:
 
 type Host = bpy.types.ID | bpy.types.Node | bpy.types.ViewLayer
 type Holder = Host | bpy.types.PropertyGroup
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_REFUSALS: Final[type[TypeError | ReferenceError]] = (TypeError, ReferenceError)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -77,20 +73,20 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
 
         def unpacked(references: IDPropertyGroup, data: bytes) -> Outcome[T]:
             reading = msgspec.msgpack.Decoder(self.decoder.type, strict=self.decoder.strict, dec_hook=decoded, ext_hook=partial(extended, references))
-            return catch(reading.decode, exception=msgspec.DecodeError)(data).map_error(lambda error: Fault.of(RecordReason.OUTSIDE, request, self.name, member=str(error)))
+            return catch(reading.decode, exception=msgspec.DecodeError)(data).map_error(lambda error: Fault.of(Reason.OUTSIDE, request, self.name, member=str(error)))
 
         def found(held: IDPropertyGroup) -> Outcome[T]:
             return paired(typed(IDPropertyGroup, request, held.get(self.references_key)), typed(bytes, request, held.get(self.data_key))).bind(lambda pair: unpacked(*pair))
 
         return (
             custom_read(host, self.name)
-            .map_error(partial(Fault.of, BlenderReason.REFUSED, request))
+            .map_error(partial(Fault.of, Reason.REFUSED, request))
             .bind(lambda held: Option.of_optional(held).map(lambda value: typed(IDPropertyGroup, request, value).bind(found).map(Some)).default_value(Ok(Nothing)))
         )
 
     def write(self, host: Holder, record: T) -> Outcome[None]:
         """Encodes record, replacing stored group when content differs."""
-        refused = partial(Fault.of, BlenderReason.REFUSED, f"{host!r}[{self.name!r}]")
+        refused = partial(Fault.of, Reason.REFUSED, f"{host!r}[{self.name!r}]")
         references: dict[str, bpy.types.ID] = {}
 
         def encoded(value: object) -> object:
@@ -115,7 +111,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
 
     def removed(self, host: Holder) -> Outcome[bool]:
         """Removes stored record, returning whether host held one."""
-        return _property(host, self.name, Nothing).map_error(partial(Fault.of, BlenderReason.REFUSED, f"{host!r}[{self.name!r}]")).map(lambda found: found is not None)
+        return _property(host, self.name, Nothing).map_error(partial(Fault.of, Reason.REFUSED, f"{host!r}[{self.name!r}]")).map(lambda found: found is not None)
 
 
 class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
@@ -245,15 +241,13 @@ class Attached[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=
         """Returns the group's stored history, empty when none is stored."""
         return self.holding.read(self.struct(host)).map(lambda found: found.default_with(History[Snapshot]))
 
-    def _kept(self, host: Host, history: History[Snapshot]) -> Outcome[None]:
-        """Stores the group's history."""
-        return self.holding.write(self.struct(host), history)
-
     def replaced[V](self, host: Host, write: Callable[[], Outcome[Option[V]]], moment: datetime.datetime, retention: Retention) -> Outcome[Option[V]]:
         """Runs edit, adding the group's prior snapshot when the edit reports a change."""
 
         def recorded(record: Snapshot, history: History[Snapshot]) -> Outcome[Option[V]]:
-            return write().bind(lambda change: change.map(lambda _: self._kept(host, history.add(Dated(moment=moment, value=record), retention)).map(lambda _: change)).default_value(Ok(change)))
+            return write().bind(
+                lambda change: change.map(lambda _: self.holding.write(self.struct(host), history.add(Dated(moment=moment, value=record), retention)).map(lambda _: change)).default_value(Ok(change))
+            )
 
         return paired(Snapshot.capture(self.struct(host)), self.held(host)).bind(lambda pair: recorded(*pair))
 
@@ -263,7 +257,7 @@ class Attached[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=
         def navigated(record: Snapshot, history: History[Snapshot]) -> Outcome[Option[None]]:
             def moved(target: Snapshot, arrived: History[Snapshot], parked: History[Snapshot]) -> Outcome[Option[None]]:
                 answer = target.apply(self.struct(host)).outcome
-                return paired(answer, self._kept(host, answer.map(lambda _: arrived).default_value(parked))).map(lambda pair: Some(pair[0]))
+                return paired(answer, self.holding.write(self.struct(host), answer.map(lambda _: arrived).default_value(parked))).map(lambda pair: Some(pair[0]))
 
             return history.step(offset, Dated(moment=moment, value=record), retention).map(lambda found: moved(*found)).default_value(Ok(Nothing))
 
@@ -271,7 +265,9 @@ class Attached[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=
 
     def forgotten(self, host: Host, offset: int) -> Outcome[Option[Snapshot]]:
         """Removes the snapshot at signed one-based offset, `Nothing` past either end, leaving the live group unchanged."""
-        return self.held(host).bind(lambda history: history.at(offset).map(lambda entry: self._kept(host, history.remove(entry.value)).map(lambda _: Some(entry.value))).default_value(Ok(Nothing)))
+        return self.held(host).bind(
+            lambda history: history.at(offset).map(lambda entry: self.holding.write(self.struct(host), history.remove(entry.value)).map(lambda _: Some(entry.value))).default_value(Ok(Nothing))
+        )
 
     # --- [HOSTS]
 
@@ -326,7 +322,7 @@ class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
     def bound(self, identity: Identity) -> Outcome[Attached[G]]:
         """Binds to registered pointer target."""
         return identity.identifier(self.key).bind(
-            lambda name: Ok(Attached(name=name, owner=self.owner, form=self.form)) if name in self.owner.bl_rna.properties else Error(Fault.of(BlenderReason.ABSENT, self.owner.__name__, member=name))
+            lambda name: Ok(Attached(name=name, owner=self.owner, form=self.form)) if name in self.owner.bl_rna.properties else Error(Fault.of(Reason.ABSENT, self.owner.__name__, member=name))
         )
 
     def read(self, identity: Identity, host: Host) -> Outcome[G]:
@@ -348,9 +344,67 @@ class Attachment[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
                 lambda name: (
                     *declared,
                     (Band.ATTACHMENTS, pointed(self.owner, name, pointer)),
-                    *(row for seed in self.seed.to_list() for row in startup(lambda: seed(identity).bind(Attached(name=name, owner=self.owner, form=self.form).seeded))),
+                    *(Startup(body=lambda: seed(identity).bind(Attached(name=name, owner=self.owner, form=self.form).seeded)) for seed in self.seed.to_list()),
                 )
             )
+
+
+class TextRecord[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
+    """Window manager form group saved as a snapshot in an owned fake-user text block."""
+
+    key: Key
+    form: type[G]
+
+    # --- [STORAGE]
+
+    @property
+    def attachment(self) -> Attachment[G]:
+        """Window manager attachment."""
+        return Attachment(key=self.key, form=self.form, owner=bpy.types.WindowManager)
+
+    @property
+    def ownership(self) -> Ownership[bpy.types.Text]:
+        """Text block holding the snapshot, kept by fake user."""
+        return Ownership(kind=bpy.types.Text, key=self.key, saved=Saved.ALWAYS)
+
+    def loaded(self, identity: Identity, attached: Attached[G], manager: bpy.types.WindowManager) -> Outcome[None]:
+        """Applies the snapshot of the owned text block, defaults kept when absent."""
+        return (
+            self.ownership
+            .found(identity)
+            .map(lambda text: Snapshot.parsed(repr(text), text.as_string()).bind(lambda snapshot: snapshot.apply(attached.struct(manager)).outcome))
+            .default_value(Ok(None))
+        )
+
+    def saved(self, identity: Identity, attached: Attached[G], manager: bpy.types.WindowManager) -> Outcome[None]:
+        """Saves the window manager group snapshot into the owned text block, created on first save."""
+        title = f"{identity.manifest.name} {bpy.path.display_name(self.key)}"
+
+        def stored(snapshot: Snapshot) -> Outcome[None]:
+            return self.ownership.made(identity, lambda: catch(bpy.data.texts.new, exception=RuntimeError)(title).map_error(partial(Fault.of, Reason.REFUSED, title))).map(
+                lambda text: text.from_string(snapshot.text)
+            )
+
+        return Snapshot.capture(attached.struct(manager)).bind(stored)
+
+    # --- [REGISTRATION]
+
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+        """Returns attachment, text ownership, load and save handlers, and a startup load for a window manager holding none."""
+
+        def session() -> Outcome[tuple[Attached[G], bpy.types.WindowManager]]:
+            return paired(self.attachment.bound(identity), rooted(bpy.types.WindowManager, bpy.context))
+
+        def started() -> Outcome[Option[float]]:
+            return session().bind(lambda pair: Ok(None) if pair[0].stored(pair[1]) else self.loaded(identity, *pair)).map(lambda _: Nothing)
+
+        return Ok((
+            self.attachment,
+            self.ownership,
+            Handler(handlers=bpy.app.handlers.load_post, body=lambda: session().bind(lambda pair: self.loaded(identity, *pair))),
+            Handler(handlers=bpy.app.handlers.save_pre, body=lambda: session().bind(lambda pair: self.saved(identity, *pair))),
+            Timer(body=started),
+        ))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -361,8 +415,7 @@ def _refused(kind: type) -> object:
     raise TypeError(kind)
 
 
-@catch(exception=_REFUSALS)
-def _property(host: Holder, name: str, value: Option[Mapping[str, object]]) -> object:
+def _placed(host: Holder, name: str, value: Option[Mapping[str, object]]) -> object:
     """Sets one ID property to value or pops it, returning what it set or removed, the host raising for an unstorable value or a removed host."""
     match value:
         case Option(tag="some", some=held):
@@ -370,6 +423,9 @@ def _property(host: Holder, name: str, value: Option[Mapping[str, object]]) -> o
             return held
         case _:
             return host.pop(name, None)
+
+
+_property: Final[Callable[[Holder, str, Option[Mapping[str, object]]], Result[object, TypeError | ReferenceError]]] = catch(catch(_placed, exception=ReferenceError), exception=TypeError)
 
 
 def _skipped(struct: Struct, path: RnaPath = ()) -> frozenset[RnaPath]:
@@ -388,4 +444,4 @@ def _skipped(struct: Struct, path: RnaPath = ()) -> frozenset[RnaPath]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Attached", "Attachment", "Holder", "Host", "Recovery", "RetentionSettings", "Stored"]
+__all__ = ["Attached", "Attachment", "Holder", "Host", "Recovery", "RetentionSettings", "Stored", "TextRecord"]

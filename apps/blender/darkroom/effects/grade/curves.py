@@ -18,19 +18,18 @@ from blender.bpy.data.rna.conditions import Job
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.content import CurveAxes, CurvePoints, Points
+from blender.bpy.nodes.desired import item_key
 from blender.bpy.nodes.graphs import Expr, math, rgba, Scalar
-from blender.bpy.nodes.interface import item_key
 from blender.bpy.render.compositor.colors import hsy, logarithmic
-from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Named, revised
-from blender.bpy.render.compositor.shells import Shell
-from blender.bpy.render.compositor.tables import curved
+from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Named
+from blender.bpy.render.compositor.grades import curved
+from blender.bpy.render.compositor.inputs import Shell
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.color.processors import converted, lin_to_log, luma
 from blender.imaging.files.buffers import unassociated
 from blender.imaging.files.images import ImageFile
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 from blender.records.fields import Knot
 
 from ...chain.stages import Effect, Stage, transform
@@ -235,9 +234,9 @@ def editors(record: Curves | HueCurves) -> tuple[Expr, ...]:
 def knotted[R: (Curves, HueCurves)](effect: CompositorEffect[R], call: Call[Named], title: str) -> Outcome[Answer]:
     """Arms the entering-frame read on the named entry, inserting a knot on each curve's sampled table at the covered scene-linear mean, refusing a frame that adds none."""
 
-    def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
+    def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[Option[str]]:
         config = PyOpenColorIO.GetCurrentConfig()
-        unread = Fault.of(BlenderReason.ABSENT, f"Region of frame entering {entry.name}", member="value its effect reads")
+        unread = Fault.of(Reason.ABSENT, f"Region of frame entering {entry.name}", member="value its effect reads")
         straight = unassociated(file.pixels)
         covered = straight[..., :3][straight[..., 3] > 0.0] if straight.shape[-1] == 4 else straight[..., :3].reshape(-1, 3)
 
@@ -252,7 +251,7 @@ def knotted[R: (Curves, HueCurves)](effect: CompositorEffect[R], call: Call[Name
                 Error(unread)
                 if curves == record.curves
                 else catch(msgspec.convert, exception=msgspec.ValidationError)({"curves": msgspec.to_builtins(curves)}, type(record)).map_error(
-                    partial(Fault.of, RecordReason.OUTSIDE, type(record).__name__, member="curves")
+                    partial(Fault.of, Reason.OUTSIDE, type(record).__name__, member="curves")
                 )
             )
 
@@ -262,7 +261,7 @@ def knotted[R: (Curves, HueCurves)](effect: CompositorEffect[R], call: Call[Name
             )
             return tables(record, config).bind(lambda held: Result[dict[Key, float], Faults].bind(located.bind(lambda mean: record.located(config, mean, held)), lambda at: inserted(record, held, at)))
 
-        wrote: Outcome[bool] = revised(effect, identity, scene, entry, change) if covered.size else Error(unread)
+        wrote: Outcome[bool] = effect.revised(identity, scene, entry, change) if covered.size else Error(unread)
         return wrote.map(lambda changed: Some(title) if changed else Nothing)
 
     return (

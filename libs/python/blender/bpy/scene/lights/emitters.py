@@ -2,7 +2,6 @@
 
 from collections.abc import Callable, Mapping
 from functools import partial
-from itertools import groupby
 from types import MappingProxyType
 from typing import ClassVar, Final
 
@@ -23,19 +22,17 @@ from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes import changes, functions
 from blender.bpy.nodes.desired import Graph
 from blender.bpy.nodes.graphs import Expr, mixed
-from blender.bpy.nodes.trees import active_output, emptied, nested, socket_at, tree_of
+from blender.bpy.nodes.trees import active_output, emptied, feeds, nested, socket_at, tree_of
 from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned, VERTEX
 from blender.bpy.settings.attachments import Attachment
-from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import acquired, OperatorButton
+from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
 from blender.bpy.ui.surfaces.menus import Append
-from blender.records.faults import accumulated, Fault, Outcome, paired, typed
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
 from blender.records.fields import Retention
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -52,7 +49,7 @@ class MeshLight(bpy.types.PropertyGroup):
     strength: bpy.props.FloatProperty(name="Strength", description="Emission strength", min=0.0, soft_max=100.0, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     color: bpy.props.FloatVectorProperty(name="Color", description="Emission filter", subtype="COLOR", size=3, default=(1.0, 1.0, 1.0))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_temperature: bpy.props.BoolProperty(name="Blackbody", description="Filter a blackbody color", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    temperature: bpy.props.FloatProperty(**mirrored(TEMPERATURE.prop))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    temperature: mirrored(TEMPERATURE.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     single_sided: bpy.props.BoolProperty(name="Single Sided", description="Front face alone emits", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     constant: bpy.props.BoolProperty(name="Constant Falloff", description="Strength equal at every distance")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     camera: bpy.props.BoolProperty(name="Camera", description="Visible to camera")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -82,13 +79,7 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns attachment, ownerships, add operator, its Add Light menu entry, and section."""
-        return Ok((
-            MeshLights.attachment,
-            MeshLights.light,
-            MeshLights.material,
-            Append(target=VIEW3D_MT_light_add, rows=(OperatorButton(target=mesh_light_add_command),)),
-            *acquired((self.section(),)),
-        ))
+        return Ok((MeshLights.attachment, MeshLights.light, MeshLights.material, Append(target=VIEW3D_MT_light_add, rows=(OperatorButton(target=mesh_light_add),)), *acquired((self.section(),))))
 
     def section(self) -> Section[MeshLight]:
         """Returns mesh light section of active object."""
@@ -100,27 +91,13 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def feeds(material: bpy.types.Material) -> Mapping[bpy.types.NodeSocket, tuple[tuple[bpy.types.Node, bpy.types.NodeSocket], ...]]:
-    """Returns the source node and socket of each valid unmuted link into each socket of the material tree and the groups it reaches, one pass over each tree's links."""
-    ends = sorted(
-        (
-            (target, node, source)
-            for tree in nested(Option.of_optional(material.node_tree).to_list())
-            for link in tree.links
-            if link.is_valid and not link.is_muted
-            if isinstance(target := link.to_socket, bpy.types.NodeSocket) and isinstance(node := link.from_node, bpy.types.Node) and isinstance(source := link.from_socket, bpy.types.NodeSocket)
-        ),
-        key=lambda end: end[0].as_pointer(),
-    )
-    return MappingProxyType({target: tuple((node, source) for _, node, source in group) for target, group in groupby(ends, key=lambda end: end[0])})
-
-
-def strengths(material: bpy.types.Material) -> tuple[bpy.types.NodeSocketFloat, ...]:
-    """Returns linked or positive Emission and Principled BSDF strength sockets reaching active Cycles output, walked one level at a time."""
+def strengths(material: bpy.types.Material) -> tuple[tuple[bpy.types.NodeSocketFloat, bool], ...]:
+    """Returns linked or positive Emission and Principled BSDF strength sockets reaching active Cycles output, each with whether a valid unmuted link feeds it, walked one level at a time."""
     type State = tuple[bpy.types.Node, bpy.types.NodeSocket, tuple[bpy.types.ShaderNodeGroup, ...]]
     type Frontier = tuple[tuple[State, ...], frozenset[State]]
     emitted: Mapping[type[bpy.types.Node], str] = MappingProxyType({bpy.types.ShaderNodeEmission: "Strength", bpy.types.ShaderNodeBsdfPrincipled: "Emission Strength"})
-    fed = feeds(material)
+    roots = Option.of_optional(material.node_tree).to_list()
+    fed = feeds(nested(roots))
 
     def expanded(state: State) -> tuple[tuple[State, ...], tuple[bpy.types.NodeSocketFloat, ...]]:
         node, socket, path = state
@@ -150,11 +127,8 @@ def strengths(material: bpy.types.Material) -> tuple[bpy.types.NodeSocketFloat, 
         following = tuple(dict.fromkeys(state for states, _ in expansions for state in states if state not in reached))
         return Some((tuple(strength for _, found in expansions for strength in found), (following, reached))) if level else Nothing
 
-    start: Frontier = (
-        tuple((output, socket, ()) for tree in Option.of_optional(material.node_tree).to_list() for output in Option.of_optional(tree.get_output_node("CYCLES")).to_list() for socket in output.inputs),
-        frozenset(),
-    )
-    return tuple(dict.fromkeys(strength for found in Block.unfold(step, start) for strength in found))
+    start: Frontier = (tuple((output, socket, ()) for tree in roots for output in Option.of_optional(tree.get_output_node("CYCLES")).to_list() for socket in output.inputs), frozenset())
+    return tuple((strength, strength in fed) for strength in dict.fromkeys(strength for found in Block.unfold(step, start) for strength in found))
 
 
 def emitting(item: bpy.types.Object) -> bool:
@@ -208,7 +182,7 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Outcom
     vertices = Descriptor.quantized(VERTEX.prop, np.array(((-half, -half, 0.0), (-half, half, 0.0), (half, half, 0.0), (half, -half, 0.0)), dtype=np.float64))
 
     def built() -> Outcome[bpy.types.Material]:
-        return kept(catch(bpy.data.materials.new, exception=RuntimeError)(item.name).map_error(partial(Fault.of, BlenderReason.REFUSED, f"{item.name} material")), emptied)
+        return kept(catch(bpy.data.materials.new, exception=RuntimeError)(item.name).map_error(partial(Fault.of, Reason.REFUSED, f"{item.name} material")), emptied)
 
     return (
         typed(bpy.types.Mesh, f"{item!r}.data", item.data)
@@ -255,7 +229,7 @@ def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collec
         )
 
     return kept(
-        catch(bpy.data.meshes.new, exception=RuntimeError)("Mesh Light").map_error(partial(Fault.of, BlenderReason.REFUSED, "Mesh Light mesh")),
+        catch(bpy.data.meshes.new, exception=RuntimeError)("Mesh Light").map_error(partial(Fault.of, Reason.REFUSED, "Mesh Light mesh")),
         lambda mesh: MeshLights.light.made(identity, lambda: spawned("Mesh Light", Some(mesh), collection), filled=configured),
     )
 
@@ -263,6 +237,7 @@ def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collec
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
+@Operator.of(MeshLight)
 def mesh_light_add(call: Call[MeshLight]) -> Outcome[Done]:
     """Adds an emissive square at the 3D cursor."""
     return (
@@ -272,8 +247,6 @@ def mesh_light_add(call: Call[MeshLight]) -> Outcome[Done]:
     )
 
 
-mesh_light_add_command: Operator[MeshLight] = Operator(form=MeshLight, run=mesh_light_add)
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TEMPERATURE", "MeshLight", "MeshLights", "emission_graph", "emitters", "emitting", "feeds", "lit", "made", "mesh_light_add_command", "picked", "strengths"]
+__all__ = ["TEMPERATURE", "MeshLight", "MeshLights", "emission_graph", "emitters", "emitting", "lit", "made", "mesh_light_add", "picked", "strengths"]

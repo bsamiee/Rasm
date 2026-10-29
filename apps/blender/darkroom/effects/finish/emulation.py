@@ -20,23 +20,22 @@ import PyOpenColorIO
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.functions import EXPRESSIONS
 from blender.bpy.nodes.graphs import Component, Expr, math, mixed, rgba, Scalar, switched, vector, where, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.textures import White
 from blender.bpy.render.compositor.colors import from_ycc, ycc
-from blender.bpy.render.compositor.coordinates import Border, dimensions, extended, pixels, sampled
+from blender.bpy.render.compositor.coordinates import Border, dimensions, extended
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
-from blender.bpy.render.compositor.inputs import CameraFrame, FRAME_SCALE
+from blender.bpy.render.compositor.inputs import CameraFrame, FRAME_SCALE, Shell
 from blender.bpy.render.compositor.motion import clocked, origin
-from blender.bpy.render.compositor.shells import Shell
 from blender.bpy.render.outputs.framing import capacity
 from blender.imaging.color.processors import Domain
 from blender.imaging.files import buffers, images
 from blender.imaging.geometry.arithmetic import gaussian
 from blender.imaging.sampling.integration import Estimate, Precision
 from blender.imaging.sampling.tiles import stream
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 
 from ...chain.stages import Effect, prepared, Stage
 from ..optics.procedural import CLOCK
@@ -273,7 +272,7 @@ def _(
                 radius = ceil(lines * Fraction(period))
                 return accumulated(capacity(scene, size) for size in ((1, 4 * radius + 1), (1, last - first + 1 + 2 * radius))).map(lambda _: None)
             case _:
-                return Error(Fault.of(RecordReason.UNREADABLE, Emulation.__name__, repr(values)))
+                return Error(Fault.of(Reason.UNREADABLE, Emulation.__name__, repr(values)))
 
     def compressed(compression: Compression) -> Outcome[OpenImageIO.ImageBuf]:
         def coded(straight: npt.NDArray[np.float32]) -> Outcome[OpenImageIO.ImageBuf]:
@@ -296,10 +295,10 @@ def _(
             requested = (
                 catch(msgspec.convert, exception=msgspec.ValidationError)({"quality": quality, "coded_width": width if sized else None, "subsampling": chroma, "generations": count}, Compression)
                 .map(Some)
-                .map_error(partial(Fault.of, RecordReason.UNREADABLE, Compression.__name__))
+                .map_error(partial(Fault.of, Reason.UNREADABLE, Compression.__name__))
             )
         case _:
-            requested = Error(Fault.of(RecordReason.UNREADABLE, Compression.__name__, repr(values)))
+            requested = Error(Fault.of(Reason.UNREADABLE, Compression.__name__, repr(values)))
     return paired(fitted(source.spec().height), requested.bind(lambda found: found.map(lambda held: compressed(held).map(Some)).default_value(Ok(Nothing)))).map(lambda parts: parts[1])
 
 
@@ -341,13 +340,13 @@ def _emulation(shell: Shell[Emulation]) -> Outcome[Expr]:
         return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", image), ("Size", size), ("Type", "Gaussian")), socket="Image", shape=bpy.types.NodeSocketColor)
 
     def sample(image: Scalar, position: Expr, across: Border = Border.CLAMP, up: Border = Border.CLAMP) -> Expr:
-        return extended(image, sampled(frame, position), (across.item.name, up.item.name), clipped=True)
+        return extended(image, frame.sampled(position), (MenuItem.of(across).name, MenuItem.of(up).name), clipped=True)
 
     def shifted(image: Scalar, horizontal: Scalar, vertical: Scalar = y, across: Border = Border.CLAMP, up: Border = Border.CLAMP) -> Expr:
         return sample(image, xyz(horizontal, vertical), across, up)
 
     def banded(image: Scalar, horizontal: Scalar, vertical: Scalar) -> Expr:
-        return blurred(image, pixels(frame, xyz(horizontal, vertical) * frame.extent, bpy.types.NodeSocketVector))
+        return blurred(image, frame.pixel_size(xyz(horizontal, vertical) * frame.extent))
 
     def fetched(image: Scalar, uv: Scalar | tuple[float, ...]) -> Expr:
         return Expr(
@@ -439,7 +438,7 @@ def _emulation(shell: Shell[Emulation]) -> Outcome[Expr]:
         height, width = math("MAXIMUM", lowered, least), math("MINIMUM", math("MAXIMUM", lowered + 1.0, least), 1.0)
         at = vector("ADD", vector("DIVIDE", vector("SUBTRACT", frame.fraction, (0.5, 0.5, 0.0)), xyz(width, height, 1.0)), (0.5, 0.5, 0.0))
         collapsed = vector("DIVIDE", sample(rolled, at, Border.BLACK, Border.BLACK), width * height)
-        radius = pixels(frame, xyz(held(_GLOW_RADIUS), held(_GLOW_RADIUS)), bpy.types.NodeSocketVector)
+        radius = frame.pixel_size(xyz(held(_GLOW_RADIUS), held(_GLOW_RADIUS)))
         near = blurred(collapsed, radius)
         glowed = switched(held(_GLOW), collapsed, mixed(0.890909, blurred(near, radius * (4.0, 1.0, 0.0)), near))
         field = math("PINGPONG", pattern, 1.0)
@@ -491,7 +490,7 @@ def _emulation(shell: Shell[Emulation]) -> Outcome[Expr]:
             where(real, 1.0 / ((bulge + 1.0) * (vector("LENGTH", vector("ADD", stretched, (0.0, 0.0, 1.0))) + 1.0)), 0.0),
             xyz(0.5, 0.5, real),
         )
-        return switched(held(_DISPLAY), image, extended(masked, lens, (Border.BLACK.item.name, Border.BLACK.item.name), clipped=True))
+        return switched(held(_DISPLAY), image, extended(masked, lens, (MenuItem.of(Border.BLACK).name, MenuItem.of(Border.BLACK).name), clipped=True))
 
     geometry = shell.menu(_LAYOUT, cases={_APERTURE_GRILLE: (0.0, 0.0, 0.0), _SLOT_MASK: (1.0 / 3.0, 0.5, 0.0), _SHADOW_MASK: (1.0 / 3.0, 0.0, 0.5)})
     return Ok(displayed(received(played(corrupted(source))), geometry))

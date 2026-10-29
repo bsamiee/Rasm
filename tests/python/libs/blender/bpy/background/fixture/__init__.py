@@ -2,11 +2,11 @@
 
 from blender.bpy.extension.registration import Registration
 
-from . import commands, drawing, extension, images, layout, resources, screens, sections, surfaces
+from . import commands, drawing, extension, images, layout, resources, screens, surfaces
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-AREAS = (commands, screens, resources, drawing, layout, sections, surfaces, images, extension)
+AREAS = (commands, screens, resources, drawing, layout, surfaces, images, extension)
 
 REGISTRATION = Registration(__name__, tuple(row for area in AREAS for row in area.rows))
 register, unregister = REGISTRATION.register, REGISTRATION.unregister

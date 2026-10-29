@@ -22,16 +22,16 @@ from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes import textures
 from blender.bpy.nodes.content import Ramp
-from blender.bpy.nodes.evaluation import column, sampled
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
+from blender.bpy.nodes.functions import column, sampled
 from blender.bpy.nodes.graphs import Expr, math, menu, mixed, Scalar, Shape, switched, vector, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor import masks
+from blender.bpy.render.compositor.inputs import Shell
 from blender.bpy.render.compositor.motion import origin
-from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.color import colorimetry, processors
 from blender.imaging.geometry import arithmetic
 from blender.imaging.geometry.arithmetic import Elementwise, Namespace
-from blender.records.faults import accumulated, Fault, Outcome, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, Reason
 from blender.records.fields import Case, Finite, member, NonNegative, Positive, Unit
 
 from ...chain.stages import Effect
@@ -525,7 +525,7 @@ def decoded[T: msgspec.Struct](record: T, values: Mapping[Key, Value], prefix: K
                 return found
 
     return catch(msgspec.convert, exception=msgspec.ValidationError)(raw(msgspec.inspect.type_info(type(record)), msgspec.to_builtins(record), prefix), type(record)).map_error(
-        functools.partial(Fault.of, RecordReason.UNREADABLE, type(record).__name__)
+        functools.partial(Fault.of, Reason.UNREADABLE, type(record).__name__)
     )
 
 

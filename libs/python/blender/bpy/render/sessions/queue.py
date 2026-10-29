@@ -3,7 +3,7 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 import datetime
-from functools import cached_property, partial, update_wrapper
+from functools import cached_property, partial
 import importlib.resources
 from pathlib import Path
 import shutil
@@ -16,7 +16,7 @@ import msgspec
 
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import Call, Done, Empty, Operator
+from blender.bpy.commands.operators import Call, confirmed, Done, Empty, Operator, Over
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import rooted
@@ -24,39 +24,29 @@ from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.events import Handler, Timer
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, CliCommand, Declaration
-from blender.bpy.faults import BlenderReason
 from blender.bpy.files.sessions import Pack, packed, saved
 from blender.bpy.render.outputs.framing import FrameSize
-from blender.bpy.render.outputs.paths import ScenePaths
-from blender.bpy.render.sessions.jobs import prepared
+from blender.bpy.render.outputs.results import PRODUCTIONS
 from blender.bpy.render.sessions.plans import checked, Dispatch, Dispatcher, Observed, Plan, Preparing, Queued, Queueing, QUEUES, ranged, scene_of, Sent
 from blender.bpy.render.sessions.preflight import Preflight
 from blender.bpy.render.sessions.renders import native, Render
-from blender.bpy.render.sessions.runs import commanded, kept, restored, supervised, watched
+from blender.bpy.render.sessions.runs import commanded, prepared, supervised
 from blender.bpy.render.sessions.sets import RenderSet
 from blender.bpy.render.view_layers.routing import PassSet
-from blender.bpy.settings.texts import TextRecord
+from blender.bpy.settings.attachments import TextRecord
 from blender.bpy.ui.layout import rows
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.screens.areas import AreaQuery, EditorState
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
-from blender.records.identity import content_hash
-from blender.records.stores import RecordFile
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.stores import content_hash, RecordFile
 from blender.rendering.batch import supervision
-from blender.rendering.batch.flamenco import Flamenco, Manager
 from blender.rendering.batch.notices import Cancelled, Test
-from blender.rendering.batch.power import cancelled, PowerHold
-from blender.rendering.batch.processes import detached, HostCommands, RunCommand, RunFile
-from blender.rendering.batch.progress import Ending, Heartbeat, Liveness, Progress
-from blender.rendering.batch.queue import RenderFrames, RenderQueue
-from blender.rendering.batch.supervision import LocalMachine, Run
+from blender.rendering.batch.queue import Ending, Liveness, Progress, RenderFrames, RenderQueue
+from blender.rendering.batch.supervision import cancelled, detached, HostCommands, LocalMachine, Run, RunCommand, RunFile
+from blender.rendering.batch.targets import Flamenco, Manager
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Step = Callable[[Dispatcher, Call[Empty]], Outcome[Done]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -80,80 +70,59 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
 
     @cached_property
     def dispatching(self) -> Operator[Dispatch]:
-        """Dispatch command binding its dispatcher on call."""
+        """Dispatch command binding its dispatcher on call, its dialog summarizing the plan above the reach."""
 
-        def drawn(layout: bpy.types.UILayout, context: bpy.types.Context, properties: bpy.types.OperatorProperties, identity: Identity) -> None:
+        def summary(dispatcher: Dispatcher, context: bpy.types.Context, properties: bpy.types.OperatorProperties) -> Outcome[tuple[str, ...]]:
             form: Dispatch = properties  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
-            def summary(plan: Plan, queueing: Queueing) -> Outcome[tuple[str, str]]:
+            def counted(plan: Plan, queueing: Queueing) -> Outcome[tuple[str, ...]]:
                 return accumulated(scene_of(scope.scene).map(lambda scene: len(ranged(scene).numbers)) for scope in plan.scopes).map(
                     lambda counts: (type(queueing.target).__name__, f"{len(plan.scopes)} jobs, {sum(counts)} frames")
                 )
 
-            lines = (
-                self
-                .bound(identity)
-                .bind(lambda dispatcher: paired(dispatcher.planned(context, form, datetime.datetime.now(datetime.UTC)), dispatcher.settings(identity)))
-                .bind(lambda pair: summary(*pair))
-                .default_with(lambda faults: tuple(fault.message for fault in faults))
-            )
-            for line in lines:
-                layout.label(text=line)
-            layout.prop(properties, "reach")
+            return paired(dispatcher.planned(context, form, datetime.datetime.now(datetime.UTC)), dispatcher.settings(dispatcher.identity)).bind(lambda pair: counted(*pair))
 
-        return Operator[Dispatch](
+        return Operator.of(
+            Dispatch,
             icon=Some("RENDER_ANIMATION"),
             condition=Some(Preflight.condition),
-            form=Dispatch,
-            run=update_wrapper(partial(self.stepped, dispatch), dispatch),
             undo=Nothing,
             invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))),
-            draw=Some(drawn),
-        )
+            draw=Some(partial(confirmed, self.bound, summary, ("reach",))),
+        )(Over(self.bound, dispatch))
 
     @cached_property
     def controls(self) -> tuple[Operator[Empty], ...]:
         """Run control and packing commands in section order."""
-        return self.stepping(resume, "PLAY"), self.stepping(stop, "CANCEL"), self.stepping(open_log, "TEXT"), self.stepping(cancel_shutdown, "QUIT"), self.stepping(pack, "PACKAGE")
+        steps: tuple[tuple[Callable[[Dispatcher, Call[Empty]], Outcome[Done]], rna_enums.IconItems], ...] = (
+            (resume, "PLAY"),
+            (stop, "CANCEL"),
+            (open_log, "TEXT"),
+            (cancel_shutdown, "QUIT"),
+            (pack, "PACKAGE"),
+        )
+        return tuple(Operator.of(Empty, icon=Some(icon), undo=Nothing)(Over(self.bound, step)) for step, icon in steps)
 
     @cached_property
     def setup(self) -> tuple[Operator[Empty], ...]:
         """Manager reads, job type install, and notice test in preferences order."""
-        return self.stepping(read_manager, "FILE_REFRESH"), self.stepping(install_job_type, "IMPORT"), self.stepping(post_test_notice, "INFO")
-
-    def stepping(self, step: Step, icon: "rna_enums.IconItems") -> Operator[Empty]:
-        """Command running a dispatcher step, keyed and described by the step."""
-        return Operator(icon=Some(icon), undo=Nothing, form=Empty, run=update_wrapper(partial(self.stepped, step), step))
-
-    def stepped[T: bpy.types.PropertyGroup](self, step: Callable[[Dispatcher, Call[T]], Outcome[Done]], call: Call[T]) -> Outcome[Done]:
-        """Runs a queue step over the dispatcher the call's identity binds."""
-        return self.bound(call.identity).bind(lambda dispatcher: step(dispatcher, call))
+        steps: tuple[tuple[Callable[[Dispatcher, Call[Empty]], Outcome[Done]], rna_enums.IconItems], ...] = ((read_manager, "FILE_REFRESH"), (install_job_type, "IMPORT"), (post_test_notice, "INFO"))
+        return tuple(Operator.of(Empty, icon=Some(icon), undo=Nothing)(Over(self.bound, step)) for step, icon in steps)
 
     # --- [BINDING]
 
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
-        """Queue store and session state with render set, frame size, routing, and path bindings read."""
-        return (self.record, QUEUES, *self.sets.prerequisites, FrameSize.attachment, PassSet.attachment, ScenePaths.attachment)
+        """Queue store, session state, and render productions with render set, frame size, and routing bindings read."""
+        return (self.record, QUEUES, PRODUCTIONS, *self.sets.prerequisites, FrameSize.attachment, *PassSet.prerequisites)
 
     def bound(self, identity: Identity) -> Outcome[Dispatcher]:
         """Binds dispatcher to identity stores, render sets, routing, render, planning, and settings."""
         host = accumulated(identity.identifier(command) for command in RunCommand).map(
             lambda names: HostCommands(binary=bpy.app.binary_path, folder=str(identity.folder), commands=dict(zip(RunCommand, names)))
         )
-        return paired(host, self.sets.bound(identity), FrameSize().bound(identity), PassSet().bound(identity), ScenePaths().bound(identity), QueueRun.record.attachment.bound(identity)).map(
-            lambda parts: Dispatcher(
-                identity=identity,
-                host=parts[0],
-                members=parts[1],
-                framed=parts[2],
-                routing=parts[3],
-                pathed=parts[4],
-                queued=parts[5],
-                render=self.render,
-                planning=self.planning,
-                settings=self.settings,
-            )
+        return paired(host, self.sets.bound(identity), FrameSize().bound(identity), PassSet.bound(identity), QueueRun.record.attachment.bound(identity)).map(
+            lambda parts: Dispatcher(identity, *parts, self.render, self.planning, self.settings)
         )
 
     @staticmethod
@@ -173,14 +142,14 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
         """Progress bar keywords per run from the extension's cached observation alone, its text and fraction of items done."""
         now = datetime.datetime.now(datetime.UTC)
 
-        def local(sent: Sent, progress: Progress, beat: datetime.datetime, heartbeat: Heartbeat) -> tuple[str, float]:
-            remaining, phase = progress.remaining(sent.queue), progress.phase(beat, now, heartbeat)
+        def local(sent: Sent, progress: Progress, beat: datetime.datetime, stale: datetime.timedelta) -> tuple[str, float]:
+            remaining, phase = progress.remaining(sent.queue), progress.phase(beat, now, stale)
             finish = progress.forecast(sent.queue, now).bind(lambda forecast: forecast.finish).map(lambda moment: f"finishing {moment.astimezone():%H:%M}").to_list()
             return " · ".join((*(sent.queue.jobs[part].title for part, _ in remaining[:1]), bpy.path.display_name(phase.name.lower()), *finish)), float(progress.done(sent.queue))
 
-        def work(held: Observed, heartbeat: Heartbeat) -> tuple[str, float]:
+        def work(held: Observed, stale: datetime.timedelta) -> tuple[str, float]:
             return held.sent.map(
-                lambda sent: held.progress.map(lambda pair: local(sent, *pair, heartbeat)).default_with(
+                lambda sent: held.progress.map(lambda pair: local(sent, *pair, stale)).default_with(
                     lambda: (" ".join((type(sent.target).__name__, *sent.issued)), 0.0 if isinstance(sent.target, LocalMachine) else 1.0)
                 )
             ).default_with(lambda: (bpy.app.translations.pgettext_iface("Preparing"), 0.0))
@@ -188,7 +157,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
         runs = (
             self
             .settings(identity)
-            .map(lambda queueing: tuple(work(held, queueing.heartbeat) for held in identity.held[QUEUES].observed.to_list()))
+            .map(lambda queueing: tuple(work(held, queueing.stale) for held in identity.held[QUEUES].observed.to_list()))
             .default_with(lambda faults: tuple((fault.message, 0.0) for fault in faults))
         )
         return tuple({"text": text, "factor": done} for text, done in runs)
@@ -226,15 +195,15 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
         with ExitStack() as scope:
 
             def joined(dispatcher: Dispatcher) -> Outcome[Acquisitions]:
-                scope.callback(identity.reports.reported(partial(restored, dispatcher)))
+                scope.callback(identity.reports.reported(dispatcher.restored))
                 return Ok((
                     QUEUES,
                     *self.cli(dispatcher),
                     self.dispatching,
                     *self.controls,
                     *self.setup,
-                    Timer(body=partial(_started, dispatcher)),
-                    Handler(handlers=bpy.app.handlers.load_post, body=lambda: _started(dispatcher).map(lambda _: None)),
+                    Timer(body=dispatcher.watched),
+                    Handler(handlers=bpy.app.handlers.load_post, body=lambda: dispatcher.watched().map(lambda _: None)),
                 ))
 
             yield self.bound(identity).bind(joined)
@@ -249,9 +218,10 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
     """Plans jobs, writes their files in a background process, and sends the queue to its target."""
     context, identity, moment = call.context, call.identity, datetime.datetime.now(datetime.UTC)
     day = moment.astimezone().date()
+    pathed = dispatcher.routing.pathed
 
     def gated(plan: Plan, queueing: Queueing) -> Outcome[None]:
-        return paired(checked(dispatcher.pathed, plan.scopes, day), Dispatcher.connected() if isinstance(queueing.target, Flamenco) else Ok(None)).map(lambda _: None)
+        return paired(checked(pathed, plan.scopes, day), Dispatcher.connected() if isinstance(queueing.target, Flamenco) else Ok(None)).map(lambda _: None)
 
     def paused(manager: bpy.types.WindowManager) -> Outcome[None]:
         def applied(state: EditorState) -> Outcome[None]:
@@ -265,7 +235,7 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
         stem = content_hash(Plan, plan).hex()
         return (
             accumulated(scene_of(scope.scene) for scope in plan.scopes)
-            .bind(lambda scenes: accumulated(dispatcher.pathed.took(scene, day) for scene in dict.fromkeys(scenes)))
+            .bind(lambda scenes: accumulated(pathed.took(scene, day) for scene in dict.fromkeys(scenes)))
             .bind(lambda _: RecordFile(path=dispatcher.host.path(stem, RunFile.PLAN), form=Plan).written(plan))
             .bind(lambda _: assigned(dispatcher.queued.struct(manager), {("plan",): stem}))
             .bind(lambda _: saved(Path(bpy.data.filepath), bpy.ops.wm.save_mainfile))
@@ -277,7 +247,7 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
         paired(dispatcher.planned(context, call.properties, moment), dispatcher.settings(identity), rooted(bpy.types.WindowManager, context))
         .bind(lambda parts: gated(parts[0], parts[1]).map(lambda _: parts))
         .bind(lambda parts: written(*parts))
-        .map(partial(_observing, dispatcher))
+        .bind(lambda done: dispatcher.watched().map(lambda _: done))
     )
 
 
@@ -288,17 +258,17 @@ def resume(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
     """Renders the remaining frames of a stopped, failed, or canceled queue."""
 
     def resent(queue: RenderQueue, target: LocalMachine, progress: Progress, beat: datetime.datetime, queueing: Queueing) -> Outcome[Done]:
-        phase = progress.phase(beat, datetime.datetime.now(datetime.UTC), queueing.heartbeat)
+        phase = progress.phase(beat, datetime.datetime.now(datetime.UTC), queueing.stale)
         resumable = Liveness.STOPPED, Ending.FAILED, Ending.CANCELLED
         return (
             target.sent(queue, dispatcher.host).map(
                 lambda issued: Done(notes=tuple(("INFO", value) for answer in issued for value in answer.to_option().to_list()), skipped=accumulated(issued).swap().to_option())
             )
             if phase in resumable
-            else Error(Fault.of(RecordReason.OUTSIDE, str(dispatcher.host.path(queue.stem, RunFile.PROGRESS)), str(phase.name), member=", ".join(value.name for value in resumable)))
+            else Error(Fault.of(Reason.OUTSIDE, str(dispatcher.host.path(queue.stem, RunFile.PROGRESS)), str(phase.name), member=", ".join(value.name for value in resumable)))
         )
 
-    return paired(kept(dispatcher), dispatcher.settings(call.identity)).bind(lambda pair: resent(*pair[0], pair[1])).map(partial(_observing, dispatcher))
+    return paired(dispatcher.kept(), dispatcher.settings(call.identity)).bind(lambda pair: resent(*pair[0], pair[1])).bind(lambda done: dispatcher.watched().map(lambda _: done))
 
 
 def stop(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
@@ -312,7 +282,7 @@ def stop(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
         stopped: Outcome[None] = supervision.stop(progress)
         return Result[None, Faults].bind(stopped, ended)
 
-    return paired(kept(dispatcher), dispatcher.settings(call.identity)).bind(lambda pair: halted(pair[0][0], pair[0][2], pair[1]))
+    return paired(dispatcher.kept(), dispatcher.settings(call.identity)).bind(lambda pair: halted(pair[0][0], pair[0][2], pair[1]))
 
 
 def open_log(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
@@ -330,7 +300,7 @@ def open_log(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
 
     return (
         rooted(bpy.types.WindowManager, call.context)
-        .bind(lambda manager: dispatcher.queued.struct(manager).dispatched.to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(dispatcher.queued), member="plan")))
+        .bind(lambda manager: dispatcher.queued.struct(manager).dispatched.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(dispatcher.queued), member="plan")))
         .bind(opened)
     )
 
@@ -338,25 +308,10 @@ def open_log(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
 def cancel_shutdown(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
     """Cancels the shutdown scheduled after the local queue."""
 
-    def cancelling(progress: Progress, power: PowerHold) -> Outcome[Done]:
-        return cancelled(progress).map(lambda _: Done(notes=(("INFO", "Shutdown canceled"),))) if power.shutdown else Error(Fault.of(BlenderReason.ABSENT, repr(power), member="shutdown"))
+    def cancelling(progress: Progress, queueing: Queueing) -> Outcome[Done]:
+        return cancelled(progress).map(lambda _: Done(notes=(("INFO", "Shutdown canceled"),))) if queueing.shutdown else Error(Fault.of(Reason.ABSENT, repr(queueing), member="shutdown"))
 
-    return paired(kept(dispatcher), dispatcher.settings(call.identity)).bind(lambda pair: cancelling(pair[0][2], pair[1].power))
-
-
-# --- [OBSERVATION]
-
-
-def _observing(dispatcher: Dispatcher, done: Done) -> Done:
-    """Starts observing the run a step just dispatched or resumed, passing its answer on."""
-    watched(dispatcher)
-    return done
-
-
-def _started(dispatcher: Dispatcher) -> Outcome[Option[float]]:
-    """Starts observing a run the open file dispatched, as a one-shot timer body, the observation timer stopping at once when none is pending."""
-    watched(dispatcher)
-    return Ok(Nothing)
+    return paired(dispatcher.kept(), dispatcher.settings(call.identity)).bind(lambda pair: cancelling(pair[0][2], pair[1]))
 
 
 # --- [SETUP]
@@ -374,7 +329,7 @@ def pack(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
 
     return (
         rooted(bpy.types.Scene, call.context)
-        .bind(lambda scene: dispatcher.pathed.path(scene, moment.date()))
+        .bind(lambda scene: dispatcher.routing.pathed.path(scene, moment.date()))
         .bind(lambda path: started(path.base / "packs" / f"{Path(bpy.data.filepath).stem}_{moment:%Y%m%d-%H%M%S}"))
     )
 
@@ -387,7 +342,7 @@ def read_manager(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
             case Flamenco() as target:
                 return Ok(target)
             case other:
-                return Error(Fault.of(RecordReason.OUTSIDE, repr(queueing), type(other).__name__, member=Flamenco.__name__))
+                return Error(Fault.of(Reason.OUTSIDE, repr(queueing), type(other).__name__, member=Flamenco.__name__))
 
     def noted(manager: Manager) -> Done:
         return Done(notes=(("INFO", f"Job type {'installed' if manager.job_type.is_some() else 'missing'}"), *(("INFO", f"Worker tag {tag.name}") for tag in manager.tags)))
@@ -404,11 +359,9 @@ def install_job_type(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]
             with importlib.resources.as_file(importlib.resources.files(Flamenco.__module__).joinpath(Flamenco.script)) as script:
                 return Path(shutil.copy(script, Path(folder) / Flamenco.script))
 
-        return written().map_error(partial(Fault.of, RecordReason.UNWRITABLE, folder)).map(lambda path: Done(notes=(("INFO", str(path)),)))
+        return written().map_error(partial(Fault.of, Reason.UNWRITABLE, folder)).map(lambda path: Done(notes=(("INFO", str(path)),)))
 
-    return dispatcher.settings(call.identity).bind(
-        lambda queueing: queueing.scripts.map(copied).default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(call.context.preferences), member="scripts")))
-    )
+    return dispatcher.settings(call.identity).bind(lambda queueing: queueing.scripts.map(copied).default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(call.context.preferences), member="scripts"))))
 
 
 def post_test_notice(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
@@ -418,4 +371,4 @@ def post_test_notice(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["QueueRun", "Step", "cancel_shutdown", "dispatch", "install_job_type", "open_log", "pack", "post_test_notice", "read_manager", "resume", "stop"]
+__all__ = ["QueueRun", "cancel_shutdown", "dispatch", "install_job_type", "open_log", "pack", "post_test_notice", "read_manager", "resume", "stop"]

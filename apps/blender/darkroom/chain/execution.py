@@ -15,7 +15,6 @@ import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.commands.calls import called
-from blender.bpy.data.ids.content import endpoints
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Mark, Saved
 from blender.bpy.data.ids.store import Handle, IdName
@@ -23,32 +22,29 @@ from blender.bpy.data.rna.descriptors import Value, written
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import made
 from blender.bpy.nodes.desired import member_paths
 from blender.bpy.nodes.graphs import Expr, group_input
-from blender.bpy.nodes.trees import socket_at
+from blender.bpy.nodes.trees import endpoints, socket_at
 from blender.bpy.render.color.spaces import viewed
-from blender.bpy.render.compositor.blending import Entry
 from blender.bpy.render.compositor.colors import COLOR_INPUT
-from blender.bpy.render.compositor.effects import CompositorEffect
+from blender.bpy.render.compositor.effects import CompositorEffect, Entry
 from blender.bpy.render.compositor.entries import EXECUTING, Owned
 from blender.bpy.render.compositor.inputs import CameraFrame, captured, entered, inputs_of, valued
 from blender.bpy.render.compositor.viewers import capturing
 from blender.bpy.render.outputs.formats import Colorspace, FileItem, FileItems, OutputFormat
 from blender.bpy.render.outputs.framing import Framing
 from blender.bpy.render.outputs.paths import Pathed
-from blender.bpy.render.outputs.results import COMPOSITE, intermediate, produced, Production, saved
-from blender.bpy.render.sessions.engines import Engine, EnginePass, PlaneKey, Tile
+from blender.bpy.render.outputs.results import COMPOSITE, intermediate, Production, saved
+from blender.bpy.render.sessions.engines import Engine, EnginePass, Tile
 from blender.bpy.render.sessions.renders import engined, RenderCall, sourced
 from blender.bpy.render.view_layers.passes import used
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.faults import ImagingReason
 from blender.imaging.files.buffers import pixels
 from blender.imaging.files.images import emitted, Subimage
 from blender.imaging.files.multilayer import Layer, Multilayer
 from blender.imaging.sampling.integration import Estimate, Precision
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 from blender.records.stores import removed
 
 from .stages import Effect, prepared
@@ -75,7 +71,7 @@ class Execution:
         self.identity, self.chain, self.scene, self.precision = identity, chain, scene, precision
         self.config = PyOpenColorIO.GetCurrentConfig()
         self.scope = ExitStack()
-        self.replay: dict[PlaneKey, Tile] = {}
+        self.replay: dict[tuple[int, int, str], tuple[Tile, ...]] = {}
         self.prepared: dict[int, tuple[Authored, ...]] = {}
         self.files: set[Path] = set()
         self.sources = sourced((scene,))
@@ -99,7 +95,7 @@ class Execution:
                         if isinstance(live, bpy.types.CompositorNodeGroup) and isinstance(child := live.node_tree, bpy.types.CompositorNodeTree)
                     ).map(lambda _: result)
                 case _:
-                    return Error(Fault.of(BlenderReason.ABSENT, repr(tree), member="copy"))
+                    return Error(Fault.of(Reason.ABSENT, repr(tree), member="copy"))
 
         def swapped(entry: bpy.types.SceneCompositorEffect, original: bpy.types.CompositorNodeTree, pair: tuple[Snapshot, bpy.types.CompositorNodeTree]) -> Outcome[None]:
             inputs, group = pair
@@ -142,7 +138,7 @@ class Execution:
             if (owner := next((name for name in names if layer.name.startswith(f"{name}.")), None)) is None:
                 return Ok(None)
             view = file.parts[layer.part].header.get("view", "")
-            declaration = EnginePass(name=layer.name[len(owner) + 1 :], chanid="".join(channel.name for channel in layer.channels))
+            declaration = EnginePass(name=layer.name[len(owner) + 1 :], chanid="".join(layer.channels))
 
             def retained(values: npt.NDArray[np.float32]) -> None:
                 raw = values[window.ybegin : window.yend, window.xbegin : window.xend] if values.shape[:2] == (height, width) and source.render.use_border else values
@@ -153,8 +149,8 @@ class Execution:
         def retained(_: object) -> None:
             stamps = tuple((key, value) for part in file.parts[:1] for key, value in part.header.items())
             self.replay.update({
-                PlaneKey(frame=frame, scene=source.session_uid, layer=owner, view=view): Tile(x=0, y=0, planes=(planes[0], *planes[1:]), view=Some(view), stamps=stamps)
-                for (owner, view), planes in groups.items()
+                (frame, source.session_uid, owner): tuple(Tile(x=0, y=0, planes=(planes[0], *planes[1:]), view=view, stamps=stamps) for (held, view), planes in groups.items() if held == owner)
+                for owner in dict.fromkeys(owner for owner, _ in groups)
             })
 
         return accumulated(plane(layer) for layer in file.layers).map(retained)
@@ -235,7 +231,7 @@ class Execution:
             def view(layer: Layer) -> Outcome[tuple[str, Prepared]]:
                 def loaded_view(plane: npt.NDArray[np.float32]) -> Outcome[tuple[str, Prepared]]:
                     buffer = OpenImageIO.ImageBuf(OpenImageIO.ImageSpec(spec))
-                    stored: Outcome[None] = Ok(None) if buffer.set_pixels(buffer.roi, plane) else Error(Fault.of(ImagingReason.BUFFER, buffer.name, buffer.geterror()))
+                    stored: Outcome[None] = Ok(None) if buffer.set_pixels(buffer.roi, plane) else Error(Fault.of(Reason.FAILED, buffer.name, buffer.geterror()))
                     return stored.bind(lambda _: prepared(record.record, self.identity, values, self.config, buffer, self.precision, frame, evaluated)).map(lambda value: (layer.name, value))
 
                 return Result[npt.NDArray[np.float32], Faults].bind(file.plane(layer, layer.channels), loaded_view)
@@ -337,11 +333,11 @@ class Execution:
                 "COMPOSITING": viewer.map(lambda space: Production(scene=Handle.of(self.scene), space=space, view=scene_view if space == linear else Nothing)),
             }
             for image in (image for image in bpy.data.images if image.type in productions):
-                produced(self.identity, image, Nothing)
+                Production.recorded(self.identity, image, Nothing)
 
             def published(status: Returned) -> Returned:
                 for image in (image for image in bpy.data.images if image.type in productions):
-                    produced(self.identity, image, productions[image.type])
+                    Production.recorded(self.identity, image, productions[image.type])
                 return status
 
             return called(bpy.ops.render.render, msgspec.structs.asdict(call) | {"scene": self.scene.name}).map(published)
@@ -381,7 +377,7 @@ class Execution:
                     self
                     .isolated(capture)
                     .bind(lambda _: capture.enter_context(capturing(self.identity, self.scene, held.entry, self.output(name, spec, demand=demand), stop=True)))
-                    .bind(lambda entry: Option.of_optional(entry.node_group).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(entry), member="node_group")))
+                    .bind(lambda entry: Option.of_optional(entry.node_group).to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member="node_group")))
                     .bind(self.formatted)
                     .bind(lambda _: called(bpy.ops.render.render, {"scene": self.scene.name, "write_still": False}))
                 )
@@ -418,7 +414,7 @@ class Execution:
 
         def prepared(authored: tuple[Authored, ...]) -> Outcome[Returned]:
             self.scope.callback(self.restored, authored)
-            with Engine.replayed(self.identity, "prepared_render", self.replay, lambda: scene.frame_current) as engine:
+            with Engine.replayed(self.identity, "prepared_render", lambda source, layer: self.replay.get((scene.frame_current, source.session_uid, layer.name), ())) as engine:
                 return engine.bind(
                     lambda name: reduce(lambda done, frame: done.bind(lambda _: self.frame(frame, sample, name, authored, staged)), frames, Ok(None)).bind(
                         lambda _: engined(self.sources, name, completed)

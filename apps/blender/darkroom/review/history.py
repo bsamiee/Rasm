@@ -30,17 +30,14 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Timer
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Band, Declaration
-from blender.bpy.faults import BlenderReason
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.outputs.results import combined, ResultRead
 from blender.bpy.render.previews.queue import Job, PreviewQueue, Rank
 from blender.bpy.render.sessions.renders import RenderSlots
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.ui.drawing.handlers import Refresh, Signal
-from blender.bpy.ui.images.overlays import Masks, overlaid, Tint
-from blender.bpy.ui.images.views import RenderView, revealed
-from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import FUNCTIONS, gridded, Label, Layout, OperatorButton, Property, Row
+from blender.bpy.ui.images.views import Masks, overlaid, RenderView, revealed, Tint
+from blender.bpy.ui.layout.rows import FUNCTIONS, gridded, Label, Layout, Member, OperatorButton, Property, Row
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.resources.icons import Glyph
 from blender.bpy.ui.resources.previews import PreviewKey, PREVIEWS
@@ -51,10 +48,9 @@ from blender.bpy.ui.surfaces.panels import Beside, Panel
 from blender.imaging.analysis.comparison import Bar, Comparison, Metric, Severity
 from blender.imaging.color.processors import DisplayView, Domain
 from blender.imaging.files.buffers import fitted
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 from blender.records.fields import Dated, History, Retention
-from blender.records.identity import content_hash, ContentHash
-from blender.records.stores import RecordFile, removed
+from blender.records.stores import content_hash, ContentHash, RecordFile, removed
 from blender.records.trees import Deleted, diff, Edit, Inserted, Moved, Reparametrized
 
 from ..catalog import chain
@@ -167,7 +163,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def absent(faults: Faults) -> Outcome[Renders]:
             match faults:
-                case (Fault(reason=RecordReason.UNREADABLE, cause=FileNotFoundError()),):
+                case (Fault(reason=Reason.UNREADABLE, cause=FileNotFoundError()),):
                     return Ok(Renders())
                 case _:
                     return Error(faults)
@@ -212,7 +208,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 .filter(lambda entry: entry.value.hex() == pair[0].shown)
                 .try_head()
                 .map(lambda entry: (pair[1], entry.value))
-                .to_result_with(partial(Fault.of, BlenderReason.ABSENT, str(self.record(identity).path), member=pair[0].shown))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, str(self.record(identity).path), member=pair[0].shown))
             )
         )
 
@@ -236,7 +232,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     )
                 )
                 .map(lambda key: (renders, key))
-                .to_result_with(partial(Fault.of, BlenderReason.ABSENT, str(self.record(identity).path), member=repr(space)))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, str(self.record(identity).path), member=repr(space)))
             )
 
         return paired(rooted(bpy.types.SpaceImageEditor, context), self.held(identity)).bind(lambda pair: shown(*pair))
@@ -246,7 +242,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def imaged(faults: Faults) -> Outcome[str]:
             match faults:
-                case (Fault(reason=BlenderReason.ABSENT),):
+                case (Fault(reason=Reason.ABSENT),):
                     return rooted(bpy.types.SpaceImageEditor, context).bind(lambda space: Option.of_optional(space.image).map(lambda image: image.name).to_result_with(lambda: faults))
                 case _:
                     return Error(faults)
@@ -286,7 +282,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             .browsed(identity, bpy.context)
             .bind(lambda browser: self.side(identity, bpy.context, Baseline[browser.baseline]))
             .map(Some)
-            .or_else_with(lambda faults: Ok(Nothing) if all(fault.reason is BlenderReason.ABSENT for fault in faults) else Error(faults))
+            .or_else_with(lambda faults: Ok(Nothing) if all(fault.reason is Reason.ABSENT for fault in faults) else Error(faults))
         )
 
     def compared(self, identity: Identity, context: bpy.types.Context) -> Outcome[Comparison]:
@@ -327,7 +323,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 plane
                 .map(Ok)
                 .default_with(lambda: self.output(identity, key))
-                .bind(lambda found: fitted(found, shown.side))
+                .bind(lambda found: fitted(found, (shown.side, shown.side)))
                 .bind(lambda pixels: identity.held[PREVIEWS].written(key.hex(), shown, Some(shown.checkered(pixels))))
                 .map(lambda _: None)
             ),
@@ -350,7 +346,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             frame, values = self.files(identity, key)
 
             def copied(_: Path) -> Outcome[None]:
-                return catch(shutil.copyfile, exception=OSError)(path, frame).map(lambda _: None).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(frame)))
+                return catch(shutil.copyfile, exception=OSError)(path, frame).map(lambda _: None).map_error(partial(Fault.of, Reason.UNWRITABLE, str(frame)))
 
             def published() -> Outcome[None]:
                 written = Ok(None) if any(entry.value == key for entry in renders.history.past) else Result[Path, Faults].bind(values.written(snapshot), copied)

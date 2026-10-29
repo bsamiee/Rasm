@@ -15,7 +15,7 @@ import PyOpenColorIO
 import tifffile
 
 from blender.imaging.files.images import profile, written
-from blender.records.faults import Fault, Outcome, paired, RecordReason
+from blender.records.faults import Fault, Outcome, paired, Reason
 from blender.records.fields import Finite, Positive
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -115,7 +115,7 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
             info=[psdtags.PsdEmpty(psdtags.PsdKey.SAVING_MERGED_TRANSPARENCY2)],
         )
         tagged = catch(source.tifftag, exception=struct.error)(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS).map_error(
-            functools.partial(Fault.of, RecordReason.UNWRITABLE, str(path))
+            functools.partial(Fault.of, Reason.UNWRITABLE, str(path))
         )
         return paired(tagged, profile(config, self.colorspace)).bind(
             lambda pair: written(
@@ -164,12 +164,8 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
         """
 
         def signed(*values: float) -> tuple[tuple[int, int], ...]:
-            limits = np.iinfo(np.int32)
-            bounded = (
-                fraction.limit_denominator(min(limits.max, (limits.max if fraction > 0 else -limits.min) * fraction.denominator // abs(fraction.numerator))) if fraction else fraction
-                for fraction in map(fractions.Fraction, values)
-            )
-            return tuple(fraction.as_integer_ratio() for fraction in bounded)
+            bound = int(np.iinfo(np.int32).max)
+            return tuple(fractions.Fraction(value).limit_denominator(min(bound, int(bound / abs(value)))).as_integer_ratio() if value else (0, 1) for value in values)
 
         def tags(matrix: npt.NDArray[np.float64]) -> list[tuple[int, int, int, object, bool]]:
             rows = (
@@ -195,7 +191,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
 
         return (
             catch(np.linalg.inv, exception=np.linalg.LinAlgError)(basis)
-            .map_error(functools.partial(Fault.of, RecordReason.NUMERIC, str(basis)))
+            .map_error(functools.partial(Fault.of, Reason.FAILED, str(basis)))
             .bind(
                 lambda inverse: written(
                     path,

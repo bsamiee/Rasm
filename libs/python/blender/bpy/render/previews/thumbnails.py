@@ -3,34 +3,26 @@
 from collections.abc import Callable, Hashable, Mapping
 from contextlib import nullcontext
 from enum import auto, Enum
-from functools import partial
 import math
-from pathlib import Path
 from typing import ClassVar, Final
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
-from expression.collections import Block
+from expression import Nothing, Ok, Option, Some
 import msgspec
-import numpy as np
-import numpy.typing as npt
-import PyOpenColorIO
 
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.paths import Struct
 from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.render.previews.fixtures import PreviewLighting
 from blender.bpy.render.previews.queue import BACKLOG
+from blender.bpy.render.previews.scenes import PreviewLighting
 from blender.bpy.render.previews.targets import Editor, NodePreviews, Position, RenderKind
 from blender.bpy.ui.drawing.canvas import Align, Canvas, DrawType, Rect, Shadow
 from blender.bpy.ui.layout.rows import Line, RowDraw
-from blender.bpy.ui.resources.textures import TEXTURES
-from blender.bpy.ui.resources.theme import Checker, color, Metrics, Spacing
+from blender.bpy.ui.resources.previews import TEXTURES
+from blender.bpy.ui.resources.theme import color, Metrics, Spacing
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.files.buffers import Depth, Rounded, unassociated
-from blender.imaging.files.images import Format, ImageFile, Storage
-from blender.records.faults import Fault, Faults, Outcome, RecordReason
-from blender.records.identity import ContentHash
+from blender.records.faults import Outcome
+from blender.records.stores import ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -42,11 +34,6 @@ class Status(Enum):
     QUEUED = auto()
     FAILED = auto()
 
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-WRITABLE: Final = Format.writable()
-SUFFIXES: Final = tuple(f".{extension}" for row in WRITABLE for extension in row.extensions)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -85,13 +72,6 @@ class Demand(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     def key(self) -> Hashable:
         """Content hash, else the demand itself."""
         return self.content.default_value(self)
-
-
-class Shown(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Settings and cells each editor draws."""
-
-    settings: NodePreviews
-    cells: Mapping[Editor, tuple[Cell, ...]]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -151,13 +131,14 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
     identity: Identity
     settings: Callable[[Identity], Outcome[NodePreviews]]
 
-    def read(self, _metrics: Metrics, /) -> Outcome[Option[Shown]]:
+    def read(self, _metrics: Metrics, /) -> Outcome[Option[tuple[NodePreviews, Mapping[Editor, tuple[Cell, ...]]]]]:
         """Reads settings and editor cells while previews show."""
-        return self.settings(self.identity).map(lambda settings: Some(Shown(settings=settings, cells=self.identity.held[NODE_STATES].cells)) if settings.enabled else Nothing)
+        return self.settings(self.identity).map(lambda settings: Some((settings, self.identity.held[NODE_STATES].cells)) if settings.enabled else Nothing)
 
-    def drawn(self, canvas: Canvas, state: Shown) -> None:
+    def drawn(self, canvas: Canvas, state: tuple[NodePreviews, Mapping[Editor, tuple[Cell, ...]]]) -> None:
         """Draws cells beside nodes, active node grid last."""
-        metrics, settings, theme, style = canvas.metrics, state.settings, canvas.metrics.preferences.themes[0], canvas.metrics.preferences.ui_styles[0].widget
+        (settings, shown), metrics = state, canvas.metrics
+        theme, style = metrics.preferences.themes[0], metrics.preferences.ui_styles[0].widget
         cache, points, pad, gap, checker = self.identity.held[TEXTURES], metrics.font(style), metrics.spaced(Spacing.BUTTON_Y), metrics.spaced(Spacing.TEMPLATE), metrics.checker()
         marks = {Status.QUEUED: ("…", color(theme.info.info_warning_text)), Status.FAILED: ("!", color(theme.info.info_error_text))} if settings.status else {}
         position = Position[settings.position]
@@ -168,7 +149,7 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
             centre = (rect.x + rect.width / 2, rect.y + rect.height / 2)
             canvas.frame(rect, fill=color(theme.node_editor.node_backdrop), edge=next((edge for _, edge in mark.to_list()), color(theme.node_editor.wire)), radius=0.0)
             if settings.checker:
-                checkered(canvas, inner, checker)
+                canvas.checkered(inner, checker)
             for texture in cache.shown(item.key).to_list():
                 canvas.picture(texture, inner, blend="ALPHA_PREMULT")
             for text, _ in mark.to_list():
@@ -203,7 +184,7 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
             if isinstance(space, bpy.types.SpaceNodeEditor)
             for tree in Option.of_optional(space.edit_tree).to_list()
             for editor in Editor.of(space).to_list()
-            for cells in Option.of_optional(state.cells.get(editor)).to_list()
+            for cells in Option.of_optional(shown.get(editor)).to_list()
         )
         for node, drawn, grown, region in (
             (node, drawn, settings.enlarge if node in active else 1.0, region)
@@ -216,47 +197,6 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
             grid(node, drawn, grown, region.view2d)
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def checkered(canvas: Canvas, rect: Rect, checker: Checker) -> None:
-    """Draws the transparency checker over a rect as one flat-colored triangle batch, edge squares clipped to the rect."""
-    size = float(checker.cell)
-    left, bottom = np.meshgrid(rect.x + np.arange(math.ceil(rect.width / size)) * size, rect.y + np.arange(math.ceil(rect.height / size)) * size)
-    right, top = np.minimum(left + size, rect.x + rect.width), np.minimum(bottom + size, rect.y + rect.height)
-    corners = np.stack((left, bottom, right, bottom, right, top, left, bottom, right, top, left, top), axis=-1).reshape(-1, 2).astype(np.float32)
-    odd = (np.indices(left.shape).sum(axis=0) % 2).reshape(-1, 1).astype(bool)
-    tints = np.repeat(np.where(odd, np.asarray(checker.primary, np.float32), np.asarray(checker.secondary, np.float32)), 6, axis=0)
-    with canvas.shader("FLAT_COLOR") as shader:
-        Canvas.batched("FLAT_COLOR", "TRIS", {"pos": corners, "color": tints}).draw(shader)
-
-
-def imaged(path: Path, plane: npt.NDArray[np.float32], config: PyOpenColorIO.Config, space: str) -> Outcome[Path]:
-    """Writes a display-space thumbnail at the deepest depth the suffix writer stores, integer depths coded from unassociated values."""
-
-    def write(depth: Depth) -> Outcome[Path]:
-        match depth:
-            case Depth.HALF | Depth.FLOAT as floated:
-                return ImageFile(pixels=plane, colorspace=space).written(path, Storage(depth=floated), {}, config)
-            case Depth.UINT8 | Depth.UINT16 as integer:
-                return Rounded.coded(unassociated(plane), integer).bind(lambda codes: ImageFile(pixels=codes, colorspace=space).written(path, Storage(), {}, config))
-
-    suffix = path.suffix.lower()
-    chosen = (
-        Block
-        .of_seq(WRITABLE)
-        .filter(lambda row: suffix.removeprefix(".") in row.extensions)
-        .try_head()
-        .to_result_with(partial(Fault.of, RecordReason.OUTSIDE, "filepath", suffix, member=", ".join(SUFFIXES)))
-    )
-    return Result[Format, Faults].bind(chosen, lambda row: write(row.depths[-1]))
-
-
-def value(values: npt.NDArray[np.float32]) -> Option[float]:
-    """Returns mean of a field within a thousandth of its magnitude, `Nothing` when varying or empty."""
-    return Option.of_optional(values if values.size else None).filter(lambda held: float(np.ptp(held)) <= 1e-3 * max(1.0, float(np.abs(held).max()))).map(lambda held: float(held.mean()))
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["NODE_STATES", "SUFFIXES", "WRITABLE", "Cell", "Counts", "Demand", "NodeState", "NodeThumbnails", "Shown", "Staged", "Status", "checkered", "imaged", "value"]
+__all__ = ["NODE_STATES", "Cell", "Counts", "Demand", "NodeState", "NodeThumbnails", "Staged", "Status"]

@@ -1,9 +1,10 @@
 """Signed distance fields of planar primitives over node expressions, their smooth booleans and morphs, distance-ramp coverage, and gradient parameters."""
 
+from enum import Enum
 from functools import reduce
 from itertools import starmap
 from math import cos, pi, sin, tau
-from typing import Literal, Self
+from typing import Literal, Self, TYPE_CHECKING
 
 import bpy
 from expression import Option
@@ -11,6 +12,25 @@ import msgspec
 
 from blender.bpy.nodes.graphs import equal, Expr, math, mixed, Scalar, switched, vector, where, xyz
 from blender.bpy.render.compositor.coordinates import FrameSpace
+
+if TYPE_CHECKING:
+    from bpy.stub_internal import rna_enums
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class Join(Enum):
+    """Smooth boolean of two regions."""
+
+    UNION = (1.0, 1.0, "MAXIMUM")
+    DIFFERENCE = (-1.0, 1.0, None)
+    INTERSECTION = (-1.0, -1.0, "MINIMUM")
+
+    def __init__(self, outer: float, inner: float, widest: "rna_enums.NodeMathItems | None") -> None:
+        """Holds the signs of this and the other field, and the Math operation joining both widths, Nothing where this field's width stays."""
+        self.outer, self.inner = outer, inner
+        self.widest: Option[rna_enums.NodeMathItems] = Option.of_optional(widest)
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -36,17 +56,12 @@ class Bounded(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         closer = other.distance < self.distance
         return type(self)(distance=where(closer, other.distance, self.distance), width=where(closer, other.width, self.width))
 
-    def union(self, other: Self, seam: Expr) -> Self:
-        """Joins both regions, blending their boundaries over `seam`."""
-        return type(self)(distance=self._joined(other, seam, 1.0, 1.0), width=math("MAXIMUM", self.width, other.width))
-
-    def difference(self, other: Self, seam: Expr) -> Self:
-        """Cuts the other region out of this one, blending the cut over `seam`."""
-        return type(self)(distance=self._joined(other, seam, -1.0, 1.0), width=self.width)
-
-    def intersection(self, other: Self, seam: Expr) -> Self:
-        """Keeps the overlap of both regions, blending its boundary over `seam`."""
-        return type(self)(distance=self._joined(other, seam, -1.0, -1.0), width=math("MINIMUM", self.width, other.width))
+    def joined(self, other: Self, seam: Expr, join: Join) -> Self:
+        """Joins both regions through a quadratic smooth minimum of the signed fields, blending the joined boundary over `seam`."""
+        left, right = self.distance * join.outer, other.distance * join.inner
+        overlap = math("MAXIMUM", seam - abs(left - right), 0.0)
+        width = join.widest.map(lambda operation: math(operation, self.width, other.width)).default_value(self.width)
+        return type(self)(distance=(math("MINIMUM", left, right) - overlap * overlap / (seam * 4.0)) * join.outer, width=width)
 
     def morphed(self, other: Self, share: Scalar) -> Self:
         """Blends this field toward the other by `share`."""
@@ -56,12 +71,6 @@ class Bounded(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Band inside the boundary `thickness` times a quarter of the narrowest width deep."""
         half = self.width * thickness * 0.25
         return type(self)(distance=abs(self.distance + half) - half, width=half * 2.0)
-
-    def _joined(self, other: Self, seam: Expr, outer: float, inner: float) -> Expr:
-        """Quadratic smooth minimum of the signed fields, both signs flipped to give difference and intersection."""
-        left, right = self.distance * outer, other.distance * inner
-        overlap = math("MAXIMUM", seam - abs(left - right), 0.0)
-        return (math("MINIMUM", left, right) - overlap * overlap / (seam * 4.0)) * outer
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -243,6 +252,7 @@ def rectangular(local: Expr, width: Expr, height: Expr) -> Expr:
 
 __all__ = [
     "Bounded",
+    "Join",
     "angular",
     "box",
     "coverage",

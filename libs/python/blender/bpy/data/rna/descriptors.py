@@ -15,9 +15,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from blender.bpy.data.ids.store import IdName
-from blender.bpy.data.rna.paths import definition, definition_at, Native, rna, RnaPath, root_in, Struct, struct_at
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import Fault, Faults, Outcome, RecordReason, typed
+from blender.bpy.data.rna.paths import defined, definition, definition_at, Native, rna, RnaPath, root_in, Struct, struct_at
+from blender.records.faults import Fault, Faults, Outcome, Reason, typed
 
 if TYPE_CHECKING:
 
@@ -34,8 +33,6 @@ if TYPE_CHECKING:
 type Scalar = bool | int | float | str
 type Value = Scalar | tuple[Scalar, ...] | IdName | None
 P_co = TypeVar("P_co", bound=bpy.types.Property, covariant=True, default=bpy.types.Property)
-
-
 type _Uncoerced = _UncoercedMember
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -94,6 +91,17 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         return Some(self.coordinates).filter(bool).map(lambda at: int(np.ravel_multi_index(at, self.dimensions(self.prop))))
 
     @staticmethod
+    def split(path: RnaPath, coordinates: tuple[int, ...] = (), /) -> Option[tuple[RnaPath, str, tuple[int, ...]]]:
+        """Splits a member path at its last identifier into owner path, identifier, and trailing coordinates."""
+        match path:
+            case (*owner, str(identifier)):
+                return Some((tuple(owner), identifier, coordinates))
+            case (*rest, int(coordinate)):
+                return Descriptor.split(tuple(rest), (coordinate, *coordinates))
+            case _:
+                return Nothing
+
+    @staticmethod
     def resolve[K: bpy.types.Property](root: type[Struct] | Native, path: RnaPath, kind: type[K]) -> Outcome["Descriptor[K]"]:
         """Resolves path to descriptor, choice fault for another kind.
 
@@ -108,17 +116,18 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         stated = type(root) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else root
 
         def owned(owner: RnaPath) -> Option[bpy.types.Struct]:
-            return struct_at(root, owner, bpy.types.bpy_struct).map(definition) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else definition_at(definition(root), owner)
+            return struct_at(root, owner).bind(defined) if isinstance(root, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else definition_at(definition(root), owner)
 
         def within(prop: bpy.types.Property, coordinates: tuple[int, ...]) -> bool:
             dimensions = Descriptor.dimensions(prop)
             return not coordinates or (len(coordinates) == len(dimensions) and all(0 <= coordinate < size for coordinate, size in zip(coordinates, dimensions)))
 
         return (
-            _split(path)
+            Descriptor
+            .split(path)
             .bind(lambda split: owned(split[0]).bind(lambda owner: Option.of_optional(owner.properties.get(split[1]))).map(lambda prop: (split, prop)))
             .filter(lambda found: within(found[1], found[0][2]))
-            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(root), member=rna(path)))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(root), member=rna(path)))
             .bind(lambda found: typed(kind, rna(path), found[1]).map(lambda prop: Descriptor[K](root=stated, owner=found[0][0], prop=prop, coordinates=found[0][2])))
         )
 
@@ -132,8 +141,8 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
                 raise LookupError(path, faults)
 
     @staticmethod
-    def located(root: Native, path: RnaPath) -> "Outcome[tuple[Struct, Descriptor]]":
-        """Resolves path under a live root to the struct holding the member and the member's descriptor.
+    def located(root: Native, path: RnaPath) -> "Outcome[tuple[Native, Descriptor]]":
+        """Resolves path under a live root to the struct or collection holding the member and the member's descriptor, a collection holding the members its own definition declares (`RenderSlots.active`).
 
         Args:
             root: Live struct or collection the path starts from.
@@ -143,11 +152,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
             Holder and descriptor, absent fault for a path naming no member or a holder the host no longer reaches.
         """
         return Descriptor.resolve(root, path, bpy.types.Property).bind(
-            lambda descriptor: (
-                struct_at(root, descriptor.owner, bpy.types.bpy_struct)
-                .map(lambda holder: (holder, descriptor))
-                .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(root), member=rna(descriptor.path)))
-            )
+            lambda descriptor: struct_at(root, descriptor.owner).map(lambda holder: (holder, descriptor)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(root), member=rna(descriptor.path)))
         )
 
     @staticmethod
@@ -169,14 +174,14 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
             if not (prop.is_hidden or prop.is_skip_save or prop.is_deprecated or prop.is_registered or prop.is_registered_optional or prop == held.name_property or prop in base) and where(prop)
         )
 
-    def owner_of(self, context: Native, item: Option[Native] = Nothing) -> Option[Struct]:
+    def owner_of(self, context: Native, item: Option[Native] = Nothing) -> Option[Native]:
         """Returns live property owner from item, root, or context."""
         return (
             item
             .filter(lambda value: isinstance(value, self.root))
             .or_else_with(lambda: Some(context) if isinstance(context, self.root) else root_in(self.root, context) if isinstance(context, bpy.types.Context) else Nothing)
-            .bind(lambda value: struct_at(value, self.owner, bpy.types.bpy_struct))
-            .filter(lambda owner: self.prop in definition(owner).properties.values() and effective(owner))
+            .bind(lambda value: struct_at(value, self.owner))
+            .filter(lambda owner: defined(owner).filter(lambda held: self.prop in held.properties.values()).is_some() and effective(owner))
         )
 
     def leaves(self, compound: tuple[type[Struct], ...] = ()) -> "tuple[Descriptor, ...]":
@@ -203,17 +208,21 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
     # --- [KINDS]
 
     @property
-    def curve(self) -> bool:
-        """Whether the member points at a curve mapping or profile."""
-        return isinstance(self.prop, bpy.types.PointerProperty) and isinstance(self.prop.fixed_type, bpy.types.CurveMapping | bpy.types.CurveProfile)
+    def compound(self) -> bool:
+        """Whether a native capture holds the member whole: a collection of structs other than IDs, or a curve mapping or profile pointer."""
+        match self.prop:
+            case bpy.types.CollectionProperty(fixed_type=fixed):
+                return not isinstance(fixed, bpy.types.ID)
+            case bpy.types.PointerProperty(fixed_type=fixed):
+                return isinstance(fixed, bpy.types.CurveMapping | bpy.types.CurveProfile)
+            case _:
+                return False
 
     def valued(self, *, native: bool = False) -> bool:
-        """Whether a capture holds the member as a value, a native capture adding struct collections and curve or writable pointers."""
+        """Whether a capture holds the member as a value, a native capture adding compounds and writable pointers."""
         match self.prop:
-            case bpy.types.CollectionProperty():
-                return native and not isinstance(self.prop.fixed_type, bpy.types.ID)
-            case bpy.types.PointerProperty(is_readonly=True):
-                return native and self.curve
+            case bpy.types.CollectionProperty() | bpy.types.PointerProperty(is_readonly=True):
+                return native and self.compound
             case bpy.types.PointerProperty():
                 return native or isinstance(self.prop.fixed_type, bpy.types.ID)
             case _:
@@ -323,14 +332,14 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
                 case bpy.types.EnumProperty(is_enum_flag=True), tuple(chosen):
                     return Ok(set(chosen))
                 case bpy.types.PointerProperty(fixed_type=bpy.types.ID() as pointed), IdName() as identity:
-                    return identity.resolve(type(pointed)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, type(pointed).__name__, member=identity.name))  # type: ignore[unreachable]
+                    return identity.resolve(type(pointed)).to_result_with(lambda: Fault.of(Reason.ABSENT, type(pointed).__name__, member=identity.name))  # type: ignore[unreachable]
                 case _:
                     return Ok(stored)
 
         return (
             Ok(Nothing)
             if self.equal(held, value)
-            else stored().bind(hosted).bind(lambda native: _assign(owner, name, native).map_error(partial(Fault.of, BlenderReason.REFUSED, rna(self.path)))).map(published)
+            else stored().bind(hosted).bind(lambda native: assign(owner, name, native).map_error(partial(Fault.of, Reason.REFUSED, rna(self.path)))).map(published)
         )
 
     @staticmethod
@@ -339,7 +348,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         """Returns float32 storage, domain fault outside hard range."""
         return Ok(np.asarray(value, dtype=np.float32)).filter_with(
             lambda target: not np.any((target < prop.hard_min) | (target > prop.hard_max)),
-            lambda _: Fault.of(RecordReason.OUTSIDE, repr(prop), str(value), member=f"values within hard range [{prop.hard_min}, {prop.hard_max}]"),
+            lambda _: Fault.of(Reason.OUTSIDE, repr(prop), str(value), member=f"values within hard range [{prop.hard_min}, {prop.hard_max}]"),
         )
 
     @staticmethod
@@ -402,12 +411,16 @@ def differing[K: RnaPath | Descriptor](root: Native, members: Mapping[K, Value])
         if not any(
             descriptor.equal(descriptor.read(owner), value)
             for descriptor in ((key,) if isinstance(key, Descriptor) else Descriptor.resolve(root, key, bpy.types.Property).to_option().to_list())
-            for owner in struct_at(root, descriptor.owner, bpy.types.bpy_struct).to_list()
+            for owner in struct_at(root, descriptor.owner).to_list()
         )
     }
 
 
 # --- [WRITES]
+
+assign: Final[Callable[[object, str, object], Result[object, AttributeError | TypeError | ValueError]]] = catch(
+    catch(catch(setattr, exception=AttributeError), exception=TypeError), exception=ValueError
+)
 
 
 def written(struct: Native, path: RnaPath, value: Value | bytes | Struct) -> Outcome[Option[Value | Struct]]:
@@ -415,7 +428,7 @@ def written(struct: Native, path: RnaPath, value: Value | bytes | Struct) -> Out
     return Descriptor.located(struct, path).bind(lambda found: found[1].write(found[0], value))
 
 
-def sequenced[W](writes: Iterable[tuple[RnaPath, Struct, Descriptor, W]]) -> tuple[tuple[RnaPath, Struct, Descriptor, W], ...]:
+def sequenced[W](writes: Iterable[tuple[RnaPath, Native, Descriptor, W]]) -> tuple[tuple[RnaPath, Native, Descriptor, W], ...]:
     """Orders writes in host order.
 
     `LEADING` members go first, each resetting members it governs.
@@ -444,22 +457,6 @@ def sequenced[W](writes: Iterable[tuple[RnaPath, Struct, Descriptor, W]]) -> tup
 # --- [READERS]
 
 
-def _split(path: RnaPath, coordinates: tuple[int, ...] = ()) -> Option[tuple[RnaPath, str, tuple[int, ...]]]:
-    """Splits a member path at its last identifier into owner path, identifier, and trailing coordinates."""
-    match path:
-        case (*owner, str(identifier)):
-            return Some((tuple(owner), identifier, coordinates))
-        case (*rest, int(coordinate)):
-            return _split(tuple(rest), (coordinate, *coordinates))
-        case _:
-            return Nothing
-
-
-_assign: Final[Callable[[Native, str, object], Result[object, AttributeError | TypeError | ValueError]]] = catch(
-    catch(catch(setattr, exception=AttributeError), exception=TypeError), exception=ValueError
-)
-
-
 def _uncoerced(owner: Struct, name: str) -> _Uncoerced:
     """Returns a member's uncoerced host property, the msgbus key of its value and, for an array, its live length and buffer read."""
     held: _Uncoerced = owner.path_resolve(name, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
@@ -468,7 +465,7 @@ def _uncoerced(owner: Struct, name: str) -> _Uncoerced:
 
 def _outside(subject: str, value: object, error: Exception) -> Faults:
     """Returns the domain fault of a value a conversion refused."""
-    return Fault.of(RecordReason.OUTSIDE, subject, str(value), member=str(error))
+    return Fault.of(Reason.OUTSIDE, subject, str(value), member=str(error))
 
 
 def _converted(value: object, kind: object, subject: str) -> Outcome[object]:
@@ -480,4 +477,4 @@ def _converted(value: object, kind: object, subject: str) -> Outcome[object]:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["DTYPES", "LEADING", "Descriptor", "P_co", "Scalar", "Value", "custom_read", "differing", "effective", "sequenced", "written"]
+__all__ = ["DTYPES", "LEADING", "Descriptor", "P_co", "Scalar", "Value", "assign", "custom_read", "differing", "effective", "sequenced", "written"]

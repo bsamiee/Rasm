@@ -16,8 +16,7 @@ from numpy.typing import NDArray
 from blender.bpy.data.rna.descriptors import Descriptor, differing, Value, written
 from blender.bpy.data.rna.paths import id_path, rna, RnaPath, Struct, struct_at
 from blender.bpy.data.rna.snapshots import assigned
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case
 
 if TYPE_CHECKING:
@@ -25,7 +24,6 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Source = Keys | Driven
 type _Curves = bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -73,16 +71,21 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
     """Desired animation on one scalar member or array element under an ID, the element's coordinates ending its path."""
 
     path: RnaPath
-    source: _Source
+    source: Keys | Driven
     modifiers: tuple[Modifier, ...] = ()
 
     # --- [RESOLUTION]
 
     def channel(self, block: bpy.types.ID) -> Outcome[tuple[Struct, Descriptor]]:
         """Returns the struct holding the animatable member and its descriptor, an array member taking one element alone."""
-        return Descriptor.located(block, self.path).filter_with(
-            lambda found: found[1].prop.is_animatable and bool(found[1].coordinates) == bool(Descriptor.dimensions(found[1].prop)),
-            lambda _: Fault.of(BlenderReason.ABSENT, repr(block), member=rna(self.path)),
+        return Descriptor.located(block, self.path).bind(
+            lambda found: (
+                Option
+                .of_optional(try_downcast(bpy.types.bpy_struct, found[0]))
+                .filter(lambda _: found[1].prop.is_animatable and bool(found[1].coordinates) == bool(Descriptor.dimensions(found[1].prop)))
+                .map(lambda struct: (struct, found[1]))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, repr(block), member=rna(self.path)))
+            )
         )
 
     # --- [CHANNELS]
@@ -96,7 +99,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Whether a key, driver, mute, or modifier value changed, refusal faults of every host call accumulated.
         """
-        refused = partial(Fault.of, BlenderReason.REFUSED, f"{block!r}.{rna(self.path)}")
+        refused = partial(Fault.of, Reason.REFUSED, f"{block!r}.{rna(self.path)}")
 
         def keyed(curve: bpy.types.FCurve, points: NDArray[np.float32]) -> Outcome[bool]:
             held = np.empty(len(curve.keyframe_points) * 2, np.float32)
@@ -122,7 +125,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                 changed = bool(differing(driver, source.values))
                 return assigned(driver, source.values).bind(lambda _: variables(driver)).map(lambda wrote: wrote or changed)
 
-            return Option.of_optional(curve.driver).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(curve), member="driver")).bind(drove)
+            return Option.of_optional(curve.driver).to_result_with(partial(Fault.of, Reason.ABSENT, repr(curve), member="driver")).bind(drove)
 
         def modified(curve: bpy.types.FCurve) -> Outcome[bool]:
             held = tuple(curve.modifiers)
@@ -132,13 +135,13 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             def added(row: Modifier) -> Outcome[None]:
                 return (
                     catch(curve.modifiers.new, exception=TypeError)(row.kind)
-                    .map_error(partial(Fault.of, BlenderReason.REFUSED, repr(curve.modifiers)))
-                    .bind(lambda made: Option.of_optional(made).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(curve.modifiers), member=row.kind)))
+                    .map_error(partial(Fault.of, Reason.REFUSED, repr(curve.modifiers)))
+                    .bind(lambda made: Option.of_optional(made).to_result_with(partial(Fault.of, Reason.ABSENT, repr(curve.modifiers), member=row.kind)))
                     .bind(lambda made: assigned(made, row.values))
                 )
 
             return (
-                accumulated(catch(curve.modifiers.remove, exception=RuntimeError)(modifier).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(curve.modifiers))) for modifier in held)
+                accumulated(catch(curve.modifiers.remove, exception=RuntimeError)(modifier).map_error(partial(Fault.of, Reason.REFUSED, repr(curve.modifiers))) for modifier in held)
                 .bind(lambda _: accumulated(map(added, self.modifiers)))
                 .map(lambda _: True)
             )
@@ -169,7 +172,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                             lambda: (
                                 catch(struct.driver_add, exception=TypeError)(descriptor.prop.identifier, index)
                                 .map_error(refused)
-                                .bind(lambda made: Option.of_optional(try_downcast(bpy.types.FCurve, made)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(struct), member="driver")))
+                                .bind(lambda made: Option.of_optional(try_downcast(bpy.types.FCurve, made)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(struct), member="driver")))
                             )
                         )
                     )
@@ -189,7 +192,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             lambda found: (
                 Option
                 .of_optional(block.animation_data_create())
-                .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(block), member="animation_data"))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, repr(block), member="animation_data"))
                 .bind(lambda data: curve_of(data, *found[0]).bind(lambda curve: reconciled(curve, found[1])))
             )
         )
@@ -198,8 +201,8 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         """Removes the channel's F-curve or driver."""
         return self.channel(block).bind(
             lambda found: accumulated(
-                catch(curves.remove, exception=RuntimeError)(curve).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(curves)))
-                for curves in _animation_data(block).bind(self.source.curves).to_list()
+                catch(curves.remove, exception=RuntimeError)(curve).map_error(partial(Fault.of, Reason.REFUSED, repr(curves)))
+                for curves in struct_at(block, ("animation_data",), bpy.types.AnimData).bind(self.source.curves).to_list()
                 for curve in Option.of_optional(curves.find(rna(found[1].member), index=found[1].index.default_value(0))).to_list()
             ).map(lambda _: None)
         )
@@ -221,7 +224,7 @@ def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Opt
         One value per frame, absent fault for a path naming no number or enum scalar.
     """
     held = tuple(frames)
-    absent = partial(Fault.of, BlenderReason.ABSENT, repr(owner), member=rna(path))
+    absent = partial(Fault.of, Reason.ABSENT, repr(owner), member=rna(path))
 
     def projected(prop: bpy.types.Property, values: NDArray[np.float32]) -> Outcome[tuple[float, ...]]:
         match prop:
@@ -234,13 +237,13 @@ def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Opt
             case bpy.types.EnumProperty():
                 return Ok(tuple(values.astype(np.int64).astype(float).tolist()))
             case _:
-                return Error(Fault.of(RecordReason.OUTSIDE, rna(path), type(prop).__name__, member=", ".join(kind.__name__ for kind in _SAMPLED)))
+                return Error(Fault.of(Reason.OUTSIDE, rna(path), type(prop).__name__, member=", ".join(kind.__name__ for kind in _SAMPLED)))
 
     def curve(descriptor: Descriptor) -> Option[bpy.types.FCurve]:
         return (
             Option
             .of_optional(try_downcast(bpy.types.ID, owner.id_data))
-            .bind(_animation_data)
+            .bind(lambda block: struct_at(block, ("animation_data",), bpy.types.AnimData))
             .bind(Keys.curves)
             .bind(lambda curves: id_path(owner).bind(lambda base: Option.of_optional(curves.find(rna((*base, *descriptor.member)), index=descriptor.index.default_value(0)))))
         )
@@ -266,11 +269,6 @@ def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Opt
         .filter_with(lambda descriptor: bool(descriptor.coordinates) == bool(Descriptor.dimensions(descriptor.prop)), lambda _: absent())
         .bind(sample)
     )
-
-
-def _animation_data(block: bpy.types.ID) -> Option[bpy.types.AnimData]:
-    """Returns the block's animation data, Nothing for an ID kind that holds none."""
-    return struct_at(block, ("animation_data",), bpy.types.AnimData)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

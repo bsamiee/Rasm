@@ -19,28 +19,25 @@ from blender.bpy.commands.invocations import Open
 from blender.bpy.commands.operators import Call, Done, Empty, Operator
 from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import kept, Ownership, retained, Saved
-from blender.bpy.data.rna.conditions import Present
+from blender.bpy.data.rna.conditions import Present, Scenes
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.data.rna.scopes import Scenes
-from blender.bpy.data.rna.snapshots import Snapshot
+from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import reconciled
 from blender.bpy.nodes.content import Loaded
 from blender.bpy.nodes.desired import Graph, Members
 from blender.bpy.nodes.functions import ColorExpr, grouped, lowered, VectorExpr
 from blender.bpy.nodes.graphs import Expr, Term, vector, xyz
 from blender.bpy.nodes.trees import emptied, tree_of
-from blender.bpy.scene.objects import fanned, ObjectState, Reconciled
+from blender.bpy.scene.objects import fanned, ObjectState
 from blender.bpy.settings.attachments import Stored
-from blender.records.faults import accumulated, Fault, Outcome, paired
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case, Finite, NonNegative, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type ShadingSetup = Textured | Clay | Emissive | Utility
-type AovKind = Literal["VALUE", "COLOR"]
 
 
 class MapKind(IntEnum):
@@ -68,11 +65,16 @@ class TextureProjection(StrEnum):
 
 
 class DataPass(IntEnum):
-    """Shader AOV purpose."""
+    """Shader AOV purpose, its AOV named after the member."""
 
     DEPTH = 1
     POSITION = 2
     REFERENCE = 3
+
+    @property
+    def kind(self) -> Literal["VALUE", "COLOR"]:
+        """AOV type the source output's socket shape takes."""
+        return "VALUE" if AOVS[self].shape is bpy.types.NodeSocketFloat else "COLOR"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -80,25 +82,17 @@ class DataPass(IntEnum):
 _ACTIVE: Final = Descriptor.declared(bpy.types.ViewLayer, ("objects", "active"), bpy.types.PointerProperty)
 _ACTIVE_MATERIAL: Final = Descriptor.declared(bpy.types.Object, ("active_material",), bpy.types.PointerProperty)
 _DISPLACEMENT_METHOD: Final = Descriptor.declared(bpy.types.Material, ("displacement_method",), bpy.types.EnumProperty)
+_IMAGES: Final[tuple[str, ...]] = tuple(sorted(bpy.path.extensions_image))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class MapRole(msgspec.Struct, frozen=True, kw_only=True):
-    """Filename words, colorspace role, and Principled BSDF input of one map kind."""
+    """Filename words, colorspace role or name `Tag` resolves, and Principled BSDF input of one map kind."""
 
     words: tuple[str, ...]
     space: Option[str] = Some(PyOpenColorIO.ROLE_DATA)
     socket: Option[str] = Nothing
-
-
-class Aov(msgspec.Struct, frozen=True, kw_only=True):
-    """AOV type, source node, its members, and source output of one data pass."""
-
-    kind: AovKind
-    source: type[bpy.types.Node]
-    output: str
-    members: Members = MappingProxyType({})
 
 
 class DisplacementMap(msgspec.Struct, frozen=True, kw_only=True):
@@ -143,20 +137,13 @@ class Utility(Case, frozen=True, kw_only=True):
     passes: frozenset[DataPass] = frozenset(DataPass)
 
 
-class Shading(msgspec.Struct, frozen=True, kw_only=True):
-    """Surface setup stored on owned material node tree."""
-
-    setup: ShadingSetup = Clay()
-
-
 class Materials(msgspec.Struct, frozen=True, kw_only=True):
-    """Shading store with ownerships, color matrix group, and texture set operator."""
+    """Setup ownerships, color matrix group, and texture set operator."""
 
-    ownerships: tuple[Ownership[bpy.types.Material], ...] = tuple(case.ownership for case in get_args(ShadingSetup.__value__))
-
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
-        """Returns ownerships, matrix group, and texture set operator."""
-        return Ok((*self.ownerships, color_matrix.group, texture_setup_command))
+    @staticmethod
+    def acquisitions(_identity: Identity, /) -> Outcome[Acquisitions]:
+        """Returns the ownership of each setup case, matrix group, and texture set operator."""
+        return Ok((*(case.ownership for case in get_args(ShadingSetup.__value__)), color_matrix.group, texture_setup))
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -175,10 +162,10 @@ MAPS: Final[Mapping[MapKind, MapRole]] = MappingProxyType({
     MapKind.EMISSION: MapRole(words=("emission", "emissive", "emit"), space=Nothing, socket=Some("Emission Color")),
     MapKind.ALPHA: MapRole(words=("alpha", "opacity"), socket=Some("Alpha")),
 })
-AOVS: Final[Mapping[DataPass, Aov]] = MappingProxyType({
-    DataPass.DEPTH: Aov(kind="VALUE", source=bpy.types.ShaderNodeCameraData, output="View Z Depth"),
-    DataPass.POSITION: Aov(kind="COLOR", source=bpy.types.ShaderNodeNewGeometry, output="Position"),
-    DataPass.REFERENCE: Aov(kind="COLOR", source=bpy.types.ShaderNodeAttribute, output="Vector", members=MappingProxyType({"attribute_name": "rest_position"})),
+AOVS: Final[Mapping[DataPass, Expr]] = MappingProxyType({
+    DataPass.DEPTH: Expr(kind=bpy.types.ShaderNodeCameraData, socket="View Z Depth"),
+    DataPass.POSITION: Expr(kind=bpy.types.ShaderNodeNewGeometry, socket="Position", shape=bpy.types.NodeSocketVector),
+    DataPass.REFERENCE: Expr(kind=bpy.types.ShaderNodeAttribute, members={"attribute_name": "rest_position"}, socket="Vector", shape=bpy.types.NodeSocketVector),
 })
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -187,8 +174,8 @@ AOVS: Final[Mapping[DataPass, Aov]] = MappingProxyType({
 
 
 def kind(path: str) -> Option[MapKind]:
-    """Returns kind of longest filename word match, `Nothing` on no match or tie."""
-    stem = PurePath(path).stem
+    """Returns kind of longest filename word match, each case change a word boundary, `Nothing` on no match or tie."""
+    stem = re.sub(r"(?<=[a-z])(?=[A-Z])", "_", PurePath(path).stem)
     found = tuple((len(word), member) for member, role in MAPS.items() for word in role.words if re.search(rf"(?<![a-z]){re.escape(word)}(?![a-z])", stem, re.IGNORECASE))
     longest = max((size for size, _ in found), default=0)
     match tuple(frozenset(member for size, member in found if size == longest)):
@@ -202,14 +189,14 @@ def classified(paths: tuple[str, ...]) -> Outcome[dict[MapKind, str]]:
     """Classifies files by map kind, accumulating each later file of a kind as a collision with its first."""
     found = tuple((member, path) for path in paths for member in kind(path).to_list())
     first = dict(reversed(found))
-    return accumulated(Ok(pair).filter_with(lambda held: first[held[0]] == held[1], lambda held: Fault.of(BlenderReason.TAKEN, held[1], member=first[held[0]])) for pair in found).map(dict)
+    return accumulated(Ok(pair).filter_with(lambda held: first[held[0]] == held[1], lambda held: Fault.of(Reason.TAKEN, held[1], member=first[held[0]])) for pair in found).map(dict)
 
 
 # --- [GRAPH]
 
 
-def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Outcome[Graph]:
-    """Builds shader graph of setup with config colorspaces, its output and every AOV output lowered as roots."""
+def material_graph(setup: ShadingSetup) -> Outcome[Graph]:
+    """Builds shader graph of setup, its output and every AOV output lowered as roots, map colorspaces resolved by `Tag` on load."""
 
     def image(path: str, tag: Tag, inputs: tuple[tuple[str, Term], ...] = (), members: Members = MappingProxyType({})) -> Expr:
         return Expr(kind=bpy.types.ShaderNodeTexImage, inputs=inputs, members=members, content=Some(Loaded(path=Path(path), tag=tag)), socket="Color", shape=bpy.types.NodeSocketColor)
@@ -217,7 +204,7 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Outcome
     def output(surface: Expr, displacement: Option[Expr] = Nothing) -> Expr:
         return Expr(kind=bpy.types.ShaderNodeOutputMaterial, inputs=(("Surface", surface), *(("Displacement", held) for held in displacement.to_list())), members={"is_active_output": True})
 
-    def textured(setup: Textured) -> tuple[Expr, ...]:
+    def textured(setup: Textured) -> Expr:
         maps, displacement = setup.maps, Option.of_optional(setup.displacement)
         mapping = Expr(
             kind=bpy.types.ShaderNodeMapping,
@@ -226,20 +213,12 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Outcome
             shape=bpy.types.NodeSocketVector,
         )
         textures = {
-            member: image(
-                path,
-                Tag(space=MAPS[member].space.map(lambda role: config.getColorSpace(role).getName())),
-                (("Vector", mapping),),
-                {"projection": setup.projection.name, "projection_blend": setup.projection_blend},
-            )
+            member: image(path, Tag(space=MAPS[member].space), (("Vector", mapping),), {"projection": setup.projection.name, "projection_blend": setup.projection_blend})
             for member, path in maps.items()
         }
-
-        def flipped(texture: Expr) -> Expr:
-            red, green, blue = (Expr(kind=bpy.types.ShaderNodeSeparateColor, inputs=(("Color", texture),), socket=channel) for channel in ("Red", "Green", "Blue"))
-            return Expr(kind=bpy.types.ShaderNodeCombineColor, inputs=(("Red", red), ("Green", 1.0 - green), ("Blue", blue)), socket="Color", shape=bpy.types.NodeSocketColor)
-
-        normal = Option.of_optional(textures.get(MapKind.NORMAL)).or_else_with(lambda: Option.of_optional(textures.get(MapKind.NORMAL_DX)).map(flipped))
+        normal = Option.of_optional(textures.get(MapKind.NORMAL)).or_else_with(
+            lambda: Option.of_optional(textures.get(MapKind.NORMAL_DX)).map(lambda texture: vector("MULTIPLY_ADD", texture, (1.0, -1.0, 1.0), (0.0, 1.0, 0.0)))
+        )
         mapped = normal.map(lambda color: Expr(kind=bpy.types.ShaderNodeNormalMap, inputs=(("Color", color),), socket="Normal", shape=bpy.types.NodeSocketVector))
         relief = Option.of_optional(textures.get(MapKind.BUMP)).map(
             lambda height: Expr(kind=bpy.types.ShaderNodeBump, inputs=(("Height", height), *(("Normal", held) for held in mapped.to_list())), socket="Normal", shape=bpy.types.NodeSocketVector)
@@ -250,23 +229,21 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Outcome
             inputs=(
                 *((socket, textures[member]) for member in maps for socket in MAPS[member].socket.to_list()),
                 *((("Emission Strength", 1.0),) if MapKind.EMISSION in maps else ()),
-                *(("Roughness", Expr(kind=bpy.types.ShaderNodeInvert, inputs=(("Fac", 1.0), ("Color", gloss)), socket="Color", shape=bpy.types.NodeSocketColor)) for gloss in glossed.to_list()),
+                *(("Roughness", 1.0 - gloss) for gloss in glossed.to_list()),
                 *(("Normal", held) for held in relief.or_else(mapped).to_list()),
             ),
             socket="BSDF",
         )
         displaced = Option.of_optional(textures.get(MapKind.DISPLACEMENT)).bind(lambda height: displacement.map(lambda held: (height, held)))
-        return (
-            output(
-                surface,
-                displaced.map(
-                    lambda pair: Expr(
-                        kind=bpy.types.ShaderNodeDisplacement,
-                        inputs=(("Height", pair[0]), ("Scale", pair[1].scale), ("Midlevel", pair[1].midlevel)),
-                        socket="Displacement",
-                        shape=bpy.types.NodeSocketVector,
-                    )
-                ),
+        return output(
+            surface,
+            displaced.map(
+                lambda pair: Expr(
+                    kind=bpy.types.ShaderNodeDisplacement,
+                    inputs=(("Height", pair[0]), ("Scale", pair[1].scale), ("Midlevel", pair[1].midlevel)),
+                    socket="Displacement",
+                    shape=bpy.types.NodeSocketVector,
+                )
             ),
         )
 
@@ -276,7 +253,7 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Outcome
     def roots() -> tuple[Expr, ...]:
         match setup:
             case Textured():
-                return textured(setup)
+                return (textured(setup),)
             case Clay(color=color, roughness=roughness):
                 return (output(Expr(kind=bpy.types.ShaderNodeBsdfPrincipled, inputs=(("Base Color", (*color, 1.0)), ("Roughness", roughness)), socket="BSDF")),)
             case Emissive(color=color, strength=strength, image=path):
@@ -284,15 +261,7 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Outcome
             case Utility(passes=passes):
                 return (
                     output(emission((0.0, 0.0, 0.0, 1.0), 0.0)),
-                    *(
-                        Expr(
-                            kind=bpy.types.ShaderNodeOutputAOV,
-                            inputs=((aov.kind.capitalize(), Expr(kind=aov.source, members=aov.members, socket=aov.output)),),
-                            members={"aov_name": member.name.lower()},
-                        )
-                        for member in sorted(passes)
-                        for aov in (AOVS[member],)
-                    ),
+                    *(Expr(kind=bpy.types.ShaderNodeOutputAOV, inputs=((member.kind.capitalize(), AOVS[member]),), members={"aov_name": member.name.lower()}) for member in sorted(passes)),
                 )
 
     return lowered(bpy.types.ShaderNodeTree, *roots())
@@ -301,54 +270,33 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Outcome
 # --- [HOLDERS]
 
 
-def shaded(held: bpy.types.Material, setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identity) -> Outcome[bpy.types.Material]:
+def shaded(held: bpy.types.Material, setup: ShadingSetup, identity: Identity) -> Outcome[bpy.types.Material]:
     """Reconciles owned material tree, `BOTH` displacement method when enabled."""
     method = "BOTH" if isinstance(setup, Textured) and setup.displacement is not None else _DISPLACEMENT_METHOD.prop.default
-    return paired(material_graph(setup, config), tree_of(held)).bind(lambda found: reconciled(*found, identity)).bind(lambda _: _DISPLACEMENT_METHOD.write(held, method)).map(lambda _: held)
+    return paired(material_graph(setup), tree_of(held)).bind(lambda found: reconciled(*found, identity)).bind(lambda _: _DISPLACEMENT_METHOD.write(held, method)).map(lambda _: held)
 
 
-def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identity, scope: Option[ExitStack] = Nothing) -> Outcome[bpy.types.Material]:
-    """Reuses or creates owned setup material, removing a created one on fault or scope unwind."""
+def material(setup: ShadingSetup, identity: Identity, scope: Option[ExitStack] = Nothing) -> Outcome[bpy.types.Material]:
+    """Reuses or creates owned setup material, storing the setup on its tree, removing a created one on fault or scope unwind."""
 
     def built() -> Outcome[bpy.types.Material]:
-        return kept(catch(bpy.data.materials.new, exception=RuntimeError)(bpy.path.display_name(setup.ownership.key)).map_error(partial(Fault.of, BlenderReason.REFUSED, setup.ownership.key)), emptied)
+        return kept(catch(bpy.data.materials.new, exception=RuntimeError)(bpy.path.display_name(setup.ownership.key)).map_error(partial(Fault.of, Reason.REFUSED, setup.ownership.key)), emptied)
 
     return stored(identity).bind(
         lambda shading: setup.ownership.made(
-            identity, built, filled=lambda held: tree_of(held).bind(lambda tree: shading.write(tree, Shading(setup=setup))).bind(lambda _: shaded(held, setup, config, identity)), scope=scope
+            identity, built, filled=lambda held: tree_of(held).bind(lambda tree: shading.write(tree, setup)).bind(lambda _: shaded(held, setup, identity)), scope=scope
         )
     )
 
 
-def stored(identity: Identity) -> Outcome[Stored[Shading]]:
+def stored(identity: Identity) -> Outcome[Stored[ShadingSetup]]:
     """Returns the store of the shading setup an owned material tree holds."""
-    return Stored.keyed(identity, "shading", msgspec.msgpack.Decoder(Shading))
+    return Stored.keyed(identity, "shading", msgspec.msgpack.Decoder(ShadingSetup))
 
 
-def referenced(scene: bpy.types.Scene, context: bpy.types.Context) -> Outcome[tuple[Reconciled, ...]]:
+def referenced(scene: bpy.types.Scene, context: bpy.types.Context) -> Outcome[tuple[Applied, ...]]:
     """Enables rest position attribute on every scene object."""
     return fanned(ObjectState(values=Some(Snapshot.of(bpy.types.Object, {("add_rest_position_attribute",): True}))), Scenes(names=(scene.name,)), context)
-
-
-def texture_setup(call: Call[Empty]) -> Outcome[Done]:
-    """Builds texture set material from chosen files into active object's active slot, noting unmatched files."""
-    paths = tuple(map(str, call.paths))
-
-    def assigned(maps: dict[MapKind, str], config: PyOpenColorIO.Config, rollback: ExitStack) -> Outcome[dict[MapKind, str]]:
-        return (
-            paired(
-                Option.of_optional(call.context.active_object).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(call.context), member="active_object")),
-                material(Textured(maps=maps), config, call.identity, Some(rollback)),
-            )
-            .bind(lambda pair: _ACTIVE_MATERIAL.write(*pair))
-            .map(lambda _: maps)
-        )
-
-    def published(maps: dict[MapKind, str]) -> Done:
-        return Done(notes=tuple(("INFO", f"{PurePath(path).name} matches no map kind") for path in paths if path not in frozenset(maps.values())))
-
-    with ExitStack() as rollback:
-        return retained(classified(paths).bind(lambda maps: assigned(maps, PyOpenColorIO.GetCurrentConfig(), rollback)), rollback).map(published)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -360,19 +308,33 @@ def color_matrix(color: ColorExpr, red: VectorExpr, green: VectorExpr, blue: Vec
     return vector("SCALE", xyz(*(vector("DOT_PRODUCT", color, row) for row in (red, green, blue))), gain)
 
 
-texture_setup_command: Operator[Empty] = Operator(
-    form=Empty,
-    run=texture_setup,
-    condition=Some(Present(descriptor=_ACTIVE)),
-    invoke=Some(Open(extensions=lambda _: tuple(sorted(bpy.path.extensions_image)))),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-)
+@Operator.of(Empty, condition=Some(Present(descriptor=_ACTIVE)), invoke=Some(Open(extensions=lambda _: _IMAGES)))
+def texture_setup(call: Call[Empty]) -> Outcome[Done]:
+    """Builds texture set material from chosen files into active object's active slot, noting unmatched files."""
+    paths = tuple(map(str, call.paths))
+
+    def assigned(maps: dict[MapKind, str], rollback: ExitStack) -> Outcome[dict[MapKind, str]]:
+        return (
+            paired(
+                Option.of_optional(call.context.active_object).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(call.context), member="active_object")),
+                material(Textured(maps=maps), call.identity, Some(rollback)),
+            )
+            .bind(lambda pair: _ACTIVE_MATERIAL.write(*pair))
+            .map(lambda _: maps)
+        )
+
+    def published(maps: dict[MapKind, str]) -> Done:
+        return Done(notes=tuple(("INFO", f"{PurePath(path).name} matches no map kind") for path in paths if path not in frozenset(maps.values())))
+
+    with ExitStack() as rollback:
+        return retained(classified(paths).bind(lambda maps: assigned(maps, rollback)), rollback).map(published)
+
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
     "AOVS",
     "MAPS",
-    "Aov",
     "Clay",
     "DataPass",
     "DisplacementMap",
@@ -380,7 +342,6 @@ __all__ = [
     "MapKind",
     "MapRole",
     "Materials",
-    "Shading",
     "ShadingSetup",
     "TextureProjection",
     "Textured",
@@ -393,5 +354,5 @@ __all__ = [
     "referenced",
     "shaded",
     "stored",
-    "texture_setup_command",
+    "texture_setup",
 ]

@@ -21,18 +21,15 @@ from blender.bpy.data.rna.conditions import Job
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes import functions
-from blender.bpy.nodes.desired import RESULT
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, RESULT, Socket
 from blender.bpy.nodes.functions import grouped
 from blender.bpy.nodes.graphs import composed, directed, Expr, inverted, math, matrix, mixed, switched, vector, where, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.render.color.spaces import EXPOSURE
 from blender.bpy.render.compositor.colors import AXES, extreme, nonnegative, preserved, spanned
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Named
-from blender.bpy.render.compositor.inputs import CameraFrame, captured, entered, valued
-from blender.bpy.render.compositor.shells import Shell
-from blender.bpy.render.compositor.tables import tabled, TILES
+from blender.bpy.render.compositor.grades import tabled, TILES
+from blender.bpy.render.compositor.inputs import CameraFrame, captured, entered, Shell, valued
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.luts import Rational, split
@@ -40,7 +37,7 @@ from blender.imaging.color.processors import ColorSpace, GREY, REC709_SCENE, ren
 from blender.imaging.files.buffers import pixels
 from blender.imaging.files.images import ImageFile
 from blender.imaging.sampling.integration import Estimate, Precision
-from blender.records.faults import Fault, Faults, Outcome, RecordReason
+from blender.records.faults import Fault, Faults, Outcome, Reason
 from blender.records.fields import Finite
 
 from ...chain.stages import Effect, prepared, Stage
@@ -325,9 +322,9 @@ def _tony(shell: Shell[Tony]) -> Outcome[Expr]:
         return (
             Result[Path, Faults]
             .bind(
-                catch(scope.enter_context, exception=OSError)(as_file(table)).map_error(partial(Fault.of, RecordReason.UNREADABLE, str(table))),
+                catch(scope.enter_context, exception=OSError)(as_file(table)).map_error(partial(Fault.of, Reason.UNREADABLE, str(table))),
                 lambda path: split(shell.config, PyOpenColorIO.FileTransform(src=str(path), interpolation=PyOpenColorIO.INTERP_TETRAHEDRAL)).bind(
-                    lambda parts: parts[1].to_result_with(partial(Fault.of, BlenderReason.ABSENT, str(path), member=PyOpenColorIO.Lut3DTransform.__name__))
+                    lambda parts: parts[1].to_result_with(partial(Fault.of, Reason.ABSENT, str(path), member=PyOpenColorIO.Lut3DTransform.__name__))
                 ),
             )
             .bind(lambda found: tabled(item_key(Tony), "Tony McMapface", msgspec.structs.replace(found[0], spacing=Rational()), found[1], shell.color, shell.config))
@@ -343,7 +340,7 @@ def whitened(prefix: tuple[Key, ...], values: Mapping[Key, Value], config: PyOpe
     """Manual scene white read from covered scene-linear pixels at the white panel under `prefix`, refusing a white outside its stop range or one leaving Hable normalization without contrast."""
 
     def resolved(white: float) -> Outcome[Mapping[Key, Value]]:
-        refused = partial(Fault.of, RecordReason.OUTSIDE, item_key(*prefix, "white"), member="scene white inside its stop range holding nonzero contrast")
+        refused = partial(Fault.of, Reason.OUTSIDE, item_key(*prefix, "white"), member="scene white inside its stop range holding nonzero contrast")
         match tuple(values.get(socket.key) for socket in (_A, _B, _C, _E, _F)):
             case (float(shoulder), float(linear), float(angle), float(numerator), float(denominator)):
                 contrast = white * shoulder * (denominator - numerator) + linear * (angle * denominator - numerator)
@@ -359,12 +356,12 @@ def whitened(prefix: tuple[Key, ...], values: Mapping[Key, Value], config: PyOpe
     return (
         Samples
         .of(config, plane)
-        .bind(lambda samples: samples.extent().to_result_with(partial(Fault.of, RecordReason.OUTSIDE, "White metering", str(plane.shape), member="covered pixels holding finite luminance")))
+        .bind(lambda samples: samples.extent().to_result_with(partial(Fault.of, Reason.OUTSIDE, "White metering", str(plane.shape), member="covered pixels holding finite luminance")))
         .bind(lambda extent: resolved(extent.white))
     )
 
 
-def metered(prefix: tuple[Key, ...], title: str, identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
+def metered(prefix: tuple[Key, ...], title: str, identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[Option[str]]:
     """Writes the manual scene white read from the entering frame under `prefix`, the undo step named by the measuring command."""
     return (
         captured(identity, entry)

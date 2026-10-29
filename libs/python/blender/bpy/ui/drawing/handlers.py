@@ -7,7 +7,6 @@ from typing import ClassVar, Final, Protocol, TYPE_CHECKING
 
 import bpy
 from expression import Nothing, Ok, Option, Some
-from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.rna.conditions import AllOf, Setting
@@ -15,13 +14,11 @@ from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.extension.events import Change, Handler, Subscription, updated
 from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.extension.reports import window_manager
-from blender.bpy.faults import BlenderReason
+from blender.bpy.extension.registration import Acquisitions, Band, scoped
 from blender.bpy.ui.drawing.canvas import Canvas, DrawType, PROGRAMS
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
-from blender.records.faults import accumulated, Fault, Outcome
+from blender.records.faults import accumulated, Fault, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -43,7 +40,7 @@ class Part[S](Protocol):
         ...
 
 
-class Drawn(Protocol):
+class _Drawn(Protocol):
     """State drawing itself on a canvas."""
 
     def drawn(self, canvas: Canvas, /) -> None:
@@ -65,7 +62,7 @@ class Handled(msgspec.Struct, frozen=True, kw_only=True):
     changes: Option[Change] = Nothing
 
 
-class Reading[S: Drawn](msgspec.Struct, frozen=True, kw_only=True):
+class Reading[S: _Drawn](msgspec.Struct, frozen=True, kw_only=True):
     """Part of a read whose state draws itself, in region pixels."""
 
     draw_type: ClassVar[DrawType] = "POST_PIXEL"
@@ -85,7 +82,7 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
     refreshes: tuple[Refresh, ...] = ()
 
     def acquired(self, identity: Identity) -> tuple[Acquisitions, Drew]:
-        """Builds refresh acquisitions and the draw callback taking its draw phase and tool cursor, rereading after each refresh, scale change, and file load."""
+        """Builds refresh acquisitions and the draw callback taking its draw phase and pointer, rereading after each refresh, scale change, and file load."""
         reported = identity.reports.reported(self.part.read)
 
         @cache
@@ -95,8 +92,9 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
 
         def refreshed() -> Outcome[None]:
             """Drops held reads and redraws matching areas."""
+            manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             current.cache_clear()
-            for located in self.area.located(window_manager().windows):
+            for located in self.area.located(manager.windows):
                 located.area.tag_redraw()
             return Ok(None)
 
@@ -105,13 +103,13 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
             match bpy.context.area, bpy.context.region:
                 case bpy.types.Area() as area, bpy.types.Region() as region if self.area.matches(area):
                     canvas = Canvas.of(area, region, phase, pointer)
-                    for state in current(canvas.metrics, identity.held[LOADS]).to_list():
+                    for state in current(canvas.metrics, identity.held[_LOADS]).to_list():
                         with canvas.drawn():
                             self.part.drawn(canvas, state)
                 case _:
                     pass
 
-        return (LOADS, PROGRAMS, (Band.DRAW_HANDLERS, refreshing(identity, self.refreshes, refreshed))), drew
+        return (_LOADS, PROGRAMS, (Band.DRAW_HANDLERS, refreshing(identity, self.refreshes, refreshed))), drew
 
 
 class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):
@@ -147,7 +145,13 @@ class Cursor[S](msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Owns the paint cursor drawing at each pointer position the window manager passes."""
         held, drew = self.drawing.acquired(identity)
-        return Ok((*held, (Band.DRAW_HANDLERS, _cursor(partial(_pointed, drew), self.space, self.region))))
+        cursor = scoped(
+            f"WindowManager.draw_cursor_add, {self.space}, {self.region}",
+            partial(bpy.types.WindowManager.draw_cursor_add, lambda xy: drew("POST_PIXEL", Some(xy)), (), self.space, self.region),
+            bpy.types.WindowManager.draw_cursor_remove,
+            exception=TypeError,
+        )
+        return Ok((*held, (Band.DRAW_HANDLERS, cursor)))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -178,8 +182,7 @@ class Signal:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@contextmanager
-def hooked(space: type[bpy.types.Space], callback: Callable[[], None], region: "rna_enums.RegionTypeItems", draw_type: DrawType) -> Generator[Outcome[None]]:
+def hooked(space: type[bpy.types.Space], callback: Callable[[], None], region: "rna_enums.RegionTypeItems", draw_type: DrawType) -> AbstractContextManager[Outcome[None]]:
     """Holds a draw handle of a space region until scope exit.
 
     Args:
@@ -188,16 +191,12 @@ def hooked(space: type[bpy.types.Space], callback: Callable[[], None], region: "
         region: Region type of the space.
         draw_type: Draw phase.
 
-    Yields:
-        Ok(None) while the handle draws, register fault for a region or phase the space refuses.
+    Returns:
+        Scope yielding Ok(None) while the handle draws, register fault for a region or phase the space refuses.
     """
-    with ExitStack() as stack:
-        yield (
-            catch(space.draw_handler_add, exception=TypeError)(callback, (), region, draw_type)
-            .map(lambda handle: stack.callback(space.draw_handler_remove, handle, region))
-            .map(lambda _: None)
-            .map_error(partial(Fault.of, BlenderReason.UNREGISTERED, f"{space.__name__}, {region}, {draw_type}"))
-        )
+    return scoped(
+        f"{space.__name__}, {region}, {draw_type}", partial(space.draw_handler_add, callback, (), region, draw_type), lambda handle: space.draw_handler_remove(handle, region), exception=TypeError
+    )
 
 
 @contextmanager
@@ -233,7 +232,7 @@ def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Ca
                         Option
                         .of_optional(definition(owner).properties.get(member))
                         .map(lambda setting: Subscription(owner=owner, setting=setting, body=refreshed).held(identity))
-                        .to_result_with(partial(Fault.of, BlenderReason.ABSENT, owner.__name__, member=member))
+                        .to_result_with(partial(Fault.of, Reason.ABSENT, owner.__name__, member=member))
                     )
 
         scopes = accumulated(map(held, refreshes))
@@ -242,23 +241,10 @@ def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Ca
         yield scopes.map(lambda _: None)
 
 
-@contextmanager
-def _cursor(callback: Callable[[tuple[int, int]], None], space: "rna_enums.SpaceTypeItems", region: "rna_enums.RegionTypeItems") -> Generator[None]:
-    """Holds a window manager paint cursor over regions of a type in a space type until scope exit."""
-    with ExitStack() as stack:
-        stack.callback(bpy.types.WindowManager.draw_cursor_remove, bpy.types.WindowManager.draw_cursor_add(callback, (), space, region))
-        yield
-
-
-def _pointed(drew: Drew, xy: tuple[int, int]) -> None:
-    """Draws a pixel phase at the window pointer position a paint cursor passes."""
-    drew("POST_PIXEL", Some(xy))
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-LOADS: Final = Resource[int](made=lambda _identity: nullcontext(0), renewed=Some(lambda count: count + 1))
+_LOADS: Final = Resource[int](made=lambda _identity: nullcontext(0), renewed=Some(lambda count: count + 1))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["LOADS", "Cursor", "Drawing", "Drawn", "Drew", "Handled", "Overlay", "Part", "Reading", "Refresh", "Signal", "hooked", "refreshing"]
+__all__ = ["Cursor", "Drawing", "Drew", "Handled", "Overlay", "Part", "Reading", "Refresh", "Signal", "hooked", "refreshing"]

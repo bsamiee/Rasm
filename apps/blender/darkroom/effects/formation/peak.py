@@ -4,19 +4,17 @@ from typing import Final, override
 
 import bpy
 from expression import Nothing, Ok, Option, Some
-import numpy as np
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Answer, Call, Done, Operator
 from blender.bpy.data.rna.conditions import Condition, Job
 from blender.bpy.data.rna.paths import rooted, Struct
 from blender.bpy.extension.identity import Identity
+from blender.bpy.nodes.desired import Interface, Socket
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.effects import CompositorEffect, Named
-from blender.bpy.render.compositor.inputs import entered
-from blender.bpy.render.compositor.shells import Shell
+from blender.bpy.render.compositor.inputs import entered, Shell
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import Domain, pq
@@ -66,7 +64,7 @@ class _HdrWindow(Condition, frozen=True, kw_only=True):
 def measure_peak(call: Call[Named]) -> Outcome[Answer]:
     """Measure source peak from stage input."""
 
-    def measured(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
+    def measured(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[Option[str]]:
         return (
             Samples
             .of(PyOpenColorIO.GetCurrentConfig(), file.pixels)

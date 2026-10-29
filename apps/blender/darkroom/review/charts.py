@@ -21,22 +21,19 @@ from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.render.color.spaces import EXPOSURE, viewed
 from blender.bpy.render.outputs.results import combined, ResultRead
 from blender.bpy.settings.attachments import Attached, Attachment
-from blender.bpy.ui.drawing.canvas import Align, Blend
-from blender.bpy.ui.drawing.charts import Chart, FINE, GRID, Label, Layer, MAJOR, TRACE
+from blender.bpy.ui.drawing.canvas import Align, Blend, Chart, FINE, GRID, Label, Layer, MAJOR, TRACE
 from blender.bpy.ui.drawing.handlers import Reading, Refresh, Signal
-from blender.bpy.ui.images.overlays import Masks, overlaid, Tint
-from blender.bpy.ui.images.views import RESULT
-from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import Layout, Property, RowContent
+from blender.bpy.ui.images.views import Masks, overlaid, RESULT, Tint
+from blender.bpy.ui.layout.rows import Layout, Member, Property, RowContent
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.resources.icons import Glyph
 from blender.bpy.ui.resources.theme import Color, Metrics
 from blender.bpy.ui.surfaces.menus import Append
 from blender.bpy.ui.surfaces.panels import Beside, Panel
-from blender.imaging.analysis.scopes import Bands, Chromaticity, Clipping, Histogram
+from blender.imaging.analysis.metering import Bands, Chromaticity, Clipping, Histogram
 from blender.imaging.color import colorimetry
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.files.buffers import IntegerDepth, Rounded, unassociated
+from blender.imaging.files.buffers import Coding, IntegerDepth, unassociated
 from blender.records.faults import Outcome, paired
 
 from ..catalog import chain
@@ -150,7 +147,8 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @staticmethod
     def chromaticity(metrics: Metrics, frames: Frames) -> Outcome[Chart]:
         """Charts scene-linear xy density inside the spectral locus, ticked every ten nanometres, with the working and display gamuts and their white points boxed."""
-        extent, tenths = colorimetry.frame()
+        extent = colorimetry.frame()
+        tenths = np.rint(extent * 10.0).astype(np.intp)
         width, locus = float(metrics.unit * 10), colorimetry.locus()
         height = width * float(extent[1] / extent[0])
         outward = np.gradient(locus, axis=0)[:, ::-1] * (-1.0, 1.0)
@@ -227,7 +225,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 lit = clipped.struct(screen)
                 return (
                     last
-                    .bind(lambda frames: frames.depth.bind(lambda depth: Rounded.coded(unassociated(frames.formed), depth).to_option()).map(Clipping.of))
+                    .bind(lambda frames: frames.depth.bind(lambda depth: Coding.ROUNDED.coded(unassociated(frames.formed), depth).to_option()).map(Clipping.of))
                     .map(lambda clip: tuple(Tint(plane=mask.astype(np.float32), color=rgba) for mask, rgba, on in ((clip.low, self.under, lit.low), (clip.high, self.over, lit.high)) if on))
                     .filter(bool)
                 )

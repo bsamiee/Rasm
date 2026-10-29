@@ -3,7 +3,7 @@
 from textwrap import dedent
 
 from tools.refurb.cases import ErrorPartialCaseReadError
-lazy from tests.python.support.doubles import Findings
+lazy from tests.python.tools.refurb.conftest import Findings
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

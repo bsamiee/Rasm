@@ -10,20 +10,18 @@ from typing import Final, Literal, TYPE_CHECKING
 
 import bpy
 from bpy_extras.io_utils import path_reference, path_reference_mode, poll_file_object_drop  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]
-from expression import Error, identity, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.calls import called, Operation, Setting
 from blender.bpy.commands.operators import Operator
-from blender.bpy.data.ids.ownership import retained
+from blender.bpy.data.ids.ownership import retained, tracked
 from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.data.rna.paths import definition
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason, typed
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
 from blender.records.stores import files_copied
 
 if TYPE_CHECKING:
@@ -32,7 +30,7 @@ if TYPE_CHECKING:
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _EXPORTER_NAME: Final = Descriptor.declared(bpy.types.CollectionExport, ("name",), bpy.types.StringProperty)
-_LENGTH: Final[str] = bpy.utils.units.categories.LENGTH  # type: ignore[attr-defined]
+_REFUSALS: Final[type[TypeError | RuntimeError | ReferenceError]] = (TypeError, RuntimeError, ReferenceError)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -108,21 +106,18 @@ def dropped_in(spaces: frozenset["rna_enums.SpaceTypeItems"], context: bpy.types
 def length(scene: bpy.types.Scene, source: str) -> Outcome[float]:
     """Parses length text in the scene's unit system into scene units, a bare number read in the scene's length unit."""
     units = scene.unit_settings
+    category: str = bpy.utils.units.categories.LENGTH  # type: ignore[attr-defined]
     return (
-        catch(bpy.utils.units.to_value, exception=ValueError)(units.system, _LENGTH, source, str_ref_unit=f"1 {units.length_unit}")
-        .map(lambda meters: meters / scene.unit_settings.scale_length)
-        .map_error(partial(Fault.of, RecordReason.UNREADABLE, source))
+        catch(bpy.utils.units.to_value, exception=ValueError)(units.system, category, source, str_ref_unit=f"1 {units.length_unit}")
+        .map(lambda meters: meters / units.scale_length)
+        .map_error(partial(Fault.of, Reason.UNREADABLE, source))
     )
 
 
-def _exported(exporters: bpy.types.CollectionExports, handler: str, name: str) -> bpy.types.CollectionExport:
-    """Returns a new exporter of a live file handler under name, the stubs naming stock handlers alone."""
+@catch(exception=_REFUSALS)
+def _exported(exporters: bpy.types.CollectionExports, handler: str, name: str) -> object:
+    """Returns a new exporter of a live file handler under name, the host refusing an unknown handler, the stubs naming stock handlers alone."""
     return exporters.new(type=handler, name=name)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-
-
-_NEW: Final[Callable[[bpy.types.CollectionExports, str, str], Result[object, TypeError | RuntimeError | ReferenceError]]] = catch(
-    catch(catch(_exported, exception=ReferenceError), exception=RuntimeError), exception=TypeError
-)
 
 
 def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporter]) -> Outcome[None]:
@@ -142,25 +137,7 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
     with ExitStack() as cleanup:
 
         def made(name: str, handler: str) -> Outcome[bpy.types.CollectionExport]:
-            def outside(choices: bpy.types.EnumProperty) -> Faults:
-                return Fault.of(RecordReason.OUTSIDE, request, handler, member=", ".join(item.identifier for item in choices.enum_items))
-
-            def refused(error: TypeError | RuntimeError | ReferenceError) -> Faults:
-                match error:
-                    case TypeError():
-                        return (
-                            typed(bpy.types.EnumProperty, "bpy.types.CollectionExports.new.type", definition(bpy.types.CollectionExports).functions["new"].parameters["type"])
-                            .map(outside)
-                            .default_with(identity)
-                        )
-                    case _:
-                        return Fault.of(BlenderReason.REFUSED, request, error)
-
-            def tracked(item: bpy.types.CollectionExport) -> bpy.types.CollectionExport:
-                cleanup.callback(held.remove, item)
-                return item
-
-            return _NEW(held, handler, name).map_error(refused).bind(partial(typed, bpy.types.CollectionExport, request)).map(tracked)
+            return tracked(cleanup, held.remove, _exported(held, handler, name).map_error(partial(Fault.of, Reason.REFUSED, request)).bind(partial(typed, bpy.types.CollectionExport, request)))
 
         def placed(name: str, exporter: Exporter) -> Outcome[None]:
             def filled(item: bpy.types.CollectionExport) -> Outcome[None]:
@@ -169,7 +146,7 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
                     Option
                     .of_optional(item.export_properties)
                     .map(lambda properties: assigned(properties, {(key,): value for key, value in exporter.values.items()}))
-                    .default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(item), member="export_properties"))),
+                    .default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(item), member="export_properties"))),
                 ).map(lambda _: None)
 
             found = Option.of_optional(existing.get(name))
@@ -177,8 +154,7 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
 
         def completed(_: tuple[None, ...]) -> Outcome[None]:
             return retained(
-                accumulated(catch(held.remove, exception=RuntimeError)(item).map_error(partial(Fault.of, BlenderReason.REFUSED, request)) for name, item in existing.items() if name not in exporters),
-                cleanup,
+                accumulated(catch(held.remove, exception=RuntimeError)(item).map_error(partial(Fault.of, Reason.REFUSED, request)) for name, item in existing.items() if name not in exporters), cleanup
             ).map(lambda _: None)
 
         return accumulated(starmap(placed, exporters.items())).bind(completed)
@@ -219,7 +195,7 @@ def configured(collection: bpy.types.Collection, *, scene: bpy.types.Scene, view
         .map(
             lambda name: (
                 Ok(collection.exporters.find(name))
-                .filter_with(lambda index: index >= 0, lambda _: Fault.of(BlenderReason.ABSENT, f"{collection!r}.exporters", member=name))
+                .filter_with(lambda index: index >= 0, lambda _: Fault.of(Reason.ABSENT, f"{collection!r}.exporters", member=name))
                 .bind(lambda index: called(bpy.ops.collection.exporter_export, {"index": index}, override=override))
             )
         )

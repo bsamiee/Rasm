@@ -5,7 +5,7 @@ from pathlib import Path
 from expression import Some
 
 from blender.bpy.extension.registration import Registration
-from blender.bpy.nodes.placement import Arranger
+from blender.bpy.nodes.editing import Arranger
 from blender.bpy.render.previews.queue import PreviewQueue
 from blender.bpy.ui.resources.icons import Icons
 

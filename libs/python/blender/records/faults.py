@@ -1,4 +1,4 @@
-"""Fault, result type, result accumulation, and type narrowing."""
+"""Fault reasons, fault, result type, result accumulation, and type narrowing."""
 
 from collections.abc import Iterable
 from enum import StrEnum
@@ -15,14 +15,20 @@ type Faults = tuple[Fault, *tuple[Fault, ...]]
 type Outcome[T] = Result[T, Faults]
 
 
-class RecordReason(StrEnum):
-    """Numeric, file, and domain refusals, each value the report template of its fault."""
+class Reason(StrEnum):
+    """Refusal of a value, lookup, requirement, edit, registration, operation, or file, each value the report template of its fault."""
 
-    NUMERIC = "Numeric operation for {subject} failed. {cause}"
-    UNREADABLE = "{subject} is unreadable. {cause}"
-    UNWRITABLE = "{subject} is unwritable. {cause}"
     OUTSIDE = "{subject} accepts {member}, not {cause}"
     INVALID = "{subject} is invalid. {cause}"
+    ABSENT = "{subject} holds no {member}"
+    TAKEN = "{subject} is taken at {member}"
+    REQUIRED = "Requires {subject}"
+    REFUSED = "{subject} refused edit. {cause}"
+    UNREGISTERED = "Registration of {subject} refused. {cause}"
+    ANSWERED = "{subject} answered {member}"
+    FAILED = "{subject} failed. {cause}"
+    UNREADABLE = "{subject} is unreadable. {cause}"
+    UNWRITABLE = "{subject} is unwritable. {cause}"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -77,9 +83,9 @@ def paired(*results: Outcome[object]) -> Outcome[tuple[object, ...]]:
 
 def typed[T](kind: type[T], subject: str, value: object, /) -> Outcome[T]:
     """Returns value narrowed to kind, domain fault naming the kind and the class found, kind and subject first so `partial(typed, kind, subject)` serves a chain."""
-    return Option.of_optional(try_downcast(kind, value)).to_result_with(lambda: Fault.of(RecordReason.OUTSIDE, subject, type(value).__name__, member=kind.__name__))
+    return Option.of_optional(try_downcast(kind, value)).to_result_with(lambda: Fault.of(Reason.OUTSIDE, subject, type(value).__name__, member=kind.__name__))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Fault", "Faults", "Outcome", "RecordReason", "accumulated", "paired", "typed"]
+__all__ = ["Fault", "Faults", "Outcome", "Reason", "accumulated", "paired", "typed"]

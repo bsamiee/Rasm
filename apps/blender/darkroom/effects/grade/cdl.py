@@ -16,17 +16,15 @@ from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.mirrors import choices
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Key
-from blender.bpy.faults import BlenderReason
+from blender.bpy.nodes.desired import Interface, Socket
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.render.color.luts import current, FORMATS
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Named
-from blender.bpy.render.compositor.inputs import captured, entered, valued
-from blender.bpy.render.compositor.shells import Shell
+from blender.bpy.render.compositor.inputs import captured, entered, Shell, valued
 from blender.imaging.color.luts import corrections, LutFormat, LutOutput
 from blender.imaging.color.processors import bracketed, processor
-from blender.records.faults import Fault, Outcome, paired, RecordReason
+from blender.records.faults import Fault, Outcome, paired, Reason
 
 from ...chain.stages import Effect, Stage, transform
 
@@ -72,7 +70,7 @@ def correction(values: Mapping[Key, Value]) -> Outcome[PyOpenColorIO.CDLTransfor
         case {"slope": tuple(slope), "offset": tuple(offset), "power": tuple(power), "saturation": float(saturation)}:
             return Ok(PyOpenColorIO.CDLTransform(slope=list(map(float, slope)), offset=list(map(float, offset)), power=list(map(float, power)), sat=saturation))
         case _:
-            return Error(Fault.of(RecordReason.UNREADABLE, Cdl.__name__, repr(values)))
+            return Error(Fault.of(Reason.UNREADABLE, Cdl.__name__, repr(values)))
 
 
 @transform.register
@@ -101,7 +99,7 @@ def import_cdl(call: Call[Imported]) -> Outcome[Answer]:
             .filter(lambda row: str(row[0]) == properties.correction)
             .map(lambda row: row[1][1])
             .try_head()
-            .to_result_with(functools.partial(Fault.of, BlenderReason.ABSENT, path, member=properties.correction))
+            .to_result_with(functools.partial(Fault.of, Reason.ABSENT, path, member=properties.correction))
         )
 
     entry = rooted(bpy.types.Scene, call.context).bind(lambda scene: cdl.named(call.identity, scene, properties.name))

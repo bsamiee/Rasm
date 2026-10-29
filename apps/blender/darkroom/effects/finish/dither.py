@@ -10,28 +10,28 @@ import numpy as np
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.bpy.data.ids.images import Generated, Tag
+from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.mirrors import choices
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.nodes.content import Generated
+from blender.bpy.nodes.desired import Interface, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.graphs import Expr, math, mixed, switched, vector
-from blender.bpy.nodes.interface import Interface, MenuItem, MenuItems, Socket
 from blender.bpy.render.color.spaces import UNTAGGED
 from blender.bpy.render.compositor.colors import space_item
-from blender.bpy.render.compositor.coordinates import dimensions, gridded
+from blender.bpy.render.compositor.coordinates import dimensions, PixelGrid
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Enabled, precise
-from blender.bpy.render.compositor.inputs import Derives, entry_input, Holds
-from blender.bpy.render.compositor.shells import Shell
-from blender.bpy.render.outputs.finishing import Finish, stamped, Written
+from blender.bpy.render.compositor.inputs import Derives, entry_input, Holds, Shell
+from blender.bpy.render.outputs.results import Finish, Written
 from blender.bpy.settings.attachments import Attachment
 from blender.imaging.color.processors import Domain
-from blender.imaging.files.buffers import Depth, Diffused, IntegerDepth, unassociated
+from blender.imaging.files.buffers import Coding, Depth
 from blender.imaging.files.images import ImageFile, read_file, Storage
 from blender.imaging.sampling.tiles import ranks
 from blender.records.faults import accumulated, Faults, Outcome
-from blender.records.identity import content_hash
+from blender.records.stores import content_hash
 from blender.rendering.outputs.naming import Output
 
 from ...chain.stages import Effect, Stage
@@ -97,21 +97,17 @@ def copied(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outcome
 
     def write(settings: DiffusedCopy) -> Outcome[None]:
         target = Path(file.path).with_suffix(".png") if scene.render.use_file_extension else Path(f"{file.path}.png")
-        depth: IntegerDepth = Depth.UINT16 if settings.depth == "16" else Depth.UINT8
+        storage = Storage(depth=Depth.UINT16 if settings.depth == "16" else Depth.UINT8, coding=Coding.DIFFUSED)
 
-        def displayed(source: ImageFile[np.float32]) -> Outcome[None]:
+        def displayed(source: ImageFile) -> Outcome[None]:
             plane = file.display.map(lambda window: source.pixels[window.ybegin : window.yend, window.xbegin : window.xend]).default_value(source.pixels)
             return (
                 displayed_frame(identity, scene, np.repeat(plane, 3, axis=-1) if plane.shape[-1] == 1 else plane, source.colorspace, config)
-                .bind(
-                    lambda shown: Diffused.coded(unassociated(shown.pixels), depth).bind(
-                        lambda codes: ImageFile(pixels=codes, colorspace=shown.colorspace, header=source.header).written(target, Storage(), stamped(identity), config)
-                    )
-                )
+                .bind(lambda shown: ImageFile(pixels=shown.pixels, colorspace=shown.colorspace, header=source.header).written(target, storage, identity.manifest.stamp, config))
                 .map(lambda _: None)
             )
 
-        return Result[ImageFile[np.float32], Faults].bind(read_file(Path(file.path), config, untagged=Some(UNTAGGED)), displayed)
+        return Result[ImageFile, Faults].bind(read_file(Path(file.path), config, untagged=Some(UNTAGGED)), displayed)
 
     diffusing = accumulated(
         entry_input(identity, entry, _METHOD.key).bind(lambda held: Descriptor.resolve(held, ("value",), bpy.types.Property).map(lambda descriptor: descriptor.read(held) == _DIFFUSED.name))
@@ -141,7 +137,7 @@ def _dither(shell: Shell[Dither]) -> Outcome[Expr]:
             tag=Tag(space=Some(data)),
         )
         tile = Expr(kind=bpy.types.CompositorNodeImage, content=Some(generated), socket="Image", shape=bpy.types.NodeSocketColor)
-        uv = vector("ADD", vector("DIVIDE", gridded(source).point, dimensions(tile)), (0.0, 0.0, 1.0))
+        uv = vector("ADD", vector("DIVIDE", PixelGrid.of(source).point, dimensions(tile)), (0.0, 0.0, 1.0))
         sampled = Expr(
             kind=bpy.types.CompositorNodeMapUV,
             inputs=(("Image", tile), ("UV", uv), ("Interpolation", "Nearest"), ("Extension X", "Repeat"), ("Extension Y", "Repeat")),

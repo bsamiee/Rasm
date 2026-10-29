@@ -1,25 +1,21 @@
 """Scene camera node forms: Camera Info reads, points seen through the camera, lens tilts and re-aims, imaging lens and panorama maps over node expressions, the chief ray, the circle of confusion, and the iris on the native Bokeh Image node."""
 
-from collections.abc import Callable
-import functools
+from collections.abc import Callable, Mapping
 from types import MappingProxyType
-from typing import Final, Self
+from typing import Annotated, Final, Self
 
 import bpy
+from expression import Some
 import msgspec
 
-from blender.bpy.nodes import functions
-from blender.bpy.nodes.desired import NodeGroup
-from blender.bpy.nodes.functions import EXPRESSIONS
-from blender.bpy.nodes.graphs import equal, Expr, group_input, inverted, math, projected, Scalar, switched, Term, vector, xyz
-from blender.bpy.nodes.interface import Interface, Socket
-from blender.bpy.render.compositor.colors import COLOR_INPUT
-from blender.bpy.render.compositor.coordinates import framed
+from blender.bpy.extension.identity import Key
+from blender.bpy.nodes.functions import EXPRESSIONS, grouped
+from blender.bpy.nodes.graphs import equal, Expr, inverted, math, projected, Scalar, switched, Term, vector, xyz
+from blender.bpy.render.compositor.coordinates import FrameSpace
 from blender.bpy.render.compositor.shapes import rotated
 from blender.imaging.geometry.arithmetic import Namespace
 from blender.imaging.geometry.lenses import Aperture
 from blender.imaging.geometry.panoramas import ImagePoint
-from blender.records.faults import Outcome
 from blender.records.fields import member
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -30,7 +26,6 @@ _IRIS: Final = MappingProxyType({
     member(Aperture, lambda kind: kind.roundness): "Roundness",
     member(Aperture, lambda kind: kind.obstruction): "Catadioptric Size",
 })
-_COSINE: Final = Socket(key="cosine", kind=bpy.types.NodeSocketFloat)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -123,11 +118,6 @@ def reaimed(fraction: Expr, lens: Expr, heading: Expr, elevation: Expr, share: S
     return switched((abs(heading) + abs(elevation)) > 0.0, fraction, vector("MULTIPLY_ADD", (0.0, 0.0, 1.0), fraction["Z"] * turned["Z"], position))
 
 
-def chief_ray(image: Term) -> Outcome[Expr]:
-    """Cosine between the scene camera's axis and the ray through each pixel of an image of its frame, its fourth power the natural illumination falloff."""
-    return _chief_ray().map(lambda group: functions.placed(group, {COLOR_INPUT.key: image}, _COSINE.key))
-
-
 def confusion(depth: Expr, f_number: Expr, meters: Expr, limit: Scalar) -> Expr:
     """Thin-lens circle of confusion radius over the sensor's greater side at scene depths through the scene camera.
 
@@ -147,19 +137,18 @@ def confusion(depth: Expr, f_number: Expr, meters: Expr, limit: Scalar) -> Expr:
     return switched(lensed("Is Orthographic"), switched(equal(gap, 0.0), math("MINIMUM", radius, limit), limit), 0.0)
 
 
-@functools.cache
-def _chief_ray() -> Outcome[NodeGroup]:
-    """Chief-ray cosine group of the scene camera over its image's frame, sensor fit and shift included."""
-    pixel = framed(group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor), 1.0).fraction
-    inverse = inverted(lensed("Projection Matrix"))
-    near, middle = (projected(vector("MULTIPLY_ADD", pixel, (2.0, 2.0, 0.0), (-1.0, -1.0, plane)), inverse) for plane in (-1.0, 0.0))
-    face = Interface(inputs=(COLOR_INPUT,), outputs=(_COSINE,))
-    return functions.built("chief_ray", "Chief Ray", face, {_COSINE.key: abs(vector("NORMALIZE", middle - near)["Z"])}, bpy.types.CompositorNodeTree)
-
-
 def _camera() -> Expr:
     """Active Camera output keyed `camera`."""
     return Expr(kind=bpy.types.GeometryNodeInputActiveCamera, socket="Active Camera").named("camera")
+
+
+@grouped(kind=bpy.types.CompositorNodeTree, key=Some("chief_ray"))
+def chief_ray(image: Annotated[Expr, bpy.types.NodeSocketColor]) -> Mapping[Key, Expr]:
+    """Cosine between the scene camera's axis and the ray through each pixel of an image of its frame, sensor fit and shift included, its fourth power the natural illumination falloff."""
+    pixel = FrameSpace.of(image, 1.0).fraction
+    inverse = inverted(lensed("Projection Matrix"))
+    near, middle = (projected(vector("MULTIPLY_ADD", pixel, (2.0, 2.0, 0.0), (-1.0, -1.0, plane)), inverse) for plane in (-1.0, 0.0))
+    return {"cosine": abs(vector("NORMALIZE", middle - near)["Z"])}
 
 
 # --- [MAPS]

@@ -1,10 +1,10 @@
-"""OpenImageIO buffers: stored channel depths, checked reads, integer coding, fits, and alpha association.
+"""OpenImageIO buffers: stored channel depths, integer codings, checked reads, fits, and alpha association.
 
 `unassociated` and `associated` round trip keeping color at zero alpha, and `premultiplied` associates straight color.
 """
 
 from collections.abc import Callable
-from enum import IntEnum
+from enum import auto, Enum, IntEnum
 import functools
 from typing import Final, Literal, overload
 
@@ -14,14 +14,47 @@ import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.imaging.faults import ImagingReason
-from blender.records.faults import Fault, Outcome
-from blender.records.fields import Case
+from blender.records.faults import Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+type Coded = np.uint8 | np.uint16 | np.float32
 type IntegerDepth = Literal[Depth.UINT8, Depth.UINT16]
-type _Coding = Rounded | Diffused
+
+
+class Coding(Enum):
+    """Integer coding of straight display values: nearest codes, or Floyd-Steinberg diffusion of separate color errors in raster order with alpha rounded."""
+
+    ROUNDED = auto()
+    DIFFUSED = auto()
+
+    def coded(self, plane: npt.NDArray[np.float32], depth: IntegerDepth, /) -> Outcome[npt.NDArray[np.uint8 | np.uint16]]:
+        """Returns clamped integer codes of the same shape, NaN and negative infinity at zero, ties to even, each diffused color error spread over unvisited neighbors along anti-diagonal wavefronts, or image fault."""
+        rounded = pixels(OpenImageIO.ImageBuf(np.ascontiguousarray(plane).reshape(1, -1, 1)), depth).map(lambda codes: codes.reshape(plane.shape))
+        if self is Coding.ROUNDED:
+            return rounded
+        height, width, _ = plane.shape
+
+        def diffused(rounded_codes: npt.NDArray[np.uint8 | np.uint16]) -> npt.NDArray[np.uint8 | np.uint16]:
+            coded = rounded_codes.copy()
+            levels = float(np.iinfo(coded.dtype).max)
+            color = levels * plane[..., :3]
+            ring = np.zeros((height + 1, 4, color.shape[2]), np.float32)
+            for step in range(width + 2 * height - 2):
+                low, high = max(0, (step - width + 2) // 2), min(height - 1, step // 2)
+                rows, ahead = np.arange(low, high + 1), min(high, (step - 1) // 2) + 1
+                columns = step - 2 * rows
+                visited = np.clip(color[rows, columns] + ring[low : high + 1, step % 4], 0.0, levels)
+                rounded_step = np.floor(visited + 0.5)
+                coded[rows, columns, :3], error = rounded_step, visited - rounded_step
+                ring[low : high + 1, step % 4] = 0.0
+                ring[low + 1 : ahead + 1, (step + 1) % 4] += error[: ahead - low] * (3 / 16)
+                ring[low + 1 : high + 2, (step + 2) % 4] += error * (5 / 16)
+                ring[low + 1 : high + 2, (step + 3) % 4] += error * (1 / 16)
+                ring[low : high + 1, (step + 1) % 4] += error * (7 / 16)
+            return coded
+
+        return rounded.map(diffused)
 
 
 class Depth(IntEnum):
@@ -42,55 +75,13 @@ class Depth(IntEnum):
         """Bits each stored channel holds."""
         return OpenImageIO.TypeDesc(self.basetype).size() * 8
 
-    def coded(self, plane: npt.NDArray[np.float32], coding: _Coding) -> Outcome[npt.NDArray[np.uint8 | np.uint16 | np.float32]]:
-        """Returns straight display values stored at depth, integer depths coded through `coding`, or image fault."""
+    def coded(self, plane: npt.NDArray[np.float32], coding: Coding = Coding.ROUNDED) -> Outcome[npt.NDArray[Coded]]:
+        """Returns straight display values stored at the depth, integer depths coded through `coding`, or image fault."""
         match self:
             case Depth.UINT8 | Depth.UINT16 as integer:
                 return coding.coded(plane, integer)
             case Depth.HALF | Depth.FLOAT:
                 return Ok(plane)
-
-
-# --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Rounded(Case, frozen=True, kw_only=True):
-    """Integer codes nearest each straight display value, ties to even."""
-
-    @staticmethod
-    def coded(plane: npt.NDArray[np.float32], depth: IntegerDepth) -> Outcome[npt.NDArray[np.uint8 | np.uint16]]:
-        """Returns clamped integer codes of the same shape, NaN and negative infinity at zero, or image fault."""
-        return pixels(OpenImageIO.ImageBuf(np.ascontiguousarray(plane).reshape(1, -1, 1)), depth).map(lambda codes: codes.reshape(plane.shape))
-
-
-class Diffused(Case, frozen=True, kw_only=True):
-    """Floyd-Steinberg diffusion of separate color errors in raster order, alpha rounded."""
-
-    @staticmethod
-    def coded(plane: npt.NDArray[np.float32], depth: IntegerDepth) -> Outcome[npt.NDArray[np.uint8 | np.uint16]]:
-        """Returns codes of a straight BW, RGB, or RGBA frame, each color error spread over unvisited neighbors along anti-diagonal wavefronts, or image fault."""
-        height, width, _ = plane.shape
-
-        def diffused(rounded_codes: npt.NDArray[np.uint8 | np.uint16]) -> npt.NDArray[np.uint8 | np.uint16]:
-            coded = rounded_codes.copy()
-            levels = float(np.iinfo(coded.dtype).max)
-            color = levels * plane[..., :3]
-            ring = np.zeros((height + 1, 4, color.shape[2]), np.float32)
-            for step in range(width + 2 * height - 2):
-                low, high = max(0, (step - width + 2) // 2), min(height - 1, step // 2)
-                rows, ahead = np.arange(low, high + 1), min(high, (step - 1) // 2) + 1
-                columns = step - 2 * rows
-                visited = np.clip(color[rows, columns] + ring[low : high + 1, step % 4], 0.0, levels)
-                rounded = np.floor(visited + 0.5)
-                coded[rows, columns, :3], error = rounded, visited - rounded
-                ring[low : high + 1, step % 4] = 0.0
-                ring[low + 1 : ahead + 1, (step + 1) % 4] += error[: ahead - low] * (3 / 16)
-                ring[low + 1 : high + 2, (step + 2) % 4] += error * (5 / 16)
-                ring[low + 1 : high + 2, (step + 3) % 4] += error * (1 / 16)
-                ring[low : high + 1, (step + 1) % 4] += error * (7 / 16)
-            return coded
-
-        return Rounded.coded(plane, depth).map(diffused)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -100,7 +91,7 @@ class Diffused(Case, frozen=True, kw_only=True):
 
 def checked(image: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
     """Returns buffer, or image fault when buffer holds an error."""
-    return Ok(image).filter_with(lambda held: not held.has_error, lambda held: Fault.of(ImagingReason.BUFFER, held.name, held.geterror()))
+    return Ok(image).filter_with(lambda held: not held.has_error, lambda held: Fault.of(Reason.FAILED, held.name, held.geterror()))
 
 
 def located(values: npt.NDArray[np.float32 | np.uint8], like: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
@@ -117,28 +108,22 @@ def pixels(image: OpenImageIO.ImageBuf) -> Outcome[npt.NDArray[np.float32]]: ...
 @overload
 def pixels(image: OpenImageIO.ImageBuf, depth: Literal[Depth.UINT8]) -> Outcome[npt.NDArray[np.uint8]]: ...
 @overload
-def pixels(image: OpenImageIO.ImageBuf, depth: Literal[Depth.UINT16]) -> Outcome[npt.NDArray[np.uint16]]: ...
-@overload
 def pixels(image: OpenImageIO.ImageBuf, depth: IntegerDepth) -> Outcome[npt.NDArray[np.uint8 | np.uint16]]: ...
 def pixels(image: OpenImageIO.ImageBuf, depth: Depth = Depth.FLOAT) -> Outcome[npt.NDArray[np.generic]]:
     """Returns pixels of buffer stored at `depth`, float32 by default, or image fault."""
-    return Option.of_optional(image.get_pixels(depth.basetype)).to_result_with(lambda: Fault.of(ImagingReason.BUFFER, image.name, image.geterror()))
+    return Option.of_optional(image.get_pixels(depth.basetype)).to_result_with(lambda: Fault.of(Reason.FAILED, image.name, image.geterror()))
 
 
 # --- [FITS]
 
 
-def resampled(values: npt.NDArray[np.float32], size: tuple[int, int]) -> Outcome[npt.NDArray[np.float32]]:
-    """Returns values fitted exactly into `size` width and height, letterboxed at their aspect, for linear-light planes."""
-    return checked(OpenImageIO.ImageBufAlgo.fit(OpenImageIO.ImageBuf(values), filtername="", filterwidth=0.0, fillmode="letterbox", exact=True, roi=OpenImageIO.ROI(0, size[0], 0, size[1]))).bind(
-        pixels
-    )
-
-
-def fitted(values: npt.NDArray[np.float32], side: int, *, filtername: str = "") -> Outcome[npt.NDArray[np.float32]]:
-    """Returns values shrunk through `filtername` so their longest side fits `side` at their aspect, unchanged within it."""
+def fitted(values: npt.NDArray[np.float32], size: tuple[int, int], /, *, filtername: str = "", exact: bool = False) -> Outcome[npt.NDArray[np.float32]]:
+    """Returns linear-light values shrunk through `filtername` to fit inside `size` width and height at their aspect, unchanged within it, or with `exact` resized to `size` at their fractional fit and letterboxed."""
+    width, height = size
     return (
-        checked(OpenImageIO.ImageBufAlgo.fit(OpenImageIO.ImageBuf(values), filtername=filtername, roi=OpenImageIO.ROI(0, side, 0, side))).bind(pixels) if max(values.shape[:2]) > side else Ok(values)
+        checked(OpenImageIO.ImageBufAlgo.fit(OpenImageIO.ImageBuf(values), filtername=filtername, exact=exact, roi=OpenImageIO.ROI(0, width, 0, height))).bind(pixels)
+        if values.shape[1] > width or values.shape[0] > height or (exact and values.shape[:2] != (height, width))
+        else Ok(values)
     )
 
 
@@ -170,4 +155,4 @@ def applied(operation: PyOpenColorIO.CPUProcessor | Callable[[npt.NDArray[np.flo
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Depth", "Diffused", "IntegerDepth", "Rounded", "applied", "associated", "checked", "fitted", "located", "pixels", "premultiplied", "resampled", "unassociated"]
+__all__ = ["Coded", "Coding", "Depth", "IntegerDepth", "applied", "associated", "checked", "fitted", "located", "pixels", "premultiplied", "unassociated"]

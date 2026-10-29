@@ -14,12 +14,13 @@ import msgspec
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes import textures
 from blender.bpy.nodes.content import Ramp
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket, under
 from blender.bpy.nodes.functions import EXPRESSIONS, Group, grouped
 from blender.bpy.nodes.graphs import Expr, math, mixed, Scalar, switched, Term, vector, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket, under
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.coordinates import Border, BORDERS, FrameSpace, shorter
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
+from blender.bpy.render.compositor.inputs import Shell
 from blender.bpy.render.compositor.motion import clocked, origin
 from blender.bpy.render.compositor.shapes import (
     angular,
@@ -31,6 +32,7 @@ from blender.bpy.render.compositor.shapes import (
     ellipse,
     grid,
     heart,
+    Join,
     lattice,
     line,
     linear,
@@ -42,7 +44,6 @@ from blender.bpy.render.compositor.shapes import (
     triangle,
     turned,
 )
-from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.sampling.tiles import stream
 from blender.records.faults import Outcome
 from blender.records.fields import Seed
@@ -260,7 +261,7 @@ _GRADIENT: Final = InterfacePanel(
             default_value=_LINEAR.name,
             items=Some(MenuItems(items=tuple(panel.item for panel in _GEOMETRIES.panels))),
         ),
-        Socket(key="gradient_extension", name="Extension", kind=bpy.types.NodeSocketMenu, description="Parameter past ramp ends", default_value=Border.CLAMP.item.name, items=Some(BORDERS)),
+        Socket(key="gradient_extension", name="Extension", kind=bpy.types.NodeSocketMenu, description="Parameter past ramp ends", default_value=MenuItem.of(Border.CLAMP).name, items=Some(BORDERS)),
         Socket(key="gradient_phase", name="Phase", kind=bpy.types.NodeSocketFloatAngle, description="Profile phase offset"),
     ),
     panels=(*under("gradient", _GEOMETRIES).panels, clock("gradient_clock", speed=0.0)),
@@ -492,7 +493,7 @@ def fielded(shell: Shell[Shapes], frame: FrameSpace, growths: tuple[Scalar, ...]
     def regions(figures: tuple[Bounded, ...]) -> Expr:
         single, base, cutter, start, end = figures
         seam = inlet("boolean", "smoothness")
-        joins = {_UNION: base.union(cutter, seam), _SUBTRACT: base.difference(cutter, seam), _INTERSECT: base.intersection(cutter, seam)}
+        joins = {_UNION: base.joined(cutter, seam, Join.UNION), _SUBTRACT: base.joined(cutter, seam, Join.DIFFERENCE), _INTERSECT: base.joined(cutter, seam, Join.INTERSECTION)}
         joined = _menu(shell, "boolean", "operation", cases={item: join.packed for item, join in joins.items()})
         return _menu(
             shell,
@@ -541,9 +542,11 @@ def painted(shell: Shell[Shapes], frame: FrameSpace) -> tuple[Expr, Expr]:
 
         def tinted(extended: Expr) -> tuple[Expr, Expr]:
             tint = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", extended),), content=Some(record.ramp), socket="Color", shape=bpy.types.NodeSocketColor).named("fill_gradient_ramp")
-            return tint, msgspec.structs.replace(tint, socket="Alpha", shape=bpy.types.NodeSocketFloat) * switched(msgspec.structs.replace(extended, socket=Border.BLACK.item.name), 1.0, inside)
+            return tint, msgspec.structs.replace(tint, socket="Alpha", shape=bpy.types.NodeSocketFloat) * switched(
+                msgspec.structs.replace(extended, socket=MenuItem.of(Border.BLACK).name), 1.0, inside
+            )
 
-        return tinted(_menu(shell, "fill", _GRADIENT.key, "extension", cases={member.item: folds[member] for member in Border}))
+        return tinted(_menu(shell, "fill", _GRADIENT.key, "extension", cases={MenuItem.of(member): folds[member] for member in Border}))
 
     def selected(gradient: tuple[Expr, Expr]) -> tuple[Expr, Expr]:
         across, up = (textures.MapRange(interpolation_type="SMOOTHERSTEP").node(frame.fraction[axis]) for axis in ("X", "Y"))

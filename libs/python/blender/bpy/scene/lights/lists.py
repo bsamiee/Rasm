@@ -9,19 +9,18 @@ from expression import Ok, Option, Some, try_downcast
 import msgspec
 
 from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Unchanged
+from blender.bpy.data.rna.conditions import chosen, Scenes, Scope, scope_choice, SCOPE_COLLECTION
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.mirrors import mirrored
 from blender.bpy.data.rna.paths import RnaPath, root_in, rooted
-from blender.bpy.data.rna.scopes import chosen, Scenes, Scope, scope_choice, SCOPE_COLLECTION
 from blender.bpy.data.rna.snapshots import Applied, assigned, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.scene.lights.emitters import emitters, emitting, feeds, picked, strengths, TEMPERATURE
+from blender.bpy.scene.lights.emitters import emitters, emitting, picked, strengths, TEMPERATURE
 from blender.bpy.scene.objects import focused, ObjectState, reconciled
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.layout.lists import ItemList
-from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import acquired, OperatorButton, Property
+from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.surfaces.menus import Append
 from blender.records.faults import accumulated, Outcome, paired
@@ -48,7 +47,7 @@ class Bulk(bpy.types.PropertyGroup):
     collection: SCOPE_COLLECTION  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     factor: bpy.props.FloatProperty(name="Factor", description="Power and emission strength multiplier", min=0.0, soft_min=0.1, soft_max=10.0, precision=3, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_temperature: bpy.props.BoolProperty(name="Write Temperature", description="Write a blackbody color to every light")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    temperature: bpy.props.FloatProperty(**mirrored(TEMPERATURE.prop))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    temperature: mirrored(TEMPERATURE.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Emissives(bpy.types.PropertyGroup):
@@ -65,7 +64,7 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns solo attachment, emissive select menu entry, and section."""
-        return Ok((LightList.solo, Append(target=VIEW3D_MT_select_object, rows=(OperatorButton(target=emissives_select_command),)), *acquired((self.section(),))))
+        return Ok((LightList.solo, Append(target=VIEW3D_MT_select_object, rows=(OperatorButton(target=emissives_select),)), *acquired((self.section(),))))
 
     @staticmethod
     def section() -> Section:
@@ -90,7 +89,7 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
                     ),
                     where=Some(lambda _context, _ui, item: Ok(emitting(item))),
                     order=Some("type"),
-                    side=(OperatorButton(target=light_solo_command), OperatorButton(target=light_unsolo_command)),
+                    side=(OperatorButton(target=light_solo), OperatorButton(target=light_unsolo)),
                 ),
                 *(
                     Property(target=Member(root=kind, path=(member,), reach=Some(partial(light, kind))))
@@ -98,8 +97,8 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
                     for member in ("energy", size)
                 ),
                 *(Property(target=Member(root=bpy.types.Light, path=(member,), reach=Some(partial(light, bpy.types.Light)))) for member in ("use_temperature", "temperature")),
-                OperatorButton(target=light_bulk_command),
-                OperatorButton(target=emissives_select_command),
+                OperatorButton(target=light_bulk),
+                OperatorButton(target=emissives_select),
             ),
         )
 
@@ -172,7 +171,7 @@ def multiplied(factor: float, temperature: Option[float], scope: Scope, context:
         items = tuple(dict.fromkeys(item for owner in reached for item in emitters(owner)))
         lights = dict.fromkeys(data for item in items if isinstance(data := item.data, LightData.__value__))
         materials = dict.fromkeys(material for item in items for slot in item.material_slots if (material := slot.material) is not None)
-        sockets = dict.fromkeys(socket for material in materials for fed in (feeds(material),) for socket in strengths(material) if socket not in fed)
+        sockets = dict.fromkeys(socket for material in materials for socket, linked in strengths(material) if not linked)
         return answered(
             Applied.join((*(powered(data) for data in lights), *(Snapshot.of(type(socket), {("default_value",): socket.default_value * factor}).apply(socket) for socket in sockets))),
             "No light or unlinked emission strength in scope takes a new value",
@@ -200,6 +199,7 @@ def _restored(item: bpy.types.Object, solo: Attached[Solo]) -> Outcome[None]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
+@Operator.of(Empty)
 def light_solo(call: Call[Empty]) -> Outcome[Answer]:
     """Hides every other scene emitter, storing visibility for unsolo."""
     return paired(paired(rooted(bpy.types.ViewLayer, call.context).bind(focused), rooted(bpy.types.Scene, call.context)), LightList.solo.bound(call.identity)).bind(
@@ -207,39 +207,24 @@ def light_solo(call: Call[Empty]) -> Outcome[Answer]:
     )
 
 
+@Operator.of(Empty)
 def light_unsolo(call: Call[Empty]) -> Outcome[Answer]:
     """Restores the emitters solo hid."""
     return paired(rooted(bpy.types.Scene, call.context), LightList.solo.bound(call.identity)).bind(lambda pair: unsoloed(*pair))
 
 
+@Operator.of(Bulk)
 def light_bulk(call: Call[Bulk]) -> Outcome[Answer]:
     """Multiplies power and emission in scope."""
     return multiplied(call.properties.factor, Some(call.properties.temperature).filter(lambda _: call.properties.use_temperature), chosen(call.properties), call.context)
 
 
+@Operator.of(Emissives)
 def emissives_select(call: Call[Emissives]) -> Outcome[Answer]:
     """Selects emissive objects in scope."""
     return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: emissives_selected(chosen(call.properties), call.context, layer)).map(lambda _: Done())
 
 
-light_solo_command: Operator[Empty] = Operator(form=Empty, run=light_solo)
-light_unsolo_command: Operator[Empty] = Operator(form=Empty, run=light_unsolo)
-light_bulk_command: Operator[Bulk] = Operator(form=Bulk, run=light_bulk)
-emissives_select_command: Operator[Emissives] = Operator(form=Emissives, run=emissives_select)
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "Bulk",
-    "Emissives",
-    "LightList",
-    "Solo",
-    "emissives_select_command",
-    "emissives_selected",
-    "light_bulk_command",
-    "light_solo_command",
-    "light_unsolo_command",
-    "multiplied",
-    "soloed",
-    "unsoloed",
-]
+__all__ = ["Bulk", "Emissives", "LightList", "Solo", "emissives_select", "emissives_selected", "light_bulk", "light_solo", "light_unsolo", "multiplied", "soloed", "unsoloed"]

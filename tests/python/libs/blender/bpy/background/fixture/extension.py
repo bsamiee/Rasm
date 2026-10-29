@@ -1,10 +1,9 @@
-"""Extension rows: a witness of the registered identity and band order, panels and groups out of dependency order, translations, handlers, a timer, and a msgbus key, with probes reading them."""
+"""Extension rows: a witness of the registered identity and band order, panels and groups out of dependency order, translations, handlers, a startup row, a renewed resource, a timer, and a msgbus key, with probes reading them."""
 
-from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
-from contextlib import contextmanager, ExitStack
+from collections.abc import Callable, Generator, Iterator, Sequence
+from contextlib import contextmanager, ExitStack, nullcontext
 from functools import partial
 from pathlib import Path
-from types import MappingProxyType
 from typing import Final, override, Self
 
 import bpy
@@ -14,12 +13,11 @@ import msgspec
 
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
 from blender.bpy.data.rna.paths import definition
-from blender.bpy.extension.events import Change, Handler, located, runtime, startup, Subscription, Timer, updated
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.events import Change, Handler, located, runtime, Startup, Subscription, Timer, updated
+from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Band, Registration, Translations
 from blender.bpy.extension.reports import level
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, Reason
 
 from .commands import OPERATORS
 
@@ -97,6 +95,13 @@ class Drawless(bpy.types.Panel):
     bl_region_type = "WINDOW"
 
 
+DEFERRED: Final[type[bpy.types.Panel]] = type(
+    "FIXTURE_PT_deferred",
+    (bpy.types.Panel,),
+    {"bl_label": "Deferred", "bl_space_type": "PROPERTIES", "bl_region_type": "WINDOW", "bl_context": "scene", "bl_parent_id": "FIXTURE_PT_parent", "draw": lambda _panel, _context: None},
+)
+
+
 class Steps(msgspec.Struct, frozen=True):
     """Request taking one host pass per step left, noting each step it applies."""
 
@@ -162,7 +167,7 @@ class Witness:
 
 def required(*_: object) -> Outcome[None]:
     """Refuses every load for a requirement it lacks."""
-    return Error(Fault.of(BlenderReason.REQUIRED, "a fixture strip"))
+    return Error(Fault.of(Reason.REQUIRED, "a fixture strip"))
 
 
 def written(kept: Callable[[str], None], text: str) -> Outcome[Option[str]]:
@@ -171,6 +176,7 @@ def written(kept: Callable[[str], None], text: str) -> Outcome[Option[str]]:
     return Ok(Nothing)
 
 
+@Operator.of(Empty)
 def orphaned(_call: Call[Empty]) -> Outcome[Answer]:
     """Never runs, its operator released when its scope refuses."""
     return Ok(Done())
@@ -179,27 +185,9 @@ def orphaned(_call: Call[Empty]) -> Outcome[Answer]:
 # --- [READS]
 
 
-def _in_french(text: str) -> str:
-    """Translates interface text under the French interface, restoring the language after."""
-    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    view = preferences.view
-    with ExitStack() as stack:
-        stack.callback(setattr, view, "language", view.language)
-        stack.callback(setattr, view, "use_translate_interface", view.use_translate_interface)
-        view.language = "fr_FR"
-        view.use_translate_interface = True
-        return bpy.app.translations.pgettext_iface(text)
-
-
-def _manual(website: str | None) -> tuple[tuple[str, str], ...]:
-    """Reads the manual patterns registered under the website, none for a manifest naming no website."""
-    mappings: Iterator[tuple[str, Sequence[tuple[str, str]]]] = bpy.utils.manual_map()  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
-    return tuple(pattern for prefix, patterns in mappings for pattern in patterns if prefix == website)
-
-
 def _registered() -> dict[str, bool]:
     """Answers which fixture classes the host holds."""
-    return {cls.__name__: "bl_rna" in vars(cls) for cls in (ChildPanel, ParentPanel, Outer, Inner)}
+    return {cls.__name__: "bl_rna" in vars(cls) for cls in (ChildPanel, ParentPanel, Outer, Inner, DEFERRED)}
 
 
 def _handlers() -> tuple[int, int]:
@@ -238,13 +226,13 @@ def read(identity: Identity) -> dict[str, object]:
     return {"package": identity.package, "manifest": (manifest.id, manifest.name, manifest.version, manifest.website), "folder": identity.folder.parts[-2:], "foreign": Identity.read("blender.bpy")}
 
 
-def preferences(identity: Identity) -> dict[str, object]:
-    """Reads the add-on preferences as any preferences class and as a class the extension never registered."""
+def foreign(identity: Identity) -> object:
+    """Reads the add-on preferences as a class the extension never registered."""
 
     class Foreign(bpy.types.AddonPreferences):
         """Preferences class no extension registers."""
 
-    return {"own": identity.preferences(bpy.types.AddonPreferences).map(lambda held: type(held).__name__), "foreign": identity.preferences(Foreign)}
+    return identity.preferences(Foreign)
 
 
 def ordered(_identity: Identity) -> dict[str, object]:
@@ -252,14 +240,22 @@ def ordered(_identity: Identity) -> dict[str, object]:
     return {"events": tuple(WITNESS.events), "registered": _registered(), "parent": definition(ChildPanel).identifier}
 
 
-def translated(_identity: Identity) -> str:
-    """Translates the registered message under the French interface."""
-    return _in_french(GREETING)
-
-
-def manual(identity: Identity) -> tuple[tuple[str, str], ...]:
-    """Reads the manual patterns under the manifest website."""
-    return _manual(identity.manifest.website)
+def texts(identity: Identity) -> dict[str, object]:
+    """Translates the message under the French interface, restoring the language after, and reads the manual patterns under the manifest website, the preferences class, and the held resource."""
+    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    view = preferences.view
+    with ExitStack() as stack:
+        stack.callback(setattr, view, "language", view.language)
+        stack.callback(setattr, view, "use_translate_interface", view.use_translate_interface)
+        view.language, view.use_translate_interface = "fr_FR", True
+        translated = bpy.app.translations.pgettext_iface(GREETING)
+    mappings: Iterator[tuple[str, Sequence[tuple[str, str]]]] = bpy.utils.manual_map()  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
+    return {
+        "translated": translated,
+        "patterns": tuple(pattern for prefix, patterns in mappings for pattern in patterns if prefix == identity.manifest.website),
+        "preferences": identity.preferences(bpy.types.AddonPreferences).map(lambda held: type(held).__name__),
+        "tally": identity.held.get(TALLY),
+    }
 
 
 def depsgraph(_identity: Identity) -> tuple[tuple[str, str | None], ...]:
@@ -283,13 +279,13 @@ def scened(identity: Identity) -> bool:
 
 def levels(_identity: Identity) -> dict[str, str]:
     """Reads the report type of every reason."""
-    return {reason.name: level(Fault.of(reason, "fixture")[0]) for reason in (*BlenderReason, *RecordReason)}
+    return {reason.name: level(Fault.of(reason, "fixture")[0]) for reason in Reason}
 
 
 def held(identity: Identity) -> tuple[str, ...]:
     """Holds three faults, two equal, answering the report types of the entries they added."""
     before = len(identity.reports.entries)
-    absent, failed = Fault.of(BlenderReason.ABSENT, "fixture")[0], Fault.of(BlenderReason.FAILED, "fixture")[0]
+    absent, failed = Fault.of(Reason.ABSENT, "fixture")[0], Fault.of(Reason.FAILED, "fixture")[0]
     identity.reports.hold((absent, absent, failed))
     return tuple(kind for kind, _ in identity.reports.entries[before:])
 
@@ -311,40 +307,41 @@ def deferred(identity: Identity) -> tuple[str, ...]:
 
 
 def reloaded(identity: Identity) -> dict[str, object]:
-    """Holds a fault, loads the startup file, and answers the loads, startup runs, and report types held after."""
+    """Holds a fault, loads the startup file, and answers the loads, startup runs, report types held after, and the resource value before and after its renewal."""
     WITNESS.loads.clear()
-    identity.reports.hold(Fault.of(BlenderReason.ABSENT, "before load"))
+    identity.reports.hold(Fault.of(Reason.ABSENT, "before load"))
+    before = identity.held.get(TALLY)
     answer = bpy.ops.wm.read_homefile(use_empty=True)
-    return {"answer": answer, "loads": tuple(WITNESS.loads), "starts": WITNESS.starts, "entries": tuple(kind for kind, _ in identity.reports.entries)}
+    return {"answer": answer, "loads": tuple(WITNESS.loads), "starts": WITNESS.starts, "entries": tuple(kind for kind, _ in identity.reports.entries), "tally": (before, identity.held.get(TALLY))}
 
 
 # --- [RELEASES]
 
 
-def released_order() -> dict[str, object]:
+def order() -> dict[str, object]:
     """Reads the band scopes' entry and exit order and the classes the host still holds."""
     return {"events": tuple(WITNESS.events), "registered": _registered(), "handlers": _handlers() == BASELINE}
 
 
-def released_texts() -> dict[str, object]:
-    """Translates the message and reads the manual patterns and preferences after release."""
-
-    def texts(identity: Identity) -> dict[str, object]:
-        return {"translated": _in_french(GREETING), "patterns": _manual(identity.manifest.website), "preferences": identity.preferences(bpy.types.AddonPreferences)}
-
+def withdrawn() -> dict[str, object]:
+    """Reads the texts after release."""
     return WITNESS.identity.map(texts).default_value({})
 
 
-def refused(panel: type[bpy.types.Panel]) -> dict[str, object]:
-    """Registers a scope whose panel the host refuses after its operator registered, answering the error type the registration raised and what the unwinding left."""
-    raised = catch(Registration(PACKAGE, (ORPHANED, panel)).register, exception=Exception)().swap().map(lambda error: type(error).__name__).default_value("")
-    return {"raised": raised, "operators": tuple(dir(OPERATORS)), "panel": "bl_rna" in vars(panel), "handlers": _handlers() == BASELINE}
+def refusing() -> dict[str, dict[str, object]]:
+    """Registers scopes whose panel the host refuses after their operator registered, one naming a parent no registration holds and one declaring no draw callback, answering the error type each registration raised and what its unwinding left."""
+
+    def refused(panel: type[bpy.types.Panel]) -> dict[str, object]:
+        raised = catch(Registration(PACKAGE, (orphaned, panel)).register, exception=Exception)().swap().map(lambda error: type(error).__name__).default_value("")
+        return {"raised": raised, "operators": tuple(dir(OPERATORS)), "panel": "bl_rna" in vars(panel), "handlers": _handlers() == BASELINE}
+
+    return {"orphan": refused(Orphan), "drawless": refused(Drawless)}
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 WITNESS: Final = Witness()
-ORPHANED: Final = Operator(form=Empty, run=orphaned)
+TALLY: Final = Resource[int](made=lambda _identity: nullcontext(0), renewed=Some(lambda count: count + 1))
 
 rows: Final = (
     WITNESS,
@@ -353,30 +350,17 @@ rows: Final = (
     ParentPanel,
     Outer,
     Inner,
+    (Band.INTERFACE, lambda: Ok((DEFERRED,))),
     Handler(handlers=bpy.app.handlers.load_post, body=partial(located, WITNESS.loaded)),
     Handler(handlers=bpy.app.handlers.load_post, body=required),
     Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Object,), WITNESS.moved, changes=Some(Change.TRANSFORM))),
-    *startup(WITNESS.started),
+    Startup(body=WITNESS.started),
+    TALLY,
     Timer(body=lambda: Ok(Nothing), first_interval=1.0),
     Subscription(owner=bpy.types.Scene, setting=bpy.types.Scene.bl_rna.properties["frame_current"], body=lambda: Ok(None)),
 )
-PROBES: Final[Mapping[str, Callable[[Identity], object]]] = MappingProxyType({
-    "names": names,
-    "refusals": refusals,
-    "read": read,
-    "preferences": preferences,
-    "ordered": ordered,
-    "translated": translated,
-    "manual": manual,
-    "depsgraph": depsgraph,
-    "scened": scened,
-    "levels": levels,
-    "held": held,
-    "queued": queued,
-    "deferred": deferred,
-    "reloaded": reloaded,
-})
-RELEASED: Final[Mapping[str, Callable[[], object]]] = MappingProxyType({"order": released_order, "texts": released_texts, "orphan": partial(refused, Orphan), "drawless": partial(refused, Drawless)})
+PROBES: Final[tuple[Callable[[Identity], object], ...]] = (names, refusals, read, foreign, ordered, texts, depsgraph, scened, levels, held, queued, deferred, reloaded)
+RELEASED: Final[tuple[Callable[[], object], ...]] = (order, withdrawn, refusing)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -1,13 +1,13 @@
 """Background Blender session installing the fixture extension, observing each area while it is enabled and after it is disabled, and writing the observations as JSON to the path after `--`."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Iterable, Mapping
 from enum import Enum
 import importlib
 from pathlib import Path
 import shutil
 import sys
 import traceback
-from types import ModuleType
+from types import FunctionType, ModuleType
 from typing import Final
 
 import bpy
@@ -69,14 +69,13 @@ def plain(value: object) -> object:
             return value
 
 
-def observed(area: ModuleType, probes: Mapping[str, Callable[..., object]], *arguments: object) -> dict[str, object]:
-    """Runs each probe of an area, keeping a raised exception's traceback as its observation."""
+def observed(probes: Iterable[tuple[ModuleType, tuple[FunctionType, ...]]], *arguments: object) -> dict[str, dict[str, object]]:
+    """Runs each probe of each area, keyed by area and probe name, keeping a raised exception's traceback as its observation."""
 
-    def ran(probe: Callable[..., object]) -> object:
+    def ran(probe: FunctionType) -> object:
         return catch(lambda: plain(probe(*arguments)), exception=Exception)().default_with(lambda error: {"raised": "".join(traceback.format_exception(error))})
 
-    name = area.__name__.rpartition(".")[2]
-    return {f"{name}.{key}": ran(probe) for key, probe in probes.items()}
+    return {area.__name__.rpartition(".")[2]: {probe.__name__: ran(probe) for probe in listed} for area, listed in probes}
 
 
 def installed() -> None:
@@ -95,14 +94,11 @@ def main(target: Path) -> None:
     bpy.ops.preferences.addon_enable(module=PACKAGE)
     fixture = importlib.import_module(PACKAGE)
     identity: Identity = fixture.extension.WITNESS.identity.value
-    enabled = {key: value for area in fixture.AREAS for key, value in observed(area, area.PROBES, identity).items()}
+    enabled = observed(((area, area.PROBES) for area in fixture.AREAS), identity)
     bpy.ops.preferences.addon_disable(module=PACKAGE)
-    released = {key: value for area in fixture.AREAS for key, value in observed(area, area.RELEASED).items()}
+    released = observed((area, area.RELEASED) for area in fixture.AREAS)
     target.write_bytes(msgspec.json.encode({"enabled": enabled, "released": released}))
 
 
-main(Path(sys.argv[sys.argv.index("--") + 1]))
-
-# --- [EXPORTS] --------------------------------------------------------------------------
-
-__all__: list[str] = []
+if __name__ == "__main__":
+    main(Path(sys.argv[sys.argv.index("--") + 1]))

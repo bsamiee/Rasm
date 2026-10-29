@@ -20,24 +20,21 @@ from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes import textures
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.render.color.spaces import UNTAGGED
 from blender.bpy.render.compositor.coordinates import Border, BORDERS
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
-from blender.bpy.render.compositor.inputs import CameraFrame
+from blender.bpy.render.compositor.inputs import CameraFrame, Shell
 from blender.bpy.render.compositor.motion import Clock
-from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.color.processors import converted, GREY, luma
 from blender.imaging.files import buffers
 from blender.imaging.files.images import ImageFile, read_file
 from blender.imaging.geometry.arithmetic import smoothstep
-from blender.imaging.geometry.frames import Raster
-from blender.imaging.geometry.stmaps import displaced, slope, softened, tapped
+from blender.imaging.geometry.frames import displaced, Raster, slope, softened, tapped
 from blender.imaging.sampling import tiles
-from blender.imaging.sampling.integration import Estimate, Precision
-from blender.imaging.sampling.populations import Population
-from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.imaging.sampling.integration import Estimate, Population, Precision
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Finite, NonNegative, Positive, Seed, Unit
 
 from ...chain.stages import Effect, prepared, Stage
@@ -333,7 +330,7 @@ class Displacement(Effect, frozen=True, kw_only=True):
         bounds, size = camera.window(spec)
         raster, extent = Raster(bounds=bounds, shape=(spec.height, spec.width)), np.asarray(size, dtype=np.float64)
         frame, rate = scene.frame_current_final, scene.render.fps / scene.render.fps_base
-        wrap = (self.extension_x.wrap, self.extension_y.wrap)
+        wrap = (self.extension_x.value, self.extension_y.value)
 
         def computed(source: npt.NDArray[np.float32]) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
             height, width, channels = source.shape
@@ -460,7 +457,7 @@ def _(
 ) -> Outcome[Option[OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]:
     """Integrates the displaced stage input under original camera coordinates and the keyed gain of later exposure entries, unstaged while no field displaces."""
 
-    def linear(request: Map, file: ImageFile[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
+    def linear(request: Map, file: ImageFile) -> Outcome[npt.NDArray[np.float32]]:
         return Ok(file.pixels) if request.data else converted(config, PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR), file.pixels)
 
     def mapped(request: Map | None) -> Outcome[Option[npt.NDArray[np.float32]]]:
@@ -479,7 +476,7 @@ def _(
             case float():
                 return Ok(Nothing)
             case found:
-                return Error(Fault.of(RecordReason.UNREADABLE, LATER.key, repr(found)))
+                return Error(Fault.of(Reason.UNREADABLE, LATER.key, repr(found)))
 
     return decoded(record, values).bind(staged)
 
@@ -503,7 +500,7 @@ displacement: Final = CompositorEffect(
                     name=bpy.path.display_name(f"extension_{axis}"),
                     kind=bpy.types.NodeSocketMenu,
                     description=f"Source sampling past frame edges along {axis.upper()}",
-                    default_value=Border.CLAMP.item.name,
+                    default_value=MenuItem.of(Border.CLAMP).name,
                     items=Some(BORDERS),
                 )
                 for axis in ("x", "y")

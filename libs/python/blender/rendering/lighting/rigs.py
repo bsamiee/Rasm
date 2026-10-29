@@ -5,7 +5,7 @@ from functools import partial
 import math
 import sys
 from types import MappingProxyType
-from typing import Annotated, ClassVar, Final, override
+from typing import Annotated, ClassVar, Final, override, Self
 
 from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
@@ -18,7 +18,7 @@ from blender.imaging.analysis.lighting import LightingReading
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import luma, processor
 from blender.imaging.files.buffers import applied
-from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case, Finite, NonNegative, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -176,7 +176,7 @@ class Matched(Case, frozen=True, kw_only=True):
                 .to_optional(),
             )
 
-        return lit().map_error(partial(Fault.of, RecordReason.NUMERIC, repr(reading)))
+        return lit().map_error(partial(Fault.of, Reason.FAILED, repr(reading)))
 
 
 class PlacedLight(msgspec.Struct, frozen=True, kw_only=True):
@@ -213,8 +213,6 @@ class Background(msgspec.Struct, frozen=True, kw_only=True):
 class PlacedRig(msgspec.Struct, frozen=True, kw_only=True):
     """Lights placed about target sphere with world."""
 
-    radius: Positive
-    distance: _Distance
     lights: tuple[PlacedLight, ...]
     background: Option[Background]
 
@@ -253,7 +251,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
 
             def graded(color: tuple[Finite, Finite, Finite]) -> Outcome[tuple[Finite, Finite, Finite]]:
                 return catch(msgspec.convert, exception=msgspec.ValidationError)(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=tuple[Finite, Finite, Finite]).map_error(
-                    partial(Fault.of, RecordReason.NUMERIC, repr(color))
+                    partial(Fault.of, Reason.FAILED, repr(color))
                 )
 
             def light_at(light: Light) -> Outcome[PlacedLight]:
@@ -265,7 +263,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
                 return paired(graded(ambient.color), _scaled((self.irradiance, 1.0 / math.pi), ambient.stops)).map(lambda found: Some(Background(color=found[0], strength=found[1])))
 
             return paired(accumulated(light_at(light) for light in arranged.lights), Option.of_optional(arranged.ambient).map(world).default_value(Ok(Nothing))).map(
-                lambda found: Some(PlacedRig(radius=radius, distance=self.distance, lights=found[0], background=found[1]))
+                lambda found: Some(PlacedRig(lights=found[0], background=found[1]))
             )
 
         return self.arranged(reading).bind(
@@ -274,29 +272,29 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
             ).default_value(Ok(Nothing))
         )
 
+    @classmethod
+    def measured(cls, rows: tuple[tuple[LightRole, tuple[float, float, float], float, float, float], ...]) -> Self:
+        """Returns arranged rig from key-first measured lamp rows of role, offset from target in meters, watts, side, and temperature."""
+        levels = tuple(power / (math.pi * (math.hypot(*offset) ** 2 + (side / 2.0) ** 2)) for _, offset, power, side, _ in rows)
+        return cls(
+            irradiance=levels[0],
+            layout=Arranged(
+                lights=tuple(
+                    Light(
+                        role=role,
+                        azimuth=math.atan2(offset[0], -offset[1]),
+                        elevation=math.atan2(offset[2], math.hypot(*offset[:2])),
+                        size=2.0 * math.asin(side / (2.0 * math.hypot(*offset))),
+                        stops=math.log2(level / levels[0]),
+                        temperature=temperature,
+                    )
+                    for (role, offset, _, side, temperature), level in zip(rows, levels)
+                )
+            ),
+        )
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _measured(rows: tuple[tuple[LightRole, tuple[float, float, float], float, float, float], ...]) -> Rig:
-    """Returns arranged rig from key-first rows of role, offset, watts, side, and temperature."""
-    levels = tuple(power / (math.pi * (math.hypot(*offset) ** 2 + (side / 2.0) ** 2)) for _, offset, power, side, _ in rows)
-    return Rig(
-        irradiance=levels[0],
-        layout=Arranged(
-            lights=tuple(
-                Light(
-                    role=role,
-                    azimuth=math.atan2(offset[0], -offset[1]),
-                    elevation=math.atan2(offset[2], math.hypot(*offset[:2])),
-                    size=2.0 * math.asin(side / (2.0 * math.hypot(*offset))),
-                    stops=math.log2(level / levels[0]),
-                    temperature=temperature,
-                )
-                for (role, offset, _, side, temperature), level in zip(rows, levels)
-            )
-        ),
-    )
 
 
 def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> Outcome[float]:
@@ -307,26 +305,30 @@ def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> Outcome[float]:
     def product() -> float:
         return float(np.prod(factors) * np.exp2(stops))
 
-    return product().map_error(partial(Fault.of, RecordReason.NUMERIC, f"{factors} x 2^{stops}"))
+    return product().map_error(partial(Fault.of, Reason.FAILED, f"{factors} x 2^{stops}"))
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
 RIGS: Final = MappingProxyType({
-    "Three-Point": _measured(((LightRole.KEY, (1.6, -1.6, 0.30), 250.0, 0.6, 5500.0), (LightRole.FILL, (-1.6, -1.2, -0.10), 90.0, 1.5, 6500.0), (LightRole.RIM, (0.5, 1.6, 0.80), 400.0, 0.4, 5000.0))),
-    "Hard Low Key": _measured((
+    "Three-Point": Rig.measured((
+        (LightRole.KEY, (1.6, -1.6, 0.30), 250.0, 0.6, 5500.0),
+        (LightRole.FILL, (-1.6, -1.2, -0.10), 90.0, 1.5, 6500.0),
+        (LightRole.RIM, (0.5, 1.6, 0.80), 400.0, 0.4, 5000.0),
+    )),
+    "Hard Low Key": Rig.measured((
         (LightRole.KEY, (2.0, -1.0, 0.40), 450.0, 0.4, 4500.0),
         (LightRole.FILL, (-1.5, -1.0, -0.20), 25.0, 1.0, 7000.0),
         (LightRole.RIM, (-0.4, 1.5, 0.80), 200.0, 0.3, 4200.0),
     )),
-    "Side Key": _measured(((LightRole.KEY, (2.4, -0.6, 1.00), 550.0, 0.3, 4200.0),)),
-    "Soft High Key": _measured((
+    "Side Key": Rig.measured(((LightRole.KEY, (2.4, -0.6, 1.00), 550.0, 0.3, 4200.0),)),
+    "Soft High Key": Rig.measured((
         (LightRole.KEY, (1.2, -2.0, 0.50), 300.0, 2.0, 5500.0),
         (LightRole.FILL, (-1.2, -2.0, 0.50), 250.0, 2.0, 5500.0),
         (LightRole.SKY, (0.0, 0.0, 2.20), 180.0, 1.5, 5500.0),
     )),
-    "Rim Only": _measured(((LightRole.RIM, (0.0, 1.5, 1.20), 600.0, 0.5, 5000.0),)),
-    "Glamour": _measured(((LightRole.KEY, (0.0, -1.6, 1.40), 350.0, 0.7, 5500.0), (LightRole.FILL, (0.0, -1.0, -0.40), 80.0, 1.5, 6000.0))),
+    "Rim Only": Rig.measured(((LightRole.RIM, (0.0, 1.5, 1.20), 600.0, 0.5, 5000.0),)),
+    "Glamour": Rig.measured(((LightRole.KEY, (0.0, -1.6, 1.40), 350.0, 0.7, 5500.0), (LightRole.FILL, (0.0, -1.0, -0.40), 80.0, 1.5, 6000.0))),
     "Auto": Rig(),
     "Portrait": Rig(distance=2.4, layout=Matched(softness=1.1, tint=(1.0, 0.97, 0.92))),
     "Rembrandt": Rig(color_strength=0.9, distance=2.4, layout=Matched(key=Spot(), softness=0.9, rim=math.log2(0.8), fill=math.log2(0.12), tint=(1.0, 0.95, 0.85))),

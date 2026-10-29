@@ -1,5 +1,6 @@
 """Compositor motion: clocks per second with frame holds, decorrelated noise origins, the scene shutter and the poses it samples, and trails between shutter endpoints."""
 
+from types import MappingProxyType
 from typing import Final, Self
 
 import bpy
@@ -12,12 +13,12 @@ from blender.bpy.data.rna.animation import Animation, Keys
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import id_path, RnaPath, Struct
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderReason
+from blender.bpy.nodes.desired import item_key, Socket
 from blender.bpy.nodes.graphs import Expr, math, Scalar, vector, xyz
-from blender.bpy.nodes.interface import item_key, Socket
+from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.coordinates import dimensions
-from blender.bpy.render.compositor.inputs import Derives, entry_input
-from blender.records.faults import accumulated, Fault, Outcome, paired
+from blender.bpy.render.compositor.inputs import Derives, entry_input, entry_value
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case, Count, NonNegative
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -25,6 +26,7 @@ from blender.records.fields import Case, Count, NonNegative
 LENGTH: Final = Socket(key="length", kind=bpy.types.NodeSocketFloat, description="Shutter length in frames", hide_in_modifier=True)
 OPENING: Final = Socket(key="opening", kind=bpy.types.NodeSocketFloat, description="Shutter opening relative to frame in shutter lengths", hide_in_modifier=True)
 SHUTTER: Final = (LENGTH, OPENING)
+_OPENINGS: Final = MappingProxyType({"START": 0.0, "CENTER": -0.5, "END": -1.0})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -53,14 +55,7 @@ class Shutter(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, scene: bpy.types.Scene) -> Self:
         """Reads shutter length and the opening offset `motion_blur_position` places in shutter lengths."""
-        match scene.render.motion_blur_position:
-            case "START":
-                opening = 0.0
-            case "CENTER":
-                opening = -0.5
-            case "END":
-                opening = -1.0
-        return cls(length=scene.render.motion_blur_shutter, opening=opening)
+        return cls(length=scene.render.motion_blur_shutter, opening=_OPENINGS[scene.render.motion_blur_position])
 
     @property
     def values(self) -> dict[Key, Value]:
@@ -85,10 +80,9 @@ class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
 
     def posed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[dict[Key, Value]]:
         """Returns the scene shutter with both endpoint poses held at the entry's input values."""
-        return accumulated(
-            entry_input(identity, entry, socket.key).bind(lambda held: Descriptor.resolve(held, ("value",), bpy.types.Property).map(lambda descriptor: (socket.key, descriptor.read(held))))
-            for socket in self.sockets
-        ).map(lambda values: {**Shutter.of(scene).values, **{self.key(side, key): value for side in range(2) for key, value in values}})
+        return accumulated(entry_value(identity, entry, socket.key).map(lambda value: (socket.key, value)) for socket in self.sockets).map(
+            lambda values: {**Shutter.of(scene).values, **{self.key(side, key): value for side in range(2) for key, value in values}}
+        )
 
     def keyed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[Animation, ...]]:
         """Keys every pose component at its socket channel sampled at both fractional shutter endpoints of every rendered frame."""
@@ -96,12 +90,8 @@ class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
         opening = Shutter.of(scene).opening
 
         def components(socket: Socket) -> tuple[int | None, ...]:
-            prop: bpy.types.Property | None = socket.kind.bl_rna.properties.get("default_value")
-            match prop:
-                case bpy.types.FloatProperty(array_length=length) | bpy.types.IntProperty(array_length=length) | bpy.types.BoolProperty(array_length=length) if length:
-                    return tuple(range(length))
-                case _:
-                    return (None,)
+            sizes = Descriptor.dimensions(socket.kind.bl_rna.properties["default_value"])
+            return tuple(range(sizes[0])) if sizes else (None,)
 
         def component(lengths: tuple[float, ...], socket: Socket, side: int, index: int | None) -> Outcome[Animation]:
             member: RnaPath = ("value",) if index is None else ("value", index)
@@ -113,7 +103,7 @@ class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
 
             return paired(
                 entry_input(identity, entry, socket.key),
-                entry_input(identity, entry, self.key(side, socket.key)).bind(lambda held: id_path(held).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(held), member="value"))),
+                entry_input(identity, entry, self.key(side, socket.key)).bind(lambda held: id_path(held).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(held), member="value"))),
             ).bind(lambda values: samples(*values))
 
         return animation.sampled(scene.render, ("motion_blur_shutter",), frames).bind(
@@ -177,16 +167,8 @@ def trailed(image: Expr, source: Scalar, opened: Expr, stepped: Expr) -> Expr:
         return Expr(kind=bpy.types.CompositorNodeDBlur, inputs=(("Image", held), ("Center", (0.5, 0.5)), *settings), socket="Image", shape=bpy.types.NodeSocketColor)
 
     unit = vector("ADD", vector("SCALE", Expr(kind=bpy.types.CompositorNodeImageCoordinates, inputs=(("Image", source),), socket="Pixel", shape=bpy.types.NodeSocketVector), 0.0), (1.0, 1.0, 1.0))
-    trail, coverage = (
-        blurred(image),
-        blurred(Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", unit), ("Alpha", 1.0), ("Type", "Replace Alpha")), socket="Image", shape=bpy.types.NodeSocketColor)),
-    )
-    return Expr(
-        kind=bpy.types.CompositorNodeSetAlpha,
-        inputs=(("Image", vector("DIVIDE", trail, coverage)), ("Alpha", trail["Alpha"] / coverage["Alpha"]), ("Type", "Replace Alpha")),
-        socket="Image",
-        shape=bpy.types.NodeSocketColor,
-    )
+    trail, coverage = blurred(image), blurred(with_alpha(unit, 1.0))
+    return with_alpha(vector("DIVIDE", trail, coverage), trail["Alpha"] / coverage["Alpha"])
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

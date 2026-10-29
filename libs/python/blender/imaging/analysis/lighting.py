@@ -17,7 +17,7 @@ from scipy.stats import binned_statistic
 
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.colorimetry import WhitePoint
-from blender.imaging.color.processors import basis, GREY
+from blender.imaging.color.processors import basis
 from blender.imaging.files.buffers import fitted
 from blender.imaging.geometry.frames import Region
 from blender.records.faults import Outcome, paired
@@ -224,7 +224,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                         rim=rim,
                         contrast=math.log2(max(key_y, Samples.floor) / max(fill_y, Samples.floor)),
                         range=spread,
-                        metered_exposure=math.log2(GREY) - float(Samples.logarithm(found).mean(dtype=np.float64)),
+                        metered_exposure=Samples.stops(found),
                         mean_luminance=float(levels[covered].mean(dtype=np.float64)),
                         direction=(float(direction[0]), float(direction[1])),
                         split=float(np.linalg.norm(mixed[0])) * min(1.0, spread / self.split_range),
@@ -237,7 +237,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        return fitted(plane, self.grid, filtername="triangle").bind(lambda values: paired(Samples.of(config, values), basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR))).bind(measured)
+        return fitted(plane, (self.grid, self.grid), filtername="triangle").bind(lambda values: paired(Samples.of(config, values), basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR))).bind(measured)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

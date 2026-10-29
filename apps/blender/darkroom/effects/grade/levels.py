@@ -13,16 +13,15 @@ from blender.bpy.data.rna.conditions import Job
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.nodes.desired import Interface, Socket
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.render.color.spaces import EXPOSURE
 from blender.bpy.render.compositor.effects import CompositorEffect, Named
-from blender.bpy.render.compositor.inputs import entered
-from blender.bpy.render.compositor.shells import Shell
+from blender.bpy.render.compositor.inputs import entered, Shell
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.files.images import ImageFile
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, Reason
 
 from ...chain.stages import Effect, Stage, transform
 
@@ -53,13 +52,13 @@ def _(_record: Levels, values: Mapping[Key, Value], _config: PyOpenColorIO.Confi
             operation.setOffset((-black * 2.0**-white,) * 3 + (0.0,))
             return Ok(Some(operation))
         case _:
-            return Error(Fault.of(RecordReason.UNREADABLE, Levels.__name__, repr(values)))
+            return Error(Fault.of(Reason.UNREADABLE, Levels.__name__, repr(values)))
 
 
 def auto_levels(call: Call[Named]) -> Outcome[Answer]:
     """Measure levels from the stage input."""
 
-    def measured(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
+    def measured(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[Option[str]]:
         return Samples.of(PyOpenColorIO.GetCurrentConfig(), file.pixels).bind(
             lambda samples: (
                 samples

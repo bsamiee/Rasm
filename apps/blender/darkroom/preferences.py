@@ -9,7 +9,7 @@ from blender.bpy.render.sessions.plans import Queueing
 from blender.bpy.settings.attachments import RetentionSettings
 from blender.bpy.ui.layout.rows import Status
 from blender.bpy.ui.layout.sections import Section
-from blender.bpy.ui.surfaces.preferences import PreferencesPage
+from blender.bpy.ui.surfaces.panels import PreferencesPage
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

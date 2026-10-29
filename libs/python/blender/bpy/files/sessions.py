@@ -20,20 +20,15 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.calls import called, Operation, Setting
-from blender.bpy.data.ids.ownership import retained
+from blender.bpy.data.ids.ownership import retained, tracked
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.paths import RnaPath
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
 from blender.records.stores import folder_made
 from blender.rendering.batch.queue import PackedFile
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Relink = Rebased | Mapping[tuple[Handle[bpy.types.ID], str], str]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -130,7 +125,7 @@ class PackReport(BATPackReporter):
     @override
     def on_error_on_error(self, message: str, exception: Exception) -> None:
         """Holds a failed copy or rewrite callback."""
-        self._faults.extend(Fault.of(BlenderReason.FAILED, message, exception))
+        self._faults.extend(Fault.of(Reason.FAILED, message, exception))
 
     @override
     def on_copy_start(self, src: Path, dest: PurePath) -> None:
@@ -144,7 +139,7 @@ class PackReport(BATPackReporter):
     @override
     def on_copy_error(self, src: Path, dest: PurePath, errormsg: str) -> None:
         """Holds a refused copy."""
-        self._faults.extend(Fault.of(RecordReason.UNWRITABLE, str(dest), errormsg))
+        self._faults.extend(Fault.of(Reason.UNWRITABLE, str(dest), errormsg))
 
     @override
     def on_rewrite_start(self, blendfile: Path, save_to: Path) -> None:
@@ -157,40 +152,47 @@ class PackReport(BATPackReporter):
     @override
     def on_rewrite_error(self, blendfile: Path, save_to: Path, errormsg: str) -> None:
         """Holds a refused path rewrite."""
-        self._faults.extend(Fault.of(RecordReason.UNWRITABLE, str(save_to), errormsg))
+        self._faults.extend(Fault.of(Reason.UNWRITABLE, str(save_to), errormsg))
 
     @override
     def on_missing_file(self, blendfile: Path, relpath_in_pack: PurePath) -> None:
         """Holds a dependency missing on disk."""
-        self._faults.extend(Fault.of(BlenderReason.ABSENT, str(blendfile.parent), member=blendfile.name))
+        self._faults.extend(Fault.of(Reason.ABSENT, str(blendfile.parent), member=blendfile.name))
 
 
-class Packing:
-    """blender-asset-tracer pack the extension's reports queue advances one step per pass, aborted at a refusal before it finishes."""
+class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Started blender-asset-tracer pack with its reporter, the scope holding its abort, and the step reading the finished pack, stepped by the reports queue or drained at once."""
 
-    __slots__ = ("_finished", "_packer", "_release", "_report")
-
-    def __init__(self, packer: BATPacker, report: PackReport, release: ExitStack, finished: Callable[[Outcome[Pack]], Outcome[None]]) -> None:
-        """Holds a started packer, its reporter, the scope holding its abort, and the step reading the finished pack."""
-        self._packer, self._report, self._release, self._finished = packer, report, release, finished
+    packer: BATPacker
+    report: PackReport
+    release: ExitStack
+    finished: Callable[[Outcome[Pack]], Outcome[object]]
 
     @property
-    def transferred(self) -> tuple[int, int]:
-        """Total and copied file counts of the transfer so far."""
-        return self._packer.num_files_to_transfer()
+    def pack(self) -> Pack:
+        """Pack so far: blend file, copied files, skipped files as faults, and transfer counts."""
+        return Pack(blend=self.packer.blendfile_location_abspath(), files=self.report.copied, skipped=self.report.skipped, transferred=self.packer.num_files_to_transfer())
 
     def advanced(self) -> Outcome[Option[Self]]:
         """Runs one pack step, keeping the pack queued while steps remain, else finishing with the pack, or aborting and finishing with the refusal."""
-        match _traced(self._packer.step).map_error(partial(Fault.of, RecordReason.UNREADABLE, str(self._packer.project_root))):
+        match _traced(self.packer.step).map_error(partial(Fault.of, Reason.UNREADABLE, str(self.packer.project_root))):
             case Result(tag="ok", ok=True):
                 return Ok(Some(self))
             case Result(tag="ok"):
-                self._release.pop_all()
-                pack = Pack(blend=self._packer.blendfile_location_abspath(), files=self._report.copied, skipped=self._report.skipped, transferred=self.transferred)
-                return self._finished(Ok(pack)).map(lambda _: Nothing)
+                self.release.pop_all()
+                return self.finished(Ok(self.pack)).map(lambda _: Nothing)
             case Result(error=faults):
-                self._release.close()
-                return self._finished(Error(faults)).map(lambda _: Nothing)
+                self.release.close()
+                return self.finished(Error(faults)).map(lambda _: Nothing)
+
+    def drained(self) -> Outcome[Pack]:
+        """Runs every remaining step in one call, the form a background run takes, aborting at a refusal."""
+        return (
+            _traced(lambda: tuple(iter(self.packer.step, False)))
+            .map_error(partial(Fault.of, Reason.UNREADABLE, str(self.packer.project_root)))
+            .or_else_with(partial(_released, self.release))
+            .map(lambda _: self.pack)
+        )
 
 
 class FarmTransfer(FileTransferProtocol):
@@ -303,7 +305,7 @@ def dependencies() -> tuple[Dependency, ...]:
     return tuple(found)
 
 
-def relinked(relink: Relink) -> dict[tuple[Handle[bpy.types.ID], str], str]:
+def relinked(relink: Rebased | Mapping[tuple[Handle[bpy.types.ID], str], str]) -> dict[tuple[Handle[bpy.types.ID], str], str]:
     """Rewrites local writable paths, returning relink that restores them."""
     changes: dict[tuple[Handle[bpy.types.ID], str], str] = {}
 
@@ -338,25 +340,39 @@ def _released[T](release: ExitStack, faults: Faults) -> Outcome[T]:
     return Error(faults)
 
 
-def _session() -> Outcome[str]:
-    """Returns the saved session file a pack reads, required fault for an unsaved or modified session."""
-    return Option.of_optional(bpy.data.filepath or None).filter(lambda _: not bpy.data.is_dirty).to_result_with(lambda: Fault.of(BlenderReason.REQUIRED, "saved session file"))
-
-
-def _packer(target: Path | FileTransferProtocol, project: Path, options: Options, report: PackReport) -> BATPacker:
-    """Builds a packer copying into a pack folder, or handing each traced file to a transfer."""
-    return BATPacker(project, options, report, pack_target_dir=target) if isinstance(target, Path) else BATPacker(project, options, report, file_transfer=target)
-
-
-def _drained(packer: BATPacker) -> None:
-    """Runs every remaining step of a started packer."""
-    while packer.step():
-        pass
-
-
 def _traced[T](step: Callable[[], T]) -> Result[T, OSError | BlendFileError | BackgroundProcessNotRunningError]:
     """Runs one blender-asset-tracer call, which raises for an unreadable file, an unparsable blend file, and a stopped rewrite process."""
     return catch(step, exception=_TRACING)()
+
+
+def _started(target: Path | FileTransferProtocol, project: Path, options: Options, finished: Callable[[Outcome[Pack]], Outcome[object]], /) -> Outcome[Packing]:
+    """Starts a packer copying into a pack folder or handing each traced file to a transfer, its abort held until the pack finishes.
+
+    Args:
+        target: Pack folder, or the transfer placing each traced file in place of a copy.
+        project: Root whose relative layout the pack keeps.
+        options: blender-asset-tracer trace options.
+        finished: Step reading the finished pack or the refusal that aborted it.
+
+    Returns:
+        Started pack, required fault for an unsaved or modified session, read fault for an unreadable file.
+    """
+    report = PackReport()
+    match target:
+        case Path():
+            packer = BATPacker(project, options, report, pack_target_dir=target)
+        case _:
+            packer = BATPacker(project, options, report, file_transfer=target)
+    release = ExitStack()
+    release.callback(packer.abort)
+    return (
+        Option
+        .of_optional(bpy.data.filepath or None)
+        .filter(lambda _: not bpy.data.is_dirty)
+        .to_result_with(lambda: Fault.of(Reason.REQUIRED, "saved session file"))
+        .bind(lambda _: _traced(packer.start).map_error(partial(Fault.of, Reason.UNREADABLE, str(project))).or_else_with(partial(_released, release)))
+        .map(lambda _: Packing(packer=packer, report=report, release=release, finished=finished))
+    )
 
 
 def packed(identity: Identity, target: Path | FileTransferProtocol, *, project: Path, finished: Callable[[Outcome[Pack]], Outcome[None]], options: Options = _OPTIONS) -> Outcome[None]:
@@ -372,20 +388,7 @@ def packed(identity: Identity, target: Path | FileTransferProtocol, *, project: 
     Returns:
         Ok(None) once the first step ran, required fault for an unsaved or modified session, read fault for an unreadable file.
     """
-    report = PackReport()
-
-    def started(_: str) -> Outcome[None]:
-        packer = _packer(target, project, options, report)
-        release = ExitStack()
-        release.callback(packer.abort)
-        return (
-            _traced(packer.start)
-            .map_error(partial(Fault.of, RecordReason.UNREADABLE, str(project)))
-            .or_else_with(partial(_released, release))
-            .bind(lambda _: identity.reports.queued(Packing(packer, report, release, finished)))
-        )
-
-    return _session().bind(started)
+    return _started(target, project, options, finished).bind(identity.reports.queued)
 
 
 def traced(target: Path | FileTransferProtocol, *, project: Path, options: Options = _OPTIONS) -> Outcome[Pack]:
@@ -399,21 +402,7 @@ def traced(target: Path | FileTransferProtocol, *, project: Path, options: Optio
     Returns:
         The finished pack with its skipped files as faults, required fault for an unsaved or modified session, read fault for an unreadable file.
     """
-    report = PackReport()
-
-    def started(_: str) -> Outcome[Pack]:
-        packer = _packer(target, project, options, report)
-        release = ExitStack()
-        release.callback(packer.abort)
-        return (
-            _traced(packer.start)
-            .bind(lambda _: _traced(partial(_drained, packer)))
-            .map_error(partial(Fault.of, RecordReason.UNREADABLE, str(project)))
-            .or_else_with(partial(_released, release))
-            .map(lambda _: Pack(blend=packer.blendfile_location_abspath(), files=report.copied, skipped=report.skipped, transferred=packer.num_files_to_transfer()))
-        )
-
-    return _session().bind(started)
+    return _started(target, project, options, Ok).bind(Packing.drained)
 
 
 # --- [PROJECT]
@@ -425,8 +414,8 @@ def projected(project: Project) -> Outcome[None]:
     def initialized() -> Outcome[bpy.types.BlenderProject]:
         return (
             catch(bpy.data.project_init, exception=RuntimeError)(project.name, str(project.root))
-            .map_error(partial(Fault.of, BlenderReason.REFUSED, "bpy.data"))
-            .bind(lambda _: Option.of_optional(bpy.data.project).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, "bpy.data", member="project")))
+            .map_error(partial(Fault.of, Reason.REFUSED, "bpy.data"))
+            .bind(lambda _: Option.of_optional(bpy.data.project).to_result_with(lambda: Fault.of(Reason.ABSENT, "bpy.data", member="project")))
         )
 
     def reconciled(current: bpy.types.BlenderProject) -> Outcome[None]:
@@ -434,31 +423,23 @@ def projected(project: Project) -> Outcome[None]:
         with ExitStack() as cleanup:
 
             def created[T](request: str, name: str, made: Callable[[], T | None], removed: Callable[[T], object]) -> Outcome[T]:
-                def held(item: T) -> T:
-                    cleanup.callback(removed, item)
-                    return item
-
-                return (
+                return tracked(
+                    cleanup,
+                    removed,
                     catch(made, exception=RuntimeError)()
-                    .map_error(partial(Fault.of, BlenderReason.REFUSED, request))
-                    .bind(lambda item: Option.of_optional(item).map(held).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, request, member=name)))
+                    .map_error(partial(Fault.of, Reason.REFUSED, request))
+                    .bind(lambda item: Option.of_optional(item).to_result_with(lambda: Fault.of(Reason.ABSENT, request, member=name))),
                 )
 
             def placed(name: str, variable: TemplateVariable) -> Outcome[None]:
                 kind: Literal["STRING", "INTEGER", "FLOAT"]
                 values: Mapping[RnaPath, Value]
                 match variable.value:
-                    case Path() as path:
+                    case Path() | str() as text:
                         kind = "STRING"
-                        values = {("subtype",): "FILEPATH", ("value",): str(path)}
-                    case str(text):
-                        kind = "STRING"
-                        values = {("subtype",): "NONE", ("value",): text}
-                    case int(number):
-                        kind = "INTEGER"
-                        values = {("value",): number}
-                    case float(number):
-                        kind = "FLOAT"
+                        values = {("subtype",): "FILEPATH" if isinstance(text, Path) else "NONE", ("value",): str(text)}
+                    case number:
+                        kind = "INTEGER" if isinstance(number, int) else "FLOAT"
                         values = {("value",): number}
 
                 def replaced() -> Outcome[bpy.types.ProjectVariable]:
@@ -483,7 +464,7 @@ def projected(project: Project) -> Outcome[None]:
                         return accumulated(assigned(item, {("path",): path}) for item in items).map(lambda _: None)
 
             def saved_project(_: object) -> Outcome[None]:
-                return catch(bpy.data.project_save, exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, "bpy.data.project")) if current.is_dirty else Ok(None)
+                return catch(bpy.data.project_save, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, "bpy.data.project")) if current.is_dirty else Ok(None)
 
             return retained(
                 accumulated((assigned(current, {("name",): project.name}), *starmap(placed, project.variables.items()), *starmap(library, project.libraries.items()))).bind(saved_project), cleanup
@@ -506,7 +487,6 @@ __all__ = [
     "PackReport",
     "Project",
     "Rebased",
-    "Relink",
     "TemplateVariable",
     "dependencies",
     "packed",

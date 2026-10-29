@@ -10,17 +10,17 @@ from uuid import NAMESPACE_URL, uuid5
 
 from _bpy_internal.assets.remote_library.listing_asset_catalogs import parse_catalogs
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
+from expression import Error, Nothing, Ok, Option, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
+from blender.bpy.data.ids.ownership import tracked
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderReason
 from blender.bpy.files.libraries import blocks_loaded, library_written, listed
-from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, Reason
 from blender.records.stores import folder_made
 
 if TYPE_CHECKING:
@@ -39,15 +39,8 @@ class _Catalog(Protocol):
     uuids: list[str]
 
 
-class _Resource(Protocol):
-    """`bpy.utils.system_resource`, which the stubs lack, its path keyword kept."""
-
-    def __call__(self, kind: str, /, *, path: str) -> str: ...
-
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-SYSTEM_RESOURCE: Final[_Resource] = bpy.utils.system_resource  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 _PARSED: Final[Callable[[Path], list[_Catalog]]] = parse_catalogs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _UNREADABLE: Final[type[OSError | UnicodeError]] = (OSError, UnicodeError)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _ESSENTIALS: Final = frozenset({"ESSENTIALS", "ONLINE_ESSENTIALS"})
@@ -114,9 +107,9 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
             block.asset_mark()
             if block.preview is None:
                 block.asset_generate_preview()
-            return Option.of_optional(block.asset_data).map(applied).default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(block), member="asset_data")))
+            return Option.of_optional(block.asset_data).map(applied).default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(block), member="asset_data")))
 
-        return catch(msgspec.convert, exception=msgspec.ValidationError)(self.catalog, CatalogPath).map_error(partial(Fault.of, RecordReason.INVALID, self.catalog)).bind(mark)
+        return catch(msgspec.convert, exception=msgspec.ValidationError)(self.catalog, CatalogPath).map_error(partial(Fault.of, Reason.INVALID, self.catalog)).bind(mark)
 
 
 class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
@@ -148,21 +141,17 @@ class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
         with ExitStack() as lifetime:
 
             def held(folder: Path, rows: bpy.types.AssetLibraryCollection) -> Outcome[bpy.types.PreferencesAssetLibrary]:
-                made = (
+                found: Outcome[bpy.types.PreferencesAssetLibrary] = (
                     Block
                     .of_seq(rows)
                     .choose(lambda row: Option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)))
                     .filter(lambda row: row.extension_id == stamp)
                     .try_head()
                     .map(Ok)
-                    .default_with(
-                        lambda: catch(rows.new, exception=RuntimeError)(name=self.title, directory=str(folder), extension_id=stamp).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(rows)))
-                    )
-                    .bind(lambda row: Option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(rows), member=self.title)))
+                    .default_with(lambda: catch(rows.new, exception=RuntimeError)(name=self.title, directory=str(folder), extension_id=stamp).map_error(partial(Fault.of, Reason.REFUSED, repr(rows))))
+                    .bind(lambda row: Option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(rows), member=self.title)))
                 )
-                for row in made.to_option().to_list():
-                    lifetime.callback(rows.remove, row)
-                return made
+                return tracked(lifetime, rows.remove, found)
 
             preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             yield (
@@ -223,7 +212,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
     def catalogued(rows: list[_Catalog]) -> Outcome[Mapping[str, str]]:
         held = {row.path: uid for row in rows for uid in Block.of_seq(row.uuids).try_head().to_list()}
         added = {path: str(uuid5(NAMESPACE_URL, f"{identity.manifest.id}/{path}")) for path in sorted({mark.catalog for _, mark in entries} - held.keys())}
-        return (_appended(catalogs, added).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(catalogs))) if added else Ok(catalogs)).map(lambda _: held | added)
+        return (_appended(catalogs, added).map_error(partial(Fault.of, Reason.UNWRITABLE, str(catalogs))) if added else Ok(catalogs)).map(lambda _: held | added)
 
     def marked(uids: Mapping[str, str]) -> Outcome[Path]:
         return (
@@ -232,7 +221,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
             .map(lambda _: target)
         )
 
-    return folder_made(folder).bind(lambda _: catch(_PARSED, exception=_UNREADABLE)(folder).map_error(partial(Fault.of, RecordReason.UNREADABLE, str(catalogs)))).bind(catalogued).bind(marked)
+    return folder_made(folder).bind(lambda _: catch(_PARSED, exception=_UNREADABLE)(folder).map_error(partial(Fault.of, Reason.UNREADABLE, str(catalogs)))).bind(catalogued).bind(marked)
 
 
 # --- [IMPORTS]
@@ -268,17 +257,17 @@ def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T
             Option
             .of_optional(library.user_library)
             .map(lambda row: loading(preferred.default_value(row.import_method), relative=row.use_relative_path))
-            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, asset.full_path, member="user_library"))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, asset.full_path, member="user_library"))
         )
 
     match Option.of_optional(asset.local_id):
         case Option(tag="some", some=block):
-            return Option.of_optional(try_downcast(kind, block)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, asset.full_path, member=asset.name))
+            return Option.of_optional(try_downcast(kind, block)).to_result_with(lambda: Fault.of(Reason.ABSENT, asset.full_path, member=asset.name))
         case Option():
             return (
                 Option
                 .of_optional(asset.owner_asset_library)
-                .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, asset.full_path, member="owner_asset_library"))
+                .to_result_with(lambda: Fault.of(Reason.ABSENT, asset.full_path, member="owner_asset_library"))
                 .bind(keywords)
                 .bind(lambda load: blocks_loaded(Path(asset.full_library_path), kind, (asset.name,), **load))
                 .map(lambda blocks: blocks[0])
@@ -301,21 +290,17 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
     Returns:
         Imported block, absent fault for missing name.
     """
-    root = Path(SYSTEM_RESOURCE("DATAFILES", path="assets"))
+    folder: str = bpy.utils.system_resource("DATAFILES", path="assets")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    root = Path(folder)
     return (
-        Result[tuple[Path, ...], Faults]
+        _blends(root)
+        .map_error(partial(Fault.of, Reason.UNREADABLE, str(root)))
         .bind(
-            _blends(root).map_error(partial(Fault.of, RecordReason.UNREADABLE, str(root))),
             lambda paths: accumulated(listed(path, kind, assets_only=True) for path in paths).bind(
                 lambda listings: (
-                    Block
-                    .of_seq(zip(paths, listings))
-                    .filter(lambda pair: name in pair[1])
-                    .map(lambda pair: pair[0])
-                    .try_head()
-                    .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, str(root), member=name))
+                    Block.of_seq(zip(paths, listings)).filter(lambda pair: name in pair[1]).map(lambda pair: pair[0]).try_head().to_result_with(lambda: Fault.of(Reason.ABSENT, str(root), member=name))
                 )
-            ),
+            )
         )
         .bind(lambda path: blocks_loaded(path, kind, (name,), **loading(essential(), relative=True)))
         .map(lambda blocks: blocks[0])
@@ -325,4 +310,4 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["SYSTEM_RESOURCE", "AssetMark", "CatalogPath", "ImportMethod", "UserLibrary", "bundled", "essential", "imported", "loading", "published"]
+__all__ = ["AssetMark", "CatalogPath", "ImportMethod", "UserLibrary", "bundled", "essential", "imported", "loading", "published"]

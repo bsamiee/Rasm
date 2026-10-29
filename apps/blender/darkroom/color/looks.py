@@ -18,11 +18,10 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.addressing import owned
 from blender.bpy.render.color.spaces import NO_LOOK, viewed
-from blender.bpy.render.compositor.blending import Entry
+from blender.bpy.render.compositor.effects import Entry
 from blender.bpy.render.compositor.recipes import Valued
 from blender.bpy.settings.attachments import Attachment
-from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import FUNCTIONS, gridded, Layout, OperatorButton, Property
+from blender.bpy.ui.layout.rows import FUNCTIONS, gridded, Layout, Member, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.surfaces.panels import Child, Panel
 from blender.imaging.color.processors import DisplayView

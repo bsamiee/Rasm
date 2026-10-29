@@ -1,26 +1,28 @@
-"""Mask keys beside their node groups: shape, qualifier, wipe, highlight, and track matte keys, their interfaces, edges and bands, working luminance, and chained mask coverage."""
+"""Mask keys beside their node groups: shape, qualifier, wipe, highlight, and track matte keys, their interfaces, edges and bands, working luminance, chained mask coverage, and the blend of a result over its base through mode, opacity, and masks."""
 
 from collections.abc import Callable, Mapping
-from enum import auto, Enum
+from enum import Enum
 import functools
 from math import pi, radians, tau
 from types import MappingProxyType
-from typing import Final, TYPE_CHECKING
+from typing import Annotated, Final, TYPE_CHECKING
 
 import bpy
 from expression import Nothing, Ok, Option, Some
 import msgspec
+import psdtags
 import PyOpenColorIO
 
+from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes import functions
-from blender.bpy.nodes.desired import NodeGroup
+from blender.bpy.nodes.desired import DesiredItem, Interface, InterfacePanel, item_key, MenuItem, MenuItems, NodeGroup, Socket, under
 from blender.bpy.nodes.functions import grouped
-from blender.bpy.nodes.graphs import Expr, group_input, math, menu, Scalar, switched, Term, vector, xyz
-from blender.bpy.nodes.interface import DesiredItem, Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket, under
-from blender.bpy.render.compositor.colors import COLOR_INPUT, converted, hsy, logarithmic, straight
-from blender.bpy.render.compositor.coordinates import framed, FrameSpace, pixels, shorter
-from blender.bpy.render.compositor.shells import read
+from blender.bpy.nodes.graphs import Expr, group_input, math, menu, mixed, Scalar, switched, Term, vector, xyz
+from blender.bpy.render.compositor.colors import COLOR_INPUT, converted, hsy, logarithmic, straight, with_alpha
+from blender.bpy.render.compositor.coordinates import FrameSpace, shorter
+from blender.bpy.render.compositor.inputs import read
+from blender.bpy.render.compositor.shapes import turned
 from blender.records.faults import accumulated, Outcome
 
 if TYPE_CHECKING:
@@ -30,27 +32,16 @@ if TYPE_CHECKING:
 
 
 class MaskOperation(Enum):
-    """Join of a key with the coverage of the masks before it."""
+    """Join of a key with the coverage of the masks before it, clamped to unit coverage."""
 
-    ADD = auto()
-    SUBTRACT = auto()
-    MULTIPLY = auto()
+    ADD = ("MAXIMUM", 0.0)
+    SUBTRACT = ("SUBTRACT", 1.0)
+    MULTIPLY = ("MULTIPLY", 1.0)
 
-    @property
-    def join(self) -> tuple["rna_enums.NodeMathItems", bool, float]:
-        """Math operation joining the key onto running coverage, whether it clamps, and the coverage the first mask joins onto."""
-        match self:
-            case MaskOperation.ADD:
-                return "MAXIMUM", False, 0.0
-            case MaskOperation.SUBTRACT:
-                return "SUBTRACT", True, 1.0
-            case MaskOperation.MULTIPLY:
-                return "MULTIPLY", False, 1.0
-
-    @property
-    def item(self) -> MenuItem:
-        """Menu item of the operation."""
-        return MenuItem(name=bpy.path.display_name(self.name.lower()))
+    def __init__(self, operation: "rna_enums.NodeMathItems", identity: float) -> None:
+        """Holds the Math operation joining the key onto running coverage and the coverage the first mask joins onto."""
+        self.operation: rna_enums.NodeMathItems = operation
+        self.identity = identity
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -59,7 +50,7 @@ class MaskOperation(Enum):
 
 KEY: Final = Socket(key="key", kind=bpy.types.NodeSocketFloat)
 LUMINANCE: Final = Socket(key="luminance", kind=bpy.types.NodeSocketFloat)
-OPERATIONS: Final = MenuItems(items=tuple(operation.item for operation in MaskOperation))
+OPERATIONS: Final = MenuItems.of(MaskOperation)
 _BOX: Final = MenuItem(name="Box")
 _ELLIPSE: Final = MenuItem(name="Ellipse")
 OUTLINES: Final = MenuItems(items=(_BOX, _ELLIPSE))
@@ -120,7 +111,7 @@ HIGHLIGHTS: Final = Interface(
 _FACES: Final = MappingProxyType({_SHAPED: SHAPE, _QUALIFIED: QUALIFIER, _TRANSITIONED: TRANSITION})
 KEYS: Final = MenuItems(items=tuple(_FACES))
 _CHOICE: Final = Socket(key="key", kind=bpy.types.NodeSocketMenu, description="Shape, qualifier, or transition", default_value=_SHAPED.name, items=Some(KEYS))
-_OPERATION: Final = Socket(key="operation", kind=bpy.types.NodeSocketMenu, description="Join with the masks before it", default_value=MaskOperation.ADD.item.name, items=Some(OPERATIONS))
+_OPERATION: Final = Socket(key="operation", kind=bpy.types.NodeSocketMenu, description="Join with the masks before it", default_value=MenuItem.of(MaskOperation.ADD).name, items=Some(OPERATIONS))
 _INVERT: Final = Socket(key="invert", kind=bpy.types.NodeSocketBool, description="Select key complement")
 MASK: Final = Interface(
     inputs=(_CHOICE, _OPERATION, _INVERT),
@@ -140,6 +131,36 @@ _SCALE: Final = Socket(key="scale", kind=bpy.types.NodeSocketFloat)
 _FRAMED: Final = (COLOR_INPUT, _ASPECT, _SCALE)
 _RUNNING: Final = Socket(key="running", kind=bpy.types.NodeSocketFloat)
 
+# --- [BLENDS]
+
+BLEND: Final[Key] = "blend"
+_MASKS: Final[Key] = "masks"
+FORMULAS: Final = Descriptor.declared(bpy.types.ShaderNodeMix, ("blend_type",), bpy.types.EnumProperty).prop
+MODES: Final = MenuItems.of(FORMULAS)
+MODE: Final = Socket(key="mode", name="Blend", kind=bpy.types.NodeSocketMenu, description="Mix node formula mixing result with base", default_value=FORMULAS.enum_items["MIX"].name, items=Some(MODES))
+OPACITY: Final = Socket(key="opacity", name="Opacity", kind=bpy.types.NodeSocketFloatFactor, description="Share of result mixed over base", min_value=0.0, max_value=1.0, default_value=1.0)
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Blend(msgspec.Struct, frozen=True, kw_only=True):
+    """Count of the masks limiting where a result mixes over its base, mode and opacity held by the blend sockets."""
+
+    masks: Annotated[int, msgspec.Meta(ge=0)] = 0
+
+    @property
+    def interface(self) -> Interface:
+        """Mode and opacity sockets, then one panel per mask under `masks`."""
+        nested = under(_MASKS, Interface(panels=masked(self.masks)))
+        return Interface(inputs=(MODE, OPACITY), panels=(InterfacePanel(key=_MASKS, name="Masks", panels=nested.panels),) if self.masks else ())
+
+    @property
+    def panel(self) -> InterfacePanel:
+        """Blend panel of an entry group, its items keyed under `BLEND`."""
+        face = under(BLEND, self.interface)
+        return InterfacePanel(key=BLEND, name="Blend", inputs=face.inputs, panels=face.panels)
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [KEYS]
@@ -153,7 +174,7 @@ def luminance(config: PyOpenColorIO.Config, image: Term) -> Outcome[Expr]:
 def working(config: PyOpenColorIO.Config) -> Outcome[NodeGroup]:
     """Returns the working-space Y group from scene-linear conversion."""
     return converted("xyz", config, PyOpenColorIO.ROLE_SCENE_LINEAR, PyOpenColorIO.ROLE_INTERCHANGE_DISPLAY, read(COLOR_INPUT)).bind(
-        lambda converted_xyz: _built("working_luminance", Interface(inputs=(COLOR_INPUT,), outputs=(LUMINANCE,)), converted_xyz["Green"])
+        lambda xyz_space: functions.built("working_luminance", Interface(inputs=(COLOR_INPUT,), outputs=(LUMINANCE,)), {LUMINANCE.key: xyz_space["Green"]}, bpy.types.CompositorNodeTree)
     )
 
 
@@ -190,14 +211,11 @@ def shape() -> Outcome[NodeGroup]:
     """Returns the rotated box and ellipse key group over the displayed frame, rotated and sized in pixel-aspect corrected frame shares no stock mask node takes."""
 
     def shaped(space: FrameSpace) -> Expr:
-        extent, angle = read(_SIZE), read(_ROTATION)
-        offset = space.point - read(_POSITION) * space.extent
-        cosine, sine = math("COSINE", angle), math("SINE", angle)
-        plane = xyz(offset["X"] * cosine + offset["Y"] * sine, offset["Y"] * cosine - offset["X"] * sine) / extent
+        extent = read(_SIZE)
+        plane = turned(space, read(_POSITION), read(_ROTATION)) / extent
         folded = abs(plane)
         inside = menu(read(_OUTLINE), {_BOX: math("MAXIMUM", folded["X"], folded["Y"]) < 1.0, _ELLIPSE: vector("DOT_PRODUCT", plane, plane) < 1.0}) * (shorter(extent) > 0.0)
-        radius = pixels(space, xyz(read(_FEATHER), read(_FEATHER)), bpy.types.NodeSocketVector)
-        return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", inside), ("Size", radius), ("Type", "Fast Gaussian")), socket="Image")
+        return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", inside), ("Size", space.pixel_size(read(_FEATHER))), ("Type", "Fast Gaussian")), socket="Image")
 
     return _framed("shape", SHAPE, shaped)
 
@@ -242,7 +260,7 @@ def qualifier(config: PyOpenColorIO.Config) -> Outcome[NodeGroup]:
     return (
         hsy(config, forward, straight(read(COLOR_INPUT)))
         .bind(lambda color: logarithmic(forward, color).map(lambda logged: qualified(color, logged)))
-        .bind(lambda key: _built("qualifier", msgspec.structs.replace(QUALIFIER, inputs=(COLOR_INPUT,), outputs=(KEY,)), key))
+        .bind(lambda key: functions.built("qualifier", msgspec.structs.replace(QUALIFIER, inputs=(COLOR_INPUT,), outputs=(KEY,)), {KEY.key: key}, bpy.types.CompositorNodeTree))
     )
 
 
@@ -251,7 +269,8 @@ def matte(working: NodeGroup) -> Outcome[NodeGroup]:
     image = read(COLOR_INPUT)
     selected = menu(read(_CHANNEL), {_ALPHA: image["Alpha"], _LUMINOUS: functions.placed(working, {COLOR_INPUT.key: image}, LUMINANCE.key)})
     clamped = Expr(kind=bpy.types.ShaderNodeClamp, inputs=(("Value", selected), ("Min", 0.0), ("Max", 1.0)), socket="Result")
-    return _built("track_matte", msgspec.structs.replace(TRACK_MATTE, inputs=(COLOR_INPUT, *TRACK_MATTE.inputs), outputs=(KEY,)), abs(read(_COMPLEMENT) - clamped))
+    face = msgspec.structs.replace(TRACK_MATTE, inputs=(COLOR_INPUT, *TRACK_MATTE.inputs), outputs=(KEY,))
+    return functions.built("track_matte", face, {KEY.key: abs(read(_COMPLEMENT) - clamped)}, bpy.types.CompositorNodeTree)
 
 
 # --- [COVERAGE]
@@ -268,10 +287,11 @@ def mask(config: PyOpenColorIO.Config) -> Outcome[NodeGroup]:
 
     def keyed(groups: tuple[NodeGroup, ...]) -> Expr:
         key = abs(read(_INVERT) - menu(read(_CHOICE), {item: placed(item, group) for item, group in zip(built, groups, strict=True)}))
-        joins = {operation.item: math(operation.join[0], read(_RUNNING), key, clamp=operation.join[1]) for operation in MaskOperation}
+        joins = {MenuItem.of(operation): math(operation.operation, read(_RUNNING), key, clamp=True) for operation in MaskOperation}
         return menu(read(_OPERATION), joins)
 
-    return accumulated(built.values()).map(keyed).bind(lambda key: _built("mask", msgspec.structs.replace(MASK, inputs=(*heads, *MASK.inputs), outputs=(_COVERAGE,)), key))
+    face = msgspec.structs.replace(MASK, inputs=(*heads, *MASK.inputs), outputs=(_COVERAGE,))
+    return accumulated(built.values()).map(keyed).bind(lambda key: functions.built("mask", face, {_COVERAGE.key: key}, bpy.types.CompositorNodeTree))
 
 
 def relayed(outer: Callable[[Key], Term], interface: Interface) -> dict[Key, Term]:
@@ -294,7 +314,7 @@ def masked(count: int) -> tuple[InterfacePanel, ...]:
 
 def coverage(count: int, image: Term, aspect: Term, scale: Term, outer: Callable[[Key], Expr], config: PyOpenColorIO.Config) -> Outcome[Option[Expr]]:
     """Returns chained coverage of `count` masks over the displayed frame, each mask's inputs at `outer(item_key(index, key))`, the first joining onto its operation's identity, Nothing at zero count."""
-    first = menu(outer(item_key(1, _OPERATION.key)), {operation.item: operation.join[2] for operation in MaskOperation}) if count else 0.0
+    first = menu(outer(item_key(1, _OPERATION.key)), {MenuItem.of(operation): operation.identity for operation in MaskOperation}) if count else 0.0
     heads = (COLOR_INPUT.key, _ASPECT.key, _SCALE.key, _RUNNING.key)
 
     def chained(group: NodeGroup) -> Expr:
@@ -309,31 +329,100 @@ def coverage(count: int, image: Term, aspect: Term, scale: Term, outer: Callable
 
 def _framed(key: Key, face: Interface, body: Callable[[FrameSpace], Expr]) -> Outcome[NodeGroup]:
     """Builds a key group over the displayed frame of its image, its inputs after the frame heads."""
-    return _built(key, msgspec.structs.replace(face, inputs=(*_FRAMED, *face.inputs), outputs=(KEY,)), body(framed(*(read(socket) for socket in _FRAMED))))
+    framed = msgspec.structs.replace(face, inputs=(*_FRAMED, *face.inputs), outputs=(KEY,))
+    return functions.built(key, framed, {KEY.key: body(FrameSpace.of(*(read(socket) for socket in _FRAMED)))}, bpy.types.CompositorNodeTree)
 
 
-def _built(key: Key, interface: Interface, result: Term) -> Outcome[NodeGroup]:
-    """Builds a one-output group named after its key."""
-    return functions.built(key, bpy.path.display_name(key), interface, {interface.outputs[0].key: result}, bpy.types.CompositorNodeTree)
+# --- [BLENDS]
+
+
+def photoshop(name: str) -> psdtags.PsdBlendMode:
+    """Photoshop mode of a Mix formula's menu item, the mode of the same name where both hosts share it."""
+    match next(item.identifier for item in FORMULAS.enum_items if item.name == name):
+        case "MIX":
+            return psdtags.PsdBlendMode.NORMAL
+        case "ADD":
+            return psdtags.PsdBlendMode.LINEAR_DODGE
+        case "BURN":
+            return psdtags.PsdBlendMode.COLOR_BURN
+        case "DODGE":
+            return psdtags.PsdBlendMode.COLOR_DODGE
+        case "VALUE":
+            return psdtags.PsdBlendMode.LUMINOSITY
+        case identifier:
+            return psdtags.PsdBlendMode[identifier]
+
+
+@functools.cache
+def mixback() -> Outcome[NodeGroup]:
+    """Returns the shared HDR blend group: straight colors mixed per formula, re-covered by result alpha, mixed over base by coverage, the plain formula passing the associated result."""
+    base, result = group_input("base", bpy.types.NodeSocketColor), group_input("result", bpy.types.NodeSocketColor)
+    background, foreground = straight(base), straight(result)
+    pure = menu(group_input("blend"), {item: mixed(1.0, background, foreground, blend=formula.identifier) for formula, item in zip(FORMULAS.enum_items, MODES.items, strict=True)})  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    covered = with_alpha(with_alpha(mixed(base["Alpha"], foreground, pure), 1.0), result["Alpha"], masked=True)
+    blended = switched(msgspec.structs.replace(pure, socket=FORMULAS.enum_items["MIX"].name, shape=bpy.types.NodeSocketFloat), covered, result)
+    face = Interface(
+        inputs=(
+            Socket(key="base", kind=bpy.types.NodeSocketColor),
+            Socket(key="result", kind=bpy.types.NodeSocketColor),
+            msgspec.structs.replace(MODE, key="blend"),
+            msgspec.structs.replace(OPACITY, key="coverage"),
+        ),
+        outputs=(Socket(key="image", kind=bpy.types.NodeSocketColor),),
+    )
+    return functions.built("mixback", face, {"image": mixed(group_input("coverage"), base, blended)}, bpy.types.CompositorNodeTree, name=Some("Mix Back"))
+
+
+def mixed_back(key: Key, base: Term, result: Term, mode: Term, coverage: Term) -> Outcome[Expr]:
+    """Places the shared mix-back group under the stored key `<key>_mixback`."""
+    return mixback().map(lambda group: functions.placed(group, {"base": base, "result": result, "blend": mode, "coverage": coverage}, "image").named(f"{key}_mixback"))
+
+
+def blended(blend: Blend, base: Term, result: Expr, frame: tuple[Expr, Term, Term], config: PyOpenColorIO.Config) -> Outcome[Expr]:
+    """Mixes a result back over its base through the blend panel's mode and opacity, weighted by its masks over the displayed frame.
+
+    Args:
+        blend: Mask count of the entry.
+        base: Term the result mixes over.
+        result: Associated result.
+        frame: Image, pixel aspect, and camera share the masks frame.
+        config: Configuration the mask keys read.
+
+    Returns:
+        Mixed result, or the mask group faults.
+    """
+    weight = group_input(item_key(BLEND, OPACITY.key))
+    return (
+        coverage(blend.masks, *frame, lambda key: group_input(item_key(BLEND, _MASKS, key)), config)
+        .map(lambda mask: mask.map(lambda held: weight * held).default_value(weight))
+        .bind(lambda weighted: mixed_back(BLEND, base, result, group_input(item_key(BLEND, MODE.key)), weighted))
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "BLEND",
     "CHANNELS",
+    "FORMULAS",
     "HIGHLIGHTS",
     "KEY",
     "KEYS",
     "LUMINANCE",
     "MASK",
+    "MODE",
+    "MODES",
+    "OPACITY",
     "OPERATIONS",
     "OUTLINES",
     "QUALIFIER",
     "SHAPE",
     "TRACK_MATTE",
     "TRANSITION",
+    "Blend",
     "MaskOperation",
     "band",
+    "blended",
     "coverage",
     "edge",
     "highlight",
@@ -341,6 +430,9 @@ __all__ = [
     "mask",
     "masked",
     "matte",
+    "mixback",
+    "mixed_back",
+    "photoshop",
     "qualifier",
     "relayed",
     "shape",

@@ -1,9 +1,10 @@
-"""Iris outlines, radial lens distortion, chief-ray falloff, and thin-lens defocus, written once over any namespace."""
+"""Iris outlines and coverage kernels, radial lens distortion, chief-ray falloff, and thin-lens defocus, written once over any namespace."""
 
 import itertools
 import math
 from typing import Annotated
 
+from expression import Option, Some
 import msgspec
 import numpy as np
 from numpy.polynomial import Polynomial
@@ -11,7 +12,7 @@ import numpy.typing as npt
 from scipy.integrate import quad_vec
 
 from blender.imaging.geometry.arithmetic import Elementwise, Namespace, smoothstep
-from blender.imaging.geometry.panoramas import Bearing, ImagePoint, Rectilinear, shares
+from blender.imaging.geometry.panoramas import Bearing, ImagePoint, shares
 from blender.records.fields import Finite, Positive, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -32,7 +33,7 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
 
     def across[V: Elementwise, B](self, angles: V, ns: Namespace[V, B]) -> V:
         """Returns the sine of each polar angle's offset from its blade's middle."""
-        return ns.sin(ns.remainder(angles + (self.rotation - math.pi / 2.0), self.sector) - self.sector / 2.0)
+        return ns.sin((angles + (self.rotation - math.pi / 2.0)) % self.sector - self.sector / 2.0)
 
     def radial[V: Elementwise, B](self, angles: V, ns: Namespace[V, B], scale: float = 1.0) -> V:
         """Returns positive iris boundary radius per polar angle, the outline at circumradius `scale`."""
@@ -153,6 +154,16 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
         result[rows, columns] = np.bincount(owners, weights=integrated, minlength=len(rows)) * (1.0 - self.obstruction) / ((xmax - xmin) * (ymax - ymin))
         return result
 
+    def kernel(self, radius: float, /) -> Option[npt.NDArray[np.float64]]:
+        """Returns the coverage kernel at circumradius `radius` pixels, odd sided with unit sum, a single tap at zero radius, absent for a closed iris."""
+        edges = (np.arange(2 * math.ceil(radius) + 2, dtype=np.float64) - math.ceil(radius) - 0.5) / (radius or 1.0)
+        return (
+            Some(self)
+            .filter(lambda iris: iris.obstruction < 1.0)
+            .map(lambda iris: iris.coverage(edges, -edges) if radius > 0.0 else np.ones((1, 1), dtype=np.float64))
+            .map(lambda covered: covered / covered.sum())
+        )
+
 
 class Radial(msgspec.Struct, frozen=True, kw_only=True):
     """Circular radial distortion and zoom normalized by the displayed greater side."""
@@ -199,16 +210,6 @@ class ThinLens(msgspec.Struct, frozen=True, kw_only=True):
         return ns.abs(self.focus / depth - 1.0) * (self.focal_length**2 / (2.0 * self.f_number * self.sensor * gap) if gap else math.inf)
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def falloff[V: Elementwise, B](lens: Rectilinear, point: ImagePoint[V], ns: Namespace[V, B]) -> V:
-    """Returns natural illumination falloff, the fourth power of the chief ray cosine, at frame positions of `lens`."""
-    _, _, z, _ = lens.to_ray(point, ns)
-    squared = z * z
-    return squared * squared
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Aperture", "Radial", "ThinLens", "falloff"]
+__all__ = ["Aperture", "Radial", "ThinLens"]

@@ -14,19 +14,17 @@ from blender.bpy.data.rna.conditions import Job
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderReason
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Named
-from blender.bpy.render.compositor.grades import MATRIX, MATRIX_OFFSET, MATRIX_ROWS, matrixed, MatrixRows
-from blender.bpy.render.compositor.inputs import captured, Derives, entered, valued
-from blender.bpy.render.compositor.shells import Shell
+from blender.bpy.render.compositor.grades import MATRIX, MATRIX_OFFSET, MATRIX_ROWS, matrix_values, matrixed
+from blender.bpy.render.compositor.inputs import captured, Derives, entered, Shell, valued
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.colorimetry import adaptation, WhitePoint
 from blender.imaging.color.processors import matrix, xyz
 from blender.imaging.files.images import ImageFile
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, Reason
 
 from ...chain.stages import Effect, Stage, transform
 
@@ -82,31 +80,26 @@ def _(_record: WhiteBalance, values: Mapping[Key, Value], config: PyOpenColorIO.
             bradford = matrix(adaptation(WhitePoint(temperature=source_temperature, duv=source_duv).xyz, WhitePoint(temperature=target_temperature, duv=target_duv).xyz))
             return Ok(Some(PyOpenColorIO.GroupTransform([reading, bradford, PyOpenColorIO.GroupTransform([reading], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)])))
         case _:
-            return Error(Fault.of(RecordReason.UNREADABLE, WhiteBalance.__name__, repr(values)))
+            return Error(Fault.of(Reason.UNREADABLE, WhiteBalance.__name__, repr(values)))
 
 
 def rows(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, record: WhiteBalance) -> Outcome[Mapping[Key, Value]]:
     """Reduces the entry's adaptation through the live config to the matrix rows the graph reads."""
     config = PyOpenColorIO.GetCurrentConfig()
-    return (
-        captured(identity, entry)
-        .bind(lambda values: transform(record, valued(values), config))
-        .bind(lambda operation: operation.map(lambda held: MatrixRows.of(config, held)).default_value(Ok(MatrixRows())))
-        .map(lambda found: found.values)
-    )
+    return captured(identity, entry).bind(lambda values: transform(record, valued(values), config)).bind(lambda operation: matrix_values(config, operation.default_with(PyOpenColorIO.GroupTransform)))
 
 
 def white_pick(call: Call[Named]) -> Outcome[Answer]:
     """Measure the source white from the stage input's covered mean."""
     temperature, duv = _WHITES[0].inputs
 
-    def measured(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
+    def measured(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[Option[str]]:
         config = PyOpenColorIO.GetCurrentConfig()
         return (
             Samples
             .of(config, file.pixels)
             .bind(lambda samples: WhitePoint.of(config, samples.color[samples.covered].mean(axis=0, dtype=np.float64)) if samples.covered.any() else Ok(Nothing))
-            .bind(lambda white: white.to_result_with(partial(Fault.of, BlenderReason.ABSENT, f"Region of frame entering {entry.name}", member="value its effect reads")))
+            .bind(lambda white: white.to_result_with(partial(Fault.of, Reason.ABSENT, f"Region of frame entering {entry.name}", member="value its effect reads")))
             .bind(lambda white: entered(identity, entry, {temperature.key: white.temperature, duv.key: white.duv}))
             .map(lambda wrote: Some(bpy.path.display_name(white_pick.__name__)) if wrote else Nothing)
         )

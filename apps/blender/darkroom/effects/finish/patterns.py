@@ -9,16 +9,16 @@ import msgspec
 import numpy as np
 
 from blender.bpy.extension.identity import Key
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.functions import grouped
 from blender.bpy.nodes.graphs import Expr, math, mixed, Scalar, vector, where, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.textures import White
 from blender.bpy.render.compositor.colors import with_alpha
-from blender.bpy.render.compositor.coordinates import dimensions, gridded, pixels, sampled, shorter
+from blender.bpy.render.compositor.coordinates import dimensions, PixelGrid, shorter
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
 from blender.bpy.render.compositor.filters import block_mean
+from blender.bpy.render.compositor.inputs import Shell
 from blender.bpy.render.compositor.motion import clocked, origin
-from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.color.processors import Domain
 from blender.imaging.sampling.tiles import stream
 from blender.records.faults import Outcome
@@ -190,7 +190,7 @@ def halftone_screen(
     radius = math("MAXIMUM", sites, 0.5)
     segment = math("MULTIPLY_ADD", radius * radius, math("ARCCOSINE", 0.5 / radius), math("SQRT", radius * radius - 0.25) * -0.5)
     area = where(sites < float(np.sqrt(0.5)), where(math("GREATER_THAN", sites, 0.5), disc - segment * 4.0, disc), 1.0)
-    grid = gridded(area)
+    grid = PixelGrid.of(area)
 
     def slope(step: tuple[float, float, float]) -> Expr:
         neighbour = Expr(
@@ -241,7 +241,7 @@ def _pixelation(shell: Shell[Pixelation]) -> Outcome[Expr]:
         socket="Position",
         shape=bpy.types.NodeSocketVector,
     )
-    cells = filled(shell, sampled(frame, vector("MULTIPLY_ADD", site - offset, side, middle) / frame.extent))
+    cells = filled(shell, frame.sampled(vector("MULTIPLY_ADD", site - offset, side, middle) / frame.extent))
     return Ok(structured(shell, _PIXELATION_STRUCTURE, {_MOSAIC: block_mean(frame, shell.color, shell.input(_MOSAIC_SIZE)), _CELLS: cells}, covered=False))
 
 
@@ -282,7 +282,7 @@ def _pattern(shell: Shell[Pattern]) -> Outcome[Expr]:
     sides = dimensions(strip)
     cell = xyz(height * (sides["X"] / sides["Y"] * levels), height, 1.0)
     indices, within = vector("FLOOR", frame.point / cell), vector("FRACTION", frame.point / cell)
-    center = filled(shell, sampled(frame, vector("ADD", indices, (0.5, 0.5, 0.0)) * cell / frame.extent))
+    center = filled(shell, frame.sampled(vector("ADD", indices, (0.5, 0.5, 0.0)) * cell / frame.extent))
     draw = White().node(indices + drawn(shell, "glyphs"))
     tone = math("MULTIPLY_ADD", draw - 0.5, shell.input(_GLYPHS_JITTER), toned(center), clamp=True)
     rank = (levels - 1) - math("MINIMUM", math("FLOOR", tone * levels), levels - 1)
@@ -307,7 +307,7 @@ def _pattern(shell: Shell[Pattern]) -> Outcome[Expr]:
         def blurred(image: Scalar, reach: Socket) -> Expr:
             return Expr(
                 kind=bpy.types.CompositorNodeBlur,
-                inputs=(("Image", image), ("Size", pixels(frame, vector("SCALE", axis, shell.input(reach)), bpy.types.NodeSocketVector)), ("Type", "Gaussian")),
+                inputs=(("Image", image), ("Size", frame.pixel_size(vector("SCALE", axis, shell.input(reach)))), ("Type", "Gaussian")),
                 socket="Image",
                 shape=bpy.types.NodeSocketColor,
             )
@@ -338,7 +338,7 @@ def _pattern(shell: Shell[Pattern]) -> Outcome[Expr]:
             kind=bpy.types.CompositorNodeDisplace,
             inputs=(
                 ("Image", source),
-                ("Displacement", pixels(frame, vector("SCALE", vector("SCALE", heading, shell.input(_SORT_LENGTH)), weight), bpy.types.NodeSocketVector)),
+                ("Displacement", frame.pixel_size(vector("SCALE", vector("SCALE", heading, shell.input(_SORT_LENGTH)), weight))),
                 ("Interpolation", "Bilinear"),
                 ("Extension X", "Extend"),
                 ("Extension Y", "Extend"),

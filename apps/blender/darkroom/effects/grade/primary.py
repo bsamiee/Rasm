@@ -10,14 +10,14 @@ import PyOpenColorIO
 
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.nodes.graphs import Expr, math, switched, vector, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.colors import AXES
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
-from blender.bpy.render.compositor.shells import Shell
+from blender.bpy.render.compositor.inputs import Shell
 from blender.imaging.color.processors import luma
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, Reason
 
 from ...chain.stages import Effect, Stage, transform
 
@@ -80,7 +80,7 @@ def _(_record: Primary, values: Mapping[Key, Value], _config: PyOpenColorIO.Conf
             linear.offset = PyOpenColorIO.GradingRGBM(red - 1.0, green - 1.0, blue - 1.0, added)
             return Ok(Some(PyOpenColorIO.GradingPrimaryTransform(values=linear, style=PyOpenColorIO.GRADING_LIN)))
         case _:
-            return Error(Fault.of(RecordReason.UNREADABLE, Primary.__name__, repr(values)))
+            return Error(Fault.of(Reason.UNREADABLE, Primary.__name__, repr(values)))
 
 
 @transform.register
@@ -92,7 +92,7 @@ def _(_record: Contrast, values: Mapping[Key, Value], _config: PyOpenColorIO.Con
             linear.contrast, linear.pivot = PyOpenColorIO.GradingRGBM(1.0, 1.0, 1.0, slope), pivot
             return Ok(Some(PyOpenColorIO.GradingPrimaryTransform(values=linear, style=PyOpenColorIO.GRADING_LIN)))
         case _:
-            return Error(Fault.of(RecordReason.UNREADABLE, Contrast.__name__, repr(values)))
+            return Error(Fault.of(Reason.UNREADABLE, Contrast.__name__, repr(values)))
 
 
 @transform.register
@@ -104,7 +104,7 @@ def _(_record: Saturation, values: Mapping[Key, Value], config: PyOpenColorIO.Co
         case {"scale": float(scale)}:
             return luma(config).map(lambda weights: Some(PyOpenColorIO.MatrixTransform.Sat(scale, weights.tolist())))
         case _:
-            return Error(Fault.of(RecordReason.UNREADABLE, Saturation.__name__, repr(values)))
+            return Error(Fault.of(Reason.UNREADABLE, Saturation.__name__, repr(values)))
 
 
 # --- [GRAPHS]

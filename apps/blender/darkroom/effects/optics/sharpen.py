@@ -5,11 +5,11 @@ from typing import Final
 import bpy
 from expression import Some
 
+from blender.bpy.nodes.desired import Interface, Socket
 from blender.bpy.nodes.graphs import Expr, math, vector
-from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.render.compositor import masks
 from blender.bpy.render.compositor.effects import CompositorEffect
-from blender.bpy.render.compositor.shells import Shell
+from blender.bpy.render.compositor.inputs import Shell
 from blender.records.faults import Outcome
 
 from ...chain.stages import Effect, Stage

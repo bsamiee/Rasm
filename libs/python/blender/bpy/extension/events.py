@@ -3,7 +3,7 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 from enum import auto, Flag
-from functools import partial, reduce
+from functools import reduce
 import inspect
 from operator import or_
 from pathlib import Path
@@ -30,14 +30,7 @@ class Change(Flag):
 
     @classmethod
     def of(cls, update: bpy.types.DepsgraphUpdate, /) -> Self:
-        """Reads change flags of update during its handler call.
-
-        Args:
-            update: Update holding geometry, transform, and shading flags.
-
-        Returns:
-            Reported change kinds, `Change(0)` when none.
-        """
+        """Reads the change kinds an update reports during its handler call, `Change(0)` for none."""
         flags = (update.is_updated_geometry, update.is_updated_transform, update.is_updated_shading)
         return reduce(or_, (kind for kind, flagged in zip(cls, flags, strict=True) if flagged), cls(0))
 
@@ -53,14 +46,7 @@ class Handler(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @contextmanager
     def held(self, identity: Identity, /) -> Generator[None]:
-        """Holds one persistent callback on the handler list until scope exit, file loads keeping it.
-
-        Args:
-            identity: Extension whose runtime scenes the callback skips and whose reports hold body faults.
-
-        Yields:
-            None while the callback runs body with the leading host arguments it takes positionally.
-        """
+        """Holds one persistent callback on the handler list until scope exit, running body over the leading host arguments it takes, skipping the extension's runtime scenes."""
         body = identity.reports.reported(self.body)
         count = sum(parameter.kind in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD} for parameter in inspect.signature(self.body).parameters.values())
 
@@ -88,14 +74,7 @@ class Subscription(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def held(self, identity: Identity, /) -> Generator[None]:
-        """Holds the subscription under its own msgbus owner until scope exit.
-
-        Args:
-            identity: Extension with reports holding notification faults.
-
-        Yields:
-            None while the bus holds the key.
-        """
+        """Holds the subscription under its own msgbus owner until scope exit, notification faults held in the extension's reports."""
         owner, body = object(), identity.reports.reported(self.body)
 
         def notified() -> None:
@@ -122,15 +101,12 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def held(self, identity: Identity, /) -> Generator[None]:
-        """Holds persistent timer until it stops or scope exits.
+        """Holds the persistent timer until it stops or scope exits, body faults held in the extension's reports."""
+        body = identity.reports.reported(self.body)
 
-        Args:
-            identity: Extension with reports holding body faults.
-
-        Yields:
-            None while the host holds the timer.
-        """
-        ticked = partial(_ticked, identity.reports.reported(self.body))
+        def ticked() -> float | None:
+            """Returns the next interval, `None` to stop the timer."""
+            return body().bind(lambda interval: interval).to_optional()
 
         def stopped() -> None:
             """Unregisters the timer while the host holds it, one that answered `None` being gone."""
@@ -143,32 +119,40 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
             yield
 
 
+class Startup(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Work run after every file load, and on the first main-loop pass after each registration unless a load ran it first.
+
+    Blender startup registers extensions before the startup file's load handlers run and before the first main-loop pass, so the work runs once there, the timer idle in background mode.
+    """
+
+    body: Callable[[], Outcome[None]]
+
+    def acquisitions(self, _identity: Identity, /) -> Outcome[tuple[Handler | Timer, ...]]:
+        """Builds the `load_post` handler and the one-shot timer sharing this registration's load mark."""
+        loaded = Event()
+
+        def reloaded() -> Outcome[None]:
+            """Marks the load, then runs the work."""
+            loaded.set()
+            return self.body()
+
+        def once() -> Outcome[Option[float]]:
+            """Runs the work unless a file load ran it first, stopping the timer."""
+            return (Ok(None) if loaded.is_set() else self.body()).map(lambda _: Nothing)
+
+        return Ok((Handler(handlers=bpy.app.handlers.load_post, body=reloaded), Timer(body=once)))
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def runtime(identity: Identity, scene: bpy.types.Scene, /) -> bool:
-    """Answers whether scene is one of extension's runtime scenes.
-
-    Args:
-        identity: Extension whose manifest ID marks its runtime scenes.
-        scene: Scene a callback received.
-
-    Returns:
-        True for a runtime scene holding the extension's mark.
-    """
+    """Answers whether a scene a callback received is a runtime scene holding the extension's manifest ID as its mark."""
     return scene.is_runtime_data and identity.manifest.id in scene  # type: ignore[operator]
 
 
 def located(body: Callable[[Option[Path]], Outcome[None]], path: str, /) -> Outcome[None]:
-    """Passes the loaded or saved file path to body, Nothing for the startup file.
-
-    Args:
-        body: Callback reading the file path.
-        path: Path a load or save handler receives, empty for the startup file.
-
-    Returns:
-        Body result.
-    """
+    """Passes the path a load or save handler receives to body, Nothing for the startup file's empty path."""
     return body(Option.of_optional(path or None).map(Path))
 
 
@@ -181,54 +165,11 @@ def updated(
     *,
     changes: Option[Change] = Nothing,
 ) -> Outcome[None]:
-    """Passes the depsgraph updates of ID types and optional change kinds to body.
-
-    Args:
-        ids: ID types whose updates body reads.
-        body: Callback receiving the scene and matching updates.
-        scene: Scene the handler received.
-        depsgraph: Evaluated depsgraph holding this pass's updates.
-        changes: Change kinds an update must report, any kind when Nothing.
-
-    Returns:
-        Body result, Ok(None) when no update matches.
-    """
+    """Passes the scene and this pass's depsgraph updates of the ID types reporting one of the change kinds (any kind for Nothing) to body, Ok(None) when none matches."""
     updates = tuple(item for item in depsgraph.updates if isinstance(item.id, ids) and changes.map(lambda kinds: bool(Change.of(item) & kinds)).default_value(True))
     return body(scene, updates) if updates else Ok(None)
 
 
-def startup(body: Callable[[], Outcome[None]], /) -> tuple[Handler, Timer]:
-    """Runs body after every file load, and on the first main-loop pass after registration unless a load ran it first.
-
-    Blender startup registers extensions before the startup file's load handlers run and before the first main-loop pass, so body runs once there.
-    Rows are built per registration, each pair sharing its own load mark.
-
-    Args:
-        body: Work taking no argument.
-
-    Returns:
-        The `load_post` handler and the one-shot timer running body, the timer idle in background mode.
-    """
-    loaded = Event()
-
-    def reloaded() -> Outcome[None]:
-        """Marks the load, then runs body."""
-        loaded.set()
-        return body()
-
-    return Handler(handlers=bpy.app.handlers.load_post, body=reloaded), Timer(body=partial(_once, body, loaded))
-
-
-def _once(body: Callable[[], Outcome[None]], loaded: Event, /) -> Outcome[Option[float]]:
-    """Runs body unless a file load ran it first, stopping the timer."""
-    return (Ok(None) if loaded.is_set() else body()).map(lambda _: Nothing)
-
-
-def _ticked(body: Callable[[], Option[Option[float]]], /) -> float | None:
-    """Returns the next interval, `None` to stop the timer."""
-    return body().bind(lambda interval: interval).to_optional()
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Change", "Handler", "Subscription", "Timer", "located", "runtime", "startup", "updated"]
+__all__ = ["Change", "Handler", "Startup", "Subscription", "Timer", "located", "runtime", "updated"]

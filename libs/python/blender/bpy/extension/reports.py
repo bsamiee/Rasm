@@ -1,19 +1,18 @@
-"""Callback fault reports and the main-thread queue of requests the host applies while its interface is unlocked."""
+"""Callback fault reports, their alert rows, and the main-thread queue of requests the host applies while its interface is unlocked."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import AbstractContextManager, closing
 import functools
 from threading import RLock
 from types import MappingProxyType
-from typing import override, Protocol, Self, TYPE_CHECKING
+from typing import Final, override, Protocol, Self, TYPE_CHECKING
 
 import bpy
 from expression import identity, Nothing, Ok, Option
 import msgspec
 from structlog.typing import FilteringBoundLogger
 
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import Fault, Faults, Outcome, RecordReason
+from blender.records.faults import Fault, Faults, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -30,19 +29,30 @@ class Pending(Protocol):
 
 type _Queued = _Deferral[...]
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_REPORTED: Final[Mapping[str, "rna_enums.IconItems"]] = MappingProxyType({
+    "ERROR": "STATUS_ERROR_FILLED",
+    "WARNING": "STATUS_WARNING_FILLED",
+    "INFO": "STATUS_INFO_FILLED",
+    "DEBUG": "SYSTEM",
+    "PROPERTY": "OPTIONS",
+    "OPERATOR": "CHECKMARK",
+})
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class _Write(msgspec.Struct, frozen=True, kw_only=True):
-    """One deferred write call, equal to another call of the same deferral with equal arguments."""
+    """One deferred write call, equal to another call of the same deferral with equal arguments, applying nothing once its scope closed."""
 
     deferral: _Queued
     args: tuple[object, ...]
     kwargs: Mapping[str, object]
 
     def advanced(self) -> Outcome[Option[Self]]:
-        """Runs the write, pushing the undo step it names."""
-        applied = self.deferral.applied(*self.args, **self.kwargs)
+        """Runs the write while its scope stands, pushing the undo step it names."""
+        applied = self.deferral.applied(*self.args, **self.kwargs) if self.deferral.open else Ok(Nothing)
         for message in applied.default_value(Nothing).to_list():
             bpy.ops.ed.undo_push(message=message)
         return applied.map(lambda _: Nothing)
@@ -66,9 +76,8 @@ class _Deferral[**P]:
             self.reports.waiting(_Write(deferral=self, args=args, kwargs=MappingProxyType(kwargs)))
 
     def close(self) -> None:
-        """Closes the write to calls and drops its queued ones."""
+        """Closes the write to calls, its queued calls applying nothing."""
         self.open = False
-        self.reports.cancelled(self)
 
 
 class Reports(AbstractContextManager["Reports"]):
@@ -79,18 +88,15 @@ class Reports(AbstractContextManager["Reports"]):
     # --- [LIFECYCLE]
 
     def __init__(self, logger: FilteringBoundLogger) -> None:
-        """Initializes empty reports and queue, opening the deferred redraw.
-
-        Args:
-            logger: Logger receiving each new entry with its report type.
-        """
+        """Initializes empty reports and queue, opening the deferred redraw, the logger receiving each new entry with its report type."""
         self.logger = logger
         self._entries: dict[tuple[rna_enums.WmReportItems, str], None] = {}
         self._pending: list[Pending] = []
         self._lock = RLock()
 
         def ticked() -> float | None:
-            if window_manager().is_interface_locked:
+            manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            if manager.is_interface_locked:
                 return 0.0
             with self._lock:
                 requests, self._pending[:] = tuple(self._pending), []
@@ -133,11 +139,7 @@ class Reports(AbstractContextManager["Reports"]):
         return tuple(self._entries)
 
     def hold(self, faults: Faults, /) -> None:
-        """Holds each distinct fault entry once, logging and redrawing new ones.
-
-        Args:
-            faults: Ordered faults of one callback.
-        """
+        """Holds each distinct entry of a callback's faults once, logging and redrawing new ones."""
         with self._lock:
             fresh = tuple(entry for entry in dict.fromkeys(rendered(faults)) if entry not in self._entries)
             self._entries.update(dict.fromkeys(fresh))
@@ -147,11 +149,7 @@ class Reports(AbstractContextManager["Reports"]):
             self._redraw()
 
     def cleared(self) -> bool:
-        """Drops every held fault entry, redrawing once any was held.
-
-        Returns:
-            Whether any entry was held.
-        """
+        """Drops every held fault entry, redrawing and answering True once any was held."""
         with self._lock:
             held = bool(self._entries)
             self._entries.clear()
@@ -160,14 +158,7 @@ class Reports(AbstractContextManager["Reports"]):
         return held
 
     def reported[**P, T](self, callback: Callable[P, Outcome[T]], /) -> Callable[P, Option[T]]:
-        """Wraps callback to return Option, holding its faults.
-
-        Args:
-            callback: Callback returning Outcome.
-
-        Returns:
-            Callback returning Some(value) on success or Nothing after holding faults.
-        """
+        """Wraps callback to answer Some(value) on success, or Nothing after holding its faults."""
 
         @functools.wraps(callback)
         def translated(*args: P.args, **kwargs: P.kwargs) -> Option[T]:
@@ -179,22 +170,11 @@ class Reports(AbstractContextManager["Reports"]):
     # --- [QUEUE]
 
     def queued(self, request: Pending, /) -> Outcome[None]:
-        """Applies the request's first step now, leaving the rest to later passes.
-
-        Args:
-            request: Request the host applies one step per pass.
-
-        Returns:
-            Ok(None), the first step's faults.
-        """
+        """Applies the request's first step now, answering its faults, and leaves the rest to later passes."""
         return request.advanced().map(lambda later: later.map(self.waiting).default_value(None))
 
     def waiting(self, request: Pending, /) -> None:
-        """Queues request for the next pass the interface leaves unlocked unless an equal one waits, applying it whole now in background mode, where no timer runs.
-
-        Args:
-            request: Request the queue timer advances.
-        """
+        """Queues request for the next pass the interface leaves unlocked unless an equal one waits, applying it whole now in background mode, where no timer runs."""
         if bpy.app.background:
             pending: Option[Pending] = Option.of_optional(request)
             while (current := pending.to_optional()) is not None:
@@ -207,80 +187,59 @@ class Reports(AbstractContextManager["Reports"]):
                     bpy.app.timers.register(self._ticked)
 
     def deferred[**P](self, write: Callable[P, Outcome[Option[str]]], /) -> AbstractContextManager[Callable[P, None]]:
-        """Accepts write calls until scope exit, then drops queued ones.
-
-        Args:
-            write: Write returning optional undo step name.
-
-        Returns:
-            Scope yielding a callable queueing each distinct argument set once.
-        """
+        """Scope yielding a callable that queues each distinct argument set of a write answering its optional undo step name once, queued calls applying nothing after scope exit."""
         return closing(_Deferral(self, write))
-
-    def cancelled(self, deferral: Callable[..., None], /) -> None:
-        """Drops deferral's queued calls, its scope staying open.
-
-        Args:
-            deferral: Callable one deferred scope yielded.
-        """
-        with self._lock:
-            self._pending[:] = [request for request in self._pending if not (isinstance(request, _Write) and request.deferral is deferral)]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [ENTRIES]
 
 
 def level(fault: Fault, /) -> "rna_enums.WmReportItems":
-    """Returns the report type a fault raises.
-
-    Args:
-        fault: Fault of any package reason.
-
-    Returns:
-        `ERROR_INVALID_INPUT` for values outside their domain, invalid values, absences, and collisions, `ERROR_INVALID_CONTEXT` for unmet requirements, else `ERROR`.
-    """
+    """Returns the report type a fault raises: `ERROR_INVALID_INPUT` for values outside their domain, invalid values, absences, and collisions, `ERROR_INVALID_CONTEXT` for unmet requirements, else `ERROR`."""
     match fault.reason:
-        case RecordReason.OUTSIDE | RecordReason.INVALID | BlenderReason.ABSENT | BlenderReason.TAKEN:
+        case Reason.OUTSIDE | Reason.INVALID | Reason.ABSENT | Reason.TAKEN:
             return "ERROR_INVALID_INPUT"
-        case BlenderReason.REQUIRED | BlenderReason.UNSEEN | BlenderReason.UNDATED | BlenderReason.UNROOTED | BlenderReason.UNVARIED | BlenderReason.UNCHOSEN:
+        case Reason.REQUIRED:
             return "ERROR_INVALID_CONTEXT"
         case _:
             return "ERROR"
 
 
 def rendered(faults: Faults, /) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
-    """Returns one report entry per fault in input order, each reason template translated before its fields fill it.
-
-    Args:
-        faults: Faults in report order.
-
-    Returns:
-        Report type and message per fault.
-    """
+    """Returns the report type and message of each fault in input order, each reason template translated before its fields fill it."""
     return tuple((level(fault), bpy.app.translations.pgettext_rpt(fault.reason).format(subject=fault.subject, member=fault.member, cause=fault.cause)) for fault in faults)
 
 
-def window_manager() -> bpy.types.WindowManager:
-    """Returns the window manager every host callback reads, which the stubs type as optional.
+# --- [ROWS]
 
-    Returns:
-        Context window manager.
-    """
-    manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    return manager
+
+def listed(layout: bpy.types.UILayout, entries: Iterable[tuple["rna_enums.WmReportItems", str]], /) -> None:
+    """Draws report entries untranslated under the icon their severity takes in the host's report drawing, errors on alert rows."""
+    for kind, text in entries:
+        severity = "ERROR" if kind.startswith("ERROR") else kind
+        line = layout.row()
+        line.alert = severity == "ERROR"
+        line.label(text=text, icon=_REPORTED[severity], translate=False)
+
+
+def alerted[T](layout: bpy.types.UILayout, result: Outcome[T], /) -> None:
+    """Draws the report entries of a failed result."""
+    for faults in result.swap().to_option().to_list():
+        listed(layout.column(align=True), rendered(faults))
+
+
+# --- [REDRAW]
 
 
 def redrawn() -> Outcome[Option[str]]:
-    """Tags every area of every window for redraw.
-
-    Returns:
-        Ok(Nothing), redraw pushing no undo step.
-    """
-    for area in (area for window in window_manager().windows for area in window.screen.areas):
+    """Tags every area of every window for redraw, pushing no undo step."""
+    manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    for area in (area for window in manager.windows for area in window.screen.areas):
         area.tag_redraw()
     return Ok(Nothing)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Pending", "Reports", "level", "redrawn", "rendered", "window_manager"]
+__all__ = ["Pending", "Reports", "alerted", "level", "listed", "redrawn", "rendered"]

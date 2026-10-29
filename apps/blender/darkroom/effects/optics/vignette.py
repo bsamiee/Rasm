@@ -7,15 +7,13 @@ from expression import Some
 import msgspec
 
 from blender.bpy.nodes import functions
-from blender.bpy.nodes.desired import NodeGroup
+from blender.bpy.nodes.desired import Interface, InterfacePanel, MenuItem, MenuItems, NodeGroup, Socket, under
 from blender.bpy.nodes.graphs import Expr, mixed, switched
-from blender.bpy.nodes.interface import Interface, InterfacePanel, MenuItem, MenuItems, Socket, under
 from blender.bpy.render.compositor import lenses, masks
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.effects import CompositorEffect
-from blender.bpy.render.compositor.inputs import FRAME_ASPECT, FRAME_SCALE
-from blender.bpy.render.compositor.shells import Shell
-from blender.records.faults import Outcome, paired
+from blender.bpy.render.compositor.inputs import FRAME_ASPECT, FRAME_SCALE, Shell
+from blender.records.faults import Outcome
 
 from ...chain.stages import Effect, Stage
 
@@ -67,7 +65,7 @@ def vignetted(shell: Shell[Vignette]) -> Outcome[Expr]:
         weight = switched(msgspec.structs.replace(pull, socket=_SHAPED.name, shape=bpy.types.NodeSocketFloat), cosine**4.0, shaped).named("weight")
         return mixed(weight, with_alpha(pull, source["Alpha"], masked=True), source)
 
-    return paired(lenses.chief_ray(source), masks.shape()).map(lambda parts: built(*parts))
+    return masks.shape().map(lambda outline: built(lenses.chief_ray(source), outline))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

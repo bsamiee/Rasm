@@ -7,12 +7,12 @@ import bpy
 from expression import Some
 
 from blender.bpy.nodes import textures
+from blender.bpy.nodes.desired import Interface, InterfacePanel, Socket
 from blender.bpy.nodes.graphs import Expr, math, switched, vector, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
+from blender.bpy.render.compositor.inputs import Shell
 from blender.bpy.render.compositor.motion import clocked
-from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.sampling import tiles
 from blender.records.faults import Outcome
 

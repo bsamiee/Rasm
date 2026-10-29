@@ -17,16 +17,15 @@ from blender.bpy.data.rna.mirrors import choices
 from blender.bpy.data.rna.paths import rooted, Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.reports import alerted
 from blender.bpy.nodes.addressing import owned
 from blender.bpy.render.color.spaces import viewed
-from blender.bpy.render.compositor.blending import Entry
 from blender.bpy.render.compositor.colors import COLOR_INPUT
-from blender.bpy.render.compositor.effects import CompositorEffect, Enabled, Named, revised
+from blender.bpy.render.compositor.effects import CompositorEffect, Enabled, Entry, Named
 from blender.bpy.render.compositor.inputs import interface_input, keyed
 from blender.bpy.render.compositor.viewers import composites, Viewers
 from blender.bpy.settings.attachments import Attached, Attachment
-from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import acquired, alerted, Line, OperatorButton, pressed, realized, Row, RowContent, RowDraw, split
+from blender.bpy.ui.layout.rows import acquired, Line, Member, OperatorButton, pressed, realized, Row, RowContent, RowDraw, split
 from blender.bpy.ui.layout.sections import fields, Section
 from blender.bpy.ui.layout.templates import wheel
 from blender.imaging.color.processors import ColorSpace, DisplayView, Domain, hdr
@@ -248,7 +247,7 @@ def effect_section(chain: Chain, viewers: Viewers[Effect], *, thumbnail: Row | R
         properties = call.properties
         return rooted(bpy.types.Scene, call.context).bind(
             lambda scene: chain.rows.found(call.identity, scene, properties.name).bind(
-                lambda held: revised(held.row, call.identity, scene, held.entry, lambda record: Ok(msgspec.structs.replace(record, **{properties.field: properties.space}))).map(
+                lambda held: held.row.revised(call.identity, scene, held.entry, lambda record: Ok(msgspec.structs.replace(record, **{properties.field: properties.space}))).map(
                     lambda wrote: Done() if wrote else Unchanged(reason=f"{held.entry.name} reads {properties.space}")
                 )
             )
@@ -261,7 +260,7 @@ def effect_section(chain: Chain, viewers: Viewers[Effect], *, thumbnail: Row | R
         holder=Some(Member(root=bpy.types.Scene, path=("compositor_effects", "active"))),
         condition=Some(composites),
         rows=(thumbnail, EffectBody(chain=chain, viewers=viewers, colorspace=colorspace, locks=locks)),
-        header=(EffectButtons(viewers=viewers, resetting=chain.edits.resetting, locks=locks),),
+        header=(EffectButtons(viewers=viewers, resetting=chain.rows.resetting, locks=locks),),
         opened=True,
     )
 

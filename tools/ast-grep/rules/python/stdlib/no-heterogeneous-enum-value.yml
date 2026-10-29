@@ -31,6 +31,10 @@ rule:
             kind: expression_statement
             inside:
                 kind: block
-                inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
+                inside:
+                    kind: class_definition
+                    all:
+                        - has: {field: superclasses, has: {matches: enum-base}}
+                        - not: {has: {field: body, has: {kind: function_definition, has: {field: name, regex: '^__init__$'}}}}
 message: '`$MEMBER` packs mixed-kind values into one enum tuple read by position'
-note: 'Keep members plain and hold their values in one `Mapping[<enum>, <record>]` of frozen records'
+note: 'Name each value through the enum `__init__`, so members carry typed attributes in place of a tuple read by position'

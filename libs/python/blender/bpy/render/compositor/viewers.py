@@ -6,10 +6,9 @@ from functools import cached_property, partial
 from typing import ClassVar, Final
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Some
 from expression.collections import Block
 import msgspec
-import numpy as np
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
@@ -22,33 +21,26 @@ from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes import functions
-from blender.bpy.nodes.addressing import Keyed, owned, slot
-from blender.bpy.nodes.changes import Added, Connected, Disconnected, made, Removed
-from blender.bpy.nodes.desired import End, INPUTS, Link, OUTPUTS
+from blender.bpy.nodes.addressing import Keyed, owned
+from blender.bpy.nodes.changes import Added, Connected, made, Removed
+from blender.bpy.nodes.desired import End, INPUTS, Interface, Link, OUTPUTS
 from blender.bpy.nodes.graphs import Expr, group_input
-from blender.bpy.nodes.interface import Interface
 from blender.bpy.nodes.trees import links_of, socket_at
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
-from blender.bpy.render.compositor.edits import bound
 from blender.bpy.render.compositor.effects import CompositorEffect, Named, VIEWER
-from blender.bpy.render.compositor.entries import EffectRows, relocated
+from blender.bpy.render.compositor.entries import added_entry, EffectRows
 from blender.bpy.render.compositor.inputs import grouped
 from blender.bpy.render.outputs.results import built, INTERMEDIATES
 from blender.bpy.ui.screens.areas import AreaQuery, EditorState
 from blender.imaging.files.images import ImageFile
 from blender.imaging.geometry.frames import Region
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Consume = Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, ImageFile[np.float32]], Outcome[Option[str]]]
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_ENTERING: Final = End(node=INPUTS, socket=COLOR_INPUT.key)
+type Consume = Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, ImageFile], Outcome[Option[str]]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -79,9 +71,9 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def entering(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, consume: Consume, region: Option[Region] = Nothing) -> Outcome[None]:
         """Views entry input, replacing the scene's pending read."""
-        return shown(identity, entry, _ENTERING).map(lambda _: identity.held[self.pending].update({Handle.of(scene): Arm(name=entry.name, region=region, consume=consume)}))
+        return shown(identity, entry, Viewers.entering).map(lambda _: identity.held[self.pending].update({Handle.of(scene): Arm(name=entry.name, region=region, consume=consume)}))
 
-    def delivered(self, identity: Identity, handle: Handle[bpy.types.Scene], arm: Arm, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
+    def delivered(self, identity: Identity, handle: Handle[bpy.types.Scene], arm: Arm, file: ImageFile) -> Outcome[Option[str]]:
         """Consumes captured pixels while the capture is the scene's pending read."""
         if (held := identity.held[self.pending]).get(handle) is not arm:
             return Ok(Nothing)
@@ -106,7 +98,7 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                     return Ok(None)
                 handle, held = Handle.of(scene), identity.held[self.pending]
 
-                def queued(arm: Arm, file: ImageFile[np.float32]) -> None:
+                def queued(arm: Arm, file: ImageFile) -> None:
                     taken = held[handle] = msgspec.structs.replace(arm, captured=True)
                     deferred(handle, taken, file)
 
@@ -125,7 +117,7 @@ class Viewers[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """View and clear commands over the owned Viewer of offered and pinned entries."""
 
     rows: EffectRows[R]
-    entering: ClassVar[End] = _ENTERING
+    entering: ClassVar[End] = End(node=INPUTS, socket=COLOR_INPUT.key)
     leaving: ClassVar[End] = End(node=OUTPUTS, socket=COLOR_RESULT.key)
 
     def entry(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[tuple[bpy.types.SceneCompositorEffect, Option[CompositorEffect[R]]]]:
@@ -136,18 +128,46 @@ class Viewers[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
             .of_optional(scene.compositor_effects.get(name))
             .bind(lambda entry: Option.of_optional(entry.node_group).bind(lambda group: Mark.read(identity, group)).filter(lambda mark: mark.key in keys).map(lambda mark: (entry, mark)))
             .map(lambda pair: (pair[0], Option.of_optional(self.rows.keyed.get(pair[1].key))))
-            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(scene.compositor_effects), member=name))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name))
+        )
+
+    def view_output(self, call: Call[ViewTarget]) -> Outcome[Answer]:
+        """Show effect group output in place of stack result."""
+        query = AreaQuery(space=bpy.types.SpaceNodeEditor, ui_type=Some(bpy.types.CompositorNodeTree.__name__))
+        return paired(
+            EditorState.of(bpy.types.SpaceNodeEditor, {("node_tree_sub_type",): "SCENE", ("show_backdrop",): True}),
+            rooted(bpy.types.Scene, call.context).bind(lambda scene: self.entry(call.identity, scene, call.properties.name)),
+        ).bind(
+            lambda pair: shown(call.identity, pair[1][0], End(node=call.properties.node, socket=call.properties.socket)).bind(
+                lambda _: rooted(bpy.types.WindowManager, call.context).bind(
+                    lambda manager: (
+                        Block
+                        .of_seq(query.located(manager.windows))
+                        .try_head()
+                        .map(lambda at: pair[0].applied(at.area).map(lambda _: Done()))
+                        .default_value(Ok(Done(notes=(("INFO", "No compositor Node Editor open"),))))
+                    )
+                )
+            )
+        )
+
+    def clear_viewer(self, call: Call[Named]) -> Outcome[Answer]:
+        """Remove effect Viewer to show stack result."""
+        return (
+            rooted(bpy.types.Scene, call.context)
+            .bind(lambda scene: self.entry(call.identity, scene, call.properties.name))
+            .bind(lambda held: cleared(call.identity, held[0]).map(lambda removed: Done() if removed else Unchanged(reason=f"{held[0].name} has no Viewer")))
         )
 
     @cached_property
     def viewing(self) -> Operator[ViewTarget]:
         """Command showing an entry's group output."""
-        return Operator(form=ViewTarget, run=bound(view_output, self), internal=True)
+        return Operator(form=ViewTarget, run=self.view_output, internal=True)
 
     @cached_property
     def clearing(self) -> Operator[Named]:
         """Command removing an entry's owned Viewer."""
-        return Operator(form=Named, run=bound(clear_viewer, self), internal=True)
+        return Operator(form=Named, run=self.clear_viewer, internal=True)
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns the entering-frame read and the view and clear commands."""
@@ -156,106 +176,63 @@ class Viewers[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [COMMANDS]
-
-
-def view_output[R: Case](viewers: Viewers[R], call: Call[ViewTarget]) -> Outcome[Answer]:
-    """Show effect group output in place of stack result."""
-    query = AreaQuery(space=bpy.types.SpaceNodeEditor, ui_type=Some(bpy.types.CompositorNodeTree.__name__))
-    return paired(
-        EditorState.of(bpy.types.SpaceNodeEditor, {("node_tree_sub_type",): "SCENE", ("show_backdrop",): True}),
-        rooted(bpy.types.Scene, call.context).bind(lambda scene: viewers.entry(call.identity, scene, call.properties.name)),
-    ).bind(
-        lambda pair: shown(call.identity, pair[1][0], End(node=call.properties.node, socket=call.properties.socket)).bind(
-            lambda _: rooted(bpy.types.WindowManager, call.context).bind(
-                lambda manager: (
-                    Block
-                    .of_seq(query.located(manager.windows))
-                    .try_head()
-                    .map(lambda at: pair[0].applied(at.area).map(lambda _: Done()))
-                    .default_value(Ok(Done(notes=(("INFO", "No compositor Node Editor open"),))))
-                )
-            )
-        )
-    )
-
-
-def clear_viewer[R: Case](viewers: Viewers[R], call: Call[Named]) -> Outcome[Answer]:
-    """Remove effect Viewer to show stack result."""
-    return (
-        rooted(bpy.types.Scene, call.context)
-        .bind(lambda scene: viewers.entry(call.identity, scene, call.properties.name))
-        .bind(lambda held: cleared(call.identity, held[0]).map(lambda removed: Done() if removed else Unchanged(reason=f"{held[0].name} has no Viewer")))
-    )
-
-
 # --- [VIEWER]
 
 
 def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: End) -> Outcome[None]:
     """Connects owned Viewer to target end and activates entry."""
 
-    def viewed(tree: bpy.types.NodeTree, name: str) -> Outcome[None]:
-        def source(keyed: Keyed, key: Key) -> Outcome[End]:
-            keys = {node: key for key, node in keyed.nodes.items()}
+    def source(keyed: Keyed, key: Key) -> Outcome[End]:
+        keys = {node: key for key, node in keyed.nodes.items()}
 
-            def ended(link: bpy.types.NodeLink) -> Option[End]:
-                match link.from_node, link.from_socket:
-                    case bpy.types.Node() as node, bpy.types.NodeSocket(identifier=identifier) if node in keys:
-                        return Some(End(node=keys[node], socket=identifier))
-                    case _:
-                        return Nothing
+        def ended(link: bpy.types.NodeLink) -> Option[End]:
+            match link.from_node, link.from_socket:
+                case bpy.types.Node() as node, bpy.types.NodeSocket(identifier=identifier) if node in keys:
+                    return Some(End(node=keys[node], socket=identifier))
+                case _:
+                    return Nothing
 
-            def linked(socket: bpy.types.NodeSocket) -> Option[End]:
-                links = links_of(socket)
-                return Block.of_seq(links).choose(ended).try_head()
+        return (
+            Option
+            .of_optional(keyed.nodes.get(OUTPUTS))
+            .bind(lambda output: Option.of_optional(keyed.sockets[OUTPUTS].get(key)).bind(lambda identifier: socket_at(output.inputs, identifier).to_option()))
+            .bind(lambda socket: Block.of_seq(links_of(socket)).choose(ended).try_head())
+            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(keyed.tree.links), member=key))
+        )
 
-            return (
-                Option
-                .of_optional(keyed.nodes.get(OUTPUTS))
-                .bind(lambda output: Option.of_optional(keyed.sockets[OUTPUTS].get(key)).bind(lambda identifier: socket_at(output.inputs, identifier).to_option()))
-                .bind(linked)
-                .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(tree.links), member=key))
-            )
+    def placed(tree: bpy.types.NodeTree, keyed: Keyed, end: End) -> Outcome[None]:
+        stale = tuple(link for viewer in _viewer(identity, tree).to_list() for link in tree.links if link.to_node == viewer)
+        adding = () if _viewer(identity, tree).is_some() else (Added(key=VIEWER, kind=bpy.types.CompositorNodeViewer),)
+        return (
+            accumulated(row.applied(keyed, identity) for row in (*(Removed(item=link) for link in stale), *adding))
+            .bind(lambda _: Keyed.of(tree, identity))
+            .bind(lambda fresh: Connected(link=Link(source=end, target=End(node=VIEWER, socket="Image"))).applied(fresh, identity))
+        )
 
-        def connected(end: End) -> Outcome[None]:
-            stale = tuple(link for viewer in _viewer(identity, tree).to_list() for link in tree.links if link.to_node == viewer)
-            return accumulated(Disconnected(link=link).applied(Keyed.of(tree, identity, name), identity) for link in stale).bind(
-                lambda _: Connected(link=Link(source=end, target=End(node=VIEWER, socket="Image"))).applied(Keyed.of(tree, identity, name), identity)
-            )
-
+    def viewed(tree: bpy.types.NodeTree, keyed: Keyed) -> Outcome[None]:
         match target:
             case End(node=node, socket=str(key)) if node == OUTPUTS:
-                entering = source(Keyed.of(tree, identity, name), key)
+                entering = source(keyed, key)
             case _:
                 entering = Ok(target)
         return (
             entering
-            .bind(
-                lambda end: (Ok(None) if _viewer(identity, tree).is_some() else Added(key=VIEWER, kind=bpy.types.CompositorNodeViewer).applied(Keyed.of(tree, identity, name), identity)).bind(
-                    lambda _: connected(end)
-                )
-            )
+            .bind(lambda end: placed(tree, keyed, end))
             .bind(lambda _: written(entry, ("is_active",), True))
-            .bind(lambda _: _viewer(identity, tree).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(tree.nodes), member=VIEWER)))
+            .bind(lambda _: _viewer(identity, tree).to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=VIEWER)))
             .bind(lambda viewer: written(tree.nodes, ("active",), viewer).map(lambda _: None))
         )
 
-    return _slotted(identity, entry).bind(lambda pair: viewed(*pair))
+    return grouped(entry).bind(lambda tree: Keyed.of(tree, identity).bind(lambda keyed: viewed(tree, keyed)))
 
 
 def cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[bool]:
     """Removes owned Viewer, answering whether it existed."""
 
-    def removed(tree: bpy.types.NodeTree, name: str) -> Outcome[bool]:
-        return _viewer(identity, tree).map(lambda viewer: Removed(name=viewer.name).applied(Keyed.of(tree, identity, name), identity).map(lambda _: True)).default_value(Ok(False))
+    def removed(tree: bpy.types.NodeTree) -> Outcome[bool]:
+        return _viewer(identity, tree).map(lambda viewer: Keyed.of(tree, identity).bind(lambda keyed: Removed(item=viewer).applied(keyed, identity)).map(lambda _: True)).default_value(Ok(False))
 
-    return _slotted(identity, entry).bind(lambda pair: removed(*pair))
-
-
-def _slotted(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[bpy.types.NodeTree, str]]:
-    """Returns entry group and interface slot name."""
-    return Result[bpy.types.NodeTree, Faults].bind(grouped(entry), lambda tree: slot(identity).map(lambda name: (tree, name)))
+    return grouped(entry).bind(removed)
 
 
 def _viewer(identity: Identity, tree: bpy.types.NodeTree) -> Option[bpy.types.Node]:
@@ -276,25 +253,19 @@ def capturing(
     with ExitStack() as scope:
         for active in Option.of_optional(scene.compositor_effects.active).to_list():
             scope.callback(setattr, active, "is_active", True)
-
-        def placed(tree: bpy.types.NodeTree) -> Outcome[bpy.types.SceneCompositorEffect]:
-            scope.callback(bpy.data.node_groups.remove, tree)
-            entry = scene.compositor_effects.new("Input Capture")
-            scope.callback(scene.compositor_effects.remove, entry)
-            return written(entry, ("node_group",), tree).bind(lambda _: relocated(scene, entry, at)).map(lambda _: entry)
-
         suffix = tuple(scene.compositor_effects)[at:] if stop else ()
         for entry in suffix:
             scope.callback(setattr, entry, "enable_for_render", entry.enable_for_render)
+
+        def placed(tree: bpy.types.NodeTree) -> Outcome[bpy.types.SceneCompositorEffect]:
+            scope.callback(bpy.data.node_groups.remove, tree)
+            return added_entry(scope, scene, tree, at=Some(at))
+
         yield (
             composites
             .check(bpy.context, Some(scene))
             .bind(lambda _: accumulated(written(entry, ("enable_for_render",), False) for entry in suffix))
-            .bind(
-                lambda _: functions.built(
-                    "input_capture", "Input Capture", face, {COLOR_RESULT.key: group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor).keeping(*output)}, bpy.types.CompositorNodeTree
-                )
-            )
+            .bind(lambda _: functions.built("input_capture", face, {COLOR_RESULT.key: group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor).keeping(*output)}, bpy.types.CompositorNodeTree))
             .map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER))
             .bind(lambda group: made(group, identity, of=Some(scene)))
             .bind(placed)
@@ -308,4 +279,4 @@ composites: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, ("re
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["READ", "Arm", "Consume", "ViewTarget", "ViewerRead", "Viewers", "capturing", "clear_viewer", "cleared", "composites", "shown", "view_output"]
+__all__ = ["READ", "Arm", "Consume", "ViewTarget", "ViewerRead", "Viewers", "capturing", "cleared", "composites", "shown"]

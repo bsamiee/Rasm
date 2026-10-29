@@ -9,13 +9,13 @@ import bpy
 from expression import Ok, Some
 import msgspec
 
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.functions import EXPRESSIONS
 from blender.bpy.nodes.graphs import Expr, math, switched, vector, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
-from blender.bpy.render.compositor.coordinates import Border, BORDERS, extended, sampled, shorter
+from blender.bpy.render.compositor.coordinates import Border, BORDERS, extended, shorter
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
+from blender.bpy.render.compositor.inputs import Shell
 from blender.bpy.render.compositor.lenses import lensed
-from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.geometry.panoramas import Equirectangular, folded, from_polar, Panoramas, to_polar
 from blender.records.faults import Outcome
 
@@ -34,7 +34,7 @@ CONVERSIONS: Final = MenuItems(items=(TO_POLAR, TO_RECTANGULAR))
 _MODE: Final = Socket(key="mode", kind=bpy.types.NodeSocketMenu, description="Frame mapping", default_value=KALEIDOSCOPE.name, items=Some(MODES))
 _EXTENSIONS: Final = MappingProxyType({
     prefix: Socket(
-        key=item_key(prefix, "extension"), name="Extension", kind=bpy.types.NodeSocketMenu, description="Source sampling past frame edges", default_value=border.item.name, items=Some(BORDERS)
+        key=item_key(prefix, "extension"), name="Extension", kind=bpy.types.NodeSocketMenu, description="Source sampling past frame edges", default_value=MenuItem.of(border).name, items=Some(BORDERS)
     )
     for prefix, border in (("kaleidoscope", Border.MIRROR), ("tiling", Border.MIRROR), ("polar", Border.BLACK), ("panorama", Border.MIRROR))
 })
@@ -105,10 +105,10 @@ def projected(shell: Shell[Projection]) -> Outcome[Expr]:
         device = Expr(kind=bpy.types.FunctionNodeProjectPoint, inputs=(("Vector", turned), ("Transform", lensed("Projection Matrix"))), socket="Vector", shape=bpy.types.NodeSocketVector)
         return vector("MULTIPLY_ADD", (0.0, 0.0, 1.0), (turned["Z"] < 0.0) * coverage, vector("MULTIPLY_ADD", device, (0.5, 0.5, 0.0), (0.5, 0.5, 0.0)))
 
-    polar = shell.menu(_POLAR_CONVERSION, cases={TO_POLAR: sampled(frame, xyz(s, t)), TO_RECTANGULAR: sampled(frame, unwrapped)})
+    polar = shell.menu(_POLAR_CONVERSION, cases={TO_POLAR: frame.sampled(xyz(s, t)), TO_RECTANGULAR: frame.sampled(unwrapped)})
     arms = (
-        (KALEIDOSCOPE, "kaleidoscope", sampled(frame, vector("DIVIDE", xyz(x, y) + center, frame.extent))),
-        (TILING, "tiling", sampled(frame, vector("SCALE", frame.fraction - shell.input(_TILING_CENTER), shell.input(_TILING_COUNT)) + shell.input(_TILING_CENTER))),
+        (KALEIDOSCOPE, "kaleidoscope", frame.sampled(vector("DIVIDE", xyz(x, y) + center, frame.extent))),
+        (TILING, "tiling", frame.sampled(vector("SCALE", frame.fraction - shell.input(_TILING_CENTER), shell.input(_TILING_COUNT)) + shell.input(_TILING_CENTER))),
         (POLAR, "polar", polar),
         (PANORAMA, "panorama", projected_ray(xyz(rx, ry, rz))),
     )

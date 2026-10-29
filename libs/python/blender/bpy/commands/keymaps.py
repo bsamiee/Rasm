@@ -19,9 +19,7 @@ from blender.bpy.commands.calls import Called, filled, Opened, Pairs, Placement,
 from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.extension.reports import window_manager
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Outcome, paired
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -113,7 +111,8 @@ class Keymap:
 
         @contextmanager
         def held(locations: tuple[Location, ...], rows: tuple[Row, ...]) -> Generator[Outcome[None]]:
-            addon: bpy.types.KeyConfig = window_manager().keyconfigs.addon  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            addon: bpy.types.KeyConfig = manager.keyconfigs.addon  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
             def forgotten() -> None:
                 self._items = ()
@@ -171,7 +170,7 @@ def nesting(name: str, /) -> Outcome[tuple[Location, ...]]:
             yield from walked(children)
 
     found = tuple(dict.fromkeys(walked(keymap_hierarchy.generate())))  # type: ignore[func-returns-value, arg-type]  # ty: ignore[invalid-argument-type]
-    return Ok(found).filter_with(bool, lambda _: Fault.of(BlenderReason.ABSENT, "bl_keymap_utils.keymap_hierarchy", member=name))
+    return Ok(found).filter_with(bool, lambda _: Fault.of(Reason.ABSENT, "bl_keymap_utils.keymap_hierarchy", member=name))
 
 
 def parameters(manager: bpy.types.WindowManager, /) -> Outcome[Parameters]:
@@ -194,7 +193,7 @@ def parameters(manager: bpy.types.WindowManager, /) -> Outcome[Parameters]:
         params: Parameters = module.Params(**keywords)
         return params
 
-    return Option.of_optional(bpy.utils.preset_find(default.name, "keyconfig")).to_result_with(partial(Fault.of, BlenderReason.ABSENT, default.name, member="keyconfig preset")).map(built)
+    return Option.of_optional(bpy.utils.preset_find(default.name, "keyconfig")).to_result_with(partial(Fault.of, Reason.ABSENT, default.name, member="keyconfig preset")).map(built)
 
 
 def resolved(identity: Identity, bindings: Bindings, /) -> Outcome[tuple[Row, ...]]:
@@ -216,7 +215,8 @@ def resolved(identity: Identity, bindings: Bindings, /) -> Outcome[tuple[Row, ..
         darwin: KeyconfigData = platform_helpers.keyconfig_data_oskey_from_ctrl_for_macos(data) if sys.platform == "darwin" else data  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
         return tuple(item for _, _, block in darwin for item in block["items"])
 
-    return parameters(window_manager()).bind(lambda held: accumulated(placement.resolved(identity).map(partial(row, held, chord, placement)) for chord, placement in bindings).map(doubled))
+    manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return parameters(manager).bind(lambda held: accumulated(placement.resolved(identity).map(partial(row, held, chord, placement)) for chord, placement in bindings).map(doubled))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

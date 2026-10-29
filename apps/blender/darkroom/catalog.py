@@ -11,20 +11,17 @@ from blender.bpy.commands.calls import Called, Opened
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.paths import RnaPath
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.render.compositor.blending import Entry
-from blender.bpy.render.compositor.effects import Enabled
+from blender.bpy.render.compositor.effects import Enabled, Entry
 from blender.bpy.render.compositor.entries import Edge, Pinned
-from blender.bpy.render.compositor.layers import Adjustment, LayerStack, StackLayer
-from blender.bpy.render.compositor.library import save_effect
+from blender.bpy.render.compositor.layers import Adjustment, LayerStack, PINNED, StackLayer
 from blender.bpy.render.compositor.recipes import Valued
-from blender.bpy.render.compositor.stacking import PINNED
-from blender.bpy.render.compositor.strips import Strips
+from blender.bpy.render.compositor.strips import save_effect, Strips
 from blender.bpy.render.compositor.viewers import Viewers
 from blender.bpy.render.previews.nodes import NodePreview
 from blender.bpy.render.view_layers.routing import PassSet
 from blender.bpy.ui.layout.rows import Opens
 from blender.bpy.ui.surfaces.menus import Append
-from blender.bpy.ui.surfaces.panels import Beside, Panel, PopoverPanel
+from blender.bpy.ui.surfaces.panels import Beside, Panel, POPOVER
 from blender.records.trees import Owner, Tree
 
 from .chain import layers
@@ -158,9 +155,9 @@ stacks: Final = layers.stacks(
 tiles: Final = Tiles(chain=chain)
 strips: Final = Strips(rows=chain.rows)
 nodes: Final = NodePreview(settings=previewing)
-adding: Final = chain.edits.menu
+adding: Final = chain.rows.menu
 rows: Final = (
-    chain.edits,
+    chain.rows,
     adding,
     Append(target=SCENE_MT_add_compositor_effect, rows=(Opens(target=Opened(adding.key, Called.MENU)),)),
     tiles,
@@ -171,7 +168,7 @@ rows: Final = (
     Append(target=SEQUENCER_MT_modifier_add, rows=(Opens(target=Opened(strips.menu.key, Called.MENU)),)),
     Panel(section=effect_section(chain, Viewers(rows=chain.rows), thumbnail=StageThumbnail(tiles=tiles), locks=Some(locks)), at=Beside(SCENE_PT_compositor_effects)),
     Panel(section=stacks.section(), at=Beside(SCENE_PT_compositor_effects)),
-    Panel(section=stacks.presets(), at=PopoverPanel()),
+    Panel(section=stacks.presets(), at=POPOVER),
     Panel(section=nodes.section(), at=Beside(NODE_PT_backdrop)),
 )
 

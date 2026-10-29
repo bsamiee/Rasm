@@ -17,9 +17,8 @@ from blender.bpy.data.rna.descriptors import custom_read
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import Fault, Outcome
-from blender.records.identity import ContentHash
+from blender.records.faults import Fault, Outcome, Reason
+from blender.records.stores import ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -74,7 +73,7 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
             *(("content", content) for content in self.content.to_list()),
             *(("slot", slot) for slot in self.slot.to_list()),
         ))
-        return catch(holder.__setitem__, exception=TypeError)(identity.manifest.id, fields).map_error(partial(Fault.of, BlenderReason.REFUSED, identity.manifest.id))
+        return catch(holder.__setitem__, exception=TypeError)(identity.manifest.id, fields).map_error(partial(Fault.of, Reason.REFUSED, identity.manifest.id))
 
 
 class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
@@ -157,7 +156,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         return (
             Mark
             .read(identity, held)
-            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(held), member=identity.manifest.id))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(held), member=identity.manifest.id))
             .bind(lambda mark: build().bind(lambda block: self.owned(identity, block, of=mark.of, content=mark.content, slot=mark.slot)))
             .bind(swapped)
         )
@@ -246,9 +245,16 @@ def kept[B: bpy.types.ID, T](made: Outcome[B], fill: Callable[[B], Outcome[T]], 
     return made.bind(filled)
 
 
+def tracked[T](scope: ExitStack, removed: Callable[[T], object], made: Outcome[T], /) -> Outcome[T]:
+    """Holds the removal of a made item on scope, so the scope's unwind takes it back."""
+    for item in made.to_option().to_list():
+        scope.callback(removed, item)
+    return made
+
+
 def released(blocks: tuple[bpy.types.ID, ...]) -> Outcome[int]:
     """Removes blocks in one `batch_remove`, returning their count."""
-    return (catch(bpy.data.batch_remove, exception=RuntimeError)(ids=blocks) if blocks else Ok(None)).map(lambda _: len(blocks)).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(blocks)))
+    return (catch(bpy.data.batch_remove, exception=RuntimeError)(ids=blocks) if blocks else Ok(None)).map(lambda _: len(blocks)).map_error(partial(Fault.of, Reason.REFUSED, repr(blocks)))
 
 
 def _held[T: bpy.types.ID](identity: Identity, kind: type[T], keys: frozenset[Key]) -> tuple[tuple[T, Mark], ...]:
@@ -263,4 +269,4 @@ def _earliest[T: bpy.types.ID](pairs: Iterable[tuple[T, Mark]]) -> Mapping[Mark,
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Mark", "Ownership", "Saved", "kept", "released", "retained"]
+__all__ = ["Mark", "Ownership", "Saved", "kept", "released", "retained", "tracked"]

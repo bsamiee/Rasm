@@ -2,14 +2,14 @@
 
 import datetime
 from http import HTTPMethod
-from typing import Annotated, ClassVar
+from typing import ClassVar, override
 
 from expression import Ok, Option, Some
 import msgspec
 
 from blender.records.faults import Outcome
-from blender.rendering.batch.exchange import Endpoint, sent
-from blender.rendering.batch.progress import Forecast
+from blender.rendering.batch.queue import Forecast
+from blender.rendering.batch.targets import Endpoint, sent
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -26,23 +26,25 @@ class Listener(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class _Posted(msgspec.Struct, frozen=True, kw_only=True):
-    """Notice case base holding the ntfy priority and tags a case leaves at their defaults."""
+    """Notice case base holding the ntfy priority and tags a case leaves at their defaults, its message the case template over the case fields."""
 
     priority: ClassVar[int] = 3
     tags: ClassVar[tuple[str, ...]] = ()
+    template: ClassVar[str] = ""
+
+    @property
+    def message(self) -> str:
+        """Case template filled with the case fields, durations in whole seconds."""
+        return self.template.format_map({key: _whole(value) if isinstance(value, datetime.timedelta) else value for key, value in msgspec.structs.asdict(self).items()})
 
 
 class Started(_Posted, frozen=True, kw_only=True):
     """Fresh run started."""
 
     tags = ("racehorse",)
+    template = "{frames} frames in {jobs} jobs"
     jobs: int
     frames: int
-
-    @property
-    def message(self) -> str:
-        """Frame and job counts."""
-        return f"{self.frames} frames in {self.jobs} jobs"
 
 
 class Estimated(_Posted, frozen=True, kw_only=True):
@@ -52,6 +54,7 @@ class Estimated(_Posted, frozen=True, kw_only=True):
     forecast: Forecast
 
     @property
+    @override
     def message(self) -> str:
         """Time left and the local finish clock time."""
         return f"{_whole(self.forecast.left)} left{self.forecast.finish.map(lambda moment: f', done at {moment.astimezone():%H:%M}').default_value('')}"
@@ -61,13 +64,9 @@ class Completed(_Posted, frozen=True, kw_only=True):
     """Run finished."""
 
     tags = ("white_check_mark",)
+    template = "{frames} frames in {elapsed}"
     frames: int
     elapsed: datetime.timedelta
-
-    @property
-    def message(self) -> str:
-        """Frame count and render time."""
-        return f"{self.frames} frames in {_whole(self.elapsed)}"
 
 
 class Cancelled(_Posted, frozen=True, kw_only=True):
@@ -75,12 +74,8 @@ class Cancelled(_Posted, frozen=True, kw_only=True):
 
     priority = 4
     tags = ("warning",)
+    template = "Stopped after {frames} frames"
     frames: int
-
-    @property
-    def message(self) -> str:
-        """Frames rendered before the stop."""
-        return f"Stopped after {self.frames} frames"
 
 
 class Failed(_Posted, frozen=True, kw_only=True):
@@ -88,22 +83,15 @@ class Failed(_Posted, frozen=True, kw_only=True):
 
     priority = 5
     tags = ("x",)
+    template = "{job} · {reason}"
     job: str
     reason: str
-
-    @property
-    def message(self) -> str:
-        """Job and fault text."""
-        return f"{self.job} · {self.reason}"
 
 
 class Test(_Posted, frozen=True, kw_only=True):
     """Test post to listener."""
 
-    @property
-    def message(self) -> str:
-        """Configuration confirmation."""
-        return "Render queue notifications configured"
+    template = "Render queue notifications configured"
 
 
 class _Publication(msgspec.Struct, frozen=True, kw_only=True):
@@ -112,7 +100,7 @@ class _Publication(msgspec.Struct, frozen=True, kw_only=True):
     topic: str
     title: str
     message: str
-    priority: Annotated[int, msgspec.Meta(ge=1, le=5)]
+    priority: int
     tags: tuple[str, ...]
 
 

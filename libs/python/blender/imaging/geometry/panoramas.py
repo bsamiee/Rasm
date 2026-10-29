@@ -65,6 +65,11 @@ class Rectilinear(Panorama, frozen=True, kw_only=True):
         width, height = self.sides
         return (*_normalized(ns, (s + (self.shift[0] - 0.5)) * width, (t + (self.shift[1] - 0.5)) * height, -1.0), coverage)
 
+    def falloff[V: Elementwise, B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> V:
+        """Returns natural illumination falloff, the fourth power of the chief ray cosine, at frame positions."""
+        _, _, z, _ = self.to_ray(point, ns)
+        return z * z * (z * z)
+
 
 class Equirectangular(Panorama, frozen=True, kw_only=True):
     """Latitude and longitude over full sphere."""
@@ -139,7 +144,7 @@ class FisheyeEquidistant(Fisheye, frozen=True, kw_only=True):
         radial = ns.hypot(x, y)
         angle, off = ns.atan2(radial, ns.negative(z)), ns.greater(radial, 0.0)
         reach = angle / self.field_of_view
-        held = ns.where(ns.logical_and(ns.less_equal(angle, self.field_of_view / 2.0), _forward(ns, off, z)), coverage, 0.0)
+        held = ns.where(ns.logical_and(ns.less_equal(angle, self.field_of_view / 2.0), ns.logical_or(off, ns.less(z, 0.0))), coverage, 0.0)
         return _over(ns, x, radial, off) * reach + 0.5, _over(ns, y, radial, off) * reach + 0.5, held
 
     def to_ray[V: Elementwise, B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> _Ray[V]:
@@ -168,7 +173,7 @@ class FisheyeEquisolid(Fisheye, frozen=True, kw_only=True):
         radial = ns.hypot(x, y)
         off = ns.greater(radial, 0.0)
         reach = ns.sin(ns.atan2(radial, ns.negative(z)) / 2.0) * (2.0 * self.lens)
-        held = ns.where(ns.logical_and(ns.less_equal(reach, self.radius), _forward(ns, off, z)), coverage, 0.0)
+        held = ns.where(ns.logical_and(ns.less_equal(reach, self.radius), ns.logical_or(off, ns.less(z, 0.0))), coverage, 0.0)
         return reach * _over(ns, x, radial, off) / self.sensor[0] + 0.5, reach * _over(ns, y, radial, off) / self.sensor[1] + 0.5, held
 
     def to_ray[V: Elementwise, B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> _Ray[V]:
@@ -353,7 +358,7 @@ def shares(aspect: float) -> tuple[float, float]:
 def folded[V: Elementwise, B](x: V, y: V, *, mirrors: int, angle: float, zoom: float, ns: Namespace[V, B]) -> tuple[V, V]:
     """Reflects centered offsets into the first of `mirrors` wedges from `angle`, magnified by `zoom`."""
     wedge = math.pi / mirrors
-    bearing = ns.abs(ns.remainder(ns.atan2(y, x) + (wedge - angle), 2.0 * wedge) - wedge) + angle
+    bearing = ns.abs((ns.atan2(y, x) + (wedge - angle)) % (2.0 * wedge) - wedge) + angle
     radius = ns.hypot(x, y) / zoom
     return radius * ns.cos(bearing), radius * ns.sin(bearing)
 
@@ -362,7 +367,7 @@ def to_polar[V: Elementwise, B](point: ImagePoint[V], span: tuple[float, float],
     """Wraps a full rectangular turn into the frame's inscribed disc, seam above center, for frame sides `span` over the greater side."""
     s, t, coverage = point
     across, up, short = (s - 0.5) * span[0], (t - 0.5) * span[1], min(span)
-    return ns.remainder(ns.atan2(across, up), 2.0 * math.pi) / (2.0 * math.pi), 1.0 - ns.hypot(across, up) * (2.0 / short), coverage
+    return ns.atan2(across, up) % (2.0 * math.pi) / (2.0 * math.pi), 1.0 - ns.hypot(across, up) * (2.0 / short), coverage
 
 
 def from_polar[V: Elementwise, B](point: ImagePoint[V], span: tuple[float, float], ns: Namespace[V, B]) -> ImagePoint[V]:
@@ -382,10 +387,6 @@ def _over[V: Elementwise, B](ns: Namespace[V, B], numerator: V, denominator: V, 
 def _normalized[V: Elementwise, B](ns: Namespace[V, B], x: V, y: V, z: V | float) -> tuple[V, V, V]:
     length = ns.sqrt(x * x + y * y + z * z)
     return x / length, y / length, z / length
-
-
-def _forward[V: Elementwise, B](ns: Namespace[V, B], off: B, z: V) -> B:
-    return ns.logical_or(off, ns.less(z, 0.0))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

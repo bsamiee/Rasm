@@ -4,7 +4,7 @@ from collections.abc import Callable
 import copy
 from functools import partial
 import pathlib
-from typing import Final, Protocol
+from typing import Final
 
 from expression import Option
 from expression.extra.result import catch
@@ -13,25 +13,20 @@ import PyOpenColorIO
 
 from blender.imaging.color.luts import LutFormat
 from blender.imaging.color.processors import called
-from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 from blender.records.stores import committed, files_copied, folder_made
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Texts = tuple[tuple[str, str], ...]
 
-
-class _Merging(Protocol):
-    """OCIO 2.5 `ConfigMergingParameters`, which the OCIO stubs lack, held whole and set through the typed members below."""
-
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_CREATE: Final[Callable[[], _Merging]] = PyOpenColorIO.ConfigMergingParameters.Create  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_CREATE: Final[Callable[[], object]] = PyOpenColorIO.ConfigMergingParameters.Create  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 _PREFER_BASE: Final[object] = PyOpenColorIO.ConfigMergingParameters.STRATEGY_PREFER_BASE  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-_SET_ROLES: Final[Callable[[_Merging, object], None]] = PyOpenColorIO.ConfigMergingParameters.setRoles  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-_SET_COLORSPACES: Final[Callable[[_Merging, object], None]] = PyOpenColorIO.ConfigMergingParameters.setColorspaces  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-_MERGE: Final[Callable[[_Merging, PyOpenColorIO.Config, PyOpenColorIO.Config], PyOpenColorIO.Config]] = PyOpenColorIO.ConfigMergingHelpers.MergeConfigs  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_SET_ROLES: Final[Callable[[object, object], None]] = PyOpenColorIO.ConfigMergingParameters.setRoles  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_SET_COLORSPACES: Final[Callable[[object, object], None]] = PyOpenColorIO.ConfigMergingParameters.setColorspaces  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_MERGE: Final[Callable[[object, PyOpenColorIO.Config, PyOpenColorIO.Config], PyOpenColorIO.Config]] = PyOpenColorIO.ConfigMergingHelpers.MergeConfigs  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 _ACTIVE_DISPLAY: Final[Callable[[PyOpenColorIO.Config, str], None]] = PyOpenColorIO.Config.addActiveDisplay  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 _ACTIVE_VIEW: Final[Callable[[PyOpenColorIO.Config, str], None]] = PyOpenColorIO.Config.addActiveView  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
@@ -42,7 +37,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
     """View transform, display, look, and file-rule rows merged into base config, base roles and colorspaces preferred by default."""
 
     @staticmethod
-    def merging() -> _Merging:
+    def merging() -> object:
         """Returns merge parameters preferring base roles and colorspaces."""
         parameters = _CREATE()
         _SET_ROLES(parameters, _PREFER_BASE)
@@ -55,7 +50,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
     inactive: frozenset[str] = frozenset()
     file_rules: PyOpenColorIO.FileRules = msgspec.field(default_factory=PyOpenColorIO.FileRules)
     luts: tuple[pathlib.Path, ...] = ()
-    merge: _Merging = msgspec.field(default_factory=merging)
+    merge: object = msgspec.field(default_factory=merging)
 
     def staged(self, base: PyOpenColorIO.Config, stage: pathlib.Path) -> Outcome[PyOpenColorIO.Config]:
         """Merges rows into `base` with base files, LUT folders, and generated CLF tables staged in `stage`.
@@ -156,7 +151,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                     lambda _: paired(
                         files_copied(copies),
                         accumulated(
-                            catch((stage / name).write_text, exception=OSError)(text, encoding="utf-8", newline="").map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(stage)))
+                            catch((stage / name).write_text, exception=OSError)(text, encoding="utf-8", newline="").map_error(partial(Fault.of, Reason.UNWRITABLE, str(stage)))
                             for name, text in dict(texts).items()
                         ),
                     )
@@ -183,7 +178,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 catch((stage / "config.ocio").write_text, exception=OSError)(config.serialize(), encoding="utf-8", newline="")
                 .map(lambda _: None)
-                .map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(folder)))
+                .map_error(partial(Fault.of, Reason.UNWRITABLE, str(folder)))
             )
 
         return committed(folder, lambda stage: self.staged(base, stage).bind(lambda config: replaced(stage, config))).map(lambda installed: installed / "config.ocio")

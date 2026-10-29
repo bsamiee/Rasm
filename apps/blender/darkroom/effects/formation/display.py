@@ -20,17 +20,14 @@ from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.events import Subscription
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.addressing import owned
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.render.color.spaces import followed, NO_LOOK, viewed, Viewing
-from blender.bpy.render.compositor.effects import CompositorEffect, Named, Replaced, revised, Seeded
-from blender.bpy.render.compositor.inputs import Holds
-from blender.bpy.render.compositor.shells import Shell
-from blender.bpy.render.outputs.exports import formed
+from blender.bpy.render.compositor.effects import CompositorEffect, Named, Replaced, Seeded
+from blender.bpy.render.compositor.inputs import Holds, Shell
 from blender.imaging.color.processors import converted, DisplayView
 from blender.imaging.files.images import ImageFile
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
 
 from ...chain.stages import Effect, Stage, transform
 
@@ -62,7 +59,7 @@ class DisplayFollowing(msgspec.Struct, frozen=True, kw_only=True):
             }
 
             def stored(node: bpy.types.CompositorNodeConvertToDisplay, view: DisplayView) -> Outcome[bool]:
-                return revised(formation, identity, scene, held[node], lambda record: Ok(msgspec.structs.replace(record, display_view=view)))
+                return formation.revised(identity, scene, held[node], lambda record: Ok(msgspec.structs.replace(record, display_view=view)))
 
             return followed(scene, held).bind(lambda matched: accumulated(starmap(stored, matched))).map(lambda _: None)
 
@@ -118,16 +115,16 @@ def shown_space(context: bpy.types.Context) -> Option[str]:
     )
 
 
-def displayed_frame(identity: Identity, scene: bpy.types.Scene, plane: npt.NDArray[np.float32], source: str, config: PyOpenColorIO.Config) -> Outcome[ImageFile[np.float32]]:
+def displayed_frame(identity: Identity, scene: bpy.types.Scene, plane: npt.NDArray[np.float32], source: str, config: PyOpenColorIO.Config) -> Outcome[ImageFile]:
     """Returns display values of a written frame: formed already by a formation entry and tagged with its view's colorspace, else formed through the scene view."""
 
-    def tagged(view: DisplayView) -> Outcome[ImageFile[np.float32]]:
+    def tagged(view: DisplayView) -> Outcome[ImageFile]:
         return paired(
             converted(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=PyOpenColorIO.ROLE_SCENE_LINEAR), plane),
-            view.colorspace(config).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(config), member=f"{view.display}/{view.view}")),
+            view.colorspace(config).to_result_with(partial(Fault.of, Reason.ABSENT, repr(config), member=f"{view.display}/{view.view}")),
         ).map(lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName()))
 
-    return formed_view(identity, scene).bind(lambda held: held.map(tagged).default_with(lambda: formed(viewed(scene), plane, source, config)))
+    return formed_view(identity, scene).bind(lambda held: held.map(tagged).default_with(lambda: viewed(scene).formed(config, plane, source)))
 
 
 def looked(identity: Identity, scene: bpy.types.Scene, look: str) -> Outcome[bool]:
@@ -137,8 +134,7 @@ def looked(identity: Identity, scene: bpy.types.Scene, look: str) -> Outcome[boo
         .of_seq(formation.entries(identity, scene))
         .try_head()
         .map(
-            lambda entry: revised(
-                formation,
+            lambda entry: formation.revised(
                 identity,
                 scene,
                 entry,
@@ -163,7 +159,7 @@ def encode_formation(call: Call[Named]) -> Outcome[Answer]:
                 Block
                 .of_seq(formation.entries(call.identity, scene))
                 .try_head()
-                .map(lambda entry: revised(formation, call.identity, scene, entry, lambda record: Ok(msgspec.structs.replace(record, display_view=target))))
+                .map(lambda entry: formation.revised(call.identity, scene, entry, lambda record: Ok(msgspec.structs.replace(record, display_view=target))))
                 .default_with(lambda: assigned(scene, {("view_settings", "view_transform"): target.view, ("view_settings", "look"): NO_LOOK}).map(lambda _: True))
                 .map(lambda changed: Done() if changed else Unchanged(reason=f"Formation encodes through {target.view}"))
             )
@@ -172,7 +168,7 @@ def encode_formation(call: Call[Named]) -> Outcome[Answer]:
             Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], Faults]
             .bind(
                 DisplayView.for_encoding(config, display),
-                lambda found: found.map(lambda pair: pair[0]).to_result_with(partial(Fault.of, BlenderReason.ABSENT, display, member=DisplayView.for_encoding.__name__)),
+                lambda found: found.map(lambda pair: pair[0]).to_result_with(partial(Fault.of, Reason.ABSENT, display, member=DisplayView.for_encoding.__name__)),
             )
             .bind(selected)
         )

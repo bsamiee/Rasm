@@ -10,18 +10,19 @@ import numpy.typing as npt
 import PyOpenColorIO
 import scipy as sp
 
-from blender.bpy.data.ids.images import Generated, Tag
+from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.nodes.content import Generated
+from blender.bpy.nodes.desired import Interface, InterfacePanel, Socket, under
 from blender.bpy.nodes.graphs import Expr, mixed, switched, vector
-from blender.bpy.nodes.interface import Interface, InterfacePanel, Socket, under
 from blender.bpy.render.compositor import filters, masks
-from blender.bpy.render.compositor.coordinates import dimensions, pixels, shorter
+from blender.bpy.render.compositor.coordinates import dimensions, shorter
 from blender.bpy.render.compositor.effects import CompositorEffect
-from blender.bpy.render.compositor.shells import Shell
-from blender.imaging.sampling.kernels import Pupil, Specks
+from blender.bpy.render.compositor.inputs import Shell
+from blender.imaging.sampling.tiles import Pupil, Specks
 from blender.records.faults import Outcome
-from blender.records.identity import content_hash
+from blender.records.stores import content_hash
 
 from ...chain.stages import Effect, Stage
 
@@ -102,7 +103,7 @@ def bloomed(shell: Shell[Bloom]) -> Outcome[Expr]:
     ).named(dirt_fields.key)
     mean = Expr(
         kind=bpy.types.CompositorNodeGlare,
-        inputs=(("Image", shell.color), ("Type", "Bloom"), *_WHOLE, ("Size", pixels(shell.space, shell.input(_SIZE)) / shorter(dimensions(shell.color)))),
+        inputs=(("Image", shell.color), ("Type", "Bloom"), *_WHOLE, ("Size", shell.space.pixels(shell.input(_SIZE)) / shorter(dimensions(shell.color)))),
         socket="Glare",
         shape=bpy.types.NodeSocketColor,
     )
@@ -164,10 +165,7 @@ def haloed(shell: Shell[Halation]) -> Outcome[Expr]:
     """Adds the Gaussian highlight halo under per-channel film response."""
     key = masks.highlight(shell.color, shell.input("highlights", _THRESHOLD), shell.input("highlights", _SMOOTHNESS)).named("key")
     halo = Expr(
-        kind=bpy.types.CompositorNodeBlur,
-        inputs=(("Image", key), ("Size", pixels(shell.space, shell.input(_RADIUS), kind=bpy.types.NodeSocketVector)), ("Type", "Gaussian")),
-        socket="Image",
-        shape=bpy.types.NodeSocketColor,
+        kind=bpy.types.CompositorNodeBlur, inputs=(("Image", key), ("Size", shell.space.pixel_size(shell.input(_RADIUS))), ("Type", "Gaussian")), socket="Image", shape=bpy.types.NodeSocketColor
     )
     return Ok(mixed(1.0, shell.color, vector("MULTIPLY", halo, shell.input(_COLOR)), blend="ADD"))
 

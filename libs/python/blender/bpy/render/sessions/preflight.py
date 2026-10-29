@@ -23,15 +23,14 @@ from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import definition, rooted, Struct
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderReason
 from blender.bpy.files.sessions import dependencies, Dependency
 from blender.bpy.nodes.trees import nested
 from blender.bpy.render.outputs.paths import Pathed
 from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.layout.sections import Section
-from blender.records.faults import accumulated, Fault, Outcome
+from blender.records.faults import accumulated, Fault, Outcome, Reason
 from blender.records.stores import existing
-from blender.rendering.batch.processes import detached
+from blender.rendering.batch.supervision import detached
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -92,11 +91,11 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
     def operators(self) -> tuple[Operator[Empty] | Operator[Shader], ...]:
         """Audit operators in section order."""
         return (
-            Operator(icon=Some("CHECKMARK"), form=Empty, run=self.audit_file, undo=Nothing),
-            Operator(form=Empty, run=self.list_users, undo=Nothing),
-            Operator[Shader](form=Shader, run=self.list_shader_users, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_search_popup))), undo=Nothing, primary=Some("kind")),
-            Operator(form=Empty, run=self.measure_view_layer, undo=Nothing),
-            Operator(icon=Some("FILE_BLEND"), form=Empty, run=self.open_library, undo=Nothing),
+            Operator.of(Empty, icon=Some("CHECKMARK"), undo=Nothing)(self.audit_file),
+            Operator.of(Empty, undo=Nothing)(self.list_users),
+            Operator.of(Shader, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_search_popup))), undo=Nothing, primary=Some("kind"))(self.list_shader_users),
+            Operator.of(Empty, undo=Nothing)(self.measure_view_layer),
+            Operator.of(Empty, icon=Some("FILE_BLEND"), undo=Nothing)(self.open_library),
         )
 
     @staticmethod
@@ -107,7 +106,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def list_users(call: Call[Empty]) -> Outcome[Answer]:
         """Reports the data-blocks using the active data-block."""
-        return _active(call.context).map(lambda block: Done(notes=tuple(("INFO", repr(user)) for user in users(block))))
+        return _active(call.context).map(lambda block: Done(notes=tuple(("INFO", repr(user)) for user in bpy.data.user_map(subset=(block,))[block])))
 
     @staticmethod
     def list_shader_users(call: Call[Shader]) -> Outcome[Answer]:
@@ -118,7 +117,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
             .of_seq(shader_kinds())
             .filter(lambda shader: shader.__name__ == kind)
             .try_head()
-            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, "bpy.types", member=kind))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, "bpy.types", member=kind))
             .map(lambda shader: Done(notes=tuple(("INFO", repr(user)) for user in shader_users(shader))))
         )
 
@@ -136,7 +135,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
                 case bpy.types.Library() as library:
                     return detached((bpy.app.binary_path, bpy.path.abspath(library.filepath)), call.identity.folder / "library.log").map(lambda _: Done())
                 case None:
-                    return Error(Fault.of(BlenderReason.ABSENT, repr(block), member="library"))
+                    return Error(Fault.of(Reason.ABSENT, repr(block), member="library"))
 
         return _active(call.context).bind(opened)
 
@@ -158,7 +157,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
 
 def _active(context: bpy.types.Context) -> Outcome[bpy.types.ID]:
     """Reads editor `context.id`, absent when unset."""
-    return catch(lambda: context.id, exception=AttributeError)().to_option().bind(Option.of_optional).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, "bpy.context", member="id"))
+    return catch(lambda: context.id, exception=AttributeError)().to_option().bind(Option.of_optional).to_result_with(lambda: Fault.of(Reason.ABSENT, "bpy.context", member="id"))
 
 
 def audited() -> Outcome[None]:
@@ -166,7 +165,7 @@ def audited() -> Outcome[None]:
 
     def absent(owner: object, key: str) -> Outcome[None]:
         """Returns absent fault naming owner and key."""
-        return Error(Fault.of(BlenderReason.ABSENT, repr(owner), member=key))
+        return Error(Fault.of(Reason.ABSENT, repr(owner), member=key))
 
     def lost(missing: tuple[Dependency, ...]) -> Outcome[None]:
         """Resolves missing dependency owners in one pass, one fault per path."""
@@ -186,11 +185,6 @@ def audited() -> Outcome[None]:
         ),
         *(absent(node, "image") for node in nodes if isinstance(node, bpy.types.ShaderNodeTexImage | bpy.types.ShaderNodeTexEnvironment) and node.image is None),
     )).map(lambda _: None)
-
-
-def users(block: bpy.types.ID) -> tuple[bpy.types.ID, ...]:
-    """Returns IDs using block."""
-    return tuple(bpy.data.user_map(subset=(block,))[block])
 
 
 def shader_kinds() -> tuple[type[bpy.types.ShaderNode], ...]:
@@ -236,4 +230,4 @@ def measured(view_layer: bpy.types.ViewLayer) -> Outcome[Measure]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Measure", "Preflight", "Shader", "audited", "measured", "shader_kinds", "shader_rows", "shader_users", "users"]
+__all__ = ["Measure", "Preflight", "Shader", "audited", "measured", "shader_kinds", "shader_rows", "shader_users"]

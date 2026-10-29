@@ -3,13 +3,13 @@
 from abc import abstractmethod
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
-from enum import auto, Enum
+from enum import Enum
 from types import MappingProxyType
-from typing import Final, Self, TYPE_CHECKING
+from typing import Self, TYPE_CHECKING
 
 import _bpy_types
 import bpy
-from expression import Nothing, Option, Result, Some, try_downcast
+from expression import Nothing, Option, Result, try_downcast
 from expression.extra.result import catch
 import msgspec
 
@@ -19,8 +19,7 @@ from blender.bpy.data.rna.paths import definition, rna, RnaPath, Struct
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import Fault, Faults, Outcome
+from blender.records.faults import Fault, Faults, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -33,23 +32,20 @@ type Pairs = tuple[tuple[str, Setting], ...]
 
 
 class Called(Enum):
-    """Registered popup kind, its host members held in `POPUP_CALLS`."""
+    """Registered popup kind with the host base it extends, the window manager operator calling it, and the layout button opening it in place, a pie opening through its operator alone."""
 
-    MENU = auto()
-    PIE = auto()
-    PANEL = auto()
-    SHELF = auto()
+    MENU = (bpy.types.Menu, bpy.ops.wm.call_menu, "menu")
+    PIE = (bpy.types.Menu, bpy.ops.wm.call_menu_pie, None)
+    PANEL = (bpy.types.Panel, bpy.ops.wm.call_panel, "popover")
+    SHELF = (bpy.types.AssetShelf, bpy.ops.wm.call_asset_shelf_popover, "template_asset_shelf_popover")
+
+    def __init__(self, base: type[Struct], operator: Operation, button: str | None) -> None:
+        """Holds the host base, the call operator, and the `UILayout` function the button draws through."""
+        self.base, self.operator = base, operator
+        self.button: Option[bpy.types.Function] = Option.of_optional(button).map(definition(bpy.types.UILayout).functions.__getitem__)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class PopupCall(msgspec.Struct, frozen=True, kw_only=True):
-    """Host base of a popup kind, the window manager operator calling it, and the layout button opening it in place, a pie opening through its operator alone."""
-
-    base: type[Struct]
-    operator: Operation
-    button: Option[bpy.types.Function] = Nothing
 
 
 class Command(msgspec.Struct, frozen=True, kw_only=True):
@@ -108,7 +104,7 @@ class Opened(msgspec.Struct, frozen=True):
 
     def __post_init__(self) -> None:
         """Refuses a class outside the kind's host base."""
-        base = POPUP_CALLS[self.kind].base
+        base = self.kind.base
         if not isinstance(self.target, str) and not issubclass(self.target, base):
             raise TypeError(f"{self.target.__name__} does not extend {base.__name__}")
 
@@ -129,19 +125,10 @@ class Placement(msgspec.Struct, frozen=True):
         values = tuple(self.values.items())
         match self.operator:
             case Opened(kind=kind) as opened:
-                return idname(identity, opened).map(lambda name: (_dotted(POPUP_CALLS[kind].operator), (("name", name), *values)))
+                return idname(identity, opened).map(lambda name: (_dotted(kind.operator), (("name", name), *values)))
             case operator:
                 return idname(identity, operator).map(lambda name: (name, values))
 
-
-# --- [TABLES] ---------------------------------------------------------------------------
-
-POPUP_CALLS: Final[Mapping[Called, PopupCall]] = MappingProxyType({
-    Called.MENU: PopupCall(base=bpy.types.Menu, operator=bpy.ops.wm.call_menu, button=Some(definition(bpy.types.UILayout).functions["menu"])),
-    Called.PIE: PopupCall(base=bpy.types.Menu, operator=bpy.ops.wm.call_menu_pie),
-    Called.PANEL: PopupCall(base=bpy.types.Panel, operator=bpy.ops.wm.call_panel, button=Some(definition(bpy.types.UILayout).functions["popover"])),
-    Called.SHELF: PopupCall(base=bpy.types.AssetShelf, operator=bpy.ops.wm.call_asset_shelf_popover, button=Some(definition(bpy.types.UILayout).functions["template_asset_shelf_popover"])),
-})
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -150,7 +137,7 @@ def idname(identity: Identity, target: Command | Operation | Opened, /) -> Outco
     """Resolves an extension key under its host name form, a class's RNA identifier, or a stock operator's `bpy.ops` path."""
     match target:
         case Opened(target=str(key), kind=kind):
-            return identity.name(POPUP_CALLS[kind].base, key)
+            return identity.name(kind.base, key)
         case Opened(target=opened):
             declared: type[Struct] = opened  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             return Result[str, Faults].Ok(definition(declared).identifier)
@@ -166,7 +153,7 @@ def filled(placed: tuple[str, Pairs], properties: object, /) -> Outcome[None]:
     return (
         Option
         .of_optional(try_downcast(bpy.types.OperatorProperties, properties))
-        .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, operator, member="properties"))
+        .to_result_with(lambda: Fault.of(Reason.ABSENT, operator, member="properties"))
         .bind(lambda held: assigned(held, {(name,): value for name, value in pairs}))
     )
 
@@ -192,13 +179,13 @@ def called(
     def refused(error: Exception) -> Faults:
         match error:
             case AttributeError():
-                return Fault.of(BlenderReason.ABSENT, "bpy.ops", error, member=identifier)
+                return Fault.of(Reason.ABSENT, "bpy.ops", error, member=identifier)
             case _:
-                return Fault.of(BlenderReason.FAILED, request, error)
+                return Fault.of(Reason.FAILED, request, error)
 
     ran: Result[frozenset[rna_enums.OperatorReturnItems], Exception] = catch(run, exception=(AttributeError, RuntimeError, TypeError))()  # type: ignore[call-overload]  # ty: ignore[invalid-argument-type]
     return ran.map_error(refused).filter_with(
-        lambda answer: not answer.isdisjoint(("FINISHED", "RUNNING_MODAL", "INTERFACE")), lambda answer: Fault.of(BlenderReason.ANSWERED, request, member=", ".join(sorted(answer)))
+        lambda answer: not answer.isdisjoint(("FINISHED", "RUNNING_MODAL", "INTERFACE")), lambda answer: Fault.of(Reason.ANSWERED, request, member=", ".join(sorted(answer)))
     )
 
 
@@ -210,4 +197,4 @@ def _dotted(operator: Operation, /) -> str:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["POPUP_CALLS", "Called", "Command", "Opened", "Operation", "Pairs", "Placement", "PopupCall", "Setting", "called", "filled", "idname"]
+__all__ = ["Called", "Command", "Opened", "Operation", "Pairs", "Placement", "Setting", "called", "filled", "idname"]

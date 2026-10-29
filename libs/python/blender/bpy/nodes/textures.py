@@ -1,6 +1,6 @@
-"""Stock nodes as expressions: settings records split into the node's RNA members and input sockets, and texture and Map Range records built through one stock builder."""
+"""Stock nodes as expressions: settings records split into the node's RNA members and input sockets over the coordinate sockets each node reads."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 import math
 from types import MemberDescriptorType
 from typing import ClassVar
@@ -16,6 +16,7 @@ from blender.bpy.nodes.graphs import Expr, Shape, Term
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Linked = Callable[[MemberDescriptorType], Option[Term]]
+type Texture = Noise | Voronoi | Wave | Magic | Gabor | White
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -24,12 +25,13 @@ class NodeSettings(msgspec.Struct, frozen=True, kw_only=True):
     """One stock node's stated values: fields its RNA declares are its members holding host identifiers, every other field the input socket its display name names."""
 
     kind: ClassVar[type[bpy.types.Node]]
+    coordinates: ClassVar[tuple[str, ...]] = ("Vector", "W")
 
-    def stocked(self, coordinates: Mapping[str, Term], *, socket: str | int = 0, shape: Shape = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
-        """Builds the node over coordinate sockets and every field, the reconciler leaving sockets the members disable unlinked.
+    def node(self, *operands: Term, socket: str | int = 0, shape: Shape = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
+        """Builds the node over its coordinate sockets and every field, the reconciler leaving sockets the members disable unlinked.
 
         Args:
-            coordinates: Coordinate socket operands by identifier, such as `Vector` and `W`.
+            *operands: Coordinate operands in `coordinates` order, such as `Vector` and `W`, later coordinates keeping the node's own values.
             socket: Output identifier read, else position among the enabled outputs, the first enabled output by default.
             shape: Socket class of the output read.
             linked: Operand per input field member descriptor in place of its record value, such as a group input animating it.
@@ -39,24 +41,14 @@ class NodeSettings(msgspec.Struct, frozen=True, kw_only=True):
         """
         rna = self.kind.bl_rna.properties
         fields = msgspec.structs.fields(self)
+        inputs = tuple(
+            (bpy.path.display_name(field.name), linked.bind(lambda read: read(getattr(type(self), field.name))).default_value(getattr(self, field.name))) for field in fields if field.name not in rna
+        )
         members: Members = {field.name: getattr(self, field.name) for field in fields if field.name in rna}
-        inputs = {
-            bpy.path.display_name(field.name): linked.bind(lambda read: read(getattr(type(self), field.name))).default_value(getattr(self, field.name)) for field in fields if field.name not in rna
-        }
-        return stock(self.kind, members, {**coordinates, **inputs}, socket=socket, shape=shape)
+        return Expr(kind=self.kind, inputs=(*zip(self.coordinates, operands), *inputs), members=members, socket=socket, shape=shape)
 
 
-class Texture(NodeSettings, frozen=True, kw_only=True):
-    """Texture node reading `Vector` and, where it declares one, `W` coordinates, the node's dimensions enabling the ones it reads."""
-
-    coordinates: ClassVar[tuple[str, ...]] = ("Vector", "W")
-
-    def node(self, vector: Term, w: Term = 0.0, *, socket: str | int = 0, shape: Shape = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
-        """Builds the texture node over the coordinate sockets it declares, `w` unread by a node without `W`."""
-        return self.stocked(dict(zip(self.coordinates, (vector, w))), socket=socket, shape=shape, linked=linked)
-
-
-class Noise(Texture, frozen=True, kw_only=True):
+class Noise(NodeSettings, frozen=True, kw_only=True):
     """Noise Texture node: distorted fractal Perlin noise."""
 
     kind = bpy.types.ShaderNodeTexNoise
@@ -72,7 +64,7 @@ class Noise(Texture, frozen=True, kw_only=True):
     distortion: float = 0.0
 
 
-class Voronoi(Texture, frozen=True, kw_only=True):
+class Voronoi(NodeSettings, frozen=True, kw_only=True):
     """Voronoi Texture node: fractal cellular distances, colors, and feature points."""
 
     kind = bpy.types.ShaderNodeTexVoronoi
@@ -89,7 +81,7 @@ class Voronoi(Texture, frozen=True, kw_only=True):
     randomness: float = 1.0
 
 
-class Wave(Texture, frozen=True, kw_only=True):
+class Wave(NodeSettings, frozen=True, kw_only=True):
     """Wave Texture node: bands or rings of a periodic profile, distorted by fractal noise."""
 
     kind = bpy.types.ShaderNodeTexWave
@@ -106,7 +98,7 @@ class Wave(Texture, frozen=True, kw_only=True):
     phase_offset: float = 0.0
 
 
-class Magic(Texture, frozen=True, kw_only=True):
+class Magic(NodeSettings, frozen=True, kw_only=True):
     """Magic Texture node: nested trigonometric turbulence."""
 
     kind = bpy.types.ShaderNodeTexMagic
@@ -116,7 +108,7 @@ class Magic(Texture, frozen=True, kw_only=True):
     distortion: float = 1.0
 
 
-class Gabor(Texture, frozen=True, kw_only=True):
+class Gabor(NodeSettings, frozen=True, kw_only=True):
     """Gabor Texture node: sparse windowed oscillations of one frequency and orientation."""
 
     kind = bpy.types.ShaderNodeTexGabor
@@ -129,7 +121,7 @@ class Gabor(Texture, frozen=True, kw_only=True):
     orientation_3d: tuple[float, float, float] = (math.sqrt(2.0), math.sqrt(2.0), 0.0)
 
 
-class White(Texture, frozen=True, kw_only=True):
+class White(NodeSettings, frozen=True, kw_only=True):
     """White Noise Texture node: a uniform value and color hashed from the coordinates themselves."""
 
     kind = bpy.types.ShaderNodeTexWhiteNoise
@@ -137,9 +129,10 @@ class White(Texture, frozen=True, kw_only=True):
 
 
 class MapRange(NodeSettings, frozen=True, kw_only=True):
-    """Map Range node over floats."""
+    """Map Range node over floats, read at `Result`, the first enabled output."""
 
     kind = bpy.types.ShaderNodeMapRange
+    coordinates = ("Value",)
     interpolation_type: str = "LINEAR"
     clamp: bool = True
     from_min: float = 0.0
@@ -148,30 +141,7 @@ class MapRange(NodeSettings, frozen=True, kw_only=True):
     to_max: float = 1.0
     steps: float = 4.0
 
-    def node(self, value: Term, *, linked: Option[Linked] = Nothing) -> Expr:
-        """Builds the Map Range node over `Value`, read at `Result`."""
-        return self.stocked({"Value": value}, socket="Result", linked=linked)
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def stock(kind: type[bpy.types.Node], members: Members, inputs: Mapping[str, Term], /, *, socket: str | int = 0, shape: Shape = bpy.types.NodeSocketFloat) -> Expr:
-    """Builds a stock node over its RNA members and input operands.
-
-    Args:
-        kind: Stock node class.
-        members: Member values by member identifier.
-        inputs: Input operands by socket identifier.
-        socket: Output identifier read, else position among the enabled outputs.
-        shape: Socket class of the output read.
-
-    Returns:
-        Output expression.
-    """
-    return Expr(kind=kind, inputs=tuple(inputs.items()), members=members, socket=socket, shape=shape)
-
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Gabor", "Linked", "Magic", "MapRange", "NodeSettings", "Noise", "Texture", "Voronoi", "Wave", "White", "stock"]
+__all__ = ["Gabor", "Linked", "Magic", "MapRange", "NodeSettings", "Noise", "Texture", "Voronoi", "Wave", "White"]

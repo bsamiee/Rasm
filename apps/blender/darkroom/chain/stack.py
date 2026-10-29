@@ -12,18 +12,17 @@ import PyOpenColorIO
 
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.nodes.interface import item_key
+from blender.bpy.nodes.desired import item_key
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor import entries
-from blender.bpy.render.compositor.blending import BLEND, Entry, MODE, OPACITY
-from blender.bpy.render.compositor.edits import EffectEdits
-from blender.bpy.render.compositor.effects import CompositorEffect, Enabled
+from blender.bpy.render.compositor.effects import CompositorEffect, Enabled, Entry
 from blender.bpy.render.compositor.entries import EffectRows, Pinned
 from blender.bpy.render.compositor.inputs import captured, valued
+from blender.bpy.render.compositor.masks import BLEND, MODE, OPACITY
 from blender.bpy.render.sessions.renders import RenderCall
 from blender.imaging.color.processors import bracketed, DisplayView
 from blender.imaging.sampling.integration import Precision
-from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 from . import execution
 from .stages import Effect, Phase, Stage, transform
@@ -63,11 +62,6 @@ class Chain(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             phases=tuple(entries.Phase(group=Some(phase), members=tuple(member for stage in Stage if stage.phase is phase for member in members(stage))) for phase in Phase), pinned=self.pinned
         )
 
-    @cached_property
-    def edits(self) -> EffectEdits[Effect]:
-        """Edit commands, add menu, and upkeep handlers over the chain's rows."""
-        return EffectEdits(rows=self.rows)
-
     # --- [FORMING]
 
     def pointwise(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[_Formed]:
@@ -76,8 +70,8 @@ class Chain(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def local(record: Entry[Effect], values: Mapping[Key, Value]) -> Outcome[tuple[Entry[Effect], Mapping[Key, Value]]]:
             plain = not record.blend.masks and all(values.get(item_key(BLEND, socket.key)) == socket.default_value for socket in (MODE, OPACITY))
             return paired(
-                Ok(None) if record.record.pointwise else Error(Fault.of(RecordReason.OUTSIDE, entry.name, type(record.record).__name__, member="pointwise effects")),
-                Ok(None) if plain else Error(Fault.of(RecordReason.OUTSIDE, entry.name, repr(record.blend), member=BLEND)),
+                Ok(None) if record.record.pointwise else Error(Fault.of(Reason.OUTSIDE, entry.name, type(record.record).__name__, member="pointwise effects")),
+                Ok(None) if plain else Error(Fault.of(Reason.OUTSIDE, entry.name, repr(record.blend), member=BLEND)),
             ).map(lambda _: (record, values))
 
         return self.rows.found(identity, scene, entry.name).bind(

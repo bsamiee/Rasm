@@ -14,11 +14,10 @@ import numpy.typing as npt
 import PyOpenColorIO
 from scipy.linalg import block_diag
 
-from blender.imaging.faults import ImagingReason
 from blender.imaging.files.buffers import applied
-from blender.imaging.files.images import interop
-from blender.records.faults import accumulated, Fault, Outcome, paired
-from blender.records.fields import NonNegative
+from blender.imaging.files.images import ImageFile, interop
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.fields import Name, NonNegative
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -30,9 +29,8 @@ class Domain(Enum):
     DISPLAY = auto()
 
 
-type ColorSpace = Annotated[str, msgspec.Meta(min_length=1)]
+type ColorSpace = Name
 type Stops = Annotated[float, msgspec.Meta(ge=-float(np.finfo(np.float32).maxexp), le=float(np.finfo(np.float32).maxexp))]
-type _Name = Annotated[str, msgspec.Meta(min_length=1)]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -45,8 +43,8 @@ REC709_SCENE: Final = "lin_rec709_scene"
 class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
     """Scene-linear formation through OCIO's viewing pipeline: exposure, look, display view, and display gamma."""
 
-    display: _Name
-    view: _Name
+    display: Name
+    view: Name
     looks_override: str = ""
     looks_override_enabled: bool = False
     exposure: Stops = 0.0
@@ -94,7 +92,7 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
                 choice
                 .bind(lambda pair: pair[0].colorspace(config))
                 .map(PyOpenColorIO.ColorSpace.getName)
-                .to_result_with(lambda: Fault.of(ImagingReason.UNRESOLVED, config.getName() or repr(config), member=f"display encoding {display}"))
+                .to_result_with(lambda: Fault.of(Reason.ABSENT, config.getName() or repr(config), member=f"display encoding {display}"))
             )
         )
 
@@ -118,6 +116,12 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
     def form(self, config: PyOpenColorIO.Config, values: npt.NDArray[np.float32], source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[npt.NDArray[np.float32]]:
         """Returns associated display colors of associated `values` in `source`."""
         return self.transform(config, source).map(lambda built: applied(built.getDefaultCPUProcessor(), values))
+
+    def formed(self, config: PyOpenColorIO.Config, values: npt.NDArray[np.float32], source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[ImageFile]:
+        """Returns associated `values` in `source` formed into an image tagged with the view colorspace."""
+        return paired(
+            self.form(config, values, source), self.colorspace(config).to_result_with(lambda: Fault.of(Reason.ABSENT, config.getName() or repr(config), member=f"{self.display}/{self.view}"))
+        ).map(lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName()))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -173,7 +177,7 @@ def lin_to_log() -> PyOpenColorIO.LogCameraTransform:
 def called[**P, T](call: Callable[P, T], subject: str, *args: P.args, **kwargs: P.kwargs) -> Outcome[T]:
     """Returns the value of one OCIO call, or color fault naming `subject` for either OCIO exception class."""
     return catch(catch(call, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(*args, **kwargs).map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
-        partial(Fault.of, ImagingReason.COLOR, subject)
+        partial(Fault.of, Reason.FAILED, subject)
     )
 
 
@@ -200,7 +204,7 @@ def basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.fl
             case (PyOpenColorIO.MatrixTransform() as op,) if not any(op.getOffset()) and np.isfinite(values := np.asarray(op.getMatrix(), dtype=np.float64).reshape(4, 4)[:3, :3]).all():
                 return Ok(values)
             case _:
-                return Error(Fault.of(ImagingReason.BASIS, space, member=str(group)))
+                return Error(Fault.of(Reason.INVALID, space, f"transform {group} lacks linear RGB geometry"))
 
     return processor(config, xyz(config, space)).map(lambda built: built.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()).bind(held)
 
@@ -213,7 +217,11 @@ def rendering_basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDA
         sums = values.sum(axis=0)
         normalized = values / sums
         signed = (values[1] > 0.0).all() and ((sums > 0.0).all() or (sums < 0.0).all()) and np.isfinite(sums.sum()) and np.isfinite(values.sum(axis=1)).all()
-        return Ok(values) if signed and np.isfinite(normalized).all() and abs(np.linalg.slogdet(normalized).sign) == 1.0 else Error(Fault.of(ImagingReason.BASIS, space, member=str(matrix(values))))
+        return (
+            Ok(values)
+            if signed and np.isfinite(normalized).all() and abs(np.linalg.slogdet(normalized).sign) == 1.0
+            else Error(Fault.of(Reason.INVALID, space, f"transform {matrix(values)} lacks linear RGB geometry"))
+        )
 
     return basis(config, space).bind(held)
 

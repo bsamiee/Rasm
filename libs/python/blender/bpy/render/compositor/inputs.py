@@ -1,4 +1,4 @@
-"""Entry inputs by interface key with their captures, restores, defaults, and writes, the hidden inputs derived from scene values, the camera frame among them, entry colors kept in the working space, and scene holds stored beside owned data."""
+"""Entry inputs by interface key with their captures, restores, defaults, and writes, hidden inputs derived from scene values, the camera frame, the shell an effect graph reads, entry colors kept in the working space, and scene holds."""
 
 from collections import deque
 from collections.abc import Callable, Generator, Mapping
@@ -7,31 +7,35 @@ from functools import partial
 from typing import Final, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Result, Some
 from expression.collections import Block
 import msgspec
 import numpy as np
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.bpy.data.rna.animation import Animation, Driven, Keys
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.paths import Native, rna, RnaPath, Struct, struct_at
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events import Handler, startup, updated
+from blender.bpy.extension.events import Handler, Startup, updated
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderReason
-from blender.bpy.nodes.addressing import Addressed, input_sockets, slot
-from blender.bpy.nodes.interface import item_key, Socket
-from blender.bpy.render.outputs.framing import Framed, FrameSize
+from blender.bpy.nodes.addressing import Addressed, input_sockets
+from blender.bpy.nodes.desired import InterfacePanel, item_key, MenuItem, MenuItems, Socket
+from blender.bpy.nodes.graphs import Expr, group_input, menu, Shape, Term
+from blender.bpy.render.compositor.coordinates import FrameSpace
+from blender.bpy.render.outputs.framing import FrameSize, Framing
 from blender.bpy.scene import cameras
 from blender.bpy.settings.attachments import Stored
 from blender.imaging.color.processors import processor
 from blender.imaging.geometry.frames import Region
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason, typed
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason, typed
 from blender.records.fields import Case
 from blender.records.trees import Owner, Tree
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Graph[R: Case] = Callable[[Shell[R]], Outcome[Expr]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -75,16 +79,26 @@ class CameraFrame(msgspec.Struct, frozen=True, kw_only=True):
         """Reads the frame inputs of an entry."""
 
         def value(socket: Socket) -> Outcome[float]:
-            return entry_input(identity, entry, socket.key).bind(
-                lambda held: Descriptor.resolve(held, ("value",), bpy.types.FloatProperty).bind(lambda descriptor: typed(float, repr(held), descriptor.read(held)))
-            )
+            return entry_value(identity, entry, socket.key).bind(partial(typed, float, socket.key))
 
         return paired(value(FRAME_ASPECT), value(FRAME_SCALE), value(FRAME_METERS)).map(lambda read: cls(aspect=read[0], scale=read[1], meters=read[2]))
 
     @classmethod
-    def of(cls, identity: Identity, scene: bpy.types.Scene) -> Outcome["CameraFrame"]:
-        """Reads the camera frame of a scene under the extension's frame size settings."""
-        return FrameSize().bound(identity).bind(lambda framed: camera_frame(framed, scene))
+    def of(cls, identity: Identity, scene: bpy.types.Scene) -> Outcome[Self]:
+        """Reads the pixel aspect, overscan camera share, and unit scale of a scene under the extension's frame size settings."""
+        render = scene.render
+        return (
+            FrameSize()
+            .bound(identity)
+            .bind(lambda framed: framed.base(scene))
+            .map(
+                lambda base: cls(
+                    aspect=render.pixel_aspect_x / render.pixel_aspect_y,
+                    scale=base.map(lambda original: original.size[0] / render.resolution_x).default_value(1.0),
+                    meters=scene.unit_settings.scale_length,
+                )
+            )
+        )
 
     def window(self, spec: OpenImageIO.ImageSpec) -> tuple[Region, tuple[float, float]]:
         """Maps captured data window into original camera coordinates."""
@@ -99,6 +113,70 @@ class CameraFrame(msgspec.Struct, frozen=True, kw_only=True):
             ),
             (spec.full_width * self.scale * self.aspect / greater, spec.full_height * self.scale / greater),
         )
+
+
+class PreviewFrame(msgspec.Struct, frozen=True, kw_only=True):
+    """Stored pixel size of a preview plane and the render framing it stands for."""
+
+    size: tuple[int, int]
+    framing: Framing
+
+
+class Shell[R: Case](msgspec.Struct, frozen=True, kw_only=True):
+    """Graph builder's record, entry input color, render layer, and group sockets by item key, toggled panels reading as their toggles."""
+
+    record: R
+    identity: Identity
+    config: PyOpenColorIO.Config
+    color: Expr
+    render: Expr
+    sockets: Mapping[Key, Socket]
+    preview: Option[PreviewFrame] = Nothing
+
+    def input(self, *path: Key | int | Socket | InterfacePanel) -> Expr:
+        """Reads the group input of the declaring socket or toggled panel that ends a key path, a color or vector socket in its shape and every other socket as a value.
+
+        Returns:
+            Group input expression of the declaration.
+
+        Raises:
+            LookupError: For a path ending in no declaration the group holds, at graph build.
+        """
+        key = item_key(*(part.key if isinstance(part, Socket | InterfacePanel) else part for part in path))
+        match path:
+            case (*_, Socket() | InterfacePanel()) if key in self.sockets:
+                return read(self.sockets[key], key)
+            case _:
+                raise LookupError(f"{key} names no input the group declares")
+
+    @property
+    def space(self) -> FrameSpace:
+        """Camera frame of the entry input."""
+        return FrameSpace.of(self.color, self.input(FRAME_ASPECT), self.input(FRAME_SCALE))
+
+    def layer(self, socket: str) -> Expr:
+        """Reads one Render Layers output of the effect's pass request layer."""
+        return msgspec.structs.replace(self.render, socket=socket)
+
+    def menu(self, *path: Key | int | Socket, cases: Mapping[MenuItem, Term], shape: Option[Shape] = Nothing) -> Expr:
+        """Switches between case terms at the menu socket ending a key path, one case per item the socket declares in its order.
+
+        Returns:
+            Menu Switch expression over the cases in item order.
+
+        Raises:
+            LookupError: For a path ending in no menu socket the group holds, at graph build.
+            ValueError: For cases holding other items than the socket declares, at graph build.
+        """
+        selector = self.input(*path)
+        key = item_key(*(part.key if isinstance(part, Socket) else part for part in path))
+        match self.sockets[key].items.default_value(None):
+            case MenuItems(items=declared) if set(cases) == set(declared):
+                return menu(selector, {item: cases[item] for item in declared}, shape=shape)
+            case MenuItems(items=declared):
+                raise ValueError(f"{key} cases {[item.name for item in cases]} differ from its items {[item.name for item in declared]}")
+            case _:
+                raise LookupError(f"{key} names no menu socket the group declares")
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -161,7 +239,7 @@ class WorkingSpace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                     target = bpy.data.colorspace.working_space
                     return start(stamp, scene, target).map(lambda source: None if source == target else later())
 
-                return (self.previous, *startup(seeded), Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.ID,), checked)))
+                return (self.previous, Startup(body=seeded), Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.ID,), checked)))
 
             yield Stored.keyed(identity, "working_space", msgspec.msgpack.Decoder(str)).map(built)
 
@@ -171,23 +249,29 @@ class WorkingSpace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 # --- [READS]
 
 
-def keyed(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[bpy.types.NodeTree, Mapping[Key, str]]]:
-    """Returns the entry's group with its live input socket identifiers by interface item key, panel keys at their toggles."""
-    return Result[bpy.types.NodeTree, Faults].bind(grouped(entry), lambda group: slot(identity).map(lambda name: (group, Addressed.of(group, name).sockets)))
-
-
 def grouped(entry: bpy.types.SceneCompositorEffect) -> Outcome[bpy.types.NodeTree]:
     """Returns the entry's group, absent before one is set."""
-    return Option.of_optional(entry.node_group).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(entry), member="node_group"))
+    return Option.of_optional(entry.node_group).to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member="node_group"))
+
+
+def keyed(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[bpy.types.NodeTree, Mapping[Key, str]]]:
+    """Returns the entry's group with its live input socket identifiers by interface item key, panel keys at their toggles."""
+    return Result[bpy.types.NodeTree, Faults].bind(grouped(entry), lambda group: Addressed.of(group, identity).map(lambda live: (group, live.sockets)))
+
+
+def inputs_of(entry: bpy.types.SceneCompositorEffect) -> Outcome[Native]:
+    """Resolves the entry's generated `properties.inputs`, absent without a group."""
+    return struct_at(entry, ("properties", "inputs")).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(entry), member=rna(("properties", "inputs"))))
+
+
+def interface_input(entry: bpy.types.SceneCompositorEffect, identifier: str) -> Outcome[Struct]:
+    """Resolves live entry input by interface socket identifier."""
+    return struct_at(entry, ("properties", "inputs", identifier), bpy.types.bpy_struct).to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member=identifier))
 
 
 def entry_input(identity: Identity, entry: bpy.types.SceneCompositorEffect, key: Key) -> Outcome[Struct]:
     """Resolves live entry input by interface item key after interface rebuilds."""
-    return (
-        keyed(identity, entry)
-        .bind(lambda held: Option.of_optional(held[1].get(key)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(entry), member=key)))
-        .bind(lambda address: interface_input(entry, address))
-    )
+    return keyed(identity, entry).bind(lambda held: _addressed(entry, held[1], key))
 
 
 def entry_value(identity: Identity, entry: bpy.types.SceneCompositorEffect, key: Key) -> Outcome[Value]:
@@ -195,19 +279,19 @@ def entry_value(identity: Identity, entry: bpy.types.SceneCompositorEffect, key:
     return entry_input(identity, entry, key).bind(lambda held: Descriptor.resolve(held, ("value",), bpy.types.Property).map(lambda descriptor: descriptor.read(held)))
 
 
-def inputs_of(entry: bpy.types.SceneCompositorEffect) -> Outcome[Native]:
-    """Resolves the entry's generated `properties.inputs`, absent without a group."""
-    return struct_at(entry, ("properties", "inputs")).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(entry), member=rna(("properties", "inputs"))))
-
-
-def interface_input(entry: bpy.types.SceneCompositorEffect, identifier: str) -> Outcome[Struct]:
-    """Resolves live entry input by interface socket identifier."""
-    return struct_at(entry, ("properties", "inputs", identifier), bpy.types.bpy_struct).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(entry), member=identifier))
-
-
 def valued(snapshot: Snapshot) -> Mapping[Key, Value]:
     """Returns the input values of a capture by item key."""
     return {rna(key): owner.values["value",] for key, owner in snapshot.tree.rows if key and ("value",) in owner.values}
+
+
+def _addressed(entry: bpy.types.SceneCompositorEffect, sockets: Mapping[Key, str], key: Key) -> Outcome[Struct]:
+    """Resolves the live entry input at an interface item key among the group's addressed socket identifiers."""
+    return Option.of_optional(sockets.get(key)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member=key)).bind(partial(interface_input, entry))
+
+
+def _under(prefix: Key, key: Key) -> bool:
+    """Whether an item key sits under a prefix, every key under the empty prefix."""
+    return not prefix or key == prefix or key.startswith(f"{prefix}_")
 
 
 # --- [CAPTURES]
@@ -222,7 +306,7 @@ def captured(identity: Identity, entry: bpy.types.SceneCompositorEffect, prefix:
     """Captures the entry's input values at the item keys under a prefix, every key while it is empty, each input owner named by its item key."""
 
     def renamed(snapshot: Snapshot, keys: Mapping[Key, str]) -> Snapshot:
-        named: Mapping[RnaPath, RnaPath] = {(identifier,): (key,) for key, identifier in keys.items() if not prefix or key == prefix or key.startswith(f"{prefix}_")}
+        named: Mapping[RnaPath, RnaPath] = {(identifier,): (key,) for key, identifier in keys.items() if _under(prefix, key)}
         return regrouped(snapshot, {named[at]: owner for at, owner in snapshot.tree.rows if at in named})
 
     return paired(inputs_of(entry).bind(Snapshot.capture), keyed(identity, entry)).map(lambda pair: renamed(pair[0], pair[1][1]))
@@ -232,7 +316,7 @@ def rebased(values: Snapshot, source: Key, target: Key) -> Snapshot:
     """Returns captured input values with the item keys under `source` moved under `target`, the empty key holding every item key."""
 
     def moved(key: Key) -> Key:
-        return item_key(*(part for part in (target, key.removeprefix(source).removeprefix("_")) if part)) if not source or key == source or key.startswith(f"{source}_") else key
+        return item_key(*(part for part in (target, key.removeprefix(source).removeprefix("_")) if part)) if _under(source, key) else key
 
     return regrouped(values, {(moved(rna(key)),): owner for key, owner in values.tree.rows if key})
 
@@ -258,7 +342,7 @@ def defaulted(identity: Identity, entry: bpy.types.SceneCompositorEffect, prefix
         defaults = {
             identifier: descriptor.read(sockets[identifier])
             for key, identifier in keys.items()
-            if (not prefix or key == prefix or key.startswith(f"{prefix}_")) and identifier in sockets
+            if _under(prefix, key) and identifier in sockets
             for descriptor in Descriptor.resolve(sockets[identifier], ("default_value",), bpy.types.Property).to_option().to_list()
         }
         return accumulated(interface_input(entry, identifier).bind(lambda held: written(held, ("value",), value)).map(Option.is_some) for identifier, value in defaults.items()).map(any)
@@ -267,43 +351,18 @@ def defaulted(identity: Identity, entry: bpy.types.SceneCompositorEffect, prefix
 
 
 def entered(identity: Identity, entry: bpy.types.SceneCompositorEffect, values: Mapping[Key, Value]) -> Outcome[bool]:
-    """Writes entry input values by interface key, answering whether any changed."""
-    return accumulated(entry_input(identity, entry, key).bind(lambda owner: written(owner, ("value",), value)).map(Option.is_some) for key, value in values.items()).map(any)
-
-
-def applied_channel(channel: Animation, scene: bpy.types.Scene) -> Outcome[bool]:
-    """Writes changed keyframes, answering whether it wrote, refusing cycle-forming drivers."""
-    match channel.source:
-        case Driven():
-            return Error(Fault.of(RecordReason.OUTSIDE, rna(channel.path), Driven.__name__, member=Keys.__name__))
-        case Keys():
-            return channel.apply(scene)
-
-
-# --- [DERIVED]
-
-
-def camera_frame(framed: Framed, scene: bpy.types.Scene) -> Outcome[CameraFrame]:
-    """Reads pixel aspect, overscan camera share, and unit scale."""
-    render = scene.render
-    return framed.base(scene).map(
-        lambda base: CameraFrame(
-            aspect=render.pixel_aspect_x / render.pixel_aspect_y, scale=base.map(lambda original: original.size[0] / render.resolution_x).default_value(1.0), meters=scene.unit_settings.scale_length
-        )
+    """Writes entry input values by interface key over one addressing pass, answering whether any changed."""
+    return keyed(identity, entry).bind(
+        lambda held: accumulated(_addressed(entry, held[1], key).bind(lambda owner: written(owner, ("value",), value)).map(Option.is_some) for key, value in values.items()).map(any)
     )
 
 
 # --- [HOLDS]
 
 
-def held(identity: Identity) -> Outcome[Stored[dict[Key, Snapshot]]]:
-    """Store of the scene values each holding effect captured before its first entry, by effect key."""
-    return Stored.keyed(identity, "held", msgspec.msgpack.Decoder(dict[Key, Snapshot]))
-
-
 def holding(identity: Identity, scene: bpy.types.Scene) -> Outcome[tuple[Stored[dict[Key, Snapshot]], dict[Key, Snapshot]]]:
-    """Scene hold store with the values it holds, empty before any effect holds."""
-    return held(identity).bind(lambda store: store.read(scene).map(lambda values: (store, values.default_value({}))))
+    """Store of the scene values each holding effect captured before its first entry, by effect key, with the values the scene holds, empty before any effect holds."""
+    return Stored.keyed(identity, "held", msgspec.msgpack.Decoder(dict[Key, Snapshot])).bind(lambda store: store.read(scene).map(lambda values: (store, values.default_value({}))))
 
 
 def hold(identity: Identity, scene: bpy.types.Scene, key: Key, holds: Holds) -> Outcome[None]:
@@ -314,6 +373,15 @@ def hold(identity: Identity, scene: bpy.types.Scene, key: Key, holds: Holds) -> 
         return (Ok(None) if key in values else first).bind(lambda _: cameras.required(holds.cameras, scene, identity))
 
     return Ok(None) if holds == Holds() else holding(identity, scene).bind(lambda pair: applied(*pair))
+
+
+# --- [SHELL]
+
+
+def read(socket: Socket, key: Key = "") -> Expr:
+    """Reads the group input of a socket at its key, or at `key` for a socket nested under a prefix, a color or vector socket in its shape and every other socket as a value."""
+    base = socket.base
+    return group_input(key or socket.key, base if base in {bpy.types.NodeSocketColor, bpy.types.NodeSocketVector} else bpy.types.NodeSocketFloat)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -339,22 +407,23 @@ __all__ = [
     "WORKING_SPACE",
     "CameraFrame",
     "Derives",
+    "Graph",
     "Holds",
+    "PreviewFrame",
+    "Shell",
     "WorkingSpace",
-    "applied_channel",
-    "camera_frame",
     "captured",
     "defaulted",
     "entered",
     "entry_input",
     "entry_value",
     "grouped",
-    "held",
     "hold",
     "holding",
     "inputs_of",
     "interface_input",
     "keyed",
+    "read",
     "rebased",
     "regrouped",
     "restored",

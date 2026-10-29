@@ -11,8 +11,7 @@ from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Outcome
+from blender.records.faults import accumulated, Fault, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -62,7 +61,7 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, block: T) -> Self:
         """Returns handle of block's original, an embedded tree naming its holder."""
-        held = original(block)
+        held: T = block.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         return cls(kind=type(block), uid=holder(held).default_value(held).session_uid, embedded=held.is_embedded_data)
 
     def resolve(self) -> Outcome[T]:
@@ -71,12 +70,6 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def original[T: bpy.types.ID](block: T) -> T:
-    """Returns the `bpy.data` block an evaluated copy came from, an original answering itself."""
-    held: T = block.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    return held
 
 
 def member(kind: type[bpy.types.ID]) -> str:
@@ -98,7 +91,7 @@ def resolved[T: bpy.types.ID](handles: Iterable[Handle[T]]) -> Outcome[tuple[T, 
         return found.bind(embedded) if handle.embedded else found
 
     return accumulated(
-        reached(handle).bind(lambda block: Option.of_optional(try_downcast(handle.kind, block))).to_result_with(partial(Fault.of, BlenderReason.ABSENT, handle.kind.__name__, member=str(handle.uid)))
+        reached(handle).bind(lambda block: Option.of_optional(try_downcast(handle.kind, block))).to_result_with(partial(Fault.of, Reason.ABSENT, handle.kind.__name__, member=str(handle.uid)))
         for handle in handles
     )
 
@@ -114,13 +107,16 @@ def holder(block: bpy.types.ID) -> Option[bpy.types.ID]:
 
 
 def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
-    """Renames block, collision fault restoring the prior name when another block holds name and the host suffixed this one."""
-    prior, refused = block.name, partial(Fault.of, BlenderReason.REFUSED, repr(block))
+    """Renames block, collision fault when another block holds name, the prior name restored where the host suffixed this one."""
+    prior, refused = block.name, partial(Fault.of, Reason.REFUSED, repr(block))
+    taken: Outcome[T] = Error(Fault.of(Reason.TAKEN, name, member=member(type(block))))
 
     def answered(result: str) -> Outcome[T]:
         match result:
             case "RENAMED_COLLISION_ADJUSTED":
-                return catch(block.rename, exception=RuntimeError)(prior, mode="NEVER").map_error(refused).bind(lambda _: Error(Fault.of(BlenderReason.TAKEN, name, member=member(type(block)))))
+                return catch(block.rename, exception=RuntimeError)(prior, mode="NEVER").map_error(refused).bind(lambda _: taken)
+            case "UNCHANGED_COLLISION":
+                return taken
             case _:
                 return Ok(block)
 
@@ -129,4 +125,4 @@ def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["STORES", "Handle", "IdName", "blocks", "embedded", "holder", "member", "named", "original", "resolved"]
+__all__ = ["STORES", "Handle", "IdName", "blocks", "embedded", "holder", "member", "named", "resolved"]

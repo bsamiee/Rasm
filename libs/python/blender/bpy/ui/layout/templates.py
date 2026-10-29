@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from functools import partial
 from types import MappingProxyType
+from typing import override
 
 import bpy
 from expression import Nothing, Ok, Option, Some, try_downcast
@@ -13,12 +14,10 @@ from blender.bpy.commands.keymaps import Keymap
 from blender.bpy.data.rna.paths import Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.extension.reports import redrawn
-from blender.bpy.ui.drawing.canvas import Canvas, PROGRAMS
+from blender.bpy.extension.reports import alerted, redrawn
+from blender.bpy.ui.drawing.canvas import Canvas, Offscreen, PROGRAMS
 from blender.bpy.ui.drawing.handlers import Part, Refresh, refreshing
-from blender.bpy.ui.drawing.offscreen import Offscreen
-from blender.bpy.ui.layout.members import Member, ResolvedMember
-from blender.bpy.ui.layout.rows import accepted, alerted, bound, FUNCTIONS, gridded, Keywords, Layout, Line, Property, RowDraw
+from blender.bpy.ui.layout.rows import accepted, At, FUNCTIONS, gridded, Keywords, Layout, Line, Member, placed, Property, ResolvedMember, RowDraw
 from blender.bpy.ui.resources.previews import PREVIEWS
 from blender.bpy.ui.resources.theme import Metrics
 from blender.records.faults import Outcome, paired
@@ -26,56 +25,45 @@ from blender.records.faults import Outcome, paired
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Preview(Line, frozen=True, kw_only=True):
+class Preview(Property, frozen=True, kw_only=True):
     """Data-block pointer drawn as the shaded preview `template_preview` renders for materials, textures, worlds, lights, and line styles, else as the ID's own preview image.
 
-    `shaded` holds `template_preview` parameters after the ID, `plain` the `template_icon` parameters after the icon.
+    `keywords` hold `template_preview` parameters after the ID, `plain` the `template_icon` parameters after the icon.
     """
 
-    target: Member
-    shaded: Keywords = MappingProxyType({})
+    function: bpy.types.Function = FUNCTIONS["template_preview"]
     plain: Keywords = MappingProxyType({})
 
-    def drawn(self, _identity: Identity, /) -> Outcome[RowDraw]:
-        """Binds the pointer and checks both parameter sets once."""
-        return paired(accepted(FUNCTIONS["template_preview"], self.shaded), accepted(FUNCTIONS["template_icon"], self.plain)).bind(
-            lambda keywords: bound(((self.target, (bpy.types.ID,)),), lambda held: partial(self.shown, *keywords, held[0]))
-        )
+    @override
+    def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
+        """Binds the pointer as a `template_preview` row and checks the icon parameters, accumulating both refusals."""
+        return paired(accepted(FUNCTIONS["template_icon"], self.plain), super().drawn(identity)).map(lambda parts: parts[1])
 
-    @staticmethod
-    def shown(shaded: Keywords, plain: Keywords, held: ResolvedMember, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+    @override
+    def shown(self, function: bpy.types.Function, keywords: Keywords, held: tuple[tuple[ResolvedMember, At], ...], layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the located data-block's shaded preview or icon."""
-        for owner, key in held.at(holder, context).to_list():
-            match getattr(owner, key):
-                case bpy.types.Material() | bpy.types.Texture() | bpy.types.World() | bpy.types.Light() | bpy.types.FreestyleLineStyle() as rendered:
-                    layout.template_preview(rendered, **shaded)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                case bpy.types.ID() as data:
-                    for preview in Option.of_optional(data.preview_ensure()).to_list():
-                        layout.template_icon(preview.icon_id, **plain)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                case _:
-                    pass
+        match getattr(*held[0][1]):
+            case bpy.types.Material() | bpy.types.Texture() | bpy.types.World() | bpy.types.Light() | bpy.types.FreestyleLineStyle():
+                super().shown(function, keywords, held, layout, _holder, context)
+            case bpy.types.ID() as data:
+                for preview in Option.of_optional(data.preview_ensure()).to_list():
+                    placed(layout, FUNCTIONS["template_icon"], preview.icon_id, **self.plain)
+            case _:
+                pass
 
 
-class ImageFormat(Line, frozen=True, kw_only=True):
+class ImageFormat(Property, frozen=True, kw_only=True):
     """Image format settings through `template_image_settings`, followed by view settings while the owning scene renders multiview, `keywords` its parameters after the settings."""
 
-    target: Member
-    keywords: Keywords = MappingProxyType({})
+    function: bpy.types.Function = FUNCTIONS["template_image_settings"]
 
-    def drawn(self, _identity: Identity, /) -> Outcome[RowDraw]:
-        """Binds the settings pointer and checks the keywords once."""
-        return accepted(FUNCTIONS["template_image_settings"], self.keywords).bind(
-            lambda keywords: bound(((self.target, (bpy.types.ImageFormatSettings,)),), lambda held: partial(self.shown, keywords, held[0]))
-        )
-
-    @staticmethod
-    def shown(keywords: Keywords, held: ResolvedMember, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+    @override
+    def shown(self, function: bpy.types.Function, keywords: Keywords, held: tuple[tuple[ResolvedMember, At], ...], layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the located settings and their views under a multiview owner scene."""
-        for owner, key in held.at(holder, context).to_list():
-            settings: bpy.types.ImageFormatSettings = getattr(owner, key)
-            layout.template_image_settings(settings, **keywords)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            if Option.of_optional(try_downcast(bpy.types.Scene, settings.id_data)).filter(lambda scene: scene.render.use_multiview).is_some():
-                layout.template_image_views(settings)
+        super().shown(function, keywords, held, layout, _holder, context)
+        settings: bpy.types.ImageFormatSettings = getattr(*held[0][1])
+        if Option.of_optional(try_downcast(bpy.types.Scene, settings.id_data)).filter(lambda scene: scene.render.use_multiview).is_some():
+            layout.template_image_views(settings)
 
 
 class Picture[S](Line, frozen=True, kw_only=True):
@@ -127,9 +115,9 @@ class Shortcut(Line, frozen=True, kw_only=True):
         return Ok(self.shown)
 
     def shown(self, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
-        """Draws one key cap per user keymap item under its name."""
+        """Draws one key cap per user keymap item under the operator name the host translates."""
         for _, item in self.keymap.counterparts(context):
-            layout.template_event_from_keymap_item(item, text=item.name)
+            layout.template_event_from_keymap_item(item, text=item.name, translate=False)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

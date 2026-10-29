@@ -1,8 +1,7 @@
 """Resource rows: staged glyphs with a brand, the preview collection, and the texture cache, with probes over icons, previews, textures, theme colors, and metrics."""
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Sequence
 from pathlib import Path
-from types import MappingProxyType
 from typing import Final, TYPE_CHECKING
 
 import bpy
@@ -13,8 +12,7 @@ import numpy as np
 from blender.bpy.data.rna.paths import definition
 from blender.bpy.extension.identity import Identity
 from blender.bpy.ui.resources.icons import ICONS, Icons
-from blender.bpy.ui.resources.previews import PreviewKey, PREVIEWS
-from blender.bpy.ui.resources.textures import TEXTURES, uploaded
+from blender.bpy.ui.resources.previews import PreviewKey, PREVIEWS, TEXTURES, uploaded
 from blender.bpy.ui.resources.theme import Checker, color, Metrics, Theme
 
 if TYPE_CHECKING:
@@ -159,17 +157,8 @@ def colored(_identity: Identity) -> dict[str, object]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 rows: Final = (Icons(brand=Some(MARK)), TEXTURES)
-PROBES: Final[Mapping[str, Callable[[Identity], object]]] = MappingProxyType({
-    "glyphs": glyphs,
-    "tinted": tinted,
-    "previewed": previewed,
-    "checkered": checkered,
-    "textured": textured,
-    "themed": themed,
-    "measured": measured,
-    "colored": colored,
-})
-RELEASED: Final[Mapping[str, Callable[[], object]]] = MappingProxyType({})
+PROBES: Final = (glyphs, tinted, previewed, checkered, textured, themed, measured, colored)
+RELEASED: Final = ()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -13,19 +13,18 @@ import msgspec
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes import textures
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, Socket, under
 from blender.bpy.nodes.graphs import composed, Expr, inverted, math, switched, transformed, vector, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket, under
-from blender.bpy.render.compositor.coordinates import Border, BORDERS, covered, dimensions, entering, extended, pinned, placement, Projective, sampled
+from blender.bpy.render.compositor.coordinates import Border, BORDERS, dimensions, extended, PIN_ROWS, pin_rows, pinned
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
-from blender.bpy.render.compositor.inputs import captured, Derives, FRAME_SCALE, valued
+from blender.bpy.render.compositor.inputs import captured, Derives, FRAME_SCALE, PreviewFrame, Shell, valued
 from blender.bpy.render.compositor.layers import AFFINE
 from blender.bpy.render.compositor.lenses import lensed, reaimed
 from blender.bpy.render.compositor.motion import clocked, LENGTH, OPENING, origin, shutter, ShutterPoses, trailed
-from blender.bpy.render.compositor.shells import PreviewFrame, Shell
 from blender.bpy.scene.cameras import camera_type
 from blender.imaging.geometry.frames import Homography, Quad
 from blender.imaging.sampling import tiles
-from blender.records.faults import accumulated, Fault, Outcome, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, Reason
 
 from ...chain.stages import Effect, Stage
 from .procedural import CLOCK
@@ -33,11 +32,10 @@ from .procedural import CLOCK
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _CORNERS: Final = ("top_left", "top_right", "bottom_right", "bottom_left")
-_ROWS: Final = tuple(Socket(key=key, kind=bpy.types.NodeSocketVector, description="Corner pin homography row") for key in ("first", "second", "third"))
 _TRAVEL: Final = Socket(key="travel", kind=bpy.types.NodeSocketVector2D, description="Translation across exposure", default_value=(0.0, 0.0))
 _TURN: Final = Socket(key="turn", kind=bpy.types.NodeSocketFloatAngle, description="Turn across exposure")
 _ZOOM: Final = Socket(key="zoom", kind=bpy.types.NodeSocketFloat, description="Zoom in stops across exposure")
-_EXTENSION: Final = Socket(key="extension", kind=bpy.types.NodeSocketMenu, description="Source sampling past frame edges", default_value=Border.BLACK.item.name, items=Some(BORDERS))
+_EXTENSION: Final = Socket(key="extension", kind=bpy.types.NodeSocketMenu, description="Source sampling past frame edges", default_value=MenuItem.of(Border.BLACK).name, items=Some(BORDERS))
 _MOTION_BLUR: Final = Socket(key="motion_blur", kind=bpy.types.NodeSocketBool, description="Integrate travel and timed shake across exposure")
 _CORNER_SOCKETS: Final = tuple(
     Socket(key=item_key("corner_pin", corner), name=bpy.path.display_name(corner), kind=bpy.types.NodeSocketVector2D, description="Image quad corner", default_value=point)
@@ -121,12 +119,7 @@ def pin_quad(values: Mapping[Key, Value]) -> Option[Quad]:
 
 def rows(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, _record: Transform) -> Outcome[Mapping[Key, Value]]:
     """Derives the corner pin homography rows, the identity while the pin is off or its corners admit no strictly convex map."""
-    return (
-        captured(identity, entry)
-        .map(lambda snapshot: pin_quad(valued(snapshot)))
-        .bind(lambda quad: quad.map(Homography.of).default_value(Ok(Nothing)))
-        .map(lambda found: msgspec.structs.asdict(found.map(Projective.of).default_value(Projective())))
-    )
+    return captured(identity, entry).map(lambda snapshot: pin_quad(valued(snapshot))).bind(lambda quad: quad.map(Homography.of).default_value(Ok(Nothing))).map(pin_rows)
 
 
 def checked(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect], _record: Transform, _preview: Option[PreviewFrame]) -> Outcome[None]:
@@ -135,7 +128,7 @@ def checked(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.
     def refused(values: Mapping[Key, Value]) -> Outcome[None]:
         concave = pin_quad(values).filter(lambda quad: not quad.convex)
         return accumulated((
-            concave.map(lambda quad: Error(Fault.of(RecordReason.OUTSIDE, "corner_pin", str(quad.corners), member="corners of a strictly convex quad"))).default_value(Ok(None)),
+            concave.map(lambda quad: Error(Fault.of(Reason.OUTSIDE, "corner_pin", str(quad.corners), member="corners of a strictly convex quad"))).default_value(Ok(None)),
             camera_type("PERSP").check(bpy.context, Some(scene)) if values.get(_HEADING.key, 0.0) != 0.0 or values.get(_ELEVATION.key, 0.0) != 0.0 else Ok(None),
         )).map(lambda _: None)
 
@@ -154,7 +147,7 @@ def reframed(shell: Shell[Transform]) -> Outcome[Expr]:
         Warped stage input.
     """
     frame, lens, share = shell.space, lensed("Projection Matrix"), shell.input(FRAME_SCALE)
-    first, second, third = (shell.input(socket) for socket in _ROWS)
+    first, second, third = (shell.input(socket) for socket in PIN_ROWS)
     length, opening = shell.input(LENGTH), shell.input(OPENING)
     seconds = math("DIVIDE", Expr(kind=bpy.types.CompositorNodeSceneTime, socket="Seconds"), Expr(kind=bpy.types.CompositorNodeSceneTime, socket="Frame"))
     speed, hold = _SHAKE_CLOCK.inputs
@@ -175,16 +168,15 @@ def reframed(shell: Shell[Transform]) -> Outcome[Expr]:
             math("MULTIPLY_ADD", noise.node(0.0, time + origin(value(side, _SHAKE_SEED), float(tiles.stream(Transform, "shake", axis)))["X"], linked=Some(linked)), 2.0, -1.0) for axis in range(4)
         )
         gate = shell.input(_SHAKE)
-        jitter = placement(
-            frame,
+        jitter = frame.placement(
             switched(gate, (0.0, 0.0, 0.0), vector("DIVIDE", vector("MULTIPLY", xyz(x, y), value(side, _SHAKE_POSITION)), frame.extent)),
             switched(gate, 0.0, angle * value(side, _SHAKE_ROTATION)),
             switched(gate, 1.0, 2.0 ** (stops * value(side, _SHAKE_SCALE))),
             (0.0, 0.0, 0.0),
             (0.5, 0.5, 0.0),
         )
-        drift = placement(frame, vector("SCALE", value(side, _TRAVEL), offset), value(side, _TURN) * offset, 2.0 ** (value(side, _ZOOM) * offset), (0.0, 0.0, 0.0), value(side, pivot))
-        placed = placement(frame, value(side, position), value(side, rotation), value(side, scale), value(side, skew), value(side, pivot))
+        drift = frame.placement(vector("SCALE", value(side, _TRAVEL), offset), value(side, _TURN) * offset, 2.0 ** (value(side, _ZOOM) * offset), (0.0, 0.0, 0.0), value(side, pivot))
+        placed = frame.placement(value(side, position), value(side, rotation), value(side, scale), value(side, skew), value(side, pivot))
         return composed(drift, composed(jitter, placed))
 
     def mapped(side: int | None, fraction: Expr, *, forward: bool = False) -> Expr:
@@ -210,10 +202,10 @@ def reframed(shell: Shell[Transform]) -> Outcome[Expr]:
     start = vector("ADD", frame.fraction, (0.0, 0.0, 1.0))
     border = shell.input(_EXTENSION)
     blurred = shell.input(_MOTION_BLUR)
-    uv = covered(frame, switched(blurred, mapped(None, start), mapped(0, start))).named("uv")
+    uv = frame.covered(switched(blurred, mapped(None, start), mapped(0, start))).named("uv")
     image = extended(shell.color, uv, (border, border), clipped=True)
     center = (0.5, 0.5, 1.0)
-    opened, stepped = (sampled(frame, mapped(1, mapped(0, entering(frame, at)), forward=True)) for at in (center, vector("ADD", center, vector("DIVIDE", (1.0, 0.0, 0.0), dimensions(shell.color)))))
+    opened, stepped = (frame.sampled(mapped(1, mapped(0, frame.entering(at)), forward=True)) for at in (center, vector("ADD", center, vector("DIVIDE", (1.0, 0.0, 0.0), dimensions(shell.color)))))
     still = functools.reduce(
         lambda held, match: held * match,
         (
@@ -237,7 +229,7 @@ transform: Final = CompositorEffect(
     request=Some(precise),
     check=Some(checked),
     derives=(
-        Derives[Transform](of=rows, sockets=_ROWS),
+        Derives[Transform](of=rows, sockets=PIN_ROWS),
         Derives[Transform](of=lambda identity, scene, entry, _record: _POSES.posed(identity, scene, entry), sockets=_POSES.poses, reads=shutter.reads),
     ),
     animates=Some(lambda identity, scene, entry, _record: _POSES.keyed(identity, scene, entry)),

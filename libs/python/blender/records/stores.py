@@ -1,22 +1,50 @@
-"""Atomic file and folder commits, folder, file, and removal writes, command argument codecs, mirror paths, and typed JSON files of one record."""
+"""Record bytes: atomic file and folder commits, folder, file, and removal writes, typed JSON files of one record, command argument codecs, content hashes and the generators they seed, and mirror paths."""
 
 import base64
 from collections.abc import Callable, Iterable
 from contextlib import ExitStack
+from datetime import datetime
 from functools import partial
+import hashlib
 from itertools import starmap
 import os
 from pathlib import Path
 import shutil
 import tempfile
-from typing import overload
+from typing import Annotated, Final, overload, Protocol
 
 from atomicwrites import move_atomic, replace_atomic
+import cbor2
 from expression.extra.result import catch
 import msgspec
+import numpy as np
+import numpy.typing as npt
 from typing_extensions import TypeForm
 
-from blender.records.faults import accumulated, Fault, Outcome, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, Reason
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class Provider(Protocol):
+    """Package whose name and version a content hash holds, each a property so a module constant matches it."""
+
+    @property
+    def __name__(self) -> str:
+        """Import name of the package."""
+        ...
+
+    @property
+    def __version__(self) -> str:
+        """Release version of the package."""
+        ...
+
+
+type ContentHash = Annotated[bytes, msgspec.Meta(min_length=_DIGEST_SIZE, max_length=_DIGEST_SIZE)]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_DIGEST_SIZE: Final = 16
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -33,7 +61,7 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Ok(record), read fault for a missing, unreadable, or invalid file.
         """
-        refused = partial(Fault.of, RecordReason.UNREADABLE, str(self.path))
+        refused = partial(Fault.of, Reason.UNREADABLE, str(self.path))
         return catch(self.path.read_bytes, exception=OSError)().map_error(refused).bind(lambda data: catch(msgspec.json.decode, exception=msgspec.DecodeError)(data, type=self.form).map_error(refused))
 
     def written(self, value: T, *, exclusive: bool = False) -> Outcome[Path]:
@@ -67,12 +95,12 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 def folder_made(folder: Path) -> Outcome[Path]:
     """Returns existing or created folder, or write fault."""
-    return catch(folder.mkdir, exception=OSError)(parents=True, exist_ok=True).map(lambda _: folder).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(folder)))
+    return catch(folder.mkdir, exception=OSError)(parents=True, exist_ok=True).map(lambda _: folder).map_error(partial(Fault.of, Reason.UNWRITABLE, str(folder)))
 
 
 def removed(path: Path) -> Outcome[Path]:
     """Returns path after removing the file it holds, a missing file counting as removed, or write fault."""
-    return catch(path.unlink, exception=OSError)(missing_ok=True).map(lambda _: path).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path)))
+    return catch(path.unlink, exception=OSError)(missing_ok=True).map(lambda _: path).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
 
 
 @catch(exception=OSError)
@@ -106,7 +134,7 @@ def committed(path: Path, write: bytes | Callable[[Path], Outcome[object]], /, *
     Returns:
         Ok(path), writer faults, or write fault for folder creation or replacement, `FileExistsError` when exclusive meets a held path. A held folder leaves for the stage folder by two renames, renamed back when the second fails.
     """
-    unwritable = partial(Fault.of, RecordReason.UNWRITABLE, str(path))
+    unwritable = partial(Fault.of, Reason.UNWRITABLE, str(path))
 
     def staged(stage: Path) -> Outcome[object]:
         match write:
@@ -133,7 +161,7 @@ def files_copied(pairs: Iterable[tuple[Path, Path]]) -> Outcome[tuple[Path, ...]
         return target if target.exists() and target.samefile(source) else Path(shutil.copytree(source, target, dirs_exist_ok=True) if source.is_dir() else shutil.copy2(source, target))
 
     def one(source: Path, target: Path) -> Outcome[Path]:
-        return folder_made(target.parent).bind(lambda _: catch(copy, exception=OSError)(source, target).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(target))))
+        return folder_made(target.parent).bind(lambda _: catch(copy, exception=OSError)(source, target).map_error(partial(Fault.of, Reason.UNWRITABLE, str(target))))
 
     return accumulated(starmap(one, sorted(frozenset(pairs))))
 
@@ -148,8 +176,59 @@ def argument(record: msgspec.Struct) -> str:
 
 def argued[T](decoder: msgspec.json.Decoder[T], subject: str, text: str, /) -> Outcome[T]:
     """Returns the record a command argument carries, read fault over subject for text no `argument` wrote."""
-    unreadable = partial(Fault.of, RecordReason.UNREADABLE, subject)
+    unreadable = partial(Fault.of, Reason.UNREADABLE, subject)
     return catch(base64.b64decode, exception=ValueError)(text, validate=True).map_error(unreadable).bind(lambda data: catch(decoder.decode, exception=msgspec.DecodeError)(data).map_error(unreadable))
+
+
+# --- [HASHES]
+
+
+def content_hash(
+    scope: type[object],
+    *records: msgspec.Struct | bytes,
+    arrays: tuple[npt.NDArray[np.bool | np.int8 | np.int16 | np.int32 | np.int64 | np.uint8 | np.uint16 | np.uint32 | np.uint64 | np.float16 | np.float32 | np.float64], ...] = (),
+    providers: tuple[Provider, ...] = (),
+) -> ContentHash:
+    """Hashes records, arrays, and providers.
+
+    Args:
+        scope: Type naming content domain.
+        *records: Records with naive or aware datetimes, no MessagePack Raw or Ext, or bytes such as a configuration cache ID.
+        arrays: Fixed-width real arrays hashed with shape and canonical bytes.
+        providers: Modules hashed by name and version.
+
+    Returns:
+        Framed BLAKE2b digest.
+    """
+    wide = tuple(np.asarray(array, dtype=np.promote_types(array.dtype, np.int64 if np.can_cast(array.dtype, np.int64) else np.uint64).newbyteorder("<"), order="C") for array in arrays)
+    chunks = (
+        memoryview(cbor2.dumps((f"{scope.__module__}.{scope.__qualname__}", len(records), len(wide), len(providers)))),
+        *(
+            memoryview(
+                cbor2.dumps(
+                    msgspec.to_builtins(record, builtin_types=(bytes, bytearray, memoryview, datetime), order="deterministic"),
+                    canonical=True,
+                    encoders={
+                        memoryview: lambda encoder, value: encoder.encode_bytes(bytes(value)),
+                        datetime: lambda encoder, value: encoder.encode(msgspec.to_builtins(value)) if value.tzinfo is None else encoder.encode_datetime(value),
+                    },
+                )
+            )
+            for record in records
+        ),
+        *(view for array in wide for view in (memoryview(cbor2.dumps((array.dtype.str, array.shape))), array.data)),
+        *(memoryview(cbor2.dumps((module.__name__, module.__version__))) for module in providers),
+    )
+    hasher = hashlib.blake2b(len(chunks).to_bytes(4, "big"), digest_size=_DIGEST_SIZE)
+    for chunk in chunks:
+        hasher.update(chunk.nbytes.to_bytes(8, "big"))
+        hasher.update(chunk)
+    return hasher.digest()
+
+
+def rng(content: ContentHash, *key: int) -> np.random.Generator:
+    """Seeds independent generator from content hash and key."""
+    return np.random.default_rng(np.random.SeedSequence(int.from_bytes(content, "little"), spawn_key=key))
 
 
 # --- [PATHS]
@@ -168,4 +247,4 @@ def existing(path: Path) -> Path:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["RecordFile", "argued", "argument", "committed", "existing", "files_copied", "folder_made", "mirrored", "removed"]
+__all__ = ["ContentHash", "Provider", "RecordFile", "argued", "argument", "committed", "content_hash", "existing", "files_copied", "folder_made", "mirrored", "removed", "rng"]

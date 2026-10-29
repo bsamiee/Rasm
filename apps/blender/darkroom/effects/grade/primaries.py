@@ -10,14 +10,14 @@ import PyOpenColorIO
 
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.graphs import Expr, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor.colors import space_item
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
 from blender.bpy.render.compositor.grades import matrixed
-from blender.bpy.render.compositor.shells import Shell
+from blender.bpy.render.compositor.inputs import Shell
 from blender.imaging.color.processors import ColorSpace, matrix
-from blender.records.faults import Fault, Outcome, paired, RecordReason
+from blender.records.faults import Fault, Outcome, paired, Reason
 
 from ...chain.stages import Effect, Stage, transform
 
@@ -64,7 +64,7 @@ def _(record: Primaries, values: Mapping[Key, Value], _config: PyOpenColorIO.Con
         case {"remap": "Mixer", "mixer_red": tuple(red), "mixer_green": tuple(green), "mixer_blue": tuple(blue)}:
             return Ok(Some(matrix(np.array((red, green, blue), dtype=np.float64))))
         case _:
-            return Error(Fault.of(RecordReason.UNREADABLE, Primaries.__name__, repr(values)))
+            return Error(Fault.of(Reason.UNREADABLE, Primaries.__name__, repr(values)))
 
 
 def _primaries(shell: Shell[Primaries]) -> Outcome[Expr]:

@@ -10,11 +10,10 @@ from types import MappingProxyType
 from typing import ClassVar, Final, get_args
 
 import bpy
-from expression import Error, Nothing, Ok, Result, Some
+from expression import Error, Nothing, Ok, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
-import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.calls import called
@@ -28,7 +27,6 @@ from blender.bpy.data.rna.paths import rna, RnaPath
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.desired import member_paths
 from blender.bpy.render.color.spaces import UNTAGGED
 from blender.bpy.render.outputs.formats import OutputFormat
@@ -36,7 +34,7 @@ from blender.imaging.color.luts import Lattice, LutFormat, LutOutput, Spacing
 from blender.imaging.color.processors import processor
 from blender.imaging.files.buffers import applied
 from blender.imaging.files.images import ImageFile, read_file, Storage
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -81,7 +79,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @contextmanager
     def staged(self, identity: Identity) -> Generator[Outcome[bpy.types.Scene]]:
         """Owns a marked runtime scene, removed on exit on every path."""
-        made = self.lattices.made(identity, lambda: catch(bpy.data.scenes.new, exception=RuntimeError)("LUT Lattice").map_error(partial(Fault.of, BlenderReason.REFUSED, "LUT Lattice")))
+        made = self.lattices.made(identity, lambda: catch(bpy.data.scenes.new, exception=RuntimeError)("LUT Lattice").map_error(partial(Fault.of, Reason.REFUSED, "LUT Lattice")))
         with ExitStack() as scope:
             for scene in made.to_option().to_list():
                 scope.callback(bpy.data.scenes.remove, scene)
@@ -113,19 +111,19 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         ).map(lambda _: None)
                     )
                 case strip, _:
-                    return Error(Fault.of(BlenderReason.ABSENT, repr(strip), member="colorspace_settings"))
+                    return Error(Fault.of(Reason.ABSENT, repr(strip), member="colorspace_settings"))
 
-        def rendered(scene: bpy.types.Scene, config: PyOpenColorIO.Config, folder: Path) -> Outcome[ImageFile[np.float32]]:
-            samples: Outcome[npt.NDArray[np.float32]] = lattice.samples()
+        def rendered(scene: bpy.types.Scene, config: PyOpenColorIO.Config, folder: Path) -> Outcome[ImageFile]:
             return (
-                Result[npt.NDArray[np.float32], Faults]
-                .bind(samples, lambda plane: ImageFile(pixels=plane, colorspace=space).written(folder / "nodes.exr", Storage(), {}, config))
+                lattice
+                .samples()
+                .bind(lambda plane: ImageFile(pixels=plane, colorspace=space).written(folder / "nodes.exr", Storage(), {}, config))
                 .bind(lambda nodes: arranged(scene, nodes, folder / "look"))
                 .bind(lambda _: called(bpy.ops.render.render, {"scene": scene.name, "animation": True}))
                 .bind(lambda _: read_file(Path(scene.render.frame_path(frame=1)), config, untagged=Some(UNTAGGED)))
             )
 
-        def tabled(config: PyOpenColorIO.Config, look: ImageFile[np.float32]) -> Outcome[PyOpenColorIO.GroupTransform]:
+        def tabled(config: PyOpenColorIO.Config, look: ImageFile) -> Outcome[PyOpenColorIO.GroupTransform]:
             return processor(config, PyOpenColorIO.ColorSpaceTransform(src=look.colorspace, dst=space)).map(
                 lambda built: lattice.transform(applied(built.getDefaultCPUProcessor(), np.ascontiguousarray(look.pixels[..., :3])))
             )
@@ -146,7 +144,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             case bpy.types.Strip(id_data=bpy.types.Scene(sequencer_colorspace_settings=bpy.types.ColorManagedSequencerColorspaceSettings(name=space))) as active:
                 return self.sequenced(call, active, space)
             case _:
-                return Error(Fault.of(BlenderReason.ABSENT, repr(self.modifiers.root), member=rna(self.modifiers.owner)))
+                return Error(Fault.of(Reason.ABSENT, repr(self.modifiers.root), member=rna(self.modifiers.owner)))
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns lattice ownership, read stamps, and the strip bake command."""
@@ -187,7 +185,7 @@ def current(identity: Identity, path: str, config: PyOpenColorIO.Config) -> Outc
             stamps[str(resolved)] = stamp
         return str(resolved)
 
-    return catch(resolved.stat, exception=OSError)().map_error(partial(Fault.of, RecordReason.UNREADABLE, str(resolved))).map(held)
+    return catch(resolved.stat, exception=OSError)().map_error(partial(Fault.of, Reason.UNREADABLE, str(resolved))).map(held)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

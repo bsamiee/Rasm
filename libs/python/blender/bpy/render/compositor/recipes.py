@@ -13,14 +13,11 @@ from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import rna
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderReason
-from blender.bpy.render.compositor.blending import Entry
-from blender.bpy.render.compositor.effects import CompositorEffect, EffectName, Enabled
-from blender.bpy.render.compositor.entries import EffectRows, relocated
-from blender.bpy.render.compositor.inputs import captured, hold, rebased, regrouped, restored
-from blender.bpy.render.compositor.shells import PreviewFrame
-from blender.records.faults import accumulated, Fault, Outcome, paired
-from blender.records.fields import Case
+from blender.bpy.render.compositor.effects import CompositorEffect, Enabled, Entry
+from blender.bpy.render.compositor.entries import appended, EffectRows, relocated
+from blender.bpy.render.compositor.inputs import captured, hold, PreviewFrame, rebased, regrouped, restored
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.fields import Case, Name
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -50,7 +47,7 @@ class Valued[T](msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def recorded[R: Case](rows: EffectRows[R], identity: Identity, scene: bpy.types.Scene) -> Outcome[dict[EffectName, Valued[Entry[R]]]]:
+def recorded[R: Case](rows: EffectRows[R], identity: Identity, scene: bpy.types.Scene) -> Outcome[dict[Name, Valued[Entry[R]]]]:
     """Reads owned entry records, input values, and enables by name in stack order."""
     return accumulated(
         paired(held.row.read(identity, held.entry), captured(identity, held.entry)).map(
@@ -64,15 +61,15 @@ def applied[R: Case](
     rows: EffectRows[R],
     identity: Identity,
     scene: bpy.types.Scene,
-    recipe: Mapping[EffectName, Valued[Entry[R]]],
+    recipe: Mapping[Name, Valued[Entry[R]]],
     *,
-    locked: frozenset[EffectName] = frozenset(),
-    fields: Mapping[EffectName, frozenset[Key]] = MappingProxyType({}),
+    locked: frozenset[Name] = frozenset(),
+    fields: Mapping[Name, frozenset[Key]] = MappingProxyType({}),
     preview: Option[PreviewFrame] = Nothing,
 ) -> Outcome[None]:
     """Applies sparse named records, keeping locked, unlisted, and user entries, the active entry kept active."""
 
-    def merged(current: Mapping[EffectName, Valued[Entry[R]]]) -> Outcome[None]:
+    def merged(current: Mapping[Name, Valued[Entry[R]]]) -> Outcome[None]:
         desired = projected(current, recipe, locked=locked, fields=fields)
         requested = {name: desired[name] for name in recipe if name not in locked}
         native = {entry.name: entry for entry in scene.compositor_effects}
@@ -83,12 +80,12 @@ def applied[R: Case](
         def write(offered: tuple[CompositorEffect[R], ...], restores: tuple[CompositorEffect[R], ...]) -> Outcome[None]:
             order = tuple(native.values())
 
-            def written_entry(name: EffectName, value: Valued[Entry[R]], row: CompositorEffect[R]) -> Outcome[tuple[bpy.types.SceneCompositorEffect, CompositorEffect[R]]]:
+            def written_entry(name: Name, value: Valued[Entry[R]], row: CompositorEffect[R]) -> Outcome[tuple[bpy.types.SceneCompositorEffect, CompositorEffect[R]]]:
                 return (
                     Option
                     .of_optional(native.get(name))
                     .map(lambda entry: row.write(identity, scene, entry, value.structure, preview=preview).map(lambda _: entry))
-                    .default_with(lambda: row.appended(identity, scene, value.structure, preview=preview, name=Some(name)))
+                    .default_with(lambda: appended(identity, scene, row, value.structure, preview=preview, name=Some(name)))
                 ).bind(
                     lambda entry: paired(
                         value.captured.map(lambda values: restored(identity, entry, values)).default_value(Ok(False)),
@@ -116,7 +113,7 @@ def applied[R: Case](
         restores = accumulated(map(rows.offering, retired))
         names = accumulated(
             Descriptor.validated(NAME.prop, name).bind(
-                lambda _: Error(Fault.of(BlenderReason.TAKEN, name, member=repr(scene.compositor_effects[name]))) if name not in current and name in scene.compositor_effects else Ok(None)
+                lambda _: Error(Fault.of(Reason.TAKEN, name, member=repr(scene.compositor_effects[name]))) if name not in current and name in scene.compositor_effects else Ok(None)
             )
             for name in requested
         )
@@ -128,12 +125,8 @@ def applied[R: Case](
 
 
 def projected[R: Case](
-    current: Mapping[EffectName, Valued[Entry[R]]],
-    recipe: Mapping[EffectName, Valued[Entry[R]]],
-    *,
-    locked: frozenset[EffectName] = frozenset(),
-    fields: Mapping[EffectName, frozenset[Key]] = MappingProxyType({}),
-) -> dict[EffectName, Valued[Entry[R]]]:
+    current: Mapping[Name, Valued[Entry[R]]], recipe: Mapping[Name, Valued[Entry[R]]], *, locked: frozenset[Name] = frozenset(), fields: Mapping[Name, frozenset[Key]] = MappingProxyType({})
+) -> dict[Name, Valued[Entry[R]]]:
     """Merges sparse recipe entries and order into current ones, keeping locked entries whole and, on the others, the input values and enables at their locked keys."""
 
     def kept(prior: Valued[Entry[R]], value: Valued[Entry[R]], keys: frozenset[Key]) -> Valued[Entry[R]]:

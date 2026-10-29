@@ -17,22 +17,20 @@ import PyOpenColorIO
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.nodes.evaluation import column
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, Socket
+from blender.bpy.nodes.functions import column
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.nodes.textures import Noise, Voronoi
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
-from blender.bpy.render.compositor.inputs import CameraFrame
+from blender.bpy.render.compositor.inputs import CameraFrame, Shell
 from blender.bpy.render.compositor.motion import Clock
-from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.color.processors import Domain
 from blender.imaging.files import buffers
 from blender.imaging.geometry.arithmetic import smoothstep
 from blender.imaging.geometry.frames import Raster
-from blender.imaging.sampling.integration import Estimate, footprint, Precision
-from blender.imaging.sampling.populations import Population
+from blender.imaging.sampling.integration import Estimate, footprint, Population, Precision
 from blender.imaging.sampling.tiles import stream, uniforms
-from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 from ...chain.stages import Effect, prepared, Stage
 from ..optics.procedural import CLOCK, evaluated_nodes, POSITION, W
@@ -203,9 +201,7 @@ def _(
     def part[T: msgspec.Struct](kind: type[T], prefix: Key, **given: object) -> Outcome[Option[T]]:
         enabled = values.get(prefix) is not False
         held = {**{field.name: values.get(item_key(prefix, field.name)) for field in msgspec.structs.fields(kind) if field.name not in given}, **given}
-        return (
-            catch(msgspec.convert, exception=msgspec.ValidationError)(held, kind).map(Some).map_error(functools.partial(Fault.of, RecordReason.UNREADABLE, kind.__name__)) if enabled else Ok(Nothing)
-        )
+        return catch(msgspec.convert, exception=msgspec.ValidationError)(held, kind).map(Some).map_error(functools.partial(Fault.of, Reason.UNREADABLE, kind.__name__)) if enabled else Ok(Nothing)
 
     def composed(
         plane: npt.NDArray[np.float32], seed: int, clock: float, speckles: Option[Speckles], scratches: Option[Scratches], hairs: Option[Hairs], weave: Option[Weave], gate: Option[Gate]
@@ -259,8 +255,8 @@ def _(
 
         return accumulated((spots, Ok(lines.default_value(empty)), strands, aperture)).map(lambda found: np.concatenate(found, axis=-1)).bind(marked)
 
-    seed = Option.of_optional(try_downcast(int, values.get("seed"))).to_result_with(functools.partial(Fault.of, RecordReason.UNREADABLE, "seed", repr(values.get("seed"))))
-    clock = part(Clock, "clock").bind(lambda found: found.to_result_with(functools.partial(Fault.of, RecordReason.UNREADABLE, Clock.__name__)))
+    seed = Option.of_optional(try_downcast(int, values.get("seed"))).to_result_with(functools.partial(Fault.of, Reason.UNREADABLE, "seed", repr(values.get("seed"))))
+    clock = part(Clock, "clock").bind(lambda found: found.to_result_with(functools.partial(Fault.of, Reason.UNREADABLE, Clock.__name__)))
     speckles = part(Population, "speckles_population").bind(lambda population: population.map(lambda found: part(Speckles, "speckles", population=found)).default_value(Ok(Nothing)))
     gate = part(Noise, "gate_edge", noise_dimensions="3D", noise_type="RIDGED_MULTIFRACTAL", normalize=True).bind(
         lambda edge: edge.map(lambda found: part(Gate, "gate", edge=found)).default_value(Ok(Nothing))

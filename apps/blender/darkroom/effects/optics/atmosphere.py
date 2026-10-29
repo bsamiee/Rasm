@@ -4,17 +4,15 @@ from typing import Final
 
 import bpy
 import colour
-from expression import Some
+from expression import Ok, Some
 
+from blender.bpy.nodes.desired import Interface, InterfacePanel, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.graphs import Expr, math, mixed, switched, vector, where
-from blender.bpy.nodes.interface import Interface, InterfacePanel, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor import lenses
 from blender.bpy.render.compositor.colors import with_alpha
-from blender.bpy.render.compositor.coordinates import pixels
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, depth_precise
-from blender.bpy.render.compositor.inputs import FRAME_METERS
+from blender.bpy.render.compositor.inputs import FRAME_METERS, Shell
 from blender.bpy.render.compositor.motion import clocked
-from blender.bpy.render.compositor.shells import Shell
 from blender.bpy.scene import cameras
 from blender.imaging.color.processors import GREY
 from blender.imaging.sampling import tiles
@@ -91,13 +89,10 @@ def hazed(shell: Shell[Atmosphere]) -> Outcome[Expr]:
         return with_alpha(mixed(coverage, source, light), alpha)
 
     blurred = Expr(
-        kind=bpy.types.CompositorNodeBlur,
-        inputs=(("Image", source), ("Size", pixels(frame, inlet(_DIFFUSED_RADIUS), bpy.types.NodeSocketVector)), ("Type", "Fast Gaussian")),
-        socket="Image",
-        shape=bpy.types.NodeSocketColor,
+        kind=bpy.types.CompositorNodeBlur, inputs=(("Image", source), ("Size", frame.pixel_size(inlet(_DIFFUSED_RADIUS))), ("Type", "Fast Gaussian")), socket="Image", shape=bpy.types.NodeSocketColor
     )
     lit = shell.menu(_INSCATTER_KIND, cases={_AMBIENT: inlet(_AMBIENT_COLOR), _DIFFUSED: vector("MULTIPLY", blurred, inlet(_DIFFUSED_TINT))})
-    return lenses.chief_ray(source).map(lambda cosine: scattered(cosine, lit))
+    return Ok(scattered(lenses.chief_ray(source), lit))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

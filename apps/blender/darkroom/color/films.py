@@ -37,7 +37,7 @@ install: Final = ConfigInstall(
                 film,
                 pre_exposure=5.563035,
                 gains=(1.1, green, 1.2),
-                characteristic=msgspec.structs.replace(film.characteristic, span=23.0 - film.characteristic.low),
+                span=23.0 - film.low,
                 negative=msgspec.structs.replace(film.negative, exposure=5.8),
                 backlight=(0.99, 1.1, 1.035989),
                 positive=msgspec.structs.replace(film.positive, density=40.0),

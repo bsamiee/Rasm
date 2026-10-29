@@ -14,20 +14,16 @@ from blender.bpy.data.rna.animation import Animation, Keys, sampled
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.paths import id_path, Struct
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderReason
+from blender.bpy.nodes.desired import Interface, item_key, Socket
 from blender.bpy.nodes.graphs import Expr, math, mixed, rgba, where, xyz
-from blender.bpy.nodes.interface import Interface, item_key, Socket
 from blender.bpy.render.color.spaces import EXPOSURE
-from blender.bpy.render.compositor.blending import BLEND, OPACITY
-from blender.bpy.render.compositor.coordinates import pixels
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Enabled
 from blender.bpy.render.compositor.filters import bilateral
-from blender.bpy.render.compositor.inputs import entry_input
-from blender.bpy.render.compositor.masks import luminance
-from blender.bpy.render.compositor.shells import Shell
+from blender.bpy.render.compositor.inputs import entry_input, Shell
+from blender.bpy.render.compositor.masks import BLEND, luminance, OPACITY
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import GREY
-from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 from ...chain.stages import Effect, Stage, transform
 
@@ -95,7 +91,7 @@ def later(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneComp
     ordered = tuple(scene.compositor_effects)
     following = ordered[ordered.index(entry) + 1 :]
     return paired(
-        entry_input(identity, entry, LATER.key).bind(lambda held: id_path(held).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(held), member="value"))),
+        entry_input(identity, entry, LATER.key).bind(lambda held: id_path(held).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(held), member="value"))),
         _products(identity, tuple(held for held in exposure.entries(identity, scene) if held in following), frames),
     ).map(lambda pair: (Animation(path=(*pair[0], "value"), source=Keys(points=tuple(zip(frames, map(float, pair[1]))))),))
 
@@ -112,7 +108,7 @@ def _(_record: Exposure, values: Mapping[Key, Value], _config: PyOpenColorIO.Con
         case {"stops": float(stops)}:
             return Ok(Some(PyOpenColorIO.MatrixTransform.Scale([2.0**stops] * 3 + [1.0])))
         case _:
-            return Error(Fault.of(RecordReason.UNREADABLE, Exposure.__name__, repr(values)))
+            return Error(Fault.of(Reason.UNREADABLE, Exposure.__name__, repr(values)))
 
 
 # --- [GRAPHS]
@@ -136,7 +132,7 @@ def _local_exposure(shell: Shell[LocalExposure]) -> Outcome[Expr]:
         log = math("LOGARITHM", math("MAXIMUM", level, Samples.floor), 2.0)
         spread = Expr(
             kind=bpy.types.CompositorNodeBlur,
-            inputs=(("Image", rgba(alpha * log, alpha, 0.0)), ("Size", pixels(frame, xyz(reach, reach), bpy.types.NodeSocketVector)), ("Type", "Fast Gaussian")),
+            inputs=(("Image", rgba(alpha * log, alpha, 0.0)), ("Size", frame.pixel_size(xyz(reach, reach))), ("Type", "Fast Gaussian")),
             socket="Image",
             shape=bpy.types.NodeSocketColor,
         )

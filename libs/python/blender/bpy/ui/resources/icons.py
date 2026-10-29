@@ -20,10 +20,9 @@ from blender.bpy.extension.events import Subscription
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.extension.reports import redrawn
-from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.resources.previews import PREVIEWS
 from blender.bpy.ui.resources.theme import Color, color
-from blender.records.faults import Fault, Outcome
+from blender.records.faults import Fault, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -34,7 +33,7 @@ type Glyph = rna_enums.IconItems | Path | bpy.types.ID
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ICON: Final[bpy.types.EnumProperty] = bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"]  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_ICON: Final[bpy.types.EnumProperty] = definition(bpy.types.UILayout).functions["prop"].parameters["icon"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -82,7 +81,7 @@ class IconSet:
             Option
             .of_optional(self.collection.get(glyph.as_posix()))
             .map(lambda preview: preview.icon_id)
-            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, str(Icons.folder(identity)), member=glyph.as_posix()))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, str(Icons.folder(identity)), member=glyph.as_posix()))
         )
 
 
@@ -133,16 +132,11 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
         """Returns built-in icon value, staged glyph icon ID, or data-block preview icon, absent fault for a glyph the host or the staged set lacks."""
         match glyph:
             case Path():
-                return (
-                    identity.held
-                    .get(ICONS)
-                    .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, str(Icons.folder(identity)), member=glyph.as_posix()))
-                    .bind(lambda icons: icons.icon(identity, glyph))
-                )
+                return identity.held.get(ICONS).to_result_with(lambda: Fault.of(Reason.ABSENT, str(Icons.folder(identity)), member=glyph.as_posix())).bind(lambda icons: icons.icon(identity, glyph))
             case bpy.types.ID():
                 return Ok(bpy.types.UILayout.icon(glyph))
             case _:
-                return Option.of_optional(_ICON.enum_items.get(glyph)).map(lambda item: item.value).to_result_with(partial(Fault.of, BlenderReason.ABSENT, bpy.types.UILayout.__name__, member=glyph))
+                return Option.of_optional(_ICON.enum_items.get(glyph)).map(lambda item: item.value).to_result_with(partial(Fault.of, Reason.ABSENT, bpy.types.UILayout.__name__, member=glyph))
 
     @staticmethod
     def path(identity: Identity, source: Path) -> str:

@@ -13,17 +13,14 @@ from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Key
-from blender.bpy.faults import BlenderReason
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.graphs import Expr, math, vector
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor import lenses
-from blender.bpy.render.compositor.coordinates import pixels
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, depth_precise, Named
-from blender.bpy.render.compositor.inputs import entered, FRAME_METERS, Holds
+from blender.bpy.render.compositor.inputs import entered, FRAME_METERS, Holds, Shell
 from blender.bpy.render.compositor.shapes import turned
-from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.geometry.lenses import Aperture
-from blender.records.faults import Fault, Outcome, paired, RecordReason
+from blender.records.faults import Fault, Outcome, paired, Reason
 from blender.records.fields import member
 
 from ...chain.stages import Effect, Stage
@@ -105,7 +102,7 @@ def match_camera_iris(call: Call[Named]) -> Outcome[Answer]:
         written = (
             entered(call.identity, entry, common | ({IRIS_ROUNDNESS.key: 1.0} if dof.aperture_blades == 0 else {IRIS_BLADES.key: dof.aperture_blades, IRIS_ROUNDNESS.key: 0.0}))
             if dof.aperture_fstop > 0.0
-            else Error(Fault.of(RecordReason.OUTSIDE, _F_STOP.key, str(dof.aperture_fstop), member="positive f-numbers"))
+            else Error(Fault.of(Reason.OUTSIDE, _F_STOP.key, str(dof.aperture_fstop), member="positive f-numbers"))
         )
         return written.map(lambda changed: Done(notes=(("INFO", f"Copied f-stop and iris from {name}"),)) if changed else Unchanged(reason=f"{entry.name} matches {name} f-stop and iris"))
 
@@ -113,7 +110,7 @@ def match_camera_iris(call: Call[Named]) -> Outcome[Answer]:
         camera: Option[tuple[str, bpy.types.CameraDOFSettings]] = Option.of_optional(scene.camera).bind(
             lambda held: Option.of_optional(held.data.dof).map(lambda dof: (held.name, dof)) if isinstance(held.data, bpy.types.Camera) else Nothing
         )
-        return paired(camera.to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(scene), member="camera")), defocus.named(call.identity, scene, call.properties.name)).bind(
+        return paired(camera.to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene), member="camera")), defocus.named(call.identity, scene, call.properties.name)).bind(
             lambda found: copied(*found)
         )
 
@@ -125,7 +122,7 @@ def defocused(shell: Shell[Defocus]) -> Outcome[Expr]:
     inlet, at = shell.input, shell.space
     cap = inlet(_MAX_BLUR)
     projected = lenses.confusion(shell.layer("Depth"), inlet(_F_STOP), inlet(FRAME_METERS), cap)
-    spread = Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", projected), ("Size", pixels(at, cap))), socket="Image")
+    spread = Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", projected), ("Size", at.pixels(cap))), socket="Image")
     size = inlet(_RADIAL_SIZE)
     local = turned(at, inlet(_RADIAL_CENTER), inlet(_RADIAL_ANGLE))
     curvature = math("DIVIDE", size["Y"] * math("MAXIMUM", vector("LENGTH", local / size) - 1.0, 0.0), inlet(_RADIAL_FEATHER), clamp=True)
@@ -134,7 +131,7 @@ def defocused(shell: Shell[Defocus]) -> Outcome[Expr]:
     bokeh = lenses.iris(lambda field: inlet(IRIS_INPUTS[field]), shift=inlet(_FRINGE))
     radius = shell.menu(_FOCUS, cases={_DEPTH_OF_FIELD: math("MINIMUM", spread, projected), _RADIAL: curvature * curvature * cap, _TILT_SHIFT: tilt * cap})
     return Ok(
-        Expr(kind=bpy.types.CompositorNodeBokehBlur, inputs=(("Image", shell.color), ("Bokeh", bokeh), ("Size", pixels(at, radius.named("select")))), socket="Image", shape=bpy.types.NodeSocketColor)
+        Expr(kind=bpy.types.CompositorNodeBokehBlur, inputs=(("Image", shell.color), ("Bokeh", bokeh), ("Size", at.pixels(radius.named("select")))), socket="Image", shape=bpy.types.NodeSocketColor)
     )
 
 

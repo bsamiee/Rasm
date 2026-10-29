@@ -12,14 +12,13 @@ import numpy as np
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.nodes.content import Ramp
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.graphs import cell, Expr, math, Scalar, switched, vector, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
-from blender.bpy.render.compositor.coordinates import dimensions, pixels
+from blender.bpy.render.compositor.coordinates import dimensions
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
-from blender.bpy.render.compositor.inputs import FRAME_SCALE
+from blender.bpy.render.compositor.inputs import FRAME_SCALE, Shell
 from blender.bpy.render.compositor.lenses import lensed
-from blender.bpy.render.compositor.shells import Shell
-from blender.bpy.render.view_layers.passes import ENTITIES, Entity, PassRequest
+from blender.bpy.render.view_layers.passes import Entity, PassRequest
 from blender.imaging.color.processors import Domain
 from blender.records.faults import Outcome
 
@@ -47,9 +46,9 @@ _OUTSIDE: Final = MenuItem(name="Outside")
 _ENGINE: Final = Descriptor.declared(bpy.types.Scene, ("render", "engine"), bpy.types.EnumProperty)
 _NORMAL: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_normal",), bpy.types.BoolProperty)
 _ID_PASSES: Final = MappingProxyType({
-    IdSource.CRYPTOMATTE: {entity: (ENTITIES[entity].flag, f"{ENTITIES[entity].pass_name}00") for entity in (Entity.OBJECT, Entity.MATERIAL)},
+    IdSource.CRYPTOMATTE: {entity: (entity.flag, f"{entity.pass_name}00") for entity in (Entity.OBJECT, Entity.MATERIAL)},
     IdSource.INDEX: {
-        entity: (Descriptor.declared(bpy.types.ViewLayer, (flag,), bpy.types.BoolProperty), f"{ENTITIES[entity].name} Index")
+        entity: (Descriptor.declared(bpy.types.ViewLayer, (flag,), bpy.types.BoolProperty), f"{entity.label} Index")
         for entity, flag in ((Entity.OBJECT, "use_pass_object_index"), (Entity.MATERIAL, "use_pass_material_index"))
     },
 })
@@ -211,14 +210,14 @@ def _edges(shell: Shell[Edges]) -> Outcome[Expr]:
     def kuwahara(kind: str, *settings: tuple[str, Scalar]) -> Expr:
         return Expr(
             kind=bpy.types.CompositorNodeKuwahara,
-            inputs=(("Image", source), ("Type", kind), ("Size", pixels(frame, shell.input(_PAINT_SIZE))), *settings),
+            inputs=(("Image", source), ("Type", kind), ("Size", frame.pixels(shell.input(_PAINT_SIZE))), *settings),
             socket="Image",
             shape=bpy.types.NodeSocketColor,
         )
 
     brushes = {
         _ANISOTROPIC: kuwahara(
-            "Anisotropic", ("Uniformity", math("ROUND", pixels(frame, shell.input(_UNIFORMITY)))), ("Sharpness", shell.input(_SHARPNESS)), ("Eccentricity", shell.input(_ECCENTRICITY))
+            "Anisotropic", ("Uniformity", math("ROUND", frame.pixels(shell.input(_UNIFORMITY)))), ("Sharpness", shell.input(_SHARPNESS)), ("Eccentricity", shell.input(_ECCENTRICITY))
         ),
         _CLASSIC: kuwahara("Classic", ("High Precision", shell.input(_HIGH_PRECISION))),
     }
@@ -249,7 +248,7 @@ def _edges(shell: Shell[Edges]) -> Outcome[Expr]:
 
     def reach(width: Socket, frame_width: Socket, world_width: Socket, limit: Socket) -> Expr:
         chosen = shell.menu(width, cases={_FRAME_WIDTH: shell.input(frame_width), _WORLD_WIDTH: math("MINIMUM", shell.input(world_width) * world_scale, shell.input(limit))})
-        return switched(shell.input(_TAPER), pixels(frame, chosen), pixels(frame, chosen) * tapered)
+        return switched(shell.input(_TAPER), frame.pixels(chosen), frame.pixels(chosen) * tapered)
 
     def field(core: Expr, extent: Expr) -> tuple[Expr, Expr]:
         signed = Expr(kind=bpy.types.CompositorNodeMaskToSDF, inputs=(("Mask", core),), socket="SDF")

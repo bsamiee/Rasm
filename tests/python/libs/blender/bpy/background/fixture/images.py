@@ -1,7 +1,5 @@
 """Image editor rows: overlays over Render Result, a pick command, the render view command, and frame region handles, with probes reading what they registered and the frame math they run."""
 
-from collections.abc import Callable, Mapping
-from types import MappingProxyType
 from typing import Final
 
 import bpy
@@ -10,9 +8,7 @@ import numpy as np
 
 from blender.bpy.commands.operators import Answer, Call, Done
 from blender.bpy.extension.identity import Identity
-from blender.bpy.ui.images.cages import FrameRegion
-from blender.bpy.ui.images.overlays import Edges, Masks, overlaid, Tint
-from blender.bpy.ui.images.views import Picked, picking, RenderView, RESULT, viewing
+from blender.bpy.ui.images.views import Edges, FrameRegion, Masks, overlaid, Picked, picking, RenderView, RESULT, Tint, viewing
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.surfaces.panels import Sidebar
 from blender.imaging.geometry.frames import Quad, Region
@@ -107,8 +103,8 @@ FRAMED: Final = Framed()
 FRAME: Final = FrameRegion(key="frame", read=FRAMED.read, write=FRAMED.written, corners=True)
 
 rows: Final = (overlaid(Masks(source=_tints), RESULT, ()), overlaid(Edges(quad=FRAMED.read, role=lambda ui: ui.gizmo_primary), RESULT, ()), PICK, WINDOW, FRAME)
-PROBES: Final[Mapping[str, Callable[[Identity], object]]] = MappingProxyType({"picked": picked, "viewed": viewed, "caged": caged})
-RELEASED: Final[Mapping[str, Callable[[], object]]] = MappingProxyType({"images": released_images})
+PROBES: Final = (picked, viewed, caged)
+RELEASED: Final = (released_images,)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

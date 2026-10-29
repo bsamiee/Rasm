@@ -8,9 +8,9 @@ from expression import Some
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.data.ids.images import Generated
+from blender.bpy.nodes.content import Generated
 from blender.bpy.nodes.graphs import Component, Expr, math, rgba, Scalar, switched, Term, vector, where, xyz
-from blender.bpy.render.compositor.coordinates import dimensions, FrameSpace, gridded, pixels
+from blender.bpy.render.compositor.coordinates import dimensions, FrameSpace, PixelGrid, uv_mapped
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -28,7 +28,7 @@ def ranked(source: Expr, offsets: tuple[tuple[float, float], ...], rank: int) ->
     Returns:
         The `rank`-th brightest tap value and the count of taps inside the data window.
     """
-    grid = gridded(source)
+    grid = PixelGrid.of(source)
     count = len(offsets)
     pairs = tuple(
         (i + j, i + j + k)
@@ -41,8 +41,7 @@ def ranked(source: Expr, offsets: tuple[tuple[float, float], ...], rank: int) ->
 
     def tap(dx: float, dy: float) -> tuple[Expr, Expr]:
         uv = grid.at((dx, dy, 0.0), grid.inverse)
-        sampled = Expr(kind=bpy.types.CompositorNodeMapUV, inputs=(("Image", source), ("UV", uv), ("Interpolation", "Nearest"), ("Extension X", "Clip"), ("Extension Y", "Clip")), socket="Image")
-        return sampled, (uv["X"] > 0.0) * (uv["X"] < 1.0) * ((uv["Y"] > 0.0) * (uv["Y"] < 1.0))
+        return uv_mapped(source, uv, interpolation="Nearest", shape=bpy.types.NodeSocketFloat), (uv["X"] > 0.0) * (uv["X"] < 1.0) * ((uv["Y"] > 0.0) * (uv["Y"] < 1.0))
 
     def exchanged(wires: tuple[tuple[Expr, Expr], ...], pair: tuple[int, int]) -> tuple[tuple[Expr, Expr], ...]:
         low, high = pair
@@ -82,7 +81,7 @@ def bilateral(value: Expr, guide: Expr, coverage: Expr, frame: FrameSpace, fallb
         red, green, blue, alpha = weighted * weights[lower], coverage * weights[lower], weighted * weights[upper], coverage * weights[upper]
         return Expr(
             kind=bpy.types.CompositorNodeBlur,
-            inputs=(("Image", rgba(red, green, blue, alpha)), ("Size", pixels(frame, (radius, radius, 0.0), bpy.types.NodeSocketVector)), ("Type", "Fast Gaussian")),
+            inputs=(("Image", rgba(red, green, blue, alpha)), ("Size", frame.pixel_size((radius, radius, 0.0))), ("Type", "Fast Gaussian")),
             socket="Image",
             shape=bpy.types.NodeSocketColor,
         )
@@ -112,12 +111,7 @@ def tiled(tile: Expr, position: Expr, density: Scalar, correlation: npt.NDArray[
     sides = dimensions(tile)
     scale = xyz(sides["X"], sides["Y"], 1.0)
     texel = vector("SNAP", vector("MULTIPLY_ADD", vector("SCALE", position, density), (1.0, 1.0, 0.0), (0.5 * step, 0.5 * step, 0.0)), (step, step, step))
-    sample = Expr(
-        kind=bpy.types.CompositorNodeMapUV,
-        inputs=(("Image", tile), ("UV", texel / scale), ("Interpolation", "Bilinear"), ("Extension X", "Repeat"), ("Extension Y", "Repeat")),
-        socket="Image",
-        shape=bpy.types.NodeSocketColor,
-    )
+    sample = uv_mapped(tile, texel / scale, extension=("Repeat", "Repeat"))
     phase = vector("FRACTION", texel - (0.5, 0.5, 0.5))
     spread = phase * ((1.0, 1.0, 1.0) - phase)
     across, up = spread["X"], spread["Y"]
@@ -161,9 +155,9 @@ def block_mean(frame: FrameSpace, source: Scalar, length: Scalar) -> Expr:
         Bin mean of each pixel's bin.
     """
     sides = dimensions(source)
-    span = switched(math("GREATER_THAN", length, 0.0), (1.0, 1.0, 0.0), pixels(frame, length, bpy.types.NodeSocketVector))
+    span = switched(math("GREATER_THAN", length, 0.0), (1.0, 1.0, 0.0), frame.pixel_size(length))
     anchor = vector("MULTIPLY", sides, frame.margin)
-    grid = gridded(source)
+    grid = PixelGrid.of(source)
 
     def bounded(center: Scalar | tuple[float, ...]) -> tuple[Expr, Expr]:
         cell = vector("FLOOR", vector("DIVIDE", vector("SUBTRACT", center, anchor), span))
@@ -184,13 +178,7 @@ def block_mean(frame: FrameSpace, source: Scalar, length: Scalar) -> Expr:
             socket="Image",
             shape=bpy.types.NodeSocketColor,
         )
-        sample = Expr(
-            kind=bpy.types.CompositorNodeMapUV,
-            inputs=(("Image", image), ("UV", uv), ("Interpolation", "Nearest"), ("Extension X", "Extend"), ("Extension Y", "Extend")),
-            socket="Image",
-            shape=bpy.types.NodeSocketColor,
-        )
-        return sample, math("COMPARE", count["X"], horizontal, 0.0) * math("COMPARE", count["Y"], vertical, 0.0)
+        return uv_mapped(image, uv, interpolation="Nearest", extension=("Extend", "Extend")), math("COMPARE", count["X"], horizontal, 0.0) * math("COMPARE", count["Y"], vertical, 0.0)
 
     (first, _), *rest = starmap(averaged, product(range(len(candidates)), repeat=2))
     return reduce(lambda held, step: where(step[1], step[0], held), rest, first)

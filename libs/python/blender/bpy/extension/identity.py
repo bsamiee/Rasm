@@ -17,8 +17,7 @@ import structlog
 
 from blender.bpy.data.rna.paths import addon_preferences, Struct
 from blender.bpy.extension.reports import Reports
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import Fault, Outcome, paired, RecordReason
+from blender.records.faults import Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -27,24 +26,24 @@ type _Made[T] = Callable[[Identity], AbstractContextManager[T]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_FORMS: Final[Mapping[type[Struct], tuple[str, msgspec.Meta]]] = MappingProxyType({
-    bpy.types.Panel: ("{ID}_PT_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.Menu: ("{ID}_MT_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.Header: ("{ID}_HT_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.UIList: ("{ID}_UL_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.AssetShelf: ("{ID}_AST_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.FileHandler: ("{ID}_FH_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.GizmoGroup: ("{ID}_GGT_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.Gizmo: ("{ID}_GT_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.PropertyGroup: ("GROUP_{digest}", msgspec.Meta(max_length=63)),
-    bpy.types.RenderEngine: ("{ID}_{KEY}", msgspec.Meta(max_length=63)),
-    bpy.types.NodeTree: ("{ID}_{BASE}_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.Node: ("{ID}_{BASE}_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.NodeSocket: ("{ID}_{BASE}_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.NodeTreeInterfaceSocket: ("{ID}_{BASE}_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.KeyingSetInfo: ("{ID}_{BASE}_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.USDHook: ("{ID}_{BASE}_{key}", msgspec.Meta(max_length=63)),
-    bpy.types.Operator: ("{id}.{key}", msgspec.Meta(max_length=60)),
+_FORMS: Final[Mapping[type[Struct], str]] = MappingProxyType({
+    **{
+        base: f"{{ID}}_{infix}_{{key}}"
+        for base, infix in (
+            (bpy.types.Panel, "PT"),
+            (bpy.types.Menu, "MT"),
+            (bpy.types.Header, "HT"),
+            (bpy.types.UIList, "UL"),
+            (bpy.types.AssetShelf, "AST"),
+            (bpy.types.FileHandler, "FH"),
+            (bpy.types.GizmoGroup, "GGT"),
+            (bpy.types.Gizmo, "GT"),
+        )
+    },
+    **dict.fromkeys((bpy.types.NodeTree, bpy.types.Node, bpy.types.NodeSocket, bpy.types.NodeTreeInterfaceSocket, bpy.types.KeyingSetInfo, bpy.types.USDHook), "{ID}_{BASE}_{key}"),
+    bpy.types.PropertyGroup: "GROUP_{digest}",
+    bpy.types.RenderEngine: "{ID}_{KEY}",
+    bpy.types.Operator: "{id}.{key}",
 })
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -57,6 +56,11 @@ class Manifest(msgspec.Struct, frozen=True, kw_only=True):
     name: str
     version: str
     website: str | None = None
+
+    @property
+    def stamp(self) -> Mapping[str, str]:
+        """File metadata naming the extension and its version as the software that wrote the file."""
+        return {"Software": f"{self.name} {self.version}"}
 
 
 class Resource[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -89,30 +93,14 @@ class Held:
 
     @contextmanager
     def holding[T](self, resource: Resource[T], opened: Callable[[], AbstractContextManager[T]], /) -> Generator[None]:
-        """Holds the value opened yields under resource until scope exit.
-
-        Args:
-            resource: Resource keying the value.
-            opened: Context manager factory yielding the value.
-
-        Yields:
-            None while the value is held.
-        """
+        """Holds the value the opened scope yields under resource until scope exit."""
         with ExitStack() as stack:
             self.values[resource] = stack.enter_context(opened())
             stack.callback(self.values.pop, resource)
             yield
 
     def renewed[T](self, resource: Resource[T], renew: Callable[[T], T], /) -> Outcome[None]:
-        """Replaces the held value with its renewal.
-
-        Args:
-            resource: Resource keying the value.
-            renew: Step building the value after a file load.
-
-        Returns:
-            Ok(None).
-        """
+        """Replaces the value held under resource with its renewal after a file load."""
         self.values[resource] = renew(self[resource])
         return Ok(None)
 
@@ -129,65 +117,35 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
     # --- [NAMING]
 
     def name(self, base: type[Struct], key: Key, /) -> Outcome[str]:
-        """Builds validated class host name, within the bytes the host keeps of a name of its form.
+        """Builds the host name of a class of the base under a key, register fault for a name past the 63 bytes the host keeps or a base no name form serves, an operator name past 60 characters refused by the host at registration."""
 
-        Args:
-            base: Host base class the named class extends.
-            key: Row key in lowercase snake case.
-
-        Returns:
-            Ok(name), register fault for refused name or a base no name form serves.
-        """
-
-        def formed(form: tuple[str, msgspec.Meta]) -> Outcome[str]:
-            template, limit = form
+        def formed(template: str) -> Outcome[str]:
             name = template.format(ID=self.manifest.id.upper(), id=self.manifest.id.lower(), key=key, KEY=key.upper(), BASE=base.__name__, digest=uuid5(NAMESPACE_URL, f"{self.manifest.id}/{key}").hex)
-            return _checked(name, (key, name.encode()), tuple[Key, Annotated[bytes, limit]])
+            return _checked(name, (key, name.encode()), tuple[Key, Annotated[bytes, msgspec.Meta(max_length=63)]])
 
-        return Option.of_optional(_FORMS.get(base)).to_result_with(partial(Fault.of, BlenderReason.UNREGISTERED, base.__name__, member="name form")).bind(formed)
+        return Option.of_optional(_FORMS.get(base)).to_result_with(partial(Fault.of, Reason.UNREGISTERED, base.__name__, member="name form")).bind(formed)
 
     def identifier(self, key: Key, /) -> Outcome[str]:
-        """Builds validated property, record, or command identifier.
-
-        Args:
-            key: Row key in lowercase snake case.
-
-        Returns:
-            Ok(identifier), register fault for refused key.
-        """
+        """Builds a property, record, or command identifier under the manifest ID, register fault for a key outside lowercase snake case."""
         return _checked(f"{self.manifest.id.lower()}_{key}", key, Key)
 
     # --- [READING]
 
     def preferences[T: bpy.types.AddonPreferences](self, kind: type[T], /) -> Option[T]:
-        """Reads the extension's add-on preferences as kind.
-
-        Args:
-            kind: Preferences class the extension registers, or `bpy.types.AddonPreferences` for any.
-
-        Returns:
-            Some(preferences), Nothing while the extension is disabled or holds preferences of another class.
-        """
+        """Reads the extension's add-on preferences as kind (`bpy.types.AddonPreferences` for any), Nothing while disabled or holding another class."""
         preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         return addon_preferences(preferences, self.package).bind(lambda held: Option.of_optional(try_downcast(kind, held)))
 
     @classmethod
     def read(cls, package: str, /) -> Outcome[Self]:
-        """Reads enabled extension's manifest and user folder.
-
-        Args:
-            package: Fully qualified extension package name.
-
-        Returns:
-            Ok(identity), read fault for unreadable manifest, register fault for a package Blender holds as no extension.
-        """
+        """Reads an enabled extension package's manifest and user folder, read fault for an unreadable manifest, register fault for a package Blender holds as no extension."""
         path = importlib.resources.files(package) / "blender_manifest.toml"
         manifest = (
             Result[bytes, OSError | msgspec.DecodeError]
             .bind(catch(path.read_bytes, exception=OSError)(), lambda data: catch(msgspec.toml.decode, exception=msgspec.DecodeError)(data, type=Manifest))
-            .map_error(partial(Fault.of, RecordReason.UNREADABLE, str(path)))
+            .map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
         )
-        folder = catch(bpy.utils.extension_path_user, exception=ValueError)(package).map_error(partial(Fault.of, BlenderReason.UNREGISTERED, package))
+        folder = catch(bpy.utils.extension_path_user, exception=ValueError)(package).map_error(partial(Fault.of, Reason.UNREGISTERED, package))
         return paired(manifest, folder).map(
             lambda pair: cls(package=package, manifest=pair[0], folder=Path(pair[1]), reports=Reports(structlog.get_logger(package, extension=pair[0].id)), held=Held())
         )
@@ -198,7 +156,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
 
 def _checked(name: str, parts: object, form: object, /) -> Outcome[str]:
     """Returns name once parts convert to form, register fault naming it otherwise."""
-    return catch(msgspec.convert, exception=msgspec.ValidationError)(parts, form).map(lambda _: name).map_error(partial(Fault.of, BlenderReason.UNREGISTERED, name))
+    return catch(msgspec.convert, exception=msgspec.ValidationError)(parts, form).map(lambda _: name).map_error(partial(Fault.of, Reason.UNREGISTERED, name))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

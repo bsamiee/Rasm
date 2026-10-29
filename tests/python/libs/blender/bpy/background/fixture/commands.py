@@ -1,10 +1,9 @@
-"""Command rows: operators of every answer and invoke form, a macro, add-on shortcuts, and a command-line command, with probes running and reading them."""
+"""Command rows: operators of every answer and invoke form, a decorated body, a step over an identity binding, a macro, add-on shortcuts, and a command-line command, with probes running and reading them."""
 
 from base64 import b64encode
 from collections.abc import Callable, Mapping
 from functools import partial
 from pathlib import Path
-from types import MappingProxyType
 from typing import Final
 
 from bl_ui.space_view3d import VIEW3D_MT_add, VIEW3D_MT_pivot_pie
@@ -18,17 +17,17 @@ from blender.bpy.commands.calls import Called, called, Command, filled, idname, 
 from blender.bpy.commands.invocations import Folder, Open, Pick, Popup, Save, Suppressible
 from blender.bpy.commands.keymaps import Button, Chord, Keymap, nesting
 from blender.bpy.commands.modal import Gesture, Modal
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Macro, Operator, tallied, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Macro, Operator, Over, tallied, Unchanged
 from blender.bpy.data.rna.paths import definition
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import CliCommand
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import Fault, Outcome
+from blender.records.faults import Fault, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 COUNT: Final = "fixture_count"
 OPERATORS: Final[object] = bpy.ops.fixture  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+CHOSEN: Final = "fixture_chosen"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -38,24 +37,6 @@ class Amount(bpy.types.PropertyGroup):
 
     amount: bpy.props.IntProperty(name="Amount", default=1)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     mode: bpy.props.EnumProperty(name="Mode", items=(("ADD", "Add", "Adds the amount to the count"), ("SET", "Set", "Sets the count to the amount")))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-
-
-# --- [SERVICES] -------------------------------------------------------------------------
-
-
-class Chosen:
-    """Paths the folder and file commands' bodies received, in run order."""
-
-    __slots__ = ("paths",)
-
-    def __init__(self) -> None:
-        """Holds no path until a body runs."""
-        self.paths: list[Path] = []
-
-    def chosen(self, call: Call[Empty]) -> Outcome[Answer]:
-        """Keeps the paths its invoke form chose."""
-        self.paths.extend(call.paths)
-        return Ok(Done())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -75,14 +56,30 @@ def counted(call: Call[Amount]) -> Outcome[Answer]:
     return Ok(Done(notes=(("INFO", "Counted"),)))
 
 
+@Operator.of(Empty)
 def kept(_call: Call[Empty]) -> Outcome[Answer]:
     """Leaves the file as it is."""
     return Ok(Unchanged(reason="Nothing to change"))
 
 
+@Operator.of(Empty)
 def refused(_call: Call[Empty]) -> Outcome[Answer]:
     """Refuses for a requirement the context lacks."""
-    return Error(Fault.of(BlenderReason.REQUIRED, "a fixture strip"))
+    return Error(Fault.of(Reason.REQUIRED, "a fixture strip"))
+
+
+def chosen(call: Call[Empty]) -> Outcome[Answer]:
+    """Keeps the names of the paths its invoke form chose in a scene custom property."""
+    scene: bpy.types.Scene = call.context.scene  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    scene[CHOSEN] = "/".join(path.name for path in call.paths)
+    return Ok(Done())
+
+
+def stepped(bound: str, call: Call[Amount]) -> Outcome[Answer]:
+    """Sets the scene count to the amount times the length of the bound manifest ID."""
+    scene: bpy.types.Scene = call.context.scene  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    scene[COUNT] = call.properties.amount * len(bound)
+    return Ok(Done())
 
 
 # --- [READS]
@@ -151,16 +148,17 @@ def executed(identity: Identity) -> dict[str, object]:
         "counted": _ran(identity, COUNTED, {"amount": 3}),
         "set": _ran(identity, COUNTED, {"amount": 3, "mode": "SET"}),
         "unset": _ran(identity, COUNTED, {"amount": Nothing}),
-        "kept": _ran(identity, KEPT, {}),
-        "refused": _ran(identity, REFUSED, {}),
+        "kept": _ran(identity, kept, {}),
+        "refused": _ran(identity, refused, {}),
         "macro": _ran(identity, TWICE, {}),
         "bogus": _ran(identity, COUNTED, {"bogus": 1}),
+        "over": _ran(identity, OVER, {"amount": 2}),
     }
 
 
 def refusal(identity: Identity) -> str:
     """Answers the host error text of a refused command."""
-    return called(operation(identity, REFUSED), {}).swap().map(lambda faults: str(faults[0].cause)).default_value("")
+    return called(operation(identity, refused), {}).swap().map(lambda faults: str(faults[0].cause)).default_value("")
 
 
 def suppressed(identity: Identity) -> dict[str, object]:
@@ -174,22 +172,22 @@ def suppressed(identity: Identity) -> dict[str, object]:
 
 
 def browsed(identity: Identity) -> dict[str, object]:
-    """Runs the folder and file commands without and with a chosen path, answering the paths each body received."""
-    CHOSEN.paths.clear()
+    """Runs the folder and file commands without and with a chosen path, answering each outcome with the path names its body received."""
+    scene: bpy.types.Scene = bpy.context.scene  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     folder = Path(bpy.app.tempdir)
     target = folder / "chosen.txt"
     target.write_text("chosen", encoding="utf-8")
-    return {
-        "unchosen": _ran(identity, FOLDER, {})[0],
-        "folder": _ran(identity, FOLDER, {"directory": str(folder)})[0],
-        "opened": _ran(identity, OPENED, {"filepath": str(target)})[0],
-        "paths": tuple(path.name for path in CHOSEN.paths) == (folder.name, target.name),
-    }
+
+    def chose(command: Command, values: Mapping[str, Setting | Option[Setting]]) -> tuple[Outcome[frozenset[str]], str]:
+        scene[CHOSEN] = ""
+        return _ran(identity, command, values)[0], str(scene[CHOSEN]).replace(folder.name, "<folder>")
+
+    return {"unchosen": chose(FOLDER, {}), "folder": chose(FOLDER, {"directory": str(folder)}), "opened": chose(OPENED, {"filepath": str(target)})}
 
 
 def answered(_identity: Identity) -> dict[str, object]:
     """Folds item edits into the command answer: every edit changed, some refused, every edit refused."""
-    failed = Fault.of(BlenderReason.ABSENT, "fixture item")
+    failed = Fault.of(Reason.ABSENT, "fixture item")
     return {"all": tallied((Ok(1), Ok(2))), "some": tallied((Ok(1), Error(failed))), "none": tallied((Error(failed), Error(failed)))}
 
 
@@ -268,31 +266,28 @@ def keys() -> tuple[dict[str, object], ...]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-COUNTED: Final = Operator(form=Amount, run=counted)
-KEPT: Final = Operator(form=Empty, run=kept)
-REFUSED: Final = Operator(form=Empty, run=refused)
-SEEDED: Final = Operator(form=Amount, run=counted, named=Some("seeded"), seed=Some(lambda _properties, _event, _identity: {"amount": 7}))
-GROUPED: Final = Operator(form=Empty, run=kept, named=Some("grouped"), undo=Some(Some("fixture")))
-PLAIN: Final = Operator(form=Empty, run=kept, named=Some("plain"), undo=Nothing, presets=True, internal=True)
-DIALOG: Final = Operator(form=Amount, run=counted, named=Some("dialog"), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))))
-REDO: Final = Operator(form=Amount, run=counted, named=Some("redo"), undo=Nothing, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_popup))))
-SEARCH: Final = Operator(form=Amount, run=counted, named=Some("search"), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_search_popup))))
-CONFIRMED: Final = Operator(form=Amount, run=counted, named=Some("confirmed"), invoke=Some(Suppressible(message=lambda _context, _properties: "Count now?")))
-CHOSEN: Final = Chosen()
-OPENED: Final = Operator(form=Empty, run=CHOSEN.chosen, named=Some("opened"), invoke=Some(Open(extensions=lambda _properties: (".txt",))))
-SAVED: Final = Operator(form=Empty, run=CHOSEN.chosen, named=Some("saved"), invoke=Some(Save(extensions=lambda _properties: (".txt",))))
-FOLDER: Final = Operator(form=Empty, run=CHOSEN.chosen, named=Some("folder"), invoke=Some(Folder()))
-PICKED: Final = Operator(form=Empty, run=kept, named=Some("picked"), invoke=Some(Pick(cursor="EYEDROPPER")))
-DRAGGED: Final = Operator(
-    form=Empty,
-    run=kept,
+COUNTED: Final = Operator.of(Amount)(counted)
+SEEDED: Final = Operator.of(Amount, named=Some("seeded"), seed=Some(lambda _properties, _event, _identity: {"amount": 7}))(counted)
+GROUPED: Final = Operator.of(Empty, named=Some("grouped"), undo=Some(Some("fixture")))(kept.run)
+PLAIN: Final = Operator.of(Empty, named=Some("plain"), undo=Nothing, presets=True, internal=True)(kept.run)
+DIALOG: Final = Operator.of(Amount, named=Some("dialog"), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))))(counted)
+REDO: Final = Operator.of(Amount, named=Some("redo"), undo=Nothing, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_popup))))(counted)
+SEARCH: Final = Operator.of(Amount, named=Some("search"), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_search_popup))))(counted)
+CONFIRMED: Final = Operator.of(Amount, named=Some("confirmed"), invoke=Some(Suppressible(message=lambda _context, _properties: "Count now?")))(counted)
+OPENED: Final = Operator.of(Empty, named=Some("opened"), invoke=Some(Open(extensions=lambda _properties: (".txt",))))(chosen)
+SAVED: Final = Operator.of(Empty, named=Some("saved"), invoke=Some(Save(extensions=lambda _properties: (".txt",))))(chosen)
+FOLDER: Final = Operator.of(Empty, named=Some("folder"), invoke=Some(Folder()))(chosen)
+PICKED: Final = Operator.of(Empty, named=Some("picked"), invoke=Some(Pick(cursor="EYEDROPPER")))(kept.run)
+DRAGGED: Final = Operator.of(
+    Empty,
     named=Some("dragged"),
     invoke=Some(
         Modal[None](gesture=Gesture.DRAG, begin=lambda _context, _travel: Ok(None), preview=lambda _context, _state, _travel: Ok(Nothing), restore=lambda _context, _state: Ok(None), priority=True)
     ),
-)
+)(kept.run)
+OVER: Final = Operator.of(Amount)(Over(lambda identity: Ok(identity.manifest.id), stepped))
 TWICE: Final = Macro(key="twice", description="Counts by two, then by three", steps=(Placement(COUNTED, {"amount": 2}), Placement(COUNTED, {"amount": 3})))
-COMMANDS: Final[tuple[Command, ...]] = (COUNTED, KEPT, REFUSED, SEEDED, GROUPED, PLAIN, DIALOG, REDO, SEARCH, CONFIRMED, OPENED, SAVED, FOLDER, PICKED, DRAGGED, TWICE)
+COMMANDS: Final[tuple[Command, ...]] = (COUNTED, kept, refused, SEEDED, GROUPED, PLAIN, DIALOG, REDO, SEARCH, CONFIRMED, OPENED, SAVED, FOLDER, PICKED, DRAGGED, OVER, TWICE)
 KEYS: Final = Keymap(
     keymap="3D View",
     bindings=(
@@ -305,23 +300,8 @@ KEYS: Final = Keymap(
 ECHO: Final = CliCommand(key="echo", decoder=msgspec.json.Decoder(dict[str, int]), run=lambda value, _trailing: Ok(value["code"]))
 
 rows: Final = (*COMMANDS, KEYS, ECHO)
-PROBES: Final[Mapping[str, Callable[[Identity], object]]] = MappingProxyType({
-    "classes": classes,
-    "executed": executed,
-    "refusal": refusal,
-    "suppressed": suppressed,
-    "browsed": browsed,
-    "answered": answered,
-    "named": named,
-    "placed": placed,
-    "mismatched": mismatched,
-    "shortcuts": shortcuts,
-    "nested": nested,
-    "gestures": gestures,
-    "commanded": commanded,
-    "unbound": unbound,
-})
-RELEASED: Final[Mapping[str, Callable[[], object]]] = MappingProxyType({"operators": operators, "keys": keys})
+PROBES: Final[tuple[Callable[[Identity], object], ...]] = (classes, executed, refusal, suppressed, browsed, answered, named, placed, mismatched, shortcuts, nested, gestures, commanded, unbound)
+RELEASED: Final[tuple[Callable[[], object], ...]] = (operators, keys)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -3,7 +3,7 @@
 from contextlib import ExitStack
 from enum import auto, StrEnum
 from itertools import chain
-from typing import Annotated, ClassVar, Final
+from typing import ClassVar, Final
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
@@ -15,23 +15,20 @@ import msgspec
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
 from blender.bpy.data.ids.ownership import Ownership, released, retained, Saved
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.conditions import Setting
+from blender.bpy.data.rna.conditions import chosen, Scenes, Scope, scope_choice, SCOPE_COLLECTION, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.mirrors import case_choices
 from blender.bpy.data.rna.paths import RnaPath, root_in, rooted
-from blender.bpy.data.rna.scopes import chosen, Scenes, Scope, scope_choice, SCOPE_COLLECTION
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderReason
 from blender.bpy.scene.collections import relinked
 from blender.bpy.scene.lights.emitters import emitters, picked
 from blender.bpy.scene.objects import focused, ObjectState, reconciled, spawned
-from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import OperatorButton, Property
+from blender.bpy.ui.layout.rows import Member, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
-from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
-from blender.records.fields import Case
+from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
+from blender.records.fields import Case, Name
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -81,7 +78,7 @@ class PerEmitter(Case, frozen=True, kw_only=True):
 class Shared(Case, frozen=True, kw_only=True):
     """Named group every holder of kind joins."""
 
-    name: Annotated[str, msgspec.Meta(min_length=1)] = "Emission"
+    name: Name = "Emission"
 
     def named(self, _holder: bpy.types.Object | bpy.types.World) -> Option[str]:
         """Returns the shared group name."""
@@ -95,14 +92,6 @@ class Ungrouped(Case, frozen=True, kw_only=True):
     def named(_holder: bpy.types.Object | bpy.types.World) -> Option[str]:
         """Returns the empty group name."""
         return Some("")
-
-
-class Membership(msgspec.Struct, frozen=True, kw_only=True):
-    """Light group rule per emitter kind and world."""
-
-    lights: Grouping = PerEmitter()
-    emissive: Grouping = Shared()
-    world: Grouping = PerEmitter()
 
 
 class Split(bpy.types.PropertyGroup):
@@ -136,7 +125,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
             title="Light Groups",
             rows=(
                 Property(target=Member(root=bpy.types.Object, path=("lightgroup",), reach=active), search=Some(Member(root=bpy.types.ViewLayer, path=("lightgroups",)))),
-                *(OperatorButton(target=command) for command in (light_groups_assign_command, light_group_select_command, light_split_command, light_split_toggle_command, light_unsplit_command)),
+                *(OperatorButton(target=command) for command in (light_groups_assign, light_group_select, light_split, light_split_toggle, light_unsplit)),
             ),
         )
 
@@ -165,17 +154,19 @@ class Assignment(bpy.types.PropertyGroup):
 def grouping(choice: str, shared: str) -> Outcome[Grouping]:
     """Returns the rule a `GROUPINGS` choice names, a shared rule under its group name."""
     return catch(msgspec.convert, exception=msgspec.ValidationError)({"kind": choice, "name": shared}, Grouping).map_error(
-        lambda error: Fault.of(RecordReason.OUTSIDE, "Shared Group", repr(shared), member=f"a group name ({error})")
+        lambda error: Fault.of(Reason.OUTSIDE, "Shared Group", repr(shared), member=f"a group name ({error})")
     )
 
 
-def assigned(membership: Membership, scope: Scope, context: bpy.types.Context) -> Outcome[Option[frozenset[str]]]:
+def assigned(scope: Scope, context: bpy.types.Context, *, lights: Grouping, emissive: Grouping, world: Grouping) -> Outcome[Option[frozenset[str]]]:
     """Writes rule light groups to emitters and worlds in scope.
 
     Args:
-        membership: Rule per kind, kinds without one unchanged.
         scope: Owners to group.
         context: Context `scope.owners` reads.
+        lights: Rule of each light object, `Kept` leaving them.
+        emissive: Rule of each emissive object, `Kept` leaving them.
+        world: Rule of each world, `Kept` leaving them.
 
     Returns:
         Group names written, `Nothing` when every holder held its group, or `absent` and `edit` faults.
@@ -189,8 +180,8 @@ def assigned(membership: Membership, scope: Scope, context: bpy.types.Context) -
 
     return scope.owners(context).bind(
         lambda reached: accumulated((
-            *(wrote(membership.lights if isinstance(item.data, bpy.types.Light) else membership.emissive, item) for item in dict.fromkeys(item for owner in reached for item in emitters(owner))),
-            *(wrote(membership.world, world) for world in worlds(reached)),
+            *(wrote(lights if isinstance(item.data, bpy.types.Light) else emissive, item) for item in dict.fromkeys(item for owner in reached for item in emitters(owner))),
+            *(wrote(world, held) for held in worlds(reached)),
         )).map(lambda changes: Some(tuple(name for change in changes for name in change.to_list())).filter(bool).map(lambda names: frozenset(names) - {""}))
     )
 
@@ -239,7 +230,7 @@ def split(master: bpy.types.Object, light: bpy.types.Light, lobes: frozenset[Lob
         return retained(
             Result[bpy.types.Collection, Faults]
             .bind(
-                Block.of_seq(holders).try_head().to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(master), member="users_collection")),
+                Block.of_seq(holders).try_head().to_result_with(lambda: Fault.of(Reason.ABSENT, repr(master), member="users_collection")),
                 lambda home: Snapshot.capture(master.light_linking).bind(lambda links: released(stale).bind(lambda _: accumulated(child(lobe, links, home) for lobe in Lobe if lobe in lobes))),
             )
             .bind(lambda children: reconciled(ObjectState(values=Some(hidden)), master, ()).map(lambda _: children)),
@@ -311,12 +302,13 @@ def unsplit(view_layer: bpy.types.ViewLayer, identity: Identity) -> Outcome[Answ
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
+@Operator.of(Assignment, condition=LightGroupEdits.cycles)
 def light_groups_assign(call: Call[Assignment]) -> Outcome[Answer]:
     """Writes rule light groups to the emitters and worlds in scope."""
     rules = (grouping(choice, call.properties.shared) for choice in (call.properties.lights, call.properties.emissive, call.properties.world))
     return (
         accumulated(rules)
-        .bind(lambda found: assigned(Membership(lights=found[0], emissive=found[1], world=found[2]), chosen(call.properties), call.context))
+        .bind(lambda found: assigned(chosen(call.properties), call.context, lights=found[0], emissive=found[1], world=found[2]))
         .map(
             lambda change: change.map(lambda names: Done(notes=(("INFO", f"Light groups {', '.join(sorted(names))}"),))).default_value(
                 Unchanged(reason="Every emitter and world in scope holds its light group")
@@ -325,31 +317,29 @@ def light_groups_assign(call: Call[Assignment]) -> Outcome[Answer]:
     )
 
 
+@Operator.of(Empty, condition=LightGroupEdits.cycles)
 def light_group_select(call: Call[Empty]) -> Outcome[Answer]:
     """Selects the objects in the active emitter's light group."""
     return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: focused(layer).bind(lambda item: picked(members(item, layer), layer))).map(lambda _: Done())
 
 
+@Operator.of(Split, condition=LightGroupEdits.cycles)
 def light_split(call: Call[Split]) -> Outcome[Answer]:
     """Splits selected lights into one light group child per ray kind."""
     return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: lobed(layer, frozenset(map(Lobe, call.properties.lobes)), call.identity))
 
 
+@Operator.of(Empty, condition=LightGroupEdits.cycles)
 def light_split_toggle(call: Call[Empty]) -> Outcome[Answer]:
     """Swaps visibility of selected split lights and their children."""
     return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: toggled(layer, call.identity))
 
 
+@Operator.of(Empty, condition=LightGroupEdits.cycles)
 def light_unsplit(call: Call[Empty]) -> Outcome[Answer]:
     """Removes split children and renders selected lights again."""
     return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: unsplit(layer, call.identity))
 
-
-light_groups_assign_command: Operator[Assignment] = Operator(form=Assignment, condition=LightGroupEdits.cycles, run=light_groups_assign)
-light_group_select_command: Operator[Empty] = Operator(form=Empty, condition=LightGroupEdits.cycles, run=light_group_select)
-light_split_command: Operator[Split] = Operator(form=Split, condition=LightGroupEdits.cycles, run=light_split)
-light_split_toggle_command: Operator[Empty] = Operator(form=Empty, condition=LightGroupEdits.cycles, run=light_split_toggle)
-light_unsplit_command: Operator[Empty] = Operator(form=Empty, condition=LightGroupEdits.cycles, run=light_unsplit)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
@@ -360,18 +350,17 @@ __all__ = [
     "Kept",
     "LightGroupEdits",
     "Lobe",
-    "Membership",
     "PerEmitter",
     "Shared",
     "Split",
     "Ungrouped",
     "assigned",
     "grouping",
-    "light_group_select_command",
-    "light_groups_assign_command",
-    "light_split_command",
-    "light_split_toggle_command",
-    "light_unsplit_command",
+    "light_group_select",
+    "light_groups_assign",
+    "light_split",
+    "light_split_toggle",
+    "light_unsplit",
     "lights",
     "lobed",
     "members",

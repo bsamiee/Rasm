@@ -9,13 +9,13 @@ import PyOpenColorIO
 
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.nodes.graphs import Expr, vector
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.colors import AXES
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
-from blender.bpy.render.compositor.shells import Shell
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.bpy.render.compositor.inputs import Shell
+from blender.records.faults import Fault, Outcome, Reason
 
 from ...chain.stages import Effect, Stage, transform
 
@@ -109,7 +109,7 @@ def _(_record: Zones, values: Mapping[Key, Value], _config: PyOpenColorIO.Config
             tone.blacks, tone.shadows, tone.midtones, tone.highlights, tone.whites, tone.scontrast = blacks, shadows, midtones, highlights, whites, contrast
             return Ok(Some(PyOpenColorIO.GradingToneTransform(values=tone, style=PyOpenColorIO.GRADING_LIN)))
         case _:
-            return Error(Fault.of(RecordReason.UNREADABLE, Zones.__name__, repr(values)))
+            return Error(Fault.of(Reason.UNREADABLE, Zones.__name__, repr(values)))
 
 
 def _zones(shell: Shell[Zones]) -> Outcome[Expr]:

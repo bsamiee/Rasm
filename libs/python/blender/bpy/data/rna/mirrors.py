@@ -1,6 +1,6 @@
-"""`bpy.props` keywords and `EnumProperty` items mirroring host properties and module rows, and the form declarations groups register with."""
+"""`bpy.props` definitions and `EnumProperty` items mirroring host properties, enum types, and module rows, and the form declarations groups register with."""
 
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
 import enum
 import functools
@@ -8,7 +8,8 @@ from functools import partial, reduce
 import inspect
 import operator
 import re
-from typing import Final, get_args, NotRequired, overload, TYPE_CHECKING, TypeAliasType, TypedDict
+from types import MappingProxyType
+from typing import Any, Final, get_args, TYPE_CHECKING, TypeAliasType
 import zlib
 
 import bpy
@@ -16,86 +17,51 @@ from expression import Ok, Option, Result, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
+import numpy as np
 
 from blender.bpy.data.ids.store import Handle, holder
+from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import Struct
 from blender.bpy.extension.identity import Identity
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import Fault, Faults, Outcome
+from blender.records.faults import Fault, Faults, Outcome, Reason
 
 if TYPE_CHECKING:
-    from bpy.stub_internal.rna_enums import PropertyFlagEnumItems, PropertySubtypeNumberItems, PropertySubtypeStringItems, PropertyUnitItems
+    from bpy.stub_internal.rna_enums import PropertySubtypeStringItems
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Item = tuple[str, str, str, str, int]
-
-
-class _FloatMirror(TypedDict):
-    """`bpy.props.FloatProperty` keywords of a scalar float member."""
-
-    name: str
-    description: str
-    subtype: "PropertySubtypeNumberItems"
-    unit: "PropertyUnitItems"
-    min: float
-    max: float
-    soft_min: float
-    soft_max: float
-    step: float
-    precision: int
-    default: float
-
-
-class _IntMirror(TypedDict):
-    """`bpy.props.IntProperty` keywords of a scalar integer member."""
-
-    name: str
-    description: str
-    subtype: "PropertySubtypeNumberItems"
-    min: int
-    max: int
-    soft_min: int
-    soft_max: int
-    step: int
-    default: int
-
-
-class _BoolMirror(TypedDict):
-    """`bpy.props.BoolProperty` keywords of a scalar boolean member."""
-
-    name: str
-    description: str
-    subtype: "PropertySubtypeNumberItems"
-    default: bool
-
-
-class _StringMirror(TypedDict):
-    """`bpy.props.StringProperty` keywords of a string member."""
-
-    name: str
-    description: str
-    subtype: "PropertySubtypeStringItems"
-    default: str
-    maxlen: int
-
-
-class _EnumMirror(TypedDict):
-    """`bpy.props.EnumProperty` keywords of an enum member, `options` present for a flag enum."""
-
-    name: str
-    description: str
-    items: tuple[_Item, ...]
-    default: str | set[str]
-    options: NotRequired[set["PropertyFlagEnumItems"]]
-
-
-type _Mirror = _FloatMirror | _IntMirror | _BoolMirror | _StringMirror | _EnumMirror
 type Changed = Callable[[Struct, bpy.types.Context], None]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _REGISTER: Final[Callable[[type[Struct], str, bpy.props._PropertyDeferred], Result[None, ValueError]]] = catch(setattr, exception=ValueError)
+_ARRAYED: Final = frozenset({
+    "COLOR",
+    "TRANSLATION",
+    "DIRECTION",
+    "VELOCITY",
+    "ACCELERATION",
+    "MATRIX",
+    "EULER",
+    "QUATERNION",
+    "AXISANGLE",
+    "XYZ",
+    "XYZ_LENGTH",
+    "COLOR_GAMMA",
+    "COORDINATES",
+    "LAYER",
+    "LAYER_MEMBER",
+})
+_TEXTUAL: Final = frozenset({"FILE_PATH", "DIR_PATH", "FILE_NAME", "BYTE_STRING", "PASSWORD"})
+_NUMBERS: Final[Mapping[tuple[type[bpy.types.Property], bool], Callable[..., bpy.props._PropertyDeferred]]] = MappingProxyType({
+    (bpy.types.FloatProperty, False): bpy.props.FloatProperty,
+    (bpy.types.FloatProperty, True): bpy.props.FloatVectorProperty,
+    (bpy.types.IntProperty, False): bpy.props.IntProperty,
+    (bpy.types.IntProperty, True): bpy.props.IntVectorProperty,
+    (bpy.types.BoolProperty, False): bpy.props.BoolProperty,
+    (bpy.types.BoolProperty, True): bpy.props.BoolVectorProperty,
+})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -131,7 +97,7 @@ def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str]]) -
         Five-part items in row order.
 
     Raises:
-        ValueError: Two rows share a value.
+        ValueError: Two identifiers hash to one value, host items sharing a static value kept.
     """
 
     def item(row: bpy.types.EnumPropertyItem | tuple[str, str, str]) -> _Item:
@@ -149,14 +115,9 @@ def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str]]) -
 
     items = tuple(map(item, rows))
     values = tuple(held[4] for held in items)
-    if len(set(values)) != len(values):
-        raise ValueError(tuple(held[0] for held in items if values.count(held[4]) > 1))
+    if collided := tuple(held[0] for held in items if values.count(held[4]) > 1 and held[4] == zlib.crc32(held[0].encode()) & 0x7FFFFFFF):
+        raise ValueError(collided)
     return items
-
-
-def flag_choices(kind: type[enum.Flag]) -> tuple[_Item, ...]:
-    """Returns `ENUM_FLAG` items of a `Flag` type, each member's name split into words as name and its bit as value."""
-    return tuple((name, bpy.path.display_name(name.lower()), "", "NONE", member.value) for member in kind if (name := member.name) is not None)
 
 
 @functools.cache
@@ -175,59 +136,41 @@ def case_choices(union: TypeAliasType) -> tuple[_Item, ...]:
     return choices((case.__name__, bpy.path.display_name(re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", case.__name__)), inspect.getdoc(case) or "") for case in get_args(union.__value__))
 
 
-@overload
-def mirrored(prop: bpy.types.FloatProperty) -> _FloatMirror: ...
-@overload
-def mirrored(prop: bpy.types.IntProperty) -> _IntMirror: ...
-@overload
-def mirrored(prop: bpy.types.BoolProperty) -> _BoolMirror: ...
-@overload
-def mirrored(prop: bpy.types.StringProperty) -> _StringMirror: ...
-@overload
-def mirrored(prop: bpy.types.EnumProperty) -> _EnumMirror: ...
-def mirrored(prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.BoolProperty | bpy.types.StringProperty | bpy.types.EnumProperty) -> _Mirror:
-    """Returns the `bpy.props` keywords declaring a scalar host property's name, description, subtype, bounds, default, and items."""
+def enum_choices(kind: type[enum.Enum], /) -> tuple[_Item, ...]:
+    """Returns `EnumProperty` items of an `Enum` type, each member's name as identifier and split into words as name, a `Flag` member's bit as its `ENUM_FLAG` value, any other member the value `choices` fixes per identifier."""
+    return (
+        tuple((name, bpy.path.display_name(name.lower()), "", "NONE", member.value) for member in kind if (name := member.name) is not None)
+        if issubclass(kind, enum.Flag)
+        else choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind)
+    )
 
-    def numeric(held: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.BoolProperty) -> "PropertySubtypeNumberItems":
-        subtype: PropertySubtypeNumberItems = held.subtype  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        return subtype
 
+def mirrored(prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.BoolProperty | bpy.types.StringProperty | bpy.types.EnumProperty, /) -> bpy.props._PropertyDeferred:
+    """Returns the `bpy.props` definition declaring a host property as the host declares it: name, description, translation context, subtype, unit, bounds, step, precision, default, array shape, and items.
+
+    `bpy.props` takes array subtypes on arrays alone, number subtypes on scalars alone, and no `TRANSLATION` string subtype, while RNA declares each on any member, so a subtype the factory refuses declares as `NONE`, the unit keeping its quantity. A dynamic array declares at its current shape.
+    """
+    shown: dict[str, Any] = {"name": prop.name, "description": prop.description, "translation_context": prop.translation_context}
     match prop:
-        case bpy.types.FloatProperty() as real:
-            return _FloatMirror(
-                name=real.name,
-                description=real.description,
-                subtype=numeric(real),
-                unit=real.unit,
-                min=real.hard_min,
-                max=real.hard_max,
-                soft_min=real.soft_min,
-                soft_max=real.soft_max,
-                step=real.step,
-                precision=real.precision,
-                default=real.default,
+        case bpy.types.FloatProperty() | bpy.types.IntProperty() | bpy.types.BoolProperty():
+            shape, arrayed = Descriptor.dimensions(prop), prop.subtype in _ARRAYED
+            return _NUMBERS[type(prop), bool(shape)](
+                **shown,
+                **(
+                    {"size": shape, "default": np.resize(np.asarray(prop.default_array), shape).tolist(), "subtype": prop.subtype if arrayed else "NONE"}
+                    if shape
+                    else {"default": prop.default, "subtype": "NONE" if arrayed else prop.subtype}
+                ),
+                **({} if isinstance(prop, bpy.types.BoolProperty) else {"min": prop.hard_min, "max": prop.hard_max, "soft_min": prop.soft_min, "soft_max": prop.soft_max, "step": prop.step}),
+                **({"unit": prop.unit, "precision": prop.precision} if isinstance(prop, bpy.types.FloatProperty) else {}),
             )
-        case bpy.types.IntProperty() as integer:
-            return _IntMirror(
-                name=integer.name,
-                description=integer.description,
-                subtype=numeric(integer),
-                min=integer.hard_min,
-                max=integer.hard_max,
-                soft_min=integer.soft_min,
-                soft_max=integer.soft_max,
-                step=integer.step,
-                default=integer.default,
-            )
-        case bpy.types.BoolProperty() as flag:
-            return _BoolMirror(name=flag.name, description=flag.description, subtype=numeric(flag), default=flag.default)
-        case bpy.types.StringProperty() as text:
-            textual: PropertySubtypeStringItems = text.subtype  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            return _StringMirror(name=text.name, description=text.description, subtype=textual, default=text.default, maxlen=text.length_max)
-        case bpy.types.EnumProperty(is_enum_flag=True) as enum:
-            return _EnumMirror(name=enum.name, description=enum.description, items=choices(enum.enum_items), default=set(enum.default_flag), options={"ENUM_FLAG"})
-        case bpy.types.EnumProperty() as enum:
-            return _EnumMirror(name=enum.name, description=enum.description, items=choices(enum.enum_items), default=enum.default)
+        case bpy.types.StringProperty():
+            text: PropertySubtypeStringItems = prop.subtype if prop.subtype in _TEXTUAL else "NONE"  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return bpy.props.StringProperty(**shown, subtype=text, default=prop.default, maxlen=prop.length_max)
+        case bpy.types.EnumProperty(is_enum_flag=True):
+            return bpy.props.EnumProperty(**shown, items=choices(prop.enum_items), default=set(prop.default_flag), options={"ENUM_FLAG"})
+        case bpy.types.EnumProperty():
+            return bpy.props.EnumProperty(**shown, items=choices(prop.enum_items), default=prop.default)
 
 
 # --- [DECLARATIONS]
@@ -236,6 +179,21 @@ def mirrored(prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.B
 def annotated(form: type[Struct]) -> dict[str, bpy.props._PropertyDeferred]:
     """Property definitions a form class and its bases declare, bases first, as Blender registers them."""
     return {name: definition for kind in reversed(form.__mro__) for name, definition in vars(kind).get("__annotations__", {}).items() if isinstance(definition, bpy.props._PropertyDeferred)}
+
+
+def itemized[T: Struct](form: type[T], /, **items: tuple[_Item, ...] | Callable[[Struct, bpy.types.Context | None], Iterable[_Item]]) -> type[T]:
+    """Returns a subclass of form under its name declaring each named enum property again with the given items, every other keyword as form declares it.
+
+    Args:
+        form: Form class declaring each named property, its items empty.
+        **items: Static items, or a dynamic items callback whose strings its caller keeps referenced (`held_choices`), per property name.
+
+    Returns:
+        Form subclass the host registers in place of form.
+    """
+    declared = annotated(form)
+    derived: type[T] = type(form.__name__, (form,), {"__annotations__": {name: declared[name].function(**{**declared[name].keywords, "items": rows}) for name, rows in items.items()}})  # ty: ignore[invalid-assignment]
+    return derived
 
 
 def nested(form: type[bpy.types.PropertyGroup]) -> tuple[type[bpy.types.PropertyGroup], ...]:
@@ -294,8 +252,8 @@ def pointed(owner: type[Struct], name: str, definition: bpy.props._PropertyDefer
     with ExitStack() as stack:
         yield (
             Result[None, Faults](ok=None)
-            .filter_with(lambda _: not (name in rna.properties or name in rna.functions or hasattr(owner, name)), lambda _: Fault.of(BlenderReason.TAKEN, request, member=owner.__name__))
-            .bind(lambda _: _REGISTER(owner, name, definition).map_error(partial(Fault.of, BlenderReason.REFUSED, request)))
+            .filter_with(lambda _: not (name in rna.properties or name in rna.functions or hasattr(owner, name)), lambda _: Fault.of(Reason.TAKEN, request, member=owner.__name__))
+            .bind(lambda _: _REGISTER(owner, name, definition).map_error(partial(Fault.of, Reason.REFUSED, request)))
             .map(lambda _: stack.callback(delattr, owner, name))
             .map(lambda _: None)
         )
@@ -325,4 +283,4 @@ def reconciling[T: bpy.types.ID](kind: type[T], write: Callable[[Handle[T], Iden
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Changed", "Updated", "annotated", "case_choices", "choices", "flag_choices", "flagged", "held_choices", "mirrored", "nested", "pointed", "reconciling", "updated", "updating"]
+__all__ = ["Changed", "Updated", "annotated", "case_choices", "choices", "enum_choices", "flagged", "held_choices", "itemized", "mirrored", "nested", "pointed", "reconciling", "updated", "updating"]

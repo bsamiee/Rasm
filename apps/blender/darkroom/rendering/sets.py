@@ -18,18 +18,16 @@ from blender.bpy.data.rna.mirrors import Changed
 from blender.bpy.data.rna.paths import rooted, Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.render.compositor.blending import Entry
-from blender.bpy.render.compositor.effects import EffectName, Enabled
+from blender.bpy.render.compositor.effects import Enabled, Entry
 from blender.bpy.render.compositor.recipes import applied, projected, recorded, Valued
 from blender.bpy.render.outputs.framing import Framing
 from blender.bpy.render.sessions.members import Category, Members
 from blender.bpy.render.sessions.setups import Categories, CategorySettings, Locking, Locks, SetupScope
 from blender.bpy.settings.attachments import Attachment
-from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.presets import Verb
-from blender.bpy.ui.layout.rows import FUNCTIONS, gridded, Layout, Line, Property, realized, RowContent, RowDraw
+from blender.bpy.ui.layout.rows import FUNCTIONS, gridded, Layout, Line, Member, Property, realized, RowContent, RowDraw
+from blender.bpy.ui.layout.values import Verb
 from blender.records.faults import Outcome, paired
-from blender.records.fields import Case
+from blender.records.fields import Case, Name
 
 from ..chain.previews import Recipe, Tiles
 from ..chain.stack import Chain
@@ -42,7 +40,7 @@ class Setup[R: Case](msgspec.Struct, frozen=True, kw_only=True):
     """Category settings of a scene and its view layers, and the chain entries it holds by name in stack order."""
 
     settings: CategorySettings
-    effects: Mapping[EffectName, Valued[Entry[R]]]
+    effects: Mapping[Name, Valued[Entry[R]]]
 
 
 class SetupPick(bpy.types.PropertyGroup):
@@ -183,7 +181,7 @@ def _effect_holder(holder: Struct) -> Option[tuple[bpy.types.Scene, str]]:
             return Nothing
 
 
-def kept(locks: Locks[Key], current: Mapping[EffectName, Valued[Entry[Effect]]], recipe: Mapping[EffectName, Valued[Entry[Effect]]]) -> dict[EffectName, Valued[Entry[Effect]]]:
+def kept(locks: Locks[Key], current: Mapping[Name, Valued[Entry[Effect]]], recipe: Mapping[Name, Valued[Entry[Effect]]]) -> dict[Name, Valued[Entry[Effect]]]:
     """Projects recipe entries over current ones, entries locked whole by the empty key, locked inputs, and locked enables kept."""
     return projected(current, recipe, locked=locks.whole(""), fields=locks.held)
 

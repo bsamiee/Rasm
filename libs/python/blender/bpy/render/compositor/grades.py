@@ -1,26 +1,34 @@
-"""OCIO operations as compositor node forms over live entry inputs, and the matrix form of transforms whose optimized processor is one matrix."""
+"""OCIO operations as compositor graphs: node forms over live entry inputs, the matrix form of transforms whose optimized processor is one matrix, and lattice and curve tables of transforms with no node form."""
 
+from collections.abc import Mapping
 from functools import reduce
 import inspect
 import itertools
-from typing import Final, Self
+from typing import Annotated, Final
 
 import bpy
 from colour.models.rgb.transfer_functions.st_2084 import CONSTANTS_ST2084, eotf_inverse_ST2084
-from expression import Error, Nothing, Ok, Option
+from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
+import numpy.typing as npt
 import PyOpenColorIO
 
+from blender.bpy.data.ids.images import Tag
+from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
+from blender.bpy.nodes.content import Generated, Points
+from blender.bpy.nodes.desired import Socket
 from blender.bpy.nodes.functions import grouped
 from blender.bpy.nodes.graphs import Expr, math, matrix, rgba, Scalar, switched, transformed, vector, where, xyz
-from blender.bpy.nodes.interface import Socket
-from blender.bpy.render.compositor.colors import AXES, logarithmic
-from blender.imaging.color.processors import GREY, processor
-from blender.records.faults import Fault, Outcome, RecordReason
-from blender.records.fields import Finite
+from blender.bpy.render.compositor.colors import AXES, logarithmic, space_item
+from blender.bpy.render.compositor.coordinates import uv_mapped
+from blender.imaging.color.luts import Lattice, Logarithmic, Rational, split, Uniform
+from blender.imaging.color.processors import converted, GREY, processor
+from blender.imaging.files.buffers import applied
+from blender.records.faults import Fault, Outcome, Reason
+from blender.records.stores import content_hash
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -30,6 +38,8 @@ MATRIX_ROWS: Final = tuple(
 )
 MATRIX_OFFSET: Final = Socket(key="offset", kind=bpy.types.NodeSocketVector, description="Matrix offset", hide_in_modifier=True)
 MATRIX: Final = (*MATRIX_ROWS, MATRIX_OFFSET)
+TILES: Final = Ownership(kind=bpy.types.Image, key="table", saved=Saved.USED)
+_SATURATION_LUMA: Final = tuple(PyOpenColorIO.CDLTransform().getSatLumaCoefs())
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -43,38 +53,23 @@ class Zone(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     width: Expr
 
 
-class MatrixRows(msgspec.Struct, frozen=True, kw_only=True):
-    """Rows of an RGB matrix and its offset, the values of the derived matrix sockets."""
-
-    rows: tuple[tuple[Finite, Finite, Finite], tuple[Finite, Finite, Finite], tuple[Finite, Finite, Finite]] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
-    offset: tuple[Finite, Finite, Finite] = (0.0, 0.0, 0.0)
-
-    @property
-    def values(self) -> dict[Key, Value]:
-        """Matrix socket values by key, each row at the socket of its channel, then the offset."""
-        return {**{socket.key: row for socket, row in zip(MATRIX_ROWS, self.rows, strict=True)}, MATRIX_OFFSET.key: self.offset}
-
-    @classmethod
-    def of(cls, config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> Outcome[Self]:
-        """Reduces a transform through its optimized processor to one matrix, identity for no operation, refusing any other operation."""
-
-        def reduced(processed: PyOpenColorIO.Processor) -> Outcome[Self]:
-            match list(processed.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()):
-                case []:
-                    return Ok(cls())
-                case [PyOpenColorIO.MatrixTransform() as matrix]:
-                    return Ok(msgspec.convert({"rows": np.asarray(matrix.getMatrix(), dtype=np.float64).reshape(4, 4)[:3, :3].tolist(), "offset": matrix.getOffset()[:3]}, cls))
-                case operations:
-                    return Error(
-                        Fault.of(RecordReason.OUTSIDE, type(transform).__name__, ", ".join(type(operation).__name__ for operation in operations), member=PyOpenColorIO.MatrixTransform.__name__)
-                    )
-
-        return processor(config, transform).bind(reduced)
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [MATRIX]
+
+
+def matrix_values(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> Outcome[dict[Key, Value]]:
+    """Returns the `MATRIX` values of a transform its optimized processor reduces to one matrix, each row at the socket of its channel, the identity for no operation, refusing any other operation."""
+
+    def reduced(processed: PyOpenColorIO.Processor) -> Outcome[dict[Key, Value]]:
+        match list(processed.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()) or [PyOpenColorIO.MatrixTransform()]:
+            case [PyOpenColorIO.MatrixTransform() as held]:
+                rows = np.asarray(held.getMatrix(), dtype=np.float64).reshape(4, 4)[:3, :3].tolist()
+                return Ok({**{socket.key: tuple(row) for socket, row in zip(MATRIX_ROWS, rows, strict=True)}, MATRIX_OFFSET.key: tuple(held.getOffset()[:3])})
+            case operations:
+                return Error(Fault.of(Reason.OUTSIDE, type(transform).__name__, ", ".join(type(operation).__name__ for operation in operations), member=PyOpenColorIO.MatrixTransform.__name__))
+
+    return processor(config, transform).bind(reduced)
 
 
 def matrixed(color: Expr, rows: tuple[Expr, Expr, Expr], offset: Expr) -> Expr:
@@ -92,7 +87,7 @@ def cdl(color: Expr, slope: Expr, offset: Expr, power: Expr, saturation: Scalar)
     """ASC CDL in OCIO's `CDL_NO_CLAMP` style, negative slopes passing power unchanged, saturation about OCIO's CDL luma."""
     sloped = vector("MULTIPLY_ADD", color, slope, offset)
     graded = vector("POWER", vector("MAXIMUM", sloped, (0.0, 0.0, 0.0)), power) + vector("MINIMUM", sloped, (0.0, 0.0, 0.0))
-    luma = vector("DOT_PRODUCT", graded, tuple(PyOpenColorIO.CDLTransform().getSatLumaCoefs()))
+    luma = vector("DOT_PRODUCT", graded, _SATURATION_LUMA)
     return vector("MULTIPLY_ADD", graded - luma, saturation, luma)
 
 
@@ -112,7 +107,7 @@ def primary(
     exposed = vector("MULTIPLY", vector("ADD", color, offset), vector("POWER", (2.0, 2.0, 2.0), exposure))
     center = math("MULTIPLY", GREY, math("POWER", 2.0, pivot.default_with(lambda: PyOpenColorIO.GradingPrimary(PyOpenColorIO.GRADING_LIN).pivot)))
     contrasted = vector("MULTIPLY", vector("SIGN", exposed), vector("SCALE", vector("POWER", vector("DIVIDE", vector("ABSOLUTE", exposed), xyz(center, center, center)), contrast), center))
-    luma = vector("DOT_PRODUCT", contrasted, tuple(PyOpenColorIO.CDLTransform().getSatLumaCoefs()))
+    luma = vector("DOT_PRODUCT", contrasted, _SATURATION_LUMA)
     return vector("MULTIPLY_ADD", contrasted - luma, saturation, luma)
 
 
@@ -341,6 +336,129 @@ def eetf(codes: Expr, *, source: Scalar, target: Scalar, black: Scalar = 0.0, kn
     return vector("SCALE", vector("MINIMUM", vector("MAXIMUM", lifted, floor), peak), reference)
 
 
+# --- [LATTICES]
+
+
+@grouped(kind=bpy.types.CompositorNodeTree)
+def tetrahedral(encoded: Annotated[Expr, bpy.types.NodeSocketVector], tile: Annotated[Expr, bpy.types.NodeSocketColor], size: Expr | float) -> Mapping[Key, Expr]:
+    """Tetrahedral interpolation of a packed table tile at encoded coordinates over the table's cube size."""
+    limit = size - 1.0
+    limits = xyz(limit, limit, limit)
+    index = vector("MINIMUM", vector("MAXIMUM", (0.0, 0.0, 0.0), encoded * limits), limits)
+    base = vector("FLOOR", index)
+    fraction = index - base
+    red, green, blue = fraction["X"], fraction["Y"], fraction["Z"]
+    ordered = (red > green, green > blue, red > blue)
+    unordered = tuple(1.0 - order for order in ordered)
+    largest = (ordered[0] * ordered[2], unordered[0] * ordered[1])
+    smallest = (unordered[0] * unordered[2], ordered[0] * unordered[1])
+    toward, away = xyz(*largest, 1.0 - (largest[0] + largest[1])), xyz(*smallest, 1.0 - (smallest[0] + smallest[1]))
+    high, low = vector("DOT_PRODUCT", fraction, toward), vector("DOT_PRODUCT", fraction, away)
+    middle = vector("DOT_PRODUCT", fraction, (1.0, 1.0, 1.0)) - high - low
+    opposite = vector("ADD", base, (1.0, 1.0, 1.0))
+    reciprocal = 1.0 / size
+    square = reciprocal * reciprocal
+    cells: tuple[tuple[Expr | float, ...], ...] = (
+        (square, reciprocal, 0.0, square * 0.5),
+        (0.0, 0.0, -reciprocal, math("MULTIPLY_ADD", reciprocal, -0.5, 1.0)),
+        (0.0, 0.0, 0.0, 1.0),
+        (0.0, 0.0, 0.0, 1.0),
+    )
+    addressing = matrix({(row, column): cell for row, row_cells in enumerate(cells, 1) for column, cell in enumerate(row_cells, 1)})
+    vertices = (base, vector("MINIMUM", base + toward, limits), vector("MINIMUM", opposite - away, limits), vector("MINIMUM", opposite, limits))
+    terms = tuple(
+        vector("SCALE", uv_mapped(tile, transformed(vertex, addressing), interpolation="Nearest", extension=("Extend", "Extend")), weight)
+        for vertex, weight in zip(vertices, (1.0 - high, high - middle, middle - low, low))
+    )
+    return {"color": sum(terms[1:], terms[0])}
+
+
+def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32], source: Expr, config: PyOpenColorIO.Config) -> Outcome[Expr]:
+    """Samples packed outputs at lattice-encoded coordinates.
+
+    Args:
+        key: Table image node key, stable while the table content changes.
+        name: Generated image name.
+        lattice: Table size and input encoding.
+        plane: Top-first RGB table outputs in blue, green, red node order.
+        source: Straight RGB input.
+        config: Configuration with data image role.
+
+    Returns:
+        Tetrahedral table output, or the data role fault.
+    """
+    match lattice.spacing:
+        case Uniform(low=low, high=high):
+            scale = max(abs(low), abs(high))
+            encoded = vector("DIVIDE", vector("SUBTRACT", vector("DIVIDE", source, (scale,) * 3), (low / scale,) * 3), (high / scale - low / scale,) * 3)
+        case Logarithmic(low=low, span=span):
+            tiny = float(np.finfo(np.float32).tiny)
+            encoded = xyz(*(math("MULTIPLY_ADD", math("LOGARITHM", math("MAXIMUM", source[axis] + 2.0**low, tiny), 2.0), 1.0 / span, -low / span) for axis in AXES))
+        case Rational():
+            positive = vector("MAXIMUM", source, (0.0,) * 3)
+            encoded = positive / (positive + (1.0,) * 3)
+
+    def sampled(data: str) -> Expr:
+        image = Generated(ownership=TILES, content=content_hash(Lattice, lattice, arrays=(plane,)), name=name, plane=lambda: Ok(Some(plane)), tag=Tag(space=Some(data)))
+        return tetrahedral(encoded, Expr(kind=bpy.types.CompositorNodeImage, content=Some(image), socket="Image", shape=bpy.types.NodeSocketColor).named(key), float(lattice.size))
+
+    return space_item(config, PyOpenColorIO.ROLE_DATA).map(sampled)
+
+
+def latticed(key: Key, name: str, config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, lattice: Lattice, source: Expr) -> Outcome[Expr]:
+    """Samples a transform with no node form at the lattice's nodes into a tetrahedral table of the straight RGB source."""
+    return lattice.samples().bind(lambda samples: converted(config, transform, samples)).bind(lambda plane: tabled(key, name, lattice, plane, source, config))
+
+
+def suffixed(key: Key, name: str, config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, source: Expr) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Expr]]:
+    """Tables a transform from its first 3D table on at that table's own lattice, answering the operations before it and the table output, the source where it holds none."""
+    return split(config, transform).bind(lambda parts: parts[1].map(lambda found: tabled(key, name, *found, source, config)).default_value(Ok(source)).map(lambda table: (parts[0], table)))
+
+
+# --- [CURVES]
+
+
+def curved(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, domain: tuple[float, float], count: int = 257) -> Outcome[tuple[Points, Points, Points]]:
+    """Samples a channel-separable transform's unoptimized processor on a grey ramp over `domain` into one curve table per RGB channel, a drawn-only grade the optimizer reads as identity kept.
+
+    Args:
+        config: Configuration resolving the transform.
+        transform: Transform mapping each channel by its own curve, as `GradingRGBCurveTransform` does.
+        domain: Lowest and highest input of the tables.
+        count: Points per table.
+
+    Returns:
+        Red, green, and blue curve points, or the transform's color fault.
+    """
+    ramp = np.linspace(*domain, count, dtype=np.float32)
+    inputs: list[float] = ramp.astype(float).tolist()
+
+    def tables(plane: npt.NDArray[np.float32]) -> tuple[Points, Points, Points]:
+        red, green, blue = plane[0].T.astype(float).tolist()
+        return tuple(zip(inputs, red)), tuple(zip(inputs, green)), tuple(zip(inputs, blue))
+
+    return processor(config, transform).map(lambda built: applied(built.getOptimizedCPUProcessor(PyOpenColorIO.OPTIMIZATION_NONE), np.repeat(ramp[None, :, None], 3, axis=2))).map(tables)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["MATRIX", "MATRIX_OFFSET", "MATRIX_ROWS", "MatrixRows", "Zone", "cdl", "eetf", "gamut_compression", "matrixed", "primary", "st2084", "tone"]
+__all__ = [
+    "MATRIX",
+    "MATRIX_OFFSET",
+    "MATRIX_ROWS",
+    "TILES",
+    "Zone",
+    "cdl",
+    "curved",
+    "eetf",
+    "gamut_compression",
+    "latticed",
+    "matrix_values",
+    "matrixed",
+    "primary",
+    "st2084",
+    "suffixed",
+    "tabled",
+    "tetrahedral",
+    "tone",
+]

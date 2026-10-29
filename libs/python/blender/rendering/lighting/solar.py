@@ -13,7 +13,7 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, Reason
 from blender.records.fields import Count
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -186,7 +186,7 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
         def crossed() -> tuple[datetime.datetime, ...]:
             return tuple((epoch + datetime.timedelta(seconds=float(moment))).astimezone(zone) for moment in solved[: 3 if -1.0 < ratio < 1.0 else 1])
 
-        return crossed().map(lambda moments: cls(noon=moments[0], light=lit(moments))).map_error(functools.partial(Fault.of, RecordReason.NUMERIC, str(date)))
+        return crossed().map(lambda moments: cls(noon=moments[0], light=lit(moments))).map_error(functools.partial(Fault.of, Reason.FAILED, str(date)))
 
 
 class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -218,6 +218,18 @@ class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         half_day = np.arccos(np.clip(-math.tan(site.latitude) * np.tan(rows), -1.0, 1.0))
         return cls(analemmas=SunPosition.of(site, declination, hour).vectors, surface=SunPosition.of(site, rows, half_day * np.linspace(-1.0, 1.0, round(math.tau / cls.spacing) + 1)).vectors)
 
+    @property
+    def arcs(self) -> tuple[tuple[npt.NDArray[np.float64], bool], ...]:
+        """Above-horizon runs of each analemma with their cyclic flag, a loop never setting whole and cyclic, else its open pieces of more than one point."""
+
+        def split(loop: npt.NDArray[np.float64]) -> tuple[tuple[npt.NDArray[np.float64], bool], ...]:
+            above = loop[:, 2] >= 0.0
+            rolled = np.roll(loop, -int(np.argmin(above)), axis=0)
+            pieces = np.split(rolled, np.flatnonzero(np.diff(rolled[:, 2] >= 0.0)) + 1)
+            return ((loop, True),) if above.all() else tuple((piece, False) for piece in pieces if piece[0, 2] >= 0.0 and len(piece) > 1)
+
+        return tuple(arc for loop in self.analemmas for arc in split(loop))
+
 
 class Study(msgspec.Struct, frozen=True, kw_only=True):
     """Moments stepped from a naive start on the zone clock, a sub-day remainder counting elapsed time and whole days keeping clock time."""
@@ -235,7 +247,11 @@ class Study(msgspec.Struct, frozen=True, kw_only=True):
         def stepped() -> tuple[datetime.datetime, ...]:
             return tuple((origin + frame * self.step).astimezone(zone) for frame in range(self.frames))
 
-        return stepped().map_error(functools.partial(Fault.of, RecordReason.NUMERIC, f"{first} + {self.frames} x {self.step}"))
+        return stepped().map_error(functools.partial(Fault.of, Reason.FAILED, f"{first} + {self.frames} x {self.step}"))
+
+    def positions(self, site: Site, /, *, refraction: bool) -> Outcome[SunPosition]:
+        """Returns the sun position at each study moment on the site clock, apparent with `refraction`, or time fault."""
+        return self.moments(site.clock).map(lambda moments: SunPosition.at(site, np.array([moment.timestamp() for moment in moments]))).map(lambda found: found.apparent() if refraction else found)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

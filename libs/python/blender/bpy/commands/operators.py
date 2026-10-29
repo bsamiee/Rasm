@@ -1,25 +1,27 @@
-"""Operator and macro classes over a command body, the invoke form protocol, and body answers."""
+"""Operator and macro classes over a command body, the invoke form protocol, body answers, and the steps and draws bodies compose."""
 
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager
+from functools import partial
 import inspect
 from itertools import chain
 from pathlib import Path
 from types import FunctionType, MethodType
-from typing import Final, override, Protocol, Self, TYPE_CHECKING
+from typing import ClassVar, override, Protocol, Self, TYPE_CHECKING, TypedDict, Unpack
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
 from blender.bpy.commands.calls import Command, filled, Placement
+from blender.bpy.data.rna.conditions import Condition
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.mirrors import annotated, nested
 from blender.bpy.data.rna.snapshots import Applied, assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.extension.reports import rendered
-from blender.records.faults import accumulated, Faults, Outcome
+from blender.bpy.extension.reports import alerted, rendered
+from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -32,15 +34,12 @@ type Answer = Done | Unchanged
 type Notes = tuple[tuple[rna_enums.WmReportItems, str], ...]
 
 
-class Invoke[T: bpy.types.PropertyGroup, S](Protocol):
-    """Invoke form deriving the registered operator class from the class its command builds."""
+class Invoke[T: bpy.types.PropertyGroup](Protocol):
+    """Invoke form deriving the registered operator class from the class its command builds, `asks` stating whether it asks for input before the body runs."""
 
-    @property
-    def asks(self) -> bool:
-        """Whether the form asks for input before the body runs, its command's label ending in an ellipsis."""
-        ...
+    asks: ClassVar[bool]
 
-    def classed(self, body: "Body[T, S]", base: type[bpy.types.Operator], /) -> Outcome[Acquisitions]:
+    def classed(self, body: "Body[T]", base: type[bpy.types.Operator], /) -> Outcome[Acquisitions]:
         """Builds the operator class the form invokes, with the release scopes it holds.
 
         Args:
@@ -51,6 +50,23 @@ class Invoke[T: bpy.types.PropertyGroup, S](Protocol):
             Classes and banded scopes, the operator class first, register fault for a host call the form cannot make.
         """
         ...
+
+
+class Options[T: bpy.types.PropertyGroup](TypedDict, total=False):
+    """Operator fields besides the form and body, as `Operator.of` takes them."""
+
+    condition: Option[Condition]
+    icon: Option["rna_enums.IconItems"]
+    internal: bool
+    invoke: Option[Invoke[T]]
+    seed: Option[Callable[[T, bpy.types.Event, Identity], Mapping[str, Value]]]
+    undo: Option[Option[str]]
+    draw: Option[Draw]
+    check: Option[Callable[[bpy.types.Operator, bpy.types.Context], bool]]
+    describe: Option[Callable[[bpy.types.Context, T], str]]
+    presets: bool
+    primary: Option[str]
+    named: Option[Key]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -87,16 +103,28 @@ class Call[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
     paths: tuple[Path, ...] = ()
 
 
-class Operator[T: bpy.types.PropertyGroup, S = None](Command, frozen=True, kw_only=True):
+class Over[S, T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
+    """Body running a step over what the call's identity binds, keyed and described by the step it wraps."""
+
+    binding: Callable[[Identity], Outcome[S]]
+    step: Callable[[S, Call[T]], Outcome[Answer]]
+
+    def __call__(self, call: Call[T], /) -> Outcome[Answer]:
+        """Runs the step over the binding of the calling extension."""
+        return self.binding(call.identity).bind(lambda bound: self.step(bound, call))
+
+
+class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
     """Form group and body with invoke form and undo, its key the body function name unless stated and its description the first paragraph of the body docstring.
 
+    The body function is the def `run` wraps, read through `__wrapped__`, `functools.partial`, and the step of an `Over`.
     `undo` holds Nothing for no undo step, `Some(Nothing)` for one step per run, and `Some(Some(group))` for one step across consecutive runs of the group.
     `describe` computes the tooltip from context and properties in place of the docstring.
     """
 
     form: type[T]
     run: Callable[[Call[T]], Outcome[Answer]]
-    invoke: Option[Invoke[T, S]] = Nothing
+    invoke: Option[Invoke[T]] = Nothing
     seed: Option[Callable[[T, bpy.types.Event, Identity], Mapping[str, Value]]] = Nothing
     undo: Option[Option[str]] = Some(Nothing)
     draw: Option[Draw] = Nothing
@@ -108,9 +136,14 @@ class Operator[T: bpy.types.PropertyGroup, S = None](Command, frozen=True, kw_on
 
     def __post_init__(self) -> None:
         """Refuses a body holding no function name or docstring."""
-        function = inspect.unwrap(self.run)
+        function = _function(self.run)
         if not (isinstance(function, FunctionType | MethodType) and inspect.getdoc(function) is not None):
             raise TypeError(f"{function!r} has no function name or docstring")
+
+    @staticmethod
+    def of[U: bpy.types.PropertyGroup](form: type[U], /, **options: Unpack[Options[U]]) -> Callable[[Callable[[Call[U]], Outcome[Answer]]], "Operator[U]"]:
+        """Returns the decorator building the operator of a body over the form, every other field a keyword."""
+        return lambda run: Operator(form=form, run=run, **options)
 
     # --- [TEXT]
 
@@ -118,13 +151,13 @@ class Operator[T: bpy.types.PropertyGroup, S = None](Command, frozen=True, kw_on
     @override
     def key(self) -> Key:
         """Stated key, else the body function name."""
-        return self.named.default_with(lambda: self.run.__name__)  # ty: ignore[unresolved-attribute]
+        return self.named.default_with(lambda: _function(self.run).__name__)  # ty: ignore[unresolved-attribute]
 
     @property
     @override
     def description(self) -> str:
         """First paragraph of the body docstring."""
-        return " ".join(str(inspect.getdoc(inspect.unwrap(self.run))).split("\n\n")[0].split()).removesuffix(".")
+        return " ".join(str(inspect.getdoc(_function(self.run))).split("\n\n")[0].split()).removesuffix(".")
 
     @property
     @override
@@ -177,10 +210,10 @@ class Operator[T: bpy.types.PropertyGroup, S = None](Command, frozen=True, kw_on
         return identity.name(bpy.types.Operator, self.key).bind(classed)
 
 
-class Body[T: bpy.types.PropertyGroup, S](msgspec.Struct, frozen=True, kw_only=True):
+class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
     """Callbacks one operator class composes over its command."""
 
-    command: Operator[T, S]
+    command: Operator[T]
     identity: Identity
 
     # --- [HOST]
@@ -190,12 +223,6 @@ class Body[T: bpy.types.PropertyGroup, S](msgspec.Struct, frozen=True, kw_only=T
         """Returns the operator properties as the form group whose properties its class copies, which no host type states."""
         properties: T = operator.properties  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         return properties
-
-    @staticmethod
-    def layout(owner: bpy.types.Operator | bpy.types.UIPopupMenu | bpy.types.UIPieMenu | bpy.types.UIPopover | bpy.types.Header, /) -> bpy.types.UILayout:
-        """Returns the layout an operator, popup, pie, popover, or header draws into, which the stubs type as optional."""
-        layout: bpy.types.UILayout = owner.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        return layout
 
     # --- [REPORTS]
 
@@ -224,6 +251,10 @@ class Body[T: bpy.types.PropertyGroup, S](msgspec.Struct, frozen=True, kw_only=T
     def performed(self, operator: bpy.types.Operator, context: bpy.types.Context, paths: tuple[Path, ...] = (), /) -> Outcome[Answer]:
         """Runs the command over the operator properties and the paths its invoke form chose."""
         return self.command.run(Call(identity=self.identity, context=context, properties=self.properties(operator), paths=paths))
+
+    def chose(self, operator: bpy.types.Operator, context: bpy.types.Context, paths: tuple[Path, ...], /) -> Returns:
+        """Runs the command over the paths a browser chose and reports its result, refusing no path as unchosen."""
+        return self.finished(operator, Ok(paths).filter_with(bool, lambda _: Fault.of(Reason.REQUIRED, f"chosen file for {self.command.title}")).bind(partial(self.performed, operator, context)))
 
     @property
     def execute(self) -> Callable[[bpy.types.Operator, bpy.types.Context], Returns]:
@@ -260,8 +291,9 @@ class Body[T: bpy.types.PropertyGroup, S](msgspec.Struct, frozen=True, kw_only=T
         """Class `draw` laying out the command's draw over the operator properties."""
 
         def draw(operator: bpy.types.Operator, context: bpy.types.Context) -> None:
+            layout: bpy.types.UILayout = operator.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             for drawn in self.command.draw.to_list():
-                drawn(self.layout(operator), context, operator.properties, self.identity)
+                drawn(layout, context, operator.properties, self.identity)
 
         return draw
 
@@ -310,6 +342,7 @@ class Macro(Command, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [ANSWERS]
 
 
 def answered(applied: Applied, reason: str, notes: Notes = (), /) -> Outcome[Answer]:
@@ -328,15 +361,50 @@ def tallied(edits: tuple[Outcome[object], ...], notes: Notes = (), /) -> Outcome
     return accumulated(edits).map(lambda _: Done(notes=notes)).or_else_with(lambda faults: Error(faults) if all(edit.is_error() for edit in edits) else Ok(Done(notes=notes, skipped=Some(faults))))
 
 
+# --- [DRAWS]
+
+
+def confirmed[S](
+    binding: Callable[[Identity], Outcome[S]],
+    message: Callable[[S, bpy.types.Context, bpy.types.OperatorProperties], Outcome[tuple[str, ...]]],
+    fields: tuple[str, ...],
+    layout: bpy.types.UILayout,
+    context: bpy.types.Context,
+    properties: bpy.types.OperatorProperties,
+    identity: Identity,
+    /,
+) -> None:
+    """Draws a confirmation dialog's message lines over what the identity binds, their faults as alert rows, then the form fields it names."""
+    lines = binding(identity).bind(lambda bound: message(bound, context, properties))
+    for line in lines.default_value(()):
+        layout.label(text=line, translate=False)
+    alerted(layout, lines)
+    for name in fields:
+        layout.prop(properties, name)
+
+
+# --- [BODIES]
+
+
+def _function(run: Callable[..., object], /) -> Callable[..., object]:
+    """Returns the def a body wraps, through `__wrapped__`, `functools.partial`, and the step of an `Over`."""
+    unwrapped: Callable[..., object] = inspect.unwrap(run)
+    match unwrapped:
+        case partial(func=func) | Over(step=func):
+            return _function(func)
+        case found:
+            return found
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+
+@Operator.of(Empty, icon=Some("X"), internal=True, undo=Nothing)
 def dismiss_reports(call: Call[Empty]) -> Outcome[Answer]:
     """Clears the extension's held callback reports."""
     return Ok(Done() if call.identity.reports.cleared() else Unchanged(reason="No reports are held"))
 
 
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-DISMISSAL: Final = Operator[Empty](form=Empty, run=dismiss_reports, icon=Some("X"), internal=True, undo=Nothing)
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DISMISSAL", "Answer", "Body", "Call", "Done", "Draw", "Empty", "Invoke", "Macro", "Notes", "Operator", "Returns", "Unchanged", "answered", "dismiss_reports", "tallied"]
+__all__ = ["Answer", "Body", "Call", "Done", "Draw", "Empty", "Invoke", "Macro", "Notes", "Operator", "Options", "Over", "Returns", "Unchanged", "answered", "confirmed", "dismiss_reports", "tallied"]

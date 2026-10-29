@@ -12,9 +12,9 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, Reason
 from blender.records.fields import Finite, NonNegative, Seed, SEED_BOUND, Unit
-from blender.records.identity import content_hash, rng
+from blender.records.stores import content_hash, rng
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -184,7 +184,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
             )
             return np.ascontiguousarray(rimmed * (1.0 - self.vignette * np.minimum(reach**2, 1.0))[..., None], dtype=np.float32)
 
-        return formed().map_error(partial(Fault.of, RecordReason.NUMERIC, repr(self)))
+        return formed().map_error(partial(Fault.of, Reason.FAILED, repr(self)))
 
 
 class _Scattered(msgspec.Struct, frozen=True, kw_only=True):
@@ -278,7 +278,7 @@ _DRAWS: Final = MappingProxyType({
         vignette=(0.3, 0.0, 0.2),
     ),
 })
-REFERENCES: Final = MappingProxyType({
+_FAMILIES: Final = MappingProxyType({
     ReferenceFamily.SKY: MappingProxyType({
         "Golden Hour": ReferenceImage(level=0.2, gradient=(0.9, 0.1), tint=Gel.WARM.value, highlights=(Highlight(position=(0.85, 0.65), intensity=0.7, color=Gel.WARM.value),)),
         "Sunrise": ReferenceImage(level=0.16, gradient=(0.5, 0.2), tint=(1.0, 0.7, 0.45), highlights=(Highlight(position=(0.2, 0.4), sharpness=1.4, color=(1.0, 0.65, 0.4)),)),
@@ -340,8 +340,8 @@ REFERENCES: Final = MappingProxyType({
         "Sci-Fi Panel": ReferenceImage(level=0.06, highlights=(Highlight(position=(0.75, 0.5), sharpness=1.0, intensity=0.7, color=Gel.CYAN.value),), blinds=Blinds(cycles=4.0), vignette=0.3),
     }),
 })
-RECIPES: Final = MappingProxyType({name: recipe for recipes in REFERENCES.values() for name, recipe in recipes.items()})
+REFERENCES: Final = MappingProxyType({name: (family, recipe) for family, recipes in _FAMILIES.items() for name, recipe in recipes.items()})
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["RECIPES", "REFERENCES", "Blinds", "Dapple", "Gel", "Highlight", "ReferenceDistribution", "ReferenceFamily", "ReferenceImage", "Rim"]
+__all__ = ["REFERENCES", "Blinds", "Dapple", "Gel", "Highlight", "ReferenceDistribution", "ReferenceFamily", "ReferenceImage", "Rim"]

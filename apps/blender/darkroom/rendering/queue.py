@@ -34,9 +34,7 @@ rows: Final = (
     checks,
     batch,
     *prerequisites,
-    Append(
-        target=TOPBAR_MT_render, rows=(Opens(target=Opened(RenderSet.menu, Called.MENU)), OperatorButton(target=batch.dispatching), *(OperatorButton(target=command) for command in batch.controls))
-    ),
+    Append(target=TOPBAR_MT_render, rows=(Opens(target=Opened(RenderSet.key, Called.MENU)), OperatorButton(target=batch.dispatching), *(OperatorButton(target=command) for command in batch.controls))),
     Panel(section=render_sets.section, at=Beside(RENDER_PT_color_management)),
     Panel(
         section=batch.section,

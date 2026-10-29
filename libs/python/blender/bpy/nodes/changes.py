@@ -1,79 +1,183 @@
-"""Desired graph reconciliation onto node trees: change rows that write themselves, owned groups, and nested group content."""
+"""Desired graph reconciliation onto node trees: interface and node change rows that write themselves, write phases, owned groups, and nested group content."""
 
 from collections import deque
 from collections.abc import Mapping
-import functools
+from functools import partial, reduce
 from types import MappingProxyType
+from typing import override
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Result, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.data.ids.content import endpoints
 from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.rna.descriptors import differing, Value, written
-from blender.bpy.data.rna.paths import RnaPath, struct_at
+from blender.bpy.data.rna.paths import RnaPath
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderReason
-from blender.bpy.nodes.addressing import Addressed, Declared, interfaced, Keyed, Placed, Restated, slot, Withdrawn
-from blender.bpy.nodes.desired import Content, End, Graph, Link, member_paths, Node, NodeGroup
-from blender.bpy.nodes.interface import Interface
-from blender.bpy.nodes.trees import created, GraphTree, grouped, joined, links_of, ordered, socket_at
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
+from blender.bpy.nodes.addressing import Addressed, InterfaceItem, Keyed
+from blender.bpy.nodes.desired import Addressing, Content, DesiredItem, End, Graph, Interface, InterfacePanel, Link, member_paths, Node, NodeGroup, Socket
+from blender.bpy.nodes.trees import base_socket, created, endpoints, group_tree, grouped, joined, links_of, ordered, socket_at
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Structural = Configured | Withdrawn | Declared | Removed | Added
-type _Row = _Structural | Disconnected | Placed | Altered | Connected | Reordered | Valued | Restated
+type _Row = Configured | Withdrawn | Declared | Removed | Added | Placed | Altered | Connected | Reordered | Valued | Restated
+type Changes = tuple[tuple[_Row, ...], ...]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 # --- [CONTENT]
 
 
-class Nested(msgspec.Struct, frozen=True, kw_only=True):
+class Nested(Addressing, frozen=True, kw_only=True):
     """Owned group a group node points at, reconciled as a hidden tree of its own."""
 
     group: NodeGroup
 
     @property
+    @override
     def keyed(self) -> object:
         """Group key and name the lowering digest reads, the parts the node's owned tree takes from the group."""
         return (self.group.key, self.group.name)
 
     @property
+    @override
     def nested(self) -> tuple[NodeGroup, ...]:
         """The group, then every group it nests."""
         return (self.group, *self.group.graph.nested)
 
+    @override
     def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
-        """Whether the node points at the group's owned tree and that tree holds the group."""
         return (
-            struct_at(live, ("node_tree",), bpy.types.NodeTree)
+            group_tree(live)
             .filter(lambda tree: Mark.read(identity, tree) == Some(Mark(key=self.group.key)))
-            .map(lambda tree: changes(self.group, tree, identity).map(lambda rows: rows == Changes()))
+            .map(lambda tree: changes(self.group, tree, identity).map(lambda rows: not any(rows)))
             .default_value(Ok(False))
         )
 
+    @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
-        """Makes the group's hidden tree and points the node at it."""
         return made(msgspec.structs.replace(self.group, name=f".{self.group.name}"), identity).bind(lambda tree: grouped(live, tree))
 
-    def sockets(self, _live: bpy.types.Node, identity: Identity, slot: str, /) -> Mapping[str, str]:
-        """Socket identifiers by interface item key of the group's owned tree, items the group still declares alone."""
+    @override
+    def sockets(self, live: bpy.types.Node, identity: Identity, /) -> Mapping[str, str]:
         return (
             self.group.ownership
             .reused(identity)
-            .map(lambda tree: Addressed.of(tree, slot))
-            .map(lambda live: {key: identifier for key, identifier in live.sockets.items() if key in live.kept(self.group.interface)})
+            .bind(lambda tree: Addressed.of(tree, identity).to_option())
+            .map(lambda held: (held.sockets, held.kept(self.group.interface)))
+            .map(lambda pair: {key: identifier for key, identifier in pair[0].items() if key in pair[1]})
             .default_value({})
         )
 
 
-# --- [ROWS]
+# --- [INTERFACE_ROWS]
+
+
+class Withdrawn(msgspec.Struct, frozen=True, kw_only=True):
+    """Stored item interface drops or redeclares."""
+
+    key: Key
+
+    def applied(self, keyed: Keyed, identity: Identity) -> Outcome[None]:
+        """Removes the item and its panel toggle, then its stored key."""
+
+        def withdrawn(live: Addressed, held: bpy.types.NodeTreeInterfaceItem) -> None:
+            for toggle in live.toggle(held).to_list():
+                live.face.remove(toggle)
+            live.face.remove(held)
+            live.store({name: identifier for name, identifier in live.stored.items() if name != self.key})
+
+        return Addressed.of(keyed.tree, identity).bind(lambda live: live.item(self.key, bpy.types.NodeTreeInterfaceItem).map(partial(withdrawn, live)))
+
+
+class Declared(msgspec.Struct, frozen=True, kw_only=True):
+    """Interface item to create."""
+
+    key: Key
+    entry: DesiredItem
+
+    def applied(self, keyed: Keyed, identity: Identity) -> Outcome[None]:
+        """Creates the socket, or the panel with its toggle, and stores its key."""
+
+        def created(live: Addressed) -> Outcome[InterfaceItem]:
+            face, refused = live.face, partial(Fault.of, Reason.REFUSED, repr(live.face))
+
+            def toggled(panel: bpy.types.NodeTreeInterfacePanel, *, value: bool) -> Outcome[None]:
+                return (
+                    catch(face.new_socket, exception=TypeError)(panel.name, in_out="INPUT", socket_type=bpy.types.NodeSocketBool.__name__, parent=panel)
+                    .map_error(refused)
+                    .bind(lambda socket: accumulated((written(socket, ("is_panel_toggle",), True), written(socket, ("default_value",), value))).map(lambda _: None))
+                )
+
+            match self.entry:
+                case (Socket() as socket, side):
+                    return catch(face.new_socket, exception=TypeError)(socket.title, description=socket.description, in_out=side, socket_type=socket.base.__name__).map_error(refused)
+                case InterfacePanel(name=name, description=description, closed=closed, toggle=toggle):
+                    return (
+                        catch(face.new_panel, exception=TypeError)(name, description=description, default_closed=closed)
+                        .map_error(refused)
+                        .bind(lambda panel: accumulated(toggled(panel, value=value) for value in toggle.to_list()).map(lambda _: panel))
+                    )
+
+        return Addressed.of(keyed.tree, identity).bind(lambda live: created(live).map(lambda declared: live.store({**live.stored, self.key: declared.identifier})))
+
+
+class Placed(msgspec.Struct, frozen=True, kw_only=True):
+    """Socket type to write and place to move an item to, ahead of node writes reading the sockets they give."""
+
+    key: Key
+    kind: Option[type[bpy.types.NodeSocket]] = Nothing
+    place: Option[tuple[Option[Key], int]] = Nothing
+
+    def applied(self, keyed: Keyed, identity: Identity) -> Outcome[None]:
+        """Retypes the item, reading it again under its refined class, then moves it under its panel."""
+
+        def moved(live: Addressed, parent: Option[Key], position: int) -> Outcome[None]:
+            return paired(live.item(self.key, bpy.types.NodeTreeInterfaceItem), parent.map(lambda key: live.item(key, bpy.types.NodeTreeInterfacePanel).map(Some)).default_value(Ok(Nothing))).bind(
+                lambda pair: catch(live.face.move_to_parent, exception=TypeError)(pair[0], pair[1].to_optional(), position).map_error(partial(Fault.of, Reason.REFUSED, repr(live.face)))
+            )
+
+        retyped = self.kind.map(
+            lambda kind: (
+                Addressed
+                .of(keyed.tree, identity)
+                .bind(lambda live: live.item(self.key, bpy.types.NodeTreeInterfaceItem))
+                .bind(lambda held: written(held, ("socket_type",), base_socket(kind).__name__))
+            )
+        )
+        return retyped.default_value(Ok(Nothing)).bind(lambda _: self.place.map(lambda place: Addressed.of(keyed.tree, identity).bind(lambda live: moved(live, *place))).default_value(Ok(None)))
+
+
+class Restated(msgspec.Struct, frozen=True, kw_only=True):
+    """Item parts to write once sockets carry their values."""
+
+    key: Key
+    name: Option[str] = Nothing
+    description: Option[str] = Nothing
+    closed: Option[bool] = Nothing
+    toggle: Option[bool] = Nothing
+    members: Mapping[RnaPath, Value] = MappingProxyType({})
+
+    def applied(self, keyed: Keyed, identity: Identity) -> Outcome[None]:
+        """Writes name, description, panel state, toggle default, and socket members."""
+
+        def rest(live: Addressed, held: bpy.types.NodeTreeInterfaceItem) -> Outcome[None]:
+            return accumulated((
+                *(written(held, ("name",), name) for name in self.name.to_list()),
+                *(written(held, ("description",), text) for text in self.description.to_list()),
+                *(written(held, ("default_closed",), closed) for closed in self.closed.to_list()),
+                *(written(toggle, ("default_value",), value) for value in self.toggle.to_list() for toggle in live.toggle(held).to_list()),
+                assigned(held, self.members),
+            )).map(lambda _: None)
+
+        return Addressed.of(keyed.tree, identity).bind(lambda live: live.item(self.key, bpy.types.NodeTreeInterfaceItem).bind(partial(rest, live)))
+
+
+# --- [NODE_ROWS]
 
 
 class Configured(msgspec.Struct, frozen=True, kw_only=True):
@@ -87,19 +191,18 @@ class Configured(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Removed(msgspec.Struct, frozen=True, kw_only=True):
-    """Owned node graph lacks or declares as another class."""
+    """Owned link or node graph lacks or declares as another class."""
 
-    name: str
+    item: bpy.types.Node | bpy.types.NodeLink
 
     def applied(self, keyed: Keyed, _identity: Identity) -> Outcome[None]:
-        """Removes the node."""
-        nodes = keyed.tree.nodes
-        return (
-            Option
-            .of_optional(nodes.get(self.name))
-            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(nodes), member=self.name))
-            .bind(lambda node: catch(nodes.remove, exception=RuntimeError)(node).map_error(functools.partial(Fault.of, BlenderReason.REFUSED, repr(nodes))))
-        )
+        """Removes the link or node, the node with its links."""
+        match self.item:
+            case bpy.types.NodeLink() as link:
+                answer = catch(keyed.tree.links.remove, exception=RuntimeError)(link)
+            case node:
+                answer = catch(keyed.tree.nodes.remove, exception=RuntimeError)(node)
+        return answer.map_error(partial(Fault.of, Reason.REFUSED, repr(keyed.tree)))
 
 
 class Added(msgspec.Struct, frozen=True, kw_only=True):
@@ -138,17 +241,6 @@ class Altered(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class Disconnected(msgspec.Struct, frozen=True, kw_only=True):
-    """Owned link graph lacks."""
-
-    link: bpy.types.NodeLink
-
-    def applied(self, keyed: Keyed, _identity: Identity) -> Outcome[None]:
-        """Removes the link."""
-        links = keyed.tree.links
-        return catch(links.remove, exception=RuntimeError)(self.link).map_error(functools.partial(Fault.of, BlenderReason.REFUSED, repr(links)))
-
-
 class Connected(msgspec.Struct, frozen=True, kw_only=True):
     """Link tree lacks."""
 
@@ -178,7 +270,7 @@ class Reordered(msgspec.Struct, frozen=True, kw_only=True):
                 .filter(lambda link: endpoints(link)[1] == source)
                 .skip(sources[:index].count(source))
                 .try_head()
-                .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(target), member=repr(source)))
+                .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member=repr(source)))
                 for index, source in enumerate(sources)
             ).bind(lambda desired: ordered(target, desired))
 
@@ -201,24 +293,6 @@ class Valued(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class Changes(msgspec.Struct, frozen=True, kw_only=True):
-    """Rows by write phase in write order, `Changes()` for current tree."""
-
-    disconnected: tuple[Disconnected, ...] = ()
-    structure: tuple[_Structural, ...] = ()
-    placed: tuple[Placed, ...] = ()
-    altered: tuple[Altered, ...] = ()
-    connected: tuple[Connected, ...] = ()
-    reordered: tuple[Reordered, ...] = ()
-    values: tuple[Valued, ...] = ()
-    restated: tuple[Restated, ...] = ()
-
-    @property
-    def phases(self) -> tuple[tuple[_Row, ...], ...]:
-        """Rows of each phase in write order: links to drop, structure, item retypes and places, node parts, links, link order, socket values, item parts."""
-        return (self.disconnected, self.structure, self.placed, self.altered, self.connected, self.reordered, self.values, self.restated)
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -231,10 +305,11 @@ def changes(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Iden
         identity: Extension marking owned nodes.
 
     Returns:
-        `Ok` of rows. `Error` of `absent` or `choice` for content member node class lacks, `register` for refused attachment name.
+        `Ok` of rows by write phase: links to drop, structure, item retypes and places, node parts, links, link order, socket values, item parts, each phase empty
+        for a current tree. `Error` of `absent` or `choice` for content member node class lacks, `register` for refused attachment name.
     """
-    graph = desired.graph if isinstance(desired, NodeGroup) else desired
-    return slot(identity).bind(lambda name: _read(desired, Keyed.of(tree, identity, name, _contents(graph)), identity))
+    graph, interface = (desired.graph, desired.interface) if isinstance(desired, NodeGroup) else (desired, Interface())
+    return paired(Keyed.of(tree, identity, graph.contents), Addressed.of(tree, identity)).bind(lambda pair: _read(graph, interface, *pair, identity))
 
 
 def reconciled(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Identity) -> Outcome[Changes]:
@@ -248,16 +323,12 @@ def reconciled(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: I
     Returns:
         `Ok` of rows written. `Error` of `changes` faults, or every `edit`, `absent`, or `choice` fault from phase writes.
     """
-    contents = _contents(desired.graph if isinstance(desired, NodeGroup) else desired)
+    contents = (desired.graph if isinstance(desired, NodeGroup) else desired).contents
 
-    def phased(name: str, rows: Changes) -> Outcome[Changes]:
-        def wrote(phase: tuple[_Row, ...]) -> Outcome[None]:
-            keyed = Keyed.of(tree, identity, name, contents)
-            return accumulated(row.applied(keyed, identity) for row in phase).map(lambda _: None)
+    def wrote(phase: tuple[_Row, ...]) -> Outcome[None]:
+        return Keyed.of(tree, identity, contents).bind(lambda keyed: accumulated(row.applied(keyed, identity) for row in phase)).map(lambda _: None)
 
-        return functools.reduce(lambda done, phase: done.bind(lambda _: wrote(phase)), rows.phases, Result[None, Faults](ok=None)).map(lambda _: rows)
-
-    return slot(identity).bind(lambda name: changes(desired, tree, identity).bind(lambda rows: phased(name, rows)))
+    return changes(desired, tree, identity).bind(lambda rows: reduce(lambda done, phase: done.bind(lambda _: wrote(phase)), rows, Result[None, Faults](ok=None)).map(lambda _: rows))
 
 
 def made(group: NodeGroup, identity: Identity, *, of: Option[bpy.types.ID] = Nothing) -> Outcome[bpy.types.NodeTree]:
@@ -271,29 +342,86 @@ def made(group: NodeGroup, identity: Identity, *, of: Option[bpy.types.ID] = Not
     Returns:
         `Ok` of group tree. `Error` of reconcile faults, removing any tree the call built.
     """
-    return group.ownership.made(
-        identity,
-        lambda: _new_group(group.name, group.graph.kind).map_error(functools.partial(Fault.of, BlenderReason.REFUSED, repr(bpy.data.node_groups))),
-        of=of,
-        filled=lambda tree: reconciled(group, tree, identity).map(lambda _: tree),
-    )
+    request = repr(bpy.data.node_groups)
+
+    def built() -> Outcome[bpy.types.NodeTree]:
+        tree = catch(bpy.data.node_groups.new, exception=TypeError)(group.name, group.graph.kind.__name__)
+        return tree.map_error(partial(Fault.of, Reason.REFUSED, request)).bind(partial(typed, bpy.types.NodeTree, request))
+
+    return group.ownership.made(identity, built, of=of, filled=lambda tree: reconciled(group, tree, identity).map(lambda _: tree))
 
 
 def valued(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, values: Mapping[str, Value] | Mapping[str | int, Value], keyed: Mapping[str, str]) -> Outcome[None]:
     """Writes socket defaults by identifier or enabled position, or by interface item key or item name through `keyed` socket identifiers."""
-    return accumulated(
-        socket_at(sockets, address if isinstance(address, int) else keyed.get(address, address)).bind(lambda socket: written(socket, ("default_value",), value)) for address, value in values.items()
-    ).map(lambda _: None)
+    return accumulated(socket_at(sockets, address, keyed).bind(lambda socket: written(socket, ("default_value",), value)) for address, value in values.items()).map(lambda _: None)
 
 
-def _contents(graph: Graph) -> dict[Key, Content]:
-    """Content each desired node holds, by key."""
-    return {key: content for key, (node, _) in graph.placed.items() for content in node.content.to_list()}
+def interfaced(addressed: Addressed, interface: Interface, /) -> tuple[tuple[Withdrawn, ...], tuple[Declared, ...], tuple[Placed, ...], tuple[Restated, ...]]:
+    """Reads live interface against desired one, writing nothing.
+
+    Args:
+        addressed: Stored item keys and live items of the group.
+        interface: Interface group declares.
+
+    Returns:
+        Items to withdraw last first, items to declare, retypes and places, siblings of each new or misplaced item placed again in preorder, and differing parts per item.
+    """
+    entries = tuple(interface.walked())
+    inverse = addressed.keys
+    held = addressed.kept(interface)
+    wanted = frozenset(key for key, *_ in entries)
+    fresh = wanted - held.keys()
+    located = {key: (Option.of_optional(item.parent).bind(lambda panel: Option.of_optional(inverse.get(panel.identifier))), item.position) for key, item in held.items()}
+    shifted = frozenset(parent for key, _, parent, position in entries if key in fresh or located.get(key) != (parent, position) or any(frame in fresh for frame in parent.to_list()))
+
+    def changed[T](now: T, wanted: T) -> Option[T]:
+        return Nothing if now == wanted else Some(wanted)
+
+    def kind(key: Key, entry: DesiredItem) -> Option[type[bpy.types.NodeSocket]]:
+        match entry, held.get(key):
+            case (Socket() as socket, _), bpy.types.NodeTreeInterfaceSocket() as item:
+                return changed(item.socket_type, socket.base.__name__).map(lambda _: socket.kind)
+            case _:
+                return Nothing
+
+    def restated(key: Key, entry: DesiredItem) -> Option[Restated]:
+        match entry, held.get(key):
+            case (Socket() as socket, _), bpy.types.NodeTreeInterfaceSocket() as item:
+                row = Restated(
+                    key=key,
+                    name=changed(item.name, socket.title),
+                    description=changed(item.description, socket.description),
+                    members=kind(key, entry).map(lambda _: socket.members).default_with(lambda: differing(item, socket.members)),
+                )
+            case InterfacePanel() as panel, bpy.types.NodeTreeInterfacePanel() as item:
+                row = Restated(
+                    key=key,
+                    name=changed(item.name, panel.name),
+                    description=changed(item.description, panel.description),
+                    closed=changed(item.default_closed, panel.closed),
+                    toggle=panel.toggle.filter(lambda value: all(differing(toggle, {("default_value",): value}) for toggle in addressed.toggle(item).to_list())),
+                )
+            case (Socket() as socket, _), _:
+                row = Restated(key=key, members=socket.members)
+            case _:
+                row = Restated(key=key)
+        return Some(row).filter(lambda differs: differs != Restated(key=key))
+
+    placed = tuple(
+        row
+        for key, entry, parent, position in entries
+        for row in Some(Placed(key=key, kind=kind(key, entry), place=Some((parent, position)) if parent in shifted else Nothing)).filter(lambda row: row != Placed(key=row.key)).to_list()
+    )
+    return (
+        tuple(Withdrawn(key=key) for identifier in reversed(tuple(addressed.live)) for key in Option.of_optional(inverse.get(identifier)).to_list() if key not in wanted or key in fresh),
+        tuple(Declared(key=key, entry=entry) for key, entry, _, _ in entries if key in fresh),
+        placed,
+        tuple(row for key, entry, _, _ in entries for row in restated(key, entry).to_list()),
+    )
 
 
-def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outcome[Changes]:
-    tree, name, first = keyed.tree, keyed.slot, keyed.nodes
-    graph, interface = (desired.graph, desired.interface) if isinstance(desired, NodeGroup) else (desired, Interface())
+def _read(graph: Graph, interface: Interface, keyed: Keyed, addressed: Addressed, identity: Identity) -> Outcome[Changes]:
+    tree, first = keyed.tree, keyed.nodes
     placed = graph.placed
     held = {key: node for key, node in first.items() if key in placed and isinstance(node, placed[key][0].kind)}
     owners = {node: key for key, node in held.items()}
@@ -310,7 +438,7 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
                 and interface.map(
                     lambda future: any(identifier == socket.identifier and address in {key, identifier} and isinstance(socket, kind) for key, (identifier, kind) in future.items())
                 ).default_value(True)
-                for socket in socket_at(sockets, address if isinstance(address, int) else keyed.get(address, address)).to_option().to_list()
+                for socket in socket_at(sockets, address, keyed).to_option().to_list()
             )
         }
 
@@ -328,10 +456,10 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
         return (drawn(held[key]) if key in held else Ok(fresh)).map(lambda row: Some(row).filter(lambda row: row != Altered(key=key)))
 
     def linked(
-        alterations: tuple[Altered, ...], rewritten: frozenset[Key]
-    ) -> tuple[tuple[Disconnected, ...], tuple[Connected, ...], tuple[Reordered, ...], dict[Key, Mapping[str, tuple[str, type[bpy.types.NodeSocket]]]]]:
+        alterations: tuple[Altered, ...], rewritten: frozenset[Key], surviving: Mapping[Key, tuple[str, type[bpy.types.NodeSocket]]]
+    ) -> tuple[tuple[Removed, ...], tuple[Connected, ...], tuple[Reordered, ...], dict[Key, Mapping[str, tuple[str, type[bpy.types.NodeSocket]]]]]:
 
-        def addressed(endpoint: End, *, output: bool) -> End:
+        def addressed_end(endpoint: End, *, output: bool) -> End:
             match endpoint.socket:
                 case int(position) if endpoint.node in held and endpoint.node not in rewritten:
                     live = held[endpoint.node]
@@ -341,21 +469,16 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
                 case _:
                     return endpoint
 
-        def surviving(group: bpy.types.NodeTree, face: Interface) -> dict[str, tuple[str, type[bpy.types.NodeSocket]]]:
-            live, entries = Addressed.of(group, name), {key: entry for key, entry, _, _ in face.walked()}
-            items = live.kept(face)
-            return {key: (address, entry[0].kind if isinstance(entry := entries[key], tuple) else bpy.types.NodeSocketBool) for key, address in live.sockets.items() if key in items}
-
         def unavailable(link: Link) -> bool:
-            end = addressed(link.target, output=False)
+            end = addressed_end(link.target, output=False)
             return end.node in held and end.node not in rewritten and socket_at(held[end.node].inputs, end.socket).map(lambda socket: not socket.enabled).default_value(False)
 
-        own = {key: surviving(tree, interface) for key, live in held.items() if isinstance(live, bpy.types.NodeGroupInput | bpy.types.NodeGroupOutput)}
+        own = {key: surviving for key, live in held.items() if isinstance(live, bpy.types.NodeGroupInput | bpy.types.NodeGroupOutput)}
         pointed = {
-            change.key: {item: (identifier, bpy.types.NodeSocket) for item, identifier in content.sockets(held[change.key], identity, name).items()}
+            change.key: {item: (identifier, bpy.types.NodeSocket) for item, identifier in content.sockets(held[change.key], identity).items()}
             for change in alterations
             if change.key in held
-            for content in change.content.to_list()
+            for content in change.content.bind(lambda each: Option.of_optional(try_downcast(Addressing, each))).to_list()
             if content.nested
         }
         interfaces: dict[Key, Mapping[str, tuple[str, type[bpy.types.NodeSocket]]]] = {**own, **pointed}
@@ -370,21 +493,17 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
 
         wanted = tuple(link for link in graph.links if not unavailable(link))
         ends = {socket: End(node=key, socket=socket.identifier) for key, live in held.items() for socket in (*live.inputs, *live.outputs)}
-        endpoints = {
-            link: (ends[link.from_socket], ends[link.to_socket])  # ty: ignore[invalid-argument-type]
-            for link in tree.links
-            if link.from_node in owners and link.to_node in owners
-        }
-        existing = tuple(sorted(endpoints, key=lambda link: link.multi_input_sort_id, reverse=True))
+        joined_ends = {link: (ends[outlet], ends[inlet]) for link in tree.links for source, outlet, target, inlet in (endpoints(link),) if source in owners and target in owners}
+        existing = tuple(sorted(joined_ends, key=lambda link: link.multi_input_sort_id, reverse=True))
         available: dict[tuple[End, End], deque[bpy.types.NodeLink]] = {}
         present: dict[End, tuple[End, ...]] = {}
         for link in existing:
-            source, target = endpoints[link]
+            source, target = joined_ends[link]
             present[target] = (*present.get(target, ()), source)
             if retained(source) and retained(target):
                 available.setdefault((source, target), deque()).append(link)
         matched = tuple(
-            (link, Option.of_optional(available.get((addressed(link.source, output=True), addressed(link.target, output=False)))).filter(bool).map(lambda candidates: candidates.popleft()))
+            (link, Option.of_optional(available.get((addressed_end(link.source, output=True), addressed_end(link.target, output=False)))).filter(bool).map(lambda candidates: candidates.popleft()))
             for link in wanted
         )
         kept_links = frozenset(found for _, held_link in matched for found in held_link.to_list())
@@ -392,12 +511,12 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
         for declared in wanted:
             desired_links[declared.target] = (*desired_links.get(declared.target, ()), declared.source)
         return (
-            tuple(Disconnected(link=link) for link in existing if link not in kept_links),
+            tuple(Removed(item=link) for link in existing if link not in kept_links),
             tuple(Connected(link=link) for link, found in reversed(matched) if found.is_none()),
             tuple(
                 Reordered(target=target, sources=sources)
                 for target, sources in desired_links.items()
-                if len(sources) > 1 and present.get(addressed(target, output=False), ()) != tuple(addressed(source, output=True) for source in sources)
+                if len(sources) > 1 and present.get(addressed_end(target, output=False), ()) != tuple(addressed_end(source, output=True) for source in sources)
             ),
             interfaces,
         )
@@ -405,7 +524,10 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
     def assembled(rows: tuple[Option[Altered], ...]) -> Changes:
         alterations = tuple(row for option in rows for row in option.to_list())
         rewritten = frozenset(row.key for row in alterations if row.members)
-        (withdrawn, declared, placements, restated), (disconnected, connected, reordered, interfaces) = interfaced(tree, interface, name), linked(alterations, rewritten)
+        entries = {key: entry for key, entry, _, _ in interface.walked()}
+        items = addressed.kept(interface)
+        surviving = {key: (address, entry[0].kind if isinstance(entry := entries[key], tuple) else bpy.types.NodeSocketBool) for key, address in addressed.sockets.items() if key in items}
+        (withdrawn, declared, placements, restated), (disconnected, connected, reordered, interfaces) = interfaced(addressed, interface), linked(alterations, rewritten, surviving)
         values = tuple(
             Valued(
                 key=key,
@@ -416,33 +538,45 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outco
             else Valued(key=key, inputs=node.inputs, outputs=node.outputs)
             for key, (node, _) in placed.items()
         )
-        return Changes(
-            disconnected=disconnected,
-            structure=(
+        return (
+            disconnected,
+            (
                 *(Configured(members=members) for members in (differing(tree, member_paths(graph.members)),) if members),
                 *withdrawn,
                 *declared,
-                *(Removed(name=node.name) for node in first.values() if node not in owners),
+                *(Removed(item=node) for node in first.values() if node not in owners),
                 *(Added(key=key, kind=node.kind) for key, (node, _) in placed.items() if key not in held),
             ),
-            placed=placements,
-            altered=alterations,
-            connected=connected,
-            reordered=reordered,
-            values=tuple(row for row in values if row.inputs or row.outputs),
-            restated=restated,
+            placements,
+            alterations,
+            connected,
+            reordered,
+            tuple(row for row in values if row.inputs or row.outputs),
+            restated,
         )
 
     return accumulated(altered(key, node, parent) for key, (node, parent) in placed.items()).map(assembled)
 
 
-@catch(exception=RuntimeError)
-def _new_group(name: str, kind: type[GraphTree]) -> bpy.types.NodeTree:
-    """New empty group of `kind`, the host answering a tree for every name and tree class it accepts."""
-    tree: bpy.types.NodeTree = bpy.data.node_groups.new(name, kind.__name__)  # type: ignore[arg-type, assignment]  # ty: ignore[invalid-argument-type, invalid-assignment]
-    return tree
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Added", "Altered", "Changes", "Configured", "Connected", "Disconnected", "Nested", "Removed", "Reordered", "Valued", "changes", "made", "reconciled", "valued"]
+__all__ = [
+    "Added",
+    "Altered",
+    "Changes",
+    "Configured",
+    "Connected",
+    "Declared",
+    "Nested",
+    "Placed",
+    "Removed",
+    "Reordered",
+    "Restated",
+    "Valued",
+    "Withdrawn",
+    "changes",
+    "interfaced",
+    "made",
+    "reconciled",
+    "valued",
+]

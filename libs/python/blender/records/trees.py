@@ -1,4 +1,4 @@
-"""Keyed owner trees with their diffs, merges, transfers, and reverts, layered layouts of linked boxes, and preorder walks over any tree."""
+"""Keyed owner trees with their diffs, merges, transfers, and reverts, layered layouts of linked boxes, and walks reaching each node once."""
 
 from collections.abc import Callable, Collection, Hashable, Iterable, Mapping
 from difflib import SequenceMatcher
@@ -13,8 +13,6 @@ from typing import Self
 from expression import Nothing, Option, Some
 from expression.collections import Block
 import msgspec
-
-from blender.records.fields import NonNegative
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -48,7 +46,7 @@ class Owner[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, frozen=True
         return MappingProxyType(dict(self.rows))
 
 
-class _Place[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
+class Place[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
     """Sibling index under parent or among roots."""
 
     parent: Option[K]
@@ -94,16 +92,16 @@ class Tree[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, frozen=True,
         """Returns ordered child keys under parent, roots for Nothing."""
         return parent.map(lambda key: self.owners[key].children).default_value(self.roots)
 
-    def places(self) -> dict[K, _Place[K]]:
+    def places(self) -> dict[K, Place[K]]:
         """Returns place per owner."""
-        return {key: _Place(parent=parent, index=index) for parent in (Nothing, *map(Some, self.owners)) for index, key in enumerate(self.children(parent))}
+        return {key: Place(parent=parent, index=index) for parent in (Nothing, *map(Some, self.owners)) for index, key in enumerate(self.children(parent))}
 
 
 class _Placed[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Owner with value rows at place."""
 
     key: K
-    place: _Place[K]
+    place: Place[K]
     rows: tuple[tuple[N, V], ...] = ()
 
     @cached_property
@@ -124,8 +122,8 @@ class Moved[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
     """Owner changing parent or sibling position."""
 
     key: K
-    before: _Place[K]
-    after: _Place[K]
+    before: Place[K]
+    after: Place[K]
 
 
 class Reparametrized[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -165,24 +163,17 @@ class Reparametrized[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, fr
 # --- [LAYOUTS]
 
 
-class Size(msgspec.Struct, frozen=True, kw_only=True):
-    """Drawn box size in layout units."""
-
-    width: NonNegative
-    height: NonNegative
-
-
 class Gaps(msgspec.Struct, frozen=True, kw_only=True):
     """Layout gaps between columns, between rows, and between bands."""
 
-    across: NonNegative = 80.0
-    down: NonNegative = 20.0
-    band: NonNegative = 60.0
+    across: float = 80.0
+    down: float = 20.0
+    band: float = 60.0
 
     def arranged[K: Hashable](
-        self, sizes: Mapping[K, Size], links: tuple[tuple[K, int, K], ...], bands: Mapping[K, Option[K]], origin: Callable[[K], tuple[float, float]]
+        self, sizes: Mapping[K, tuple[float, float]], links: tuple[tuple[K, int, K], ...], bands: Mapping[K, Option[K]], origin: Callable[[K], tuple[float, float]]
     ) -> dict[K, tuple[float, float]]:
-        """Returns the top left corner per box, columns by depth over acyclic (source, slot, target) links, rows by source slot order, one band's boxes stacked together, growing right and down from the first box's origin."""
+        """Returns the top left corner per box of `(width, height)` size, columns by depth over acyclic (source, slot, target) links, rows by source slot order, one band's boxes stacked together, growing right and down from the first box's origin."""
         if not sizes:
             return {}
         feeds = {key: tuple((source, slot) for source, slot, target in links if target == key) for key in sizes}
@@ -193,10 +184,10 @@ class Gaps(msgspec.Struct, frozen=True, kw_only=True):
         banded, depths = tuple(dict.fromkeys(bands[key] for key in order)), range(max(column.values()) + 1)
         cells = {(band, depth): sorted((key for key in order if (bands[key], column[key]) == (band, depth)), key=rank.__getitem__) for band in banded for depth in depths}
         left, top = origin(order[0])
-        lefts = tuple(accumulate((max(sizes[key].width for key in order if column[key] == depth) + self.across for depth in depths), initial=left))
-        stacks = {cell: sum(sizes[key].height for key in keys) + self.down * (len(keys) - 1) if keys else 0.0 for cell, keys in cells.items()}
+        lefts = tuple(accumulate((max(sizes[key][0] for key in order if column[key] == depth) + self.across for depth in depths), initial=left))
+        stacks = {cell: sum(sizes[key][1] for key in keys) + self.down * (len(keys) - 1) if keys else 0.0 for cell, keys in cells.items()}
         tops = dict(zip(banded, accumulate((max(stacks[band, depth] for depth in depths) + self.band for band in banded), sub, initial=top)))
-        return {key: (lefts[depth], y) for (band, depth), keys in cells.items() for key, y in zip(keys, accumulate((sizes[key].height + self.down for key in keys), sub, initial=tops[band]))}
+        return {key: (lefts[depth], y) for (band, depth), keys in cells.items() for key, y in zip(keys, accumulate((sizes[key][1] + self.down for key in keys), sub, initial=tops[band]))}
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -254,12 +245,21 @@ def revert[V, K: Hashable, N: Hashable](current: Tree[V, K, N], applied: Iterabl
 # --- [WALKS]
 
 
-def preorder[T](seed: T, children: Callable[[T], Iterable[T]]) -> Block[T]:
-    """Returns seed and every node children reach from it, depth first in child order."""
-    frontier: tuple[T, ...] = (seed,)
-    return Block.unfold(lambda pending: Some((pending[0], (*children(pending[0]), *pending[1:]))) if pending else Nothing, frontier)
+def reached[T: Hashable](seeds: Iterable[T], children: Callable[[T], Iterable[T]], /) -> Block[T]:
+    """Returns seeds and every node children reach from them, depth first in child order, each node once at its first reach."""
+
+    def step(state: tuple[tuple[T, ...], frozenset[T]]) -> Option[tuple[T, tuple[tuple[T, ...], frozenset[T]]]]:
+        pending, seen = state
+        match tuple(node for node in pending if node not in seen):
+            case (node, *rest):
+                return Some((node, ((*children(node), *rest), seen | {node})))
+            case _:
+                return Nothing
+
+    start: tuple[tuple[T, ...], frozenset[T]] = (tuple(seeds), frozenset())
+    return Block.unfold(step, start)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Deleted", "Edit", "Gaps", "Inserted", "Moved", "Owner", "Reparametrized", "Size", "Toward", "Tree", "diff", "merge", "preorder", "revert", "transfer"]
+__all__ = ["Deleted", "Edit", "Gaps", "Inserted", "Moved", "Owner", "Place", "Reparametrized", "Toward", "Tree", "diff", "merge", "reached", "revert", "transfer"]

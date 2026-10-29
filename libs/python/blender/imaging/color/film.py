@@ -15,7 +15,7 @@ from scipy.special import exprel
 
 from blender.imaging.color.luts import Lattice, Logarithmic
 from blender.imaging.color.processors import REC709_SCENE
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, Reason
 from blender.records.fields import AtLeastOne, Finite, NonNegative, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -26,17 +26,6 @@ type _Rotation = Annotated[float, msgspec.Meta(gt=-math.pi / 6.0, lt=math.pi / 6
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Characteristic(msgspec.Struct, frozen=True, kw_only=True):
-    """Logarithmic exposure window with a tangent-continuous toe and shoulder."""
-
-    low: Finite = -10.0
-    span: Positive = 22.0 - -10.0
-    toe_x: _Share = 0.44
-    toe_y: _Share = 0.28
-    across: _Share = (0.591 - 0.44) / (1.0 - 0.44)
-    up: _Share = (0.779 - 0.28) / (1.0 - 0.28)
-
-
 class FilmStock(msgspec.Struct, frozen=True, kw_only=True):
     """Photographic stock's exposure and maximum density in stops."""
 
@@ -45,7 +34,11 @@ class FilmStock(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Film(msgspec.Struct, frozen=True, kw_only=True):
-    """Editable negative and print stocks sampled into an OCIO formation, each primary's sensitivity a reciprocal saturation scale, hue rotation, and photographic gain."""
+    """Editable negative and print stocks sampled into an OCIO formation.
+
+    Each primary's sensitivity is a reciprocal saturation scale, hue rotation, and photographic gain, and both stocks share one characteristic: a logarithmic
+    exposure window from `low` over `span` stops with a tangent-continuous toe at (`toe_x`, `toe_y`) and a shoulder `across` and `up` the rest of the window.
+    """
 
     space: ClassVar[str] = REC709_SCENE
     pre_exposure: Finite = 4.3
@@ -53,7 +46,12 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
     scales: tuple[AtLeastOne, AtLeastOne, AtLeastOne] = (1.05, 1.12, 1.045)
     rotations: tuple[_Rotation, _Rotation, _Rotation] = (math.radians(0.5), math.radians(2.0), math.radians(0.1))
     gains: tuple[Positive, Positive, Positive] = (1.0, 1.0, 1.0)
-    characteristic: Characteristic = Characteristic()
+    low: Finite = -10.0
+    span: Positive = 22.0 - -10.0
+    toe_x: _Share = 0.44
+    toe_y: _Share = 0.28
+    across: _Share = (0.591 - 0.44) / (1.0 - 0.44)
+    up: _Share = (0.779 - 0.28) / (1.0 - 0.28)
     negative: FilmStock = FilmStock()
     backlight: tuple[Positive, Positive, Positive] = (1.0, 1.0, 1.0)
     positive: FilmStock = FilmStock(density=27.5)
@@ -67,7 +65,6 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
 
     def developed(self, values: npt.NDArray[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
         """Develops scene-linear Rec.709 RGB into display-linear Rec.709 RGB."""
-        curve = self.characteristic
 
         def logged(value: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
             return np.log2(value, out=np.full_like(value, -np.inf), where=value > 0.0)
@@ -85,8 +82,8 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         post = np.array(self.post_filter)
         backlight = np.array(self.backlight)
         log_backlight = np.logaddexp2.reduce(log_matrix + np.log2(backlight), axis=-1) + log_gains
-        log_toe = math.log(curve.up) - math.log(curve.across) + math.log(curve.toe_x) - math.log(curve.toe_y) + math.log1p(-curve.toe_y) - math.log1p(-curve.toe_x)
-        log_shoulder = math.log(curve.up) - math.log(curve.across) + math.log1p(-curve.across) - math.log1p(-curve.up)
+        log_toe = math.log(self.up) - math.log(self.across) + math.log(self.toe_x) - math.log(self.toe_y) + math.log1p(-self.toe_y) - math.log1p(-self.toe_x)
+        log_shoulder = math.log(self.up) - math.log(self.across) + math.log1p(-self.across) - math.log1p(-self.up)
         log_maximum = math.log(sys.float_info.max)
 
         def powered(ratio: npt.NDArray[np.float64], logarithm: float) -> npt.NDArray[np.float64]:
@@ -97,22 +94,22 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
 
         def density(light: npt.NDArray[np.float64], stock: FilmStock) -> npt.NDArray[np.float64]:
             """Develops logarithmic light into the shared characteristic's density fraction."""
-            u = np.clip(np.logaddexp2(light + stock.exposure, curve.low) - curve.low, 0.0, curve.span) / curve.span
-            relative = (u - curve.toe_x) / (1.0 - curve.toe_x)
-            toe = powered(np.divide(u, curve.toe_x, out=np.ones_like(u), where=u < curve.toe_x), log_toe)
-            shoulder = powered(np.divide(1.0 - relative, 1.0 - curve.across, out=np.ones_like(u), where=relative >= curve.across), log_shoulder)
-            line = np.divide(relative, curve.across, out=np.ones_like(u), where=(u >= curve.toe_x) & (relative < curve.across))
+            u = np.clip(np.logaddexp2(light + stock.exposure, self.low) - self.low, 0.0, self.span) / self.span
+            relative = (u - self.toe_x) / (1.0 - self.toe_x)
+            toe = powered(np.divide(u, self.toe_x, out=np.ones_like(u), where=u < self.toe_x), log_toe)
+            shoulder = powered(np.divide(1.0 - relative, 1.0 - self.across, out=np.ones_like(u), where=relative >= self.across), log_shoulder)
+            line = np.divide(relative, self.across, out=np.ones_like(u), where=(u >= self.toe_x) & (relative < self.across))
             return np.select(
-                (u < curve.toe_x, relative < curve.across),
-                (curve.toe_y * toe, curve.toe_y + (1.0 - curve.toe_y) * curve.up * line),
-                default=curve.toe_y + (1.0 - curve.toe_y) * (curve.up + (1.0 - curve.up) * (1.0 - shoulder)),
+                (u < self.toe_x, relative < self.across),
+                (self.toe_y * toe, self.toe_y + (1.0 - self.toe_y) * self.up * line),
+                default=self.toe_y + (1.0 - self.toe_y) * (self.up + (1.0 - self.up) * (1.0 - shoulder)),
             )
 
         black = density(log_backlight, self.positive)
         white = density(log_backlight - self.negative.density, self.positive)
         interval = black - white
         if (floor := Option.of_optional(self.black_point)).is_none() and not np.any(interval):
-            return Error(Fault.of(RecordReason.OUTSIDE, type(self).__name__, str((black, white)), member="black and white print densities that differ"))
+            return Error(Fault.of(Reason.OUTSIDE, type(self).__name__, str((black, white)), member="black and white print densities that differ"))
         light = np.maximum(values.astype(np.float64), 0.0)
         log_light = logged(light)
         log_pre = logged(pre)
@@ -143,7 +140,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
             blend = np.maximum(1.0 - np.abs((formed @ weights)[..., None] - 0.5) / 0.45, 0.0)
             return np.asarray(formed + (saturated - formed) * blend, dtype=np.float32)
 
-        return catch(np.linalg.solve, exception=np.linalg.LinAlgError)(matrix, right.reshape(-1, 3).T).map(finished).map_error(partial(Fault.of, RecordReason.NUMERIC, str(matrix)))
+        return catch(np.linalg.solve, exception=np.linalg.LinAlgError)(matrix, right.reshape(-1, 3).T).map(finished).map_error(partial(Fault.of, Reason.FAILED, str(matrix)))
 
     # --- [TABLE]
 
@@ -154,4 +151,4 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Characteristic", "Film", "FilmStock"]
+__all__ = ["Film", "FilmStock"]

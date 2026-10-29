@@ -15,14 +15,13 @@ from blender.bpy.commands.operators import Answer, Call, Done, Operator, tallied
 from blender.bpy.data.rna.paths import parsed, rna, RnaPath, rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderReason
 from blender.bpy.render.sessions.members import Category, KEY, Members, MemberScope
+from blender.bpy.render.view_layers.passes import layer_of
 from blender.bpy.settings.attachments import Stored
 from blender.bpy.settings.presets import Preset
-from blender.bpy.ui.layout.presets import Listing
 from blender.bpy.ui.layout.rows import OperatorButton, RowContent, RowDraw
-from blender.bpy.ui.layout.values import hosted
-from blender.records.faults import accumulated, Fault, Outcome, paired
+from blender.bpy.ui.layout.values import hosted, Listing
+from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -108,7 +107,7 @@ class Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def operator(self) -> Operator[LockRequest]:
         """Toggle command keyed after the locks."""
-        return Operator(form=LockRequest, run=self.lock_toggle, named=Some(f"{self.key}_toggle"))
+        return Operator.of(LockRequest, named=Some(f"{self.key}_toggle"))(self.lock_toggle)
 
     def stored(self, identity: Identity) -> Outcome[Stored[Locks[K]]]:
         """Binds the per-scene lock store."""
@@ -125,7 +124,7 @@ class Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return (
                 self
                 .holder(owner)
-                .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(owner), member=self.owner))
+                .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(owner), member=self.owner))
                 .bind(lambda found: _locked(store, scene=found[0]).bind(lambda locks: store.write(found[0], locks.toggled(found[1], key))))
                 .map(lambda _: Done())
             )
@@ -193,15 +192,7 @@ class Categories(msgspec.Struct, frozen=True, kw_only=True):
         return (
             sparse.scene
             .apply(scene)
-            .outcome.bind(
-                lambda _: accumulated(
-                    Option
-                    .of_optional(scene.view_layers.get(name))
-                    .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(scene.view_layers), member=name))
-                    .bind(lambda layer: snapshot.apply(layer).outcome)
-                    for name, snapshot in sparse.layers.items()
-                )
-            )
+            .outcome.bind(lambda _: accumulated(layer_of(scene, name).bind(lambda layer: snapshot.apply(layer).outcome) for name, snapshot in sparse.layers.items()))
             .map(lambda _: None)
         )
 

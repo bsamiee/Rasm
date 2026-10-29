@@ -12,25 +12,23 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.data.ids.content import fingerprinted
+from blender.bpy.data.ids.images import fingerprinted
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, updated
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderReason
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.effects import Enabled
 from blender.bpy.render.previews.queue import Job, PreviewQueue, Rank
 from blender.bpy.render.previews.scenes import PreviewScene
-from blender.bpy.ui.drawing.charts import Chart, GRID, Label, Layer, TRACE
+from blender.bpy.ui.drawing.canvas import Chart, GRID, Label, Layer, TRACE
 from blender.bpy.ui.drawing.handlers import Reading, Signal
-from blender.bpy.ui.images.overlays import overlaid
-from blender.bpy.ui.images.views import image_type
+from blender.bpy.ui.images.views import image_type, overlaid
 from blender.bpy.ui.resources.theme import Metrics
 from blender.imaging.color.processors import DisplayView, GREY, processor
 from blender.imaging.files.buffers import applied
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
-from blender.records.identity import content_hash, ContentHash
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.stores import content_hash, ContentHash
 
 from ..catalog import chain
 from ..chain.stages import Stage
@@ -155,12 +153,12 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     case ((value, inverse),):
                         return processor(config, PyOpenColorIO.GroupTransform([value], direction=PyOpenColorIO.TRANSFORM_DIR_FORWARD if inverse else PyOpenColorIO.TRANSFORM_DIR_INVERSE))
                     case _:
-                        return Error(Fault.of(BlenderReason.ABSENT, space.getName(), member=PyOpenColorIO.AllocationTransform.__name__))
+                        return Error(Fault.of(Reason.ABSENT, space.getName(), member=PyOpenColorIO.AllocationTransform.__name__))
 
             match self.allocation:
                 case str(name):
                     return Result[PyOpenColorIO.ColorSpace, Faults].bind(
-                        Option.of_optional(config.getColorSpace(name)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, config.getName(), member=name)), selected
+                        Option.of_optional(config.getColorSpace(name)).to_result_with(partial(Fault.of, Reason.ABSENT, config.getName(), member=name)), selected
                     )
                 case transform:
                     return processor(config, PyOpenColorIO.GroupTransform([transform], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE))
@@ -171,7 +169,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     display = held.map(lambda view: view.display).default_with(lambda: viewed(scene).display)
                     return Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], Faults].bind(
                         DisplayView.for_encoding(config, display),
-                        lambda found: found.map(lambda pair: pair[1]).to_result_with(partial(Fault.of, BlenderReason.ABSENT, display, member=DisplayView.for_encoding.__name__)),
+                        lambda found: found.map(lambda pair: pair[1]).to_result_with(partial(Fault.of, Reason.ABSENT, display, member=DisplayView.for_encoding.__name__)),
                     )
 
                 return self.guide.map(lambda transform: processor(config, transform)).default_with(
@@ -254,7 +252,6 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             later = scopes.enter_context(identity.reports.deferred(invalidated))
 
             def loaded() -> Outcome[None]:
-                identity.reports.cancelled(later)
                 return self.cleared(identity).map(lambda _: None)
 
             yield Ok((

@@ -6,7 +6,7 @@ from datetime import timedelta
 from enum import auto, Enum, IntEnum
 from functools import partial
 import time
-from typing import ClassVar, Final, Self
+from typing import ClassVar, Final
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
@@ -69,10 +69,10 @@ class Request:
 
     __slots__ = ("job", "state")
 
-    def __init__(self, *, job: Job, state: Phase | Outcome[None] = Phase.PENDING) -> None:
-        """Holds the job and its state."""
+    def __init__(self, *, job: Job) -> None:
+        """Holds the job, pending."""
         self.job = job
-        self.state: Phase | Outcome[None] = state
+        self.state: Phase | Outcome[None] = Phase.PENDING
 
     def executed(self) -> Outcome[None]:
         """Marks request running, runs its job, and stores result."""
@@ -123,12 +123,8 @@ class Backlog:
                     self.requests.pop(place, None)
                     self.requests[place] = Request(job=job)
 
-    def reset(self) -> Self:
-        """Backlog of the same feeds after a file load, the previous file's requests and render slot dropped."""
-        return type(self)(feeds=self.feeds)
 
-
-BACKLOG: Final = Resource[Backlog](made=lambda _identity: nullcontext(Backlog()), renewed=Some(Backlog.reset))
+BACKLOG: Final = Resource[Backlog](made=lambda _identity: nullcontext(Backlog()), renewed=Some(lambda held: Backlog(feeds=held.feeds)))
 
 
 class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):

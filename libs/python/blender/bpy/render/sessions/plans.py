@@ -1,48 +1,41 @@
-"""Render queue plans: the dispatch form and the scopes it plans, queue preferences read as the records a queue runs on, the dispatcher every queue step binds, and the checks a plan passes before dispatch."""
+"""Render queue plans: the dispatch form and the scopes it plans, queue preferences read as the records a queue runs on, the dispatcher every queue step binds with its observation of a dispatched run, and the checks a plan passes before dispatch."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 import datetime
 from enum import auto, Enum
 from functools import partial
-import inspect
 from itertools import groupby, starmap
 import threading
-import typing
-from typing import Annotated, Final, Self
+from typing import Final, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 import numpy as np
 
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.data.rna.mirrors import choices
+from blender.bpy.data.rna.mirrors import case_choices, enum_choices
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.faults import BlenderReason
 from blender.bpy.render.outputs.framing import Framed
 from blender.bpy.render.outputs.paths import OutputPath, Pathed
 from blender.bpy.render.sessions.members import Members
-from blender.bpy.render.sessions.preflight import audited, Measure, measured
+from blender.bpy.render.sessions.preflight import audited
 from blender.bpy.render.sessions.renders import Render
-from blender.bpy.render.view_layers.passes import used
+from blender.bpy.render.view_layers.passes import layer_of, used
 from blender.bpy.render.view_layers.routing import PassRouting
 from blender.bpy.settings.attachments import Attached
 from blender.bpy.ui.screens.areas import EditorState, Located
-from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason, typed
-from blender.rendering.batch.exchange import Endpoint
-from blender.rendering.batch.flamenco import Flamenco
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason, typed
+from blender.records.stores import RecordFile
 from blender.rendering.batch.notices import Listener, Notice, published
-from blender.rendering.batch.power import PowerHold
-from blender.rendering.batch.processes import HostCommands
-from blender.rendering.batch.progress import Heartbeat, Progress
-from blender.rendering.batch.queue import FixedCamera, Frames, JobCamera, MarkedCamera, Marker, RenderQueue
-from blender.rendering.batch.supervision import LocalMachine
-from blender.rendering.batch.targets import JobFile, Renderon, Target
-from blender.rendering.outputs.naming import Number, NumberField, Output, Slot, Word
+from blender.rendering.batch.queue import Ending, FixedCamera, Frames, JobCamera, MarkedCamera, Marker, observed, Progress, RenderQueue
+from blender.rendering.batch.supervision import cleared, HostCommands, LocalMachine, RunFile
+from blender.rendering.batch.targets import Endpoint, Flamenco, JobFile, Renderon, Target
+from blender.rendering.outputs.naming import NumberField, Output, Word
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -59,7 +52,6 @@ class Reach(Enum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ONLINE: Final = Setting(descriptor=Descriptor.declared(bpy.types.Preferences, ("system", "use_online_access"), bpy.types.BoolProperty))
-_TARGETS: Final = choices((kind.__name__, kind.__name__, inspect.getdoc(kind) or "") for kind in typing.get_args(Target.__value__))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -67,7 +59,7 @@ _TARGETS: Final = choices((kind.__name__, kind.__name__, inspect.getdoc(kind) or
 class Dispatch(bpy.types.PropertyGroup):
     """Dispatch dialog options."""
 
-    reach: bpy.props.EnumProperty(name="Render", description="Scope queue renders", items=choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in Reach))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    reach: bpy.props.EnumProperty(name="Render", description="Scope queue renders", items=enum_choices(Reach))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class JobScope(msgspec.Struct, frozen=True, kw_only=True):
@@ -84,7 +76,7 @@ class Plan(msgspec.Struct, frozen=True, kw_only=True):
     """Ordered job scopes and dispatch time."""
 
     moment: datetime.datetime
-    scopes: Annotated[tuple[JobScope, ...], msgspec.Meta(min_length=1)]
+    scopes: tuple[JobScope, ...]
 
 
 class Preparing(msgspec.Struct, frozen=True, kw_only=True):
@@ -116,7 +108,7 @@ class Queued(bpy.types.PropertyGroup):
 class Queueing(bpy.types.PropertyGroup):
     """Queue preferences: target, notices, power hold, heartbeat, and Flamenco scripts folder, read as the records the queue runs on."""
 
-    kind: bpy.props.EnumProperty(name="Target", description="Where queue renders", items=_TARGETS)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    kind: bpy.props.EnumProperty(name="Target", description="Where queue renders", items=case_choices(Target))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     retries: bpy.props.IntProperty(name="Retries", description="Restarts of crashed render from remaining frames", min=0, default=LocalMachine().retries)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     sampled: bpy.props.BoolProperty(name="Sampled", description="Render first two frames of each ready job before others", default=LocalMachine().sampled)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     manager: bpy.props.StringProperty(name="Manager", description="Flamenco Manager address", default=Flamenco().server.url)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -130,17 +122,12 @@ class Queueing(bpy.types.PropertyGroup):
     command: bpy.props.StringProperty(name="Command", description="Program taking job file path, job file alone when empty", subtype="FILE_PATH")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     server: bpy.props.StringProperty(name="Notice Server", description="ntfy server", default=Listener().server.url)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     topic: bpy.props.StringProperty(name="Notice Topic", description="Topic devices subscribe to, no notices when empty")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    awake: bpy.props.BoolProperty(name="Keep Awake", description="Prevent sleep while queue renders", default=PowerHold().awake)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    shutdown: bpy.props.BoolProperty(name="Shut Down", description="Shut down one minute after queue finishes", default=PowerHold().shutdown)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    awake: bpy.props.BoolProperty(name="Keep Awake", description="Prevent sleep while queue renders", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    shutdown: bpy.props.BoolProperty(name="Shut Down", description="Shut down one minute after queue finishes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     interval: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name="Heartbeat",
-        description="Seconds between progress record touches",
-        subtype="TIME_ABSOLUTE",
-        min=float(np.finfo(np.float32).tiny),
-        max=threading.TIMEOUT_MAX,
-        default=Heartbeat().interval.total_seconds(),
+        name="Heartbeat", description="Seconds between progress record touches", subtype="TIME_ABSOLUTE", min=float(np.finfo(np.float32).tiny), max=threading.TIMEOUT_MAX, default=3.0
     )
-    misses: bpy.props.IntProperty(name="Missed Heartbeats", description="Missed heartbeats before run reads as stopped", min=2, default=Heartbeat().misses)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    misses: bpy.props.IntProperty(name="Missed Heartbeats", description="Missed heartbeats before run reads as stopped", min=2, default=10)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     scripts_folder: bpy.props.StringProperty(name="Flamenco Scripts", description="Manager job type scripts folder, none when empty", subtype="DIR_PATH")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
     @property
@@ -162,14 +149,9 @@ class Queueing(bpy.types.PropertyGroup):
         return Listener(server=Endpoint(url=self.server), topic=self.topic or None)
 
     @property
-    def power(self) -> PowerHold:
-        """Sleep and shutdown hold."""
-        return PowerHold(awake=self.awake, shutdown=self.shutdown)
-
-    @property
-    def heartbeat(self) -> Heartbeat:
-        """Progress touch interval and stop threshold."""
-        return Heartbeat(interval=datetime.timedelta(seconds=self.interval), misses=self.misses)
+    def stale(self) -> datetime.timedelta:
+        """Heartbeat age past which a run reads as stopped."""
+        return datetime.timedelta(seconds=self.interval * self.misses)
 
     @property
     def scripts(self) -> Option[str]:
@@ -239,7 +221,6 @@ class Dispatcher(msgspec.Struct, frozen=True):
     members: Members
     framed: Framed
     routing: PassRouting
-    pathed: Pathed
     queued: Attached[Queued]
     render: Render
     planning: Option[Callable[[Identity, Plan], Outcome[Plan]]]
@@ -257,18 +238,12 @@ class Dispatcher(msgspec.Struct, frozen=True):
     @staticmethod
     def connected() -> Outcome[None]:
         """Requires `bpy.app.online_access`, set by preferences and `--offline-mode`."""
-        return Ok(None) if bpy.app.online_access else Error(Fault.of(BlenderReason.REQUIRED, _ONLINE.message))
+        return Ok(None) if bpy.app.online_access else Error(Fault.of(Reason.REQUIRED, _ONLINE.message))
 
     @staticmethod
     def posted(listener: Listener, notice: Notice) -> Outcome[None]:
         """Posts notice, requiring online access for an enabled topic."""
         return (Dispatcher.connected() if listener.topic is not None else Ok(None)).bind(lambda _: published(listener, notice))
-
-    # --- [PATHS]
-
-    def placed(self, scene: bpy.types.Scene, path: OutputPath) -> Outcome[OutputPath]:
-        """Renders a scene through path, its pass routing reconciled to it, a job copy and a rerooted farm render alike."""
-        return self.pathed.placed(scene, path).bind(lambda _: self.routing.reconciled(scene, bpy.context, path)).map(lambda _: path)
 
     # --- [PLANNING]
 
@@ -301,9 +276,84 @@ class Dispatcher(msgspec.Struct, frozen=True):
         return (
             rooted(bpy.types.Scene, context)
             .bind(reached)
-            .bind(lambda scopes: Ok(Plan(moment=moment, scopes=scopes)) if scopes else Error(Fault.of(BlenderReason.ABSENT, repr(context), member=dispatch.reach)))
+            .bind(lambda scopes: Ok(Plan(moment=moment, scopes=scopes)) if scopes else Error(Fault.of(Reason.ABSENT, repr(context), member=dispatch.reach)))
             .bind(lambda plan: self.planning.map(lambda revise: revise(self.identity, plan)).default_value(Ok(plan)))
         )
+
+    # --- [OBSERVATION]
+
+    def observation(self, context: bpy.types.Context) -> Outcome[Option[Observed]]:
+        """Reads sent record and local progress, `Nothing` sent before `prepare` writes it."""
+
+        def pending(faults: Faults) -> Outcome[Option[Sent]]:
+            match faults:
+                case (Fault(reason=Reason.UNREADABLE, cause=FileNotFoundError()),):
+                    return Ok(Nothing)
+                case _:
+                    return Error(faults)
+
+        def read(plan: str) -> Outcome[Observed]:
+            return (
+                Result[Sent, Faults]
+                .map(RecordFile(path=self.host.path(plan, RunFile.SENT), form=Sent).read(), Some)
+                .or_else_with(pending)
+                .bind(
+                    lambda sent: (
+                        sent
+                        .filter(lambda record: isinstance(record.target, LocalMachine))
+                        .map(lambda record: observed(self.host.path(record.queue.stem, RunFile.PROGRESS)))
+                        .default_value(Ok(Nothing))
+                        .map(lambda progress: Observed(sent=sent, progress=progress))
+                    )
+                )
+            )
+
+        return rooted(bpy.types.WindowManager, context).bind(lambda manager: self.queued.struct(manager).dispatched.map(lambda plan: read(plan).map(Some)).default_value(Ok(Nothing)))
+
+    def kept(self) -> Outcome[tuple[RenderQueue, LocalMachine, Progress, datetime.datetime]]:
+        """Returns observed local run, absent fault without local progress."""
+        match self.state.observed.bind(lambda held: held.sent.bind(lambda sent: held.progress.map(lambda pair: (sent, *pair)))).to_optional():
+            case (Sent(queue=queue, target=LocalMachine() as target), progress, beat):
+                return Ok((queue, target, progress, beat))
+            case _:
+                return Error(Fault.of(Reason.ABSENT, repr(self.queued), member=RunFile.PROGRESS))
+
+    def restored(self) -> Outcome[Option[str]]:
+        """Restores paused viewports still open."""
+        return accumulated(prior.applied(now.area) for at, prior in self.state.resumed() for now in Located.found(at.window, at.area.as_pointer()).to_list()).map(lambda _: Nothing)
+
+    def ticked(self) -> Outcome[bool]:
+        """Refreshes the observation, restoring viewports and clearing a succeeded local run once it ends, answering whether a dispatched run is still pending."""
+        state = self.state
+
+        def acted(fresh: Option[Observed]) -> Outcome[bool]:
+            prior = state.observed
+            current = fresh.map(
+                lambda now: msgspec.structs.replace(
+                    now, progress=now.progress.or_else_with(lambda: prior.bind(lambda last: last.progress).filter(lambda pair: now.sent.filter(lambda sent: sent.queue.key == pair[0].queue).is_some()))
+                )
+            )
+            state.observed = current
+            ended = current.bind(lambda held: held.progress).bind(lambda pair: Option.of_optional(pair[0].ending))
+            pending = current.map(lambda held: held.sent.map(lambda sent: isinstance(sent.target, LocalMachine) and ended.is_none()).default_value(True)).default_value(False)
+            return paired(
+                self.restored() if ended.is_some() and state.paused else Ok(Nothing),
+                fresh
+                .bind(lambda now: now.sent.bind(lambda sent: now.progress.filter(lambda pair: pair[0].ending is Ending.SUCCEEDED).map(lambda _: sent.queue)))
+                .map(lambda queue: cleared(queue, self.host))
+                .default_value(Ok(None)),
+            ).map(lambda _: pending)
+
+        return self.observation(bpy.context).bind(acted)
+
+    def tick(self) -> float | None:
+        """Host timer body refreshing the observation each second, stopping once no dispatched run is pending."""
+        return 1.0 if self.identity.reports.reported(self.ticked)().default_value(False) else None
+
+    def watched(self) -> Outcome[Option[float]]:
+        """Observes a dispatched run until nothing it dispatched is pending, the session state holding the one timer, answering as a one-shot timer body."""
+        self.state.watched(self.tick)
+        return Ok(Nothing)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -311,14 +361,9 @@ class Dispatcher(msgspec.Struct, frozen=True):
 # --- [SCENES]
 
 
-def bare(command: str, trailing: tuple[str, ...]) -> Outcome[None]:
-    """Refuses trailing arguments a command takes none of."""
-    return Error(Fault.of(RecordReason.OUTSIDE, command, repr(trailing), member="no trailing arguments")) if trailing else Ok(None)
-
-
 def scene_of(name: str) -> Outcome[bpy.types.Scene]:
     """Returns the scene a planned scope or job names, absent fault once it is gone."""
-    return Option.of_optional(bpy.data.scenes.get(name)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(bpy.data.scenes), member=name))
+    return Option.of_optional(bpy.data.scenes.get(name)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(bpy.data.scenes), member=name))
 
 
 def ranged(scene: bpy.types.Scene) -> Frames:
@@ -333,53 +378,45 @@ def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> Outcome[
     """Accumulates frames without camera and missing or non-camera bindings."""
     match scope.camera:
         case MarkedCamera(camera=camera, markers=markers) as bound:
-            numbers = frames.numbers
-            gaps = tuple(next(run) for missing, run in groupby(numbers, key=lambda frame: bound.at(frame).is_none()) if missing)
+            gaps = tuple(next(run) for missing, run in groupby(frames.numbers, key=lambda frame: bound.at(frame).is_none()) if missing)
             bindings = (*(("scene camera", name) for name in Option.of_optional(camera).to_list()), *((f"marker at frame {marker.frame}", marker.camera) for marker in markers))
         case FixedCamera(camera=camera):
             gaps, bindings = (), (("fixed camera", camera),)
 
     def checked(binding: str, name: str) -> Outcome[bpy.types.Object]:
-        found: Outcome[bpy.types.Object] = Option.of_optional(bpy.data.objects.get(name)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(bpy.data.objects), member=name))
+        found: Outcome[bpy.types.Object] = Option.of_optional(bpy.data.objects.get(name)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(bpy.data.objects), member=name))
         return found.bind(lambda bound: typed(bpy.types.Camera, binding, bound.data).map(lambda _: bound))
 
-    return accumulated((*(Error(Fault.of(BlenderReason.ABSENT, repr(scene), member=str(frame))) for frame in gaps), *starmap(checked, bindings))).map(lambda _: None)
+    return accumulated((*(Error(Fault.of(Reason.ABSENT, repr(scene), member=str(frame))) for frame in gaps), *starmap(checked, bindings))).map(lambda _: None)
 
 
 def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames: Frames) -> Outcome[None]:
     """Accumulates output path faults and missing layer, pass, or frame template fields."""
     layers = Option.of_optional(scope.layer).map(lambda layer: (layer,)).default_with(lambda: tuple(layer.name for layer in used(scene)))
-    slots = path.name.slots
+    keys = path.name.keys
     varied = (
-        *((Word.LAYER,) if len(layers) > 1 and Slot(key=Word.LAYER) not in slots else ()),
-        *((Word.PASS,) if not slots & {Slot(key=Word.PASS), Slot(key=Word.OUTPUT)} else ()),
-        *((NumberField.FRAME,) if len(frames.numbers) > 1 and not any(isinstance(part, Number) and part.key is NumberField.FRAME for part in slots) else ()),
+        *((Word.LAYER,) if len(layers) > 1 and Word.LAYER not in keys else ()),
+        *((Word.PASS,) if not keys & {Word.PASS, Word.OUTPUT} else ()),
+        *((NumberField.FRAME,) if len(frames.numbers) > 1 and NumberField.FRAME not in keys else ()),
     )
     return paired(
-        accumulated(path.written(layer, output, Nothing, frames.start, "") for layer in layers for output in Output), accumulated(Error(Fault.of(BlenderReason.UNVARIED, field)) for field in varied)
+        accumulated(path.written(layer, output, Nothing, frames.start, "") for layer in layers for output in Output),
+        accumulated(Error(Fault.of(Reason.REQUIRED, f"{{{field}}} in output template to name one file per {field}")) for field in varied),
     ).map(lambda _: None)
 
 
-def checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date) -> Outcome[tuple[Measure, ...]]:
-    """Audits every scope, then measures each distinct view layer."""
+def checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date) -> Outcome[None]:
+    """Audits the file, then every scope's cameras, output path, and named view layer."""
 
-    def layered(scope: JobScope, scene: bpy.types.Scene) -> Outcome[tuple[bpy.types.ViewLayer, ...]]:
-        return (
-            Option
-            .of_optional(scope.layer)
-            .map(lambda name: Option.of_optional(scene.view_layers.get(name)).map(lambda layer: (layer,)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(scene.view_layers), member=name)))
-            .default_with(lambda: Ok(used(scene)))
-        )
-
-    def audited_scope(scope: JobScope, scene: bpy.types.Scene) -> Outcome[tuple[bpy.types.ViewLayer, ...]]:
+    def audited_scope(scope: JobScope, scene: bpy.types.Scene) -> Outcome[None]:
         frames = ranged(scene)
-        return paired(cameras(scene, scope, frames), pathed.path(scene, day).bind(partial(templated, scope=scope, scene=scene, frames=frames)), layered(scope, scene)).map(lambda parts: parts[2])
+        return paired(
+            cameras(scene, scope, frames),
+            pathed.path(scene, day).bind(partial(templated, scope=scope, scene=scene, frames=frames)),
+            Option.of_optional(scope.layer).map(lambda name: layer_of(scene, name).map(lambda _: None)).default_value(Ok(None)),
+        ).map(lambda _: None)
 
-    return (
-        paired(audited(), accumulated(scene_of(scope.scene).bind(partial(audited_scope, scope)) for scope in scopes))
-        .map(lambda parts: tuple(dict.fromkeys(layer for layers in parts[1] for layer in layers)))
-        .bind(lambda layers: accumulated(map(measured, layers)))
-    )
+    return paired(audited(), accumulated(scene_of(scope.scene).bind(partial(audited_scope, scope)) for scope in scopes)).map(lambda _: None)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -397,7 +434,6 @@ __all__ = [
     "Queueing",
     "Reach",
     "Sent",
-    "bare",
     "cameras",
     "checked",
     "ranged",

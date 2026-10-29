@@ -5,7 +5,8 @@ from contextlib import contextmanager, ExitStack
 from functools import reduce
 from itertools import count
 import re
-from typing import ClassVar, Final, Self, TYPE_CHECKING
+from types import MappingProxyType
+from typing import Final, override, Self, TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
@@ -17,15 +18,14 @@ from blender.bpy.data.rna.descriptors import Descriptor, differing
 from blender.bpy.data.rna.paths import rooted, Struct
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity
-from blender.bpy.faults import BlenderReason
-from blender.bpy.nodes.desired import member_paths
+from blender.bpy.nodes.desired import Addressing, member_paths
 from blender.bpy.nodes.trees import arranged, nested
 from blender.bpy.render.color.spaces import DisplaySettings, Settings, ViewSettings
 from blender.bpy.settings.presets import Preset
-from blender.bpy.ui.layout.presets import Listing
+from blender.bpy.ui.layout.values import Listing
 from blender.imaging.files.buffers import Depth
 from blender.imaging.files.images import Codec, Compressions, Plain
-from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
 from blender.records.trees import transfer
 from blender.rendering.outputs.naming import Output, RESERVED
 
@@ -36,6 +36,24 @@ if TYPE_CHECKING:
 
 FILE_FORMATS: Final = frozenset(item.identifier for item in Descriptor.declared(bpy.types.ImageFormatSettings, ("file_format",), bpy.types.EnumProperty).prop.enum_items)
 _EXR: Final = frozenset({"OPEN_EXR", "OPEN_EXR_MULTILAYER"})
+_EXTENSIONS: Final = MappingProxyType({
+    "BMP": ".bmp",
+    "IRIS": ".rgb",
+    "PNG": ".png",
+    "JPEG": ".jpg",
+    "TARGA": ".tga",
+    "TARGA_RAW": ".tga",
+    "CINEON": ".cin",
+    "DPX": ".dpx",
+    "OPEN_EXR": ".exr",
+    "OPEN_EXR_MULTILAYER": ".exr",
+    "HDR": ".hdr",
+    "TIFF": ".tif",
+    "WEBP": ".webp",
+    "AVIF": ".avif",
+    "JPEG2000_JP2": ".jp2",
+    "JPEG2000_J2K": ".j2c",
+})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -95,7 +113,7 @@ class OutputFormat(Settings, frozen=True, kw_only=True):
             case Output.DATA | Output.MATTE:
                 return Ok(msgspec.structs.replace(container, color_depth="32", exr_codec="ZIP"))
             case Output.PREVIEW:
-                return Error(Fault.of(RecordReason.OUTSIDE, "File Output class", output.name, member=", ".join(member.name for member in Output if member is not Output.PREVIEW)))
+                return Error(Fault.of(Reason.OUTSIDE, "File Output class", output.name, member=", ".join(member.name for member in Output if member is not Output.PREVIEW)))
 
     @classmethod
     def stored(cls, settings: bpy.types.ImageFormatSettings) -> Self:
@@ -137,12 +155,10 @@ class FileItem(Settings, frozen=True, kw_only=True):
     format: OutputFormat | UnsetType = UNSET
 
 
-class FileItems(msgspec.Struct, frozen=True, kw_only=True):
+class FileItems(Addressing, frozen=True, kw_only=True):
     """Ordered File Output node items, the content a File Output node holds, each name the spelling the host stores."""
 
     items: tuple[FileItem, ...]
-
-    nested: ClassVar[tuple[()]] = ()
 
     def __post_init__(self) -> None:
         """Respells each item name as the host stores it."""
@@ -161,17 +177,14 @@ class FileItems(msgspec.Struct, frozen=True, kw_only=True):
 
         return reduce(spelled, asked, ())
 
-    @property
-    def keyed(self) -> object:
-        """Builtin form a node graph digest reads."""
-        return tuple(msgspec.to_builtins(item) for item in self.items)
-
+    @override
     def holds(self, live: bpy.types.Node, _identity: Identity, /) -> Outcome[bool]:
         """Whether the File Output node holds these items in order with these members."""
         return _output(live).map(
             lambda output: len(output.file_output_items) == len(self.items) and all(not differing(held, member_paths(item.members())) for held, item in zip(output.file_output_items, self.items))
         )
 
+    @override
     def write(self, live: bpy.types.Node, _identity: Identity, /) -> Outcome[None]:
         """Arranges the File Output items by name, then writes each item's members."""
         kinds = {item.name: item.socket_type for item in self.items}
@@ -182,7 +195,8 @@ class FileItems(msgspec.Struct, frozen=True, kw_only=True):
             ).map(lambda _: None)
         )
 
-    def sockets(self, live: bpy.types.Node, _identity: Identity, _slot: str, /) -> Mapping[str, str]:
+    @override
+    def sockets(self, live: bpy.types.Node, _identity: Identity, /) -> Mapping[str, str]:
         """Item socket identifiers by item name, the node inputs following these items in order."""
         return {item.name: socket.identifier for item, socket in zip(self.items, live.inputs)}
 
@@ -190,10 +204,11 @@ class FileItems(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def pointer(struct: type[Struct]) -> str:
-    """Returns the member holding the struct's image format."""
-    (identifier,) = (prop.identifier for prop in struct.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty) and isinstance(prop.fixed_type, bpy.types.ImageFormatSettings))
-    return identifier
+def pointer(struct: type[Struct]) -> Option[str]:
+    """Returns the member holding the struct's image format, Nothing for a struct holding none."""
+    return Option.of_optional(
+        next((prop.identifier for prop in struct.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty) and isinstance(prop.fixed_type, bpy.types.ImageFormatSettings)), None)
+    )
 
 
 def depth(settings: bpy.types.ImageFormatSettings) -> Option[Depth]:
@@ -210,25 +225,8 @@ def depth(settings: bpy.types.ImageFormatSettings) -> Option[Depth]:
 
 
 def extension(settings: bpy.types.ImageFormatSettings) -> Option[str]:
-    """Returns the still suffix a format writes, `.jp2` or `.j2c` by JPEG2000 codec, which no image format member states."""
-    named = {
-        "BMP": ".bmp",
-        "IRIS": ".rgb",
-        "PNG": ".png",
-        "JPEG": ".jpg",
-        "TARGA": ".tga",
-        "TARGA_RAW": ".tga",
-        "CINEON": ".cin",
-        "DPX": ".dpx",
-        "OPEN_EXR": ".exr",
-        "OPEN_EXR_MULTILAYER": ".exr",
-        "HDR": ".hdr",
-        "TIFF": ".tif",
-        "WEBP": ".webp",
-        "AVIF": ".avif",
-        "JPEG2000": ".jp2" if settings.jpeg2k_codec == "JP2" else ".j2c",
-    }
-    return Option.of_optional(named.get(settings.file_format))
+    """Returns the still suffix a format writes, `.jp2` or `.j2c` by JPEG2000 codec, which only the scene's `RenderSettings.file_extension` states."""
+    return Option.of_optional(_EXTENSIONS.get(f"{settings.file_format}_{settings.jpeg2k_codec}" if settings.file_format == "JPEG2000" else settings.file_format))
 
 
 def owners(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings, ...]:
@@ -253,7 +251,7 @@ def _captured(context: bpy.types.Context) -> Outcome[Snapshot]:
 
 def _output(live: bpy.types.Node) -> Outcome[bpy.types.CompositorNodeOutputFile]:
     """Node as File Output, else `absent` fault naming its items."""
-    return Option.of_optional(try_downcast(bpy.types.CompositorNodeOutputFile, live)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(live), member="file_output_items"))
+    return Option.of_optional(try_downcast(bpy.types.CompositorNodeOutputFile, live)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(live), member="file_output_items"))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

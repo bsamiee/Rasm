@@ -1,9 +1,8 @@
 """Light and shadow linking sets of emitters, set members, and member link states."""
 
 from collections.abc import Mapping
-from functools import partial
 from types import MappingProxyType
-from typing import Final
+from typing import ClassVar, Final
 
 import bpy
 from expression import Nothing, Ok, Option, Some
@@ -19,7 +18,7 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.scene.collections import entry, founded, Member, relinked
 from blender.bpy.scene.objects import focused
-from blender.bpy.ui.layout import members, rows
+from blender.bpy.ui.layout import rows
 from blender.records.faults import accumulated, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -46,11 +45,11 @@ class Unlinking(bpy.types.PropertyGroup):
 class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
     """Receiver and blocker sets with the stock link operators and one unlink operator."""
 
-    sets: Mapping[Descriptor[bpy.types.PointerProperty], Ownership[bpy.types.Collection]] = _SETS
+    sets: ClassVar[Mapping[Descriptor[bpy.types.PointerProperty], Ownership[bpy.types.Collection]]] = _SETS
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns set ownerships and the unlink operator."""
-        return Ok((*self.sets.values(), light_linking_unlink_command))
+        return Ok((*self.sets.values(), light_linking_unlink))
 
     def drawn(self, identity: Identity, /) -> Outcome[rows.RowDraw]:
         """Returns each set's linking template with its stock buttons, then the selection unlink button of each set apart from them."""
@@ -60,10 +59,12 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
 
         def linking(link: Descriptor[bpy.types.PointerProperty]) -> Outcome[rows.RowDraw]:
             stock = (rows.OperatorButton(target=Placement(_LINKERS[link])), rows.OperatorButton(target=Placement(bpy.ops.object.light_linking_unlink_from_collection)))
-            view = members.Member(root=bpy.types.ObjectLightLinking, path=(link.prop.identifier,), reach=Some(reach))
-            return rows.bound(((view, ()),), lambda held: partial(_collections, held[0])).bind(lambda shown: rows.realized((shown, *stock), identity))
+            view = rows.Member(root=bpy.types.ObjectLightLinking, path=(link.prop.identifier,), reach=Some(reach))
+            return rows.bound((view,), lambda located, layout, _holder, _context: layout.template_light_linking_collection(layout, *located[0][1])).bind(
+                lambda shown: rows.realized((shown, *stock), identity)
+            )
 
-        unlinks = tuple(rows.OperatorButton(target=Placement(light_linking_unlink_command, {"collection": link.prop.identifier})) for link in self.sets)
+        unlinks = tuple(rows.OperatorButton(target=Placement(light_linking_unlink, {"collection": link.prop.identifier})) for link in self.sets)
         return accumulated(map(linking, self.sets)).bind(lambda draws: rows.realized((*draws, *unlinks), identity))
 
 
@@ -83,7 +84,7 @@ def link_set(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProper
         Slot collection, or `collision` and `edit` faults.
     """
     return (
-        _held(emitter, link)
+        struct_at(emitter.light_linking, link.path, bpy.types.Collection)
         .map(Ok)
         .default_with(
             lambda: _SETS[link].made(
@@ -130,33 +131,21 @@ def unlinked(layer: bpy.types.ViewLayer, emitter: bpy.types.Object, link: Descri
     if not (selected := tuple(item for item in layer.objects.selected if item != emitter)):
         return Ok(Unchanged(reason="No object besides emitter is selected"))
     return (
-        _held(emitter, link)
+        struct_at(emitter.light_linking, link.path, bpy.types.Collection)
         .map(lambda collection: relinked(collection, selected, linked=False).map(lambda changes: Done() if changes else Unchanged(reason=f"No selected object is in {collection.name}")))
         .default_value(Ok(Unchanged(reason=f"{emitter.name} holds no {link.prop.name}")))
     )
 
 
-def _held(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProperty]) -> Option[bpy.types.Collection]:
-    """Returns the collection in the emitter's link slot, read through the slot's path."""
-    return struct_at(emitter.light_linking, link.path, bpy.types.Collection)
-
-
-def _collections(held: members.ResolvedMember, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
-    """Draws the linking collection view at the located set, the drawing layout taking its active element as context."""
-    for owner, key in held.at(holder, context).to_list():
-        layout.template_light_linking_collection(layout, owner, key)
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
+@Operator.of(Unlinking)
 def light_linking_unlink(call: Call[Unlinking]) -> Outcome[Answer]:
     """Unlinks selected objects other than the active emitter from its light or shadow linking set."""
     return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: focused(layer).bind(lambda emitter: unlinked(layer, emitter, _NAMED[call.properties.collection])))
 
 
-light_linking_unlink_command: Operator[Unlinking] = Operator(form=Unlinking, run=light_linking_unlink)
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BLOCKERS", "LINK_STATE", "RECEIVERS", "LightLinks", "Unlinking", "light_linking_unlink_command", "link_set", "linked", "unlinked"]
+__all__ = ["BLOCKERS", "LINK_STATE", "RECEIVERS", "LightLinks", "Unlinking", "light_linking_unlink", "link_set", "linked", "unlinked"]

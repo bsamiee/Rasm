@@ -26,16 +26,13 @@ from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.events import Timer
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.faults import BlenderReason
 from blender.bpy.render.compositor.effects import Enabled
 from blender.bpy.render.compositor.inputs import entered
 from blender.bpy.render.compositor.viewers import READ, ViewerRead
 from blender.bpy.settings.attachments import Attachment
-from blender.bpy.ui.drawing.canvas import Canvas, DrawType, Rect
+from blender.bpy.ui.drawing.canvas import Canvas, captured, DrawType, Rect
 from blender.bpy.ui.drawing.handlers import Drawing, Handled, Overlay, Signal
-from blender.bpy.ui.drawing.offscreen import captured
-from blender.bpy.ui.images.cages import FrameRegion
-from blender.bpy.ui.images.views import Picked, picking
+from blender.bpy.ui.images.views import FrameRegion, Picked, picking
 from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
@@ -48,7 +45,7 @@ from blender.imaging.color.processors import processor
 from blender.imaging.files.buffers import applied
 from blender.imaging.files.images import ImageFile
 from blender.imaging.geometry.frames import Quad, Region
-from blender.records.faults import Fault, Faults, Outcome
+from blender.records.faults import Fault, Faults, Outcome, Reason
 
 from ..catalog import chain
 from ..effects.grade.exposure import exposure
@@ -175,7 +172,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @staticmethod
     def entry(identity: Identity, scene: bpy.types.Scene) -> Outcome[bpy.types.SceneCompositorEffect]:
         """Returns the earliest Exposure entry, absent fault without one."""
-        return Block.of_seq(exposure.entries(identity, scene)).try_head().to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(scene.compositor_effects), member=exposure.kind))
+        return Block.of_seq(exposure.entries(identity, scene)).try_head().to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=exposure.kind))
 
     @staticmethod
     def written(identity: Identity, scene: bpy.types.Scene, stops: float) -> Outcome[bool]:
@@ -183,7 +180,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return AutoExposure.entry(identity, scene).bind(lambda held: entered(identity, held, {"stops": stops}))
 
     @staticmethod
-    def consumed(identity: Identity, scene: bpy.types.Scene, _entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
+    def consumed(identity: Identity, scene: bpy.types.Scene, _entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[Option[str]]:
         """Writes the metered stops plus bias, naming the undo step from the command on a change."""
 
         def kept(metering: Metering, measured: Option[float]) -> Outcome[Option[str]]:

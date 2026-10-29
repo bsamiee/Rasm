@@ -37,9 +37,12 @@ class Elementwise(Protocol):
     def __rtruediv__(self, other: float, /) -> Self:
         """Elementwise quotient of a leading float."""
 
+    def __mod__(self, other: Self | float, /) -> Self:
+        """Elementwise floored remainder taking the sign of `other`."""
+
 
 class Namespace[V: Elementwise, B](Protocol):
-    """Elementwise functions over values `V` with conditions `B`, the Array API subset maps read."""
+    """Elementwise functions over values `V` with conditions `B`, the Array API subset maps read beside the operators of `Elementwise`."""
 
     def negative(self, x: V, /) -> V:
         """Negation."""
@@ -56,14 +59,8 @@ class Namespace[V: Elementwise, B](Protocol):
     def cos(self, x: V, /) -> V:
         """Cosine of radians."""
 
-    def tan(self, x: V, /) -> V:
-        """Tangent of radians."""
-
     def asin(self, x: V, /) -> V:
         """Inverse sine in radians."""
-
-    def atan(self, x: V, /) -> V:
-        """Inverse tangent in radians."""
 
     def atan2(self, x1: V, x2: V, /) -> V:
         """Quadrant-aware inverse tangent of `x1 / x2`."""
@@ -76,9 +73,6 @@ class Namespace[V: Elementwise, B](Protocol):
 
     def floor(self, x: V, /) -> V:
         """Greatest integer at or below."""
-
-    def remainder(self, x1: V, x2: V | float, /) -> V:
-        """Remainder taking the sign of `x2`."""
 
     def minimum(self, x1: V, x2: V | float, /) -> V:
         """Lesser value."""

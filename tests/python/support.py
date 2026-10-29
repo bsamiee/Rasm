@@ -1,17 +1,72 @@
-"""Recursive tolerance predicate and assertion, and deterministic codec round trips."""
+"""Recursive tolerance predicate and assertion, deterministic codec round trips, mock installs logging every call in order, fixture file writer, and benchmark cases with time budgets."""
 
+from collections.abc import Callable
+from datetime import timedelta
+from typing import Protocol
 lazy import cmath
 lazy from collections.abc import Iterable, Mapping, Sequence
 lazy from decimal import Decimal
 lazy from fractions import Fraction
+lazy from pathlib import Path
+lazy from unittest.mock import Mock
 
+import msgspec
+import msgspec.json
+import msgspec.msgpack
+from pytest_benchmark.stats import Stats
 lazy from expression import Option, Result
 lazy from expression.collections import Block
-lazy import msgspec
-lazy import msgspec.json
-lazy import msgspec.msgpack
 lazy import numpy as np
 lazy import pint
+lazy import psutil
+lazy import pytest
+lazy from pytest_benchmark.fixture import BenchmarkFixture
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class _Subject[*Ts](Protocol):
+    __qualname__: str
+
+    def __call__(self, *args: *Ts) -> object: ...
+
+
+class _Sized(Protocol):
+    @property
+    def sizes(self) -> tuple[int, ...]: ...
+
+
+class _Member(Protocol):
+    __name__: str
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class BenchmarkCase[*Ts](msgspec.Struct, frozen=True, kw_only=True):
+    """Subject under test, its argument workload per size, sizes, and time budget over one timing statistic."""
+
+    subject: _Subject[*Ts]
+    workload: Callable[[int], tuple[*Ts]]
+    sizes: tuple[int, ...] = (100, 1_000, 10_000)
+    budget: timedelta = timedelta(milliseconds=100)
+    statistic: Callable[[Stats], float] = lambda stats: stats.median
+
+    def measure(self, benchmark: BenchmarkFixture, size: int) -> object:
+        """Time ``subject`` over the workload at ``size``, record resident memory growth, and fail a timed run past the budget."""
+        process, arguments, millisecond = psutil.Process(), self.workload(size), timedelta(milliseconds=1)
+        benchmark.group = self.subject.__qualname__
+        rss_before = process.memory_info().rss
+        result = benchmark(self.subject, *arguments)
+        observed = Option.of_optional(benchmark.stats).map(lambda metadata: timedelta(seconds=self.statistic(metadata.stats)))
+        benchmark.extra_info.update(
+            rss_delta_bytes=process.memory_info().rss - rss_before, budget_ms=self.budget / millisecond, observed_ms=observed.map(lambda time: time / millisecond).to_optional(), size=size
+        )
+        match observed:
+            case Option(tag="some", some=time) if time > self.budget:
+                pytest.fail(f"{time} exceeds budget {self.budget}")
+        return result
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # --- [TOLERANCE]
@@ -78,6 +133,38 @@ def assert_roundtrip[T](value: T, encoder: msgspec.json.Encoder | msgspec.msgpac
     return decoded
 
 
+# --- [RECORDING]
+
+
+def install(monkeypatch: pytest.MonkeyPatch, target: object, stubs: Mapping[_Member, Mock]) -> Mock:
+    """Replace each member of ``target`` with its mock and return the parent whose ``mock_calls`` log every call in order."""
+    log = Mock()
+    for member, stub in stubs.items():
+        log.attach_mock(stub, member.__name__)
+        monkeypatch.setattr(target, member.__name__, stub)
+    return log
+
+
+# --- [FIXTURES]
+
+
+def write_fixtures(directory: Path, files: Mapping[str, object], encode: Callable[[object], bytes] = msgspec.json.encode) -> frozendict[str, Path]:
+    """Write each file under ``directory``, non-bytes content through ``encode``, and return paths by name."""
+    paths = frozendict({name: directory / name for name in files})
+    for name, path in paths.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content if isinstance(content := files[name], bytes) else encode(content))
+    return paths
+
+
+# --- [BENCHMARKS]
+
+
+def benchmarks(cases: Iterable[_Sized]) -> pytest.MarkDecorator:
+    """Parametrize ``case`` and ``size`` over every case at each of its sizes, identified by subject and size."""
+    return pytest.mark.parametrize("case,size", [(case, size) for case in cases for size in case.sizes], ids=lambda value: value.subject.__qualname__ if isinstance(value, BenchmarkCase) else None)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["assert_close", "assert_roundtrip", "close"]
+__all__ = ["BenchmarkCase", "assert_close", "assert_roundtrip", "benchmarks", "close", "install", "write_fixtures"]

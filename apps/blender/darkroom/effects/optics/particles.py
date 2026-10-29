@@ -5,7 +5,7 @@ from math import cos, exp2, floor, pi, sin, tau
 from typing import Annotated, Final
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -16,18 +16,16 @@ from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes import textures
+from blender.bpy.nodes.desired import Interface, InterfacePanel, Socket
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.nodes.interface import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
-from blender.bpy.render.compositor.inputs import CameraFrame
+from blender.bpy.render.compositor.inputs import CameraFrame, Shell
 from blender.bpy.render.compositor.motion import Clock, Shutter
-from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.files import buffers
 from blender.imaging.geometry.frames import Region
 from blender.imaging.geometry.lenses import Aperture
 from blender.imaging.sampling import tiles
-from blender.imaging.sampling.integration import Estimate, Precision
-from blender.imaging.sampling.populations import Population, transmitted
+from blender.imaging.sampling.integration import Estimate, Population, Precision, transmitted
 from blender.records.faults import accumulated, Outcome
 from blender.records.fields import AtLeastOne, Finite, NonNegative, Positive, Seed, Unit
 
@@ -214,7 +212,7 @@ class Particles(Effect, frozen=True, kw_only=True):
             linear_rgb: Scene-linear RGB of a spectrum at tones.
 
         Returns:
-            Estimated plane with replicate error and emitted area normalization, or image and color faults.
+            Estimated plane with replicate error, or image and color faults.
         """
         held = self.clock.held(frame)
         opening, closing = shutter if self.motion_blur else (0.0, 0.0)
@@ -257,7 +255,7 @@ class Particles(Effect, frozen=True, kw_only=True):
             dx, dy = (bounds.right - bounds.left) / width, (bounds.top - bounds.bottom) / height
             illuminant = light * (1.0 - self.incandescence + self.incandescence * thermal)
             radiance = exp2(self.emission.intensity) if self.emission is not None else 0.0
-            unit_area, area_error = self.iris.integral(self.population.softness, epsabs=precision.absolute, epsrel=precision.relative) if emitting else (1.0, 0.0)
+            unit_area, _ = self.iris.integral(self.population.softness, epsabs=precision.absolute, epsrel=precision.relative) if emitting else (1.0, 0.0)
             count = len(drawn.keys)
 
             def deposited(observation: npt.NDArray[np.float64], replicate: int) -> None:
@@ -305,7 +303,7 @@ class Particles(Effect, frozen=True, kw_only=True):
             observations = np.broadcast_to(source, (precision.replicates, *source.shape)).copy()
             for replicate in range(precision.replicates):
                 deposited(observations[replicate], replicate)
-            estimate = msgspec.structs.replace(Estimate.of(observations, precision), normalization=Some((unit_area, area_error)) if emitting else Nothing)
+            estimate = Estimate.of(observations, precision)
             return buffers.located(estimate.value.astype(np.float32), plane).map(estimate.holding)
 
         zeros, ones = np.zeros((len(drawn.keys), 3), dtype=np.float64), np.ones((len(drawn.keys), 3), dtype=np.float64)

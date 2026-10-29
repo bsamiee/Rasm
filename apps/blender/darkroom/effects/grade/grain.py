@@ -10,26 +10,27 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.data.ids.images import Generated, read, Tag
+from blender.bpy.data.ids.images import read, Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
+from blender.bpy.nodes.content import Generated
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.functions import EXPRESSIONS
 from blender.bpy.nodes.graphs import equal, Expr, math, mixed, vector, where, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.textures import MapRange, White
 from blender.bpy.render.compositor.colors import space_item
-from blender.bpy.render.compositor.coordinates import gridded
+from blender.bpy.render.compositor.coordinates import PixelGrid
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
 from blender.bpy.render.compositor.filters import tiled
+from blender.bpy.render.compositor.inputs import Shell
 from blender.bpy.render.compositor.masks import luminance
 from blender.bpy.render.compositor.motion import clocked, origin
-from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.color.processors import GREY
 from blender.imaging.files.images import read_file
 from blender.imaging.geometry.arithmetic import gaussian
 from blender.imaging.sampling import tiles
 from blender.imaging.sampling.tiles import stream
 from blender.records.faults import Outcome, paired
-from blender.records.identity import content_hash, ContentHash, rng
+from blender.records.stores import content_hash, ContentHash, rng
 
 from ...chain.stages import Effect, Stage
 from ..optics.procedural import CLOCK
@@ -176,7 +177,7 @@ def _grain(shell: Shell[Grain]) -> Outcome[Expr]:
         return mixed(weight, source, factor, blend="MULTIPLY")
 
     def sensored(level: Expr) -> Expr:
-        grid = gridded(source)
+        grid = PixelGrid.of(source)
         sited = vector("FLOOR", grid.base / grid.inverse) + origin(shell.input(_SEED), float(stream(Grain, "sensor")), pattern)
         draws = tuple(White(noise_dimensions="4D").node(sited, float(index)) for index in range(4))
         (common, red), (green, blue) = gaussian(draws[0], draws[1], EXPRESSIONS), gaussian(draws[2], draws[3], EXPRESSIONS)

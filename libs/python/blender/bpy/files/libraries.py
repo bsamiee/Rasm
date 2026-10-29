@@ -7,15 +7,14 @@ from pathlib import Path
 from typing import Literal, Self, TYPE_CHECKING, TypedDict, Unpack
 
 import bpy
-from expression import Nothing, Ok, Option, Result, try_downcast
+from expression import Nothing, Ok, Option, try_downcast
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.ids.store import Handle, member, STORES
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.paths import parsed
-from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Outcome, RecordReason
+from blender.records.faults import accumulated, Fault, Outcome, Reason
 from blender.records.stores import folder_made
 
 if TYPE_CHECKING:
@@ -128,7 +127,7 @@ def sourced[T](
             setattr(ends[1], name, list(names))
         return ends[1], value, chosen
 
-    unreadable = partial(Fault.of, RecordReason.UNREADABLE, str(path))
+    unreadable = partial(Fault.of, Reason.UNREADABLE, str(path))
     with ExitStack() as loading:
 
         @catch(exception=OSError)
@@ -153,7 +152,7 @@ def _listing(source: object, kind: type[bpy.types.ID], path: Path) -> Outcome[tu
         Option
         .of_optional(None if issubclass(kind, bpy.types.Library) else getattr(source, store, None))
         .map(lambda names: (store, names))
-        .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, str(path), member=store))
+        .to_result_with(lambda: Fault.of(Reason.ABSENT, str(path), member=store))
     )
 
 
@@ -177,7 +176,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 
     def chosen(source: object) -> tuple[Outcome[tuple[str, tuple[str, ...]]], Mapping[str, Sequence[str]]]:
         found = _listing(source, kind, path).bind(
-            lambda listing: accumulated(Ok(name).filter_with(listing[1].__contains__, lambda held: Fault.of(BlenderReason.ABSENT, str(path), member=held)) for name in names).map(
+            lambda listing: accumulated(Ok(name).filter_with(listing[1].__contains__, lambda held: Fault.of(Reason.ABSENT, str(path), member=held)) for name in names).map(
                 lambda selected: (listing[0], selected)
             )
         )
@@ -185,9 +184,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 
     return sourced(bpy.data, path, chosen, **load).bind(
         lambda answer: answer[0].bind(
-            lambda picked: accumulated(
-                Option.of_optional(try_downcast(kind, block)).to_result(Fault.of(BlenderReason.ABSENT, str(path), member=name)) for name, block in zip(picked[1], answer[1][picked[0]])
-            )
+            lambda picked: accumulated(Option.of_optional(try_downcast(kind, block)).to_result(Fault.of(Reason.ABSENT, str(path), member=name)) for name, block in zip(picked[1], answer[1][picked[0]]))
         )
     )
 
@@ -195,7 +192,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 def library_written(path: Path, blocks: frozenset[bpy.types.ID], **write: Unpack[_Writing]) -> Outcome[Path]:
     """Writes blocks to library file through the host's write keywords, returning path."""
     return folder_made(path.parent).bind(
-        lambda _: catch(bpy.data.libraries.write, exception=OSError)(str(path), set(blocks), **write).map(lambda _: path).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path)))
+        lambda _: catch(bpy.data.libraries.write, exception=OSError)(str(path), set(blocks), **write).map(lambda _: path).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
     )
 
 
@@ -206,7 +203,7 @@ def reloaded(library: bpy.types.Library, path: Option[Path] = Nothing) -> Outcom
     """Reloads library, relocating it to path when given."""
     return (
         accumulated(written(library, ("filepath",), str(target)) for target in path.to_list())
-        .bind(lambda _: catch(library.reload, exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, f"{library!r}.reload")))
+        .bind(lambda _: catch(library.reload, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, f"{library!r}.reload")))
         .map(lambda _: library)
     )
 
@@ -214,36 +211,23 @@ def reloaded(library: bpy.types.Library, path: Option[Path] = Nothing) -> Outcom
 # --- [OVERRIDES]
 
 
-def _made(block: bpy.types.ID, request: str, made: Result[bpy.types.ID | None, RuntimeError]) -> Outcome[bpy.types.ID]:
-    """Translates an override creation into the override, refused fault for the host's error, absent fault for an ID taking none."""
-    return made.map_error(partial(Fault.of, BlenderReason.REFUSED, request)).bind(
-        lambda held: Option.of_optional(held).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(block), member="override_library"))
+def override_made(block: bpy.types.ID, make: Callable[[bpy.types.ID], bpy.types.ID | None], /) -> Outcome[bpy.types.ID]:
+    """Creates an override through the `ID.override_create` or `ID.override_hierarchy_create` call make states, absent fault for an ID taking none."""
+    return (
+        catch(make, exception=RuntimeError)(block)
+        .map_error(partial(Fault.of, Reason.REFUSED, repr(block)))
+        .bind(lambda held: Option.of_optional(held).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="override_library")))
     )
 
 
-def _overriding(block: bpy.types.ID) -> Outcome[bpy.types.IDOverrideLibrary]:
-    """Returns the ID's library override, absent fault for an ID holding none."""
-    return Option.of_optional(block.override_library).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(block), member="override_library"))
-
-
-def override_created(block: bpy.types.ID, **flags: bool) -> Outcome[bpy.types.ID]:
-    """Creates a single-ID override through `ID.override_create` and its keywords (`remap_local_usages`)."""
-    return _made(block, f"{block!r}.override_create", catch(block.override_create, exception=RuntimeError)(**flags))
-
-
-def hierarchy_created(block: bpy.types.ID, scene: bpy.types.Scene, view_layer: bpy.types.ViewLayer, *, reference: Option[bpy.types.ID] = Nothing, **flags: bool) -> Outcome[bpy.types.ID]:
-    """Creates an override hierarchy instantiated in scene and view layer through `ID.override_hierarchy_create` and its keywords (`do_fully_editable`)."""
-    return _made(block, f"{block!r}.override_hierarchy_create", catch(block.override_hierarchy_create, exception=RuntimeError)(scene, view_layer, reference=reference.to_optional(), **flags))
-
-
-def override_reset(block: bpy.types.ID, **flags: bool) -> Outcome[None]:
-    """Resets the ID's override to its reference values through `IDOverrideLibrary.reset` and its keywords (`do_hierarchy`, `set_system_override`)."""
-    return _overriding(block).bind(lambda held: catch(held.reset, exception=RuntimeError)(**flags).map_error(partial(Fault.of, BlenderReason.REFUSED, f"{held!r}.reset")))
-
-
-def override_destroyed(block: bpy.types.ID, **flags: bool) -> Outcome[None]:
-    """Deletes the ID's override after remapping its usages to the linked reference through `IDOverrideLibrary.destroy` and its keywords (`do_hierarchy`)."""
-    return _overriding(block).bind(lambda held: catch(held.destroy, exception=RuntimeError)(**flags).map_error(partial(Fault.of, BlenderReason.REFUSED, f"{held!r}.destroy")))
+def overridden[R](block: bpy.types.ID, call: Callable[[bpy.types.IDOverrideLibrary], R], /) -> Outcome[R]:
+    """Runs an `IDOverrideLibrary` call (`reset`, `destroy`, `resync`, a member read) on the ID's override, absent fault for an ID holding none."""
+    return (
+        Option
+        .of_optional(block.override_library)
+        .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="override_library"))
+        .bind(lambda held: catch(call, exception=RuntimeError)(held).map_error(partial(Fault.of, Reason.REFUSED, repr(held))))
+    )
 
 
 def override_resynced(
@@ -254,40 +238,20 @@ def override_resynced(
     Returns:
         Ok(None), refused fault for the host's error, absent fault when the host finds no linked reference.
     """
-
-    def resynced(held: bpy.types.IDOverrideLibrary) -> Outcome[None]:
-        request = f"{held!r}.resync"
-        return (
-            catch(held.resync, exception=RuntimeError)(scene=scene, view_layer=view_layer.to_optional(), residual_storage=residual_storage.to_optional(), **flags)
-            .map_error(partial(Fault.of, BlenderReason.REFUSED, request))
-            .filter_with(bool, lambda _: Fault.of(BlenderReason.ABSENT, request, member="reference"))
-            .map(lambda _: None)
-        )
-
-    return _overriding(block).bind(resynced)
+    return (
+        overridden(block, lambda held: held.resync(scene=scene, view_layer=view_layer.to_optional(), residual_storage=residual_storage.to_optional(), **flags))
+        .filter_with(bool, lambda _: Fault.of(Reason.ABSENT, repr(block), member="override_library reference"))
+        .map(lambda _: None)
+    )
 
 
 def edits(block: bpy.types.ID) -> Outcome[tuple[Descriptor[bpy.types.Property], ...]]:
     """Returns descriptor per property the ID's library override edits, absent fault for an ID holding no override."""
-    return _overriding(block).bind(lambda held: accumulated(parsed(item.rna_path).bind(lambda path: Descriptor.resolve(block, path, bpy.types.Property)) for item in held.properties))
+    return overridden(block, lambda held: tuple(held.properties)).bind(
+        lambda items: accumulated(parsed(item.rna_path).bind(lambda path: Descriptor.resolve(block, path, bpy.types.Property)) for item in items)
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "ImportItem",
-    "Imported",
-    "OverrideResync",
-    "blocks_loaded",
-    "edits",
-    "hierarchy_created",
-    "inspected",
-    "library_written",
-    "listed",
-    "override_created",
-    "override_destroyed",
-    "override_reset",
-    "override_resynced",
-    "reloaded",
-    "sourced",
-]
+__all__ = ["ImportItem", "Imported", "OverrideResync", "blocks_loaded", "edits", "inspected", "library_written", "listed", "overridden", "override_made", "override_resynced", "reloaded", "sourced"]

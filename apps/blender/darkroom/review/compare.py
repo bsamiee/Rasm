@@ -25,21 +25,17 @@ from blender.bpy.data.rna.paths import RnaPath, root_in, rooted
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Declaration, Registrable
-from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.drawing.canvas import Align, Canvas, DECODED, DrawType, programs, QUAD, Rect, Shadow
 from blender.bpy.ui.drawing.handlers import Refresh
-from blender.bpy.ui.images.cages import HANDLE
-from blender.bpy.ui.images.overlays import overlaid
-from blender.bpy.ui.images.views import framed, image_type
-from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import Layout, Property, RowContent
+from blender.bpy.ui.images.views import framed, HANDLE, image_type, overlaid
+from blender.bpy.ui.layout.rows import Layout, Member, Property, RowContent
 from blender.bpy.ui.resources.icons import Glyph
-from blender.bpy.ui.resources.textures import uploaded
+from blender.bpy.ui.resources.previews import uploaded
 from blender.bpy.ui.resources.theme import Color, Metrics
 from blender.bpy.ui.surfaces.gizmos import GizmoPart, Gizmos
 from blender.imaging.files.buffers import unassociated
-from blender.records.faults import Fault, Faults, Outcome, paired
+from blender.records.faults import Fault, Faults, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -283,9 +279,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
             def begin(context: bpy.types.Context, _travel: Travel) -> Outcome[Dragged]:
                 return Result[Compare, Faults].bind(
-                    compared(context)
-                    .filter(lambda compare: Mode[compare.mode] is not Mode.SIDE_BY_SIDE)
-                    .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(context.screen), member=self.key)),
+                    compared(context).filter(lambda compare: Mode[compare.mode] is not Mode.SIDE_BY_SIDE).to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.screen), member=self.key)),
                     lambda compare: rooted(bpy.types.Region, context).map(lambda region: (compare, compare.split, framed(region))),
                 )
 
@@ -294,7 +288,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 change = travel.dx / frame.width if Mode[compare.mode] is Mode.VERTICAL_WIPE else -travel.dy / frame.height
                 return written(compare, ("split",), min(max(split + change * (0.1 if travel.precise else 1.0), 0.0), 1.0)).map(lambda _: Nothing)
 
-            command = Operator[Empty, Dragged](
+            command = Operator[Empty](
                 form=Empty,
                 run=drag_split,
                 invoke=Some(Modal(gesture=Gesture.DRAG, begin=begin, preview=preview, restore=lambda _context, state: written(state[0], ("split",), state[1]).map(lambda _: None))),
@@ -366,7 +360,7 @@ void main() {
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_SHADERS: Final = programs(channeled)
+_SHADERS: Final = programs(channeled.cache_clear)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

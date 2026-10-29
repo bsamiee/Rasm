@@ -9,13 +9,13 @@ import PyOpenColorIO
 
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
+from blender.bpy.nodes.desired import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
-from blender.bpy.render.compositor.shells import Shell
+from blender.bpy.render.compositor.inputs import Shell
 from blender.imaging.color.processors import ColorSpace
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, Reason
 
 from ...chain.stages import Effect, Stage, transform
 
@@ -79,7 +79,7 @@ def _(_record: GamutCompression, values: Mapping[Key, Value], _config: PyOpenCol
             params = [cyan_limit, magenta_limit, yellow_limit, cyan_threshold, magenta_threshold, yellow_threshold, power]
             return Ok(Some(PyOpenColorIO.FixedFunctionTransform(style=PyOpenColorIO.FIXED_FUNCTION_ACES_GAMUT_COMP_13, params=params)))
         case _:
-            return Error(Fault.of(RecordReason.UNREADABLE, GamutCompression.__name__, repr(values)))
+            return Error(Fault.of(Reason.UNREADABLE, GamutCompression.__name__, repr(values)))
 
 
 def _gamut_compression(shell: Shell[GamutCompression]) -> Outcome[Expr]:

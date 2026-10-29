@@ -8,12 +8,12 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.nodes.content import Ramp
+from blender.bpy.nodes.desired import Interface, InterfacePanel, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.graphs import Expr, mixed, rgba, switched, vector
-from blender.bpy.nodes.interface import Interface, InterfacePanel, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor.colors import hsy
-from blender.bpy.render.compositor.coordinates import gridded, pixels
+from blender.bpy.render.compositor.coordinates import PixelGrid
 from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
-from blender.bpy.render.compositor.shells import Shell
+from blender.bpy.render.compositor.inputs import Shell
 from blender.imaging.color.processors import Domain
 from blender.records.faults import Outcome, paired
 
@@ -85,8 +85,8 @@ def _palette(shell: Shell[Palette]) -> Outcome[Expr]:
     chosen = shell.menu(_CHANNELS, cases={_RGB: source, _LUMINANCE: toned(source)})
 
     def quantized() -> Expr:
-        cell = switched(shell.input(_DITHER_CELL), (1.0, 1.0, 0.0), vector("MAXIMUM", (1.0, 1.0, 0.0), pixels(shell.space, shell.input(_DITHER_CELL_VALUE), bpy.types.NodeSocketVector)))
-        indices = vector("FLOOR", vector("DIVIDE", gridded(source).point, cell))
+        cell = switched(shell.input(_DITHER_CELL), (1.0, 1.0, 0.0), vector("MAXIMUM", (1.0, 1.0, 0.0), shell.space.pixel_size(shell.input(_DITHER_CELL_VALUE))))
+        indices = vector("FLOOR", vector("DIVIDE", PixelGrid.of(source).point, cell))
         x_bits, y_bits = (vector("SNAP", indices[axis], spans) for axis in ("X", "Y"))
         periods = tuple(2.0 * span for span in spans)
         rank = vector("MULTIPLY_ADD", vector("MODULO", x_bits + y_bits, periods), (2.0,) * 3, vector("MODULO", y_bits, periods))

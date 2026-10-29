@@ -5,7 +5,7 @@ from textwrap import dedent
 import pytest
 
 from tools.refurb.bpy_collections import ErrorCollectionTypeTestError
-lazy from tests.python.support.doubles import Findings
+lazy from tests.python.tools.refurb.conftest import Findings
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

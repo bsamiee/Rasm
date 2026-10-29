@@ -13,17 +13,16 @@ from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes import textures
 from blender.bpy.nodes.content import Ramp, Stop
+from blender.bpy.nodes.desired import Interface, InterfacePanel, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.functions import EXPRESSIONS
 from blender.bpy.nodes.graphs import Expr, math, mixed, Scalar, switched, vector, xyz
-from blender.bpy.nodes.interface import Interface, InterfacePanel, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor import masks
-from blender.bpy.render.compositor.coordinates import dimensions, sampled
+from blender.bpy.render.compositor.coordinates import dimensions
 from blender.bpy.render.compositor.effects import CompositorEffect, depth_precise
-from blender.bpy.render.compositor.inputs import entry_input
+from blender.bpy.render.compositor.inputs import entry_input, PreviewFrame, Shell
 from blender.bpy.render.compositor.lenses import Sighted
 from blender.bpy.render.compositor.motion import clocked, origin
 from blender.bpy.render.compositor.shapes import coverage, rotated
-from blender.bpy.render.compositor.shells import PreviewFrame, Shell
 from blender.bpy.render.view_layers.passes import PassRequest
 from blender.bpy.scene.cameras import camera_type
 from blender.imaging.geometry.lenses import Aperture
@@ -216,7 +215,7 @@ def rayed(shell: Shell[LightRays]) -> Outcome[Expr]:
             ("Clamp Highlights", False),
             ("Highlights Threshold", 0.0),
             ("Highlights Smoothness", 0.0),
-            ("Sun Position", sampled(shell.space, position)),
+            ("Sun Position", shell.space.sampled(position)),
             ("Size", shell.input(_LENGTH) * shell.space.greater / diagonal),
             ("Jitter", shell.input(_JITTER)),
         ),
