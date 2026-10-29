@@ -1,15 +1,16 @@
 """Active compositor effect group saved into user asset libraries."""
 
-import functools
 from functools import partial
 from pathlib import Path
 
 import bpy
-from expression import Option, Result, Some, try_downcast
-from expression.collections import Block
+from expression import Nothing, Option, Result, Some
 
-from blender.bpy.commands.operators import Call, Done, Operator, Properties
-from blender.bpy.data.rna.descriptors import Struct, written
+from blender.bpy.commands.invocations import Popup
+from blender.bpy.commands.operators import Call, Done, Operator
+from blender.bpy.data.rna.descriptors import written
+from blender.bpy.data.rna.mirrors import held_choices
+from blender.bpy.data.rna.paths import rooted, Struct
 from blender.bpy.faults import BlenderReason
 from blender.bpy.files.assets import AssetMark, published
 from blender.records.faults import Fault, Faults, Outcome, paired
@@ -17,17 +18,11 @@ from blender.records.faults import Fault, Faults, Outcome, paired
 # --- [CHOICES] --------------------------------------------------------------------------
 
 
-@functools.cache
-def _libraries(held: tuple[tuple[str, str], ...]) -> tuple[tuple[str, str, str], ...]:
-    """Enum rows of user asset libraries, cached so the strings Blender reads stay referenced."""
-    return tuple((name, name, path) for name, path in held)
-
-
-def libraries(_owner: Struct, context: bpy.types.Context | None) -> tuple[tuple[str, str, str], ...]:
-    """User asset library rows of the context preferences."""
-    return _libraries(
+def libraries(_owner: Struct, context: bpy.types.Context | None) -> tuple[tuple[str, str, str, str, int], ...]:
+    """User asset library items of the context preferences."""
+    return held_choices(
         tuple(
-            (row.name, row.path)
+            (row.name, row.name, row.path)
             for preferences in Option.of_optional(context).bind(lambda held: Option.of_optional(held.preferences)).to_list()
             for row in preferences.filepaths.asset_libraries
             if isinstance(row, bpy.types.PreferencesAssetLibrary)
@@ -51,23 +46,18 @@ class Saving(bpy.types.PropertyGroup):
 def save_effect_asset(call: Call[Saving]) -> Outcome[Done]:
     """Save active effect to user asset library."""
     chosen = call.properties
-    group = call.root(bpy.types.Scene).bind(
+    group = rooted(bpy.types.Scene, call.context).bind(
         lambda scene: (
-            Block
-            .of_seq(scene.compositor_effects)
-            .filter(lambda entry: entry.is_active)
-            .choose(lambda entry: Option.of_optional(entry.node_group))
-            .try_head()
+            Option
+            .of_optional(scene.compositor_effects.active)
+            .bind(lambda entry: Option.of_optional(entry.node_group))
             .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(scene.compositor_effects), member="active"))
         )
     )
-    folder = call.root(bpy.types.Preferences).bind(
+    folder = rooted(bpy.types.Preferences, call.context).bind(
         lambda preferences: (
-            Block
-            .of_seq(preferences.filepaths.asset_libraries)
-            .choose(lambda row: Option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)))
-            .filter(lambda row: row.name == chosen.library)
-            .try_head()
+            Option
+            .of_optional(preferences.filepaths.asset_libraries.get(chosen.library))
             .map(lambda row: Path(row.path))
             .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(preferences.filepaths.asset_libraries), member=chosen.library))
         )
@@ -76,7 +66,7 @@ def save_effect_asset(call: Call[Saving]) -> Outcome[Done]:
     def stored(pair: tuple[bpy.types.NodeTree, Path]) -> Outcome[Done]:
         group, folder = pair
         return (
-            written(group, "allow_usage_in_scene_compositor_effect", True)
+            written(group, ("allow_usage_in_scene_compositor_effect",), True)
             .bind(lambda _: published(call.identity, folder, bpy.path.clean_name(group.name), ((group, AssetMark(key=save_effect.key, catalog=chosen.catalog)),), kept=True))
             .map(lambda path: Done(notes=(("INFO", f"Saved {group.name} to {path}"),)))
         )
@@ -86,7 +76,7 @@ def save_effect_asset(call: Call[Saving]) -> Outcome[Done]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-save_effect = Operator(form=Saving, run=save_effect_asset, invoke=Some(Properties()), undo=False)
+save_effect = Operator(form=Saving, run=save_effect_asset, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), undo=Nothing)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -3,7 +3,6 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from functools import cached_property, partial
-from pathlib import Path
 from typing import ClassVar, Final
 
 from bl_ui.properties_render import RENDER_PT_color_management
@@ -16,30 +15,34 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
+from blender.bpy.commands.calls import Placement
 from blender.bpy.commands.keymaps import Button, Chord
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Job, Setting
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, root_in
+from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.data.rna.paths import root_in, rooted
+from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.events import Timer
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
-from blender.bpy.render.compositor.effects import Enabled, entered
+from blender.bpy.render.compositor.effects import Enabled
+from blender.bpy.render.compositor.inputs import entered
 from blender.bpy.render.compositor.viewers import READ, ViewerRead
 from blender.bpy.settings.attachments import Attachment
-from blender.bpy.ui.drawing.canvas import Canvas, Rect
-from blender.bpy.ui.drawing.handlers import Drawing, Overlay, Signal, Updated
+from blender.bpy.ui.drawing.canvas import Canvas, DrawType, Rect
+from blender.bpy.ui.drawing.handlers import Drawing, Handled, Overlay, Signal
 from blender.bpy.ui.drawing.offscreen import captured
-from blender.bpy.ui.images.cages import Access, Aligned, FrameRegion
-from blender.bpy.ui.images.picks import Picked, picking
+from blender.bpy.ui.images.cages import FrameRegion
+from blender.bpy.ui.images.views import Picked, picking
 from blender.bpy.ui.layout.rows import OperatorButton
-from blender.bpy.ui.layout.sections import Single
-from blender.bpy.ui.layout.values import Hosted, Store
+from blender.bpy.ui.layout.sections import Section
+from blender.bpy.ui.layout.values import Store
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.bpy.ui.surfaces.panels import Child, Panel
-from blender.bpy.ui.surfaces.tools import Appended, ImageEditor, Tool, Tools
+from blender.bpy.ui.surfaces.tools import Tool, Tools
 from blender.imaging.analysis.metering import Meter
 from blender.imaging.color.processors import processor
 from blender.imaging.files.buffers import applied
@@ -100,6 +103,7 @@ class Follower:
     """Viewport part metering the shown camera frame, stepping toward targets consecutive readings agree on."""
 
     __slots__ = ("identity", "previous", "step")
+    draw_type: ClassVar[DrawType] = "PRE_VIEW"
 
     def __init__(self, identity: Identity, step: Callable[[Handle[bpy.types.Scene], float], None]) -> None:
         """Holds the identity and deferred step with no previous reading."""
@@ -142,7 +146,7 @@ class Follower:
         def metered(plane: npt.NDArray[np.float32]) -> Option[float]:
             return reports.reported(lambda: state.meter.stops(state.config, plane))().bind(lambda value: value).map(lambda value: value + state.bias)
 
-        match bpy.context.scene, bpy.context.region, canvas.space.to_optional():
+        match bpy.context.scene, canvas.region, canvas.space:
             case bpy.types.Scene() as scene, bpy.types.Region() as region, bpy.types.SpaceView3D(region_3d=bpy.types.RegionView3D() as view) as space if Handle.of(scene) == state.scene:
                 viewing = view.view_perspective == "CAMERA"
                 composited = space.shading.use_compositor == "ALWAYS" or (space.shading.use_compositor == "CAMERA" and viewing)
@@ -209,8 +213,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def meter_exposure(self, call: Call[Empty]) -> Outcome[Answer]:
         """Meter the Exposure entry input and write absolute stops."""
         return (
-            call
-            .root(bpy.types.Scene)
+            rooted(bpy.types.Scene, call.context)
             .bind(lambda scene: self.entry(call.identity, scene).bind(lambda held: self.reading.entering(call.identity, scene, held, self.consumed)))
             .map(lambda _: Done(notes=(("INFO", "Metering exposure entry input"),)))
         )
@@ -218,7 +221,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def metering(self) -> Operator[Empty]:
         """Command arming the viewer read on the earliest Exposure entry's input."""
-        return Operator(form=Empty, run=self.meter_exposure, condition=Some(Job(kind="RENDER")), undo=False)
+        return Operator(form=Empty, run=self.meter_exposure, condition=Some(Job(kind="RENDER")), undo=Nothing)
 
     # --- [REGISTRATION]
 
@@ -227,20 +230,15 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Holds the command, viewer read, viewport following with its deferred step, and aligned handles over the meter region while it is on."""
         refresh, interval = Signal(), 0.12
 
-        def access(context: bpy.types.Context) -> Outcome[Option[Access]]:
+        def read(context: bpy.types.Context) -> Outcome[Option[Quad]]:
             return (
                 root_in(bpy.types.Scene, context)
-                .map(
-                    lambda scene: self.attachment.read(identity, scene).map(
-                        lambda metering: (
-                            Some(metering.meter.region)
-                            .filter(lambda _: metering.use_region)
-                            .map(lambda region: Access(quad=Quad.of_region(region), write=lambda quad: metered(identity, scene, Region.bounding(quad.samples))))
-                        )
-                    )
-                )
+                .map(lambda scene: self.attachment.read(identity, scene).map(lambda metering: Some(metering.meter.region).filter(lambda _: metering.use_region).map(Quad.of_region)))
                 .default_value(Ok(Nothing))
             )
+
+        def write(context: bpy.types.Context, quad: Quad) -> Outcome[None]:
+            return rooted(bpy.types.Scene, context).bind(lambda scene: metered(identity, scene, Region.bounding(quad.samples)))
 
         with identity.reports.deferred(lambda handle, target: self.stepped(identity, handle, target)) as step:
             yield Ok((
@@ -250,16 +248,15 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 Overlay[Following](
                     drawing=Drawing(
                         area=AreaQuery(
-                            space="VIEW_3D", shows=Some(Setting(descriptor=Descriptor.declared(bpy.types.SpaceView3D, ("shading", "type"), bpy.types.EnumProperty), accepted=("MATERIAL", "RENDERED")))
+                            space=bpy.types.SpaceView3D,
+                            shows=Some(Setting(descriptor=Descriptor.declared(bpy.types.SpaceView3D, ("shading", "type"), bpy.types.EnumProperty), accepted=("MATERIAL", "RENDERED"))),
                         ),
                         part=Follower(identity, step),
-                        refreshes=(refresh, Updated(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,))),
+                        refreshes=(refresh, Handled(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,))),
                     ),
-                    space=bpy.types.SpaceView3D,
-                    draw_type="PRE_VIEW",
                     respect_overlays=False,
                 ),
-                FrameRegion(key="meter_region", access=access, shape=Aligned(bounds=Some(Region()))),
+                FrameRegion(key="meter_region", read=read, write=write, bounds=Some(Region())),
             ))
 
 
@@ -268,32 +265,33 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 def metered(identity: Identity, scene: bpy.types.Scene, region: Region) -> Outcome[None]:
     """Writes a region into the scene meter with the region on."""
-    return AutoExposure.attachment.read(identity, scene).bind(lambda metering: assigned(metering, {"use_region": True, "region": (region.left, region.bottom, region.right, region.top)}))
+    return AutoExposure.attachment.read(identity, scene).bind(lambda metering: assigned(metering, {("use_region",): True, ("region",): (region.left, region.bottom, region.right, region.top)}))
 
 
 def pick_meter_region(call: Call[Picked], region: Region) -> Outcome[Answer]:
     """Meter the next frame over the picked square."""
-    return call.root(bpy.types.Scene).bind(lambda scene: metered(call.identity, scene, region)).map(lambda _: Done(notes=(("INFO", "Metering picked region"),)))
+    return rooted(bpy.types.Scene, call.context).bind(lambda scene: metered(call.identity, scene, region)).map(lambda _: Done(notes=(("INFO", "Metering picked region"),)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 auto_exposure: Final = AutoExposure()
-meter_pick: Final = picking(pick_meter_region.__name__, "CROSSHAIR", Picked, pick_meter_region)
+meter_pick: Final = picking("CROSSHAIR", Picked, pick_meter_region)
 rows: Final = (
     auto_exposure,
     meter_pick,
     Tools(
-        toolbar=ImageEditor(mode="VIEW"),
-        tools=(Tool(key="meter", title=meter_pick.title, operator=meter_pick, icon=Path("region.svg"), bindings={Chord(type=Button.SELECT): meter_pick}),),
-        placement=Appended(separator=True),
+        space="IMAGE_EDITOR",
+        mode=Some("VIEW"),
+        tools=(Tool(key="meter", operator=meter_pick, icon="ops.generic.select_box", bindings=((Chord(type=Button.SELECT), Placement(meter_pick)),)),),
+        separator=True,
     ),
     Panel(
-        section=Single(
+        section=Section(
             key=AutoExposure.attachment.key,
             title=bpy.path.display_name(AutoExposure.attachment.key),
             rows=(OperatorButton(target=meter_pick), OperatorButton(target=auto_exposure.metering)),
-            store=Some(Hosted(store=Store(attachment=AutoExposure.attachment))),
+            store=Some(Store(attachment=AutoExposure.attachment)),
         ),
         at=Child(parent=RENDER_PT_color_management),
     ),

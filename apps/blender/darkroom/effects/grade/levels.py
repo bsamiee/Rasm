@@ -11,16 +11,25 @@ import PyOpenColorIO
 from blender.bpy.commands.operators import Answer, Call, Done, Operator
 from blender.bpy.data.rna.conditions import Job
 from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.nodes.interface import Interface, Socket
-from blender.bpy.render.compositor.effects import CompositorEffect, entered, Named, Registers, Shell
+from blender.bpy.render.color.spaces import EXPOSURE
+from blender.bpy.render.compositor.effects import CompositorEffect, Named
+from blender.bpy.render.compositor.inputs import entered
+from blender.bpy.render.compositor.shells import Shell
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.files.images import ImageFile
 from blender.records.faults import Fault, Outcome, RecordReason
 
 from ...chain.stages import Effect, Stage, transform
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_BLACK: Final = Socket(key="black", kind=bpy.types.NodeSocketFloat, description="Scene-linear value mapping to 0")
+_WHITE: Final = Socket(key="white", kind=bpy.types.NodeSocketFloat, description="Stops from black point to the value mapping to 1", min_value=EXPOSURE.prop.hard_min, max_value=EXPOSURE.prop.hard_max)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -47,12 +56,6 @@ def _(_record: Levels, values: Mapping[Key, Value], _config: PyOpenColorIO.Confi
             return Error(Fault.of(RecordReason.UNREADABLE, Levels.__name__, repr(values)))
 
 
-def leveled(shell: Shell[Levels]) -> Outcome[Expr]:
-    """Subtracts the coverage-weighted black point and lowers by the white span in stops."""
-    color = shell.color
-    return Ok(Expr(kind=bpy.types.CompositorNodeExposure, inputs=(("Image", color - shell.input("black") * color["Alpha"]), ("Exposure", -shell.input("white"))), socket="Image", shape="RGBA"))
-
-
 def auto_levels(call: Call[Named]) -> Outcome[Answer]:
     """Measure levels from the stage input."""
 
@@ -62,33 +65,36 @@ def auto_levels(call: Call[Named]) -> Outcome[Answer]:
                 samples
                 .extent()
                 .filter(lambda extent: extent.white > extent.low)
-                .map(lambda extent: entered(identity, entry, {"black": extent.low, "white": float(np.log2(extent.white - extent.low))}))
+                .map(lambda extent: entered(identity, entry, {_BLACK.key: extent.low, _WHITE.key: float(np.log2(extent.white - extent.low))}))
                 .default_value(Ok(False))
                 .map(lambda wrote: Some(bpy.path.display_name(auto_levels.__name__)) if wrote else Nothing)
             )
         )
 
     return (
-        call
-        .root(bpy.types.Scene)
+        rooted(bpy.types.Scene, call.context)
         .bind(lambda scene: levels.named(call.identity, scene, call.properties.name).bind(lambda entry: READ.entering(call.identity, scene, entry, measured)))
         .map(lambda _: Done())
     )
 
 
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-levels: Final[CompositorEffect[Levels]] = CompositorEffect(
-    record=Levels,
-    graph=leveled,
-    interface=Interface(
-        inputs=tuple(
-            Socket(key=key, name=bpy.path.display_name(key), kind=bpy.types.NodeSocketFloat, description=description, members=members)
-            for key, description, members in (("black", "Scene-linear value mapping to 0", {}), ("white", "Stops from black point to the value mapping to 1", {"min_value": -32.0, "max_value": 32.0}))
+def _levels(shell: Shell[Levels]) -> Outcome[Expr]:
+    """Subtracts the coverage-weighted black point and lowers by the white span in stops."""
+    color = shell.color
+    return Ok(
+        Expr(
+            kind=bpy.types.CompositorNodeExposure, inputs=(("Image", color - shell.input(_BLACK) * color["Alpha"]), ("Exposure", -shell.input(_WHITE))), socket="Image", shape=bpy.types.NodeSocketColor
         )
-    ),
-    parts=(Registers(rows=(Operator(form=Named, run=auto_levels, icon=Some("SEQ_HISTOGRAM"), undo=False, condition=Some(Job(kind="RENDER"))),)),),
+    )
+
+
+levels: Final = CompositorEffect(
+    graph=_levels,
+    record=Levels,
+    interface=Interface(inputs=(_BLACK, _WHITE)),
+    registers=(Operator(form=Named, run=auto_levels, icon=Some("SEQ_HISTOGRAM"), undo=Nothing, condition=Some(Job(kind="RENDER"))),),
 )
+
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

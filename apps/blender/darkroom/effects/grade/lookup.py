@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Final
 
 import bpy
 from expression import Nothing, Ok, Option, Some
@@ -14,10 +15,13 @@ import PyOpenColorIO
 from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.extension.identity import Key
+from blender.bpy.data.rna.paths import rooted
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.render.color.luts import current
-from blender.bpy.render.compositor.effects import Alpha, CameraFrame, CompositorEffect, Named, Opens, Registers, revised, Shell, Spaces
+from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Named, Opened, revised
+from blender.bpy.render.compositor.inputs import CameraFrame
+from blender.bpy.render.compositor.shells import Shell
 from blender.bpy.render.compositor.tables import latticed, tabled, TILES
 from blender.imaging.color.luts import Lattice, LutFormat, split
 from blender.imaging.color.processors import bracketed, ColorSpace, converted
@@ -61,7 +65,7 @@ def _(record: Lookup, _values: Mapping[Key, Value], _config: PyOpenColorIO.Confi
 
 @prepared.register
 def _(
-    record: Lookup, _values: Mapping[Key, Value], config: PyOpenColorIO.Config, image: OpenImageIO.ImageBuf, _precision: Precision, _frame: CameraFrame, _scene: bpy.types.Scene, /
+    record: Lookup, _identity: Identity, _values: Mapping[Key, Value], config: PyOpenColorIO.Config, image: OpenImageIO.ImageBuf, _precision: Precision, _frame: CameraFrame, _scene: bpy.types.Scene, /
 ) -> Outcome[Option[OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf] | Mapping[Key, Value]]]:
     """Applies the file's unbounded operations before its first 3D table to the entering pixels in the LUT's colorspace, Nothing while a lattice samples them or the file holds none."""
     file = msgspec.structs.replace(record, source=str(Path(bpy.path.abspath(record.source)).resolve())).file
@@ -74,7 +78,16 @@ def _(
     )
 
 
-def looked_up(shell: Shell[Lookup]) -> Outcome[Expr]:
+def lookup_reload(call: Call[Named]) -> Outcome[Answer]:
+    """Rebuild the entry from its LUT file."""
+    return (
+        rooted(bpy.types.Scene, call.context)
+        .bind(lambda scene: lookup.named(call.identity, scene, call.properties.name).bind(lambda entry: revised(lookup, call.identity, scene, entry, Ok)))
+        .map(lambda changed: Done() if changed else Unchanged(reason=f"{call.properties.name} matches its current file"))
+    )
+
+
+def _lookup(shell: Shell[Lookup]) -> Outcome[Expr]:
     """Samples the prefix on its authored lattice where set, then the file's first 3D table and the rest, the CPU-prepared image entering while staged."""
     record = shell.record
     name = Path(record.source).name
@@ -82,7 +95,7 @@ def looked_up(shell: Shell[Lookup]) -> Outcome[Expr]:
     def built(parts: Parts) -> Outcome[Expr]:
         head, suffix = parts
         entering = (
-            Ok(Expr(kind=bpy.types.CompositorNodeImage, members=(("image", record.staged),), socket="Image", shape="RGBA"))
+            Ok(Expr(kind=bpy.types.CompositorNodeImage, members={"image": record.staged}, socket="Image", shape=bpy.types.NodeSocketColor))
             if record.staged is not None
             else latticed("prefix", f"{name} Prefix", shell.config, head, record.prefix, shell.color)
             if len(head) and record.prefix is not None
@@ -93,28 +106,15 @@ def looked_up(shell: Shell[Lookup]) -> Outcome[Expr]:
     return current(shell.identity, record.source, shell.config).bind(lambda path: split(shell.config, msgspec.structs.replace(record, source=path).file)).bind(built)
 
 
-def lookup_reload(call: Call[Named]) -> Outcome[Answer]:
-    """Rebuild the entry from its LUT file."""
-    return (
-        call
-        .root(bpy.types.Scene)
-        .bind(lambda scene: lookup.named(call.identity, scene, call.properties.name).bind(lambda entry: revised(lookup, call.identity, scene, entry, Ok)))
-        .map(lambda changed: Done() if changed else Unchanged(reason=f"{call.properties.name} matches its current file"))
-    )
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-lookup = CompositorEffect(
+lookup: Final = CompositorEffect(
+    graph=_lookup,
     record=Lookup,
-    graph=looked_up,
-    alpha=Alpha.STRAIGHT,
-    parts=(
-        Spaces(space=lambda record: record.space),
-        Opens(extensions=lambda: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.readable())), of=lambda path: Lookup(source=path)),
-        Registers(rows=(TILES, Operator(form=Named, run=lookup_reload))),
-    ),
+    mix=Blended(alpha=Alpha.STRAIGHT),
+    space=Some(lambda record: record.space),
+    source=Opened(extensions=lambda: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.readable())), of=lambda path: Lookup(source=path)),
+    registers=(TILES, Operator(form=Named, run=lookup_reload)),
 )
+
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

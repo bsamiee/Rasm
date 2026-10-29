@@ -1,11 +1,16 @@
-"""Elementwise arithmetic one map is written over, spelled with the Array API names so the numpy module serves as a namespace."""
+"""Elementwise arithmetic one map is written over, spelled with the Array API names so the numpy module serves as a namespace, and the periodic, normal, and Hermite maps written over it."""
 
-from typing import Protocol, Self
+import math
+from typing import Final, Literal, Protocol, Self
+
+import numpy as np
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+type WaveProfile = Literal["SIN", "SAW", "TRI"]
 
-class Field(Protocol):
+
+class Elementwise(Protocol):
     """Value supporting elementwise arithmetic with itself and floats."""
 
     def __add__(self, other: Self | float, /) -> Self:
@@ -33,7 +38,7 @@ class Field(Protocol):
         """Elementwise quotient of a leading float."""
 
 
-class Namespace[V: Field, B](Protocol):
+class Namespace[V: Elementwise, B](Protocol):
     """Elementwise functions over values `V` with conditions `B`, the Array API subset maps read."""
 
     def negative(self, x: V, /) -> V:
@@ -103,6 +108,46 @@ class Namespace[V: Field, B](Protocol):
         """`x1` where `condition` holds, else `x2`."""
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_TAU: Final = 2.0 * math.pi
+_EPSILON: Final = float(np.finfo(np.float32).eps)
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def periodic[V: Elementwise, B](profile: WaveProfile, cycles: V, ns: Namespace[V, B]) -> V:
+    """Returns the Wave Texture profile in [0, 1] at a cycle coordinate, one period per unit, its identifiers those of `ShaderNodeTexWave.wave_profile`."""
+    match profile:
+        case "SIN":
+            return 0.5 - ns.cos(cycles * _TAU) * 0.5
+        case "SAW":
+            return cycles - ns.floor(cycles)
+        case "TRI":
+            return ns.abs(cycles - ns.floor(cycles + 0.5)) * 2.0
+
+
+def gaussian[V: Elementwise, B](radius: V, angle: V, ns: Namespace[V, B]) -> tuple[V, V]:
+    """Returns the cosine and sine Box-Muller normals of two distinct uniform draws, such as two White Noise values.
+
+    Args:
+        radius: Uniform draw setting the shared radius, kept off zero by float32 epsilon.
+        angle: Uniform draw setting the shared phase.
+        ns: Namespace evaluating the draws, `numpy` or the node namespace.
+
+    Returns:
+        Normals over one radius and phase.
+    """
+    spread = ns.sqrt(ns.log((radius + _EPSILON) / (1.0 + 2.0 * _EPSILON)) * -2.0)
+    phase = angle * _TAU
+    return spread * ns.cos(phase), spread * ns.sin(phase)
+
+
+def smoothstep[V: Elementwise](values: V) -> V:
+    """Returns cubic Hermite ease of unit-interval values."""
+    return values * values * (3.0 - values * 2.0)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Field", "Namespace"]
+__all__ = ["Elementwise", "Namespace", "WaveProfile", "gaussian", "periodic", "smoothstep"]

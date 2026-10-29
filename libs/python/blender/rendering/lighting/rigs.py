@@ -5,7 +5,7 @@ from functools import partial
 import math
 import sys
 from types import MappingProxyType
-from typing import Annotated, Final
+from typing import Annotated, ClassVar, Final, override
 
 from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
@@ -16,7 +16,7 @@ import PyOpenColorIO
 
 from blender.imaging.analysis.lighting import LightingReading
 from blender.imaging.analysis.metering import Samples
-from blender.imaging.color.processors import luma, processor, Stops
+from blender.imaging.color.processors import luma, processor
 from blender.imaging.files.buffers import applied
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 from blender.records.fields import Case, Finite, NonNegative, Positive, Unit
@@ -29,7 +29,7 @@ type _Distance = Annotated[float, msgspec.Meta(gt=1.0, le=sys.float_info.max)]
 type _Diameter = Annotated[float, msgspec.Meta(ge=0.0, le=math.pi)]
 
 
-class Role(IntEnum):
+class LightRole(IntEnum):
     """Light role in rig."""
 
     KEY = 1
@@ -42,36 +42,54 @@ class Role(IntEnum):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Point(Case, frozen=True):
+class _Source(Case, frozen=True, kw_only=True):
+    """Emitter case base holding the solid angle factor its radiant power takes over the irradiance it delivers."""
+
+    coefficient: ClassVar[float] = math.pi
+
+    def power(self, reach: float, extent: float, irradiance: float) -> Outcome[float]:
+        """Returns radiant watts delivering irradiance at reach from a light subtending extent."""
+        return _scaled((self.coefficient, reach, reach, 1.0 + extent**2, irradiance))
+
+
+class Point(_Source, frozen=True, kw_only=True):
     """Sphere light emitting in every direction."""
 
+    coefficient = 4.0 * math.pi
 
-class Spot(Case, frozen=True, kw_only=True):
+
+class Spot(_Source, frozen=True, kw_only=True):
     """Sphere light with beam limited to cone."""
 
-    cone: Annotated[float, msgspec.Meta(ge=math.radians(1.0), le=math.pi)] = math.pi / 4.0
+    coefficient = 4.0 * math.pi
+    cone: Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=math.pi)] = math.pi / 4.0
     blend: Unit = 0.15
 
 
-class Disk(Case, frozen=True):
+class Disk(_Source, frozen=True, kw_only=True):
     """Disk area light facing target."""
 
 
-class Sun(Case, frozen=True):
+class Sun(_Source, frozen=True, kw_only=True):
     """Distant light at uniform irradiance."""
+
+    @override
+    def power(self, reach: float, extent: float, irradiance: float) -> Outcome[float]:
+        """Returns the irradiance as watts per square meter, a distant light holding it at any reach."""
+        return Ok(irradiance)
 
 
 class Light(msgspec.Struct, frozen=True, kw_only=True):
     """Rig light with irradiance offset from key."""
 
-    role: Role = Role.KEY
+    role: LightRole = LightRole.KEY
     emitter: _Emitter = Disk()
     azimuth: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi)] = 0.0
     elevation: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0)] = 0.0
     stops: Finite = 0.0
     size: _Diameter = 2.0 * math.asin(0.2)
     color: tuple[Finite, Finite, Finite] = (1.0, 1.0, 1.0)
-    temperature: Annotated[float, msgspec.Meta(ge=1800.0, le=20000.0)] | None = None
+    temperature: Positive | None = None
 
     @property
     def direction(self) -> tuple[float, float, float]:
@@ -85,7 +103,7 @@ class Light(msgspec.Struct, frozen=True, kw_only=True):
         return math.sin(self.size / 2.0)
 
 
-class Ambient(msgspec.Struct, frozen=True, kw_only=True):
+class AmbientLight(msgspec.Struct, frozen=True, kw_only=True):
     """World light color and irradiance offset."""
 
     color: tuple[Finite, Finite, Finite] = (1.0, 1.0, 1.0)
@@ -96,7 +114,7 @@ class Arranged(Case, frozen=True, kw_only=True):
     """Lights and world light as stated."""
 
     lights: tuple[Light, ...] = (Light(),)
-    ambient: Ambient | None = None
+    ambient: AmbientLight | None = None
 
 
 class Matched(Case, frozen=True, kw_only=True):
@@ -106,9 +124,9 @@ class Matched(Case, frozen=True, kw_only=True):
     key: _Emitter = Disk()
     softness: NonNegative = 1.0
     fill_size: _Diameter = math.radians(44.0)
-    fill: Stops | None = None
-    rim: Stops | None = 0.0
-    ambient: Stops | None = 0.0
+    fill: Finite | None = None
+    rim: Finite | None = 0.0
+    ambient: Finite | None = 0.0
     tint: tuple[Finite, Finite, Finite] = (1.0, 1.0, 1.0)
 
     def arranged(self, reading: LightingReading) -> Outcome[Arranged]:
@@ -125,21 +143,23 @@ class Matched(Case, frozen=True, kw_only=True):
         @np.errstate(over="raise", divide="raise", invalid="raise")
         def lit() -> Arranged:
             if (hardness := reading.hardness) <= 0.0:
-                return Arranged(lights=(), ambient=Ambient(color=filtered(reading.key)))
+                return Arranged(lights=(), ambient=AmbientLight(color=filtered(reading.key)))
             azimuth, elevation = (component * math.pi / 2.0 for component in reading.direction)
             scale = max(hardness, abs(reading.contrast))
             size = math.pi - 2.0 * math.atan2(hardness / scale, self.softness * (reading.contrast / scale))
             key = Light(emitter=self.key, azimuth=azimuth, elevation=elevation, size=size, color=filtered(reading.key))
-            fill = Light(role=Role.FILL, azimuth=-azimuth, stops=Option.of_optional(self.fill).default_value(-reading.contrast), size=self.fill_size, color=filtered(reading.fill))
+            fill = Light(role=LightRole.FILL, azimuth=-azimuth, stops=Option.of_optional(self.fill).default_value(-reading.contrast), size=self.fill_size, color=filtered(reading.fill))
             rim = Option.of_optional(self.rim).bind(
                 lambda offset: reading.rim.map2(
-                    lambda color, backlight: Light(role=Role.RIM, azimuth=math.remainder(azimuth + math.pi, math.tau), elevation=elevation, stops=backlight + offset, size=size, color=filtered(color)),
+                    lambda color, backlight: Light(
+                        role=LightRole.RIM, azimuth=math.remainder(azimuth + math.pi, math.tau), elevation=elevation, stops=backlight + offset, size=size, color=filtered(color)
+                    ),
                     reading.backlight,
                 )
             )
             accents = (
                 Light(
-                    role=Role.ACCENT,
+                    role=LightRole.ACCENT,
                     azimuth=(2.0 * swatch.position[0] - 1.0) * math.pi / 2.0,
                     elevation=(2.0 * swatch.position[1] - 1.0) * math.pi / 2.0,
                     stops=math.log2(peak(swatch.color)) - math.log2(peak(reading.key)),
@@ -152,14 +172,14 @@ class Matched(Case, frozen=True, kw_only=True):
                 lights=(key, fill, *rim.to_list(), *accents)[: self.count],
                 ambient=Option
                 .of_optional(self.ambient)
-                .map(lambda offset: Ambient(color=filtered(reading.ambient), stops=math.log2(peak(reading.ambient)) - math.log2(peak(reading.key)) + offset))
+                .map(lambda offset: AmbientLight(color=filtered(reading.ambient), stops=math.log2(peak(reading.ambient)) - math.log2(peak(reading.key)) + offset))
                 .to_optional(),
             )
 
         return lit().map_error(partial(Fault.of, RecordReason.NUMERIC, repr(reading)))
 
 
-class Placement(msgspec.Struct, frozen=True, kw_only=True):
+class PlacedLight(msgspec.Struct, frozen=True, kw_only=True):
     """Light at target distance with delivered irradiance."""
 
     light: Light
@@ -180,14 +200,7 @@ class Placement(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def power(self) -> Outcome[float]:
         """Radiant watts, or watts per square meter for sun."""
-        match self.light.emitter:
-            case Point() | Spot():
-                coefficient = 4.0 * math.pi
-            case Disk():
-                coefficient = math.pi
-            case Sun():
-                return Ok(self.irradiance)
-        return _scaled((coefficient, self.reach, self.reach, 1.0 + self.light.extent**2, self.irradiance))
+        return self.light.emitter.power(self.reach, self.light.extent, self.irradiance)
 
 
 class Background(msgspec.Struct, frozen=True, kw_only=True):
@@ -197,12 +210,12 @@ class Background(msgspec.Struct, frozen=True, kw_only=True):
     strength: NonNegative
 
 
-class Placements(msgspec.Struct, frozen=True, kw_only=True):
+class PlacedRig(msgspec.Struct, frozen=True, kw_only=True):
     """Lights placed about target sphere with world."""
 
     radius: Positive
     distance: _Distance
-    lights: tuple[Placement, ...]
+    lights: tuple[PlacedLight, ...]
     background: Option[Background]
 
 
@@ -223,7 +236,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
             case Matched() as matched:
                 return reading.map(lambda found: matched.arranged(found).map(Some)).default_value(Ok(Nothing))
 
-    def placements(self, config: PyOpenColorIO.Config, radius: float, reading: Option[LightingReading]) -> Outcome[Option[Placements]]:
+    def placements(self, config: PyOpenColorIO.Config, radius: float, reading: Option[LightingReading]) -> Outcome[Option[PlacedRig]]:
         """Places rig with graded colors, Nothing for matched layout without reading."""
         blend = min(self.color_strength, 1.0)
 
@@ -235,7 +248,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
                 PyOpenColorIO.RangeTransform(minInValue=0.0, minOutValue=0.0),
             ])
 
-        def placed(arranged: Arranged, built: PyOpenColorIO.Processor, reach: float) -> Outcome[Option[Placements]]:
+        def placed(arranged: Arranged, built: PyOpenColorIO.Processor, reach: float) -> Outcome[Option[PlacedRig]]:
             operation = built.getDefaultCPUProcessor()
 
             def graded(color: tuple[Finite, Finite, Finite]) -> Outcome[tuple[Finite, Finite, Finite]]:
@@ -243,16 +256,16 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
                     partial(Fault.of, RecordReason.NUMERIC, repr(color))
                 )
 
-            def light_at(light: Light) -> Outcome[Placement]:
+            def light_at(light: Light) -> Outcome[PlacedLight]:
                 return paired(graded(light.color), _scaled((self.irradiance,), light.stops)).map(
-                    lambda found: Placement(light=msgspec.structs.replace(light, color=found[0]), reach=reach, irradiance=found[1])
+                    lambda found: PlacedLight(light=msgspec.structs.replace(light, color=found[0]), reach=reach, irradiance=found[1])
                 )
 
-            def world(ambient: Ambient) -> Outcome[Option[Background]]:
+            def world(ambient: AmbientLight) -> Outcome[Option[Background]]:
                 return paired(graded(ambient.color), _scaled((self.irradiance, 1.0 / math.pi), ambient.stops)).map(lambda found: Some(Background(color=found[0], strength=found[1])))
 
             return paired(accumulated(light_at(light) for light in arranged.lights), Option.of_optional(arranged.ambient).map(world).default_value(Ok(Nothing))).map(
-                lambda found: Some(Placements(radius=radius, distance=self.distance, lights=found[0], background=found[1]))
+                lambda found: Some(PlacedRig(radius=radius, distance=self.distance, lights=found[0], background=found[1]))
             )
 
         return self.arranged(reading).bind(
@@ -265,7 +278,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _measured(rows: tuple[tuple[Role, tuple[float, float, float], float, float, float], ...]) -> Rig:
+def _measured(rows: tuple[tuple[LightRole, tuple[float, float, float], float, float, float], ...]) -> Rig:
     """Returns arranged rig from key-first rows of role, offset, watts, side, and temperature."""
     levels = tuple(power / (math.pi * (math.hypot(*offset) ** 2 + (side / 2.0) ** 2)) for _, offset, power, side, _ in rows)
     return Rig(
@@ -300,12 +313,20 @@ def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> Outcome[float]:
 # --- [TABLES] ---------------------------------------------------------------------------
 
 RIGS: Final = MappingProxyType({
-    "Three-Point": _measured(((Role.KEY, (1.6, -1.6, 0.30), 250.0, 0.6, 5500.0), (Role.FILL, (-1.6, -1.2, -0.10), 90.0, 1.5, 6500.0), (Role.RIM, (0.5, 1.6, 0.80), 400.0, 0.4, 5000.0))),
-    "Hard Low Key": _measured(((Role.KEY, (2.0, -1.0, 0.40), 450.0, 0.4, 4500.0), (Role.FILL, (-1.5, -1.0, -0.20), 25.0, 1.0, 7000.0), (Role.RIM, (-0.4, 1.5, 0.80), 200.0, 0.3, 4200.0))),
-    "Side Key": _measured(((Role.KEY, (2.4, -0.6, 1.00), 550.0, 0.3, 4200.0),)),
-    "Soft High Key": _measured(((Role.KEY, (1.2, -2.0, 0.50), 300.0, 2.0, 5500.0), (Role.FILL, (-1.2, -2.0, 0.50), 250.0, 2.0, 5500.0), (Role.SKY, (0.0, 0.0, 2.20), 180.0, 1.5, 5500.0))),
-    "Rim Only": _measured(((Role.RIM, (0.0, 1.5, 1.20), 600.0, 0.5, 5000.0),)),
-    "Glamour": _measured(((Role.KEY, (0.0, -1.6, 1.40), 350.0, 0.7, 5500.0), (Role.FILL, (0.0, -1.0, -0.40), 80.0, 1.5, 6000.0))),
+    "Three-Point": _measured(((LightRole.KEY, (1.6, -1.6, 0.30), 250.0, 0.6, 5500.0), (LightRole.FILL, (-1.6, -1.2, -0.10), 90.0, 1.5, 6500.0), (LightRole.RIM, (0.5, 1.6, 0.80), 400.0, 0.4, 5000.0))),
+    "Hard Low Key": _measured((
+        (LightRole.KEY, (2.0, -1.0, 0.40), 450.0, 0.4, 4500.0),
+        (LightRole.FILL, (-1.5, -1.0, -0.20), 25.0, 1.0, 7000.0),
+        (LightRole.RIM, (-0.4, 1.5, 0.80), 200.0, 0.3, 4200.0),
+    )),
+    "Side Key": _measured(((LightRole.KEY, (2.4, -0.6, 1.00), 550.0, 0.3, 4200.0),)),
+    "Soft High Key": _measured((
+        (LightRole.KEY, (1.2, -2.0, 0.50), 300.0, 2.0, 5500.0),
+        (LightRole.FILL, (-1.2, -2.0, 0.50), 250.0, 2.0, 5500.0),
+        (LightRole.SKY, (0.0, 0.0, 2.20), 180.0, 1.5, 5500.0),
+    )),
+    "Rim Only": _measured(((LightRole.RIM, (0.0, 1.5, 1.20), 600.0, 0.5, 5000.0),)),
+    "Glamour": _measured(((LightRole.KEY, (0.0, -1.6, 1.40), 350.0, 0.7, 5500.0), (LightRole.FILL, (0.0, -1.0, -0.40), 80.0, 1.5, 6000.0))),
     "Auto": Rig(),
     "Portrait": Rig(distance=2.4, layout=Matched(softness=1.1, tint=(1.0, 0.97, 0.92))),
     "Rembrandt": Rig(color_strength=0.9, distance=2.4, layout=Matched(key=Spot(), softness=0.9, rim=math.log2(0.8), fill=math.log2(0.12), tint=(1.0, 0.95, 0.85))),
@@ -335,4 +356,4 @@ RIGS: Final = MappingProxyType({
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["RIGS", "Ambient", "Arranged", "Background", "Disk", "Light", "Matched", "Placement", "Placements", "Point", "Rig", "Role", "Spot", "Sun"]
+__all__ = ["RIGS", "AmbientLight", "Arranged", "Background", "Disk", "Light", "LightRole", "Matched", "PlacedLight", "PlacedRig", "Point", "Rig", "Spot", "Sun"]

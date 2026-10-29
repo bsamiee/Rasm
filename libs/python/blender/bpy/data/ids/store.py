@@ -6,7 +6,7 @@ from types import MappingProxyType
 from typing import Final, Self
 
 import bpy
-from expression import Error, Option, Some, try_downcast
+from expression import Error, Ok, Option, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -17,8 +17,8 @@ from blender.records.faults import accumulated, Fault, Outcome
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 STORES: Final[Mapping[type, str]] = MappingProxyType({type(prop.fixed_type): prop.identifier for prop in bpy.types.BlendData.bl_rna.properties if isinstance(prop, bpy.types.CollectionProperty)})
-_TREES: Final = MappingProxyType({
-    prop.identifier: tree.identifier
+_TREES: Final[Mapping[type, str]] = MappingProxyType({
+    type(fixed): tree.identifier
     for prop in bpy.types.BlendData.bl_rna.properties
     if isinstance(prop, bpy.types.CollectionProperty)
     for fixed in Option.of_optional(prop.fixed_type).to_list()
@@ -53,15 +53,17 @@ class IdName(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
-    """Session handle of original ID."""
+    """Session handle of original ID, an embedded node tree held through the session of the ID embedding it."""
 
     kind: type[T]
     uid: int
+    embedded: bool = False
 
     @classmethod
     def of(cls, block: T) -> Self:
-        """Returns handle of block's original."""
-        return cls(kind=type(block), uid=original(block).session_uid)
+        """Returns handle of block's original, an embedded tree naming its holder."""
+        held = original(block)
+        return cls(kind=type(block), uid=holder(held).default_value(held).session_uid, embedded=held.is_embedded_data)
 
     def resolve(self) -> Outcome[T]:
         """Returns live original, absent fault once expired."""
@@ -89,17 +91,21 @@ def blocks[T: bpy.types.ID](data: bpy.types.BlendData, kind: type[T]) -> tuple[T
 
 def resolved[T: bpy.types.ID](handles: Iterable[Handle[T]]) -> Outcome[tuple[T, ...]]:
     """Returns live originals in order, accumulating expired-handle faults."""
-    held = tuple(handles)
-    kinds = tuple(dict.fromkeys(handle.kind for handle in held))
-    live = {block.session_uid: block for block in bpy.data.all_ids if isinstance(block, kinds)}
+    live = {block.session_uid: block for block in bpy.data.all_ids}
+
+    def reached(handle: Handle[T]) -> Option[bpy.types.ID]:
+        found: Option[bpy.types.ID] = Option.of_optional(live.get(handle.uid))
+        return found.bind(embedded) if handle.embedded else found
+
     return accumulated(
-        Option.of_optional(try_downcast(handle.kind, live.get(handle.uid))).to_result_with(partial(Fault.of, BlenderReason.ABSENT, handle.kind.__name__, member=str(handle.uid))) for handle in held
+        reached(handle).bind(lambda block: Option.of_optional(try_downcast(handle.kind, block))).to_result_with(partial(Fault.of, BlenderReason.ABSENT, handle.kind.__name__, member=str(handle.uid)))
+        for handle in handles
     )
 
 
 def embedded(block: bpy.types.ID) -> Option[bpy.types.NodeTree]:
     """Returns block's embedded node tree."""
-    return Option.of_optional(_TREES.get(member(type(block)))).bind(lambda tree: Option.of_optional(getattr(block, tree)))
+    return Block.of_seq(type(block).__mro__).choose(lambda parent: Option.of_optional(_TREES.get(parent))).try_head().bind(lambda tree: Option.of_optional(getattr(block, tree)))
 
 
 def holder(block: bpy.types.ID) -> Option[bpy.types.ID]:
@@ -108,14 +114,17 @@ def holder(block: bpy.types.ID) -> Option[bpy.types.ID]:
 
 
 def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
-    """Renames block, collision fault when another block holds name."""
-    return (
-        IdName(name=name, library=IdName.of(block).library)
-        .resolve(type(block))
-        .filter(lambda holding: holding != block)
-        .map(lambda holding: Error(Fault.of(BlenderReason.TAKEN, name, member=repr(holding))))
-        .default_with(lambda: catch(block.rename, exception=RuntimeError)(name, mode="NEVER").map(lambda _: block).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(block))))
-    )
+    """Renames block, collision fault restoring the prior name when another block holds name and the host suffixed this one."""
+    prior, refused = block.name, partial(Fault.of, BlenderReason.REFUSED, repr(block))
+
+    def answered(result: str) -> Outcome[T]:
+        match result:
+            case "RENAMED_COLLISION_ADJUSTED":
+                return catch(block.rename, exception=RuntimeError)(prior, mode="NEVER").map_error(refused).bind(lambda _: Error(Fault.of(BlenderReason.TAKEN, name, member=member(type(block)))))
+            case _:
+                return Ok(block)
+
+    return catch(block.rename, exception=RuntimeError)(name, mode="NEVER").map_error(refused).bind(answered)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

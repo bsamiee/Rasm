@@ -1,4 +1,4 @@
-"""Tinted glyph previews from staged images and tool icon paths."""
+"""Tinted glyph previews from staged SVG images, data-block icons, and tool icon paths."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, nullcontext
@@ -15,6 +15,7 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
+from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.extension.events import Subscription
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Glyph = rna_enums.IconItems | Path
+type Glyph = rna_enums.IconItems | Path | bpy.types.ID
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -50,11 +51,11 @@ class IconSet:
 
     @classmethod
     def loaded(cls, identity: Identity) -> Self:
-        """Loads every staged glyph image into the extension's preview collection at full size."""
+        """Loads every staged SVG glyph into the extension's preview collection, its icon buffer at the full rasterized size."""
         collection = identity.held[PREVIEWS].collection
 
         def source(entry: Traversable) -> tuple[Path, tuple[npt.NDArray[np.float32], Option[Color]]]:
-            glyph = Path(entry.name).with_suffix(".svg")
+            glyph = Path(entry.name)
             preview = collection.load(glyph.as_posix(), str(entry), "IMAGE")
             pixels = np.empty(np.asarray(preview.image_size).prod() * 4, dtype=np.float32)
             preview.image_pixels_float.foreach_get(pixels)
@@ -62,7 +63,7 @@ class IconSet:
             preview.icon_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
             return glyph, (pixels.reshape(-1, 4), Nothing)
 
-        return cls(collection=collection, sources=dict(source(entry) for entry in Icons.folder(identity).iterdir() if Path(entry.name).suffix == ".png"))
+        return cls(collection=collection, sources=dict(source(entry) for entry in Icons.folder(identity).iterdir() if Path(entry.name).suffix == ".svg"))
 
     def retinted(self, tint: Callable[[Path], Option[Color]]) -> bool:
         """Writes changed tints over source alpha, returning whether one changed."""
@@ -86,16 +87,17 @@ class IconSet:
 
 
 class Icons(msgspec.Struct, frozen=True, kw_only=True):
-    """Staged image glyphs of one extension, tinted in regular widget text color by default."""
+    """Staged image glyphs of one extension, tinted in regular widget text color by default and tinted again on a change of each `watched` msgbus key the tint reads, one of them its brand."""
 
-    tint: Callable[[Path], Option[Color]] = lambda _: Some(text_color())
+    tint: Callable[[Path], Option[Color]] = lambda _: Some(_text_color())
+    watched: tuple[tuple[type[Struct], str], ...] = ((bpy.types.ThemeWidgetColors, "text"), (bpy.types.Theme, "filepath"))
     brand: Option[Path] = Nothing
 
     # --- [ACQUISITION]
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
-        """Builds the glyph set, its tints and brand held in the resources band, and theme color subscriptions scheduling one deferred tint write."""
+        """Builds the glyph set, its tints and brand held in the resources band, and a subscription per watched key scheduling one deferred tint write."""
 
         def retinted() -> Outcome[Option[str]]:
             """Writes changed tints, redrawing when one changed."""
@@ -116,10 +118,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
                 PREVIEWS,
                 ICONS,
                 (Band.RESOURCES, tinted()),
-                *(
-                    Subscription(owner=owner, setting=owner.bl_rna.properties[member], body=lambda: Ok(later()))
-                    for owner, member in ((bpy.types.ThemeWidgetColors, "text"), (bpy.types.Theme, "filepath"))
-                ),
+                *(Subscription(owner=owner, setting=definition(owner).properties[member], body=lambda: Ok(later())) for owner, member in self.watched),
             ))
 
     # --- [READING]
@@ -131,7 +130,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def value(identity: Identity, glyph: Glyph) -> Outcome[int]:
-        """Returns built-in icon value or staged glyph icon ID, absent fault for a glyph the host or the staged set lacks."""
+        """Returns built-in icon value, staged glyph icon ID, or data-block preview icon, absent fault for a glyph the host or the staged set lacks."""
         match glyph:
             case Path():
                 return (
@@ -140,13 +139,10 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
                     .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, str(Icons.folder(identity)), member=glyph.as_posix()))
                     .bind(lambda icons: icons.icon(identity, glyph))
                 )
+            case bpy.types.ID():
+                return Ok(bpy.types.UILayout.icon(glyph))
             case _:
                 return Option.of_optional(_ICON.enum_items.get(glyph)).map(lambda item: item.value).to_result_with(partial(Fault.of, BlenderReason.ABSENT, bpy.types.UILayout.__name__, member=glyph))
-
-    @staticmethod
-    def mark(identity: Identity) -> Option[int]:
-        """Returns brand glyph icon ID, Nothing for an extension without staged glyphs or brand."""
-        return identity.held.get(ICONS).bind(lambda icons: icons.brand)
 
     @staticmethod
     def path(identity: Identity, source: Path) -> str:
@@ -157,7 +153,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def text_color() -> Color:
+def _text_color() -> Color:
     """Returns regular widget text color in display RGBA."""
     preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return color(preferences.themes[0].user_interface.wcol_regular.text)
@@ -169,4 +165,4 @@ ICONS: Final = Resource[IconSet](made=lambda identity: nullcontext(IconSet.loade
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ICONS", "Glyph", "IconSet", "Icons", "text_color"]
+__all__ = ["ICONS", "Glyph", "IconSet", "Icons"]

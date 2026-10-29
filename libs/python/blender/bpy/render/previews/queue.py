@@ -2,10 +2,11 @@
 
 from collections.abc import Callable, Generator, Hashable, Iterable
 from contextlib import contextmanager, ExitStack, nullcontext
+from datetime import timedelta
 from enum import auto, Enum, IntEnum
 from functools import partial
 import time
-from typing import Annotated, ClassVar, Final, Self
+from typing import ClassVar, Final, Self
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
@@ -17,6 +18,7 @@ from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.render.outputs.results import built
 from blender.records.faults import accumulated, Outcome
+from blender.records.fields import Count
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -43,10 +45,10 @@ type Feed = Callable[[Identity, bpy.types.Context], Outcome[tuple[Job, ...]]]
 
 
 class Budget(msgspec.Struct, frozen=True, kw_only=True):
-    """Per-step render count and time limits."""
+    """Per-step render count and the span a step starts renders within, both bounded below by their meaning alone, a step past one render or a span past a second being the caller's choice."""
 
-    count: Annotated[int, msgspec.Meta(ge=1, le=8, title="Previews per Step", description="Most previews one step renders")] = 2
-    time: Annotated[float, msgspec.Meta(ge=0.02, le=2.0, title="Time Budget", description="Time each step starts renders within")] = 0.25
+    count: Count = 2
+    time: timedelta = timedelta(seconds=0.25)
 
 
 class Job(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -192,7 +194,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
                     request.executed()
                     for limits in budget.to_option().to_list()
                     for index in range(limits.count)
-                    if index == 0 or time.perf_counter() - start < limits.time
+                    if index == 0 or time.perf_counter() - start < limits.time.total_seconds()
                     for request in backlog.pending(playing=playing).to_list()
                 ),
             )).map(lambda _: None)

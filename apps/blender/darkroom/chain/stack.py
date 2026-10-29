@@ -14,8 +14,10 @@ from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.interface import item_key
 from blender.bpy.render.color.spaces import viewed
-from blender.bpy.render.compositor.blending import Entry, MODE, OPACITY
-from blender.bpy.render.compositor.effects import CompositorEffect, Enabled, Shell, Spaces
+from blender.bpy.render.compositor import entries
+from blender.bpy.render.compositor.blending import BLEND, Entry, MODE, OPACITY
+from blender.bpy.render.compositor.edits import EffectEdits
+from blender.bpy.render.compositor.effects import CompositorEffect, Enabled
 from blender.bpy.render.compositor.entries import EffectRows, Pinned
 from blender.bpy.render.compositor.inputs import captured, valued
 from blender.bpy.render.sessions.renders import RenderCall
@@ -24,7 +26,7 @@ from blender.imaging.sampling.integration import Precision
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 
 from . import execution
-from .stages import Effect, Stage, transform
+from .stages import Effect, Phase, Stage, transform
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -50,14 +52,21 @@ class Chain(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     @cached_property
     def rows(self) -> EffectRows[Effect]:
-        """Formation row and catalog effects, placed by stage, one entry per single stage, the add menu one submenu per phase."""
+        """Formation row and catalog effects in the phases of their stages, one entry per single stage, the add menu one submenu per phase."""
+        offered = (self.formation, *self.effects)
+
+        def members(stage: Stage) -> tuple[CompositorEffect[Effect] | entries.Exclusive[Effect], ...]:
+            held = tuple(row for row in offered if row.record.stage is stage)
+            return (entries.Exclusive(members=held),) if held and stage in Stage.single else held
+
         return EffectRows(
-            rows=(self.formation, *self.effects),
-            pinned=self.pinned,
-            rank=Some(lambda row: row.record.stage),
-            single=lambda row: row.record.stage in Stage.single,
-            groups=Some(lambda row: row.record.stage.phase),
+            phases=tuple(entries.Phase(group=Some(phase), members=tuple(member for stage in Stage if stage.phase is phase for member in members(stage))) for phase in Phase), pinned=self.pinned
         )
+
+    @cached_property
+    def edits(self) -> EffectEdits[Effect]:
+        """Edit commands, add menu, and upkeep handlers over the chain's rows."""
+        return EffectEdits(rows=self.rows)
 
     # --- [FORMING]
 
@@ -65,10 +74,10 @@ class Chain(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Reads an owned entry and its input values by item key, its effect reading each pixel alone under an unmasked full-opacity plain mix."""
 
         def local(record: Entry[Effect], values: Mapping[Key, Value]) -> Outcome[tuple[Entry[Effect], Mapping[Key, Value]]]:
-            plain = not record.blend.masks and all(values.get(item_key(Shell.blend, socket.key)) == socket.members["default_value"] for socket in (MODE, OPACITY))
+            plain = not record.blend.masks and all(values.get(item_key(BLEND, socket.key)) == socket.default_value for socket in (MODE, OPACITY))
             return paired(
                 Ok(None) if record.record.pointwise else Error(Fault.of(RecordReason.OUTSIDE, entry.name, type(record.record).__name__, member="pointwise effects")),
-                Ok(None) if plain else Error(Fault.of(RecordReason.OUTSIDE, entry.name, repr(record.blend), member=Shell.blend)),
+                Ok(None) if plain else Error(Fault.of(RecordReason.OUTSIDE, entry.name, repr(record.blend), member=BLEND)),
             ).map(lambda _: (record, values))
 
         return self.rows.found(identity, scene, entry.name).bind(
@@ -83,7 +92,7 @@ class Chain(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         entries = tuple(entry for entry in scene.compositor_effects if enabled.descriptor.read(entry) is True)
 
         def operation(row: CompositorEffect[Effect], record: Entry[Effect], values: Mapping[Key, Value]) -> Outcome[Option[PyOpenColorIO.Transform]]:
-            space = row.first(Spaces).map(lambda part: part.space(record.record))
+            space = row.space.map(lambda part: part(record.record))
             return transform(record.record, values, config).map(lambda found: found.map(lambda op: space.map(lambda name: bracketed(name, op)).default_value(op)))
 
         def grouped(parts: tuple[Option[PyOpenColorIO.Transform], ...]) -> Option[PyOpenColorIO.Transform]:

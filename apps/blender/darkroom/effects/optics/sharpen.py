@@ -1,16 +1,23 @@
 """Laplace sharpening of scene-linear color, attenuated where the later exposure gain lifts luminance steps."""
 
-import bpy
+from typing import Final
 
-from blender.bpy.nodes.graphs import Expr, math, NodeGroup, vector
+import bpy
+from expression import Some
+
+from blender.bpy.nodes.graphs import Expr, math, vector
 from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.render.compositor import masks
-from blender.bpy.render.compositor.colors import COLOR_INPUT
-from blender.bpy.render.compositor.effects import Animates, CompositorEffect, Shell
+from blender.bpy.render.compositor.effects import CompositorEffect
+from blender.bpy.render.compositor.shells import Shell
 from blender.records.faults import Outcome
 
 from ...chain.stages import Effect, Stage
 from ..grade.exposure import LATER, later
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_SHARPNESS: Final = Socket(key="sharpness", kind=bpy.types.NodeSocketFloat, description="Gain of each pixel's difference from the mean of its eight neighbors", min_value=0.0, max_value=10.0)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -30,35 +37,19 @@ def sharpened(shell: Shell[Sharpen]) -> Outcome[Expr]:
     source = shell.color
 
     def filtered(image: Expr, kind: str) -> Expr:
-        return Expr(kind=bpy.types.CompositorNodeFilter, inputs=(("Image", image), ("Type", kind)), socket="Image", shape="RGBA")
+        return Expr(kind=bpy.types.CompositorNodeFilter, inputs=(("Image", image), ("Type", kind)), socket="Image", shape=bpy.types.NodeSocketColor)
 
-    def built(working: NodeGroup) -> Expr:
-        steps = filtered(working.placed({COLOR_INPUT.key: source}, masks.LUMINANCE.key), "Sobel")["Red"]
-        gate = math("SUBTRACT", 1.0, shell.input(LATER.key) * steps * 0.25, clamp=True)
-        return vector("MULTIPLY_ADD", filtered(source, "Laplace"), shell.input("sharpness") * gate, source)
+    def built(level: Expr) -> Expr:
+        steps = filtered(level, "Sobel")["Red"]
+        gate = math("SUBTRACT", 1.0, shell.input(LATER) * steps * 0.25, clamp=True)
+        return vector("MULTIPLY_ADD", filtered(source, "Laplace"), shell.input(_SHARPNESS) * gate, source)
 
-    return masks.luminance(shell.config).map(built)
+    return masks.luminance(shell.config, source).map(built)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-sharpen = CompositorEffect(
-    record=Sharpen,
-    graph=sharpened,
-    interface=Interface(
-        inputs=(
-            Socket(
-                key="sharpness",
-                name="Sharpness",
-                kind=bpy.types.NodeSocketFloat,
-                description="Gain of each pixel's difference from the mean of its eight neighbors",
-                members={"min_value": 0.0, "max_value": 10.0},
-            ),
-            LATER,
-        )
-    ),
-    parts=(Animates[Sharpen](keys=later),),
-)
+sharpen: Final = CompositorEffect(sharpened, record=Sharpen, interface=Interface(inputs=(_SHARPNESS, LATER)), animates=Some(later))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

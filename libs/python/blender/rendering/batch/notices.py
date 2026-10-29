@@ -1,9 +1,8 @@
 """Queue notices posted to ntfy."""
 
-from abc import abstractmethod
-from fractions import Fraction
+import datetime
 from http import HTTPMethod
-from typing import Annotated, ClassVar, override
+from typing import Annotated, ClassVar
 
 from expression import Ok, Option, Some
 import msgspec
@@ -11,6 +10,10 @@ import msgspec
 from blender.records.faults import Outcome
 from blender.rendering.batch.exchange import Endpoint, sent
 from blender.rendering.batch.progress import Forecast
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Notice = Started | Estimated | Completed | Cancelled | Failed | Test
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -22,19 +25,14 @@ class Listener(msgspec.Struct, frozen=True, kw_only=True):
     topic: str | None = None
 
 
-class Notice(msgspec.Struct, frozen=True, kw_only=True):
-    """Queue notice with its ntfy priority, tags, and message over its fields."""
+class _Posted(msgspec.Struct, frozen=True, kw_only=True):
+    """Notice case base holding the ntfy priority and tags a case leaves at their defaults."""
 
     priority: ClassVar[int] = 3
     tags: ClassVar[tuple[str, ...]] = ()
 
-    @property
-    @abstractmethod
-    def message(self) -> str:
-        """Notice text over the case fields."""
 
-
-class Started(Notice, frozen=True, kw_only=True):
+class Started(_Posted, frozen=True, kw_only=True):
     """Fresh run started."""
 
     tags = ("racehorse",)
@@ -42,37 +40,37 @@ class Started(Notice, frozen=True, kw_only=True):
     frames: int
 
     @property
-    @override
     def message(self) -> str:
+        """Frame and job counts."""
         return f"{self.frames} frames in {self.jobs} jobs"
 
 
-class Estimated(Notice, frozen=True, kw_only=True):
+class Estimated(_Posted, frozen=True, kw_only=True):
     """First forecast over every job."""
 
     tags = ("hourglass",)
     forecast: Forecast
 
     @property
-    @override
     def message(self) -> str:
-        return f"{self.forecast.seconds:,.0f} s left{self.forecast.finish.map(lambda moment: f', done at {moment:%H:%M}').default_value('')}"
+        """Time left and the local finish clock time."""
+        return f"{_whole(self.forecast.left)} left{self.forecast.finish.map(lambda moment: f', done at {moment.astimezone():%H:%M}').default_value('')}"
 
 
-class Completed(Notice, frozen=True, kw_only=True):
+class Completed(_Posted, frozen=True, kw_only=True):
     """Run finished."""
 
     tags = ("white_check_mark",)
     frames: int
-    seconds: Fraction
+    elapsed: datetime.timedelta
 
     @property
-    @override
     def message(self) -> str:
-        return f"{self.frames} frames in {self.seconds:,.0f} s"
+        """Frame count and render time."""
+        return f"{self.frames} frames in {_whole(self.elapsed)}"
 
 
-class Cancelled(Notice, frozen=True, kw_only=True):
+class Cancelled(_Posted, frozen=True, kw_only=True):
     """Run stopped by user."""
 
     priority = 4
@@ -80,12 +78,12 @@ class Cancelled(Notice, frozen=True, kw_only=True):
     frames: int
 
     @property
-    @override
     def message(self) -> str:
+        """Frames rendered before the stop."""
         return f"Stopped after {self.frames} frames"
 
 
-class Failed(Notice, frozen=True, kw_only=True):
+class Failed(_Posted, frozen=True, kw_only=True):
     """Run ended by fault."""
 
     priority = 5
@@ -94,17 +92,17 @@ class Failed(Notice, frozen=True, kw_only=True):
     reason: str
 
     @property
-    @override
     def message(self) -> str:
+        """Job and fault text."""
         return f"{self.job} · {self.reason}"
 
 
-class Test(Notice, frozen=True, kw_only=True):
+class Test(_Posted, frozen=True, kw_only=True):
     """Test post to listener."""
 
     @property
-    @override
     def message(self) -> str:
+        """Configuration confirmation."""
         return "Render queue notifications configured"
 
 
@@ -119,6 +117,10 @@ class _Publication(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _whole(span: datetime.timedelta) -> datetime.timedelta:
+    return span - span % datetime.timedelta(seconds=1)
 
 
 def published(listener: Listener, notice: Notice) -> Outcome[None]:

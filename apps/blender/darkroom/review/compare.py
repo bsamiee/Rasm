@@ -14,24 +14,30 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.commands.keymaps import Chord, Keymap, Toggle
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Gesture, Modal, Operator, Travel
+from blender.bpy.commands.calls import Placement
+from blender.bpy.commands.keymaps import Chord, Keymap
+from blender.bpy.commands.modal import Gesture, Modal, Travel
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import assigned, choices, root_in, rooted, Value, written
-from blender.bpy.extension.identity import Identity, Key, Resource
+from blender.bpy.data.rna.descriptors import Value, written
+from blender.bpy.data.rna.mirrors import choices
+from blender.bpy.data.rna.paths import RnaPath, root_in, rooted
+from blender.bpy.data.rna.snapshots import assigned
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Declaration, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.attachments import Attached, Attachment
-from blender.bpy.ui.drawing.canvas import Align, Canvas, DECODED, QUAD, Rect, released, Shadow
+from blender.bpy.ui.drawing.canvas import Align, Canvas, DECODED, DrawType, programs, QUAD, Rect, Shadow
 from blender.bpy.ui.drawing.handlers import Refresh
 from blender.bpy.ui.images.cages import HANDLE
 from blender.bpy.ui.images.overlays import overlaid
 from blender.bpy.ui.images.views import framed, image_type
-from blender.bpy.ui.layout.rows import Divider, Member, Property, Row, Rows
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import Layout, Property, RowContent
 from blender.bpy.ui.resources.icons import Glyph
 from blender.bpy.ui.resources.textures import uploaded
 from blender.bpy.ui.resources.theme import Color, Metrics
-from blender.bpy.ui.surfaces.gizmos import Gizmos, Move
+from blender.bpy.ui.surfaces.gizmos import GizmoPart, Gizmos
 from blender.imaging.files.buffers import unassociated
 from blender.records.faults import Fault, Faults, Outcome, paired
 
@@ -117,6 +123,7 @@ class Sides(msgspec.Struct, frozen=True, kw_only=True):
 class Wipe(msgspec.Struct, frozen=True, kw_only=True):
     """Before frame drawn in the editor's display channels, wiped or set beside the frame under the shown compare, its rule and captions in white over a hard half-black shadow one point right and down."""
 
+    draw_type: ClassVar[DrawType] = "POST_PIXEL"
     source: Callable[[Metrics], Outcome[Option[Before]]]
     compare: Callable[[bpy.types.Context], Option[Compare]]
     light: ClassVar[Color] = (1.0, 1.0, 1.0, 1.0)
@@ -129,7 +136,7 @@ class Wipe(msgspec.Struct, frozen=True, kw_only=True):
     def drawn(self, canvas: Canvas, state: tuple[gpu.types.GPUTexture, Before]) -> None:
         """Draws the plate in the editor's channel view with its rule and captions."""
         context, metrics = bpy.context, canvas.metrics
-        gap, checker, text, drop = metrics.line(1.0), metrics.checker(), metrics.points(), float(metrics.scaled(1.0))
+        gap, checker, text, drop = metrics.line(1.0), metrics.checker(), metrics.font(metrics.preferences.ui_styles[0].widget), float(metrics.scaled(1.0))
         shadow = Shadow(color=Wipe.shade, offset=(drop, -drop))
         (shader, quad), (texture, before) = channeled(), state
 
@@ -145,7 +152,7 @@ class Wipe(msgspec.Struct, frozen=True, kw_only=True):
                     return Nothing
 
         for space, selector, region in (
-            (held, selector, region) for held in root_in(bpy.types.SpaceImageEditor, context).to_list() for selector in channel(held.display_channels).to_list() for region in canvas.region.to_list()
+            (held, selector, region) for held in root_in(bpy.types.SpaceImageEditor, context).to_list() for selector in channel(held.display_channels).to_list() for region in (canvas.region,)
         ):
             zoom = np.asarray(space.zoom)
             size = (texture.width * float(zoom[0]), texture.height * float(zoom[1]))
@@ -160,12 +167,12 @@ class Wipe(msgspec.Struct, frozen=True, kw_only=True):
                 shader.uniform_float("cell", float(checker.cell))
                 shader.uniform_int("shown", selector)
                 quad.draw(shader)
-            lines = canvas.lines(1.0)
-            for (start, end), (rgba, (dx, dy)) in ((rule, pair) for rule in sides.rule.to_list() for pair in ((shadow.color, shadow.offset), (Wipe.light, (0.0, 0.0)))):
-                lines.uniform_float("color", rgba)
-                batch_for_shader(lines, "LINES", {"pos": ((start[0] + dx, start[1] + dy), (end[0] + dx, end[1] + dy))}).draw(lines)
+            with canvas.lines(1.0) as lines:
+                for (start, end), (rgba, (dx, dy)) in ((rule, pair) for rule in sides.rule.to_list() for pair in ((shadow.color, shadow.offset), (Wipe.light, (0.0, 0.0)))):
+                    lines.uniform_float("color", rgba)
+                    batch_for_shader(lines, "LINES", {"pos": ((start[0] + dx, start[1] + dy), (end[0] + dx, end[1] + dy))}).draw(lines)
             for caption, x, y, align in sides.captions:
-                canvas.label(caption, (x, y), Wipe.light, text, align, Some(shadow))
+                canvas.label(caption, (x, y), Wipe.light, text, align, Some(Some(shadow)))
 
 
 class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -196,53 +203,56 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [COMMANDS]
 
-    def screened(self, change: Callable[[Compare], Mapping[str, Value]], call: Call[Empty]) -> Outcome[Answer]:
+    def screened(self, change: Callable[[Compare], Mapping[RnaPath, Value]], call: Call[Empty]) -> Outcome[Answer]:
         """Writes one change of the calling screen's compare."""
-        return call.root(bpy.types.Screen).bind(lambda screen: self.state.read(call.identity, screen)).bind(lambda held: assigned(held, change(held))).map(lambda _: Done())
+        return rooted(bpy.types.Screen, call.context).bind(lambda screen: self.state.read(call.identity, screen)).bind(lambda held: assigned(held, change(held))).map(lambda _: Done())
 
     @cached_property
     def commands(self) -> tuple[tuple[Chord, Operator[Empty]], ...]:
         """Layout and mirrored split commands with their image editor key."""
 
-        def show_side_by_side(compare: Compare) -> Mapping[str, Value]:
+        def show_side_by_side(compare: Compare) -> Mapping[RnaPath, Value]:
             """Show the before frame beside the image."""
-            return {"shown": not (compare.shown and Mode[compare.mode] is Mode.SIDE_BY_SIDE), "mode": Mode.SIDE_BY_SIDE.name}
+            return {("shown",): not (compare.shown and Mode[compare.mode] is Mode.SIDE_BY_SIDE), ("mode",): Mode.SIDE_BY_SIDE.name}
 
-        def show_vertical_wipe(compare: Compare) -> Mapping[str, Value]:
+        def show_vertical_wipe(compare: Compare) -> Mapping[RnaPath, Value]:
             """Split the image with the before frame across a vertical wipe."""
-            return {"shown": not (compare.shown and Mode[compare.mode] is Mode.VERTICAL_WIPE), "mode": Mode.VERTICAL_WIPE.name}
+            return {("shown",): not (compare.shown and Mode[compare.mode] is Mode.VERTICAL_WIPE), ("mode",): Mode.VERTICAL_WIPE.name}
 
-        def show_horizontal_wipe(compare: Compare) -> Mapping[str, Value]:
+        def show_horizontal_wipe(compare: Compare) -> Mapping[RnaPath, Value]:
             """Wipe the before frame over the image along a horizontal wipe."""
-            return {"shown": not (compare.shown and Mode[compare.mode] is Mode.HORIZONTAL_WIPE), "mode": Mode.HORIZONTAL_WIPE.name}
+            return {("shown",): not (compare.shown and Mode[compare.mode] is Mode.HORIZONTAL_WIPE), ("mode",): Mode.HORIZONTAL_WIPE.name}
 
-        def mirror_split(compare: Compare) -> Mapping[str, Value]:
+        def mirror_split(compare: Compare) -> Mapping[RnaPath, Value]:
             """Mirror the wipe across the frame."""
-            return {"split": 1.0 - compare.split}
+            return {("split",): 1.0 - compare.split}
 
         return tuple(
-            (chord, Operator(undo=False, form=Empty, run=update_wrapper(partial(self.screened, change), change), condition=Some(self.shown)))
+            (chord, Operator(undo=Nothing, form=Empty, run=update_wrapper(partial(self.screened, change), change), condition=Some(self.shown)))
             for chord, change in ((Chord(type="Y"), show_side_by_side), (Chord(type="Y", shift=1), show_vertical_wipe), (Chord(type="W"), show_horizontal_wipe), (Chord(type="W", alt=1), mirror_split))
         )
 
     # --- [ROWS]
 
     @property
-    def header(self) -> tuple[Row]:
+    def header(self) -> tuple[Layout]:
         """Before, mode, and swap toggles, drawn while the editor shows an image of `kinds`."""
 
-        def rows(identity: Identity) -> Outcome[tuple[Row, ...]]:
+        def spaced(layout: bpy.types.UILayout, _holder: object, _context: bpy.types.Context) -> None:
+            layout.separator(type="SPACE")
+
+        def rows(identity: Identity) -> Outcome[tuple[RowContent, ...]]:
             return self.state.bound(identity).map(
                 lambda attached: (
-                    Property(target=Member(root=bpy.types.Screen, path=(attached.name, "shown")), icon=Some(self.glyph), icon_only=True),
-                    Divider(type="SPACE"),
-                    Property(target=Member(root=bpy.types.Screen, path=(attached.name, "mode")), expand=True),
-                    Divider(type="SPACE"),
-                    Property(target=Member(root=bpy.types.Screen, path=(attached.name, "swapped")), icon=Some("ARROW_LEFTRIGHT"), icon_only=True),
+                    Property(target=Member(root=bpy.types.Screen, path=(attached.name, "shown")), keywords={"icon_only": True}, icon=Some(self.glyph)),
+                    spaced,
+                    Property(target=Member(root=bpy.types.Screen, path=(attached.name, "mode")), keywords={"expand": True}),
+                    spaced,
+                    Property(target=Member(root=bpy.types.Screen, path=(attached.name, "swapped")), keywords={"icon_only": True}, icon=Some("ARROW_LEFTRIGHT")),
                 )
             )
 
-        return (Rows(rows=rows, condition=Some(self.shown), hidden=True),)
+        return (Layout(rows=rows, shown=Some(self.shown)),)
 
     # --- [REGISTRATION]
 
@@ -282,12 +292,12 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             def preview(_context: bpy.types.Context, state: Dragged, travel: Travel) -> Outcome[Option[str]]:
                 compare, split, frame = state
                 change = travel.dx / frame.width if Mode[compare.mode] is Mode.VERTICAL_WIPE else -travel.dy / frame.height
-                return written(compare, "split", min(max(split + change * (0.1 if travel.precise else 1.0), 0.0), 1.0)).map(lambda _: Nothing)
+                return written(compare, ("split",), min(max(split + change * (0.1 if travel.precise else 1.0), 0.0), 1.0)).map(lambda _: Nothing)
 
             command = Operator[Empty, Dragged](
                 form=Empty,
                 run=drag_split,
-                invoke=Some(Modal(gesture=Gesture.DRAG, begin=begin, preview=preview, restore=lambda _context, state: written(state[0], "split", state[1]).map(lambda _: None))),
+                invoke=Some(Modal(gesture=Gesture.DRAG, begin=begin, preview=preview, restore=lambda _context, state: written(state[0], ("split",), state[1]).map(lambda _: None))),
                 condition=Some(self.shown),
                 internal=True,
             )
@@ -295,9 +305,8 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 command,
                 Gizmos(
                     key=self.key,
-                    title=bpy.path.display_name(self.key),
                     space="IMAGE_EDITOR",
-                    parts=(Move(place=place, bind=command, scale_basis=HANDLE, draw_style="RING_2D"),),
+                    parts=(GizmoPart(kind="GIZMO_GT_move_3d", place=place, bind=(Placement(command),), properties={"scale_basis": HANDLE, "draw_style": "RING_2D"}),),
                     condition=Some(self.shown),
                 ),
                 overlaid(Wipe(source=lambda metrics: self.read(identity, metrics), compare=compared), self.shown, refreshes),
@@ -305,12 +314,12 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 *(command for _, command in self.commands),
                 Keymap(
                     keymap="Image",
-                    bindings={
-                        **dict(self.commands),
-                        Chord(type="BACK_SLASH"): Toggle(path=("screen", attached.name, "shown")),
-                        Chord(type="RET"): Toggle(path=("screen", attached.name, "swapped")),
-                        Chord(type="D", shift=1): Toggle(path=("scene", "render", "use_compositing")),
-                    },
+                    bindings=(
+                        *((chord, Placement(command)) for chord, command in self.commands),
+                        (Chord(type="BACK_SLASH"), Placement.context(bpy.ops.wm.context_toggle, ("screen", attached.name, "shown"))),
+                        (Chord(type="RET"), Placement.context(bpy.ops.wm.context_toggle, ("screen", attached.name, "swapped"))),
+                        (Chord(type="D", shift=1), Placement.context(bpy.ops.wm.context_toggle, ("scene", "render", "use_compositing"))),
+                    ),
                 ),
             )
 
@@ -352,12 +361,12 @@ void main() {
     info.vertex_source(vertex)
     info.fragment_source(fragment)
     shader = gpu.shader.create_from_info(info)
-    return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": QUAD})
+    return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": QUAD.tolist()})
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_SHADERS: Final = Resource[None](made=lambda _identity: released(channeled.cache_clear))
+_SHADERS: Final = programs(channeled)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

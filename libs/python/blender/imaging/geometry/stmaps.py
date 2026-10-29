@@ -12,7 +12,7 @@ import OpenImageIO
 from scipy.ndimage import gaussian_filter, map_coordinates, sobel
 
 from blender.imaging.files.buffers import checked, pixels
-from blender.imaging.sampling.integration import Raster
+from blender.imaging.geometry.frames import Raster
 from blender.records.faults import Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -77,13 +77,7 @@ class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         st = OpenImageIO.ImageBuf(np.ascontiguousarray((self.plane[..., :3] * size + margin) / (size + 2.0 * margin), dtype=np.float32))
         roi = OpenImageIO.ROI(0, self.plane.shape[1], 0, self.plane.shape[0], 0, 1, 0, channels)
         return (
-            paired(checked(source), checked(st))
-            .bind(
-                lambda buffers: paired(
-                    checked(OpenImageIO.ImageBufAlgo.st_warp(buffers[0], buffers[1], filtername, filterwidth, flip_t=True, roi=roi)),
-                    checked(OpenImageIO.ImageBufAlgo.channels(buffers[1], (2,) * channels)),
-                )
-            )
+            paired(checked(OpenImageIO.ImageBufAlgo.st_warp(source, st, filtername, filterwidth, flip_t=True, roi=roi)), checked(OpenImageIO.ImageBufAlgo.channels(st, (2,) * channels)))
             .bind(lambda buffers: checked(OpenImageIO.ImageBufAlgo.mul(*buffers)))
             .bind(pixels)
         )

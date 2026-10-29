@@ -5,20 +5,20 @@ from enum import auto, IntEnum
 import math
 import operator
 from types import MappingProxyType
-from typing import Annotated, ClassVar, Final, Self
+from typing import ClassVar, Final
 
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
-from skimage.metrics import structural_similarity
+from skimage.metrics import normalized_root_mse, structural_similarity
 
 from blender.imaging.color.processors import Domain
 from blender.imaging.faults import ImagingReason
 from blender.imaging.files.buffers import checked, pixels
-from blender.records.faults import Fault, Outcome, paired
-from blender.records.fields import Frozen
+from blender.records.faults import Fault, Outcome, paired, RecordReason
+from blender.records.fields import Frozen, NonNegative
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -63,8 +63,8 @@ class Bar(msgspec.Struct, frozen=True, kw_only=True):
     """Advisory and refusal thresholds of an axis."""
 
     metric: Metric
-    advisory: Annotated[float, msgspec.Meta(ge=0.0)]
-    refuse: Annotated[float, msgspec.Meta(ge=0.0)]
+    advisory: NonNegative
+    refuse: NonNegative
 
     def graded(self, measures: Mapping[Metric, float]) -> Severity:
         """Grades axis measure, unmeasured when absent."""
@@ -87,16 +87,17 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
     structural: Option[npt.NDArray[np.float64]]
 
     @classmethod
-    def of(cls, reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: Domain, *, data_range: float) -> Outcome[Self]:
+    def of(cls, reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: Domain, *, data_range: float) -> Outcome["Comparison"]:
         """Compares equal-shape planes, `data_range` as SSIM input range."""
         if reference.shape != test.shape:
-            return Error(Fault.of(ImagingReason.MISMATCH, cls.__name__, str(test.shape), member=str(reference.shape)))
+            return Error(Fault.of(RecordReason.OUTSIDE, cls.__name__, str(test.shape), member=f"test planes of the reference shape {reference.shape}"))
         first, second = OpenImageIO.ImageBuf(reference[..., :3]), OpenImageIO.ImageBuf(test[..., :3])
 
-        def measured(parts: tuple[OpenImageIO.CompareResults, npt.NDArray[np.float32], npt.NDArray[np.float32]]) -> Outcome[Self]:
+        @np.errstate(divide="ignore", invalid="ignore")
+        def measured(parts: tuple[OpenImageIO.CompareResults, npt.NDArray[np.float32], npt.NDArray[np.float32]]) -> Comparison:
             signal, difference, flip = parts
             reference_color, test_color = reference[..., :3].astype(np.float64), test[..., :3].astype(np.float64)
-            scale = math.sqrt(float(np.square(reference_color).mean(dtype=np.float64)))
+            normalized = float(normalized_root_mse(reference_color, test_color, normalization="euclidean"))
             side = min(cls.structural_window, *reference.shape[:2])
             window = side - 1 + side % 2
             structural = Some(structural_similarity(reference_color, test_color, data_range=data_range, channel_axis=-1, win_size=window, full=True)) if window >= 3 else Nothing
@@ -105,19 +106,19 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
                 Metric.RMS_ERROR: signal.rms_error,
                 Metric.MAX_ERROR: signal.maxerror,
                 Metric.PSNR: signal.PSNR,
-                **({Metric.NRMSE: signal.rms_error / scale} if scale > 0.0 else {}),
+                **({Metric.NRMSE: normalized} if math.isfinite(normalized) else {}),
                 Metric.FLIP: float(flip.mean(dtype=np.float64)),
                 **dict(structural.map(lambda answer: (Metric.SSIM, float(answer[0]))).to_list()),
             }
-            return Ok(cls(measures=MappingProxyType(measures), difference=difference, perceptual=flip, structural=structural.map(lambda answer: answer[1])))
+            return cls(measures=MappingProxyType(measures), difference=difference, perceptual=flip, structural=structural.map(lambda answer: answer[1]))
 
         return paired(
             Ok(OpenImageIO.ImageBufAlgo.compare(first, second, math.inf, math.inf)).filter_with(
-                lambda result: not result.error, lambda _: Fault.of(ImagingReason.COMPARISON, str(reference.shape), OpenImageIO.geterror())
+                lambda result: not result.error, lambda _: Fault.of(ImagingReason.BUFFER, f"comparison of {reference.shape} planes", OpenImageIO.geterror())
             ),
             checked(OpenImageIO.ImageBufAlgo.absdiff(first, second)).bind(pixels),
             checked(OpenImageIO.ImageBufAlgo.FLIP_diff(first, second, hdr=int(domain is Domain.SCENE_LINEAR))).bind(pixels),
-        ).bind(measured)
+        ).map(measured)
 
     def severity(self, bars: Iterable[Bar]) -> Severity:
         """Returns worst grade across thresholds."""

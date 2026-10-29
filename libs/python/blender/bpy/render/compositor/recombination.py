@@ -1,7 +1,6 @@
 """Beauty recombined from a view layer's light passes or light groups, each summed term under its own gain socket, every term read through the pass that renders it."""
 
 from collections.abc import Callable, Mapping
-import functools
 from functools import partial
 from typing import Final, Self
 
@@ -9,12 +8,17 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
-from blender.bpy.data.rna.descriptors import Descriptor, Struct
+from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.data.rna.mirrors import held_choices
+from blender.bpy.data.rna.paths import Struct
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderReason
-from blender.bpy.nodes.graphs import Expr, math, mixed, NodeGroup
+from blender.bpy.nodes.desired import NodeGroup
+from blender.bpy.nodes.graphs import Expr, math, mixed
 from blender.bpy.nodes.interface import Interface, InterfacePanel, Socket
-from blender.bpy.render.view_layers.passes import Family, lobed, PassFlags, PassRequest
+from blender.bpy.render.compositor.colors import with_alpha
+from blender.bpy.render.view_layers.passes import EMISSION, ENVIRONMENT, FAMILIES, Family, OCCLUSION, PassFlags, PassRequest, used
+from blender.bpy.render.view_layers.sources import lobed
 from blender.bpy.scene.lights.groups import LightGroupEdits
 from blender.records.faults import accumulated, Fault, Outcome, paired
 from blender.records.fields import Case
@@ -27,31 +31,19 @@ type TermFilter = Callable[[Key, Expr, Option[Family], Expr], Expr]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-EMISSION = Descriptor.declared(bpy.types.ViewLayer, "use_pass_emit", bpy.types.BoolProperty)
-ENVIRONMENT = Descriptor.declared(bpy.types.ViewLayer, "use_pass_environment", bpy.types.BoolProperty)
-OCCLUSION = Descriptor.declared(bpy.types.ViewLayer, "use_pass_ambient_occlusion", bpy.types.BoolProperty)
 TERMS: Final[tuple[tuple[Key, LightPass, str], ...]] = (
-    ("diffuse", Family.DIFFUSE, "Diffuse light gain"),
-    ("glossy", Family.GLOSSY, "Glossy light gain"),
-    ("transmission", Family.TRANSMISSION, "Transmitted light gain"),
-    ("volume", Family.VOLUME, "Volume light gain"),
+    *((str(family.name).lower(), family, held.description) for family, held in FAMILIES.items()),
     ("emission", EMISSION, "Gain of emitters seen by camera"),
     ("environment", ENVIRONMENT, "Gain of background seen by camera, dropped under transparent film"),
 )
-_GAIN: Final = {"min_value": -32.0, "max_value": 32.0}
+_GAIN: Final = Socket(key="gain", kind=bpy.types.NodeSocketFloat, min_value=-32.0, max_value=32.0)
 
 # --- [CHOICES] --------------------------------------------------------------------------
 
 
-@functools.cache
-def _views(names: tuple[str, ...]) -> tuple[tuple[str, str, str], ...]:
-    """Enum rows of used view layer names, cached so the strings Blender reads stay referenced."""
-    return tuple((name, name, "") for name in names)
-
-
-def views(_owner: Struct, context: bpy.types.Context | None) -> tuple[tuple[str, str, str], ...]:
-    """Used view layer rows of the context scene."""
-    return _views(tuple(layer.name for scene in Option.of_optional(context).bind(lambda held: Option.of_optional(held.scene)).to_list() for layer in scene.view_layers if layer.use))
+def views(_owner: Struct, context: bpy.types.Context | None) -> tuple[tuple[str, str, str, str, int], ...]:
+    """Used view layer items of the context scene."""
+    return held_choices(tuple((layer.name, layer.name, "") for scene in Option.of_optional(context).bind(lambda held: Option.of_optional(held.scene)).to_list() for layer in used(scene)))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -102,7 +94,7 @@ class Recombined(Case, frozen=True, kw_only=True):
                                 name=bpy.path.display_name(key),
                                 description=description,
                                 toggle=Some(True),
-                                inputs=(Socket(key=f"{key}_gain", name="Gain", kind=bpy.types.NodeSocketFloat, description=f"{description} in stops", members=_GAIN),),
+                                inputs=(msgspec.structs.replace(_GAIN, key=f"{key}_gain", name="Gain", description=f"{description} in stops"),),
                             )
                             for key, _, description in TERMS
                         ),
@@ -115,9 +107,11 @@ class Recombined(Case, frozen=True, kw_only=True):
                                 Socket(
                                     key="occlusion_strength",
                                     name="Strength",
-                                    kind=bpy.types.NodeSocketFloat,
+                                    kind=bpy.types.NodeSocketFloatFactor,
                                     description="Ambient occlusion strength over family light",
-                                    members={"subtype": "FACTOR", "min_value": 0.0, "max_value": 1.0, "default_value": 1.0},
+                                    min_value=0.0,
+                                    max_value=1.0,
+                                    default_value=1.0,
                                 ),
                             ),
                         ),
@@ -132,10 +126,8 @@ class Recombined(Case, frozen=True, kw_only=True):
                             description="View layer light group",
                             toggle=Some(True),
                             inputs=(
-                                Socket(key=f"group_{index}_gain", name="Gain", kind=bpy.types.NodeSocketFloat, description="Group light in stops", members=_GAIN),
-                                Socket(
-                                    key=f"group_{index}_tint", name="Tint", kind=bpy.types.NodeSocketColor, description="Color multiplying group light", members={"default_value": (1.0, 1.0, 1.0, 1.0)}
-                                ),
+                                msgspec.structs.replace(_GAIN, key=f"group_{index}_gain", name="Gain", description="Group light in stops"),
+                                Socket(key=f"group_{index}_tint", name="Tint", kind=bpy.types.NodeSocketColor, description="Color multiplying group light", default_value=(1.0, 1.0, 1.0, 1.0)),
                             ),
                         )
                         for index, name in enumerate(groups, 1)
@@ -176,7 +168,7 @@ class Recombined(Case, frozen=True, kw_only=True):
         Returns:
             `Ok` of beauties with render alpha. `Error` of every absent pass and `absent` naming the sum when no term is offered.
         """
-        sockets = {name: msgspec.structs.replace(render, socket=identifier, shape="RGBA") for name, identifier in offered.items()}
+        sockets = {name: msgspec.structs.replace(render, socket=identifier, shape=bpy.types.NodeSocketColor) for name, identifier in offered.items()}
 
         def socket(name: str) -> Outcome[Expr]:
             return Option.of_optional(sockets.get(name)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(tuple(offered)), member=name))
@@ -188,13 +180,10 @@ class Recombined(Case, frozen=True, kw_only=True):
             return Ok(sum(terms[1:], terms[0])) if terms else Error(Fault.of(BlenderReason.ABSENT, repr(tuple(offered)), member=requested))
 
         def finished(terms: tuple[tuple[Key, Expr, Option[Family]], ...], combined: Callable[[Mapping[Key, Expr]], Outcome[Expr]]) -> Outcome[Beauty]:
-            def alpha(beauty: Expr, mask: Expr) -> Expr:
-                return Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", beauty), ("Alpha", mask), ("Type", "Replace Alpha")), socket="Image", shape="RGBA")
-
             lit = filtered.map(lambda term: tuple(Lit(key=key, source=source, filtered=term(key, source, family, render)) for key, source, family in terms))
             cleaned = lit.map(lambda held: combined({term.key: term.filtered for term in held}).map(Some)).default_value(Ok(Nothing))
             return paired(socket("Alpha"), combined({key: source for key, source, _ in terms}), cleaned).map(
-                lambda parts: Beauty(plain=alpha(parts[1], parts[0]), filtered=parts[2].map(lambda held: alpha(held, parts[0])), terms=lit.default_value(()))
+                lambda parts: Beauty(plain=with_alpha(parts[1], parts[0]), filtered=parts[2].map(lambda held: with_alpha(held, parts[0])), terms=lit.default_value(()))
             )
 
         match self.recombination:
@@ -227,4 +216,4 @@ class Recombined(Case, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["EMISSION", "ENVIRONMENT", "OCCLUSION", "TERMS", "Beauty", "LightGroups", "LightPass", "Lit", "Lobes", "Recombination", "Recombined", "TermFilter", "views"]
+__all__ = ["TERMS", "Beauty", "LightGroups", "LightPass", "Lit", "Lobes", "Recombination", "Recombined", "TermFilter", "views"]

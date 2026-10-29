@@ -1,10 +1,11 @@
-"""Region draw state, text, and cached GPU primitives."""
+"""Region draw state, text, built-in shader binds and batches, and cached GPU programs."""
 
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import Enum
 import functools
-from typing import Final, Literal, Self
+import math
+from typing import Final, Literal, Protocol, Self
 
 import blf
 import bpy
@@ -12,13 +13,28 @@ from expression import Nothing, Option, Some
 import gpu
 from gpu_extras.batch import batch_for_shader
 import msgspec
+import numpy as np
+import numpy.typing as npt
 
 from blender.bpy.extension.identity import Resource
 from blender.bpy.ui.resources.theme import Color, Metrics, Theme
+from blender.bpy.ui.screens.regions import visible_bounds
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Blend = Literal["NONE", "ALPHA", "ALPHA_PREMULT", "ADDITIVE", "ADDITIVE_PREMULT", "MULTIPLY", "SUBTRACT", "INVERT"]
+type DepthTest = Literal["NONE", "ALWAYS", "LESS", "LESS_EQUAL", "EQUAL", "GREATER", "GREATER_EQUAL"]
+type DrawType = Literal["PRE_VIEW", "POST_VIEW", "POST_PIXEL", "BACKDROP"]
+type Polyline = Literal["POLYLINE_UNIFORM_COLOR", "POLYLINE_FLAT_COLOR", "POLYLINE_SMOOTH_COLOR"]
+type Primitive = Literal["POINTS", "LINES", "TRIS", "LINE_STRIP", "TRI_STRIP", "LINES_ADJ", "TRIS_ADJ", "LINE_STRIP_ADJ"]
+
+
+class Cached(Protocol):
+    """GPU program builder memoized by `functools.cache`."""
+
+    def cache_clear(self) -> None:
+        """Drops the memoized program."""
+        ...
 
 
 class Align(Enum):
@@ -31,10 +47,16 @@ class Align(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-QUAD: Final = ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0))
-PUSH_POP: Final[Callable[[], AbstractContextManager[None]]] = gpu.matrix.push_pop  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+QUAD: Final = np.array(((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)), np.float32)
+QUAD.setflags(write=False)
+_PUSH_POP: Final[Callable[[], AbstractContextManager[None]]] = gpu.matrix.push_pop  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _PUSH_POP_PROJECTION: Final[Callable[[], AbstractContextManager[None]]] = gpu.matrix.push_pop_projection  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_BATCH_FOR_SHADER: Final[Callable[[gpu.types.GPUShader, Primitive, Mapping[str, npt.NDArray[np.float32]]], gpu.types.GPUBatch]] = batch_for_shader  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _BLEND_GET: Final[Callable[[], Blend]] = gpu.state.blend_get  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_DEPTH_TEST_GET: Final[Callable[[], DepthTest]] = gpu.state.depth_test_get  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_VIEWED: Final[frozenset[DrawType]] = frozenset({"PRE_VIEW", "POST_VIEW"})
+_CLIPPED: Final = frozenset({"UNIFORM_COLOR", "FLAT_COLOR", "SMOOTH_COLOR", "POLYLINE_UNIFORM_COLOR"})
+_BLURS: Final = frozenset({3, 5, 6})
 
 DECODED: Final = """
 vec3 targeted(vec3 srgb) {
@@ -56,139 +78,169 @@ class Rect(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Shadow(msgspec.Struct, frozen=True, kw_only=True):
-    """Text shadow, offset in device pixels."""
+    """Text shadow, offset in device pixels, its level the blur Blender's font shadow types name."""
 
     color: Color
     offset: tuple[float, float]
     level: int = 0
 
     @classmethod
-    def of(cls, style: bpy.types.ThemeFontStyle) -> Self:
-        """Reads theme font style shadow."""
+    def of(cls, style: bpy.types.ThemeFontStyle) -> Option[Self]:
+        """Reads a theme font style's shadow, Nothing for a style drawing none, as `fontstyle_draw_ex` reads it, a type `blf.shadow` lacks drawing unblurred."""
         gray = style.shadow_value
-        return cls(level=style.shadow, color=(gray, gray, gray, style.shadow_alpha), offset=(style.shadow_offset_x, style.shadow_offset_y))
+        return (
+            Some(cls(level=style.shadow if style.shadow in _BLURS else 0, color=(gray, gray, gray, style.shadow_alpha), offset=(style.shadow_offset_x, style.shadow_offset_y)))
+            if style.shadow
+            else Nothing
+        )
 
 
 class Canvas(msgspec.Struct, frozen=True, kw_only=True):
-    """Draw state of one region."""
+    """Draw state of one region: interface metrics, visible extent, the editor and region drawn in, and the clip planes of a clipping 3D View while drawing in its world space."""
 
-    theme: Theme
     metrics: Metrics
     extent: Rect
-    pointer: Option[tuple[int, int]] = Nothing
-    space: Option[bpy.types.Space] = Nothing
-    region: Option[bpy.types.Region] = Nothing
+    space: bpy.types.Space
+    region: bpy.types.Region
+    clipping: Option[gpu.types.GPUUniformBuf] = Nothing
 
     # --- [CONTEXT]
 
     @classmethod
-    def of(cls, area: bpy.types.Area, region: bpy.types.Region, pointer: Option[tuple[int, int]] = Nothing) -> Self:
-        """Reads region extent less overlapping siblings, each inset from the bounds the earlier siblings left."""
-        metrics = Metrics.read()
+    def of(cls, area: bpy.types.Area, region: bpy.types.Region, phase: DrawType = "POST_PIXEL", pointer: Option[tuple[int, int]] = Nothing) -> Self:
+        """Reads region extent less overlapping siblings, in window pixels while a cursor is given, with the clip planes a view phase of a 3D View clipping its solid or wireframe shading draws under, by Blender's `RV3D_CLIPPING_ENABLED`."""
+        space: bpy.types.Space = area.spaces.active  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        x, y, width, height = visible_bounds(area, region)
+        origin_x, origin_y = pointer.map(lambda _: (region.x, region.y)).default_value((0, 0))
+        match phase in _VIEWED, space, region.data:
+            case True, bpy.types.SpaceView3D(shading=bpy.types.View3DShading(type="WIREFRAME" | "SOLID")), bpy.types.RegionView3D(use_clip_planes=True) as view:
+                clipping = Some(gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", 40, np.concatenate((np.identity(4, np.float32).ravel(), np.asarray(view.clip_planes, np.float32).ravel())))))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            case _:
+                clipping = Nothing
+        return cls(metrics=Metrics.read(), extent=Rect(x=float(x + origin_x), y=float(y + origin_y), width=float(width), height=float(height)), space=space, region=region, clipping=clipping)
 
-        def inset(bounds: tuple[int, int, int, int], sibling: bpy.types.Region) -> tuple[int, int, int, int]:
-            left, bottom, right, top = bounds
-            x, y = sibling.x, sibling.y
-            xmax, ymax = x + sibling.width - 1, y + sibling.height - 1
-            match sibling.alignment:
-                case _ if not (left <= xmax and right >= x and bottom <= ymax and top >= y):
-                    return bounds
-                case "LEFT" | "RIGHT":
-                    return (xmax if abs(left - x) < 2 else left), bottom, (x if abs(right - xmax) < 2 else right), top
-                case "TOP" | "BOTTOM":
-                    return left, (ymax if abs(bottom - y) < 2 else bottom), right, (y if abs(top - ymax) < 2 else top)
-                case _:
-                    return bounds
-
-        overlapping = (other for other in area.regions if other != region and Theme(space=area.type, region=other.type, preferences=metrics.preferences).overlaps)
-        left, bottom, right, top = functools.reduce(inset, overlapping, (region.x, region.y, region.x + region.width - 1, region.y + region.height - 1))
-        origin_x, origin_y = pointer.map(lambda _: (0, 0)).default_value((region.x, region.y))
-        return cls(
-            theme=Theme(space=area.type, region=region.type, preferences=metrics.preferences),
-            metrics=metrics,
-            extent=Rect(x=float(left - origin_x), y=float(bottom - origin_y), width=float(right - left + 1), height=float(top - bottom + 1)),
-            pointer=pointer,
-            space=Option.of_optional(area.spaces.active),
-            region=Some(region),
-        )
+    @property
+    def theme(self) -> Theme:
+        """Theme colors of the region drawn in."""
+        return Theme(space=self.space.type, region=self.region.type, preferences=self.metrics.preferences)
 
     # --- [STATE]
 
     @contextmanager
     def drawn(self) -> Generator[Self]:
         """Scopes matrix stacks and alpha blending."""
-        with PUSH_POP(), _PUSH_POP_PROJECTION(), Canvas.blended("ALPHA"):
+        with _PUSH_POP(), _PUSH_POP_PROJECTION(), Canvas.blended("ALPHA"):
             yield self
 
     @staticmethod
-    @contextmanager
-    def blended(mode: Blend) -> Generator[None]:
+    def blended(mode: Blend) -> AbstractContextManager[None]:
         """Scopes blend mode, restoring the mode it found."""
-        held = _BLEND_GET()
-        gpu.state.blend_set(mode)
-        with ExitStack() as stack:
-            stack.callback(gpu.state.blend_set, held)
+        return _restored(_BLEND_GET, gpu.state.blend_set, mode)
+
+    @staticmethod
+    def depth_tested(mode: DepthTest = "LESS_EQUAL") -> AbstractContextManager[None]:
+        """Scopes the depth test, by default the test a view drawing hides behind scene geometry with, restoring the test it found."""
+        return _restored(_DEPTH_TEST_GET, gpu.state.depth_test_set, mode)
+
+    @staticmethod
+    @contextmanager
+    def mapped(rect: Rect) -> Generator[None]:
+        """Scopes a model matrix mapping the unit square onto a rectangle."""
+        with _PUSH_POP():
+            gpu.matrix.translate((rect.x, rect.y))
+            gpu.matrix.scale((rect.width, rect.height))
             yield
 
     @staticmethod
     @contextmanager
     def clipped(rect: Rect, *, view: Option[bpy.types.View2D] = Nothing) -> Generator[None]:
-        """Narrows scissor to a pixel or View2D rectangle."""
+        """Narrows scissor to a pixel or View2D rectangle under the scissor test, which region drawing outside viewports already holds on, restoring the box it found."""
         corners = ((rect.x, rect.y), (rect.x + rect.width, rect.y + rect.height))
         match view:
-            case Option(tag="some", some=region):
-                origin_x, origin_y, _, _ = gpu.state.viewport_get()
-                (left, bottom), (right, top) = ((origin_x + column, origin_y + row) for column, row in (region.view_to_region(*corner, clip=False) for corner in corners))  # type: ignore[misc, has-type]
+            case Option(tag="some", some=held):
+                (left, bottom), (right, top) = (held.view_to_region(*corner, clip=False) for corner in corners)  # type: ignore[misc]
             case _:
                 (left, bottom), (right, top) = ((round(x), round(y)) for x, y in corners)
-        held_x, held_y, held_width, held_height = held = gpu.state.scissor_get()
+        held_x, held_y, held_width, held_height = found = gpu.state.scissor_get()
         x, y = max(held_x, left), max(held_y, bottom)
         right, top = min(held_x + held_width, right), min(held_y + held_height, top)
-        gpu.state.scissor_set(x, y, max(0, right - x), max(0, top - y))
         with ExitStack() as stack:
-            stack.callback(gpu.state.scissor_set, *held)
+            stack.callback(gpu.state.scissor_set, *found)
+            gpu.state.scissor_test_set(True)
+            gpu.state.scissor_set(x, y, max(0, right - x), max(0, top - y))
             yield
 
-    # --- [PRIMITIVES]
+    # --- [SHADERS]
 
-    def lines(self, width: float) -> gpu.types.GPUShader:
-        """Binds polyline shader at device-pixel width."""
-        shader = gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
-        shader.bind()
-        shader.uniform_float("viewportSize", gpu.state.viewport_get()[2:])
-        shader.uniform_float("lineWidth", self.metrics.line(width))
-        shader.uniform_bool("lineSmooth", True)
-        return shader
+    @contextmanager
+    def shader(self, name: str) -> Generator[gpu.types.GPUShader]:
+        """Binds a built-in shader for the scope, under held clip planes its clipped configuration with six clip distances and the model matrix the view matrix leaves of the stack, the configuration only uniform, flat, smooth, and uniform polyline shaders hold."""
+        with ExitStack() as stack:
+            match self.clipping, self.region.data:
+                case Option(tag="some", some=planes), bpy.types.RegionView3D() as view if name in _CLIPPED:
+                    shader = gpu.shader.from_builtin(name, config="CLIPPED")
+                    shader.bind()
+                    shader.uniform_block("clip_planes", planes)
+                    shader.uniform_float("ClipModelMatrix", view.view_matrix.inverted_safe() @ gpu.matrix.get_model_view_matrix())  # type: ignore[arg-type]
+                    gpu.state.clip_distances_set(6)
+                    stack.callback(gpu.state.clip_distances_set, 0)
+                case _:
+                    shader = gpu.shader.from_builtin(name)
+                    shader.bind()
+            yield shader
 
-    def points(self) -> gpu.types.GPUShader:
-        """Binds point shader at device pixel size."""
-        shader = gpu.shader.from_builtin("POINT_FLAT_COLOR")
-        size = float(self.metrics.pixel_size)
-        gpu.state.point_size_set(size)
-        shader.bind()
-        shader.uniform_float("size", size)
-        return shader
+    @contextmanager
+    def lines(self, width: float, shader: Polyline = "POLYLINE_UNIFORM_COLOR") -> Generator[gpu.types.GPUShader]:
+        """Binds a polyline shader at device-pixel width for the scope."""
+        with self.shader(shader) as bound:
+            bound.uniform_float("viewportSize", gpu.state.viewport_get()[2:])
+            bound.uniform_float("lineWidth", self.metrics.line(width))
+            bound.uniform_bool("lineSmooth", True)
+            yield bound
+
+    @contextmanager
+    def points(self) -> Generator[gpu.types.GPUShader]:
+        """Binds the flat point shader for the scope at device pixel size, the point size state overriding its size uniform."""
+        gpu.state.point_size_set(float(self.metrics.pixel_size))
+        with self.shader("POINT_FLAT_COLOR") as bound:
+            yield bound
 
     @staticmethod
-    def label(
-        text: str, at: tuple[float, float], color: Color, points: float, align: Align = Align.START, shadow: Option[Shadow] = Nothing, *, font: int = 0, translation_context: str | None = None
+    def batched(name: str, primitive: Primitive, attributes: Mapping[str, npt.NDArray[np.float32]]) -> gpu.types.GPUBatch:
+        """Batches vertex attributes in the format a built-in shader reads, its clipped configuration reading the same format."""
+        return _BATCH_FOR_SHADER(gpu.shader.from_builtin(name), primitive, attributes)
+
+    # --- [TEXT]
+
+    def measured(self, text: str, size: float | bpy.types.ThemeFontStyle, *, font: int = 0, wrap: Option[float] = Nothing) -> tuple[float, float]:
+        """Returns the width and height text takes at a device-pixel size or a theme font style's scaled size, wrapped to a width when given."""
+        with _typeset(self.metrics, font, size, Nothing, wrap, Nothing, 0.0):
+            return blf.dimensions(font, text)
+
+    def label(  # ruff: ignore[too-many-arguments]
+        self,
+        text: str,
+        at: tuple[float, float],
+        color: Color,
+        size: float | bpy.types.ThemeFontStyle,
+        align: Align = Align.START,
+        shadow: Option[Option[Shadow]] = Nothing,
+        *,
+        font: int = 0,
+        wrap: Option[float] = Nothing,
+        clip: Option[Rect] = Nothing,
+        rotation: float = 0.0,
     ) -> None:
-        """Draws translated text under the blend mode it found, interface font by default."""
-        blf.size(font, points)
-        blf.color(font, *color)
-        shown = bpy.app.translations.pgettext_iface(text, translation_context)
+        """Draws text as given under the blend mode it found, aligned along its rotation, a theme font style giving its scaled size and its shadow unless one is stated, `Some(Nothing)` drawing none."""
+        styled = shadow.default_with(lambda: Shadow.of(size) if isinstance(size, bpy.types.ThemeFontStyle) else Nothing)
         x, y = at
-        width, _ = blf.dimensions(font, shown)
-        blf.position(font, x - width * align.value, y, 0.0)
-        blf.disable(font, blf.SHADOW)
-        for shade in shadow.to_list():
-            blf.enable(font, blf.SHADOW)
-            blf.shadow(font, shade.level, *shade.color)
-            offset_x, offset_y = shade.offset
-            blf.shadow_offset(font, round(offset_x), round(offset_y))
-        with Canvas.blended(_BLEND_GET()), ExitStack() as stack:
-            stack.callback(blf.disable, font, blf.SHADOW)
-            blf.draw(font, shown)
+        with Canvas.blended(_BLEND_GET()), _typeset(self.metrics, font, size, styled, wrap, clip, rotation):
+            reach = blf.dimensions(font, text)[0] * align.value
+            blf.color(font, *color)
+            blf.position(font, x - reach * math.cos(rotation), y - reach * math.sin(rotation), 0.0)
+            blf.draw(font, text)
+
+    # --- [PRIMITIVES]
 
     def frame(self, rect: Rect, fill: Color, edge: Color, radius: float) -> None:
         """Draws antialiased rounded frame."""
@@ -200,19 +252,54 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
             quad.draw(shader)
 
     @staticmethod
-    def picture(texture: gpu.types.GPUTexture, rect: Rect, shader: gpu.types.GPUShader, *, blend: Blend, color: Color = (1.0, 1.0, 1.0, 1.0)) -> None:
-        """Draws texture under its blend mode."""
-        quad = textured()
+    def picture(source: gpu.types.GPUTexture | bpy.types.Image, rect: Rect, *, blend: Blend, color: Color = (1.0, 1.0, 1.0, 1.0)) -> None:
+        """Draws a texture of display colors, or an image's cached scene-linear texture through the Rec.709 display shader, tinted under a blend mode."""
+        match source:
+            case bpy.types.Image():
+                shader, texture = gpu.shader.from_builtin("IMAGE_COLOR_SCENE_LINEAR_TO_REC709_SRGB"), gpu.texture.from_image(source)
+            case _:
+                shader, texture = gpu.shader.from_builtin("IMAGE_COLOR"), source
         shader.bind()
         shader.uniform_sampler("image", texture)
         shader.uniform_float("color", color)
-        with PUSH_POP(), Canvas.blended(blend):
-            gpu.matrix.translate((rect.x, rect.y))
-            gpu.matrix.scale((rect.width, rect.height))
-            quad.draw(shader)
+        with Canvas.mapped(rect), Canvas.blended(blend):
+            textured().draw(shader)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [STATE]
+
+
+@contextmanager
+def _restored[T](read: Callable[[], T], write: Callable[[T], None], value: T) -> Generator[None]:
+    """Writes a GPU state value, restoring the value read before it at scope exit."""
+    with ExitStack() as stack:
+        stack.callback(write, read())
+        write(value)
+        yield
+
+
+@contextmanager
+def _typeset(metrics: Metrics, font: int, size: float | bpy.types.ThemeFontStyle, shadow: Option[Shadow], wrap: Option[float], clip: Option[Rect], rotation: float) -> Generator[None]:
+    """Sets font size, a theme font style's at interface scale, and enables the shadow, wrap, clip, and rotation given, disabling each at scope exit."""
+    blf.size(font, metrics.font(size) if isinstance(size, bpy.types.ThemeFontStyle) else size)
+    with ExitStack() as stack:
+        for shade in shadow.to_list():
+            blf.shadow(font, shade.level, *shade.color)
+            blf.shadow_offset(font, round(shade.offset[0]), round(shade.offset[1]))
+        for width in wrap.to_list():
+            blf.word_wrap(font, round(width))
+        for bounds in clip.to_list():
+            blf.clipping(font, bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height)
+        blf.rotation(font, rotation)
+        for option in (flag for flag, held in ((blf.SHADOW, shadow.is_some()), (blf.WORD_WRAP, wrap.is_some()), (blf.CLIPPING, clip.is_some()), (blf.ROTATION, rotation != 0.0)) if held):
+            blf.enable(font, option)
+            stack.callback(blf.disable, font, option)
+        yield
+
+
+# --- [PROGRAMS]
 
 
 @functools.cache
@@ -247,35 +334,40 @@ void main() {
     info.vertex_source(vertex)
     info.fragment_source(fragment)
     shader = gpu.shader.create_from_info(info)
-    return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": QUAD})
+    return shader, _BATCH_FOR_SHADER(shader, "TRI_STRIP", {"pos": QUAD})
 
 
 @functools.cache
 def textured() -> gpu.types.GPUBatch:
     """Returns UV quad for image shaders."""
-    return batch_for_shader(gpu.shader.from_builtin("IMAGE_COLOR"), "TRI_STRIP", {"pos": QUAD, "texCoord": QUAD})
+    return Canvas.batched("IMAGE_COLOR", "TRI_STRIP", {"pos": QUAD, "texCoord": QUAD})
+
+
+def programs(*cached: Cached) -> Resource[None]:
+    """Holds memoized GPU programs while an extension's registration stands.
+
+    Args:
+        *cached: Program builders under `functools.cache`.
+
+    Returns:
+        Resource dropping every builder's program at release, inside the GPU context unregistration runs in.
+    """
+    return Resource[None](made=lambda _identity: _cleared(cached))
 
 
 @contextmanager
-def released(*clears: Callable[[], None]) -> Generator[None]:
-    """Holds cached GPU programs until scope exit, then drops them inside the GPU context unregistration runs in.
-
-    Args:
-        clears: `cache_clear` of each cached program builder.
-
-    Yields:
-        None while the programs stay cached.
-    """
+def _cleared(cached: tuple[Cached, ...]) -> Generator[None]:
+    """Clears each builder's memoized program at scope exit."""
     with ExitStack() as stack:
-        for clear in clears:
-            stack.callback(clear)
+        for builder in cached:
+            stack.callback(builder.cache_clear)
         yield
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-PROGRAMS: Final = Resource[None](made=lambda _identity: released(rounded.cache_clear, textured.cache_clear))
+PROGRAMS: Final = programs(rounded, textured)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DECODED", "PROGRAMS", "PUSH_POP", "QUAD", "Align", "Blend", "Canvas", "Rect", "Shadow", "released", "rounded", "textured"]
+__all__ = ["DECODED", "PROGRAMS", "QUAD", "Align", "Blend", "Cached", "Canvas", "DepthTest", "DrawType", "Polyline", "Primitive", "Rect", "Shadow", "programs", "rounded", "textured"]

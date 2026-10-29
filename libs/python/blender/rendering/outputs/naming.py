@@ -7,6 +7,7 @@ from itertools import chain, starmap
 from pathlib import Path
 import re
 import string
+from types import MappingProxyType
 from typing import Annotated, Final, Self
 
 from expression import Error, Nothing, Ok, Option
@@ -14,9 +15,8 @@ from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
-from blender.records.faults import accumulated, Fault, Outcome, paired
+from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 from blender.records.fields import Case
-from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -39,7 +39,7 @@ class Word(StrEnum):
     DATE = auto()
 
 
-class Count(StrEnum):
+class NumberField(StrEnum):
     """Number field of output name, valued by its template token."""
 
     VERSION = auto()
@@ -81,15 +81,15 @@ class Slot(Case, frozen=True, kw_only=True):
 class Number(Case, frozen=True, kw_only=True):
     """Number field zero-padded to width."""
 
-    key: Count
+    key: NumberField
     width: _Width
 
 
 class Fields(msgspec.Struct, frozen=True, kw_only=True):
     """Output name field values."""
 
-    words: Mapping[Word, str] = msgspec.field(default_factory=dict)
-    counts: Mapping[Count, Annotated[int, msgspec.Meta(ge=0)]] = msgspec.field(default_factory=dict)
+    words: Mapping[Word, str] = MappingProxyType({})
+    counts: Mapping[NumberField, Annotated[int, msgspec.Meta(ge=0)]] = MappingProxyType({})
 
 
 class OutputName(msgspec.Struct, frozen=True, kw_only=True):
@@ -100,7 +100,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, template: str) -> Outcome[Self]:
         """Parses `{word}` and `{count:width}` fields, refusing braces in text, unknown fields, unseparated fields, and one count at two widths."""
-        refused = functools.partial(Fault.of, RenderingReason.TEMPLATE, template)
+        refused = functools.partial(Fault.of, RecordReason.INVALID, template)
 
         def width(spec: str) -> Option[int]:
             return catch(msgspec.json.decode, exception=msgspec.DecodeError)(spec, type=_Width).to_option() if spec.isdigit() else Nothing
@@ -114,8 +114,8 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                     return Ok(literal)
                 case str(), "", None if name in Word:
                     return Ok((*literal, Slot(key=Word(name))))
-                case str(), str(), None if name in Count:
-                    return width(spec).map(lambda held: (*literal, Number(key=Count(name), width=held))).to_result_with(lambda: refused(f"Field {name!r} takes a width digit, got {spec!r}"))
+                case str(), str(), None if name in NumberField:
+                    return width(spec).map(lambda held: (*literal, Number(key=NumberField(name), width=held))).to_result_with(lambda: refused(f"Field {name!r} takes a width digit, got {spec!r}"))
                 case _:
                     return Error(refused(f"Field {name!r} with conversion {conversion!r} and width {spec!r} names no output field"))
 
@@ -125,7 +125,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 Ok(pieces[1:]).filter_with(
                     lambda later: all(_SEPARATOR.search(text) for text, name, _, _ in later if name is not None), lambda _: refused("Adjacent fields need a non-word or underscore separator")
                 ),
-                Ok({(name, spec) for _, name, spec, _ in pieces if name is not None and name in Count}).filter_with(
+                Ok({(name, spec) for _, name, spec, _ in pieces if name is not None and name in NumberField}).filter_with(
                     lambda counts: len(counts) == len({name for name, _ in counts}), lambda _: refused("A count field repeats at another width")
                 ),
             ).map(lambda found: cls(parts=tuple(chain.from_iterable(found[0]))))
@@ -167,7 +167,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 case Number(key=key, width=width):
                     value = Option.of_optional(fields.counts.get(key)).map(lambda count: f"{count:0{width}d}")
             pattern = patterns[part]
-            unmatched = Fault.of(RenderingReason.UNMATCHED, value.default_value(f"{{{key}}}"), member=pattern.pattern)
+            unmatched = Fault.of(RecordReason.OUTSIDE, f"{{{key}}}", value.default_value("no value"), member=pattern.pattern)
             return written(part).or_else(value.filter(lambda held: pattern.fullmatch(held) is not None)).to_result(unmatched)
 
         return accumulated(map(spelled, self.parts)).map("".join)
@@ -183,7 +183,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                     words={part.key: found[part.key] for part in self.slots if isinstance(part, Slot)}, counts={part.key: int(found[part.key]) for part in self.slots if isinstance(part, Number)}
                 )
             )
-            .to_result_with(functools.partial(Fault.of, RenderingReason.UNMATCHED, text, member=grammar.pattern))
+            .to_result_with(functools.partial(Fault.of, RecordReason.OUTSIDE, type(self).__name__, text, member=grammar.pattern))
         )
 
     def path(self, root: Path, fields: Fields) -> Outcome[Path]:
@@ -192,19 +192,19 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
             self
             .compose(fields)
             .map(root.joinpath)
-            .filter_with(lambda path: path.resolve().is_relative_to(root.resolve()), lambda path: Fault.of(RenderingReason.ROOT, str(path.resolve()), member=str(root.resolve())))
+            .filter_with(lambda path: path.resolve().is_relative_to(root.resolve()), lambda path: Fault.of(RecordReason.OUTSIDE, str(root.resolve()), str(path.resolve()), member="paths beneath it"))
         )
 
     def next_version(self, root: Path, fields: Fields) -> int:
         """Returns next version past matching files under root, ignoring version and frame."""
-        held = {key: count for key, count in fields.counts.items() if key not in {Count.VERSION, Count.FRAME}}
+        held = {key: count for key, count in fields.counts.items() if key not in {NumberField.VERSION, NumberField.FRAME}}
         return 1 + max(
             (
-                name.counts[Count.VERSION]
+                name.counts[NumberField.VERSION]
                 for file in root.rglob("*")
                 if file.is_file()
                 for name in self.parse(file.relative_to(root).with_suffix("").as_posix()).to_option().to_list()
-                if Count.VERSION in name.counts and fields.words.items() <= name.words.items() and held.items() <= name.counts.items()
+                if NumberField.VERSION in name.counts and fields.words.items() <= name.words.items() and held.items() <= name.counts.items()
             ),
             default=0,
         )
@@ -239,4 +239,4 @@ def stepped(text: str, offset: int) -> Option[str]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["RESERVED", "Count", "Field", "Fields", "Number", "Output", "OutputName", "Slot", "Text", "Word", "stepped"]
+__all__ = ["RESERVED", "Field", "Fields", "Number", "NumberField", "Output", "OutputName", "Slot", "Text", "Word", "stepped"]

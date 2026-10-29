@@ -13,27 +13,28 @@ import msgspec
 
 from blender.bpy.commands.operators import Answer, Call, Empty, Operator, tallied, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
-from blender.bpy.data.rna.descriptors import Descriptor, rooted
+from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
+from blender.bpy.render.view_layers.passes import used
 from blender.bpy.settings.presets import Preset
-from blender.bpy.ui.layout.rows import joined, Line, OperatorButton, placed, RowDraw
-from blender.bpy.ui.layout.sections import Single
-from blender.bpy.ui.layout.values import Listing
+from blender.bpy.ui.layout.presets import Listing
+from blender.bpy.ui.layout.rows import Line, OperatorButton, realized, RowDraw
+from blender.bpy.ui.layout.sections import Section
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_LINESTYLE: Final = Descriptor.declared(bpy.types.FreestyleLineSet, "linestyle", bpy.types.PointerProperty)
-_USE: Final = Descriptor.declared(bpy.types.ViewLayer, "use", bpy.types.BoolProperty)
+_LINESTYLE: Final = Descriptor.declared(bpy.types.FreestyleLineSet, ("linestyle",), bpy.types.PointerProperty)
 _SETTINGS, _LINESET = (
     Descriptor.saved(kind, lambda prop: not prop.is_readonly and not (isinstance(prop, bpy.types.PointerProperty) and isinstance(prop.fixed_type, bpy.types.FreestyleLineStyle)))
     for kind in (bpy.types.FreestyleSettings, bpy.types.FreestyleLineSet)
 )
 _STACKS: Final[Mapping[Descriptor[bpy.types.CollectionProperty], tuple[str, ...]]] = MappingProxyType({
-    Descriptor.declared(bpy.types.FreestyleLineStyle, prop.identifier, bpy.types.CollectionProperty): tuple(item.identifier for item in parameter.enum_items)
+    Descriptor.declared(bpy.types.FreestyleLineStyle, (prop.identifier,), bpy.types.CollectionProperty): tuple(item.identifier for item in parameter.enum_items)
     for prop in bpy.types.FreestyleLineStyle.bl_rna.properties
     if isinstance(prop, bpy.types.CollectionProperty) and prop.srna is not None and "new" in prop.srna.functions and "type" in prop.srna.functions["new"].parameters
     for parameter in (prop.srna.functions["new"].parameters["type"],)
@@ -89,23 +90,18 @@ class FreestyleSection(Line, frozen=True):
 
     def drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Draws preset listing and copy button."""
-        return placed((self.listing(identity), OperatorButton(target=COPY)), identity).map(joined)
+        return realized((self.listing(identity), OperatorButton(target=COPY)), identity)
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns preset listing, copy operator, and line style ownership."""
         return Ok((self.listing(identity), COPY, self.ownership))
 
-    def section(self) -> Single[Empty]:
+    def section(self) -> Section[Empty]:
         """Returns Freestyle section."""
-        return Single(key="freestyle", title="Freestyle", rows=(self,))
+        return Section(key="freestyle", title="Freestyle", rows=(self,))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def used(scene: bpy.types.Scene) -> tuple[bpy.types.ViewLayer, ...]:
-    """Returns scene layers with `use` on."""
-    return tuple(layer for layer in scene.view_layers if bool(_USE.read(layer)))
 
 
 def captured(layer: bpy.types.ViewLayer) -> Outcome[Freestyle]:
@@ -206,7 +202,7 @@ def onto(value: Freestyle, layers: tuple[bpy.types.ViewLayer, ...], identity: Id
 def freestyle_copy(call: Call[Empty]) -> Outcome[Answer]:
     """Copy active layer Freestyle settings and line sets to other used layers."""
     return Result[tuple[bpy.types.Scene, bpy.types.ViewLayer], Faults].bind(
-        paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)),
+        paired(rooted(bpy.types.Scene, call.context), rooted(bpy.types.ViewLayer, call.context)),
         lambda pair: captured(pair[1]).bind(lambda value: onto(value, tuple(layer for layer in used(pair[0]) if layer != pair[1]), call.identity)),
     )
 
@@ -218,4 +214,4 @@ COPY: Final = Operator(form=Empty, run=freestyle_copy)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["COPY", "Freestyle", "FreestyleSection", "LineSet", "LineStyle", "StyleModifier", "applied", "captured", "freestyle_copy", "onto", "used"]
+__all__ = ["COPY", "Freestyle", "FreestyleSection", "LineSet", "LineStyle", "StyleModifier", "applied", "captured", "freestyle_copy", "onto"]

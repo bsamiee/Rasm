@@ -1,5 +1,6 @@
-"""Frame rectangles and quads in shares from the bottom left, and projective maps from the unit plane onto convex quads."""
+"""Rectangles, pixel rasters, and quads from the bottom left, and projective maps from the unit plane onto convex quads."""
 
+import math
 from typing import Self
 
 from expression import Error, Nothing, Ok, Option, Some
@@ -9,18 +10,23 @@ import numpy.typing as npt
 from skimage.transform import ProjectiveTransform
 
 from blender.records.faults import Fault, Outcome, RecordReason
-from blender.records.fields import Finite, Unit
+from blender.records.fields import Count, Finite
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Region(msgspec.Struct, frozen=True, kw_only=True):
-    """Frame rectangle in shares from bottom left."""
+    """Rectangle sides from the bottom left, in frame shares or in a field's own coordinates, left at most right and bottom at most top, the unit frame by default."""
 
-    left: Unit = 0.0
-    bottom: Unit = 0.0
-    right: Unit = 1.0
-    top: Unit = 1.0
+    left: Finite = 0.0
+    bottom: Finite = 0.0
+    right: Finite = 1.0
+    top: Finite = 1.0
+
+    def __post_init__(self) -> None:
+        """Refuses sides out of order."""
+        if self.left > self.right or self.bottom > self.top:
+            raise ValueError(f"{self!r} holds sides out of order")
 
     @classmethod
     def bounding(cls, points: npt.NDArray[np.float64]) -> Self:
@@ -30,8 +36,42 @@ class Region(msgspec.Struct, frozen=True, kw_only=True):
         return cls(left=float(left), bottom=float(bottom), right=float(right), top=float(top))
 
     def window(self, height: int, width: int) -> tuple["slice[int, int, None]", "slice[int, int, None]"]:
-        """Returns row and column slices of a top-first plane."""
-        return slice(round((1.0 - self.top) * height), round((1.0 - self.bottom) * height)), slice(round(self.left * width), round(self.right * width))
+        """Returns row and column slices of a top-first plane holding the pixels whose centers lie strictly inside, intersected with the frame."""
+
+        def span(low: float, high: float, extent: int) -> "slice[int, int, None]":
+            start = min(max(math.floor(low * extent - 0.5) + 1, 0), extent)
+            return slice(start, min(max(math.ceil(high * extent - 0.5), start), extent))
+
+        return span(1.0 - self.top, 1.0 - self.bottom, height), span(self.left, self.right, width)
+
+    def mask(self, height: int, width: int) -> npt.NDArray[np.bool]:
+        """Returns the top-first plane mask of the pixels `window` holds."""
+        held = np.zeros((height, width), dtype=np.bool)
+        held[self.window(height, width)] = True
+        return held
+
+
+class Raster(msgspec.Struct, frozen=True, kw_only=True):
+    """Pixel rows and columns splitting a global rectangle, rows top first."""
+
+    bounds: Region
+    shape: tuple[Count, Count]
+
+    @property
+    def step(self) -> npt.NDArray[np.float64]:
+        """Pixel width and height."""
+        return np.array(((self.bounds.right - self.bounds.left) / self.shape[1], (self.bounds.top - self.bounds.bottom) / self.shape[0]))
+
+    @property
+    def corners(self) -> npt.NDArray[np.float64]:
+        """Bottom-left corner of each pixel as `(rows, columns, 2)`."""
+        step = self.step
+        return np.stack(np.meshgrid(self.bounds.left + np.arange(self.shape[1]) * step[0], self.bounds.top - (np.arange(self.shape[0]) + 1) * step[1]), axis=-1)
+
+    @property
+    def centers(self) -> npt.NDArray[np.float64]:
+        """Center of each pixel as `(rows, columns, 2)`."""
+        return self.corners + self.step / 2.0
 
 
 class Quad(msgspec.Struct, frozen=True, kw_only=True):
@@ -106,4 +146,4 @@ def _projected(matrix: npt.NDArray[np.float64], samples: npt.NDArray[np.float64]
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Homography", "Quad", "Region"]
+__all__ = ["Homography", "Quad", "Raster", "Region"]

@@ -8,32 +8,35 @@ requires-python = ">=3.13"
 
 dependencies = [
     # --- [CORE]
-    "expression",        # Results, options, and collections of every library package
-    "msgspec",           # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
-    "structlog",         # Structured logging through typed bound loggers holding each extension's context
-    "typing-extensions", # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
-    "typing-inspection", # Annotation metadata and generic type-alias inspection
-    "tzdata",            # IANA time zones for zoneinfo on platforms without a database
+    "expression",                                         # Results, options, and collections of every library package
+    "msgspec",                                            # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
+    "structlog",                                          # Structured logging through typed bound loggers holding each extension's context
+    "typing-extensions",                                  # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
+    "typing-inspection",                                  # Annotation metadata and generic type-alias inspection
+    "tzdata",                                             # IANA time zones for zoneinfo on platforms without a database
 
     # --- [STORAGE]
-    "atomicwrites",      # Atomic preset moves that preserve occupied destinations
-    "cbor2",             # Canonical binary content hashing with unbounded integers
+    "atomicwrites",                                       # Atomic preset moves that preserve occupied destinations
+    "cbor2",                                              # Canonical binary content hashing with unbounded integers
+
+    # --- [FILES]
+    "blender-asset-tracer; python_full_version < '3.14'", # Blend file packs with paths rewritten across linked libraries
 
     # --- [MATHEMATICS]
-    "numpy",             # Arrays for image planes, previews, and analysis
-    "scipy",             # Color algebra, vector quadrature, FFT sizing, and zoom
+    "numpy",                                              # Arrays for image planes, previews, and analysis
+    "scipy",                                              # Color algebra, vector quadrature, FFT sizing, and zoom
 
     # --- [IMAGING]
-    "colour-science",    # CIE observer datasets
-    "opencolorio",       # Color processing, config authoring, and LUT baking
-    "openimageio",       # Image IO and analysis
-    "psdtags",           # Photoshop layer records for layered documents
-    "scikit-image",      # Structural similarity over image comparison planes
-    "tifffile",          # Linear Raw DNG and TIFF containers for layered documents
+    "colour-science",                                     # CIE observer datasets
+    "opencolorio",                                        # Color processing, config authoring, and LUT baking
+    "openimageio",                                        # Image IO and analysis
+    "psdtags",                                            # Photoshop layer records for layered documents
+    "scikit-image",                                       # Structural similarity over image comparison planes
+    "tifffile",                                           # Linear Raw DNG and TIFF containers for layered documents
 
     # --- [NETWORK]
-    "httpx2",            # HTTP for batch render targets and notices
-    "tenacity",          # Batch target retries over configured domain retry policies
+    "httpx2",                                             # HTTP for batch render targets and notices
+    "tenacity",                                           # Batch target retries over configured domain retry policies
 ]
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
@@ -67,5 +70,5 @@ extend-ignore-names = ["_PropertyDeferred"] # Blender names deferred `bpy.props`
 experimental_namespace_package = true # The `blender` import root is a namespace package holding no top-level module
 
 [tool.deptry.per_rule_ignores]
-DEP001 = ["_blendfile_header", "_bpy_internal", "_bpy_types", "bl_keymap_utils", "bl_operators", "bl_ui", "blf", "bmesh", "bpy", "bpy_extras", "cycles", "gpu", "gpu_extras", "idprop", "mathutils", "rna_keymap_ui"] # Modules Blender supplies to host code
-DEP002 = ["tzdata"]                                                                                                                                                                                                                    # zoneinfo reads tzdata data files
+DEP001 = ["_bl_ui_utils", "_blendfile_header", "_bpy_internal", "_bpy_types", "bl_keymap_utils", "bl_operators", "bl_ui", "blf", "bmesh", "bpy", "bpy_extras", "cycles", "gpu", "gpu_extras", "idprop", "mathutils", "rna_keymap_ui", "rna_prop_ui"] # Modules Blender supplies to host code
+DEP002 = ["tzdata"]                                                                                                                                                                                                                                  # zoneinfo reads tzdata data files

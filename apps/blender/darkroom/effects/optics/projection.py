@@ -2,24 +2,24 @@
 
 import functools
 from math import pi
+from types import MappingProxyType
 from typing import Annotated, Final
 
 import bpy
-from expression import Some
+from expression import Ok, Some
 import msgspec
 
+from blender.bpy.nodes.functions import EXPRESSIONS
 from blender.bpy.nodes.graphs import Expr, math, switched, vector, xyz
 from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
-from blender.bpy.render.compositor.coordinates import Border, BORDERS, extended, lensed, sampled, shorter
-from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, precise, Requests, Shell
-from blender.imaging.geometry.panoramas import CentralCylindrical, Equirectangular, FisheyeEquidistant, FisheyeEquisolid, folded, from_polar, MirrorBall, Panini, Stereographic, to_polar
+from blender.bpy.render.compositor.coordinates import Border, BORDERS, extended, sampled, shorter
+from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
+from blender.bpy.render.compositor.lenses import lensed
+from blender.bpy.render.compositor.shells import Shell
+from blender.imaging.geometry.panoramas import Equirectangular, folded, from_polar, Panoramas, to_polar
 from blender.records.faults import Outcome
 
 from ...chain.stages import Effect, Stage
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Panoramas = Equirectangular | CentralCylindrical | MirrorBall | FisheyeEquidistant | FisheyeEquisolid | Stereographic | Panini
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -31,6 +31,26 @@ MODES: Final = MenuItems(items=(KALEIDOSCOPE, TILING, POLAR, PANORAMA))
 TO_POLAR: Final = MenuItem(name="Rectangular to Polar")
 TO_RECTANGULAR: Final = MenuItem(name="Polar to Rectangular")
 CONVERSIONS: Final = MenuItems(items=(TO_POLAR, TO_RECTANGULAR))
+_MODE: Final = Socket(key="mode", kind=bpy.types.NodeSocketMenu, description="Frame mapping", default_value=KALEIDOSCOPE.name, items=Some(MODES))
+_EXTENSIONS: Final = MappingProxyType({
+    prefix: Socket(
+        key=item_key(prefix, "extension"), name="Extension", kind=bpy.types.NodeSocketMenu, description="Source sampling past frame edges", default_value=border.item.name, items=Some(BORDERS)
+    )
+    for prefix, border in (("kaleidoscope", Border.MIRROR), ("tiling", Border.MIRROR), ("polar", Border.BLACK), ("panorama", Border.MIRROR))
+})
+_KALEIDOSCOPE_CENTER: Final = Socket(key="kaleidoscope_center", name="Center", kind=bpy.types.NodeSocketVector2D, description="Point mirror lines pass through", default_value=(0.5, 0.5))
+_TILING_CENTER: Final = Socket(key="tiling_center", name="Center", kind=bpy.types.NodeSocketVector2D, description="Point copies scale about", default_value=(0.5, 0.5))
+_TILING_COUNT: Final = Socket(key="tiling_count", name="Count", kind=bpy.types.NodeSocketFloat, description="Frame copies across each side", min_value=1.0, default_value=3.0)
+_POLAR_CONVERSION: Final = Socket(key="polar_conversion", name="Conversion", kind=bpy.types.NodeSocketMenu, description="Conversion direction", default_value=TO_POLAR.name, items=Some(CONVERSIONS))
+_PANELS: Final = tuple(
+    InterfacePanel(key=prefix, name=item.name, description=item.description, inputs=(_EXTENSIONS[prefix], *extras))
+    for prefix, item, extras in (
+        ("kaleidoscope", KALEIDOSCOPE, (_KALEIDOSCOPE_CENTER,)),
+        ("tiling", TILING, (_TILING_CENTER, _TILING_COUNT)),
+        ("polar", POLAR, (_POLAR_CONVERSION,)),
+        ("panorama", PANORAMA, ()),
+    )
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -55,14 +75,14 @@ def projected(shell: Shell[Projection]) -> Outcome[Expr]:
     offset = vector("MULTIPLY_ADD", frame.extent, (-0.5, -0.5, 0.0), frame.point)
     short = shorter(frame.extent)
     unit = vector("ADD", frame.fraction, (0.0, 0.0, 1.0))["Z"]
-    center = vector("MULTIPLY", shell.input("kaleidoscope_center"), frame.extent)
+    center = vector("MULTIPLY", shell.input(_KALEIDOSCOPE_CENTER), frame.extent)
     local = frame.point - center
-    x, y = folded(local["X"], local["Y"], mirrors=record.mirrors, angle=record.angle, zoom=record.zoom, ns=Expr)
-    s, t, _ = to_polar((offset["X"] / short + 0.5, offset["Y"] / short + 0.5, unit), (1.0, 1.0), Expr)
-    u, v, _ = from_polar((frame.fraction["X"], frame.fraction["Y"], unit), (1.0, 1.0), Expr)
+    x, y = folded(local["X"], local["Y"], mirrors=record.mirrors, angle=record.angle, zoom=record.zoom, ns=EXPRESSIONS)
+    s, t, _ = to_polar((offset["X"] / short + 0.5, offset["Y"] / short + 0.5, unit), (1.0, 1.0), EXPRESSIONS)
+    u, v, _ = from_polar((frame.fraction["X"], frame.fraction["Y"], unit), (1.0, 1.0), EXPRESSIONS)
     unwrapped = vector("MULTIPLY_ADD", vector("DIVIDE", xyz(u - 0.5, v - 0.5), frame.extent), xyz(short, short, 0.0), (0.5, 0.5, 0.0))
     across, along = (offset["X"], offset["Y"]) if record.panorama.centered else (frame.fraction["X"], frame.fraction["Y"])
-    rx, ry, rz, coverage = record.panorama.to_ray((across, along, unit), Expr)
+    rx, ry, rz, coverage = record.panorama.to_ray((across, along, unit), EXPRESSIONS)
 
     def projected_ray(ray: Expr) -> Expr:
         camera = Expr(kind=bpy.types.GeometryNodeInputActiveCamera, socket="Active Camera")
@@ -70,110 +90,41 @@ def projected(shell: Shell[Projection]) -> Outcome[Expr]:
         unturned = Expr(
             kind=bpy.types.FunctionNodeInvertMatrix, inputs=(("Matrix", Expr(kind=bpy.types.FunctionNodeCombineTransform, inputs=(("Rotation", attitude),), socket="Transform")),), socket="Matrix"
         )
-        up = Expr(kind=bpy.types.FunctionNodeTransformDirection, inputs=(("Direction", (0.0, 0.0, 1.0)), ("Transform", unturned)), socket="Direction", shape="VECTOR")
+        up = Expr(kind=bpy.types.FunctionNodeTransformDirection, inputs=(("Direction", (0.0, 0.0, 1.0)), ("Transform", unturned)), socket="Direction", shape=bpy.types.NodeSocketVector)
         level = Expr(
             kind=bpy.types.FunctionNodeEulerToRotation,
             inputs=(("Euler", xyz(-math("ARCTAN2", -up["Z"], vector("LENGTH", xyz(up["X"], up["Y"]))), 0.0, -math("ARCTAN2", up["X"], up["Y"]))),),
             socket="Rotation",
         )
         relative = Expr(kind=bpy.types.FunctionNodeCombineTransform, inputs=(("Rotation", level),), socket="Transform")
-        turned = Expr(kind=bpy.types.FunctionNodeTransformDirection, inputs=(("Direction", ray), ("Transform", relative)), socket="Direction", shape="VECTOR") if record.panorama.upright else ray
-        device = Expr(kind=bpy.types.FunctionNodeProjectPoint, inputs=(("Vector", turned), ("Transform", lensed("Projection Matrix"))), socket="Vector", shape="VECTOR")
+        turned = (
+            Expr(kind=bpy.types.FunctionNodeTransformDirection, inputs=(("Direction", ray), ("Transform", relative)), socket="Direction", shape=bpy.types.NodeSocketVector)
+            if record.panorama.upright
+            else ray
+        )
+        device = Expr(kind=bpy.types.FunctionNodeProjectPoint, inputs=(("Vector", turned), ("Transform", lensed("Projection Matrix"))), socket="Vector", shape=bpy.types.NodeSocketVector)
         return vector("MULTIPLY_ADD", (0.0, 0.0, 1.0), (turned["Z"] < 0.0) * coverage, vector("MULTIPLY_ADD", device, (0.5, 0.5, 0.0), (0.5, 0.5, 0.0)))
 
-    def selected(polar: Expr) -> Outcome[Expr]:
-        arms = (
-            (KALEIDOSCOPE, "kaleidoscope", sampled(frame, vector("DIVIDE", xyz(x, y) + center, frame.extent))),
-            (TILING, "tiling", sampled(frame, vector("SCALE", frame.fraction - shell.input("tiling_center"), shell.input("tiling_count")) + shell.input("tiling_center"))),
-            (POLAR, "polar", polar),
-            (PANORAMA, "panorama", projected_ray(xyz(rx, ry, rz))),
-        )
-        samples = tuple((item.name, extended(shell.color, uv, (shell.input(key, "extension"), shell.input(key, "extension")), clipped=True)) for item, key, uv in arms)
+    polar = shell.menu(_POLAR_CONVERSION, cases={TO_POLAR: sampled(frame, xyz(s, t)), TO_RECTANGULAR: sampled(frame, unwrapped)})
+    arms = (
+        (KALEIDOSCOPE, "kaleidoscope", sampled(frame, vector("DIVIDE", xyz(x, y) + center, frame.extent))),
+        (TILING, "tiling", sampled(frame, vector("SCALE", frame.fraction - shell.input(_TILING_CENTER), shell.input(_TILING_COUNT)) + shell.input(_TILING_CENTER))),
+        (POLAR, "polar", polar),
+        (PANORAMA, "panorama", projected_ray(xyz(rx, ry, rz))),
+    )
+    samples = tuple((item.name, extended(shell.color, uv, (shell.input(_EXTENSIONS[key]), shell.input(_EXTENSIONS[key])), clipped=True)) for item, key, uv in arms)
+    coordinates = shell.menu(_MODE, cases={item: uv for item, _, uv in arms}).named("uv")
 
-        def switch(held: Expr, step: tuple[str, Expr], coordinates: Expr) -> Expr:
-            return switched(msgspec.structs.replace(coordinates, socket=step[0], shape="FLOAT"), held, step[1])
+    def switch(held: Expr, step: tuple[str, Expr]) -> Expr:
+        return switched(msgspec.structs.replace(coordinates, socket=step[0], shape=bpy.types.NodeSocketFloat), held, step[1])
 
-        return (
-            shell
-            .menu("mode", cases={item.name: uv for item, _, uv in arms}, kind="VECTOR")
-            .map(lambda coordinates: coordinates.named("uv"))
-            .map(lambda coordinates: functools.reduce(lambda held, step: switch(held, step, coordinates), samples[1:], switch(samples[0][1], samples[0], coordinates)))
-        )
-
-    return shell.menu("polar_conversion", cases={TO_POLAR.name: sampled(frame, xyz(s, t)), TO_RECTANGULAR.name: sampled(frame, unwrapped)}, kind="VECTOR").bind(selected)
+    return Ok(functools.reduce(switch, samples[1:], switch(samples[0][1], samples[0])))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-projection = CompositorEffect(
-    record=Projection,
-    graph=projected,
-    interface=Interface(
-        inputs=(Socket(key="mode", name="Mode", kind=bpy.types.NodeSocketMenu, description="Frame mapping", members={"default_value": KALEIDOSCOPE.name}, items=Some(MODES)),),
-        panels=tuple(
-            InterfacePanel(
-                key=prefix,
-                name=item.name,
-                description=item.description,
-                inputs=(
-                    Socket(
-                        key=item_key(prefix, "extension"),
-                        name="Extension",
-                        kind=bpy.types.NodeSocketMenu,
-                        description="Source sampling past frame edges",
-                        members={"default_value": border.item.name},
-                        items=Some(BORDERS),
-                    ),
-                    *extras,
-                ),
-            )
-            for prefix, item, border, extras in (
-                (
-                    "kaleidoscope",
-                    KALEIDOSCOPE,
-                    Border.MIRROR,
-                    (
-                        Socket(
-                            key="kaleidoscope_center",
-                            name="Center",
-                            kind=bpy.types.NodeSocketVector,
-                            description="Point mirror lines pass through",
-                            members={"dimensions": 2, "default_value": (0.5, 0.5)},
-                        ),
-                    ),
-                ),
-                (
-                    "tiling",
-                    TILING,
-                    Border.MIRROR,
-                    (
-                        Socket(key="tiling_center", name="Center", kind=bpy.types.NodeSocketVector, description="Point copies scale about", members={"dimensions": 2, "default_value": (0.5, 0.5)}),
-                        Socket(key="tiling_count", name="Count", kind=bpy.types.NodeSocketFloat, description="Frame copies across each side", members={"min_value": 1.0, "default_value": 3.0}),
-                    ),
-                ),
-                (
-                    "polar",
-                    POLAR,
-                    Border.BLACK,
-                    (
-                        Socket(
-                            key="polar_conversion",
-                            name="Conversion",
-                            kind=bpy.types.NodeSocketMenu,
-                            description="Conversion direction",
-                            members={"default_value": TO_POLAR.name},
-                            items=Some(CONVERSIONS),
-                        ),
-                    ),
-                ),
-                ("panorama", PANORAMA, Border.MIRROR, ()),
-            )
-        ),
-    ),
-    alpha=Alpha.RESULT,
-    parts=(Requests[Projection](request=precise),),
-)
+projection: Final = CompositorEffect(projected, record=Projection, interface=Interface(inputs=(_MODE,), panels=_PANELS), mix=Blended(alpha=Alpha.RESULT), request=Some(precise))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Panoramas", "Projection", "projection"]
+__all__ = ["Projection", "projection"]

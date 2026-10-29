@@ -9,23 +9,27 @@ import gpu
 import msgspec
 import PyOpenColorIO
 
-from blender.bpy.commands.operators import Answer, Call, Done, InvokePopup, Operator, Own, Unchanged
-from blender.bpy.data.rna.descriptors import choices, Descriptor, Struct
+from blender.bpy.commands.calls import Placement
+from blender.bpy.commands.invocations import Popup
+from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
+from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.data.rna.mirrors import choices
+from blender.bpy.data.rna.paths import rooted, Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.nodes.changes import owned
+from blender.bpy.nodes.addressing import owned
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.blending import Entry
-from blender.bpy.render.compositor.effects import CompositorEffect, Enabled, Named, Registers, revised, Shell
-from blender.bpy.render.compositor.entries import composites
+from blender.bpy.render.compositor.colors import COLOR_INPUT
+from blender.bpy.render.compositor.effects import CompositorEffect, Enabled, Named, revised
 from blender.bpy.render.compositor.inputs import interface_input, keyed
-from blender.bpy.render.compositor.viewers import Viewers
+from blender.bpy.render.compositor.viewers import composites, Viewers
 from blender.bpy.settings.attachments import Attached, Attachment
-from blender.bpy.ui.layout.rows import acquired, alerted, invoking, joined, Line, Member, OperatorButton, placed, pressed, realized, Row, RowContent, RowDraw, split
-from blender.bpy.ui.layout.sections import fields, Single
-from blender.bpy.ui.layout.templates import NodeEditors, Wheel
-from blender.imaging.color.authoring import DynamicRange
-from blender.imaging.color.processors import ColorSpace, DisplayView, Domain
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import acquired, alerted, Line, OperatorButton, pressed, realized, Row, RowContent, RowDraw, split
+from blender.bpy.ui.layout.sections import fields, Section
+from blender.bpy.ui.layout.templates import wheel
+from blender.imaging.color.processors import ColorSpace, DisplayView, Domain, hdr
 from blender.records.faults import accumulated, Outcome, paired
 
 from .stack import Chain
@@ -46,7 +50,7 @@ class SpaceField(bpy.types.PropertyGroup):
     space: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
         name="Color Space",
         description="Colorspace the field reads",
-        items=lambda _owner, _context: choices(Descriptor.declared(bpy.types.ColorManagedInputColorspaceSettings, "name", bpy.types.EnumProperty).prop.enum_items),
+        items=lambda _owner, _context: choices(Descriptor.declared(bpy.types.ColorManagedInputColorspaceSettings, ("name",), bpy.types.EnumProperty).prop.enum_items),
     )
 
 
@@ -54,6 +58,7 @@ class EffectButtons(Line, frozen=True, kw_only=True):
     """Entry header actions the native effect header lacks: setup locks, the effect's own commands, and reset."""
 
     viewers: Viewers[Effect]
+    resetting: Operator[Named]
     locks: Option[Locks] = Nothing
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
@@ -66,15 +71,14 @@ class EffectButtons(Line, frozen=True, kw_only=True):
                 actions = (
                     *(locks(Nothing) for locks in self.locks.to_list() if row.is_some()),
                     *(
-                        OperatorButton(target=Own(command=command, values={"name": holder.name}), text="")
+                        OperatorButton(target=Placement(command, {"name": holder.name}), keywords={"text": ""})
                         for offered in row.to_list()
-                        for part in offered.found(Registers)
-                        for command in part.rows
+                        for command in offered.registers
                         if isinstance(command, Operator) and issubclass(command.form, Named)
                     ),
-                    OperatorButton(target=Own(command=rows.operators.resetting, values={"name": holder.name}), text="", icon=Some("LOOP_BACK")),
+                    OperatorButton(target=Placement(self.resetting, {"name": holder.name}), keywords={"text": ""}, icon=Some("LOOP_BACK")),
                 )
-                alerted(layout, placed(actions, identity).map(lambda draws: joined(draws)(layout, holder, context)))
+                alerted(layout, realized(actions, identity).map(lambda draw: draw(layout, holder, context)))
 
         return Ok(self.conditioned(shown))
 
@@ -106,11 +110,11 @@ class EffectBody(Line, frozen=True, kw_only=True):
             def lockable(addresses: Mapping[Key, str]) -> tuple[tuple[str, Key], ...]:
                 live = {item.identifier: item for item in interface.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"}
                 return (
-                    *((enabled.value.name, enabled.value.identifier) for enabled in Enabled),
+                    *((enabled.prop.name, enabled.value) for enabled in Enabled),
                     *(
                         (named(socket), key)
                         for key, identifier in addresses.items()
-                        if key != Shell.image
+                        if key != COLOR_INPUT.key
                         for socket in Option.of_optional(live.get(identifier)).to_list()
                         if not socket.hide_in_modifier
                     ),
@@ -119,7 +123,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
             def lined(inner: bpy.types.UILayout, locks: Locks, name: str, key: Key) -> Outcome[None]:
                 line = inner.row(align=True)
                 line.label(text=name)
-                return realized(locks(Some(key)), identity).map(lambda draw: draw(line, entry, context))
+                return realized((locks(Some(key)),), identity).map(lambda draw: draw(line, entry, context))
 
             def drawn(names: tuple[tuple[str, Key], ...]) -> Outcome[None]:
                 header, body = layout.panel(f"{entry.name}_locks", default_closed=True)
@@ -136,22 +140,21 @@ class EffectBody(Line, frozen=True, kw_only=True):
             row: CompositorEffect[Effect],
             record: Entry[Effect],
             context: bpy.types.Context,
-            editors: NodeEditors,
         ) -> Outcome[None]:
             def wheeled() -> Outcome[None]:
                 flow = layout.grid_flow(row_major=True, columns=2, even_columns=True)
 
-                def wheel(panel: bpy.types.NodeTreeInterfacePanel, color: str, luma: str) -> Outcome[None]:
+                def graded(panel: bpy.types.NodeTreeInterfacePanel, color: str, luma: str) -> Outcome[None]:
                     inner = flow.column()
                     inner.label(text=panel.name)
                     return (
                         paired(interface_input(entry, color), interface_input(entry, luma))
-                        .bind(lambda pair: realized(Wheel(color=bound(pair[0]), luma=Some(bound(pair[1]))), identity))
+                        .bind(lambda pair: realized((wheel(bound(pair[0]), Some(bound(pair[1])), {"value_slider": True, "lock_luminosity": True, "cubic": True}),), identity))
                         .map(lambda draw: draw(inner, entry, context))
                     )
 
                 return accumulated(
-                    wheel(panel, color.identifier, luma.identifier)
+                    graded(panel, color.identifier, luma.identifier)
                     for panel in interface.items_tree
                     if isinstance(panel, bpy.types.NodeTreeInterfacePanel)
                     for color, luma in (tuple(panel.interface_items),)
@@ -161,16 +164,17 @@ class EffectBody(Line, frozen=True, kw_only=True):
             def edited() -> Outcome[None]:
                 spaced = (field for field in msgspec.structs.fields(type(record.record)) if field.type is ColorSpace)
                 for node in owned(group, identity).values():
-                    if type(node) in editors.curves or isinstance(node, bpy.types.ShaderNodeValToRGB):
-                        editors.drawn(layout, node, context)
+                    if any(isinstance(prop, bpy.types.PointerProperty) and isinstance(prop.fixed_type, bpy.types.CurveMapping | bpy.types.ColorRamp) for prop in node.bl_rna.properties):
+                        column = layout.column()
+                        column.use_property_split = False
+                        column.label(text=node.label or node.bl_label)
+                        column.template_node_inputs(node)
                 return accumulated(
                     pressed(
                         layout.row(align=True),
                         identity,
-                        self.colorspace,
-                        {"name": entry.name, "field": field.name, "space": getattr(record.record, field.name)},
-                        text=bpy.path.display_name(field.name),
-                        icon="NONE",
+                        Placement(self.colorspace, {"name": entry.name, "field": field.name, "space": getattr(record.record, field.name)}),
+                        {"text": bpy.path.display_name(field.name)},
                     )
                     for field in spaced
                 ).map(lambda _: None)
@@ -179,17 +183,11 @@ class EffectBody(Line, frozen=True, kw_only=True):
                 def drawn[G: bpy.types.PropertyGroup](attachment: Attachment[G]) -> Outcome[None]:
                     def shown(held: Attached[G]) -> Outcome[None]:
                         holder = held.struct(scene)
-                        return (
-                            fields(held.form, identity)
-                            .bind(lambda built: placed(built[0], identity).map(lambda draws: (tuple(draw(layout, holder, context) for draw in draws), built[1](layout, holder, context, entry.name))))
-                            .map(lambda _: None)
-                        )
+                        return realized(fields(held.form, attachment.key), identity).map(lambda draw: draw(layout, holder, context))
 
                     return attachment.bound(identity).bind(shown)
 
-                return accumulated(drawn(attachment) for part in row.found(Registers) for attachment in part.rows if isinstance(attachment, Attachment) and attachment.owner is bpy.types.Scene).map(
-                    lambda _: None
-                )
+                return accumulated(drawn(attachment) for attachment in row.registers if isinstance(attachment, Attachment) and attachment.owner is bpy.types.Scene).map(lambda _: None)
 
             interface: bpy.types.NodeTreeInterface = group.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             return wheeled().bind(lambda _: edited()).bind(lambda _: attached()).bind(lambda _: listed(layout, entry, interface, context))
@@ -197,7 +195,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
         def notices(layout: bpy.types.UILayout, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, row: CompositorEffect[Effect], context: bpy.types.Context) -> Outcome[None]:
             order = tuple(scene.compositor_effects)
             formed = chain.formation.entries(identity, scene)
-            if row.domain is Domain.DISPLAY and (not formed or order.index(entry) < order.index(formed[0])):
+            if row.record.domain is Domain.DISPLAY and (not formed or order.index(entry) < order.index(formed[0])):
                 layout.label(text="Needs earlier Display View entry", icon="STATUS_ERROR_FILLED")
 
             def shown(config: PyOpenColorIO.Config, view: DisplayView) -> Outcome[None]:
@@ -205,17 +203,13 @@ class EffectBody(Line, frozen=True, kw_only=True):
                     return DisplayView.for_encoding(config, view.display, Some(view.view)).map(
                         lambda encoded: layout.label(text="Needs encoding-only Display View", icon="STATUS_ERROR_FILLED") if encoded.is_none() else None
                     )
-                if (
-                    row is chain.formation
-                    and any(DynamicRange.of(space) is DynamicRange.HIGH for space in view.colorspace(config).to_list())
-                    and not any(window.support_hdr_color for window in Option.of_optional(context.window).to_list())
-                ):
+                if row is chain.formation and view.colorspace(config).filter(hdr).is_some() and not any(window.support_hdr_color for window in Option.of_optional(context.window).to_list()):
                     split(layout)[1].label(text="OpenGL backend cannot show HDR" if gpu.platform.backend_type_get() == "OPENGL" else "Window cannot show HDR", icon="STATUS_INFO_FILLED")
                 return Ok(None)
 
             return chain.view(identity, scene).bind(lambda view: shown(PyOpenColorIO.GetCurrentConfig(), view.default_with(lambda: viewed(scene))))
 
-        def shown(editors: NodeEditors, layout: bpy.types.UILayout, holder: object, context: bpy.types.Context) -> None:
+        def shown(layout: bpy.types.UILayout, holder: object, context: bpy.types.Context) -> None:
             match holder:
                 case bpy.types.SceneCompositorEffect(id_data=bpy.types.Scene() as scene, node_group=bpy.types.NodeTree() as group) as entry:
                     row = rows.row(identity, entry)
@@ -223,44 +217,36 @@ class EffectBody(Line, frozen=True, kw_only=True):
                         alerted(
                             layout,
                             offered.read(identity, entry).bind(
-                                lambda record: offered_drawn(layout, scene, entry, group, offered, record, context, editors).bind(lambda _: notices(layout, scene, entry, offered, context))
+                                lambda record: offered_drawn(layout, scene, entry, group, offered, record, context).bind(lambda _: notices(layout, scene, entry, offered, context))
                             ),
                         )
-                    alerted(
-                        layout,
-                        accumulated(
-                            gates.bind(lambda held: accumulated(condition.check(context, Some(entry)) for condition in held.values()))
-                            for pinned in rows.pinned
-                            if row.is_none() and pinned.ownership.marked(identity, group).is_some()
-                            for gates in pinned.conditions.map(lambda conditions: conditions(identity, entry)).to_list()
-                        ),
-                    )
+                    alerted(layout, accumulated(pinned.checked(context, entry) for pinned in rows.pinned if row.is_none() and pinned.ownership.marked(identity, group).is_some()).map(lambda _: None))
                     buttons = layout.row(align=True)
                     alerted(
                         buttons,
                         accumulated((
-                            pressed(buttons, identity, self.viewers.viewing, {"name": entry.name, "node": Viewers.entering.node, "socket": Viewers.entering.socket}, text="Input", icon="NONE"),
-                            pressed(buttons, identity, self.viewers.viewing, {"name": entry.name, "node": Viewers.leaving.node, "socket": Viewers.leaving.socket}, text="Result", icon="NONE"),
-                            pressed(buttons, identity, self.viewers.clearing, {"name": entry.name}, text="Clear", icon="NONE"),
+                            pressed(buttons, identity, Placement(self.viewers.viewing, {"name": entry.name, "node": Viewers.entering.node, "socket": Viewers.entering.socket}), {"text": "Input"}),
+                            pressed(buttons, identity, Placement(self.viewers.viewing, {"name": entry.name, "node": Viewers.leaving.node, "socket": Viewers.leaving.socket}), {"text": "Result"}),
+                            pressed(buttons, identity, Placement(self.viewers.clearing, {"name": entry.name}), {"text": "Clear"}),
                         )),
                     )
                 case _:
                     pass
 
-        return NodeEditors.realized(identity).map(lambda editors: self.conditioned(invoking(functools.partial(shown, editors))))
+        return Ok(self.conditioned(shown))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 @functools.cache
-def effect_section(chain: Chain, viewers: Viewers[Effect], *, thumbnail: Row | RowDraw, locks: Option[Locks] = Nothing) -> Single:
+def effect_section(chain: Chain, viewers: Viewers[Effect], *, thumbnail: Row | RowDraw, locks: Option[Locks] = Nothing) -> Section:
     """Builds the active effect section, open by default, with its colorspace command."""
 
     def choose_color_space(call: Call[SpaceField]) -> Outcome[Answer]:
         """Set the colorspace a record field reads."""
         properties = call.properties
-        return call.root(bpy.types.Scene).bind(
+        return rooted(bpy.types.Scene, call.context).bind(
             lambda scene: chain.rows.found(call.identity, scene, properties.name).bind(
                 lambda held: revised(held.row, call.identity, scene, held.entry, lambda record: Ok(msgspec.structs.replace(record, **{properties.field: properties.space}))).map(
                     lambda wrote: Done() if wrote else Unchanged(reason=f"{held.entry.name} reads {properties.space}")
@@ -268,14 +254,14 @@ def effect_section(chain: Chain, viewers: Viewers[Effect], *, thumbnail: Row | R
             )
         )
 
-    colorspace = Operator(form=SpaceField, run=choose_color_space, invoke=Some(InvokePopup.SEARCH), primary=Some("space"))
-    return Single(
+    colorspace = Operator(form=SpaceField, run=choose_color_space, invoke=Some(Popup(functools.partial(bpy.types.WindowManager.invoke_search_popup))), primary=Some("space"))
+    return Section(
         key="active_effect",
         title="Active Effect",
         holder=Some(Member(root=bpy.types.Scene, path=("compositor_effects", "active"))),
         condition=Some(composites),
         rows=(thumbnail, EffectBody(chain=chain, viewers=viewers, colorspace=colorspace, locks=locks)),
-        header=(EffectButtons(viewers=viewers, locks=locks),),
+        header=(EffectButtons(viewers=viewers, resetting=chain.edits.resetting, locks=locks),),
         opened=True,
     )
 

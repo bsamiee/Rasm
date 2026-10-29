@@ -19,36 +19,42 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.commands.operators import Answer, Call, Confirm, Done, Empty, Operator, Own, Properties, Save, Unchanged
-from blender.bpy.data.ids.images import generated, read, Tag
+from blender.bpy.commands.calls import Placement
+from blender.bpy.commands.invocations import Popup, Save
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
+from blender.bpy.data.ids.images import Generated, read, Tag
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import AllOf, Setting
-from blender.bpy.data.rna.descriptors import choices, Descriptor, root_in, rooted, Struct, written
+from blender.bpy.data.rna.descriptors import Descriptor, written
+from blender.bpy.data.rna.mirrors import choices
+from blender.bpy.data.rna.paths import root_in, rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
-from blender.bpy.nodes.editing import Chosen, inserted
+from blender.bpy.nodes.editing import inserted
 from blender.bpy.render.color.luts import Baking, extension, FORMATS, output, Writing
 from blender.bpy.render.color.spaces import viewed
-from blender.bpy.render.compositor.effects import Enabled, entered
-from blender.bpy.render.outputs.exports import combined
-from blender.bpy.render.outputs.results import saved
-from blender.bpy.scene.materials import matrix
+from blender.bpy.render.compositor.effects import Enabled
+from blender.bpy.render.compositor.inputs import entered
+from blender.bpy.render.outputs.results import combined, saved
+from blender.bpy.scene.materials import color_matrix
 from blender.bpy.settings.attachments import Attached, Attachment, Stored
-from blender.bpy.ui.drawing.canvas import Canvas
-from blender.bpy.ui.drawing.handlers import Updated
-from blender.bpy.ui.images.cages import Access, FrameRegion, Free, HANDLE
+from blender.bpy.ui.drawing.canvas import Canvas, DrawType
+from blender.bpy.ui.drawing.handlers import Handled
+from blender.bpy.ui.images.cages import FrameRegion, HANDLE
 from blender.bpy.ui.images.overlays import overlaid
 from blender.bpy.ui.images.views import framed, image_type
-from blender.bpy.ui.layout.rows import alerted, Caption, Flow, Member, OperatorButton, Property, Row, Rows
-from blender.bpy.ui.layout.sections import Single
-from blender.bpy.ui.layout.values import Hosted, Store
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import alerted, Layout, OperatorButton, Property, Row
+from blender.bpy.ui.layout.sections import Section
+from blender.bpy.ui.layout.values import Store
 from blender.bpy.ui.resources.icons import Glyph
 from blender.bpy.ui.resources.theme import Metrics
-from blender.bpy.ui.surfaces.gizmos import Button, Gizmos
-from blender.bpy.ui.surfaces.panels import Joined, Panel
+from blender.bpy.ui.screens.areas import NodeEditing
+from blender.bpy.ui.surfaces.gizmos import GizmoPart, Gizmos
+from blender.bpy.ui.surfaces.panels import Beside, Panel
 from blender.imaging.color.calibration import Calibration, CalibrationFit, ChartPlacement, ChartReference, Clipped, Finding, Limits, PublishedChart, Reversed, Skewed, Wide
 from blender.imaging.color.luts import LutOutput
 from blender.imaging.color.processors import converted, DisplayView
@@ -90,22 +96,18 @@ class Mirror(Enum):
 
 
 class Need(StrEnum):
-    """Chart calibration requirement, each value its poll message over the subject lacking it."""
+    """Chart calibration requirement, each value the report template of its fault over the subject lacking it."""
 
-    PLACED = "Requires {} chart corners bounding a convex quad in view"
-    SAMPLED = "Requires every {} patch sampled"
-    CHOSEN = "Requires {} image with sampled chart"
-    MATCHED = "Requires target on source chart {}"
-    LIT = "Requires lit neutral patch in {} and target"
-
-    def unmet(self, subject: str) -> Faults:
-        """Returns the unmet fault of subject."""
-        return Fault.of(BlenderReason.UNMET, self.format(subject))
+    PLACED = "Requires {subject} chart corners bounding a convex quad in view"
+    SAMPLED = "Requires every {subject} patch sampled"
+    CHOSEN = "Requires {subject} image with sampled chart"
+    MATCHED = "Requires target on source chart {subject}"
+    LIT = "Requires lit neutral patch in {subject} and target"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-SPACES: Final = choices(Descriptor.declared(bpy.types.ColorManagedInputColorspaceSettings, "name", bpy.types.EnumProperty).prop.enum_items)
+SPACES: Final = choices(Descriptor.declared(bpy.types.ColorManagedInputColorspaceSettings, ("name",), bpy.types.EnumProperty).prop.enum_items)
 CHARTS, TARGETS, SIDES, MIRRORS = (choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind) for kind in (PublishedChart, Target, FitSide, Mirror))
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -195,6 +197,7 @@ class _Commands(msgspec.Struct, frozen=True, kw_only=True):
 class Patches(msgspec.Struct, frozen=True, kw_only=True):
     """Chart overlay batching formed patch fills and reference outlines per refresh and drawing the shown chart."""
 
+    draw_type: ClassVar[DrawType] = "POST_PIXEL"
     identity: Identity
 
     def read(self, _metrics: Metrics, /) -> Outcome[Option[dict[Handle[bpy.types.Image], ChartBatches]]]:
@@ -269,15 +272,15 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
             for shown, frame in (
                 (shown, framed(region))
                 for shown in reports.reported(charted)(bpy.context, self.identity, chart).bind(lambda found: found).bind(lambda pair: Option.of_optional(state.get(Handle.of(pair[0])))).to_list()
-                for region in canvas.region.to_list()
+                for region in (canvas.region,)
             ):
                 gpu.matrix.translate((frame.x, frame.y))
                 gpu.matrix.scale((frame.width, frame.height))
                 shown.fills.draw(gpu.shader.from_builtin("FLAT_COLOR"))
-                lines = canvas.lines(1.0)
-                for batch, ink in shown.edges:
-                    lines.uniform_float("color", ink)
-                    batch.draw(lines)
+                with canvas.lines(1.0) as lines:
+                    for batch, rgba in shown.edges:
+                        lines.uniform_float("color", rgba)
+                        batch.draw(lines)
 
 
 class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -292,7 +295,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     placed: ClassVar[Stored[PlacedChart]] = Stored(name="placed", decoder=msgspec.msgpack.Decoder(PlacedChart))
     views: ClassVar[Ownership[bpy.types.Image]] = Ownership(kind=bpy.types.Image, key="chart_view", saved=Saved.USED)
     imaged: ClassVar[Setting] = image_type(("IMAGE", "RENDER_RESULT"))
-    shader: ClassVar[AllOf] = Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, "tree_type", bpy.types.EnumProperty), accepted=(bpy.types.ShaderNodeTree.__name__,)) & Setting(
+    shader: ClassVar[AllOf] = Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("tree_type",), bpy.types.EnumProperty), accepted=(bpy.types.ShaderNodeTree.__name__,)) & Setting(
         descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("edit_tree", "is_editable"), bpy.types.BoolProperty)
     )
 
@@ -310,7 +313,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @staticmethod
     def fitting[T: bpy.types.PropertyGroup](call: Call[T]) -> Outcome[tuple[Calibrating, Calibration, CalibrationFit]]:
         """Returns the scene's calibration choices with the calibration they fit and its fit."""
-        return paired(ChartCalibration.charts.bound(call.identity), call.root(bpy.types.Scene).bind(lambda scene: ChartCalibration.calibrations.read(call.identity, scene))).bind(
+        return paired(ChartCalibration.charts.bound(call.identity), rooted(bpy.types.Scene, call.context).bind(lambda scene: ChartCalibration.calibrations.read(call.identity, scene))).bind(
             lambda found: calibrated(PyOpenColorIO.GetCurrentConfig(), *found).map(lambda fit: (found[1], *fit))
         )
 
@@ -318,7 +321,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def apply_calibration(self, call: Call[Empty]) -> Outcome[Answer]:
         """Write calibration into scene primaries."""
-        return paired(ChartCalibration.fitting(call), call.root(bpy.types.Scene)).bind(
+        return paired(ChartCalibration.fitting(call), rooted(bpy.types.Scene, call.context)).bind(
             lambda pair: chain.rows.assigned(call.identity, pair[1], Primaries()).bind(
                 lambda entry: entered(call.identity, entry, {"remap": "Mixer", **dict(zip(("mixer_red", "mixer_green", "mixer_blue"), pair[0][1].gained, strict=True))}).map(
                     lambda _: Done(notes=(*self.conditioned(pair[0][2]), ("INFO", f"Calibrated {entry.name}")))
@@ -329,27 +332,26 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def insert_calibration(self, call: Call[Empty]) -> Outcome[Answer]:
         """Insert calibration matrix after active node."""
 
-        def spliced(chosen: Chosen, made: tuple[Calibrating, Calibration, CalibrationFit]) -> Outcome[Answer]:
+        def spliced(chosen: NodeEditing, made: tuple[Calibrating, Calibration, CalibrationFit]) -> Outcome[Answer]:
             calibration = made[1]
-            return (
-                matrix()
-                .bind(
-                    lambda group: inserted(
-                        chosen, group, call.identity, inputs={**dict(zip(("red", "green", "blue"), map(tuple, calibration.matrix.tolist()), strict=True)), "gain": math.exp2(calibration.exposure)}
-                    )
-                )
-                .map(lambda _: Done(notes=(*self.conditioned(made[2]), ("INFO", "Inserted calibration matrix"))))
-            )
+            return inserted(
+                chosen.tree,
+                chosen.active,
+                chosen.cursor,
+                color_matrix.group,
+                call.identity,
+                inputs={**dict(zip(("red", "green", "blue"), map(tuple, calibration.matrix.tolist()), strict=True)), "gain": math.exp2(calibration.exposure)},
+            ).map(lambda _: Done(notes=(*self.conditioned(made[2]), ("INFO", "Inserted calibration matrix"))))
 
-        return ChartCalibration.fitting(call).bind(lambda made: Chosen.of(call.context).bind(lambda chosen: spliced(chosen, made)))
+        return ChartCalibration.fitting(call).bind(lambda made: NodeEditing.of(call.context).bind(lambda chosen: spliced(chosen, made)))
 
     def filed[T: Baking | Writing](self, written: LutOutput, call: Call[T]) -> Outcome[Answer]:
         """Writes forward and inverse calibration files through an output, clamped to the unit range when the scene asks."""
 
-        def exported(chosen: Calibrating, calibration: Calibration) -> Outcome[tuple[str, ...]]:
+        def exported(chosen: Calibrating, calibration: Calibration) -> Outcome[tuple[Path, ...]]:
             clamp = (PyOpenColorIO.RangeTransform(minInValue=0.0, maxInValue=1.0, minOutValue=0.0, maxOutValue=1.0),) if chosen.charting.clamped else ()
             return written.written({
-                str(destination): PyOpenColorIO.GroupTransform(
+                destination: PyOpenColorIO.GroupTransform(
                     transforms=[
                         PyOpenColorIO.GroupTransform([calibration.transform], direction=PyOpenColorIO.TRANSFORM_DIR_FORWARD if each is FitSide[chosen.side] else PyOpenColorIO.TRANSFORM_DIR_INVERSE),
                         *clamp,
@@ -428,7 +430,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                             .map(
                                 lambda listed: listed.map(
                                     lambda held: ", ".join(described(finding, ChartReference.of(pair[1].placement.chart)) for finding in held) or "No placement finding"
-                                ).default_value(Need.PLACED.format(pair[0].name))
+                                ).default_value(Need.PLACED.format(subject=pair[0].name))
                             )
                         )
                     )
@@ -453,7 +455,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     record.placement.aligned,
                     lambda aligned: (
                         aligned
-                        .to_result_with(lambda: Need.PLACED.unmet(image.name))
+                        .to_result_with(lambda: Fault.of(Need.PLACED, image.name))
                         .bind(lambda homography: move(each, homography.quad.samples))
                         .map(lambda samples: msgspec.structs.replace(record, placement=record.placement.realigned(Quad.of(samples))))
                     ),
@@ -473,7 +475,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             """Show panorama holding chart."""
             return (
                 rooted(bpy.types.SpaceImageEditor, call.context)
-                .bind(lambda space: written(space, "image", image))
+                .bind(lambda space: written(space, ("image",), image))
                 .map(lambda _: msgspec.structs.replace(record, placement=msgspec.structs.replace(record.placement, panorama=None)))
             )
 
@@ -492,7 +494,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 frame = framed(region)
                 return np.array(((region.width / 2 - frame.x) / frame.width, (region.height / 2 - frame.y) / frame.height, 1.0), np.float64)
 
-            return call.root(bpy.types.Region).map(lambda region: samples + (middle(region) - samples.mean(axis=0)) * (1.0, 1.0, 0.0))
+            return rooted(bpy.types.Region, call.context).map(lambda region: samples + (middle(region) - samples.mean(axis=0)) * (1.0, 1.0, 0.0))
 
         def place_chart(call: Call[Empty]) -> Outcome[Answer]:
             """Place a square-cell chart at shown image center."""
@@ -500,7 +502,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 lambda space: Option.of_optional(space.image).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(space), member="image"))
             )
             return (
-                paired(image, ChartCalibration.charts.bound(call.identity), call.root(bpy.types.Scene).bind(lambda scene: ChartCalibration.calibrations.read(call.identity, scene)))
+                paired(image, ChartCalibration.charts.bound(call.identity), rooted(bpy.types.Scene, call.context).bind(lambda scene: ChartCalibration.calibrations.read(call.identity, scene)))
                 .bind(
                     lambda found: aspect(call.context, found[0]).bind(
                         lambda ratio: ChartCalibration.placed.write(found[1].struct(found[0]), PlacedChart(placement=seated(PublishedChart[found[2].charting.chart], ratio)))
@@ -515,9 +517,13 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             def kept(image: bpy.types.Image, record: PlacedChart, chart: Attached[ChartImage], plane: npt.NDArray[np.float32]) -> Outcome[None]:
                 return (
                     Result[Option[tuple[tuple[float, float, float], ...]], Faults]
-                    .bind(record.placement.means(plane), lambda found: found.to_result_with(lambda: Need.PLACED.unmet(image.name)))
+                    .bind(record.placement.means(plane), lambda found: found.to_result_with(lambda: Fault.of(Need.PLACED, image.name)))
                     .bind(lambda samples: ChartCalibration.placed.write(chart.struct(image), msgspec.structs.replace(record, samples=samples)))
-                    .bind(lambda _: call.root(bpy.types.Scene).bind(lambda scene: ChartCalibration.calibrations.read(call.identity, scene)).bind(lambda chosen: written(chosen, "source", image)))
+                    .bind(
+                        lambda _: (
+                            rooted(bpy.types.Scene, call.context).bind(lambda scene: ChartCalibration.calibrations.read(call.identity, scene)).bind(lambda chosen: written(chosen, ("source",), image))
+                        )
+                    )
                     .map(lambda _: None)
                 )
 
@@ -539,20 +545,19 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     return StMap.bake(width, height, view.to_panorama, view.source.extension, source_size=(plane.shape[1], plane.shape[0])).warp(plane).map(Some)
 
                 return (
-                    generated(
-                        ChartCalibration.views,
-                        call.identity,
-                        f"{image.name} View",
-                        content_hash(PanoramaView, view, arrays=(plane,)),
-                        warped,
-                        Tag(space=Some(PyOpenColorIO.ROLE_SCENE_LINEAR)),
-                        of=Some(image),
+                    Generated(
+                        ownership=ChartCalibration.views,
+                        content=content_hash(PanoramaView, view, arrays=(plane,)),
+                        name=f"{image.name} View",
+                        plane=warped,
+                        tag=Tag(space=Some(PyOpenColorIO.ROLE_SCENE_LINEAR)),
                     )
+                    .made(call.identity, of=Some(image))
                     .bind(
                         lambda shown: accumulated(
                             paired(
                                 ChartCalibration.placed.write(chart.struct(image), msgspec.structs.replace(record, placement=placement)),
-                                rooted(bpy.types.SpaceImageEditor, call.context).bind(lambda space: written(space, "image", made)),
+                                rooted(bpy.types.SpaceImageEditor, call.context).bind(lambda space: written(space, ("image",), made)),
                             )
                             for made in shown.to_list()
                         )
@@ -563,7 +568,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return located(call).bind(
                 lambda found: (
                     (Some(found[1].placement) if found[1].placement.panorama is not None else found[1].placement.framed(call.properties.share))
-                    .to_result_with(lambda: Need.PLACED.unmet(found[0].name))
+                    .to_result_with(lambda: Fault.of(Need.PLACED, found[0].name))
                     .bind(lambda placement: planed(call.context, found[0], PyOpenColorIO.GetCurrentConfig()).bind(lambda plane: baked(*found, placement, plane)))
                 )
             )
@@ -582,25 +587,30 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         shown = Some(self.imaged)
         return _Commands(
             place=Operator(condition=shown, form=Empty, run=place_chart),
-            sample=Operator(condition=shown, form=Empty, run=sample_chart, invoke=Some(Properties(confirm_text=Some("Sample"))), draw=Some(warned)),
-            clear=Operator(condition=shown, form=Empty, run=update_wrapper(partial(edited, clear_samples), clear_samples), invoke=Some(Confirm(confirm_text=Some("Clear"), icon="WARNING"))),
+            sample=Operator(condition=shown, form=Empty, run=sample_chart, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog, confirm_text="Sample"))), draw=Some(warned)),
+            clear=Operator(
+                condition=shown,
+                form=Empty,
+                run=update_wrapper(partial(edited, clear_samples), clear_samples),
+                invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Clear", icon="WARNING"))),
+            ),
             flip=Operator(condition=shown, form=Flipping, run=update_wrapper(partial(moved, flip_chart), flip_chart)),
             turn=Operator(icon=Some("FILE_REFRESH"), condition=shown, form=Empty, run=update_wrapper(partial(moved, turn_chart), turn_chart)),
             center=Operator(icon=Some("ALIGN_CENTER"), condition=shown, form=Empty, run=update_wrapper(partial(moved, center_chart), center_chart)),
             reset=Operator(icon=Some("LOOP_BACK"), condition=shown, form=Empty, run=update_wrapper(partial(edited, reset_chart), reset_chart)),
-            frame=Operator(icon=Some("ZOOM_SELECTED"), condition=shown, form=ChartFraming, run=view_chart, invoke=Some(Properties())),
+            frame=Operator(icon=Some("ZOOM_SELECTED"), condition=shown, form=ChartFraming, run=view_chart, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog)))),
             leave=Operator(icon=Some("SCREEN_BACK"), condition=shown, form=Empty, run=update_wrapper(partial(edited, leave_view), leave_view)),
             grade=Operator(form=Empty, run=self.apply_calibration),
             node=Operator(condition=Some(self.shader), form=Empty, run=self.insert_calibration),
-            bake=Operator(form=Baking, run=bake_calibration_lut, invoke=Some(Save[Baking](extensions=extension, destinations=Some(sided))), undo=False),
-            write=Operator(form=Writing, run=write_calibration, invoke=Some(Save[Writing](extensions=extension, destinations=Some(sided))), undo=False),
+            bake=Operator(form=Baking, run=bake_calibration_lut, invoke=Some(Save[Baking](extensions=extension, destinations=Some(sided))), undo=Nothing),
+            write=Operator(form=Writing, run=write_calibration, invoke=Some(Save[Writing](extensions=extension, destinations=Some(sided))), undo=Nothing),
         )
 
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Polls the calibration image pointers for sampled charts, then returns the commands, the free corner handles, the flip buttons, and the patch overlay."""
-        refreshes = (Updated(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene, bpy.types.Image)),)
+        refreshes = (Handled(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene, bpy.types.Image)),)
         commands = self.commands
 
         def sampled(_owner: Struct, image: bpy.types.Image) -> bool:
@@ -615,35 +625,48 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             )
 
         def rows(chart: Attached[ChartImage]) -> tuple[Registrable, ...]:
-            def access(context: bpy.types.Context) -> Outcome[Option[Access]]:
-                def bound(pair: tuple[bpy.types.Image, PlacedChart]) -> Option[Access]:
-                    image, record = pair
+            def viewed(record: PlacedChart) -> Option[Quad]:
+                placement = record.placement
+                samples = Option.of_optional(placement.panorama).map(lambda panorama: panorama.to_view(placement.quad.samples)).default_value(placement.quad.samples)
+                return Some(samples).filter(lambda corners: bool(np.all(corners[:, 2] > 0.0))).map(Quad.of)
+
+            def read(context: bpy.types.Context) -> Outcome[Option[Quad]]:
+                return charted(context, identity, chart).map(lambda found: found.bind(lambda pair: viewed(pair[1])))
+
+            def write(context: bpy.types.Context, quad: Quad) -> Outcome[None]:
+                def realigned(image: bpy.types.Image, record: PlacedChart) -> Outcome[None]:
                     placement = record.placement
-                    samples = Option.of_optional(placement.panorama).map(lambda panorama: panorama.to_view(placement.quad.samples)).default_value(placement.quad.samples)
+                    return ChartCalibration.placed.write(chart.struct(image), msgspec.structs.replace(record, placement=msgspec.structs.replace(placement, quad=placement.realigned(quad).quad)))
 
-                    def write(quad: Quad) -> Outcome[None]:
-                        return ChartCalibration.placed.write(chart.struct(image), msgspec.structs.replace(record, placement=msgspec.structs.replace(placement, quad=placement.realigned(quad).quad)))
-
-                    return Some(samples).filter(lambda corners: bool(np.all(corners[:, 2] > 0.0))).map(lambda corners: Access(quad=Quad.of(corners), write=write))
-
-                return charted(context, identity, chart).map(lambda found: found.bind(bound))
+                return (
+                    charted(context, identity, chart)
+                    .bind(lambda found: found.to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(context.area), member=chart.name)))
+                    .bind(lambda pair: realigned(*pair))
+                )
 
             def place(edge: tuple[int, int], context: bpy.types.Context) -> Outcome[Option[Matrix]]:
-                return access(context).map(
+                return read(context).map(
                     lambda found: found.bind(
-                        lambda held: Option.of_optional(context.region).map(framed).map(lambda frame: held.quad.samples[list(edge), :2].mean(axis=0) * (frame.width, frame.height) + (frame.x, frame.y))
+                        lambda quad: Option.of_optional(context.region).map(framed).map(lambda frame: quad.samples[list(edge), :2].mean(axis=0) * (frame.width, frame.height) + (frame.x, frame.y))
                     ).map(lambda at: Matrix.Translation((*at, 0.0)))
                 )
 
             flips = tuple(
-                Button(place=partial(place, edge), glyph=glyph, press=Own(command=commands.flip, values={"mirror": mirror.name}), scale_basis=HANDLE, draw_options=frozenset({"OUTLINE", "BACKDROP"}))
+                GizmoPart(
+                    kind="GIZMO_GT_button_2d",
+                    place=partial(place, edge),
+                    bind=(Placement(commands.flip, {"mirror": mirror.name}),),
+                    glyph=Some(glyph),
+                    properties={"scale_basis": HANDLE, "draw_options": frozenset({"OUTLINE", "BACKDROP"})},
+                    role=lambda ui: (ui.wcol_tool.inner, ui.wcol_tool.inner_sel),
+                )
                 for edge, glyph, mirror in (((0, 1), self.across, Mirror.ACROSS), ((0, 3), self.upright, Mirror.UPRIGHT))
             )
             return (
                 self.views,
                 *msgspec.structs.astuple(commands),
-                FrameRegion(key="chart_corners", access=access, shape=Free(), kinds=("IMAGE", "RENDER_RESULT"), refreshes=refreshes),
-                Gizmos(key="chart", title=bpy.path.display_name("chart"), space="IMAGE_EDITOR", parts=flips, condition=Some(self.imaged)),
+                FrameRegion(key="chart_corners", read=read, write=write, transform=frozenset({"TRANSLATE", "ROTATE", "SCALE"}), corners=True, shown=self.imaged, refreshes=refreshes),
+                Gizmos(key="chart", space="IMAGE_EDITOR", parts=flips, condition=Some(self.imaged)),
                 overlaid(Patches(identity=identity), self.imaged, refreshes),
             )
 
@@ -653,35 +676,40 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [SECTIONS]
 
-    def section(self) -> Single[Calibrating]:
+    def section(self) -> Section[Calibrating]:
         """Image editor calibration section: the shown image's chart switch, the scene's calibration fields, and the command buttons."""
         commands = self.commands
+
+        def aligned(layout: bpy.types.UILayout) -> bpy.types.UILayout:
+            layout.separator(type="LINE")
+            return layout.row(align=True)
+
         buttons: tuple[Row, ...] = (
-            Caption(rows=tuple(OperatorButton(target=command) for command in (commands.place, commands.sample, commands.clear)), flow=Flow.ALIGNED),
-            Caption(
+            Layout(rows=tuple(OperatorButton(target=command) for command in (commands.place, commands.sample, commands.clear)), container=Some(aligned)),
+            Layout(
                 rows=(
                     *(
-                        OperatorButton(target=Own(command=commands.flip, values={"mirror": mirror.name}), text="", icon=Some(glyph))
+                        OperatorButton(target=Placement(commands.flip, {"mirror": mirror.name}), keywords={"text": ""}, icon=Some(glyph))
                         for mirror, glyph in ((Mirror.ACROSS, self.across), (Mirror.UPRIGHT, self.upright))
                     ),
-                    *(OperatorButton(target=command, text="") for command in (commands.turn, commands.center, commands.reset, commands.frame, commands.leave)),
+                    *(OperatorButton(target=command, keywords={"text": ""}) for command in (commands.turn, commands.center, commands.reset, commands.frame, commands.leave)),
                 ),
-                flow=Flow.ALIGNED,
+                container=Some(aligned),
             ),
-            Caption(rows=(OperatorButton(target=commands.grade), OperatorButton(target=commands.bake), OperatorButton(target=commands.write)), flow=Flow.ALIGNED),
+            Layout(rows=(OperatorButton(target=commands.grade), OperatorButton(target=commands.bake), OperatorButton(target=commands.write)), container=Some(aligned)),
         )
 
         def rows(identity: Identity) -> Outcome[tuple[Row, ...]]:
             return self.charts.bound(identity).map(lambda chart: (Property(target=Member(root=bpy.types.SpaceImageEditor, path=("image", chart.name, "shown"))), *buttons))
 
-        return Single(
+        return Section(
             key="chart_calibration",
             title=bpy.path.display_name("chart_calibration"),
-            rows=(Rows(rows=rows),),
-            store=Some(Hosted(store=Store(attachment=msgspec.structs.replace(self.calibrations, seed=self.seed)))),
+            rows=(Layout(rows=rows),),
+            store=Some(Store(attachment=msgspec.structs.replace(self.calibrations, seed=self.seed))),
         )
 
-    def node_section(self) -> Single:
+    def node_section(self) -> Section:
         """Node editor matrix splice section, inactive outside an editable shader tree."""
 
         def rows(identity: Identity) -> Outcome[tuple[Row, ...]]:
@@ -689,7 +717,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 lambda held: (*(Property(target=Member(root=bpy.types.Scene, path=(held.name, name))) for name in ("source", "side")), OperatorButton(target=self.commands.node))
             )
 
-        return Single(key="chart_calibration_node", title=bpy.path.display_name("chart_calibration"), rows=(Rows(rows=rows),), condition=Some(self.shader))
+        return Section(key="chart_calibration_node", title=bpy.path.display_name("chart_calibration"), rows=(Layout(rows=rows),), condition=Some(self.shader))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -736,14 +764,14 @@ def calibrated(config: PyOpenColorIO.Config, chart: Attached[ChartImage], chosen
     def held(image: bpy.types.Image | None, role: str) -> Outcome[tuple[bpy.types.Image, PlacedChart]]:
         match image:
             case None:
-                return Error(Need.CHOSEN.unmet(role))
+                return Error(Fault.of(Need.CHOSEN, role))
             case bpy.types.Image() if chart.stored(image):
-                return ChartCalibration.placed.read(chart.struct(image)).bind(lambda found: found.map(lambda record: (image, record)).to_result_with(lambda: Need.SAMPLED.unmet(image.name)))
+                return ChartCalibration.placed.read(chart.struct(image)).bind(lambda found: found.map(lambda record: (image, record)).to_result_with(lambda: Fault.of(Need.SAMPLED, image.name)))
             case bpy.types.Image():
-                return Error(Need.SAMPLED.unmet(image.name))
+                return Error(Fault.of(Need.SAMPLED, image.name))
 
     def samples(pair: tuple[bpy.types.Image, PlacedChart]) -> Outcome[tuple[tuple[float, float, float], ...]]:
-        return pair[1].sampled.to_result_with(lambda: Need.SAMPLED.unmet(pair[0].name))
+        return pair[1].sampled.to_result_with(lambda: Fault.of(Need.SAMPLED, pair[0].name))
 
     def aimed(source: PlacedChart) -> Outcome[tuple[tuple[float, float, float], ...]]:
         match target:
@@ -752,7 +780,9 @@ def calibrated(config: PyOpenColorIO.Config, chart: Attached[ChartImage], chosen
             case Target.IMAGE:
                 return (
                     held(chosen.image, "target")
-                    .filter_with(lambda pair: pair[1].placement.chart is source.placement.chart, lambda pair: Need.MATCHED.unmet(f"{source.placement.chart.name}, got {pair[1].placement.chart.name}"))
+                    .filter_with(
+                        lambda pair: pair[1].placement.chart is source.placement.chart, lambda pair: Fault.of(Need.MATCHED, f"{source.placement.chart.name}, got {pair[1].placement.chart.name}")
+                    )
                     .bind(samples)
                 )
 
@@ -771,7 +801,7 @@ def calibrated(config: PyOpenColorIO.Config, chart: Attached[ChartImage], chosen
             normalized = calibration.normalized(first, last, config, source_space=source_space, target_space=destination_space) if charting.normalized else Ok(Some(calibration))
             return (
                 Result[Option[Calibration], Faults]
-                .bind(normalized, lambda found: found.to_result_with(lambda: Need.LIT.unmet(image.name)))
+                .bind(normalized, lambda found: found.to_result_with(lambda: Fault.of(Need.LIT, image.name)))
                 .map(
                     lambda kept: (
                         kept
@@ -791,7 +821,7 @@ def calibrated(config: PyOpenColorIO.Config, chart: Attached[ChartImage], chosen
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 calibration: Final = ChartCalibration(across=Path("flip.svg"), upright=Path("flip-upright.svg"))
-rows: Final = (calibration, Panel(section=calibration.section(), at=Joined.beside(IMAGE_PT_image_properties)), Panel(section=calibration.node_section(), at=Joined.beside(NODE_PT_active_node_generic)))
+rows: Final = (calibration, Panel(section=calibration.section(), at=Beside(IMAGE_PT_image_properties)), Panel(section=calibration.node_section(), at=Beside(NODE_PT_active_node_generic)))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

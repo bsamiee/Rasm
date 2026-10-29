@@ -20,40 +20,42 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.calls import called
-from blender.bpy.commands.operators import Answer, answered, Call, Confirm, Done, Empty, Operator, Properties
+from blender.bpy.commands.invocations import Popup
+from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.store import IdName
-from blender.bpy.data.rna.descriptors import choices, rna, RnaPath, rooted, Struct
+from blender.bpy.data.rna.mirrors import annotated, choices
+from blender.bpy.data.rna.paths import rna, RnaPath, rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Timer
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions, Band, Declaration
 from blender.bpy.faults import BlenderReason
 from blender.bpy.render.color.spaces import viewed
-from blender.bpy.render.outputs.exports import combined
-from blender.bpy.render.outputs.results import ResultRead
+from blender.bpy.render.outputs.results import combined, ResultRead
 from blender.bpy.render.previews.queue import Job, PreviewQueue, Rank
 from blender.bpy.render.sessions.renders import RenderSlots
-from blender.bpy.settings.attachments import annotated, Attachment
-from blender.bpy.ui.drawing.handlers import Refresh, Signal, Watch
-from blender.bpy.ui.images.overlays import FrameMask, Tint
-from blender.bpy.ui.images.views import ImageWindow, revealed
-from blender.bpy.ui.layout.rows import Caption, Flow, Label, Member, OperatorButton, Property, Row, Rows
-from blender.bpy.ui.layout.sections import Single
-from blender.bpy.ui.layout.templates import IconView
+from blender.bpy.settings.attachments import Attachment
+from blender.bpy.ui.drawing.handlers import Refresh, Signal
+from blender.bpy.ui.images.overlays import Masks, overlaid, Tint
+from blender.bpy.ui.images.views import RenderView, revealed
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import FUNCTIONS, gridded, Label, Layout, OperatorButton, Property, Row
+from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.resources.icons import Glyph
 from blender.bpy.ui.resources.previews import PreviewKey, PREVIEWS
 from blender.bpy.ui.resources.theme import color, Metrics
-from blender.bpy.ui.screens.editors import EditorState
-from blender.bpy.ui.surfaces.appends import Append
-from blender.bpy.ui.surfaces.panels import Joined, Panel
+from blender.bpy.ui.screens.areas import EditorState
+from blender.bpy.ui.surfaces.menus import Append
+from blender.bpy.ui.surfaces.panels import Beside, Panel
 from blender.imaging.analysis.comparison import Bar, Comparison, Metric, Severity
 from blender.imaging.color.processors import DisplayView, Domain
 from blender.imaging.files.buffers import fitted
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.fields import Dated, History, Retention
 from blender.records.identity import content_hash, ContentHash
-from blender.records.stores import RecordFile
-from blender.records.trees import Dated, Deleted, diff, Edit, History, Inserted, Moved, Reparametrized, Retention
+from blender.records.stores import RecordFile, removed
+from blender.records.trees import Deleted, diff, Edit, Inserted, Moved, Reparametrized
 
 from ..catalog import chain
 from ..preferences import reviewing
@@ -179,12 +181,9 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         dropped = {entry.value for entry in before.history.past} - live
         current = msgspec.structs.replace(after, notes={stem: note for stem, note in after.notes.items() if bytes.fromhex(stem) in live})
 
-        def unlinked(path: Path) -> Outcome[None]:
-            return catch(path.unlink, exception=OSError)(missing_ok=True).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path)))
-
         def erased(key: ContentHash) -> Outcome[None]:
             frame, values = HistoryStore.files(identity, key)
-            return accumulated(map(unlinked, (frame, values.path))).bind(lambda _: identity.held[PREVIEWS].dropped(key.hex()))
+            return accumulated(map(removed, (frame, values.path))).bind(lambda _: identity.held[PREVIEWS].dropped(key.hex()))
 
         return (
             Result[Path, Faults]
@@ -313,29 +312,33 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def refreshes(self, _identity: Identity) -> Outcome[tuple[Refresh, ...]]:
         """Returns a refresh per browser field and the stored render signal."""
-        return Ok((*(Watch(owner=_Browsing, identifier=name) for name in annotated(_Browsing)), self.signal))
+        return Ok((*((_Browsing, name) for name in annotated(_Browsing)), self.signal))
 
     # --- [STORING]
 
     def tiled(self, identity: Identity, key: ContentHash, plane: Option[npt.NDArray[np.float32]] = Nothing) -> Job:
         """Constructs a stored render's tile request from a prepared plane or its stored frame at the host preview size."""
-        scale = bpy.app.render_preview_size / Metrics.read().unit
+        shown = PreviewKey.read(key)
         return Job(
             place=(HistoryStore, key),
-            key=content_hash(HistoryStore, PreviewKey.read(key, scale)),
+            key=content_hash(HistoryStore, shown),
             rank=Rank.SHOWN,
             run=lambda: (
-                identity
-                .held[PREVIEWS]
-                .tile(key.hex(), key, lambda side: plane.map(Ok).default_with(lambda: self.output(identity, key)).bind(lambda found: fitted(found, side)).map(lambda pixels: Some(Some(pixels))), scale)
+                plane
+                .map(Ok)
+                .default_with(lambda: self.output(identity, key))
+                .bind(lambda found: fitted(found, shown.side))
+                .bind(lambda pixels: identity.held[PREVIEWS].written(key.hex(), shown, Some(shown.checkered(pixels))))
                 .map(lambda _: None)
             ),
         )
 
     def jobs(self, identity: Identity, _context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Returns the tile request of every stale stored render from one history read."""
-        previews, scale = identity.held[PREVIEWS], bpy.app.render_preview_size / Metrics.read().unit
-        return self.held(identity).map(lambda renders: tuple(self.tiled(identity, entry.value) for entry in renders.history.past if not previews.current(entry.value.hex(), entry.value, scale)))
+        previews = identity.held[PREVIEWS]
+        return self.held(identity).map(
+            lambda renders: tuple(self.tiled(identity, entry.value) for entry in renders.history.past if not previews.current(entry.value.hex(), PreviewKey.read(entry.value)))
+        )
 
     def recorded(self, identity: Identity, scene: bpy.types.Scene, path: str) -> Outcome[Option[str]]:
         """Stores a finished render with its settings snapshot under retention, then signals the compare."""
@@ -377,7 +380,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return (
                 self
                 .chosen(call.identity, call.context)
-                .bind(lambda pair: paired(self.files(call.identity, pair[1])[1].read(), call.root(bpy.types.Scene)))
+                .bind(lambda pair: paired(self.files(call.identity, pair[1])[1].read(), rooted(bpy.types.Scene, call.context)))
                 .bind(
                     lambda pair: answered(
                         applied := pair[0].apply(pair[1]), "Scene settings match stored render", (("INFO", f"Restored {len(applied.written)} settings, {len(applied.skipped)} skipped"),)
@@ -388,10 +391,10 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def compare_settings(call: Call[Empty]) -> Outcome[Answer]:
             """Report settings changed since stored render."""
 
-            def noted[V](edit: Edit[V, RnaPath]) -> str:
+            def noted[V](edit: Edit[V, RnaPath, RnaPath]) -> str:
                 match edit:
                     case Reparametrized(key=key, before=before, after=after):
-                        return f"{rna(key)} changed {', '.join(sorted(before.keys() | after.keys()))}"
+                        return f"{rna(key)} changed {', '.join(sorted(map(rna, before.keys() | after.keys())))}"
                     case Inserted(key=key):
                         return f"{rna(key)} added"
                     case Deleted(key=key):
@@ -402,7 +405,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return (
                 self
                 .chosen(call.identity, call.context)
-                .bind(lambda pair: paired(self.files(call.identity, pair[1])[1].read(), call.root(bpy.types.Scene).bind(Snapshot.capture)))
+                .bind(lambda pair: paired(self.files(call.identity, pair[1])[1].read(), rooted(bpy.types.Scene, call.context).bind(Snapshot.capture)))
                 .map(lambda snapshots: Done(notes=tuple(("INFO", noted(edit)) for edit in diff(snapshots[0].tree, snapshots[1].tree)) or (("INFO", "Settings match stored render"),)))
             )
 
@@ -411,14 +414,12 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
             def shown(image: bpy.types.Image) -> Outcome[Answer]:
                 return revealed(call.context).bind(
-                    lambda found: found.map(
-                        lambda located: (
-                            EditorState
-                            .of(bpy.types.SpaceImageEditor, {"image": IdName.of(image)})
-                            .bind(lambda state: state.applied(located.area))
-                            .map(lambda _: Done(notes=(("INFO", f"Showing {image.name}"),)))
-                        )
-                    ).default_value(Ok(Done(notes=(("INFO", "Opened render view, open entry again to show it"),))))
+                    lambda located: (
+                        EditorState
+                        .of(bpy.types.SpaceImageEditor, {("image",): IdName.of(image)})
+                        .bind(lambda state: state.applied(located.area))
+                        .map(lambda _: Done(notes=(("INFO", f"Showing {image.name}"),)))
+                    )
                 )
 
             return self.chosen(call.identity, call.context).bind(lambda pair: loaded(str(self.files(call.identity, pair[1])[0]), Tag(view_as_render=Some(True)))).bind(shown)
@@ -449,45 +450,52 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         return (
             Operator(form=Empty, run=restore_settings),
-            Operator(form=Empty, run=compare_settings, undo=False),
-            Operator(form=Empty, run=open_render, undo=False),
-            Operator(form=Empty, run=measure_difference, undo=False),
+            Operator(form=Empty, run=compare_settings, undo=Nothing),
+            Operator(form=Empty, run=open_render, undo=Nothing),
+            Operator(form=Empty, run=measure_difference, undo=Nothing),
             Operator(
                 form=_Noting,
                 run=update_wrapper(partial(self.revised, edit_note), edit_note),
-                invoke=Some(Properties()),
+                invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))),
                 seed=Some(
                     lambda _properties, _event, identity: (
                         self.chosen(identity, bpy.context).to_option().bind(lambda pair: Option.of_optional(pair[0].notes.get(pair[1].hex()))).map(lambda note: {"note": note}).default_value({})
                     )
                 ),
-                undo=False,
+                undo=Nothing,
             ),
-            Operator(form=Empty, run=update_wrapper(partial(self.revised, remove_render), remove_render), undo=False),
-            Operator(form=Empty, run=clear_history, invoke=Some(Confirm(confirm_text=Some("Clear"), icon="WARNING")), undo=False),
-            Operator(form=Empty, undo=False, run=open_history_folder),
+            Operator(form=Empty, run=update_wrapper(partial(self.revised, remove_render), remove_render), undo=Nothing),
+            Operator(form=Empty, run=clear_history, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Clear", icon="WARNING"))), undo=Nothing),
+            Operator(form=Empty, undo=Nothing, run=open_history_folder),
         )
 
     # --- [ROWS]
 
-    def section(self) -> Single:
+    def section(self) -> Section:
         """Returns the Render History section."""
         restore, compared, shown, measure, note, remove, clear, folder = self.commands
+
+        def aligned(layout: bpy.types.UILayout) -> bpy.types.UILayout:
+            layout.separator(type="LINE")
+            return layout.row(align=True)
 
         def rows(identity: Identity) -> Outcome[tuple[Row, ...]]:
             return self.browsing.bound(identity).map(
                 lambda attached: (
-                    Property(target=Member(root=bpy.types.WindowManager, path=(attached.name, "baseline")), expand=True),
-                    IconView(target=Member(root=bpy.types.WindowManager, path=(attached.name, "shown")), show_labels=True),
-                    Label(text=lambda context: self.chosen(identity, context).to_option().bind(lambda pair: Option.of_optional(pair[0].notes.get(pair[1].hex()))).filter(bool)),
+                    Property(target=Member(root=bpy.types.WindowManager, path=(attached.name, "baseline")), keywords={"expand": True}),
+                    Layout(
+                        rows=(Property(target=Member(root=bpy.types.WindowManager, path=(attached.name, "shown")), function=FUNCTIONS["template_icon_view"], keywords={"show_labels": True}),),
+                        container=Some(partial(gridded, "Before")),
+                    ),
+                    Label(text=lambda context: self.chosen(identity, context).to_option().bind(lambda pair: Option.of_optional(pair[0].notes.get(pair[1].hex()))).filter(bool).to_list()),
                     Property(target=Member(root=bpy.types.WindowManager, path=(attached.name, "difference"))),
-                    Caption(rows=tuple(OperatorButton(target=command) for command in (restore, compared, shown)), flow=Flow.ALIGNED),
-                    Caption(rows=(OperatorButton(target=measure), OperatorButton(target=note)), flow=Flow.ALIGNED),
-                    Caption(rows=(OperatorButton(target=remove), OperatorButton(target=clear), OperatorButton(target=folder, text="", icon=Some("FILE_FOLDER"))), flow=Flow.ALIGNED),
+                    Layout(rows=tuple(OperatorButton(target=command) for command in (restore, compared, shown)), container=Some(aligned)),
+                    Layout(rows=(OperatorButton(target=measure), OperatorButton(target=note)), container=Some(aligned)),
+                    Layout(rows=(OperatorButton(target=remove), OperatorButton(target=clear), OperatorButton(target=folder, keywords={"text": ""}, icon=Some("FILE_FOLDER"))), container=Some(aligned)),
                 )
             )
 
-        return Single(key="render_history", title=bpy.path.display_name("render_history"), rows=(Rows(rows=rows),))
+        return Section(key="render_history", title=bpy.path.display_name("render_history"), rows=(Layout(rows=rows),))
 
     # --- [REGISTRATION]
 
@@ -532,17 +540,17 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 ),
                 *self.commands,
                 self.compare,
-                FrameMask(read=lambda metrics: self.difference(identity, metrics), kinds=self.compare.kinds, refreshes=refreshes),
+                overlaid(Masks(source=lambda metrics: self.difference(identity, metrics)), self.compare.shown, refreshes),
             )
         )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-tab: Final = Joined.beside(IMAGE_PT_render_slots)
+tab: Final = Beside(IMAGE_PT_render_slots)
 history: Final = HistoryStore(retention=reviewing, glyph=Path("vertical-wipe.svg"))
 slots: Final = RenderSlots(render=chain.rendered)
-window: Final = ImageWindow(tab=tab.category)
+window: Final = RenderView(at=tab)
 rows: Final = (window, slots, history, Append(target=IMAGE_HT_header, rows=history.compare.header), Panel(section=slots.section(), at=tab), Panel(section=history.section(), at=tab))
 
 # --- [EXPORTS] --------------------------------------------------------------------------

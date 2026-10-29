@@ -10,9 +10,8 @@ from numpy.polynomial import Polynomial
 import numpy.typing as npt
 from scipy.integrate import quad_vec
 
-from blender.imaging.geometry.arithmetic import Field, Namespace
-from blender.imaging.geometry.panoramas import Point, Rectilinear
-from blender.imaging.sampling.integration import smoothstep
+from blender.imaging.geometry.arithmetic import Elementwise, Namespace, smoothstep
+from blender.imaging.geometry.panoramas import Bearing, ImagePoint, Rectilinear, shares
 from blender.records.fields import Finite, Positive, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -22,7 +21,7 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
     """Iris outline of bokeh and diffraction pupils."""
 
     blades: Annotated[int, msgspec.Meta(ge=3, le=24)] = 5
-    rotation: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi)] = 0.0
+    rotation: Bearing = 0.0
     roundness: Unit = 1.0
     obstruction: Unit = 0.0
 
@@ -31,18 +30,18 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
         """Angle one blade spans."""
         return math.tau / self.blades
 
-    def across[V: Field, B](self, angles: V, ns: Namespace[V, B]) -> V:
+    def across[V: Elementwise, B](self, angles: V, ns: Namespace[V, B]) -> V:
         """Returns the sine of each polar angle's offset from its blade's middle."""
         return ns.sin(ns.remainder(angles + (self.rotation - math.pi / 2.0), self.sector) - self.sector / 2.0)
 
-    def radial[V: Field, B](self, angles: V, ns: Namespace[V, B], scale: float = 1.0) -> V:
+    def radial[V: Elementwise, B](self, angles: V, ns: Namespace[V, B], scale: float = 1.0) -> V:
         """Returns positive iris boundary radius per polar angle, the outline at circumradius `scale`."""
         across = self.across(angles, ns)
         straight, curved = (1.0 - self.roundness) * scale, self.roundness * scale
         denominator = 1.0 - straight * straight * (across * across)
         return (ns.sqrt(curved * curved * (across * across) + denominator * math.cos(self.sector / 2.0) ** 2) * straight + curved) / denominator
 
-    def band[V: Field, B](self, angles: V, ns: Namespace[V, B]) -> tuple[V, V]:
+    def band[V: Elementwise, B](self, angles: V, ns: Namespace[V, B]) -> tuple[V, V]:
         """Returns outer radius and annular thickness without subtracting close roots."""
         across = self.across(angles, ns)
         outer, inner = self.radial(angles, ns), self.radial(angles, ns, self.obstruction)
@@ -57,7 +56,7 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
         )
         return outer, width * (1.0 - self.obstruction)
 
-    def profile[V: Field, B](self, x: V, y: V, softness: float, ns: Namespace[V, B]) -> V:
+    def profile[V: Elementwise, B](self, x: V, y: V, softness: float, ns: Namespace[V, B]) -> V:
         """Returns the continuous inward cubic rim over iris and obstruction at offsets in circumradii, hard edged at zero softness."""
         outer, thickness = self.band(ns.atan2(y, x), ns)
         gap = outer - ns.hypot(x, y)
@@ -162,18 +161,12 @@ class Radial(msgspec.Struct, frozen=True, kw_only=True):
     scale: Positive
     aspect: Positive
 
-    @property
-    def extent(self) -> tuple[float, float]:
-        """Frame sides as fractions of the displayed greater side."""
-        greater = max(self.aspect, 1.0)
-        return self.aspect / greater, 1.0 / greater
-
-    def to_rectilinear[V: Field, B](self, point: Point[V], ns: Namespace[V, B]) -> Point[V]:
+    def to_rectilinear[V: Elementwise, B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> ImagePoint[V]:
         """Maps lens positions to rectilinear samples, covering the real branch alone."""
         s, t, coverage = point
-        across, up = s - 0.5, t - 0.5
+        across, up, (width, height) = s - 0.5, t - 0.5, shares(self.aspect)
         strength = 4.0 * self.scale * math.sqrt(abs(self.distortion))
-        radius = ns.hypot(across * (self.extent[0] * strength), up * (self.extent[1] * strength))
+        radius = ns.hypot(across * (width * strength), up * (height * strength))
         if self.distortion < 0.0:
             shrink = 2.0 * self.scale / (ns.sqrt(radius * radius + 1.0) + 1.0)
             return across * shrink + 0.5, up * shrink + 0.5, coverage
@@ -181,12 +174,12 @@ class Radial(msgspec.Struct, frozen=True, kw_only=True):
         shrink = ns.where(covered, 2.0 * self.scale / (ns.sqrt(ns.maximum((1.0 - radius) * (radius + 1.0), 0.0)) + 1.0), 0.0)
         return across * shrink + 0.5, up * shrink + 0.5, ns.where(covered, coverage, 0.0)
 
-    def to_lens[V: Field, B](self, point: Point[V], ns: Namespace[V, B]) -> Point[V]:
+    def to_lens[V: Elementwise, B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> ImagePoint[V]:
         """Maps rectilinear positions to lens samples on the forward map's inverse branch."""
         s, t, coverage = point
-        across, up = s - 0.5, t - 0.5
+        across, up, (width, height) = s - 0.5, t - 0.5, shares(self.aspect)
         strength = 2.0 * math.sqrt(abs(self.distortion))
-        radius = ns.hypot(across * (self.extent[0] * strength), up * (self.extent[1] * strength))
+        radius = ns.hypot(across * (width * strength), up * (height * strength))
         covered = ns.less(radius, 1.0) if self.distortion < 0.0 else ns.less_equal(radius, 1.0)
         grow = ns.where(covered, 1.0 / ((radius * radius * math.copysign(1.0, self.distortion) + 1.0) * self.scale), 0.0)
         return across * grow + 0.5, up * grow + 0.5, ns.where(covered, coverage, 0.0)
@@ -200,7 +193,7 @@ class ThinLens(msgspec.Struct, frozen=True, kw_only=True):
     focus: Positive
     sensor: Positive
 
-    def confusion[V: Field, B](self, depth: V, ns: Namespace[V, B]) -> V:
+    def confusion[V: Elementwise, B](self, depth: V, ns: Namespace[V, B]) -> V:
         """Returns circle of confusion radius over sensor width at scene depths, unbounded when focused at the focal length."""
         gap = abs(self.focus - self.focal_length)
         return ns.abs(self.focus / depth - 1.0) * (self.focal_length**2 / (2.0 * self.f_number * self.sensor * gap) if gap else math.inf)
@@ -209,7 +202,7 @@ class ThinLens(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def falloff[V: Field, B](lens: Rectilinear, point: Point[V], ns: Namespace[V, B]) -> V:
+def falloff[V: Elementwise, B](lens: Rectilinear, point: ImagePoint[V], ns: Namespace[V, B]) -> V:
     """Returns natural illumination falloff, the fourth power of the chief ray cosine, at frame positions of `lens`."""
     _, _, z, _ = lens.to_ray(point, ns)
     squared = z * z

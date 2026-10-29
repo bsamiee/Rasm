@@ -3,13 +3,13 @@
 from functools import reduce
 from itertools import starmap
 from math import cos, pi, sin, tau
-from typing import Self
+from typing import Literal, Self
 
 import bpy
 from expression import Option
 import msgspec
 
-from blender.bpy.nodes.graphs import Expr, math, mixed, Scalar, switched, vector, where, xyz
+from blender.bpy.nodes.graphs import equal, Expr, math, mixed, Scalar, switched, vector, where, xyz
 from blender.bpy.render.compositor.coordinates import FrameSpace
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -69,9 +69,11 @@ class Bounded(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 # --- [PLACEMENT]
 
 
-def rotated(direction: Expr, angle: Scalar, *, inverted: bool = False) -> Expr:
-    """Turns a vector about Z through Vector Rotate, clockwise when inverted."""
-    return Expr(kind=bpy.types.ShaderNodeVectorRotate, inputs=(("Vector", direction), ("Angle", angle)), members=(("rotation_type", "Z_AXIS"), ("invert", inverted)), socket="Vector", shape="VECTOR")
+def rotated(direction: Expr, angle: Scalar, *, axis: Literal["X_AXIS", "Y_AXIS", "Z_AXIS"] = "Z_AXIS", inverted: bool = False) -> Expr:
+    """Turns a vector about one axis through Vector Rotate, clockwise when inverted."""
+    return Expr(
+        kind=bpy.types.ShaderNodeVectorRotate, inputs=(("Vector", direction), ("Angle", angle)), members={"rotation_type": axis, "invert": inverted}, socket="Vector", shape=bpy.types.NodeSocketVector
+    )
 
 
 def turned(frame: FrameSpace, origin: Expr, angle: Scalar) -> Expr:
@@ -107,7 +109,7 @@ def ellipse(point: Expr, width: Expr, height: Expr, exponent: Expr) -> Bounded:
     level = (powers["X"] + powers["Y"]) ** (1.0 / exponent)
     slope = vector("LENGTH", normalized ** (exponent - 1.0) / half * level ** (1.0 - exponent))
     narrow = math("MINIMUM", width, height)
-    centered = Expr(kind=bpy.types.FunctionNodeCompare, inputs=(("A", vector("LENGTH", point)), ("B", 0.0)), members=(("data_type", "FLOAT"), ("operation", "EQUAL")), socket="Result")
+    centered = equal(vector("LENGTH", point), 0.0)
     return Bounded(distance=where(centered, narrow * -0.5, (level - 1.0) / slope), width=narrow)
 
 

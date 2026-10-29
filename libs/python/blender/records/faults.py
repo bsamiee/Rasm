@@ -1,11 +1,11 @@
-"""Fault, result type, and result accumulation."""
+"""Fault, result type, result accumulation, and type narrowing."""
 
 from collections.abc import Iterable
 from enum import StrEnum
 from itertools import chain
 from typing import overload
 
-from expression import Error, Ok, Result
+from expression import Error, Ok, Option, Result, try_downcast
 from expression.collections import Block
 import msgspec
 
@@ -22,6 +22,7 @@ class RecordReason(StrEnum):
     UNREADABLE = "{subject} is unreadable. {cause}"
     UNWRITABLE = "{subject} is unwritable. {cause}"
     OUTSIDE = "{subject} accepts {member}, not {cause}"
+    INVALID = "{subject} is invalid. {cause}"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -52,8 +53,11 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
 def accumulated[T](results: Iterable[Outcome[T]]) -> Outcome[tuple[T, ...]]:
     """Combines results, keeping every fault in input order."""
     block: Block[Outcome[T]] = Block.of_seq(results)
-    faults: tuple[Fault, ...] = tuple(chain.from_iterable(block.map(Result.swap).choose(Result.to_option)))
-    return Error((faults[0], *faults[1:])) if faults else Ok(tuple(block.choose(Result.to_option)))
+    match tuple(chain.from_iterable(block.map(Result.swap).choose(Result.to_option))):
+        case (head, *rest):
+            return Error((head, *rest))
+        case _:
+            return Ok(tuple(block.choose(Result.to_option)))
 
 
 @overload
@@ -71,6 +75,11 @@ def paired(*results: Outcome[object]) -> Outcome[tuple[object, ...]]:
     return accumulated(results)
 
 
+def typed[T](kind: type[T], subject: str, value: object, /) -> Outcome[T]:
+    """Returns value narrowed to kind, domain fault naming the kind and the class found, kind and subject first so `partial(typed, kind, subject)` serves a chain."""
+    return Option.of_optional(try_downcast(kind, value)).to_result_with(lambda: Fault.of(RecordReason.OUTSIDE, subject, type(value).__name__, member=kind.__name__))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Fault", "Faults", "Outcome", "RecordReason", "accumulated", "paired"]
+__all__ = ["Fault", "Faults", "Outcome", "RecordReason", "accumulated", "paired", "typed"]

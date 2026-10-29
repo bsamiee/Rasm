@@ -1,10 +1,10 @@
-"""Tree and node classes, holders, sockets, node and link creation, link order, and tree walks."""
+"""Tree and node classes, holders, sockets, node, item, and link creation, link order, and tree walks."""
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 import functools
 from functools import partial
 from types import MappingProxyType
-from typing import Final, overload
+from typing import Final, overload, Protocol, TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
@@ -13,25 +13,123 @@ from expression.extra.result import catch
 
 from blender.bpy.data.ids.store import embedded
 from blender.bpy.data.rna.descriptors import written
+from blender.bpy.data.rna.paths import struct_at
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import Fault, Faults, Outcome, RecordReason
+
+if TYPE_CHECKING:
+    from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type GraphTree = bpy.types.CompositorNodeTree | bpy.types.GeometryNodeTree | bpy.types.ShaderNodeTree
-GroupNode = bpy.types.CompositorNodeGroup | bpy.types.ShaderNodeGroup | bpy.types.GeometryNodeGroup
-OutputNode = bpy.types.ShaderNodeOutputMaterial | bpy.types.ShaderNodeOutputWorld | bpy.types.ShaderNodeOutputLight | bpy.types.NodeGroupOutput
+type OutputNode = bpy.types.ShaderNodeOutputMaterial | bpy.types.ShaderNodeOutputWorld | bpy.types.ShaderNodeOutputLight | bpy.types.NodeGroupOutput
 type Holder = bpy.types.NodeTree | bpy.types.Material | bpy.types.World | bpy.types.Light
+
+
+class Named(Protocol):
+    """Item of a node item collection, named as the socket it adds."""
+
+    name: str
+
+
+class Items[I: Named](Protocol):
+    """Node item collection taking moves by index, such as Menu Switch `enum_items` and File Output `file_output_items`."""
+
+    def __iter__(self) -> Iterator[I]:
+        """Items in socket order."""
+
+    def find(self, key: str, /) -> int:
+        """Index of the item named `key`, -1 when none."""
+
+    def move(self, from_index: int, to_index: int, /) -> None:
+        """Moves one item, an index past the range moving nothing."""
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-GROUP_NODES: Final[Mapping[type[GraphTree], type[GroupNode]]] = MappingProxyType({
-    bpy.types.CompositorNodeTree: bpy.types.CompositorNodeGroup,
-    bpy.types.ShaderNodeTree: bpy.types.ShaderNodeGroup,
-    bpy.types.GeometryNodeTree: bpy.types.GeometryNodeGroup,
+NATIVE: Final[Mapping[type[bpy.types.NodeTree], Mapping[type[bpy.types.Node], type[bpy.types.Node]]]] = MappingProxyType({
+    bpy.types.ShaderNodeTree: MappingProxyType({}),
+    bpy.types.CompositorNodeTree: MappingProxyType({
+        bpy.types.ShaderNodeSeparateColor: bpy.types.CompositorNodeSeparateColor,
+        bpy.types.ShaderNodeCombineColor: bpy.types.CompositorNodeCombineColor,
+        bpy.types.ShaderNodeGroup: bpy.types.CompositorNodeGroup,
+    }),
+    bpy.types.GeometryNodeTree: MappingProxyType({
+        bpy.types.ShaderNodeSeparateColor: bpy.types.FunctionNodeSeparateColor,
+        bpy.types.ShaderNodeCombineColor: bpy.types.FunctionNodeCombineColor,
+        bpy.types.ShaderNodeGroup: bpy.types.GeometryNodeGroup,
+    }),
+})
+GROUP_NODES: Final[tuple[type[bpy.types.Node], ...]] = tuple(dict.fromkeys(table.get(bpy.types.ShaderNodeGroup, bpy.types.ShaderNodeGroup) for table in NATIVE.values()))
+DATA_TYPES: Final[Mapping[type[bpy.types.NodeSocket], "rna_enums.NodeSocketDataTypeItems"]] = MappingProxyType({
+    bpy.types.NodeSocketFloat: "FLOAT",
+    bpy.types.NodeSocketInt: "INT",
+    bpy.types.NodeSocketBool: "BOOLEAN",
+    bpy.types.NodeSocketVector: "VECTOR",
+    bpy.types.NodeSocketColor: "RGBA",
+    bpy.types.NodeSocketRotation: "ROTATION",
+    bpy.types.NodeSocketMatrix: "MATRIX",
+    bpy.types.NodeSocketString: "STRING",
+    bpy.types.NodeSocketMenu: "MENU",
+    bpy.types.NodeSocketObject: "OBJECT",
+    bpy.types.NodeSocketImage: "IMAGE",
+    bpy.types.NodeSocketGeometry: "GEOMETRY",
+    bpy.types.NodeSocketCollection: "COLLECTION",
+    bpy.types.NodeSocketMaterial: "MATERIAL",
+    bpy.types.NodeSocketBundle: "BUNDLE",
+    bpy.types.NodeSocketClosure: "CLOSURE",
+    bpy.types.NodeSocketFont: "FONT",
+    bpy.types.NodeSocketSound: "SOUND",
+    bpy.types.NodeSocketIntVector3D: "INT_VECTOR",
 })
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [CLASSES]
+
+
+def base_socket(kind: type[bpy.types.NodeSocket]) -> type[bpy.types.NodeSocket]:
+    """Returns the base socket class of a refined one, `NodeSocketFloat` for `NodeSocketFloatFactor`, the class whose name the host's refined class names begin with."""
+    return max((base for base in DATA_TYPES if kind.__name__.startswith(base.__name__)), key=lambda base: len(base.__name__), default=kind)
+
+
+def native(tree: type[bpy.types.NodeTree], kind: type[bpy.types.Node]) -> Outcome[type[bpy.types.Node]]:
+    """Returns the class a `tree` tree builds for a shader-tree node class, such as its own group node or color nodes, refusal fault for an unsupported tree."""
+    return (
+        Option
+        .of_optional(NATIVE.get(tree))
+        .map(lambda table: table.get(kind, kind))
+        .to_result_with(lambda: Fault.of(RecordReason.OUTSIDE, "tree", tree.__name__, member=", ".join(each.__name__ for each in NATIVE)))
+    )
+
+
+def arranged[I: Named](items: Items[I], names: tuple[str, ...], added: Callable[[str], object], removed: Callable[[I], object]) -> tuple[I, ...]:
+    """Removes items `names` lacks, adds the names `items` lacks, and moves each item to its position in `names`.
+
+    Args:
+        items: Item collection of one node.
+        names: Item names in desired order.
+        added: Adds the item of one name.
+        removed: Removes one item.
+
+    Returns:
+        Items in desired order.
+    """
+    for item in tuple(item for item in items if item.name not in names):
+        removed(item)
+    for name in tuple(name for name in names if items.find(name) < 0):
+        added(name)
+    for index, name in enumerate(names):
+        items.move(items.find(name), index)
+    return tuple(items)
+
+
+def links_of(socket: bpy.types.NodeSocket) -> tuple[bpy.types.NodeLink, ...]:
+    """Returns the links of one socket, an input's links top first, each read one scan of the tree's links."""
+    links: tuple[bpy.types.NodeLink, ...] = socket.links  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return links
+
 
 # --- [EDITS]
 
@@ -94,7 +192,7 @@ def grouped(node: bpy.types.Node, group: bpy.types.NodeTree) -> Outcome[None]:
     return (
         Error(Fault.of(BlenderReason.REFUSED, f"{node!r}.node_tree", ValueError(f"{group.name} contains {host.name}")))
         if group.contains_tree(host)
-        else written(node, "node_tree", group).map(lambda _: None)
+        else written(node, ("node_tree",), group).map(lambda _: None)
     )
 
 
@@ -137,7 +235,7 @@ def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...
         held, position = live[index], live.index(wanted)
         return (live, swaps) if held == wanted else (tuple(wanted if at == index else held if at == position else link for at, link in enumerate(live)), (*swaps, (held, wanted)))
 
-    start: Plan = (tuple(link for link in socket.links if link in desired), ())  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+    start: Plan = (tuple(link for link in links_of(socket) if link in desired), ())
     _, swaps = functools.reduce(planned, enumerate(desired), start)
     return functools.reduce(
         lambda done, pair: done.bind(lambda _: catch(pair[0].swap_multi_input_sort_id, exception=RuntimeError)(pair[1]).map_error(functools.partial(Fault.of, BlenderReason.REFUSED, repr(pair[0])))),
@@ -173,7 +271,7 @@ def nested[T: bpy.types.NodeTree](roots: Iterable[T], *, muted: bool = True) -> 
         pending, seen = frontier
         match tuple(dict.fromkeys(tree for tree in pending if tree not in seen)):
             case (tree, *rest):
-                children = tuple(child for node in tree.nodes if isinstance(node, GroupNode) and (muted or not node.mute) for child in (node.node_tree,) if isinstance(child, type(tree)))
+                children = tuple(child for node in tree.nodes if isinstance(node, GROUP_NODES) and (muted or not node.mute) for child in struct_at(node, ("node_tree",), type(tree)).to_list())
                 return Some((tree, ((*rest, *children), seen | {tree})))
             case _:
                 return Nothing
@@ -184,4 +282,26 @@ def nested[T: bpy.types.NodeTree](roots: Iterable[T], *, muted: bool = True) -> 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["GROUP_NODES", "GraphTree", "GroupNode", "Holder", "OutputNode", "active_output", "created", "emptied", "grouped", "joined", "nested", "ordered", "socket_at", "tree_of"]
+__all__ = [
+    "DATA_TYPES",
+    "GROUP_NODES",
+    "NATIVE",
+    "GraphTree",
+    "Holder",
+    "Items",
+    "Named",
+    "OutputNode",
+    "active_output",
+    "arranged",
+    "base_socket",
+    "created",
+    "emptied",
+    "grouped",
+    "joined",
+    "links_of",
+    "native",
+    "nested",
+    "ordered",
+    "socket_at",
+    "tree_of",
+]

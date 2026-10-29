@@ -2,28 +2,40 @@
 
 from collections.abc import Mapping
 import functools
-from typing import ClassVar
+from pathlib import Path
+from typing import ClassVar, Final
 
 import bpy
-from expression import Error, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Some
 from expression.collections import Block
 import PyOpenColorIO
 
-from blender.bpy.commands.operators import Answer, Call, Done, Open, Operator, Save, Unchanged
-from blender.bpy.data.rna.descriptors import choices, Value
+from blender.bpy.commands.invocations import Open, Save
+from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
+from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.data.rna.mirrors import choices
+from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.render.color.luts import current, FORMATS
 from blender.bpy.render.compositor import grades
-from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, entered, Named, Registers, Shell, Spaces
-from blender.bpy.render.compositor.inputs import captured, valued
+from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Named
+from blender.bpy.render.compositor.inputs import captured, entered, valued
+from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.color.luts import corrections, LutFormat, LutOutput
 from blender.imaging.color.processors import bracketed, processor
 from blender.records.faults import Fault, Outcome, paired, RecordReason
 
 from ...chain.stages import Effect, Stage, transform
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_SLOPE: Final = Socket(key="slope", kind=bpy.types.NodeSocketVector, description="Channel multipliers before offset", default_value=(1.0, 1.0, 1.0), min_value=0.0)
+_OFFSET: Final = Socket(key="offset", kind=bpy.types.NodeSocketVector, description="Channel values added after slope", default_value=(0.0, 0.0, 0.0))
+_POWER: Final = Socket(key="power", kind=bpy.types.NodeSocketVector, description="Channel exponents on nonnegative values", default_value=(1.0, 1.0, 1.0), min_value=0.0)
+_SATURATION: Final = Socket(key="saturation", kind=bpy.types.NodeSocketFloat, description="Mix from CDL luma to graded color", min_value=0.0, default_value=1.0)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -69,18 +81,13 @@ def _(_record: Cdl, values: Mapping[Key, Value], _config: PyOpenColorIO.Config, 
     return correction(values).map(Some)
 
 
-def corrected(shell: Shell[Cdl]) -> Outcome[Expr]:
-    """Binds the grade's inputs to the node form of OCIO's CDL."""
-    return Ok(grades.cdl(shell.color, shell.input("slope"), shell.input("offset"), shell.input("power"), shell.input("saturation")))
-
-
 # --- [EXCHANGE]
 
 
 @functools.cache
 def _named(path: str) -> tuple[tuple[str, str, str], ...]:
     """Correction rows of an ASC file in file order, each named by its ID or position, held for the enum the file browser draws."""
-    return tuple((str(position), name.default_value(str(position + 1)), "") for found in corrections(path).to_option().to_list() for position, (name, _) in enumerate(found))
+    return tuple((str(position), name.default_value(str(position + 1)), "") for found in corrections(Path(path)).to_option().to_list() for position, (name, _) in enumerate(found))
 
 
 def import_cdl(call: Call[Imported]) -> Outcome[Answer]:
@@ -97,11 +104,13 @@ def import_cdl(call: Call[Imported]) -> Outcome[Answer]:
             .to_result_with(functools.partial(Fault.of, BlenderReason.ABSENT, path, member=properties.correction))
         )
 
-    entry = call.root(bpy.types.Scene).bind(lambda scene: cdl.named(call.identity, scene, properties.name))
+    entry = rooted(bpy.types.Scene, call.context).bind(lambda scene: cdl.named(call.identity, scene, properties.name))
     return (
-        paired(current(call.identity, path, PyOpenColorIO.GetCurrentConfig()).bind(corrections).bind(chosen), entry)
+        paired(current(call.identity, path, PyOpenColorIO.GetCurrentConfig()).bind(lambda resolved: corrections(Path(resolved))).bind(chosen), entry)
         .bind(
-            lambda pair: entered(call.identity, pair[1], {"slope": tuple(pair[0].getSlope()), "offset": tuple(pair[0].getOffset()), "power": tuple(pair[0].getPower()), "saturation": pair[0].getSat()})
+            lambda pair: entered(
+                call.identity, pair[1], {_SLOPE.key: tuple(pair[0].getSlope()), _OFFSET.key: tuple(pair[0].getOffset()), _POWER.key: tuple(pair[0].getPower()), _SATURATION.key: pair[0].getSat()}
+            )
         )
         .map(lambda changed: Done() if changed else Unchanged(reason=f"{properties.name} holds the chosen correction"))
     )
@@ -120,47 +129,37 @@ def export_cdl(call: Call[Exported]) -> Outcome[Answer]:
                 return Ok(PyOpenColorIO.GroupTransform([held]))
 
     return (
-        call
-        .root(bpy.types.Scene)
+        rooted(bpy.types.Scene, call.context)
         .bind(lambda scene: cdl.named(call.identity, scene, properties.name))
         .bind(lambda entry: captured(call.identity, entry))
         .map(valued)
         .bind(correction)
         .bind(operations)
-        .bind(lambda built: LutOutput(format=FORMATS[properties.format]).written({str(call.paths[0]): built}))
+        .bind(lambda built: LutOutput(format=FORMATS[properties.format]).written({call.paths[0]: built}))
         .map(Done.wrote)
     )
 
 
-# --- [COMPOSITION] ----------------------------------------------------------------------
+# --- [GRAPH]
 
-cdl = CompositorEffect(
+
+def _cdl(shell: Shell[Cdl]) -> Outcome[Expr]:
+    """Binds the grade's inputs to the node form of OCIO's CDL."""
+    return Ok(grades.cdl(shell.color, shell.input(_SLOPE), shell.input(_OFFSET), shell.input(_POWER), shell.input(_SATURATION)))
+
+
+cdl: Final = CompositorEffect(
+    graph=_cdl,
     record=Cdl,
-    graph=corrected,
-    alpha=Alpha.STRAIGHT,
-    interface=Interface(
-        inputs=(
-            *(
-                Socket(key=key, name=bpy.path.display_name(key), kind=bpy.types.NodeSocketVector, description=description, members={"dimensions": 3, "default_value": default, **bounds})
-                for key, description, default, bounds in (
-                    ("slope", "Channel multipliers before offset", (1.0, 1.0, 1.0), {"min_value": 0.0}),
-                    ("offset", "Channel values added after slope", (0.0, 0.0, 0.0), {}),
-                    ("power", "Channel exponents on nonnegative values", (1.0, 1.0, 1.0), {"min_value": 0.0}),
-                )
-            ),
-            Socket(key="saturation", name="Saturation", kind=bpy.types.NodeSocketFloat, description="Mix from CDL luma to graded color", members={"min_value": 0.0, "default_value": 1.0}),
-        )
-    ),
-    parts=(
-        Spaces(space=lambda _record: Cdl.space),
-        Registers(
-            rows=(
-                Operator(form=Imported, run=import_cdl, invoke=Some(Open[Imported](extensions=lambda _properties: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.readable()))))),
-                Operator(form=Exported, run=export_cdl, invoke=Some(Save[Exported](extensions=lambda properties: (f".{FORMATS[properties.format].extension}",))), undo=False),
-            )
-        ),
+    mix=Blended(alpha=Alpha.STRAIGHT),
+    interface=Interface(inputs=(_SLOPE, _OFFSET, _POWER, _SATURATION)),
+    space=Some(lambda _record: Cdl.space),
+    registers=(
+        Operator(form=Imported, run=import_cdl, invoke=Some(Open[Imported](extensions=lambda _properties: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.readable()))))),
+        Operator(form=Exported, run=export_cdl, invoke=Some(Save[Exported](extensions=lambda properties: (f".{FORMATS[properties.format].extension}",))), undo=Nothing),
     ),
 )
+
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -4,29 +4,33 @@ from collections.abc import Mapping
 from contextlib import ExitStack
 from enum import IntEnum, StrEnum
 from functools import partial
-from pathlib import PurePath
+from pathlib import Path, PurePath
 import re
 from types import MappingProxyType
 from typing import ClassVar, Final, get_args, Literal
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
 
-from blender.bpy.commands.operators import Call, Done, Empty, Open, Operator
+from blender.bpy.commands.invocations import Open
+from blender.bpy.commands.operators import Call, Done, Empty, Operator
 from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import kept, Ownership, retained, Saved
 from blender.bpy.data.rna.conditions import Present
-from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.data.rna.snapshots import Scenes, Snapshot
+from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.data.rna.scopes import Scenes
+from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import reconciled
-from blender.bpy.nodes.graphs import Expr, Graph, INPUTS, Loaded, NodeGroup, SOCKETS, Term, vector, xyz
-from blender.bpy.nodes.interface import Interface, Socket
+from blender.bpy.nodes.content import Loaded
+from blender.bpy.nodes.desired import Graph, Members
+from blender.bpy.nodes.functions import ColorExpr, grouped, lowered, VectorExpr
+from blender.bpy.nodes.graphs import Expr, Term, vector, xyz
 from blender.bpy.nodes.trees import emptied, tree_of
 from blender.bpy.scene.objects import fanned, ObjectState, Reconciled
 from blender.bpy.settings.attachments import Stored
@@ -74,8 +78,8 @@ class DataPass(IntEnum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ACTIVE: Final = Descriptor.declared(bpy.types.ViewLayer, ("objects", "active"), bpy.types.PointerProperty)
-_ACTIVE_MATERIAL: Final = Descriptor.declared(bpy.types.Object, "active_material", bpy.types.PointerProperty)
-_DISPLACEMENT_METHOD: Final = Descriptor.declared(bpy.types.Material, "displacement_method", bpy.types.EnumProperty)
+_ACTIVE_MATERIAL: Final = Descriptor.declared(bpy.types.Object, ("active_material",), bpy.types.PointerProperty)
+_DISPLACEMENT_METHOD: Final = Descriptor.declared(bpy.types.Material, ("displacement_method",), bpy.types.EnumProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -89,12 +93,12 @@ class MapRole(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Aov(msgspec.Struct, frozen=True, kw_only=True):
-    """AOV type, source node, source output, and attribute of one data pass."""
+    """AOV type, source node, its members, and source output of one data pass."""
 
     kind: AovKind
     source: type[bpy.types.Node]
     output: str
-    attribute: Option[str] = Nothing
+    members: Members = MappingProxyType({})
 
 
 class DisplacementMap(msgspec.Struct, frozen=True, kw_only=True):
@@ -152,7 +156,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns ownerships, matrix group, and texture set operator."""
-        return matrix().map(lambda group: (*self.ownerships, group, texture_setup_command))
+        return Ok((*self.ownerships, color_matrix.group, texture_setup_command))
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -174,7 +178,7 @@ MAPS: Final[Mapping[MapKind, MapRole]] = MappingProxyType({
 AOVS: Final[Mapping[DataPass, Aov]] = MappingProxyType({
     DataPass.DEPTH: Aov(kind="VALUE", source=bpy.types.ShaderNodeCameraData, output="View Z Depth"),
     DataPass.POSITION: Aov(kind="COLOR", source=bpy.types.ShaderNodeNewGeometry, output="Position"),
-    DataPass.REFERENCE: Aov(kind="COLOR", source=bpy.types.ShaderNodeAttribute, output="Vector", attribute=Some("rest_position")),
+    DataPass.REFERENCE: Aov(kind="COLOR", source=bpy.types.ShaderNodeAttribute, output="Vector", members=MappingProxyType({"attribute_name": "rest_position"})),
 })
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -195,14 +199,10 @@ def kind(path: str) -> Option[MapKind]:
 
 
 def classified(paths: tuple[str, ...]) -> Outcome[dict[MapKind, str]]:
-    """Classifies files by map kind, accumulating repeated kinds as collisions."""
-    held: dict[MapKind, str] = {}
-    maps: list[Outcome[tuple[MapKind, str]]] = []
-    for path in paths:
-        for found in kind(path).to_list():
-            maps.append(Error(Fault.of(BlenderReason.TAKEN, path, member=held[found])) if found in held else Ok((found, path)))
-            held.setdefault(found, path)
-    return accumulated(maps).map(dict)
+    """Classifies files by map kind, accumulating each later file of a kind as a collision with its first."""
+    found = tuple((member, path) for path in paths for member in kind(path).to_list())
+    first = dict(reversed(found))
+    return accumulated(Ok(pair).filter_with(lambda held: first[held[0]] == held[1], lambda held: Fault.of(BlenderReason.TAKEN, held[1], member=first[held[0]])) for pair in found).map(dict)
 
 
 # --- [GRAPH]
@@ -211,38 +211,38 @@ def classified(paths: tuple[str, ...]) -> Outcome[dict[MapKind, str]]:
 def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Outcome[Graph]:
     """Builds shader graph of setup with config colorspaces, its output and every AOV output lowered as roots."""
 
-    def image(path: str, tag: Tag, inputs: tuple[tuple[str, Term], ...] = (), members: tuple[tuple[str, Value], ...] = ()) -> Expr:
-        return Expr(kind=bpy.types.ShaderNodeTexImage, inputs=inputs, members=members, content=Some(Loaded(path=path, tag=tag)), socket="Color", shape="RGBA")
+    def image(path: str, tag: Tag, inputs: tuple[tuple[str, Term], ...] = (), members: Members = MappingProxyType({})) -> Expr:
+        return Expr(kind=bpy.types.ShaderNodeTexImage, inputs=inputs, members=members, content=Some(Loaded(path=Path(path), tag=tag)), socket="Color", shape=bpy.types.NodeSocketColor)
 
     def output(surface: Expr, displacement: Option[Expr] = Nothing) -> Expr:
-        return Expr(kind=bpy.types.ShaderNodeOutputMaterial, inputs=(("Surface", surface), *(("Displacement", held) for held in displacement.to_list())), members=(("is_active_output", True),))
+        return Expr(kind=bpy.types.ShaderNodeOutputMaterial, inputs=(("Surface", surface), *(("Displacement", held) for held in displacement.to_list())), members={"is_active_output": True})
 
     def textured(setup: Textured) -> tuple[Expr, ...]:
         maps, displacement = setup.maps, Option.of_optional(setup.displacement)
         mapping = Expr(
             kind=bpy.types.ShaderNodeMapping,
-            inputs=(("Vector", Expr(kind=bpy.types.ShaderNodeTexCoord, socket=setup.projection.value, shape="VECTOR")), ("Scale", (*setup.repeat, 1.0))),
+            inputs=(("Vector", Expr(kind=bpy.types.ShaderNodeTexCoord, socket=setup.projection.value, shape=bpy.types.NodeSocketVector)), ("Scale", (*setup.repeat, 1.0))),
             socket="Vector",
-            shape="VECTOR",
+            shape=bpy.types.NodeSocketVector,
         )
         textures = {
             member: image(
                 path,
                 Tag(space=MAPS[member].space.map(lambda role: config.getColorSpace(role).getName())),
                 (("Vector", mapping),),
-                (("projection", setup.projection.name), ("projection_blend", setup.projection_blend)),
+                {"projection": setup.projection.name, "projection_blend": setup.projection_blend},
             )
             for member, path in maps.items()
         }
 
         def flipped(texture: Expr) -> Expr:
             red, green, blue = (Expr(kind=bpy.types.ShaderNodeSeparateColor, inputs=(("Color", texture),), socket=channel) for channel in ("Red", "Green", "Blue"))
-            return Expr(kind=bpy.types.ShaderNodeCombineColor, inputs=(("Red", red), ("Green", 1.0 - green), ("Blue", blue)), socket="Color", shape="RGBA")
+            return Expr(kind=bpy.types.ShaderNodeCombineColor, inputs=(("Red", red), ("Green", 1.0 - green), ("Blue", blue)), socket="Color", shape=bpy.types.NodeSocketColor)
 
         normal = Option.of_optional(textures.get(MapKind.NORMAL)).or_else_with(lambda: Option.of_optional(textures.get(MapKind.NORMAL_DX)).map(flipped))
-        mapped = normal.map(lambda color: Expr(kind=bpy.types.ShaderNodeNormalMap, inputs=(("Color", color),), socket="Normal", shape="VECTOR"))
+        mapped = normal.map(lambda color: Expr(kind=bpy.types.ShaderNodeNormalMap, inputs=(("Color", color),), socket="Normal", shape=bpy.types.NodeSocketVector))
         relief = Option.of_optional(textures.get(MapKind.BUMP)).map(
-            lambda height: Expr(kind=bpy.types.ShaderNodeBump, inputs=(("Height", height), *(("Normal", held) for held in mapped.to_list())), socket="Normal", shape="VECTOR")
+            lambda height: Expr(kind=bpy.types.ShaderNodeBump, inputs=(("Height", height), *(("Normal", held) for held in mapped.to_list())), socket="Normal", shape=bpy.types.NodeSocketVector)
         )
         glossed = Option.of_optional(textures.get(MapKind.GLOSS)).filter(lambda _: MapKind.ROUGHNESS not in maps)
         surface = Expr(
@@ -250,7 +250,7 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Outcome
             inputs=(
                 *((socket, textures[member]) for member in maps for socket in MAPS[member].socket.to_list()),
                 *((("Emission Strength", 1.0),) if MapKind.EMISSION in maps else ()),
-                *(("Roughness", Expr(kind=bpy.types.ShaderNodeInvert, inputs=(("Fac", 1.0), ("Color", gloss)), socket="Color", shape="RGBA")) for gloss in glossed.to_list()),
+                *(("Roughness", Expr(kind=bpy.types.ShaderNodeInvert, inputs=(("Fac", 1.0), ("Color", gloss)), socket="Color", shape=bpy.types.NodeSocketColor)) for gloss in glossed.to_list()),
                 *(("Normal", held) for held in relief.or_else(mapped).to_list()),
             ),
             socket="BSDF",
@@ -261,7 +261,10 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Outcome
                 surface,
                 displaced.map(
                     lambda pair: Expr(
-                        kind=bpy.types.ShaderNodeDisplacement, inputs=(("Height", pair[0]), ("Scale", pair[1].scale), ("Midlevel", pair[1].midlevel)), socket="Displacement", shape="VECTOR"
+                        kind=bpy.types.ShaderNodeDisplacement,
+                        inputs=(("Height", pair[0]), ("Scale", pair[1].scale), ("Midlevel", pair[1].midlevel)),
+                        socket="Displacement",
+                        shape=bpy.types.NodeSocketVector,
                     )
                 ),
             ),
@@ -284,15 +287,15 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Outcome
                     *(
                         Expr(
                             kind=bpy.types.ShaderNodeOutputAOV,
-                            inputs=((aov.kind.capitalize(), Expr(kind=aov.source, members=tuple(("attribute_name", name) for name in aov.attribute.to_list()), socket=aov.output)),),
-                            members=(("aov_name", member.name.lower()),),
+                            inputs=((aov.kind.capitalize(), Expr(kind=aov.source, members=aov.members, socket=aov.output)),),
+                            members={"aov_name": member.name.lower()},
                         )
                         for member in sorted(passes)
                         for aov in (AOVS[member],)
                     ),
                 )
 
-    return Graph.lowered(bpy.types.ShaderNodeTree, *roots())
+    return lowered(bpy.types.ShaderNodeTree, *roots())
 
 
 # --- [HOLDERS]
@@ -319,12 +322,12 @@ def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identi
 
 def stored(identity: Identity) -> Outcome[Stored[Shading]]:
     """Returns the store of the shading setup an owned material tree holds."""
-    return identity.identifier("shading").map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(Shading)))
+    return Stored.keyed(identity, "shading", msgspec.msgpack.Decoder(Shading))
 
 
 def referenced(scene: bpy.types.Scene, context: bpy.types.Context) -> Outcome[tuple[Reconciled, ...]]:
     """Enables rest position attribute on every scene object."""
-    return fanned(ObjectState(values=Some(Snapshot.of(bpy.types.Object, {"add_rest_position_attribute": True}))), Scenes(names=(scene.name,)), context)
+    return fanned(ObjectState(values=Some(Snapshot.of(bpy.types.Object, {("add_rest_position_attribute",): True}))), Scenes(names=(scene.name,)), context)
 
 
 def texture_setup(call: Call[Empty]) -> Outcome[Done]:
@@ -348,28 +351,13 @@ def texture_setup(call: Call[Empty]) -> Outcome[Done]:
         return retained(classified(paths).bind(lambda maps: assigned(maps, PyOpenColorIO.GetCurrentConfig(), rollback)), rollback).map(published)
 
 
-# --- [MATRIX]
-
-
-def matrix() -> Outcome[NodeGroup]:
-    """Builds shared shader group multiplying color by matrix rows and gain."""
-    rows = ("red", "green", "blue")
-    interface = Interface(
-        outputs=(Socket(key="transformed", name="Color", kind=bpy.types.NodeSocketColor),),
-        inputs=(
-            Socket(key="color", name="Color", kind=bpy.types.NodeSocketColor),
-            *(Socket(key=row, name=bpy.path.display_name(row), kind=bpy.types.NodeSocketVector) for row in rows),
-            Socket(key="gain", name="Gain", kind=bpy.types.NodeSocketFloat),
-        ),
-    )
-    entered = {
-        item.key: Expr(kind=bpy.types.NodeGroupInput, socket=item.key, shape=next(shape for shape, kind in SOCKETS.items() if kind is item.kind), label=Some(INPUTS)) for item in interface.inputs
-    }
-    transformed = vector("SCALE", xyz(*(vector("DOT_PRODUCT", entered["color"], entered[row]) for row in rows)), entered["gain"])
-    return NodeGroup.built("color_matrix", "Color Matrix", interface, {"transformed": transformed}, bpy.types.ShaderNodeTree)
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
+
+
+@grouped(kind=bpy.types.ShaderNodeTree)
+def color_matrix(color: ColorExpr, red: VectorExpr, green: VectorExpr, blue: VectorExpr, gain: Expr) -> ColorExpr:
+    """Shared shader group multiplying color by matrix rows and gain."""
+    return vector("SCALE", xyz(*(vector("DOT_PRODUCT", color, row) for row in (red, green, blue))), gain)
 
 
 texture_setup_command: Operator[Empty] = Operator(
@@ -398,10 +386,10 @@ __all__ = [
     "Textured",
     "Utility",
     "classified",
+    "color_matrix",
     "kind",
     "material",
     "material_graph",
-    "matrix",
     "referenced",
     "shaded",
     "stored",

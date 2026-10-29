@@ -12,8 +12,7 @@ import PyOpenColorIO
 from scipy.fft import next_fast_len
 from scipy.signal import ZoomFFT
 
-from blender.imaging.color import observer
-from blender.imaging.color.processors import matching
+from blender.imaging.color.colorimetry import matching, table
 from blender.imaging.geometry.lenses import Aperture
 from blender.records.faults import Outcome
 from blender.records.fields import NonNegative, Seed
@@ -38,7 +37,7 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
         if self.core == 0.0 or self.iris.obstruction == 1.0:
             return Ok(Nothing)
         shape = (2 * size[0] - 1, 2 * size[1] - 1, 3)
-        rows = observer.table()
+        rows = table()
         side = 2 * next_fast_len(max(frame))
         aspect = Fraction(pixel_aspect)
         sampling = Fraction(1.22 * 550.0) / (Fraction(self.core) * max(Fraction(frame[0]), frame[1] * aspect) * side)
@@ -93,10 +92,13 @@ class Specks(msgspec.Struct, frozen=True, kw_only=True):
 
 def bokeh(iris: Aperture, radius: float) -> Option[npt.NDArray[np.float64]]:
     """Returns the iris coverage kernel at circumradius `radius` pixels, odd sided with unit sum, a single tap at zero radius, absent for a closed iris."""
-    side = 2 * math.ceil(radius) + 1
-    edges = (np.arange(side + 1, dtype=np.float64) - side / 2.0) / (radius or 1.0)
-    covered = iris.coverage(edges, -edges) if radius > 0.0 else np.ones((1, 1), dtype=np.float64)
-    return Some(covered / covered.sum()) if iris.obstruction < 1.0 else Nothing
+    edges = (np.arange(2 * math.ceil(radius) + 2, dtype=np.float64) - math.ceil(radius) - 0.5) / (radius or 1.0)
+    return (
+        Some(iris)
+        .filter(lambda open_iris: open_iris.obstruction < 1.0)
+        .map(lambda open_iris: open_iris.coverage(edges, -edges) if radius > 0.0 else np.ones((1, 1), dtype=np.float64))
+        .map(lambda covered: covered / covered.sum())
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

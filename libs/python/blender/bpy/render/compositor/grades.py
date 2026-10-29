@@ -14,19 +14,22 @@ import PyOpenColorIO
 
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
-from blender.bpy.nodes.graphs import Expr, grouped, math, NodeGroup, rgba, Scalar, switched, vector, where, xyz
+from blender.bpy.nodes.functions import grouped
+from blender.bpy.nodes.graphs import Expr, math, matrix, rgba, Scalar, switched, transformed, vector, where, xyz
 from blender.bpy.nodes.interface import Socket
-from blender.bpy.render.compositor.colors import AXES, COLOR_INPUT, COLOR_RESULT, logarithmic
+from blender.bpy.render.compositor.colors import AXES, logarithmic
 from blender.imaging.color.processors import GREY, processor
-from blender.records.faults import accumulated, Fault, Outcome, RecordReason
+from blender.records.faults import Fault, Outcome, RecordReason
 from blender.records.fields import Finite
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-MATRIX: Final = tuple(
-    Socket(key=key, name=bpy.path.display_name(key), kind=bpy.types.NodeSocketVector, description=description, members={"hide_in_modifier": True})
-    for key, description in (("red", "First matrix row"), ("green", "Second matrix row"), ("blue", "Third matrix row"), ("offset", "Matrix offset"))
+MATRIX_ROWS: Final = tuple(
+    Socket(key=key, kind=bpy.types.NodeSocketVector, description=description, hide_in_modifier=True)
+    for key, description in (("red", "First matrix row"), ("green", "Second matrix row"), ("blue", "Third matrix row"))
 )
+MATRIX_OFFSET: Final = Socket(key="offset", kind=bpy.types.NodeSocketVector, description="Matrix offset", hide_in_modifier=True)
+MATRIX: Final = (*MATRIX_ROWS, MATRIX_OFFSET)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -48,8 +51,8 @@ class MatrixRows(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def values(self) -> dict[Key, Value]:
-        """Matrix socket values by key, rows then offset."""
-        return dict(zip((socket.key for socket in MATRIX), (*self.rows, self.offset)))
+        """Matrix socket values by key, each row at the socket of its channel, then the offset."""
+        return {**{socket.key: row for socket, row in zip(MATRIX_ROWS, self.rows, strict=True)}, MATRIX_OFFSET.key: self.offset}
 
     @classmethod
     def of(cls, config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> Outcome[Self]:
@@ -76,16 +79,10 @@ class MatrixRows(msgspec.Struct, frozen=True, kw_only=True):
 
 def matrixed(color: Expr, rows: tuple[Expr, Expr, Expr], offset: Expr) -> Expr:
     """Applies RGB matrix rows and their offset, the `MATRIX` inputs, to straight RGB."""
-    matrix = Expr(
-        kind=bpy.types.FunctionNodeCombineMatrix,
-        inputs=tuple(
-            cell
-            for row, (held, axis) in enumerate(zip(rows, AXES), 1)
-            for cell in (*((f"Column {column} Row {row}", held[component]) for column, component in enumerate(AXES, 1)), (f"Column 4 Row {row}", offset[axis]))
-        ),
-        socket="Matrix",
-    )
-    return Expr(kind=bpy.types.FunctionNodeTransformPoint, inputs=(("Vector", color), ("Transform", matrix)), socket="Vector", shape="VECTOR")
+    cells = {
+        (row, column): value for row, (held, axis) in enumerate(zip(rows, AXES), 1) for column, value in (*((column, held[component]) for column, component in enumerate(AXES, 1)), (4, offset[axis]))
+    }
+    return transformed(color, matrix(cells))
 
 
 # --- [CDL]
@@ -122,14 +119,14 @@ def primary(
 # --- [TONE]
 
 
-@grouped("tone_segment", ".Tone Segment", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def _segment(value: Expr | float, start: Expr | float, end: Expr | float, level: Expr | float, start_slope: Expr | float, end_slope: Expr | float) -> Expr:
     """Quadratic piece with linear slope between endpoints."""
     run = value - start
     return math("MULTIPLY_ADD", run, math("MULTIPLY_ADD", run / (end - start) * 0.5, end_slope - start_slope, start_slope), level)
 
 
-@grouped("tone_inverse", ".Tone Inverse", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def _inverse(value: Expr, start: Expr, end: Expr, level: Expr, start_slope: Expr | float, end_slope: Expr | float) -> Expr:
     """Stable root of quadratic piece."""
     span, constant = end - start, level - value
@@ -138,7 +135,7 @@ def _inverse(value: Expr, start: Expr, end: Expr, level: Expr, start_slope: Expr
     return math("MULTIPLY_ADD", constant * -2.0 / (root + linear), span, start)
 
 
-@grouped("tone_pivot", ".Tone Pivot", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def _pivot(value: Expr, low: Expr, high: Expr, low_slope: Expr | float, high_slope: Expr | float, reverse: Expr) -> Expr:
     """Forward and inverse quadratic pairs joined at pivot midpoint."""
     middle, knee = math("MULTIPLY_ADD", high - low, 0.5, low), math("MULTIPLY_ADD", low_slope + high_slope, -0.5, 2.0)
@@ -150,27 +147,27 @@ def _pivot(value: Expr, low: Expr, high: Expr, low_slope: Expr | float, high_slo
     return switched(reverse, forward, where(within, where(under, below / low_slope + low, falling), above / high_slope + high))
 
 
-@grouped("tone_slope", ".Tone Slope", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def _slope(adjustment: Expr) -> Expr:
     """OCIO end slope symmetric about adjustment one."""
     return math("MAXIMUM", 1.0 - abs(adjustment - 1.0), 0.01)
 
 
-@grouped("tone_highlights", ".Tone Highlights", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def _highlights(value: Expr, adjustment: Expr, start: Expr, width: Expr) -> Expr:
     """Highlight pivot pair with minimum gap."""
     pivot = start + width
     return _pivot(value, math("MINIMUM", start, pivot - 0.01), pivot, 1.0, _slope(adjustment), adjustment < 1.0)
 
 
-@grouped("tone_shadows", ".Tone Shadows", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def _shadows(value: Expr, adjustment: Expr, start: Expr, width: Expr) -> Expr:
     """Shadow pivot pair with minimum gap."""
     pivot = start - width
     return _pivot(value, pivot, math("MAXIMUM", start, pivot + 0.01), _slope(adjustment), 1.0, adjustment > 1.0)
 
 
-@grouped("tone_midtones", ".Tone Midtones", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def _midtones(value: Expr, adjustment: Expr, start: Expr, width: Expr) -> Expr:
     """Equal-area midtone curve between linear-style endpoints."""
     low, high = -5.5, 7.5
@@ -192,7 +189,7 @@ def _midtones(value: Expr, adjustment: Expr, start: Expr, width: Expr) -> Expr:
     return where(value < high, where(value < low, value, picked), value - high + levels[-1])
 
 
-@grouped("tone_whites", ".Tone Whites", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def _whites(value: Expr, adjustment: Expr, start: Expr, width: Expr) -> Expr:
     """White compression and inverse expansion with quadratic HDR extension."""
     end, slope = start + width, _slope(adjustment)
@@ -207,7 +204,7 @@ def _whites(value: Expr, adjustment: Expr, start: Expr, width: Expr) -> Expr:
     return switched(adjustment < 1.0, where(inside, where(under, value, back), quadratic), falling)
 
 
-@grouped("tone_blacks", ".Tone Blacks", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def _blacks(value: Expr, adjustment: Expr, start: Expr, width: Expr) -> Expr:
     """Black compression and inverse expansion from shadow-derived start."""
     low, slope = start - width, _slope(adjustment)
@@ -219,7 +216,7 @@ def _blacks(value: Expr, adjustment: Expr, start: Expr, width: Expr) -> Expr:
     return switched(adjustment > 1.0, where(inside, (inner - start) / gain + start, value), falling)
 
 
-@grouped("tone_contrast_end", ".Tone Contrast End", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def _contrast_end(value: Expr, gain: Expr, limit: Expr | float) -> Expr:
     """Contrast shoulder, reflected for negative endpoint."""
     flat, level = 1.0 / gain, limit * 0.25
@@ -233,7 +230,7 @@ def _contrast_end(value: Expr, gain: Expr, limit: Expr | float) -> Expr:
     return where(value < end, where(value < start, value * gain, _segment(value, start, end, level, gain, slope)), tail)
 
 
-@grouped("tone_contrast", ".Tone Contrast", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def _contrast(value: Expr, contrast: Expr) -> Expr:
     """S-contrast with independent positive and negative shoulders."""
     steep = 1.0 / math("MULTIPLY_ADD", math("MINIMUM", contrast, 1.99), -0.8125, 1.8125)
@@ -268,18 +265,14 @@ def tone(color: Expr, *, blacks: Zone, shadows: Zone, midtones: Zone, highlights
     offsets = (*(deviation - 1.0 for zone in (blacks, shadows, midtones, highlights, whites) for deviation in (zone.master, *zone.rgb)), contrast - 1.0)
     total = reduce(lambda held, offset: math("MULTIPLY_ADD", offset, offset, held), offsets[1:], offsets[0] * offsets[0])
 
-    def built(groups: tuple[NodeGroup, ...]) -> Expr:
-        forward, inverse = groups
-        entering = forward.placed({COLOR_INPUT.key: color}, COLOR_RESULT.key)
+    def graded(index: int, value: Expr) -> Expr:
+        steps = ((group, adjustment, low, extent) for zone, group, low, extent in placed for adjustment in (zone.rgb[index], zone.master))
+        return _contrast(reduce(lambda held, step: step[0](held, *step[1:]), steps, value), contrast)
 
-        def graded(index: int, value: Expr) -> Expr:
-            steps = ((group, adjustment, low, extent) for zone, group, low, extent in placed for adjustment in (zone.rgb[index], zone.master))
-            return _contrast(reduce(lambda held, step: step[0](held, *step[1:]), steps, value), contrast)
+    def returned(entering: Expr) -> Outcome[Expr]:
+        return logarithmic(PyOpenColorIO.TRANSFORM_DIR_INVERSE, rgba(*itertools.starmap(graded, enumerate((entering["Red"], entering["Green"], entering["Blue"])))))
 
-        linear = inverse.placed({COLOR_INPUT.key: rgba(*itertools.starmap(graded, enumerate((entering["Red"], entering["Green"], entering["Blue"]))))}, COLOR_RESULT.key)
-        return switched(total > 0.0, linear, vector("MINIMUM", linear, (65504.0, 65504.0, 65504.0)))
-
-    return accumulated(logarithmic(direction) for direction in (PyOpenColorIO.TRANSFORM_DIR_FORWARD, PyOpenColorIO.TRANSFORM_DIR_INVERSE)).map(built)
+    return logarithmic(PyOpenColorIO.TRANSFORM_DIR_FORWARD, color).bind(returned).map(lambda linear: switched(total > 0.0, linear, vector("MINIMUM", linear, (65504.0, 65504.0, 65504.0))))
 
 
 # --- [GAMUT]
@@ -350,4 +343,4 @@ def eetf(codes: Expr, *, source: Scalar, target: Scalar, black: Scalar = 0.0, kn
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["MATRIX", "MatrixRows", "Zone", "cdl", "eetf", "gamut_compression", "matrixed", "primary", "st2084", "tone"]
+__all__ = ["MATRIX", "MATRIX_OFFSET", "MATRIX_ROWS", "MatrixRows", "Zone", "cdl", "eetf", "gamut_compression", "matrixed", "primary", "st2084", "tone"]

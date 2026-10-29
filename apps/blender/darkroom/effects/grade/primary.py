@@ -1,6 +1,7 @@
 """Primary grades in OCIO's linear style: gain and offset wheels, contrast about gray, and saturation with vibrance about working luminance."""
 
 from collections.abc import Mapping
+from typing import Final
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -13,11 +14,27 @@ from blender.bpy.nodes.graphs import Expr, math, switched, vector, xyz
 from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.colors import AXES
-from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, Shell
+from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
+from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.color.processors import luma
 from blender.records.faults import Fault, Outcome, RecordReason
 
 from ...chain.stages import Effect, Stage, transform
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_GAIN_COLOR: Final = Socket(key=item_key("gain", "color"), name="Color", kind=bpy.types.NodeSocketColor, description="Channel multiplier color, white neutral", default_value=(1.0, 1.0, 1.0, 1.0))
+_GAIN_MASTER: Final = Socket(key=item_key("gain", "master"), name="Master", kind=bpy.types.NodeSocketFloat, description="Gain of every channel in stops")
+_OFFSET_COLOR: Final = Socket(key=item_key("offset", "color"), name="Color", kind=bpy.types.NodeSocketColor, description="Channel color, white neutral", default_value=(1.0, 1.0, 1.0, 1.0))
+_OFFSET_MASTER: Final = Socket(key=item_key("offset", "master"), name="Master", kind=bpy.types.NodeSocketFloat, description="Value added to every channel")
+_WHEELS: Final = (
+    InterfacePanel(key="gain", name="Gain", description="Channel multiplier color and master gain in stops", inputs=(_GAIN_COLOR, _GAIN_MASTER)),
+    InterfacePanel(key="offset", name="Offset", description="Channel color less white and master value added to each channel", inputs=(_OFFSET_COLOR, _OFFSET_MASTER)),
+)
+_SLOPE: Final = Socket(key="slope", kind=bpy.types.NodeSocketFloat, description="Power about pivot, slope in stops", min_value=0.01, max_value=2.0, default_value=1.0)
+_PIVOT: Final = Socket(key="pivot", kind=bpy.types.NodeSocketFloat, description="Pivot in stops from scene-linear gray", min_value=-32.0, max_value=32.0)
+_SCALE: Final = Socket(key="scale", kind=bpy.types.NodeSocketFloat, description="Chroma scale about luminance", min_value=0.0, default_value=1.0)
+_VIBRANCE: Final = Socket(key="vibrance", kind=bpy.types.NodeSocketFloat, description="Saturation gain weighted by pixel saturation", min_value=-1.0, max_value=1.0)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -93,27 +110,33 @@ def _(_record: Saturation, values: Mapping[Key, Value], config: PyOpenColorIO.Co
 # --- [GRAPHS]
 
 
-def wheeled(shell: Shell[Primary]) -> Outcome[Expr]:
+def _primary(shell: Shell[Primary]) -> Outcome[Expr]:
     """Binds the offset wheel to the primary form's offset and the gain wheel to its exposure in stops."""
-    tint, stops = shell.input("gain_color"), shell.input("gain_master")
+    tint, stops = shell.input(_GAIN_COLOR), shell.input(_GAIN_MASTER)
     return Ok(
         grades.primary(
             shell.color,
-            offset=vector("ADD", vector("SUBTRACT", shell.input("offset_color"), (1.0, 1.0, 1.0)), shell.input("offset_master")),
+            offset=vector("ADD", vector("SUBTRACT", shell.input(_OFFSET_COLOR), (1.0, 1.0, 1.0)), shell.input(_OFFSET_MASTER)),
             exposure=xyz(*(math("LOGARITHM", tint[axis], 2.0) + stops for axis in AXES)),
         )
     )
 
 
-def contrasted(shell: Shell[Contrast]) -> Outcome[Expr]:
+primary: Final = CompositorEffect(graph=_primary, record=Primary, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(panels=_WHEELS))
+
+
+def _contrast(shell: Shell[Contrast]) -> Outcome[Expr]:
     """Binds the slope to the primary form's contrast about the pivot."""
-    slope = shell.input("slope")
-    return Ok(grades.primary(shell.color, contrast=xyz(slope, slope, slope), pivot=Some(shell.input("pivot"))))
+    slope = shell.input(_SLOPE)
+    return Ok(grades.primary(shell.color, contrast=xyz(slope, slope, slope), pivot=Some(shell.input(_PIVOT))))
 
 
-def saturated(shell: Shell[Saturation]) -> Outcome[Expr]:
+contrast: Final = CompositorEffect(graph=_contrast, record=Contrast, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(inputs=(_SLOPE, _PIVOT)))
+
+
+def _saturation(shell: Shell[Saturation]) -> Outcome[Expr]:
     """Scales chroma about configured luminance by the saturation, raised for muted pixels and lowered for vivid ones by the vibrance."""
-    scale, vibrance = shell.input("scale"), shell.input("vibrance")
+    scale, vibrance = shell.input(_SCALE), shell.input(_VIBRANCE)
     color = shell.color
     red, green, blue = (color[axis] for axis in AXES)
     sigma = 1.0 - math("MAXIMUM", math("MINIMUM", math("MINIMUM", red, green), blue), 0.0) / math("MAXIMUM", math("MAXIMUM", red, green), blue)
@@ -127,52 +150,8 @@ def saturated(shell: Shell[Saturation]) -> Outcome[Expr]:
     return luma(shell.config).map(lambda values: built(tuple(map(float, values))))
 
 
-# --- [COMPOSITION] ----------------------------------------------------------------------
+saturation: Final = CompositorEffect(graph=_saturation, record=Saturation, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(inputs=(_SCALE, _VIBRANCE)))
 
-primary = CompositorEffect(
-    record=Primary,
-    graph=wheeled,
-    alpha=Alpha.STRAIGHT,
-    interface=Interface(
-        panels=tuple(
-            InterfacePanel(
-                key=key,
-                name=bpy.path.display_name(key),
-                description=description,
-                inputs=(
-                    Socket(key=item_key(key, "color"), name="Color", kind=bpy.types.NodeSocketColor, description=color, members={"default_value": (1.0, 1.0, 1.0, 1.0)}),
-                    Socket(key=item_key(key, "master"), name="Master", kind=bpy.types.NodeSocketFloat, description=master),
-                ),
-            )
-            for key, description, color, master in (
-                ("gain", "Channel multiplier color and master gain in stops", "Channel multiplier color, white neutral", "Gain of every channel in stops"),
-                ("offset", "Channel color less white and master value added to each channel", "Channel color, white neutral", "Value added to every channel"),
-            )
-        )
-    ),
-)
-contrast = CompositorEffect(
-    record=Contrast,
-    graph=contrasted,
-    alpha=Alpha.STRAIGHT,
-    interface=Interface(
-        inputs=(
-            Socket(key="slope", name="Slope", kind=bpy.types.NodeSocketFloat, description="Power about pivot, slope in stops", members={"min_value": 0.01, "max_value": 2.0, "default_value": 1.0}),
-            Socket(key="pivot", name="Pivot", kind=bpy.types.NodeSocketFloat, description="Pivot in stops from scene-linear gray", members={"min_value": -32.0, "max_value": 32.0}),
-        )
-    ),
-)
-saturation = CompositorEffect(
-    record=Saturation,
-    graph=saturated,
-    alpha=Alpha.STRAIGHT,
-    interface=Interface(
-        inputs=(
-            Socket(key="scale", name="Scale", kind=bpy.types.NodeSocketFloat, description="Chroma scale about luminance", members={"min_value": 0.0, "default_value": 1.0}),
-            Socket(key="vibrance", name="Vibrance", kind=bpy.types.NodeSocketFloat, description="Saturation gain weighted by pixel saturation", members={"min_value": -1.0, "max_value": 1.0}),
-        )
-    ),
-)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -5,6 +5,7 @@ from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 import functools
 from pathlib import Path
+from types import MappingProxyType
 from typing import Final, Protocol, Self
 
 import bpy
@@ -16,14 +17,12 @@ import OpenImageIO
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.render.outputs.formats import compression, depth, Kind, kind
+from blender.bpy.render.outputs.formats import depth, FILE_FORMATS, OutputFormat
 from blender.bpy.render.outputs.framing import FrameSize
 from blender.bpy.render.outputs.results import INTERMEDIATES
-from blender.imaging.files.coding import Depth
-from blender.imaging.files.images import Compressions
+from blender.imaging.files.buffers import Depth
 from blender.imaging.files.multilayer import Multilayer
 from blender.records.faults import accumulated, Outcome
-from blender.rendering.outputs.conventions import Nuke
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -43,22 +42,21 @@ class Files(Protocol):
 
 
 class Written(msgspec.Struct, frozen=True, kw_only=True):
-    """Written file with storage, pass names, and display window."""
+    """Written file with its stored format and depth, pass names, and display window."""
 
     path: str
     output: Output
-    kind: Kind
+    format: OutputFormat
     depth: Depth
     layer: str
-    compression: Option[Compressions] = Nothing
-    convention: Option[Nuke] = Nothing
+    channels: Mapping[str, str] = MappingProxyType({})
     passes: Map[str, str] = Map.empty()
     display: Option[OpenImageIO.ROI] = Nothing
 
     @classmethod
-    def of(cls, path: str, settings: bpy.types.ImageFormatSettings, output: Output, convention: Option[Nuke], layer: str, passes: Map[str, str]) -> Option[Self]:
-        """Returns written file when native depth maps to a storage depth."""
-        return depth(settings).map(lambda held: cls(path=path, output=output, kind=kind(settings), depth=held, layer=layer, compression=compression(settings), convention=convention, passes=passes))
+    def of(cls, path: str, settings: bpy.types.ImageFormatSettings, output: Output, channels: Mapping[str, str], layer: str, passes: Map[str, str]) -> Option[Self]:
+        """Returns written file when native depth maps to a storage depth, `channels` renaming one-channel source passes for a downstream reader."""
+        return depth(settings).map(lambda held: cls(path=path, output=output, format=OutputFormat.stored(settings), depth=held, layer=layer, channels=channels, passes=passes))
 
 
 class Finish(msgspec.Struct, frozen=True, kw_only=True):
@@ -66,12 +64,12 @@ class Finish(msgspec.Struct, frozen=True, kw_only=True):
 
     run: Body
     outputs: frozenset[Output] = frozenset(Output)
-    kinds: frozenset[Kind] = frozenset(Kind)
+    formats: frozenset[str] = FILE_FORMATS
     depths: frozenset[Depth] = frozenset(Depth)
 
     def accepts(self, file: Written) -> bool:
         """Returns whether operation consumes file."""
-        return file.output in self.outputs and file.kind in self.kinds and file.depth in self.depths
+        return file.output in self.outputs and file.format.file_format in self.formats and file.depth in self.depths
 
 
 class Finishing(msgspec.Struct, frozen=True, kw_only=True):
@@ -101,18 +99,7 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
                 FrameSize()
                 .bound(identity)
                 .bind(lambda framed: framed.base(scene))
-                .bind(
-                    lambda held: self.finished(
-                        scene,
-                        tuple(
-                            msgspec.structs.replace(
-                                file, display=held.map(lambda base: OpenImageIO.ROI(base.padding[0], base.padding[0] + base.size[0], base.padding[1], base.padding[1] + base.size[1]))
-                            )
-                            for file in files
-                        ),
-                        identity,
-                    )
-                )
+                .bind(lambda held: self.finished(scene, tuple(msgspec.structs.replace(file, display=held.map(lambda base: base.bounds[1])) for file in files), identity))
             )
 
         stopped = functools.partial(bracket, started=False)
@@ -155,7 +142,7 @@ def scene_files(scene: bpy.types.Scene) -> tuple[Written, ...]:
             for view in views
             for path in (render.frame_path(frame=scene.frame_current, view=view),)
             if Path(path).is_file()
-            for file in Written.of(path, settings, Output.PREVIEW, Nothing, active.name, Map.empty()).to_list()
+            for file in Written.of(path, settings, Output.PREVIEW, MappingProxyType({}), active.name, Map.empty()).to_list()
         )
     )
 
@@ -166,14 +153,14 @@ def stamped(identity: Identity) -> Mapping[str, str]:
 
 
 def rewritten_file(_scene: bpy.types.Scene, file: Written, _identity: Identity) -> Outcome[None]:
-    """Rewrites file display window and the one-channel pass names its Nuke convention renames."""
+    """Rewrites file display window and the one-channel pass names its channel renames hold."""
 
     def channels(names: tuple[str, ...]) -> tuple[str, ...]:
         counts = Counter(name.rpartition(".")[0] for name in names)
         return tuple(
             file.passes
             .try_find(layer)
-            .bind(lambda source: file.convention.bind(lambda nuke: nuke.channel(source)))
+            .bind(lambda source: Option.of_optional(file.channels.get(source)))
             .filter(lambda _: counts[layer] == 1)
             .map(lambda channel: f"{layer}.{channel}" if layer else channel)
             .default_value(name)
@@ -181,13 +168,13 @@ def rewritten_file(_scene: bpy.types.Scene, file: Written, _identity: Identity) 
             for layer in (name.rpartition(".")[0],)
         )
 
-    return Multilayer.rewritten(file.path, file.display, channels, file.compression).map(lambda _: None)
+    return Multilayer.rewritten(Path(file.path), file.display, channels, file.format.codec).map(lambda _: None)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-rewrite = Finish(run=rewritten_file, kinds=frozenset({Kind.LAYERED, Kind.EXR}), depths=frozenset({Depth.HALF, Depth.FLOAT}))
+rewrite = Finish(run=rewritten_file, formats=frozenset({"OPEN_EXR", "OPEN_EXR_MULTILAYER"}), depths=frozenset({Depth.HALF, Depth.FLOAT}))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

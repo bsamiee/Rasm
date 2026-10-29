@@ -59,9 +59,9 @@ class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
         )
 
         def released(holder: subprocess.Popen[bytes]) -> Outcome[None]:
-            unstarted = partial(Fault.of, RenderingReason.UNSTARTED, shlex.join(argv))
+            unheld = partial(Fault.of, RenderingReason.SYSTEM, shlex.join(argv))
             return (
-                paired(catch(holder.terminate, exception=OSError)().map_error(unstarted), catch(holder.wait, exception=OSError)().map_error(unstarted))
+                paired(catch(holder.terminate, exception=OSError)().map_error(unheld), catch(holder.wait, exception=OSError)().map_error(unheld))
                 .filter_with(lambda pair: pair[1] in {0, -signal.SIGTERM}, lambda pair: Fault.of(RenderingReason.EXITED, shlex.join(argv), member=str(pair[1])))
                 .map(lambda _: None)
             )

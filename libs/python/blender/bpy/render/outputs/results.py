@@ -1,4 +1,4 @@
-"""Render results: completed-image facts, intermediate renders, and displayed result export."""
+"""Render results: completed-image facts, intermediate renders, the saved render result, and its planes."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack, nullcontext
@@ -7,21 +7,31 @@ from pathlib import Path
 from typing import Final
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
+import numpy as np
+import numpy.typing as npt
 
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, Value
-from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
+from blender.bpy.render.outputs.formats import OutputFormat
 from blender.imaging.color.processors import DisplayView
-from blender.records.faults import Fault, Outcome, paired
+from blender.imaging.files.multilayer import Channel, Layer, Multilayer
+from blender.records.faults import accumulated, Fault, Faults, Outcome
 from blender.records.stores import committed
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+COMBINED: Final = bpy.types.ViewLayer.bl_rna.properties["use_pass_combined"].name
+COMPOSITE: Final = "Composite"
+_SAVED: Final = OutputFormat(
+    media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", color_depth="32", exr_codec="ZIP", use_exr_interleave=False, views_format="MULTIVIEW", color_management="FOLLOW_SCENE"
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -61,6 +71,8 @@ PRODUCTIONS: Final = Resource[dict[tuple[int, int | None], Option[Production]]](
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [RESULTS]
+
 
 @contextmanager
 def intermediate(identity: Identity, scene: bpy.types.Scene) -> Generator[None]:
@@ -91,19 +103,65 @@ def built(kind: str) -> Outcome[bpy.types.Image]:
 
 
 def saved(scene: bpy.types.Scene) -> Outcome[str]:
-    """Exports displayed render result passes to temporary multilayer EXR, the scene's format restored after."""
-    settings, path = scene.render.image_settings, Path(bpy.app.tempdir, f"{scene.session_uid}.exr")
-    form: dict[str, Value] = {"media_type": "MULTI_LAYER_IMAGE", "color_depth": "32", "exr_codec": "ZIP", "use_exr_interleave": False, "views_format": "MULTIVIEW", "color_management": "FOLLOW_SCENE"}
-    direct = Descriptor.saved(bpy.types.ImageFormatSettings, lambda prop: not isinstance(prop, bpy.types.PointerProperty))
+    """Exports displayed render result passes to temporary multilayer EXR, the scene's format restored after on every path."""
+    path = Path(bpy.app.tempdir, f"{scene.session_uid}.exr")
 
     def exported(image: bpy.types.Image) -> Outcome[str]:
-        return assigned(settings, form).bind(
-            lambda _: committed(path, lambda stage: catch(image.save_render, exception=RuntimeError)(str(stage), scene=scene).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(image)))).map(str)
-        )
+        with _SAVED.held(scene.render.image_settings) as formatted:
+            return formatted.bind(
+                lambda _: committed(path, lambda stage: catch(image.save_render, exception=RuntimeError)(str(stage), scene=scene).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(image)))).map(
+                    str
+                )
+            )
 
-    return paired(built("RENDER_RESULT"), Snapshot.capture(settings, Some(direct))).bind(lambda held: paired(exported(held[0]), held[1].apply(settings).outcome)).map(lambda pair: pair[0])
+    return built("RENDER_RESULT").bind(exported)
+
+
+# --- [PLANES]
+
+
+def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> Outcome[npt.NDArray[np.float32]]:
+    """Reads first requested layer, a fault per missing channel."""
+
+    def picked(file: Multilayer) -> Outcome[npt.NDArray[np.float32]]:
+        def channel(found: tuple[Channel, ...], layer: str, name: str) -> Outcome[Channel]:
+            return Block.of_seq(found).filter(lambda held: held.name == name).try_head().to_result_with(partial(Fault.of, BlenderReason.ABSENT, f"{path}:{layer}", member=name))
+
+        chosen: Outcome[Layer] = (
+            Block
+            .of_seq(names)
+            .choose(lambda name: Block.of_seq(file.layers).filter(lambda found: found.name == name).try_head())
+            .try_head()
+            .to_result_with(partial(Fault.of, BlenderReason.ABSENT, path, member=names[-1]))
+        )
+        return Result[Layer, Faults].bind(chosen, lambda found: accumulated(channel(found.channels, found.name, name) for name in channels).bind(lambda held: file.plane(found, held)))
+
+    return Multilayer.read(Path(path)).bind(picked)
+
+
+def combined(path: str, layer: Option[str] = Nothing) -> Outcome[tuple[str, npt.NDArray[np.float32]]]:
+    """Reads a saved render's Combined RGBA with its owner.
+
+    Args:
+        path: Saved multilayer render.
+        layer: View layer to read, else the compositor's output, then the unnamed sequencer layer, then the first view layer.
+
+    Returns:
+        Owner name and RGBA plane, absent fault without a matching Combined layer.
+    """
+
+    def selected(file: Multilayer) -> Outcome[tuple[str, npt.NDArray[np.float32]]]:
+        owners = {owner: found for found in file.layers for owner, _, kind in (found.name.rpartition("."),) if kind in {COMBINED, ""}}
+        rendered = (*(owner for owner in (COMPOSITE, "") if owner in owners), *tuple(owner for owner in owners if owner not in {COMPOSITE, ""})[:1])
+        match layer.map(lambda name: (name,)).default_value(rendered):
+            case (owner, *_) if owner in owners:
+                return plane(path, (owners[owner].name,), ("R", "G", "B", "A")).map(lambda pixels: (owner, pixels))
+            case _:
+                return Error(Fault.of(BlenderReason.ABSENT, path, member=layer.map(lambda name: f"{name}.{COMBINED}").default_value(COMBINED)))
+
+    return Multilayer.read(Path(path)).bind(selected)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["INTERMEDIATES", "PRODUCTIONS", "Production", "ResultRead", "built", "intermediate", "produced", "production", "saved"]
+__all__ = ["COMBINED", "COMPOSITE", "INTERMEDIATES", "PRODUCTIONS", "Production", "ResultRead", "built", "combined", "intermediate", "plane", "produced", "production", "saved"]

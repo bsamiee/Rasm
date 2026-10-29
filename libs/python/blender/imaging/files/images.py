@@ -1,13 +1,14 @@
-"""Image files, storage settings, and atomic writes."""
+"""Image files, storage settings, JPEG generation loss, and atomic writes."""
 
 from collections.abc import Callable, Mapping
 import contextlib
-from enum import IntEnum
+from enum import StrEnum
 import functools
 import pathlib
+import tempfile
 from types import MappingProxyType
 import typing
-from typing import Annotated, Final, Literal, Self
+from typing import Annotated, Final, IO, Literal, Self
 
 from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
@@ -17,9 +18,8 @@ import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.imaging.color.processors import interop
 from blender.imaging.faults import ImagingReason
-from blender.imaging.files.coding import Depth
+from blender.imaging.files.buffers import checked, Depth, pixels
 from blender.records.faults import Fault, Outcome, paired, RecordReason
 from blender.records.fields import Case
 from blender.records.stores import committed
@@ -27,33 +27,37 @@ from blender.records.stores import committed
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Codec(IntEnum):
-    """Codec without level."""
-
-    NONE = 1
-    RLE = 2
-    ZIPS = 3
-    PIZ = 4
-    PXR24 = 5
-    B44 = 6
-    B44A = 7
-    HTJ2K32 = 8
-    HTJ2K256 = 9
-    LZW = 10
-    PACKBITS = 11
-    LOSSLESS = 12
+type Subsampling = Literal["4:4:4", "4:2:2", "4:2:0", "4:1:1"]
 
 
-class Blocks(IntEnum):
-    """Scanlines per DWA block, its lowercased name the OpenEXR codec."""
+class Codec(StrEnum):
+    """Codec without level, its value the OpenImageIO compression name."""
 
-    DWAA = 1
-    DWAB = 2
+    NONE = "none"
+    RLE = "rle"
+    ZIPS = "zips"
+    PIZ = "piz"
+    PXR24 = "pxr24"
+    B44 = "b44"
+    B44A = "b44a"
+    HTJ2K32 = "htj2k32"
+    HTJ2K256 = "htj2k256"
+    LZW = "lzw"
+    PACKBITS = "packbits"
+    LOSSLESS = "lossless"
+
+
+class Blocks(StrEnum):
+    """Scanlines per DWA block, its value the OpenEXR codec."""
+
+    DWAA = "dwaa"
+    DWAB = "dwab"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_INTERCHANGE: Final[Callable[[PyOpenColorIO.ColorSpace, str], str]] = PyOpenColorIO.ColorSpace.getInterchangeAttribute  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+interop: Final[Callable[[PyOpenColorIO.ColorSpace], str]] = PyOpenColorIO.ColorSpace.getInteropID  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+interchange: Final[Callable[[PyOpenColorIO.ColorSpace, str], str]] = PyOpenColorIO.ColorSpace.getInterchangeAttribute  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
@@ -88,7 +92,7 @@ class Plain(Case, frozen=True, kw_only=True):
     @property
     def attributes(self) -> tuple[tuple[str, OpenImageIO.TypeDesc, str | int], ...]:
         """Spec attributes the codec sets."""
-        return (("compression", OpenImageIO.TypeString, self.codec.name.lower()),)
+        return (("compression", OpenImageIO.TypeString, self.codec.value),)
 
 
 class Deflate(Case, frozen=True, kw_only=True):
@@ -121,7 +125,7 @@ class Dwa(Case, frozen=True, kw_only=True):
     @property
     def attributes(self) -> tuple[tuple[str, OpenImageIO.TypeDesc, str | int], ...]:
         """Spec attributes the blocks and level set."""
-        return (("compression", OpenImageIO.TypeString, f"{self.blocks.name.lower()}:{self.level}"),)
+        return (("compression", OpenImageIO.TypeString, f"{self.blocks.value}:{self.level}"),)
 
 
 class Quality(Case, frozen=True, kw_only=True):
@@ -153,8 +157,8 @@ class Storage(msgspec.Struct, frozen=True, kw_only=True):
         return self.compression.map(lambda compression: compression.attributes).default_value(())
 
     def clipped[D: np.float32 | np.uint8 | np.uint16](self, plane: npt.NDArray[D]) -> npt.NDArray[D]:
-        """Returns plane clipped to 65504 less compression margin at 16-bit depth, else unchanged."""
-        bound = 65504.0 - self.compression.map(lambda compression: compression.margin).default_value(0)
+        """Returns plane clipped to the largest half float less compression margin at 16-bit depth, else unchanged."""
+        bound = float(np.finfo(np.float16).max) - self.compression.map(lambda compression: compression.margin).default_value(0)
         return np.clip(plane, -bound, bound) if self.depth is Depth.HALF else plane
 
 
@@ -186,6 +190,15 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
         """Compression cases writer accepts."""
         return tuple(form for form in typing.get_args(Compressions.__value__) if self.name in form.writers)
 
+    @classmethod
+    def writer(cls, name: str) -> Option[Self]:
+        """Returns the writable format named `name`, Nothing for a format OpenImageIO does not write."""
+        return Option.of_optional(next((row for row in cls.writable() if row.name == name), None))
+
+    def stored(self, depth: Depth) -> Outcome[Depth]:
+        """Accepts a depth the writer stores unchanged."""
+        return Ok(depth).filter_with(self.depths.__contains__, lambda held: Fault.of(RecordReason.OUTSIDE, self.name, held.name, member=", ".join(member.name for member in self.depths)))
+
 
 class Subimage[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Written subimage with pixels on demand."""
@@ -202,7 +215,7 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
     colorspace: str
     header: tuple[OpenImageIO.ParamValue, ...] = ()
 
-    def write(self, path: str, storage: Storage, fields: Mapping[str, str], config: PyOpenColorIO.Config) -> Outcome[str]:
+    def written(self, path: pathlib.Path, storage: Storage, fields: Mapping[str, str], config: PyOpenColorIO.Config) -> Outcome[pathlib.Path]:
         """Writes pixels with header, text fields, storage, and colorspace tags to the writer `path` suffix names.
 
         Returns:
@@ -233,7 +246,7 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
             )
             return (
                 Subimage(
-                    spec=OpenImageIO.ImageSpec(width, height, channels, OpenImageIO.TypeDesc(self.pixels.dtype.name) if coded else OpenImageIO.TypeDesc(storage.depth.name.lower())),
+                    spec=OpenImageIO.ImageSpec(width, height, channels, OpenImageIO.TypeDesc(self.pixels.dtype.name) if coded else OpenImageIO.TypeDesc(storage.depth.basetype)),
                     attributes=attributes,
                     pixels=lambda: Ok(self.pixels if coded else storage.clipped(self.pixels)),
                 ),
@@ -247,40 +260,42 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
 # --- [IO]
 
 
-def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str] = Nothing, options: Option[OpenImageIO.ImageSpec] = Nothing) -> Outcome[ImageFile[np.float32]]:
-    """Reads every channel of first subimage as float32 with its colorspace, a held `colorspace` bypassing tags and file rules.
+def read_file(
+    path: pathlib.Path, config: PyOpenColorIO.Config, *, colorspace: Option[str] = Nothing, untagged: Option[tuple[str, str]] = Nothing, options: Option[OpenImageIO.ImageSpec] = Nothing
+) -> Outcome[ImageFile[np.float32]]:
+    """Reads every channel of first subimage as float32 with its colorspace.
+
+    Args:
+        path: File to read.
+        config: Configuration resolving the colorspace.
+        colorspace: Colorspace bypassing tags and file rules.
+        untagged: Integer and float stored colorspaces of a file with no colorspace tag that only the default file rule matches.
+        options: Reader configuration.
 
     Returns:
         File, or `read` or `unresolved` fault.
     """
+    name = str(path)
 
     def decoded(image: OpenImageIO.ImageInput) -> Outcome[ImageFile[np.float32]]:
-        spec, requested = image.spec(), colorspace.default_with(lambda: config.getColorSpaceFromFilepath(path)[0])
+        spec = image.spec()
+        stored_float = spec.format.basetype in {OpenImageIO.HALF, OpenImageIO.FLOAT, OpenImageIO.DOUBLE}
+        fallback = untagged.filter(lambda _: config.filepathOnlyMatchesDefaultRule(name)).map(lambda pair: pair[1] if stored_float else pair[0])
+        requested = colorspace.or_else(fallback).default_with(lambda: config.getColorSpaceFromFilepath(name)[0])
+        tagged = Nothing if colorspace.is_some() else Option.of_optional(config.getColorSpace(spec.get_string_attribute("oiio:ColorSpace")))
         resolved = (
-            (
-                Option.of_optional(config.getColorSpace(requested))
-                if colorspace.is_some()
-                else (
-                    Option
-                    .of_optional(spec.get_string_attribute("oiio:ColorSpace"))
-                    .bind(lambda name: Option.of_optional(config.getColorSpace(name)))
-                    .or_else_with(lambda: Nothing if config.filepathOnlyMatchesDefaultRule(path) else Option.of_optional(config.getColorSpace(requested)))
-                    .or_else_with(
-                        lambda: Option.of_optional(config.getColorSpace("default_float" if spec.format.basetype in {OpenImageIO.HALF, OpenImageIO.FLOAT, OpenImageIO.DOUBLE} else "default_byte"))
-                    )
-                    .or_else_with(lambda: Option.of_optional(config.getColorSpace(requested)))
-                )
-            )
+            tagged
+            .or_else_with(lambda: Option.of_optional(config.getColorSpace(requested)))
             .map(PyOpenColorIO.ColorSpace.getName)
             .to_result_with(lambda: Fault.of(ImagingReason.UNRESOLVED, config.getName(), member=requested))
         )
-        read = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: Fault.of(RecordReason.UNREADABLE, path, image.geterror()))
+        read = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: Fault.of(RecordReason.UNREADABLE, name, image.geterror()))
         return paired(resolved, read).map(lambda pair: ImageFile(pixels=pair[1], colorspace=pair[0], header=tuple(spec.extra_attribs)))
 
     return opened(path, decoded, options=options)
 
 
-def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], Outcome[T]], *, options: Option[OpenImageIO.ImageSpec] = Nothing) -> Outcome[T]:
+def opened[T](path: pathlib.Path, use: Callable[[OpenImageIO.ImageInput], Outcome[T]], *, options: Option[OpenImageIO.ImageSpec] = Nothing) -> Outcome[T]:
     """Opens a file for reading, uses it, and closes it on every path.
 
     Returns:
@@ -291,32 +306,30 @@ def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], Outcome[T]], *,
         with contextlib.closing(image):
             return use(image)
 
-    image = options.map(lambda spec: OpenImageIO.ImageInput.open(path, spec)).default_with(lambda: OpenImageIO.ImageInput.open(path))
-    return Option.of_optional(image).map(held).default_with(lambda: Error(Fault.of(RecordReason.UNREADABLE, path, OpenImageIO.geterror())))
+    image = options.map(lambda spec: OpenImageIO.ImageInput.open(str(path), spec)).default_with(lambda: OpenImageIO.ImageInput.open(str(path)))
+    return Option.of_optional(image).map(held).default_with(lambda: Error(Fault.of(RecordReason.UNREADABLE, str(path), OpenImageIO.geterror())))
 
 
-def written(path: str, write: Callable[[pathlib.Path], object]) -> Outcome[str]:
+def written(path: pathlib.Path, write: Callable[[pathlib.Path], object]) -> Outcome[pathlib.Path]:
     """Runs one encoder opening, writing, and closing the stage path of `path` through one atomic commit, creating its folder.
 
     Returns:
         Path, or `write` fault for folder creation, encoding, or commit.
     """
-    return committed(pathlib.Path(path), lambda stage: catch(catch(write, exception=OSError), exception=ValueError)(stage).map_error(functools.partial(Fault.of, RecordReason.UNWRITABLE, path))).map(
-        str
-    )
+    return committed(path, lambda stage: catch(catch(write, exception=OSError), exception=ValueError)(stage).map_error(functools.partial(Fault.of, RecordReason.UNWRITABLE, str(path))))
 
 
-def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> Outcome[str]:
+def emitted[D: np.float32 | np.uint8 | np.uint16](path: pathlib.Path, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> Outcome[pathlib.Path]:
     """Encodes subimages built for the writer `path` suffix names through one output, closing it before replacing the file.
 
     Returns:
         Path, or `write` fault.
     """
-    refused = functools.partial(Fault.of, RecordReason.UNWRITABLE, path)
+    refused = functools.partial(Fault.of, RecordReason.UNWRITABLE, str(path))
 
-    def encode(stage: str) -> Outcome[str]:
-        def into(output: OpenImageIO.ImageOutput) -> Outcome[str]:
-            def answered(*, done: bool) -> Outcome[str]:
+    def encode(stage: str) -> Outcome[pathlib.Path]:
+        def into(output: OpenImageIO.ImageOutput) -> Outcome[pathlib.Path]:
+            def answered(*, done: bool) -> Outcome[pathlib.Path]:
                 return Ok(path) if done else Error(refused(output.geterror()))
 
             def specified(subimage: Subimage[D]) -> OpenImageIO.ImageSpec:
@@ -325,7 +338,7 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
                     spec.attribute(name, kind, value)
                 return spec
 
-            def step(written: Outcome[str], indexed: tuple[int, tuple[OpenImageIO.ImageSpec, Subimage[D]]]) -> Outcome[str]:
+            def step(written: Outcome[pathlib.Path], indexed: tuple[int, tuple[OpenImageIO.ImageSpec, Subimage[D]]]) -> Outcome[pathlib.Path]:
                 index, (spec, subimage) = indexed
                 return (
                     written
@@ -339,9 +352,33 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
                 specs = tuple(specified(part) for part in parts)
                 return functools.reduce(step, enumerate(zip(specs, parts)), answered(done=output.open(stage, list(specs)))).bind(lambda _: answered(done=output.close()))
 
-        return Option.of_optional(OpenImageIO.ImageOutput.create(path)).map(into).default_with(lambda: Error(refused(OpenImageIO.geterror())))
+        return Option.of_optional(OpenImageIO.ImageOutput.create(str(path))).map(into).default_with(lambda: Error(refused(OpenImageIO.geterror())))
 
-    return committed(pathlib.Path(path), lambda stage: encode(str(stage))).map(str)
+    return committed(path, lambda stage: encode(str(stage)))
+
+
+# --- [CODECS]
+
+
+def generations(rgb: npt.NDArray[np.uint8], *, quality: int, subsampling: Subsampling, count: int) -> Outcome[npt.NDArray[np.uint8]]:
+    """Returns contiguous eight-bit RGB after `count` JPEG encode and decode cycles through one temporary file removed on return, at `quality` and `jpeg:subsampling` chroma."""
+    attributes = (*Quality(level=quality).attributes, ("jpeg:subsampling", OpenImageIO.TypeString, subsampling))
+
+    @catch(exception=OSError)
+    def scoped() -> IO[bytes]:
+        return tempfile.NamedTemporaryFile(suffix=".jpg", delete_on_close=False)
+
+    def cycles(file: IO[bytes]) -> Outcome[npt.NDArray[np.uint8]]:
+        with file:
+            return functools.reduce(lambda held, _: held.bind(functools.partial(cycled, file.name)), range(count), Ok(rgb))
+
+    def cycled(path: str, held: npt.NDArray[np.uint8]) -> Outcome[npt.NDArray[np.uint8]]:
+        encoded = OpenImageIO.ImageBuf(held)
+        for name, kind, value in attributes:
+            encoded.specmod().attribute(name, kind, value)
+        return checked(OpenImageIO.ImageBuf(path) if encoded.write(path) else encoded).bind(lambda read: pixels(read, Depth.UINT8))
+
+    return scoped().map_error(functools.partial(Fault.of, RecordReason.UNWRITABLE, tempfile.gettempdir())).bind(cycles)
 
 
 # --- [COLOR_TAGS]
@@ -364,9 +401,30 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[byt
             .map(Some)
         )
 
-    return Option.of_optional(config.getColorSpace(colorspace)).map(lambda space: _INTERCHANGE(space, "icc_profile_name")).filter(bool).map(loaded).default_value(Ok(Nothing))
+    return Option.of_optional(config.getColorSpace(colorspace)).map(lambda space: interchange(space, "icc_profile_name")).filter(bool).map(loaded).default_value(Ok(Nothing))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Blocks", "Codec", "Compressions", "Deflate", "Dwa", "Format", "ImageFile", "Plain", "Quality", "Storage", "Subimage", "emitted", "opened", "profile", "read_file", "written"]
+__all__ = [
+    "Blocks",
+    "Codec",
+    "Compressions",
+    "Deflate",
+    "Dwa",
+    "Format",
+    "ImageFile",
+    "Plain",
+    "Quality",
+    "Storage",
+    "Subimage",
+    "Subsampling",
+    "emitted",
+    "generations",
+    "interchange",
+    "interop",
+    "opened",
+    "profile",
+    "read_file",
+    "written",
+]

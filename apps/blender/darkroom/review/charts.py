@@ -12,30 +12,31 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.commands.keymaps import Chord, Keymap, Toggle
-from blender.bpy.data.rna.descriptors import root_in
+from blender.bpy.commands.calls import Placement
+from blender.bpy.commands.keymaps import Chord, Keymap
+from blender.bpy.data.rna.mirrors import annotated
+from blender.bpy.data.rna.paths import root_in
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.render.color.spaces import viewed
-from blender.bpy.render.outputs.exports import combined
-from blender.bpy.render.outputs.results import ResultRead
-from blender.bpy.settings.attachments import annotated, Attached, Attachment
-from blender.bpy.ui.drawing.canvas import Align
-from blender.bpy.ui.drawing.charts import Chart, Label, Paint, Plotted, Points, Rules, Trace, Well
-from blender.bpy.ui.drawing.handlers import Refresh, Signal, Watch
-from blender.bpy.ui.images.overlays import FrameMask, overlaid, Tint
+from blender.bpy.render.color.spaces import EXPOSURE, viewed
+from blender.bpy.render.outputs.results import combined, ResultRead
+from blender.bpy.settings.attachments import Attached, Attachment
+from blender.bpy.ui.drawing.canvas import Align, Blend
+from blender.bpy.ui.drawing.charts import Chart, FINE, GRID, Label, Layer, MAJOR, TRACE
+from blender.bpy.ui.drawing.handlers import Reading, Refresh, Signal
+from blender.bpy.ui.images.overlays import Masks, overlaid, Tint
 from blender.bpy.ui.images.views import RESULT
-from blender.bpy.ui.layout.rows import Caption, Flow, Member, Property, Row, Rows
-from blender.bpy.ui.layout.sections import Single
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import Layout, Property, RowContent
+from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.resources.icons import Glyph
 from blender.bpy.ui.resources.theme import Color, Metrics
-from blender.bpy.ui.surfaces.appends import Append
-from blender.bpy.ui.surfaces.panels import Joined, Panel
+from blender.bpy.ui.surfaces.menus import Append
+from blender.bpy.ui.surfaces.panels import Beside, Panel
 from blender.imaging.analysis.scopes import Bands, Chromaticity, Clipping, Histogram
-from blender.imaging.color import observer
+from blender.imaging.color import colorimetry
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.files.buffers import unassociated
-from blender.imaging.files.coding import IntegerDepth, Rounded
+from blender.imaging.files.buffers import IntegerDepth, Rounded, unassociated
 from blender.records.faults import Outcome, paired
 
 from ..catalog import chain
@@ -85,75 +86,80 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     # --- [ROWS]
 
     @property
-    def clips(self) -> tuple[Row]:
+    def clips(self) -> tuple[Layout]:
         """Icon code-end toggles drawn while the editor shows Render Result."""
 
-        def rows(identity: Identity) -> Outcome[tuple[Row, ...]]:
+        def gridded(layout: bpy.types.UILayout) -> bpy.types.UILayout:
+            grid = layout.grid_flow(row_major=True, even_columns=True)
+            grid.use_property_split = False
+            return grid
+
+        def rows(identity: Identity) -> Outcome[tuple[RowContent, ...]]:
             return self.ends.bound(identity).map(
                 lambda attached: (
-                    Caption(
+                    lambda layout, _holder, _context: layout.separator(type="LINE"),
+                    Layout(
                         rows=tuple(
-                            Property(target=Member(root=bpy.types.Screen, path=(attached.name, name)), icon=Some(glyph), icon_only=True)
+                            Property(target=Member(root=bpy.types.Screen, path=(attached.name, name)), keywords={"icon_only": True}, icon=Some(glyph))
                             for name, glyph in zip(annotated(ClipEnds), (self.low, self.high))
                         ),
-                        flow=Flow.GRID,
+                        container=Some(gridded),
                     ),
                 )
             )
 
-        return (Rows(rows=rows, condition=Some(RESULT), hidden=True),)
+        return (Layout(rows=rows, shown=Some(RESULT)),)
 
-    def section(self) -> Single:
+    def section(self) -> Section:
         """Chart switches section, inactive for another image."""
 
-        def rows(identity: Identity) -> Outcome[tuple[Row, ...]]:
+        def rows(identity: Identity) -> Outcome[tuple[RowContent, ...]]:
             return self.switches.bound(identity).map(lambda attached: tuple(Property(target=Member(root=bpy.types.Screen, path=(attached.name, name))) for name in annotated(Charted)))
 
-        return Single(key=self.switches.key, title=bpy.path.display_name(self.switches.key), rows=(Rows(rows=rows),), condition=Some(RESULT))
+        return Section(key=self.switches.key, title=bpy.path.display_name(self.switches.key), rows=(Layout(rows=rows),), condition=Some(RESULT))
 
     # --- [CHARTS]
 
     @staticmethod
     def histogram(metrics: Metrics, frames: Frames) -> Outcome[Chart]:
         """Charts scene-linear luminance counts, linear to one then four log stops, with the view's exposure bands ticked along the floor."""
-        well = Well.of(metrics, 0.5)
+        width = float(metrics.unit * 10)
 
         def plotted(config: PyOpenColorIO.Config, histogram: Histogram, bands: Option[Bands]) -> Chart:
             counts = histogram.counts
             bins, peak = counts.size, counts.max()
             bounds = np.arange(1, Histogram.headroom + 1) * Histogram.resolution / bins
-            return Chart.of(
-                metrics,
-                well=well,
+            return Chart(
+                width=width,
+                height=width * 0.5,
                 layers=(
-                    Rules(segments=_ruled(bounds[1:], (0.25, 0.5, 0.75)), paint=Well.fine),
-                    Rules(segments=_ruled((bounds[0], 1.0), (1.0,)), paint=Well.major),
-                    *(
-                        Rules(segments=_ruled(np.searchsorted(Histogram.edges(), held.edges, side="right") / bins, reach=metrics.unit * 0.25 / well.plot.height), paint=Well.major)
-                        for held in bands.to_list()
+                    Layer.of("LINES", _ruled(bounds[1:], (0.25, 0.5, 0.75)), FINE),
+                    Layer.of("LINES", _ruled((bounds[0], 1.0), (1.0,)), MAJOR),
+                    *(Layer.of("LINES", _ruled(np.searchsorted(Histogram.edges(), held.edges, side="right") / bins, reach=0.5 * metrics.unit / width), MAJOR) for held in bands.to_list()),
+                    Layer.of(
+                        "LINE_STRIP", np.column_stack((np.arange(bins) / bins, np.divide(counts, peak, out=np.zeros(bins), where=peak > 0))).astype(np.float32), TRACE, blend="ADDITIVE", width=1.5
                     ),
-                    Trace(points=np.column_stack((np.arange(bins) / bins, np.divide(counts, peak, out=np.zeros(bins), where=peak > 0))).astype(np.float32)),
                 ),
                 labels=(*(Label(text=f"{2**stop:g}", x=float(x), y=0.0) for stop, x in enumerate(bounds)), Label(text=f"{2**Histogram.headroom:g}", x=1.0, y=0.0, align=Align.END)),
                 caption=(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName(),),
             )
 
         config = PyOpenColorIO.GetCurrentConfig()
-        return paired(Histogram.of(config, frames.linear), Bands.of(config, frames.view)).map(lambda found: plotted(config, *found))
+        return paired(Histogram.of(config, frames.linear), Bands.of(config, frames.view, (EXPOSURE.prop.hard_min, EXPOSURE.prop.hard_max))).map(lambda found: plotted(config, *found))
 
     @staticmethod
     def chromaticity(metrics: Metrics, frames: Frames) -> Outcome[Chart]:
         """Charts scene-linear xy density inside the spectral locus, ticked every ten nanometres, with the working and display gamuts and their white points boxed."""
-        extent, tenths = observer.frame()
-        well = Well.of(metrics, float(extent[1] / extent[0]))
-        plot, locus = well.plot, observer.locus()
+        extent, tenths = colorimetry.frame()
+        width, locus = float(metrics.unit * 10), colorimetry.locus()
+        height = width * float(extent[1] / extent[0])
         outward = np.gradient(locus, axis=0)[:, ::-1] * (-1.0, 1.0)
         normal = np.divide(outward, length := np.linalg.norm(outward, axis=1, keepdims=True), out=np.zeros_like(outward), where=length > 0.0)
-        tenth = np.flatnonzero(observer.table()[:, 0] % 10 == 0)
-        square = np.array(((-1, -1), (1, -1), (1, -1), (1, 1), (1, 1), (-1, 1), (-1, 1), (-1, -1)), np.float64) * float(metrics.scaled(2.0)) / (plot.width, plot.height)
+        tenth = np.flatnonzero(colorimetry.table()[:, 0] % 10 == 0)
+        square = np.array(((-1, -1), (1, -1), (1, -1), (1, 1), (1, 1), (-1, 1), (-1, 1), (-1, -1)), np.float64) * float(metrics.scaled(2.0)) / (width, height)
 
-        def gamut(rows: npt.NDArray[np.float64], paint: Paint) -> Rules:
-            return Rules(segments=np.vstack((rows[[0, 1, 1, 2, 2, 0]] / extent, rows[3] / extent + square)).astype(np.float32), paint=paint)
+        def gamut(rows: npt.NDArray[np.float64], color: Color, blend: Blend, stroke: float) -> Layer:
+            return Layer.of("LINES", np.vstack((rows[[0, 1, 1, 2, 2, 0]] / extent, rows[3] / extent + square)).astype(np.float32), color, blend=blend, width=stroke)
 
         def block(name: str, rows: npt.NDArray[np.float64]) -> tuple[str, ...]:
             return (name, *(f"{letter} {x:.4f} {y:.4f}" for letter, x, y in zip("RGBW", rows[:, 0], rows[:, 1], strict=True)))
@@ -161,17 +167,25 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def plotted(config: PyOpenColorIO.Config, reading: Chromaticity) -> Chart:
             counts, found = reading.trace, np.argwhere(reading.trace > 0)
             display = reading.display.map2(lambda rows, space: (space.getName(), rows), frames.view.colorspace(config))
-            return Chart.of(
-                metrics,
-                well=well,
+            weights = np.log1p(counts[tuple(found.T)]) / np.log1p(counts.max())
+            return Chart(
+                width=width,
+                height=height,
                 layers=(
-                    Rules(segments=_ruled(np.linspace(0.0, 1.0, tenths[0] + 1), np.linspace(0.0, 1.0, tenths[1] + 1))),
-                    Trace(points=(np.vstack((locus, locus[:1])) / extent).astype(np.float32), paint=Well.major),
-                    Rules(segments=(np.stack((locus[tenth], locus[tenth] + 0.01 * normal[tenth]), axis=1).reshape(-1, 2) / extent).astype(np.float32), paint=Well.major),
-                    *(gamut(rows, Well.major) for _, rows in display.to_list()),
-                    gamut(reading.working, Well.trace),
+                    Layer.of("LINES", _ruled(np.linspace(0.0, 1.0, tenths[0] + 1), np.linspace(0.0, 1.0, tenths[1] + 1)), GRID),
+                    Layer.of("LINE_STRIP", (np.vstack((locus, locus[:1])) / extent).astype(np.float32), MAJOR),
+                    Layer.of("LINES", (np.stack((locus[tenth], locus[tenth] + 0.01 * normal[tenth]), axis=1).reshape(-1, 2) / extent).astype(np.float32), MAJOR),
+                    *(gamut(rows, MAJOR, "ALPHA", 1.0) for _, rows in display.to_list()),
+                    gamut(reading.working, TRACE, "ADDITIVE", 1.5),
                     *(
-                        (Points(points=((found + 0.5) / counts.shape).astype(np.float32), weights=(np.log1p(counts[tuple(found.T)]) / np.log1p(counts.max())).astype(np.float32)),)
+                        (
+                            Layer.of(
+                                "POINTS",
+                                ((found + 0.5) / counts.shape).astype(np.float32),
+                                np.column_stack((np.broadcast_to(TRACE[:3], (len(weights), 3)), TRACE[3] * weights)).astype(np.float32),
+                                blend="ADDITIVE",
+                            ),
+                        )
                         if found.size
                         else ()
                     ),
@@ -181,7 +195,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             )
 
         config = PyOpenColorIO.GetCurrentConfig()
-        return Chromaticity.of(config, frames.linear, frames.view, (round(plot.width), round(plot.height)), extent).map(lambda reading: plotted(config, reading))
+        return Chromaticity.of(config, frames.linear, frames.view, (round(width), round(height)), extent).map(lambda reading: plotted(config, reading))
 
     # --- [REGISTRATION]
 
@@ -192,7 +206,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def consumed(scene: bpy.types.Scene, path: str) -> Outcome[Option[str]]:
             settings = scene.render.image_settings
-            depth = Block.of_seq(get_args(IntegerDepth.__value__)).filter(lambda held: not settings.has_linear_colorspace and held == int(settings.color_depth)).try_head()
+            depth = Block.of_seq(get_args(IntegerDepth.__value__)).filter(lambda held: not settings.has_linear_colorspace and held.bits == int(settings.color_depth)).try_head()
 
             def kept(frames: Frames) -> Outcome[Option[str]]:
                 nonlocal last
@@ -207,19 +221,19 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return paired(combined(path).map(lambda found: found[1]), chain.view(identity, scene)).bind(lambda found: read(*found, PyOpenColorIO.GetCurrentConfig())).bind(kept)
 
         def rows(switched: Attached[Charted], clipped: Attached[ClipEnds]) -> tuple[Registrable, ...]:
-            refreshes: tuple[Refresh, ...] = (signal, *(Watch(owner=form, identifier=name) for form in (Charted, ClipEnds) for name in annotated(form)))
+            refreshes: tuple[Refresh, ...] = (signal, *((form, name) for form in (Charted, ClipEnds) for name in annotated(form)))
 
             def tints(screen: bpy.types.Screen) -> Option[tuple[Tint, ...]]:
                 lit = clipped.struct(screen)
                 return (
                     last
-                    .bind(lambda frames: frames.depth.map(lambda depth: Clipping.of(Rounded.coded(unassociated(frames.formed), depth))))
+                    .bind(lambda frames: frames.depth.bind(lambda depth: Rounded.coded(unassociated(frames.formed), depth).to_option()).map(Clipping.of))
                     .map(lambda clip: tuple(Tint(plane=mask.astype(np.float32), color=rgba) for mask, rgba, on in ((clip.low, self.under, lit.low), (clip.high, self.over, lit.high)) if on))
                     .filter(bool)
                 )
 
-            def plotted(on: Callable[[Charted], bool], chart: Callable[[Metrics, Frames], Outcome[Chart]]) -> Plotted[Chart]:
-                return Plotted(
+            def plotted(on: Callable[[Charted], bool], chart: Callable[[Metrics, Frames], Outcome[Chart]]) -> Reading[Chart]:
+                return Reading(
                     read=lambda metrics: (
                         root_in(bpy.types.Screen, bpy.context)
                         .bind(lambda screen: last.filter(lambda _: on(switched.struct(screen))))
@@ -228,12 +242,15 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     )
                 )
 
-            keys = Keymap(keymap="Image", bindings={chord: Toggle(path=("screen", clipped.name, name)) for chord, name in ((Chord(type="O"), "high"), (Chord(type="U"), "low"))})
+            keys = Keymap(
+                keymap="Image",
+                bindings=tuple((chord, Placement.context(bpy.ops.wm.context_toggle, ("screen", clipped.name, name))) for chord, name in ((Chord(type="O"), "high"), (Chord(type="U"), "low"))),
+            )
             return (
                 ResultRead(consume=consumed),
                 overlaid(plotted(lambda held: held.outline, FrameCharts.histogram), RESULT, refreshes),
                 overlaid(plotted(lambda held: held.chromaticity, FrameCharts.chromaticity), RESULT, refreshes),
-                FrameMask(read=lambda _: Ok(root_in(bpy.types.Screen, bpy.context).bind(tints)), refreshes=refreshes),
+                overlaid(Masks(source=lambda _: Ok(root_in(bpy.types.Screen, bpy.context).bind(tints))), RESULT, refreshes),
                 keys,
             )
 
@@ -251,7 +268,7 @@ def _ruled(verticals: Iterable[float], horizontals: Iterable[float] = (), reach:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 charts: Final = FrameCharts()
-rows: Final = (charts, Append(target=IMAGE_PT_view_histogram, rows=charts.clips), Panel(section=charts.section(), at=Joined.beside(IMAGE_PT_view_histogram)))
+rows: Final = (charts, Append(target=IMAGE_PT_view_histogram, rows=charts.clips), Panel(section=charts.section(), at=Beside(IMAGE_PT_view_histogram)))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

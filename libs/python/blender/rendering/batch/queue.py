@@ -2,21 +2,22 @@
 
 from collections.abc import Mapping
 from graphlib import TopologicalSorter
+import hashlib
 from pathlib import PurePath
 from typing import Annotated
 
 from expression import Option
 import msgspec
 
-from blender.records.fields import Case, Count, Side
+from blender.records.fields import Case, Count
 from blender.records.identity import content_hash, ContentHash
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Frame = Annotated[int, msgspec.Meta(ge=0)]
-type _Digest = Annotated[bytes, msgspec.Meta(min_length=32, max_length=32)]
-type JobCamera = Bound | Fixed
+type _Digest = Annotated[bytes, msgspec.Meta(min_length=hashlib.sha256().digest_size, max_length=hashlib.sha256().digest_size)]
+type JobCamera = MarkedCamera | FixedCamera
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -47,7 +48,7 @@ class Marker(msgspec.Struct, frozen=True, kw_only=True):
     camera: str
 
 
-class Bound(Case, frozen=True, kw_only=True):
+class MarkedCamera(Case, frozen=True, kw_only=True):
     """Scene camera switched at camera markers."""
 
     camera: str | None = None
@@ -60,20 +61,20 @@ class Bound(Case, frozen=True, kw_only=True):
         return Option.of_optional(marker).map(lambda marker: marker.camera).or_else_with(lambda: Option.of_optional(self.camera))
 
 
-class Fixed(Case, frozen=True, kw_only=True):
+class FixedCamera(Case, frozen=True, kw_only=True):
     """One camera for every job frame."""
 
     camera: str
 
 
-class RenderFrames(msgspec.Struct, frozen=True, kw_only=True, tag=True):
+class RenderFrames(Case, frozen=True, kw_only=True):
     """Scene frames a farm worker renders."""
 
     scene: str
     frames: Annotated[tuple[_Frame, ...], msgspec.Meta(min_length=1)]
 
 
-class Placed(msgspec.Struct, frozen=True, kw_only=True):
+class PackedFile(msgspec.Struct, frozen=True, kw_only=True):
     """Local file a job sends to the farm, at its POSIX path in the job's pack, with its SHA-256."""
 
     source: str
@@ -91,13 +92,13 @@ class Job(msgspec.Struct, frozen=True, kw_only=True):
     engine: str
     frames: Frames
     camera: JobCamera
-    pixels: tuple[Side, Side]
-    samples: Count
+    pixels: tuple[Count, Count]
+    samples: Count | None = None
     output_root: str
     outputs: Mapping[Output, str]
     passes: tuple[str, ...]
     prerequisites: tuple[_Frame, ...] = ()
-    pack: tuple[Placed, ...] = ()
+    pack: tuple[PackedFile, ...] = ()
 
     def __post_init__(self) -> None:
         """Validates a pack holding the job's blend."""
@@ -105,12 +106,12 @@ class Job(msgspec.Struct, frozen=True, kw_only=True):
             raise ValueError(self.file)
 
     @property
-    def placements(self) -> tuple[Placed, ...]:
+    def placements(self) -> tuple[PackedFile, ...]:
         """Files the job sends."""
-        return self.pack or (Placed(source=self.file, path=PurePath(self.file).name, digest=self.digest),)
+        return self.pack or (PackedFile(source=self.file, path=PurePath(self.file).name, digest=self.digest),)
 
     @property
-    def blend(self) -> Placed:
+    def blend(self) -> PackedFile:
         """Placement of the job's blend."""
         return next(placed for placed in self.placements if placed.source == self.file)
 
@@ -121,9 +122,9 @@ class Job(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def weight(self) -> int:
-        """Rendered pixels times samples."""
+        """Rendered pixels times samples, pixels alone for an engine whose sample count no host member states."""
         width, height = self.pixels
-        return width * height * self.samples
+        return width * height * Option.of_optional(self.samples).default_value(1)
 
 
 class RenderQueue(msgspec.Struct, frozen=True, kw_only=True):
@@ -157,4 +158,4 @@ class RenderQueue(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Bound", "Fixed", "Frames", "Job", "JobCamera", "Marker", "Placed", "RenderFrames", "RenderQueue"]
+__all__ = ["FixedCamera", "Frames", "Job", "JobCamera", "MarkedCamera", "Marker", "PackedFile", "RenderFrames", "RenderQueue"]

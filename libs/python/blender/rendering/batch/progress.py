@@ -6,9 +6,10 @@ from enum import auto, Enum, IntEnum
 from fractions import Fraction
 from functools import partial
 from itertools import groupby
+import math
+from operator import add
 from pathlib import Path
-from statistics import mean
-import sys
+from statistics import fmean
 import threading
 from typing import Annotated, Self
 
@@ -17,7 +18,6 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.records.faults import Fault, Outcome, RecordReason
-from blender.records.fields import NonNegative, ProcessId
 from blender.records.identity import ContentHash
 from blender.records.stores import RecordFile
 from blender.rendering.batch.queue import RenderQueue
@@ -46,24 +46,34 @@ class Ending(IntEnum):
 
 
 class Heartbeat(msgspec.Struct, frozen=True, kw_only=True):
-    """Seconds between progress record touches and missed touches before a run reads as stopped."""
+    """Interval between progress record touches and missed touches before a run reads as stopped."""
 
-    interval: Annotated[float, msgspec.Meta(ge=sys.float_info.min, le=threading.TIMEOUT_MAX)] = 3.0
+    interval: datetime.timedelta = datetime.timedelta(seconds=3)
     misses: Annotated[int, msgspec.Meta(ge=2)] = 10
+
+    def __post_init__(self) -> None:
+        """Validates an interval above zero within the longest wait a thread lock takes."""
+        if not datetime.timedelta() < self.interval <= datetime.timedelta(seconds=threading.TIMEOUT_MAX):
+            raise ValueError(self.interval)
 
 
 class StageMark(msgspec.Struct, frozen=True, kw_only=True):
-    """Measured seconds of one finished step."""
+    """Measured render time of one finished step."""
 
     part: Annotated[int, msgspec.Meta(ge=0)]
     item: int
-    seconds: NonNegative
+    elapsed: datetime.timedelta
+
+    def __post_init__(self) -> None:
+        """Validates a measured time at or above zero."""
+        if self.elapsed < datetime.timedelta():
+            raise ValueError(self.elapsed)
 
 
 class Forecast(msgspec.Struct, frozen=True, kw_only=True):
     """Render duration left with finish time."""
 
-    seconds: Fraction
+    left: datetime.timedelta
     finish: Option[datetime.datetime]
 
 
@@ -71,7 +81,7 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
     """Progress record of one queue run."""
 
     queue: ContentHash
-    process: ProcessId
+    process: Annotated[int, msgspec.Meta(ge=1)]
     marks: tuple[StageMark, ...] = ()
     ending: Ending | None = None
     pending: tuple[tuple[int, int], ...] = ()
@@ -88,6 +98,11 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
             .default_with(lambda: cls(queue=key, process=process))
         )
 
+    @property
+    def elapsed(self) -> datetime.timedelta:
+        """Measured render time of every mark."""
+        return sum((mark.elapsed for mark in self.marks), datetime.timedelta())
+
     def remaining(self, queue: RenderQueue) -> tuple[tuple[int, int], ...]:
         """Returns renders no mark covers."""
         marked = {(mark.part, mark.item) for mark in self.marks}
@@ -101,23 +116,18 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
     def phase(self, beat: datetime.datetime, now: datetime.datetime, heartbeat: Heartbeat) -> _Phase:
         """Returns ending when set, else liveness from heartbeat age."""
         ending: Option[_Phase] = Option.of_optional(self.ending)
-        return ending.default_with(lambda: Liveness.ACTIVE if (now - beat).total_seconds() < heartbeat.interval * heartbeat.misses else Liveness.STOPPED)
+        return ending.default_with(lambda: Liveness.ACTIVE if now - beat < heartbeat.interval * heartbeat.misses else Liveness.STOPPED)
 
     def forecast(self, queue: RenderQueue, now: datetime.datetime) -> Option[Forecast]:
-        """Forecasts renders left at each job's measured seconds per weight, the mean rate for unmeasured jobs, Nothing before any mark."""
+        """Forecasts renders left at each job's measured seconds per weight, the mean rate for unmeasured jobs, Nothing before any mark or past the longest duration."""
         counts = Counter(part for part, _ in self.remaining(queue))
         jobs = dict(enumerate(queue.jobs))
-        timed = {part: tuple(Fraction(mark.seconds) for mark in marks) for part, marks in groupby(sorted(self.marks, key=lambda mark: mark.part), key=lambda mark: mark.part)}
-        if not (rates := {part: mean(times[1:] or times) / jobs[part].weight for part, times in timed.items()}):
+        timed = {part: tuple(mark.elapsed.total_seconds() for mark in marks) for part, marks in groupby(sorted(self.marks, key=lambda mark: mark.part), key=lambda mark: mark.part)}
+        if not (rates := {part: fmean(times[1:] or times) / jobs[part].weight for part, times in timed.items()}):
             return Nothing
-        average = mean(rates.values())
-        seconds = sum((counts[part] * job.weight * rates.get(part, average) for part, job in jobs.items()), Fraction())
-
-        @catch(exception=OverflowError)
-        def finished() -> datetime.datetime:
-            return now + datetime.timedelta(microseconds=round(seconds * (datetime.timedelta(seconds=1) // datetime.timedelta.resolution)))
-
-        return Some(Forecast(seconds=seconds, finish=finished().to_option()))
+        average = fmean(rates.values())
+        seconds = math.fsum(counts[part] * job.weight * rates.get(part, average) for part, job in jobs.items())
+        return catch(datetime.timedelta, exception=OverflowError)(seconds=seconds).to_option().map(lambda left: Forecast(left=left, finish=catch(add, exception=OverflowError)(now, left).to_option()))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

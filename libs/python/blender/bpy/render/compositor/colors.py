@@ -1,42 +1,36 @@
-"""Compositor color graph operations: colorspace conversion, straight-color scopes, OCIO coordinate groups, matrix forms, channel ordering, and luma-chroma planes."""
+"""Compositor color graph operations: colorspace conversion, straight-color scopes and alpha forms, OCIO coordinate groups, chromaticity matrices, channel ordering, and luma-chroma planes."""
 
 from collections.abc import Callable
 import functools
+from functools import partial
 from math import log
 from typing import Final, Literal
 
 import bpy
 from expression import Ok, Option, Result, Some
-import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderReason
-from blender.bpy.nodes.graphs import Component, Expr, INPUTS, math, mixed, NodeGroup, rgba, Term, vector, where, xyz
+from blender.bpy.nodes import functions
+from blender.bpy.nodes.desired import INPUTS, NodeGroup
+from blender.bpy.nodes.graphs import Component, composed, directed, equal, Expr, inverted, math, matrix, mixed, rgba, Term, vector, where, xyz
 from blender.bpy.nodes.interface import Interface, Socket
-from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import lin_to_log, luma
-from blender.records.faults import Fault, Faults, Outcome, paired, RecordReason
+from blender.records.faults import Fault, Faults, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-COLOR_INPUT: Final = Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor)
+COLOR_INPUT: Final = Socket(key="image", kind=bpy.types.NodeSocketColor)
 COLOR_RESULT: Final = Socket(key="result", name="Image", kind=bpy.types.NodeSocketColor)
 AXES: Final[tuple[Component, Component, Component]] = ("X", "Y", "Z")
-
-# --- [MODELS] ---------------------------------------------------------------------------
-
-
-class HsyLinear(msgspec.Struct, frozen=True, kw_only=True):
-    """Constants of OCIO's `FIXED_FUNCTION_RGB_TO_HSY_LIN`: the luma ramp between low and high saturation forms, the low form's gain, and the high form's chroma floor, offset, and gain."""
-
-    ramp: tuple[float, float] = (0.001, 0.01)
-    low_gain: float = 5.0
-    floor: float = 0.07
-    offset: float = 0.15
-    gain: float = 1.4
+_HSY_RAMP: Final = (0.001, 0.01)
+_HSY_LOW_GAIN: Final = 5.0
+_HSY_FLOOR: Final = 0.07
+_HSY_OFFSET: Final = 0.15
+_HSY_GAIN: Final = 1.4
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -49,7 +43,7 @@ def space_item(config: PyOpenColorIO.Config, name: str) -> Outcome[str]:
     return (
         Ok(name)
         if name == PyOpenColorIO.ROLE_SCENE_LINEAR
-        else Option.of_optional(config.getColorSpace(name)).map(PyOpenColorIO.ColorSpace.getName).to_result_with(functools.partial(Fault.of, BlenderReason.ABSENT, config.getName(), member=name))
+        else Option.of_optional(config.getColorSpace(name)).map(PyOpenColorIO.ColorSpace.getName).to_result_with(partial(Fault.of, BlenderReason.ABSENT, config.getName(), member=name))
     )
 
 
@@ -57,22 +51,41 @@ def converted(key: Key, config: PyOpenColorIO.Config, source: str, target: str, 
     """Converts straight RGB between colorspaces, scene-linear role resolved live."""
     return paired(space_item(config, source), space_item(config, target)).map(
         lambda pair: Expr(
-            kind=bpy.types.CompositorNodeConvertColorSpace, inputs=(("Image", entering),), members=(("from_color_space", pair[0]), ("to_color_space", pair[1])), socket="Image", shape="RGBA"
+            kind=bpy.types.CompositorNodeConvertColorSpace,
+            inputs=(("Image", entering),),
+            members={"from_color_space": pair[0], "to_color_space": pair[1]},
+            socket="Image",
+            shape=bpy.types.NodeSocketColor,
         ).named(key)
     )
 
 
 def pointwise(key: Key, entering: Term, operation: Callable[[Expr], Outcome[Expr]]) -> Outcome[Expr]:
     """Applies straight-color graph to associated RGB, zero alpha keeping transformed RGB."""
-    alpha = Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", entering),), members=(("mode", "RGB"),), socket="Alpha")
+    alpha = Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", entering),), members={"mode": "RGB"}, socket="Alpha")
 
     def associated(adjusted: Expr) -> Expr:
-        restored = Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", adjusted), ("Alpha", alpha), ("Type", "Replace Alpha")), socket="Image", shape="RGBA")
-        transparent = Expr(kind=bpy.types.FunctionNodeCompare, inputs=(("A", alpha), ("B", 0.0), ("Epsilon", 0.0)), members=(("data_type", "FLOAT"), ("operation", "EQUAL")), socket="Result")
-        premultiplied = Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", restored), ("Type", "To Premultiplied")), socket="Image", shape="RGBA")
-        return where(transparent, restored, premultiplied).named(key)
+        restored = with_alpha(adjusted, alpha)
+        return where(equal(alpha, 0.0), restored, premultiplied(restored)).named(key)
 
-    return operation(Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", entering), ("Type", "To Straight")), socket="Image", shape="RGBA")).map(associated)
+    return operation(straight(entering)).map(associated)
+
+
+def straight(image: Term) -> Expr:
+    """Divides associated color by its alpha through Alpha Convert."""
+    return Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", image), ("Type", "To Straight")), socket="Image", shape=bpy.types.NodeSocketColor)
+
+
+def premultiplied(image: Term) -> Expr:
+    """Multiplies straight color by its alpha through Alpha Convert."""
+    return Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", image), ("Type", "To Premultiplied")), socket="Image", shape=bpy.types.NodeSocketColor)
+
+
+def with_alpha(image: Term, alpha: Term, *, masked: bool = False) -> Expr:
+    """Sets an image's alpha through Set Alpha, replacing it, or scaling every channel by it where `masked`."""
+    return Expr(
+        kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", image), ("Alpha", alpha), ("Type", "Apply Mask" if masked else "Replace Alpha")), socket="Image", shape=bpy.types.NodeSocketColor
+    )
 
 
 # --- [COORDINATES]
@@ -80,14 +93,29 @@ def pointwise(key: Key, entering: Term, operation: Callable[[Expr], Outcome[Expr
 
 def _converter(key: Key, name: str, body: Callable[[Expr, Expr, Expr], tuple[Expr, Expr, Expr]]) -> Outcome[NodeGroup]:
     """Converts RGB channels and passes alpha unchanged."""
-    image = Expr(kind=bpy.types.NodeGroupInput, socket=COLOR_INPUT.key, shape="RGBA", label=Some(INPUTS))
-    return NodeGroup.built(
+    image = Expr(kind=bpy.types.NodeGroupInput, socket=COLOR_INPUT.key, shape=bpy.types.NodeSocketColor, label=Some(INPUTS))
+    return functions.built(
         key, name, Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,)), {COLOR_RESULT.key: rgba(*body(image["Red"], image["Green"], image["Blue"]), image["Alpha"])}, bpy.types.CompositorNodeTree
     )
 
 
+def logarithmic(direction: PyOpenColorIO.TransformDirection, image: Term) -> Outcome[Expr]:
+    """Places OCIO channel stop coordinates of an image, the LogCamera encoding forward and its decoding inverse."""
+    return _logarithmic(direction).map(partial(_placed, image))
+
+
+def hsy(config: PyOpenColorIO.Config, direction: PyOpenColorIO.TransformDirection, image: Term) -> Outcome[Expr]:
+    """Places OCIO linear HSY coordinates of an image over the configuration's scene-linear luma weights, the inverse direction returning RGB."""
+    return Result[npt.NDArray[np.float64], Faults].bind(luma(config), lambda weights: _hsy(direction, tuple(map(float, weights)))).map(partial(_placed, image))
+
+
+def _placed(image: Term, group: NodeGroup) -> Expr:
+    """Places a converter group over an image at its result."""
+    return functions.placed(group, {COLOR_INPUT.key: image}, COLOR_RESULT.key)
+
+
 @functools.cache
-def logarithmic(direction: PyOpenColorIO.TransformDirection) -> Outcome[NodeGroup]:
+def _logarithmic(direction: PyOpenColorIO.TransformDirection) -> Outcome[NodeGroup]:
     """Builds OCIO channel stop coordinates from LogCamera parameters."""
     transform = lin_to_log()
     base, forward = transform.getBase(), direction == PyOpenColorIO.TRANSFORM_DIR_FORWARD
@@ -115,16 +143,10 @@ def logarithmic(direction: PyOpenColorIO.TransformDirection) -> Outcome[NodeGrou
     )
 
 
-def hsy(config: PyOpenColorIO.Config, direction: PyOpenColorIO.TransformDirection) -> Outcome[NodeGroup]:
-    """Builds OCIO linear HSY coordinates as compositor math nodes over the configuration's scene-linear luma weights."""
-    return Result[npt.NDArray[np.float64], Faults].bind(luma(config), lambda weights: _hsy(direction, tuple(map(float, weights))))
-
-
 @functools.cache
 def _hsy(direction: PyOpenColorIO.TransformDirection, weights: tuple[float, ...]) -> Outcome[NodeGroup]:
     """HSY group of one direction and luma weight triple."""
-    constants = HsyLinear()
-    low_luma, high_luma = constants.ramp
+    low_luma, high_luma = _HSY_RAMP
     forward = direction == PyOpenColorIO.TRANSFORM_DIR_FORWARD
 
     def luminance(values: tuple[Expr, Expr, Expr]) -> Expr:
@@ -143,8 +165,8 @@ def _hsy(direction: PyOpenColorIO.TransformDirection, weights: tuple[float, ...]
         delta = high - low
         sectors = tuple((channels[(index + 1) % 3] - channels[(index + 2) % 3]) / delta + float(2 * index + 1) for index in range(3))
         hue = where(low < high, where(first < high, where(second < high, sectors[2], sectors[1]), sectors[0]), 0.0) / 6.0
-        high_saturation = distance / math("MAXIMUM", math("MULTIPLY_ADD", distance, constants.floor, 1e-6), first + second + third + constants.offset)
-        return hue, mixed(lit(level), distance * constants.low_gain, high_saturation) * constants.gain, level
+        high_saturation = distance / math("MAXIMUM", math("MULTIPLY_ADD", distance, _HSY_FLOOR, 1e-6), first + second + third + _HSY_OFFSET)
+        return hue, mixed(lit(level), distance * _HSY_LOW_GAIN, high_saturation) * _HSY_GAIN, level
 
     def inverted(hue: Expr, saturation: Expr, level: Expr) -> tuple[Expr, Expr, Expr]:
         sector = math("FRACT", math("MULTIPLY_ADD", level < 0.0, 0.5, hue) - 1.0 / 6.0) * 6.0
@@ -153,11 +175,11 @@ def _hsy(direction: PyOpenColorIO.TransformDirection, weights: tuple[float, ...]
         bases = tuple(value * scale for value in unit)
         offsets = tuple(value - level for value in bases)
         distance = abs(offsets[0]) + abs(offsets[1]) + abs(offsets[2])
-        chroma, triple = saturation / constants.gain, level * 3.0
-        excess, reach = bases[0] + bases[1] + bases[2] - triple, triple + constants.offset
+        chroma, triple = saturation / _HSY_GAIN, level * 3.0
+        excess, reach = bases[0] + bases[1] + bases[2] - triple, triple + _HSY_OFFSET
         chroma_excess, chroma_reach = chroma * excess, chroma * reach
         high_gain = math("MINIMUM", chroma_reach / math("MAXIMUM", distance - chroma_excess, 1e-6), 50.0)
-        low_distance = distance * constants.low_gain
+        low_distance = distance * _HSY_LOW_GAIN
         blend = lit(level)
         low_weight = low_distance * (1.0 - blend)
         minus_b = chroma_excess - math("MULTIPLY_ADD", distance, blend, low_weight * reach)
@@ -175,39 +197,15 @@ def _hsy(direction: PyOpenColorIO.TransformDirection, weights: tuple[float, ...]
 # --- [MATRICES]
 
 
-def constant(values: npt.NDArray[np.float64]) -> Expr:
-    """Combine Matrix node of a literal matrix up to 4x4."""
-    return Expr(kind=bpy.types.FunctionNodeCombineMatrix, inputs=tuple((f"Column {column + 1} Row {row + 1}", float(value)) for (row, column), value in np.ndenumerate(values)), socket="Matrix")
-
-
-def composed(first: Expr, second: Expr) -> Expr:
-    """Matrix product of two matrix terms, `second` applied first."""
-    return Expr(kind=bpy.types.FunctionNodeMatrixMultiply, inputs=(("Matrix", first), ("Matrix_001", second)), socket="Matrix")
-
-
-def inverted(matrix: Expr) -> Expr:
-    """Inverse of a matrix term, its `Invertible` output beside."""
-    return Expr(kind=bpy.types.FunctionNodeInvertMatrix, inputs=(("Matrix", matrix),), socket="Matrix")
-
-
-def directed(direction: Term, matrix: Expr) -> Expr:
-    """Direction transformed by a matrix term."""
-    return Expr(kind=bpy.types.FunctionNodeTransformDirection, inputs=(("Direction", direction), ("Transform", matrix)), socket="Direction", shape="VECTOR")
-
-
 def spanned(points: tuple[Expr, ...], white: Term) -> Expr:
     """RGB-to-XYZ matrix of chromaticity points, columns scaled to the XYZ white."""
-    columns = Expr(
-        kind=bpy.types.FunctionNodeCombineMatrix,
-        inputs=tuple(
-            entry
-            for column, point in enumerate(points, 1)
-            for entry in ((f"Column {column} Row 1", point["X"] / point["Y"]), (f"Column {column} Row 2", 1.0), (f"Column {column} Row 3", (1.0 - point["X"] - point["Y"]) / point["Y"]))
-        ),
-        socket="Matrix",
-    )
+    columns = matrix({
+        cell: value
+        for column, point in enumerate(points, 1)
+        for cell, value in (((1, column), point["X"] / point["Y"]), ((2, column), 1.0), ((3, column), (1.0 - point["X"] - point["Y"]) / point["Y"]))
+    })
     scales = directed(white, inverted(columns))
-    return composed(columns, Expr(kind=bpy.types.FunctionNodeCombineMatrix, inputs=tuple((f"Column {index} Row {index}", scales[axis]) for index, axis in enumerate(AXES, 1)), socket="Matrix"))
+    return composed(columns, matrix({(index, index): scales[axis] for index, axis in enumerate(AXES, 1)}))
 
 
 # --- [CHANNELS]
@@ -267,8 +265,7 @@ def ycc(color: Expr, weights: tuple[float, float, float]) -> tuple[Expr, Expr, E
     """
     red, _, blue = weights
     level = vector("DOT_PRODUCT", color, weights)
-    channels = Expr(kind=bpy.types.ShaderNodeSeparateXYZ, inputs=(("Vector", color),))
-    return level, (msgspec.structs.replace(channels, socket="Z") - level) / (2.0 * (1.0 - blue)), (msgspec.structs.replace(channels, socket="X") - level) / (2.0 * (1.0 - red))
+    return level, (color["Z"] - level) / (2.0 * (1.0 - blue)), (color["X"] - level) / (2.0 * (1.0 - red))
 
 
 def from_ycc(level: Expr, blue_difference: Expr, red_difference: Expr, weights: tuple[float, float, float]) -> Expr:
@@ -278,40 +275,24 @@ def from_ycc(level: Expr, blue_difference: Expr, red_difference: Expr, weights: 
     return xyz(red, (level - red * red_weight - blue * blue_weight) / green_weight, blue)
 
 
-# --- [WHITE]
-
-
-def whitened(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> Outcome[float]:
-    """Returns the percentile white of covered scene-linear pixels, refusing a frame holding no covered finite luminance."""
-    return (
-        Samples
-        .of(config, plane)
-        .bind(lambda samples: samples.extent().to_result_with(functools.partial(Fault.of, RecordReason.OUTSIDE, "White metering", str(plane.shape), member="covered pixels holding finite luminance")))
-        .map(lambda extent: extent.white)
-    )
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
     "AXES",
     "COLOR_INPUT",
     "COLOR_RESULT",
-    "HsyLinear",
-    "composed",
-    "constant",
     "converted",
-    "directed",
     "extreme",
     "from_ycc",
     "hsy",
-    "inverted",
     "logarithmic",
     "nonnegative",
     "pointwise",
+    "premultiplied",
     "preserved",
     "space_item",
     "spanned",
-    "whitened",
+    "straight",
+    "with_alpha",
     "ycc",
 ]

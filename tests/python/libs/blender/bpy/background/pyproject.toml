@@ -1,0 +1,19 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "background"
+version         = "1.0.0"
+description     = "Background Blender session observing a fixture extension built from the bpy library"
+requires-python = ">=3.13"
+
+dependencies = ["blender"]
+
+# --- [UV] -------------------------------------------------------------------------------
+
+[tool.uv]
+package = false
+
+# --- [RUFF] -----------------------------------------------------------------------------
+
+[tool.ruff]
+extend = "../../../../../../pyproject.toml"

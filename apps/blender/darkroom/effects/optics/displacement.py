@@ -4,7 +4,8 @@ from collections.abc import Mapping
 from enum import auto, Enum
 import functools
 from math import cos, pi, sin, tau
-from typing import Annotated, Literal
+from pathlib import Path
+from typing import Annotated, Final, Literal
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -17,24 +18,31 @@ from scipy.ndimage import gaussian_filter, map_coordinates, sobel
 
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.extension.identity import Key
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes import textures
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
-from blender.bpy.render.compositor.coordinates import Border, BORDERS, Clock
-from blender.bpy.render.compositor.effects import Alpha, Animates, CameraFrame, CompositorEffect, precise, Requests, Shell
+from blender.bpy.render.color.spaces import UNTAGGED
+from blender.bpy.render.compositor.coordinates import Border, BORDERS
+from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
+from blender.bpy.render.compositor.inputs import CameraFrame
+from blender.bpy.render.compositor.motion import Clock
+from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.color.processors import converted, GREY, luma
 from blender.imaging.files import buffers
 from blender.imaging.files.images import ImageFile, read_file
+from blender.imaging.geometry.arithmetic import smoothstep
+from blender.imaging.geometry.frames import Raster
 from blender.imaging.geometry.stmaps import displaced, slope, softened, tapped
-from blender.imaging.sampling.integration import Estimate, Precision, Raster, smoothstep
+from blender.imaging.sampling import tiles
+from blender.imaging.sampling.integration import Estimate, Precision
 from blender.imaging.sampling.populations import Population
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 from blender.records.fields import Finite, NonNegative, Positive, Seed, Unit
 
 from ...chain.stages import Effect, prepared, Stage
 from ..grade.exposure import LATER, later
-from .procedural import ANGLE, bases, Basis, clock, decoded, evaluated, FACTOR, Perlin, PLANAR, profiled, WaveProfile
+from .procedural import bases, Basis, clock, decoded, evaluated, fields, Perlin, profiled, WaveProfile
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -98,7 +106,7 @@ class Wave(msgspec.Struct, frozen=True, kw_only=True):
     wavelength: Positive = tau / (20.0 * 2.0**0.5)
     direction: Finite = 0.0
     phase: Finite = 0.0
-    clock: Clock = Clock(speed=0.0332)
+    clock: Clock = Clock(speed=0.7968)
     profile: WaveProfile = "SIN"
     front: Front = Front.LINEAR
     count: Annotated[int, msgspec.Meta(ge=1)] = 1
@@ -110,9 +118,9 @@ class Wave(msgspec.Struct, frozen=True, kw_only=True):
     radius: Positive = 0.5
     seed: Seed = 0
 
-    def displaced(self, points: npt.NDArray[np.float64], extent: npt.NDArray[np.float64], frame: float) -> npt.NDArray[np.float64]:
-        """Offsets of every superposed crest along its front's displacement axis."""
-        draws = textures.uniforms(np.arange(self.count, dtype=np.int64)[:, None], textures.stream(Wave, self.seed), 3)
+    def displaced(self, points: npt.NDArray[np.float64], extent: npt.NDArray[np.float64], frame: float, rate: float) -> npt.NDArray[np.float64]:
+        """Offsets of every superposed crest along its front's displacement axis at the held clock of `frame` under `rate` frames per second."""
+        draws = tiles.uniforms(np.arange(self.count, dtype=np.int64)[:, None], tiles.stream(Wave, self.seed), 3)
 
         def crest(index: int) -> npt.NDArray[np.float64]:
             wavelength = self.wavelength * (1.0 - self.wavelength_variation * float(draws[index, 0]))
@@ -128,7 +136,7 @@ class Wave(msgspec.Struct, frozen=True, kw_only=True):
                 tangent = np.stack((-spoke[..., 1], spoke[..., 0]), axis=-1)
                 axis = {Front.RADIAL: spoke, Front.ZIGZAG: tangent, Front.POND: (spoke + tangent) * 0.5**0.5}[self.front]
                 envelope = np.maximum(0.0, 1.0 - travel / self.radius)
-            cycles = travel / wavelength - self.clock.clock(frame) + self.phase / tau + (float(draws[index, 2]) if self.count > 1 else 0.0)
+            cycles = travel / wavelength - self.clock.clock(frame, rate) + self.phase / tau + (float(draws[index, 2]) if self.count > 1 else 0.0)
             wave = np.asarray(profiled(self.profile, cycles, np), dtype=np.float64)
             return np.asarray(amplitude * (2.0 * wave - 1.0)[..., None] * envelope[..., None] * axis * self.axes, dtype=np.float64)
 
@@ -141,15 +149,15 @@ class Turbulence(msgspec.Struct, frozen=True, kw_only=True):
     amplitude: NonNegative = 0.1
     basis: Basis = Perlin(texture=textures.Noise(noise_dimensions="4D", scale=2.0))
     axes: tuple[Finite, Finite] = (1.0, 1.0)
-    clock: Clock = Clock(speed=0.0208)
+    clock: Clock = Clock(speed=0.4992)
     seed: Seed = 0
 
-    def displaced(self, points: npt.NDArray[np.float64], frame: float) -> npt.NDArray[np.float64]:
-        """Offsets of one noise per axis at the held clock."""
+    def displaced(self, identity: Identity, points: npt.NDArray[np.float64], frame: float, rate: float) -> npt.NDArray[np.float64]:
+        """Offsets of one noise per axis at the held clock of `frame` under `rate` frames per second."""
         flat = points.reshape(-1, 2)
-        moment = np.full(len(flat), self.clock.clock(frame))
-        fields = np.stack([evaluated(self.basis, flat, moment, seed=self.seed, stream=textures.stream(Turbulence, axis))[:, 0] for axis in range(2)], axis=-1)
-        return self.amplitude * (2.0 * fields.reshape(points.shape) - 1.0) * self.axes
+        moment = np.full(len(flat), self.clock.clock(frame, rate))
+        drawn = np.stack([evaluated(identity, self.basis, flat, moment, seed=self.seed, stream=tiles.stream(Turbulence, axis))[:, 0] for axis in range(2)], axis=-1)
+        return self.amplitude * (2.0 * drawn.reshape(points.shape) - 1.0) * self.axes
 
 
 class Sphere(msgspec.Struct, frozen=True, kw_only=True):
@@ -192,20 +200,20 @@ class Raindrops(msgspec.Struct, frozen=True, kw_only=True):
     refraction: NonNegative = 2.0
     blur: NonNegative = 0.0076
     direction: Finite = 0.0
-    clock: Clock = Clock(speed=0.000417 / drops.spacing)
+    clock: Clock = Clock(speed=0.010008 / drops.spacing)
     trails: Unit = 0.0
     seed: Seed = 0
     strength: Finite = 0.0
     softness: NonNegative = 0.015
 
-    def sampled(self, points: npt.NDArray[np.float64], frame: float) -> npt.NDArray[np.float64]:
-        """Returns inversion offsets, drop coverage, and receding trail height at `(n, 2)` points."""
+    def sampled(self, points: npt.NDArray[np.float64], frame: float, rate: float) -> npt.NDArray[np.float64]:
+        """Returns inversion offsets, drop coverage, and receding trail height at `(n, 2)` points at the held clock of `frame` under `rate` frames per second."""
         sine, cosine = sin(self.direction), cos(self.direction)
         turn = np.array(((cosine, sine), (-sine, cosine)))
         spacing = self.drops.spacing
-        local = points @ turn + (0.0, self.clock.clock(frame) * spacing)
+        local = points @ turn + (0.0, self.clock.clock(frame, rate) * spacing)
         cells, ownership = np.unique(np.floor(local / spacing).astype(np.int64), axis=0, return_inverse=True)
-        draws = textures.uniforms(cells, textures.stream(Raindrops, self.seed), 6)
+        draws = tiles.uniforms(cells, tiles.stream(Raindrops, self.seed), 6)
         centers, radii, gains = (values[ownership] for values in self.drops.placed(cells, draws, spacing))
         present = (draws[:, 0] < self.drops.density)[ownership]
         arm = local - centers
@@ -252,7 +260,7 @@ class Refraction(msgspec.Struct, frozen=True, kw_only=True):
     blur: NonNegative = 0.0
     seed: Seed = 0
 
-    def height(self, centers: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def height(self, identity: Identity, centers: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Glass height at `(rows, columns, 2)` pixel centers."""
         cell = centers / self.size
         fraction = cell % 1.0
@@ -266,7 +274,7 @@ class Refraction(msgspec.Struct, frozen=True, kw_only=True):
             case Surface.FROSTED:
                 frosted = Perlin(texture=textures.Noise(noise_dimensions="2D", scale=1.0 / self.size))
                 flat = centers.reshape(-1, 2)
-                return evaluated(frosted, flat, np.zeros(len(flat)), seed=self.seed, stream=textures.stream(Refraction))[:, 0].reshape(centers.shape[:-1])
+                return evaluated(identity, frosted, flat, np.zeros(len(flat)), seed=self.seed, stream=tiles.stream(Refraction))[:, 0].reshape(centers.shape[:-1])
 
 
 class Displacement(Effect, frozen=True, kw_only=True):
@@ -296,11 +304,11 @@ class Displacement(Effect, frozen=True, kw_only=True):
 
     def applied(
         self,
+        identity: Identity,
         image: OpenImageIO.ImageBuf,
-        raster: Raster,
-        extent: npt.NDArray[np.float64],
+        camera: CameraFrame,
+        scene: bpy.types.Scene,
         *,
-        frame: float,
         luminance: npt.NDArray[np.float64],
         gain: float,
         mapping: Option[npt.NDArray[np.float32]],
@@ -309,10 +317,10 @@ class Displacement(Effect, frozen=True, kw_only=True):
         """Integrates refracted color over each pixel.
 
         Args:
+            identity: Extension owning the scratch trees evaluating procedural fields.
             image: Associated stage input, rows top first.
-            raster: Data window in original camera units and its pixel grid.
-            extent: Displayed camera frame width and height.
-            frame: Scene frame the clocks hold.
+            camera: Camera frame mapping the data window into original camera units and its displayed width and height.
+            scene: Scene whose current frame the clocks hold at its frame rate.
             luminance: Scene-linear luminance coefficients.
             gain: Keyed gain of later exposure entries, scaling the luminance height's middle gray.
             mapping: Linear map image, the input image when absent.
@@ -321,6 +329,10 @@ class Displacement(Effect, frozen=True, kw_only=True):
         Returns:
             Estimated image with replicate error, or image faults.
         """
+        spec = image.spec()
+        bounds, size = camera.window(spec)
+        raster, extent = Raster(bounds=bounds, shape=(spec.height, spec.width)), np.asarray(size, dtype=np.float64)
+        frame, rate = scene.frame_current_final, scene.render.fps / scene.render.fps_base
         wrap = (self.extension_x.wrap, self.extension_y.wrap)
 
         def computed(source: npt.NDArray[np.float32]) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
@@ -336,12 +348,12 @@ class Displacement(Effect, frozen=True, kw_only=True):
             bubble_height = softened(base, raster, self.bubbles.softness) if self.bubbles is not None else base
             rain = self.raindrops
             rain_gradient = (
-                rain.strength * rain.drops.spacing * slope(softened(rain.sampled(centers.reshape(-1, 2), frame)[:, 3].reshape(height, width), raster, rain.softness), raster)
+                rain.strength * rain.drops.spacing * slope(softened(rain.sampled(centers.reshape(-1, 2), frame, rate)[:, 3].reshape(height, width), raster, rain.softness), raster)
                 if rain is not None and rain.strength != 0.0
                 else np.zeros((height, width, 2))
             )
             glass = self.refraction
-            glass_gradient = glass.strength * glass.size * slope(softened(glass.height(centers), raster, glass.softness), raster) if glass is not None else np.zeros((height, width, 2))
+            glass_gradient = glass.strength * glass.size * slope(softened(glass.height(identity, centers), raster, glass.softness), raster) if glass is not None else np.zeros((height, width, 2))
             request = Map() if self.map is None else self.map
             plane = mapping.default_value(source)
             map_origin, map_span = (
@@ -371,8 +383,8 @@ class Displacement(Effect, frozen=True, kw_only=True):
                 coverage = np.ones(points.shape[:-1], dtype=np.float64)
                 terms = (
                     *(() if self.twirl is None else (self.twirl.displaced(points, extent),)),
-                    *(() if self.wave is None else (self.wave.displaced(points, extent, frame),)),
-                    *(() if self.turbulence is None else (self.turbulence.displaced(points, frame),)),
+                    *(() if self.wave is None else (self.wave.displaced(points, extent, frame, rate),)),
+                    *(() if self.turbulence is None else (self.turbulence.displaced(identity, points, frame, rate),)),
                     *(() if self.sphere is None else (self.sphere.displaced(points, extent),)),
                     *(
                         (self.luma.amplitude * (2.0 * tapped(luma_height, raster, points) - 1.0)[..., None] * np.array((cos(self.luma.direction), sin(self.luma.direction))),)
@@ -403,7 +415,7 @@ class Displacement(Effect, frozen=True, kw_only=True):
             def dropped(points: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
                 if rain is None:
                     return np.zeros(points.shape[:-1]), np.zeros_like(points)
-                field = rain.sampled(points.reshape(-1, 2), frame)
+                field = rain.sampled(points.reshape(-1, 2), frame, rate)
                 return field[:, 2].reshape(points.shape[:-1]), field[:, :2].reshape(points.shape) + np.stack([tapped(rain_gradient[..., axis], raster, points) for axis in range(2)], axis=-1)
 
             def observed(points: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
@@ -436,12 +448,17 @@ class Displacement(Effect, frozen=True, kw_only=True):
 
 @prepared.register
 def _(
-    record: Displacement, values: Mapping[Key, Value], config: PyOpenColorIO.Config, image: OpenImageIO.ImageBuf, precision: Precision, frame: CameraFrame, scene: bpy.types.Scene, /
+    record: Displacement,
+    identity: Identity,
+    values: Mapping[Key, Value],
+    config: PyOpenColorIO.Config,
+    image: OpenImageIO.ImageBuf,
+    precision: Precision,
+    frame: CameraFrame,
+    scene: bpy.types.Scene,
+    /,
 ) -> Outcome[Option[OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]:
     """Integrates the displaced stage input under original camera coordinates and the keyed gain of later exposure entries, unstaged while no field displaces."""
-    spec = image.spec()
-    bounds, extent = frame.window(spec)
-    raster = Raster(bounds=bounds, shape=(spec.height, spec.width))
 
     def linear(request: Map, file: ImageFile[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
         return Ok(file.pixels) if request.data else converted(config, PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR), file.pixels)
@@ -449,7 +466,7 @@ def _(
     def mapped(request: Map | None) -> Outcome[Option[npt.NDArray[np.float32]]]:
         match request:
             case Map(source=str(path)):
-                return read_file(path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA) if request.data else Nothing).bind(functools.partial(linear, request)).map(Some)
+                return read_file(Path(path), config, colorspace=Some(PyOpenColorIO.ROLE_DATA) if request.data else Nothing, untagged=Some(UNTAGGED)).bind(functools.partial(linear, request)).map(Some)
             case _:
                 return Ok(Nothing)
 
@@ -457,7 +474,7 @@ def _(
         match values.get(LATER.key):
             case float(gain) if field.active:
                 return paired(luma(config), mapped(field.map)).bind(
-                    lambda parts: field.applied(image, raster, np.asarray(extent), frame=scene.frame_current_final, luminance=parts[0], gain=gain, mapping=parts[1], precision=precision).map(Some)
+                    lambda parts: field.applied(identity, image, frame, scene, luminance=parts[0], gain=gain, mapping=parts[1], precision=precision).map(Some)
                 )
             case float():
                 return Ok(Nothing)
@@ -469,14 +486,14 @@ def _(
 
 def warped(shell: Shell[Displacement]) -> Outcome[Expr]:
     """Reads the image the CPU render prepared, the stage input outside one."""
-    return Ok(shell.color if shell.record.staged is None else Expr(kind=bpy.types.CompositorNodeImage, members=(("image", shell.record.staged),), socket="Image", shape="RGBA"))
+    return Ok(shell.color if shell.record.staged is None else Expr(kind=bpy.types.CompositorNodeImage, members={"image": shell.record.staged}, socket="Image", shape=bpy.types.NodeSocketColor))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-displacement = CompositorEffect[Displacement](
+displacement: Final = CompositorEffect(
+    warped,
     record=Displacement,
-    graph=warped,
     interface=Interface(
         inputs=(
             LATER,
@@ -486,12 +503,12 @@ displacement = CompositorEffect[Displacement](
                     name=bpy.path.display_name(f"extension_{axis}"),
                     kind=bpy.types.NodeSocketMenu,
                     description=f"Source sampling past frame edges along {axis.upper()}",
-                    members={"default_value": Border.CLAMP.item.name},
+                    default_value=Border.CLAMP.item.name,
                     items=Some(BORDERS),
                 )
                 for axis in ("x", "y")
             ),
-            Socket(key="filterwidth", name="Filter Width", kind=bpy.types.NodeSocketFloat, description="Filter support width in source pixels", members={"min_value": 0.0, "default_value": 2.0}),
+            Socket(key="filterwidth", name="Filter Width", kind=bpy.types.NodeSocketFloat, description="Filter support width in source pixels", min_value=0.0, default_value=2.0),
         ),
         panels=(
             InterfacePanel(
@@ -499,16 +516,14 @@ displacement = CompositorEffect[Displacement](
                 name="Twirl",
                 description="Turn about a center with a smooth falloff",
                 toggle=Some(False),
-                inputs=tuple(
-                    Socket(key=item_key("twirl", field), name=bpy.path.display_name(field), kind=kind, description=text, members=members)
-                    for field, kind, text, members in (
-                        ("center", bpy.types.NodeSocketVector, "Point twirl turns about", {**PLANAR, "default_value": (0.5, 0.5)}),
-                        ("radius", bpy.types.NodeSocketFloat, "Distance where turn reaches zero", {"min_value": 0.0, "default_value": 0.5}),
-                        ("angle", bpy.types.NodeSocketFloat, "Counterclockwise turn at center", {**ANGLE, "default_value": 6.1}),
-                        ("falloff", bpy.types.NodeSocketFloat, "Radial falloff power", {"min_value": 0.0, "default_value": 1.0}),
-                        ("arms", bpy.types.NodeSocketInt, "Angular turn lobes, uniform at zero", {"min_value": 0}),
-                        ("arm_offset", bpy.types.NodeSocketFloat, "Angular lobe turn", ANGLE),
-                    )
+                inputs=fields(
+                    "twirl",
+                    Socket(key="center", kind=bpy.types.NodeSocketVector2D, description="Point twirl turns about", default_value=(0.5, 0.5)),
+                    Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Distance where turn reaches zero", min_value=0.0, default_value=0.5),
+                    Socket(key="angle", kind=bpy.types.NodeSocketFloatAngle, description="Counterclockwise turn at center", default_value=6.1),
+                    Socket(key="falloff", kind=bpy.types.NodeSocketFloat, description="Radial falloff power", min_value=0.0, default_value=1.0),
+                    Socket(key="arms", kind=bpy.types.NodeSocketInt, description="Angular turn lobes, uniform at zero", min_value=0),
+                    Socket(key="arm_offset", kind=bpy.types.NodeSocketFloatAngle, description="Angular lobe turn"),
                 ),
             ),
             InterfacePanel(
@@ -522,25 +537,23 @@ displacement = CompositorEffect[Displacement](
                         name="Front",
                         kind=bpy.types.NodeSocketMenu,
                         description="Wave front shape and displacement direction",
-                        members={"default_value": bpy.path.display_name(Wave().front.name.lower())},
+                        default_value=bpy.path.display_name(Wave().front.name.lower()),
                         items=Some(MenuItems(items=tuple(MenuItem(name=bpy.path.display_name(front.name.lower())) for front in Front))),
                     ),
-                    *(
-                        Socket(key=item_key("wave", field), name=bpy.path.display_name(field), kind=kind, description=text, members=members)
-                        for field, kind, text, members in (
-                            ("amplitude", bpy.types.NodeSocketFloat, "Farthest wave offset", {"min_value": 0.0, "default_value": 0.02}),
-                            ("wavelength", bpy.types.NodeSocketFloat, "Distance between crests", {"min_value": 0.0, "default_value": tau / (20.0 * 2.0**0.5)}),
-                            ("direction", bpy.types.NodeSocketFloat, "Wave travel direction", ANGLE),
-                            ("phase", bpy.types.NodeSocketFloat, "Wave phase offset", ANGLE),
-                            ("count", bpy.types.NodeSocketInt, "Waves superposed with equal total weight", {"min_value": 1, "default_value": 1}),
-                            ("wavelength_variation", bpy.types.NodeSocketFloat, "Share each wavelength shrinks below maximum", {"min_value": 0.0, "max_value": 0.999}),
-                            ("amplitude_variation", bpy.types.NodeSocketFloat, "Share each amplitude shrinks below maximum", FACTOR),
-                            ("spread", bpy.types.NodeSocketFloat, "Angular span of wave directions", ANGLE),
-                            ("axes", bpy.types.NodeSocketVector, "Signed displacement multiplier per axis", {**PLANAR, "default_value": (1.0, 1.0)}),
-                            ("center", bpy.types.NodeSocketVector, "Circular front center", {**PLANAR, "default_value": (0.5, 0.5)}),
-                            ("radius", bpy.types.NodeSocketFloat, "Circular front reach", {"min_value": 0.0, "default_value": 0.5}),
-                            ("seed", bpy.types.NodeSocketInt, "Number selecting each wave's variation", {"min_value": 0, "max_value": 2**24}),
-                        )
+                    *fields(
+                        "wave",
+                        Socket(key="amplitude", kind=bpy.types.NodeSocketFloat, description="Farthest wave offset", min_value=0.0, default_value=0.02),
+                        Socket(key="wavelength", kind=bpy.types.NodeSocketFloat, description="Distance between crests", min_value=0.0, default_value=tau / (20.0 * 2.0**0.5)),
+                        Socket(key="direction", kind=bpy.types.NodeSocketFloatAngle, description="Wave travel direction"),
+                        Socket(key="phase", kind=bpy.types.NodeSocketFloatAngle, description="Wave phase offset"),
+                        Socket(key="count", kind=bpy.types.NodeSocketInt, description="Waves superposed with equal total weight", min_value=1, default_value=1),
+                        Socket(key="wavelength_variation", kind=bpy.types.NodeSocketFloat, description="Share each wavelength shrinks below maximum", min_value=0.0, max_value=0.999),
+                        Socket(key="amplitude_variation", kind=bpy.types.NodeSocketFloatFactor, description="Share each amplitude shrinks below maximum"),
+                        Socket(key="spread", kind=bpy.types.NodeSocketFloatAngle, description="Angular span of wave directions"),
+                        Socket(key="axes", kind=bpy.types.NodeSocketVector2D, description="Signed displacement multiplier per axis", default_value=(1.0, 1.0)),
+                        Socket(key="center", kind=bpy.types.NodeSocketVector2D, description="Circular front center", default_value=(0.5, 0.5)),
+                        Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Circular front reach", min_value=0.0, default_value=0.5),
+                        Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting each wave's variation", min_value=0, max_value=2**24),
                     ),
                 ),
                 panels=(clock("wave_clock", speed=Wave().clock.speed),),
@@ -550,13 +563,11 @@ displacement = CompositorEffect[Displacement](
                 name="Turbulence",
                 description="Movement along evolving procedural noise",
                 toggle=Some(False),
-                inputs=tuple(
-                    Socket(key=item_key("turbulence", field), name=bpy.path.display_name(field), kind=kind, description=text, members=members)
-                    for field, kind, text, members in (
-                        ("amplitude", bpy.types.NodeSocketFloat, "Farthest noise offset", {"min_value": 0.0, "default_value": 0.1}),
-                        ("axes", bpy.types.NodeSocketVector, "Signed displacement multiplier per axis", {**PLANAR, "default_value": (1.0, 1.0)}),
-                        ("seed", bpy.types.NodeSocketInt, "Number selecting pattern", {"min_value": 0, "max_value": 2**24}),
-                    )
+                inputs=fields(
+                    "turbulence",
+                    Socket(key="amplitude", kind=bpy.types.NodeSocketFloat, description="Farthest noise offset", min_value=0.0, default_value=0.1),
+                    Socket(key="axes", kind=bpy.types.NodeSocketVector2D, description="Signed displacement multiplier per axis", default_value=(1.0, 1.0)),
+                    Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting pattern", min_value=0, max_value=2**24),
                 ),
                 panels=(bases("turbulence_basis", Turbulence().basis, "Noise sampled per displacement axis"), clock("turbulence_clock", speed=Turbulence().clock.speed)),
             ),
@@ -565,14 +576,12 @@ displacement = CompositorEffect[Displacement](
                 name="Sphere",
                 description="Bulge or pinch inside a circle",
                 toggle=Some(False),
-                inputs=tuple(
-                    Socket(key=item_key("sphere", field), name=bpy.path.display_name(field), kind=kind, description=text, members=members)
-                    for field, kind, text, members in (
-                        ("center", bpy.types.NodeSocketVector, "Sphere center", {**PLANAR, "default_value": (0.5, 0.5)}),
-                        ("radius", bpy.types.NodeSocketFloat, "Sphere radius", {"min_value": 0.0, "default_value": 0.15}),
-                        ("amount", bpy.types.NodeSocketFloat, "Bulge above zero, pinch below zero", {"min_value": -1.0, "max_value": 1.0, "default_value": 0.1}),
-                        ("axes", bpy.types.NodeSocketVector, "Bulge share per axis", {**PLANAR, "min_value": 0.0, "max_value": 1.0, "default_value": (1.0, 1.0)}),
-                    )
+                inputs=fields(
+                    "sphere",
+                    Socket(key="center", kind=bpy.types.NodeSocketVector2D, description="Sphere center", default_value=(0.5, 0.5)),
+                    Socket(key="radius", kind=bpy.types.NodeSocketFloat, description="Sphere radius", min_value=0.0, default_value=0.15),
+                    Socket(key="amount", kind=bpy.types.NodeSocketFloat, description="Bulge above zero, pinch below zero", min_value=-1.0, max_value=1.0, default_value=0.1),
+                    Socket(key="axes", kind=bpy.types.NodeSocketVector2D, description="Bulge share per axis", min_value=0.0, max_value=1.0, default_value=(1.0, 1.0)),
                 ),
             ),
             InterfacePanel(
@@ -580,13 +589,11 @@ displacement = CompositorEffect[Displacement](
                 name="Luma",
                 description="Bright and dark content moving apart",
                 toggle=Some(False),
-                inputs=tuple(
-                    Socket(key=item_key("luma", field), name=bpy.path.display_name(field), kind=bpy.types.NodeSocketFloat, description=text, members=members)
-                    for field, text, members in (
-                        ("amplitude", "Offset approached by bright content, black moving against it", {"min_value": 0.0, "default_value": 0.02}),
-                        ("direction", "Direction bright content moves", ANGLE),
-                        ("softness", "Luminance height blur", {"min_value": 0.0, "default_value": 0.015}),
-                    )
+                inputs=fields(
+                    "luma",
+                    Socket(key="amplitude", kind=bpy.types.NodeSocketFloat, description="Offset approached by bright content, black moving against it", min_value=0.0, default_value=0.02),
+                    Socket(key="direction", kind=bpy.types.NodeSocketFloatAngle, description="Direction bright content moves"),
+                    Socket(key="softness", kind=bpy.types.NodeSocketFloat, description="Luminance height blur", min_value=0.0, default_value=0.015),
                 ),
             ),
             InterfacePanel(
@@ -595,7 +602,7 @@ displacement = CompositorEffect[Displacement](
                 description="Refraction through frame luminance height",
                 toggle=Some(False),
                 inputs=tuple(
-                    Socket(key=item_key("bubbles", field), name=bpy.path.display_name(field), kind=bpy.types.NodeSocketFloat, description=text, members={"min_value": 0.0, "default_value": default})
+                    Socket(key=item_key("bubbles", field), name=bpy.path.display_name(field), kind=bpy.types.NodeSocketFloat, description=text, min_value=0.0, default_value=default)
                     for field, text, default in (("amplitude", "Refraction strength", 0.02), ("softness", "Height blur and finite-difference span, no displacement at zero", 0.015))
                 ),
             ),
@@ -604,33 +611,29 @@ displacement = CompositorEffect[Displacement](
                 name="Raindrops",
                 description="Drops on lens showing scene inverted",
                 toggle=Some(False),
-                inputs=tuple(
-                    Socket(key=item_key("raindrops", field), name=bpy.path.display_name(field), kind=kind, description=text, members=members)
-                    for field, kind, text, members in (
-                        ("refraction", bpy.types.NodeSocketFloat, "Scene radii each drop shows inverted", {"min_value": 0.0, "default_value": 2.0}),
-                        ("blur", bpy.types.NodeSocketFloat, "View blur radius inside each drop over greater frame side", {"min_value": 0.0, "default_value": Raindrops().blur}),
-                        ("direction", bpy.types.NodeSocketFloat, "Drop fall slant from straight down", ANGLE),
-                        ("trails", bpy.types.NodeSocketFloat, "Trail height behind each drop", FACTOR),
-                        ("seed", bpy.types.NodeSocketInt, "Number selecting drop population", {"min_value": 0, "max_value": 2**24}),
-                        ("strength", bpy.types.NodeSocketFloat, "Signed refraction through trail height", {}),
-                        ("softness", bpy.types.NodeSocketFloat, "Trail height blur radius", {"min_value": 0.0, "default_value": 0.015}),
-                    )
+                inputs=fields(
+                    "raindrops",
+                    Socket(key="refraction", kind=bpy.types.NodeSocketFloat, description="Scene radii each drop shows inverted", min_value=0.0, default_value=2.0),
+                    Socket(key="blur", kind=bpy.types.NodeSocketFloat, description="View blur radius inside each drop over greater frame side", min_value=0.0, default_value=Raindrops().blur),
+                    Socket(key="direction", kind=bpy.types.NodeSocketFloatAngle, description="Drop fall slant from straight down"),
+                    Socket(key="trails", kind=bpy.types.NodeSocketFloatFactor, description="Trail height behind each drop"),
+                    Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting drop population", min_value=0, max_value=2**24),
+                    Socket(key="strength", kind=bpy.types.NodeSocketFloat, description="Signed refraction through trail height"),
+                    Socket(key="softness", kind=bpy.types.NodeSocketFloat, description="Trail height blur radius", min_value=0.0, default_value=0.015),
                 ),
                 panels=(
                     InterfacePanel(
                         key="raindrops_drops",
                         name="Drops",
                         description="Drops placed one per cell at most",
-                        inputs=tuple(
-                            Socket(key=item_key("raindrops_drops", field), name=bpy.path.display_name(field), kind=bpy.types.NodeSocketFloat, description=text, members=members)
-                            for field, text, members in (
-                                ("spacing", "Cell width over greater frame side", {"min_value": 0.0, "default_value": 1.0 / (2.0 * 3.8)}),
-                                ("density", "Share of cells holding a drop", {**FACTOR, "default_value": 0.5}),
-                                ("size", "Drop diameter over cell width", {"min_value": 0.0, "max_value": 0.5, "default_value": 0.5}),
-                                ("variation", "Diameter shrink share below size", {**FACTOR, "default_value": 0.5}),
-                                ("spread", "Per-drop coverage drop in stops", {"min_value": 0.0}),
-                                ("softness", "Edge fade over radius", {**FACTOR, "default_value": 0.05}),
-                            )
+                        inputs=fields(
+                            "raindrops_drops",
+                            Socket(key="spacing", kind=bpy.types.NodeSocketFloat, description="Cell width over greater frame side", min_value=0.0, default_value=1.0 / (2.0 * 3.8)),
+                            Socket(key="density", kind=bpy.types.NodeSocketFloatFactor, description="Share of cells holding a drop", default_value=0.5),
+                            Socket(key="size", kind=bpy.types.NodeSocketFloat, description="Drop diameter over cell width", min_value=0.0, max_value=0.5, default_value=0.5),
+                            Socket(key="variation", kind=bpy.types.NodeSocketFloatFactor, description="Diameter shrink share below size", default_value=0.5),
+                            Socket(key="spread", kind=bpy.types.NodeSocketFloat, description="Per-drop coverage drop in stops", min_value=0.0),
+                            Socket(key="softness", kind=bpy.types.NodeSocketFloatFactor, description="Edge fade over radius", default_value=0.05),
                         ),
                     ),
                     clock("raindrops_clock", speed=Raindrops().clock.speed),
@@ -647,16 +650,14 @@ displacement = CompositorEffect[Displacement](
                         name="Reading",
                         kind=bpy.types.NodeSocketMenu,
                         description="Image channel meaning",
-                        members={"default_value": bpy.path.display_name(Map().reading.name.lower())},
+                        default_value=bpy.path.display_name(Map().reading.name.lower()),
                         items=Some(MenuItems(items=tuple(MenuItem(name=bpy.path.display_name(reading.name.lower())) for reading in MapReading))),
                     ),
-                    *(
-                        Socket(key=item_key("map", field), name=bpy.path.display_name(field), kind=kind, description=text, members=members)
-                        for field, kind, text, members in (
-                            ("axes", bpy.types.NodeSocketVector, "Signed offset per axis", {**PLANAR, "default_value": (0.02, 0.02)}),
-                            ("rotation", bpy.types.NodeSocketFloat, "Map and displacement axes turn", ANGLE),
-                            ("softness", bpy.types.NodeSocketFloat, "Luminance height blur radius", {"min_value": 0.0, "default_value": 0.015}),
-                        )
+                    *fields(
+                        "map",
+                        Socket(key="axes", kind=bpy.types.NodeSocketVector2D, description="Signed offset per axis", default_value=(0.02, 0.02)),
+                        Socket(key="rotation", kind=bpy.types.NodeSocketFloatAngle, description="Map and displacement axes turn"),
+                        Socket(key="softness", kind=bpy.types.NodeSocketFloat, description="Luminance height blur radius", min_value=0.0, default_value=0.015),
                     ),
                 ),
                 panels=(
@@ -665,15 +666,7 @@ displacement = CompositorEffect[Displacement](
                         name="Tile",
                         description="Map tile size",
                         toggle=Some(False),
-                        inputs=(
-                            Socket(
-                                key="map_tile_value",
-                                name="Value",
-                                kind=bpy.types.NodeSocketVector,
-                                description="Map tile size over greater frame side",
-                                members={**PLANAR, "default_value": (1.0, 1.0)},
-                            ),
-                        ),
+                        inputs=(Socket(key="map_tile_value", name="Value", kind=bpy.types.NodeSocketVector2D, description="Map tile size over greater frame side", default_value=(1.0, 1.0)),),
                     ),
                 ),
             ),
@@ -688,25 +681,24 @@ displacement = CompositorEffect[Displacement](
                         name="Surface",
                         kind=bpy.types.NodeSocketMenu,
                         description="Glass height function",
-                        members={"default_value": bpy.path.display_name(Refraction().surface.name.lower())},
+                        default_value=bpy.path.display_name(Refraction().surface.name.lower()),
                         items=Some(MenuItems(items=tuple(MenuItem(name=bpy.path.display_name(surface.name.lower())) for surface in Surface))),
                     ),
-                    *(
-                        Socket(key=item_key("refraction", field), name=bpy.path.display_name(field), kind=kind, description=text, members=members)
-                        for field, kind, text, members in (
-                            ("size", bpy.types.NodeSocketFloat, "Glass cell width", {"min_value": 0.0, "default_value": 0.1}),
-                            ("strength", bpy.types.NodeSocketFloat, "Signed displacement per unit slope in glass-cell coordinates", {"default_value": 0.02}),
-                            ("softness", bpy.types.NodeSocketFloat, "Glass height blur radius", {"min_value": 0.0, "default_value": 0.015}),
-                            ("blur", bpy.types.NodeSocketFloat, "Refracted image blur radius", {"min_value": 0.0}),
-                            ("seed", bpy.types.NodeSocketInt, "Number selecting frosted height", {"min_value": 0, "max_value": 2**24}),
-                        )
+                    *fields(
+                        "refraction",
+                        Socket(key="size", kind=bpy.types.NodeSocketFloat, description="Glass cell width", min_value=0.0, default_value=0.1),
+                        Socket(key="strength", kind=bpy.types.NodeSocketFloat, description="Signed displacement per unit slope in glass-cell coordinates", default_value=0.02),
+                        Socket(key="softness", kind=bpy.types.NodeSocketFloat, description="Glass height blur radius", min_value=0.0, default_value=0.015),
+                        Socket(key="blur", kind=bpy.types.NodeSocketFloat, description="Refracted image blur radius", min_value=0.0),
+                        Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting frosted height", min_value=0, max_value=2**24),
                     ),
                 ),
             ),
         ),
     ),
-    alpha=Alpha.RESULT,
-    parts=(Requests[Displacement](request=precise), Animates[Displacement](keys=later)),
+    mix=Blended(alpha=Alpha.RESULT),
+    request=Some(precise),
+    animates=Some(later),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

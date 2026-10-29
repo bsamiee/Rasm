@@ -9,10 +9,12 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.data.ids.images import Tag
+from blender.bpy.data.ids.images import Generated, Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.extension.identity import Key
-from blender.bpy.nodes.graphs import Expr, Generated, grouped, math, Points, vector, xyz
+from blender.bpy.nodes.content import Points
+from blender.bpy.nodes.functions import grouped
+from blender.bpy.nodes.graphs import Expr, math, matrix, transformed, vector, xyz
 from blender.bpy.render.compositor.colors import AXES, space_item
 from blender.imaging.color.luts import Lattice, Logarithmic, Rational, split, Uniform
 from blender.imaging.color.processors import converted, processor
@@ -29,7 +31,7 @@ TILES: Final = Ownership(kind=bpy.types.Image, key="table", saved=Saved.USED)
 # --- [LATTICES]
 
 
-@grouped("tetrahedral", "Tetrahedral Lookup", bpy.types.CompositorNodeTree)
+@grouped(kind=bpy.types.CompositorNodeTree)
 def tetrahedral(encoded: Annotated[Expr, bpy.types.NodeSocketVector], tile: Annotated[Expr, bpy.types.NodeSocketColor], size: Expr | float) -> Mapping[Key, Expr]:
     """Tetrahedral interpolation of a packed table tile at encoded coordinates over the table's cube size."""
     limit = size - 1.0
@@ -54,26 +56,16 @@ def tetrahedral(encoded: Annotated[Expr, bpy.types.NodeSocketVector], tile: Anno
         (0.0, 0.0, 0.0, 1.0),
         (0.0, 0.0, 0.0, 1.0),
     )
-    addressing = Expr(
-        kind=bpy.types.FunctionNodeCombineMatrix,
-        inputs=tuple((f"Column {column} Row {row}", cell) for row, row_cells in enumerate(cells, 1) for column, cell in enumerate(row_cells, 1)),
-        socket="Matrix",
-    )
+    addressing = matrix({(row, column): cell for row, row_cells in enumerate(cells, 1) for column, cell in enumerate(row_cells, 1)})
     vertices = (base, vector("MINIMUM", base + toward, limits), vector("MINIMUM", opposite - away, limits), vector("MINIMUM", opposite, limits))
     terms = tuple(
         vector(
             "SCALE",
             Expr(
                 kind=bpy.types.CompositorNodeMapUV,
-                inputs=(
-                    ("Image", tile),
-                    ("UV", Expr(kind=bpy.types.FunctionNodeTransformPoint, inputs=(("Vector", vertex), ("Transform", addressing)), socket="Vector", shape="VECTOR")),
-                    ("Interpolation", "Nearest"),
-                    ("Extension X", "Extend"),
-                    ("Extension Y", "Extend"),
-                ),
+                inputs=(("Image", tile), ("UV", transformed(vertex, addressing)), ("Interpolation", "Nearest"), ("Extension X", "Extend"), ("Extension Y", "Extend")),
                 socket="Image",
-                shape="RGBA",
+                shape=bpy.types.NodeSocketColor,
             ),
             weight,
         )
@@ -109,7 +101,7 @@ def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32]
 
     def sampled(data: str) -> Expr:
         image = Generated(ownership=TILES, content=content_hash(Lattice, lattice, arrays=(plane,)), name=name, plane=lambda: Ok(Some(plane)), tag=Tag(space=Some(data)))
-        return tetrahedral(encoded, Expr(kind=bpy.types.CompositorNodeImage, content=Some(image), socket="Image", shape="RGBA").named(key), float(lattice.size))
+        return tetrahedral(encoded, Expr(kind=bpy.types.CompositorNodeImage, content=Some(image), socket="Image", shape=bpy.types.NodeSocketColor).named(key), float(lattice.size))
 
     return space_item(config, PyOpenColorIO.ROLE_DATA).map(sampled)
 

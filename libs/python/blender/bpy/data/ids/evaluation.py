@@ -6,13 +6,13 @@ from functools import partial
 from typing import Protocol, Self
 
 import bpy
-from expression import Nothing, Option, Some
+from expression import Nothing, Option, Result, Some
 from expression.extra.result import catch
 from mathutils import Matrix, Vector
 import msgspec
 
 from blender.bpy.data.ids.store import Handle, original
-from blender.bpy.extension.events import Change, changed
+from blender.bpy.extension.events import Change
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import Fault, Outcome
 
@@ -66,7 +66,7 @@ class Update(msgspec.Struct, frozen=True, kw_only=True):
     def of(cls, item: bpy.types.DepsgraphUpdate) -> Self:
         """Copies native update during handler call."""
         block: bpy.types.ID = item.id  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        return cls(handle=Handle.of(block), changes=changed(item))
+        return cls(handle=Handle.of(block), changes=Change.of(item))
 
 
 class Instancing(msgspec.Struct, frozen=True, kw_only=True):
@@ -91,10 +91,10 @@ class Instance(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Hit(msgspec.Struct, frozen=True, kw_only=True):
-    """Object-space surface hit."""
+    """Object-space surface hit, location and normal as coordinates."""
 
-    location: Vector
-    normal: Vector
+    location: tuple[float, ...]
+    normal: tuple[float, ...]
     face: int
 
 
@@ -164,13 +164,14 @@ def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector
         Optional hit, edit fault for a refused query.
     """
 
-    def answered() -> Option[Hit]:
-        found, location, normal, face = direction.map(lambda toward: source.ray_cast(origin, toward, distance=distance, depsgraph=depsgraph)).default_with(
-            lambda: source.closest_point_on_mesh(origin, distance=distance, depsgraph=depsgraph)
-        )
-        return Some(Hit(location=location, normal=normal, face=face)) if found else Nothing  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    def answered(found: tuple[bool, Vector, Vector, int]) -> Option[Hit]:
+        held, location, normal, face = found
+        return Some(Hit(location=location[:], normal=normal[:], face=face)) if held else Nothing
 
-    return catch(answered, exception=RuntimeError)().map_error(partial(Fault.of, BlenderReason.REFUSED, repr(source)))
+    queried: Result[tuple[bool, Vector, Vector, int], RuntimeError] = direction.map(
+        lambda toward: catch(source.ray_cast, exception=RuntimeError)(origin, toward, distance=distance, depsgraph=depsgraph)
+    ).default_with(lambda: catch(source.closest_point_on_mesh, exception=RuntimeError)(origin, distance=distance, depsgraph=depsgraph))
+    return queried.map(answered).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(source)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

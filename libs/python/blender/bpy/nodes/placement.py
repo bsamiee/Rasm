@@ -9,11 +9,11 @@ from expression import Nothing, Ok, Option
 import msgspec
 
 from blender.bpy.data.ids.content import endpoints
-from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.ids.store import Handle, holder
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band
+from blender.bpy.nodes.addressing import owned
 from blender.bpy.nodes.trees import tree_of
 from blender.bpy.ui.drawing.handlers import hooked
 from blender.records.faults import accumulated, Outcome
@@ -21,7 +21,7 @@ from blender.records.trees import Gaps, Size
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-LOCATION: Final = Descriptor.declared(bpy.types.Node, "location_absolute", bpy.types.FloatProperty)
+LOCATION: Final = Descriptor.declared(bpy.types.Node, ("location_absolute",), bpy.types.FloatProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
 
     def owned(self, tree: bpy.types.NodeTree, identity: Identity) -> tuple[tuple[str, tuple[float, float]], ...]:
         """Returns changed owned node positions once every owned node draws."""
-        marked = {node.name: node for node in tree.nodes if not isinstance(node, bpy.types.NodeFrame) and Mark.read(identity, node).is_some()}
+        marked = _arranged(tree, identity)
         sizes = {name: measured(node) for name, node in marked.items()}
         slots = {socket.as_pointer(): slot for node in marked.values() for slot, socket in enumerate(node.outputs)}
         links = tuple(
@@ -67,11 +67,7 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
                 held
                 .resolve()
                 .bind(tree_of)
-                .bind(
-                    lambda tree: accumulated(
-                        LOCATION.write(node, desired[node.name]) for node in tree.nodes if node.name in desired and not isinstance(node, bpy.types.NodeFrame) and Mark.read(identity, node).is_some()
-                    )
-                )
+                .bind(lambda tree: accumulated(LOCATION.write(node, desired[name]) for name, node in _arranged(tree, identity).items() if name in desired))
                 .map(lambda _: Nothing)
             )
 
@@ -103,6 +99,11 @@ def measured(node: bpy.types.Node) -> Size:
     preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     size, scale = node.dimensions, preferences.system.ui_scale
     return Size(width=size.x / scale, height=size.y / scale)
+
+
+def _arranged(tree: bpy.types.NodeTree, identity: Identity) -> dict[str, bpy.types.Node]:
+    """Owned nodes a layout places, frames left to wrap their members, by node name."""
+    return {node.name: node for node in owned(tree, identity).values() if not isinstance(node, bpy.types.NodeFrame)}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

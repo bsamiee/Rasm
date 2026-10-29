@@ -14,8 +14,12 @@ import numpy.typing as npt
 
 from blender.bpy.extension.identity import Resource
 from blender.bpy.faults import BlenderReason
-from blender.imaging.files.buffers import unassociated
 from blender.records.faults import Fault, Outcome
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_FORMAT: Final = "RGBA16F"
+_COMPONENT: Final = np.dtype(np.float16)
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -31,8 +35,14 @@ class Textures:
 
     @property
     def memory(self) -> int:
-        """Estimated RGBA16F base-level pixel bytes."""
-        return sum(texture.width * texture.height for texture in self.held.values()) * 4 * np.dtype(np.float16).itemsize
+        """Estimated base-level pixel bytes in the upload format."""
+        return sum(texture.width * texture.height for texture in self.held.values()) * 4 * _COMPONENT.itemsize
+
+    def cleared(self) -> int:
+        """Releases every held texture, answering how many it held."""
+        count = len(self.held)
+        self.held.clear()
+        return count
 
     def shown(self, key: Hashable) -> Option[gpu.types.GPUTexture]:
         """Reads texture by content digest or request key, marking it most recent."""
@@ -41,7 +51,7 @@ class Textures:
         return Option.of_optional(self.held.get(key))
 
     def stored(self, key: Hashable, plane: npt.NDArray[np.float32], limit: int, kept: frozenset[Hashable]) -> Outcome[gpu.types.GPUTexture]:
-        """Uploads unassociated display colors, evicting oldest unpinned textures past limit.
+        """Uploads associated display colors drawn under `ALPHA_PREMULT` blending, evicting oldest unpinned textures past limit.
 
         Args:
             key: Content digest with color transfer, or render request key.
@@ -61,20 +71,20 @@ class Textures:
                 del self.held[victim]
             return texture
 
-        return uploaded(unassociated(plane)).map(published)
+        return uploaded(plane).map(published)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
-    """Uploads top-first RGBA into RGBA16F texture with bottom-first rows."""
+    """Uploads top-first RGBA into a half-float RGBA texture with bottom-first rows."""
     pixels = np.ascontiguousarray(plane[::-1])
     return (
-        catch(gpu.init, exception=RuntimeError)()
+        catch(gpu.init, exception=SystemError)()
         .map_error(partial(Fault.of, BlenderReason.REFUSED, "gpu.init"))
         .bind(
-            lambda _: catch(gpu.types.GPUTexture, exception=RuntimeError)((pixels.shape[1], pixels.shape[0]), format="RGBA16F", data=gpu.types.Buffer("FLOAT", pixels.shape, pixels)).map_error(  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            lambda _: catch(gpu.types.GPUTexture, exception=RuntimeError)((pixels.shape[1], pixels.shape[0]), format=_FORMAT, data=gpu.types.Buffer("FLOAT", pixels.shape, pixels)).map_error(  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 partial(Fault.of, BlenderReason.REFUSED, "gpu.types.GPUTexture")
             )
         )

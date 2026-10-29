@@ -391,12 +391,12 @@ environments             = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 prerelease               = "allow"
-constraint-dependencies  = ["numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'", "packaging==25.0; python_full_version < '3.15'"] # Versions Blender 5.4 bundles in the interpreter running host code
-no-build-package         = ["epdx", "numpy"]                                                                                                                                                                                          # `epdx` sdist lacks `project.version`, numpy sdists fail on Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`)
-extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                                                                               # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
+constraint-dependencies  = ["attrs==25.3.0; python_full_version < '3.15'", "cattrs==25.1.1; python_full_version < '3.15'", "numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'", "packaging==25.0; python_full_version < '3.15'"] # Versions Blender 5.4 bundles in the interpreter running host code
+no-build-package         = ["epdx", "numpy"]                                                                                                                                                                                                                                                                                         # `epdx` sdist lacks `project.version`, numpy sdists fail on Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`)
+extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                                                                                                                                                                              # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
 [tool.uv.workspace]
-members = ["libs/python/blender", "apps/blender/darkroom"]
+members = ["libs/python/blender", "apps/blender/darkroom", "tests/python/libs/blender/bpy/background"]
 
 [tool.uv.sources]
 blender = { workspace = true }
@@ -520,6 +520,7 @@ ignore                    = [
     "list-reverse-copy",                                                                                                                                                                                             # refurb FURB187 covers attribute receivers
 ]
 flake8-bandit             = { check-typed-exception = true }
+flake8-boolean-trap       = { extend-allowed-calls = ["expression.Ok", "expression.Some"] }
 flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", datetime = "datetime", scipy = "sp", sympy = "sym", xarray = "xr" }, banned-from = ["builtins"] }
 flake8-pytest-style       = { parametrize-names-type = "csv", raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError", "pydantic.ValidationError"] }
 flake8-type-checking      = { runtime-evaluated-base-classes = ["msgspec.Struct"] }
@@ -527,18 +528,18 @@ isort                     = { combine-as-imports = true, force-sort-within-secti
 pycodestyle               = { max-line-length = 300 }
 pydocstyle                = { convention = "google" }
 pydoclint                 = { ignore-one-line-docstrings = true }
-pylint                    = { allow-magic-value-types = ["str", "bytes", "int"], max-args = 8 }
+pylint                    = { allow-dunder-method-names = ["__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"], max-args = 9 }                                                             # Protocol properties type module attributes, which ty matches to a property alone, and Blender calls `UIList.draw_item` with the list and eight host values
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**"                              = ["assert"]
-"{libs/python/blender,apps/blender}/**" = [
-    "boolean-positional-value-in-call",              # bpy, gpu, RNA writes, and `Ok` take booleans as values (`gpu.state.scissor_test_set(True)`, `Ok(True)`)
-    "import-private-name",                           # Blender (`_bpy_internal`, `_bpy_types`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
-    "non-pep695-generic-class",                      # ty reads frozen `msgspec.Struct` fields as invariant, covariant records keep `TypeVar` variance
+"tests/**"                                                                       = ["assert"]
+"{libs/python/blender,apps/blender,tests/python/libs/blender/bpy/background}/**" = [
+    "boolean-positional-value-in-call",                                                       # bpy, gpu, and RNA writes take booleans as values (`gpu.state.scissor_test_set(True)`)
+    "import-private-name",                                                                    # Blender (`_bpy_internal`, `_bpy_types`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
+    "non-pep695-generic-class",                                                               # ty reads frozen `msgspec.Struct` fields as invariant, covariant records keep `TypeVar` variance
 ]
-"apps/blender/**"                       = [
-    "non-empty-init-module",                         # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
-    "relative-imports",                              # Blender imports extensions under `bl_ext.<repository>.<id>`, folders reach each other through relative imports alone
+"{apps/blender,tests/python/libs/blender/bpy/background/fixture}/**"             = [
+    "non-empty-init-module",                                                                  # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
+    "relative-imports",                                                                       # Blender imports extensions under `bl_ext.<repository>.<id>`, folders reach each other through relative imports alone
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]
@@ -648,12 +649,13 @@ environment = { python-version = "3.15", python-platform = "all", root = [".", "
 rules       = { all = "error", unsound-assignment = "ignore", unsound-return-statement = "ignore" } # `expression` `Ok` and `Error` build `Result[T, Any]`, each return and assignment of one reads as unsound
 
 [[tool.ty.overrides]]
-include  = ["libs/python/blender/**", "apps/blender/**"]
-analysis = { replace-imports-with-any = ["cycles.**"] }  # Blender supplies `cycles` with no typings package
+include  = ["libs/python/blender/**", "apps/blender/**", "tests/python/libs/blender/bpy/background/**"]
+analysis = { replace-imports-with-any = ["cycles.**"] }                                                 # Blender supplies `cycles` with no typings package
+rules    = { unsupported-dynamic-base = "ignore" }                                                      # Invoke forms derive the registered operator class from the class each command builds at registration, a base no MRO resolves before it
 
 [[tool.ty.overrides]]
-include = ["apps/blender/**"]
-rules   = { missing-direct-dependency = "ignore" } # Extensions import the `blender` library's dependency closure through their one `blender` row
+include = ["apps/blender/**", "tests/python/libs/blender/bpy/background/**"]
+rules   = { missing-direct-dependency = "ignore" }                           # Extensions import the `blender` library's dependency closure through their one `blender` row
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
@@ -668,9 +670,9 @@ explicit_package_bases  = true
 exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
-untyped_calls_exclude   = ["OpenImageIO", "picosvg", "skimage"]                                                                                                                                                                             # Packages without typed signatures, calls into them report as untyped
+untyped_calls_exclude   = ["OpenImageIO", "picosvg", "skimage"]                                                                                                                                                                                                                           # Packages without typed signatures, calls into them report as untyped
 enable_error_code       = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
-overrides               = [{ module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true }, { module = ["cycles.*"], ignore_missing_imports = true }, { module = ["blender.*", "apps.blender.*"], disallow_any_explicit = false }]
+overrides               = [{ module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true }, { module = ["cycles.*"], ignore_missing_imports = true }, { module = ["blender.*", "apps.blender.*", "tests.python.libs.blender.bpy.background.*"], disallow_any_explicit = false }]
 
 # --- [REFURB] ---------------------------------------------------------------------------
 

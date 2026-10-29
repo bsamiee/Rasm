@@ -4,7 +4,7 @@ from pathlib import Path
 
 from expression import Some
 
-from blender.bpy.extension.registration import scope
+from blender.bpy.extension.registration import Registration
 from blender.bpy.nodes.placement import Arranger
 from blender.bpy.render.previews.queue import PreviewQueue
 from blender.bpy.ui.resources.icons import Icons
@@ -16,7 +16,7 @@ from .review import calibration, charts, history, metering
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-register, unregister = scope(
+REGISTRATION = Registration(
     __name__,
     (
         Icons(brand=Some(Path("mark.svg"))),
@@ -36,6 +36,7 @@ register, unregister = scope(
         *history.rows,
     ),
 )
+register, unregister = REGISTRATION.register, REGISTRATION.unregister
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

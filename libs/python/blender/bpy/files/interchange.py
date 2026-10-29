@@ -1,11 +1,11 @@
-"""File handlers, export references, units, and collection exporters."""
+"""File handlers, export references, units, collection exporters, and exports through the host exporters."""
 
 from collections.abc import Callable, Mapping
 from contextlib import ExitStack
-from enum import Enum
 from functools import partial
 from itertools import starmap
 from pathlib import Path
+from types import MappingProxyType
 from typing import Final, Literal, TYPE_CHECKING
 
 import bpy
@@ -14,92 +14,49 @@ from expression import Error, identity, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.calls import called
+from blender.bpy.commands.calls import called, Operation, Setting
 from blender.bpy.commands.operators import Operator
 from blender.bpy.data.ids.ownership import retained
-from blender.bpy.data.rna.descriptors import assigned, definition, Descriptor, typed, Value
+from blender.bpy.data.rna.descriptors import Descriptor, Value
+from blender.bpy.data.rna.paths import definition
+from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Band
+from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason, typed
 from blender.records.stores import files_copied
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Drop = Callable[[bpy.types.Context], bool] | frozenset[rna_enums.SpaceTypeItems]
-type HandlerRows[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup] = Importing[I] | Exporting[E] | Bidirectional[I, E]
-
-
-class SceneFormat(Enum):
-    """Scene export formats valued by export operator."""
-
-    ALEMBIC = bpy.ops.wm.alembic_export
-    USD = bpy.ops.wm.usd_export
-
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-EXPORTER_NAME: Final = Descriptor.declared(bpy.types.CollectionExport, "name", bpy.types.StringProperty)
-_METRIC: Final[str] = bpy.utils.units.systems.METRIC  # type: ignore[attr-defined]
+_EXPORTER_NAME: Final = Descriptor.declared(bpy.types.CollectionExport, ("name",), bpy.types.StringProperty)
 _LENGTH: Final[str] = bpy.utils.units.categories.LENGTH  # type: ignore[attr-defined]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Importing[I: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Import operator with the file extensions its handler lists and drop poll."""
-
-    operator: Operator[I]
-    extensions: tuple[str, ...]
-    drop: Drop = poll_file_object_drop
-
-
-class Exporting[E: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Export operator with the file extensions its handler lists."""
-
-    operator: Operator[E]
-    extensions: tuple[str, ...]
-
-
-class Bidirectional[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Import and export operators sharing one file handler, extensions from import."""
-
-    importing: Importing[I]
-    exporting: Exporting[E]
-
-
 class Interchange[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """File handler registered with its import and export operators."""
+    """File handler registered with its import and export operators, its label derived from its key unless stated."""
 
     key: Key
-    title: str
-    rows: HandlerRows[I, E]
+    extensions: tuple[str, ...]
+    importing: Option[Operator[I]] = Nothing
+    exporting: Option[Operator[E]] = Nothing
+    drop: Callable[[bpy.types.Context], bool] = poll_file_object_drop
+    title: Option[str] = Nothing
+
+    def __post_init__(self) -> None:
+        """Refuses a handler naming neither an import nor an export operator."""
+        if self.importing.is_none() and self.exporting.is_none():
+            raise TypeError(f"{self.key!r} names no import or export operator")
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns operators and file handler class."""
 
-        def dropped(drop: Drop, context: bpy.types.Context) -> bool:
-            match drop:
-                case frozenset(spaces):
-                    return Option.of_optional(context.area).filter(lambda area: area.type in spaces).is_some()
-                case _:
-                    return drop(context)
-
-        importing: Option[Importing[I]]
-        exporting: Option[Exporting[E]]
-        match self.rows:
-            case Bidirectional(importing=both, exporting=other):
-                importing, exporting, extensions = Some(both), Some(other), both.extensions
-            case Importing() as row:
-                importing, exporting, extensions = Some(row), Nothing, row.extensions
-            case Exporting() as row:
-                importing, exporting, extensions = Nothing, Some(row), row.extensions
-
-        def named(key: Option[Key]) -> Outcome[Option[str]]:
-            return key.map(lambda held: identity.name(bpy.types.Operator, held).map(Some)).default_value(Ok(Nothing))
+        def named(operator: Option[Operator[I]] | Option[Operator[E]]) -> Outcome[Option[str]]:
+            return operator.map(lambda held: identity.name(bpy.types.Operator, held.key).map(Some)).default_value(Ok(Nothing))
 
         def built(parts: tuple[Option[str], Option[str], str]) -> Acquisitions:
             import_name, export_name, name = parts
@@ -108,16 +65,15 @@ class Interchange[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup](msgspe
                 (bpy.types.FileHandler,),
                 {
                     "bl_idname": name,
-                    "bl_label": self.title,
-                    "bl_file_extensions": ";".join(extensions),
-                    **import_name.map(lambda identifier: {"bl_import_operator": identifier}).default_value({}),
+                    "bl_label": self.title.default_with(lambda: bpy.path.display_name(self.key)),
+                    "bl_file_extensions": ";".join(self.extensions),
+                    **import_name.map(lambda identifier: {"bl_import_operator": identifier, "poll_drop": classmethod(lambda _cls, context: self.drop(context))}).default_value({}),
                     **export_name.map(lambda identifier: {"bl_export_operator": identifier}).default_value({}),
-                    **importing.map(lambda row: {"poll_drop": classmethod(lambda _cls, context: dropped(row.drop, context))}).default_value({}),
                 },
             )
-            return (*importing.map(lambda row: row.operator).to_list(), *exporting.map(lambda row: row.operator).to_list(), (Band.INTERFACE, kind))
+            return (*self.importing.to_list(), *self.exporting.to_list(), kind)
 
-        return paired(named(importing.map(lambda row: row.operator.key)), named(exporting.map(lambda row: row.operator.key)), identity.name(bpy.types.FileHandler, self.key)).map(built)
+        return paired(named(self.importing), named(self.exporting), identity.name(bpy.types.FileHandler, self.key)).map(built)
 
 
 class References(msgspec.Struct, frozen=True, kw_only=True):
@@ -138,16 +94,22 @@ class Exporter(msgspec.Struct, frozen=True, kw_only=True):
 
     handler: str
     path: str
-    values: Mapping[str, Value] = msgspec.field(default_factory=dict)
+    values: Mapping[str, Value] = MappingProxyType({})
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def scale(scene: bpy.types.Scene, source: str) -> Outcome[float]:
-    """Parses length text into scene units."""
+def dropped_in(spaces: frozenset["rna_enums.SpaceTypeItems"], context: bpy.types.Context) -> bool:
+    """Returns whether a drop lands in an editor of the spaces, bound through `partial` as an `Interchange` drop poll."""
+    return Option.of_optional(context.area).filter(lambda area: area.type in spaces).is_some()
+
+
+def length(scene: bpy.types.Scene, source: str) -> Outcome[float]:
+    """Parses length text in the scene's unit system into scene units, a bare number read in the scene's length unit."""
+    units = scene.unit_settings
     return (
-        catch(bpy.utils.units.to_value, exception=ValueError)(_METRIC, _LENGTH, source)
+        catch(bpy.utils.units.to_value, exception=ValueError)(units.system, _LENGTH, source, str_ref_unit=f"1 {units.length_unit}")
         .map(lambda meters: meters / scene.unit_settings.scale_length)
         .map_error(partial(Fault.of, RecordReason.UNREADABLE, source))
     )
@@ -187,7 +149,7 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
                 match error:
                     case TypeError():
                         return (
-                            typed(definition(bpy.types.CollectionExports).functions["new"].parameters["type"], bpy.types.EnumProperty, "bpy.types.CollectionExports.new.type")
+                            typed(bpy.types.EnumProperty, "bpy.types.CollectionExports.new.type", definition(bpy.types.CollectionExports).functions["new"].parameters["type"])
                             .map(outside)
                             .default_with(identity)
                         )
@@ -198,20 +160,20 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
                 cleanup.callback(held.remove, item)
                 return item
 
-            return _NEW(held, handler, name).map_error(refused).bind(lambda item: typed(item, bpy.types.CollectionExport, request)).map(tracked)
+            return _NEW(held, handler, name).map_error(refused).bind(partial(typed, bpy.types.CollectionExport, request)).map(tracked)
 
         def placed(name: str, exporter: Exporter) -> Outcome[None]:
             def filled(item: bpy.types.CollectionExport) -> Outcome[None]:
                 return paired(
-                    assigned(item, {"filepath": exporter.path}),
+                    assigned(item, {("filepath",): exporter.path}),
                     Option
                     .of_optional(item.export_properties)
-                    .map(lambda properties: assigned(properties, exporter.values))
+                    .map(lambda properties: assigned(properties, {(key,): value for key, value in exporter.values.items()}))
                     .default_with(lambda: Error(Fault.of(BlenderReason.ABSENT, repr(item), member="export_properties"))),
                 ).map(lambda _: None)
 
             found = Option.of_optional(existing.get(name))
-            return Descriptor.validated(EXPORTER_NAME.prop, name).bind(lambda _: found.map(filled).default_with(lambda: made(name, exporter.handler).bind(filled)))
+            return Descriptor.validated(_EXPORTER_NAME.prop, name).bind(lambda _: found.map(filled).default_with(lambda: made(name, exporter.handler).bind(filled)))
 
         def completed(_: tuple[None, ...]) -> Outcome[None]:
             return retained(
@@ -222,17 +184,51 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
         return accumulated(starmap(placed, exporters.items())).bind(completed)
 
 
-def exported(scene: bpy.types.Scene, form: SceneFormat, collection: bpy.types.Collection, path: Path) -> Outcome[Path]:
-    """Exports collection as Alembic or animated USD."""
-    match form:
-        case SceneFormat.ALEMBIC:
-            properties: dict[str, object] = {"selected": False, "as_background_job": False}
-        case SceneFormat.USD:
-            properties = {"export_animation": True, "convert_scene_units": "CUSTOM", "meters_per_unit": scene.unit_settings.scale_length}
-    return called(form.value, {"filepath": str(path), "collection": collection.name} | properties, override=Some(bpy.context.temp_override(scene=scene))).map(lambda _: path)
+def exported(operator: Operation, collection: bpy.types.Collection, path: Path, /, *, scene: bpy.types.Scene, view_layer: bpy.types.ViewLayer, **params: Setting) -> Outcome[Path]:
+    """Exports collection through an exporter operator and its keywords under the scene and view layer's context.
+
+    Args:
+        operator: Exporter taking `filepath` and `collection` (`bpy.ops.wm.alembic_export`, `bpy.ops.wm.usd_export`, ...).
+        collection: Collection to export.
+        path: File to write.
+        scene: Scene the export reads.
+        view_layer: View layer the export evaluates.
+        **params: Operator keywords besides `filepath` and `collection`.
+
+    Returns:
+        Written path.
+    """
+    return called(operator, {"filepath": str(path), "collection": collection.name, **params}, override=Some(bpy.context.temp_override(scene=scene, view_layer=view_layer))).map(lambda _: path)
+
+
+def configured(collection: bpy.types.Collection, *, scene: bpy.types.Scene, view_layer: bpy.types.ViewLayer, exporter: Option[str] = Nothing) -> Outcome[None]:
+    """Runs the collection's configured exporters through `collection.export_all`, or the one named through `collection.exporter_export`.
+
+    Args:
+        collection: Collection holding the exporters.
+        scene: Scene the exports read.
+        view_layer: View layer the exports evaluate.
+        exporter: Name of the one exporter to run.
+
+    Returns:
+        Ok(None), absent fault for a name the collection holds no exporter under, operator faults.
+    """
+    override = Some(bpy.context.temp_override(collection=collection, scene=scene, view_layer=view_layer))
+    return (
+        exporter
+        .map(
+            lambda name: (
+                Ok(collection.exporters.find(name))
+                .filter_with(lambda index: index >= 0, lambda _: Fault.of(BlenderReason.ABSENT, f"{collection!r}.exporters", member=name))
+                .bind(lambda index: called(bpy.ops.collection.exporter_export, {"index": index}, override=override))
+            )
+        )
+        .default_with(lambda: called(bpy.ops.collection.export_all, {}, override=override))
+        .map(lambda _: None)
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["EXPORTER_NAME", "Bidirectional", "Drop", "Exporter", "Exporting", "HandlerRows", "Importing", "Interchange", "References", "SceneFormat", "exported", "reconciled", "scale"]
+__all__ = ["Exporter", "Interchange", "References", "configured", "dropped_in", "exported", "length", "reconciled"]

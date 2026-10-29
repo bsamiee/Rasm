@@ -8,7 +8,8 @@ import bpy
 from expression import Nothing, Ok, Option, Some
 import msgspec
 
-from blender.bpy.data.rna.descriptors import Descriptor, root_in, Struct, Value
+from blender.bpy.data.rna.descriptors import Descriptor, Value
+from blender.bpy.data.rna.paths import root_in, Struct
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Outcome
 
@@ -23,7 +24,7 @@ type _Poll = classmethod[type, [bpy.types.Context], bool]
 
 
 class Condition(msgspec.Struct, frozen=True, kw_only=True):
-    """Requirement holding over context and an optional item, composed by `&`, `|` and `~`."""
+    """Requirement holding over context and an optional item, composed by `&`, `|` and `~`, its message the phrase a requirement fault states."""
 
     @abstractmethod
     def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
@@ -32,16 +33,16 @@ class Condition(msgspec.Struct, frozen=True, kw_only=True):
     @property
     @abstractmethod
     def message(self) -> str:
-        """Requirement sentence over the case fields."""
+        """Requirement phrase over the case fields."""
 
     @property
     def opposed(self) -> str:
-        """Sentence of the negated requirement."""
-        return f"Requires opposite of {self.message}"
+        """Phrase of the negated requirement."""
+        return f"opposite of {self.message}"
 
     def check(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> Outcome[None]:
         """Returns unmet fault carrying the requirement sentence."""
-        return Ok(None).filter_with(lambda _: self.holds(context, item), lambda _: Fault.of(BlenderReason.UNMET, self.message))
+        return Ok(None).filter_with(lambda _: self.holds(context, item), lambda _: Fault.of(BlenderReason.REQUIRED, self.message))
 
     def __and__(self, other: "Condition") -> "AllOf":
         """Conjunction of this and other requirement."""
@@ -69,12 +70,12 @@ class Setting(Condition, frozen=True, kw_only=True):
     @property
     @override
     def message(self) -> str:
-        return f"Requires {self.descriptor.prop.name} {self.shown}"
+        return f"{self.descriptor.prop.name} {self.shown}"
 
     @property
     @override
     def opposed(self) -> str:
-        return f"Requires {self.descriptor.prop.name} other than {self.shown}"
+        return f"{self.descriptor.prop.name} other than {self.shown}"
 
     @property
     def shown(self) -> str:
@@ -94,12 +95,12 @@ class Present(Condition, frozen=True, kw_only=True):
     @property
     @override
     def message(self) -> str:
-        return f"Requires {self.descriptor.prop.name}"
+        return self.descriptor.prop.name
 
     @property
     @override
     def opposed(self) -> str:
-        return f"Requires no {self.descriptor.prop.name}"
+        return f"no {self.descriptor.prop.name}"
 
 
 class Not(Condition, frozen=True, kw_only=True):
@@ -139,7 +140,7 @@ class Count(Condition, frozen=True, kw_only=True):
     @override
     def message(self) -> str:
         items = self.where.map(lambda where: f"{self.collection.prop.name} ({where.message})").default_value(self.collection.prop.name)
-        return self.most.map(lambda most: f"Requires {self.least} to {most} {items}").default_value(f"Requires at least {self.least} {items}")
+        return self.most.map(lambda most: f"{self.least} to {most} {items}").default_value(f"at least {self.least} {items}")
 
 
 class Job(Condition, frozen=True, kw_only=True):
@@ -155,7 +156,7 @@ class Job(Condition, frozen=True, kw_only=True):
     @property
     @override
     def message(self) -> str:
-        return f"Requires {'' if self.running else 'no '}running {self.kind} job"
+        return f"{'' if self.running else 'no '}running {self.kind} job"
 
     @override
     def __invert__(self) -> "Job":
@@ -174,7 +175,7 @@ class Extension(Condition, frozen=True, kw_only=True):
     @property
     @override
     def message(self) -> str:
-        return f"Requires enabled {self.module} extension"
+        return f"enabled {self.module} extension"
 
 
 class AnyOf(Condition, frozen=True, kw_only=True):
@@ -223,8 +224,19 @@ class AllOf(Condition, frozen=True, kw_only=True):
 
 
 def polled(condition: Option[Condition]) -> Mapping[str, _Poll]:
-    """Returns `poll` class member testing condition, empty when absent."""
-    return condition.map(lambda held: {"poll": classmethod(lambda _cls, context: held.holds(context))}).default_value({})
+    """Returns the `poll` class member testing condition, empty when absent.
+
+    An operator states every unmet requirement through `poll_message_set`, the reason its disabled button shows.
+    """
+
+    def poll(cls: type, context: bpy.types.Context) -> bool:
+        faults = condition.bind(lambda required: required.check(context).swap().to_option())
+        for failures in faults.to_list():
+            if issubclass(cls, bpy.types.Operator):
+                cls.poll_message_set(lambda: " ".join(fault.message for fault in failures))
+        return faults.is_none()
+
+    return {"poll": classmethod(poll)} if condition.is_some() else {}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

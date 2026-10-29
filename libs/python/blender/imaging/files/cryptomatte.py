@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from copy import replace
 from functools import partial
 import re
+from types import MappingProxyType
 from typing import Annotated, Self
 
 from expression import Option
@@ -48,11 +49,11 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
             )
             return (
                 catch(msgspec.json.decode, exception=msgspec.DecodeError)(manifest, type=_Manifest)
-                .map_error(partial(Fault.of, RecordReason.UNREADABLE, file.path))
+                .map_error(partial(Fault.of, RecordReason.UNREADABLE, str(file.path)))
                 .map(
                     lambda entries: cls(
                         name=name,
-                        ids={entity: code & 0x807FFFFF | min(max(code >> 23 & 0xFF, 1), 254) << 23 for entity, digits in entries.items() for code in (int(digits, 16),)},
+                        ids=MappingProxyType({entity: code & 0x807FFFFF | min(max(code >> 23 & 0xFF, 1), 254) << 23 for entity, digits in entries.items() for code in (int(digits, 16),)}),
                         ranks=ranks,
                         file=file,
                     )
@@ -73,11 +74,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
             `(height, width)` coverage, or `read` fault.
         """
         targets = np.fromiter((code for entity, code in self.ids.items() if entity in names), dtype=np.uint32)
-        frame = np.zeros((self.file.parts[0].height, self.file.parts[0].width), dtype=np.float32)
-        return accumulated(
-            self.file.plane(rank, rank.channels).map(lambda ranked: np.where(np.isin(ranked.view(np.uint32)[..., 0::2], targets), ranked[..., 1::2], 0.0).sum(axis=-1, dtype=np.float32))
-            for rank in self.ranks
-        ).map(lambda terms: sum(terms, start=frame))
+        return self._planes().map(lambda planes: np.where(np.isin(planes[0], targets), planes[1], 0.0).sum(axis=-1, dtype=np.float32))
 
     def areas(self) -> Outcome[dict[str, float]]:
         """Measures frame share each manifest name covers.
@@ -85,18 +82,24 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Share per name, 0 for names no pixel holds, or `read` fault.
         """
+        part = self.file.parts[0]
 
-        def counted(ranked: npt.NDArray[np.float32]) -> tuple[npt.NDArray[np.uint32], npt.NDArray[np.float64]]:
-            codes, inverse = np.unique(ranked.view(np.uint32)[..., 0::2], return_inverse=True)
-            return codes, np.asarray(np.bincount(inverse.reshape(-1), weights=ranked[..., 1::2].reshape(-1)), dtype=np.float64)
-
-        def joined(terms: tuple[tuple[npt.NDArray[np.uint32], npt.NDArray[np.float64]], ...]) -> dict[str, float]:
-            codes, inverse = np.unique(np.concatenate((np.empty(0, dtype=np.uint32), *(codes for codes, _ in terms))), return_inverse=True)
-            sums = np.bincount(inverse, weights=np.concatenate((np.empty(0), *(sums for _, sums in terms))), minlength=codes.size)
-            found = dict(zip(codes.tolist(), (sums / (self.file.parts[0].width * self.file.parts[0].height)).tolist()))
+        def summed(planes: tuple[npt.NDArray[np.uint32], npt.NDArray[np.float32]]) -> dict[str, float]:
+            codes, inverse = np.unique(planes[0], return_inverse=True)
+            found = dict(zip(codes.tolist(), (np.bincount(inverse.reshape(-1), weights=planes[1].reshape(-1), minlength=codes.size) / (part.width * part.height)).tolist()))
             return {entity: found.get(code, 0.0) for entity, code in self.ids.items()}
 
-        return accumulated(self.file.plane(rank, rank.channels).map(counted) for rank in self.ranks).map(joined)
+        return self._planes().map(summed)
+
+    def _planes(self) -> Outcome[tuple[npt.NDArray[np.uint32], npt.NDArray[np.float32]]]:
+        """ID codes and coverage weights of every rank pair, stacked along the last axis, `(height, width, 2 * ranks)`."""
+        part = self.file.parts[0]
+        empty = np.zeros((part.height, part.width, 0), dtype=np.float32)
+        return (
+            accumulated(self.file.plane(rank, rank.channels) for rank in self.ranks)
+            .map(lambda ranked: np.concatenate((empty, *ranked), axis=-1))
+            .map(lambda stacked: (stacked.view(np.uint32)[..., 0::2], stacked[..., 1::2]))
+        )
 
     def filled(self, names: frozenset[str], color: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float32]]:
         """Fills named ID coverage with a `(3,)` color as associated RGBA.

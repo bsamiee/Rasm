@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
-from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -20,32 +19,37 @@ from blender.bpy.data.ids.content import endpoints
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Mark, Saved
 from blender.bpy.data.ids.store import Handle, IdName
-from blender.bpy.data.rna.descriptors import assigned, rooted, Value, written
-from blender.bpy.data.rna.snapshots import Snapshot
+from blender.bpy.data.rna.descriptors import Value, written
+from blender.bpy.data.rna.paths import rooted
+from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import made
-from blender.bpy.nodes.graphs import Expr, FileItem, FileItems, group_input
+from blender.bpy.nodes.desired import member_paths
+from blender.bpy.nodes.graphs import Expr, group_input
 from blender.bpy.nodes.trees import socket_at
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.blending import Entry
-from blender.bpy.render.compositor.effects import CameraFrame, CompositorEffect, entered, Shell
-from blender.bpy.render.compositor.entries import capturing, EXECUTING, Owned
-from blender.bpy.render.compositor.inputs import captured, inputs_of, valued
-from blender.bpy.render.outputs.exports import COMPOSITE
-from blender.bpy.render.outputs.formats import Kind, OutputFormat
+from blender.bpy.render.compositor.colors import COLOR_INPUT
+from blender.bpy.render.compositor.effects import CompositorEffect
+from blender.bpy.render.compositor.entries import EXECUTING, Owned
+from blender.bpy.render.compositor.inputs import CameraFrame, captured, entered, inputs_of, valued
+from blender.bpy.render.compositor.viewers import capturing
+from blender.bpy.render.outputs.formats import Colorspace, FileItem, FileItems, OutputFormat
+from blender.bpy.render.outputs.framing import Framing
 from blender.bpy.render.outputs.paths import Pathed
-from blender.bpy.render.outputs.results import intermediate, produced, Production, saved
-from blender.bpy.render.sessions.engines import Captured, Engine, EnginePass, Tile
-from blender.bpy.render.sessions.renders import bounds, engined, RenderCall, sourced
+from blender.bpy.render.outputs.results import COMPOSITE, intermediate, produced, Production, saved
+from blender.bpy.render.sessions.engines import Engine, EnginePass, PlaneKey, Tile
+from blender.bpy.render.sessions.renders import engined, RenderCall, sourced
+from blender.bpy.render.view_layers.passes import used
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.faults import ImagingReason
 from blender.imaging.files.buffers import pixels
 from blender.imaging.files.images import emitted, Subimage
 from blender.imaging.files.multilayer import Layer, Multilayer
 from blender.imaging.sampling.integration import Estimate, Precision
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
-from blender.rendering.outputs.naming import Output
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
+from blender.records.stores import removed
 
 from .stages import Effect, prepared
 
@@ -71,7 +75,7 @@ class Execution:
         self.identity, self.chain, self.scene, self.precision = identity, chain, scene, precision
         self.config = PyOpenColorIO.GetCurrentConfig()
         self.scope = ExitStack()
-        self.replay: dict[Captured, Tile] = {}
+        self.replay: dict[PlaneKey, Tile] = {}
         self.prepared: dict[int, tuple[Authored, ...]] = {}
         self.files: set[Path] = set()
         self.sources = sourced((scene,))
@@ -90,7 +94,7 @@ class Execution:
                         if isinstance(live, bpy.types.CompositorNodeOutputFile | bpy.types.CompositorNodeViewer):
                             live.mute = True
                     return accumulated(
-                        copied(child).bind(lambda group: written(live, "node_tree", group))
+                        copied(child).bind(lambda group: written(live, ("node_tree",), group))
                         for live in result.nodes
                         if isinstance(live, bpy.types.CompositorNodeGroup) and isinstance(child := live.node_tree, bpy.types.CompositorNodeTree)
                     ).map(lambda _: result)
@@ -111,11 +115,11 @@ class Execution:
 
     def raster(self, frame: int) -> tuple[str, Path, OpenImageIO.ImageSpec]:
         """Returns capture name, EXR path, and spec with the border data window."""
-        width, height, left, bottom, right, top = bounds(self.scene)
+        (width, height), window = Framing.of(self.scene.render).bounds
         crop = self.scene.render.use_border and self.scene.render.use_crop_to_border
         name = f"{self.scene.session_uid}_{frame}_entering"
-        spec = OpenImageIO.ImageSpec(right - left if crop else width, top - bottom if crop else height, 4, OpenImageIO.FLOAT)
-        spec.x, spec.y = (left, height - top) if crop else (0, 0)
+        spec = OpenImageIO.ImageSpec(window.width if crop else width, window.height if crop else height, 4, OpenImageIO.FLOAT)
+        spec.x, spec.y = (window.xbegin, window.ybegin) if crop else (0, 0)
         spec.full_x, spec.full_y, spec.full_width, spec.full_height = 0, 0, width, height
         return name, Path(bpy.app.tempdir, f"{name}.exr"), spec
 
@@ -124,7 +128,7 @@ class Execution:
 
         def retained(path: str) -> Outcome[None]:
             self.files.add(Path(path))
-            return Result[Multilayer, Faults].bind(Multilayer.read(path), lambda file: self.indexed(file, source, frame))
+            return Result[Multilayer, Faults].bind(Multilayer.read(Path(path)), lambda file: self.indexed(file, source, frame))
 
         return saved(source).bind(retained)
 
@@ -132,7 +136,7 @@ class Execution:
         """Stores file layers as replay tiles cropped to the border."""
         groups: dict[tuple[str, str], list[tuple[EnginePass, npt.NDArray[np.float32]]]] = {}
         names = tuple(sorted((layer.name for layer in source.view_layers), key=len, reverse=True))
-        width, height, left, bottom, right, top = bounds(source)
+        (width, height), window = Framing.of(source.render).bounds
 
         def plane(layer: Layer) -> Outcome[None]:
             if (owner := next((name for name in names if layer.name.startswith(f"{name}.")), None)) is None:
@@ -141,7 +145,7 @@ class Execution:
             declaration = EnginePass(name=layer.name[len(owner) + 1 :], chanid="".join(channel.name for channel in layer.channels))
 
             def retained(values: npt.NDArray[np.float32]) -> None:
-                raw = values[height - top : height - bottom, left:right] if values.shape[:2] == (height, width) and source.render.use_border else values
+                raw = values[window.ybegin : window.yend, window.xbegin : window.xend] if values.shape[:2] == (height, width) and source.render.use_border else values
                 groups.setdefault((owner, view), []).append((declaration, np.ascontiguousarray(raw)))
 
             return file.plane(layer, layer.channels).map(retained)
@@ -149,7 +153,7 @@ class Execution:
         def retained(_: object) -> None:
             stamps = tuple((key, value) for part in file.parts[:1] for key, value in part.header.items())
             self.replay.update({
-                Captured(frame=frame, scene=source.session_uid, layer=owner, view=view): Tile(x=0, y=0, planes=(planes[0], *planes[1:]), view=Some(view), stamps=stamps)
+                PlaneKey(frame=frame, scene=source.session_uid, layer=owner, view=view): Tile(x=0, y=0, planes=(planes[0], *planes[1:]), view=Some(view), stamps=stamps)
                 for (owner, view), planes in groups.items()
             })
 
@@ -157,48 +161,42 @@ class Execution:
 
     def output(self, name: str, spec: OpenImageIO.ImageSpec, *, demand: bool) -> tuple[Expr, ...]:
         """Builds capture roots writing the chain input at spec size, adding source Render Layers on `demand`."""
-        domain = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", (spec.width, spec.height)),), socket="Image", shape="RGBA")
-        raster = Expr(kind=bpy.types.ShaderNodeMixRGB, inputs=(("Fac", 1.0), ("Color1", domain), ("Color2", group_input(Shell.image, "RGBA"))), socket="Color", shape="RGBA")
+        domain = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", (spec.width, spec.height)),), socket="Image", shape=bpy.types.NodeSocketColor)
+        raster = Expr(
+            kind=bpy.types.ShaderNodeMixRGB,
+            inputs=(("Fac", 1.0), ("Color1", domain), ("Color2", group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor))),
+            socket="Color",
+            shape=bpy.types.NodeSocketColor,
+        )
+        content = FileItems(items=(FileItem(name=name, socket_type="RGBA"),))
         capture = Expr(
             kind=bpy.types.CompositorNodeOutputFile,
-            inputs=((name, raster),),
-            members=((Pathed.directory.prop.identifier, bpy.app.tempdir), (Pathed.file_name.prop.identifier, "")),
-            content=Some(FileItems(items=(FileItem(name=name, kind="RGBA"),))),
+            inputs=tuple((stored.name, raster) for stored in content.items),
+            members={Pathed.directory.path: bpy.app.tempdir, Pathed.file_name.path: ""},
+            content=Some(content),
         ).named("capture_file")
         layers = (
-            Expr(kind=bpy.types.CompositorNodeRLayers, members=(("scene", IdName.of(source)), ("layer", layer.name)), socket="Image", shape="RGBA")
+            Expr(kind=bpy.types.CompositorNodeRLayers, members={"scene": IdName.of(source), "layer": layer.name}, socket="Image", shape=bpy.types.NodeSocketColor)
             for source in (self.sources if demand else ())
-            for layer in source.view_layers
-            if layer.use
+            for layer in used(source)
         )
         return (capture, *layers)
 
     def formatted(self, tree: bpy.types.NodeTree) -> Outcome[None]:
         """Sets the capture output to 32-bit interleaved multiview scene-linear EXR."""
         capture = next(live for live in tree.nodes if isinstance(live, bpy.types.CompositorNodeOutputFile) and Mark.read(self.identity, live).filter(lambda mark: mark.key == "capture_file").is_some())
-        return (
-            OutputFormat
-            .of(Output.DATA, Kind.EXR)
-            .bind(lambda output: output.applied(capture))
-            .bind(
-                lambda _: (
-                    Snapshot
-                    .of(
-                        bpy.types.CompositorNodeOutputFile,
-                        {
-                            ("format", "color_mode"): "RGBA",
-                            ("format", "color_depth"): "32",
-                            ("format", "views_format"): "MULTIVIEW",
-                            ("format", "use_exr_interleave"): True,
-                            ("format", "color_management"): "OVERRIDE",
-                            ("format", "linear_colorspace_settings", "name"): self.config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName(),
-                        },
-                    )
-                    .apply(capture)
-                    .outcome
-                )
-            )
+        captured = OutputFormat(
+            media_type="IMAGE",
+            file_format="OPEN_EXR",
+            color_mode="RGBA",
+            color_depth="32",
+            exr_codec="ZIP",
+            use_exr_interleave=True,
+            views_format="MULTIVIEW",
+            color_management="OVERRIDE",
+            linear_colorspace_settings=Colorspace(name=self.config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()),
         )
+        return assigned(capture, member_paths(captured.members(("format",))))
 
     # --- [PREPARATION]
 
@@ -221,10 +219,10 @@ class Execution:
 
         def tagged(live: bpy.types.Image) -> Outcome[bpy.types.Image]:
             self.scope.callback(bpy.data.images.remove, live)
-            return (assigned(live, {"use_multiview": True, "views_format": "INDIVIDUAL"}) if headed else Ok(None)).map(lambda _: live)
+            return (assigned(live, {("use_multiview",): True, ("views_format",): "INDIVIDUAL"}) if headed else Ok(None)).map(lambda _: live)
 
         return (
-            emitted(str(path), parts).bind(lambda written_path: loaded(written_path, Tag(space=Some(self.config.getColorSpace(PyOpenColorIO.ROLE_DATA).getName()), alpha=Some("PREMUL")))).bind(tagged)
+            emitted(path, parts).bind(lambda written_path: loaded(str(written_path), Tag(space=Some(self.config.getColorSpace(PyOpenColorIO.ROLE_DATA).getName()), alpha=Some("PREMUL")))).bind(tagged)
         )
 
     def stage(self, held: Owned[Effect], path: Path, spec: OpenImageIO.ImageSpec) -> Outcome[Authored]:
@@ -238,13 +236,13 @@ class Execution:
                 def loaded_view(plane: npt.NDArray[np.float32]) -> Outcome[tuple[str, Prepared]]:
                     buffer = OpenImageIO.ImageBuf(OpenImageIO.ImageSpec(spec))
                     stored: Outcome[None] = Ok(None) if buffer.set_pixels(buffer.roi, plane) else Error(Fault.of(ImagingReason.BUFFER, buffer.name, buffer.geterror()))
-                    return stored.bind(lambda _: prepared(record.record, values, self.config, buffer, self.precision, frame, evaluated)).map(lambda value: (layer.name, value))
+                    return stored.bind(lambda _: prepared(record.record, self.identity, values, self.config, buffer, self.precision, frame, evaluated)).map(lambda value: (layer.name, value))
 
                 return Result[npt.NDArray[np.float32], Faults].bind(file.plane(layer, layer.channels), loaded_view)
 
             return accumulated(view(layer) for layer in file.layers).bind(lambda found: self.published(held.entry, held.row, record, found))
 
-        return paired(Multilayer.read(str(path)), held.row.read(self.identity, held.entry), captured(self.identity, reading), CameraFrame.read(self.identity, reading)).bind(
+        return paired(Multilayer.read(path), held.row.read(self.identity, held.entry), captured(self.identity, reading), CameraFrame.read(self.identity, reading)).bind(
             lambda parts: views(parts[0], parts[1], valued(parts[2]), parts[3])
         )
 
@@ -285,7 +283,7 @@ class Execution:
     @staticmethod
     def assigned(entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree | None, inputs: Snapshot) -> Outcome[None]:
         """Points the entry at a group, then applies its input snapshot."""
-        return written(entry, "node_group", group).bind(lambda _: inputs_of(entry)).bind(lambda found: inputs.apply(found).outcome)
+        return written(entry, ("node_group",), group).bind(lambda _: inputs_of(entry)).bind(lambda found: inputs.apply(found).outcome)
 
     def native(self, call: RenderCall) -> Outcome[Returned]:
         """Runs `render.render`, recording the Render Result in the space the chain leaves it and the Viewer in the space its active entry shows."""
@@ -365,7 +363,7 @@ class Execution:
     def removed(self) -> None:
         """Deletes capture files, holding OS errors in reports."""
         for path in self.files:
-            for faults in catch(path.unlink, exception=OSError)(missing_ok=True).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path))).swap().to_option().to_list():
+            for faults in removed(path).swap().to_option().to_list():
                 self.identity.reports.hold(faults)
 
     def frame(self, frame: int, subframe: float, engine: str, original: tuple[Authored, ...], staged: tuple[Owned[Effect], ...]) -> Outcome[None]:
@@ -407,7 +405,7 @@ class Execution:
     def rendered(self, call: RenderCall, staged: tuple[Owned[Effect], ...]) -> Outcome[Returned]:
         """Prepares every frame, then renders through the replay engine."""
         scene = self.scene
-        frames = tuple(range(scene.frame_start, scene.frame_end + 1, scene.frame_step)) if call.animation else (scene.frame_current,)
+        frames = tuple(range(call.frame_start.default_value(scene.frame_start), call.frame_end.default_value(scene.frame_end) + 1, scene.frame_step)) if call.animation else (scene.frame_current,)
         at, subframe = scene.frame_current, scene.frame_subframe
         sample = 0.0 if call.animation else subframe
         original = accumulated(inputs_of(held.entry).bind(Snapshot.capture).map(lambda inputs: (held.entry, held.entry.node_group, inputs)) for held in staged)

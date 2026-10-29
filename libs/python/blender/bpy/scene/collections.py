@@ -15,7 +15,8 @@ import msgspec
 
 from blender.bpy.data.ids.ownership import kept, released, retained
 from blender.bpy.data.ids.store import Handle, resolved
-from blender.bpy.data.rna.descriptors import Descriptor, Struct, written
+from blender.bpy.data.rna.descriptors import Descriptor, written
+from blender.bpy.data.rna.paths import Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Faults, Outcome
@@ -24,26 +25,21 @@ from blender.records.trees import preorder
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Member = bpy.types.Object | bpy.types.Collection
-type MembershipChange = Joined | Parted | Sorted
+type MembershipChange = Linked | Sorted
 type LayerPath = tuple[bpy.types.LayerCollection, tuple[bpy.types.LayerCollection, ...]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_INVERSE: Final = Descriptor.declared(bpy.types.Object, "matrix_parent_inverse", bpy.types.FloatProperty)
+_INVERSE: Final = Descriptor.declared(bpy.types.Object, ("matrix_parent_inverse",), bpy.types.FloatProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Joined(msgspec.Struct, frozen=True, kw_only=True):
-    """Member link."""
+class Linked(msgspec.Struct, frozen=True, kw_only=True):
+    """Member link, or unlink when `linked` is false."""
 
     member: Member
-
-
-class Parted(msgspec.Struct, frozen=True, kw_only=True):
-    """Member unlink."""
-
-    member: Member
+    linked: bool
 
 
 class Sorted(msgspec.Struct, frozen=True, kw_only=True):
@@ -99,29 +95,29 @@ def entry(collection: bpy.types.Collection, member: Member) -> Outcome[bpy.types
 
 
 def parents(collection: bpy.types.Collection) -> tuple[bpy.types.Collection, ...]:
-    """Returns direct parents, scene collections included."""
-    users = bpy.data.user_map(subset=(collection,))[collection]
-    return tuple(
-        holder for holder in (*(held for held in bpy.data.collections if held in users), *(scene.collection for scene in bpy.data.scenes if scene in users)) if collection in holder.children.values()
+    """Returns direct parents in name order, scene collections last."""
+    users = bpy.data.user_map(subset=(collection,), value_types={"COLLECTION", "SCENE"})[collection]
+    return (
+        *sorted((user for user in users if isinstance(user, bpy.types.Collection)), key=lambda held: held.name_full),
+        *(root for user in sorted(users, key=lambda held: held.name_full) if isinstance(user, bpy.types.Scene) and collection in (root := user.collection).children.values()),
     )
 
 
 def _applied(collection: bpy.types.Collection, change: MembershipChange) -> Outcome[None]:
     """Applies membership change."""
 
-    def linked(row: Joined | Parted) -> None:
-        joining = isinstance(row, Joined)
+    def linked(row: Linked) -> None:
         match row.member:
             case bpy.types.Object() as item:
-                (collection.objects.link if joining else collection.objects.unlink)(item)
+                (collection.objects.link if row.linked else collection.objects.unlink)(item)
             case bpy.types.Collection() as item:
-                (collection.children.link if joining else collection.children.unlink)(item)
+                (collection.children.link if row.linked else collection.children.unlink)(item)
 
     match change:
-        case Joined() | Parted():
+        case Linked():
             return catch(linked, exception=RuntimeError)(change).map_error(partial(Fault.of, BlenderReason.REFUSED, repr(collection)))
         case Sorted(member=member, index=index):
-            return entry(collection, member).bind(lambda held: written(held, "sort_index", index)).map(lambda _: None)
+            return entry(collection, member).bind(lambda held: written(held, ("sort_index",), index)).map(lambda _: None)
 
 
 def reconciled(tree: CollectionTree, collection: bpy.types.Collection) -> Outcome[tuple[MembershipChange, ...]]:
@@ -131,8 +127,8 @@ def reconciled(tree: CollectionTree, collection: bpy.types.Collection) -> Outcom
         held = dict(zip((*collection.objects, *collection.children), (item.sort_index for item in (*collection.collection_objects, *collection.collection_children))))
         return resolved(tuple(dict.fromkeys(wanted))).map(
             lambda items: (
-                *(Parted(member=item) for item in held if type(item) in tree.kinds and item not in items),
-                *(Joined(member=item) for item in items if item not in held),
+                *(Linked(member=item, linked=False) for item in held if type(item) in tree.kinds and item not in items),
+                *(Linked(member=item, linked=True) for item in items if item not in held),
                 *(Sorted(member=item, index=index) for index, item in enumerate(items) if held.get(item) != index),
             )
         )
@@ -145,21 +141,11 @@ def reconciled(tree: CollectionTree, collection: bpy.types.Collection) -> Outcom
     )
 
 
-def _changed(collection: bpy.types.Collection, members: tuple[Member, ...], kind: type[Joined | Parted]) -> Outcome[tuple[MembershipChange, ...]]:
-    """Links absent members or unlinks present ones once each, accumulating faults in input order."""
+def relinked(collection: bpy.types.Collection, members: tuple[Member, ...], *, linked: bool) -> Outcome[tuple[Linked, ...]]:
+    """Links absent members, or unlinks present ones, once each, accumulating faults in input order."""
     held = frozenset((*collection.objects, *collection.children))
-    rows = tuple(kind(member=item) for item in dict.fromkeys(members) if (item in held) is (kind is Parted))
+    rows = tuple(Linked(member=item, linked=linked) for item in dict.fromkeys(members) if (item in held) is not linked)
     return accumulated(_applied(collection, row) for row in rows).map(lambda _: rows)
-
-
-def joined(collection: bpy.types.Collection, members: tuple[Member, ...]) -> Outcome[tuple[MembershipChange, ...]]:
-    """Links absent members once, accumulating faults in input order."""
-    return _changed(collection, members, Joined)
-
-
-def parted(collection: bpy.types.Collection, members: tuple[Member, ...]) -> Outcome[tuple[MembershipChange, ...]]:
-    """Unlinks present members once, accumulating faults in input order."""
-    return _changed(collection, members, Parted)
 
 
 # --- [PLACEMENT]
@@ -180,14 +166,20 @@ def landing(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Collection]:
 def moved(item: bpy.types.Object, target: bpy.types.Collection, scene: bpy.types.Scene) -> Outcome[tuple[MembershipChange, ...]]:
     """Moves object to target from other editable scene collections, keeping its base."""
     held = tuple(collection for collection in (scene.collection, *scene.collection.children_recursive) if collection != target and item in collection.objects.values() and _editable(collection))
-    return joined(target, (item,)).bind(lambda first: accumulated(parted(collection, (item,)) for collection in held).map(lambda rest: (*first, *chain.from_iterable(rest))))
+    return relinked(target, (item,), linked=True).bind(
+        lambda first: accumulated(relinked(collection, (item,), linked=False) for collection in held).map(lambda rest: (*first, *chain.from_iterable(rest)))
+    )
 
 
 def instanced(collection: bpy.types.Collection, target: bpy.types.Collection, name: str) -> Outcome[bpy.types.Object]:
     """Creates empty instancing collection in target under name, removing it on fault."""
     return kept(
         catch(bpy.data.objects.new, exception=RuntimeError)(name, None).map_error(partial(Fault.of, BlenderReason.REFUSED, name)),
-        lambda made: accumulated((written(made, "instance_type", "COLLECTION"), written(made, "instance_collection", collection))).bind(lambda _: joined(target, (made,))).map(lambda _: made),
+        lambda made: (
+            accumulated((written(made, ("instance_type",), "COLLECTION"), written(made, ("instance_collection",), collection)))
+            .bind(lambda _: relinked(target, (made,), linked=True))
+            .map(lambda _: made)
+        ),
     )
 
 
@@ -262,10 +254,9 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                         case _:
                             return Ok(None)
 
-                return accumulated((
-                    *(member(prop) for prop in owner.bl_rna.properties),
-                    *(custom(owner.id_properties_ensure()) for _ in (owner,) if hasattr(owner, bpy.types.bpy_struct.__getitem__.__name__)),
-                )).map(lambda _: None)
+                return accumulated((*(member(prop) for prop in owner.bl_rna.properties), catch(owner.id_properties_ensure, exception=TypeError)().map(custom).default_value(Ok(None)))).map(
+                    lambda _: None
+                )
 
             def mirrored(original: bpy.types.Collection) -> Outcome[None]:
                 made = collections[original]
@@ -275,8 +266,8 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                     accumulated(Snapshot.capture(held) for held in (*original.collection_objects, *original.collection_children))
                     .bind(
                         lambda values: (
-                            parted(made, members)
-                            .bind(lambda _: joined(made, wanted))
+                            relinked(made, members, linked=False)
+                            .bind(lambda _: relinked(made, wanted, linked=True))
                             .bind(lambda _: accumulated(entry(made, item).bind(lambda held: snapshot.apply(held).outcome) for item, snapshot in zip(wanted, values)))
                         )
                     )
@@ -293,7 +284,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                     .bind(Snapshot.capture)
                     .bind(
                         lambda values: (
-                            joined(parent, (made,))
+                            relinked(parent, (made,), linked=True)
                             .bind(lambda _: entry(parent, made))
                             .bind(lambda held: values.apply(held).outcome)
                             .bind(lambda _: reconciled(CollectionTree(members=Some(members)), parent))
@@ -324,14 +315,15 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
 def grouped(item: bpy.types.Object, scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.Collection]:
     """Wraps object in collection under its editable holders or scene collection, removing it on fault."""
     holders = tuple(held for held in (scene.collection, *scene.collection.children_recursive) if item in held.objects.values() and _editable(held)) or (scene.collection,)
-    return kept(founded(Nothing, name), lambda made: joined(made, (item,)).bind(lambda _: accumulated(joined(held, (made,)) for held in holders)).map(lambda _: made))
+    return kept(founded(Nothing, name), lambda made: relinked(made, (item,), linked=True).bind(lambda _: accumulated(relinked(held, (made,), linked=True) for held in holders)).map(lambda _: made))
 
 
 def ungrouped(collection: bpy.types.Collection) -> Outcome[int]:
     """Dissolves collection into its parents, returning removed count."""
     members = (*collection.objects, *collection.children)
     return accumulated(
-        joined(parent, tuple(member for member in members if not (isinstance(member, bpy.types.Collection) and parent in {member, *member.children_recursive}))) for parent in parents(collection)
+        relinked(parent, tuple(member for member in members if not (isinstance(member, bpy.types.Collection) and parent in {member, *member.children_recursive})), linked=True)
+        for parent in parents(collection)
     ).bind(lambda _: released((collection,)))
 
 
@@ -342,7 +334,7 @@ def deleted(collection: bpy.types.Collection) -> Outcome[int]:
 
 
 def _parented(collection: bpy.types.Collection, parent: Option[bpy.types.Collection]) -> Outcome[bpy.types.Collection]:
-    return parent.map(lambda held: joined(held, (collection,)).map(lambda _: collection)).default_value(Ok(collection))
+    return parent.map(lambda held: relinked(held, (collection,), linked=True).map(lambda _: collection)).default_value(Ok(collection))
 
 
 def _copied[T: bpy.types.ID](block: T) -> Outcome[T]:
@@ -353,11 +345,10 @@ def _copied[T: bpy.types.ID](block: T) -> Outcome[T]:
 
 __all__ = [
     "CollectionTree",
-    "Joined",
     "LayerPath",
+    "Linked",
     "Member",
     "MembershipChange",
-    "Parted",
     "Sorted",
     "cloned",
     "deleted",
@@ -366,12 +357,11 @@ __all__ = [
     "founded",
     "grouped",
     "instanced",
-    "joined",
     "landing",
     "moved",
     "parents",
-    "parted",
     "reconciled",
+    "relinked",
     "ungrouped",
     "walked",
 ]

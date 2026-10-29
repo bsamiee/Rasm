@@ -1,7 +1,7 @@
 """LUT formats, sequencer strip bakes, and changed-file reads."""
 
 from collections.abc import Generator
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager, ExitStack, nullcontext
 from functools import cached_property, partial
 import os
 from pathlib import Path
@@ -18,24 +18,31 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.calls import called
-from blender.bpy.commands.operators import Call, Done, Operator, Save
+from blender.bpy.commands.invocations import Save
+from blender.bpy.commands.operators import Call, Done, Operator
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.conditions import Count, Job
-from blender.bpy.data.rna.descriptors import choices, Descriptor, rna
-from blender.bpy.data.rna.snapshots import Snapshot
+from blender.bpy.data.rna.descriptors import Descriptor, Value
+from blender.bpy.data.rna.mirrors import choices
+from blender.bpy.data.rna.paths import rna, RnaPath
+from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity, Resource
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
+from blender.bpy.nodes.desired import member_paths
+from blender.bpy.render.color.spaces import UNTAGGED
+from blender.bpy.render.outputs.formats import OutputFormat
 from blender.imaging.color.luts import Lattice, LutFormat, LutOutput, Spacing
 from blender.imaging.color.processors import processor
 from blender.imaging.files.buffers import applied
 from blender.imaging.files.images import ImageFile, read_file, Storage
-from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 SPACINGS: Final = MappingProxyType({case.__name__: case for case in get_args(Spacing.__value__)})
 FORMATS: Final = MappingProxyType({row.name: row for row in (*LutFormat.writable(), *LutFormat.bakeable())})
+_LATTICE: Final = OutputFormat(media_type="IMAGE", file_format="OPEN_EXR", color_depth="32")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -51,7 +58,7 @@ class Baking(bpy.types.PropertyGroup):
 class Writing(bpy.types.PropertyGroup):
     """Exact transform output in a native matrix-capable format."""
 
-    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.matrices()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable() if row in LutFormat.bakeable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -67,38 +74,44 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def stripping(self) -> Operator[Baking]:
         """Command baking the active strip's modifiers."""
-        return Operator(form=Baking, run=self.bake_strip, condition=Some(Count(collection=self.modifiers) & Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=False)
+        return Operator(form=Baking, run=self.bake_strip, condition=Some(Count(collection=self.modifiers) & Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=Nothing)
 
     # --- [BAKES]
 
     @contextmanager
     def staged(self, identity: Identity) -> Generator[Outcome[bpy.types.Scene]]:
-        """Owns a marked runtime scene, removed on exit."""
+        """Owns a marked runtime scene, removed on exit on every path."""
         made = self.lattices.made(identity, lambda: catch(bpy.data.scenes.new, exception=RuntimeError)("LUT Lattice").map_error(partial(Fault.of, BlenderReason.REFUSED, "LUT Lattice")))
-        try:
-            yield made
-        finally:
+        with ExitStack() as scope:
             for scene in made.to_option().to_list():
-                bpy.data.scenes.remove(scene)
+                scope.callback(bpy.data.scenes.remove, scene)
+            yield made
 
     def sequenced(self, call: Call[Baking], active: bpy.types.Strip, space: str) -> Outcome[Done]:
         """Samples strip modifiers in one sequencer render over their native space."""
         lattice = spaced(call.properties)
 
-        def arranged(scene: bpy.types.Scene, nodes: str, look: Path) -> Outcome[None]:
-            match scene.sequence_editor_create().strips.new_image(name="Lattice", filepath=nodes, channel=1, frame_start=1), scene.sequencer_colorspace_settings:
+        def arranged(scene: bpy.types.Scene, nodes: Path, look: Path) -> Outcome[None]:
+            match scene.sequence_editor_create().strips.new_image(name="Lattice", filepath=str(nodes), channel=1, frame_start=1), scene.sequencer_colorspace_settings:
                 case bpy.types.ImageStrip(
                     colorspace_settings=bpy.types.ColorManagedInputColorspaceSettings() as strip_space
                 ) as strip, bpy.types.ColorManagedSequencerColorspaceSettings() as sequencer:
-                    render = scene.render
-                    render.resolution_x, render.resolution_y, render.resolution_percentage = lattice.size**2, lattice.size, 100
-                    render.use_sequencer, render.use_compositing, render.filepath = True, False, str(look)
-                    render.image_settings.file_format, render.image_settings.color_depth = "OPEN_EXR", "32"
-                    scene.frame_start = scene.frame_end = 1
-                    sequencer.name = strip_space.name = space  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                    return accumulated(
-                        Snapshot.capture(modifier).bind(lambda snapshot: snapshot.apply(strip.modifiers.new(name=modifier.name, type=modifier.type)).outcome) for modifier in active.modifiers
-                    ).map(lambda _: None)
+                    settings: dict[RnaPath, Value] = {
+                        ("render", "resolution_x"): lattice.size**2,
+                        ("render", "resolution_y"): lattice.size,
+                        ("render", "resolution_percentage"): 100,
+                        ("render", "use_sequencer"): True,
+                        ("render", "use_compositing"): False,
+                        ("render", "filepath"): str(look),
+                        **member_paths(_LATTICE.members(("render", "image_settings"))),
+                        ("frame_start",): 1,
+                        ("frame_end",): 1,
+                    }
+                    return paired(assigned(scene, settings), assigned(sequencer, {("name",): space}), assigned(strip_space, {("name",): space})).bind(
+                        lambda _: accumulated(
+                            Snapshot.capture(modifier).bind(lambda snapshot: snapshot.apply(strip.modifiers.new(name=modifier.name, type=modifier.type)).outcome) for modifier in active.modifiers
+                        ).map(lambda _: None)
+                    )
                 case strip, _:
                     return Error(Fault.of(BlenderReason.ABSENT, repr(strip), member="colorspace_settings"))
 
@@ -106,10 +119,10 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             samples: Outcome[npt.NDArray[np.float32]] = lattice.samples()
             return (
                 Result[npt.NDArray[np.float32], Faults]
-                .bind(samples, lambda plane: ImageFile(pixels=plane, colorspace=space).write(str(folder / "nodes.exr"), Storage(), {}, config))
+                .bind(samples, lambda plane: ImageFile(pixels=plane, colorspace=space).written(folder / "nodes.exr", Storage(), {}, config))
                 .bind(lambda nodes: arranged(scene, nodes, folder / "look"))
                 .bind(lambda _: called(bpy.ops.render.render, {"scene": scene.name, "animation": True}))
-                .bind(lambda _: read_file(scene.render.frame_path(frame=1), config))
+                .bind(lambda _: read_file(Path(scene.render.frame_path(frame=1)), config, untagged=Some(UNTAGGED)))
             )
 
         def tabled(config: PyOpenColorIO.Config, look: ImageFile[np.float32]) -> Outcome[PyOpenColorIO.GroupTransform]:
@@ -123,7 +136,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 made
                 .bind(lambda scene: rendered(scene, config, Path(folder)))
                 .bind(lambda look: tabled(config, look))
-                .bind(lambda built: output(call.properties).written({str(call.paths[0]): built}))
+                .bind(lambda built: output(call.properties).written({call.paths[0]: built}))
                 .map(Done.wrote)
             )
 

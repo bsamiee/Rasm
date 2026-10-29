@@ -14,16 +14,19 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
-from blender.bpy.data.rna.descriptors import assigned, Value, written
-from blender.bpy.data.rna.snapshots import Snapshot
+from blender.bpy.data.rna.descriptors import Value, written
+from blender.bpy.data.rna.paths import rooted
+from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.events import Subscription
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
-from blender.bpy.nodes.changes import owned
+from blender.bpy.nodes.addressing import owned
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.render.color.spaces import followed, NO_LOOK, viewed
-from blender.bpy.render.compositor.effects import CompositorEffect, Holds, Named, Registers, Replaced, revised, Seeds, Shell
+from blender.bpy.render.color.spaces import followed, NO_LOOK, viewed, Viewing
+from blender.bpy.render.compositor.effects import CompositorEffect, Named, Replaced, revised, Seeded
+from blender.bpy.render.compositor.inputs import Holds
+from blender.bpy.render.compositor.shells import Shell
 from blender.bpy.render.outputs.exports import formed
 from blender.imaging.color.processors import converted, DisplayView
 from blender.imaging.files.images import ImageFile
@@ -78,23 +81,11 @@ def _(record: Formation, _values: Mapping[Key, Value], config: PyOpenColorIO.Con
     return record.display_view.transform(config).map(lambda processor: Some(processor.createGroupTransform()))
 
 
-def formed_display(shell: Shell[Formation]) -> Outcome[Expr]:
+def _formation(shell: Shell[Formation]) -> Outcome[Expr]:
     """Builds the Convert to Display node keyed `display`, the display written before the view settings it governs."""
     view = shell.record.display_view
     return Ok(
-        Expr(
-            kind=bpy.types.CompositorNodeConvertToDisplay,
-            inputs=(("Image", shell.color),),
-            members=(
-                (("display_settings", "display_device"), view.display),
-                (("view_settings", "view_transform"), view.view),
-                (("view_settings", "look"), view.looks_override if view.looks_override_enabled else NO_LOOK),
-                (("view_settings", "exposure"), view.exposure),
-                (("view_settings", "gamma"), view.gamma),
-            ),
-            socket="Image",
-            shape="RGBA",
-        ).named("display")
+        Expr(kind=bpy.types.CompositorNodeConvertToDisplay, inputs=(("Image", shell.color),), members=Viewing.of(view).members(), socket="Image", shape=bpy.types.NodeSocketColor).named("display")
     )
 
 
@@ -186,34 +177,33 @@ def encode_formation(call: Call[Named]) -> Outcome[Answer]:
             .bind(selected)
         )
 
-    return call.root(bpy.types.Scene).bind(lambda scene: formed_view(call.identity, scene).bind(lambda held: chosen(scene, PyOpenColorIO.GetCurrentConfig(), held)))
+    return rooted(bpy.types.Scene, call.context).bind(lambda scene: formed_view(call.identity, scene).bind(lambda held: chosen(scene, PyOpenColorIO.GetCurrentConfig(), held)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 encode: Final = Operator(form=Named, run=encode_formation)
-formation: Final[CompositorEffect[Formation]] = CompositorEffect(
+formation: Final = CompositorEffect(
+    graph=_formation,
     record=Formation,
-    graph=formed_display,
     mix=Replaced(),
-    parts=(
-        Seeds(seed=lambda scene: Formation(display_view=viewed(scene))),
-        Holds(
-            scene=Snapshot.of(
-                bpy.types.Scene,
-                {
-                    ("view_settings", "view_transform"): "Raw",
-                    ("view_settings", "look"): NO_LOOK,
-                    ("view_settings", "exposure"): 0.0,
-                    ("view_settings", "gamma"): 1.0,
-                    ("view_settings", "use_white_balance"): False,
-                    ("view_settings", "use_curve_mapping"): False,
-                },
-            )
-        ),
-        Registers(rows=(encode, DisplayFollowing())),
+    source=Seeded(seed=lambda scene: Formation(display_view=viewed(scene))),
+    holds=Holds(
+        scene=Snapshot.of(
+            bpy.types.Scene,
+            {
+                ("view_settings", "view_transform"): "Raw",
+                ("view_settings", "look"): NO_LOOK,
+                ("view_settings", "exposure"): 0.0,
+                ("view_settings", "gamma"): 1.0,
+                ("view_settings", "use_white_balance"): False,
+                ("view_settings", "use_curve_mapping"): False,
+            },
+        )
     ),
+    registers=(encode, DisplayFollowing()),
 )
+
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -9,7 +9,6 @@ from typing import Annotated, Self
 
 import colour
 from colour.characterisation import ColourChecker
-from colour.characterisation.datasets.colour_checkers.chromaticity_coordinates import CCS_COLORCHECKER24_AFTER_NOV2014
 from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
@@ -18,8 +17,8 @@ import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.imaging.color.processors import basis, converted, matrix, xyz
-from blender.imaging.color.white import adaptation
+from blender.imaging.color.colorimetry import adaptation
+from blender.imaging.color.processors import basis, converted, matrix, Stops, xyz
 from blender.imaging.geometry.frames import Homography, Quad
 from blender.imaging.geometry.panoramas import PanoramaView
 from blender.imaging.geometry.stmaps import StMap
@@ -55,7 +54,7 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Returns published reference data in printed grid order."""
         match chart:
             case PublishedChart.COLORCHECKER_CLASSIC:
-                return cls(checker=CCS_COLORCHECKER24_AFTER_NOV2014, neutral=21)
+                return cls(checker=colour.CCS_COLOURCHECKERS["ColorChecker24 - After November 2014"], neutral=21)
             case PublishedChart.SPYDERCHECKR_24:
                 patches = {
                     "H1 (Bluish Green)": (0.3076822512, 0.4234772396, 0.3374520529),
@@ -254,7 +253,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
     """Output-channel RGB rows with factored exposure in stops."""
 
     gained: tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
-    exposure: float = 0.0
+    exposure: Stops = 0.0
 
     @classmethod
     def fit(cls, samples: tuple[tuple[tuple[float, float, float], tuple[float, float, float]], ...]) -> Outcome["CalibrationFit"]:
@@ -286,11 +285,13 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
         source_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR,
         target_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR,
     ) -> Outcome[Option[Self]]:
-        """Returns calibration with neutral luminance ratio as exposure, or absence for nonpositive luminance."""
+        """Returns calibration with neutral luminance ratio as exposure, or absence for nonpositive luminance or a ratio past the stop range."""
 
         def factored(matrices: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]) -> Option[Self]:
             source_luma, target_luma = (float(held[1] @ np.asarray(sample)) for held, sample in zip(matrices, (source, target)))
-            return Some(msgspec.structs.replace(self, exposure=math.log2(target_luma) - math.log2(source_luma))) if source_luma > 0.0 and target_luma > 0.0 else Nothing
+            return (
+                catch(msgspec.convert, exception=msgspec.ValidationError)(math.log2(target_luma) - math.log2(source_luma), Stops).to_option() if source_luma > 0.0 and target_luma > 0.0 else Nothing
+            ).map(lambda exposure: msgspec.structs.replace(self, exposure=exposure))
 
         return paired(basis(config, source_space), basis(config, target_space)).map(factored)
 

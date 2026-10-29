@@ -1,126 +1,125 @@
-"""Region visibility, alignment, and editor coordinates."""
+"""Region visible bounds, visibility, alignment, and editor coordinates."""
 
-from functools import partial
-from typing import Final, Self, TYPE_CHECKING
+from collections.abc import Mapping
+from functools import partial, reduce
+from types import MappingProxyType
+from typing import Final, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
-import msgspec
+from expression import Error, Ok, Option, Some, try_downcast
+from expression.collections import Block
 
-from blender.bpy.commands.calls import called
-from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.faults import BlenderReason
-from blender.bpy.ui.resources.theme import Metrics
-from blender.bpy.ui.screens.areas import Edge, Located
+from blender.bpy.ui.resources.theme import Metrics, overlaps
+from blender.bpy.ui.screens.areas import Edge, EditorState, Located
 from blender.records.faults import Fault, Outcome, RecordReason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type _Bounds = tuple[int, int, int, int]
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _AXES: Final[tuple[tuple[Edge, Edge], ...]] = (("LEFT", "RIGHT"), ("TOP", "BOTTOM"))
+_RENAMED: Final[Mapping["rna_enums.RegionTypeItems", str]] = MappingProxyType({"TOOLS": "toolbar", "ASSET_SHELF_HEADER": "asset_shelf"})
 
-# --- [MODELS] ---------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
-
-class Visibility(msgspec.Struct, frozen=True, kw_only=True):
-    """Region visibility request, checked on later host passes."""
-
-    window: bpy.types.Window
-    area: int
-    setting: Descriptor[bpy.types.BoolProperty]
-    visible: bool
-
-    def advanced(self) -> Outcome[Option[Self]]:
-        """Returns request while flag differs, Nothing once matched or area is gone."""
-        return Ok(
-            Located
-            .found(self.window, self.area)
-            .bind(lambda at: Option.of_optional(at.area.spaces.active))
-            .filter(lambda space: isinstance(space, self.setting.root))
-            .filter(lambda space: not self.setting.equal(self.setting.read(space), self.visible))
-            .map(lambda _: self)
-        )
+# --- [GEOMETRY]
 
 
-class RegionView(msgspec.Struct, frozen=True, kw_only=True):
-    """Region with window and area for one host call."""
+def visible_bounds(area: bpy.types.Area, region: bpy.types.Region) -> _Bounds:
+    """Returns the region's `(x, y, width, height)` in its own pixels less overlapping siblings, each inset from the bounds earlier siblings left, by Blender's `region_visible_rect_calc`."""
+    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
-    located: Located
-    region: bpy.types.Region
+    def inset(bounds: _Bounds, sibling: bpy.types.Region) -> _Bounds:
+        left, bottom, right, top = bounds
+        x, y = sibling.x, sibling.y
+        xmax, ymax = x + sibling.width - 1, y + sibling.height - 1
+        match sibling.alignment:
+            case _ if not (left <= xmax and right >= x and bottom <= ymax and top >= y):
+                return bounds
+            case "LEFT" | "RIGHT":
+                return (xmax if abs(left - x) < 2 else left), bottom, (x if abs(right - xmax) < 2 else right), top
+            case "TOP" | "BOTTOM":
+                return left, (ymax if abs(bottom - y) < 2 else bottom), right, (y if abs(top - ymax) < 2 else top)
+            case _:
+                return bounds
 
-    @classmethod
-    def of(cls, located: Located, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> Outcome[Self]:
-        """Returns region of a type."""
-        return located.region(kind).map(lambda region: cls(located=located, region=region))
+    siblings = (sibling for sibling in area.regions if sibling != region and overlaps(preferences, area.type, sibling.type))
+    left, bottom, right, top = reduce(inset, siblings, (region.x, region.y, region.x + region.width - 1, region.y + region.height - 1))
+    return left - region.x, bottom - region.y, right - left + 1, top - bottom + 1
 
-    @property
-    def override(self) -> bpy.types.ContextTempOverride:
-        """Context override of region."""
-        return bpy.context.temp_override(window=self.located.window, area=self.located.area, region=self.region)
 
-    @property
-    def scale(self) -> float:
-        """Editor to View2D scale, 1 outside node editor."""
-        return Metrics.read().scale if self.located.area.type == "NODE_EDITOR" else 1.0
+# --- [VISIBILITY]
 
-    def shown(self, *, visible: bool) -> Outcome[Visibility]:
-        """Writes region visibility, refusing HUD or a missing member."""
-        kind = self.region.type
-        suffix = "toolbar" if kind == "TOOLS" else "asset_shelf" if kind == "ASSET_SHELF_HEADER" else kind.lower()
-        identifier = f"show_region_{suffix}"
 
-        def applied(space: bpy.types.Space) -> Outcome[Visibility]:
-            """Writes active space visibility member."""
-            return (
-                Error(
-                    Fault.of(
-                        RecordReason.OUTSIDE,
-                        repr(space),
-                        identifier,
-                        member=", ".join(prop.identifier for prop in space.bl_rna.properties if prop.identifier.startswith("show_region_") and prop.identifier != identifier),
-                    )
-                )
-                if kind == "HUD"
-                else Descriptor.resolve(type(space), identifier, bpy.types.BoolProperty).bind(
-                    lambda setting: setting.write(space, visible).map(lambda _: Visibility(window=self.located.window, area=self.located.area.as_pointer(), setting=setting, visible=visible))
-                )
-            )
+def visibility(space: type[bpy.types.Space], kind: "rna_enums.RegionTypeItems", *, visible: bool) -> Outcome[EditorState]:
+    """Returns the editor state showing or hiding regions of a type through the space's `show_region_<type>` member, the toolbar and asset shelf header named apart, absent fault for a member the space lacks."""
+    return EditorState.of(space, {(f"show_region_{_RENAMED.get(kind, kind.lower())}",): visible})
 
-        return Option.of_optional(self.located.area.spaces.active).to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(self.located.area), member="spaces.active")).bind(applied)
 
-    def flipped(self, side: Edge) -> Outcome[None]:
-        """Moves region to `side` across its axis."""
-        aligned = self.region.alignment
-        match next((axis for axis in _AXES if aligned in axis), ()):
+def flipped(located: Located, side: Edge) -> Outcome[None]:
+    """Moves the located region to `side` across its axis."""
+
+    def moved(region: bpy.types.Region) -> Outcome[None]:
+        aligned = region.alignment
+        match Block.of_seq(_AXES).filter(lambda axis: aligned in axis).try_head().default_value(()):
             case _ if aligned == side:
                 return Ok(None)
             case axis if side in axis:
-                return called(bpy.ops.screen.region_flip, {}, override=Some(self.override)).map(lambda _: None)
+                return located.run(bpy.ops.screen.region_flip, {})
             case axis:
-                return Error(Fault.of(RecordReason.OUTSIDE, repr(self.located.area), str(side), member=", ".join(axis)))
+                return Error(Fault.of(RecordReason.OUTSIDE, repr(located.area), str(side), member=", ".join(axis)))
 
-    def quadded(self, *, shown: bool) -> Outcome[None]:
-        """Toggles quad view when state differs."""
-        quad = any(region.alignment == "QUAD_SPLIT" for region in self.located.area.regions)
-        return Ok(None) if quad == shown else called(bpy.ops.screen.region_quadview, {}, override=Some(self.override)).map(lambda _: None)
+    return located.region.to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(located.area), member="region")).bind(moved)
 
-    def to_view(self, x: float, y: float) -> tuple[float, float]:
-        """Returns editor coordinates of region pixels."""
-        point: tuple[float, float] = self.region.view2d.region_to_view(x, y)  # type: ignore[assignment]
+
+def quadded(located: Located, *, shown: bool) -> Outcome[None]:
+    """Toggles quad view of the located 3D View region when its state differs."""
+    return (
+        Option
+        .of_optional(try_downcast(bpy.types.SpaceView3D, located.area.spaces.active))
+        .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(located.area), member=bpy.types.SpaceView3D.__name__))
+        .bind(lambda space: Ok(None) if (len(space.region_quadviews) > 0) == shown else located.run(bpy.ops.screen.region_quadview, {}))
+    )
+
+
+# --- [COORDINATES]
+
+
+def to_view(located: Located, x: float, y: float) -> Option[tuple[float, float]]:
+    """Returns editor coordinates of located region pixels, Nothing without a region."""
+
+    def viewed(region: bpy.types.Region) -> tuple[float, float]:
+        point: tuple[float, float] = region.view2d.region_to_view(x, y)  # type: ignore[assignment]
         view_x, view_y = point
-        scale = self.scale
+        scale = _scale(located.area)
         return view_x / scale, view_y / scale
 
-    def to_region(self, x: float, y: float) -> Option[tuple[int, int]]:
-        """Returns region pixels of editor point, Nothing outside the region."""
-        scale = self.scale
-        point: tuple[int, int] = self.region.view2d.view_to_region(x * scale, y * scale, clip=False)  # type: ignore[assignment]
+    return located.region.map(viewed)
+
+
+def to_region(located: Located, x: float, y: float) -> Option[tuple[int, int]]:
+    """Returns located region pixels of an editor point, Nothing without a region or outside it."""
+
+    def placed(region: bpy.types.Region) -> Option[tuple[int, int]]:
+        scale = _scale(located.area)
+        point: tuple[int, int] = region.view2d.view_to_region(x * scale, y * scale, clip=False)  # type: ignore[assignment]
         column, row = point
-        return Some(point) if 0 <= column < self.region.width and 0 <= row < self.region.height else Nothing
+        return Some(point).filter(lambda _: 0 <= column < region.width and 0 <= row < region.height)
+
+    return located.region.bind(placed)
+
+
+def _scale(area: bpy.types.Area) -> float:
+    """Returns the editor to View2D scale, the interface scale in a node editor and 1 elsewhere."""
+    return Metrics.read().scale if area.type == "NODE_EDITOR" else 1.0
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["RegionView", "Visibility"]
+__all__ = ["flipped", "quadded", "to_region", "to_view", "visibility", "visible_bounds"]

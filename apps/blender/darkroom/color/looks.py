@@ -12,17 +12,18 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.descriptors import Struct
+from blender.bpy.data.rna.mirrors import Changed
+from blender.bpy.data.rna.paths import Struct
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.nodes.changes import owned
+from blender.bpy.nodes.addressing import owned
 from blender.bpy.render.color.spaces import NO_LOOK, viewed
 from blender.bpy.render.compositor.blending import Entry
-from blender.bpy.render.compositor.stacking import Valued
-from blender.bpy.settings.attachments import Attachment, Changed
-from blender.bpy.ui.layout.rows import Caption, Flow, Member, OperatorButton, Property, Rows
-from blender.bpy.ui.layout.sections import Single
-from blender.bpy.ui.layout.templates import IconView
+from blender.bpy.render.compositor.recipes import Valued
+from blender.bpy.settings.attachments import Attachment
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.rows import FUNCTIONS, gridded, Layout, OperatorButton, Property
+from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.surfaces.panels import Child, Panel
 from blender.imaging.color.processors import DisplayView
 from blender.records.faults import Outcome, paired
@@ -114,9 +115,9 @@ class FormationLooks(msgspec.Struct, frozen=True, kw_only=True):
             yield Ok((FormationLooks.attachment,))
 
     @property
-    def row(self) -> Rows:
+    def row(self) -> Layout:
         """Tiles over the pick's look."""
-        return Rows(rows=lambda identity: self.attachment.bound(identity).map(lambda attached: (IconView(target=Member(root=bpy.types.Scene, path=(attached.name, "look")), show_labels=True),)))
+        return Layout(rows=lambda identity: self.attachment.bound(identity).map(lambda attached: (_tiles("Look", Member(root=bpy.types.Scene, path=(attached.name, "look"))),)))
 
 
 class StackLooks(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -136,7 +137,7 @@ class StackLooks(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return (
                 Ok(Nothing)
                 if not pick.look
-                else paired(preset.found(identity, pick.look).bind(preset.read), stacks.bound(identity))
+                else paired(preset.loaded(identity, pick.look), stacks.bound(identity))
                 .bind(lambda parts: parts[1].looked(scene, parts[0], pick.strength, bpy.context))
                 .map(lambda wrote: Some(f"Look {bpy.path.display_name(pick.look)}") if wrote else Nothing)
             )
@@ -153,21 +154,21 @@ class StackLooks(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def offered(_owner: Struct, _context: bpy.types.Context | None) -> tuple[tuple[str, str, str, int, int], ...]:
             def tile(stem: str) -> int:
-                return preset.found(identity, stem).bind(preset.read).to_option().bind(lambda record: Tiles.icon(identity, f"stack look {stem}", record)).default_value(0)
+                return preset.loaded(identity, stem).to_option().bind(lambda record: Tiles.icon(identity, f"stack look {stem}", record)).default_value(0)
 
-            return _rows(tuple((stem, name, tip, tile(stem), index) for index, (stem, name, tip) in enumerate(preset.entries(identity))))
+            return _rows(tuple((stem, name, tip, tile(stem), index) for stem, name, tip, _, index in preset.entries(identity)))
 
         StackLook.__annotations__["look"].keywords["items"] = offered
         return Ok((self.attachment,))
 
     @property
-    def row(self) -> Rows:
+    def row(self) -> Layout:
         """Tiles over the pick's look, then its Strength slider."""
-        return Rows(
+        return Layout(
             rows=lambda identity: self.attachment.bound(identity).map(
                 lambda attached: (
-                    IconView(target=Member(root=bpy.types.Scene, path=(attached.name, "look")), show_labels=True),
-                    Property(target=Member(root=bpy.types.Scene, path=(attached.name, "strength")), slider=True),
+                    _tiles("Stack Look", Member(root=bpy.types.Scene, path=(attached.name, "look"))),
+                    Property(target=Member(root=bpy.types.Scene, path=(attached.name, "strength")), keywords={"slider": True}),
                 )
             )
         )
@@ -191,6 +192,11 @@ def scened(owner: Struct) -> Option[bpy.types.Scene]:
             return Nothing
 
 
+def _tiles(label: str, member: Member) -> Layout:
+    """Enum tiles beside the label of the enum they pick."""
+    return Layout(rows=(Property(target=member, function=FUNCTIONS["template_icon_view"], keywords={"show_labels": True}),), container=Some(functools.partial(gridded, label)))
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 formation_looks: Final = FormationLooks()
@@ -199,10 +205,10 @@ rows: Final = (
     formation_looks,
     stack_looks,
     Panel(
-        section=Single(
+        section=Section(
             key="image_formation",
             title=bpy.path.display_name("image_formation"),
-            rows=(formation_looks.row, stack_looks.row, Caption(rows=(OperatorButton(target=install.installing), OperatorButton(target=toning)), flow=Flow.ALIGNED, separator=Nothing)),
+            rows=(formation_looks.row, stack_looks.row, Layout(rows=(OperatorButton(target=install.installing), OperatorButton(target=toning)), container=Some(lambda layout: layout.row(align=True)))),
         ),
         at=Child(parent=RENDER_PT_color_management),
     ),

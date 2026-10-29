@@ -7,12 +7,13 @@ from functools import partial
 from typing import Final, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some, try_downcast
+from expression import Nothing, Ok, Option, Some, try_downcast
 from expression.extra.result import catch
 import idprop
 import msgspec
 
 from blender.bpy.data.ids.store import blocks, named
+from blender.bpy.data.rna.descriptors import custom_read
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key, Resource
 from blender.bpy.extension.registration import Acquisitions, Band
@@ -40,13 +41,17 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
     key: Key
     of: Option[bpy.types.ID] = Nothing
     content: Option[ContentHash] = Nothing
+    slot: Option[int] = Nothing
 
     @classmethod
     def read(cls, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Option[Self]:
         """Returns validated mark, Nothing when missing or invalid."""
-        match holder.get(identity.manifest.id):
-            case idprop.types.IDPropertyGroup() as group:
-                return (
+        return (
+            custom_read(holder, identity.manifest.id)
+            .to_option()
+            .bind(lambda found: Option.of_optional(try_downcast(idprop.types.IDPropertyGroup, found)))
+            .bind(
+                lambda group: (
                     catch(msgspec.convert, exception=msgspec.ValidationError)(group.get("key"), Key)
                     .to_option()
                     .map(
@@ -54,15 +59,21 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
                             key=key,
                             of=Option.of_optional(try_downcast(bpy.types.ID, group.get("of"))),
                             content=catch(msgspec.convert, exception=msgspec.ValidationError)(group.get("content"), ContentHash).to_option(),
+                            slot=catch(msgspec.convert, exception=msgspec.ValidationError)(group.get("slot"), int).to_option(),
                         )
                     )
                 )
-            case _:
-                return Nothing
+            )
+        )
 
     def write(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Outcome[None]:
         """Writes present fields under manifest ID."""
-        fields = dict((("key", self.key), *(("of", block) for block in self.of.to_list()), *(("content", content) for content in self.content.to_list())))
+        fields = dict((
+            ("key", self.key),
+            *(("of", block) for block in self.of.to_list()),
+            *(("content", content) for content in self.content.to_list()),
+            *(("slot", slot) for slot in self.slot.to_list()),
+        ))
         return catch(holder.__setitem__, exception=TypeError)(identity.manifest.id, fields).map_error(partial(Fault.of, BlenderReason.REFUSED, identity.manifest.id))
 
 
@@ -84,29 +95,37 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         """Returns holder's mark, Nothing for another purpose."""
         return Mark.read(identity, holder).filter(lambda mark: mark.key == self.key)
 
-    def found(self, identity: Identity, *, of: Option[bpy.types.ID] = Nothing, content: Option[ContentHash] = Nothing) -> Option[T]:
-        """Returns earliest holder of source and content."""
-        return Option.of_optional(_earliest(self.held(identity)).get(Mark(key=self.key, of=of, content=content)))
+    def found(self, identity: Identity, *, of: Option[bpy.types.ID] = Nothing, content: Option[ContentHash] = Nothing, slot: Option[int] = Nothing) -> Option[T]:
+        """Returns earliest holder of source, content, and slot."""
+        return Option.of_optional(_earliest(self.held(identity)).get(Mark(key=self.key, of=of, content=content, slot=slot)))
 
-    def reused(self, identity: Identity, *, of: Option[bpy.types.ID] = Nothing, content: Option[ContentHash] = Nothing) -> Option[T]:
-        """Returns the holder a single row reuses for source and content, Nothing for a row holding many."""
-        return self.found(identity, of=of, content=content) if self.single else Nothing
+    def reused(self, identity: Identity, *, of: Option[bpy.types.ID] = Nothing, content: Option[ContentHash] = Nothing, slot: Option[int] = Nothing) -> Option[T]:
+        """Returns the holder a single row reuses for source, content, and slot, Nothing for a row holding many."""
+        return self.found(identity, of=of, content=content, slot=slot) if self.single else Nothing
 
     def serving(self, identity: Identity, source: bpy.types.ID) -> tuple[T, ...]:
         """Returns holders marked for source."""
         return tuple(block for block, mark in self.held(identity) if mark.of == Some(source))
 
     def owned(
-        self, identity: Identity, block: T, *, of: Option[bpy.types.ID] = Nothing, content: Option[ContentHash] = Nothing, filled: Callable[[T], Outcome[T]] = Ok, scope: Option[ExitStack] = Nothing
+        self,
+        identity: Identity,
+        block: T,
+        *,
+        of: Option[bpy.types.ID] = Nothing,
+        content: Option[ContentHash] = Nothing,
+        slot: Option[int] = Nothing,
+        filled: Callable[[T], Outcome[T]] = Ok,
+        scope: Option[ExitStack] = Nothing,
     ) -> Outcome[T]:
-        """Marks and fills new block under `kept` rollback."""
+        """Marks and fills new block under `kept` rollback, a slot telling apart the holders one source keeps of one row."""
 
         def configured() -> T:
             block.is_runtime_data = self.saved is Saved.NEVER
             block.use_fake_user = self.saved is Saved.ALWAYS
             return block
 
-        return kept(Ok(block), lambda block: Mark(key=self.key, of=of, content=content).write(identity, block).map(lambda _: configured()).bind(filled), scope)
+        return kept(Ok(block), lambda block: Mark(key=self.key, of=of, content=content, slot=slot).write(identity, block).map(lambda _: configured()).bind(filled), scope)
 
     def made(
         self,
@@ -115,12 +134,16 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         *,
         of: Option[bpy.types.ID] = Nothing,
         content: Option[ContentHash] = Nothing,
+        slot: Option[int] = Nothing,
         filled: Callable[[T], Outcome[T]] = Ok,
         scope: Option[ExitStack] = Nothing,
     ) -> Outcome[T]:
         """Reuses equal-mark holder of single row or owns built block, then fills it."""
         return (
-            self.reused(identity, of=of, content=content).map(filled).default_with(lambda: build().bind(lambda block: self.owned(identity, block, of=of, content=content, filled=filled, scope=scope)))
+            self
+            .reused(identity, of=of, content=content, slot=slot)
+            .map(filled)
+            .default_with(lambda: build().bind(lambda block: self.owned(identity, block, of=of, content=content, slot=slot, filled=filled, scope=scope)))
         )
 
     def rebuilt(self, identity: Identity, held: T, build: Callable[[], Outcome[T]]) -> Outcome[T]:
@@ -131,11 +154,13 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
             held.user_remap(block)
             return released((held,)).bind(lambda _: named(block, name))
 
-        match Mark.read(identity, held):
-            case Option(tag="some", some=mark):
-                return build().bind(lambda block: self.owned(identity, block, of=mark.of, content=mark.content)).bind(swapped)
-            case Option():
-                return Error(Fault.of(BlenderReason.ABSENT, repr(held), member=identity.manifest.id))
+        return (
+            Mark
+            .read(identity, held)
+            .to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(held), member=identity.manifest.id))
+            .bind(lambda mark: build().bind(lambda block: self.owned(identity, block, of=mark.of, content=mark.content, slot=mark.slot)))
+            .bind(swapped)
+        )
 
     def removed(self, identity: Identity) -> Outcome[int]:
         """Removes zero-user holders of `USED` row, returning their count."""

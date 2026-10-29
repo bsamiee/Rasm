@@ -1,8 +1,9 @@
-"""Region and widget theme colors and interface metrics."""
+"""Region and widget theme colors, region overlap, and interface metrics."""
 
 from collections.abc import Iterable
+from enum import IntEnum
 import math
-from typing import ClassVar, Self, TYPE_CHECKING
+from typing import Final, Self, TYPE_CHECKING
 
 import bpy
 import mathutils
@@ -15,11 +16,24 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Color = tuple[float, float, float, float]
+type Shade = mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]
+
+
+class Spacing(IntEnum):
+    """Unscaled uiStyle spacings no RNA member exposes, each truncated to device pixels after interface scaling as `UI_style_get_dpi` does, equal spacings sharing one member."""
+
+    COLUMN = 8
+    TEMPLATE = 5
+    BOX = 5
+    BUTTON_X = 8
+    BUTTON_Y = 2
+    PANEL = 8
+    PANEL_OUTER = 4
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-CLEAR: Color = (0.0, 0.0, 0.0, 0.0)
-
+CLEAR: Final[Color] = (0.0, 0.0, 0.0, 0.0)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -32,25 +46,12 @@ class Checker(msgspec.Struct, frozen=True, kw_only=True):
     cell: int
 
 
-class StyleSpacing(msgspec.Struct, frozen=True, kw_only=True):
-    """Style spacings in device pixels."""
-
-    column: int
-    template: int
-    box: int
-    button_x: int
-    button_y: int
-    panel: int
-    panel_outer: int
-
-
 class Metrics(msgspec.Struct, frozen=True, kw_only=True):
     """Interface scale and pixel size with Blender's derived sizes."""
 
     scale: float
     pixel_size: int
     preferences: bpy.types.Preferences
-    unscaled: ClassVar[StyleSpacing] = StyleSpacing(column=8, template=5, box=5, button_x=8, button_y=2, panel=8, panel_outer=4)
 
     # --- [READING]
 
@@ -67,6 +68,10 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
         """Multiplies by interface scale in float32."""
         return np.float32(self.scale) * np.float32(value)
 
+    def spaced(self, spacing: Spacing) -> int:
+        """Returns a style spacing in device pixels."""
+        return int(self.scaled(spacing))
+
     @property
     def unit(self) -> int:
         """Widget unit in device pixels."""
@@ -82,20 +87,15 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
         """Panel header height in device pixels."""
         return int(self.unit * 1.25)
 
-    @property
-    def spacing(self) -> StyleSpacing:
-        """Style spacings at interface scale."""
-        return StyleSpacing(**{name: int(self.scaled(value)) for name, value in msgspec.structs.asdict(Metrics.unscaled).items()})
-
     def line(self, width: float) -> float:
         """Returns device-pixel line width."""
         return max(1.0, float(np.float32(width) * self.pixel_size))
 
     # --- [STYLING]
 
-    def points(self, factor: float = 1.0) -> float:
-        """Returns the widget font size times `factor` in device pixels."""
-        return float(self.scaled(self.preferences.ui_styles[0].widget.points * factor))
+    def font(self, style: bpy.types.ThemeFontStyle, factor: float = 1.0) -> float:
+        """Returns a theme font style's size times `factor` in device pixels."""
+        return float(self.scaled(style.points * factor))
 
     def checker(self) -> Checker:
         """Reads transparency checker."""
@@ -114,31 +114,14 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def editor(self) -> bpy.types.ThemeSpaceGeneric | bpy.types.ThemeSpaceGradient:
-        """Editor theme space, 3D View space when theme lacks one."""
+        """Editor theme space by Blender's `ui_get_theme_colorptr` rule, Project Settings reading Preferences and the 3D View answering a space the theme lacks."""
         theme = self.preferences.themes[0]
         member = "preferences" if self.space == "PROJECT" else self.space.lower()
-        match theme.path_resolve(f"{member}.space") if member in theme.bl_rna.properties else None:
+        match getattr(theme, member).space if member in theme.bl_rna.properties else None:
             case bpy.types.ThemeSpaceGeneric() | bpy.types.ThemeSpaceGradient() as space:
                 return space
             case _:
                 return theme.view_3d.space
-
-    @property
-    def overlaps(self) -> bool:
-        """Whether region draws over window region."""
-        match self.space, self.region:
-            case _, "HUD":
-                return True
-            case _ if not self.preferences.system.use_region_overlap:
-                return False
-            case "VIEW_3D", "HEADER":
-                return color(self.preferences.themes[0].view_3d.space.header)[3] < 1.0
-            case "NODE_EDITOR", "TOOLS" | "UI" | "ASSET_SHELF" | "ASSET_SHELF_HEADER":
-                return True
-            case ("VIEW_3D" | "IMAGE_EDITOR", "TOOLS" | "UI" | "TOOL_PROPS" | "FOOTER" | "TOOL_HEADER" | "ASSET_SHELF" | "ASSET_SHELF_HEADER"):
-                return True
-            case _:
-                return False
 
     @property
     def text(self) -> Color:
@@ -160,34 +143,51 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def back(self) -> Color:
-        """Region background display color."""
+        """Region background display color by Blender's `region_background_color_id` and TH_BACK rules, opaque unless the region overlaps."""
         theme, space = self.preferences.themes[0], self.editor
         stored: mathutils.Color | bpy.types.bpy_prop_array
-        match self.region:
-            case "WINDOW":
-                stored = space.gradients.high_gradient if isinstance(space, bpy.types.ThemeSpaceGradient) else space.back
-            case "PREVIEW":
+        match self.space, self.region:
+            case "SEQUENCE_EDITOR", "PREVIEW":
                 stored = theme.sequence_editor.preview_back
-            case "HEADER" | "FOOTER" | "TOOL_HEADER":
+            case _, "WINDOW" | "PREVIEW":
+                stored = space.gradients.high_gradient if isinstance(space, bpy.types.ThemeSpaceGradient) else space.back
+            case _, "HEADER" | "FOOTER" | "TOOL_HEADER":
                 stored = space.header
-            case "CHANNELS":
+            case _, "CHANNELS":
                 stored = theme.regions.channels.back
-            case "NAVIGATION_BAR":
+            case _, "NAVIGATION_BAR":
                 stored = theme.regions.sidebars.tab_back
-            case "ASSET_SHELF":
+            case _, "ASSET_SHELF":
                 stored = theme.regions.asset_shelf.back
-            case "ASSET_SHELF_HEADER":
+            case _, "ASSET_SHELF_HEADER":
                 stored = theme.regions.asset_shelf.header_back
             case _:
                 stored = theme.regions.sidebars.back
         red, green, blue, alpha = color(stored)
-        return (red, green, blue, alpha if self.overlaps else 1.0)
+        return (red, green, blue, alpha if overlaps(self.preferences, self.space, self.region) else 1.0)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def color(values: mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]) -> Color:
+def overlaps(preferences: bpy.types.Preferences, space: "rna_enums.SpaceTypeItems", region: "rna_enums.RegionTypeItems") -> bool:
+    """Returns whether a region of the editor draws over its window region, by Blender's `ED_region_is_overlap` over the region overlap preference and the 3D View header alpha."""
+    match space, region:
+        case _, "HUD":
+            return True
+        case _ if not preferences.system.use_region_overlap:
+            return False
+        case "VIEW_3D", "HEADER":
+            return color(preferences.themes[0].view_3d.space.header)[3] < 1.0
+        case "NODE_EDITOR", "TOOLS" | "UI" | "ASSET_SHELF" | "ASSET_SHELF_HEADER":
+            return True
+        case "VIEW_3D" | "IMAGE_EDITOR", "TOOLS" | "UI" | "TOOL_PROPS" | "FOOTER" | "TOOL_HEADER" | "ASSET_SHELF" | "ASSET_SHELF_HEADER":
+            return True
+        case _:
+            return False
+
+
+def color(values: Shade) -> Color:
     """Returns RGB or RGBA as display RGBA, alpha 1 when absent."""
     match values:
         case mathutils.Color():
@@ -199,4 +199,4 @@ def color(values: mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]) 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CLEAR", "Checker", "Color", "Metrics", "StyleSpacing", "Theme", "color"]
+__all__ = ["CLEAR", "Checker", "Color", "Metrics", "Shade", "Spacing", "Theme", "color", "overlaps"]

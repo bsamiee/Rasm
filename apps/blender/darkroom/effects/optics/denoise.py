@@ -14,28 +14,35 @@ import msgspec
 from blender.bpy.data.ids.images import ImageFrames, Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import Descriptor, rna, Value
+from blender.bpy.data.rna.descriptors import Descriptor, Value
+from blender.bpy.data.rna.paths import rna, RnaPath
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
+from blender.bpy.nodes import functions
 from blender.bpy.nodes.changes import made
-from blender.bpy.nodes.graphs import Component, End, Expr, group_input, Loaded, math, menu, mixed, NodeGroup, Scalar, switched, where, xyz
+from blender.bpy.nodes.content import Loaded
+from blender.bpy.nodes.desired import End, NodeGroup
+from blender.bpy.nodes.graphs import Component, Expr, group_input, math, menu, mixed, Scalar, switched, where, xyz
 from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket, under
 from blender.bpy.render.compositor import filters
-from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
+from blender.bpy.render.compositor.blending import BLEND, OPACITY
+from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT, with_alpha
 from blender.bpy.render.compositor.coordinates import gridded
-from blender.bpy.render.compositor.effects import Blended, CompositorEffect, Holds, PRECISION, Requests, Shell
+from blender.bpy.render.compositor.effects import Blended, CompositorEffect, PRECISION
+from blender.bpy.render.compositor.inputs import Holds
 from blender.bpy.render.compositor.layers import Source, StackLayer, TermFiltering
-from blender.bpy.render.compositor.masks import LUMINANCE, luminance
+from blender.bpy.render.compositor.masks import LUMINANCE, working
 from blender.bpy.render.compositor.recombination import Lobes, Recombined, TermFilter
-from blender.bpy.render.outputs.exports import COMBINED
+from blender.bpy.render.compositor.shells import Shell
 from blender.bpy.render.outputs.finishing import Written
 from blender.bpy.render.outputs.paths import ScenePaths
-from blender.bpy.render.sessions.preflight import JobScope
-from blender.bpy.render.sessions.queue import Plan
-from blender.bpy.render.view_layers.passes import FAMILIES, Family, PassRequest, PassSet, required
+from blender.bpy.render.outputs.results import COMBINED
+from blender.bpy.render.sessions.plans import JobScope, Plan
+from blender.bpy.render.view_layers.passes import FAMILIES, Family, PassRequest, required, used
+from blender.bpy.render.view_layers.routing import PassSet
 from blender.bpy.settings.attachments import Attachment
 from blender.records.faults import accumulated, Fault, Outcome, paired
 
@@ -44,56 +51,38 @@ from ...chain.stages import Effect, Stage
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 ENGINE: Final = Descriptor.declared(bpy.types.Scene, ("render", "engine"), bpy.types.EnumProperty)
-VECTOR_PASS: Final = Descriptor.declared(bpy.types.ViewLayer, "use_pass_vector", bpy.types.BoolProperty)
+VECTOR_PASS: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_vector",), bpy.types.BoolProperty)
 TEMPORAL: Final[Key] = "temporal_denoise"
 _NOISY: Final = Socket(key="noisy", name="Filter Input", kind=bpy.types.NodeSocketColor)
 _ALBEDO: Final = Socket(key="albedo", name="Albedo", kind=bpy.types.NodeSocketColor)
 _NORMAL: Final = Socket(key="normal", name="Normal", kind=bpy.types.NodeSocketVector)
 _RING: Final = tuple((float(dx), float(dy)) for dy in range(-2, 3) for dx in range(-2, 3) if max(abs(dx), abs(dy)) == 2)
 GUIDES: Final = MenuItems(items=(MenuItem(name="None"), MenuItem(name="Albedo"), MenuItem(name="Albedo and Normal")))
-TARGETS: Final = MenuItems(
-    items=(
-        MenuItem(name="Frame", description="Incoming frame denoised as one image"),
-        MenuItem(name="Light Passes", description="Light terms of a recombined layer filtered before they sum, one filter per recombined term"),
-        MenuItem(name="Light Groups", description="Light-group passes of a recombined layer filtered before they sum"),
-    )
+_FRAME_TARGET: Final = MenuItem(name="Frame", description="Incoming frame denoised as one image")
+_PASSES_TARGET: Final = MenuItem(name="Light Passes", description="Light terms of a recombined layer filtered before they sum, one filter per recombined term")
+_GROUPS_TARGET: Final = MenuItem(name="Light Groups", description="Light-group passes of a recombined layer filtered before they sum")
+TARGETS: Final = MenuItems(items=(_FRAME_TARGET, _PASSES_TARGET, _GROUPS_TARGET))
+_TARGET: Final = Socket(key="target", kind=bpy.types.NodeSocketMenu, description="Frame or recombined light terms to denoise", default_value=_FRAME_TARGET.name, items=Some(TARGETS))
+_GUIDES: Final = Socket(key="guides", kind=bpy.types.NodeSocketMenu, description="Passes guiding filter", default_value="Albedo and Normal", items=Some(GUIDES))
+_PREFILTER: Final = Socket(
+    key="prefilter",
+    kind=bpy.types.NodeSocketMenu,
+    description="Guide denoising before filtering",
+    default_value="Accurate",
+    items=Some(MenuItems(items=(MenuItem(name="None"), MenuItem(name="Fast"), MenuItem(name="Accurate")))),
 )
-FILTER: Final = Interface(
-    inputs=(
-        Socket(key="guides", name="Guides", kind=bpy.types.NodeSocketMenu, description="Passes guiding filter", members={"default_value": "Albedo and Normal"}, items=Some(GUIDES)),
-        Socket(
-            key="prefilter",
-            name="Prefilter",
-            kind=bpy.types.NodeSocketMenu,
-            description="Guide denoising before filtering",
-            members={"default_value": "Accurate"},
-            items=Some(MenuItems(items=(MenuItem(name="None"), MenuItem(name="Fast"), MenuItem(name="Accurate")))),
-        ),
-        Socket(
-            key="quality",
-            name="Quality",
-            kind=bpy.types.NodeSocketMenu,
-            description="Quality against run time",
-            members={"default_value": "Follow Scene"},
-            items=Some(MenuItems(items=(MenuItem(name="Follow Scene"), MenuItem(name="High"), MenuItem(name="Balanced"), MenuItem(name="Fast")))),
-        ),
-    )
+_QUALITY: Final = Socket(
+    key="quality",
+    kind=bpy.types.NodeSocketMenu,
+    description="Quality against run time",
+    default_value="Follow Scene",
+    items=Some(MenuItems(items=(MenuItem(name="Follow Scene"), MenuItem(name="High"), MenuItem(name="Balanced"), MenuItem(name="Fast")))),
 )
-FIREFLIES: Final = InterfacePanel(
-    key="fireflies",
-    name="Fireflies",
-    description="Firefly suppression before filtering",
-    toggle=Some(True),
-    inputs=(
-        Socket(
-            key="fireflies_threshold",
-            name="Threshold",
-            kind=bpy.types.NodeSocketFloat,
-            description="Luminance over fourth brightest ring neighbor",
-            members={"min_value": 1.0, "max_value": 10.0, "default_value": 2.0},
-        ),
-    ),
+FILTER: Final = Interface(inputs=(_GUIDES, _PREFILTER, _QUALITY))
+_FIREFLIES_THRESHOLD: Final = Socket(
+    key="fireflies_threshold", name="Threshold", kind=bpy.types.NodeSocketFloat, description="Luminance over fourth brightest ring neighbor", min_value=1.0, max_value=10.0, default_value=2.0
 )
+FIREFLIES: Final = InterfacePanel(key="fireflies", name="Fireflies", description="Firefly suppression before filtering", toggle=Some(True), inputs=(_FIREFLIES_THRESHOLD,))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -155,17 +144,17 @@ class TemporalGroups(msgspec.Struct, frozen=True, kw_only=True):
         def grouped(held: Rendered, record: TemporalDenoise, base: Path) -> Outcome[NodeGroup]:
             def loaded(path: str, name: str, offset: int) -> Expr:
                 frames = ImageFrames(frame_start=held.first, frame_duration=held.last - held.first + 1, frame_offset=held.first - 1 + offset)
-                return Expr(kind=bpy.types.CompositorNodeImage, content=Some(Loaded(path=str(base / path), tag=Tag(sequence=True), frames=Some(frames))), socket=name, shape="RGBA")
+                return Expr(kind=bpy.types.CompositorNodeImage, content=Some(Loaded(path=base / path, tag=Tag(sequence=True), frames=Some(frames))), socket=name, shape=bpy.types.NodeSocketColor)
 
             def hsv(image: Expr, channel: str) -> Expr:
-                return Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", image),), members=(("mode", "HSV"),), socket=channel)
+                return Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", image),), members={"mode": "HSV"}, socket=channel)
 
             def mapped(image: Expr, uv: Expr, interpolation: str) -> Expr:
                 return Expr(
                     kind=bpy.types.CompositorNodeMapUV,
                     inputs=(("Image", image), ("UV", uv), ("Interpolation", interpolation), ("Extension X", "Clip"), ("Extension Y", "Clip")),
                     socket="Image",
-                    shape="RGBA",
+                    shape=bpy.types.NodeSocketColor,
                 )
 
             color, motion = loaded(held.color_path, held.color_name, 0), loaded(held.motion_path, held.motion_name, 0)
@@ -191,8 +180,8 @@ class TemporalGroups(msgspec.Struct, frozen=True, kw_only=True):
             next_weight, following = side(1, ("Blue", "Alpha"), ("Red", "Green"), grid.inverse * (-1.0, -1.0, -1.0), time < float(held.last))
             total = previous_weight + next_weight
             blend = mixed(total, color, mixed(next_weight / total, previous, following))
-            restored = Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", blend), ("Alpha", hsv(color, "Alpha")), ("Type", "Replace Alpha")), socket="Image", shape="RGBA")
-            return NodeGroup.built(Rendered.ownership.key, bpy.path.display_name(TEMPORAL), Interface(outputs=(COLOR_RESULT,)), {COLOR_RESULT.key: restored}, bpy.types.CompositorNodeTree)
+            restored = with_alpha(blend, hsv(color, "Alpha"))
+            return functions.built(Rendered.ownership.key, bpy.path.display_name(TEMPORAL), Interface(outputs=(COLOR_RESULT,)), {COLOR_RESULT.key: restored}, bpy.types.CompositorNodeTree)
 
         def staged(scene: bpy.types.Scene) -> Outcome[None]:
             return paired(self.rendered.read(identity, scene), self.settings.read(identity, scene), ScenePaths().bound(identity).bind(lambda pathed: pathed.scope.read(scene))).bind(
@@ -216,60 +205,46 @@ class TemporalGroups(msgspec.Struct, frozen=True, kw_only=True):
 # --- [SPATIAL]
 
 
-def _denoiser(working: NodeGroup) -> Outcome[NodeGroup]:
+def _denoiser(luminance: NodeGroup) -> Outcome[NodeGroup]:
     """Builds the shared firefly and guided denoise unit.
 
     Fireflies scale toward the fourth brightest valid luminance on the 5x5 ring.
 
     Args:
-        working: Working luminance group with image input and luminance output.
+        luminance: Working luminance group with image input and luminance output.
 
     Returns:
         Group with filtered and firefly-cleaned outputs, or graph faults.
     """
+    image = group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor)
+    level = functions.placed(luminance, {COLOR_INPUT.key: image}, LUMINANCE.key)
     rank, lit = 4, 0.0001
-    image = group_input(COLOR_INPUT.key, "RGBA")
-    level = working.placed({COLOR_INPUT.key: image}, LUMINANCE.key)
     fourth, valid = filters.ranked(level, _RING, rank)
-    marked = (level > fourth * group_input("fireflies_threshold")) * (1.0 - (level < lit)) * (valid > float(rank))
+    marked = (level > fourth * group_input(_FIREFLIES_THRESHOLD.key)) * (1.0 - (level < lit)) * (valid > float(rank))
     cleaned = switched(group_input(FIREFLIES.key), image, mixed(1.0, image, where(marked, fourth / level, 1.0), blend="MULTIPLY"))
-    albedo = menu(group_input("guides"), GUIDES, {"Albedo": group_input(_ALBEDO.key, "RGBA"), "Albedo and Normal": group_input(_ALBEDO.key, "RGBA")}, kind="RGBA")
-    normal = switched(msgspec.structs.replace(albedo, socket="Albedo and Normal", shape="FLOAT"), (0.0, 0.0, 0.0), group_input(_NORMAL.key, "VECTOR"))
-    filtered = filters.denoised(cleaned, albedo=Some(albedo), normal=Some(normal), prefilter=Some(group_input("prefilter")), quality=Some(group_input("quality")))
+    albedo = menu(group_input(_GUIDES.key), {GUIDES.items[0]: (0.8, 0.8, 0.8, 1.0)} | {item: group_input(_ALBEDO.key, bpy.types.NodeSocketColor) for item in GUIDES.items[1:]})
+    normal = switched(msgspec.structs.replace(albedo, socket="Albedo and Normal", shape=bpy.types.NodeSocketFloat), (0.0, 0.0, 0.0), group_input(_NORMAL.key, bpy.types.NodeSocketVector))
+    filtered = Expr(
+        kind=bpy.types.CompositorNodeDenoise,
+        inputs=(("Image", cleaned), ("Albedo", albedo), ("Normal", normal), ("HDR", True), ("Prefilter", group_input(_PREFILTER.key)), ("Quality", group_input(_QUALITY.key))),
+        socket="Image",
+        shape=bpy.types.NodeSocketColor,
+    )
     face = Interface(outputs=(COLOR_RESULT, _NOISY), inputs=(COLOR_INPUT, _ALBEDO, _NORMAL, *FILTER.inputs), panels=(FIREFLIES,))
-    return NodeGroup.built("denoiser", "Denoiser", face, {COLOR_RESULT.key: filtered, _NOISY.key: cleaned}, bpy.types.CompositorNodeTree)
+    return functions.built("denoiser", "Denoiser", face, {COLOR_RESULT.key: filtered, _NOISY.key: cleaned}, bpy.types.CompositorNodeTree)
 
 
 def _guides(render: Expr, family: Option[Family]) -> tuple[Expr, Expr]:
     """Cycles denoising albedo and normal of a render layer, a family's color pass as the albedo of its term."""
     albedo = family.bind(lambda held: Block.of_seq(FAMILIES[held].color).try_head()).map(lambda path: bpy.types.ViewLayer.bl_rna.properties[rna(path)].name).default_value("Denoising Albedo")
-    return msgspec.structs.replace(render, socket=albedo, shape="RGBA"), msgspec.structs.replace(render, socket="Denoising Normal", shape="VECTOR")
+    return msgspec.structs.replace(render, socket=albedo, shape=bpy.types.NodeSocketColor), msgspec.structs.replace(render, socket="Denoising Normal", shape=bpy.types.NodeSocketVector)
 
 
 def _unit(group: NodeGroup, read: Callable[[Key], Scalar], filter_at: Key, source: Scalar, guides: tuple[Expr, Expr]) -> Expr:
     """Places the denoise unit over a source, its filter controls read under `filter_at` and the firefly controls at the record root."""
     albedo, normal = guides
     controls = {socket.key: read(item_key(filter_at, socket.key)) for socket in FILTER.inputs} | {key: read(key) for key in (FIREFLIES.key, *(socket.key for socket in FIREFLIES.inputs))}
-    return group.placed({COLOR_INPUT.key: source, _ALBEDO.key: albedo, _NORMAL.key: normal} | controls, COLOR_RESULT.key)
-
-
-def denoised(shell: Shell[SpatialDenoise]) -> Outcome[Expr]:
-    """Filters the frame under its target, the light-term targets passing the stage input to the layer that filters its terms."""
-
-    def built(group: NodeGroup) -> Outcome[Expr]:
-        frame = _unit(group, group_input, "frame", shell.color, _guides(shell.render, Nothing)).named("target_frame")
-        return (
-            shell
-            .menu("target", cases={"Frame": frame, "Light Passes": shell.color, "Light Groups": shell.color}, kind="RGBA")
-            .map(lambda chosen: chosen.named("target"))
-            .map(
-                lambda chosen: chosen.keeping(
-                    switched(msgspec.structs.replace(chosen, socket="Frame", shape="FLOAT"), shell.color, msgspec.structs.replace(frame, socket=_NOISY.key)).named("frame_base")
-                )
-            )
-        )
-
-    return luminance(shell.config).bind(_denoiser).bind(built)
+    return functions.placed(group, {COLOR_INPUT.key: source, _ALBEDO.key: albedo, _NORMAL.key: normal} | controls, COLOR_RESULT.key)
 
 
 def _guided(_record: SpatialDenoise, layer: str) -> Outcome[PassRequest]:
@@ -279,10 +254,23 @@ def _guided(_record: SpatialDenoise, layer: str) -> Outcome[PassRequest]:
     )
 
 
+def denoised(shell: Shell[SpatialDenoise]) -> Outcome[Expr]:
+    """Filters the frame under its target, the light-term targets passing the stage input to the layer that filters its terms."""
+
+    def built(group: NodeGroup) -> Expr:
+        frame = _unit(group, group_input, "frame", shell.color, _guides(shell.render, Nothing)).named("target_frame")
+        chosen = shell.menu(_TARGET, cases={_FRAME_TARGET: frame, _PASSES_TARGET: shell.color, _GROUPS_TARGET: shell.color}).named("target")
+        return chosen.keeping(
+            switched(msgspec.structs.replace(chosen, socket=_FRAME_TARGET.name, shape=bpy.types.NodeSocketFloat), shell.color, msgspec.structs.replace(frame, socket=_NOISY.key)).named("frame_base")
+        )
+
+    return working(shell.config).bind(_denoiser).map(built)
+
+
 # --- [LAYERS]
 
 
-def _term_filter(layer: StackLayer[Source, Effect], _outer: Callable[[Key], Expr], working: NodeGroup) -> Outcome[Option[TermFilter]]:
+def _term_filter(layer: StackLayer[Source, Effect], _outer: Callable[[Key], Expr], luminance: NodeGroup) -> Outcome[Option[TermFilter]]:
     """Filters a recombined layer's terms through its denoise effect while the effect targets light passes or light groups."""
     found = next((index for index, held in enumerate(layer.effects, 1) if isinstance(held.record, SpatialDenoise)), None)
 
@@ -292,7 +280,7 @@ def _term_filter(layer: StackLayer[Source, Effect], _outer: Callable[[Key], Expr
         def read(key: Key) -> Expr:
             return group_input(item_key(prefix, key))
 
-        chosen = menu(read("target"), TARGETS, {item.name: 0.0 for item in TARGETS.items}, kind="FLOAT")
+        chosen = menu(read("target"), dict.fromkeys(TARGETS.items, 0.0))
 
         def term(key: Key, source: Expr, family: Option[Family], render: Expr) -> Expr:
             match layer.source:
@@ -301,11 +289,11 @@ def _term_filter(layer: StackLayer[Source, Effect], _outer: Callable[[Key], Expr
                 case _:
                     at, active = "groups", msgspec.structs.replace(chosen, socket="Light Groups")
             cleaned = _unit(group, read, at, source, _guides(render, family))
-            return switched(active, source, mixed(read(item_key(Shell.blend, "opacity")), msgspec.structs.replace(cleaned, socket=_NOISY.key), cleaned))
+            return switched(active, source, mixed(read(item_key(BLEND, OPACITY.key)), msgspec.structs.replace(cleaned, socket=_NOISY.key), cleaned))
 
         return term
 
-    return Ok(Nothing) if found is None else _denoiser(working).map(lambda group: Some(filtered(group, found)))
+    return Ok(Nothing) if found is None else _denoiser(luminance).map(lambda group: Some(filtered(group, found)))
 
 
 def _term_passes(layer: StackLayer[Source, Effect]) -> Outcome[tuple[PassRequest, ...]]:
@@ -337,7 +325,7 @@ def temporal(identity: Identity, plan: Plan) -> Outcome[Plan]:
 
     def followed(index: int, scope: JobScope) -> Outcome[tuple[JobScope, Option[JobScope]]]:
         scene = bpy.data.scenes[scope.scene]
-        requests = tuple(PassRequest(layer=layer.name, flags=frozenset({VECTOR_PASS})) for layer in scene.view_layers if layer.use)
+        requests = tuple(PassRequest(layer=layer.name, flags=frozenset({VECTOR_PASS})) for layer in used(scene))
 
         def located(files: tuple[Written, ...], source: str) -> Outcome[tuple[str, str]]:
             return (
@@ -348,15 +336,15 @@ def temporal(identity: Identity, plan: Plan) -> Outcome[Plan]:
             )
 
         def planned(rendered: str, outputs: str, version: int, base: Path, color: tuple[str, str], motion: tuple[str, str]) -> tuple[JobScope, Option[JobScope]]:
-            values: dict[str, Value] = {
-                f"{rendered}.color_path": Path(color[0]).relative_to(base).as_posix(),
-                f"{rendered}.color_name": color[1],
-                f"{rendered}.motion_path": Path(motion[0]).relative_to(base).as_posix(),
-                f"{rendered}.motion_name": motion[1],
-                f"{rendered}.first": scene.frame_start,
-                f"{rendered}.last": scene.frame_end,
-                f"{outputs}.version": version + 1,
-                **{f"compositor_effects[{position}].enable_for_render": False for position in range(len(scene.compositor_effects))},
+            values: dict[RnaPath, Value] = {
+                (rendered, "color_path"): Path(color[0]).relative_to(base).as_posix(),
+                (rendered, "color_name"): color[1],
+                (rendered, "motion_path"): Path(motion[0]).relative_to(base).as_posix(),
+                (rendered, "motion_name"): motion[1],
+                (rendered, "first"): scene.frame_start,
+                (rendered, "last"): scene.frame_end,
+                (outputs, "version"): version + 1,
+                **{("compositor_effects", position, "enable_for_render"): False for position in range(len(scene.compositor_effects))},
             }
             blur = Snapshot.of(bpy.types.Scene, {("render", "use_motion_blur"): False})
             return (
@@ -393,14 +381,11 @@ def temporal(identity: Identity, plan: Plan) -> Outcome[Plan]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-SETTINGS: Final = Attachment(key=TEMPORAL, form=TemporalDenoise, owner=bpy.types.Scene)
-RENDERED: Final = Attachment(key="temporal_inputs", form=Rendered, owner=bpy.types.Scene)
-prerequisites: Final = (SETTINGS, RENDERED, TemporalGroups(settings=SETTINGS, rendered=RENDERED))
-spatial_denoise = CompositorEffect(
+spatial_denoise: Final = CompositorEffect(
+    denoised,
     record=SpatialDenoise,
-    graph=denoised,
     interface=Interface(
-        inputs=(Socket(key="target", name="Target", kind=bpy.types.NodeSocketMenu, description="Frame or recombined light terms to denoise", members={"default_value": "Frame"}, items=Some(TARGETS)),),
+        inputs=(_TARGET,),
         panels=(
             FIREFLIES,
             InterfacePanel(key="frame", name="Frame", description="Filter over frame", inputs=under("frame", FILTER).inputs),
@@ -425,8 +410,12 @@ spatial_denoise = CompositorEffect(
         ),
     ),
     mix=Blended(base=Some(End(node="frame_base", socket="Output"))),
-    parts=(Requests[SpatialDenoise](request=_guided), Holds(scene=Snapshot.of(bpy.types.Scene, {("cycles", "use_denoising"): False}))),
+    request=Some(_guided),
+    holds=Holds(scene=Snapshot.of(bpy.types.Scene, {("cycles", "use_denoising"): False})),
 )
+SETTINGS: Final = Attachment(key=TEMPORAL, form=TemporalDenoise, owner=bpy.types.Scene)
+RENDERED: Final = Attachment(key="temporal_inputs", form=Rendered, owner=bpy.types.Scene)
+prerequisites: Final = (SETTINGS, RENDERED, TemporalGroups(settings=SETTINGS, rendered=RENDERED))
 filtering: Final = TermFiltering[Effect](filter=_term_filter, requests=_term_passes)
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -1,23 +1,26 @@
-"""Owned workspaces with add-on filters and deferred activation."""
+"""Owned workspaces copied from the open file or appended from a blend file, with add-on filters, declared mode, scene pin and tool, and deferred activation."""
 
 from contextlib import ExitStack
 from functools import partial
+from pathlib import Path
 from typing import Self, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Some
+from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.calls import called, Operation
-from blender.bpy.data.ids.ownership import Ownership, Saved
+from blender.bpy.data.ids.ownership import kept, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import written
 from blender.bpy.extension.events import startup
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Faults, Outcome
+from blender.bpy.files.libraries import blocks_loaded
+from blender.records.faults import accumulated, Fault, Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -26,21 +29,20 @@ if TYPE_CHECKING:
 
 
 class Activation(msgspec.Struct, frozen=True, kw_only=True):
-    """Deferred workspace switch with prior workspace and the tab reorder operator run once it applies."""
+    """Deferred workspace switch with prior workspace, and the tab reorder operator and tool, by idname and toolbar space, run once it applies."""
 
     window: bpy.types.Window
     target: Handle[bpy.types.WorkSpace]
     prior: Handle[bpy.types.WorkSpace]
-    order: Option[Operation]
+    order: Option[Operation] = Nothing
+    tool: "Option[tuple[str, rna_enums.SpaceTypeItems]]" = Nothing
 
     def advanced(self) -> Outcome[Option[Self]]:
-        """Returns switch while pending, Nothing after activation or user switch."""
-        shown = self.window.workspace.session_uid
-        return (
-            self.order.map(lambda order: called(order, {}, override=Some(bpy.context.temp_override(window=self.window))).map(lambda _: Nothing)).default_value(Ok(Nothing))
-            if shown == self.target.uid
-            else Ok(Some(self) if shown == self.prior.uid else Nothing)
-        )
+        """Returns switch while pending, Nothing after a user switch or once the switch applied and its reorder and tool ran."""
+        if (shown := self.window.workspace.session_uid) != self.target.uid:
+            return Ok(Some(self) if shown == self.prior.uid else Nothing)
+        calls = (*((order, {}) for order in self.order.to_list()), *((bpy.ops.wm.tool_set_by_id, {"name": name, "space_type": space}) for name, space in self.tool.to_list()))
+        return accumulated(called(operator, values, override=Some(bpy.context.temp_override(window=self.window))) for operator, values in calls).map(lambda _: Nothing)
 
     def reverted(self) -> Outcome[None]:
         """Requests prior workspace, fault once it no longer resolves."""
@@ -53,14 +55,17 @@ class Activation(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
-    """Saved copy of source workspace with mode, add-on filter, and tab reorder operator (`workspace.reorder_to_front` or `reorder_to_back`)."""
+    """Saved copy of a source workspace, from the open file or appended from `library`, with mode, scene pin, add-on filter, tab reorder operator (`workspace.reorder_to_front` or `reorder_to_back`), and the tool its mode starts with, by the idname and toolbar space `wm.tool_set_by_id` takes."""
 
     key: Key
     name: str
     source: str
+    library: Option[Path] = Nothing
     mode: "Option[rna_enums.WorkspaceObjectModeItems]" = Nothing
+    use_pin_scene: Option[bool] = Nothing
     owners: Option[tuple[str, ...]] = Nothing
     order: Option[Operation] = Nothing
+    tool: "Option[tuple[str, rna_enums.SpaceTypeItems]]" = Nothing
 
     # --- [OWNERSHIP]
 
@@ -94,35 +99,40 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
     # --- [CREATION]
 
     def made(self, identity: Identity) -> Outcome[bpy.types.WorkSpace]:
-        """Returns owned workspace."""
+        """Returns owned workspace, a refused copy removed with its screens."""
 
-        def moded(workspace: bpy.types.WorkSpace) -> Outcome[bpy.types.WorkSpace]:
-            """Writes declared object mode."""
-            return accumulated(written(workspace, "object_mode", mode) for mode in self.mode.to_list()).map(lambda _: workspace)
-
-        def built() -> Outcome[bpy.types.WorkSpace]:
-            """Copies source workspace with no layout switch."""
-
-            def copied(workspace: bpy.types.WorkSpace) -> Outcome[bpy.types.WorkSpace]:
-                """Removes copy on naming or mode refusal, screens on any refusal."""
-                screens.callback(bpy.data.batch_remove, ids=tuple(workspace.screens))
-                with ExitStack() as pending:
-                    pending.callback(bpy.data.batch_remove, ids=(workspace,))
-                    named = catch(workspace.rename, exception=RuntimeError)(self.name, mode="NEVER").map_error(partial(Fault.of, BlenderReason.REFUSED, repr(workspace)))
-                    if (answer := Result[object, Faults].bind(named, lambda _: moded(workspace))).is_ok():
-                        pending.pop_all()
-                    return answer
-
+        def declared(workspace: bpy.types.WorkSpace) -> Outcome[bpy.types.WorkSpace]:
+            """Names the copy and writes declared object mode and scene pin."""
             return (
-                Option
-                .of_optional(bpy.data.workspaces.get(self.source))
-                .bind(lambda source: Option.of_optional(source.copy()))
-                .to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(bpy.data.workspaces), member=self.source))
-                .bind(copied)
+                catch(workspace.rename, exception=RuntimeError)(self.name, mode="NEVER")
+                .map_error(partial(Fault.of, BlenderReason.REFUSED, repr(workspace)))
+                .bind(
+                    lambda _: accumulated((
+                        *(written(workspace, ("object_mode",), mode) for mode in self.mode.to_list()),
+                        *(written(workspace, ("use_pin_scene",), pinned) for pinned in self.use_pin_scene.to_list()),
+                    ))
+                )
+                .map(lambda _: workspace)
             )
 
         with ExitStack() as screens:
-            if (answer := self.ownership.made(identity, built).map(lambda workspace: self._configured(identity, workspace))).is_ok():
+
+            def copied(workspace: bpy.types.WorkSpace) -> Outcome[bpy.types.WorkSpace]:
+                """Holds removal of the copy's screens, removing the copy itself on a naming or declared-member refusal."""
+                screens.callback(bpy.data.batch_remove, ids=tuple(workspace.screens))
+                return kept(Ok(workspace), declared)
+
+            def built() -> Outcome[bpy.types.WorkSpace]:
+                """Appends the source workspace from the library, or copies it from the open file, with no layout switch."""
+                return (
+                    self.library
+                    .map(lambda path: blocks_loaded(path, bpy.types.WorkSpace, (self.source,)).map(lambda blocks: Block.of_seq(blocks).try_head()))
+                    .default_with(lambda: Ok(Option.of_optional(bpy.data.workspaces.get(self.source)).bind(lambda source: Option.of_optional(source.copy()))))
+                    .bind(lambda found: found.to_result_with(partial(Fault.of, BlenderReason.ABSENT, repr(bpy.data.workspaces), member=self.source)))
+                    .bind(copied)
+                )
+
+            if (answer := self.ownership.made(identity, built).map(partial(self._configured, identity))).is_ok():
                 screens.pop_all()
             return answer
 
@@ -131,7 +141,7 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
 
         def switched(workspace: bpy.types.WorkSpace) -> Activation:
             """Takes handles before requesting switch."""
-            activation = Activation(window=window, target=Handle.of(workspace), prior=Handle.of(window.workspace), order=self.order)
+            activation = Activation(window=window, target=Handle.of(workspace), prior=Handle.of(window.workspace), order=self.order, tool=self.tool)
             window.workspace = workspace
             return activation
 

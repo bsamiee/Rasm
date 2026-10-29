@@ -1,6 +1,7 @@
 """ACES gamut compression of scene-linear excursions toward a colorspace's boundary."""
 
 from collections.abc import Mapping
+from typing import Final
 
 import bpy
 from expression import Error, Ok, Option, Some
@@ -11,11 +12,42 @@ from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.render.compositor import grades
-from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, Shell, Spaces
+from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
+from blender.bpy.render.compositor.shells import Shell
 from blender.imaging.color.processors import ColorSpace
 from blender.records.faults import Fault, Outcome, RecordReason
 
 from ...chain.stages import Effect, Stage, transform
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_POWER: Final = Socket(key="power", kind=bpy.types.NodeSocketFloat, description="Curve sharpness between threshold and limit", min_value=1.0, max_value=65504.0, default_value=1.2)
+_CHANNELS: Final = tuple(
+    InterfacePanel(
+        key=channel,
+        name=bpy.path.display_name(channel),
+        description=description,
+        inputs=(
+            Socket(
+                key=item_key(channel, "limit"),
+                name="Limit",
+                kind=bpy.types.NodeSocketFloat,
+                description="Distance compressed onto the gamut boundary",
+                min_value=1.001,
+                max_value=65504.0,
+                default_value=limit,
+            ),
+            Socket(
+                key=item_key(channel, "threshold"), name="Threshold", kind=bpy.types.NodeSocketFloat, description="Largest unchanged distance", min_value=0.0, max_value=0.9995, default_value=threshold
+            ),
+        ),
+    )
+    for channel, description, limit, threshold in (
+        ("cyan", "Red channel toward cyan", 1.147, 0.815),
+        ("magenta", "Green channel toward magenta", 1.264, 0.803),
+        ("yellow", "Blue channel toward yellow", 1.312, 0.880),
+    )
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -50,50 +82,16 @@ def _(_record: GamutCompression, values: Mapping[Key, Value], _config: PyOpenCol
             return Error(Fault.of(RecordReason.UNREADABLE, GamutCompression.__name__, repr(values)))
 
 
-def compressed(shell: Shell[GamutCompression]) -> Outcome[Expr]:
+def _gamut_compression(shell: Shell[GamutCompression]) -> Outcome[Expr]:
     """Binds each channel's limit and threshold and the power to the node form of OCIO's gamut compression."""
-    cyan, magenta, yellow = ((shell.input(channel, "limit"), shell.input(channel, "threshold")) for channel in ("cyan", "magenta", "yellow"))
-    return Ok(grades.gamut_compression(shell.color, limits=(cyan[0], magenta[0], yellow[0]), thresholds=(cyan[1], magenta[1], yellow[1]), power=shell.input("power")))
+    cyan, magenta, yellow = (tuple(shell.input(socket) for socket in panel.inputs) for panel in _CHANNELS)
+    return Ok(grades.gamut_compression(shell.color, limits=(cyan[0], magenta[0], yellow[0]), thresholds=(cyan[1], magenta[1], yellow[1]), power=shell.input(_POWER)))
 
 
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-gamut_compression = CompositorEffect(
-    record=GamutCompression,
-    graph=compressed,
-    alpha=Alpha.STRAIGHT,
-    interface=Interface(
-        inputs=(
-            Socket(
-                key="power",
-                name="Power",
-                kind=bpy.types.NodeSocketFloat,
-                description="Curve sharpness between threshold and limit",
-                members={"min_value": 1.0, "max_value": 65504.0, "default_value": 1.2},
-            ),
-        ),
-        panels=tuple(
-            InterfacePanel(
-                key=channel,
-                name=bpy.path.display_name(channel),
-                description=description,
-                inputs=tuple(
-                    Socket(key=item_key(channel, field), name=bpy.path.display_name(field), kind=bpy.types.NodeSocketFloat, description=text, members=members)
-                    for field, text, members in (
-                        ("limit", "Distance compressed onto the gamut boundary", {"min_value": 1.001, "max_value": 65504.0, "default_value": limit}),
-                        ("threshold", "Largest unchanged distance", {"min_value": 0.0, "max_value": 0.9995, "default_value": threshold}),
-                    )
-                ),
-            )
-            for channel, description, limit, threshold in (
-                ("cyan", "Red channel toward cyan", 1.147, 0.815),
-                ("magenta", "Green channel toward magenta", 1.264, 0.803),
-                ("yellow", "Blue channel toward yellow", 1.312, 0.880),
-            )
-        ),
-    ),
-    parts=(Spaces(space=lambda record: record.space),),
+gamut_compression: Final = CompositorEffect(
+    graph=_gamut_compression, record=GamutCompression, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(inputs=(_POWER,), panels=_CHANNELS), space=Some(lambda record: record.space)
 )
+
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

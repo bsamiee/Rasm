@@ -1,26 +1,29 @@
 """Darkroom LUT exports: the chain baked as one transform or sampled through its enabled entries, strip modifier bakes, and a sampled tone entry installed as a view read on restart."""
 
+from functools import partial
 from typing import Final
 
 from bl_ui.space_topbar import TOPBAR_MT_file_export
 import bpy
-from expression import Ok, Option, Some
+from expression import Nothing, Ok, Option, Some
 from expression.collections import Block
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.commands.operators import Answer, Call, Done, Operator, Properties, Save
+from blender.bpy.commands.invocations import Popup, Save
+from blender.bpy.commands.operators import Answer, Call, Done, Operator
 from blender.bpy.data.rna.conditions import Job
-from blender.bpy.data.rna.descriptors import choices
+from blender.bpy.data.rna.mirrors import choices
+from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Identity
 from blender.bpy.render.color.luts import Baking, extension, LutExport, output, spaced, SPACINGS
 from blender.bpy.render.color.spaces import ConfigView
 from blender.bpy.render.compositor.effects import Enabled
 from blender.bpy.render.previews.scenes import PreviewScene
 from blender.bpy.ui.layout.rows import OperatorButton
-from blender.bpy.ui.surfaces.appends import Append
+from blender.bpy.ui.surfaces.menus import Append
 from blender.imaging.color.luts import Lattice
 from blender.records.faults import Outcome
 
@@ -67,7 +70,7 @@ def bake_formation(call: Call[Baking]) -> Outcome[Done]:
             lambda stated: stated.map(lambda transform: Ok(PyOpenColorIO.GroupTransform([transform]))).default_with(sampled) if built.lattice.is_none() else sampled()
         )
 
-    return call.root(bpy.types.Scene).bind(baked).bind(lambda transform: built.written({str(call.paths[0]): transform})).map(Done.wrote)
+    return rooted(bpy.types.Scene, call.context).bind(baked).bind(lambda transform: built.written({call.paths[0]: transform})).map(Done.wrote)
 
 
 def install_tone_view(call: Call[ToneView]) -> Outcome[Answer]:
@@ -88,24 +91,24 @@ def install_tone_view(call: Call[ToneView]) -> Outcome[Answer]:
             .map(lambda path: Done(notes=(("INFO", f"Installed view {properties.view} into {path}, restart Blender to read it"),)))
         )
 
-    return call.root(bpy.types.Scene).bind(lambda scene: chain.rows.found(call.identity, scene, properties.entry).bind(lambda held: sampled(scene, held.entry)))
+    return rooted(bpy.types.Scene, call.context).bind(lambda scene: chain.rows.found(call.identity, scene, properties.entry).bind(lambda held: sampled(scene, held.entry)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 luts: Final = LutExport()
-forming: Final = Operator(form=Baking, run=bake_formation, condition=Some(Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=False)
+forming: Final = Operator(form=Baking, run=bake_formation, condition=Some(Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=Nothing)
 toning: Final = Operator(
     form=ToneView,
     run=install_tone_view,
     condition=Some(Job(kind="RENDER")),
-    invoke=Some(Properties()),
+    invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))),
     seed=Some(
         lambda _properties, _event, identity: (
             Option.of_optional(bpy.context.scene).bind(lambda scene: Block.of_seq(tone_entries(identity, scene)).try_head()).map(lambda entry: {"entry": entry.name}).default_value({})
         )
     ),
-    undo=False,
+    undo=Nothing,
 )
 rows: Final = (luts, toning, Append(target=TOPBAR_MT_file_export, rows=(OperatorButton(target=forming), OperatorButton(target=luts.stripping))))
 

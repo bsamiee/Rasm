@@ -1,6 +1,7 @@
 """HTTP exchanges inside one client scope."""
 
 from collections.abc import Callable
+import datetime
 from functools import partial
 from http import HTTPMethod
 
@@ -10,7 +11,6 @@ import httpx2
 import msgspec
 
 from blender.records.faults import Fault, Outcome
-from blender.records.fields import Positive
 from blender.rendering.faults import RenderingReason
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -20,13 +20,18 @@ class Endpoint(msgspec.Struct, frozen=True, kw_only=True):
     """Server address with socket timeout."""
 
     url: str
-    timeout: Positive = 10.0
+    timeout: datetime.timedelta = datetime.timedelta(seconds=10)
+
+    def __post_init__(self) -> None:
+        """Validates a timeout above zero."""
+        if self.timeout <= datetime.timedelta():
+            raise ValueError(self.timeout)
 
     def opened[T](self, operation: Callable[[httpx2.Client], Outcome[T]]) -> Outcome[T]:
         """Runs operation inside one client scope, the client closing on every path."""
 
         def held(url: httpx2.URL) -> Outcome[T]:
-            with httpx2.Client(base_url=url, timeout=httpx2.Timeout(self.timeout)) as client:
+            with httpx2.Client(base_url=url, timeout=self.timeout.total_seconds()) as client:
                 return operation(client)
 
         return catch(httpx2.URL, exception=httpx2.InvalidURL)(self.url).map_error(partial(Fault.of, RenderingReason.EXCHANGE, self.url)).bind(held)

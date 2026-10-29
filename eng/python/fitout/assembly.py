@@ -5,6 +5,7 @@ lazy from collections.abc import Callable
 lazy from functools import partial
 lazy from math import ceil, comb, prod, sqrt
 lazy from pathlib import Path, PurePosixPath
+lazy import re
 lazy import shutil
 lazy import subprocess
 lazy import tempfile
@@ -78,11 +79,17 @@ def _exported(lock: Path, *options: str) -> Result[Path, Faults]:
     return _ran("uv", "export", "--locked", "--no-default-groups", "--no-hashes", *bundled, *options, "--output-file", lock, stdout=subprocess.DEVNULL).map(lambda _: lock)
 
 
+def _normalized(master: Path) -> SVG:
+    """Parses a master with `currentColor` painted white and inline styles as attributes, the one document its geometry icon and its staged preview both read."""
+    normalized: SVG = SVG.fromstring(re.sub(r"currentcolor", "white", master.read_text(encoding="utf-8-sig"), flags=re.IGNORECASE)).apply_style_attributes()
+    return normalized
+
+
 def encoded(master: Path) -> bytes:
     """Encodes master solid paints as Blender geometry icon triangles.
 
     Icon files hold `VCO` header, byte XY corners per triangle over -1..1 square, then sRGB byte RGBA per corner, in SVG draw order.
-    `currentColor` paints white tool ink.
+    `currentColor` paints white.
     Shape alpha applies without SVG source-over or isolated-group compositing.
 
     Args:
@@ -121,7 +128,7 @@ def encoded(master: Path) -> bytes:
             self.rings[-1].extend(map(tuple, (np.array([comb(3, k) * t**k * (1 - t) ** (3 - k) for k in range(4)]).T @ knots).tolist()))
 
     def painted(shape: SVGShape, opacity: float, transform: Affine2D) -> tuple[bytes, npt.NDArray[np.uint8]]:
-        color = Color("white" if shape.fill.lower() == "currentcolor" else shape.fill).convert("srgb").fit()
+        color = Color(shape.fill).convert("srgb").fit()
         rgba = bytes(round(channel * size) for channel in (*color.coords(nans=False), color.alpha(nans=False) * shape.opacity * opacity))
         pen = Rings()
         skia_path(shape.as_path().remove_overlaps().as_cmd_seq(), "nonzero").transform(*transform).draw(pen)
@@ -132,8 +139,7 @@ def encoded(master: Path) -> bytes:
         kept = corners[(first[:, 0] - second[:, 0]) * (second[:, 1] - third[:, 1]) + (first[:, 1] - second[:, 1]) * (third[:, 0] - second[:, 0]) > 0]
         return rgba * kept.shape[0] * 3, kept.astype(np.uint8)
 
-    styled: SVG = SVG.parse(master).apply_style_attributes()
-    if (viewbox := (svg := styled.topicosvg()).view_box()) is None:
+    if (viewbox := (svg := (styled := _normalized(master)).topicosvg()).view_box()) is None:
         raise ValueError(f"SVG master {master} has no viewport dimensions")
     transform = Affine2D.flip_y() @ Affine2D.rect_to_rect(viewbox, Rect(-1, -1, 2, 2), svg.svg_root.get("preserveAspectRatio", "xMidYMid meet"))
     paints = tuple(
@@ -165,6 +171,10 @@ def pack(
         for member in msgspec.toml.decode(Path("pyproject.toml").read_bytes())["tool"]["uv"]["workspace"]["members"]
     )
     icons = source / "icons"
+
+    def previewed(master: Path) -> str:
+        """Returns the normalized master in the picosvg subset Blender's nanosvg preview loader rasterizes, references, clips, and transforms resolved."""
+        return str(_normalized(master).topicosvg().tostring())
 
     def staged(stage: Path, interpreter: _Interpreter) -> None:
         wheels = stage / "wheels"
@@ -200,7 +210,7 @@ def pack(
 
     with tempfile.TemporaryDirectory() as folder:
         stage, lock, built = Path(folder, "stage"), Path(folder, "requirements.txt"), Path(folder, "archives")
-        previews = stage / icons.name
+        staged_icons = stage / icons.name
         shutil.copytree(source, stage, ignore=shutil.ignore_patterns("pyproject.toml", "*.svg"))
         built.mkdir()
         return (
@@ -209,8 +219,8 @@ def pack(
                 _exported(lock, "--no-editable", "--project", str(source)),
                 *(
                     *(
-                        catch(encoded, exception=ValueError)(master).map((previews / f"{master.stem}.dat").write_bytes).map_error(partial(Fault.of, Reason.INVALID, master)),
-                        _ran("resvg", "--width", "256", "--height", "256", master, previews / f"{master.stem}.png"),
+                        catch(encoded, exception=ValueError)(master).map((staged_icons / f"{master.stem}.dat").write_bytes).map_error(partial(Fault.of, Reason.INVALID, master)),
+                        catch(previewed, exception=ValueError)(master).map((staged_icons / master.name).write_text).map_error(partial(Fault.of, Reason.INVALID, master)),
                     )
                     for master in icons.glob("*.svg")
                 ),

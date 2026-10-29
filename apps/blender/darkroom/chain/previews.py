@@ -14,7 +14,7 @@ import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.data.ids.content import fingerprinted
-from blender.bpy.data.rna.descriptors import root_in, rooted, Struct
+from blender.bpy.data.rna.paths import root_in, rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events import Handler, updated
 from blender.bpy.extension.identity import Identity, Resource
@@ -22,16 +22,19 @@ from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.nodes.interface import item_key
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.blending import Entry
-from blender.bpy.render.compositor.effects import CompositorEffect, Context, Enabled, Restoring
+from blender.bpy.render.compositor.effects import CompositorEffect, Enabled
 from blender.bpy.render.compositor.entries import EffectRows
 from blender.bpy.render.compositor.inputs import inputs_of, restored
-from blender.bpy.render.compositor.layers import Adjustment, LayerStack, Source
-from blender.bpy.render.compositor.stacking import stacked_by, Valued
-from blender.bpy.render.outputs.exports import combined, LongestSide
+from blender.bpy.render.compositor.layers import Adjustment, EFFECTS, LayerStack, Source
+from blender.bpy.render.compositor.recipes import Valued
+from blender.bpy.render.compositor.shells import PreviewFrame
+from blender.bpy.render.compositor.stacking import stacked_by
+from blender.bpy.render.outputs.exports import LongestSide
 from blender.bpy.render.outputs.framing import FrameSize, Framing
-from blender.bpy.render.outputs.results import intermediate, INTERMEDIATES, ResultRead
+from blender.bpy.render.outputs.results import combined, intermediate, INTERMEDIATES, ResultRead
+from blender.bpy.render.previews.fixtures import PreviewLighting
 from blender.bpy.render.previews.queue import BACKLOG, Job, PreviewQueue, Rank
-from blender.bpy.render.previews.scenes import PreviewLighting, PreviewScene, PreviewStack, RoutedEntry, Staging
+from blender.bpy.render.previews.scenes import PreviewScene, PreviewStack, Restoring, RoutedEntry, Staging
 from blender.bpy.ui.layout.rows import Line, RowDraw
 from blender.bpy.ui.resources.previews import PreviewKey, PREVIEWS
 from blender.bpy.ui.resources.theme import Metrics
@@ -160,7 +163,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
                     case LayerStack():
                         held = record.rebased("").to_optional()
                         layered = tuple(
-                            Valued(structure=entry, values=held, prefix=item_key(layer.key, "effects", index))
+                            Valued(structure=entry, values=held, prefix=item_key(layer.key, EFFECTS, index))
                             for layer, _ in structure.composited()
                             if isinstance(layer.source, Adjustment)
                             for index, entry in enumerate(layer.effects, 1)
@@ -201,7 +204,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
                     lamp=lighting.lamp,
                     stack=pair[0],
                     surface=Nothing if head.is_some() else Some(lighting.surface),
-                    context=proxy.map2(framed, head),
+                    preview=proxy.map2(framed, head),
                 )
             )
             return staging.bind(lambda desired: PreviewScene().rendered(identity, desired)).map(lambda readback: readback.plane)
@@ -226,16 +229,17 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
             cache = config.getCacheID()
 
             def job(slot: str, request: Wanted) -> tuple[Job, ...]:
-                content = parts.map(lambda values: content_hash(Tiles, request.record, *values, config=Some(cache)))
+                content = parts.map(lambda values: content_hash(Tiles, request.record, *values, cache.encode()))
                 demand = state.demanded(slot, Demand(wanted=request, content=content, scene=scene, config=cache))
-                key = content.default_value(demand)
+                shown = PreviewKey.read(content.default_value(demand), int(request.scale * Metrics.read().unit))
+
+                def published(plane: npt.NDArray[np.float32]) -> Outcome[Option[int]]:
+                    return previews.written(slot, shown, Some(shown.checkered(plane))) if state.holds(slot, demand) else Ok(Nothing)
 
                 def rendered() -> Outcome[None]:
-                    return previews.tile(
-                        slot, key, lambda side: self.rendered(identity, request.record, side, scene=scene).map(lambda plane: Some(Some(plane)) if state.holds(slot, demand) else Nothing), request.scale
-                    ).map(lambda _: None)
+                    return self.rendered(identity, request.record, shown.side, scene=scene).bind(published).map(lambda _: None)
 
-                return () if previews.current(slot, key, request.scale) else (Job(place=(Tiles, slot), key=PreviewKey.read(key, request.scale), rank=Rank.SHOWN, run=rendered),)
+                return () if previews.current(slot, shown) else (Job(place=(Tiles, slot), key=shown, rank=Rank.SHOWN, run=rendered),)
 
             return tuple(queued for slot, request in state.wanted.items() for queued in job(slot, request))
 
@@ -250,7 +254,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
             bound = root_in(bpy.types.WindowManager, bpy.context).bind(
                 lambda manager: Option.of_optional(max((area.width for window in manager.windows for area in window.screen.areas), default=None))
             )
-            camera = FrameSize().bound(identity).bind(lambda frame: paired(frame.read(scene), frame.base(scene)).map(lambda pair: pair[1].default_value(pair[0])))
+            camera = FrameSize().bound(identity).bind(lambda frame: frame.base(scene).map(lambda base: base.default_value(frame.read(scene))))
 
             def stored(plane: npt.NDArray[np.float32], framing: Framing, proxy: npt.NDArray[np.float32]) -> Option[str]:
                 fitted_camera = scaled(framing, plane.shape[:2], proxy.shape[:2])
@@ -306,11 +310,11 @@ class StageThumbnail(Line, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def placed(rows: EffectRows[Effect], offered: tuple[Offered, ...], identity: Identity, _source: bpy.types.Scene, target: bpy.types.Scene, context: Context) -> Outcome[Restoring]:
+def placed(rows: EffectRows[Effect], offered: tuple[Offered, ...], identity: Identity, _source: bpy.types.Scene, target: bpy.types.Scene, preview: Option[PreviewFrame]) -> Outcome[Restoring]:
     """Places offered entries with their input values after the mirrored ones, answering the removal of every entry it placed."""
 
     def valued(row: CompositorEffect[Effect], entry: Valued[Entry[Effect]]) -> Outcome[bpy.types.SceneCompositorEffect]:
-        return rows.placed(identity, target, row, entry.structure, context=context).bind(
+        return rows.placed(identity, target, row, entry.structure, preview=preview).bind(
             lambda held: entry.rebased("").map(lambda values: restored(identity, held, values)).default_value(Ok(False)).map(lambda _: held)
         )
 
@@ -340,9 +344,9 @@ def scaled(framing: Framing, stored: tuple[int, int], target: tuple[int, int]) -
     )
 
 
-def framed(proxy: Proxied, plane: npt.NDArray[np.float32]) -> tuple[tuple[int, int], Framing]:
-    """Frame context of a plane fitted from the proxy: its pixel size and the proxy framing scaled to it."""
-    return (plane.shape[0], plane.shape[1]), scaled(proxy.framing, proxy.plane.shape[:2], plane.shape[:2])
+def framed(proxy: Proxied, plane: npt.NDArray[np.float32]) -> PreviewFrame:
+    """Preview frame of a plane fitted from the proxy: its pixel size and the proxy framing scaled to it."""
+    return PreviewFrame(size=(plane.shape[0], plane.shape[1]), framing=scaled(proxy.framing, proxy.plane.shape[:2], plane.shape[:2]))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

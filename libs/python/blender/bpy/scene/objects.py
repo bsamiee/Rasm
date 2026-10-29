@@ -16,13 +16,15 @@ import numpy.typing as npt
 from blender.bpy.commands.operators import Answer, answered, Call, Operator
 from blender.bpy.data.ids.ownership import kept
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import definition, Descriptor, mirrored, rooted, Struct, Value, written
-from blender.bpy.data.rna.snapshots import Applied, Objects, Scenes, Scope, scoped, SCOPES, Selection, Snapshot, ViewLayers
+from blender.bpy.data.rna.descriptors import Descriptor, Value, written
+from blender.bpy.data.rna.mirrors import mirrored
+from blender.bpy.data.rna.paths import definition, RnaPath, rooted, Struct
+from blender.bpy.data.rna.scopes import chosen, Objects, Scenes, Scope, scope_choice, SCOPE_COLLECTION, Selection, ViewLayers
+from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.faults import BlenderReason
-from blender.bpy.scene.collections import joined
+from blender.bpy.scene.collections import relinked
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
-from blender.records.trees import Deleted, diff, Edit, Owner, Reparametrized, Tree
+from blender.records.trees import Deleted, diff, Edit, Owner, preorder, Reparametrized, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -30,14 +32,14 @@ type Entries = Mapping[str, Option[Snapshot] | StackEntry]
 type Stack = bpy.types.VertexGroups | bpy.types.ObjectModifiers | bpy.types.ObjectConstraints | bpy.types.ObjectShaderFx
 type Mover = Callable[[int, int], None]
 type Step = Callable[[], Outcome[None]]
-type ObjectChange = Swapped | Parented | Resized | Layered | Restacked
+type ObjectChange = Resized | Layered | Restacked
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_EDITING: Final = Setting(descriptor=Descriptor.declared(bpy.types.Object, "mode", bpy.types.EnumProperty), accepted=("EDIT",))
-_LEVELS: Final = Descriptor.declared(bpy.types.SubsurfModifier, "levels", bpy.types.IntProperty)
-_RENDER_LEVELS: Final = Descriptor.declared(bpy.types.SubsurfModifier, "render_levels", bpy.types.IntProperty)
-VERTEX: Final = Descriptor.declared(bpy.types.MeshVertex, "co", bpy.types.FloatProperty)
+_EDIT: Final = "EDIT"
+_LEVELS: Final = Descriptor.declared(bpy.types.SubsurfModifier, ("levels",), bpy.types.IntProperty)
+_RENDER_LEVELS: Final = Descriptor.declared(bpy.types.SubsurfModifier, ("render_levels",), bpy.types.IntProperty)
+VERTEX: Final = Descriptor.declared(bpy.types.MeshVertex, ("co",), bpy.types.FloatProperty)
 _FILLED: Final[Callable[[bpy.types.Mesh, npt.NDArray[np.float32], tuple[()], npt.NDArray[np.int64]], Result[object, ReferenceError | RuntimeError | TypeError | ValueError]]] = catch(
     catch(catch(catch(bpy.types.Mesh.from_pydata, exception=ValueError), exception=TypeError), exception=RuntimeError), exception=ReferenceError
 )
@@ -93,18 +95,6 @@ class Restacked(msgspec.Struct, frozen=True, kw_only=True):
     wanted: tuple[tuple[str, dict[str, str]], ...]
 
 
-class Swapped(msgspec.Struct, frozen=True, kw_only=True):
-    """Replacement object data."""
-
-    data: bpy.types.ID
-
-
-class Parented(msgspec.Struct, frozen=True, kw_only=True):
-    """Replacement object parent."""
-
-    parent: bpy.types.Object
-
-
 class Resized(msgspec.Struct, frozen=True, kw_only=True):
     """Slot count change."""
 
@@ -133,8 +123,8 @@ class LevelEdit(bpy.types.PropertyGroup):
 
     levels: bpy.props.IntProperty(**mirrored(_LEVELS.prop))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     render_levels: bpy.props.IntProperty(**mirrored(_RENDER_LEVELS.prop))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    scope: bpy.props.EnumProperty(name="Scope", description="Objects to write", items=SCOPES, default=Selection.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    collection: bpy.props.StringProperty(name="Collection", description="Collection whose objects a collection scope writes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    scope: scope_choice(Selection)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    collection: SCOPE_COLLECTION  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -153,18 +143,19 @@ def descendants(item: bpy.types.Object, view_layer: bpy.types.ViewLayer) -> tupl
     return tuple(child for child in item.children_recursive if child in held)
 
 
+def corners(items: Iterable[bpy.types.Object], depsgraph: bpy.types.Depsgraph) -> npt.NDArray[np.float64]:
+    """Returns world corners of evaluated bound boxes shaped (corners, 3), objects with an empty box left out."""
+    evaluated = tuple(item.evaluated_get(depsgraph) for item in items)
+    boxes = np.asarray([held.bound_box for held in evaluated], dtype=np.float64).reshape(-1, 8, 3)
+    matrices = np.asarray([held.matrix_world for held in evaluated], dtype=np.float64).reshape(-1, 4, 4)
+    bounded = boxes.any(axis=(1, 2))
+    return (boxes[bounded] @ matrices[bounded, :3, :3].transpose(0, 2, 1) + matrices[bounded, None, :3, 3]).reshape(-1, 3)
+
+
 def extent(items: Iterable[bpy.types.Object], depsgraph: bpy.types.Depsgraph) -> Option[WorldBounds]:
     """Returns evaluated world bounds, `Nothing` without bounds."""
-    corners = np.array(
-        [
-            (evaluated.matrix_world @ Vector(corner))[:]
-            for evaluated in (item.evaluated_get(depsgraph) for item in items)
-            if any(any(corner) for corner in evaluated.bound_box)
-            for corner in evaluated.bound_box
-        ],
-        dtype=np.float64,
-    ).reshape(-1, 3)
-    return Some(WorldBounds(low=Vector(corners.min(axis=0).tolist()).freeze(), high=Vector(corners.max(axis=0).tolist()).freeze())) if corners.size else Nothing  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    points = corners(items, depsgraph)
+    return Some(WorldBounds(low=Vector(points.min(axis=0)).freeze(), high=Vector(points.max(axis=0)).freeze())) if points.size else Nothing  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 
 # --- [CREATION]
@@ -174,7 +165,7 @@ def spawned(name: str, data: Option[bpy.types.ID], collection: bpy.types.Collect
     """Creates object linked into collection, removing it on fault."""
     return kept(
         catch(bpy.data.objects.new, exception=RuntimeError)(name, data.to_optional()).map_error(partial(Fault.of, BlenderReason.REFUSED, name)),
-        lambda item: joined(collection, (item,)).map(lambda _: item),
+        lambda item: relinked(collection, (item,), linked=True).map(lambda _: item),
     )
 
 
@@ -188,7 +179,9 @@ def restacked(stack: Stack, move: Option[Mover], entries: Entries) -> Outcome[tu
     live = tuple((entry.name, {key: getattr(entry, key) for key in choices}) for entry in stack)
     wanted = tuple((name, {"type": entry.kind} if isinstance(entry, StackEntry) else {}) for name, entry in entries.items())
     prefix = next((index for index, (was, now) in enumerate(zip(live, wanted)) if was != now), min(len(live), len(wanted)))
-    trees = tuple(Tree(roots=tuple(key for key, _ in pairs), rows=tuple((key, Owner(values=values)) for key, values in pairs)) for pairs in (live, live if move.is_some() else live[:prefix], wanted))
+    trees = tuple(
+        Tree(roots=tuple(key for key, _ in pairs), rows=tuple((key, Owner(rows=tuple(values.items()))) for key, values in pairs)) for pairs in (live, live if move.is_some() else live[:prefix], wanted)
+    )
     edits = (*diff(trees[0], trees[1]), *diff(trees[1], trees[2]))
     return accumulated(
         Ok(value).filter_with(choices[key].__contains__, partial(Fault.of, RecordReason.OUTSIDE, repr(stack), member=", ".join(choices[key])))
@@ -213,7 +206,7 @@ def restack(row: Restacked) -> tuple[Step, ...]:
                 case None:
                     return Error(Fault.of(BlenderReason.ABSENT, repr(stack), member=key))
                 case made:
-                    return Ok(None) if named else written(made, "name", key).map(lambda _: None)
+                    return Ok(None) if named else written(made, ("name",), key).map(lambda _: None)
 
         return Result[Struct | None, Faults].bind(entry, renamed)
 
@@ -237,18 +230,19 @@ def restack(row: Restacked) -> tuple[Step, ...]:
 
 
 def diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...], data: Option[bpy.types.ID], parent: Option[bpy.types.Object]) -> Outcome[tuple[ObjectChange, ...]]:
-    """Returns changes from object to state, accumulating independent faults."""
+    """Returns changes from object to state, accumulating independent faults, the data and parent writes the host drops refused."""
 
     def swapped(block: bpy.types.ID) -> Outcome[tuple[ObjectChange, ...]]:
-        return Ok(()) if item.data == block else (~_EDITING).check(bpy.context, Some(item)).map(lambda _: (Swapped(data=block),))
+        unchanged: Outcome[tuple[ObjectChange, ...]] = Ok(())
+        return unchanged.filter_with(
+            lambda _: item.data == block or item.mode != _EDIT, lambda _: Fault.of(RecordReason.OUTSIDE, f"{item!r}.mode", item.mode, member="a mode other than Edit Mode, where data writes drop")
+        )
 
     def parented(block: bpy.types.Object) -> Outcome[tuple[ObjectChange, ...]]:
-        return (
-            Ok(())
-            if item.parent == block
-            else Error(Fault.of(RecordReason.OUTSIDE, f"{item!r}.parent", block.name, member="objects outside its own hierarchy"))
-            if block == item or block in item.children_recursive
-            else Ok((Parented(parent=block),))
+        unchanged: Outcome[tuple[ObjectChange, ...]] = Ok(())
+        return unchanged.filter_with(
+            lambda _: item.parent == block or item not in preorder(block, lambda held: Option.of_optional(held.parent).to_list()),
+            lambda _: Fault.of(RecordReason.OUTSIDE, f"{item!r}.parent", block.name, member="objects outside its own hierarchy"),
         )
 
     def resized(slots: tuple[Snapshot, ...]) -> Outcome[tuple[ObjectChange, ...]]:
@@ -256,7 +250,7 @@ def diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types
             Result[bpy.types.ID, Faults]
             .bind(
                 data.or_else(Option.of_optional(item.data)).to_result_with(lambda: Fault.of(BlenderReason.ABSENT, repr(item), member="data.materials")),
-                lambda block: Descriptor.resolve(block, "materials", bpy.types.CollectionProperty).map(lambda member: getattr(block, member.prop.identifier)),
+                lambda block: Descriptor.resolve(block, ("materials",), bpy.types.CollectionProperty).map(lambda member: getattr(block, member.prop.identifier)),
             )
             .map(lambda materials: (Resized(materials=materials, before=before, after=after),) if (before := len(materials)) != (after := len(slots)) else ())
         )
@@ -280,10 +274,6 @@ def steps(item: bpy.types.Object, change: ObjectChange) -> tuple[Step, ...]:
     refused = partial(Fault.of, BlenderReason.REFUSED, repr(item))
 
     match change:
-        case Swapped(data=data):
-            return (lambda: written(item, "data", data).map(lambda _: None),)
-        case Parented(parent=parent):
-            return (lambda: written(item, "parent", parent).map(lambda _: None),)
         case Resized(materials=materials, before=before, after=after):
 
             def resized() -> None:
@@ -312,7 +302,7 @@ def reconciling(state: ObjectState) -> Outcome[Callable[[bpy.types.Object, tuple
     framed = state.placement.map(
         lambda matrix: Snapshot.of(
             bpy.types.Object,
-            {"matrix_parent_inverse": tuple(np.eye(4).ravel().tolist()), "location": matrix.to_translation()[:], "rotation_euler": matrix.to_euler()[:], "scale": matrix.to_scale()[:]},
+            {("matrix_parent_inverse",): tuple(np.eye(4).ravel().tolist()), ("location",): matrix.to_translation()[:], ("rotation_euler",): matrix.to_euler()[:], ("scale",): matrix.to_scale()[:]},
         )
     )
 
@@ -334,8 +324,10 @@ def reconciling(state: ObjectState) -> Outcome[Callable[[bpy.types.Object, tuple
             )
             return accumulated(applied.outcome.map(lambda _: applied) for owner, values in pairs for applied in (values.apply(owner),)).map(lambda counts: Reconciled(changes=rows, applied=counts))
 
+        pointed = tuple((path, block) for path, held in ((("data",), found[0]), (("parent",), found[1])) for block in held.to_list())
         return (
             diverged(state, item, layers, *found)
+            .bind(lambda rows: accumulated(written(item, path, block) for path, block in pointed).map(lambda _: rows))
             .bind(lambda rows: reduce(lambda done, step: done.bind(lambda _: step()), chain.from_iterable(steps(item, row) for row in rows), Ok(None)).map(lambda _: rows))
             .bind(applied)
         )
@@ -362,12 +354,11 @@ def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.N
     Returns:
         `Ok` once geometry matches, or `edit` fault.
     """
-    live, corners, starts = np.empty(len(mesh.vertices) * 3, np.float32), np.empty(len(mesh.loops), np.int32), np.empty(len(mesh.polygons), np.int32)
-    for name, member, buffer in (("position", "vector", live), (".corner_vert", "value", corners)):
-        if name in mesh.attributes and isinstance(attribute := mesh.attributes[name], bpy.types.FloatVectorAttribute | bpy.types.IntAttribute):
-            attribute.data.foreach_get(member, buffer)
+    live, loops, starts = np.empty(len(mesh.vertices) * 3, np.float32), np.empty(len(mesh.loops), np.int32), np.empty(len(mesh.polygons), np.int32)
+    mesh.vertices.foreach_get("co", live)
+    mesh.loops.foreach_get("vertex_index", loops)
     mesh.polygons.foreach_get("loop_start", starts)
-    if np.array_equal(live.view(np.uint32), vertices.ravel().view(np.uint32)) and np.array_equal(corners, faces.ravel()) and np.array_equal(starts, np.arange(0, faces.size, faces.shape[1])):
+    if np.array_equal(live.view(np.uint32), vertices.ravel().view(np.uint32)) and np.array_equal(loops, faces.ravel()) and np.array_equal(starts, np.arange(0, faces.size, faces.shape[1])):
         return Ok(None)
     refused = partial(Fault.of, BlenderReason.REFUSED, repr(mesh))
     return catch(mesh.clear_geometry, exception=ReferenceError)().map_error(refused).bind(lambda _: _FILLED(mesh, vertices, (), faces).map_error(refused)).map(lambda _: None)
@@ -395,7 +386,7 @@ def fanned(state: ObjectState, scope: Scope, context: bpy.types.Context) -> Outc
     return paired(reconciling(state), targets(scope, context)).bind(lambda pair: accumulated(starmap(*pair)))
 
 
-def levelled(levels: Mapping[str, Value], scope: Scope, context: bpy.types.Context) -> Outcome[Answer]:
+def levelled(levels: Mapping[RnaPath, Value], scope: Scope, context: bpy.types.Context) -> Outcome[Answer]:
     """Writes subdivision levels to each Subsurf and Multires modifier in scope.
 
     Args:
@@ -420,7 +411,7 @@ def levelled(levels: Mapping[str, Value], scope: Scope, context: bpy.types.Conte
 
 def subdivision_levels(call: Call[LevelEdit]) -> Outcome[Answer]:
     """Writes subdivision levels to the modifiers in scope."""
-    return levelled({"levels": call.properties.levels, "render_levels": call.properties.render_levels}, scoped(call.properties.scope, call.properties.collection), call.context)
+    return levelled({("levels",): call.properties.levels, ("render_levels",): call.properties.render_levels}, chosen(call.properties), call.context)
 
 
 subdivision_levels_command: Operator[LevelEdit] = Operator(form=LevelEdit, run=subdivision_levels, presets=True)
@@ -436,15 +427,14 @@ __all__ = [
     "Mover",
     "ObjectChange",
     "ObjectState",
-    "Parented",
     "Reconciled",
     "Resized",
     "Restacked",
     "Stack",
     "StackEntry",
     "Step",
-    "Swapped",
     "WorldBounds",
+    "corners",
     "descendants",
     "diverged",
     "extent",

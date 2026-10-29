@@ -25,7 +25,7 @@ def view(name: str, description: str, film: Film) -> ConfigView:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 film: Final = Film()
-red, green, blue = film.sensitivities
+red, green, blue = film.gains
 install: Final = ConfigInstall(
     build=ConfigBuild(view_transforms=()),
     views=(
@@ -36,7 +36,7 @@ install: Final = ConfigInstall(
             msgspec.structs.replace(
                 film,
                 pre_exposure=5.563035,
-                sensitivities=(msgspec.structs.replace(red, gain=1.1), green, msgspec.structs.replace(blue, gain=1.2)),
+                gains=(1.1, green, 1.2),
                 characteristic=msgspec.structs.replace(film.characteristic, span=23.0 - film.characteristic.low),
                 negative=msgspec.structs.replace(film.negative, exposure=5.8),
                 backlight=(0.99, 1.1, 1.035989),
@@ -52,7 +52,7 @@ install: Final = ConfigInstall(
                 film,
                 pre_exposure=3.9,
                 pre_filter=(0.95, 0.975, 1.0),
-                sensitivities=(red, green, msgspec.structs.replace(blue, gain=1.06)),
+                gains=(red, green, 1.06),
                 negative=msgspec.structs.replace(film.negative, exposure=4.7, density=7.0),
                 backlight=(0.9992, 0.99, 1.0),
                 positive=msgspec.structs.replace(film.positive, exposure=4.7, density=30.0),

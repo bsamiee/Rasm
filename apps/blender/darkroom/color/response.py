@@ -22,8 +22,8 @@ from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.effects import Enabled
 from blender.bpy.render.previews.queue import Job, PreviewQueue, Rank
 from blender.bpy.render.previews.scenes import PreviewScene
-from blender.bpy.ui.drawing.charts import Chart, Label, Plotted, Rules, Trace, Well
-from blender.bpy.ui.drawing.handlers import Signal
+from blender.bpy.ui.drawing.charts import Chart, GRID, Label, Layer, TRACE
+from blender.bpy.ui.drawing.handlers import Reading, Signal
 from blender.bpy.ui.images.overlays import overlaid
 from blender.bpy.ui.images.views import image_type
 from blender.bpy.ui.resources.theme import Metrics
@@ -106,19 +106,19 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def chart(self, identity: Identity, metrics: Metrics) -> Outcome[Option[Chart]]:
         """Charts the cached response of the wanted request, recording the plot columns it draws at."""
-        feed, well = identity.held[_FEED], Well.of(metrics, 0.5)
-        feed.columns = round(well.plot.width)
+        feed, width = identity.held[_FEED], float(metrics.unit * 10)
+        feed.columns = round(width)
 
         def plotted(held: tuple[_Request, npt.NDArray[np.float32], tuple[float, ...]]) -> Chart:
             request, values, guides = held
             x = (np.arange(request.columns, dtype=np.float32) + 0.5) / request.columns
             rows = np.asarray(guides, dtype=np.float32)
-            return Chart.of(
-                metrics,
-                well=well,
+            return Chart(
+                width=width,
+                height=width * 0.5,
                 layers=(
-                    Rules(segments=np.stack((np.column_stack((np.zeros_like(rows), rows)), np.column_stack((np.ones_like(rows), rows))), axis=1).reshape(-1, 2)),
-                    Trace(points=np.column_stack((x, values.mean(axis=1))).astype(np.float32)),
+                    Layer.of("LINES", np.stack((np.column_stack((np.zeros_like(rows), rows)), np.column_stack((np.ones_like(rows), rows))), axis=1).reshape(-1, 2), GRID),
+                    Layer.of("LINE_STRIP", np.column_stack((x, values.mean(axis=1))).astype(np.float32), TRACE, blend="ADDITIVE", width=1.5),
                 ),
                 labels=tuple(Label(text=f"{level:.2%}", x=0.0, y=code) for level, code in zip(self.levels, guides)),
                 caption=(bpy.path.display_name(self.key),),
@@ -199,8 +199,8 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                             ToneResponse,
                             *snapshots,
                             *(key for value in fingerprints for key in value.to_list()),
+                            config.getCacheID().encode(),
                             arrays=(np.asarray((*frame, *window), dtype=np.float64), np.frombuffer(guide.getCacheID().encode(), dtype=np.uint8)),
-                            config=Some(config.getCacheID()),
                         )
                     )
                     if all(value.is_some() for value in fingerprints)
@@ -261,7 +261,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 _FEED,
                 (Band.RESOURCES, PreviewQueue.fed(identity, self.fed)),
                 self.sampling,
-                overlaid(Plotted(read=lambda metrics: self.chart(identity, metrics)), image_type(("COMPOSITING",)), (self.signal,)),
+                overlaid(Reading(read=lambda metrics: self.chart(identity, metrics)), image_type(("COMPOSITING",)), (self.signal,)),
                 Handler(handlers=bpy.app.handlers.load_post, body=loaded),
                 Handler(
                     handlers=bpy.app.handlers.depsgraph_update_post,

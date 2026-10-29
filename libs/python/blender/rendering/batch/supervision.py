@@ -5,7 +5,6 @@ from graphlib import TopologicalSorter
 from heapq import heappop, heappush
 from itertools import count, groupby
 import os
-from pathlib import Path
 import signal
 import subprocess
 import sys
@@ -18,8 +17,8 @@ from tenacity import Future, retry_if_result, RetryCallState, Retrying, stop_aft
 
 from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
 from blender.records.fields import Case
-from blender.records.stores import RecordFile
-from blender.rendering.batch.processes import detached, Host, ran, RunCommand, RunFile, spawned
+from blender.records.stores import RecordFile, removed
+from blender.rendering.batch.processes import detached, HostCommands, ran, RunCommand, RunFile, spawned
 from blender.rendering.batch.progress import Ending, Heartbeat, observed, Progress
 from blender.rendering.batch.queue import Job, RenderQueue
 from blender.rendering.faults import RenderingReason
@@ -59,16 +58,17 @@ class LocalMachine(Case, frozen=True, kw_only=True):
             graph.done(step)
         return tuple(steps)
 
-    def sent(self, queue: RenderQueue, host: Host) -> Outcome[Path]:
+    def sent(self, queue: RenderQueue, host: HostCommands) -> Outcome[tuple[Outcome[str], ...]]:
         """Writes queue file, then starts detached supervisor over the file, returning log path."""
         return (
-            RecordFile(path=host.path(queue, RunFile.QUEUE), form=RenderQueue)
+            RecordFile(path=host.path(queue.stem, RunFile.QUEUE), form=RenderQueue)
             .written(queue)
-            .bind(lambda path: detached(host.argv(RunCommand.SUPERVISE, Run(queue=str(path), target=self)), host.path(queue, RunFile.LOG)))
+            .bind(lambda path: detached(host.argv(RunCommand.SUPERVISE, Run(queue=str(path), target=self)), host.path(queue.stem, RunFile.LOG)))
+            .map(lambda log: (Ok(str(log)),))
         )
 
 
-class Run(msgspec.Struct, frozen=True, kw_only=True, tag=True):
+class Run(Case, frozen=True, kw_only=True):
     """Queue path and target settings commands decode."""
 
     queue: str
@@ -78,10 +78,10 @@ class Run(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: Heartbeat) -> Outcome[Progress]:
+def supervise(target: LocalMachine, queue: RenderQueue, host: HostCommands, heartbeat: Heartbeat) -> Outcome[Progress]:
     """Renders remaining frames one job group per process, restarting crashed renders."""
-    records = RecordFile(path=host.path(queue, RunFile.PROGRESS), form=Progress)
-    run = Run(queue=str(host.path(queue, RunFile.QUEUE)), target=target)
+    records = RecordFile(path=host.path(queue.stem, RunFile.PROGRESS), form=Progress)
+    run = Run(queue=str(host.path(queue.stem, RunFile.QUEUE)), target=target)
     schedule = target.schedule(queue)
 
     def exhausted(state: RetryCallState) -> object:
@@ -97,7 +97,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
 
     def polled(child: subprocess.Popen[bytes]) -> Option[Outcome[int]]:
         return (
-            catch(child.wait, exception=subprocess.TimeoutExpired)(timeout=heartbeat.interval)
+            catch(child.wait, exception=subprocess.TimeoutExpired)(timeout=heartbeat.interval.total_seconds())
             .to_option()
             .map(Ok)
             .or_else_with(lambda: catch(records.path.touch, exception=OSError)().swap().to_option().map(lambda error: Error(Fault.of(RecordReason.UNWRITABLE, str(records.path), error))))
@@ -141,14 +141,9 @@ def stop(progress: Progress) -> Outcome[None]:
     return catch(killpg, exception=OSError)(progress.process, signal.SIGTERM).map_error(partial(Fault.of, RenderingReason.SYSTEM, f"{killpg.__name__}({progress.process})"))
 
 
-def cleared(queue: RenderQueue, host: Host) -> Outcome[None]:
+def cleared(queue: RenderQueue, host: HostCommands) -> Outcome[None]:
     """Deletes queue, progress, and log files of finished run."""
-
-    def removed(file: RunFile) -> Outcome[None]:
-        path = host.path(queue, file)
-        return catch(path.unlink, exception=OSError)(missing_ok=True).map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(path)))
-
-    return accumulated(map(removed, (RunFile.QUEUE, RunFile.PROGRESS, RunFile.LOG))).map(lambda _: None)
+    return accumulated(removed(host.path(queue.stem, file)) for file in (RunFile.QUEUE, RunFile.PROGRESS, RunFile.LOG)).map(lambda _: None)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -16,12 +16,15 @@ import PyOpenColorIO
 from blender.bpy.commands.operators import Answer, Call, Done, Operator
 from blender.bpy.data.rna.conditions import Job
 from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.data.rna.paths import rooted
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
-from blender.bpy.nodes.graphs import CurvePoints, Expr, math, NodeGroup, Points, rgba, Scalar
-from blender.bpy.nodes.interface import CurveAxes, item_key
-from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT, hsy, logarithmic
-from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, Named, Registers, revised, Shell
+from blender.bpy.nodes.content import CurveAxes, CurvePoints, Points
+from blender.bpy.nodes.graphs import Expr, math, rgba, Scalar
+from blender.bpy.nodes.interface import item_key
+from blender.bpy.render.compositor.colors import hsy, logarithmic
+from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, Named, revised
+from blender.bpy.render.compositor.shells import Shell
 from blender.bpy.render.compositor.tables import curved
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.color.processors import converted, lin_to_log, luma
@@ -263,8 +266,7 @@ def knotted[R: (Curves, HueCurves)](effect: CompositorEffect[R], call: Call[Name
         return wrote.map(lambda changed: Some(title) if changed else Nothing)
 
     return (
-        call
-        .root(bpy.types.Scene)
+        rooted(bpy.types.Scene, call.context)
         .bind(lambda scene: effect.named(call.identity, scene, call.properties.name).bind(lambda entry: READ.entering(call.identity, scene, entry, measured)))
         .map(lambda _: Done())
     )
@@ -295,7 +297,7 @@ def _(record: HueCurves, _values: Mapping[Key, Value], _config: PyOpenColorIO.Co
 # --- [GRAPHS]
 
 
-def channel_mapped(shell: Shell[Curves]) -> Outcome[Expr]:
+def _curves(shell: Shell[Curves]) -> Outcome[Expr]:
     """Applies channel tables, then the master table, on the stop axis, beside the curve editors."""
     low, high = Curves.rows[-1].inputs
     identity: Points = ((low, low), (high, high))
@@ -304,66 +306,60 @@ def channel_mapped(shell: Shell[Curves]) -> Outcome[Expr]:
         return Expr(
             kind=bpy.types.CompositorNodeCurveRGB,
             inputs=(("Image", image), ("Fac", 1.0), ("Black Level", (0.0, 0.0, 0.0, 1.0)), ("White Level", (1.0, 1.0, 1.0, 1.0))),
-            members=((("mapping", "tone"), "STANDARD"),),
+            members={("mapping", "tone"): "STANDARD"},
             content=Some(CurvePoints(maps=maps, clip=Some((low, low, high, high)))),
             socket="Image",
-            shape="RGBA",
+            shape=bpy.types.NodeSocketColor,
         ).named(key)
 
-    def built(held: dict[Key, Points], groups: tuple[NodeGroup, ...]) -> Expr:
-        forward, inverse = groups
+    def built(held: dict[Key, Points]) -> Outcome[Expr]:
         red, green, blue, master = (held[row.key] for row in Curves.rows)
-        stops = table("master_table", table("channel_table", forward.placed({COLOR_INPUT.key: shell.color}, COLOR_RESULT.key), (red, green, blue, identity)), (identity, identity, identity, master))
-        return inverse.placed({COLOR_INPUT.key: stops}, COLOR_RESULT.key).keeping(*editors(shell.record))
+        return logarithmic(PyOpenColorIO.TRANSFORM_DIR_FORWARD, shell.color).bind(
+            lambda logged: logarithmic(PyOpenColorIO.TRANSFORM_DIR_INVERSE, table("master_table", table("channel_table", logged, (red, green, blue, identity)), (identity, identity, identity, master)))
+        )
 
-    return paired(tables(shell.record, shell.config), accumulated(map(logarithmic, (PyOpenColorIO.TRANSFORM_DIR_FORWARD, PyOpenColorIO.TRANSFORM_DIR_INVERSE)))).map(lambda pair: built(*pair))
+    return tables(shell.record, shell.config).bind(built).map(lambda result: result.keeping(*editors(shell.record)))
 
 
-def hue_mapped(shell: Shell[HueCurves]) -> Outcome[Expr]:
+curves: Final = CompositorEffect(
+    graph=_curves, record=Curves, mix=Blended(alpha=Alpha.STRAIGHT), registers=(Operator(form=Named, run=curve_knot, icon=Some("EYEDROPPER"), undo=Nothing, condition=Some(Job(kind="RENDER"))),)
+)
+
+
+def _hue_curves(shell: Shell[HueCurves]) -> Outcome[Expr]:
     """Maps HSY through the curve tables in OCIO's saturation then luma order, beside the curve editors."""
     rows: dict[Key, Curve] = {row.key: row for row in HueCurves.rows}
     hue_hue, hue_sat, hue_lum, lum_sat, sat_sat, lum_lum, sat_lum = rows
 
-    def built(held: dict[Key, Points], groups: tuple[NodeGroup, ...]) -> Expr:
-        forward, inverse, encoded, decoded = groups
-
+    def built(held: dict[Key, Points]) -> Outcome[Expr]:
         def table(key: Key, value: Scalar) -> Expr:
             row = rows[key]
             clip = (row.inputs[0], row.outputs[0], row.inputs[1], row.outputs[1])
             return Expr(kind=bpy.types.ShaderNodeFloatCurve, inputs=(("Factor", 1.0), ("Value", value)), content=Some(CurvePoints(maps=(held[key],), clip=Some(clip)))).named(item_key(key, "table"))
 
-        spaced = forward.placed({COLOR_INPUT.key: shell.color}, COLOR_RESULT.key)
-        hue, saturation, stops = spaced["Red"], spaced["Green"], encoded.placed({COLOR_INPUT.key: spaced}, COLOR_RESULT.key)["Blue"]
-        gains = {key: math("MAXIMUM", table(key, value), 0.0) for key, value in ((hue_sat, hue), (hue_lum, hue), (lum_sat, stops), (sat_sat, saturation))}
-        grown = gains[sat_sat] * gains[lum_sat] * gains[hue_sat]
-        lightness = (
-            decoded.placed({COLOR_INPUT.key: table(lum_lum, stops)}, COLOR_RESULT.key)["Blue"]
-            * (1.0 - (1.0 - gains[hue_lum]) * math("MINIMUM", grown, 1.0))
-            * math("MAXIMUM", table(sat_lum, grown), 0.0)
+        def lifted(hue: Expr, saturation: Expr, stops: Expr) -> Outcome[Expr]:
+            gains = {key: math("MAXIMUM", table(key, value), 0.0) for key, value in ((hue_sat, hue), (hue_lum, hue), (lum_sat, stops), (sat_sat, saturation))}
+            grown = gains[sat_sat] * gains[lum_sat] * gains[hue_sat]
+            return logarithmic(PyOpenColorIO.TRANSFORM_DIR_INVERSE, table(lum_lum, stops)).bind(
+                lambda decoded: hsy(
+                    shell.config,
+                    PyOpenColorIO.TRANSFORM_DIR_INVERSE,
+                    rgba(math("FRACT", table(hue_hue, hue)), grown, decoded["Blue"] * (1.0 - (1.0 - gains[hue_lum]) * math("MINIMUM", grown, 1.0)) * math("MAXIMUM", table(sat_lum, grown), 0.0)),
+                )
+            )
+
+        return hsy(shell.config, PyOpenColorIO.TRANSFORM_DIR_FORWARD, shell.color).bind(
+            lambda spaced: logarithmic(PyOpenColorIO.TRANSFORM_DIR_FORWARD, spaced).bind(lambda encoded: lifted(spaced["Red"], spaced["Green"], encoded["Blue"]))
         )
-        return inverse.placed({COLOR_INPUT.key: rgba(math("FRACT", table(hue_hue, hue)), grown, lightness)}, COLOR_RESULT.key).keeping(*editors(shell.record))
 
-    return paired(
-        tables(shell.record, shell.config),
-        accumulated((
-            hsy(shell.config, PyOpenColorIO.TRANSFORM_DIR_FORWARD),
-            hsy(shell.config, PyOpenColorIO.TRANSFORM_DIR_INVERSE),
-            logarithmic(PyOpenColorIO.TRANSFORM_DIR_FORWARD),
-            logarithmic(PyOpenColorIO.TRANSFORM_DIR_INVERSE),
-        )),
-    ).map(lambda pair: built(*pair))
+    return tables(shell.record, shell.config).bind(built).map(lambda result: result.keeping(*editors(shell.record)))
 
 
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-curves = CompositorEffect(
-    record=Curves, graph=channel_mapped, alpha=Alpha.STRAIGHT, parts=(Registers(rows=(Operator(form=Named, run=curve_knot, icon=Some("EYEDROPPER"), undo=False, condition=Some(Job(kind="RENDER"))),)),)
-)
-hue_curves = CompositorEffect(
+hue_curves: Final = CompositorEffect(
+    graph=_hue_curves,
     record=HueCurves,
-    graph=hue_mapped,
-    alpha=Alpha.STRAIGHT,
-    parts=(Registers(rows=(Operator(form=Named, run=hue_curve_knot, icon=Some("EYEDROPPER"), undo=False, condition=Some(Job(kind="RENDER"))),)),),
+    mix=Blended(alpha=Alpha.STRAIGHT),
+    registers=(Operator(form=Named, run=hue_curve_knot, icon=Some("EYEDROPPER"), undo=Nothing, condition=Some(Job(kind="RENDER"))),),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

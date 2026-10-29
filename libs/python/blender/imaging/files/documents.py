@@ -2,6 +2,7 @@
 
 import fractions
 import functools
+import pathlib
 import struct
 
 from expression import Nothing, Option
@@ -13,21 +14,20 @@ import psdtags
 import PyOpenColorIO
 import tifffile
 
-from blender.imaging.color.processors import basis
 from blender.imaging.files.images import profile, written
 from blender.records.faults import Fault, Outcome, paired, RecordReason
 from blender.records.fields import Finite, Positive
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type DocumentLayers[D: np.uint8 | np.uint16 | np.float32] = tuple[PixelLayer[D] | AdjustmentLayer[D] | LayerGroup[D], ...]
+type DocumentLayers[D: np.uint8 | np.uint16 | np.float32] = tuple[PixelLayer[D] | LayerGroup[D], ...]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class PixelLayer[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Pixel layer in unassociated color with alpha."""
+    """Pixel layer in unassociated color with alpha, a rasterized adjustment at its defaults."""
 
     name: str
     color: npt.NDArray[D]
@@ -35,15 +35,6 @@ class PixelLayer[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=Tr
     mask: Option[npt.NDArray[D]] = Nothing
     mode: psdtags.PsdBlendMode = psdtags.PsdBlendMode.NORMAL
     opacity: float = 1.0
-    visible: bool = True
-
-
-class AdjustmentLayer[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Adjustment layer as rasterized result in unassociated color."""
-
-    name: str
-    color: npt.NDArray[D]
-    alpha: npt.NDArray[D]
     visible: bool = True
 
 
@@ -65,7 +56,7 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
     colorspace: str
     density: float
 
-    def saved(self, path: str, config: PyOpenColorIO.Config) -> Outcome[str]:
+    def written(self, path: pathlib.Path, config: PyOpenColorIO.Config) -> Outcome[pathlib.Path]:
         """Writes layered TIFF with colorspace ICC profile.
 
         Returns:
@@ -97,15 +88,12 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
                 info=[psdtags.PsdString(psdtags.PsdKey.UNICODE_LAYER_NAME, name), *info],
             )
 
-        def records(node: PixelLayer[D] | AdjustmentLayer[D] | LayerGroup[D]) -> tuple[psdtags.PsdLayer, ...]:
+        def records(node: PixelLayer[D] | LayerGroup[D]) -> tuple[psdtags.PsdLayer, ...]:
             match node:
                 case PixelLayer():
                     channels = (*zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha)), *((psdtags.PsdChannelId.USER_LAYER_MASK, mask) for mask in node.mask.to_list()))
                     mask = node.mask.map(lambda _: psdtags.PsdLayerMask(rectangle=canvas)).to_optional()
                     return (record(node.name, blend=(node.mode, node.opacity), visible=node.visible, channels=channels, rectangle=canvas, mask=mask, info=()),)
-                case AdjustmentLayer():
-                    channels = tuple(zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha)))
-                    return (record(node.name, blend=(psdtags.PsdBlendMode.NORMAL, 1.0), visible=node.visible, channels=channels, rectangle=canvas, mask=None, info=()),)
                 case LayerGroup():
                     blend = (node.mode.default_value(psdtags.PsdBlendMode.PASS_THROUGH), node.opacity)
                     bounding = psdtags.PsdSectionDividerSetting(psdtags.PsdSectionDividerType.BOUNDING_SECTION_DIVIDER)
@@ -127,7 +115,7 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
             info=[psdtags.PsdEmpty(psdtags.PsdKey.SAVING_MERGED_TRANSPARENCY2)],
         )
         tagged = catch(source.tifftag, exception=struct.error)(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS).map_error(
-            functools.partial(Fault.of, RecordReason.UNWRITABLE, path)
+            functools.partial(Fault.of, RecordReason.UNWRITABLE, str(path))
         )
         return paired(tagged, profile(config, self.colorspace)).bind(
             lambda pair: written(
@@ -168,11 +156,11 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
     exposure: Finite = 0.0
     optics: Option[Optics] = Nothing
 
-    def saved(self, path: str, frame: npt.NDArray[np.float32], config: PyOpenColorIO.Config) -> Outcome[str]:
-        """Writes C-contiguous `(height, width, 3)` scene-linear frame as Linear Raw DNG.
+    def written(self, path: pathlib.Path, frame: npt.NDArray[np.float32], basis: npt.NDArray[np.float64]) -> Outcome[pathlib.Path]:
+        """Writes C-contiguous `(height, width, 3)` scene-linear frame as Linear Raw DNG, `basis` the frame's linear RGB-to-XYZ D65 matrix.
 
         Returns:
-            Path, or `color`, `numeric`, or `write` fault.
+            Path, or `numeric` or `write` fault.
         """
 
         def signed(*values: float) -> tuple[tuple[int, int], ...]:
@@ -206,8 +194,8 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
             return [(tifffile.TIFF.TAGS[name], kind, count, value, True) for name, kind, count, value in rows]
 
         return (
-            basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR)
-            .bind(lambda matrix: catch(np.linalg.inv, exception=np.linalg.LinAlgError)(matrix).map_error(functools.partial(Fault.of, RecordReason.NUMERIC, str(matrix))))
+            catch(np.linalg.inv, exception=np.linalg.LinAlgError)(basis)
+            .map_error(functools.partial(Fault.of, RecordReason.NUMERIC, str(basis)))
             .bind(
                 lambda inverse: written(
                     path,
@@ -229,4 +217,4 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["AdjustmentLayer", "Document", "DocumentLayers", "LayerGroup", "LinearRaw", "Optics", "PixelLayer"]
+__all__ = ["Document", "DocumentLayers", "LayerGroup", "LinearRaw", "Optics", "PixelLayer"]

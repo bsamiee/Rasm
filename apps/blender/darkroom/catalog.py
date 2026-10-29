@@ -5,24 +5,26 @@ from typing import Final
 from bl_ui.properties_compositor import SCENE_MT_add_compositor_effect, SCENE_PT_compositor_effects
 from bl_ui.space_node import NODE_PT_backdrop
 from bl_ui.space_sequencer import SEQUENCER_MT_modifier_add
-import bpy
 from expression import Some
 
-from blender.bpy.data.rna.descriptors import RnaPath, Value
+from blender.bpy.commands.calls import Called, Opened
+from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.data.rna.paths import RnaPath
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.render.compositor.blending import Entry
 from blender.bpy.render.compositor.effects import Enabled
 from blender.bpy.render.compositor.entries import Edge, Pinned
 from blender.bpy.render.compositor.layers import Adjustment, LayerStack, StackLayer
 from blender.bpy.render.compositor.library import save_effect
-from blender.bpy.render.compositor.stacking import OWNERSHIP, TITLE, Valued
+from blender.bpy.render.compositor.recipes import Valued
+from blender.bpy.render.compositor.stacking import PINNED
 from blender.bpy.render.compositor.strips import Strips
 from blender.bpy.render.compositor.viewers import Viewers
 from blender.bpy.render.previews.nodes import NodePreview
-from blender.bpy.render.view_layers.passes import PassSet
-from blender.bpy.ui.layout.rows import Pulldown
-from blender.bpy.ui.surfaces.appends import Append
-from blender.bpy.ui.surfaces.panels import Joined, Panel, PopoverPanel, Tab
+from blender.bpy.render.view_layers.routing import PassSet
+from blender.bpy.ui.layout.rows import Opens
+from blender.bpy.ui.surfaces.menus import Append
+from blender.bpy.ui.surfaces.panels import Beside, Panel, PopoverPanel
 from blender.records.trees import Owner, Tree
 
 from .chain import layers
@@ -124,9 +126,9 @@ chain: Final = Chain(
     view=formed_view,
     gain=gain,
     pinned=(
-        Pinned(ownership=OWNERSHIP, title=TITLE, edge=Edge.HEAD),
-        Pinned(ownership=Rendered.ownership, title=bpy.path.display_name(Rendered.ownership.key), edge=Edge.HEAD, enables=frozenset({Enabled.RENDER})),
-        Pinned(ownership=PassSet.ownership, title=PassSet.title, edge=Edge.TAIL, enables=frozenset({Enabled.RENDER})),
+        PINNED,
+        Pinned(ownership=Rendered.ownership, edge=Edge.HEAD, enables=frozenset({Enabled.RENDER})),
+        Pinned(ownership=PassSet.ownership, title=Some(PassSet.title), edge=Edge.TAIL, enables=frozenset({Enabled.RENDER})),
     ),
 )
 stacks: Final = layers.stacks(
@@ -140,8 +142,8 @@ stacks: Final = layers.stacks(
                 tree=Tree(
                     roots=((),),
                     rows=(
-                        ((), Owner[Value, RnaPath](values={}, children=tuple((key,) for key in values))),
-                        *(((key,), Owner[Value, RnaPath](values={"value": value})) for key, value in values.items()),
+                        ((), Owner[Value, RnaPath, RnaPath](children=tuple((key,) for key in values))),
+                        *(((key,), Owner[Value, RnaPath, RnaPath](rows=((("value",), value),))) for key, value in values.items()),
                     ),
                 ),
             ),
@@ -156,21 +158,21 @@ stacks: Final = layers.stacks(
 tiles: Final = Tiles(chain=chain)
 strips: Final = Strips(rows=chain.rows)
 nodes: Final = NodePreview(settings=previewing)
-adding: Final = chain.rows.menu
+adding: Final = chain.edits.menu
 rows: Final = (
-    chain.rows,
+    chain.edits,
     adding,
-    Append(target=SCENE_MT_add_compositor_effect, rows=(Pulldown(menu=adding.key),)),
+    Append(target=SCENE_MT_add_compositor_effect, rows=(Opens(target=Opened(adding.key, Called.MENU)),)),
     tiles,
     nodes,
     strips,
     save_effect,
     stacks,
-    Append(target=SEQUENCER_MT_modifier_add, rows=(Pulldown(menu=strips.menu.key),)),
-    Panel(section=effect_section(chain, Viewers(rows=chain.rows), thumbnail=StageThumbnail(tiles=tiles), locks=Some(locks)), at=Tab.beside(SCENE_PT_compositor_effects)),
-    Panel(section=stacks.section(), at=Tab.beside(SCENE_PT_compositor_effects)),
+    Append(target=SEQUENCER_MT_modifier_add, rows=(Opens(target=Opened(strips.menu.key, Called.MENU)),)),
+    Panel(section=effect_section(chain, Viewers(rows=chain.rows), thumbnail=StageThumbnail(tiles=tiles), locks=Some(locks)), at=Beside(SCENE_PT_compositor_effects)),
+    Panel(section=stacks.section(), at=Beside(SCENE_PT_compositor_effects)),
     Panel(section=stacks.presets(), at=PopoverPanel()),
-    Panel(section=nodes.section(), at=Joined.beside(NODE_PT_backdrop)),
+    Panel(section=nodes.section(), at=Beside(NODE_PT_backdrop)),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

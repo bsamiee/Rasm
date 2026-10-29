@@ -1,6 +1,5 @@
 """Process runs, detached launches, and the host commands of queue runs."""
 
-import base64
 from collections.abc import Mapping
 from enum import auto, StrEnum
 from functools import partial
@@ -14,8 +13,7 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.records.faults import Fault, Outcome
-from blender.records.stores import folder_made
-from blender.rendering.batch.queue import RenderQueue
+from blender.records.stores import argument, folder_made
 from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -30,8 +28,11 @@ class RunCommand(StrEnum):
 
 
 class RunFile(StrEnum):
-    """Run file suffix after queue key."""
+    """Run file suffix after the key of the plan or queue it belongs to."""
 
+    PLAN = ".plan.json"
+    PLAN_LOG = ".plan.log"
+    SENT = ".sent.json"
     QUEUE = ".json"
     PROGRESS = ".progress.json"
     LOG = ".log"
@@ -42,20 +43,20 @@ class RunFile(StrEnum):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Host(msgspec.Struct, frozen=True, kw_only=True):
+class HostCommands(msgspec.Struct, frozen=True, kw_only=True):
     """Running host binary, run folder, and registered name of each run command."""
 
     binary: str
     folder: str
     commands: Mapping[RunCommand, str]
 
-    def argv(self, command: RunCommand, argument: msgspec.Struct, file: Option[str] = Nothing) -> tuple[str, ...]:
-        """Returns background command line opening `file` and passing `argument` as base64 JSON."""
-        return (self.binary, "--background", *file.to_list(), "--command", self.commands[command], base64.b64encode(msgspec.json.encode(argument)).decode("ascii"))
+    def argv(self, command: RunCommand, record: msgspec.Struct, file: Option[str] = Nothing) -> tuple[str, ...]:
+        """Returns background command line opening `file` and passing `record` as its command argument."""
+        return (self.binary, "--background", *file.to_list(), "--command", self.commands[command], argument(record))
 
-    def path(self, queue: RenderQueue, file: RunFile) -> Path:
-        """Returns path of queue run file."""
-        return Path(self.folder, f"{queue.stem}{file}")
+    def path(self, key: str, file: RunFile) -> Path:
+        """Returns path of the run file of a plan or queue key."""
+        return Path(self.folder, f"{key}{file}")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -98,4 +99,4 @@ def detached(argv: tuple[str, ...], log: Path) -> Outcome[Path]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Host", "RunCommand", "RunFile", "detached", "ran", "spawned"]
+__all__ = ["HostCommands", "RunCommand", "RunFile", "detached", "ran", "spawned"]

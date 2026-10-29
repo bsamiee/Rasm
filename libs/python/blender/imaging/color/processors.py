@@ -1,4 +1,4 @@
-"""Display formation, colorspace transforms, encoding domains, and RGB geometry."""
+"""Display formation, colorspace transforms and readings, encoding domains, and RGB geometry."""
 
 from collections.abc import Callable
 from enum import auto, Enum
@@ -14,10 +14,11 @@ import numpy.typing as npt
 import PyOpenColorIO
 from scipy.linalg import block_diag
 
-from blender.imaging.color.observer import coordinates
 from blender.imaging.faults import ImagingReason
 from blender.imaging.files.buffers import applied
-from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.imaging.files.images import interop
+from blender.records.faults import accumulated, Fault, Outcome, paired
+from blender.records.fields import NonNegative
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -29,15 +30,14 @@ class Domain(Enum):
     DISPLAY = auto()
 
 
-type _Gamma = Annotated[float, msgspec.Meta(ge=0.0, le=5.0)]
-type Stops = Annotated[float, msgspec.Meta(ge=-32.0, le=32.0)]
 type ColorSpace = Annotated[str, msgspec.Meta(min_length=1)]
+type Stops = Annotated[float, msgspec.Meta(ge=-float(np.finfo(np.float32).maxexp), le=float(np.finfo(np.float32).maxexp))]
+type _Name = Annotated[str, msgspec.Meta(min_length=1)]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 GREY: Final = 0.18
 REC709_SCENE: Final = "lin_rec709_scene"
-interop: Final[Callable[[PyOpenColorIO.ColorSpace], str]] = PyOpenColorIO.ColorSpace.getInteropID  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -45,12 +45,12 @@ interop: Final[Callable[[PyOpenColorIO.ColorSpace], str]] = PyOpenColorIO.ColorS
 class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
     """Scene-linear formation through OCIO's viewing pipeline: exposure, look, display view, and display gamma."""
 
-    display: Annotated[str, msgspec.Meta(min_length=1)]
-    view: Annotated[str, msgspec.Meta(min_length=1)]
+    display: _Name
+    view: _Name
     looks_override: str = ""
     looks_override_enabled: bool = False
     exposure: Stops = 0.0
-    gamma: _Gamma = 1.0
+    gamma: NonNegative = 1.0
 
     @classmethod
     def for_encoding(cls, config: PyOpenColorIO.Config, display: str, view: Option[str] = Nothing) -> Outcome[Option[tuple[Self, PyOpenColorIO.Processor]]]:
@@ -83,6 +83,19 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
 
         return accumulated(map(discovered, view.map(lambda name: (name,)).default_with(lambda: tuple(config.getViews(display))))).map(
             lambda candidates: Block.of_seq(candidates).choose(identity).try_head()
+        )
+
+    @classmethod
+    def encoding(cls, config: PyOpenColorIO.Config, display: str) -> Outcome[str]:
+        """Returns the colorspace name of a display's certified baseline encoding, the first lookless matrix-only scene view in native view order."""
+        found: Outcome[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = cls.for_encoding(config, display)
+        return found.bind(
+            lambda choice: (
+                choice
+                .bind(lambda pair: pair[0].colorspace(config))
+                .map(PyOpenColorIO.ColorSpace.getName)
+                .to_result_with(lambda: Fault.of(ImagingReason.UNRESOLVED, config.getName() or repr(config), member=f"display encoding {display}"))
+            )
         )
 
     def colorspace(self, config: PyOpenColorIO.Config) -> Option[PyOpenColorIO.ColorSpace]:
@@ -205,30 +218,19 @@ def rendering_basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDA
     return basis(config, space).bind(held)
 
 
-def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
-    """Returns signed RGB matching weights with unit channel integrals."""
-
-    @catch(exception=np.linalg.LinAlgError)
-    def solved(values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return np.asarray(np.linalg.solve(values, tristimulus.T).T, dtype=np.float64)
-
-    @np.errstate(all="ignore")
-    def normalized(weights: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
-        integral = weights.sum(axis=0)
-        held = np.isfinite(weights).all() and np.isfinite(integral).all() and (integral != 0.0).all()
-        return Ok(weights / integral) if held else Error(Fault.of(ImagingReason.SPECTRAL, space, member=str(integral)))
-
-    return basis(config, space).bind(lambda values: solved(values).map_error(partial(Fault.of, RecordReason.NUMERIC, str(values)))).bind(normalized)
-
-
 def luma(config: PyOpenColorIO.Config) -> Outcome[npt.NDArray[np.float64]]:
     """Returns scene-linear luminance coefficients, the Y row of its RGB-to-XYZ matrix, or base fault."""
     return basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).map(lambda matrix: matrix[1])
 
 
-def chromaticities(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.float64]]:
-    """Returns float64 xy rows of red, green, blue, and white from unit codes every display encoding fixes, or color fault."""
-    return converted(config, xyz(config, space), np.vstack((np.eye(3, dtype=np.float32), np.ones((1, 3), dtype=np.float32)))).map(coordinates)
+def hdr(space: PyOpenColorIO.ColorSpace) -> bool:
+    """Whether a display colorspace's OCIO encoding is hdr-video or edr-video."""
+    return space.getEncoding() in {"hdr-video", "edr-video"}
+
+
+def pq(space: PyOpenColorIO.ColorSpace) -> bool:
+    """Whether a display colorspace's interop ID names absolute PQ luminance."""
+    return interop(space).rpartition(":")[2].startswith("pq_")
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -243,13 +245,12 @@ __all__ = [
     "basis",
     "bracketed",
     "called",
-    "chromaticities",
     "converted",
-    "interop",
+    "hdr",
     "lin_to_log",
     "luma",
-    "matching",
     "matrix",
+    "pq",
     "processor",
     "rendering_basis",
     "xyz",

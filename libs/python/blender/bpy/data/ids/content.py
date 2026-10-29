@@ -2,7 +2,7 @@
 
 from collections.abc import Iterable
 from functools import partial, reduce
-from itertools import starmap
+from itertools import starmap, takewhile
 from typing import Final
 
 import bpy
@@ -14,7 +14,8 @@ import numpy.typing as npt
 
 from blender.bpy.data.ids.images import pixels
 from blender.bpy.data.ids.store import IdName
-from blender.bpy.data.rna.descriptors import definition, Descriptor, DTYPES, Struct, struct_at
+from blender.bpy.data.rna.descriptors import Descriptor, DTYPES
+from blender.bpy.data.rna.paths import definition, Struct, struct_at
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.records.faults import accumulated, Outcome, paired
 from blender.records.identity import content_hash, ContentHash
@@ -39,12 +40,13 @@ _COMPOSITE: Final = frozenset({"MULTILAYER", "RENDER_RESULT"})
 # --- [HASHES]
 
 
-def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = False) -> Outcome[Option[ContentHash]]:
+def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = False, entering: Option[str] = Nothing) -> Outcome[Option[ContentHash]]:
     """Hashes the content of a data-block or of a node's upstream graph.
 
     Args:
-        owner: Image, node tree, node, mesh, curve, text, hair curves, point cloud, Grease Pencil, or any other data-block, the last hashed by its members alone.
+        owner: Image, node tree, node, object, mesh, curve, text, hair curves, point cloud, Grease Pencil, or any other data-block, the last hashed by its members alone.
         weighted: Whether mesh vertex group weights join the key.
+        entering: Object modifier whose input geometry the key covers: the object's data and vertex groups, the modifiers before it with their groups, and its own members.
 
     Returns:
         Content hash, Nothing for an image or graph whose content the file holds no buffer of, capture faults of any struct accumulated.
@@ -58,10 +60,7 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = Fals
             values.foreach_get(member.identifier, buffer)
             return buffer
 
-        def chosen(member: bpy.types.Property) -> Option[_Dtype]:
-            return Option.of_optional(DTYPES.get(type(member)))
-
-        return tuple(read(member, dtype) for member in members for dtype in chosen(member).to_list())
+        return tuple(read(member, DTYPES[type(member)]) for member in members if type(member) in DTYPES)
 
     def image(image: bpy.types.Image) -> Outcome[Option[ContentHash]]:
         transient = image.source in _UNHASHED or image.type in _COMPOSITE or image.is_multiview
@@ -85,7 +84,7 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = Fals
                 for at, held in snapshot.tree.owners.items()
                 for name, value in held.values.items()
                 if isinstance(value, IdName)
-                for block in struct_at(struct, (*at, name)).to_list()
+                for block in struct_at(struct, (*at, *name), bpy.types.ID).to_list()
                 if isinstance(block, bpy.types.NodeTree | bpy.types.Image)
             )
             return accumulated(map(fingerprinted, blocks)).map(lambda hashes: (snapshot, hashes))
@@ -180,9 +179,27 @@ def fingerprinted(owner: bpy.types.ID | bpy.types.Node, *, weighted: bool = Fals
             lambda snapshots: content_hash(type(block), *snapshots, named, arrays=(*columns, *arrays))
         )
 
+    def item(block: bpy.types.Object) -> Outcome[Option[ContentHash]]:
+        earlier = tuple(takewhile(lambda modifier: entering != Some(modifier.name), block.modifiers))
+        named = tuple(modifier for modifier in block.modifiers if entering == Some(modifier.name))[:1]
+        groups = msgspec.msgpack.encode(tuple(group.name for group in block.vertex_groups))
+        return paired(
+            accumulated(Snapshot.capture(modifier) for modifier in (*earlier, *named)),
+            accumulated(fingerprinted(group) for modifier in earlier if isinstance(modifier, bpy.types.NodesModifier) for group in Option.of_optional(modifier.node_group).to_list()),
+            accumulated(fingerprinted(data, weighted=bool(block.vertex_groups)) for data in Option.of_optional(block.data).to_list()),
+        ).map(
+            lambda parts: reduce(
+                lambda held, part: held.map2(lambda prior, current: content_hash(bpy.types.Object, prior, current), part),
+                (*parts[1], *parts[2]),
+                Some(content_hash(bpy.types.Object, *parts[0], groups)),
+            )
+        )
+
     match owner:
         case bpy.types.Image():
             return image(owner)
+        case bpy.types.Object():
+            return item(owner)
         case bpy.types.NodeTree() | bpy.types.Node():
             return graph(owner)
         case _:

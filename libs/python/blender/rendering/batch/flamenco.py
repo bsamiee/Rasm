@@ -1,6 +1,5 @@
 """Render queue submission to Flamenco Manager."""
 
-import base64
 from collections.abc import Callable, Mapping
 from functools import partial
 from http import HTTPMethod
@@ -19,9 +18,10 @@ from scipy.cluster.hierarchy import DisjointSet
 
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 from blender.records.fields import Case
-from blender.records.stores import files_copied
+from blender.records.stores import argument, files_copied
 from blender.rendering.batch.exchange import Endpoint, exchange, sent
-from blender.rendering.batch.queue import Placed, RenderFrames, RenderQueue
+from blender.rendering.batch.processes import HostCommands, RunCommand
+from blender.rendering.batch.queue import PackedFile, RenderFrames, RenderQueue
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -154,7 +154,7 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
             exchange(client, HTTPMethod.GET, f"/api/v3/configuration/shared-storage/users/{_PLATFORM}", _SharedStorageLocation),
             exchange(client, HTTPMethod.GET, "/api/v3/jobs/types", _AvailableJobTypes),
             exchange(client, HTTPMethod.GET, "/api/v3/worker-mgt/tags", _WorkerTagList),
-        ).map(lambda found: cls(storage=found[0], job_type=Block(found[1].job_types).filter(lambda kind: kind.name == Flamenco.kind).try_head(), tags=found[2].tags))
+        ).map(lambda found: cls(storage=found[0], job_type=Block(found[1].job_types).filter(lambda kind: kind.name == Flamenco.job_type).try_head(), tags=found[2].tags))
 
     def placed(self, client: httpx2.Client, queue: RenderQueue) -> Outcome[_ManagerFiles]:
         """Uploads every job's pack to Shaman when enabled, else copies it to Manager storage, each pack under its job's part folder."""
@@ -168,11 +168,11 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
         def read[T](source: str, reader: Callable[[Path], T]) -> Outcome[T]:
             return catch(reader, exception=OSError)(Path(source)).map_error(partial(Fault.of, RecordReason.UNREADABLE, source))
 
-        def specified(name: str, placed: Placed) -> Outcome[_ShamanFileSpec]:
+        def specified(name: str, placed: PackedFile) -> Outcome[_ShamanFileSpec]:
             return read(placed.source, Path.stat).map(lambda stat: _ShamanFileSpec(sha=placed.digest.hex(), size=stat.st_size, path=name))
 
         def checked(specs: tuple[_ShamanFileSpec, ...]) -> Outcome[_ManagerFiles]:
-            def uploaded(spec: _ShamanFileSpec, placed: Placed) -> Outcome[httpx2.Response]:
+            def uploaded(spec: _ShamanFileSpec, placed: PackedFile) -> Outcome[httpx2.Response]:
                 return read(placed.source, Path.read_bytes).bind(lambda data: sent(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(data)))
 
             return (
@@ -194,7 +194,7 @@ class Flamenco(Case, frozen=True, kw_only=True):
     """Jobs submitted to Flamenco Manager."""
 
     script: ClassVar[str] = "rasm_render.js"
-    kind: ClassVar[str] = PurePath(script).stem.replace("_", "-")
+    job_type: ClassVar[str] = PurePath(script).stem.replace("_", "-")
     server: Endpoint = Endpoint(url="http://localhost:8080")
     priority: int = 50
     chunk: Annotated[int, msgspec.Meta(ge=1, le=sys.maxsize)] = 10
@@ -219,10 +219,7 @@ class Flamenco(Case, frozen=True, kw_only=True):
                         _JobTasks(
                             blendfile=stored.files[job.file],
                             output_root=f"output_root_{part}",
-                            requests=tuple(
-                                _JobRequest(argument=base64.b64encode(msgspec.json.encode(RenderFrames(scene=job.scene, frames=frames))).decode("ascii"), steps=len(frames))
-                                for frames in batched(job.frames.numbers, self.chunk)
-                            ),
+                            requests=tuple(_JobRequest(argument=argument(RenderFrames(scene=job.scene, frames=frames)), steps=len(frames)) for frames in batched(job.frames.numbers, self.chunk)),
                             prerequisites=tuple(positions[before] for before in job.prerequisites),
                         ),
                     )
@@ -236,7 +233,7 @@ class Flamenco(Case, frozen=True, kw_only=True):
                     Some(
                         _SubmittedJob(
                             name="; ".join(job.title for _, job in jobs),
-                            type=Flamenco.kind,
+                            type=Flamenco.job_type,
                             type_etag=manager.job_type.map(lambda kind: kind.etag).to_optional(),
                             priority=self.priority,
                             submitter_platform=_PLATFORM,
@@ -251,6 +248,10 @@ class Flamenco(Case, frozen=True, kw_only=True):
             return tuple(map(component, components.subsets()))
 
         return Manager.queried(client).bind(lambda manager: manager.placed(client, queue).map(lambda stored: posted(manager, stored)))
+
+    def sent(self, queue: RenderQueue, host: HostCommands) -> Outcome[tuple[Outcome[str], ...]]:
+        """Submits the queue through one Manager client scope with the host render command, returning each Manager job ID."""
+        return self.server.opened(lambda client: self.submitted(client, queue, host.commands[RunCommand.RENDER]))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

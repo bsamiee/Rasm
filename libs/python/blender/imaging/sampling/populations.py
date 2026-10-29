@@ -11,7 +11,9 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.imaging.sampling.integration import Bounds, Estimate, Precision, Raster, smoothstep
+from blender.imaging.geometry.arithmetic import smoothstep
+from blender.imaging.geometry.frames import Raster, Region
+from blender.imaging.sampling.integration import Estimate, Precision
 from blender.records.faults import Fault, Outcome, RecordReason
 from blender.records.fields import NonNegative, Positive, Unit
 
@@ -22,7 +24,7 @@ type _Draws = Callable[[npt.NDArray[np.int64], int, int], npt.NDArray[np.float64
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Mark(msgspec.Struct, frozen=True, kw_only=True):
+class Disc(msgspec.Struct, frozen=True, kw_only=True):
     """Stable population member with global center and physical radius."""
 
     cell: tuple[int, ...]
@@ -42,7 +44,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
     spread: NonNegative = 1.0
     softness: Unit = 0.5
 
-    def covering(self, bounds: Bounds) -> npt.NDArray[np.int64]:
+    def covering(self, bounds: Region) -> npt.NDArray[np.int64]:
         """Returns cells with discs able to intersect global bounds, rows bottom first."""
         radius = self.size / 2.0
         columns = np.arange(math.floor(bounds.left / self.spacing - radius) - 1, math.floor(bounds.right / self.spacing + radius) + 1)
@@ -61,12 +63,12 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
         """Returns centers, radii, and peak gains of occupied cells from their uniforms at lattice spacing and depth scale."""
         return (cells[:, :2] + 0.25 + 0.5 * values[:, 4:6]) * spacing, self.spacing * scale * self.size * (1.0 - self.variation * values[:, 1]) / 2.0, np.exp2(-self.spread * values[:, 2])
 
-    def marks(self, bounds: Bounds, draws: _Draws, stream: int = 0) -> tuple[Mark, ...]:
+    def discs(self, bounds: Region, draws: _Draws, stream: int = 0) -> tuple[Disc, ...]:
         """Returns occupied members of cells covering global bounds, in cell order."""
         cells, values = self.occupied(self.covering(bounds), draws, stream)
         centers, radii, gains = self.placed(cells, values, self.spacing)
         return tuple(
-            Mark(cell=tuple(cell), center=(center[0], center[1]), radius=radius, gain=gain, tone=tone)
+            Disc(cell=tuple(cell), center=(center[0], center[1]), radius=radius, gain=gain, tone=tone)
             for cell, center, radius, gain, tone in zip(cells.tolist(), centers.tolist(), radii.tolist(), gains.tolist(), values[:, 3].tolist())
         )
 
@@ -119,4 +121,4 @@ def transmitted(gains: npt.NDArray[np.float64], coverage: npt.NDArray[np.float64
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Mark", "Population", "transmitted"]
+__all__ = ["Disc", "Population", "transmitted"]

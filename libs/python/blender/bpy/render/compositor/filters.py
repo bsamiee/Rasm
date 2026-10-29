@@ -1,15 +1,16 @@
-"""Filter primitives a compositor graph composes: rank statistics over tap sets, bilateral grids, variance-kept tile sampling, kernel convolution, block means, and native denoising."""
+"""Filter primitives a compositor graph composes: rank statistics over tap sets, bilateral grids, variance-kept tile sampling, kernel convolution, and block means."""
 
 from functools import reduce
 from itertools import product, starmap
 
 import bpy
-from expression import Nothing, Option, Some
+from expression import Some
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.nodes.graphs import Component, Expr, Generated, math, rgba, Scalar, switched, Term, vector, where, xyz
-from blender.bpy.render.compositor.coordinates import FrameSpace, gridded, pixels
+from blender.bpy.data.ids.images import Generated
+from blender.bpy.nodes.graphs import Component, Expr, math, rgba, Scalar, switched, Term, vector, where, xyz
+from blender.bpy.render.compositor.coordinates import dimensions, FrameSpace, gridded, pixels
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -81,9 +82,9 @@ def bilateral(value: Expr, guide: Expr, coverage: Expr, frame: FrameSpace, fallb
         red, green, blue, alpha = weighted * weights[lower], coverage * weights[lower], weighted * weights[upper], coverage * weights[upper]
         return Expr(
             kind=bpy.types.CompositorNodeBlur,
-            inputs=(("Image", rgba(red, green, blue, alpha)), ("Size", pixels(frame, (radius, radius, 0.0), "VECTOR")), ("Type", "Fast Gaussian")),
+            inputs=(("Image", rgba(red, green, blue, alpha)), ("Size", pixels(frame, (radius, radius, 0.0), bpy.types.NodeSocketVector)), ("Type", "Fast Gaussian")),
             socket="Image",
-            shape="RGBA",
+            shape=bpy.types.NodeSocketColor,
         )
 
     cells = tuple((weights[index], grid[moment], grid[mass]) for lower in range(0, 2 * pairs, 2) for grid in (blurred(lower, lower + 1),) for index, (moment, mass) in zip((lower, lower + 1), sides))
@@ -108,14 +109,14 @@ def tiled(tile: Expr, position: Expr, density: Scalar, correlation: npt.NDArray[
         Unit-variance samples of every channel.
     """
     step = 1.0 / 256.0
-    dimensions = Expr(kind=bpy.types.CompositorNodeImageInfo, inputs=(("Image", tile),), socket="Dimensions", shape="VECTOR")
-    scale = xyz(dimensions["X"], dimensions["Y"], 1.0)
+    sides = dimensions(tile)
+    scale = xyz(sides["X"], sides["Y"], 1.0)
     texel = vector("SNAP", vector("MULTIPLY_ADD", vector("SCALE", position, density), (1.0, 1.0, 0.0), (0.5 * step, 0.5 * step, 0.0)), (step, step, step))
     sample = Expr(
         kind=bpy.types.CompositorNodeMapUV,
         inputs=(("Image", tile), ("UV", texel / scale), ("Interpolation", "Bilinear"), ("Extension X", "Repeat"), ("Extension Y", "Repeat")),
         socket="Image",
-        shape="RGBA",
+        shape=bpy.types.NodeSocketColor,
     )
     phase = vector("FRACTION", texel - (0.5, 0.5, 0.5))
     spread = phase * ((1.0, 1.0, 1.0) - phase)
@@ -139,8 +140,13 @@ def tiled(tile: Expr, position: Expr, density: Scalar, correlation: npt.NDArray[
 
 def convolved(source: Term, kernel: Generated) -> Expr:
     """Convolves a source by a generated color kernel whose weights hold their own sums."""
-    image = Expr(kind=bpy.types.CompositorNodeImage, content=Some(kernel), socket="Image", shape="RGBA").named(kernel.ownership.key)
-    return Expr(kind=bpy.types.CompositorNodeConvolve, inputs=(("Image", source), ("Kernel Data Type", "Color"), ("Color Kernel", image), ("Normalize Kernel", False)), socket="Image", shape="RGBA")
+    image = Expr(kind=bpy.types.CompositorNodeImage, content=Some(kernel), socket="Image", shape=bpy.types.NodeSocketColor).named(kernel.ownership.key)
+    return Expr(
+        kind=bpy.types.CompositorNodeConvolve,
+        inputs=(("Image", source), ("Kernel Data Type", "Color"), ("Color Kernel", image), ("Normalize Kernel", False)),
+        socket="Image",
+        shape=bpy.types.NodeSocketColor,
+    )
 
 
 def block_mean(frame: FrameSpace, source: Scalar, length: Scalar) -> Expr:
@@ -154,29 +160,35 @@ def block_mean(frame: FrameSpace, source: Scalar, length: Scalar) -> Expr:
     Returns:
         Bin mean of each pixel's bin.
     """
-    dimensions = Expr(kind=bpy.types.CompositorNodeImageInfo, inputs=(("Image", source),), socket="Dimensions", shape="VECTOR")
-    span = switched(math("GREATER_THAN", length, 0.0), (1.0, 1.0, 0.0), pixels(frame, length, "VECTOR"))
-    anchor = vector("MULTIPLY", dimensions, frame.margin)
+    sides = dimensions(source)
+    span = switched(math("GREATER_THAN", length, 0.0), (1.0, 1.0, 0.0), pixels(frame, length, bpy.types.NodeSocketVector))
+    anchor = vector("MULTIPLY", sides, frame.margin)
     grid = gridded(source)
 
     def bounded(center: Scalar | tuple[float, ...]) -> tuple[Expr, Expr]:
         cell = vector("FLOOR", vector("DIVIDE", vector("SUBTRACT", center, anchor), span))
         lower = vector("MAXIMUM", vector("CEIL", vector("MULTIPLY_ADD", cell, span, anchor) - (0.5, 0.5, 0.0)), (0.0, 0.0, 0.0))
-        upper = vector("MINIMUM", vector("CEIL", vector("MULTIPLY_ADD", vector("ADD", cell, (1.0, 1.0, 0.0)), span, anchor) - (0.5, 0.5, 0.0)), dimensions)
+        upper = vector("MINIMUM", vector("CEIL", vector("MULTIPLY_ADD", vector("ADD", cell, (1.0, 1.0, 0.0)), span, anchor) - (0.5, 0.5, 0.0)), sides)
         return lower, upper - lower
 
-    candidates = (vector("MAXIMUM", vector("FLOOR", span), (1.0, 1.0, 0.0)), vector("CEIL", span), bounded((0.5, 0.5, 0.0))[1], bounded(dimensions - (0.5, 0.5, 0.0))[1])
+    candidates = (vector("MAXIMUM", vector("FLOOR", span), (1.0, 1.0, 0.0)), vector("CEIL", span), bounded((0.5, 0.5, 0.0))[1], bounded(sides - (0.5, 0.5, 0.0))[1])
     lower, count = bounded(vector("DIVIDE", grid.base, grid.inverse))
-    uv = vector("ADD", vector("DIVIDE", vector("ADD", lower + vector("FLOOR", vector("SCALE", count, 0.5)), (0.5, 0.5, 0.0)), dimensions), (0.0, 0.0, 1.0))
+    uv = vector("ADD", vector("DIVIDE", vector("ADD", lower + vector("FLOOR", vector("SCALE", count, 0.5)), (0.5, 0.5, 0.0)), sides), (0.0, 0.0, 1.0))
 
     def averaged(x: int, y: int) -> tuple[Expr, Expr]:
         horizontal, vertical = candidates[x]["X"], candidates[y]["Y"]
-        kernel = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Color", (1.0,) * 4), ("Size", xyz(horizontal, vertical))), socket="Image", shape="RGBA")
+        kernel = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Color", (1.0,) * 4), ("Size", xyz(horizontal, vertical))), socket="Image", shape=bpy.types.NodeSocketColor)
         image = Expr(
-            kind=bpy.types.CompositorNodeConvolve, inputs=(("Image", source), ("Kernel Data Type", "Float"), ("Float Kernel", kernel), ("Normalize Kernel", True)), socket="Image", shape="RGBA"
+            kind=bpy.types.CompositorNodeConvolve,
+            inputs=(("Image", source), ("Kernel Data Type", "Float"), ("Float Kernel", kernel), ("Normalize Kernel", True)),
+            socket="Image",
+            shape=bpy.types.NodeSocketColor,
         )
         sample = Expr(
-            kind=bpy.types.CompositorNodeMapUV, inputs=(("Image", image), ("UV", uv), ("Interpolation", "Nearest"), ("Extension X", "Extend"), ("Extension Y", "Extend")), socket="Image", shape="RGBA"
+            kind=bpy.types.CompositorNodeMapUV,
+            inputs=(("Image", image), ("UV", uv), ("Interpolation", "Nearest"), ("Extension X", "Extend"), ("Extension Y", "Extend")),
+            socket="Image",
+            shape=bpy.types.NodeSocketColor,
         )
         return sample, math("COMPARE", count["X"], horizontal, 0.0) * math("COMPARE", count["Y"], vertical, 0.0)
 
@@ -184,17 +196,6 @@ def block_mean(frame: FrameSpace, source: Scalar, length: Scalar) -> Expr:
     return reduce(lambda held, step: where(step[1], step[0], held), rest, first)
 
 
-# --- [DENOISING]
-
-
-def denoised(image: Term, *, albedo: Option[Term] = Nothing, normal: Option[Term] = Nothing, prefilter: Option[Term] = Nothing, quality: Option[Term] = Nothing) -> Expr:
-    """Denoises a scene-linear image through the native Denoise node, guided by albedo and normal passes where given, each menu at the node's default unless given."""
-    settings = (("Albedo", albedo), ("Normal", normal), ("Prefilter", prefilter), ("Quality", quality))
-    return Expr(
-        kind=bpy.types.CompositorNodeDenoise, inputs=(("Image", image), ("HDR", True), *((socket, held) for socket, given in settings for held in given.to_list())), socket="Image", shape="RGBA"
-    )
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["bilateral", "block_mean", "convolved", "denoised", "ranked", "tiled"]
+__all__ = ["bilateral", "block_mean", "convolved", "ranked", "tiled"]

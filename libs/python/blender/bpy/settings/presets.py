@@ -1,11 +1,10 @@
-"""Typed stock presets, user preset files, and snapshot clipboard transfer."""
+"""Typed stock presets and user preset files."""
 
-from collections.abc import Callable, Iterator, Mapping
-from functools import partial
+from collections.abc import Callable, Mapping
+from functools import cache, partial
 from pathlib import Path
-import shutil
 from types import MappingProxyType
-from typing import Annotated
+from typing import Annotated, Final
 
 from bl_operators.presets import AddPresetBase
 import bpy
@@ -14,17 +13,19 @@ from expression.extra.result import catch
 import msgspec
 from typing_extensions import TypeForm
 
-from blender.bpy.data.rna.descriptors import Struct
-from blender.bpy.data.rna.snapshots import Applied, Snapshot
+from blender.bpy.data.rna.mirrors import choices
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderReason
-from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
-from blender.records.stores import committed, RecordFile
-from blender.records.trees import merge, transfer
+from blender.records.faults import Fault, Faults, Outcome, RecordReason
+from blender.records.stores import committed, RecordFile, removed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type PresetName = Annotated[str, msgspec.Meta(pattern=r"[^\W_]", max_length=64, description="Preset and file name")]
+type PresetName = Annotated[str, msgspec.Meta(pattern=r"[^\W_]")]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_CHOICES: Final = cache(choices)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -50,39 +51,55 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         added = sorted(users.keys() - self.stock.keys(), key=lambda stem: (stem.casefold(), stem))
         return {**{stem: users.get(stem, value) for stem, value in self.stock.items()}, **{stem: users[stem] for stem in added}}
 
-    def entries(self, identity: Identity, *_: object) -> Iterator[tuple[str, str, str]]:
-        """Returns enum rows, user files tooltipped by their path."""
-        return ((stem, bpy.path.display_name(stem), str(value) if isinstance(value, Path) else "") for stem, value in self.listed(identity).items())
+    def entries(self, identity: Identity, *_: object) -> tuple[tuple[str, str, str, str, int], ...]:
+        """Returns enum items with a value fixed per stem, held while the listing stands so the strings Blender reads stay referenced.
+
+        Stock stems read title-cased, user files keep their typed name and take their path as tooltip.
+        """
+        return _CHOICES(
+            tuple(
+                (stem, bpy.path.display_name(stem, title_case=False), str(value)) if isinstance(value, Path) else (stem, bpy.path.display_name(stem), "")
+                for stem, value in self.listed(identity).items()
+            )
+        )
 
     def found(self, identity: Identity, stem: str) -> Outcome[T | Path]:
         """Returns stock preset or user path of stem."""
         found: Option[T | Path] = Option.of_optional(self.listed(identity).get(stem))
         return found.to_result_with(lambda: Fault.of(BlenderReason.ABSENT, str(self.folder(identity)), member=stem))
 
+    def loaded(self, identity: Identity, stem: str) -> Outcome[T]:
+        """Returns the validated preset of stem, stock or user."""
+        return self.found(identity, stem).bind(self.read)
+
     # --- [FILES]
 
-    def file(self, path: Path) -> RecordFile[T]:
+    def _file(self, path: Path) -> RecordFile[T]:
         """Returns record file of preset form at path."""
         return RecordFile(path=path, form=self.form)
 
     def read(self, source: T | Path) -> Outcome[T]:
         """Decodes and validates user file, passing stock preset through."""
-        return Result[T, Faults].bind(self.file(source).read(), lambda value: self.admitted.map(lambda admit: admit(value)).default_value(Ok(value))) if isinstance(source, Path) else Ok(source)
+        return Result[T, Faults].bind(self._file(source).read(), lambda value: self.admitted.map(lambda admit: admit(value)).default_value(Ok(value))) if isinstance(source, Path) else Ok(source)
 
     def written(self, target: Path, value: T) -> Outcome[Path]:
         """Writes JSON at target through one atomic commit."""
-        return self.file(target).written(value)
+        return self._file(target).written(value)
 
-    def saved(self, identity: Identity, name: PresetName, value: T) -> Outcome[Path]:
-        """Creates user preset file, refusing a name a file holds."""
-        return self.file(self.folder(identity) / f"{AddPresetBase.as_filename(name)}.json").written(value, exclusive=True)
+    def saved(self, identity: Identity, name: str, value: T) -> Outcome[Path]:
+        """Creates user preset file under a valid preset name, refusing a name a file holds."""
+        return _named(name).bind(lambda valid: self._file(self.folder(identity) / f"{AddPresetBase.as_filename(valid)}.json").written(value, exclusive=True))
 
     @staticmethod
-    def renamed(source: Path, name: PresetName) -> Outcome[Path]:
-        """Moves user preset to a free name."""
-        target = source.with_stem(AddPresetBase.as_filename(name))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        copied = committed(target, lambda stage: catch(shutil.copyfile, exception=OSError)(source, stage).map_error(partial(Fault.of, RecordReason.UNREADABLE, str(source))), exclusive=True)
-        return Result[Path, Faults].bind(copied, lambda _: removed(source)).map(lambda _: target)
+    def renamed(source: Path, name: str) -> Outcome[Path]:
+        """Moves user preset to a free, valid preset name."""
+
+        def moved(valid: PresetName) -> Outcome[Path]:
+            target = source.with_stem(AddPresetBase.as_filename(valid))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            copied = catch(source.read_bytes, exception=OSError)().map_error(partial(Fault.of, RecordReason.UNREADABLE, str(source))).bind(lambda data: committed(target, data, exclusive=True))
+            return copied.bind(lambda _: removed(source)).map(lambda _: target)
+
+        return _named(name).bind(moved)
 
     def imported(self, identity: Identity, source: Path) -> Outcome[Path]:
         """Copies validated file into user folder."""
@@ -96,30 +113,11 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def removed(source: Path) -> Outcome[None]:
-    """Deletes file."""
-    return catch(source.unlink, exception=OSError)().map_error(partial(Fault.of, RecordReason.UNWRITABLE, str(source)))
-
-
-def copied(manager: bpy.types.WindowManager, snapshot: Snapshot) -> None:
-    """Copies snapshot to system clipboard as JSON."""
-    manager.clipboard = msgspec.json.encode(snapshot, order="deterministic").decode()
-
-
-def pasted(manager: bpy.types.WindowManager, owners: tuple[Struct, ...]) -> Outcome[tuple[Applied, ...]]:
-    """Applies clipboard snapshot to each owner."""
-    return Result[Snapshot, Faults].bind(
-        catch(msgspec.json.Decoder(Snapshot).decode, exception=msgspec.DecodeError)(manager.clipboard).map_error(partial(Fault.of, RecordReason.UNREADABLE, f"{manager!r}.clipboard")),
-        lambda clip: accumulated(
-            Snapshot
-            .capture(owner)
-            .map(lambda target: msgspec.structs.replace(clip, tree=merge(target.tree, transfer(target.tree, clip.tree))).apply(owner))
-            .bind(lambda applied: applied.outcome.map(lambda _: applied))
-            for owner in owners
-        ),
-    )
+def _named(name: str) -> Outcome[PresetName]:
+    """Returns name validated as a preset name, invalid fault naming the bound it misses."""
+    return catch(msgspec.convert, exception=msgspec.ValidationError)(name, PresetName).map_error(partial(Fault.of, RecordReason.INVALID, name))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Preset", "PresetName", "copied", "pasted", "removed"]
+__all__ = ["Preset", "PresetName"]

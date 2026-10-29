@@ -13,9 +13,8 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.records.faults import Fault, Outcome
+from blender.records.faults import Fault, Outcome, RecordReason
 from blender.records.fields import Count
-from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -55,25 +54,6 @@ class Site(msgspec.Struct, frozen=True, kw_only=True):
     def clock(self) -> zoneinfo.ZoneInfo:
         """Time zone of site clock."""
         return zoneinfo.ZoneInfo(self.zone)
-
-
-class LocalTime(msgspec.Struct, frozen=True, kw_only=True):
-    """Calendar date and time on site clock."""
-
-    year: Annotated[int, msgspec.Meta(ge=datetime.MINYEAR, le=datetime.MAXYEAR)] = 2000
-    month: Annotated[int, msgspec.Meta(ge=1, le=12)] = 1
-    day: Annotated[int, msgspec.Meta(ge=1, le=31)] = 1
-    hour: Annotated[int, msgspec.Meta(ge=0, le=23)] = 12
-    minute: Annotated[int, msgspec.Meta(ge=0, le=59)] = 0
-
-    @property
-    def date(self) -> datetime.date:
-        """Calendar date, days past month end rolling forward."""
-        return datetime.date(self.year, self.month, 1) + datetime.timedelta(days=self.day - 1)
-
-    def moment(self, zone: zoneinfo.ZoneInfo) -> datetime.datetime:
-        """Returns aware wall time in zone."""
-        return datetime.datetime.combine(self.date, datetime.time(self.hour, self.minute), tzinfo=zone)
 
 
 class SunPosition(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -174,8 +154,9 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
     light: Daylight | Polar
 
     @classmethod
-    def of(cls, site: Site, date: datetime.date, zone: zoneinfo.ZoneInfo) -> Outcome[Self]:
+    def of(cls, site: Site, date: datetime.date) -> Outcome[Self]:
         """Solves solar noon and horizon crossings, time fault on overflow."""
+        zone = site.clock
         side = np.array([0.0, -1.0, 1.0], dtype=np.float64)
         latitude_sine, latitude_cosine = math.sin(site.latitude), math.cos(site.latitude)
         horizon = math.cos(math.radians(90.833))
@@ -205,7 +186,7 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
         def crossed() -> tuple[datetime.datetime, ...]:
             return tuple((epoch + datetime.timedelta(seconds=float(moment))).astimezone(zone) for moment in solved[: 3 if -1.0 < ratio < 1.0 else 1])
 
-        return crossed().map(lambda moments: cls(noon=moments[0], light=lit(moments))).map_error(functools.partial(Fault.of, RenderingReason.CALENDAR, str(date)))
+        return crossed().map(lambda moments: cls(noon=moments[0], light=lit(moments))).map_error(functools.partial(Fault.of, RecordReason.NUMERIC, str(date)))
 
 
 class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -239,24 +220,24 @@ class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Study(msgspec.Struct, frozen=True, kw_only=True):
-    """Moments stepped from start, a sub-day remainder counting elapsed time and whole days keeping clock time."""
+    """Moments stepped from a naive start on the zone clock, a sub-day remainder counting elapsed time and whole days keeping clock time."""
 
-    start: LocalTime
+    start: Annotated[datetime.datetime, msgspec.Meta(tz=False)]
     step: datetime.timedelta
     frames: Count
 
     def moments(self, zone: zoneinfo.ZoneInfo) -> Outcome[tuple[datetime.datetime, ...]]:
         """Returns study moments on the zone clock, time fault on overflow."""
-        first = self.start.moment(zone)
+        first = self.start.replace(tzinfo=zone)
         origin = first.astimezone(datetime.UTC) if self.step % _DAY else first
 
         @catch(exception=OverflowError)
         def stepped() -> tuple[datetime.datetime, ...]:
             return tuple((origin + frame * self.step).astimezone(zone) for frame in range(self.frames))
 
-        return stepped().map_error(functools.partial(Fault.of, RenderingReason.CALENDAR, f"{first} + {self.frames} x {self.step}"))
+        return stepped().map_error(functools.partial(Fault.of, RecordReason.NUMERIC, f"{first} + {self.frames} x {self.step}"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Daylight", "LocalTime", "Polar", "Site", "SolarDay", "Study", "SunPaths", "SunPosition"]
+__all__ = ["Daylight", "Polar", "Site", "SolarDay", "Study", "SunPaths", "SunPosition"]

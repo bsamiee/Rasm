@@ -1,32 +1,93 @@
-"""Scene and display node views, Blender tint, and OCIO installation."""
+"""Color-managed view and display settings records, scene and display node views, Blender tint, and OCIO installation."""
 
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Final
 
 import bpy
-from expression import Ok
+from expression import Nothing, Ok
 import msgspec
+from msgspec import UNSET, UnsetType
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Empty, Operator
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, RnaPath, Value, written
+from blender.bpy.data.rna.descriptors import Descriptor, Value, written
+from blender.bpy.data.rna.paths import RnaPath
+from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.files.assets import SYSTEM_RESOURCE
-from blender.imaging.color.authoring import ConfigBuild, ConfigFile
-from blender.imaging.color.processors import ColorSpace, DisplayView
-from blender.imaging.color.white import White
+from blender.bpy.nodes.desired import member_paths, Members
+from blender.imaging.color.authoring import ConfigBuild
+from blender.imaging.color.colorimetry import WhitePoint
+from blender.imaging.color.processors import called, ColorSpace, DisplayView
 from blender.records.faults import accumulated, Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 CONFIGURED: Final = Setting(descriptor=Descriptor.declared(bpy.types.BlendData, ("colorspace", "is_missing_opencolorio_config"), bpy.types.BoolProperty), accepted=(False,))
+EXPOSURE: Final = Descriptor.declared(bpy.types.ColorManagedViewSettings, ("exposure",), bpy.types.FloatProperty)
 NO_LOOK: Final[str] = "None"
 TINT_PER_DUV: Final = 3000.0
+UNTAGGED: Final = ("default_byte", "default_float")
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Settings(msgspec.Struct, frozen=True, kw_only=True):
+    """Host settings record whose unset members keep the values the host holds, nested records standing for pointer members."""
+
+    def members(self, owner: RnaPath = ()) -> Members:
+        """Set members by path under `owner`, nested records flattened to their member paths."""
+
+        def flattened(path: RnaPath, held: object) -> tuple[tuple[RnaPath, Value], ...]:
+            match held:
+                case dict():
+                    return tuple(pair for key, item in held.items() for pair in flattened((*path, str(key)), item))
+                case list():
+                    return ((path, tuple(item for item in held if isinstance(item, bool | int | float | str))),)
+                case bool() | int() | float() | str() | None:
+                    return ((path, held),)
+                case _:
+                    return ()
+
+        return dict[str | RnaPath, Value](flattened(owner, msgspec.to_builtins(self)))
+
+
+class DisplaySettings(Settings, frozen=True, kw_only=True):
+    """`ColorManagedDisplaySettings` members."""
+
+    display_device: str | UnsetType = UNSET
+    emulation: str | UnsetType = UNSET
+
+
+class ViewSettings(Settings, frozen=True, kw_only=True):
+    """`ColorManagedViewSettings` members, the white point left to the temperature and tint it derives from."""
+
+    view_transform: str | UnsetType = UNSET
+    look: str | UnsetType = UNSET
+    exposure: float | UnsetType = UNSET
+    gamma: float | UnsetType = UNSET
+    use_curve_mapping: bool | UnsetType = UNSET
+    use_white_balance: bool | UnsetType = UNSET
+    white_balance_temperature: float | UnsetType = UNSET
+    white_balance_tint: float | UnsetType = UNSET
+
+
+class Viewing(Settings, frozen=True, kw_only=True):
+    """Display and view settings of one color-managed owner: a scene, a display node, or an overriding image format."""
+
+    display_settings: DisplaySettings = DisplaySettings()
+    view_settings: ViewSettings = ViewSettings()
+
+    @classmethod
+    def of(cls, view: DisplayView) -> "Viewing":
+        """Returns the settings a view forms through, the host's look `NO_LOOK` as disabled."""
+        return cls(
+            display_settings=DisplaySettings(display_device=view.display),
+            view_settings=ViewSettings(view_transform=view.view, look=view.looks_override if view.looks_override_enabled else NO_LOOK, exposure=view.exposure, gamma=view.gamma),
+        )
 
 
 class ConfigView(msgspec.Struct, frozen=True, kw_only=True):
@@ -62,7 +123,8 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def base(self) -> Outcome[PyOpenColorIO.Config]:
         """Bundled base configuration independent of a user installation."""
-        return ConfigFile(path=str(Path(SYSTEM_RESOURCE("DATAFILES", path="colormanagement"), "config.ocio"))).opened()
+        path = str(Path(SYSTEM_RESOURCE("DATAFILES", path="colormanagement"), "config.ocio"))
+        return called(PyOpenColorIO.Config.CreateFromFile, path, path)
 
     def merged(self, base: PyOpenColorIO.Config) -> Outcome[ConfigBuild]:
         """Application build with the views' view transforms added."""
@@ -83,7 +145,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def installing(self) -> Operator[Empty]:
         """Command installing the build."""
-        return Operator(form=Empty, run=self.install_config, undo=False)
+        return Operator(form=Empty, run=self.install_config, undo=Nothing)
 
     def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns install command."""
@@ -95,12 +157,12 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
 # --- [COLORS]
 
 
-def white_of(temperature: float, tint: float) -> White:
+def white_of(temperature: float, tint: float) -> WhitePoint:
     """Returns white of a Blender temperature and tint, the tint `TINT_PER_DUV` per unit Duv."""
-    return White(temperature=temperature, duv=tint / TINT_PER_DUV)
+    return WhitePoint(temperature=temperature, duv=tint / TINT_PER_DUV)
 
 
-def tint_of(white: White) -> float:
+def tint_of(white: WhitePoint) -> float:
     """Returns the Blender tint of `white`."""
     return white.duv * TINT_PER_DUV
 
@@ -116,15 +178,8 @@ def viewed(holder: bpy.types.Scene | bpy.types.CompositorNodeConvertToDisplay) -
 
 
 def displayed(scene: bpy.types.Scene, view: DisplayView) -> Outcome[None]:
-    """Writes a view to the scene in host order, the display before the view settings it governs, outputs overriding color management keeping their own."""
-    settings: dict[RnaPath, Value] = {
-        ("display_settings", "display_device"): view.display,
-        ("view_settings", "view_transform"): view.view,
-        ("view_settings", "look"): view.looks_override if view.looks_override_enabled else NO_LOOK,
-        ("view_settings", "exposure"): view.exposure,
-        ("view_settings", "gamma"): view.gamma,
-    }
-    return assigned(scene, settings).map(lambda _: None)
+    """Writes a view to the scene in host order, outputs overriding color management keeping their own."""
+    return assigned(scene, member_paths(Viewing.of(view).members()))
 
 
 def followed(scene: bpy.types.Scene, nodes: Iterable[bpy.types.CompositorNodeConvertToDisplay]) -> Outcome[tuple[tuple[bpy.types.CompositorNodeConvertToDisplay, DisplayView], ...]]:
@@ -135,4 +190,21 @@ def followed(scene: bpy.types.Scene, nodes: Iterable[bpy.types.CompositorNodeCon
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CONFIGURED", "NO_LOOK", "TINT_PER_DUV", "ConfigInstall", "ConfigView", "displayed", "followed", "tint_of", "viewed", "white_of"]
+__all__ = [
+    "CONFIGURED",
+    "EXPOSURE",
+    "NO_LOOK",
+    "TINT_PER_DUV",
+    "UNTAGGED",
+    "ConfigInstall",
+    "ConfigView",
+    "DisplaySettings",
+    "Settings",
+    "ViewSettings",
+    "Viewing",
+    "displayed",
+    "followed",
+    "tint_of",
+    "viewed",
+    "white_of",
+]

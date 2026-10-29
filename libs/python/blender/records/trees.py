@@ -1,37 +1,51 @@
-"""Keyed owner trees with their diffs, merges, transfers, and reverts, layered layouts of linked boxes, dated histories under retention, preorder walks over any tree, and record lenses reading and rebuilding nested values."""
+"""Keyed owner trees with their diffs, merges, transfers, and reverts, layered layouts of linked boxes, and preorder walks over any tree."""
 
-from collections import defaultdict
 from collections.abc import Callable, Collection, Hashable, Iterable, Mapping
-import datetime
 from difflib import SequenceMatcher
+from enum import Enum
 from functools import cached_property, reduce
 from graphlib import TopologicalSorter
 from itertools import accumulate
 from operator import sub
-from types import MappingProxyType, MemberDescriptorType
-from typing import Annotated, Self
+from types import MappingProxyType
+from typing import Self
 
 from expression import Nothing, Option, Some
 from expression.collections import Block
 import msgspec
 
-from blender.records.fields import NonNegative, Side
+from blender.records.fields import NonNegative
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Edit[V, K: Hashable = str] = Inserted[V, K] | Deleted[V, K] | Moved[K] | Reparametrized[V, K]
-type Lens = tuple[object, ...]
+type Edit[V, K: Hashable = str, N: Hashable = str] = Inserted[V, K, N] | Deleted[V, K, N] | Moved[K] | Reparametrized[V, K, N]
+
+
+class Toward(Enum):
+    """One step through an ordered sequence, valued by the index change it makes."""
+
+    UP = -1
+    DOWN = 1
+
+    def stepped(self, index: int, count: int) -> int:
+        """Returns the index one step from `index`, held inside a sequence of `count` items."""
+        return min(max(index + self.value, 0), count - 1)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 # --- [TREES]
 
 
-class Owner[V, K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
-    """Owner values by name and ordered child keys."""
+class Owner[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict=True):
+    """Owner values as name and value rows, any hashable name a JSON array encodes, and ordered child keys."""
 
-    values: Mapping[str, V]
+    rows: tuple[tuple[N, V], ...] = ()
     children: tuple[K, ...] = ()
+
+    @cached_property
+    def values(self) -> Mapping[N, V]:
+        """Values by name."""
+        return MappingProxyType(dict(self.rows))
 
 
 class _Place[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
@@ -41,14 +55,14 @@ class _Place[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
     index: int
 
 
-class Tree[V, K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict=True):
+class Tree[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Owners by stable key, ordered under parents."""
 
     roots: tuple[K, ...]
-    rows: tuple[tuple[K, Owner[V, K]], ...]
+    rows: tuple[tuple[K, Owner[V, K, N]], ...]
 
     @cached_property
-    def owners(self) -> Mapping[K, Owner[V, K]]:
+    def owners(self) -> Mapping[K, Owner[V, K, N]]:
         """Owners by key."""
         return MappingProxyType(dict(self.rows))
 
@@ -69,7 +83,10 @@ class Tree[V, K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict
         return type(self)(
             roots=tuple(dict.fromkeys((*self.roots, *other.roots))),
             rows=tuple(
-                {**self.owners, **{key: msgspec.structs.replace(owner, values={**self.owners[key].values, **owner.values}) if key in self.owners else owner for key, owner in other.rows}}.items()
+                {
+                    **self.owners,
+                    **{key: msgspec.structs.replace(owner, rows=tuple({**self.owners[key].values, **owner.values}.items())) if key in self.owners else owner for key, owner in other.rows},
+                }.items()
             ),
         )
 
@@ -82,19 +99,24 @@ class Tree[V, K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict
         return {key: _Place(parent=parent, index=index) for parent in (Nothing, *map(Some, self.owners)) for index, key in enumerate(self.children(parent))}
 
 
-class _Placed[V, K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
-    """Owner with values at place."""
+class _Placed[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict=True):
+    """Owner with value rows at place."""
 
     key: K
     place: _Place[K]
-    values: Mapping[str, V]
+    rows: tuple[tuple[N, V], ...] = ()
+
+    @cached_property
+    def values(self) -> Mapping[N, V]:
+        """Values by name."""
+        return MappingProxyType(dict(self.rows))
 
 
-class Inserted[V, K: Hashable = str](_Placed[V, K], frozen=True, kw_only=True):
+class Inserted[V, K: Hashable = str, N: Hashable = str](_Placed[V, K, N], frozen=True, kw_only=True, dict=True):
     """Owner entering tree at place."""
 
 
-class Deleted[V, K: Hashable = str](_Placed[V, K], frozen=True, kw_only=True):
+class Deleted[V, K: Hashable = str, N: Hashable = str](_Placed[V, K, N], frozen=True, kw_only=True, dict=True):
     """Owner leaving tree from place."""
 
 
@@ -106,24 +128,38 @@ class Moved[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
     after: _Place[K]
 
 
-class Reparametrized[V, K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
-    """Owner values changed, removed, or added."""
+class Reparametrized[V, K: Hashable = str, N: Hashable = str](msgspec.Struct, frozen=True, kw_only=True, dict=True):
+    """Owner values changed or removed as prior rows, and changed or added as later rows."""
 
     key: K
-    before: Mapping[str, V]
-    after: Mapping[str, V]
+    prior: tuple[tuple[N, V], ...] = ()
+    later: tuple[tuple[N, V], ...] = ()
+
+    @cached_property
+    def before(self) -> Mapping[N, V]:
+        """Prior values by name."""
+        return MappingProxyType(dict(self.prior))
+
+    @cached_property
+    def after(self) -> Mapping[N, V]:
+        """Later values by name."""
+        return MappingProxyType(dict(self.later))
 
     @classmethod
-    def of(cls, key: K, before: Mapping[str, V], after: Mapping[str, V]) -> Option[Self]:
+    def of(cls, key: K, before: Mapping[N, V], after: Mapping[N, V]) -> Option[Self]:
         """Returns changed, removed, and added values."""
-        old = {name: value for name, value in before.items() if name not in after or after[name] != value}
-        new = {name: value for name, value in after.items() if name not in before or before[name] != value}
-        return Some(cls(key=key, before=old, after=new)) if old or new else Nothing
+        old = tuple((name, value) for name, value in before.items() if name not in after or after[name] != value)
+        new = tuple((name, value) for name, value in after.items() if name not in before or before[name] != value)
+        return Some(cls(key=key, prior=old, later=new)) if old or new else Nothing
 
     @classmethod
-    def shared(cls, key: K, before: Mapping[str, V], after: Mapping[str, V]) -> Option[Self]:
+    def shared(cls, key: K, before: Mapping[N, V], after: Mapping[N, V]) -> Option[Self]:
         """Returns changed values of names both hold."""
         return cls.of(key, {name: value for name, value in before.items() if name in after}, {name: value for name, value in after.items() if name in before})
+
+    def applied(self, values: Mapping[N, V]) -> Mapping[N, V]:
+        """Returns values with the removed names dropped and the changed and added values set."""
+        return {**{name: value for name, value in values.items() if name not in self.before}, **self.after}
 
 
 # --- [LAYOUTS]
@@ -163,112 +199,53 @@ class Gaps(msgspec.Struct, frozen=True, kw_only=True):
         return {key: (lefts[depth], y) for (band, depth), keys in cells.items() for key, y in zip(keys, accumulate((sizes[key].height + self.down for key in keys), sub, initial=tops[band]))}
 
 
-# --- [HISTORY]
-
-
-class Retention(msgspec.Struct, frozen=True, kw_only=True):
-    """History capacity in entries and merge interval in seconds."""
-
-    capacity: Side = 10
-    interval: NonNegative = 5.0
-
-
-class Dated[T](msgspec.Struct, frozen=True, kw_only=True):
-    """Value with the moment it entered a history."""
-
-    moment: Annotated[datetime.datetime, msgspec.Meta(tz=True)]
-    value: T
-
-
-class History[T](msgspec.Struct, frozen=True, kw_only=True):
-    """Past and future entries nearest first."""
-
-    past: tuple[Dated[T], ...] = ()
-    future: tuple[Dated[T], ...] = ()
-
-    def add(self, entry: Dated[T], retention: Retention) -> Self:
-        """Adds entry as the nearest past and drops the future, an entry within the merge interval of the nearest past merging into it, a held value leaving its place."""
-        held = tuple(present for present in self.past if present.value != entry.value)
-        match held:
-            case (head, *rest) if not self.future and 0 <= (entry.moment - head.moment).total_seconds() < retention.interval:
-                past = (msgspec.structs.replace(head, moment=entry.moment), *rest)
-            case _:
-                past = (entry, *held)
-        return type(self)(past=past[: retention.capacity])
-
-    def at(self, offset: int) -> Option[Dated[T]]:
-        """Returns the entry at a signed one-based offset, past for positive and future for negative, `Nothing` at zero or past either end."""
-        source, distance = self.past if offset > 0 else self.future, abs(offset)
-        return Some(source[distance - 1]) if 0 < distance <= len(source) else Nothing
-
-    def step(self, offset: int, current: Dated[T], retention: Retention) -> Option[tuple[T, "History[T]", "History[T]"]]:
-        """Returns the value at a signed one-based offset, the history arrived there with current and the entries passed held across from it, and the history a refused write leaves with both branches kept and current nearest across."""
-        distance = abs(offset)
-        source, other = (self.past, self.future) if offset > 0 else (self.future, self.past)
-
-        def oriented(near: tuple[Dated[T], ...], far: tuple[Dated[T], ...]) -> History[T]:
-            return type(self)(past=near, future=far[: retention.capacity]) if offset > 0 else type(self)(past=far[: retention.capacity], future=near)
-
-        return self.at(offset).map(lambda entry: (entry.value, oriented(source[distance:], (*reversed(source[: distance - 1]), current, *other)), oriented(source, (current, *other))))
-
-    def remove(self, value: T) -> Self:
-        """Removes the entries holding value."""
-        return type(self)(past=tuple(entry for entry in self.past if entry.value != value), future=tuple(entry for entry in self.future if entry.value != value))
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # --- [TREES]
 
 
-def diff[V, K: Hashable](before: Tree[V, K], after: Tree[V, K]) -> tuple[Edit[V, K], ...]:
+def diff[V, K: Hashable, N: Hashable](before: Tree[V, K, N], after: Tree[V, K, N]) -> tuple[Edit[V, K, N], ...]:
     """Returns deletions, value changes, and target-ordered moves and insertions."""
     was, now = before.places(), after.places()
     stay = frozenset(key for key, place in now.items() if key in was and was[key].parent == place.parent)
     orders = tuple((tuple(key for key in before.children(parent) if key in stay), tuple(key for key in after.children(parent) if key in stay)) for parent in {now[key].parent for key in stay})
     kept = frozenset(key for old, new in orders for block in SequenceMatcher(None, old, new, autojunk=False).get_matching_blocks() for key in new[block.b : block.b + block.size])
     return (
-        *(Deleted(key=key, place=was[key], values=owner.values) for key, owner in before.owners.items() if key not in after.owners),
-        *(edit for key, owner in after.owners.items() if key in before.owners for edit in Reparametrized[V, K].of(key, before.owners[key].values, owner.values).to_list()),
-        *(Moved(key=key, before=was[key], after=place) if key in was else Inserted(key=key, place=place, values=after.owners[key].values) for key, place in now.items() if key not in kept),
+        *(Deleted(key=key, place=was[key], rows=owner.rows) for key, owner in before.owners.items() if key not in after.owners),
+        *(edit for key, owner in after.owners.items() if key in before.owners for edit in Reparametrized[V, K, N].of(key, before.owners[key].values, owner.values).to_list()),
+        *(Moved(key=key, before=was[key], after=place) if key in was else Inserted(key=key, place=place, rows=after.owners[key].rows) for key, place in now.items() if key not in kept),
     )
 
 
-def merge[V, K: Hashable](state: Tree[V, K], edits: Iterable[Edit[V, K]]) -> Tree[V, K]:
-    """Applies edits drawn against state."""
-    values = {key: owner.values for key, owner in state.owners.items()}
-    lifted: set[K] = set()
-    entering: list[tuple[_Place[K], K]] = []
-    for edit in edits:
-        match edit:
-            case Inserted(key=key, place=place, values=inserted):
-                values[key] = inserted
-                entering.append((place, key))
-            case Deleted(key=key):
-                del values[key]
-                lifted.add(key)
-            case Moved(key=key, after=place):
-                lifted.add(key)
-                entering.append((place, key))
-            case Reparametrized(key=key, before=old, after=new):
-                values[key] = {**{name: value for name, value in values[key].items() if name not in old}, **new}
-    order = defaultdict[Option[K], list[K]](list, {parent: [key for key in state.children(parent) if key not in lifted] for parent in (Nothing, *map(Some, state.owners))})
-    for place, key in sorted(entering, key=lambda row: row[0].index):
-        order[place.parent].insert(place.index, key)
-    return Tree(roots=tuple(order[Nothing]), rows=tuple((key, Owner(values=owned, children=tuple(order[Some(key)]))) for key, owned in values.items()))
+def merge[V, K: Hashable, N: Hashable](state: Tree[V, K, N], edits: Iterable[Edit[V, K, N]]) -> Tree[V, K, N]:
+    """Applies edits drawn against state, value changes of one owner in edit order and entering owners by target index."""
+    held = tuple(edits)
+    gone = frozenset(edit.key for edit in held if isinstance(edit, Deleted))
+    lifted = gone | frozenset(edit.key for edit in held if isinstance(edit, Moved))
+    changes = tuple(edit for edit in held if isinstance(edit, Reparametrized))
+    revisions = {key: tuple(edit for edit in changes if edit.key == key) for key in dict.fromkeys(edit.key for edit in changes)}
+    base = {**{key: owner.values for key, owner in state.owners.items() if key not in gone}, **{edit.key: edit.values for edit in held if isinstance(edit, Inserted)}}
+    values = {key: reduce(lambda current, edit: edit.applied(current), revisions.get(key, ()), current) for key, current in base.items()}
+    entering = sorted(((edit.place if isinstance(edit, Inserted) else edit.after, edit.key) for edit in held if isinstance(edit, Inserted | Moved)), key=lambda row: row[0].index)
+    start = {parent: tuple(key for key in state.children(parent) if key not in lifted) for parent in (Nothing, *map(Some, state.owners))}
+    order = {
+        parent: reduce(lambda siblings, row: (*siblings[: row[0].index], row[1], *siblings[row[0].index :]), (row for row in entering if row[0].parent == parent), start.get(parent, ()))
+        for parent in dict.fromkeys((*start, *(place.parent for place, _ in entering)))
+    }
+    return Tree(roots=order.get(Nothing, ()), rows=tuple((key, Owner(rows=tuple(owned.items()), children=order.get(Some(key), ()))) for key, owned in values.items()))
 
 
-def transfer[V, K: Hashable](target: Tree[V, K], source: Tree[V, K]) -> tuple[Reparametrized[V, K], ...]:
+def transfer[V, K: Hashable, N: Hashable](target: Tree[V, K, N], source: Tree[V, K, N]) -> tuple[Reparametrized[V, K, N], ...]:
     """Returns source values for owners and names both share."""
-    return tuple(edit for key, owner in source.owners.items() if key in target.owners for edit in Reparametrized[V, K].shared(key, target.owners[key].values, owner.values).to_list())
+    return tuple(edit for key, owner in source.owners.items() if key in target.owners for edit in Reparametrized[V, K, N].shared(key, target.owners[key].values, owner.values).to_list())
 
 
-def revert[V, K: Hashable](current: Tree[V, K], applied: Iterable[Reparametrized[V, K]]) -> tuple[Reparametrized[V, K], ...]:
+def revert[V, K: Hashable, N: Hashable](current: Tree[V, K, N], applied: Iterable[Reparametrized[V, K, N]]) -> tuple[Reparametrized[V, K, N], ...]:
     """Returns prior values where current matches applied."""
     return tuple(
         restored
         for edit in applied
         for held in Option.of_optional(current.owners.get(edit.key)).to_list()
-        for restored in Reparametrized[V, K]
+        for restored in Reparametrized[V, K, N]
         .shared(edit.key, held.values, {name: value for name, value in edit.before.items() if name in edit.after and held.values.get(name) == edit.after[name]})
         .to_list()
     )
@@ -283,56 +260,6 @@ def preorder[T](seed: T, children: Callable[[T], Iterable[T]]) -> Block[T]:
     return Block.unfold(lambda pending: Some((pending[0], (*children(pending[0]), *pending[1:]))) if pending else Nothing, frontier)
 
 
-# --- [PATHS]
-
-
-def _walked(value: object, lens: Lens) -> Option[tuple[object, Callable[[object], object]]]:
-    match lens, value:
-        case (), _:
-            return Some((value, lambda new: new))
-        case (MemberDescriptorType() as field, *rest), msgspec.Struct() if isinstance(value, field.__objclass__):
-            return _walked(field.__get__(value), tuple(rest)).map(lambda found: (found[0], lambda new: msgspec.structs.replace(value, **{field.__name__: found[1](new)})))
-        case (int(index), *rest), tuple() if 0 <= index < len(value):
-            return _walked(value[index], tuple(rest)).map(lambda found: (found[0], lambda new: (*value[:index], found[1](new), *value[index + 1 :])))
-        case _:
-            return Nothing
-
-
-def focused(value: object, lens: Lens) -> Option[object]:
-    """Returns the value a lens of struct fields and 0-based tuple indexes reaches, `Nothing` where a field's struct misses the held value or an index falls outside its tuple."""
-    return _walked(value, lens).map(lambda found: found[0])
-
-
-def amended[T: msgspec.Struct](record: T, lens: Lens, change: Callable[[object], object]) -> Option[T]:
-    """Returns record with the value a lens opening at one of its fields reaches replaced by its change, every enclosing struct and tuple rebuilt, `Nothing` where the lens reaches nothing."""
-    match lens:
-        case (MemberDescriptorType() as field, *rest) if isinstance(record, field.__objclass__):
-            return _walked(field.__get__(record), tuple(rest)).map(lambda found: msgspec.structs.replace(record, **{field.__name__: found[1](change(found[0]))}))
-        case _:
-            return Nothing
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "Dated",
-    "Deleted",
-    "Edit",
-    "Gaps",
-    "History",
-    "Inserted",
-    "Lens",
-    "Moved",
-    "Owner",
-    "Reparametrized",
-    "Retention",
-    "Size",
-    "Tree",
-    "amended",
-    "diff",
-    "focused",
-    "merge",
-    "preorder",
-    "revert",
-    "transfer",
-]
+__all__ = ["Deleted", "Edit", "Gaps", "Inserted", "Moved", "Owner", "Reparametrized", "Size", "Toward", "Tree", "diff", "merge", "preorder", "revert", "transfer"]

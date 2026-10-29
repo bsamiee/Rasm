@@ -1,553 +1,267 @@
-"""Store value sets with lock and history rows, and preset listing actions."""
+"""Value stores over attached form groups: value sets held as history, clipboard copies, member locks, and the preset catalog their values popover draws."""
 
 from collections.abc import Callable, Mapping
 import datetime
-from enum import auto, Enum
-from functools import partial
-from pathlib import Path
+from functools import cached_property, partial
 from types import MappingProxyType
-import typing
-from typing import Final
 
-from bl_operators.presets import AddPresetBase
 import bpy
-from expression import Error, Nothing, Ok, Option, Some, try_downcast
-from expression.collections import Block
-from expression.extra.result import catch
-import msgspec
+from expression import Error, Nothing, Ok, Option, Some
 
 from blender.bpy.commands import operators
-from blender.bpy.data.rna.descriptors import Struct
-from blender.bpy.data.rna.snapshots import Scoped, Snapshot
+from blender.bpy.commands.calls import Command, Placement
+from blender.bpy.data.rna.mirrors import annotated
+from blender.bpy.data.rna.paths import definition, rooted, Struct
+from blender.bpy.data.rna.scopes import Scoped
+from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.faults import BlenderReason
-from blender.bpy.settings.attachments import annotated, Attached, Attachment, Host, Slot
-from blender.bpy.settings.history import ValueHistory
-from blender.bpy.settings.presets import copied, pasted, Preset, PresetName, removed
-from blender.bpy.ui.layout.rows import acquired, alerted, invoking, Line, Member, OperatorButton, Popover, pressed, realized, refused, RowContent, RowDraw
+from blender.bpy.settings.attachments import Attached, Attachment, Host
+from blender.bpy.settings.presets import Preset
+from blender.bpy.ui.layout.members import Member
+from blender.bpy.ui.layout.presets import Listing, Offset, Verb
+from blender.bpy.ui.layout.rows import alerted, Keywords, Line, OperatorButton, pressed, realized, RowContent, RowDraw
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
-from blender.records.trees import Retention
-
-if typing.TYPE_CHECKING:
-    from bpy.stub_internal.rna_enums import IconItems
+from blender.records.fields import Retention
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Replacement = Callable[[Member], RowContent]
 
-
-class Verb(Enum):
-    """Store and listing operator rows, each keyed `<verb>_<stem>`."""
-
-    RESET = auto()
-    COPY = auto()
-    PASTE = auto()
-    OLDER = auto()
-    NEWER = auto()
-    RESTORE = auto()
-    FORGET = auto()
-    APPLY = auto()
-    SAVE = auto()
-    DELETE = auto()
-    IMPORT = auto()
-    EXPORT = auto()
-    REPLACE = auto()
-    RENAME = auto()
-    PREVIOUS = auto()
-    NEXT = auto()
-    LOCK = auto()
-
-    def key(self, stem: Key) -> Key:
-        """Returns operator key over store or preset key."""
-        return f"{self.name.lower()}_{stem}"
-
-    def row[T: bpy.types.PropertyGroup](
-        self, stem: Key, form: type[T], run: Callable[[operators.Call[T]], Outcome[operators.Answer]], invoke: Option[operators.Invoke[T, None]] = Nothing
-    ) -> operators.Operator[T]:
-        """Builds internal verb operator over stem from the verb's template, naming the body for the key it registers as."""
-        held = TEMPLATES[self]
-        run.__name__ = run.__qualname__ = self.key(stem)  # ty: ignore[unresolved-attribute]
-        return operators.Operator(icon=Some(held.icon), internal=True, form=form, run=run, undo=held.undo, invoke=invoke)
-
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_AS_FILENAME: Final[Callable[[str], str]] = AddPresetBase.as_filename  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Template(msgspec.Struct, frozen=True, kw_only=True):
-    """Icon and undo step every operator row of one verb shares."""
+class Store[T: bpy.types.PropertyGroup](Line, frozen=True, kw_only=True, dict=True):
+    """Value sets of an attached form group held as snapshots, its host read through `host` at the section holder, drawn as the values popover.
 
-    icon: "IconItems"
-    undo: bool | str
-
-
-class _Picked(bpy.types.PropertyGroup):
-    """History entry a restore or remove row names."""
-
-    offset: bpy.props.IntProperty(name="Entry", description="Signed one-based history offset")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-
-
-class _Locked(bpy.types.PropertyGroup):
-    """Member a lock row toggles."""
-
-    field: bpy.props.StringProperty(description="Member to lock or unlock")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-
-
-class _Named(bpy.types.PropertyGroup):
-    """Preset an apply, remove, export, or replace row names."""
-
-    stem: bpy.props.StringProperty(name="Preset", description="Preset file stem")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-
-
-class _Renamed(bpy.types.PropertyGroup):
-    """Saved preset and its new file name."""
-
-    stem: bpy.props.StringProperty(name="Preset", description="Preset file stem", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    name: bpy.props.StringProperty(name="Name", description="Preset and file name", maxlen=64)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-
-
-class _Saved(bpy.types.PropertyGroup):
-    """Name entered in save-preset dialog."""
-
-    name: bpy.props.StringProperty(name="Name", description="Preset and file name", maxlen=64)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-
-
-class _Actions(msgspec.Struct, frozen=True, kw_only=True):
-    """Verb operator rows over one preset listing."""
-
-    apply: operators.Operator[_Named]
-    save: operators.Operator[_Saved]
-    delete: operators.Operator[_Named]
-    load: operators.Operator[operators.Empty]
-    export: operators.Operator[_Named]
-    replace: operators.Operator[_Named]
-    rename: operators.Operator[_Renamed]
-    previous: operators.Operator[operators.Empty]
-    following: operators.Operator[operators.Empty]
-
-
-class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
-    """Preset catalog actions."""
-
-    preset: Preset[T]
-    current: Callable[[bpy.types.Context], Outcome[T]]
-    matches: Callable[[bpy.types.Context, tuple[T, ...]], Outcome[tuple[bool, ...]]]
-    applied: Callable[[bpy.types.Context, T], Outcome[operators.Answer]]
-
-    @property
-    def key(self) -> Key:
-        """Listing menu key a `Pulldown` opens."""
-        return Listing.keyed(self.preset)
-
-    @staticmethod
-    def keyed[S: msgspec.Struct](preset: Preset[S]) -> Key:
-        """Returns listing menu key of a preset before any listing exists."""
-        return f"{preset.key}_presets"
-
-    def commands(self, identity: Identity) -> _Actions:
-        """Builds verb rows over listing."""
-        stem, shown, json = self.preset.key, bpy.path.display_name, lambda _: (".json",)
-
-        def user(stored: T | Path, key: str) -> Outcome[Path]:
-            return Option.of_optional(try_downcast(Path, stored)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, str(self.preset.folder(identity)), member=key))
-
-        def named(text: str) -> Outcome[PresetName]:
-            return catch(msgspec.convert, exception=msgspec.ValidationError)(text, PresetName).map_error(partial(Fault.of, RecordReason.OUTSIDE, text))
-
-        def claimed(name: PresetName) -> Option[tuple[str, T | Path]]:
-            normalized = _AS_FILENAME(name).casefold()
-            return Block.of_seq(self.preset.listed(identity).items()).filter(lambda pair: pair[0].casefold() == normalized).try_head()
-
-        def available(name: PresetName) -> Outcome[PresetName]:
-            return Ok(name).filter_with(lambda held: claimed(held).is_none(), partial(Fault.of, BlenderReason.TAKEN, name, member=str(self.preset.folder(identity))))
-
-        def neighbor(call: operators.Call[operators.Empty], step: int) -> Outcome[operators.Answer]:
-            if not (values := tuple(map(self.preset.read, self.preset.listed(identity).values()))):
-                return Ok(operators.Unchanged(reason="No presets"))
-            return (
-                paired(accumulated(values), self.matches(call.context, tuple(held for value in values for held in value.to_option().to_list())))
-                .map(lambda pair: tuple(zip(pair[0], pair[1])))
-                .bind(
-                    lambda rows: self.applied(
-                        call.context,
-                        rows[Block.of_seq(enumerate(rows)).filter(lambda pair: pair[1][1]).try_head().map(lambda pair: (pair[0] + step) % len(rows)).default_value(0 if step > 0 else -1)][0],
-                    )
-                )
-            )
-
-        def replace(call: operators.Call[_Named]) -> Outcome[operators.Answer]:
-            """Replaces the preset with section values."""
-            return (
-                paired(self.preset.found(identity, call.properties.stem).bind(lambda stored: user(stored, call.properties.stem)), self.current(call.context))
-                .bind(lambda pair: self.preset.written(*pair))
-                .map(lambda _: operators.Done())
-            )
-
-        def apply(call: operators.Call[_Named]) -> Outcome[operators.Answer]:
-            """Applies the preset."""
-            return self.preset.found(identity, call.properties.stem).bind(self.preset.read).bind(lambda value: self.applied(call.context, value))
-
-        def save(call: operators.Call[_Saved]) -> Outcome[operators.Answer]:
-            """Saves section values as a preset."""
-            return named(call.properties.name).bind(lambda name: saved(call, name))
-
-        def delete(call: operators.Call[_Named]) -> Outcome[operators.Answer]:
-            """Deletes the preset file."""
-            return self.preset.found(identity, call.properties.stem).bind(lambda stored: user(stored, call.properties.stem)).bind(removed).map(lambda _: operators.Done())
-
-        def load(call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
-            """Copies files into saved presets."""
-            return accumulated(self.preset.imported(identity, path) for path in call.paths).map(lambda paths: operators.Done(notes=tuple(("INFO", f"Added {shown(path.stem)}") for path in paths)))
-
-        def export(call: operators.Call[_Named]) -> Outcome[operators.Answer]:
-            """Writes the preset to files."""
-            return accumulated(
-                self.preset.found(identity, call.properties.stem).bind(lambda stored: self.preset.exported(stored, path) if isinstance(stored, Path) else self.preset.written(path, stored))
-                for path in call.paths
-            ).map(operators.Done.wrote)
-
-        def rename(call: operators.Call[_Renamed]) -> Outcome[operators.Answer]:
-            """Renames the preset file."""
-            return (
-                paired(self.preset.found(identity, call.properties.stem).bind(lambda stored: user(stored, call.properties.stem)), named(call.properties.name).bind(available))
-                .bind(lambda pair: self.preset.renamed(*pair))
-                .map(lambda _: operators.Done())
-            )
-
-        def previous(call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
-            """Applies the previous preset."""
-            return neighbor(call, -1)
-
-        def following(call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
-            """Applies the next preset."""
-            return neighbor(call, 1)
-
-        def saved(call: operators.Call[_Saved], name: PresetName) -> Outcome[operators.Done]:
-            match claimed(name).to_optional():
-                case (_, Path() as path):
-                    return self.current(call.context).bind(lambda value: self.preset.written(path, value)).map(lambda _: operators.Done(notes=(("INFO", f"Replaced {shown(path.stem)}"),)))
-                case (_, _):
-                    return Error(Fault.of(BlenderReason.TAKEN, name, member=str(self.preset.folder(identity))))
-                case None:
-                    return self.current(call.context).bind(lambda value: self.preset.saved(identity, name, value)).map(lambda path: operators.Done(notes=(("INFO", f"Added {shown(path.stem)}"),)))
-
-        return _Actions(
-            apply=Verb.APPLY.row(stem, _Named, apply),
-            save=Verb.SAVE.row(stem, _Saved, save, invoke=Some(operators.Properties())),
-            delete=Verb.DELETE.row(
-                stem,
-                _Named,
-                delete,
-                invoke=Some(operators.Confirm[_Named](message=Some(lambda _context, properties: Ok(f"Remove {shown(properties.stem)}")), confirm_text=Some("Remove"), icon="WARNING")),
-            ),
-            load=Verb.IMPORT.row(stem, operators.Empty, load, invoke=Some(operators.Open[operators.Empty](extensions=json))),
-            export=Verb.EXPORT.row(stem, _Named, export, invoke=Some(operators.Save[_Named](extensions=json))),
-            replace=Verb.REPLACE.row(
-                stem,
-                _Named,
-                replace,
-                invoke=Some(operators.Confirm[_Named](message=Some(lambda _context, properties: Ok(f"Replace preset {shown(properties.stem)} with section values?")), confirm_text=Some("Replace"))),
-            ),
-            rename=msgspec.structs.replace(
-                Verb.RENAME.row(stem, _Renamed, rename, invoke=Some(operators.Properties())), draw=Some(lambda layout, _context, properties, _identity: layout.prop(properties, "name"))
-            ),
-            previous=Verb.PREVIOUS.row(stem, operators.Empty, previous),
-            following=Verb.NEXT.row(stem, operators.Empty, following),
-        )
-
-    def drawn(self, identity: Identity) -> Outcome[RowDraw]:
-        """Realizes apply entries with file actions and add and import buttons."""
-        commands = self.commands(identity)
-        apply, delete, export = commands.apply, commands.delete, commands.export
-        footer = (OperatorButton(target=commands.save, text=""), OperatorButton(target=commands.load, text=""))
-
-        def draw(buttons: tuple[RowDraw, ...]) -> RowDraw:
-            def entry(layout: bpy.types.UILayout, context: bpy.types.Context, stem: str, kept: T | Path, value: Outcome[T], matched: Option[bool]) -> None:
-                line, chosen = layout.row(align=True), {"stem": stem}
-                alerted(line, value.bind(lambda _: pressed(line, identity, apply, chosen, text=bpy.path.display_name(stem), icon="CHECKMARK" if matched == Some(True) else "BLANK1")))
-
-                def actions(row: bpy.types.UILayout, _holder: Struct, _context: bpy.types.Context) -> None:
-                    alerted(row, pressed(row, identity, export, chosen, text="", icon="EXPORT"))
-                    if isinstance(kept, Path):
-                        alerted(row, pressed(row, identity, delete, chosen, text="", icon="X"))
-
-                invoking(actions)(line, context, context)
-
-            def shown(layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
-                layout.emboss = "PULLDOWN_MENU"
-                catalog = tuple((stem, kept, self.preset.read(kept)) for stem, kept in self.preset.listed(identity).items())
-                valid = tuple((stem, held) for stem, _, value in catalog for held in value.to_option().to_list())
-                matched = self.matches(context, tuple(value for _, value in valid)).map(lambda marks: dict(zip((stem for stem, _ in valid), marks)))
-                alerted(layout, matched)
-                for stem, kept, value in catalog:
-                    entry(layout, context, stem, kept, value, matched.to_option().bind(lambda marks: Option.of_optional(marks.get(stem))))
-                layout.separator()
-                line = layout.row()
-                for button in buttons:
-                    button(line, holder, context)
-
-            return shown
-
-        return accumulated(realized(row, identity) for row in footer).map(draw)
-
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
-        """Acquires listing rows."""
-        return Ok(msgspec.structs.astuple(self.commands(identity)))
-
-
-class Slots[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Store bound to an identity."""
-
-    attached: Attached[T]
-    history: ValueHistory[Snapshot, Host, None]
-    plain: Mapping[Verb, operators.Operator[operators.Empty]]
-    picked: Mapping[Verb, operators.Operator[_Picked]]
-    lock: operators.Operator[_Locked]
-    listing: Option[Listing[Snapshot]]
-    tail: tuple[RowDraw, ...]
-    fields: Mapping[str, Replacement]
-
-    def shown(self, identity: Identity, parts: tuple[Option[RowDraw], tuple[tuple[RowDraw, ...], tuple[RowDraw, ...]]], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
-        """Draws listing, member locks, clipboard and history steps, then one restore and remove row per history entry."""
-        (listing, (copying, stepping)), attached = parts, self.attached
-        found = hosted(attached.name, context)
-        for each in listing.to_list():
-            each(layout, holder, context)
-        for host in found.to_option().to_list():
-            locks, group = attached.locks(host), attached.struct(host)
-            for member in tuple(annotated(attached.form)) if listing.is_some() else ():
-                icon: IconItems = "LOCKED" if member in locks else "UNLOCKED"
-                alerted(layout, pressed(layout, identity, self.lock, {"field": member}, text=group.bl_rna.properties[member].name, icon=icon))
-        layout.separator()
-        for draws in (copying, stepping):
-            line = layout.row(align=True)
-            for each in draws:
-                each(line, holder, context)
-        held = found.bind(self.history.held)
-        entries = held.map(
-            lambda value: tuple((index, entry.moment) for index, entry in enumerate(value.past, 1)) + tuple((-index, entry.moment) for index, entry in enumerate(value.future, 1))
-        ).default_value(())
-        for offset, moment in entries:
-            line, chosen = layout.row(align=True), {"offset": offset}
-            alerted(
-                line,
-                paired(
-                    pressed(line, identity, self.picked[Verb.RESTORE], chosen, text=f"{moment.astimezone():%X}", icon="BACK" if offset > 0 else "FORWARD"),
-                    pressed(line, identity, self.picked[Verb.FORGET], chosen, text="", icon="X"),
-                ),
-            )
-        alerted(layout, held)
-
-
-class Store[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Value sets of an attached form group, held as snapshots."""
+    `fields` replace the property rows a section draws for the named form members.
+    """
 
     attachment: Attachment[T]
+    host: Option[Member] = Nothing
     retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing
     presets: Option[Preset[Snapshot]] = Nothing
     scope: Option[Scoped[Host]] = Nothing
-    fields: Mapping[str, Replacement] = msgspec.field(default_factory=dict)
+    fields: Mapping[str, Replacement] = MappingProxyType({})
+
+    # --- [NAMING]
 
     @property
     def panel(self) -> Key:
-        """Key of values popover."""
+        """Key of the values popover."""
         return f"{self.attachment.key}_values"
 
-    def bound(self, identity: Identity) -> Outcome[Slots[T]]:
-        """Binds attachment to scope owners holding it, then builds store rows."""
-        return (
-            self.attachment
-            .bound(identity)
-            .bind(
-                lambda attached: (
-                    self.scope
-                    .filter(lambda scope: not issubclass(scope.owner_type, attached.owner))
-                    .map(lambda scope: Error(refused(attached.name, scope.owner_type.__name__, (attached.owner.__name__,))))
-                    .default_value(Ok(attached))
-                )
+    def attached(self, identity: Identity) -> Outcome[Attached[T]]:
+        """Binds the attachment, refusing a scope whose owners never hold it."""
+        return self.attachment.bound(identity).bind(
+            lambda attached: (
+                self.scope
+                .filter(lambda scope: not issubclass(scope.owner_type, attached.owner))
+                .map(lambda scope: Error(Fault.of(RecordReason.OUTSIDE, attached.name, scope.owner_type.__name__, member=attached.owner.__name__)))
+                .default_value(Ok(attached))
             )
-            .bind(lambda attached: self.slotted(identity, attached))
         )
 
-    def slotted(self, identity: Identity, attached: Attached[T]) -> Outcome[Slots[T]]:
-        """Builds store rows over bound attachment."""
-        history = ValueHistory(
-            form=Snapshot,
-            read=lambda host: Snapshot.capture(attached.struct(host)),
-            write=lambda host, snapshot: snapshot.apply(attached.struct(host)).outcome,
-            storage=attached.struct,
-            key=Slot.HISTORY,
+    def listing(self, identity: Identity) -> Outcome[Option[Listing[Snapshot]]]:
+        """Preset catalog over the host the context pointer names, locked members kept, a preset's unlocked members applied as one history step."""
+
+        def applied(context: bpy.types.Context, value: Snapshot) -> Outcome[operators.Answer]:
+            return self._recorded(identity, context, lambda held, host: held.applied(host, value).map(lambda wrote: Some(operators.Done()).filter(lambda _: wrote)))
+
+        return self.attached(identity).map(
+            lambda attached: self.presets.map(lambda preset: Listing(preset=preset, current=partial(_current, attached), matches=partial(_matching, attached), applied=applied))
         )
-        stem = self.attachment.key
-        vacant = operators.Unchanged(reason="No history entry at offset")
+
+    # --- [COMMANDS]
+
+    @cached_property
+    def commands(self) -> Mapping[Verb, Command]:
+        """Verb operators over the attachment key, the lock verb present while presets apply over a hidden form naming one declared member."""
+        stem, form = self.attachment.key, self.attachment.form
+
+        def locked() -> type[bpy.types.PropertyGroup]:
+            field = bpy.props.EnumProperty(name="Member", description="Member to lock or unlock", items=tuple((name, name, "") for name in annotated(form)), options={"HIDDEN"})
+            return type(f"{form.__name__}Lock", (bpy.types.PropertyGroup,), {"__annotations__": {"field": field}})
+
+        locking = self.presets.map(lambda _: {Verb.LOCK: Verb.LOCK.command(stem, locked(), self.lock_value)}).default_value({})
+        return MappingProxyType({
+            Verb.RESET: Verb.RESET.command(stem, operators.Empty, self.reset_values),
+            Verb.COPY: Verb.COPY.command(stem, operators.Empty, self.copy_values),
+            Verb.PASTE: Verb.PASTE.command(stem, operators.Empty, self.paste_values),
+            Verb.RESTORE: Verb.RESTORE.command(stem, Offset, self.restore_values),
+            Verb.FORGET: Verb.FORGET.command(stem, Offset, self.forget_values),
+            **locking,
+        })
+
+    def reset_values(self, call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
+        """Unsets every set and editable member the form declares, running each member's update, unchanged while the values after equal the values before."""
         inherited = bpy.types.PropertyGroup.bl_rna.properties
 
-        def concluded[V](change: Option[V]) -> operators.Answer:
-            return change.map(lambda _: operators.Done()).default_value(vacant)
-
-        def now() -> datetime.datetime:
-            return datetime.datetime.now(datetime.UTC)
-
-        def retained() -> Outcome[Retention]:
-            return self.retention.map(lambda read: read(identity)).default_with(lambda: Ok(Retention()))
-
-        def recorded(context: bpy.types.Context, write: Callable[[Host], Outcome[Option[operators.Done]]]) -> Outcome[operators.Answer]:
-            return (
-                paired(hosted(attached.name, context), retained())
-                .bind(lambda pair: history.replaced(pair[0], lambda: write(pair[0]), now(), pair[1]))
-                .map(lambda change: change.default_value(operators.Unchanged(reason="No value changed")))
+        def reset(attached: Attached[T], host: Host) -> Outcome[Option[operators.Done]]:
+            group = attached.struct(host)
+            held = tuple(
+                prop.identifier
+                for prop in definition(group).properties
+                if prop.identifier not in inherited and not group.is_property_readonly(prop.identifier) and group.is_property_set(prop.identifier)
             )
 
-        def stepped(context: bpy.types.Context, offset: int) -> Outcome[operators.Answer]:
-            return paired(hosted(attached.name, context), retained()).bind(lambda pair: history.stepped(pair[0], offset, now(), pair[1])).map(concluded)
+            def unset(before: Snapshot) -> Outcome[Option[operators.Done]]:
+                for identifier in held:
+                    group.property_unset(identifier)
+                    group.path_resolve(identifier, False).update()
+                return Snapshot.capture(group).map(lambda after: Some(operators.Done()).filter(lambda _: after != before))
 
-        def reset(group: bpy.types.PropertyGroup) -> Option[operators.Done]:
-            for prop in group.bl_rna.properties:
-                if prop.identifier not in inherited and not prop.is_readonly:
-                    group.property_unset(prop.identifier)
-                    group.path_resolve(prop.identifier, False).update()
-            return Some(operators.Done())
+            return Snapshot.capture(group).bind(unset)
 
-        def pasting(call: operators.Call[operators.Empty], host: Host) -> Outcome[Option[operators.Done]]:
-            return (
-                paired(self.scope.map(lambda scope: scope.owners(call.context)).default_value(Ok((host,))), call.root(bpy.types.WindowManager))
-                .bind(lambda pair: pasted(pair[1], tuple(map(attached.struct, pair[0]))))
-                .map(lambda outcomes: Some(operators.Done()) if any(outcome.written for outcome in outcomes) else Nothing)
-            )
+        return self._recorded(call.identity, call.context, reset)
 
-        def reset_values(call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
-            """Resets section values to defaults."""
-            return recorded(call.context, lambda host: Ok(reset(attached.struct(host))))
-
-        def copy(call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
-            """Copies section values to the clipboard."""
-            return (
-                paired(hosted(attached.name, call.context).bind(lambda host: Snapshot.capture(attached.struct(host))), call.root(bpy.types.WindowManager))
-                .map(lambda pair: copied(pair[1], pair[0]))
-                .map(lambda _: operators.Done())
-            )
-
-        def paste(call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
-            """Pastes clipboard values into the section."""
-            return recorded(call.context, lambda host: pasting(call, host))
-
-        def older(call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
-            """Restores the older value set."""
-            return stepped(call.context, 1)
-
-        def newer(call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
-            """Restores the newer value set."""
-            return stepped(call.context, -1)
-
-        def restore(call: operators.Call[_Picked]) -> Outcome[operators.Answer]:
-            """Restores a value set from history."""
-            return stepped(call.context, call.properties.offset)
-
-        def forget(call: operators.Call[_Picked]) -> Outcome[operators.Answer]:
-            """Removes a value set from history."""
-            return hosted(attached.name, call.context).bind(lambda host: history.removed(host, call.properties.offset)).map(concluded)
-
-        def lock(call: operators.Call[_Locked]) -> Outcome[operators.Answer]:
-            """Keeps the value when presets apply."""
-            return hosted(attached.name, call.context).map(lambda host: attached.toggled(host, call.properties.field)).map(lambda _: operators.Done())
-
-        plain = {
-            Verb.RESET: Verb.RESET.row(stem, operators.Empty, reset_values),
-            Verb.COPY: Verb.COPY.row(stem, operators.Empty, copy),
-            Verb.PASTE: Verb.PASTE.row(stem, operators.Empty, paste),
-            Verb.OLDER: Verb.OLDER.row(stem, operators.Empty, older),
-            Verb.NEWER: Verb.NEWER.row(stem, operators.Empty, newer),
-        }
-        picked = {Verb.RESTORE: Verb.RESTORE.row(stem, _Picked, restore), Verb.FORGET: Verb.FORGET.row(stem, _Picked, forget)}
-        locking = Verb.LOCK.row(stem, _Locked, lock)
-        listing = self.presets.map(
-            lambda preset: Listing(
-                preset=preset,
-                current=lambda context: hosted(attached.name, context).bind(lambda host: Snapshot.capture(attached.struct(host))),
-                matches=lambda context, values: hosted(attached.name, context).bind(lambda host: accumulated(attached.projected(host, value).map(lambda ends: ends[2] == ends[0]) for value in values)),
-                applied=lambda context, value: recorded(context, lambda host: attached.applied(host, value).map(lambda wrote: Some(operators.Done()) if wrote else Nothing)),
-            )
-        )
-        slots = (Popover(panel=self.panel, text="", icon=Some("PRESET")), OperatorButton(target=plain[Verb.RESET], text=""))
-        return accumulated(realized(row, identity) for row in slots).map(
-            lambda tail: Slots(attached=attached, history=history, plain=plain, picked=picked, lock=locking, listing=listing, tail=tail, fields=self.fields)
+    def copy_values(self, call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
+        """Copies the values to the clipboard."""
+        return (
+            paired(self._held(call.identity, call.context).bind(lambda held: Snapshot.capture(held[0].struct(held[1]))), rooted(bpy.types.WindowManager, call.context))
+            .map(lambda pair: pair[0].copied(pair[1]))
+            .map(lambda _: operators.Done())
         )
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
-        """Acquires store verb rows, listing rows, and field rows."""
-        return self.bound(identity).map(
-            lambda slots: (
-                *slots.plain.values(),
-                *slots.picked.values(),
-                slots.lock,
-                *slots.listing.to_list(),
-                *acquired(tuple(build(Member(root=slots.attached.form, path=(name,))) for name, build in self.fields.items())),
+    def paste_values(self, call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
+        """Pastes clipboard values over every scope owner, the host alone while no scope is stated."""
+        context = call.context
+
+        def pasted(attached: Attached[T], host: Host) -> Outcome[Option[operators.Done]]:
+            return (
+                paired(self.scope.map(lambda scope: scope.owners(context)).default_value(Ok((host,))), rooted(bpy.types.WindowManager, context))
+                .bind(lambda pair: Snapshot.pasted(pair[1], tuple(map(attached.struct, pair[0]))))
+                .map(lambda outcomes: Some(operators.Done()).filter(lambda _: any(outcome.written for outcome in outcomes)))
             )
+
+        return self._recorded(call.identity, context, pasted)
+
+    def restore_values(self, call: operators.Call[Offset]) -> Outcome[operators.Answer]:
+        """Restores the value set the offset names in history, older ones positive."""
+        retention = self.retention.map(lambda read: read(call.identity)).default_with(lambda: Ok(Retention()))
+        return (
+            paired(self._held(call.identity, call.context), retention)
+            .bind(lambda pair: pair[0][0].stepped(pair[0][1], call.properties.offset, datetime.datetime.now(datetime.UTC), pair[1]))
+            .map(_concluded)
         )
 
+    def forget_values(self, call: operators.Call[Offset]) -> Outcome[operators.Answer]:
+        """Removes a value set from history."""
+        return self._held(call.identity, call.context).bind(lambda held: held[0].forgotten(held[1], call.properties.offset)).map(_concluded)
 
-class Hosted[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Store beside member naming its host, the context root of the store's owner type while unset."""
+    def lock_value(self, call: operators.Call[bpy.types.PropertyGroup]) -> Outcome[operators.Answer]:
+        """Keeps the member's value when presets apply."""
+        field: str = call.properties.field  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return self._held(call.identity, call.context).bind(lambda held: held[0].toggled(held[1], field)).map(lambda _: operators.Done())
 
-    store: Store[T]
-    host: Option[Member] = Nothing
+    # --- [STEPS]
+
+    def _held(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Attached[T], Host]]:
+        """Binds the attachment and reads the host the context pointer names."""
+        return self.attached(identity).bind(lambda attached: hosted(attached.name, context).map(lambda host: (attached, host)))
+
+    def _recorded(self, identity: Identity, context: bpy.types.Context, write: Callable[[Attached[T], Host], Outcome[Option[operators.Done]]]) -> Outcome[operators.Answer]:
+        """Runs an edit, adding the prior value set to history when it changes a value."""
+        retention = self.retention.map(lambda read: read(identity)).default_with(lambda: Ok(Retention()))
+        return (
+            paired(self._held(identity, context), retention)
+            .bind(lambda pair: pair[0][0].replaced(pair[0][1], lambda: write(*pair[0]), datetime.datetime.now(datetime.UTC), pair[1]))
+            .map(lambda change: change.default_value(operators.Unchanged(reason="No value changed")))
+        )
+
+    # --- [ROW]
+
+    def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
+        """Realizes the preset catalog, member locks, clipboard and history steps, and one restore and forget row per history entry."""
+        commands = self.commands
+        clipboard = tuple(OperatorButton(target=commands[verb]) for verb in (Verb.COPY, Verb.PASTE))
+        steps = tuple(OperatorButton(target=Placement(commands[Verb.RESTORE], {"offset": offset}), icon=Some("BACK" if offset > 0 else "FORWARD")) for offset in (1, -1))
+        lines = accumulated(realized(buttons, identity) for buttons in (clipboard, steps))
+        listing = self.listing(identity).bind(lambda found: found.map(lambda held: realized((held,), identity).map(Some)).default_value(Ok(Nothing)))
+        return paired(self.attached(identity), listing, lines).map(lambda parts: partial(_values, identity, commands, *parts))
+
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Attachment the store binds."""
+        return (self.attachment,)
+
+    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
+        """Acquires the verb operators and the preset catalog over the bound attachment."""
+        return self.listing(identity).map(lambda listing: (*self.commands.values(), *listing.to_list()))
 
 
-class Values[T: bpy.types.PropertyGroup](Line, frozen=True, kw_only=True):
-    """Store value sets in its popover."""
-
-    store: Store[T]
-
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
-        """Acquires attachment and store operators."""
-        return Ok((self.store.attachment, self.store))
-
-    def drawn(self, identity: Identity) -> Outcome[RowDraw]:
-        """Realizes listing, locks, clipboard, and history rows."""
-
-        def built(slots: Slots[T]) -> Outcome[RowDraw]:
-            clipboard, steps = (tuple(OperatorButton(target=slots.plain[verb]) for verb in verbs) for verbs in ((Verb.COPY, Verb.PASTE), (Verb.OLDER, Verb.NEWER)))
-            return paired(
-                slots.listing.map(lambda listing: realized(listing, identity).map(Some)).default_value(Ok(Nothing)),
-                paired(accumulated(realized(row, identity) for row in clipboard), accumulated(realized(row, identity) for row in steps)),
-            ).map(lambda parts: partial(slots.shown, identity, parts))
-
-        return self.store.bound(identity).bind(built)
-
-
-# --- [TABLES] ---------------------------------------------------------------------------
-
-TEMPLATES: Final = MappingProxyType({
-    Verb.RESET: Template(icon="LOOP_BACK", undo=True),
-    Verb.COPY: Template(icon="COPYDOWN", undo=False),
-    Verb.PASTE: Template(icon="PASTEDOWN", undo=True),
-    Verb.OLDER: Template(icon="BACK", undo="History Step"),
-    Verb.NEWER: Template(icon="FORWARD", undo="History Step"),
-    Verb.RESTORE: Template(icon="RECOVER_LAST", undo=True),
-    Verb.FORGET: Template(icon="X", undo=True),
-    Verb.APPLY: Template(icon="PRESET", undo=True),
-    Verb.SAVE: Template(icon="ADD", undo=False),
-    Verb.DELETE: Template(icon="X", undo=False),
-    Verb.IMPORT: Template(icon="IMPORT", undo=False),
-    Verb.EXPORT: Template(icon="EXPORT", undo=False),
-    Verb.REPLACE: Template(icon="FILE_REFRESH", undo=False),
-    Verb.RENAME: Template(icon="GREASEPENCIL", undo=False),
-    Verb.PREVIOUS: Template(icon="BACK", undo=True),
-    Verb.NEXT: Template(icon="FORWARD", undo=True),
-    Verb.LOCK: Template(icon="LOCKED", undo=True),
-})
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [HOSTS]
 
 
 def hosted(name: str, context: bpy.types.Context) -> Outcome[Host]:
-    """Returns host from header context pointer, absent fault when unset."""
-    return catch(getattr, exception=AttributeError)(context, name).map_error(partial(Fault.of, BlenderReason.ABSENT, "bpy.context", member=name))
+    """Returns the host a layout's context pointer names, absent fault when unset."""
+    return Option.of_optional(getattr(context, name, None)).to_result_with(partial(Fault.of, BlenderReason.ABSENT, "bpy.context", member=name))
+
+
+def _current[T: bpy.types.PropertyGroup](attached: Attached[T], context: bpy.types.Context) -> Outcome[Snapshot]:
+    """Captures the hosted group as a preset."""
+    return hosted(attached.name, context).bind(attached.preset)
+
+
+def _matching[T: bpy.types.PropertyGroup](attached: Attached[T], context: bpy.types.Context, values: tuple[Snapshot, ...]) -> Outcome[tuple[bool, ...]]:
+    """Whether applying each preset would leave the hosted group unchanged."""
+    return hosted(attached.name, context).bind(lambda host: accumulated(attached.projected(host, value).map(lambda ends: ends[2] == ends[0]) for value in values))
+
+
+# --- [HISTORY]
+
+
+def _concluded[V](change: Option[V]) -> operators.Answer:
+    """Done for a history move, unchanged past either end."""
+    return change.map(lambda _: operators.Done()).default_value(operators.Unchanged(reason="No history entry at offset"))
+
+
+# --- [DRAWING]
+
+
+def _values[T: bpy.types.PropertyGroup](
+    identity: Identity,
+    commands: Mapping[Verb, Command],
+    attached: Attached[T],
+    listing: Option[RowDraw],
+    lines: tuple[RowDraw, ...],
+    layout: bpy.types.UILayout,
+    holder: Struct,
+    context: bpy.types.Context,
+) -> None:
+    """Draws the catalog and member locks, the clipboard and history step lines, then one restore and forget line per history entry, times untranslated."""
+    found = hosted(attached.name, context)
+    for draw in listing.to_list():
+        draw(layout, holder, context)
+    for host, lock in ((host, lock) for host in found.to_option().to_list() for lock in Option.of_optional(commands.get(Verb.LOCK)).to_list()):
+        kept, group, declared = attached.locks(host), attached.struct(host), annotated(attached.form)
+        alerted(layout, kept)
+        locks = kept.default_value(frozenset())
+        for prop in (prop for prop in definition(group).properties if prop.identifier in declared):
+            keywords: Keywords = {"text": prop.name, "text_ctxt": prop.translation_context, "icon": "LOCKED" if prop.identifier in locks else "UNLOCKED"}
+            alerted(layout, pressed(layout, identity, Placement(lock, {"field": prop.identifier}), keywords))
+    layout.separator()
+    for draw in lines:
+        draw(layout.row(align=True), holder, context)
+    held = found.bind(attached.held)
+    entries = held.map(
+        lambda value: (*((index, entry.moment) for index, entry in enumerate(value.past, 1)), *((-index, entry.moment) for index, entry in enumerate(value.future, 1)))
+    ).default_value(())
+    for offset, moment in entries:
+        line, chosen = layout.row(align=True), {"offset": offset}
+        alerted(
+            line,
+            paired(
+                pressed(line, identity, Placement(commands[Verb.RESTORE], chosen), {"text": f"{moment.astimezone():%X}", "translate": False, "icon": "BACK" if offset > 0 else "FORWARD"}),
+                pressed(line, identity, Placement(commands[Verb.FORGET], chosen), {"text": "", "icon": "X"}),
+            ),
+        )
+    alerted(layout, held)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Hosted", "Listing", "Replacement", "Slots", "Store", "Values", "Verb", "hosted"]
+__all__ = ["Replacement", "Store", "hosted"]

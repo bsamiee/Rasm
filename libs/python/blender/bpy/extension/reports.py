@@ -74,7 +74,7 @@ class _Deferral[**P]:
 class Reports(AbstractContextManager["Reports"]):
     """Extension callback faults and queued requests, entered first in registration scope."""
 
-    __slots__ = ("_entries", "_lock", "_pending", "_redraw", "_ticked", "logger")
+    __slots__ = ("_entries", "_loaded", "_lock", "_pending", "_redraw", "_ticked", "logger")
 
     # --- [LIFECYCLE]
 
@@ -90,20 +90,35 @@ class Reports(AbstractContextManager["Reports"]):
         self._lock = RLock()
 
         def ticked() -> float | None:
-            manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            if manager.is_interface_locked:
+            if window_manager().is_interface_locked:
                 return 0.0
             with self._lock:
                 requests, self._pending[:] = tuple(self._pending), []
                 self._pending[:0] = [later for request in requests for later in self.reported(request.advanced)().bind(identity).to_list()]
                 return 0.0 if self._pending else None
 
-        self._ticked = ticked
+        @bpy.app.handlers.persistent  # type: ignore[untyped-decorator]  # ty: ignore[dynamic-function-decorator-return]
+        def loaded(*_: object) -> None:
+            """Drops requests and faults of the file a load replaced, the host having removed the queue timer."""
+            with self._lock:
+                self._pending.clear()
+                self._entries.clear()
+
+        self._ticked, self._loaded = ticked, loaded
         self._redraw = _Deferral(self, redrawn)
 
     @override
+    def __enter__(self) -> Self:
+        """Clears queued requests and held faults after every file load until scope exit."""
+        loads: list[Callable[..., None]] = bpy.app.handlers.load_post
+        loads.append(self._loaded)
+        return self
+
+    @override
     def __exit__(self, *_: object) -> None:
-        """Closes deferred redraw, drops queued requests, and unregisters the queue timer."""
+        """Closes deferred redraw, drops queued requests, and unregisters the queue timer and load handler."""
+        loads: list[Callable[..., None]] = bpy.app.handlers.load_post
+        loads.remove(self._loaded)
         self._redraw.close()
         with self._lock:
             self._pending.clear()
@@ -117,7 +132,7 @@ class Reports(AbstractContextManager["Reports"]):
         """Report type and text per distinct held fault, in hold order."""
         return tuple(self._entries)
 
-    def hold(self, faults: Faults) -> None:
+    def hold(self, faults: Faults, /) -> None:
         """Holds each distinct fault entry once, logging and redrawing new ones.
 
         Args:
@@ -131,7 +146,20 @@ class Reports(AbstractContextManager["Reports"]):
         if fresh:
             self._redraw()
 
-    def reported[**P, T](self, callback: Callable[P, Outcome[T]]) -> Callable[P, Option[T]]:
+    def cleared(self) -> bool:
+        """Drops every held fault entry, redrawing once any was held.
+
+        Returns:
+            Whether any entry was held.
+        """
+        with self._lock:
+            held = bool(self._entries)
+            self._entries.clear()
+        if held:
+            self._redraw()
+        return held
+
+    def reported[**P, T](self, callback: Callable[P, Outcome[T]], /) -> Callable[P, Option[T]]:
         """Wraps callback to return Option, holding its faults.
 
         Args:
@@ -150,7 +178,7 @@ class Reports(AbstractContextManager["Reports"]):
 
     # --- [QUEUE]
 
-    def queued(self, request: Pending) -> Outcome[None]:
+    def queued(self, request: Pending, /) -> Outcome[None]:
         """Applies the request's first step now, leaving the rest to later passes.
 
         Args:
@@ -161,14 +189,16 @@ class Reports(AbstractContextManager["Reports"]):
         """
         return request.advanced().map(lambda later: later.map(self.waiting).default_value(None))
 
-    def waiting(self, request: Pending) -> None:
+    def waiting(self, request: Pending, /) -> None:
         """Queues request for the next pass the interface leaves unlocked unless an equal one waits, applying it whole now in background mode, where no timer runs.
 
         Args:
             request: Request the queue timer advances.
         """
         if bpy.app.background:
-            _ = self.reported(request.advanced)().bind(identity).map(self.waiting)
+            pending: Option[Pending] = Option.of_optional(request)
+            while (current := pending.to_optional()) is not None:
+                pending = self.reported(current.advanced)().bind(identity)
         else:
             with self._lock:
                 if request not in self._pending:
@@ -176,7 +206,7 @@ class Reports(AbstractContextManager["Reports"]):
                 if not bpy.app.timers.is_registered(self._ticked):
                     bpy.app.timers.register(self._ticked)
 
-    def deferred[**P](self, write: Callable[P, Outcome[Option[str]]]) -> AbstractContextManager[Callable[P, None]]:
+    def deferred[**P](self, write: Callable[P, Outcome[Option[str]]], /) -> AbstractContextManager[Callable[P, None]]:
         """Accepts write calls until scope exit, then drops queued ones.
 
         Args:
@@ -187,7 +217,7 @@ class Reports(AbstractContextManager["Reports"]):
         """
         return closing(_Deferral(self, write))
 
-    def cancelled(self, deferral: Callable[..., None]) -> None:
+    def cancelled(self, deferral: Callable[..., None], /) -> None:
         """Drops deferral's queued calls, its scope staying open.
 
         Args:
@@ -200,26 +230,26 @@ class Reports(AbstractContextManager["Reports"]):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def level(fault: Fault) -> "rna_enums.WmReportItems":
+def level(fault: Fault, /) -> "rna_enums.WmReportItems":
     """Returns the report type a fault raises.
 
     Args:
         fault: Fault of any package reason.
 
     Returns:
-        `ERROR_INVALID_INPUT` for values outside their domain, absences, and collisions, `ERROR_INVALID_CONTEXT` for unmet requirements, else `ERROR`.
+        `ERROR_INVALID_INPUT` for values outside their domain, invalid values, absences, and collisions, `ERROR_INVALID_CONTEXT` for unmet requirements, else `ERROR`.
     """
     match fault.reason:
-        case RecordReason.OUTSIDE | BlenderReason.ABSENT | BlenderReason.TAKEN:
+        case RecordReason.OUTSIDE | RecordReason.INVALID | BlenderReason.ABSENT | BlenderReason.TAKEN:
             return "ERROR_INVALID_INPUT"
-        case BlenderReason.UNMET:
+        case BlenderReason.REQUIRED | BlenderReason.UNSEEN | BlenderReason.UNDATED | BlenderReason.UNROOTED | BlenderReason.UNVARIED | BlenderReason.UNCHOSEN:
             return "ERROR_INVALID_CONTEXT"
         case _:
             return "ERROR"
 
 
-def rendered(faults: Faults) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
-    """Returns one report entry per fault in input order.
+def rendered(faults: Faults, /) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
+    """Returns one report entry per fault in input order, each reason template translated before its fields fill it.
 
     Args:
         faults: Faults in report order.
@@ -227,7 +257,17 @@ def rendered(faults: Faults) -> tuple[tuple["rna_enums.WmReportItems", str], ...
     Returns:
         Report type and message per fault.
     """
-    return tuple((level(fault), fault.message) for fault in faults)
+    return tuple((level(fault), bpy.app.translations.pgettext_rpt(fault.reason).format(subject=fault.subject, member=fault.member, cause=fault.cause)) for fault in faults)
+
+
+def window_manager() -> bpy.types.WindowManager:
+    """Returns the window manager every host callback reads, which the stubs type as optional.
+
+    Returns:
+        Context window manager.
+    """
+    manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    return manager
 
 
 def redrawn() -> Outcome[Option[str]]:
@@ -236,12 +276,11 @@ def redrawn() -> Outcome[Option[str]]:
     Returns:
         Ok(Nothing), redraw pushing no undo step.
     """
-    manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    for area in (area for window in manager.windows for area in window.screen.areas):
+    for area in (area for window in window_manager().windows for area in window.screen.areas):
         area.tag_redraw()
     return Ok(Nothing)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Pending", "Reports", "level", "redrawn", "rendered"]
+__all__ = ["Pending", "Reports", "level", "redrawn", "rendered", "window_manager"]

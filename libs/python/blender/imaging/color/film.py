@@ -14,58 +14,49 @@ import PyOpenColorIO
 from scipy.special import exprel
 
 from blender.imaging.color.luts import Lattice, Logarithmic
-from blender.imaging.color.processors import REC709_SCENE, Stops
+from blender.imaging.color.processors import REC709_SCENE
 from blender.records.faults import Fault, Outcome, RecordReason
-from blender.records.fields import AtLeastOne, NonNegative, Positive, Unit
+from blender.records.fields import AtLeastOne, Finite, NonNegative, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Share = Annotated[float, msgspec.Meta(ge=sys.float_info.min, lt=1.0)]
+type _Share = Annotated[float, msgspec.Meta(ge=sys.float_info.min, lt=1.0)]
+type _Rotation = Annotated[float, msgspec.Meta(gt=-math.pi / 6.0, lt=math.pi / 6.0)]
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Sensitivity(msgspec.Struct, frozen=True, kw_only=True):
-    """Primary's hue, reciprocal saturation, and photographic gain."""
-
-    scale: AtLeastOne = 1.0
-    rotation: Annotated[float, msgspec.Meta(gt=-math.pi / 6.0, lt=math.pi / 6.0)] = 0.0
-    gain: Positive = 1.0
 
 
 class Characteristic(msgspec.Struct, frozen=True, kw_only=True):
     """Logarithmic exposure window with a tangent-continuous toe and shoulder."""
 
-    low: Stops = -10.0
+    low: Finite = -10.0
     span: Positive = 22.0 - -10.0
-    toe_x: Share = 0.44
-    toe_y: Share = 0.28
-    across: Share = (0.591 - 0.44) / (1.0 - 0.44)
-    up: Share = (0.779 - 0.28) / (1.0 - 0.28)
+    toe_x: _Share = 0.44
+    toe_y: _Share = 0.28
+    across: _Share = (0.591 - 0.44) / (1.0 - 0.44)
+    up: _Share = (0.779 - 0.28) / (1.0 - 0.28)
 
 
-class Stock(msgspec.Struct, frozen=True, kw_only=True):
+class FilmStock(msgspec.Struct, frozen=True, kw_only=True):
     """Photographic stock's exposure and maximum density in stops."""
 
-    exposure: Stops = 6.0
+    exposure: Finite = 6.0
     density: Positive = 5.0
 
 
 class Film(msgspec.Struct, frozen=True, kw_only=True):
-    """Editable negative and print stocks sampled into an OCIO formation."""
+    """Editable negative and print stocks sampled into an OCIO formation, each primary's sensitivity a reciprocal saturation scale, hue rotation, and photographic gain."""
 
     space: ClassVar[str] = REC709_SCENE
-    pre_exposure: Stops = 4.3
+    pre_exposure: Finite = 4.3
     pre_filter: tuple[Unit, Unit, Unit] = (1.0, 1.0, 1.0)
-    sensitivities: tuple[Sensitivity, Sensitivity, Sensitivity] = (
-        Sensitivity(scale=1.05, rotation=math.radians(0.5)),
-        Sensitivity(scale=1.12, rotation=math.radians(2.0)),
-        Sensitivity(scale=1.045, rotation=math.radians(0.1)),
-    )
+    scales: tuple[AtLeastOne, AtLeastOne, AtLeastOne] = (1.05, 1.12, 1.045)
+    rotations: tuple[_Rotation, _Rotation, _Rotation] = (math.radians(0.5), math.radians(2.0), math.radians(0.1))
+    gains: tuple[Positive, Positive, Positive] = (1.0, 1.0, 1.0)
     characteristic: Characteristic = Characteristic()
-    negative: Stock = Stock()
+    negative: FilmStock = FilmStock()
     backlight: tuple[Positive, Positive, Positive] = (1.0, 1.0, 1.0)
-    positive: Stock = Stock(density=27.5)
+    positive: FilmStock = FilmStock(density=27.5)
     black_point: Annotated[float, msgspec.Meta(ge=-sys.float_info.max, lt=1.0)] | None = None
     post_filter: tuple[Unit, Unit, Unit] = (1.0, 1.0, 1.0)
     saturation: NonNegative = 1.02
@@ -81,7 +72,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         def logged(value: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
             return np.log2(value, out=np.full_like(value, -np.inf), where=value > 0.0)
 
-        scales, rotations, gains = np.array([(value.scale, value.rotation, value.gain) for value in self.sensitivities]).T
+        scales, rotations, gains = np.array(self.scales), np.array(self.rotations), np.array(self.gains)
         sectors = (np.array([5.0, 3.0, 1.0]) + 6.0 * (np.arange(3)[:, None] / 3.0 + rotations[:, None] / math.tau)) % 6.0
         primaries = 1.0 - np.clip(np.minimum(sectors, 4.0 - sectors), 0.0, 1.0) / scales[:, None]
         matrix = primaries / primaries.sum(axis=1, keepdims=True)
@@ -104,7 +95,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
             exponent = logarithm + np.log(magnitude, out=np.full_like(magnitude, -np.inf), where=magnitude > 0.0)
             return np.asarray(np.exp(-np.exp(exponent, out=np.full_like(exponent, np.inf), where=exponent < log_maximum)), dtype=np.float64)
 
-        def density(light: npt.NDArray[np.float64], stock: Stock) -> npt.NDArray[np.float64]:
+        def density(light: npt.NDArray[np.float64], stock: FilmStock) -> npt.NDArray[np.float64]:
             """Develops logarithmic light into the shared characteristic's density fraction."""
             u = np.clip(np.logaddexp2(light + stock.exposure, curve.low) - curve.low, 0.0, curve.span) / curve.span
             relative = (u - curve.toe_x) / (1.0 - curve.toe_x)
@@ -163,4 +154,4 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Characteristic", "Film", "Sensitivity", "Stock"]
+__all__ = ["Characteristic", "Film", "FilmStock"]

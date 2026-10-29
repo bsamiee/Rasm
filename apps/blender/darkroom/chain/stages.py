@@ -11,8 +11,9 @@ import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.extension.identity import Key
-from blender.bpy.render.compositor.effects import CameraFrame
+from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.render.compositor.inputs import CameraFrame
+from blender.imaging.color.processors import Domain
 from blender.imaging.sampling.integration import Estimate, Precision
 from blender.records.faults import Outcome
 from blender.records.fields import Case
@@ -81,10 +82,11 @@ Stage.single = frozenset({Stage.CDL, Stage.TONE, Stage.FORMATION, Stage.PEAK, St
 
 
 class Effect(Case, frozen=True, kw_only=True):
-    """Chain record with its processing stage and whether each output pixel reads its input pixel alone."""
+    """Chain record with its processing stage, whether each output pixel reads its input pixel alone, and the encoding its operation runs in."""
 
     stage: ClassVar[Stage]
     pointwise: ClassVar[bool]
+    domain: ClassVar[Domain] = Domain.SCENE_LINEAR
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -98,7 +100,15 @@ def transform(_record: Effect, _values: Mapping[Key, Value], _config: PyOpenColo
 
 @singledispatch
 def prepared(
-    _record: Effect, _values: Mapping[Key, Value], _config: PyOpenColorIO.Config, _image: OpenImageIO.ImageBuf, _precision: Precision, _frame: CameraFrame, _scene: bpy.types.Scene, /
+    _record: Effect,
+    _identity: Identity,
+    _values: Mapping[Key, Value],
+    _config: PyOpenColorIO.Config,
+    _image: OpenImageIO.ImageBuf,
+    _precision: Precision,
+    _frame: CameraFrame,
+    _scene: bpy.types.Scene,
+    /,
 ) -> Outcome[Option[OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf] | Mapping[Key, Value]]]:
     """Returns the CPU image replacing the entering color of an effect entry, or input values by item key measured from it, Nothing for an effect its node graph alone evaluates."""
     return Ok(Nothing)
