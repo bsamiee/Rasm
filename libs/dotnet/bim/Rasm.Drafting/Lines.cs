@@ -1,3 +1,5 @@
+using UnitsNet;
+
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -35,35 +37,58 @@ public sealed partial class LineGroup {
     public static readonly LineGroup Group100 = new(LineWidth.Width100);
 
     internal LineWidth Wide { get; }
+    public (Angle Angle, Length Spacing) Hatching => (Angle.FromDegrees(45), Width(LineRole.Hatching.Weight).Width * 10);
     public LineWidth Width(LineWeight weight) => LineWidth.Items[LineWidth.Items.Count(width => width.Width < Wide.Width) + weight.Steps];
 }
 
-[SmartEnum]
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
+public sealed partial class LineCap {
+    public static readonly LineCap Butt = new(static multiple => multiple);
+    public static readonly LineCap Round = new(static multiple => multiple > QuantityValue.Zero ? (multiple > QuantityValue.One ? multiple - 1 : QuantityValue.Zero) : multiple - 1);
+
+    [UseDelegateFromConstructor]
+    internal partial QuantityValue Drawn(QuantityValue multiple);
+}
+
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[ValidationError<DraftingFault>]
 public sealed partial class LineType {
-    private const int Dot = 1;
-    private const int Gap = -3;
-    private const int ShortDash = 6;
-    private const int Dash = 12;
-    private const int LongDash = 24;
-    private const int Space = -18;
+    private static readonly QuantityValue Dot = QuantityValue.FromTerms(1, 2);
+    private static readonly QuantityValue Gap = -3;
+    private static readonly QuantityValue ShortDash = 6;
+    private static readonly QuantityValue Dash = 12;
+    private static readonly QuantityValue LongDash = 24;
+    private static readonly QuantityValue Space = -18;
 
-    public static readonly LineType Continuous = new(IterableNE.singleton(Dot));
-    public static readonly LineType Dashed = new(IterableNE.create(Dash, Gap));
-    public static readonly LineType DashedSpaced = new(IterableNE.create(Dash, Space));
-    public static readonly LineType LongDashedDotted = new(IterableNE.create(LongDash, Gap, Dot, Gap));
-    public static readonly LineType LongDashedDoubleDotted = new(IterableNE.create(LongDash, Gap, Dot, Gap, Dot, Gap));
-    public static readonly LineType LongDashedTriplicateDotted = new(IterableNE.create(LongDash, Gap, Dot, Gap, Dot, Gap, Dot, Gap));
-    public static readonly LineType Dotted = new(IterableNE.create(Dot, Gap));
-    public static readonly LineType LongDashedShortDashed = new(IterableNE.create(LongDash, Gap, ShortDash, Gap));
-    public static readonly LineType LongDashedDoubleShortDashed = new(IterableNE.create(LongDash, Gap, ShortDash, Gap, ShortDash, Gap));
-    public static readonly LineType DashedDotted = new(IterableNE.create(Dash, Gap, Dot, Gap));
-    public static readonly LineType DoubleDashedDotted = new(IterableNE.create(Dash, Gap, Dash, Gap, Dot, Gap));
-    public static readonly LineType DashedDoubleDotted = new(IterableNE.create(Dash, Gap, Dot, Gap, Dot, Gap));
-    public static readonly LineType DoubleDashedDoubleDotted = new(IterableNE.create(Dash, Gap, Dash, Gap, Dot, Gap, Dot, Gap));
-    public static readonly LineType DashedTriplicateDotted = new(IterableNE.create(Dash, Gap, Dot, Gap, Dot, Gap, Dot, Gap));
-    public static readonly LineType DoubleDashedTriplicateDotted = new(IterableNE.create(Dash, Gap, Dash, Gap, Dot, Gap, Dot, Gap, Dot, Gap));
+    public static readonly LineType Continuous = new("01", IterableNE.singleton(Dash));
+    public static readonly LineType Dashed = new("02", IterableNE.create(Dash, Gap));
+    public static readonly LineType DashedSpaced = new("03", IterableNE.create(Dash, Space));
+    public static readonly LineType LongDashedDotted = new("04", IterableNE.create(LongDash, Gap, Dot, Gap));
+    public static readonly LineType LongDashedDoubleDotted = new("05", IterableNE.create(LongDash, Gap, Dot, Gap, Dot, Gap));
+    public static readonly LineType LongDashedTriplicateDotted = new("06", IterableNE.create(LongDash, Gap, Dot, Gap, Dot, Gap, Dot, Gap));
+    public static readonly LineType Dotted = new("07", IterableNE.create(Dot, Gap));
+    public static readonly LineType LongDashedShortDashed = new("08", IterableNE.create(LongDash, Gap, ShortDash, Gap));
+    public static readonly LineType LongDashedDoubleShortDashed = new("09", IterableNE.create(LongDash, Gap, ShortDash, Gap, ShortDash, Gap));
+    public static readonly LineType DashedDotted = new("10", IterableNE.create(Dash, Gap, Dot, Gap));
+    public static readonly LineType DoubleDashedDotted = new("11", IterableNE.create(Dash, Gap, Dash, Gap, Dot, Gap));
+    public static readonly LineType DashedDoubleDotted = new("12", IterableNE.create(Dash, Gap, Dot, Gap, Dot, Gap));
+    public static readonly LineType DoubleDashedDoubleDotted = new("13", IterableNE.create(Dash, Gap, Dash, Gap, Dot, Gap, Dot, Gap));
+    public static readonly LineType DashedTriplicateDotted = new("14", IterableNE.create(Dash, Gap, Dot, Gap, Dot, Gap, Dot, Gap));
+    public static readonly LineType DoubleDashedTriplicateDotted = new("15", IterableNE.create(Dash, Gap, Dash, Gap, Dot, Gap, Dot, Gap, Dot, Gap));
 
-    private readonly IterableNE<int> _pattern;
+    private readonly IterableNE<QuantityValue> _pattern;
 
-    public IterableNE<Length> Pattern(LineWidth width) => _pattern.Map(multiple => width.Width * multiple);
+    public IterableNE<Length> Pattern(LineWidth width, LineCap cap) => _pattern.Map(multiple => width.Width * cap.Drawn(multiple));
+}
+
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+public sealed partial class LineRole {
+    public static readonly LineRole Outline = new(LineType.Continuous, LineWeight.Wide);
+    public static readonly LineRole Hidden = new(LineType.Dashed, LineWeight.Narrow);
+    public static readonly LineRole Cut = new(LineType.Continuous, LineWeight.ExtraWide);
+    public static readonly LineRole Tangent = new(LineType.Continuous, LineWeight.Narrow);
+    public static readonly LineRole Hatching = new(LineType.Continuous, LineWeight.Narrow);
+
+    public LineType Type { get; }
+    public LineWeight Weight { get; }
 }

@@ -1,11 +1,12 @@
-using System.Collections.Generic;
+using System.Buffers.Binary;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Runtime.Intrinsics;
+using System.Text;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
-using Rasm.Imaging.Pixels;
+using SixLabors.ImageSharp.Metadata.Profiles.Cicp;
+using SixLabors.ImageSharp.Metadata.Profiles.Icc;
 using TinyEXR;
 using UnitsNet;
 using Wacton.Unicolour;
@@ -13,300 +14,302 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union]
-internal abstract partial record LogPiece {
-    public abstract double Encode(double linear);
-    public abstract double Decode(double code);
-
-    public sealed record Logarithm(double Base, double LogSideSlope, double LogSideOffset, double LinSideSlope, double LinSideOffset) : LogPiece {
-        public override double Encode(double linear) => (LogSideSlope * double.Log((LinSideSlope * linear) + LinSideOffset, Base)) + LogSideOffset;
-        public override double Decode(double code) => (double.Pow(Base, (code - LogSideOffset) / LogSideSlope) - LinSideOffset) / LinSideSlope;
-    }
-
-    public sealed record Line(double Slope, double Offset) : LogPiece {
-        public override double Encode(double linear) => (Slope * linear) + Offset;
-        public override double Decode(double code) => (code - Offset) / Slope;
-    }
-
-    public sealed record Power(double Scale, double Shift, double Exponent) : LogPiece {
-        public override double Encode(double linear) => Scale * double.Pow(double.Max(linear + Shift, 0d), Exponent);
-        public override double Decode(double code) => double.Pow(double.Max(code / Scale, 0d), 1d / Exponent) - Shift;
-    }
-}
-
-[SmartEnum<string>]
-public sealed partial class CameraLog {
-    public static readonly CameraLog ArriLogC3 = LogCamera("arri-logc3", new(10d, 0.247189638318671, 0.385536998692443, 5.55555555555556, 0.0522722750251688), 0.0105909904954696);
-    public static readonly CameraLog ArriLogC4 = LogCamera("arri-logc4", new(2d, 0.0647954196341293, -0.295908392682586, 2231.82630906769, 64d), -0.0180569961199113);
-    public static readonly CameraLog SonySLog2 = ((940d - 64d) / 1023d) switch {
-        var legal => LogCamera("sony-slog2", new(10d, 0.432699 * legal, (0.646596 * legal) + (64d / 1023d), 155d / (219d * 0.9), 0.037584), 0d),
-    };
-    public static readonly CameraLog SonySLog3 = LogCamera(
-        "sony-slog3", new(10d, 261.5 / 1023d, 420d / 1023d, 1d / (0.18 + 0.01), 0.01 / (0.18 + 0.01)), 0.01125, Some((171.2102946929 - 95d) / 0.01125 / 1023d));
-    public static readonly CameraLog CanonLog2 = new(
-        "canon-log2",
-        new LogPiece.Logarithm(10d, -0.24136077, 0.092864125, -87.099375 / 0.9, 1d),
-        [(0d, new LogPiece.Logarithm(10d, 0.24136077, 0.092864125, 87.099375 / 0.9, 1d))]);
-    public static readonly CameraLog CanonLog3 = new(
-        "canon-log3",
-        new LogPiece.Logarithm(10d, -0.36726845, 0.12783901, -14.98325 / 0.9, 1d),
-        [(-0.014 * 0.9, new LogPiece.Line(1.9754798 / 0.9, 0.12512219)), (0.014 * 0.9, new LogPiece.Logarithm(10d, 0.36726845, 0.12240537, 14.98325 / 0.9, 1d))]);
-    public static readonly CameraLog RedLog3G10 = LogCamera("red-log3g10", new(10d, 0.224282, 0d, 155.975327, (0.01 * 155.975327) + 1d), -0.01);
-    public static readonly CameraLog PanasonicVLog = LogCamera("panasonic-vlog", new(10d, 0.241514, 0.598206, 1d, 0.00873), 0.01);
-    public static readonly CameraLog FujifilmFLog = LogCamera("fujifilm-flog", new(10d, 0.344676, 0.790453, 0.555556, 0.009468), 0.00089, Some(8.735631));
-    public static readonly CameraLog FujifilmFLog2 = LogCamera("fujifilm-flog2", new(10d, 0.245281, 0.384316, 5.555556, 0.064829), 0.000889, Some(8.799461));
-    public static readonly CameraLog DjiDLog = LogCamera("dji-dlog", new(10d, 0.256662970719888, 0.58455504907396, 0.9892, 0.0108), 0.00758078675);
-    public static readonly CameraLog GoProProtune = new("gopro-protune", new LogPiece.Logarithm(113d, 1d, 0d, 112d, 1d), []);
-    public static readonly CameraLog NikonNLog = new(
-        "nikon-nlog", new LogPiece.Power(650d / 1023d, 0.0075, 1d / 3d), [(0.328, new LogPiece.Logarithm(double.E, 150d / 1023d, 619d / 1023d, 1d, 0d))]);
-    public static readonly CameraLog AppleLog = new(
-        "apple-log", new LogPiece.Power(47.28711236, 0.05641088, 2d), [(0.01, new LogPiece.Logarithm(2d, 0.08550479, 0.69336945, 1d, 0.00964052))]);
-    public static readonly CameraLog BlackmagicFilmGen5 = LogCamera(
-        "blackmagic-film-gen5", new(double.E, 0.0869287606549122, 0.530013339229194, 1d, 0.00549407243225781), 0.005);
-    public static readonly CameraLog DaVinciIntermediate = LogCamera("davinci-intermediate", new(2d, 0.07329248, 0.07329248 * 7d, 1d, 0.0075), 0.00262409, Some(10.44426855));
-    public static readonly CameraLog FilmLightTLog = ((1d - 0.075) / (16d * (0.7107 + (1.2359 * double.Log(128d * 16d))))) switch {
-        var linSideOffset => ((1d - 0.075) / double.Log(1d + (128d / linSideOffset))) switch {
-            var logSideSlope => LogCamera("filmlight-tlog", new(double.E, logSideSlope, 1d - (logSideSlope * double.Log(128d + linSideOffset)), 1d, linSideOffset), 0d),
-        },
-    };
-
-    private readonly LogPiece first;
-    private readonly Seq<(double Break, LogPiece Piece)> joints;
-
-    public double Encode(double linear) => Encoded(joints.AsSpan(), linear);
-
-    public double Decode(double code) => Decoded(joints.AsSpan(), code);
-
-    private double Encoded(ReadOnlySpan<(double Break, LogPiece Piece)> above, double linear) =>
-        above.IsEmpty ? first.Encode(linear)
-        : linear >= above[^1].Break ? above[^1].Piece.Encode(linear)
-        : Encoded(above[..^1], linear);
-
-    private double Decoded(ReadOnlySpan<(double Break, LogPiece Piece)> above, double code) =>
-        above.IsEmpty ? first.Decode(code)
-        : above[^1].Piece.Decode(code) is var linear && linear >= above[^1].Break ? linear
-        : Decoded(above[..^1], code);
-
-    private static CameraLog LogCamera(string key, LogPiece.Logarithm log, double linSideBreak, Option<double> linearSlope = default) =>
-        linearSlope.IfNone(() => log.LogSideSlope * log.LinSideSlope / (((log.LinSideSlope * linSideBreak) + log.LinSideOffset) * double.Log(log.Base))) switch {
-            var slope => new(key, new LogPiece.Line(slope, log.Encode(linSideBreak) - (slope * linSideBreak)), [(linSideBreak, log)]),
-        };
-}
-
-[SmartEnum<string>]
-internal sealed partial class TransferForm {
-    public static readonly TransferForm Gamma = new("gamma", static level => Transfer.Gamma.Of((float)level).ToOption().Map(static gamma => (Transfer)gamma));
-    public static readonly TransferForm Pq = new("pq", static level => Transfer.Pq.Of(Luminance.FromNits(level)).ToOption().Map(static pq => (Transfer)pq));
-    public static readonly TransferForm Hlg = new("hlg", static level => Transfer.Hlg.Of(Luminance.FromNits(level)).ToOption().Map(static hlg => (Transfer)hlg));
-
-    [UseDelegateFromConstructor]
-    public partial Option<Transfer> At(double level);
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
 [ValidationError<ImagingFault>]
-public abstract partial record Transfer : IConvertible<string> {
-    private static readonly Luminance ReferenceWhite = Luminance.FromNits(DynamicRange.Standard.WhiteLuminance);
-    private static readonly FrozenDictionary<string, Transfer> Fixed =
-        Seq<Transfer>(new Linear(), new Srgb(), new AcesCct(), new AcesCc()).Concat(toSeq(CameraLog.Items).Map(static log => (Transfer)new Camera(log))).ToFrozenDictionary(static transfer => transfer.ToValue(), StringComparer.Ordinal);
+public abstract partial record Transfer : IConvertible<string>, IFixedFunction {
+    private const string LinearKey = "linear";
+    private const string AcesCcKey = "acescc";
+    private const string GammaForm = "gamma";
+    private const string PqForm = "pq";
+    private const string HlgForm = "hlg";
 
-    private interface IChannelCurve { internal double Encode(double value); internal double Decode(double value); }
+    public static Seq<Transfer> Known { get; } = [
+        new Linear(), Gamma.Srgb, Gamma.Rec709, Gamma.Gamma22, Gamma.Gamma28, Gamma.Rec1886, Pq.High, Pq.Standard, Hlg.High, Hlg.Standard, new AcesCc(),
+        Log.ArriLogC3, Log.ArriLogC4, Log.SonySLog2, Log.SonySLog3, Log.CanonLog2, Log.CanonLog3, Log.RedLog3G10, Log.PanasonicVLog, Log.FujifilmFLog, Log.FujifilmFLog2, Log.DjiDLog,
+        Log.GoProProtune, Log.NikonNLog, Log.AppleLog, Log.BlackmagicFilmGen5, Log.DaVinciIntermediate, Log.FilmLightTLog, Log.AcesCct,
+    ];
 
-    public virtual Luminance White => ReferenceWhite;
-    internal virtual Option<(int Function, Seq<double> Parameters)> IccCurve => None;
+    private static readonly FrozenDictionary<string, Transfer> Named = Known.ToFrozenDictionary(static transfer => transfer.ToValue(), StringComparer.Ordinal);
 
-    public abstract void Encode(Span<Vector4> row);
-    public abstract void Decode(Span<Vector4> row);
+    public virtual DynamicRange Range => DynamicRange.Standard;
+    public Luminance White => Luminance.FromNits(Range.WhiteLuminance);
+    public virtual Option<CicpTransferCharacteristics> Cicp => None;
+    public virtual LutTable Encode => new LutTable.FixedFunction(this);
+    public virtual LutTable Decode => new LutTable.FixedFunction(this, Inverted: true);
 
-    public PixelFrame Light(PixelFrame frame) =>
-        new(frame.Origin, frame.Size, frame.Extent, block => {
-            frame.Block.CopyTo(block);
-            Decode(MemoryMarshal.Cast<float, Vector4>(block.AsSpan()));
-        });
+    public virtual void Apply(Span<Vector4> row, bool inverted) => (inverted ? Decode : Encode).Apply(row);
 
     public string ToValue() => Switch(
-        linear: static _ => "linear",
-        srgb: static _ => "srgb",
-        pq: static pq => string.Create(CultureInfo.InvariantCulture, $"{TransferForm.Pq.Key}:{pq.White.Nits.ToDouble()}"),
-        hlg: static hlg => string.Create(CultureInfo.InvariantCulture, $"{TransferForm.Hlg.Key}:{hlg.White.Nits.ToDouble()}"),
-        acesCct: static _ => "acescct",
-        acesCc: static _ => "acescc",
-        gamma: static gamma => string.Create(CultureInfo.InvariantCulture, $"{TransferForm.Gamma.Key}:{gamma.Exponent}"),
-        camera: static camera => camera.Log.Key);
+        linear: static _ => LinearKey,
+        gamma: static gamma => gamma.Name.IfNone(() => gamma.Offset is 0f
+            ? string.Create(CultureInfo.InvariantCulture, $"{GammaForm}:{gamma.Exponent}")
+            : string.Create(CultureInfo.InvariantCulture, $"{GammaForm}:{gamma.Exponent}:{gamma.Offset}")),
+        pq: static pq => string.Create(CultureInfo.InvariantCulture, $"{PqForm}:{pq.Range.WhiteLuminance}:{pq.Range.MaxLuminance}"),
+        hlg: static hlg => string.Create(CultureInfo.InvariantCulture, $"{HlgForm}:{hlg.Range.WhiteLuminance}:{hlg.Range.MaxLuminance}"),
+        acesCc: static _ => AcesCcKey,
+        log: static log => log.Key);
 
-    public static Fin<Transfer> Read(string value) => Named(value).ToFin(Unnamed(value));
+    public static Fin<Transfer> Read(string value) => Named.TryGetValue(value, out Transfer? named) ? named : Parametric(value, toSeq(value.Split(':')));
 
     public static ImagingFault? Validate(string? value, IFormatProvider? provider, out Transfer? item) {
-        item = value is null ? null : Named(value).ValueUnsafe();
-        return value is not null && item is null ? Unnamed(value) : null;
+        (item, ImagingFault? fault) = Optional(value).Match(
+            Some: static text => Read(text).Match(Succ: static transfer => ((Transfer?)transfer, (ImagingFault?)null), Fail: static error => (null, error.Filter<ImagingFault>().Head as ImagingFault)),
+            None: static () => (null, null));
+        return fault;
     }
 
-    private static Option<Transfer> Named(string value) => Optional(Fixed.GetValueOrDefault(value)) | Parametric(value);
+    private static Fin<float> Number(string text) =>
+        float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float number) ? number : ImagingFault.Of(ImagingReason.Malformed, text);
 
-    private static ImagingFault Unnamed(string value) =>
-        new($"transfer '{value}' beside curve and camera log names, gamma:<exponent>, pq:<nits>, and hlg:<nits>", ImagingReason.UnknownFormat);
+    private static Fin<Transfer> Parametric(string value, Seq<string> parts) =>
+        parts.Tail.Traverse(Number).As().Bind(levels => (parts[0], levels.Count) switch {
+            (GammaForm, 1 or 2) => Gamma.Of(levels[0], levels.Tail.Head.IfNone(0f)).Map(static gamma => (Transfer)gamma),
+            (PqForm, 1 or 2) => Pq.Of(Display(levels)).Map(static pq => (Transfer)pq),
+            (HlgForm, 1 or 2) => Hlg.Of(Display(levels)).Map(static hlg => (Transfer)hlg),
+            _ => ImagingFault.Of(ImagingReason.UnknownFormat, value),
+        });
 
-    private static Option<Transfer> Parametric(string value) =>
-        from parts in value.Split(':', 2) is [var form, var number] ? Some((Form: form, Number: number)) : None
-        from family in TransferForm.TryGet(parts.Form, out TransferForm? named) ? Some(named) : None
-        from level in double.TryParse(parts.Number, NumberStyles.Float, CultureInfo.InvariantCulture, out double read) ? Some(read) : None
-        from transfer in family.At(level)
-        select transfer;
+    private static DynamicRange Display(Seq<float> levels) => new(levels[0], levels.Tail.Head.Map(static nits => (double)nits).IfNone(DynamicRange.High.MaxLuminance), DynamicRange.High.MinLuminance);
 
-    private static Fin<Luminance> Lit(Luminance white) =>
-        double.IsFinite(white.Nits.ToDouble()) && white.Nits.ToDouble() > 0d ? white : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"transfer white {white}"), ImagingReason.Range);
+    private static Fin<DynamicRange> Lit(DynamicRange range) =>
+        ImagingFault.Unless(double.IsNormal(range.WhiteLuminance) && double.IsNormal(range.MaxLuminance) && range.WhiteLuminance > 0d && range.MaxLuminance > 0d, ImagingReason.Range, (range.WhiteLuminance, range.MaxLuminance)).Map(_ => range);
 
-    private static void PerChannel<TCurve>(Span<Vector4> row, TCurve curve, bool encode) where TCurve : struct, IChannelCurve {
-        for (int index = 0; index < row.Length; index++)
-            row[index] = new Vector4((float)At(row[index].X), (float)At(row[index].Y), (float)At(row[index].Z), row[index].W);
-
-        double At(double value) => encode ? curve.Encode(value) : curve.Decode(value);
-    }
-
-    private static void Scaled(Span<Vector4> row, float scale) {
-        for (int index = 0; index < row.Length; index++)
-            row[index] = new Vector4(row[index].AsVector3() * scale, row[index].W);
-    }
-
-    private static void Coded(Span<Vector4> row, TransferFunction curve, Action<ReadOnlySpan<float>, Span<float>, TransferFunction> code) {
-        Span2D<float> samples = MemoryMarshal.Cast<Vector4, float>(row).AsSpan2D(row.Length, 4);
+    private static void Coded(Span<Vector4> row, TransferFunction curve, bool encode) {
+        Span<float> samples = MemoryMarshal.Cast<Vector4, float>(row);
         using SpanOwner<float> alpha = SpanOwner<float>.Allocate(row.Length);
-        samples.GetColumn(3).CopyTo(alpha.Span);
-        code(MemoryMarshal.Cast<Vector4, float>(row), MemoryMarshal.Cast<Vector4, float>(row), curve);
-        alpha.Span.CopyTo(samples.GetColumn(3));
+        samples.AsSpan2D(row.Length, 4).GetColumn(3).CopyTo(alpha.Span);
+        if (encode) ImageProcessing.EncodeTransfer(samples, samples, curve);
+        else ImageProcessing.DecodeTransfer(samples, samples, curve);
+        alpha.Span.CopyTo(samples.AsSpan2D(row.Length, 4).GetColumn(3));
     }
 
     public sealed record Linear : Transfer {
-        internal override Option<(int Function, Seq<double> Parameters)> IccCurve => (0, Seq(1d));
-        public override void Encode(Span<Vector4> row) { }
-        public override void Decode(Span<Vector4> row) { }
+        public override Option<CicpTransferCharacteristics> Cicp => CicpTransferCharacteristics.Linear;
+        public override LutTable Encode => LutTable.Of([]);
+        public override LutTable Decode => LutTable.Of([]);
     }
 
-    public sealed record Srgb : Transfer {
-        internal override Option<(int Function, Seq<double> Parameters)> IccCurve => (3, Seq(2.4, 1d / 1.055, 1d - (1d / 1.055), 1d / 12.92, 0.04045));
-        public override void Encode(Span<Vector4> row) => Coded(row, TransferFunction.Srgb, ImageProcessing.EncodeTransfer);
-        public override void Decode(Span<Vector4> row) => Coded(row, TransferFunction.Srgb, ImageProcessing.DecodeTransfer);
+    public sealed record Gamma : Transfer {
+        private Gamma(float exponent, float offset, Option<CicpTransferCharacteristics> cicp = default, Option<string> name = default) => (Exponent, Offset, Cicp, Name) = (exponent, offset, cicp, name);
+
+        public static Gamma Srgb { get; } = new(2.4f, 0.055f, CicpTransferCharacteristics.Iec61966_2_1, "srgb");
+        public static Gamma Rec709 { get; } = new(1f / 0.45f, 0.099f, CicpTransferCharacteristics.ItuRBt709_6, "rec709");
+        public static Gamma Gamma22 { get; } = new(2.2f, 0f, CicpTransferCharacteristics.Gamma2_2);
+        public static Gamma Gamma28 { get; } = new(2.8f, 0f, CicpTransferCharacteristics.Gamma2_8);
+        public static Gamma Rec1886 { get; } = new(2.4f, 0f);
+
+        public float Exponent { get; }
+        public float Offset { get; }
+        public Option<string> Name { get; }
+        public override Option<CicpTransferCharacteristics> Cicp { get; }
+        public override LutTable Encode => new LutTable.Exponent(Offset > 0f ? ExponentStyle.MonCurveRev : ExponentStyle.BasicRev, new(Exponent), new(Offset));
+        public override LutTable Decode => new LutTable.Exponent(Offset > 0f ? ExponentStyle.MonCurveFwd : ExponentStyle.BasicFwd, new(Exponent), new(Offset));
+
+        public static Fin<Gamma> Of(float exponent, float offset = 0f) =>
+            ImagingFault.Unless(float.IsFinite(exponent) && float.IsFinite(offset) && exponent > 0f && offset >= 0f && (offset is 0f || exponent > 1f), ImagingReason.Range, (exponent, offset))
+                .Map(_ => Seq(Srgb, Rec709, Gamma22, Gamma28, Rec1886).Find(known => (known.Exponent, known.Offset) == (exponent, offset)).IfNone(() => new Gamma(exponent, offset)));
     }
 
     public sealed record Pq : Transfer {
-        private static readonly Luminance Peak = Luminance.FromNits(10_000d);
+        private const double Peak = 10_000d;
 
-        private Pq(Luminance white) => White = white;
+        private Pq(DynamicRange range) => Range = range;
 
-        public static Pq Standard { get; } = new(ReferenceWhite);
-        public static Pq High { get; } = new(Luminance.FromNits(DynamicRange.High.WhiteLuminance));
+        public static Pq Standard { get; } = new(DynamicRange.Standard);
+        public static Pq High { get; } = new(DynamicRange.High);
 
-        public override Luminance White { get; }
+        public override DynamicRange Range { get; }
+        public override Option<CicpTransferCharacteristics> Cicp => CicpTransferCharacteristics.SmpteSt2084;
 
-        public static Fin<Pq> Of(Luminance white) => Lit(white).Map(static lit => new Pq(lit));
+        public static Fin<Pq> Of(DynamicRange range) => Lit(range).Map(static lit => new Pq(lit));
 
-        public override void Encode(Span<Vector4> row) {
-            Scaled(row, (float)(White / Peak).ToDouble());
-            Coded(row, TransferFunction.Pq, ImageProcessing.EncodeTransfer);
-        }
-
-        public override void Decode(Span<Vector4> row) {
-            Coded(row, TransferFunction.Pq, ImageProcessing.DecodeTransfer);
-            Scaled(row, (float)(Peak / White).ToDouble());
+        public override void Apply(Span<Vector4> row, bool inverted) {
+            float scale = (float)(inverted ? Peak / Range.WhiteLuminance : Range.WhiteLuminance / Peak);
+            if (inverted) Coded(row, TransferFunction.Pq, encode: false);
+            foreach (ref Vector4 pixel in row) pixel = new Vector4(pixel.AsVector3() * scale, pixel.W);
+            if (!inverted) Coded(row, TransferFunction.Pq, encode: true);
         }
     }
 
     public sealed record Hlg : Transfer {
-        private static readonly Luminance Peak = Luminance.FromNits(DynamicRange.High.MaxLuminance);
-        private static readonly (Vector256<double> Weights, double Gamma, double SceneFloor, double DisplayFloor) Ootf =
-            (Gamut.Rec2020.Luminance, 1.2d + (0.42d * double.Log10(Peak.Nits.ToDouble() / 1_000d))) switch {
-                var (weights, gamma) => (weights, gamma, double.Pow(1e-4d, 1d / gamma) / 3d, 1e-4d / double.Pow(3d, gamma)),
-            };
+        private const float Black = 1e-4f;
 
-        private Hlg(Luminance white) => White = white;
+        private Hlg(DynamicRange range) => Range = range;
 
-        public static Hlg Standard { get; } = new(ReferenceWhite);
-        public static Hlg High { get; } = new(Luminance.FromNits(DynamicRange.High.WhiteLuminance));
+        public static Hlg Standard { get; } = new(DynamicRange.Standard);
+        public static Hlg High { get; } = new(DynamicRange.High);
 
-        public override Luminance White { get; }
+        public override DynamicRange Range { get; }
+        public override Option<CicpTransferCharacteristics> Cicp => CicpTransferCharacteristics.AribStdB67;
 
-        public static Fin<Hlg> Of(Luminance white) => Lit(white).Map(static lit => new Hlg(lit));
+        public static Fin<Hlg> Of(DynamicRange range) => Lit(range).Map(static lit => new Hlg(lit));
 
-        public override void Encode(Span<Vector4> row) {
-            double scale = (White / Peak).ToDouble();
+        public override void Apply(Span<Vector4> row, bool inverted) {
+            (Vector3 weights, float gamma, float scale) = (Gamut.Rec2020.Luminance, 1.2f + (0.42f * float.Log10((float)Range.MaxLuminance / 1_000f)), (float)(Range.WhiteLuminance / Range.MaxLuminance));
+            if (inverted) Coded(row, TransferFunction.Hlg, encode: false);
             foreach (ref Vector4 pixel in row) {
-                Vector256<double> display = Vector256.Create(pixel.X, pixel.Y, pixel.Z, 0d) * scale;
-                double luminance = Vector256.Dot(display, Ootf.Weights);
-                Vector256<double> scene = display * double.Pow(double.Max(luminance, Ootf.DisplayFloor), (1d - Ootf.Gamma) / Ootf.Gamma);
-                pixel = new Vector4((float)scene[0], (float)scene[1], (float)scene[2], pixel.W);
+                float luminance = Vector3.Dot(pixel.AsVector3(), weights);
+                pixel = inverted
+                    ? new Vector4(pixel.AsVector3() * (float.Pow(float.Max(luminance, float.Pow(Black, 1f / gamma) / 3f), gamma - 1f) / scale), pixel.W)
+                    : new Vector4(pixel.AsVector3() * scale * float.Pow(float.Max(luminance * scale, Black / float.Pow(3f, gamma)), (1f - gamma) / gamma), pixel.W);
             }
-            Coded(row, TransferFunction.Hlg, ImageProcessing.EncodeTransfer);
+            if (!inverted) Coded(row, TransferFunction.Hlg, encode: true);
         }
-
-        public override void Decode(Span<Vector4> row) {
-            double scale = (Peak / White).ToDouble();
-            Coded(row, TransferFunction.Hlg, ImageProcessing.DecodeTransfer);
-            foreach (ref Vector4 pixel in row) {
-                Vector256<double> scene = Vector256.Create(pixel.X, pixel.Y, pixel.Z, 0d);
-                double luminance = Vector256.Dot(scene, Ootf.Weights);
-                Vector256<double> display = scene * (double.Pow(double.Max(luminance, Ootf.SceneFloor), Ootf.Gamma - 1d) * scale);
-                pixel = new Vector4((float)display[0], (float)display[1], (float)display[2], pixel.W);
-            }
-        }
-    }
-
-    public sealed record AcesCct : Transfer {
-        public override void Encode(Span<Vector4> row) => PerChannel(row, default(Coding), encode: true);
-        public override void Decode(Span<Vector4> row) => PerChannel(row, default(Coding), encode: false);
-        private readonly struct Coding : IChannelCurve { double IChannelCurve.Encode(double value) => RgbModels.Acescct.FromLinear(value); double IChannelCurve.Decode(double value) => RgbModels.Acescct.ToLinear(value); }
     }
 
     public sealed record AcesCc : Transfer {
-        public override void Encode(Span<Vector4> row) => PerChannel(row, default(Coding), encode: true);
-        public override void Decode(Span<Vector4> row) => PerChannel(row, default(Coding), encode: false);
-        private readonly struct Coding : IChannelCurve { double IChannelCurve.Encode(double value) => RgbModels.Acescc.FromLinear(value); double IChannelCurve.Decode(double value) => RgbModels.Acescc.ToLinear(value); }
+        public override void Apply(Span<Vector4> row, bool inverted) {
+            foreach (ref Vector4 pixel in row) pixel = new Vector4(Coded(pixel.X), Coded(pixel.Y), Coded(pixel.Z), pixel.W);
+
+            float Coded(float value) => (float)(inverted ? RgbModels.Acescc.ToLinear(value) : RgbModels.Acescc.FromLinear(value));
+        }
     }
 
-    public sealed record Gamma : Transfer {
-        private Gamma(float exponent) => Exponent = exponent;
+    public sealed record Log : Transfer {
+        private readonly LogCurve curve;
+        private readonly Option<(float Joint, Either<LogCurve, (float Scale, float Shift, float Exponent)> Below)> lower;
 
-        public static Gamma Gamma22 { get; } = new(2.2f);
-        public static Gamma Rec1886 { get; } = new(2.4f);
+        private Log(string key, LogCurve curve, Option<(float Joint, Either<LogCurve, (float Scale, float Shift, float Exponent)> Below)> lower = default) => (Key, this.curve, this.lower) = (key, curve, lower);
 
-        public float Exponent { get; }
-        internal override Option<(int Function, Seq<double> Parameters)> IccCurve => (0, Seq<double>(Exponent));
+        public static Log ArriLogC3 { get; } = new("arri-logc3", LogCurve.Of(10f, new(0.247189638318671f), new(0.385536998692443f), new(5.55555555555556f), new(0.0522722750251688f), new(0.0105909904954696f)));
+        public static Log ArriLogC4 { get; } = new("arri-logc4", LogCurve.Of(2f, new(0.0647954196341293f), new(-0.295908392682586f), new(2231.82630906769f), new(64f), new(-0.0180569961199113f)));
+        public static Log SonySLog2 { get; } = new("sony-slog2", LogCurve.Of(10f, new(0.432699f * 876f / 1023f), new((0.646596f * 876f / 1023f) + (64f / 1023f)), new(155f / (219f * 0.9f)), new(0.037584f), Vector3.Zero));
+        public static Log SonySLog3 { get; } = new("sony-slog3", LogCurve.Of(10f, new(261.5f / 1023f), new(420f / 1023f), new(1f / 0.19f), new(0.01f / 0.19f), new(0.01125f), new Vector3((171.2102946929f - 95f) / 0.01125f / 1023f)));
+        public static Log CanonLog2 { get; } = new("canon-log2", new(10f, new(0.24136077f), new(0.092864125f), new(87.099375f / 0.9f), Vector3.One), (0f, new LogCurve(10f, new(-0.24136077f), new(0.092864125f), new(-87.099375f / 0.9f), Vector3.One)));
+        public static Log CanonLog3 { get; } = new(
+            "canon-log3", LogCurve.Of(10f, new(0.36726845f), new(0.12240537f), new(14.98325f / 0.9f), Vector3.One, new(0.014f * 0.9f), new Vector3(1.9754798f / 0.9f)),
+            (-0.014f * 0.9f, new LogCurve(10f, new(-0.36726845f), new(0.12783901f), new(-14.98325f / 0.9f), Vector3.One)));
+        public static Log RedLog3G10 { get; } = new("red-log3g10", LogCurve.Of(10f, new(0.224282f), Vector3.Zero, new(155.975327f), new((0.01f * 155.975327f) + 1f), new(-0.01f)));
+        public static Log PanasonicVLog { get; } = new("panasonic-vlog", LogCurve.Of(10f, new(0.241514f), new(0.598206f), Vector3.One, new(0.00873f), new(0.01f)));
+        public static Log FujifilmFLog { get; } = new("fujifilm-flog", LogCurve.Of(10f, new(0.344676f), new(0.790453f), new(0.555556f), new(0.009468f), new(0.00089f), new Vector3(8.735631f)));
+        public static Log FujifilmFLog2 { get; } = new("fujifilm-flog2", LogCurve.Of(10f, new(0.245281f), new(0.384316f), new(5.555556f), new(0.064829f), new(0.000889f), new Vector3(8.799461f)));
+        public static Log DjiDLog { get; } = new("dji-dlog", LogCurve.Of(10f, new(0.256662970719888f), new(0.58455504907396f), new(0.9892f), new(0.0108f), new(0.00758078675f)));
+        public static Log GoProProtune { get; } = new("gopro-protune", new(113f, Vector3.One, Vector3.Zero, new(112f), Vector3.One));
+        public static Log NikonNLog { get; } = new("nikon-nlog", new(float.E, new(150f / 1023f), new(619f / 1023f), Vector3.One, Vector3.Zero), (0.328f, (650f / 1023f, 0.0075f, 1f / 3f)));
+        public static Log AppleLog { get; } = new("apple-log", new(2f, new(0.08550479f), new(0.69336945f), Vector3.One, new(0.00964052f)), (0.01f, (47.28711236f, 0.05641088f, 2f)));
+        public static Log BlackmagicFilmGen5 { get; } = new("blackmagic-film-gen5", LogCurve.Of(float.E, new(0.0869287606549122f), new(0.530013339229194f), Vector3.One, new(0.00549407243225781f), new(0.005f)));
+        public static Log DaVinciIntermediate { get; } = new("davinci-intermediate", LogCurve.Of(2f, new(0.07329248f), new(0.07329248f * 7f), Vector3.One, new(0.0075f), new(0.00262409f), new Vector3(10.44426855f)));
+        public static Log FilmLightTLog { get; } = ((1f - 0.075f) / (16f * (0.7107f + (1.2359f * float.Log(128f * 16f))))) switch {
+            var offset => ((1f - 0.075f) / float.Log(1f + (128f / offset))) switch {
+                var slope => new Log("filmlight-tlog", LogCurve.Of(float.E, new(slope), new(1f - (slope * float.Log(128f + offset))), Vector3.One, new(offset), Vector3.Zero)),
+            },
+        };
+        public static Log AcesCct { get; } = new("acescct", LogCurve.Of(2f, new(1f / 17.52f), new(9.72f / 17.52f), Vector3.One, Vector3.Zero, new(1f / 128f)));
 
-        public static Fin<Gamma> Of(float exponent) =>
-            float.IsFinite(exponent) && exponent > 0f ? new Gamma(exponent) : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"gamma exponent {exponent}"), ImagingReason.Range);
+        public string Key { get; }
+        public override LutTable Encode => lower.IsNone ? new LutTable.Log(curve) : base.Encode;
+        public override LutTable Decode => lower.IsNone ? new LutTable.Log(curve, Inverted: true) : base.Decode;
 
-        public override void Encode(Span<Vector4> row) => Code(row, encode: true);
-        public override void Decode(Span<Vector4> row) => Code(row, encode: false);
-
-        private void Code(Span<Vector4> row, bool encode) {
-            if (Curve.ToSpan() is [var curve]) Coded(row, curve, encode ? ImageProcessing.EncodeTransfer : ImageProcessing.DecodeTransfer);
-            else PerChannel(row, new Raised(Exponent), encode);
+        public override void Apply(Span<Vector4> row, bool inverted) {
+            foreach (ref Vector4 pixel in row) pixel = new Vector4(inverted ? Decoded(pixel.AsVector3()) : Encoded(pixel.AsVector3()), pixel.W);
         }
 
-        private readonly struct Raised(double exponent) : IChannelCurve { double IChannelCurve.Encode(double value) => double.Pow(double.Max(value, 0d), 1d / exponent); double IChannelCurve.Decode(double value) => double.Pow(double.Max(value, 0d), exponent); }
+        private Vector3 Encoded(Vector3 linear) =>
+            lower.Match(
+                Some: piece => Vector3.ConditionalSelect(
+                    Vector3.LessThan(linear, new Vector3(piece.Joint)),
+                    piece.Below.Match(Left: below => below.Forward(linear), Right: power => power.Scale * Vector3.Exp(power.Exponent * Vector3.Log(Vector3.Max(linear + new Vector3(power.Shift), Vector3.Zero)))),
+                    curve.Forward(linear)),
+                None: () => curve.Forward(linear));
 
-        private Option<TransferFunction> Curve => Exponent switch {
-            2.2f => TransferFunction.Gamma22,
-            2.4f => TransferFunction.Gamma24,
-            _ => None,
-        };
-    }
-
-    public sealed record Camera(CameraLog Log) : Transfer {
-        public override void Encode(Span<Vector4> row) => PerChannel(row, new Coding(Log), encode: true);
-        public override void Decode(Span<Vector4> row) => PerChannel(row, new Coding(Log), encode: false);
-        private readonly struct Coding(CameraLog log) : IChannelCurve { double IChannelCurve.Encode(double value) => log.Encode(value); double IChannelCurve.Decode(double value) => log.Decode(value); }
+        private Vector3 Decoded(Vector3 code) =>
+            lower.Match(
+                Some: piece => Vector3.ConditionalSelect(
+                    Vector3.LessThan(code, curve.Forward(new Vector3(piece.Joint))),
+                    piece.Below.Match(Left: below => below.Inverse(code), Right: power => Vector3.Exp(Vector3.Log(Vector3.Max(code / power.Scale, Vector3.Zero)) / power.Exponent) - new Vector3(power.Shift)),
+                    curve.Inverse(code)),
+                None: () => curve.Inverse(code));
     }
 }
 
 public sealed record ColorEncoding(Gamut Gamut, Transfer Transfer) {
-    public Seq<Action<Span<Vector4>>> To(ColorEncoding target) =>
-        this == target
-            ? Seq<Action<Span<Vector4>>>()
-            : (Transfer is Transfer.Linear ? Seq<Action<Span<Vector4>>>() : Seq(Transfer.Decode))
-              + LinearTo(target).Map<Action<Span<Vector4>>>(static table => table.Apply)
-              + (target.Transfer is Transfer.Linear ? Seq<Action<Span<Vector4>>>() : Seq(target.Transfer.Encode));
+    private static readonly Configuration Pcs = new(xyzConfig: new XyzConfiguration(new WhitePoint(0.9642, 1.0, 0.8249)));
 
-    internal Seq<LutTable> LinearTo(ColorEncoding target) =>
-        Gamut == target.Gamut && Transfer.White == target.Transfer.White ? [] : [new LutTable.Affine(Gamut.MatrixTo(target.Gamut).Multiply((Transfer.White / target.Transfer.White).ToDouble()))];
+    public Option<CicpProfile> Cicp =>
+        (Gamut.Cicp, Transfer.Cicp).Apply(static (primaries, transfer) => new CicpProfile {
+            ColorPrimaries = primaries, TransferCharacteristics = transfer, MatrixCoefficients = CicpMatrixCoefficients.Identity, FullRange = true,
+        }).As();
+
+    public static Fin<ColorEncoding> Of(CicpProfile cicp) =>
+        (ImagingFault.Unless(cicp is { MatrixCoefficients: CicpMatrixCoefficients.Identity, FullRange: true }, ImagingReason.Unsupported, (cicp.MatrixCoefficients, cicp.FullRange)),
+         Gamut.Known.Find(gamut => gamut.Cicp == Some(cicp.ColorPrimaries)).ToFin(ImagingFault.Of(ImagingReason.UnknownFormat, cicp.ColorPrimaries)),
+         Transfer.Known.Find(transfer => transfer.Cicp == Some(cicp.TransferCharacteristics is CicpTransferCharacteristics.ItuRBt601_7 or CicpTransferCharacteristics.ItuRBt2020_2_10bit or CicpTransferCharacteristics.ItuRBt2020_2_12bit
+                 ? CicpTransferCharacteristics.ItuRBt709_6
+                 : cicp.TransferCharacteristics)).ToFin(ImagingFault.Of(ImagingReason.UnknownFormat, cicp.TransferCharacteristics)))
+            .Apply(static (_, gamut, transfer) => new ColorEncoding(gamut, transfer)).As();
+
+    public LutTable To(ColorEncoding target) =>
+        this == target
+            ? LutTable.Of([])
+            : LutTable.Of([
+                Transfer.Decode,
+                .. Gamut == target.Gamut && Transfer.White == target.Transfer.White
+                    ? Seq<LutTable>()
+                    : Seq<LutTable>(new LutTable.Affine(Gamut.MatrixTo(target.Gamut) * Matrix4x4.CreateScale((float)(Transfer.White / target.Transfer.White).ToDouble()))),
+                target.Transfer.Encode,
+            ]);
+
+    public Option<IccProfile> Icc(DateTimeOffset created) =>
+        Transfer.Switch(
+            linear: static _ => Some((Function: 0u, Parameters: Seq(1f))),
+            gamma: static gamma => gamma.Offset is 0f
+                ? Some((Function: 0u, Parameters: Seq(gamma.Exponent)))
+                : ExponentStyle.Joint(new Vector3(gamma.Exponent), new Vector3(gamma.Offset)) switch {
+                    var (knee, slope) => Some((Function: 3u, Parameters: Seq(gamma.Exponent, 1f / (1f + gamma.Offset), gamma.Offset / (1f + gamma.Offset), slope.X, knee.X))),
+                },
+            pq: static _ => None,
+            hlg: static _ => None,
+            acesCc: static _ => None,
+            log: static _ => None)
+        .Map(curve => new IccProfile(Profile(curve.Function, curve.Parameters, created)));
+
+    private byte[] Profile(uint function, Seq<float> parameters, DateTimeOffset created) {
+        const int HeaderBytes = 128;
+        static uint Fixed(float value) => unchecked((uint)(int)double.Round(value * 65536d, MidpointRounding.ToEven));
+        static byte[] Words(Seq<uint> words) {
+            byte[] bytes = new byte[sizeof(uint) * words.Count];
+            for (int i = 0; i < words.Count; i++)
+                BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(sizeof(uint) * i), words[i]);
+            return bytes;
+        }
+        static byte[] Block(IccTypeSignature type, Seq<uint> words) => Words([(uint)type, 0, .. words]);
+        static byte[] Text(string text) => Encoding.BigEndianUnicode.GetBytes(text) switch {
+            var units => [.. Block(IccTypeSignature.MultiLocalizedUnicode, [1, 12, BinaryPrimitives.ReadUInt32BigEndian("enUS"u8), (uint)units.Length, 28]), .. units],
+        };
+        static Seq<uint> Row(Vector3 row) => [Fixed(row.X), Fixed(row.Y), Fixed(row.Z)];
+
+        Matrix4x4 colorants = Gamut.Columns(Gamut.Configuration, ColourSpace.RgbLinear, Pcs, ColourSpace.Xyz);
+        Matrix4x4 adaptation = Matrix4x4.Transpose(Gamut.Columns(new Configuration(xyzConfig: new XyzConfiguration(Gamut.Rgb.WhitePoint)), ColourSpace.Xyz, Pcs, ColourSpace.Xyz));
+        Seq<uint> illuminant = Row(new Vector3((float)Pcs.Xyz.WhitePoint.X, (float)Pcs.Xyz.WhitePoint.Y, (float)Pcs.Xyz.WhitePoint.Z));
+        Seq<(Seq<IccProfileTag> Tags, byte[] Data)> blocks = [
+            ([IccProfileTag.ProfileDescription], Text(string.Join(' ', Gamut.Rgb.Name, Transfer.ToValue()))),
+            ([IccProfileTag.Copyright], Text("No copyright")),
+            ([IccProfileTag.MediaWhitePoint], Block(IccTypeSignature.Xyz, illuminant)),
+            ([IccProfileTag.ChromaticAdaptation], Block(IccTypeSignature.S15Fixed16Array, [.. Row(adaptation.X.AsVector3()), .. Row(adaptation.Y.AsVector3()), .. Row(adaptation.Z.AsVector3())])),
+            ([IccProfileTag.RedMatrixColumn], Block(IccTypeSignature.Xyz, Row(colorants.X.AsVector3()))),
+            ([IccProfileTag.GreenMatrixColumn], Block(IccTypeSignature.Xyz, Row(colorants.Y.AsVector3()))),
+            ([IccProfileTag.BlueMatrixColumn], Block(IccTypeSignature.Xyz, Row(colorants.Z.AsVector3()))),
+            ([IccProfileTag.RedTrc, IccProfileTag.GreenTrc, IccProfileTag.BlueTrc], Block(IccTypeSignature.ParametricCurve, [function << 16, .. parameters.Map(Fixed)])),
+        ];
+        int count = blocks.Bind(static block => block.Tags).Count;
+        int start = HeaderBytes + (sizeof(uint) * (1 + (3 * count)));
+        (Seq<uint> table, byte[] body) = blocks.Fold(
+            (Table: Seq<uint>(), Body: (byte[])[]),
+            (layout, block) => (
+                layout.Table.Concat(block.Tags.Bind(tag => Seq((uint)tag, (uint)(start + layout.Body.Length), (uint)block.Data.Length))),
+                [.. layout.Body, .. block.Data, .. new byte[-block.Data.Length & 3]]));
+        DateTime utc = created.UtcDateTime;
+        byte[] profile = [
+            .. Words([
+                (uint)(start + body.Length), 0, 0x04400000, (uint)IccProfileClass.DisplayDevice, (uint)IccColorSpaceType.Rgb, (uint)IccColorSpaceType.CieXyz,
+                (uint)((utc.Year << 16) | utc.Month), (uint)((utc.Day << 16) | utc.Hour), (uint)((utc.Minute << 16) | utc.Second), BinaryPrimitives.ReadUInt32BigEndian("acsp"u8),
+                .. new uint[6], (uint)IccRenderingIntent.Perceptual, .. illuminant, .. new uint[12], (uint)count, .. table,
+            ]),
+            .. body,
+        ];
+        IccProfileId id = IccProfile.CalculateHash(profile);
+        Words([id.Part1, id.Part2, id.Part3, id.Part4]).CopyTo(profile, 84);
+        return profile;
+    }
 }

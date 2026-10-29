@@ -1,14 +1,13 @@
 using System.Drawing;
 using System.Globalization;
-using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
-using Rhino.DocObjects.Tables;
 using Rhino.Render;
-using Riok.Mapperly.Abstractions;
 using UnitsNet;
 using Wacton.Unicolour;
+using Rasm.Rhino.Document.Units;
 
 namespace Rasm.Rhino.Objects;
 
@@ -32,94 +31,99 @@ public sealed partial class ColorFilter {
 
 [Union]
 public abstract partial record LightShape {
-    public LightStyle LightStyle => Switch(
-        pointLight: static point => point.CameraRelative ? LightStyle.CameraPoint : LightStyle.WorldPoint,
-        spotLight: static spot => spot.CameraRelative ? LightStyle.CameraSpot : LightStyle.WorldSpot,
-        directionalLight: static directional => directional.CameraRelative ? LightStyle.CameraDirectional : LightStyle.WorldDirectional,
-        linearLight: static _ => LightStyle.WorldLinear,
-        rectangularLight: static _ => LightStyle.WorldRectangular,
-        ambientLight: static _ => LightStyle.Ambient);
+    private LightShape(LightStyle style) => Style = style;
 
-    public sealed record PointLight(Point3d Location, double Radius, bool CameraRelative) : LightShape;
-    public sealed record SpotLight(Point3d Location, Vector3d Direction, Angle Angle, double HotSpot, double Radius, bool CameraRelative) : LightShape;
-    public sealed record DirectionalLight(Point3d Location, Vector3d Direction, Angle Angle, bool CameraRelative) : LightShape;
-    public sealed record LinearLight(Point3d Location, Vector3d Length, Vector3d Width) : LightShape;
-    public sealed record RectangularLight(Point3d Location, Vector3d Length, Vector3d Width, Vector3d Direction) : LightShape;
-    public sealed record AmbientLight() : LightShape;
+    public LightStyle Style { get; }
+
+    internal abstract void Write(Light light);
+
+    public sealed record PointLight(Point3d Location, double Radius, bool CameraRelative) : LightShape(CameraRelative ? LightStyle.CameraPoint : LightStyle.WorldPoint) {
+        internal override void Write(Light light) => (light.Location, light.Radius) = (Location, Radius);
+    }
+
+    public sealed record SpotLight(Point3d Location, Vector3d Direction, Angle Angle, double HotSpot, double Radius, bool CameraRelative)
+        : LightShape(CameraRelative ? LightStyle.CameraSpot : LightStyle.WorldSpot) {
+        internal override void Write(Light light) =>
+            (light.Location, light.Direction, light.SpotAngleRadians, light.HotSpot, light.Radius) = (Location, Direction, Angle.Radians.ToDouble(), HotSpot, Radius);
+    }
+
+    public sealed record DirectionalLight(Point3d Location, Vector3d Direction, Angle Angle, bool CameraRelative)
+        : LightShape(CameraRelative ? LightStyle.CameraDirectional : LightStyle.WorldDirectional) {
+        internal override void Write(Light light) => (light.Location, light.Direction, light.Radius) = (Location, Direction, Angle.Degrees.ToDouble());
+    }
+
+    public sealed record LinearLight(Point3d Location, Vector3d Length, Vector3d Width) : LightShape(LightStyle.WorldLinear) {
+        internal override void Write(Light light) => (light.Location, light.Length, light.Width) = (Location, Length, Width);
+    }
+
+    public sealed record RectangularLight(Point3d Location, Vector3d Length, Vector3d Width, Vector3d Direction) : LightShape(LightStyle.WorldRectangular) {
+        internal override void Write(Light light) => (light.Location, light.Length, light.Width, light.Direction) = (Location, Length, Width, Direction);
+    }
+
+    public sealed record AmbientLight() : LightShape(LightStyle.Ambient) {
+        internal override void Write(Light light) { }
+    }
+
+    public static Option<LightShape> Of(Light light) =>
+        light.LightStyle switch {
+            LightStyle.CameraPoint or LightStyle.WorldPoint => new PointLight(light.Location, light.Radius, light.LightStyle is LightStyle.CameraPoint),
+            LightStyle.CameraSpot or LightStyle.WorldSpot => new SpotLight(
+                light.Location, light.Direction, Angle.FromRadians(Quantities.Exact(light.SpotAngleRadians)), light.HotSpot, light.Radius, light.LightStyle is LightStyle.CameraSpot),
+            LightStyle.CameraDirectional or LightStyle.WorldDirectional =>
+                new DirectionalLight(light.Location, light.Direction, Angle.FromDegrees(Quantities.Exact(light.Radius)), light.LightStyle is LightStyle.CameraDirectional),
+            LightStyle.WorldLinear => new LinearLight(light.Location, light.Length, light.Width),
+            LightStyle.WorldRectangular => new RectangularLight(light.Location, light.Length, light.Width, light.Direction),
+            LightStyle.Ambient => new AmbientLight(),
+            LightStyle.None => None,
+        };
 }
 
 [Union]
 public abstract partial record LightColor {
-    public sealed record Rgb(Color Diffuse) : LightColor;
+    internal abstract (Color Diffuse, double Gain) Emitted(float gamma);
 
-    public sealed record Blackbody(Temperature Kelvin) : LightColor;
+    public sealed record Rgb(Color Diffuse) : LightColor {
+        internal override (Color Diffuse, double Gain) Emitted(float gamma) => (Diffuse, 1d);
+    }
 
-    public sealed record Linear(ColorFilter Filter) : LightColor;
+    public sealed record Blackbody(Temperature Kelvin) : LightColor {
+        internal override (Color Diffuse, double Gain) Emitted(float gamma) => Lights.Emitted(Lights.Blackbody((double)Kelvin.Kelvins), gamma);
+    }
+
+    public sealed record Linear(ColorFilter Filter) : LightColor {
+        internal override (Color Diffuse, double Gain) Emitted(float gamma) => Lights.Emitted(Filter.Light, gamma);
+    }
 }
 
-public sealed record LightSpec(
-    Option<string> Name,
-    bool Enabled,
-    LightShape Shape,
-    LightColor Color,
-    double Intensity,
-    double Watts,
-    double ShadowIntensity,
-    Vector3d AttenuationVector);
+[Union]
+public abstract partial record LightPower {
+    internal abstract void Write(Light light);
+
+    public sealed record Watts(Power Value) : LightPower {
+        internal override void Write(Light light) => (light.PowerWatts, light.PowerLumens, light.PowerCandela) = (Value.Watts.ToDouble(), 0d, 0d);
+    }
+
+    public sealed record Lumens(LuminousFlux Value) : LightPower {
+        internal override void Write(Light light) => (light.PowerWatts, light.PowerLumens, light.PowerCandela) = (0d, Value.Lumens.ToDouble(), 0d);
+    }
+
+    public sealed record Candela(LuminousIntensity Value) : LightPower {
+        internal override void Write(Light light) => (light.PowerWatts, light.PowerLumens, light.PowerCandela) = (0d, 0d, Value.Candela.ToDouble());
+    }
+
+    public static Option<LightPower> Of(Light light) =>
+        Some(light.PowerWatts).Filter(static watts => watts > 0d).Map(static watts => (LightPower)new Watts(Power.FromWatts(Quantities.Exact(watts))))
+        || Some(light.PowerLumens).Filter(static lumens => lumens > 0d).Map(static lumens => (LightPower)new Lumens(LuminousFlux.FromLumens(Quantities.Exact(lumens))))
+        || Some(light.PowerCandela).Filter(static candela => candela > 0d).Map(static candela => (LightPower)new Candela(LuminousIntensity.FromCandela(Quantities.Exact(candela))));
+}
+
+public sealed record LightSpec(Option<string> Name, bool Enabled, LightShape Shape, LightColor Color, double Intensity, Option<LightPower> Power, double ShadowIntensity, Vector3d AttenuationVector);
 
 public sealed record LightState(Guid Id, LightSpec Spec);
 
 public sealed record ManagedLight(LightState Light, bool Solo, string Description);
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record LightOp {
-    public sealed record Add(LightSpec Spec, Option<ObjectAttributes> Attributes) : LightOp;
-
-    public sealed record Modify(ComponentRef<LightObject> Address, LightSpec Spec) : LightOp;
-
-    public sealed record Delete(ComponentRef<LightObject> Address, bool Quiet) : LightOp;
-
-    public sealed record Undelete(ComponentRef<LightObject> Address) : LightOp;
-
-    public sealed record Solo(Seq<ComponentRef<LightObject>> Lights, bool On) : LightOp;
-
-    public sealed record Grouping(Seq<ComponentRef<LightObject>> Lights, bool On) : LightOp;
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
-internal static partial class LightMapper {
-    // --- [UPDATES]
-    [MapProperty(nameof(LightSpec.Enabled), nameof(Light.IsEnabled))]
-    [MapProperty(nameof(LightSpec.Watts), nameof(Light.PowerWatts))]
-    [MapperIgnoreSource(nameof(LightSpec.Shape), Justification = "Each shape case writes its own members")]
-    [MapperIgnoreSource(nameof(LightSpec.Color), Justification = "Written sets emitted diffuse and scaled intensity")]
-    internal static partial void Update(LightSpec spec, Light light, Color diffuse);
-
-    [MapperIgnoreSource(nameof(LightShape.PointLight.CameraRelative), Justification = "LightStyle holds frame")]
-    internal static partial void Update([MappingTarget] Light light, LightShape.PointLight point);
-
-    [MapProperty(nameof(LightShape.SpotLight.Angle), nameof(Light.SpotAngleRadians), Use = nameof(Radians))]
-    [MapperIgnoreSource(nameof(LightShape.SpotLight.CameraRelative), Justification = "LightStyle holds frame")]
-    internal static partial void Update([MappingTarget] Light light, LightShape.SpotLight spot);
-
-    [MapProperty(nameof(LightShape.DirectionalLight.Angle), nameof(Light.Radius), Use = nameof(Degrees))]
-    [MapperIgnoreSource(nameof(LightShape.DirectionalLight.CameraRelative), Justification = "LightStyle holds frame")]
-    internal static partial void Update([MappingTarget] Light light, LightShape.DirectionalLight directional);
-
-    internal static partial void Update([MappingTarget] Light light, LightShape.LinearLight linear);
-
-    internal static partial void Update([MappingTarget] Light light, LightShape.RectangularLight rectangular);
-
-    internal static partial void Update([MappingTarget] Light light, LightShape.AmbientLight ambient);
-
-    // --- [QUANTITIES]
-    [UserMapping(Default = false)]
-    private static double Radians(Angle angle) => angle.Radians.ToDouble();
-    [UserMapping(Default = false)]
-    private static double Degrees(Angle angle) => angle.Degrees.ToDouble();
-}
-
 public static class Lights {
     // --- [EMISSION]
     public static Emission Peaked(double red, double green, double blue) =>
@@ -140,106 +144,81 @@ public static class Lights {
             },
         };
 
+    internal static (Color Diffuse, double Gain) Emitted(Emission emission, float gamma) =>
+        (Color4f.ApplyGamma(emission.Light, 1f / gamma).AsSystemColor(), 1d / emission.Luminance);
+
     public static IO<float> PreProcessGamma(RhinoDoc doc) =>
         (from settings in use(() => doc.RenderSettings)
          from flow in use(() => settings.LinearWorkflow)
          select flow.PreProcessColors ? flow.PreProcessGamma : 1f).Bracket();
 
-    private static (Color Diffuse, double Gain) Emitted(Emission emission, float gamma) =>
-        (Color4f.ApplyGamma(emission.Light, 1f / gamma).AsSystemColor(), 1d / emission.Luminance);
+    // --- [STAGE]
+    public static Stage<Light> Stage(RhinoDoc doc, Guid id) =>
+        Stages.Geometry<Light>() switch {
+            var geometry => geometry with {
+                Commit = (live, staged) =>
+                    from valid in geometry.Commit(live, staged)
+                    from modified in Products.Accepted(() => doc.Lights.Modify(id, valid))
+                    select valid,
+            },
+        };
 
-    // --- [ADDRESSES]
-    public static IO<LightObject> Find(RhinoDoc doc, ComponentRef<LightObject> address, bool includeDeleted) =>
-        from found in IO.lift(() => address.Switch<(LightTable Lights, bool Deleted), Fin<Option<LightObject>>>(
-                (doc.Lights, Deleted: includeDeleted),
-                byId: static (state, byId) => Conversions.Present(state.Lights.Find(byId.Id, ignoreDeleted: !state.Deleted)).Map(index => state.Lights[index]),
-                byIndex: static (state, byIndex) => Conversions.Rows(state.Lights).Find(row => row.Index == byIndex.Index && (state.Deleted || !row.IsDeleted)),
-                byName: static (state, byName) => new RhinoFault($"{state.Lights.ComponentType} name {byName.Name}", RhinoReason.Unqualified)))
-        from row in IO.lift(found.ToFin(new RhinoFault($"{doc.Lights.ComponentType} {address}", RhinoReason.Missing)))
-        select row;
+    public static Step<Light> Written(LightSpec spec, float gamma) =>
+        Steps.Then<Light>(staged => Written(staged, spec, spec.Color.Emitted(gamma)));
+
+    private static Light Written(Light light, LightSpec spec, (Color Diffuse, double Gain) emitted) {
+        (light.LightStyle, light.Name, light.IsEnabled, light.Diffuse, light.Intensity, light.ShadowIntensity, light.AttenuationVector) =
+            (spec.Shape.Style, Conversions.Unset(spec.Name), spec.Enabled, emitted.Diffuse, spec.Intensity * emitted.Gain, spec.ShadowIntensity, spec.AttenuationVector);
+        spec.Shape.Write(light);
+        _ = spec.Power.Iter(power => power.Write(light));
+        return light;
+    }
 
     // --- [READS]
-    public static IO<LightState> Read(RhinoDoc doc, ComponentRef<LightObject> address) =>
-        from row in Find(doc, address, includeDeleted: false)
-        from state in IO.lift(State(row.LightGeometry))
-        select state;
+    public static Fin<LightState> State(Light light) =>
+        Conversions.Required(LightShape.Of(light)).Map(shape => new LightState(light.Id, new LightSpec(
+            Conversions.Present(light.Name), light.IsEnabled, shape, new LightColor.Rgb(light.Diffuse), light.Intensity, LightPower.Of(light), light.ShadowIntensity, light.AttenuationVector)));
 
     public static IO<Seq<LightState>> States(RhinoDoc doc) =>
-        IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => row.LightGeometry).Strict()
-            .Traverse(static light => State(light)).As());
+        IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => row.LightGeometry).Strict().Traverse(State).As());
 
     public static IO<(Seq<Error> Fails, Seq<ManagedLight> Succs)> Managed(RhinoDoc doc) =>
         (from client in use(() => new LightManagerSupportClient(doc.RuntimeSerialNumber))
-         from lights in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => row.LightGeometry).Strict())
-         select lights.Map(light => State(light).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition()).Bracket();
-
-    public static Fin<LightState> State(Light light) =>
-        Conversions.Found(Shape(light)).Map(shape => new LightState(light.Id, new LightSpec(
-            Conversions.Present(light.Name), light.IsEnabled, shape, light.Diffuse, light.Intensity, light.PowerWatts, light.ShadowIntensity, light.AttenuationVector)));
-
-    private static Option<LightShape> Shape(Light light) =>
-        light.LightStyle switch {
-            LightStyle.CameraPoint or LightStyle.WorldPoint => new LightShape.PointLight(light.Location, light.Radius, light.LightStyle is LightStyle.CameraPoint),
-            LightStyle.CameraSpot or LightStyle.WorldSpot => new LightShape.SpotLight(
-                light.Location, light.Direction, Angle.FromRadians(light.SpotAngleRadians), light.HotSpot, light.Radius, light.LightStyle is LightStyle.CameraSpot),
-            LightStyle.CameraDirectional or LightStyle.WorldDirectional =>
-                new LightShape.DirectionalLight(light.Location, light.Direction, Angle.FromDegrees(light.Radius), light.LightStyle is LightStyle.CameraDirectional),
-            LightStyle.WorldLinear => new LightShape.LinearLight(light.Location, light.Length, light.Width),
-            LightStyle.WorldRectangular => new LightShape.RectangularLight(light.Location, light.Length, light.Width, light.Direction),
-            LightStyle.Ambient => new LightShape.AmbientLight(),
-            LightStyle.None => None,
-        };
+         from lights in use(client.GetLights)
+         select toSeq(Range(0, lights.Count())).Map(index => lights.ElementAt(index))
+             .Map(light => State(light).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition()).Bracket();
 
     // --- [WRITES]
-    public static IO<Seq<Guid>> Apply(RhinoDoc doc, LightOp op) =>
-        op.Switch(
-            doc,
-            add: static (document, add) => from gamma in PreProcessGamma(document)
-                                           from added in (from staged in use(static () => new Light())
-                                                          from written in Written(staged, add.Spec, gamma)
-                                                          from index in IO.lift(() => Conversions.Found(Conversions.Present(document.Lights.Add(staged, add.Attributes.ValueUnsafe()))))
-                                                          select Seq(document.Lights[index].Id)).Bracket()
-                                           select added,
-            modify: static (document, modify) => from row in Find(document, modify.Address, includeDeleted: false)
-                                                 from gamma in PreProcessGamma(document)
-                                                 from modified in (from staged in use(row.DuplicateLightGeometry)
-                                                                   from written in Written(staged, modify.Spec, gamma)
-                                                                   from accepted in IO.lift(() => RhinoFault.Unless(document.Lights.Modify(row.Index, staged)))
-                                                                   select Seq(row.Id)).Bracket()
-                                                 select modified,
-            delete: static (document, delete) => from row in Find(document, delete.Address, includeDeleted: false)
-                                                 from deleted in IO.lift(() => RhinoFault.Unless(document.Lights.Delete(row.Index, delete.Quiet)))
-                                                 select Seq(row.Id),
-            undelete: static (document, undelete) => from row in Find(document, undelete.Address, includeDeleted: true)
-                                                     from restored in IO.lift(() => RhinoFault.Unless(document.Lights.Undelete(row.Index)))
-                                                     select Seq(row.Id),
-            solo: static (document, solo) => from rows in solo.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
-                                             from each in (from client in use(() => new LightManagerSupportClient(document.RuntimeSerialNumber))
-                                                           from set in IO.lift(() => Callbacks.Each(rows, (row, index) => RhinoFault.Unless(client.SetLightSolo(row.LightGeometry, solo.On), index)))
-                                                           select set).Bracket()
-                                             select rows.Map(static row => row.Id).Strict(),
-            grouping: static (document, grouping) => from rows in grouping.Lights.TraverseM(address => Find(document, address, includeDeleted: false)).As()
-                                                     from joined in (from client in use(() => new LightManagerSupportClient(document.RuntimeSerialNumber))
-                                                                     from lights in use(static () => new LightArray())
-                                                                     from appended in IO.lift(() => rows.Iter(row => lights.Append(row.LightGeometry)))
-                                                                     from grouped in IO.lift(() => (grouping.On ? (Action<LightArray>)client.GroupLights : client.UnGroup)(lights))
-                                                                     select grouped).Bracket()
-                                                     select rows.Map(static row => row.Id).Strict());
+    public static IO<Guid> Add(RhinoDoc doc, LightSpec spec, Option<ObjectAttributes> attributes) =>
+        (from gamma in PreProcessGamma(doc)
+         from staged in use(static () => new Light())
+         from written in Written(spec, gamma).Run(staged)
+         from index in Products.Accepted(() => doc.Lights.Add(written, attributes.ValueUnsafe()) switch { var added => (added >= 0, added) })
+         select doc.Lights[index].Id).Bracket();
 
-    public static IO<Unit> Written(Light staged, LightSpec spec, float gamma) =>
-        from emitted in IO.lift(() => spec.Color.Switch<float, (Color Diffuse, double Gain)>(
-            gamma,
-            rgb: static (_, rgb) => (rgb.Diffuse, 1d),
-            blackbody: static (held, blackbody) => Emitted(Blackbody((double)blackbody.Kelvin.Kelvins), held),
-            linear: static (held, linear) => Emitted(linear.Filter.Light, held)))
-        from members in IO.lift(() => LightMapper.Update(spec with { Intensity = spec.Intensity * emitted.Gain }, staged, emitted.Diffuse))
-        from shaped in IO.lift(() => spec.Shape.Switch(
-            staged,
-            pointLight: LightMapper.Update,
-            spotLight: LightMapper.Update,
-            directionalLight: LightMapper.Update,
-            linearLight: LightMapper.Update,
-            rectangularLight: LightMapper.Update,
-            ambientLight: LightMapper.Update))
-        select shaped;
+    public static IO<Unit> Modify(RhinoDoc doc, Guid id, LightSpec spec) =>
+        (from gamma in PreProcessGamma(doc)
+         from live in Found(doc, id)
+         from modified in Edits.Apply(Stage(doc, id), live.LightGeometry, Seq(Written(spec, gamma)))
+         select unit).Bracket();
+
+    public static IO<LightObject> Found(RhinoDoc doc, Guid id) =>
+        Products.Accepted(() => doc.Lights.Find(id, ignoreDeleted: true) switch { var index => (index >= 0, index) }).Map(index => doc.Lights[index]);
+
+    // --- [RECONCILE]
+    public static IO<Seq<(string Slot, Guid Id, bool Created)>> Reconcile(RhinoDoc doc, KeyName group, Seq<(string Slot, LightSpec Spec)> lights) =>
+        from unique in IO.lift(Conversions.Unique(lights, static light => light.Slot, StringComparer.Ordinal))
+        from key in IO.lift(() => $"{Session.PlugIn.Id:N}.{group}")
+        from held in IO.lift(() => toHashMap(Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted)
+            .Choose(row => Conversions.Present(row.Attributes.GetUserString(key)).Map(slot => (slot, row.Id)))))
+        from placed in lights.TraverseM(light => held.Find(light.Slot).Match(
+            Some: id => Modify(doc, id, light.Spec).Map(_ => (light.Slot, Id: id, Created: false)),
+            None: () => (from attributes in use(doc.CreateDefaultAttributes)
+                         from keyed in Products.Accepted(() => attributes.SetUserString(key, light.Slot))
+                         from id in Add(doc, light.Spec, Some(attributes))
+                         select (light.Slot, Id: id, Created: true)).Bracket())).As()
+        let kept = toHashSet(lights.Map(static light => light.Slot))
+        from removed in toSeq<(string Key, Guid Value)>(held).Filter(row => !kept.Contains(row.Key)).TraverseM(row =>
+            Found(doc, row.Value).Bind(found => Products.Accepted(() => doc.Lights.Delete(found.Index, quiet: true)))).As()
+        select placed;
 }

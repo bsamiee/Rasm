@@ -117,7 +117,7 @@ utils:
     acquired:
         kind: invocation_expression
         all:
-            - has: {field: function, any: [{kind: identifier, regex: '^use$'}, {matches: {csharp-owner-member: {type: {regex: '^Host$'}, member: {regex: '^(Made|Many|Ok)$'}}}}]}
+            - has: {field: function, any: [{kind: identifier, regex: '^use$'}, {matches: {csharp-owner-member: {type: {regex: '^Products$'}, member: {regex: '^(Of|Many|Maybe|Made|Held)$'}}}}]}
             - has: {field: arguments, all: [{not: {has: {kind: argument, nthChild: 2}}}, {has: {kind: argument, any: [{has: {matches: thunk, has: {field: body, matches: call}}}, {has: {matches: call}}]}}]}
     forwarded:
         any:

@@ -24,7 +24,7 @@ utils:
 rule:
     kind: invocation_expression
     all:
-        - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Subscriptions$'}, member: {regex: '^(Host|During)$', pattern: $FACTORY}}}}
+        - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Subscriptions$'}, member: {regex: '^(On|Inline)$', pattern: $FACTORY}}}}
         - has: {field: arguments, has: {kind: argument, has: {matches: handler-write}}}
         - not: {has: {field: arguments, has: {kind: argument, not: {matches: restating-argument}}}}
         - matches: member-value

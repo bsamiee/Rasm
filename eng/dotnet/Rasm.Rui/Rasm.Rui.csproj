@@ -5,6 +5,10 @@
         <RhinoHost>true</RhinoHost>
     </PropertyGroup>
 
+    <ItemGroup Label="Core">
+        <PackageReference Include="UUIDNext" />
+    </ItemGroup>
+
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>

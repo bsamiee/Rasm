@@ -1,10 +1,8 @@
 using System.Collections.Generic;
 using QuikGraph;
-using QuikGraph.Algorithms;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Persistence.Stores;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.DocObjects;
@@ -16,6 +14,7 @@ namespace Rasm.Rhino.Blocks;
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record LinkedModel {
     public sealed record Opened(uint Document) : LinkedModel;
+
     public sealed record Stored(string Path) : LinkedModel;
 }
 
@@ -27,8 +26,7 @@ public sealed record DefinitionLink : IEdge<LinkedModel> {
     public string Name { get; }
     public UnitSystem Units { get; }
     public Option<InstanceDefinitionArchiveFileStatus> Status { get; }
-    public bool Outdated => Status.Exists(static status => status is InstanceDefinitionArchiveFileStatus.LinkedFileIsNewer
-        or InstanceDefinitionArchiveFileStatus.LinkedFileIsOlder or InstanceDefinitionArchiveFileStatus.LinkedFileIsDifferent);
+    public bool Outdated => Status.Exists(static status => status.Outdated);
 
     // --- [CONSTRUCTION]
     internal DefinitionLink(LinkedModel source, LinkedModel.Stored target, InstanceDefinitionGeometry definition) =>
@@ -50,76 +48,55 @@ public sealed record LinkClosure(LinkedModel Root, ArrayBidirectionalGraph<Linke
         from reading in Readings[edge.Target].ToSeq()
         where reading.Units != edge.Units
         select (Link: edge, FileUnits: reading.Units);
-
-    public Seq<Seq<LinkedModel>> Cycles =>
-        toSeq(Graph.CondensateStronglyConnected<LinkedModel, DefinitionLink, AdjacencyGraph<LinkedModel, DefinitionLink>>().Vertices)
-            .Filter(static component => component.EdgeCount > 0).Map(static component => toSeq(component.Vertices));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Links {
     // --- [CLOSURE]
     public static IO<LinkClosure> Closure(LinkedModel root) =>
-        from first in Read(root)
-        from frontier in Monad.recur(
-            new Frontier(Seq<LinkedModel>(), Seq<LinkedModel>(), HashMap<LinkedModel, Fin<LinkReading>>()).Add(root, first),
-            static pending => pending.Pending.Match(
-                Empty: () => IO.pure(Next.Done<Frontier, Frontier>(pending)),
-                Tail: (next, rest) => Visit(pending with { Pending = rest }, next).Map(Next.Loop<Frontier, Frontier>))).As()
-        select new LinkClosure(root,
-            frontier.Order.ToBidirectionalGraph(model => frontier.Readings[model].ToSeq().Bind(static reading => reading.Links), allowParallelEdges: true)
-                .ToArrayBidirectionalGraph(), frontier.Readings);
-
-    private static IO<Frontier> Visit(Frontier frontier, LinkedModel model) =>
-        frontier.Readings.ContainsKey(model) ? IO.pure(frontier) : Read(model).Map(reading => frontier.Add(model, reading))
-            .Catch(static error => error.IsExpected && !ErrorOps.Cancellation(error),
-                error => IO.pure(frontier.Add(model, error)));
+        Graphs.Reached(root, Read, static reading => reading.Links).Map(reached => new LinkClosure(root, reached.Graph, reached.Readings));
 
     private static IO<LinkReading> Read(LinkedModel model) =>
         model.Switch(
-            opened: static opened => IO.lift(() => Conversions.Found(RhinoDoc.FromRuntimeSerialNumber(opened.Document)))
-                .Map(doc => new LinkReading(doc.ModelUnitSystem, None, Linked(opened, doc.InstanceDefinitions.GetList(ignoreDeleted: true)))),
+            opened: static opened => IO.lift(() => Conversions.Required(RhinoDoc.FromRuntimeSerialNumber(opened.Document)))
+                .Map(doc => new LinkReading(doc.ModelUnitSystem, None, Linked(opened, Conversions.Present(doc.Path), doc.InstanceDefinitions.GetList(ignoreDeleted: true)))),
             stored: static stored => IO.lift(() => InputPath.Of(stored.Path)).Bind(path => Archives.Read(
                 new ArchiveSource.Located(path, File3dm.TableTypeFilter.InstanceDefinition | File3dm.TableTypeFilter.Settings, File3dm.ObjectTypeFilter.InstanceReference),
-                read => IO.lift(() => new LinkReading(read.Model.Settings.ModelUnitSystem, read.Log, Linked(stored, read.Model.AllInstanceDefinitions))))));
+                read => IO.lift(() => new LinkReading(read.Model.Settings.ModelUnitSystem, read.Log, Linked(stored, Some(stored.Path), read.Model.AllInstanceDefinitions))))));
 
-    private static Seq<DefinitionLink> Linked(LinkedModel source, IEnumerable<InstanceDefinitionGeometry> definitions) =>
+    private static Seq<DefinitionLink> Linked(LinkedModel source, Option<string> holder, IEnumerable<InstanceDefinitionGeometry> definitions) =>
         Conversions.Rows(definitions).Filter(static definition => definition.IsLinkedType && !definition.IsReference)
-            .Map(definition => new DefinitionLink(source, new LinkedModel.Stored(source.Switch(definition,
-                opened: static (row, _) => row.SourceArchive,
-                stored: static (row, file) => Resolved(file, row))), definition)).Strict();
+            .Map(definition => new DefinitionLink(source, new LinkedModel.Stored(Resolved(holder, definition).IfNone(definition.SourceArchive)), definition)).Strict();
 
-    private static string Resolved(LinkedModel.Stored holder, InstanceDefinitionGeometry definition) =>
-        definition.SourceArchive switch {
-            var stored => (Conversions.Present(stored).Filter(File.Exists)
-                || Conversions.Present(definition.SourceArchiveRelativePath)
-                    .Map(relative => Path.GetFullPath(relative.Replace('\\', Path.DirectorySeparatorChar), Path.GetDirectoryName(holder.Path)!)).Filter(File.Exists)
-                || Conversions.Present(stored).Bind(static path => Conversions.Present(FileSettings.FindFile(Path.GetFileName(path.Replace('\\', Path.DirectorySeparatorChar))))))
-                .IfNone(stored),
-        };
+    private static Option<string> Resolved(Option<string> holder, InstanceDefinitionGeometry definition) =>
+        Conversions.Present(definition.SourceArchive).Filter(File.Exists)
+        || (from relative in Conversions.Present(definition.SourceArchiveRelativePath)
+            from folder in holder.Bind(static path => Optional(Path.GetDirectoryName(path)))
+            select Path.GetFullPath(relative.Replace('\\', Path.DirectorySeparatorChar), folder)).Filter(File.Exists)
+        || Conversions.Present(definition.SourceArchive).Bind(static path => Conversions.Present(FileSettings.FindFile(Path.GetFileName(path.Replace('\\', Path.DirectorySeparatorChar)))));
 
-    private sealed record Frontier(Seq<LinkedModel> Pending, Seq<LinkedModel> Order, HashMap<LinkedModel, Fin<LinkReading>> Readings) {
-        public Frontier Add(LinkedModel model, Fin<LinkReading> reading) =>
-            new(Pending + reading.ToSeq().Bind(static held => held.Links).Map(static link => link.Target), Order.Add(model), Readings.Add(model, reading));
-    }
+    // --- [REPAIR]
+    public static IO<Unit> Relink(RhinoDoc doc, InstanceDefinition definition, InputPath path, bool relative) =>
+        (from folder in IO.lift(() => relative
+             ? Conversions.Present(doc.Path).Bind(static held => Optional(Path.GetDirectoryName(held))).ToFin(new RhinoFault(doc.Name, RhinoReason.Unqualified)).Map(Some)
+             : Option<string>.None)
+         from reference in Products.Of(() => FileReference.CreateFromFullAndRelativePaths(path, folder.Map(held => Path.GetRelativePath(held, path)).ValueUnsafe()))
+         from modified in Products.Accepted(() => doc.InstanceDefinitions.ModifySourceArchive(definition.Index, reference, definition.UpdateType, definition.LayerStyle, quiet: true))
+         select modified).Bracket();
 
-    // --- [STYLE]
-    private const LinkedInstanceDefinitionUpdateStyle Factory = LinkedInstanceDefinitionUpdateStyle.Prompt;
+    public static IO<Committed<Seq<Guid>>> Repair(RhinoDoc doc, bool relative, string name, RedrawPolicy redraw) =>
+        Rewritten(doc, name, redraw, definition => !File.Exists(definition.SourceArchive)
+            ? Resolved(Conversions.Present(doc.Path), definition).Bind(static found => InputPath.Of(found).ToOption()).Map(path => Relink(doc, definition, path, relative))
+            : None);
 
-    public static ValueStore<LinkedInstanceDefinitionUpdateStyle> Style(RhinoDoc doc) =>
-        Style(IO.lift(() => doc.LinkedInstanceDefinitionUpdate), style => doc.LinkedInstanceDefinitionUpdate = style);
+    public static IO<Committed<Seq<Guid>>> Relative(RhinoDoc doc, bool relative, string name, RedrawPolicy redraw) =>
+        Rewritten(doc, name, redraw, definition => InputPath.Of(definition.SourceArchive).ToOption().Map(path => Relink(doc, definition, path, relative)));
 
-    public static ValueStore<LinkedInstanceDefinitionUpdateStyle> Style(File3dm archive) =>
-        Style(IO.lift(() => (LinkedInstanceDefinitionUpdateStyle)archive.Settings.InstanceDefinitionLinkUpdate), style => archive.Settings.InstanceDefinitionLinkUpdate = (int)style);
+    public static IO<Committed<Seq<Guid>>> Reload(RhinoDoc doc, string name, RedrawPolicy redraw) =>
+        Rewritten(doc, name, redraw, definition => Conversions.Present(definition.ArchiveFileStatus.Outdated, Products.Accepted(() => doc.InstanceDefinitions.RefreshLinkedBlock(definition))));
 
-    private static ValueStore<LinkedInstanceDefinitionUpdateStyle> Style(IO<LinkedInstanceDefinitionUpdateStyle> read, Action<LinkedInstanceDefinitionUpdateStyle> write) =>
-        ValueStores.Of(read.Map(static style => Some(style).Filter(static held => held != Factory)),
-            style => IO.lift(() => write(style.IfNone(Factory))), Applied.Live, None);
-
-    // --- [RELOAD]
-    public static IO<Committed<Seq<int>>> Reload(RhinoDoc doc, string name, RedrawPolicy redraw) =>
-        from outdated in IO.lift(() => Linked(new LinkedModel.Opened(doc.RuntimeSerialNumber), doc.InstanceDefinitions.GetList(ignoreDeleted: true)).Filter(static link => link.Outdated).Strict())
-        from committed in Definitions.Commit(doc, name, redraw,
-            outdated.Map<DefinitionOp>(static link => new DefinitionOp.Edit(link.Definition, new DefinitionEdit.RefreshLinkedBlock())))
-        select committed;
+    private static IO<Committed<Seq<Guid>>> Rewritten(RhinoDoc doc, string name, RedrawPolicy redraw, Func<InstanceDefinition, Option<IO<Unit>>> rewrite) =>
+        IO.lift(() => Conversions.Rows(doc.InstanceDefinitions.GetList(ignoreDeleted: true)).Filter(static definition => definition.IsLinkedType && !definition.IsReference)
+                .Choose(definition => rewrite(definition).Map(edit => edit.Map(_ => definition.Id))).Strict())
+            .Bind(edits => Commits.Commit(doc, name, redraw, edits.TraverseM(static edit => edit).As()));
 }

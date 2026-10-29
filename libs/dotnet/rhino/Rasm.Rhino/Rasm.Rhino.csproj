@@ -13,11 +13,12 @@
     </ItemGroup>
 
     <ItemGroup Label="Core">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="LanguageExt.Streaming" />
         <PackageReference Include="Microsoft.VisualStudio.Threading" />
         <PackageReference Include="Mono.Unix" />
         <PackageReference Include="NodaTime" />
-        <PackageReference Include="Riok.Mapperly" ExcludeAssets="runtime" PrivateAssets="all" />
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="UUIDNext" />
@@ -38,6 +39,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Geospatial">
+        <PackageReference Include="GeoTimeZone" />
         <PackageReference Include="NetTopologySuite" />
     </ItemGroup>
 
@@ -46,7 +48,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Application Hosting">
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Logging" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     </ItemGroup>

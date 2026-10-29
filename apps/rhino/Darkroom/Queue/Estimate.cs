@@ -4,8 +4,7 @@ using Rasm.Rhino;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Objects;
 using Rasm.Rhino.UI;
-using Rasm.UI;
-using Rasm.UI.Components;
+using Rasm.UI.Controls;
 using Rhino.Render;
 
 namespace Darkroom.Queue;

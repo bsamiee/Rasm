@@ -66,7 +66,7 @@ utils:
             - kind: invocation_expression
               has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(ToUpperInvariant|ToLowerInvariant|Trim|TrimEnd|TrimStart)$'}}
     created-type:
-        not: {regex: 'Exception$'}
+        not: {regex: '(Exception|Nomen)$'}
         pattern: $CREATED
     failure:
         any:
@@ -92,11 +92,16 @@ utils:
                         has: {field: returns, matches: created-type}
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, matches: created-type}}
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, kind: identifier, matches: created-type}}, {has: {field: name, pattern: $FACTORY}}]}
                 - inside:
                     kind: compilation_unit
                     stopBy: end
-                    has: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration', has: {field: name, pattern: $CREATED}}
+                    has:
+                        stopBy: end
+                        kind: 'class_declaration, record_declaration, struct_declaration'
+                        all:
+                            - has: {field: name, pattern: $CREATED}
+                            - has: {stopBy: end, kind: method_declaration, all: [{has: {field: name, pattern: $FACTORY}}, {has: {field: returns, any: [{pattern: $CREATED}, {has: {stopBy: end, pattern: $CREATED}}]}}]}
     stored:
         any:
             - inside:

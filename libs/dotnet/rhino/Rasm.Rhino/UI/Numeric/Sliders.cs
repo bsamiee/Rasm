@@ -1,46 +1,46 @@
 using Eto.Forms;
-using Rasm.Rhino.Events;
+using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
+using Rhino.UI;
 
 namespace Rasm.Rhino.UI.Numeric;
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Sliders {
-    // --- [ROWS]
-    public static ControlRow Numeric(string label, double value, NumberRange range, Func<Edit<double>, IO<Unit>> edited) =>
-        new ControlRow.Bound<(double Value, NumberRange Range, Func<Edit<double>, IO<Unit>> Edited)>(label, RowShape.Inline, (value, range, edited), static (latest, scope) =>
-            from first in latest
-            from field in NumberFields.Scalar(first.Row.Range, edit => latest.Bind(current => current.Row.Edited(edit)), scope.Owner)
-            from track in use(static () => new Slider { MinValue = 0, SnapToTick = false })
-            let step = first.Row.Range.Step.IfNone(() => field.Control.Increment)
-            let ticks = (int)double.Ceiling((first.Row.Range.High - first.Row.Range.Low) / step)
-            let placed = fun((double held) => (int)double.Round((first.Row.Range.Clamped(held) - first.Row.Range.Low) / step, MidpointRounding.AwayFromZero))
-            let valued = fun((int tick) => first.Row.Range.Clamped(first.Row.Range.Low + (tick * step)))
-            from sized in IO.lift(() => { track.MaxValue = ticks; })
-            from change in ControlChange<EventArgs>.Attached(
-                Subscriptions.Host<EventArgs>(h => track.ValueChanged += h, h => track.ValueChanged -= h),
-                _ =>
-                    from current in latest
-                    from shown in field.Show(valued(track.Value))
-                    from previewed in current.Row.Edited(Edits.Preview(valued(track.Value)))
-                    select unit,
-                scope.Owner)
-            from committed in Subscriptions.Merged(
-                    Subscriptions.Host<MouseEventArgs>(h => track.MouseUp += h, h => track.MouseUp -= h).Choose(static _ => Some(EventArgs.Empty)),
-                    Subscriptions.Host<KeyEventArgs>(h => track.KeyUp += h, h => track.KeyUp -= h).Choose(static _ => Some(EventArgs.Empty)))
-                .Inline(_ => latest.Bind(current => current.Row.Edited(Edits.Commit(valued(track.Value)))), scope.Owner)
-            from line in RowGrid.Lined([new TableCell(track, scaleWidth: true), new TableCell(field.Control)])
-            select new RowCells(line,
-                from current in latest
-                from shown in field.Show(current.Row.Value)
-                from moved in change.Detached(IO.lift(() => { track.Value = placed(current.Row.Value); }))
-                select unit));
+// --- [MODELS] --------------------------------------------------------------------------
+public sealed record SliderRow(double Value, NumberRange Range, Func<Edit<double>, IO<Unit>> Edited) : IRow<SliderRow> {
+    private const int Ticks = 1000;
 
-    public static ControlRow Distance(string label, Length value, (Length Low, Length High) domain, bool modelUnits, Func<Edit<Length>, IO<Unit>> edited) =>
-        new ControlRow.Bound<(Length Value, (Length Low, Length High) Domain, bool ModelUnits, Func<Edit<Length>, IO<Unit>> Edited)>(
-            label, RowShape.Inline, (value, domain, modelUnits, edited), static (latest, scope) =>
-                from row in latest
-                from doc in scope.DocumentIO
-                from field in NumberFields.Distance(doc, row.Row.Domain, row.Row.ModelUnits, edit => latest.Bind(current => current.Row.Edited(edit)), scope.Owner)
-                select new RowCells(field.Control, latest.Bind(current => field.Show(current.Row.Value))));
+    public RowShape Shape { get; init; } = RowShape.Inline;
+
+    public static IO<RowCells> Realize(IO<SliderRow> latest, LocalizeStringPair label, RowScope scope) =>
+        from first in latest
+        from following in IO.lift(static () => Ref(Option<Func<Option<double>, IO<Unit>>>.None))
+        from field in NumberFields.Scalar(first.Range, edit =>
+            from sent in latest.Bind(current => current.Edited(edit))
+            from track in following.ValueIO
+            from followed in track.Traverse(show => show(edit.Held)).As()
+            select unit)
+        from track in use(static () => new Slider { MinValue = 0, MaxValue = Ticks, SnapToTick = false })
+        from moved in Values.Bound(track, Ticked(track, first.Range), static _ => true, Some(Released(track)), Some(first.Value), edit =>
+            from shown in edit.Held.Traverse(field.Show).As()
+            from sent in latest.Bind(current => current.Edited(edit))
+            select unit)
+        from kept in atomicIO(() => following.Value = Some(moved))
+        from line in RowTable.Lined([new TableCell(track, scaleWidth: true), new TableCell(field.Control)])
+        select new RowCells(line,
+            from current in latest
+            from shown in field.Show(current.Value)
+            from placed in moved(Some(current.Value))
+            select unit);
+
+    private static BindableBinding<Slider, Option<double>> Ticked(Slider track, NumberRange range) =>
+        new(track,
+            held => Some(range.Scale.Value(range, (double)held.Value / Ticks) switch { var raw => range.Step.IsSome ? range.Snapped(raw) : range.Clamped(raw) }),
+            (held, value) => value.Iter(number => held.Value = (int)double.Round(range.Scale.Fraction(range, range.Clamped(number)) * Ticks, MidpointRounding.AwayFromZero)),
+            static (held, handler) => held.ValueChanged += handler,
+            static (held, handler) => held.ValueChanged -= handler);
+
+    private static HostEvent<Unit> Released(Slider track) =>
+        Subscriptions.Merged(
+            Subscriptions.Inline<MouseEventArgs>(h => track.MouseUp += h, h => track.MouseUp -= h).Choose(static _ => Some(unit)),
+            Subscriptions.Inline<KeyEventArgs>(h => track.KeyUp += h, h => track.KeyUp -= h).Choose(static _ => Some(unit)));
 }

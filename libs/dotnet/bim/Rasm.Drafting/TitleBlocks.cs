@@ -52,38 +52,46 @@ public sealed partial class TitleRule {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record TitleField {
-    public static readonly TitleField LegalOwner = new ProjectEntry("legal-owner", TitleRule.Required);
-    public static readonly TitleField IdentificationNumber = new SheetName("identification-number");
-    public static readonly TitleField RevisionIndex = new SheetEntry("revision-index", TitleRule.Revision);
-    public static readonly TitleField DateOfIssue = new SheetEntry("date-of-issue", TitleRule.IssueDate);
-    public static readonly TitleField SegmentNumber = new SheetEntry("segment-number");
-    public static readonly TitleField SegmentCount = new SheetEntry("segment-count");
-    public static readonly TitleField LanguageCode = new ProjectEntry("language-code", TitleRule.Optional);
-    public static readonly TitleField Title = new SheetEntry("title", TitleRule.Required);
-    public static readonly TitleField SupplementaryTitle = new SheetEntry("supplementary-title", TitleRule.Optional);
-    public static readonly TitleField ResponsibleDepartment = new ProjectEntry("responsible-department", TitleRule.Optional);
-    public static readonly TitleField TechnicalReference = new ProjectEntry("technical-reference", TitleRule.Optional);
-    public static readonly TitleField ApprovalPerson = new SheetEntry("approval-person", TitleRule.Required);
-    public static readonly TitleField Creator = new SheetEntry("creator", TitleRule.Required);
-    public static readonly TitleField DocumentType = new ProjectEntry("document-type", TitleRule.Required);
-    public static readonly TitleField Classification = new ProjectEntry("classification", TitleRule.Optional);
-    public static readonly TitleField DocumentStatus = new SheetEntry("document-status", TitleRule.Optional);
-    public static readonly TitleField PaperSize = new SheetFact("paper-size", static sheet => sheet.Size.Key);
-    public static readonly TitleField ProjectName = new ProjectEntry("project-name", TitleRule.Optional);
-    public static readonly TitleField Client = new ProjectEntry("client", TitleRule.Optional);
-    public static readonly TitleField Checker = new SheetEntry("checker", TitleRule.Optional);
+public abstract partial record TitleEntry {
+    private TitleEntry(Option<TitleRule> rule) => Rule = rule;
 
-    public abstract string Key { get; init; }
-    private protected virtual Option<TitleRule> Entry => None;
+    public Option<TitleRule> Rule { get; }
 
-    public sealed record ProjectEntry(string Key, TitleRule Rule) : TitleField { private protected override Option<TitleRule> Entry => Rule; }
-    public sealed record SheetEntry(string Key, Option<TitleRule> Rule = default) : TitleField { private protected override Option<TitleRule> Entry => Rule; }
-    public sealed record SheetName(string Key) : TitleField;
-    public sealed record SheetFact(string Key, Func<Sheet, string> Read) : TitleField;
+    public sealed record ProjectEntry(TitleRule Check) : TitleEntry(Check);
+    public sealed record SheetEntry(Option<TitleRule> Check) : TitleEntry(Check);
+    public sealed record SheetName() : TitleEntry(None);
+    public sealed record SheetFact(Func<Sheet, string> Read) : TitleEntry(None);
+}
+
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[ValidationError<DraftingFault>]
+public sealed partial class TitleField {
+    public static readonly TitleField LegalOwner = new("legal-owner", new TitleEntry.ProjectEntry(TitleRule.Required));
+    public static readonly TitleField IdentificationNumber = new("identification-number", new TitleEntry.SheetName());
+    public static readonly TitleField RevisionIndex = new("revision-index", new TitleEntry.SheetEntry(TitleRule.Revision));
+    public static readonly TitleField DateOfIssue = new("date-of-issue", new TitleEntry.SheetEntry(TitleRule.IssueDate));
+    public static readonly TitleField SegmentNumber = new("segment-number", new TitleEntry.SheetEntry(None));
+    public static readonly TitleField SegmentCount = new("segment-count", new TitleEntry.SheetEntry(None));
+    public static readonly TitleField LanguageCode = new("language-code", new TitleEntry.ProjectEntry(TitleRule.Optional));
+    public static readonly TitleField Title = new("title", new TitleEntry.SheetEntry(TitleRule.Required));
+    public static readonly TitleField SupplementaryTitle = new("supplementary-title", new TitleEntry.SheetEntry(TitleRule.Optional));
+    public static readonly TitleField ResponsibleDepartment = new("responsible-department", new TitleEntry.ProjectEntry(TitleRule.Optional));
+    public static readonly TitleField TechnicalReference = new("technical-reference", new TitleEntry.ProjectEntry(TitleRule.Optional));
+    public static readonly TitleField ApprovalPerson = new("approval-person", new TitleEntry.SheetEntry(TitleRule.Required));
+    public static readonly TitleField Creator = new("creator", new TitleEntry.SheetEntry(TitleRule.Required));
+    public static readonly TitleField DocumentType = new("document-type", new TitleEntry.ProjectEntry(TitleRule.Required));
+    public static readonly TitleField Classification = new("classification", new TitleEntry.ProjectEntry(TitleRule.Optional));
+    public static readonly TitleField DocumentStatus = new("document-status", new TitleEntry.SheetEntry(TitleRule.Optional));
+    public static readonly TitleField PaperSize = new("paper-size", new TitleEntry.SheetFact(static sheet => sheet.Size.Key));
+    public static readonly TitleField ProjectName = new("project-name", new TitleEntry.ProjectEntry(TitleRule.Optional));
+    public static readonly TitleField Client = new("client", new TitleEntry.ProjectEntry(TitleRule.Optional));
+    public static readonly TitleField Checker = new("checker", new TitleEntry.SheetEntry(TitleRule.Optional));
+
+    public TitleEntry Entry { get; }
 
     public static Fin<Seq<(TitleField Field, Option<string> Text)>> Accept(DraftingConvention convention, HashMap<TitleField, string> entries) =>
         toSeq(entries.AsIterable())
-            .Choose(static entry => entry.Key.Entry.Map(rule => (Field: entry.Key, Rule: rule, Text: entry.Value.Trim())))
+            .Map(static entry => entry.Key.Entry.Rule.Map(rule => (Field: entry.Key, Rule: rule, Text: entry.Value.Trim())))
+            .Somes()
             .Traverse(entry => entry.Rule.Accept(entry.Field, convention.Revisions, Some(entry.Text).Filter(static text => text.Length > 0)).Map(text => (entry.Field, text))).As();
 }

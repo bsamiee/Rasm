@@ -9,12 +9,12 @@ namespace Rasm.Imaging.Pixels;
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class FrameQuad {
-    public (double X, double Y) TopLeft { get; }
-    public (double X, double Y) TopRight { get; }
-    public (double X, double Y) BottomRight { get; }
-    public (double X, double Y) BottomLeft { get; }
+    public Vector2 TopLeft { get; }
+    public Vector2 TopRight { get; }
+    public Vector2 BottomRight { get; }
+    public Vector2 BottomLeft { get; }
 
-    public bool Mirrored => Turn(BottomLeft, TopLeft, TopRight) < 0d;
+    public bool Mirrored => Turn(BottomLeft, TopLeft, TopRight) < 0f;
 
     public FrameQuad FlippedHorizontal => new(TopRight, TopLeft, BottomLeft, BottomRight);
     public FrameQuad FlippedVertical => new(BottomLeft, BottomRight, TopRight, TopLeft);
@@ -27,194 +27,176 @@ public sealed partial class FrameQuad {
         }
     }
 
-    public Func<(double X, double Y), Option<(double X, double Y)>> Mapping() {
+    public Func<Vector2, Option<Vector2>> Mapping() {
         Matrix<double> map = Homography;
         return point =>
-            from input in double.IsFinite(point.X) && double.IsFinite(point.Y) ? Some(point) : None
-            let denominator = (map[2, 0] * input.X) + (map[2, 1] * input.Y) + map[2, 2]
-            from w in denominator > 0d ? Some(denominator) : None
-            let x = ((map[0, 0] * input.X) + (map[0, 1] * input.Y) + map[0, 2]) / w
-            let y = ((map[1, 0] * input.X) + (map[1, 1] * input.Y) + map[1, 2]) / w
-            from result in double.IsFinite(x) && double.IsFinite(y) ? Some((x, y)) : None
-            select result;
+            from input in Vector2.AllWhereAllBitsSet(Vector2.IsFinite(point)) ? Some(point) : None
+            from w in ((map[2, 0] * input.X) + (map[2, 1] * input.Y) + map[2, 2]) is > 0d and var denominator ? Some(denominator) : None
+            let mapped = new Vector2((float)(((map[0, 0] * input.X) + (map[0, 1] * input.Y) + map[0, 2]) / w), (float)(((map[1, 0] * input.X) + (map[1, 1] * input.Y) + map[1, 2]) / w))
+            where Vector2.AllWhereAllBitsSet(Vector2.IsFinite(mapped))
+            select mapped;
     }
 
-    public static Fin<FrameQuad> Validated((double X, double Y) topLeft, (double X, double Y) topRight, (double X, double Y) bottomRight, (double X, double Y) bottomLeft) =>
+    public static Fin<FrameQuad> Validated(Vector2 topLeft, Vector2 topRight, Vector2 bottomRight, Vector2 bottomLeft) =>
         ImagingFault.Unless((Turn(bottomLeft, topLeft, topRight), Turn(topLeft, topRight, bottomRight), Turn(topRight, bottomRight, bottomLeft), Turn(bottomRight, bottomLeft, topLeft))
-            is ( > 0d, > 0d, > 0d, > 0d) or ( < 0d, < 0d, < 0d, < 0d), ImagingReason.Degenerate, (topLeft, topRight, bottomRight, bottomLeft)).Map(_ => new FrameQuad(topLeft, topRight, bottomRight, bottomLeft));
+            is ( > 0f, > 0f, > 0f, > 0f) or ( < 0f, < 0f, < 0f, < 0f), ImagingReason.Degenerate, (topLeft, topRight, bottomRight, bottomLeft)).Map(_ => new FrameQuad(topLeft, topRight, bottomRight, bottomLeft));
 
-    private static PointF Corner((double X, double Y) corner) => new((float)corner.X, (float)corner.Y);
+    private static PointF Corner(Vector2 corner) => new(corner.X, corner.Y);
 
-    private static double Turn((double X, double Y) previous, (double X, double Y) corner, (double X, double Y) next) =>
-        ((corner.X - previous.X) * (next.Y - corner.Y)) - ((corner.Y - previous.Y) * (next.X - corner.X));
+    private static float Turn(Vector2 previous, Vector2 corner, Vector2 next) => ((corner.X - previous.X) * (next.Y - corner.Y)) - ((corner.Y - previous.Y) * (next.X - corner.X));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Projection {
-    private Projection(PixelExtent extent) => Extent = extent;
+    private static readonly Vector2 Flip = new(1f, -1f);
+
+    private Projection(PixelExtent extent, bool upright, (WrapMode Across, WrapMode Down) wrap) => (Extent, Upright, Wrap) = (extent, upright, wrap);
+
+    private Projection(PixelExtent extent, bool upright = false) : this(extent, upright, (WrapMode.Black, WrapMode.Black)) { }
 
     public PixelExtent Extent { get; }
-    public virtual bool Upright => false;
-    public virtual (WrapMode Across, WrapMode Down) Wrap => (WrapMode.Black, WrapMode.Black);
+    public bool Upright { get; }
+    public (WrapMode Across, WrapMode Down) Wrap { get; }
 
-    public Option<Vector3> Ray((double X, double Y) point) => double.IsFinite(point.X) && double.IsFinite(point.Y) ? Direction(point) : None;
-    public Option<(double X, double Y)> Pixel(Vector3 ray) =>
-        float.IsFinite(ray.X) && float.IsFinite(ray.Y) && float.IsFinite(ray.Z) && ray != Vector3.Zero ? FramePoint(ray) : None;
+    public Option<(Vector3 Origin, Vector3 Direction)> Ray(Vector2 pixel) =>
+        Vector2.AllWhereAllBitsSet(Vector2.IsFinite(pixel)) && Direction(pixel) is { IsSome: true } direction ? (Origin(pixel), (Vector3)direction) : None;
 
-    private protected abstract Option<Vector3> Direction((double X, double Y) point);
-    private protected abstract Option<(double X, double Y)> FramePoint(Vector3 ray);
+    public Option<(Vector2 Point, float Depth)> Pixel(Vector3 view) =>
+        Vector3.AllWhereAllBitsSet(Vector3.IsFinite(view)) && view != Vector3.Zero && Located(view) is { IsSome: true } point ? ((Vector2)point, Depth(view)) : None;
 
-    public Option<(double X, double Y)> Reprojected(Projection target, Quaternion turn, (double X, double Y) point) =>
-        Ray(point).Bind(ray => target.Pixel(Vector3.Transform(ray, turn)));
+    public Option<Vector3> Point(Vector2 pixel, float depth) => Ray(pixel).Map(ray => ray.Origin + (ray.Direction * (depth / Depth(ray.Direction))));
 
-    private double Circle => (double)Extent.ShortSide / Extent.Width;
+    public Option<Vector2> Reprojected(Projection target, Quaternion turn, Vector2 pixel) =>
+        Vector2.AllWhereAllBitsSet(Vector2.IsFinite(pixel)) && Direction(pixel) is { IsSome: true } direction ? target.Located(Vector3.Transform((Vector3)direction, turn)) : None;
 
-    private (double X, double Y) Centered((double X, double Y) point) => ((point.X / Extent.Width) - 0.5d, ((Extent.Height / 2d) - point.Y) / Extent.Width);
-    private (double X, double Y) Uncentered((double X, double Y) centered) => ((centered.X + 0.5d) * Extent.Width, (Extent.Height / 2d) - (centered.Y * Extent.Width));
+    private protected abstract Option<Vector3> Direction(Vector2 pixel);
+    private protected abstract Option<Vector2> Located(Vector3 view);
+    private protected virtual Vector3 Origin(Vector2 pixel) => Vector3.Zero;
+    private protected virtual float Depth(Vector3 view) => view.Length();
 
-    private Option<Vector3> Radial((double X, double Y) point, double cut, double scale, Func<double, double, double> angle) =>
-        Centered(point) switch {
-            var centered => angle(double.Hypot(centered.X, centered.Y), scale) switch {
+    private Vector2 Centered(Vector2 pixel) => (pixel - Extent.Point(new Vector2(0.5f))) * Flip / Extent.Width;
+    private Vector2 Uncentered(Vector2 centered) => (centered * Flip * Extent.Width) + Extent.Point(new Vector2(0.5f));
+    private float Circle => (float)Extent.ShortSide / Extent.Width;
+
+    private Option<Vector3> Radial(Vector2 pixel, double cut, double scale, Func<double, double, double> angle) =>
+        Centered(pixel) switch {
+            var centered => angle(centered.Length(), scale) switch {
                 var theta when theta <= cut => (double.SinCos(double.Atan2(centered.Y, centered.X)), double.SinCos(theta)) switch {
                     var (azimuth, inclination) => Some(new Vector3((float)(azimuth.Cos * inclination.Sin), (float)(azimuth.Sin * inclination.Sin), (float)-inclination.Cos)),
                 },
                 _ => None,
             },
         };
-    private Option<(double X, double Y)> RadialPoint(Vector3 ray, double cut, double scale, Func<double, double, double> radius) =>
-        double.Atan2(double.Hypot(ray.X, ray.Y), -ray.Z) switch {
-            var theta when theta <= cut => (double.SinCos(double.Atan2(ray.Y, ray.X)), radius(theta, scale)) switch {
-                var (azimuth, reach) => Some(Uncentered((azimuth.Cos * reach, azimuth.Sin * reach))),
+
+    private Option<Vector2> RadialPoint(Vector3 view, double cut, double scale, Func<double, double, double> radius) =>
+        double.Atan2(double.Hypot(view.X, view.Y), -view.Z) switch {
+            var theta when theta <= cut => (double.SinCos(double.Atan2(view.Y, view.X)), radius(theta, scale)) switch {
+                var (azimuth, reach) => Some(Uncentered(new Vector2((float)(azimuth.Cos * reach), (float)(azimuth.Sin * reach)))),
             },
             _ => None,
         };
 
-    private static double SolidAngle(double radius, double reach) => 2d * double.Asin(radius / reach);
-    private static double SolidRadius(double angle, double reach) => reach * double.Sin(angle / 2d);
+    public sealed record Rectilinear(PixelExtent Extent, ViewWindow Window, Option<LensDistortion> Distortion = default) : Projection(Extent) {
+        public Option<float> Illumination(Vector2 pixel) => Ray(pixel).Map(static ray => float.Pow(ray.Direction.Z, 4f));
 
-    public sealed record Rectilinear(PixelExtent Extent, Frustum.Perspective Frustum) : Projection(Extent) {
-        private protected override Option<Vector3> Direction((double X, double Y) point) => Some(Frustum.Ray(point, Extent).Direction);
-        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) => Frustum.Locate(ray, Extent).Map(static located => located.Point);
+        private protected override Option<Vector3> Direction(Vector2 pixel) =>
+            Vector2.Transform(pixel, Window.ToWindow(Extent)) switch {
+                var plane => (Distortion.Case is LensDistortion lens ? lens.Ideal(plane * Flip).Map(static ideal => ideal * Flip) : plane).Map(static ideal => Vector3.Normalize(new Vector3(ideal, -1f))),
+            };
+
+        private protected override Option<Vector2> Located(Vector3 view) =>
+            -view.Z > 0f && new Vector2(view.X, view.Y) / -view.Z is var ideal
+                && (Distortion.Case is LensDistortion lens ? lens.Distorted(ideal * Flip).Map(static distorted => distorted * Flip) : ideal) is { IsSome: true } plane
+                ? Vector2.Transform((Vector2)plane, Window.FromWindow(Extent))
+                : None;
+
+        private protected override float Depth(Vector3 view) => -view.Z;
     }
 
-    public sealed record Equirectangular(PixelExtent Extent) : Projection(Extent) {
-        public override bool Upright => true;
-        public override (WrapMode Across, WrapMode Down) Wrap => (WrapMode.Periodic, WrapMode.Clamp);
+    public sealed record Orthographic(PixelExtent Extent, ViewWindow Window) : Projection(Extent) {
+        private protected override Option<Vector3> Direction(Vector2 pixel) => -Vector3.UnitZ;
+        private protected override Option<Vector2> Located(Vector3 view) => -view.Z > 0f ? Some(Vector2.Transform(new Vector2(view.X, view.Y), Window.FromWindow(Extent))) : None;
+        private protected override Vector3 Origin(Vector2 pixel) => new(Vector2.Transform(pixel, Window.ToWindow(Extent)), 0f);
+        private protected override float Depth(Vector3 view) => -view.Z;
+    }
 
-        private protected override Option<Vector3> Direction((double X, double Y) point) =>
-            (double.SinCos(((point.X % Extent.Width / Extent.Width) - 0.5d) * double.Tau), double.SinCos((0.5d - (point.Y % (2d * Extent.Height) / Extent.Height)) * double.Pi)) switch {
+    public sealed record Equirectangular(PixelExtent Extent) : Projection(Extent, upright: true, (WrapMode.Periodic, WrapMode.Clamp)) {
+        private protected override Option<Vector3> Direction(Vector2 pixel) =>
+            (double.SinCos(((pixel.X % Extent.Width / Extent.Width) - 0.5d) * double.Tau), double.SinCos((0.5d - (pixel.Y % (2d * Extent.Height) / Extent.Height)) * double.Pi)) switch {
                 var (longitude, latitude) => Some(new Vector3((float)(longitude.Sin * latitude.Cos), (float)latitude.Sin, (float)(-longitude.Cos * latitude.Cos))),
             };
 
-        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) =>
-            Some((
-                ((double.Atan2(ray.X, -ray.Z) / double.Tau) + 0.5d) * Extent.Width,
-                (0.5d - double.Atan2Pi(ray.Y, double.Hypot(ray.X, ray.Z))) * Extent.Height));
+        private protected override Option<Vector2> Located(Vector3 view) =>
+            Some(new Vector2((float)(((double.Atan2(view.X, -view.Z) / double.Tau) + 0.5d) * Extent.Width), (float)((0.5d - double.Atan2Pi(view.Y, double.Hypot(view.X, view.Z))) * Extent.Height)));
     }
 
-    public sealed record Cylindrical(PixelExtent Extent, ViewWindow Window) : Projection(Extent) {
-        public override bool Upright => true;
-
-        private protected override Option<Vector3> Direction((double X, double Y) point) =>
-            from window in Some(Window.WindowPoint(point.X, point.Y, Extent))
-            from longitude in double.IsFinite(window.X) ? Some(window.X) : None
-            select (double.SinCos(longitude), double.SinCos(double.Atan(window.Y))) switch {
-                var (across, latitude) => new Vector3((float)(across.Sin * latitude.Cos), (float)latitude.Sin, (float)(-across.Cos * latitude.Cos)),
+    public sealed record Cylindrical(PixelExtent Extent, ViewWindow Window) : Projection(Extent, upright: true) {
+        private protected override Option<Vector3> Direction(Vector2 pixel) =>
+            Vector2.Transform(pixel, Window.ToWindow(Extent)) switch {
+                var plane => (double.SinCos(plane.X), double.SinCos(double.Atan(plane.Y))) switch {
+                    var (across, latitude) => Some(new Vector3((float)(across.Sin * latitude.Cos), (float)latitude.Sin, (float)(-across.Cos * latitude.Cos))),
+                },
             };
 
-        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) =>
-            double.Hypot(ray.X, ray.Z) switch {
-                > 0d and var radius => Window.FramePoint((double.Atan2(ray.X, -ray.Z), ray.Y / radius), Extent),
+        private protected override Option<Vector2> Located(Vector3 view) =>
+            double.Hypot(view.X, view.Z) switch {
+                > 0d and var radius => Some(Vector2.Transform(new Vector2((float)double.Atan2(view.X, -view.Z), (float)(view.Y / radius)), Window.FromWindow(Extent))),
                 _ => None,
             };
     }
 
-    public sealed record Fisheye(PixelExtent Extent, Angle Sweep) : Projection(Extent) {
-        private readonly double sweep = Sweep.Radians.ToDouble();
-        private protected override Option<Vector3> Direction((double X, double Y) point) => Radial(point, sweep / 2d, sweep / Circle, static (radius, scale) => radius * scale);
-        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) => RadialPoint(ray, sweep / 2d, sweep / Circle, static (angle, scale) => angle / scale);
+    public sealed record Equidistant(PixelExtent Extent, Angle Sweep) : Projection(Extent) {
+        private protected override Option<Vector3> Direction(Vector2 pixel) => Radial(pixel, Sweep.Radians.ToDouble() / 2d, Sweep.Radians.ToDouble() / Circle, static (radius, scale) => radius * scale);
+        private protected override Option<Vector2> Located(Vector3 view) => RadialPoint(view, Sweep.Radians.ToDouble() / 2d, Sweep.Radians.ToDouble() / Circle, static (angle, scale) => angle / scale);
     }
 
-    public sealed record Equisolid(PixelExtent Extent, Angle Sweep, Angle FullTurn) : Projection(Extent) {
-        private readonly (double Cut, double Scale) reach = (Sweep.Radians.ToDouble() / 2d, FullTurn.Radians.ToDouble() / 2d);
-        private protected override Option<Vector3> Direction((double X, double Y) point) => Radial(point, reach.Cut, Circle * reach.Scale, SolidAngle);
-        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) => RadialPoint(ray, reach.Cut, Circle * reach.Scale, SolidRadius);
-    }
+    public sealed record Equisolid(PixelExtent Extent, Angle Sweep, double FocalRatio) : Projection(Extent) {
+        public static Equisolid MirrorBall(PixelExtent extent) => new(extent, Angle.FromRadians(double.Tau), (double)extent.ShortSide / extent.Width / 4d);
 
-    public sealed record MirrorBall(PixelExtent Extent) : Projection(Extent) {
-        private protected override Option<Vector3> Direction((double X, double Y) point) => Radial(point, double.Pi, Circle / 2d, SolidAngle);
-        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) => RadialPoint(ray, double.Pi, Circle / 2d, SolidRadius);
+        private protected override Option<Vector3> Direction(Vector2 pixel) => Radial(pixel, Sweep.Radians.ToDouble() / 2d, 2d * FocalRatio, static (radius, scale) => 2d * double.Asin(radius / scale));
+        private protected override Option<Vector2> Located(Vector3 view) => RadialPoint(view, Sweep.Radians.ToDouble() / 2d, 2d * FocalRatio, static (angle, scale) => scale * double.Sin(angle / 2d));
     }
 
     public sealed record Stereographic(PixelExtent Extent, Angle Sweep) : Projection(Extent) {
-        private readonly double quarter = Sweep.Radians.ToDouble() / 4d;
-
-        private protected override Option<Vector3> Direction((double X, double Y) point) =>
-            from centered in Some(Centered(point))
-            let inverse = 1d / (2d * double.Tan(quarter))
-            let magnitude = double.Max(inverse, double.Max(double.Abs(centered.X), double.Abs(centered.Y)))
-            let local = (X: centered.X / magnitude, Y: centered.Y / magnitude, Z: inverse / magnitude)
-            let planar = (local.X * local.X) + (local.Y * local.Y)
-            let axial = local.Z * local.Z
-            let denominator = planar + axial
-            select new Vector3((float)(2d * local.X * local.Z / denominator), (float)(2d * local.Y * local.Z / denominator), (float)((planar - axial) / denominator));
-
-        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) =>
-            from planar in Some(double.Hypot(ray.X, ray.Y))
-            where planar > 0d || ray.Z < 0f
-            let length = double.Hypot(planar, ray.Z)
-            let radius = ray.Z > 0f ? (length + ray.Z) / planar : planar / (length - ray.Z)
-            let reach = radius / (2d * double.Tan(quarter))
-            let azimuth = double.SinCos(double.Atan2(ray.Y, ray.X))
-            select Uncentered((azimuth.Cos * reach, azimuth.Sin * reach));
+        private protected override Option<Vector3> Direction(Vector2 pixel) => Radial(pixel, double.Pi, 2d * double.Tan(Sweep.Radians.ToDouble() / 4d), static (radius, scale) => 2d * double.Atan(radius * scale));
+        private protected override Option<Vector2> Located(Vector3 view) => RadialPoint(view, double.BitDecrement(double.Pi), 2d * double.Tan(Sweep.Radians.ToDouble() / 4d), static (angle, scale) => double.Tan(angle / 2d) / scale);
     }
 
-    public sealed record Panini(PixelExtent Extent, Angle Field, float Distance, float Compression) : Projection(Extent) {
-        public override bool Upright => true;
+    public sealed record Panini(PixelExtent Extent, Angle Field, float Distance, float Compression) : Projection(Extent, upright: true) {
+        private double Gain => double.SinCos(Field.Radians.ToDouble() / 2d) switch { var (sin, cos) => (Distance + cos) / (2d * sin) };
 
-        private readonly double half = Field.Radians.ToDouble() / 2d;
-
-        private protected override Option<Vector3> Direction((double X, double Y) point) =>
-            from centered in Some(Centered(point))
-            let distance = (double)Distance
-            let factor = 2d * double.Sin(half) / (distance + double.Cos(half))
-            from cos in distance is 0d
-                ? Some(1d / factor / double.Hypot(centered.X, 1d / factor))
-                : (from u in Some(double.Abs(centered.X * factor))
-                   let delta = double.FusedMultiplyAdd(-distance, u, 1d)
-                   where delta > 0d
-                   let t = distance * u
-                   let remainder = delta * (1d + t)
-                   select remainder / (double.Sqrt(remainder + (u * u)) + (u * t)))
-            let vertical = centered.Y * (cos / (((1d - Compression) * cos) + Compression))
-            let depth = distance is 0d ? -1d / factor : -cos / (factor * (distance + cos))
-            let scale = double.Max(double.Abs(centered.X), double.Max(double.Abs(vertical), double.Abs(depth)))
-            select Vector3.Normalize(new Vector3((float)(centered.X / scale), (float)(vertical / scale), (float)(depth / scale)));
-
-        private protected override Option<(double X, double Y)> FramePoint(Vector3 ray) =>
-            double.Hypot(ray.X, ray.Z) switch {
-                var radius when -ray.Z > 0f => (double.SinCos(half), -ray.Z / radius) switch {
-                    var (edge, cos) => ((Distance + edge.Cos) / (Distance + cos) / (2d * edge.Sin)) switch {
-                        var gain => Some(Uncentered((ray.X / radius * gain, ray.Y / radius * (1d - Compression + (Compression / cos)) * gain))),
+        private protected override Option<Vector3> Direction(Vector2 pixel) =>
+            Centered(pixel) switch {
+                var centered => (centered.X * Distance / double.Hypot(Gain, centered.X)) switch {
+                    var reach when double.Abs(reach) <= 1d => double.SinCos(double.Atan2(centered.X, Gain) + double.Asin(reach)) switch {
+                        var (sin, cos) when Covers(cos) => Some(Vector3.Normalize(new Vector3((float)sin, (float)(centered.Y * (Distance + cos) / (Gain * Vertical(cos))), (float)-cos))),
+                        _ => None,
                     },
+                    _ => None,
+                },
+            };
+
+        private protected override Option<Vector2> Located(Vector3 view) =>
+            double.Hypot(view.X, view.Z) switch {
+                > 0d and var radius when -view.Z / radius is var cos && Covers(cos) => (Gain / (Distance + cos)) switch {
+                    var gain => Some(Uncentered(new Vector2((float)(view.X / radius * gain), (float)(view.Y / radius * Vertical(cos) * gain)))),
                 },
                 _ => None,
             };
+
+        private bool Covers(double cos) => Distance + cos > 0d && (Compression is 0f || cos > 0d);
+
+        private double Vertical(double cos) => 1d - Compression + (Compression / cos);
     }
 }
 
 public sealed record PanoramaView(Angle Heading, Angle Elevation, Angle Roll) {
-    public Quaternion Rotation => Quaternion.CreateFromYawPitchRoll(-(float)Heading.Radians, (float)Elevation.Radians, (float)Roll.Radians);
+    public Quaternion Rotation => Quaternion.CreateFromYawPitchRoll(-(float)Heading.Radians.ToDouble(), (float)Elevation.Radians.ToDouble(), (float)Roll.Radians.ToDouble());
 
     public static Option<PanoramaView> Facing(Vector3 left, Vector3 right) =>
-        from input in Vector3.AllWhereAllBitsSet(Vector3.IsFinite(left) & Vector3.IsFinite(right)) ? Some((Left: left, Right: right)) : None
-        let normal = (X: ((double)input.Left.Y * input.Right.Z) - ((double)input.Left.Z * input.Right.Y),
-            Y: ((double)input.Left.Z * input.Right.X) - ((double)input.Left.X * input.Right.Z), Z: ((double)input.Left.X * input.Right.Y) - ((double)input.Left.Y * input.Right.X))
-        where normal != (0d, 0d, 0d)
-        let leftLength = double.Hypot(double.Hypot(input.Left.X, input.Left.Y), input.Left.Z)
-        let rightLength = double.Hypot(double.Hypot(input.Right.X, input.Right.Y), input.Right.Z)
-        let forward = (X: (input.Left.X / leftLength) + (input.Right.X / rightLength), Y: (input.Left.Y / leftLength) + (input.Right.Y / rightLength), Z: (input.Left.Z / leftLength) + (input.Right.Z / rightLength))
-        let across = (X: (normal.Y * forward.Z) - (normal.Z * forward.Y), Y: (normal.Z * forward.X) - (normal.X * forward.Z), Z: (normal.X * forward.Y) - (normal.Y * forward.X))
+        from normal in Vector3.AllWhereAllBitsSet(Vector3.IsFinite(left) & Vector3.IsFinite(right)) && Vector3.Cross(left, right) is var cross && cross != Vector3.Zero ? Some(cross) : None
+        let forward = Vector3.Normalize(left) + Vector3.Normalize(right)
+        let across = Vector3.Cross(normal, forward)
         let heading = double.Atan2(forward.X, -forward.Z)
         let elevation = double.Atan2(forward.Y, double.Hypot(forward.X, forward.Z))
         let yaw = double.SinCos(heading)

@@ -57,10 +57,6 @@ public sealed partial class HomogeneousGrid {
         SpatialFault.Unless(x.RowCount >= 2 && x.ColumnCount >= 2 && Seq(y, z, w).ForAll(component => component.RowCount == x.RowCount && component.ColumnCount == x.ColumnCount), SpatialRule.Shape, Seq(x, y, z, w).Map(static grid => (grid.RowCount, grid.ColumnCount)))
             .Map(_ => new HomogeneousGrid(x, y, z, w));
 
-    internal static HomogeneousGrid Paraboloid(double curvatureU, double curvatureV) =>
-        new(Matrix<double>.Build.DenseOfRowArrays([0d, 0d, 0d], [1d, 0d, 0d], [0d, 0d, 0d]), Matrix<double>.Build.DenseOfRowArrays([0d, 1d, 0d], [0d, 0d, 0d], [0d, 0d, 0d]),
-            Matrix<double>.Build.DenseOfRowArrays([0d, 0d, curvatureV], [0d, 0d, 0d], [curvatureU, 0d, 0d]), Matrix<double>.Build.DenseOfRowArrays([1d, 0d, 0d], [0d, 0d, 0d], [0d, 0d, 0d]));
-
     internal HomogeneousGrid Bernstein(ParameterSpan u, ParameterSpan v) =>
         (Rows: Basis(X.RowCount - 1, u), Columns: Basis(X.ColumnCount - 1, v)) switch { var basis => Seq(X, Y, Z, W).Map(component => basis.Rows * component.TransposeAndMultiply(basis.Columns)) switch { var net => new(net[0], net[1], net[2], net[3]) } };
 
@@ -77,7 +73,6 @@ public sealed record PolynomialPatch {
     public HomogeneousGrid Net { get; }
 
     public static PolynomialPatch Of(HomogeneousGrid power, ParameterSpan u, ParameterSpan v) => new(power, u, v);
-    public static PolynomialPatch Paraboloid(double curvatureU, double curvatureV, ParameterSpan u, ParameterSpan v) => new(HomogeneousGrid.Paraboloid(curvatureU, curvatureV), u, v);
 }
 
 [ComplexValueObject(SkipFactoryMethods = true)]
@@ -87,13 +82,22 @@ public sealed partial class BezierVolume {
     public int WDegree { get; }
     public Seq<Vector3D<double>> Controls { get; }
 
-    public Vector3D<double> At(Vector3D<double> uvw) =>
-        Controls.Zip(Seq(Bernstein(VDegree, uvw.Y), Bernstein(WDegree, uvw.Z)).Fold(Bernstein(UDegree, uvw.X), static (tensor, axis) => from weight in axis from held in tensor select weight * held))
-            .Fold(new Vector3D<double>(0d, 0d, 0d), static (sum, term) => sum + (term.Second * term.First));
+    public Vector3D<double> At(Vector3D<double> uvw) {
+        Vector3D<double> sum = new(0d, 0d, 0d);
+        for (int w = 0; w <= WDegree; w++) {
+            double across = Bernstein(WDegree, w, uvw.Z);
+            for (int v = 0; v <= VDegree; v++) {
+                double row = across * Bernstein(VDegree, v, uvw.Y);
+                for (int u = 0; u <= UDegree; u++)
+                    sum += Controls[(((w * (VDegree + 1)) + v) * (UDegree + 1)) + u] * (row * Bernstein(UDegree, u, uvw.X));
+            }
+        }
+        return sum;
+    }
 
     public static Fin<BezierVolume> Validated(int uDegree, int vDegree, int wDegree, Seq<Vector3D<double>> controls) =>
         (SpatialFault.Unless(uDegree >= 1 && vDegree >= 1 && wDegree >= 1, SpatialRule.Range, (uDegree, vDegree, wDegree)), SpatialFault.Unless(controls.Count == (uDegree + 1L) * (vDegree + 1L) * (wDegree + 1L), SpatialRule.Count, controls.Count))
             .Apply((_, _) => new BezierVolume(uDegree, vDegree, wDegree, controls)).As();
 
-    private static Seq<double> Bernstein(int degree, double at) => toSeq(Range(0, degree + 1)).Map(index => SpecialFunctions.Binomial(degree, index) * double.Pow(at, index) * double.Pow(1d - at, degree - index)).Strict();
+    private static double Bernstein(int degree, int index, double at) => SpecialFunctions.Binomial(degree, index) * double.Pow(at, index) * double.Pow(1d - at, degree - index);
 }

@@ -34,6 +34,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Embedded Resources">
-        <EmbeddedResource Include="Color/Tables/CIE_xyz_1931_2deg.csv;Quantization/BlueNoise.tif" WithCulture="false" />
+        <EmbeddedResource Include="Color/Tables/CIE_xyz_1931_2deg.csv;Quantization/BlueNoise.tif" />
     </ItemGroup>
 </Project>

@@ -1,103 +1,47 @@
 using System.Drawing;
-using Eto.Forms;
 using Rasm.Rhino.UI.Styling;
+using Rhino;
 using Rhino.PlugIns;
-using Riok.Mapperly.Abstractions;
+using Rhino.Runtime;
 
 namespace Rasm.Rhino.PlugIns.Licenses;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record LeaseState(
-    string LeaseId,
-    Option<string> ProductId,
-    Option<string> ProductTitle,
-    Option<string> ProductVersion,
-    Option<string> ProductEdition,
-    Option<string> GroupId,
-    Option<string> GroupName,
-    Option<string> UserId,
-    Option<string> UserName,
-    Instant IssuedAt,
-    Instant Expiration,
-    Option<Instant> RenewableUntil);
-
-public sealed record LicenseState(
-    Option<Guid> PluginId,
-    Guid ProductId,
-    LicenseBuildType BuildType,
-    Option<string> LicenseTitle,
-    Option<string> SerialNumber,
-    LicenseType LicenseType,
-    Option<LocalDateTime> ExpirationDate,
-    Option<LocalDateTime> CheckOutExpirationDate,
-    Option<string> RegisteredOwner,
-    Option<string> RegisteredOrganization,
-    Option<Instant> CloudZooLeaseExpiration);
-
 public sealed record LicenseDefinition(
     LicenseCapabilities Capabilities,
     Option<string> TextMask,
     Func<string, IO<LicenseData>> Validate,
-    Func<Option<LeaseState>, IO<Unit>> LeaseChanged);
+    Func<Option<LicenseLease>, IO<Unit>> LeaseChanged);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-internal static partial class LicenseMapper {
-    [MapperIgnoreSource(nameof(LicenseStatus.ProductIcon), Justification = "Icons.PlugInImage reads plug-in icon")]
-    [MapperIgnoreSource(nameof(LicenseStatus.CloudZooLeaseIsValid), Justification = "CloudZooLeaseExpiration presence marks valid lease")]
-    internal static partial LicenseState ToState(LicenseStatus status);
-
-    [MapperIgnoreSource(nameof(LicenseLease.LeaseId), Justification = "leaseId parameter supplies value")]
-    internal static partial LeaseState ToLease(LicenseLease lease, string leaseId, Instant issuedAt, Instant expiration);
-
-    [UserMapping]
-    private static Option<Instant> ToInstant(DateTime? value) => Optional(value).Map(DateTimeExtensions.ToInstant);
-}
-
 public static class Licensing {
     // --- [REQUEST]
-    public static IO<Unit> Request(IPlugInLifetime plugIn, LicenseDefinition license, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense) =>
-        Asked(plugIn, license, (validate, leaseChanged) => getLicense(license.Capabilities, license.TextMask.ValueUnsafe(), validate, leaseChanged));
-
-    public static IO<Unit> AskUser(
-        IPlugInLifetime plugIn, LicenseDefinition license, LicenseBuildType build, Option<Control> parent,
-        Func<LicenseBuildType, bool, string?, object?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> askUserForLicense) =>
-        Asked(plugIn, license, (validate, leaseChanged) => askUserForLicense(build, false, license.TextMask.ValueUnsafe(), parent.ValueUnsafe(), validate, leaseChanged));
-
-    private static IO<Unit> Asked(IPlugInLifetime plugIn, LicenseDefinition license, Func<ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> ask) =>
-        Icons.PlugInImage(plugIn).Bind(static glyph => glyph.Traverse(static art => IconSlot.Banner.Pixels.Bind(pixels => Icons.DrawingIcon(art, pixels))).As())
-            .Bind(icon => IO.lift(() => guard(ask(Validator(license.Validate, plugIn), LeaseHandler(license.LeaseChanged, icon, plugIn)), Errors.Cancelled).ToFin()));
-
-    // --- [RELEASE]
-    public static IO<Unit> Return(Func<bool> returnLicense) =>
-        IO.lift(() => RhinoFault.Unless(returnLicense()));
+    public static IO<Unit> Request(LicenseDefinition license, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense) =>
+        from glyph in Icons.PlugInImage()
+        from icon in glyph.Traverse(static art => IconSlot.Banner.Pixels.Bind(pixels => Icons.DrawingIcon(art, pixels))).As()
+        from granted in IO.lift(() => guard(getLicense(license.Capabilities, license.TextMask.ValueUnsafe(), Validator(license.Validate), LeaseHandler(license.LeaseChanged, icon)), Errors.Cancelled).ToFin())
+        select unit;
 
     // --- [STATUS]
-    public static IO<Seq<LicenseState>> GetLicenseStatus() =>
-        IO.lift(static () => Conversions.Rows(LicenseUtils.GetLicenseStatus()).Map(LicenseMapper.ToState).Strict());
-
-    public static IO<Option<LicenseState>> GetOneLicenseStatus(Guid productId) =>
-        IO.lift(() => Optional(LicenseUtils.GetOneLicenseStatus(productId)).Map(LicenseMapper.ToState));
+    public static HostEvent<Option<LicenseStatus>> Status(Guid productId) =>
+        Subscriptions.On<LicenseStateChangedEventArgs>(static h => RhinoApp.LicenseStateChanged += h, static h => RhinoApp.LicenseStateChanged -= h)
+            .Choose(_ => Some(Optional(LicenseUtils.GetOneLicenseStatus(productId))));
 
     // --- [CALLBACKS]
-    private static ValidateProductKeyDelegate Validator(Func<string, IO<LicenseData>> validate, IPlugInLifetime plugIn) =>
+    private static ValidateProductKeyDelegate Validator(Func<string, IO<LicenseData>> validate) =>
         (productKey, out licenseData) => {
-            (ValidateResult result, licenseData) = plugIn.Answer(
+            (ValidateResult result, licenseData) = Session.Run(
                 IO.pure(productKey).Bind(validate)
                     .Map(static data => (ValidateResult.Success, data))
                     .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure((ValidateResult.ErrorHideMessage, new LicenseData())))
-                    .Catch(static error => error.IsExpected, static error => IO.pure((ValidateResult.ErrorShowMessage, new LicenseData { ErrorMessage = ErrorOps.Messages(error) }))),
+                    .Catch(static error => error.IsExpected, static error => IO.pure((ValidateResult.ErrorShowMessage, new LicenseData { ErrorMessage = Session.Messages(error) }))),
                 (ValidateResult.ErrorShowMessage, new LicenseData()));
             return result;
         };
 
-    private static OnLeaseChangedDelegate LeaseHandler(Func<Option<LeaseState>, IO<Unit>> leaseChanged, Option<Icon> icon, IPlugInLifetime plugIn) =>
+    private static OnLeaseChangedDelegate LeaseHandler(Func<Option<LicenseLease>, IO<Unit>> leaseChanged, Option<Icon> icon) =>
         (args, out answer) => {
-            _ = plugIn.Run(
-                IO.pure(args).Bind(changed => leaseChanged(
-                    from lease in Some(changed.Lease)
-                    from leaseId in Conversions.Present(lease.LeaseId)
-                    select LicenseMapper.ToLease(lease, leaseId, lease.IssuedAt.ToInstant(), lease.Expiration.ToInstant()))));
+            _ = Session.Run(IO.lift(() => Some(args.Lease).Filter(static lease => !string.IsNullOrEmpty(lease.LeaseId))).Bind(leaseChanged));
             answer = icon.ValueUnsafe();
         };
 }

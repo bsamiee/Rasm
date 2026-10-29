@@ -1,83 +1,14 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
-using System.Runtime.Intrinsics;
-using CommunityToolkit.HighPerformance.Buffers;
-using Rasm.Imaging.Color;
-using Rasm.Imaging.Pixels;
 using TinyEXR;
 using UnitsNet;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Tone;
 
-// --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<string>]
-public sealed partial class DisplayDevice {
-    private static readonly Luminance Standard = Luminance.FromNits(DynamicRange.Standard.MaxLuminance);
-    private static readonly Luminance High = Luminance.FromNits(DynamicRange.High.MaxLuminance);
-
-    public static readonly DisplayDevice Srgb = new("srgb", new ColorEncoding(Gamut.StandardRgb, new Transfer.Srgb()), Standard, Gamut.StandardRgb);
-    public static readonly DisplayDevice DisplayP3 = new("display-p3", new ColorEncoding(Gamut.DisplayP3, new Transfer.Srgb()), Standard, Gamut.DisplayP3);
-    public static readonly DisplayDevice Rec1886 = new("rec1886", new ColorEncoding(Gamut.StandardRgb, Transfer.Gamma.Rec1886), Standard, Gamut.StandardRgb);
-    public static readonly DisplayDevice Rec2020 = new("rec2020", new ColorEncoding(Gamut.Rec2020, Transfer.Gamma.Rec1886), Standard, Gamut.DisplayP3);
-    public static readonly DisplayDevice Rec2100PqHdr = new("rec2100-pq-hdr", new ColorEncoding(Gamut.Rec2020, Transfer.Pq.High), High, Gamut.Rec2020);
-    public static readonly DisplayDevice Rec2100PqSdr = new("rec2100-pq-sdr", new ColorEncoding(Gamut.Rec2020, Transfer.Pq.High), Standard, Gamut.StandardRgb);
-    public static readonly DisplayDevice Rec2100HlgHdr = new("rec2100-hlg-hdr", new ColorEncoding(Gamut.Rec2020, Transfer.Hlg.High), High, Gamut.Rec2020);
-    public static readonly DisplayDevice Rec2100HlgSdr = new("rec2100-hlg-sdr", new ColorEncoding(Gamut.Rec2020, Transfer.Hlg.High), Standard, Gamut.StandardRgb);
-
-    public ColorEncoding Encoding { get; }
-    public Luminance Peak { get; }
-    public Gamut LimitingGamut { get; }
-
-    public Action<Span<Vector4>> Formed(Gamut working, Gamut scene, Seq<Action<Span<Vector4>>> steps, ColorEncoding signal) {
-        Action<Span<Vector4>>[] chain = [.. LutTables.Between(working, scene).Map<Action<Span<Vector4>>>(static step => step.Apply), .. steps, .. signal.To(Encoding)];
-        return row => {
-            foreach (Action<Span<Vector4>> step in chain)
-                step(row);
-        };
-    }
-}
-
-public sealed record CurveApplication(float PreserveHue, float Purity, Vector3 Inset, Vector3 Rotation) {
-    public static CurveApplication Default { get; } = new(1f, 0f, Vector3.Zero, Vector3.Zero);
-}
-
-public abstract class ToneCurve {
-    private interface IKernel { internal float At(float value); }
-
-    public abstract float At(float value);
-
-    internal abstract void Graded(Span<Vector4> row, float preserveHue);
-
-    private sealed class Shaped<TKernel>(TKernel kernel) : ToneCurve where TKernel : struct, IKernel {
-        public override float At(float value) => kernel.At(value);
-
-        internal override void Graded(Span<Vector4> row, float preserveHue) {
-            foreach (ref Vector4 pixel in row)
-                pixel = new Vector4(ToneCurves.PreserveHue(pixel.AsVector3(), new Vector3(kernel.At(pixel.X), kernel.At(pixel.Y), kernel.At(pixel.Z)), preserveHue), pixel.W);
-        }
-    }
-
-    private readonly struct Sigmoidal(float white, float paper, float fog, float contrast, float skew) : IKernel {
-        float IKernel.At(float value) => white * float.Pow(1f + (paper * float.Pow(fog + float.MaxNumber(value, 0f), -contrast)), -skew);
-    }
-
-    private readonly struct Segmented(float scale, float toeEnd, float toeValue, float toePower, float intercept, float gamma, float shoulderStart, float shoulderValue, float shoulderSlope, float shoulderEnd, float top) : IKernel {
-        float IKernel.At(float value) =>
-            scale * (float.MaxNumber(value, 0f) switch {
-                var x when x < toeEnd => toeValue * float.Pow(x / toeEnd, toePower),
-                var x when x < shoulderStart => float.Pow(x + intercept, gamma),
-                var x when x < shoulderEnd => top - ((top - shoulderValue) * float.Pow((shoulderEnd - x) / (shoulderEnd - shoulderStart), shoulderSlope)),
-                _ => top,
-            });
-    }
-
-    private readonly struct Logarithm(float white, float normalizer, float inverseWhite, float power) : IKernel {
-        float IKernel.At(float value) => float.MaxNumber(value, 0f) switch { var x => white * float.LogP1(x) / (normalizer * float.Log(2f + (8f * float.Pow(x * inverseWhite, power)))) };
-    }
-
-    public static ToneCurve Sigmoid(float contrast, float skew, float black, Luminance peak) {
-        const double gray = Exposure.MiddleGray;
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class ToneCurve {
+    public static Func<float, float> Sigmoid(float contrast, float skew, float black, Luminance peak) {
+        const double gray = Metering.MiddleGray;
         double ceiling = peak.Nits.ToDouble() / DynamicRange.Standard.WhiteLuminance;
         double bend = double.Pow(5d, -skew);
         double power = contrast * (1d - gray) / (bend * (1d - double.Pow(gray / ceiling, 1d / bend)));
@@ -85,69 +16,52 @@ public abstract class ToneCurve {
         double floor = double.Pow(black, 1d / bend);
         double lifted = double.Pow(towardGray * floor, 1d / power);
         double fog = gray * lifted / (double.Pow(1d - floor, 1d / power) - lifted);
-        return new Shaped<Sigmoidal>(new((float)ceiling, (float)(double.Pow(fog + gray, power) * towardGray), (float)fog, (float)power, (float)bend));
+        (float white, float paper, float offset, float exponent, float skewed) = ((float)ceiling, (float)(double.Pow(fog + gray, power) * towardGray), (float)fog, (float)power, (float)bend);
+        return value => white * float.Pow(1f + (paper * float.Pow(offset + float.MaxNumber(value, 0f), -exponent)), -skewed);
     }
 
-    public static ToneCurve Piecewise(float toeStrength, float toeLength, float shoulderAngle, float gamma, float shoulderStrength, float shoulderLength) {
+    public static Func<float, float> Piecewise(float toeStrength, float toeLength, float shoulderAngle, float gamma, float shoulderStrength, float shoulderLength) {
         double toeX = 0.5d * double.Pow(toeLength, 2.2d);
         double toeY = (1d - toeStrength) * toeX;
         double shoulderX = toeX + ((1d - shoulderLength) * (1d - toeY));
         double white = toeX + (1d - toeY) + double.Exp2(shoulderStrength) - 1d;
-        double end = white * (1d + (2d * shoulderAngle * shoulderStrength));
-        double ceiling = double.Pow(1d + (0.5d * shoulderAngle * shoulderStrength), gamma);
-        (double toe, double shoulder) = (double.Max(1e-5d, double.Pow(toeY, gamma)), double.Max(1e-5d, double.Pow(toeY + shoulderX - toeX, gamma)));
-        double shoulderPower = gamma * double.Pow(shoulder, 1d - (1d / gamma)) * (end - shoulderX) / (ceiling - shoulder);
-        double scale = 1d / (ceiling - ((ceiling - shoulder) * double.Pow((end - white) / (end - shoulderX), shoulderPower)));
-        return new Shaped<Segmented>(new(
-            (float)scale, (float)toeX, (float)toe, (float)(gamma * toeX * double.Pow(toe, -1d / gamma)), (float)(toeY - toeX), gamma,
-            (float)shoulderX, (float)shoulder, (float)shoulderPower, (float)end, (float)ceiling));
+        double overshoot = shoulderAngle * shoulderStrength;
+        return Segmented((toeX, toeY), (shoulderX, toeY + shoulderX - toeX), white * (1d + (2d * overshoot)), 1d + (0.5d * overshoot), gamma, white);
     }
 
-    public static ToneCurve Logarithmic(float bias, float white, Luminance peak) =>
-        new Shaped<Logarithm>(new((float)(peak.Nits.ToDouble() / DynamicRange.Standard.WhiteLuminance), float.Log10P1(white), 1f / white, (float)(double.Log(bias) / double.Log(0.5d))));
-}
+    public static Func<float, float> Drago(float bias, float white, Luminance peak) {
+        (float scale, float normalizer, float inverseWhite, float power) = (
+            (float)(peak.Nits.ToDouble() / DynamicRange.Standard.WhiteLuminance), float.Log10P1(white), 1f / white, (float)(double.Log(bias) / double.Log(0.5d)));
+        return value => float.MaxNumber(value, 0f) switch { var x => scale * float.LogP1(x) / (normalizer * float.Log(2f + (8f * float.Pow(x * inverseWhite, power)))) };
+    }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class ToneCurves {
-    private static readonly Action<Span<Vector4>> Desaturated = static row => {
-        foreach (ref Vector4 pixel in row) {
-            double average = double.Max(((double)pixel.X + pixel.Y + pixel.Z) / 3d, 0d);
-            double least = float.Min(pixel.X, float.Min(pixel.Y, pixel.Z));
-            double amount = least < 0d ? -least / (average - least) : 0d;
-            pixel = new Vector4((float)double.Lerp(pixel.X, average, amount), (float)double.Lerp(pixel.Y, average, amount), (float)double.Lerp(pixel.Z, average, amount), pixel.W);
-        }
-    };
+    public static Func<float, float> Operator(ToneMapOperator operation, ToneMapParameters parameters) =>
+        value => {
+            float mapped = value;
+            ImageProcessing.ToneMap(new ReadOnlySpan<float>(in value), new Span<float>(ref mapped), 1, operation, parameters);
+            return mapped;
+        };
 
-    private static readonly Action<Span<Vector4>> Neutral = static row => {
-        const float fresnel = 0.04f;
-        const float specular = 0.8f - fresnel;
-        const float desaturation = 0.15f;
-        foreach (ref Vector4 pixel in row) {
-            float least = float.Min(pixel.X, float.Min(pixel.Y, pixel.Z));
-            Vector3 shifted = pixel.AsVector3() - new Vector3(least < 2f * fresnel ? least - (least * least / (4f * fresnel)) : fresnel);
-            float peak = float.Max(shifted.X, float.Max(shifted.Y, shifted.Z));
-            float compressed = 1f - ((1f - specular) * (1f - specular) / (peak + (1f - specular) - specular));
-            pixel = peak < specular
-                ? new Vector4(shifted, pixel.W)
-                : new Vector4(Vector3.Lerp(shifted * (compressed / peak), new Vector3(compressed), 1f - (1f / ((desaturation * (peak - compressed)) + 1f))), pixel.W);
-        }
-    };
+    public static Action<Span<Vector4>> Graded(Func<Vector3, Vector3> curve, float preserveHue = 0f) =>
+        row => {
+            foreach (ref Vector4 pixel in row)
+                pixel = new Vector4(preserveHue is 0f ? curve(pixel.AsVector3()) : PreserveHue(pixel.AsVector3(), curve(pixel.AsVector3()), preserveHue), pixel.W);
+        };
 
     public static Vector3 PreserveHue(Vector3 input, Vector3 mapped, float preserve) {
         (int min, int mid, int max) = input.X >= input.Y
             ? input.Y > input.Z ? (2, 1, 0) : input.Z > input.X ? (1, 0, 2) : input.Z > input.Y ? (1, 2, 0) : (2, 1, 0)
             : input.X >= input.Z ? (2, 0, 1) : input.Z > input.Y ? (0, 1, 2) : (0, 2, 1);
-        float hue = preserve;
         float chroma = input[max] - input[min];
         float midscale = chroma is not 0f ? (input[mid] - input[min]) / chroma : 0f;
-        float naive = ((1f - hue) * mapped[mid]) + (hue * (mapped[min] + ((mapped[max] - mapped[min]) * midscale)));
+        float naive = ((1f - preserve) * mapped[mid]) + (preserve * (mapped[min] + ((mapped[max] - mapped[min]) * midscale)));
         float blend = input[min] + input[mid] is not 0f ? 2f * input[min] / (input[min] + input[mid]) : 0f;
         float target = (blend * (mapped.X + mapped.Y + mapped.Z)) + ((1f - blend) * (mapped[min] + naive + mapped[max]));
         (float low, float middle, float high) = naive <= mapped[mid]
-            ? ((((1f - hue) * mapped[mid]) + (hue * ((midscale * mapped[max]) + ((1f - midscale) * (target - mapped[max]))))) / (1f + (hue * (1f - midscale)))) switch {
+            ? ((((1f - preserve) * mapped[mid]) + (preserve * ((midscale * mapped[max]) + ((1f - midscale) * (target - mapped[max]))))) / (1f + (preserve * (1f - midscale)))) switch {
                 var corrected => (target - mapped[max] - corrected, corrected, mapped[max]),
             }
-            : ((((1f - hue) * mapped[mid]) + (hue * ((mapped[min] * (1f - midscale)) + (midscale * (target - mapped[min]))))) / (1f + (hue * midscale))) switch {
+            : ((((1f - preserve) * mapped[mid]) + (preserve * ((mapped[min] * (1f - midscale)) + (midscale * (target - mapped[min]))))) / (1f + (preserve * midscale))) switch {
                 var corrected => (mapped[min], corrected, target - mapped[min] - corrected),
             };
         return new(Placed(0), Placed(1), Placed(2));
@@ -155,81 +69,17 @@ public static class ToneCurves {
         float Placed(int channel) => channel == min ? low : channel == mid ? middle : high;
     }
 
-    public static Action<Span<Vector4>> Curved(Gamut working, DisplayDevice device, Gamut basis, Action<Span<Vector4>> curve) =>
-        device.Formed(working, basis, [Desaturated, curve], new ColorEncoding(basis, new Transfer.Linear()));
-
-    public static Action<Span<Vector4>> Applied(Gamut working, DisplayDevice device, Gamut basis, CurveApplication application, ToneCurve curve) =>
-        device.Formed(working, basis, [
-            Desaturated,
-            new LutTable.Affine(Gamut.Between(Adjusted(basis, application, 1f), basis.Configuration)).Apply,
-            row => curve.Graded(row, application.PreserveHue),
-            new LutTable.Affine(Gamut.Between(basis.Configuration, Adjusted(basis, application, application.Purity))).Apply,
-        ], new ColorEncoding(basis, new Transfer.Linear()));
-
-    public static Action<Span<Vector4>> Mapped(Gamut working, DisplayDevice device, ToneMapOperator operation, ToneMapParameters parameters) =>
-        Curved(working, device, working, row => {
-            Span<float> components = MemoryMarshal.Cast<Vector4, float>(row);
-            ImageProcessing.ToneMap(components, components, 4, operation, parameters);
-        });
-
-    public static Action<Span<Vector4>> PbrNeutral(Gamut working, DisplayDevice device) => Curved(working, device, Gamut.StandardRgb, Neutral);
-
-    public static Fin<Action<Span<Vector4>>> Photoreceptor(Gamut working, DisplayDevice device, PixelFrame frame, float intensity, Option<float> contrast, float light, float chromatic) =>
-        LuminanceSamples.Gather(frame, working).Map(samples => Curved(working, device, working, Adapted(frame, working.Luminance, samples.LogStatistics, intensity, contrast, light, chromatic)));
-
-    private static Action<Span<Vector4>> Adapted(
-        PixelFrame frame, Vector256<double> weights, (double Mean, double Maximum, double Minimum) logs, float intensity, Option<float> contrast, float light, float chromatic) {
-        (double red, double green, double blue, long count) = (0d, 0d, 0d, 0L);
-        using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(frame.Size.Width);
-        for (int y = 0; y < frame.Size.Height; y++) {
-            ReadOnlySpan<Vector4> row = frame.View.Span.GetRowSpan(y);
-            row.CopyTo(scratch.Span);
-            Desaturated(scratch.Span);
-            for (int x = 0; x < row.Length; x++)
-                (red, green, blue, count) = row[x].W > 0f && double.IsFinite(Vector256.Dot(weights, row[x].Wide))
-                    ? (red + scratch.Span[x].X, green + scratch.Span[x].Y, blue + scratch.Span[x].Z, count + 1L) : (red, green, blue, count);
-        }
-        (double r, double g, double b) = (red / count, green / count, blue / count);
-        double mean = Vector256.Dot(weights, Vector256.Create(r, g, b, 0d));
-        double scale = double.Exp(-intensity);
-        double power = contrast.Match(
-            Some: static manual => (double)manual,
-            None: () => logs.Maximum == logs.Minimum ? 1d : 0.3d + (0.7d * double.Pow((logs.Maximum - logs.Mean) / (logs.Maximum - logs.Minimum), 1.4d)));
-        (double globalR, double globalG, double globalB) = (double.Lerp(mean, r, chromatic), double.Lerp(mean, g, chromatic), double.Lerp(mean, b, chromatic));
-        return row => {
-            foreach (ref Vector4 pixel in row) {
-                double luminance = Vector256.Dot(weights, pixel.Wide);
-                pixel = new Vector4(Mapped(pixel.X, globalR, luminance), Mapped(pixel.Y, globalG, luminance), Mapped(pixel.Z, globalB, luminance), pixel.W);
-            }
-        };
-
-        float Mapped(double channel, double average, double luminance) =>
-            (channel + double.Pow(scale * double.Lerp(average, double.Lerp(luminance, channel, chromatic), light), power)) switch {
-                0d => 0f,
-                var total => (float)(channel / total),
-            };
+    internal static Func<float, float> Segmented((double X, double Y) toe, (double X, double Y) shoulder, double end, double top, double gamma, double white) {
+        double slope = (shoulder.Y - toe.Y) / (shoulder.X - toe.X);
+        double ceiling = double.Pow(top, gamma);
+        (double toeValue, double shoulderValue) = (double.Pow(toe.Y, gamma), double.Pow(shoulder.Y, gamma));
+        (double toePower, double shoulderPower) = (gamma * slope * toe.X / toe.Y, gamma * slope * double.Pow(shoulder.Y, gamma - 1d) * (end - shoulder.X) / (ceiling - shoulderValue));
+        double Raw(double x) =>
+            x < toe.X ? toeValue * double.Pow(x / toe.X, toePower)
+            : x < shoulder.X ? double.Pow(toe.Y + (slope * (x - toe.X)), gamma)
+            : x < end ? ceiling - ((ceiling - shoulderValue) * double.Pow((end - x) / (end - shoulder.X), shoulderPower))
+            : ceiling;
+        double scale = 1d / Raw(white);
+        return value => (float)(scale * Raw(float.MaxNumber(value, 0f)));
     }
-
-    private static Configuration Adjusted(Gamut basis, CurveApplication application, float share) =>
-        basis.Configuration.Rgb switch {
-            var rgb => new(new RgbConfiguration(
-                Moved(rgb, rgb.ChromaticityR, 1d - (share * application.Inset.X), application.Rotation.X),
-                Moved(rgb, rgb.ChromaticityG, 1d - (share * application.Inset.Y), application.Rotation.Y),
-                Moved(rgb, rgb.ChromaticityB, 1d - (share * application.Inset.Z), application.Rotation.Z),
-                rgb.WhitePoint, static linear => linear, static linear => linear)),
-        };
-
-    private static Chromaticity Moved(RgbConfiguration rgb, Chromaticity primary, double scale, double rotation) {
-        Chromaticity white = rgb.WhitePoint.Chromaticity;
-        (double sin, double cos) = double.SinCos(Angle(rgb, primary) + rotation);
-        double edge = Seq((From: rgb.ChromaticityR, To: rgb.ChromaticityG), (From: rgb.ChromaticityG, To: rgb.ChromaticityB), (From: rgb.ChromaticityB, To: rgb.ChromaticityR))
-            .Map(side => (((white.X - side.From.X) * (side.From.Y - side.To.Y)) - ((side.From.X - side.To.X) * (white.Y - side.From.Y)))
-                / ((sin * (side.From.X - side.To.X)) - (cos * (side.From.Y - side.To.Y))))
-            .Filter(static reach => reach >= 0d)
-            .Fold(double.PositiveInfinity, double.Min);
-        return new(white.X + (scale * edge * cos), white.Y + (scale * edge * sin));
-    }
-
-    private static double Angle(RgbConfiguration rgb, Chromaticity primary) =>
-        double.Atan2(primary.Y - rgb.WhitePoint.Chromaticity.Y, primary.X - rgb.WhitePoint.Chromaticity.X);
 }

@@ -1,5 +1,4 @@
 using Rasm.Rhino.Blocks;
-using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 
@@ -14,29 +13,29 @@ public sealed record DocumentStatistics(
     HashMap<Option<Guid>, int> MaterialUsage,
     HashMap<ObjectMaterialSource, int> MaterialSources,
     ulong MemoryEstimate,
-    LayerTree LayerTree,
+    HashMap<Guid, int> LayerDepths,
     DefinitionGraph DefinitionGraph,
     Option<long> FileLength) {
     // --- [MEASURES]
     public int ObjectCount => Kinds.Values.Fold(0, static (sum, count) => sum + count);
 
-    public int LayerLevelCount => LayerTree.Depths.Values.Fold(0, static (levels, depth) => int.Max(levels, depth + 1));
+    public int LayerLevelCount => LayerDepths.Values.Fold(0, static (levels, depth) => int.Max(levels, depth + 1));
 
     public int PlacementCount => DefinitionGraph.Placements.Values.Fold(0, static (sum, placed) => sum + placed.Count);
 
     // --- [READS]
     public static IO<DocumentStatistics> Read(RhinoDoc doc) =>
-        (new ObjectTarget.Lookup(static table => table.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true, IdefObjects = true, ReferenceObjects = true, IncludeLights = true }))
-             .Objects(doc)
-             .Map(objects => objects.Map(found => (
+        (IO.lift(() => Conversions.Rows(doc.Objects.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true, IdefObjects = true, ReferenceObjects = true, IncludeLights = true }))
+             .Map(found => (
                  Kind: found.ObjectType, found.Attributes.Space, found.Attributes.Mode,
                  Layer: doc.Layers[found.Attributes.LayerIndex].Id,
-                 Material: Optional(found.GetRenderMaterial(frontMaterial: true)?.Id),
+                 Material: Optional(found.GetMaterial(frontMaterial: true)).Bind(static material => Conversions.Present(material.RenderMaterialInstanceId)),
                  found.Attributes.MaterialSource, Memory: found.MemoryEstimate())).Strict()),
-         Layers.Read(doc, Seq<Guid>()),
+         IO.lift(() => toHashMap(Conversions.Rows(doc.Layers).Filter(static layer => !layer.IsDeleted)
+             .Map(static layer => (layer.Id, Depth: layer.FullPath.Split(ModelComponent.NamePathSeparator).Length - 1)))),
          DefinitionGraph.Read(doc),
          IO.lift(() => Conversions.Present(doc.Path).Map(static path => new FileInfo(path)).Filter(static file => file.Exists).Map(static file => file.Length)))
-        .Apply(static (rows, tree, graph, length) => new DocumentStatistics(
+        .Apply(static (rows, depths, graph, length) => new DocumentStatistics(
             Counted(rows, static row => row.Kind),
             Counted(rows, static row => row.Space),
             Counted(rows, static row => row.Mode),
@@ -44,7 +43,7 @@ public sealed record DocumentStatistics(
             Counted(rows, static row => row.Material),
             Counted(rows, static row => row.MaterialSource),
             rows.Fold(0UL, static (sum, row) => sum + row.Memory),
-            tree,
+            depths,
             graph,
             length))
         .As();

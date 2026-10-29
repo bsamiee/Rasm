@@ -37,7 +37,7 @@ utils:
             - has: {field: name, regex: '^Of$'}
             - has: {kind: modifier, regex: '^static$'}
             - has: {field: returns, kind: identifier, pattern: $SELF}
-            - has: {field: body, kind: arrow_expression_clause, has: {kind: object_creation_expression, has: {field: type, pattern: $SELF}}}
+            - has: {field: body, kind: arrow_expression_clause, has: {kind: 'object_creation_expression, implicit_object_creation_expression'}}
             - inside: {stopBy: end, kind: record_declaration, has: {field: name, pattern: $SELF}}
     guarded-value:
         any:

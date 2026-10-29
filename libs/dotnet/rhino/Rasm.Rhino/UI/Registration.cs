@@ -1,14 +1,8 @@
 using System.Collections.Generic;
-using Rasm.Rhino.Commands;
-using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.Render.Views;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rhino;
-using Rhino.Commands;
-using Rhino.PlugIns;
 using Rhino.Render;
 using Rhino.UI;
 using Rhino.UI.Controls;
@@ -16,97 +10,62 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class ViewRegistration {
+internal static class ViewRegistration {
     // --- [FOLDS]
-    private static IO<Unit> Each<TCase>(IPlugInViews plugIn, Func<TCase, IO<Unit>> register) where TCase : View =>
-        IO.lift(() => plugIn.Views.Listed<TCase>()).Bind(rows => Callbacks.Each(rows.Map(register))).Map(unit);
+    private static IO<Unit> Each<TCase>(Func<TCase, IO<Unit>> register) where TCase : View =>
+        IO.lift(static () => ViewCatalog.Current.Listed<TCase>()).Bind(rows => Products.Each(rows.Map(register))).Map(unit);
 
     private static IO<Unit> Hosted(View view, Action register) =>
-        IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? new RhinoFault(view.Caption, RhinoReason.Unheld, Inner: error) : error);
+        IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? new RhinoFault(view.Caption, RhinoReason.Unsupported, Inner: error) : error);
+
+    private static string Caption(View view) => LocalText.Of(view.Caption).Local;
 
     // --- [PANELS]
-    public static readonly Func<IPlugInViews, IO<Unit>> RegisterPanels =
-        static plugIn => Each<View.Panel>(plugIn, row => (Caption: RowText.Localize(row.Caption, plugIn).Local, Kind: row.Kind.IfNone(PanelType.PerDoc)) switch {
-            var face => Hosted(row, () => Panels.RegisterPanel(
-                plugIn.PlugIn, row.Identity, face.Caption, row.Icon.Map(static icon => icon.Assembly).ValueUnsafe(), row.Icon.Map(static icon => icon.Id).ValueUnsafe(), face.Kind)),
-        });
+    public static IO<Unit> RegisterPanels() =>
+        Each<View.Panel>(static row => Hosted(row, () => Panels.RegisterPanel(
+            Session.PlugIn, row.Identity, Caption(row), row.Icon.Map(static icon => icon.Assembly).ValueUnsafe(), row.Icon.Map(static icon => icon.Id).ValueUnsafe(), row.Kind.IfNone(PanelType.PerDoc))));
 
     // --- [PAGES]
-    public static IO<Unit> OptionsDialogPages(IPlugInViews plugIn, ICollection<OptionsDialogPage> pages) =>
-        Each<View.OptionsPage>(plugIn, row => Tree(plugIn, row, static held => held.SubPages, static held => held.Create, None).Bind(page => IO.lift(() => page.Iter(pages.Add))));
+    public static IO<Unit> OptionsDialogPages(ICollection<OptionsDialogPage> pages) => Pages(PageDialog.Options, None, pages);
 
-    public static IO<Unit> DocumentPropertiesDialogPages(IPlugInViews plugIn, RhinoDoc document, ICollection<OptionsDialogPage> pages) =>
-        Each<View.DocumentPage>(plugIn, row => Tree(plugIn, row, static held => held.SubPages, static held => held.Create, Some(document)).Bind(page => IO.lift(() => page.Iter(pages.Add))));
+    public static IO<Unit> DocumentPropertiesDialogPages(RhinoDoc doc, ICollection<OptionsDialogPage> pages) => Pages(PageDialog.DocumentProperties, Some(doc), pages);
 
-    public static IO<Option<OptionsDialogPage>> RenderOptionsDialogPage(IPlugInViews plugIn, View.DocumentPage row, RhinoDoc document) =>
-        Tree(plugIn, row, static held => held.SubPages, static held => held.Create, Some(document));
+    public static IO<Option<OptionsDialogPage>> RenderOptionsDialogPage(View.Page row, RhinoDoc doc) => Tree(row, Some(doc));
 
-    public static IO<Unit> ObjectPropertiesPages(IPlugInViews plugIn, ObjectPropertiesPageCollection collection) =>
-        Each<View.PropertiesPage>(plugIn, row => IO.lift(() => row.Create(plugIn)).Bind(page => IO.lift(() => collection.Add(page))));
+    public static IO<Unit> ObjectPropertiesPages(ObjectPropertiesPageCollection collection) =>
+        Each<View.PropertiesPage>(row => IO.lift(() => collection.Add(new DefinedPropertiesPage(row))));
 
-    private static IO<Option<OptionsDialogPage>> Tree<TCase>(
-        IPlugInViews plugIn, TCase row, Func<TCase, Seq<TCase>> subPages, Func<TCase, Func<IPlugInViews, DefinedOptionsPage>> create, Option<RhinoDoc> document) where TCase : View =>
-        from scope in RowScope.Open(plugIn, document, new CommitMode.Immediate())
+    private static IO<Unit> Pages(PageDialog dialog, Option<RhinoDoc> document, ICollection<OptionsDialogPage> pages) =>
+        Each<View.Page>(row => when(row.Kind == dialog, Tree(row, document).Bind(page => IO.lift(() => page.Iter(pages.Add)))).As());
+
+    private static IO<Option<OptionsDialogPage>> Tree(View.Page row, Option<RhinoDoc> document) =>
+        from scope in RowScope.Open(document, new CommitMode.Immediate())
         from shown in CommandRows.Holds(row.Visible, scope)
         from page in shown
-            ? from built in IO.lift(() => create(row)(plugIn))
-              from _ in document.TraverseM(built.ForDocument).As()
-              from children in subPages(row).TraverseM(sub => Tree(plugIn, sub, subPages, create, document)).As()
-              from __ in IO.lift(() => built.Children.AddRange(children.Somes()))
+            ? from built in IO.lift(() => new DefinedOptionsPage(row, document))
+              from children in row.SubPages.TraverseM(sub => Tree(sub, document)).As()
+              from added in IO.lift(() => built.Children.AddRange(children.Somes()))
               select Some<OptionsDialogPage>(built)
             : IO.pure(Option<OptionsDialogPage>.None)
         select page;
 
+    // --- [SECTIONS]
+    public static IO<Unit> CustomSections(Seq<View.Section> rows, ICollection<ICollapsibleSection> sections) =>
+        IO.lift(() => rows.Iter(row => sections.Add(new DefinedSection(row, row.Identity.GUID, expanded: true, section =>
+            from document in SectionModels.Read(section, Provider.RhinoSettings, static settings => IO.lift(() => Conversions.Required(Optional(settings.ActiveView()).Map(static view => view.Document))))
+            from scope in RowScope.Open(Some(document), new CommitMode.Immediate())
+            from body in ViewBody.Realize(row, row.Actions, scope)
+            select body))));
+
     // --- [RENDER_WINDOW]
-    public static IO<Unit> RegisterRenderTabs<TPlugIn>(TPlugIn plugIn, RenderTabs tabs) where TPlugIn : PlugIn, IPlugInViews =>
-        Each<View.Tab>(plugIn, row =>
+    public static IO<Unit> RegisterRenderTabs(RenderTabs tabs) =>
+        Each<View.Tab>(row =>
             from pixels in IconSlot.RenderTab.Pixels
             from icon in row.Icon.TraverseM(art => Icons.DrawingIcon(art, pixels)).As()
-            from registered in Hosted(row, () => tabs.RegisterTab(
-                plugIn, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, plugIn).Local, icon.ValueUnsafe()))
+            from registered in Hosted(row, () => tabs.RegisterTab(Session.PlugIn, row.Identity, row.Scope.TabEngineId(), Caption(row), icon.ValueUnsafe()))
             select registered);
 
-    public static IO<Unit> RegisterRenderPanels<TPlugIn>(TPlugIn plugIn, RenderPanels panels) where TPlugIn : PlugIn, IPlugInViews =>
-        Each<View.Pane>(plugIn, row => Hosted(row, () => panels.RegisterPanel(
-            plugIn, RenderPanelType.RenderWindow, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, plugIn).Local,
-            row.Scope.AlwaysShow, row.InitialShow, row.Position)));
-
-    // --- [CUSTOM_SECTIONS]
-    public static IO<Unit> CustomSections(IPlugInViews plugIn, Seq<View.Section> rows, ICollection<ICollapsibleSection> sections) =>
-        Documents.WithDocument(new DocumentSource.Active(), document =>
-            from scope in RowScope.Open(plugIn, Some(document), new CommitMode.Immediate())
-            from _ in Callbacks.Each(rows.Map(row => SectionHolder.Section(plugIn, row, scope).Bind(section => IO.lift(() => sections.Add(section)))))
-            select unit);
-
-    // --- [CONTENT_SECTIONS]
-    public static readonly Func<IPlugInViews, IO<Unit>> AddCustomUISections =
-        static plugIn => EventKind.OnAddCustomUISections.Inline(
-            args => Each<View.Section>(plugIn, row => IO.lift(() => row.Create.IfRight(content => args.ExpandableContentUI.AddSection(content(row, plugIn))))),
-            plugIn);
-
-    public static EntryKey FieldKey(RenderContent content, string field) =>
-        EntryKey.Named(EntryKey.TypeOwner(content.TypeId), field);
-
-    // --- [CONTENT_MENUS]
-    public static Func<IPlugInViews, IO<Unit>> AddMenuItem(Seq<ContentMenuRow> rows) =>
-        plugIn => Callbacks.Each(rows.Map((row, order) =>
-                from pixels in IconSlot.Small.Pixels
-                from icon in Icons.DrawingIcon(row.Icon, pixels)
-                from added in IO.lift(() => RenderContentMenu.AddMenuItem(
-                    plugIn.PlugIn.Id,
-                    RowText.Localize(row.Caption, plugIn).Local,
-                    order,
-                    row.Separator,
-                    row.TopLevel,
-                    icon,
-                    collection => Executed(row, collection, plugIn),
-                    (collection, context) => Enabled(row, collection, context, plugIn)))
-                select added))
-            .Map(unit);
-
-    private static Result Executed(ContentMenuRow row, RenderContentCollection collection, IPlugInLifetime owner) =>
-        owner.Answer(Results.Of(IO.lift(() => Conversions.Rows(collection)).Bind(row.Run)), Result.Failure);
-
-    private static bool Enabled(ContentMenuRow row, RenderContentCollection collection, RenderContentMenu.Context context, IPlugInLifetime owner) =>
-        owner.Answer(IO.lift(() => row.Contexts.Contains(context) && Conversions.Rows(collection) is { IsEmpty: false } selected && selected.ForAll(row.Scope.Covers)), failed: false);
+    public static IO<Unit> RegisterRenderPanels(RenderPanels panels) =>
+        Each<View.Pane>(row => Hosted(row, () => panels.RegisterPanel(
+            Session.PlugIn, RenderPanelType.RenderWindow, row.Identity, row.Scope.TabEngineId(), Caption(row), row.Scope.AlwaysShow, row.InitialShow, row.Position)));
 }

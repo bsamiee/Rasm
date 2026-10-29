@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using Rasm.Drafting;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Runtime;
+using Rasm.Rhino.Document.Units;
 
 namespace Rasm.Rhino.Viewport.Printing;
 
@@ -14,11 +16,12 @@ public sealed record PrinterForm(string Name, Length Width, Length Height, HashM
 public static class Printers {
     // --- [PRINTERS]
     public static IO<Seq<PrinterForm>> Forms(string printer) =>
-        IO.lift(() => toSeq(HostUtils.GetPrinterFormNames(printer))
-            .Choose(form => Conversions.Found(HostUtils.GetPrinterFormSize(printer, form, out double width, out double height), form)
-                .Map(sized => new PrinterForm(sized, Length.FromMillimeters(width), Length.FromMillimeters(height), toHashMap(toSeq(SheetOrientation.Items).Choose(orientation => Conversions.Found(
-                    HostUtils.GetPrinterFormMargins(printer, sized, orientation.Map(portrait: true, landscape: false), out double left, out double top, out double right, out double bottom),
-                    (orientation, new PrinterMargins(Length.FromMillimeters(left), Length.FromMillimeters(top), Length.FromMillimeters(right), Length.FromMillimeters(bottom)))))))))
+        IO.lift(() => Conversions.Rows(HostUtils.GetPrinterFormNames(printer)).Choose(form =>
+                from size in Conversions.Present(HostUtils.GetPrinterFormSize(printer, form, out double width, out double height), (Width: width, Height: height))
+                select new PrinterForm(form, Length.FromMillimeters(Quantities.Exact(size.Width)), Length.FromMillimeters(Quantities.Exact(size.Height)), toHashMap(toSeq(SheetOrientation.Items).Choose(orientation =>
+                    Conversions.Present(
+                        HostUtils.GetPrinterFormMargins(printer, form, orientation.Map(portrait: true, landscape: false), out double left, out double top, out double right, out double bottom),
+                        (orientation, new PrinterMargins(Length.FromMillimeters(Quantities.Exact(left)), Length.FromMillimeters(Quantities.Exact(top)), Length.FromMillimeters(Quantities.Exact(right)), Length.FromMillimeters(Quantities.Exact(bottom)))))))))
             .Strict());
 
     public static IO<(double Horizontal, double Vertical)> Resolution(string printer) =>
@@ -26,6 +29,8 @@ public static class Printers {
 
     // --- [CUSTOM_PAGES]
     public static IO<T> WithCustomPages<T>(Seq<PrintedPageDefinition> pages, IO<T> write) =>
-        IO.lift(FilePdf.GetCustomPages).Bind(prior =>
-            IO.lift(() => FilePdf.SetCustomPages([.. prior, .. pages])) >> write.Finally(IO.lift(() => FilePdf.SetCustomPages(prior))));
+        (from prior in IO.lift(FilePdf.GetCustomPages)
+         from added in Products.Changed<IEnumerable<PrintedPageDefinition>>(FilePdf.GetCustomPages, FilePdf.SetCustomPages, [.. prior, .. pages])
+         from written in write
+         select written).Bracket();
 }

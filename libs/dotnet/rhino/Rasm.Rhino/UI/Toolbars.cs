@@ -1,11 +1,10 @@
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using Rasm.Rhino.Document.Tables;
+using Rasm.Rhino.Persistence;
 using Rasm.Rhino.UI.Rows;
 using Rhino;
 using Rhino.UI;
-using Riok.Mapperly.Abstractions;
 using UUIDNext;
 
 namespace Rasm.Rhino.UI;
@@ -16,10 +15,6 @@ public interface IRuiSource {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ToolbarGroupState(Guid Id, Option<string> Name, bool Visible, bool IsDocked);
-
-public sealed record ToolbarFileState(Guid Id, Option<string> Name, string Path, Seq<ToolbarGroupState> Groups, Seq<NamedId> Toolbars);
-
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -27,6 +22,28 @@ public sealed partial class ButtonFace {
     public static readonly ButtonFace Icon = new("control_only");
     public static readonly ButtonFace Text = new("text_only");
     public static readonly ButtonFace IconAndText = new("control_and_text");
+}
+
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class RuiPlatforms {
+    public static readonly RuiPlatforms Both = new("Both");
+    public static readonly RuiPlatforms Mac = new("Mac");
+    public static readonly RuiPlatforms Windows = new("Win");
+}
+
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ToolbarDock {
+    public static readonly ToolbarDock Top = new("Top", floats: false);
+    public static readonly ToolbarDock Left = new("Left", floats: false);
+    public static readonly ToolbarDock Right = new("Right", floats: false);
+    public static readonly ToolbarDock Bottom = new("Bottom", floats: false);
+    public static readonly ToolbarDock Floating = new("Top", floats: true);
+
+    public bool Floats { get; }
 }
 
 [Union]
@@ -48,11 +65,27 @@ public sealed record Macro(string Command, Seq<ScriptStep> Steps) {
 
 public sealed record ToolbarRow(CommandFace Face, Seq<Seq<Command<Macro>>> Groups) {
     public ButtonFace Display { get; init; } = ButtonFace.Icon;
+    public RuiPlatforms Platforms { get; init; } = RuiPlatforms.Both;
 }
 
-public sealed record MenuExtension(Seq<string> Path, Seq<Seq<Command<Macro>>> Groups);
+public sealed record ToolbarGroupRow(CommandFace Face, IterableNE<ToolbarRow> Tabs) {
+    public ToolbarDock Dock { get; init; } = ToolbarDock.Top;
+    public bool Visible { get; init; } = true;
+    public RuiPlatforms Platforms { get; init; } = RuiPlatforms.Both;
+}
 
-public sealed record RuiFile(Seq<ToolbarRow> Toolbars, Seq<MenuExtension> Menus);
+public sealed record MenuExtension(Seq<string> Path, Seq<Seq<Command<Macro>>> Groups) {
+    public RuiPlatforms Platforms { get; init; } = RuiPlatforms.Both;
+}
+
+public sealed record MenuRow(CommandFace Face, Seq<Seq<Command<Macro>>> Groups) {
+    public RuiPlatforms Platforms { get; init; } = RuiPlatforms.Both;
+}
+
+public sealed record RuiFile(Seq<ToolbarRow> Toolbars, Seq<MenuExtension> Extensions) {
+    public Seq<ToolbarGroupRow> Groups { get; init; }
+    public Seq<MenuRow> Menus { get; init; }
+}
 
 [AttributeUsage(AttributeTargets.Assembly)]
 public abstract class RuiAttribute : Attribute {
@@ -78,81 +111,30 @@ public abstract partial record MenuEntry {
     public sealed record Submenu(Guid Id, Command<Macro>.Menu Menu, Seq<MenuEntry> Children) : MenuEntry(Id);
 }
 
-public sealed record MenuPlacement(Guid Menu, string Path, Seq<MenuEntry> Entries);
+public sealed record MenuPlacement(Guid Menu, Option<string> Path, CommandFace Face, RuiPlatforms Platforms, Seq<MenuEntry> Entries);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-internal static partial class ToolbarMapper {
-    [MapProperty(nameof(ToolbarFile.Path), nameof(ToolbarFileState.Path), SuppressNullMismatchDiagnostic = true)]
-    [MapPropertyFromSource(nameof(ToolbarFileState.Groups), Use = nameof(Groups))]
-    [MapPropertyFromSource(nameof(ToolbarFileState.Toolbars), Use = nameof(Toolbars))]
-    internal static partial ToolbarFileState ToState(ToolbarFile file);
-
-    internal static partial ToolbarGroupState ToState(ToolbarGroup group);
-
-    internal static partial NamedId ToState(Toolbar toolbar);
-
-    [MapperIgnoreTarget(nameof(ToolbarRow.Display), Justification = "A linked toolbar shows icons alone")]
-    internal static partial ToolbarRow ToRow(Command<Macro>.Menu menu);
-
-    private static Seq<ToolbarGroupState> Groups(ToolbarFile file) =>
-        Conversions.Rows(toSeq(Range(0, file.GroupCount)).Map(file.GetGroup)).Map(ToState).Strict();
-
-    private static Seq<NamedId> Toolbars(ToolbarFile file) =>
-        Conversions.Rows(toSeq(Range(0, file.ToolbarCount)).Map(file.GetToolbar)).Map(ToState).Strict();
-}
-
 public static class Toolbars {
-    // --- [FILES]
-    public static IO<Seq<ToolbarFileState>> Read() =>
-        IO.lift(static () => Conversions.Rows(RhinoApp.ToolbarFiles).Map(ToolbarMapper.ToState).Strict());
-
-    public static IO<ToolbarFileState> Find(Guid id) =>
-        IO.lift(() => Conversions.Rows(RhinoApp.ToolbarFiles).Find(file => file.Id == id).Map(ToolbarMapper.ToState).ToFin(new RhinoFault(id.ToString("D", CultureInfo.InvariantCulture), RhinoReason.Missing)));
-
     // --- [DECLARATION]
     public static Option<RuiFile> Declared(Assembly plugIn) => Optional(plugIn.GetCustomAttribute<RuiAttribute>()).Map(static declared => declared.Rui);
 
     public static Fin<Guid> Identity(Assembly plugIn) =>
-        Conversions.Found(Optional(plugIn.GetCustomAttribute<GuidAttribute>()).Bind(static held => parseGuid(held.Value)));
-
-    public static Seq<ToolbarRow> Reached(Seq<ToolbarRow> toolbars) =>
-        toolbars.Bind(static toolbar => toolbar.Cons(Reached(toolbar.Groups.Flatten().Bind(static command => command.Switch(
-            run: static _ => Seq<ToolbarRow>(),
-            choice: static _ => Seq<ToolbarRow>(),
-            menu: static menu => Seq(ToolbarMapper.ToRow(menu)))))));
-
-    // --- [MACROS]
-    public static Seq<(Macro Macro, CommandFace Face)> Macros(Seq<Seq<Command<Macro>>> groups) =>
-        groups.Flatten().Bind(static command => command.Switch(
-            run: Invokes,
-            choice: static choice => choice.Members.Bind(Invokes),
-            menu: static menu => menu.Primary.ToSeq().Bind(Invokes) + Macros(menu.Groups)));
-
-    private static Seq<(Macro Macro, CommandFace Face)> Invokes(Command<Macro>.Run run) =>
-        (run.Invoke, run.Face).Cons(run.Alternate.Map(alternate => (alternate, Alternated(run.Face, run.Invoke, alternate))).ToSeq());
-
-    private static CommandFace Alternated(CommandFace face, Macro primary, Macro alternate) =>
-        alternate.Steps.Filter(step => primary.Steps.ForAll(held => held != step)).Choose(static step => step.EnglishName) switch {
-            var names => face with { Caption = string.Join(", ", face.Caption.Cons(names)), Help = face.Help.Map(help => string.Join(", ", help.Cons(names))) },
-        };
+        Conversions.Required(Optional(plugIn.GetCustomAttribute<GuidAttribute>()).Bind(static held => parseGuid(held.Value)));
 
     // --- [IDENTIFIERS]
-    public static Guid BarId(Guid file, ToolbarRow toolbar) => Uuid.NewNameBased(file, $"tool_bar/{toolbar.Face.Name}");
-
-    public static Guid MacroId(Guid file, Macro macro) => Uuid.NewNameBased(file, $"macro_item/{macro.Text}");
-
-    public static Guid IconId(Guid file, string resource) => Uuid.NewNameBased(file, $"icon/{resource}");
-
-    public static Guid MenuId(Guid file) => Uuid.NewNameBased(file, "extend_rhino_menus");
+    public static Guid MenuId(Guid file, Option<string> caption) =>
+        Uuid.NewNameBased(file, caption.Match(Some: static held => $"menu/{held}", None: static () => "extend_rhino_menus"));
 
     public static Guid ItemId(Guid parent, string scope, int index) => Uuid.NewNameBased(parent, string.Create(CultureInfo.InvariantCulture, $"{scope}/{index}"));
 
     // --- [MENUS]
-    public static Seq<MenuPlacement> Extensions(Guid file, Seq<MenuExtension> menus) =>
-        menus.Map(menu => string.Join("::", menu.Path) switch {
-            var path => new MenuPlacement(MenuId(file), path, Entries(MenuId(file), path, menu.Groups, [])),
-        });
+    public static Seq<MenuPlacement> Placements(Guid file, RuiFile rui) =>
+        rui.Extensions.Map(menu => string.Join("::", menu.Path) switch {
+            var path => new MenuPlacement(MenuId(file, None), Some(path), new CommandFace(path, path), menu.Platforms, Entries(MenuId(file, None), path, menu.Groups, [])),
+        })
+            + rui.Menus.Map(menu => MenuId(file, Some(menu.Face.Name)) switch {
+                var id => new MenuPlacement(id, None, menu.Face, menu.Platforms, Entries(id, "menu_item", menu.Groups, [])),
+            });
 
     private static Seq<MenuEntry> Entries(Guid menu, string scope, Seq<Seq<Command<Macro>>> groups, Seq<RowRule> gates) =>
         groups.Map(group => group.Bind(command => command.Switch(
@@ -165,29 +147,41 @@ public static class Toolbars {
             .Map((entry, index) => entry(ItemId(menu, scope, index)));
 
     // --- [RUNTIME]
-    public static readonly Func<IPlugInViews, IO<Unit>> Registered =
-        static plugIn => Declared(plugIn.GetType().Assembly).Match(
-            Some: declared =>
-                from file in IO.lift(() => Identity(plugIn.GetType().Assembly))
-                from live in use(static () => new CancellationTokenSource(), static source => Callbacks.Each(Seq(IO.lift(source.Cancel), IO.lift(source.Dispose))).Map(unit))
-                from registered in IO.lift(() => Callbacks.Each(
-                    Extensions(file, declared.Menus).Bind(static placed => placed.Entries).Bind(static entry => entry.Flattened).Choose(static entry => Optional(entry as MenuEntry.Item)),
-                    (item, index) => RhinoFault.Unless(RuiUpdateUi.RegisterMenuItem(file, item.Menu, item.Id, Handler(item, plugIn, live.Token)), index)))
+    internal static IO<Unit> Registered() =>
+        Declared(Session.Assembly).Match(
+            Some: static declared =>
+                from file in IO.lift(static () => Identity(Session.Assembly))
+                let items = toHashMap(Placements(file, declared).Bind(static placed => placed.Entries).Bind(static entry => entry.Flattened)
+                    .Choose(static entry => Optional(entry as MenuEntry.Item)).Map(static item => (item.Id, item)))
+                from live in use(static () => new CancellationTokenSource(), static source => Products.Each(Seq(IO.lift(source.Cancel), IO.lift(source.Dispose))).Map(unit))
+                let handler = Updated(items, live.Token)
+                from registered in IO.lift(() => Products.Each(items.Values.ToSeq(), (item, index) => RhinoFault.Unless(RuiUpdateUi.RegisterMenuItem(file, item.Menu, item.Id, handler), RhinoReason.Declined, item.Id, index)))
                 select unit,
             None: static () => IO.pure(unit));
 
-    private static RuiUpdateUi.UpdateMenuItemEventHandler Handler(MenuEntry.Item item, IPlugInViews owner, CancellationToken live) =>
-        (_, ui) => owner.Run(unless(live.IsCancellationRequested,
-            from document in IO.lift(static () => Optional(RhinoDoc.ActiveDoc))
-            from scope in RowScope.Open(owner, document, new CommitMode.Immediate())
+    private static RuiUpdateUi.UpdateMenuItemEventHandler Updated(HashMap<Guid, MenuEntry.Item> items, CancellationToken live) =>
+        (_, ui) => Session.Run(unless(live.IsCancellationRequested, items.Find(ui.MenuItemId).Traverse(item =>
+            from scope in RowScope.Open(Optional(RhinoDoc.ActiveDoc), new CommitMode.Immediate())
             from holds in item.Gates.TraverseM(rule => rule.Holds(scope)).As()
             from marks in item.Run.Marked.Traverse(rule => rule.Holds(scope)).As()
             from written in IO.lift(() => {
-                (ui.Enabled, ui.Text) = (holds.ForAll(static held => held), RowText.Localize(item.Run.Face.Caption, owner).Local);
+                (ui.Enabled, ui.Text) = (holds.ForAll(static held => held), LocalText.Of(item.Run.Face.Caption).Local);
                 _ = marks.Iter(held => {
                     if (item.Radio) ui.RadioChecked = held;
                     else ui.Checked = held;
                 });
             })
-            select unit).As());
+            select unit).As().Map(static _ => unit)).As());
+
+    // --- [HOST_FILES]
+    public static IO<ToolbarFile> Own => IO.lift(static () => Identity(Session.Assembly)).Bind(File);
+
+    public static IO<ToolbarFile> File(Guid id) =>
+        IO.lift(() => Conversions.Rows(RhinoApp.ToolbarFiles).Find(file => file.Id == id).ToFin(new RhinoFault(id.ToString("D", CultureInfo.InvariantCulture), RhinoReason.Missing)));
+
+    public static IO<Seq<ToolbarGroup>> Groups(ToolbarFile file) =>
+        IO.lift(() => Conversions.Rows(toSeq(Range(0, file.GroupCount)).Map(file.GetGroup)).Strict());
+
+    public static Preference<bool> Sidebar { get; } =
+        Preferences.Property(static () => ToolbarFileCollection.SidebarIsVisible, static shown => ToolbarFileCollection.SidebarIsVisible = shown);
 }

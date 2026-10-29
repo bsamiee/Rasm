@@ -15,16 +15,18 @@ public abstract partial record Refinement {
 [Union<Brep, Mesh, Seq<Mesh>>(T3Name = "Blocks", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class QuadSource;
 
+public sealed record Meshable(Seq<GeometryBase> Items, MeshingParameters Meshing);
+
 [Union<Seq<Mesh>, PointCloud, Meshable, Mesh>(T1Name = "Meshes", T2Name = "Cloud", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class ShrinkWrapSource {
-    public sealed record Meshable(Seq<GeometryBase> Items, MeshingParameters Meshing);
-}
+public sealed partial class ShrinkWrapSource;
 
-[Union(MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record HullSource {
-    public sealed record Tolerant(Seq<Point3d> Points) : HullSource;
+[SmartEnum]
+public sealed partial class HullMethod {
+    public static readonly HullMethod Tolerant = new(static (points, tolerances) => (Mesh.CreateConvexHull3D(points, out int[][] facets, tolerances.Absolute, tolerances.Angle), facets));
+    public static readonly HullMethod Quick = new(static (points, _) => (Mesh.CreateQuickHull3D(points, out List<int[]> facets), facets));
 
-    public sealed record Quick(Seq<Point3d> Points) : HullSource;
+    [UseDelegateFromConstructor]
+    internal partial (Mesh? Hull, IEnumerable<int[]>? Facets) Build(Seq<Point3d> points, Tolerances tolerances);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -41,8 +43,10 @@ public sealed partial class PatchBoundary {
     public Seq<Curve> Holes { get; }
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref PatchOuter outer, ref Seq<Curve> holes) =>
-        validationError = RhinoFault.Unless(outer.Switch(outline: static of => of.Boundary.IsClosed, perimeter: static _ => true) && holes.ForAll(static hole => hole.IsClosed))
-            .Match(Succ: static _ => default, Fail: static error => error.Filter<RhinoFault>().Head is RhinoFault fault ? fault : null);
+        validationError = (Closed: outer.Switch(outline: static of => of.Boundary.IsClosed, perimeter: static _ => true), Open: holes.Count(static hole => !hole.IsClosed)) switch {
+            (Closed: true, Open: 0) => null,
+            var held => new RhinoFault(held.ToString(), RhinoReason.Invalid),
+        };
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -52,18 +56,18 @@ public static class MeshConstruction {
         from token in cancelToken
         from remeshed in source.Switch(
             (Parameters: parameters, Guides: guides, Progress: progress.ValueUnsafe(), Token: token),
-            brep: static (state, brep) => Products.Made(Mesh.QuadRemeshBrep(brep, state.Parameters, state.Guides, state.Progress, state.Token)),
-            mesh: static (state, mesh) => Products.Made(mesh.QuadRemesh(Seq<int>(), state.Parameters, state.Guides, state.Progress, state.Token)),
+            brep: static (state, brep) => Products.Of(() => Mesh.QuadRemeshBrep(brep, state.Parameters, state.Guides, state.Progress, state.Token)),
+            mesh: static (state, mesh) => Products.Of(() => mesh.QuadRemesh(Seq<int>(), state.Parameters, state.Guides, state.Progress, state.Token)),
             blocks: static (state, parts) =>
                 from joined in use(static () => new Mesh())
                 from appended in IO.lift(() => joined.Append(parts))
-                from remeshed in Products.Made(joined.QuadRemesh(parts.Scan(0, static (faces, part) => faces + part.Faces.Count), state.Parameters, state.Guides, state.Progress, state.Token))
+                from remeshed in Products.Of(() => joined.QuadRemesh(parts.Scan(0, static (faces, part) => faces + part.Faces.Count), state.Parameters, state.Guides, state.Progress, state.Token))
                 select remeshed)
         select remeshed;
 
     public static IO<Mesh> ShrinkWrap(ShrinkWrapSource source, ShrinkWrapParameters parameters) =>
         from token in cancelToken
-        from wrapped in Products.Made(source.Switch(
+        from wrapped in Products.Of(() => source.Switch(
             (Parameters: parameters, Token: token),
             meshes: static (state, meshes) => Mesh.ShrinkWrap(meshes, state.Parameters, state.Token),
             cloud: static (state, cloud) => Mesh.ShrinkWrap(cloud, state.Parameters, state.Token),
@@ -71,41 +75,48 @@ public static class MeshConstruction {
             mesh: static (state, mesh) => mesh.ShrinkWrap(state.Parameters, state.Token)))
         select wrapped;
 
-    public static IO<(Mesh Hull, Seq<Seq<int>> Facets)> Hull(Tolerances tolerances, HullSource source) =>
-        source.Switch(
-            tolerances,
-            tolerant: static (at, of) => Products.Made(Mesh.CreateConvexHull3D(of.Points, out int[][] facets, at.Absolute, at.Angle))
-                .Map(hull => (Hull: hull, Facets: Facets(facets))),
-            quick: static (_, of) => Products.Made(Mesh.CreateQuickHull3D(of.Points, out List<int[]> facets))
-                .Map(hull => (Hull: hull, Facets: Facets(facets))));
+    public static IO<(Mesh Hull, Seq<Seq<int>> Facets)> Hull(Tolerances tolerances, Seq<Point3d> points, HullMethod method) =>
+        from answered in IO.lift(() => method.Build(points, tolerances))
+        from hull in Products.Of(() => answered.Hull)
+        select (Hull: hull, Facets: Conversions.Rows(answered.Facets).Map(static facet => toSeq(facet)).Strict());
 
     public static IO<Mesh> CreatePatch(Tolerances tolerances, PatchBoundary boundary, Seq<Curve> innerBothSides, Seq<Point3d> innerPoints) =>
-        from patch in IO.pure(boundary.Outer.Switch(
-            outline: static of => (Boundary: Some(of.Boundary), Surface: of.Pullback, Trimback: false, Divisions: 0),
-            perimeter: static of => (Boundary: Option<Polyline>.None, Surface: Some(of.Surface), of.Trimback, of.Divisions)))
-        from mesh in Products.Made(Mesh.CreatePatch(
-            patch.Boundary.ValueUnsafe(), tolerances.Angle, patch.Surface.ValueUnsafe(), boundary.Holes, innerBothSides, innerPoints, patch.Trimback, patch.Divisions))
-        select mesh;
+        Products.Of(() => boundary.Outer.Switch(
+            (boundary.Holes, tolerances.Angle, Inner: innerBothSides, Points: innerPoints),
+            outline: static (at, of) => Mesh.CreatePatch(of.Boundary, at.Angle, of.Pullback.ValueUnsafe(), at.Holes, at.Inner, at.Points, trimback: false, divisions: 0),
+            perimeter: static (at, of) => Mesh.CreatePatch(outerBoundary: null, at.Angle, of.Surface, at.Holes, at.Inner, at.Points, of.Trimback, of.Divisions)));
 
     // --- [REBUILT]
     public static IO<Seq<Option<Mesh>>> CreateFromIterativeCleanup(Tolerances tolerances, Seq<Mesh> meshes) =>
         from slots in IO.lift(() => toSeq(Mesh.CreateFromIterativeCleanup(meshes, tolerances.Absolute) ?? new Mesh?[meshes.Count]).Map(static mesh => Optional(mesh)).Strict())
-        from cleaned in Products.Made(slots.Somes())
+        from cleaned in Products.Many(() => slots.Somes(), required: false)
         select slots;
 
     public static IO<Mesh> CreateFromFilteredFaceList(Mesh mesh, Seq<int> faces) =>
-        IO.lift(() => Copies.Within(mesh, ComponentIndexType.MeshFace, faces)).Bind(held =>
-            Products.Made(Mesh.CreateFromFilteredFaceList(mesh, toSeq(Range(0, mesh.Faces.Count)).Map(toHashSet(held).Contains))));
+        from held in IO.lift(() => mesh.Within(ComponentIndexType.MeshFace, faces))
+        from filtered in Products.Of(() => Mesh.CreateFromFilteredFaceList(mesh, toSeq(Range(0, mesh.Faces.Count)).Map(toHashSet(held).Contains)))
+        select filtered;
 
     public static IO<Mesh> Refine(Mesh mesh, Refinement refinement, int level, CreaseEdges nakedEdgeMode) =>
         from token in cancelToken
         from refined in refinement.Switch(
             (Mesh: mesh, Settings: new RefinementSettings { Level = level, NakedEdgeMode = nakedEdgeMode, ContinueRequest = token }),
-            catmullClark: static (at, _) => Products.Made(Mesh.CreateRefinedCatmullClarkMesh(at.Mesh, at.Settings)),
-            loop: static (at, of) => Products.Made(Mesh.CreateRefinedLoopMesh(at.Mesh, of.Formula, at.Settings)))
+            catmullClark: static (at, _) => Products.Of(() => Mesh.CreateRefinedCatmullClarkMesh(at.Mesh, at.Settings)),
+            loop: static (at, of) => Products.Of(() => Mesh.CreateRefinedLoopMesh(at.Mesh, of.Formula, at.Settings)))
         select refined;
 
-    // --- [FACETS]
-    private static Seq<Seq<int>> Facets(IEnumerable<int[]?>? facets) =>
-        Conversions.Rows(facets).Map(static facet => toSeq(facet)).Strict();
+    // --- [DERIVED]
+    public static IO<(Mesh Mesh, Seq<int> WallFaces)> Offset(Mesh source, double distance, bool solidify, Option<Vector3d> direction) =>
+        from answered in IO.lift(() => (Mesh: source.Offset(distance, solidify, Conversions.Unset(direction), out List<int> walls), Walls: walls))
+        from offset in Products.Of(() => answered.Mesh, nameof(Mesh.Offset))
+        select (Mesh: offset, WallFaces: toSeq(answered.Walls));
+
+    public static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extrude(Mesh source, Seq<ComponentIndex> components, Action<MeshExtruder> configure) =>
+        from held in IO.lift(() => source.Within(components))
+        from extruder in Products.Of(() => new MeshExtruder(source, held))
+        from configured in IO.lift(() => configure(extruder))
+        from answered in IO.lift(() => (Accepted: extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map), Mesh: mesh, Map: map))
+        from extruded in Products.Of(() => answered.Mesh, nameof(MeshExtruder.ExtrudedMesh))
+        from accepted in IO.lift(() => RhinoFault.Unless(answered.Accepted, RhinoReason.Declined, components.Count))
+        select (Mesh: extruded, Components: toSeq(answered.Map), WallFaces: toSeq(extruder.GetWallFaces()));
 }

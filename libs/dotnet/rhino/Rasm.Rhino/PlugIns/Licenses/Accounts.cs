@@ -6,63 +6,56 @@ using Rhino.Runtime.RhinoAccounts;
 namespace Rasm.Rhino.PlugIns.Licenses;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record AccountClient(string ClientId, string ClientSecret);
-
-public sealed record AuthTokens(IOpenIDConnectToken OpenId, IOAuth2Token OAuth);
-
 [Union]
 public abstract partial record Entitlement {
     public sealed record Entitled(Option<string> Signature) : Entitlement;
 
     public sealed record Denied(string Reason) : Entitlement;
 
-    public sealed record NotApplicable() : Entitlement;
+    public sealed record NotApplicable : Entitlement;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class AccountOps {
+public static class Accounts {
     // --- [ACCOUNT]
     public static IO<Option<T>> LoggedInUser<T>(Func<string, Image, T> read) =>
         IO.lift(static () => Conversions.Present(RhinoApp.LoggedInUserName))
-            .Bind(name => name.TraverseM(present => Products.Made(RhinoApp.LoggedInUserAvatar).Map(avatar => read(present, avatar)).Bracket()).As());
+            .Bind(name => name.TraverseM(present => Products.Of(static () => RhinoApp.LoggedInUserAvatar).Map(avatar => read(present, avatar)).Bracket()).As());
 
     // --- [TOKENS]
-    public static IO<Option<AuthTokens>> TryGetAuthTokens(AccountClient client) =>
-        Protected(key => Optional(RhinoAccountsManager.TryGetAuthTokens(client.ClientId, key)).Map(static pair => new AuthTokens(pair.Item1, pair.Item2)));
+    public static IO<Option<(IOpenIDConnectToken OpenId, IOAuth2Token OAuth)>> TryGetAuthTokens(string clientId, Option<Seq<string>> scope = default) =>
+        Protected(key => Optional(scope.Match(
+            Some: requested => RhinoAccountsManager.TryGetAuthTokens(clientId, requested, key),
+            None: () => RhinoAccountsManager.TryGetAuthTokens(clientId, key))).Map(static pair => (pair.Item1, pair.Item2)));
 
-    public static IO<Option<AuthTokens>> TryGetAuthTokens(AccountClient client, Seq<string> scope) =>
-        Protected(key => Optional(RhinoAccountsManager.TryGetAuthTokens(client.ClientId, scope, key)).Map(static pair => new AuthTokens(pair.Item1, pair.Item2)));
+    public static IO<(IOpenIDConnectToken OpenId, IOAuth2Token OAuth)> GetAuthTokens(string clientId, string clientSecret) =>
+        Protected((key, token) => RhinoAccountsManager.GetAuthTokensAsync(clientId, clientSecret, key, token)).Map(static pair => (pair.Item1, pair.Item2));
 
-    public static IO<AuthTokens> GetAuthTokens(AccountClient client) =>
-        Protected((key, token) => RhinoAccountsManager.GetAuthTokensAsync(client.ClientId, client.ClientSecret, key, token))
-            .Map(static pair => new AuthTokens(pair.Item1, pair.Item2));
-
-    public static IO<AuthTokens> GetAuthTokens(
-        AccountClient client, Seq<string> scope, Option<string> prompt, Option<Duration> maxAge, bool showUI, Option<IProgress<RhinoAccoountsProgressInfo>> progress) =>
+    public static IO<(IOpenIDConnectToken OpenId, IOAuth2Token OAuth)> GetAuthTokens(
+        string clientId, string clientSecret, Seq<string> scope, Option<string> prompt, Option<Duration> maxAge, bool showUI, Option<IProgress<RhinoAccoountsProgressInfo>> progress) =>
         IO.lift(maxAge.Traverse(static age => Conversions.Whole(age, Duration.FromSeconds(1))).As())
             .Bind(seconds => Protected((key, token) => RhinoAccountsManager.GetAuthTokensAsync(
-                client.ClientId, client.ClientSecret, scope, prompt.ValueUnsafe(), seconds.ToNullable(), showUI, progress.ValueUnsafe(), key, token)))
-            .Map(static pair => new AuthTokens(pair.Item1, pair.Item2));
+                clientId, clientSecret, scope, prompt.ValueUnsafe(), seconds.ToNullable(), showUI, progress.ValueUnsafe(), key, token)))
+            .Map(static pair => (pair.Item1, pair.Item2));
 
-    public static IO<AuthTokens> UpdateOpenIDConnectToken(AuthTokens tokens) =>
-        Protected((key, token) => RhinoAccountsManager.UpdateOpenIDConnectTokenAsync(tokens.OpenId, tokens.OAuth, key, token))
-            .Map(openId => tokens with { OpenId = openId });
+    public static IO<IOpenIDConnectToken> UpdateOpenIDConnectToken(IOpenIDConnectToken openId, IOAuth2Token oauth) =>
+        Protected((key, token) => RhinoAccountsManager.UpdateOpenIDConnectTokenAsync(openId, oauth, key, token));
 
     public static IO<Unit> RevokeAuthToken(IOAuth2Token oauth) =>
         Protected((key, token) => RhinoAccountsManager.RevokeAuthTokenAsync(oauth, key, token).ToUnit());
 
     private static IO<T> Protected<T>(Func<SecretKey, T> call) =>
-        Callbacks.Captured<SecretKey, T>(RhinoAccountsManager.ExecuteProtectedCode, key => IO.lift(() => call(key)));
+        Products.Captured<SecretKey, T>(RhinoAccountsManager.ExecuteProtectedCode, key => IO.lift(() => call(key)));
 
     private static IO<T> Protected<T>(Func<SecretKey, CancellationToken, Task<T>> call) =>
-        cancelToken.Bind(token => Callbacks.Captured<T>(
+        cancelToken.Bind(token => Products.Captured<T>(
             answer => IO.liftAsync(() => RhinoAccountsManager.ExecuteProtectedCodeAsync(async key => answer(await call(key, token).ConfigureAwait(false))).ToUnit())));
 
     // --- [ENTITLEMENT]
-    public static IO<Entitlement> CheckEntitlement() =>
+    public static IO<Entitlement> CheckEntitlement =>
         IO.lift(CloudHostUtils.CheckEntitlement).Map(static _ => CloudHostUtils.IsEntitled
-            ? new Entitlement.Entitled(Optional(CloudHostUtils.Signature))
-            : Optional(CloudHostUtils.DenyReason).Match<Entitlement>(
+            ? new Entitlement.Entitled(Conversions.Present(CloudHostUtils.Signature))
+            : Conversions.Present(CloudHostUtils.DenyReason).Match<Entitlement>(
                 Some: static reason => new Entitlement.Denied(reason),
                 None: static () => new Entitlement.NotApplicable()));
 }

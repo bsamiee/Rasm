@@ -5,7 +5,8 @@ using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
-using Rasm.UI;
+using Rasm.UI.Controls;
+using Rasm.UI.Media;
 using Rhino.Commands;
 using Rhino.PlugIns;
 

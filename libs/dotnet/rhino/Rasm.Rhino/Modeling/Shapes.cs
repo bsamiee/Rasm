@@ -36,11 +36,11 @@ public abstract partial record CurveShape {
 
     public Option<IO<Curve>> ToCurve() =>
         Switch(
-            linear: static linear => Some(Products.Made<Curve>(new LineCurve(linear.Value))),
-            polygonal: static polygonal => Some(Products.Made<Curve>(new PolylineCurve(polygonal.Value))),
-            circular: static circular => Some(Products.Made<Curve>(new ArcCurve(circular.Value))),
-            arcuate: static arcuate => Some(Products.Made<Curve>(new ArcCurve(arcuate.Value))),
-            elliptic: static elliptic => Some(Products.Made<Curve>(elliptic.Value.ToNurbsCurve())),
+            linear: static linear => Some(Products.Of<Curve>(() => new LineCurve(linear.Value))),
+            polygonal: static polygonal => Some(Products.Of<Curve>(() => new PolylineCurve(polygonal.Value))),
+            circular: static circular => Some(Products.Of<Curve>(() => new ArcCurve(circular.Value))),
+            arcuate: static arcuate => Some(Products.Of<Curve>(() => new ArcCurve(arcuate.Value))),
+            elliptic: static elliptic => Some(Products.Of<Curve>(() => elliptic.Value.ToNurbsCurve())),
             parabolic: static _ => Option<IO<Curve>>.None,
             hyperbolic: static _ => Option<IO<Curve>>.None,
             planar: static _ => Option<IO<Curve>>.None);
@@ -55,19 +55,14 @@ public sealed partial class AnalyticShape {
         : surface.TryGetTorus(out Torus torus, tolerances.Absolute) ? Some<AnalyticShape>(torus)
         : Option<AnalyticShape>.None;
 
-    public IO<NurbsSurface> ToNurbsSurface() =>
-        Switch(
-            cone: static cone => Products.Made(cone.ToNurbsSurface()),
-            cylinder: static cylinder => Products.Made(cylinder.ToNurbsSurface()),
-            sphere: static sphere => Products.Made(sphere.ToNurbsSurface()),
-            torus: static torus => Products.Made(torus.ToNurbsSurface()));
-
-    public IO<RevSurface> ToRevSurface() =>
-        Switch(
-            cone: static cone => Products.Made(cone.ToRevSurface()),
-            cylinder: static cylinder => Products.Made(cylinder.ToRevSurface()),
-            sphere: static sphere => Products.Made(sphere.ToRevSurface()),
-            torus: static torus => Products.Made(torus.ToRevSurface()));
+    public IO<Surface> ToSurface(bool revolved) =>
+        Switch<(Func<Surface?> Nurbs, Func<Surface?> Revolved)>(
+            cone: static cone => (cone.ToNurbsSurface, cone.ToRevSurface),
+            cylinder: static cylinder => (cylinder.ToNurbsSurface, cylinder.ToRevSurface),
+            sphere: static sphere => (sphere.ToNurbsSurface, sphere.ToRevSurface),
+            torus: static torus => (torus.ToNurbsSurface, torus.ToRevSurface)) switch {
+                var lowerings => Products.Of(revolved ? lowerings.Revolved : lowerings.Nurbs),
+            };
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -85,7 +80,7 @@ public abstract partial record SurfaceShape {
             Some: static shape => IO.pure(Some(shape)),
             None: () => IO.lift(() => (Found: surface.TryGetExtrusion(out Extrusion extrusion, tolerances.Absolute), Extrusion: extrusion))
                 .Bind(static attempt => attempt.Found
-                    ? Products.Held(attempt.Extrusion)
+                    ? Products.Maybe(() => attempt.Extrusion)
                     : IO.lift(() => {
                         using Extrusion? discarded = attempt.Extrusion;
                         return Option<Extrusion>.None;

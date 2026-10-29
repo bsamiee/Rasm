@@ -1,49 +1,13 @@
 using Rasm.Rhino.Document.Files;
 using Rhino.PlugIns;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.PlugIns;
 
-// --- [MODELS] --------------------------------------------------------------------------
-public sealed record PlugInState(
-    Guid Id,
-    Option<string> RegistryPath,
-    Option<string> Name,
-    Option<string> Description,
-    Option<string> FileName,
-    Option<string> Version,
-    Option<string> Organization,
-    Option<string> Address,
-    Option<string> Country,
-    Option<string> Email,
-    Option<string> Phone,
-    Option<string> Fax,
-    Option<string> WebSite,
-    Option<string> UpdateUrl,
-    PlugInType PlugInType,
-    PlugInLoadTime PlugInLoadTime,
-    bool IsLoaded,
-    bool ShipsWithRhino,
-    bool IsDotNet,
-    bool LoadSilently,
-    Seq<FileTypeRow> FileTypes);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-internal static partial class RegistryMapper {
-    [MapPropertyFromSource(nameof(PlugInState.LoadSilently), Use = nameof(@Exchange.LoadSilently))]
-    [MapPropertyFromSource(nameof(PlugInState.FileTypes), Use = nameof(@Exchange.Rows))]
-    internal static partial PlugInState ToState(PlugInInfo info);
-}
-
 public static class PlugInRegistry {
     // --- [READS]
-    public static IO<Option<PlugInState>> ReadPlugIn(Guid id) => IO.lift(() => Optional(PlugIn.GetPlugInInfo(id)).Map(RegistryMapper.ToState));
-
-    public static IO<Seq<PlugInState>> InstalledPlugIns =>
-        IO.lift(static () => toSeq(PlugIn.GetInstalledPlugIns().Keys).Traverse(static id => Installed(id).Map(RegistryMapper.ToState)).As());
-
-    private static Fin<PlugInInfo> Installed(Guid id) => Optional(PlugIn.GetPlugInInfo(id)).ToFin(new RhinoFault(id.ToString(), RhinoReason.Missing));
+    public static IO<Seq<PlugInInfo>> InstalledPlugIns =>
+        IO.lift(static () => toSeq(PlugIn.GetInstalledPlugIns().Keys).Strict()).Bind(static ids => ids.TraverseM(static id => Products.Of(() => PlugIn.GetPlugInInfo(id))).As());
 
     // --- [LOADS]
     public static IO<Guid> LoadPlugIn(InputPath path) =>
@@ -52,21 +16,26 @@ public static class PlugInRegistry {
             var result => new RhinoFault(path, RhinoReason.Unreadable, Inner: Error.New(result.ToString())),
         });
 
-    public static IO<Unit> LoadPlugIns(Seq<Guid> ids) =>
-        IO.lift(() => Callbacks.Each(ids, static (id, _) => LoadInstalled(id)).Map(static _ => unit));
+    public static IO<Unit> LoadPlugIns(Seq<Guid> ids) => Products.Each(ids.Map(LoadInstalled)).Map(unit);
 
-    private static Fin<Unit> LoadInstalled(Guid id) =>
-        from info in Installed(id)
-        from _ in guard<Error>(Exchange.LoadSilently(info), new RhinoFault(id.ToString(), RhinoReason.Disabled))
-        from __ in RhinoFault.Unless(info.IsLoaded || PlugIn.LoadPlugIn(id))
+    private static IO<Unit> LoadInstalled(Guid id) =>
+        from info in Products.Of(() => PlugIn.GetPlugInInfo(id))
+        from silent in IO.lift(() => {
+            _ = info.IsLoadProtected(out bool loadSilently);
+            return RhinoFault.Unless(loadSilently, RhinoReason.Unavailable, id);
+        })
+        from loaded in when(!info.IsLoaded, Products.Accepted(() => PlugIn.LoadPlugIn(id))).As()
         select unit;
 
     // --- [PROTECTION]
     public static IO<Unit> SetLoadProtection(Guid id, bool loadSilently) =>
-        IO.lift(() =>
-                from info in Installed(id)
-                let changed = Exchange.LoadSilently(info) != loadSilently
-                from _ in guard<Error>(!changed || !info.IsLoaded, new RhinoFault(id.ToString(), RhinoReason.Loaded))
-                select changed)
-            .Bind(changed => when(changed, IO.lift(() => PlugIn.SetLoadProtection(id, loadSilently))).As());
+        from info in Products.Of(() => PlugIn.GetPlugInInfo(id))
+        from current in IO.lift(() => {
+            _ = info.IsLoadProtected(out bool held);
+            return held;
+        })
+        let changed = current != loadSilently
+        from loaded in IO.lift(() => RhinoFault.Unless(!changed || !info.IsLoaded, RhinoReason.Unavailable, id))
+        from written in when(changed, IO.lift(() => PlugIn.SetLoadProtection(id, loadSilently))).As()
+        select unit;
 }

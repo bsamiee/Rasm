@@ -16,7 +16,7 @@ rule:
         - kind: alias_qualified_name
           pattern: $NAME
           has: {field: alias, regex: '^global$'}
-          not: {matches: declaration-scope}
+          not: {any: [{matches: declaration-scope}, {has: {field: name, regex: '^Rhino$'}}]}
         - kind: qualified_name
           pattern: $NAME
           has: {field: qualifier, matches: project-root}
@@ -25,4 +25,4 @@ rule:
           pattern: $NAME
           has: {field: expression, matches: project-root}
 message: '`$NAME` works around a name clash through an alias or namespace qualifier'
-note: 'Rename the clashing project declaration and import its namespace with `using`, a clash between packages keeps its namespace qualifier'
+note: 'Rename the clashing project declaration and import its namespace with `using`, a clash between packages keeps its namespace qualifier, and `global::Rhino.` is that qualifier where the `Rasm.Rhino` namespace shadows the RhinoCommon root'

@@ -1,221 +1,157 @@
 using System.Collections.Generic;
-using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
-using System.Runtime.Intrinsics;
+using System.Text;
 using CommunityToolkit.HighPerformance;
-using MathNet.Numerics.LinearAlgebra;
-using MathNet.Numerics.LinearAlgebra.Double;
+using CommunityToolkit.HighPerformance.Buffers;
+using CommunityToolkit.HighPerformance.Helpers;
 using TinyEXR;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Color;
 
-// --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(SkipFactoryMethods = true, ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public sealed partial class CurveLength {
-    public static CurveLength UInt16Codes { get; } = new(ushort.MaxValue + 1);
-
-    public static Fin<CurveLength> Validated(int value) => ImagingFault.Unless(value is >= 2 and <= 300_000, ImagingReason.Range, value).Map(_ => new CurveLength(value));
+// --- [TYPES] ---------------------------------------------------------------------------
+public interface IFixedFunction {
+    public void Apply(Span<Vector4> row, bool inverted);
 }
 
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class Lut1D {
+    private const int HalfCodes = ushort.MaxValue + 1;
+
     private readonly ImmutableArray<float> planes;
 
-    private Lut1D(CurveLength length, ReadOnlySpan<float> rows, Vector3 domainMinimum, Vector3 domainMaximum) {
+    private Lut1D(ReadOnlySpan<float> rows, Vector3 domainMinimum, Vector3 domainMaximum, bool halfDomain) {
         float[] planar = GC.AllocateUninitializedArray<float>(rows.Length);
-        ReadOnlySpan2D<float> entries = rows.AsSpan2D(length, 3);
-        Span2D<float> channels = planar.AsSpan().AsSpan2D(3, length);
+        (Length, DomainMinimum, DomainMaximum, HalfDomain) = (rows.Length / 3, domainMinimum, domainMaximum, halfDomain);
         for (int channel = 0; channel < 3; channel++)
-            entries.GetColumn(channel).CopyTo(channels.GetRowSpan(channel));
-        (Length, DomainMinimum, DomainMaximum, planes) = (length, domainMinimum, domainMaximum, ImmutableCollectionsMarshal.AsImmutableArray(planar));
+            rows.AsSpan2D(Length, 3).GetColumn(channel).CopyTo(planar.AsSpan().AsSpan2D(3, Length).GetRowSpan(channel));
+        planes = ImmutableCollectionsMarshal.AsImmutableArray(planar);
     }
 
-    public CurveLength Length { get; }
+    public int Length { get; }
     public Vector3 DomainMinimum { get; }
     public Vector3 DomainMaximum { get; }
+    public bool HalfDomain { get; }
 
-    public static Fin<Lut1D> From(CurveLength length, ReadOnlyMemory<float> rows, Vector3 domainMinimum, Vector3 domainMaximum) =>
-        LutTables.Accepts(length, rows.Span, domainMinimum, domainMaximum).Map(_ => new Lut1D(length, rows.Span, domainMinimum, domainMaximum));
+    public static Fin<Lut1D> From(ReadOnlyMemory<float> rows, Vector3 domainMinimum, Vector3 domainMaximum, bool halfDomain = false) =>
+        (ImagingFault.Unless(rows.Length % 3 is 0 && (halfDomain ? rows.Length == 3 * HalfCodes : rows.Length >= 6), ImagingReason.Miscounted, rows.Length),
+         halfDomain ? unit : LutTables.Checked(rows.Span, domainMinimum, domainMaximum))
+            .Apply((_, _) => new Lut1D(rows.Span, domainMinimum, domainMaximum, halfDomain)).As();
 
     public ReadOnlySpan<float> Channel(int channel) => planes.AsSpan().AsSpan2D(3, Length).GetRowSpan(channel);
 
-    public void Apply(Span<Vector4> row) {
-        (Vector3 span, Vector3 top) = (DomainMaximum - DomainMinimum, new Vector3(Length - 1));
-        ReadOnlySpan<float> red = Channel(0);
-        ReadOnlySpan<float> green = Channel(1);
-        ReadOnlySpan<float> blue = Channel(2);
-        foreach (ref Vector4 pixel in row) {
-            Vector3 position = Vector3.Min(Vector3.MaxNumber((pixel.AsVector3() - DomainMinimum) / span * top, Vector3.Zero), top);
-            pixel = new Vector4(Sample(red, position.X), Sample(green, position.Y), Sample(blue, position.Z), pixel.W);
-        }
-    }
-
-    private static float Sample(ReadOnlySpan<float> table, float position) {
-        int high = (int)float.Ceiling(position);
-        return table[high] + ((table[(int)position] - table[high]) * (high - position));
-    }
-}
-
-public sealed class InverseLut1D {
-    private readonly Seq<MonotonicRange> ranges;
-
-    private InverseLut1D(Lut1D forward, Seq<MonotonicRange> ranges) => (Forward, this.ranges) = (forward, ranges);
-
-    public Lut1D Forward { get; }
-
-    public static Fin<InverseLut1D> From(Lut1D forward) =>
-        toSeq(Range(0, 3)).Traverse(channel => Monotonic(forward.Channel(channel)).ToFin(new ImagingFault("non-monotonic LUT channel", ImagingReason.NoInverse, channel))).As()
-            .Map(ranges => new InverseLut1D(forward, ranges));
-
-    public void Apply(Span<Vector4> row) {
-        for (int channel = 0; channel < 3; channel++) {
-            ReadOnlySpan<float> table = Forward.Channel(channel)[ranges[channel].Start..(ranges[channel].End + 1)];
-            foreach (ref Vector4 pixel in row) pixel[channel] = Invert(channel, table, pixel[channel]);
-        }
-    }
-
-    private float Invert(int channel, ReadOnlySpan<float> table, float value) {
-        MonotonicRange range = ranges[channel];
-        float bounded = float.IsNaN(value) ? table[0] : float.Clamp(value, float.Min(table[0], table[^1]), float.Max(table[0], table[^1]));
-        int above = ~table.BinarySearch(bounded, range.Order);
-        float position = range.Start + (above is 0 ? 0f : above - 1 + ((bounded - table[above - 1]) / (table[above] - table[above - 1])));
-        return Forward.DomainMinimum[channel] + (position / (Forward.Length - 1) * (Forward.DomainMaximum[channel] - Forward.DomainMinimum[channel]));
-    }
-
-    private static Option<MonotonicRange> Monotonic(ReadOnlySpan<float> table) {
-        float sign = float.Sign(table[^1] - table[0]);
-        for (int entry = 1; entry < table.Length && sign is not 0f; entry++)
-            sign = sign * (table[entry] - table[entry - 1]) < 0f ? 0f : sign;
-        return sign is 0f ? None : new MonotonicRange(Comparer<float>.Create((value, entry) => sign * value <= sign * entry ? -1 : 1), table.IndexOfAnyExcept(table[0]) - 1, table.LastIndexOfAnyExcept(table[^1]) + 1);
-    }
-
-    private sealed record MonotonicRange(Comparer<float> Order, int Start, int End);
-}
-
-public sealed record RemapBound(float In, float Out);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record RemapBounds {
-    public abstract Vector3 Apply(Vector3 value);
-    public abstract Option<RemapBounds> Inverse();
-
-    public sealed record Between(RemapBound Minimum, RemapBound Maximum, bool Clamps) : RemapBounds {
-        public override Vector3 Apply(Vector3 value) =>
-            (((value - new Vector3(Minimum.In)) * (Maximum.Out - Minimum.Out) / (Maximum.In - Minimum.In)) + new Vector3(Minimum.Out)) switch {
-                var mapped when Clamps => Vector3.Clamp(mapped, new(float.Min(Minimum.Out, Maximum.Out)), new(float.Max(Minimum.Out, Maximum.Out))),
-                var mapped => mapped,
+    public Vector3 Sample(Vector3 value) =>
+        HalfDomain
+            ? new(Coded(Channel(0), value.X), Coded(Channel(1), value.Y), Coded(Channel(2), value.Z))
+            : Vector3.Min(Vector3.MaxNumber((value - DomainMinimum) / (DomainMaximum - DomainMinimum) * (Length - 1), Vector3.Zero), new Vector3(Length - 1)) switch {
+                var position => new(Linear(Channel(0), position.X), Linear(Channel(1), position.Y), Linear(Channel(2), position.Z)),
             };
-        public override Option<RemapBounds> Inverse() =>
-            Minimum.Out == Maximum.Out ? None : new Between(new RemapBound(Minimum.Out, Minimum.In), new RemapBound(Maximum.Out, Maximum.In), Clamps);
-    }
 
-    public sealed record Floor(RemapBound Minimum) : RemapBounds {
-        public override Vector3 Apply(Vector3 value) => Vector3.Max(value, new(Minimum.In)) + new Vector3(Minimum.Out - Minimum.In);
-        public override Option<RemapBounds> Inverse() => new Floor(new RemapBound(Minimum.Out, Minimum.In));
-    }
+    private static float Linear(ReadOnlySpan<float> table, float position) =>
+        float.Lerp(table[(int)position], table[(int)float.Ceiling(position)], position - float.Floor(position));
 
-    public sealed record Ceiling(RemapBound Maximum) : RemapBounds {
-        public override Vector3 Apply(Vector3 value) => Vector3.Min(value, new(Maximum.In)) + new Vector3(Maximum.Out - Maximum.In);
-        public override Option<RemapBounds> Inverse() => new Ceiling(new RemapBound(Maximum.Out, Maximum.In));
+    private static float Coded(ReadOnlySpan<float> table, float value) {
+        Half code = (Half)value;
+        Half next = value > (float)code ? Half.BitIncrement(code) : Half.BitDecrement(code);
+        return Half.IsFinite(code) && Half.IsFinite(next) && (float)code != value
+            ? float.Lerp(table[BitConverter.HalfToUInt16Bits(code)], table[BitConverter.HalfToUInt16Bits(next)], (value - (float)code) / ((float)next - (float)code))
+            : table[BitConverter.HalfToUInt16Bits(code)];
     }
 }
 
-public sealed record CameraSegment(Vector3 Break, Vector3 Slope);
-
-public sealed record LogCurve(float Base, Vector3 LogSlope, Vector3 LogOffset, Vector3 LinSlope, Vector3 LinOffset) {
+public sealed record LogCurve(float Base, Vector3 LogSideSlope, Vector3 LogSideOffset, Vector3 LinSideSlope, Vector3 LinSideOffset, Option<(Vector3 LinSideBreak, Vector3 LinearSlope)> Camera = default) {
     private static readonly Vector3 Floor = new(float.ScaleB(1f, -126));
-
-    public Option<CameraSegment> Camera { get; init; }
 
     public static LogCurve Allocation(float minimum, float maximum, float offset) =>
         new(2f, new(1f / (maximum - minimum)), new(-minimum / (maximum - minimum)), Vector3.One, new(offset));
 
+    public static LogCurve Of(float logBase, Vector3 logSideSlope, Vector3 logSideOffset, Vector3 linSideSlope, Vector3 linSideOffset, Vector3 linSideBreak, Option<Vector3> linearSlope = default) =>
+        new(logBase, logSideSlope, logSideOffset, linSideSlope, linSideOffset,
+            Some((linSideBreak, linearSlope.IfNone(() => logSideSlope * linSideSlope / (((linSideSlope * linSideBreak) + linSideOffset) * float.Log(logBase))))));
+
     public Vector3 Forward(Vector3 linear) =>
-        Logarithmic(linear) switch {
-            var log => Camera.ToSpan() is [var camera]
-                ? Vector3.ConditionalSelect(Vector3.LessThanOrEqual(linear, camera.Break), (camera.Slope * (linear - camera.Break)) + Logarithmic(camera.Break), log)
-                : log,
-        };
+        Camera.Match(
+            Some: camera => Vector3.ConditionalSelect(Vector3.LessThanOrEqual(linear, camera.LinSideBreak), (camera.LinearSlope * (linear - camera.LinSideBreak)) + Logarithmic(camera.LinSideBreak), Logarithmic(linear)),
+            None: () => Logarithmic(linear));
 
     public Vector3 Inverse(Vector3 encoded) =>
-        Exponential(encoded) switch {
-            var exponential => Camera.ToSpan() is [var camera]
-                ? Logarithmic(camera.Break) switch {
-                    var joint => Vector3.ConditionalSelect(Vector3.LessThanOrEqual(encoded, joint), ((encoded - joint) / camera.Slope) + camera.Break, exponential),
-                }
-                : exponential,
-        };
+        Camera.Match(
+            Some: camera => Logarithmic(camera.LinSideBreak) switch {
+                var joint => Vector3.ConditionalSelect(Vector3.LessThanOrEqual(encoded, joint), ((encoded - joint) / camera.LinearSlope) + camera.LinSideBreak, Exponential(encoded)),
+            },
+            None: () => Exponential(encoded));
 
-    private Vector3 Logarithmic(Vector3 linear) => (LogSlope * (Vector3.Log(Vector3.Max((LinSlope * linear) + LinOffset, Floor)) / float.Log(Base))) + LogOffset;
+    private Vector3 Logarithmic(Vector3 linear) => (LogSideSlope * (Vector3.Log(Vector3.Max((LinSideSlope * linear) + LinSideOffset, Floor)) / float.Log(Base))) + LogSideOffset;
 
-    private Vector3 Exponential(Vector3 encoded) => (Vector3.Exp((encoded - LogOffset) / LogSlope * float.Log(Base)) - LinOffset) / LinSlope;
+    private Vector3 Exponential(Vector3 encoded) => (Vector3.Exp((encoded - LogSideOffset) / LogSideSlope * float.Log(Base)) - LinSideOffset) / LinSideSlope;
 }
 
 [SmartEnum<string>]
 public sealed partial class ExponentStyle {
-    public static readonly ExponentStyle BasicFwd = new("basicFwd", None, static (x, power, _) => float.Pow(float.Max(x, 0f), power));
-    public static readonly ExponentStyle BasicRev = new("basicRev", None, static (x, power, _) => float.Pow(float.Max(x, 0f), 1f / power));
-    public static readonly ExponentStyle BasicMirrorFwd = new("basicMirrorFwd", None, static (x, power, _) => float.CopySign(float.Pow(float.Abs(x), power), x));
-    public static readonly ExponentStyle BasicMirrorRev = new("basicMirrorRev", None, static (x, power, _) => float.CopySign(float.Pow(float.Abs(x), 1f / power), x));
-    public static readonly ExponentStyle BasicPassThruFwd = new("basicPassThruFwd", None, static (x, power, _) => x >= 0f ? float.Pow(x, power) : x);
-    public static readonly ExponentStyle BasicPassThruRev = new("basicPassThruRev", None, static (x, power, _) => x >= 0f ? float.Pow(x, 1f / power) : x);
-    public static readonly ExponentStyle MonCurveFwd = new("monCurveFwd", BasicFwd, MonCurveForward);
-    public static readonly ExponentStyle MonCurveRev = new("monCurveRev", BasicRev, MonCurveReverse);
-    public static readonly ExponentStyle MonCurveMirrorFwd = new("monCurveMirrorFwd", BasicMirrorFwd, static (x, power, offset) => float.CopySign(MonCurveForward(float.Abs(x), power, offset), x));
-    public static readonly ExponentStyle MonCurveMirrorRev = new("monCurveMirrorRev", BasicMirrorRev, static (y, power, offset) => float.CopySign(MonCurveReverse(float.Abs(y), power, offset), y));
+    public static readonly ExponentStyle BasicFwd = new("basicFwd", monCurve: false, mirror: false, passThru: false, forward: true);
+    public static readonly ExponentStyle BasicRev = new("basicRev", monCurve: false, mirror: false, passThru: false, forward: false);
+    public static readonly ExponentStyle BasicMirrorFwd = new("basicMirrorFwd", monCurve: false, mirror: true, passThru: false, forward: true);
+    public static readonly ExponentStyle BasicMirrorRev = new("basicMirrorRev", monCurve: false, mirror: true, passThru: false, forward: false);
+    public static readonly ExponentStyle BasicPassThruFwd = new("basicPassThruFwd", monCurve: false, mirror: false, passThru: true, forward: true);
+    public static readonly ExponentStyle BasicPassThruRev = new("basicPassThruRev", monCurve: false, mirror: false, passThru: true, forward: false);
+    public static readonly ExponentStyle MonCurveFwd = new("monCurveFwd", monCurve: true, mirror: false, passThru: false, forward: true);
+    public static readonly ExponentStyle MonCurveRev = new("monCurveRev", monCurve: true, mirror: false, passThru: false, forward: false);
+    public static readonly ExponentStyle MonCurveMirrorFwd = new("monCurveMirrorFwd", monCurve: true, mirror: true, passThru: false, forward: true);
+    public static readonly ExponentStyle MonCurveMirrorRev = new("monCurveMirrorRev", monCurve: true, mirror: true, passThru: false, forward: false);
 
-    public Option<ExponentStyle> Basic { get; }
+    private readonly bool monCurve;
+    private readonly bool mirror;
+    private readonly bool passThru;
+    private readonly bool forward;
 
-    public ExponentStyle Inverse => Map(
-        basicFwd: BasicRev, basicRev: BasicFwd, basicMirrorFwd: BasicMirrorRev, basicMirrorRev: BasicMirrorFwd,
-        basicPassThruFwd: BasicPassThruRev, basicPassThruRev: BasicPassThruFwd, monCurveFwd: MonCurveRev, monCurveRev: MonCurveFwd,
-        monCurveMirrorFwd: MonCurveMirrorRev, monCurveMirrorRev: MonCurveMirrorFwd);
+    public ExponentStyle Inverse => toSeq(Items).Find(item => (item.monCurve, item.mirror, item.passThru, item.forward) == (monCurve, mirror, passThru, !forward)).IfNone(this);
 
-    [UseDelegateFromConstructor]
-    public partial float Apply(float x, float power, float offset);
+    public void Apply(Span<Vector4> row, Vector3 power, Vector3 offset) {
+        (Vector3 knee, Vector3 slope) = Joint(power, offset);
+        (Vector3 exponent, Vector3 curved) = (forward ? power : Vector3.One / power, monCurve ? Vector3.GreaterThan(offset, Vector3.Zero) : Vector3.Zero);
+        foreach (ref Vector4 pixel in row) {
+            Vector3 x = pixel.AsVector3();
+            Vector3 magnitude = mirror || passThru ? Vector3.Abs(x) : monCurve ? x : Vector3.Max(x, Vector3.Zero);
+            Vector3 joined = forward
+                ? Vector3.ConditionalSelect(Vector3.GreaterThanOrEqual(magnitude, knee), Raised((magnitude + offset) / (Vector3.One + offset), power), magnitude * slope)
+                : Vector3.ConditionalSelect(Vector3.GreaterThanOrEqual(magnitude, knee * slope), ((Vector3.One + offset) * Raised(magnitude, exponent)) - offset, magnitude / slope);
+            Vector3 y = Vector3.ConditionalSelect(curved, joined, Raised(Vector3.Max(magnitude, Vector3.Zero), exponent));
+            pixel = new Vector4(mirror ? Vector3.CopySign(y, x) : passThru ? Vector3.ConditionalSelect(Vector3.LessThan(x, Vector3.Zero), x, y) : y, pixel.W);
+        }
+    }
 
-    private static float MonCurveForward(float x, float power, float offset) =>
-        Joint(power, offset) switch {
-            var (knee, slope) => x >= knee ? float.Pow((x + offset) / (1f + offset), power) : x * slope,
-        };
+    internal static (Vector3 Knee, Vector3 Slope) Joint(Vector3 power, Vector3 offset) =>
+        (offset / (power - Vector3.One), (power - Vector3.One) / offset * Raised(offset * power / ((power - Vector3.One) * (Vector3.One + offset)), power));
 
-    private static float MonCurveReverse(float y, float power, float offset) =>
-        Joint(power, offset) switch {
-            var (knee, slope) => y >= knee * slope ? ((1f + offset) * float.Pow(y, 1f / power)) - offset : y / slope,
-        };
-
-    private static (float Knee, float Slope) Joint(float power, float offset) =>
-        (offset / (power - 1f), (power - 1f) / offset * float.Pow(offset * power / ((power - 1f) * (1f + offset)), power));
+    private static Vector3 Raised(Vector3 value, Vector3 power) => Vector3.Exp(power * Vector3.Log(value));
 }
 
 [SmartEnum<string>]
 public sealed partial class CdlStyle {
-    public static readonly CdlStyle Fwd = new("Fwd", "v1.2_Fwd", static (color, slope, offset, power, saturation) =>
-        Clamped(Saturated(Raised(Clamped((color * slope) + offset), power), new Vector3(saturation))));
-    public static readonly CdlStyle FwdNoClamp = new("FwdNoClamp", "noClampFwd", static (color, slope, offset, power, saturation) =>
-        Saturated(Raised((color * slope) + offset, power), new Vector3(saturation)));
-    public static readonly CdlStyle Rev = new("Rev", "v1.2_Rev", static (color, slope, offset, power, saturation) =>
-        Clamped((Raised(Clamped(Saturated(Clamped(color), Reciprocal(new Vector3(saturation)))), Reciprocal(power)) - offset) * Reciprocal(slope)));
-    public static readonly CdlStyle RevNoClamp = new("RevNoClamp", "noClampRev", static (color, slope, offset, power, saturation) =>
-        (Raised(Saturated(color, Reciprocal(new Vector3(saturation))), Reciprocal(power)) - offset) * Reciprocal(slope));
+    public static readonly CdlStyle Fwd = new("Fwd", "v1.2_Fwd", forward: true, clamps: true);
+    public static readonly CdlStyle FwdNoClamp = new("FwdNoClamp", "noClampFwd", forward: true, clamps: false);
+    public static readonly CdlStyle Rev = new("Rev", "v1.2_Rev", forward: false, clamps: true);
+    public static readonly CdlStyle RevNoClamp = new("RevNoClamp", "noClampRev", forward: false, clamps: false);
 
     private static readonly Vector3 Luma = new((float)YbrConfiguration.Rec709.Kr, (float)YbrConfiguration.Rec709.Kg, (float)YbrConfiguration.Rec709.Kb);
 
     public string Legacy { get; }
 
-    public CdlStyle Inverse => Map(fwd: Rev, fwdNoClamp: RevNoClamp, rev: Fwd, revNoClamp: FwdNoClamp);
+    private readonly bool forward;
+    private readonly bool clamps;
 
-    [UseDelegateFromConstructor]
-    public partial Vector3 Apply(Vector3 color, Vector3 slope, Vector3 offset, Vector3 power, float saturation);
+    public CdlStyle Inverse => toSeq(Items).Find(item => (item.forward, item.clamps) == (!forward, clamps)).IfNone(this);
 
-    private static Vector3 Clamped(Vector3 color) => Vector3.Min(Vector3.MaxNumber(color, Vector3.Zero), Vector3.One);
+    public Vector3 Apply(Vector3 color, Vector3 slope, Vector3 offset, Vector3 power, float saturation) =>
+        forward
+            ? Bounded(Saturated(Raised(Bounded((color * slope) + offset), power), new Vector3(saturation)))
+            : Bounded((Raised(Bounded(Saturated(Bounded(color), Reciprocal(new Vector3(saturation)))), Reciprocal(power)) - offset) * Reciprocal(slope));
 
-    private static Vector3 Saturated(Vector3 color, Vector3 saturation) =>
-        new Vector3(Vector3.Dot(color, Luma)) switch {
-            var luma => luma + (saturation * (color - luma)),
-        };
+    private Vector3 Bounded(Vector3 color) => clamps ? Vector3.Min(Vector3.MaxNumber(color, Vector3.Zero), Vector3.One) : color;
+
+    private static Vector3 Saturated(Vector3 color, Vector3 saturation) => new Vector3(Vector3.Dot(color, Luma)) switch { var luma => luma + (saturation * (color - luma)) };
 
     private static Vector3 Raised(Vector3 color, Vector3 power) => new(Raised(color.X, power.X), Raised(color.Y, power.Y), Raised(color.Z, power.Z));
 
@@ -226,129 +162,185 @@ public sealed partial class CdlStyle {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LutTable {
+    public virtual Seq<LutTable> Steps => [this];
+
+    protected virtual bool PrintMembers(StringBuilder builder) => false;
+
     public abstract void Apply(Span<Vector4> row);
     public abstract Fin<LutTable> Inverse();
 
+    public static LutTable Of(Seq<LutTable> steps) => steps.Bind(static step => step.Steps) switch {
+        [var step] => step,
+        var flat => new Sequence(flat),
+    };
+
     public sealed record Cube(Lut3D Lattice, LutInterpolation Interpolation) : LutTable {
+        public override void Apply(Span<Vector4> row) => Lattice.Apply(MemoryMarshal.Cast<Vector4, float>(row), MemoryMarshal.Cast<Vector4, float>(row), 4, Interpolation);
+        public override Fin<LutTable> Inverse() => ImagingFault.Of(ImagingReason.NoInverse, Lattice.Size);
+    }
+
+    public sealed record ChannelCurve : LutTable {
+        private static readonly Comparer<float> Rising = Comparer<float>.Create(static (value, entry) => value <= entry ? -1 : 1);
+        private static readonly Comparer<float> Falling = Comparer<float>.Create(static (value, entry) => value >= entry ? -1 : 1);
+
+        private readonly Seq<(Comparer<float> Order, int Start, int End)> ranges;
+
+        public ChannelCurve(Lut1D table, bool hueAdjust = false) : this(table, hueAdjust, []) { }
+
+        private ChannelCurve(Lut1D table, bool hueAdjust, Seq<(Comparer<float> Order, int Start, int End)> ranges) => (Table, HueAdjust, this.ranges) = (table, hueAdjust, ranges);
+
+        public Lut1D Table { get; }
+        public bool HueAdjust { get; }
+        public bool Inverted => !ranges.IsEmpty;
+
         public override void Apply(Span<Vector4> row) {
-            Span<float> components = MemoryMarshal.Cast<Vector4, float>(row);
-            Lattice.Apply(components, components, 4, Interpolation);
+            foreach (ref Vector4 pixel in row) {
+                Vector3 color = pixel.AsVector3();
+                Vector3 mapped = Inverted ? new(Invert(0, color.X), Invert(1, color.Y), Invert(2, color.Z)) : Table.Sample(color);
+                pixel = new Vector4(HueAdjust ? Restored(color, mapped) : mapped, pixel.W);
+            }
         }
-        public override Fin<LutTable> Inverse() => new ImagingFault("3D lattice step", ImagingReason.NoInverse);
+
+        public override Fin<LutTable> Inverse() =>
+            Inverted
+                ? new ChannelCurve(Table, HueAdjust)
+                : ImagingFault.Unless(!Table.HalfDomain, ImagingReason.Unsupported, Table.HalfDomain)
+                    .Bind(_ => toSeq(Enumerable.Range(0, 3)).Traverse(channel => Monotonic(Table.Channel(channel)).ToFin(ImagingFault.Of(ImagingReason.NoInverse, channel, channel))).As())
+                    .Map(found => (LutTable)new ChannelCurve(Table, HueAdjust, found));
+
+        private float Invert(int channel, float value) {
+            ReadOnlySpan<float> table = Table.Channel(channel)[ranges[channel].Start..(ranges[channel].End + 1)];
+            float bounded = float.IsNaN(value) ? table[0] : float.Clamp(value, float.Min(table[0], table[^1]), float.Max(table[0], table[^1]));
+            int above = ~table.BinarySearch(bounded, ranges[channel].Order);
+            float position = ranges[channel].Start + (above is 0 ? 0f : above - 1 + ((bounded - table[above - 1]) / (table[above] - table[above - 1])));
+            return Table.DomainMinimum[channel] + (position / (Table.Length - 1) * (Table.DomainMaximum[channel] - Table.DomainMinimum[channel]));
+        }
+
+        private static Option<(Comparer<float> Order, int Start, int End)> Monotonic(ReadOnlySpan<float> table) {
+            float sign = float.Sign(table[^1] - table[0]);
+            for (int entry = 1; entry < table.Length && sign is not 0f; entry++)
+                sign = sign * (table[entry] - table[entry - 1]) < 0f ? 0f : sign;
+            return sign is 0f ? None : (sign > 0f ? Rising : Falling, table.IndexOfAnyExcept(table[0]) - 1, table.LastIndexOfAnyExcept(table[^1]) + 1);
+        }
+
+        private static Vector3 Restored(Vector3 original, Vector3 mapped) {
+            int high = original.X >= original.Y ? (original.X >= original.Z ? 0 : 2) : (original.Y >= original.Z ? 1 : 2);
+            int low = original.X < original.Y ? (original.X < original.Z ? 0 : 2) : (original.Y < original.Z ? 1 : 2);
+            float chroma = original[high] - original[low];
+            mapped[3 - high - low] = mapped[low] + ((chroma is 0f ? 0f : (original[3 - high - low] - original[low]) / chroma) * (mapped[high] - mapped[low]));
+            return mapped;
+        }
     }
 
-    public sealed record ChannelCurve(Lut1D Table) : LutTable {
-        public override void Apply(Span<Vector4> row) => Table.Apply(row);
-        public override Fin<LutTable> Inverse() => InverseLut1D.From(Table).Map(static inverse => (LutTable)new InverseChannelCurve(inverse));
-    }
-
-    public sealed record InverseChannelCurve(InverseLut1D Table) : LutTable {
-        public override void Apply(Span<Vector4> row) => Table.Apply(row);
-        public override Fin<LutTable> Inverse() => new ChannelCurve(Table.Forward);
-    }
-
-    public sealed record Affine : LutTable {
-        private readonly ColorMatrix3x3 baked;
-        private readonly Vector4 shift;
-
-        public Affine(Matrix<double> matrix, (double X, double Y, double Z) offset = default) =>
-            (Matrix, Offset, baked, shift) = (matrix, offset, LutTables.Baked(matrix), new Vector4((float)offset.X, (float)offset.Y, (float)offset.Z, 0f));
-
-        public Matrix<double> Matrix { get; }
-        public (double X, double Y, double Z) Offset { get; }
-
+    public sealed record Affine(Matrix4x4 Matrix) : LutTable {
         public override void Apply(Span<Vector4> row) {
-            Span<float> samples = MemoryMarshal.Cast<Vector4, float>(row);
-            ImageProcessing.ApplyColorMatrix(samples, samples, 4, baked);
-            if (shift != Vector4.Zero)
-                foreach (ref Vector4 pixel in row) pixel += shift;
+            foreach (ref Vector4 pixel in row) pixel = new Vector4(Vector3.Transform(pixel.AsVector3(), Matrix), pixel.W);
+        }
+        public override Fin<LutTable> Inverse() => Matrix4x4.Invert(Matrix, out Matrix4x4 inverse) ? new Affine(inverse) : ImagingFault.Of(ImagingReason.NoInverse, Matrix);
+    }
+
+    public sealed record Range(Option<(float In, float Out)> Minimum, Option<(float In, float Out)> Maximum, bool Clamps = true) : LutTable {
+        public override void Apply(Span<Vector4> row) {
+            (float scale, float shift, float low, float high) = Minimum.Match(
+                Some: bottom => Maximum.Match(
+                    Some: top => ((top.Out - bottom.Out) / (top.In - bottom.In)) switch {
+                        var gain => (gain, bottom.Out - (bottom.In * gain), Clamps ? float.Min(bottom.Out, top.Out) : float.NegativeInfinity, Clamps ? float.Max(bottom.Out, top.Out) : float.PositiveInfinity),
+                    },
+                    None: () => (1f, bottom.Out - bottom.In, bottom.Out, float.PositiveInfinity)),
+                None: () => Maximum.Match(Some: static top => (1f, top.Out - top.In, float.NegativeInfinity, top.Out), None: static () => (1f, 0f, float.NegativeInfinity, float.PositiveInfinity)));
+            foreach (ref Vector4 pixel in row) pixel = new Vector4(Vector3.Clamp((pixel.AsVector3() * scale) + new Vector3(shift), new Vector3(low), new Vector3(high)), pixel.W);
         }
         public override Fin<LutTable> Inverse() =>
-            Matrix.LU() switch {
-                var factorization when factorization.U.Diagonal().Contains(0d) => new ImagingFault("singular affine step", ImagingReason.NoInverse),
-                var factorization => factorization.Inverse() switch {
-                    var inverse => inverse.Multiply(new DenseVector([Offset.X, Offset.Y, Offset.Z])).Negate() switch { var offset => new Affine(inverse, (offset[0], offset[1], offset[2])) },
-                },
-            };
+            ImagingFault.Unless(!(from bottom in Minimum from top in Maximum select bottom.Out == top.Out).IfNone(noneValue: false), ImagingReason.NoInverse, (Minimum, Maximum))
+                .Map(_ => (LutTable)new Range(Minimum.Map(static bound => (bound.Out, bound.In)), Maximum.Map(static bound => (bound.Out, bound.In)), Clamps));
     }
 
-    public sealed record Remap(RemapBounds Bounds) : LutTable {
+    public sealed record Log(LogCurve Curve, bool Inverted = false) : LutTable {
         public override void Apply(Span<Vector4> row) {
-            foreach (ref Vector4 pixel in row) pixel = new Vector4(Bounds.Apply(pixel.AsVector3()), pixel.W);
+            foreach (ref Vector4 pixel in row) pixel = new Vector4(Inverted ? Curve.Inverse(pixel.AsVector3()) : Curve.Forward(pixel.AsVector3()), pixel.W);
         }
-        public override Fin<LutTable> Inverse() => Bounds.Inverse().Map(static bounds => (LutTable)new Remap(bounds)).ToFin(new ImagingFault("constant remap step", ImagingReason.NoInverse));
-    }
-
-    public sealed record Log(LogCurve Curve) : LutTable {
-        public override void Apply(Span<Vector4> row) {
-            foreach (ref Vector4 pixel in row) pixel = new Vector4(Curve.Forward(pixel.AsVector3()), pixel.W);
-        }
-        public override Fin<LutTable> Inverse() => new Antilog(Curve);
-    }
-
-    public sealed record Antilog(LogCurve Curve) : LutTable {
-        public override void Apply(Span<Vector4> row) {
-            foreach (ref Vector4 pixel in row) pixel = new Vector4(Curve.Inverse(pixel.AsVector3()), pixel.W);
-        }
-        public override Fin<LutTable> Inverse() => new Log(Curve);
+        public override Fin<LutTable> Inverse() => this with { Inverted = !Inverted };
     }
 
     public sealed record Exponent(ExponentStyle Style, Vector3 Power, Vector3 Offset) : LutTable {
-        public override void Apply(Span<Vector4> row) {
-            foreach (ref Vector4 pixel in row)
-                pixel = new Vector4(Style.Apply(pixel.X, Power.X, Offset.X), Style.Apply(pixel.Y, Power.Y, Offset.Y), Style.Apply(pixel.Z, Power.Z, Offset.Z), pixel.W);
-        }
-        public override Fin<LutTable> Inverse() => new Exponent(Style.Inverse, Power, Offset);
+        public override void Apply(Span<Vector4> row) => Style.Apply(row, Power, Offset);
+        public override Fin<LutTable> Inverse() => this with { Style = Style.Inverse };
     }
 
     public sealed record Cdl(CdlStyle Style, Vector3 Slope, Vector3 Offset, Vector3 Power, float Saturation) : LutTable {
         public override void Apply(Span<Vector4> row) {
             foreach (ref Vector4 pixel in row) pixel = new Vector4(Style.Apply(pixel.AsVector3(), Slope, Offset, Power, Saturation), pixel.W);
         }
-        public override Fin<LutTable> Inverse() => new Cdl(Style.Inverse, Slope, Offset, Power, Saturation);
+        public override Fin<LutTable> Inverse() => this with { Style = Style.Inverse };
     }
 
-    public sealed record Sequence(Seq<LutTable> Steps) : LutTable {
+    public sealed record FixedFunction(IFixedFunction Function, bool Inverted = false) : LutTable {
+        public override void Apply(Span<Vector4> row) => Function.Apply(row, Inverted);
+        public override Fin<LutTable> Inverse() => this with { Inverted = !Inverted };
+    }
+
+    public sealed record Sequence : LutTable {
+        internal Sequence(Seq<LutTable> steps) => Steps = steps;
+
+        public override Seq<LutTable> Steps { get; }
+
         public override void Apply(Span<Vector4> row) {
             foreach (LutTable step in Steps) step.Apply(row);
         }
-        public override Fin<LutTable> Inverse() =>
-            Steps.Rev().Traverse(static step => step.Inverse()).As().Map(static steps => (LutTable)new Sequence(steps));
+        public override Fin<LutTable> Inverse() => Steps.Rev().Traverse(static step => step.Inverse()).As().Map(Of);
     }
 }
 
-public sealed record LogSpace(Gamut Gamut, LogCurve Allocation, Seq<LutTable> Into, Seq<LutTable> Back) {
-    private static readonly LogCurve AgXAllocation = LogCurve.Allocation(-12.47393f, 12.5260688117f, 0f);
-    private static readonly LutTable Inset = new LutTable.Affine(Matrix<double>.Build.DenseOfRowMajor(3, 3, [
-        0.856627153315983d, 0.0951212405381588d, 0.0482516061458583d,
-        0.137318972929847d, 0.761241990602591d, 0.101439036467562d,
-        0.11189821299995d, 0.0767994186031903d, 0.811302368396859d,
-    ]));
-    private static readonly LutTable Outset = Inset.Inverse().ThrowIfFail();
+public sealed record LutSpace(ColorEncoding Encoding, LutTable Into, LutTable Back) {
+    private static readonly LogCurve Base = LogCurve.Allocation(-12.473931188f, 12.526068812f, 0f);
+    private static readonly LutTable Inset = new LutTable.Affine(Matrix4x4.Transpose(new(
+        0.856627153315983f, 0.0951212405381588f, 0.0482516061458583f, 0f,
+        0.137318972929847f, 0.761241990602591f, 0.101439036467562f, 0f,
+        0.11189821299995f, 0.0767994186031903f, 0.811302368396859f, 0f,
+        0f, 0f, 0f, 1f)));
 
-    public static LogSpace Filmic { get; } = LogCurve.Allocation(-12.473931188f, 12.526068812f, 0f) switch {
-        var allocation => new(Gamut.StandardRgb, allocation, [new LutTable.Log(allocation)], [new LutTable.Antilog(allocation)]),
-    };
+    public static LutSpace Filmic { get; } = Of(Gamut.StandardRgb, Base);
 
-    public static LogSpace AgX(Lut3D compensation) =>
-        new(Gamut.EGamut, AgXAllocation,
-            [
-                new LutTable.Log(AgXAllocation), new LutTable.Cube(compensation, LutInterpolation.Tetrahedral), new LutTable.Antilog(AgXAllocation),
-                .. LutTables.Between(Gamut.EGamut, Gamut.Rec2020), Inset, new LutTable.Log(AgXAllocation),
-            ],
-            [new LutTable.Antilog(AgXAllocation), Outset, .. LutTables.Between(Gamut.Rec2020, Gamut.EGamut)]);
+    public static LutSpace Of(ColorEncoding signal) => new(signal, LutTable.Of([]), LutTable.Of([]));
+
+    public static LutSpace Of(Gamut gamut, LogCurve allocation) => new(new(gamut, new Transfer.Linear()), new LutTable.Log(allocation), new LutTable.Log(allocation, Inverted: true));
+
+    public static LutSpace Rational(Gamut gamut) =>
+        (new LogCurve(2f, Vector3.One, Vector3.Zero, Vector3.One, Vector3.One), new LogCurve(2f, -Vector3.One, Vector3.Zero, -Vector3.One, Vector3.One)) switch {
+            var (lifted, folded) => new(new(gamut, new Transfer.Linear()),
+                LutTable.Of([new LutTable.Log(lifted), new LutTable.Log(folded, Inverted: true)]),
+                LutTable.Of([new LutTable.Log(folded), new LutTable.Log(lifted, Inverted: true), new LutTable.Range(None, Some(((float)Half.MaxValue, (float)Half.MaxValue)))])),
+        };
+
+    public static LutSpace AgX(Lut3D compensation) =>
+        (new ColorEncoding(Gamut.EGamut, new Transfer.Linear()), new ColorEncoding(Gamut.Rec2020, new Transfer.Linear())) switch {
+            var (native, wide) => new(native,
+                LutTable.Of([new LutTable.Log(Base), new LutTable.Cube(compensation, LutInterpolation.Tetrahedral), new LutTable.Log(Base, Inverted: true), native.To(wide), Inset, new LutTable.Log(Base)]),
+                LutTable.Of([new LutTable.Log(Base, Inverted: true), Inset.Inverse().ThrowIfFail(), wide.To(native)])),
+        };
+
+    public LutTable Around(ColorEncoding working, LutTable step) => LutTable.Of([working.To(Encoding), Into, step, Back, Encoding.To(working)]);
+
+    public LutTable Exact(LutTable chain, Gamut working, ColorEncoding target) =>
+        new ColorEncoding(working, new Transfer.Linear()) switch {
+            var linear => LutTable.Of([Encoding.To(linear), chain, linear.To(target)]),
+        };
+
+    public Fin<LutTable> Bake(int cubeSize, Seq<Action<Span<Vector4>>> chain, Gamut working, ColorEncoding target) {
+        ColorEncoding linear = new(working, new Transfer.Linear());
+        using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * cubeSize * cubeSize * cubeSize);
+        ParallelHelper.For2D(..cubeSize, ..cubeSize, new LatticeRows(cubeSize, [Back.Apply, Encoding.To(linear).Apply, .. chain, linear.To(target).Apply], samples.Memory));
+        return Lut3D.From(cubeSize, samples.Memory, Vector3.Zero, Vector3.One).Map(lattice => LutTable.Of([Into, new LutTable.Cube(lattice, LutInterpolation.Tetrahedral)]));
+    }
 }
 
-[Union]
-public abstract partial record LutSpace {
-    public abstract (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket { get; }
-
-    public sealed record Encoded(ColorEncoding Signal) : LutSpace {
-        public override (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket => (Signal, [], []);
-    }
-
-    public sealed record Log(LogSpace Space) : LutSpace {
-        public override (ColorEncoding Encoding, Seq<LutTable> Into, Seq<LutTable> Back) Bracket => (new(Space.Gamut, new Transfer.Linear()), Space.Into, Space.Back);
+file readonly struct LatticeRows(int edge, Seq<Action<Span<Vector4>>> steps, Memory<float> samples) : IAction2D {
+    public void Invoke(int i, int j) {
+        using SpanOwner<Vector4> nodes = SpanOwner<Vector4>.Allocate(edge);
+        Span<Vector4> row = nodes.Span;
+        for (int red = 0; red < edge; red++) row[red] = new Vector4(red, j, i, edge - 1) / (edge - 1);
+        foreach (Action<Span<Vector4>> step in steps) step(row);
+        MemoryMarshal.Cast<Vector4, float>(row).AsSpan2D(edge, 4)[.., ..3].CopyTo(samples.Span.AsSpan2D(edge * edge, 3 * edge).GetRowSpan((edge * i) + j));
     }
 }
 
@@ -356,38 +348,12 @@ public abstract partial record LutSpace {
 public static class LutTables {
     extension(Lut3D) {
         public static Fin<Lut3D> From(int size, ReadOnlyMemory<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
-            Sampled(samples.Span, domainMinimum, domainMaximum).Bind(_ => Try.lift(() => new Lut3D(size, samples.Span, domainMinimum, domainMaximum)).Run()
-                .MapFail(cause => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT lattice of size {size}"), ImagingReason.Refused, Inner: cause)));
+            Checked(samples.Span, domainMinimum, domainMaximum).Bind(_ => Try.lift(() => new Lut3D(size, samples.Span, domainMinimum, domainMaximum)).Run()
+                .MapFail(cause => ImagingFault.Of(ImagingReason.Refused, size, inner: cause)));
     }
 
-    extension(Matrix<double> matrix) {
-        public (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) Lanes =>
-            (Vector256.Create([.. matrix.Column(0), 0d]), Vector256.Create([.. matrix.Column(1), 0d]), Vector256.Create([.. matrix.Column(2), 0d]));
-    }
-
-    internal static ColorMatrix3x3 Baked(Matrix<double> matrix) =>
-        new((float)matrix[0, 0], (float)matrix[0, 1], (float)matrix[0, 2], (float)matrix[1, 0], (float)matrix[1, 1], (float)matrix[1, 2], (float)matrix[2, 0], (float)matrix[2, 1], (float)matrix[2, 2]);
-
-    internal static Fin<Unit> Accepts(CurveLength length, ReadOnlySpan<float> rows, Vector3 domainMinimum, Vector3 domainMaximum) =>
-        (rows.Length == 3 * length
-                ? Fin.Succ(unit)
-                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT curve of length {length} with {rows.Length} samples"), ImagingReason.Miscounted),
-         Sampled(rows, domainMinimum, domainMaximum),
-         Vector3.AllWhereAllBitsSet(Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum))
-                ? Fin.Succ(unit)
-                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT domain [{domainMinimum}, {domainMaximum}]"), ImagingReason.Range))
-            .Apply(static (_, _, _) => unit).As();
-
-    private static Fin<Unit> Sampled(ReadOnlySpan<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
-        (TensorPrimitives.IsFiniteAll(samples) ? Fin.Succ(unit) : new ImagingFault("LUT sample", ImagingReason.Range),
-         Vector3.AllWhereAllBitsSet(Vector3.LessThan(domainMinimum, domainMaximum))
-                ? Fin.Succ(unit)
-                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT domain order [{domainMinimum}, {domainMaximum}]"), ImagingReason.Degenerate))
+    internal static Fin<Unit> Checked(ReadOnlySpan<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
+        (ImagingFault.Unless(TensorPrimitives.IsFiniteAll(samples), ImagingReason.Range, samples.Length),
+         ImagingFault.Unless(Vector3.AllWhereAllBitsSet(Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum) & Vector3.LessThan(domainMinimum, domainMaximum)), ImagingReason.Degenerate, (domainMinimum, domainMaximum)))
             .Apply(static (_, _) => unit).As();
-
-    public static Seq<LutTable> Between(Gamut source, Gamut target) =>
-        source == target ? [] : [new LutTable.Affine(source.MatrixTo(target))];
-
-    public static LutTable.Sequence Bracketed(Gamut working, Gamut space, Seq<LutTable> into, LutTable step, Seq<LutTable> back) =>
-        new([.. Between(working, space), .. into, step, .. back, .. Between(space, working)]);
 }

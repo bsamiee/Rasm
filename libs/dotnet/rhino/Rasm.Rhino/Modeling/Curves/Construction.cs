@@ -1,5 +1,5 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
-using Rasm.Spatial;
 using Rasm.Rhino.Document.Units;
 
 namespace Rasm.Rhino.Modeling.Curves;
@@ -10,80 +10,88 @@ public delegate Curve? CatenaryCall(out Point3d apex, out double parameter, out 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CatenaryCurve(Curve Curve, Point3d Apex, double Parameter, double Length, double MaxDeviation);
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record Conic {
-    public sealed record EllipseArc(Ellipse Ellipse, Interval Angles) : Conic;
+public sealed record NurbsCurveFit(NurbsCurve Curve, Option<Line> MaximumSeparation, Option<(double Source, double Fit)> SeparationParameters);
 
-    public IO<NurbsCurve> ToNurbs() =>
-        Switch(
-            ellipseArc: static arc =>
-                from circle in Products.Made(NurbsCurve.CreateFromArc(new Arc(new Circle(arc.Ellipse.Plane, 1d), arc.Angles)))
-                from scaled in IO.lift(() => RhinoFault.Unless(circle.Transform(Transform.Scale(arc.Ellipse.Plane, arc.Ellipse.Radius1, arc.Ellipse.Radius2, 1d))).Map(_ => circle))
-                select scaled);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+public abstract partial record Ribbon {
+    public sealed record Ruled(Curve Offset, Seq<Curve> CrossSections, Seq<Surface> RuledSurfaces) : Ribbon;
+
+    public sealed record Swept(Curve Offset, Seq<Curve> Rails, Seq<Curve> CrossSections, Seq<Brep> BrepSurfaces) : Ribbon;
+
+    public Seq<GeometryBase> Parts => Switch<Seq<GeometryBase>>(
+        ruled: static ribbon => [ribbon.Offset, .. ribbon.CrossSections, .. ribbon.RuledSurfaces],
+        swept: static ribbon => [ribbon.Offset, .. ribbon.Rails, .. ribbon.CrossSections, .. ribbon.BrepSurfaces]);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CurveConstruction {
-    // --- [JOINS_AND_BOOLEANS]
-    public static IO<Seq<Grouped<Curve, int>>> JoinCurves(Tolerances tolerances, Seq<Curve> curves, bool preserveDirection, bool simpleJoin) =>
-        Copies.Keyed(Products.Made(Curve.JoinCurves(curves, tolerances.Absolute, preserveDirection, simpleJoin, out int[] key)), key);
-
-    public static IO<Seq<Grouped<Curve, int>>> Boolean(Tolerances tolerances, Boolean<Curve> operation) =>
-        operation.Switch(
-            tolerances,
-            union: static (at, union) => Union(at, union.Operands),
-            intersection: static (at, intersection) => Booleans.Meet(
-                intersection.First,
-                intersection.Second,
-                () => Union(at, intersection.Second).Bind(static regions => IO.lift(() =>
-                    Callbacks.Each(regions, static (region, index) => RhinoFault.Unless(!region.From.IsEmpty, index).Map(_ => region.Value)))),
-                (first, outer) => Products.Made(Curve.CreateBooleanIntersection(first, outer, at.Absolute))),
-            difference: static (at, difference) => Booleans.PerFirst(difference.First, first =>
-                Products.Made(Curve.CreateBooleanDifference(first, difference.Second, at.Absolute))));
-
-    public static IO<Seq<Grouped<Seq<Curve>, int>>> CreateBooleanRegions(Tolerances tolerances, Seq<Curve> curves, Plane plane, Seq<Point3d> points, bool combineRegions) =>
-        from regions in unitIO.Bind(_ => Products.Made(Curve.CreateBooleanRegions(curves, plane, points, combineRegions, tolerances.Absolute)))
-        from grouped in Copies.Keyed(
-            Callbacks.Each(toSeq(Range(0, regions.RegionCount)).Map(index => Products.Made(regions.RegionCurves(index))
-                .Bind(region => IO.lift(() => RhinoFault.Unless(!region.IsEmpty, index).Map(_ => region)))).Strict()),
-            [.. toSeq(Range(0, regions.PointCount)).Map(regions.RegionPointIndex)])
-        select grouped;
-
-    private static IO<Seq<Grouped<Curve, int>>> Union(Tolerances tolerances, Seq<Curve> curves) =>
-        Copies.Keyed(Products.Made(Curve.CreateBooleanUnion(curves, tolerances.Absolute, out int[] indexMap))
-            .Bind(static united => IO.lift(() => RhinoFault.Unless(!united.IsEmpty).Map(_ => united))), indexMap);
-
-    // --- [ASSEMBLY]
-    internal static IO<NurbsCurve> Appended(Seq<NurbsCurve> pieces) =>
-        from whole in Copies.Duplicate(pieces[0])
-        from joined in IO.lift(() => RhinoFault.Unless(pieces.Tail.ForAll(whole.Append)))
-        from valid in Products.Made(whole)
-        select valid;
-
-    // --- [LOWERINGS]
-    extension(AnalyticCurve curve) {
-        public IO<NurbsCurve> ToNurbs(Plane frame, Tolerances tolerances) => ParametricCurve.Traced(t => curve.At(t).ToPoint3d(frame), curve.Joins, tolerances);
-    }
-
-    extension(RationalQuadratic conic) {
-        public IO<NurbsCurve> ToNurbs(Plane frame) =>
-            from bezier in unitIO.Bind(_ => Products.Made(new BezierCurve([new Point4d(conic.Start.ToPoint3d(frame)), new Point4d(conic.Apex.ToPoint3d(frame)) * conic.Weight, new Point4d(conic.End.ToPoint3d(frame))])))
-            from nurbs in Products.Made(bezier.ToNurbsCurve())
-            select nurbs;
-    }
-
-    extension(HermiteSpline spline) {
-        public IO<NurbsCurve> ToNurbs(Plane frame) =>
-            from pieces in spline.Spans.TraverseM(span =>
-                from bezier in Products.Made(new BezierCurve([span.Start.ToPoint3d(frame), span.StartControl.ToPoint3d(frame), span.EndControl.ToPoint3d(frame), span.End.ToPoint3d(frame)]))
-                from nurbs in Products.Made(bezier.ToNurbsCurve())
-                select nurbs).As()
-            from joined in Appended(pieces)
-            select joined;
-    }
-
     // --- [CATENARIES]
     public static IO<CatenaryCurve> CreateCatenaryCurve(CatenaryCall call, [CallerArgumentExpression(nameof(call))] string member = "") =>
-        Products.Made(call(out Point3d apex, out double parameter, out double length, out double deviation), member)
-            .Map(curve => new CatenaryCurve(curve, apex, parameter, length, deviation));
+        from answered in IO.lift(() => (Curve: call(out Point3d apex, out double parameter, out double length, out double deviation), Apex: apex, Parameter: parameter, Length: length, Deviation: deviation))
+        from curve in Products.Of(() => answered.Curve, member)
+        select new CatenaryCurve(curve, answered.Apex, answered.Parameter, answered.Length, answered.Deviation);
+
+    // --- [FITS]
+    public static IO<NurbsCurveFit> CreateNurbsCurveFit(Curve curve, Interval domain, NurbsCurveFitParameters rebuildOptions) =>
+        from answered in IO.lift(() => (
+            Curve: Curve.CreateNurbsCurveFit(curve, domain, rebuildOptions, out Line separation, out double source, out double fit), Separation: separation, Source: source, Fit: fit))
+        from fitted in Products.Of(() => answered.Curve, nameof(Curve.CreateNurbsCurveFit))
+        select new NurbsCurveFit(fitted, Conversions.Present(answered.Separation),
+            from sourceAt in Conversions.Present(answered.Source)
+            from fitAt in Conversions.Present(answered.Fit)
+            select (Source: sourceAt, Fit: fitAt));
+
+    // --- [RIBBONS]
+    public static IO<Ribbon> RibbonOffset(Curve curve, RibbonOffsetParameters parameters) =>
+        parameters.RibbonSurfaceGenerationMethod is RibbonOffsetSurfaceMethod.None
+            ? from answered in IO.lift(() => (
+                  Offset: curve.RibbonOffset(parameters.OffsetDistance, parameters.BlendRadius, parameters.OffsetLocation, parameters.OffsetPlaneVector3d, parameters.OffsetTolerance,
+                      out Curve[] sections, out Surface[] surfaces), Sections: sections, Surfaces: surfaces))
+              from offset in Products.Of(() => answered.Offset, nameof(Curve.RibbonOffset))
+              from sections in Products.Many(() => answered.Sections, required: false, nameof(Curve.RibbonOffset))
+              from surfaces in Products.Many(() => answered.Surfaces, required: false, nameof(Curve.RibbonOffset))
+              select (Ribbon)new Ribbon.Ruled(offset, sections, surfaces)
+            : from answered in IO.lift(() => (Offset: curve.RibbonOffset(parameters, out Curve[] rails, out Curve[] sections, out Brep[] breps), Rails: rails, Sections: sections, Breps: breps))
+              from offset in Products.Of(() => answered.Offset, nameof(Curve.RibbonOffset))
+              from rails in Products.Many(() => answered.Rails, required: false, nameof(Curve.RibbonOffset))
+              from sections in Products.Many(() => answered.Sections, required: false, nameof(Curve.RibbonOffset))
+              from breps in Products.Many(() => answered.Breps, required: false, nameof(Curve.RibbonOffset))
+              select (Ribbon)new Ribbon.Swept(offset, rails, sections, breps);
+
+    // --- [CHAMFERS]
+    public static Step<Curve> Chamfer(Tolerances tolerances, double before, double after) =>
+        Steps.Derived<Curve>(curve =>
+            from seamed in IO.lift(() => CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous) switch {
+                var kinks when curve.IsClosed && kinks.Exists(t => t >= curve.Domain.T1) => Seam(curve, kinks.Filter(t => t < curve.Domain.T1).Last.IfNone(curve.Domain.T0))
+                    .Bind(t => RhinoFault.Unless(curve.ChangeClosedCurveSeam(t), RhinoReason.Declined, t)),
+                _ => unit,
+            })
+            from cuts in IO.lift(() => Cuts(curve, CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous).Filter(t => t > curve.Domain.T0 && t < curve.Domain.T1), before, after))
+            from chamfered in cuts.IsEmpty ? IO.pure(curve) : Cut(tolerances, curve, cuts)
+            select chamfered);
+
+    private static Fin<double> Seam(Curve curve, double last) =>
+        ((curve.GetLength(new Interval(curve.Domain.T0, last)) + curve.GetLength()) / 2d) switch {
+            var middle => RhinoFault.Unless(curve.LengthParameter(middle, out double t), RhinoReason.Outside, middle).Map(_ => t),
+        };
+
+    private static Fin<Seq<(double Start, double End)>> Cuts(Curve curve, Seq<double> corners, double before, double after) =>
+        (Total: curve.GetLength(), Lengths: corners.Map(corner => curve.GetLength(new Interval(curve.Domain.T0, corner)) switch {
+            var at => (Start: at - before, End: at + after),
+        }).Strict()) switch {
+            var measured => Products.Each(measured.Lengths, (span, index) =>
+                span.Start > (index > 0 ? measured.Lengths[index - 1].End : 0d) && span.End < (index < measured.Lengths.Count - 1 ? measured.Lengths[index + 1].Start : measured.Total)
+                    ? (RhinoFault.Unless(curve.LengthParameter(span.Start, out double start), RhinoReason.Outside, span.Start, index).Map(_ => start),
+                        RhinoFault.Unless(curve.LengthParameter(span.End, out double end), RhinoReason.Outside, span.End, index).Map(_ => end))
+                        .Apply(static (start, end) => (Start: start, End: end)).As()
+                    : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"chamfer ({span.Start}, {span.End})"), RhinoReason.Outside, index)),
+        };
+
+    private static IO<Curve> Cut(Tolerances tolerances, Curve curve, Seq<(double Start, double End)> cuts) =>
+        from pieces in Products.Many(() => curve.Split(cuts.Bind(static cut => Seq(cut.Start, cut.End))))
+        from lines in Products.Many(() => cuts.Map(cut => new LineCurve(curve.PointAt(cut.Start), curve.PointAt(cut.End))))
+        let kept = pieces.Filter(piece => !cuts.Exists(cut => cut.Start < piece.Domain.Mid && piece.Domain.Mid < cut.End))
+        from joined in Products.Many(() => Curve.JoinCurves(kept + lines.Map(static line => (Curve)line), tolerances.Absolute, preserveDirection: true))
+        from single in IO.lift(() => RhinoFault.Unless(joined.Count is 1, RhinoReason.Declined, joined.Count).Map(_ => joined[0]))
+        select single;
 }

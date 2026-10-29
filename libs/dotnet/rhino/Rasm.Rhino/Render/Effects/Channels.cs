@@ -1,5 +1,7 @@
 using System.Buffers;
 using System.Drawing;
+using System.Globalization;
+using CommunityToolkit.HighPerformance;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 
@@ -25,22 +27,46 @@ public static class Channels {
         [.. RenderWindow.StandardChannels.RGBA.Cons(channels).Distinct().Map(RenderWindow.ChannelId)];
 
     // --- [PIXELS]
-    public static Fin<float[]> Read(RenderWindow.Channel cpu, Rectangle rect) =>
-        from layout in Fin.Succ(ChannelLayout.Get(cpu.PixelSize()))
-        from bounded in RhinoFault.Unless(
-            rect is { X: >= 0, Y: >= 0, Width: > 0, Height: > 0 } && rect.Right <= cpu.Width && rect.Bottom <= cpu.Height && (long)rect.Width * layout.Key <= int.MaxValue)
-        select Widened(cpu, rect, layout, rect.Width * layout.Key);
+    public static Fin<Memory2D<float>> Read(RenderWindow.Channel cpu, Rectangle rect) =>
+        from layout in cpu.PixelSize() switch { var size => ChannelLayout.TryGet(size, out ChannelLayout? found) ? Fin.Succ(found) : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"channel pixel size {size}"), RhinoReason.Unsupported) }
+        from inside in Inside(cpu, rect, layout.Components)
+        select Copied(cpu, rect, layout);
 
-    public static Fin<Unit> Put(RenderWindow.Channel cpu, Rectangle rect, ReadOnlyMemory<float> rgba) =>
-        RhinoFault.Unless(rgba.Length == 4L * rect.Width * rect.Height && rect is { X: >= 0, Y: >= 0 } && rect.Right <= cpu.Width && rect.Bottom <= cpu.Height)
-            .Map(_ => Pinned(cpu, rect, rgba));
+    public static Fin<Unit> Put(RenderWindow.Channel cpu, Rectangle rect, ReadOnlyMemory2D<float> rgba) =>
+        (RhinoFault.Unless(rgba.Height == rect.Height && rgba.Width == 4 * rect.Width, RhinoReason.Mismatched, (rgba.Height, rgba.Width, rect)),
+         rgba.TryGetMemory(out ReadOnlyMemory<float> block) ? Fin.Succ(block) : new RhinoFault($"pitched block of {rect}", RhinoReason.Unsupported),
+         Inside(cpu, rect, 4))
+            .Apply((_, packed, _) => Pinned(cpu, rect, packed)).As();
 
-    internal static void Widen(float[] block, int components, int stride, int pixels) {
-        for (int pixel = pixels - 1; components < 4 && pixel >= 0; pixel--) {
-            int source = pixel * stride;
-            (block[4 * pixel], block[(4 * pixel) + 1], block[(4 * pixel) + 2], block[(4 * pixel) + 3]) =
-                (block[source], block[source + int.Min(1, components - 1)], block[source + int.Min(2, components - 1)], 1f);
+    public static Memory2D<float> Widened(Span2D<float> native, int width) {
+        float[] rgba = GC.AllocateUninitializedArray<float>(4 * width * native.Height);
+        Span2D<float> rows = new(rgba, native.Height, 4 * width);
+        int components = native.Width / width;
+        for (int y = 0; y < native.Height; y++) {
+            Span2D<float> pixels = rows.GetRowSpan(y).AsSpan2D(width, 4);
+            native.GetRowSpan(y).AsSpan2D(width, components).CopyTo(pixels[.., ..components]);
+            Widen(pixels, components);
         }
+        return new Memory2D<float>(rgba, native.Height, 4 * width);
+    }
+
+    internal static void Widen(Span2D<float> pixels, int components) {
+        if (components is 1) {
+            pixels[.., ..1].CopyTo(pixels[.., 1..2]);
+            pixels[.., ..1].CopyTo(pixels[.., 2..3]);
+        }
+        if (components < 4) pixels[.., 3..].Fill(1f);
+    }
+
+    private static Fin<Unit> Inside(RenderWindow.Channel cpu, Rectangle rect, int components) =>
+        RhinoFault.Unless(
+            rect is { X: >= 0, Y: >= 0, Width: > 0, Height: > 0 } && rect.Right <= cpu.Width && rect.Bottom <= cpu.Height && (long)rect.Width * rect.Height * components <= System.Array.MaxLength,
+            RhinoReason.Outside, (rect, cpu.Width, cpu.Height));
+
+    private static Memory2D<float> Copied(RenderWindow.Channel cpu, Rectangle rect, ChannelLayout layout) {
+        float[] block = GC.AllocateUninitializedArray<float>(layout.Components * rect.Width * rect.Height);
+        cpu.GetValues(rect, rect.Width * layout.Key, layout.Order, ref block);
+        return new Memory2D<float>(block, rect.Height, layout.Components * rect.Width);
     }
 
     private static unsafe Unit Pinned(RenderWindow.Channel cpu, Rectangle rect, ReadOnlyMemory<float> rgba) {
@@ -49,29 +75,19 @@ public static class Channels {
         return unit;
     }
 
-    private static float[] Widened(RenderWindow.Channel cpu, Rectangle rect, ChannelLayout layout, int stride) {
-        float[] block = new float[4 * rect.Width * rect.Height];
-        cpu.GetValues(rect, stride, layout.Order, ref block);
-        Widen(block, layout.Components, layout.Components, rect.Width * rect.Height);
-        return block;
-    }
-
     // --- [PIPELINE]
-    public static IO<float[]> Read(Func<Guid, PostEffectChannel?> open, RenderWindow.StandardChannels channel, Rectangle rect) =>
+    public static IO<Memory2D<float>> Read(Func<Guid, PostEffectChannel?> open, RenderWindow.StandardChannels channel, Rectangle rect) =>
         Opened(open, RenderWindow.ChannelId(channel), (_, cpu) => IO.lift(() => Read(cpu, rect)));
 
-    public static IO<Unit> Write(PostEffectPipeline pipeline, Rectangle rect, ReadOnlyMemory<float> rgba) =>
-        Opened(pipeline.GetChannelForWrite, RenderWindow.ChannelId(RenderWindow.StandardChannels.RGBA), (opened, cpu) =>
+    public static IO<Unit> Write(Func<Guid, PostEffectChannel?> open, Rectangle rect, ReadOnlyMemory2D<float> rgba, bool commit) =>
+        Opened(open, RenderWindow.ChannelId(RenderWindow.StandardChannels.RGBA), (opened, cpu) =>
             from written in IO.lift(() => Put(cpu, rect, rgba))
-            from committed in IO.lift(opened.Commit)
-            select committed);
-
-    public static IO<Option<T>> Probed<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
-        unitIO.Bind(_ => Products.Held(open(channel))).Bind(found => found.Traverse(opened => Mapped(opened, body)).As()).Bracket();
+            from committed in when(commit, IO.lift(opened.Commit)).As()
+            select unit);
 
     public static IO<T> Opened<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
-        unitIO.Bind(_ => Products.Made(open(channel))).Bind(opened => Mapped(opened, body)).Bracket();
-
-    private static IO<T> Mapped<T>(PostEffectChannel opened, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
-        IO.lift(() => Conversions.Found(opened.CPU())).Bind(cpu => body(opened, cpu));
+        (from opened in Products.Of(() => open(channel))
+         from cpu in IO.lift(() => Conversions.Required(opened.CPU()))
+         from value in body(opened, cpu)
+         select value).Bracket();
 }

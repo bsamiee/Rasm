@@ -1,16 +1,18 @@
 using System.Drawing;
 using System.Reflection;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Settings;
-using Rasm.Rhino.PlugIns;
+using Eto.Forms;
+using Rasm.Rhino.Persistence;
 using Rhino.Resources;
-using Rhino.Runtime;
 using Rhino.UI;
 
 namespace Rasm.Rhino.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record IconResource(Assembly Assembly, string Id);
+public sealed record IconResource(Assembly Assembly, string Id) {
+    internal static IconResource Presets { get; } = new(typeof(IconResource).Assembly, "presets.svg");
+
+    internal static IconResource Options { get; } = new(typeof(IconResource).Assembly, "options.svg");
+}
 
 [AttributeUsage(AttributeTargets.Assembly)]
 public sealed class PlugInImageAttribute(string resource) : Attribute {
@@ -20,50 +22,50 @@ public sealed class PlugInImageAttribute(string resource) : Attribute {
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class IconSlot {
     public static readonly IconSlot PanelTab = new(static () => IO.lift(static () => Panels.IconSize.Width));
-    public static readonly IconSlot PanelButton = new(static () => Accessors.Scoped(static () => Accessors.Get(Accessors.PrivatePanelButtonSize(Accessors.ToolbarButtons))));
+    public static readonly IconSlot PanelButton = new(static () => Appearance.PanelButtonSize.Read);
     public static readonly IconSlot Small = new(static () => IO.pure(16));
-    public static readonly IconSlot DropDownItem = new(static () => IO.pure(HostUtils.RunningOnOSX ? 14 : 16));
+    public static readonly IconSlot DropDownItem = new(static () => IO.lift(static () => HostPlatform.Current.DropDownIconSize));
     public static readonly IconSlot Banner = new(static () => IO.pure(44));
-    public static readonly IconSlot SectionHeader = new(static () => IO.pure(20));
-    public static readonly IconSlot RenderTab = new(static () => IO.pure(HostUtils.RunningOnOSX ? 20 : 16));
+    public static readonly IconSlot RenderTab = new(static () => IO.lift(static () => HostPlatform.Current.RenderTabIconSize));
 
-    public IO<Size> Pixels => Extent().Bind(static size => Device(new Eto.Drawing.Size(size, size)));
+    public IO<Size> Pixels => Device(None);
 
     [UseDelegateFromConstructor]
     public partial IO<int> Extent();
 
-    internal static IO<float> Scale => IO.lift(static () => Eto.Forms.Screen.Screens.Max(static screen => screen.LogicalPixelSize));
-
-    internal static IO<Size> Device(Eto.Drawing.Size logical) =>
-        Scale.Map(scale => Eto.Drawing.Size.Ceiling(logical * scale)).Map(static device => new Size(device.Width, device.Height));
+    public IO<Size> Device(Option<Control> owner) =>
+        from extent in Extent()
+        from scale in IO.lift(() => owner.Bind(static control => Optional(control.ParentWindow)).IfNone(static () => RhinoEtoApp.MainWindow).LogicalPixelSize)
+        select Eto.Drawing.Size.Ceiling(new Eto.Drawing.Size(extent, extent) * scale) switch { var device => new Size(device.Width, device.Height) };
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Icons {
     // --- [EMBEDDED]
-    public static IO<Option<IconResource>> PlugInImage(IPlugInLifetime plugIn) =>
-        IO.lift(() => plugIn.GetType().Assembly switch {
+    public static IO<Option<IconResource>> PlugInImage() =>
+        IO.lift(static () => Session.Assembly switch {
             var assembly => Optional(assembly.GetCustomAttribute<PlugInImageAttribute>()).Map(image => new IconResource(assembly, image.Resource)),
         });
 
     // --- [ETO]
     public static IO<Eto.Drawing.Icon> Frames(IconResource icon, Eto.Drawing.Size logical) =>
-        IO.lift(() => Conversions.Found(icon.Assembly.EtoAssets().Icons.TryGet(icon.Id, logical), call: icon.Id));
+        IO.lift(() => Conversions.Required(icon.Assembly.EtoAssets().Icons.TryGet(icon.Id, logical), call: icon.Id));
 
     public static IO<Eto.Drawing.Icon> Frames(IconResource icon, IconSlot slot) =>
         slot.Extent().Bind(size => Frames(icon, new Eto.Drawing.Size(size, size)));
 
-    public static IO<Unit> Themed(IPlugInLifetime owner, IconResource icon, IconSlot slot, HostEvent<Unit> changes, Action<Eto.Drawing.Icon> write) =>
-        Frames(icon, slot).Bind(frames => IO.lift(() => write(frames))) switch {
-            var written => written.Bind(_ => changes.Inline(_ => written, owner)),
-        };
+    public static IO<Unit> Themed(IconResource icon, IconSlot slot, Action<Eto.Drawing.Icon> write) =>
+        HostTheme.Applied(Frames(icon, slot).Bind(frames => IO.lift(() => write(frames))));
+
+    public static IO<Unit> Themed(IconResource icon, IconSlot slot, Control control, Action<Eto.Drawing.Icon> write) =>
+        HostTheme.Applied(control, Frames(icon, slot).Bind(frames => IO.lift(() => write(frames))));
 
     // --- [DRAWING]
-    public static IO<Bitmap> Raster(IconResource icon, IconSlot slot) => slot.Pixels.Bind(pixels => Raster(icon, pixels));
+    public static IO<Bitmap> Raster(IconResource icon, IconSlot slot, Option<Control> owner) => slot.Device(owner).Bind(pixels => Raster(icon, pixels));
 
     public static IO<Bitmap> Raster(IconResource icon, Size pixels) =>
-        IO.lift(() => Conversions.Found(icon.Assembly.SystemDrawingAssets().Bitmaps.TryGet(icon.Id, pixels), call: icon.Id));
+        IO.lift(() => Conversions.Required(icon.Assembly.SystemDrawingAssets().Bitmaps.TryGet(icon.Id, pixels), call: icon.Id));
 
     public static IO<Icon> DrawingIcon(IconResource icon, Size pixels) =>
-        IO.lift(() => Conversions.Found(icon.Assembly.SystemDrawingAssets().Icons.TryGet(icon.Id, pixels), call: icon.Id));
+        IO.lift(() => Conversions.Required(icon.Assembly.SystemDrawingAssets().Icons.TryGet(icon.Id, pixels), call: icon.Id));
 }

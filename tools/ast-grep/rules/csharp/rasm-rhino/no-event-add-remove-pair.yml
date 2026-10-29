@@ -61,4 +61,4 @@ rule:
                         - has: {field: left, matches: event}
                         - not: {matches: action}
 message: '`+=` attaches a handler to `$EVENT` and a separate `-=` detaches it'
-note: 'Reach the event through `Subscriptions.Host<TArgs>(typeof(<owner>), h => <source>.<event> += h, h => <source>.<event> -= h).Inline(<args> => <effect>)`'
+note: 'Reach the event through `Subscriptions.On<TArgs>(h => <source>.<event> += h, h => <source>.<event> -= h).Attach(<args> => <effect>)`'

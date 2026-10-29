@@ -4,50 +4,27 @@ using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
+using Rasm.Rhino.Document.Units;
 
 namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record SectionFill {
-    public sealed record NoFill() : SectionFill;
-    public sealed record ViewportFill() : SectionFill;
-    public sealed record SolidFill(Option<Color> Color, Option<Color> PrintColor) : SectionFill;
-}
+public sealed record SectionFill(SectionBackgroundFillMode Mode, Option<Color> Color = default, Option<Color> PrintColor = default);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record BoundaryLinetype {
-    // --- [CASES]
     public sealed record Table(LinetypeRef Reference) : BoundaryLinetype;
     public sealed record Embedded(LinetypeDefinition Definition) : BoundaryLinetype;
-
-    // --- [WRITES]
-    internal IO<int> Written(RhinoDoc doc, SectionStyle staged) =>
-        Switch(
-            table: table => table.Reference.Resolve(doc),
-            embedded: embedded => (from native in use(static () => new Linetype())
-                                   from written in Linetypes.Written(native, embedded.Definition)
-                                   from copied in IO.lift(() => staged.SetBoundaryLinetype(native))
-                                   select RhinoMath.UnsetIntIndex).Bracket());
 }
 
-public sealed record SectionBoundary(Option<Color> Color, Option<Color> PrintColor, double WidthScale, Option<PlotWeight> PrintWidth, Option<BoundaryLinetype> Linetype) {
-    internal IO<Unit> Written(RhinoDoc doc, SectionStyle staged) =>
-        from cleared in IO.lift(staged.RemoveBoundaryLinetype)
-        from linetype in Linetype.Traverse(held => held.Written(doc, staged)).As()
-        from settings in IO.lift(() => {
-            (staged.BoundaryColor, staged.BoundaryPrintColor, staged.BoundaryWidthScale, staged.BoundaryPlotWeightMillimeters, staged.BoundaryLinetypeIndex) =
-                (Conversions.Unset(Color), Conversions.Unset(PrintColor), WidthScale, PlotWeight.ToInheritable(PrintWidth), linetype.IfNone(RhinoMath.UnsetIntIndex));
-        })
-        select settings;
+public sealed record SectionBoundary(double WidthScale, Option<PlotWeight> PrintWidth, Option<BoundaryLinetype> Linetype) {
+    public Option<Color> Color { get; init; }
+    public Option<Color> PrintColor { get; init; }
 }
 
-public sealed record SectionHatch(ComponentRef<HatchPattern> Pattern, double Scale, double Rotation, Option<Color> Color, Option<Color> PrintColor, Option<PlotWeight> PrintWidth) {
-    internal Unit Written(SectionStyle staged) {
-        (staged.HatchScale, staged.HatchRotationRadians, staged.HatchPatternColor, staged.HatchPatternPrintColor, staged.HatchPatternPlotWeightMillimeters) =
-            (Scale, Rotation, Conversions.Unset(Color), Conversions.Unset(PrintColor), PlotWeight.ToInheritable(PrintWidth));
-        return unit;
-    }
+public sealed record SectionHatch(ComponentRef<HatchPattern> Pattern, double Scale, UnitsNet.Angle Rotation, Option<PlotWeight> PrintWidth) {
+    public Option<Color> Color { get; init; }
+    public Option<Color> PrintColor { get; init; }
 }
 
 public sealed record SectionStyleDefinition(ObjectSectionFillRule SectionFillRule, SectionFill Fill, Option<SectionBoundary> Boundary, Option<SectionHatch> Hatch);
@@ -58,29 +35,25 @@ public static class SectionStyles {
     public static IO<(SectionStyleDefinition Definition, bool BoundaryHasShapes)> Definition(SectionStyle style, Option<Seq<HatchPattern>> patterns = default) =>
         from visible in IO.lift(() => style.BoundaryVisible)
         from embedded in visible
-            ? (from held in Products.Held(style.GetBoundaryLinetype())
+            ? (from held in Products.Maybe(style.GetBoundaryLinetype)
                from definition in held.Traverse(Linetypes.Definition).As()
                select (Definition: definition, HasShapes: held.Exists(static linetype => linetype.HasShapes))).Bracket()
             : IO.pure((Definition: Option<LinetypeDefinition>.None, HasShapes: false))
         let requested = Conversions.Present(style.HatchIndex)
-        from pattern in IO.lift(patterns.Traverse(rows => requested.Traverse(index =>
-            Conversions.Within(index, rows.Count).Map(_ => rows[index])).As()).As())
+        from pattern in IO.lift(patterns.Traverse(rows => requested.Traverse(index => Conversions.Within(index, rows.Count).Map(_ => rows[index])).As()).As())
         let address = pattern.Match(
             Some: static held => held.Map<ComponentRef<HatchPattern>>(static row => row.Name),
             None: () => requested.Map<ComponentRef<HatchPattern>>(static index => index))
         let linetype = embedded.Definition.Map<BoundaryLinetype>(static definition => new BoundaryLinetype.Embedded(definition))
             || (visible && patterns.IsNone ? LinetypeRef.FromHost(style.BoundaryLinetypeIndex).Map<BoundaryLinetype>(static reference => new BoundaryLinetype.Table(reference)) : None)
-        let boundary = Conversions.Found(visible, new SectionBoundary(
-            Conversions.Present(style.BoundaryColor), Conversions.Present(style.BoundaryPrintColor), style.BoundaryWidthScale, PlotWeight.FromInheritable(style.BoundaryPlotWeightMillimeters), linetype))
-        let hatch = address.Map(reference => new SectionHatch(
-            reference, style.HatchScale, style.HatchRotationRadians, Conversions.Present(style.HatchPatternColor), Conversions.Present(style.HatchPatternPrintColor), PlotWeight.FromInheritable(style.HatchPatternPlotWeightMillimeters)))
-        select (Definition: new SectionStyleDefinition(
-            style.SectionFillRule,
-            style.BackgroundFillMode switch {
-                SectionBackgroundFillMode.None => new SectionFill.NoFill(),
-                SectionBackgroundFillMode.Viewport => new SectionFill.ViewportFill(),
-                SectionBackgroundFillMode.SolidColor => new SectionFill.SolidFill(Conversions.Present(style.BackgroundFillColor), Conversions.Present(style.BackgroundFillPrintColor)),
-            }, boundary, hatch), BoundaryHasShapes: embedded.HasShapes);
+        let boundary = Conversions.Present(visible, new SectionBoundary(style.BoundaryWidthScale, PlotWeight.FromInheritable(style.BoundaryPlotWeightMillimeters), linetype) {
+            Color = Conversions.Present(style.BoundaryColor), PrintColor = Conversions.Present(style.BoundaryPrintColor),
+        })
+        let hatch = address.Map(reference => new SectionHatch(reference, style.HatchScale, UnitsNet.Angle.FromRadians(Quantities.Exact(style.HatchRotationRadians)), PlotWeight.FromInheritable(style.HatchPatternPlotWeightMillimeters)) {
+            Color = Conversions.Present(style.HatchPatternColor), PrintColor = Conversions.Present(style.HatchPatternPrintColor),
+        })
+        let fill = new SectionFill(style.BackgroundFillMode, Conversions.Present(style.BackgroundFillColor), Conversions.Present(style.BackgroundFillPrintColor))
+        select (Definition: new SectionStyleDefinition(style.SectionFillRule, fill, boundary, hatch), BoundaryHasShapes: embedded.HasShapes);
 
     public static IO<bool> Unchanged(SectionStyle live, SectionStyle staged) =>
         (Definition(live), Definition(staged)).Apply(static (held, wanted) => !held.BoundaryHasShapes && !wanted.BoundaryHasShapes && held.Definition == wanted.Definition).As();
@@ -90,58 +63,50 @@ public static class SectionStyles {
         TableKinds.SectionStyles with { Add = static (doc, row) => doc.SectionStyles.AddReferenceSectionStyle(row) };
 
     public static IO<Unit> Written(RhinoDoc doc, SectionStyle staged, SectionStyleDefinition definition) =>
-        from pattern in TableOps.Index(doc.HatchPatterns, definition.Hatch.Map(static hatch => hatch.Pattern))
+        from pattern in Rows.Index(doc.HatchPatterns, definition.Hatch.Map(static hatch => hatch.Pattern))
+        from cleared in IO.lift(staged.RemoveBoundaryLinetype)
+        from linetype in definition.Boundary.Bind(static boundary => boundary.Linetype).Traverse(held => Bounded(doc, staged, held)).As()
         from settings in IO.lift(() => {
-            (staged.SectionFillRule, staged.BoundaryVisible, staged.HatchIndex, staged.BackgroundFillMode) = (definition.SectionFillRule, definition.Boundary.IsSome, pattern, definition.Fill.Switch(
-                noFill: static _ => SectionBackgroundFillMode.None,
-                viewportFill: static _ => SectionBackgroundFillMode.Viewport,
-                solidFill: static _ => SectionBackgroundFillMode.SolidColor));
+            (staged.SectionFillRule, staged.BoundaryVisible, staged.HatchIndex) = (definition.SectionFillRule, definition.Boundary.IsSome, pattern);
+            (staged.BackgroundFillMode, staged.BackgroundFillColor, staged.BackgroundFillPrintColor) =
+                (definition.Fill.Mode, Conversions.Unset(definition.Fill.Color), Conversions.Unset(definition.Fill.PrintColor));
+            _ = definition.Boundary.Iter(boundary =>
+                (staged.BoundaryColor, staged.BoundaryPrintColor, staged.BoundaryWidthScale, staged.BoundaryPlotWeightMillimeters, staged.BoundaryLinetypeIndex) = (
+                    Conversions.Unset(boundary.Color), Conversions.Unset(boundary.PrintColor), boundary.WidthScale, PlotWeight.ToInheritable(boundary.PrintWidth),
+                    linetype.Flatten().IfNone(RhinoMath.UnsetIntIndex)));
+            _ = definition.Hatch.Iter(hatch =>
+                (staged.HatchScale, staged.HatchRotationRadians, staged.HatchPatternColor, staged.HatchPatternPrintColor, staged.HatchPatternPlotWeightMillimeters) = (
+                    hatch.Scale, hatch.Rotation.Radians.ToDouble(), Conversions.Unset(hatch.Color), Conversions.Unset(hatch.PrintColor), PlotWeight.ToInheritable(hatch.PrintWidth)));
         })
-        from filled in IO.lift(() => definition.Fill.Switch(
-            staged,
-            noFill: static (_, _) => { },
-            viewportFill: static (_, _) => { },
-            solidFill: static (target, solid) => (target.BackgroundFillColor, target.BackgroundFillPrintColor) = (Conversions.Unset(solid.Color), Conversions.Unset(solid.PrintColor))))
-        from bordered in definition.Boundary.Traverse(boundary => boundary.Written(doc, staged)).As()
-        from hatched in IO.lift(() => definition.Hatch.Iter(hatch => hatch.Written(staged)))
         select unit;
 
+    private static IO<Option<int>> Bounded(RhinoDoc doc, SectionStyle staged, BoundaryLinetype linetype) =>
+        linetype.Switch(
+            (Doc: doc, Staged: staged),
+            table: static (state, table) => table.Reference.Resolve(state.Doc).Map(Some),
+            embedded: static (state, embedded) =>
+                (from native in use(static () => new Linetype())
+                 from written in Linetypes.Written(native, embedded.Definition)
+                 from copied in IO.lift(() => state.Staged.SetBoundaryLinetype(native))
+                 select Option<int>.None).Bracket());
+
     public static IO<int> Add(RhinoDoc doc, TableKind<SectionStyle> kind, string name, SectionStyleDefinition definition) =>
-        TableOps.AddRow(doc, kind, staged => from named in TableOps.Named(staged, Some(name))
-                                             from written in Written(doc, staged, definition)
-                                             select unit);
+        Rows.Add(doc, kind, Some(name), [Rows.Write<SectionStyle>(staged => Written(doc, staged, definition))]).Map(static row => row.Index);
 
     // --- [FILES]
-    public static IO<(Seq<(string Name, SectionStyleDefinition Definition)> Styles, Seq<(string Name, HatchPatternDefinition Definition)> Patterns)> ReadFile(InputPath path) =>
-        (from native in IO.lift(() => {
-            bool read = SectionStyle.ReadFromFile(path, out SectionStyle[] styles, out HatchPattern[] patterns);
-            return (Read: read, Styles: styles, Patterns: patterns);
-        })
-         from read in IO.lift(() => RhinoFault.Unless(native.Read))
-         from styles in Products.Made(native.Styles)
-         from patterns in Products.Made(native.Patterns)
-         from file in (
-                 styles.TraverseM(style => from definition in Definition(style, Some(patterns))
-                                           select (style.Name, definition.Definition)).As(),
-                 patterns.TraverseM(static pattern => from definition in HatchPatterns.Definition(pattern)
-                                                      select (pattern.Name, Definition: definition)).As())
-             .Apply(static (styles, patterns) => (Styles: styles, Patterns: patterns)).As()
-         select file).Bracket();
+    public static IO<StyleSpec> ReadFile(InputPath path) =>
+        from native in IO.lift(() => (Read: SectionStyle.ReadFromFile(path, out SectionStyle[] styles, out HatchPattern[] patterns), Styles: styles, Patterns: patterns))
+        from read in IO.lift(() => RhinoFault.Unless(native.Read, RhinoReason.Unreadable, path))
+        from styles in Products.Many(() => native.Styles, required: false)
+        from patterns in Products.Many(() => native.Patterns, required: false)
+        from sectioned in styles.TraverseM(style => Definition(style, Some(patterns)).Map(definition => (style.Name, definition.Definition))).As()
+        select new StyleSpec { SectionStyles = sectioned, HatchPatterns = patterns.Map(static pattern => (pattern.Name, (Func<HatchPattern>)(() => new HatchPattern(pattern)))) };
 
-    public static IO<Committed<Seq<(string Name, int Index)>>> Import(RhinoDoc doc, InputPath path, string name, RedrawPolicy redraw) =>
-        from file in ReadFile(path)
-        from landed in Commits.Commit(doc, name, redraw,
-            from patternRows in TableOps.Rows(doc.HatchPatterns)
-            from styleRows in TableOps.Rows(doc.SectionStyles)
-            from plans in IO.lift((TableOps.Plan(patternRows, new TableSpec<HatchPatternDefinition>(file.Patterns, Exclusive: false)), TableOps.Plan(styleRows, new TableSpec<SectionStyleDefinition>(file.Styles, Exclusive: false)))
-                .Apply(static (patterns, styles) => (Patterns: patterns, Styles: styles)).As())
-            from patterns in TableOps.Upsert(doc, TableKinds.HatchPatterns, plans.Patterns.Upserts.Filter(static upsert => upsert.Existing.IsNone), HatchPatterns.Written, HatchPatterns.Unchanged)
-            from styles in TableOps.Upsert(doc, TableKinds.SectionStyles, plans.Styles.Upserts, (staged, definition) => Written(doc, staged, definition), Unchanged)
-            select styles)
-        select landed;
+    public static IO<Committed<ReconciledStyles>> Import(RhinoDoc doc, InputPath path, string name, RedrawPolicy redraw) =>
+        ReadFile(path).Bind(spec => StyleTables.Reconcile(doc, spec, name, redraw)).Bracket();
 
     // --- [USAGE]
     public static IO<(bool InUse, int InstanceDefinitions, int Objects, int Layers)> Usage(RhinoDoc doc, ComponentRef<SectionStyle> address) =>
-        TableOps.Find(doc.SectionStyles, address, includeDeleted: false)
+        Rows.Find(doc.SectionStyles, address)
             .Map(row => (InUse: doc.SectionStyles.InUse(row.Index, out int definitions, out int objects, out int layers), InstanceDefinitions: definitions, Objects: objects, Layers: layers));
 }

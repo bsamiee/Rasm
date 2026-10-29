@@ -1,5 +1,9 @@
 using Grasshopper2.Bake;
-using Grasshopper2.Doc;
+using Grasshopper2.Data;
+using Grasshopper2.Data.Meta;
+using Grasshopper2.Extensions;
+using Grasshopper2.Parameters.Special;
+using Grasshopper2.Types.Assistant;
 using Rhino;
 using Rhino.Collections;
 using Rhino.DocObjects;
@@ -7,78 +11,113 @@ using Rhino.FileIO;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [MODELS] --------------------------------------------------------------------------
-public sealed record BakeEntry(GeometryBase Geometry, ObjectAttributes Attributes);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class BakeOps {
-    // --- [SOURCES]
-    private const BakeDataState OwnedStates = BakeDataState.Invalid | BakeDataState.Valid | BakeDataState.Expired;
+public static class Bakes {
+    // --- [RECONCILE]
+    public static IO<Seq<Guid>> Reconcile(
+        RhinoDoc target, string process, Guid id, ITree desired, StashOverwriteMode expired, UserPattern user = default, MetaPattern meta = default, Option<ObjectAttributes> attributes = default) =>
+        from written in (from layers in IO.lift(() => BakeContext.EnsureLayers(desired, target, attributes.ValueUnsafe(), user, meta))
+                         from context in IO.lift(() => new BakeContext(process, id, target, attributes.ValueUnsafe(), user, meta))
+                         from record in use(() => target.BeginUndoRecord($"Bake {context.ProcessName}"), serial => target.EndUndoRecord(serial))
+                         from ids in IO.lift(() => Written(target, Planned(
+                             context,
+                             desired,
+                             expired,
+                             toSeq(BakeContext.FindBakedObjects(target, BakeDataState.Valid | BakeDataState.Expired)).Map(static found => (found.key, BakeKey.HarvestFromObject(found.obj, out _), found.obj.Id)),
+                             target.Groups.Add)))
+                         select ids).Bracket()
+        from redrawn in IO.lift(target.RedrawAndReturnImmediately)
+        select written;
 
-    private static IO<Seq<string>> Baked(Seq<IDocumentObject> sources, BakeUpdateMode mode, Func<Guid, BakeContext> context) =>
-        sources.Choose(static source => Optional(source as IBakeAware).Map(bakeable => (Process: source.InstanceId, Bakeable: bakeable))).Strict()
-            .TraverseM(pair => IO.lift(() => toSeq(pair.Bakeable.BakeShapes(context(pair.Process), mode)))).As()
-            .Map(static baked => baked.Flatten());
+    public static IO<Seq<Guid>> Reconcile(
+        File3dm target, string process, Guid id, ITree desired, StashOverwriteMode expired, UserPattern user = default, MetaPattern meta = default, Option<ObjectAttributes> attributes = default) =>
+        from layers in IO.lift(() => BakeContext.EnsureLayers(desired, target, attributes.ValueUnsafe(), user, meta))
+        from context in IO.lift(() => new BakeContext(process, id, target, attributes.ValueUnsafe(), user, meta))
+        from ids in IO.lift(() => Written(target, Planned(
+            context,
+            desired,
+            expired,
+            toSeq(BakeContext.FindBakedObjects(target, BakeDataState.Valid | BakeDataState.Expired)).Map(static found => (found.key, BakeKey.HarvestFromObject(found.obj, out _), found.obj.Id)),
+            target.AllGroups.AddGroup)))
+        select ids;
 
-    private static IO<Seq<Guid>> Reconciled(
-        Func<Seq<(BakeKey Key, Guid Id)>> read,
-        Func<Option<Guid>, BakeEntry, IO<Guid>> write,
-        Func<Seq<Guid>, IO<Unit>> prune,
-        Func<BakeKey, bool> scope,
-        Map<BakeKey, BakeEntry> desired) =>
-        (from held in IO.lift(() => toSeq(read().Filter(row => scope(row.Key) || desired.ContainsKey(row.Key)).OrderBy(static row => row.Id)).Strict())
-         from rows in desired.ToSeq().TraverseM(Prepared).As()
-         from plan in IO.lift(() => rows.Map(row => {
-             Option<Guid> previous = held.Find(found => row.Key.CompareTo(found.Key) is 0).Map(static found => found.Id);
-             Guid id = previous.IfNone(Guid.NewGuid);
-             ArchivableDictionary dictionary = row.Entry.Attributes.UserDictionary;
-             row.Entry.Attributes.ObjectId = id;
-             row.Key.AssignToDictionary(dictionary);
-             _ = dictionary.Set(BakeKey.BakeObjectGuid, id);
-             _ = dictionary.Remove(BakeKey.BakeObjectHash);
-             return (Previous: previous, row.Entry);
-         }).Strict())
-         let kept = toHashSet(plan.Map(static row => row.Entry.Attributes.ObjectId))
-         let stale = held.Filter(row => !kept.Contains(row.Id)).Map(static row => row.Id).Strict()
-         from values in plan.TraverseM(row => write(row.Previous, row.Entry)).As()
-         from pruned in prune(stale)
-         select values).Bracket();
+    // --- [PLAN]
+    private static (Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes, Option<Guid> Into)> Writes, Seq<Guid> Deleted, Seq<Guid> Severed) Planned(
+        BakeContext context, ITree desired, StashOverwriteMode expired, Seq<(BakeKey Key, BakeDataState State, Guid Id)> found, Func<int> addGroup) {
+        Seq<(BakeKey Key, BakeDataState State, Guid Id)> held = found.Filter(row => row.Key.ProcessGuid == context.ProcessGuid).Strict();
+        Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes)> parts = (
+            from leaf in toSeq(desired.AllTwigs).Map(static (twig, index) => toSeq(twig.Pears).Map((pear, item) => (Twig: index, Item: item, Pear: pear))).Flatten()
+            from pear in Optional(leaf.Pear).ToSeq()
+            from part in Parts(context, leaf.Twig, leaf.Item, pear, addGroup)
+            select part).Strict();
+        HashMap<(int Twig, int Item, int Part), Seq<(BakeDataState State, Guid Id)>> occupied = held.Fold(
+            HashMap<(int Twig, int Item, int Part), Seq<(BakeDataState State, Guid Id)>>(),
+            static (slots, row) => slots.AddOrUpdate(Slot(row.Key), occupants => occupants.Add((row.State, row.Id)), () => Seq((row.State, row.Id))));
+        HashSet<(int Twig, int Item, int Part)> wanted = toHashSet(parts.Map(static part => Slot(part.Key)));
+        bool Touched((BakeDataState State, Guid Id) occupant) => occupant.State is not BakeDataState.Valid;
+        Seq<(BakeDataState State, Guid Id)> Writable(Seq<(BakeDataState State, Guid Id)> occupants) => occupants.Filter(occupant => !Touched(occupant) || expired is StashOverwriteMode.Overwrite);
+        bool Skipped((int Twig, int Item, int Part) slot) => expired is StashOverwriteMode.Skip && wanted.Contains(slot) && occupied.Find(slot).Exists(occupants => occupants.Exists(Touched));
+        return (
+            parts.Filter(part => !Skipped(Slot(part.Key))).Map(part => (part.Key, part.Geometry, part.Attributes, occupied.Find(Slot(part.Key)).Bind(occupants => Writable(occupants).Head).Map(static occupant => occupant.Id))).Strict(),
+            toSeq(occupied.AsIterable()).Filter(entry => !Skipped(entry.Key)).Bind(entry => Writable(entry.Value).Skip(wanted.Contains(entry.Key) ? 1 : 0)).Map(static occupant => occupant.Id).Strict(),
+            expired is StashOverwriteMode.Sever ? held.Filter(row => Touched((row.State, row.Id))).Map(static row => row.Id).Strict() : Seq<Guid>());
+    }
 
-    private static IO<(BakeKey Key, BakeEntry Entry)> Prepared((BakeKey Key, BakeEntry Value) row) =>
-        from copied in IO.lift(row.Value.Geometry.EnsurePrivateCopy)
-        from attributes in use(() => row.Value.Attributes.Duplicate())
-        select (row.Key, Entry: new BakeEntry(row.Value.Geometry, attributes));
+    private static Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes)> Parts(BakeContext context, int twig, int item, IPear pear, Func<int> addGroup) =>
+        Optional(TypeAssistantServer.FindByType(pear.Type)).Filter(static assistant => assistant.ZupportsBake)
+            .Bind(assistant => Optional(assistant.ToGeometry(pear)))
+            .Map(static shapes => toSeq(shapes).Filter(static shape => shape is not null).Strict())
+            .ToSeq()
+            .Bind(shapes => Attributes(context, pear, shapes.Count, addGroup) switch {
+                var attributes => shapes.Map((shape, part) => (
+                    new BakeKey(context.ProcessName, context.ProcessGuid, twig, item, part),
+                    ReferenceEquals(shape, pear.Item) ? shape.Duplicate() : shape,
+                    attributes)),
+            });
 
-    // --- [DOCUMENT]
-    public static IO<Seq<string>> Bake(RhinoDoc doc, string process, Option<ObjectAttributes> attributes, MetaPattern meta, BakeUpdateMode mode, Seq<IDocumentObject> sources) =>
-        Baked(sources, mode, id => new BakeContext(process, id, doc, attributes.ValueUnsafe(), meta: meta));
+    private static ObjectAttributes Attributes(BakeContext context, IPear pear, int count, Func<int> addGroup) {
+        ObjectAttributes attributes = context.SpecificAttributes(pear);
+        Seq<(string Name, string Value)> texts = (
+            from meta in Optional(pear.TryMeta()).ToSeq()
+            from name in toSeq(meta.Names())
+            where !string.Equals(name[0], StandardNames.Rhino.Id[0], StringComparison.OrdinalIgnoreCase)
+            select (Name: name.ToString(), Value: meta[name].ToString())).Strict();
+        if (count < 2 && texts.IsEmpty)
+            return attributes;
+        ObjectAttributes specific = attributes.Duplicate();
+        if (count > 1)
+            specific.AddToGroup(addGroup());
+        _ = texts.Iter(text => specific.SetUserString(text.Name, text.Value));
+        return specific;
+    }
 
-    public static IO<Seq<Guid>> Reconcile(RhinoDoc doc, Func<BakeKey, bool> scope, Map<BakeKey, BakeEntry> desired) =>
-        Reconciled(
-            () => toSeq(BakeContext.FindBakedObjects(doc, OwnedStates)).Map(static found => (Key: found.key, found.obj.Id)),
-            (previous, entry) => IO.lift(() => previous.Match(
-                Some: id => GrasshopperFault.Unless(doc.Objects.Replace(id, entry.Geometry, ignoreModes: true))
-                    .Bind(_ => GrasshopperFault.Unless(doc.Objects.ModifyAttributes(id, entry.Attributes, quiet: true)))
-                    .Map(_ => id),
-                None: () => Hosts.Found(doc.Objects.FindId(doc.Objects.Add(entry.Geometry, entry.Attributes))).Map(static added => added.Id))),
-            stale => IO.lift(() => GrasshopperFault.Unless(doc.Objects.Delete(stale, quiet: true) == stale.Count)),
-            scope,
-            desired);
+    private static (int Twig, int Item, int Part) Slot(BakeKey key) => (key.TwigIndex, key.ItemIndex, key.PartIndex);
 
-    // --- [FILE]
-    public static IO<Seq<string>> Bake(File3dm file, string process, MetaPattern meta, BakeUpdateMode mode, Seq<IDocumentObject> sources) =>
-        (from attributes in use(static () => new ObjectAttributes())
-         from baked in Baked(sources, mode, id => new BakeContext(process, id, file, attributes, meta: meta))
-         select baked).Bracket();
+    // --- [WRITES]
+    private static Fin<Seq<Guid>> Written(RhinoDoc document, (Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes, Option<Guid> Into)> Writes, Seq<Guid> Deleted, Seq<Guid> Severed) plan) {
+        _ = plan.Severed.Iter(id => Optional(document.Objects.FindId(id)).Iter(static found => Severed(found.Attributes.UserDictionary)));
+        Seq<bool> deleted = plan.Deleted.Map(id => Optional(document.Objects.FindId(id)).Exists(found => document.Objects.Delete(found, quiet: true, ignoreModes: true))).Strict();
+        return GrasshopperFault.Unless(deleted.ForAll(static removed => removed), GrasshopperReason.Declined, plan.Deleted).Map(_ => plan.Writes.Map(write => {
+            Option<Guid> replaced = write.Into.Bind(into => document.Objects.Replace(into, write.Geometry, ignoreModes: true) && document.Objects.ModifyAttributes(into, write.Attributes, quiet: true) ? Some(into) : Option<Guid>.None);
+            _ = write.Into.Filter(_ => replaced.IsNone).Bind(into => Optional(document.Objects.FindId(into))).Iter(found => document.Objects.Delete(found, quiet: true, ignoreModes: true));
+            Guid id = replaced.IfNone(() => document.Objects.Add(write.Geometry, write.Attributes));
+            _ = Optional(document.Objects.FindId(id)).Iter(found => write.Key.AssignToObject(found));
+            return id;
+        }).Strict());
+    }
 
-    public static IO<Seq<Guid>> Reconcile(File3dm file, Func<BakeKey, bool> scope, Map<BakeKey, BakeEntry> desired) =>
-        Reconciled(
-            () => toSeq(BakeContext.FindBakedObjects(file, OwnedStates)).Map(static found => (Key: found.key, found.obj.Id)),
-            (previous, entry) =>
-                from removed in IO.lift(() => previous.Traverse(id => GrasshopperFault.Unless(file.Objects.Delete(id))).As())
-                from added in IO.lift(() => Hosts.Found(file.Objects.FindId(file.Objects.Add(entry.Geometry, entry.Attributes))))
-                select added.Id,
-            stale => IO.lift(() => stale.Map((id, index) => GrasshopperFault.Unless(file.Objects.Delete(id), index)).Traverse(static deleted => deleted).As()).Map(unit),
-            scope,
-            desired);
+    private static Fin<Seq<Guid>> Written(File3dm file, (Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes, Option<Guid> Into)> Writes, Seq<Guid> Deleted, Seq<Guid> Severed) plan) {
+        _ = plan.Severed.Iter(id => Optional(file.Objects.FindId(id)).Iter(static found => Severed(found.Attributes.UserDictionary)));
+        return GrasshopperFault.Unless(file.Objects.Delete(plan.Deleted) == plan.Deleted.Count, GrasshopperReason.Declined, plan.Deleted).Map(_ => plan.Writes.Map(write => {
+            _ = write.Into.Iter(into => file.Objects.Delete(into));
+            Guid id = file.Objects.Add(write.Geometry, write.Attributes);
+            _ = Optional(file.Objects.FindId(id)).Iter(found => write.Key.AssignToObject(found));
+            return id;
+        }).Strict());
+    }
+
+    // --- [KEYS]
+    private static Unit Severed(ArchivableDictionary dictionary) =>
+        Seq(BakeKey.BakeObjectGuid, BakeKey.BakeObjectHash, BakeKey.BakeProcessName, BakeKey.BakeProcessGuid, BakeKey.BakeTwigIndex, BakeKey.BakeItemIndex, BakeKey.BakePartIndex)
+            .Iter(key => dictionary.Remove(key));
 }

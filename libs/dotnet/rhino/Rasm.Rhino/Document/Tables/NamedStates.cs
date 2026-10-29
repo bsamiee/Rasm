@@ -1,14 +1,10 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Objects;
-using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Viewport;
 using Rhino;
-using Rhino.Display;
-using Rhino.DocObjects;
+using Rhino.Commands;
 using Rhino.FileIO;
+using SuperLinq;
 
 namespace Rasm.Rhino.Document.Tables;
 
@@ -18,486 +14,259 @@ namespace Rasm.Rhino.Document.Tables;
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StateName {
+    public static Fin<StateName> Validated(string value) => TryCreate(value, out StateName? name, out RhinoFault? fault) ? name : fault;
+
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
         validationError = value.Length > 0 ? null : new RhinoFault($"value = '{value}'", RhinoReason.Invalid);
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record NamedWrite {
-    public sealed record Recorded : NamedWrite;
-
-    public sealed record Compensated(IO<Unit> Revert, IO<Unit> Release) : NamedWrite;
-
-    private (IO<Unit> Revert, IO<Unit> Release) Owed =>
-        Switch(
-            recorded: static _ => (IO.pure(unit), IO.pure(unit)),
-            compensated: static compensated => (compensated.Revert, compensated.Release));
+public sealed record NamedWrite(IO<Unit> Revert, IO<Unit> Release) {
+    public static NamedWrite Undoable { get; } = new(IO.pure(unit), IO.pure(unit));
 
     internal static IO<Unit> Reverted(Seq<NamedWrite> writes) =>
-        Callbacks.Each(writes.Rev().Map(static write => write.Owed.Revert)).Map(static _ => unit);
+        Products.Each(writes.Rev().Map(static write => write.Revert)).Map(static _ => unit);
 
     internal static IO<Unit> Released(Seq<NamedWrite> writes) =>
-        Callbacks.Each(writes.Map(static write => write.Owed.Release)).Map(static _ => unit);
+        Products.Each(writes.Map(static write => write.Release)).Map(static _ => unit);
 
-    internal static IO<Unit> Settled(Seq<NamedWrite> writes) =>
-        Callbacks.Each(Seq(Reverted(writes), Released(writes))).Map(static _ => unit);
-
-    internal static NamedWrite Joined(Seq<NamedWrite> writes) =>
-        writes.ForAll(static write => write is Recorded) ? new Recorded() : new Compensated(Reverted(writes), Released(writes));
+    internal static IO<Unit> Undone(Seq<NamedWrite> writes) =>
+        Products.Each(Seq(Reverted(writes), Released(writes))).Map(static _ => unit);
 }
 
-public sealed record NamedEntry(NamedTable Table, string Name, Option<Guid> Id) {
-    public static ReadModel<Seq<NamedEntry>> Catalog { get; } = new(
-        [.. toSeq(NamedTable.Items).Bind(static table => table.Marks), ReadModels.Marks(EventKind.UndoRedo), ReadModels.Marks(EventKind.EndOpenDocument)],
-        Read);
+public sealed record NamedEntry(NamedTable Table, string Name, Option<Guid> Id);
 
-    public static IO<Seq<NamedEntry>> Read(RhinoDoc doc) =>
-        toSeq(NamedTable.Items).TraverseM(table => table.Entries(doc)).As().Map(static tables => tables.Flatten());
+public abstract record NamedState(NamedTable Table, StateName Name) {
+    internal abstract IO<NamedWrite> Save(RhinoDoc doc);
 }
 
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class NamedTable {
-    public static readonly NamedTable LayerStates = new(
-        nameof(LayerStates), StringComparer.Ordinal, batches: true,
-        marks: [ReadModels.Marks(EventKind.DocumentPropertiesChanged)],
-        transform: None,
-        import: Some(static (RhinoDoc doc, ArchiveSource source, Option<Seq<StateName>> names, object _) => Tables.LayerStates.Import(doc, source, names)),
-        archive: None, members: None, current: None,
-        entries: Tables.LayerStates.Entries,
-        accepts: static _ => unit,
-        rename: Tables.LayerStates.Rename,
-        delete: static (doc, entry, _) => Tables.LayerStates.Delete(doc, entry),
-        hold: Tables.LayerStates.Hold);
-
-    public static readonly NamedTable Views = new(
-        nameof(Views), StringComparer.OrdinalIgnoreCase, batches: true,
-        marks: [ReadModels.Marks(EventKind.DocumentPropertiesChanged)],
-        transform: Some(NamedViews.Transform), import: Some(NamedViews.Import), archive: Some(NamedViews.Archive),
-        members: None, current: Some(NamedViews.Current),
-        entries: NamedViews.Entries,
-        accepts: static _ => unit,
-        rename: NamedViews.Rename,
-        delete: NamedViews.Delete,
-        hold: NamedViews.Hold);
-
-    public static readonly NamedTable ConstructionPlanes = new(
-        nameof(ConstructionPlanes), StringComparer.OrdinalIgnoreCase, batches: true,
-        marks: [ReadModels.Marks(EventKind.DocumentPropertiesChanged)],
-        transform: Some(Viewport.ConstructionPlanes.Transform), import: Some(Viewport.ConstructionPlanes.Import), archive: Some(Viewport.ConstructionPlanes.Archive),
-        members: None, current: Some(Viewport.ConstructionPlanes.Current),
-        entries: Viewport.ConstructionPlanes.Entries,
-        accepts: static _ => unit,
-        rename: Viewport.ConstructionPlanes.Rename,
-        delete: Viewport.ConstructionPlanes.Delete,
-        hold: Viewport.ConstructionPlanes.Hold);
-
-    public static readonly NamedTable Positions = new(
-        nameof(Positions), StringComparer.Ordinal, batches: true,
-        marks: [ReadModels.Marks(EventKind.DocumentPropertiesChanged)],
-        transform: None, import: None, archive: None, members: Some(NamedPositions.Members), current: None,
-        entries: NamedPositions.Entries,
-        accepts: static _ => unit,
-        rename: static (doc, entry, name, _) => NamedPositions.Rename(doc, entry, name),
-        delete: static (doc, entry, _) => NamedPositions.Delete(doc, entry),
-        hold: static (doc, _) => NamedPositions.Hold(doc));
-
-    public static readonly NamedTable Snapshots = new(
-        nameof(Snapshots), StringComparer.OrdinalIgnoreCase, batches: false,
-        marks: [ReadModels.Marks(EventKind.EndCommand)],
-        transform: None,
-        import: Some(static (RhinoDoc doc, ArchiveSource source, Option<Seq<StateName>> names, object _) => SnapshotChange.Imported(doc, source, names)),
-        archive: None, members: None, current: None,
-        entries: SnapshotChange.Entries,
-        accepts: static name => SnapshotName.TryCreate(name, out _, out RhinoFault? fault) ? unit : fault,
-        rename: static (doc, entry, name, _) => SnapshotChange.Renamed(doc, entry, name),
-        delete: static (doc, entry, _) => SnapshotChange.Deleted(doc, entry),
-        hold: static (doc, _) => SnapshotChange.Held(doc));
-
-    public static readonly NamedTable Selections = new(
-        nameof(Selections), StringComparer.OrdinalIgnoreCase, batches: true,
-        marks: [NamedSelections.Refreshed],
-        transform: None, import: None, archive: None, members: Some(NamedSelections.Members), current: None,
-        entries: NamedSelections.Entries,
-        accepts: NamedSelections.Accepts,
-        rename: static (doc, entry, name, _) => NamedSelections.Rename(doc, entry, name),
-        delete: static (doc, entry, _) => NamedSelections.Delete(doc, entry),
-        hold: static (doc, _) => NamedSelections.Hold(doc));
-
-    public static readonly NamedTable Markups = new(
-        nameof(Markups), TableOps.Names<Markup>(), batches: true,
-        marks: [ReadModels.Marks(EventKind.MarkupTableEvent)],
-        transform: None, import: None, archive: None, members: Some(Tables.Markups.Members), current: Some(Tables.Markups.Current),
-        entries: Tables.Markups.Entries,
-        accepts: static _ => unit,
-        rename: static (doc, entry, name, _) => Tables.Markups.Rename(doc, entry, name),
-        delete: static (doc, entry, _) => Tables.Markups.Delete(doc, entry),
-        hold: static (doc, _) => Tables.Markups.Hold(doc));
-
-    public IEqualityComparer<string> Comparer { get; }
-    public bool Batches { get; }
-    public Seq<HostEvent<Option<uint>>> Marks { get; }
-    public Option<Func<RhinoDoc, NamedEntry, Transform, object, IO<NamedWrite>>> Transform { get; }
-    public Option<Func<RhinoDoc, ArchiveSource, Option<Seq<StateName>>, object, IO<NamedWrite>>> Import { get; }
-    public Option<Func<RhinoDoc, Seq<NamedEntry>, File3dm, IO<Unit>>> Archive { get; }
-    public Option<Func<RhinoDoc, NamedEntry, IO<Seq<Guid>>>> Members { get; }
-    public Option<Func<RhinoDoc, ViewportTarget, IO<Option<NamedEntry>>>> Current { get; }
-
-    // --- [ROWS]
-    [UseDelegateFromConstructor]
-    public partial IO<Seq<NamedEntry>> Entries(RhinoDoc doc);
-
-    [UseDelegateFromConstructor]
-    public partial Fin<Unit> Accepts(StateName name);
-
-    [UseDelegateFromConstructor]
-    public partial IO<NamedWrite> Rename(RhinoDoc doc, NamedEntry entry, StateName name, object owner);
-
-    [UseDelegateFromConstructor]
-    public partial IO<NamedWrite> Delete(RhinoDoc doc, NamedEntry entry, object owner);
-
-    [UseDelegateFromConstructor]
-    public partial IO<NamedWrite> Hold(RhinoDoc doc, Option<ViewportSet> scope);
-
-    public Option<NamedEntry> Find(Seq<NamedEntry> entries, string name) =>
-        entries.Find(entry => entry.Table == this && Comparer.Equals(entry.Name, name));
-
-    internal Fin<T> Held<T>(Option<T> verb, [CallerArgumentExpression(nameof(verb))] string call = "") =>
-        verb.ToFin(new RhinoFault($"{call} on {this}", RhinoReason.Absent));
-
-    internal RhinoFault Missing(string name) =>
-        new($"{name} in {this}", RhinoReason.Missing);
-
-    // --- [HOLDS]
-    public static IO<T> Within<T>(RhinoDoc doc, Seq<NamedTable> tables, Option<ViewportSet> scope, IO<T> body) =>
-        tables.Fold(IO.pure(Seq<NamedWrite>()), (held, table) =>
-                from writes in held
-                from write in table.Hold(doc, scope).Catch(error => NamedWrite.Settled(writes) >> IO.fail<NamedWrite>(error))
-                select writes.Add(write))
-            .Bind(writes => body.Finally(NamedWrite.Settled(writes)));
-
-    // --- [EXCHANGE]
-    public static IO<StepOutcome> Export(RhinoDoc doc, Seq<NamedEntry> entries, OutputPath path) =>
-        from rows in IO.lift(() => toSeq(entries.GroupBy(static entry => entry.Table))
-            .Traverse(static held => held.Key.Held(held.Key.Archive).Map(archive => (Archive: archive, Entries: toSeq(held))))
-            .As())
-        from outcome in (from archive in use(static () => new File3dm())
-                         from units in IO.lift(() => { archive.Settings.ModelUnits = doc.ModelUnits; })
-                         from archived in rows.TraverseM(row => row.Archive(doc, row.Entries, archive)).As()
-                         from persisted in Archives.Persist(archive, path, new File3dmWriteOptions())
-                         select persisted).Bracket()
-        select outcome;
-
-    internal IO<NamedWrite> Imported<T>(RhinoDoc doc, ArchiveSource source, Option<Seq<StateName>> names, Func<File3dm, IEnumerable<T>> rows, Func<T, string> name, Func<T, Transform, IO<NamedWrite>> write) =>
-        Archives.Read(source, read =>
-            from stored in IO.lift(() => Conversions.Rows(rows(read.Model)))
-            from chosen in IO.lift(() => names.Match(
-                Some: wanted => wanted.Traverse(held => stored.Find(row => Comparer.Equals(name(row), held)).ToFin(Missing(held))).As(),
-                None: () => stored))
-            from scaling in Archives.Scaling(read.Model, doc)
-            from written in chosen.TraverseM(row => write(row, scaling)).As()
-            select NamedWrite.Joined(written));
-
-    internal static Fin<double> Dilation(Transform xform) =>
-        RhinoFault.Unless(xform.DecomposeSimilarity(out _, out double dilation, out _, RhinoMath.SqrtEpsilon) is not TransformSimilarityType.NotSimilarity)
-            .Map(_ => Math.Abs(dilation));
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record NamedState {
-    public abstract NamedTable Table { get; }
-
-    internal abstract string Key { get; }
-
-    public sealed record LayerState(StateName Name, Option<ViewportTarget> Scope, Seq<LayerOp.Modify> Edits) : NamedState {
-        public override NamedTable Table => NamedTable.LayerStates;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record View(StateName Name, ViewportTarget Source, Option<Func<RhinoViewport, ViewInfo, IO<Unit>>> Stage) : NamedState {
-        public override NamedTable Table => NamedTable.Views;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record CPlane(StateName Name, Option<ViewportTarget> Source, Option<Func<ConstructionPlane, IO<Unit>>> Stage) : NamedState {
-        public override NamedTable Table => NamedTable.ConstructionPlanes;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record Position(StateName Name, ObjectTarget Objects) : NamedState {
-        public override NamedTable Table => NamedTable.Positions;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record Snapshot(SnapshotName Name) : NamedState {
-        public override NamedTable Table => NamedTable.Snapshots;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record Selection(StateName Name, ObjectTarget Objects) : NamedState {
-        public override NamedTable Table => NamedTable.Selections;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record Markup(StateName Name, ViewportTarget Source, Seq<GeometryPair> Geometry) : NamedState {
-        public override NamedTable Table => NamedTable.Markups;
-
-        internal override string Key => Name;
-    }
-
-    internal IO<NamedWrite> Run(RhinoDoc doc, object owner) =>
-        Switch(
-            (Document: doc, Owner: owner),
-            layerState: static (at, state) => LayerStates.Save(at.Document, state),
-            view: static (at, state) => NamedViews.Save(at.Document, state, at.Owner),
-            cPlane: static (at, state) => ConstructionPlanes.Save(at.Document, state, at.Owner),
-            position: static (at, state) => NamedPositions.Save(at.Document, state),
-            snapshot: static (at, state) => SnapshotChange.Saved(at.Document, state.Name),
-            selection: static (at, state) => NamedSelections.Save(at.Document, state),
-            markup: static (at, state) => Markups.Save(at.Document, state));
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record NamedRestore {
-    public abstract NamedTable Table { get; }
-
-    internal abstract string Key { get; }
-
-    public sealed record LayerState(StateName Name, Option<LayerStateRestore> Mask, Option<ViewportSet> Scope) : NamedRestore {
-        public override NamedTable Table => NamedTable.LayerStates;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record View(StateName Name, ViewportSet Viewports, RestorePacing Pacing) : NamedRestore {
-        public override NamedTable Table => NamedTable.Views;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record CPlane(StateName Name, ViewportSet Viewports) : NamedRestore {
-        public override NamedTable Table => NamedTable.ConstructionPlanes;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record Position(StateName Name) : NamedRestore {
-        public override NamedTable Table => NamedTable.Positions;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record Snapshot(SnapshotName Name) : NamedRestore {
-        public override NamedTable Table => NamedTable.Snapshots;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record Selection(StateName Name, SelectionEdit Edit) : NamedRestore {
-        public override NamedTable Table => NamedTable.Selections;
-
-        internal override string Key => Name;
-    }
-
-    public sealed record Markup(StateName Name) : NamedRestore {
-        public override NamedTable Table => NamedTable.Markups;
-
-        internal override string Key => Name;
-    }
-
-    internal IO<NamedWrite> Run(RhinoDoc doc) =>
-        Switch(
-            doc,
-            layerState: static (document, target) => LayerStates.Restore(document, target),
-            view: static (document, target) => NamedViews.Restore(document, target),
-            cPlane: static (document, target) => ConstructionPlanes.Restore(document, target),
-            position: static (document, target) => NamedPositions.Restore(document, target),
-            snapshot: static (document, target) => SnapshotChange.Restored(document, target.Name),
-            selection: static (document, target) => NamedSelections.Restore(document, target),
-            markup: static (document, target) => Markups.Restore(document, target));
+public abstract record NamedRestore(NamedTable Table, StateName Name) {
+    internal abstract IO<NamedWrite> Restore(RhinoDoc doc);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record NamedChange {
-    public abstract NamedTable Table { get; }
+    private NamedChange(NamedTable table, string label) => (Table, Label) = (table, label);
 
-    public abstract string Label { get; }
+    public NamedTable Table { get; }
 
-    public sealed record Save(NamedState State) : NamedChange {
-        public override NamedTable Table => State.Table;
+    public string Label { get; }
 
-        public override string Label => $"{nameof(Save)} {State.Key}";
-    }
+    public sealed record Save(NamedState State) : NamedChange(State.Table, $"{nameof(Save)} {State.Name}");
 
-    public sealed record Restore(NamedRestore Target) : NamedChange {
-        public override NamedTable Table => Target.Table;
+    public sealed record Restore(NamedRestore Target) : NamedChange(Target.Table, $"{nameof(Restore)} {Target.Name}");
 
-        public override string Label => $"{nameof(Restore)} {Target.Key}";
-    }
+    public sealed record Rename(NamedEntry Entry, StateName Name) : NamedChange(Entry.Table, $"{nameof(Rename)} {Entry.Name}");
 
-    public sealed record Rename(NamedEntry Entry, StateName Name) : NamedChange {
-        public override NamedTable Table => Entry.Table;
+    public sealed record Delete(NamedEntry Entry) : NamedChange(Entry.Table, $"{nameof(Delete)} {Entry.Name}");
 
-        public override string Label => $"{nameof(Rename)} {Entry.Name}";
-    }
+    public sealed record Xform(NamedEntry Entry, Transform Transform) : NamedChange(Entry.Table, $"{nameof(Transform)} {Entry.Name}");
 
-    public sealed record Delete(NamedEntry Entry) : NamedChange {
-        public override NamedTable Table => Entry.Table;
-
-        public override string Label => $"{nameof(Delete)} {Entry.Name}";
-    }
-
-    public sealed record Xform(NamedEntry Entry, Transform Transform) : NamedChange {
-        public override NamedTable Table => Entry.Table;
-
-        public override string Label => $"{nameof(Transform)} {Entry.Name}";
-    }
-
-    public sealed record Import(NamedTable Table, ArchiveSource Source, Option<Seq<StateName>> Names) : NamedChange {
-        public override NamedTable Table { get; } = Table;
-
-        public override string Label => $"{nameof(Import)} {Table}";
-    }
+    public sealed record Import(NamedTable Source, InputPath Path, Option<Seq<StateName>> Names) : NamedChange(Source, $"{nameof(Import)} {Source}");
 
     // --- [PLANNING]
     public static Fin<Seq<NamedChange>> Plan(Seq<NamedEntry> held, Seq<NamedState> desired, Seq<NamedTable> prune) =>
-        toSeq(
-                from table in NamedTable.Items
-                join entry in held on table equals entry.Table into entries
-                join state in desired on table equals state.Table into states
-                join pruned in prune on table equals pruned into pruning
-                select (Table: table, Entries: toSeq(entries), States: toSeq(states), Prune: pruning.Any()))
-            .Traverse(static row => TableOps.Plan(
-                row.Entries,
-                new TableSpec<NamedState>(row.States.Map(static state => (Name: state.Key, Spec: state)), row.Prune),
-                static entry => entry.Name,
-                row.Table.Comparer))
-            .As()
-            .Map(static plans => plans.Bind(static plan => plan.Prunes).Map<NamedChange>(static entry => new Delete(entry))
-                + plans.Bind(static plan => plan.Upserts).Map<NamedChange>(static upsert => new Save(upsert.Spec)));
+        (held.ToLookup(static entry => entry.Table), desired.ToLookup(static state => state.Table), toHashSet(prune)) switch {
+            var (entries, states, pruned) => toSeq(states.Select(static group => group.Key).Concat(entries.Select(static group => group.Key)).Distinct())
+                .Traverse(table => Rows.Plan(
+                    toSeq(entries[table]), toSeq(states[table]),
+                    static entry => entry.Name, static state => (string)state.Name, table.Comparer, pruned.Contains(table) ? Prune.Delete : Prune.Keep))
+                .As()
+                .Map(static plans => plans.Flatten().Choose(static step => step.Switch(
+                    create: static create => Some<NamedChange>(new Save(create.Spec)),
+                    change: static change => Some<NamedChange>(new Save(change.Spec)),
+                    remove: static remove => Some<NamedChange>(new Delete(remove.Row)),
+                    order: static _ => Option<NamedChange>.None))),
+        };
 
     // --- [APPLY]
-    public static IO<Seq<Committed<Seq<NamedEvent>>>> Apply(RhinoDoc doc, Seq<NamedChange> changes, object owner) =>
-        from held in NamedEntry.Read(doc)
+    public static IO<Seq<Committed<Seq<NamedEvent>>>> Apply(RhinoDoc doc, Seq<NamedTable> tables, Seq<NamedChange> changes) =>
+        from held in NamedTable.Read(doc, tables)
         from valid in IO.lift(() => changes.Fold(Fin.Succ(held), static (entries, change) => entries.Bind(change.Landed)))
         from landed in IO.lift(static () => (Writes: Atom(Seq<NamedWrite>()), Records: Atom(Seq<Option<uint>>())))
-        from committed in Segments(changes).TraverseM(segment => Segment(doc, segment, owner, landed.Writes, landed.Records)).As()
-            .Catch(error => Callbacks.Each(Seq(
+        from committed in toSeq(changes.Segment(static (current, previous, _) => !current.Table.Batches || !previous.Table.Batches))
+            .TraverseM(segment => Applied(doc, tables, toSeq(segment), landed.Writes, landed.Records)).As()
+            .Catch(error => Products.Each(Seq(
                     IO.lift(() => landed.Writes.Value).Bind(NamedWrite.Reverted),
                     IO.lift(() => landed.Records.Value.Rev().Somes()).Bind(records => records.TraverseM(_ => Commits.Step(doc, doc.Undo)).As()).Map(static _ => unit)))
                 >> IO.fail<Seq<Committed<Seq<NamedEvent>>>>(error))
             .Finally(IO.lift(() => landed.Writes.Value).Bind(NamedWrite.Released))
         select committed;
 
-    private static Seq<Seq<NamedChange>> Segments(Seq<NamedChange> changes) =>
-        changes.Fold(Seq<Seq<NamedChange>>(), static (segments, change) =>
-            segments.Last.Filter(open => Batched(open) && Batched([change])).Match(
-                Some: open => segments.Init.Add(open.Add(change)),
-                None: () => segments.Add([change])));
-
-    private static bool Batched(Seq<NamedChange> segment) =>
-        segment.ForAll(static change => change.Table.Batches);
-
-    private static IO<Committed<Seq<NamedEvent>>> Segment(RhinoDoc doc, Seq<NamedChange> segment, object owner, Atom<Seq<NamedWrite>> writes, Atom<Seq<Option<uint>>> records) =>
-        from before in NamedEntry.Read(doc)
-        from record in Batched(segment)
+    private static IO<Committed<Seq<NamedEvent>>> Applied(RhinoDoc doc, Seq<NamedTable> tables, Seq<NamedChange> segment, Atom<Seq<NamedWrite>> writes, Atom<Seq<Option<uint>>> records) =>
+        from before in NamedTable.Read(doc, tables)
+        from record in segment.ForAll(static change => change.Table.Batches)
             ? Commits.Commit(
                     doc,
                     string.Join(", ", segment.Map(static change => change.Label)),
                     segment.Exists(static change => change is Restore or Xform) ? new RedrawPolicy.AllViews(Deferred: true) : new RedrawPolicy.Silent(),
-                    segment.TraverseM(change => Ran(doc, change, owner, writes)).As())
+                    segment.TraverseM(change => Ran(doc, change, writes)).As())
                 .Map(static committed => committed.Record)
-            : Commanded(doc, segment, owner, writes)
-        from after in NamedEntry.Read(doc)
+            : Commanded(doc, segment, writes)
+        from after in NamedTable.Read(doc, tables)
         from noted in IO.lift(() => records.Swap(held => held.Add(record)))
         select new Committed<Seq<NamedEvent>>(NamedEvent.Between(before, after), record);
 
-    private static IO<Option<uint>> Commanded(RhinoDoc doc, Seq<NamedChange> segment, object owner, Atom<Seq<NamedWrite>> writes) =>
+    private static IO<Option<uint>> Commanded(RhinoDoc doc, Seq<NamedChange> segment, Atom<Seq<NamedWrite>> writes) =>
         from prior in IO.lift(() => toHashSet(doc.GetUndoRecords().Select(static entry => entry.SerialNumber)))
-        from ran in segment.TraverseM(change => Ran(doc, change, owner, writes)).As()
-        from record in IO.lift(() => toSeq(doc.GetUndoRecords()).Map(static entry => entry.SerialNumber).Filter(serial => !prior.Contains(serial))
-            .Fold(Option<uint>.None, static (newest, serial) => Some(newest.Map(held => Math.Max(held, serial)).IfNone(serial))))
+        from ran in segment.TraverseM(change => Ran(doc, change, writes)).As()
+        from record in IO.lift(() => toSeq(doc.GetUndoRecords()).Map(static entry => entry.SerialNumber).Filter(serial => !prior.Contains(serial)).Max<Seq, uint>())
         select record;
 
-    private static IO<Unit> Ran(RhinoDoc doc, NamedChange change, object owner, Atom<Seq<NamedWrite>> writes) =>
-        change.Run(doc, owner).Bind(write => IO.lift(() => writes.Swap(held => held.Add(write)))).Map(static _ => unit);
+    private static IO<Unit> Ran(RhinoDoc doc, NamedChange change, Atom<Seq<NamedWrite>> writes) =>
+        change.Run(doc).Bind(write => IO.lift(() => writes.Swap(held => held.Add(write)))).Map(static _ => unit);
 
-    private IO<NamedWrite> Run(RhinoDoc doc, object owner) =>
+    private IO<NamedWrite> Run(RhinoDoc doc) =>
         Switch(
-            (Document: doc, Owner: owner),
-            save: static (at, save) => save.State.Run(at.Document, at.Owner),
-            restore: static (at, restore) => restore.Target.Run(at.Document),
-            rename: static (at, rename) => rename.Entry.Table.Rename(at.Document, rename.Entry, rename.Name, at.Owner),
-            delete: static (at, delete) => delete.Entry.Table.Delete(at.Document, delete.Entry, at.Owner),
-            xform: static (at, xform) => IO.lift(() => xform.Entry.Table.Held(xform.Entry.Table.Transform))
-                .Bind(run => run(at.Document, xform.Entry, xform.Transform, at.Owner)),
-            import: static (at, import) => IO.lift(() => import.Table.Held(import.Table.Import))
-                .Bind(run => run(at.Document, import.Source, import.Names, at.Owner)));
+            doc,
+            save: static (document, save) => save.State.Save(document),
+            restore: static (document, restore) => restore.Target.Restore(document),
+            rename: static (document, rename) => rename.Entry.Table.Rename(document, rename.Entry, rename.Name),
+            delete: static (document, delete) => delete.Entry.Table.Delete(document, delete.Entry),
+            xform: static (document, xform) => IO.lift(() => xform.Entry.Table.Supported(xform.Entry.Table.Transform)).Bind(run => run(document, xform.Entry, xform.Transform)),
+            import: static (document, import) => IO.lift(() => import.Source.Supported(import.Source.Import)).Bind(run => run(document, import.Path, import.Names)));
 
     private Fin<Seq<NamedEntry>> Landed(Seq<NamedEntry> entries) =>
         Switch(
             entries,
             save: static (held, save) =>
-                from name in StateName.TryCreate(save.State.Key, out StateName? named, out RhinoFault? fault) ? Fin.Succ(named) : fault
-                from accepted in save.State.Table.Accepts(name)
-                select save.State.Table.Find(held, name).IsSome ? held : held.Add(new NamedEntry(save.State.Table, name, None)),
-            restore: static (held, restore) => Present(held, restore.Target.Table, restore.Target.Key).Map(_ => held),
+                from accepted in save.State.Table.Accepted(save.State.Name)
+                select save.State.Table.Find(held, save.State.Name).IsSome ? held : held.Add(new NamedEntry(save.State.Table, save.State.Name, None)),
+            restore: static (held, restore) => restore.Target.Table.Present(held, restore.Target.Name).Map(_ => held),
             rename: static (held, rename) =>
-                from found in Present(held, rename.Entry.Table, rename.Entry.Name)
-                from accepted in rename.Entry.Table.Accepts(rename.Name)
-                from free in rename.Entry.Table.Find(held, rename.Name).ForAll(taken => taken == found)
-                    ? Fin.Succ(unit)
-                    : new RhinoFault($"{rename.Name} in {rename.Entry.Table}", RhinoReason.Taken)
+                from found in rename.Entry.Table.Present(held, rename.Entry.Name)
+                from accepted in rename.Entry.Table.Accepted(rename.Name)
+                from free in RhinoFault.Unless(rename.Entry.Table.Find(held, rename.Name).ForAll(taken => taken == found), RhinoReason.Taken, (string)rename.Name)
                 select held.Map(entry => entry == found ? entry with { Name = rename.Name } : entry),
-            delete: static (held, delete) => Present(held, delete.Entry.Table, delete.Entry.Name).Map(found => held.Filter(entry => entry != found)),
+            delete: static (held, delete) => delete.Entry.Table.Present(held, delete.Entry.Name).Map(found => held.Filter(entry => entry != found)),
             xform: static (held, xform) =>
-                from found in Present(held, xform.Entry.Table, xform.Entry.Name)
-                from verb in xform.Entry.Table.Held(xform.Entry.Table.Transform)
+                from found in xform.Entry.Table.Present(held, xform.Entry.Name)
+                from verb in xform.Entry.Table.Supported(xform.Entry.Table.Transform)
                 select held,
             import: static (held, import) =>
-                from verb in import.Table.Held(import.Table.Import)
+                from verb in import.Source.Supported(import.Source.Import)
                 select import.Names.Match(
-                    Some: names => names.Fold(held, (entries, name) => import.Table.Find(entries, name).IsSome ? entries : entries.Add(new NamedEntry(import.Table, name, None))),
+                    Some: names => names.Fold(held, (entries, name) => import.Source.Find(entries, name).IsSome ? entries : entries.Add(new NamedEntry(import.Source, name, None))),
                     None: () => held));
-
-    private static Fin<NamedEntry> Present(Seq<NamedEntry> entries, NamedTable table, string name) =>
-        table.Find(entries, name).ToFin(table.Missing(name));
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record NamedEvent {
-    public abstract NamedTable Table { get; }
+public sealed record NamedEvent {
+    private NamedEvent(Option<NamedEntry> before, Option<NamedEntry> after, NamedTable table) => (Before, After, Table) = (before, after, table);
 
-    public sealed record Added(NamedEntry Entry) : NamedEvent {
-        public override NamedTable Table => Entry.Table;
-    }
+    public Option<NamedEntry> Before { get; }
 
-    public sealed record Removed(NamedEntry Entry) : NamedEvent {
-        public override NamedTable Table => Entry.Table;
-    }
+    public Option<NamedEntry> After { get; }
 
-    public sealed record Renamed(NamedEntry Before, NamedEntry After) : NamedEvent {
-        public override NamedTable Table => After.Table;
-    }
+    public NamedTable Table { get; }
 
     public static Seq<NamedEvent> Between(Seq<NamedEntry> before, Seq<NamedEntry> after) =>
         before.Bind(prior => Paired(after, prior).Match(
-                Some: next => string.Equals(next.Name, prior.Name, StringComparison.Ordinal) ? Seq<NamedEvent>() : Seq<NamedEvent>(new Renamed(prior, next)),
-                None: () => Seq<NamedEvent>(new Removed(prior))))
-            + after.Filter(next => Paired(before, next).IsNone).Map<NamedEvent>(static next => new Added(next));
+                Some: next => string.Equals(next.Name, prior.Name, StringComparison.Ordinal) ? Seq<NamedEvent>() : Seq(new NamedEvent(prior, next, next.Table)),
+                None: () => Seq(new NamedEvent(prior, None, prior.Table))))
+            + after.Filter(next => Paired(before, next).IsNone).Map(static next => new NamedEvent(None, next, next.Table));
 
-    public static HostEvent<Seq<NamedEvent>> Changed(RhinoDoc doc) =>
-        NamedEntry.Catalog.Changed(doc).Choose(static pair => Some(Between(pair.Before, pair.After)).Filter(static events => !events.IsEmpty));
+    public static HostEvent<Seq<NamedEvent>> Changed(ReadModel<Seq<NamedEntry>> catalog, RhinoDoc doc) =>
+        catalog.Changed(doc).Choose(static pair => Some(Between(pair.Before, pair.After)).Filter(static events => !events.IsEmpty));
 
     private static Option<NamedEntry> Paired(Seq<NamedEntry> entries, NamedEntry entry) =>
         entry.Id.Match(
             Some: id => entries.Find(row => row.Table == entry.Table && row.Id == Some(id)),
             None: () => entry.Table.Find(entries, entry.Name));
+}
+
+// --- [TABLES] --------------------------------------------------------------------------
+public sealed class NamedTable(string name, IEqualityComparer<string> comparer) {
+    public static HostEvent<Option<uint>> DocumentProperties { get; } =
+        ReadModels.Marks(Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.DocumentPropertiesChanged += h, static h => RhinoDoc.DocumentPropertiesChanged -= h).Documents());
+
+    public IEqualityComparer<string> Comparer => comparer;
+
+    public bool Batches { get; init; } = true;
+
+    public Seq<HostEvent<Option<uint>>> Marks { get; init; } = [DocumentProperties];
+
+    public required Func<RhinoDoc, IO<Seq<NamedEntry>>> Entries { get; init; }
+
+    public required Func<RhinoDoc, NamedEntry, StateName, IO<NamedWrite>> Rename { get; init; }
+
+    public required Func<RhinoDoc, NamedEntry, IO<NamedWrite>> Delete { get; init; }
+
+    public required Func<RhinoDoc, Option<Guid>, IO<NamedWrite>> Hold { get; init; }
+
+    public Option<Func<StateName, Fin<Unit>>> Accepts { get; init; }
+
+    public Option<Func<RhinoDoc, NamedEntry, Transform, IO<NamedWrite>>> Transform { get; init; }
+
+    public Option<Func<RhinoDoc, InputPath, Option<Seq<StateName>>, IO<NamedWrite>>> Import { get; init; }
+
+    public Option<Func<RhinoDoc, Seq<NamedEntry>, File3dm, IO<Unit>>> Archive { get; init; }
+
+    public Option<Func<RhinoDoc, NamedEntry, IO<Seq<Guid>>>> Members { get; init; }
+
+    public Option<Func<RhinoDoc, Guid, IO<Option<NamedEntry>>>> Current { get; init; }
+
+    public override string ToString() => name;
+
+    // --- [ROWS]
+    public Option<NamedEntry> Find(Seq<NamedEntry> entries, string entry) =>
+        entries.Find(held => held.Table == this && Comparer.Equals(held.Name, entry));
+
+    internal Fin<NamedEntry> Present(Seq<NamedEntry> entries, string entry) =>
+        Find(entries, entry).ToFin(Missing(entry));
+
+    internal Fin<Unit> Accepted(StateName entry) =>
+        Accepts.Map(accepts => accepts(entry)).IfNone(unit);
+
+    internal Fin<T> Supported<T>(Option<T> verb, [CallerArgumentExpression(nameof(verb))] string call = "") =>
+        verb.ToFin(new RhinoFault($"{call} on {name}", RhinoReason.Unsupported));
+
+    internal RhinoFault Missing(string entry) =>
+        new($"{entry} in {name}", RhinoReason.Missing);
+
+    public static IO<Seq<NamedEntry>> Read(RhinoDoc doc, Seq<NamedTable> tables) =>
+        tables.TraverseM(table => table.Entries(doc)).As().Map(static entries => entries.Flatten());
+
+    public static ReadModel<Seq<NamedEntry>> Catalog(Seq<NamedTable> tables) =>
+        new(
+            toSeq(tables.Bind(static table => table.Marks).Distinct())
+            + Seq(
+                ReadModels.Marks(Subscriptions.On<UndoRedoEventArgs>(static h => Command.UndoRedo += h, static h => Command.UndoRedo -= h).Documents(static args => args.DocumentSerialNumber)),
+                ReadModels.Marks(Subscriptions.Watched<DocumentOpenEventArgs>(static (watcher, h) => watcher.EndOpenDocument += h).Documents())),
+            doc => Read(doc, tables));
+
+    // --- [HOLDS]
+    public static IO<T> Within<T>(RhinoDoc doc, Seq<NamedTable> tables, Option<Guid> viewport, IO<T> body) =>
+        tables.Fold(IO.pure(Seq<NamedWrite>()), (held, table) =>
+                from writes in held
+                from write in table.Hold(doc, viewport).Catch(error => NamedWrite.Undone(writes) >> IO.fail<NamedWrite>(error))
+                select writes.Add(write))
+            .Bind(writes => body.Finally(NamedWrite.Undone(writes)));
+
+    // --- [EXCHANGE]
+    public static IO<StepOutcome> Export(RhinoDoc doc, Seq<NamedEntry> entries, OutputPath path) =>
+        from rows in IO.lift(() => toSeq(entries.GroupBy(static entry => entry.Table))
+            .Traverse(static held => held.Key.Supported(held.Key.Archive).Map(archive => (Archive: archive, Entries: toSeq(held))))
+            .As())
+        from outcome in (from archive in use(static () => new File3dm())
+                         from units in IO.lift(() => { archive.Settings.ModelUnits = doc.ModelUnits; })
+                         from archived in rows.TraverseM(row => row.Archive(doc, row.Entries, archive)).As()
+                         from written in StepOutcome.Write(path, target => IO.lift(() =>
+                             archive.WriteWithLog(target, new File3dmWriteOptions(), out string log) ? Fin.Succ(unit) : new RhinoFault(target, RhinoReason.Unwritable, Inner: Error.New(log))))
+                         select written).Bracket()
+        select outcome;
+
+    public IO<NamedWrite> Imported<T>(
+        RhinoDoc doc, InputPath path, Option<Seq<StateName>> names, Func<File3dm, IEnumerable<T>> rows, Func<T, string> entry, Func<T, Transform, IO<NamedWrite>> write) =>
+        (from model in Products.Of(() => File3dm.Read(path, File3dm.TableTypeFilter.Settings, File3dm.ObjectTypeFilter.None))
+         from stored in IO.lift(() => Conversions.Rows(rows(model)))
+         from chosen in IO.lift(() => names.Match(
+             Some: wanted => wanted.Traverse(held => stored.Find(row => Comparer.Equals(entry(row), held)).ToFin(Missing(held))).As(),
+             None: () => stored))
+         from scaling in IO.lift(() => Conversions.Required(Conversions.Present(LengthUnit.Scale(model.Settings.ModelUnits, doc.ModelUnits)).Filter(static scale => scale > 0d))
+             .Map(static scale => global::Rhino.Geometry.Transform.Scale(Point3d.Origin, scale)))
+         from written in chosen.TraverseM(row => write(row, scaling)).As()
+         select new NamedWrite(NamedWrite.Reverted(written), NamedWrite.Released(written))).Bracket();
+
+    public static Fin<double> Dilation(Transform xform) =>
+        RhinoFault.Unless(xform.DecomposeSimilarity(out _, out double dilation, out _, RhinoMath.SqrtEpsilon) is not TransformSimilarityType.NotSimilarity, RhinoReason.Invalid, xform)
+            .Map(_ => Math.Abs(dilation));
 }

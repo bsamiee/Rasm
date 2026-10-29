@@ -154,7 +154,7 @@ MCP uses plain `ast-grep` after `ast-grep --custom-languages trust --version` ru
 - Injected ranges parse twice, a node both documents hold reports from each unless its rule excludes one side
 - Leaf-token rules exclude host macro arguments through one shared util, rules reading enclosing host context skip the injected copy
 - Kind lists inside a flow map are quoted (`{kind: 'block_mapping_pair, flow_pair'}`), an unquoted second kind reads as a key
-- Under `expandoChar`, patterns spell metavariables with that character (`_VAR`, `___VAR`), fix templates and transform sources use `$`
+- Under `expandoChar`, patterns spell metavariables with that character (`_VAR`, `___VAR`), fix templates, `--rewrite` text and transform sources use `$`; an expando-character name there is written out as literal text
 - Unparsable rule files of any language and duplicate ids fail every load of the root config, an unknown key in `sgconfig.yml` loads silently
 - `unused-suppression` reports a comment suppressing nothing at `hint`, `--filter`, `--off`, `--min-severity`, `-r`, or `--inline-rules` disables it
 - `no-suppress-all` reports an idless comment and is disabled, `--error=<id>` raises either built-in rule

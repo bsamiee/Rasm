@@ -13,7 +13,7 @@ rule:
                 kind: member_access_expression
                 all:
                     - has: {field: name, regex: '^TryCreate$'}
-                    - has: {field: expression, pattern: $TYPE, not: {regex: '^(System\.)?Uri$'}}
+                    - has: {field: expression, pattern: $TYPE, not: {regex: '^((System\.)?Uri|MetaValue)$'}}
         - inside:
             kind: conditional_expression
             field: condition

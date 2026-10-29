@@ -1,6 +1,5 @@
-using System.Collections.Generic;
 using System.Globalization;
-using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.Persistence;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
 using Rhino;
@@ -14,51 +13,41 @@ namespace Rasm.Rhino.Render.Effects;
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSection, ICollapsibleSection, ICollapsibleSection2, ICollapsibleSection3
     where TState : notnull {
-    private readonly TState initial;
+    // --- [STATE]
     private readonly PostEffectType stage;
     private readonly Guid id;
     private readonly View.Section row;
-    private readonly IPlugInViews views;
-    private readonly SectionLifetime lifetime;
+    private readonly HostedSection hosted;
 
-    public DefinedEffectSection(IPlugInViews owner, PostEffect hosted, TState initial, Func<ValueStore<TState>, View.Section> build) {
-        (views, PostEffectId, stage, this.initial) = (owner, hosted.Id, hosted.PostEffectType, initial);
-        row = build(Store);
-        (id, Caption) = (row.Identity.GUID, RowText.Localize(row.Caption, views));
-        lifetime = new SectionLifetime(this, views, Some(ProviderIds.RdkRenderingPostEffects), () => Excluded, visible: true,
-            from document in IO.lift(() => Conversions.Found(
-                Optional(ViewModel?.GetData(ProviderIds.RdkRendering, bForWrite: false, bAutoChangeBracket: false))
-                    .Bind(static rendering => Optional(RhinoDoc.FromRuntimeSerialNumber(EffectList.RhinoDocumentId(rendering)))) | Optional(RhinoDoc.ActiveDoc)))
-            from scope in RowScope.Open(views, Some(document), new CommitMode.Immediate())
-            from held in ViewBody.Realize(views, row, scope)
-            select held);
+    public DefinedEffectSection(PostEffect effect, TState initial, Func<Preference<TState>, View.Section> build) {
+        (PostEffectId, stage) = (effect.Id, effect.PostEffectType);
+        row = build(Preferences.Of(
+            IO.lift(() => Optional(GetParameter(EffectList.StateKey, defaultValue: null) as string)).Bind(text => IO.lift(text.Match(Some: EffectList.Decoded<TState>, None: () => initial))),
+            state => Products.Accepted(() => SetParameter(EffectList.StateKey, EffectList.Encoded(state)))));
+        id = row.Identity.GUID;
+        hosted = new HostedSection(this, row.Actions, Some(ProviderIds.RdkRenderingPostEffects), () => Excluded, visible: true,
+            from document in IO.lift(() => Optional(ViewModel?.GetData(ProviderIds.RdkRendering, bForWrite: false, bAutoChangeBracket: false))
+                .Bind(static rendering => Optional(RhinoDoc.FromRuntimeSerialNumber(Internals.RhinoDocumentId(rendering))))
+                .ToFin(new RhinoFault($"document of post effect section {row.Caption}", RhinoReason.Missing)))
+            from scope in RowScope.Open(Some(document), new CommitMode.Immediate())
+            from body in ViewBody.Realize(row, row.Actions, scope)
+            select body);
     }
-
-    // --- [STORE]
-    private ValueStore<TState> Store =>
-        new EffectSource.Section(this) switch {
-            var source => ValueStores.Defaulted(
-                EffectList.State(source, PostEffectId, initial),
-                IO.pure(initial),
-                state => IO.lift(() => RhinoFault.Unless(SetParameter(EffectList.StateKey, EffectList.Encoded(state)))),
-                EqualityComparer<TState>.Default.Equals,
-                Applied.Live,
-                Some(source.Changed)),
-        };
 
     // --- [IDENTITY]
     public override Guid PostEffectId { get; }
     public override string SettingsTag => id.ToString("D", CultureInfo.InvariantCulture);
     Guid ICollapsibleSection.Id => id;
-    public override LocalizeStringPair Caption { get; }
-    public override int SectionHeight => lifetime.Height;
-    public override bool Hidden => Excluded || lifetime.Hidden;
+    public override Guid PlugInId => Session.PlugIn.Id;
+    public override LocalizeStringPair Caption => LocalText.Of(row.Caption);
+    public override int SectionHeight => hosted.Height;
+    public override bool Hidden => Excluded || hosted.Hidden;
 
     private bool Excluded =>
         !toSeq(GetPostEffects(stage)).Exists(listed => listed.Id == PostEffectId && listed.IsSelected && (stage is PostEffectType.ToneMapping || listed.Shown));
 
     // --- [HEADER]
-    IHeaderButtonHandler ICollapsibleSection2.NewHeaderButtonHandler() => lifetime.Header(row).ValueUnsafe()!;
+    IHeaderButtonHandler ICollapsibleSection2.NewHeaderButtonHandler() => hosted.Header.ValueUnsafe()!;
 
     void ICollapsibleSection2.OnAttachingToHolder(ICollapsibleSectionHolder2 holder) { }
 
@@ -72,11 +61,11 @@ public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSecti
 
     bool ICollapsibleSection2.ShowHeaderButton(int index, bool bShow) => false;
 
-    void ICollapsibleSection3.UpdateView(uint flags) => _ = views.Run(lifetime.Reread);
+    void ICollapsibleSection3.UpdateView(uint flags) => _ = hosted.Reread;
 
     // --- [RELEASE]
     protected override void Dispose(bool disposing) {
-        if (disposing) lifetime.Dispose();
+        if (disposing) hosted.Dispose();
         base.Dispose(disposing);
     }
 }

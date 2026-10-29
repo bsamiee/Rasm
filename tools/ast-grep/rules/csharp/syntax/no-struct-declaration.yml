@@ -24,10 +24,10 @@ utils:
             kind: compilation_unit
             stopBy: end
             has: {stopBy: end, kind: type_parameter_constraints_clause, all: [{has: {kind: type_parameter_constraint, regex: "^struct$"}}, {has: {kind: type_parameter_constraint, has: {stopBy: end, kind: identifier, pattern: $KERNEL}}}]}
-    self-typed-kernel:
-        has: {kind: base_list, has: {kind: generic_name, has: {kind: type_argument_list, has: {kind: identifier, pattern: $NAME}}}}
     parallel-action:
         has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^I(Ref|In)?Action(2D)?$'}}}}}
+    package-struct-contract:
+        has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^IPaletteDitherImageProcessor$'}}}}}
 rule:
     any:
         - kind: struct_declaration
@@ -38,8 +38,8 @@ rule:
         - not: {has: {regex: '^ref$'}}
         - not: {matches: {csharp-attributed: {name: {regex: '^StructLayout(Attribute)?$'}}}}
         - not: {matches: parallel-action}
+        - not: {matches: package-struct-contract}
         - not: {matches: constrained-kernel}
-        - not: {matches: self-typed-kernel}
         - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: native-signature}}}
 message: '`$NAME` is a struct'
-note: 'Declare a record or class, interop structs, `ref struct`, `ParallelHelper` actions, and kernels a `struct` constraint reads stay'
+note: 'Declare a record or class, interop structs, `ref struct`, `ParallelHelper` actions, package processors a package `struct` constraint reads, and kernels a `struct` constraint reads stay'

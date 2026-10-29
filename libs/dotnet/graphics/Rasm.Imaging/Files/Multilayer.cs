@@ -1,267 +1,115 @@
-using System.Globalization;
+using System.Drawing;
 using System.Numerics;
+using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
+using CommunityToolkit.HighPerformance.Enumerables;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
-using Rasm.Imaging.Quantization;
 using TinyEXR;
 
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ExrLayout {
-    private ExrLayout(PixelType sample, ExrCompression compression, Option<Gamut> gamut) => (Sample, Compression, Gamut) = (sample, compression, gamut);
-
-    public ExrCompression Compression { get; }
-    public Option<Gamut> Gamut { get; }
-    internal PixelType Sample { get; }
-
-    public static ExrLayout Coordinates { get; } = new(PixelType.Float, ExrCompression.Zip, None);
-
-    public static Seq<OutputDepth> Depths => OutputDepth.Where(ExrDepth);
-
-    public static Fin<ExrLayout> From(OutputDepth depth, ExrCompression compression, Gamut gamut) =>
-        OutputDepth.Sampled(depth, ExrDepth).Map(sample => new ExrLayout(sample, compression, Some(gamut)));
-
-    internal static Option<PixelType> ExrDepth(OutputDepth depth) =>
-        depth.Map<Option<PixelType>>(uInt8: None, uInt10: None, uInt12: None, uInt14: None, uInt16: None, float16: PixelType.Half, float32: PixelType.Float);
+public sealed record ExrLayer(string Name, PixelFrame Frame, Seq<string> Channels) {
+    public static ExrLayer Reciprocal(string name, PixelFrame distance) => new(name, ImageFile.Mapped(distance, static (depth, _) => new Vector4(1f / depth.X)), ["Z"]);
 }
 
-[SmartEnum<string>]
-public sealed partial class ExrCompression {
-    public static readonly ExrCompression Uncompressed = new("uncompressed", Compression.None, Compression.None);
-    public static readonly ExrCompression Rle = new("rle", Compression.RLE, Compression.RLE);
-    public static readonly ExrCompression Zips = new("zips", Compression.ZIPS, Compression.ZIPS);
-    public static readonly ExrCompression Zip = new("zip", Compression.ZIP, Compression.ZIP);
-    public static readonly ExrCompression Piz = new("piz", Compression.PIZ, Compression.PIZ);
-    public static readonly ExrCompression Pxr24 = new("pxr24", Compression.PXR24, Compression.ZIP);
-    public static readonly ExrCompression B44 = new("b44", Compression.B44, Compression.ZIP);
-    public static readonly ExrCompression B44A = new("b44a", Compression.B44A, Compression.ZIP);
+[SmartEnum]
+public sealed partial class ChannelNaming {
+    public static readonly ChannelNaming Blender = new("Combined", "Depth", "Position", Matrix4x4.Identity, Matrix4x4.Identity);
+    public static readonly ChannelNaming Nuke = new("rgba", "z", "Pworld", new Matrix4x4(1f, 0f, 0f, 0f, 0f, 0f, -1f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 1f), Matrix4x4.CreateScale(1f, 1f, -1f));
 
-    public Compression Codec { get; }
-    public Compression Data { get; }
-}
+    private readonly string beauty;
+    private readonly string depth;
+    private readonly string position;
+    private readonly Matrix4x4 world;
+    private readonly Matrix4x4 screen;
 
-[SmartEnum<string>]
-public abstract partial class PassKind {
-    public static readonly PassKind Rgba = new ColorPass("rgba", Seq("R", "G", "B", "A"));
-    public static readonly PassKind Rgb = new ColorPass("rgb", Seq("R", "G", "B"));
-    public static readonly PassKind Xyz = new DataPass("xyz", Seq("X", "Y", "Z"));
-    public static readonly PassKind Z = new DataPass("z", Seq("Z"));
-    public static readonly PassKind V = new DataPass("v", Seq("V"));
+    public ExrLayer Beauty(PixelFrame frame, bool alpha) => new(beauty, frame, alpha ? ["R", "G", "B", "A"] : ["R", "G", "B"]);
 
-    public Seq<string> Channels { get; }
+    public ExrLayer Depth(PixelFrame distance) => new(depth, distance, ["Z"]);
 
-    internal abstract PixelType Sample(ExrLayout layout);
-    internal abstract Compression Codec(ExrCompression compression, Compression held);
-    internal abstract void Associate(Span<Vector4> row);
+    public ExrLayer Position(PixelFrame distance, Camera camera) =>
+        new(position, ImageFile.Mapped(distance, (pixel, point) => new Vector4(camera.WorldPoint(point, pixel.X).Map(at => Vector3.Transform(at, world)).IfNone(new Vector3(float.NaN)), 1f)), ["X", "Y", "Z"]);
 
-    private sealed class ColorPass(string key, Seq<string> channels) : PassKind(key, channels) {
-        internal override PixelType Sample(ExrLayout layout) => layout.Sample;
-        internal override Compression Codec(ExrCompression compression, Compression held) => held;
-        internal override void Associate(Span<Vector4> row) => Blend.Associated(row, row);
-    }
-
-    private sealed class DataPass(string key, Seq<string> channels) : PassKind(key, channels) {
-        internal override PixelType Sample(ExrLayout layout) => PixelType.Float;
-        internal override Compression Codec(ExrCompression compression, Compression held) => compression.Data;
-        internal override void Associate(Span<Vector4> row) { }
-    }
-}
-
-public sealed record IdentityLayer(ushort Id, string Name, Vector3 Color) {
-    internal static Action<ReadOnlySpan<Vector4>, Span<Vector4>> Fill(Seq<IdentityLayer> entries) {
-        FrozenDictionary<float, Vector4> colors = entries.DistinctBy(static entry => entry.Id).ToFrozenDictionary(static entry => (float)entry.Id, static entry => new Vector4(entry.Color, 1f));
-        return (ids, matte) => {
-            for (int x = 0; x < ids.Length; x++)
-                matte[x] = colors.TryGetValue(ids[x].X, out Vector4 color) ? color : Vector4.Zero;
+    public ExrLayer Normals(string name, PixelFrame normals, Option<Camera> view = default) =>
+        view.Map(camera => Matrix4x4.CreateFromQuaternion(Quaternion.Conjugate(camera.Orientation)) * screen).IfNone(world) switch {
+            var turn => new(name, ImageFile.Mapped(normals, (pixel, _) => new Vector4(Vector3.TransformNormal(pixel.AsVector3(), turn), 1f)), ["X", "Y", "Z"]),
         };
-    }
 }
 
-internal sealed record ExrLayer(PassKind Kind, PixelFrame Source, Action<ReadOnlySpan<Vector4>, (long X, long Y), Span<Vector4>> Row) {
-    internal Option<string> Name { get; init; }
-
-    internal static Action<ReadOnlySpan<Vector4>, (long X, long Y), Span<Vector4>> Held { get; } = static (source, _, part) => source.CopyTo(part);
-}
-
-[SmartEnum]
-public sealed partial class NormalSpace {
-    public static readonly NormalSpace World = new(static (convention, _) => Fin.Succ(convention.Axes));
-    public static readonly NormalSpace View = new(static (convention, camera) =>
-        camera.ToFin(new ImagingFault("view-space normals", ImagingReason.CameraRequired)).Map(held => {
-            Quaternion toView = Quaternion.Conjugate(held.Orientation);
-            return (Func<Vector3, Vector3>)(normal => convention.Screen(Vector3.Transform(normal, toView)));
-        }));
-
-    [UseDelegateFromConstructor]
-    internal partial Fin<Func<Vector3, Vector3>> Normal(ReaderConvention convention, Option<Camera> camera);
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ReaderConvention {
-    private ReaderConvention(NormalSpace normals) => Normals = normals;
-
-    public NormalSpace Normals { get; }
-
-    internal abstract string Beauty { get; }
-    internal abstract string Depth { get; }
-    internal abstract string Position { get; }
-
-    internal abstract Vector3 Axes(Vector3 world);
-    internal abstract Vector3 Screen(Vector3 view);
-
-    public sealed record Blender(NormalSpace Normals) : ReaderConvention(Normals) {
-        internal override string Beauty => "Combined";
-        internal override string Depth => "Depth";
-        internal override string Position => "Position";
-
-        internal override Vector3 Axes(Vector3 world) => world;
-        internal override Vector3 Screen(Vector3 view) => view;
+public abstract partial record ImageFile {
+    public static PixelFrame Matte(PixelFrame ids, Map<ushort, Vector3> colors) {
+        FrozenDictionary<float, Vector4> keyed = colors.AsEnumerable().ToFrozenDictionary(static entry => (float)entry.Key, static entry => new Vector4(entry.Value, 1f));
+        return Mapped(ids, (pixel, _) => keyed.TryGetValue(pixel.X, out Vector4 color) ? color : Vector4.Zero);
     }
 
-    public sealed record Nuke(NormalSpace Normals) : ReaderConvention(Normals) {
-        internal override string Beauty => "rgba";
-        internal override string Depth => "z";
-        internal override string Position => "Pworld";
+    internal static PixelFrame Mapped(PixelFrame source, Func<Vector4, Vector2, Vector4> map) =>
+        new(source.Origin, source.Size, source.Extent, block => {
+            Span2D<Vector4> mapped = MemoryMarshal.Cast<float, Vector4>(block).AsSpan2D(source.Size.Height, source.Size.Width);
+            ReadOnlySpan2D<Vector4> input = source.View.Span;
+            for (int y = 0; y < mapped.Height; y++)
+                for (int x = 0; x < mapped.Width; x++)
+                    mapped[y, x] = map(input[y, x], new Vector2(source.Origin.X + x + 0.5f, source.Origin.Y + y + 0.5f));
+        });
 
-        internal override Vector3 Axes(Vector3 world) => new(world.X, world.Z, -world.Y);
-        internal override Vector3 Screen(Vector3 view) => new(view.X, view.Y, -view.Z);
-    }
-}
+    public sealed record Exr(Seq<ExrLayer> Layers, PixelType Sample, Compression Compression, Option<Gamut> Gamut, bool Multipart) : ImageFile {
+        public override IO<Unit> Write(FileMetadata metadata, Stream stream) =>
+            from canvas in IO.lift(Canvas(Layers.Map(static layer => layer.Frame), windowed: !Multipart))
+            let attributes = metadata.Exr(Gamut)
+            from image in IO.lift(() => new Image((Multipart ? Layers.Map(static layer => (layer.Name, Layers: Seq(layer))) : Seq((Name: "", Layers))).Map(part => Assembled(part.Name, part.Layers, canvas, attributes)).Strict()))
+                .Catch(static error => error.HasException<ArgumentException>(), error => IO.fail<Image>(ImagingFault.Of(ImagingReason.Refused, Layers.Map(static layer => layer.Name), inner: error)))
+            from result in IO.liftVAsync(environment => ExrFile.SaveToStreamAsync(image, stream, cancellationToken: environment.Token))
+            from written in IO.lift(result.IsSuccess ? Fin.Succ(unit) : ImagingFault.Of(ImagingReason.Refused, result.Status, inner: Optional(result.Error).Map(Error.New)))
+            select written;
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ExrPass {
-    internal abstract Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera);
-
-    public sealed record Depth(PixelFrame Frame) : ExrPass {
-        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) => Seq(new ExrLayer(PassKind.Z, Frame, ExrLayer.Held) { Name = convention.Depth });
-    }
-
-    public sealed record InverseDepth(string Name, PixelFrame Distance) : ExrPass {
-        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
-            Seq(new ExrLayer(PassKind.Z, Distance, static (source, _, part) => {
-                for (int x = 0; x < source.Length; x++)
-                    part[x] = new Vector4(1f / source[x].X);
-            }) { Name = Name });
-    }
-
-    public sealed record Position(PixelFrame Distance) : ExrPass {
-        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
-            camera.ToFin(new ImagingFault("position pass", ImagingReason.CameraRequired)).Map(held => Seq(new ExrLayer(PassKind.Xyz, Distance, (source, first, part) => {
-                for (int x = 0; x < source.Length; x++)
-                    part[x] = new Vector4(convention.Axes(held.WorldPoint((first.X + x + 0.5d, first.Y + 0.5d), source[x].X)), 1f);
-            }) { Name = convention.Position }));
-    }
-
-    public sealed record Normal(string Name, PixelFrame Frame) : ExrPass {
-        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
-            convention.Normals.Normal(convention, camera).Map(turned => Seq(new ExrLayer(PassKind.Xyz, Frame, (source, _, part) => {
-                for (int x = 0; x < source.Length; x++)
-                    part[x] = new Vector4(turned(source[x].AsVector3()), 1f);
-            }) { Name = Name }));
-    }
-
-    public sealed record Identities(string Name, PixelFrame Ids, Seq<IdentityLayer> Entries) : ExrPass {
-        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
-            (Name, Entries).Cons(Entries.Map(static entry => (entry.Name, Entries: Seq(entry))))
-                .Map(layer => IdentityLayer.Fill(layer.Entries) switch {
-                    var fill => new ExrLayer(PassKind.Rgba, Ids, (source, _, part) => fill(source, part)) { Name = layer.Name },
-                });
-    }
-
-    public sealed record Named(string Name, PassKind Kind, PixelFrame Frame) : ExrPass {
-        internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) => Seq(new ExrLayer(Kind, Frame, ExrLayer.Held) { Name = Name });
-    }
-}
-
-[SmartEnum]
-public sealed partial class PassLayout {
-    public static readonly PassLayout Parts = new(static (layers, _) => layers.Map(static layer => (layer.Name, layer.Source.Window, Seq(layer))));
-    public static readonly PassLayout Interleaved = new(static (layers, beauty) => Seq((Option<string>.None, beauty.Window, layers)));
-
-    [UseDelegateFromConstructor]
-    internal partial Seq<(Option<string> Name, FrameWindow Window, Seq<ExrLayer> Layers)> Grouped(Seq<ExrLayer> layers, PixelFrame beauty);
-}
-
-public sealed record PassSet {
-    private PassSet(ReaderConvention convention, PassLayout layout, Seq<ExrLayer> layers) => (Convention, Layout, Layers) = (convention, layout, layers);
-
-    public ReaderConvention Convention { get; }
-    public PassLayout Layout { get; }
-    internal Seq<ExrLayer> Layers { get; }
-
-    public static Fin<PassSet> From(ReaderConvention convention, Option<Camera> camera, PassLayout layout, Seq<ExrPass> passes) =>
-        from groups in passes.Traverse(pass => pass.Layers(convention, camera)).As()
-        let layers = groups.Flatten().Strict()
-        from names in toSeq(convention.Beauty.Cons(layers.Map(static layer => layer.Name).Somes()).CountBy(static name => name))
-            .Traverse(static count => count.Value is 1 ? Fin.Succ(unit) : new ImagingFault($"pass name {count.Key}", ImagingReason.Repeated))
-            .As()
-        select new PassSet(convention, layout, layers);
-
-    internal Fin<Unit> Fits(PixelFrame beauty) =>
-        Layers.Map(static (layer, index) => (Layer: layer, Frame: layer.Source, Index: index + 1))
-            .Traverse(entry => entry.Frame.Extent == beauty.Extent && Layout.Grouped([entry.Layer], beauty).ForAll(group => group.Window == entry.Frame.Window)
-                ? Fin.Succ(unit)
-                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"pass layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} against beauty canvas"), ImagingReason.Mismatch))
-            .As()
-            .Map(static _ => unit);
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-internal static class ExrParts {
-    private static readonly WriterOptions Options = new(new WriterLimits(
-        maximumParts: int.MaxValue, maximumChannelsPerPart: int.MaxValue, maximumAttributesPerPart: int.MaxValue,
-        maximumHeaderByteCount: System.Array.MaxLength, maximumBlocksPerPart: int.MaxValue, maximumTotalBlocks: long.MaxValue,
-        maximumOffsetTableByteCount: System.Array.MaxLength, maximumDimension: long.MaxValue,
-        maximumUncompressedBlockByteCount: System.Array.MaxLength, maximumEncodedBlockByteCount: System.Array.MaxLength,
-        maximumDeepSampleCount: long.MaxValue));
-
-    internal static IO<Unit> Write(StillFormat.ExrRaster exr, FileMetadata metadata, Stream stream) =>
-        from image in IO.lift(() => Parts(exr, metadata.Exr(exr.Layout.Gamut)).Map(static parts => new Image(parts)))
-        from token in cancelToken
-        from result in IO.liftVAsync(() => ExrFile.SaveToStreamAsync(image, stream, Options, token))
-        from _ in IO.lift(result.IsSuccess ? Fin.Succ(unit) : new ImagingFault($"EXR write with {result.Status}", ImagingReason.Refused, Inner: Optional(result.Error).Map(Error.New)))
-        select unit;
-
-    private static Seq<ChannelBuffer> Buffers(ExrLayout layout, ExrLayer layer) {
-        (int width, int height, int channels) = (layer.Source.Size.Width, layer.Source.Size.Height, layer.Kind.Channels.Count);
-        using SpanOwner<float> source = SpanOwner<float>.Allocate(width * height * channels);
-        Span2D<float> lines = source.Span.AsSpan2D(height, width * channels);
-        using SpanOwner<Vector4> row = SpanOwner<Vector4>.Allocate(width);
-        for (int y = 0; y < height; y++) {
-            layer.Row(layer.Source.View.Span.GetRowSpan(y), (layer.Source.Origin.X, (long)layer.Source.Origin.Y + y), row.Span);
-            layer.Kind.Associate(row.Span);
-            MemoryMarshal.Cast<Vector4, float>(row.Span).AsSpan2D(width, 4).Slice(0, 0, width, channels).CopyTo(lines.GetRowSpan(y));
+        private Part Assembled(string name, Seq<ExrLayer> layers, PixelFrame canvas, Seq<HeaderAttribute> attributes) {
+            Rectangle window = layers.Head.Map(static layer => layer.Frame.Window).IfNone(canvas.Window);
+            Seq<ChannelBuffer> buffers = layers.Bind(Buffers).Strict();
+            Header header = new(
+                PartType.Scanline,
+                new Box2i(window.Left, window.Top, window.Right - 1, window.Bottom - 1),
+                buffers.Map(static buffer => new Channel(buffer.Name, buffer.PixelType)),
+                compression: Compression is Compression.PXR24 && !layers.ForAll(Colored) ? Compression.ZIP : Compression,
+                displayWindow: new Box2i(0, 0, canvas.Extent.Width - 1, canvas.Extent.Height - 1),
+                name: name,
+                chromaticities: Gamut.Map(static gamut => new Chromaticities(
+                    (float)gamut.Rgb.ChromaticityR.X, (float)gamut.Rgb.ChromaticityR.Y, (float)gamut.Rgb.ChromaticityG.X, (float)gamut.Rgb.ChromaticityG.Y,
+                    (float)gamut.Rgb.ChromaticityB.X, (float)gamut.Rgb.ChromaticityB.Y, (float)gamut.Rgb.WhitePoint.Chromaticity.X, (float)gamut.Rgb.WhitePoint.Chromaticity.Y)).ToNullable(),
+                attributes: attributes);
+            return new Part(header, [new FlatLevel(0, 0, header.DataWindow, buffers)], isComplete: true);
         }
-        return toSeq(PartConversion.FromInterleavedFloat(source.Span, width, height, channels, layer.Kind.Sample(layout), Compression.None).Levels[0].Channels)
-            .Zip(layer.Kind.Channels)
-            .Map(pair => new ChannelBuffer(layer.Name.Match(Some: name => $"{name}.{pair.Second}", None: () => pair.Second), pair.First.PixelType, pair.First.Data))
-            .Strict();
-    }
 
-    private static Fin<Part> Part(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes, Option<string> name, FrameWindow window, Seq<ExrLayer> layers) =>
-        from bounded in ImagingFault.Unless(long.Max(window.Right, window.Bottom) - 1L <= int.MaxValue, ImagingReason.Oversize, window)
-        let buffers = layers.Bind(layer => Buffers(exr.Layout, layer)).Strict()
-        let header = new Header(
-            PartType.Scanline,
-            new Box2i((int)window.Left, (int)window.Top, (int)(window.Right - 1L), (int)(window.Bottom - 1L)),
-            buffers.Map(static buffer => new Channel(buffer.Name, buffer.PixelType)),
-            compression: layers.Fold(exr.Layout.Compression.Codec, (codec, layer) => layer.Kind.Codec(exr.Layout.Compression, codec)),
-            displayWindow: new Box2i(0, 0, exr.Beauty.Extent.Width - 1, exr.Beauty.Extent.Height - 1),
-            name: name.ValueUnsafe(),
-            chromaticities: exr.Layout.Gamut.Map(static gamut => gamut.Chromaticities).ToNullable(),
-            attributes: attributes)
-        select new Part(header, [new FlatLevel(0, 0, header.DataWindow, buffers)], isComplete: true);
+        private Seq<ChannelBuffer> Buffers(ExrLayer layer) {
+            int count = layer.Frame.Size.Width * layer.Frame.Size.Height;
+            using SpanOwner<Vector4> pixels = SpanOwner<Vector4>.Allocate(count);
+            if (Colored(layer))
+                PixelFrame.Associated(MemoryMarshal.Cast<float, Vector4>(layer.Frame.Block), pixels.Span);
+            else
+                MemoryMarshal.Cast<float, Vector4>(layer.Frame.Block).CopyTo(pixels.Span);
+            Span2D<float> samples = MemoryMarshal.Cast<Vector4, float>(pixels.Span).AsSpan2D(count, 4);
+            ChannelBuffer[] buffers = new ChannelBuffer[layer.Channels.Count];
+            for (int component = 0; component < buffers.Length; component++) {
+                string name = layer.Name.Length is 0 ? layer.Channels[component] : $"{layer.Name}.{layer.Channels[component]}";
+                buffers[component] = (Colored(layer) ? Sample : PixelType.Float) switch {
+                    PixelType.Half => Buffer<Half>(name, PixelType.Half, samples.GetColumn(component)),
+                    PixelType.UInt => Buffer<uint>(name, PixelType.UInt, samples.GetColumn(component)),
+                    _ => Buffer<float>(name, PixelType.Float, samples.GetColumn(component)),
+                };
+            }
+            return toSeq(buffers);
+        }
 
-    private static Fin<Seq<Part>> Parts(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes) {
-        PassKind beauty = exr.Alpha ? PassKind.Rgba : PassKind.Rgb;
-        return exr.Passes.Match(
-            Some: set => set.Layout.Grouped(new ExrLayer(beauty, exr.Beauty, ExrLayer.Held) { Name = set.Convention.Beauty }.Cons(set.Layers), exr.Beauty)
-                .Map(group => Part(exr, attributes, group.Name, group.Window, group.Layers)),
-            None: () => Seq(Part(exr, attributes, None, exr.Beauty.Window, Seq(new ExrLayer(beauty, exr.Beauty, ExrLayer.Held)))))
-            .Traverse(static part => part).As();
+        private static bool Colored(ExrLayer layer) => layer.Channels.ForAll(static channel => channel is "R" or "G" or "B" or "A");
+
+        private static ChannelBuffer Buffer<T>(string name, PixelType type, RefEnumerable<float> column) where T : unmanaged, INumberBase<T> {
+            using SpanOwner<float> plane = SpanOwner<float>.Allocate(column.Length);
+            using SpanOwner<T> stored = SpanOwner<T>.Allocate(column.Length);
+            column.CopyTo(plane.Span);
+            TensorPrimitives.ConvertSaturating(plane.Span, stored.Span);
+            return new ChannelBuffer(name, type, MemoryMarshal.AsBytes(stored.Span));
+        }
     }
 }

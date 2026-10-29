@@ -329,7 +329,7 @@ catalog:
     minimatch: 10.2.6
     '@biomejs/biome': 2.6.3
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
-    tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5 # Master commit with generated parser holding C# 14 `extension` declarations, newest release 0.23.5 stops at C# 13
+    tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5 # Master commit with generated parser holding C# 14 `extension` declarations, newest release 0.23.5 stops at C# 13; lambdas with `out` parameters fail to parse
     tree-sitter-sqlite3: 0.1.0
     tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#0.7.4-with-generated-files # Newest release tag with generated parser, npm stops at 0.7.1 and plain tag omits `src/parser.c`
     '@swc/core': 1.16.20

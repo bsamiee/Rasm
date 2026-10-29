@@ -3,6 +3,7 @@ id: no-undo-record-call
 language: csharplang
 severity: error
 files: ['**/rhino/**']
+ignores: ['**/Rasm.Grasshopper/**']
 rule:
     kind: member_access_expression
     pattern: $CALL

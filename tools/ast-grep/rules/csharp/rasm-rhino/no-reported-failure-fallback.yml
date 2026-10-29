@@ -213,7 +213,7 @@ rule:
                     - has: {field: function, has: {field: name, regex: '^Run$'}}
         - not: {inside: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, kind: ERROR}}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}}
 constraints:
     ALWAYS: {matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}}
 transform:
@@ -223,4 +223,4 @@ transform:
             replace: '(?s)^([@\w.]+).*$'
             by: '$1'
 message: '`$EFFECT_HEAD$FIN` reports its failure through `Sink.Report`'
-note: 'Call `<owner>.Answer(<effect>, <fallback>)` with the member its `[CallerMemberName]` derives, `<fin>.ToIO()` for a `Fin`'
+note: 'Call `Session.Run(<effect>, <fallback>)` with the member its `[CallerMemberName]` derives, `<fin>.ToIO()` for a `Fin`'

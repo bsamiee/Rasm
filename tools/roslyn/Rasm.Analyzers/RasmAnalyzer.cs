@@ -496,23 +496,23 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
         public INamedTypeSymbol? Copies { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Modeling.Copies");
 
-        public ImmutableArray<IMethodSymbol> Acquire => Members(Products, "Made", "Held");
+        public ImmutableArray<IMethodSymbol> Acquire => Members(Products, "Of", "Many", "Maybe", "Made", "Held");
 
-        public ImmutableArray<IMethodSymbol> Found => Members(Conversions, "Found");
+        public ImmutableArray<IMethodSymbol> Required => Members(Conversions, "Required");
 
         public ImmutableArray<IMethodSymbol> Owned => Members(Copies, "Owned");
 
         public ImmutableArray<IMethodSymbol> Release => Members(Products, "Released");
 
-        public ImmutableArray<IMethodSymbol> Disposal { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Lease`1")?.InstanceConstructors ?? [];
+        public ImmutableArray<IMethodSymbol> Disposal { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Owned`1")?.InstanceConstructors ?? [];
 
-        public ImmutableArray<IMethodSymbol> Retain => Members(Products, "Swapped");
+        public ImmutableArray<IMethodSymbol> Retain => Members(Products, "Replace");
 
-        public INamedTypeSymbol? Callbacks { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Callbacks");
+        public INamedTypeSymbol? Session { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Session");
 
-        public ImmutableArray<IMethodSymbol> Boundaries => Members(Callbacks, "Run", "Answer", "Start", "Started");
+        public ImmutableArray<IMethodSymbol> Boundaries => Members(Session, "Run", "Answer", "Start", "RunSafe");
 
-        public ImmutableArray<IMethodSymbol> Producers => Members(Callbacks, "Captured");
+        public ImmutableArray<IMethodSymbol> Producers => Members(Products, "Captured");
 
         public INamedTypeSymbol? Conduits { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Display.Conduits");
 
@@ -522,7 +522,7 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
         public ISymbol? UI { get; } = Declared(compilation, "N:Rasm.Rhino.UI").FirstOrDefault();
 
-        public ImmutableArray<IMethodSymbol> Subscriptions { get; } = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Events.Subscriptions"), "Host", "During");
+        public ImmutableArray<IMethodSymbol> Subscriptions { get; } = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Subscriptions"), "On", "Inline");
     }
 
     // --- [LIFETIMES]

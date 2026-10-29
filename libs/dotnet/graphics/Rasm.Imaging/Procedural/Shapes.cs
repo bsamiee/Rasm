@@ -1,223 +1,195 @@
+using System.Drawing;
 using System.Numerics;
-using MathNet.Numerics.Integration;
 using Rasm.Imaging.Pixels;
+using UnitsNet;
 
 namespace Rasm.Imaging.Procedural;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record FieldFrame(PixelExtent Extent, (double X, double Y) Center, (double Sin, double Cos) Turn) {
-    public static FieldFrame Centered(PixelExtent extent) => new(extent, FramePosition.Center.Point(extent), (0d, 1d));
+public sealed class DistanceField {
+    private readonly Func<Vector2, (float Distance, float Width)> sample;
 
-    public (double X, double Y) Local((double X, double Y) point) =>
-        ((point.X - Center.X) / Extent.ShortSide, (point.Y - Center.Y) / Extent.ShortSide) switch {
-            var (x, y) => ((x * Turn.Cos) - (y * Turn.Sin), (x * Turn.Sin) + (y * Turn.Cos)),
-        };
+    private DistanceField(Func<Vector2, (float Distance, float Width)> sample) => this.sample = sample;
 
-    public (double X, double Y) Upward(long column, long line) => Local((column + 0.5d, Extent.Height - line - 0.5d)) switch { var (x, y) => (x, -y) };
+    // --- [PRIMITIVES]
+    public static DistanceField Empty { get; } = new(static _ => (float.PositiveInfinity, 0f));
 
-    public Action<Span<Vector4>, long, long> Fill(Func<(double X, double Y), Vector4> shade) =>
-        (row, column, line) => {
-            for (int i = 0; i < row.Length; i++)
-                row[i] = shade(Upward(column + i, line));
-        };
-}
+    public static DistanceField Ellipse(Vector2 half, float exponent) =>
+        (2f * float.Min(half.X, half.Y)) switch { var width => new(point => (Superellipse(point, half, exponent), width)) };
 
-public sealed record DistanceField(Func<(double X, double Y), double> Distance, double Width) {
-    // --- [FIELDS]
-    public static DistanceField Empty { get; } = new(static _ => double.PositiveInfinity, 0d);
+    public static DistanceField Box(Vector2 half, float roundness) =>
+        float.Min(half.X, half.Y) switch { var small => new(point => (Rounded(point, half, roundness * small), 2f * small)) };
 
-    public static DistanceField Ellipse((double X, double Y) half, float exponent) =>
-        new(point => Superellipse(point, half, exponent), 2d * double.Min(half.X, half.Y));
-
-    public static DistanceField Box((double X, double Y) half, float roundness) =>
-        double.Min(half.X, half.Y) switch { var small => new(point => Rounded(point, half, roundness * small), 2d * small) };
-
-    public static DistanceField Polygon((double X, double Y) half, int sides, float inset, float roundness) {
-        double wedge = double.Pi / sides;
-        double radius = roundness * half.X;
-        (double sine, double cosine) = double.SinCos(wedge);
-        (double depth, double reach) = (cosine * (1d - inset), half.X - radius);
-        ((double X, double Y) outer, (double X, double Y) inner) = ((0d, reach), (reach * depth * sine, reach * depth * cosine));
-        return new(point => (double.SinCos(double.Abs(double.Ieee754Remainder(double.Atan2(point.X, point.Y), 2d * wedge))), Length(point)) switch {
-            var ((sin, cos), length) => (X: length * sin, Y: length * cos) switch { var folded => double.CopySign(Length(Offset(folded, outer, inner).Offset), Side(folded, outer, inner)) - radius },
-        }, half.X * (1d + depth));
+    public static DistanceField Polygon(Vector2 half, int sides, float inset, float roundness) {
+        float wedge = float.Pi / sides;
+        float radius = roundness * half.X;
+        (float sine, float cosine) = float.SinCos(wedge);
+        (float depth, float reach) = (cosine * (1f - inset), half.X - radius);
+        (Vector2 outer, Vector2 inner, float width) = (new(0f, reach), new(reach * depth * sine, reach * depth * cosine), half.X * (1f + depth));
+        return new(point => float.SinCos(float.Abs(float.Ieee754Remainder(float.Atan2(point.X, point.Y), 2f * wedge))) switch {
+            var (sin, cos) => (point.Length() * new Vector2(sin, cos)) switch { var folded => (float.CopySign(Segment(folded, outer, inner).Length(), Side(folded, outer, inner)) - radius, width) },
+        });
     }
 
-    public static DistanceField Ring((double X, double Y) half, float exponent, float inset) =>
-        (inset * double.Min(half.X, half.Y)) switch {
-            var band => new(point => double.Abs(Superellipse(point, half, exponent) + (band * 0.5d)) - (band * 0.5d), band),
+    public static DistanceField Ring(Vector2 half, float exponent, float inset) =>
+        (inset * float.Min(half.X, half.Y)) switch { var band => new(point => (float.Abs(Superellipse(point, half, exponent) + (band * 0.5f)) - (band * 0.5f), band)) };
+
+    public static DistanceField Cross(Vector2 half, float inset, float roundness) =>
+        ((1f - inset) * float.Min(half.X, half.Y)) switch {
+            var arm => new(point => (float.Min(Rounded(point, half with { Y = arm }, roundness * arm), Rounded(point, half with { X = arm }, roundness * arm)), 2f * arm)),
         };
 
-    public static DistanceField Cross((double X, double Y) half, float inset, float roundness) =>
-        ((1d - inset) * double.Min(half.X, half.Y)) switch {
-            var arm => (roundness * arm) switch { var radius => new(point => double.Min(Rounded(point, (half.X, arm), radius), Rounded(point, (arm, half.Y), radius)), 2d * arm) },
-        };
-
-    public static DistanceField Heart((double X, double Y) half) {
-        ((double X, double Y) center, double radius) = ((0.25d, 0.75d), double.Sqrt(2d) * 0.25d);
-        (double scale, double middle) = (half.X / (center.X + radius), (center.Y + radius) * 0.5d);
-        return new(point => (X: double.Abs(point.X) / scale, Y: (point.Y / scale) + middle) switch {
-            var q when q.X + q.Y > 1d => scale * (Length((q.X - center.X, q.Y - center.Y)) - radius),
-            var q => (0.5d * double.Max(q.X + q.Y, 0d)) switch { var diagonal => scale * double.Min(Length((q.X, q.Y - 1d)), Length((q.X - diagonal, q.Y - diagonal))) * double.Sign(q.X - q.Y) },
-        }, 2d * radius * scale);
+    public static DistanceField Heart(Vector2 half) {
+        (Vector2 center, float radius) = (new(0.25f, 0.75f), float.Sqrt(2f) * 0.25f);
+        (float scale, float middle) = (half.X / (center.X + radius), (center.Y + radius) * 0.5f);
+        return new(point => (new Vector2(float.Abs(point.X), point.Y + (middle * scale)) / scale) switch {
+            var q when q.X + q.Y > 1f => (scale * (Vector2.Distance(q, center) - radius), 2f * radius * scale),
+            var q => (scale * float.Min(Vector2.Distance(q, Vector2.UnitY), Vector2.Distance(q, new Vector2(0.5f * float.Max(q.X + q.Y, 0f)))) * float.Sign(q.X - q.Y), 2f * radius * scale),
+        });
     }
 
-    public static DistanceField Triangle((double X, double Y) half, float apex, float roundness) {
-        ((double X, double Y) a, (double X, double Y) b, (double X, double Y) c) = ((-half.X, -half.Y), (half.X, -half.Y), (apex * half.X, half.Y));
-        (double opposite, double across, double under) = (Length((b.X - c.X, b.Y - c.Y)), Length((c.X - a.X, c.Y - a.Y)), Length((a.X - b.X, a.Y - b.Y)));
-        (double perimeter, double twiceArea) = (opposite + across + under, 4d * half.X * half.Y);
-        (double X, double Y) = (((opposite * a.X) + (across * b.X) + (under * c.X)) / perimeter, ((opposite * a.Y) + (across * b.Y) + (under * c.Y)) / perimeter);
-        Func<(double X, double Y), (double X, double Y)> inward = vertex => (X + ((vertex.X - X) * (1d - roundness)), Y + ((vertex.Y - Y) * (1d - roundness)));
-        ((double X, double Y) p, (double X, double Y) q, (double X, double Y) r, double radius) = (inward(a), inward(b), inward(c), roundness * twiceArea / perimeter);
-        return new(point => (Edge(point, p, q), Edge(point, q, r), Edge(point, r, p)) switch {
-            var (first, second, third) => (double.Min(first.Distance, double.Min(second.Distance, third.Distance)) * (double.Min(first.Side, double.Min(second.Side, third.Side)) > 0d ? -1d : 1d)) - radius,
-        }, twiceArea / double.Max(under, double.Max(opposite, across)));
-
-        static (double Distance, double Side) Edge((double X, double Y) point, (double X, double Y) start, (double X, double Y) end) =>
-            (Length(Offset(point, start, end).Offset), Side(point, start, end));
+    public static DistanceField Triangle(Vector2 half, float apex, float roundness) {
+        (Vector2 a, Vector2 b, Vector2 c) = (-half, half with { Y = -half.Y }, half with { X = apex * half.X });
+        (float opposite, float across, float under) = (Vector2.Distance(b, c), Vector2.Distance(c, a), Vector2.Distance(a, b));
+        (float perimeter, float twiceArea) = (opposite + across + under, 4f * half.X * half.Y);
+        Vector2 incenter = ((opposite * a) + (across * b) + (under * c)) / perimeter;
+        (Vector2 p, Vector2 q, Vector2 r) = (Vector2.Lerp(incenter, a, 1f - roundness), Vector2.Lerp(incenter, b, 1f - roundness), Vector2.Lerp(incenter, c, 1f - roundness));
+        (float radius, float width) = (roundness * twiceArea / perimeter, twiceArea / float.Max(under, float.Max(opposite, across)));
+        return new(point => ((float.Min(Segment(point, p, q).Length(), float.Min(Segment(point, q, r).Length(), Segment(point, r, p).Length()))
+            * (float.Min(Side(point, p, q), float.Min(Side(point, q, r), Side(point, r, p))) > 0f ? -1f : 1f)) - radius, width));
     }
 
-    // --- [SAMPLES]
-    public static (double Distance, double Width) Outside => (double.PositiveInfinity, 0d);
+    public static DistanceField Capsule(Vector2 start, Vector2 end, float from, float to) {
+        (Vector2 axis, float lean) = (end - start, from - to);
+        float squared = axis.LengthSquared();
+        Vector2 tangent = new(float.Sqrt(float.Max(squared - (lean * lean), 0f)), lean);
+        return tangent.X is 0f
+            ? (from >= to ? (start, from) : (end, to)) switch { var (center, radius) => new(point => (Vector2.Distance(point, center) - radius, 2f * radius)) }
+            : new(point => (new Vector2(float.Abs(Vector2.Cross(point - start, axis)), Vector2.Dot(point - start, axis)) / squared) switch {
+                var q => Vector2.Cross(tangent, q) switch {
+                    < 0f => (float.Sqrt(squared * q.LengthSquared()) - from, 2f * from),
+                    var k when k > tangent.X => (float.Sqrt(squared * (q.LengthSquared() + 1f - (2f * q.Y))) - to, 2f * to),
+                    var k => (Vector2.Dot(tangent, q) - from, 2f * float.Lerp(from, to, k / tangent.X)),
+                },
+            });
+    }
 
-    public (double Distance, double Width) Sample((double X, double Y) point) => (Distance(point), Width);
+    // --- [COMPOSITION]
+    public DistanceField Inverted() => new(point => (-sample(point).Distance, float.PositiveInfinity));
 
-    public static (double Distance, double Width) Tapered((double X, double Y) point, (double X, double Y) start, (double X, double Y) end, double from, double to) =>
-        Offset(point, start, end) switch {
-            var (offset, along) => (from + ((to - from) * along)) switch { var radius => (Length(offset) - radius, 2d * radius) },
-        };
+    public DistanceField Union(DistanceField other, float smoothing) =>
+        new(point => (sample(point), other.sample(point)) switch { var (a, b) => (SmoothMinimum(a.Distance, b.Distance, smoothing), float.Max(a.Width, b.Width)) });
 
-    public static (double Distance, double Width) Inverted((double Distance, double Width) sample) => (-sample.Distance, double.PositiveInfinity);
+    public DistanceField Difference(DistanceField other, float smoothing) =>
+        new(point => (sample(point), other.sample(point)) switch { var (a, b) => (-SmoothMinimum(-a.Distance, b.Distance, smoothing), a.Width) });
 
-    public static (double Distance, double Width) Union((double Distance, double Width) first, (double Distance, double Width) second, double smoothing) =>
-        (SmoothMinimum(first.Distance, second.Distance, smoothing), double.Max(first.Width, second.Width));
+    public DistanceField Intersection(DistanceField other, float smoothing) =>
+        new(point => (sample(point), other.sample(point)) switch { var (a, b) => (-SmoothMinimum(-a.Distance, -b.Distance, smoothing), float.Min(a.Width, b.Width)) });
 
-    public static (double Distance, double Width) Difference((double Distance, double Width) first, (double Distance, double Width) second, double smoothing) =>
-        (-SmoothMinimum(-first.Distance, second.Distance, smoothing), first.Width);
-
-    public static (double Distance, double Width) Intersection((double Distance, double Width) first, (double Distance, double Width) second, double smoothing) =>
-        (-SmoothMinimum(-first.Distance, -second.Distance, smoothing), double.Min(first.Width, second.Width));
-
-    public static (double Distance, double Width) Morph((double Distance, double Width) first, (double Distance, double Width) second, float progress) =>
+    public DistanceField Morph(DistanceField other, float progress) =>
         progress switch {
-            0f => first,
-            1f => second,
-            _ => (first.Width is 0d || second.Width is 0d ? double.PositiveInfinity : first.Distance + ((second.Distance - first.Distance) * progress),
-                first.Width + ((second.Width - first.Width) * progress)),
+            0f => this,
+            1f => other,
+            _ => new(point => (sample(point), other.sample(point)) switch {
+                var (a, b) => (a.Width is 0f || b.Width is 0f ? float.PositiveInfinity : float.Lerp(a.Distance, b.Distance, progress), float.Lerp(a.Width, b.Width, progress)),
+            }),
         };
 
-    public static double Coverage((double Distance, double Width) sample, double growth, double band) =>
-        double.Min(double.Clamp(0.5d - ((sample.Distance - growth) / band), 0d, 1d), (sample.Width + (2d * growth)) / band);
+    // --- [EVALUATION]
+    public float Distance(Vector2 point) => sample(point).Distance;
+
+    public float Coverage(Vector2 point, float growth, float band) =>
+        sample(point) switch { var (distance, width) => float.Min(Coverage(distance - growth, band), (width + (2f * growth)) / band) };
+
+    public static float Coverage(float distance, float band) => float.Clamp(0.5f - (distance / band), 0f, 1f);
+
+    public static float Stroke(float distance, float width, float band) =>
+        (float.Min(width, band), float.Max(width, band)) switch { var (small, large) => float.Max(0f, float.Min(small, (small / 2f) - (float.Abs(distance) - (large / 2f)))) / band };
+
+    public static float Band(ShortSideLength feather, PixelExtent extent, float scale = 1f) => float.Max((float)feather.Pixels(extent) * scale, 1f);
+
+    public static T SmoothStep<T>(T edge0, T edge1, T x) where T : IFloatingPoint<T> =>
+        T.Clamp((x - edge0) / (edge1 - edge0), T.Zero, T.One) switch { var t => t * t * (T.CreateTruncating(3) - (T.CreateTruncating(2) * t)) };
+
+    public static T SmootherStep<T>(T edge0, T edge1, T x) where T : IFloatingPoint<T> =>
+        T.Clamp((x - edge0) / (edge1 - edge0), T.Zero, T.One) switch { var t => t * t * t * ((t * ((T.CreateTruncating(6) * t) - T.CreateTruncating(15))) + T.CreateTruncating(10)) };
+
+    // --- [FRAMES]
+    public static Matrix3x2 Frame(PixelExtent extent, Vector2 center, Angle rotation) =>
+        Matrix3x2.CreateTranslation(new Vector2(0.5f) - center) * Matrix3x2.CreateScale(1f / extent.ShortSide) * Matrix3x2.CreateRotation((float)rotation.Radians) * Matrix3x2.CreateScale(1f, -1f);
+
+    public static Action<Span<Vector4>, int, int> Fill(Matrix3x2 frame, Func<Vector2, Vector4> shade) =>
+        (row, x, y) => {
+            for (int i = 0; i < row.Length; i++)
+                row[i] = shade(Vector2.Transform(new Vector2(x + i, y), frame));
+        };
 
     // --- [GEOMETRY]
-    public static double Length((double X, double Y) point) => double.Hypot(point.X, point.Y);
-
-    public static ((double X, double Y) Offset, double Along) Offset((double X, double Y) point, (double X, double Y) start, (double X, double Y) end) {
-        ((double X, double Y) edge, (double X, double Y) reach) = ((end.X - start.X, end.Y - start.Y), (point.X - start.X, point.Y - start.Y));
-        double squared = (edge.X * edge.X) + (edge.Y * edge.Y);
-        double along = squared is 0d ? 0d : double.Clamp(((reach.X * edge.X) + (reach.Y * edge.Y)) / squared, 0d, 1d);
-        return ((reach.X - (edge.X * along), reach.Y - (edge.Y * along)), along);
-    }
-
-    public static double Side((double X, double Y) point, (double X, double Y) start, (double X, double Y) end) =>
-        ((end.X - start.X) * (point.Y - start.Y)) - ((end.Y - start.Y) * (point.X - start.X));
-
-    public static double Rounded((double X, double Y) point, (double X, double Y) extent, double radius) =>
-        (X: double.Abs(point.X) - extent.X + radius, Y: double.Abs(point.Y) - extent.Y + radius) switch {
-            var corner => Length((double.Max(corner.X, 0d), double.Max(corner.Y, 0d))) + double.Min(double.Max(corner.X, corner.Y), 0d) - radius,
+    private static Vector2 Segment(Vector2 point, Vector2 start, Vector2 end) =>
+        (end - start, point - start) switch {
+            var (edge, reach) => reach - (edge * (edge == Vector2.Zero ? 0f : float.Clamp(Vector2.Dot(reach, edge) / edge.LengthSquared(), 0f, 1f))),
         };
 
-    private static double SmoothMinimum(double first, double second, double smoothing) =>
-        (double.Min(first, second), smoothing - double.Abs(first - second)) switch {
-            (var low, > 0d and var overlap) => low - (overlap * overlap / (4d * smoothing)),
+    private static float Side(Vector2 point, Vector2 start, Vector2 end) => Vector2.Cross(end - start, point - start);
+
+    private static float Rounded(Vector2 point, Vector2 extent, float radius) =>
+        (Vector2.Abs(point) - extent + new Vector2(radius)) switch { var corner => Vector2.Max(corner, Vector2.Zero).Length() + float.Min(float.Max(corner.X, corner.Y), 0f) - radius };
+
+    private static float SmoothMinimum(float first, float second, float smoothing) =>
+        (float.Min(first, second), smoothing - float.Abs(first - second)) switch {
+            (var low, > 0f and var overlap) => low - (overlap * overlap / (4f * smoothing)),
             (var low, _) => low,
         };
 
-    private static double Superellipse((double X, double Y) point, (double X, double Y) extent, double exponent) {
-        double length = Length(point);
-        (double x, double y) = length > 0d ? (double.Abs(point.X / length) / extent.X, double.Abs(point.Y / length) / extent.Y) : (0d, 1d / extent.Y);
-        double largest = double.Max(x, y);
-        double level = largest * double.Pow(double.Pow(x / largest, exponent) + double.Pow(y / largest, exponent), 1d / exponent);
-        double slope = exponent is 1d
-            ? Length((1d / extent.X, 1d / extent.Y))
-            : Length((double.Pow(x / level, exponent - 1d) / extent.X, double.Pow(y / level, exponent - 1d) / extent.Y));
-        return ((length * level) - 1d) / slope;
+    private static float Superellipse(Vector2 point, Vector2 extent, float exponent) {
+        float length = point.Length();
+        Vector2 direction = length > 0f ? Vector2.Abs(point / length) / extent : new Vector2(0f, 1f / extent.Y);
+        float largest = float.Max(direction.X, direction.Y);
+        float level = largest * float.Pow(float.Pow(direction.X / largest, exponent) + float.Pow(direction.Y / largest, exponent), 1f / exponent);
+        float slope = exponent is 1f ? (Vector2.One / extent).Length()
+            : new Vector2(float.Pow(direction.X / level, exponent - 1f) / extent.X, float.Pow(direction.Y / level, exponent - 1f) / extent.Y).Length();
+        return ((length * level) - 1f) / slope;
     }
 }
 
-public sealed record GridLattice(double Height, double Span, double Shift, double Line, double Band) {
-    public float Lines((double X, double Y) point) => ShapeEdge.Strip(Locate(point).Side, Line, Band);
+public sealed record BrickPattern(float RowHeight, float BrickWidth, float Offset, int OffsetFrequency, float Squash, int SquashFrequency, float MortarSize, float Band) {
+    public float Mortar(Vector2 point) => DistanceField.Stroke(Locate(point).Side, MortarSize, Band);
 
-    public Vector3 Cells((double X, double Y) point, Func<long, long, Vector3> color, Vector3 stroke) =>
+    public Vector3 Bricks(Vector2 point, Func<long, long, Vector3> color, Vector3 stroke) =>
         Locate(point) switch {
-            var (i, j, side, acrossI, acrossJ) => Vector3.Lerp(Vector3.Lerp(color(i, j), color(acrossI, acrossJ), ShapeEdge.Coverage(side, Band)), stroke, ShapeEdge.Strip(side, Line, Band)),
+            var (i, j, side, acrossI, acrossJ) => Vector3.Lerp(Vector3.Lerp(color(i, j), color(acrossI, acrossJ), DistanceField.Coverage(side, Band)), stroke, DistanceField.Stroke(side, MortarSize, Band)),
         };
 
-    private (long I, long J, double Side, long AcrossI, long AcrossJ) Locate((double X, double Y) point) {
-        double down = point.Y / Height;
-        double j = double.Floor(down);
-        double along = (point.X / Span) + Offset((long)j);
-        double i = double.Floor(along);
-        (double horizontal, double vertical) = (along - i, down - j);
-        (double x, double y, double right, double bottom) = (horizontal * Span, vertical * Height, (1d - horizontal) * Span, (1d - vertical) * Height);
-        double side = double.Min(double.Min(x, right), double.Min(y, bottom));
-        (long column, long line) = ((long)i, (long)j);
-        return side == x ? (column, line, side, column - 1L, line)
-            : side == right ? (column, line, side, column + 1L, line)
-            : side == y ? (column, line, side, Column(point.X, line - 1L), line - 1L)
-            : (column, line, side, Column(point.X, line + 1L), line + 1L);
+    private (long I, long J, float Side, long AcrossI, long AcrossJ) Locate(Vector2 point) {
+        float down = point.Y / RowHeight;
+        long j = (long)float.Floor(down);
+        float width = Width(j);
+        float along = (point.X / width) + Shift(j);
+        long i = (long)float.Floor(along);
+        (float horizontal, float vertical) = (along - i, down - j);
+        (float left, float top, float right, float bottom) = (horizontal * width, vertical * RowHeight, (1f - horizontal) * width, (1f - vertical) * RowHeight);
+        float side = float.Min(float.Min(left, right), float.Min(top, bottom));
+        return side == left ? (i, j, side, i - 1L, j)
+            : side == right ? (i, j, side, i + 1L, j)
+            : side == top ? (i, j, side, Column(point.X, j - 1L), j - 1L)
+            : (i, j, side, Column(point.X, j + 1L), j + 1L);
     }
 
-    private long Column(double x, long j) => (long)double.Floor((x / Span) + Offset(j));
+    private long Column(float x, long j) => (long)float.Floor((x / Width(j)) + Shift(j));
 
-    private double Offset(long j) => long.IsEvenInteger(j) ? Shift : 0d;
+    private float Width(long j) => SquashFrequency > 0 && j % SquashFrequency is 0L ? BrickWidth * Squash : BrickWidth;
+
+    private float Shift(long j) => OffsetFrequency > 0 && j % OffsetFrequency is 0L ? Offset : 0f;
 }
 
-public sealed record Extinction(float Start, float Attenuation) {
-    public Option<float> Cutoff { get; init; }
-
-    public Func<long, long, float> Field(PixelFrame depth, Camera camera, Func<long, long, float, float> density) {
+public sealed record Extinction(float Start, float AttenuationLength, Option<float> Cutoff = default) {
+    public Func<int, int, float> Field(PixelFrame depth, Camera camera, Func<int, int, float, float> density) {
         Vector3 axis = Vector3.Transform(-Vector3.UnitZ, camera.Orientation);
-        Func<float, bool> beyond = Cutoff.Match(Some: static cutoff => (Func<float, bool>)(distance => distance > cutoff), None: static () => static _ => false);
-        return (column, line) => {
-            (double X, double Y) point = (column + 0.5d, camera.Extent.Height - line - 0.5d);
-            float distance = depth.Sample(point, (WrapMode.Black, WrapMode.Black), float.PositiveInfinity, static (_, sample, _) => sample.X) / Vector3.Dot(camera.Ray(point).Direction, axis);
-            float path = float.MaxNumber(distance - Start, 0f) / Attenuation;
-            return beyond(distance) ? 0f : float.IsPositiveInfinity(path) ? 1f : 1f - float.Exp(-path * density(column, line, path));
-        };
+        return (x, y) => camera.Ray(new Vector2(x + 0.5f, y + 0.5f)).Match(
+            Some: ray => (depth.Texel(new Point(x, y), (WrapMode.Black, WrapMode.Black)).Match(Some: static texel => texel.X, None: static () => float.PositiveInfinity) / Vector3.Dot(ray.Direction, axis)) switch {
+                var distance when Cutoff.Exists(cutoff => distance > cutoff) => 0f,
+                var distance => (float.MaxNumber(distance - Start, 0f) / AttenuationLength) switch { var path => float.IsPositiveInfinity(path) ? 1f : 1f - float.Exp(-path * density(x, y, path)) },
+            },
+            None: static () => 0f);
     }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class ShapeEdge {
-    private const int QuadratureOrder = 32;
-
-    public static double Band(ShortSideLength feather, PixelExtent extent, double scale = 1d) => double.Max(feather.Pixels(extent) * scale, 1d);
-
-    public static float Coverage(double distance, double band) => float.Clamp((float)(0.5d - (distance / band)), 0f, 1f);
-
-    public static float Strip(double distance, double width, double band) =>
-        (double.Min(width, band), double.Max(width, band)) switch {
-            var (small, large) => (float)(double.Max(0d, double.Min(small, (small / 2d) - (double.Abs(distance) - (large / 2d)))) / band),
-        };
-
-    public static double DiscMass(double radius, double softness, (double Left, double Top, double Right, double Bottom) box) {
-        (double lowX, double lowY, double highX, double highY) = (double.Max(-radius, box.Left), double.Max(-radius, box.Top), double.Min(radius, box.Right), double.Min(radius, box.Bottom));
-        (double nearestX, double nearestY) = (double.Max(lowX, double.Min(0d, highX)), double.Max(lowY, double.Min(0d, highY)));
-        return lowX >= highX || lowY >= highY || (radius * radius) <= (nearestX * nearestX) + (nearestY * nearestY) ? 0d
-            : lowX == -radius && lowY == -radius && highX == radius && highY == radius ? double.Pi * radius * radius * (1d - softness + (0.3d * softness * softness))
-            : Partial(radius, softness, (lowX, lowY, highX, highY), double.Sqrt((radius * radius) - (nearestY * nearestY)));
-
-        static double Partial(double radius, double softness, (double LowX, double LowY, double HighX, double HighY) clipped, double horizontal) =>
-            (softness * radius) switch {
-                var band => GaussLegendreRule.Integrate(x => double.Sqrt((radius * radius) - (x * x)) switch {
-                    var vertical => GaussLegendreRule.Integrate(
-                        y => Smooth(band is 0d ? 1d : double.Min(1d, (radius - double.Hypot(x, y)) / band)), double.Max(clipped.LowY, -vertical), double.Min(clipped.HighY, vertical), QuadratureOrder),
-                }, double.Max(clipped.LowX, -horizontal), double.Min(clipped.HighX, horizontal), QuadratureOrder),
-            };
-    }
-
-    public static T Smooth<T>(T t) where T : IFloatingPoint<T> => t * t * (T.CreateTruncating(3) - (T.CreateTruncating(2) * t));
-
-    public static T Smoother<T>(T t) where T : IFloatingPoint<T> => t * t * t * ((t * ((T.CreateTruncating(6) * t) - T.CreateTruncating(15))) + T.CreateTruncating(10));
 }

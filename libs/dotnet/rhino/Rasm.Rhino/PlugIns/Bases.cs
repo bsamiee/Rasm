@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using System.Drawing;
-using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
+using Rhino.DocObjects;
 using Rhino.FileIO;
 using Rhino.PlugIns;
 using Rhino.Render;
@@ -17,298 +17,293 @@ namespace Rasm.Rhino.PlugIns;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class FileFormats {
+    // --- [VIEWS]
+    public static Seq<View> Dialogs<TOptions>(IterableNE<FileFormat<TOptions>> formats) where TOptions : class =>
+        toSeq(formats).Choose(static format => format.Options.Map<View>(static dialog => dialog));
+
     // --- [LIST]
-    public static IO<FileTypeList> AddFileTypes<TOptions>(Seq<FileFormat<TOptions>> formats, IPlugInViews plugIn) where TOptions : class =>
-        from list in IO.lift(static () => new FileTypeList())
-        from added in IO.lift(() => Callbacks.Each(
-            formats,
-            (format, index) => RhinoFault.Unless(list.AddFileType(RowText.Localize(format.Description, plugIn).Local, format.Extensions.Map(static extension => (string)extension), format.Options.IsSome) >= 0, index)))
-        select list;
+    public static FileTypeList AddFileTypes<TOptions>(IterableNE<FileFormat<TOptions>> formats) where TOptions : class =>
+        Session.Run(
+            from list in IO.lift(static () => new FileTypeList())
+            from added in Products.Each(toSeq(formats).Map((format, index) => IO.lift(() => RhinoFault.Unless(
+                list.AddFileType(LocalText.Of(format.Description).Local, format.Extensions.Map(static extension => (string)extension), format.Options.IsSome) >= 0,
+                RhinoReason.Declined,
+                format.Description,
+                index))))
+            select list,
+            new FileTypeList());
 
     // --- [RUN]
-    public static IO<A> Run<TOptions, A>(Seq<FileFormat<TOptions>> formats, int index, string path, RhinoDoc doc, TOptions options, A done, A cancelled) where TOptions : class =>
-        (from format in IO.lift(Conversions.Within(index, formats.Count).Map(_ => formats[index]))
-         from ran in format.Run(path, doc, options)
-         select done)
-            .Catch(static error => error.Is(Errors.Cancelled), _ => IO.pure(cancelled));
+    public static T Run<TOptions, T>(IterableNE<FileFormat<TOptions>> formats, int index, string path, RhinoDoc doc, TOptions options, T done, T cancelled, T failed) where TOptions : class =>
+        Session.Run(
+            (from format in IO.lift(() => Conversions.Required(toSeq(formats).At(index), index))
+             from ran in format.Run(path, doc, options)
+             select done)
+                .Catch(static error => error.Is(Errors.Cancelled), _ => IO.pure(cancelled)),
+            failed);
 
     // --- [OPTIONS]
-    public static IO<Unit> DisplayOptionsDialog<TOptions>(IPlugInViews plugIn, Seq<FileFormat<TOptions>> formats, string description, string extension) where TOptions : class =>
-        (from dialog in IO.lift(() => formats
-             .Find(format =>
-                 string.Equals(RowText.Localize(format.Description, plugIn).Local, description, StringComparison.Ordinal)
-                 && string.Equals(((string)format.Extensions.Head)[1..], extension, StringComparison.Ordinal))
-             .Bind(static format => format.Options)
-             .ToFin(new RhinoFault($"{description} {extension}", RhinoReason.Missing)))
-         from shown in Documents.WithDocument(new DocumentSource.Active(), document => Showing.ShowSemiModal(plugIn, dialog, document))
-         select unit)
-            .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit));
+    public static Unit DisplayOptionsDialog<TOptions>(IterableNE<FileFormat<TOptions>> formats, string description, string extension) where TOptions : class =>
+        Session.Run(
+            (from dialog in IO.lift(() => toSeq(formats)
+                 .Find(format =>
+                     string.Equals(LocalText.Of(format.Description).Local, description, StringComparison.Ordinal)
+                     && string.Equals(((string)format.Extensions.Head)[1..], extension, StringComparison.Ordinal))
+                 .Bind(static format => format.Options)
+                 .ToFin(new RhinoFault($"{description} {extension}", RhinoReason.Missing)))
+             from shown in Documents.With(new DocumentSource.Active(), document => Showing.ShowSemiModal(dialog, document))
+             select unit)
+                .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit)));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IDefinedPlugIn {
+public abstract class DefinedPlugIn<TSelf> : PlugIn where TSelf : DefinedPlugIn<TSelf>, IDefined<PlugInDefinition> {
+    private readonly PlugInBody body;
+
+    protected DefinedPlugIn() => body = new(this, TSelf.Definition, []);
+
     // --- [LIFECYCLE]
-    private readonly PlugInLifetime lifetime = new(definition, Seq<View>());
+    public sealed override PlugInLoadTime LoadTime => body.LoadTime;
 
-    PlugInLifetime IDefinedPlugIn.Lifetime => lifetime;
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => body.Load(GetLicense, ref errorMessage);
 
-    public sealed override PlugInLoadTime LoadTime => lifetime.LoadTime(base.LoadTime);
+    protected sealed override void CreateCommands() => _ = body.Commands(RegisterCommand);
 
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => lifetime.Load(this, GetLicense, ref errorMessage);
+    protected sealed override void OnShutdown() => _ = Session.Run(Session.Close);
 
-    protected sealed override void CreateCommands() {
-        base.CreateCommands();
-        _ = this.Run(lifetime.Commands(RegisterCommand));
-    }
+    protected sealed override void ResetMessageBoxes() => _ = Session.Run(HostDialogs.ResetMessageBoxes(ViewCatalog.Current));
 
-    protected sealed override void OnShutdown() => _ = this.Run(lifetime.Session.Close);
-
-    protected sealed override void ResetMessageBoxes() => _ = this.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings));
-
-    // --- [IDENTITY]
-    public sealed override object? GetPlugInObject() => lifetime.Definition.Published.ValueUnsafe();
+    public sealed override object? GetPlugInObject() => TSelf.Definition.Published.ValueUnsafe();
 
     // --- [HELP]
-    public sealed override bool AddToHelpMenu => lifetime.Definition.Help.IsSome;
+    public sealed override bool AddToHelpMenu => TSelf.Definition.Help.IsSome;
 
-    public sealed override bool DisplayHelp(nint windowHandle) => this.Answer(lifetime.DisplayHelp, failed: false);
+    public sealed override bool DisplayHelp(nint windowHandle) => body.DisplayHelp();
 
     // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = this.Run(ViewRegistration.OptionsDialogPages(this, pages));
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.OptionsDialogPages(pages));
 
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = this.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages));
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.DocumentPropertiesDialogPages(doc, pages));
 
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => _ = this.Run(ViewRegistration.ObjectPropertiesPages(this, collection));
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => _ = Session.Run(ViewRegistration.ObjectPropertiesPages(collection));
 
     // --- [ARCHIVE]
-    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => this.Answer(DocumentArchive.ShouldWrite(lifetime.Definition.DocumentFrames, options), failed: false);
+    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => body.ShouldCallWriteDocument(options);
 
-    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => _ = this.Run(DocumentArchive.Write(lifetime.Definition.DocumentFrames, doc, archive, options));
+    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => _ = body.WriteDocument(doc, archive, options);
 
-    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => _ = this.Run(DocumentArchive.Read(lifetime.Definition.DocumentFrames, doc, archive, options));
+    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => _ = body.ReadDocument(doc, archive, options);
 }
 
-public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileFormat<FileReadOptions>> formats) : FileImportPlugIn, IDefinedPlugIn {
+public abstract class DefinedImportPlugIn<TSelf> : FileImportPlugIn where TSelf : DefinedImportPlugIn<TSelf>, IDefined<FileDefinition<FileReadOptions>> {
+    private readonly PlugInBody body;
+
+    protected DefinedImportPlugIn() => body = new(this, TSelf.Definition.PlugIn, FileFormats.Dialogs(TSelf.Definition.Formats));
+
     // --- [LIFECYCLE]
-    private readonly Seq<FileFormat<FileReadOptions>> formats = formats;
-    private readonly PlugInLifetime lifetime = new(definition, formats.Choose(static format => format.Options.Map<View>(static dialog => dialog)));
+    public sealed override PlugInLoadTime LoadTime => body.LoadTime;
 
-    PlugInLifetime IDefinedPlugIn.Lifetime => lifetime;
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => body.Load(GetLicense, ref errorMessage);
 
-    public sealed override PlugInLoadTime LoadTime => lifetime.LoadTime(base.LoadTime);
+    protected sealed override void CreateCommands() => _ = body.Commands(RegisterCommand);
 
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => lifetime.Load(this, GetLicense, ref errorMessage);
+    protected sealed override void OnShutdown() => _ = Session.Run(Session.Close);
 
-    protected sealed override void CreateCommands() {
-        base.CreateCommands();
-        _ = this.Run(lifetime.Commands(RegisterCommand));
-    }
+    protected sealed override void ResetMessageBoxes() => _ = Session.Run(HostDialogs.ResetMessageBoxes(ViewCatalog.Current));
 
-    protected sealed override void OnShutdown() => _ = this.Run(lifetime.Session.Close);
-
-    protected sealed override void ResetMessageBoxes() => _ = this.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings));
-
-    // --- [IDENTITY]
-    public sealed override object? GetPlugInObject() => lifetime.Definition.Published.ValueUnsafe();
+    public sealed override object? GetPlugInObject() => TSelf.Definition.PlugIn.Published.ValueUnsafe();
 
     // --- [HELP]
-    public sealed override bool AddToHelpMenu => lifetime.Definition.Help.IsSome;
+    public sealed override bool AddToHelpMenu => TSelf.Definition.PlugIn.Help.IsSome;
 
-    public sealed override bool DisplayHelp(nint windowHandle) => this.Answer(lifetime.DisplayHelp, failed: false);
+    public sealed override bool DisplayHelp(nint windowHandle) => body.DisplayHelp();
 
     // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = this.Run(ViewRegistration.OptionsDialogPages(this, pages));
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.OptionsDialogPages(pages));
 
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = this.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages));
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.DocumentPropertiesDialogPages(doc, pages));
 
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => _ = this.Run(ViewRegistration.ObjectPropertiesPages(this, collection));
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => _ = Session.Run(ViewRegistration.ObjectPropertiesPages(collection));
 
     // --- [ARCHIVE]
-    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => this.Answer(DocumentArchive.ShouldWrite(lifetime.Definition.DocumentFrames, options), failed: false);
+    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => body.ShouldCallWriteDocument(options);
 
-    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => _ = this.Run(DocumentArchive.Write(lifetime.Definition.DocumentFrames, doc, archive, options));
+    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => _ = body.WriteDocument(doc, archive, options);
 
-    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => _ = this.Run(DocumentArchive.Read(lifetime.Definition.DocumentFrames, doc, archive, options));
+    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => _ = body.ReadDocument(doc, archive, options);
 
     // --- [FILES]
-    protected sealed override FileTypeList AddFileTypes(FileReadOptions options) => this.Answer(FileFormats.AddFileTypes(formats, this), new FileTypeList());
+    protected sealed override FileTypeList AddFileTypes(FileReadOptions options) => FileFormats.AddFileTypes(TSelf.Definition.Formats);
 
-    protected sealed override bool ReadFile(string filename, int index, RhinoDoc? doc, FileReadOptions options) =>
-        this.Answer(IO.lift(() => Conversions.Found(doc)).Bind(document => FileFormats.Run(formats, index, filename, document, options, done: true, cancelled: false)), failed: false);
+    protected sealed override bool ReadFile(string filename, int index, RhinoDoc doc, FileReadOptions options) =>
+        FileFormats.Run(TSelf.Definition.Formats, index, filename, doc, options, done: true, cancelled: false, failed: false);
 
-    protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) => _ = this.Run(FileFormats.DisplayOptionsDialog(this, formats, description, extension));
+    protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) => _ = FileFormats.DisplayOptionsDialog(TSelf.Definition.Formats, description, extension);
 }
 
-public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileFormat<FileWriteOptions>> formats) : FileExportPlugIn, IDefinedPlugIn {
+public abstract class DefinedExportPlugIn<TSelf> : FileExportPlugIn where TSelf : DefinedExportPlugIn<TSelf>, IDefined<FileDefinition<FileWriteOptions>> {
+    private readonly PlugInBody body;
+
+    protected DefinedExportPlugIn() => body = new(this, TSelf.Definition.PlugIn, FileFormats.Dialogs(TSelf.Definition.Formats));
+
     // --- [LIFECYCLE]
-    private readonly Seq<FileFormat<FileWriteOptions>> formats = formats;
-    private readonly PlugInLifetime lifetime = new(definition, formats.Choose(static format => format.Options.Map<View>(static dialog => dialog)));
+    public sealed override PlugInLoadTime LoadTime => body.LoadTime;
 
-    PlugInLifetime IDefinedPlugIn.Lifetime => lifetime;
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => body.Load(GetLicense, ref errorMessage);
 
-    public sealed override PlugInLoadTime LoadTime => lifetime.LoadTime(base.LoadTime);
+    protected sealed override void CreateCommands() => _ = body.Commands(RegisterCommand);
 
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => lifetime.Load(this, GetLicense, ref errorMessage);
+    protected sealed override void OnShutdown() => _ = Session.Run(Session.Close);
 
-    protected sealed override void CreateCommands() {
-        base.CreateCommands();
-        _ = this.Run(lifetime.Commands(RegisterCommand));
-    }
+    protected sealed override void ResetMessageBoxes() => _ = Session.Run(HostDialogs.ResetMessageBoxes(ViewCatalog.Current));
 
-    protected sealed override void OnShutdown() => _ = this.Run(lifetime.Session.Close);
-
-    protected sealed override void ResetMessageBoxes() => _ = this.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings));
-
-    // --- [IDENTITY]
-    public sealed override object? GetPlugInObject() => lifetime.Definition.Published.ValueUnsafe();
+    public sealed override object? GetPlugInObject() => TSelf.Definition.PlugIn.Published.ValueUnsafe();
 
     // --- [HELP]
-    public sealed override bool AddToHelpMenu => lifetime.Definition.Help.IsSome;
+    public sealed override bool AddToHelpMenu => TSelf.Definition.PlugIn.Help.IsSome;
 
-    public sealed override bool DisplayHelp(nint windowHandle) => this.Answer(lifetime.DisplayHelp, failed: false);
+    public sealed override bool DisplayHelp(nint windowHandle) => body.DisplayHelp();
 
     // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = this.Run(ViewRegistration.OptionsDialogPages(this, pages));
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.OptionsDialogPages(pages));
 
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = this.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages));
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.DocumentPropertiesDialogPages(doc, pages));
 
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => _ = this.Run(ViewRegistration.ObjectPropertiesPages(this, collection));
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => _ = Session.Run(ViewRegistration.ObjectPropertiesPages(collection));
 
     // --- [ARCHIVE]
-    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => this.Answer(DocumentArchive.ShouldWrite(lifetime.Definition.DocumentFrames, options), failed: false);
+    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => body.ShouldCallWriteDocument(options);
 
-    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => _ = this.Run(DocumentArchive.Write(lifetime.Definition.DocumentFrames, doc, archive, options));
+    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => _ = body.WriteDocument(doc, archive, options);
 
-    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => _ = this.Run(DocumentArchive.Read(lifetime.Definition.DocumentFrames, doc, archive, options));
+    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => _ = body.ReadDocument(doc, archive, options);
 
     // --- [FILES]
-    protected sealed override FileTypeList AddFileTypes(FileWriteOptions options) => this.Answer(FileFormats.AddFileTypes(formats, this), new FileTypeList());
+    protected sealed override bool ShouldDisplayOptionsDialog => TSelf.Definition.Formats.Exists(static format => format.Options.IsSome);
 
-    protected sealed override WriteFileResult WriteFile(string filename, int index, RhinoDoc? doc, FileWriteOptions options) =>
-        this.Answer(
-            IO.lift(() => Conversions.Found(doc)).Bind(document => FileFormats.Run(formats, index, filename, document, options, WriteFileResult.Success, WriteFileResult.Cancel)),
-            WriteFileResult.Failure);
+    protected sealed override FileTypeList AddFileTypes(FileWriteOptions options) => FileFormats.AddFileTypes(TSelf.Definition.Formats);
 
-    protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) => _ = this.Run(FileFormats.DisplayOptionsDialog(this, formats, description, extension));
+    protected sealed override WriteFileResult WriteFile(string filename, int index, RhinoDoc doc, FileWriteOptions options) =>
+        FileFormats.Run(TSelf.Definition.Formats, index, filename, doc, options, WriteFileResult.Success, WriteFileResult.Cancel, WriteFileResult.Failure);
+
+    protected sealed override void DisplayOptionsDialog(nint parent, string description, string extension) => _ = FileFormats.DisplayOptionsDialog(TSelf.Definition.Formats, description, extension);
 }
 
-public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererDefinition renderer) : RenderPlugIn, IDefinedPlugIn {
+public abstract class DefinedRenderPlugIn<TSelf> : RenderPlugIn where TSelf : DefinedRenderPlugIn<TSelf>, IDefined<RendererDefinition> {
+    private readonly PlugInBody body;
+
+    protected DefinedRenderPlugIn() =>
+        body = new(this, TSelf.Definition.PlugIn, [.. TSelf.Definition.Tabs, .. TSelf.Definition.Panes, .. TSelf.Definition.SettingsSections, .. TSelf.Definition.SunSections]);
+
     // --- [LIFECYCLE]
-    private readonly RendererDefinition renderer = renderer;
-    private readonly PlugInLifetime lifetime = new(definition, renderer.Views);
+    public sealed override PlugInLoadTime LoadTime => body.LoadTime;
 
-    PlugInLifetime IDefinedPlugIn.Lifetime => lifetime;
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => body.Load(GetLicense, ref errorMessage);
 
-    public sealed override PlugInLoadTime LoadTime => lifetime.LoadTime(base.LoadTime);
+    protected sealed override void CreateCommands() => _ = body.Commands(RegisterCommand);
 
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => lifetime.Load(this, GetLicense, ref errorMessage);
+    protected sealed override void OnShutdown() => _ = Session.Run(Session.Close);
 
-    protected sealed override void CreateCommands() {
-        base.CreateCommands();
-        _ = this.Run(lifetime.Commands(RegisterCommand));
-    }
+    protected sealed override void ResetMessageBoxes() => _ = Session.Run(HostDialogs.ResetMessageBoxes(ViewCatalog.Current));
 
-    protected sealed override void OnShutdown() {
-        base.OnShutdown();
-        _ = this.Run(lifetime.Session.Close);
-    }
-
-    protected sealed override void ResetMessageBoxes() {
-        base.ResetMessageBoxes();
-        _ = this.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings));
-    }
-
-    // --- [IDENTITY]
-    public sealed override object? GetPlugInObject() => lifetime.Definition.Published.ValueUnsafe();
+    public sealed override object? GetPlugInObject() => TSelf.Definition.PlugIn.Published.ValueUnsafe();
 
     // --- [HELP]
-    public sealed override bool AddToHelpMenu => lifetime.Definition.Help.IsSome;
+    public sealed override bool AddToHelpMenu => TSelf.Definition.PlugIn.Help.IsSome;
 
-    public sealed override bool DisplayHelp(nint windowHandle) => this.Answer(lifetime.DisplayHelp, failed: false);
+    public sealed override bool DisplayHelp(nint windowHandle) => body.DisplayHelp();
 
     // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = this.Run(ViewRegistration.OptionsDialogPages(this, pages));
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.OptionsDialogPages(pages));
 
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = this.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages));
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.DocumentPropertiesDialogPages(doc, pages));
 
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => _ = this.Run(ViewRegistration.ObjectPropertiesPages(this, collection));
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => _ = Session.Run(ViewRegistration.ObjectPropertiesPages(collection));
 
     protected sealed override OptionsDialogPage? RenderOptionsDialogPage(RhinoDoc doc) =>
-        this.Answer(renderer.RenderPage.Map(row => ViewRegistration.RenderOptionsDialogPage(this, row, doc)).IfNone(IO.pure(Option<OptionsDialogPage>.None)), Option<OptionsDialogPage>.None)
+        Session.Run(TSelf.Definition.RenderPage.Map(row => ViewRegistration.RenderOptionsDialogPage(row, doc)).IfNone(IO.pure(Option<OptionsDialogPage>.None)), Option<OptionsDialogPage>.None)
             .IfNone(() => base.RenderOptionsDialogPage(doc));
 
     // --- [ARCHIVE]
-    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => this.Answer(DocumentArchive.ShouldWrite(lifetime.Definition.DocumentFrames, options), failed: false);
+    protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => body.ShouldCallWriteDocument(options);
 
-    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) {
-        base.WriteDocument(doc, archive, options);
-        _ = this.Run(DocumentArchive.Write(lifetime.Definition.DocumentFrames, doc, archive, options));
-    }
+    protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => _ = body.WriteDocument(doc, archive, options);
 
-    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) {
-        base.ReadDocument(doc, archive, options);
-        _ = this.Run(DocumentArchive.Read(lifetime.Definition.DocumentFrames, doc, archive, options));
-    }
+    protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => _ = body.ReadDocument(doc, archive, options);
 
     // --- [RENDER]
     protected sealed override Result Render(RhinoDoc doc, RunMode mode, bool fastPreview) =>
-        this.Answer(Results.Of(Batches.Render(doc, mode, this, renderer.Engine, new RenderStart.Full(fastPreview))), Result.Failure);
+        Session.Run(Batches.Render(doc, mode, TSelf.Definition.Engine, new RenderStart.Full(fastPreview)), Result.Failure);
 
     protected sealed override Result RenderWindow(RhinoDoc doc, RunMode modes, bool fastPreview, RhinoView view, Rectangle rect, bool inWindow, bool blowup) =>
-        this.Answer(Results.Of(Batches.Render(doc, modes, this, renderer.Engine, new RenderStart.Region(fastPreview, view, rect, inWindow))), Result.Failure);
+        Session.Run(Batches.Render(doc, modes, TSelf.Definition.Engine, new RenderStart.Region(fastPreview, view, rect, inWindow)), Result.Failure);
 
-    protected sealed override bool SupportsFeature(RenderFeature feature) => renderer.Features.Contains(feature);
+    protected sealed override bool SupportsFeature(RenderFeature feature) => TSelf.Definition.Features.Contains(feature);
 
-    protected sealed override Guid[] SupportedChannels => [.. renderer.Engine.SupportedChannels];
+    protected sealed override void OnSetCurrent(bool current) => TSelf.Definition.Engine.OnSetCurrent(current);
+
+    protected sealed override List<FileType> SupportedOutputTypes() => TSelf.Definition.Engine.SupportedOutputTypes(base.SupportedOutputTypes());
+
+    protected sealed override IEnumerable<RenderContentSerializer> RenderContentSerializers() => TSelf.Definition.Engine.RenderContentSerializers();
+
+    // --- [CHANNELS]
+    protected sealed override Guid[] SupportedChannels => [.. TSelf.Definition.Engine.SupportedChannels];
+
+    protected sealed override Guid InitialChannelToDisplay => TSelf.Definition.Engine.InitialChannelId.IfNone(base.InitialChannelToDisplay);
+
+    protected sealed override string CustomChannelName(Guid id) => TSelf.Definition.Engine.CustomChannelName(id);
+
+    // --- [DECALS]
+    protected sealed override bool SupportsEditProperties => TSelf.Definition.Engine.EditDecal.IsSome;
+
+    protected sealed override bool ShowDecalProperties(ref List<NamedValue> properties) => TSelf.Definition.Engine.ShowDecalProperties(ref properties);
+
+    protected sealed override void InitializeDecalProperties(ref List<NamedValue> properties) => TSelf.Definition.Engine.InitializeDecalProperties(ref properties);
+
+    // --- [MATERIALS]
+    public sealed override bool EnableAssignMaterialButton() => TSelf.Definition.Engine.AssignMaterial.IsSome;
+
+    public sealed override bool OnAssignMaterial(nint parent, RhinoDoc doc, ref Material material) => RenderEngine.Pressed(TSelf.Definition.Engine.AssignMaterial, doc, ref material);
+
+    public sealed override bool EnableEditMaterialButton(RhinoDoc doc, Material material) => TSelf.Definition.Engine.EditMaterial.IsSome;
+
+    public sealed override bool OnEditMaterial(nint parent, RhinoDoc doc, ref Material material) => RenderEngine.Pressed(TSelf.Definition.Engine.EditMaterial, doc, ref material);
+
+    public sealed override bool EnableCreateMaterialButton() => TSelf.Definition.Engine.CreateMaterial.IsSome;
+
+    public sealed override bool OnCreateMaterial(nint parent, RhinoDoc doc, ref Material material) => RenderEngine.Pressed(TSelf.Definition.Engine.CreateMaterial, doc, ref material);
+
+    protected sealed override bool AllowChooseContent(RenderContent content) => TSelf.Definition.Engine.Choosable(content);
 
     // --- [RENDER_WINDOW]
-    protected sealed override void RegisterRenderPanels(RenderPanels panels) {
-        base.RegisterRenderPanels(panels);
-        _ = this.Run(ViewRegistration.RegisterRenderPanels(this, panels));
-    }
+    protected sealed override void RegisterRenderPanels(RenderPanels panels) => _ = Session.Run(ViewRegistration.RegisterRenderPanels(panels));
 
-    protected sealed override void RegisterRenderTabs(RenderTabs tabs) {
-        base.RegisterRenderTabs(tabs);
-        _ = this.Run(ViewRegistration.RegisterRenderTabs(this, tabs));
-    }
+    protected sealed override void RegisterRenderTabs(RenderTabs tabs) => _ = Session.Run(ViewRegistration.RegisterRenderTabs(tabs));
 
     // --- [SECTIONS]
-    public sealed override void RenderSettingsCustomSections(List<ICollapsibleSection> sections) {
-        base.RenderSettingsCustomSections(sections);
-        _ = this.Run(ViewRegistration.CustomSections(this, renderer.SettingsSections, sections));
-    }
+    public sealed override void RenderSettingsCustomSections(List<ICollapsibleSection> sections) => _ = Session.Run(ViewRegistration.CustomSections(TSelf.Definition.SettingsSections, sections));
 
-    public sealed override void SunCustomSections(List<ICollapsibleSection> sections) {
-        base.SunCustomSections(sections);
-        _ = this.Run(ViewRegistration.CustomSections(this, renderer.SunSections, sections));
-    }
+    public sealed override void SunCustomSections(List<ICollapsibleSection> sections) => _ = Session.Run(ViewRegistration.CustomSections(TSelf.Definition.SunSections, sections));
 
     // --- [SAVES]
-    protected sealed override void RegisterCustomRenderSaveFileTypes(CustomRenderSaveFileTypes saveFileTypes) {
-        base.RegisterCustomRenderSaveFileTypes(saveFileTypes);
-        _ = this.Run(IO.lift(() => renderer.SaveTypes.Iter(type => saveFileTypes.RegisterFileType(
+    protected sealed override void RegisterCustomRenderSaveFileTypes(CustomRenderSaveFileTypes saveFileTypes) =>
+        _ = Session.Run(IO.lift(() => TSelf.Definition.SaveTypes.Iter(type => saveFileTypes.RegisterFileType(
             Seq(type.Extension),
-            RowText.Localize(type.Description, this).Local,
-            (fileName, includeAlpha, window) => this.Answer(type.Write(window, fileName, includeAlpha).Map(value: true), failed: false)))));
-    }
+            LocalText.Of(type.Description).Local,
+            (fileName, includeAlpha, window) => Session.Run(type.Write(window, fileName, includeAlpha).Map(value: true), failed: false)))));
 
     // --- [CONTENT]
     protected sealed override List<Guid> UiContentTypes() =>
         [
             .. base.UiContentTypes(),
-            .. this.Answer(Products.Made(RenderContentType.GetAllAvailableTypes()).Map(types => types.Filter(type => type.PlugInId == Id).Map(static type => type.Id).Strict()), Seq<Guid>()),
+            .. Session.Run(Products.Many(RenderContentType.GetAllAvailableTypes).Map(types => types.Filter(type => type.PlugInId == Id).Map(static type => type.Id).Strict()), Seq<Guid>()),
         ];
 
-    protected sealed override PreviewRenderTypes PreviewRenderType() =>
-        renderer.Preview.Map(static row => row.Type).IfNone(base.PreviewRenderType);
+    protected sealed override PreviewRenderTypes PreviewRenderType() => TSelf.Definition.Preview.Map(static row => row.Type).IfNone(base.PreviewRenderType);
 
-    protected sealed override void CreatePreview(CreatePreviewEventArgs args) {
-        base.CreatePreview(args);
-        _ = this.Run(renderer.Preview.Map(row => row.Content(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).IfNone(IO.pure(unit)));
-    }
+    protected sealed override void CreatePreview(CreatePreviewEventArgs args) =>
+        _ = Session.Run(TSelf.Definition.Preview.Traverse(row => row.Content(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).As());
 
-    protected sealed override void CreateTexture2dPreview(CreateTexture2dPreviewEventArgs args) {
-        base.CreateTexture2dPreview(args);
-        _ = this.Run(renderer.Preview.Map(row => row.Texture(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).IfNone(IO.pure(unit)));
-    }
+    protected sealed override void CreateTexture2dPreview(CreateTexture2dPreviewEventArgs args) =>
+        _ = Session.Run(TSelf.Definition.Preview.Traverse(row => row.Texture(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).As());
 }

@@ -1,4 +1,3 @@
-using System.Numerics;
 using Eto.Drawing;
 using Grasshopper2.Doc;
 using Grasshopper2.Eto.Drawing;
@@ -11,132 +10,122 @@ using SuperLinq;
 
 namespace Rasm.Grasshopper.UI;
 
-// --- [MODELS] --------------------------------------------------------------------------
-[Union<LineF, ArcF>(T1Name = "Straight", T2Name = "Curved", SkipEqualityComparison = true, SkipToString = true)]
-public sealed partial class RouteSegment {
-    public float Length => Switch(straight: static span => span.Length, curved: static span => span.Length);
-    public RectangleF Bounds => Switch(straight: static span => span.Bounds, curved: static span => span.Bounds);
-    public RouteSegment Reversed => Switch<RouteSegment>(straight: static span => new LineF(span.End, span.Start), curved: static span => span.Reverse());
+// --- [TYPES] ---------------------------------------------------------------------------
+public interface IWireRoute {
+    public static abstract Polyline Route(PointF source, PointF target);
 
-    public PointF Closest(PointF point) => Switch(point,
-        straight: static (at, span) => span.ClosestPoint(at, finiteSegment: true),
-        curved: static (at, span) => span.ClosestPoint(at));
+    public static virtual float Radius => 0f;
 
-    public bool Crosses(RectangleF box) => Switch(box,
-        straight: static (bounds, span) => bounds.Contains(span.Start) || span.Intersect(bounds, out _, out _) > 0,
-        curved: static (bounds, span) => bounds.Contains(span.PointAt(span.Start))
-            || (!span.IsEmpty && Seq(RectangleEdge.Left, RectangleEdge.Top, RectangleEdge.Right, RectangleEdge.Bottom).Exists(side => Meets(span, bounds.Edge(side, clockwise: true)))));
-
-    public (RouteSegment Head, RouteSegment Tail) Split(float fraction) => Switch<float, (RouteSegment Head, RouteSegment Tail)>(fraction,
-        straight: static (at, span) => span.PointAt(at) switch {
-            var point => (new LineF(span.Start, point), new LineF(point, span.End)),
-        },
-        curved: static (at, span) => (span.Sweep * at) switch {
-            var sweep => (new ArcF(span.Centre, span.Radius, span.Start, sweep), new ArcF(span.Centre, span.Radius, span.Start + sweep, span.Sweep - sweep)),
-        });
-
-    public void Trace(GraphicsPath path) => Switch(path, straight: static (drawing, span) => drawing.AddLine(span), curved: static (drawing, span) => drawing.AddArc(span));
-
-    private static bool Meets(ArcF arc, LineF edge) =>
-        (Delta: new Vector2(edge.X1 - edge.X0, edge.Y1 - edge.Y0), Offset: new Vector2(edge.X0 - arc.Centre.X, edge.Y0 - arc.Centre.Y)) switch {
-            var (delta, offset) => (A: Vector2.Dot(delta, delta), B: 2f * Vector2.Dot(offset, delta), C: Vector2.Dot(offset, offset) - (arc.Radius * arc.Radius)) switch {
-                { A: > 0f } quadratic when (quadratic.B * quadratic.B) - (4f * quadratic.A * quadratic.C) is var discriminant and >= 0f =>
-                    Seq(-1f, 1f).Map(sign => (-quadratic.B + (sign * MathF.Sqrt(discriminant))) / (2f * quadratic.A))
-                        .Exists(at => at is >= 0f and <= 1f && Swept(arc, edge.PointAt(at))),
-                _ => false,
-            },
-        };
-
-    private static bool Swept(ArcF arc, PointF point) =>
-        (((float.Sign(arc.Sweep) * (float.RadiansToDegrees(MathF.Atan2(point.Y - arc.Centre.Y, point.X - arc.Centre.X)) - arc.Start) % 360f) + 360f) % 360f) <= MathF.Abs(arc.Sweep);
+    public static virtual float Opacity(Func<Option<(IParameter Source, IParameter Target)>> ends, float length) => 1f;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public abstract class RoutedWire(PointF source, PointF target, IterableNE<RouteSegment> segments) : WireShape(source, target) {
+public sealed class RoutedWire<TRoute> : WireShape where TRoute : IWireRoute {
+    private readonly Polyline line;
+    private readonly float opacity;
+
+    public RoutedWire(PointF source, PointF target) : base(source, target) {
+        line = Rounded(TRoute.Route(source, target), TRoute.Radius);
+        Memo<Option<(IParameter Source, IParameter Target)>> ends = memo(() =>
+            from objects in Optional((Canvas.CurrentlyDrawingCanvas ?? Editor.Instance?.Canvas)?.Document?.Objects)
+            from start in Optional(objects.FindByOutlet(source))
+            from end in Optional(objects.FindByInlet(target))
+            select (start, end));
+        opacity = TRoute.Opacity(() => ends.Value, (float)line.Length);
+    }
+
     // --- [GEOMETRY]
-    public IterableNE<RouteSegment> Segments { get; } = segments;
+    public override RectangleF Bounds => line.BoundingBox switch {
+        var box => RectangleF.FromSides((float)box.Min.X, (float)box.Min.Y, (float)box.Max.X, (float)box.Max.Y),
+    };
 
-    public override RectangleF Bounds => Segments.Tail.Fold(static (box, segment) => RectangleF.Union(box, segment.Bounds), Segments.Head.Bounds);
-    public override PointF Project(PointF point) => Segments.Tail.Fold((best, segment) => segment.Closest(point) switch {
-        var next => next.Distance(point) < best.Distance(point) ? next : best,
-    }, Segments.Head.Closest(point));
-    public override float DistanceTo(PointF point) => point.Distance(Project(point));
-    public override bool Intersects(RectangleF box) => Segments.Exists(segment => segment.Crosses(box));
+    public override PointF Project(PointF point) => line.ClosestPoint(point.To3d()).ToPointF();
 
-    // --- [DRAWING]
-    public override void Draw(Graphics graphics, Pen edge) =>
-        (edge.DashStyle is { IsSolid: false } ? Halves : Seq(Segments.AsIterable())).Iter(run => {
-            using GraphicsPath path = new();
-            _ = run.Iter(segment => segment.Trace(path));
-            graphics.DrawPath(edge, path);
-        });
+    public override float DistanceTo(PointF point) => opacity > 0f ? Project(point).Distance(point) : float.PositiveInfinity;
 
-    private Seq<Iterable<RouteSegment>> Halves =>
-        (Segments.Fold(static (sum, segment) => sum + segment.Length, 0f) / 2f) switch {
-            var half => Segments.Fold((state, segment) =>
-                state.Walked >= half ? (state.Head, segment.Reversed.Cons(state.Tail), state.Walked)
-                : state.Walked + segment.Length <= half ? (state.Head.Add(segment), state.Tail, state.Walked + segment.Length)
-                : segment.Split((half - state.Walked) / segment.Length) switch {
-                    var parts => (state.Head.Add(parts.Head), parts.Tail.Reversed.Cons(state.Tail), state.Walked + segment.Length),
-                }, (Head: Seq<RouteSegment>(), Tail: Seq<RouteSegment>(), Walked: 0f)) switch {
-                    var split => Seq(split.Head.AsIterable(), split.Tail.AsIterable()),
-                },
+    public override bool Intersects(RectangleF box) =>
+        opacity > 0f && (box.Contains(Source) || toSeq(line.GetSegments()).Exists(segment => ((LineF)segment).Intersect(box, out _, out _) > 0));
+
+    private static Polyline Rounded(Polyline route, float radius) =>
+        toSeq(route).Map(static point => point.ToPointF()).Strict() switch {
+            { Count: > 2 } points when radius > 0f => [.. (points.Take(1)
+                + toSeq(points.Window(3, corner => Corner(corner[0], corner[1], corner[2], radius))).Flatten()
+                + points.Skip(points.Count - 1)).Map(static point => point.To3d())],
+            _ => route,
         };
 
-    // --- [CONSTRUCTION]
-    protected static IterableNE<RouteSegment> Lines(PointF a, PointF b, params PointF[] more) =>
-        IterableNE.create(new LineF(a, b), toSeq(b.Cons(toSeq(more)).Window(2, static window => (RouteSegment)new LineF(window[0], window[1]))).AsIterable());
-}
+    private static Seq<PointF> Corner(PointF before, PointF at, PointF after, float radius) =>
+        float.Min(radius, float.Min(at.Distance(before), at.Distance(after)) / 2f) switch {
+            > 0f and var reach => ArcF.CreateTangent(new LineF(at, before).PointAt(reach / at.Distance(before)), new LineF(at, after).PointAt(reach / at.Distance(after)), at) switch {
+                { IsUnset: true } => Seq(at),
+                var arc => toSeq(arc.Divide(deviation: 0.1)),
+            },
+            _ => Seq(at),
+        };
 
-public sealed class StraightWire(PointF source, PointF target) : RoutedWire(source, target, Lines(source, target));
-
-public sealed class OrthogonalWire(PointF source, PointF target) : RoutedWire(source, target, Course(source, target)) {
-    private const float Stub = 60f;
-    private const float Flat = 3f;
-
-    private static IterableNE<RouteSegment> Course(PointF source, PointF target) {
-        float vertical = Math.Abs(target.Y - source.Y);
-        return target.X >= source.X
-            ? vertical < Flat ? Lines(source, target) : ((source.X + target.X) / 2f) switch {
-                var x => Lines(source, new PointF(x, source.Y), new PointF(x, target.Y), target),
-            }
-            : (vertical >= 2f * Stub ? (source.Y + target.Y) / 2f : Math.Max(source.Y, target.Y) + Stub) switch {
-                var lane => Lines(source, source + new SizeF(Stub, 0f), new PointF(source.X + Stub, lane), new PointF(target.X - Stub, lane), target - new SizeF(Stub, 0f), target),
-            };
+    // --- [DRAWING]
+    public override void Draw(Graphics graphics, Pen edge) {
+        if (opacity <= 0f) return;
+        using Pen? faded = opacity < 1f && edge.Brush is SolidBrush solid
+            ? new(solid.Color.WithA(solid.Color.A * opacity), edge.Thickness) { DashStyle = edge.DashStyle, LineCap = edge.LineCap, LineJoin = edge.LineJoin, MiterLimit = edge.MiterLimit }
+            : null;
+        double middle = line.ParameterAtLength(line.Length / 2.0);
+        Seq<Seq<Point3d>> runs = edge.DashStyle is { IsSolid: false }
+            ? Seq(toSeq(line.Trim(0.0, middle)), toSeq(line.Trim(middle, line.Count - 1)).Rev())
+            : Seq(toSeq(line));
+        _ = runs.Iter(run => graphics.DrawLines(faded ?? edge, run.Map(static point => point.ToPointF())));
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-public static class CanvasWires {
-    // --- [ROUTES]
-    internal static readonly IO<Unit> Redrawn = IO.lift(static () => Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw()));
+public sealed class StraightRoute : IWireRoute {
+    public static Polyline Route(PointF source, PointF target) => new([source.To3d(), target.To3d()]);
+}
 
-    public static IO<Unit> Route(Type shape) =>
-        from free in IO.lift(static () => Optional(WireShape.ShapeType).Match<Fin<Unit>>(
-            Some: static held => new GrasshopperFault(held.Name, GrasshopperReason.Taken),
-            None: static () => unit))
-        from routed in use(IO.lift(() => WireShape.ShapeType = shape),
-            static held => IO.lift(() => {
-                if (WireShape.ShapeType == held) WireShape.ShapeType = null;
-            }).Bind(static _ => Redrawn))
+public sealed class OrthogonalRoute : IWireRoute {
+    private const float Slope = 0.01f;
+
+    public static Polyline Route(PointF source, PointF target) => Route(source, target, stub: 60f, flat: 3f);
+
+    public static Polyline Route(PointF source, PointF target, float stub, float flat) =>
+        [.. ((target.X >= source.X, Math.Abs(target.Y - source.Y)) switch {
+            (true, var rise) when rise < flat || rise < Slope * (target.X - source.X) => Seq(source, target),
+            (true, _) => ((source.X + target.X) / 2f) switch {
+                var middle => Seq(source, new PointF(middle, source.Y), new PointF(middle, target.Y), target),
+            },
+            (false, var rise) => ((rise >= 2f * stub) ? (source.Y + target.Y) / 2f : Math.Max(source.Y, target.Y) + stub) switch {
+                var lane => Seq(source, source.Move(stub, 0f), new PointF(source.X + stub, lane), new PointF(target.X - stub, lane), target.Move(-stub, 0f), target),
+            },
+        }).Map(static point => point.To3d())];
+}
+
+public static class Wires {
+    // --- [ROUTES]
+    private static readonly IO<Unit> Redrawn = IO.lift(static () => Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw()));
+
+    public static IO<Unit> Route<TRoute>() where TRoute : IWireRoute =>
+        from free in IO.lift(static () => GrasshopperFault.Unless(WireShape.ShapeType is null, GrasshopperReason.Taken, WireShape.ShapeType))
+        from routed in use(IO.lift(static () => WireShape.ShapeType = typeof(RoutedWire<TRoute>)), static held => IO.lift(() => {
+            if (WireShape.ShapeType == held) WireShape.ShapeType = null;
+        }) >> Redrawn)
         from redrawn in Redrawn
         select unit;
 
     // --- [HIGHLIGHTS]
-    public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires, Color color, float reach, IGrasshopperPlugin owner) =>
+    public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires) =>
         Hooks.On<CanvasPaintEventArgs>(h => canvas.BeforePaintWires += h, h => canvas.BeforePaintWires -= h, args =>
-            (from projection in use(args.Graphics.ProjectionState)
-             from found in IO.lift(() => Optional(args.Canvas.Document).ToSeq().Bind(document => wires().Choose(ends => Ends(document, ends))))
-             from drawn in found.TraverseM(wire => Halo(args.Graphics.Content, args.Skin.Wires, color, reach, wire)).As()
-             select unit).Bracket(), owner);
-
-    private static Option<(IParameter Source, IParameter Target)> Ends(Document document, WireEnds ends) =>
-        from source in Optional(document.Objects.FindParameter(ends.Source))
-        from target in Optional(document.Objects.FindParameter(ends.Target))
-        select (source, target);
-
-    private static IO<Unit> Halo(Graphics graphics, WiresSkin skin, Color color, float reach, (IParameter Source, IParameter Target) wire) =>
-        (from pen in use(() => new Pen(color, (float)skin[WiresSkin.ResolveKind(wire.Source, wire.Target)].Outer.Width + reach) { LineCap = PenLineCap.Round })
-         from drawn in IO.lift(() => WireShape.Create((IParameterAttributes)wire.Source.Attributes, (IParameterAttributes)wire.Target.Attributes).Draw(graphics, pen))
-         select unit).Bracket();
+            (from state in use(args.Graphics.ProjectionState)
+             from drawn in IO.lift(() => Optional(args.Canvas.Document).Iter(document => wires()
+                 .Choose(ends =>
+                     from source in Optional(document.Objects.FindParameter(ends.Source))
+                     from target in Optional(document.Objects.FindParameter(ends.Target))
+                     from outlet in Optional(source.Attributes as IParameterAttributes).Filter(static attributes => attributes.HasOutlet)
+                     from inlet in Optional(target.Attributes as IParameterAttributes).Filter(static attributes => attributes.HasInlet)
+                     select (Kind: WiresSkin.ResolveKind(source, target), Shape: WireShape.Create(outlet, inlet)))
+                 .Filter(wire => wire.Shape.Bounds.Intersects(args.Canvas.VisibleFrame))
+                 .Iter(wire => {
+                     using Pen pen = new(args.Skin.Wires.Glow, args.Skin.Wires[wire.Kind].Outer.Width + 4f);
+                     wire.Shape.Draw(args.Graphics.Content, pen);
+                 })))
+             select unit).Bracket());
 }

@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.IO.Hashing;
 using System.Numerics;
 using System.Text;
+using CommunityToolkit.HighPerformance.Buffers;
 
 namespace Rasm.Rhino;
 
@@ -35,9 +36,17 @@ public static class ContentKeys {
             return accumulator;
         }
 
-        public XxHash128 Text(string value) => accumulator.Bytes(Encoding.UTF8.GetBytes(value));
+        public XxHash128 Text(string value) {
+            using SpanOwner<byte> field = SpanOwner<byte>.Allocate(Encoding.UTF8.GetByteCount(value));
+            _ = Encoding.UTF8.GetBytes(value, field.Span);
+            return accumulator.Bytes(field.Span);
+        }
 
-        public XxHash128 Id(Guid value) => accumulator.Integer(BinaryPrimitives.ReadUInt128BigEndian(value.ToByteArray(bigEndian: true)));
+        public XxHash128 Id(Guid value) {
+            Span<byte> field = stackalloc byte[16];
+            _ = value.TryWriteBytes(field, bigEndian: true, out _);
+            return accumulator.Integer(BinaryPrimitives.ReadUInt128BigEndian(field));
+        }
 
         public XxHash128 Number(double value) => accumulator.Integer(BitConverter.DoubleToInt64Bits(double.IsNaN(value) ? double.NaN : value is 0d ? 0d : value));
 

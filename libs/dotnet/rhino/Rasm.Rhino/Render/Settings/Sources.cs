@@ -1,7 +1,6 @@
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Persistence;
-using Rasm.Rhino.UI;
+using Rasm.Rhino.Render.Views;
 using Rhino;
 using Rhino.FileIO;
 using Rhino.Render;
@@ -14,13 +13,17 @@ public sealed record RenderSettingsScope(RenderSettings Settings, LengthUnit Uni
 
 [Union]
 public abstract partial record RenderSettingsSource {
-    public sealed record Live(RhinoDoc Doc) : RenderSettingsSource;
+    private RenderSettingsSource(Option<RhinoDoc> document) => Document = document;
 
-    public sealed record Section(RhinoDoc Doc, ICollapsibleSection Host) : RenderSettingsSource;
+    public Option<RhinoDoc> Document { get; }
 
-    public sealed record Archive(File3dm File) : RenderSettingsSource;
+    public sealed record Live(RhinoDoc Doc) : RenderSettingsSource(Some(Doc));
 
-    public sealed record Detached(RenderSettingsScope Scope) : RenderSettingsSource;
+    public sealed record Section(RhinoDoc Doc, ICollapsibleSection Host) : RenderSettingsSource(Some(Doc));
+
+    public sealed record Archive(File3dm File) : RenderSettingsSource(None);
+
+    public sealed record Detached(RenderSettingsScope Scope) : RenderSettingsSource(None);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -34,43 +37,37 @@ public static class RenderSettingsSources {
             archive: static (body, held) => IO.lift(() => new RenderSettingsScope(held.File.Settings.RenderSettings, held.File.Settings.ModelUnits)).Bind(body),
             detached: static (body, held) => body(held.Scope));
 
-    public static IO<T> Edit<T>(RenderSettingsSource source, Func<RenderSettingsScope, IO<T>> edit, object owner) =>
+    public static IO<T> Edit<T>(RenderSettingsSource source, Func<RenderSettingsScope, IO<T>> edit) =>
         source.Switch(
-            (Body: edit, Owner: owner),
-            live: static (state, held) => Opened(held.Doc, live =>
+            edit,
+            live: static (body, held) => Opened(held.Doc, live =>
                 (from staged in use(live.Settings.Duplicate)
-                 from edited in state.Body(live with { Settings = staged })
-                 from committed in Committed(held.Doc, staged, state.Owner)
+                 from edited in body(live with { Settings = staged })
+                 from committed in Committed(held.Doc, staged)
                  select edited).Bracket()),
-            section: static (state, held) => SectionModels.Write(held.Host, Provider.RhinoSettings, data =>
-                (from lent in Products.Made(data.GetRenderSettings())
-                 from edited in state.Body(new RenderSettingsScope(lent, held.Doc.ModelUnits))
+            section: static (body, held) => SectionModels.Write(held.Host, Provider.RhinoSettings, data =>
+                (from lent in Products.Of(data.GetRenderSettings)
+                 from edited in body(new RenderSettingsScope(lent, held.Doc.ModelUnits))
                  from committed in IO.lift(() => data.SetRenderSettings(lent))
                  select edited).Bracket()),
-            archive: static (state, held) => Read(held, state.Body),
-            detached: static (state, held) => Read(held, state.Body));
+            archive: static (body, held) => Read(held, body),
+            detached: static (body, held) => Read(held, body));
 
-    public static IO<Unit> Edit(RhinoDoc doc, RenderSettings replacement, object owner) =>
-        Commits.Commit(doc, nameof(RhinoDoc.RenderSettings), new RedrawPolicy.Silent(), Committed(doc, replacement, owner)).Map(static _ => unit);
+    public static IO<Unit> Replace(RhinoDoc doc, RenderSettings replacement) =>
+        Commits.Commit(doc, nameof(RhinoDoc.RenderSettings), new RedrawPolicy.Silent(), Committed(doc, replacement)).Map(static _ => unit);
 
     private static IO<T> Opened<T>(RhinoDoc doc, Func<RenderSettingsScope, IO<T>> body) =>
         use(() => doc.RenderSettings).Bind(settings => body(new RenderSettingsScope(settings, doc.ModelUnits))).Bracket();
 
-    private static IO<Unit> Committed(RhinoDoc doc, RenderSettings next, object owner) =>
-        from open in IO.lift(() => doc.UndoRecordingIsActive)
-        from committed in open
-            ? TableOps.Undoable(doc, nameof(RhinoDoc.RenderSettings), IO.lift(() => doc.RenderSettings), settings => IO.lift(() => { doc.RenderSettings = settings; }), next.Duplicate(), owner)
-            : IO.lift(() => { doc.RenderSettings = next; })
-        select committed;
+    private static IO<Unit> Committed(RhinoDoc doc, RenderSettings next) =>
+        IO.lift(() => doc.UndoRecordingIsActive).Bind(open => open
+            ? Commits.Undoable(doc, nameof(RhinoDoc.RenderSettings), IO.lift(() => doc.RenderSettings), settings => IO.lift(() => doc.RenderSettings = settings).Map(static _ => unit), next.Duplicate())
+            : IO.lift(() => doc.RenderSettings = next).Map(static _ => unit));
 
     // --- [DICTIONARY]
-    public static DictionaryOwner Dictionary(RenderSettingsSource source, object owner) =>
-        new(Read(source, static scope => ArchivableDictionaries.UserDictionary(scope.Settings).Map(static held => held.Clone())),
-            edit => Edit(source, scope => ArchivableDictionaries.UserDictionary(scope.Settings).Bind(target => IO.lift(() => edit(target))), owner)) {
-            Document = source.Switch(
-                live: static held => Some(held.Doc),
-                section: static _ => Option<RhinoDoc>.None,
-                archive: static _ => Option<RhinoDoc>.None,
-                detached: static _ => Option<RhinoDoc>.None),
+    public static DictionaryOwner Dictionary(RenderSettingsSource source) =>
+        new(Read(source, static scope => IO.lift(() => scope.Settings.UserDictionary.Clone())),
+            edit => Edit(source, scope => IO.lift(() => edit(scope.Settings.UserDictionary)))) {
+            Document = source.Document,
         };
 }

@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Intrinsics;
 using MathNet.Numerics.LinearAlgebra;
 
 namespace Rasm.Spatial;
@@ -10,7 +10,7 @@ public sealed record Bounds(Vector3D<double> Min, Vector3D<double> Max) {
     public Bounds Inflated(double amount) => new Vector3D<double>(amount, amount, amount) switch { var margin => new(Min - margin, Max + margin) };
 
     public Bounds Transformed(Matrix<double> map) =>
-        Transforms.Applied(map) switch { var applied => (from x in Seq(Min.X, Max.X) from y in Seq(Min.Y, Max.Y) from z in Seq(Min.Z, Max.Z) select applied(new Vector3D<double>(x, y, z))).Map(static corner => new Bounds(corner, corner)).Reduce(static (held, corner) => held.Union(corner)) };
+        Transforms.Lanes(map) switch { var rows => (from x in Seq(Min.X, Max.X) from y in Seq(Min.Y, Max.Y) from z in Seq(Min.Z, Max.Z) select rows.Apply(new Vector3D<double>(x, y, z))).Map(static corner => new Bounds(corner, corner)).Reduce(static (held, corner) => held.Union(corner)) };
     private static Vector3D<double> Each(Vector3D<double> a, Vector3D<double> b, Func<double, double, double> pick) => new(pick(a.X, b.X), pick(a.Y, b.Y), pick(a.Z, b.Z));
 }
 
@@ -65,13 +65,11 @@ public abstract partial record ScalarField {
     public sealed record Shell(ScalarField Field, ScalarField Thickness) : ScalarField(from thickness in Thickness.Constant from bounds in Field.Bounds select bounds.Inflated(double.Max(thickness / 2d, 0d))) { public override double Distance(Vector3D<double> point) => double.Abs(Field.Distance(point)) - (Thickness.Distance(point) / 2d); }
 
     public sealed record Moved : ScalarField {
-        private readonly Func<Vector3D<double>, Vector3D<double>> _inverse;
-        private Moved(ScalarField field, Matrix<double> map) : base(field.Bounds.Map(bounds => bounds.Transformed(map))) => (Field, Map, _inverse) = (field, map, Transforms.Applied(map.Inverse()));
+        private Moved(ScalarField field, Matrix<double> map) : base(field.Bounds.Map(bounds => bounds.Transformed(map))) => (Field, Map, Inverse) = (field, map, Transforms.Lanes(map.Inverse()));
         public ScalarField Field { get; }
         public Matrix<double> Map { get; }
-        public override double Distance(Vector3D<double> point) => Field.Distance(_inverse(point));
-        public bool Equals([NotNullWhen(true)] Moved? other) => other is not null && Field == other.Field && Map.Equals(other.Map);
-        public override int GetHashCode() => HashCode.Combine(Field, Map);
+        private (Vector256<double> X, Vector256<double> Y, Vector256<double> Z) Inverse { get; }
+        public override double Distance(Vector3D<double> point) => Field.Distance(Inverse.Apply(point));
 
         public static Fin<Moved> Of(ScalarField field, Matrix<double> map) => SpatialFault.Unless(map.Rank() is 4, SpatialRule.Singular, map.Rank()).Map(_ => new Moved(field, map));
     }

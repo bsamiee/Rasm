@@ -34,7 +34,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         Category,
         "Discarded awaitable, await or return the value",
         "`_ =` discards awaitable `{0}`, await `{0}` or return `{0}` to an awaiting caller",
-        "Await each awaitable value or return it to an awaiting caller in place of a `_ =` discard");
+        "Await each awaitable value or return it to an awaiting caller in place of a `_ =` discard, outside host start requests whose task only reports completion");
 
     public static readonly DiagnosticDescriptor Fallback = Rule(
         "RASM3004",
@@ -319,8 +319,13 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     private static void Awaitables(CompilationStartAnalysisContext context) {
         static bool Awaitable(ITypeSymbol? type) =>
             Bases(type).Any(static held => held.GetMembers(WellKnownMemberNames.GetAwaiter).Any(static member => member is IMethodSymbol { IsStatic: false, Parameters.IsEmpty: true }));
-        Report<ISimpleAssignmentOperation>(context, [OperationKind.SimpleAssignment], static (assignment, _) =>
+        ImmutableArray<ISymbol> requests = Declared(
+            context.Compilation,
+            "M:Grasshopper2.Doc.SolutionServer.Start(Grasshopper2.Doc.SolutionMode)",
+            "M:Grasshopper2.Doc.SolutionServer.Start(System.Threading.CancellationTokenSource,Grasshopper2.Doc.SolutionMode)");
+        Report<ISimpleAssignmentOperation>(context, [OperationKind.SimpleAssignment], (assignment, _) =>
             assignment is { Target: IDiscardOperation, Value: var value } && Stripped(value) is var awaited && Awaitable(awaited.Type)
+            && !(awaited is IInvocationOperation { TargetMethod: var requested } && requests.Any(request => Same(request, requested)))
                 ? [Diagnostic.Create(Discarded, assignment.Syntax.GetLocation(), awaited.Syntax)]
                 : []);
     }
@@ -473,6 +478,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                     { ConstantValue: { HasValue: true, Value: var constant }, Type: var type } => $"{type?.ToDisplayString()}={constant ?? "null"}",
                     IObjectCreationOperation { Constructor: { } made, Initializer: null } creation => Shaped(made.ContainingType, creation.Arguments, depth),
                     IInvocationOperation { TargetMethod: { IsStatic: true } method } call when Same(method.ReturnType, method.ContainingType) => Shaped(method.ContainingType, call.Arguments, depth),
+                    IMemberReferenceOperation { Member: { ContainingType: { } holder } member } when Item(member, holder) => member.ToDisplayString(),
                     IMemberReferenceOperation reference when initializers.TryGetValue(reference.Member, out IOperation? initializer) => Shape(initializer, depth + 1),
                     _ => null,
                 };

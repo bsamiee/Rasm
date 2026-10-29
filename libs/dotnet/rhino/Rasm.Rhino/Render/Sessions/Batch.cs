@@ -1,11 +1,9 @@
 using System.Drawing;
 using System.Runtime.CompilerServices;
-using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
 using Rhino.DocObjects;
-using Rhino.PlugIns;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI;
@@ -24,62 +22,46 @@ public abstract partial record RenderStart {
     public sealed record Region(bool FastPreview, RhinoView View, Rectangle Rectangle, bool InWindow) : RenderStart(FastPreview);
 }
 
-public sealed record RenderWork(IO<Unit> Render, Option<Func<Guid, IO<bool>>> Ready);
-
-public sealed record RenderEngine(
-    LocalizeStringPair Caption,
-    RenderWindow.StandardChannels Channels,
-    bool HostWireframe,
-    Func<RenderStart, Option<Size>, RenderWindow, SceneBatch, IO<RenderWork>> Open) {
-    internal Seq<Guid> SupportedChannels =>
-        toSeq(Enum.GetValues<RenderWindow.StandardChannels>())
-            .Filter(channel => int.IsPow2((int)channel)
-                && (Channels & ~(RenderWindow.StandardChannels.RGB | RenderWindow.StandardChannels.NormalXYZ | RenderWindow.StandardChannels.AlbedoRGB)).HasFlag(channel))
-            .Choose(static channel => Conversions.Present(RenderWindow.ChannelId(channel)));
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
-internal sealed class ExecutionControl(Func<Guid, IO<bool>> ready, IPlugInViews owner) : PostEffectExecutionControl {
-    public override bool ReadyToExecutePostEffect(Guid pep_id) => owner.Answer(ready(pep_id), failed: false);
+internal sealed class ExecutionControl(Func<Guid, IO<bool>> ready) : PostEffectExecutionControl {
+    public override bool ReadyToExecutePostEffect(Guid pep_id) => Session.Run(ready(pep_id), failed: false);
 }
 
-internal sealed class AsyncContext(IPlugInViews owner) : AsyncRenderContext {
+internal sealed class AsyncContext : AsyncRenderContext {
     private readonly CancellationTokenSource cancellation = new();
-    private readonly Ref<Option<Lease<RenderWork>>> scenes = Ref(Option<Lease<RenderWork>>.None);
+    private readonly Ref<Option<Owned<RenderWork>>> works = Ref(Option<Owned<RenderWork>>.None);
 
-    public IPlugInViews Owner { get; } = owner;
+    public Option<RenderWork> Work => works.Value.Map(static owned => owned.Value);
 
     public IO<bool> Start(RenderWindow window, IO<RenderWork> open, LocalizeStringPair caption) =>
-        (from work in Owner.Session.Held(Products.Swapped(scenes, open))
+        (from work in Products.Replace(works, open).Scoped(Session.Scope)
          from control in work.Ready.Traverse(ready => IO.lift(() => {
-             ExecutionControl registered = new(ready, Owner);
+             ExecutionControl registered = new(ready);
              window.RegisterPostEffectExecutionControl(registered);
              return registered;
          })).As()
          from started in IO.lift(() => StartRenderThread(() => Rendered(window, work.Render, control, caption.Local), caption.English))
          select started)
-        .Catch(error => Callbacks.Each(Seq(IO.lift(StopRendering), Owner.Session.Held(Products.Cleared(scenes)))).Map(unit) >> IO.fail<bool>(error)).As();
+        .Catch(error => Products.Each(Seq(IO.lift(StopRendering), Products.Clear(works).Scoped(Session.Scope))).Map(static _ => unit) >> IO.fail<bool>(error)).As();
 
     public override void StopRendering() =>
-        _ = Owner.Run(Callbacks.Each(Seq(IO.lift(cancellation.Cancel), IO.lift(JoinRenderThread), IO.lift(base.StopRendering))));
+        _ = Session.Run(Products.Each(Seq(IO.lift(cancellation.Cancel), IO.lift(JoinRenderThread), IO.lift(base.StopRendering))));
 
     protected override void Dispose(bool isDisposing) {
         if (isDisposing) {
-            _ = Owner.Run(Owner.Session.Held(Products.Cleared(scenes)));
+            _ = Session.Run(Products.Clear(works).Scoped(Session.Scope));
             cancellation.Dispose();
         }
         base.Dispose(isDisposing);
     }
 
     private void Rendered(RenderWindow window, IO<Unit> render, Option<ExecutionControl> control, string caption) {
-        RenderWindow.RenderSuccessCode answer = Owner.Answer(
-            IO.lift(() => Callbacks.Settled(render, cancellation.Token))
+        RenderWindow.RenderSuccessCode answer = Session.Run(
+            IO.lift(() => Session.RunSafe(render, cancellation.Token))
                 .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))
-                .Map(RenderWindow.RenderSuccessCode.Completed),
+                .Map(static _ => RenderWindow.RenderSuccessCode.Completed),
             failed: RenderWindow.RenderSuccessCode.Failed);
-        _ = Owner.Run(Callbacks.Each(Seq(
-            IO.lift(() => window.SetProgress(caption, 1f)),
-            IO.lift(() => window.EndAsyncRender(answer)))));
+        _ = Session.Run(Products.Each(Seq(IO.lift(() => window.SetProgress(caption, 1f)), IO.lift(() => window.EndAsyncRender(answer)))));
         _ = control.Iter(GC.KeepAlive);
     }
 }
@@ -91,14 +73,14 @@ internal sealed class BatchPipeline : RenderPipeline {
     private readonly RenderStart start;
     private readonly AsyncContext context;
 
-    public BatchPipeline(RhinoDoc doc, RunMode mode, PlugIn plugIn, RenderEngine engine, RenderStart start, AsyncContext context)
-        : this(doc, mode, plugIn, engine, start, context, context) { }
+    public BatchPipeline(RhinoDoc doc, RunMode mode, RenderEngine engine, RenderStart start, AsyncContext context)
+        : this(doc, mode, engine, start, context, context) { }
 
-    private BatchPipeline(RhinoDoc doc, RunMode mode, PlugIn plugIn, RenderEngine engine, RenderStart start, AsyncContext context, AsyncRenderContext handed)
+    private BatchPipeline(RhinoDoc doc, RunMode mode, RenderEngine engine, RenderStart start, AsyncContext context, AsyncRenderContext handed)
         : base(
             doc,
             mode,
-            plugIn,
+            Session.PlugIn,
             start.Switch(doc, full: static (held, _) => RenderSize(held, fromRenderSources: true), region: static (_, region) => region.Rectangle.Size),
             engine.Caption.Local,
             engine.Channels,
@@ -117,70 +99,57 @@ internal sealed class BatchPipeline : RenderPipeline {
 
     protected override bool ContinueModal() => context.RenderThread is { IsAlive: true };
 
+    public override bool SupportsPause() => context.Work.Exists(static work => work.Pause.IsSome);
+
+    public override void PauseRendering() => Paused(paused: true);
+
+    public override void ResumeRendering() => Paused(paused: false);
+
     protected override void Dispose(bool isDisposing) =>
-        _ = context.Owner.Run(Callbacks.Each(isDisposing && mode is RunMode.Scripted
+        _ = Session.Run(Products.Each(isDisposing && mode is RunMode.Scripted
             ? Seq(IO.lift(context.Dispose), IO.lift(() => base.Dispose(isDisposing)))
             : Seq(IO.lift(() => base.Dispose(isDisposing)))));
 
+    private void Paused(bool paused) => _ = Session.Run(context.Work.Bind(static work => work.Pause).Traverse(pause => pause(paused)).As());
+
     private bool Begin(Option<Size> quiet, [CallerMemberName] string member = "") =>
-        context.Owner.Answer(
-            new RenderWindowSource.Rendering(RenderSessionId).Open(window => context.Start(
+        Session.Run(
+            from window in IO.lift(() => Conversions.Required(global::Rhino.Render.RenderWindow.FromSessionId(RenderSessionId)))
+            from started in context.Start(
                 window,
-                from world in start.Switch(
-                    (Pipeline: this, Window: window),
-                    full: static (state, _) => state.Pipeline.FullScene(state.Window),
-                    region: static (state, region) => IO.lift(() => new ViewInfo(region.View.ActiveViewport))
-                        .Bind(view => state.Pipeline.Scene(state.Window, view).Finally(IO.lift(view.Dispose))))
-                from work in engine.Open(start, quiet, window, world)
+                from view in start.Switch(
+                    document,
+                    full: static (doc, _) => from source in use(() => new RenderSourceView(doc)) from view in Products.Of(source.GetViewInfo) select view,
+                    region: static (_, region) => use(() => new ViewInfo(region.View.ActiveViewport)))
+                from feed in Scene(window, view)
+                from work in engine.Open(start, quiet, window, feed)
                 select work,
-                engine.Caption)),
+                engine.Caption)
+            select started,
             failed: false,
             member);
 
-    private IO<SceneBatch> FullScene(RenderWindow window) =>
-        IO.lift(() => new RenderSourceView(document)).Bind(source =>
-            IO.lift(() => Conversions.Found(source.GetViewInfo()))
-                .Bind(view => Scene(window, view).Finally(IO.lift(view.Dispose)))
-                .Finally(IO.lift(source.Dispose)));
-
-    private IO<SceneBatch> Scene(RenderWindow window, ViewInfo view) =>
+    private IO<DefinedChangeFeed> Scene(RenderWindow window, ViewInfo view) =>
         from size in IO.lift(window.Size)
-        from wired in when(engine.HostWireframe, RenderWindows.AddWireframe(
-            window,
-            new WireframeRegion(document, view.Viewport, start.Switch(size, full: static (whole, _) => new Rectangle(System.Drawing.Point.Empty, whole), region: static (_, region) => region.Rectangle)),
-            size)).As()
+        from wired in when(engine.HostWireframe, Products.Accepted(() => window.AddWireframeChannel(
+            document, view.Viewport, size, start.Switch(size, full: static (whole, _) => new Rectangle(default, whole), region: static (_, region) => region.Rectangle)))).As()
         from added in RenderWindows.AddRequested(window)
-        from queue in DefinedChangeFeed.Of(context.Owner, document, view, None, QueuePolicy.Render, None)
-        from built in queue.World
-        from taken in queue.Take
-        from released in release(queue)
-        select taken;
+        from feed in DefinedChangeFeed.Of(document, view, None, QueuePolicy.Render, None)
+        from built in feed.World
+        select feed;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Batches {
-    public static IO<Unit> Render(RhinoDoc doc, RunMode mode, IPlugInViews plugIn, RenderEngine engine, RenderStart start) =>
-        (from context in IO.lift(() => new AsyncContext(plugIn))
-         from pipeline in use(() => new BatchPipeline(doc, mode, plugIn.PlugIn, engine, start, context)).Catch(error => IO.lift(context.Dispose) >> IO.fail<BatchPipeline>(error))
-         from rendered in IO.lift(() => start.Switch(
+    public static IO<Result> Render(RhinoDoc doc, RunMode mode, RenderEngine engine, RenderStart start) =>
+        (from pipeline in Products.Transfer(static () => new AsyncContext(), context => use(() => new BatchPipeline(doc, mode, engine, start, context)))
+         from code in IO.lift(() => start.Switch(
              pipeline,
-             full: static (session, _) => Answered(session.Render()),
-             region: static (session, region) => Answered(session.RenderWindow(region.View, region.Rectangle, region.InWindow))))
-         select rendered).Bracket();
-
-    private static Fin<Unit> Answered(RenderPipeline.RenderReturnCode code, [CallerArgumentExpression(nameof(code))] string call = "") =>
-        code switch {
-            RenderPipeline.RenderReturnCode.Ok => unit,
-            RenderPipeline.RenderReturnCode.Cancel => Errors.Cancelled,
-            RenderPipeline.RenderReturnCode.EmptyScene => new RhinoFault(call, RhinoReason.Nothing),
-            RenderPipeline.RenderReturnCode.ExitRhino => new RhinoFault(call, RhinoReason.Exited),
-            RenderPipeline.RenderReturnCode.NoActiveView
-                or RenderPipeline.RenderReturnCode.OnPreCreateWindow
-                or RenderPipeline.RenderReturnCode.NoFrameWndPointer
-                or RenderPipeline.RenderReturnCode.ErrorCreatingWindow
-                or RenderPipeline.RenderReturnCode.ErrorStartingRender
-                or RenderPipeline.RenderReturnCode.EnterModalLoop
-                or RenderPipeline.RenderReturnCode.ExitModalLoop
-                or RenderPipeline.RenderReturnCode.InternalError => new RhinoFault($"{call} {code}", RhinoReason.Declined),
-        };
+             full: static (session, _) => session.Render(),
+             region: static (session, region) => session.RenderWindow(region.View, region.Rectangle, region.InWindow)))
+         from result in IO.lift(() => pipeline.CommandResult() switch {
+             Result.Failure => Fin.Fail<Result>(new RhinoFault(RenderPipeline.LocalizeRenderReturnCode(code), RhinoReason.Declined)),
+             var settled => settled,
+         })
+         select result).Bracket();
 }

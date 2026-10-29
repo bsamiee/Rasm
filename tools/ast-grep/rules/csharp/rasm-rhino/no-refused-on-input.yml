@@ -13,6 +13,7 @@ utils:
                     stopBy: end
                     kind: method_declaration, constructor_declaration, local_function_statement, operator_declaration
                     has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $INPUT}}}
+                    not: {has: {kind: modifier, regex: '^override$'}}
                 - not:
                     inside:
                         stopBy: end

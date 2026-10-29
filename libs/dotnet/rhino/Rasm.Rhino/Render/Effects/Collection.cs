@@ -1,32 +1,23 @@
-using System.Globalization;
-using System.Runtime.CompilerServices;
 using System.Text.Json;
-using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
-using Rasm.Rhino.UI;
+using Rasm.Rhino.Render.Views;
 using Rhino;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI.Controls;
-using Rhino.UI.Controls.DataSource;
-using DataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
 namespace Rasm.Rhino.Render.Effects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record EffectSource {
-    public HostEvent<Unit> Changed =>
-        Switch(
-            document: static held => ValueStores.Signal(EventKind.DocumentPropertiesChanged.In(held.Doc.RuntimeSerialNumber), static _ => true),
-            section: static held => ValueStores.Signal(
-                Subscriptions.Host<DataSourceEventArgs>(handler => held.Host.DataChanged += handler, handler => held.Host.DataChanged -= handler),
-                static args => args.DataType == ProviderIds.RdkRenderingPostEffects));
-
-    public sealed record Document(RhinoDoc Doc) : EffectSource;
+    public sealed record Document(RhinoDoc Doc) : EffectSource {
+        public HostEvent<Unit> Changed =>
+            Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.DocumentPropertiesChanged += h, static h => RhinoDoc.DocumentPropertiesChanged -= h)
+                .Documents().In(Doc.RuntimeSerialNumber).Choose(static _ => Some(unit));
+    }
 
     public sealed record Section(EtoPostEffectCollapsibleSection Host) : EffectSource;
 }
@@ -43,140 +34,108 @@ public abstract partial record EffectEntry {
     public sealed record Selectable(Guid Id, bool Selected) : EffectEntry(Id);
 
     internal static EffectEntry Of(PostEffectData data, Guid selected) =>
-        data.Type switch {
-            PostEffectType.Early or PostEffectType.Late => new Listed(data.Id, data.On, data.Shown),
-            PostEffectType.ToneMapping => new Selectable(data.Id, data.Id == selected),
-        };
+        data.Type is PostEffectType.ToneMapping ? new Selectable(data.Id, data.Id == selected) : new Listed(data.Id, data.On, data.Shown);
 
     internal static EffectEntry Of(PostEffect effect) =>
-        effect.PostEffectType switch {
-            PostEffectType.Early or PostEffectType.Late => new Listed(effect.Id, effect.On, effect.Shown),
-            PostEffectType.ToneMapping => new Selectable(effect.Id, effect.IsSelected),
-        };
-}
-
-[Union]
-public abstract partial record EffectRequest {
-    public sealed record Placing(EffectEntry Entry) : EffectRequest;
-
-    public sealed record Ordering(Seq<Guid> Ids) : EffectRequest;
-
-    public sealed record Tuning(Guid Id, string Key, object Value) : EffectRequest {
-        public static Tuning Of<TState>(Guid effect, TState state) where TState : notnull => new(effect, EffectList.StateKey, EffectList.Encoded(state));
-    }
+        effect.PostEffectType is PostEffectType.ToneMapping ? new Selectable(effect.Id, effect.IsSelected) : new Listed(effect.Id, effect.On, effect.Shown);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EffectList {
-    // --- [HOSTS]
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "RhinoDocumentId")]
-    internal static extern uint RhinoDocumentId([UnsafeAccessorType("Rhino.Render.Rendering, RhinoCommon")] object rendering);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetPostEffects")]
-    private static extern PostEffect[] GetPostEffects([UnsafeAccessorType("Rhino.Render.RenderingPostEffects, RhinoCommon")] object effects, PostEffectType type);
-
     // --- [ENTRIES]
+    public const string StateKey = "state";
+
     public static IO<Seq<EffectEntry>> Read(RenderSettings settings) =>
-        Within(settings, static (effects, held) => IO.lift(() => {
-            Guid selected = Selected(effects);
-            return held.Map(data => EffectEntry.Of(data, selected)).Strict();
+        Within(settings, static (effects, held) => IO.lift(() => ToneMapper(effects) switch {
+            var selected => held.Map(data => EffectEntry.Of(data, selected)).Strict(),
         }));
 
     public static IO<Seq<EffectEntry>> Read(EffectSource source) =>
         source.Switch(
             document: static held => RenderSettingsSources.Read(held.Doc, static scope => Read(scope.Settings)),
-            section: static held => Hosted(held.Host).Map(static effects => effects.Map(EffectEntry.Of)));
-
-    public static IO<Unit> Apply(RenderSettings settings, Seq<EffectRequest> requests) =>
-        Within(settings, (effects, held) => IO.lift(() => Callbacks.Each(requests, (request, _) => Applied(effects, held, request))).Map(unit));
+            section: static held => IO.lift(() => Listed(held.Host).Map(EffectEntry.Of).Strict()));
 
     // --- [STATE]
-    public const string StateKey = "state";
-
     public static IO<TState> State<TState>(RenderSettings settings, Guid effect, TState @default) where TState : notnull =>
-        Within(settings, (_, held) => IO.lift(() => Resolved(held, effect)).Bind(data => Recalled(Stored(data), @default)));
+        Within(settings, (_, held) => IO.lift(() => Resolved(held, effect)).Bind(data => Recalled(Internals.Unwrapped<string>(() => data.GetParameter(StateKey), StateKey), @default)));
 
     public static IO<TState> State<TState>(EffectSource source, Guid effect, TState @default) where TState : notnull =>
         source.Switch(
-            (Id: effect, Default: @default),
-            document: static (wanted, held) => RenderSettingsSources.Read(held.Doc, scope => Within(scope.Settings, (_, entries) =>
-                entries.Find(data => data.Id == wanted.Id).Match(
-                    Some: data => Recalled(Stored(data), wanted.Default),
-                    None: () => IO.pure(wanted.Default)))),
-            section: static (wanted, held) => Hosted(held.Host)
-                .Bind(effects => IO.lift(effects.Find(effect => effect.Id == wanted.Id).ToFin(Missing(wanted.Id))))
-                .Bind(effect => Recalled(Parameter(effect), wanted.Default)));
+            (Effect: effect, Default: @default),
+            document: static (wanted, held) => RenderSettingsSources.Read(held.Doc, scope => State(scope.Settings, wanted.Effect, wanted.Default)),
+            section: static (wanted, held) => IO.lift(() => Listed(held.Host).Find(listed => listed.Id == wanted.Effect).ToFin(Missing(wanted.Effect)))
+                .Bind(listed => Recalled(IO.lift(() => {
+                    object? value = null;
+                    return listed.GetParam(StateKey, ref value) ? Optional(value as string) : None;
+                }), wanted.Default)));
 
     public static Fin<TState> State<TState>(Rimage image, Guid effect, TState @default) where TState : notnull =>
         image.State.Find(effect).Bind(static fields => fields.Find(StateKey)).Match(Some: Decoded<TState>, None: () => @default);
 
-    public static IO<Unit> Tune(EffectSource source, Seq<EffectRequest.Tuning> tunings, object owner) =>
+    public static IO<Unit> Tune<TState>(EffectSource source, Guid effect, TState state) where TState : notnull =>
         source.Switch(
-            (Requests: tunings, Owner: owner),
-            document: static (state, held) => RenderSettingsSources.Edit(held.Doc, scope => Apply(scope.Settings, state.Requests.Map(static request => (EffectRequest)request)), state.Owner),
-            section: static (state, held) => SectionModels.Write(held.Host, Provider.RdkRenderingPostEffects, data => IO.lift(() => Listed(data) switch {
-                var effects => Callbacks.Each(state.Requests, (request, _) => effects.Find(effect => effect.Id == request.Id).ToFin(Missing(request.Id))
-                    .Bind(effect => RhinoFault.Unless(effect.SetParam(request.Key, request.Value)))),
-            }).Map(unit)));
+            (Effect: effect, Text: Encoded(state)),
+            document: static (tuned, held) => RenderSettingsSources.Edit(held.Doc, scope => Edit(scope.Settings, [Tuned(tuned.Effect, tuned.Text)])),
+            section: static (tuned, held) => SectionModels.Write(held.Host, Provider.RdkRenderingPostEffects, _ =>
+                IO.lift(() => Listed(held.Host).Find(listed => listed.Id == tuned.Effect).ToFin(Missing(tuned.Effect)))
+                    .Bind(listed => Products.Accepted(() => listed.SetParam(StateKey, tuned.Text)))));
 
+    // --- [EDITS]
+    public static IO<Unit> Edit(RenderSettings settings, Seq<Step<PostEffectCollection>> steps) =>
+        (from effects in Products.Of(() => settings.PostEffects)
+         from edited in Edits.Apply(Stages.InPlace<PostEffectCollection>(), effects, steps)
+         select unit).Bracket();
+
+    public static Step<PostEffectCollection> Shown(Guid effect, bool on, bool shown) =>
+        new(effects => Found(effects, effect).Map(data => {
+            data.On = on;
+            data.Shown = shown;
+            return effects;
+        }), $"shown {effect} = ({on}, {shown})");
+
+    public static Step<PostEffectCollection> Selected(Guid effect) =>
+        new(effects => Found(effects, effect).Map(_ => {
+            effects.SetSelectedPostEffect(Internals.ToneMappingStage, effect);
+            return effects;
+        }), $"selected {effect}");
+
+    public static Step<PostEffectCollection> Ordered(Seq<Guid> ids) =>
+        new(effects => IO.lift(() => Products.Each(ids, (id, index) => RhinoFault.Unless(effects.MovePostEffectBefore(id, Guid.Empty), RhinoReason.Declined, id, index))).Map(_ => effects),
+            $"ordered {ids}");
+
+    public static Step<PostEffectCollection> Tuned<TState>(Guid effect, TState state) where TState : notnull => Tuned(effect, Encoded(state));
+
+    private static Step<PostEffectCollection> Tuned(Guid effect, string text) =>
+        new(effects => Found(effects, effect).Bind(data => Products.Accepted(() => data.SetParameter(StateKey, text))).Map(_ => effects), $"tuned {effect}");
+
+    // --- [CODEC]
     internal static string Encoded<TState>(TState state) where TState : notnull => JsonSerializer.Serialize(state, ArchivableDictionaries.Options);
 
     internal static Fin<TState> Decoded<TState>(string text) where TState : notnull =>
         ArchivableDictionaries.Decoded(typeof(TState).Name, () => JsonSerializer.Deserialize<TState>(text, ArchivableDictionaries.Options));
 
+    internal static Guid ToneMapper(Option<Guid> chosen) => chosen.Bind(Conversions.Present).IfNone(static () => PostEffectUuids.ToneMapper_Clamp);
+
     private static IO<TState> Recalled<TState>(IO<Option<string>> stored, TState @default) where TState : notnull =>
         stored.Bind(text => IO.lift(text.Match(Some: Decoded<TState>, None: () => (Fin<TState>)@default)));
 
     // --- [SCOPE]
+    private static Seq<PostEffect> Listed(EtoPostEffectCollapsibleSection host) =>
+        toSeq(Enum.GetValues<PostEffectType>()).Bind(type => toSeq(host.GetPostEffects(type))).Strict();
+
     private static IO<A> Within<A>(RenderSettings settings, Func<PostEffectCollection, Seq<PostEffectData>, IO<A>> body) =>
-        (from effects in unitIO.Bind(_ => Products.Made(settings.PostEffects))
-         from held in Products.Made<PostEffectData>(effects)
+        (from effects in Products.Of(() => settings.PostEffects)
+         from held in Products.Many(() => effects, required: false)
          from value in body(effects, held)
          select value).Bracket();
 
-    private static IO<Seq<PostEffect>> Hosted(EtoPostEffectCollapsibleSection host) =>
-        SectionModels.Read(host, Provider.RdkRenderingPostEffects, static effects => IO.lift(() => Listed(effects)));
+    private static Guid ToneMapper(PostEffectCollection effects) =>
+        ToneMapper(Conversions.Present(effects.GetSelectedPostEffect(Internals.ToneMappingStage, out Guid id), id));
 
-    private static Seq<PostEffect> Listed(IDisposable effects) =>
-        toSeq(Enum.GetValues<PostEffectType>()).Bind(type => toSeq(GetPostEffects(effects, type))).Strict();
+    private static Fin<PostEffectData> Resolved(Seq<PostEffectData> held, Guid id) => held.Find(data => data.Id == id).ToFin(Missing(id));
 
-    private static Fin<PostEffectData> Resolved(Seq<PostEffectData> held, Guid id) =>
-        held.Find(data => data.Id == id).ToFin(Missing(id));
+    private static IO<PostEffectData> Found(PostEffectCollection effects, Guid id) =>
+        Products.Many(() => effects, required: false).Bind(held => IO.lift(() => Resolved(held, id)));
 
     private static RhinoFault Missing(Guid id) => new($"post effect {id}", RhinoReason.Missing);
-
-    // --- [PARAMETERS]
-    private static IO<Option<string>> Stored(PostEffectData data) =>
-        IO.lift(() => Optional(data.GetParameter(StateKey))).Bind(static found =>
-            IO.lift(() => found.Map(static variant => variant.ToString(CultureInfo.InvariantCulture)))
-                .Finally(IO.lift(() => found.Iter(static variant => ((IDisposable)variant).Dispose()))));
-
-    private static IO<Option<string>> Parameter(PostEffect effect) =>
-        IO.lift(() => {
-            object? value = null;
-            return effect.GetParam(StateKey, ref value) ? Optional(value as string) : None;
-        });
-
-    // --- [REQUESTS]
-    private const PostEffectType ToneMappingNode = PostEffectType.ToneMapping + 1;
-
-    private static Fin<Unit> Applied(PostEffectCollection effects, Seq<PostEffectData> held, EffectRequest request) =>
-        request.Switch(
-            (Effects: effects, Held: held),
-            placing: static (scope, placing) => Resolved(scope.Held, placing.Entry.Id).Map(data => placing.Entry.Switch(
-                (scope.Effects, Data: data),
-                listed: static (target, listed) => {
-                    target.Data.On = listed.On;
-                    target.Data.Shown = listed.Shown;
-                    return unit;
-                },
-                selectable: static (target, selectable) => {
-                    if (selectable.Selected) target.Effects.SetSelectedPostEffect(ToneMappingNode, selectable.Id);
-                    return unit;
-                })),
-            ordering: static (scope, ordering) => Callbacks.Each(ordering.Ids, (id, index) => RhinoFault.Unless(scope.Effects.MovePostEffectBefore(id, Guid.Empty), index)).Map(static _ => unit),
-            tuning: static (scope, tuning) => Resolved(scope.Held, tuning.Id).Bind(data => RhinoFault.Unless(data.SetParameter(tuning.Key, tuning.Value))));
-
-    private static Guid Selected(PostEffectCollection effects) =>
-        Conversions.Found(effects.GetSelectedPostEffect(ToneMappingNode, out Guid id), id).Bind(Conversions.Present).IfNone(static () => PostEffectUuids.ToneMapper_Clamp);
 }

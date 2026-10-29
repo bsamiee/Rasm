@@ -1,107 +1,93 @@
 using System.Drawing;
 using Rasm.Drafting;
+using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.Display;
 
 namespace Rasm.Rhino.Viewport.Printing;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union]
-public abstract partial record CaptureSubject {
-    public sealed record View(Size Media, double Density) : CaptureSubject;
-
-    public sealed record Page(double Density) : CaptureSubject;
+public sealed record CaptureRequest(double Density, Seq<Step<ViewCaptureSettings>> Steps) {
+    public Option<Size> Media { get; init; }
 }
-
-[Union]
-public abstract partial record CaptureArea {
-    public sealed record FullView() : CaptureArea;
-
-    public sealed record Extents() : CaptureArea;
-
-    public sealed record ScreenWindow(Point2d First, Point2d Second) : CaptureArea;
-
-    public sealed record WorldWindow(Point3d First, Point3d Second) : CaptureArea;
-}
-
-[Union]
-public abstract partial record CaptureScale {
-    public sealed record ToValue(DrawingScale Scale) : CaptureScale;
-
-    public sealed record ToFit() : CaptureScale;
-}
-
-[Union]
-public abstract partial record MediaLayout {
-    public sealed record Crop(Rectangle CropRectangle) : MediaLayout;
-
-    public sealed record Margins(PrinterMargins Inset) : MediaLayout;
-
-    public sealed record Maximize() : MediaLayout;
-
-    public sealed record MatchViewport() : MediaLayout;
-}
-
-public sealed record MediaOffset(ViewCaptureSettings.AnchorLocation Anchor, bool FromMargin, Length X, Length Y);
-
-public sealed record CaptureRequest(CaptureArea Area, Option<CaptureScale> Scale, Seq<MediaLayout> Layout, Option<MediaOffset> Offset, Func<ViewCaptureSettings, Fin<Unit>> Options);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ViewCaptures {
     // --- [SETTINGS]
-    public static IO<ViewCaptureSettings> Settings(ViewportRef row, CaptureSubject subject, CaptureRequest request) =>
-        Valid(
-            IO.lift(() => subject.Switch(
-                row,
-                view: static (target, view) => Framed(target, new ViewCaptureSettings(target.View, view.Media, view.Density)),
-                page: static (target, page) => Conversions.Cast<RhinoPageView>(target.View).Map(pageView => new ViewCaptureSettings(pageView, page.Density)))),
-            Some((ViewCaptureSettings settings) => Configured(row, settings, request)));
+    private static readonly Stage<ViewCaptureSettings> Scratch = new(
+        Copy: IO.pure,
+        Unchanged: static (_, _) => false,
+        Commit: static (_, staged) => Products.Accepted(() => staged.IsValid).Map(_ => staged));
 
-    public static IO<ViewCaptureSettings> Preview(ViewCaptureSettings basis, Size pixels) =>
-        Valid(IO.lift(() => Conversions.Found(basis.CreatePreviewSettings(pixels))), None);
-
-    private static ViewCaptureSettings Framed(ViewportRef row, ViewCaptureSettings settings) {
-        if (row.Viewport.ViewportType is ViewportType.DetailViewport || row.Viewport.ParentView is null)
-            settings.SetViewport(row.Viewport);
-        return settings;
-    }
-
-    private static IO<ViewCaptureSettings> Valid(IO<ViewCaptureSettings> create, Option<Func<ViewCaptureSettings, IO<Unit>>> configure) =>
-        from settings in create.Bind(static made => use(() => made))
-        from configured in configure.Traverse(step => step(settings)).As()
-        from valid in IO.lift(() => RhinoFault.Unless(settings.IsValid))
-        select settings;
-
-    private static IO<Unit> Configured(ViewportRef row, ViewCaptureSettings settings, CaptureRequest request) =>
-        from framed in IO.lift(() => {
+    public static IO<ViewCaptureSettings> Settings(ViewportRef row, CaptureRequest request) =>
+        from settings in Products.Of(() => row.View is RhinoPageView page && row.Viewport.ViewportType is ViewportType.PageViewMainViewport
+            ? new ViewCaptureSettings(page, request.Density)
+            : new ViewCaptureSettings(row.View, request.Media.IfNone(() => row.Viewport.Size), request.Density))
+        from bound in IO.lift(() => {
+            if (row.Viewport.ViewportType is ViewportType.DetailViewport || row.Viewport.ParentView is null)
+                settings.SetViewport(row.Viewport);
             if (row.Viewport.ParentView is null)
                 settings.Document = row.View.Document;
-            request.Area.Switch(
-                settings,
-                fullView: static (target, _) => target.ViewArea = ViewCaptureSettings.ViewAreaMapping.View,
-                extents: static (target, _) => target.ViewArea = ViewCaptureSettings.ViewAreaMapping.Extents,
-                screenWindow: static (target, window) => { target.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window; target.SetWindowRect(window.First, window.Second); },
-                worldWindow: static (target, window) => { target.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window; target.SetWindowRect(window.First, window.Second); });
         })
-        from laid in request.Layout.TraverseM(layout => layout.Switch(
-            settings,
-            crop: static (target, crop) => IO.lift(() => target.SetLayout(target.MediaSize, crop.CropRectangle)),
-            margins: static (target, margins) => IO.lift(() => RhinoFault.Unless(
-                target.SetMargins(UnitSystem.Millimeters, Millimeters(margins.Inset.Left), Millimeters(margins.Inset.Top), Millimeters(margins.Inset.Right), Millimeters(margins.Inset.Bottom)))),
-            maximize: static (target, _) => IO.lift(target.MaximizePrintableArea),
-            matchViewport: static (target, _) => IO.lift(() => RhinoFault.Unless(target.MatchViewportAspectRatio())))).As()
-        from placed in IO.lift(() => {
-            _ = request.Offset.Iter(offset => {
-                settings.OffsetAnchor = offset.Anchor;
-                settings.SetOffset(UnitSystem.Millimeters, offset.FromMargin, Millimeters(offset.X), Millimeters(offset.Y));
-            });
-            _ = request.Scale.Iter(scale => scale.Switch(
-                settings,
-                toValue: static (target, value) => target.SetModelScaleToValue(Millimeters(value.Scale.ToModel(Length.FromMillimeters(1)))),
-                toFit: static (target, _) => target.SetModelScaleToFit(promptOnChange: false)));
-        })
-        from edited in IO.lift(() => request.Options(settings))
-        select edited;
+        from applied in Edits.Apply(Scratch, settings, request.Steps)
+        select applied;
+
+    // --- [STEPS]
+    public static Step<ViewCaptureSettings> Window(Point2d first, Point2d second) =>
+        Steps.Of<ViewCaptureSettings>(settings => {
+            settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window;
+            settings.SetWindowRect(first, second);
+            return true;
+        });
+
+    public static Step<ViewCaptureSettings> Window(Point3d first, Point3d second) =>
+        Steps.Of<ViewCaptureSettings>(settings => {
+            settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window;
+            settings.SetWindowRect(first, second);
+            return true;
+        });
+
+    public static Step<ViewCaptureSettings> Margins(PrinterMargins inset) =>
+        Steps.Of<ViewCaptureSettings>(settings => settings.SetMargins(UnitSystem.Millimeters, Millimeters(inset.Left), Millimeters(inset.Top), Millimeters(inset.Right), Millimeters(inset.Bottom)));
+
+    public static Step<ViewCaptureSettings> Offset(ViewCaptureSettings.AnchorLocation anchor, bool fromMargin, Length x, Length y) =>
+        Steps.Of<ViewCaptureSettings>(settings => {
+            settings.OffsetAnchor = anchor;
+            settings.SetOffset(UnitSystem.Millimeters, fromMargin, Millimeters(x), Millimeters(y));
+            return true;
+        });
+
+    public static Step<ViewCaptureSettings> Scaled(DrawingScale scale) =>
+        Steps.Of<ViewCaptureSettings>(settings => {
+            settings.SetModelScaleToValue(Millimeters(scale.ToModel(Length.FromMillimeters(1))));
+            return true;
+        });
 
     private static double Millimeters(Length length) => length.Millimeters.ToDouble();
+
+    // --- [SCOPE]
+    public static IO<T> Clean<T>(RhinoDoc doc, ViewportSet views, IO<T> body) =>
+        (from selected in ObjectTarget.Selection(doc)
+         from rows in Viewports.Resolve(doc, views)
+         from overlays in IO.lift(() => rows.Bind(Overlays).Strict())
+         from pages in IO.lift(() => toSeq(rows.Choose(static row => Optional(row.View as RhinoPageView)).DistinctBy(static page => page.RuntimeSerialNumber))
+             .Map(static page => (Page: page, Active: Conversions.Present(page.ActiveDetailId))).Strict())
+         let restores = overlays.Map(static overlay => overlay.Restore)
+             + pages.Map(static held => held.Active.Match(Some: id => Products.Accepted(() => held.Page.SetActiveDetail(id)), None: () => IO.lift(held.Page.SetPageAsActive)))
+             + Seq(ObjectTarget.Reselected(selected))
+         from value in Products.Each(overlays.Map(static overlay => overlay.Clear) + pages.Map(static held => IO.lift(held.Page.SetPageAsActive)) + Seq(IO.lift(() => ignore(doc.Objects.UnselectAll()))))
+             .Bind(_ => body)
+             .Finally(Products.Each(restores).Map(unit))
+         select value).Bracket();
+
+    private static Seq<(IO<Unit> Clear, IO<Unit> Restore)> Overlays(ViewportRef row) =>
+        Seq(
+            Overlay(() => row.Viewport.ConstructionGridVisible, value => row.Viewport.ConstructionGridVisible = value),
+            Overlay(() => row.Viewport.ConstructionAxesVisible, value => row.Viewport.ConstructionAxesVisible = value),
+            Overlay(() => row.Viewport.WorldAxesVisible, value => row.Viewport.WorldAxesVisible = value));
+
+    private static (IO<Unit> Clear, IO<Unit> Restore) Overlay(Func<bool> read, Action<bool> write) =>
+        read() switch {
+            var held => (IO.lift(() => write(false)), IO.lift(() => write(held))),
+        };
 }

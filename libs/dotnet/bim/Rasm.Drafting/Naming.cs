@@ -6,6 +6,7 @@ namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[ValidationError<DraftingFault>]
 public sealed partial class Discipline {
     public static readonly Discipline General = new("G");
     public static readonly Discipline HazardousMaterials = new("H");
@@ -79,6 +80,7 @@ public abstract partial record NameLayout {
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[ValidationError<DraftingFault>]
 public sealed partial class NamingStandard {
     private const string UppercaseLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private const string LowercaseLetters = "abcdefghijklmnopqrstuvwxyz";

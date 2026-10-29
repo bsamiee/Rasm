@@ -1,5 +1,4 @@
 using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Persistence.Stores;
 using Rhino.PlugIns;
 using Rhino.UI;
 
@@ -11,6 +10,8 @@ namespace Rasm.Rhino.Persistence;
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [ValidationError<RhinoFault>]
 public sealed partial class PresetName {
+    public static Fin<PresetName> Validated(string value) => TryCreate(value, out PresetName? name, out RhinoFault? fault) ? name : fault;
+
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
         (value, validationError) = value.TrimOrNullify() is { } trimmed && !trimmed.AsSpan().ContainsAny(NamePart.Reserved)
             ? (trimmed, default(RhinoFault?))
@@ -38,27 +39,24 @@ public sealed record PresetShelf(Seq<Preset> Stock, Map<PresetName, Preset> User
     public static bool Matches(ValueSet values, ValueSet captured, HashSet<EntryKey> locks) =>
         values.Entries.Exists((key, _) => captured.Entries.ContainsKey(key) && !locks.Contains(key)) && Preview(values, captured, locks).Changes.IsEmpty;
 
-    private static Seq<Preset> Sorted(Seq<Preset> presets) {
-        Preset[] ordered = [.. presets];
-        ordered.AsSpan().Sort(static (left, right) => Localization.LogicalSort(left.Name, right.Name));
-        return toSeq(ordered);
-    }
+    private static Seq<Preset> Sorted(Seq<Preset> presets) =>
+        toSeq(presets.OrderBy(static preset => (string)preset.Name, System.Collections.Generic.Comparer<string>.Create(Localization.LogicalSort)));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<ValueSet> Shown, IO<HashSet<EntryKey>> Locked, Func<ValueSet, IO<ValueDiff>> Commit) {
     private const string Extension = ".json";
 
-    public static DirectoryInfo Under(PlugIn plugIn, string owner) => new(Path.Combine(plugIn.SettingsDirectory, "Presets", owner));
+    public static DirectoryInfo SettingsFolder(PlugIn plugIn, string owner) => new(Path.Combine(plugIn.SettingsDirectory, "Presets", owner));
 
     // --- [READS]
     public IO<PresetShelf> Shelf =>
         from saved in Listed(Folder)
         select new PresetShelf(Stock, saved);
 
-    public IO<Option<Preset>> Current => Shelf.Bind(Matched);
+    public IO<Option<Preset>> Current => Shelf.Bind(CurrentIn);
 
-    private IO<Option<Preset>> Matched(PresetShelf shelf) =>
+    private IO<Option<Preset>> CurrentIn(PresetShelf shelf) =>
         from captured in Shown
         from locks in Locked
         select shelf.Current(captured, locks);
@@ -68,7 +66,7 @@ public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<V
 
     public IO<ValueDiff> Stepped(int steps) =>
         from shelf in Shelf
-        from current in Matched(shelf)
+        from current in CurrentIn(shelf)
         let listed = shelf.Listed
         let at = current.Map(held => listed.TakeWhile(preset => preset != held).Count).IfNone(steps > 0 ? -1 : 0)
         from diff in (listed.IsEmpty ? Option<Preset>.None : listed.At((((at + steps) % listed.Count) + listed.Count) % listed.Count))
@@ -97,7 +95,7 @@ public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<V
         select deleted;
 
     public IO<Preset> Import(FileInfo source) =>
-        IO.lift(PresetName.TryCreate(Path.GetFileNameWithoutExtension(source.Name), out PresetName? held, out RhinoFault? fault) ? Fin.Succ(held) : fault).Bind(name => Added(name, IO.lift(() => Read(source))));
+        IO.lift(PresetName.Validated(Path.GetFileNameWithoutExtension(source.Name))).Bind(name => Added(name, IO.lift(() => Read(source))));
 
     public static IO<Unit> Export(Preset preset, FileInfo target) =>
         IO.lift(() => preset.File.Match(Some: Read, None: () => preset.Values)).Bind(values => Written(target, values, overwrite: true));
@@ -117,7 +115,7 @@ public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<V
         IO.lift(() => toSeq(folder.EnumerateFiles($"*{Extension}")).Strict())
             .Catch(static error => error.HasException<DirectoryNotFoundException>(), static _ => IO.pure(Seq<FileInfo>()))
             .Map(static files => files
-                .Map(static file => (PresetName.TryCreate(Path.GetFileNameWithoutExtension(file.Name), out PresetName? held) ? Some(held) : None)
+                .Map(static file => PresetName.Validated(Path.GetFileNameWithoutExtension(file.Name)).ToOption()
                     .Map(name => (Name: name, Preset: new Preset(name, Read(file)) { File = Some(file) })))
                 .Somes().Strict())
             .Bind(static rows => IO.lift(Conversions.Unique(rows, static row => row.Name)))
@@ -128,5 +126,5 @@ public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<V
             .Bind(text => ValueSet.Read(text).MapFail(cause => new RhinoFault(file.FullName, RhinoReason.Unreadable, Inner: cause)));
 
     private static IO<Unit> Written(FileInfo file, ValueSet values, bool overwrite) =>
-        IO.lift(OutputPath.Of(file.FullName)).Bind(path => JsonFiles.Write(path, values, ValueSetContext.Default.ValueSet, overwrite));
+        IO.lift(OutputPath.Of(file.FullName)).Bind(path => FilePublication.Write(path, values, ValueSetContext.Default.ValueSet, overwrite));
 }

@@ -1,79 +1,38 @@
-using System.Globalization;
-using System.Runtime.Intrinsics;
+using System.Numerics;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Factorization;
 
 namespace Rasm.Imaging.Color.Calibration;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ChartTransform(Matrix<double> Matrix, double Stops);
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record FitTarget {
-    public sealed record Reference(Gamut Gamut) : FitTarget;
-    public sealed record Sampled(ChartSamples Samples) : FitTarget;
-}
-
-public sealed record FitQuality((double Largest, double Middle, double Smallest) SampleValues, (double Largest, double Middle, double Smallest) TransformValues) {
-    public double Condition => TransformValues.Largest / TransformValues.Smallest;
-    public bool IllConditioned => Condition > 1e4;
+public sealed record ChartTransform(Matrix4x4 Matrix, float Stops) {
+    public Fin<ChartTransform> Inverse => Matrix4x4.Invert(Matrix, out Matrix4x4 inverse) ? new ChartTransform(inverse, -Stops) : ImagingFault.Of(ImagingReason.NoInverse, Matrix);
 }
 
 public sealed record ChartFit {
-    private readonly (double Source, double Target) neutrals;
+    private ChartFit(ChartTransform transform, double condition, Fin<ChartTransform> normalized) => (Transform, Condition, Normalized) = (transform, condition, normalized);
 
-    private ChartFit(Matrix<double> forward, Matrix<double> inverse, FitQuality quality, (double Source, double Target) neutrals) =>
-        (Forward, Inverse, Quality, this.neutrals) = (forward, inverse, quality, neutrals);
+    public ChartTransform Transform { get; }
+    public double Condition { get; }
+    public Fin<ChartTransform> Normalized { get; }
 
-    public Matrix<double> Forward { get; }
-    public Matrix<double> Inverse { get; }
-    public FitQuality Quality { get; }
-
-    public Fin<double> Gain =>
-        neutrals switch {
-            ( > 0d, > 0d) and var (source, target) => target / source,
-            var (source, target) => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"neutral patch luminances {source} and {target}"), ImagingReason.Range),
-        };
-
-    public ChartTransform Transform(FitDirection direction) => direction.Of(this, 1d);
-    public Fin<ChartTransform> Normalized(FitDirection direction) => Gain.Map(gain => direction.Of(this, gain));
-
-    public static Fin<ChartFit> Solve(ChartSamples source, FitTarget target) {
-        (Matrix<double> rows, double neutral) = Operand(source.Gamut, source.Patches);
-        Svd<double> fitted = rows.Svd();
+    public static Fin<ChartFit> Solve(ChartSamples source, ChartSamples target) {
+        Svd<double> fitted = Rows(source).Svd();
         return
-            from targets in (
-                    target.Switch<ColorChart, Fin<(Matrix<double> Rows, double Neutral)>>(
-                        source.Chart,
-                        reference: static (chart, reference) => Operand(reference.Gamut, chart.References(reference.Gamut)),
-                        sampled: static (chart, sampled) =>
-                            sampled.Samples.Chart == chart ? Operand(sampled.Samples.Gamut, sampled.Samples.Patches) : new ImagingFault($"source chart {chart} against target chart {sampled.Samples.Chart}", ImagingReason.Mismatch)),
-                    fitted.Rank is 3
-                        ? Fin.Succ(unit)
-                        : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"chart samples at rank {fitted.Rank}"), ImagingReason.Degenerate))
-                .Apply(static (operand, _) => operand)
-                .As()
-            let transform = fitted.Solve(targets.Rows)
-            let decomposed = transform.Svd()
-            from _ in guard<Error>(decomposed.Rank is 3, new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"fitted transform at rank {decomposed.Rank}"), ImagingReason.Degenerate))
-            select new ChartFit(
-                transform.Transpose(), decomposed.Solve(Matrix<double>.Build.DenseIdentity(3)).Transpose(),
-                new FitQuality((fitted.S[0], fitted.S[1], fitted.S[2]), (decomposed.S[0], decomposed.S[1], decomposed.S[2])),
-                (neutral, targets.Neutral));
+            from solved in (ImagingFault.Unless(source.Chart == target.Chart, ImagingReason.Mismatch, (source.Chart, target.Chart)), ImagingFault.Unless(fitted.Rank is 3, ImagingReason.Degenerate, fitted.Rank))
+                .Apply((_, _) => fitted.Solve(Rows(target))).As()
+            let decomposed = solved.Svd()
+            from transform in ImagingFault.Unless(decomposed.Rank is 3, ImagingReason.Degenerate, decomposed.Rank).Map(_ => Lowered(solved.ToRowMajorArray()))
+            let neutrals = (Source: Neutral(source), Target: Neutral(target))
+            select new ChartFit(new(transform, 0f), decomposed.ConditionNumber, neutrals.Source > 0f && neutrals.Target > 0f
+                ? new ChartTransform(Matrix4x4.CreateScale(neutrals.Source / neutrals.Target) * transform, float.Log2(neutrals.Target / neutrals.Source))
+                : ImagingFault.Of(ImagingReason.Range, neutrals));
     }
 
-    private static (Matrix<double> Rows, double Neutral) Operand(Gamut gamut, HashMap<ChartPatch, (double R, double G, double B)> colors) =>
-        (Matrix<double>.Build.DenseOfRowArrays(toSeq(ChartPatch.Items).Map(patch => colors[patch] switch { var (r, g, b) => new[] { r, g, b } })),
-         colors[ChartPatch.Neutral5] switch {
-             var (r, g, b) => Vector256.Dot(gamut.Luminance, Vector256.Create(r, g, b, 0d)),
-         });
-}
+    private static Matrix<double> Rows(ChartSamples samples) => Matrix<double>.Build.DenseOfRowArrays(samples.Patches.Map(static patch => new double[] { patch.X, patch.Y, patch.Z }));
 
-[SmartEnum<string>]
-public sealed partial class FitDirection {
-    public static readonly FitDirection Forward = new("forward", static (fit, gain) => new(fit.Forward.Divide(gain), double.Log2(gain)));
-    public static readonly FitDirection Inverse = new("inverse", static (fit, gain) => new(fit.Inverse.Multiply(gain), -double.Log2(gain)));
+    private static float Neutral(ChartSamples samples) => Vector3.Dot(samples.Gamut.Luminance, samples.Patches[samples.Chart.Neutral]);
 
-    [UseDelegateFromConstructor]
-    internal partial ChartTransform Of(ChartFit fit, double gain);
+    private static Matrix4x4 Lowered(double[] m) =>
+        new((float)m[0], (float)m[1], (float)m[2], 0f, (float)m[3], (float)m[4], (float)m[5], 0f, (float)m[6], (float)m[7], (float)m[8], 0f, 0f, 0f, 0f, 1f);
 }

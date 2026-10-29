@@ -1,9 +1,6 @@
 using Eto.Forms;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.UI;
 using Rhino.UI.Controls;
@@ -29,7 +26,7 @@ public sealed partial class NumberScale {
 }
 
 public sealed record NumberRange(double Low, double High) {
-    private const double Divisions = 100d;
+    internal const double Divisions = 100d;
 
     public Option<double> Step { get; init; }
     public Option<int> Decimals { get; init; }
@@ -69,47 +66,29 @@ internal sealed class ScaledField(NumberRange range) : NumericUpDownWithUnitPars
         };
 }
 
+internal sealed class DocumentUnits : ViewModel;
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class NumberFields {
     // --- [SCALARS]
-    public static IO<(NumericUpDownWithUnitParsing Control, Func<double, IO<Unit>> Show)> Scalar(NumberRange range, Func<Edit<double>, IO<Unit>> edited, IPlugInLifetime owner) =>
-        from field in Field(() => new ScaledField(range), owner)
+    public static IO<(NumericUpDownWithUnitParsing Control, Func<double, IO<Unit>> Show)> Scalar(NumberRange range, Func<Edit<double>, IO<Unit>> edited) =>
+        from field in use(() => Values.Fielded(new ScaledField(range)))
         from ranged in IO.lift(() => range.Applied(field))
-        from change in Changes(field, edited, static field => field.Value, owner)
-        select (field, (Func<double, IO<Unit>>)(value => change.Detached(IO.lift(() => { field.Value = value; }))));
+        from digits in Values.Digits(field)
+        from show in Values.Bound(field, Values.Numeric(field), Values.Stepping, None, None, edited)
+        select (Control: (NumericUpDownWithUnitParsing)field, Show: (Func<double, IO<Unit>>)(value => show(Some(value))));
 
     // --- [DISTANCES]
-    public static IO<(NumericUpDownWithUnitParsing Control, Func<Length, IO<Unit>> Show)> Distance(
-        RhinoDoc doc, (Length Low, Length High) domain, bool modelUnits, Func<Edit<Length>, IO<Unit>> edited, IPlugInLifetime owner) =>
-        from field in Field(static () => new NumericUpDownWithUnitParsing(), owner)
-        from units in IO.lift(() => modelUnits ? doc.ModelUnits : doc.PageUnits)
-        let measured = IO.lift(() => {
-            NumericUpDownWithUnitParsing.GetFormatLengthUnits(doc, out LengthUnit lengthUnits, out DistanceDisplayMode mode, !modelUnits);
-            field.SetFormatLengthUnits(lengthUnits, mode);
-            (field.UseDistanceDisplayMode, field.MinValue, field.MaxValue) = (true, Quantities.As(domain.Low, units), Quantities.As(domain.High, units));
+    public static IO<Unit> Measured(NumericUpDownWithUnitParsing field, RhinoDoc doc, bool modelUnits) =>
+        from units in IO.lift(static () => new DocumentUnits())
+        from bound in IO.lift(() => {
+            field.DataContext = units;
+            if (modelUnits) field.UseViewModelUnits(units);
+            else field.UseViewPageUnits(units);
+            units.UnitsDistanceDisplayAndPrecisionFromDoc(doc);
         })
-        from first in measured
-        from remeasured in EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber).Inline(_ => measured, owner)
-        from change in Changes(field, edited, field => Quantities.From(field.Value, units), owner)
-        select (field, (Func<Length, IO<Unit>>)(value => change.Detached(IO.lift(() => { field.Value = Quantities.As(value, units); }))));
-
-    // --- [REALIZE]
-    private static IO<NumericUpDownWithUnitParsing> Field(Func<NumericUpDownWithUnitParsing> create, IPlugInLifetime owner) =>
-        from field in use(create)
-        from mode in IO.lift(() => {
-            field.ValueUpdateMode = NumericUpDownWithUnitParsingUpdateMode.OnValueChange | NumericUpDownWithUnitParsingUpdateMode.WhenDoneChanging | NumericUpDownWithUnitParsingUpdateMode.OnEnterOrLoseFocus;
-        })
-        from digits in HostTheme.In(field).Inline(_ => IO.lift(() => { field.Font = HostPlatform.Current.Digits(field.Font); }), owner)
-        select field;
-
-    private static IO<ControlChange<EventArgs>> Changes<TValue>(NumericUpDownWithUnitParsing field, Func<Edit<TValue>, IO<Unit>> edited, Func<NumericUpDownWithUnitParsing, TValue> read, IPlugInLifetime owner)
-        where TValue : notnull =>
-        ControlChange<EventArgs>.Attached(
-            Subscriptions.Merged(
-                Subscriptions.Host<EventArgs>(h => field.ValueChanged += h, h => field.ValueChanged -= h),
-                Subscriptions.Host<NumericUpDownWithUnitParsingEventArgs>(h => field.SteppingDone += h, h => field.SteppingDone -= h).Choose(static _ => Some(EventArgs.Empty)),
-                Subscriptions.Host<NumericUpDownWithUnitParsingEventArgs>(h => field.TextChangingDone += h, h => field.TextChangingDone -= h).Choose(static _ => Some(EventArgs.Empty))),
-            _ => IO.lift(() => (Value: read(field), Previewing: field.IsStepping || field.IsTextChanging))
-                .Bind(held => edited(held.Previewing ? Edits.Preview(held.Value) : Edits.Commit(held.Value))),
-            owner);
+        from followed in Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.DocumentPropertiesChanged += h, static h => RhinoDoc.DocumentPropertiesChanged -= h)
+            .Documents().In(doc.RuntimeSerialNumber)
+            .Attach(_ => IO.lift(() => units.UnitsDistanceDisplayAndPrecisionFromDoc(doc)).OnUiThread())
+        select unit;
 }

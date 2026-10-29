@@ -1,60 +1,9 @@
-using System.Globalization;
 using Rasm.Rhino.Document.Units;
 
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record Proximity {
-    public sealed record OnCurve(Curve Geometry) : Proximity;
-
-    public sealed record OnSurface : Proximity {
-        private OnSurface(Surface geometry) => Geometry = geometry;
-
-        public Surface Geometry { get; }
-
-        public static Fin<OnSurface> Validated(Surface geometry) =>
-            geometry is Extrusion { CapCount: > 0 and var caps }
-                ? new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{geometry.ObjectType} with {caps} caps"), RhinoReason.Mismatched)
-                : new OnSurface(geometry);
-    }
-
-    public sealed record OnFace(BrepFace Geometry) : Proximity;
-
-    public sealed record OnBrep(Brep Geometry) : Proximity;
-
-    public sealed record OnMesh(Mesh Geometry) : Proximity;
-
-    public sealed record OnSubD(SubD Geometry) : Proximity;
-
-    public sealed record OnCloud(PointCloud Geometry) : Proximity;
-
-    public Seq<Option<Point3d>> Nearest(Seq<Point3d> points, Option<double> limit) =>
-        Switch(
-            limit switch {
-                var held => (Points: points, Limit: held, Bound: held.IfNone(0d)),
-            },
-            onCurve: static (at, of) => at.Points.Map(point => at.Limit
-                .Match(
-                    Some: distance => Conversions.Found(of.Geometry.ClosestPoint(point, out double t, distance), t),
-                    None: () => Conversions.Found(of.Geometry.ClosestPoint(point, out double t), t))
-                .Map(of.Geometry.PointAt)).Strict(),
-            onSurface: static (at, of) => at.Points.Map(point => Conversions.Found(of.Geometry.ClosestPoint(point, out double u, out double v), (U: u, V: v))
-                .Map(uv => of.Geometry.PointAt(uv.U, uv.V))
-                .Filter(found => at.Limit.ForAll(distance => point.DistanceTo(found) <= distance))).Strict(),
-            onFace: static (at, of) => at.Points.Map(point => Conversions.Found(of.Geometry.ClosestPointOnFace(point, out double u, out double v, at.Bound), (U: u, V: v))
-                .Map(uv => of.Geometry.PointAt(uv.U, uv.V))).Strict(),
-            onBrep: static (at, of) => at.Points.Map(point => Conversions.Found(
-                of.Geometry.ClosestPoint(point, out Point3d closest, out ComponentIndex _, out double _, out double _, at.Bound, out Vector3d _), closest)).Strict(),
-            onMesh: static (at, of) => at.Points.Map(point => Optional(of.Geometry.ClosestMeshPoint(point, at.Bound)).Map(static found => found.Point)).Strict(),
-            onSubD: static (at, of) => {
-                _ = of.Geometry.ClosestPoints(at.Points, out Point3d[] closest, out SubDComponentParameter[] _, at.Bound);
-                return toSeq(closest).Map(Conversions.Present).Strict();
-            },
-            onCloud: static (at, of) => at.Points.Map(point => Conversions.Present(of.Geometry.ClosestPoint(point))
-                .Map(of.Geometry.PointAt)
-                .Filter(found => at.Limit.ForAll(distance => point.DistanceTo(found) <= distance))).Strict());
-}
+public sealed record Closest(Point3d Point, Option<ComponentIndex> Component, Seq<double> Parameters, Option<Vector3d> Normal);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Interior {
@@ -63,10 +12,10 @@ public abstract partial record Interior {
 
         public Brep Brep { get; }
 
-        public static Fin<Solid> Validated(Brep brep) => RhinoFault.Unless(brep.IsSolid).Map(_ => new Solid(brep));
+        public static Fin<Solid> Validated(Brep brep) => RhinoFault.Unless(brep.IsSolid, RhinoReason.Invalid, brep.IsSolid).Map(_ => new Solid(brep));
 
         public static IO<Solid> Validated(SubD subd, SubDToBrepOptions options) =>
-            Products.Made(subd.ToBrep(options)).Bind(static brep => IO.lift(() => Validated(brep)));
+            Products.Of(() => subd.ToBrep(options)).Bind(static brep => IO.lift(Validated(brep)));
     }
 
     public sealed record Closed : Interior {
@@ -74,7 +23,10 @@ public abstract partial record Interior {
 
         public Mesh Mesh { get; }
 
-        public static Fin<Closed> Validated(Mesh mesh) => RhinoFault.Unless(mesh.IsClosed && mesh.IsManifold()).Map(_ => new Closed(mesh));
+        public static Fin<Closed> Validated(Mesh mesh) =>
+            (mesh.IsClosed, mesh.IsManifold()) switch {
+                var held => RhinoFault.Unless(held is (true, true), RhinoReason.Invalid, held).Map(_ => new Closed(mesh)),
+            };
     }
 
     public sealed record Planar : Interior {
@@ -85,7 +37,8 @@ public abstract partial record Interior {
         public Plane Plane { get; }
 
         public static Fin<Planar> Validated(Curve curve, Plane plane) =>
-            (RhinoFault.Unless(curve.IsClosed), RhinoFault.Unless(plane.IsValid)).Apply((_, _) => new Planar(curve, plane)).As();
+            (RhinoFault.Unless(curve.IsClosed, RhinoReason.Invalid, curve.IsClosed), RhinoFault.Unless(plane.IsValid, RhinoReason.Invalid, plane))
+                .Apply((_, _) => new Planar(curve, plane)).As();
     }
 
     public PointContainment Contains(Tolerances tolerances, Point3d point) =>
@@ -99,4 +52,47 @@ public abstract partial record Interior {
         inside(true) ? PointContainment.Inside
         : inside(false) ? PointContainment.Coincident
         : PointContainment.Outside;
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class Proximity {
+    // --- [NEAREST]
+    public static Fin<Option<Closest>> Nearest(GeometryBase subject, Point3d query, Option<double> limit) =>
+        subject switch {
+            Curve curve => Found(curve.ClosestPoint(query, out double t, limit.IfNone(0d)), limit, () => new Closest(
+                curve.PointAt(t), curve is PolyCurve polycurve ? Some(new ComponentIndex(ComponentIndexType.PolycurveSegment, polycurve.SegmentIndex(t))) : None, [t], Some(curve.TangentAt(t)))),
+            BrepFace face => Found(face.ClosestPointOnFace(query, out double u, out double v, limit.IfNone(0d)), limit, () => new Closest(
+                face.PointAt(u, v), Some(new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex)), [u, v], Some(face.NormalAt(u, v)))),
+            Extrusion { CapCount: > 0 } extrusion => Capped(extrusion, query, limit),
+            Surface surface => Found(surface.ClosestPoint(query, out double u, out double v), None, () => new Closest(
+                surface.PointAt(u, v), None, [u, v], Some(surface.NormalAt(u, v)))).Map(found => found.Filter(at => Inside(query, at, limit))),
+            Brep brep => Found(brep.ClosestPoint(query, out Point3d point, out ComponentIndex component, out double s, out double t, limit.IfNone(0d), out Vector3d normal), limit, () =>
+                new Closest(point, Some(component), component.ComponentIndexType is ComponentIndexType.BrepEdge ? [s] : [s, t], Some(normal))),
+            Mesh mesh => Found(Optional(mesh.ClosestMeshPoint(query, limit.IfNone(0d))), limit).Map(found => found.Map(at => new Closest(
+                at.Point, Some(at.ComponentIndex), at.ComponentIndex.ComponentIndexType switch {
+                    ComponentIndexType.MeshFace => toSeq(at.T),
+                    ComponentIndexType.MeshTopologyEdge => [at.EdgeParameter],
+                    _ => Seq<double>(),
+                }, Some(mesh.NormalAt(at))))),
+            SubD subd => Found(subd.ClosestPoint(query, out Point3d point, out SubDComponentParameter at, limit.IfNone(0d)), limit, () => new Closest(
+                point, Some(at.ComponentIndex), at.IsFaceParameter ? [at.FaceCornerIndex, at.FaceCornerParameters.X, at.FaceCornerParameters.Y] : at.IsEdgeParameter ? [at.EdgeParameter] : [], None)),
+            PointCloud cloud => Found(Conversions.Present(cloud.ClosestPoint(query)), None).Map(found => found.Map(index => new Closest(
+                cloud[index].Location, Some(new ComponentIndex(ComponentIndexType.PointCloudPoint, index)), [], cloud.ContainsNormals ? Some(cloud[index].Normal) : None)).Filter(at => Inside(query, at, limit))),
+            _ => new RhinoFault(subject.ObjectType.ToString(), RhinoReason.Mismatched),
+        };
+
+    public static Fin<Option<(Point3d OnCurve, Point3d OnObject, T Geometry)>> Nearest<T>(Curve curve, Seq<T> candidates, Option<double> limit) where T : GeometryBase =>
+        Found(curve.ClosestPoints(candidates, out Point3d onCurve, out Point3d onObject, out int index, limit.IfNone(0d)), limit, () => (OnCurve: onCurve, OnObject: onObject, Geometry: candidates[index]));
+
+    private static Fin<Option<Closest>> Capped(Extrusion extrusion, Point3d query, Option<double> limit) {
+        using Brep? brep = extrusion.ToBrep(splitKinkyFaces: false);
+        return Conversions.Required(brep).Bind(solid => Nearest(solid, query, limit));
+    }
+
+    private static Fin<Option<T>> Found<T>(bool found, Option<double> limit, Func<T> answer) => Found(found ? Some(answer()) : None, limit);
+
+    private static Fin<Option<T>> Found<T>(Option<T> found, Option<double> limit) =>
+        found.IsSome || limit.IsSome ? found : new RhinoFault(nameof(Nearest), RhinoReason.Missing);
+
+    private static bool Inside(Point3d query, Closest at, Option<double> limit) => limit.ForAll(distance => query.DistanceTo(at.Point) <= distance);
 }

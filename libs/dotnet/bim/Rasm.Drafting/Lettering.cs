@@ -5,20 +5,21 @@ namespace Rasm.Drafting;
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class LetteringForm {
-    public static readonly LetteringForm TypeA = new(divisor: 14, xHeight: 10, pitch: 21);
-    public static readonly LetteringForm TypeB = new(divisor: 10, xHeight: 7, pitch: 15);
+    public static readonly LetteringForm TypeA = new(divisor: 14, lowercase: 10, pitch: 21);
+    public static readonly LetteringForm TypeB = new(divisor: 10, lowercase: 7, pitch: 15);
 
     internal int Divisor { get; }
-    internal int XHeight { get; }
+    internal int Lowercase { get; }
     internal int Pitch { get; }
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class LetteringStandard {
-    public static readonly LetteringStandard Iso3098 = new(zoneHeight: Length.FromMillimeters(3.5m), height: static size => size.Sides.Long <= SheetSize.A2.Sides.Long ? Length.FromMillimeters(2.5m) : Length.FromMillimeters(3.5m));
-    public static readonly LetteringStandard AsmeY142 = new(zoneHeight: Length.FromInches(0.24m), height: static _ => Length.FromInches(0.12m));
+    public static readonly LetteringStandard Iso3098 = new(zoneHeight: Length.FromMillimeters(3.5m), form: LetteringForm.TypeB, height: static size => size.Sides.Long <= SheetSize.A2.Sides.Long ? Length.FromMillimeters(2.5m) : Length.FromMillimeters(3.5m));
+    public static readonly LetteringStandard AsmeY142 = new(zoneHeight: Length.FromInches(0.24m), form: LetteringForm.TypeB, height: static _ => Length.FromInches(0.12m));
 
     public Length ZoneHeight { get; }
+    public LetteringForm Form { get; }
 
     [UseDelegateFromConstructor]
     public partial Length Height(SheetSize size);
@@ -36,21 +37,17 @@ public sealed partial class Terminator {
 
 public sealed record StyleMetrics(SheetSize Size, LetteringForm Form, Terminator Terminator, DrawingScale Scale) {
     // --- [LETTERING]
-    public Length TextHeight => Size.Convention.Lettering.Height(Size);
-    public Length TextGap => Stroke * 2;
-    public Length BaselineSpacing => Stroke * Form.Pitch;
-    public QuantityValue LineSpaceScale => QuantityValue.FromTerms(Form.Pitch, Form.Divisor);
-    public QuantityValue StackHeightScale => QuantityValue.FromTerms(Form.XHeight, Form.Divisor);
-    public Length Resolution => Scale.ToModel(Stroke);
-
-    private Length Stroke => TextHeight / Form.Divisor;
+    public Length Height => Size.Convention.Lettering.Height(Size);
+    public Length LineThickness => Height / Form.Divisor;
+    public Length LowercaseHeight => LineThickness * Form.Lowercase;
+    public Length CharacterSpacing => LineThickness * 2;
+    public Length BaselineSpacing => LineThickness * Form.Pitch;
+    public Length Resolution => Scale.ToModel(LineThickness);
 
     // --- [DIMENSIONING]
-    public Length MaskOffset => SymbolLineWidth * 2;
-    public Length ArrowLength => TextHeight * Terminator.Proportion;
-    public Length ExtensionLineOffset => SymbolLineWidth * 8;
-    public Length ExtensionLineExtension => SymbolLineWidth * 8;
-    public Length LeaderLandingLength => SymbolLineWidth * 20;
-
-    private Length SymbolLineWidth => TextHeight / 10;
+    public Length TerminatorLength => Height * Terminator.Proportion;
+    public Length ExtensionOvershoot => LineThickness * 8;
+    public Length ExtensionGap => LineThickness * 8;
+    public Length DimensionLineSpacing => BaselineSpacing * 2;
+    public Length ReferenceLineLength => LineThickness * 20;
 }

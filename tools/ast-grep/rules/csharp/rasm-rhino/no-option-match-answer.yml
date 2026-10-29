@@ -7,12 +7,12 @@ utils:
     answer-call:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}, {not: {has: {kind: argument, nthChild: {position: 4, ofRule: {kind: argument}}}}}]}
     succeeded-call:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}}, {not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}]}
     owner-answer:
         any:
@@ -135,6 +135,6 @@ rule:
             - matches: prelude-match
             - matches: mapped-fallback
             - matches: combinator-answer
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^(Answer|Succeeded)$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}}
 message: '`$OPTION` answers an optional callback through `$ANSWER`'
-note: 'Pass `<option>.Map(<run> => <effect>).IfNone(IO.pure(<absent>))` to `<owner>.Answer` at the call'
+note: 'Pass `<option>.Map(<run> => <effect>).IfNone(IO.pure(<absent>))` to `Session.Run` at the call'

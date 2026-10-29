@@ -192,6 +192,22 @@ utils:
                       has: {field: parameters, any: [{kind: implicit_parameter, pattern: $BOUNDS}, {has: {kind: parameter, has: {field: name, pattern: $BOUNDS}}}]}
                     - kind: query_expression
                       has: {kind: from_clause, has: {field: name, pattern: $BOUNDS}}
+    instance-bound:
+        kind: identifier
+        not: {pattern: $VALUE}
+        pattern: $MEMBER
+        inside:
+            stopBy: end
+            kind: 'class_declaration, record_declaration, struct_declaration'
+            has:
+                kind: declaration_list
+                has:
+                    kind: 'property_declaration, field_declaration'
+                    all:
+                        - not: {has: {kind: modifier, regex: '^(static|const)$'}}
+                        - any:
+                            - has: {field: name, pattern: $MEMBER}
+                            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $MEMBER}}}
     count-leading:
         any:
             - matches: count-bound
@@ -301,6 +317,7 @@ rule:
     not:
         any:
             - has: {stopBy: end, matches: runtime-bound}
+            - has: {stopBy: end, matches: instance-bound}
             - matches: parse-chain
             - inside:
                 stopBy: end

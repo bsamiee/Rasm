@@ -37,9 +37,9 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
     public static readonly DiagnosticDescriptor Escaped = Rule(
         "RASM2204",
         Category,
-        "Native callback or Eto override reading host outside `Callbacks`, route through `Callbacks`",
-        "`{1}` in native callback `{0}` runs outside `Callbacks` and an exception aborts Rhino, route through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`",
-        "Native callbacks (Objective-C, `AddMethod`, `[UnmanagedFunctionPointer]`, `[Export]`, `[UnmanagedCallersOnly]`, `NSObject`) are one `Callbacks` call, Eto overrides read host members inside `Callbacks`");
+        "Native callback or Eto override reading host outside `Session`, route through `Session`",
+        "`{1}` in native callback `{0}` runs outside `Session` and an exception aborts Rhino, route through `Session.Run(<effect>, <failed>)` with `[CallerMemberName]`",
+        "Native callbacks (Objective-C, `AddMethod`, `[UnmanagedFunctionPointer]`, `[Export]`, `[UnmanagedCallersOnly]`, `NSObject`) are one `Session` call, Eto overrides read host members inside `Session`");
 
     public static readonly DiagnosticDescriptor Handler = Rule(
         "RASM2205",
@@ -58,7 +58,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         if (eto is { SystemFonts: { } fonts, Font: { } font }) Fonts(context, lifetimes, fonts, font);
         if (eto is { Container: { } container, Control: { } control }) Frames(context, lifetimes, container, control, eto.StackLayout);
         if (eto.Widget is { } widget && !lifetimes.Failures.IsEmpty) Failures(context, lifetimes, widget);
-        if (rasm.Callbacks is { } callbacks) Natives(context, lifetimes, system, eto, new MacSymbols(compilation), rasm, callbacks);
+        if (rasm.Session is { } callbacks) Natives(context, lifetimes, system, eto, new MacSymbols(compilation), rasm, callbacks);
     }
 
     // --- [FONTS]

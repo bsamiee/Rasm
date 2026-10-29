@@ -134,7 +134,7 @@ utils:
     effect-answer:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}
             - any:
                 - has:
                     field: arguments
@@ -164,4 +164,4 @@ rule:
         - matches: fin-test
         - matches: effect-answer
 message: '`$SOURCE` converts to a host `Result`'
-note: 'Call `<owner>.Answer(Conversions.ToResult(<effect>), Result.Failure)` with the member its `[CallerMemberName]` derives'
+note: 'Call `Session.Run(Results.Of(<effect>), Result.Failure)` with the member its `[CallerMemberName]` derives'

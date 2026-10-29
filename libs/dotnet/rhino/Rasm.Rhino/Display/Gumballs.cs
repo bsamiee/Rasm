@@ -1,56 +1,83 @@
+using Rasm.Rhino.Document;
+using Rhino;
+using Rhino.Commands;
+using Rhino.Display;
 using Rhino.DocObjects;
+using Rhino.Input;
 using Rhino.Input.Custom;
 using Rhino.UI.Gumball;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Display;
 
-// --- [MODELS] --------------------------------------------------------------------------
-[Union<Ray, Plane>(MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class GumballUpdate {
-    public sealed record Ray(Point3d Point, Line WorldLine);
-}
+// --- [SERVICES] ------------------------------------------------------------------------
+internal sealed class GumballGetter : GetTransform {
+    private readonly GumballDisplayConduit conduit;
 
-public sealed record GumballTransforms(Transform GumballTransform, Transform PreTransform, bool InRelocate, GumballFrame Frame, GumballFrame BaseFrame) {
-    public Transform TotalTransform => GumballTransform * PreTransform;
+    internal GumballGetter(GumballDisplayConduit conduit, string prompt, Seq<RhinoObject> objects) {
+        this.conduit = conduit;
+        SetCommandPrompt(prompt);
+        _ = objects.Iter(ObjectList.Add);
+    }
+
+    public override Transform CalculateTransform(RhinoViewport viewport, Point3d point) => conduit.InRelocate ? conduit.PreTransform : conduit.GumballTransform;
+
+    protected override void OnMouseDown(GetPointMouseEventArgs e) {
+        if (conduit.PickResult.Mode is not GumballMode.None)
+            return;
+        conduit.PickResult.SetToDefault();
+        using PickContext pick = new() { View = e.Viewport.ParentView, PickStyle = PickStyle.PointPick };
+        pick.SetPickTransform(e.Viewport.GetPickTransform(e.WindowPoint));
+        if (e.Viewport.GetFrustumLine(e.WindowPoint.X, e.WindowPoint.Y, out Line line))
+            pick.PickLine = line;
+        pick.UpdateClippingPlanes();
+        _ = conduit.PickGumball(pick, this);
+    }
+
+    protected override void OnMouseMove(GetPointMouseEventArgs e) {
+        if (conduit.PickResult.Mode is GumballMode.None)
+            return;
+        conduit.CheckShiftAndControlKeys();
+        if (conduit.UpdateGumball(e.Point, e.Viewport.GetFrustumLine(e.WindowPoint.X, e.WindowPoint.Y, out Line line) ? line : Line.Unset))
+            base.OnMouseMove(e);
+    }
+
+    protected override void OnDynamicDraw(GetPointDrawEventArgs e) {
+        if (conduit.PickResult.Mode is not GumballMode.None)
+            base.OnDynamicDraw(e);
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-public static partial class Gumballs {
-    // --- [SCOPE]
-    public static IO<T> Placed<T>(Func<GumballObject, Fin<Unit>> initialize, ActiveSpace space, Option<GumballAppearanceSettings> appearance, Func<GumballDisplayConduit, IO<T>> body) =>
-        (from conduit in use(() => new GumballDisplayConduit(space), static conduit => {
+public static class Gumballs {
+    // --- [DRAG]
+    public static IO<Transform> Drag(
+        RhinoDoc doc, Func<GumballObject, bool> placed, GumballAppearanceSettings appearance, string prompt, Seq<RhinoObject> objects, Func<Transform, IO<Unit>> dragged) =>
+        (from conduit in use(static () => new GumballDisplayConduit(ActiveSpace.ModelSpace), static conduit => {
             conduit.Enabled = false;
             conduit.Dispose();
         })
-         from placed in (from gumball in use(static () => new GumballObject())
-                         from accepted in IO.lift(() => initialize(gumball))
-                         from enabled in IO.lift(() => {
-                             conduit.SetBaseGumball(gumball, appearance.ValueUnsafe());
-                             conduit.Enabled = true;
-                         })
-                         select enabled).Bracket()
-         from answer in body(conduit)
-         select answer).Bracket();
+         from gumball in use(static () => new GumballObject())
+         from set in Products.Accepted(() => placed(gumball))
+         from total in Monad.recur(Transform.Identity, held =>
+                 from shown in Commits.WithinRedraw(doc, new RedrawPolicy.AllViews(Deferred: false), IO.lift(() => {
+                     conduit.SetBaseGumball(gumball, appearance);
+                     conduit.Enabled = true;
+                 }))
+                 from answer in use(() => new GumballGetter(conduit, prompt, objects)).Map(static getter => (Result: getter.Get(onMouseUp: true), Command: getter.CommandResult())).Bracket()
+                 from hidden in IO.lift(() => { conduit.Enabled = false; })
+                 from next in answer is { Command: Result.Success, Result: GetResult.Point }
+                     ? Moved(conduit, gumball, dragged).Map(moved => Next.Loop<Transform, Transform>(moved * held))
+                     : IO.pure(Next.Done<Transform, Transform>(held))
+                 select next).As()
+         select total).Bracket();
 
-    // --- [DRAG]
-    public static IO<Option<GumballMode>> Pick(GumballDisplayConduit conduit, PickContext context, Option<GetPoint> point) =>
-        from reset in IO.lift(conduit.PickResult.SetToDefault)
-        from picked in IO.lift(() => Conversions.Found(conduit.PickGumball(context, point.ValueUnsafe()), conduit.PickResult.Mode))
-        select picked;
-
-    public static IO<Option<GumballTransforms>> Update(GumballDisplayConduit conduit, GumballUpdate update) =>
-        from modifiers in IO.lift(conduit.CheckShiftAndControlKeys)
-        from changed in IO.lift(() => update.Switch(
-            conduit,
-            ray: static (target, ray) => target.UpdateGumball(ray.Point, ray.WorldLine),
-            plane: static (target, frame) => target.UpdateGumball(frame)))
-        from snapshot in changed ? Transforms(conduit).Map(Some) : IO.pure(Option<GumballTransforms>.None)
-        select snapshot;
-
-    public static IO<GumballTransforms> Transforms(GumballDisplayConduit conduit) =>
-        IO.lift(() => Read(conduit, conduit.Gumball.Frame, conduit.BaseGumball.Frame));
-
-    private static partial GumballTransforms Read(GumballDisplayConduit source, GumballFrame frame, GumballFrame baseFrame);
+    private static IO<Transform> Moved(GumballDisplayConduit conduit, GumballObject gumball, Func<Transform, IO<Unit>> dragged) =>
+        from moved in IO.lift(() => conduit.InRelocate ? Transform.Identity : conduit.TotalTransform)
+        from applied in when(!conduit.InRelocate, dragged(moved)).As()
+        from reset in IO.lift(() => {
+            GumballFrame frame = gumball.Frame;
+            (frame.Plane, frame.ScaleGripDistance) = (conduit.Gumball.Frame.Plane, conduit.Gumball.Frame.ScaleGripDistance);
+            gumball.Frame = frame;
+        })
+        select moved;
 }

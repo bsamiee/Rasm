@@ -27,7 +27,7 @@ utils:
         kind: invocation_expression
         any:
             - all:
-                - has: {field: function, pattern: $CALLBACK, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
+                - has: {field: function, pattern: $CALLBACK, matches: {csharp-owner-member: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}}
                 - has:
                     field: arguments
                     all:
@@ -36,7 +36,7 @@ utils:
                         - has: {kind: argument, nthChild: 3}
                         - not: {has: {kind: argument, nthChild: 4}}
             - all:
-                - has: {field: function, pattern: $CALLBACK, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
+                - has: {field: function, pattern: $CALLBACK, matches: {csharp-owner-member: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}}
                 - has:
                     field: arguments
                     all:
@@ -50,7 +50,7 @@ utils:
                                 - has: {matches: some-effect}
                                 - has: {kind: argument, nthChild: 2, has: {nthChild: {position: 1, reverse: true}, matches: lazy-unit}}
             - all:
-                - has: {field: function, pattern: $CALLBACK, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}}
+                - has: {field: function, pattern: $CALLBACK, matches: {csharp-owner-member: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}}
                 - has:
                     field: arguments
                     all:
@@ -197,6 +197,6 @@ rule:
                         stopBy: end
                         matches: subscription
                         has: {field: right, kind: identifier, pattern: $LOCAL}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Handler$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Subscriptions$'}, member: {regex: '^(On|Inline)$'}}}}
 message: 'Event handler over `$ARGS` runs its effect through `$CALLBACK`'
-note: 'Reach the event through `Subscriptions.Host<TArgs>(typeof(<owner>), h => <source>.<event> += h, h => <source>.<event> -= h).Inline(<args> => <effect>)`'
+note: 'Reach the event through `Subscriptions.On<TArgs>(h => <source>.<event> += h, h => <source>.<event> -= h).Attach(<args> => <effect>)`'

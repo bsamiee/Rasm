@@ -155,8 +155,6 @@ M:Rhino.Display.RhinoViewport.FromId(System.Guid);Returns null for detail viewpo
 P:Rhino.Display.DisplayPipeline.DpiScale;Reads 1 for a view not on screen, read `RhinoEtoApp.MainWindowForDocument(view.Document).LogicalPixelSize`
 M:Rhino.Display.DisplayBitmap.Update(System.Drawing.Bitmap);Flips images vertically while its constructor does not, create `new DisplayBitmap(bitmap)` per change and dispose the old one
 M:Rhino.Render.PostEffects.PostEffectCollection.PostEffectDataFromId(System.Guid);Answers a missing id with data that throws `Exception` on first use, find the id among enumerated `PostEffectData` rows
-M:Grasshopper2.Framework.PluginServer.FindPluginForObject(Grasshopper2.Doc.IDocumentObject);Returns null for a plug-in's objects until Grasshopper finishes loading it, call `GrasshopperPlugins.Owner(obj.GetType())`
-M:Grasshopper2.Framework.PluginServer.FindPluginForObject(System.Type);Returns null for a plug-in's objects until Grasshopper finishes loading it, call `GrasshopperPlugins.Owner(objectType)`
 M:Rhino.RhinoApp.InvokeOnUiThread(System.Delegate,System.Object[]);Marshals one call to the UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`
 M:Rhino.RhinoApp.InvokeAndWait(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`
 M:Foundation.NSObject.InvokeOnMainThread(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`

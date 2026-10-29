@@ -10,7 +10,7 @@ rule:
         - pattern: {context: 'var _ = $FAILS.IsEmpty ? $SUCCEEDED : Error.Many($FAILS);', selector: conditional_expression}
         - pattern: 'unless($FAILS.IsEmpty, IO.fail<$T>(Error.Many($FAILS)))'
     all:
-        - not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^Callbacks$'}}}
+        - not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^Products$'}}}
         - not: {inside: {stopBy: end, kind: 'from_clause, let_clause', follows: {stopBy: end, kind: 'from_clause, let_clause', has: {stopBy: end, kind: member_access_expression, has: {field: name, regex: '^Succs$'}}}}}
 message: 'Hand `IsEmpty` test joins failures through `Error.Many`'
 note: 'Join every error through `Traverse` or a tuple `Apply` on `Fin`, `PartitionFallible` where a query reads `Succs` beside `Fails`'

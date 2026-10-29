@@ -157,7 +157,7 @@ utils:
     answer:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}
             - has:
                 field: arguments
                 all:
@@ -209,7 +209,7 @@ utils:
     succeeded:
         kind: invocation_expression
         all:
-            - matches: {csharp-owner-call: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}
+            - matches: {csharp-owner-call: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}
             - matches: in-order
             - has:
                 field: arguments
@@ -269,17 +269,17 @@ rule:
                         inside: {kind: lambda_expression, field: body, has: {field: parameters, kind: parameter_list, all: [{has: {kind: parameter, nthChild: 2}}, {not: {has: {kind: parameter, nthChild: 3}}}]}}
         - not: {inside: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, kind: ERROR}}
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}}
 transform:
     BUILT:
         replace:
             source: $READ
             replace: '(?s)^.*$'
-            by: built through `Callbacks.Answer`
+            by: built through `Session.Run`
     DROPPED:
         replace:
             source: $DISCARD
             replace: '(?s)^.*$'
             by: discarded
 message: 'Success flag at `$SITE` is $BUILT$DROPPED'
-note: 'Call `<owner>.Answer(<effect>, <failed>)` with the member its `[CallerMemberName]` derives, negated for a failure flag, `<owner>.Run(<effect>)` for a discarded flag'
+note: 'Call `Session.Run(<effect>, <failed>)` with the member its `[CallerMemberName]` derives, negated for a failure flag, `Session.Run(<effect>)` for a discarded flag'

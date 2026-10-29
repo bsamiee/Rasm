@@ -4,7 +4,6 @@ using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.FileIO;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Persistence;
 
@@ -22,10 +21,10 @@ public abstract partial record ArchiveSource {
 
     public sealed record Buffered(Arr<byte> Bytes) : ArchiveSource {
         internal override IO<InputPath> Existing() =>
-            IO.fail<InputPath>(Error.New("buffered archive names no file"));
+            IO.fail<InputPath>(new RhinoFault(nameof(Buffered), RhinoReason.Unsupported));
 
         internal override IO<ArchiveRead> Open() =>
-            IO.lift(() => Conversions.Found(File3dm.FromByteArray([.. Bytes])).Map(static model => new ArchiveRead(model, None)));
+            IO.lift(() => Conversions.Required(File3dm.FromByteArray([.. Bytes])).Map(static model => new ArchiveRead(model, None)));
     }
 
     internal abstract IO<InputPath> Existing();
@@ -34,18 +33,6 @@ public abstract partial record ArchiveSource {
 }
 
 public sealed record ArchiveRead(File3dm Model, Option<string> Log);
-
-public sealed record ArchiveHeader(
-    int ArchiveVersion,
-    Option<string> Notes,
-    Option<string> CreatedBy,
-    Option<string> LastEditedBy,
-    int Revision,
-    Option<LocalDateTime> Created,
-    Option<LocalDateTime> LastEdited,
-    Option<string> ApplicationName,
-    Option<string> ApplicationUrl,
-    Option<string> ApplicationDetails);
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class RelationKind {
@@ -69,7 +56,7 @@ public sealed partial class RelationKind {
     internal Func<File3dm, Seq<(Guid Source, Either<int, Guid> Reference)>> Read { get; }
 }
 
-public readonly record struct ComponentRelation(ComponentIdentity Source, ComponentIdentity Target, RelationKind Kind) : IEdge<ComponentIdentity>;
+public sealed record ComponentRelation(ComponentIdentity Source, ComponentIdentity Target, RelationKind Kind) : IEdge<ComponentIdentity>;
 
 public sealed record DanglingLink(Guid Source, RelationKind Kind, Either<int, Guid> Reference);
 
@@ -97,8 +84,7 @@ public sealed record ArchiveDiff(
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-public static partial class Archives {
+public static class Archives {
     // --- [SCOPES]
     public static IO<T> Read<T>(ArchiveSource source, Func<ArchiveRead, IO<T>> body) =>
         (from read in use(source.Open(), static read => IO.lift(read.Model.Dispose))
@@ -106,10 +92,6 @@ public static partial class Archives {
          select value).Bracket();
 
     // --- [READS]
-    [MapperRequiredMapping(RequiredMappingStrategy.Target)]
-    [MapProperty(new[] { nameof(File3dm.Notes), nameof(File3dmNotes.Notes) }, nameof(ArchiveHeader.Notes))]
-    public static partial ArchiveHeader Header(File3dm archive);
-
     public static IO<ArchiveGraph> Graph(File3dm archive) =>
         from read in IO.lift(() => (
             Vertices: (Conversions.Rows<ModelComponent>(archive.AllLayers) + Conversions.Rows<ModelComponent>(archive.AllMaterials) + Conversions.Rows<ModelComponent>(archive.AllGroups)
@@ -131,7 +113,7 @@ public static partial class Archives {
             resolved.Lefts, read.Sources);
 
     public static IO<Transform> Scaling(File3dm archive, RhinoDoc doc) =>
-        IO.lift(() => Conversions.Found(Conversions.Present(LengthUnit.Scale(archive.Settings.ModelUnits, doc.ModelUnits)).Filter(static scale => scale > 0d))
+        IO.lift(() => Conversions.Required(Conversions.Present(LengthUnit.Scale(archive.Settings.ModelUnits, doc.ModelUnits)).Filter(static scale => scale > 0d))
             .Map(static scale => Transform.Scale(Point3d.Origin, scale)));
 
     public static IO<Seq<ObjectFinding>> Verify(File3dm archive) =>
@@ -141,25 +123,18 @@ public static partial class Archives {
         }).Strict());
 
     // --- [WRITES]
-    public static IO<Option<string>> Write(File3dm archive, DocumentKey key, Option<string> value) =>
-        from prior in IO.lift(() => Conversions.Present(archive.Strings.GetValue(key.Text)))
-        from written in value.Bind(Conversions.Present).Match(
-            Some: text => IO.lift(() => ignore(archive.Strings.SetString(key.Text, text))),
-            None: () => IO.lift(() => archive.Strings.Delete(key.Text)))
-        select prior;
-
     public static IO<Unit> Embed(File3dm archive, InputPath path) =>
-        IO.lift(() => RhinoFault.Unless(archive.EmbeddedFiles.Add(path)));
+        Products.Accepted(() => archive.EmbeddedFiles.Add(path));
 
     public static IO<Seq<OutputPath>> Extract(File3dm archive, string folder) =>
         from candidates in IO.lift(() => Conversions.Rows(archive.EmbeddedFiles)
             .Traverse(file => OutputPath.Of(Path.Join(folder, Path.GetFileName(file.Filename.Replace('\\', Path.AltDirectorySeparatorChar)))).Map(path => (File: file, Path: path)))
             .As())
         from rows in IO.lift(() => Conversions.Unique(candidates, static row => (string)row.Path, StringComparer.OrdinalIgnoreCase))
-        from saved in IO.lift(() => Callbacks.Each(rows, static (row, index) => RhinoFault.Unless(row.File.SaveToFile(row.Path), index)))
+        from saved in IO.lift(() => Products.Each(rows, static (row, index) => RhinoFault.Unless(row.File.SaveToFile(row.Path), RhinoReason.Unwritable, (string)row.Path, index)))
         select rows.Map(static row => row.Path);
 
     public static IO<StepOutcome> Persist(File3dm archive, OutputPath path, File3dmWriteOptions options) =>
-        StepOutcome.Land(path, target => IO.lift(() =>
+        StepOutcome.Write(path, target => IO.lift(() =>
             archive.WriteWithLog(target, options, out string log) ? Fin.Succ(unit) : new RhinoFault(target, RhinoReason.Unwritable, Inner: Error.New(log))));
 }

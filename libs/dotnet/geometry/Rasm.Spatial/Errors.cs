@@ -6,6 +6,7 @@ namespace Rasm.Spatial;
 // --- [ERRORS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class SpatialRule {
+    public static readonly SpatialRule Stated = new("rejected input");
     public static readonly SpatialRule Count = new("wrong element count");
     public static readonly SpatialRule Order = new("values out of order");
     public static readonly SpatialRule Shape = new("wrong shape");
@@ -17,7 +18,10 @@ public sealed partial class SpatialRule {
 }
 
 public sealed record SpatialFault(string Subject, SpatialRule Reason, Option<int> Index = default, Option<Error> Inner = default)
-    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner) {
+    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner),
+    IValidationError<SpatialFault> {
+    public static SpatialFault Create(string message) => new(message, SpatialRule.Stated);
+
     public static Fin<Unit> Unless<T>(bool flag, SpatialRule reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
         flag ? unit : new SpatialFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
 }

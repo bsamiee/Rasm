@@ -1,55 +1,70 @@
-using System.Runtime.CompilerServices;
+using System.Collections.Generic;
+using System.Drawing;
+using Rhino.Display;
 using Rhino.Render;
 using Rhino.Render.Fields;
 
 namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record FieldBounds<T>(T Min, T Max);
+public sealed record ContentField<TState> where TState : notnull {
+    internal ContentField(string key, Func<FieldDictionary, string, TState, Field> add, Func<FieldDictionary, TState, TState> read, Action<FieldDictionary, TState> write, bool file) =>
+        (Key, Add, Read, Write, File) = (key, add, read, write, file);
+
+    public string Key { get; }
+    public Option<string> Prompt { get; init; }
+    public bool Hashed { get; init; } = true;
+
+    internal Func<FieldDictionary, string, TState, Field> Add { get; }
+    internal Func<FieldDictionary, TState, TState> Read { get; }
+    internal Action<FieldDictionary, TState> Write { get; }
+    internal bool File { get; }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ContentFields {
     // --- [FIELDS]
-    public static IO<Option<T>> Read<T>(FieldDictionary fields, string name, Func<Field, Fin<T>> read) =>
-        IO.lift(() => Optional(fields.GetField(name)).Traverse(read).As());
+    public static ContentField<TState> Of<TState, T>(string key, Lens<TState, T> value, bool textured = false, bool linear = false) where TState : notnull where T : notnull =>
+        Kinds.GetValueOrDefault(typeof(T)) is (Func<FieldDictionary, string, T, string, bool, bool, Field> add, Action<FieldDictionary, string, T> set)
+            ? new(key, (fields, prompt, state) => add(fields, key, value.Get(state), prompt, textured, linear), Recalled(key, value), (fields, state) => set(fields, key, value.Get(state)), file: false)
+            : throw new ArgumentException($"{typeof(T).Name} is no RDK field type", nameof(value));
 
-    public static IO<Seq<T>> Rows<T>(FieldDictionary fields, Func<Field, Fin<T>> read) =>
-        IO.lift(() => toSeq(fields.Cast<Field>()).Traverse(read).As());
+    public static ContentField<TState> File<TState>(string key, Lens<TState, string> path) where TState : notnull =>
+        new(key, (fields, prompt, state) => fields.AddFilename(key, path.Get(state), prompt, sectionId: 0), Recalled(key, path), (fields, state) => fields.Set(key, path.Get(state)), file: true);
 
-    public static IO<T> WithinDynamicFields<T>(RenderContent content, bool automatic, IO<T> body) =>
-        IO.lift(() => content.BeginCreateDynamicFields(automatic)) >> body.Finally(IO.lift(content.EndCreateDynamicFields));
+    private static readonly FrozenDictionary<Type, object> Kinds = new Dictionary<Type, object> {
+        [typeof(string)] = Kind<string>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(bool)] = Kind<bool>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(int)] = Kind<int>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(float)] = Kind<float>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(double)] = Kind<double>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(Color4f)] = Kind<Color4f>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(Color)] = Kind<Color>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(Vector2d)] = Kind<Vector2d>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(Vector3d)] = Kind<Vector3d>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(Point2d)] = Kind<Point2d>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(Point3d)] = Kind<Point3d>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(Point4d)] = Kind<Point4d>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(Guid)] = Kind<Guid>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(Transform)] = Kind<Transform>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+        [typeof(DateTime)] = Kind<DateTime>(static (f, k, v, p, t, l) => t ? f.AddTextured(k, v, p, l) : f.Add(k, v, p), static (f, k, v) => f.Set(k, v)),
+    }.ToFrozenDictionary();
 
-    public static IO<Unit> CreateDynamicField<T>(
-        RenderContent content, string internalName, string localName, string englishName, T value, Option<FieldBounds<T>> bounds, int sectionId) =>
-        IO.lift(() => bounds.Match(
-            Some: range => RhinoFault.Unless(content.CreateDynamicField(internalName, localName, englishName, value, range.Min, range.Max, sectionId)),
-            None: () => RhinoFault.Unless(content.CreateDynamicField(internalName, localName, englishName, value, minValue: null, maxValue: null, sectionId))));
+    private static object Kind<T>(Func<FieldDictionary, string, T, string, bool, bool, Field> add, Action<FieldDictionary, string, T> set) => (add, set);
+
+    private static Func<FieldDictionary, TState, TState> Recalled<TState, T>(string key, Lens<TState, T> value) =>
+        (fields, state) => fields.TryGetValue(key, out T held) ? value.Set(held, state) : state;
 
     // --- [PARAMETERS]
-    public static IO<Option<T>> GetParameter<T>(RenderContent content, string parameter, Func<object, Fin<T>> read, Option<string> requirement = default) =>
-        IO.lift(() => Optional(requirement.Match(
-                Some: extra => content.GetExtraRequirementParameter(parameter, extra),
-                None: () => content.GetParameter(parameter))))
-            .Bind(answer => IO.lift(() => answer.Bind(static held => Optional(VariantType.IsInstanceOfType(held) ? AsObject(held) : held)).Traverse(read).As())
-                .Finally(IO.lift(() => answer.Bind(static held => Optional(held as IDisposable)).Iter(static held => held.Dispose()))));
+    public static IO<Option<T>> GetParameter<T>(RenderContent content, string parameter, Option<string> requirement = default) where T : notnull =>
+        Internals.Unwrapped<T>(() => requirement.Match(Some: extra => content.GetExtraRequirementParameter(parameter, extra), None: () => content.GetParameter(parameter)), parameter);
 
     public static IO<Unit> SetParameter(
-        RenderContent content, string parameter, object? value, Option<string> requirement = default,
+        RenderContent content, string parameter, object value, Option<string> requirement = default,
         RenderContent.ExtraRequirementsSetContexts context = RenderContent.ExtraRequirementsSetContexts.Program) =>
         requirement.Match(
-            Some: extra => use(() => NewVariant(value), static variant => ((IDisposable)variant).Dispose())
-                .Bind(variant => IO.lift(() => RhinoFault.Unless(content.SetExtraRequirementParameter(parameter, extra, variant, context))))
+            Some: extra => Products.Of(() => Internals.NewVariant(value))
+                .Bind(variant => Products.Accepted(() => content.SetExtraRequirementParameter(parameter, extra, variant, context)))
                 .Bracket(),
-            None: () => IO.lift(() => RhinoFault.Unless(content.SetParameter(parameter, value))));
-
-    // --- [NATIVE_VARIANT]
-    private const string VariantTypeName = "Rhino.Render.Variant, RhinoCommon";
-    private static readonly Type VariantType = Type.GetType(VariantTypeName, throwOnError: true)!;
-
-    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
-    [return: UnsafeAccessorType(VariantTypeName)]
-    private static extern object NewVariant(object? value);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "AsObject")]
-    private static extern object? AsObject([UnsafeAccessorType(VariantTypeName)] object variant);
+            None: () => Products.Accepted(() => content.SetParameter(parameter, value)));
 }

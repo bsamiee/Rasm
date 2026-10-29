@@ -5,12 +5,11 @@ using LanguageExt.ClassInstances;
 using Rasm.Drafting;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence;
-using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
+using Rhino.Runtime;
 
 namespace Rasm.Rhino.Viewport.Pages;
 
@@ -35,7 +34,7 @@ public static class Layouts {
     // --- [SHEETS]
     public static IO<RhinoPageView> Ensure(RhinoDoc doc, LayoutSheet sheet) =>
         from extent in IO.lift(() => (Width: Quantities.As(sheet.Sheet.Extent.Width, doc.PageUnits), Height: Quantities.As(sheet.Sheet.Extent.Height, doc.PageUnits)))
-        from page in IO.lift(() => Find(doc, sheet.Name).Match(Some: Fin.Succ, None: () => Conversions.Found(doc.Views.AddPageView(sheet.Name, extent.Width, extent.Height, setActive: false))))
+        from page in Find(doc, sheet.Name).Match(Some: IO.pure, None: () => Products.Of(() => doc.Views.AddPageView(sheet.Name, extent.Width, extent.Height, setActive: false)))
         from held in SheetOf(doc, page)
         from sized in unless(held == Some(sheet.Sheet), IO.lift(() => { (page.PageWidth, page.PageHeight) = extent; })).As()
         from described in IO.lift(() => sheet.Description.Iter(text => Update(page.Description, text, value => page.Description = value)))
@@ -47,7 +46,7 @@ public static class Layouts {
         IO.lift(() => Sheet.Match(Quantities.From(page.PageWidth, doc.PageUnits), Quantities.From(page.PageHeight, doc.PageUnits), Quantities.From(doc.PageAbsoluteTolerance, doc.PageUnits)));
 
     public static IO<RhinoPageView> Duplicate(RhinoPageView page, LayoutName name, bool duplicatePageGeometry) =>
-        from copy in IO.lift(() => Conversions.Found(page.Duplicate(duplicatePageGeometry)))
+        from copy in Products.Of(() => page.Duplicate(duplicatePageGeometry))
         from named in IO.lift(() => copy.PageName = name)
         select copy;
 
@@ -60,21 +59,37 @@ public static class Layouts {
     // --- [TITLES]
     public static IO<Unit> Title(RhinoDoc doc, RhinoPageView page, DraftingConvention convention, HashMap<TitleField, string> entries) =>
         from accepted in IO.lift(TitleField.Accept(convention, entries))
-        from written in accepted.TraverseM(entry => entry.Field.Switch(
-            (Doc: doc, Page: page, entry.Text),
-            projectEntry: static (state, field) => IO.lift(() => KeyName.TryCreate(field.Key, out KeyName? name, out RhinoFault? fault) ? Fin.Succ(name) : fault)
+        from written in accepted.TraverseM(entry => entry.Field.Entry.Switch(
+            (Doc: doc, Page: page, entry.Field.Key, entry.Text),
+            projectEntry: static (state, _) => IO.lift(() => KeyName.Validated(state.Key))
                 .Bind(name => UserStrings.Write(state.Doc, new DocumentKey(name), state.Text)).Map(static _ => unit),
-            sheetEntry: static (state, field) => UserStrings.Write(state.Page.MainViewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((field.Key, state.Text)))),
+            sheetEntry: static (state, _) => UserStrings.Write(state.Page.MainViewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((state.Key, state.Text)))),
             sheetName: static (_, _) => IO.pure(unit),
             sheetFact: static (_, _) => IO.pure(unit))).As()
         select unit;
+
+    public static IO<Seq<(TextFields.InstanceAttributeField Attribute, Option<TitleField> Field)>> TitleFields(InstanceDefinition block) =>
+        IO.lift(() => toSeq(TextFields.GetInstanceAttributeFields(block))
+            .Map(static attribute => (Attribute: attribute, Field: TitleField.TryGet(attribute.Key, out TitleField? field) ? Some(field) : None))
+            .Strict());
+
+    // --- [ZONES]
+    public static IO<Option<string>> Zone(RhinoDoc doc, RhinoObject placed) =>
+        IO.lift(() => toSeq(doc.Views.GetPageViews()).Find(page => placed.Attributes.Space is ActiveSpace.PageSpace && page.MainViewport.Id == placed.Attributes.ViewportId))
+            .Bind(found => found.Match(
+                Some: page => SheetOf(doc, page).Map(sheet =>
+                    from held in sheet
+                    from center in Conversions.Present(placed.Geometry.GetBoundingBox(accurate: true)).Map(static box => box.Center)
+                    from zone in held.Locate(Quantities.From(center.X, doc.PageUnits), Quantities.From(center.Y, doc.PageUnits))
+                    select zone),
+                None: static () => IO.pure(Option<string>.None)));
 
     // --- [GROUPS]
     public static IO<PageViewGroup> Ensure(RhinoDoc doc, LayoutGroup grouping) =>
         from members in IO.lift(() => (Conversions.Unique(grouping.Members, identity),
                 grouping.Members.Traverse(name => Find(doc, name).ToFin(new RhinoFault(name, RhinoReason.Missing))).As())
             .Apply(static (_, pages) => pages).As())
-        from row in TableOps.Find(doc.PageViewGroups, new ComponentRef<PageViewGroup>.ByName(grouping.Name), includeDeleted: false)
+        from row in Rows.Find(doc.PageViewGroups, new ComponentRef<PageViewGroup>.ByName(grouping.Name))
             .Catch(static error => error.Filter<RhinoFault>().Head is RhinoFault fault && fault.Reason == RhinoReason.Missing, _ => Add(doc, grouping.Name))
         from described in IO.lift(() => grouping.Description.Iter(text => Update(row.Description, text, value => row.Description = value)))
         from left in IO.lift(() => toSeq(row.GetMembers().Except(members)).Iter(member => member.RemoveFromPageViewGroup(row.Index)))
@@ -82,10 +97,9 @@ public static class Layouts {
         select row;
 
     private static IO<PageViewGroup> Add(RhinoDoc doc, LayoutName name) =>
-        (from staged in use(static () => new PageViewGroup())
-         from named in TableOps.Named(staged, Some<string>(name))
-         from index in IO.lift(() => Conversions.Found(Conversions.Present(doc.PageViewGroups.Add(staged))))
-         from row in TableOps.Find(doc.PageViewGroups, index, includeDeleted: false)
+        (from staged in use(() => new PageViewGroup { Name = name })
+         from index in IO.lift(() => Conversions.Required(Conversions.Present(doc.PageViewGroups.Add(staged))))
+         from row in Rows.Find(doc.PageViewGroups, new ComponentRef<PageViewGroup>.ByIndex(index))
          select row).Bracket();
 
     // --- [ORDER]
@@ -117,77 +131,74 @@ public static class Layouts {
             select stored).As()
         select unit;
 
-    public static Func<IPlugInViews, IO<Unit>> NumberFollowsPages(NamingStandard grammar) =>
-        views =>
-            from post in Mailboxes.Idle<uint, Unit>(serials =>
-                Callbacks.Each(toSeq(serials.Keys).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Map(doc => Number(doc, grammar))).Map(unit))(views)
-            from attached in Subscriptions.Merged(
-                    Seq(EventKind.RhinoViewCreate, EventKind.RhinoViewDestroy, EventKind.RhinoViewRename)
-                        .Map(static row => row.Choose(args => row.Serial(args).Filter(_ => args.View is RhinoPageView)))
-                        .Add(EventKind.PageViewPropertiesChange.Choose(static args => EventKind.PageViewPropertiesChange.Serial(args))))
-                .Inline(serial => post(serial, unit), views)
-            select unit;
+    public static IO<Unit> NumberFollowsPages(NamingStandard grammar) =>
+        from post in Mailboxes.Idle<uint, Unit>(serials =>
+            Products.Each(toSeq(serials.Keys).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Map(doc => Number(doc, grammar))).Map(unit))
+        from attached in Subscriptions.Merged(
+                Subscriptions.Merged(
+                        Subscriptions.On<ViewEventArgs>(static h => RhinoView.Create += h, static h => RhinoView.Create -= h),
+                        Subscriptions.On<ViewEventArgs>(static h => RhinoView.Destroy += h, static h => RhinoView.Destroy -= h),
+                        Subscriptions.On<ViewEventArgs>(static h => RhinoView.Rename += h, static h => RhinoView.Rename -= h))
+                    .Choose(static args => Optional(args.View as RhinoPageView).Bind(static page => Conversions.Serial(page.Document))),
+                Subscriptions.On<PageViewPropertiesChangeEventArgs>(static h => RhinoPageView.PageViewPropertiesChange += h, static h => RhinoPageView.PageViewPropertiesChange -= h)
+                    .Choose(static args => Some(args.DocumentSerialNumber)))
+            .Attach(serial => post(serial, unit))
+        select unit;
 
     // --- [FRAMES]
     private const string FrameKey = "sheet-frame";
 
     private static IO<Unit> Frame(RhinoDoc doc, RhinoPageView page, Sheet sheet, FrameStyle style) =>
-        from layer in TableOps.Find(doc.Layers, style.Layer, includeDeleted: false)
-        from lettering in TableOps.Find(doc.DimStyles, style.Lettering, includeDeleted: false)
-        let wanted = Marks(doc, page, style, layer.Index, lettering, sheet).Fold(HashMap<string, Func<IO<Guid>>>(), static (held, mark) => held.AddOrUpdate(mark.Key, mark.Add))
+        from layer in Rows.Find(doc.Layers, style.Layer)
+        from lettering in Rows.Find(doc.DimStyles, style.Lettering)
+        let marks = Marks(doc, style, lettering, sheet)
+        let name = $"{FrameKey} {ContentKey.Of<FrameStyle>(stream => marks.Fold(stream.Integer(layer.Index), static (held, mark) => mark.Fields(held))).Id:N}"
+        from definition in Defined(doc, name, layer.Index, marks)
         from present in new ObjectTarget.Lookup(objects => objects.FindByUserString(FrameKey, "*", caseSensitive: true, searchGeometry: false, searchAttributes: true,
                 new ObjectEnumeratorSettings { SpaceFilter = ActiveSpace.PageSpace, ViewportFilter = page.MainViewport, HiddenObjects = true, LockedObjects = true }))
             .Objects(doc).Map(static found => found.Map(static mark => (Key: mark.Attributes.GetUserString(FrameKey), mark.Id)).Strict())
-        let stale = present.Filter(mark => !wanted.ContainsKey(mark.Key)).Map(static mark => mark.Id)
-        let kept = toHashSet(present.Map(static mark => mark.Key))
-        from cleared in when(!stale.IsEmpty, TableOps.Apply(doc, new TableOp.Delete(new ObjectTarget.Ids(stale), Quiet: true, IgnoreModes: true)).Map(unit)).As()
-        from added in Callbacks.Each(wanted.Filter((key, _) => !kept.Contains(key)).Values.ToSeq().Map(static add => add()))
+        let stale = present.Filter(mark => !string.Equals(mark.Key, name, StringComparison.Ordinal))
+        from cleared in when(!stale.IsEmpty, new ObjectTarget.Ids(stale.Map(static mark => mark.Id)).Each(doc, found => doc.Objects.Delete(found, quiet: true, ignoreModes: true)).Map(unit)).As()
+        from placed in unless(present.Exists(mark => string.Equals(mark.Key, name, StringComparison.Ordinal)),
+            GeometryPair.WithAttributes(doc.CreateDefaultAttributes, None, attributes => IO.lift(() => {
+                (attributes.LayerIndex, attributes.Space, attributes.ViewportId) = (layer.Index, ActiveSpace.PageSpace, page.MainViewport.Id);
+                return RhinoFault.Unless(attributes.SetUserString(FrameKey, name), RhinoReason.Declined, name)
+                    .Bind(_ => Conversions.Required(Conversions.Present(doc.Objects.AddInstanceObject(definition, Transform.Identity, attributes))));
+            })).Map(unit)).As()
+        from purged in Products.Each(stale.Map(static mark => mark.Key).Distinct().Map(key => IO.lift(() => Optional(doc.InstanceDefinitions.Find(key))
+            .Filter(static unused => unused.GetReferences(0).Length is 0)
+            .Iter(unused => doc.InstanceDefinitions.Delete(unused.Index, deleteReferences: false, quiet: true)))))
         select unit;
 
-    private static Seq<(string Key, Func<IO<Guid>> Add)> Marks(RhinoDoc doc, RhinoPageView page, FrameStyle style, int layer, DimensionStyle lettering, Sheet sheet) {
-        (PaperRectangle field, ZoneGrid zones, (Length width, Length height), double letterHeight) =
-            (sheet.Field, sheet.Zones, sheet.Extent, Quantities.As(sheet.Size.Convention.Lettering.ZoneHeight, doc.PageUnits));
-        Option<Length> reach = sheet.Size.Convention.Centering.Map(static centering => centering.Reach);
-        Option<Length> blocked = sheet.Size.Convention.Centering.Map(centering => width / 2 < field.Right - centering.TitleBlock ? centering.Reach : Length.Zero);
-        return Stroke(LineWeight.ExtraWide, toSeq(new Rectangle3d(Plane.WorldXY, At(field.Left, field.Bottom), At(field.Right, field.Top)).ToPolyline()))
-            + Axis(zones.Columns, field.Left, field.Right, width, zones.Column, At, [(field.Top, height, true, reach), (field.Bottom, Length.Zero, zones.AllEdges, blocked)])
-            + Axis(zones.Rows, field.Bottom, field.Top, height, zones.Row, (along, across) => At(across, along), [(field.Right, width, true, reach), (field.Left, Length.Zero, zones.AllEdges, reach)]);
+    private static IO<int> Defined(RhinoDoc doc, string name, int layer, Seq<(Func<XxHash128, XxHash128> Fields, Option<double> PlotWeight, Func<Fin<GeometryBase>> Shape)> marks) =>
+        Optional(doc.InstanceDefinitions.Find(name)).Match(
+            Some: static held => IO.pure(held.Index),
+            None: () => (from shapes in marks.TraverseM(static mark => IO.lift(mark.Shape).Bind(static made => use(() => made))).As()
+                         from index in GeometryPair.WithAttributes(doc.CreateDefaultAttributes, shapes.Map(static shape => new GeometryPair(shape, None)), (geometry, attributes) => IO.lift(() => {
+                             _ = attributes.Zip(marks).Iter(row => {
+                                 row.First.LayerIndex = layer;
+                                 _ = row.Second.PlotWeight.Iter(stroke => (row.First.PlotWeightSource, row.First.PlotWeight) = (ObjectPlotWeightSource.PlotWeightFromObject, stroke));
+                             });
+                             return Conversions.Required(Conversions.Present(doc.InstanceDefinitions.Add(name, FrameKey, Point3d.Origin, geometry, attributes)));
+                         }))
+                         select index).Bracket());
 
-        Seq<(string Key, Func<IO<Guid>> Add)> Axis(Seq<Length> divisions, Length near, Length far, Length edge, Func<int, string> label, Func<Length, Length, Point3d> at, Seq<(Length Inner, Length Outer, bool Zoned, Option<Length> Reach)> bands) =>
-            (from band in bands
-             where band.Zoned
-             from mark in divisions.Map(division => Stroke(LineWeight.Wide, [at(division, band.Inner), at(division, band.Outer)]))
-                 + near.Cons(divisions).Zip(divisions.Add(far)).Map((span, index) => Label(label(index), at((span.First + span.Second) / 2, (band.Inner + band.Outer) / 2)))
-             select mark)
-            + (from band in bands
-               from inward in band.Reach.ToSeq()
-               select Stroke(LineWeight.ExtraWide, [at(edge / 2, band.Outer), at(edge / 2, band.Inner < band.Outer ? band.Inner - inward : band.Inner + inward)]));
+    private static Seq<(Func<XxHash128, XxHash128> Fields, Option<double> PlotWeight, Func<Fin<GeometryBase>> Shape)> Marks(RhinoDoc doc, FrameStyle style, DimensionStyle lettering, Sheet sheet) =>
+        sheet.Frame.Map(mark => mark.Switch(
+            (Doc: doc, Style: style, Lettering: lettering),
+            stroke: static (state, stroke) => (PlotWeight.Of(state.Style.Lines.Width(stroke.Weight)).ToHost(), stroke.Points.Map(point => Placed(state.Doc, point)).Strict()) switch {
+                var (plotted, points) => ((Func<XxHash128, XxHash128>)(stream => stream.Text(nameof(FrameMark.Stroke)).Number(plotted).Rows(points, static (held, point) => held.Number(point.X).Number(point.Y))),
+                    Some(plotted), (Func<Fin<GeometryBase>>)(() => new PolylineCurve(points))),
+            },
+            label: static (state, label) => (Center: Placed(state.Doc, label.Center), Height: Quantities.As(label.Height, state.Doc.PageUnits)) switch {
+                var placed => (stream => stream.Text(nameof(FrameMark.Label)).Id(state.Lettering.Id).Number(placed.Height).Text(label.Text).Number(placed.Center.X).Number(placed.Center.Y),
+                    Option<double>.None,
+                    () => Conversions.Required(TextEntity.Create(label.Text, new Plane(placed.Center, Vector3d.XAxis, Vector3d.YAxis), state.Lettering, wrapped: false, rectWidth: 0, rotationRadians: 0))
+                        .Map(entity => {
+                            (entity.Justification, entity.TextHeight) = (TextJustification.MiddleCenter, placed.Height);
+                            return (GeometryBase)entity;
+                        })),
+            }));
 
-        Point3d At(Length x, Length y) => new(Quantities.As(x, doc.PageUnits), Quantities.As(y, doc.PageUnits), 0);
-
-        (string Key, Func<IO<Guid>> Add) Stroke(LineWeight weight, Seq<Point3d> points) =>
-            PlotWeight.Of(style.Lines.Width(weight)).ToHost() switch {
-                var plotted => Row(
-                    Keyed(stream => stream.Text(nameof(Stroke)).Number(plotted).Rows(points, static (held, point) => held.Number(point.X).Number(point.Y))),
-                    Some(plotted), () => new PolylineCurve(points)),
-            };
-
-        (string Key, Func<IO<Guid>> Add) Label(string text, Point3d center) =>
-            Row(Keyed(stream => stream.Text(nameof(Label)).Id(lettering.Id).Number(letterHeight).Text(text).Number(center.X).Number(center.Y)), None,
-                () => Conversions.Found(TextEntity.Create(text, new Plane(center, Vector3d.XAxis, Vector3d.YAxis), lettering, wrapped: false, rectWidth: 0, rotationRadians: 0))
-                    .Map(entity => { (entity.Justification, entity.TextHeight) = (TextJustification.MiddleCenter, letterHeight); return (GeometryBase)entity; }));
-
-        string Keyed(Func<XxHash128, XxHash128> fields) =>
-            string.Create(CultureInfo.InvariantCulture, $"{ContentKey.Of<FrameStyle>(stream => fields(stream.Integer(layer)))}");
-
-        (string Key, Func<IO<Guid>> Add) Row(string key, Option<double> plotWeight, Func<Fin<GeometryBase>> shape) =>
-            (key, () => TableOps.WithAttributes(doc.CreateDefaultAttributes, None, attributes =>
-                from placed in IO.lift(() => { (attributes.LayerIndex, attributes.Space, attributes.ViewportId) = (layer, ActiveSpace.PageSpace, page.MainViewport.Id); })
-                from weighted in IO.lift(() => plotWeight.Iter(stroke => (attributes.PlotWeightSource, attributes.PlotWeight) = (ObjectPlotWeightSource.PlotWeightFromObject, stroke)))
-                from tagged in IO.lift(() => RhinoFault.Unless(attributes.SetUserString(FrameKey, key)))
-                from id in (from geometry in IO.lift(shape).Bind(static made => use(() => made))
-                            from added in TableOps.Add(doc, new GeometryPair(geometry, Some(attributes)), None, reference: false)
-                            select added).Bracket()
-                select id));
-    }
+    private static Point3d Placed(RhinoDoc doc, (Length X, Length Y) point) => new(Quantities.As(point.X, doc.PageUnits), Quantities.As(point.Y, doc.PageUnits), 0);
 }

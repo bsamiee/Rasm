@@ -28,12 +28,6 @@ public abstract partial record Roll {
     public sealed record Circle(int Fixed, int Rolling, RollSide Side) : Roll;
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record TracingPoint {
-    public sealed record Rim : TracingPoint;
-    public sealed record At(double Distance) : TracingPoint;
-}
-
 public sealed record HarmonicTerm(int Frequency, Vector3D<double> Cosine, Vector3D<double> Sine);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -43,28 +37,27 @@ public abstract partial record AnalyticCurve {
     public abstract Vector3D<double> At(double t);
 
     public sealed record Trochoid : AnalyticCurve {
-        private Trochoid(Roll roll, double rollingRadius, TracingPoint pen, Seq<double> joins) : base(joins) => (Roll, RollingRadius, Pen) = (roll, rollingRadius, pen);
+        private Trochoid(Roll roll, double rollingRadius, double arm, Seq<double> joins) : base(joins) => (Roll, RollingRadius, Arm) = (roll, rollingRadius, arm);
         public Roll Roll { get; }
         public double RollingRadius { get; }
-        public TracingPoint Pen { get; }
+        public double Arm { get; }
 
         public override Vector3D<double> At(double t) =>
             Planar(Roll.Switch(
-                (Radius: RollingRadius, Arm: Pen.Switch(RollingRadius, rim: static (radius, _) => radius, at: static (_, at) => at.Distance), Turn: t),
+                (Radius: RollingRadius, Arm, Turn: t),
                 line: static (pen, _) => new Complex((pen.Radius * pen.Turn) - (pen.Arm * double.Sin(pen.Turn)), pen.Radius - (pen.Arm * double.Cos(pen.Turn))),
                 circle: static (pen, circle) => ((circle.Fixed + (circle.Side.Sign * circle.Rolling)) / (double)circle.Rolling) switch {
                     var speed => (pen.Radius * speed * Complex.FromPolarCoordinates(1d, pen.Turn)) - (circle.Side.Sign * Complex.FromPolarCoordinates(pen.Arm, circle.Side.Sign * speed * pen.Turn)),
                 }));
 
-        public static Fin<Trochoid> Validated(Roll roll, double rollingRadius, TracingPoint pen) =>
-            (SpatialFault.Unless(double.IsFinite(rollingRadius) && rollingRadius > 0d, SpatialRule.Range, rollingRadius), roll.Switch(
-                pen is TracingPoint.Rim,
-                line: static (rim, line) => SpatialFault.Unless(line.Arches >= 1, SpatialRule.Count, line.Arches).Map(_ => Spaced(double.Tau * line.Arches, rim ? line.Arches : 1)),
-                circle: static (rim, circle) =>
+        public static Fin<Trochoid> Validated(Roll roll, double rollingRadius, double arm) =>
+            (SpatialFault.Unless(double.IsFinite(rollingRadius) && rollingRadius > 0d && double.IsFinite(arm) && arm >= 0d, SpatialRule.Range, (rollingRadius, arm)), roll.Switch(
+                line: static line => SpatialFault.Unless(line.Arches >= 1, SpatialRule.Count, line.Arches).Map(_ => Spaced(double.Tau * line.Arches, line.Arches)),
+                circle: static circle =>
                     (SpatialFault.Unless(circle.Fixed >= 1 && circle.Rolling >= 1, SpatialRule.Count, (circle.Fixed, circle.Rolling)),
                      SpatialFault.Unless(circle.Side == RollSide.Outside || (circle.Fixed != circle.Rolling && circle.Fixed != 2 * circle.Rolling), SpatialRule.Degenerate, (circle.Side, circle.Fixed, circle.Rolling)))
-                        .Apply((_, _) => Euclid.GreatestCommonDivisor(circle.Fixed, circle.Rolling) switch { var gcd => Spaced(double.Tau * circle.Rolling / gcd, rim ? (int)(circle.Fixed / gcd) : 1) }).As()))
-                .Apply((_, joins) => new Trochoid(roll, rollingRadius, pen, joins)).As();
+                        .Apply((_, _) => Euclid.GreatestCommonDivisor(circle.Fixed, circle.Rolling) switch { var gcd => Spaced(double.Tau * circle.Rolling / gcd, (int)(circle.Fixed / gcd)) }).As()))
+                .Apply((_, joins) => new Trochoid(roll, rollingRadius, arm, joins)).As();
     }
 
     public sealed record Harmonic : AnalyticCurve {

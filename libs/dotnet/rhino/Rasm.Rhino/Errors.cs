@@ -1,48 +1,42 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using Rhino.Commands;
 
 namespace Rasm.Rhino;
 
 // --- [ERRORS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class RhinoReason {
-    public static readonly RhinoReason Stated = new("{0}");
-    public static readonly RhinoReason Declined = new("{0} returned failure");
-    public static readonly RhinoReason Absent = new("{0} returned nothing");
-    public static readonly RhinoReason Invalid = new("{0} returned an invalid value");
-    public static readonly RhinoReason Outside = new("{0} is outside its range");
-    public static readonly RhinoReason Repeated = new("{0} repeats");
-    public static readonly RhinoReason Missing = new("{0} matches nothing");
-    public static readonly RhinoReason Mismatched = new("{0} holds another type");
-    public static readonly RhinoReason Disabled = new("{0} is disabled");
-    public static readonly RhinoReason Loaded = new("{0} is loaded");
-    public static readonly RhinoReason Unheld = new("host cannot hold {0}");
-    public static readonly RhinoReason Raised = new("script raised {0}");
-    public static readonly RhinoReason Nothing = new("{0} ended with nothing") { Ending = Some(Result.Nothing) };
-    public static readonly RhinoReason Exited = new("{0} ended with Rhino exiting") { Ending = Some(Result.ExitRhino) };
-    public static readonly RhinoReason Unknown = new("{0} named an unknown command") { Ending = Some(Result.UnknownCommand) };
-    public static readonly RhinoReason Taken = new("{0} is taken");
-    public static readonly RhinoReason Unwritable = new("{0} is unwritable");
-    public static readonly RhinoReason Unreadable = new("{0} is unreadable");
-    public static readonly RhinoReason Unqualified = new("{0} is unqualified");
+    public static readonly RhinoReason Stated = new("rejected input");
+    public static readonly RhinoReason Declined = new("host declined");
+    public static readonly RhinoReason Missing = new("nothing found");
+    public static readonly RhinoReason Invalid = new("invalid");
+    public static readonly RhinoReason Outside = new("out of range");
+    public static readonly RhinoReason Repeated = new("repeated");
+    public static readonly RhinoReason Mismatched = new("wrong type");
+    public static readonly RhinoReason Unavailable = new("unavailable in its plug-in state");
+    public static readonly RhinoReason Unsupported = new("unsupported by the host");
+    public static readonly RhinoReason Raised = new("script raised");
+    public static readonly RhinoReason Nothing = new("command ended with nothing");
+    public static readonly RhinoReason Exited = new("command ended with Rhino exiting");
+    public static readonly RhinoReason Unknown = new("unknown command");
+    public static readonly RhinoReason Taken = new("already taken");
+    public static readonly RhinoReason Unwritable = new("not writable");
+    public static readonly RhinoReason Unreadable = new("not readable");
+    public static readonly RhinoReason Unqualified = new("not qualified");
 
-    public string Template { get; }
-
-    [IgnoreMember]
-    public Option<Result> Ending { get; private init; }
+    public string Message { get; }
 }
 
 public sealed record RhinoFault(string Subject, RhinoReason Reason, Option<int> Index = default, Option<Error> Inner = default)
     : Expected(
         Index.Match(
-            at => string.Create(CultureInfo.InvariantCulture, $"{string.Format(CultureInfo.InvariantCulture, Reason.Template, Subject)} at index {at}"),
-            () => string.Format(CultureInfo.InvariantCulture, Reason.Template, Subject)),
-        ErrorCodes.ValidationFailed,
+            at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"),
+            () => $"{Reason.Message}: {Subject}"),
+        0,
         Inner),
     IValidationError<RhinoFault> {
     public static RhinoFault Create(string message) => new(message, RhinoReason.Stated);
 
-    public static Fin<Unit> Unless(bool accepted, Option<int> index = default, [CallerArgumentExpression(nameof(accepted))] string call = "") =>
-        accepted ? unit : new RhinoFault(call, RhinoReason.Declined, index);
+    public static Fin<Unit> Unless<T>(bool flag, RhinoReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
+        flag ? unit : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
 }

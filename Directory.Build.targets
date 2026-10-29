@@ -40,7 +40,7 @@
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
         <DefaultItemExcludes Condition="'$(TargetPlatformIdentifier)' == 'Windows'">$(DefaultItemExcludes);**/Mac/**</DefaultItemExcludes>
-        <DefaultItemExcludes Condition="'$(TargetPlatformIdentifier)' != 'Windows'">$(DefaultItemExcludes);**/Wpf.cs</DefaultItemExcludes>
+        <DefaultItemExcludes Condition="'$(TargetPlatformIdentifier)' != 'Windows'">$(DefaultItemExcludes);**/Windows/**</DefaultItemExcludes>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
@@ -49,7 +49,7 @@
         <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" Condition="'$(TargetPlatformIdentifier)' == 'Windows'" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
-        <EmbeddedResource Include="**/*.svg;**/*.ghicon" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <EmbeddedResource Include="**/*.svg;**/*.ghicon" Exclude="Documentation/**" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
     </ItemGroup>
 
     <Target Name="ResolveRhinoInstallation" DependsOnTargets="ResolvePackageAssets" Condition="'$(RhinoHost)' != ''">
@@ -100,12 +100,14 @@
         <_PlugInIconPngFrame>256</_PlugInIconPngFrame>
         <_PlugInRui>$(IntermediateOutputPath)$(TargetName).rui</_PlugInRui>
         <_PlugInRuiReferences>$(IntermediateOutputPath)$(TargetName).rui.references</_PlugInRuiReferences>
+        <_PlugInRuiStamp>$(IntermediateOutputPath)$(TargetName).rui.stamp</_PlugInRuiStamp>
         <_YakPackageName>$(AssemblyTitle.Replace(' ', '-'))</_YakPackageName>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
         <PackageReference Include="MinVer" PrivateAssets="all" />
-        <ProjectReference Include="$(MSBuildThisFileDirectory)eng/dotnet/Rasm.Rui/Rasm.Rui.csproj" ReferenceOutputAssembly="false" Private="false" OutputItemType="_RuiWriter" />
+        <_RhinoLibraryReference Include="@(ProjectReference->WithMetadataValue('Filename', 'Rasm.Rhino'))" />
+        <ProjectReference Include="$(MSBuildThisFileDirectory)eng/dotnet/Rasm.Rui/Rasm.Rui.csproj" ReferenceOutputAssembly="false" Private="false" OutputItemType="_RuiWriter" Condition="'@(_RhinoLibraryReference)' != ''" />
         <_PlugInDescription Include="Organization" Value="$(Authors)" />
         <_PlugInDescription Include="WebSite" Value="$(PackageProjectUrl)" />
         <_GrasshopperPackage Include="@(PackageReference->WithMetadataValue('Identity', 'Grasshopper2'))" />
@@ -123,14 +125,14 @@
         <_PlugInDescription Include="Icon" Value="$(_PlugInIcon)" />
     </ItemGroup>
 
-    <ItemGroup Label="Plug-In Image" Condition="'$(_PlugInPackageIcon)' != ''">
+    <ItemGroup Label="Plug-In Image" Condition="'$(_PlugInPackageIcon)' != '' and '@(_RhinoLibraryReference)' != ''">
         <AssemblyAttribute Include="Rasm.Rhino.UI.Styling.PlugInImageAttribute">
             <_Parameter1>$([System.IO.Path]::GetFileName('$(_PlugInIconSource)'))</_Parameter1>
         </AssemblyAttribute>
     </ItemGroup>
 
     <ItemGroup Label="Grasshopper 2 Plug-In" Condition="'@(_GrasshopperPackage)' != ''">
-        <None Update="Documentation/**" CopyToPublishDirectory="PreserveNewest" />
+        <None Update="Documentation/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
 
     <Target Name="ExcludeRhinoHostAssemblies" AfterTargets="ResolvePackageAssets" Condition="'$(TargetExt)' == '.rhp'">
@@ -176,15 +178,16 @@
         </ItemGroup>
     </Target>
 
-    <Target Name="BuildPlugInRui" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(TargetExt)' == '.rhp'" Inputs="@(IntermediateAssembly);@(ReferenceCopyLocalPaths);@(_RuiWriter)" Outputs="$(_PlugInRui)">
+    <Target Name="BuildPlugInRui" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(TargetExt)' == '.rhp' and '@(_RhinoLibraryReference)' != ''" Inputs="@(IntermediateAssembly);@(ReferenceCopyLocalPaths);@(_RuiWriter)" Outputs="$(_PlugInRuiStamp)">
         <WriteLinesToFile File="$(_PlugInRuiReferences)" Lines="@(ReferenceCopyLocalPaths->WithMetadataValue('Extension', '.dll')->'%(FullPath)');@(ReferencePath->'%(FullPath)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
         <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;@(_RuiWriter->'%(FullPath)')&quot; &quot;@(IntermediateAssembly->'%(FullPath)')&quot; &quot;$(_PlugInRui)&quot; &quot;$(_PlugInRuiReferences)&quot;" StandardOutputImportance="low" />
+        <Touch Files="$(_PlugInRuiStamp)" AlwaysCreate="true" />
         <ItemGroup>
-            <FileWrites Include="$(_PlugInRui);$(_PlugInRuiReferences)" />
+            <FileWrites Include="$(_PlugInRui);$(_PlugInRuiReferences);$(_PlugInRuiStamp)" />
         </ItemGroup>
     </Target>
 
-    <Target Name="ListPlugInRui" BeforeTargets="GetCopyToOutputDirectoryItems;GetCopyToPublishDirectoryItems" Condition="'$(TargetExt)' == '.rhp' and Exists('$(_PlugInRui)')">
+    <Target Name="ListPlugInRui" BeforeTargets="GetCopyToOutputDirectoryItems;GetCopyToPublishDirectoryItems" Condition="'$(TargetExt)' == '.rhp' and '@(_RhinoLibraryReference)' != '' and Exists('$(_PlugInRui)')">
         <ItemGroup>
             <ContentWithTargetPath Include="$(_PlugInRui)" TargetPath="$(TargetName).rui" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
         </ItemGroup>

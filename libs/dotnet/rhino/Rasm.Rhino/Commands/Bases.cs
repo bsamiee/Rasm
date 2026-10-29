@@ -1,170 +1,140 @@
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using Rasm.Rhino.Objects;
-using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.UI;
 using Rhino;
+using Rhino.Collections;
 using Rhino.Commands;
 using Rhino.DocObjects;
+using Rhino.PlugIns;
 using Rhino.UI;
+using UUIDNext;
 
 namespace Rasm.Rhino.Commands;
 
-// --- [MODELS] --------------------------------------------------------------------------
-public sealed record CommandHistory(int Version, bool HistoryReplayOnObjectAttributeChange, Func<ReplayHistoryData, Seq<ReplayHistoryResult>, IO<Seq<HistoryOutput>>> Outputs);
-
-public sealed record CommandEnd(Guid Id, Result Result);
-
-public sealed record RecentCommand(Option<string> DisplayString, Option<string> Macro);
-
-[Union]
-public abstract partial record SelectionAnswer {
-    public sealed record Whole : SelectionAnswer;
-
-    public sealed record Subobjects(IterableNE<ComponentIndex> Indices) : SelectionAnswer;
-
-    public sealed record Skipped : SelectionAnswer;
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Results {
-    public static Fin<Unit> Ended(Result result, [CallerArgumentExpression(nameof(result))] string call = "") =>
-        result switch {
-            Result.Success => unit,
-            Result.Cancel or Result.CancelModelessDialog => Errors.Cancelled,
-            _ => new RhinoFault(call, toSeq(RhinoReason.Items).Find(reason => reason.Ending == Some(result)).IfNone(RhinoReason.Declined)),
-        };
-
-    public static Fin<Result> Of(Fin<Unit> settled) =>
-        settled.Map(static _ => Result.Success).BindFail(static error =>
-            Seq(Result.ExitRhino, Result.Cancel, Result.Nothing, Result.UnknownCommand)
-                .Find(toHashSet(toSeq(error.AsIterable()).Choose(static leaf => leaf is RhinoFault fault ? fault.Reason.Ending : Conversions.Found(leaf.Is(Errors.Cancelled), Result.Cancel))).Contains)
-                .ToFin(error));
-
-    public static IO<Result> Of(IO<Unit> effect) =>
-        effect.Map(static _ => Result.Success).Catch(static error => IO.lift(Of(Fin.Fail<Unit>(error)))).As();
-}
-
-public static class CommandOps {
-    // --- [EXECUTION]
-    public static IO<Unit> ExecuteCommand(RhinoDoc document, string commandName) =>
-        IO.lift(() => Results.Ended(RhinoApp.ExecuteCommand(document, commandName)));
-
-    public static IO<Unit> RunProxyCommand(IO<Unit> body) =>
-        from running in IO.lift(Command.InCommand)
-        from answer in running ? body : Callbacks.Captured<Unit>(capture => IO.lift(() => Command.RunProxyCommand(
-            (_, _, _) => {
-                Fin<Unit> result = Callbacks.Settled(body, CancellationToken.None);
-                capture(result);
-                return Results.Of(result).IfFail(Result.Failure);
-            }, doc: null, data: null)))
-        select answer;
-
-    // --- [HISTORY]
-    public static IO<Option<CommandEnd>> LastCommand() =>
-        IO.lift(static () => Conversions.Present(Command.LastCommandId).Map(static id => new CommandEnd(id, Command.LastCommandResult)));
-
-    public static IO<Seq<RecentCommand>> GetMostRecentCommands() =>
-        IO.lift(static () => toSeq(Command.GetMostRecentCommands())
-            .Map(static description => new RecentCommand(Conversions.Present(description.DisplayString), Conversions.Present(description.Macro)))
-            .Strict());
-
+// --- [SERVICES] ------------------------------------------------------------------------
+internal sealed class CommandBody<TInput>(CommandDefinition<TInput> definition) where TInput : CommandInput, ICommandInput<TInput> {
     // --- [IDENTITY]
-    extension(Command command) {
-        internal string HelpUrl([CallerMemberName] string member = "") =>
-            Conversions.Unset(command.PlugIn.Answer(PlugInRegistry.ReadPlugIn(command.PlugIn.Id).Map(static state => state.Bind(static held => held.WebSite)), Option<string>.None, member));
+    private readonly PlugIn host = Session.PlugIn;
 
-        internal Unit ShowHelp(Option<HelpTopic> topic, [CallerMemberName] string member = "") =>
-            command.PlugIn.Run(
-                from views in IO.lift(Conversions.Cast<IPlugInViews>(command.PlugIn))
-                from shown in (topic || views.Help).Match(Some: static held => held.Show, None: static () => IO.pure(unit))
-                select shown,
-                member);
-    }
+    public CommandDefinition<TInput> Definition => definition;
+
+    public Guid Id { get; } = Uuid.NewNameBased(Session.PlugIn.Id, definition.EnglishName);
+
+    public string LocalName => Localization.LocalizeCommandName(definition.EnglishName, host);
+
+    // --- [HELP]
+    public string HelpUrl => Conversions.Unset(Optional(PlugIn.GetPlugInInfo(host.Id)).Bind(static info => Conversions.Present(info.WebSite)));
+
+    public void Help() =>
+        _ = Session.Run(definition.Help.Match(Some: static topic => topic.Show, None: () => IO.lift(() => ignore(host.DisplayHelp(windowHandle: 0)))), member: definition.EnglishName);
+
+    // --- [EXECUTION]
+    public Result Run(IO<Unit> body) => Session.Run(Results.Of(body), Result.Failure, member: definition.EnglishName);
+
+    public bool Replay(ReplayHistoryData data, Func<ReplayHistoryData, bool> inherited) =>
+        Session.Run(
+            definition.History.Match(
+                Some: row => row.Replay(data).Map(value: true),
+                None: () => IO.lift(() => inherited(data))),
+            failed: false,
+            member: definition.EnglishName);
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public abstract class HostCommand : Command {
-    // --- [IDENTITY]
-    private readonly Option<CommandHistory> history;
+public abstract class RunHost : Command {
+    private readonly CommandBody<CommandInput.Run> body;
 
-    protected HostCommand(Guid id, string englishName, Option<CommandHistory> history) {
-        (Id, EnglishName, this.history) = (id, englishName, history);
-        HistoryReplayOnObjectAttributeChange = history.Exists(static row => row.HistoryReplayOnObjectAttributeChange);
-    }
+    private protected RunHost(CommandDefinition<CommandInput.Run> definition) => body = new(definition);
 
-    public sealed override Guid Id { get; }
+    public sealed override Guid Id => body.Id;
 
-    public sealed override string EnglishName { get; }
+    public sealed override string EnglishName => body.Definition.EnglishName;
 
-    public sealed override string LocalName => Localization.LocalizeCommandName(EnglishName, PlugIn);
+    public sealed override string LocalName => body.LocalName;
 
-    protected virtual Option<HelpTopic> Help => None;
+    protected sealed override string CommandContextHelpUrl => body.HelpUrl;
 
-    protected sealed override string CommandContextHelpUrl => this.HelpUrl();
+    protected sealed override void OnHelp() => body.Help();
 
-    protected sealed override void OnHelp() => _ = this.ShowHelp(Help);
+    protected sealed override bool ReplayHistory(ReplayHistoryData replayData) => body.Replay(replayData, base.ReplayHistory);
 
-    // --- [EXECUTION]
-    protected abstract IO<Unit> Run(RhinoDoc doc, RunMode mode);
-
-    protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) => PlugIn.Answer(Results.Of(IO.lift(() => Run(doc, mode)).Flatten()), Result.Failure);
-
-    // --- [HISTORY]
-    protected sealed override bool ReplayHistory(ReplayHistoryData replayData) =>
-        PlugIn.Answer(
-            history.Map(row => Histories.Replay(replayData, row.Version, results => row.Outputs(replayData, results)).Map(value: true)).IfNone(() => IO.lift(() => base.ReplayHistory(replayData))),
-            failed: false);
+    protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) => body.Run(IO.lift(() => body.Definition.Input.Body(doc, mode, this)).Flatten());
 }
 
-public abstract class HostSelectionCommand(Guid id, string englishName) : SelCommand {
-    // --- [IDENTITY]
-    public sealed override Guid Id { get; } = id;
+public abstract class SelCommandHost<TInput> : SelCommand where TInput : CommandInput, ICommandInput<TInput> {
+    private protected SelCommandHost(CommandDefinition<TInput> definition) => Body = new(definition);
 
-    public sealed override string EnglishName { get; } = englishName;
+    public sealed override Guid Id => Body.Id;
 
-    public sealed override string LocalName => Localization.LocalizeCommandName(EnglishName, PlugIn);
+    public sealed override string EnglishName => Body.Definition.EnglishName;
 
-    protected virtual Option<HelpTopic> Help => None;
+    public sealed override string LocalName => Body.LocalName;
 
-    protected sealed override string CommandContextHelpUrl => this.HelpUrl();
+    private protected CommandBody<TInput> Body { get; }
 
-    protected sealed override void OnHelp() => _ = this.ShowHelp(Help);
+    protected sealed override string CommandContextHelpUrl => Body.HelpUrl;
 
-    // --- [EXECUTION]
-    protected abstract SelectionAnswer Select(RhinoObject candidate);
+    protected sealed override void OnHelp() => Body.Help();
 
-    protected sealed override bool SelFilter(RhinoObject rhObj) => PlugIn.Answer(IO.lift(() => Select(rhObj).Map(whole: true, subobjects: false, skipped: false)), failed: false);
+    protected sealed override bool ReplayHistory(ReplayHistoryData replayData) => Body.Replay(replayData, base.ReplayHistory);
+}
+
+public abstract class SelectionHost : SelCommandHost<CommandInput.Selection> {
+    private protected SelectionHost(CommandDefinition<CommandInput.Selection> definition) : base(definition) { }
+
+    protected sealed override bool SelFilter(RhinoObject rhObj) => Body.Definition.Input.Filter(rhObj);
+}
+
+public abstract class SubobjectsHost : SelCommandHost<CommandInput.Subobjects> {
+    private protected SubobjectsHost(CommandDefinition<CommandInput.Subobjects> definition) : base(definition) { }
+
+    protected sealed override bool SelFilter(RhinoObject rhObj) => Body.Definition.Input.Filter(rhObj) is SelectionAnswer.Whole;
 
     protected sealed override bool SelSubObjectFilter(RhinoObject rhObj, List<ComponentIndex> indicesToSelect) =>
-        PlugIn.Answer(
-            IO.lift(() => Select(rhObj).Switch(
-                indicesToSelect,
-                whole: static (_, _) => false,
-                subobjects: static (indices, answer) => {
-                    indices.AddRange(answer.Indices);
-                    return true;
-                },
-                skipped: static (_, _) => false)),
-            failed: false);
+        Body.Definition.Input.Filter(rhObj) is SelectionAnswer.Subobjects parts && Selected(indicesToSelect, parts.Indices);
+
+    private static bool Selected(List<ComponentIndex> indices, IterableNE<ComponentIndex> parts) {
+        indices.AddRange(parts);
+        return true;
+    }
 }
 
-public abstract class HostTransformCommand(Guid id, string englishName) : TransformCommand {
-    // --- [IDENTITY]
-    public sealed override Guid Id { get; } = id;
+public abstract class TransformationHost : TransformCommand {
+    private readonly CommandBody<CommandInput.Transformation> body;
 
-    public sealed override string EnglishName { get; } = englishName;
+    private protected TransformationHost(CommandDefinition<CommandInput.Transformation> definition) => body = new(definition);
 
-    public sealed override string LocalName => Localization.LocalizeCommandName(EnglishName, PlugIn);
+    public sealed override Guid Id => body.Id;
 
-    protected virtual Option<HelpTopic> Help => None;
+    public sealed override string EnglishName => body.Definition.EnglishName;
 
-    protected sealed override string CommandContextHelpUrl => this.HelpUrl();
+    public sealed override string LocalName => body.LocalName;
 
-    protected sealed override void OnHelp() => _ = this.ShowHelp(Help);
+    protected sealed override string CommandContextHelpUrl => body.HelpUrl;
 
-    // --- [EXECUTION]
-    protected abstract IO<Unit> Run(RhinoDoc doc, RunMode mode);
+    protected sealed override void OnHelp() => body.Help();
 
-    protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) => PlugIn.Answer(Results.Of(IO.lift(() => Run(doc, mode)).Flatten()), Result.Failure);
+    protected sealed override bool ReplayHistory(ReplayHistoryData replayData) => body.Replay(replayData, base.ReplayHistory);
+
+    protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) =>
+        body.Run(
+            (from list in use(static () => new TransformObjectList())
+             from selected in IO.lift(() => Results.Ended(SelectObjects(LocalText.Of(body.Definition.Input.Prompt).Local, body.Definition.Input.Filter, list)))
+             from moved in body.Definition.Input.Body(doc, mode, list)
+             from applied in IO.lift(() => TransformObjects(list, moved.Xform, moved.Copy, autoHistory: true))
+             select unit).Bracket());
 }
+
+public abstract class DefinedRunCommand<TSelf>() : RunHost(TSelf.Definition) where TSelf : DefinedRunCommand<TSelf>, IDefined<CommandDefinition<CommandInput.Run>>;
+
+public abstract class DefinedSelectionCommand<TSelf>() : SelectionHost(TSelf.Definition) where TSelf : DefinedSelectionCommand<TSelf>, IDefined<CommandDefinition<CommandInput.Selection>>;
+
+public abstract class DefinedSubobjectsCommand<TSelf>() : SubobjectsHost(TSelf.Definition) where TSelf : DefinedSubobjectsCommand<TSelf>, IDefined<CommandDefinition<CommandInput.Subobjects>>;
+
+public abstract class DefinedTransformationCommand<TSelf>() : TransformationHost(TSelf.Definition) where TSelf : DefinedTransformationCommand<TSelf>, IDefined<CommandDefinition<CommandInput.Transformation>>;
+
+internal sealed class PlainRunCommand(CommandDefinition<CommandInput.Run> definition) : RunHost(definition);
+
+internal sealed class PlainSelectionCommand(CommandDefinition<CommandInput.Selection> definition) : SelectionHost(definition);
+
+internal sealed class PlainSubobjectsCommand(CommandDefinition<CommandInput.Subobjects> definition) : SubobjectsHost(definition);
+
+internal sealed class PlainTransformationCommand(CommandDefinition<CommandInput.Transformation> definition) : TransformationHost(definition);

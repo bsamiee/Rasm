@@ -1,6 +1,4 @@
-using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence;
-using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Collections;
 using Rhino.FileIO;
@@ -8,8 +6,6 @@ using Rhino.FileIO;
 namespace Rasm.Rhino.PlugIns;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record FrameKey(uint TypeCode);
-
 public abstract record DocumentFrame {
     internal abstract IO<bool> Filled(RhinoDoc doc, FileWriteOptions options);
 
@@ -38,19 +34,17 @@ public sealed record ArchiveFrame<T>(
             None: () => Held(doc, options).Bind(held => AttachedData.Write(writer, TypeCode, Codec, held))));
 
     internal override IO<Unit> Read(RhinoDoc doc, BinaryArchiveReader reader) =>
-        from cleared in IO.lift(() => ignore(doc.RuntimeData.Remove(Key)))
+        from cleared in IO.lift(() => ignore(doc.RuntimeData.Remove(this)))
         from stored in AttachedData.Read(reader, TypeCode, Codec)
         from restored in stored.Switch(
             (Frame: this, Doc: doc),
-            held: static (state, held) => state.Frame.Restore(state.Doc, held.Value),
+            decoded: static (state, decoded) => state.Frame.Restore(state.Doc, decoded.Value),
             absent: static (_, _) => IO.pure(unit),
-            newer: static (state, newer) => IO.lift(() => { state.Doc.RuntimeData[state.Frame.Key] = newer.Raw; }))
+            newer: static (state, newer) => IO.lift(() => { state.Doc.RuntimeData[state.Frame] = newer.Raw; }))
         select restored;
 
-    private FrameKey Key => new(TypeCode);
-
     private IO<Option<ArchivableDictionary>> Newer(RhinoDoc doc) =>
-        IO.lift(() => Optional(doc.RuntimeData.TryGetValue<ArchivableDictionary>(Key)));
+        IO.lift(() => Optional(doc.RuntimeData.TryGetValue<ArchivableDictionary>(this)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -59,7 +53,7 @@ internal static class DocumentArchive {
     public static IO<bool> ShouldWrite(Seq<DocumentFrame> frames, FileWriteOptions options) =>
         IO.lift(() => Optional(options.RhinoDoc).Filter(_ => !options.WriteGeometryOnly && options.WriteUserData && !options.WriteSelectedObjectsOnly))
             .Bind(saved => saved.Match(
-                Some: doc => Callbacks.Each(frames.Map(frame => frame.Filled(doc, options))).Map(static filled => filled.Exists(static held => held)),
+                Some: doc => Products.Each(frames.Map(frame => frame.Filled(doc, options))).Map(static filled => filled.Exists(static held => held)),
                 None: static () => IO.pure(value: false)));
 
     public static IO<Unit> Write(Seq<DocumentFrame> frames, RhinoDoc doc, BinaryArchiveWriter writer, FileWriteOptions options) =>
@@ -70,6 +64,6 @@ internal static class DocumentArchive {
             .Bind(opened => when(opened, frames.TraverseM(frame => frame.Read(doc, reader)).As().Map(unit)).As());
 
     // --- [SAVES]
-    public static IO<Unit> Rewrites(IPlugInViews plugIn) =>
-        EventKind.BeginSaveDocument.Inline(static args => Optional(args.Document).Traverse(ArchivableDictionaries.Rewrite).As().Map(unit), plugIn);
+    public static IO<Unit> Rewrites =>
+        Subscriptions.On<DocumentSaveEventArgs>(static h => RhinoDoc.BeginSaveDocument += h, static h => RhinoDoc.BeginSaveDocument -= h).Documents().Attach(static args => Optional(args.Document).Traverse(ArchivableDictionaries.Rewrite).As().Map(unit));
 }

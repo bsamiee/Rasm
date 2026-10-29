@@ -1,303 +1,215 @@
 using System.Numerics;
 using System.Numerics.Tensors;
-using System.Runtime.Intrinsics;
+using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
-using CommunityToolkit.HighPerformance.Helpers;
-using MathNet.Numerics.LinearAlgebra;
+using Emgu.CV;
+using Emgu.CV.CvEnum;
+using Emgu.CV.Util;
 using Rasm.Imaging.Color;
 
 namespace Rasm.Imaging.Pixels;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-internal interface IRowFold {
-    public int Bins { get; }
-    public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins);
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ClipLevels(float Low, float High);
+public sealed record LevelRange(float Low, float High) {
+    public bool Clips(Vector4 pixel) => float.Min(pixel.X, float.Min(pixel.Y, pixel.Z)) < Low || float.Max(pixel.X, float.Max(pixel.Y, pixel.Z)) >= High;
 
-[SmartEnum]
-public sealed partial class ClipEnd {
-    public static readonly ClipEnd Low = new(static (pixel, levels) => float.Min(pixel.X, float.Min(pixel.Y, pixel.Z)) < levels.Low);
-    public static readonly ClipEnd High = new(static (pixel, levels) => float.Max(pixel.X, float.Max(pixel.Y, pixel.Z)) >= levels.High);
+    public Fin<(ImmutableArray<int> Below, ImmutableArray<int> Above)> Clipped(PixelFrame frame) =>
+        Try.lift(() => {
+            using Mat header = frame.Header();
+            using Mat channel = new();
+            using Mat covered = new();
+            using Mat hit = new();
+            CvInvoke.ExtractChannel(header, channel, 3);
+            using ScalarArray zero = new(0d);
+            CvInvoke.Compare(channel, zero, covered, CmpType.GreaterThan);
+            return (Counted(Low, CmpType.LessThan), Counted(High, CmpType.GreaterEqual));
 
-    [UseDelegateFromConstructor]
-    public partial bool Clips(Vector4 pixel, ClipLevels levels);
+            ImmutableArray<int> Counted(float level, CmpType comparison) =>
+                [.. toSeq(Range(0, 3)).Map(index => {
+                    CvInvoke.ExtractChannel(header, channel, index);
+                    using ScalarArray threshold = new(level);
+                    CvInvoke.Compare(channel, threshold, hit, comparison);
+                    CvInvoke.BitwiseAnd(hit, covered, hit, mask: null);
+                    return CvInvoke.CountNonZero(hit);
+                })];
+        }).Run();
 }
 
 [SmartEnum]
 public sealed partial class TracePlane {
-    public static readonly TracePlane Luma = new(Vector3.One, static traces => traces.Luma);
-    public static readonly TracePlane Red = new(Vector3.UnitX, static traces => traces.Red);
-    public static readonly TracePlane Green = new(Vector3.UnitY, static traces => traces.Green);
-    public static readonly TracePlane Blue = new(Vector3.UnitZ, static traces => traces.Blue);
+    public static readonly TracePlane Red = new(0, Vector3.UnitX);
+    public static readonly TracePlane Green = new(1, Vector3.UnitY);
+    public static readonly TracePlane Blue = new(2, Vector3.UnitZ);
+    public static readonly TracePlane Luma = new(3, Vector3.One);
 
+    public int Channel { get; }
     public Vector3 Color { get; }
 
-    [UseDelegateFromConstructor]
-    public partial BinGrid Bins(Traces traces);
-}
-
-[ComplexValueObject(SkipFactoryMethods = true)]
-public sealed partial class BinRange {
-    public int First { get; }
-    public int Last { get; }
-
-    public bool Holds(double level) => !double.IsNaN(level) && HistogramAxis.Bin(level) is var bin && bin >= First && bin <= Last;
-
-    public static Fin<BinRange> Validated(int first, int last) =>
-        ImagingFault.Unless(0 <= first && first <= last && last < HistogramAxis.Bins, ImagingReason.Range, (first, last)).Map(_ => new BinRange(first, last));
-}
-
-[SmartEnum<int>]
-public sealed partial class SampleSquare {
-    public static readonly SampleSquare One = new(1);
-    public static readonly SampleSquare Three = new(3);
-    public static readonly SampleSquare Five = new(5);
-    public static readonly SampleSquare Seven = new(7);
-
-    public Option<Vector4> Mean(PixelFrame frame, (double X, double Y) pixel) {
-        (double x, double y) = (double.Floor(pixel.X - frame.Origin.X) - (Key / 2), double.Floor(pixel.Y - frame.Origin.Y) - (Key / 2));
-        (double left, double top, double right, double bottom) =
-            (double.Max(x, 0d), double.Max(y, 0d), double.Min(x + Key, frame.Size.Width), double.Min(y + Key, frame.Size.Height));
-        (Vector256<double> sum, int count) = (Vector256<double>.Zero, 0);
-        if (right > left && bottom > top)
-            foreach (Vector4 sample in frame.View.Span.Slice((int)top, (int)left, (int)(bottom - top), (int)(right - left)))
-                (sum, count) = sample.W > 0f ? (sum + sample.Wide, count + 1) : (sum, count);
-        return count > 0 ? Some((sum / count).Narrowed.AsVector4()) : None;
-    }
-}
-
-public sealed record BinGrid {
-    internal BinGrid(int columns, int rows, ReadOnlyMemory<int> counts) => (Columns, Rows, Counts) = (columns, rows, counts);
-
-    public int Columns { get; }
-    public int Rows { get; }
-    public ReadOnlyMemory<int> Counts { get; }
-
-    public ReadOnlySpan<int> Row(int row) => Counts.Span.AsSpan2D(Rows, Columns).GetRowSpan(row);
-}
-
-public sealed record Traces(BinGrid Red, BinGrid Green, BinGrid Blue, BinGrid Luma) {
-    internal static Traces Of(int[] counts, int columns, int rows) =>
-        (columns * rows) switch {
-            var cells => new(
-                new BinGrid(columns, rows, counts.AsMemory(0, cells)),
-                new BinGrid(columns, rows, counts.AsMemory(cells, cells)),
-                new BinGrid(columns, rows, counts.AsMemory(2 * cells, cells)),
-                new BinGrid(columns, rows, counts.AsMemory(3 * cells, cells))),
-        };
-}
-
-public sealed record Clips(Channels<int> Low, Channels<int> High) {
-    internal const int Ends = 6;
-
-    internal static Clips Of(ReadOnlySpan<int> counts) => counts[..Ends] switch { var ends => new(new(ends[0], ends[1], ends[2]), new(ends[3], ends[4], ends[5])) };
+    public ReadOnlyMemory2D<float> Plane(ReadOnlyMemory2D<float> reading) =>
+        (reading.Height / Items.Count) switch { var height => reading.Slice(Channel * height, 0, height, reading.Width) };
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ScopeRequest {
-    private ScopeRequest(Gamut gamut) => Gamut = gamut;
+public abstract partial record Scope {
+    public virtual Fin<ReadOnlyMemory2D<float>> Read(PixelFrame frame) =>
+        Try.lift(() => {
+            using Mat header = frame.Header();
+            using Mat rgb = new();
+            using Mat alpha = new();
+            using Mat covered = new();
+            CvInvoke.CvtColor(header, rgb, ColorConversion.Bgra2Bgr);
+            CvInvoke.ExtractChannel(header, alpha, 3);
+            using ScalarArray zero = new(0d);
+            CvInvoke.Compare(alpha, zero, covered, CmpType.GreaterThan);
+            return Counted(rgb, covered);
+        }).Run();
 
-    public Gamut Gamut { get; }
+    private protected abstract ReadOnlyMemory2D<float> Counted(Mat rgb, Mat covered);
 
-    public abstract ScopeReading Read(PixelFrame frame);
+    private static Matrix4x4 Levels(Vector3 luminance) => new(1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, luminance.X, luminance.Y, luminance.Z, 0f);
 
-    public sealed record Histogram(Gamut Gamut, Option<ClipLevels> Clipping, Option<(PixelFrame Frame, Gamut Gamut)> Input) : ScopeRequest(Gamut) {
-        public override ScopeReading.Histogram Read(PixelFrame frame) =>
-            BandFold.Run(frame, new HistogramFold(Gamut.Luminance, Clipping)) switch {
-                var counts => new ScopeReading.Histogram(
-                    this,
-                    Traces.Of(counts, HistogramAxis.Bins, 1),
-                    Clipping.Map(_ => Clips.Of(counts.AsSpan(4 * HistogramAxis.Bins))),
-                    Input.Map(static input => Traces.Of(BandFold.Run(input.Frame, new HistogramFold(input.Gamut.Luminance, None)), HistogramAxis.Bins, 1))),
-            };
+    private static Mat Rows(Matrix4x4 rows, int first, int count) {
+        Mat map = new(count, 4, DepthType.Cv32F, 1);
+        map.SetTo(MemoryMarshal.CreateReadOnlySpan(ref rows.M11, 16).Slice(4 * first, 4 * count).ToArray());
+        return map;
     }
 
-    public sealed record Waveform(Gamut Gamut, PixelExtent Plot) : ScopeRequest(Gamut) {
-        public override ScopeReading.Waveform Read(PixelFrame frame) =>
-            int.Min(Plot.Width, frame.Size.Width) switch {
-                var columns => new ScopeReading.Waveform(
-                    this,
-                    Traces.Of(BandFold.Run(frame, new WaveformFold(Gamut.Luminance, columns, Plot.Height, frame.Size.Width)), columns, Plot.Height)),
-            };
+    private static Mat Transformed(Mat rgb, Matrix4x4 rows, int first, int count) {
+        using Mat map = Rows(rows, first, count);
+        Mat transformed = new();
+        CvInvoke.Transform(rgb, transformed, map);
+        return transformed;
     }
 
-    public sealed record Vectorscope(Gamut Gamut, PixelExtent Plot, float Magnification) : ScopeRequest(Gamut) {
+    private static ReadOnlyMemory2D<float> Binned(VectorOfMat images, Mat covered, int[] sizes, float[] ranges, params ReadOnlySpan<int[]> planes) {
+        int cells = sizes.Length is 1 ? sizes[0] : sizes[0] * sizes[1];
+        float[] counts = new float[planes.Length * cells];
+        for (int index = 0; index < planes.Length; index++) {
+            using Mat histogram = new();
+            CvInvoke.CalcHist(images, planes[index], covered, histogram, sizes, ranges, accumulate: false);
+            histogram.GetSpan<float>().CopyTo(counts.AsSpan(index * cells));
+        }
+        return new(counts, planes.Length * cells / sizes[^1], sizes[^1]);
+    }
+
+    public sealed record Histogram(int BinsPerStop, int TopStop, Vector3 Luminance) : Scope {
+        public int Bins => (BinsPerStop * (TopStop + 1)) + 1;
+
+        public Seq<float> Ticks => toSeq(Range(1, 4)).Map(static quarter => quarter / 4f) + toSeq(Range(1, TopStop)).Map(static stop => float.Exp2(stop));
+
+        public Option<int> Bin(float level) {
+            Span<float> bin = [level];
+            Mapped(bin, stackalloc float[1]);
+            return float.IsNaN(bin[0]) ? None : (int)bin[0];
+        }
+
+        public float LowerBound(int bin) => bin < BinsPerStop ? (float)bin / BinsPerStop : float.Exp2((float)(bin - BinsPerStop) / BinsPerStop);
+
+        public static Option<double> Cumulative(ReadOnlySpan<float> plane, int bin) =>
+            TensorPrimitives.Sum(plane) is > 0f and var covered ? Some((double)TensorPrimitives.Sum(plane[..(bin + 1)]) / covered) : None;
+
+        private protected override ReadOnlyMemory2D<float> Counted(Mat rgb, Mat covered) {
+            using Mat levels = Transformed(rgb, Levels(Luminance), 0, 4);
+            using SpanOwner<float> scratch = SpanOwner<float>.Allocate(levels.Rows * levels.Cols * 4);
+            Mapped(levels.GetSpan<float>(), scratch.Span);
+            CvInvoke.PatchNaNs(levels, -1d);
+            using VectorOfMat images = new(levels);
+            return Binned(images, covered, [Bins], [0f, Bins], [.. TracePlane.Items.Select(static plane => new[] { plane.Channel })]);
+        }
+
+        private void Mapped(Span<float> levels, Span<float> scratch) {
+            TensorPrimitives.Max(levels, 1f, scratch);
+            TensorPrimitives.Log2(scratch, scratch);
+            TensorPrimitives.Min(levels, 1f, levels);
+            TensorPrimitives.Add(levels, scratch, levels);
+            TensorPrimitives.Multiply(levels, BinsPerStop, levels);
+            TensorPrimitives.Max(levels, 0f, levels);
+            TensorPrimitives.Min(levels, Bins - 1, levels);
+        }
+    }
+
+    public sealed record Waveform(PixelExtent Plot, Vector3 Luminance) : Scope {
+        private protected override ReadOnlyMemory2D<float> Counted(Mat rgb, Mat covered) {
+            (int columns, int rows) = (int.Min(Plot.Width, rgb.Cols), Plot.Height);
+            using Mat levels = Transformed(rgb, Levels(Luminance), 0, 4);
+            Span<float> samples = levels.GetSpan<float>();
+            TensorPrimitives.Multiply(samples, rows, samples);
+            TensorPrimitives.Max(samples, 0f, samples);
+            TensorPrimitives.Min(samples, float.BitDecrement(rows), samples);
+            CvInvoke.PatchNaNs(levels, -1d);
+            using Mat line = new(1, rgb.Cols, DepthType.Cv32F, 1);
+            Span<float> across = line.GetSpan<float>();
+            for (int x = 0; x < across.Length; x++)
+                across[x] = (long)x * columns / rgb.Cols;
+            using Mat positions = new();
+            CvInvoke.Repeat(line, rgb.Rows, 1, positions);
+            using VectorOfMat images = new(levels, positions);
+            return Binned(images, covered, [rows, columns], [0f, rows, 0f, columns], [.. TracePlane.Items.Select(static plane => new[] { plane.Channel, 4 })]);
+        }
+    }
+
+    public sealed record Vectorscope(PixelExtent Plot, Matrix4x4 ToYpbpr, float Magnification) : Scope {
         public float Reach => 0.5f / Magnification;
 
-        public override ScopeReading.Vectorscope Read(PixelFrame frame) =>
-            new(
-                this,
-                new BinGrid(Plot.Width, Plot.Height, BandFold.Run(frame, new VectorscopeFold(Gamut.ToYpbpr(Gamut.Ybr), Reach, Plot.Width, Plot.Height))));
+        private protected override ReadOnlyMemory2D<float> Counted(Mat rgb, Mat covered) {
+            using Mat ycc = Transformed(rgb, Matrix4x4.Transpose(ToYpbpr), 0, 3);
+            CvInvoke.PatchNaNs(ycc, -2d * Reach);
+            using VectorOfMat images = new(ycc);
+            return Binned(images, covered, [Plot.Height, Plot.Width], [-Reach, Reach, -Reach, Reach], [2, 1]);
+        }
     }
 
-    public sealed record Chromaticity(Gamut Gamut, Transfer Encoding, PixelExtent Plot) : ScopeRequest(Gamut) {
-        public override ScopeReading.Chromaticity Read(PixelFrame frame) =>
-            new(
-                this,
-                new BinGrid(Plot.Width, Plot.Height, BandFold.Run(frame, new ChromaticityFold(Gamut.ToXyz, Encoding, Plot.Width, Plot.Height))));
-    }
-}
+    public sealed record Chromaticity(PixelExtent Plot, Matrix4x4 ToXyz, Transfer Encoding) : Scope {
+        public override Fin<ReadOnlyMemory2D<float>> Read(PixelFrame frame) =>
+            frame.Copy() switch { var decoded => new PixelPass.Point(Encoding.Decode.Apply).Run(decoded).Bind(_ => base.Read(decoded)) };
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ScopeReading {
-    public sealed record Histogram(ScopeRequest.Histogram Request, Traces Bins, Option<Clips> Clipped, Option<Traces> Input) : ScopeReading {
-        public Option<double> Below(int bin) =>
-            (TensorPrimitives.Sum(Bins.Luma.Row(0)[..(bin + 1)]), TensorPrimitives.Sum(Bins.Luma.Row(0))) switch {
-                (_, 0) => None,
-                var (below, covered) => Some((double)below / covered),
+        private protected override ReadOnlyMemory2D<float> Counted(Mat rgb, Mat covered) {
+            Matrix4x4 rows = Matrix4x4.Transpose(ToXyz) switch {
+                var xyz => xyz with { M41 = xyz.M11 + xyz.M21 + xyz.M31, M42 = xyz.M12 + xyz.M22 + xyz.M32, M43 = xyz.M13 + xyz.M23 + xyz.M33, M44 = xyz.M14 + xyz.M24 + xyz.M34 },
             };
+            using Mat map = Rows(rows, 0, 4);
+            using Mat xy = new();
+            using Mat sum = Transformed(rgb, rows, 3, 1);
+            using Mat lit = new();
+            CvInvoke.PerspectiveTransform(rgb, xy, map);
+            using ScalarArray zero = new(0d);
+            CvInvoke.Compare(sum, zero, lit, CmpType.GreaterThan);
+            CvInvoke.BitwiseAnd(lit, covered, lit, mask: null);
+            using VectorOfMat images = new(xy);
+            return Binned(images, lit, [Plot.Height, Plot.Width], [0f, 1f, 0f, 1f], [1, 0]);
+        }
     }
-    public sealed record Waveform(ScopeRequest.Waveform Request, Traces Bins) : ScopeReading;
-    public sealed record Vectorscope(ScopeRequest.Vectorscope Request, BinGrid Bins) : ScopeReading;
-    public sealed record Chromaticity(ScopeRequest.Chromaticity Request, BinGrid Bins) : ScopeReading;
 }
 
 public sealed record FrameComparison(double Psnr, Option<double> Nrmse, PixelFrame Difference) {
     public static Fin<FrameComparison> Of(PixelFrame reference, PixelFrame test) =>
-        reference.Size == test.Size ? Measured(reference, test) : new ImagingFault($"reference size {reference.Size} against test size {test.Size}", ImagingReason.Mismatch);
+        ImagingFault.Unless(reference.Size == test.Size, ImagingReason.Mismatch, (reference.Size, test.Size)).Bind(_ => Try.lift(() => {
+            using Mat expected = Color(reference);
+            using Mat actual = Color(test);
+            using Mat delta = new();
+            PixelFrame difference = new(test.Origin, test.Size, test.Extent);
+            using Mat written = difference.Header();
+            CvInvoke.AbsDiff(expected, actual, delta);
+            CvInvoke.CvtColor(delta, written, ColorConversion.Bgr2Bgra);
+            double error = double.Pow(CvInvoke.Norm(expected, actual, NormType.L2, mask: null), 2d);
+            double top = double.Max(1d, double.Max(Peak(expected), Peak(actual)));
+            return new FrameComparison(
+                10d * double.Log10(top * top * 3d * test.Size.Width * test.Size.Height / error),
+                CvInvoke.Norm(expected, NormType.L2, mask: null) is > 0d ? Some(CvInvoke.Norm(actual, expected, NormType.RelativeL2, mask: null)) : None,
+                difference);
+        }).Run());
 
-    private static FrameComparison Measured(PixelFrame reference, PixelFrame test) {
-        using MemoryOwner<(double Error, double Signal, Vector3 Peak)> rows = MemoryOwner<(double Error, double Signal, Vector3 Peak)>.Allocate(test.Size.Height);
-        PixelFrame difference = new(test.Origin, test.Size, test.Extent);
-        ParallelHelper.For(0, test.Size.Height, new DifferenceAction(reference.View, test.View, difference.View, rows.Memory));
-        (double error, double signal, Vector3 peak) = (0d, 0d, Vector3.One);
-        foreach ((double Error, double Signal, Vector3 Peak) row in rows.Span)
-            (error, signal, peak) = (error + row.Error, signal + row.Signal, Vector3.Max(peak, row.Peak));
-        double top = float.Max(peak.X, float.Max(peak.Y, peak.Z));
-        return new(10d * double.Log10(top * top * 3d * test.Size.Width * test.Size.Height / error), signal > 0d ? Some(double.Sqrt(error / signal)) : None, difference);
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class HistogramAxis {
-    private const int StopBins = 256;
-    public const int TopStop = 4;
-
-    public const int Bins = (StopBins * (TopStop + 1)) + 1;
-
-    public static Seq<float> Ticks { get; } = toSeq(Range(1, 4)).Map(static quarter => quarter / 4f) + toSeq(Range(1, TopStop)).Map(static stop => float.Exp2(stop));
-
-    public static int Bin(double value) =>
-        value switch {
-            >= 1 << TopStop => Bins - 1,
-            >= 1d => StopBins + (int)(double.Log2(value) * StopBins),
-            _ => int.Clamp(int.CreateSaturating(value * StopBins), 0, StopBins - 1),
-        };
-
-    public static float LowerBound(int bin) => bin < StopBins ? (float)bin / StopBins : float.Exp2((float)(bin - StopBins) / StopBins);
-}
-
-internal sealed class HistogramFold(Vector256<double> luminance, Option<ClipLevels> clipping) : IRowFold {
-    public int Bins => (4 * HistogramAxis.Bins) + (Clips.Ends * clipping.Count());
-
-    public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
-        ReadOnlySpan<ClipLevels> clips = clipping.ToSpan();
-        Span2D<int> planes = bins[..(4 * HistogramAxis.Bins)].AsSpan2D(4, HistogramAxis.Bins);
-        Span2D<int> ends = bins[(4 * HistogramAxis.Bins)..].AsSpan2D(2 * clips.Length, 3);
-        foreach (Vector4 pixel in row) {
-            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, Vector256.Dot(luminance, pixel.Wide));
-            int covered = pixel.W > 0f ? 1 : 0;
-            for (int plane = 0; plane < 4; plane++)
-                planes[plane, HistogramAxis.Bin(levels[plane])] += double.IsNaN(levels[plane]) ? 0 : covered;
-            foreach (ClipLevels clip in clips) Clipped(pixel, covered, clip, ends);
-        }
+    private static Mat Color(PixelFrame frame) {
+        using Mat header = frame.Header();
+        Mat color = new();
+        CvInvoke.CvtColor(header, color, ColorConversion.Bgra2Bgr);
+        return color;
     }
 
-    private static void Clipped(Vector4 pixel, int covered, ClipLevels clip, Span2D<int> ends) {
-        for (int channel = 0; channel < 3; channel++) {
-            ends[0, channel] += pixel[channel] < clip.Low ? covered : 0;
-            ends[1, channel] += pixel[channel] >= clip.High ? covered : 0;
-        }
-    }
-}
-
-internal sealed class WaveformFold(Vector256<double> luminance, int columns, int rows, int width) : IRowFold {
-    public int Bins => 4 * columns * rows;
-
-    public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
-        Span2D<int> planes = bins.AsSpan2D(4 * rows, columns);
-        for (int x = 0; x < row.Length; x++) {
-            Vector4 pixel = row[x];
-            Vector256<double> levels = Vector256.Create(pixel.X, pixel.Y, pixel.Z, Vector256.Dot(luminance, pixel.Wide));
-            (int covered, int column) = (row[x].W > 0f ? 1 : 0, (int)((long)x * columns / width));
-            for (int plane = 0; plane < 4; plane++)
-                planes[(plane * rows) + int.Clamp(int.CreateSaturating(levels[plane] * rows), 0, rows - 1), column] += double.IsNaN(levels[plane]) ? 0 : covered;
-        }
-    }
-}
-
-internal sealed class VectorscopeFold(Matrix<double> forward, float reach, int columns, int rows) : IRowFold {
-    private readonly (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) lanes = forward.Lanes;
-
-    public int Bins => columns * rows;
-
-    public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
-        Span2D<int> grid = bins.AsSpan2D(rows, columns);
-        foreach (Vector4 pixel in row) {
-            Vector256<double> ycc = (lanes.Red * pixel.X) + (lanes.Green * pixel.Y) + (lanes.Blue * pixel.Z);
-            (double u, double v) = ((ycc[1] + reach) / (2d * reach), (ycc[2] + reach) / (2d * reach));
-            if (pixel.W > 0f && u >= 0f && u < 1f && v >= 0f && v < 1f)
-                grid[(int)(v * rows), (int)(u * columns)]++;
-        }
-    }
-}
-
-internal sealed class ChromaticityFold(Matrix<double> toXyz, Transfer encoding, int columns, int rows) : IRowFold {
-    private readonly (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) lanes = toXyz.Lanes;
-
-    public int Bins => columns * rows;
-
-    public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
-        using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(row.Length);
-        row.CopyTo(scratch.Span);
-        encoding.Decode(scratch.Span);
-        Span2D<int> grid = bins.AsSpan2D(rows, columns);
-        foreach (Vector4 rgb in scratch.Span) {
-            Vector256<double> xyz = (lanes.Red * rgb.X) + (lanes.Green * rgb.Y) + (lanes.Blue * rgb.Z);
-            double sum = Vector256.Sum(xyz);
-            (double x, double y) = (xyz[0] / sum, xyz[1] / sum);
-            if (rgb.W > 0f && sum > 0d && x >= 0d && x < 1d && y >= 0d && y < 1d)
-                grid[(int)(y * rows), (int)(x * columns)]++;
-        }
-    }
-}
-
-internal static class BandFold {
-    internal static int[] Run<TFold>(PixelFrame frame, TFold fold) where TFold : IRowFold {
-        int bands = int.Min(frame.Size.Height, Environment.ProcessorCount);
-        int[][] counts = new int[bands][];
-        ParallelHelper.For(0, bands, new BandAction<TFold>(frame.View, counts, fold));
-        Span<int> merged = counts[0];
-        for (int band = 1; band < bands; band++)
-            TensorPrimitives.Add(merged, counts[band], merged);
-        return counts[0];
-    }
-}
-
-file readonly struct BandAction<TFold>(Memory2D<Vector4> rows, int[][] counts, TFold fold) : IAction where TFold : IRowFold {
-    public void Invoke(int i) {
-        int[] bins = new int[fold.Bins];
-        counts[i] = bins;
-        for (int line = (int)((long)i * rows.Height / counts.Length); line < (int)((long)(i + 1) * rows.Height / counts.Length); line++)
-            fold.Fold(rows.Span.GetRowSpan(line), bins);
-    }
-}
-
-file readonly struct DifferenceAction(Memory2D<Vector4> reference, Memory2D<Vector4> test, Memory2D<Vector4> difference, Memory<(double Error, double Signal, Vector3 Peak)> rows) : IAction {
-    public void Invoke(int i) {
-        ReadOnlySpan<Vector4> a = reference.Span.GetRowSpan(i);
-        ReadOnlySpan<Vector4> b = test.Span.GetRowSpan(i);
-        Span<Vector4> d = difference.Span.GetRowSpan(i);
-        (double error, double signal, Vector3 peak) = (0d, 0d, Vector3.Zero);
-        for (int x = 0; x < d.Length; x++) {
-            (Vector3 r, Vector3 t) = (a[x].AsVector3(), b[x].AsVector3());
-            d[x] = new(Vector3.Abs(r - t), 1f);
-            (error, signal, peak) = (error + Vector3.DistanceSquared(r, t), signal + r.LengthSquared(), Vector3.Max(peak, Vector3.Max(r, t)));
-        }
-        rows.Span[i] = (error, signal, peak);
+    private static double Peak(Mat color) {
+        using Mat flat = color.Reshape(1);
+        CvInvoke.MinMaxIdx(flat, out _, out double most, minIdx: null, maxIdx: null, mask: null);
+        return most;
     }
 }

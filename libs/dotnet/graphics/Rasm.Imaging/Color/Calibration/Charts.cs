@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Numerics;
 using Rasm.Imaging.Pixels;
 using UnitsNet;
@@ -6,235 +7,184 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Color.Calibration;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum]
-public sealed partial class ChartPatch {
-    public static readonly ChartPatch DarkSkin = new((0.1136398927, 0.09832436105, 0.047793811));
-    public static readonly ChartPatch LightSkin = new((0.3811104477, 0.336202304, 0.1852590702));
-    public static readonly ChartPatch BlueSky = new((0.1652470004, 0.1785519348, 0.2546024121));
-    public static readonly ChartPatch Foliage = new((0.1114392339, 0.1346792679, 0.05239320311));
-    public static readonly ChartPatch BlueFlower = new((0.2419823988, 0.2287175998, 0.3282104382));
-    public static readonly ChartPatch BluishGreen = new((0.30451114, 0.4143554688, 0.344352688));
-    public static readonly ChartPatch Orange = new((0.4073691399, 0.3126416159, 0.05130591012));
-    public static readonly ChartPatch PurplishBlue = new((0.1200518326, 0.1091090233, 0.2874447494));
-    public static readonly ChartPatch ModerateRed = new((0.2915036416, 0.188999956, 0.09736350318));
-    public static readonly ChartPatch Purple = new((0.08353888545, 0.06276662955, 0.1042075686));
-    public static readonly ChartPatch YellowGreen = new((0.3427379502, 0.4331759409, 0.08330791241));
-    public static readonly ChartPatch OrangeYellow = new((0.4769723742, 0.4293377578, 0.06005041429));
-    public static readonly ChartPatch Blue = new((0.06809095613, 0.05596214063, 0.2077405936));
-    public static readonly ChartPatch Green = new((0.1413517689, 0.2233437582, 0.07287461742));
-    public static readonly ChartPatch Red = new((0.2143728424, 0.127800835, 0.03868150726));
-    public static readonly ChartPatch Yellow = new((0.5888922356, 0.5992976803, 0.07077420003));
-    public static readonly ChartPatch Magenta = new((0.299122798, 0.1895114577, 0.2213469194));
-    public static readonly ChartPatch Cyan = new((0.1247966941, 0.180609913, 0.2913392383));
-    public static readonly ChartPatch White95 = new((0.8436985288, 0.8806903203, 0.6936778752));
-    public static readonly ChartPatch Neutral8 = new((0.5665335579, 0.5899709702, 0.4828473821));
-    public static readonly ChartPatch Neutral65 = new((0.3495921991, 0.3648652066, 0.3013565492));
-    public static readonly ChartPatch Neutral5 = new((0.1835495863, 0.1906228754, 0.1566717383));
-    public static readonly ChartPatch Neutral35 = new((0.08448968042, 0.08817234828, 0.07391630753));
-    public static readonly ChartPatch Black2 = new((0.03042544265, 0.03151319431, 0.02656724434));
-
-    public (double X, double Y, double Z) ClassicD50 { get; }
-}
-
-[SmartEnum<string>]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class ColorChart {
-    public const int Columns = 6;
+    public static ColorChart ColorCheckerClassic { get; } = new(6, 21, [
+        new(0.1136398927f, 0.09832436105f, 0.047793811f), new(0.3811104477f, 0.336202304f, 0.1852590702f), new(0.1652470004f, 0.1785519348f, 0.2546024121f),
+        new(0.1114392339f, 0.1346792679f, 0.05239320311f), new(0.2419823988f, 0.2287175998f, 0.3282104382f), new(0.30451114f, 0.4143554688f, 0.344352688f),
+        new(0.4073691399f, 0.3126416159f, 0.05130591012f), new(0.1200518326f, 0.1091090233f, 0.2874447494f), new(0.2915036416f, 0.188999956f, 0.09736350318f),
+        new(0.08353888545f, 0.06276662955f, 0.1042075686f), new(0.3427379502f, 0.4331759409f, 0.08330791241f), new(0.4769723742f, 0.4293377578f, 0.06005041429f),
+        new(0.06809095613f, 0.05596214063f, 0.2077405936f), new(0.1413517689f, 0.2233437582f, 0.07287461742f), new(0.2143728424f, 0.127800835f, 0.03868150726f),
+        new(0.5888922356f, 0.5992976803f, 0.07077420003f), new(0.299122798f, 0.1895114577f, 0.2213469194f), new(0.1247966941f, 0.180609913f, 0.2913392383f),
+        new(0.8436985288f, 0.8806903203f, 0.6936778752f), new(0.5665335579f, 0.5899709702f, 0.4828473821f), new(0.3495921991f, 0.3648652066f, 0.3013565492f),
+        new(0.1835495863f, 0.1906228754f, 0.1566717383f), new(0.08448968042f, 0.08817234828f, 0.07391630753f), new(0.03042544265f, 0.03151319431f, 0.02656724434f),
+    ]);
+    public static ColorChart SpyderCheckr24 { get; } = new(6, 21, [
+        new(0.3076822512f, 0.4234772396f, 0.3374520529f), new(0.2452835592f, 0.2348654227f, 0.3416765010f), new(0.1037198781f, 0.1279977883f, 0.0523456534f),
+        new(0.1692686551f, 0.1858660205f, 0.2666809013f), new(0.3952982368f, 0.3553099128f, 0.1928659515f), new(0.1113998964f, 0.0966807861f, 0.0490883941f),
+        new(0.3888763433f, 0.2946518384f, 0.0431458486f), new(0.1172593609f, 0.1098191865f, 0.2771796138f), new(0.2996723782f, 0.1951990129f, 0.1039804505f),
+        new(0.0917247784f, 0.0693130081f, 0.1219016829f), new(0.3562702838f, 0.4446769162f, 0.0880911399f), new(0.5038320114f, 0.4391253963f, 0.0603927928f),
+        new(0.1208589631f, 0.1795378021f, 0.2854043683f), new(0.2990686680f, 0.1930314394f, 0.2271268085f), new(0.6242483660f, 0.6326192430f, 0.0712084288f),
+        new(0.2194131115f, 0.1230703602f, 0.0384412857f), new(0.1438849866f, 0.2259240844f, 0.0741006071f), new(0.0669023563f, 0.0544993983f, 0.2116807502f),
+        new(0.8886310787f, 0.9226861820f, 0.7490419119f), new(0.5669540573f, 0.5894253744f, 0.4798162851f), new(0.3432548507f, 0.3572595422f, 0.2897947815f),
+        new(0.1838367508f, 0.1913948585f, 0.1556906989f), new(0.0807065939f, 0.0838392766f, 0.0677486804f), new(0.0248551698f, 0.0258980980f, 0.0222499522f),
+    ]);
 
-    private static readonly Configuration D50 = new(xyzConfig: XyzConfiguration.D50);
+    public int Columns { get; }
+    public int Neutral { get; }
+    public Seq<Vector3> D50 { get; }
 
-    public static readonly ColorChart ColorCheckerClassic = new("color-checker-classic", toSeq(ChartPatch.Items).Map(static patch => (patch, patch.ClassicD50)));
-    public static readonly ColorChart SpyderCheckr24 = new("spyder-checkr-24", Seq(
-        (ChartPatch.BluishGreen, (0.3076822512, 0.4234772396, 0.3374520529)),
-        (ChartPatch.BlueFlower, (0.2452835592, 0.2348654227, 0.3416765010)),
-        (ChartPatch.Foliage, (0.1037198781, 0.1279977883, 0.0523456534)),
-        (ChartPatch.BlueSky, (0.1692686551, 0.1858660205, 0.2666809013)),
-        (ChartPatch.LightSkin, (0.3952982368, 0.3553099128, 0.1928659515)),
-        (ChartPatch.DarkSkin, (0.1113998964, 0.0966807861, 0.0490883941)),
-        (ChartPatch.Orange, (0.3888763433, 0.2946518384, 0.0431458486)),
-        (ChartPatch.PurplishBlue, (0.1172593609, 0.1098191865, 0.2771796138)),
-        (ChartPatch.ModerateRed, (0.2996723782, 0.1951990129, 0.1039804505)),
-        (ChartPatch.Purple, (0.0917247784, 0.0693130081, 0.1219016829)),
-        (ChartPatch.YellowGreen, (0.3562702838, 0.4446769162, 0.0880911399)),
-        (ChartPatch.OrangeYellow, (0.5038320114, 0.4391253963, 0.0603927928)),
-        (ChartPatch.Cyan, (0.1208589631, 0.1795378021, 0.2854043683)),
-        (ChartPatch.Magenta, (0.2990686680, 0.1930314394, 0.2271268085)),
-        (ChartPatch.Yellow, (0.6242483660, 0.6326192430, 0.0712084288)),
-        (ChartPatch.Red, (0.2194131115, 0.1230703602, 0.0384412857)),
-        (ChartPatch.Green, (0.1438849866, 0.2259240844, 0.0741006071)),
-        (ChartPatch.Blue, (0.0669023563, 0.0544993983, 0.2116807502)),
-        (ChartPatch.White95, (0.8886310787, 0.9226861820, 0.7490419119)),
-        (ChartPatch.Neutral8, (0.5669540573, 0.5894253744, 0.4798162851)),
-        (ChartPatch.Neutral65, (0.3432548507, 0.3572595422, 0.2897947815)),
-        (ChartPatch.Neutral5, (0.1838367508, 0.1913948585, 0.1556906989)),
-        (ChartPatch.Neutral35, (0.0807065939, 0.0838392766, 0.0677486804)),
-        (ChartPatch.Black2, (0.0248551698, 0.0258980980, 0.0222499522))));
+    public int Rows => D50.Count / Columns;
 
-    public Seq<(ChartPatch Patch, (double X, double Y, double Z) D50)> Cells { get; }
-    public static int Rows => ChartPatch.Items.Count / Columns;
-
-    public HashMap<ChartPatch, (double R, double G, double B)> References(Gamut gamut) =>
-        toHashMap(Cells.Map(cell => (cell.Patch, new Unicolour(D50, ColourSpace.Xyz, cell.D50).ConvertToConfiguration(gamut.Configuration).RgbLinear.Tuple)));
-
-    public static ((double X, double Y) TopLeft, (double X, double Y) TopRight, (double X, double Y) BottomRight, (double X, double Y) BottomLeft) Centered((double X, double Y, double Width, double Height) bounds) =>
-        (double.Sqrt(0.1d * bounds.Width * bounds.Height * Columns / Rows), double.Sqrt(0.1d * bounds.Width * bounds.Height * Rows / Columns)) switch {
-            var (width, height) => (double.Min(1d, double.Min(bounds.Width / width, bounds.Height / height)) / 2d, X: bounds.X + (bounds.Width / 2d), Y: bounds.Y + (bounds.Height / 2d)) switch {
-                var (scale, x, y) => ((x - (scale * width), y - (scale * height)), (x + (scale * width), y - (scale * height)),
-                    (x + (scale * width), y + (scale * height)), (x - (scale * width), y + (scale * height))),
-            },
-        };
+    public static Fin<ColorChart> Validated(int columns, int neutral, Seq<Vector3> d50) =>
+        ImagingFault.Unless(
+            columns > 0 && !d50.IsEmpty && d50.Count % columns is 0 && neutral >= 0 && neutral < d50.Count && d50.ForAll(static xyz => Vector3.AllWhereAllBitsSet(Vector3.IsFinite(xyz))),
+            ImagingReason.Degenerate, (columns, neutral, d50.Count)).Map(_ => new ColorChart(columns, neutral, d50));
 }
 
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class ChartSamples {
     public ColorChart Chart { get; }
     public Gamut Gamut { get; }
-    public HashMap<ChartPatch, (double R, double G, double B)> Patches { get; }
+    public Seq<Vector3> Patches { get; }
 
-    public static Fin<ChartSamples> Validated(ColorChart chart, Gamut gamut, HashMap<ChartPatch, (double R, double G, double B)> patches) =>
-        ImagingFault.Unless(patches.Count == ChartPatch.Items.Count, ImagingReason.Miscounted, patches.Count).Map(_ => new ChartSamples(chart, gamut, patches));
+    public static ChartSamples Reference(ColorChart chart, Gamut gamut) =>
+        Gamut.Columns(new(xyzConfig: XyzConfiguration.D50), ColourSpace.Xyz, gamut.Configuration, ColourSpace.RgbLinear) switch {
+            var matrix => new(chart, gamut, chart.D50.Map(xyz => Vector3.Transform(xyz, matrix))),
+        };
+
+    public static Fin<ChartSamples> Validated(ColorChart chart, Gamut gamut, Seq<Vector3> patches) =>
+        ImagingFault.Unless(patches.Count == chart.D50.Count, ImagingReason.Miscounted, patches.Count).Map(_ => new ChartSamples(chart, gamut, patches));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChartPlacement {
     private ChartPlacement(ColorChart chart, FrameQuad quad, float footprint) => (Chart, Quad, Footprint) = (chart, quad, footprint);
 
-    public static float CentralFootprint => 0.8f;
-
     public ColorChart Chart { get; }
     public FrameQuad Quad { get; }
     public float Footprint { get; }
 
-    public Seq<(ChartPatch Patch, (double X, double Y) TopLeft, (double X, double Y) TopRight, (double X, double Y) BottomRight, (double X, double Y) BottomLeft)> Footprints =>
-        (Quad.Mapping(), (X: Footprint / 2d / ColorChart.Columns, Y: Footprint / 2d / ColorChart.Rows)) switch {
-            var (map, half) => Chart.Cells.Map((cell, index) => Center(index) switch {
-                var center => Each(((center.X - half.X, center.Y - half.Y), (center.X + half.X, center.Y - half.Y),
-                        (center.X + half.X, center.Y + half.Y), (center.X - half.X, center.Y + half.Y)), map)
-                    .Map(corners => (cell.Patch, corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft)),
+    public Seq<(int Patch, FrameQuad Footprint)> Footprints =>
+        (Quad.Mapping(), new Vector2(Footprint / 2f) / new Vector2(Chart.Columns, Chart.Rows)) switch {
+            var (map, half) => Patches.Map(patch => Center(patch) switch {
+                var center => Mapped([center - half, center + new Vector2(half.X, -half.Y), center + half, center + new Vector2(-half.X, half.Y)], map).Map(quad => (patch, quad)),
             }).Somes(),
         };
 
+    private Seq<int> Patches => toSeq(Enumerable.Range(0, Chart.D50.Count));
+
+    private ImagingFault Unaligned => ImagingFault.Of(ImagingReason.Degenerate, Quad);
+
     public Seq<ChartFinding> Findings(PixelExtent frame) {
-        static double Opening(((double X, double Y) Previous, (double X, double Y) Corner, (double X, double Y) Next) turn) {
-            (double ax, double ay, double bx, double by) = (turn.Previous.X - turn.Corner.X, turn.Previous.Y - turn.Corner.Y, turn.Next.X - turn.Corner.X, turn.Next.Y - turn.Corner.Y);
-            return double.Atan2(double.Abs((ax * by) - (ay * bx)), (ax * bx) + (ay * by));
-        }
-        return (double.Pi / 3d, 2d * double.Pi / 3d) switch {
-            var (narrowest, widest) => Seq(
-                Quad.Mirrored ? Some<ChartFinding>(new ChartFinding.Reversed()) : None,
-                Seq((Quad.BottomLeft, Quad.TopLeft, Quad.TopRight), (Quad.TopLeft, Quad.TopRight, Quad.BottomRight), (Quad.TopRight, Quad.BottomRight, Quad.BottomLeft), (Quad.BottomRight, Quad.BottomLeft, Quad.TopLeft))
-                    .Map(Opening)
-                    .Fold((Smallest: double.PositiveInfinity, Largest: 0d), static (range, angle) => (double.Min(range.Smallest, angle), double.Max(range.Largest, angle))) switch {
-                        var (smallest, largest) when smallest < narrowest || largest > widest =>
-                            Some<ChartFinding>(new ChartFinding.Distorted(Angle.FromRadians(smallest), Angle.FromRadians(largest))),
-                        _ => None,
-                    },
-                Switch(
-                    (Frame: frame, Widest: Angle.FromRadians(widest)),
-                    flat: static (state, flat) =>
-                        Some(flat.Footprints.Filter(footprint => Seq(footprint.TopLeft, footprint.TopRight, footprint.BottomRight, footprint.BottomLeft)
-                            .Exists(point => point.X < 0f || point.X > state.Frame.Width || point.Y < 0f || point.Y > state.Frame.Height)).Map(static footprint => footprint.Patch))
-                            .Filter(static patches => !patches.IsEmpty).Map(static patches => (ChartFinding)new ChartFinding.PatchesOutside(patches)),
-                    latLong: static (state, latLong) => latLong.Quad.Mapping() switch {
-                        var map =>
-                            from left in map((0d, 0.5d)).Bind(latLong.Lens.Ray)
-                            from right in map((1d, 0.5d)).Bind(latLong.Lens.Ray)
-                            where latLong.Field > state.Widest
-                            select (ChartFinding)new ChartFinding.WideView(latLong.Field, Angle.FromRadians(Between(left, right))),
-                    })).Somes(),
-        };
+        (double narrowest, double widest) = (double.Pi / 3d, 2d * double.Pi / 3d);
+        Seq<Vector2> corners = Corners(Quad);
+        (double smallest, double largest) = corners
+            .Map((corner, index) => (corners[(index + 3) % 4] - corner, corners[(index + 1) % 4] - corner) switch {
+                var (previous, next) => double.Atan2(float.Abs(Vector2.Cross(previous, next)), Vector2.Dot(previous, next)),
+            })
+            .Fold((Smallest: double.PositiveInfinity, Largest: 0d), static (range, angle) => (double.Min(range.Smallest, angle), double.Max(range.Largest, angle)));
+        return Seq(
+            Quad.Mirrored ? Some<ChartFinding>(new ChartFinding.Reversed()) : None,
+            smallest < narrowest || largest > widest ? Some<ChartFinding>(new ChartFinding.Distorted(Angle.FromRadians(smallest), Angle.FromRadians(largest))) : None,
+            Switch(
+                (Bounds: frame.Point(Vector2.One), Widest: Angle.FromRadians(widest)),
+                flat: static (state, flat) =>
+                    Some(flat.Footprints.Filter(footprint => Corners(footprint.Footprint).Exists(point => Vector2.Clamp(point, Vector2.Zero, state.Bounds) != point)).Map(static footprint => footprint.Patch))
+                        .Filter(static patches => !patches.IsEmpty).Map(static patches => (ChartFinding)new ChartFinding.PatchesOutside(patches)),
+                latLong: static (state, latLong) => latLong.Quad.Mapping() switch {
+                    var map =>
+                        from left in map(new Vector2(0f, 0.5f)).Bind(latLong.Lens.Ray)
+                        from right in map(new Vector2(1f, 0.5f)).Bind(latLong.Lens.Ray)
+                        where latLong.Field > state.Widest
+                        select (ChartFinding)new ChartFinding.WideView(latLong.Field,
+                            Angle.FromRadians(double.Atan2(Vector3.Cross(left.Direction, right.Direction).Length(), Vector3.Dot(left.Direction, right.Direction)))),
+                })).Somes();
     }
 
     public Fin<ChartSamples> Sample(PixelFrame frame, Gamut gamut) {
-        (Func<(double X, double Y), Option<(double X, double Y)>> image, (WrapMode Across, WrapMode Down) wrap) = ToImage(frame.Extent);
-        Seq<(double X, double Y)> taps =
-            from y in Taps(Side(Quad.TopLeft, Quad.BottomLeft, Quad.TopRight, Quad.BottomRight), ColorChart.Rows)
-            from x in Taps(Side(Quad.TopLeft, Quad.TopRight, Quad.BottomLeft, Quad.BottomRight), ColorChart.Columns)
-            select (x, y);
-        return ChartSamples.Validated(Chart, gamut, toHashMap(Chart.Cells.Map((cell, index) => (cell.Patch, Mean(frame, wrap, image, Center(index), taps)))));
+        (Func<Vector2, Option<Vector2>> image, (WrapMode Across, WrapMode Down) wrap) = ToImage(frame.Extent);
+        Seq<Vector2> taps =
+            from y in Taps(Side(Quad.TopLeft, Quad.BottomLeft, Quad.TopRight, Quad.BottomRight), Chart.Rows)
+            from x in Taps(Side(Quad.TopLeft, Quad.TopRight, Quad.BottomLeft, Quad.BottomRight), Chart.Columns)
+            select new Vector2(x, y);
+        return Patches.Traverse(patch =>
+            taps.Choose(tap => image(Center(patch) + tap).Bind(point => frame.Texel(new Point((int)float.Floor(point.X), (int)float.Floor(point.Y)), wrap)))
+                .Fold((Sum: Vector3.Zero, Count: 0), static (mean, texel) => (mean.Sum + texel.AsVector3(), mean.Count + 1)) switch {
+                    (_, 0) => Fin.Fail<Vector3>(ImagingFault.Of(ImagingReason.Empty, patch, patch)),
+                    var (sum, count) => sum / count,
+                }).As().Bind(patches => ChartSamples.Validated(Chart, gamut, patches));
     }
 
-    private Seq<double> Taps(double length, int cells) {
-        int count = int.Max(1, (int)double.Round(Footprint * length / cells, MidpointRounding.ToEven));
-        return toSeq(Enumerable.Range(0, count)).Map(index => (index + 0.5d - (count / 2d)) / length);
-    }
+    private protected abstract (Func<Vector2, Option<Vector2>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image);
 
-    private static double Side((double X, double Y) from, (double X, double Y) to, (double X, double Y) otherFrom, (double X, double Y) otherTo) =>
-        (double.Hypot(to.X - from.X, to.Y - from.Y) + double.Hypot(otherTo.X - otherFrom.X, otherTo.Y - otherFrom.Y)) / 2d;
+    private Seq<float> Taps(float length, int cells) =>
+        int.Max(1, (int)float.Round(Footprint * length / cells, MidpointRounding.ToEven)) switch {
+            var count => toSeq(Enumerable.Range(0, count)).Map(index => (index + 0.5f - (count / 2f)) / length),
+        };
 
-    private static (double R, double G, double B) Mean(
-        PixelFrame frame, (WrapMode Across, WrapMode Down) wrap, Func<(double X, double Y), Option<(double X, double Y)>> image, (double X, double Y) center, Seq<(double X, double Y)> taps) {
-        (double red, double green, double blue, double weight) = taps.Choose(tap => image((center.X + tap.X, center.Y + tap.Y))).Fold((R: 0d, G: 0d, B: 0d, W: 0d), (sum, point) =>
-            frame.Sample(point, wrap, sum, static (total, texel, weight) => (total.R + (texel.X * weight), total.G + (texel.Y * weight), total.B + (texel.Z * weight), total.W + weight)));
-        return weight is 0d ? (0d, 0d, 0d) : (red / weight, green / weight, blue / weight);
-    }
+    private Vector2 Center(int patch) => (new Vector2(patch % Chart.Columns, patch / Chart.Columns) + new Vector2(0.5f)) / new Vector2(Chart.Columns, Chart.Rows);
 
-    internal abstract (Func<(double X, double Y), Option<(double X, double Y)>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image);
-    private static double Between(Vector3 first, Vector3 second) => double.Atan2(Vector3.Cross(first, second).Length(), Vector3.Dot(first, second));
+    private static float Side(Vector2 from, Vector2 to, Vector2 otherFrom, Vector2 otherTo) => (Vector2.Distance(from, to) + Vector2.Distance(otherFrom, otherTo)) / 2f;
 
-    private static (double X, double Y) Center(int cell) => (((cell % ColorChart.Columns) + 0.5d) / ColorChart.Columns, ((cell / ColorChart.Columns) + 0.5d) / ColorChart.Rows);
+    private static Seq<Vector2> Corners(FrameQuad quad) => [quad.TopLeft, quad.TopRight, quad.BottomRight, quad.BottomLeft];
 
-    private static Option<(B TopLeft, B TopRight, B BottomRight, B BottomLeft)> Each<A, B>((A TopLeft, A TopRight, A BottomRight, A BottomLeft) corners, Func<A, Option<B>> map) =>
-        from topLeft in map(corners.TopLeft)
-        from topRight in map(corners.TopRight)
-        from bottomRight in map(corners.BottomRight)
-        from bottomLeft in map(corners.BottomLeft)
-        select (topLeft, topRight, bottomRight, bottomLeft);
+    private static Option<FrameQuad> Mapped(Seq<Vector2> corners, Func<Vector2, Option<Vector2>> map) =>
+        corners.Traverse(corner => map(corner)).As().Bind(static points => Quadrilateral(points).ToOption());
 
-    private ImagingFault Unaligned => new($"chart alignment {Quad} as a rectilinear view", ImagingReason.Degenerate);
+    private static Fin<FrameQuad> Quadrilateral(Seq<Vector2> points) => FrameQuad.Validated(points[0], points[1], points[2], points[3]);
 
     public sealed record Flat(ColorChart Chart, FrameQuad Quad, float Footprint) : ChartPlacement(Chart, Quad, Footprint) {
         public Fin<LatLong> ToLatLong(PixelExtent source) {
-            static Fin<PixelExtent> Sized(double width, double height) =>
-                PixelExtent.Validated(int.CreateSaturating(width), int.CreateSaturating(height));
-            static (double X, double Y) Slope(Vector3 ray) => (ray.X / -(double)ray.Z, ray.Y / -(double)ray.Z);
-            static double Spread(double first, double second, double third, double fourth) =>
-                double.Max(double.Max(first, second), double.Max(third, fourth)) - double.Min(double.Min(first, second), double.Min(third, fourth));
             Projection.Equirectangular panorama = new(source);
-            Func<(double X, double Y), Option<(double X, double Y)>> map = Quad.Mapping();
+            Func<Vector2, Option<Vector2>> map = Quad.Mapping();
             return
-                from view in (from left in map((0d, 0.5d)).Bind(panorama.Ray)
-                              from right in map((1d, 0.5d)).Bind(panorama.Ray)
-                              from facing in PanoramaView.Facing(left, right)
+                from view in (from left in map(new Vector2(0f, 0.5f)).Bind(panorama.Ray)
+                              from right in map(new Vector2(1f, 0.5f)).Bind(panorama.Ray)
+                              from facing in PanoramaView.Facing(left.Direction, right.Direction)
                               select facing).ToFin(Unaligned)
                 let level = Quaternion.Conjugate(view.Rotation)
-                from rays in Each((Quad.TopLeft, Quad.TopRight, Quad.BottomRight, Quad.BottomLeft), corner =>
-                    panorama.Ray(corner).Map(ray => Vector3.Transform(ray, level)).Filter(static ray => -ray.Z > 0f)).ToFin(Unaligned)
-                let slopes = (TopLeft: Slope(rays.TopLeft), TopRight: Slope(rays.TopRight), BottomRight: Slope(rays.BottomRight), BottomLeft: Slope(rays.BottomLeft))
-                let reach = double.Max(
-                    Spread(slopes.TopLeft.X, slopes.TopRight.X, slopes.BottomRight.X, slopes.BottomLeft.X),
-                    (double)ColorChart.Columns / ColorChart.Rows * Spread(slopes.TopLeft.Y, slopes.TopRight.Y, slopes.BottomRight.Y, slopes.BottomLeft.Y))
-                let width = double.Max(1d, double.Round(source.Width * reach / double.Pi, MidpointRounding.ToEven))
-                from extent in Sized(width, double.Max(1d, double.Round(width * ColorChart.Rows / ColorChart.Columns, MidpointRounding.ToEven)))
-                from window in ViewWindow.Centered(2d * reach, extent)
-                let lens = new Projection.Rectilinear(extent, new Frustum.Perspective(window))
-                from corners in Each(rays, lens.Pixel).ToFin(Unaligned)
-                from quad in FrameQuad.Validated(corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft)
+                from rays in Corners(Quad).Traverse(corner => panorama.Ray(corner).Map(ray => Vector3.Transform(ray.Direction, level)).Filter(static ray => -ray.Z > 0f)).As().ToFin(Unaligned)
+                let slopes = rays.Map(static ray => new Vector2(ray.X, ray.Y) / -ray.Z)
+                let reach = float.Max(Spread(slopes.Map(static slope => slope.X)), (float)Chart.Columns / Chart.Rows * Spread(slopes.Map(static slope => slope.Y)))
+                let width = float.Max(1f, float.Round(source.Width * reach / float.Pi, MidpointRounding.ToEven))
+                from extent in PixelExtent.Validated(int.CreateSaturating(width), int.CreateSaturating(float.Max(1f, float.Round(width * Chart.Rows / Chart.Columns, MidpointRounding.ToEven))))
+                from window in ViewWindow.Centered(2f * reach, extent)
+                let lens = new Projection.Rectilinear(extent, window)
+                from points in rays.Traverse(ray => lens.Pixel(ray).Map(static located => located.Point)).As().ToFin(Unaligned)
+                from quad in Quadrilateral(points)
                 select new LatLong(Chart, quad, Footprint, view, lens);
+
+            static float Spread(Seq<float> values) => values.Fold(float.NegativeInfinity, float.Max) - values.Fold(float.PositiveInfinity, float.Min);
         }
 
-        internal override (Func<(double X, double Y), Option<(double X, double Y)>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image) =>
-            (Quad.Mapping(), (WrapMode.Black, WrapMode.Black));
+        public static Fin<Flat> Centered(ColorChart chart, RectangleF bounds, float share, float footprint) {
+            Vector2 size = new(bounds.Width, bounds.Height);
+            Vector2 chartSize = float.Sqrt(share * size.X * size.Y) * new Vector2(float.Sqrt((float)chart.Columns / chart.Rows), float.Sqrt((float)chart.Rows / chart.Columns));
+            Vector2 half = chartSize * float.Min(1f, float.Min(size.X / chartSize.X, size.Y / chartSize.Y)) / 2f;
+            Vector2 center = new Vector2(bounds.X, bounds.Y) + (size / 2f);
+            return FrameQuad.Validated(center - half, center + new Vector2(half.X, -half.Y), center + half, center + new Vector2(-half.X, half.Y)).Map(quad => new Flat(chart, quad, footprint));
+        }
+
+        private protected override (Func<Vector2, Option<Vector2>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image) => (Quad.Mapping(), (WrapMode.Black, WrapMode.Black));
     }
 
-    public sealed record LatLong(ColorChart Chart, FrameQuad Quad, float Footprint, PanoramaView View, Projection.Rectilinear Lens)
-        : ChartPlacement(Chart, Quad, Footprint) {
-        public Angle Field => Angle.FromRadians(2d * double.Atan(Lens.Frustum.Window.Width / 2d));
+    public sealed record LatLong(ColorChart Chart, FrameQuad Quad, float Footprint, PanoramaView View, Projection.Rectilinear Lens) : ChartPlacement(Chart, Quad, Footprint) {
+        public Angle Field => Angle.FromRadians(2d * double.Atan(Lens.Window.Size.X / 2d));
 
         public Fin<Flat> ToFlat(PixelExtent source) {
             (Projection.Equirectangular panorama, Quaternion turn) = (new(source), View.Rotation);
             return
-                from column in panorama.Pixel(Vector3.Transform(-Vector3.UnitZ, turn)).Map(static forward => forward.X).ToFin(Unaligned)
-                from corners in Each((Quad.TopLeft, Quad.TopRight, Quad.BottomRight, Quad.BottomLeft), corner =>
-                    Lens.Reprojected(panorama, turn, corner)
-                        .Map(point => (point.X + (source.Width * double.Round((column - point.X) / source.Width, MidpointRounding.ToEven)), point.Y))).ToFin(Unaligned)
-                from quad in FrameQuad.Validated(corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft)
+                from column in panorama.Pixel(Vector3.Transform(-Vector3.UnitZ, turn)).Map(static forward => forward.Point.X).ToFin(Unaligned)
+                from points in Corners(Quad).Traverse(corner => Lens.Reprojected(panorama, turn, corner)
+                    .Map(point => point with { X = point.X + (source.Width * float.Round((column - point.X) / source.Width, MidpointRounding.ToEven)) })).As().ToFin(Unaligned)
+                from quad in Quadrilateral(points)
                 select new Flat(Chart, quad, Footprint);
         }
 
-        internal override (Func<(double X, double Y), Option<(double X, double Y)>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image) {
-            (Projection.Equirectangular panorama, Func<(double X, double Y), Option<(double X, double Y)>> view, Quaternion turn) = (new(image), Quad.Mapping(), View.Rotation);
-            Func<(double X, double Y), Option<(double X, double Y)>> source = frame => Lens.Reprojected(panorama, turn, frame);
-            return (point => view(point).Bind(source), panorama.Wrap);
+        private protected override (Func<Vector2, Option<Vector2>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image) {
+            (Projection.Equirectangular panorama, Func<Vector2, Option<Vector2>> view, Quaternion turn) = (new(image), Quad.Mapping(), View.Rotation);
+            return (point => view(point).Bind(frame => Lens.Reprojected(panorama, turn, frame)), panorama.Wrap);
         }
     }
 }
@@ -244,5 +194,5 @@ public abstract partial record ChartFinding {
     public sealed record Reversed : ChartFinding;
     public sealed record Distorted(Angle Smallest, Angle Largest) : ChartFinding;
     public sealed record WideView(Angle Field, Angle Span) : ChartFinding;
-    public sealed record PatchesOutside(Seq<ChartPatch> Patches) : ChartFinding;
+    public sealed record PatchesOutside(Seq<int> Patches) : ChartFinding;
 }

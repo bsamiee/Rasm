@@ -71,4 +71,4 @@ rule:
         - matches: override-send
         - matches: callback-send
 message: 'Host callback sends a `$UNION` case to one delegate'
-note: 'Override `<member>` or handle its event in the application class through one `Callbacks.Answer` or `Callbacks.Succeeded` call'
+note: 'Override `<member>` or handle its event in the application class through one `Session.Run` call'

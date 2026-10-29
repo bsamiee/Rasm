@@ -43,6 +43,10 @@ rule:
         - has: {field: name, pattern: $NAME}
         - not: {has: {kind: modifier, regex: '^abstract$'}}
         - not: {has: {kind: parameter_list, has: {kind: parameter}}}
+        - not:
+            all:
+                - has: {kind: declaration_list, has: {kind: constructor_declaration, has: {kind: parameter_list, has: {kind: parameter}}}}
+                - not: {has: {kind: declaration_list, has: {kind: constructor_declaration, has: {kind: parameter_list, not: {has: {kind: parameter}}}}}}
         - has: {kind: base_list, has: {matches: first-base, all: [{matches: host-base}]}}
 transform:
     ABSTRACT:
@@ -52,4 +56,4 @@ transform:
             by: '${1}abstract '
 fix: $ABSTRACT
 message: 'Library class `$NAME` derives from `$HOST` and stays instantiable'
-note: 'Declare `<name>` `abstract` and give its application subclass the public parameterless constructor Rhino calls'
+note: 'Declare `<name>` `abstract` and give its application subclass the public parameterless constructor Rhino calls; a class whose every constructor takes parameters is one Rhino cannot construct'
