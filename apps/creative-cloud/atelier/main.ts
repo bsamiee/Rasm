@@ -1,5 +1,5 @@
 import { NodeCrypto } from '@effect/platform-node';
-import { Automation } from '@rasm/automation';
+import { Automation } from '@rasm/automation/automation';
 import { main } from '@rasm/mcp/node';
 import { Array, Config, Effect, flow, identity, Layer, Sink, Stream, Struct, SubscriptionRef } from 'effect';
 import { applications, launch, screenshot } from '#/features/applications';
@@ -26,4 +26,4 @@ const served = Effect.gen(function* () {
     yield* Effect.forkScoped(Stream.runForEach(rest, tools));
 });
 
-main(manifest, Layer.unwrap(Effect.map(Config.String('ATELIER_PATH'), (executable) => Layer.effectDiscard(served).pipe(Layer.provide(Layer.effect(InDesignScript, InDesignScript.make(executable))), Layer.provide(Automation.spawned(executable)), Layer.provide(NodeCrypto.layer)))));
+main(manifest, Layer.unwrap(Effect.map(Config.String('ATELIER_PATH'), (executable) => Layer.effectDiscard(served).pipe(Layer.provide(Layer.effect(InDesignScript, InDesignScript.make(executable))), Layer.provide(Automation.layer(executable)), Layer.provide(NodeCrypto.layer)))));

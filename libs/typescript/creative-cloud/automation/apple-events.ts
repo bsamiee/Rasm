@@ -39,7 +39,7 @@ class Execute extends Schema.Class<Execute, { readonly brand: unique symbol }>('
         .pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     artifacts: Schema.Array(Schema.URLFromString)
         .annotate({ description: 'Files command writes, returned with reply' })
-        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
 }) {
     static readonly Result = Schema.Struct({
         reply: AppleEventValue,

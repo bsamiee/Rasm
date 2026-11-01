@@ -1,14 +1,15 @@
-import { Automation, Exited, Launching, Pid, Responding, Running, State } from '@rasm/automation';
+import { Pid, State } from '@rasm/automation/applications';
+import { Automation } from '@rasm/automation/automation';
 import { registerResourceTemplate } from '@rasm/mcp/resource';
-import { Array, Effect, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
+import { Array, Effect, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema } from 'effect/ai';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const status = Effect.gen(function* () {
     const automation = yield* Automation;
-    const answering = (state: typeof State.Type) => Schema.is(Running)(state) && Schema.is(Responding)(state.running.status) && state.running.status.responding.elements.some(Struct.get('requiresAnswer'));
-    const reporting = { report: (state: typeof State.Type) => answering(state) || !(Schema.is(Running)(state) && (Schema.is(Launching)(state.running.status) || Schema.is(Responding)(state.running.status))) };
+    const answering = (state: typeof State.Type) => State.isAnyOf(['Responding'])(state) && state.elements.some(Struct.get('requiresAnswer'));
+    const reporting = { report: (state: typeof State.Type) => answering(state) || !State.isAnyOf(['Launching', 'Responding'])(state) };
     const refusing = { ...reporting, refuse: answering };
     const template = yield* registerResourceTemplate`adobe://status/${McpSchema.param('pid', Pid)}`({
         name: 'status',
@@ -20,7 +21,7 @@ const status = Effect.gen(function* () {
         content: (_, pid) =>
             SubscriptionRef.get(automation.instances).pipe(
                 Effect.flatMap((rows) => Effect.fromOption(Array.findFirst(rows, (row) => row.pid === pid))),
-                Effect.flatMap(({ state }) => (Schema.is(Exited)(state) ? Effect.succeed(state) : automation.status({ pid }))),
+                Effect.flatMap(({ state }) => (State.isAnyOf(['Exited'])(state) ? Effect.succeed(state) : automation.status({ pid }))),
             ),
     });
     return { reported: (pid: number) => template(pid)(reporting), refused: (pid: number) => template(pid)(refusing) };

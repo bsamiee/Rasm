@@ -1,11 +1,13 @@
-import { Automation, Execute, type Installation, Kind, Perform, Terms } from '@rasm/automation';
+import { Execute, Kind, Terms } from '@rasm/automation/apple-events';
+import { type Installation, Perform } from '@rasm/automation/applications';
+import { Automation } from '@rasm/automation/automation';
 import { ExecuteScript } from '@rasm/indesign';
 import { Attachment } from '@rasm/mcp/content';
 import { registerResourceTemplate } from '@rasm/mcp/resource';
 import { Instructions } from '@rasm/mcp/server';
 import { registerRoutedTool } from '@rasm/mcp/tool';
 import { transformSync } from 'amaro';
-import { Array, Cause, Context, Effect, Function, Option, Predicate, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Effect, Function, Option, Predicate, Schema, SchemaAST, SchemaGetter, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import { InDesignScript } from '#/indesign-script';
 import { instance, lookup, type routes } from '#/routes';
@@ -15,6 +17,7 @@ import type { status } from '#/status';
 
 const Form = Schema.TaggedUnion({ Command: Execute.fields, Element: Perform.fields });
 const Dictionary = Schema.Struct({ application: McpSchema.param('application', Schema.String), kind: McpSchema.param('kind', Kind) });
+const Reply = Schema.Union([Schema.NullOr(Schema.Literal('')).pipe(Schema.decodeTo(ExecuteScript.Result, { decode: SchemaGetter.succeed({}), encode: SchemaGetter.succeed('') })), Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(ExecuteScript.Result)))]);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -89,7 +92,26 @@ const executeScript = Effect.fnUntraced(function* ({ application }: Effect.Succe
                       call('execute_script', { code: source }),
                   ),
               )
-            : Effect.map(automation.script(pid, code), (result) => ({ result }));
+            : automation
+                  .script({
+                      pid,
+                      source: `(function (body) {
+    function encoded(value) {
+        var parts = [], key, at, kind;
+        if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
+        if (typeof value === "number" || typeof value === "boolean") return String(value);
+        if (typeof value === "string") return '"' + value.replace(/[\\x00-\\x1f"\\\\]/g, function (c) { return "\\\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4); }) + '"';
+        kind = Object.prototype.toString.call(value);
+        if (kind === "[object Array]") { for (at = 0; at < value.length; at++) parts.push(encoded(value[at])); return "[" + parts.join(",") + "]"; }
+        if (kind !== "[object Object]") return encoded(String(value));
+        for (key in value) parts.push(encoded(key) + ":" + encoded(value[key]));
+        return "{" + parts.join(",") + "}";
+    }
+    var value = eval("(function () {" + decodeURIComponent(body) + "\\n})").call(this);
+    return value === undefined ? "" : encodeURIComponent('{"result":' + encoded(value) + '}');
+}).call(this, "${encodeURIComponent(code)}")`,
+                  })
+                  .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Reply)));
     });
 });
 

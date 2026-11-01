@@ -1,5 +1,4 @@
-import { Unmatched } from '@rasm/search/unmatched';
-import { Cause, Context, Duration, Effect, identity, Layer, Option, Schedule, Schema, Sink, Stream, SubscriptionRef } from 'effect';
+import { Cause, Context, Duration, Effect, identity, Layer, Schedule, Schema, Sink, Stream, SubscriptionRef } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RpcClient, RpcClientError, type RpcMessage, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
@@ -21,50 +20,18 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/automat
             return latest;
         });
         const [installations, instances] = yield* Effect.all([held(client.installations(), 'installations'), held(client.instances(), 'instances')]);
-        const installed = Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult);
-        return {
-            ...client,
-            installations,
-            instances,
-            installed,
-            located: (query: string) =>
-                Effect.flatMap(
-                    installed,
-                    Unmatched.single('installed Adobe application', Option.some(query), (row) => [row.name]),
-                ),
-            script: (pid: number, source: string) =>
-                client
-                    .script({
-                        pid,
-                        source: `(function (body) {
-    function encoded(value) {
-        var parts = [], key, at, kind;
-        if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
-        if (typeof value === "number" || typeof value === "boolean") return String(value);
-        if (typeof value === "string") return '"' + value.replace(/[\\x00-\\x1f"\\\\]/g, function (c) { return "\\\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4); }) + '"';
-        kind = Object.prototype.toString.call(value);
-        if (kind === "[object Array]") { for (at = 0; at < value.length; at++) parts.push(encoded(value[at])); return "[" + parts.join(",") + "]"; }
-        if (kind !== "[object Object]") return encoded(String(value));
-        for (key in value) parts.push(encoded(key) + ":" + encoded(value[key]));
-        return "{" + parts.join(",") + "}";
-    }
-    var value = eval("(function () {" + decodeURIComponent(body) + "\\n})").call(this);
-    return value === undefined ? "" : encodeURIComponent(encoded(value));
-}).call(this, "${encodeURIComponent(source)}")`,
-                    })
-                    .pipe(Effect.flatMap((reply) => (reply === null || reply === '' ? Effect.succeedNone : Effect.asSome(Schema.decodeUnknownEffect(Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Json))))(reply))))),
-        };
+        return { ...client, installations, instances, installed: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult) };
     }),
 }) {
     static readonly protocol = (pid: number, event: (message: string) => Pick<Execute, 'command' | 'arguments'>) =>
         Layer.effect(RpcClient.Protocol)(
             RpcClient.Protocol.make(
                 Effect.fnUntraced(function* (writeResponse) {
-                    const [{ execute }, { makeUnsafe, codecFor }] = yield* Effect.all([Automation, RpcSerialization.RpcSerialization]);
-                    const parser = makeUnsafe();
+                    const { execute } = yield* Automation;
+                    const parser = RpcSerialization.json.makeUnsafe();
                     const sent = Effect.fnUntraced(
                         function* (clientId: number, request: RpcMessage.RequestEncoded) {
-                            const { reply } = yield* execute({ pid, ...event(yield* Schema.decodeUnknownEffect(Schema.String)(parser.encode(request))), artifacts: [] });
+                            const { reply } = yield* execute({ pid, ...event(yield* Schema.decodeUnknownEffect(Schema.String)(parser.encode(request))) });
                             // biome-ignore lint/nursery/noUnsafeTypeAssertion: RpcClient decodes each part through codecFor
                             const responses = parser.decode(yield* Schema.decodeUnknownEffect(Schema.String)(reply)) as readonly RpcMessage.FromServerEncoded[];
                             yield* Effect.forEach(responses, (response) => writeResponse(clientId, response), { discard: true });
@@ -75,12 +42,12 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/automat
                         send: (clientId: number, request: RpcMessage.FromClientEncoded) => (request._tag === 'Request' ? sent(clientId, request) : Effect.void),
                         supportsAck: false,
                         supportsTransferables: false,
-                        codecFor,
+                        codecFor: RpcSerialization.json.codecFor,
                     };
                 }),
             ),
-        ).pipe(Layer.provide(RpcSerialization.layerJson));
-    static readonly spawned = (executable: string) =>
+        );
+    static readonly layer = (executable: string) =>
         Layer.effect(Automation, Automation.make).pipe(
             Layer.provide(RpcClient.layerProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) })),
             Layer.provide([

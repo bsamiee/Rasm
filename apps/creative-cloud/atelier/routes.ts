@@ -1,4 +1,5 @@
-import { Automation, Exited, type Installation, Pid, type RunningInstance } from '@rasm/automation';
+import { Installation, Pid } from '@rasm/automation/applications';
+import { Automation } from '@rasm/automation/automation';
 import { Instructions } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Context, Effect, Function, Option, type Predicate, Schema, Struct, SubscriptionRef } from 'effect';
@@ -8,10 +9,9 @@ import type { status } from '#/status';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const runs = (installation: Installation) => (row: typeof RunningInstance.Type) => row.url.href === installation.url.href && !Schema.is(Exited)(row.state);
 const instance = Effect.fnUntraced(function* <E, R>(found: Effect.Effect<Installation, E, R>, pid: Option.Option<number>) {
     const [installation, rows] = yield* Effect.all([found, Automation.use((automation) => SubscriptionRef.get(automation.instances))]);
-    return { installation, pid: yield* Unmatched.single(rows.filter(runs(installation)).map(Struct.get('pid')), `running instance of ${installation.name}`, Option.map(pid, String), (each) => [String(each)]) };
+    return { installation, pid: yield* Unmatched.single(rows.filter(Installation.runs(installation)).map(Struct.get('pid')), `running instance of ${installation.name}`, Option.map(pid, String), (each) => [String(each)]) };
 });
 const candidates = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) =>
     Automation.use((automation) =>
@@ -21,7 +21,7 @@ const candidates = (hosts: Predicate.Predicate<Installation>) => (given: Option.
                 SubscriptionRef.get(automation.instances),
                 Array.filter((row) => row.activationPolicy === 'regular'),
             ),
-            (installed, docked) => installed.filter((row) => hosts(row) && (Option.isSome(given) || docked.some(runs(row)))),
+            (installed, docked) => installed.filter((row) => hosts(row) && (Option.isSome(given) || docked.some(Installation.runs(row)))),
         ),
     );
 const lookup = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) =>

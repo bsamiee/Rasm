@@ -1,36 +1,88 @@
-import { Schema } from 'effect';
+import { Schema, SchemaTransformation, Struct } from 'effect';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+interface Control extends Schema.Struct.Type<typeof controlFields> {
+    readonly items?: readonly Control[];
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Pid = Schema.Int.annotate({ description: 'Running instance process ID' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CGWindowID from status elements' });
 const ElementID = Schema.String.annotate({ description: 'Base64 Accessibility remote token, absent once element closes' });
-const ElementAction = Schema.Union([
-    Schema.Struct({ perform: Schema.Struct({ element: ElementID, action: Schema.String.annotate({ description: 'Element action except AXRaise' }) }) }),
-    Schema.Struct({ set: Schema.Struct({ element: ElementID, value: Schema.String.annotate({ description: 'Text written to AXValue' }) }) }),
-]);
-const Perform = Schema.Struct({ actions: Schema.NonEmptyArray(ElementAction).annotate({ description: 'Actions run in order until one fails' }) });
-const Fields = Schema.Record(Schema.String, Schema.Json);
-const Launching = Schema.Struct({ launching: Fields });
-const Responding = Schema.Struct({ responding: Schema.StructWithRest(Schema.Struct({ elements: Schema.Array(Schema.StructWithRest(Schema.Struct({ requiresAnswer: Schema.Boolean }), [Fields])) }), [Fields]) });
-const Unresponsive = Schema.Struct({ unresponsive: Fields });
-const Running = Schema.Struct({ running: Schema.Struct({ status: Schema.Union([Launching, Responding, Unresponsive]) }) });
-const Failed = Schema.Struct({ failed: Fields });
-const Exited = Schema.Struct({ exited: Fields });
-const State = Schema.Union([Running, Failed, Exited]).annotate({ description: 'Windows, sheets, and menus while responding, unresponsive past Accessibility timeout, failed on status read' });
-const RunningInstance = Schema.Struct({
+const controlFields = {
+    id: ElementID,
+    role: Schema.String,
+    subrole: Schema.optionalKey(Schema.String),
+    label: Schema.optionalKey(Schema.String),
+    identifier: Schema.optionalKey(Schema.String),
+    attribute: Schema.optionalKey(Schema.String),
+    value: Schema.optionalKey(Schema.Union([Schema.Boolean, Schema.Finite, Schema.String])),
+    actions: Schema.Array(Schema.String),
+};
+const Control: Schema.Codec<Control> = Schema.Struct({ ...controlFields, items: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<Control> => Control))) }).annotate({ identifier: 'Control' });
+const elements = {
+    elements: Schema.Array(
+        Schema.Struct({
+            id: ElementID,
+            window: Schema.optionalKey(WindowID),
+            role: Schema.String,
+            subrole: Schema.optionalKey(Schema.String),
+            modal: Schema.optionalKey(Schema.Boolean),
+            identifier: Schema.optionalKey(Schema.String),
+            description: Schema.optionalKey(Schema.String),
+            title: Schema.optionalKey(Schema.String),
+            text: Schema.Array(Schema.String),
+            controls: Schema.Array(Control),
+            actions: Schema.Array(Schema.String),
+            unreadable: Schema.Array(Schema.Struct({ reads: Schema.Array(Schema.String), role: Schema.optionalKey(Schema.String), label: Schema.optionalKey(Schema.String), error: Schema.Int.annotate({ description: 'AXError code' }) })),
+            requiresAnswer: Schema.Boolean.annotate({ description: 'Sheet, modal, or system dialog' }),
+        }),
+    ),
+};
+const exit = {
+    status: Schema.optionalKey(Schema.Int),
+    signal: Schema.optionalKey(Schema.Int),
+    statusFailure: Schema.optionalKey(Schema.String),
+    report: Schema.optionalKey(Schema.Struct({ url: Schema.URL, pid: Pid, bundleIdentifier: Schema.optionalKey(Schema.String), exception: Schema.optionalKey(Schema.String) })),
+    reportFailure: Schema.optionalKey(Schema.String),
+};
+const State = Schema.Union([
+    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ launching: Schema.Struct({}) }) }) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Launching', {}), SchemaTransformation.transform({ decode: () => ({ _tag: 'Launching' as const }), encode: () => ({ running: { status: { launching: {} } } }) }))),
+    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ responding: Schema.Struct(elements) }) }) }).pipe(
+        Schema.decodeTo(Schema.TaggedStruct('Responding', elements), SchemaTransformation.transform({ decode: ({ running }) => ({ _tag: 'Responding' as const, ...running.status.responding }), encode: (responding) => ({ running: { status: { responding: Struct.omit(responding, ['_tag']) } } }) })),
+    ),
+    Schema.Struct({ running: Schema.Struct({ status: Schema.Struct({ unresponsive: Schema.Struct({}) }) }) }).pipe(
+        Schema.decodeTo(Schema.TaggedStruct('Unresponsive', {}), SchemaTransformation.transform({ decode: () => ({ _tag: 'Unresponsive' as const }), encode: () => ({ running: { status: { unresponsive: {} } } }) })),
+    ),
+    Schema.Struct({ failed: Schema.Struct({ reason: Schema.String }) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Failed', { reason: Schema.String }), SchemaTransformation.transform({ decode: ({ failed }) => ({ _tag: 'Failed' as const, ...failed }), encode: (failed) => ({ failed: Struct.omit(failed, ['_tag']) }) }))),
+    Schema.Struct({ exited: Schema.Struct(exit) }).pipe(Schema.decodeTo(Schema.TaggedStruct('Exited', exit), SchemaTransformation.transform({ decode: ({ exited }) => ({ _tag: 'Exited' as const, ...exited }), encode: (value) => ({ exited: Struct.omit(value, ['_tag']) }) }))),
+])
+    .annotate({ description: 'Windows, sheets, and menus while responding, unresponsive past Accessibility timeout, failed on status read' })
+    .pipe(Schema.toTaggedUnion('_tag'));
+const Perform = Schema.Struct({
+    actions: Schema.NonEmptyArray(
+        Schema.Union([Schema.Struct({ perform: Schema.Struct({ element: ElementID, action: Schema.String.annotate({ description: 'Element action except AXRaise' }) }) }), Schema.Struct({ set: Schema.Struct({ element: ElementID, value: Schema.String.annotate({ description: 'Text written to AXValue' }) }) })]),
+    ).annotate({ description: 'Actions run in order until one fails' }),
+});
+class RunningInstance extends Schema.Class<RunningInstance, { readonly brand: unique symbol }>('RunningInstance')({
     pid: Pid,
     url: Schema.URL.annotate({ description: 'Running bundle' }),
     activationPolicy: Schema.Literals(['regular', 'accessory', 'prohibited']).annotate({ description: 'Regular in Dock, accessory for menu bar or helper process' }),
     state: State,
-});
+}) {}
 class Installation extends Schema.Class<Installation, { readonly brand: unique symbol }>('Installation')({
     url: Schema.URL,
     identifier: Schema.String,
     name: Schema.String,
     version: Schema.OptionFromOptionalKey(Schema.String),
     scriptable: Schema.Boolean,
-}) {}
+    scriptingDefinitionFile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'OSAScriptingDefinition file in bundle Resources' })),
+    agent: Schema.Boolean.annotate({ description: 'LSUIElement, runs without Dock icon' }),
+}) {
+    static readonly runs = (installation: Installation) => (instance: RunningInstance) => instance.url.href === installation.url.href && !State.isAnyOf(['Exited'])(instance.state);
+}
 class Screenshot extends Schema.Class<Screenshot, { readonly brand: unique symbol }>('Screenshot')({
     window: Schema.OptionFromOptionalKey(WindowID.annotate({ description: 'Absent for on-screen windows on display holding most' })),
     pixels: Schema.OptionFromOptionalKey(Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Longest side limit, smaller captures keep native size' })),
@@ -40,4 +92,4 @@ class Screenshot extends Schema.Class<Screenshot, { readonly brand: unique symbo
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ElementAction, Exited, Failed, Installation, Launching, Perform, Pid, Responding, Running, RunningInstance, Screenshot, State, Unresponsive, WindowID };
+export { Installation, Perform, Pid, RunningInstance, Screenshot, State };

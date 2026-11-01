@@ -1,4 +1,5 @@
-import { Automation, AvailableFace, FaceName } from '@rasm/automation';
+import { Automation } from '@rasm/automation/automation';
+import { AvailableFace } from '@rasm/automation/fonts';
 import { FontView } from '@rasm/indesign';
 import { registerResource } from '@rasm/mcp/resource';
 import { registerRoutedTool } from '@rasm/mcp/tool';
@@ -26,7 +27,7 @@ const font = Effect.fnUntraced(function* ({ indesign, listed }: Effect.Success<R
             Schema.fieldsAssign({
                 ...Shaped.Run.fields,
                 text: Shaped.Run.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
-                name: Schema.String.annotate({ description: `${SchemaAST.resolveDescription(FaceName.ast)}, or InDesign font name or specifier` }),
+                name: Schema.String.annotate({ description: `${SchemaAST.resolveDescription(AvailableFace.Name.ast)}, or InDesign font name or specifier` }),
             }),
         ),
         success: Schema.Union([Schema.Struct({ ...AvailableFace.fields, specimen }), Schema.Struct({ ...FontView.fields, specimen: Schema.OptionFromOptionalKey(specimen) })]),

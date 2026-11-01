@@ -8,7 +8,10 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts"
+        "./apple-events": "./apple-events.ts",
+        "./applications": "./applications.ts",
+        "./automation": "./automation.ts",
+        "./fonts": "./fonts.ts"
     },
     "dependencies": {
         "@rasm/search": "workspace:*",

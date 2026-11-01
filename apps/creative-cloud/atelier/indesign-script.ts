@@ -1,4 +1,5 @@
-import { Automation, type Installation } from '@rasm/automation';
+import type { Installation } from '@rasm/automation/applications';
+import { Automation } from '@rasm/automation/automation';
 import { Contract } from '@rasm/indesign';
 import { Context, Effect, Path } from 'effect';
 import { RpcClient } from 'effect/rpc';

@@ -3,7 +3,7 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { AppleEventValue, Execute, Kind, Terms } from '#/apple-events';
 import { Installation, Perform, Pid, RunningInstance, Screenshot, State } from '#/applications';
-import { AvailableFace, FaceName } from '#/fonts';
+import { AvailableFace } from '#/fonts';
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ const Contract = RpcGroup.make(
     Rpc.make('script', { payload: { pid: Pid, source: Schema.String.annotate({ description: 'Source for dictionary script command' }) }, success: AppleEventValue, error }),
     Rpc.make('screenshot', { payload: { pid: Pid, ...Screenshot.fields }, success: Screenshot.Result, error }),
     Rpc.make('faces', { success: Schema.Array(AvailableFace) }),
-    Rpc.make('face', { payload: { name: FaceName }, success: AvailableFace, error: Unmatched }),
+    Rpc.make('face', { payload: { name: AvailableFace.Name }, success: AvailableFace, error: Unmatched }),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

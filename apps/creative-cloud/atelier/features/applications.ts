@@ -1,10 +1,11 @@
-import { Automation, Installation, Pid, Screenshot } from '@rasm/automation';
+import { Installation, Pid, Screenshot } from '@rasm/automation/applications';
+import { Automation } from '@rasm/automation/automation';
 import { Image } from '@rasm/mcp/content';
 import { registerResource } from '@rasm/mcp/resource';
 import { registerRoutedTool } from '@rasm/mcp/tool';
-import { Context, Effect, Function, Schema, SubscriptionRef } from 'effect';
+import { Context, Effect, Function, Option, Schema, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
-import type { routes } from '#/routes';
+import { lookup, type routes } from '#/routes';
 import type { status } from '#/status';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -24,7 +25,7 @@ const launch = ({ application, listed }: Effect.Success<ReturnType<typeof routes
     registerRoutedTool({
         ...application,
         fields: { application: listed(Function.constTrue) },
-        resolve: ({ application: given }) => Automation.use((automation) => Effect.flatMap(automation.located(given), ({ url }) => automation.launch({ url }))),
+        resolve: ({ application: given }) => Effect.flatMap(lookup(Function.constTrue)(Option.some(given)), ({ url }) => Automation.use((automation) => automation.launch({ url }))),
         depends: ({ pid }) => Effect.succeed([reported(pid)]),
     })(
         Tool.make('launch', {
