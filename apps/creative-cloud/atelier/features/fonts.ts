@@ -2,7 +2,9 @@ import { Automation, AvailableFace, FaceName } from '@rasm/automation';
 import { FontView } from '@rasm/indesign';
 import { registerResource } from '@rasm/mcp/resource';
 import { registerRoutedTool } from '@rasm/mcp/tool';
-import { Face, Instance, Run, Shaped, type Source } from '@rasm/typography';
+import { Face } from '@rasm/typography/face';
+import { Shaped } from '@rasm/typography/shaped';
+import type { Source } from '@rasm/typography/source';
 import { Effect, FileSystem, Option, Path, Schema, SchemaAST, Stream } from 'effect';
 import { Tool } from 'effect/ai';
 import { InDesignScript } from '#/indesign-script';
@@ -20,10 +22,10 @@ const font = Effect.fnUntraced(function* ({ indesign, listed }: Effect.Success<R
     const hosts = yield* indesignScript.hosts;
     const tool = Tool.make('font', {
         description: 'Shapes text in named face or instance. With application, returns InDesign font view',
-        parameters: Instance.pipe(
+        parameters: Face.Instance.pipe(
             Schema.fieldsAssign({
-                ...Run.fields,
-                text: Run.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
+                ...Shaped.Run.fields,
+                text: Shaped.Run.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
                 name: Schema.String.annotate({ description: `${SchemaAST.resolveDescription(FaceName.ast)}, or InDesign font name or specifier` }),
             }),
         ),

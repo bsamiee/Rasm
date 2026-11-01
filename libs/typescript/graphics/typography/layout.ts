@@ -1,6 +1,7 @@
 import { Array, Option, Record, Schema, Struct } from 'effect';
 import type { Font } from 'fontkit';
 import type { Face } from 'harfbuzzjs';
+import type { Names } from '#/names';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -13,22 +14,21 @@ class Layout extends Schema.Class<Layout, { readonly brand: unique symbol }>('La
         description: 'Features each GSUB and GPOS language system enables (locl, vert)',
     }),
 }) {
-    static readonly of = ({ handle, parsed, named }: { readonly handle: Face; readonly parsed: Font; readonly named: (id: number | undefined) => Option.Option<string> }) => {
-        const defaultLanguageSystem = 0xff_ff;
+    static readonly of = ({ handle, parsed, names }: { readonly handle: Face; readonly parsed: Font; readonly names: Names }) => {
+        const defaultLanguage = 0xff_ff;
         return Layout.make({
             features: Record.toEntries(
-                Array.groupBy([...LayoutTable.literals.flatMap((table) => handle.getTableFeatureTags(table).map((tag, at) => ({ tag, name: named(handle.getFeatureNameIds(table, at)?.uiLabelNameId) }))), ...parsed.availableFeatures.map((tag) => ({ tag, name: Option.none<string>() }))], Struct.get('tag')),
+                Array.groupBy([...LayoutTable.literals.flatMap((table) => handle.getTableFeatureTags(table).map((tag, at) => ({ tag, name: names.named(handle.getFeatureNameIds(table, at)?.uiLabelNameId) }))), ...parsed.availableFeatures.map((tag) => ({ tag, name: Option.none<string>() }))], Struct.get('tag')),
             ).map(([tag, records]) => ({ tag, name: Option.firstSomeOf(records.map(Struct.get('name'))) })),
             languageSystems: LayoutTable.literals
                 .flatMap((table) => handle.getTableScriptTags(table).map((script, at) => ({ table, script, at })))
-                .flatMap(({ table, script, at }) => [
-                    { table, script, language: Option.none<string>(), features: handle.getLanguageFeatureTags(table, at, defaultLanguageSystem) },
-                    ...handle.getScriptLanguageTags(table, at).map((language, index) => ({ table, script, language: Option.some(language), features: handle.getLanguageFeatureTags(table, at, index) })),
-                ]),
+                .flatMap(({ table, script, at }) =>
+                    [[Option.none<string>(), defaultLanguage] as const, ...handle.getScriptLanguageTags(table, at).map((language, index) => [Option.some(language), index] as const)].map(([language, index]) => ({ table, script, language, features: handle.getLanguageFeatureTags(table, at, index) })),
+                ),
         });
     };
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Layout, LayoutTable };
+export { Layout };

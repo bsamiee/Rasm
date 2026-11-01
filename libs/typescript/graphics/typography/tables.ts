@@ -1,4 +1,4 @@
-import { Schema, Struct } from 'effect';
+import { Effect, Schema, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -7,7 +7,7 @@ const Tables = Schema.Struct({
     hhea: Schema.Struct(Struct.Record(['ascent', 'descent', 'lineGap'], Schema.Finite)),
     head: Schema.Struct(Struct.Record(['xMin', 'yMin', 'xMax', 'yMax'], Schema.Finite)),
     post: Schema.Struct({ isFixedPitch: Schema.Finite, italicAngle: Schema.Finite }),
-    'OS/2': Schema.OptionFromOptionalKey(
+    'OS/2': Schema.OptionFromOptional(
         Schema.Struct({
             usWeightClass: Schema.Int,
             usWidthClass: Schema.Int,
@@ -16,7 +16,8 @@ const Tables = Schema.Struct({
             fsSelection: Schema.Struct({ useTypoMetrics: Schema.Boolean }),
         }),
     ),
-    'CFF ': Schema.OptionFromOptionalKey(Schema.Struct({ topDict: Schema.Struct({ UnderlinePosition: Schema.Finite, UnderlineThickness: Schema.Finite, FontMatrix: Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]) }) })),
+    'CFF ': Schema.OptionFromOptional(Schema.Struct({ topDict: Schema.Struct({ UnderlinePosition: Schema.Finite, UnderlineThickness: Schema.Finite, FontMatrix: Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]) }) })),
+    fvar: Schema.Struct({ instance: Schema.Array(Schema.Struct({ nameID: Schema.Int, coord: Schema.Array(Schema.Finite), postscriptNameID: Schema.OptionFromOptionalKey(Schema.Int) })) }).pipe(Schema.withDecodingDefault(Effect.succeed({ instance: [] }))),
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

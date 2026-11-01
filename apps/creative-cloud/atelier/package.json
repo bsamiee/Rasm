@@ -9,6 +9,7 @@
         "#/package.json": "./package.json"
     },
     "dependencies": {
+        "@effect/platform-node": "catalog:",
         "@rasm/automation": "workspace:*",
         "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",

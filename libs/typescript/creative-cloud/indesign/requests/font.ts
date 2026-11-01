@@ -1,4 +1,4 @@
-import { Source } from '@rasm/typography';
+import { Source } from '@rasm/typography/source';
 import { Uxp } from '@rasm/uxp/runtime';
 import { Cause, Effect, Option, Schema } from 'effect';
 import { fontByName } from '#/dom/decoding';
@@ -33,7 +33,7 @@ class Font extends Schema.Class<Font, { readonly brand: unique symbol }>('Font')
                 ? yield* bytes(`file:${face.location}`).pipe(
                       Effect.map((data) => Option.some({ data, postscriptName: Option.some(face.postscriptName) })),
                       Effect.catchIf(
-                          ({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause),
+                          ({ cause }) => notFound(cause),
                           () => subset,
                       ),
                   )
@@ -42,6 +42,10 @@ class Font extends Schema.Class<Font, { readonly brand: unique symbol }>('Font')
         }).pipe(Effect.scoped);
     }
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const notFound = Schema.is(Schema.Struct({ code: Schema.Literal(-2) }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

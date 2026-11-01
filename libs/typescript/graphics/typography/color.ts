@@ -1,5 +1,6 @@
-import { type Option, Record, Schema, Struct } from 'effect';
+import { Record, Schema, Struct } from 'effect';
 import { ColorPaletteFlags, type Face } from 'harfbuzzjs';
+import type { Names } from '#/names';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,11 +15,11 @@ class Color extends Schema.Class<Color, { readonly brand: unique symbol }>('Colo
     },
     { description: 'CPAL palettes, COLRv0 layers, COLRv1 paint, CBDT or sbix PNG images' },
 ) {
-    static readonly of = ({ handle, named }: { readonly handle: Face; readonly named: (id: number | undefined) => Option.Option<string> }) =>
+    static readonly of = ({ handle, names }: { readonly handle: Face; readonly names: Names }) =>
         Color.make({
             palettes: handle.getColorPalettes().map(({ colors, nameId, flags }) => ({
-                name: named(nameId),
-                colors: colors.map(({ nameId: label, ...channels }) => ({ ...channels, name: named(label) })),
+                name: names.named(nameId),
+                colors: colors.map(({ nameId: label, ...channels }) => ({ ...channels, name: names.named(label) })),
                 ...Record.map({ light: ColorPaletteFlags.USABLE_WITH_LIGHT_BACKGROUND, dark: ColorPaletteFlags.USABLE_WITH_DARK_BACKGROUND }, (flag) => (flags & flag) !== 0),
             })),
             layers: handle.hasColorLayers(),

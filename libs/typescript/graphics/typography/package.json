@@ -8,7 +8,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        "./face": "./face.ts",
+        "./shaped": "./shaped.ts",
         "./source": "./source.ts"
     },
     "dependencies": {
@@ -18,6 +19,7 @@
         "harfbuzzjs": "catalog:"
     },
     "devDependencies": {
-        "@types/fontkit": "catalog:"
+        "@types/fontkit": "catalog:",
+        "@types/node": "catalog:"
     }
 }
